@@ -1,0 +1,283 @@
+# Tasks
+
+## Phase 1: 基础框架搭建
+
+- [x] Task 1.1: 项目初始化与配置
+  - [x] SubTask 1.1.1: 创建 Vite + Vue3 + TypeScript 项目
+  - [x] SubTask 1.1.2: 配置 ESLint + Prettier 代码规范
+  - [x] SubTask 1.1.3: 配置 Git 版本控制
+  - [x] SubTask 1.1.4: 创建项目目录结构
+- [x] Task 1.2: 技术栈集成
+  - [x] SubTask 1.2.1: 安装并配置 Element Plus UI库
+  - [x] SubTask 1.2.2: 安装并配置 Pinia 状态管理
+  - [x] SubTask 1.2.3: 安装并配置 Vue Router 路由
+  - [x] SubTask 1.2.4: 安装并配置 Dexie (IndexedDB封装)
+  - [x] SubTask 1.2.5: 安装其他依赖库 (dayjs, lodash-es, sortablejs等)
+  - [x] SubTask 1.2.6: 配置 Vite 自动导入 (unplugin-auto-import)
+- [x] Task 1.3: IndexedDB 数据库设计
+  - [x] SubTask 1.3.1: 设计数据库 Schema (表结构定义)
+  - [x] SubTask 1.3.2: 实现 Dexie 数据库实例
+  - [x] SubTask 1.3.3: 实现基础数据服务 (BaseService)
+  - [x] SubTask 1.3.4: 实现数据表服务 (TableService)
+  - [x] SubTask 1.3.5: 实现字段服务 (FieldService)
+  - [x] SubTask 1.3.6: 实现记录服务 (RecordService)
+- [x] Task 1.4: 基础组件与样式
+  - [x] SubTask 1.4.1: 创建全局样式文件 (SCSS变量、混合)
+  - [x] SubTask 1.4.2: 创建 AppHeader 组件
+  - [x] SubTask 1.4.3: 创建 AppSidebar 组件
+  - [x] SubTask 1.4.4: 创建 Loading 组件
+  - [x] SubTask 1.4.5: 创建 EmptyState 组件
+  - [x] SubTask 1.4.6: 创建 ContextMenu 右键菜单组件
+- [x] Task 1.5: TypeScript 类型定义
+  - [x] SubTask 1.5.1: 定义字段相关类型 (FieldType, FieldOptions等)
+  - [x] SubTask 1.5.2: 定义视图相关类型 (ViewType, ViewConfig等)
+  - [x] SubTask 1.5.3: 定义筛选排序类型 (FilterCondition, SortConfig等)
+  - [x] SubTask 1.5.4: 定义数据库实体类型
+
+## Phase 2: 核心功能开发
+
+- [x] Task 2.1: 多维表格管理
+  - [x] SubTask 2.1.1: 创建 HomeView 首页 (多维表格列表)
+  - [x] SubTask 2.1.2: 实现多维表格创建功能
+  - [x] SubTask 2.1.3: 实现多维表格重命名功能
+  - [x] SubTask 2.1.4: 实现多维表格删除功能
+  - [x] SubTask 2.1.5: 实现多维表格收藏功能
+  - [x] SubTask 2.1.6: 实现多维表格搜索功能
+- [x] Task 2.2: 数据表管理
+  - [x] SubTask 2.2.1: 创建 BaseView 多维表格主页面
+  - [x] SubTask 2.2.2: 实现数据表切换功能
+  - [x] SubTask 2.2.3: 实现数据表创建功能
+  - [x] SubTask 2.2.4: 实现数据表重命名功能
+  - [x] SubTask 2.2.5: 实现数据表删除功能
+  - [x] SubTask 2.2.6: 实现数据表拖拽排序
+- [x] Task 2.3: 基础字段类型组件
+  - [x] SubTask 2.3.1: 实现 TextField 文本字段组件
+  - [x] SubTask 2.3.2: 实现 NumberField 数字字段组件
+  - [x] SubTask 2.3.3: 实现 DateField 日期字段组件
+  - [x] SubTask 2.3.4: 实现 SingleSelectField 单选字段组件
+  - [x] SubTask 2.3.5: 实现 MultiSelectField 多选字段组件
+  - [x] SubTask 2.3.6: 实现 CheckboxField 复选框字段组件
+  - [x] SubTask 2.3.7: 创建 FieldComponentFactory 字段工厂组件
+- [x] Task 2.4: 字段管理功能
+  - [x] SubTask 2.4.1: 实现字段添加功能
+  - [x] SubTask 2.4.2: 实现字段删除功能
+  - [x] SubTask 2.4.3: 实现字段重命名功能
+  - [x] SubTask 2.4.4: 实现字段拖拽排序
+  - [x] SubTask 2.4.5: 实现字段类型切换
+  - [x] SubTask 2.4.6: 创建字段配置面板
+  - [x] SubTask 2.4.7: 实现字段选项配置 (单选/多选)
+- [x] Task 2.5: 表格视图
+  - [x] SubTask 2.5.1: 集成 Vxe-Table 组件
+  - [x] SubTask 2.5.2: 实现表格视图基础渲染
+  - [x] SubTask 2.5.3: 实现单元格编辑功能
+  - [x] SubTask 2.5.4: 实现虚拟滚动 (大数据量)
+  - [x] SubTask 2.5.5: 实现列宽调整
+  - [x] SubTask 2.5.6: 实现列冻结功能
+  - [x] SubTask 2.5.7: 实现行高调整
+- [x] Task 2.6: 记录操作
+  - [x] SubTask 2.6.1: 实现记录添加功能
+  - [x] SubTask 2.6.2: 实现记录删除功能
+  - [x] SubTask 2.6.3: 实现记录批量删除
+  - [x] SubTask 2.6.4: 实现记录复制功能
+  - [x] SubTask 2.6.5: 实现记录批量复制
+  - [x] SubTask 2.6.6: 实现记录搜索功能
+- [x] Task 2.7: 筛选功能
+  - [x] SubTask 2.7.1: 创建 FilterPanel 筛选面板
+  - [x] SubTask 2.7.2: 实现基础筛选条件 (等于、不等于、包含等)
+  - [x] SubTask 2.7.3: 实现筛选值输入组件
+  - [x] SubTask 2.7.4: 实现多条件组合筛选
+  - [x] SubTask 2.7.5: 实现筛选条件保存
+  - [x] SubTask 2.7.6: 实现筛选条件实时显示与管理
+- [x] Task 2.8: 排序功能
+  - [x] SubTask 2.8.1: 创建 SortPanel 排序面板
+  - [x] SubTask 2.8.2: 实现单字段排序
+  - [x] SubTask 2.8.3: 实现多字段排序
+  - [x] SubTask 2.8.4: 实现排序条件保存
+  - [x] SubTask 2.8.5: 实现排序状态可视化指示
+- [x] Task 2.9: 分组功能
+  - [x] SubTask 2.9.1: 实现按字段分组展示
+  - [x] SubTask 2.9.2: 实现多级分组
+  - [x] SubTask 2.9.3: 实现分组折叠/展开
+  - [x] SubTask 2.9.4: 实现分组统计功能
+
+## Phase 3: 高级视图开发
+
+- [x] Task 3.1: 视图切换与管理
+  - [x] SubTask 3.1.1: 创建 ViewSwitcher 视图切换组件
+  - [x] SubTask 3.1.2: 实现视图创建功能
+  - [x] SubTask 3.1.3: 实现视图重命名功能
+  - [x] SubTask 3.1.4: 实现视图删除功能
+  - [x] SubTask 3.1.5: 实现视图复制功能
+  - [x] SubTask 3.1.6: 实现默认视图设置
+- [x] Task 3.2: 看板视图
+  - [x] SubTask 3.2.1: 创建 KanbanView 看板视图组件
+  - [x] SubTask 3.2.2: 创建 KanbanColumn 列组件
+  - [x] SubTask 3.2.3: 创建 KanbanCard 卡片组件
+  - [x] SubTask 3.2.4: 实现按字段分组 (列)
+  - [x] SubTask 3.2.5: 实现卡片拖拽排序
+  - [x] SubTask 3.2.6: 实现跨列拖拽
+  - [x] SubTask 3.2.7: 实现看板视图配置面板
+- [x] Task 3.3: 日历视图
+  - [x] SubTask 3.3.1: 集成 FullCalendar 日历组件
+  - [x] SubTask 3.3.2: 创建 CalendarView 日历视图组件
+  - [x] SubTask 3.3.3: 实现月/周/日视图切换
+  - [x] SubTask 3.3.4: 实现事件展示
+  - [x] SubTask 3.3.5: 实现日期字段选择配置
+  - [x] SubTask 3.3.6: 实现日历事件拖拽调整日期
+- [x] Task 3.4: 甘特视图
+  - [x] SubTask 3.4.1: 创建 GanttView 甘特视图组件
+  - [x] SubTask 3.4.2: 创建 GanttBar 任务条组件
+  - [x] SubTask 3.4.3: 实现时间轴展示
+  - [x] SubTask 3.4.4: 实现任务条拖拽调整
+  - [x] SubTask 3.4.5: 实现任务依赖关系
+- [x] Task 3.5: 表单视图
+  - [x] SubTask 3.5.1: 创建 FormView 表单视图组件
+  - [x] SubTask 3.5.2: 实现表单字段渲染
+  - [x] SubTask 3.5.3: 实现表单验证
+  - [x] SubTask 3.5.4: 实现表单提交
+  - [x] SubTask 3.5.5: 实现表单分享 (导出)
+- [x] Task 3.6: 画册视图
+  - [x] SubTask 3.6.1: 创建 GalleryView 画册视图组件
+  - [x] SubTask 3.6.2: 实现图片卡片展示
+  - [x] SubTask 3.6.3: 实现图片预览
+
+## Phase 4: 高级功能开发
+
+- [x] Task 4.1: 高级字段类型
+  - [x] SubTask 4.1.1: 实现 AttachmentField 附件字段
+  - [x] SubTask 4.1.2: 实现 MemberField 成员字段
+  - [x] SubTask 4.1.3: 实现 RatingField 评分字段
+  - [x] SubTask 4.1.4: 实现 ProgressField 进度字段
+  - [x] SubTask 4.1.5: 实现 PhoneField 电话字段
+  - [x] SubTask 4.1.6: 实现 EmailField 邮箱字段
+  - [x] SubTask 4.1.7: 实现 URLField 链接字段
+- [x] Task 4.2: 公式字段系统
+  - [x] SubTask 4.2.1: 实现 FormulaField 公式字段组件
+  - [x] SubTask 4.2.2: 实现公式解析器
+  - [x] SubTask 4.2.3: 实现公式计算器
+  - [x] SubTask 4.2.4: 实现字段引用解析
+  - [x] SubTask 4.2.5: 实现依赖追踪与自动更新
+  - [x] SubTask 4.2.6: 实现数学函数 (SUM, AVG, MAX等)
+  - [x] SubTask 4.2.7: 实现文本函数 (CONCAT, LEFT等)
+  - [x] SubTask 4.2.8: 实现日期函数 (TODAY, YEAR等)
+  - [x] SubTask 4.2.9: 实现逻辑函数 (IF, AND, OR等)
+  - [x] SubTask 4.2.10: 实现公式编辑器UI
+- [x] Task 4.3: 关联字段系统
+  - [x] SubTask 4.3.1: 实现 LinkField 关联字段组件
+  - [x] SubTask 4.3.2: 实现表间关联选择
+  - [x] SubTask 4.3.3: 实现关联记录选择器
+  - [x] SubTask 4.3.4: 实现 LookupField 查找引用字段
+  - [x] SubTask 4.3.5: 实现跨表数据引用
+- [x] Task 4.4: 系统字段
+  - [x] SubTask 4.4.1: 实现 CreatedByField 创建人字段
+  - [x] SubTask 4.4.2: 实现 CreatedTimeField 创建时间字段
+  - [x] SubTask 4.4.3: 实现 UpdatedByField 最后修改人字段
+  - [x] SubTask 4.4.4: 实现 UpdatedTimeField 最后修改时间字段
+  - [x] SubTask 4.4.5: 实现 AutoNumberField 自动编号字段
+- [x] Task 4.5: 数据可视化 (仪表盘)
+  - [x] SubTask 4.5.1: 集成 ECharts 图表库
+  - [x] SubTask 4.5.2: 创建 DashboardView 仪表盘页面
+  - [x] SubTask 4.5.3: 创建 DashboardCanvas 画布组件
+  - [x] SubTask 4.5.4: 创建 WidgetWrapper 组件容器
+  - [x] SubTask 4.5.5: 实现柱状图组件
+  - [x] SubTask 4.5.6: 实现折线图组件
+  - [x] SubTask 4.5.7: 实现饼图组件
+  - [x] SubTask 4.5.8: 实现数字卡片组件
+  - [x] SubTask 4.5.9: 实现图表配置面板
+  - [x] SubTask 4.5.10: 实现数据聚合计算
+  - [x] SubTask 4.5.11: 实现仪表盘布局保存
+- [x] Task 4.6: 导入导出功能
+  - [x] SubTask 4.6.1: 集成 SheetJS (xlsx) 库
+  - [x] SubTask 4.6.2: 实现 Excel 导出功能
+  - [x] SubTask 4.6.3: 实现 Excel 导入功能
+  - [x] SubTask 4.6.4: 实现 CSV 导出功能
+  - [x] SubTask 4.6.5: 实现 CSV 导入功能
+  - [x] SubTask 4.6.6: 实现 JSON 导出功能
+  - [x] SubTask 4.6.7: 实现 JSON 导入功能
+  - [x] SubTask 4.6.8: 实现字段映射配置
+  - [x] SubTask 4.6.9: 实现导入预览功能
+- [x] Task 4.7: 数据验证
+  - [x] SubTask 4.7.1: 实现字段验证规则配置
+  - [x] SubTask 4.7.2: 实现必填验证
+  - [x] SubTask 4.7.3: 实现唯一性验证
+  - [x] SubTask 4.7.4: 实现自定义验证规则
+  - [x] SubTask 4.7.5: 实现验证错误提示
+
+## Phase 5: 优化与扩展
+
+- [x] Task 5.1: 性能优化
+  - [x] SubTask 5.1.1: 实现虚拟滚动优化 (表格视图)
+  - [x] SubTask 5.1.2: 实现计算缓存机制
+  - [x] SubTask 5.1.3: 实现大数据量分页加载
+  - [x] SubTask 5.1.4: 实现 Web Worker 后台计算
+  - [x] SubTask 5.1.5: 实现数据压缩存储
+  - [x] SubTask 5.1.6: 优化首屏加载速度
+  - [x] SubTask 5.1.7: 实现防抖节流优化
+- [x] Task 5.2: 历史记录与版本
+  - [x] SubTask 5.2.1: 实现操作历史记录
+  - [x] SubTask 5.2.2: 实现历史记录查看面板
+  - [x] SubTask 5.2.3: 实现版本快照功能
+  - [x] SubTask 5.2.4: 实现数据恢复功能
+  - [x] SubTask 5.2.5: 实现变更对比展示
+- [x] Task 5.3: 附件支持
+  - [x] SubTask 5.3.1: 实现文件上传功能
+  - [x] SubTask 5.3.2: 实现文件预览功能
+  - [x] SubTask 5.3.3: 实现图片缩略图生成
+  - [x] SubTask 5.3.4: 实现附件下载功能
+  - [x] SubTask 5.3.5: 实现附件删除功能
+- [x] Task 5.4: UI/UX 优化
+  - [x] SubTask 5.4.1: 添加页面过渡动画
+  - [x] SubTask 5.4.2: 添加操作反馈动画
+  - [x] SubTask 5.4.3: 优化空状态展示
+  - [x] SubTask 5.4.4: 优化加载状态展示
+  - [x] SubTask 5.4.5: 实现深色模式支持
+  - [x] SubTask 5.4.6: 实现键盘快捷键
+  - [x] SubTask 5.4.7: 优化移动端适配
+- [x] Task 5.5: 测试与文档
+  - [x] SubTask 5.5.1: 编写单元测试 (覆盖率 ≥ 90%)
+  - [x] SubTask 5.5.2: 编写 E2E 测试
+  - [x] SubTask 5.5.3: 编写用户操作手册
+  - [x] SubTask 5.5.4: 编写 API 文档
+  - [x] SubTask 5.5.5: 性能测试与调优
+  - [x] SubTask 5.5.6: 生成测试报告
+  - [x] SubTask 5.5.7: 生成系统功能说明文档
+- [x] Task 5.6: 其他功能
+  - [x] SubTask 5.6.1: 实现数据去重功能
+  - [x] SubTask 5.6.2: 实现批量修改功能
+  - [x] SubTask 5.6.3: 实现字段默认值
+  - [x] SubTask 5.6.4: 实现数据模板功能
+  - [x] SubTask 5.6.5: 实现打印优化
+
+# Task Dependencies
+
+- [Task 1.3] depends on [Task 1.1, Task 1.2]
+- [Task 1.4] depends on [Task 1.1, Task 1.2]
+- [Task 1.5] depends on [Task 1.1]
+- [Task 2.1] depends on [Task 1.3, Task 1.4, Task 1.5]
+- [Task 2.2] depends on [Task 2.1]
+- [Task 2.3] depends on [Task 1.5]
+- [Task 2.4] depends on [Task 2.3]
+- [Task 2.5] depends on [Task 2.3, Task 2.4]
+- [Task 2.6] depends on [Task 2.5]
+- [Task 2.7] depends on [Task 2.5]
+- [Task 2.8] depends on [Task 2.5]
+- [Task 2.9] depends on [Task 2.5]
+- [Task 3.1] depends on [Task 2.5]
+- [Task 3.2] depends on [Task 3.1]
+- [Task 3.3] depends on [Task 3.1]
+- [Task 3.4] depends on [Task 3.1]
+- [Task 3.5] depends on [Task 3.1]
+- [Task 3.6] depends on [Task 3.1]
+- [Task 4.1] depends on [Task 2.3]
+- [Task 4.2] depends on [Task 2.3, Task 1.5]
+- [Task 4.3] depends on [Task 2.3, Task 1.3]
+- [Task 4.4] depends on [Task 2.3]
+- [Task 4.5] depends on [Task 2.1, Task 2.5]
+- [Task 4.6] depends on [Task 2.5]
+- [Task 4.7] depends on [Task 2.4]
+- [Task 5.1] depends on [Task 2.5, Task 4.2]
+- [Task 5.2] depends on [Task 1.3]
+- [Task 5.3] depends on [Task 4.1]
+- [Task 5.4] depends on [Task 2.5, Task 3.2, Task 3.3]
+- [Task 5.5] depends on [All Phase 1-4 tasks]
+- [Task 5.6] depends on [Task 2.5, Task 2.6]
