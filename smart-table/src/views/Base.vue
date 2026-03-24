@@ -7,6 +7,8 @@ import { useTableStore } from "@/stores/tableStore";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
 import CalendarView from "@/components/views/CalendarView/CalendarView.vue";
+import GanttView from "@/components/views/GanttView/GanttView.vue";
+import GalleryView from "@/components/views/GalleryView/GalleryView.vue";
 import ViewSwitcher from "@/components/views/ViewSwitcher.vue";
 import Loading from "@/components/common/Loading.vue";
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
@@ -141,6 +143,16 @@ const isKanbanView = computed(() => currentViewType.value === ViewType.KANBAN);
 // 是否为日历视图
 const isCalendarView = computed(
   () => currentViewType.value === ViewType.CALENDAR,
+);
+
+// 是否为画册视图
+const isGalleryView = computed(
+  () => currentViewType.value === ViewType.GALLERY,
+);
+
+// 是否为甘特视图
+const isGanttView = computed(
+  () => currentViewType.value === ViewType.GANTT,
 );
 
 // 表格列表引用（用于拖拽排序）
@@ -728,12 +740,32 @@ function openExportDialog() {
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecord" />
 
+            <!-- 甘特视图 -->
+            <GanttView
+              v-else-if="isGanttView"
+              :table-id="currentTableId"
+              :view-id="viewStore.currentView?.id || ''"
+              :records="filteredRecords"
+              :fields="baseStore.fields"
+              @updateRecord="handleSaveRecord"
+              @addRecord="handleAddRecord"
+              @editRecord="handleEditRecord"
+              @deleteRecord="handleDeleteRecord" />
+
+            <!-- 画册视图 -->
+            <GalleryView
+              v-else-if="isGalleryView"
+              :records="filteredRecords"
+              :fields="baseStore.fields"
+              @editRecord="handleEditRecord"
+              @deleteRecord="handleDeleteRecord" />
+
             <!-- 其他视图类型占位 -->
             <div v-else class="unsupported-view">
               <el-empty description="该视图类型暂不支持">
                 <template #description>
                   <p>该视图类型暂不支持</p>
-                  <p class="sub-text">请切换到表格视图、看板视图或日历视图</p>
+                  <p class="sub-text">请切换到表格视图、看板视图、日历视图或甘特视图</p>
                 </template>
               </el-empty>
             </div>

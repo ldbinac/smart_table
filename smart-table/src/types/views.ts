@@ -3,7 +3,8 @@ export const ViewType = {
   KANBAN: 'kanban',
   CALENDAR: 'calendar',
   GANTT: 'gantt',
-  FORM: 'form'
+  FORM: 'form',
+  GALLERY: 'gallery'
 } as const;
 
 export type ViewTypeValue = typeof ViewType[keyof typeof ViewType];
@@ -38,12 +39,18 @@ export interface ViewFormConfig {
   fields?: string[];
 }
 
+export interface ViewGalleryConfig {
+  imageFieldId?: string;
+  titleFieldId?: string;
+}
+
 export type ViewConfig =
   | ViewTableConfig
   | ViewKanbanConfig
   | ViewCalendarConfig
   | ViewGanttConfig
   | ViewFormConfig
+  | ViewGalleryConfig
   | Record<string, unknown>;
 
 export interface View {

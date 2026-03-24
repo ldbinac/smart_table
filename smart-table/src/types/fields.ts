@@ -30,7 +30,12 @@ export interface FieldOption {
   color: string;
 }
 
+export type RelationshipType = 'oneToOne' | 'oneToMany' | 'manyToMany';
+
+export type AggregationType = 'single' | 'concat' | 'sum' | 'avg' | 'min' | 'max' | 'count';
+
 export interface FieldOptions {
+  // 通用选项
   isRichText?: boolean;
   maxLength?: number;
   precision?: number;
@@ -38,17 +43,48 @@ export interface FieldOptions {
   currencySymbol?: string;
   includeTime?: boolean;
   dateFormat?: string;
-  options?: FieldOption[];
-  allowAddOptions?: boolean;
-  maxRating?: number;
-  showPercent?: boolean;
-  formula?: string;
-  linkedTableId?: string;
-  linkedFieldId?: string;
-  lookupFieldId?: string;
   prefix?: string;
   suffix?: string;
+
+  // 单选/多选选项
+  options?: FieldOption[];
+  allowAddOptions?: boolean;
+
+  // 评分选项
+  maxRating?: number;
+
+  // 进度选项
+  showPercent?: boolean;
+
+  // 公式选项
+  formula?: string;
+
+  // 自动编号选项
   startNumber?: number;
+
+  // ==================== 关联字段 (Link Field) 选项 ====================
+  /** 关联的目标表 ID */
+  linkedTableId?: string;
+  /** 关联字段 ID（用于双向关联） */
+  linkedFieldId?: string;
+  /** 显示字段 ID（用于显示关联记录的哪个字段值） */
+  displayFieldId?: string;
+  /** 是否允许多选 */
+  allowMultiple?: boolean;
+  /** 关联关系类型 */
+  relationshipType?: RelationshipType;
+  /** 是否为双向关联 */
+  bidirectional?: boolean;
+  /** 反向关联字段 ID */
+  inverseFieldId?: string;
+
+  // ==================== 查找字段 (Lookup Field) 选项 ====================
+  /** 查找的目标字段 ID */
+  lookupFieldId?: string;
+  /** 聚合类型 */
+  aggregationType?: AggregationType;
+  /** 连接分隔符（用于 concat 聚合） */
+  separator?: string;
 }
 
 export type CellValue =
@@ -112,4 +148,32 @@ export function getFieldTypeIcon(type: string): string {
     autoNumber: '🔢'
   }
   return icons[type] || '📝'
+}
+
+/**
+ * 获取关联关系类型的标签
+ */
+export function getRelationshipTypeLabel(type: RelationshipType): string {
+  const labels: Record<RelationshipType, string> = {
+    oneToOne: '一对一',
+    oneToMany: '一对多',
+    manyToMany: '多对多'
+  }
+  return labels[type] || type
+}
+
+/**
+ * 获取聚合类型的标签
+ */
+export function getAggregationTypeLabel(type: AggregationType): string {
+  const labels: Record<AggregationType, string> = {
+    single: '单个值',
+    concat: '连接',
+    sum: '求和',
+    avg: '平均值',
+    min: '最小值',
+    max: '最大值',
+    count: '计数'
+  }
+  return labels[type] || type
 }

@@ -31,7 +31,8 @@ const viewTypes = [
   { type: ViewType.KANBAN, label: '看板', icon: 'kanban' },
   { type: ViewType.CALENDAR, label: '日历', icon: 'calendar' },
   { type: ViewType.GANTT, label: '甘特图', icon: 'gantt' },
-  { type: ViewType.FORM, label: '表单', icon: 'form' }
+  { type: ViewType.FORM, label: '表单', icon: 'form' },
+  { type: ViewType.GALLERY, label: '画册', icon: 'gallery' }
 ]
 
 const getViewIcon = (type: string) => {
@@ -40,7 +41,8 @@ const getViewIcon = (type: string) => {
     [ViewType.KANBAN]: 'kanban',
     [ViewType.CALENDAR]: 'calendar',
     [ViewType.GANTT]: 'gantt',
-    [ViewType.FORM]: 'form'
+    [ViewType.FORM]: 'form',
+    [ViewType.GALLERY]: 'gallery'
   }
   return icons[type] || 'table'
 }
@@ -160,6 +162,11 @@ function getViewLabel(type: string): string {
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
             <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
           </svg>
+          <svg v-else-if="getViewIcon(view.type) === 'gallery'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
         </span>
         
         <template v-if="editingViewId === view.id">
@@ -241,6 +248,11 @@ function getViewLabel(type: string): string {
               <svg v-else-if="vt.icon === 'form'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                 <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+              </svg>
+              <svg v-else-if="vt.icon === 'gallery'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
               </svg>
             </span>
             {{ vt.label }}

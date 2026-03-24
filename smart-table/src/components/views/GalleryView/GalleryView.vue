@@ -12,6 +12,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'updateRecord', recordId: string, values: Record<string, unknown>): void
   (e: 'deleteRecord', recordId: string): void
+  (e: 'editRecord', recordId: string): void
 }>()
 
 const imageFieldId = ref<string>('')
@@ -25,8 +26,8 @@ const attachmentFields = computed(() => {
 })
 
 const titleFields = computed(() => {
-  return props.fields.filter(f => 
-    f.type === FieldType.TEXT || 
+  return props.fields.filter(f =>
+    f.type === FieldType.TEXT ||
     f.type === FieldType.NUMBER ||
     f.type === FieldType.SINGLE_SELECT
   )
@@ -55,7 +56,7 @@ const cards = computed<GalleryCard[]>(() => {
       record
     }))
   }
-  
+
   return props.records
     .filter(record => {
       const images = record.values[imageFieldId.value]
@@ -64,7 +65,7 @@ const cards = computed<GalleryCard[]>(() => {
     .map(record => {
       const images = record.values[imageFieldId.value] as Array<{ url?: string; name?: string; thumbnail?: string }>
       const title = String(titleField.value ? record.values[titleField.value!.id] || '无标题' : '无标题')
-      
+
       return {
         id: record.id,
         title,
@@ -78,12 +79,42 @@ const cards = computed<GalleryCard[]>(() => {
     .filter(card => card.images.length > 0)
 })
 
-function handleCardClick(card: GalleryCard) {
+function handleImageClick(card: GalleryCard, event: MouseEvent) {
+  // 检查点击目标是否在操作区域内
+  const target = event.target as HTMLElement
+  const actionsArea = target.closest('.card-overlay')
+  if (actionsArea) {
+    return
+  }
+
   if (card.images.length > 0) {
     previewImages.value = card.images
     previewIndex.value = 0
     previewVisible.value = true
   }
+}
+
+function handleCardClick(card: GalleryCard, event: MouseEvent) {
+  // 检查点击目标是否在操作区域内
+  const target = event.target as HTMLElement
+  const actionsArea = target.closest('.card-overlay')
+  if (actionsArea) {
+    return
+  }
+
+  // 点击图片区域时预览，点击其他区域编辑
+  const imageArea = target.closest('.card-image')
+  if (imageArea && card.images.length > 0) {
+    previewImages.value = card.images
+    previewIndex.value = 0
+    previewVisible.value = true
+  } else {
+    emit('editRecord', card.id)
+  }
+}
+
+function handleEdit(card: GalleryCard) {
+  emit('editRecord', card.id)
 }
 
 function handleDelete(card: GalleryCard) {
@@ -117,15 +148,16 @@ onMounted(() => {
         />
       </el-select>
     </div>
-    
+
     <div class="gallery-content">
       <div class="gallery-grid">
         <div
           v-for="card in cards"
           :key="card.id"
           class="gallery-card"
+          @click="handleCardClick(card, $event)"
         >
-          <div class="card-image" @click="handleCardClick(card)">
+          <div class="card-image" @click.stop="handleImageClick(card, $event)">
             <img
               v-if="card.images[0]?.url"
               :src="card.images[0].url"
@@ -134,34 +166,41 @@ onMounted(() => {
             <div v-else class="no-image">
               <el-icon><Picture /></el-icon>
             </div>
-            
+
             <div v-if="card.images.length > 1" class="image-count">
               +{{ card.images.length - 1 }}
             </div>
-            
-            <div class="card-overlay">
+
+            <div class="card-overlay" @click.stop>
+              <el-button
+                link
+                type="primary"
+                @click="handleEdit(card)"
+              >
+                <el-icon><Edit /></el-icon>
+              </el-button>
               <el-button
                 link
                 type="danger"
-                @click.stop="handleDelete(card)"
+                @click="handleDelete(card)"
               >
                 <el-icon><Delete /></el-icon>
               </el-button>
             </div>
           </div>
-          
+
           <div class="card-info">
             <span class="card-title">{{ card.title }}</span>
           </div>
         </div>
       </div>
-      
+
       <div v-if="cards.length === 0" class="empty-gallery">
         <el-icon class="empty-icon"><Picture /></el-icon>
         <p>暂无图片数据</p>
       </div>
     </div>
-    
+
     <el-dialog
       v-model="previewVisible"
       title="图片预览"
@@ -204,7 +243,7 @@ onMounted(() => {
   padding: $spacing-md;
   background-color: $surface-color;
   border-bottom: 1px solid $border-color;
-  
+
   .field-select {
     width: 150px;
   }
@@ -228,11 +267,12 @@ onMounted(() => {
   overflow: hidden;
   border: 1px solid $border-color;
   transition: all 0.2s ease;
-  
+  cursor: pointer;
+
   &:hover {
     border-color: $primary-color;
     box-shadow: $shadow-md;
-    
+
     .card-overlay {
       opacity: 1;
     }
@@ -246,7 +286,7 @@ onMounted(() => {
   background-color: $bg-color;
   cursor: pointer;
   overflow: hidden;
-  
+
   img {
     width: 100%;
     height: 100%;
@@ -261,7 +301,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: $text-disabled;
-  
+
   .el-icon {
     font-size: 48px;
   }
@@ -288,6 +328,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: $spacing-sm;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -311,7 +352,7 @@ onMounted(() => {
   justify-content: center;
   padding: $spacing-xl * 2;
   color: $text-secondary;
-  
+
   .empty-icon {
     font-size: 64px;
     margin-bottom: $spacing-md;
@@ -331,7 +372,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   img {
     max-width: 100%;
     max-height: 100%;
