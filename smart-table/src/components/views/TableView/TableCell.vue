@@ -102,6 +102,9 @@ const displayValue = computed(() => {
 const fieldType = computed(() => props.field.type);
 
 const isEditable = computed(() => {
+  // 主键字段不可编辑
+  if (props.field.isPrimary) return false;
+
   return (
     !props.readonly &&
     ![

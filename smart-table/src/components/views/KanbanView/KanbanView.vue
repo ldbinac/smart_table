@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import type { RecordEntity, FieldEntity } from '@/db/schema'
 import { FieldType } from '@/types'
 import KanbanColumn from './KanbanColumn.vue'
-import AddRecordDialog from '@/components/dialogs/AddRecordDialog.vue'
 
 interface Props {
   fields: FieldEntity[]
@@ -13,18 +12,13 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'updateRecord', recordId: string, values: Record<string, unknown>): void
-  (e: 'addRecord', values: Record<string, unknown>): void
+  (e: 'addRecord', values: Record<string, unknown>, groupInfo?: { groupFieldId?: string; groupId?: string; groupName?: string }): void
   (e: 'deleteRecord', recordId: string): void
   (e: 'editRecord', recordId: string): void
 }>()
 
 const groupFieldId = ref<string>('')
 const cardFields = ref<string[]>([])
-
-// 添加记录对话框状态
-const addRecordDialogVisible = ref(false)
-const currentGroupId = ref<string>('')
-const currentGroupName = ref<string>('')
 
 const groupField = computed(() => {
   return props.fields.find(f => f.id === groupFieldId.value)
@@ -70,13 +64,18 @@ const groups = computed(() => {
 })
 
 function handleAddRecord(groupId: string, groupName: string) {
-  currentGroupId.value = groupId
-  currentGroupName.value = groupName
-  addRecordDialogVisible.value = true
-}
-
-function handleSaveNewRecord(values: Record<string, unknown>) {
-  emit('addRecord', values)
+  // 构建初始值，包含分组信息
+  const values: Record<string, unknown> = {}
+  if (groupFieldId.value && groupId !== 'uncategorized') {
+    values[groupFieldId.value] = groupId
+  }
+  // 传递分组信息用于对话框显示
+  const groupInfo = {
+    groupFieldId: groupFieldId.value,
+    groupId: groupId,
+    groupName: groupName
+  }
+  emit('addRecord', values, groupInfo)
 }
 
 function handleUpdateRecord(recordId: string, values: Record<string, unknown>) {
@@ -150,16 +149,6 @@ onMounted(() => {
         @delete-record="handleDeleteRecord"
         @move-record="(recordId) => handleMoveRecord(recordId, group.id)"
       />
-    
-    <!-- 添加记录对话框 -->
-    <AddRecordDialog
-      v-model:visible="addRecordDialogVisible"
-      :fields="fields"
-      :group-field-id="groupFieldId"
-      :group-id="currentGroupId"
-      :group-name="currentGroupName"
-      @save="handleSaveNewRecord"
-    />
     </div>
   </div>
 </template>

@@ -76,14 +76,23 @@ const colorOptions = [
   "#E74C3C", // 深红
 ];
 
-// 排序后的多维表格列表（收藏的在前）
-const sortedBases = computed(() => {
-  return [...baseStore.bases].sort((a, b) => {
-    if (a.isStarred && !b.isStarred) return -1;
-    if (!a.isStarred && b.isStarred) return 1;
-    return b.updatedAt - a.updatedAt;
-  });
+// 取消收藏加载状态
+const unstarLoadingMap = ref<Map<string, boolean>>(new Map());
+
+// 收藏的 Base 列表
+const starredBases = computed(() => {
+  return baseStore.bases
+    .filter((base) => base.isStarred)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 });
+
+// 所有 Base 列表（包含已收藏和未收藏）
+const allBases = computed(() => {
+  return [...baseStore.bases].sort((a, b) => b.updatedAt - a.updatedAt);
+});
+
+// 是否有收藏的项目
+const hasStarredBases = computed(() => starredBases.value.length > 0);
 
 onMounted(async () => {
   await baseStore.loadBases();
@@ -179,7 +188,7 @@ async function handleDeleteBase(base: Base) {
         cancelButtonText: "取消",
         type: "warning",
         confirmButtonClass: "el-button--danger",
-      },
+      }
     );
 
     await baseStore.deleteBase(base.id);
@@ -191,11 +200,37 @@ async function handleDeleteBase(base: Base) {
   }
 }
 
-// 处理收藏/取消收藏
-async function handleToggleStar(base: Base, event: Event) {
+// 处理收藏
+async function handleStarBase(base: Base, event: Event) {
   event.stopPropagation();
   await baseStore.toggleStarBase(base.id);
-  ElMessage.success(base.isStarred ? "已收藏" : "已取消收藏");
+  ElMessage.success("已收藏");
+}
+
+// 处理取消收藏
+async function handleUnstarBase(base: Base, event: Event) {
+  event.stopPropagation();
+
+  // 设置加载状态
+  unstarLoadingMap.value.set(base.id, true);
+
+  try {
+    // 调用 API 取消收藏
+    await baseStore.toggleStarBase(base.id);
+
+    // 前端实时移除（通过计算属性自动更新）
+    ElMessage.success("已取消收藏");
+  } catch (error) {
+    ElMessage.error("取消收藏失败");
+  } finally {
+    // 清除加载状态
+    unstarLoadingMap.value.set(base.id, false);
+  }
+}
+
+// 获取取消收藏加载状态
+function isUnstarLoading(baseId: string): boolean {
+  return unstarLoadingMap.value.get(baseId) || false;
 }
 
 // 阻止事件冒泡
@@ -216,6 +251,7 @@ function stopPropagation(event: Event) {
         <el-button @click="goToSettings">设置</el-button>
       </div>
     </header>
+
     <main class="home-content">
       <!-- 空状态 -->
       <div v-if="baseStore.bases.length === 0" class="empty-state">
@@ -231,96 +267,224 @@ function stopPropagation(event: Event) {
         </el-empty>
       </div>
 
-      <!-- Base 列表 -->
-      <div v-else class="base-list">
-        <!-- 创建卡片 -->
-        <el-card
-          class="base-card create-card"
-          shadow="hover"
-          @click="openCreateDialog">
-          <div class="create-card-content">
-            <el-icon :size="32"><Plus /></el-icon>
-            <span>创建多维表格</span>
-          </div>
-        </el-card>
-
-        <!-- Base 卡片 -->
-        <el-card
-          v-for="base in sortedBases"
-          :key="base.id"
-          class="base-card"
-          :class="{ 'is-starred': base.isStarred }"
-          shadow="hover"
-          @click="goToBase(base.id)">
-          <template #header>
-            <div class="card-header">
-              <div class="card-title">
-                <span
-                  class="base-icon"
-                  :style="{ backgroundColor: base.color || '#409EFF' }">
-                  {{ base.icon || "📊" }}
-                </span>
-                <span class="base-name" :title="base.name">{{
-                  base.name
-                }}</span>
-              </div>
-              <div class="card-actions">
-                <!-- 收藏按钮 -->
-                <el-button
-                  link
-                  :type="base.isStarred ? 'warning' : 'info'"
-                  class="star-btn"
-                  @click="handleToggleStar(base, $event)">
-                  <el-icon :size="18">
-                    <StarFilled v-if="base.isStarred" />
-                    <Star v-else />
-                  </el-icon>
-                </el-button>
-
-                <!-- 更多操作 -->
-                <el-dropdown
-                  trigger="click"
-                  @command="
-                    (cmd) => {
-                      if (cmd === 'edit') openEditDialog(base);
-                      else if (cmd === 'delete') handleDeleteBase(base);
-                    }
-                  "
-                  @click.stop="stopPropagation">
-                  <el-button
-                    link
-                    type="info"
-                    class="more-btn"
-                    @click.stop="stopPropagation">
-                    <el-icon><MoreFilled /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="edit">
-                        <el-icon><Edit /></el-icon>重命名
-                      </el-dropdown-item>
-                      <el-dropdown-item
-                        divided
-                        command="delete"
-                        class="delete-item">
-                        <el-icon><Delete /></el-icon>删除
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </div>
-          </template>
-          <div class="card-content">
-            <p class="base-description">{{ base.description || "暂无描述" }}</p>
-            <div class="base-meta">
-              <span class="update-time">
-                更新于
-                {{ new Date(base.updatedAt).toLocaleDateString("zh-CN") }}
-              </span>
+      <div v-else class="content-wrapper">
+        <!-- 收藏分区 -->
+        <section v-if="hasStarredBases" class="starred-section">
+          <div class="section-header">
+            <div class="section-title">
+              <el-icon class="star-icon" :size="20"><StarFilled /></el-icon>
+              <h2>我的收藏</h2>
+              <el-tag size="small" type="warning" effect="light">
+                {{ starredBases.length }}
+              </el-tag>
             </div>
           </div>
-        </el-card>
+
+          <div class="starred-list">
+            <el-card
+              v-for="base in starredBases"
+              :key="base.id"
+              class="base-card starred-card"
+              shadow="hover"
+              @click="goToBase(base.id)"
+            >
+              <template #header>
+                <div class="card-header">
+                  <div class="card-title">
+                    <span
+                      class="base-icon"
+                      :style="{ backgroundColor: base.color || '#409EFF' }"
+                    >
+                      {{ base.icon || "📊" }}
+                    </span>
+                    <span class="base-name" :title="base.name">
+                      {{ base.name }}
+                    </span>
+                  </div>
+                  <div class="card-actions">
+                    <!-- 取消收藏按钮 -->
+                    <el-button
+                      link
+                      type="warning"
+                      class="unstar-btn"
+                      :loading="isUnstarLoading(base.id)"
+                      @click="handleUnstarBase(base, $event)"
+                    >
+                      <el-icon :size="18"><StarFilled /></el-icon>
+                      <span class="btn-text">取消收藏</span>
+                    </el-button>
+
+                    <!-- 更多操作 -->
+                    <el-dropdown
+                      trigger="click"
+                      @command="
+                        (cmd) => {
+                          if (cmd === 'edit') openEditDialog(base);
+                          else if (cmd === 'delete') handleDeleteBase(base);
+                        }
+                      "
+                      @click.stop="stopPropagation"
+                    >
+                      <el-button
+                        link
+                        type="info"
+                        class="more-btn"
+                        @click.stop="stopPropagation"
+                      >
+                        <el-icon><MoreFilled /></el-icon>
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item command="edit">
+                            <el-icon><Edit /></el-icon>重命名
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            divided
+                            command="delete"
+                            class="delete-item"
+                          >
+                            <el-icon><Delete /></el-icon>删除
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                </div>
+              </template>
+              <div class="card-content">
+                <p class="base-description">
+                  {{ base.description || "暂无描述" }}
+                </p>
+                <div class="base-meta">
+                  <span class="update-time">
+                    更新于
+                    {{ new Date(base.updatedAt).toLocaleDateString("zh-CN") }}
+                  </span>
+                </div>
+              </div>
+            </el-card>
+          </div>
+        </section>
+
+        <!-- 所有多维表格分区 -->
+        <section class="all-bases-section">
+          <div class="section-header">
+            <div class="section-title">
+              <el-icon :size="20"><Grid /></el-icon>
+              <h2>所有多维表格</h2>
+              <el-tag size="small" type="info" effect="light">
+                {{ allBases.length }}
+              </el-tag>
+            </div>
+          </div>
+
+          <div class="base-list">
+            <!-- 创建卡片 -->
+            <el-card
+              class="base-card create-card"
+              shadow="hover"
+              @click="openCreateDialog"
+            >
+              <div class="create-card-content">
+                <el-icon :size="32"><Plus /></el-icon>
+                <span>创建多维表格</span>
+              </div>
+            </el-card>
+
+            <!-- 所有 Base 卡片（包含已收藏和未收藏）-->
+            <el-card
+              v-for="base in allBases"
+              :key="base.id"
+              class="base-card"
+              :class="{ 'is-starred': base.isStarred }"
+              shadow="hover"
+              @click="goToBase(base.id)"
+            >
+              <template #header>
+                <div class="card-header">
+                  <div class="card-title">
+                    <span
+                      class="base-icon"
+                      :style="{ backgroundColor: base.color || '#409EFF' }"
+                    >
+                      {{ base.icon || "📊" }}
+                    </span>
+                    <span class="base-name" :title="base.name">
+                      {{ base.name }}
+                    </span>
+                  </div>
+                  <div class="card-actions">
+                    <!-- 收藏/取消收藏按钮 -->
+                    <el-button
+                      v-if="!base.isStarred"
+                      link
+                      type="info"
+                      class="star-btn"
+                      @click="handleStarBase(base, $event)"
+                    >
+                      <el-icon :size="18"><Star /></el-icon>
+                    </el-button>
+                    <el-button
+                      v-else
+                      link
+                      type="warning"
+                      class="star-btn"
+                      @click="handleUnstarBase(base, $event)"
+                    >
+                      <el-icon :size="18"><StarFilled /></el-icon>
+                    </el-button>
+
+                    <!-- 更多操作 -->
+                    <el-dropdown
+                      trigger="click"
+                      @command="
+                        (cmd) => {
+                          if (cmd === 'edit') openEditDialog(base);
+                          else if (cmd === 'delete') handleDeleteBase(base);
+                        }
+                      "
+                      @click.stop="stopPropagation"
+                    >
+                      <el-button
+                        link
+                        type="info"
+                        class="more-btn"
+                        @click.stop="stopPropagation"
+                      >
+                        <el-icon><MoreFilled /></el-icon>
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item command="edit">
+                            <el-icon><Edit /></el-icon>重命名
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            divided
+                            command="delete"
+                            class="delete-item"
+                          >
+                            <el-icon><Delete /></el-icon>删除
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                </div>
+              </template>
+              <div class="card-content">
+                <p class="base-description">
+                  {{ base.description || "暂无描述" }}
+                </p>
+                <div class="base-meta">
+                  <span class="update-time">
+                    更新于
+                    {{ new Date(base.updatedAt).toLocaleDateString("zh-CN") }}
+                  </span>
+                </div>
+              </div>
+            </el-card>
+          </div>
+        </section>
       </div>
     </main>
 
@@ -329,18 +493,21 @@ function stopPropagation(event: Event) {
       v-model="createDialogVisible"
       title="创建多维表格"
       width="500px"
-      :close-on-click-modal="false">
+      :close-on-click-modal="false"
+    >
       <el-form
         ref="createFormRef"
         :model="createForm"
         :rules="createFormRules"
-        label-width="80px">
+        label-width="80px"
+      >
         <el-form-item label="名称" prop="name">
           <el-input
             v-model="createForm.name"
             placeholder="请输入多维表格名称"
             maxlength="50"
-            show-word-limit />
+            show-word-limit
+          />
         </el-form-item>
 
         <el-form-item label="描述">
@@ -350,7 +517,8 @@ function stopPropagation(event: Event) {
             :rows="3"
             placeholder="请输入描述（可选）"
             maxlength="200"
-            show-word-limit />
+            show-word-limit
+          />
         </el-form-item>
 
         <el-form-item label="图标">
@@ -360,7 +528,8 @@ function stopPropagation(event: Event) {
               :key="icon"
               class="icon-option"
               :class="{ active: createForm.icon === icon }"
-              @click="createForm.icon = icon">
+              @click="createForm.icon = icon"
+            >
               {{ icon }}
             </span>
           </div>
@@ -374,7 +543,8 @@ function stopPropagation(event: Event) {
               class="color-option"
               :style="{ backgroundColor: color }"
               :class="{ active: createForm.color === color }"
-              @click="createForm.color = color" />
+              @click="createForm.color = color"
+            />
           </div>
         </el-form-item>
       </el-form>
@@ -392,18 +562,21 @@ function stopPropagation(event: Event) {
       v-model="editDialogVisible"
       title="编辑多维表格"
       width="500px"
-      :close-on-click-modal="false">
+      :close-on-click-modal="false"
+    >
       <el-form
         ref="editFormRef"
         :model="editForm"
         :rules="editFormRules"
-        label-width="80px">
+        label-width="80px"
+      >
         <el-form-item label="名称" prop="name">
           <el-input
             v-model="editForm.name"
             placeholder="请输入多维表格名称"
             maxlength="50"
-            show-word-limit />
+            show-word-limit
+          />
         </el-form-item>
 
         <el-form-item label="描述">
@@ -413,7 +586,8 @@ function stopPropagation(event: Event) {
             :rows="3"
             placeholder="请输入描述（可选）"
             maxlength="200"
-            show-word-limit />
+            show-word-limit
+          />
         </el-form-item>
 
         <el-form-item label="图标">
@@ -423,7 +597,8 @@ function stopPropagation(event: Event) {
               :key="icon"
               class="icon-option"
               :class="{ active: editForm.icon === icon }"
-              @click="editForm.icon = icon">
+              @click="editForm.icon = icon"
+            >
               {{ icon }}
             </span>
           </div>
@@ -437,7 +612,8 @@ function stopPropagation(event: Event) {
               class="color-option"
               :style="{ backgroundColor: color }"
               :class="{ active: editForm.color === color }"
-              @click="editForm.color = color" />
+              @click="editForm.color = color"
+            />
           </div>
         </el-form-item>
       </el-form>
@@ -480,12 +656,60 @@ function stopPropagation(event: Event) {
   gap: 12px;
 }
 
+.home-content {
+  min-height: 400px;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* 分区样式 */
+.starred-section {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #fde68a;
+}
+
+.all-bases-section {
+  background-color: var(--el-fill-color-light);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.section-header {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.star-icon {
+  color: #f7ba2a;
+}
+
+/* 列表布局 */
+.starred-list,
 .base-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  gap: 16px;
 }
 
+/* 卡片样式 */
 .base-card {
   cursor: pointer;
   transition: all 0.3s ease;
@@ -497,11 +721,18 @@ function stopPropagation(event: Event) {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
-.base-card.is-starred {
+/* 收藏的卡片样式 */
+.starred-card {
   border-color: #f7ba2a;
   background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
 }
 
+.starred-card:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 8px 24px rgba(247, 186, 42, 0.2);
+}
+
+/* 创建卡片 */
 .create-card {
   border: 2px dashed var(--el-border-color);
   background-color: var(--el-fill-color-light);
@@ -528,6 +759,7 @@ function stopPropagation(event: Event) {
   color: var(--el-color-primary);
 }
 
+/* 卡片头部 */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -562,6 +794,7 @@ function stopPropagation(event: Event) {
   white-space: nowrap;
 }
 
+/* 卡片操作 */
 .card-actions {
   display: flex;
   align-items: center;
@@ -574,18 +807,35 @@ function stopPropagation(event: Event) {
   opacity: 1;
 }
 
-.star-btn {
+.star-btn,
+.more-btn {
   padding: 6px;
 }
 
 .star-btn:hover {
   transform: scale(1.1);
+  color: #f7ba2a;
 }
 
-.more-btn {
-  padding: 6px;
+/* 取消收藏按钮 */
+.unstar-btn {
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f7ba2a;
 }
 
+.unstar-btn:hover {
+  color: #f59e0b;
+  background-color: rgba(247, 186, 42, 0.1);
+}
+
+.unstar-btn .btn-text {
+  font-size: 12px;
+}
+
+/* 卡片内容 */
 .card-content {
   display: flex;
   flex-direction: column;
@@ -614,6 +864,7 @@ function stopPropagation(event: Event) {
   color: var(--el-text-color-placeholder);
 }
 
+/* 空状态 */
 .empty-state {
   display: flex;
   justify-content: center;
@@ -627,6 +878,7 @@ function stopPropagation(event: Event) {
   margin-top: 8px;
 }
 
+/* 图标选择器 */
 .icon-selector {
   display: flex;
   flex-wrap: wrap;
@@ -656,6 +908,7 @@ function stopPropagation(event: Event) {
   background-color: var(--el-color-primary-light-9);
 }
 
+/* 颜色选择器 */
 .color-selector {
   display: flex;
   flex-wrap: wrap;
@@ -680,6 +933,7 @@ function stopPropagation(event: Event) {
   transform: scale(1.15);
 }
 
+/* 对话框底部 */
 .dialog-footer {
   display: flex;
   justify-content: flex-end;

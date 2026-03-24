@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import {
   ElDialog,
   ElButton,
@@ -15,6 +15,7 @@ import {
 } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
+import { generateId } from "@/utils/id";
 
 const props = defineProps<{
   visible: boolean;
@@ -22,6 +23,7 @@ const props = defineProps<{
   groupFieldId?: string;
   groupId?: string;
   groupName?: string;
+  initialValues?: Record<string, unknown>;
 }>();
 
 const emit = defineEmits<{
@@ -32,12 +34,23 @@ const emit = defineEmits<{
 const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
 
+// 获取主键字段
+const primaryField = computed(() => {
+  return props.fields.find((f) => f.isPrimary) || props.fields[0];
+});
+
 // 初始化表单数据
 watch(
   () => props.visible,
   (isVisible) => {
     if (isVisible) {
       formData.value = {};
+
+      // 为主键字段自动生成唯一ID
+      if (primaryField.value) {
+        formData.value[primaryField.value.id] = generateId();
+      }
+
       // 如果有分组信息，自动填充分组字段
       if (
         props.groupFieldId &&
@@ -45,6 +58,13 @@ watch(
         props.groupId !== "uncategorized"
       ) {
         formData.value[props.groupFieldId] = props.groupId;
+      }
+
+      // 应用传入的初始值（如日历视图的日期）
+      if (props.initialValues) {
+        Object.keys(props.initialValues).forEach((key) => {
+          formData.value[key] = props.initialValues![key];
+        });
       }
     }
   },
@@ -93,6 +113,11 @@ function isAutoFilledField(field: FieldEntity): boolean {
   return props.groupFieldId === field.id && props.groupId !== "uncategorized";
 }
 
+// 检查字段是否为主键字段
+function isPrimaryField(field: FieldEntity): boolean {
+  return primaryField.value?.id === field.id;
+}
+
 // 保存记录
 async function handleSave() {
   isSaving.value = true;
@@ -131,8 +156,17 @@ function handleValueChange(fieldId: string, value: unknown) {
         :key="field.id"
         :label="field.name"
         :required="field.isRequired">
+        <!-- 主键字段 - 自动生成ID且只读 -->
+        <template v-if="isPrimaryField(field)">
+          <ElInput
+            :model-value="String(formData[field.id] || '')"
+            disabled
+            :placeholder="`自动生成${field.name}`" />
+          <span class="auto-filled-hint">系统自动生成唯一标识，不可修改</span>
+        </template>
+
         <!-- 自动填充的分组字段显示为只读 -->
-        <template v-if="isAutoFilledField(field)">
+        <template v-else-if="isAutoFilledField(field)">
           <ElSelect :model-value="groupId" style="width: 100%" disabled>
             <ElOption
               v-for="option in getSelectOptions(field)"

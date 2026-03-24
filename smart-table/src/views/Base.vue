@@ -14,6 +14,7 @@ import FilterDialog from "@/components/dialogs/FilterDialog.vue";
 import SortDialog from "@/components/dialogs/SortDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
 import RecordDialog from "@/components/dialogs/RecordDialog.vue";
+import AddRecordDialog from "@/components/dialogs/AddRecordDialog.vue";
 import { ViewType } from "@/types";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -57,9 +58,20 @@ const sortDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const renameTableDialogVisible = ref(false);
 const recordDialogVisible = ref(false);
+const addRecordDialogVisible = ref(false);
 
 // 当前编辑的记录
 const editingRecord = ref<any>(null);
+
+// 添加记录的初始值（用于日历视图等预填充数据）
+const addRecordInitialValues = ref<Record<string, unknown>>({});
+
+// 添加记录的分组信息（用于看板视图）
+const addRecordGroupInfo = ref<{
+  groupFieldId?: string;
+  groupId?: string;
+  groupName?: string;
+}>({});
 
 // 重命名表单
 const renameTableForm = reactive({
@@ -213,11 +225,24 @@ const handleRecordsSelect = (records: any[]) => {
 };
 
 // 处理添加记录（来自看板视图和日历视图）
-const handleAddRecord = async (values: Record<string, unknown>) => {
+const handleAddRecord = (
+  values: Record<string, unknown> = {},
+  groupInfo?: { groupFieldId?: string; groupId?: string; groupName?: string },
+) => {
   if (!baseStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
+
+  // 保存初始值和分组信息
+  addRecordInitialValues.value = values;
+  addRecordGroupInfo.value = groupInfo || {};
+  addRecordDialogVisible.value = true;
+};
+
+// 处理保存新记录
+const handleSaveNewRecord = async (values: Record<string, unknown>) => {
+  if (!baseStore.currentTable) return;
 
   try {
     const record = await tableStore.createRecord({
@@ -228,6 +253,7 @@ const handleAddRecord = async (values: Record<string, unknown>) => {
     if (record) {
       baseStore.records.push(record);
       ElMessage.success("记录创建成功");
+      addRecordDialogVisible.value = false;
     } else {
       ElMessage.error(tableStore.error || "创建记录失败");
     }
@@ -827,6 +853,16 @@ function openExportDialog() {
       :record="editingRecord"
       :fields="baseStore.fields"
       @save="handleSaveRecord" />
+
+    <!-- 添加记录对话框 -->
+    <AddRecordDialog
+      v-model:visible="addRecordDialogVisible"
+      :fields="baseStore.fields"
+      :initial-values="addRecordInitialValues"
+      :group-field-id="addRecordGroupInfo.groupFieldId"
+      :group-id="addRecordGroupInfo.groupId"
+      :group-name="addRecordGroupInfo.groupName"
+      @save="handleSaveNewRecord" />
   </div>
 </template>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import {
   ElDialog,
   ElButton,
@@ -99,6 +99,16 @@ function closeDialog() {
 function handleValueChange(fieldId: string, value: unknown) {
   formData.value[fieldId] = value;
 }
+
+// 获取主键字段
+const primaryField = computed(() => {
+  return props.fields.find((f) => f.isPrimary) || props.fields[0];
+});
+
+// 检查字段是否为主键字段
+function isPrimaryField(field: FieldEntity): boolean {
+  return primaryField.value?.id === field.id;
+}
 </script>
 
 <template>
@@ -116,8 +126,18 @@ function handleValueChange(fieldId: string, value: unknown) {
         :label="field.name"
         :required="field.isRequired"
       >
+        <!-- 主键字段 - 只读显示 -->
+        <template v-if="isPrimaryField(field)">
+          <ElInput
+            :model-value="String(formData[field.id] || '')"
+            disabled
+            :placeholder="field.name"
+          />
+          <span class="readonly-hint">主键字段，不可修改</span>
+        </template>
+
         <!-- 文本类型 -->
-        <template v-if="getFieldComponent(field) === 'text'">
+        <template v-else-if="getFieldComponent(field) === 'text'">
           <ElInput
             :model-value="String(formData[field.id] || '')"
             :placeholder="`请输入${field.name}`"
@@ -239,5 +259,12 @@ function handleValueChange(fieldId: string, value: unknown) {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.readonly-hint {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  margin-top: 4px;
+  display: block;
 }
 </style>
