@@ -166,6 +166,13 @@ const handleDoubleClick = () => {
   startEdit();
 };
 
+// 切换复选框状态
+const toggleCheckbox = () => {
+  if (!isEditable.value) return;
+  const newValue = !cellValue.value;
+  emit("update", newValue as CellValue);
+};
+
 const getSelectOptions = computed(() => {
   const options = props.field.options as FieldOptions | undefined;
   return options?.options || [];
@@ -339,9 +346,12 @@ const multiSelectDisplayValues = computed(() => {
         </template>
 
         <template v-else-if="fieldType === 'checkbox'">
-          <span class="checkbox-display" :class="{ checked: cellValue }">
-            {{ cellValue ? "✓" : "" }}
-          </span>
+          <div
+            class="switch-display"
+            :class="{ checked: cellValue }"
+            @click.stop="toggleCheckbox">
+            <div class="switch-slider"></div>
+          </div>
         </template>
 
         <template v-else-if="fieldType === 'progress'">
@@ -481,6 +491,56 @@ const multiSelectDisplayValues = computed(() => {
     border-color: $primary-color;
     color: #fff;
   }
+}
+
+// 开关按钮样式
+.switch-display {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background-color: #dcdfe6;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background-color: #c0c4cc;
+  }
+
+  &.checked {
+    background-color: $primary-color;
+
+    &:hover {
+      background-color: darken($primary-color, 10%);
+    }
+
+    .switch-slider {
+      transform: translateX(16px);
+    }
+  }
+
+  &:active .switch-slider {
+    width: 18px;
+  }
+
+  &.checked:active .switch-slider {
+    transform: translateX(14px);
+  }
+}
+
+.switch-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition:
+    transform 0.3s ease,
+    width 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .progress-display {
