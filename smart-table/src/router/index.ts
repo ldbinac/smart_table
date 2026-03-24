@@ -26,6 +26,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/form/:id',
+    name: 'FormShare',
+    component: () => import('@/views/FormShare.vue'),
+    meta: {
+      title: '表单填写',
+      public: true // 标记为公开页面，不需要登录
+    }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/Settings.vue'),

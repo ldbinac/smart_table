@@ -2,14 +2,31 @@
 import { ref } from 'vue'
 import type { FieldEntity } from '@/db/schema'
 import { ElMessage } from 'element-plus'
+import { CopyDocument, Refresh, Document, DocumentChecked, ArrowRight } from '@element-plus/icons-vue'
 
 interface Props {
   visible: boolean
   fields: FieldEntity[]
   tableName?: string
+  tableId?: string
+  formConfig?: {
+    title?: string
+    description?: string
+    submitButtonText?: string
+    successMessage?: string
+  }
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  tableName: '',
+  tableId: '',
+  formConfig: () => ({
+    title: '数据收集表单',
+    description: '',
+    submitButtonText: '提交',
+    successMessage: '提交成功，感谢您的参与！'
+  })
+})
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
@@ -18,19 +35,50 @@ const emit = defineEmits<{
 const activeTab = ref('link')
 const shareUrl = ref('')
 const isGenerating = ref(false)
+const currentFormId = ref('')
 
-// 模拟生成分享链接
+// 生成分享链接
 function generateShareLink() {
   isGenerating.value = true
   
-  // 模拟异步生成链接
+  // 生成表单ID
+  const formId = `form_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  currentFormId.value = formId
+  
+  // 保存表单配置到 localStorage
+  saveFormConfig(formId)
+  
+  // 生成分享链接
   setTimeout(() => {
     const baseUrl = window.location.origin
-    const formId = `form_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     shareUrl.value = `${baseUrl}/form/${formId}`
     isGenerating.value = false
     ElMessage.success('分享链接已生成')
   }, 800)
+}
+
+// 保存表单配置
+function saveFormConfig(formId: string) {
+  // 过滤掉系统字段
+  const systemFieldTypes = ['createdBy', 'createdTime', 'updatedBy', 'updatedTime', 'autoNumber']
+  const shareableFields = props.fields.filter(f => !systemFieldTypes.includes(f.type))
+  
+  const config = {
+    formId,
+    tableId: props.tableId,
+    tableName: props.tableName,
+    fields: shareableFields,
+    formConfig: props.formConfig,
+    createdAt: new Date().toISOString()
+  }
+  
+  // 保存到 localStorage
+  localStorage.setItem(`form_config_${formId}`, JSON.stringify(config))
+  
+  // 同时保存表单ID列表，用于清理过期数据
+  const formList = JSON.parse(localStorage.getItem('form_share_list') || '[]')
+  formList.push({ formId, createdAt: config.createdAt })
+  localStorage.setItem('form_share_list', JSON.stringify(formList))
 }
 
 // 复制链接
@@ -71,6 +119,7 @@ function exportAsHtml() {
 function exportAsJson() {
   const data = {
     tableName: props.tableName,
+    tableId: props.tableId,
     exportTime: new Date().toISOString(),
     fields: props.fields.map(f => ({
       id: f.id,
@@ -78,7 +127,8 @@ function exportAsJson() {
       type: f.type,
       required: f.options?.required,
       options: f.options
-    }))
+    })),
+    formConfig: props.formConfig
   }
   
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -282,6 +332,7 @@ function copyEmbedCode() {
 function handleClose() {
   emit('update:visible', false)
   shareUrl.value = ''
+  currentFormId.value = ''
   activeTab.value = 'link'
 }
 </script>

@@ -3,6 +3,7 @@ import type { RecordEntity } from '../schema';
 import { generateId } from '../../utils/id';
 import type { CellValue } from '../../types';
 import { tableService } from './tableService';
+import { serializeRecordValues, deserializeRecordValues } from '../../utils/recordValueSerializer';
 
 export interface CreateRecordData {
   tableId: string;
@@ -18,10 +19,13 @@ export interface UpdateRecordData {
 
 export class RecordService {
   async createRecord(data: CreateRecordData): Promise<RecordEntity> {
+    // 序列化值以支持 IndexedDB 存储
+    const serializedValues = serializeRecordValues(data.values);
+    
     const record: RecordEntity = {
       id: generateId(),
       tableId: data.tableId,
-      values: data.values,
+      values: serializedValues,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       createdBy: data.createdBy,
@@ -33,40 +37,66 @@ export class RecordService {
       await tableService.updateRecordCount(data.tableId);
     });
 
-    return record;
+    // 返回反序列化的记录
+    return {
+      ...record,
+      values: deserializeRecordValues(record.values)
+    };
   }
 
   async getRecord(id: string): Promise<RecordEntity | undefined> {
-    return db.records.get(id);
+    const record = await db.records.get(id);
+    if (record) {
+      return {
+        ...record,
+        values: deserializeRecordValues(record.values)
+      };
+    }
+    return undefined;
   }
 
   async getRecordsByTable(tableId: string): Promise<RecordEntity[]> {
-    return db.records.where('tableId').equals(tableId).toArray();
+    const records = await db.records.where('tableId').equals(tableId).toArray();
+    return records.map(record => ({
+      ...record,
+      values: deserializeRecordValues(record.values)
+    }));
   }
 
   async getRecordsByTableSorted(tableId: string, limit?: number): Promise<RecordEntity[]> {
     let query = db.records.where('tableId').equals(tableId).sortBy('updatedAt');
+    let records: RecordEntity[];
+    
     if (limit) {
       const all = await query;
-      return all.reverse().slice(0, limit);
+      records = all.reverse().slice(0, limit);
+    } else {
+      const result = await query;
+      records = result.reverse();
     }
-    const result = await query;
-    return result.reverse();
+    
+    return records.map(record => ({
+      ...record,
+      values: deserializeRecordValues(record.values)
+    }));
   }
 
   async updateRecord(id: string, data: UpdateRecordData): Promise<void> {
     const record = await this.getRecord(id);
     if (!record) return;
 
+    // 序列化值以支持 IndexedDB 存储
+    const serializedValues = serializeRecordValues(data.values);
+
     await db.records.update(id, {
-      values: data.values,
+      values: serializedValues,
       updatedAt: Date.now(),
       updatedBy: data.updatedBy
     });
   }
 
   async deleteRecord(id: string): Promise<void> {
-    const record = await this.getRecord(id);
+    const record = await db.records.get(id);
     if (!record) return;
 
     await db.transaction('rw', [db.records, db.tableEntities], async () => {
@@ -80,10 +110,13 @@ export class RecordService {
 
     await db.transaction('rw', [db.records, db.tableEntities], async () => {
       for (const data of records) {
+        // 序列化值以支持 IndexedDB 存储
+        const serializedValues = serializeRecordValues(data.values);
+        
         const record: RecordEntity = {
           id: generateId(),
           tableId,
-          values: data.values,
+          values: serializedValues,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           createdBy: data.createdBy,
@@ -95,14 +128,21 @@ export class RecordService {
       await tableService.updateRecordCount(tableId);
     });
 
-    return createdRecords;
+    // 返回反序列化的记录
+    return createdRecords.map(record => ({
+      ...record,
+      values: deserializeRecordValues(record.values)
+    }));
   }
 
   async batchUpdateRecords(updates: { id: string; values: Record<string, CellValue> }[]): Promise<void> {
     await db.transaction('rw', db.records, async () => {
       for (const update of updates) {
+        // 序列化值以支持 IndexedDB 存储
+        const serializedValues = serializeRecordValues(update.values);
+        
         await db.records.update(update.id, {
-          values: update.values,
+          values: serializedValues,
           updatedAt: Date.now()
         });
       }

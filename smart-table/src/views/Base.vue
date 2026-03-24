@@ -1015,7 +1015,14 @@ function openExportDialog() {
     <FormShareDialog
       v-model:visible="formShareDialogVisible"
       :fields="baseStore.fields"
-      :table-name="baseStore.currentTable?.name" />
+      :table-name="baseStore.currentTable?.name"
+      :table-id="baseStore.currentTable?.id"
+      :form-config="{
+        title: formConfig.title,
+        description: formConfig.description,
+        submitButtonText: formConfig.submitButtonText,
+        successMessage: formConfig.successMessage
+      }" />
   </div>
 </template>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, nextTick } from "vue";
+import dayjs from "dayjs";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
 import MultiSelectField from "@/components/fields/MultiSelectField.vue";
@@ -23,6 +24,7 @@ const emit = defineEmits<{
 
 const isEditing = ref(false);
 const editValue = ref<string | number | boolean | string[] | null>(null);
+const dateEditValue = ref<number | null>(null);
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
 const cellValue = computed(() => {
@@ -69,8 +71,15 @@ const displayValue = computed(() => {
     }
     case "checkbox":
       return value ? "✓" : "";
-    case "date":
-      return value ? String(value) : "";
+    case "date": {
+      if (!value) return "";
+      // 处理时间戳格式
+      const timestamp = typeof value === "string" ? Number(value) : value;
+      if (typeof timestamp === "number" && !isNaN(timestamp)) {
+        return dayjs(timestamp).format("YYYY-MM-DD HH:mm");
+      }
+      return String(value);
+    }
     case "rating": {
       const maxRating = options?.maxRating || 5;
       const rating = Number(value) || 0;
@@ -127,6 +136,14 @@ const startEdit = async () => {
     editValue.value = Array.isArray(cv)
       ? cv.map((v) => (typeof v === "string" ? v : v.id))
       : [];
+  } else if (fieldType.value === "date") {
+    // 日期字段特殊处理，转换为时间戳
+    if (cv) {
+      const timestamp = typeof cv === "string" ? Number(cv) : cv;
+      dateEditValue.value = typeof timestamp === "number" && !isNaN(timestamp) ? timestamp : Date.now();
+    } else {
+      dateEditValue.value = null;
+    }
   } else {
     editValue.value = cv as string | number | boolean | null;
   }
@@ -160,6 +177,11 @@ const handleKeydown = (event: KeyboardEvent) => {
   } else if (event.key === "Escape") {
     cancelEdit();
   }
+};
+
+const handleDateChange = (val: number | null) => {
+  dateEditValue.value = val;
+  emit("update", val as CellValue);
 };
 
 const handleDoubleClick = () => {
@@ -268,14 +290,16 @@ const multiSelectDisplayValues = computed(() => {
       </template>
 
       <template v-else-if="fieldType === 'date'">
-        <input
+        <el-date-picker
           ref="inputRef"
-          :value="editValue as string"
-          type="date"
-          class="cell-input"
-          @input="editValue = ($event.target as HTMLInputElement).value"
-          @blur="finishEdit"
-          @keydown="handleKeydown" />
+          v-model="dateEditValue"
+          type="datetime"
+          placeholder="选择日期时间"
+          format="YYYY-MM-DD HH:mm"
+          value-format="x"
+          class="cell-date-picker"
+          @change="handleDateChange"
+          @blur="finishEdit" />
       </template>
 
       <template v-else-if="fieldType === 'rating'">
@@ -447,6 +471,14 @@ const multiSelectDisplayValues = computed(() => {
 
     .cell-range {
       width: 100%;
+    }
+
+    .cell-date-picker {
+      width: 100%;
+
+      :deep(.el-input__wrapper) {
+        border-radius: $border-radius-sm;
+      }
     }
   }
 }
