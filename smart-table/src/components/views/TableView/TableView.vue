@@ -133,7 +133,11 @@ const contextMenuItems = computed(() => {
 })
 
 const handleCellUpdate = async (record: RecordEntity, fieldId: string, value: CellValue) => {
-  const newValues = { ...record.values, [fieldId]: value }
+  // 使用 JSON.parse(JSON.stringify()) 确保所有值都是纯 JavaScript 对象
+  // 避免响应式对象导致的 IndexedDB 克隆错误
+  const plainValues = JSON.parse(JSON.stringify(record.values))
+  const plainValue = JSON.parse(JSON.stringify(value))
+  const newValues = { ...plainValues, [fieldId]: plainValue }
   await recordService.updateRecord(record.id, { values: newValues })
   await baseStore.loadTable(record.tableId)
   editingCell.value = null

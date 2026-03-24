@@ -2,6 +2,7 @@
 import { computed, ref, nextTick } from "vue";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
+import MultiSelectField from "@/components/fields/MultiSelectField.vue";
 
 interface Props {
   record: RecordEntity;
@@ -175,24 +176,6 @@ const getOptionColor = (optionId: string) => {
   return opt?.color || "#6B7280";
 };
 
-const isMultiSelectChecked = (optId: string): boolean => {
-  if (!Array.isArray(editValue.value)) return false;
-  return editValue.value.includes(optId);
-};
-
-const toggleMultiSelectOption = (optId: string) => {
-  const currentValues = Array.isArray(editValue.value)
-    ? [...editValue.value]
-    : [];
-  const idx = currentValues.indexOf(optId);
-  if (idx > -1) {
-    currentValues.splice(idx, 1);
-  } else {
-    currentValues.push(optId);
-  }
-  editValue.value = currentValues;
-};
-
 const multiSelectDisplayValues = computed(() => {
   if (!Array.isArray(cellValue.value)) return [];
   return cellValue.value.map((v) => (typeof v === "string" ? v : v.id));
@@ -259,19 +242,10 @@ const multiSelectDisplayValues = computed(() => {
       </template>
 
       <template v-else-if="fieldType === 'multiSelect'">
-        <div class="multi-select-editor">
-          <label
-            v-for="opt in getSelectOptions"
-            :key="opt.id"
-            class="multi-select-option">
-            <input
-              type="checkbox"
-              :checked="isMultiSelectChecked(opt.id)"
-              @change="toggleMultiSelectOption(opt.id)" />
-            <span>{{ opt.name }}</span>
-          </label>
-          <button class="apply-btn" @click="finishEdit">应用</button>
-        </div>
+        <MultiSelectField
+          v-model="editValue as string[]"
+          :field="field"
+          @blur="finishEdit" />
       </template>
 
       <template v-else-if="fieldType === 'checkbox'">

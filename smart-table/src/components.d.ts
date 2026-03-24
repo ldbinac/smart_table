@@ -63,6 +63,7 @@ declare module 'vue' {
     Loading: typeof import('./components/common/Loading.vue')['default']
     LookupField: typeof import('./components/fields/LookupField.vue')['default']
     MemberField: typeof import('./components/fields/MemberField.vue')['default']
+    MultiSelectDropdown: typeof import('./components/common/MultiSelectDropdown.vue')['default']
     MultiSelectField: typeof import('./components/fields/MultiSelectField.vue')['default']
     NumberField: typeof import('./components/fields/NumberField.vue')['default']
     PhoneField: typeof import('./components/fields/PhoneField.vue')['default']

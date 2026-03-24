@@ -96,9 +96,24 @@ export class ExcelExporter {
     if (value === null || value === undefined) return ''
     
     switch (field.type) {
+      case FieldType.SINGLE_SELECT:
+        // 将选项ID转换为选项名称
+        if (typeof value === 'string') {
+          const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+          const option = options?.find(opt => opt.id === value)
+          return option?.name || value
+        }
+        return value
+      
       case FieldType.MULTI_SELECT:
+        // 将选项ID数组转换为选项名称数组
         if (Array.isArray(value)) {
-          return value.join(', ')
+          const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+          const names = value.map(id => {
+            const option = options?.find(opt => opt.id === id)
+            return option?.name || id
+          })
+          return names.join(', ')
         }
         return value
       
@@ -245,9 +260,24 @@ export class CSVExporter {
     if (value === null || value === undefined) return ''
     
     switch (field.type) {
+      case FieldType.SINGLE_SELECT:
+        // 将选项ID转换为选项名称
+        if (typeof value === 'string') {
+          const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+          const option = options?.find(opt => opt.id === value)
+          return option?.name || value
+        }
+        return String(value)
+      
       case FieldType.MULTI_SELECT:
+        // 将选项ID数组转换为选项名称数组
         if (Array.isArray(value)) {
-          return value.join('; ')
+          const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+          const names = value.map(id => {
+            const option = options?.find(opt => opt.id === id)
+            return option?.name || id
+          })
+          return names.join('; ')
         }
         return String(value)
       
@@ -436,9 +466,24 @@ function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
   if (value === null || value === undefined) return ''
   
   switch (field.type) {
+    case FieldType.SINGLE_SELECT:
+      // 将选项ID转换为选项名称
+      if (typeof value === 'string') {
+        const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+        const option = options?.find(opt => opt.id === value)
+        return option?.name || value
+      }
+      return value
+    
     case FieldType.MULTI_SELECT:
+      // 将选项ID数组转换为选项名称数组
       if (Array.isArray(value)) {
-        return value.join(', ')
+        const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+        const names = value.map(id => {
+          const option = options?.find(opt => opt.id === id)
+          return option?.name || id
+        })
+        return names.join(', ')
       }
       return value
     
@@ -482,9 +527,24 @@ function formatValueForCSV(value: CellValue, field: FieldEntity): string {
   if (value === null || value === undefined) return ''
   
   switch (field.type) {
+    case FieldType.SINGLE_SELECT:
+      // 将选项ID转换为选项名称
+      if (typeof value === 'string') {
+        const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+        const option = options?.find(opt => opt.id === value)
+        return option?.name || value
+      }
+      return String(value)
+    
     case FieldType.MULTI_SELECT:
+      // 将选项ID数组转换为选项名称数组
       if (Array.isArray(value)) {
-        return value.join('; ')
+        const options = field.options?.options as Array<{ id: string; name: string; color: string }> | undefined
+        const names = value.map(id => {
+          const option = options?.find(opt => opt.id === id)
+          return option?.name || id
+        })
+        return names.join('; ')
       }
       return String(value)
     

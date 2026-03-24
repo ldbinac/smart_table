@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import type { FieldOption } from '@/types/fields'
+import MultiSelectDropdown from '@/components/common/MultiSelectDropdown.vue'
 
 interface Props {
   modelValue: string[] | null
@@ -24,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string[] | null): void
+  (e: 'blur'): void
 }>()
 
 const options = computed(() => {
@@ -40,10 +43,18 @@ const localValue = computed({
   set: (val: string[]) => emit('update:modelValue', val.length > 0 ? val : null)
 })
 
-const selectRef = ref()
+const dropdownRef = ref<InstanceType<typeof MultiSelectDropdown>>()
 
 const focus = () => {
-  selectRef.value?.focus()
+  dropdownRef.value?.open()
+}
+
+const handleConfirm = () => {
+  emit('blur')
+}
+
+const handleCancel = () => {
+  emit('blur')
 }
 
 defineExpose({ focus })
@@ -58,7 +69,7 @@ defineExpose({ focus })
             v-for="option in selectedOptions"
             :key="option.id"
             class="select-tag"
-            :style="{ backgroundColor: option.color + '20', color: option.color }"
+            :style="{ backgroundColor: option.color + '20', color: option.color, borderColor: option.color + '40' }"
           >
             {{ option.name }}
           </span>
@@ -67,30 +78,14 @@ defineExpose({ focus })
       </div>
     </template>
     <template v-else>
-      <el-select
+      <MultiSelectDropdown
+        ref="dropdownRef"
         v-model="localValue"
+        :options="options"
         :placeholder="placeholder || '请选择'"
-        multiple
-        collapse-tags
-        collapse-tags-tooltip
-        clearable
-        ref="selectRef"
-        class="select-input"
-      >
-        <el-option
-          v-for="option in options"
-          :key="option.id"
-          :label="option.name"
-          :value="option.id"
-        >
-          <span
-            class="option-tag"
-            :style="{ backgroundColor: option.color + '20', color: option.color }"
-          >
-            {{ option.name }}
-          </span>
-        </el-option>
-      </el-select>
+        @confirm="handleConfirm"
+        @cancel="handleCancel"
+      />
     </template>
   </div>
 </template>
@@ -123,26 +118,8 @@ defineExpose({ focus })
     border-radius: 4px;
     font-size: $font-size-sm;
     font-weight: 500;
-  }
-
-  .option-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: $font-size-sm;
-  }
-
-  .select-input {
-    width: 100%;
-
-    :deep(.el-input__wrapper) {
-      border-radius: $border-radius-sm;
-    }
-
-    :deep(.el-tag) {
-      margin: 2px;
-    }
+    border: 1px solid;
+    white-space: nowrap;
   }
 }
 </style>
