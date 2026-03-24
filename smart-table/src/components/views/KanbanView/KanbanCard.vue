@@ -10,7 +10,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
-  (e: 'update', values: Record<string, unknown>): void
+  (e: 'edit'): void
   (e: 'delete'): void
 }>()
 
@@ -24,7 +24,7 @@ const primaryValue = computed(() => {
 })
 
 function handleClick() {
-  emit('update', {})
+  emit('edit')
 }
 </script>
 
@@ -40,7 +40,7 @@ function handleClick() {
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item @click="handleClick">
+            <el-dropdown-item @click="$emit('edit')">
               <el-icon><Edit /></el-icon>
               编辑
             </el-dropdown-item>

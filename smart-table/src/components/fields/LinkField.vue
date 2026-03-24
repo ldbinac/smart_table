@@ -248,7 +248,7 @@ onMounted(() => {
 }
 
 .placeholder {
-  color: $text-placeholder;
+  color: $text-disabled;
   font-size: $font-size-sm;
 }
 

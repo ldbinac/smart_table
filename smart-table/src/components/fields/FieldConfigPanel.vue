@@ -148,7 +148,7 @@ const currencySymbolOptions = [
         <div class="config-label">最大长度</div>
         <el-input-number
           :model-value="localField.options?.maxLength"
-          @update:model-value="(val: number) => updateOption('maxLength', val)"
+          @update:model-value="(val: number | undefined) => updateOption('maxLength', val)"
           :min="1"
           :max="10000"
           :controls="false"
@@ -193,7 +193,7 @@ const currencySymbolOptions = [
         <div class="config-label">小数位数</div>
         <el-input-number
           :model-value="localField.options?.precision ?? 2"
-          @update:model-value="(val: number) => updateOption('precision', val)"
+          @update:model-value="(val: number | undefined) => updateOption('precision', val)"
           :min="0"
           :max="10"
           :controls="false"

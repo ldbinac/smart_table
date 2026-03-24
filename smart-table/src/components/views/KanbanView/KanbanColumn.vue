@@ -21,6 +21,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'addRecord'): void
+  (e: 'editRecord', recordId: string): void
   (e: 'updateRecord', recordId: string, values: Record<string, unknown>): void
   (e: 'deleteRecord', recordId: string): void
   (e: 'moveRecord', recordId: string): void
@@ -110,7 +111,7 @@ defineExpose({
         :record="record"
         :fields="cardFieldObjects"
         :data-record-id="record.id"
-        @update="(values) => $emit('updateRecord', record.id, values)"
+        @edit="$emit('editRecord', record.id)"
         @delete="$emit('deleteRecord', record.id)"
       />
     </div>
@@ -186,7 +187,7 @@ defineExpose({
 
 :deep(.kanban-card-ghost) {
   opacity: 0.5;
-  background-color: $primary-color-light;
+  background-color: rgba($primary-color, 0.1);
 }
 
 :deep(.kanban-card-chosen) {

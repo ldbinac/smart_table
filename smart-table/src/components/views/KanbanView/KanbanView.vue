@@ -14,6 +14,7 @@ const emit = defineEmits<{
   (e: 'updateRecord', recordId: string, values: Record<string, unknown>): void
   (e: 'addRecord', values: Record<string, unknown>): void
   (e: 'deleteRecord', recordId: string): void
+  (e: 'editRecord', recordId: string): void
 }>()
 
 const groupFieldId = ref<string>('')
@@ -78,6 +79,10 @@ function handleDeleteRecord(recordId: string) {
   emit('deleteRecord', recordId)
 }
 
+function handleEditRecord(recordId: string) {
+  emit('editRecord', recordId)
+}
+
 function handleMoveRecord(recordId: string, targetGroupId: string) {
   if (groupFieldId.value) {
     const newGroupId = targetGroupId === 'uncategorized' ? null : targetGroupId
@@ -132,6 +137,7 @@ onMounted(() => {
         :fields="fields"
         :card-fields="cardFields"
         @add-record="handleAddRecord(group.id)"
+        @edit-record="handleEditRecord"
         @update-record="handleUpdateRecord"
         @delete-record="handleDeleteRecord"
         @move-record="(recordId) => handleMoveRecord(recordId, group.id)"

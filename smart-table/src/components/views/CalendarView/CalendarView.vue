@@ -4,6 +4,8 @@ import type { RecordEntity, FieldEntity } from '@/db/schema'
 import { FieldType } from '@/types'
 
 interface Props {
+  tableId: string
+  viewId: string
   fields: FieldEntity[]
   records: RecordEntity[]
 }
@@ -13,6 +15,7 @@ const emit = defineEmits<{
   (e: 'updateRecord', recordId: string, values: Record<string, unknown>): void
   (e: 'addRecord', values: Record<string, unknown>): void
   (e: 'deleteRecord', recordId: string): void
+  (e: 'editRecord', recordId: string): void
 }>()
 
 const dateFieldId = ref<string>('')
@@ -41,6 +44,7 @@ const titleField = computed(() => {
   if (titleFieldId.value) {
     return props.fields.find(f => f.id === titleFieldId.value)
   }
+  // 默认使用第一个字段（主字段或第一个可用字段）
   return props.fields.find(f => f.isPrimary) || props.fields[0]
 })
 
@@ -64,21 +68,53 @@ const events = computed<CalendarEvent[]>(() => {
       const endValue = endDateFieldId.value ? record.values[endDateFieldId.value] : null
       const titleValue = titleField.value ? record.values[titleField.value!.id] : ''
       
-      const start = new Date(Number(startValue) as number)
-      const end = endValue ? new Date(Number(endValue) as number) : undefined
+      // 支持多种日期格式：数字时间戳、ISO字符串、Date对象
+      const start = parseDateValue(startValue)
+      const end = endValue ? parseDateValue(endValue) : undefined
       
       return {
         id: record.id,
         title: String(titleValue || '无标题'),
-        start,
-        end,
+        start: start!,
+        end: end || undefined,
         allDay: true,
         record,
         color: '#3370FF'
       }
     })
-    .filter(event => !isNaN(event.start.getTime()))
+    .filter(event => event.start && !isNaN(event.start.getTime()))
 })
+
+// 解析日期值，支持数字时间戳、ISO字符串、Date对象
+function parseDateValue(value: unknown): Date | null {
+  if (!value) return null
+  
+  // 如果是数字，直接作为时间戳
+  if (typeof value === 'number') {
+    return new Date(value)
+  }
+  
+  // 如果是字符串，可能是ISO格式或数字字符串
+  if (typeof value === 'string') {
+    // 尝试解析为数字时间戳
+    const numValue = Number(value)
+    if (!isNaN(numValue) && value.trim() !== '') {
+      return new Date(numValue)
+    }
+    // 否则作为ISO字符串解析
+    const date = new Date(value)
+    if (!isNaN(date.getTime())) {
+      return date
+    }
+  }
+  
+  // 如果已经是Date对象
+  if (value instanceof Date) {
+    return value
+  }
+  
+  return null
+}
 
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -172,7 +208,7 @@ function goToToday() {
 }
 
 function handleEventClick(event: CalendarEvent) {
-  console.log('Event clicked:', event)
+  emit('editRecord', event.id)
 }
 
 function handleDateClick(date: Date) {
@@ -183,6 +219,10 @@ function handleDateClick(date: Date) {
 onMounted(() => {
   if (dateFields.value.length > 0) {
     dateFieldId.value = dateFields.value[0].id
+  }
+  // 默认使用第一个字段作为标题字段
+  if (props.fields.length > 0 && !titleFieldId.value) {
+    titleFieldId.value = props.fields[0].id
   }
 })
 </script>

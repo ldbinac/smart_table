@@ -1,33 +1,36 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import AppHeader from '@/components/common/AppHeader.vue'
-import AppSidebar from '@/components/common/AppSidebar.vue'
+import { ref, computed } from "vue";
+import { useRoute } from "vue-router";
+import AppHeader from "@/components/common/AppHeader.vue";
+import AppSidebar from "@/components/common/AppSidebar.vue";
 
-const route = useRoute()
+const route = useRoute();
 
-const sidebarCollapsed = ref(false)
+const sidebarCollapsed = ref(false);
 
 const shouldShowSidebar = computed(() => {
-  const hiddenRoutes = ['/', '/settings']
-  return !hiddenRoutes.includes(route.path)
-})
+  const hiddenRoutes = ["/", "/settings"];
+  return !hiddenRoutes.includes(route.path);
+});
 
 const mainContentStyle = computed(() => {
   if (shouldShowSidebar.value) {
     return {
-      marginLeft: sidebarCollapsed.value ? '64px' : '240px'
-    }
+      marginLeft: sidebarCollapsed.value ? "64px" : "20px",
+      marginRight: "5px",
+    };
   }
-  return {}
-})
+  return {};
+});
 </script>
 
 <template>
   <div class="main-layout">
     <AppHeader />
     <div class="layout-body">
-      <AppSidebar v-if="shouldShowSidebar" @collapse="sidebarCollapsed = $event" />
+      <AppSidebar
+        v-if="shouldShowSidebar"
+        @collapse="sidebarCollapsed = $event" />
       <main class="main-content" :style="mainContentStyle">
         <div class="content-wrapper">
           <slot />
@@ -38,8 +41,8 @@ const mainContentStyle = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
-@use '@/assets/styles/mixins' as *;
+@use "@/assets/styles/variables" as *;
+@use "@/assets/styles/mixins" as *;
 
 .main-layout {
   @include flex-column;

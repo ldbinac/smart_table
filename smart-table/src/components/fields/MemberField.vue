@@ -243,7 +243,7 @@ function getInitials(name: string): string {
 }
 
 .placeholder {
-  color: $text-placeholder;
+  color: $text-disabled;
   font-size: $font-size-sm;
 }
 

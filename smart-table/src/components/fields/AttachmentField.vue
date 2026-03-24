@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { UploadFile } from 'element-plus'
 import type { FieldEntity } from '@/db/schema'
 import type { CellValue } from '@/types'
 import { UploadFilled, Document, Picture, Delete, Download } from '@element-plus/icons-vue'
@@ -59,8 +60,13 @@ function getFileIcon(type: string): typeof Document {
   return Document
 }
 
-async function handleUpload(options: { file: File }) {
-  const file = options.file
+async function handleUpload(uploadFile: UploadFile) {
+  const file = uploadFile.raw
+  
+  if (!file) {
+    ElMessage.error('文件不存在')
+    return
+  }
   
   if (file.size > maxSize.value) {
     ElMessage.error(`文件大小超过限制 (${formatFileSize(maxSize.value)})`)

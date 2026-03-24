@@ -5,15 +5,20 @@ import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
 import { TableView } from "@/components/views/TableView";
+import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
+import CalendarView from "@/components/views/CalendarView/CalendarView.vue";
 import ViewSwitcher from "@/components/views/ViewSwitcher.vue";
 import Loading from "@/components/common/Loading.vue";
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 import FilterDialog from "@/components/dialogs/FilterDialog.vue";
 import SortDialog from "@/components/dialogs/SortDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
+import RecordDialog from "@/components/dialogs/RecordDialog.vue";
+import { ViewType } from "@/types";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FilterCondition, SortConfig } from "@/types/filters";
+import type { CellValue } from "@/types";
 import { applyFilters, applySorts } from "@/utils";
 import Sortable from "sortablejs";
 
@@ -51,6 +56,10 @@ const filterDialogVisible = ref(false);
 const sortDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const renameTableDialogVisible = ref(false);
+const recordDialogVisible = ref(false);
+
+// 当前编辑的记录
+const editingRecord = ref<any>(null);
 
 // 重命名表单
 const renameTableForm = reactive({
@@ -106,6 +115,22 @@ const filteredRecords = computed(() => {
   return records;
 });
 
+// 当前视图类型
+const currentViewType = computed(() => {
+  return viewStore.currentView?.type || ViewType.TABLE;
+});
+
+// 是否为表格视图
+const isTableView = computed(() => currentViewType.value === ViewType.TABLE);
+
+// 是否为看板视图
+const isKanbanView = computed(() => currentViewType.value === ViewType.KANBAN);
+
+// 是否为日历视图
+const isCalendarView = computed(
+  () => currentViewType.value === ViewType.CALENDAR,
+);
+
 // 表格列表引用（用于拖拽排序）
 const tableListRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
@@ -114,6 +139,10 @@ onMounted(async () => {
   const baseId = route.params.id as string;
   if (baseId) {
     await baseStore.loadBase(baseId);
+    // 同步视图数据到 viewStore
+    if (baseStore.currentTable) {
+      await viewStore.loadViews(baseStore.currentTable.id);
+    }
     initSortable();
   }
 });
@@ -123,6 +152,10 @@ watch(
   async (newId) => {
     if (newId) {
       await baseStore.loadBase(newId as string);
+      // 同步视图数据到 viewStore
+      if (baseStore.currentTable) {
+        await viewStore.loadViews(baseStore.currentTable.id);
+      }
       initSortable();
     }
   },
@@ -160,6 +193,8 @@ async function handleTableDragEnd(evt: Sortable.SortableEvent) {
 
 const handleTableSelect = async (tableId: string) => {
   await baseStore.loadTable(tableId);
+  // 同步视图数据到 viewStore
+  await viewStore.loadViews(tableId);
   // 重置筛选和排序
   activeFilters.value = [];
   activeSorts.value = [];
@@ -175,6 +210,67 @@ const handleRecordSelect = (record: any) => {
 
 const handleRecordsSelect = (records: any[]) => {
   console.log("Selected records:", records);
+};
+
+// 处理添加记录（来自看板视图和日历视图）
+const handleAddRecord = async (values: Record<string, unknown>) => {
+  if (!baseStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+
+  try {
+    const record = await tableStore.createRecord({
+      tableId: baseStore.currentTable.id,
+      values: values as Record<string, CellValue>,
+    });
+
+    if (record) {
+      baseStore.records.push(record);
+      ElMessage.success("记录创建成功");
+    } else {
+      ElMessage.error(tableStore.error || "创建记录失败");
+    }
+  } catch (error) {
+    ElMessage.error("创建记录失败");
+    console.error(error);
+  }
+};
+
+// 处理编辑记录
+const handleEditRecord = (recordId: string) => {
+  const record = baseStore.records.find((r) => r.id === recordId);
+  if (record) {
+    editingRecord.value = record;
+    recordDialogVisible.value = true;
+  }
+};
+
+// 处理保存记录
+const handleSaveRecord = async (
+  recordId: string,
+  values: Record<string, unknown>,
+) => {
+  try {
+    const typedValues: Record<string, CellValue> = {};
+    Object.keys(values).forEach((key) => {
+      typedValues[key] = values[key] as CellValue;
+    });
+    await tableStore.updateRecord(recordId, typedValues);
+    // 更新本地记录
+    const index = baseStore.records.findIndex((r) => r.id === recordId);
+    if (index !== -1) {
+      baseStore.records[index] = {
+        ...baseStore.records[index],
+        values: { ...baseStore.records[index].values, ...typedValues },
+        updatedAt: Date.now(),
+      };
+    }
+    ElMessage.success("记录更新成功");
+  } catch (error) {
+    ElMessage.error("更新记录失败");
+    console.error(error);
+  }
 };
 
 // 打开创建数据表对话框
@@ -535,12 +631,46 @@ function openExportDialog() {
             @view-change="handleViewChange" />
 
           <div class="table-content">
+            <!-- 表格视图 -->
             <TableView
+              v-if="isTableView"
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
               @record-select="handleRecordSelect"
               @records-select="handleRecordsSelect" />
+
+            <!-- 看板视图 -->
+            <KanbanView
+              v-else-if="isKanbanView"
+              :table-id="currentTableId"
+              :view-id="viewStore.currentView?.id || ''"
+              :records="filteredRecords"
+              :fields="baseStore.fields"
+              @record-select="handleRecordSelect"
+              @addRecord="handleAddRecord"
+              @editRecord="handleEditRecord" />
+
+            <!-- 日历视图 -->
+            <CalendarView
+              v-else-if="isCalendarView"
+              :table-id="currentTableId"
+              :view-id="viewStore.currentView?.id || ''"
+              :records="filteredRecords"
+              :fields="baseStore.fields"
+              @record-select="handleRecordSelect"
+              @addRecord="handleAddRecord"
+              @editRecord="handleEditRecord" />
+
+            <!-- 其他视图类型占位 -->
+            <div v-else class="unsupported-view">
+              <el-empty description="该视图类型暂不支持">
+                <template #description>
+                  <p>该视图类型暂不支持</p>
+                  <p class="sub-text">请切换到表格视图、看板视图或日历视图</p>
+                </template>
+              </el-empty>
+            </div>
           </div>
         </div>
       </template>
@@ -650,6 +780,13 @@ function openExportDialog() {
       v-model:visible="exportDialogVisible"
       :fields="baseStore.fields"
       :records="filteredRecords" />
+
+    <!-- 记录编辑对话框 -->
+    <RecordDialog
+      v-model:visible="recordDialogVisible"
+      :record="editingRecord"
+      :fields="baseStore.fields"
+      @save="handleSaveRecord" />
   </div>
 </template>
 
@@ -659,7 +796,7 @@ function openExportDialog() {
 
 .base-page {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 56px);
   background-color: $bg-color;
 }
 
