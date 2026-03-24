@@ -21,6 +21,7 @@ export interface TableEntity {
   primaryFieldId: string;
   recordCount: number;
   order: number;
+  isStarred: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -119,9 +120,9 @@ class SmartTableDB extends Dexie {
   constructor() {
     super('SmartTableDB');
 
-    this.version(2).stores({
+    this.version(3).stores({
       bases: 'id, name, updatedAt, isStarred',
-      tableEntities: 'id, baseId, name, order, updatedAt',
+      tableEntities: 'id, baseId, name, order, updatedAt, isStarred',
       fields: 'id, tableId, name, type, order, [tableId+order]',
       records: 'id, tableId, updatedAt, [tableId+updatedAt]',
       views: 'id, tableId, name, type, isDefault, [tableId+order]',

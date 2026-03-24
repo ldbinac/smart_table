@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { useRoute } from 'vue-router';
-import { useBaseStore } from '@/stores';
-import { useViewStore } from '@/stores/viewStore';
-import { useTableStore } from '@/stores/tableStore';
-import { TableView } from '@/components/views/TableView';
-import ViewSwitcher from '@/components/views/ViewSwitcher.vue';
-import Loading from '@/components/common/Loading.vue';
-import FieldDialog from '@/components/dialogs/FieldDialog.vue';
-import FilterDialog from '@/components/dialogs/FilterDialog.vue';
-import SortDialog from '@/components/dialogs/SortDialog.vue';
-import ExportDialog from '@/components/dialogs/ExportDialog.vue';
-import type { FormInstance, FormRules } from 'element-plus';
-import { ElMessage } from 'element-plus';
-import type { FilterCondition, SortConfig } from '@/types/filters';
-import { applyFilters, applySorts } from '@/utils';
+import { ref, reactive, onMounted, watch, computed } from "vue";
+import { useRoute } from "vue-router";
+import { useBaseStore } from "@/stores";
+import { useViewStore } from "@/stores/viewStore";
+import { useTableStore } from "@/stores/tableStore";
+import { TableView } from "@/components/views/TableView";
+import ViewSwitcher from "@/components/views/ViewSwitcher.vue";
+import Loading from "@/components/common/Loading.vue";
+import FieldDialog from "@/components/dialogs/FieldDialog.vue";
+import FilterDialog from "@/components/dialogs/FilterDialog.vue";
+import SortDialog from "@/components/dialogs/SortDialog.vue";
+import ExportDialog from "@/components/dialogs/ExportDialog.vue";
+import type { FormInstance, FormRules } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
+import type { FilterCondition, SortConfig } from "@/types/filters";
+import { applyFilters, applySorts } from "@/utils";
+import Sortable from "sortablejs";
 
 const route = useRoute();
 const baseStore = useBaseStore();
@@ -22,15 +23,15 @@ const viewStore = useViewStore();
 const tableStore = useTableStore();
 
 const isLoading = computed(() => baseStore.loading || viewStore.loading);
-const currentTableId = computed(() => baseStore.currentTable?.id || '');
+const currentTableId = computed(() => baseStore.currentTable?.id || "");
 
 // 创建数据表对话框显示状态
 const createTableDialogVisible = ref(false);
 
 // 创建数据表表单数据
 const createTableForm = reactive({
-  name: '',
-  description: ''
+  name: "",
+  description: "",
 });
 
 // 表单引用
@@ -39,9 +40,9 @@ const createTableFormRef = ref<FormInstance>();
 // 表单验证规则
 const createTableFormRules: FormRules = {
   name: [
-    { required: true, message: '请输入数据表名称', trigger: 'blur' },
-    { min: 1, max: 50, message: '名称长度在 1 到 50 个字符', trigger: 'blur' }
-  ]
+    { required: true, message: "请输入数据表名称", trigger: "blur" },
+    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+  ],
 };
 
 // 对话框显示状态
@@ -49,33 +50,71 @@ const fieldDialogVisible = ref(false);
 const filterDialogVisible = ref(false);
 const sortDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
+const renameTableDialogVisible = ref(false);
+
+// 重命名表单
+const renameTableForm = reactive({
+  id: "",
+  name: "",
+});
+const renameTableFormRef = ref<FormInstance>();
+const renameTableFormRules: FormRules = {
+  name: [
+    { required: true, message: "请输入数据表名称", trigger: "blur" },
+    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+  ],
+};
 
 // 筛选和排序状态
 const activeFilters = ref<FilterCondition[]>([]);
 const activeSorts = ref<SortConfig[]>([]);
-const filterConjunction = ref<'and' | 'or'>('and');
+const filterConjunction = ref<"and" | "or">("and");
+
+// 搜索关键词
+const tableSearchKeyword = ref("");
+
+// 过滤后的表格列表
+const filteredTables = computed(() => {
+  if (!tableSearchKeyword.value.trim()) {
+    return baseStore.sortedTables;
+  }
+  const keyword = tableSearchKeyword.value.toLowerCase();
+  return baseStore.sortedTables.filter((table) =>
+    table.name.toLowerCase().includes(keyword),
+  );
+});
 
 // 过滤和排序后的记录
 const filteredRecords = computed(() => {
   let records = [...baseStore.records];
-  
+
   // 应用筛选
   if (activeFilters.value.length > 0) {
-    records = applyFilters(records, activeFilters.value, baseStore.fields, filterConjunction.value);
+    records = applyFilters(
+      records,
+      activeFilters.value,
+      baseStore.fields,
+      filterConjunction.value,
+    );
   }
-  
+
   // 应用排序
   if (activeSorts.value.length > 0) {
     records = applySorts(records, activeSorts.value, baseStore.fields);
   }
-  
+
   return records;
 });
+
+// 表格列表引用（用于拖拽排序）
+const tableListRef = ref<HTMLElement | null>(null);
+let sortableInstance: Sortable | null = null;
 
 onMounted(async () => {
   const baseId = route.params.id as string;
   if (baseId) {
     await baseStore.loadBase(baseId);
+    initSortable();
   }
 });
 
@@ -84,9 +123,40 @@ watch(
   async (newId) => {
     if (newId) {
       await baseStore.loadBase(newId as string);
+      initSortable();
     }
-  }
+  },
 );
+
+// 初始化拖拽排序
+function initSortable() {
+  if (sortableInstance) {
+    sortableInstance.destroy();
+  }
+
+  if (tableListRef.value) {
+    sortableInstance = new Sortable(tableListRef.value, {
+      handle: ".drag-handle",
+      animation: 150,
+      onEnd: handleTableDragEnd,
+    });
+  }
+}
+
+// 处理表格拖拽结束
+async function handleTableDragEnd(evt: Sortable.SortableEvent) {
+  if (evt.oldIndex === evt.newIndex) return;
+
+  const tableIds = filteredTables.value.map((t) => t.id);
+  const [movedId] = tableIds.splice(evt.oldIndex!, 1);
+  tableIds.splice(evt.newIndex!, 0, movedId);
+
+  if (baseStore.currentBase) {
+    await tableStore.reorderTables(baseStore.currentBase.id, tableIds);
+    // 刷新表格列表
+    baseStore.tables = await tableStore.loadTables(baseStore.currentBase.id);
+  }
+}
 
 const handleTableSelect = async (tableId: string) => {
   await baseStore.loadTable(tableId);
@@ -100,22 +170,22 @@ const handleViewChange = async (viewId: string) => {
 };
 
 const handleRecordSelect = (record: any) => {
-  console.log('Selected record:', record);
+  console.log("Selected record:", record);
 };
 
 const handleRecordsSelect = (records: any[]) => {
-  console.log('Selected records:', records);
+  console.log("Selected records:", records);
 };
 
 // 打开创建数据表对话框
 function openCreateTableDialog() {
   if (!baseStore.currentBase) {
-    ElMessage.warning('请先选择一个 Base');
+    ElMessage.warning("请先选择一个 Base");
     return;
   }
   createTableDialogVisible.value = true;
-  createTableForm.name = '';
-  createTableForm.description = '';
+  createTableForm.name = "";
+  createTableForm.description = "";
 }
 
 // 关闭创建数据表对话框
@@ -128,7 +198,7 @@ function closeCreateTableDialog() {
 async function handleCreateTable() {
   if (!createTableFormRef.value) return;
   if (!baseStore.currentBase) {
-    ElMessage.error('请先选择一个 Base');
+    ElMessage.error("请先选择一个 Base");
     return;
   }
 
@@ -137,26 +207,117 @@ async function handleCreateTable() {
       const table = await tableStore.createTable({
         baseId: baseStore.currentBase!.id,
         name: createTableForm.name,
-        description: createTableForm.description || undefined
+        description: createTableForm.description || undefined,
       });
 
       if (table) {
-        ElMessage.success('数据表创建成功');
+        ElMessage.success("数据表创建成功");
         closeCreateTableDialog();
         // 刷新当前 base 的表格列表并选中新创建的表格
         await baseStore.loadBase(baseStore.currentBase!.id);
         await baseStore.loadTable(table.id);
       } else {
-        ElMessage.error(tableStore.error || '创建失败');
+        ElMessage.error(tableStore.error || "创建失败");
       }
     }
   });
 }
 
+// 打开重命名对话框
+function openRenameTableDialog(table: { id: string; name: string }) {
+  renameTableForm.id = table.id;
+  renameTableForm.name = table.name;
+  renameTableDialogVisible.value = true;
+}
+
+// 关闭重命名对话框
+function closeRenameTableDialog() {
+  renameTableDialogVisible.value = false;
+  renameTableFormRef.value?.resetFields();
+}
+
+// 处理重命名表格
+async function handleRenameTable() {
+  if (!renameTableFormRef.value) return;
+
+  await renameTableFormRef.value.validate(async (valid) => {
+    if (valid) {
+      await tableStore.updateTable(renameTableForm.id, {
+        name: renameTableForm.name,
+      });
+      // 同步更新 baseStore 中的表格名称
+      const tableIndex = baseStore.tables.findIndex(
+        (t) => t.id === renameTableForm.id,
+      );
+      if (tableIndex !== -1) {
+        baseStore.tables[tableIndex].name = renameTableForm.name;
+      }
+      if (baseStore.currentTable?.id === renameTableForm.id) {
+        baseStore.currentTable.name = renameTableForm.name;
+      }
+      ElMessage.success("重命名成功");
+      closeRenameTableDialog();
+    }
+  });
+}
+
+// 处理删除表格
+async function handleDeleteTable(table: { id: string; name: string }) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除数据表 "${table.name}" 吗？此操作将删除该表中的所有数据，包括字段、记录和视图，且无法恢复。`,
+      "删除确认",
+      {
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+        type: "warning",
+        confirmButtonClass: "el-button--danger",
+      },
+    );
+
+    await tableStore.deleteTable(table.id);
+    // 从 baseStore 中移除
+    baseStore.tables = baseStore.tables.filter((t) => t.id !== table.id);
+    if (baseStore.currentTable?.id === table.id) {
+      baseStore.currentTable = null;
+      baseStore.fields = [];
+      baseStore.records = [];
+      baseStore.views = [];
+      baseStore.currentView = null;
+      // 如果有其他表格，选中第一个
+      if (baseStore.tables.length > 0) {
+        await baseStore.loadTable(baseStore.tables[0].id);
+      }
+    }
+    ElMessage.success("删除成功");
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error("删除失败");
+    }
+  }
+}
+
+// 处理收藏/取消收藏表格
+async function handleToggleStarTable(table: {
+  id: string;
+  isStarred?: boolean;
+}) {
+  await tableStore.toggleStarTable(table.id);
+  // 同步更新本地状态
+  const tableIndex = baseStore.tables.findIndex((t) => t.id === table.id);
+  if (tableIndex !== -1) {
+    baseStore.tables[tableIndex].isStarred = !table.isStarred;
+  }
+  if (baseStore.currentTable?.id === table.id) {
+    baseStore.currentTable.isStarred = !table.isStarred;
+  }
+  ElMessage.success(table.isStarred ? "已收藏" : "已取消收藏");
+}
+
 // 打开字段对话框
 function openFieldDialog() {
   if (!baseStore.currentTable) {
-    ElMessage.warning('请先选择一个数据表');
+    ElMessage.warning("请先选择一个数据表");
     return;
   }
   fieldDialogVisible.value = true;
@@ -170,7 +331,7 @@ function handleFieldCreated(field: any) {
 
 // 处理字段更新
 function handleFieldUpdated(field: any) {
-  const index = baseStore.fields.findIndex(f => f.id === field.id);
+  const index = baseStore.fields.findIndex((f) => f.id === field.id);
   if (index !== -1) {
     baseStore.fields[index] = field;
   }
@@ -179,7 +340,7 @@ function handleFieldUpdated(field: any) {
 
 // 处理字段删除
 function handleFieldDeleted(fieldId: string) {
-  const index = baseStore.fields.findIndex(f => f.id === fieldId);
+  const index = baseStore.fields.findIndex((f) => f.id === fieldId);
   if (index !== -1) {
     const fieldName = baseStore.fields[index].name;
     baseStore.fields.splice(index, 1);
@@ -190,14 +351,17 @@ function handleFieldDeleted(fieldId: string) {
 // 打开筛选对话框
 function openFilterDialog() {
   if (!baseStore.currentTable) {
-    ElMessage.warning('请先选择一个数据表');
+    ElMessage.warning("请先选择一个数据表");
     return;
   }
   filterDialogVisible.value = true;
 }
 
 // 处理筛选应用
-function handleFilterApply(filters: FilterCondition[], conjunction: 'and' | 'or') {
+function handleFilterApply(
+  filters: FilterCondition[],
+  conjunction: "and" | "or",
+) {
   activeFilters.value = filters;
   filterConjunction.value = conjunction;
   if (filters.length > 0) {
@@ -208,13 +372,13 @@ function handleFilterApply(filters: FilterCondition[], conjunction: 'and' | 'or'
 // 处理筛选清除
 function handleFilterClear() {
   activeFilters.value = [];
-  ElMessage.success('筛选已清除');
+  ElMessage.success("筛选已清除");
 }
 
 // 打开排序对话框
 function openSortDialog() {
   if (!baseStore.currentTable) {
-    ElMessage.warning('请先选择一个数据表');
+    ElMessage.warning("请先选择一个数据表");
     return;
   }
   sortDialogVisible.value = true;
@@ -231,13 +395,13 @@ function handleSortApply(sorts: SortConfig[]) {
 // 处理排序清除
 function handleSortClear() {
   activeSorts.value = [];
-  ElMessage.success('排序已清除');
+  ElMessage.success("排序已清除");
 }
 
 // 打开导出对话框
 function openExportDialog() {
   if (!baseStore.currentTable) {
-    ElMessage.warning('请先选择一个数据表');
+    ElMessage.warning("请先选择一个数据表");
     return;
   }
   exportDialogVisible.value = true;
@@ -248,21 +412,74 @@ function openExportDialog() {
   <div class="base-page">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <h3>{{ baseStore.currentBase?.name || '加载中...' }}</h3>
+        <h3>{{ baseStore.currentBase?.name || "加载中..." }}</h3>
       </div>
-      <el-menu
-        :default-active="baseStore.currentTable?.id || ''"
-        @select="handleTableSelect"
-      >
-        <el-menu-item
-          v-for="table in baseStore.sortedTables"
+
+      <!-- 搜索框 -->
+      <div class="sidebar-search">
+        <el-input
+          v-model="tableSearchKeyword"
+          placeholder="搜索数据表"
+          clearable
+          size="small">
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+      </div>
+
+      <!-- 表格列表 -->
+      <div ref="tableListRef" class="table-list">
+        <div
+          v-for="table in filteredTables"
           :key="table.id"
-          :index="table.id"
-        >
-          <el-icon><Document /></el-icon>
-          <span>{{ table.name }}</span>
-        </el-menu-item>
-      </el-menu>
+          class="table-item"
+          :class="{ active: baseStore.currentTable?.id === table.id }"
+          @click="handleTableSelect(table.id)">
+          <span class="drag-handle" @click.stop>
+            <el-icon><Rank /></el-icon>
+          </span>
+          <el-icon class="table-icon"><Document /></el-icon>
+          <span class="table-name">{{ table.name }}</span>
+          <span v-if="table.isStarred" class="star-icon">
+            <el-icon><StarFilled /></el-icon>
+          </span>
+          <el-dropdown
+            trigger="click"
+            @command="
+              (cmd) => {
+                if (cmd === 'rename') openRenameTableDialog(table);
+                else if (cmd === 'delete') handleDeleteTable(table);
+                else if (cmd === 'star') handleToggleStarTable(table);
+              }
+            "
+            @click.stop>
+            <span class="more-icon" @click.stop>
+              <el-icon><MoreFilled /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="rename">
+                  <el-icon><Edit /></el-icon>重命名
+                </el-dropdown-item>
+                <el-dropdown-item command="star">
+                  <el-icon
+                    ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
+                  /></el-icon>
+                  {{ table.isStarred ? "取消收藏" : "收藏" }}
+                </el-dropdown-item>
+                <el-dropdown-item divided command="delete" class="delete-item">
+                  <el-icon><Delete /></el-icon>删除
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+        <div v-if="filteredTables.length === 0" class="empty-tables">
+          {{ tableSearchKeyword ? "没有找到匹配的数据表" : "暂无数据表" }}
+        </div>
+      </div>
+
       <div class="sidebar-footer">
         <el-button type="primary" text @click="openCreateTableDialog">
           <el-icon><Plus /></el-icon>
@@ -277,12 +494,18 @@ function openExportDialog() {
           <header class="table-header">
             <div class="table-info">
               <h2>{{ baseStore.currentTable.name }}</h2>
-              <span class="record-count">{{ filteredRecords.length }} 条记录</span>
+              <span class="record-count"
+                >{{ filteredRecords.length }} 条记录</span
+              >
               <span v-if="activeFilters.length > 0" class="filter-badge">
-                <el-tag size="small" type="warning">筛选: {{ activeFilters.length }}</el-tag>
+                <el-tag size="small" type="warning"
+                  >筛选: {{ activeFilters.length }}</el-tag
+                >
               </span>
               <span v-if="activeSorts.length > 0" class="sort-badge">
-                <el-tag size="small" type="success">排序: {{ activeSorts.length }}</el-tag>
+                <el-tag size="small" type="success"
+                  >排序: {{ activeSorts.length }}</el-tag
+                >
               </span>
             </div>
             <div class="table-actions">
@@ -309,8 +532,7 @@ function openExportDialog() {
 
           <ViewSwitcher
             :table-id="currentTableId"
-            @view-change="handleViewChange"
-          />
+            @view-change="handleViewChange" />
 
           <div class="table-content">
             <TableView
@@ -318,14 +540,15 @@ function openExportDialog() {
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
               @record-select="handleRecordSelect"
-              @records-select="handleRecordsSelect"
-            />
+              @records-select="handleRecordsSelect" />
           </div>
         </div>
       </template>
       <div v-else class="empty-state">
         <el-empty description="请选择或创建一个数据表">
-          <el-button type="primary" @click="openCreateTableDialog">创建数据表</el-button>
+          <el-button type="primary" @click="openCreateTableDialog"
+            >创建数据表</el-button
+          >
         </el-empty>
       </div>
     </main>
@@ -335,21 +558,18 @@ function openExportDialog() {
       v-model="createTableDialogVisible"
       title="创建数据表"
       width="500px"
-      :close-on-click-modal="false"
-    >
+      :close-on-click-modal="false">
       <el-form
         ref="createTableFormRef"
         :model="createTableForm"
         :rules="createTableFormRules"
-        label-width="80px"
-      >
+        label-width="80px">
         <el-form-item label="名称" prop="name">
           <el-input
             v-model="createTableForm.name"
             placeholder="请输入数据表名称"
             maxlength="50"
-            show-word-limit
-          />
+            show-word-limit />
         </el-form-item>
 
         <el-form-item label="描述">
@@ -359,8 +579,7 @@ function openExportDialog() {
             :rows="3"
             placeholder="请输入描述（可选）"
             maxlength="200"
-            show-word-limit
-          />
+            show-word-limit />
         </el-form-item>
       </el-form>
 
@@ -372,6 +591,34 @@ function openExportDialog() {
       </template>
     </el-dialog>
 
+    <!-- 重命名数据表对话框 -->
+    <el-dialog
+      v-model="renameTableDialogVisible"
+      title="重命名数据表"
+      width="500px"
+      :close-on-click-modal="false">
+      <el-form
+        ref="renameTableFormRef"
+        :model="renameTableForm"
+        :rules="renameTableFormRules"
+        label-width="80px">
+        <el-form-item label="名称" prop="name">
+          <el-input
+            v-model="renameTableForm.name"
+            placeholder="请输入数据表名称"
+            maxlength="50"
+            show-word-limit />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="closeRenameTableDialog">取消</el-button>
+          <el-button type="primary" @click="handleRenameTable">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 字段管理对话框 -->
     <FieldDialog
       v-model:visible="fieldDialogVisible"
@@ -379,8 +626,7 @@ function openExportDialog() {
       :fields="baseStore.fields"
       @field-created="handleFieldCreated"
       @field-updated="handleFieldUpdated"
-      @field-deleted="handleFieldDeleted"
-    />
+      @field-deleted="handleFieldDeleted" />
 
     <!-- 筛选对话框 -->
     <FilterDialog
@@ -389,8 +635,7 @@ function openExportDialog() {
       :initial-filters="activeFilters"
       :initial-conjunction="filterConjunction"
       @apply="handleFilterApply"
-      @clear="handleFilterClear"
-    />
+      @clear="handleFilterClear" />
 
     <!-- 排序对话框 -->
     <SortDialog
@@ -398,21 +643,19 @@ function openExportDialog() {
       :fields="baseStore.fields"
       :initial-sorts="activeSorts"
       @apply="handleSortApply"
-      @clear="handleSortClear"
-    />
+      @clear="handleSortClear" />
 
     <!-- 导出对话框 -->
     <ExportDialog
       v-model:visible="exportDialogVisible"
       :fields="baseStore.fields"
-      :records="filteredRecords"
-    />
+      :records="filteredRecords" />
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
-@use '@/assets/styles/mixins' as *;
+@use "@/assets/styles/variables" as *;
+@use "@/assets/styles/mixins" as *;
 
 .base-page {
   display: flex;
@@ -438,6 +681,93 @@ function openExportDialog() {
     font-weight: 600;
     color: $text-primary;
   }
+}
+
+.sidebar-search {
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid $border-color;
+}
+
+.table-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-sm 0;
+}
+
+.table-item {
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-lg;
+  cursor: pointer;
+  transition: all $transition-fast;
+  gap: $spacing-sm;
+
+  &:hover {
+    background-color: $bg-color;
+
+    .drag-handle,
+    .more-icon {
+      opacity: 1;
+    }
+  }
+
+  &.active {
+    background-color: rgba($primary-color, 0.1);
+    color: $primary-color;
+
+    .table-name {
+      color: $primary-color;
+      font-weight: 500;
+    }
+  }
+}
+
+.drag-handle {
+  opacity: 0;
+  cursor: grab;
+  color: $text-secondary;
+  transition: opacity $transition-fast;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.table-icon {
+  color: $text-secondary;
+  flex-shrink: 0;
+}
+
+.table-name {
+  flex: 1;
+  font-size: $font-size-sm;
+  color: $text-primary;
+  @include text-ellipsis;
+}
+
+.star-icon {
+  color: #f7ba2a;
+  flex-shrink: 0;
+}
+
+.more-icon {
+  opacity: 0;
+  cursor: pointer;
+  color: $text-secondary;
+  transition: opacity $transition-fast;
+  padding: $spacing-xs;
+  border-radius: $border-radius-sm;
+
+  &:hover {
+    background-color: rgba($text-secondary, 0.1);
+  }
+}
+
+.empty-tables {
+  padding: $spacing-lg;
+  text-align: center;
+  color: $text-secondary;
+  font-size: $font-size-sm;
 }
 
 .sidebar-footer {
@@ -513,5 +843,9 @@ function openExportDialog() {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+:deep(.delete-item) {
+  color: $error-color;
 }
 </style>

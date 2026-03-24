@@ -20,7 +20,12 @@ export const useBaseStore = defineStore('base', () => {
   const error = ref<string | null>(null);
 
   const sortedTables = computed(() => {
-    return [...tables.value].sort((a, b) => a.order - b.order);
+    // 先按收藏状态排序（收藏的在前），再按 order 排序
+    return [...tables.value].sort((a, b) => {
+      if (a.isStarred && !b.isStarred) return -1;
+      if (!a.isStarred && b.isStarred) return 1;
+      return a.order - b.order;
+    });
   });
 
   const sortedFields = computed(() => {

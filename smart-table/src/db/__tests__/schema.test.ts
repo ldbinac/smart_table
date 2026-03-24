@@ -94,6 +94,7 @@ describe('Database Schema', () => {
         primaryFieldId: 'field-1',
         recordCount: 0,
         order: 0,
+        isStarred: false,
         createdAt: Date.now(),
         updatedAt: Date.now()
       }
@@ -115,6 +116,7 @@ describe('Database Schema', () => {
           primaryFieldId: `field-${i}`,
           recordCount: 0,
           order: i,
+          isStarred: false,
           createdAt: Date.now(),
           updatedAt: Date.now()
         })
@@ -128,6 +130,7 @@ describe('Database Schema', () => {
           primaryFieldId: `field-${i}`,
           recordCount: 0,
           order: i,
+          isStarred: false,
           createdAt: Date.now(),
           updatedAt: Date.now()
         })
@@ -280,6 +283,7 @@ describe('Database Schema', () => {
           primaryFieldId: 'field-tx',
           recordCount: 0,
           order: 0,
+          isStarred: false,
           createdAt: Date.now(),
           updatedAt: Date.now()
         })

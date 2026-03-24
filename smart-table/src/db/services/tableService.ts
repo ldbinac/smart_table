@@ -23,6 +23,7 @@ export class TableService {
       primaryFieldId,
       recordCount: 0,
       order: maxOrder + 1,
+      isStarred: false,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -90,6 +91,16 @@ export class TableService {
         await db.tableEntities.update(tableIds[i], { order: i });
       }
     });
+  }
+
+  async toggleStarTable(id: string): Promise<void> {
+    const table = await db.tableEntities.get(id);
+    if (table) {
+      await db.tableEntities.update(id, {
+        isStarred: !table.isStarred,
+        updatedAt: Date.now()
+      });
+    }
   }
 }
 

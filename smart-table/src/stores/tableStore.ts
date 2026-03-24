@@ -19,8 +19,10 @@ export const useTableStore = defineStore('table', () => {
     error.value = null;
     try {
       tables.value = await tableService.getTablesByBase(baseId);
+      return tables.value;
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load tables';
+      return [];
     } finally {
       loading.value = false;
     }
@@ -102,6 +104,24 @@ export const useTableStore = defineStore('table', () => {
       tables.value = reorderedTables;
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to reorder tables';
+    }
+  }
+
+  async function toggleStarTable(id: string) {
+    try {
+      const table = tables.value.find(t => t.id === id);
+      if (table) {
+        const newStarredState = !table.isStarred;
+        await tableService.updateTable(id, { isStarred: newStarredState });
+        table.isStarred = newStarredState;
+        table.updatedAt = Date.now();
+        if (currentTable.value?.id === id) {
+          currentTable.value.isStarred = newStarredState;
+          currentTable.value.updatedAt = Date.now();
+        }
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to toggle star';
     }
   }
 
@@ -249,6 +269,7 @@ export const useTableStore = defineStore('table', () => {
     updateTable,
     deleteTable,
     reorderTables,
+    toggleStarTable,
     createField,
     updateField,
     deleteField,
