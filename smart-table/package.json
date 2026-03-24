@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
     "@vueuse/core": "^10.11.1",
     "dayjs": "^1.11.20",
     "dexie": "^3.2.7",
@@ -21,6 +22,7 @@
     "papaparse": "^5.5.3",
     "pinia": "^2.3.1",
     "sortablejs": "^1.15.7",
+    "unplugin-icons": "^23.0.1",
     "vue": "^3.5.30",
     "vue-echarts": "^6.7.3",
     "vue-router": "^4.6.4",
@@ -28,6 +30,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@iconify-json/ep": "^1.2.4",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^24.12.0",
     "@types/sortablejs": "^1.15.9",

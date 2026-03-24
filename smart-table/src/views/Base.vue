@@ -4,11 +4,15 @@ import { useRoute } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
+import { Setting, Share } from "@element-plus/icons-vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
 import CalendarView from "@/components/views/CalendarView/CalendarView.vue";
 import GanttView from "@/components/views/GanttView/GanttView.vue";
 import GalleryView from "@/components/views/GalleryView/GalleryView.vue";
+import FormView from "@/components/views/FormView/FormView.vue";
+import FormViewConfig from "@/components/views/FormView/FormViewConfig.vue";
+import FormShareDialog from "@/components/views/FormView/FormShareDialog.vue";
 import ViewSwitcher from "@/components/views/ViewSwitcher.vue";
 import Loading from "@/components/common/Loading.vue";
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
@@ -61,6 +65,18 @@ const exportDialogVisible = ref(false);
 const renameTableDialogVisible = ref(false);
 const recordDialogVisible = ref(false);
 const addRecordDialogVisible = ref(false);
+const formConfigDialogVisible = ref(false);
+const formShareDialogVisible = ref(false);
+
+// 表单配置
+const formConfig = ref({
+  title: '数据收集表单',
+  description: '',
+  submitButtonText: '提交',
+  visibleFieldIds: [] as string[],
+  successMessage: '提交成功，感谢您的参与！',
+  allowMultipleSubmit: true
+});
 
 // 当前编辑的记录
 const editingRecord = ref<any>(null);
@@ -153,6 +169,11 @@ const isGalleryView = computed(
 // 是否为甘特视图
 const isGanttView = computed(
   () => currentViewType.value === ViewType.GANTT,
+);
+
+// 是否为表单视图
+const isFormView = computed(
+  () => currentViewType.value === ViewType.FORM,
 );
 
 // 表格列表引用（用于拖拽排序）
@@ -273,6 +294,71 @@ const handleSaveNewRecord = async (values: Record<string, unknown>) => {
     ElMessage.error("创建记录失败");
     console.error(error);
   }
+};
+
+// 处理表单提交
+const handleFormSubmit = async (values: Record<string, CellValue>) => {
+  if (!baseStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+
+  try {
+    const record = await tableStore.createRecord({
+      tableId: baseStore.currentTable.id,
+      values,
+    });
+
+    if (record) {
+      baseStore.records.push(record);
+      ElMessage.success("表单提交成功，记录已创建");
+    } else {
+      ElMessage.error(tableStore.error || "提交失败");
+    }
+  } catch (error) {
+    ElMessage.error("提交失败");
+    console.error(error);
+  }
+};
+
+// 处理表单取消
+const handleFormCancel = () => {
+  // 切换到表格视图
+  const tableView = baseStore.views.find(v => v.type === ViewType.TABLE);
+  if (tableView) {
+    viewStore.selectView(tableView.id);
+  }
+};
+
+// 打开表单配置对话框
+const openFormConfigDialog = () => {
+  if (!baseStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+  // 初始化可见字段为所有非系统字段
+  if (formConfig.value.visibleFieldIds.length === 0) {
+    const systemFieldTypes = ['createdBy', 'createdTime', 'updatedBy', 'updatedTime', 'autoNumber'];
+    formConfig.value.visibleFieldIds = baseStore.fields
+      .filter(f => !systemFieldTypes.includes(f.type))
+      .map(f => f.id);
+  }
+  formConfigDialogVisible.value = true;
+};
+
+// 保存表单配置
+const handleFormConfigSave = (config: typeof formConfig.value) => {
+  formConfig.value = { ...config };
+  ElMessage.success("表单配置已保存");
+};
+
+// 打开表单分享对话框
+const openFormShareDialog = () => {
+  if (!baseStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+  formShareDialogVisible.value = true;
 };
 
 // 处理编辑记录
@@ -696,6 +782,16 @@ function openExportDialog() {
                   字段
                 </el-button>
               </el-button-group>
+              <el-button-group v-if="isFormView">
+                <el-button size="small" @click="openFormConfigDialog">
+                  <el-icon><Setting /></el-icon>
+                  配置
+                </el-button>
+                <el-button size="small" @click="openFormShareDialog">
+                  <el-icon><Share /></el-icon>
+                  分享
+                </el-button>
+              </el-button-group>
               <el-button type="primary" size="small" @click="openExportDialog">
                 <el-icon><Download /></el-icon>
                 导出
@@ -759,6 +855,18 @@ function openExportDialog() {
               :fields="baseStore.fields"
               @editRecord="handleEditRecord"
               @deleteRecord="handleDeleteRecord" />
+
+            <!-- 表单视图 -->
+            <FormView
+              v-else-if="isFormView"
+              :fields="baseStore.fields"
+              :readonly="false"
+              :title="formConfig.title"
+              :description="formConfig.description"
+              :submit-button-text="formConfig.submitButtonText"
+              :visible-field-ids="formConfig.visibleFieldIds"
+              @submit="handleFormSubmit"
+              @cancel="handleFormCancel" />
 
             <!-- 其他视图类型占位 -->
             <div v-else class="unsupported-view">
@@ -895,6 +1003,19 @@ function openExportDialog() {
       :group-id="addRecordGroupInfo.groupId"
       :group-name="addRecordGroupInfo.groupName"
       @save="handleSaveNewRecord" />
+
+    <!-- 表单配置对话框 -->
+    <FormViewConfig
+      v-model:visible="formConfigDialogVisible"
+      :fields="baseStore.fields"
+      :initial-config="formConfig"
+      @save="handleFormConfigSave" />
+
+    <!-- 表单分享对话框 -->
+    <FormShareDialog
+      v-model:visible="formShareDialogVisible"
+      :fields="baseStore.fields"
+      :table-name="baseStore.currentTable?.name" />
   </div>
 </template>
 
