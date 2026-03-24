@@ -23,34 +23,44 @@ const primaryValue = computed(() => {
   return props.record.values[primaryField.value.id]
 })
 
-function handleClick() {
+// 处理卡片点击（非操作区域）
+function handleCardClick(event: MouseEvent) {
+  // 检查点击目标是否在操作区域内
+  const target = event.target as HTMLElement
+  const actionsArea = target.closest('.card-actions')
+  if (actionsArea) {
+    // 点击的是操作区域，不触发编辑
+    return
+  }
   emit('edit')
 }
 </script>
 
 <template>
-  <div class="kanban-card" @click="handleClick">
+  <div class="kanban-card" @click="handleCardClick">
     <div class="card-header">
       <span class="card-title">
         {{ primaryValue || '无标题' }}
       </span>
-      <el-dropdown trigger="click" @click.stop>
-        <el-button link size="small" class="card-menu-btn">
-          <el-icon><MoreFilled /></el-icon>
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item @click="$emit('edit')">
-              <el-icon><Edit /></el-icon>
-              编辑
-            </el-dropdown-item>
-            <el-dropdown-item divided @click="$emit('delete')">
-              <el-icon><Delete /></el-icon>
-              删除
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <div class="card-actions" @click.stop>
+        <el-dropdown trigger="click">
+          <el-button link size="small" class="card-menu-btn">
+            <el-icon><MoreFilled /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="$emit('edit')">
+                <el-icon><Edit /></el-icon>
+                编辑
+              </el-dropdown-item>
+              <el-dropdown-item divided @click="$emit('delete')">
+                <el-icon><Delete /></el-icon>
+                删除
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </div>
     
     <div class="card-fields">
@@ -110,6 +120,12 @@ function handleClick() {
 .card-menu-btn {
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
 }
 
 .card-fields {

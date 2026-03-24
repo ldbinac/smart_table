@@ -273,6 +273,45 @@ const handleSaveRecord = async (
   }
 };
 
+// 处理删除记录
+const handleDeleteRecord = async (recordId: string) => {
+  if (!baseStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+
+  try {
+    // 显示确认对话框
+    await ElMessageBox.confirm(
+      "确定要删除这条记录吗？此操作无法恢复。",
+      "删除确认",
+      {
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+        type: "warning",
+        confirmButtonClass: "el-button--danger",
+      },
+    );
+
+    // 执行删除
+    await tableStore.deleteRecord(recordId);
+
+    // 从本地记录列表中移除
+    const index = baseStore.records.findIndex((r) => r.id === recordId);
+    if (index !== -1) {
+      baseStore.records.splice(index, 1);
+    }
+
+    ElMessage.success("记录删除成功");
+  } catch (error) {
+    // 用户取消删除时不显示错误
+    if (error !== "cancel") {
+      ElMessage.error("删除记录失败");
+      console.error(error);
+    }
+  }
+};
+
 // 打开创建数据表对话框
 function openCreateTableDialog() {
   if (!baseStore.currentBase) {
@@ -649,7 +688,8 @@ function openExportDialog() {
               :fields="baseStore.fields"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
-              @editRecord="handleEditRecord" />
+              @editRecord="handleEditRecord"
+              @deleteRecord="handleDeleteRecord" />
 
             <!-- 日历视图 -->
             <CalendarView

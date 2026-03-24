@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AddRecordDialog: typeof import('./components/dialogs/AddRecordDialog.vue')['default']
     AppHeader: typeof import('./components/common/AppHeader.vue')['default']
     AppSidebar: typeof import('./components/common/AppSidebar.vue')['default']
     AttachmentField: typeof import('./components/fields/AttachmentField.vue')['default']

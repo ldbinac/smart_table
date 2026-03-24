@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import type { RecordEntity, FieldEntity } from '@/db/schema'
 import { FieldType } from '@/types'
 import KanbanColumn from './KanbanColumn.vue'
+import AddRecordDialog from '@/components/dialogs/AddRecordDialog.vue'
 
 interface Props {
   fields: FieldEntity[]
@@ -19,6 +20,11 @@ const emit = defineEmits<{
 
 const groupFieldId = ref<string>('')
 const cardFields = ref<string[]>([])
+
+// 添加记录对话框状态
+const addRecordDialogVisible = ref(false)
+const currentGroupId = ref<string>('')
+const currentGroupName = ref<string>('')
 
 const groupField = computed(() => {
   return props.fields.find(f => f.id === groupFieldId.value)
@@ -63,11 +69,13 @@ const groups = computed(() => {
   ]
 })
 
-function handleAddRecord(groupId: string) {
-  const values: Record<string, unknown> = {}
-  if (groupFieldId.value && groupId !== 'uncategorized') {
-    values[groupFieldId.value] = groupId
-  }
+function handleAddRecord(groupId: string, groupName: string) {
+  currentGroupId.value = groupId
+  currentGroupName.value = groupName
+  addRecordDialogVisible.value = true
+}
+
+function handleSaveNewRecord(values: Record<string, unknown>) {
   emit('addRecord', values)
 }
 
@@ -136,12 +144,22 @@ onMounted(() => {
         :records="group.records"
         :fields="fields"
         :card-fields="cardFields"
-        @add-record="handleAddRecord(group.id)"
+        @add-record="handleAddRecord(group.id, group.name)"
         @edit-record="handleEditRecord"
         @update-record="handleUpdateRecord"
         @delete-record="handleDeleteRecord"
         @move-record="(recordId) => handleMoveRecord(recordId, group.id)"
       />
+    
+    <!-- 添加记录对话框 -->
+    <AddRecordDialog
+      v-model:visible="addRecordDialogVisible"
+      :fields="fields"
+      :group-field-id="groupFieldId"
+      :group-id="currentGroupId"
+      :group-name="currentGroupName"
+      @save="handleSaveNewRecord"
+    />
     </div>
   </div>
 </template>
