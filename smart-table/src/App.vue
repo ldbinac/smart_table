@@ -1,11 +1,24 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
+import BlankLayout from '@/layouts/BlankLayout.vue'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardShortcutsStore } from '@/stores/keyboardShortcuts'
 
+const route = useRoute()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardShortcutsStore()
+
+// 根据路由决定使用哪个布局
+const layoutComponent = computed(() => {
+  // 如果路由配置中指定了使用空白布局
+  if (route.meta?.layout === 'blank') {
+    return BlankLayout
+  }
+  // 默认使用主布局
+  return MainLayout
+})
 
 onMounted(() => {
   themeStore.updateDarkMode()
@@ -36,13 +49,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <MainLayout>
+  <component :is="layoutComponent">
     <router-view v-slot="{ Component, route }">
       <Transition name="slide-fade" mode="out-in">
         <component :is="Component" :key="route.path" />
       </Transition>
     </router-view>
-  </MainLayout>
+  </component>
 </template>
 
 <style lang="scss">

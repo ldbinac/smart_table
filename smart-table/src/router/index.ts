@@ -31,7 +31,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/FormShare.vue'),
     meta: {
       title: '表单填写',
-      public: true // 标记为公开页面，不需要登录
+      public: true, // 标记为公开页面，不需要登录
+      layout: 'blank' // 使用空白布局，无导航栏和菜单
     }
   },
   {
