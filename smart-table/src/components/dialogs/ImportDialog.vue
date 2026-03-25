@@ -14,6 +14,7 @@ import {
 } from '@/utils/importExport';
 import { exportTemplate } from '@/utils/templateGenerator';
 import { useTableStore } from '@/stores/tableStore';
+import { generateId } from '@/utils/id';
 
 interface Props {
   visible: boolean;
@@ -54,6 +55,11 @@ const importResult = ref<{
 // 计算可用的目标字段
 const availableFields = computed(() => {
   return props.fields.filter(f => !f.isSystem);
+});
+
+// 获取主键字段
+const primaryField = computed(() => {
+  return props.fields.find(f => f.isPrimary);
 });
 
 // 获取字段类型标签
@@ -198,6 +204,14 @@ async function handleImport() {
         try {
           // 转换数据
           const values = convertImportData(row, fieldMappings.value);
+          
+          // 自动填充主键值
+          if (primaryField.value) {
+            // 如果用户没有提供主键值，则自动生成
+            if (!values[primaryField.value.id]) {
+              values[primaryField.value.id] = generateId();
+            }
+          }
           
           // 验证数据
           const validation = validateRow(values, availableFields.value);
