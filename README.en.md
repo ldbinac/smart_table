@@ -7,6 +7,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 ## Features
 
 ### Core Features
+
 - Base Management - Create, edit, delete, and star bases
 - Table Management - Support multiple tables with drag-sort, rename, and delete
 - Field Management - Support 20+ field types
@@ -14,6 +15,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 - View Management - Multiple view types with filter, sort, and group
 
 ### Supported Field Types
+
 - Basic: Text, Number, Date, Checkbox
 - Select: Single Select, Multi Select
 - Contact: Member, Phone, Email, URL
@@ -23,6 +25,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 - Others: Rating, Progress
 
 ### Supported View Types
+
 - Table View - Classic table display
 - Kanban View - Card-based display
 - Calendar View - Time-based display
@@ -31,6 +34,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 - Gallery View - Image card display
 
 ### Advanced Features
+
 - Data Filtering - Multi-condition combined filtering
 - Data Sorting - Multi-field sorting
 - Data Grouping - Group by field
@@ -41,22 +45,23 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 
 ## Tech Stack
 
-| Category | Technology |
-|----------|------------|
-| Frontend Framework | Vue 3 (Composition API) |
-| Language | TypeScript |
-| State Management | Pinia |
-| Database | Dexie (IndexedDB) |
-| UI Component Library | Element Plus |
-| Table Component | vxe-table |
-| Drag Sorting | sortablejs |
-| Charts | echarts + vue-echarts |
-| Build Tool | Vite |
-| Testing | Vitest |
+| Category             | Technology              |
+| -------------------- | ----------------------- |
+| Frontend Framework   | Vue 3 (Composition API) |
+| Language             | TypeScript              |
+| State Management     | Pinia                   |
+| Database             | Dexie (IndexedDB)       |
+| UI Component Library | Element Plus            |
+| Table Component      | vxe-table               |
+| Drag Sorting         | sortablejs              |
+| Charts               | echarts + vue-echarts   |
+| Build Tool           | Vite                    |
+| Testing              | Vitest                  |
 
 ## Quick Start
 
 ### Requirements
+
 - Node.js >= 18
 - npm >= 9
 
@@ -133,22 +138,27 @@ smart-table/
 ## Data Models
 
 ### Base
+
 - Base unit for multi-dimensional tables
 - Support starring, custom icon and color
 
 ### Table
+
 - Contains field definitions and record data
 - Support drag sorting and starring
 
 ### Field
+
 - Define column types and properties
 - Support 20+ field types
 
 ### Record
+
 - Data row
 - Support CRUD and batch operations
 
 ### View
+
 - Data display method
 - Support filter, sort, and group configuration
 
@@ -188,4 +198,4 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## License
 
-[MIT](LICENSE) © 2024 Smart Table Contributors
+[MIT](LICENSE) © 2026 Smart Table Contributors
