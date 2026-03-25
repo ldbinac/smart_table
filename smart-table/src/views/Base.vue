@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
-import { Setting, Share } from "@element-plus/icons-vue";
+import { Setting, Share, Upload } from "@element-plus/icons-vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
 import CalendarView from "@/components/views/CalendarView/CalendarView.vue";
@@ -21,6 +21,7 @@ import SortDialog from "@/components/dialogs/SortDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
 import RecordDialog from "@/components/dialogs/RecordDialog.vue";
 import AddRecordDialog from "@/components/dialogs/AddRecordDialog.vue";
+import ImportDialog from "@/components/dialogs/ImportDialog.vue";
 import { ViewType } from "@/types";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -67,6 +68,7 @@ const recordDialogVisible = ref(false);
 const addRecordDialogVisible = ref(false);
 const formConfigDialogVisible = ref(false);
 const formShareDialogVisible = ref(false);
+const importDialogVisible = ref(false);
 
 // 表单配置
 const formConfig = ref({
@@ -665,6 +667,23 @@ function openExportDialog() {
   }
   exportDialogVisible.value = true;
 }
+
+// 打开导入对话框
+function openImportDialog() {
+  if (!baseStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+  importDialogVisible.value = true;
+}
+
+// 处理导入完成
+function handleImported() {
+  // 刷新数据
+  if (baseStore.currentTable) {
+    tableStore.selectTable(baseStore.currentTable.id);
+  }
+}
 </script>
 
 <template>
@@ -792,6 +811,10 @@ function openExportDialog() {
                   分享
                 </el-button>
               </el-button-group>
+              <el-button size="small" @click="openImportDialog">
+                <el-icon><Upload /></el-icon>
+                导入
+              </el-button>
               <el-button type="primary" size="small" @click="openExportDialog">
                 <el-icon><Download /></el-icon>
                 导出
@@ -1023,6 +1046,13 @@ function openExportDialog() {
         submitButtonText: formConfig.submitButtonText,
         successMessage: formConfig.successMessage
       }" />
+
+    <!-- 数据导入对话框 -->
+    <ImportDialog
+      v-model:visible="importDialogVisible"
+      :table-id="baseStore.currentTable?.id || ''"
+      :fields="baseStore.fields"
+      @imported="handleImported" />
   </div>
 </template>
 
