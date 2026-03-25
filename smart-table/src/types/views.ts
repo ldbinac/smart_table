@@ -37,6 +37,12 @@ export interface ViewGanttConfig {
 
 export interface ViewFormConfig {
   fields?: string[];
+  title?: string;
+  description?: string;
+  submitButtonText?: string;
+  visibleFieldIds?: string[];
+  successMessage?: string;
+  allowMultipleSubmit?: boolean;
 }
 
 export interface ViewGalleryConfig {

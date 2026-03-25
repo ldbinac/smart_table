@@ -30,7 +30,9 @@ const formConfig = ref({
   title: '数据收集表单',
   description: '',
   submitButtonText: '提交',
-  successMessage: '提交成功，感谢您的参与！'
+  successMessage: '提交成功，感谢您的参与！',
+  visibleFieldIds: [] as string[],
+  allowMultipleSubmit: true
 })
 
 // 获取主键字段
@@ -43,7 +45,7 @@ function isPrimaryField(field: FieldEntity): boolean {
   return primaryField.value?.id === field.id
 }
 
-// 可见字段（过滤系统字段）
+// 可见字段（根据配置或默认过滤系统字段）
 const visibleFields = computed(() => {
   const systemFieldTypes: FieldTypeValue[] = [
     FieldType.CREATED_BY,
@@ -52,6 +54,15 @@ const visibleFields = computed(() => {
     FieldType.UPDATED_TIME,
     FieldType.AUTO_NUMBER
   ]
+  
+  // 如果有配置的 visibleFieldIds，使用配置
+  if (formConfig.value.visibleFieldIds && formConfig.value.visibleFieldIds.length > 0) {
+    return fields.value
+      .filter(f => formConfig.value.visibleFieldIds.includes(f.id))
+      .filter(f => !systemFieldTypes.includes(f.type as FieldTypeValue))
+  }
+  
+  // 否则默认显示所有非系统字段
   return fields.value
     .filter(f => !f.options?.hidden)
     .filter(f => !systemFieldTypes.includes(f.type as FieldTypeValue))
@@ -79,12 +90,9 @@ onMounted(async () => {
   }
 })
 
-// 加载表单数据（模拟实现）
+// 加载表单数据
 async function loadFormData(formId: string) {
-  // 实际项目中，这里应该调用 API 获取表单配置
-  // 例如：const response = await fetch(`/api/forms/${formId}`)
-  
-  // 模拟从 localStorage 或 URL 参数获取表单配置
+  // 从 localStorage 获取表单配置
   const storedConfig = localStorage.getItem(`form_config_${formId}`)
   
   if (storedConfig) {
@@ -92,7 +100,18 @@ async function loadFormData(formId: string) {
     tableId.value = config.tableId
     tableName.value = config.tableName
     fields.value = config.fields || []
-    formConfig.value = { ...formConfig.value, ...config.formConfig }
+    
+    // 加载表单配置
+    if (config.formConfig) {
+      formConfig.value = {
+        title: config.formConfig.title ?? '数据收集表单',
+        description: config.formConfig.description ?? '',
+        submitButtonText: config.formConfig.submitButtonText ?? '提交',
+        successMessage: config.formConfig.successMessage ?? '提交成功，感谢您的参与！',
+        visibleFieldIds: config.formConfig.visibleFieldIds ?? [],
+        allowMultipleSubmit: config.formConfig.allowMultipleSubmit ?? true
+      }
+    }
   } else {
     // 如果没有存储的配置，尝试从 URL 参数解析
     const queryTableId = route.query.tableId as string

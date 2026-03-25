@@ -60,10 +60,13 @@ export const useViewStore = defineStore('view', () => {
   }
 
   async function selectDefaultView(tableId: string) {
+    console.log("[ViewStore] selectDefaultView called:", tableId);
     try {
       const defaultView = await viewService.getDefaultView(tableId);
+      console.log("[ViewStore] Default view loaded:", defaultView?.id, defaultView?.config);
       currentView.value = defaultView || null;
     } catch (e) {
+      console.error("[ViewStore] selectDefaultView failed:", e);
       error.value = e instanceof Error ? e.message : 'Failed to select default view';
     }
   }
@@ -99,8 +102,10 @@ export const useViewStore = defineStore('view', () => {
     rowHeight?: 'short' | 'medium' | 'tall';
     isDefault?: boolean;
   }) {
+    console.log("[ViewStore] updateView called:", id, data);
     try {
       await viewService.updateView(id, data);
+      console.log("[ViewStore] viewService.updateView completed");
       const index = views.value.findIndex(v => v.id === id);
       if (index !== -1) {
         views.value[index] = {
@@ -115,8 +120,10 @@ export const useViewStore = defineStore('view', () => {
           ...data,
           updatedAt: Date.now()
         } as ViewEntity;
+        console.log("[ViewStore] currentView updated:", currentView.value.config);
       }
     } catch (e) {
+      console.error("[ViewStore] updateView failed:", e);
       error.value = e instanceof Error ? e.message : 'Failed to update view';
     }
   }

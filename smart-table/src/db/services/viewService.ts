@@ -2,6 +2,7 @@ import { db } from '../schema';
 import type { ViewEntity } from '../schema';
 import { generateId } from '../../utils/id';
 import type { FilterCondition, SortConfig } from '../../types';
+import { serializeViewConfig, deserializeViewConfig } from '../../utils/viewConfigSerializer';
 
 export interface CreateViewData {
   tableId: string;
@@ -55,11 +56,21 @@ export class ViewService {
   }
 
   async getView(id: string): Promise<ViewEntity | undefined> {
-    return db.views.get(id);
+    const view = await db.views.get(id);
+    if (view && view.config) {
+      view.config = deserializeViewConfig(view.config);
+    }
+    return view;
   }
 
   async getViewsByTable(tableId: string): Promise<ViewEntity[]> {
-    return db.views.where('tableId').equals(tableId).sortBy('order');
+    const views = await db.views.where('tableId').equals(tableId).sortBy('order');
+    return views.map(view => {
+      if (view.config) {
+        view.config = deserializeViewConfig(view.config);
+      }
+      return view;
+    });
   }
 
   async getDefaultView(tableId: string): Promise<ViewEntity | undefined> {
@@ -68,6 +79,7 @@ export class ViewService {
   }
 
   async updateView(id: string, data: UpdateViewData): Promise<void> {
+    console.log("[ViewService] Updating view:", id, data);
     if (data.isDefault) {
       const view = await this.getView(id);
       if (view) {
@@ -75,10 +87,24 @@ export class ViewService {
       }
     }
 
-    await db.views.update(id, {
+    // 序列化配置数据，将数组转换为 JSON 字符串
+    const updateData: UpdateViewData = {
       ...data,
       updatedAt: Date.now()
-    });
+    };
+    
+    if (data.config) {
+      updateData.config = serializeViewConfig(data.config);
+      console.log("[ViewService] Serialized config:", updateData.config);
+    }
+    
+    console.log("[ViewService] Update data:", updateData);
+    
+    await db.views.update(id, updateData);
+    
+    // 验证更新是否成功
+    const updatedView = await this.getView(id);
+    console.log("[ViewService] View after update:", updatedView?.config);
   }
 
   async deleteView(id: string): Promise<void> {

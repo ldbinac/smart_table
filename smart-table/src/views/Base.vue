@@ -73,12 +73,12 @@ const importDialogVisible = ref(false);
 
 // 表单配置
 const formConfig = ref({
-  title: '数据收集表单',
-  description: '',
-  submitButtonText: '提交',
+  title: "数据收集表单",
+  description: "",
+  submitButtonText: "提交",
   visibleFieldIds: [] as string[],
-  successMessage: '提交成功，感谢您的参与！',
-  allowMultipleSubmit: true
+  successMessage: "提交成功，感谢您的参与！",
+  allowMultipleSubmit: true,
 });
 
 // 当前编辑的记录
@@ -170,26 +170,33 @@ const isGalleryView = computed(
 );
 
 // 是否为甘特视图
-const isGanttView = computed(
-  () => currentViewType.value === ViewType.GANTT,
-);
+const isGanttView = computed(() => currentViewType.value === ViewType.GANTT);
 
 // 是否为表单视图
-const isFormView = computed(
-  () => currentViewType.value === ViewType.FORM,
-);
+const isFormView = computed(() => currentViewType.value === ViewType.FORM);
 
 // 表格列表引用（用于拖拽排序）
 const tableListRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
 
 onMounted(async () => {
+  console.log("[Base] onMounted");
   const baseId = route.params.id as string;
   if (baseId) {
     await baseStore.loadBase(baseId);
     // 同步视图数据到 viewStore
     if (baseStore.currentTable) {
+      console.log("[Base] Loading views for table:", baseStore.currentTable.id);
       await viewStore.loadViews(baseStore.currentTable.id);
+      console.log("[Base] Views loaded:", viewStore.views.length);
+      // 选择默认视图（这会设置 viewStore.currentView）
+      await viewStore.selectDefaultView(baseStore.currentTable.id);
+      console.log(
+        "[Base] Default view selected:",
+        viewStore.currentView?.id,
+        viewStore.currentView?.type,
+      );
+      console.log("[Base] Default view config:", viewStore.currentView?.config);
     }
     initSortable();
   }
@@ -198,11 +205,19 @@ onMounted(async () => {
 watch(
   () => route.params.id,
   async (newId) => {
+    console.log("[Base] route.params.id changed:", newId);
     if (newId) {
       await baseStore.loadBase(newId as string);
       // 同步视图数据到 viewStore
       if (baseStore.currentTable) {
         await viewStore.loadViews(baseStore.currentTable.id);
+        // 选择默认视图（这会设置 viewStore.currentView）
+        await viewStore.selectDefaultView(baseStore.currentTable.id);
+        console.log(
+          "[Base] After route change - currentView:",
+          viewStore.currentView?.id,
+          viewStore.currentView?.type,
+        );
       }
       initSortable();
     }
@@ -250,6 +265,11 @@ const handleTableSelect = async (tableId: string) => {
 
 const handleViewChange = async (viewId: string) => {
   await viewStore.selectView(viewId);
+  // 如果切换到表单视图，加载表单配置
+  const selectedView = viewStore.views.find((v) => v.id === viewId);
+  if (selectedView?.type === ViewType.FORM) {
+    loadFormConfig();
+  }
 };
 
 const handleRecordSelect = (record: any) => {
@@ -327,11 +347,99 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
 // 处理表单取消
 const handleFormCancel = () => {
   // 切换到表格视图
-  const tableView = baseStore.views.find(v => v.type === ViewType.TABLE);
+  const tableView = baseStore.views.find((v) => v.type === ViewType.TABLE);
   if (tableView) {
     viewStore.selectView(tableView.id);
   }
 };
+
+// 加载表单配置
+const loadFormConfig = () => {
+  console.log("[FormConfig] Loading form config...");
+  const currentView = viewStore.currentView;
+  console.log("[FormConfig] Current view:", currentView?.id, currentView?.type);
+  console.log("[FormConfig] Current view config:", currentView?.config);
+
+  const systemFieldTypes = [
+    "createdBy",
+    "createdTime",
+    "updatedBy",
+    "updatedTime",
+    "autoNumber",
+  ];
+
+  // 获取所有非系统字段作为默认可见字段
+  const defaultVisibleFieldIds = baseStore.fields
+    .filter((f) => !systemFieldTypes.includes(f.type))
+    .map((f) => f.id);
+
+  console.log(
+    "[FormConfig] Default visible field IDs:",
+    defaultVisibleFieldIds,
+  );
+
+  if (currentView?.type === ViewType.FORM && currentView.config) {
+    const config = currentView.config as {
+      title?: string;
+      description?: string;
+      submitButtonText?: string;
+      visibleFieldIds?: string[];
+      successMessage?: string;
+      allowMultipleSubmit?: boolean;
+    };
+
+    // 检查配置中是否明确设置了 visibleFieldIds
+    // 如果 config 中有 visibleFieldIds 属性（即使是空数组），使用它
+    // 如果没有 visibleFieldIds 属性，使用默认值
+    const hasVisibleFieldIdsConfig = "visibleFieldIds" in currentView.config;
+    console.log(
+      "[FormConfig] Has visibleFieldIds config:",
+      hasVisibleFieldIdsConfig,
+    );
+    console.log("[FormConfig] Config visibleFieldIds:", config.visibleFieldIds);
+
+    formConfig.value = {
+      title: config.title ?? "数据收集表单",
+      description: config.description ?? "",
+      submitButtonText: config.submitButtonText ?? "提交",
+      visibleFieldIds: hasVisibleFieldIdsConfig
+        ? (config.visibleFieldIds ?? [])
+        : defaultVisibleFieldIds,
+      successMessage: config.successMessage ?? "提交成功，感谢您的参与！",
+      allowMultipleSubmit: config.allowMultipleSubmit ?? true,
+    };
+  } else {
+    console.log("[FormConfig] Using default config");
+    // 使用默认配置
+    formConfig.value = {
+      title: "数据收集表单",
+      description: "",
+      submitButtonText: "提交",
+      visibleFieldIds: defaultVisibleFieldIds,
+      successMessage: "提交成功，感谢您的参与！",
+      allowMultipleSubmit: true,
+    };
+  }
+  console.log("[FormConfig] Loaded formConfig:", formConfig.value);
+};
+
+// 监听当前视图变化，自动加载表单配置
+watch(
+  () => viewStore.currentView,
+  (newView, oldView) => {
+    console.log(
+      "[Base] viewStore.currentView changed:",
+      newView?.id,
+      newView?.type,
+    );
+    console.log("[Base] Old view:", oldView?.id, oldView?.type);
+    if (newView?.type === ViewType.FORM && newView?.id !== oldView?.id) {
+      console.log("[Base] Loading form config due to view change");
+      loadFormConfig();
+    }
+  },
+  { immediate: true },
+);
 
 // 打开表单配置对话框
 const openFormConfigDialog = () => {
@@ -339,19 +447,46 @@ const openFormConfigDialog = () => {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
-  // 初始化可见字段为所有非系统字段
-  if (formConfig.value.visibleFieldIds.length === 0) {
-    const systemFieldTypes = ['createdBy', 'createdTime', 'updatedBy', 'updatedTime', 'autoNumber'];
-    formConfig.value.visibleFieldIds = baseStore.fields
-      .filter(f => !systemFieldTypes.includes(f.type))
-      .map(f => f.id);
-  }
+  // 加载当前视图的配置
+  loadFormConfig();
   formConfigDialogVisible.value = true;
 };
 
 // 保存表单配置
-const handleFormConfigSave = (config: typeof formConfig.value) => {
+const handleFormConfigSave = async (config: typeof formConfig.value) => {
+  console.log("[FormConfig] Saving config:", config);
   formConfig.value = { ...config };
+
+  // 保存到视图配置
+  const currentView = viewStore.currentView;
+  console.log("[FormConfig] Current view:", currentView?.id, currentView?.type);
+  console.log(
+    "[FormConfig] Current view config before save:",
+    currentView?.config,
+  );
+
+  if (currentView && currentView.type === ViewType.FORM) {
+    const newConfig = {
+      ...currentView.config,
+      title: config.title,
+      description: config.description,
+      submitButtonText: config.submitButtonText,
+      visibleFieldIds: config.visibleFieldIds,
+      successMessage: config.successMessage,
+      allowMultipleSubmit: config.allowMultipleSubmit,
+    };
+    console.log("[FormConfig] New config to save:", newConfig);
+
+    await viewStore.updateView(currentView.id, {
+      config: newConfig,
+    });
+
+    console.log(
+      "[FormConfig] View after update:",
+      viewStore.currentView?.config,
+    );
+  }
+
   ElMessage.success("表单配置已保存");
 };
 
@@ -912,7 +1047,9 @@ function handleImported() {
               <el-empty description="该视图类型暂不支持">
                 <template #description>
                   <p>该视图类型暂不支持</p>
-                  <p class="sub-text">请切换到表格视图、看板视图、日历视图或甘特视图</p>
+                  <p class="sub-text">
+                    请切换到表格视图、看板视图、日历视图或甘特视图
+                  </p>
                 </template>
               </el-empty>
             </div>
@@ -1061,7 +1198,9 @@ function handleImported() {
         title: formConfig.title,
         description: formConfig.description,
         submitButtonText: formConfig.submitButtonText,
-        successMessage: formConfig.successMessage
+        successMessage: formConfig.successMessage,
+        visibleFieldIds: formConfig.visibleFieldIds,
+        allowMultipleSubmit: formConfig.allowMultipleSubmit,
       }" />
 
     <!-- 数据导入对话框 -->

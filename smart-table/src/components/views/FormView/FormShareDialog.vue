@@ -14,6 +14,8 @@ interface Props {
     description?: string
     submitButtonText?: string
     successMessage?: string
+    visibleFieldIds?: string[]
+    allowMultipleSubmit?: boolean
   }
 }
 
@@ -24,7 +26,9 @@ const props = withDefaults(defineProps<Props>(), {
     title: '数据收集表单',
     description: '',
     submitButtonText: '提交',
-    successMessage: '提交成功，感谢您的参与！'
+    successMessage: '提交成功，感谢您的参与！',
+    visibleFieldIds: [],
+    allowMultipleSubmit: true
   })
 })
 
@@ -61,7 +65,18 @@ function generateShareLink() {
 function saveFormConfig(formId: string) {
   // 过滤掉系统字段
   const systemFieldTypes = ['createdBy', 'createdTime', 'updatedBy', 'updatedTime', 'autoNumber']
-  const shareableFields = props.fields.filter(f => !systemFieldTypes.includes(f.type))
+  
+  // 根据 visibleFieldIds 确定要分享的字段
+  let shareableFields: FieldEntity[]
+  if (props.formConfig?.visibleFieldIds && props.formConfig.visibleFieldIds.length > 0) {
+    // 使用配置的可见字段
+    shareableFields = props.fields.filter(f => 
+      props.formConfig!.visibleFieldIds!.includes(f.id) && !systemFieldTypes.includes(f.type)
+    )
+  } else {
+    // 默认分享所有非系统字段
+    shareableFields = props.fields.filter(f => !systemFieldTypes.includes(f.type))
+  }
   
   const config = {
     formId,
