@@ -8,7 +8,7 @@ interface Props {
     name: string
     type: string
     options?: {
-      includeTime?: boolean
+      showTime?: boolean
       dateFormat?: string
     }
   }
@@ -26,16 +26,17 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string | null): void
 }>()
 
-const includeTime = computed(() => {
-  return props.field?.options?.includeTime ?? false
-})
-
-const dateFormat = computed(() => {
-  return props.field?.options?.dateFormat ?? 'YYYY-MM-DD'
+// 时间显示配置，默认不显示时间
+const showTime = computed(() => {
+  return props.field?.options?.showTime ?? false
 })
 
 const displayFormat = computed(() => {
-  return includeTime.value ? `${dateFormat.value} HH:mm` : dateFormat.value
+  return showTime.value ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'
+})
+
+const pickerType = computed(() => {
+  return showTime.value ? 'datetime' : 'date'
 })
 
 const displayValue = computed(() => {
@@ -52,7 +53,7 @@ const localValue = computed({
     if (!val) {
       emit('update:modelValue', null)
     } else {
-      emit('update:modelValue', dayjs(val).toISOString())
+      emit('update:modelValue', dayjs(val).format(displayFormat.value))
     }
   }
 })
@@ -76,8 +77,8 @@ defineExpose({ focus })
     <template v-else>
       <el-date-picker
         v-model="localValue"
-        :type="includeTime ? 'datetime' : 'date'"
-        :placeholder="placeholder || '请选择日期'"
+        :type="pickerType"
+        :placeholder="placeholder || (showTime ? '请选择日期时间' : '请选择日期')"
         :format="displayFormat"
         :value-format="displayFormat"
         clearable

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch, nextTick, computed } from "vue";
 import {
   ElDialog,
   ElButton,
@@ -12,6 +12,8 @@ import {
   ElColorPicker,
   ElTag,
   ElMessage,
+  ElSlider,
+  ElIcon,
 } from "element-plus";
 import { fieldService } from "@/db/services/fieldService";
 import {
@@ -22,6 +24,8 @@ import {
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
+import Sortable from "sortablejs";
+import { Rank } from "@element-plus/icons-vue";
 
 const props = defineProps<{
   visible: boolean;
@@ -34,21 +38,35 @@ const emit = defineEmits<{
   "field-created": [field: FieldEntity];
   "field-updated": [field: FieldEntity];
   "field-deleted": [fieldId: string];
+  "fields-reordered": [fieldIds: string[]];
 }>();
 
 const activeTab = ref<"list" | "create" | "edit">("list");
 const editingField = ref<FieldEntity | null>(null);
+const fieldListRef = ref<HTMLElement | null>(null);
+let sortableInstance: Sortable | null = null;
+
+// 按 order 排序后的字段列表
+const sortedFields = computed(() => {
+  return [...props.fields].sort((a, b) => a.order - b.order);
+});
 
 const newField = ref<{
   name: string;
   type: FieldTypeValue;
   isRequired: boolean;
   description: string;
+  // 数值字段配置
+  precision: number;
+  // 日期字段配置
+  showTime: boolean;
 }>({
   name: "",
   type: FieldType.TEXT,
   isRequired: false,
   description: "",
+  precision: 0,
+  showTime: false,
 });
 
 const systemTypes = [
@@ -67,6 +85,74 @@ const selectOptions = ref<{ id: string; name: string; color: string }[]>([]);
 const newOptionName = ref("");
 const newOptionColor = ref("#3370FF");
 
+// 监听对话框显示，初始化拖拽排序
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      activeTab.value = "list";
+      nextTick(() => {
+        initSortable();
+      });
+    } else {
+      destroySortable();
+    }
+  },
+);
+
+// 监听字段列表变化，重新初始化拖拽
+watch(
+  () => props.fields,
+  () => {
+    if (activeTab.value === "list" && props.visible) {
+      nextTick(() => {
+        initSortable();
+      });
+    }
+  },
+  { deep: true },
+);
+
+function initSortable() {
+  if (sortableInstance) {
+    sortableInstance.destroy();
+  }
+
+  if (fieldListRef.value) {
+    sortableInstance = new Sortable(fieldListRef.value, {
+      handle: ".drag-handle",
+      animation: 150,
+      onEnd: handleFieldDragEnd,
+    });
+  }
+}
+
+function destroySortable() {
+  if (sortableInstance) {
+    sortableInstance.destroy();
+    sortableInstance = null;
+  }
+}
+
+async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
+  if (evt.oldIndex === evt.newIndex) return;
+
+  // 使用排序后的字段列表
+  const currentSortedFields = [...sortedFields.value];
+  const [movedField] = currentSortedFields.splice(evt.oldIndex!, 1);
+  currentSortedFields.splice(evt.newIndex!, 0, movedField);
+
+  const fieldIds = currentSortedFields.map((f) => f.id);
+
+  try {
+    await fieldService.reorderFields(props.tableId, fieldIds);
+    emit("fields-reordered", fieldIds);
+    ElMessage.success("字段排序已更新");
+  } catch (error) {
+    ElMessage.error("字段排序失败");
+  }
+}
+
 function openCreateField() {
   activeTab.value = "create";
   newField.value = {
@@ -74,6 +160,8 @@ function openCreateField() {
     type: FieldType.TEXT,
     isRequired: false,
     description: "",
+    precision: 0,
+    showTime: false,
   };
   selectOptions.value = [];
 }
@@ -86,6 +174,8 @@ function openEditField(field: FieldEntity) {
     type: field.type as FieldTypeValue,
     isRequired: field.isRequired ?? false,
     description: field.description || "",
+    precision: (field.options?.precision as number) ?? 0,
+    showTime: (field.options?.showTime as boolean) ?? false,
   };
   if (
     field.type === FieldType.SINGLE_SELECT ||
@@ -110,6 +200,8 @@ function backToList() {
     type: FieldType.TEXT,
     isRequired: false,
     description: "",
+    precision: 0,
+    showTime: false,
   };
   selectOptions.value = [];
 }
@@ -126,12 +218,19 @@ async function createField() {
       newField.value.type === FieldType.SINGLE_SELECT ||
       newField.value.type === FieldType.MULTI_SELECT
     ) {
-      // 将选项转换为纯 JavaScript 对象，避免响应式对象导致的克隆错误
       options.options = selectOptions.value.map((opt) => ({
         id: opt.id,
         name: opt.name,
         color: opt.color,
       }));
+    }
+    // 数值字段精度配置
+    if (newField.value.type === FieldType.NUMBER) {
+      options.precision = newField.value.precision;
+    }
+    // 日期字段时间显示配置
+    if (newField.value.type === FieldType.DATE) {
+      options.showTime = newField.value.showTime;
     }
 
     const field = await fieldService.createField({
@@ -161,17 +260,24 @@ async function updateField() {
   }
 
   try {
-    const options: FieldOptions = { ...editingField.value.options };
+    const options: FieldOptions = { ...(editingField.value.options || {}) };
     if (
       newField.value.type === FieldType.SINGLE_SELECT ||
       newField.value.type === FieldType.MULTI_SELECT
     ) {
-      // 将选项转换为纯 JavaScript 对象，避免响应式对象导致的克隆错误
       options.options = selectOptions.value.map((opt) => ({
         id: opt.id,
         name: opt.name,
         color: opt.color,
       }));
+    }
+    // 数值字段精度配置
+    if (newField.value.type === FieldType.NUMBER) {
+      options.precision = newField.value.precision;
+    }
+    // 日期字段时间显示配置
+    if (newField.value.type === FieldType.DATE) {
+      options.showTime = newField.value.showTime;
     }
 
     await fieldService.updateField(editingField.value.id, {
@@ -235,6 +341,13 @@ function onTypeChange() {
   ) {
     selectOptions.value = [];
   }
+  // 切换类型时重置特定配置
+  if (newField.value.type !== FieldType.NUMBER) {
+    newField.value.precision = 0;
+  }
+  if (newField.value.type !== FieldType.DATE) {
+    newField.value.showTime = false;
+  }
 }
 
 const presetColors = [
@@ -267,13 +380,17 @@ const presetColors = [
         </ElButton>
       </div>
 
-      <div class="field-items">
+      <div ref="fieldListRef" class="field-items">
         <div
-          v-for="field in fields"
+          v-for="field in sortedFields"
           :key="field.id"
           class="field-item"
-          :class="{ 'is-system': field.isSystem }">
+          :class="{ 'is-system': field.isSystem }"
+          :data-field-id="field.id">
           <div class="field-info">
+            <span class="drag-handle" title="拖拽排序">
+              <ElIcon><Rank /></ElIcon>
+            </span>
             <span class="field-icon">{{ getFieldTypeIcon(field.type) }}</span>
             <span class="field-name">{{ field.name }}</span>
             <span class="field-type">{{ getFieldTypeLabel(field.type) }}</span>
@@ -306,7 +423,7 @@ const presetColors = [
 
     <!-- 创建/编辑字段 -->
     <div v-else class="field-form">
-      <ElForm label-width="80px">
+      <ElForm label-width="100px">
         <ElFormItem label="字段名称" required>
           <ElInput
             v-model="newField.name"
@@ -331,6 +448,30 @@ const presetColors = [
               </span>
             </ElOption>
           </ElSelect>
+        </ElFormItem>
+
+        <!-- 数值字段精度配置 -->
+        <ElFormItem v-if="newField.type === FieldType.NUMBER" label="小数位数">
+          <div class="precision-config">
+            <ElSlider
+              v-model="newField.precision"
+              :min="0"
+              :max="10"
+              :step="1"
+              show-stops
+              style="width: 300px" />
+            <span class="precision-value">{{ newField.precision }} 位</span>
+          </div>
+          <div class="field-hint">设置数值显示的小数位数，默认为 0</div>
+        </ElFormItem>
+
+        <!-- 日期字段时间显示配置 -->
+        <ElFormItem v-if="newField.type === FieldType.DATE" label="显示时间">
+          <ElSwitch
+            v-model="newField.showTime"
+            active-text="YYYY-MM-DD HH:mm:ss"
+            inactive-text="YYYY-MM-DD" />
+          <div class="field-hint">开启后将显示日期和时间，关闭则仅显示日期</div>
         </ElFormItem>
 
         <ElFormItem
@@ -437,6 +578,10 @@ const presetColors = [
 
     &:hover {
       background-color: $bg-color;
+
+      .drag-handle {
+        opacity: 1;
+      }
     }
 
     &.is-system {
@@ -447,6 +592,19 @@ const presetColors = [
       display: flex;
       align-items: center;
       gap: 8px;
+
+      .drag-handle {
+        opacity: 0;
+        cursor: grab;
+        color: $text-secondary;
+        transition: opacity 0.2s;
+        display: flex;
+        align-items: center;
+
+        &:active {
+          cursor: grabbing;
+        }
+      }
 
       .field-icon {
         font-size: 16px;
@@ -482,6 +640,23 @@ const presetColors = [
     .type-icon {
       font-size: 14px;
     }
+  }
+
+  .precision-config {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    .precision-value {
+      min-width: 50px;
+      color: $text-secondary;
+      font-size: $font-size-sm;
+    }
+  }
+
+  .field-hint {
+    font-size: calc($font-size-xs * 0.85);
+    color: $text-secondary;
+    margin-top: 4px;
   }
 
   .options-editor {

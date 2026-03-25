@@ -4,6 +4,7 @@ import type { RecordEntity, FieldEntity } from '@/db/schema'
 import { FieldType, type CellValue, type FieldTypeValue } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { generateId } from '@/utils/id'
+import dayjs from 'dayjs'
 
 interface Props {
   fields: FieldEntity[]
@@ -283,6 +284,46 @@ function getSelectOptions(field: FieldEntity) {
   )
 }
 
+// 获取数值字段精度
+function getNumberPrecision(field: FieldEntity): number {
+  return (field.options?.precision as number) ?? 0
+}
+
+// 获取日期字段是否显示时间
+function getDateShowTime(field: FieldEntity): boolean {
+  return (field.options?.showTime as boolean) ?? false
+}
+
+// 获取日期字段格式
+function getDateFormat(field: FieldEntity): string {
+  return getDateShowTime(field) ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'
+}
+
+// 获取日期选择器类型
+function getDatePickerType(field: FieldEntity): 'date' | 'datetime' {
+  return getDateShowTime(field) ? 'datetime' : 'date'
+}
+
+// 处理日期变更
+function handleDateChange(fieldId: string, val: Date | null) {
+  if (!val) {
+    handleFieldChange(fieldId, null)
+    return
+  }
+  
+  const field = props.fields.find(f => f.id === fieldId)
+  if (!field) return
+  
+  const showTime = getDateShowTime(field)
+  if (showTime) {
+    // 显示时间时存储为时间戳
+    handleFieldChange(fieldId, val.getTime())
+  } else {
+    // 仅日期时存储为日期字符串
+    handleFieldChange(fieldId, dayjs(val).format('YYYY-MM-DD'))
+  }
+}
+
 // 导出表单数据为 JSON
 function exportFormData() {
   const data = {
@@ -394,7 +435,7 @@ defineExpose({
               :model-value="Number(formValues[field.id] || 0)"
               :placeholder="`请输入${field.name}`"
               :disabled="readonly"
-              :precision="Number(field.options?.precision ?? 2)"
+              :precision="getNumberPrecision(field)"
               :min="field.options?.min !== undefined ? Number(field.options.min) : undefined"
               :max="field.options?.max !== undefined ? Number(field.options.max) : undefined"
               style="width: 100%"
@@ -456,13 +497,13 @@ defineExpose({
           <!-- 日期类型 -->
           <template v-else-if="getFieldComponentType(field) === 'date'">
             <el-date-picker
-              :model-value="formValues[field.id] as number | undefined"
-              type="datetime"
+              :model-value="formValues[field.id] as unknown as Date | undefined"
+              :type="getDatePickerType(field)"
               :placeholder="`请选择${field.name}`"
+              :format="getDateFormat(field)"
               :disabled="readonly"
               style="width: 100%"
-              value-format="x"
-              @update:model-value="(val) => handleFieldChange(field.id, val)"
+              @update:model-value="(val) => handleDateChange(field.id, val as Date | null)"
             />
           </template>
           

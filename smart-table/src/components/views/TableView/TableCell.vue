@@ -24,11 +24,36 @@ const emit = defineEmits<{
 
 const isEditing = ref(false);
 const editValue = ref<string | number | boolean | string[] | null>(null);
-const dateEditValue = ref<number | null>(null);
+const dateEditValue = ref<Date | null>(null);
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
 const cellValue = computed(() => {
   return props.record.values[props.field.id] ?? null;
+});
+
+// 获取字段配置
+const fieldOptions = computed(() => {
+  return props.field.options as FieldOptions | undefined;
+});
+
+// 数值字段精度配置
+const numberPrecision = computed(() => {
+  return fieldOptions.value?.precision ?? 0;
+});
+
+// 日期字段时间显示配置
+const dateShowTime = computed(() => {
+  return fieldOptions.value?.showTime ?? false;
+});
+
+// 日期显示格式
+const dateDisplayFormat = computed(() => {
+  return dateShowTime.value ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD';
+});
+
+// 日期选择器类型
+const datePickerType = computed(() => {
+  return dateShowTime.value ? 'datetime' : 'date';
 });
 
 const displayValue = computed(() => {
@@ -36,7 +61,7 @@ const displayValue = computed(() => {
   if (value === null || value === undefined) return "";
 
   const type = props.field.type;
-  const options = props.field.options as FieldOptions | undefined;
+  const options = fieldOptions.value;
 
   switch (type) {
     case "text":
@@ -46,9 +71,8 @@ const displayValue = computed(() => {
       return String(value);
     case "number":
       if (typeof value === "number") {
-        const precision = options?.precision;
-        const formatted =
-          precision !== undefined ? value.toFixed(precision) : String(value);
+        const precision = options?.precision ?? 0;
+        const formatted = value.toFixed(precision);
         const prefix = options?.prefix || "";
         const suffix = options?.suffix || "";
         return `${prefix}${formatted}${suffix}`;
@@ -73,10 +97,18 @@ const displayValue = computed(() => {
       return value ? "✓" : "";
     case "date": {
       if (!value) return "";
+      // 根据配置显示日期或日期时间
+      const showTime = options?.showTime ?? false;
+      const format = showTime ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD';
+      
       // 处理时间戳格式
       const timestamp = typeof value === "string" ? Number(value) : value;
       if (typeof timestamp === "number" && !isNaN(timestamp)) {
-        return dayjs(timestamp).format("YYYY-MM-DD HH:mm");
+        return dayjs(timestamp).format(format);
+      }
+      // 处理字符串日期格式
+      if (typeof value === "string") {
+        return dayjs(value).format(format);
       }
       return String(value);
     }
@@ -137,10 +169,16 @@ const startEdit = async () => {
       ? cv.map((v) => (typeof v === "string" ? v : v.id))
       : [];
   } else if (fieldType.value === "date") {
-    // 日期字段特殊处理，转换为时间戳
+    // 日期字段特殊处理
     if (cv) {
       const timestamp = typeof cv === "string" ? Number(cv) : cv;
-      dateEditValue.value = typeof timestamp === "number" && !isNaN(timestamp) ? timestamp : Date.now();
+      if (typeof timestamp === "number" && !isNaN(timestamp)) {
+        dateEditValue.value = new Date(timestamp);
+      } else if (typeof cv === "string") {
+        dateEditValue.value = new Date(cv);
+      } else {
+        dateEditValue.value = null;
+      }
     } else {
       dateEditValue.value = null;
     }
@@ -179,9 +217,22 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 };
 
-const handleDateChange = (val: number | null) => {
+const handleDateChange = (val: Date | null) => {
   dateEditValue.value = val;
-  emit("update", val as CellValue);
+  if (val) {
+    // 根据配置决定存储格式
+    const showTime = dateShowTime.value;
+    if (showTime) {
+      // 存储为时间戳
+      emit("update", val.getTime() as CellValue);
+    } else {
+      // 存储为日期字符串
+      emit("update", dayjs(val).format('YYYY-MM-DD') as CellValue);
+    }
+  } else {
+    emit("update", null);
+  }
+  finishEdit();
 };
 
 const handleDoubleClick = () => {
@@ -196,12 +247,12 @@ const toggleCheckbox = () => {
 };
 
 const getSelectOptions = computed(() => {
-  const options = props.field.options as FieldOptions | undefined;
+  const options = fieldOptions.value;
   return options?.options || [];
 });
 
 const getOptionColor = (optionId: string) => {
-  const options = props.field.options as FieldOptions | undefined;
+  const options = fieldOptions.value;
   const opt = options?.options?.find(
     (o) => o.id === optionId || o.name === optionId,
   );
@@ -246,12 +297,12 @@ const multiSelectDisplayValues = computed(() => {
       </template>
 
       <template v-else-if="fieldType === 'number'">
-        <input
+        <el-input-number
           ref="inputRef"
-          :value="editValue as number"
-          type="number"
-          class="cell-input"
-          @input="editValue = Number(($event.target as HTMLInputElement).value)"
+          v-model="editValue as number"
+          :precision="numberPrecision"
+          :controls="false"
+          class="cell-number-input"
           @blur="finishEdit"
           @keydown="handleKeydown" />
       </template>
@@ -293,13 +344,11 @@ const multiSelectDisplayValues = computed(() => {
         <el-date-picker
           ref="inputRef"
           v-model="dateEditValue"
-          type="datetime"
-          placeholder="选择日期时间"
-          format="YYYY-MM-DD HH:mm"
-          value-format="x"
+          :type="datePickerType"
+          :placeholder="dateShowTime ? '选择日期时间' : '选择日期'"
+          :format="dateDisplayFormat"
           class="cell-date-picker"
-          @change="handleDateChange"
-          @blur="finishEdit" />
+          @change="handleDateChange" />
       </template>
 
       <template v-else-if="fieldType === 'rating'">
@@ -473,6 +522,7 @@ const multiSelectDisplayValues = computed(() => {
       width: 100%;
     }
 
+    .cell-number-input,
     .cell-date-picker {
       width: 100%;
 

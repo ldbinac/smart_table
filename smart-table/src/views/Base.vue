@@ -27,6 +27,7 @@ import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FilterCondition, SortConfig } from "@/types/filters";
 import type { CellValue } from "@/types";
+import type { FieldEntity } from "@/db/schema";
 import { applyFilters, applySorts } from "@/utils";
 import Sortable from "sortablejs";
 
@@ -609,6 +610,21 @@ function handleFieldDeleted(fieldId: string) {
   }
 }
 
+// 处理字段重排序
+function handleFieldsReordered(fieldIds: string[]) {
+  // 更新本地字段顺序
+  const sortedFields = fieldIds
+    .map((id) => baseStore.fields.find((f) => f.id === id))
+    .filter((f): f is FieldEntity => f !== undefined);
+
+  // 更新 order 属性
+  sortedFields.forEach((field, index) => {
+    field.order = index;
+  });
+
+  baseStore.fields = sortedFields;
+}
+
 // 打开筛选对话框
 function openFilterDialog() {
   if (!baseStore.currentTable) {
@@ -985,7 +1001,8 @@ function handleImported() {
       :fields="baseStore.fields"
       @field-created="handleFieldCreated"
       @field-updated="handleFieldUpdated"
-      @field-deleted="handleFieldDeleted" />
+      @field-deleted="handleFieldDeleted"
+      @fields-reordered="handleFieldsReordered" />
 
     <!-- 筛选对话框 -->
     <FilterDialog

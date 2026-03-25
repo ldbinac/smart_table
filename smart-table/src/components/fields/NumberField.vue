@@ -23,8 +23,9 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: number | null): void
 }>()
 
+// 精度配置，默认0位小数
 const precision = computed(() => {
-  return props.field?.options?.precision ?? 2
+  return props.field?.options?.precision ?? 0
 })
 
 const format = computed(() => {
@@ -74,7 +75,9 @@ const localValue = computed({
       if (format.value === 'percent') {
         finalValue = val / 100
       }
-      emit('update:modelValue', Number(finalValue.toFixed(precision.value + (format.value === 'percent' ? 2 : 0))))
+      // 根据精度存储原始值
+      const multiplier = Math.pow(10, precision.value)
+      emit('update:modelValue', Math.round(finalValue * multiplier) / multiplier)
     }
   }
 })
@@ -101,7 +104,7 @@ defineExpose({ focus })
       <el-input-number
         v-model="localValue"
         :placeholder="placeholder || '请输入数字'"
-        :precision="format === 'percent' ? precision + 2 : precision"
+        :precision="precision"
         :controls="false"
         class="number-input"
         ref="inputRef"

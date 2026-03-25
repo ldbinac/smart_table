@@ -42,6 +42,7 @@ export interface FieldOptions {
   format?: 'number' | 'currency' | 'percent';
   currencySymbol?: string;
   includeTime?: boolean;
+  showTime?: boolean;
   dateFormat?: string;
   prefix?: string;
   suffix?: string;
