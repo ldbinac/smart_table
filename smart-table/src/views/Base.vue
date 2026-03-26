@@ -988,6 +988,10 @@ function handleImported() {
       <Loading v-if="isLoading" />
       <template v-else-if="baseStore.currentTable">
         <div class="table-container">
+          <ViewSwitcher
+            :table-id="currentTableId"
+            @view-change="handleViewChange" />
+
           <header class="table-header">
             <div class="table-info">
               <h2>{{ baseStore.currentTable.name }}</h2>
@@ -1076,10 +1080,6 @@ function handleImported() {
               </el-button>
             </div>
           </header>
-
-          <ViewSwitcher
-            :table-id="currentTableId"
-            @view-change="handleViewChange" />
 
           <div class="table-content">
             <!-- 表格视图 - 分组模式 -->
