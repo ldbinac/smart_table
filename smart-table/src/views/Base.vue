@@ -1003,13 +1003,25 @@ function handleImported() {
             </div>
             <div class="table-actions">
               <el-button-group>
-                <el-button size="small" @click="openFilterDialog">
+                <el-button
+                  size="small"
+                  :type="activeFilters.length > 0 ? 'primary' : 'default'"
+                  @click="openFilterDialog">
                   <el-icon><Filter /></el-icon>
                   筛选
+                  <el-tag v-if="activeFilters.length > 0" size="small" class="filter-badge">
+                    {{ activeFilters.length }}
+                  </el-tag>
                 </el-button>
-                <el-button size="small" @click="openSortDialog">
+                <el-button
+                  size="small"
+                  :type="activeSorts.length > 0 ? 'primary' : 'default'"
+                  @click="openSortDialog">
                   <el-icon><Sort /></el-icon>
                   排序
+                  <el-tag v-if="activeSorts.length > 0" size="small" class="sort-badge">
+                    {{ activeSorts.length }}
+                  </el-tag>
                 </el-button>
                 <el-button
                   size="small"
