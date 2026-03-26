@@ -107,6 +107,21 @@ export interface OperationHistory {
   userId?: string;
 }
 
+export interface DashboardShare {
+  id: string;
+  dashboardId: string;
+  shareToken: string;
+  accessCode?: string;
+  expiresAt?: number;
+  maxAccessCount?: number;
+  currentAccessCount: number;
+  isActive: boolean;
+  permission: 'view' | 'edit';
+  createdAt: number;
+  createdBy?: string;
+  lastAccessedAt?: number;
+}
+
 class SmartTableDB extends Dexie {
   bases!: DexieTable<Base>;
   tableEntities!: DexieTable<TableEntity>;
@@ -116,11 +131,12 @@ class SmartTableDB extends Dexie {
   dashboards!: DexieTable<Dashboard>;
   attachments!: DexieTable<Attachment>;
   history!: DexieTable<OperationHistory>;
+  dashboardShares!: DexieTable<DashboardShare>;
 
   constructor() {
     super('SmartTableDB');
 
-    this.version(3).stores({
+    this.version(4).stores({
       bases: 'id, name, updatedAt, isStarred',
       tableEntities: 'id, baseId, name, order, updatedAt, isStarred',
       fields: 'id, tableId, name, type, order, [tableId+order]',
@@ -128,7 +144,8 @@ class SmartTableDB extends Dexie {
       views: 'id, tableId, name, type, isDefault, [tableId+order]',
       dashboards: 'id, baseId, name, updatedAt',
       attachments: 'id, recordId, fieldId, [recordId+fieldId]',
-      history: '++id, baseId, tableId, timestamp, [baseId+timestamp]'
+      history: '++id, baseId, tableId, timestamp, [baseId+timestamp]',
+      dashboardShares: 'id, dashboardId, shareToken, isActive, expiresAt, [dashboardId+isActive]'
     });
   }
 }

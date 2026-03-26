@@ -9,3 +9,5 @@ export {
 } from './fieldService';
 export { recordService, RecordService, type CreateRecordData, type UpdateRecordData } from './recordService';
 export { viewService, ViewService, type CreateViewData, type UpdateViewData } from './viewService';
+export { dashboardService, DashboardService, type CreateDashboardData, type WidgetConfig } from './dashboardService';
+export { dashboardShareService, DashboardShareService, type CreateShareData, type ShareValidationResult } from './dashboardShareService';

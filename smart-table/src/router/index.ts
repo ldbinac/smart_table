@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -23,6 +23,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/Dashboard.vue'),
     meta: {
       title: '仪表盘'
+    }
+  },
+  {
+    path: '/share/dashboard/:token',
+    name: 'DashboardShare',
+    component: () => import('@/views/DashboardShare.vue'),
+    meta: {
+      title: '仪表盘分享',
+      public: true, // 标记为公开页面
+      layout: 'blank' // 使用空白布局
     }
   },
   {
@@ -54,7 +64,7 @@ const routes: RouteRecordRaw[] = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes,
   scrollBehavior(_to, _from, savedPosition) {
     if (savedPosition) {
