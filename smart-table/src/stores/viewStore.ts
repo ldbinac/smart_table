@@ -18,8 +18,8 @@ export const useViewStore = defineStore('view', () => {
     return currentView.value?.filters || [];
   });
 
-  const currentSorts = computed(() => {
-    return currentView.value?.sorts || [];
+  const currentSorts = computed<SortConfig[]>(() => {
+    return (currentView.value?.sorts as SortConfig[]) || [];
   });
 
   const hiddenFields = computed(() => {

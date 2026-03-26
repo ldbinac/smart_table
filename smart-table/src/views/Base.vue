@@ -112,8 +112,10 @@ const renameTableFormRules: FormRules = {
 
 // 筛选和排序状态
 const activeFilters = ref<FilterCondition[]>([]);
-const activeSorts = ref<SortConfig[]>([]);
 const filterConjunction = ref<"and" | "or">("and");
+
+// 从 viewStore 获取当前排序配置
+const activeSorts = computed(() => viewStore.currentSorts);
 
 // 搜索关键词
 const tableSearchKeyword = ref("");
@@ -288,11 +290,10 @@ const handleTableSelect = async (tableId: string) => {
   await baseStore.loadTable(tableId);
   // 同步视图数据到 viewStore
   await viewStore.loadViews(tableId);
-  // 选择默认视图（这会设置 viewStore.currentView）
+  // 选择默认视图（这会设置 viewStore.currentView，并自动加载视图的排序配置）
   await viewStore.selectDefaultView(tableId);
-  // 重置筛选和排序
+  // 重置筛选
   activeFilters.value = [];
-  activeSorts.value = [];
   // 关闭分组弹窗，确保切换数据表时弹窗状态正确
   groupDialogVisible.value = false;
 };
@@ -331,7 +332,11 @@ const handleAddRecord = (
 };
 
 // 处理从分组表格添加记录
-const handleAddRecordFromGroup = (groupInfo: { groupFieldId?: string; groupId?: string; groupName?: string }) => {
+const handleAddRecordFromGroup = (groupInfo: {
+  groupFieldId?: string;
+  groupId?: string;
+  groupName?: string;
+}) => {
   if (!baseStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
@@ -856,17 +861,21 @@ function openSortDialog() {
 }
 
 // 处理排序应用
-function handleSortApply(sorts: SortConfig[]) {
-  activeSorts.value = sorts;
-  if (sorts.length > 0) {
-    ElMessage.success(`已应用 ${sorts.length} 个排序条件`);
+async function handleSortApply(sorts: SortConfig[]) {
+  if (viewStore.currentView) {
+    await viewStore.updateSorts(viewStore.currentView.id, sorts);
+    if (sorts.length > 0) {
+      ElMessage.success(`已应用 ${sorts.length} 个排序条件`);
+    }
   }
 }
 
 // 处理排序清除
-function handleSortClear() {
-  activeSorts.value = [];
-  ElMessage.success("排序已清除");
+async function handleSortClear() {
+  if (viewStore.currentView) {
+    await viewStore.updateSorts(viewStore.currentView.id, []);
+    ElMessage.success("排序已清除");
+  }
 }
 
 // 打开导出对话框
@@ -1009,7 +1018,10 @@ function handleImported() {
                   @click="openFilterDialog">
                   <el-icon><Filter /></el-icon>
                   筛选
-                  <el-tag v-if="activeFilters.length > 0" size="small" class="filter-badge">
+                  <el-tag
+                    v-if="activeFilters.length > 0"
+                    size="small"
+                    class="filter-badge">
                     {{ activeFilters.length }}
                   </el-tag>
                 </el-button>
@@ -1019,7 +1031,10 @@ function handleImported() {
                   @click="openSortDialog">
                   <el-icon><Sort /></el-icon>
                   排序
-                  <el-tag v-if="activeSorts.length > 0" size="small" class="sort-badge">
+                  <el-tag
+                    v-if="activeSorts.length > 0"
+                    size="small"
+                    class="sort-badge">
                     {{ activeSorts.length }}
                   </el-tag>
                 </el-button>
@@ -1029,7 +1044,10 @@ function handleImported() {
                   @click="openGroupDialog">
                   <el-icon><Folder /></el-icon>
                   分组
-                  <el-tag v-if="hasGroupConfig" size="small" class="group-badge">
+                  <el-tag
+                    v-if="hasGroupConfig"
+                    size="small"
+                    class="group-badge">
                     {{ currentGroupBys.length }}
                   </el-tag>
                 </el-button>
@@ -1073,7 +1091,7 @@ function handleImported() {
               @row-click="handleRecordSelect"
               @cell-click="handleEditRecord"
               @add-record="handleAddRecordFromGroup" />
-            
+
             <!-- 表格视图 - 普通模式 -->
             <TableView
               v-else-if="isTableView"
