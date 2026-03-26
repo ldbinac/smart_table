@@ -21,6 +21,7 @@ export interface UpdateViewData {
   frozenFields?: string[];
   rowHeight?: 'short' | 'medium' | 'tall';
   isDefault?: boolean;
+  updatedAt?: number;
 }
 
 export class ViewService {

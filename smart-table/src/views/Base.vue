@@ -5,6 +5,7 @@ import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
 import { Setting, Share, Upload } from "@element-plus/icons-vue";
+import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
 import CalendarView from "@/components/views/CalendarView/CalendarView.vue";
@@ -18,6 +19,7 @@ import Loading from "@/components/common/Loading.vue";
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 import FilterDialog from "@/components/dialogs/FilterDialog.vue";
 import SortDialog from "@/components/dialogs/SortDialog.vue";
+import GroupDialog from "@/components/dialogs/GroupDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
 import RecordDialog from "@/components/dialogs/RecordDialog.vue";
 import AddRecordDialog from "@/components/dialogs/AddRecordDialog.vue";
@@ -27,7 +29,7 @@ import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FilterCondition, SortConfig } from "@/types/filters";
 import type { CellValue } from "@/types";
-import type { FieldEntity } from "@/db/schema";
+import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { applyFilters, applySorts } from "@/utils";
 import Sortable from "sortablejs";
 
@@ -63,6 +65,7 @@ const createTableFormRules: FormRules = {
 const fieldDialogVisible = ref(false);
 const filterDialogVisible = ref(false);
 const sortDialogVisible = ref(false);
+const groupDialogVisible = ref(false);
 const exportDialogVisible = ref(false);
 const renameTableDialogVisible = ref(false);
 const recordDialogVisible = ref(false);
@@ -175,6 +178,33 @@ const isGanttView = computed(() => currentViewType.value === ViewType.GANTT);
 // 是否为表单视图
 const isFormView = computed(() => currentViewType.value === ViewType.FORM);
 
+// 当前分组配置
+const currentGroupBys = computed(() => viewStore.currentGroupBys);
+
+// 是否有分组配置
+const hasGroupConfig = computed(() => currentGroupBys.value.length > 0);
+
+// 打开分组对话框
+function openGroupDialog() {
+  groupDialogVisible.value = true;
+}
+
+// 处理分组配置应用
+async function handleGroupApply(newGroupBy: string[]) {
+  if (viewStore.currentView) {
+    await viewStore.updateGroupBys(viewStore.currentView.id, newGroupBy);
+    ElMessage.success("分组配置已应用");
+  }
+}
+
+// 处理分组配置清除
+async function handleGroupClear() {
+  if (viewStore.currentView) {
+    await viewStore.updateGroupBys(viewStore.currentView.id, []);
+    ElMessage.success("分组已清除");
+  }
+}
+
 // 表格列表引用（用于拖拽排序）
 const tableListRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
@@ -258,9 +288,13 @@ const handleTableSelect = async (tableId: string) => {
   await baseStore.loadTable(tableId);
   // 同步视图数据到 viewStore
   await viewStore.loadViews(tableId);
+  // 选择默认视图（这会设置 viewStore.currentView）
+  await viewStore.selectDefaultView(tableId);
   // 重置筛选和排序
   activeFilters.value = [];
   activeSorts.value = [];
+  // 关闭分组弹窗，确保切换数据表时弹窗状态正确
+  groupDialogVisible.value = false;
 };
 
 const handleViewChange = async (viewId: string) => {
@@ -293,6 +327,25 @@ const handleAddRecord = (
   // 保存初始值和分组信息
   addRecordInitialValues.value = values;
   addRecordGroupInfo.value = groupInfo || {};
+  addRecordDialogVisible.value = true;
+};
+
+// 处理从分组表格添加记录
+const handleAddRecordFromGroup = (groupInfo: { groupFieldId?: string; groupId?: string; groupName?: string }) => {
+  if (!baseStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+
+  // 构建初始值，包含分组字段的值
+  const initialValues: Record<string, unknown> = {};
+  if (groupInfo.groupFieldId && groupInfo.groupId) {
+    initialValues[groupInfo.groupFieldId] = groupInfo.groupId;
+  }
+
+  // 保存初始值和分组信息
+  addRecordInitialValues.value = initialValues;
+  addRecordGroupInfo.value = groupInfo;
   addRecordDialogVisible.value = true;
 };
 
@@ -499,8 +552,14 @@ const openFormShareDialog = () => {
   formShareDialogVisible.value = true;
 };
 
-// 处理编辑记录
-const handleEditRecord = (recordId: string) => {
+// 处理编辑记录（用于 GroupedTableView）
+const handleEditRecord = (record: RecordEntity) => {
+  editingRecord.value = record;
+  recordDialogVisible.value = true;
+};
+
+// 处理编辑记录（用于其他视图，接收 recordId）
+const handleEditRecordById = (recordId: string) => {
   const record = baseStore.records.find((r) => r.id === recordId);
   if (record) {
     editingRecord.value = record;
@@ -936,6 +995,11 @@ function handleImported() {
                   >排序: {{ activeSorts.length }}</el-tag
                 >
               </span>
+              <span v-if="hasGroupConfig" class="group-badge">
+                <el-tag size="small" type="primary"
+                  >分组: {{ currentGroupBys.length }}</el-tag
+                >
+              </span>
             </div>
             <div class="table-actions">
               <el-button-group>
@@ -946,6 +1010,16 @@ function handleImported() {
                 <el-button size="small" @click="openSortDialog">
                   <el-icon><Sort /></el-icon>
                   排序
+                </el-button>
+                <el-button
+                  size="small"
+                  :type="hasGroupConfig ? 'primary' : 'default'"
+                  @click="openGroupDialog">
+                  <el-icon><Folder /></el-icon>
+                  分组
+                  <el-tag v-if="hasGroupConfig" size="small" class="group-badge">
+                    {{ currentGroupBys.length }}
+                  </el-tag>
                 </el-button>
                 <el-button size="small" @click="openFieldDialog">
                   <el-icon><Grid /></el-icon>
@@ -978,9 +1052,19 @@ function handleImported() {
             @view-change="handleViewChange" />
 
           <div class="table-content">
-            <!-- 表格视图 -->
+            <!-- 表格视图 - 分组模式 -->
+            <GroupedTableView
+              v-if="isTableView && hasGroupConfig"
+              :fields="baseStore.fields"
+              :records="filteredRecords as any[]"
+              :group-by="currentGroupBys"
+              @row-click="handleRecordSelect"
+              @cell-click="handleEditRecord"
+              @add-record="handleAddRecordFromGroup" />
+            
+            <!-- 表格视图 - 普通模式 -->
             <TableView
-              v-if="isTableView"
+              v-else-if="isTableView"
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
@@ -996,7 +1080,7 @@ function handleImported() {
               :fields="baseStore.fields"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
-              @editRecord="handleEditRecord"
+              @editRecord="handleEditRecordById"
               @deleteRecord="handleDeleteRecord" />
 
             <!-- 日历视图 -->
@@ -1008,7 +1092,7 @@ function handleImported() {
               :fields="baseStore.fields"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
-              @editRecord="handleEditRecord" />
+              @editRecord="handleEditRecordById" />
 
             <!-- 甘特视图 -->
             <GanttView
@@ -1019,7 +1103,7 @@ function handleImported() {
               :fields="baseStore.fields"
               @updateRecord="handleSaveRecord"
               @addRecord="handleAddRecord"
-              @editRecord="handleEditRecord"
+              @editRecord="handleEditRecordById"
               @deleteRecord="handleDeleteRecord" />
 
             <!-- 画册视图 -->
@@ -1027,7 +1111,7 @@ function handleImported() {
               v-else-if="isGalleryView"
               :records="filteredRecords"
               :fields="baseStore.fields"
-              @editRecord="handleEditRecord"
+              @editRecord="handleEditRecordById"
               @deleteRecord="handleDeleteRecord" />
 
             <!-- 表单视图 -->
@@ -1158,6 +1242,14 @@ function handleImported() {
       @apply="handleSortApply"
       @clear="handleSortClear" />
 
+    <!-- 分组对话框 -->
+    <GroupDialog
+      v-model:visible="groupDialogVisible"
+      :fields="baseStore.fields"
+      :initial-group-by="currentGroupBys"
+      @apply="handleGroupApply"
+      @clear="handleGroupClear" />
+
     <!-- 导出对话框 -->
     <ExportDialog
       v-model:visible="exportDialogVisible"
@@ -1168,13 +1260,13 @@ function handleImported() {
     <RecordDialog
       v-model:visible="recordDialogVisible"
       :record="editingRecord"
-      :fields="baseStore.fields"
+      :fields="baseStore.sortedFields"
       @save="handleSaveRecord" />
 
     <!-- 添加记录对话框 -->
     <AddRecordDialog
       v-model:visible="addRecordDialogVisible"
-      :fields="baseStore.fields"
+      :fields="baseStore.sortedFields"
       :initial-values="addRecordInitialValues"
       :group-field-id="addRecordGroupInfo.groupFieldId"
       :group-id="addRecordGroupInfo.groupId"
@@ -1375,7 +1467,8 @@ function handleImported() {
   }
 
   .filter-badge,
-  .sort-badge {
+  .sort-badge,
+  .group-badge {
     margin-left: 8px;
   }
 }

@@ -76,6 +76,7 @@ declare module 'vue' {
     FormViewConfig: typeof import('./components/views/FormView/FormViewConfig.vue')['default']
     GalleryView: typeof import('./components/views/GalleryView/GalleryView.vue')['default']
     GanttView: typeof import('./components/views/GanttView/GanttView.vue')['default']
+    GroupDialog: typeof import('./components/dialogs/GroupDialog.vue')['default']
     GroupedTableView: typeof import('./components/groups/GroupedTableView.vue')['default']
     GroupPanel: typeof import('./components/groups/GroupPanel.vue')['default']
     HelloWorld: typeof import('./components/HelloWorld.vue')['default']

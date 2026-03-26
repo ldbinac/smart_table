@@ -30,6 +30,10 @@ export const useViewStore = defineStore('view', () => {
     return currentView.value?.frozenFields || [];
   });
 
+  const currentGroupBys = computed(() => {
+    return currentView.value?.groupBys || [];
+  });
+
   async function loadViews(tableId: string) {
     loading.value = true;
     error.value = null;
@@ -201,6 +205,10 @@ export const useViewStore = defineStore('view', () => {
     await updateView(viewId, { rowHeight });
   }
 
+  async function updateGroupBys(viewId: string, groupBys: string[]) {
+    await updateView(viewId, { groupBys });
+  }
+
   function clearView() {
     views.value = [];
     currentView.value = null;
@@ -216,6 +224,7 @@ export const useViewStore = defineStore('view', () => {
     currentSorts,
     hiddenFields,
     frozenFields,
+    currentGroupBys,
     loadViews,
     selectView,
     selectDefaultView,
@@ -230,6 +239,7 @@ export const useViewStore = defineStore('view', () => {
     updateHiddenFields,
     updateFrozenFields,
     updateRowHeight,
+    updateGroupBys,
     clearView
   };
 });

@@ -12,6 +12,8 @@ import {
   ElDatePicker,
   ElSwitch,
   ElMessage,
+  ElRate,
+  ElSlider,
 } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
@@ -81,7 +83,6 @@ function getFieldComponent(field: FieldEntity) {
     case FieldType.PHONE:
       return "text";
     case FieldType.NUMBER:
-    case FieldType.RATING:
       return "number";
     case FieldType.SINGLE_SELECT:
       return "singleSelect";
@@ -93,9 +94,41 @@ function getFieldComponent(field: FieldEntity) {
       return "date";
     case FieldType.CHECKBOX:
       return "checkbox";
+    case FieldType.RATING:
+      return "rating";
+    case FieldType.PROGRESS:
+      return "progress";
+    case FieldType.ATTACHMENT:
+      return "attachment";
+    case FieldType.MEMBER:
+      return "member";
+    case FieldType.AUTO_NUMBER:
+      return "autoNumber";
+    case FieldType.FORMULA:
+      return "formula";
+    case FieldType.LINK:
+      return "link";
+    case FieldType.LOOKUP:
+      return "lookup";
+    case FieldType.CREATED_BY:
+    case FieldType.UPDATED_BY:
+      return "readonly";
     default:
       return "text";
   }
+}
+
+// 检查字段是否为只读字段（系统字段、公式字段等）
+function isReadonlyField(field: FieldEntity): boolean {
+  return [
+    FieldType.FORMULA,
+    FieldType.LOOKUP,
+    FieldType.CREATED_BY,
+    FieldType.CREATED_TIME,
+    FieldType.UPDATED_BY,
+    FieldType.UPDATED_TIME,
+    FieldType.AUTO_NUMBER,
+  ].includes(field.type as any) || field.isSystem;
 }
 
 // 获取单选/多选选项
@@ -129,6 +162,11 @@ function getDatePickerType(field: FieldEntity): 'date' | 'datetime' {
   return getDateShowTime(field) ? 'datetime' : 'date';
 }
 
+// 获取评分最大值
+function getMaxRating(field: FieldEntity): number {
+  return (field.options?.maxRating as number) ?? 5;
+}
+
 // 处理日期变更
 function handleDateChange(field: FieldEntity, val: Date | null) {
   if (!val) {
@@ -154,6 +192,30 @@ function isAutoFilledField(field: FieldEntity): boolean {
 // 检查字段是否为主键字段
 function isPrimaryField(field: FieldEntity): boolean {
   return primaryField.value?.id === field.id;
+}
+
+// 获取只读字段的显示值
+function getReadonlyDisplayValue(field: FieldEntity): string {
+  const value = formData.value[field.id];
+  if (value === null || value === undefined) return '';
+  
+  switch (field.type) {
+    case FieldType.CREATED_TIME:
+    case FieldType.UPDATED_TIME:
+      if (typeof value === 'number') {
+        return dayjs(value).format('YYYY-MM-DD HH:mm:ss');
+      }
+      return String(value);
+    case FieldType.CREATED_BY:
+    case FieldType.UPDATED_BY:
+      return String(value);
+    case FieldType.FORMULA:
+      return String(value);
+    case FieldType.AUTO_NUMBER:
+      return String(value);
+    default:
+      return String(value);
+  }
 }
 
 // 保存记录
@@ -193,7 +255,7 @@ function handleValueChange(fieldId: string, value: unknown) {
         v-for="field in fields"
         :key="field.id"
         :label="field.name"
-        :required="field.isRequired">
+        :required="field.isRequired && !isReadonlyField(field) && !isPrimaryField(field) && !isAutoFilledField(field)">
         <!-- 主键字段 - 自动生成ID且只读 -->
         <template v-if="isPrimaryField(field)">
           <ElInput
@@ -201,6 +263,21 @@ function handleValueChange(fieldId: string, value: unknown) {
             disabled
             :placeholder="`自动生成${field.name}`" />
           <span class="auto-filled-hint">系统自动生成唯一标识，不可修改</span>
+        </template>
+
+        <!-- 只读字段（系统字段、公式字段等） -->
+        <template v-else-if="isReadonlyField(field)">
+          <ElInput
+            :model-value="getReadonlyDisplayValue(field)"
+            disabled
+            :placeholder="field.name"
+          />
+          <span class="auto-filled-hint">{{ 
+            field.type === FieldType.FORMULA ? '公式计算字段，不可修改' :
+            field.type === FieldType.LOOKUP ? '查找字段，不可修改' :
+            field.type === FieldType.AUTO_NUMBER ? '自动编号，不可修改' :
+            '系统字段，不可修改'
+          }}</span>
         </template>
 
         <!-- 自动填充的分组字段显示为只读 -->
@@ -293,6 +370,64 @@ function handleValueChange(fieldId: string, value: unknown) {
             :model-value="Boolean(formData[field.id])"
             @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
+
+        <!-- 评分类型 -->
+        <template v-else-if="getFieldComponent(field) === 'rating'">
+          <ElRate
+            :model-value="Number(formData[field.id] || 0)"
+            :max="getMaxRating(field)"
+            @update:model-value="(val) => handleValueChange(field.id, val)"
+          />
+        </template>
+
+        <!-- 进度类型 -->
+        <template v-else-if="getFieldComponent(field) === 'progress'">
+          <ElSlider
+            :model-value="Number(formData[field.id] || 0)"
+            :max="100"
+            :format-tooltip="(val: number) => `${val}%`"
+            @update:model-value="(val) => handleValueChange(field.id, val)"
+          />
+          <span class="progress-value">{{ formData[field.id] || 0 }}%</span>
+        </template>
+
+        <!-- 附件类型 -->
+        <template v-else-if="getFieldComponent(field) === 'attachment'">
+          <div class="attachment-hint">
+            <el-icon><Document /></el-icon>
+            <span>附件功能请在详情页中使用</span>
+          </div>
+        </template>
+
+        <!-- 成员类型 -->
+        <template v-else-if="getFieldComponent(field) === 'member'">
+          <ElSelect
+            :model-value="formData[field.id] as string | undefined"
+            :placeholder="`请选择${field.name}`"
+            style="width: 100%"
+            clearable
+            @update:model-value="(val) => handleValueChange(field.id, val)"
+          >
+            <ElOption label="当前用户" value="current_user" />
+          </ElSelect>
+        </template>
+
+        <!-- 关联类型 -->
+        <template v-else-if="getFieldComponent(field) === 'link'">
+          <div class="link-hint">
+            <el-icon><Link /></el-icon>
+            <span>关联字段请在详情页中编辑</span>
+          </div>
+        </template>
+
+        <!-- 默认文本类型 -->
+        <template v-else>
+          <ElInput
+            :model-value="String(formData[field.id] || '')"
+            :placeholder="`请输入${field.name}`"
+            @update:model-value="(val) => handleValueChange(field.id, val)"
+          />
+        </template>
       </ElFormItem>
     </ElForm>
 
@@ -306,6 +441,13 @@ function handleValueChange(fieldId: string, value: unknown) {
     </template>
   </ElDialog>
 </template>
+
+<script lang="ts">
+import { Document, Link } from '@element-plus/icons-vue'
+export default {
+  name: 'AddRecordDialog'
+}
+</script>
 
 <style lang="scss" scoped>
 @use "@/assets/styles/variables" as *;
@@ -330,6 +472,24 @@ function handleValueChange(fieldId: string, value: unknown) {
   color: $text-secondary;
   margin-top: 4px;
   display: block;
+}
+
+.progress-value {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  margin-left: 8px;
+}
+
+.attachment-hint,
+.link-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: $bg-color;
+  border-radius: $border-radius-sm;
+  color: $text-secondary;
+  font-size: $font-size-sm;
 }
 
 .dialog-footer {

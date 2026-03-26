@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import type { FieldEntity } from '../../db/schema'
 import type { GroupNode, GroupConfig } from '../../utils/group'
 import type { FieldTypeValue } from '../../types'
@@ -11,6 +11,8 @@ import {
   expandAllGroups,
   collapseAllGroups
 } from '../../utils/group'
+import Sortable from 'sortablejs'
+import { ElMessage } from 'element-plus'
 
 interface Props {
   fields: FieldEntity[]
@@ -32,6 +34,11 @@ const emit = defineEmits<{
 const localGroupBy = ref<string[]>([...props.groupBy])
 const groupNodes = ref<GroupNode[]>([])
 const allExpanded = ref(true)
+const fieldsListRef = ref<HTMLElement | null>(null)
+let sortableInstance: Sortable | null = null
+
+// 最大分组层级数
+const MAX_GROUP_LEVELS = 3
 
 watch(() => props.groupBy, (newVal) => {
   localGroupBy.value = [...newVal]
@@ -41,6 +48,38 @@ watch(localGroupBy, (newVal) => {
   emit('update:groupBy', newVal)
 }, { deep: true })
 
+// 监听字段列表变化，初始化拖拽排序
+watch(() => localGroupBy.value.length, () => {
+  nextTick(() => {
+    initSortable()
+  })
+}, { immediate: true })
+
+function initSortable() {
+  if (sortableInstance) {
+    sortableInstance.destroy()
+  }
+
+  if (fieldsListRef.value && localGroupBy.value.length > 1) {
+    sortableInstance = new Sortable(fieldsListRef.value, {
+      animation: 150,
+      handle: '.drag-handle',
+      onEnd: handleDragEnd
+    })
+  }
+}
+
+function handleDragEnd(evt: Sortable.SortableEvent) {
+  if (evt.oldIndex === evt.newIndex) return
+
+  const newGroupBy = [...localGroupBy.value]
+  const [movedItem] = newGroupBy.splice(evt.oldIndex!, 1)
+  newGroupBy.splice(evt.newIndex!, 0, movedItem)
+  
+  localGroupBy.value = newGroupBy
+  updateGroups()
+}
+
 const groupableFieldTypes: FieldTypeValue[] = [
   FieldType.SINGLE_SELECT,
   FieldType.MULTI_SELECT,
@@ -49,7 +88,8 @@ const groupableFieldTypes: FieldTypeValue[] = [
   FieldType.CREATED_TIME,
   FieldType.UPDATED_TIME,
   FieldType.MEMBER,
-  FieldType.TEXT
+  FieldType.TEXT,
+  FieldType.NUMBER
 ]
 
 const availableFields = computed(() => {
@@ -85,10 +125,26 @@ const visibleRecords = computed(() => {
   return count
 })
 
+// 是否已达到最大分组层级
+const isMaxLevelReached = computed(() => {
+  return localGroupBy.value.length >= MAX_GROUP_LEVELS
+})
+
+// 是否还可以添加分组字段
+const canAddMoreGroups = computed(() => {
+  return availableFields.value.length > localGroupBy.value.length && !isMaxLevelReached.value
+})
+
 function addGroupField(fieldId: string) {
+  if (localGroupBy.value.length >= MAX_GROUP_LEVELS) {
+    ElMessage.warning(`最多支持 ${MAX_GROUP_LEVELS} 级分组`)
+    return
+  }
+  
   if (!localGroupBy.value.includes(fieldId)) {
     localGroupBy.value.push(fieldId)
     updateGroups()
+    ElMessage.success('分组字段已添加')
   }
 }
 
@@ -154,6 +210,8 @@ function getGroupIcon(field: FieldEntity) {
       return 'Check'
     case FieldType.MEMBER:
       return 'User'
+    case FieldType.NUMBER:
+      return 'Sort'
     default:
       return 'Folder'
   }
@@ -172,7 +230,7 @@ function getIndentStyle(level: number) {
       <div class="header-title">
         <span class="title">分组设置</span>
         <span v-if="localGroupBy.length > 0" class="group-count">
-          {{ localGroupBy.length }} 级分组
+          {{ localGroupBy.length }} / {{ MAX_GROUP_LEVELS }} 级
         </span>
       </div>
       <div class="header-actions">
@@ -188,22 +246,35 @@ function getIndentStyle(level: number) {
     </div>
 
     <div class="group-fields">
-      <div class="fields-label">分组字段：</div>
-      <div class="fields-list">
+      <div class="fields-label">
+        分组字段：
+        <span v-if="isMaxLevelReached" class="limit-hint">(已达最大层级)</span>
+      </div>
+      <div ref="fieldsListRef" class="fields-list">
         <template v-if="localGroupBy.length > 0">
-          <el-tag
+          <div
             v-for="(fieldId, index) in localGroupBy"
             :key="fieldId"
-            closable
-            size="small"
-            class="field-tag"
-            @close="removeGroupField(index)"
+            class="field-tag-wrapper"
           >
-            <el-icon class="tag-icon">
-              <component :is="getGroupIcon(selectedGroupFields[index])" />
-            </el-icon>
-            {{ selectedGroupFields[index]?.name }}
-          </el-tag>
+            <span class="drag-handle" title="拖拽排序">
+              <el-icon><Rank /></el-icon>
+            </span>
+            <el-tag
+              closable
+              size="small"
+              class="field-tag"
+              @close="removeGroupField(index)"
+            >
+              <el-icon class="tag-icon">
+                <component :is="getGroupIcon(selectedGroupFields[index])" />
+              </el-icon>
+              {{ selectedGroupFields[index]?.name }}
+            </el-tag>
+            <span v-if="index < localGroupBy.length - 1" class="level-arrow">
+              <el-icon><ArrowRight /></el-icon>
+            </span>
+          </div>
         </template>
         <span v-else class="no-fields">未设置分组</span>
       </div>
@@ -212,10 +283,15 @@ function getIndentStyle(level: number) {
     <div class="add-group">
       <el-dropdown
         trigger="click"
-        :disabled="availableFields.length === localGroupBy.length"
+        :disabled="!canAddMoreGroups"
         @command="addGroupField"
       >
-        <el-button type="primary" plain size="small">
+        <el-button 
+          type="primary" 
+          plain 
+          size="small"
+          :disabled="!canAddMoreGroups"
+        >
           <el-icon><Plus /></el-icon>
           添加分组
         </el-button>
@@ -225,6 +301,7 @@ function getIndentStyle(level: number) {
               v-for="field in availableFields.filter(f => !localGroupBy.includes(f.id))"
               :key="field.id"
               :command="field.id"
+              :disabled="localGroupBy.length >= MAX_GROUP_LEVELS"
             >
               <el-icon>
                 <component :is="getGroupIcon(field)" />
@@ -234,6 +311,9 @@ function getIndentStyle(level: number) {
           </el-dropdown-menu>
         </template>
       </el-dropdown>
+      <span v-if="isMaxLevelReached" class="limit-tip">
+        最多 {{ MAX_GROUP_LEVELS }} 级分组
+      </span>
     </div>
 
     <div v-if="groupNodes.length > 0" class="group-tree">
@@ -275,7 +355,7 @@ function getIndentStyle(level: number) {
 </template>
 
 <script lang="ts">
-import { Plus, ArrowRight, FolderOpened } from '@element-plus/icons-vue'
+import { Plus, ArrowRight, FolderOpened, Rank } from '@element-plus/icons-vue'
 export default {
   name: 'GroupPanel'
 }
@@ -330,12 +410,46 @@ export default {
   font-size: $font-size-xs;
   color: $text-secondary;
   margin-bottom: $spacing-xs;
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.limit-hint {
+  color: $warning-color;
+  font-size: $font-size-xs;
 }
 
 .fields-list {
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-xs;
+  align-items: center;
+}
+
+.field-tag-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: $text-secondary;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: $border-radius-sm;
+  transition: all $transition-fast;
+
+  &:hover {
+    background-color: $bg-color;
+    color: $text-primary;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
 }
 
 .field-tag {
@@ -348,6 +462,13 @@ export default {
   font-size: 12px;
 }
 
+.level-arrow {
+  color: $text-secondary;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+}
+
 .no-fields {
   font-size: $font-size-sm;
   color: $text-disabled;
@@ -355,6 +476,14 @@ export default {
 
 .add-group {
   margin-bottom: $spacing-md;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.limit-tip {
+  font-size: $font-size-xs;
+  color: $text-secondary;
 }
 
 .group-tree {
@@ -449,5 +578,22 @@ export default {
   font-size: 32px;
   margin-bottom: $spacing-sm;
   color: $text-disabled;
+}
+
+// 响应式适配
+@media (max-width: 768px) {
+  .group-panel {
+    min-width: 280px;
+    max-width: 100%;
+  }
+  
+  .fields-list {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .field-tag-wrapper {
+    width: 100%;
+  }
 }
 </style>
