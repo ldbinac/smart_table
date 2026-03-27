@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
-import {
-  Setting,
-  Share,
-  Upload,
-  ArrowLeft,
-  ArrowRight,
-} from "@element-plus/icons-vue";
+import { Setting, Share, Upload, DataAnalysis } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
@@ -38,8 +32,12 @@ import type { CellValue } from "@/types";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { applyFilters, applySorts } from "@/utils";
 import Sortable from "sortablejs";
+import { dashboardService } from "@/db/services/dashboardService";
+import BaseSidebar from "@/components/common/BaseSidebar.vue";
+import DashboardView from "@/views/Dashboard.vue";
 
 const route = useRoute();
+const router = useRouter();
 const baseStore = useBaseStore();
 const viewStore = useViewStore();
 const tableStore = useTableStore();
@@ -49,6 +47,46 @@ const currentTableId = computed(() => baseStore.currentTable?.id || "");
 
 // 创建数据表对话框显示状态
 const createTableDialogVisible = ref(false);
+
+// 创建仪表盘对话框显示状态
+const createDashboardDialogVisible = ref(false);
+
+// 创建仪表盘表单数据
+const createDashboardForm = reactive({
+  name: "",
+  description: "",
+});
+
+// 仪表盘表单引用
+const createDashboardFormRef = ref<FormInstance>();
+
+// 仪表盘表单验证规则
+const createDashboardFormRules: FormRules = {
+  name: [
+    { required: true, message: "请输入仪表盘名称", trigger: "blur" },
+    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+  ],
+};
+
+// 重命名仪表盘对话框显示状态
+const renameDashboardDialogVisible = ref(false);
+
+// 重命名仪表盘表单数据
+const renameDashboardForm = reactive({
+  id: "",
+  name: "",
+});
+
+// 重命名仪表盘表单引用
+const renameDashboardFormRef = ref<FormInstance>();
+
+// 重命名仪表盘表单验证规则
+const renameDashboardFormRules: FormRules = {
+  name: [
+    { required: true, message: "请输入仪表盘名称", trigger: "blur" },
+    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+  ],
+};
 
 // 创建数据表表单数据
 const createTableForm = reactive({
@@ -123,27 +161,8 @@ const filterConjunction = ref<"and" | "or">("and");
 // 从 viewStore 获取当前排序配置
 const activeSorts = computed(() => viewStore.currentSorts);
 
-// 搜索关键词
-const tableSearchKeyword = ref("");
-
-// 侧边栏展开/收缩状态
-const isSidebarCollapsed = ref(false);
-
-// 切换侧边栏状态
-const toggleSidebar = () => {
-  isSidebarCollapsed.value = !isSidebarCollapsed.value;
-};
-
-// 过滤后的表格列表
-const filteredTables = computed(() => {
-  if (!tableSearchKeyword.value.trim()) {
-    return baseStore.sortedTables;
-  }
-  const keyword = tableSearchKeyword.value.toLowerCase();
-  return baseStore.sortedTables.filter((table) =>
-    table.name.toLowerCase().includes(keyword),
-  );
-});
+// 侧边栏引用
+const sidebarRef = ref<InstanceType<typeof BaseSidebar> | null>(null);
 
 // 过滤和排序后的记录
 const filteredRecords = computed(() => {
@@ -265,7 +284,6 @@ watch(
           viewStore.currentView?.type,
         );
       }
-      initSortable();
     }
   },
 );
@@ -310,6 +328,13 @@ const handleTableSelect = async (tableId: string) => {
   activeFilters.value = [];
   // 关闭分组弹窗，确保切换数据表时弹窗状态正确
   groupDialogVisible.value = false;
+};
+
+// 处理点击仪表盘
+const handleDashboardClick = (dashboardId: string) => {
+  // 使用正确的路由格式：/base/:id/dashboard/:dashboardId
+  const baseId = route.params.id as string;
+  router.push(`/base/${baseId}/dashboard/${dashboardId}`);
 };
 
 const handleViewChange = async (viewId: string) => {
@@ -663,10 +688,165 @@ function openCreateTableDialog() {
   createTableForm.description = "";
 }
 
+// 打开创建仪表盘对话框
+function openCreateDashboardDialog() {
+  if (!baseStore.currentBase) {
+    ElMessage.warning("请先选择一个 Base");
+    return;
+  }
+  createDashboardDialogVisible.value = true;
+  createDashboardForm.name = "";
+  createDashboardForm.description = "";
+}
+
+// 关闭创建仪表盘对话框
+function closeCreateDashboardDialog() {
+  createDashboardDialogVisible.value = false;
+  createDashboardFormRef.value?.resetFields();
+}
+
+// 处理创建仪表盘
+async function handleCreateDashboard() {
+  if (!createDashboardFormRef.value) return;
+  if (!baseStore.currentBase) {
+    ElMessage.error("请先选择一个 Base");
+    return;
+  }
+
+  await createDashboardFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const { dashboardService } =
+          await import("@/db/services/dashboardService");
+        const dashboard = await dashboardService.createDashboard({
+          baseId: baseStore.currentBase!.id,
+          name: createDashboardForm.name.trim(),
+          description: createDashboardForm.description || undefined,
+          widgets: [],
+        });
+
+        if (dashboard) {
+          ElMessage.success("仪表盘创建成功");
+          closeCreateDashboardDialog();
+          // 刷新仪表盘列表
+          sidebarRef.value?.refreshDashboards();
+          // 跳转到仪表盘页面
+          const baseId = route.params.id as string;
+          router.push(`/base/${baseId}/dashboard/${dashboard.id}`);
+        } else {
+          ElMessage.error("创建失败");
+        }
+      } catch (error) {
+        ElMessage.error("创建仪表盘失败");
+        console.error(error);
+      }
+    }
+  });
+}
+
 // 关闭创建数据表对话框
 function closeCreateTableDialog() {
   createTableDialogVisible.value = false;
   createTableFormRef.value?.resetFields();
+}
+
+// 打开重命名仪表盘对话框
+function openRenameDashboardDialog(dashboard: { id: string; name: string }) {
+  renameDashboardForm.id = dashboard.id;
+  renameDashboardForm.name = dashboard.name;
+  renameDashboardDialogVisible.value = true;
+}
+
+// 关闭重命名仪表盘对话框
+function closeRenameDashboardDialog() {
+  renameDashboardDialogVisible.value = false;
+  renameDashboardFormRef.value?.resetFields();
+}
+
+// 处理重命名仪表盘
+async function handleRenameDashboard() {
+  if (!renameDashboardFormRef.value) return;
+
+  await renameDashboardFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        await dashboardService.updateDashboard(renameDashboardForm.id, {
+          name: renameDashboardForm.name.trim(),
+        });
+        ElMessage.success("仪表盘重命名成功");
+        closeRenameDashboardDialog();
+        // 刷新仪表盘列表
+        sidebarRef.value?.refreshDashboards();
+      } catch (error) {
+        ElMessage.error("重命名仪表盘失败");
+        console.error(error);
+      }
+    }
+  });
+}
+
+// 处理删除仪表盘
+async function handleDeleteDashboard(dashboard: { id: string; name: string }) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除仪表盘 "${dashboard.name}" 吗？`,
+      "删除确认",
+      {
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
+    );
+
+    await dashboardService.deleteDashboard(dashboard.id);
+    ElMessage.success("仪表盘删除成功");
+    // 刷新仪表盘列表
+    sidebarRef.value?.refreshDashboards();
+    // 如果当前正在查看该仪表盘，跳转到 base 首页
+    if (route.params.dashboardId === dashboard.id) {
+      const baseId = route.params.id as string;
+      router.push(`/base/${baseId}`);
+    }
+  } catch (error: any) {
+    if (error !== "cancel") {
+      ElMessage.error("删除仪表盘失败");
+      console.error(error);
+    }
+  }
+}
+
+// 处理切换仪表盘收藏状态
+async function handleToggleStarDashboard(dashboard: {
+  id: string;
+  isStarred: boolean;
+}) {
+  try {
+    await dashboardService.updateDashboard(dashboard.id, {
+      isStarred: !dashboard.isStarred,
+    });
+    ElMessage.success(dashboard.isStarred ? "已取消收藏" : "收藏成功");
+    // 刷新仪表盘列表
+    sidebarRef.value?.refreshDashboards();
+  } catch (error) {
+    ElMessage.error("操作失败");
+    console.error(error);
+  }
+}
+
+// 处理仪表盘排序
+async function handleReorderDashboards(dashboardIds: string[]) {
+  try {
+    if (!baseStore.currentBase) return;
+    await dashboardService.reorderDashboards(
+      baseStore.currentBase.id,
+      dashboardIds,
+    );
+    // 刷新仪表盘列表
+    sidebarRef.value?.refreshDashboards();
+  } catch (error) {
+    ElMessage.error("排序失败");
+    console.error(error);
+  }
 }
 
 // 处理创建数据表
@@ -921,128 +1101,31 @@ function handleImported() {
 
 <template>
   <div class="base-page">
-    <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
-      <div class="sidebar-header">
-        <div class="header-content" v-show="!isSidebarCollapsed">
-          <el-tooltip
-            :content="baseStore.currentBase?.name || '加载中...'"
-            placement="bottom"
-            :show-after="300"
-            :disabled="!baseStore.currentBase?.name">
-            <h3>{{ baseStore.currentBase?.name || "加载中..." }}</h3>
-          </el-tooltip>
-          <el-tooltip
-            v-if="baseStore.currentBase?.description"
-            :content="baseStore.currentBase.description"
-            placement="bottom"
-            :show-after="300">
-            <p class="base-description">
-              {{ baseStore.currentBase.description }}
-            </p>
-          </el-tooltip>
-        </div>
-        <button
-          class="collapse-btn"
-          @click="toggleSidebar"
-          :title="isSidebarCollapsed ? '展开' : '收起'">
-          <el-icon v-if="isSidebarCollapsed"><ArrowRight /></el-icon>
-          <el-icon v-else><ArrowLeft /></el-icon>
-        </button>
-      </div>
+    <BaseSidebar
+      ref="sidebarRef"
+      :current-table-id="baseStore.currentTable?.id"
+      :show-tables="true"
+      :show-dashboards="true"
+      @select-table="handleTableSelect"
+      @select-dashboard="handleDashboardClick"
+      @add-table="openCreateTableDialog"
+      @add-dashboard="openCreateDashboardDialog"
+      @rename-table="openRenameTableDialog"
+      @delete-table="handleDeleteTable"
+      @toggle-star="handleToggleStarTable"
+      @rename-dashboard="openRenameDashboardDialog"
+      @delete-dashboard="handleDeleteDashboard"
+      @toggle-star-dashboard="handleToggleStarDashboard"
+      @reorder-dashboards="handleReorderDashboards" />
 
-      <!-- 搜索框 -->
-      <div v-show="!isSidebarCollapsed" class="sidebar-search">
-        <el-input
-          v-model="tableSearchKeyword"
-          placeholder="搜索数据表"
-          clearable
-          size="small">
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+    <!-- 仪表盘视图 -->
+    <template v-if="route.path.includes('/dashboard/')">
+      <div class="dashboard-container">
+        <DashboardView :dashboard-id="route.params.dashboardId as string" />
       </div>
-
-      <!-- 表格列表 -->
-      <div ref="tableListRef" class="table-list">
-        <template v-for="table in filteredTables" :key="table.id">
-          <!-- 收缩状态下的表格项（带Tooltip） -->
-          <el-tooltip
-            v-if="isSidebarCollapsed"
-            :content="table.name"
-            placement="right"
-            :show-after="300">
-            <div
-              class="table-item"
-              :class="{ active: baseStore.currentTable?.id === table.id }"
-              @click="handleTableSelect(table.id)">
-              <el-icon class="table-icon"><Document /></el-icon>
-            </div>
-          </el-tooltip>
-          <!-- 展开状态下的表格项 -->
-          <div
-            v-else
-            class="table-item"
-            :class="{ active: baseStore.currentTable?.id === table.id }"
-            @click="handleTableSelect(table.id)">
-            <span class="drag-handle" @click.stop>
-              <el-icon><Rank /></el-icon>
-            </span>
-            <el-icon class="table-icon"><Document /></el-icon>
-            <span class="table-name">{{ table.name }}</span>
-            <span v-if="table.isStarred" class="star-icon">
-              <el-icon><StarFilled /></el-icon>
-            </span>
-            <el-dropdown
-              trigger="click"
-              @command="
-                (cmd) => {
-                  if (cmd === 'rename') openRenameTableDialog(table);
-                  else if (cmd === 'delete') handleDeleteTable(table);
-                  else if (cmd === 'star') handleToggleStarTable(table);
-                }
-              "
-              @click.stop>
-              <span class="more-icon" @click.stop>
-                <el-icon><MoreFilled /></el-icon>
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="rename">
-                    <el-icon><Edit /></el-icon>重命名
-                  </el-dropdown-item>
-                  <el-dropdown-item command="star">
-                    <el-icon
-                      ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
-                    /></el-icon>
-                    {{ table.isStarred ? "取消收藏" : "收藏" }}
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    divided
-                    command="delete"
-                    class="delete-item">
-                    <el-icon><Delete /></el-icon>删除
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
-        </template>
-        <div
-          v-if="filteredTables.length === 0 && !isSidebarCollapsed"
-          class="empty-tables">
-          {{ tableSearchKeyword ? "没有找到匹配的数据表" : "暂无数据表" }}
-        </div>
-      </div>
-
-      <div class="sidebar-footer">
-        <el-button type="primary" text @click="openCreateTableDialog">
-          <el-icon><Plus /></el-icon>
-          <span v-show="!isSidebarCollapsed">添加数据表</span>
-        </el-button>
-      </div>
-    </aside>
-    <main class="main-content">
+    </template>
+    <!-- 数据表视图 -->
+    <main v-else class="main-content">
       <Loading v-if="isLoading" />
       <template v-else-if="baseStore.currentTable">
         <div class="table-container">
@@ -1275,6 +1358,46 @@ function handleImported() {
       </template>
     </el-dialog>
 
+    <!-- 创建仪表盘对话框 -->
+    <el-dialog
+      v-model="createDashboardDialogVisible"
+      title="创建仪表盘"
+      width="500px"
+      :close-on-click-modal="false">
+      <el-form
+        ref="createDashboardFormRef"
+        :model="createDashboardForm"
+        :rules="createDashboardFormRules"
+        label-width="80px">
+        <el-form-item label="名称" prop="name">
+          <el-input
+            v-model="createDashboardForm.name"
+            placeholder="请输入仪表盘名称"
+            maxlength="50"
+            show-word-limit />
+        </el-form-item>
+
+        <el-form-item label="描述">
+          <el-input
+            v-model="createDashboardForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入描述（可选）"
+            maxlength="200"
+            show-word-limit />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="closeCreateDashboardDialog">取消</el-button>
+          <el-button type="primary" @click="handleCreateDashboard"
+            >确定</el-button
+          >
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 重命名数据表对话框 -->
     <el-dialog
       v-model="renameTableDialogVisible"
@@ -1389,6 +1512,36 @@ function handleImported() {
       :table-id="baseStore.currentTable?.id || ''"
       :fields="baseStore.fields"
       @imported="handleImported" />
+
+    <!-- 重命名仪表盘对话框 -->
+    <el-dialog
+      v-model="renameDashboardDialogVisible"
+      title="重命名仪表盘"
+      width="500px"
+      :close-on-click-modal="false">
+      <el-form
+        ref="renameDashboardFormRef"
+        :model="renameDashboardForm"
+        :rules="renameDashboardFormRules"
+        label-width="80px">
+        <el-form-item label="名称" prop="name">
+          <el-input
+            v-model="renameDashboardForm.name"
+            placeholder="请输入仪表盘名称"
+            maxlength="50"
+            show-word-limit />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="closeRenameDashboardDialog">取消</el-button>
+          <el-button type="primary" @click="handleRenameDashboard"
+            >确定</el-button
+          >
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -1420,13 +1573,32 @@ function handleImported() {
       justify-content: center;
       padding: $spacing-md $spacing-sm;
 
-      h3 {
+      .header-content {
         display: none;
       }
     }
 
-    .sidebar-search {
+    .section-title,
+    .section-divider {
       display: none;
+    }
+
+    .dashboard-list {
+      padding: $spacing-sm 0;
+    }
+
+    .dashboard-item {
+      justify-content: center;
+      padding: $spacing-md $spacing-sm;
+      gap: 0;
+
+      .dashboard-name {
+        display: none;
+      }
+
+      .dashboard-icon {
+        margin: 0;
+      }
     }
 
     .table-list {
@@ -1475,9 +1647,9 @@ function handleImported() {
 
 .sidebar-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: $spacing-lg;
+  padding: $spacing-md $spacing-lg;
   border-bottom: 1px solid $border-color;
   min-height: 56px;
   gap: $spacing-sm;
@@ -1485,31 +1657,10 @@ function handleImported() {
   .header-content {
     flex: 1;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-xs;
-  }
 
-  h3 {
-    margin: 0;
-    font-size: $font-size-lg;
-    font-weight: 600;
-    color: $text-primary;
-    @include text-ellipsis;
-    line-height: 1.4;
-  }
-
-  .base-description {
-    margin: 0;
-    font-size: $font-size-xs;
-    color: $text-secondary;
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: default;
+    :deep(.el-input) {
+      width: 100%;
+    }
   }
 }
 
@@ -1533,9 +1684,52 @@ function handleImported() {
   }
 }
 
-.sidebar-search {
-  padding: $spacing-md $spacing-lg;
-  border-bottom: 1px solid $border-color;
+.section-title {
+  padding: $spacing-sm $spacing-lg;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.section-divider {
+  height: 1px;
+  background-color: $border-color;
+  margin: $spacing-sm $spacing-lg;
+}
+
+.dashboard-section {
+  flex-shrink: 0;
+}
+
+.dashboard-list {
+  padding: $spacing-sm 0;
+}
+
+.dashboard-item {
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-lg;
+  cursor: pointer;
+  transition: all $transition-fast;
+  gap: $spacing-sm;
+
+  &:hover {
+    background-color: $bg-color;
+  }
+}
+
+.dashboard-icon {
+  color: $text-secondary;
+  flex-shrink: 0;
+}
+
+.dashboard-name {
+  flex: 1;
+  font-size: $font-size-sm;
+  color: $text-primary;
+  @include text-ellipsis;
 }
 
 .table-list {
@@ -1624,9 +1818,24 @@ function handleImported() {
   padding: $spacing-md;
   border-top: 1px solid $border-color;
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  .el-button {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dashboard-container {
   flex: 1;
   display: flex;
   flex-direction: column;

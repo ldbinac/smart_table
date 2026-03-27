@@ -99,7 +99,9 @@ onMounted(async () => {
 });
 
 function goToBase(id: string) {
-  router.push(`/base/${id}`);
+  // 使用 hash 路由格式，确保在新窗口中能正确加载
+  const baseUrl = window.location.origin;
+  window.open(`${baseUrl}/#/base/${id}`, '_blank');
 }
 
 function goToSettings() {

@@ -77,6 +77,8 @@ export interface Dashboard {
   description?: string;
   widgets: unknown[];
   layout: Record<string, unknown>;
+  isStarred: boolean;
+  order: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -142,7 +144,7 @@ class SmartTableDB extends Dexie {
       fields: 'id, tableId, name, type, order, [tableId+order]',
       records: 'id, tableId, updatedAt, [tableId+updatedAt]',
       views: 'id, tableId, name, type, isDefault, [tableId+order]',
-      dashboards: 'id, baseId, name, updatedAt',
+      dashboards: 'id, baseId, name, order, updatedAt, isStarred',
       attachments: 'id, recordId, fieldId, [recordId+fieldId]',
       history: '++id, baseId, tableId, timestamp, [baseId+timestamp]',
       dashboardShares: 'id, dashboardId, shareToken, isActive, expiresAt, [dashboardId+isActive]'

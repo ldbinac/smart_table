@@ -16,6 +16,7 @@ declare module 'vue' {
     AppSidebar: typeof import('./components/common/AppSidebar.vue')['default']
     AttachmentField: typeof import('./components/fields/AttachmentField.vue')['default']
     AutoNumberField: typeof import('./components/fields/AutoNumberField.vue')['default']
+    BaseSidebar: typeof import('./components/common/BaseSidebar.vue')['default']
     CalendarView: typeof import('./components/views/CalendarView/CalendarView.vue')['default']
     CheckboxField: typeof import('./components/fields/CheckboxField.vue')['default']
     ContextMenu: typeof import('./components/common/ContextMenu.vue')['default']

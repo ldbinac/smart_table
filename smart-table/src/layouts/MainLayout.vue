@@ -10,7 +10,8 @@ const sidebarCollapsed = ref(false);
 
 const shouldShowSidebar = computed(() => {
   const hiddenRoutes = ["/", "/settings"];
-  return !hiddenRoutes.includes(route.path);
+  // 完全匹配隐藏路由，或以 /base/ 开头的路由（Base页面有自己的侧边栏）
+  return !hiddenRoutes.includes(route.path) && !route.path.startsWith("/base/");
 });
 
 const mainContentStyle = computed(() => {
@@ -47,7 +48,7 @@ const mainContentStyle = computed(() => {
 .main-layout {
   @include flex-column;
   width: 100%;
-  height: 100%;
+  height: 100vh;
   background-color: $bg-color;
 }
 
@@ -67,7 +68,7 @@ const mainContentStyle = computed(() => {
 
 .content-wrapper {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   @include scrollbar-style;
 }
 </style>

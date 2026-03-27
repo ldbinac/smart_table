@@ -38,6 +38,9 @@ export interface CreateDashboardData {
 
 export class DashboardService {
   async createDashboard(data: CreateDashboardData): Promise<Dashboard> {
+    const dashboards = await this.getDashboardsByBase(data.baseId)
+    const maxOrder = dashboards.length > 0 ? Math.max(...dashboards.map(d => d.order)) : -1
+
     const dashboard: Dashboard = {
       id: generateId(),
       baseId: data.baseId,
@@ -45,6 +48,8 @@ export class DashboardService {
       description: data.description,
       widgets: data.widgets || [],
       layout: {},
+      isStarred: false,
+      order: maxOrder + 1,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -58,7 +63,7 @@ export class DashboardService {
   }
 
   async getDashboardsByBase(baseId: string): Promise<Dashboard[]> {
-    return db.dashboards.where('baseId').equals(baseId).sortBy('updatedAt')
+    return db.dashboards.where('baseId').equals(baseId).sortBy('order')
   }
 
   async updateDashboard(id: string, changes: Partial<Dashboard>): Promise<void> {
@@ -85,16 +90,28 @@ export class DashboardService {
       throw new Error('Dashboard not found')
     }
 
+    const dashboards = await this.getDashboardsByBase(dashboard.baseId)
+    const maxOrder = dashboards.length > 0 ? Math.max(...dashboards.map(d => d.order)) : -1
+
     const duplicated: Dashboard = {
       ...dashboard,
       id: generateId(),
       name: newName || `${dashboard.name} (复制)`,
+      order: maxOrder + 1,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
 
     await db.dashboards.add(duplicated)
     return duplicated
+  }
+
+  async reorderDashboards(baseId: string, dashboardIds: string[]): Promise<void> {
+    await db.transaction('rw', db.dashboards, async () => {
+      for (let i = 0; i < dashboardIds.length; i++) {
+        await db.dashboards.update(dashboardIds[i], { order: i })
+      }
+    })
   }
 }
 
