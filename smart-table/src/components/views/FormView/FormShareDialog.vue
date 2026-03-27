@@ -52,10 +52,11 @@ function generateShareLink() {
   // 保存表单配置到 localStorage
   saveFormConfig(formId)
   
-  // 生成分享链接
+  // 生成分享链接（使用hash路由格式）
   setTimeout(() => {
     const baseUrl = window.location.origin
-    shareUrl.value = `${baseUrl}/form/${formId}`
+    // 使用hash路由格式：/#/form/:id
+    shareUrl.value = `${baseUrl}/#/form/${formId}`
     isGenerating.value = false
     ElMessage.success('分享链接已生成')
   }, 800)
