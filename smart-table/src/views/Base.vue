@@ -4,7 +4,13 @@ import { useRoute } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
-import { Setting, Share, Upload } from "@element-plus/icons-vue";
+import {
+  Setting,
+  Share,
+  Upload,
+  ArrowLeft,
+  ArrowRight,
+} from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
@@ -119,6 +125,14 @@ const activeSorts = computed(() => viewStore.currentSorts);
 
 // 搜索关键词
 const tableSearchKeyword = ref("");
+
+// 侧边栏展开/收缩状态
+const isSidebarCollapsed = ref(false);
+
+// 切换侧边栏状态
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+};
 
 // 过滤后的表格列表
 const filteredTables = computed(() => {
@@ -907,13 +921,37 @@ function handleImported() {
 
 <template>
   <div class="base-page">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
       <div class="sidebar-header">
-        <h3>{{ baseStore.currentBase?.name || "加载中..." }}</h3>
+        <div class="header-content" v-show="!isSidebarCollapsed">
+          <el-tooltip
+            :content="baseStore.currentBase?.name || '加载中...'"
+            placement="bottom"
+            :show-after="300"
+            :disabled="!baseStore.currentBase?.name">
+            <h3>{{ baseStore.currentBase?.name || "加载中..." }}</h3>
+          </el-tooltip>
+          <el-tooltip
+            v-if="baseStore.currentBase?.description"
+            :content="baseStore.currentBase.description"
+            placement="bottom"
+            :show-after="300">
+            <p class="base-description">
+              {{ baseStore.currentBase.description }}
+            </p>
+          </el-tooltip>
+        </div>
+        <button
+          class="collapse-btn"
+          @click="toggleSidebar"
+          :title="isSidebarCollapsed ? '展开' : '收起'">
+          <el-icon v-if="isSidebarCollapsed"><ArrowRight /></el-icon>
+          <el-icon v-else><ArrowLeft /></el-icon>
+        </button>
       </div>
 
       <!-- 搜索框 -->
-      <div class="sidebar-search">
+      <div v-show="!isSidebarCollapsed" class="sidebar-search">
         <el-input
           v-model="tableSearchKeyword"
           placeholder="搜索数据表"
@@ -927,52 +965,72 @@ function handleImported() {
 
       <!-- 表格列表 -->
       <div ref="tableListRef" class="table-list">
-        <div
-          v-for="table in filteredTables"
-          :key="table.id"
-          class="table-item"
-          :class="{ active: baseStore.currentTable?.id === table.id }"
-          @click="handleTableSelect(table.id)">
-          <span class="drag-handle" @click.stop>
-            <el-icon><Rank /></el-icon>
-          </span>
-          <el-icon class="table-icon"><Document /></el-icon>
-          <span class="table-name">{{ table.name }}</span>
-          <span v-if="table.isStarred" class="star-icon">
-            <el-icon><StarFilled /></el-icon>
-          </span>
-          <el-dropdown
-            trigger="click"
-            @command="
-              (cmd) => {
-                if (cmd === 'rename') openRenameTableDialog(table);
-                else if (cmd === 'delete') handleDeleteTable(table);
-                else if (cmd === 'star') handleToggleStarTable(table);
-              }
-            "
-            @click.stop>
-            <span class="more-icon" @click.stop>
-              <el-icon><MoreFilled /></el-icon>
+        <template v-for="table in filteredTables" :key="table.id">
+          <!-- 收缩状态下的表格项（带Tooltip） -->
+          <el-tooltip
+            v-if="isSidebarCollapsed"
+            :content="table.name"
+            placement="right"
+            :show-after="300">
+            <div
+              class="table-item"
+              :class="{ active: baseStore.currentTable?.id === table.id }"
+              @click="handleTableSelect(table.id)">
+              <el-icon class="table-icon"><Document /></el-icon>
+            </div>
+          </el-tooltip>
+          <!-- 展开状态下的表格项 -->
+          <div
+            v-else
+            class="table-item"
+            :class="{ active: baseStore.currentTable?.id === table.id }"
+            @click="handleTableSelect(table.id)">
+            <span class="drag-handle" @click.stop>
+              <el-icon><Rank /></el-icon>
             </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="rename">
-                  <el-icon><Edit /></el-icon>重命名
-                </el-dropdown-item>
-                <el-dropdown-item command="star">
-                  <el-icon
-                    ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
-                  /></el-icon>
-                  {{ table.isStarred ? "取消收藏" : "收藏" }}
-                </el-dropdown-item>
-                <el-dropdown-item divided command="delete" class="delete-item">
-                  <el-icon><Delete /></el-icon>删除
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-        <div v-if="filteredTables.length === 0" class="empty-tables">
+            <el-icon class="table-icon"><Document /></el-icon>
+            <span class="table-name">{{ table.name }}</span>
+            <span v-if="table.isStarred" class="star-icon">
+              <el-icon><StarFilled /></el-icon>
+            </span>
+            <el-dropdown
+              trigger="click"
+              @command="
+                (cmd) => {
+                  if (cmd === 'rename') openRenameTableDialog(table);
+                  else if (cmd === 'delete') handleDeleteTable(table);
+                  else if (cmd === 'star') handleToggleStarTable(table);
+                }
+              "
+              @click.stop>
+              <span class="more-icon" @click.stop>
+                <el-icon><MoreFilled /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="rename">
+                    <el-icon><Edit /></el-icon>重命名
+                  </el-dropdown-item>
+                  <el-dropdown-item command="star">
+                    <el-icon
+                      ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
+                    /></el-icon>
+                    {{ table.isStarred ? "取消收藏" : "收藏" }}
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    divided
+                    command="delete"
+                    class="delete-item">
+                    <el-icon><Delete /></el-icon>删除
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </template>
+        <div
+          v-if="filteredTables.length === 0 && !isSidebarCollapsed"
+          class="empty-tables">
           {{ tableSearchKeyword ? "没有找到匹配的数据表" : "暂无数据表" }}
         </div>
       </div>
@@ -980,7 +1038,7 @@ function handleImported() {
       <div class="sidebar-footer">
         <el-button type="primary" text @click="openCreateTableDialog">
           <el-icon><Plus /></el-icon>
-          添加数据表
+          <span v-show="!isSidebarCollapsed">添加数据表</span>
         </el-button>
       </div>
     </aside>
@@ -1346,20 +1404,131 @@ function handleImported() {
 
 .sidebar {
   width: $sidebar-width;
+  margin-right: 5px;
   display: flex;
   flex-direction: column;
   border-right: 1px solid $border-color;
   background: $surface-color;
+  transition: width $transition-normal;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  &.collapsed {
+    width: $sidebar-collapsed-width;
+
+    .sidebar-header {
+      justify-content: center;
+      padding: $spacing-md $spacing-sm;
+
+      h3 {
+        display: none;
+      }
+    }
+
+    .sidebar-search {
+      display: none;
+    }
+
+    .table-list {
+      padding: $spacing-sm 0;
+    }
+
+    .table-item {
+      justify-content: center;
+      padding: $spacing-md $spacing-sm;
+      gap: 0;
+
+      .drag-handle,
+      .table-name,
+      .star-icon,
+      .more-icon {
+        display: none;
+      }
+
+      .table-icon {
+        margin: 0;
+      }
+
+      &.active {
+        background-color: rgba($primary-color, 0.15);
+      }
+    }
+
+    .empty-tables {
+      display: none;
+    }
+
+    .sidebar-footer {
+      padding: $spacing-sm;
+
+      .el-button {
+        padding: $spacing-sm;
+        justify-content: center;
+
+        span:not(.el-icon) {
+          display: none;
+        }
+      }
+    }
+  }
 }
 
 .sidebar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   padding: $spacing-lg;
   border-bottom: 1px solid $border-color;
+  min-height: 56px;
+  gap: $spacing-sm;
+
+  .header-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
 
   h3 {
     margin: 0;
     font-size: $font-size-lg;
     font-weight: 600;
+    color: $text-primary;
+    @include text-ellipsis;
+    line-height: 1.4;
+  }
+
+  .base-description {
+    margin: 0;
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: default;
+  }
+}
+
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: $border-radius-sm;
+  color: $text-secondary;
+  cursor: pointer;
+  transition: all $transition-fast;
+  flex-shrink: 0;
+
+  &:hover {
+    background-color: $bg-color;
     color: $text-primary;
   }
 }

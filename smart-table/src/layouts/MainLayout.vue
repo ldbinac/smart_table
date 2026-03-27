@@ -16,7 +16,7 @@ const shouldShowSidebar = computed(() => {
 const mainContentStyle = computed(() => {
   if (shouldShowSidebar.value) {
     return {
-      marginLeft: sidebarCollapsed.value ? "64px" : "20px",
+      marginLeft: sidebarCollapsed.value ? "64px" : "8px",
       marginRight: "5px",
     };
   }
