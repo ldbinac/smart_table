@@ -8,55 +8,77 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 
 ### Core Features
 
-- Base Management - Create, edit, delete, and star bases
+- Base Management - Create, edit, delete, and star multi-dimensional tables
 - Table Management - Support multiple tables with drag-sort, rename, and delete
-- Field Management - Support 20+ field types
+- Field Management - Support 22 field types
 - Record Management - CRUD operations and batch actions
-- View Management - Multiple view types with filter, sort, and group
+- View Management - 6 view types with filter, sort, and group
 
-### Supported Field Types
+### Supported Field Types (22 Types)
 
-- Basic: Text, Number, Date, Checkbox
-- Select: Single Select, Multi Select
-- Contact: Member, Phone, Email, URL
-- Media: Attachment
-- Computed: Formula, Link, Lookup
-- System: Created By, Created Time, Updated By, Updated Time, Auto Number
-- Others: Rating, Progress
+| Category | Field Type | Status |
+| -------- | ---------- | ------ |
+| Basic | Text | ✅ |
+| Basic | Number | ✅ |
+| Basic | Date | ✅ |
+| Basic | Single Select | ✅ |
+| Basic | Multi Select | ✅ |
+| Basic | Checkbox | ✅ |
+| Contact | Member | ✅ |
+| Contact | Phone | ✅ |
+| Contact | Email | ✅ |
+| Contact | URL | ✅ |
+| Media | Attachment | ✅ |
+| Computed | Formula | ✅ |
+| Computed | Link | ✅ |
+| Computed | Lookup | ✅ |
+| System | Created By | ✅ |
+| System | Created Time | ✅ |
+| System | Updated By | ✅ |
+| System | Updated Time | ✅ |
+| System | Auto Number | ✅ |
+| Others | Rating | ✅ |
+| Others | Progress | ✅ |
+| Others | URL | ✅ |
 
-### Supported View Types
+### Supported View Types (6 Types)
 
-- Table View - Classic table display
-- Kanban View - Card-based display
-- Calendar View - Time-based display
-- Gantt View - Project timeline display
-- Form View - Data collection form
-- Gallery View - Image card display
+| View Type | Description | Status |
+| --------- | ----------- | ------ |
+| Table View | Classic table display with virtual scroll and column freeze | ✅ |
+| Kanban View | Card-based display with drag sorting | ✅ |
+| Calendar View | Time-based display | ✅ |
+| Gantt View | Project timeline display | ✅ |
+| Form View | Data collection form with sharing | ✅ |
+| Gallery View | Image card display | ✅ |
 
 ### Advanced Features
 
-- Data Filtering - Multi-condition combined filtering
+- Data Filtering - Multi-condition combined filtering with AND/OR logic
 - Data Sorting - Multi-field sorting
-- Data Grouping - Group by field
-- Data Export - Support Excel, CSV formats
+- Data Grouping - Group by field with statistics
+- Data Import - Support Excel, CSV, JSON formats
+- Data Export - Support Excel, CSV, JSON formats
+- Formula Engine - 40+ built-in functions for math, text, date, logic, and statistics
 - Drag Sorting - Drag to sort tables, fields, and views
 - Star Feature - Quick access to frequently used tables
 - Search Feature - Quick table search
 
 ## Tech Stack
 
-| Category             | Technology              |
-| -------------------- | ----------------------- |
-| Frontend Framework   | Vue 3 (Composition API) |
-| Language             | TypeScript              |
-| State Management     | Pinia                   |
-| Database             | Dexie (IndexedDB)       |
-| UI Component Library | Element Plus            |
-| Table Component      | vxe-table               |
-| Drag Sorting         | sortablejs              |
-| Charts               | echarts + vue-echarts   |
-| Build Tool           | Vite                    |
-| Testing              | Vitest                  |
+| Category | Technology | Version |
+| -------- | ---------- | ------- |
+| Frontend Framework | Vue 3 | ^3.5.30 |
+| Language | TypeScript | ~5.9.3 |
+| State Management | Pinia | ^2.3.1 |
+| Database | Dexie (IndexedDB) | ^3.2.7 |
+| UI Component Library | Element Plus | ^2.13.6 |
+| Table Component | vxe-table | ^4.18.7 |
+| Drag Sorting | sortablejs | ^1.15.7 |
+| Charts | echarts + vue-echarts | ^5.6.0 |
+| Date Processing | dayjs | ^1.11.20 |
+| Build Tool | Vite | ^8.0.1 |
+| Testing | Vitest | ^3.2.4 |
 
 ## Quick Start
 
@@ -68,6 +90,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 ### Install Dependencies
 
 ```bash
+cd smart-table
 npm install
 ```
 
@@ -112,22 +135,32 @@ smart-table/
 │   ├── components/          # Vue components
 │   │   ├── common/          # Common components
 │   │   ├── dialogs/         # Dialog components
-│   │   ├── fields/          # Field type components
+│   │   ├── fields/          # 22 field type components
 │   │   ├── filters/         # Filter components
 │   │   ├── groups/          # Group components
 │   │   ├── sorts/           # Sort components
-│   │   └── views/           # View components
+│   │   └── views/           # 6 view components
 │   ├── db/                  # Database layer
-│   │   ├── services/        # Data services
+│   │   ├── services/        # Data services (base/table/field/record/view/dashboard)
 │   │   ├── schema.ts        # Dexie database schema
 │   │   └── __tests__/       # Test files
 │   ├── layouts/             # Layout components
 │   ├── router/              # Vue Router config
 │   ├── stores/              # Pinia state management
+│   │   ├── baseStore.ts     # Base state
+│   │   ├── tableStore.ts    # Table state
+│   │   ├── viewStore.ts     # View state
+│   │   └── ...
 │   ├── types/               # TypeScript type definitions
+│   │   ├── fields.ts        # Field type definitions
+│   │   ├── views.ts         # View type definitions
+│   │   └── filters.ts       # Filter type definitions
 │   ├── utils/               # Utility functions
 │   │   ├── export/          # Export functionality
-│   │   └── formula/         # Formula engine
+│   │   ├── formula/         # Formula engine
+│   │   ├── filter.ts        # Filter logic
+│   │   ├── sort.ts          # Sort logic
+│   │   └── group.ts         # Group logic
 │   └── views/               # Page views
 ├── package.json
 ├── vite.config.ts
@@ -137,7 +170,7 @@ smart-table/
 
 ## Data Models
 
-### Base
+### Base (Multi-dimensional Table)
 
 - Base unit for multi-dimensional tables
 - Support starring, custom icon and color
@@ -150,7 +183,7 @@ smart-table/
 ### Field
 
 - Define column types and properties
-- Support 20+ field types
+- Support 22 field types
 
 ### Record
 
@@ -162,6 +195,49 @@ smart-table/
 - Data display method
 - Support filter, sort, and group configuration
 
+## Formula Engine
+
+Formula usage examples:
+
+```
+// Calculate total price
+{Unit Price} * {Quantity}
+
+// Calculate discounted price
+{Original Price} * (1 - {Discount})
+
+// Conditional judgment
+IF({Score} >= 90, "Excellent", IF({Score} >= 60, "Pass", "Fail"))
+
+// Text concatenation
+CONCAT({First Name}, {Last Name})
+
+// Date calculation
+DATEDIF({Start Date}, {End Date}, "D")
+```
+
+Supports 40+ built-in functions:
+
+### Math Functions
+
+`SUM`, `AVG`, `MAX`, `MIN`, `ROUND`, `CEILING`, `FLOOR`, `ABS`, `MOD`, `POWER`, `SQRT`
+
+### Text Functions
+
+`CONCAT`, `LEFT`, `RIGHT`, `LEN`, `UPPER`, `LOWER`, `TRIM`, `SUBSTITUTE`, `REPLACE`, `FIND`
+
+### Date Functions
+
+`TODAY`, `NOW`, `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE`, `SECOND`, `DATEDIF`, `DATEADD`
+
+### Logic Functions
+
+`IF`, `AND`, `OR`, `NOT`, `IFERROR`, `IFS`, `SWITCH`
+
+### Statistical Functions
+
+`COUNT`, `COUNTA`, `COUNTIF`, `SUMIF`, `AVERAGEIF`
+
 ## Browser Support
 
 - Chrome >= 90
@@ -169,32 +245,44 @@ smart-table/
 - Safari >= 14
 - Edge >= 90
 
-## Roadmap
+## Development Roadmap
+
+### Implemented Features ✅
 
 - [x] Base CRUD
 - [x] Table CRUD
-- [x] Field Management
+- [x] Field Management (22 types)
 - [x] Record Management
-- [x] Multiple View Support
-- [x] Data Filter & Sort
-- [x] Data Export
+- [x] 6 View Support (Table, Kanban, Calendar, Gantt, Form, Gallery)
+- [x] Data Filtering
+- [x] Data Sorting
+- [x] Data Grouping
+- [x] Formula Engine (40+ functions)
+- [x] Data Import (Excel/CSV/JSON)
+- [x] Data Export (Excel/CSV/JSON)
 - [x] Drag Sorting
 - [x] Star Feature
 - [x] Search Feature
-- [ ] Data Import
-- [ ] Collaboration Features
+- [x] Form View Sharing
+
+### Planned Features 📋
+
+- [ ] Collaboration Features (based on WebRTC)
 - [ ] Permission Management
 - [ ] Automation Workflows
+- [ ] Plugin System
+- [ ] Data Dashboard
+- [ ] Mobile Adaptation
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues and pull requests.
+Welcome to submit Issues and Pull Requests!
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+5. Create a Pull Request
 
 ## License
 
