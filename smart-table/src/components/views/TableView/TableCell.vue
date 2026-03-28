@@ -4,12 +4,14 @@ import dayjs from "dayjs";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
 import MultiSelectField from "@/components/fields/MultiSelectField.vue";
+import { FormulaEngine } from "@/utils/formula/engine";
 
 interface Props {
   record: RecordEntity;
   field: FieldEntity;
   readonly?: boolean;
   selected?: boolean;
+  fields?: FieldEntity[]; // 所有字段，用于公式计算
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -29,6 +31,12 @@ const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
 const cellValue = computed(() => {
   return props.record.values[props.field.id] ?? null;
+});
+
+// 创建一个响应式的记录值引用，用于触发公式重新计算
+const recordValuesHash = computed(() => {
+  // 返回 values 对象的字符串表示，这样任何值的变化都会触发重新计算
+  return JSON.stringify(props.record.values);
 });
 
 // 获取字段配置
@@ -56,10 +64,17 @@ const datePickerType = computed(() => {
   return dateShowTime.value ? "datetime" : "date";
 });
 
+// 公式字段计算结果 - 使用独立的 computed 来确保响应性
+const formulaValue = computed(() => {
+  // 依赖 recordValuesHash，确保任何字段值变化都会重新计算
+  // 使用 hash 值作为依赖，当任何字段值变化时，hash 会改变，触发重新计算
+  const hash = recordValuesHash.value;
+  console.log("Formula recalculating, hash:", hash);
+  return calculateFormula();
+});
+
 const displayValue = computed(() => {
   const value = cellValue.value;
-  if (value === null || value === undefined) return "";
-
   const type = props.field.type;
   const options = fieldOptions.value;
 
@@ -68,7 +83,7 @@ const displayValue = computed(() => {
     case "email":
     case "url":
     case "phone":
-      return String(value);
+      return value === null || value === undefined ? "" : String(value);
     case "number":
       if (typeof value === "number") {
         const precision = options?.precision ?? 0;
@@ -77,14 +92,15 @@ const displayValue = computed(() => {
         const suffix = options?.suffix || "";
         return `${prefix}${formatted}${suffix}`;
       }
-      return String(value);
+      return value === null || value === undefined ? "" : String(value);
     case "singleSelect": {
+      if (value === null || value === undefined) return "";
       const opts = options?.options || [];
       const opt = opts.find((o) => o.id === value || o.name === value);
       return opt?.name || String(value);
     }
     case "multiSelect": {
-      if (!Array.isArray(value)) return "";
+      if (!Array.isArray(value) || value.length === 0) return "";
       const opts = options?.options || [];
       return value
         .map((v) => {
@@ -135,10 +151,48 @@ const displayValue = computed(() => {
       if (!Array.isArray(value)) return "";
       return `${value.length} 个文件`;
     }
+    case "formula": {
+      // 公式字段使用独立的 computed 属性
+      return formulaValue.value;
+    }
     default:
-      return String(value);
+      return value === null || value === undefined ? "" : String(value);
   }
 });
+
+// 计算公式字段值
+const calculateFormula = (): string => {
+  const formula = fieldOptions.value?.formula as string;
+  if (!formula) return "";
+
+  try {
+    // 获取所有字段（从父组件传入）
+    const allFields = props.fields;
+    if (!allFields || allFields.length === 0) {
+      return "";
+    }
+    const engine = new FormulaEngine(allFields);
+    const result = engine.calculate(props.record, formula);
+
+    if (result === "#ERROR") {
+      return "计算错误";
+    }
+
+    // 数字格式化
+    if (typeof result === "number") {
+      const precision = fieldOptions.value?.precision ?? 2;
+      return result.toLocaleString("zh-CN", {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      });
+    }
+
+    return String(result);
+  } catch (error) {
+    console.error("Formula calculation error:", error);
+    return "计算错误";
+  }
+};
 
 const fieldType = computed(() => props.field.type);
 

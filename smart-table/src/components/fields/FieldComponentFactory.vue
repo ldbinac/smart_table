@@ -21,6 +21,8 @@ import CreatedTimeField from "./CreatedTimeField.vue";
 import UpdatedByField from "./UpdatedByField.vue";
 import UpdatedTimeField from "./UpdatedTimeField.vue";
 import AutoNumberField from "./AutoNumberField.vue";
+import FormulaField from "./FormulaField.vue";
+import type { FieldEntity, RecordEntity } from "@/db/schema";
 
 interface Field {
   id: string;
@@ -34,6 +36,9 @@ interface Props {
   field: Field;
   readonly?: boolean;
   placeholder?: string;
+  // 公式字段需要的上下文
+  record?: RecordEntity;
+  allFields?: FieldEntity[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -66,6 +71,7 @@ const componentMap: Record<string, unknown> = {
   [FieldType.UPDATED_BY]: UpdatedByField,
   [FieldType.UPDATED_TIME]: UpdatedTimeField,
   [FieldType.AUTO_NUMBER]: AutoNumberField,
+  [FieldType.FORMULA]: FormulaField,
 };
 
 const currentComponent = computed(() => {
@@ -99,6 +105,8 @@ defineExpose({ focus });
         :field="field"
         :readonly="readonly"
         :placeholder="placeholder"
+        :record="record"
+        :all-fields="allFields"
         ref="fieldRef" />
     </template>
     <template v-else>

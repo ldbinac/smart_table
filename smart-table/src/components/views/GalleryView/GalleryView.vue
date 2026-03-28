@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import type { RecordEntity, FieldEntity } from '@/db/schema'
 import { FieldType } from '@/types'
+import { FormulaEngine } from '@/utils/formula/engine'
 
 interface Props {
   fields: FieldEntity[]
@@ -30,7 +31,8 @@ const titleFields = computed(() => {
   return props.fields.filter(f =>
     f.type === FieldType.TEXT ||
     f.type === FieldType.NUMBER ||
-    f.type === FieldType.SINGLE_SELECT
+    f.type === FieldType.SINGLE_SELECT ||
+    f.type === FieldType.FORMULA
   )
 })
 
@@ -48,11 +50,37 @@ interface GalleryCard {
   record: RecordEntity
 }
 
+// 获取记录标题（支持公式字段）
+const getRecordTitle = (record: RecordEntity): string => {
+  const field = titleField.value;
+  if (!field) return '无标题';
+
+  // 如果是公式字段，实时计算
+  if (field.type === FieldType.FORMULA) {
+    const formula = field.options?.formula as string;
+    if (formula && props.fields.length > 0) {
+      try {
+        const engine = new FormulaEngine(props.fields);
+        const result = engine.calculate(record, formula);
+        if (result !== '#ERROR') {
+          return String(result);
+        }
+      } catch (error) {
+        console.error('Gallery formula calculation error:', error);
+      }
+    }
+    return '计算错误';
+  }
+
+  // 普通字段直接返回值
+  return String(record.values[field.id] || '无标题');
+};
+
 const cards = computed<GalleryCard[]>(() => {
   if (!imageFieldId.value) {
     return props.records.map(record => ({
       id: record.id,
-      title: String(titleField.value ? record.values[titleField.value!.id] || '无标题' : '无标题'),
+      title: getRecordTitle(record),
       images: [],
       record
     }))
@@ -65,7 +93,7 @@ const cards = computed<GalleryCard[]>(() => {
     })
     .map(record => {
       const images = record.values[imageFieldId.value] as Array<{ url?: string; name?: string; thumbnail?: string }>
-      const title = String(titleField.value ? record.values[titleField.value!.id] || '无标题' : '无标题')
+      const title = getRecordTitle(record)
 
       return {
         id: record.id,

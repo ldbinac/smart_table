@@ -14,11 +14,13 @@ import {
   ElMessage,
   ElRate,
   ElSlider,
+  ElIcon,
 } from "element-plus";
-import type { FieldEntity } from "@/db/schema";
+import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
+import { FormulaEngine } from "@/utils/formula/engine";
 
 const props = defineProps<{
   visible: boolean;
@@ -73,6 +75,63 @@ watch(
   },
   { immediate: true },
 );
+
+// 计算所有公式字段的值 - 使用 computed 确保响应式更新
+const formulaValues = computed(() => {
+  const values: Record<string, string> = {};
+
+  // 依赖 formData.value，确保表单数据变化时重新计算
+  const currentFormData = formData.value;
+
+  props.fields.forEach((field) => {
+    if (field.type === FieldType.FORMULA) {
+      values[field.id] = calculateFormulaValue(field, currentFormData);
+    }
+  });
+
+  return values;
+});
+
+// 计算公式字段值
+const calculateFormulaValue = (
+  field: FieldEntity,
+  currentFormData: Record<string, unknown> = formData.value,
+): string => {
+  const formula = field.options?.formula as string;
+  if (!formula) return "";
+
+  try {
+    // 构建当前记录对象
+    const record: RecordEntity = {
+      id: "temp",
+      tableId: "",
+      values: currentFormData as Record<string, import("@/types").CellValue>,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const engine = new FormulaEngine(props.fields);
+    const result = engine.calculate(record, formula);
+
+    if (result === "#ERROR") {
+      return "计算错误";
+    }
+
+    // 数字格式化
+    if (typeof result === "number") {
+      const precision = (field.options?.precision as number) ?? 2;
+      return result.toLocaleString("zh-CN", {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      });
+    }
+
+    return String(result);
+  } catch (error) {
+    console.error("Add record dialog formula calculation error:", error);
+    return "计算错误";
+  }
+};
 
 // 获取字段类型对应的组件
 function getFieldComponent(field: FieldEntity) {
@@ -211,8 +270,6 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
     case FieldType.CREATED_BY:
     case FieldType.UPDATED_BY:
       return String(value);
-    case FieldType.FORMULA:
-      return String(value);
     case FieldType.AUTO_NUMBER:
       return String(value);
     default:
@@ -274,10 +331,29 @@ function handleValueChange(fieldId: string, value: unknown) {
 
         <!-- 只读字段（系统字段、公式字段等） -->
         <template v-else-if="isReadonlyField(field)">
-          <ElInput
-            :model-value="getReadonlyDisplayValue(field)"
-            disabled
-            :placeholder="field.name" />
+          <template v-if="field.type === FieldType.FORMULA">
+            <div class="formula-field-wrapper">
+              <ElInput
+                :model-value="formulaValues[field.id]"
+                disabled
+                :placeholder="field.name"
+                class="formula-input">
+                <template #prefix>
+                  <ElIcon class="formula-icon"><span class="formula-icon-text">ƒ</span></ElIcon>
+                </template>
+              </ElInput>
+              <div v-if="field.options?.formula" class="formula-expression">
+                <span class="formula-label">公式:</span>
+                <code class="formula-code">{{ field.options.formula }}</code>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <ElInput
+              :model-value="getReadonlyDisplayValue(field)"
+              disabled
+              :placeholder="field.name" />
+          </template>
           <span class="auto-filled-hint">{{
             field.type === FieldType.FORMULA
               ? "公式计算字段，不可修改"
@@ -501,5 +577,65 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+// 公式字段样式
+.formula-field-wrapper {
+  width: 100%;
+
+  .formula-input {
+    :deep(.el-input__wrapper) {
+      background-color: $gray-50;
+
+      .el-input__inner {
+        color: $text-primary;
+        font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+        font-weight: 500;
+      }
+    }
+
+    .formula-icon {
+      color: $primary-color;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .formula-icon-text {
+        font-family: 'Times New Roman', serif;
+        font-style: italic;
+        font-weight: bold;
+        font-size: 14px;
+      }
+    }
+  }
+
+  .formula-expression {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background-color: $gray-50;
+    border-radius: $border-radius-sm;
+    border-left: 3px solid $primary-color;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .formula-label {
+      font-size: $font-size-xs;
+      color: $text-secondary;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .formula-code {
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-size: $font-size-xs;
+      color: $text-primary;
+      background-color: $gray-100;
+      padding: 2px 6px;
+      border-radius: 3px;
+      word-break: break-all;
+    }
+  }
 }
 </style>

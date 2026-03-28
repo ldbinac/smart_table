@@ -73,7 +73,9 @@ function handleCardClick(event: MouseEvent) {
           <FieldComponentFactory
             :model-value="record.values[field.id]"
             :field="field"
-            :readonly="true" />
+            :readonly="true"
+            :record="record"
+            :all-fields="fields" />
         </div>
       </div>
     </div>

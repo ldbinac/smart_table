@@ -559,6 +559,7 @@ defineExpose({
             <TableCell
               :record="record"
               :field="field"
+              :fields="fields"
               :readonly="readonly"
               :selected="
                 editingCell?.recordId === record.id &&

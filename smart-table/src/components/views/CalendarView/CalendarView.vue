@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import { ArrowLeft, ArrowRight, Clock } from "@element-plus/icons-vue";
+import { FormulaEngine } from "@/utils/formula/engine";
 
 interface Props {
   tableId: string;
@@ -59,6 +60,33 @@ const titleField = computed(() => {
   return props.fields.find((f) => f.isPrimary) || props.fields[0];
 });
 
+// 获取记录标题（支持公式字段）
+const getRecordTitle = (record: RecordEntity): string => {
+  const field = titleField.value;
+  if (!field) return "无标题";
+
+  // 如果是公式字段，实时计算
+  if (field.type === FieldType.FORMULA) {
+    const formula = field.options?.formula as string;
+    if (formula && props.fields.length > 0) {
+      try {
+        const engine = new FormulaEngine(props.fields);
+        const result = engine.calculate(record, formula);
+        if (result !== "#ERROR") {
+          return String(result);
+        }
+      } catch (error) {
+        console.error("Calendar formula calculation error:", error);
+      }
+    }
+    return "计算错误";
+  }
+
+  // 普通字段直接返回值
+  const value = record.values[field.id];
+  return value !== null && value !== undefined ? String(value) : "无标题";
+};
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -82,7 +110,7 @@ const events = computed<CalendarEvent[]>(() => {
         ? record.values[endDateFieldId.value]
         : null;
       const titleValue = titleFieldObj
-        ? record.values[titleFieldObj.id]
+        ? getRecordTitle(record)
         : "";
 
       const start = parseDateValue(startValue);

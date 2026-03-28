@@ -60,6 +60,8 @@ const newField = ref<{
   precision: number;
   // 日期字段配置
   showTime: boolean;
+  // 公式字段配置
+  formula: string;
 }>({
   name: "",
   type: FieldType.TEXT,
@@ -67,6 +69,7 @@ const newField = ref<{
   description: "",
   precision: 0,
   showTime: false,
+  formula: "",
 });
 
 const systemTypes = [
@@ -162,6 +165,7 @@ function openCreateField() {
     description: "",
     precision: 0,
     showTime: false,
+    formula: "",
   };
   selectOptions.value = [];
 }
@@ -176,6 +180,7 @@ function openEditField(field: FieldEntity) {
     description: field.description || "",
     precision: (field.options?.precision as number) ?? 0,
     showTime: (field.options?.showTime as boolean) ?? false,
+    formula: (field.options?.formula as string) ?? "",
   };
   if (
     field.type === FieldType.SINGLE_SELECT ||
@@ -202,6 +207,7 @@ function backToList() {
     description: "",
     precision: 0,
     showTime: false,
+    formula: "",
   };
   selectOptions.value = [];
 }
@@ -231,6 +237,11 @@ async function createField() {
     // 日期字段时间显示配置
     if (newField.value.type === FieldType.DATE) {
       options.showTime = newField.value.showTime;
+    }
+    // 公式字段配置
+    if (newField.value.type === FieldType.FORMULA) {
+      options.formula = newField.value.formula;
+      options.precision = newField.value.precision || 2;
     }
 
     const field = await fieldService.createField({
@@ -278,6 +289,11 @@ async function updateField() {
     // 日期字段时间显示配置
     if (newField.value.type === FieldType.DATE) {
       options.showTime = newField.value.showTime;
+    }
+    // 公式字段配置
+    if (newField.value.type === FieldType.FORMULA) {
+      options.formula = newField.value.formula;
+      options.precision = newField.value.precision || 2;
     }
 
     await fieldService.updateField(editingField.value.id, {
@@ -342,11 +358,14 @@ function onTypeChange() {
     selectOptions.value = [];
   }
   // 切换类型时重置特定配置
-  if (newField.value.type !== FieldType.NUMBER) {
+  if (newField.value.type !== FieldType.NUMBER && newField.value.type !== FieldType.FORMULA) {
     newField.value.precision = 0;
   }
   if (newField.value.type !== FieldType.DATE) {
     newField.value.showTime = false;
+  }
+  if (newField.value.type !== FieldType.FORMULA) {
+    newField.value.formula = "";
   }
 }
 
@@ -362,6 +381,76 @@ const presetColors = [
   "#6366F1",
   "#10B981",
 ];
+
+// 可用于公式的字段（排除公式字段自身和某些系统字段）
+const availableFieldsForFormula = computed(() => {
+  return props.fields.filter((field) => {
+    // 排除当前编辑的字段（避免循环引用）
+    if (editingField.value && field.id === editingField.value.id) {
+      return false;
+    }
+    // 排除某些系统字段
+    if (
+      field.type === FieldType.CREATED_BY ||
+      field.type === FieldType.UPDATED_BY
+    ) {
+      return false;
+    }
+    return true;
+  });
+});
+
+// 插入函数到公式
+function insertFunction(funcName: string) {
+  const formulaInput = document.querySelector(
+    '.formula-field textarea, [placeholder*="公式"]'
+  ) as HTMLTextAreaElement;
+  if (formulaInput) {
+    const start = formulaInput.selectionStart;
+    const end = formulaInput.selectionEnd;
+    const currentValue = newField.value.formula;
+    const newValue =
+      currentValue.substring(0, start) +
+      funcName +
+      "()" +
+      currentValue.substring(end);
+    newField.value.formula = newValue;
+    // 将光标放在括号内
+    nextTick(() => {
+      formulaInput.focus();
+      formulaInput.setSelectionRange(start + funcName.length + 1, start + funcName.length + 1);
+    });
+  } else {
+    newField.value.formula += funcName + "()";
+  }
+}
+
+// 插入字段引用到公式
+function insertFieldRef(fieldName: string) {
+  const formulaInput = document.querySelector(
+    '.formula-field textarea, [placeholder*="公式"]'
+  ) as HTMLTextAreaElement;
+  const fieldRef = `{${fieldName}}`;
+  if (formulaInput) {
+    const start = formulaInput.selectionStart;
+    const end = formulaInput.selectionEnd;
+    const currentValue = newField.value.formula;
+    const newValue =
+      currentValue.substring(0, start) +
+      fieldRef +
+      currentValue.substring(end);
+    newField.value.formula = newValue;
+    nextTick(() => {
+      formulaInput.focus();
+      formulaInput.setSelectionRange(
+        start + fieldRef.length,
+        start + fieldRef.length
+      );
+    });
+  } else {
+    newField.value.formula += fieldRef;
+  }
+}
 </script>
 
 <template>
@@ -473,6 +562,107 @@ const presetColors = [
             inactive-text="YYYY-MM-DD" />
           <div class="field-hint">开启后将显示日期和时间，关闭则仅显示日期</div>
         </ElFormItem>
+
+        <!-- 公式字段配置 -->
+        <template v-if="newField.type === FieldType.FORMULA">
+          <ElFormItem label="公式表达式" required>
+            <ElInput
+              v-model="newField.formula"
+              type="textarea"
+              :rows="3"
+              placeholder="输入公式，如: SUM({单价}, {数量}) 或 {单价} * {数量}"
+              maxlength="500"
+              show-word-limit />
+            <div class="field-hint">
+              使用 {字段名} 引用其他字段，支持数学、文本、日期、逻辑函数
+            </div>
+          </ElFormItem>
+
+          <ElFormItem label="小数位数">
+            <div class="precision-config">
+              <ElSlider
+                v-model="newField.precision"
+                :min="0"
+                :max="10"
+                :step="1"
+                show-stops
+                style="width: 300px" />
+              <span class="precision-value">{{ newField.precision || 2 }} 位</span>
+            </div>
+            <div class="field-hint">设置公式结果显示的小数位数，默认为 2</div>
+          </ElFormItem>
+
+          <ElFormItem label="可用函数">
+            <div class="formula-functions">
+              <div class="function-category">
+                <div class="category-title">数学函数</div>
+                <div class="function-list">
+                  <ElTag
+                    v-for="func in ['SUM', 'AVG', 'MAX', 'MIN', 'ROUND']"
+                    :key="func"
+                    size="small"
+                    class="function-tag"
+                    @click="insertFunction(func)">
+                    {{ func }}
+                  </ElTag>
+                </div>
+              </div>
+              <div class="function-category">
+                <div class="category-title">文本函数</div>
+                <div class="function-list">
+                  <ElTag
+                    v-for="func in ['CONCAT', 'LEFT', 'LEN', 'UPPER']"
+                    :key="func"
+                    size="small"
+                    class="function-tag"
+                    @click="insertFunction(func)">
+                    {{ func }}
+                  </ElTag>
+                </div>
+              </div>
+              <div class="function-category">
+                <div class="category-title">日期函数</div>
+                <div class="function-list">
+                  <ElTag
+                    v-for="func in ['TODAY', 'NOW', 'DATEDIF']"
+                    :key="func"
+                    size="small"
+                    class="function-tag"
+                    @click="insertFunction(func)">
+                    {{ func }}
+                  </ElTag>
+                </div>
+              </div>
+              <div class="function-category">
+                <div class="category-title">逻辑函数</div>
+                <div class="function-list">
+                  <ElTag
+                    v-for="func in ['IF', 'AND', 'OR']"
+                    :key="func"
+                    size="small"
+                    class="function-tag"
+                    @click="insertFunction(func)">
+                    {{ func }}
+                  </ElTag>
+                </div>
+              </div>
+            </div>
+          </ElFormItem>
+
+          <ElFormItem label="可用字段">
+            <div class="formula-fields">
+              <ElTag
+                v-for="field in availableFieldsForFormula"
+                :key="field.id"
+                size="small"
+                type="info"
+                class="field-tag"
+                @click="insertFieldRef(field.name)">
+                {{ field.name }}
+              </ElTag>
+            </div>
+          </ElFormItem>
+        </template>
 
         <ElFormItem
           v-if="
@@ -687,6 +877,58 @@ const presetColors = [
     margin-top: 24px;
     padding-top: 16px;
     border-top: 1px solid $border-color;
+  }
+
+  .formula-functions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .function-category {
+      .category-title {
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+
+      .function-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .function-tag {
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &:hover {
+          background-color: $primary-color;
+          color: white;
+        }
+      }
+    }
+  }
+
+  .formula-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 8px;
+    background-color: $bg-color;
+    border-radius: $border-radius-sm;
+
+    .field-tag {
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        background-color: $primary-color;
+        color: white;
+      }
+    }
   }
 }
 </style>

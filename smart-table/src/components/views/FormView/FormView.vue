@@ -5,6 +5,7 @@ import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
+import { FormulaEngine } from "@/utils/formula/engine";
 
 interface Props {
   fields: FieldEntity[];
@@ -272,6 +273,53 @@ function resetForm() {
   });
 }
 
+// 计算公式字段值
+const calculateFormulaValue = (field: FieldEntity): string => {
+  const formula = field.options?.formula as string;
+  if (!formula) return "";
+
+  try {
+    const engine = new FormulaEngine(props.fields);
+    // 构建当前记录对象
+    const record: RecordEntity = {
+      id: "temp",
+      tableId: "",
+      values: formValues.value,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const result = engine.calculate(record, formula);
+
+    if (result === "#ERROR") {
+      return "计算错误";
+    }
+
+    // 数字格式化
+    if (typeof result === "number" && !isNaN(result)) {
+      const precision = (field.options?.precision as number) ?? 2;
+      return result.toLocaleString("zh-CN", {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      });
+    }
+
+    return String(result);
+  } catch (error) {
+    console.error("Form formula calculation error:", error);
+    return "计算错误";
+  }
+};
+
+// 监听表单值变化，重新计算公式字段
+watch(
+  formValues,
+  () => {
+    // 表单值变化时，公式字段会自动重新计算
+    // 由于 calculateFormulaValue 在模板中调用，会响应式更新
+  },
+  { deep: true }
+);
+
 // 获取字段类型对应的组件类型
 function getFieldComponentType(field: FieldEntity): string {
   switch (field.type) {
@@ -291,6 +339,8 @@ function getFieldComponentType(field: FieldEntity): string {
       return "date";
     case FieldType.CHECKBOX:
       return "checkbox";
+    case FieldType.FORMULA:
+      return "formula";
     default:
       return "text";
   }
@@ -569,6 +619,24 @@ defineExpose({
                 :disabled="readonly"
                 class="form-switch"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
+            </template>
+
+            <!-- 公式字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'formula'">
+              <div class="formula-field-display">
+                <el-input
+                  :model-value="calculateFormulaValue(field)"
+                  disabled
+                  class="formula-input"
+                  :placeholder="'自动计算'">
+                  <template #prefix>
+                    <el-icon><Calculator /></el-icon>
+                  </template>
+                </el-input>
+                <div v-if="field.options?.formula" class="formula-hint">
+                  公式: {{ field.options.formula }}
+                </div>
+              </div>
             </template>
           </div>
 
@@ -1130,6 +1198,34 @@ defineExpose({
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+// 公式字段样式
+.formula-field-display {
+  width: 100%;
+
+  .formula-input {
+    :deep(.el-input__wrapper) {
+      background-color: $gray-50;
+      border-color: $gray-200;
+
+      .el-input__inner {
+        color: $text-primary;
+        font-family: 'SF Mono', Monaco, monospace;
+      }
+    }
+
+    :deep(.el-input__prefix) {
+      color: $primary-color;
+    }
+  }
+
+  .formula-hint {
+    margin-top: 4px;
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    font-family: 'SF Mono', Monaco, monospace;
   }
 }
 

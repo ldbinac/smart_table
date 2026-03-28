@@ -5,6 +5,7 @@ import type { GroupNode } from "../../utils/group";
 import { FieldType } from "../../types";
 import { groupRecords } from "../../utils/group";
 import dayjs from "dayjs";
+import { FormulaEngine } from "@/utils/formula/engine";
 
 interface Props {
   fields: FieldEntity[];
@@ -386,6 +387,35 @@ function getNumberDisplay(field: FieldEntity, value: unknown): string {
   return String(value);
 }
 
+// 计算公式字段值
+function getFormulaDisplay(field: FieldEntity, record: RecordEntity): string {
+  const formula = field.options?.formula as string;
+  if (!formula) return "";
+
+  try {
+    const engine = new FormulaEngine(props.fields);
+    const result = engine.calculate(record, formula);
+
+    if (result === "#ERROR") {
+      return "计算错误";
+    }
+
+    // 数字格式化
+    if (typeof result === "number") {
+      const precision = (field.options?.precision as number) ?? 2;
+      return result.toLocaleString("zh-CN", {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      });
+    }
+
+    return String(result);
+  } catch (error) {
+    console.error("Grouped table formula calculation error:", error);
+    return "计算错误";
+  }
+}
+
 // 行选择相关方法
 function toggleRowSelection(recordId: string) {
   if (selectedRows.value.has(recordId)) {
@@ -717,6 +747,18 @@ function isRowSelected(recordId: string): boolean {
                       {{
                         getNumberDisplay(field, item.record!.values[field.id])
                       }}
+                    </span>
+                  </el-tooltip>
+                </template>
+
+                <!-- 公式字段 -->
+                <template v-else-if="field.type === FieldType.FORMULA">
+                  <el-tooltip
+                    :content="getFormulaDisplay(field, item.record!)"
+                    placement="top"
+                    :show-after="200">
+                    <span class="cell-content formula-cell">
+                      {{ getFormulaDisplay(field, item.record!) }}
                     </span>
                   </el-tooltip>
                 </template>
