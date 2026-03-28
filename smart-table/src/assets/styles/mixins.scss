@@ -92,3 +92,54 @@
     }
   }
 }
+
+// Fresh design mixins
+@mixin glass-effect {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+@mixin gradient-primary {
+  background: linear-gradient(135deg, $primary-gradient-start 0%, $primary-gradient-end 100%);
+}
+
+@mixin button-fresh {
+  border-radius: $border-radius-md;
+  transition: all $transition-fast;
+  
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: $shadow-button;
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+@mixin card-fresh {
+  background-color: $surface-color;
+  border-radius: $border-radius-xl;
+  box-shadow: $shadow-card;
+  transition: all $transition-fast;
+  
+  &:hover {
+    box-shadow: $shadow-hover;
+  }
+}
+
+@mixin tab-indicator {
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, $primary-gradient-start, $primary-gradient-end);
+    border-radius: 2px 2px 0 0;
+  }
+}

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { dashboardService } from "@/db/services/dashboardService";
 import type { Dashboard, TableEntity } from "@/db/schema";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessageBox } from "element-plus";
 import {
   Search,
   DataAnalysis,
@@ -13,7 +12,6 @@ import {
   StarFilled,
   MoreFilled,
   Edit,
-  Star,
   Delete,
   Plus,
 } from "@element-plus/icons-vue";
@@ -53,10 +51,10 @@ const emit = defineEmits<{
   (e: "toggle-star-dashboard", dashboard: Dashboard): void;
   // 仪表盘排序变更
   (e: "reorder-dashboards", dashboardIds: string[]): void;
+  // 数据表排序变更
+  (e: "reorder-tables", evt: Sortable.SortableEvent): void;
 }>();
 
-const route = useRoute();
-const router = useRouter();
 const baseStore = useBaseStore();
 
 // 侧边栏展开/收缩状态
@@ -467,6 +465,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 @use "@/assets/styles/variables" as *;
+@use "@/assets/styles/mixins" as *;
 
 .base-sidebar {
   width: $sidebar-width;
@@ -548,9 +547,10 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   padding: $spacing-md $spacing-lg;
-  border-bottom: 1px solid $border-color;
+  border-bottom: 1px solid $gray-200;
   min-height: 56px;
   gap: $spacing-sm;
+  @include glass-effect;
 
   .header-content {
     flex: 1;
@@ -558,6 +558,19 @@ defineExpose({
 
     :deep(.el-input) {
       width: 100%;
+
+      .el-input__wrapper {
+        border-radius: $border-radius-md;
+        box-shadow: 0 0 0 1px $gray-200 inset;
+
+        &:hover {
+          box-shadow: 0 0 0 1px $gray-300 inset;
+        }
+
+        &.is-focus {
+          box-shadow: 0 0 0 1px $primary-color inset;
+        }
+      }
     }
   }
 }
@@ -638,33 +651,73 @@ defineExpose({
   align-items: center;
   padding: $spacing-sm $spacing-lg;
   cursor: pointer;
-  transition: background-color $transition-fast;
+  transition: all $transition-fast;
   gap: $spacing-sm;
+  border-radius: 0 $border-radius-md $border-radius-md 0;
+  margin-right: $spacing-sm;
+  position: relative;
 
   &:hover {
-    background-color: $bg-color;
+    background-color: $gray-100;
 
     .more-icon {
       opacity: 1;
     }
+
+    .drag-handle {
+      color: $text-secondary;
+    }
   }
 
   &.active {
-    background-color: rgba($primary-color, 0.1);
-    border-right: 3px solid $primary-color;
+    background-color: rgba($primary-color, 0.08);
+    color: $primary-color;
+
+    // 底部指示条效果
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      background: linear-gradient(180deg, $primary-gradient-start, $primary-gradient-end);
+      border-radius: 0 2px 2px 0;
+    }
 
     .table-icon,
     .dashboard-icon {
       color: $primary-color;
     }
+
+    .table-name,
+    .dashboard-name {
+      color: $primary-color;
+      font-weight: 500;
+    }
+  }
+
+  // 拖拽排序时的视觉反馈
+  &.sortable-ghost {
+    opacity: 0.4;
+    background-color: $gray-100;
+  }
+
+  &.sortable-drag {
+    background-color: $surface-color;
+    box-shadow: $shadow-lg;
+    border-radius: $border-radius-md;
+    margin-right: 0;
   }
 }
 
 .drag-handle {
   cursor: grab;
-  color: $text-disabled;
+  color: transparent;
   display: flex;
   align-items: center;
+  transition: color $transition-fast;
 
   &:hover {
     color: $text-secondary;

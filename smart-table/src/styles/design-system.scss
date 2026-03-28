@@ -1,0 +1,297 @@
+/**
+ * Smart Table Design System
+ * 设计系统基础变量定义
+ * 与 Home.vue 中的清新配色保持一致
+ */
+
+// ============================================
+// 颜色系统 (Color System)
+// ============================================
+
+// 主色调 - 清新蓝
+$primary: #3B82F6;
+$primary-light: #EFF6FF;
+$primary-dark: #2563EB;
+$primary-hover: #60A5FA;
+
+// 功能色
+$success: #10B981;
+$success-light: #D1FAE5;
+$success-dark: #059669;
+
+$warning: #F59E0B;
+$warning-light: #FEF3C7;
+$warning-dark: #D97706;
+
+$danger: #EF4444;
+$danger-light: #FEE2E2;
+$danger-dark: #DC2626;
+
+// 信息色
+$info: #6B7280;
+$info-light: #F3F4F6;
+
+// 灰度色板 - 与 Home.vue 保持一致
+$gray-50: #F9FAFB;
+$gray-100: #F3F4F6;
+$gray-200: #E5E7EB;
+$gray-300: #D1D5DB;
+$gray-400: #9CA3AF;
+$gray-500: #6B7280;
+$gray-600: #4B5563;
+$gray-700: #374151;
+$gray-800: #1F2937;
+$gray-900: #111827;
+
+// 背景色
+$bg-primary: #FFFFFF;
+$bg-secondary: #F9FAFB;
+$bg-tertiary: #F3F4F6;
+
+// 文字色
+$text-primary: $gray-900;
+$text-secondary: $gray-600;
+$text-tertiary: $gray-400;
+$text-disabled: $gray-400;
+$text-inverse: #FFFFFF;
+
+// 边框色
+$border-light: $gray-200;
+$border-default: $gray-300;
+$border-dark: $gray-400;
+
+// 收藏/星标色
+$star-color: $warning;
+
+// ============================================
+// 间距系统 (Spacing System) - 8px 网格
+// ============================================
+
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-2xl: 48px;
+$spacing-3xl: 64px;
+
+// ============================================
+// 圆角系统 (Border Radius)
+// ============================================
+
+$radius-none: 0;
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 12px;
+$radius-xl: 16px;
+$radius-2xl: 20px;
+$radius-full: 9999px;
+
+// ============================================
+// 阴影系统 (Shadow System)
+// ============================================
+
+$shadow-sm: 0 1px 2px rgba($gray-900, 0.05);
+$shadow-md: 0 4px 6px -1px rgba($gray-900, 0.1), 0 2px 4px -2px rgba($gray-900, 0.1);
+$shadow-lg: 0 10px 15px -3px rgba($gray-900, 0.1), 0 4px 6px -4px rgba($gray-900, 0.1);
+$shadow-xl: 0 20px 25px -5px rgba($gray-900, 0.1), 0 8px 10px -6px rgba($gray-900, 0.1);
+
+// 主色阴影
+$shadow-primary: 0 4px 14px rgba($primary, 0.35);
+$shadow-primary-hover: 0 6px 20px rgba($primary, 0.45);
+
+// 危险色阴影
+$shadow-danger: 0 4px 14px rgba($danger, 0.35);
+
+// ============================================
+// 字体系统 (Typography)
+// ============================================
+
+// 字体栈
+$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+$font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+
+// 字号层级
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 14px;
+$font-size-md: 15px;
+$font-size-lg: 16px;
+$font-size-xl: 18px;
+$font-size-2xl: 20px;
+$font-size-3xl: 24px;
+$font-size-4xl: 30px;
+
+// 字重
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// 行高
+$line-height-tight: 1.25;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.75;
+
+// ============================================
+// 过渡系统 (Transitions)
+// ============================================
+
+$transition-fast: 0.15s ease;
+$transition-normal: 0.25s ease;
+$transition-slow: 0.35s ease;
+
+// 特定属性过渡
+$transition-colors: color $transition-fast, background-color $transition-fast, border-color $transition-fast;
+$transition-transform: transform $transition-normal;
+$transition-opacity: opacity $transition-fast;
+$transition-shadow: box-shadow $transition-fast;
+
+// 贝塞尔曲线
+$ease-out-cubic: cubic-bezier(0.4, 0, 0.2, 1);
+$ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
+$ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+// ============================================
+// 层级系统 (Z-Index)
+// ============================================
+
+$z-index-dropdown: 1000;
+$z-index-sticky: 1020;
+$z-index-fixed: 1030;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+$z-index-popover: 1060;
+$z-index-tooltip: 1070;
+$z-index-toast: 1080;
+
+// ============================================
+// 布局常量 (Layout Constants)
+// ============================================
+
+// 头部高度
+$header-height: 56px;
+
+// 侧边栏宽度
+$sidebar-width: 240px;
+$sidebar-collapsed-width: 64px;
+
+// 内容最大宽度
+$content-max-width: 1200px;
+
+// 断点
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+$breakpoint-2xl: 1536px;
+
+// ============================================
+// CSS 自定义属性 (CSS Variables)
+// ============================================
+
+:root {
+  // 颜色变量
+  --color-primary: #{$primary};
+  --color-primary-light: #{$primary-light};
+  --color-primary-dark: #{$primary-dark};
+  --color-primary-hover: #{$primary-hover};
+
+  --color-success: #{$success};
+  --color-success-light: #{$success-light};
+  --color-success-dark: #{$success-dark};
+
+  --color-warning: #{$warning};
+  --color-warning-light: #{$warning-light};
+  --color-warning-dark: #{$warning-dark};
+
+  --color-danger: #{$danger};
+  --color-danger-light: #{$danger-light};
+  --color-danger-dark: #{$danger-dark};
+
+  --color-info: #{$info};
+  --color-info-light: #{$info-light};
+
+  // 灰度色
+  --color-gray-50: #{$gray-50};
+  --color-gray-100: #{$gray-100};
+  --color-gray-200: #{$gray-200};
+  --color-gray-300: #{$gray-300};
+  --color-gray-400: #{$gray-400};
+  --color-gray-500: #{$gray-500};
+  --color-gray-600: #{$gray-600};
+  --color-gray-700: #{$gray-700};
+  --color-gray-800: #{$gray-800};
+  --color-gray-900: #{$gray-900};
+
+  // 背景色
+  --bg-primary: #{$bg-primary};
+  --bg-secondary: #{$bg-secondary};
+  --bg-tertiary: #{$bg-tertiary};
+
+  // 文字色
+  --text-primary: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+  --text-tertiary: #{$text-tertiary};
+  --text-disabled: #{$text-disabled};
+  --text-inverse: #{$text-inverse};
+
+  // 边框色
+  --border-light: #{$border-light};
+  --border-default: #{$border-default};
+  --border-dark: #{$border-dark};
+
+  // 阴影
+  --shadow-sm: #{$shadow-sm};
+  --shadow-md: #{$shadow-md};
+  --shadow-lg: #{$shadow-lg};
+  --shadow-xl: #{$shadow-xl};
+  --shadow-primary: #{$shadow-primary};
+  --shadow-primary-hover: #{$shadow-primary-hover};
+
+  // 过渡
+  --transition-fast: #{$transition-fast};
+  --transition-normal: #{$transition-normal};
+  --transition-slow: #{$transition-slow};
+
+  // 圆角
+  --radius-sm: #{$radius-sm};
+  --radius-md: #{$radius-md};
+  --radius-lg: #{$radius-lg};
+  --radius-xl: #{$radius-xl};
+  --radius-full: #{$radius-full};
+
+  // 间距
+  --spacing-xs: #{$spacing-xs};
+  --spacing-sm: #{$spacing-sm};
+  --spacing-md: #{$spacing-md};
+  --spacing-lg: #{$spacing-lg};
+ --spacing-xl: #{$spacing-xl};
+}
+
+// 暗色主题
+:root.dark {
+  --color-primary: #{$primary};
+  --color-primary-light: rgba(#{$primary}, 0.2);
+
+  --color-success: #{$success};
+  --color-warning: #{$warning};
+  --color-danger: #{$danger};
+
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3d3d3d;
+
+  --text-primary: #f5f5f5;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #707070;
+  --text-disabled: #606060;
+
+  --border-light: #404040;
+  --border-default: #505050;
+  --border-dark: #606060;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}

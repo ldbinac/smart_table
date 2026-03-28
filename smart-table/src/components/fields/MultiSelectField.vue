@@ -1,63 +1,64 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { FieldOption } from '@/types/fields'
-import MultiSelectDropdown from '@/components/common/MultiSelectDropdown.vue'
+import { ref, computed } from "vue";
+import type { FieldOption } from "@/types/fields";
+import MultiSelectDropdown from "@/components/common/MultiSelectDropdown.vue";
 
 interface Props {
-  modelValue: string[] | null
+  modelValue: string[] | null;
   field?: {
-    id: string
-    name: string
-    type: string
+    id: string;
+    name: string;
+    type: string;
     options?: {
-      options?: FieldOption[]
-      allowAddOptions?: boolean
-    }
-  }
-  readonly?: boolean
-  placeholder?: string
+      options?: FieldOption[];
+      allowAddOptions?: boolean;
+    };
+  };
+  readonly?: boolean;
+  placeholder?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: null,
   readonly: false,
-  placeholder: ''
-})
+  placeholder: "",
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: string[] | null): void
-  (e: 'blur'): void
-}>()
+  (e: "update:modelValue", value: string[] | null): void;
+  (e: "blur"): void;
+}>();
 
 const options = computed(() => {
-  return props.field?.options?.options ?? []
-})
+  return props.field?.options?.options ?? [];
+});
 
 const selectedOptions = computed(() => {
-  if (!props.modelValue || props.modelValue.length === 0) return []
-  return options.value.filter(opt => props.modelValue!.includes(opt.id))
-})
+  if (!props.modelValue || props.modelValue.length === 0) return [];
+  return options.value.filter((opt) => props.modelValue!.includes(opt.id));
+});
 
 const localValue = computed({
   get: () => props.modelValue ?? [],
-  set: (val: string[]) => emit('update:modelValue', val.length > 0 ? val : null)
-})
+  set: (val: string[]) =>
+    emit("update:modelValue", val.length > 0 ? val : null),
+});
 
-const dropdownRef = ref<InstanceType<typeof MultiSelectDropdown>>()
+const dropdownRef = ref<InstanceType<typeof MultiSelectDropdown>>();
 
 const focus = () => {
-  dropdownRef.value?.open()
-}
+  dropdownRef.value?.open();
+};
 
 const handleConfirm = () => {
-  emit('blur')
-}
+  emit("blur");
+};
 
 const handleCancel = () => {
-  emit('blur')
-}
+  emit("blur");
+};
 
-defineExpose({ focus })
+defineExpose({ focus });
 </script>
 
 <template>
@@ -69,8 +70,11 @@ defineExpose({ focus })
             v-for="option in selectedOptions"
             :key="option.id"
             class="select-tag"
-            :style="{ backgroundColor: option.color + '20', color: option.color, borderColor: option.color + '40' }"
-          >
+            :style="{
+              backgroundColor: option.color + '20',
+              color: option.color,
+              borderColor: option.color + '40',
+            }">
             {{ option.name }}
           </span>
         </template>
@@ -84,14 +88,13 @@ defineExpose({ focus })
         :options="options"
         :placeholder="placeholder || '请选择'"
         @confirm="handleConfirm"
-        @cancel="handleCancel"
-      />
+        @cancel="handleCancel" />
     </template>
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .multi-select-field {
   width: 100%;

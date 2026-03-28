@@ -48,12 +48,12 @@ const dateShowTime = computed(() => {
 
 // 日期显示格式
 const dateDisplayFormat = computed(() => {
-  return dateShowTime.value ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD';
+  return dateShowTime.value ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 });
 
 // 日期选择器类型
 const datePickerType = computed(() => {
-  return dateShowTime.value ? 'datetime' : 'date';
+  return dateShowTime.value ? "datetime" : "date";
 });
 
 const displayValue = computed(() => {
@@ -99,8 +99,8 @@ const displayValue = computed(() => {
       if (!value) return "";
       // 根据配置显示日期或日期时间
       const showTime = options?.showTime ?? false;
-      const format = showTime ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD';
-      
+      const format = showTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
+
       // 处理时间戳格式
       const timestamp = typeof value === "string" ? Number(value) : value;
       if (typeof timestamp === "number" && !isNaN(timestamp)) {
@@ -227,7 +227,7 @@ const handleDateChange = (val: Date | null) => {
       emit("update", val.getTime() as CellValue);
     } else {
       // 存储为日期字符串
-      emit("update", dayjs(val).format('YYYY-MM-DD') as CellValue);
+      emit("update", dayjs(val).format("YYYY-MM-DD") as CellValue);
     }
   } else {
     emit("update", null);
@@ -467,6 +467,7 @@ const multiSelectDisplayValues = computed(() => {
 </template>
 
 <style lang="scss" scoped>
+@use "sass:color";
 @use "@/assets/styles/variables" as *;
 @use "@/assets/styles/mixins" as *;
 
@@ -594,7 +595,7 @@ const multiSelectDisplayValues = computed(() => {
     background-color: $primary-color;
 
     &:hover {
-      background-color: darken($primary-color, 10%);
+      background-color: color.adjust($primary-color, $lightness: -10%);
     }
 
     .switch-slider {

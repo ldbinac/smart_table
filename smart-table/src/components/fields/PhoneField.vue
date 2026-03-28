@@ -1,51 +1,55 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import type { FieldEntity } from '@/db/schema'
-import type { CellValue } from '@/types'
+import { ref, computed, watch } from "vue";
+import type { FieldEntity } from "@/db/schema";
+import type { CellValue } from "@/types";
 
 interface Props {
-  modelValue: CellValue
-  field: FieldEntity
-  readonly?: boolean
+  modelValue: CellValue;
+  field: FieldEntity;
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readonly: false
-})
+  readonly: false,
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: CellValue): void
-}>()
+  (e: "update:modelValue", value: CellValue): void;
+}>();
 
-const localValue = ref('')
+const localValue = ref("");
 
-watch(() => props.modelValue, (newVal) => {
-  localValue.value = String(newVal || '')
-}, { immediate: true })
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    localValue.value = String(newVal || "");
+  },
+  { immediate: true },
+);
 
 const isValid = computed(() => {
-  if (!localValue.value) return true
-  const phoneRegex = /^1[3-9]\d{9}$/
-  return phoneRegex.test(localValue.value)
-})
+  if (!localValue.value) return true;
+  const phoneRegex = /^1[3-9]\d{9}$/;
+  return phoneRegex.test(localValue.value);
+});
 
 function handleInput(value: string) {
-  localValue.value = value
-  emit('update:modelValue', value)
+  localValue.value = value;
+  emit("update:modelValue", value);
 }
 
 function formatPhone(value: string): string {
-  const cleaned = value.replace(/\D/g, '')
-  if (cleaned.length <= 3) return cleaned
-  if (cleaned.length <= 7) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`
-  return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 7)} ${cleaned.slice(7, 11)}`
+  const cleaned = value.replace(/\D/g, "");
+  if (cleaned.length <= 3) return cleaned;
+  if (cleaned.length <= 7) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+  return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 7)} ${cleaned.slice(7, 11)}`;
 }
 
 function handleBlur() {
-  const cleaned = localValue.value.replace(/\D/g, '')
+  const cleaned = localValue.value.replace(/\D/g, "");
   if (cleaned) {
-    localValue.value = cleaned
-    emit('update:modelValue', cleaned)
+    localValue.value = cleaned;
+    emit("update:modelValue", cleaned);
   }
 }
 </script>
@@ -58,8 +62,7 @@ function handleBlur() {
       placeholder="请输入手机号码"
       :class="{ 'is-error': !isValid }"
       @update:model-value="handleInput"
-      @blur="handleBlur"
-    >
+      @blur="handleBlur">
       <template #prefix>
         <el-icon><Phone /></el-icon>
       </template>
@@ -78,7 +81,7 @@ function handleBlur() {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .phone-field {
   width: 100%;

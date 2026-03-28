@@ -611,6 +611,30 @@ defineExpose({
   height: 100%;
   overflow: auto;
   background-color: $surface-color;
+
+  // 自定义滚动条样式
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $gray-100;
+    border-radius: $border-radius-sm;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $gray-300;
+    border-radius: $border-radius-sm;
+
+    &:hover {
+      background: $gray-400;
+    }
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: $gray-100;
+  }
 }
 
 .table-container {
@@ -621,25 +645,25 @@ defineExpose({
   position: sticky;
   top: 0;
   z-index: 10;
-  background-color: $bg-color;
+  background-color: $gray-50;
 }
 
 .header-row {
   display: flex;
-  border-bottom: 2px solid $border-color;
-  height: 30px;
+  border-bottom: 1px solid $gray-200;
+  height: 40px;
 }
 
 .header-cell {
   flex-shrink: 0;
-  border-right: 1px solid $border-color;
+  border-right: 1px solid $gray-200;
 
   &.is-frozen {
     position: sticky;
     left: 40px;
     z-index: 5;
-    background-color: $bg-color;
-    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    background-color: $gray-50;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
   }
 }
 
@@ -649,13 +673,14 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  border-right: 1px solid $border-color;
-  background-color: $bg-color;
+  border-right: 1px solid $gray-200;
+  background-color: $gray-50;
 
   input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
+    accent-color: $primary-color;
   }
 }
 
@@ -671,20 +696,21 @@ defineExpose({
   justify-content: center;
   gap: 4px;
   padding: 0 4px;
-  border-right: 1px solid $border-color;
+  border-right: 1px solid $gray-200;
   background-color: inherit;
 
   input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     opacity: 0;
     transition: opacity $transition-fast;
+    accent-color: $primary-color;
   }
 
   .row-number {
     font-size: $font-size-xs;
-    color: $text-disabled;
+    color: $gray-400;
   }
 
   &:hover {
@@ -700,7 +726,7 @@ defineExpose({
 
 .table-cell-wrapper {
   flex-shrink: 0;
-  border-right: 1px solid $border-color;
+  border-right: 1px solid $gray-200;
 
   &.is-frozen {
     position: sticky;
@@ -719,10 +745,12 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  color: $text-secondary;
+  padding: 12px 16px;
+  color: $gray-500;
   cursor: pointer;
   transition: all $transition-fast;
+  border-radius: $border-radius-md;
+  margin: 8px;
 
   &:hover {
     background-color: rgba($primary-color, 0.05);
@@ -733,11 +761,17 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
-    border: 1px dashed currentColor;
-    border-radius: $border-radius-sm;
+    width: 24px;
+    height: 24px;
+    border: 1.5px dashed currentColor;
+    border-radius: $border-radius-md;
     font-size: 14px;
+    transition: all $transition-fast;
+
+    &:hover {
+      border-style: solid;
+      background-color: rgba($primary-color, 0.1);
+    }
   }
 }
 

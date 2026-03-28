@@ -1,5 +1,5 @@
-import type { RecordEntity, FieldEntity } from '../db/schema';
-import { FieldType } from '../types';
+import type { RecordEntity, FieldEntity } from "../db/schema";
+import { FieldType } from "../types";
 
 export interface GroupNode {
   key: string;
@@ -20,15 +20,17 @@ export interface GroupConfig {
 export function groupRecords(
   records: RecordEntity[],
   config: GroupConfig,
-  fields: FieldEntity[]
+  fields: FieldEntity[],
 ): GroupNode[] {
   if (!config.fieldIds || config.fieldIds.length === 0) {
-    return [{
-      key: 'all',
-      value: '全部',
-      records,
-      count: records.length
-    }];
+    return [
+      {
+        key: "all",
+        value: "全部",
+        records,
+        count: records.length,
+      },
+    ];
   }
 
   return groupByField(records, config.fieldIds, 0, fields, config);
@@ -39,14 +41,14 @@ function groupByField(
   fieldIds: string[],
   level: number,
   fields: FieldEntity[],
-  config: GroupConfig
+  config: GroupConfig,
 ): GroupNode[] {
   if (level >= fieldIds.length) {
     return [];
   }
 
   const fieldId = fieldIds[level];
-  const field = fields.find(f => f.id === fieldId);
+  const field = fields.find((f) => f.id === fieldId);
   if (!field) {
     return [];
   }
@@ -69,15 +71,25 @@ function groupByField(
       value: getGroupDisplayValue(key, field),
       records: groupRecords,
       count: groupRecords.length,
-      isExpanded: level === 0
+      isExpanded: level === 0,
     };
 
     if (level < fieldIds.length - 1) {
-      node.children = groupByField(groupRecords, fieldIds, level + 1, fields, config);
+      node.children = groupByField(
+        groupRecords,
+        fieldIds,
+        level + 1,
+        fields,
+        config,
+      );
     }
 
     if (config.showAggregations && config.aggregationFields) {
-      node.aggregations = calculateAggregations(groupRecords, config.aggregationFields, fields);
+      node.aggregations = calculateAggregations(
+        groupRecords,
+        config.aggregationFields,
+        fields,
+      );
     }
 
     return node;
@@ -87,13 +99,13 @@ function groupByField(
 }
 
 function getGroupKey(value: unknown, field: FieldEntity): string {
-  if (value === null || value === undefined || value === '') {
-    return '__empty__';
+  if (value === null || value === undefined || value === "") {
+    return "__empty__";
   }
 
   switch (field.type) {
     case FieldType.SINGLE_SELECT: {
-      if (typeof value === 'object' && value !== null) {
+      if (typeof value === "object" && value !== null) {
         return (value as { id?: string }).id || String(value);
       }
       return String(value);
@@ -101,36 +113,43 @@ function getGroupKey(value: unknown, field: FieldEntity): string {
 
     case FieldType.MULTI_SELECT: {
       if (Array.isArray(value) && value.length > 0) {
-        return value.map(v => 
-          typeof v === 'object' && v !== null 
-            ? (v as { id?: string }).id || String(v) 
-            : String(v)
-        ).sort().join('|');
+        return value
+          .map((v) =>
+            typeof v === "object" && v !== null
+              ? (v as { id?: string }).id || String(v)
+              : String(v),
+          )
+          .sort()
+          .join("|");
       }
-      return '__empty__';
+      return "__empty__";
     }
 
     case FieldType.DATE:
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME: {
-      const timestamp = typeof value === 'number' ? value : Date.parse(String(value));
-      if (isNaN(timestamp)) return '__empty__';
+      const timestamp =
+        typeof value === "number" ? value : Date.parse(String(value));
+      if (isNaN(timestamp)) return "__empty__";
       const date = new Date(timestamp);
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     }
 
     case FieldType.CHECKBOX:
-      return value ? '__checked__' : '__unchecked__';
+      return value ? "__checked__" : "__unchecked__";
 
     case FieldType.MEMBER: {
       if (Array.isArray(value) && value.length > 0) {
-        return value.map(v => 
-          typeof v === 'object' && v !== null 
-            ? (v as { id?: string }).id || String(v) 
-            : String(v)
-        ).sort().join('|');
+        return value
+          .map((v) =>
+            typeof v === "object" && v !== null
+              ? (v as { id?: string }).id || String(v)
+              : String(v),
+          )
+          .sort()
+          .join("|");
       }
-      return '__empty__';
+      return "__empty__";
     }
 
     default:
@@ -139,15 +158,17 @@ function getGroupKey(value: unknown, field: FieldEntity): string {
 }
 
 function getGroupDisplayValue(key: string, field: FieldEntity): string {
-  if (key === '__empty__') {
-    return '空值';
+  if (key === "__empty__") {
+    return "空值";
   }
 
   switch (field.type) {
     case FieldType.SINGLE_SELECT: {
-      const options = field.options?.options as Array<{ id: string; name: string }> | undefined;
+      const options = field.options?.options as
+        | Array<{ id: string; name: string }>
+        | undefined;
       if (options) {
-        const option = options.find(opt => opt.id === key);
+        const option = options.find((opt) => opt.id === key);
         if (option) return option.name;
       }
       return key;
@@ -155,18 +176,23 @@ function getGroupDisplayValue(key: string, field: FieldEntity): string {
 
     case FieldType.MULTI_SELECT:
     case FieldType.MEMBER: {
-      const options = field.options?.options as Array<{ id: string; name: string }> | undefined;
+      const options = field.options?.options as
+        | Array<{ id: string; name: string }>
+        | undefined;
       if (options) {
-        return key.split('|').map(id => {
-          const option = options.find(opt => opt.id === id);
-          return option ? option.name : id;
-        }).join(', ');
+        return key
+          .split("|")
+          .map((id) => {
+            const option = options.find((opt) => opt.id === id);
+            return option ? option.name : id;
+          })
+          .join(", ");
       }
-      return key.split('|').join(', ');
+      return key.split("|").join(", ");
     }
 
     case FieldType.CHECKBOX:
-      return key === '__checked__' ? '已勾选' : '未勾选';
+      return key === "__checked__" ? "已勾选" : "未勾选";
 
     case FieldType.DATE:
     case FieldType.CREATED_TIME:
@@ -180,43 +206,60 @@ function getGroupDisplayValue(key: string, field: FieldEntity): string {
 
 function sortGroups(
   groups: Map<string, RecordEntity[]>,
-  field: FieldEntity
+  field: FieldEntity,
 ): [string, RecordEntity[]][] {
   const entries = Array.from(groups.entries());
 
-  if (field.type === FieldType.SINGLE_SELECT || field.type === FieldType.MULTI_SELECT) {
-    const options = field.options?.options as Array<{ id: string; name: string }> | undefined;
+  if (
+    field.type === FieldType.SINGLE_SELECT ||
+    field.type === FieldType.MULTI_SELECT
+  ) {
+    const options = field.options?.options as
+      | Array<{ id: string; name: string }>
+      | undefined;
     if (options) {
       entries.sort((a, b) => {
-        if (a[0] === '__empty__') return 1;
-        if (b[0] === '__empty__') return -1;
+        if (a[0] === "__empty__") return 1;
+        if (b[0] === "__empty__") return -1;
 
-        const aIndex = options.findIndex(opt => opt.id === a[0] || a[0].includes(opt.id));
-        const bIndex = options.findIndex(opt => opt.id === b[0] || b[0].includes(opt.id));
+        const aIndex = options.findIndex(
+          (opt) => opt.id === a[0] || a[0].includes(opt.id),
+        );
+        const bIndex = options.findIndex(
+          (opt) => opt.id === b[0] || b[0].includes(opt.id),
+        );
 
         if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
 
-        return a[0].localeCompare(b[0], 'zh-CN');
+        return a[0].localeCompare(b[0], "zh-CN");
       });
       return entries;
     }
   }
 
-  if (field.type === FieldType.DATE || field.type === FieldType.CREATED_TIME || field.type === FieldType.UPDATED_TIME) {
+  if (
+    field.type === FieldType.DATE ||
+    field.type === FieldType.CREATED_TIME ||
+    field.type === FieldType.UPDATED_TIME
+  ) {
     entries.sort((a, b) => {
-      if (a[0] === '__empty__') return 1;
-      if (b[0] === '__empty__') return -1;
+      if (a[0] === "__empty__") return 1;
+      if (b[0] === "__empty__") return -1;
       return a[0].localeCompare(b[0]);
     });
     return entries;
   }
 
-  if (field.type === FieldType.NUMBER || field.type === FieldType.RATING || field.type === FieldType.PROGRESS) {
+  if (
+    field.type === FieldType.NUMBER ||
+    field.type === FieldType.RATING ||
+    field.type === FieldType.PROGRESS
+  ) {
     entries.sort((a, b) => {
-      if (a[0] === '__empty__') return 1;
-      if (b[0] === '__empty__') return -1;
+      if (a[0] === "__empty__") return 1;
+      if (b[0] === "__empty__") return -1;
       const aNum = parseFloat(a[0]);
       const bNum = parseFloat(b[0]);
       if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
@@ -226,9 +269,9 @@ function sortGroups(
   }
 
   entries.sort((a, b) => {
-    if (a[0] === '__empty__') return 1;
-    if (b[0] === '__empty__') return -1;
-    return a[0].localeCompare(b[0], 'zh-CN');
+    if (a[0] === "__empty__") return 1;
+    if (b[0] === "__empty__") return -1;
+    return a[0].localeCompare(b[0], "zh-CN");
   });
 
   return entries;
@@ -237,28 +280,35 @@ function sortGroups(
 function calculateAggregations(
   records: RecordEntity[],
   aggregationFields: string[],
-  fields: FieldEntity[]
+  fields: FieldEntity[],
 ): Record<string, number | string> {
   const result: Record<string, number | string> = {};
 
   for (const fieldId of aggregationFields) {
-    const field = fields.find(f => f.id === fieldId);
+    const field = fields.find((f) => f.id === fieldId);
     if (!field) continue;
 
     const values = records
-      .map(r => r.values[fieldId])
-      .filter(v => v !== null && v !== undefined && v !== '');
+      .map((r) => r.values[fieldId])
+      .filter((v) => v !== null && v !== undefined && v !== "");
 
-    if (field.type === FieldType.NUMBER || field.type === FieldType.RATING || field.type === FieldType.PROGRESS) {
-      const numbers = values.map(v => {
-        if (typeof v === 'number') return v;
-        if (typeof v === 'string') return parseFloat(v);
-        return 0;
-      }).filter(n => !isNaN(n));
+    if (
+      field.type === FieldType.NUMBER ||
+      field.type === FieldType.RATING ||
+      field.type === FieldType.PROGRESS
+    ) {
+      const numbers = values
+        .map((v) => {
+          if (typeof v === "number") return v;
+          if (typeof v === "string") return parseFloat(v);
+          return 0;
+        })
+        .filter((n) => !isNaN(n));
 
       if (numbers.length > 0) {
         result[`${fieldId}_sum`] = numbers.reduce((a, b) => a + b, 0);
-        result[`${fieldId}_avg`] = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+        result[`${fieldId}_avg`] =
+          numbers.reduce((a, b) => a + b, 0) / numbers.length;
         result[`${fieldId}_min`] = Math.min(...numbers);
         result[`${fieldId}_max`] = Math.max(...numbers);
       }
@@ -272,7 +322,7 @@ function calculateAggregations(
 
 export function flattenGroupTree(
   nodes: GroupNode[],
-  level: number = 0
+  level: number = 0,
 ): Array<{ node: GroupNode; level: number }> {
   const result: Array<{ node: GroupNode; level: number }> = [];
 
@@ -289,9 +339,9 @@ export function flattenGroupTree(
 
 export function toggleGroupExpansion(
   nodes: GroupNode[],
-  key: string
+  key: string,
 ): GroupNode[] {
-  return nodes.map(node => {
+  return nodes.map((node) => {
     if (node.key === key) {
       return { ...node, isExpanded: !node.isExpanded };
     }
@@ -299,7 +349,7 @@ export function toggleGroupExpansion(
     if (node.children) {
       return {
         ...node,
-        children: toggleGroupExpansion(node.children, key)
+        children: toggleGroupExpansion(node.children, key),
       };
     }
 
@@ -308,25 +358,25 @@ export function toggleGroupExpansion(
 }
 
 export function expandAllGroups(nodes: GroupNode[]): GroupNode[] {
-  return nodes.map(node => ({
+  return nodes.map((node) => ({
     ...node,
     isExpanded: true,
-    children: node.children ? expandAllGroups(node.children) : undefined
+    children: node.children ? expandAllGroups(node.children) : undefined,
   }));
 }
 
 export function collapseAllGroups(nodes: GroupNode[]): GroupNode[] {
-  return nodes.map(node => ({
+  return nodes.map((node) => ({
     ...node,
     isExpanded: false,
-    children: node.children ? collapseAllGroups(node.children) : undefined
+    children: node.children ? collapseAllGroups(node.children) : undefined,
   }));
 }
 
 export function getGroupPath(
   nodes: GroupNode[],
   key: string,
-  path: GroupNode[] = []
+  path: GroupNode[] = [],
 ): GroupNode[] | null {
   for (const node of nodes) {
     if (node.key === key) {

@@ -1,1 +1,1 @@
-export { default as CalendarView } from './CalendarView.vue'
+export { default as CalendarView } from "./CalendarView.vue";

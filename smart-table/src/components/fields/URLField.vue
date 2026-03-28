@@ -1,65 +1,69 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import type { FieldEntity } from '@/db/schema'
-import type { CellValue } from '@/types'
+import { ref, computed, watch } from "vue";
+import type { FieldEntity } from "@/db/schema";
+import type { CellValue } from "@/types";
 
 interface Props {
-  modelValue: CellValue
-  field: FieldEntity
-  readonly?: boolean
+  modelValue: CellValue;
+  field: FieldEntity;
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readonly: false
-})
+  readonly: false,
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: CellValue): void
-}>()
+  (e: "update:modelValue", value: CellValue): void;
+}>();
 
-const localValue = ref('')
+const localValue = ref("");
 
-watch(() => props.modelValue, (newVal) => {
-  localValue.value = String(newVal || '')
-}, { immediate: true })
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    localValue.value = String(newVal || "");
+  },
+  { immediate: true },
+);
 
 const isValid = computed(() => {
-  if (!localValue.value) return true
+  if (!localValue.value) return true;
   try {
-    new URL(localValue.value)
-    return true
+    new URL(localValue.value);
+    return true;
   } catch {
-    return false
+    return false;
   }
-})
+});
 
 const displayUrl = computed(() => {
-  if (!localValue.value) return ''
+  if (!localValue.value) return "";
   try {
-    const url = new URL(localValue.value)
-    return url.hostname + url.pathname
+    const url = new URL(localValue.value);
+    return url.hostname + url.pathname;
   } catch {
-    return localValue.value
+    return localValue.value;
   }
-})
+});
 
 function handleInput(value: string) {
-  localValue.value = value
-  emit('update:modelValue', value)
+  localValue.value = value;
+  emit("update:modelValue", value);
 }
 
 function handleBlur() {
-  let value = localValue.value.trim()
+  let value = localValue.value.trim();
   if (value && !value.match(/^https?:\/\//i)) {
-    value = 'https://' + value
-    localValue.value = value
+    value = "https://" + value;
+    localValue.value = value;
   }
-  emit('update:modelValue', value)
+  emit("update:modelValue", value);
 }
 
 function openUrl() {
   if (localValue.value) {
-    window.open(localValue.value, '_blank', 'noopener,noreferrer')
+    window.open(localValue.value, "_blank", "noopener,noreferrer");
   }
 }
 </script>
@@ -72,8 +76,7 @@ function openUrl() {
       placeholder="请输入链接地址"
       :class="{ 'is-error': !isValid }"
       @update:model-value="handleInput"
-      @blur="handleBlur"
-    >
+      @blur="handleBlur">
       <template #prefix>
         <el-icon><Link /></el-icon>
       </template>
@@ -84,8 +87,7 @@ function openUrl() {
         v-if="localValue"
         class="url-link"
         :title="localValue"
-        @click="openUrl"
-      >
+        @click="openUrl">
         {{ displayUrl }}
       </a>
       <span v-else class="empty-text">-</span>
@@ -97,7 +99,7 @@ function openUrl() {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .url-field {
   width: 100%;
@@ -122,7 +124,7 @@ function openUrl() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  
+
   &:hover {
     text-decoration: underline;
   }

@@ -1,88 +1,103 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import type { FieldEntity } from '../../db/schema'
-import type { FilterCondition } from '../../types'
-import { createEmptyCondition, isValidCondition, getConditionDescription } from '../../utils/filter'
-import { generateId } from '../../utils/id'
-import FilterConditionComponent from './FilterCondition.vue'
+import { ref, computed, watch } from "vue";
+import type { FieldEntity } from "../../db/schema";
+import type { FilterCondition } from "../../types";
+import {
+  createEmptyCondition,
+  isValidCondition,
+  getConditionDescription,
+} from "../../utils/filter";
+import { generateId } from "../../utils/id";
+import FilterConditionComponent from "./FilterCondition.vue";
 
 interface Props {
-  fields: FieldEntity[]
-  modelValue: FilterCondition[]
-  conjunction?: 'and' | 'or'
+  fields: FieldEntity[];
+  modelValue: FilterCondition[];
+  conjunction?: "and" | "or";
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  conjunction: 'and'
-})
+  conjunction: "and",
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: FilterCondition[]): void
-  (e: 'update:conjunction', value: 'and' | 'or'): void
-  (e: 'apply'): void
-  (e: 'reset'): void
-}>()
+  (e: "update:modelValue", value: FilterCondition[]): void;
+  (e: "update:conjunction", value: "and" | "or"): void;
+  (e: "apply"): void;
+  (e: "reset"): void;
+}>();
 
-const localConditions = ref<FilterCondition[]>([])
-const localConjunction = ref<'and' | 'or'>(props.conjunction)
+const localConditions = ref<FilterCondition[]>([]);
+const localConjunction = ref<"and" | "or">(props.conjunction);
 
-watch(() => props.modelValue, (newVal) => {
-  localConditions.value = newVal.map(c => ({ ...c }))
-}, { immediate: true, deep: true })
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    localConditions.value = newVal.map((c) => ({ ...c }));
+  },
+  { immediate: true, deep: true },
+);
 
-watch(() => props.conjunction, (newVal) => {
-  localConjunction.value = newVal
-})
+watch(
+  () => props.conjunction,
+  (newVal) => {
+    localConjunction.value = newVal;
+  },
+);
 
-watch(localConditions, (newVal) => {
-  emit('update:modelValue', newVal)
-}, { deep: true })
+watch(
+  localConditions,
+  (newVal) => {
+    emit("update:modelValue", newVal);
+  },
+  { deep: true },
+);
 
 watch(localConjunction, (newVal) => {
-  emit('update:conjunction', newVal)
-})
+  emit("update:conjunction", newVal);
+});
 
 const hasConditions = computed(() => {
-  return localConditions.value.length > 0
-})
+  return localConditions.value.length > 0;
+});
 
 const validConditionsCount = computed(() => {
-  return localConditions.value.filter(c => isValidCondition(c)).length
-})
+  return localConditions.value.filter((c) => isValidCondition(c)).length;
+});
 
 const conditionDescriptions = computed(() => {
   return localConditions.value
-    .filter(c => isValidCondition(c))
-    .map(c => getConditionDescription(c, props.fields))
-})
+    .filter((c) => isValidCondition(c))
+    .map((c) => getConditionDescription(c, props.fields));
+});
 
 function addCondition() {
-  const firstField = props.fields[0]
-  if (!firstField) return
+  const firstField = props.fields[0];
+  if (!firstField) return;
 
-  const newCondition = createEmptyCondition(firstField.id)
-  localConditions.value.push(newCondition)
+  const newCondition = createEmptyCondition(firstField.id);
+  localConditions.value.push(newCondition);
 }
 
 function updateCondition(index: number, condition: FilterCondition) {
-  localConditions.value[index] = condition
+  localConditions.value[index] = condition;
 }
 
 function removeCondition(index: number) {
-  localConditions.value.splice(index, 1)
+  localConditions.value.splice(index, 1);
 }
 
 function clearAllConditions() {
-  localConditions.value = []
+  localConditions.value = [];
 }
 
 function handleApply() {
-  emit('apply')
+  emit("apply");
 }
 
 function handleReset() {
-  localConditions.value = []
-  emit('reset')
+  localConditions.value = [];
+  emit("reset");
 }
 
 function saveFilterPreset() {
@@ -91,12 +106,12 @@ function saveFilterPreset() {
     name: `筛选预设 ${new Date().toLocaleString()}`,
     conditions: localConditions.value,
     conjunction: localConjunction.value,
-    createdAt: Date.now()
-  }
-  
-  const presets = JSON.parse(localStorage.getItem('filterPresets') || '[]')
-  presets.push(preset)
-  localStorage.setItem('filterPresets', JSON.stringify(presets))
+    createdAt: Date.now(),
+  };
+
+  const presets = JSON.parse(localStorage.getItem("filterPresets") || "[]");
+  presets.push(preset);
+  localStorage.setItem("filterPresets", JSON.stringify(presets));
 }
 </script>
 
@@ -114,8 +129,7 @@ function saveFilterPreset() {
           text
           size="small"
           @click="saveFilterPreset"
-          :disabled="!hasConditions"
-        >
+          :disabled="!hasConditions">
           保存预设
         </el-button>
         <el-button
@@ -123,8 +137,7 @@ function saveFilterPreset() {
           size="small"
           type="danger"
           @click="clearAllConditions"
-          :disabled="!hasConditions"
-        >
+          :disabled="!hasConditions">
           清空
         </el-button>
       </div>
@@ -146,8 +159,7 @@ function saveFilterPreset() {
           :fields="fields"
           :removable="localConditions.length > 1"
           @update:condition="updateCondition(index, $event)"
-          @remove="removeCondition(index)"
-        />
+          @remove="removeCondition(index)" />
       </template>
       <div v-else class="empty-state">
         <span>暂无筛选条件</span>
@@ -155,27 +167,16 @@ function saveFilterPreset() {
     </div>
 
     <div class="panel-footer">
-      <el-button
-        type="primary"
-        plain
-        size="small"
-        @click="addCondition"
-      >
+      <el-button type="primary" plain size="small" @click="addCondition">
         添加条件
       </el-button>
       <div class="footer-actions">
-        <el-button
-          size="small"
-          @click="handleReset"
-        >
-          重置
-        </el-button>
+        <el-button size="small" @click="handleReset"> 重置 </el-button>
         <el-button
           type="primary"
           size="small"
           @click="handleApply"
-          :disabled="validConditionsCount === 0"
-        >
+          :disabled="validConditionsCount === 0">
           应用
         </el-button>
       </div>
@@ -189,8 +190,7 @@ function saveFilterPreset() {
           :key="index"
           size="small"
           type="info"
-          class="summary-tag"
-        >
+          class="summary-tag">
           {{ desc }}
         </el-tag>
       </div>
@@ -200,12 +200,12 @@ function saveFilterPreset() {
 
 <script lang="ts">
 export default {
-  name: 'FilterPanel'
-}
+  name: "FilterPanel",
+};
 </script>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .filter-panel {
   background-color: $surface-color;

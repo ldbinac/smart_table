@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { FieldEntity } from '@/db/schema'
-import type { CellValue } from '@/types'
+import { computed } from "vue";
+import type { FieldEntity } from "@/db/schema";
+import type { CellValue } from "@/types";
 
 interface Props {
-  modelValue: CellValue
-  field: FieldEntity
-  readonly?: boolean
+  modelValue: CellValue;
+  field: FieldEntity;
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readonly: true
-})
+  readonly: true,
+});
 
 const displayValue = computed(() => {
   if (props.modelValue === null || props.modelValue === undefined) {
-    return '-'
+    return "-";
   }
-  return String(props.modelValue)
-})
+  return String(props.modelValue);
+});
 </script>
 
 <template>
@@ -28,7 +28,7 @@ const displayValue = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .auto-number-field {
   width: 100%;

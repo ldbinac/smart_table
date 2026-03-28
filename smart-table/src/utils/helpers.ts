@@ -1,5 +1,5 @@
-import type { CellValue } from '../types';
-import type { FieldEntity } from '../db/schema';
+import type { CellValue } from "../types";
+import type { FieldEntity } from "../db/schema";
 
 export function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
@@ -11,7 +11,7 @@ export function isEqual(a: unknown, b: unknown): boolean {
 
 export function pick<T extends object, K extends keyof T>(
   obj: T,
-  keys: K[]
+  keys: K[],
 ): Pick<T, K> {
   const result = {} as Pick<T, K>;
   for (const key of keys) {
@@ -24,7 +24,7 @@ export function pick<T extends object, K extends keyof T>(
 
 export function omit<T extends object, K extends keyof T>(
   obj: T,
-  keys: K[]
+  keys: K[],
 ): Omit<T, K> {
   const result = { ...obj };
   for (const key of keys) {
@@ -35,22 +35,25 @@ export function omit<T extends object, K extends keyof T>(
 
 export function groupBy<T>(
   array: T[],
-  keyFn: (item: T) => string
+  keyFn: (item: T) => string,
 ): Record<string, T[]> {
-  return array.reduce((groups, item) => {
-    const key = keyFn(item);
-    if (!groups[key]) {
-      groups[key] = [];
-    }
-    groups[key].push(item);
-    return groups;
-  }, {} as Record<string, T[]>);
+  return array.reduce(
+    (groups, item) => {
+      const key = keyFn(item);
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(item);
+      return groups;
+    },
+    {} as Record<string, T[]>,
+  );
 }
 
 export function sortBy<T>(
   array: T[],
   keyFn: (item: T) => unknown,
-  order: 'asc' | 'desc' = 'asc'
+  order: "asc" | "desc" = "asc",
 ): T[] {
   return [...array].sort((a, b) => {
     const aVal = keyFn(a);
@@ -61,13 +64,13 @@ export function sortBy<T>(
     if (bVal === null || bVal === undefined) return -1;
 
     const comparison = aVal < bVal ? -1 : 1;
-    return order === 'asc' ? comparison : -comparison;
+    return order === "asc" ? comparison : -comparison;
   });
 }
 
 export function uniqBy<T>(array: T[], keyFn: (item: T) => unknown): T[] {
   const seen = new Set<unknown>();
-  return array.filter(item => {
+  return array.filter((item) => {
     const key = keyFn(item);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -83,9 +86,12 @@ export function chunk<T>(array: T[], size: number): T[][] {
   return result;
 }
 
-export function getValueByPath(obj: Record<string, unknown>, path: string): unknown {
-  return path.split('.').reduce((current: unknown, key) => {
-    if (current && typeof current === 'object') {
+export function getValueByPath(
+  obj: Record<string, unknown>,
+  path: string,
+): unknown {
+  return path.split(".").reduce((current: unknown, key) => {
+    if (current && typeof current === "object") {
       return (current as Record<string, unknown>)[key];
     }
     return undefined;
@@ -95,9 +101,9 @@ export function getValueByPath(obj: Record<string, unknown>, path: string): unkn
 export function setValueByPath(
   obj: Record<string, unknown>,
   path: string,
-  value: unknown
+  value: unknown,
 ): void {
-  const keys = path.split('.');
+  const keys = path.split(".");
   const lastKey = keys.pop()!;
   const target = keys.reduce((current, key) => {
     if (!(key in current)) {
@@ -109,29 +115,32 @@ export function setValueByPath(
 }
 
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
-export function formatDate(timestamp: number, format: string = 'YYYY-MM-DD'): string {
+export function formatDate(
+  timestamp: number,
+  format: string = "YYYY-MM-DD",
+): string {
   const date = new Date(timestamp);
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
 
   return format
-    .replace('YYYY', String(year))
-    .replace('MM', month)
-    .replace('DD', day)
-    .replace('HH', hours)
-    .replace('mm', minutes)
-    .replace('ss', seconds);
+    .replace("YYYY", String(year))
+    .replace("MM", month)
+    .replace("DD", day)
+    .replace("HH", hours)
+    .replace("mm", minutes)
+    .replace("ss", seconds);
 }
 
 export function generateColor(seed: string): string {
@@ -146,36 +155,44 @@ export function generateColor(seed: string): string {
 
 export function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;
-  return str.substring(0, maxLength - 3) + '...';
+  return str.substring(0, maxLength - 3) + "...";
 }
 
 export function getCellDisplayValue(
   value: CellValue,
-  field: FieldEntity
+  field: FieldEntity,
 ): string {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) return "";
 
   switch (field.type) {
-    case 'checkbox':
-      return value ? '是' : '否';
+    case "checkbox":
+      return value ? "是" : "否";
 
-    case 'multiSelect':
+    case "multiSelect":
       if (Array.isArray(value)) {
-        return value.map(v => typeof v === 'object' ? (v as { name: string }).name : v).join(', ');
+        return value
+          .map((v) =>
+            typeof v === "object" ? (v as { name: string }).name : v,
+          )
+          .join(", ");
       }
       return String(value);
 
-    case 'date':
-      return formatDate(Number(value), 'YYYY-MM-DD');
+    case "date":
+      return formatDate(Number(value), "YYYY-MM-DD");
 
-    case 'attachment':
+    case "attachment":
       if (Array.isArray(value)) {
         return `${value.length} 个附件`;
       }
-      return '';
+      return "";
 
-    case 'singleSelect':
-      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    case "singleSelect":
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
         return (value as { name: string }).name;
       }
       return String(value);

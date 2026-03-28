@@ -1,49 +1,49 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { FieldType, type FieldOptions, type CellValue } from '@/types/fields'
-import TextField from './TextField.vue'
-import NumberField from './NumberField.vue'
-import DateField from './DateField.vue'
-import SingleSelectField from './SingleSelectField.vue'
-import MultiSelectField from './MultiSelectField.vue'
-import CheckboxField from './CheckboxField.vue'
-import AttachmentField from './AttachmentField.vue'
-import MemberField from './MemberField.vue'
-import RatingField from './RatingField.vue'
-import ProgressField from './ProgressField.vue'
-import PhoneField from './PhoneField.vue'
-import EmailField from './EmailField.vue'
-import URLField from './URLField.vue'
-import LinkField from './LinkField.vue'
-import LookupField from './LookupField.vue'
-import CreatedByField from './CreatedByField.vue'
-import CreatedTimeField from './CreatedTimeField.vue'
-import UpdatedByField from './UpdatedByField.vue'
-import UpdatedTimeField from './UpdatedTimeField.vue'
-import AutoNumberField from './AutoNumberField.vue'
+import { computed, ref } from "vue";
+import { FieldType, type FieldOptions, type CellValue } from "@/types/fields";
+import TextField from "./TextField.vue";
+import NumberField from "./NumberField.vue";
+import DateField from "./DateField.vue";
+import SingleSelectField from "./SingleSelectField.vue";
+import MultiSelectField from "./MultiSelectField.vue";
+import CheckboxField from "./CheckboxField.vue";
+import AttachmentField from "./AttachmentField.vue";
+import MemberField from "./MemberField.vue";
+import RatingField from "./RatingField.vue";
+import ProgressField from "./ProgressField.vue";
+import PhoneField from "./PhoneField.vue";
+import EmailField from "./EmailField.vue";
+import URLField from "./URLField.vue";
+import LinkField from "./LinkField.vue";
+import LookupField from "./LookupField.vue";
+import CreatedByField from "./CreatedByField.vue";
+import CreatedTimeField from "./CreatedTimeField.vue";
+import UpdatedByField from "./UpdatedByField.vue";
+import UpdatedTimeField from "./UpdatedTimeField.vue";
+import AutoNumberField from "./AutoNumberField.vue";
 
 interface Field {
-  id: string
-  name: string
-  type: string
-  options?: FieldOptions
+  id: string;
+  name: string;
+  type: string;
+  options?: FieldOptions;
 }
 
 interface Props {
-  modelValue: CellValue
-  field: Field
-  readonly?: boolean
-  placeholder?: string
+  modelValue: CellValue;
+  field: Field;
+  readonly?: boolean;
+  placeholder?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
-  placeholder: ''
-})
+  placeholder: "",
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: CellValue): void
-}>()
+  (e: "update:modelValue", value: CellValue): void;
+}>();
 
 const componentMap: Record<string, unknown> = {
   [FieldType.TEXT]: TextField,
@@ -65,29 +65,29 @@ const componentMap: Record<string, unknown> = {
   [FieldType.CREATED_TIME]: CreatedTimeField,
   [FieldType.UPDATED_BY]: UpdatedByField,
   [FieldType.UPDATED_TIME]: UpdatedTimeField,
-  [FieldType.AUTO_NUMBER]: AutoNumberField
-}
+  [FieldType.AUTO_NUMBER]: AutoNumberField,
+};
 
 const currentComponent = computed(() => {
-  return componentMap[props.field.type] || TextField
-})
+  return componentMap[props.field.type] || TextField;
+});
 
 const isSupported = computed(() => {
-  return props.field.type in componentMap
-})
+  return props.field.type in componentMap;
+});
 
 const localValue = computed({
   get: () => props.modelValue,
-  set: (val: CellValue) => emit('update:modelValue', val)
-})
+  set: (val: CellValue) => emit("update:modelValue", val),
+});
 
-const fieldRef = ref()
+const fieldRef = ref();
 
 const focus = () => {
-  fieldRef.value?.focus?.()
-}
+  fieldRef.value?.focus?.();
+};
 
-defineExpose({ focus })
+defineExpose({ focus });
 </script>
 
 <template>
@@ -99,8 +99,7 @@ defineExpose({ focus })
         :field="field"
         :readonly="readonly"
         :placeholder="placeholder"
-        ref="fieldRef"
-      />
+        ref="fieldRef" />
     </template>
     <template v-else>
       <div class="unsupported-field">
@@ -111,7 +110,7 @@ defineExpose({ focus })
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .field-component-factory {
   width: 100%;

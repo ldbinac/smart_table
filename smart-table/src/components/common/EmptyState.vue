@@ -1,55 +1,61 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
-type EmptyType = 'default' | 'search' | 'error' | 'no-data' | 'no-permission'
+type EmptyType = "default" | "search" | "error" | "no-data" | "no-permission";
 
-const props = withDefaults(defineProps<{
-  type?: EmptyType
-  title?: string
-  description?: string
-  icon?: string
-  actionText?: string
-}>(), {
-  type: 'default'
-})
+const props = withDefaults(
+  defineProps<{
+    type?: EmptyType;
+    title?: string;
+    description?: string;
+    icon?: string;
+    actionText?: string;
+  }>(),
+  {
+    type: "default",
+  },
+);
 
 const emit = defineEmits<{
-  action: []
-}>()
+  action: [];
+}>();
 
-const defaultConfig: Record<EmptyType, { icon: string; title: string; description: string }> = {
+const defaultConfig: Record<
+  EmptyType,
+  { icon: string; title: string; description: string }
+> = {
   default: {
-    icon: '📭',
-    title: '暂无数据',
-    description: '这里还没有任何内容'
+    icon: "📭",
+    title: "暂无数据",
+    description: "这里还没有任何内容",
   },
   search: {
-    icon: '🔍',
-    title: '未找到结果',
-    description: '尝试使用不同的关键词搜索'
+    icon: "🔍",
+    title: "未找到结果",
+    description: "尝试使用不同的关键词搜索",
   },
   error: {
-    icon: '❌',
-    title: '加载失败',
-    description: '数据加载出错，请稍后重试'
+    icon: "❌",
+    title: "加载失败",
+    description: "数据加载出错，请稍后重试",
   },
-  'no-data': {
-    icon: '📊',
-    title: '暂无数据',
-    description: '点击下方按钮添加新数据'
+  "no-data": {
+    icon: "📊",
+    title: "暂无数据",
+    description: "点击下方按钮添加新数据",
   },
-  'no-permission': {
-    icon: '🔒',
-    title: '无访问权限',
-    description: '您没有权限查看此内容'
-  }
-}
+  "no-permission": {
+    icon: "🔒",
+    title: "无访问权限",
+    description: "您没有权限查看此内容",
+  },
+};
 
 const config = computed(() => ({
   icon: props.icon || defaultConfig[props.type].icon,
   title: props.title || defaultConfig[props.type].title,
-  description: props.description || defaultConfig[props.type].description
-}))
+  description: props.description || defaultConfig[props.type].description,
+}));
 </script>
 
 <template>
@@ -57,11 +63,7 @@ const config = computed(() => ({
     <div class="empty-icon">{{ config.icon }}</div>
     <h3 class="empty-title">{{ config.title }}</h3>
     <p class="empty-description">{{ config.description }}</p>
-    <button
-      v-if="actionText"
-      class="empty-action"
-      @click="emit('action')"
-    >
+    <button v-if="actionText" class="empty-action" @click="emit('action')">
       {{ actionText }}
     </button>
     <slot name="action" />
@@ -107,19 +109,20 @@ const config = computed(() => ({
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
-  
+
   &:hover {
     background-color: color-mix(in srgb, var(--primary-color) 90%, black);
     transform: translateY(-1px);
   }
-  
+
   &:active {
     transform: translateY(0);
   }
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {

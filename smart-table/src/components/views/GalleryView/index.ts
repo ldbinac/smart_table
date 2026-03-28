@@ -1,1 +1,1 @@
-export { default as GalleryView } from './GalleryView.vue'
+export { default as GalleryView } from "./GalleryView.vue";

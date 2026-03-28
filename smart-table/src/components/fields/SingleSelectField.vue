@@ -1,52 +1,52 @@
 <script setup lang="ts">
-import type { FieldOption } from '@/types/fields'
+import type { FieldOption } from "@/types/fields";
 
 interface Props {
-  modelValue: string | null
+  modelValue: string | null;
   field?: {
-    id: string
-    name: string
-    type: string
+    id: string;
+    name: string;
+    type: string;
     options?: {
-      options?: FieldOption[]
-      allowAddOptions?: boolean
-    }
-  }
-  readonly?: boolean
-  placeholder?: string
+      options?: FieldOption[];
+      allowAddOptions?: boolean;
+    };
+  };
+  readonly?: boolean;
+  placeholder?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: null,
   readonly: false,
-  placeholder: ''
-})
+  placeholder: "",
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: string | null): void
-}>()
+  (e: "update:modelValue", value: string | null): void;
+}>();
 
 const options = computed(() => {
-  return props.field?.options?.options ?? []
-})
+  return props.field?.options?.options ?? [];
+});
 
 const selectedOption = computed(() => {
-  if (!props.modelValue) return null
-  return options.value.find(opt => opt.id === props.modelValue)
-})
+  if (!props.modelValue) return null;
+  return options.value.find((opt) => opt.id === props.modelValue);
+});
 
 const localValue = computed({
   get: () => props.modelValue,
-  set: (val: string | null) => emit('update:modelValue', val)
-})
+  set: (val: string | null) => emit("update:modelValue", val),
+});
 
-const selectRef = ref()
+const selectRef = ref();
 
 const focus = () => {
-  selectRef.value?.focus()
-}
+  selectRef.value?.focus();
+};
 
-defineExpose({ focus })
+defineExpose({ focus });
 </script>
 
 <template>
@@ -56,8 +56,10 @@ defineExpose({ focus })
         <span
           v-if="selectedOption"
           class="select-tag"
-          :style="{ backgroundColor: selectedOption.color + '20', color: selectedOption.color }"
-        >
+          :style="{
+            backgroundColor: selectedOption.color + '20',
+            color: selectedOption.color,
+          }">
           {{ selectedOption.name }}
         </span>
         <span v-else class="empty-value">-</span>
@@ -69,18 +71,18 @@ defineExpose({ focus })
         :placeholder="placeholder || '请选择'"
         clearable
         ref="selectRef"
-        class="select-input"
-      >
+        class="select-input">
         <el-option
           v-for="option in options"
           :key="option.id"
           :label="option.name"
-          :value="option.id"
-        >
+          :value="option.id">
           <span
             class="option-tag"
-            :style="{ backgroundColor: option.color + '20', color: option.color }"
-          >
+            :style="{
+              backgroundColor: option.color + '20',
+              color: option.color,
+            }">
             {{ option.name }}
           </span>
         </el-option>
@@ -90,7 +92,7 @@ defineExpose({ focus })
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .single-select-field {
   width: 100%;

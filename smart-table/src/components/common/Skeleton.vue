@@ -1,17 +1,20 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
-  width?: string
-  height?: string
-  circle?: boolean
-  rows?: number
-  animated?: boolean
-}>(), {
-  width: '100%',
-  height: '16px',
-  circle: false,
-  rows: 1,
-  animated: true
-})
+withDefaults(
+  defineProps<{
+    width?: string;
+    height?: string;
+    circle?: boolean;
+    rows?: number;
+    animated?: boolean;
+  }>(),
+  {
+    width: "100%",
+    height: "16px",
+    circle: false,
+    rows: 1,
+    animated: true,
+  },
+);
 </script>
 
 <template>
@@ -24,9 +27,8 @@ withDefaults(defineProps<{
       :style="{
         width: circle ? height : width,
         height: height,
-        borderRadius: circle ? '50%' : undefined
-      }"
-    />
+        borderRadius: circle ? '50%' : undefined,
+      }" />
   </div>
 </template>
 

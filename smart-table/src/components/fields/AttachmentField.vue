@@ -1,83 +1,93 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { UploadFile } from 'element-plus'
-import type { FieldEntity } from '@/db/schema'
-import type { CellValue } from '@/types'
-import { UploadFilled, Document, Picture, Delete, Download } from '@element-plus/icons-vue'
+import { ref, computed, watch } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import type { UploadFile } from "element-plus";
+import type { FieldEntity } from "@/db/schema";
+import type { CellValue } from "@/types";
+import {
+  UploadFilled,
+  Document,
+  Picture,
+  Delete,
+  Download,
+} from "@element-plus/icons-vue";
 
 interface AttachmentFile {
-  id: string
-  name: string
-  size: number
-  type: string
-  url?: string
-  thumbnail?: string
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url?: string;
+  thumbnail?: string;
 }
 
 interface Props {
-  modelValue: CellValue
-  field: FieldEntity
-  readonly?: boolean
+  modelValue: CellValue;
+  field: FieldEntity;
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readonly: false
-})
+  readonly: false,
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: CellValue): void
-}>()
+  (e: "update:modelValue", value: CellValue): void;
+}>();
 
-const files = ref<AttachmentFile[]>([])
-const uploading = ref(false)
+const files = ref<AttachmentFile[]>([]);
+const uploading = ref(false);
 
-watch(() => props.modelValue, (newVal) => {
-  if (Array.isArray(newVal)) {
-    files.value = newVal as AttachmentFile[]
-  } else {
-    files.value = []
-  }
-}, { immediate: true })
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (Array.isArray(newVal)) {
+      files.value = newVal as AttachmentFile[];
+    } else {
+      files.value = [];
+    }
+  },
+  { immediate: true },
+);
 
 const acceptTypes = computed(() => {
-  const types = props.field.options?.acceptTypes as string[]
-  return types ? types.join(',') : '*/*'
-})
+  const types = props.field.options?.acceptTypes as string[];
+  return types ? types.join(",") : "*/*";
+});
 
 const maxSize = computed(() => {
-  return (props.field.options?.maxSize as number) || 10 * 1024 * 1024
-})
+  return (props.field.options?.maxSize as number) || 10 * 1024 * 1024;
+});
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 function getFileIcon(type: string): typeof Document {
-  if (type.startsWith('image/')) return Picture
-  return Document
+  if (type.startsWith("image/")) return Picture;
+  return Document;
 }
 
 async function handleUpload(uploadFile: UploadFile) {
-  const file = uploadFile.raw
-  
+  const file = uploadFile.raw;
+
   if (!file) {
-    ElMessage.error('文件不存在')
-    return
+    ElMessage.error("文件不存在");
+    return;
   }
-  
+
   if (file.size > maxSize.value) {
-    ElMessage.error(`文件大小超过限制 (${formatFileSize(maxSize.value)})`)
-    return
+    ElMessage.error(`文件大小超过限制 (${formatFileSize(maxSize.value)})`);
+    return;
   }
-  
-  uploading.value = true
-  
+
+  uploading.value = true;
+
   try {
-    const reader = new FileReader()
-    
+    const reader = new FileReader();
+
     const fileData = await new Promise<AttachmentFile>((resolve, reject) => {
       reader.onload = () => {
         const attachment: AttachmentFile = {
@@ -85,49 +95,53 @@ async function handleUpload(uploadFile: UploadFile) {
           name: file.name,
           size: file.size,
           type: file.type,
-          url: reader.result as string
+          url: reader.result as string,
+        };
+
+        if (file.type.startsWith("image/")) {
+          attachment.thumbnail = reader.result as string;
         }
-        
-        if (file.type.startsWith('image/')) {
-          attachment.thumbnail = reader.result as string
-        }
-        
-        resolve(attachment)
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-    
-    files.value.push(fileData)
-    emit('update:modelValue', files.value)
-    ElMessage.success('文件上传成功')
+
+        resolve(attachment);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    files.value.push(fileData);
+    emit("update:modelValue", files.value);
+    ElMessage.success("文件上传成功");
   } catch (error) {
-    ElMessage.error('文件上传失败')
+    ElMessage.error("文件上传失败");
   } finally {
-    uploading.value = false
+    uploading.value = false;
   }
 }
 
 function handleRemove(fileId: string) {
-  files.value = files.value.filter(f => f.id !== fileId)
-  emit('update:modelValue', files.value)
+  files.value = files.value.filter((f) => f.id !== fileId);
+  emit("update:modelValue", files.value);
 }
 
 function handleDownload(file: AttachmentFile) {
   if (file.url) {
-    const link = document.createElement('a')
-    link.href = file.url
-    link.download = file.name
-    link.click()
+    const link = document.createElement("a");
+    link.href = file.url;
+    link.download = file.name;
+    link.click();
   }
 }
 
 function handlePreview(file: AttachmentFile) {
-  if (file.type.startsWith('image/') && file.url) {
-    ElMessageBox.alert(`<img src="${file.url}" style="max-width: 100%;">`, file.name, {
-      dangerouslyUseHTMLString: true,
-      showConfirmButton: false
-    })
+  if (file.type.startsWith("image/") && file.url) {
+    ElMessageBox.alert(
+      `<img src="${file.url}" style="max-width: 100%;">`,
+      file.name,
+      {
+        dangerouslyUseHTMLString: true,
+        showConfirmButton: false,
+      },
+    );
   }
 }
 </script>
@@ -141,12 +155,9 @@ function handlePreview(file: AttachmentFile) {
         :accept="acceptTypes"
         :on-change="handleUpload"
         drag
-        multiple
-      >
+        multiple>
         <el-icon class="upload-icon"><UploadFilled /></el-icon>
-        <div class="upload-text">
-          拖拽文件到此处或<em>点击上传</em>
-        </div>
+        <div class="upload-text">拖拽文件到此处或<em>点击上传</em></div>
         <template #tip>
           <div class="upload-tip">
             最大文件大小: {{ formatFileSize(maxSize) }}
@@ -154,35 +165,26 @@ function handlePreview(file: AttachmentFile) {
         </template>
       </el-upload>
     </div>
-    
+
     <div v-if="files.length > 0" class="file-list">
-      <div
-        v-for="file in files"
-        :key="file.id"
-        class="file-item"
-      >
+      <div v-for="file in files" :key="file.id" class="file-item">
         <div class="file-preview" @click="handlePreview(file)">
           <img
             v-if="file.thumbnail"
             :src="file.thumbnail"
-            class="file-thumbnail"
-          />
+            class="file-thumbnail" />
           <el-icon v-else class="file-icon">
             <component :is="getFileIcon(file.type)" />
           </el-icon>
         </div>
-        
+
         <div class="file-info">
           <span class="file-name" :title="file.name">{{ file.name }}</span>
           <span class="file-size">{{ formatFileSize(file.size) }}</span>
         </div>
-        
+
         <div class="file-actions">
-          <el-button
-            link
-            size="small"
-            @click="handleDownload(file)"
-          >
+          <el-button link size="small" @click="handleDownload(file)">
             <el-icon><Download /></el-icon>
           </el-button>
           <el-button
@@ -190,22 +192,19 @@ function handlePreview(file: AttachmentFile) {
             link
             size="small"
             type="danger"
-            @click="handleRemove(file.id)"
-          >
+            @click="handleRemove(file.id)">
             <el-icon><Delete /></el-icon>
           </el-button>
         </div>
       </div>
     </div>
-    
-    <div v-else-if="readonly" class="empty-state">
-      无附件
-    </div>
+
+    <div v-else-if="readonly" class="empty-state">无附件</div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .attachment-field {
   width: 100%;
@@ -213,28 +212,28 @@ function handlePreview(file: AttachmentFile) {
 
 .upload-area {
   margin-bottom: $spacing-sm;
-  
+
   :deep(.el-upload-dragger) {
     padding: $spacing-lg;
     border-radius: $border-radius-md;
   }
-  
+
   .upload-icon {
     font-size: 32px;
     color: $text-disabled;
     margin-bottom: $spacing-sm;
   }
-  
+
   .upload-text {
     font-size: $font-size-sm;
     color: $text-secondary;
-    
+
     em {
       color: $primary-color;
       font-style: normal;
     }
   }
-  
+
   .upload-tip {
     font-size: $font-size-xs;
     color: $text-disabled;
@@ -256,7 +255,7 @@ function handlePreview(file: AttachmentFile) {
   background-color: $bg-color;
   border-radius: $border-radius-sm;
   border: 1px solid $border-color;
-  
+
   &:hover {
     border-color: $primary-color;
   }

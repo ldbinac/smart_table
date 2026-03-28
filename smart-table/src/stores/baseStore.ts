@@ -1,13 +1,19 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { baseService } from '../db/services/baseService';
-import { tableService } from '../db/services/tableService';
-import { fieldService } from '../db/services/fieldService';
-import { recordService } from '../db/services/recordService';
-import { viewService } from '../db/services/viewService';
-import type { Base, TableEntity, FieldEntity, RecordEntity, ViewEntity } from '../db/schema';
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import { baseService } from "../db/services/baseService";
+import { tableService } from "../db/services/tableService";
+import { fieldService } from "../db/services/fieldService";
+import { recordService } from "../db/services/recordService";
+import { viewService } from "../db/services/viewService";
+import type {
+  Base,
+  TableEntity,
+  FieldEntity,
+  RecordEntity,
+  ViewEntity,
+} from "../db/schema";
 
-export const useBaseStore = defineStore('base', () => {
+export const useBaseStore = defineStore("base", () => {
   const bases = ref<Base[]>([]);
   const currentBase = ref<Base | null>(null);
   const tables = ref<TableEntity[]>([]);
@@ -39,14 +45,14 @@ export const useBaseStore = defineStore('base', () => {
   const visibleFields = computed(() => {
     if (!currentView.value) return sortedFields.value;
     return sortedFields.value.filter(
-      field => !currentView.value!.hiddenFields.includes(field.id)
+      (field) => !currentView.value!.hiddenFields.includes(field.id),
     );
   });
 
   const frozenFields = computed(() => {
     if (!currentView.value) return [];
-    return sortedFields.value.filter(
-      field => currentView.value!.frozenFields.includes(field.id)
+    return sortedFields.value.filter((field) =>
+      currentView.value!.frozenFields.includes(field.id),
     );
   });
 
@@ -56,7 +62,7 @@ export const useBaseStore = defineStore('base', () => {
     try {
       bases.value = await baseService.getAllBases();
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load bases';
+      error.value = e instanceof Error ? e.message : "Failed to load bases";
     } finally {
       loading.value = false;
     }
@@ -68,7 +74,7 @@ export const useBaseStore = defineStore('base', () => {
     try {
       const base = await baseService.getBase(id);
       if (!base) {
-        error.value = 'Base not found';
+        error.value = "Base not found";
         return;
       }
       currentBase.value = base;
@@ -83,7 +89,7 @@ export const useBaseStore = defineStore('base', () => {
         currentView.value = null;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load base';
+      error.value = e instanceof Error ? e.message : "Failed to load base";
     } finally {
       loading.value = false;
     }
@@ -95,7 +101,7 @@ export const useBaseStore = defineStore('base', () => {
     try {
       const table = await tableService.getTable(tableId);
       if (!table) {
-        error.value = 'Table not found';
+        error.value = "Table not found";
         return;
       }
       currentTable.value = table;
@@ -106,13 +112,18 @@ export const useBaseStore = defineStore('base', () => {
       const defaultView = await viewService.getDefaultView(tableId);
       currentView.value = defaultView || null;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load table';
+      error.value = e instanceof Error ? e.message : "Failed to load table";
     } finally {
       loading.value = false;
     }
   }
 
-  async function createBase(data: { name: string; description?: string; icon?: string; color?: string }) {
+  async function createBase(data: {
+    name: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+  }) {
     loading.value = true;
     error.value = null;
     try {
@@ -120,7 +131,7 @@ export const useBaseStore = defineStore('base', () => {
       bases.value.unshift(base);
       return base;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to create base';
+      error.value = e instanceof Error ? e.message : "Failed to create base";
       return null;
     } finally {
       loading.value = false;
@@ -130,22 +141,30 @@ export const useBaseStore = defineStore('base', () => {
   async function updateBase(id: string, changes: Partial<Base>) {
     try {
       await baseService.updateBase(id, changes);
-      const index = bases.value.findIndex(b => b.id === id);
+      const index = bases.value.findIndex((b) => b.id === id);
       if (index !== -1) {
-        bases.value[index] = { ...bases.value[index], ...changes, updatedAt: Date.now() };
+        bases.value[index] = {
+          ...bases.value[index],
+          ...changes,
+          updatedAt: Date.now(),
+        };
       }
       if (currentBase.value?.id === id) {
-        currentBase.value = { ...currentBase.value, ...changes, updatedAt: Date.now() };
+        currentBase.value = {
+          ...currentBase.value,
+          ...changes,
+          updatedAt: Date.now(),
+        };
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update base';
+      error.value = e instanceof Error ? e.message : "Failed to update base";
     }
   }
 
   async function deleteBase(id: string) {
     try {
       await baseService.deleteBase(id);
-      bases.value = bases.value.filter(b => b.id !== id);
+      bases.value = bases.value.filter((b) => b.id !== id);
       if (currentBase.value?.id === id) {
         currentBase.value = null;
         tables.value = [];
@@ -156,14 +175,14 @@ export const useBaseStore = defineStore('base', () => {
         currentView.value = null;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete base';
+      error.value = e instanceof Error ? e.message : "Failed to delete base";
     }
   }
 
   async function toggleStarBase(id: string) {
     try {
       await baseService.toggleStar(id);
-      const base = bases.value.find(b => b.id === id);
+      const base = bases.value.find((b) => b.id === id);
       if (base) {
         base.isStarred = !base.isStarred;
       }
@@ -171,7 +190,7 @@ export const useBaseStore = defineStore('base', () => {
         currentBase.value.isStarred = !currentBase.value.isStarred;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to toggle star';
+      error.value = e instanceof Error ? e.message : "Failed to toggle star";
     }
   }
 
@@ -208,6 +227,6 @@ export const useBaseStore = defineStore('base', () => {
     updateBase,
     deleteBase,
     toggleStarBase,
-    clearCurrentBase
+    clearCurrentBase,
   };
 });

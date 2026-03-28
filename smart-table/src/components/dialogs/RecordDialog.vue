@@ -27,7 +27,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "update:visible": [value: boolean];
-  "save": [recordId: string, values: Record<string, unknown>];
+  save: [recordId: string, values: Record<string, unknown>];
 }>();
 
 const formData = ref<Record<string, unknown>>({});
@@ -43,7 +43,7 @@ watch(
       formData.value = {};
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // 获取字段类型对应的组件
@@ -93,20 +93,28 @@ function getFieldComponent(field: FieldEntity) {
 
 // 检查字段是否为只读字段（系统字段、公式字段等）
 function isReadonlyField(field: FieldEntity): boolean {
-  return [
-    FieldType.FORMULA,
-    FieldType.LOOKUP,
-    FieldType.CREATED_BY,
-    FieldType.CREATED_TIME,
-    FieldType.UPDATED_BY,
-    FieldType.UPDATED_TIME,
-    FieldType.AUTO_NUMBER,
-  ].includes(field.type as any) || field.isSystem;
+  return (
+    [
+      FieldType.FORMULA,
+      FieldType.LOOKUP,
+      FieldType.CREATED_BY,
+      FieldType.CREATED_TIME,
+      FieldType.UPDATED_BY,
+      FieldType.UPDATED_TIME,
+      FieldType.AUTO_NUMBER,
+    ].includes(field.type as any) || field.isSystem
+  );
 }
 
 // 获取单选/多选选项
 function getSelectOptions(field: FieldEntity) {
-  return (field.options?.options as Array<{ id: string; name: string; color?: string }>) || [];
+  return (
+    (field.options?.options as Array<{
+      id: string;
+      name: string;
+      color?: string;
+    }>) || []
+  );
 }
 
 // 获取数值字段精度
@@ -121,12 +129,12 @@ function getDateShowTime(field: FieldEntity): boolean {
 
 // 获取日期字段格式
 function getDateFormat(field: FieldEntity): string {
-  return getDateShowTime(field) ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD';
+  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 }
 
 // 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): 'date' | 'datetime' {
-  return getDateShowTime(field) ? 'datetime' : 'date';
+function getDatePickerType(field: FieldEntity): "date" | "datetime" {
+  return getDateShowTime(field) ? "datetime" : "date";
 }
 
 // 获取评分最大值
@@ -140,14 +148,14 @@ function handleDateChange(field: FieldEntity, val: Date | null) {
     formData.value[field.id] = null;
     return;
   }
-  
+
   const showTime = getDateShowTime(field);
   if (showTime) {
     // 显示时间时存储为时间戳
     formData.value[field.id] = val.getTime();
   } else {
     // 仅日期时存储为日期字符串
-    formData.value[field.id] = dayjs(val).format('YYYY-MM-DD');
+    formData.value[field.id] = dayjs(val).format("YYYY-MM-DD");
   }
 }
 
@@ -190,13 +198,13 @@ function isPrimaryField(field: FieldEntity): boolean {
 // 获取只读字段的显示值
 function getReadonlyDisplayValue(field: FieldEntity): string {
   const value = formData.value[field.id];
-  if (value === null || value === undefined) return '';
-  
+  if (value === null || value === undefined) return "";
+
   switch (field.type) {
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
-      if (typeof value === 'number') {
-        return dayjs(value).format('YYYY-MM-DD HH:mm:ss');
+      if (typeof value === "number") {
+        return dayjs(value).format("YYYY-MM-DD HH:mm:ss");
       }
       return String(value);
     case FieldType.CREATED_BY:
@@ -218,22 +226,19 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
     @update:model-value="$emit('update:visible', $event)"
     title="编辑记录"
     width="600px"
-    :close-on-click-modal="false"
-  >
+    :close-on-click-modal="false">
     <ElForm label-width="100px" class="record-form">
       <ElFormItem
         v-for="field in fields"
         :key="field.id"
         :label="field.name"
-        :required="field.isRequired && !isReadonlyField(field)"
-      >
+        :required="field.isRequired && !isReadonlyField(field)">
         <!-- 主键字段 - 只读显示 -->
         <template v-if="isPrimaryField(field)">
           <ElInput
             :model-value="String(formData[field.id] || '')"
             disabled
-            :placeholder="field.name"
-          />
+            :placeholder="field.name" />
           <span class="readonly-hint">主键字段，不可修改</span>
         </template>
 
@@ -242,13 +247,15 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
           <ElInput
             :model-value="getReadonlyDisplayValue(field)"
             disabled
-            :placeholder="field.name"
-          />
-          <span class="readonly-hint">{{ 
-            field.type === FieldType.FORMULA ? '公式计算字段，不可修改' :
-            field.type === FieldType.LOOKUP ? '查找字段，不可修改' :
-            field.type === FieldType.AUTO_NUMBER ? '自动编号，不可修改' :
-            '系统字段，不可修改'
+            :placeholder="field.name" />
+          <span class="readonly-hint">{{
+            field.type === FieldType.FORMULA
+              ? "公式计算字段，不可修改"
+              : field.type === FieldType.LOOKUP
+                ? "查找字段，不可修改"
+                : field.type === FieldType.AUTO_NUMBER
+                  ? "自动编号，不可修改"
+                  : "系统字段，不可修改"
           }}</span>
         </template>
 
@@ -257,8 +264,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
           <ElInput
             :model-value="String(formData[field.id] || '')"
             :placeholder="`请输入${field.name}`"
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
         <!-- 数字类型 -->
@@ -268,8 +274,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
             :precision="getNumberPrecision(field)"
             :placeholder="`请输入${field.name}`"
             style="width: 100%"
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
         <!-- 单选类型 -->
@@ -279,18 +284,15 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
             :placeholder="`请选择${field.name}`"
             style="width: 100%"
             clearable
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          >
+            @update:model-value="(val) => handleValueChange(field.id, val)">
             <ElOption
               v-for="option in getSelectOptions(field)"
               :key="option.id"
               :label="option.name"
-              :value="option.id"
-            >
+              :value="option.id">
               <span
                 class="option-color"
-                :style="{ backgroundColor: option.color || '#3370FF' }"
-              />
+                :style="{ backgroundColor: option.color || '#3370FF' }" />
               <span>{{ option.name }}</span>
             </ElOption>
           </ElSelect>
@@ -304,18 +306,15 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
             style="width: 100%"
             multiple
             clearable
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          >
+            @update:model-value="(val) => handleValueChange(field.id, val)">
             <ElOption
               v-for="option in getSelectOptions(field)"
               :key="option.id"
               :label="option.name"
-              :value="option.id"
-            >
+              :value="option.id">
               <span
                 class="option-color"
-                :style="{ backgroundColor: option.color || '#3370FF' }"
-              />
+                :style="{ backgroundColor: option.color || '#3370FF' }" />
               <span>{{ option.name }}</span>
             </ElOption>
           </ElSelect>
@@ -329,16 +328,14 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
             :placeholder="`请选择${field.name}`"
             :format="getDateFormat(field)"
             style="width: 100%"
-            @update:model-value="(val) => handleDateChange(field, val)"
-          />
+            @update:model-value="(val) => handleDateChange(field, val)" />
         </template>
 
         <!-- 复选框类型 -->
         <template v-else-if="getFieldComponent(field) === 'checkbox'">
           <ElSwitch
             :model-value="Boolean(formData[field.id])"
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
         <!-- 评分类型 -->
@@ -346,8 +343,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
           <ElRate
             :model-value="Number(formData[field.id] || 0)"
             :max="getMaxRating(field)"
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
         <!-- 进度类型 -->
@@ -356,8 +352,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
             :model-value="Number(formData[field.id] || 0)"
             :max="100"
             :format-tooltip="(val: number) => `${val}%`"
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
           <span class="progress-value">{{ formData[field.id] || 0 }}%</span>
         </template>
 
@@ -376,8 +371,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
             :placeholder="`请选择${field.name}`"
             style="width: 100%"
             clearable
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          >
+            @update:model-value="(val) => handleValueChange(field.id, val)">
             <ElOption label="当前用户" value="current_user" />
           </ElSelect>
         </template>
@@ -395,8 +389,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
           <ElInput
             :model-value="String(formData[field.id] || '')"
             :placeholder="`请输入${field.name}`"
-            @update:model-value="(val) => handleValueChange(field.id, val)"
-          />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
       </ElFormItem>
     </ElForm>
@@ -413,10 +406,10 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
 </template>
 
 <script lang="ts">
-import { Document, Link } from '@element-plus/icons-vue'
+import { Document, Link } from "@element-plus/icons-vue";
 export default {
-  name: 'RecordDialog'
-}
+  name: "RecordDialog",
+};
 </script>
 
 <style lang="scss" scoped>

@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
-import { Setting, Share, Upload, DataAnalysis } from "@element-plus/icons-vue";
+import { Setting, Share, Upload } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
@@ -307,7 +307,7 @@ function initSortable() {
 async function handleTableDragEnd(evt: Sortable.SortableEvent) {
   if (evt.oldIndex === evt.newIndex) return;
 
-  const tableIds = filteredTables.value.map((t) => t.id);
+  const tableIds = baseStore.tables.map((t) => t.id);
   const [movedId] = tableIds.splice(evt.oldIndex!, 1);
   tableIds.splice(evt.newIndex!, 0, movedId);
 
@@ -1552,19 +1552,19 @@ function handleImported() {
 .base-page {
   display: flex;
   height: calc(100vh - 56px);
-  background-color: $bg-color;
+  background-color: $gray-50;
 }
 
 .sidebar {
   width: $sidebar-width;
-  margin-right: 5px;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid $border-color;
+  border-right: 1px solid $gray-200;
   background: $surface-color;
   transition: width $transition-normal;
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: $shadow-md;
 
   &.collapsed {
     width: $sidebar-collapsed-width;
@@ -1846,45 +1846,129 @@ function handleImported() {
   display: flex;
   flex-direction: column;
   height: 100%;
+  background-color: $surface-color;
+  border-radius: $border-radius-xl;
+  margin: $spacing-md;
+  box-shadow: $shadow-card;
+  overflow: hidden;
 }
 
 .table-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: $spacing-lg;
+  padding: $spacing-lg $spacing-xl;
   background: $surface-color;
-  border-bottom: 1px solid $border-color;
+  border-bottom: 1px solid $gray-200;
+  gap: $spacing-lg;
 }
 
 .table-info {
   display: flex;
   align-items: center;
   gap: $spacing-md;
+  flex-wrap: wrap;
 
   h2 {
     margin: 0;
     font-size: $font-size-xl;
     font-weight: 600;
     color: $text-primary;
+    letter-spacing: -0.2px;
   }
 
   .record-count {
     font-size: $font-size-sm;
     color: $text-secondary;
+    background-color: $gray-100;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius-md;
   }
 
   .filter-badge,
   .sort-badge,
   .group-badge {
-    margin-left: 8px;
+    margin-left: $spacing-xs;
+
+    :deep(.el-tag) {
+      border-radius: $border-radius-md;
+      font-weight: 500;
+    }
   }
 }
 
 .table-actions {
   display: flex;
   align-items: center;
-  gap: $spacing-md;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+
+  // 按钮组样式优化
+  :deep(.el-button-group) {
+    .el-button {
+      border-radius: 0;
+
+      &:first-child {
+        border-top-left-radius: $border-radius-md;
+        border-bottom-left-radius: $border-radius-md;
+      }
+
+      &:last-child {
+        border-top-right-radius: $border-radius-md;
+        border-bottom-right-radius: $border-radius-md;
+      }
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+  }
+
+  // 主要操作按钮样式
+  :deep(.el-button--primary) {
+    @include gradient-primary;
+    border: none;
+    border-radius: $border-radius-md;
+    font-weight: 500;
+    @include button-fresh;
+
+    &:hover {
+      box-shadow: $shadow-button, 0 4px 8px rgba($primary-color, 0.3);
+    }
+
+    &:active {
+      box-shadow: $shadow-button;
+    }
+  }
+
+  // 默认按钮样式
+  :deep(.el-button--default) {
+    border-radius: $border-radius-md;
+    transition: all $transition-fast;
+
+    &:hover {
+      background-color: $gray-100;
+      border-color: $gray-300;
+      transform: translateY(-1px);
+      box-shadow: $shadow-sm;
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  // 按钮内标签样式
+  :deep(.el-button) {
+    .el-tag {
+      margin-left: $spacing-xs;
+      border-radius: $border-radius-sm;
+    }
+  }
 }
 
 .table-content {
@@ -1897,6 +1981,22 @@ function handleImported() {
   justify-content: center;
   align-items: center;
   height: 100%;
+  padding: $spacing-xl;
+
+  :deep(.el-empty) {
+    padding: $spacing-2xl;
+    background-color: $surface-color;
+    border-radius: $border-radius-xl;
+    box-shadow: $shadow-card;
+  }
+
+  :deep(.el-button--primary) {
+    @include gradient-primary;
+    border: none;
+    border-radius: $border-radius-md;
+    font-weight: 500;
+    @include button-fresh;
+  }
 }
 
 .dialog-footer {

@@ -1,1 +1,1 @@
-export { default as FormView } from './FormView.vue'
+export { default as FormView } from "./FormView.vue";

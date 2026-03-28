@@ -1,34 +1,42 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { FieldEntity } from '@/db/schema'
-import type { CellValue } from '@/types'
+import { computed } from "vue";
+import type { FieldEntity } from "@/db/schema";
+import type { CellValue } from "@/types";
 
 interface Props {
-  modelValue: CellValue
-  field: FieldEntity
-  readonly?: boolean
+  modelValue: CellValue;
+  field: FieldEntity;
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readonly: true
-})
+  readonly: true,
+});
 
 interface Member {
-  id: string
-  name: string
-  avatar?: string
+  id: string;
+  name: string;
+  avatar?: string;
 }
 
 const member = computed<Member | null>(() => {
-  if (!props.modelValue) return null
-  if (typeof props.modelValue === 'object' && !Array.isArray(props.modelValue)) {
-    return props.modelValue as Member
+  if (!props.modelValue) return null;
+  if (
+    typeof props.modelValue === "object" &&
+    !Array.isArray(props.modelValue)
+  ) {
+    return props.modelValue as Member;
   }
-  return null
-})
+  return null;
+});
 
 function getInitials(name: string): string {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 </script>
 
@@ -37,7 +45,9 @@ function getInitials(name: string): string {
     <div v-if="member" class="member-display">
       <div class="member-avatar">
         <img v-if="member.avatar" :src="member.avatar" :alt="member.name" />
-        <span v-else class="avatar-initials">{{ getInitials(member.name) }}</span>
+        <span v-else class="avatar-initials">{{
+          getInitials(member.name)
+        }}</span>
       </div>
       <span class="member-name">{{ member.name }}</span>
     </div>
@@ -46,7 +56,7 @@ function getInitials(name: string): string {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .created-by-field {
   width: 100%;
@@ -67,7 +77,7 @@ function getInitials(name: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   img {
     width: 100%;
     height: 100%;

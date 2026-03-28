@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useKeyboardShortcutsStore } from '@/stores/keyboardShortcuts'
+import { computed } from "vue";
+import { useKeyboardShortcutsStore } from "@/stores/keyboardShortcuts";
 
 const props = defineProps<{
-  visible: boolean
-}>()
+  visible: boolean;
+}>();
 
 const emit = defineEmits<{
-  close: []
-}>()
+  close: [];
+}>();
 
-const shortcutsStore = useKeyboardShortcutsStore()
+const shortcutsStore = useKeyboardShortcutsStore();
 
-const groupedShortcuts = computed(() => shortcutsStore.groupedShortcuts)
+const groupedShortcuts = computed(() => shortcutsStore.groupedShortcuts);
 
-function getLabel(shortcut: { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }) {
-  return shortcutsStore.getShortcutLabel(shortcut as any)
+function getLabel(shortcut: {
+  key: string;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+}) {
+  return shortcutsStore.getShortcutLabel(shortcut as any);
 }
 </script>
 
@@ -33,16 +38,16 @@ function getLabel(shortcut: { key: string; ctrl?: boolean; shift?: boolean; alt?
               <div
                 v-for="(shortcuts, category) in groupedShortcuts"
                 :key="category"
-                class="shortcut-group"
-              >
+                class="shortcut-group">
                 <h3 class="shortcut-category">{{ category }}</h3>
                 <div class="shortcut-list">
                   <div
                     v-for="shortcut in shortcuts"
                     :key="shortcut.id"
-                    class="shortcut-item"
-                  >
-                    <span class="shortcut-description">{{ shortcut.description }}</span>
+                    class="shortcut-item">
+                    <span class="shortcut-description">{{
+                      shortcut.description
+                    }}</span>
                     <span class="shortcut-keys">{{ getLabel(shortcut) }}</span>
                   </div>
                 </div>
@@ -90,7 +95,7 @@ function getLabel(shortcut: { key: string; ctrl?: boolean; shift?: boolean; alt?
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
-  
+
   h2 {
     font-size: 18px;
     font-weight: 600;
@@ -107,7 +112,7 @@ function getLabel(shortcut: { key: string; ctrl?: boolean; shift?: boolean; alt?
   cursor: pointer;
   padding: 4px;
   line-height: 1;
-  
+
   &:hover {
     color: var(--text-primary);
   }
@@ -121,7 +126,7 @@ function getLabel(shortcut: { key: string; ctrl?: boolean; shift?: boolean; alt?
 
 .shortcut-group {
   margin-bottom: 20px;
-  
+
   &:last-child {
     margin-bottom: 0;
   }
@@ -159,7 +164,7 @@ function getLabel(shortcut: { key: string; ctrl?: boolean; shift?: boolean; alt?
 .shortcut-keys {
   display: flex;
   gap: 4px;
-  
+
   kbd {
     display: inline-flex;
     align-items: center;
@@ -187,7 +192,7 @@ function getLabel(shortcut: { key: string; ctrl?: boolean; shift?: boolean; alt?
 .shortcut-hint {
   font-size: 13px;
   color: var(--text-secondary);
-  
+
   kbd {
     display: inline-flex;
     align-items: center;

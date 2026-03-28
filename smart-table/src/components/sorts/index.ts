@@ -1,1 +1,1 @@
-export { default as SortPanel } from './SortPanel.vue'
+export { default as SortPanel } from "./SortPanel.vue";

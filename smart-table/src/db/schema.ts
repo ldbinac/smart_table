@@ -1,6 +1,6 @@
-import Dexie from 'dexie';
-import type { Table as DexieTable } from 'dexie';
-import type { CellValue } from '../types';
+import Dexie from "dexie";
+import type { Table as DexieTable } from "dexie";
+import type { CellValue } from "../types";
 
 export interface Base {
   id: string;
@@ -63,7 +63,7 @@ export interface ViewEntity {
   groupBys: string[];
   hiddenFields: string[];
   frozenFields: string[];
-  rowHeight: 'short' | 'medium' | 'tall';
+  rowHeight: "short" | "medium" | "tall";
   isDefault: boolean;
   order: number;
   createdAt: number;
@@ -101,8 +101,8 @@ export interface OperationHistory {
   tableId?: string;
   recordId?: string;
   fieldId?: string;
-  action: 'create' | 'update' | 'delete';
-  entityType: 'base' | 'table' | 'field' | 'record' | 'view';
+  action: "create" | "update" | "delete";
+  entityType: "base" | "table" | "field" | "record" | "view";
   oldValue?: unknown;
   newValue?: unknown;
   timestamp: number;
@@ -118,7 +118,7 @@ export interface DashboardShare {
   maxAccessCount?: number;
   currentAccessCount: number;
   isActive: boolean;
-  permission: 'view' | 'edit';
+  permission: "view" | "edit";
   createdAt: number;
   createdBy?: string;
   lastAccessedAt?: number;
@@ -136,18 +136,19 @@ class SmartTableDB extends Dexie {
   dashboardShares!: DexieTable<DashboardShare>;
 
   constructor() {
-    super('SmartTableDB');
+    super("SmartTableDB");
 
     this.version(4).stores({
-      bases: 'id, name, updatedAt, isStarred',
-      tableEntities: 'id, baseId, name, order, updatedAt, isStarred',
-      fields: 'id, tableId, name, type, order, [tableId+order]',
-      records: 'id, tableId, updatedAt, [tableId+updatedAt]',
-      views: 'id, tableId, name, type, isDefault, [tableId+order]',
-      dashboards: 'id, baseId, name, order, updatedAt, isStarred',
-      attachments: 'id, recordId, fieldId, [recordId+fieldId]',
-      history: '++id, baseId, tableId, timestamp, [baseId+timestamp]',
-      dashboardShares: 'id, dashboardId, shareToken, isActive, expiresAt, [dashboardId+isActive]'
+      bases: "id, name, updatedAt, isStarred",
+      tableEntities: "id, baseId, name, order, updatedAt, isStarred",
+      fields: "id, tableId, name, type, order, [tableId+order]",
+      records: "id, tableId, updatedAt, [tableId+updatedAt]",
+      views: "id, tableId, name, type, isDefault, [tableId+order]",
+      dashboards: "id, baseId, name, order, updatedAt, isStarred",
+      attachments: "id, recordId, fieldId, [recordId+fieldId]",
+      history: "++id, baseId, tableId, timestamp, [baseId+timestamp]",
+      dashboardShares:
+        "id, dashboardId, shareToken, isActive, expiresAt, [dashboardId+isActive]",
     });
   }
 }

@@ -1,11 +1,11 @@
-import { defineStore } from 'pinia';
-import { ref, watch } from 'vue';
+import { defineStore } from "pinia";
+import { ref, watch } from "vue";
 
 export interface AppSettings {
-  theme: 'light' | 'dark' | 'auto';
-  language: 'zh-CN' | 'en-US';
+  theme: "light" | "dark" | "auto";
+  language: "zh-CN" | "en-US";
   sidebarCollapsed: boolean;
-  tableRowHeight: 'short' | 'medium' | 'tall';
+  tableRowHeight: "short" | "medium" | "tall";
   showGridLines: boolean;
   stripeRows: boolean;
   autoSave: boolean;
@@ -19,25 +19,25 @@ export interface AppSettings {
 }
 
 const defaultSettings: AppSettings = {
-  theme: 'light',
-  language: 'zh-CN',
+  theme: "light",
+  language: "zh-CN",
   sidebarCollapsed: false,
-  tableRowHeight: 'medium',
+  tableRowHeight: "medium",
   showGridLines: true,
   stripeRows: false,
   autoSave: true,
   autoSaveInterval: 5000,
   confirmBeforeDelete: true,
   showRecordCount: true,
-  dateFormat: 'YYYY-MM-DD',
-  timeFormat: 'HH:mm:ss',
-  numberFormat: '#,##0.00',
-  currencySymbol: '¥'
+  dateFormat: "YYYY-MM-DD",
+  timeFormat: "HH:mm:ss",
+  numberFormat: "#,##0.00",
+  currencySymbol: "¥",
 };
 
-const STORAGE_KEY = 'smart-table-settings';
+const STORAGE_KEY = "smart-table-settings";
 
-export const useSettingsStore = defineStore('settings', () => {
+export const useSettingsStore = defineStore("settings", () => {
   const settings = ref<AppSettings>({ ...defaultSettings });
   const loading = ref(false);
 
@@ -50,7 +50,7 @@ export const useSettingsStore = defineStore('settings', () => {
         settings.value = { ...defaultSettings, ...parsed };
       }
     } catch (e) {
-      console.error('Failed to load settings:', e);
+      console.error("Failed to load settings:", e);
     } finally {
       loading.value = false;
     }
@@ -60,11 +60,14 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings.value));
     } catch (e) {
-      console.error('Failed to save settings:', e);
+      console.error("Failed to save settings:", e);
     }
   }
 
-  function updateSettings<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
+  function updateSettings<K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K],
+  ) {
     settings.value[key] = value;
     saveSettings();
   }
@@ -84,23 +87,25 @@ export const useSettingsStore = defineStore('settings', () => {
     saveSettings();
   }
 
-  function setTheme(theme: 'light' | 'dark' | 'auto') {
+  function setTheme(theme: "light" | "dark" | "auto") {
     settings.value.theme = theme;
     saveSettings();
     applyTheme(theme);
   }
 
-  function applyTheme(theme: 'light' | 'dark' | 'auto') {
+  function applyTheme(theme: "light" | "dark" | "auto") {
     const root = document.documentElement;
-    if (theme === 'auto') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.classList.toggle('dark', prefersDark);
+    if (theme === "auto") {
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches;
+      root.classList.toggle("dark", prefersDark);
     } else {
-      root.classList.toggle('dark', theme === 'dark');
+      root.classList.toggle("dark", theme === "dark");
     }
   }
 
-  function setLanguage(language: 'zh-CN' | 'en-US') {
+  function setLanguage(language: "zh-CN" | "en-US") {
     settings.value.language = language;
     saveSettings();
   }
@@ -110,7 +115,7 @@ export const useSettingsStore = defineStore('settings', () => {
     (newTheme) => {
       applyTheme(newTheme);
     },
-    { immediate: true }
+    { immediate: true },
   );
 
   loadSettings();
@@ -126,6 +131,6 @@ export const useSettingsStore = defineStore('settings', () => {
     toggleSidebar,
     setTheme,
     setLanguage,
-    applyTheme
+    applyTheme,
   };
 });

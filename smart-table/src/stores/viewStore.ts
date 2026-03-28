@@ -1,10 +1,10 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { viewService } from '../db/services/viewService';
-import type { ViewEntity } from '../db/schema';
-import type { FilterCondition, SortConfig } from '../types';
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import { viewService } from "../db/services/viewService";
+import type { ViewEntity } from "../db/schema";
+import type { FilterCondition, SortConfig } from "../types";
 
-export const useViewStore = defineStore('view', () => {
+export const useViewStore = defineStore("view", () => {
   const views = ref<ViewEntity[]>([]);
   const currentView = ref<ViewEntity | null>(null);
   const loading = ref(false);
@@ -40,7 +40,7 @@ export const useViewStore = defineStore('view', () => {
     try {
       views.value = await viewService.getViewsByTable(tableId);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load views';
+      error.value = e instanceof Error ? e.message : "Failed to load views";
     } finally {
       loading.value = false;
     }
@@ -52,12 +52,12 @@ export const useViewStore = defineStore('view', () => {
     try {
       const view = await viewService.getView(viewId);
       if (!view) {
-        error.value = 'View not found';
+        error.value = "View not found";
         return;
       }
       currentView.value = view;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to select view';
+      error.value = e instanceof Error ? e.message : "Failed to select view";
     } finally {
       loading.value = false;
     }
@@ -67,11 +67,16 @@ export const useViewStore = defineStore('view', () => {
     console.log("[ViewStore] selectDefaultView called:", tableId);
     try {
       const defaultView = await viewService.getDefaultView(tableId);
-      console.log("[ViewStore] Default view loaded:", defaultView?.id, defaultView?.config);
+      console.log(
+        "[ViewStore] Default view loaded:",
+        defaultView?.id,
+        defaultView?.config,
+      );
       currentView.value = defaultView || null;
     } catch (e) {
       console.error("[ViewStore] selectDefaultView failed:", e);
-      error.value = e instanceof Error ? e.message : 'Failed to select default view';
+      error.value =
+        e instanceof Error ? e.message : "Failed to select default view";
     }
   }
 
@@ -88,59 +93,65 @@ export const useViewStore = defineStore('view', () => {
       views.value.push(view);
       return view;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to create view';
+      error.value = e instanceof Error ? e.message : "Failed to create view";
       return null;
     } finally {
       loading.value = false;
     }
   }
 
-  async function updateView(id: string, data: {
-    name?: string;
-    config?: Record<string, unknown>;
-    filters?: FilterCondition[];
-    sorts?: SortConfig[];
-    groupBys?: string[];
-    hiddenFields?: string[];
-    frozenFields?: string[];
-    rowHeight?: 'short' | 'medium' | 'tall';
-    isDefault?: boolean;
-  }) {
+  async function updateView(
+    id: string,
+    data: {
+      name?: string;
+      config?: Record<string, unknown>;
+      filters?: FilterCondition[];
+      sorts?: SortConfig[];
+      groupBys?: string[];
+      hiddenFields?: string[];
+      frozenFields?: string[];
+      rowHeight?: "short" | "medium" | "tall";
+      isDefault?: boolean;
+    },
+  ) {
     console.log("[ViewStore] updateView called:", id, data);
     try {
       await viewService.updateView(id, data);
       console.log("[ViewStore] viewService.updateView completed");
-      const index = views.value.findIndex(v => v.id === id);
+      const index = views.value.findIndex((v) => v.id === id);
       if (index !== -1) {
         views.value[index] = {
           ...views.value[index],
           ...data,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         } as ViewEntity;
       }
       if (currentView.value?.id === id) {
         currentView.value = {
           ...currentView.value,
           ...data,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         } as ViewEntity;
-        console.log("[ViewStore] currentView updated:", currentView.value.config);
+        console.log(
+          "[ViewStore] currentView updated:",
+          currentView.value.config,
+        );
       }
     } catch (e) {
       console.error("[ViewStore] updateView failed:", e);
-      error.value = e instanceof Error ? e.message : 'Failed to update view';
+      error.value = e instanceof Error ? e.message : "Failed to update view";
     }
   }
 
   async function deleteView(id: string) {
     try {
       await viewService.deleteView(id);
-      views.value = views.value.filter(v => v.id !== id);
+      views.value = views.value.filter((v) => v.id !== id);
       if (currentView.value?.id === id) {
         currentView.value = views.value[0] || null;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete view';
+      error.value = e instanceof Error ? e.message : "Failed to delete view";
     }
   }
 
@@ -150,7 +161,7 @@ export const useViewStore = defineStore('view', () => {
       views.value.push(newView);
       return newView;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to duplicate view';
+      error.value = e instanceof Error ? e.message : "Failed to duplicate view";
       return null;
     }
   }
@@ -158,35 +169,40 @@ export const useViewStore = defineStore('view', () => {
   async function setDefaultView(id: string) {
     try {
       await viewService.setDefaultView(id);
-      views.value.forEach(v => {
+      views.value.forEach((v) => {
         v.isDefault = v.id === id;
       });
       if (currentView.value) {
         currentView.value.isDefault = currentView.value.id === id;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to set default view';
+      error.value =
+        e instanceof Error ? e.message : "Failed to set default view";
     }
   }
 
   async function reorderViews(tableId: string, viewIds: string[]) {
     try {
       await viewService.reorderViews(tableId, viewIds);
-      const reorderedViews = viewIds.map((id, index) => {
-        const view = views.value.find(v => v.id === id);
-        if (view) {
-          view.order = index;
-        }
-        return view!;
-      }).filter(Boolean);
+      const reorderedViews = viewIds
+        .map((id, index) => {
+          const view = views.value.find((v) => v.id === id);
+          if (view) {
+            view.order = index;
+          }
+          return view!;
+        })
+        .filter(Boolean);
       views.value = reorderedViews;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to reorder views';
+      error.value = e instanceof Error ? e.message : "Failed to reorder views";
     }
   }
 
   async function updateFilters(viewId: string, filters: FilterCondition[]) {
-    await updateView(viewId, { filters: filters as unknown[] as FilterCondition[] });
+    await updateView(viewId, {
+      filters: filters as unknown[] as FilterCondition[],
+    });
   }
 
   async function updateSorts(viewId: string, sorts: SortConfig[]) {
@@ -201,7 +217,10 @@ export const useViewStore = defineStore('view', () => {
     await updateView(viewId, { frozenFields });
   }
 
-  async function updateRowHeight(viewId: string, rowHeight: 'short' | 'medium' | 'tall') {
+  async function updateRowHeight(
+    viewId: string,
+    rowHeight: "short" | "medium" | "tall",
+  ) {
     await updateView(viewId, { rowHeight });
   }
 
@@ -240,6 +259,6 @@ export const useViewStore = defineStore('view', () => {
     updateFrozenFields,
     updateRowHeight,
     updateGroupBys,
-    clearView
+    clearView,
   };
 });

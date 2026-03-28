@@ -1,27 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
-type LoadingSize = 'small' | 'medium' | 'large'
+type LoadingSize = "small" | "medium" | "large";
 
-const props = withDefaults(defineProps<{
-  size?: LoadingSize
-  text?: string
-  fullscreen?: boolean
-  overlay?: boolean
-}>(), {
-  size: 'medium',
-  text: '加载中...',
-  fullscreen: false,
-  overlay: true
-})
+const props = withDefaults(
+  defineProps<{
+    size?: LoadingSize;
+    text?: string;
+    fullscreen?: boolean;
+    overlay?: boolean;
+  }>(),
+  {
+    size: "medium",
+    text: "加载中...",
+    fullscreen: false,
+    overlay: true,
+  },
+);
 
 const sizeMap = {
   small: 16,
   medium: 24,
-  large: 40
-}
+  large: 40,
+};
 
-const spinnerSize = computed(() => sizeMap[props.size])
+const spinnerSize = computed(() => sizeMap[props.size]);
 </script>
 
 <template>
@@ -30,15 +33,13 @@ const spinnerSize = computed(() => sizeMap[props.size])
       'loading-wrapper',
       {
         'loading-fullscreen': fullscreen,
-        'loading-overlay': overlay
-      }
-    ]"
-  >
+        'loading-overlay': overlay,
+      },
+    ]">
     <div class="loading-content">
       <div
         class="loading-spinner"
-        :style="{ width: `${spinnerSize}px`, height: `${spinnerSize}px` }"
-      />
+        :style="{ width: `${spinnerSize}px`, height: `${spinnerSize}px` }" />
       <span v-if="text" class="loading-text">{{ text }}</span>
     </div>
   </div>
@@ -63,7 +64,7 @@ const spinnerSize = computed(() => sizeMap[props.size])
 
 .loading-overlay {
   background-color: rgba(255, 255, 255, 0.8);
-  
+
   :root.dark & {
     background-color: rgba(26, 26, 26, 0.8);
   }

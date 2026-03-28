@@ -1,81 +1,95 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { FieldEntity } from '../../db/schema'
-import type { FilterCondition, FilterOperatorValue } from '../../types'
-import { FilterOperator } from '../../types'
-import { getOperatorsForFieldType, OPERATOR_LABELS, operatorRequiresValue } from '../../utils/filter'
-import FilterValueInput from './FilterValueInput.vue'
+import { computed, ref, watch } from "vue";
+import type { FieldEntity } from "../../db/schema";
+import type { FilterCondition, FilterOperatorValue } from "../../types";
+import { FilterOperator } from "../../types";
+import {
+  getOperatorsForFieldType,
+  OPERATOR_LABELS,
+  operatorRequiresValue,
+} from "../../utils/filter";
+import FilterValueInput from "./FilterValueInput.vue";
 
 interface Props {
-  condition: FilterCondition
-  fields: FieldEntity[]
-  removable: boolean
+  condition: FilterCondition;
+  fields: FieldEntity[];
+  removable: boolean;
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 const emit = defineEmits<{
-  (e: 'update:condition', value: FilterCondition): void
-  (e: 'remove'): void
-}>()
+  (e: "update:condition", value: FilterCondition): void;
+  (e: "remove"): void;
+}>();
 
-const localCondition = ref<FilterCondition>({ ...props.condition })
+const localCondition = ref<FilterCondition>({ ...props.condition });
 
-watch(() => props.condition, (newVal) => {
-  localCondition.value = { ...newVal }
-}, { deep: true })
+watch(
+  () => props.condition,
+  (newVal) => {
+    localCondition.value = { ...newVal };
+  },
+  { deep: true },
+);
 
-watch(localCondition, (newVal) => {
-  emit('update:condition', newVal)
-}, { deep: true })
+watch(
+  localCondition,
+  (newVal) => {
+    emit("update:condition", newVal);
+  },
+  { deep: true },
+);
 
 const selectedField = computed(() => {
-  return props.fields.find(f => f.id === localCondition.value.fieldId)
-})
+  return props.fields.find((f) => f.id === localCondition.value.fieldId);
+});
 
 const availableOperators = computed(() => {
-  if (!selectedField.value) return []
-  return getOperatorsForFieldType(selectedField.value.type)
-})
+  if (!selectedField.value) return [];
+  return getOperatorsForFieldType(selectedField.value.type);
+});
 
 const operatorOptions = computed(() => {
-  return availableOperators.value.map(op => ({
+  return availableOperators.value.map((op) => ({
     value: op,
-    label: OPERATOR_LABELS[op]
-  }))
-})
+    label: OPERATOR_LABELS[op],
+  }));
+});
 
 const showValueInput = computed(() => {
-  return selectedField.value && operatorRequiresValue(localCondition.value.operator)
-})
+  return (
+    selectedField.value && operatorRequiresValue(localCondition.value.operator)
+  );
+});
 
 function handleFieldChange(fieldId: string) {
-  const field = props.fields.find(f => f.id === fieldId)
-  if (!field) return
+  const field = props.fields.find((f) => f.id === fieldId);
+  if (!field) return;
 
-  const operators = getOperatorsForFieldType(field.type)
-  const defaultOperator = operators[0] || FilterOperator.EQUALS
+  const operators = getOperatorsForFieldType(field.type);
+  const defaultOperator = operators[0] || FilterOperator.EQUALS;
 
   localCondition.value = {
     fieldId,
     operator: defaultOperator,
-    value: undefined
-  }
+    value: undefined,
+  };
 }
 
 function handleOperatorChange(operator: FilterOperatorValue) {
-  localCondition.value.operator = operator
+  localCondition.value.operator = operator;
 
   if (!operatorRequiresValue(operator)) {
-    localCondition.value.value = undefined
+    localCondition.value.value = undefined;
   }
 }
 
 function handleValueChange(value: unknown) {
-  localCondition.value.value = value
+  localCondition.value.value = value;
 }
 
 function handleRemove() {
-  emit('remove')
+  emit("remove");
 }
 </script>
 
@@ -85,14 +99,12 @@ function handleRemove() {
       :model-value="localCondition.fieldId"
       placeholder="选择字段"
       class="field-select"
-      @change="handleFieldChange"
-    >
+      @change="handleFieldChange">
       <el-option
         v-for="field in fields"
         :key="field.id"
         :label="field.name"
-        :value="field.id"
-      />
+        :value="field.id" />
     </el-select>
 
     <el-select
@@ -100,14 +112,12 @@ function handleRemove() {
       placeholder="选择操作符"
       class="operator-select"
       :disabled="!selectedField"
-      @change="handleOperatorChange"
-    >
+      @change="handleOperatorChange">
       <el-option
         v-for="op in operatorOptions"
         :key="op.value"
         :label="op.label"
-        :value="op.value"
-      />
+        :value="op.value" />
     </el-select>
 
     <FilterValueInput
@@ -115,8 +125,7 @@ function handleRemove() {
       :field="selectedField"
       :operator="localCondition.operator"
       :model-value="localCondition.value"
-      @update:model-value="handleValueChange"
-    />
+      @update:model-value="handleValueChange" />
 
     <el-button
       v-if="removable"
@@ -125,20 +134,19 @@ function handleRemove() {
       circle
       size="small"
       class="remove-btn"
-      @click="handleRemove"
-    />
+      @click="handleRemove" />
   </div>
 </template>
 
 <script lang="ts">
-import { Delete } from '@element-plus/icons-vue'
+import { Delete } from "@element-plus/icons-vue";
 export default {
-  name: 'FilterCondition'
-}
+  name: "FilterCondition",
+};
 </script>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .filter-condition {
   display: flex;

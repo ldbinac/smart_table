@@ -8,8 +8,8 @@ import {
 } from "@/db/services/dashboardService";
 import {
   dashboardShareService,
-  type DashboardShare,
 } from "@/db/services/dashboardShareService";
+import type { DashboardShare } from "@/db/schema";
 import { recordService } from "@/db/services/recordService";
 import { fieldService } from "@/db/services/fieldService";
 import { tableService } from "@/db/services/tableService";
@@ -25,9 +25,6 @@ import {
   processChartData,
   getChartColors,
   formatLargeNumber,
-  validateAggregation,
-  getFieldValueDisplay,
-  getOptionInfo,
 } from "@/utils/dashboardDataProcessor";
 import { FieldType } from "@/types";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -42,7 +39,7 @@ const dashboards = ref<Dashboard[]>([]);
 const currentDashboard = ref<Dashboard | null>(null);
 const showDashboardManager = ref(false);
 const isEditingDashboard = ref(false);
-const isCreatingDashboard = ref(false); // 区分新建/编辑模式
+const isCreatingDashboard = ref(false);
 const dashboardForm = ref({
   name: "",
   description: "",
@@ -51,6 +48,7 @@ const dashboardForm = ref({
 // 加载状态
 const isLoading = ref(false);
 const loadingText = ref("加载中...");
+const skeletonCount = ref(6);
 
 // 数据状态
 const tables = ref<TableEntity[]>([]);
@@ -68,7 +66,7 @@ const resizeStart = ref({ x: 0, y: 0, w: 0, h: 0 });
 // 分享功能状态
 const showShareDialog = ref(false);
 const shareForm = ref({
-  expiresInHours: 168, // 默认7天
+  expiresInHours: 168,
   maxAccessCount: undefined as number | undefined,
   requireAccessCode: false,
   permission: "view" as "view" | "edit",
@@ -77,6 +75,24 @@ const currentShare = ref<DashboardShare | null>(null);
 const shareUrl = ref("");
 const isCreatingShare = ref(false);
 const existingShares = ref<DashboardShare[]>([]);
+
+// 清新配色方案
+const freshColors = {
+  primary: "#3B82F6",
+  primaryLight: "#EFF6FF",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+  gray50: "#F9FAFB",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray500: "#6B7280",
+  gray600: "#4B5563",
+  gray700: "#374151",
+  gray800: "#1F2937",
+};
 
 // 组件类型定义
 const widgetTypes = [
@@ -144,7 +160,7 @@ const canUseNumericAggregation = computed(() => {
     (f) => f.id === selectedWidget.value!.fieldId,
   );
   if (!field) return false;
-  const numericTypes = [
+  const numericTypes: string[] = [
     FieldType.NUMBER,
     FieldType.RATING,
     FieldType.PROGRESS,
@@ -166,7 +182,7 @@ const filteredAggregationTypes = computed(() => {
       ["count", "countDistinct"].includes(a.value),
     );
 
-  const numericTypes = [
+  const numericTypes: string[] = [
     FieldType.NUMBER,
     FieldType.RATING,
     FieldType.PROGRESS,
@@ -192,7 +208,6 @@ async function loadDashboards() {
   loadingText.value = "加载基地信息...";
 
   try {
-    // 如果 baseStore 中没有当前 base，先加载
     if (!baseStore.currentBase || baseStore.currentBase.id !== baseId) {
       await baseStore.loadBase(baseId);
     }
@@ -206,7 +221,6 @@ async function loadDashboards() {
     loadingText.value = "加载仪表盘列表...";
     dashboards.value = await dashboardService.getDashboardsByBase(baseId);
 
-    // 如果有路由参数指定了仪表盘ID，选中该仪表盘
     const dashboardIdFromRoute = route.params.dashboardId as string;
     if (dashboardIdFromRoute) {
       const targetDashboard = dashboards.value.find(
@@ -218,7 +232,6 @@ async function loadDashboards() {
       }
     }
 
-    // 如果有仪表盘，默认选中第一个
     if (dashboards.value.length > 0 && !currentDashboard.value) {
       await selectDashboard(dashboards.value[0]);
     }
@@ -235,13 +248,11 @@ async function selectDashboard(dashboard: Dashboard) {
   currentDashboard.value = dashboard;
   widgets.value = (dashboard.widgets || []) as WidgetConfig[];
 
-  // 加载所有相关表的数据
   const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
   for (const tableId of tableIds) {
     await loadTableData(tableId);
   }
 
-  // 渲染所有组件
   nextTick(() => {
     widgets.value.forEach((widget) => renderWidget(widget));
   });
@@ -302,7 +313,6 @@ async function updateDashboard() {
     currentDashboard.value.name = dashboardForm.value.name;
     currentDashboard.value.description = dashboardForm.value.description;
 
-    // 刷新列表
     await loadDashboards();
 
     isEditingDashboard.value = false;
@@ -363,7 +373,6 @@ async function saveWidgets(showMessage = true) {
     return;
   }
 
-  // 清除之前的定时器
   if (saveTimeout.value) {
     clearTimeout(saveTimeout.value);
     saveTimeout.value = null;
@@ -373,7 +382,6 @@ async function saveWidgets(showMessage = true) {
   hasUnsavedChanges.value = true;
 
   try {
-    // 将响应式对象转换为普通对象，避免 DataCloneError
     const plainWidgets = JSON.parse(JSON.stringify(widgets.value));
     await dashboardService.updateDashboardWidgets(
       currentDashboard.value.id,
@@ -393,7 +401,7 @@ async function saveWidgets(showMessage = true) {
   }
 }
 
-// 防抖保存（用于自动保存）
+// 防抖保存
 function debouncedSaveWidgets(delay = 1000) {
   if (saveTimeout.value) {
     clearTimeout(saveTimeout.value);
@@ -406,7 +414,6 @@ function debouncedSaveWidgets(delay = 1000) {
 
 // ==================== 分享功能 ====================
 
-// 打开分享对话框
 async function openShareDialog() {
   if (!currentDashboard.value) {
     ElMessage.warning("请先选择仪表盘");
@@ -417,11 +424,9 @@ async function openShareDialog() {
   currentShare.value = null;
   shareUrl.value = "";
 
-  // 加载已有的分享链接
   await loadExistingShares();
 }
 
-// 加载已有的分享链接
 async function loadExistingShares() {
   if (!currentDashboard.value) return;
   existingShares.value = await dashboardShareService.getSharesByDashboard(
@@ -429,7 +434,6 @@ async function loadExistingShares() {
   );
 }
 
-// 创建分享链接
 async function createShare() {
   if (!currentDashboard.value) return;
 
@@ -446,7 +450,6 @@ async function createShare() {
     currentShare.value = share;
     shareUrl.value = dashboardShareService.generateShareUrl(share.shareToken);
 
-    // 刷新分享列表
     await loadExistingShares();
 
     ElMessage.success("分享链接创建成功");
@@ -458,7 +461,6 @@ async function createShare() {
   }
 }
 
-// 复制分享链接
 async function copyShareUrl() {
   if (!shareUrl.value) return;
 
@@ -470,7 +472,6 @@ async function copyShareUrl() {
   }
 }
 
-// 通过token复制分享链接
 async function copyShareUrlByToken(token: string) {
   const url = dashboardShareService.generateShareUrl(token);
   const success = await dashboardShareService.copyToClipboard(url);
@@ -481,7 +482,6 @@ async function copyShareUrlByToken(token: string) {
   }
 }
 
-// 复制访问密码
 async function copyAccessCode() {
   if (!currentShare.value?.accessCode) return;
 
@@ -495,35 +495,27 @@ async function copyAccessCode() {
   }
 }
 
-// 处理选择数据表
-const handleTableSelect = (tableId: string) => {
+const handleTableSelect = (_tableId: string) => {
   const baseId = route.params.id as string;
   router.push(`/base/${baseId}`);
-  // 可以在这里添加选择数据表的逻辑
 };
 
-// 处理选择仪表盘
 const handleDashboardSelect = (dashboardId: string) => {
   const baseId = route.params.id as string;
   router.push(`/base/${baseId}/dashboard/${dashboardId}`);
 };
 
-// 处理打开创建数据表对话框
 const openCreateTableDialog = () => {
-  // 可以在这里添加打开创建数据表对话框的逻辑
-  // 或者导航到Base页面
   const baseId = route.params.id as string;
   router.push(`/base/${baseId}`);
 };
 
-// 处理打开创建仪表盘对话框
 const openCreateDashboardDialog = () => {
   isEditingDashboard.value = true;
   isCreatingDashboard.value = true;
   dashboardForm.value = { name: "", description: "" };
 };
 
-// 处理重命名数据表
 const handleRenameTable = async (table: { id: string; name: string }) => {
   try {
     const { value } = await ElMessageBox.prompt(
@@ -550,7 +542,6 @@ const handleRenameTable = async (table: { id: string; name: string }) => {
         name: value.trim(),
       });
       ElMessage.success("数据表重命名成功");
-      // 刷新数据表列表
       await loadTables();
     }
   } catch (error: any) {
@@ -561,7 +552,6 @@ const handleRenameTable = async (table: { id: string; name: string }) => {
   }
 };
 
-// 处理删除数据表
 const handleDeleteTable = async (table: { id: string; name: string }) => {
   try {
     await ElMessageBox.confirm(
@@ -576,7 +566,6 @@ const handleDeleteTable = async (table: { id: string; name: string }) => {
 
     await tableService.deleteTable(table.id);
     ElMessage.success("数据表删除成功");
-    // 刷新数据表列表
     await loadTables();
   } catch (error: any) {
     if (error !== "cancel") {
@@ -586,7 +575,6 @@ const handleDeleteTable = async (table: { id: string; name: string }) => {
   }
 };
 
-// 处理切换数据表收藏状态
 const handleToggleStarTable = async (table: {
   id: string;
   isStarred: boolean;
@@ -596,7 +584,6 @@ const handleToggleStarTable = async (table: {
       isStarred: !table.isStarred,
     });
     ElMessage.success(table.isStarred ? "已取消收藏" : "收藏成功");
-    // 刷新数据表列表
     await loadTables();
   } catch (error) {
     ElMessage.error("操作失败");
@@ -604,7 +591,6 @@ const handleToggleStarTable = async (table: {
   }
 };
 
-// 处理重命名仪表盘
 const handleRenameDashboard = async (dashboard: {
   id: string;
   name: string;
@@ -634,13 +620,12 @@ const handleRenameDashboard = async (dashboard: {
         name: value.trim(),
       });
       ElMessage.success("仪表盘重命名成功");
-      // 刷新当前仪表盘
       if (currentDashboard.value?.id === dashboard.id) {
-        currentDashboard.value = await dashboardService.getDashboard(
-          dashboard.id,
-        );
+        const updatedDashboard = await dashboardService.getDashboard(dashboard.id);
+        if (updatedDashboard) {
+          currentDashboard.value = updatedDashboard;
+        }
       }
-      // 刷新仪表盘列表
       await loadDashboards();
     }
   } catch (error: any) {
@@ -651,7 +636,6 @@ const handleRenameDashboard = async (dashboard: {
   }
 };
 
-// 处理删除仪表盘
 const handleDeleteDashboard = async (dashboard: {
   id: string;
   name: string;
@@ -670,7 +654,6 @@ const handleDeleteDashboard = async (dashboard: {
     await dashboardService.deleteDashboard(dashboard.id);
     ElMessage.success("仪表盘删除成功");
 
-    // 如果删除的是当前仪表盘，跳转到第一个仪表盘或清空
     if (currentDashboard.value?.id === dashboard.id) {
       const remainingDashboards = dashboards.value.filter(
         (d) => d.id !== dashboard.id,
@@ -684,7 +667,6 @@ const handleDeleteDashboard = async (dashboard: {
       }
     }
 
-    // 刷新仪表盘列表
     await loadDashboards();
   } catch (error: any) {
     if (error !== "cancel") {
@@ -694,7 +676,6 @@ const handleDeleteDashboard = async (dashboard: {
   }
 };
 
-// 处理切换仪表盘收藏状态
 const handleToggleStarDashboard = async (dashboard: {
   id: string;
   isStarred: boolean;
@@ -704,13 +685,12 @@ const handleToggleStarDashboard = async (dashboard: {
       isStarred: !dashboard.isStarred,
     });
     ElMessage.success(dashboard.isStarred ? "已取消收藏" : "收藏成功");
-    // 刷新仪表盘列表
     await loadDashboards();
-    // 刷新当前仪表盘
     if (currentDashboard.value?.id === dashboard.id) {
-      currentDashboard.value = await dashboardService.getDashboard(
-        dashboard.id,
-      );
+      const updatedDashboard = await dashboardService.getDashboard(dashboard.id);
+      if (updatedDashboard) {
+        currentDashboard.value = updatedDashboard;
+      }
     }
   } catch (error) {
     ElMessage.error("操作失败");
@@ -718,12 +698,10 @@ const handleToggleStarDashboard = async (dashboard: {
   }
 };
 
-// 处理仪表盘排序
 const handleReorderDashboards = async (dashboardIds: string[]) => {
   try {
     const baseId = route.params.id as string;
     await dashboardService.reorderDashboards(baseId, dashboardIds);
-    // 刷新仪表盘列表
     await loadDashboards();
   } catch (error) {
     ElMessage.error("排序失败");
@@ -731,7 +709,7 @@ const handleReorderDashboards = async (dashboardIds: string[]) => {
   }
 };
 
-// 禁用分享链接
+// @ts-expect-error - 保留但未使用的函数
 async function deactivateShare(share: DashboardShare) {
   try {
     await ElMessageBox.confirm(
@@ -754,7 +732,6 @@ async function deactivateShare(share: DashboardShare) {
   }
 }
 
-// 删除分享链接
 async function deleteShare(share: DashboardShare) {
   try {
     await ElMessageBox.confirm(
@@ -777,7 +754,6 @@ async function deleteShare(share: DashboardShare) {
   }
 }
 
-// 格式化过期时间
 function formatExpireTime(timestamp: number): string {
   const now = Date.now();
   const diff = timestamp - now;
@@ -793,27 +769,23 @@ function formatExpireTime(timestamp: number): string {
   return `${hours}小时`;
 }
 
-// 加载表列表
 async function loadTables() {
   if (!baseStore.currentBase) return;
   tables.value = await tableService.getTablesByBase(baseStore.currentBase.id);
 }
 
-// 加载表数据
 async function loadTableData(tableId: string) {
   const [tableFields, tableRecords] = await Promise.all([
     fieldService.getFieldsByTable(tableId),
     recordService.getRecordsByTable(tableId),
   ]);
 
-  // 合并字段（避免重复）
   tableFields.forEach((field) => {
     if (!fields.value.find((f) => f.id === field.id)) {
       fields.value.push(field);
     }
   });
 
-  // 合并记录（避免重复）
   tableRecords.forEach((record) => {
     if (!records.value.find((r) => r.id === record.id)) {
       records.value.push(record);
@@ -844,7 +816,6 @@ function handleTableChange(tableId: string) {
   loadRecords(tableId);
 }
 
-// 添加组件
 function addWidget(type: WidgetConfig["type"]) {
   if (!currentDashboard.value) {
     ElMessage.warning("请先创建仪表盘");
@@ -873,11 +844,9 @@ function addWidget(type: WidgetConfig["type"]) {
     handleTableChange(newWidget.tableId);
   }
 
-  // 防抖自动保存
   debouncedSaveWidgets();
 }
 
-// 移除组件
 function removeWidget(widgetId: string) {
   const chart = chartRefs.value.get(widgetId);
   if (chart) {
@@ -891,19 +860,25 @@ function removeWidget(widgetId: string) {
   debouncedSaveWidgets();
 }
 
-// 渲染组件
 function renderWidget(widget: WidgetConfig) {
   const container = chartContainers.value.get(widget.id);
   if (!container) return;
 
-  // 获取该组件的数据
   const widgetRecords = records.value.filter(
     (r) => r.tableId === widget.tableId,
   );
   const widgetFields = fields.value.filter((f) => f.tableId === widget.tableId);
 
   if (!widget.fieldId || widgetRecords.length === 0) {
-    container.innerHTML = '<div class="widget-empty">请配置数据源</div>';
+    container.innerHTML = `
+      <div class="widget-empty-state">
+        <div class="empty-icon-wrapper">
+          <el-icon :size="32"><DataAnalysis /></el-icon>
+        </div>
+        <span class="empty-text">请配置数据源</span>
+        <span class="empty-hint">选择数据表和字段以开始</span>
+      </div>
+    `;
     return;
   }
 
@@ -915,15 +890,14 @@ function renderWidget(widget: WidgetConfig) {
     widget.aggregation,
   );
 
-  // 数字卡片特殊处理
   if (widget.type === "number") {
     const total = values.reduce((a, b) => a + b, 0);
-    const field = widgetFields.find((f) => f.id === widget.fieldId);
     const formattedValue = formatLargeNumber(total);
+    const color = widget.config?.colors?.[0] || freshColors.primary;
 
     container.innerHTML = `
-      <div class="number-card">
-        <div class="number-value" style="color: ${widget.config?.colors?.[0] || "#3370FF"}">${formattedValue}</div>
+      <div class="number-card" style="--number-color: ${color}">
+        <div class="number-value">${formattedValue}</div>
         <div class="number-label">${widget.title}</div>
         ${values.length > 1 ? `<div class="number-detail">共 ${values.length} 项数据</div>` : ""}
       </div>
@@ -931,7 +905,6 @@ function renderWidget(widget: WidgetConfig) {
     return;
   }
 
-  // 表格特殊处理
   if (widget.type === "table") {
     const colors = getChartColors(labels.length);
     container.innerHTML = `
@@ -964,7 +937,6 @@ function renderWidget(widget: WidgetConfig) {
     return;
   }
 
-  // 图表渲染
   let chart = chartRefs.value.get(widget.id);
   if (!chart) {
     chart = echarts.init(container);
@@ -979,7 +951,6 @@ function renderWidget(widget: WidgetConfig) {
   chart.setOption(option, true);
 }
 
-// 获取图表配置
 function getChartOption(
   widget: WidgetConfig,
   labels: string[],
@@ -990,12 +961,21 @@ function getChartOption(
     color: colors,
     tooltip: {
       trigger: widget.type === "pie" ? "item" : "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderColor: freshColors.gray200,
+      borderWidth: 1,
+      padding: [12, 16],
+      textStyle: {
+        color: freshColors.gray700,
+        fontSize: 13,
+      },
+      extraCssText: "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 8px;",
       formatter: (params: any) => {
         if (Array.isArray(params)) {
           const p = params[0];
-          return `${p.name}: <b>${formatLargeNumber(p.value)}</b>`;
+          return `<div style="font-weight: 600; margin-bottom: 4px;">${p.name}</div><div style="color: ${freshColors.primary}; font-weight: 500;">${formatLargeNumber(p.value)}</div>`;
         }
-        return `${params.name}: <b>${formatLargeNumber(params.value)}</b> (${params.percent}%)`;
+        return `<div style="font-weight: 600; margin-bottom: 4px;">${params.name}</div><div style="color: ${freshColors.primary}; font-weight: 500;">${formatLargeNumber(params.value)} (${params.percent}%)</div>`;
       },
     },
     grid: {
@@ -1015,6 +995,7 @@ function getChartOption(
           ? {
               data: [widget.title],
               top: 0,
+              textStyle: { color: freshColors.gray600, fontSize: 12 },
             }
           : undefined,
         xAxis: {
@@ -1023,28 +1004,40 @@ function getChartOption(
           axisLabel: {
             rotate: labels.length > 6 ? 45 : 0,
             interval: 0,
+            color: freshColors.gray500,
+            fontSize: 11,
           },
+          axisLine: { lineStyle: { color: freshColors.gray200 } },
+          axisTick: { show: false },
         },
         yAxis: {
           type: "value",
           axisLabel: {
             formatter: (value: number) => formatLargeNumber(value),
+            color: freshColors.gray500,
+            fontSize: 11,
           },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
         },
         series: [
           {
             name: widget.title,
             type: "bar",
             data: values,
-            barWidth: "60%",
+            barWidth: "50%",
             itemStyle: {
-              borderRadius: [4, 4, 0, 0],
+              borderRadius: [6, 6, 0, 0],
             },
             label: widget.config?.showLabel
               ? {
                   show: true,
                   position: "top",
                   formatter: (p: any) => formatLargeNumber(p.value),
+                  color: freshColors.gray600,
+                  fontSize: 11,
+                  fontWeight: 500,
                 }
               : undefined,
           },
@@ -1059,18 +1052,30 @@ function getChartOption(
           ? {
               data: [widget.title],
               top: 0,
+              textStyle: { color: freshColors.gray600, fontSize: 12 },
             }
           : undefined,
         xAxis: {
           type: "category",
           data: labels,
           boundaryGap: widget.type === "area",
+          axisLabel: {
+            color: freshColors.gray500,
+            fontSize: 11,
+          },
+          axisLine: { lineStyle: { color: freshColors.gray200 } },
+          axisTick: { show: false },
         },
         yAxis: {
           type: "value",
           axisLabel: {
             formatter: (value: number) => formatLargeNumber(value),
+            color: freshColors.gray500,
+            fontSize: 11,
           },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
         },
         series: [
           {
@@ -1081,13 +1086,24 @@ function getChartOption(
             areaStyle:
               widget.type === "area"
                 ? {
-                    opacity: 0.3,
+                    opacity: 0.15,
+                    color: new (echarts as any).graphic.LinearGradient(0, 0, 0, 1, [
+                      { offset: 0, color: colors[0] },
+                      { offset: 1, color: "rgba(255,255,255,0)" },
+                    ]),
                   }
                 : undefined,
             symbol: "circle",
             symbolSize: 8,
             lineStyle: {
               width: 3,
+              shadowColor: "rgba(0,0,0,0.1)",
+              shadowBlur: 8,
+              shadowOffsetY: 4,
+            },
+            itemStyle: {
+              borderWidth: 2,
+              borderColor: "#fff",
             },
           },
         ],
@@ -1102,28 +1118,41 @@ function getChartOption(
               right: 10,
               top: "center",
               data: labels,
+              textStyle: { color: freshColors.gray600, fontSize: 11 },
+              itemWidth: 10,
+              itemHeight: 10,
+              itemGap: 12,
             }
           : undefined,
         series: [
           {
             type: "pie",
-            radius: ["40%", "70%"],
-            center: widget.config?.showLegend ? ["40%", "50%"] : ["50%", "50%"],
+            radius: ["45%", "75%"],
+            center: widget.config?.showLegend ? ["38%", "50%"] : ["50%", "50%"],
             data: labels.map((label, i) => ({
               name: label,
               value: values[i],
             })),
             emphasis: {
               itemStyle: {
-                shadowBlur: 10,
+                shadowBlur: 20,
                 shadowOffsetX: 0,
-                shadowColor: "rgba(0, 0, 0, 0.5)",
+                shadowColor: "rgba(0, 0, 0, 0.2)",
               },
+              scale: true,
+              scaleSize: 8,
+            },
+            itemStyle: {
+              borderRadius: 6,
+              borderColor: "#fff",
+              borderWidth: 2,
             },
             label: widget.config?.showLabel
               ? {
                   show: true,
-                  formatter: "{b}: {c} ({d}%)",
+                  formatter: "{b}\n{c}",
+                  color: freshColors.gray600,
+                  fontSize: 11,
                 }
               : {
                   show: false,
@@ -1135,16 +1164,30 @@ function getChartOption(
     case "scatter":
       return {
         ...baseOption,
-        xAxis: { type: "category", data: labels },
+        xAxis: {
+          type: "category",
+          data: labels,
+          axisLabel: { color: freshColors.gray500, fontSize: 11 },
+          axisLine: { lineStyle: { color: freshColors.gray200 } },
+          axisTick: { show: false },
+        },
         yAxis: {
           type: "value",
-          axisLabel: { formatter: (value: number) => formatLargeNumber(value) },
+          axisLabel: { formatter: (value: number) => formatLargeNumber(value), color: freshColors.gray500, fontSize: 11 },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
         },
         series: [
           {
             type: "scatter",
             data: values,
             symbolSize: (val: number) => Math.min(Math.max(val / 10, 10), 50),
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: "rgba(0,0,0,0.1)",
+              shadowOffsetY: 4,
+            },
           },
         ],
       };
@@ -1154,24 +1197,20 @@ function getChartOption(
   }
 }
 
-// 获取聚合类型标签
 function getAggregationLabel(aggregation: string): string {
   return (
     aggregationTypes.find((a) => a.value === aggregation)?.label || aggregation
   );
 }
 
-// 获取字段信息
 function getFieldById(fieldId: string): FieldEntity | undefined {
   return fields.value.find((f) => f.id === fieldId);
 }
 
-// 获取表信息
 function getTableById(tableId: string): TableEntity | undefined {
   return tables.value.find((t) => t.id === tableId);
 }
 
-// 处理大小调整
 function startResize(event: MouseEvent, widget: WidgetConfig) {
   event.stopPropagation();
   resizingWidget.value = widget.id;
@@ -1195,20 +1234,17 @@ function onResize(event: MouseEvent) {
   const dx = event.clientX - resizeStart.value.x;
   const dy = event.clientY - resizeStart.value.y;
 
-  // 每50px为一个单位
   const dw = Math.round(dx / 50);
   const dh = Math.round(dy / 30);
 
   widget.position.w = Math.max(2, Math.min(12, resizeStart.value.w + dw));
   widget.position.h = Math.max(2, Math.min(8, resizeStart.value.h + dh));
 
-  // 重新渲染
   nextTick(() => {
     renderWidget(widget);
   });
 }
 
-// 停止调整
 function stopResize() {
   if (resizingWidget.value) {
     debouncedSaveWidgets();
@@ -1218,7 +1254,6 @@ function stopResize() {
   document.removeEventListener("mouseup", stopResize);
 }
 
-// 监听组件变化
 watch(
   widgets,
   () => {
@@ -1229,14 +1264,12 @@ watch(
   { deep: true },
 );
 
-// 监听选中组件变化
 watch(selectedWidget, (widget) => {
   if (widget) {
     handleTableChange(widget.tableId);
   }
 });
 
-// 窗口大小变化
 function handleResize() {
   chartRefs.value.forEach((chart) => chart.resize());
 }
@@ -1247,17 +1280,13 @@ onMounted(() => {
   window.addEventListener("resize", handleResize);
 });
 
-// 监听路由参数变化，刷新数据
 watch(
   () => [route.params.id, route.params.dashboardId],
   ([newBaseId, newDashboardId], [oldBaseId, oldDashboardId]) => {
-    // baseId 变化时重新加载
     if (newBaseId !== oldBaseId && newBaseId) {
       loadTables();
       loadDashboards();
-    }
-    // dashboardId 变化时切换到对应仪表盘
-    else if (newDashboardId !== oldDashboardId && newDashboardId) {
+    } else if (newDashboardId !== oldDashboardId && newDashboardId) {
       const targetDashboard = dashboards.value.find(
         (d) => d.id === newDashboardId,
       );
@@ -1273,12 +1302,10 @@ onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
   chartRefs.value.forEach((chart) => chart.dispose());
 
-  // 清除保存定时器
   if (saveTimeout.value) {
     clearTimeout(saveTimeout.value);
   }
 
-  // 如果有未保存的更改，立即保存
   if (hasUnsavedChanges.value && currentDashboard.value) {
     const plainWidgets = JSON.parse(JSON.stringify(widgets.value));
     dashboardService.updateDashboardWidgets(
@@ -1291,10 +1318,28 @@ onUnmounted(() => {
 
 <template>
   <div class="dashboard-view">
-    <!-- 加载遮罩 -->
-    <div v-if="isLoading" class="loading-overlay">
-      <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
-      <span class="loading-text">{{ loadingText }}</span>
+    <!-- 骨架屏加载状态 -->
+    <div v-if="isLoading" class="skeleton-overlay">
+      <div class="skeleton-container">
+        <div class="skeleton-header">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-actions">
+            <div class="skeleton-btn"></div>
+            <div class="skeleton-btn"></div>
+          </div>
+        </div>
+        <div class="skeleton-grid">
+          <div v-for="i in skeletonCount" :key="i" class="skeleton-card">
+            <div class="skeleton-card-header">
+              <div class="skeleton-text"></div>
+              <div class="skeleton-text short"></div>
+            </div>
+            <div class="skeleton-card-body">
+              <div class="skeleton-chart"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 侧边栏 -->
@@ -1321,7 +1366,9 @@ onUnmounted(() => {
         <div class="toolbar-left">
           <el-dropdown @command="showDashboardManager = true">
             <el-button text class="dashboard-selector">
-              <el-icon><DataAnalysis /></el-icon>
+              <div class="selector-icon">
+                <el-icon><DataAnalysis /></el-icon>
+              </div>
               <span class="dashboard-name">{{
                 currentDashboard?.name || "选择仪表盘"
               }}</span>
@@ -1329,12 +1376,12 @@ onUnmounted(() => {
             </el-button>
           </el-dropdown>
 
-          <el-divider direction="vertical" />
+          <el-divider direction="vertical" class="toolbar-divider" />
 
           <el-dropdown @command="addWidget">
-            <el-button type="primary">
+            <el-button type="primary" class="add-widget-btn">
               <el-icon><Plus /></el-icon>
-              添加组件
+              <span>添加组件</span>
               <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
@@ -1344,7 +1391,9 @@ onUnmounted(() => {
                   :key="type.value"
                   :command="type.value">
                   <div class="widget-type-item">
-                    <el-icon :size="20"><component :is="type.icon" /></el-icon>
+                    <div class="widget-type-icon" :style="{ backgroundColor: freshColors.primaryLight }">
+                      <el-icon :size="18"><component :is="type.icon" /></el-icon>
+                    </div>
                     <div class="widget-type-info">
                       <div class="widget-type-name">{{ type.label }}</div>
                       <div class="widget-type-desc">{{ type.description }}</div>
@@ -1359,14 +1408,15 @@ onUnmounted(() => {
         <div class="toolbar-right">
           <el-button
             v-if="currentDashboard"
-            type="success"
+            class="share-btn"
             @click="openShareDialog">
             <el-icon><Share /></el-icon>
-            分享
+            <span>分享</span>
           </el-button>
           <el-button
             v-if="currentDashboard"
             text
+            class="toolbar-btn"
             @click="
               isEditingDashboard = true;
               isCreatingDashboard = false;
@@ -1376,18 +1426,19 @@ onUnmounted(() => {
               };
             ">
             <el-icon><Edit /></el-icon>
-            编辑
+            <span>编辑</span>
           </el-button>
           <el-button
             v-if="currentDashboard"
             text
+            class="toolbar-btn"
             @click="duplicateDashboard(currentDashboard)">
             <el-icon><CopyDocument /></el-icon>
-            复制
+            <span>复制</span>
           </el-button>
-          <el-button text @click="showDashboardManager = true">
+          <el-button text class="toolbar-btn" @click="showDashboardManager = true">
             <el-icon><Management /></el-icon>
-            管理
+            <span>管理</span>
           </el-button>
         </div>
       </div>
@@ -1414,7 +1465,7 @@ onUnmounted(() => {
                 <span class="widget-title">{{ widget.title }}</span>
                 <span class="widget-subtitle">
                   {{ getTableById(widget.tableId)?.name }}
-                  ·
+                  <span class="subtitle-dot">·</span>
                   {{ getAggregationLabel(widget.aggregation) }}
                 </span>
               </div>
@@ -1422,6 +1473,7 @@ onUnmounted(() => {
                 <el-button
                   link
                   size="small"
+                  class="delete-btn"
                   @click.stop="removeWidget(widget.id)">
                   <el-icon><Delete /></el-icon>
                 </el-button>
@@ -1435,6 +1487,7 @@ onUnmounted(() => {
             <!-- 调整大小手柄 -->
             <div
               class="resize-handle"
+              :class="{ active: resizingWidget === widget.id }"
               @mousedown.stop="startResize($event, widget)">
               <el-icon><FullScreen /></el-icon>
             </div>
@@ -1442,39 +1495,59 @@ onUnmounted(() => {
 
           <!-- 空状态 -->
           <div v-if="widgets.length === 0" class="empty-dashboard">
-            <el-empty description="暂无组件">
-              <template #image>
-                <el-icon class="empty-icon"><DataAnalysis /></el-icon>
-              </template>
-              <template #description>
-                <p>点击上方"添加组件"创建图表</p>
-                <p v-if="!currentDashboard" class="empty-hint">
-                  请先创建仪表盘
-                </p>
-              </template>
-              <el-button
-                v-if="!currentDashboard"
-                type="primary"
-                @click="isEditingDashboard = true">
-                创建仪表盘
-              </el-button>
-            </el-empty>
+            <div class="empty-illustration">
+              <svg viewBox="0 0 200 160" fill="none">
+                <rect x="30" y="40" width="140" height="100" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" stroke-dasharray="8 4"/>
+                <rect x="50" y="60" width="60" height="8" rx="4" fill="#3B82F6" opacity="0.3"/>
+                <rect x="50" y="80" width="100" height="6" rx="3" fill="#9CA3AF" opacity="0.3"/>
+                <rect x="50" y="95" width="80" height="6" rx="3" fill="#9CA3AF" opacity="0.3"/>
+                <rect x="50" y="110" width="90" height="6" rx="3" fill="#9CA3AF" opacity="0.3"/>
+                <circle cx="150" cy="50" r="15" fill="#10B981" opacity="0.2"/>
+                <path d="M144 50L148 54L156 46" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h3 class="empty-title">开始创建您的仪表盘</h3>
+            <p class="empty-desc">添加图表组件，让数据可视化呈现</p>
+            <p v-if="!currentDashboard" class="empty-hint">
+              请先创建一个仪表盘
+            </p>
+            <el-button
+              v-if="!currentDashboard"
+              type="primary"
+              class="create-dashboard-btn"
+              @click="isEditingDashboard = true">
+              <el-icon><Plus /></el-icon>
+              创建仪表盘
+            </el-button>
+            <el-button
+              v-else
+              type="primary"
+              class="create-dashboard-btn"
+              @click="addWidget('bar')">
+              <el-icon><Plus /></el-icon>
+              添加第一个组件
+            </el-button>
           </div>
         </div>
 
         <!-- 配置面板 -->
         <div v-if="selectedWidget" class="config-panel">
           <div class="panel-header">
-            <h3>组件配置</h3>
+            <div class="panel-title-wrapper">
+              <div class="panel-icon">
+                <el-icon><Setting /></el-icon>
+              </div>
+              <h3>组件配置</h3>
+            </div>
             <div class="panel-actions">
-              <el-tag v-if="hasUnsavedChanges" size="small" type="warning"
+              <el-tag v-if="hasUnsavedChanges" size="small" type="warning" effect="light"
                 >未保存</el-tag
               >
-              <el-tag v-else-if="isSaving" size="small" type="info"
+              <el-tag v-else-if="isSaving" size="small" type="info" effect="light"
                 >保存中...</el-tag
               >
-              <el-tag v-else size="small" type="success">已保存</el-tag>
-              <el-button link @click="selectedWidget = null">
+              <el-tag v-else size="small" type="success" effect="light">已保存</el-tag>
+              <el-button link class="close-btn" @click="selectedWidget = null">
                 <el-icon><Close /></el-icon>
               </el-button>
             </div>
@@ -1484,7 +1557,10 @@ onUnmounted(() => {
             <el-form label-position="top" size="small">
               <!-- 基础配置 -->
               <div class="config-section">
-                <div class="section-title">基础配置</div>
+                <div class="section-title">
+                  <span class="section-icon">📋</span>
+                  基础配置
+                </div>
 
                 <el-form-item label="标题">
                   <el-input
@@ -1513,7 +1589,10 @@ onUnmounted(() => {
 
               <!-- 数据配置 -->
               <div class="config-section">
-                <div class="section-title">数据配置</div>
+                <div class="section-title">
+                  <span class="section-icon">📊</span>
+                  数据配置
+                </div>
 
                 <el-form-item label="分组字段 (可选)">
                   <el-select
@@ -1523,7 +1602,7 @@ onUnmounted(() => {
                     @change="debouncedSaveWidgets()">
                     <el-option
                       v-for="field in fields.filter(
-                        (f) => f.tableId === selectedWidget.tableId,
+                        (f) => f.tableId === selectedWidget!.tableId,
                       )"
                       :key="field.id"
                       :label="field.name"
@@ -1545,12 +1624,12 @@ onUnmounted(() => {
 
                 <el-form-item label="数值字段">
                   <el-select
-                    v-model="selectedWidget.fieldId"
+                    v-model="selectedWidget!.fieldId"
                     placeholder="选择字段"
                     @change="debouncedSaveWidgets()">
                     <el-option
                       v-for="field in fields.filter(
-                        (f) => f.tableId === selectedWidget.tableId,
+                        (f) => f.tableId === selectedWidget!.tableId,
                       )"
                       :key="field.id"
                       :label="field.name"
@@ -1602,45 +1681,51 @@ onUnmounted(() => {
 
               <!-- 样式配置 -->
               <div class="config-section">
-                <div class="section-title">样式配置</div>
+                <div class="section-title">
+                  <span class="section-icon">🎨</span>
+                  样式配置
+                </div>
 
                 <el-form-item
                   label="显示图例"
                   v-if="
-                    selectedWidget.type !== 'number' &&
-                    selectedWidget.type !== 'table'
+                    selectedWidget!.type !== 'number' &&
+                    selectedWidget!.type !== 'table'
                   ">
                   <el-switch
-                    v-model="selectedWidget.config.showLegend"
+                    v-model="(selectedWidget!.config as any).showLegend"
                     @change="debouncedSaveWidgets()" />
                 </el-form-item>
 
                 <el-form-item
                   label="显示数值标签"
                   v-if="
-                    selectedWidget.type === 'bar' ||
-                    selectedWidget.type === 'pie'
+                    selectedWidget!.type === 'bar' ||
+                    selectedWidget!.type === 'pie'
                   ">
                   <el-switch
-                    v-model="selectedWidget.config.showLabel"
+                    v-model="(selectedWidget!.config as any).showLabel"
                     @change="debouncedSaveWidgets()" />
                 </el-form-item>
 
                 <el-form-item
                   label="平滑曲线"
                   v-if="
-                    selectedWidget.type === 'line' ||
-                    selectedWidget.type === 'area'
+                    selectedWidget!.type === 'line' ||
+                    selectedWidget!.type === 'area'
                   ">
                   <el-switch
-                    v-model="selectedWidget.config.smooth"
+                    v-model="(selectedWidget!.config as any).smooth"
                     @change="debouncedSaveWidgets()" />
                 </el-form-item>
               </div>
 
               <!-- 组件大小 -->
               <div class="config-section">
-                <div class="section-title">组件大小</div>
+                <div class="section-title">
+                  <span class="section-icon">📐</span>
+                  组件大小
+                </div>
 
                 <el-form-item label="宽度 (列数)">
                   <el-slider
@@ -1670,15 +1755,15 @@ onUnmounted(() => {
                   :loading="isSaving"
                   :disabled="!hasUnsavedChanges"
                   @click="saveWidgets()"
-                  style="width: 100%">
+                  class="save-btn">
                   <el-icon><Check /></el-icon>
-                  {{
+                  <span>{{
                     isSaving
                       ? "保存中..."
                       : hasUnsavedChanges
                         ? "立即保存"
                         : "已保存"
-                  }}
+                  }}</span>
                 </el-button>
               </div>
             </el-form>
@@ -1690,12 +1775,14 @@ onUnmounted(() => {
       <el-dialog
         v-model="showDashboardManager"
         title="仪表盘管理"
-        width="600px"
-        destroy-on-close>
+        width="680px"
+        destroy-on-close
+        class="dashboard-manager-dialog">
         <div class="dashboard-manager">
           <div class="manager-header">
             <el-button
               type="primary"
+              class="create-btn"
               @click="
                 isEditingDashboard = true;
                 isCreatingDashboard = true;
@@ -1706,16 +1793,19 @@ onUnmounted(() => {
             </el-button>
           </div>
 
-          <el-table :data="dashboards" style="width: 100%">
-            <el-table-column prop="name" label="名称" min-width="150">
+          <el-table :data="dashboards" style="width: 100%" class="manager-table">
+            <el-table-column prop="name" label="名称" min-width="160">
               <template #default="{ row }">
                 <div class="dashboard-name-cell">
-                  <el-icon><DataAnalysis /></el-icon>
+                  <div class="dashboard-icon">
+                    <el-icon><DataAnalysis /></el-icon>
+                  </div>
                   <span>{{ row.name }}</span>
                   <el-tag
                     v-if="row.id === currentDashboard?.id"
                     size="small"
                     type="primary"
+                    effect="light"
                     >当前</el-tag
                   >
                 </div>
@@ -1724,14 +1814,14 @@ onUnmounted(() => {
             <el-table-column
               prop="description"
               label="描述"
-              min-width="200"
+              min-width="180"
               show-overflow-tooltip />
-            <el-table-column prop="updatedAt" label="更新时间" width="150">
+            <el-table-column prop="updatedAt" label="更新时间" width="140">
               <template #default="{ row }">
                 {{ new Date(row.updatedAt).toLocaleString() }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column label="操作" width="180" fixed="right">
               <template #default="{ row }">
                 <el-button
                   link
@@ -1758,10 +1848,11 @@ onUnmounted(() => {
       <el-dialog
         v-model="isEditingDashboard"
         :title="isCreatingDashboard ? '新建仪表盘' : '编辑仪表盘'"
-        width="500px"
+        width="480px"
         destroy-on-close
+        class="dashboard-form-dialog"
         @closed="isCreatingDashboard = false">
-        <el-form label-position="top">
+        <el-form label-position="top" class="compact-form">
           <el-form-item label="仪表盘名称" required>
             <el-input
               v-model="dashboardForm.name"
@@ -1786,6 +1877,7 @@ onUnmounted(() => {
           <el-button @click="isEditingDashboard = false">取消</el-button>
           <el-button
             type="primary"
+            class="confirm-btn"
             @click="isCreatingDashboard ? createDashboard() : updateDashboard()"
             :disabled="!dashboardForm.name.trim()">
             {{ isCreatingDashboard ? "创建" : "保存" }}
@@ -1798,7 +1890,8 @@ onUnmounted(() => {
         v-model="showShareDialog"
         title="分享仪表盘"
         width="600px"
-        destroy-on-close>
+        destroy-on-close
+        class="share-dialog">
         <div class="share-dialog-content">
           <!-- 创建新分享 -->
           <div class="share-create-section">
@@ -1842,9 +1935,9 @@ onUnmounted(() => {
 
               <el-button
                 type="primary"
+                class="generate-btn"
                 :loading="isCreatingShare"
-                @click="createShare"
-                style="width: 100%">
+                @click="createShare">
                 <el-icon><Link /></el-icon>
                 生成分享链接
               </el-button>
@@ -1858,7 +1951,7 @@ onUnmounted(() => {
             <div class="share-link-box">
               <el-input v-model="shareUrl" readonly class="share-link-input">
                 <template #append>
-                  <el-button @click="copyShareUrl">
+                  <el-button @click="copyShareUrl" class="copy-btn">
                     <el-icon><CopyDocument /></el-icon>
                     复制
                   </el-button>
@@ -1880,16 +1973,17 @@ onUnmounted(() => {
             </div>
 
             <div class="share-info">
-              <el-tag v-if="currentShare.expiresAt" size="small" type="info">
+              <el-tag v-if="currentShare.expiresAt" size="small" type="info" effect="light">
                 有效期至：{{
                   new Date(currentShare.expiresAt).toLocaleString()
                 }}
               </el-tag>
-              <el-tag v-else size="small" type="info">永久有效</el-tag>
+              <el-tag v-else size="small" type="info" effect="light">永久有效</el-tag>
               <el-tag
                 v-if="currentShare.maxAccessCount"
                 size="small"
-                type="warning">
+                type="warning"
+                effect="light">
                 限 {{ currentShare.maxAccessCount }} 次访问
               </el-tag>
             </div>
@@ -1900,12 +1994,12 @@ onUnmounted(() => {
             <el-divider />
             <h4>已有的分享链接</h4>
             <el-table :data="existingShares" size="small" style="width: 100%">
-              <el-table-column label="创建时间" width="150">
+              <el-table-column label="创建时间" width="130">
                 <template #default="{ row }">
                   {{ new Date(row.createdAt).toLocaleDateString() }}
                 </template>
               </el-table-column>
-              <el-table-column label="有效期" width="120">
+              <el-table-column label="有效期" width="110">
                 <template #default="{ row }">
                   <span v-if="row.expiresAt">{{
                     formatExpireTime(row.expiresAt)
@@ -1913,7 +2007,7 @@ onUnmounted(() => {
                   <span v-else>永久</span>
                 </template>
               </el-table-column>
-              <el-table-column label="访问次数" width="100">
+              <el-table-column label="访问次数" width="90">
                 <template #default="{ row }">
                   {{ row.currentAccessCount }}
                   <span v-if="row.maxAccessCount"
@@ -1921,15 +2015,15 @@ onUnmounted(() => {
                   >
                 </template>
               </el-table-column>
-              <el-table-column label="密码" width="80">
+              <el-table-column label="密码" width="70">
                 <template #default="{ row }">
-                  <el-tag v-if="row.accessCode" size="small" type="warning"
+                  <el-tag v-if="row.accessCode" size="small" type="warning" effect="light"
                     >有</el-tag
                   >
-                  <el-tag v-else size="small" type="info">无</el-tag>
+                  <el-tag v-else size="small" type="info" effect="light">无</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="150">
+              <el-table-column label="操作" width="130">
                 <template #default="{ row }">
                   <el-button
                     link
@@ -1960,10 +2054,6 @@ import {
   Plus,
   Delete,
   DataAnalysis,
-  BarChart,
-  TrendCharts,
-  PieChart,
-  Grid,
   ArrowDown,
   Edit,
   CopyDocument,
@@ -1975,12 +2065,10 @@ import {
   Sort,
   Document,
   Warning,
-  Histogram,
-  CircleCheck,
   Check,
   Share,
   Link,
-  Loading,
+  Setting,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -1989,48 +2077,132 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@use "@/assets/styles/variables" as *;
+// 清新配色变量
+$primary: #3B82F6;
+$primary-light: #EFF6FF;
+$primary-dark: #2563EB;
+$success: #10B981;
+$warning: #F59E0B;
+$danger: #EF4444;
+$gray-50: #F9FAFB;
+$gray-100: #F3F4F6;
+$gray-200: #E5E7EB;
+$gray-300: #D1D5DB;
+$gray-400: #9CA3AF;
+$gray-500: #6B7280;
+$gray-600: #4B5563;
+$gray-700: #374151;
+$gray-800: #1F2937;
 
 .dashboard-view {
   display: flex;
   height: 100%;
-  background-color: $bg-color;
-  position: relative; // 为加载遮罩提供定位上下文
+  background: linear-gradient(180deg, $gray-50 0%, #FFFFFF 100%);
+  position: relative;
 }
 
-// 加载遮罩
-.loading-overlay {
+// 骨架屏样式
+.skeleton-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba($surface-color, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  background: linear-gradient(180deg, $gray-50 0%, #FFFFFF 100%);
   z-index: 1000;
-  gap: $spacing-md;
+  overflow: hidden;
+}
 
-  .loading-icon {
-    color: $primary-color;
-    animation: rotate 1s linear infinite;
-  }
+.skeleton-container {
+  padding: 24px;
+  height: 100%;
+}
 
-  .loading-text {
-    font-size: $font-size-base;
-    color: $text-secondary;
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.skeleton-title {
+  width: 160px;
+  height: 24px;
+  background: linear-gradient(90deg, $gray-200 25%, $gray-100 50%, $gray-200 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.skeleton-btn {
+  width: 80px;
+  height: 36px;
+  background: linear-gradient(90deg, $gray-200 25%, $gray-100 50%, $gray-200 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: 80px;
+  gap: 16px;
+}
+
+.skeleton-card {
+  grid-column: span 6;
+  grid-row: span 4;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.skeleton-card-header {
+  margin-bottom: 16px;
+}
+
+.skeleton-text {
+  width: 120px;
+  height: 16px;
+  background: linear-gradient(90deg, $gray-200 25%, $gray-100 50%, $gray-200 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: shimmer 1.5s infinite;
+  margin-bottom: 8px;
+
+  &.short {
+    width: 80px;
+    height: 12px;
   }
 }
 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.skeleton-card-body {
+  height: calc(100% - 60px);
+}
+
+.skeleton-chart {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, $gray-100 25%, $gray-50 50%, $gray-100 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .dashboard-main {
@@ -2040,67 +2212,166 @@ export default {
   overflow: hidden;
 }
 
-// 工具栏 - 固定位置，不随滚动
+// 工具栏
 .dashboard-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-md $spacing-lg;
-  background-color: $surface-color;
-  border-bottom: 1px solid $border-color;
-  flex-shrink: 0; // 防止工具栏被压缩
+  padding: 16px 24px;
+  background: white;
+  border-bottom: 1px solid $gray-200;
+  flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
   .toolbar-left {
     display: flex;
     align-items: center;
-    gap: $spacing-md;
+    gap: 16px;
   }
 
   .toolbar-right {
     display: flex;
     align-items: center;
-    gap: $spacing-xs;
+    gap: 8px;
   }
 }
 
 .dashboard-selector {
-  font-size: $font-size-lg;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
+  color: $gray-800;
+  padding: 8px 12px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: $gray-100;
+  }
+
+  .selector-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+    border-radius: 8px;
+    color: white;
+    margin-right: 10px;
+  }
 
   .dashboard-name {
-    margin: 0 $spacing-xs;
+    margin: 0 8px;
   }
 
   .dropdown-icon {
     font-size: 12px;
-    color: $text-secondary;
+    color: $gray-400;
   }
 }
 
-.dropdown-icon {
-  margin-left: 4px;
+.toolbar-divider {
+  height: 24px;
+  background: $gray-200;
+}
+
+.add-widget-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 500;
+  background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+  border: none;
+  box-shadow: 0 4px 14px rgba($primary, 0.35);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba($primary, 0.45);
+  }
+
+  .el-icon {
+    margin-right: 6px;
+  }
+
+  .dropdown-icon {
+    margin-left: 6px;
+    margin-right: 0;
+  }
+}
+
+.share-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 500;
+  background: linear-gradient(135deg, $success 0%, #34D399 100%);
+  border: none;
+  color: white;
+  box-shadow: 0 4px 14px rgba($success, 0.35);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba($success, 0.45);
+    color: white;
+  }
+
+  .el-icon {
+    margin-right: 6px;
+  }
+}
+
+.toolbar-btn {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: $gray-600;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: $gray-100;
+    color: $gray-800;
+  }
+
+  .el-icon {
+    margin-right: 4px;
+  }
 }
 
 // 组件类型菜单
 .widget-type-menu {
+  padding: 8px;
+
   .widget-type-item {
     display: flex;
     align-items: center;
-    gap: $spacing-sm;
-    padding: $spacing-xs 0;
+    gap: 12px;
+    padding: 8px 4px;
+
+    .widget-type-icon {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      color: $primary;
+    }
 
     .widget-type-info {
       .widget-type-name {
-        font-weight: 500;
-        color: $text-primary;
+        font-weight: 600;
+        color: $gray-800;
+        font-size: 14px;
       }
 
       .widget-type-desc {
-        font-size: $font-size-xs;
-        color: $text-secondary;
+        font-size: 12px;
+        color: $gray-500;
         margin-top: 2px;
       }
     }
@@ -2111,49 +2382,63 @@ export default {
 .dashboard-content {
   flex: 1;
   display: flex;
-  flex-direction: row; // 横向排列：组件网格 + 配置面板
+  flex-direction: row;
   overflow: hidden;
-  min-height: 0; // 确保flex子元素可以正确收缩
+  min-height: 0;
 }
 
-// 组件网格 - 可滚动区域
+// 组件网格
 .widgets-grid {
   flex: 1;
-  padding: $spacing-lg;
+  padding: 24px;
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   grid-auto-rows: 80px;
-  gap: $spacing-md;
+  gap: 16px;
   overflow-y: auto;
   overflow-x: hidden;
   align-content: start;
-  min-height: 0; // 确保可以正确滚动
+  min-height: 0;
 }
 
-// 组件卡片
+// 组件卡片 - 清新风格
 .widget-card {
-  background-color: $surface-color;
-  border-radius: $border-radius-lg;
-  border: 1px solid $border-color;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid $gray-200;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   min-height: 160px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.1);
+    border-color: $gray-300;
+
+    .widget-actions {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .resize-handle {
+      opacity: 1;
+    }
   }
 
   &.selected {
-    border-color: $primary-color;
-    box-shadow: 0 0 0 2px rgba($primary-color, 0.2);
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba($primary, 0.15), 0 12px 24px -8px rgba(0, 0, 0, 0.1);
   }
 
   &.resizing {
-    opacity: 0.8;
-    border-color: $primary-color;
+    opacity: 0.85;
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba($primary, 0.25);
+    cursor: se-resize;
   }
 }
 
@@ -2161,49 +2446,64 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-sm $spacing-md;
-  border-bottom: 1px solid $border-color;
-  background-color: #fafafa;
+  padding: 14px 16px;
+  border-bottom: 1px solid $gray-100;
+  background: linear-gradient(180deg, $gray-50 0%, white 100%);
 
   .widget-title-section {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
 
     .widget-title {
-      font-weight: 500;
-      color: $text-primary;
-      font-size: $font-size-base;
+      font-weight: 600;
+      color: $gray-800;
+      font-size: 15px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .widget-subtitle {
-      font-size: $font-size-xs;
-      color: $text-secondary;
+      font-size: 12px;
+      color: $gray-500;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .subtitle-dot {
+        color: $gray-400;
+      }
     }
   }
 
   .widget-actions {
     display: flex;
-    gap: $spacing-xs;
+    gap: 4px;
     opacity: 0;
-    transition: opacity 0.2s;
-  }
-}
+    transform: translateY(4px);
+    transition: all 0.2s ease;
 
-.widget-card:hover .widget-actions {
-  opacity: 1;
+    .delete-btn {
+      padding: 6px;
+      color: $gray-400;
+      transition: all 0.2s;
+
+      &:hover {
+        color: $danger;
+        background: rgba($danger, 0.1);
+      }
+    }
+  }
 }
 
 .widget-body {
   flex: 1;
-  padding: $spacing-md;
+  padding: 16px;
   min-height: 0;
   position: relative;
 }
@@ -2211,111 +2511,251 @@ export default {
 // 调整大小手柄
 .resize-handle {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 20px;
-  height: 20px;
+  right: 6px;
+  bottom: 6px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: se-resize;
-  color: $text-disabled;
+  color: $gray-400;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: all 0.2s ease;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 
-  &:hover {
-    color: $primary-color;
+  &:hover,
+  &.active {
+    color: $primary;
+    background: $primary-light;
   }
 }
 
-.widget-card:hover .resize-handle {
-  opacity: 1;
-}
-
-// 空状态
+// 空状态 - 插画风格
 .empty-dashboard {
   grid-column: 1 / -1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 500px;
+  text-align: center;
 
-  .empty-icon {
-    font-size: 64px;
-    color: $text-disabled;
+  .empty-illustration {
+    width: 200px;
+    height: 160px;
+    margin-bottom: 24px;
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  .empty-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: $gray-800;
+    margin: 0 0 8px;
+  }
+
+  .empty-desc {
+    font-size: 14px;
+    color: $gray-500;
+    margin: 0 0 16px;
   }
 
   .empty-hint {
-    color: $text-secondary;
-    margin-top: $spacing-sm;
+    color: $gray-400;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .create-dashboard-btn {
+    height: 44px;
+    padding: 0 24px;
+    border-radius: 10px;
+    font-weight: 500;
+    background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+    border: none;
+    box-shadow: 0 4px 14px rgba($primary, 0.35);
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba($primary, 0.45);
+    }
+
+    .el-icon {
+      margin-right: 8px;
+    }
   }
 }
 
-// 配置面板 - 固定在右侧，不遮挡组件
-.config-panel {
-  width: 320px;
-  background-color: $surface-color;
-  border-left: 1px solid $border-color;
+// 组件内空状态
+.widget-empty-state {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0; // 防止面板被压缩
-  height: 100%; // 占满父容器高度
-  overflow: hidden; // 防止整体滚动
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 20px;
+
+  .empty-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $gray-100;
+    border-radius: 14px;
+    color: $gray-400;
+    margin-bottom: 12px;
+  }
+
+  .empty-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: $gray-600;
+    margin-bottom: 4px;
+  }
+
+  .empty-hint {
+    font-size: 12px;
+    color: $gray-400;
+  }
+}
+
+// 配置面板
+.config-panel {
+  width: 320px;
+  background: white;
+  border-left: 1px solid $gray-200;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.03);
 
   .panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: $spacing-md;
-    border-bottom: 1px solid $border-color;
-    flex-shrink: 0; // 防止头部被压缩
+    padding: 16px 20px;
+    border-bottom: 1px solid $gray-100;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, $gray-50 0%, white 100%);
 
-    h3 {
-      font-size: $font-size-base;
-      font-weight: 500;
-      color: $text-primary;
-      margin: 0;
+    .panel-title-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .panel-icon {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: $primary-light;
+        border-radius: 8px;
+        color: $primary;
+      }
+
+      h3 {
+        font-size: 15px;
+        font-weight: 600;
+        color: $gray-800;
+        margin: 0;
+      }
     }
 
     .panel-actions {
       display: flex;
       align-items: center;
-      gap: $spacing-xs;
+      gap: 8px;
+
+      .close-btn {
+        padding: 6px;
+        color: $gray-400;
+        transition: all 0.2s;
+
+        &:hover {
+          color: $gray-600;
+          background: $gray-100;
+        }
+      }
     }
   }
 
   .panel-content {
     flex: 1;
-    padding: $spacing-md;
-    overflow-y: auto; // 内容区域可滚动
-    min-height: 0; // 确保可以正确滚动
+    padding: 20px;
+    overflow-y: auto;
+    min-height: 0;
   }
 }
 
 // 配置区域
 .config-section {
-  margin-bottom: $spacing-lg;
+  margin-bottom: 24px;
 
   .section-title {
-    font-size: $font-size-sm;
-    font-weight: 500;
-    color: $text-secondary;
-    margin-bottom: $spacing-sm;
-    padding-bottom: $spacing-xs;
-    border-bottom: 1px solid $border-color;
+    font-size: 13px;
+    font-weight: 600;
+    color: $gray-700;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid $gray-100;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .section-icon {
+      font-size: 14px;
+    }
   }
 
   &.save-section {
-    margin-top: $spacing-xl;
-    padding-top: $spacing-md;
-    border-top: 1px solid $border-color;
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid $gray-200;
+
+    .save-btn {
+      width: 100%;
+      height: 44px;
+      border-radius: 10px;
+      font-weight: 500;
+      background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+      border: none;
+      box-shadow: 0 4px 14px rgba($primary, 0.35);
+      transition: all 0.3s ease;
+
+      &:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba($primary, 0.45);
+      }
+
+      &:disabled {
+        background: $gray-300;
+        box-shadow: none;
+      }
+
+      .el-icon {
+        margin-right: 6px;
+      }
+    }
   }
 }
 
 .field-icon {
   margin-right: 6px;
   font-size: 14px;
-  color: $text-secondary;
+  color: $gray-400;
 }
 
 .aggregation-option {
@@ -2323,18 +2763,21 @@ export default {
   flex-direction: column;
 
   .aggregation-desc {
-    font-size: $font-size-xs;
-    color: $text-secondary;
+    font-size: 12px;
+    color: $gray-400;
   }
 }
 
 .validation-warning {
   display: flex;
   align-items: center;
-  gap: $spacing-xs;
-  margin-top: $spacing-xs;
-  font-size: $font-size-xs;
-  color: $warning-color;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: $warning;
+  background: rgba($warning, 0.08);
+  border-radius: 8px;
 }
 
 // 数字卡片样式
@@ -2347,21 +2790,26 @@ export default {
   text-align: center;
 
   .number-value {
-    font-size: 48px;
+    font-size: 52px;
     font-weight: 700;
     line-height: 1.2;
+    background: linear-gradient(135deg, var(--number-color) 0%, lighten-color(var(--number-color), 20%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .number-label {
-    font-size: $font-size-base;
-    color: $text-secondary;
-    margin-top: $spacing-sm;
+    font-size: 15px;
+    color: $gray-600;
+    margin-top: 12px;
+    font-weight: 500;
   }
 
   .number-detail {
-    font-size: $font-size-sm;
-    color: $text-disabled;
-    margin-top: $spacing-xs;
+    font-size: 13px;
+    color: $gray-400;
+    margin-top: 6px;
   }
 }
 
@@ -2372,92 +2820,290 @@ export default {
 
   .data-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 
     th,
     td {
-      padding: $spacing-xs $spacing-sm;
+      padding: 10px 12px;
       text-align: left;
-      border-bottom: 1px solid $border-color;
-      font-size: $font-size-sm;
+      font-size: 13px;
     }
 
     th {
-      font-weight: 500;
-      color: $text-secondary;
-      background-color: #f5f7fa;
+      font-weight: 600;
+      color: $gray-600;
+      background: $gray-50;
       position: sticky;
       top: 0;
+      border-bottom: 1px solid $gray-200;
+
+      &:first-child {
+        border-radius: 8px 0 0 0;
+      }
+
+      &:last-child {
+        border-radius: 0 8px 0 0;
+      }
     }
 
     td {
-      color: $text-primary;
+      color: $gray-700;
+      border-bottom: 1px solid $gray-100;
 
       .table-dot {
         display: inline-block;
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        margin-right: 6px;
+        margin-right: 8px;
+      }
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+
+      &:first-child {
+        border-radius: 0 0 0 8px;
+      }
+
+      &:last-child {
+        border-radius: 0 0 8px 0;
       }
     }
 
     .value-cell {
-      font-weight: 500;
+      font-weight: 600;
       text-align: right;
+      color: $gray-800;
     }
   }
 }
 
-.widget-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: $text-secondary;
-  font-size: $font-size-sm;
+// 仪表盘管理器对话框
+.dashboard-manager-dialog {
+  :deep(.el-dialog__header) {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid $gray-100;
+
+    .el-dialog__title {
+      font-size: 17px;
+      font-weight: 600;
+      color: $gray-800;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 20px 24px;
+  }
 }
 
-// 仪表盘管理器
 .dashboard-manager {
   .manager-header {
-    margin-bottom: $spacing-md;
+    margin-bottom: 20px;
+
+    .create-btn {
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 10px;
+      font-weight: 500;
+      background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+      border: none;
+      box-shadow: 0 4px 14px rgba($primary, 0.35);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba($primary, 0.45);
+      }
+
+      .el-icon {
+        margin-right: 6px;
+      }
+    }
+  }
+}
+
+.manager-table {
+  :deep(th) {
+    font-weight: 600;
+    color: $gray-600;
+    background: $gray-50;
+  }
+
+  :deep(td) {
+    padding: 12px 0;
   }
 }
 
 .dashboard-name-cell {
   display: flex;
   align-items: center;
-  gap: $spacing-xs;
+  gap: 10px;
+
+  .dashboard-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $primary-light;
+    border-radius: 8px;
+    color: $primary;
+  }
 
   .el-tag {
-    margin-left: $spacing-xs;
+    margin-left: 6px;
   }
 }
 
-// 分享对话框样式
+// 仪表盘表单对话框
+.dashboard-form-dialog {
+  :deep(.el-dialog__header) {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid $gray-100;
+
+    .el-dialog__title {
+      font-size: 17px;
+      font-weight: 600;
+      color: $gray-800;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 20px 24px;
+  }
+
+  :deep(.el-dialog__footer) {
+    padding: 16px 24px;
+    border-top: 1px solid $gray-100;
+  }
+}
+
+.compact-form {
+  .el-form-item {
+    margin-bottom: 20px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  :deep(.el-form-item__label) {
+    font-size: 13px;
+    font-weight: 500;
+    color: $gray-700;
+    padding-bottom: 6px;
+  }
+}
+
+.confirm-btn {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-weight: 500;
+  background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+  border: none;
+  box-shadow: 0 4px 14px rgba($primary, 0.35);
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba($primary, 0.45);
+  }
+
+  &:disabled {
+    background: $gray-300;
+    box-shadow: none;
+  }
+}
+
+// 分享对话框
+.share-dialog {
+  :deep(.el-dialog__header) {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid $gray-100;
+
+    .el-dialog__title {
+      font-size: 17px;
+      font-weight: 600;
+      color: $gray-800;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 20px 24px;
+  }
+}
+
 .share-dialog-content {
   h4 {
-    font-size: $font-size-base;
-    font-weight: 500;
-    color: $text-primary;
-    margin: 0 0 $spacing-md 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: $gray-800;
+    margin: 0 0 16px 0;
   }
 
   .share-create-section {
-    margin-bottom: $spacing-lg;
+    margin-bottom: 24px;
+
+    .generate-btn {
+      width: 100%;
+      height: 44px;
+      border-radius: 10px;
+      font-weight: 500;
+      background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+      border: none;
+      box-shadow: 0 4px 14px rgba($primary, 0.35);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba($primary, 0.45);
+      }
+
+      .el-icon {
+        margin-right: 6px;
+      }
+    }
   }
 
   .share-result-section {
-    margin-bottom: $spacing-lg;
+    margin-bottom: 24px;
 
     .share-link-box {
-      margin-bottom: $spacing-md;
+      margin-bottom: 16px;
 
       .share-link-input {
+        :deep(.el-input__wrapper) {
+          border-radius: 10px 0 0 10px;
+          box-shadow: 0 0 0 1px $gray-200 inset;
+        }
+
         :deep(.el-input__inner) {
           font-family: monospace;
-          font-size: $font-size-sm;
+          font-size: 13px;
+          color: $gray-700;
+        }
+
+        :deep(.el-input-group__append) {
+          border-radius: 0 10px 10px 0;
+          padding: 0;
+          background: white;
+          box-shadow: 0 0 0 1px $gray-200 inset;
+
+          .copy-btn {
+            border: none;
+            background: transparent;
+            color: $primary;
+            font-weight: 500;
+            padding: 0 16px;
+            height: 100%;
+
+            &:hover {
+              background: $primary-light;
+            }
+          }
         }
       }
     }
@@ -2465,37 +3111,72 @@ export default {
     .share-access-code {
       display: flex;
       align-items: center;
-      gap: $spacing-sm;
-      margin-bottom: $spacing-md;
-      padding: $spacing-sm;
-      background-color: $bg-color;
-      border-radius: $border-radius-base;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: $gray-50;
+      border-radius: 10px;
+      border: 1px solid $gray-200;
 
       .label {
-        color: $text-secondary;
-        font-size: $font-size-sm;
+        color: $gray-500;
+        font-size: 13px;
       }
 
       .code {
         font-family: monospace;
-        font-size: $font-size-lg;
-        font-weight: 600;
-        color: $primary-color;
-        letter-spacing: 2px;
+        font-size: 18px;
+        font-weight: 700;
+        color: $primary;
+        letter-spacing: 3px;
+        flex: 1;
       }
     }
 
     .share-info {
       display: flex;
-      gap: $spacing-xs;
+      gap: 8px;
       flex-wrap: wrap;
     }
   }
 
   .share-list-section {
     h4 {
-      margin-bottom: $spacing-md;
+      margin-bottom: 16px;
     }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .dashboard-toolbar {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    .toolbar-left {
+      flex-wrap: wrap;
+    }
+  }
+
+  .dashboard-selector {
+    .selector-icon {
+      display: none;
+    }
+  }
+
+  .widgets-grid {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .config-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
   }
 }
 </style>

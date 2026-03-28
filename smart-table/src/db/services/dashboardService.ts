@@ -106,7 +106,7 @@ export class DashboardService {
     return duplicated
   }
 
-  async reorderDashboards(baseId: string, dashboardIds: string[]): Promise<void> {
+  async reorderDashboards(_baseId: string, dashboardIds: string[]): Promise<void> {
     await db.transaction('rw', db.dashboards, async () => {
       for (let i = 0; i < dashboardIds.length; i++) {
         await db.dashboards.update(dashboardIds[i], { order: i })

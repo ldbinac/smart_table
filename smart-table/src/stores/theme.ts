@@ -1,57 +1,59 @@
-import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { defineStore } from "pinia";
+import { ref, watch } from "vue";
 
-export type Theme = 'light' | 'dark' | 'system'
+export type Theme = "light" | "dark" | "system";
 
-export const useThemeStore = defineStore('theme', () => {
-  const theme = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
-  
-  const isDark = ref(false)
-  
+export const useThemeStore = defineStore("theme", () => {
+  const theme = ref<Theme>(
+    (localStorage.getItem("theme") as Theme) || "system",
+  );
+
+  const isDark = ref(false);
+
   function updateDarkMode() {
-    if (theme.value === 'system') {
-      isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (theme.value === "system") {
+      isDark.value = window.matchMedia("(prefers-color-scheme: dark)").matches;
     } else {
-      isDark.value = theme.value === 'dark'
+      isDark.value = theme.value === "dark";
     }
-    
+
     if (isDark.value) {
-      document.documentElement.classList.add('dark')
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark')
+      document.documentElement.classList.remove("dark");
     }
   }
-  
+
   function setTheme(newTheme: Theme) {
-    theme.value = newTheme
-    localStorage.setItem('theme', newTheme)
-    updateDarkMode()
+    theme.value = newTheme;
+    localStorage.setItem("theme", newTheme);
+    updateDarkMode();
   }
-  
+
   function toggleTheme() {
-    if (theme.value === 'light') {
-      setTheme('dark')
-    } else if (theme.value === 'dark') {
-      setTheme('light')
+    if (theme.value === "light") {
+      setTheme("dark");
+    } else if (theme.value === "dark") {
+      setTheme("light");
     } else {
-      setTheme(isDark.value ? 'light' : 'dark')
+      setTheme(isDark.value ? "light" : "dark");
     }
   }
-  
-  watch(theme, updateDarkMode, { immediate: true })
-  
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  mediaQuery.addEventListener('change', () => {
-    if (theme.value === 'system') {
-      updateDarkMode()
+
+  watch(theme, updateDarkMode, { immediate: true });
+
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", () => {
+    if (theme.value === "system") {
+      updateDarkMode();
     }
-  })
-  
+  });
+
   return {
     theme,
     isDark,
     setTheme,
     toggleTheme,
-    updateDarkMode
-  }
-})
+    updateDarkMode,
+  };
+});

@@ -1,94 +1,97 @@
 <script setup lang="ts">
-import type { FieldOptions } from '@/types/fields'
+import type { FieldOptions } from "@/types/fields";
 
 interface Props {
-  modelValue: number | null
+  modelValue: number | null;
   field?: {
-    id: string
-    name: string
-    type: string
-    options?: FieldOptions
-  }
-  readonly?: boolean
-  placeholder?: string
+    id: string;
+    name: string;
+    type: string;
+    options?: FieldOptions;
+  };
+  readonly?: boolean;
+  placeholder?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: null,
   readonly: false,
-  placeholder: ''
-})
+  placeholder: "",
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: number | null): void
-}>()
+  (e: "update:modelValue", value: number | null): void;
+}>();
 
 // 精度配置，默认0位小数
 const precision = computed(() => {
-  return props.field?.options?.precision ?? 0
-})
+  return props.field?.options?.precision ?? 0;
+});
 
 const format = computed(() => {
-  return props.field?.options?.format ?? 'number'
-})
+  return props.field?.options?.format ?? "number";
+});
 
 const currencySymbol = computed(() => {
-  return props.field?.options?.currencySymbol ?? '¥'
-})
+  return props.field?.options?.currencySymbol ?? "¥";
+});
 
 const prefix = computed(() => {
-  if (format.value === 'currency') return currencySymbol.value
-  return props.field?.options?.prefix ?? ''
-})
+  if (format.value === "currency") return currencySymbol.value;
+  return props.field?.options?.prefix ?? "";
+});
 
 const suffix = computed(() => {
-  if (format.value === 'percent') return '%'
-  return props.field?.options?.suffix ?? ''
-})
+  if (format.value === "percent") return "%";
+  return props.field?.options?.suffix ?? "";
+});
 
 const displayValue = computed(() => {
-  if (props.modelValue === null || props.modelValue === undefined) return '-'
-  
-  let value = props.modelValue
-  
-  if (format.value === 'percent') {
-    value = props.modelValue * 100
+  if (props.modelValue === null || props.modelValue === undefined) return "-";
+
+  let value = props.modelValue;
+
+  if (format.value === "percent") {
+    value = props.modelValue * 100;
   }
-  
-  return formatNumber(value, precision.value)
-})
+
+  return formatNumber(value, precision.value);
+});
 
 const formatNumber = (num: number, prec: number): string => {
-  return num.toLocaleString('zh-CN', {
+  return num.toLocaleString("zh-CN", {
     minimumFractionDigits: prec,
-    maximumFractionDigits: prec
-  })
-}
+    maximumFractionDigits: prec,
+  });
+};
 
 const localValue = computed({
   get: () => props.modelValue,
   set: (val: number | null) => {
     if (val === null || val === undefined || isNaN(val)) {
-      emit('update:modelValue', null)
+      emit("update:modelValue", null);
     } else {
-      let finalValue = val
-      if (format.value === 'percent') {
-        finalValue = val / 100
+      let finalValue = val;
+      if (format.value === "percent") {
+        finalValue = val / 100;
       }
       // 根据精度存储原始值
-      const multiplier = Math.pow(10, precision.value)
-      emit('update:modelValue', Math.round(finalValue * multiplier) / multiplier)
+      const multiplier = Math.pow(10, precision.value);
+      emit(
+        "update:modelValue",
+        Math.round(finalValue * multiplier) / multiplier,
+      );
     }
-  }
-})
+  },
+});
 
-const inputRef = ref()
+const inputRef = ref();
 
 const focus = () => {
-  inputRef.value?.focus()
-}
+  inputRef.value?.focus();
+};
 
-defineExpose({ focus })
+defineExpose({ focus });
 </script>
 
 <template>
@@ -107,14 +110,13 @@ defineExpose({ focus })
         :precision="precision"
         :controls="false"
         class="number-input"
-        ref="inputRef"
-      />
+        ref="inputRef" />
     </template>
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .number-field {
   width: 100%;
@@ -124,7 +126,7 @@ defineExpose({ focus })
       padding: $spacing-sm;
       color: $text-primary;
       font-size: $font-size-base;
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+      font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
     }
 
     .number-prefix,

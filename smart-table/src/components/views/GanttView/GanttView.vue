@@ -36,6 +36,7 @@ const dragStartLeft = ref(0)
 const dragStartWidth = ref(0)
 const dragStartDate = ref<Date | null>(null)
 const dragEndDate = ref<Date | null>(null)
+const hoveredTask = ref<GanttTask | null>(null)
 
 const dateFields = computed(() => {
   return props.fields.filter(f =>
@@ -59,8 +60,6 @@ const progressFields = computed(() => {
     f.type === FieldType.NUMBER
   )
 })
-
-
 
 const titleField = computed(() => {
   if (titleFieldId.value) {
@@ -214,15 +213,13 @@ function getTaskStyle(task: GanttTask): Record<string, string> {
 
 function getTaskRowStyle(index: number): Record<string, string> {
   return {
-    top: `${index * 44 + 8}px`
+    top: `${index * 48 + 10}px`
   }
 }
 
 function formatDate(date: Date): string {
   return dayjs(date).format('MM/DD')
 }
-
-
 
 function isToday(date: Date): boolean {
   return dayjs(date).isSame(dayjs(), 'day')
@@ -439,23 +436,38 @@ watch(() => props.records, () => {
       </div>
 
       <div class="toolbar-center">
-        <el-button-group>
-          <el-button size="small" @click="zoomOut">
+        <div class="nav-button-group">
+          <button class="nav-btn" @click="zoomOut">
             <el-icon><ZoomOut /></el-icon>
-          </el-button>
-          <el-button size="small" @click="goToToday">今天</el-button>
-          <el-button size="small" @click="zoomIn">
+          </button>
+          <button class="nav-btn today-btn" @click="goToToday">今天</button>
+          <button class="nav-btn" @click="zoomIn">
             <el-icon><ZoomIn /></el-icon>
-          </el-button>
-        </el-button-group>
+          </button>
+        </div>
       </div>
 
       <div class="toolbar-right">
-        <el-radio-group v-model="viewMode" size="small">
-          <el-radio-button value="day">日</el-radio-button>
-          <el-radio-button value="week">周</el-radio-button>
-          <el-radio-button value="month">月</el-radio-button>
-        </el-radio-group>
+        <div class="view-switcher">
+          <button
+            class="view-btn"
+            :class="{ active: viewMode === 'day' }"
+            @click="viewMode = 'day'">
+            日
+          </button>
+          <button
+            class="view-btn"
+            :class="{ active: viewMode === 'week' }"
+            @click="viewMode = 'week'">
+            周
+          </button>
+          <button
+            class="view-btn"
+            :class="{ active: viewMode === 'month' }"
+            @click="viewMode = 'month'">
+            月
+          </button>
+        </div>
       </div>
     </div>
 
@@ -575,10 +587,15 @@ watch(() => props.records, () => {
             >
               <div
                 class="task-bar"
-                :class="{ 'is-dragging': isDragging && dragTask?.id === task.id }"
+                :class="{
+                  'is-dragging': isDragging && dragTask?.id === task.id,
+                  'is-hovered': hoveredTask?.id === task.id
+                }"
                 :style="getTaskStyle(task)"
                 @mousedown="(e) => handleMouseDown(e, task, 'move')"
                 @click.stop="handleTaskClick(task)"
+                @mouseenter="hoveredTask = task"
+                @mouseleave="hoveredTask = null"
               >
                 <!-- 左侧调整手柄 -->
                 <div
@@ -597,6 +614,32 @@ watch(() => props.records, () => {
                   class="resize-handle resize-right"
                   @mousedown.stop="(e) => handleMouseDown(e, task, 'resize-right')"
                 />
+              </div>
+
+              <!-- 悬停详情卡片 -->
+              <div
+                v-if="hoveredTask?.id === task.id && !isDragging"
+                class="task-tooltip"
+                :style="{ left: `${getTaskStyle(task).left}` }"
+              >
+                <div class="tooltip-header">{{ task.title }}</div>
+                <div class="tooltip-body">
+                  <div class="tooltip-row">
+                    <span class="tooltip-label">开始:</span>
+                    <span class="tooltip-value">{{ formatDate(task.start) }}</span>
+                  </div>
+                  <div class="tooltip-row">
+                    <span class="tooltip-label">结束:</span>
+                    <span class="tooltip-value">{{ formatDate(task.end) }}</span>
+                  </div>
+                  <div class="tooltip-row">
+                    <span class="tooltip-label">进度:</span>
+                    <span class="tooltip-value">{{ task.progress }}%</span>
+                  </div>
+                  <div class="tooltip-progress-bar">
+                    <div class="tooltip-progress-fill" :style="{ width: `${task.progress}%` }" />
+                  </div>
+                </div>
               </div>
 
               <!-- 依赖关系指示器 -->
@@ -622,7 +665,7 @@ watch(() => props.records, () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: $surface-color;
+  background-color: $bg-color;
   overflow: hidden;
 }
 
@@ -630,9 +673,11 @@ watch(() => props.records, () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-md;
-  border-bottom: 1px solid $border-color;
-  background-color: $surface-color;
+  padding: $spacing-md $spacing-lg;
+  background: rgba($surface-color, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba($border-color, 0.6);
   flex-shrink: 0;
 
   .toolbar-left {
@@ -651,6 +696,78 @@ watch(() => props.records, () => {
   }
 }
 
+// 导航按钮组 - 圆角设计
+.nav-button-group {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  background: $gray-100;
+  padding: 3px;
+  border-radius: $border-radius-lg;
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: $text-secondary;
+    border-radius: $border-radius-md;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      background: $surface-color;
+      color: $primary-color;
+      box-shadow: $shadow-sm;
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    &.today-btn {
+      width: auto;
+      padding: 0 $spacing-md;
+      font-size: $font-size-sm;
+      font-weight: 500;
+    }
+  }
+}
+
+// 视图切换器 - 分段控制器样式
+.view-switcher {
+  display: flex;
+  align-items: center;
+  background: $gray-100;
+  padding: 3px;
+  border-radius: $border-radius-lg;
+
+  .view-btn {
+    padding: $spacing-xs $spacing-lg;
+    border: none;
+    background: transparent;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    border-radius: $border-radius-md;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      color: $text-primary;
+    }
+
+    &.active {
+      background: $surface-color;
+      color: $primary-color;
+      box-shadow: $shadow-sm;
+    }
+  }
+}
+
 .gantt-body {
   flex: 1;
   display: flex;
@@ -661,12 +778,12 @@ watch(() => props.records, () => {
 .gantt-header {
   display: flex;
   border-bottom: 1px solid $border-color;
-  background-color: $bg-color;
+  background: rgba($surface-color, 0.95);
   flex-shrink: 0;
 
   .header-left {
-    width: 220px;
-    min-width: 220px;
+    width: 240px;
+    min-width: 240px;
     border-right: 1px solid $border-color;
   }
 
@@ -678,31 +795,31 @@ watch(() => props.records, () => {
 
 .task-header {
   padding: $spacing-sm $spacing-md;
-  font-weight: 500;
+  font-weight: 600;
   color: $text-primary;
   font-size: $font-size-sm;
 }
 
 .month-header {
   position: relative;
-  height: 20px;
+  height: 24px;
   border-bottom: 1px solid $border-color;
-  background-color: $bg-color;
+  background: $gray-50;
 }
 
 .month-cell {
   position: absolute;
   top: 0;
-  padding: 2px 8px;
+  padding: 4px 10px;
   font-size: $font-size-xs;
   color: $text-secondary;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .timeline-header {
   display: flex;
-  height: 36px;
+  height: 44px;
 }
 
 .timeline-cell {
@@ -710,32 +827,36 @@ watch(() => props.records, () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  padding: 4px 2px;
   font-size: $font-size-xs;
   color: $text-secondary;
   border-right: 1px solid $border-color;
-  background-color: $bg-color;
+  background: $surface-color;
+  transition: all $transition-fast;
 
   .day-number {
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 13px;
   }
 
   .day-week {
     font-size: 10px;
-    transform: scale(0.9);
+    margin-top: 2px;
+    opacity: 0.8;
   }
 
   &.today {
-    background-color: rgba($primary-color, 0.15);
+    background: linear-gradient(135deg, rgba($primary-color, 0.12) 0%, rgba($primary-color, 0.06) 100%);
     color: $primary-color;
 
     .day-number {
-      font-weight: 600;
+      font-weight: 700;
     }
   }
 
   &.weekend {
-    background-color: rgba($text-disabled, 0.08);
+    background: rgba($gray-100, 0.8);
+    color: $text-disabled;
   }
 }
 
@@ -746,22 +867,22 @@ watch(() => props.records, () => {
 }
 
 .task-list {
-  width: 220px;
-  min-width: 220px;
+  width: 240px;
+  min-width: 240px;
   border-right: 1px solid $border-color;
-  background-color: $surface-color;
+  background: $surface-color;
   flex-shrink: 0;
 }
 
 .task-row {
-  height: 44px;
+  height: 48px;
   padding: $spacing-xs $spacing-md;
-  border-bottom: 1px solid $border-color;
+  border-bottom: 1px solid rgba($border-color, 0.6);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all $transition-fast;
 
   &:hover {
-    background-color: $bg-color;
+    background: rgba($primary-color, 0.04);
   }
 }
 
@@ -784,7 +905,7 @@ watch(() => props.records, () => {
 .task-date {
   font-size: $font-size-xs;
   color: $text-secondary;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .empty-tasks {
@@ -809,34 +930,38 @@ watch(() => props.records, () => {
 .grid-cell {
   height: 100%;
   border-right: 1px solid $border-color;
+  transition: all $transition-fast;
 
   &.today {
-    background-color: rgba($primary-color, 0.05);
+    background: linear-gradient(180deg, rgba($primary-color, 0.06) 0%, rgba($primary-color, 0.02) 100%);
   }
 
   &.weekend {
-    background-color: rgba($text-disabled, 0.03);
+    background: rgba($gray-100, 0.5);
   }
 }
 
+// 当前日期指示线 - 主色
 .current-time-line {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 2px;
-  background-color: $error-color;
+  background: linear-gradient(180deg, $primary-color 0%, rgba($primary-color, 0.3) 100%);
   z-index: 10;
   pointer-events: none;
+  box-shadow: 0 0 8px rgba($primary-color, 0.4);
 
   &::before {
     content: '';
     position: absolute;
     top: 0;
-    left: -4px;
-    width: 10px;
-    height: 10px;
-    background-color: $error-color;
+    left: -5px;
+    width: 12px;
+    height: 12px;
+    background: $primary-color;
     border-radius: 50%;
+    box-shadow: 0 2px 8px rgba($primary-color, 0.4);
   }
 }
 
@@ -860,63 +985,83 @@ watch(() => props.records, () => {
   position: absolute;
   left: 0;
   right: 0;
-  height: 44px;
+  height: 48px;
   display: flex;
   align-items: center;
 }
 
+// 任务条样式 - 圆角6px，渐变色
 .task-bar {
   position: absolute;
-  height: 28px;
-  background: linear-gradient(135deg, rgba($primary-color, 0.2) 0%, rgba($primary-color, 0.3) 100%);
-  border-radius: $border-radius-sm;
-  border-left: 3px solid $primary-color;
+  height: 32px;
+  background: linear-gradient(135deg, rgba($primary-color, 0.9) 0%, rgba($primary-color, 0.7) 100%);
+  border-radius: 6px;
   cursor: grab;
   overflow: hidden;
   display: flex;
   align-items: center;
-  transition: box-shadow 0.2s, transform 0.1s;
+  transition: all $transition-normal;
   user-select: none;
+  box-shadow: 0 2px 6px rgba($primary-color, 0.25);
 
   &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba($primary-color, 0.35);
     z-index: 10;
+    transform: translateY(-1px);
   }
 
   &.is-dragging {
     cursor: grabbing;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 6px 20px rgba($primary-color, 0.45);
     z-index: 20;
     opacity: 0.9;
+    transform: scale(1.02);
+  }
+
+  &.is-hovered {
+    box-shadow: 0 4px 14px rgba($primary-color, 0.4);
   }
 }
 
 .resize-handle {
   position: absolute;
   top: 0;
-  width: 8px;
+  width: 10px;
   height: 100%;
   cursor: col-resize;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: all $transition-fast;
   z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &::after {
+    content: '';
+    width: 3px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 2px;
+  }
 
   &:hover {
     opacity: 1;
-    background-color: rgba($primary-color, 0.3);
+    background: rgba(255, 255, 255, 0.15);
   }
 
   &.resize-left {
     left: 0;
+    border-radius: 6px 0 0 6px;
   }
 
   &.resize-right {
     right: 0;
+    border-radius: 0 6px 6px 0;
   }
 }
 
 .task-bar:hover .resize-handle {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .bar-progress {
@@ -924,8 +1069,7 @@ watch(() => props.records, () => {
   top: 0;
   left: 0;
   height: 100%;
-  background-color: $primary-color;
-  opacity: 0.6;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%);
   transition: width 0.3s ease;
 }
 
@@ -933,24 +1077,116 @@ watch(() => props.records, () => {
   position: relative;
   z-index: 1;
   display: block;
-  padding: 4px 8px;
+  padding: 4px 10px;
   font-size: $font-size-xs;
-  color: $text-primary;
+  color: white;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+// 悬停详情卡片
+.task-tooltip {
+  position: absolute;
+  top: -95px;
+  left: 0;
+  min-width: 180px;
+  background: $surface-color;
+  border-radius: $border-radius-lg;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: $spacing-md;
+  z-index: 100;
+  pointer-events: none;
+  animation: tooltipFadeIn 0.2s ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 20px;
+    width: 12px;
+    height: 12px;
+    background: $surface-color;
+    transform: rotate(45deg);
+  }
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip-header {
+  font-weight: 600;
+  font-size: $font-size-sm;
+  color: $text-primary;
+  margin-bottom: $spacing-sm;
+  padding-bottom: $spacing-xs;
+  border-bottom: 1px solid $border-color;
+}
+
+.tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: $font-size-xs;
+}
+
+.tooltip-label {
+  color: $text-secondary;
+}
+
+.tooltip-value {
+  color: $text-primary;
+  font-weight: 500;
+}
+
+.tooltip-progress-bar {
+  height: 4px;
+  background: $gray-200;
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.tooltip-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, $primary-color 0%, $primary-hover 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
 }
 
 .dependency-indicator {
   position: absolute;
-  right: -20px;
-  width: 16px;
-  height: 16px;
+  right: -24px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: $text-secondary;
   font-size: $font-size-xs;
+  background: $gray-100;
+  border-radius: 50%;
+  transition: all $transition-fast;
+
+  &:hover {
+    color: $primary-color;
+    background: rgba($primary-color, 0.1);
+  }
 }
 </style>

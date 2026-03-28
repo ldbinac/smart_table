@@ -1,41 +1,45 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import type { FieldEntity } from '@/db/schema'
-import type { CellValue } from '@/types'
+import { ref, computed, watch } from "vue";
+import type { FieldEntity } from "@/db/schema";
+import type { CellValue } from "@/types";
 
 interface Props {
-  modelValue: CellValue
-  field: FieldEntity
-  readonly?: boolean
+  modelValue: CellValue;
+  field: FieldEntity;
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readonly: false
-})
+  readonly: false,
+});
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: CellValue): void
-}>()
+  (e: "update:modelValue", value: CellValue): void;
+}>();
 
-const localValue = ref('')
+const localValue = ref("");
 
-watch(() => props.modelValue, (newVal) => {
-  localValue.value = String(newVal || '')
-}, { immediate: true })
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    localValue.value = String(newVal || "");
+  },
+  { immediate: true },
+);
 
 const isValid = computed(() => {
-  if (!localValue.value) return true
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(localValue.value)
-})
+  if (!localValue.value) return true;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(localValue.value);
+});
 
 function handleInput(value: string) {
-  localValue.value = value
-  emit('update:modelValue', value)
+  localValue.value = value;
+  emit("update:modelValue", value);
 }
 
 function handleBlur() {
-  emit('update:modelValue', localValue.value)
+  emit("update:modelValue", localValue.value);
 }
 </script>
 
@@ -47,19 +51,14 @@ function handleBlur() {
       placeholder="请输入邮箱地址"
       :class="{ 'is-error': !isValid }"
       @update:model-value="handleInput"
-      @blur="handleBlur"
-    >
+      @blur="handleBlur">
       <template #prefix>
         <el-icon><Message /></el-icon>
       </template>
     </el-input>
     <div v-else class="email-display">
       <el-icon><Message /></el-icon>
-      <a
-        v-if="localValue"
-        :href="`mailto:${localValue}`"
-        class="email-link"
-      >
+      <a v-if="localValue" :href="`mailto:${localValue}`" class="email-link">
         {{ localValue }}
       </a>
       <span v-else class="empty-text">-</span>
@@ -71,7 +70,7 @@ function handleBlur() {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .email-field {
   width: 100%;
@@ -93,7 +92,7 @@ function handleBlur() {
   color: $primary-color;
   text-decoration: none;
   font-size: $font-size-sm;
-  
+
   &:hover {
     text-decoration: underline;
   }

@@ -1,66 +1,70 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { TransitionGroup } from 'vue'
+import { ref } from "vue";
+import { TransitionGroup } from "vue";
 
 export interface ToastMessage {
-  id: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  title: string
-  message?: string
-  duration?: number
+  id: string;
+  type: "success" | "error" | "warning" | "info";
+  title: string;
+  message?: string;
+  duration?: number;
 }
 
-const toasts = ref<ToastMessage[]>([])
+const toasts = ref<ToastMessage[]>([]);
 
-function addToast(toast: Omit<ToastMessage, 'id'>) {
-  const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+function addToast(toast: Omit<ToastMessage, "id">) {
+  const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const newToast: ToastMessage = {
     ...toast,
     id,
-    duration: toast.duration ?? 3000
-  }
-  
-  toasts.value.push(newToast)
-  
-  const duration = newToast.duration ?? 3000
+    duration: toast.duration ?? 3000,
+  };
+
+  toasts.value.push(newToast);
+
+  const duration = newToast.duration ?? 3000;
   if (duration > 0) {
     setTimeout(() => {
-      removeToast(id)
-    }, duration)
+      removeToast(id);
+    }, duration);
   }
-  
-  return id
+
+  return id;
 }
 
 function removeToast(id: string) {
-  const index = toasts.value.findIndex(t => t.id === id)
+  const index = toasts.value.findIndex((t) => t.id === id);
   if (index !== -1) {
-    toasts.value.splice(index, 1)
+    toasts.value.splice(index, 1);
   }
 }
 
-function getIcon(type: ToastMessage['type']) {
+function getIcon(type: ToastMessage["type"]) {
   const icons = {
-    success: '✓',
-    error: '✕',
-    warning: '⚠',
-    info: 'ℹ'
-  }
-  return icons[type]
+    success: "✓",
+    error: "✕",
+    warning: "⚠",
+    info: "ℹ",
+  };
+  return icons[type];
 }
 
 const toastMethods = {
-  success: (title: string, message?: string) => addToast({ type: 'success', title, message }),
-  error: (title: string, message?: string) => addToast({ type: 'error', title, message }),
-  warning: (title: string, message?: string) => addToast({ type: 'warning', title, message }),
-  info: (title: string, message?: string) => addToast({ type: 'info', title, message })
-}
+  success: (title: string, message?: string) =>
+    addToast({ type: "success", title, message }),
+  error: (title: string, message?: string) =>
+    addToast({ type: "error", title, message }),
+  warning: (title: string, message?: string) =>
+    addToast({ type: "warning", title, message }),
+  info: (title: string, message?: string) =>
+    addToast({ type: "info", title, message }),
+};
 
 defineExpose({
   addToast,
   removeToast,
-  ...toastMethods
-})
+  ...toastMethods,
+});
 </script>
 
 <template>
@@ -70,12 +74,13 @@ defineExpose({
         <div
           v-for="toast in toasts"
           :key="toast.id"
-          :class="['toast', `toast-${toast.type}`]"
-        >
+          :class="['toast', `toast-${toast.type}`]">
           <span class="toast-icon">{{ getIcon(toast.type) }}</span>
           <div class="toast-content">
             <div class="toast-title">{{ toast.title }}</div>
-            <div v-if="toast.message" class="toast-message">{{ toast.message }}</div>
+            <div v-if="toast.message" class="toast-message">
+              {{ toast.message }}
+            </div>
           </div>
           <button class="toast-close" @click="removeToast(toast.id)">✕</button>
         </div>
@@ -109,7 +114,7 @@ defineExpose({
 
 .toast-success {
   border-left-color: var(--success-color);
-  
+
   .toast-icon {
     color: var(--success-color);
   }
@@ -117,7 +122,7 @@ defineExpose({
 
 .toast-error {
   border-left-color: var(--error-color);
-  
+
   .toast-icon {
     color: var(--error-color);
   }
@@ -125,7 +130,7 @@ defineExpose({
 
 .toast-warning {
   border-left-color: var(--warning-color);
-  
+
   .toast-icon {
     color: var(--warning-color);
   }
@@ -133,7 +138,7 @@ defineExpose({
 
 .toast-info {
   border-left-color: var(--primary-color);
-  
+
   .toast-icon {
     color: var(--primary-color);
   }
@@ -172,7 +177,7 @@ defineExpose({
   line-height: 1;
   opacity: 0.6;
   transition: opacity 0.2s;
-  
+
   &:hover {
     opacity: 1;
   }

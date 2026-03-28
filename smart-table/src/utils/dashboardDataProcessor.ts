@@ -329,7 +329,7 @@ export function validateAggregation(
   }
 
   // 数值聚合需要数值字段
-  const numericTypes = [FieldType.NUMBER, FieldType.RATING, FieldType.PROGRESS, FieldType.AUTO_NUMBER]
+  const numericTypes: string[] = [FieldType.NUMBER, FieldType.RATING, FieldType.PROGRESS, FieldType.AUTO_NUMBER]
   if (!numericTypes.includes(field.type)) {
     return {
       valid: false,

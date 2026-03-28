@@ -20,6 +20,7 @@ const titleFieldId = ref<string>('')
 const previewVisible = ref(false)
 const previewImages = ref<Array<{ url: string; name: string }>>([])
 const previewIndex = ref(0)
+const imageLoadingMap = ref<Map<string, boolean>>(new Map())
 
 const attachmentFields = computed(() => {
   return props.fields.filter(f => f.type === FieldType.ATTACHMENT)
@@ -79,10 +80,17 @@ const cards = computed<GalleryCard[]>(() => {
     .filter(card => card.images.length > 0)
 })
 
+function handleImageLoad(cardId: string) {
+  imageLoadingMap.value.set(cardId, false)
+}
+
+function isImageLoading(cardId: string): boolean {
+  return imageLoadingMap.value.get(cardId) ?? true
+}
+
 function handleImageClick(card: GalleryCard, event: MouseEvent) {
-  // 检查点击目标是否在操作区域内
   const target = event.target as HTMLElement
-  const actionsArea = target.closest('.card-overlay')
+  const actionsArea = target.closest('.card-actions')
   if (actionsArea) {
     return
   }
@@ -95,15 +103,13 @@ function handleImageClick(card: GalleryCard, event: MouseEvent) {
 }
 
 function handleCardClick(card: GalleryCard, event: MouseEvent) {
-  // 检查点击目标是否在操作区域内
   const target = event.target as HTMLElement
-  const actionsArea = target.closest('.card-overlay')
+  const actionsArea = target.closest('.card-actions')
   if (actionsArea) {
     return
   }
 
-  // 点击图片区域时预览，点击其他区域编辑
-  const imageArea = target.closest('.card-image')
+  const imageArea = target.closest('.card-image-wrapper')
   if (imageArea && card.images.length > 0) {
     previewImages.value = card.images
     previewIndex.value = 0
@@ -130,95 +136,169 @@ onMounted(() => {
 
 <template>
   <div class="gallery-view">
+    <!-- 工具栏 -->
     <div class="gallery-toolbar">
-      <el-select v-model="imageFieldId" placeholder="选择图片字段" class="field-select">
-        <el-option
-          v-for="field in attachmentFields"
-          :key="field.id"
-          :label="field.name"
-          :value="field.id"
-        />
-      </el-select>
-      <el-select v-model="titleFieldId" placeholder="选择标题字段" class="field-select">
-        <el-option
-          v-for="field in titleFields"
-          :key="field.id"
-          :label="field.name"
-          :value="field.id"
-        />
-      </el-select>
+      <div class="toolbar-left">
+        <div class="toolbar-icon">
+          <el-icon><Picture /></el-icon>
+        </div>
+        <span class="toolbar-title">画册视图</span>
+        <span class="toolbar-count">{{ cards.length }} 个项目</span>
+      </div>
+      <div class="toolbar-right">
+        <el-select v-model="imageFieldId" placeholder="选择图片字段" class="field-select">
+          <template #prefix>
+            <el-icon><Picture /></el-icon>
+          </template>
+          <el-option
+            v-for="field in attachmentFields"
+            :key="field.id"
+            :label="field.name"
+            :value="field.id"
+          />
+        </el-select>
+        <el-select v-model="titleFieldId" placeholder="选择标题字段" class="field-select">
+          <template #prefix>
+            <el-icon><EditPen /></el-icon>
+          </template>
+          <el-option
+            v-for="field in titleFields"
+            :key="field.id"
+            :label="field.name"
+            :value="field.id"
+          />
+        </el-select>
+      </div>
     </div>
 
+    <!-- 内容区域 -->
     <div class="gallery-content">
-      <div class="gallery-grid">
+      <!-- 网格布局 -->
+      <div v-if="cards.length > 0" class="gallery-grid">
         <div
           v-for="card in cards"
           :key="card.id"
           class="gallery-card"
           @click="handleCardClick(card, $event)"
         >
-          <div class="card-image" @click.stop="handleImageClick(card, $event)">
+          <!-- 图片区域 -->
+          <div class="card-image-wrapper" @click.stop="handleImageClick(card, $event)">
+            <!-- 骨架屏 -->
+            <div v-if="isImageLoading(card.id)" class="image-skeleton">
+              <el-skeleton animated>
+                <template #template>
+                  <el-skeleton-item variant="image" style="width: 100%; height: 100%;" />
+                </template>
+              </el-skeleton>
+            </div>
+
+            <!-- 实际图片 -->
             <img
               v-if="card.images[0]?.url"
               :src="card.images[0].url"
               :alt="card.images[0].name"
+              class="card-image"
+              @load="handleImageLoad(card.id)"
+              @error="handleImageLoad(card.id)"
             />
+
+            <!-- 无图片占位 -->
             <div v-else class="no-image">
               <el-icon><Picture /></el-icon>
             </div>
 
+            <!-- 图片数量标记 -->
             <div v-if="card.images.length > 1" class="image-count">
-              +{{ card.images.length - 1 }}
+              <el-icon><Picture /></el-icon>
+              <span>+{{ card.images.length - 1 }}</span>
             </div>
 
-            <div class="card-overlay" @click.stop>
-              <el-button
-                link
-                type="primary"
-                @click="handleEdit(card)"
-              >
-                <el-icon><Edit /></el-icon>
-              </el-button>
-              <el-button
-                link
-                type="danger"
-                @click="handleDelete(card)"
-              >
-                <el-icon><Delete /></el-icon>
-              </el-button>
+            <!-- 悬停操作按钮 -->
+            <div class="card-overlay">
+              <div class="card-actions" @click.stop>
+                <el-button
+                  circle
+                  class="action-btn edit-btn"
+                  @click="handleEdit(card)"
+                >
+                  <el-icon><Edit /></el-icon>
+                </el-button>
+                <el-button
+                  circle
+                  class="action-btn delete-btn"
+                  @click="handleDelete(card)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
             </div>
           </div>
 
+          <!-- 卡片信息 -->
           <div class="card-info">
-            <span class="card-title">{{ card.title }}</span>
+            <div class="card-title-wrapper">
+              <el-icon class="title-icon"><Document /></el-icon>
+              <span class="card-title" :title="card.title">{{ card.title }}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div v-if="cards.length === 0" class="empty-gallery">
-        <el-icon class="empty-icon"><Picture /></el-icon>
-        <p>暂无图片数据</p>
+      <!-- 空状态 -->
+      <div v-else class="empty-gallery">
+        <div class="empty-illustration">
+          <div class="empty-icon-wrapper">
+            <el-icon><Picture /></el-icon>
+          </div>
+          <div class="empty-decoration">
+            <div class="decoration-dot dot-1"></div>
+            <div class="decoration-dot dot-2"></div>
+            <div class="decoration-dot dot-3"></div>
+          </div>
+        </div>
+        <h3 class="empty-title">暂无图片数据</h3>
+        <p class="empty-subtitle">
+          <template v-if="!imageFieldId">
+            请先选择一个图片字段来展示画册
+          </template>
+          <template v-else>
+            当前选择的字段没有图片数据，请添加一些图片
+          </template>
+        </p>
+        <el-button
+          v-if="!imageFieldId && attachmentFields.length > 0"
+          type="primary"
+          class="empty-action"
+          @click="imageFieldId = attachmentFields[0].id"
+        >
+          <el-icon><Check /></el-icon>
+          选择 {{ attachmentFields[0].name }}
+        </el-button>
       </div>
     </div>
 
+    <!-- 图片预览对话框 -->
     <el-dialog
       v-model="previewVisible"
       title="图片预览"
       width="80%"
       destroy-on-close
+      class="preview-dialog"
     >
       <div class="preview-container">
         <el-carousel
           :initial-index="previewIndex"
           indicator-position="outside"
           height="60vh"
+          arrow="always"
         >
           <el-carousel-item
             v-for="(image, index) in previewImages"
             :key="index"
           >
-            <div class="preview-image">
+            <div class="preview-image-wrapper">
               <img :src="image.url" :alt="image.name" />
+              <span class="preview-image-name">{{ image.name }}</span>
             </div>
           </el-carousel-item>
         </el-carousel>
@@ -234,129 +314,430 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: $bg-color;
+  background: linear-gradient(180deg, $bg-color 0%, $gray-50 100%);
 }
 
+// 工具栏
 .gallery-toolbar {
   display: flex;
-  gap: $spacing-sm;
-  padding: $spacing-md;
-  background-color: $surface-color;
-  border-bottom: 1px solid $border-color;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: $spacing-md $spacing-lg;
+  background: $surface-color;
+  border-bottom: 1px solid $gray-100;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
 
-  .field-select {
-    width: 150px;
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.toolbar-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, $primary-light 0%, rgba($primary-color, 0.1) 100%);
+  border-radius: $border-radius-lg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .el-icon {
+    font-size: 18px;
+    color: $primary-color;
   }
 }
 
+.toolbar-title {
+  font-size: $font-size-base;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.toolbar-count {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  padding: $spacing-xs $spacing-sm;
+  background: $gray-50;
+  border-radius: $border-radius-full;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.field-select {
+  width: 160px;
+
+  :deep(.el-select__wrapper) {
+    border-radius: $border-radius-lg;
+    border: 1px solid $gray-200;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: $primary-hover;
+    }
+
+    &.is-focused {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+    }
+  }
+
+  :deep(.el-select__prefix) {
+    color: $text-secondary;
+    margin-right: $spacing-xs;
+  }
+}
+
+// 内容区域
 .gallery-content {
   flex: 1;
-  padding: $spacing-md;
+  padding: $spacing-lg;
   overflow-y: auto;
 }
 
+// 响应式网格布局
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: $spacing-md;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: $spacing-lg;
+
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: $spacing-md;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: $spacing-sm;
+  }
 }
 
+// 画册卡片
 .gallery-card {
-  background-color: $surface-color;
-  border-radius: $border-radius-lg;
+  background: $surface-color;
+  border-radius: $border-radius-xl;
   overflow: hidden;
-  border: 1px solid $border-color;
-  transition: all 0.2s ease;
+  border: 1px solid $gray-100;
+  transition: all 0.3s $ease-out-cubic;
   cursor: pointer;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 8px rgba(0, 0, 0, 0.02);
 
   &:hover {
-    border-color: $primary-color;
-    box-shadow: $shadow-md;
+    transform: translateY(-4px);
+    box-shadow:
+      0 12px 24px -8px rgba(0, 0, 0, 0.12),
+      0 8px 16px -4px rgba(0, 0, 0, 0.08);
+    border-color: rgba($primary-color, 0.2);
 
     .card-overlay {
       opacity: 1;
     }
+
+    .card-image {
+      transform: scale(1.05);
+    }
   }
 }
 
-.card-image {
+// 图片包装器
+.card-image-wrapper {
   position: relative;
   width: 100%;
-  height: 150px;
-  background-color: $bg-color;
-  cursor: pointer;
+  aspect-ratio: 4/3;
+  background: linear-gradient(135deg, $gray-50 0%, $gray-100 100%);
   overflow: hidden;
+  border-radius: $border-radius-xl $border-radius-xl 0 0;
+}
 
-  img {
-    width: 100%;
+// 骨架屏
+.image-skeleton {
+  position: absolute;
+  inset: 0;
+  padding: $spacing-md;
+  background: $gray-50;
+
+  :deep(.el-skeleton) {
     height: 100%;
-    object-fit: cover;
+  }
+
+  :deep(.el-skeleton__item) {
+    border-radius: $border-radius-lg;
   }
 }
 
+// 实际图片
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s $ease-out-cubic;
+}
+
+// 无图片占位
 .no-image {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: $text-disabled;
+  background: linear-gradient(135deg, $gray-50 0%, $gray-100 100%);
 
   .el-icon {
     font-size: 48px;
+    color: $gray-300;
   }
 }
 
+// 图片数量标记
 .image-count {
   position: absolute;
   top: $spacing-sm;
   right: $spacing-sm;
-  padding: 2px 8px;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  font-size: $font-size-xs;
-  border-radius: $border-radius-sm;
-}
-
-.card-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: $spacing-sm;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  color: white;
+  font-size: $font-size-xs;
+  font-weight: 500;
+  border-radius: $border-radius-full;
+  transition: all 0.2s ease;
+
+  .el-icon {
+    font-size: 12px;
+  }
 }
 
+// 悬停遮罩层
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: $spacing-md;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+// 操作按钮
+.card-actions {
+  display: flex;
+  gap: $spacing-sm;
+  transform: translateY(8px);
+  transition: transform 0.3s $ease-out-cubic;
+
+  .gallery-card:hover & {
+    transform: translateY(0);
+  }
+}
+
+.action-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba($surface-color, 0.95);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .el-icon {
+    font-size: 16px;
+  }
+
+  &.edit-btn {
+    color: $primary-color;
+
+    &:hover {
+      background: $primary-color;
+      color: $surface-color;
+    }
+  }
+
+  &.delete-btn {
+    color: $error-color;
+
+    &:hover {
+      background: $error-color;
+      color: $surface-color;
+    }
+  }
+}
+
+// 卡片信息
 .card-info {
-  padding: $spacing-sm;
+  padding: $spacing-md;
+  background: $surface-color;
+}
+
+.card-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.title-icon {
+  font-size: 14px;
+  color: $text-disabled;
+  flex-shrink: 0;
 }
 
 .card-title {
   font-size: $font-size-sm;
+  font-weight: 500;
   color: $text-primary;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.4;
 }
 
+// 空状态
 .empty-gallery {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: $spacing-xl * 2;
-  color: $text-secondary;
+  padding: $spacing-4xl $spacing-xl;
+  min-height: 400px;
+}
 
-  .empty-icon {
+.empty-illustration {
+  position: relative;
+  margin-bottom: $spacing-xl;
+}
+
+.empty-icon-wrapper {
+  width: 140px;
+  height: 140px;
+  background: linear-gradient(135deg, $gray-50 0%, $gray-100 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.05),
+    0 4px 20px rgba(0, 0, 0, 0.05);
+
+  .el-icon {
     font-size: 64px;
-    margin-bottom: $spacing-md;
-    color: $text-disabled;
+    color: $gray-300;
+  }
+}
+
+.empty-decoration {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.decoration-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: $primary-light;
+
+  &.dot-1 {
+    width: 16px;
+    height: 16px;
+    top: 10px;
+    right: 10px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  &.dot-2 {
+    width: 10px;
+    height: 10px;
+    bottom: 20px;
+    left: 5px;
+    animation: float 3s ease-in-out infinite 0.5s;
+  }
+
+  &.dot-3 {
+    width: 8px;
+    height: 8px;
+    top: 50%;
+    right: -10px;
+    animation: float 3s ease-in-out infinite 1s;
+  }
+}
+
+.empty-title {
+  font-size: $font-size-xl;
+  font-weight: 600;
+  color: $text-primary;
+  margin: 0 0 $spacing-sm;
+}
+
+.empty-subtitle {
+  font-size: $font-size-base;
+  color: $text-secondary;
+  margin: 0 0 $spacing-xl;
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.6;
+}
+
+.empty-action {
+  height: 44px;
+  padding: 0 $spacing-xl;
+  border-radius: $border-radius-lg;
+  font-weight: 600;
+  background: linear-gradient(135deg, $primary-color 0%, $primary-dark 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba($primary-color, 0.35);
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 6px 20px rgba($primary-color, 0.45);
+    transform: translateY(-1px);
+  }
+
+  .el-icon {
+    margin-right: 6px;
+  }
+}
+
+// 预览对话框
+.preview-dialog {
+  :deep(.el-dialog__header) {
+    padding: $spacing-lg;
+    border-bottom: 1px solid $gray-100;
+    margin-right: 0;
+
+    .el-dialog__title {
+      font-weight: 600;
+      color: $text-primary;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: $spacing-lg;
   }
 }
 
@@ -366,17 +747,80 @@ onMounted(() => {
   justify-content: center;
 }
 
-.preview-image {
+.preview-image-wrapper {
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: $spacing-md;
 
   img {
     max-width: 100%;
-    max-height: 100%;
+    max-height: calc(60vh - 40px);
     object-fit: contain;
+    border-radius: $border-radius-lg;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.preview-image-name {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  padding: $spacing-xs $spacing-md;
+  background: $gray-50;
+  border-radius: $border-radius-full;
+}
+
+// 动画
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+// 响应式适配
+@media (max-width: 768px) {
+  .gallery-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: $spacing-sm;
+    padding: $spacing-sm;
+  }
+
+  .toolbar-left {
+    justify-content: center;
+  }
+
+  .toolbar-right {
+    justify-content: center;
+  }
+
+  .field-select {
+    flex: 1;
+  }
+
+  .gallery-content {
+    padding: $spacing-md;
+  }
+
+  .empty-icon-wrapper {
+    width: 100px;
+    height: 100px;
+
+    .el-icon {
+      font-size: 48px;
+    }
+  }
+
+  .empty-title {
+    font-size: $font-size-lg;
   }
 }
 </style>

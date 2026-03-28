@@ -1,15 +1,15 @@
 export const ViewType = {
-  TABLE: 'table',
-  KANBAN: 'kanban',
-  CALENDAR: 'calendar',
-  GANTT: 'gantt',
-  FORM: 'form',
-  GALLERY: 'gallery'
+  TABLE: "table",
+  KANBAN: "kanban",
+  CALENDAR: "calendar",
+  GANTT: "gantt",
+  FORM: "form",
+  GALLERY: "gallery",
 } as const;
 
-export type ViewTypeValue = typeof ViewType[keyof typeof ViewType];
+export type ViewTypeValue = (typeof ViewType)[keyof typeof ViewType];
 
-export type RowHeight = 'short' | 'medium' | 'tall';
+export type RowHeight = "short" | "medium" | "tall";
 
 export interface ViewTableConfig {
   showGrid?: boolean;
@@ -25,7 +25,7 @@ export interface ViewKanbanConfig {
 export interface ViewCalendarConfig {
   dateFieldId?: string;
   endDateFieldId?: string;
-  defaultView?: 'day' | 'week' | 'month';
+  defaultView?: "day" | "week" | "month";
 }
 
 export interface ViewGanttConfig {
@@ -65,8 +65,8 @@ export interface View {
   name: string;
   type: ViewTypeValue;
   config: ViewConfig;
-  filters: import('./filters').FilterCondition[];
-  sorts: import('./filters').SortConfig[];
+  filters: import("./filters").FilterCondition[];
+  sorts: import("./filters").SortConfig[];
   groupBys: string[];
   hiddenFields: string[];
   frozenFields: string[];

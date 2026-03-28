@@ -1,12 +1,12 @@
-import { defineStore } from 'pinia';
-import { ref } from 'vue';
-import { tableService } from '../db/services/tableService';
-import { fieldService } from '../db/services/fieldService';
-import { recordService } from '../db/services/recordService';
-import type { TableEntity, FieldEntity, RecordEntity } from '../db/schema';
-import type { CellValue, FieldOptions } from '../types';
+import { defineStore } from "pinia";
+import { ref } from "vue";
+import { tableService } from "../db/services/tableService";
+import { fieldService } from "../db/services/fieldService";
+import { recordService } from "../db/services/recordService";
+import type { TableEntity, FieldEntity, RecordEntity } from "../db/schema";
+import type { CellValue, FieldOptions } from "../types";
 
-export const useTableStore = defineStore('table', () => {
+export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
   const currentTable = ref<TableEntity | null>(null);
   const fields = ref<FieldEntity[]>([]);
@@ -21,7 +21,7 @@ export const useTableStore = defineStore('table', () => {
       tables.value = await tableService.getTablesByBase(baseId);
       return tables.value;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load tables';
+      error.value = e instanceof Error ? e.message : "Failed to load tables";
       return [];
     } finally {
       loading.value = false;
@@ -34,20 +34,24 @@ export const useTableStore = defineStore('table', () => {
     try {
       const table = await tableService.getTable(tableId);
       if (!table) {
-        error.value = 'Table not found';
+        error.value = "Table not found";
         return;
       }
       currentTable.value = table;
       fields.value = await fieldService.getFieldsByTable(tableId);
       records.value = await recordService.getRecordsByTable(tableId);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to select table';
+      error.value = e instanceof Error ? e.message : "Failed to select table";
     } finally {
       loading.value = false;
     }
   }
 
-  async function createTable(data: { baseId: string; name: string; description?: string }) {
+  async function createTable(data: {
+    baseId: string;
+    name: string;
+    description?: string;
+  }) {
     loading.value = true;
     error.value = null;
     try {
@@ -55,7 +59,7 @@ export const useTableStore = defineStore('table', () => {
       tables.value.push(table);
       return table;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to create table';
+      error.value = e instanceof Error ? e.message : "Failed to create table";
       return null;
     } finally {
       loading.value = false;
@@ -65,51 +69,61 @@ export const useTableStore = defineStore('table', () => {
   async function updateTable(id: string, changes: Partial<TableEntity>) {
     try {
       await tableService.updateTable(id, changes);
-      const index = tables.value.findIndex(t => t.id === id);
+      const index = tables.value.findIndex((t) => t.id === id);
       if (index !== -1) {
-        tables.value[index] = { ...tables.value[index], ...changes, updatedAt: Date.now() };
+        tables.value[index] = {
+          ...tables.value[index],
+          ...changes,
+          updatedAt: Date.now(),
+        };
       }
       if (currentTable.value?.id === id) {
-        currentTable.value = { ...currentTable.value, ...changes, updatedAt: Date.now() };
+        currentTable.value = {
+          ...currentTable.value,
+          ...changes,
+          updatedAt: Date.now(),
+        };
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update table';
+      error.value = e instanceof Error ? e.message : "Failed to update table";
     }
   }
 
   async function deleteTable(id: string) {
     try {
       await tableService.deleteTable(id);
-      tables.value = tables.value.filter(t => t.id !== id);
+      tables.value = tables.value.filter((t) => t.id !== id);
       if (currentTable.value?.id === id) {
         currentTable.value = null;
         fields.value = [];
         records.value = [];
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete table';
+      error.value = e instanceof Error ? e.message : "Failed to delete table";
     }
   }
 
   async function reorderTables(baseId: string, tableIds: string[]) {
     try {
       await tableService.reorderTables(baseId, tableIds);
-      const reorderedTables = tableIds.map((id, index) => {
-        const table = tables.value.find(t => t.id === id);
-        if (table) {
-          table.order = index;
-        }
-        return table!;
-      }).filter(Boolean);
+      const reorderedTables = tableIds
+        .map((id, index) => {
+          const table = tables.value.find((t) => t.id === id);
+          if (table) {
+            table.order = index;
+          }
+          return table!;
+        })
+        .filter(Boolean);
       tables.value = reorderedTables;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to reorder tables';
+      error.value = e instanceof Error ? e.message : "Failed to reorder tables";
     }
   }
 
   async function toggleStarTable(id: string) {
     try {
-      const table = tables.value.find(t => t.id === id);
+      const table = tables.value.find((t) => t.id === id);
       if (table) {
         const newStarredState = !table.isStarred;
         await tableService.updateTable(id, { isStarred: newStarredState });
@@ -121,7 +135,7 @@ export const useTableStore = defineStore('table', () => {
         }
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to toggle star';
+      error.value = e instanceof Error ? e.message : "Failed to toggle star";
     }
   }
 
@@ -139,7 +153,7 @@ export const useTableStore = defineStore('table', () => {
       fields.value.push(field);
       return field;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to create field';
+      error.value = e instanceof Error ? e.message : "Failed to create field";
       return null;
     }
   }
@@ -147,46 +161,55 @@ export const useTableStore = defineStore('table', () => {
   async function updateField(id: string, changes: Partial<FieldEntity>) {
     try {
       await fieldService.updateField(id, changes);
-      const index = fields.value.findIndex(f => f.id === id);
+      const index = fields.value.findIndex((f) => f.id === id);
       if (index !== -1) {
-        fields.value[index] = { ...fields.value[index], ...changes, updatedAt: Date.now() };
+        fields.value[index] = {
+          ...fields.value[index],
+          ...changes,
+          updatedAt: Date.now(),
+        };
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update field';
+      error.value = e instanceof Error ? e.message : "Failed to update field";
     }
   }
 
   async function deleteField(id: string) {
     try {
       await fieldService.deleteField(id);
-      fields.value = fields.value.filter(f => f.id !== id);
-      records.value = records.value.map(record => {
+      fields.value = fields.value.filter((f) => f.id !== id);
+      records.value = records.value.map((record) => {
         const newValues = { ...record.values };
         delete newValues[id];
         return { ...record, values: newValues };
       });
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete field';
+      error.value = e instanceof Error ? e.message : "Failed to delete field";
     }
   }
 
   async function reorderFields(tableId: string, fieldIds: string[]) {
     try {
       await fieldService.reorderFields(tableId, fieldIds);
-      const reorderedFields = fieldIds.map((id, index) => {
-        const field = fields.value.find(f => f.id === id);
-        if (field) {
-          field.order = index;
-        }
-        return field!;
-      }).filter(Boolean);
+      const reorderedFields = fieldIds
+        .map((id, index) => {
+          const field = fields.value.find((f) => f.id === id);
+          if (field) {
+            field.order = index;
+          }
+          return field!;
+        })
+        .filter(Boolean);
       fields.value = reorderedFields;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to reorder fields';
+      error.value = e instanceof Error ? e.message : "Failed to reorder fields";
     }
   }
 
-  async function createRecord(data: { tableId: string; values: Record<string, CellValue> }) {
+  async function createRecord(data: {
+    tableId: string;
+    values: Record<string, CellValue>;
+  }) {
     try {
       const record = await recordService.createRecord(data);
       records.value.push(record);
@@ -195,7 +218,7 @@ export const useTableStore = defineStore('table', () => {
       }
       return record;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to create record';
+      error.value = e instanceof Error ? e.message : "Failed to create record";
       return null;
     }
   }
@@ -203,29 +226,29 @@ export const useTableStore = defineStore('table', () => {
   async function updateRecord(id: string, values: Record<string, CellValue>) {
     try {
       await recordService.updateRecord(id, { values });
-      const index = records.value.findIndex(r => r.id === id);
+      const index = records.value.findIndex((r) => r.id === id);
       if (index !== -1) {
         records.value[index] = {
           ...records.value[index],
           values,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         };
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to update record';
+      error.value = e instanceof Error ? e.message : "Failed to update record";
     }
   }
 
   async function deleteRecord(id: string) {
     try {
-      const record = records.value.find(r => r.id === id);
+      const record = records.value.find((r) => r.id === id);
       await recordService.deleteRecord(id);
-      records.value = records.value.filter(r => r.id !== id);
+      records.value = records.value.filter((r) => r.id !== id);
       if (record && currentTable.value?.id === record.tableId) {
         currentTable.value.recordCount--;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete record';
+      error.value = e instanceof Error ? e.message : "Failed to delete record";
     }
   }
 
@@ -233,12 +256,13 @@ export const useTableStore = defineStore('table', () => {
     try {
       await recordService.batchDeleteRecords(ids);
       const deletedCount = ids.length;
-      records.value = records.value.filter(r => !ids.includes(r.id));
+      records.value = records.value.filter((r) => !ids.includes(r.id));
       if (currentTable.value) {
         currentTable.value.recordCount -= deletedCount;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to batch delete records';
+      error.value =
+        e instanceof Error ? e.message : "Failed to batch delete records";
     }
   }
 
@@ -246,7 +270,8 @@ export const useTableStore = defineStore('table', () => {
     try {
       records.value = await recordService.getRecordsByTable(tableId);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to refresh records';
+      error.value =
+        e instanceof Error ? e.message : "Failed to refresh records";
     }
   }
 
@@ -279,6 +304,6 @@ export const useTableStore = defineStore('table', () => {
     deleteRecord,
     batchDeleteRecords,
     refreshRecords,
-    clearTable
+    clearTable,
   };
 });

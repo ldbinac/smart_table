@@ -1,11 +1,11 @@
-import type { SortConfig, SortDirectionValue } from '../types';
-import type { FieldEntity, RecordEntity } from '../db/schema';
-import { SortDirection, FieldType } from '../types';
+import type { SortConfig, SortDirectionValue } from "../types";
+import type { FieldEntity, RecordEntity } from "../db/schema";
+import { SortDirection, FieldType } from "../types";
 
 export function sortRecords(
   records: RecordEntity[],
   sorts: SortConfig[],
-  fields: FieldEntity[]
+  fields: FieldEntity[],
 ): RecordEntity[] {
   if (!sorts || sorts.length === 0) {
     return [...records];
@@ -13,14 +13,14 @@ export function sortRecords(
 
   return [...records].sort((a, b) => {
     for (const sort of sorts) {
-      const field = fields.find(f => f.id === sort.fieldId);
+      const field = fields.find((f) => f.id === sort.fieldId);
       if (!field) continue;
 
       const comparison = compareValues(
         a.values[sort.fieldId],
         b.values[sort.fieldId],
         field,
-        sort.direction
+        sort.direction,
       );
 
       if (comparison !== 0) {
@@ -35,7 +35,7 @@ function compareValues(
   aVal: unknown,
   bVal: unknown,
   field: FieldEntity,
-  direction: SortDirectionValue
+  direction: SortDirectionValue,
 ): number {
   const nullComparison = compareNullValues(aVal, bVal, direction);
   if (nullComparison !== null) {
@@ -80,11 +80,17 @@ function compareValues(
 function compareNullValues(
   aVal: unknown,
   bVal: unknown,
-  direction: SortDirectionValue
+  direction: SortDirectionValue,
 ): number | null {
-  const aIsNull = aVal === null || aVal === undefined || aVal === '' ||
+  const aIsNull =
+    aVal === null ||
+    aVal === undefined ||
+    aVal === "" ||
     (Array.isArray(aVal) && aVal.length === 0);
-  const bIsNull = bVal === null || bVal === undefined || bVal === '' ||
+  const bIsNull =
+    bVal === null ||
+    bVal === undefined ||
+    bVal === "" ||
     (Array.isArray(bVal) && bVal.length === 0);
 
   if (aIsNull && bIsNull) return 0;
@@ -120,7 +126,7 @@ function compareStrings(aVal: unknown, bVal: unknown): number {
   const aStr = toString(aVal).toLowerCase();
   const bStr = toString(bVal).toLowerCase();
 
-  return aStr.localeCompare(bStr, 'zh-CN');
+  return aStr.localeCompare(bStr, "zh-CN");
 }
 
 function compareBooleans(aVal: unknown, bVal: unknown): number {
@@ -134,22 +140,28 @@ function compareBooleans(aVal: unknown, bVal: unknown): number {
 function compareSingleSelect(
   aVal: unknown,
   bVal: unknown,
-  field: FieldEntity
+  field: FieldEntity,
 ): number {
   const aName = getSelectName(aVal);
   const bName = getSelectName(bVal);
 
-  const options = field.options?.options as Array<{ id: string; name: string }> | undefined;
+  const options = field.options?.options as
+    | Array<{ id: string; name: string }>
+    | undefined;
   if (options && options.length > 0) {
-    const aIndex = options.findIndex(opt => opt.id === aVal || opt.name === aName);
-    const bIndex = options.findIndex(opt => opt.id === bVal || opt.name === bName);
+    const aIndex = options.findIndex(
+      (opt) => opt.id === aVal || opt.name === aName,
+    );
+    const bIndex = options.findIndex(
+      (opt) => opt.id === bVal || opt.name === bName,
+    );
 
     if (aIndex !== -1 && bIndex !== -1) {
       return aIndex - bIndex;
     }
   }
 
-  return aName.localeCompare(bName, 'zh-CN');
+  return aName.localeCompare(bName, "zh-CN");
 }
 
 function compareMultiSelect(aVal: unknown, bVal: unknown): number {
@@ -160,16 +172,16 @@ function compareMultiSelect(aVal: unknown, bVal: unknown): number {
   if (aArr.length === 0) return 1;
   if (bArr.length === 0) return -1;
 
-  const aStr = aArr.join(',').toLowerCase();
-  const bStr = bArr.join(',').toLowerCase();
+  const aStr = aArr.join(",").toLowerCase();
+  const bStr = bArr.join(",").toLowerCase();
 
-  return aStr.localeCompare(bStr, 'zh-CN');
+  return aStr.localeCompare(bStr, "zh-CN");
 }
 
 function toNumber(value: unknown): number | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
     const num = parseFloat(value);
     return isNaN(num) ? null : num;
   }
@@ -178,8 +190,8 @@ function toNumber(value: unknown): number | null {
 
 function toDate(value: unknown): number | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
     const timestamp = Date.parse(value);
     return isNaN(timestamp) ? null : timestamp;
   }
@@ -187,54 +199,64 @@ function toDate(value: unknown): number | null {
 }
 
 function toString(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   if (Array.isArray(value)) {
-    return value.map(v => toString(v)).join(' ');
+    return value.map((v) => toString(v)).join(" ");
   }
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     return (value as { name?: string }).name || JSON.stringify(value);
   }
-  return '';
+  return "";
 }
 
 function getSelectName(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object' && value !== null) {
-    return (value as { name?: string }).name || '';
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    return (value as { name?: string }).name || "";
   }
-  return '';
+  return "";
 }
 
 function toArray(value: unknown): string[] {
   if (value === null || value === undefined) return [];
   if (Array.isArray(value)) {
-    return value.map(v => {
-      if (typeof v === 'object' && v !== null) {
-        return (v as { name?: string }).name || '';
-      }
-      return String(v);
-    }).filter(Boolean);
+    return value
+      .map((v) => {
+        if (typeof v === "object" && v !== null) {
+          return (v as { name?: string }).name || "";
+        }
+        return String(v);
+      })
+      .filter(Boolean);
   }
   return [toString(value)];
 }
 
-export function createSortConfig(fieldId: string, direction: SortDirectionValue = SortDirection.ASC): SortConfig {
+export function createSortConfig(
+  fieldId: string,
+  direction: SortDirectionValue = SortDirection.ASC,
+): SortConfig {
   return { fieldId, direction };
 }
 
-export function toggleSortDirection(direction: SortDirectionValue): SortDirectionValue {
-  return direction === SortDirection.ASC ? SortDirection.DESC : SortDirection.ASC;
+export function toggleSortDirection(
+  direction: SortDirectionValue,
+): SortDirectionValue {
+  return direction === SortDirection.ASC
+    ? SortDirection.DESC
+    : SortDirection.ASC;
 }
 
 export function updateSorts(
   sorts: SortConfig[],
   fieldId: string,
-  multiSort: boolean = false
+  multiSort: boolean = false,
 ): SortConfig[] {
-  const existingIndex = sorts.findIndex(s => s.fieldId === fieldId);
+  const existingIndex = sorts.findIndex((s) => s.fieldId === fieldId);
 
   if (existingIndex === -1) {
     const newSort = createSortConfig(fieldId);
@@ -256,20 +278,20 @@ export function updateSorts(
 
 export function getSortDirection(
   sorts: SortConfig[],
-  fieldId: string
+  fieldId: string,
 ): SortDirectionValue | null {
-  const sort = sorts.find(s => s.fieldId === fieldId);
+  const sort = sorts.find((s) => s.fieldId === fieldId);
   return sort ? sort.direction : null;
 }
 
 export function getSortIndex(sorts: SortConfig[], fieldId: string): number {
-  return sorts.findIndex(s => s.fieldId === fieldId);
+  return sorts.findIndex((s) => s.fieldId === fieldId);
 }
 
 export function reorderSorts(
   sorts: SortConfig[],
   fromIndex: number,
-  toIndex: number
+  toIndex: number,
 ): SortConfig[] {
   const newSorts = [...sorts];
   const [removed] = newSorts.splice(fromIndex, 1);
@@ -278,7 +300,7 @@ export function reorderSorts(
 }
 
 export function removeSort(sorts: SortConfig[], fieldId: string): SortConfig[] {
-  return sorts.filter(s => s.fieldId !== fieldId);
+  return sorts.filter((s) => s.fieldId !== fieldId);
 }
 
 export function clearSorts(): SortConfig[] {
@@ -287,19 +309,19 @@ export function clearSorts(): SortConfig[] {
 
 export function getSortDescription(
   sort: SortConfig,
-  fields: FieldEntity[]
+  fields: FieldEntity[],
 ): string {
-  const field = fields.find(f => f.id === sort.fieldId);
-  if (!field) return '';
+  const field = fields.find((f) => f.id === sort.fieldId);
+  if (!field) return "";
 
-  const directionLabel = sort.direction === SortDirection.ASC ? '升序' : '降序';
+  const directionLabel = sort.direction === SortDirection.ASC ? "升序" : "降序";
   return `${field.name} ${directionLabel}`;
 }
 
 export function applySort(
   records: RecordEntity[],
   sort: SortConfig,
-  fields: FieldEntity[]
+  fields: FieldEntity[],
 ): RecordEntity[] {
   return sortRecords(records, [sort], fields);
 }
@@ -307,7 +329,7 @@ export function applySort(
 export function applySorts(
   records: RecordEntity[],
   sorts: SortConfig[],
-  fields: FieldEntity[]
+  fields: FieldEntity[],
 ): RecordEntity[] {
   return sortRecords(records, sorts, fields);
 }

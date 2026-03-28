@@ -1,8 +1,8 @@
-export { default as TextField } from './TextField.vue'
-export { default as NumberField } from './NumberField.vue'
-export { default as DateField } from './DateField.vue'
-export { default as SingleSelectField } from './SingleSelectField.vue'
-export { default as MultiSelectField } from './MultiSelectField.vue'
-export { default as CheckboxField } from './CheckboxField.vue'
-export { default as FieldComponentFactory } from './FieldComponentFactory.vue'
-export { default as FieldConfigPanel } from './FieldConfigPanel.vue'
+export { default as TextField } from "./TextField.vue";
+export { default as NumberField } from "./NumberField.vue";
+export { default as DateField } from "./DateField.vue";
+export { default as SingleSelectField } from "./SingleSelectField.vue";
+export { default as MultiSelectField } from "./MultiSelectField.vue";
+export { default as CheckboxField } from "./CheckboxField.vue";
+export { default as FieldComponentFactory } from "./FieldComponentFactory.vue";
+export { default as FieldConfigPanel } from "./FieldConfigPanel.vue";

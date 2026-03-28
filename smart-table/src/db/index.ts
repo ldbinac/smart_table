@@ -1,4 +1,4 @@
-export { db } from './schema';
+export { db } from "./schema";
 export type {
   Base,
   TableEntity,
@@ -7,5 +7,5 @@ export type {
   ViewEntity,
   Dashboard,
   Attachment,
-  OperationHistory
-} from './schema';
+  OperationHistory,
+} from "./schema";
