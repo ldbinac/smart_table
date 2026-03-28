@@ -472,7 +472,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   border-right: 1px solid $border-color;
-  background: $surface-color;
+  background: linear-gradient(180deg, $gray-50 0%, $gray-100 100%);
   transition: width $transition-normal;
   overflow: hidden;
   flex-shrink: 0;
@@ -550,7 +550,7 @@ defineExpose({
   border-bottom: 1px solid $gray-200;
   min-height: 56px;
   gap: $spacing-sm;
-  @include glass-effect;
+  background: transparent;
 
   .header-content {
     flex: 1;
@@ -562,6 +562,8 @@ defineExpose({
       .el-input__wrapper {
         border-radius: $border-radius-md;
         box-shadow: 0 0 0 1px $gray-200 inset;
+        padding: 4px 11px;
+        min-height: 36px;
 
         &:hover {
           box-shadow: 0 0 0 1px $gray-300 inset;
@@ -569,6 +571,11 @@ defineExpose({
 
         &.is-focus {
           box-shadow: 0 0 0 1px $primary-color inset;
+        }
+
+        .el-input__inner {
+          height: 22px;
+          line-height: 22px;
         }
       }
     }

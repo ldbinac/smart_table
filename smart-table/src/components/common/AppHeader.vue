@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useBaseStore } from "@/stores";
+import { dashboardService } from "@/db/services/dashboardService";
+import type { Dashboard } from "@/db/schema";
 
 const route = useRoute();
 const baseStore = useBaseStore();
@@ -15,9 +17,65 @@ const isBasePage = computed(() => {
   return route.path.startsWith("/base/");
 });
 
+// 判断是否在仪表盘页面
+const isDashboardPage = computed(() => {
+  return route.path.includes("/dashboard/");
+});
+
 // 当前表格信息
 const currentTable = computed(() => {
   return baseStore.currentTable;
+});
+
+// 当前仪表盘信息
+const currentDashboard = ref<Dashboard | undefined>(undefined);
+
+// 加载仪表盘信息
+const loadDashboard = async () => {
+  const dashboardId = route.params.dashboardId as string;
+  if (dashboardId) {
+    try {
+      currentDashboard.value = await dashboardService.getDashboard(dashboardId);
+    } catch (error) {
+      console.error("加载仪表盘失败:", error);
+      currentDashboard.value = undefined;
+    }
+  } else {
+    currentDashboard.value = undefined;
+  }
+};
+
+// 监听路由变化，加载仪表盘信息
+watch(() => route.params.dashboardId, loadDashboard, { immediate: true });
+
+// 当前Base（多维表根）信息
+const currentBase = computed(() => {
+  return baseStore.currentBase;
+});
+
+// 左侧显示的标题：Base（多维表根）名称或默认标题
+const leftTitle = computed(() => {
+  if (currentBase.value) {
+    return currentBase.value.name;
+  }
+  return "Smart Table";
+});
+
+// 中间显示的信息
+const centerInfo = computed(() => {
+  if (isDashboardPage.value && currentDashboard.value) {
+    return {
+      name: currentDashboard.value.name,
+      description: currentDashboard.value.description || "",
+    };
+  }
+  if (currentTable.value) {
+    return {
+      name: currentTable.value.name,
+      description: currentTable.value.description || "",
+    };
+  }
+  return null;
 });
 </script>
 
@@ -56,26 +114,32 @@ const currentTable = computed(() => {
             fill="#3370FF"
             opacity="0.4" />
         </svg>
-        <span class="logo-text">Smart Table</span>
+        <el-tooltip
+          :content="leftTitle"
+          placement="bottom"
+          :show-after="300"
+          :disabled="leftTitle.length <= 15">
+          <span class="logo-text">{{ leftTitle }}</span>
+        </el-tooltip>
       </div>
     </div>
 
     <div class="header-center">
-      <!-- 在Base页面显示表格名称和描述 -->
-      <div v-if="isBasePage && currentTable" class="table-info-header">
+      <!-- 在Base页面显示表格或仪表盘名称和描述 -->
+      <div v-if="isBasePage && centerInfo" class="table-info-header">
         <el-tooltip
-          :content="currentTable.name"
+          :content="centerInfo.name"
           placement="bottom"
           :show-after="300"
-          :disabled="currentTable.name.length <= 20">
-          <h2 class="table-name">{{ currentTable.name }}</h2>
+          :disabled="centerInfo.name.length <= 20">
+          <h2 class="table-name">{{ centerInfo.name }}</h2>
         </el-tooltip>
         <el-tooltip
-          v-if="currentTable.description"
-          :content="currentTable.description"
+          v-if="centerInfo.description"
+          :content="centerInfo.description"
           placement="bottom"
           :show-after="300">
-          <p class="table-description">{{ currentTable.description }}</p>
+          <p class="table-description">{{ centerInfo.description }}</p>
         </el-tooltip>
       </div>
     </div>

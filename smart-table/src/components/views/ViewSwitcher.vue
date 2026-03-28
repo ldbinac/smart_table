@@ -483,6 +483,7 @@ function getViewLabel(type: string): string {
 .view-name {
   max-width: 120px;
   @include text-ellipsis;
+  font-weight: 600;
 }
 
 .view-name-input {
