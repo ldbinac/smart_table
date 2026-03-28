@@ -369,7 +369,9 @@ function getViewLabel(type: string): string {
       v-model="showCreateMenu"
       title="创建新视图"
       width="400px"
-      :close-on-click-modal="false">
+      :close-on-click-modal="false"
+      :append-to-body="true"
+      align-center>
       <el-form @submit.prevent="createView">
         <el-form-item label="视图名称">
           <el-input

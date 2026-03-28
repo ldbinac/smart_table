@@ -1,5 +1,5 @@
 import { db } from "../schema";
-import type { TableEntity, FieldEntity } from "../schema";
+import type { TableEntity, FieldEntity, ViewEntity } from "../schema";
 import { generateId } from "../../utils/id";
 
 export interface CreateTableData {
@@ -32,7 +32,26 @@ export class TableService {
       updatedAt: Date.now(),
     };
 
-    await db.transaction("rw", [db.tableEntities, db.fields], async () => {
+    // 创建默认的表格视图
+    const defaultView: ViewEntity = {
+      id: generateId(),
+      tableId: table.id,
+      name: "表格视图",
+      type: "table",
+      config: {},
+      filters: [],
+      sorts: [],
+      groupBys: [],
+      hiddenFields: [],
+      frozenFields: [],
+      rowHeight: "medium",
+      isDefault: true,
+      order: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await db.transaction("rw", [db.tableEntities, db.fields, db.views], async () => {
       await db.tableEntities.add(table);
 
       const primaryField: FieldEntity = {
@@ -48,6 +67,9 @@ export class TableService {
         updatedAt: Date.now(),
       };
       await db.fields.add(primaryField);
+
+      // 添加默认视图
+      await db.views.add(defaultView);
     });
 
     return table;

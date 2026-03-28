@@ -472,7 +472,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   border-right: 1px solid $border-color;
-  background: linear-gradient(180deg, $gray-50 0%, $gray-100 100%);
+  background: linear-gradient(180deg, $gray-100 0%, $gray-200 100%);
   transition: width $transition-normal;
   overflow: hidden;
   flex-shrink: 0;
@@ -682,14 +682,18 @@ defineExpose({
 
     // 底部指示条效果
     &::before {
-      content: '';
+      content: "";
       position: absolute;
       left: 0;
       top: 50%;
       transform: translateY(-50%);
       width: 3px;
       height: 20px;
-      background: linear-gradient(180deg, $primary-gradient-start, $primary-gradient-end);
+      background: linear-gradient(
+        180deg,
+        $primary-gradient-start,
+        $primary-gradient-end
+      );
       border-radius: 0 2px 2px 0;
     }
 
