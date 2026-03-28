@@ -48,6 +48,10 @@ const dashboardForm = ref({
   description: "",
 });
 
+// 加载状态
+const isLoading = ref(false);
+const loadingText = ref("加载中...");
+
 // 数据状态
 const tables = ref<TableEntity[]>([]);
 const fields = ref<FieldEntity[]>([]);
@@ -178,26 +182,51 @@ const filteredAggregationTypes = computed(() => {
 
 // 加载仪表盘列表
 async function loadDashboards() {
-  if (!baseStore.currentBase) return;
-  dashboards.value = await dashboardService.getDashboardsByBase(
-    baseStore.currentBase.id,
-  );
-
-  // 如果有路由参数指定了仪表盘ID，选中该仪表盘
-  const dashboardIdFromRoute = route.params.dashboardId as string;
-  if (dashboardIdFromRoute) {
-    const targetDashboard = dashboards.value.find(
-      (d) => d.id === dashboardIdFromRoute,
-    );
-    if (targetDashboard) {
-      await selectDashboard(targetDashboard);
-      return;
-    }
+  const baseId = route.params.id as string;
+  if (!baseId) {
+    console.warn("No baseId found in route params");
+    return;
   }
 
-  // 如果有仪表盘，默认选中第一个
-  if (dashboards.value.length > 0 && !currentDashboard.value) {
-    await selectDashboard(dashboards.value[0]);
+  isLoading.value = true;
+  loadingText.value = "加载基地信息...";
+
+  try {
+    // 如果 baseStore 中没有当前 base，先加载
+    if (!baseStore.currentBase || baseStore.currentBase.id !== baseId) {
+      await baseStore.loadBase(baseId);
+    }
+
+    if (!baseStore.currentBase) {
+      console.warn("Failed to load base");
+      ElMessage.error("加载基地信息失败");
+      return;
+    }
+
+    loadingText.value = "加载仪表盘列表...";
+    dashboards.value = await dashboardService.getDashboardsByBase(baseId);
+
+    // 如果有路由参数指定了仪表盘ID，选中该仪表盘
+    const dashboardIdFromRoute = route.params.dashboardId as string;
+    if (dashboardIdFromRoute) {
+      const targetDashboard = dashboards.value.find(
+        (d) => d.id === dashboardIdFromRoute,
+      );
+      if (targetDashboard) {
+        await selectDashboard(targetDashboard);
+        return;
+      }
+    }
+
+    // 如果有仪表盘，默认选中第一个
+    if (dashboards.value.length > 0 && !currentDashboard.value) {
+      await selectDashboard(dashboards.value[0]);
+    }
+  } catch (error) {
+    console.error("加载仪表盘失败:", error);
+    ElMessage.error("加载数据失败，请刷新页面重试");
+  } finally {
+    isLoading.value = false;
   }
 }
 
@@ -1218,6 +1247,28 @@ onMounted(() => {
   window.addEventListener("resize", handleResize);
 });
 
+// 监听路由参数变化，刷新数据
+watch(
+  () => [route.params.id, route.params.dashboardId],
+  ([newBaseId, newDashboardId], [oldBaseId, oldDashboardId]) => {
+    // baseId 变化时重新加载
+    if (newBaseId !== oldBaseId && newBaseId) {
+      loadTables();
+      loadDashboards();
+    }
+    // dashboardId 变化时切换到对应仪表盘
+    else if (newDashboardId !== oldDashboardId && newDashboardId) {
+      const targetDashboard = dashboards.value.find(
+        (d) => d.id === newDashboardId,
+      );
+      if (targetDashboard) {
+        selectDashboard(targetDashboard);
+      }
+    }
+  },
+  { immediate: false },
+);
+
 onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
   chartRefs.value.forEach((chart) => chart.dispose());
@@ -1240,6 +1291,12 @@ onUnmounted(() => {
 
 <template>
   <div class="dashboard-view">
+    <!-- 加载遮罩 -->
+    <div v-if="isLoading" class="loading-overlay">
+      <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
+      <span class="loading-text">{{ loadingText }}</span>
+    </div>
+
     <!-- 侧边栏 -->
     <BaseSidebar
       ref="sidebarRef"
@@ -1923,6 +1980,7 @@ import {
   Check,
   Share,
   Link,
+  Loading,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -1937,6 +1995,42 @@ export default {
   display: flex;
   height: 100%;
   background-color: $bg-color;
+  position: relative; // 为加载遮罩提供定位上下文
+}
+
+// 加载遮罩
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba($surface-color, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  gap: $spacing-md;
+
+  .loading-icon {
+    color: $primary-color;
+    animation: rotate 1s linear infinite;
+  }
+
+  .loading-text {
+    font-size: $font-size-base;
+    color: $text-secondary;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .dashboard-main {
