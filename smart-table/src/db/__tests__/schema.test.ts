@@ -162,6 +162,7 @@ describe("Database Schema", () => {
         isPrimary: true,
         isSystem: false,
         isRequired: false,
+        isVisible: true,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -187,6 +188,7 @@ describe("Database Schema", () => {
           isPrimary: i === 0,
           isSystem: false,
           isRequired: false,
+          isVisible: true,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });

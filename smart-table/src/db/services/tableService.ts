@@ -62,6 +62,7 @@ export class TableService {
         isPrimary: true,
         isSystem: true,
         isRequired: true,
+        isVisible: true,
         order: 0,
         createdAt: Date.now(),
         updatedAt: Date.now(),

@@ -451,6 +451,20 @@ function insertFieldRef(fieldName: string) {
     newField.value.formula += fieldRef;
   }
 }
+
+// 切换字段可见性
+async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
+  try {
+    await fieldService.updateFieldVisibility(field.id, isVisible);
+    // 不直接修改 prop，而是通过事件通知父组件更新
+    emit('field-updated', { ...field, isVisible });
+    ElMessage.success(isVisible ? '字段已显示' : '字段已隐藏');
+  } catch (error) {
+    ElMessage.error('更新字段可见性失败');
+    // 发生错误时，让父组件重新加载数据以恢复状态
+    emit('field-updated', { ...field, isVisible: field.isVisible });
+  }
+}
 </script>
 
 <template>
@@ -489,6 +503,17 @@ function insertFieldRef(fieldName: string) {
             >
           </div>
           <div class="field-actions">
+            <ElSwitch
+              :model-value="field.isVisible !== false"
+              :active-value="true"
+              :inactive-value="false"
+              size="small"
+              inline-prompt
+              active-text="显示"
+              inactive-text="隐藏"
+              @change="(val) => toggleFieldVisibility(field, val as boolean)"
+              style="margin-right: 8px"
+            />
             <ElButton
               v-if="!field.isSystem"
               link

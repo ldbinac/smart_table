@@ -988,7 +988,8 @@ function handleFieldCreated(field: any) {
 function handleFieldUpdated(field: any) {
   const index = baseStore.fields.findIndex((f) => f.id === field.id);
   if (index !== -1) {
-    baseStore.fields[index] = field;
+    // 使用 Object.assign 保留响应式，并触发更新
+    Object.assign(baseStore.fields[index], field);
   }
   ElMessage.success(`字段 "${field.name}" 更新成功`);
 }
@@ -1226,7 +1227,7 @@ function handleImported() {
             <!-- 表格视图 - 分组模式 -->
             <GroupedTableView
               v-if="isTableView && hasGroupConfig"
-              :fields="baseStore.fields"
+              :fields="baseStore.visibleFields"
               :records="filteredRecords as any[]"
               :group-by="currentGroupBys"
               @row-click="handleRecordSelect"
@@ -1248,7 +1249,7 @@ function handleImported() {
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
-              :fields="baseStore.fields"
+              :fields="baseStore.visibleFields"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById"
@@ -1260,7 +1261,7 @@ function handleImported() {
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
-              :fields="baseStore.fields"
+              :fields="baseStore.visibleFields"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById" />
@@ -1271,7 +1272,7 @@ function handleImported() {
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
-              :fields="baseStore.fields"
+              :fields="baseStore.visibleFields"
               @updateRecord="handleSaveRecord"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById"
@@ -1281,14 +1282,14 @@ function handleImported() {
             <GalleryView
               v-else-if="isGalleryView"
               :records="filteredRecords"
-              :fields="baseStore.fields"
+              :fields="baseStore.visibleFields"
               @editRecord="handleEditRecordById"
               @deleteRecord="handleDeleteRecord" />
 
             <!-- 表单视图 -->
             <FormView
               v-else-if="isFormView"
-              :fields="baseStore.fields"
+              :fields="baseStore.visibleFields"
               :readonly="false"
               :title="formConfig.title"
               :description="formConfig.description"
@@ -1439,7 +1440,7 @@ function handleImported() {
     <!-- 筛选对话框 -->
     <FilterDialog
       v-model:visible="filterDialogVisible"
-      :fields="baseStore.fields"
+      :fields="baseStore.visibleFields"
       :initial-filters="activeFilters"
       :initial-conjunction="filterConjunction"
       @apply="handleFilterApply"
@@ -1448,7 +1449,7 @@ function handleImported() {
     <!-- 排序对话框 -->
     <SortDialog
       v-model:visible="sortDialogVisible"
-      :fields="baseStore.fields"
+      :fields="baseStore.visibleFields"
       :initial-sorts="activeSorts"
       @apply="handleSortApply"
       @clear="handleSortClear" />
@@ -1456,7 +1457,7 @@ function handleImported() {
     <!-- 分组对话框 -->
     <GroupDialog
       v-model:visible="groupDialogVisible"
-      :fields="baseStore.fields"
+      :fields="baseStore.visibleFields"
       :initial-group-by="currentGroupBys"
       @apply="handleGroupApply"
       @clear="handleGroupClear" />
@@ -1464,20 +1465,20 @@ function handleImported() {
     <!-- 导出对话框 -->
     <ExportDialog
       v-model:visible="exportDialogVisible"
-      :fields="baseStore.fields"
+      :fields="baseStore.visibleFields"
       :records="filteredRecords" />
 
     <!-- 记录编辑对话框 -->
     <RecordDialog
       v-model:visible="recordDialogVisible"
       :record="editingRecord"
-      :fields="baseStore.sortedFields"
+      :fields="baseStore.visibleFields"
       @save="handleSaveRecord" />
 
     <!-- 添加记录对话框 -->
     <AddRecordDialog
       v-model:visible="addRecordDialogVisible"
-      :fields="baseStore.sortedFields"
+      :fields="baseStore.visibleFields"
       :initial-values="addRecordInitialValues"
       :group-field-id="addRecordGroupInfo.groupFieldId"
       :group-id="addRecordGroupInfo.groupId"

@@ -35,6 +35,7 @@ export interface FieldEntity {
   isPrimary: boolean;
   isSystem: boolean;
   isRequired: boolean;
+  isVisible: boolean;
   defaultValue?: CellValue;
   description?: string;
   order: number;

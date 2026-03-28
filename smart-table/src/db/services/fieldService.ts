@@ -56,6 +56,7 @@ export class FieldService {
       isPrimary: false,
       isSystem: false,
       isRequired: data.isRequired ?? false,
+      isVisible: true,
       defaultValue: data.defaultValue,
       description: data.description,
       order: maxOrder + 1,
@@ -116,6 +117,13 @@ export class FieldService {
       for (let i = 0; i < fieldIds.length; i++) {
         await db.fields.update(fieldIds[i], { order: i });
       }
+    });
+  }
+
+  async updateFieldVisibility(fieldId: string, isVisible: boolean): Promise<void> {
+    await db.fields.update(fieldId, {
+      isVisible,
+      updatedAt: Date.now(),
     });
   }
 
@@ -231,6 +239,7 @@ export class FieldService {
       isPrimary: false,
       isSystem: false,
       isRequired: false,
+      isVisible: true,
       order: await this.getNextFieldOrder(config.linkedTableId),
       createdAt: Date.now(),
       updatedAt: Date.now(),
