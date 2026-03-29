@@ -1,8 +1,8 @@
 # 🚀 我用 AI 写了一个「飞书多维表格」平替版！纯前端实现，浏览器就能跑
 
 > **GitHub 开源地址**：https://github.com/ldbinac/smart_table
->
-> ⭐ 如果觉得有用，欢迎点个 Star 支持一下！
+> ** Gitee 开源地址**：https://gitee.com/binac/smart_table.git
+> ⭐ 如果觉得有用，欢迎点个 Star 支持一下！, 也欢迎提交 PR 来完善这个项目！
 
 ---
 
