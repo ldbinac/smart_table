@@ -550,7 +550,9 @@ defineExpose({
   border-bottom: 1px solid $gray-200;
   min-height: 56px;
   gap: $spacing-sm;
-  background: transparent;
+  // 与底部新增区域背景色保持一致
+  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 
   .header-content {
     flex: 1;
@@ -779,6 +781,9 @@ defineExpose({
   padding: $spacing-md;
   border-top: 1px solid $border-color;
   margin-top: auto;
+  // 调亮背景色，与上部区域形成视觉区分
+  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 
   .footer-buttons-column {
     display: flex;
@@ -790,6 +795,14 @@ defineExpose({
     width: 100%;
     justify-content: flex-start;
     padding-left: $spacing-sm;
+    // 增强按钮在亮色背景上的辨识度
+    background-color: rgba($primary-color, 0.05);
+    border-radius: $border-radius-md;
+    transition: all $transition-fast;
+
+    &:hover {
+      background-color: rgba($primary-color, 0.12);
+    }
   }
 }
 
