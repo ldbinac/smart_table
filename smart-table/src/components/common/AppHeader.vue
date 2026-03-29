@@ -194,7 +194,7 @@ const centerInfo = computed(() => {
 
 .logo-text {
   font-size: $font-size-lg;
-  font-weight: 600;
+  font-weight: 800;
   color: $text-primary;
 }
 
