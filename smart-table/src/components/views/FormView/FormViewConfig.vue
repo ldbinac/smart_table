@@ -42,12 +42,19 @@ watch(
   () => props.visible,
   (visible) => {
     if (visible) {
+      // 检查是否明确设置了 visibleFieldIds（包括空数组的情况）
+      const hasVisibleFieldIds =
+        props.initialConfig &&
+        "visibleFieldIds" in props.initialConfig &&
+        Array.isArray(props.initialConfig.visibleFieldIds);
+
       config.value = {
         title: props.initialConfig?.title || "数据收集表单",
         description: props.initialConfig?.description || "",
         submitButtonText: props.initialConfig?.submitButtonText || "提交",
-        visibleFieldIds:
-          props.initialConfig?.visibleFieldIds || props.fields.map((f) => f.id),
+        visibleFieldIds: hasVisibleFieldIds
+          ? props.initialConfig!.visibleFieldIds!
+          : props.fields.map((f) => f.id),
         successMessage:
           props.initialConfig?.successMessage || "提交成功，感谢您的参与！",
         allowMultipleSubmit: props.initialConfig?.allowMultipleSubmit !== false,

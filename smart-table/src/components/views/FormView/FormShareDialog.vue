@@ -81,11 +81,14 @@ function saveFormConfig(formId: string) {
 
   // 根据 visibleFieldIds 确定要分享的字段
   let shareableFields: FieldEntity[];
-  if (
-    props.formConfig?.visibleFieldIds &&
-    props.formConfig.visibleFieldIds.length > 0
-  ) {
-    // 使用配置的可见字段
+  // 检查是否明确设置了 visibleFieldIds（包括空数组的情况）
+  const hasVisibleFieldIds =
+    props.formConfig &&
+    "visibleFieldIds" in props.formConfig &&
+    Array.isArray(props.formConfig.visibleFieldIds);
+
+  if (hasVisibleFieldIds) {
+    // 使用配置的可见字段（即使是空数组也使用）
     shareableFields = props.fields.filter(
       (f) =>
         props.formConfig!.visibleFieldIds!.includes(f.id) &&
