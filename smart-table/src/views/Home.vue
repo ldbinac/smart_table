@@ -11,6 +11,9 @@ const baseStore = useBaseStore();
 const createFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
 
+// 当前导航项
+const currentNav = ref<"home" | "all">("home");
+
 // 创建对话框显示状态
 const createDialogVisible = ref(false);
 
@@ -52,8 +55,16 @@ const editFormRules: FormRules = {
 
 // 预设图标选项
 const iconOptions = [
-  "📊", "📋", "📁", "📝", "📅",
-  "💼", "📈", "🎯", "✅", "📌",
+  "📊",
+  "📋",
+  "📁",
+  "📝",
+  "📅",
+  "💼",
+  "📈",
+  "🎯",
+  "✅",
+  "📌",
 ];
 
 // 预设颜色选项 - 清新配色
@@ -227,7 +238,7 @@ async function handleDeleteBase(base: Base) {
         cancelButtonText: "取消",
         type: "warning",
         confirmButtonClass: "el-button--danger",
-      }
+      },
     );
 
     await baseStore.deleteBase(base.id);
@@ -274,250 +285,319 @@ function stopPropagation(event: Event) {
 
 <template>
   <div class="home-page">
-    <!-- 顶部搜索栏 -->
-    <header class="home-header">
-      <div class="header-brand">
-        <div class="brand-logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M3 9h18M9 3v18" />
-          </svg>
-        </div>
-        <h1>Smart Table</h1>
-      </div>
-
-      <!-- 全局搜索框 -->
-      <div class="header-search">
-        <div class="search-wrapper">
-          <el-icon class="search-icon"><Search /></el-icon>
-          <input
-            ref="searchInputRef"
-            v-model="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="搜索多维表格..."
-            @input="handleSearchInput"
-          />
-          <el-icon
-            v-if="searchQuery"
-            class="search-clear"
-            @click="clearSearch"
-          >
-            <CircleClose />
-          </el-icon>
-        </div>
-        <div v-if="searchQuery" class="search-stats">
-          找到 {{ starredBases.length + allBases.length }} 个结果
-        </div>
-      </div>
-
-      <div class="header-actions">
-        <el-button type="primary" class="create-btn" @click="openCreateDialog">
-          <el-icon><Plus /></el-icon>
-          <span>新建</span>
-        </el-button>
-        <el-button class="settings-btn" @click="goToSettings">
-          <el-icon><Setting /></el-icon>
-        </el-button>
-      </div>
-    </header>
-
-    <main class="home-content">
-      <!-- 空状态 -->
-      <div v-if="baseStore.bases.length === 0" class="empty-state">
-        <div class="empty-illustration">
-          <svg viewBox="0 0 200 200" fill="none">
-            <rect x="40" y="60" width="120" height="100" rx="8" fill="#E0E7FF" />
-            <rect x="60" y="80" width="80" height="8" rx="4" fill="#6366F1" />
-            <rect x="60" y="100" width="60" height="8" rx="4" fill="#A5B4FC" />
-            <rect x="60" y="120" width="70" height="8" rx="4" fill="#A5B4FC" />
-          </svg>
-        </div>
-        <h3>开始创建您的第一个多维表格</h3>
-        <p class="empty-desc">多维表格让数据管理更简单、更高效</p>
-        <el-button type="primary" size="large" @click="openCreateDialog">
-          <el-icon><Plus /></el-icon>
-          创建多维表格
-        </el-button>
-      </div>
-
-      <!-- 搜索无结果 -->
-      <div v-else-if="!hasSearchResults" class="empty-state search-empty">
-        <el-icon class="empty-icon" :size="64"><Search /></el-icon>
-        <h3>未找到匹配的多维表格</h3>
-        <p class="empty-desc">尝试使用其他关键词搜索</p>
-        <el-button @click="clearSearch">清除搜索</el-button>
-      </div>
-
-      <div v-else class="content-wrapper">
-        <!-- 收藏分区 -->
-        <section v-if="hasStarredBases" class="section starred-section">
-          <div class="section-header">
-            <div class="section-title">
-              <div class="title-icon starred-icon">
-                <el-icon><StarFilled /></el-icon>
-              </div>
-              <h2>我的收藏</h2>
-              <span class="count-badge">{{ starredBases.length }}</span>
+    <div class="home-layout">
+      <!-- 左侧侧边栏导航 -->
+      <aside class="home-sidebar">
+        <nav class="sidebar-nav">
+          <div
+            class="nav-item"
+            :class="{ active: currentNav === 'home' }"
+            @click="currentNav = 'home'">
+            <el-icon><HomeFilled /></el-icon>
+            <span>首页</span>
+          </div>
+          <div
+            class="nav-item"
+            :class="{ active: currentNav === 'all' }"
+            @click="currentNav = 'all'">
+            <el-icon><Grid /></el-icon>
+            <span>全部多维表</span>
+          </div>
+        </nav>
+      </aside>
+      <div class="home-content">
+        <!-- 顶部搜索栏 -->
+        <header class="home-header">
+          <!-- 全局搜索框 - 居中显示 -->
+          <div class="header-search">
+            <div class="search-wrapper">
+              <el-icon class="search-icon"><Search /></el-icon>
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                class="search-input"
+                placeholder="搜索多维表格..."
+                @input="handleSearchInput" />
+              <el-icon
+                v-if="searchQuery"
+                class="search-clear"
+                @click="clearSearch">
+                <CircleClose />
+              </el-icon>
+            </div>
+            <div v-if="searchQuery" class="search-stats">
+              找到 {{ starredBases.length + allBases.length }} 个结果
             </div>
           </div>
 
-          <div class="card-grid">
-            <div
-              v-for="base in starredBases"
-              :key="base.id"
-              class="base-card starred"
-              @click="goToBase(base.id)"
-            >
-              <div class="card-main">
-                <div
-                  class="card-icon"
-                  :style="{ backgroundColor: base.color || '#3B82F6' }"
-                >
-                  {{ base.icon || "📊" }}
-                </div>
-                <div class="card-info">
-                  <h3
-                    class="card-name"
-                    v-html="highlightText(base.name, searchQuery)"
-                  />
-                  <p class="card-desc">{{ base.description || "暂无描述" }}</p>
-                </div>
-              </div>
-              <div class="card-footer">
-                <span class="update-time">
-                  最后修改时间：{{ new Date(base.updatedAt).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }}
-                </span>
-                <div class="card-actions" @click.stop="stopPropagation">
-                  <el-button
-                    link
-                    type="warning"
-                    :loading="isUnstarLoading(base.id)"
-                    @click="handleUnstarBase(base, $event)"
-                  >
-                    <el-icon><StarFilled /></el-icon>
-                  </el-button>
-                  <el-dropdown
-                    trigger="click"
-                    @command="(cmd) => {
-                      if (cmd === 'edit') openEditDialog(base);
-                      else if (cmd === 'delete') handleDeleteBase(base);
-                    }"
-                  >
-                    <el-button link>
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">
-                          <el-icon><Edit /></el-icon>编辑
-                        </el-dropdown-item>
-                        <el-dropdown-item divided command="delete" class="delete-item">
-                          <el-icon><Delete /></el-icon>删除
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
-            </div>
+          <div class="header-actions">
+            <el-button
+              type="primary"
+              class="create-btn"
+              @click="openCreateDialog">
+              <el-icon><Plus /></el-icon>
+              <span>新建</span>
+            </el-button>
+            <el-button class="settings-btn" @click="goToSettings">
+              <el-icon><Setting /></el-icon>
+            </el-button>
           </div>
-        </section>
+        </header>
 
-        <!-- 所有多维表格分区 -->
-        <section v-if="allBases.length > 0" class="section all-section">
-          <div class="section-header">
-            <div class="section-title">
-              <div class="title-icon all-icon">
-                <el-icon><Grid /></el-icon>
+        <main class="home-content">
+          <!-- 首页视图 -->
+          <div v-if="currentNav === 'home'" class="home-view">
+            <!-- 空状态 -->
+            <div v-if="baseStore.bases.length === 0" class="empty-state">
+              <div class="empty-illustration">
+                <svg viewBox="0 0 200 200" fill="none">
+                  <rect
+                    x="40"
+                    y="60"
+                    width="120"
+                    height="100"
+                    rx="8"
+                    fill="#E0E7FF" />
+                  <rect
+                    x="60"
+                    y="80"
+                    width="80"
+                    height="8"
+                    rx="4"
+                    fill="#6366F1" />
+                  <rect
+                    x="60"
+                    y="100"
+                    width="60"
+                    height="8"
+                    rx="4"
+                    fill="#A5B4FC" />
+                  <rect
+                    x="60"
+                    y="120"
+                    width="70"
+                    height="8"
+                    rx="4"
+                    fill="#A5B4FC" />
+                </svg>
               </div>
-              <h2>所有多维表格</h2>
-              <span class="count-badge gray">{{ allBases.length }}</span>
-            </div>
-          </div>
-
-          <div class="card-grid">
-            <!-- 创建卡片 -->
-            <div class="base-card create-card" @click="openCreateDialog">
-              <div class="create-content">
-                <div class="create-icon">
-                  <el-icon :size="24"><Plus /></el-icon>
-                </div>
-                <span>创建多维表格</span>
-              </div>
+              <h3>开始创建您的第一个多维表格</h3>
+              <p class="empty-desc">多维表格让数据管理更简单、更高效</p>
+              <el-button type="primary" size="large" @click="openCreateDialog">
+                <el-icon><Plus /></el-icon>
+                创建多维表格
+              </el-button>
             </div>
 
-            <!-- Base 卡片 -->
-            <div
-              v-for="base in allBases"
-              :key="base.id"
-              class="base-card"
-              :class="{ starred: base.isStarred }"
-              @click="goToBase(base.id)"
-            >
-              <div class="card-main">
-                <div
-                  class="card-icon"
-                  :style="{ backgroundColor: base.color || '#3B82F6' }"
-                >
-                  {{ base.icon || "📊" }}
+            <!-- 搜索无结果 -->
+            <div v-else-if="!hasSearchResults" class="empty-state search-empty">
+              <el-icon class="empty-icon" :size="64"><Search /></el-icon>
+              <h3>未找到匹配的多维表格</h3>
+              <p class="empty-desc">尝试使用其他关键词搜索</p>
+              <el-button @click="clearSearch">清除搜索</el-button>
+            </div>
+
+            <div v-else class="content-wrapper">
+              <!-- 收藏分区 -->
+              <section v-if="hasStarredBases" class="section starred-section">
+                <div class="section-header">
+                  <div class="section-title">
+                    <div class="title-icon starred-icon">
+                      <el-icon><StarFilled /></el-icon>
+                    </div>
+                    <h2>我的收藏</h2>
+                    <span class="count-badge">{{ starredBases.length }}</span>
+                  </div>
                 </div>
-                <div class="card-info">
-                  <h3
-                    class="card-name"
-                    v-html="highlightText(base.name, searchQuery)"
-                  />
-                  <p class="card-desc">{{ base.description || "暂无描述" }}</p>
+
+                <div class="card-grid">
+                  <div
+                    v-for="base in starredBases"
+                    :key="base.id"
+                    class="base-card starred"
+                    @click="goToBase(base.id)">
+                    <div class="card-main">
+                      <div
+                        class="card-icon"
+                        :style="{ backgroundColor: base.color || '#3B82F6' }">
+                        {{ base.icon || "📊" }}
+                      </div>
+                      <div class="card-info">
+                        <h3
+                          class="card-name"
+                          v-html="highlightText(base.name, searchQuery)" />
+                        <p class="card-desc">
+                          {{ base.description || "暂无描述" }}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="card-footer">
+                      <span class="update-time">
+                        最后修改时间：{{
+                          new Date(base.updatedAt).toLocaleString("zh-CN", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        }}
+                      </span>
+                      <div class="card-actions" @click.stop="stopPropagation">
+                        <el-button
+                          link
+                          type="warning"
+                          :loading="isUnstarLoading(base.id)"
+                          @click="handleUnstarBase(base, $event)">
+                          <el-icon><StarFilled /></el-icon>
+                        </el-button>
+                        <el-dropdown
+                          trigger="click"
+                          @command="
+                            (cmd) => {
+                              if (cmd === 'edit') openEditDialog(base);
+                              else if (cmd === 'delete') handleDeleteBase(base);
+                            }
+                          ">
+                          <el-button link>
+                            <el-icon><MoreFilled /></el-icon>
+                          </el-button>
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item command="edit">
+                                <el-icon><Edit /></el-icon>编辑
+                              </el-dropdown-item>
+                              <el-dropdown-item
+                                divided
+                                command="delete"
+                                class="delete-item">
+                                <el-icon><Delete /></el-icon>删除
+                              </el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="card-footer">
-                <span class="update-time">
-                  最后修改时间：{{ new Date(base.updatedAt).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) }}
-                </span>
-                <div class="card-actions" @click.stop="stopPropagation">
-                  <el-button
-                    v-if="!base.isStarred"
-                    link
-                    @click="handleStarBase(base, $event)"
-                  >
-                    <el-icon><Star /></el-icon>
-                  </el-button>
-                  <el-button
-                    v-else
-                    link
-                    type="warning"
-                    @click="handleUnstarBase(base, $event)"
-                  >
-                    <el-icon><StarFilled /></el-icon>
-                  </el-button>
-                  <el-dropdown
-                    trigger="click"
-                    @command="(cmd) => {
-                      if (cmd === 'edit') openEditDialog(base);
-                      else if (cmd === 'delete') handleDeleteBase(base);
-                    }"
-                  >
-                    <el-button link>
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">
-                          <el-icon><Edit /></el-icon>编辑
-                        </el-dropdown-item>
-                        <el-dropdown-item divided command="delete" class="delete-item">
-                          <el-icon><Delete /></el-icon>删除
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
+              </section>
+
+              <!-- 所有多维表格分区 -->
+              <section v-if="allBases.length > 0" class="section all-section">
+                <div class="section-header">
+                  <div class="section-title">
+                    <div class="title-icon all-icon">
+                      <el-icon><Grid /></el-icon>
+                    </div>
+                    <h2>所有多维表格</h2>
+                    <span class="count-badge gray">{{ allBases.length }}</span>
+                  </div>
                 </div>
-              </div>
+
+                <div class="card-grid">
+                  <!-- 创建卡片 -->
+                  <div class="base-card create-card" @click="openCreateDialog">
+                    <div class="create-content">
+                      <div class="create-icon">
+                        <el-icon :size="24"><Plus /></el-icon>
+                      </div>
+                      <span>创建多维表格</span>
+                    </div>
+                  </div>
+
+                  <!-- Base 卡片 -->
+                  <div
+                    v-for="base in allBases"
+                    :key="base.id"
+                    class="base-card"
+                    :class="{ starred: base.isStarred }"
+                    @click="goToBase(base.id)">
+                    <div class="card-main">
+                      <div
+                        class="card-icon"
+                        :style="{ backgroundColor: base.color || '#3B82F6' }">
+                        {{ base.icon || "📊" }}
+                      </div>
+                      <div class="card-info">
+                        <h3
+                          class="card-name"
+                          v-html="highlightText(base.name, searchQuery)" />
+                        <p class="card-desc">
+                          {{ base.description || "暂无描述" }}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="card-footer">
+                      <span class="update-time">
+                        最后修改时间：{{
+                          new Date(base.updatedAt).toLocaleString("zh-CN", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        }}
+                      </span>
+                      <div class="card-actions" @click.stop="stopPropagation">
+                        <el-button
+                          v-if="!base.isStarred"
+                          link
+                          @click="handleStarBase(base, $event)">
+                          <el-icon><Star /></el-icon>
+                        </el-button>
+                        <el-button
+                          v-else
+                          link
+                          type="warning"
+                          @click="handleUnstarBase(base, $event)">
+                          <el-icon><StarFilled /></el-icon>
+                        </el-button>
+                        <el-dropdown
+                          trigger="click"
+                          @command="
+                            (cmd) => {
+                              if (cmd === 'edit') openEditDialog(base);
+                              else if (cmd === 'delete') handleDeleteBase(base);
+                            }
+                          ">
+                          <el-button link>
+                            <el-icon><MoreFilled /></el-icon>
+                          </el-button>
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item command="edit">
+                                <el-icon><Edit /></el-icon>编辑
+                              </el-dropdown-item>
+                              <el-dropdown-item
+                                divided
+                                command="delete"
+                                class="delete-item">
+                                <el-icon><Delete /></el-icon>删除
+                              </el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
-        </section>
+
+          <!-- 全部多维表视图 -->
+          <div v-else class="all-bases-view">
+            <div class="placeholder-content">
+              <el-icon :size="64" class="placeholder-icon"><Grid /></el-icon>
+              <h2>待实现</h2>
+              <p>全部多维表功能正在开发中，敬请期待</p>
+            </div>
+          </div>
+        </main>
       </div>
-    </main>
+    </div>
 
     <!-- 创建对话框 -->
     <el-dialog
@@ -525,22 +605,19 @@ function stopPropagation(event: Event) {
       title="创建多维表格"
       width="480px"
       :close-on-click-modal="false"
-      class="create-dialog"
-    >
+      class="create-dialog">
       <el-form
         ref="createFormRef"
         :model="createForm"
         :rules="createFormRules"
         label-width="70px"
-        class="compact-form"
-      >
+        class="compact-form">
         <el-form-item label="名称" prop="name">
           <el-input
             v-model="createForm.name"
             placeholder="请输入多维表格名称"
             maxlength="50"
-            show-word-limit
-          />
+            show-word-limit />
         </el-form-item>
 
         <el-form-item label="描述">
@@ -550,8 +627,7 @@ function stopPropagation(event: Event) {
             :rows="2"
             placeholder="请输入描述（可选）"
             maxlength="200"
-            show-word-limit
-          />
+            show-word-limit />
         </el-form-item>
 
         <el-form-item label="图标">
@@ -561,8 +637,7 @@ function stopPropagation(event: Event) {
               :key="icon"
               class="icon-option"
               :class="{ active: createForm.icon === icon }"
-              @click="createForm.icon = icon"
-            >
+              @click="createForm.icon = icon">
               {{ icon }}
             </span>
           </div>
@@ -576,8 +651,7 @@ function stopPropagation(event: Event) {
               class="color-option"
               :style="{ backgroundColor: color }"
               :class="{ active: createForm.color === color }"
-              @click="createForm.color = color"
-            />
+              @click="createForm.color = color" />
           </div>
         </el-form-item>
       </el-form>
@@ -594,22 +668,19 @@ function stopPropagation(event: Event) {
       title="编辑多维表格"
       width="480px"
       :close-on-click-modal="false"
-      class="create-dialog"
-    >
+      class="create-dialog">
       <el-form
         ref="editFormRef"
         :model="editForm"
         :rules="editFormRules"
         label-width="70px"
-        class="compact-form"
-      >
+        class="compact-form">
         <el-form-item label="名称" prop="name">
           <el-input
             v-model="editForm.name"
             placeholder="请输入多维表格名称"
             maxlength="50"
-            show-word-limit
-          />
+            show-word-limit />
         </el-form-item>
 
         <el-form-item label="描述">
@@ -619,8 +690,7 @@ function stopPropagation(event: Event) {
             :rows="2"
             placeholder="请输入描述（可选）"
             maxlength="200"
-            show-word-limit
-          />
+            show-word-limit />
         </el-form-item>
 
         <el-form-item label="图标">
@@ -630,8 +700,7 @@ function stopPropagation(event: Event) {
               :key="icon"
               class="icon-option"
               :class="{ active: editForm.icon === icon }"
-              @click="editForm.icon = icon"
-            >
+              @click="editForm.icon = icon">
               {{ icon }}
             </span>
           </div>
@@ -645,8 +714,7 @@ function stopPropagation(event: Event) {
               class="color-option"
               :style="{ backgroundColor: color }"
               :class="{ active: editForm.color === color }"
-              @click="editForm.color = color"
-            />
+              @click="editForm.color = color" />
           </div>
         </el-form-item>
       </el-form>
@@ -671,6 +739,7 @@ import {
   Setting,
   Search,
   CircleClose,
+  HomeFilled,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -680,26 +749,81 @@ export default {
 
 <style lang="scss" scoped>
 // 清新配色变量
-$primary: #3B82F6;
-$primary-light: #EFF6FF;
-$success: #10B981;
-$warning: #F59E0B;
-$danger: #EF4444;
-$gray-50: #F9FAFB;
-$gray-100: #F3F4F6;
-$gray-200: #E5E7EB;
-$gray-300: #D1D5DB;
-$gray-400: #9CA3AF;
-$gray-500: #6B7280;
-$gray-600: #4B5563;
+$primary: #3b82f6;
+$primary-light: #eff6ff;
+$success: #10b981;
+$warning: #f59e0b;
+$danger: #ef4444;
+$gray-50: #f9fafb;
+$gray-100: #f3f4f6;
+$gray-200: #e5e7eb;
+$gray-300: #d1d5db;
+$gray-400: #9ca3af;
+$gray-500: #6b7280;
+$gray-600: #4b5563;
 $gray-700: #374151;
-$gray-800: #1F2937;
+$gray-800: #1f2937;
 $gray-900: #111827;
-$star-color: #F59E0B;
+$star-color: #f59e0b;
 
 .home-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #F9FAFB 0%, #FFFFFF 100%);
+  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+}
+
+// 页面布局
+.home-layout {
+  display: flex;
+  min-height: calc(100vh - 75px);
+}
+
+// 左侧侧边栏
+.home-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: white;
+  border-right: 1px solid $gray-200;
+  padding: 16px 12px;
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: $gray-600;
+    font-size: 14px;
+    font-weight: 500;
+
+    .el-icon {
+      font-size: 18px;
+    }
+
+    &:hover {
+      background: $gray-100;
+      color: $gray-800;
+    }
+
+    &.active {
+      background: $primary-light;
+      color: $primary;
+    }
+  }
+}
+
+// 主内容区
+.home-content {
+  flex: 1;
+  overflow: auto;
+  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
 }
 
 // 顶部搜索栏
@@ -709,12 +833,21 @@ $star-color: #F59E0B;
   z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 16px 32px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid $gray-200;
   gap: 24px;
+
+  .header-search {
+    flex: 0 1 480px;
+  }
+
+  .header-actions {
+    position: absolute;
+    right: 32px;
+  }
 }
 
 .header-brand {
@@ -729,7 +862,7 @@ $star-color: #F59E0B;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+    background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
     border-radius: 10px;
     color: white;
 
@@ -824,7 +957,7 @@ $star-color: #F59E0B;
     padding: 0 20px;
     border-radius: 20px;
     font-weight: 500;
-    background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+    background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
     border: none;
     box-shadow: 0 4px 14px rgba($primary, 0.35);
     transition: all 0.3s ease;
@@ -855,8 +988,8 @@ $star-color: #F59E0B;
   }
 }
 
-// 主内容区
-.home-content {
+// 首页视图内容
+.home-view {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px 32px 48px;
@@ -1256,7 +1389,9 @@ $star-color: #F59E0B;
 
   &.active {
     border-color: white;
-    box-shadow: 0 0 0 2px $gray-400, 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 0 0 2px $gray-400,
+      0 2px 4px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -1269,8 +1404,62 @@ $star-color: #F59E0B;
   }
 }
 
+// 全部多维表视图
+.all-bases-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 500px;
+  padding: 40px;
+
+  .placeholder-content {
+    text-align: center;
+    color: $gray-500;
+
+    .placeholder-icon {
+      color: $gray-300;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      font-size: 24px;
+      font-weight: 600;
+      color: $gray-700;
+      margin: 0 0 12px;
+    }
+
+    p {
+      font-size: 14px;
+      color: $gray-500;
+      margin: 0;
+    }
+  }
+}
+
 // 响应式设计
 @media (max-width: 768px) {
+  .home-layout {
+    flex-direction: column;
+  }
+
+  .home-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid $gray-200;
+    padding: 12px;
+
+    .sidebar-nav {
+      flex-direction: row;
+      gap: 8px;
+    }
+
+    .nav-item {
+      flex: 1;
+      justify-content: center;
+      padding: 10px 12px;
+    }
+  }
+
   .home-header {
     padding: 12px 16px;
     flex-wrap: wrap;
@@ -1285,9 +1474,13 @@ $star-color: #F59E0B;
       max-width: none;
       width: 100%;
     }
+
+    .header-actions {
+      position: static;
+    }
   }
 
-  .home-content {
+  .home-view {
     padding: 16px;
   }
 
