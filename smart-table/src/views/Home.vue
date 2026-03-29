@@ -140,6 +140,16 @@ const hasSearchResults = computed(() => {
   return starredBases.value.length > 0 || allBases.value.length > 0;
 });
 
+// 限制显示的收藏卡片数量（最多8个）
+const displayedStarredBases = computed(() => {
+  return starredBases.value.slice(0, 8);
+});
+
+// 限制显示的所有卡片数量（最多15个，不包括创建卡片）
+const displayedAllBases = computed(() => {
+  return allBases.value.slice(0, 15);
+});
+
 // 清空搜索
 const clearSearch = () => {
   searchQuery.value = "";
@@ -345,7 +355,9 @@ function stopPropagation(event: Event) {
           </div>
         </header>
 
-        <main class="home-content">
+        <main
+          class="home-content"
+          style="overflow: auto; height: calc(100vh - 100px)">
           <!-- 首页视图 -->
           <div v-if="currentNav === 'home'" class="home-view">
             <!-- 空状态 -->
@@ -409,11 +421,19 @@ function stopPropagation(event: Event) {
                     <h2>我的收藏</h2>
                     <span class="count-badge">{{ starredBases.length }}</span>
                   </div>
+                  <el-button
+                    v-if="starredBases.length > 8"
+                    link
+                    type="primary"
+                    class="view-more-btn"
+                    @click="currentNav = 'all'">
+                    查看更多……
+                  </el-button>
                 </div>
 
                 <div class="card-grid">
                   <div
-                    v-for="base in starredBases"
+                    v-for="base in displayedStarredBases"
                     :key="base.id"
                     class="base-card starred"
                     @click="goToBase(base.id)">
@@ -493,6 +513,14 @@ function stopPropagation(event: Event) {
                     <h2>所有多维表格</h2>
                     <span class="count-badge gray">{{ allBases.length }}</span>
                   </div>
+                  <el-button
+                    v-if="allBases.length > 15"
+                    link
+                    type="primary"
+                    class="view-more-btn"
+                    @click="currentNav = 'all'">
+                    查看更多……
+                  </el-button>
                 </div>
 
                 <div class="card-grid">
@@ -508,7 +536,7 @@ function stopPropagation(event: Event) {
 
                   <!-- Base 卡片 -->
                   <div
-                    v-for="base in allBases"
+                    v-for="base in displayedAllBases"
                     :key="base.id"
                     class="base-card"
                     :class="{ starred: base.isStarred }"
@@ -784,6 +812,7 @@ $star-color: #f59e0b;
   background: white;
   border-right: 1px solid $gray-200;
   padding: 16px 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8f9 100%);
 
   .sidebar-nav {
     display: flex;
@@ -802,6 +831,7 @@ $star-color: #f59e0b;
     color: $gray-600;
     font-size: 14px;
     font-weight: 500;
+    position: relative;
 
     .el-icon {
       font-size: 18px;
@@ -815,6 +845,19 @@ $star-color: #f59e0b;
     &.active {
       background: $primary-light;
       color: $primary;
+
+      // 右侧蓝色竖线指示器
+      &::before {
+        content: "";
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 30px;
+        background: linear-gradient(180deg, $primary 0%, #6366f1 100%);
+        border-radius: 2px 0 0 2px;
+      }
     }
   }
 }
@@ -822,12 +865,13 @@ $star-color: #f59e0b;
 // 主内容区
 .home-content {
   flex: 1;
-  overflow: auto;
+  height: 100vh;
   background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
 }
 
 // 顶部搜索栏
 .home-header {
+  overflow: hidden;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -1004,7 +1048,27 @@ $star-color: #f59e0b;
 // 分区样式
 .section {
   .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 16px;
+
+    .view-more-btn {
+      font-size: 13px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba($primary, 0.1);
+        transform: translateX(2px);
+      }
+
+      &:active {
+        transform: translateX(0);
+      }
+    }
   }
 
   .section-title {
