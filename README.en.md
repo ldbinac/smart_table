@@ -16,41 +16,41 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 
 ### Supported Field Types (22 Types)
 
-| Category | Field Type | Status |
-| -------- | ---------- | ------ |
-| Basic | Text | ✅ |
-| Basic | Number | ✅ |
-| Basic | Date | ✅ |
-| Basic | Single Select | ✅ |
-| Basic | Multi Select | ✅ |
-| Basic | Checkbox | ✅ |
-| Contact | Member | ✅ |
-| Contact | Phone | ✅ |
-| Contact | Email | ✅ |
-| Contact | URL | ✅ |
-| Media | Attachment | ✅ |
-| Computed | Formula | ✅ |
-| Computed | Link | ✅ |
-| Computed | Lookup | ✅ |
-| System | Created By | ✅ |
-| System | Created Time | ✅ |
-| System | Updated By | ✅ |
-| System | Updated Time | ✅ |
-| System | Auto Number | ✅ |
-| Others | Rating | ✅ |
-| Others | Progress | ✅ |
-| Others | URL | ✅ |
+| Category | Field Type    | Status |
+| -------- | ------------- | ------ |
+| Basic    | Text          | ✅     |
+| Basic    | Number        | ✅     |
+| Basic    | Date          | ✅     |
+| Basic    | Single Select | ✅     |
+| Basic    | Multi Select  | ✅     |
+| Basic    | Checkbox      | ✅     |
+| Contact  | Member        | ✅     |
+| Contact  | Phone         | ✅     |
+| Contact  | Email         | ✅     |
+| Contact  | URL           | ✅     |
+| Media    | Attachment    | ✅     |
+| Computed | Formula       | ✅     |
+| Computed | Link          | ✅     |
+| Computed | Lookup        | ✅     |
+| System   | Created By    | ✅     |
+| System   | Created Time  | ✅     |
+| System   | Updated By    | ✅     |
+| System   | Updated Time  | ✅     |
+| System   | Auto Number   | ✅     |
+| Others   | Rating        | ✅     |
+| Others   | Progress      | ✅     |
+| Others   | URL           | ✅     |
 
 ### Supported View Types (6 Types)
 
-| View Type | Description | Status |
-| --------- | ----------- | ------ |
-| Table View | Classic table display with virtual scroll and column freeze | ✅ |
-| Kanban View | Card-based display with drag sorting | ✅ |
-| Calendar View | Time-based display | ✅ |
-| Gantt View | Project timeline display | ✅ |
-| Form View | Data collection form with sharing | ✅ |
-| Gallery View | Image card display | ✅ |
+| View Type     | Description                                                 | Status |
+| ------------- | ----------------------------------------------------------- | ------ |
+| Table View    | Classic table display with virtual scroll and column freeze | ✅     |
+| Kanban View   | Card-based display with drag sorting                        | ✅     |
+| Calendar View | Time-based display                                          | ✅     |
+| Gantt View    | Project timeline display                                    | ✅     |
+| Form View     | Data collection form with sharing                           | ✅     |
+| Gallery View  | Image card display                                          | ✅     |
 
 ### Advanced Features
 
@@ -64,21 +64,31 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia + Dex
 - Star Feature - Quick access to frequently used tables
 - Search Feature - Quick table search
 
+## Feature Preview
+
+| Feature     | Preview                               | Feature       | Preview                                   |
+| ----------- | ------------------------------------- | ------------- | ----------------------------------------- |
+| Home        | ![Home](./doc/home.jpeg)              | Home          | ![Home2](./doc/home-all.jpeg)             |
+| Table View  | ![Table View](./doc/TableView.jpeg)   | Table View    | ![Table View](./doc/TableViewGroup.jpeg)  |
+| Kanban View | ![Kanban View](./doc/KanbanView.jpeg) | Calendar View | ![Calendar View](./doc/CalendarView.jpeg) |
+| Gantt View  | ![Gantt View](./doc/GanttView.jpeg)   | Form View     | ![Form View](./doc/FormView.jpeg)         |
+| Form View   | ![Form View](./doc/FormView.jpeg)     | Dashboard     | ![Dashboard](./doc/Dashboard.jpeg)        |
+
 ## Tech Stack
 
-| Category | Technology | Version |
-| -------- | ---------- | ------- |
-| Frontend Framework | Vue 3 | ^3.5.30 |
-| Language | TypeScript | ~5.9.3 |
-| State Management | Pinia | ^2.3.1 |
-| Database | Dexie (IndexedDB) | ^3.2.7 |
-| UI Component Library | Element Plus | ^2.13.6 |
-| Table Component | vxe-table | ^4.18.7 |
-| Drag Sorting | sortablejs | ^1.15.7 |
-| Charts | echarts + vue-echarts | ^5.6.0 |
-| Date Processing | dayjs | ^1.11.20 |
-| Build Tool | Vite | ^8.0.1 |
-| Testing | Vitest | ^3.2.4 |
+| Category             | Technology            | Version  |
+| -------------------- | --------------------- | -------- |
+| Frontend Framework   | Vue 3                 | ^3.5.30  |
+| Language             | TypeScript            | ~5.9.3   |
+| State Management     | Pinia                 | ^2.3.1   |
+| Database             | Dexie (IndexedDB)     | ^3.2.7   |
+| UI Component Library | Element Plus          | ^2.13.6  |
+| Table Component      | vxe-table             | ^4.18.7  |
+| Drag Sorting         | sortablejs            | ^1.15.7  |
+| Charts               | echarts + vue-echarts | ^5.6.0   |
+| Date Processing      | dayjs                 | ^1.11.20 |
+| Build Tool           | Vite                  | ^8.0.1   |
+| Testing              | Vitest                | ^3.2.4   |
 
 ## Quick Start
 
