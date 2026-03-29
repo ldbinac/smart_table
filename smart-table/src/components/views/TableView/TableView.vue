@@ -11,7 +11,7 @@ import TableRow from "./TableRow.vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 import { generateId } from "@/utils/id";
 import { ElMessage, ElIcon } from "element-plus";
-import { ZoomIn } from "@element-plus/icons-vue";
+import { ZoomIn, Check } from "@element-plus/icons-vue";
 import RecordDialog from "@/components/dialogs/RecordDialog.vue";
 
 interface Props {
@@ -208,6 +208,23 @@ const handleRowClick = (record: RecordEntity, event: MouseEvent) => {
 const handleExpandRecord = (record: RecordEntity) => {
   expandedRecord.value = record;
   expandDialogVisible.value = true;
+};
+
+// 切换行勾选状态
+const toggleRowSelection = (recordId: string) => {
+  const index = selectedRows.value.indexOf(recordId);
+  if (index > -1) {
+    selectedRows.value.splice(index, 1);
+  } else {
+    selectedRows.value.push(recordId);
+  }
+  // 触发选择事件
+  emit(
+    "records-select",
+    selectedRows.value
+      .map((id) => sortedRecords.value.find((r) => r.id === id)!)
+      .filter(Boolean),
+  );
 };
 
 // 处理弹窗保存
@@ -564,21 +581,15 @@ defineExpose({
           @dragstart="(e) => handleRowDragStart(e, record)"
           @dragend="handleRowDragEnd">
           <div class="row-selector">
-            <input
-              type="checkbox"
-              :checked="selectedRows.includes(record.id)"
-              @click.stop
-              @change="
-                (e) => {
-                  const checked = (e.target as HTMLInputElement).checked;
-                  if (checked) {
-                    selectedRows.push(record.id);
-                  } else {
-                    const idx = selectedRows.indexOf(record.id);
-                    if (idx > -1) selectedRows.splice(idx, 1);
-                  }
-                }
-              " />
+            <!-- 自定义勾选按钮 -->
+            <div
+              class="custom-checkbox"
+              :class="{ 'is-checked': selectedRows.includes(record.id) }"
+              @click.stop="toggleRowSelection(record.id)">
+              <div class="checkbox-inner">
+                <ElIcon v-if="selectedRows.includes(record.id)"><Check /></ElIcon>
+              </div>
+            </div>
             <!-- 放大按钮 - 与勾选按钮并列显示 -->
             <button
               class="expand-btn"
@@ -753,14 +764,46 @@ defineExpose({
   background-color: inherit;
   position: relative;
 
-  input[type="checkbox"] {
+  // 自定义勾选按钮
+  .custom-checkbox {
     width: 16px;
     height: 16px;
+    border-radius: 3px;
+    border: 2px solid #cccccc;
+    background-color: transparent;
     cursor: pointer;
-    opacity: 0;
-    transition: opacity $transition-fast;
-    accent-color: $primary-color;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
     flex-shrink: 0;
+    opacity: 0; // 默认隐藏
+
+    .checkbox-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .el-icon {
+        font-size: 12px;
+        color: white;
+        font-weight: bold;
+      }
+    }
+
+    // 未勾选但悬停状态 - 灰色边框
+    &:hover {
+      border-color: #999999;
+    }
+
+    // 已勾选状态 - 蓝色填充背景 + 白色对勾
+    &.is-checked {
+      opacity: 1 !important;
+      background-color: $primary-color;
+      border-color: $primary-color;
+    }
   }
 
   .row-number {
@@ -779,7 +822,7 @@ defineExpose({
     justify-content: center;
     border: none;
     border-radius: $border-radius-sm;
-    background-color: $primary-color;
+    background-color: #999999;
     color: white;
     cursor: pointer;
     opacity: 0;
@@ -790,7 +833,7 @@ defineExpose({
     margin-left: 4px;
 
     &:hover {
-      background-color: darken($primary-color, 10%);
+      background-color: #666666;
       transform: scale(1.1);
     }
 
@@ -804,8 +847,9 @@ defineExpose({
     }
   }
 
+  // 悬停时显示勾选按钮（未勾选状态）
   &:hover {
-    input[type="checkbox"] {
+    .custom-checkbox:not(.is-checked) {
       opacity: 1;
     }
 
@@ -815,9 +859,14 @@ defineExpose({
   }
 }
 
-// 行被选中时显示放大按钮
+// 行被选中时的样式
 :deep(.table-row.is-selected) {
   .row-selector {
+    // 已勾选行的勾选按钮持续可见
+    .custom-checkbox {
+      opacity: 1;
+    }
+
     .expand-btn {
       opacity: 1;
       transform: scale(1);
@@ -825,6 +874,16 @@ defineExpose({
 
     .row-number {
       opacity: 0;
+    }
+  }
+}
+
+// 行被选中且悬停时的样式
+:deep(.table-row.is-selected.is-hovered) {
+  .row-selector {
+    .custom-checkbox.is-checked {
+      background-color: darken($primary-color, 5%);
+      border-color: darken($primary-color, 5%);
     }
   }
 }
