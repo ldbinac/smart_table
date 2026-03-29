@@ -116,20 +116,35 @@ export class FormulaEngine {
 
   private evaluateFunctions(expression: string): string {
     const functionNames = Object.keys(formulaFunctions).join("|");
-    const regex = new RegExp(`(${functionNames})\\s*\\(([^)]*)\\)`, "gi");
+    
+    // 递归处理嵌套函数 - 从内到外处理
+    let result = expression;
+    let prevResult: string;
+    
+    // 循环处理直到没有变化（所有函数都被执行）
+    do {
+      prevResult = result;
+      
+      // 使用更精确的正则匹配函数调用（处理嵌套括号）
+      const regex = new RegExp(`(${functionNames})\\s*\\(([^()]*)\\)`, "gi");
+      
+      result = result.replace(regex, (match, funcName, args) => {
+        const func = formulaFunctions[funcName.toUpperCase()];
+        if (!func) return match;
 
-    return expression.replace(regex, (match, funcName, args) => {
-      const func = formulaFunctions[funcName.toUpperCase()];
-      if (!func) return match;
-
-      try {
-        const parsedArgs = this.parseArguments(args);
-        const result = func(...parsedArgs);
-        return this.valueToExpression(result as CellValue, undefined);
-      } catch {
-        return "#ERROR";
-      }
-    });
+        try {
+          // 先递归处理参数中的嵌套函数
+          const evaluatedArgs = this.evaluateFunctions(args);
+          const parsedArgs = this.parseArguments(evaluatedArgs);
+          const funcResult = func(...parsedArgs);
+          return this.valueToExpression(funcResult as CellValue, undefined);
+        } catch {
+          return "#ERROR";
+        }
+      });
+    } while (result !== prevResult);
+    
+    return result;
   }
 
   private parseArguments(argsStr: string): unknown[] {

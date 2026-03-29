@@ -667,4 +667,107 @@ describe("Edge Cases", () => {
     // 嵌套函数可能成功或返回错误
     expect(result === "Yes" || result === "#ERROR").toBe(true);
   });
+
+  it("should calculate age using DATEDIF with date field", () => {
+    // 创建出生日期字段（日期类型）
+    const birthDateField: FieldEntity = {
+      id: "birthDate",
+      tableId: "table1",
+      name: "出生日期",
+      type: FieldType.DATE,
+      options: {},
+      order: 6,
+      isPrimary: false,
+      isSystem: false,
+      isRequired: false,
+      isVisible: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const fieldsWithBirthDate = [...mockFields, birthDateField];
+    const engine = new FormulaEngine(fieldsWithBirthDate);
+
+    // 出生日期：1990-01-01
+    const birthDate = new Date(1990, 0, 1).getTime();
+    const record: RecordEntity = {
+      id: "rec1",
+      tableId: "table1",
+      values: {
+        birthDate: birthDate,
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // 测试 DATEDIF 函数计算年龄 - 1990年出生
+    const formula = 'DATEDIF({出生日期}, TODAY(), "Y")';
+    const result = engine.calculate(record, formula);
+
+    // 调试输出
+    console.log("DATEDIF result (1990):", result, "type:", typeof result);
+
+    // 结果应该是数字（年龄），且大于0
+    // 注意：公式引擎可能返回字符串形式的数字
+    const numericResult =
+      typeof result === "string" ? parseFloat(result) : result;
+    expect(typeof numericResult).toBe("number");
+    expect(numericResult).toBeGreaterThan(0);
+
+    // 测试不同出生日期 - 2000年出生（应该更年轻）
+    const birthDate2000 = new Date(2000, 0, 1).getTime();
+    const record2000: RecordEntity = {
+      id: "rec2",
+      tableId: "table1",
+      values: {
+        birthDate: birthDate2000,
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const result2000 = engine.calculate(record2000, formula);
+    console.log(
+      "DATEDIF result (2000):",
+      result2000,
+      "type:",
+      typeof result2000,
+    );
+    const numericResult2000 =
+      typeof result2000 === "string"
+        ? parseFloat(result2000)
+        : Number(result2000);
+
+    // 2000年出生应该比1990年出生年轻约10岁
+    expect(numericResult2000).toBeLessThan(numericResult as number);
+    expect(
+      (numericResult as number) - numericResult2000,
+    ).toBeGreaterThanOrEqual(9);
+
+    // 测试不同出生日期 - 2020年出生（应该更年轻）
+    const birthDate2020 = new Date(2020, 0, 1).getTime();
+    const record2020: RecordEntity = {
+      id: "rec3",
+      tableId: "table1",
+      values: {
+        birthDate: birthDate2020,
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const result2020 = engine.calculate(record2020, formula);
+    console.log(
+      "DATEDIF result (2020):",
+      result2020,
+      "type:",
+      typeof result2020,
+    );
+    const numericResult2020 =
+      typeof result2020 === "string"
+        ? parseFloat(result2020)
+        : Number(result2020);
+
+    // 2020年出生应该比2000年出生年轻约20岁
+    expect(numericResult2020).toBeLessThan(numericResult2000);
+    expect(numericResult2000 - numericResult2020).toBeGreaterThanOrEqual(19);
+  });
 });
