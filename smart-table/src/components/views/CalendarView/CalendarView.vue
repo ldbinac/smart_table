@@ -60,7 +60,21 @@ const titleField = computed(() => {
   return props.fields.find((f) => f.isPrimary) || props.fields[0];
 });
 
-// 获取记录标题（支持公式字段）
+// 获取单选字段的显示文本
+const getSingleSelectDisplay = (
+  field: FieldEntity,
+  value: string,
+): { name: string; color: string } | null => {
+  if (!field.options?.options) return null;
+  const options = field.options.options as Array<{
+    id: string;
+    name: string;
+    color: string;
+  }>;
+  return options.find((opt) => opt.id === value) || null;
+};
+
+// 获取记录标题（支持公式字段和单选字段）
 const getRecordTitle = (record: RecordEntity): string => {
   const field = titleField.value;
   if (!field) return "无标题";
@@ -80,6 +94,14 @@ const getRecordTitle = (record: RecordEntity): string => {
       }
     }
     return "计算错误";
+  }
+
+  // 单选字段：返回选项名称而不是ID
+  if (field.type === FieldType.SINGLE_SELECT) {
+    const value = record.values[field.id];
+    if (value === null || value === undefined) return "无标题";
+    const option = getSingleSelectDisplay(field, String(value));
+    return option?.name || String(value);
   }
 
   // 普通字段直接返回值
