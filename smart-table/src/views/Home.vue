@@ -364,6 +364,21 @@ function isUnstarLoading(baseId: string): boolean {
   return unstarLoadingMap.value.get(baseId) || false;
 }
 
+// 统一的收藏/取消收藏切换函数
+async function handleToggleStar(base: Base, event: Event) {
+  event.stopPropagation();
+  unstarLoadingMap.value.set(base.id, true);
+
+  try {
+    await baseStore.toggleStarBase(base.id);
+    ElMessage.success(base.isStarred ? "已取消收藏" : "已收藏");
+  } catch (error) {
+    ElMessage.error("操作失败");
+  } finally {
+    unstarLoadingMap.value.set(base.id, false);
+  }
+}
+
 // 阻止事件冒泡
 function stopPropagation(event: Event) {
   event.stopPropagation();
@@ -755,6 +770,45 @@ function stopPropagation(event: Event) {
                             修改于 {{ formatDate(base.updatedAt) }}
                           </span>
                         </div>
+                        <div class="item-actions" @click.stop>
+                          <el-tooltip
+                            content="取消收藏"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="warning"
+                              class="action-btn"
+                              :loading="isUnstarLoading(base.id)"
+                              @click="handleUnstarBase(base, $event)">
+                              <el-icon><StarFilled /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                          <el-tooltip
+                            content="编辑"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="primary"
+                              class="action-btn"
+                              @click="openEditDialog(base)">
+                              <el-icon><Edit /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                          <el-tooltip
+                            content="删除"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="danger"
+                              class="action-btn"
+                              @click="handleDeleteBase(base)">
+                              <el-icon><Delete /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                        </div>
                       </div>
                     </div>
 
@@ -816,6 +870,48 @@ function stopPropagation(event: Event) {
                           <span class="update-time">
                             修改于 {{ formatDate(base.updatedAt) }}
                           </span>
+                        </div>
+                        <div class="item-actions" @click.stop>
+                          <el-tooltip
+                            :content="base.isStarred ? '取消收藏' : '收藏'"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              :type="base.isStarred ? 'warning' : 'info'"
+                              class="action-btn"
+                              :loading="isUnstarLoading(base.id)"
+                              @click="handleToggleStar(base, $event)">
+                              <el-icon>
+                                <StarFilled v-if="base.isStarred" />
+                                <Star v-else />
+                              </el-icon>
+                            </el-button>
+                          </el-tooltip>
+                          <el-tooltip
+                            content="编辑"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="primary"
+                              class="action-btn"
+                              @click="openEditDialog(base)">
+                              <el-icon><Edit /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                          <el-tooltip
+                            content="删除"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="danger"
+                              class="action-btn"
+                              @click="handleDeleteBase(base)">
+                              <el-icon><Delete /></el-icon>
+                            </el-button>
+                          </el-tooltip>
                         </div>
                       </div>
                     </div>
@@ -1904,6 +2000,63 @@ $star-color: #f59e0b;
         color: $gray-400;
       }
     }
+
+    .item-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      opacity: 1;
+
+      .action-btn {
+        padding: 6px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        opacity: 0.6;
+
+        &:hover {
+          opacity: 1;
+          background: rgba($primary, 0.1);
+          transform: scale(1.1);
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+
+        // 不同类型按钮的悬停高亮效果
+        &.el-button--primary:hover {
+          background: rgba($primary, 0.15);
+          color: $primary;
+        }
+
+        &.el-button--warning:hover {
+          background: rgba($warning, 0.15);
+          color: $warning;
+        }
+
+        &.el-button--danger:hover {
+          background: rgba($danger, 0.15);
+          color: $danger;
+        }
+
+        &.el-button--info:hover {
+          background: rgba($gray-500, 0.15);
+          color: $gray-700;
+        }
+
+        // 禁用状态
+        &.is-loading,
+        &.is-disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .el-icon {
+          font-size: 16px;
+        }
+      }
+    }
   }
 
   .pagination-container {
@@ -2046,6 +2199,24 @@ $star-color: #f59e0b;
 
       .item-meta {
         display: none;
+      }
+
+      .item-actions {
+        opacity: 1;
+        gap: 2px;
+
+        .action-btn {
+          padding: 4px;
+          opacity: 0.6;
+
+          &:hover {
+            opacity: 1;
+          }
+
+          .el-icon {
+            font-size: 14px;
+          }
+        }
       }
     }
 
