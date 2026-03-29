@@ -611,7 +611,9 @@ watch(
           }"
           @click="handleDateClick(day.date)">
           <div class="cell-header">
-            <span class="day-number">{{ day.date.getDate() }}</span>
+            <span class="day-number"
+              >{{ day.date.getMonth() + 1 }}.{{ day.date.getDate() }}</span
+            >
           </div>
           <div class="cell-events">
             <div
@@ -661,7 +663,7 @@ watch(
           @click="handleDateClick(day.date)">
           <div class="weekday-name">{{ weekDaysFull[index] }}</div>
           <div class="weekday-date" :class="{ 'today-badge': day.isToday }">
-            {{ day.date.getDate() }}
+            {{ day.date.getMonth() + 1 }}.{{ day.date.getDate() }}
           </div>
         </div>
       </div>
@@ -965,7 +967,7 @@ watch(
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 28px;
+        width: 48px;
         height: 28px;
         background: $primary-color;
         color: white;
@@ -1002,6 +1004,7 @@ watch(
     flex-shrink: 0;
     height: 28px;
     line-height: 1;
+    background-color: #cddcf461;
   }
 
   .day-number {
