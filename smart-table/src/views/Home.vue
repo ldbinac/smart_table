@@ -14,6 +14,20 @@ const editFormRef = ref<FormInstance>();
 // 当前导航项
 const currentNav = ref<"home" | "all">("home");
 
+// 全部多维表视图页签状态
+const activeTab = ref<"starred" | "all">("starred");
+
+// 加载状态
+const isLoading = ref(false);
+
+// 我的收藏分页状态
+const starredCurrentPage = ref(1);
+const starredPageSize = ref(10);
+
+// 所有多维表格分页状态
+const allCurrentPage = ref(1);
+const allPageSize = ref(10);
+
 // 创建对话框显示状态
 const createDialogVisible = ref(false);
 
@@ -149,6 +163,69 @@ const displayedStarredBases = computed(() => {
 const displayedAllBases = computed(() => {
   return allBases.value.slice(0, 15);
 });
+
+// 我的收藏分页数据
+const paginatedStarredBases = computed(() => {
+  const start = (starredCurrentPage.value - 1) * starredPageSize.value;
+  const end = start + starredPageSize.value;
+  return starredBases.value.slice(start, end);
+});
+
+// 所有多维表格分页数据
+const paginatedAllBases = computed(() => {
+  const start = (allCurrentPage.value - 1) * allPageSize.value;
+  const end = start + allPageSize.value;
+  return allBases.value.slice(start, end);
+});
+
+// 日期格式化
+const formatDate = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (days === 0) {
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours === 0) {
+      const minutes = Math.floor(diff / (1000 * 60));
+      return minutes <= 0 ? "刚刚" : `${minutes}分钟前`;
+    }
+    return `${hours}小时前`;
+  } else if (days === 1) {
+    return "昨天";
+  } else if (days < 7) {
+    return `${days}天前`;
+  } else if (days < 30) {
+    return `${Math.floor(days / 7)}周前`;
+  } else {
+    return date.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  }
+};
+
+// 我的收藏分页事件
+const handleStarredSizeChange = (size: number) => {
+  starredPageSize.value = size;
+  starredCurrentPage.value = 1;
+};
+
+const handleStarredPageChange = (page: number) => {
+  starredCurrentPage.value = page;
+};
+
+// 所有多维表格分页事件
+const handleAllSizeChange = (size: number) => {
+  allPageSize.value = size;
+  allCurrentPage.value = 1;
+};
+
+const handleAllPageChange = (page: number) => {
+  allCurrentPage.value = page;
+};
 
 // 清空搜索
 const clearSearch = () => {
@@ -617,10 +694,161 @@ function stopPropagation(event: Event) {
 
           <!-- 全部多维表视图 -->
           <div v-else class="all-bases-view">
-            <div class="placeholder-content">
-              <el-icon :size="64" class="placeholder-icon"><Grid /></el-icon>
-              <h2>待实现</h2>
-              <p>全部多维表功能正在开发中，敬请期待</p>
+            <!-- <div class="all-bases-header">
+              <h2 class="view-title">多维表管理</h2>
+            </div> -->
+
+            <div class="tabs-container">
+              <div class="tabs-header">
+                <div
+                  class="tab-item"
+                  :class="{ active: activeTab === 'starred' }"
+                  @click="activeTab = 'starred'">
+                  <el-icon><StarFilled /></el-icon>
+                  <span>我的收藏</span>
+                  <span class="tab-count">{{ starredBases.length }}</span>
+                </div>
+                <div
+                  class="tab-item"
+                  :class="{ active: activeTab === 'all' }"
+                  @click="activeTab = 'all'">
+                  <el-icon><Grid /></el-icon>
+                  <span>所有多维表格</span>
+                  <span class="tab-count">{{ allBases.length }}</span>
+                </div>
+              </div>
+
+              <div class="tabs-content">
+                <!-- 加载状态 -->
+                <div v-if="isLoading" class="loading-state">
+                  <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
+                  <p>正在加载数据...</p>
+                </div>
+
+                <!-- 我的收藏页签 -->
+                <div v-else-if="activeTab === 'starred'" class="tab-panel">
+                  <div v-if="starredBases.length === 0" class="empty-state">
+                    <el-icon :size="48" class="empty-icon"><Star /></el-icon>
+                    <h3>暂无收藏的表格</h3>
+                    <p>在首页点击星标图标收藏您常用的表格</p>
+                  </div>
+                  <div v-else class="table-list-container">
+                    <div class="table-list">
+                      <div
+                        v-for="base in paginatedStarredBases"
+                        :key="base.id"
+                        class="table-list-item"
+                        @click="goToBase(base.id)">
+                        <div
+                          class="item-icon"
+                          :style="{ backgroundColor: base.color || '#3B82F6' }">
+                          {{ base.icon || "📊" }}
+                        </div>
+                        <div class="item-info">
+                          <h4 class="item-name">{{ base.name }}</h4>
+                          <p class="item-desc">
+                            {{ base.description || "暂无描述" }}
+                          </p>
+                        </div>
+                        <div class="item-meta">
+                          <span class="update-time">
+                            修改于 {{ formatDate(base.updatedAt) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 分页 -->
+                    <div class="pagination-container">
+                      <div class="pagination-left">
+                        <span class="pagination-total"
+                          >共 {{ starredBases.length }} 条</span
+                        >
+                        <el-select
+                          v-model="starredPageSize"
+                          class="page-size-select"
+                          size="small">
+                          <el-option :label="'10条/页'" :value="10" />
+                          <el-option :label="'20条/页'" :value="20" />
+                          <el-option :label="'50条/页'" :value="50" />
+                          <el-option :label="'100条/页'" :value="100" />
+                        </el-select>
+                      </div>
+                      <el-pagination
+                        v-model:current-page="starredCurrentPage"
+                        v-model:page-size="starredPageSize"
+                        :total="starredBases.length"
+                        :page-sizes="[10, 20, 50, 100]"
+                        layout="prev, pager, next, jumper"
+                        background
+                        @size-change="handleStarredSizeChange"
+                        @current-change="handleStarredPageChange" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 所有多维表格页签 -->
+                <div v-else class="tab-panel">
+                  <div v-if="allBases.length === 0" class="empty-state">
+                    <el-icon :size="48" class="empty-icon"><Grid /></el-icon>
+                    <h3>暂无多维表格</h3>
+                    <p>点击右上角"新建"按钮创建您的第一个表格</p>
+                  </div>
+                  <div v-else class="table-list-container">
+                    <div class="table-list">
+                      <div
+                        v-for="base in paginatedAllBases"
+                        :key="base.id"
+                        class="table-list-item"
+                        @click="goToBase(base.id)">
+                        <div
+                          class="item-icon"
+                          :style="{ backgroundColor: base.color || '#3B82F6' }">
+                          {{ base.icon || "📊" }}
+                        </div>
+                        <div class="item-info">
+                          <h4 class="item-name">{{ base.name }}</h4>
+                          <p class="item-desc">
+                            {{ base.description || "暂无描述" }}
+                          </p>
+                        </div>
+                        <div class="item-meta">
+                          <span class="update-time">
+                            修改于 {{ formatDate(base.updatedAt) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 分页 -->
+                    <div class="pagination-container">
+                      <div class="pagination-left">
+                        <span class="pagination-total"
+                          >共 {{ allBases.length }} 条</span
+                        >
+                        <el-select
+                          v-model="allPageSize"
+                          class="page-size-select"
+                          size="small">
+                          <el-option :label="'10条/页'" :value="10" />
+                          <el-option :label="'20条/页'" :value="20" />
+                          <el-option :label="'50条/页'" :value="50" />
+                          <el-option :label="'100条/页'" :value="100" />
+                        </el-select>
+                      </div>
+                      <el-pagination
+                        v-model:current-page="allCurrentPage"
+                        v-model:page-size="allPageSize"
+                        :total="allBases.length"
+                        :page-sizes="[10, 20, 50, 100]"
+                        layout="prev, pager, next, jumper"
+                        background
+                        @size-change="handleAllSizeChange"
+                        @current-change="handleAllPageChange" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -768,6 +996,7 @@ import {
   Search,
   CircleClose,
   HomeFilled,
+  Loading,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -1470,32 +1699,233 @@ $star-color: #f59e0b;
 
 // 全部多维表视图
 .all-bases-view {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 500px;
-  padding: 40px;
+  min-height: calc(100vh - 100px);
+  padding: 24px 32px;
+  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
 
-  .placeholder-content {
-    text-align: center;
-    color: $gray-500;
+  .all-bases-header {
+    margin-bottom: 24px;
 
-    .placeholder-icon {
-      color: $gray-300;
-      margin-bottom: 24px;
-    }
-
-    h2 {
+    .view-title {
       font-size: 24px;
       font-weight: 600;
+      color: $gray-800;
+      margin: 0;
+    }
+  }
+
+  .tabs-container {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid $gray-200;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+
+  .tabs-header {
+    display: flex;
+    border-bottom: 1px solid $gray-200;
+    background: $gray-50;
+
+    .tab-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 24px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: $gray-600;
+      font-size: 14px;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+
+      .el-icon {
+        font-size: 16px;
+      }
+
+      .tab-count {
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 500;
+        background: $gray-200;
+        color: $gray-600;
+      }
+
+      &:hover {
+        color: $gray-800;
+        background: $gray-100;
+      }
+
+      &.active {
+        color: $primary;
+        border-bottom-color: $primary;
+        background: white;
+
+        .tab-count {
+          background: $primary-light;
+          color: $primary;
+        }
+      }
+    }
+  }
+
+  .tabs-content {
+    padding: 24px;
+    min-height: 400px;
+  }
+
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    color: $gray-500;
+
+    .loading-icon {
+      animation: rotate 1s linear infinite;
+      margin-bottom: 16px;
+      color: $primary;
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+    }
+  }
+
+  @keyframes rotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    text-align: center;
+
+    .empty-icon {
+      color: $gray-300;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
       color: $gray-700;
-      margin: 0 0 12px;
+      margin: 0 0 8px;
     }
 
     p {
       font-size: 14px;
       color: $gray-500;
       margin: 0;
+    }
+  }
+
+  .table-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .table-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .table-list-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: white;
+    border: 1px solid $gray-200;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: $primary;
+      box-shadow: 0 2px 8px rgba($primary, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .item-icon {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .item-info {
+      flex: 1;
+      min-width: 0;
+
+      .item-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: $gray-800;
+        margin: 0 0 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .item-desc {
+        font-size: 13px;
+        color: $gray-500;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .item-meta {
+      flex-shrink: 0;
+
+      .update-time {
+        font-size: 12px;
+        color: $gray-400;
+      }
+    }
+  }
+
+  .pagination-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 16px;
+    border-top: 1px solid $gray-100;
+
+    .pagination-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .pagination-total {
+        font-size: 13px;
+        color: $gray-500;
+      }
+
+      .page-size-select {
+        width: 100px;
+      }
     }
   }
 }
@@ -1572,6 +2002,99 @@ $star-color: #f59e0b;
 @media (max-width: 480px) {
   .card-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+// 全部多维表视图响应式
+@media (max-width: 768px) {
+  .all-bases-view {
+    padding: 16px;
+
+    .tabs-header {
+      .tab-item {
+        padding: 12px 16px;
+        font-size: 13px;
+
+        .tab-count {
+          display: none;
+        }
+      }
+    }
+
+    .tabs-content {
+      padding: 16px;
+    }
+
+    .table-list-item {
+      padding: 12px 16px;
+
+      .item-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+      }
+
+      .item-info {
+        .item-name {
+          font-size: 14px;
+        }
+
+        .item-desc {
+          font-size: 12px;
+        }
+      }
+
+      .item-meta {
+        display: none;
+      }
+    }
+
+    .pagination-container {
+      flex-direction: column;
+      gap: 16px;
+      align-items: flex-start;
+
+      .pagination-left {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .all-bases-view {
+    padding: 12px;
+
+    .all-bases-header {
+      .view-title {
+        font-size: 20px;
+      }
+    }
+
+    .tabs-header {
+      .tab-item {
+        flex: 1;
+        justify-content: center;
+        padding: 12px;
+
+        span:not(.tab-count) {
+          display: none;
+        }
+
+        .tab-count {
+          display: inline-block;
+        }
+      }
+    }
+
+    .table-list-item {
+      .item-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+      }
+    }
   }
 }
 </style>
