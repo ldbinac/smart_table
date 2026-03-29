@@ -847,10 +847,16 @@ defineExpose({
     }
   }
 
-  // 悬停时显示勾选按钮（未勾选状态）
+  // 悬停时同时显示勾选按钮和放大按钮
   &:hover {
     .custom-checkbox:not(.is-checked) {
       opacity: 1;
+    }
+
+    // 悬停时显示放大按钮
+    .expand-btn {
+      opacity: 1;
+      transform: scale(1);
     }
 
     .row-number {
