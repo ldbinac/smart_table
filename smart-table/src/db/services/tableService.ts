@@ -65,7 +65,7 @@ export class TableService {
           isPrimary: true,
           isSystem: true,
           isRequired: true,
-          isVisible: true,
+          isVisible: false, // 主键字段默认隐藏
           order: 0,
           createdAt: Date.now(),
           updatedAt: Date.now(),
