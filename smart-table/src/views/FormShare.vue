@@ -5,6 +5,7 @@ import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
 import { useTableStore } from "@/stores/tableStore";
+import { viewService } from "@/db/services/viewService";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 
@@ -60,21 +61,36 @@ const visibleFields = computed(() => {
     .filter((f) => !f.options?.hidden)
     .filter((f) => !systemFieldTypes.includes(f.type as FieldTypeValue));
 
+  console.log("[FormShare] visibleFields computed:");
+  console.log("[FormShare] All fields count:", fields.value.length);
+  console.log("[FormShare] Filtered fields count:", filteredFields.length);
+  console.log(
+    "[FormShare] formConfig.visibleFieldIds:",
+    formConfig.value.visibleFieldIds,
+  );
+
   // 检查是否明确设置了 visibleFieldIds（包括空数组的情况）
   const hasVisibleFieldIds =
     "visibleFieldIds" in formConfig.value &&
     Array.isArray(formConfig.value.visibleFieldIds);
 
-  if (hasVisibleFieldIds) {
+  console.log("[FormShare] hasVisibleFieldIds:", hasVisibleFieldIds);
+
+  if (hasVisibleFieldIds && formConfig.value.visibleFieldIds.length > 0) {
     // 按照 visibleFieldIds 的顺序排序，并只显示包含在列表中的字段
-    // 即使是空数组也使用配置（显示空表单）
     const fieldMap = new Map(filteredFields.map((f) => [f.id, f]));
-    return formConfig.value.visibleFieldIds
+    const result = formConfig.value.visibleFieldIds
       .map((id) => fieldMap.get(id))
       .filter((f): f is FieldEntity => f !== undefined);
+    console.log(
+      "[FormShare] Using visibleFieldIds order, result count:",
+      result.length,
+    );
+    return result;
   }
 
-  // 否则按照字段的 order 属性排序
+  // 如果没有设置 visibleFieldIds 或为空数组，显示所有非系统字段
+  console.log("[FormShare] Using default order");
   return filteredFields.sort((a, b) => (a.order || 0) - (b.order || 0));
 });
 
@@ -102,33 +118,88 @@ onMounted(async () => {
 
 // 加载表单数据
 async function loadFormData(formId: string) {
-  // 从 localStorage 获取基础表单配置（标题、描述等）
+  console.log("[FormShare] Loading form data for formId:", formId);
+
+  try {
+    // 从数据库获取视图配置（formId 实际上是 viewId）
+    const view = await viewService.getView(formId);
+    console.log("[FormShare] View from database:", view);
+
+    if (view && view.type === "form") {
+      // 获取视图配置
+      const config = view.config as {
+        title?: string;
+        description?: string;
+        submitButtonText?: string;
+        visibleFieldIds?: string[];
+        successMessage?: string;
+        allowMultipleSubmit?: boolean;
+      };
+
+      tableId.value = view.tableId;
+
+      // 加载表单基础配置（标题、描述等UI配置）
+      if (config) {
+        console.log("[FormShare] Loading formConfig from database:", config);
+
+        formConfig.value = {
+          title: config.title || "数据收集表单",
+          description: config.description || "",
+          submitButtonText: config.submitButtonText || "提交",
+          successMessage: config.successMessage || "提交成功，感谢您的参与！",
+          visibleFieldIds: config.visibleFieldIds || [],
+          allowMultipleSubmit: config.allowMultipleSubmit !== false,
+        };
+
+        console.log("[FormShare] Loaded formConfig:", formConfig.value);
+        console.log(
+          "[FormShare] visibleFieldIds:",
+          formConfig.value.visibleFieldIds,
+        );
+      }
+
+      // 从数据库加载表格数据（字段）
+      await loadTableData(view.tableId);
+    } else {
+      // 如果数据库中没有找到视图配置，尝试从 localStorage 获取（兼容旧数据）
+      console.log(
+        "[FormShare] View not found in database, trying localStorage",
+      );
+      await loadFromLocalStorage(formId);
+    }
+
+    // 初始化表单值
+    resetForm();
+  } catch (error) {
+    console.error("[FormShare] Error loading form data:", error);
+    throw error;
+  }
+}
+
+// 从 localStorage 加载（兼容旧数据）
+async function loadFromLocalStorage(formId: string) {
   const storedConfig = localStorage.getItem(`form_config_${formId}`);
-  let config: any = null;
 
   if (storedConfig) {
-    config = JSON.parse(storedConfig);
+    const config = JSON.parse(storedConfig);
     tableId.value = config.tableId;
     tableName.value = config.tableName;
 
-    // 加载表单基础配置（标题、描述等UI配置）
     if (config.formConfig) {
       formConfig.value = {
-        title: config.formConfig.title ?? "数据收集表单",
-        description: config.formConfig.description ?? "",
-        submitButtonText: config.formConfig.submitButtonText ?? "提交",
+        title: config.formConfig.title || "数据收集表单",
+        description: config.formConfig.description || "",
+        submitButtonText: config.formConfig.submitButtonText || "提交",
         successMessage:
-          config.formConfig.successMessage ?? "提交成功，感谢您的参与！",
-        visibleFieldIds: config.formConfig.visibleFieldIds ?? [],
-        allowMultipleSubmit: config.formConfig.allowMultipleSubmit ?? true,
+          config.formConfig.successMessage || "提交成功，感谢您的参与！",
+        visibleFieldIds: config.formConfig.visibleFieldIds || [],
+        allowMultipleSubmit: config.formConfig.allowMultipleSubmit !== false,
       };
     }
 
-    // 关键：优先使用保存的字段配置（已根据visibleFieldIds过滤）
     if (config.fields && config.fields.length > 0) {
       fields.value = config.fields;
     } else if (tableId.value) {
-      // 如果没有保存字段，则从服务器加载
       await loadTableData(tableId.value);
     }
   } else {
@@ -136,15 +207,11 @@ async function loadFormData(formId: string) {
     const queryTableId = route.query.tableId as string;
     if (queryTableId) {
       tableId.value = queryTableId;
-      // 从服务器加载表格数据
       await loadTableData(queryTableId);
     } else {
       throw new Error("无法找到表单配置");
     }
   }
-
-  // 初始化表单值
-  resetForm();
 }
 
 // 加载表格数据

@@ -15,6 +15,7 @@ interface Props {
   fields: FieldEntity[];
   tableName?: string;
   tableId?: string;
+  viewId?: string;
   formConfig?: {
     title?: string;
     description?: string;
@@ -28,6 +29,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   tableName: "",
   tableId: "",
+  viewId: "",
   formConfig: () => ({
     title: "数据收集表单",
     description: "",
@@ -51,72 +53,26 @@ const currentFormId = ref("");
 function generateShareLink() {
   isGenerating.value = true;
 
-  // 生成表单ID
-  const formId = `form_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  currentFormId.value = formId;
+  // 检查是否有viewId
+  if (!props.viewId) {
+    ElMessage.error("无法获取视图ID，请确保您在表单视图中");
+    isGenerating.value = false;
+    return;
+  }
 
-  // 保存表单配置到 localStorage
-  saveFormConfig(formId);
+  // 使用当前视图的ID作为formId，这样FormShare.vue可以直接从数据库获取配置
+  const viewId = props.viewId;
+  currentFormId.value = viewId;
 
   // 生成分享链接（使用hash路由格式）
   setTimeout(() => {
     const baseUrl = window.location.origin;
     // 使用hash路由格式：/#/form/:id
-    shareUrl.value = `${baseUrl}/#/form/${formId}`;
+    // 这里的id是视图ID，FormShare.vue会用它从数据库查询配置
+    shareUrl.value = `${baseUrl}/#/form/${viewId}`;
     isGenerating.value = false;
     ElMessage.success("分享链接已生成");
   }, 800);
-}
-
-// 保存表单配置
-function saveFormConfig(formId: string) {
-  // 过滤掉系统字段
-  const systemFieldTypes = [
-    "createdBy",
-    "createdTime",
-    "updatedBy",
-    "updatedTime",
-    "autoNumber",
-  ];
-
-  // 根据 visibleFieldIds 确定要分享的字段
-  let shareableFields: FieldEntity[];
-  // 检查是否明确设置了 visibleFieldIds（包括空数组的情况）
-  const hasVisibleFieldIds =
-    props.formConfig &&
-    "visibleFieldIds" in props.formConfig &&
-    Array.isArray(props.formConfig.visibleFieldIds);
-
-  if (hasVisibleFieldIds) {
-    // 使用配置的可见字段（即使是空数组也使用）
-    shareableFields = props.fields.filter(
-      (f) =>
-        props.formConfig!.visibleFieldIds!.includes(f.id) &&
-        !systemFieldTypes.includes(f.type),
-    );
-  } else {
-    // 默认分享所有非系统字段
-    shareableFields = props.fields.filter(
-      (f) => !systemFieldTypes.includes(f.type),
-    );
-  }
-
-  const config = {
-    formId,
-    tableId: props.tableId,
-    tableName: props.tableName,
-    fields: shareableFields,
-    formConfig: props.formConfig,
-    createdAt: new Date().toISOString(),
-  };
-
-  // 保存到 localStorage
-  localStorage.setItem(`form_config_${formId}`, JSON.stringify(config));
-
-  // 同时保存表单ID列表，用于清理过期数据
-  const formList = JSON.parse(localStorage.getItem("form_share_list") || "[]");
-  formList.push({ formId, createdAt: config.createdAt });
-  localStorage.setItem("form_share_list", JSON.stringify(formList));
 }
 
 // 复制链接

@@ -268,6 +268,12 @@ onMounted(async () => {
         viewStore.currentView?.type,
       );
       console.log("[Base] Default view config:", viewStore.currentView?.config);
+
+      // 如果默认视图是表单视图，加载表单配置
+      if (viewStore.currentView?.type === ViewType.FORM) {
+        console.log("[Base] Default view is FORM, loading form config");
+        loadFormConfig();
+      }
     }
     initSortable();
   }
@@ -509,7 +515,7 @@ const loadFormConfig = () => {
     // 检查配置中是否明确设置了 visibleFieldIds
     // 如果 config 中有 visibleFieldIds 属性（即使是空数组），使用它
     // 如果没有 visibleFieldIds 属性，使用默认值
-    const hasVisibleFieldIdsConfig = "visibleFieldIds" in currentView.config;
+    const hasVisibleFieldIdsConfig = config.visibleFieldIds !== undefined;
     console.log(
       "[FormConfig] Has visibleFieldIds config:",
       hasVisibleFieldIdsConfig,
@@ -517,14 +523,14 @@ const loadFormConfig = () => {
     console.log("[FormConfig] Config visibleFieldIds:", config.visibleFieldIds);
 
     formConfig.value = {
-      title: config.title ?? "数据收集表单",
-      description: config.description ?? "",
-      submitButtonText: config.submitButtonText ?? "提交",
+      title: config.title || "数据收集表单",
+      description: config.description || "",
+      submitButtonText: config.submitButtonText || "提交",
       visibleFieldIds: hasVisibleFieldIdsConfig
-        ? (config.visibleFieldIds ?? [])
+        ? config.visibleFieldIds || []
         : defaultVisibleFieldIds,
-      successMessage: config.successMessage ?? "提交成功，感谢您的参与！",
-      allowMultipleSubmit: config.allowMultipleSubmit ?? true,
+      successMessage: config.successMessage || "提交成功，感谢您的参与！",
+      allowMultipleSubmit: config.allowMultipleSubmit !== false,
     };
   } else {
     console.log("[FormConfig] Using default config");
@@ -539,6 +545,10 @@ const loadFormConfig = () => {
     };
   }
   console.log("[FormConfig] Loaded formConfig:", formConfig.value);
+  console.log(
+    "[FormConfig] Final visibleFieldIds:",
+    formConfig.value.visibleFieldIds,
+  );
 };
 
 // 监听当前视图变化，自动加载表单配置
@@ -1520,14 +1530,8 @@ function handleImported() {
       :fields="baseStore.fields"
       :table-name="baseStore.currentTable?.name"
       :table-id="baseStore.currentTable?.id"
-      :form-config="{
-        title: formConfig.title,
-        description: formConfig.description,
-        submitButtonText: formConfig.submitButtonText,
-        successMessage: formConfig.successMessage,
-        visibleFieldIds: formConfig.visibleFieldIds,
-        allowMultipleSubmit: formConfig.allowMultipleSubmit,
-      }" />
+      :view-id="viewStore.currentView?.id"
+      :form-config="formConfig" />
 
     <!-- 数据导入对话框 -->
     <ImportDialog

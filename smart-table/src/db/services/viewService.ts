@@ -91,31 +91,56 @@ export class ViewService {
 
   async updateView(id: string, data: UpdateViewData): Promise<void> {
     console.log("[ViewService] Updating view:", id, data);
+    
+    // 先获取当前视图，确保存在
+    const existingView = await db.views.get(id);
+    if (!existingView) {
+      throw new Error(`View with id ${id} not found`);
+    }
+    console.log("[ViewService] Existing view config:", existingView.config);
+    
     if (data.isDefault) {
-      const view = await this.getView(id);
-      if (view) {
-        await this.clearDefaultViews(view.tableId, id);
-      }
+      await this.clearDefaultViews(existingView.tableId, id);
     }
 
-    // 序列化配置数据，将数组转换为 JSON 字符串
-    const updateData: UpdateViewData = {
-      ...data,
+    // 构建更新数据
+    const updateData: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
 
+    // 处理 config - 需要与现有配置合并
     if (data.config) {
-      updateData.config = serializeViewConfig(data.config);
-      console.log("[ViewService] Serialized config:", updateData.config);
+      const serializedConfig = serializeViewConfig(data.config);
+      console.log("[ViewService] Serialized config:", serializedConfig);
+      updateData.config = serializedConfig;
     }
+    
+    // 添加其他字段
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.filters !== undefined) updateData.filters = data.filters;
+    if (data.sorts !== undefined) updateData.sorts = data.sorts;
+    if (data.groupBys !== undefined) updateData.groupBys = data.groupBys;
+    if (data.hiddenFields !== undefined) updateData.hiddenFields = data.hiddenFields;
+    if (data.frozenFields !== undefined) updateData.frozenFields = data.frozenFields;
+    if (data.rowHeight !== undefined) updateData.rowHeight = data.rowHeight;
+    if (data.isDefault !== undefined) updateData.isDefault = data.isDefault;
 
-    console.log("[ViewService] Update data:", updateData);
+    console.log("[ViewService] Final update data:", updateData);
 
-    await db.views.update(id, updateData);
+    // 使用 Dexie 的 update 方法
+    const updateCount = await db.views.update(id, updateData);
+    console.log("[ViewService] Update count:", updateCount);
 
     // 验证更新是否成功
-    const updatedView = await this.getView(id);
+    const updatedView = await db.views.get(id);
+    if (updatedView?.config) {
+      updatedView.config = deserializeViewConfig(updatedView.config);
+    }
     console.log("[ViewService] View after update:", updatedView?.config);
+    
+    if (updateCount === 0) {
+      console.warn("[ViewService] No records were updated!");
+    }
   }
 
   async deleteView(id: string): Promise<void> {

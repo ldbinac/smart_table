@@ -36,8 +36,11 @@ export function deserializeViewConfig(
         const parsed = JSON.parse(value);
         if (Array.isArray(parsed)) {
           deserialized[key] = parsed;
+        } else if (typeof parsed === "object" && parsed !== null) {
+          // 如果解析后是对象，递归处理
+          deserialized[key] = deserializeViewConfig(parsed);
         } else {
-          deserialized[key] = value;
+          deserialized[key] = parsed;
         }
       } catch {
         // 不是有效的 JSON，保持原值
