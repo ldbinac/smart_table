@@ -160,7 +160,10 @@ describe("Formula Engine", () => {
     });
 
     it("should handle complex expressions", () => {
-      const result = engine.calculate(record, "({Price} * {Quantity}) * (1 - {Discount})");
+      const result = engine.calculate(
+        record,
+        "({Price} * {Quantity}) * (1 - {Discount})",
+      );
       expect(result).toBe(450);
     });
 
@@ -301,7 +304,8 @@ describe("Formula Engine", () => {
     });
 
     it("should handle complex nested formulas", () => {
-      const complexFormula = "SUM({Price}, {Quantity}, 10) * AVG({Price}, {Quantity})";
+      const complexFormula =
+        "SUM({Price}, {Quantity}, 10) * AVG({Price}, {Quantity})";
       const result = engine.calculate(record, complexFormula);
       expect(typeof result).toBe("number");
     });
@@ -382,7 +386,9 @@ describe("Formula Functions", () => {
 
   describe("Text Functions", () => {
     it("should concatenate text", () => {
-      expect(formulaFunctions.CONCAT("Hello", " ", "World")).toBe("Hello World");
+      expect(formulaFunctions.CONCAT("Hello", " ", "World")).toBe(
+        "Hello World",
+      );
     });
 
     it("should concatenate with numbers", () => {
@@ -422,7 +428,9 @@ describe("Formula Functions", () => {
     });
 
     it("should substitute text", () => {
-      expect(formulaFunctions.SUBSTITUTE("Hello World", "World", "Universe")).toBe("Hello Universe");
+      expect(
+        formulaFunctions.SUBSTITUTE("Hello World", "World", "Universe"),
+      ).toBe("Hello Universe");
     });
 
     it("should replace text", () => {
@@ -553,11 +561,15 @@ describe("Formula Functions", () => {
     });
 
     it("should sum with condition", () => {
-      expect(formulaFunctions.SUMIF([1, 2, 3, 4, 5], ">3", [1, 2, 3, 4, 5])).toBe(9);
+      expect(
+        formulaFunctions.SUMIF([1, 2, 3, 4, 5], ">3", [1, 2, 3, 4, 5]),
+      ).toBe(9);
     });
 
     it("should average with condition", () => {
-      expect(formulaFunctions.AVERAGEIF([1, 2, 3, 4, 5], ">3", [1, 2, 3, 4, 5])).toBe(4.5);
+      expect(
+        formulaFunctions.AVERAGEIF([1, 2, 3, 4, 5], ">3", [1, 2, 3, 4, 5]),
+      ).toBe(4.5);
     });
   });
 
@@ -641,7 +653,8 @@ describe("Edge Cases", () => {
   });
 
   it("should handle deeply nested functions", () => {
-    const nestedFormula = "IF(SUM(AVG(MAX(1, 2), MIN(3, 4)), 5) > 3, 'Yes', 'No')";
+    const nestedFormula =
+      "IF(SUM(AVG(MAX(1, 2), MIN(3, 4)), 5) > 3, 'Yes', 'No')";
     const record: RecordEntity = {
       id: "rec1",
       tableId: "table1",

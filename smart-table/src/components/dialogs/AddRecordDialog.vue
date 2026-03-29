@@ -339,7 +339,9 @@ function handleValueChange(fieldId: string, value: unknown) {
                 :placeholder="field.name"
                 class="formula-input">
                 <template #prefix>
-                  <ElIcon class="formula-icon"><span class="formula-icon-text">ƒ</span></ElIcon>
+                  <ElIcon class="formula-icon"
+                    ><span class="formula-icon-text">ƒ</span></ElIcon
+                  >
                 </template>
               </ElInput>
               <div v-if="field.options?.formula" class="formula-expression">
@@ -589,7 +591,7 @@ export default {
 
       .el-input__inner {
         color: $text-primary;
-        font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+        font-family: "SF Mono", Monaco, "Courier New", monospace;
         font-weight: 500;
       }
     }
@@ -602,7 +604,7 @@ export default {
       justify-content: center;
 
       .formula-icon-text {
-        font-family: 'Times New Roman', serif;
+        font-family: "Times New Roman", serif;
         font-style: italic;
         font-weight: bold;
         font-size: 14px;
@@ -628,7 +630,7 @@ export default {
     }
 
     .formula-code {
-      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-family: "SF Mono", Monaco, "Courier New", monospace;
       font-size: $font-size-xs;
       color: $text-primary;
       background-color: $gray-100;

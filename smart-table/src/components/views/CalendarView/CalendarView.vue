@@ -109,9 +109,7 @@ const events = computed<CalendarEvent[]>(() => {
       const endValue = endDateFieldId.value
         ? record.values[endDateFieldId.value]
         : null;
-      const titleValue = titleFieldObj
-        ? getRecordTitle(record)
-        : "";
+      const titleValue = titleFieldObj ? getRecordTitle(record) : "";
 
       const start = parseDateValue(startValue);
       const end = endValue ? parseDateValue(endValue) : undefined;
@@ -130,7 +128,10 @@ const events = computed<CalendarEvent[]>(() => {
         color: "#3B82F6",
       };
     })
-    .filter((event): event is CalendarEvent => event !== null && event.start && !isNaN(event.start.getTime()));
+    .filter(
+      (event): event is CalendarEvent =>
+        event !== null && event.start && !isNaN(event.start.getTime()),
+    );
 });
 
 function parseDateValue(value: unknown): Date | null {
@@ -289,7 +290,10 @@ const currentTitle = computed(() => {
   }
 });
 
-function isSameDay(date1: Date | string | number, date2: Date | string | number): boolean {
+function isSameDay(
+  date1: Date | string | number,
+  date2: Date | string | number,
+): boolean {
   const d1 = date1 instanceof Date ? date1 : new Date(date1);
   const d2 = date2 instanceof Date ? date2 : new Date(date2);
 
@@ -320,7 +324,8 @@ function getEventsForDate(date: Date): CalendarEvent[] {
   return events.value.filter((event) => {
     if (!event.start) return false;
 
-    const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
+    const eventStart =
+      event.start instanceof Date ? event.start : new Date(event.start);
     if (isNaN(eventStart.getTime())) return false;
 
     const eventStartDay = new Date(eventStart);
@@ -330,7 +335,8 @@ function getEventsForDate(date: Date): CalendarEvent[] {
     checkDate.setHours(0, 0, 0, 0);
 
     if (event.end) {
-      const eventEnd = event.end instanceof Date ? event.end : new Date(event.end);
+      const eventEnd =
+        event.end instanceof Date ? event.end : new Date(event.end);
       if (!isNaN(eventEnd.getTime())) {
         const eventEndDay = new Date(eventEnd);
         eventEndDay.setHours(23, 59, 59, 999);
@@ -422,8 +428,12 @@ function formatTime(date: Date | string | number): string {
   return `${hours}:${minutes}`;
 }
 
-function getEventTimePosition(event: CalendarEvent): { top: number; height: number } {
-  const start = event.start instanceof Date ? event.start : new Date(event.start);
+function getEventTimePosition(event: CalendarEvent): {
+  top: number;
+  height: number;
+} {
+  const start =
+    event.start instanceof Date ? event.start : new Date(event.start);
   if (isNaN(start.getTime())) {
     return { top: 0, height: 60 };
   }
@@ -456,10 +466,11 @@ function initTitleField() {
   if (!titleFieldId.value && props.fields.length > 0) {
     // 优先选择主字段，如果没有则选择第一个文本字段
     const primaryField = props.fields.find((f) => f.isPrimary);
-    const textField = props.fields.find((f) =>
-      f.type === FieldType.TEXT || f.type === FieldType.SINGLE_SELECT
+    const textField = props.fields.find(
+      (f) => f.type === FieldType.TEXT || f.type === FieldType.SINGLE_SELECT,
     );
-    titleFieldId.value = primaryField?.id || textField?.id || props.fields[0]?.id || "";
+    titleFieldId.value =
+      primaryField?.id || textField?.id || props.fields[0]?.id || "";
   }
 }
 
@@ -469,17 +480,25 @@ onMounted(() => {
 });
 
 // 监听 fields 变化，自动初始化选择
-watch(() => props.fields, () => {
-  initDateField();
-  initTitleField();
-}, { immediate: true });
+watch(
+  () => props.fields,
+  () => {
+    initDateField();
+    initTitleField();
+  },
+  { immediate: true },
+);
 
 // 监听 dateFields 变化，如果没有选择则自动选择第一个
-watch(dateFields, (newDateFields) => {
-  if (!dateFieldId.value && newDateFields.length > 0) {
-    dateFieldId.value = newDateFields[0].id;
-  }
-}, { immediate: true });
+watch(
+  dateFields,
+  (newDateFields) => {
+    if (!dateFieldId.value && newDateFields.length > 0) {
+      dateFieldId.value = newDateFields[0].id;
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -556,7 +575,9 @@ watch(dateFields, (newDateFields) => {
         </div>
       </div>
 
-      <div class="calendar-grid" :style="{ gridTemplateRows: `repeat(${monthViewRowCount}, 1fr)` }">
+      <div
+        class="calendar-grid"
+        :style="{ gridTemplateRows: `repeat(${monthViewRowCount}, 1fr)` }">
         <div
           v-for="(day, index) in calendarDays"
           :key="index"
@@ -586,7 +607,9 @@ watch(dateFields, (newDateFields) => {
           <!-- 悬停时显示所有事件的浮层 -->
           <div v-if="day.events.length > 0" class="events-tooltip">
             <div class="tooltip-header">
-              <span class="tooltip-date">{{ day.date.getMonth() + 1 }}月{{ day.date.getDate() }}日</span>
+              <span class="tooltip-date"
+                >{{ day.date.getMonth() + 1 }}月{{ day.date.getDate() }}日</span
+              >
               <span class="tooltip-count">{{ day.events.length }} 个事件</span>
             </div>
             <div class="tooltip-events-list">
@@ -624,7 +647,9 @@ watch(dateFields, (newDateFields) => {
       <div class="week-grid">
         <div class="time-column">
           <div v-for="hour in timeSlots" :key="hour" class="time-slot">
-            <span class="time-label">{{ hour.toString().padStart(2, '0') }}:00</span>
+            <span class="time-label"
+              >{{ hour.toString().padStart(2, "0") }}:00</span
+            >
           </div>
         </div>
 
@@ -635,11 +660,7 @@ watch(dateFields, (newDateFields) => {
             class="week-day-column"
             :class="{ today: day.isToday }"
             @click="handleDateClick(day.date)">
-            <div
-              v-for="hour in timeSlots"
-              :key="hour"
-              class="hour-cell">
-            </div>
+            <div v-for="hour in timeSlots" :key="hour" class="hour-cell"></div>
 
             <div
               v-for="event in day.events"
@@ -648,7 +669,7 @@ watch(dateFields, (newDateFields) => {
               :style="{
                 borderLeftColor: event.color,
                 top: `${getEventTimePosition(event).top}px`,
-                height: `${Math.min(getEventTimePosition(event).height, 60)}px`
+                height: `${Math.min(getEventTimePosition(event).height, 60)}px`,
               }"
               @click.stop="handleEventClick(event)">
               <div class="event-time">
@@ -668,9 +689,13 @@ watch(dateFields, (newDateFields) => {
         <div class="day-title">
           <span class="day-date">{{ currentDate.getDate() }}</span>
           <span class="day-info">
-            <span class="day-weekday">{{ weekDaysFull[currentDate.getDay()] }}</span>
+            <span class="day-weekday">{{
+              weekDaysFull[currentDate.getDay()]
+            }}</span>
             <span class="day-full-date">
-              {{ currentDate.getFullYear() }}年{{ currentDate.getMonth() + 1 }}月
+              {{ currentDate.getFullYear() }}年{{
+                currentDate.getMonth() + 1
+              }}月
             </span>
           </span>
         </div>
@@ -682,16 +707,14 @@ watch(dateFields, (newDateFields) => {
       <div class="day-grid">
         <div class="time-column">
           <div v-for="hour in timeSlots" :key="hour" class="time-slot">
-            <span class="time-label">{{ hour.toString().padStart(2, '0') }}:00</span>
+            <span class="time-label"
+              >{{ hour.toString().padStart(2, "0") }}:00</span
+            >
           </div>
         </div>
 
         <div class="day-content" @click="handleDateClick(currentDate)">
-          <div
-            v-for="hour in timeSlots"
-            :key="hour"
-            class="hour-cell">
-          </div>
+          <div v-for="hour in timeSlots" :key="hour" class="hour-cell"></div>
 
           <div
             v-for="event in currentDayData.events"
@@ -700,7 +723,7 @@ watch(dateFields, (newDateFields) => {
             :style="{
               borderLeftColor: event.color,
               top: `${getEventTimePosition(event).top}px`,
-              minHeight: `${Math.max(getEventTimePosition(event).height, 40)}px`
+              minHeight: `${Math.max(getEventTimePosition(event).height, 40)}px`,
             }"
             @click.stop="handleEventClick(event)">
             <div class="event-time">
@@ -984,7 +1007,11 @@ watch(dateFields, (newDateFields) => {
     padding: 3px 6px;
     font-size: 11px;
     color: $text-primary;
-    background: linear-gradient(135deg, rgba($primary-color, 0.1) 0%, rgba($primary-color, 0.05) 100%);
+    background: linear-gradient(
+      135deg,
+      rgba($primary-color, 0.1) 0%,
+      rgba($primary-color, 0.05) 100%
+    );
     border-left: 2px solid $primary-color;
     border-radius: $border-radius-sm;
     overflow: hidden;
@@ -995,7 +1022,11 @@ watch(dateFields, (newDateFields) => {
     line-height: 1.3;
 
     &:hover {
-      background: linear-gradient(135deg, rgba($primary-color, 0.18) 0%, rgba($primary-color, 0.08) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba($primary-color, 0.18) 0%,
+        rgba($primary-color, 0.08) 100%
+      );
       transform: translateX(2px);
     }
   }
@@ -1081,7 +1112,11 @@ watch(dateFields, (newDateFields) => {
       padding: 6px 10px;
       font-size: $font-size-sm;
       color: $text-primary;
-      background: linear-gradient(135deg, rgba($primary-color, 0.08) 0%, rgba($primary-color, 0.04) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba($primary-color, 0.08) 0%,
+        rgba($primary-color, 0.04) 100%
+      );
       border-left: 3px solid $primary-color;
       border-radius: $border-radius-md;
       cursor: pointer;
@@ -1091,7 +1126,11 @@ watch(dateFields, (newDateFields) => {
       white-space: nowrap;
 
       &:hover {
-        background: linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.08) 100%);
+        background: linear-gradient(
+          135deg,
+          rgba($primary-color, 0.15) 0%,
+          rgba($primary-color, 0.08) 100%
+        );
         transform: translateX(4px);
       }
     }
@@ -1221,7 +1260,11 @@ watch(dateFields, (newDateFields) => {
       left: 4px;
       right: 4px;
       padding: 6px 8px;
-      background: linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.08) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba($primary-color, 0.15) 0%,
+        rgba($primary-color, 0.08) 100%
+      );
       border-left: 3px solid $primary-color;
       border-radius: $border-radius-md;
       cursor: pointer;
@@ -1230,7 +1273,11 @@ watch(dateFields, (newDateFields) => {
       z-index: 1;
 
       &:hover {
-        background: linear-gradient(135deg, rgba($primary-color, 0.25) 0%, rgba($primary-color, 0.15) 100%);
+        background: linear-gradient(
+          135deg,
+          rgba($primary-color, 0.25) 0%,
+          rgba($primary-color, 0.15) 100%
+        );
         transform: translateX(2px);
         box-shadow: 0 2px 8px rgba($primary-color, 0.2);
         z-index: 2;
@@ -1273,7 +1320,11 @@ watch(dateFields, (newDateFields) => {
     border-bottom: 1px solid $border-color;
 
     &.today {
-      background: linear-gradient(135deg, rgba($primary-color, 0.08) 0%, rgba($primary-color, 0.03) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba($primary-color, 0.08) 0%,
+        rgba($primary-color, 0.03) 100%
+      );
 
       .day-date {
         background: $primary-color;
@@ -1377,7 +1428,11 @@ watch(dateFields, (newDateFields) => {
       left: 12px;
       right: 12px;
       padding: 10px 14px;
-      background: linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.08) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba($primary-color, 0.15) 0%,
+        rgba($primary-color, 0.08) 100%
+      );
       border-left: 4px solid $primary-color;
       border-radius: $border-radius-lg;
       cursor: pointer;
@@ -1385,7 +1440,11 @@ watch(dateFields, (newDateFields) => {
       z-index: 1;
 
       &:hover {
-        background: linear-gradient(135deg, rgba($primary-color, 0.25) 0%, rgba($primary-color, 0.15) 100%);
+        background: linear-gradient(
+          135deg,
+          rgba($primary-color, 0.25) 0%,
+          rgba($primary-color, 0.15) 100%
+        );
         transform: translateX(4px);
         box-shadow: 0 4px 12px rgba($primary-color, 0.2);
         z-index: 2;

@@ -52,16 +52,16 @@ watch(
 // 计算所有公式字段的值 - 使用 computed 确保响应式更新
 const formulaValues = computed(() => {
   const values: Record<string, string> = {};
-  
+
   // 依赖 formData.value，确保表单数据变化时重新计算
   const currentFormData = formData.value;
-  
+
   props.fields.forEach((field) => {
     if (field.type === FieldType.FORMULA) {
       values[field.id] = calculateFormulaValue(field, currentFormData);
     }
   });
-  
+
   return values;
 });
 
@@ -313,7 +313,9 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
                 :placeholder="field.name"
                 class="formula-input">
                 <template #prefix>
-                  <ElIcon class="formula-icon"><span class="formula-icon-text">ƒ</span></ElIcon>
+                  <ElIcon class="formula-icon"
+                    ><span class="formula-icon-text">ƒ</span></ElIcon
+                  >
                 </template>
               </ElInput>
               <div v-if="field.options?.formula" class="formula-expression">
@@ -551,7 +553,7 @@ export default {
 
       .el-input__inner {
         color: $text-primary;
-        font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+        font-family: "SF Mono", Monaco, "Courier New", monospace;
         font-weight: 500;
       }
     }
@@ -564,7 +566,7 @@ export default {
       justify-content: center;
 
       .formula-icon-text {
-        font-family: 'Times New Roman', serif;
+        font-family: "Times New Roman", serif;
         font-style: italic;
         font-weight: bold;
         font-size: 14px;
@@ -590,7 +592,7 @@ export default {
     }
 
     .formula-code {
-      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-family: "SF Mono", Monaco, "Courier New", monospace;
       font-size: $font-size-xs;
       color: $text-primary;
       background-color: $gray-100;

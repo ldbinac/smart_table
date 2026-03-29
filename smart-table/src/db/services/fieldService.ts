@@ -120,7 +120,10 @@ export class FieldService {
     });
   }
 
-  async updateFieldVisibility(fieldId: string, isVisible: boolean): Promise<void> {
+  async updateFieldVisibility(
+    fieldId: string,
+    isVisible: boolean,
+  ): Promise<void> {
     await db.fields.update(fieldId, {
       isVisible,
       updatedAt: Date.now(),

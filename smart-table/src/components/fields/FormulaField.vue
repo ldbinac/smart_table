@@ -39,7 +39,7 @@ const calculatedValue = computed(() => {
     const engine = new FormulaEngine(props.allFields);
     const result = engine.calculate(
       props.record,
-      props.field.options.formula as string
+      props.field.options.formula as string,
     );
 
     // 处理错误结果
@@ -100,8 +100,7 @@ defineExpose({ focus });
 <template>
   <div
     class="formula-field"
-    :class="{ 'is-readonly': readonly, 'is-error': isError }"
-  >
+    :class="{ 'is-readonly': readonly, 'is-error': isError }">
     <template v-if="readonly">
       <div class="formula-field-readonly" :title="formulaDisplay">
         {{ displayValue }}
@@ -114,8 +113,7 @@ defineExpose({ focus });
           :model-value="displayValue"
           :placeholder="placeholder || '自动计算'"
           readonly
-          class="formula-input"
-        >
+          class="formula-input">
           <template #prefix>
             <el-icon class="formula-icon"><Calculator /></el-icon>
           </template>

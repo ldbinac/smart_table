@@ -317,7 +317,7 @@ watch(
     // 表单值变化时，公式字段会自动重新计算
     // 由于 calculateFormulaValue 在模板中调用，会响应式更新
   },
-  { deep: true }
+  { deep: true },
 );
 
 // 获取字段类型对应的组件类型
@@ -463,7 +463,9 @@ defineExpose({
         <el-icon><DocumentDelete /></el-icon>
       </div>
       <h3 class="empty-title">暂无可见字段</h3>
-      <p class="empty-subtitle">当前没有可填写的字段，请在字段管理中配置表单字段</p>
+      <p class="empty-subtitle">
+        当前没有可填写的字段，请在字段管理中配置表单字段
+      </p>
     </div>
 
     <!-- 表单内容 -->
@@ -554,7 +556,8 @@ defineExpose({
             </template>
 
             <!-- 单选类型 -->
-            <template v-else-if="getFieldComponentType(field) === 'singleSelect'">
+            <template
+              v-else-if="getFieldComponentType(field) === 'singleSelect'">
               <el-select
                 :model-value="formValues[field.id] as string | undefined"
                 :placeholder="`请选择${field.name}`"
@@ -576,7 +579,8 @@ defineExpose({
             </template>
 
             <!-- 多选类型 -->
-            <template v-else-if="getFieldComponentType(field) === 'multiSelect'">
+            <template
+              v-else-if="getFieldComponentType(field) === 'multiSelect'">
               <el-select
                 :model-value="(formValues[field.id] as string[]) || []"
                 :placeholder="`请选择${field.name}`"
@@ -601,7 +605,9 @@ defineExpose({
             <!-- 日期类型 -->
             <template v-else-if="getFieldComponentType(field) === 'date'">
               <el-date-picker
-                :model-value="formValues[field.id] as unknown as Date | undefined"
+                :model-value="
+                  formValues[field.id] as unknown as Date | undefined
+                "
                 :type="getDatePickerType(field)"
                 :placeholder="`请选择${field.name}`"
                 :format="getDateFormat(field)"
@@ -618,7 +624,9 @@ defineExpose({
                 :model-value="Boolean(formValues[field.id])"
                 :disabled="readonly"
                 class="form-switch"
-                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+                @update:model-value="
+                  (val) => handleFieldChange(field.id, val)
+                " />
             </template>
 
             <!-- 公式字段类型 -->
@@ -1065,7 +1073,7 @@ defineExpose({
 
     .el-input__inner {
       color: $text-secondary;
-      font-family: 'SF Mono', Monaco, monospace;
+      font-family: "SF Mono", Monaco, monospace;
     }
   }
 }
@@ -1212,7 +1220,7 @@ defineExpose({
 
       .el-input__inner {
         color: $text-primary;
-        font-family: 'SF Mono', Monaco, monospace;
+        font-family: "SF Mono", Monaco, monospace;
       }
     }
 
@@ -1225,7 +1233,7 @@ defineExpose({
     margin-top: 4px;
     font-size: $font-size-xs;
     color: $text-secondary;
-    font-family: 'SF Mono', Monaco, monospace;
+    font-family: "SF Mono", Monaco, monospace;
   }
 }
 

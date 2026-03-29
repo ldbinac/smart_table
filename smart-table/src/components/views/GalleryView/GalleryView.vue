@@ -1,59 +1,60 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import type { RecordEntity, FieldEntity } from '@/db/schema'
-import { FieldType } from '@/types'
-import { FormulaEngine } from '@/utils/formula/engine'
+import { ref, computed, onMounted } from "vue";
+import type { RecordEntity, FieldEntity } from "@/db/schema";
+import { FieldType } from "@/types";
+import { FormulaEngine } from "@/utils/formula/engine";
 
 interface Props {
-  fields: FieldEntity[]
-  records: RecordEntity[]
+  fields: FieldEntity[];
+  records: RecordEntity[];
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 const emit = defineEmits<{
-  (e: 'updateRecord', recordId: string, values: Record<string, unknown>): void
-  (e: 'deleteRecord', recordId: string): void
-  (e: 'editRecord', recordId: string): void
-}>()
+  (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
+  (e: "deleteRecord", recordId: string): void;
+  (e: "editRecord", recordId: string): void;
+}>();
 
-const imageFieldId = ref<string>('')
-const titleFieldId = ref<string>('')
-const previewVisible = ref(false)
-const previewImages = ref<Array<{ url: string; name: string }>>([])
-const previewIndex = ref(0)
-const imageLoadingMap = ref<Map<string, boolean>>(new Map())
+const imageFieldId = ref<string>("");
+const titleFieldId = ref<string>("");
+const previewVisible = ref(false);
+const previewImages = ref<Array<{ url: string; name: string }>>([]);
+const previewIndex = ref(0);
+const imageLoadingMap = ref<Map<string, boolean>>(new Map());
 
 const attachmentFields = computed(() => {
-  return props.fields.filter(f => f.type === FieldType.ATTACHMENT)
-})
+  return props.fields.filter((f) => f.type === FieldType.ATTACHMENT);
+});
 
 const titleFields = computed(() => {
-  return props.fields.filter(f =>
-    f.type === FieldType.TEXT ||
-    f.type === FieldType.NUMBER ||
-    f.type === FieldType.SINGLE_SELECT ||
-    f.type === FieldType.FORMULA
-  )
-})
+  return props.fields.filter(
+    (f) =>
+      f.type === FieldType.TEXT ||
+      f.type === FieldType.NUMBER ||
+      f.type === FieldType.SINGLE_SELECT ||
+      f.type === FieldType.FORMULA,
+  );
+});
 
 const titleField = computed(() => {
   if (titleFieldId.value) {
-    return props.fields.find(f => f.id === titleFieldId.value)
+    return props.fields.find((f) => f.id === titleFieldId.value);
   }
-  return props.fields.find(f => f.isPrimary) || props.fields[0]
-})
+  return props.fields.find((f) => f.isPrimary) || props.fields[0];
+});
 
 interface GalleryCard {
-  id: string
-  title: string
-  images: Array<{ url: string; name: string }>
-  record: RecordEntity
+  id: string;
+  title: string;
+  images: Array<{ url: string; name: string }>;
+  record: RecordEntity;
 }
 
 // 获取记录标题（支持公式字段）
 const getRecordTitle = (record: RecordEntity): string => {
   const field = titleField.value;
-  if (!field) return '无标题';
+  if (!field) return "无标题";
 
   // 如果是公式字段，实时计算
   if (field.type === FieldType.FORMULA) {
@@ -62,104 +63,110 @@ const getRecordTitle = (record: RecordEntity): string => {
       try {
         const engine = new FormulaEngine(props.fields);
         const result = engine.calculate(record, formula);
-        if (result !== '#ERROR') {
+        if (result !== "#ERROR") {
           return String(result);
         }
       } catch (error) {
-        console.error('Gallery formula calculation error:', error);
+        console.error("Gallery formula calculation error:", error);
       }
     }
-    return '计算错误';
+    return "计算错误";
   }
 
   // 普通字段直接返回值
-  return String(record.values[field.id] || '无标题');
+  return String(record.values[field.id] || "无标题");
 };
 
 const cards = computed<GalleryCard[]>(() => {
   if (!imageFieldId.value) {
-    return props.records.map(record => ({
+    return props.records.map((record) => ({
       id: record.id,
       title: getRecordTitle(record),
       images: [],
-      record
-    }))
+      record,
+    }));
   }
 
   return props.records
-    .filter(record => {
-      const images = record.values[imageFieldId.value]
-      return images && Array.isArray(images) && images.length > 0
+    .filter((record) => {
+      const images = record.values[imageFieldId.value];
+      return images && Array.isArray(images) && images.length > 0;
     })
-    .map(record => {
-      const images = record.values[imageFieldId.value] as Array<{ url?: string; name?: string; thumbnail?: string }>
-      const title = getRecordTitle(record)
+    .map((record) => {
+      const images = record.values[imageFieldId.value] as Array<{
+        url?: string;
+        name?: string;
+        thumbnail?: string;
+      }>;
+      const title = getRecordTitle(record);
 
       return {
         id: record.id,
         title,
-        images: images.map(img => ({
-          url: img.url || img.thumbnail || '',
-          name: img.name || '未命名'
-        })).filter(img => img.url),
-        record
-      }
+        images: images
+          .map((img) => ({
+            url: img.url || img.thumbnail || "",
+            name: img.name || "未命名",
+          }))
+          .filter((img) => img.url),
+        record,
+      };
     })
-    .filter(card => card.images.length > 0)
-})
+    .filter((card) => card.images.length > 0);
+});
 
 function handleImageLoad(cardId: string) {
-  imageLoadingMap.value.set(cardId, false)
+  imageLoadingMap.value.set(cardId, false);
 }
 
 function isImageLoading(cardId: string): boolean {
-  return imageLoadingMap.value.get(cardId) ?? true
+  return imageLoadingMap.value.get(cardId) ?? true;
 }
 
 function handleImageClick(card: GalleryCard, event: MouseEvent) {
-  const target = event.target as HTMLElement
-  const actionsArea = target.closest('.card-actions')
+  const target = event.target as HTMLElement;
+  const actionsArea = target.closest(".card-actions");
   if (actionsArea) {
-    return
+    return;
   }
 
   if (card.images.length > 0) {
-    previewImages.value = card.images
-    previewIndex.value = 0
-    previewVisible.value = true
+    previewImages.value = card.images;
+    previewIndex.value = 0;
+    previewVisible.value = true;
   }
 }
 
 function handleCardClick(card: GalleryCard, event: MouseEvent) {
-  const target = event.target as HTMLElement
-  const actionsArea = target.closest('.card-actions')
+  const target = event.target as HTMLElement;
+  const actionsArea = target.closest(".card-actions");
   if (actionsArea) {
-    return
+    return;
   }
 
-  const imageArea = target.closest('.card-image-wrapper')
+  const imageArea = target.closest(".card-image-wrapper");
   if (imageArea && card.images.length > 0) {
-    previewImages.value = card.images
-    previewIndex.value = 0
-    previewVisible.value = true
+    previewImages.value = card.images;
+    previewIndex.value = 0;
+    previewVisible.value = true;
   } else {
-    emit('editRecord', card.id)
+    emit("editRecord", card.id);
   }
 }
 
 function handleEdit(card: GalleryCard) {
-  emit('editRecord', card.id)
+  emit("editRecord", card.id);
 }
 
 function handleDelete(card: GalleryCard) {
-  emit('deleteRecord', card.id)
+  emit("deleteRecord", card.id);
 }
 
 onMounted(() => {
   if (attachmentFields.value.length > 0) {
-    imageFieldId.value = attachmentFields.value[0].id
+    imageFieldId.value = attachmentFields.value[0].id;
   }
-})
+});
 </script>
 
 <template>
@@ -174,7 +181,10 @@ onMounted(() => {
         <span class="toolbar-count">{{ cards.length }} 个项目</span>
       </div>
       <div class="toolbar-right">
-        <el-select v-model="imageFieldId" placeholder="选择图片字段" class="field-select">
+        <el-select
+          v-model="imageFieldId"
+          placeholder="选择图片字段"
+          class="field-select">
           <template #prefix>
             <el-icon><Picture /></el-icon>
           </template>
@@ -182,10 +192,12 @@ onMounted(() => {
             v-for="field in attachmentFields"
             :key="field.id"
             :label="field.name"
-            :value="field.id"
-          />
+            :value="field.id" />
         </el-select>
-        <el-select v-model="titleFieldId" placeholder="选择标题字段" class="field-select">
+        <el-select
+          v-model="titleFieldId"
+          placeholder="选择标题字段"
+          class="field-select">
           <template #prefix>
             <el-icon><EditPen /></el-icon>
           </template>
@@ -193,8 +205,7 @@ onMounted(() => {
             v-for="field in titleFields"
             :key="field.id"
             :label="field.name"
-            :value="field.id"
-          />
+            :value="field.id" />
         </el-select>
       </div>
     </div>
@@ -207,15 +218,18 @@ onMounted(() => {
           v-for="card in cards"
           :key="card.id"
           class="gallery-card"
-          @click="handleCardClick(card, $event)"
-        >
+          @click="handleCardClick(card, $event)">
           <!-- 图片区域 -->
-          <div class="card-image-wrapper" @click.stop="handleImageClick(card, $event)">
+          <div
+            class="card-image-wrapper"
+            @click.stop="handleImageClick(card, $event)">
             <!-- 骨架屏 -->
             <div v-if="isImageLoading(card.id)" class="image-skeleton">
               <el-skeleton animated>
                 <template #template>
-                  <el-skeleton-item variant="image" style="width: 100%; height: 100%;" />
+                  <el-skeleton-item
+                    variant="image"
+                    style="width: 100%; height: 100%" />
                 </template>
               </el-skeleton>
             </div>
@@ -227,8 +241,7 @@ onMounted(() => {
               :alt="card.images[0].name"
               class="card-image"
               @load="handleImageLoad(card.id)"
-              @error="handleImageLoad(card.id)"
-            />
+              @error="handleImageLoad(card.id)" />
 
             <!-- 无图片占位 -->
             <div v-else class="no-image">
@@ -247,15 +260,13 @@ onMounted(() => {
                 <el-button
                   circle
                   class="action-btn edit-btn"
-                  @click="handleEdit(card)"
-                >
+                  @click="handleEdit(card)">
                   <el-icon><Edit /></el-icon>
                 </el-button>
                 <el-button
                   circle
                   class="action-btn delete-btn"
-                  @click="handleDelete(card)"
-                >
+                  @click="handleDelete(card)">
                   <el-icon><Delete /></el-icon>
                 </el-button>
               </div>
@@ -266,7 +277,9 @@ onMounted(() => {
           <div class="card-info">
             <div class="card-title-wrapper">
               <el-icon class="title-icon"><Document /></el-icon>
-              <span class="card-title" :title="card.title">{{ card.title }}</span>
+              <span class="card-title" :title="card.title">{{
+                card.title
+              }}</span>
             </div>
           </div>
         </div>
@@ -297,8 +310,7 @@ onMounted(() => {
           v-if="!imageFieldId && attachmentFields.length > 0"
           type="primary"
           class="empty-action"
-          @click="imageFieldId = attachmentFields[0].id"
-        >
+          @click="imageFieldId = attachmentFields[0].id">
           <el-icon><Check /></el-icon>
           选择 {{ attachmentFields[0].name }}
         </el-button>
@@ -311,19 +323,16 @@ onMounted(() => {
       title="图片预览"
       width="80%"
       destroy-on-close
-      class="preview-dialog"
-    >
+      class="preview-dialog">
       <div class="preview-container">
         <el-carousel
           :initial-index="previewIndex"
           indicator-position="outside"
           height="60vh"
-          arrow="always"
-        >
+          arrow="always">
           <el-carousel-item
             v-for="(image, index) in previewImages"
-            :key="index"
-          >
+            :key="index">
             <div class="preview-image-wrapper">
               <img :src="image.url" :alt="image.name" />
               <span class="preview-image-name">{{ image.name }}</span>
@@ -336,7 +345,7 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .gallery-view {
   display: flex;
@@ -366,7 +375,11 @@ onMounted(() => {
 .toolbar-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, $primary-light 0%, rgba($primary-color, 0.1) 100%);
+  background: linear-gradient(
+    135deg,
+    $primary-light 0%,
+    rgba($primary-color, 0.1) 100%
+  );
   border-radius: $border-radius-lg;
   display: flex;
   align-items: center;
@@ -803,7 +816,8 @@ onMounted(() => {
 
 // 动画
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
     opacity: 0.6;
   }

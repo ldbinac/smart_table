@@ -44,7 +44,9 @@ export const useBaseStore = defineStore("base", () => {
 
   const visibleFields = computed(() => {
     // 首先过滤掉 isVisible 为 false 的字段（全局隐藏）
-    let result = sortedFields.value.filter((field) => field.isVisible !== false);
+    let result = sortedFields.value.filter(
+      (field) => field.isVisible !== false,
+    );
     // 再根据当前视图的 hiddenFields 进行过滤（视图级隐藏）
     if (currentView.value) {
       result = result.filter(

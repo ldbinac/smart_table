@@ -51,27 +51,31 @@ export class TableService {
       updatedAt: Date.now(),
     };
 
-    await db.transaction("rw", [db.tableEntities, db.fields, db.views], async () => {
-      await db.tableEntities.add(table);
+    await db.transaction(
+      "rw",
+      [db.tableEntities, db.fields, db.views],
+      async () => {
+        await db.tableEntities.add(table);
 
-      const primaryField: FieldEntity = {
-        id: primaryFieldId,
-        tableId: table.id,
-        name: "主键",
-        type: "text",
-        isPrimary: true,
-        isSystem: true,
-        isRequired: true,
-        isVisible: true,
-        order: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      await db.fields.add(primaryField);
+        const primaryField: FieldEntity = {
+          id: primaryFieldId,
+          tableId: table.id,
+          name: "主键",
+          type: "text",
+          isPrimary: true,
+          isSystem: true,
+          isRequired: true,
+          isVisible: true,
+          order: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        await db.fields.add(primaryField);
 
-      // 添加默认视图
-      await db.views.add(defaultView);
-    });
+        // 添加默认视图
+        await db.views.add(defaultView);
+      },
+    );
 
     return table;
   }

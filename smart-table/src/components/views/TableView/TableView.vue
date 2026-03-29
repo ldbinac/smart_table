@@ -10,6 +10,9 @@ import TableHeader from "./TableHeader.vue";
 import TableRow from "./TableRow.vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 import { generateId } from "@/utils/id";
+import { ElMessage, ElIcon } from "element-plus";
+import { ZoomIn } from "@element-plus/icons-vue";
+import RecordDialog from "@/components/dialogs/RecordDialog.vue";
 
 interface Props {
   tableId?: string;
@@ -39,6 +42,10 @@ const viewStore = useViewStore();
 const selectedRows = ref<string[]>([]);
 const hoveredRowId = ref<string | null>(null);
 const editingCell = ref<{ recordId: string; fieldId: string } | null>(null);
+
+// 放大按钮相关
+const expandedRecord = ref<RecordEntity | null>(null);
+const expandDialogVisible = ref(false);
 
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
@@ -155,6 +162,12 @@ const handleCellUpdate = async (
 };
 
 const handleRowClick = (record: RecordEntity, event: MouseEvent) => {
+  // 如果点击的是放大按钮，不处理行选择
+  const target = event.target as HTMLElement;
+  if (target.closest(".expand-btn")) {
+    return;
+  }
+
   if (event.ctrlKey || event.metaKey) {
     const index = selectedRows.value.indexOf(record.id);
     if (index > -1) {
@@ -189,6 +202,30 @@ const handleRowClick = (record: RecordEntity, event: MouseEvent) => {
       .map((id) => sortedRecords.value.find((r) => r.id === id)!)
       .filter(Boolean),
   );
+};
+
+// 处理放大按钮点击
+const handleExpandRecord = (record: RecordEntity) => {
+  expandedRecord.value = record;
+  expandDialogVisible.value = true;
+};
+
+// 处理弹窗保存
+const handleRecordSave = async (
+  recordId: string,
+  values: Record<string, unknown>,
+) => {
+  try {
+    await recordService.updateRecord(recordId, {
+      values: values as Record<string, CellValue>,
+    });
+    await baseStore.loadTable(baseStore.currentTable?.id || "");
+    ElMessage.success("保存成功");
+    expandDialogVisible.value = false;
+    expandedRecord.value = null;
+  } catch (error) {
+    ElMessage.error("保存失败");
+  }
 };
 
 const handleRowContextMenu = (record: RecordEntity, event: MouseEvent) => {
@@ -542,6 +579,14 @@ defineExpose({
                   }
                 }
               " />
+            <!-- 放大按钮 - 与勾选按钮并列显示 -->
+            <button
+              class="expand-btn"
+              :class="{ 'is-visible': selectedRows.includes(record.id) }"
+              @click.stop="handleExpandRecord(record)"
+              title="查看/编辑记录">
+              <ElIcon><ZoomIn /></ElIcon>
+            </button>
             <span class="row-number">{{ index + 1 }}</span>
           </div>
 
@@ -599,6 +644,13 @@ defineExpose({
       :visible="contextMenuVisible"
       @update:visible="contextMenuVisible = $event"
       @select="handleContextMenuSelect" />
+
+    <!-- 记录详情/编辑弹窗 -->
+    <RecordDialog
+      v-model:visible="expandDialogVisible"
+      :record="expandedRecord"
+      :fields="visibleFields"
+      @save="handleRecordSave" />
   </div>
 </template>
 
@@ -661,7 +713,7 @@ defineExpose({
 
   &.is-frozen {
     position: sticky;
-    left: 40px;
+    left: 70px;
     z-index: 5;
     background-color: $gray-50;
     box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
@@ -669,8 +721,8 @@ defineExpose({
 }
 
 .row-selector-header {
-  width: 40px;
-  min-width: 40px;
+  width: 70px;
+  min-width: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -690,15 +742,16 @@ defineExpose({
 }
 
 .row-selector {
-  width: 40px;
-  min-width: 40px;
+  width: 70px;
+  min-width: 70px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 4px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px;
   border-right: 1px solid $gray-200;
   background-color: inherit;
+  position: relative;
 
   input[type="checkbox"] {
     width: 16px;
@@ -707,11 +760,48 @@ defineExpose({
     opacity: 0;
     transition: opacity $transition-fast;
     accent-color: $primary-color;
+    flex-shrink: 0;
   }
 
   .row-number {
     font-size: $font-size-xs;
     color: $gray-400;
+    transition: opacity $transition-fast;
+    position: absolute;
+    right: 8px;
+  }
+
+  .expand-btn {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: $border-radius-sm;
+    background-color: $primary-color;
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all $transition-fast;
+    z-index: 10;
+    flex-shrink: 0;
+    margin-left: 4px;
+
+    &:hover {
+      background-color: darken($primary-color, 10%);
+      transform: scale(1.1);
+    }
+
+    &.is-visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .el-icon {
+      font-size: 12px;
+    }
   }
 
   &:hover {
@@ -720,7 +810,21 @@ defineExpose({
     }
 
     .row-number {
-      display: none;
+      opacity: 0;
+    }
+  }
+}
+
+// 行被选中时显示放大按钮
+:deep(.table-row.is-selected) {
+  .row-selector {
+    .expand-btn {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .row-number {
+      opacity: 0;
     }
   }
 }
@@ -731,7 +835,7 @@ defineExpose({
 
   &.is-frozen {
     position: sticky;
-    left: 40px;
+    left: 70px;
     z-index: 2;
     background-color: inherit;
     box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
