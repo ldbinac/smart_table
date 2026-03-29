@@ -1289,7 +1289,7 @@ function handleImported() {
             <!-- 表单视图 -->
             <FormView
               v-else-if="isFormView"
-              :fields="baseStore.visibleFields"
+              :fields="baseStore.fields"
               :readonly="false"
               :title="formConfig.title"
               :description="formConfig.description"
@@ -1472,13 +1472,13 @@ function handleImported() {
     <RecordDialog
       v-model:visible="recordDialogVisible"
       :record="editingRecord"
-      :fields="baseStore.visibleFields"
+      :fields="baseStore.fields"
       @save="handleSaveRecord" />
 
     <!-- 添加记录对话框 -->
     <AddRecordDialog
       v-model:visible="addRecordDialogVisible"
-      :fields="baseStore.visibleFields"
+      :fields="baseStore.fields"
       :initial-values="addRecordInitialValues"
       :group-field-id="addRecordGroupInfo.groupFieldId"
       :group-id="addRecordGroupInfo.groupId"

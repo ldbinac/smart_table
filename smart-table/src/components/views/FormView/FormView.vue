@@ -45,7 +45,11 @@ function isPrimaryField(field: FieldEntity): boolean {
 }
 
 const visibleFields = computed(() => {
-  let fields = props.fields.filter((f) => !f.options?.hidden);
+  // 首先过滤掉 isVisible 为 false 的字段
+  let fields = props.fields.filter((f) => f.isVisible !== false);
+
+  // 过滤掉 options.hidden 为 true 的字段
+  fields = fields.filter((f) => !f.options?.hidden);
 
   // 如果指定了可见字段ID列表，则只显示这些字段
   if (props.visibleFieldIds && props.visibleFieldIds.length > 0) {

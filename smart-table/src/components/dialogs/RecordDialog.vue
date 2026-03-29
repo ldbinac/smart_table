@@ -36,6 +36,11 @@ const emit = defineEmits<{
 const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
 
+// 可见字段（用于显示）
+const visibleFields = computed(() => {
+  return props.fields.filter((f) => f.isVisible !== false);
+});
+
 // 初始化表单数据
 watch(
   () => props.record,
@@ -290,7 +295,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
     :close-on-click-modal="false">
     <ElForm label-width="100px" class="record-form">
       <ElFormItem
-        v-for="field in fields"
+        v-for="field in visibleFields"
         :key="field.id"
         :label="field.name"
         :required="field.isRequired && !isReadonlyField(field)">

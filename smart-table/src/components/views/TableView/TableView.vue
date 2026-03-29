@@ -660,7 +660,7 @@ defineExpose({
     <RecordDialog
       v-model:visible="expandDialogVisible"
       :record="expandedRecord"
-      :fields="visibleFields"
+      :fields="fields"
       @save="handleRecordSave" />
   </div>
 </template>

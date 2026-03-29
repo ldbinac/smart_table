@@ -39,9 +39,14 @@ const emit = defineEmits<{
 const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
 
-// 获取主键字段
+// 获取主键字段（从所有字段中查找，包括隐藏的）
 const primaryField = computed(() => {
   return props.fields.find((f) => f.isPrimary) || props.fields[0];
+});
+
+// 可见字段（用于显示）
+const visibleFields = computed(() => {
+  return props.fields.filter((f) => f.isVisible !== false);
 });
 
 // 初始化表单数据
@@ -311,7 +316,7 @@ function handleValueChange(fieldId: string, value: unknown) {
     :close-on-click-modal="false">
     <ElForm label-width="100px" class="record-form">
       <ElFormItem
-        v-for="field in fields"
+        v-for="field in visibleFields"
         :key="field.id"
         :label="field.name"
         :required="
