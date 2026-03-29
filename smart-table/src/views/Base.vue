@@ -1188,69 +1188,81 @@ function handleImported() {
               </span>
             </div>
             <div class="table-actions">
-              <el-button-group>
-                <el-button
-                  size="small"
-                  :type="activeFilters.length > 0 ? 'primary' : 'default'"
-                  @click="openFilterDialog">
-                  <el-icon><Filter /></el-icon>
-                  筛选
-                  <el-tag
-                    v-if="activeFilters.length > 0"
+              <!-- 表格视图：显示所有常规操作按钮 -->
+              <template v-if="isTableView">
+                <el-button-group>
+                  <el-button
                     size="small"
-                    class="filter-badge">
-                    {{ activeFilters.length }}
-                  </el-tag>
+                    :type="activeFilters.length > 0 ? 'primary' : 'default'"
+                    @click="openFilterDialog">
+                    <el-icon><Filter /></el-icon>
+                    筛选
+                    <el-tag
+                      v-if="activeFilters.length > 0"
+                      size="small"
+                      class="filter-badge">
+                      {{ activeFilters.length }}
+                    </el-tag>
+                  </el-button>
+                  <el-button
+                    size="small"
+                    :type="activeSorts.length > 0 ? 'primary' : 'default'"
+                    @click="openSortDialog">
+                    <el-icon><Sort /></el-icon>
+                    排序
+                    <el-tag
+                      v-if="activeSorts.length > 0"
+                      size="small"
+                      class="sort-badge">
+                      {{ activeSorts.length }}
+                    </el-tag>
+                  </el-button>
+                  <el-button
+                    size="small"
+                    :type="hasGroupConfig ? 'primary' : 'default'"
+                    @click="openGroupDialog">
+                    <el-icon><Folder /></el-icon>
+                    分组
+                    <el-tag
+                      v-if="hasGroupConfig"
+                      size="small"
+                      class="group-badge">
+                      {{ currentGroupBys.length }}
+                    </el-tag>
+                  </el-button>
+                  <el-button size="small" @click="openFieldDialog">
+                    <el-icon><Grid /></el-icon>
+                    字段
+                  </el-button>
+                </el-button-group>
+                <el-button size="small" @click="openImportDialog">
+                  <el-icon><Upload /></el-icon>
+                  导入
                 </el-button>
                 <el-button
+                  type="primary"
                   size="small"
-                  :type="activeSorts.length > 0 ? 'primary' : 'default'"
-                  @click="openSortDialog">
-                  <el-icon><Sort /></el-icon>
-                  排序
-                  <el-tag
-                    v-if="activeSorts.length > 0"
-                    size="small"
-                    class="sort-badge">
-                    {{ activeSorts.length }}
-                  </el-tag>
+                  @click="openExportDialog">
+                  <el-icon><Download /></el-icon>
+                  导出
                 </el-button>
-                <el-button
-                  size="small"
-                  :type="hasGroupConfig ? 'primary' : 'default'"
-                  @click="openGroupDialog">
-                  <el-icon><Folder /></el-icon>
-                  分组
-                  <el-tag
-                    v-if="hasGroupConfig"
-                    size="small"
-                    class="group-badge">
-                    {{ currentGroupBys.length }}
-                  </el-tag>
-                </el-button>
-                <el-button size="small" @click="openFieldDialog">
-                  <el-icon><Grid /></el-icon>
-                  字段
-                </el-button>
-              </el-button-group>
-              <el-button-group v-if="isFormView">
-                <el-button size="small" @click="openFormConfigDialog">
-                  <el-icon><Setting /></el-icon>
-                  配置
-                </el-button>
-                <el-button size="small" @click="openFormShareDialog">
-                  <el-icon><Share /></el-icon>
-                  分享
-                </el-button>
-              </el-button-group>
-              <el-button size="small" @click="openImportDialog">
-                <el-icon><Upload /></el-icon>
-                导入
-              </el-button>
-              <el-button type="primary" size="small" @click="openExportDialog">
-                <el-icon><Download /></el-icon>
-                导出
-              </el-button>
+              </template>
+
+              <!-- 表单视图：只显示配置和分享按钮 -->
+              <template v-if="isFormView">
+                <el-button-group>
+                  <el-button size="small" @click="openFormConfigDialog">
+                    <el-icon><Setting /></el-icon>
+                    配置
+                  </el-button>
+                  <el-button size="small" @click="openFormShareDialog">
+                    <el-icon><Share /></el-icon>
+                    分享
+                  </el-button>
+                </el-button-group>
+              </template>
+
+              <!-- 看板、日历、甘特、画册视图：不显示任何操作按钮 -->
             </div>
           </header>
 
