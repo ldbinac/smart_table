@@ -610,7 +610,22 @@ function isRowSelected(recordId: string): boolean {
               </td>
               <td :colspan="visibleFields.length" class="group-info-cell">
                 <div class="group-info">
-                  <span class="group-name">{{ item.node!.value }}</span>
+                  <!-- 单选字段分组：使用预定义样式展示 -->
+                  <template v-if="item.groupField?.type === FieldType.SINGLE_SELECT">
+                    <span
+                      v-if="getSingleSelectDisplay(item.groupField, item.node!.value)"
+                      class="group-name select-tag"
+                      :style="{
+                        backgroundColor: getSingleSelectDisplay(item.groupField, item.node!.value)?.color,
+                      }">
+                      {{ getSingleSelectDisplay(item.groupField, item.node!.value)?.name }}
+                    </span>
+                    <span v-else class="group-name">{{ item.node!.value }}</span>
+                  </template>
+                  <!-- 其他字段分组：保持原有显示方式 -->
+                  <template v-else>
+                    <span class="group-name">{{ item.node!.value }}</span>
+                  </template>
                   <span class="group-count">总数：{{ item.node!.count }}</span>
                 </div>
               </td>
@@ -1042,6 +1057,15 @@ export default {
       font-size: $font-size-base;
       font-weight: 600;
       color: $primary-color;
+
+      // 单选标签样式保持与表格行内一致
+      &.select-tag {
+        font-size: $font-size-xs;
+        font-weight: normal;
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 12px;
+      }
     }
 
     .group-count {
@@ -1064,6 +1088,14 @@ export default {
       font-size: $font-size-sm;
       font-weight: 500;
       color: $text-primary;
+
+      // 单选标签样式保持与表格行内一致
+      &.select-tag {
+        font-weight: normal;
+        color: #fff;
+        padding: 3px 8px;
+        border-radius: 12px;
+      }
     }
 
     .group-count {
@@ -1085,6 +1117,14 @@ export default {
     .group-name {
       font-size: $font-size-sm;
       color: $text-secondary;
+
+      // 单选标签样式保持与表格行内一致
+      &.select-tag {
+        font-weight: normal;
+        color: #fff;
+        padding: 2px 6px;
+        border-radius: 12px;
+      }
     }
 
     .group-count {
