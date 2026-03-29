@@ -139,6 +139,12 @@ const addRecordGroupInfo = ref<{
   groupFieldId?: string;
   groupId?: string;
   groupName?: string;
+  groupLevels?: Array<{
+    fieldId: string;
+    fieldName: string;
+    value: string;
+    valueId?: string;
+  }>;
 }>({});
 
 // 重命名表单
@@ -375,15 +381,30 @@ const handleAddRecordFromGroup = (groupInfo: {
   groupFieldId?: string;
   groupId?: string;
   groupName?: string;
+  groupLevels?: Array<{
+    fieldId: string;
+    fieldName: string;
+    value: string;
+    valueId?: string;
+  }>;
 }) => {
   if (!baseStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
 
-  // 构建初始值，包含分组字段的值
+  // 构建初始值，包含所有层级分组字段的值
   const initialValues: Record<string, unknown> = {};
-  if (groupInfo.groupFieldId && groupInfo.groupId) {
+
+  // 优先使用 groupLevels（多层分组信息）
+  if (groupInfo.groupLevels && groupInfo.groupLevels.length > 0) {
+    for (const level of groupInfo.groupLevels) {
+      if (level.fieldId && level.valueId) {
+        initialValues[level.fieldId] = level.valueId;
+      }
+    }
+  } else if (groupInfo.groupFieldId && groupInfo.groupId) {
+    // 兼容旧版单层分组
     initialValues[groupInfo.groupFieldId] = groupInfo.groupId;
   }
 
@@ -1483,6 +1504,7 @@ function handleImported() {
       :group-field-id="addRecordGroupInfo.groupFieldId"
       :group-id="addRecordGroupInfo.groupId"
       :group-name="addRecordGroupInfo.groupName"
+      :group-levels="addRecordGroupInfo.groupLevels"
       @save="handleSaveNewRecord" />
 
     <!-- 表单配置对话框 -->
@@ -1938,7 +1960,9 @@ function handleImported() {
     @include button-fresh;
 
     &:hover {
-      box-shadow: $shadow-button, 0 4px 8px rgba($primary-color, 0.3);
+      box-shadow:
+        $shadow-button,
+        0 4px 8px rgba($primary-color, 0.3);
     }
 
     &:active {

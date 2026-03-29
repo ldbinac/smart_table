@@ -22,12 +22,20 @@ import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 
+interface GroupLevelInfo {
+  fieldId: string;
+  fieldName: string;
+  value: string;
+  valueId?: string;
+}
+
 const props = defineProps<{
   visible: boolean;
   fields: FieldEntity[];
   groupFieldId?: string;
   groupId?: string;
   groupName?: string;
+  groupLevels?: GroupLevelInfo[];
   initialValues?: Record<string, unknown>;
 }>();
 
@@ -252,7 +260,28 @@ function handleDateChange(field: FieldEntity, val: Date | null) {
 
 // 检查字段是否已自动填充（分组字段）
 function isAutoFilledField(field: FieldEntity): boolean {
+  // 优先使用 groupLevels（多层分组）
+  if (props.groupLevels && props.groupLevels.length > 0) {
+    return props.groupLevels.some(
+      (level) =>
+        level.fieldId === field.id &&
+        level.valueId &&
+        level.valueId !== "uncategorized"
+    );
+  }
+  // 兼容旧版单层分组
   return props.groupFieldId === field.id && props.groupId !== "uncategorized";
+}
+
+// 获取字段的自动填充值
+function getAutoFilledValue(field: FieldEntity): string | undefined {
+  // 优先使用 groupLevels（多层分组）
+  if (props.groupLevels && props.groupLevels.length > 0) {
+    const level = props.groupLevels.find((l) => l.fieldId === field.id);
+    return level?.valueId;
+  }
+  // 兼容旧版单层分组
+  return props.groupId;
 }
 
 // 检查字段是否为主键字段
@@ -374,7 +403,10 @@ function handleValueChange(fieldId: string, value: unknown) {
 
         <!-- 自动填充的分组字段显示为只读 -->
         <template v-else-if="isAutoFilledField(field)">
-          <ElSelect :model-value="groupId" style="width: 100%" disabled>
+          <ElSelect
+            :model-value="getAutoFilledValue(field)"
+            style="width: 100%"
+            disabled>
             <ElOption
               v-for="option in getSelectOptions(field)"
               :key="option.id"

@@ -125,13 +125,28 @@ function getGroupKey(value: unknown, field: FieldEntity): string {
       return "__empty__";
     }
 
-    case FieldType.DATE:
+    case FieldType.DATE: {
+      // 日期字段存储为字符串格式 "YYYY-MM-DD"
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+        return value.substring(0, 10);
+      }
+      // 处理数字时间戳（毫秒或秒）
+      const timestamp = typeof value === "number" ? value : Date.parse(String(value));
+      if (isNaN(timestamp) || timestamp === 0) return "__empty__";
+      // 判断是秒级还是毫秒级时间戳（秒级时间戳通常小于 1e10）
+      const msTimestamp = timestamp < 1e10 ? timestamp * 1000 : timestamp;
+      const date = new Date(msTimestamp);
+      if (isNaN(date.getTime())) return "__empty__";
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME: {
-      const timestamp =
-        typeof value === "number" ? value : Date.parse(String(value));
-      if (isNaN(timestamp)) return "__empty__";
+      // 创建时间和修改时间存储为毫秒级时间戳
+      const timestamp = typeof value === "number" ? value : Date.parse(String(value));
+      if (isNaN(timestamp) || timestamp === 0) return "__empty__";
       const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "__empty__";
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     }
 

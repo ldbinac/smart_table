@@ -19,12 +19,24 @@ const props = withDefaults(defineProps<Props>(), {
   rowHeight: "medium",
 });
 
+interface GroupLevelInfo {
+  fieldId: string;
+  fieldName: string;
+  value: string;
+  valueId?: string;
+}
+
 const emit = defineEmits<{
   (e: "rowClick", record: RecordEntity): void;
   (e: "cellClick", record: RecordEntity, field: FieldEntity): void;
   (
     e: "addRecord",
-    groupInfo: { groupFieldId?: string; groupId?: string; groupName?: string },
+    groupInfo: {
+      groupFieldId?: string;
+      groupId?: string;
+      groupName?: string;
+      groupLevels?: GroupLevelInfo[];
+    },
   ): void;
   (e: "record-select", record: RecordEntity | null): void;
   (e: "records-select", records: RecordEntity[]): void;
@@ -356,21 +368,35 @@ function getMultiSelectDisplay(field: FieldEntity, value: unknown) {
 
 // 获取日期显示值
 function getDateDisplay(field: FieldEntity, value: unknown): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined || value === "") return "";
 
   const showTime = (field.options?.showTime as boolean) ?? false;
   const format = showTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 
-  if (typeof value === "number") {
-    return dayjs(value).format(format);
-  }
+  // 处理字符串格式的日期（如 "2024-01-15"）
   if (typeof value === "string") {
+    // 如果是标准日期格式，直接返回
+    if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return value.substring(0, showTime ? 19 : 10);
+    }
+    // 尝试解析为数字时间戳
     const num = parseInt(value);
-    if (!isNaN(num)) {
-      return dayjs(num).format(format);
+    if (!isNaN(num) && num > 0) {
+      // 判断是秒级还是毫秒级时间戳
+      const msTimestamp = num < 1e10 ? num * 1000 : num;
+      return dayjs(msTimestamp).format(format);
     }
     return value;
   }
+
+  // 处理数字类型的时间戳
+  if (typeof value === "number") {
+    if (value <= 0) return "";
+    // 判断是秒级还是毫秒级时间戳（秒级时间戳通常小于 1e10）
+    const msTimestamp = value < 1e10 ? value * 1000 : value;
+    return dayjs(msTimestamp).format(format);
+  }
+
   return String(value);
 }
 
@@ -483,12 +509,50 @@ function handleAddRecord(item: FlattenedItem) {
   const groupField = item.groupField;
   const groupValue = item.groupValue;
 
+  // 构建所有层级的分组信息
+  const groupLevels: GroupLevelInfo[] = [];
+
+  if (item.groupKey) {
+    // groupKey 格式: "level1Key-level2Key-level3Key"
+    const keyParts = item.groupKey.split("-");
+
+    // 根据层级数量，从 groupNodes 树中查找每个层级的信息
+    let currentNodes = groupNodes.value;
+    let currentKeyPath = "";
+
+    for (let i = 0; i < keyParts.length && i < groupFields.value.length; i++) {
+      const keyPart = keyParts[i];
+      const field = groupFields.value[i];
+
+      if (!field) continue;
+
+      // 在当前层级查找匹配的分组节点
+      const node = currentNodes.find((n) => n.key === keyPart);
+      if (node) {
+        currentKeyPath = currentKeyPath
+          ? `${currentKeyPath}-${keyPart}`
+          : keyPart;
+
+        groupLevels.push({
+          fieldId: field.id,
+          fieldName: field.name,
+          value: node.value,
+          valueId: getGroupIdFromValue(node.value, field),
+        });
+
+        // 进入下一层级
+        currentNodes = node.children || [];
+      }
+    }
+  }
+
   emit("addRecord", {
     groupFieldId: groupField?.id,
     groupId: groupField
       ? getGroupIdFromValue(groupValue, groupField)
       : undefined,
     groupName: groupValue,
+    groupLevels: groupLevels.length > 0 ? groupLevels : undefined,
   });
 }
 
@@ -511,8 +575,14 @@ function getGroupHeaderClass(level: number): string {
 }
 
 function getIndentStyle(level: number) {
+  // 第一层: 8px, 第二层: 32px, 第三层: 72px (增加第三层间距)
+  const indentMap: Record<number, number> = {
+    0: 8,
+    1: 20,
+    2: 32,
+  };
   return {
-    paddingLeft: `${level * 24 + 8}px`,
+    paddingLeft: `${indentMap[level] ?? level * 24 + 8}px`,
   };
 }
 
@@ -611,16 +681,32 @@ function isRowSelected(recordId: string): boolean {
               <td :colspan="visibleFields.length" class="group-info-cell">
                 <div class="group-info">
                   <!-- 单选字段分组：使用预定义样式展示 -->
-                  <template v-if="item.groupField?.type === FieldType.SINGLE_SELECT">
+                  <template
+                    v-if="item.groupField?.type === FieldType.SINGLE_SELECT">
                     <span
-                      v-if="getSingleSelectDisplay(item.groupField, item.node!.value)"
+                      v-if="
+                        getSingleSelectDisplay(
+                          item.groupField,
+                          item.node!.value,
+                        )
+                      "
                       class="group-name select-tag"
                       :style="{
-                        backgroundColor: getSingleSelectDisplay(item.groupField, item.node!.value)?.color,
+                        backgroundColor: getSingleSelectDisplay(
+                          item.groupField,
+                          item.node!.value,
+                        )?.color,
                       }">
-                      {{ getSingleSelectDisplay(item.groupField, item.node!.value)?.name }}
+                      {{
+                        getSingleSelectDisplay(
+                          item.groupField,
+                          item.node!.value,
+                        )?.name
+                      }}
                     </span>
-                    <span v-else class="group-name">{{ item.node!.value }}</span>
+                    <span v-else class="group-name">{{
+                      item.node!.value
+                    }}</span>
                   </template>
                   <!-- 其他字段分组：保持原有显示方式 -->
                   <template v-else>
@@ -1025,7 +1111,8 @@ export default {
 
 .expand-icon {
   font-size: 14px;
-  color: $text-secondary;
+  font-weight: bold;
+  color: #003366;
   transition: transform 0.2s ease;
   cursor: pointer;
 
@@ -1077,60 +1164,68 @@ export default {
 
   // 二级分组
   &.group-level-2 {
-    background-color: #f8fbff;
-    border-bottom: 1px solid #e8f0ff;
+    background-color: #f0f7ff;
+    border-bottom: 1px solid #d9e8ff;
 
     .group-info-cell {
       padding: $spacing-sm $spacing-md;
     }
 
     .group-name {
-      font-size: $font-size-sm;
-      font-weight: 500;
-      color: $text-primary;
+      font-size: $font-size-base;
+      font-weight: 600;
+      color: $primary-color;
 
       // 单选标签样式保持与表格行内一致
       &.select-tag {
+        font-size: $font-size-xs;
         font-weight: normal;
         color: #fff;
-        padding: 3px 8px;
+        padding: 4px 10px;
         border-radius: 12px;
       }
     }
 
     .group-count {
-      font-size: $font-size-xs;
+      font-size: $font-size-sm;
       color: $text-secondary;
-      margin-left: $spacing-sm;
+      margin-left: $spacing-md;
     }
   }
 
   // 三级分组
   &.group-level-3 {
-    background-color: #fafcff;
-    border-bottom: 1px solid #f0f5ff;
+    background-color: #f0f7ff;
+    border-bottom: 1px solid #d9e8ff;
+
+    .expand-cell {
+      padding-right: 16px;
+    }
 
     .group-info-cell {
-      padding: $spacing-xs $spacing-md;
+      padding: $spacing-sm $spacing-md;
+      padding-left: 8px;
     }
 
     .group-name {
-      font-size: $font-size-sm;
-      color: $text-secondary;
+      font-size: $font-size-base;
+      font-weight: 600;
+      color: $primary-color;
 
       // 单选标签样式保持与表格行内一致
       &.select-tag {
+        font-size: $font-size-xs;
         font-weight: normal;
         color: #fff;
-        padding: 2px 6px;
+        padding: 4px 10px;
         border-radius: 12px;
       }
     }
 
     .group-count {
-      font-size: $font-size-xs;
-      color: $text-disabled;
-      margin-left: $spacing-sm;
+      font-size: $font-size-sm;
+      color: $text-secondary;
+      margin-left: $spacing-md;
     }
   }
 }
