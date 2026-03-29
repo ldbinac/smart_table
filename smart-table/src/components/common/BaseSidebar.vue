@@ -450,6 +450,7 @@ defineExpose({
           <span v-show="!isCollapsed">添加数据表</span>
         </el-button>
         <el-button
+          style="margin-left: 0px"
           v-if="showDashboards !== false"
           type="primary"
           text
@@ -551,7 +552,7 @@ defineExpose({
   min-height: 56px;
   gap: $spacing-sm;
   // 与底部新增区域背景色保持一致
-  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8f9 100%);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 
   .header-content {
@@ -679,18 +680,18 @@ defineExpose({
   }
 
   &.active {
-    background-color: rgba($primary-color, 0.08);
+    background-color: rgba($primary-color, 0.2);
     color: $primary-color;
 
     // 底部指示条效果
     &::before {
       content: "";
       position: absolute;
-      left: 0;
+      right: 0;
       top: 50%;
       transform: translateY(-50%);
       width: 3px;
-      height: 20px;
+      height: 30px;
       background: linear-gradient(
         180deg,
         $primary-gradient-start,
@@ -796,7 +797,7 @@ defineExpose({
     justify-content: flex-start;
     padding-left: $spacing-sm;
     // 增强按钮在亮色背景上的辨识度
-    background-color: rgba($primary-color, 0.05);
+    // background-color: rgba($primary-color, 0.09);
     border-radius: $border-radius-md;
     transition: all $transition-fast;
 
