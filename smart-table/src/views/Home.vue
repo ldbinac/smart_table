@@ -45,6 +45,9 @@ const previewDialogVisible = ref(false);
 const previewTemplate = ref<TableTemplate | null>(null);
 const activePreviewTables = ref<string[]>([]);
 
+// 模板搜索状态
+const templateSearchQuery = ref("");
+
 // 创建表单数据
 const createForm = reactive({
   name: "",
@@ -163,6 +166,15 @@ const hasStarredBases = computed(() => starredBases.value.length > 0);
 // 是否有搜索结果
 const hasSearchResults = computed(() => {
   return starredBases.value.length > 0 || allBases.value.length > 0;
+});
+
+// 过滤后的模板列表（仅按名称搜索）
+const filteredTemplates = computed(() => {
+  const query = templateSearchQuery.value.trim().toLowerCase();
+  if (!query) return tableTemplates;
+  return tableTemplates.filter(template => 
+    template.name.toLowerCase().includes(query)
+  );
 });
 
 // 限制显示的收藏卡片数量（最多8个）
@@ -796,12 +808,32 @@ async function handleUseTemplate(template: TableTemplate) {
           <!-- 模板视图 -->
           <div v-else-if="currentNav === 'templates'" class="templates-view">
             <div class="templates-header">
-              <h2 class="view-title">选择模板</h2>
-              <p class="view-desc">选择一个预置模板快速开始您的多维表格</p>
+              <div class="templates-header-top">
+                <div>
+                  <h2 class="view-title">选择模板</h2>
+                  <p class="view-desc">选择一个预置模板快速开始您的多维表格</p>
+                </div>
+                <div class="template-search-wrapper">
+                  <div class="template-search-box">
+                    <el-icon class="search-icon"><Search /></el-icon>
+                    <input
+                      v-model="templateSearchQuery"
+                      type="text"
+                      class="template-search-input"
+                      placeholder="搜索模板..." />
+                    <el-icon
+                      v-if="templateSearchQuery"
+                      class="search-clear"
+                      @click="templateSearchQuery = ''">
+                      <CircleClose />
+                    </el-icon>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="templates-grid">
               <div
-                v-for="template in tableTemplates"
+                v-for="template in filteredTemplates"
                 :key="template.id"
                 class="template-card">
                 <div class="template-main">
@@ -2298,6 +2330,14 @@ $star-color: #f59e0b;
   .templates-header {
     margin-bottom: 32px;
 
+    .templates-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
     .view-title {
       font-size: 24px;
       font-weight: 700;
@@ -2309,6 +2349,64 @@ $star-color: #f59e0b;
       font-size: 14px;
       color: $gray-500;
       margin: 0;
+    }
+
+    .template-search-wrapper {
+      flex-shrink: 0;
+      width: 320px;
+    }
+
+    .template-search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: white;
+      border: 1px solid $gray-200;
+      border-radius: 24px;
+      padding: 0 16px;
+      height: 48px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: $gray-300;
+      }
+
+      &:focus-within {
+        border-color: $primary;
+        box-shadow: 0 0 0 3px rgba($primary, 0.1);
+      }
+
+      .search-icon {
+        color: $gray-400;
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+
+      .template-search-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 14px;
+        color: $gray-700;
+        padding: 0 12px;
+
+        &::placeholder {
+          color: $gray-400;
+        }
+      }
+
+      .search-clear {
+        color: $gray-400;
+        cursor: pointer;
+        font-size: 16px;
+        flex-shrink: 0;
+        transition: color 0.2s;
+
+        &:hover {
+          color: $gray-600;
+        }
+      }
     }
   }
 
@@ -2764,12 +2862,21 @@ $star-color: #f59e0b;
     .templates-header {
       margin-bottom: 24px;
 
+      .templates-header-top {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
       .view-title {
         font-size: 20px;
       }
 
       .view-desc {
         font-size: 13px;
+      }
+
+      .template-search-wrapper {
+        width: 100%;
       }
     }
 
