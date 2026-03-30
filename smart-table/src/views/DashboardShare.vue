@@ -122,15 +122,90 @@ async function submitAccessCode() {
   await validateShare()
 }
 
+// 判断是否显示标题栏
+// 文字组件默认隐藏标题栏，其他组件根据 showHeader 配置
+function shouldShowHeader(widget: WidgetConfig): boolean {
+  // 文字组件默认隐藏标题栏
+  if (widget.type === 'text') {
+    return widget.config?.showHeader === true
+  }
+  // 其他组件默认显示标题栏
+  return widget.config?.showHeader !== false
+}
+
+// 获取边框样式
+function getBorderStyle(widget: WidgetConfig): Record<string, string> {
+  const borderSize = widget.config?.borderSize || 'none'
+  const borderWidths = {
+    none: '0px',
+    narrow: '4px',
+    medium: '8px',
+    wide: '16px'
+  }
+  const borderWidth = borderWidths[borderSize] || '0px'
+
+  return {
+    border: `${borderWidth} solid #f0f0f0`,
+    borderRadius: '12px',
+    overflow: 'hidden'
+  }
+}
+
+// 获取内容区域 padding 样式
+function getBodyPaddingStyle(widget: WidgetConfig): Record<string, string> {
+  const borderSize = widget.config?.borderSize || 'none'
+
+  // 当无边框时，padding 设置为 0px
+  if (borderSize === 'none') {
+    return { padding: '0px' }
+  }
+
+  // 有边框时，使用默认 padding
+  return { padding: '12px' }
+}
+
 // 渲染组件
 function renderWidget(widget: WidgetConfig) {
   const container = chartContainers.value.get(widget.id)
   if (!container) return
 
+  // 大屏专用组件渲染（不需要数据表）
+  if (widget.type === 'clock') {
+    renderClockWidget(widget, container)
+    return
+  }
+
+  if (widget.type === 'date') {
+    renderDateWidget(widget, container)
+    return
+  }
+
+  if (widget.type === 'marquee') {
+    renderMarqueeWidget(widget, container)
+    return
+  }
+
+  if (widget.type === 'text') {
+    renderTextWidget(widget, container)
+    return
+  }
+
+  // 需要数据的组件
   const fields = tableFieldsMap.value.get(widget.tableId) || []
   const records = tableRecordsMap.value.get(widget.tableId) || []
 
-  if (!widget.fieldId || records.length === 0) {
+  // 大屏组件 kpi 和 realtime 可以没有数据时显示默认状态
+  if (widget.type === 'kpi' || widget.type === 'realtime') {
+    if (!widget.tableId || records.length === 0) {
+      // 显示默认空状态
+      if (widget.type === 'kpi') {
+        renderKpiWidget(widget, container, [0])
+      } else {
+        container.innerHTML = '<div class="widget-empty">等待数据...</div>'
+      }
+      return
+    }
+  } else if (!widget.fieldId || records.length === 0) {
     container.innerHTML = '<div class="widget-empty">暂无数据</div>'
     return
   }
@@ -154,6 +229,12 @@ function renderWidget(widget: WidgetConfig) {
         <div class="number-label">${widget.title}</div>
       </div>
     `
+    return
+  }
+
+  // KPI 指标组件
+  if (widget.type === 'kpi') {
+    renderKpiWidget(widget, container, values)
     return
   }
 
@@ -186,6 +267,12 @@ function renderWidget(widget: WidgetConfig) {
     return
   }
 
+  // 实时数据流组件
+  if (widget.type === 'realtime') {
+    renderRealtimeWidget(widget, container, labels, values)
+    return
+  }
+
   // 图表
   let chart = chartRefs.value.get(widget.id)
   if (!chart) {
@@ -199,6 +286,328 @@ function renderWidget(widget: WidgetConfig) {
 
   const option = getChartOption(widget, labels, values, colors)
   chart.setOption(option, true)
+}
+
+// ==================== 大屏专用组件渲染函数 ====================
+
+// 时钟组件
+function renderClockWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {}
+  const is24Hour = config.timeFormat !== '12h'
+  const timeFontSize = config.timeFontSize || 32
+  const dateFontSize = config.dateFontSize || 14
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || 'transparent'
+  const textColor = config.textColor || '#000000'
+
+  const updateClock = () => {
+    const now = new Date()
+    const hours = is24Hour ? now.getHours() : (now.getHours() % 12 || 12)
+    const minutes = now.getMinutes().toString().padStart(2, '0')
+    const seconds = now.getSeconds().toString().padStart(2, '0')
+    const ampm = now.getHours() >= 12 ? 'PM' : 'AM'
+
+    const timeStr = is24Hour ?
+      `${hours.toString().padStart(2, '0')}:${minutes}:${seconds}` :
+      `${hours}:${minutes}:${seconds} ${ampm}`
+
+    const dateStr = now.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: config.showWeekday !== false ? 'long' : undefined
+    })
+
+    container.innerHTML = `
+      <div class="screen-widget clock-widget" style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        background: ${backgroundColor};
+        border-radius: 12px;
+        color: ${textColor};
+        padding: 16px;
+      ">
+        <div style="font-size: ${timeFontSize}px; font-weight: bold; font-family: 'Courier New', monospace;">${timeStr}</div>
+        ${config.showDate !== false ? `<div style="font-size: ${dateFontSize}px; margin-top: 8px; opacity: 0.8;">${dateStr}</div>` : ''}
+      </div>
+    `
+  }
+
+  updateClock()
+  const timer = setInterval(updateClock, 1000)
+  ;(container as any)._clockTimer = timer
+}
+
+// 日期组件
+function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {}
+  const now = new Date()
+  const dayFontSize = config.dayFontSize || 48
+  const monthFontSize = config.monthFontSize || 16
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || 'transparent'
+  const textColor = config.textColor || '#000000'
+
+  const day = now.getDate()
+  const monthYear = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
+  const weekday = now.toLocaleDateString('zh-CN', { weekday: 'long' })
+
+  container.innerHTML = `
+    <div class="screen-widget date-widget" style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      padding: 16px;
+    ">
+      <div style="font-size: ${dayFontSize}px; font-weight: bold; line-height: 1;">${day}</div>
+      <div style="font-size: ${monthFontSize}px; margin-top: 4px;">${monthYear}</div>
+      ${config.showWeekday !== false ? `<div style="font-size: 14px; margin-top: 4px; opacity: 0.8;">${weekday}</div>` : ''}
+    </div>
+  `
+}
+
+// 跑马灯组件
+function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {}
+  const content = config.content || '欢迎使用 Smart Table 数据仪表盘'
+  const speed = config.speed || 2
+  const fontSize = config.fontSize || 16
+  const direction = config.direction || 'left'
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || 'transparent'
+  const textColor = config.textColor || '#000000'
+
+  const animationStyle = direction === 'left'
+    ? `animation: marquee-left ${20 / speed}s linear infinite;`
+    : `animation: marquee-right ${20 / speed}s linear infinite;`
+
+  container.innerHTML = `
+    <div class="screen-widget marquee-widget" style="
+      display: flex;
+      align-items: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      overflow: hidden;
+      padding: 0 16px;
+    ">
+      <div style="
+        white-space: nowrap;
+        ${animationStyle}
+        font-size: ${fontSize}px;
+      ">${content}</div>
+    </div>
+    <style>
+      @keyframes marquee-left {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+      }
+      @keyframes marquee-right {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+    </style>
+  `
+}
+
+// KPI 指标组件
+function renderKpiWidget(widget: WidgetConfig, container: HTMLElement, values: number[]) {
+  const config = widget.config || {}
+  const total = values.reduce((a, b) => a + b, 0)
+  const formattedValue = formatLargeNumber(total)
+  const prefix = config.prefix || ''
+  const suffix = config.suffix || ''
+
+  // 计算趋势
+  let trendHtml = ''
+  if (config.showTrend && values.length > 1) {
+    const prevValue = values[values.length - 2] || 0
+    const currentValue = values[values.length - 1] || 0
+    const trend = prevValue > 0 ? ((currentValue - prevValue) / prevValue * 100).toFixed(1) : 0
+    const isUp = Number(trend) >= 0
+    trendHtml = `
+      <div style="
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
+        font-size: 14px;
+        color: ${isUp ? '#10B981' : '#EF4444'};
+      ">
+        <span>${isUp ? '↑' : '↓'} ${Math.abs(Number(trend))}%</span>
+      </div>
+    `
+  }
+
+  // 目标值进度
+  let progressHtml = ''
+  if (config.showTarget && config.targetValue) {
+    const progress = Math.min(100, (total / Number(config.targetValue)) * 100)
+    progressHtml = `
+      <div style="margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
+          <span>进度</span>
+          <span>${progress.toFixed(1)}%</span>
+        </div>
+        <div style="height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
+          <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, #10B981, #34D399); border-radius: 3px; transition: width 0.5s;"></div>
+        </div>
+      </div>
+    `
+  }
+
+  container.innerHTML = `
+    <div class="screen-widget kpi-widget" style="
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    ">
+      <div style="font-size: 14px; color: #6B7280; margin-bottom: 8px;">${widget.title}</div>
+      <div style="font-size: 32px; font-weight: bold; color: #111827;">
+        ${prefix}${formattedValue}${suffix}
+        ${trendHtml}
+      </div>
+      ${progressHtml}
+    </div>
+  `
+}
+
+// 实时数据流组件
+function renderRealtimeWidget(widget: WidgetConfig, container: HTMLElement, labels: string[], values: number[]) {
+  const config = widget.config || {}
+  const chartType = config.chartType || 'line'
+
+  let chart = chartRefs.value.get(widget.id)
+  if (!chart) {
+    chart = echarts.init(container)
+    chartRefs.value.set(widget.id, chart)
+  }
+
+  const colors = config.colors?.length ? config.colors : ['#3B82F6', '#10B981', '#F59E0B']
+
+  const option: EChartsOption = {
+    color: colors,
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      top: '15%',
+      containLabel: true,
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#E5E7EB',
+      borderWidth: 1,
+      textStyle: { color: '#374151', fontSize: 12 },
+    },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      boundaryGap: chartType === 'area',
+      axisLabel: { color: '#6B7280', fontSize: 10 },
+      axisLine: { lineStyle: { color: '#E5E7EB' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { formatter: (value: number) => formatLargeNumber(value), color: '#6B7280', fontSize: 10 },
+      splitLine: { lineStyle: { color: '#F3F4F6', type: 'dashed' } },
+    },
+    series: [
+      {
+        name: widget.title,
+        type: 'line',
+        data: values,
+        smooth: config.smooth !== false,
+        areaStyle: chartType === 'area' ? {
+          opacity: 0.3,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: colors[0] },
+            { offset: 1, color: 'rgba(255,255,255,0)' },
+          ]),
+        } : undefined,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { width: 2 },
+      },
+    ],
+    animation: true,
+    animationDuration: 1000,
+  }
+
+  chart.setOption(option, true)
+}
+
+// 标题文字组件
+function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {}
+  const text = config.text || widget.title || '标题文字'
+  const subtitle = config.subtitle || ''
+  const fontSize = config.fontSize || 32
+  const subtitleFontSize = config.subtitleFontSize || 16
+  const fontWeight = config.fontWeight || 'bold'
+  const textAlign = config.textAlign || 'center'
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || 'transparent'
+  const textColor = config.textColor || '#000000'
+  const subtitleColor = config.subtitleColor || 'rgba(0,0,0,0.6)'
+  const letterSpacing = config.letterSpacing || 0
+  const lineHeight = config.lineHeight || 1.4
+  const textShadow = config.textShadow !== false
+  const textShadowColor = config.textShadowColor || 'rgba(0,0,0,0.1)'
+  const textShadowBlur = config.textShadowBlur || 2
+
+  const shadowCss = textShadow
+    ? `text-shadow: 1px 1px ${textShadowBlur}px ${textShadowColor};`
+    : ''
+
+  container.innerHTML = `
+    <div class="screen-widget text-widget" style="
+      display: flex;
+      flex-direction: column;
+      align-items: ${textAlign === 'center' ? 'center' : textAlign === 'left' ? 'flex-start' : 'flex-end'};
+      justify-content: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      padding: 24px;
+      overflow: hidden;
+      text-align: ${textAlign};
+    ">
+      <div style="
+        font-size: ${fontSize}px;
+        font-weight: ${fontWeight};
+        line-height: ${lineHeight};
+        letter-spacing: ${letterSpacing}px;
+        ${shadowCss}
+        word-break: break-word;
+      ">${text}</div>
+      ${subtitle ? `
+        <div style="
+          font-size: ${subtitleFontSize}px;
+          color: ${subtitleColor};
+          margin-top: 8px;
+          line-height: ${lineHeight};
+          letter-spacing: ${letterSpacing}px;
+          ${shadowCss}
+        ">${subtitle}</div>
+      ` : ''}
+    </div>
+  `
 }
 
 // 获取图表配置
@@ -397,15 +806,20 @@ onMounted(() => {
           class="widget-card"
           :style="{
             gridColumn: `span ${widget.position.w}`,
-            gridRow: `span ${widget.position.h}`
+            gridRow: `span ${widget.position.h}`,
+            ...getBorderStyle(widget)
           }"
         >
-          <div class="widget-header">
+          <div v-if="shouldShowHeader(widget)" class="widget-header">
             <span class="widget-title">{{ widget.title }}</span>
           </div>
           <div
             :ref="el => el && chartContainers.set(widget.id, el as HTMLElement)"
             class="widget-body"
+            :style="{
+              height: shouldShowHeader(widget) ? 'calc(100% - 44px)' : '100%',
+              ...getBodyPaddingStyle(widget)
+            }"
           ></div>
         </div>
 

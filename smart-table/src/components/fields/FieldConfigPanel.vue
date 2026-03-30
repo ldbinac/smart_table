@@ -250,7 +250,7 @@ const currencySymbolOptions = [
             <el-color-picker
               :model-value="option.color"
               @update:model-value="
-                (val: string) => updateOptionColor(option.id, val)
+                (val: string | null) => updateOptionColor(option.id, val || '')
               "
               size="small" />
             <el-input

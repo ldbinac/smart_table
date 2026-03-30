@@ -4,12 +4,12 @@ import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import {
   dashboardService,
+  dashboardTemplateService,
+  dashboardRealtimeService,
   type WidgetConfig,
-} from "@/db/services/dashboardService";
-import {
-  dashboardShareService,
-} from "@/db/services/dashboardShareService";
-import type { DashboardShare } from "@/db/schema";
+} from "@/db/services";
+import { dashboardShareService } from "@/db/services/dashboardShareService";
+import type { DashboardShare, DashboardTemplate } from "@/db/schema";
 import { recordService } from "@/db/services/recordService";
 import { fieldService } from "@/db/services/fieldService";
 import { tableService } from "@/db/services/tableService";
@@ -26,9 +26,13 @@ import {
   getChartColors,
   formatLargeNumber,
 } from "@/utils/dashboardDataProcessor";
+import { DashboardLayoutEngine } from "@/utils/dashboardLayoutEngine";
+// widgetRegistry 暂时未使用，但保留以备将来扩展
+// import { widgetRegistry } from "@/utils/dashboardWidgetRegistry";
 import { FieldType } from "@/types";
 import { ElMessage, ElMessageBox } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
+import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
 
 const baseStore = useBaseStore();
 const route = useRoute();
@@ -63,6 +67,23 @@ const chartContainers = ref<Map<string, HTMLElement>>(new Map());
 const resizingWidget = ref<string | null>(null);
 const resizeStart = ref({ x: 0, y: 0, w: 0, h: 0 });
 
+// 拖拽移动状态
+const draggingWidget = ref<string | null>(null);
+const dragStart = ref({ x: 0, y: 0, widgetX: 0, widgetY: 0 });
+const isDragging = ref(false);
+const dragThreshold = 5; // 拖拽阈值，超过此距离才认为是拖拽
+
+// 网格线显示状态
+const showGridLines = ref(true);
+
+// 布局引擎
+const layoutEngine = ref<DashboardLayoutEngine | null>(null);
+const layoutType = ref<"grid" | "free">("grid");
+const gridColumns = ref<12 | 24>(12);
+
+// 模板对话框状态
+const showTemplateDialog = ref(false);
+
 // 分享功能状态
 const showShareDialog = ref(false);
 const shareForm = ref({
@@ -94,51 +115,107 @@ const freshColors = {
   gray800: "#1F2937",
 };
 
-// 组件类型定义
-const widgetTypes = [
+// 组件类型定义 - 数据图表类
+const chartWidgetTypes = [
   {
     value: "bar",
     label: "柱状图",
     icon: "BarChart",
     description: "展示分类数据的对比",
+    category: "chart",
   },
   {
     value: "line",
     label: "折线图",
     icon: "TrendCharts",
     description: "展示数据随时间的变化趋势",
+    category: "chart",
   },
   {
     value: "area",
     label: "面积图",
     icon: "Histogram",
     description: "强调数量随时间变化的程度",
+    category: "chart",
   },
   {
     value: "pie",
     label: "饼图",
     icon: "PieChart",
     description: "展示各部分占整体的比例",
+    category: "chart",
   },
   {
     value: "scatter",
     label: "散点图",
     icon: "CircleCheck",
     description: "展示两个变量之间的关系",
+    category: "chart",
   },
   {
     value: "number",
     label: "数字卡片",
     icon: "DataAnalysis",
     description: "突出显示关键指标",
+    category: "data",
   },
   {
     value: "table",
     label: "数据表格",
     icon: "Grid",
     description: "以表格形式展示详细数据",
+    category: "data",
   },
 ];
+
+// 大屏专用组件
+const screenWidgetTypes = [
+  {
+    value: "clock",
+    label: "时钟",
+    icon: "Clock",
+    description: "显示当前时间，支持12/24小时制",
+    category: "screen",
+  },
+  {
+    value: "date",
+    label: "日期",
+    icon: "Calendar",
+    description: "显示当前日期和星期",
+    category: "screen",
+  },
+  {
+    value: "marquee",
+    label: "跑马灯",
+    icon: "ChatDotRound",
+    description: "滚动显示通知信息",
+    category: "screen",
+  },
+  {
+    value: "kpi",
+    label: "KPI指标",
+    icon: "TrendCharts",
+    description: "大屏专用关键指标展示",
+    category: "screen",
+  },
+  {
+    value: "realtime",
+    label: "实时数据流",
+    icon: "VideoPlay",
+    description: "实时展示数据变化趋势",
+    category: "screen",
+  },
+  {
+    value: "text",
+    label: "标题文字",
+    icon: "Edit",
+    description: "大屏标题和副标题文字展示",
+    category: "screen",
+  },
+];
+
+// 所有组件类型
+const widgetTypes = [...chartWidgetTypes, ...screenWidgetTypes];
 
 const aggregationTypes = [
   { value: "count", label: "计数", description: "统计记录数量" },
@@ -247,15 +324,118 @@ async function loadDashboards() {
 async function selectDashboard(dashboard: Dashboard) {
   currentDashboard.value = dashboard;
   widgets.value = (dashboard.widgets || []) as WidgetConfig[];
+  layoutType.value = dashboard.layoutType || "grid";
+  gridColumns.value = (dashboard.gridColumns as 12 | 24) || 12;
+
+  // 初始化布局引擎
+  layoutEngine.value = new DashboardLayoutEngine({
+    type: layoutType.value,
+    columns: gridColumns.value,
+    containerWidth:
+      document.querySelector(".widgets-grid")?.clientWidth || 1200,
+  });
+
+  // 注册所有组件到布局引擎
+  widgets.value.forEach((widget) => {
+    layoutEngine.value?.registerWidget(widget);
+  });
 
   const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
   for (const tableId of tableIds) {
     await loadTableData(tableId);
   }
 
+  // 启动自动刷新
+  setupAutoRefresh();
+
   nextTick(() => {
     widgets.value.forEach((widget) => renderWidget(widget));
   });
+}
+
+// 设置自动刷新
+function setupAutoRefresh() {
+  if (!currentDashboard.value?.refreshConfig?.enabled) return;
+
+  const interval = currentDashboard.value.refreshConfig.interval;
+  widgets.value.forEach((widget) => {
+    if (widget.tableId) {
+      dashboardRealtimeService.startAutoRefresh(
+        widget.id,
+        widget.tableId,
+        interval,
+        () => renderWidget(widget),
+      );
+    }
+  });
+}
+
+// 停止自动刷新 - 保留供将来使用
+// function stopAutoRefresh() {
+//   widgets.value.forEach((widget) => {
+//     dashboardRealtimeService.stopAutoRefresh(widget.id);
+//   });
+// }
+
+// 切换布局类型 - 保留供将来使用
+// async function switchLayoutType(type: 'grid' | 'free') {
+//   layoutType.value = type;
+//   if (layoutEngine.value) {
+//     layoutEngine.value.updateConfig({ type });
+//   }
+//
+//   if (currentDashboard.value) {
+//     await dashboardService.updateDashboard(currentDashboard.value.id, {
+//       layoutType: type,
+//     });
+//     ElMessage.success(`已切换到${type === 'grid' ? '网格' : '自由'}布局`);
+//   }
+// }
+
+// 应用模板
+async function applyTemplate(template: DashboardTemplate) {
+  if (!currentDashboard.value) return;
+
+  try {
+    const updates = await dashboardTemplateService.applyTemplateToDashboard(
+      template.id,
+      currentDashboard.value,
+    );
+
+    await dashboardService.updateDashboard(currentDashboard.value.id, updates);
+
+    // 重新加载仪表盘
+    widgets.value = (updates.widgets || []) as WidgetConfig[];
+    layoutType.value = updates.layoutType || "grid";
+
+    // 重新初始化布局引擎
+    layoutEngine.value = new DashboardLayoutEngine({
+      type: layoutType.value,
+      columns: updates.gridColumns || 12,
+      containerWidth:
+        document.querySelector(".widgets-grid")?.clientWidth || 1200,
+    });
+
+    widgets.value.forEach((widget) => {
+      layoutEngine.value?.registerWidget(widget);
+    });
+
+    // 加载数据
+    const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
+    for (const tableId of tableIds) {
+      await loadTableData(tableId);
+    }
+
+    nextTick(() => {
+      widgets.value.forEach((widget) => renderWidget(widget));
+    });
+
+    ElMessage.success("模板应用成功");
+    showTemplateDialog.value = false;
+  } catch (error) {
+    console.error("应用模板失败:", error);
+    ElMessage.error("应用模板失败");
+  }
 }
 
 // 创建仪表盘
@@ -621,7 +801,9 @@ const handleRenameDashboard = async (dashboard: {
       });
       ElMessage.success("仪表盘重命名成功");
       if (currentDashboard.value?.id === dashboard.id) {
-        const updatedDashboard = await dashboardService.getDashboard(dashboard.id);
+        const updatedDashboard = await dashboardService.getDashboard(
+          dashboard.id,
+        );
         if (updatedDashboard) {
           currentDashboard.value = updatedDashboard;
         }
@@ -687,7 +869,9 @@ const handleToggleStarDashboard = async (dashboard: {
     ElMessage.success(dashboard.isStarred ? "已取消收藏" : "收藏成功");
     await loadDashboards();
     if (currentDashboard.value?.id === dashboard.id) {
-      const updatedDashboard = await dashboardService.getDashboard(dashboard.id);
+      const updatedDashboard = await dashboardService.getDashboard(
+        dashboard.id,
+      );
       if (updatedDashboard) {
         currentDashboard.value = updatedDashboard;
       }
@@ -822,6 +1006,17 @@ function addWidget(type: WidgetConfig["type"]) {
     return;
   }
 
+  // 大屏组件默认隐藏标题栏
+  const screenWidgetTypes = [
+    "clock",
+    "date",
+    "marquee",
+    "kpi",
+    "realtime",
+    "text",
+  ];
+  const defaultShowHeader = !screenWidgetTypes.includes(type);
+
   const newWidget: WidgetConfig = {
     id: `widget-${Date.now()}`,
     type,
@@ -834,6 +1029,7 @@ function addWidget(type: WidgetConfig["type"]) {
       showLegend: true,
       showLabel: false,
       colors: [],
+      showHeader: defaultShowHeader,
     },
   };
 
@@ -863,6 +1059,20 @@ function removeWidget(widgetId: string) {
 function renderWidget(widget: WidgetConfig) {
   const container = chartContainers.value.get(widget.id);
   if (!container) return;
+
+  // 大屏组件不需要数据源，直接渲染
+  const screenWidgetTypes = [
+    "clock",
+    "date",
+    "marquee",
+    "kpi",
+    "realtime",
+    "text",
+  ];
+  if (screenWidgetTypes.includes(widget.type)) {
+    renderScreenWidget(widget, container);
+    return;
+  }
 
   const widgetRecords = records.value.filter(
     (r) => r.tableId === widget.tableId,
@@ -969,7 +1179,8 @@ function getChartOption(
         color: freshColors.gray700,
         fontSize: 13,
       },
-      extraCssText: "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 8px;",
+      extraCssText:
+        "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 8px;",
       formatter: (params: any) => {
         if (Array.isArray(params)) {
           const p = params[0];
@@ -1019,7 +1230,9 @@ function getChartOption(
           },
           axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
+          splitLine: {
+            lineStyle: { color: freshColors.gray100, type: "dashed" },
+          },
         },
         series: [
           {
@@ -1075,7 +1288,9 @@ function getChartOption(
           },
           axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
+          splitLine: {
+            lineStyle: { color: freshColors.gray100, type: "dashed" },
+          },
         },
         series: [
           {
@@ -1087,10 +1302,16 @@ function getChartOption(
               widget.type === "area"
                 ? {
                     opacity: 0.15,
-                    color: new (echarts as any).graphic.LinearGradient(0, 0, 0, 1, [
-                      { offset: 0, color: colors[0] },
-                      { offset: 1, color: "rgba(255,255,255,0)" },
-                    ]),
+                    color: new (echarts as any).graphic.LinearGradient(
+                      0,
+                      0,
+                      0,
+                      1,
+                      [
+                        { offset: 0, color: colors[0] },
+                        { offset: 1, color: "rgba(255,255,255,0)" },
+                      ],
+                    ),
                   }
                 : undefined,
             symbol: "circle",
@@ -1173,10 +1394,16 @@ function getChartOption(
         },
         yAxis: {
           type: "value",
-          axisLabel: { formatter: (value: number) => formatLargeNumber(value), color: freshColors.gray500, fontSize: 11 },
+          axisLabel: {
+            formatter: (value: number) => formatLargeNumber(value),
+            color: freshColors.gray500,
+            fontSize: 11,
+          },
           axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
+          splitLine: {
+            lineStyle: { color: freshColors.gray100, type: "dashed" },
+          },
         },
         series: [
           {
@@ -1205,6 +1432,476 @@ function getAggregationLabel(aggregation: string): string {
 
 function getFieldById(fieldId: string): FieldEntity | undefined {
   return fields.value.find((f) => f.id === fieldId);
+}
+
+// 判断是否为大屏组件
+function isScreenWidget(type: string): boolean {
+  return ["clock", "date", "marquee", "kpi", "realtime", "text"].includes(type);
+}
+
+// 统一渲染大屏组件
+function renderScreenWidget(
+  widget: WidgetConfig,
+  container: HTMLElement,
+  labels?: string[],
+  values?: number[],
+) {
+  // 先清理旧的定时器和动画
+  cleanupScreenWidget(container);
+
+  switch (widget.type) {
+    case "clock":
+      renderClockWidget(widget, container);
+      break;
+    case "date":
+      renderDateWidget(widget, container);
+      break;
+    case "marquee":
+      renderMarqueeWidget(widget, container);
+      break;
+    case "kpi":
+      // KPI 组件需要数据
+      if (values && values.length > 0) {
+        renderKpiWidget(widget, container, values);
+      } else {
+        renderKpiWidgetEmpty(widget, container);
+      }
+      break;
+    case "realtime":
+      // 实时数据组件需要数据
+      if (labels && values && values.length > 0) {
+        renderRealtimeWidget(widget, container, labels, values);
+      } else {
+        renderRealtimeWidgetEmpty(widget, container);
+      }
+      break;
+    case "text":
+      renderTextWidget(widget, container);
+      break;
+  }
+}
+
+// ==================== 大屏专用组件渲染函数 ====================
+
+// 清理大屏组件的定时器和动画
+function cleanupScreenWidget(container: HTMLElement) {
+  // 清理时钟组件的定时器
+  if ((container as any)._clockTimer) {
+    clearInterval((container as any)._clockTimer);
+    delete (container as any)._clockTimer;
+  }
+  // 清理实时数据组件的定时器
+  if ((container as any)._realtimeTimer) {
+    clearInterval((container as any)._realtimeTimer);
+    delete (container as any)._realtimeTimer;
+  }
+}
+
+// 时钟组件
+function renderClockWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {};
+  const is24Hour = config.timeFormat !== "12h";
+  const timeFontSize = config.timeFontSize || 32;
+  const dateFontSize = config.dateFontSize || 14;
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
+
+  const updateClock = () => {
+    const now = new Date();
+    const hours = is24Hour ? now.getHours() : now.getHours() % 12 || 12;
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const seconds = now.getSeconds().toString().padStart(2, "0");
+    const ampm = now.getHours() >= 12 ? "PM" : "AM";
+
+    const timeStr = is24Hour
+      ? `${hours.toString().padStart(2, "0")}:${minutes}:${seconds}`
+      : `${hours}:${minutes}:${seconds} ${ampm}`;
+
+    const dateStr = now.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: config.showWeekday !== false ? "long" : undefined,
+    });
+
+    container.innerHTML = `
+      <div class="screen-widget clock-widget" style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        background: ${backgroundColor};
+        border-radius: 12px;
+        color: ${textColor};
+        padding: 16px;
+      ">
+        <div style="font-size: ${timeFontSize}px; font-weight: bold; font-family: 'Courier New', monospace;">${timeStr}</div>
+        ${config.showDate !== false ? `<div style="font-size: ${dateFontSize}px; margin-top: 8px; opacity: 0.8;">${dateStr}</div>` : ""}
+      </div>
+    `;
+  };
+
+  updateClock();
+  const timer = setInterval(updateClock, 1000);
+
+  // 保存 timer 以便后续清理
+  (container as any)._clockTimer = timer;
+}
+
+// 日期组件
+function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {};
+  const now = new Date();
+  const dayFontSize = config.dayFontSize || 48;
+  const monthFontSize = config.monthFontSize || 16;
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
+
+  const day = now.getDate();
+  const monthYear = now.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "long",
+  });
+  const weekday = now.toLocaleDateString("zh-CN", { weekday: "long" });
+
+  container.innerHTML = `
+    <div class="screen-widget date-widget" style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      padding: 16px;
+    ">
+      <div style="font-size: ${dayFontSize}px; font-weight: bold; line-height: 1;">${day}</div>
+      <div style="font-size: ${monthFontSize}px; margin-top: 4px;">${monthYear}</div>
+      ${config.showWeekday !== false ? `<div style="font-size: 14px; margin-top: 4px; opacity: 0.8;">${weekday}</div>` : ""}
+    </div>
+  `;
+}
+
+// 跑马灯组件
+function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {};
+  const content = config.content || "欢迎使用 Smart Table 数据仪表盘";
+  const speed = config.speed || 2;
+  const fontSize = config.fontSize || 16;
+  const direction = config.direction || "left";
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
+
+  // 根据方向设置动画
+  const animationStyle =
+    direction === "left"
+      ? `animation: marquee-left ${20 / speed}s linear infinite;`
+      : `animation: marquee-right ${20 / speed}s linear infinite;`;
+
+  container.innerHTML = `
+    <div class="screen-widget marquee-widget" style="
+      display: flex;
+      align-items: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      overflow: hidden;
+      padding: 0 16px;
+    ">
+      <div style="
+        white-space: nowrap;
+        ${animationStyle}
+        font-size: ${fontSize}px;
+      ">${content}</div>
+    </div>
+    <style>
+      @keyframes marquee-left {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+      }
+      @keyframes marquee-right {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+    </style>
+  `;
+}
+
+// KPI 指标组件
+function renderKpiWidget(
+  widget: WidgetConfig,
+  container: HTMLElement,
+  values: number[],
+) {
+  const config = widget.config || {};
+  const total = values.reduce((a, b) => a + b, 0);
+  const formattedValue = formatLargeNumber(total);
+  const prefix = config.prefix || "";
+  const suffix = config.suffix || "";
+
+  // 计算趋势（如果有历史数据）
+  let trendHtml = "";
+  if (config.showTrend && values.length > 1) {
+    const prevValue = values[values.length - 2] || 0;
+    const currentValue = values[values.length - 1] || 0;
+    const trend =
+      prevValue > 0
+        ? (((currentValue - prevValue) / prevValue) * 100).toFixed(1)
+        : 0;
+    const isUp = Number(trend) >= 0;
+    trendHtml = `
+      <div style="
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
+        font-size: 14px;
+        color: ${isUp ? "#10B981" : "#EF4444"};
+      ">
+        <span>${isUp ? "↑" : "↓"} ${Math.abs(Number(trend))}%</span>
+      </div>
+    `;
+  }
+
+  // 目标值进度
+  let progressHtml = "";
+  if (config.showTarget && config.targetValue) {
+    const progress = Math.min(100, (total / Number(config.targetValue)) * 100);
+    progressHtml = `
+      <div style="margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
+          <span>进度</span>
+          <span>${progress.toFixed(1)}%</span>
+        </div>
+        <div style="height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
+          <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, #10B981, #34D399); border-radius: 3px; transition: width 0.5s;"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="screen-widget kpi-widget" style="
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      height: 100%; 
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    ">
+      <div style="font-size: 14px; color: #6B7280; margin-bottom: 8px;">${widget.title}</div>
+      <div style="font-size: 32px; font-weight: bold; color: #111827;">
+        ${prefix}${formattedValue}${suffix}
+        ${trendHtml}
+      </div>
+      ${progressHtml}
+    </div>
+  `;
+}
+
+// 实时数据流组件
+function renderRealtimeWidget(
+  widget: WidgetConfig,
+  container: HTMLElement,
+  labels: string[],
+  values: number[],
+) {
+  const config = widget.config || {};
+  const chartType = config.chartType || "line";
+
+  // 使用 ECharts 渲染实时图表
+  let chart = chartRefs.value.get(widget.id);
+  if (!chart) {
+    chart = echarts.init(container);
+    chartRefs.value.set(widget.id, chart);
+  }
+
+  const colors = config.colors?.length
+    ? config.colors
+    : ["#3B82F6", "#10B981", "#F59E0B"];
+
+  const option: EChartsOption = {
+    color: colors,
+    grid: {
+      left: "3%",
+      right: "4%",
+      bottom: "3%",
+      top: "15%",
+      containLabel: true,
+    },
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderColor: freshColors.gray200,
+      borderWidth: 1,
+      textStyle: { color: freshColors.gray700, fontSize: 12 },
+    },
+    xAxis: {
+      type: "category",
+      data: labels,
+      boundaryGap: chartType === "area",
+      axisLabel: { color: freshColors.gray500, fontSize: 10 },
+      axisLine: { lineStyle: { color: freshColors.gray200 } },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => formatLargeNumber(value),
+        color: freshColors.gray500,
+        fontSize: 10,
+      },
+      splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
+    },
+    series: [
+      {
+        name: widget.title,
+        type: "line",
+        data: values,
+        smooth: config.smooth !== false,
+        areaStyle:
+          chartType === "area"
+            ? {
+                opacity: 0.3,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: colors[0] },
+                  { offset: 1, color: "rgba(255,255,255,0)" },
+                ]),
+              }
+            : undefined,
+        symbol: "circle",
+        symbolSize: 6,
+        lineStyle: { width: 2 },
+      },
+    ],
+    animation: true,
+    animationDuration: 1000,
+  };
+
+  chart.setOption(option, true);
+}
+
+// 标题文字组件
+function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {};
+  const text = config.text || widget.title || "标题文字";
+  const subtitle = config.subtitle || "";
+  const fontSize = config.fontSize || 32;
+  const subtitleFontSize = config.subtitleFontSize || 16;
+  const fontWeight = config.fontWeight || "bold";
+  const textAlign = config.textAlign || "center";
+  // 背景色和文字颜色配置，默认透明背景和黑色文字
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
+  const subtitleColor = config.subtitleColor || "rgba(0,0,0,0.6)";
+  const letterSpacing = config.letterSpacing || 0;
+  const lineHeight = config.lineHeight || 1.4;
+  const textShadow = config.textShadow !== false;
+  const textShadowColor = config.textShadowColor || "rgba(0,0,0,0.1)";
+  const textShadowBlur = config.textShadowBlur || 2;
+
+  // 文字阴影
+  const shadowCss = textShadow
+    ? `text-shadow: 1px 1px ${textShadowBlur}px ${textShadowColor};`
+    : "";
+
+  container.innerHTML = `
+    <div class="screen-widget text-widget" style="
+      display: flex;
+      flex-direction: column;
+      align-items: ${textAlign === "center" ? "center" : textAlign === "left" ? "flex-start" : "flex-end"};
+      justify-content: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      padding: 24px;
+      overflow: hidden;
+      text-align: ${textAlign};
+    ">
+      <div style="
+        font-size: ${fontSize}px;
+        font-weight: ${fontWeight};
+        line-height: ${lineHeight};
+        letter-spacing: ${letterSpacing}px;
+        ${shadowCss}
+        word-break: break-word;
+      ">${text}</div>
+      ${
+        subtitle
+          ? `
+        <div style="
+          font-size: ${subtitleFontSize}px;
+          color: ${subtitleColor};
+          margin-top: 8px;
+          line-height: ${lineHeight};
+          letter-spacing: ${letterSpacing}px;
+          ${shadowCss}
+        ">${subtitle}</div>
+      `
+          : ""
+      }
+    </div>
+  `;
+}
+
+// KPI 组件空状态渲染（无数据时）
+function renderKpiWidgetEmpty(widget: WidgetConfig, container: HTMLElement) {
+  const config = widget.config || {};
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
+
+  container.innerHTML = `
+    <div class="screen-widget kpi-widget-empty" style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      padding: 20px;
+      text-align: center;
+    ">
+      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">KPI 指标组件</div>
+      <div style="font-size: 12px; opacity: 0.5;">请配置数据表和字段以显示数据</div>
+    </div>
+  `;
+}
+
+// 实时数据组件空状态渲染（无数据时）
+function renderRealtimeWidgetEmpty(
+  widget: WidgetConfig,
+  container: HTMLElement,
+) {
+  const config = widget.config || {};
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
+
+  container.innerHTML = `
+    <div class="screen-widget realtime-widget-empty" style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: ${backgroundColor};
+      border-radius: 12px;
+      color: ${textColor};
+      padding: 20px;
+      text-align: center;
+    ">
+      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">实时数据流组件</div>
+      <div style="font-size: 12px; opacity: 0.5;">请配置数据表和字段以显示实时数据</div>
+    </div>
+  `;
 }
 
 function getTableById(tableId: string): TableEntity | undefined {
@@ -1254,6 +1951,164 @@ function stopResize() {
   document.removeEventListener("mouseup", stopResize);
 }
 
+// ==================== 组件样式计算 ====================
+
+function getWidgetStyle(widget: WidgetConfig): Record<string, string | number> {
+  if (layoutType.value === 'free') {
+    // 自由布局：使用绝对定位
+    return {
+      position: 'absolute',
+      left: `${widget.position.x || 0}px`,
+      top: `${widget.position.y || 0}px`,
+      width: `${(widget.position.w || 4) * 100}px`,
+      height: `${(widget.position.h || 4) * 80}px`,
+      zIndex: widget.position.z || 1,
+    };
+  } else {
+    // 网格布局：使用 grid-area 指定位置
+    const x = widget.position.x || 0;
+    const y = widget.position.y || 0;
+    const w = widget.position.w || 4;
+    const h = widget.position.h || 4;
+    return {
+      gridColumn: `${x + 1} / span ${w}`,
+      gridRow: `${y + 1} / span ${h}`,
+    };
+  }
+}
+
+// ==================== 拖拽移动功能 ====================
+
+function startDrag(event: MouseEvent, widget: WidgetConfig) {
+  event.stopPropagation();
+  draggingWidget.value = widget.id;
+  isDragging.value = false;
+  dragStart.value = {
+    x: event.clientX,
+    y: event.clientY,
+    widgetX: widget.position.x || 0,
+    widgetY: widget.position.y || 0,
+  };
+
+  document.addEventListener("mousemove", onDrag);
+  document.addEventListener("mouseup", stopDrag);
+}
+
+function onDrag(event: MouseEvent) {
+  if (!draggingWidget.value) return;
+
+  const widget = widgets.value.find((w) => w.id === draggingWidget.value);
+  if (!widget) return;
+
+  const dx = event.clientX - dragStart.value.x;
+  const dy = event.clientY - dragStart.value.y;
+
+  // 检查是否超过拖拽阈值
+  if (!isDragging.value) {
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < dragThreshold) return;
+    isDragging.value = true;
+  }
+
+  if (layoutType.value === 'free') {
+    // 自由布局：更新像素坐标
+    widget.position.x = dragStart.value.widgetX + dx;
+    widget.position.y = dragStart.value.widgetY + dy;
+  } else {
+    // 网格布局：计算网格坐标
+    const gridContainer = document.querySelector('.widgets-grid');
+    if (!gridContainer) return;
+    
+    const containerRect = gridContainer.getBoundingClientRect();
+    const cellWidth = containerRect.width / gridColumns.value;
+    const cellHeight = 80; // 与 grid-auto-rows 一致
+    const gap = 16; // 与 gap 一致
+    
+    // 计算鼠标在容器中的相对位置
+    const relativeX = event.clientX - containerRect.left;
+    const relativeY = event.clientY - containerRect.top;
+    
+    // 计算网格坐标（考虑间距）
+    const gridX = Math.round(relativeX / (cellWidth + gap));
+    const gridY = Math.round(relativeY / (cellHeight + gap));
+    
+    // 限制在网格范围内
+    const maxX = gridColumns.value - (widget.position.w || 4);
+    widget.position.x = Math.max(0, Math.min(gridX, maxX));
+    widget.position.y = Math.max(0, gridY);
+  }
+}
+
+function stopDrag() {
+  if (draggingWidget.value && isDragging.value) {
+    debouncedSaveWidgets();
+  }
+  draggingWidget.value = null;
+  isDragging.value = false;
+  document.removeEventListener("mousemove", onDrag);
+  document.removeEventListener("mouseup", stopDrag);
+}
+
+// ==================== 布局切换功能 ====================
+
+async function switchLayoutType(type: 'grid' | 'free') {
+  if (!currentDashboard.value) return;
+  
+  layoutType.value = type;
+  
+  // 更新布局引擎配置
+  if (layoutEngine.value) {
+    layoutEngine.value.updateConfig({ type });
+  }
+  
+  // 如果切换到网格布局，需要重新计算组件位置
+  if (type === 'grid') {
+    // 将自由布局的像素坐标转换为网格坐标
+    widgets.value.forEach(widget => {
+      if (widget.position.x !== undefined && widget.position.y !== undefined) {
+        // 简化的转换：假设每个网格单元约100px
+        widget.position.x = Math.round((widget.position.x || 0) / 100);
+        widget.position.y = Math.round((widget.position.y || 0) / 80);
+        // 确保最小尺寸
+        widget.position.w = Math.max(2, widget.position.w || 4);
+        widget.position.h = Math.max(2, widget.position.h || 4);
+      }
+    });
+  } else {
+    // 切换到自由布局，将网格坐标转换为像素坐标
+    widgets.value.forEach(widget => {
+      widget.position.x = (widget.position.x || 0) * 100;
+      widget.position.y = (widget.position.y || 0) * 80;
+    });
+  }
+  
+  // 保存到数据库
+  await dashboardService.updateDashboard(currentDashboard.value.id, {
+    layoutType: type,
+    widgets: widgets.value,
+  });
+  
+  ElMessage.success(`已切换到${type === 'grid' ? '网格' : '自由'}布局`);
+}
+
+// 切换网格列数
+async function switchGridColumns(columns: 12 | 24) {
+  if (!currentDashboard.value) return;
+  
+  // 更新本地状态
+  gridColumns.value = columns;
+  
+  if (layoutEngine.value) {
+    layoutEngine.value.updateConfig({ columns });
+  }
+  
+  await dashboardService.updateDashboard(currentDashboard.value.id, {
+    gridColumns: columns,
+  });
+  
+  ElMessage.success(`已切换到${columns}列网格`);
+}
+
 watch(
   widgets,
   () => {
@@ -1269,6 +2124,31 @@ watch(selectedWidget, (widget) => {
     handleTableChange(widget.tableId);
   }
 });
+
+// 监听选中组件的配置变化，实现大屏组件的实时预览
+watch(
+  () => selectedWidget.value?.config,
+  (newConfig) => {
+    if (!selectedWidget.value || !newConfig) return;
+
+    // 只处理大屏组件的实时预览
+    const screenWidgetTypes = [
+      "clock",
+      "date",
+      "marquee",
+      "kpi",
+      "realtime",
+      "text",
+    ];
+    if (screenWidgetTypes.includes(selectedWidget.value.type)) {
+      // 使用 nextTick 确保 DOM 更新后再渲染
+      nextTick(() => {
+        renderWidget(selectedWidget.value!);
+      });
+    }
+  },
+  { deep: true },
+);
 
 function handleResize() {
   chartRefs.value.forEach((chart) => chart.resize());
@@ -1378,7 +2258,7 @@ onUnmounted(() => {
 
           <el-divider direction="vertical" class="toolbar-divider" />
 
-          <el-dropdown @command="addWidget">
+          <el-dropdown @command="addWidget" :max-height="400">
             <el-button type="primary" class="add-widget-btn">
               <el-icon><Plus /></el-icon>
               <span>添加组件</span>
@@ -1386,13 +2266,44 @@ onUnmounted(() => {
             </el-button>
             <template #dropdown>
               <el-dropdown-menu class="widget-type-menu">
+                <!-- 数据图表类 -->
+                <el-dropdown-item disabled class="category-label">
+                  <span class="category-title">数据图表</span>
+                </el-dropdown-item>
                 <el-dropdown-item
-                  v-for="type in widgetTypes"
+                  v-for="type in chartWidgetTypes"
                   :key="type.value"
                   :command="type.value">
                   <div class="widget-type-item">
-                    <div class="widget-type-icon" :style="{ backgroundColor: freshColors.primaryLight }">
-                      <el-icon :size="18"><component :is="type.icon" /></el-icon>
+                    <div
+                      class="widget-type-icon"
+                      :style="{ backgroundColor: freshColors.primaryLight }">
+                      <el-icon :size="18"
+                        ><component :is="type.icon"
+                      /></el-icon>
+                    </div>
+                    <div class="widget-type-info">
+                      <div class="widget-type-name">{{ type.label }}</div>
+                      <div class="widget-type-desc">{{ type.description }}</div>
+                    </div>
+                  </div>
+                </el-dropdown-item>
+
+                <el-dropdown-item divided disabled class="category-label">
+                  <span class="category-title">大屏组件</span>
+                </el-dropdown-item>
+                <!-- 大屏专用组件 -->
+                <el-dropdown-item
+                  v-for="type in screenWidgetTypes"
+                  :key="type.value"
+                  :command="type.value">
+                  <div class="widget-type-item">
+                    <div
+                      class="widget-type-icon screen-widget-icon"
+                      :style="{ backgroundColor: '#F0F9FF' }">
+                      <el-icon :size="18" color="#0EA5E9"
+                        ><component :is="type.icon"
+                      /></el-icon>
                     </div>
                     <div class="widget-type-info">
                       <div class="widget-type-name">{{ type.label }}</div>
@@ -1403,9 +2314,37 @@ onUnmounted(() => {
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+
+          <!-- 布局控制按钮组 -->
+          <template v-if="currentDashboard">
+            <el-divider direction="vertical" class="toolbar-divider" />
+            <div class="layout-controls">
+              <el-radio-group v-model="layoutType" size="small" @change="(val: string | number | boolean | undefined) => switchLayoutType(val as 'grid' | 'free')">
+                <el-radio-button label="grid">网格</el-radio-button>
+                <el-radio-button label="free">自由</el-radio-button>
+              </el-radio-group>
+              <template v-if="layoutType === 'grid'">
+                <el-radio-group v-model="gridColumns" size="small" @change="(val: string | number | boolean | undefined) => switchGridColumns(val as 12 | 24)">
+                  <el-radio-button :label="12">12列</el-radio-button>
+                  <el-radio-button :label="24">24列</el-radio-button>
+                </el-radio-group>
+              </template>
+              <el-checkbox v-model="showGridLines" size="small" class="grid-lines-checkbox">
+                网格线
+              </el-checkbox>
+            </div>
+          </template>
         </div>
 
         <div class="toolbar-right">
+          <el-button
+            v-if="currentDashboard"
+            text
+            class="toolbar-btn"
+            @click="showTemplateDialog = true">
+            <el-icon><Grid /></el-icon>
+            <span>模板</span>
+          </el-button>
           <el-button
             v-if="currentDashboard"
             class="share-btn"
@@ -1436,7 +2375,10 @@ onUnmounted(() => {
             <el-icon><CopyDocument /></el-icon>
             <span>复制</span>
           </el-button>
-          <el-button text class="toolbar-btn" @click="showDashboardManager = true">
+          <el-button
+            text
+            class="toolbar-btn"
+            @click="showDashboardManager = true">
             <el-icon><Management /></el-icon>
             <span>管理</span>
           </el-button>
@@ -1446,7 +2388,20 @@ onUnmounted(() => {
       <!-- 仪表盘内容 -->
       <div class="dashboard-content">
         <!-- 组件网格 -->
-        <div class="widgets-grid">
+        <div 
+          class="widgets-grid"
+          :class="{
+            'grid-layout': layoutType === 'grid',
+            'free-layout': layoutType === 'free',
+            'show-grid-lines': showGridLines && layoutType === 'grid',
+            [`columns-${currentDashboard?.gridColumns || 12}`]: layoutType === 'grid',
+          }"
+          :style="layoutType === 'free' ? {
+            position: 'relative',
+            height: '100%',
+            overflow: 'auto'
+          } : {}"
+        >
           <div
             v-for="widget in widgets"
             :key="widget.id"
@@ -1454,16 +2409,19 @@ onUnmounted(() => {
             :class="{
               selected: selectedWidget?.id === widget.id,
               resizing: resizingWidget === widget.id,
+              dragging: draggingWidget === widget.id,
             }"
-            :style="{
-              gridColumn: `span ${widget.position.w}`,
-              gridRow: `span ${widget.position.h}`,
-            }"
-            @click="selectedWidget = widget">
-            <div class="widget-header">
+            :style="getWidgetStyle(widget)"
+            @click="selectedWidget = widget"
+            @mousedown="(e) => startDrag(e, widget)">
+            <div
+              v-if="widget.config?.showHeader !== false"
+              class="widget-header">
               <div class="widget-title-section">
                 <span class="widget-title">{{ widget.title }}</span>
-                <span class="widget-subtitle">
+                <span
+                  v-if="!isScreenWidget(widget.type)"
+                  class="widget-subtitle">
                   {{ getTableById(widget.tableId)?.name }}
                   <span class="subtitle-dot">·</span>
                   {{ getAggregationLabel(widget.aggregation) }}
@@ -1478,6 +2436,16 @@ onUnmounted(() => {
                   <el-icon><Delete /></el-icon>
                 </el-button>
               </div>
+            </div>
+            <!-- 标题栏隐藏时的悬浮删除按钮 -->
+            <div v-else class="widget-floating-actions">
+              <el-button
+                link
+                size="small"
+                class="floating-delete-btn"
+                @click.stop="removeWidget(widget.id)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
             </div>
             <div
               :ref="
@@ -1497,13 +2465,55 @@ onUnmounted(() => {
           <div v-if="widgets.length === 0" class="empty-dashboard">
             <div class="empty-illustration">
               <svg viewBox="0 0 200 160" fill="none">
-                <rect x="30" y="40" width="140" height="100" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" stroke-dasharray="8 4"/>
-                <rect x="50" y="60" width="60" height="8" rx="4" fill="#3B82F6" opacity="0.3"/>
-                <rect x="50" y="80" width="100" height="6" rx="3" fill="#9CA3AF" opacity="0.3"/>
-                <rect x="50" y="95" width="80" height="6" rx="3" fill="#9CA3AF" opacity="0.3"/>
-                <rect x="50" y="110" width="90" height="6" rx="3" fill="#9CA3AF" opacity="0.3"/>
-                <circle cx="150" cy="50" r="15" fill="#10B981" opacity="0.2"/>
-                <path d="M144 50L148 54L156 46" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect
+                  x="30"
+                  y="40"
+                  width="140"
+                  height="100"
+                  rx="12"
+                  fill="#EFF6FF"
+                  stroke="#3B82F6"
+                  stroke-width="2"
+                  stroke-dasharray="8 4" />
+                <rect
+                  x="50"
+                  y="60"
+                  width="60"
+                  height="8"
+                  rx="4"
+                  fill="#3B82F6"
+                  opacity="0.3" />
+                <rect
+                  x="50"
+                  y="80"
+                  width="100"
+                  height="6"
+                  rx="3"
+                  fill="#9CA3AF"
+                  opacity="0.3" />
+                <rect
+                  x="50"
+                  y="95"
+                  width="80"
+                  height="6"
+                  rx="3"
+                  fill="#9CA3AF"
+                  opacity="0.3" />
+                <rect
+                  x="50"
+                  y="110"
+                  width="90"
+                  height="6"
+                  rx="3"
+                  fill="#9CA3AF"
+                  opacity="0.3" />
+                <circle cx="150" cy="50" r="15" fill="#10B981" opacity="0.2" />
+                <path
+                  d="M144 50L148 54L156 46"
+                  stroke="#10B981"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
               </svg>
             </div>
             <h3 class="empty-title">开始创建您的仪表盘</h3>
@@ -1540,13 +2550,23 @@ onUnmounted(() => {
               <h3>组件配置</h3>
             </div>
             <div class="panel-actions">
-              <el-tag v-if="hasUnsavedChanges" size="small" type="warning" effect="light"
+              <el-tag
+                v-if="hasUnsavedChanges"
+                size="small"
+                type="warning"
+                effect="light"
                 >未保存</el-tag
               >
-              <el-tag v-else-if="isSaving" size="small" type="info" effect="light"
+              <el-tag
+                v-else-if="isSaving"
+                size="small"
+                type="info"
+                effect="light"
                 >保存中...</el-tag
               >
-              <el-tag v-else size="small" type="success" effect="light">已保存</el-tag>
+              <el-tag v-else size="small" type="success" effect="light"
+                >已保存</el-tag
+              >
               <el-button link class="close-btn" @click="selectedWidget = null">
                 <el-icon><Close /></el-icon>
               </el-button>
@@ -1568,7 +2588,13 @@ onUnmounted(() => {
                     @change="debouncedSaveWidgets()" />
                 </el-form-item>
 
-                <el-form-item label="数据表">
+                <!-- 数据表选择 - 仅对需要数据的组件显示 -->
+                <el-form-item
+                  label="数据表"
+                  v-if="
+                    !isScreenWidget(selectedWidget!.type) ||
+                    ['kpi', 'realtime'].includes(selectedWidget!.type)
+                  ">
                   <el-select
                     :model-value="selectedWidget.tableId"
                     @update:model-value="
@@ -1587,8 +2613,13 @@ onUnmounted(() => {
                 </el-form-item>
               </div>
 
-              <!-- 数据配置 -->
-              <div class="config-section">
+              <!-- 数据配置 - 仅对需要数据的组件显示 -->
+              <div
+                class="config-section"
+                v-if="
+                  !isScreenWidget(selectedWidget!.type) ||
+                  ['kpi', 'realtime'].includes(selectedWidget!.type)
+                ">
                 <div class="section-title">
                   <span class="section-icon">📊</span>
                   数据配置
@@ -1679,8 +2710,327 @@ onUnmounted(() => {
                 </el-form-item>
               </div>
 
+              <!-- 大屏组件专用配置 -->
+              <div
+                v-if="isScreenWidget(selectedWidget!.type)"
+                class="config-section">
+                <div class="section-title">
+                  <span class="section-icon">🖥️</span>
+                  大屏组件配置
+                </div>
+
+                <!-- 通用边框配置 -->
+                <el-form-item label="边框大小">
+                  <el-select
+                    v-model="(selectedWidget!.config as any).borderSize"
+                    @change="debouncedSaveWidgets()">
+                    <el-option label="无边框" value="none" />
+                    <el-option label="窄边框" value="narrow" />
+                    <el-option label="中边框" value="medium" />
+                    <el-option label="宽边框" value="wide" />
+                  </el-select>
+                </el-form-item>
+
+                <!-- 通用颜色配置 -->
+                <el-form-item label="背景颜色">
+                  <el-color-picker
+                    v-model="(selectedWidget!.config as any).backgroundColor"
+                    show-alpha
+                    @change="debouncedSaveWidgets()" />
+                </el-form-item>
+                <el-form-item label="文字颜色">
+                  <el-color-picker
+                    v-model="(selectedWidget!.config as any).textColor"
+                    @change="debouncedSaveWidgets()" />
+                </el-form-item>
+
+                <!-- 时钟组件配置 -->
+                <template v-if="selectedWidget!.type === 'clock'">
+                  <el-form-item label="显示标题栏">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showHeader"
+                      :default-value="false"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="时间格式">
+                    <el-select
+                      v-model="(selectedWidget!.config as any).timeFormat"
+                      @change="debouncedSaveWidgets()">
+                      <el-option label="24小时制" value="24h" />
+                      <el-option label="12小时制" value="12h" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="显示秒数">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showSeconds"
+                      :default-value="true"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="显示日期">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showDate"
+                      :default-value="true"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="显示星期">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showWeekday"
+                      :default-value="true"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="时间字体大小">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).timeFontSize"
+                      :min="16"
+                      :max="72"
+                      :step="2"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="日期字体大小">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).dateFontSize"
+                      :min="10"
+                      :max="32"
+                      :step="1"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                </template>
+
+                <!-- 日期组件配置 -->
+                <template v-if="selectedWidget!.type === 'date'">
+                  <el-form-item label="显示标题栏">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showHeader"
+                      :default-value="false"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="显示星期">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showWeekday"
+                      :default-value="true"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="日期字体大小">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).dayFontSize"
+                      :min="24"
+                      :max="120"
+                      :step="4"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="月份字体大小">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).monthFontSize"
+                      :min="10"
+                      :max="32"
+                      :step="1"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                </template>
+
+                <!-- 跑马灯组件配置 -->
+                <template v-if="selectedWidget!.type === 'marquee'">
+                  <el-form-item label="显示标题栏">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showHeader"
+                      :default-value="false"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="显示内容">
+                    <el-input
+                      v-model="(selectedWidget!.config as any).content"
+                      placeholder="请输入滚动内容"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="滚动速度">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).speed"
+                      :min="1"
+                      :max="10"
+                      :step="1"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="滚动方向">
+                    <el-select
+                      v-model="(selectedWidget!.config as any).direction"
+                      @change="debouncedSaveWidgets()">
+                      <el-option label="向左" value="left" />
+                      <el-option label="向右" value="right" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="文字字体大小">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).fontSize"
+                      :min="12"
+                      :max="48"
+                      :step="1"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                </template>
+
+                <!-- KPI 组件配置 -->
+                <template v-if="selectedWidget!.type === 'kpi'">
+                  <el-form-item label="前缀">
+                    <el-input
+                      v-model="(selectedWidget!.config as any).prefix"
+                      placeholder="如：¥、$"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="后缀">
+                    <el-input
+                      v-model="(selectedWidget!.config as any).suffix"
+                      placeholder="如：%、个"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="显示趋势">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showTrend"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="显示目标">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showTarget"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item
+                    v-if="(selectedWidget!.config as any).showTarget"
+                    label="目标值">
+                    <el-input-number
+                      v-model="(selectedWidget!.config as any).targetValue"
+                      :min="0"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                </template>
+
+                <!-- 实时数据流配置 -->
+                <template v-if="selectedWidget!.type === 'realtime'">
+                  <el-form-item label="图表类型">
+                    <el-select
+                      v-model="(selectedWidget!.config as any).chartType"
+                      @change="debouncedSaveWidgets()">
+                      <el-option label="折线图" value="line" />
+                      <el-option label="面积图" value="area" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="最大数据点数">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).maxDataPoints"
+                      :min="10"
+                      :max="200"
+                      :step="10"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="平滑曲线">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).smooth"
+                      :default-value="true"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                </template>
+
+                <!-- 标题文字组件配置 -->
+                <template v-if="selectedWidget!.type === 'text'">
+                  <el-form-item label="显示标题栏">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).showHeader"
+                      :default-value="false"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="主标题文字">
+                    <el-input
+                      v-model="(selectedWidget!.config as any).text"
+                      placeholder="请输入主标题"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="副标题文字">
+                    <el-input
+                      v-model="(selectedWidget!.config as any).subtitle"
+                      placeholder="请输入副标题（可选）"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="主标题字体大小">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).fontSize"
+                      :min="16"
+                      :max="120"
+                      :step="2"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="副标题字体大小">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).subtitleFontSize"
+                      :min="10"
+                      :max="48"
+                      :step="1"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="字体粗细">
+                    <el-select
+                      v-model="(selectedWidget!.config as any).fontWeight"
+                      @change="debouncedSaveWidgets()">
+                      <el-option label="正常" value="normal" />
+                      <el-option label="中等" value="500" />
+                      <el-option label="粗体" value="bold" />
+                      <el-option label="特粗" value="800" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="文字对齐">
+                    <el-radio-group
+                      v-model="(selectedWidget!.config as any).textAlign"
+                      @change="debouncedSaveWidgets()">
+                      <el-radio-button label="left">左对齐</el-radio-button>
+                      <el-radio-button label="center">居中</el-radio-button>
+                      <el-radio-button label="right">右对齐</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+                  <el-form-item label="主标题颜色">
+                    <el-color-picker
+                      v-model="(selectedWidget!.config as any).textColor"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="副标题颜色">
+                    <el-color-picker
+                      v-model="(selectedWidget!.config as any).subtitleColor"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="背景样式">
+                    <el-select
+                      v-model="(selectedWidget!.config as any).backgroundStyle"
+                      @change="debouncedSaveWidgets()">
+                      <el-option label="渐变" value="gradient" />
+                      <el-option label="纯色" value="solid" />
+                      <el-option label="透明" value="transparent" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="字间距">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).letterSpacing"
+                      :min="0"
+                      :max="20"
+                      :step="1"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="行高">
+                    <el-slider
+                      v-model="(selectedWidget!.config as any).lineHeight"
+                      :min="1"
+                      :max="2.5"
+                      :step="0.1"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                  <el-form-item label="文字阴影">
+                    <el-switch
+                      v-model="(selectedWidget!.config as any).textShadow"
+                      :default-value="true"
+                      @change="debouncedSaveWidgets()" />
+                  </el-form-item>
+                </template>
+              </div>
+
               <!-- 样式配置 -->
-              <div class="config-section">
+              <div
+                v-if="!isScreenWidget(selectedWidget!.type)"
+                class="config-section">
                 <div class="section-title">
                   <span class="section-icon">🎨</span>
                   样式配置
@@ -1793,7 +3143,10 @@ onUnmounted(() => {
             </el-button>
           </div>
 
-          <el-table :data="dashboards" style="width: 100%" class="manager-table">
+          <el-table
+            :data="dashboards"
+            style="width: 100%"
+            class="manager-table">
             <el-table-column prop="name" label="名称" min-width="160">
               <template #default="{ row }">
                 <div class="dashboard-name-cell">
@@ -1885,6 +3238,12 @@ onUnmounted(() => {
         </template>
       </el-dialog>
 
+      <!-- 模板管理对话框 -->
+      <DashboardTemplateDialog
+        v-model:visible="showTemplateDialog"
+        :current-dashboard="currentDashboard || undefined"
+        @apply="applyTemplate" />
+
       <!-- 分享对话框 -->
       <el-dialog
         v-model="showShareDialog"
@@ -1973,12 +3332,18 @@ onUnmounted(() => {
             </div>
 
             <div class="share-info">
-              <el-tag v-if="currentShare.expiresAt" size="small" type="info" effect="light">
+              <el-tag
+                v-if="currentShare.expiresAt"
+                size="small"
+                type="info"
+                effect="light">
                 有效期至：{{
                   new Date(currentShare.expiresAt).toLocaleString()
                 }}
               </el-tag>
-              <el-tag v-else size="small" type="info" effect="light">永久有效</el-tag>
+              <el-tag v-else size="small" type="info" effect="light"
+                >永久有效</el-tag
+              >
               <el-tag
                 v-if="currentShare.maxAccessCount"
                 size="small"
@@ -2017,10 +3382,16 @@ onUnmounted(() => {
               </el-table-column>
               <el-table-column label="密码" width="70">
                 <template #default="{ row }">
-                  <el-tag v-if="row.accessCode" size="small" type="warning" effect="light"
+                  <el-tag
+                    v-if="row.accessCode"
+                    size="small"
+                    type="warning"
+                    effect="light"
                     >有</el-tag
                   >
-                  <el-tag v-else size="small" type="info" effect="light">无</el-tag>
+                  <el-tag v-else size="small" type="info" effect="light"
+                    >无</el-tag
+                  >
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="130">
@@ -2069,6 +3440,12 @@ import {
   Share,
   Link,
   Setting,
+  Grid,
+  // 大屏组件图标 - 在模板中动态使用
+  Clock as _Clock,
+  ChatDotRound as _ChatDotRound,
+  VideoPlay as _VideoPlay,
+  TrendCharts as _TrendCharts,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -2078,26 +3455,26 @@ export default {
 
 <style lang="scss" scoped>
 // 清新配色变量
-$primary: #3B82F6;
-$primary-light: #EFF6FF;
-$primary-dark: #2563EB;
-$success: #10B981;
-$warning: #F59E0B;
-$danger: #EF4444;
-$gray-50: #F9FAFB;
-$gray-100: #F3F4F6;
-$gray-200: #E5E7EB;
-$gray-300: #D1D5DB;
-$gray-400: #9CA3AF;
-$gray-500: #6B7280;
-$gray-600: #4B5563;
+$primary: #3b82f6;
+$primary-light: #eff6ff;
+$primary-dark: #2563eb;
+$success: #10b981;
+$warning: #f59e0b;
+$danger: #ef4444;
+$gray-50: #f9fafb;
+$gray-100: #f3f4f6;
+$gray-200: #e5e7eb;
+$gray-300: #d1d5db;
+$gray-400: #9ca3af;
+$gray-500: #6b7280;
+$gray-600: #4b5563;
 $gray-700: #374151;
-$gray-800: #1F2937;
+$gray-800: #1f2937;
 
 .dashboard-view {
   display: flex;
   height: 100%;
-  background: linear-gradient(180deg, $gray-50 0%, #FFFFFF 100%);
+  background: linear-gradient(180deg, $gray-50 0%, #ffffff 100%);
   position: relative;
 }
 
@@ -2108,7 +3485,7 @@ $gray-800: #1F2937;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(180deg, $gray-50 0%, #FFFFFF 100%);
+  background: linear-gradient(180deg, $gray-50 0%, #ffffff 100%);
   z-index: 1000;
   overflow: hidden;
 }
@@ -2132,7 +3509,12 @@ $gray-800: #1F2937;
 .skeleton-title {
   width: 160px;
   height: 24px;
-  background: linear-gradient(90deg, $gray-200 25%, $gray-100 50%, $gray-200 75%);
+  background: linear-gradient(
+    90deg,
+    $gray-200 25%,
+    $gray-100 50%,
+    $gray-200 75%
+  );
   background-size: 200% 100%;
   border-radius: 6px;
   animation: shimmer 1.5s infinite;
@@ -2146,7 +3528,12 @@ $gray-800: #1F2937;
 .skeleton-btn {
   width: 80px;
   height: 36px;
-  background: linear-gradient(90deg, $gray-200 25%, $gray-100 50%, $gray-200 75%);
+  background: linear-gradient(
+    90deg,
+    $gray-200 25%,
+    $gray-100 50%,
+    $gray-200 75%
+  );
   background-size: 200% 100%;
   border-radius: 8px;
   animation: shimmer 1.5s infinite;
@@ -2175,7 +3562,12 @@ $gray-800: #1F2937;
 .skeleton-text {
   width: 120px;
   height: 16px;
-  background: linear-gradient(90deg, $gray-200 25%, $gray-100 50%, $gray-200 75%);
+  background: linear-gradient(
+    90deg,
+    $gray-200 25%,
+    $gray-100 50%,
+    $gray-200 75%
+  );
   background-size: 200% 100%;
   border-radius: 4px;
   animation: shimmer 1.5s infinite;
@@ -2194,15 +3586,24 @@ $gray-800: #1F2937;
 .skeleton-chart {
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, $gray-100 25%, $gray-50 50%, $gray-100 75%);
+  background: linear-gradient(
+    90deg,
+    $gray-100 25%,
+    $gray-50 50%,
+    $gray-100 75%
+  );
   background-size: 200% 100%;
   border-radius: 8px;
   animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .dashboard-main {
@@ -2257,7 +3658,7 @@ $gray-800: #1F2937;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+    background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
     border-radius: 8px;
     color: white;
     margin-right: 10px;
@@ -2283,7 +3684,7 @@ $gray-800: #1F2937;
   padding: 0 16px;
   border-radius: 10px;
   font-weight: 500;
-  background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+  background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
   border: none;
   box-shadow: 0 4px 14px rgba($primary, 0.35);
   transition: all 0.3s ease;
@@ -2308,7 +3709,7 @@ $gray-800: #1F2937;
   padding: 0 16px;
   border-radius: 10px;
   font-weight: 500;
-  background: linear-gradient(135deg, $success 0%, #34D399 100%);
+  background: linear-gradient(135deg, $success 0%, #34d399 100%);
   border: none;
   color: white;
   box-shadow: 0 4px 14px rgba($success, 0.35);
@@ -2339,6 +3740,31 @@ $gray-800: #1F2937;
 
   .el-icon {
     margin-right: 4px;
+  }
+}
+
+// 布局控制按钮组（在顶部工具栏中）
+.layout-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .el-radio-group {
+    .el-radio-button {
+      .el-radio-button__inner {
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+    }
+  }
+
+  .grid-lines-checkbox {
+    margin-left: 4px;
+    
+    .el-checkbox__label {
+      font-size: 13px;
+      padding-left: 4px;
+    }
   }
 }
 
@@ -2392,13 +3818,62 @@ $gray-800: #1F2937;
   flex: 1;
   padding: 24px;
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
   grid-auto-rows: 80px;
   gap: 16px;
   overflow-y: auto;
   overflow-x: hidden;
   align-content: start;
   min-height: 0;
+
+  // 网格布局模式
+  &.grid-layout {
+    // 12列网格
+    &.columns-12 {
+      grid-template-columns: repeat(12, 1fr);
+    }
+
+    // 24列网格
+    &.columns-24 {
+      grid-template-columns: repeat(24, 1fr);
+    }
+
+    // 显示网格线
+    &.show-grid-lines {
+      background-image:
+        linear-gradient(to right, $gray-200 1px, transparent 1px),
+        linear-gradient(to bottom, $gray-200 1px, transparent 1px);
+      background-size: calc(100% / 12) 80px;
+
+      &.columns-24 {
+        background-size: calc(100% / 24) 80px;
+      }
+    }
+  }
+
+  // 自由布局模式
+  &.free-layout {
+    display: block;
+    position: relative;
+    min-height: 800px;
+
+    .widget-card {
+      position: absolute;
+      margin: 0;
+      cursor: move;
+
+      &:hover {
+        transform: none;
+        box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.15);
+      }
+
+      &.dragging {
+        opacity: 0.8;
+        cursor: grabbing;
+        box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.2);
+        z-index: 1000 !important;
+      }
+    }
+  }
 }
 
 // 组件卡片 - 清新风格
@@ -2431,7 +3906,9 @@ $gray-800: #1F2937;
 
   &.selected {
     border-color: $primary;
-    box-shadow: 0 0 0 3px rgba($primary, 0.15), 0 12px 24px -8px rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 0 0 3px rgba($primary, 0.15),
+      0 12px 24px -8px rgba(0, 0, 0, 0.1);
   }
 
   &.resizing {
@@ -2498,6 +3975,39 @@ $gray-800: #1F2937;
         background: rgba($danger, 0.1);
       }
     }
+  }
+}
+
+// 标题栏隐藏时的悬浮操作按钮
+.widget-floating-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: all 0.2s ease;
+
+  .floating-delete-btn {
+    padding: 6px;
+    color: $gray-400;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+
+    &:hover {
+      color: $danger;
+      background: rgba($danger, 0.1);
+    }
+  }
+}
+
+// 鼠标悬停时显示悬浮按钮
+.widget-card:hover {
+  .widget-floating-actions {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -2578,7 +4088,7 @@ $gray-800: #1F2937;
     padding: 0 24px;
     border-radius: 10px;
     font-weight: 500;
-    background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+    background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
     border: none;
     box-shadow: 0 4px 14px rgba($primary, 0.35);
     transition: all 0.3s ease;
@@ -2730,7 +4240,7 @@ $gray-800: #1F2937;
       height: 44px;
       border-radius: 10px;
       font-weight: 500;
-      background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+      background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
       border: none;
       box-shadow: 0 4px 14px rgba($primary, 0.35);
       transition: all 0.3s ease;
@@ -2793,7 +4303,11 @@ $gray-800: #1F2937;
     font-size: 52px;
     font-weight: 700;
     line-height: 1.2;
-    background: linear-gradient(135deg, var(--number-color) 0%, lighten-color(var(--number-color), 20%) 100%);
+    background: linear-gradient(
+      135deg,
+      var(--number-color) 0%,
+      lighten-color(var(--number-color), 20%) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -2907,7 +4421,7 @@ $gray-800: #1F2937;
       padding: 0 16px;
       border-radius: 10px;
       font-weight: 500;
-      background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+      background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
       border: none;
       box-shadow: 0 4px 14px rgba($primary, 0.35);
       transition: all 0.3s ease;
@@ -3002,7 +4516,7 @@ $gray-800: #1F2937;
   padding: 0 20px;
   border-radius: 10px;
   font-weight: 500;
-  background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+  background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
   border: none;
   box-shadow: 0 4px 14px rgba($primary, 0.35);
   transition: all 0.3s ease;
@@ -3052,7 +4566,7 @@ $gray-800: #1F2937;
       height: 44px;
       border-radius: 10px;
       font-weight: 500;
-      background: linear-gradient(135deg, $primary 0%, #6366F1 100%);
+      background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
       border: none;
       box-shadow: 0 4px 14px rgba($primary, 0.35);
       transition: all 0.3s ease;

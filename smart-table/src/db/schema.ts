@@ -78,8 +78,31 @@ export interface Dashboard {
   description?: string;
   widgets: unknown[];
   layout: Record<string, unknown>;
+  layoutType: "grid" | "free";
+  gridColumns?: number;
+  refreshConfig?: {
+    enabled: boolean;
+    interval: number;
+    autoRefresh: boolean;
+  };
   isStarred: boolean;
   order: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface DashboardTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  thumbnail?: string;
+  layout: Record<string, unknown>;
+  layoutType: "grid" | "free";
+  gridColumns?: number;
+  widgets: unknown[];
+  isPreset: boolean;
+  isStarred: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -132,6 +155,7 @@ class SmartTableDB extends Dexie {
   records!: DexieTable<RecordEntity>;
   views!: DexieTable<ViewEntity>;
   dashboards!: DexieTable<Dashboard>;
+  dashboardTemplates!: DexieTable<DashboardTemplate>;
   attachments!: DexieTable<Attachment>;
   history!: DexieTable<OperationHistory>;
   dashboardShares!: DexieTable<DashboardShare>;
@@ -139,17 +163,35 @@ class SmartTableDB extends Dexie {
   constructor() {
     super("SmartTableDB");
 
-    this.version(4).stores({
+    this.version(5).stores({
       bases: "id, name, updatedAt, isStarred",
       tableEntities: "id, baseId, name, order, updatedAt, isStarred",
       fields: "id, tableId, name, type, order, [tableId+order]",
       records: "id, tableId, updatedAt, [tableId+updatedAt]",
       views: "id, tableId, name, type, isDefault, [tableId+order]",
       dashboards: "id, baseId, name, order, updatedAt, isStarred",
+      dashboardTemplates: "id, name, category, isPreset, isStarred, updatedAt",
       attachments: "id, recordId, fieldId, [recordId+fieldId]",
       history: "++id, baseId, tableId, timestamp, [baseId+timestamp]",
       dashboardShares:
         "id, dashboardId, shareToken, isActive, expiresAt, [dashboardId+isActive]",
+    }).upgrade((tx) => {
+      // 迁移现有仪表盘数据，添加新字段的默认值
+      return tx.table("dashboards").toCollection().modify((dashboard: Dashboard) => {
+        if (!dashboard.layoutType) {
+          dashboard.layoutType = "grid";
+        }
+        if (!dashboard.gridColumns) {
+          dashboard.gridColumns = 12;
+        }
+        if (!dashboard.refreshConfig) {
+          dashboard.refreshConfig = {
+            enabled: false,
+            interval: 30000,
+            autoRefresh: false,
+          };
+        }
+      });
     });
   }
 }
