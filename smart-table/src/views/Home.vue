@@ -5,6 +5,8 @@ import { useBaseStore } from "@/stores";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { Base } from "@/db/schema";
+import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
+import { templateService } from "@/db/services";
 
 const router = useRouter();
 const baseStore = useBaseStore();
@@ -12,7 +14,10 @@ const createFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
 
 // 当前导航项
-const currentNav = ref<"home" | "all">("home");
+const currentNav = ref<"home" | "all" | "templates">("home");
+
+// 加载状态
+const templateLoadingMap = ref<Map<string, boolean>>(new Map());
 
 // 全部多维表视图页签状态
 const activeTab = ref<"starred" | "all">("starred");
@@ -383,6 +388,28 @@ async function handleToggleStar(base: Base, event: Event) {
 function stopPropagation(event: Event) {
   event.stopPropagation();
 }
+
+// 获取模板加载状态
+function isTemplateLoading(templateId: string): boolean {
+  return templateLoadingMap.value.get(templateId) || false;
+}
+
+// 从模板创建 base
+async function handleUseTemplate(template: TableTemplate) {
+  templateLoadingMap.value.set(template.id, true);
+
+  try {
+    const base = await templateService.createBaseFromTemplate(template);
+    await baseStore.loadBases();
+    ElMessage.success(`已成功使用"${template.name}"模板创建多维表格`);
+    goToBase(base.id);
+  } catch (error) {
+    console.error('Failed to create base from template:', error);
+    ElMessage.error('创建失败，请稍后重试');
+  } finally {
+    templateLoadingMap.value.set(template.id, false);
+  }
+}
 </script>
 
 <template>
@@ -404,6 +431,13 @@ function stopPropagation(event: Event) {
             @click="currentNav = 'all'">
             <el-icon><Grid /></el-icon>
             <span>全部多维表</span>
+          </div>
+          <div
+            class="nav-item"
+            :class="{ active: currentNav === 'templates' }"
+            @click="currentNav = 'templates'">
+            <el-icon><Document /></el-icon>
+            <span>模板</span>
           </div>
         </nav>
       </aside>
@@ -704,6 +738,42 @@ function stopPropagation(event: Event) {
                   </div>
                 </div>
               </section>
+            </div>
+          </div>
+
+          <!-- 模板视图 -->
+          <div v-else-if="currentNav === 'templates'" class="templates-view">
+            <div class="templates-header">
+              <h2 class="view-title">选择模板</h2>
+              <p class="view-desc">选择一个预置模板快速开始您的多维表格</p>
+            </div>
+            <div class="templates-grid">
+              <div
+                v-for="template in tableTemplates"
+                :key="template.id"
+                class="template-card">
+                <div class="template-main">
+                  <div
+                    class="template-icon"
+                    :style="{ backgroundColor: template.color }">
+                    {{ template.icon }}
+                  </div>
+                  <div class="template-info">
+                    <h3 class="template-name">{{ template.name }}</h3>
+                    <p class="template-desc">{{ template.description }}</p>
+                    <span class="template-category">{{ template.category }}</span>
+                  </div>
+                </div>
+                <div class="template-footer">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    :loading="isTemplateLoading(template.id)"
+                    @click="handleUseTemplate(template)">
+                    使用模板
+                  </el-button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1093,6 +1163,7 @@ import {
   CircleClose,
   HomeFilled,
   Loading,
+  Document,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -2083,6 +2154,131 @@ $star-color: #f59e0b;
   }
 }
 
+// 模板视图
+.templates-view {
+  min-height: calc(100vh - 100px);
+  padding: 24px 32px;
+  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .templates-header {
+    margin-bottom: 32px;
+
+    .view-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: $gray-800;
+      margin: 0 0 8px;
+    }
+
+    .view-desc {
+      font-size: 14px;
+      color: $gray-500;
+      margin: 0;
+    }
+  }
+
+  .templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+
+  .template-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid $gray-200;
+    padding: 20px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: transparent;
+      transition: background 0.3s;
+    }
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.1);
+      border-color: $gray-300;
+    }
+
+    .template-main {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .template-icon {
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      font-size: 28px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .template-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .template-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: $gray-800;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .template-desc {
+      font-size: 13px;
+      color: $gray-500;
+      margin: 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .template-category {
+      font-size: 11px;
+      color: $primary;
+      background: $primary-light;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+      display: inline-block;
+      margin-top: 4px;
+      width: fit-content;
+    }
+
+    .template-footer {
+      padding-top: 12px;
+      border-top: 1px solid $gray-100;
+      display: flex;
+      justify-content: flex-end;
+    }
+  }
+}
+
 // 响应式设计
 @media (max-width: 768px) {
   .home-layout {
@@ -2264,6 +2460,48 @@ $star-color: #f59e0b;
         width: 36px;
         height: 36px;
         font-size: 16px;
+      }
+    }
+  }
+}
+
+// 模板视图响应式
+@media (max-width: 768px) {
+  .templates-view {
+    padding: 16px;
+
+    .templates-header {
+      margin-bottom: 24px;
+
+      .view-title {
+        font-size: 20px;
+      }
+
+      .view-desc {
+        font-size: 13px;
+      }
+    }
+
+    .templates-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .template-card {
+      padding: 16px;
+
+      .template-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 24px;
+      }
+
+      .template-name {
+        font-size: 15px;
+      }
+
+      .template-desc {
+        font-size: 12px;
       }
     }
   }

@@ -11,3 +11,6 @@ export { recordService, RecordService, type CreateRecordData, type UpdateRecordD
 export { viewService, ViewService, type CreateViewData, type UpdateViewData } from './viewService';
 export { dashboardService, DashboardService, type CreateDashboardData, type WidgetConfig } from './dashboardService';
 export { dashboardShareService, DashboardShareService, type CreateShareData, type ShareValidationResult } from './dashboardShareService';
+export { dashboardTemplateService, DashboardTemplateService, type CreateTemplateData, type TemplateFilter } from './dashboardTemplateService';
+export { dashboardRealtimeService, DashboardRealtimeService, type RefreshConfig, type DataChangeEvent, type WidgetDataState } from './dashboardRealtimeService';
+export { templateService, TemplateService } from './templateService';
