@@ -7,6 +7,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import type { Base } from "@/db/schema";
 import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
 import { templateService } from "@/db/services";
+import { getFieldTypeLabel, getFieldTypeIcon } from "@/types";
 
 const router = useRouter();
 const baseStore = useBaseStore();
@@ -38,6 +39,11 @@ const createDialogVisible = ref(false);
 
 // 编辑对话框显示状态
 const editDialogVisible = ref(false);
+
+// 预览对话框显示状态
+const previewDialogVisible = ref(false);
+const previewTemplate = ref<TableTemplate | null>(null);
+const activePreviewTables = ref<string[]>([]);
 
 // 创建表单数据
 const createForm = reactive({
@@ -394,6 +400,51 @@ function isTemplateLoading(templateId: string): boolean {
   return templateLoadingMap.value.get(templateId) || false;
 }
 
+// 获取字段类型颜色
+function getFieldTypeColor(type: string): string {
+  const colors: Record<string, string> = {
+    text: '#3B82F6',
+    number: '#10B981',
+    date: '#F59E0B',
+    singleSelect: '#8B5CF6',
+    multiSelect: '#8B5CF6',
+    checkbox: '#EF4444',
+    attachment: '#06B6D4',
+    member: '#EC4899',
+    rating: '#F59E0B',
+    progress: '#10B981',
+    phone: '#3B82F6',
+    email: '#10B981',
+    url: '#8B5CF6',
+    formula: '#EF4444',
+    link: '#06B6D4',
+    lookup: '#EC4899',
+    createdBy: '#3B82F6',
+    createdTime: '#10B981',
+    updatedBy: '#8B5CF6',
+    updatedTime: '#EF4444',
+    autoNumber: '#06B6D4'
+  };
+  return colors[type] || '#6B7280';
+}
+
+// 获取字段类型名称（使用导入的函数）
+function getFieldTypeName(type: string): string {
+  return getFieldTypeLabel(type);
+}
+
+// 打开预览对话框
+function openPreview(template: TableTemplate) {
+  previewTemplate.value = template;
+  previewDialogVisible.value = true;
+}
+
+// 关闭预览对话框
+function closePreview() {
+  previewDialogVisible.value = false;
+  previewTemplate.value = null;
+}
+
 // 从模板创建 base
 async function handleUseTemplate(template: TableTemplate) {
   templateLoadingMap.value.set(template.id, true);
@@ -402,10 +453,11 @@ async function handleUseTemplate(template: TableTemplate) {
     const base = await templateService.createBaseFromTemplate(template);
     await baseStore.loadBases();
     ElMessage.success(`已成功使用"${template.name}"模板创建多维表格`);
+    closePreview();
     goToBase(base.id);
   } catch (error) {
-    console.error('Failed to create base from template:', error);
-    ElMessage.error('创建失败，请稍后重试');
+    console.error("Failed to create base from template:", error);
+    ElMessage.error("创建失败，请稍后重试");
   } finally {
     templateLoadingMap.value.set(template.id, false);
   }
@@ -761,10 +813,17 @@ async function handleUseTemplate(template: TableTemplate) {
                   <div class="template-info">
                     <h3 class="template-name">{{ template.name }}</h3>
                     <p class="template-desc">{{ template.description }}</p>
-                    <span class="template-category">{{ template.category }}</span>
+                    <span class="template-category">{{
+                      template.category
+                    }}</span>
                   </div>
                 </div>
                 <div class="template-footer">
+                  <el-button
+                    size="small"
+                    @click="openPreview(template)">
+                    预览
+                  </el-button>
                   <el-button
                     type="primary"
                     size="small"
@@ -1144,6 +1203,80 @@ async function handleUseTemplate(template: TableTemplate) {
       <template #footer>
         <el-button @click="closeEditDialog">取消</el-button>
         <el-button type="primary" @click="handleEditBase">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 预览对话框 -->
+    <el-dialog
+      v-model="previewDialogVisible"
+      :title="previewTemplate?.name"
+      width="800px"
+      :close-on-click-modal="false"
+      class="preview-dialog">
+      <div v-if="previewTemplate" class="preview-content">
+        <!-- 模板基本信息 -->
+        <div class="preview-header">
+          <div class="preview-icon" :style="{ backgroundColor: previewTemplate.color }">
+            {{ previewTemplate.icon }}
+          </div>
+          <div class="preview-info">
+            <h3 class="preview-title">{{ previewTemplate.name }}</h3>
+            <p class="preview-desc">{{ previewTemplate.description }}</p>
+            <span class="preview-category">{{ previewTemplate.category }}</span>
+          </div>
+        </div>
+
+        <!-- 模板包含的数据表 -->
+        <div class="preview-section">
+          <h4 class="section-title">包含的数据表</h4>
+          <el-collapse v-model="activePreviewTables" accordion>
+            <el-collapse-item
+              v-for="table in previewTemplate.tables"
+              :key="table.id"
+              :name="table.id"
+              :title="table.name">
+              <div class="table-preview">
+                <p class="table-desc">{{ table.description || '暂无描述' }}</p>
+                <h5 class="fields-title">字段列表</h5>
+                <div class="fields-grid">
+                  <div
+                    v-for="field in table.fields"
+                    :key="field.id"
+                    class="field-card">
+                    <div class="field-icon" :style="{ backgroundColor: getFieldTypeColor(field.type) }">
+                      {{ getFieldTypeIcon(field.type) }}
+                    </div>
+                    <div class="field-info">
+                      <div class="field-name">{{ field.name }}</div>
+                      <div class="field-type">{{ getFieldTypeName(field.type) }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="table.sampleData && table.sampleData.length > 0" class="sample-data">
+                  <h5 class="sample-title">示例数据</h5>
+                  <el-table :data="table.sampleData" style="width: 100%" size="small" border>
+                    <el-table-column
+                      v-for="field in table.fields"
+                      :key="field.id"
+                      :prop="field.id"
+                      :label="field.name"
+                      show-overflow-tooltip />
+                  </el-table>
+                </div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="closePreview">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="isTemplateLoading(previewTemplate?.id || '')"
+          @click="previewTemplate && handleUseTemplate(previewTemplate)">
+          应用此模板
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -2275,6 +2408,164 @@ $star-color: #f59e0b;
       border-top: 1px solid $gray-100;
       display: flex;
       justify-content: flex-end;
+      gap: 8px;
+    }
+  }
+}
+
+// 预览对话框样式
+.preview-dialog {
+  :deep(.el-dialog__header) {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid $gray-100;
+
+    .el-dialog__title {
+      font-size: 18px;
+      font-weight: 600;
+      color: $gray-800;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  :deep(.el-dialog__footer) {
+    padding: 16px 24px;
+    border-top: 1px solid $gray-100;
+  }
+}
+
+.preview-content {
+  .preview-header {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid $gray-100;
+  }
+
+  .preview-icon {
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    font-size: 36px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .preview-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .preview-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: $gray-800;
+    margin: 0;
+  }
+
+  .preview-desc {
+    font-size: 14px;
+    color: $gray-500;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  .preview-category {
+    font-size: 12px;
+    color: $primary;
+    background: $primary-light;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-weight: 500;
+    display: inline-block;
+    width: fit-content;
+  }
+
+  .preview-section {
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: $gray-700;
+      margin: 0 0 16px;
+    }
+  }
+
+  .table-preview {
+    .table-desc {
+      font-size: 14px;
+      color: $gray-500;
+      margin: 0 0 20px;
+    }
+
+    .fields-title,
+    .sample-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: $gray-600;
+      margin: 20px 0 12px;
+    }
+
+    .fields-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .field-card {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      background: $gray-50;
+      border-radius: 8px;
+      border: 1px solid $gray-100;
+    }
+
+    .field-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .field-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .field-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: $gray-700;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .field-type {
+      font-size: 12px;
+      color: $gray-400;
+    }
+
+    .sample-data {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid $gray-100;
     }
   }
 }

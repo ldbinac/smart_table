@@ -41,6 +41,7 @@ export interface TemplateTable {
   views: TemplateView[];
   records: TemplateRecord[];
   order: number;
+  sampleData?: Record<string, unknown>[];
 }
 
 export interface TableTemplate {
@@ -94,6 +95,28 @@ const projectManagementTemplate: TableTemplate = {
       records: [
         { id: 'proj-rec-1', values: { 'proj-name': 'Smart Table 开发', 'proj-status': '进行中', 'proj-start': Date.now() - 7 * 24 * 60 * 60 * 1000, 'proj-end': Date.now() + 30 * 24 * 60 * 60 * 1000, 'proj-progress': 35 } },
         { id: 'proj-rec-2', values: { 'proj-name': '官网改版', 'proj-status': '规划中', 'proj-start': Date.now(), 'proj-end': Date.now() + 60 * 24 * 60 * 60 * 1000, 'proj-progress': 0 } }
+      ],
+      sampleData: [
+        { 
+          'proj-name': 'Smart Table 开发', 
+          'proj-status': '进行中', 
+          'proj-start': new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('zh-CN'), 
+          'proj-end': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('zh-CN'), 
+          'proj-owner': '张三',
+          'proj-priority': '高',
+          'proj-progress': '35%',
+          'proj-desc': '开发一个智能表格应用'
+        },
+        { 
+          'proj-name': '官网改版', 
+          'proj-status': '规划中', 
+          'proj-start': new Date(Date.now()).toLocaleDateString('zh-CN'), 
+          'proj-end': new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toLocaleDateString('zh-CN'), 
+          'proj-owner': '李四',
+          'proj-priority': '中',
+          'proj-progress': '0%',
+          'proj-desc': '重新设计公司官网'
+        }
       ]
     },
     {
