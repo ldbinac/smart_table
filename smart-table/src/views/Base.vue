@@ -2042,7 +2042,7 @@ function handleImported() {
 
 .table-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .empty-state {
