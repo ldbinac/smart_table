@@ -48,6 +48,9 @@ const activePreviewTables = ref<string[]>([]);
 // 模板搜索状态
 const templateSearchQuery = ref("");
 
+// 新建选择对话框显示状态
+const createChoiceDialogVisible = ref(false);
+
 // 创建表单数据
 const createForm = reactive({
   name: "",
@@ -267,6 +270,24 @@ function goToBase(id: string) {
 
 function goToSettings() {
   router.push("/settings");
+}
+
+function openCreateChoiceDialog() {
+  createChoiceDialogVisible.value = true;
+}
+
+function closeCreateChoiceDialog() {
+  createChoiceDialogVisible.value = false;
+}
+
+function handleCreateBlankBase() {
+  closeCreateChoiceDialog();
+  openCreateDialog();
+}
+
+function handleCreateFromTemplate() {
+  closeCreateChoiceDialog();
+  currentNav.value = "templates";
 }
 
 function openCreateDialog() {
@@ -494,7 +515,7 @@ async function handleUseTemplate(template: TableTemplate) {
             :class="{ active: currentNav === 'all' }"
             @click="currentNav = 'all'">
             <el-icon><Grid /></el-icon>
-            <span>全部多维表</span>
+            <span>全部</span>
           </div>
           <div
             class="nav-item"
@@ -535,7 +556,7 @@ async function handleUseTemplate(template: TableTemplate) {
             <el-button
               type="primary"
               class="create-btn"
-              @click="openCreateDialog">
+              @click="openCreateChoiceDialog">
               <el-icon><Plus /></el-icon>
               <span>新建</span>
             </el-button>
@@ -586,7 +607,7 @@ async function handleUseTemplate(template: TableTemplate) {
               </div>
               <h3>开始创建您的第一个多维表格</h3>
               <p class="empty-desc">多维表格让数据管理更简单、更高效</p>
-              <el-button type="primary" size="large" @click="openCreateDialog">
+              <el-button type="primary" size="large" @click="openCreateChoiceDialog">
                 <el-icon><Plus /></el-icon>
                 创建多维表格
               </el-button>
@@ -1238,6 +1259,38 @@ async function handleUseTemplate(template: TableTemplate) {
       </template>
     </el-dialog>
 
+    <!-- 新建选择对话框 -->
+    <el-dialog
+      v-model="createChoiceDialogVisible"
+      title="创建多维表格"
+      width="560px"
+      :close-on-click-modal="false"
+      class="create-choice-dialog"
+      align-center>
+      <div class="create-choice-content">
+        <div class="choice-option" @click="handleCreateBlankBase">
+          <div class="choice-icon blank-icon">
+            <el-icon :size="32"><Plus /></el-icon>
+          </div>
+          <div class="choice-info">
+            <h3 class="choice-title">创建空白多维表</h3>
+            <p class="choice-desc">从零开始创建一个全新的空白多维表格</p>
+          </div>
+          <el-icon class="choice-arrow"><ArrowRight /></el-icon>
+        </div>
+        <div class="choice-option" @click="handleCreateFromTemplate">
+          <div class="choice-icon template-icon">
+            <el-icon :size="32"><DocumentCopy /></el-icon>
+          </div>
+          <div class="choice-info">
+            <h3 class="choice-title">从模板创建</h3>
+            <p class="choice-desc">选择系统提供的预置模板快速开始</p>
+          </div>
+          <el-icon class="choice-arrow"><ArrowRight /></el-icon>
+        </div>
+      </div>
+    </el-dialog>
+
     <!-- 预览对话框 -->
     <el-dialog
       v-model="previewDialogVisible"
@@ -1329,6 +1382,8 @@ import {
   HomeFilled,
   Loading,
   Document,
+  ArrowRight,
+  DocumentCopy,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -2509,6 +2564,107 @@ $star-color: #f59e0b;
       gap: 8px;
     }
   }
+}
+
+// 新建选择对话框样式
+.create-choice-dialog {
+  :deep(.el-dialog__header) {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid $gray-100;
+
+    .el-dialog__title {
+      font-size: 18px;
+      font-weight: 600;
+      color: $gray-800;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 24px;
+  }
+
+  :deep(.el-dialog__footer) {
+    display: none;
+  }
+}
+
+.create-choice-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: white;
+  border: 2px solid $gray-100;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    border-color: $primary;
+    background: $primary-light;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba($primary, 0.15);
+
+    .choice-arrow {
+      color: $primary;
+      transform: translateX(4px);
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.choice-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  flex-shrink: 0;
+
+  &.blank-icon {
+    background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
+    color: white;
+  }
+
+  &.template-icon {
+    background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+    color: white;
+  }
+}
+
+.choice-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.choice-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: $gray-800;
+  margin: 0 0 4px;
+}
+
+.choice-desc {
+  font-size: 13px;
+  color: $gray-500;
+  margin: 0;
+}
+
+.choice-arrow {
+  color: $gray-400;
+  font-size: 20px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 // 预览对话框样式
