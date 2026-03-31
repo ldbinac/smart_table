@@ -20,7 +20,16 @@ const primaryField = computed(() => {
 
 const primaryValue = computed(() => {
   if (!primaryField.value) return "";
-  return props.record.values[primaryField.value.id];
+  const value = props.record.values[primaryField.value.id];
+  
+  // 处理单选字段，显示选项名称而不是ID
+  if (primaryField.value.type === 'singleSelect' && primaryField.value.options?.options) {
+    const options = primaryField.value.options.options;
+    const selectedOption = options.find((opt: any) => opt.id === value);
+    return selectedOption?.name || value || "";
+  }
+  
+  return value || "";
 });
 
 // 处理卡片点击（非操作区域）
