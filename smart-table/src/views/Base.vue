@@ -1900,7 +1900,7 @@ function handleImported() {
   height: 100%;
   background-color: $surface-color;
   border-radius: $border-radius-xl;
-  margin: $spacing-md;
+  margin-right: $spacing-xs;
   box-shadow: $shadow-card;
   overflow: hidden;
 }

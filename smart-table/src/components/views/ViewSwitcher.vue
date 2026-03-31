@@ -407,7 +407,7 @@ function getViewLabel(type: string): string {
   display: flex;
   align-items: center;
   gap: $spacing-md;
-  padding: $spacing-sm $spacing-lg;
+  padding: 0 $spacing-lg;
   @include glass-effect;
   border-bottom: 1px solid $gray-200;
   position: sticky;
@@ -421,7 +421,6 @@ function getViewLabel(type: string): string {
   gap: $spacing-xs;
   flex: 1;
   overflow-x: auto;
-  padding: $spacing-xs 0;
 
   &::-webkit-scrollbar {
     height: 4px;
@@ -447,7 +446,7 @@ function getViewLabel(type: string): string {
   position: relative;
 
   &:hover {
-    background-color: $gray-100;
+    background-color: rgba($primary-color, 0.1);
     color: $text-primary;
   }
 
@@ -529,7 +528,7 @@ function getViewLabel(type: string): string {
   align-items: center;
   gap: $spacing-sm;
   padding: $spacing-sm $spacing-md;
-  border: 1px dashed $gray-300;
+  border: 0px dashed $gray-300;
   border-radius: $border-radius-md;
   background: transparent;
   font-size: $font-size-sm;
@@ -540,7 +539,7 @@ function getViewLabel(type: string): string {
   &:hover {
     border-color: $primary-color;
     color: $primary-color;
-    background-color: rgba($primary-color, 0.04);
+    background-color: rgba($primary-color, 0.1);
   }
 
   &:active {
