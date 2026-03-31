@@ -452,7 +452,7 @@ function getViewLabel(type: string): string {
   }
 
   &.is-active {
-    background-color: rgba($primary-color, 0.08);
+    background-color: rgba($primary-color, 0.15);
     color: $primary-color;
     font-weight: 500;
     @include tab-indicator;
