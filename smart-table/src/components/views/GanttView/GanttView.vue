@@ -1,454 +1,520 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import type { RecordEntity, FieldEntity } from '@/db/schema'
-import { FieldType } from '@/types'
-import dayjs from 'dayjs'
+import { ref, computed, onMounted, watch, nextTick } from "vue";
+import type { RecordEntity, FieldEntity } from "@/db/schema";
+import { FieldType } from "@/types";
+import dayjs from "dayjs";
+import {
+  Calendar,
+  EditPen,
+  DataAnalysis,
+  ZoomIn,
+  ZoomOut,
+  Link,
+} from "@element-plus/icons-vue";
 
 interface Props {
-  tableId: string
-  viewId: string
-  fields: FieldEntity[]
-  records: RecordEntity[]
+  tableId: string;
+  viewId: string;
+  fields: FieldEntity[];
+  records: RecordEntity[];
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 const emit = defineEmits<{
-  (e: 'updateRecord', recordId: string, values: Record<string, unknown>): void
-  (e: 'addRecord', values: Record<string, unknown>): void
-  (e: 'deleteRecord', recordId: string): void
-  (e: 'editRecord', recordId: string): void
-}>()
+  (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
+  (e: "addRecord", values: Record<string, unknown>): void;
+  (e: "deleteRecord", recordId: string): void;
+  (e: "editRecord", recordId: string): void;
+}>();
 
-const startDateFieldId = ref<string>('')
-const endDateFieldId = ref<string>('')
-const titleFieldId = ref<string>('')
-const progressFieldId = ref<string>('')
-const dependencyFieldId = ref<string>('')
-const currentDate = ref(new Date())
-const viewMode = ref<'day' | 'week' | 'month'>('week')
+const startDateFieldId = ref<string>("");
+const endDateFieldId = ref<string>("");
+const titleFieldId = ref<string>("");
+const progressFieldId = ref<string>("");
+const dependencyFieldId = ref<string>("");
+const currentDate = ref(new Date());
+const viewMode = ref<"day" | "week" | "month">("week");
 
-const timelineRef = ref<HTMLElement | null>(null)
-const ganttContentRef = ref<HTMLElement | null>(null)
-const headerRightWrapperRef = ref<HTMLElement | null>(null)
-const isDragging = ref(false)
-const dragTask = ref<GanttTask | null>(null)
-const dragType = ref<'move' | 'resize-left' | 'resize-right'>('move')
-const dragStartX = ref(0)
-const dragStartLeft = ref(0)
-const dragStartWidth = ref(0)
-const dragStartDate = ref<Date | null>(null)
-const dragEndDate = ref<Date | null>(null)
-const hoveredTask = ref<GanttTask | null>(null)
+const timelineRef = ref<HTMLElement | null>(null);
+const ganttContentRef = ref<HTMLElement | null>(null);
+const headerRightWrapperRef = ref<HTMLElement | null>(null);
+const isDragging = ref(false);
+const dragTask = ref<GanttTask | null>(null);
+const dragType = ref<"move" | "resize-left" | "resize-right">("move");
+const dragStartX = ref(0);
+const dragStartLeft = ref(0);
+const dragStartWidth = ref(0);
+const dragStartDate = ref<Date | null>(null);
+const dragEndDate = ref<Date | null>(null);
+const hoveredTask = ref<GanttTask | null>(null);
 
 const dateFields = computed(() => {
-  return props.fields.filter(f =>
-    f.type === FieldType.DATE ||
-    f.type === FieldType.CREATED_TIME ||
-    f.type === FieldType.UPDATED_TIME
-  )
-})
+  return props.fields.filter(
+    (f) =>
+      f.type === FieldType.DATE ||
+      f.type === FieldType.CREATED_TIME ||
+      f.type === FieldType.UPDATED_TIME,
+  );
+});
 
 const titleFields = computed(() => {
-  return props.fields.filter(f =>
-    f.type === FieldType.TEXT ||
-    f.type === FieldType.NUMBER ||
-    f.type === FieldType.SINGLE_SELECT
-  )
-})
+  return props.fields.filter(
+    (f) =>
+      f.type === FieldType.TEXT ||
+      f.type === FieldType.NUMBER ||
+      f.type === FieldType.SINGLE_SELECT,
+  );
+});
 
 const progressFields = computed(() => {
-  return props.fields.filter(f =>
-    f.type === FieldType.PROGRESS ||
-    f.type === FieldType.NUMBER
-  )
-})
+  return props.fields.filter(
+    (f) => f.type === FieldType.PROGRESS || f.type === FieldType.NUMBER,
+  );
+});
 
 const titleField = computed(() => {
   if (titleFieldId.value) {
-    return props.fields.find(f => f.id === titleFieldId.value)
+    return props.fields.find((f) => f.id === titleFieldId.value);
   }
-  return props.fields.find(f => f.isPrimary) || props.fields[0]
-})
+  return props.fields.find((f) => f.isPrimary) || props.fields[0];
+});
 
 interface GanttTask {
-  id: string
-  title: string
-  start: Date
-  end: Date
-  progress: number
-  record: RecordEntity
-  duration: number
-  dependencies: string[]
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  progress: number;
+  record: RecordEntity;
+  duration: number;
+  dependencies: string[];
 }
 
 interface DependencyLine {
-  fromX: number
-  fromY: number
-  toX: number
-  toY: number
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
 }
 
 const tasks = computed<GanttTask[]>(() => {
-  if (!startDateFieldId.value) return []
+  if (!startDateFieldId.value) return [];
 
   return props.records
-    .filter(record => record.values[startDateFieldId.value])
-    .map(record => {
-      const startValue = record.values[startDateFieldId.value]
-      const endValue = endDateFieldId.value ? record.values[endDateFieldId.value] : null
-      const titleValue = titleField.value ? record.values[titleField.value!.id] : ''
-      const progressValue = progressFieldId.value ? record.values[progressFieldId.value] : 0
+    .filter((record) => record.values[startDateFieldId.value])
+    .map((record) => {
+      const startValue = record.values[startDateFieldId.value];
+      const endValue = endDateFieldId.value
+        ? record.values[endDateFieldId.value]
+        : null;
+      const titleValue = titleField.value
+        ? record.values[titleField.value!.id]
+        : "";
+      const progressValue = progressFieldId.value
+        ? record.values[progressFieldId.value]
+        : 0;
 
-      const start = parseDateValue(startValue)
+      const start = parseDateValue(startValue);
       const end = endValue
         ? parseDateValue(endValue)
-        : new Date(start.getTime() + 24 * 60 * 60 * 1000)
+        : new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
-      const dependencies: string[] = []
+      const dependencies: string[] = [];
       if (dependencyFieldId.value) {
-        const depValue = record.values[dependencyFieldId.value]
+        const depValue = record.values[dependencyFieldId.value];
         if (depValue && Array.isArray(depValue)) {
           depValue.forEach((dep: any) => {
-            if (typeof dep === 'string') {
-              dependencies.push(dep)
+            if (typeof dep === "string") {
+              dependencies.push(dep);
             } else if (dep && dep.id) {
-              dependencies.push(dep.id)
+              dependencies.push(dep.id);
             }
-          })
+          });
         }
       }
 
       return {
         id: record.id,
-        title: String(titleValue || '无标题'),
+        title: String(titleValue || "无标题"),
         start,
         end,
         progress: Math.min(100, Math.max(0, Number(progressValue) || 0)),
         record,
-        duration: Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))),
-        dependencies
-      }
+        duration: Math.max(
+          1,
+          Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)),
+        ),
+        dependencies,
+      };
     })
-    .filter(task => !isNaN(task.start.getTime()) && !isNaN(task.end.getTime()))
-    .sort((a, b) => a.start.getTime() - b.start.getTime())
-})
+    .filter(
+      (task) => !isNaN(task.start.getTime()) && !isNaN(task.end.getTime()),
+    )
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+});
 
 function parseDateValue(value: unknown): Date {
-  if (!value) return new Date()
+  if (!value) return new Date();
 
-  if (typeof value === 'number') {
-    return new Date(value)
+  if (typeof value === "number") {
+    return new Date(value);
   }
 
-  if (typeof value === 'string') {
-    const numValue = Number(value)
-    if (!isNaN(numValue) && value.trim() !== '') {
-      return new Date(numValue)
+  if (typeof value === "string") {
+    const numValue = Number(value);
+    if (!isNaN(numValue) && value.trim() !== "") {
+      return new Date(numValue);
     }
-    const date = new Date(value)
+    const date = new Date(value);
     if (!isNaN(date.getTime())) {
-      return date
+      return date;
     }
   }
 
   if (value instanceof Date) {
-    return value
+    return value;
   }
 
-  return new Date()
+  return new Date();
 }
 
 const timelineStart = computed(() => {
   if (tasks.value.length === 0) {
-    return dayjs(currentDate.value).startOf('week').toDate()
+    return dayjs(currentDate.value).startOf("week").toDate();
   }
-  const minDate = new Date(Math.min(...tasks.value.map(t => t.start.getTime())))
-  return dayjs(minDate).subtract(3, 'day').toDate()
-})
+  const minDate = new Date(
+    Math.min(...tasks.value.map((t) => t.start.getTime())),
+  );
+  return dayjs(minDate).subtract(3, "day").toDate();
+});
 
 const timelineEnd = computed(() => {
   if (tasks.value.length === 0) {
-    return dayjs(currentDate.value).endOf('week').toDate()
+    return dayjs(currentDate.value).endOf("week").toDate();
   }
-  const maxDate = new Date(Math.max(...tasks.value.map(t => t.end.getTime())))
-  return dayjs(maxDate).add(7, 'day').toDate()
-})
+  const maxDate = new Date(
+    Math.max(...tasks.value.map((t) => t.end.getTime())),
+  );
+  return dayjs(maxDate).add(7, "day").toDate();
+});
 
 const totalDays = computed(() => {
-  return Math.ceil((timelineEnd.value.getTime() - timelineStart.value.getTime()) / (24 * 60 * 60 * 1000))
-})
+  return Math.ceil(
+    (timelineEnd.value.getTime() - timelineStart.value.getTime()) /
+      (24 * 60 * 60 * 1000),
+  );
+});
 
 const timeline = computed(() => {
-  const days: Date[] = []
-  const current = new Date(timelineStart.value)
+  const days: Date[] = [];
+  const current = new Date(timelineStart.value);
 
   while (current <= timelineEnd.value) {
-    days.push(new Date(current))
-    current.setDate(current.getDate() + 1)
+    days.push(new Date(current));
+    current.setDate(current.getDate() + 1);
   }
 
-  return days
-})
+  return days;
+});
 
 const cellWidth = computed(() => {
   switch (viewMode.value) {
-    case 'day': return 60
-    case 'week': return 40
-    case 'month': return 30
-    default: return 40
+    case "day":
+      return 60;
+    case "week":
+      return 40;
+    case "month":
+      return 30;
+    default:
+      return 40;
   }
-})
+});
 
 const timelineWidth = computed(() => {
-  return totalDays.value * cellWidth.value
-})
+  return totalDays.value * cellWidth.value;
+});
 
 function getTaskStyle(task: GanttTask): Record<string, string> {
-  const startOffset = Math.floor((task.start.getTime() - timelineStart.value.getTime()) / (24 * 60 * 60 * 1000))
-  const duration = Math.max(1, task.duration)
+  const startOffset = Math.floor(
+    (task.start.getTime() - timelineStart.value.getTime()) /
+      (24 * 60 * 60 * 1000),
+  );
+  const duration = Math.max(1, task.duration);
 
   return {
     left: `${startOffset * cellWidth.value}px`,
-    width: `${duration * cellWidth.value - 4}px`
-  }
+    width: `${duration * cellWidth.value - 4}px`,
+  };
 }
 
 function getTaskRowStyle(index: number): Record<string, string> {
   return {
-    top: `${index * 48 + 10}px`
-  }
+    top: `${index * 48 + 10}px`,
+  };
 }
 
 function formatDate(date: Date): string {
-  return dayjs(date).format('MM/DD')
+  return dayjs(date).format("MM/DD");
 }
 
 function isToday(date: Date): boolean {
-  return dayjs(date).isSame(dayjs(), 'day')
+  return dayjs(date).isSame(dayjs(), "day");
 }
 
 function isWeekend(date: Date): boolean {
-  const day = date.getDay()
-  return day === 0 || day === 6
+  const day = date.getDay();
+  return day === 0 || day === 6;
 }
 
 function isFirstDayOfMonth(date: Date): boolean {
-  return date.getDate() === 1
+  return date.getDate() === 1;
 }
 
 function getMonthLabel(date: Date): string {
-  return dayjs(date).format('YYYY年M月')
+  return dayjs(date).format("YYYY年M月");
 }
 
 function handleTaskClick(task: GanttTask) {
-  emit('editRecord', task.id)
+  emit("editRecord", task.id);
 }
 
-function handleMouseDown(event: MouseEvent, task: GanttTask, type: 'move' | 'resize-left' | 'resize-right') {
-  event.preventDefault()
-  event.stopPropagation()
+function handleMouseDown(
+  event: MouseEvent,
+  task: GanttTask,
+  type: "move" | "resize-left" | "resize-right",
+) {
+  event.preventDefault();
+  event.stopPropagation();
 
-  isDragging.value = true
-  dragTask.value = task
-  dragType.value = type
-  dragStartX.value = event.clientX
+  isDragging.value = true;
+  dragTask.value = task;
+  dragType.value = type;
+  dragStartX.value = event.clientX;
 
-  const taskEl = event.currentTarget as HTMLElement
-  const rect = taskEl.getBoundingClientRect()
-  const parentRect = taskEl.parentElement?.getBoundingClientRect()
+  const taskEl = event.currentTarget as HTMLElement;
+  const rect = taskEl.getBoundingClientRect();
+  const parentRect = taskEl.parentElement?.getBoundingClientRect();
 
   if (parentRect) {
-    dragStartLeft.value = rect.left - parentRect.left
-    dragStartWidth.value = rect.width
+    dragStartLeft.value = rect.left - parentRect.left;
+    dragStartWidth.value = rect.width;
   }
 
-  dragStartDate.value = new Date(task.start)
-  dragEndDate.value = new Date(task.end)
+  dragStartDate.value = new Date(task.start);
+  dragEndDate.value = new Date(task.end);
 
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('mouseup', handleMouseUp)
+  document.addEventListener("mousemove", handleMouseMove);
+  document.addEventListener("mouseup", handleMouseUp);
 }
 
 function handleMouseMove(event: MouseEvent) {
-  if (!isDragging.value || !dragTask.value) return
+  if (!isDragging.value || !dragTask.value) return;
 
-  const deltaX = event.clientX - dragStartX.value
-  const dayDelta = Math.round(deltaX / cellWidth.value)
+  const deltaX = event.clientX - dragStartX.value;
+  const dayDelta = Math.round(deltaX / cellWidth.value);
 
-  if (dragType.value === 'move') {
-    const newStart = new Date(dragStartDate.value!)
-    newStart.setDate(newStart.getDate() + dayDelta)
-    const newEnd = new Date(dragEndDate.value!)
-    newEnd.setDate(newEnd.getDate() + dayDelta)
+  if (dragType.value === "move") {
+    const newStart = new Date(dragStartDate.value!);
+    newStart.setDate(newStart.getDate() + dayDelta);
+    const newEnd = new Date(dragEndDate.value!);
+    newEnd.setDate(newEnd.getDate() + dayDelta);
 
-    dragTask.value.start = newStart
-    dragTask.value.end = newEnd
-  } else if (dragType.value === 'resize-right') {
-    const newWidth = Math.max(cellWidth.value, dragStartWidth.value + deltaX)
-    const newDuration = Math.round(newWidth / cellWidth.value)
-    const newEnd = new Date(dragStartDate.value!)
-    newEnd.setDate(newEnd.getDate() + newDuration)
+    dragTask.value.start = newStart;
+    dragTask.value.end = newEnd;
+  } else if (dragType.value === "resize-right") {
+    const newWidth = Math.max(cellWidth.value, dragStartWidth.value + deltaX);
+    const newDuration = Math.round(newWidth / cellWidth.value);
+    const newEnd = new Date(dragStartDate.value!);
+    newEnd.setDate(newEnd.getDate() + newDuration);
 
-    dragTask.value.end = newEnd
-    dragTask.value.duration = newDuration
-  } else if (dragType.value === 'resize-left') {
-    const newWidth = Math.max(cellWidth.value, dragStartWidth.value - deltaX)
-    const newDuration = Math.round(newWidth / cellWidth.value)
-    const newStart = new Date(dragEndDate.value!)
-    newStart.setDate(newStart.getDate() - newDuration)
+    dragTask.value.end = newEnd;
+    dragTask.value.duration = newDuration;
+  } else if (dragType.value === "resize-left") {
+    const newWidth = Math.max(cellWidth.value, dragStartWidth.value - deltaX);
+    const newDuration = Math.round(newWidth / cellWidth.value);
+    const newStart = new Date(dragEndDate.value!);
+    newStart.setDate(newStart.getDate() - newDuration);
 
-    dragTask.value.start = newStart
-    dragTask.value.duration = newDuration
+    dragTask.value.start = newStart;
+    dragTask.value.duration = newDuration;
   }
 }
 
 function handleMouseUp() {
   if (isDragging.value && dragTask.value) {
-    const updates: Record<string, unknown> = {}
+    const updates: Record<string, unknown> = {};
 
     if (startDateFieldId.value) {
-      updates[startDateFieldId.value] = dragTask.value.start.getTime()
+      updates[startDateFieldId.value] = dragTask.value.start.getTime();
     }
     if (endDateFieldId.value) {
-      updates[endDateFieldId.value] = dragTask.value.end.getTime()
+      updates[endDateFieldId.value] = dragTask.value.end.getTime();
     }
 
-    emit('updateRecord', dragTask.value.id, updates)
+    emit("updateRecord", dragTask.value.id, updates);
   }
 
-  isDragging.value = false
-  dragTask.value = null
+  isDragging.value = false;
+  dragTask.value = null;
 
-  document.removeEventListener('mousemove', handleMouseMove)
-  document.removeEventListener('mouseup', handleMouseUp)
+  document.removeEventListener("mousemove", handleMouseMove);
+  document.removeEventListener("mouseup", handleMouseUp);
 }
 
 const dependencyLines = computed<DependencyLine[]>(() => {
-  const lines: DependencyLine[] = []
+  const lines: DependencyLine[] = [];
 
-  if (!timelineRef.value) return lines
+  if (!timelineRef.value) return lines;
 
-  const taskElements = timelineRef.value.querySelectorAll('.task-bar')
-  const taskPositions = new Map<string, { x: number; y: number; width: number }>()
+  const taskElements = timelineRef.value.querySelectorAll(".task-bar");
+  const taskPositions = new Map<
+    string,
+    { x: number; y: number; width: number }
+  >();
 
   taskElements.forEach((el, index) => {
-    const task = tasks.value[index]
+    const task = tasks.value[index];
     if (task) {
-      const rect = el.getBoundingClientRect()
-      const parentRect = timelineRef.value!.getBoundingClientRect()
+      const rect = el.getBoundingClientRect();
+      const parentRect = timelineRef.value!.getBoundingClientRect();
       taskPositions.set(task.id, {
         x: rect.left - parentRect.left,
         y: rect.top - parentRect.top + rect.height / 2,
-        width: rect.width
-      })
+        width: rect.width,
+      });
     }
-  })
+  });
 
   tasks.value.forEach((task) => {
-    task.dependencies.forEach(depId => {
-      const fromPos = taskPositions.get(depId)
-      const toPos = taskPositions.get(task.id)
+    task.dependencies.forEach((depId) => {
+      const fromPos = taskPositions.get(depId);
+      const toPos = taskPositions.get(task.id);
 
       if (fromPos && toPos) {
         lines.push({
           fromX: fromPos.x + fromPos.width,
           fromY: fromPos.y,
           toX: toPos.x,
-          toY: toPos.y
-        })
+          toY: toPos.y,
+        });
       }
-    })
-  })
+    });
+  });
 
-  return lines
-})
+  return lines;
+});
 
 function goToToday() {
-  currentDate.value = new Date()
+  currentDate.value = new Date();
 }
 
 function zoomIn() {
-  if (viewMode.value === 'month') {
-    viewMode.value = 'week'
-  } else if (viewMode.value === 'week') {
-    viewMode.value = 'day'
+  if (viewMode.value === "month") {
+    viewMode.value = "week";
+  } else if (viewMode.value === "week") {
+    viewMode.value = "day";
   }
 }
 
 function zoomOut() {
-  if (viewMode.value === 'day') {
-    viewMode.value = 'week'
-  } else if (viewMode.value === 'week') {
-    viewMode.value = 'month'
+  if (viewMode.value === "day") {
+    viewMode.value = "week";
+  } else if (viewMode.value === "week") {
+    viewMode.value = "month";
   }
 }
 
 onMounted(() => {
   if (dateFields.value.length > 0) {
-    startDateFieldId.value = dateFields.value[0].id
+    startDateFieldId.value = dateFields.value[0].id;
     if (dateFields.value.length > 1) {
-      endDateFieldId.value = dateFields.value[1].id
+      endDateFieldId.value = dateFields.value[1].id;
     }
   }
 
   // 设置横向滚动同步
-  setupScrollSync()
-})
+  setupScrollSync();
+});
 
 function setupScrollSync() {
-  const contentEl = ganttContentRef.value
-  const headerEl = headerRightWrapperRef.value
+  const contentEl = ganttContentRef.value;
+  const headerEl = headerRightWrapperRef.value;
 
-  if (!contentEl || !headerEl) return
+  if (!contentEl || !headerEl) return;
 
   // 内容区域滚动时同步表头
-  contentEl.addEventListener('scroll', () => {
-    headerEl.scrollLeft = contentEl.scrollLeft
-  })
+  contentEl.addEventListener("scroll", () => {
+    headerEl.scrollLeft = contentEl.scrollLeft;
+  });
 }
 
-watch(() => props.records, () => {
-  nextTick(() => {
-    // Force recompute dependency lines after DOM update
-  })
-}, { deep: true })
+watch(
+  () => props.records,
+  () => {
+    nextTick(() => {
+      // Force recompute dependency lines after DOM update
+    });
+  },
+  { deep: true },
+);
 </script>
 
 <template>
   <div class="gantt-view">
     <div class="gantt-toolbar">
       <div class="toolbar-left">
-        <el-select v-model="startDateFieldId" placeholder="开始日期字段" class="field-select">
+        <el-select
+          v-model="startDateFieldId"
+          placeholder="开始日期字段"
+          class="field-select">
+          <template #prefix>
+            <el-icon><Calendar /></el-icon>
+          </template>
           <el-option
             v-for="field in dateFields"
             :key="field.id"
             :label="field.name"
-            :value="field.id"
-          />
+            :value="field.id" />
         </el-select>
-        <el-select v-model="endDateFieldId" placeholder="结束日期字段" class="field-select">
+        <el-select
+          v-model="endDateFieldId"
+          placeholder="结束日期字段"
+          class="field-select">
+          <template #prefix>
+            <el-icon><Calendar /></el-icon>
+          </template>
           <el-option
             v-for="field in dateFields"
             :key="field.id"
             :label="field.name"
-            :value="field.id"
-          />
+            :value="field.id" />
         </el-select>
-        <el-select v-model="titleFieldId" placeholder="标题字段" class="field-select">
+        <el-select
+          v-model="titleFieldId"
+          placeholder="标题字段"
+          class="field-select">
+          <template #prefix>
+            <el-icon><EditPen /></el-icon>
+          </template>
           <el-option
             v-for="field in titleFields"
             :key="field.id"
             :label="field.name"
-            :value="field.id"
-          />
+            :value="field.id" />
         </el-select>
-        <el-select v-model="progressFieldId" placeholder="进度字段" class="field-select" clearable>
+        <el-select
+          v-model="progressFieldId"
+          placeholder="进度字段"
+          class="field-select"
+          clearable>
+          <template #prefix>
+            <el-icon><DataAnalysis /></el-icon>
+          </template>
           <el-option
             v-for="field in progressFields"
             :key="field.id"
             :label="field.name"
-            :value="field.id"
-          />
+            :value="field.id" />
         </el-select>
       </div>
 
@@ -503,8 +569,7 @@ watch(() => props.records, () => {
                 :key="`month-${day.getTime()}`"
                 v-show="isFirstDayOfMonth(day) || dayIndex === 0"
                 class="month-cell"
-                :style="{ left: `${dayIndex * cellWidth}px` }"
-              >
+                :style="{ left: `${dayIndex * cellWidth}px` }">
                 {{ getMonthLabel(day) }}
               </div>
             </div>
@@ -516,12 +581,13 @@ watch(() => props.records, () => {
                 class="timeline-cell"
                 :class="{
                   today: isToday(day),
-                  weekend: isWeekend(day)
+                  weekend: isWeekend(day),
                 }"
-                :style="{ width: `${cellWidth}px` }"
-              >
+                :style="{ width: `${cellWidth}px` }">
                 <span class="day-number">{{ day.getDate() }}</span>
-                <span class="day-week">{{ ['日', '一', '二', '三', '四', '五', '六'][day.getDay()] }}</span>
+                <span class="day-week">{{
+                  ["日", "一", "二", "三", "四", "五", "六"][day.getDay()]
+                }}</span>
               </div>
             </div>
           </div>
@@ -536,11 +602,12 @@ watch(() => props.records, () => {
             v-for="task in tasks"
             :key="task.id"
             class="task-row"
-            @click="handleTaskClick(task)"
-          >
+            @click="handleTaskClick(task)">
             <div class="task-info">
               <div class="task-name" :title="task.title">{{ task.title }}</div>
-              <div class="task-date">{{ formatDate(task.start) }} - {{ formatDate(task.end) }}</div>
+              <div class="task-date">
+                {{ formatDate(task.start) }} - {{ formatDate(task.end) }}
+              </div>
             </div>
           </div>
           <div v-if="tasks.length === 0" class="empty-tasks">
@@ -549,7 +616,10 @@ watch(() => props.records, () => {
         </div>
 
         <!-- 时间线区域 -->
-        <div ref="timelineRef" class="timeline-body" :style="{ width: `${timelineWidth}px` }">
+        <div
+          ref="timelineRef"
+          class="timeline-body"
+          :style="{ width: `${timelineWidth}px` }">
           <!-- 背景网格 -->
           <div class="timeline-grid">
             <div
@@ -558,18 +628,22 @@ watch(() => props.records, () => {
               class="grid-cell"
               :class="{
                 today: isToday(day),
-                weekend: isWeekend(day)
+                weekend: isWeekend(day),
               }"
-              :style="{ width: `${cellWidth}px` }"
-            />
+              :style="{ width: `${cellWidth}px` }" />
           </div>
 
           <!-- 当前日期指示线 -->
           <div
-            v-if="isToday(new Date()) && new Date() >= timelineStart && new Date() <= timelineEnd"
+            v-if="
+              isToday(new Date()) &&
+              new Date() >= timelineStart &&
+              new Date() <= timelineEnd
+            "
             class="current-time-line"
-            :style="{ left: `${Math.floor((new Date().getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) * cellWidth + cellWidth / 2}px` }"
-          />
+            :style="{
+              left: `${Math.floor((new Date().getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) * cellWidth + cellWidth / 2}px`,
+            }" />
 
           <!-- 依赖关系线条 -->
           <svg class="dependency-layer" v-if="dependencyLines.length > 0">
@@ -580,8 +654,7 @@ watch(() => props.records, () => {
                 markerHeight="7"
                 refX="9"
                 refY="3.5"
-                orient="auto"
-              >
+                orient="auto">
                 <polygon points="0 0, 10 3.5, 0 7" fill="#909399" />
               </marker>
             </defs>
@@ -592,8 +665,7 @@ watch(() => props.records, () => {
               fill="none"
               stroke="#909399"
               stroke-width="1.5"
-              marker-end="url(#arrowhead)"
-            />
+              marker-end="url(#arrowhead)" />
           </svg>
 
           <!-- 任务条 -->
@@ -602,28 +674,29 @@ watch(() => props.records, () => {
               v-for="(task, index) in tasks"
               :key="task.id"
               class="task-bar-wrapper"
-              :style="getTaskRowStyle(index)"
-            >
+              :style="getTaskRowStyle(index)">
               <div
                 class="task-bar"
                 :class="{
                   'is-dragging': isDragging && dragTask?.id === task.id,
-                  'is-hovered': hoveredTask?.id === task.id
+                  'is-hovered': hoveredTask?.id === task.id,
                 }"
                 :style="getTaskStyle(task)"
                 @mousedown="(e) => handleMouseDown(e, task, 'move')"
                 @click.stop="handleTaskClick(task)"
                 @mouseenter="hoveredTask = task"
-                @mouseleave="hoveredTask = null"
-              >
+                @mouseleave="hoveredTask = null">
                 <!-- 左侧调整手柄 -->
                 <div
                   class="resize-handle resize-left"
-                  @mousedown.stop="(e) => handleMouseDown(e, task, 'resize-left')"
-                />
+                  @mousedown.stop="
+                    (e) => handleMouseDown(e, task, 'resize-left')
+                  " />
 
                 <!-- 进度条 -->
-                <div class="bar-progress" :style="{ width: `${task.progress}%` }" />
+                <div
+                  class="bar-progress"
+                  :style="{ width: `${task.progress}%` }" />
 
                 <!-- 任务标题 -->
                 <span class="bar-title">{{ task.title }}</span>
@@ -631,32 +704,38 @@ watch(() => props.records, () => {
                 <!-- 右侧调整手柄 -->
                 <div
                   class="resize-handle resize-right"
-                  @mousedown.stop="(e) => handleMouseDown(e, task, 'resize-right')"
-                />
+                  @mousedown.stop="
+                    (e) => handleMouseDown(e, task, 'resize-right')
+                  " />
               </div>
 
               <!-- 悬停详情卡片 -->
               <div
                 v-if="hoveredTask?.id === task.id && !isDragging"
                 class="task-tooltip"
-                :style="{ left: `${getTaskStyle(task).left}` }"
-              >
+                :style="{ left: `${getTaskStyle(task).left}` }">
                 <div class="tooltip-header">{{ task.title }}</div>
                 <div class="tooltip-body">
                   <div class="tooltip-row">
                     <span class="tooltip-label">开始:</span>
-                    <span class="tooltip-value">{{ formatDate(task.start) }}</span>
+                    <span class="tooltip-value">{{
+                      formatDate(task.start)
+                    }}</span>
                   </div>
                   <div class="tooltip-row">
                     <span class="tooltip-label">结束:</span>
-                    <span class="tooltip-value">{{ formatDate(task.end) }}</span>
+                    <span class="tooltip-value">{{
+                      formatDate(task.end)
+                    }}</span>
                   </div>
                   <div class="tooltip-row">
                     <span class="tooltip-label">进度:</span>
                     <span class="tooltip-value">{{ task.progress }}%</span>
                   </div>
                   <div class="tooltip-progress-bar">
-                    <div class="tooltip-progress-fill" :style="{ width: `${task.progress}%` }" />
+                    <div
+                      class="tooltip-progress-fill"
+                      :style="{ width: `${task.progress}%` }" />
                   </div>
                 </div>
               </div>
@@ -665,8 +744,7 @@ watch(() => props.records, () => {
               <div
                 v-if="task.dependencies.length > 0"
                 class="dependency-indicator"
-                :title="`依赖: ${task.dependencies.length} 个任务`"
-              >
+                :title="`依赖: ${task.dependencies.length} 个任务`">
                 <el-icon><Link /></el-icon>
               </div>
             </div>
@@ -678,7 +756,7 @@ watch(() => props.records, () => {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .gantt-view {
   display: flex;
@@ -712,7 +790,28 @@ watch(() => props.records, () => {
   }
 
   .field-select {
-    width: 140px;
+    width: 160px;
+
+    :deep(.el-select__wrapper) {
+      border-radius: $border-radius-lg;
+      border: 1px solid $gray-200;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: $primary-hover;
+      }
+
+      &.is-focused {
+        border-color: $primary-color;
+        box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+      }
+    }
+
+    :deep(.el-select__prefix) {
+      color: $text-secondary;
+      margin-right: $spacing-xs;
+    }
   }
 }
 
@@ -878,7 +977,11 @@ watch(() => props.records, () => {
   }
 
   &.today {
-    background: linear-gradient(135deg, rgba($primary-color, 0.12) 0%, rgba($primary-color, 0.06) 100%);
+    background: linear-gradient(
+      135deg,
+      rgba($primary-color, 0.12) 0%,
+      rgba($primary-color, 0.06) 100%
+    );
     color: $primary-color;
 
     .day-number {
@@ -969,7 +1072,11 @@ watch(() => props.records, () => {
   transition: all $transition-fast;
 
   &.today {
-    background: linear-gradient(180deg, rgba($primary-color, 0.06) 0%, rgba($primary-color, 0.02) 100%);
+    background: linear-gradient(
+      180deg,
+      rgba($primary-color, 0.06) 0%,
+      rgba($primary-color, 0.02) 100%
+    );
   }
 
   &.weekend {
@@ -983,13 +1090,17 @@ watch(() => props.records, () => {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: linear-gradient(180deg, $primary-color 0%, rgba($primary-color, 0.3) 100%);
+  background: linear-gradient(
+    180deg,
+    $primary-color 0%,
+    rgba($primary-color, 0.3) 100%
+  );
   z-index: 10;
   pointer-events: none;
   box-shadow: 0 0 8px rgba($primary-color, 0.4);
 
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: -5px;
@@ -1030,7 +1141,11 @@ watch(() => props.records, () => {
 .task-bar {
   position: absolute;
   height: 32px;
-  background: linear-gradient(135deg, rgba($primary-color, 0.9) 0%, rgba($primary-color, 0.7) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba($primary-color, 0.9) 0%,
+    rgba($primary-color, 0.7) 100%
+  );
   border-radius: 6px;
   cursor: grab;
   overflow: hidden;
@@ -1073,7 +1188,7 @@ watch(() => props.records, () => {
   justify-content: center;
 
   &::after {
-    content: '';
+    content: "";
     width: 3px;
     height: 14px;
     background: rgba(255, 255, 255, 0.8);
@@ -1105,7 +1220,11 @@ watch(() => props.records, () => {
   top: 0;
   left: 0;
   height: 100%;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.25) 0%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
   transition: width 0.3s ease;
 }
 
@@ -1139,7 +1258,7 @@ watch(() => props.records, () => {
   animation: tooltipFadeIn 0.2s ease;
 
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     bottom: -6px;
     left: 20px;

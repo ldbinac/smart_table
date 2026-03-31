@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
-import { ArrowLeft, ArrowRight, Clock } from "@element-plus/icons-vue";
+import { ArrowLeft, ArrowRight, Clock, Calendar, EditPen } from "@element-plus/icons-vue";
 import { FormulaEngine } from "@/utils/formula/engine";
 
 interface Props {
@@ -531,8 +531,10 @@ watch(
         <el-select
           v-model="dateFieldId"
           placeholder="选择日期字段"
-          class="field-select"
-          size="small">
+          class="field-select">
+          <template #prefix>
+            <el-icon><Calendar /></el-icon>
+          </template>
           <el-option
             v-for="field in dateFields"
             :key="field.id"
@@ -542,8 +544,10 @@ watch(
         <el-select
           v-model="titleFieldId"
           placeholder="选择标题字段"
-          class="field-select"
-          size="small">
+          class="field-select">
+          <template #prefix>
+            <el-icon><EditPen /></el-icon>
+          </template>
           <el-option
             v-for="field in titleFields"
             :key="field.id"
@@ -796,8 +800,29 @@ watch(
   flex-shrink: 0;
 
   .field-select {
-    width: 140px;
+    width: 160px;
     margin-right: $spacing-sm;
+
+    :deep(.el-select__wrapper) {
+      border-radius: $border-radius-lg;
+      border: 1px solid $gray-200;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: $primary-hover;
+      }
+
+      &.is-focused {
+        border-color: $primary-color;
+        box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+      }
+    }
+
+    :deep(.el-select__prefix) {
+      color: $text-secondary;
+      margin-right: $spacing-xs;
+    }
   }
 
   .toolbar-center {
