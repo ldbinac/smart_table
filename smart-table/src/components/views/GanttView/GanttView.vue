@@ -107,9 +107,22 @@ const tasks = computed<GanttTask[]>(() => {
       const endValue = endDateFieldId.value
         ? record.values[endDateFieldId.value]
         : null;
-      const titleValue = titleField.value
+      let titleValue = titleField.value
         ? record.values[titleField.value!.id]
         : "";
+
+      // 处理单选字段，显示选项名称而不是ID
+      if (
+        titleField.value &&
+        titleField.value.type === FieldType.SINGLE_SELECT &&
+        titleField.value.options?.options
+      ) {
+        const options = titleField.value.options.options;
+        const selectedOption = options.find(
+          (opt: any) => opt.id === titleValue,
+        );
+        titleValue = selectedOption?.name || titleValue || "";
+      }
       const progressValue = progressFieldId.value
         ? record.values[progressFieldId.value]
         : 0;
