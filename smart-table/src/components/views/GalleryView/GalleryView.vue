@@ -73,6 +73,14 @@ const getRecordTitle = (record: RecordEntity): string => {
     return "计算错误";
   }
 
+  // 单选字段：返回选项名称而不是ID
+  if (field.type === FieldType.SINGLE_SELECT && field.options?.options) {
+    const value = record.values[field.id];
+    const options = field.options.options;
+    const selectedOption = options.find((opt: any) => opt.id === value);
+    return selectedOption?.name || String(value || "无标题");
+  }
+
   // 普通字段直接返回值
   return String(record.values[field.id] || "无标题");
 };
