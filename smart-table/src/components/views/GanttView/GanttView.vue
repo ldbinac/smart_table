@@ -28,6 +28,8 @@ const currentDate = ref(new Date())
 const viewMode = ref<'day' | 'week' | 'month'>('week')
 
 const timelineRef = ref<HTMLElement | null>(null)
+const ganttContentRef = ref<HTMLElement | null>(null)
+const headerRightWrapperRef = ref<HTMLElement | null>(null)
 const isDragging = ref(false)
 const dragTask = ref<GanttTask | null>(null)
 const dragType = ref<'move' | 'resize-left' | 'resize-right'>('move')
@@ -388,7 +390,22 @@ onMounted(() => {
       endDateFieldId.value = dateFields.value[1].id
     }
   }
+
+  // 设置横向滚动同步
+  setupScrollSync()
 })
+
+function setupScrollSync() {
+  const contentEl = ganttContentRef.value
+  const headerEl = headerRightWrapperRef.value
+
+  if (!contentEl || !headerEl) return
+
+  // 内容区域滚动时同步表头
+  contentEl.addEventListener('scroll', () => {
+    headerEl.scrollLeft = contentEl.scrollLeft
+  })
+}
 
 watch(() => props.records, () => {
   nextTick(() => {
@@ -477,40 +494,42 @@ watch(() => props.records, () => {
         <div class="header-left">
           <div class="task-header">任务名称</div>
         </div>
-        <div class="header-right" :style="{ width: `${timelineWidth}px` }">
-          <!-- 月份标签 -->
-          <div class="month-header">
-            <div
-              v-for="(day, dayIndex) in timeline"
-              :key="`month-${day.getTime()}`"
-              v-show="isFirstDayOfMonth(day) || dayIndex === 0"
-              class="month-cell"
-              :style="{ left: `${dayIndex * cellWidth}px` }"
-            >
-              {{ getMonthLabel(day) }}
+        <div class="header-right-wrapper" ref="headerRightWrapperRef">
+          <div class="header-right" :style="{ width: `${timelineWidth}px` }">
+            <!-- 月份标签 -->
+            <div class="month-header">
+              <div
+                v-for="(day, dayIndex) in timeline"
+                :key="`month-${day.getTime()}`"
+                v-show="isFirstDayOfMonth(day) || dayIndex === 0"
+                class="month-cell"
+                :style="{ left: `${dayIndex * cellWidth}px` }"
+              >
+                {{ getMonthLabel(day) }}
+              </div>
             </div>
-          </div>
-          <!-- 日期标签 -->
-          <div class="timeline-header">
-            <div
-              v-for="day in timeline"
-              :key="day.getTime()"
-              class="timeline-cell"
-              :class="{
-                today: isToday(day),
-                weekend: isWeekend(day)
-              }"
-              :style="{ width: `${cellWidth}px` }"
-            >
-              <span class="day-number">{{ day.getDate() }}</span>
-              <span class="day-week">{{ ['日', '一', '二', '三', '四', '五', '六'][day.getDay()] }}</span>
+            <!-- 日期标签 -->
+            <div class="timeline-header">
+              <div
+                v-for="day in timeline"
+                :key="day.getTime()"
+                class="timeline-cell"
+                :class="{
+                  today: isToday(day),
+                  weekend: isWeekend(day)
+                }"
+                :style="{ width: `${cellWidth}px` }"
+              >
+                <span class="day-number">{{ day.getDate() }}</span>
+                <span class="day-week">{{ ['日', '一', '二', '三', '四', '五', '六'][day.getDay()] }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 内容区域 -->
-      <div class="gantt-content">
+      <div class="gantt-content" ref="ganttContentRef">
         <!-- 任务列表 -->
         <div class="task-list">
           <div
@@ -665,6 +684,7 @@ watch(() => props.records, () => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   background-color: $bg-color;
   overflow: hidden;
 }
@@ -785,11 +805,23 @@ watch(() => props.records, () => {
     width: 240px;
     min-width: 240px;
     border-right: 1px solid $border-color;
+    flex-shrink: 0;
+  }
+
+  .header-right-wrapper {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   .header-right {
-    flex: 1;
-    overflow: hidden;
+    flex-shrink: 0;
   }
 }
 
@@ -863,7 +895,8 @@ watch(() => props.records, () => {
 .gantt-content {
   flex: 1;
   display: flex;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 .task-list {
@@ -872,6 +905,9 @@ watch(() => props.records, () => {
   border-right: 1px solid $border-color;
   background: $surface-color;
   flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  z-index: 10;
 }
 
 .task-row {

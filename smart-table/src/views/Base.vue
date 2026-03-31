@@ -1165,8 +1165,22 @@ function handleImported() {
             :table-id="currentTableId"
             @view-change="handleViewChange" />
 
-          <header class="table-header">
-            <div class="table-info">
+          <header
+            class="table-header"
+            :class="{
+              'gantt-header': isGanttView,
+              'kanban-header': isKanbanView,
+              'calendar-header': isCalendarView,
+              'gallery-header': isGalleryView,
+            }">
+            <div
+              v-if="
+                !isGanttView &&
+                !isKanbanView &&
+                !isCalendarView &&
+                !isGalleryView
+              "
+              class="table-info">
               <h2>{{ baseStore.currentTable.name }}</h2>
               <span class="record-count"
                 >{{ filteredRecords.length }} 条记录</span
@@ -1187,7 +1201,9 @@ function handleImported() {
                 >
               </span>
             </div>
-            <div class="table-actions">
+            <div
+              class="table-actions"
+              :class="{ 'gantt-actions': isGanttView }">
               <!-- 表格视图：显示所有常规操作按钮 -->
               <template v-if="isTableView">
                 <el-button-group>
@@ -1902,6 +1918,16 @@ function handleImported() {
   gap: $spacing-lg;
 }
 
+.table-header.gantt-header,
+.table-header.kanban-header,
+.table-header.calendar-header,
+.table-header.gallery-header {
+  padding: 0;
+  min-height: 0;
+  height: auto;
+  border-bottom: none;
+}
+
 .table-info {
   display: flex;
   align-items: center;
@@ -1941,6 +1967,11 @@ function handleImported() {
   align-items: center;
   gap: $spacing-sm;
   flex-wrap: wrap;
+
+  &.gantt-actions {
+    flex: 1;
+    justify-content: flex-start;
+  }
 
   // 按钮组样式优化
   :deep(.el-button-group) {
