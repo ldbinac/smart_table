@@ -117,8 +117,8 @@ export class ViewService {
     
     // 添加其他字段
     if (data.name !== undefined) updateData.name = data.name;
-    if (data.filters !== undefined) updateData.filters = data.filters;
-    if (data.sorts !== undefined) updateData.sorts = data.sorts;
+    if (data.filters !== undefined) updateData.filters = JSON.parse(JSON.stringify(data.filters));
+    if (data.sorts !== undefined) updateData.sorts = JSON.parse(JSON.stringify(data.sorts));
     if (data.groupBys !== undefined) updateData.groupBys = data.groupBys;
     if (data.hiddenFields !== undefined) updateData.hiddenFields = data.hiddenFields;
     if (data.frozenFields !== undefined) updateData.frozenFields = data.frozenFields;
