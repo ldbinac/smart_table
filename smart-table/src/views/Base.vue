@@ -1208,57 +1208,54 @@ function handleImported() {
               <template v-if="isTableView">
                 <el-button-group>
                   <el-button
-                    size="small"
+                    size="medium"
                     :type="activeFilters.length > 0 ? 'primary' : 'default'"
                     @click="openFilterDialog">
                     <el-icon><Filter /></el-icon>
                     筛选
                     <el-tag
                       v-if="activeFilters.length > 0"
-                      size="small"
+                      size="medium"
                       class="filter-badge">
                       {{ activeFilters.length }}
                     </el-tag>
                   </el-button>
                   <el-button
-                    size="small"
+                    size="medium"
                     :type="activeSorts.length > 0 ? 'primary' : 'default'"
                     @click="openSortDialog">
                     <el-icon><Sort /></el-icon>
                     排序
                     <el-tag
                       v-if="activeSorts.length > 0"
-                      size="small"
+                      size="medium"
                       class="sort-badge">
                       {{ activeSorts.length }}
                     </el-tag>
                   </el-button>
                   <el-button
-                    size="small"
+                    size="medium"
                     :type="hasGroupConfig ? 'primary' : 'default'"
                     @click="openGroupDialog">
                     <el-icon><Folder /></el-icon>
                     分组
                     <el-tag
                       v-if="hasGroupConfig"
-                      size="small"
+                      size="medium"
                       class="group-badge">
                       {{ currentGroupBys.length }}
                     </el-tag>
                   </el-button>
-                  <el-button size="small" @click="openFieldDialog">
+                  <el-button size="medium" @click="openFieldDialog">
                     <el-icon><Grid /></el-icon>
                     字段
                   </el-button>
                 </el-button-group>
-                <el-button size="small" @click="openImportDialog">
+                <el-button size="medium" @click="openImportDialog">
                   <el-icon><Upload /></el-icon>
                   导入
                 </el-button>
-                <el-button
-                  type="primary"
-                  size="small"
-                  @click="openExportDialog">
+                <el-button size="medium" @click="openExportDialog">
                   <el-icon><Download /></el-icon>
                   导出
                 </el-button>
@@ -1267,11 +1264,11 @@ function handleImported() {
               <!-- 表单视图：只显示配置和分享按钮 -->
               <template v-if="isFormView">
                 <el-button-group>
-                  <el-button size="small" @click="openFormConfigDialog">
+                  <el-button size="medium" @click="openFormConfigDialog">
                     <el-icon><Setting /></el-icon>
                     配置
                   </el-button>
-                  <el-button size="small" @click="openFormShareDialog">
+                  <el-button size="medium" @click="openFormShareDialog">
                     <el-icon><Share /></el-icon>
                     分享
                   </el-button>
@@ -1912,7 +1909,7 @@ function handleImported() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: $spacing-lg $spacing-xl;
+  padding: $spacing-sm $spacing-xl;
   background: $surface-color;
   border-bottom: 1px solid $gray-200;
   gap: $spacing-lg;
@@ -1936,7 +1933,7 @@ function handleImported() {
 
   h2 {
     margin: 0;
-    font-size: $font-size-xl;
+    font-size: $font-size-lg;
     font-weight: 600;
     color: $text-primary;
     letter-spacing: -0.2px;
