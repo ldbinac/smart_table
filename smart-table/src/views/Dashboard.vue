@@ -2298,7 +2298,7 @@ onUnmounted(() => {
       <!-- 顶部工具栏 -->
       <div class="dashboard-toolbar">
         <div class="toolbar-left">
-          <el-dropdown @command="showDashboardManager = true">
+          <!-- <el-dropdown @command="showDashboardManager = true">
             <el-button text class="dashboard-selector">
               <div class="selector-icon">
                 <el-icon><DataAnalysis /></el-icon>
@@ -2308,12 +2308,12 @@ onUnmounted(() => {
               }}</span>
               <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
             </el-button>
-          </el-dropdown>
+          </el-dropdown> 
 
           <el-divider direction="vertical" class="toolbar-divider" />
-
+          -->
           <el-dropdown @command="addWidget" :max-height="400">
-            <el-button type="primary" class="add-widget-btn">
+            <el-button size="medium" type="primary">
               <el-icon><Plus /></el-icon>
               <span>添加组件</span>
               <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
@@ -2338,7 +2338,9 @@ onUnmounted(() => {
                     </div>
                     <div class="widget-type-info">
                       <div class="widget-type-name">{{ type.label }}</div>
-                      <div class="widget-type-desc">{{ type.description }}</div>
+                      <div class="widget-type-desc">
+                        {{ type.description }}
+                      </div>
                     </div>
                   </div>
                 </el-dropdown-item>
@@ -2361,96 +2363,102 @@ onUnmounted(() => {
                     </div>
                     <div class="widget-type-info">
                       <div class="widget-type-name">{{ type.label }}</div>
-                      <div class="widget-type-desc">{{ type.description }}</div>
+                      <div class="widget-type-desc">
+                        {{ type.description }}
+                      </div>
                     </div>
                   </div>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-
-          <!-- 布局控制按钮组 -->
-          <template v-if="currentDashboard">
-            <el-divider direction="vertical" class="toolbar-divider" />
-            <div class="layout-controls">
-              <el-radio-group
-                v-model="layoutType"
-                size="small"
-                @change="
-                  (val: string | number | boolean | undefined) =>
-                    switchLayoutType(val as 'grid' | 'free')
-                ">
-                <el-radio-button label="grid">网格</el-radio-button>
-                <el-radio-button label="free">自由</el-radio-button>
-              </el-radio-group>
-              <template v-if="layoutType === 'grid'">
-                <el-radio-group
-                  v-model="gridColumns"
-                  size="small"
-                  @change="
-                    (val: string | number | boolean | undefined) =>
-                      switchGridColumns(val as 12 | 24)
-                  ">
-                  <el-radio-button :label="12">12列</el-radio-button>
-                  <el-radio-button :label="24">24列</el-radio-button>
-                </el-radio-group>
-              </template>
-              <el-checkbox
-                v-model="showGridLines"
-                size="small"
-                class="grid-lines-checkbox">
-                网格线
-              </el-checkbox>
-            </div>
-          </template>
+          <el-button-group>
+            <el-button
+              v-if="currentDashboard"
+              size="medium"
+              @click="showTemplateDialog = true">
+              <el-icon><Grid /></el-icon>
+              <span>模板</span>
+            </el-button>
+            <el-button
+              v-if="currentDashboard"
+              size="medium"
+              @click="
+                isEditingDashboard = true;
+                isCreatingDashboard = false;
+                dashboardForm = {
+                  name: currentDashboard.name,
+                  description: currentDashboard.description || '',
+                };
+              ">
+              <el-icon><Edit /></el-icon>
+              <span>编辑</span>
+            </el-button>
+            <el-button
+              v-if="currentDashboard"
+              size="medium"
+              @click="duplicateDashboard(currentDashboard)">
+              <el-icon><CopyDocument /></el-icon>
+              <span>复制</span>
+            </el-button>
+            <el-button size="medium" @click="showDashboardManager = true">
+              <el-icon><Management /></el-icon>
+              <span>管理</span>
+            </el-button>
+            <el-button
+              v-if="currentDashboard"
+              size="medium"
+              @click="openShareDialog">
+              <el-icon><Share /></el-icon>
+              <span>分享</span>
+            </el-button>
+          </el-button-group>
         </div>
 
         <div class="toolbar-right">
-          <el-button
-            v-if="currentDashboard"
-            text
-            class="toolbar-btn"
-            @click="showTemplateDialog = true">
-            <el-icon><Grid /></el-icon>
-            <span>模板</span>
-          </el-button>
-          <el-button
-            v-if="currentDashboard"
-            class="share-btn"
-            @click="openShareDialog">
-            <el-icon><Share /></el-icon>
-            <span>分享</span>
-          </el-button>
-          <el-button
-            v-if="currentDashboard"
-            text
-            class="toolbar-btn"
-            @click="
-              isEditingDashboard = true;
-              isCreatingDashboard = false;
-              dashboardForm = {
-                name: currentDashboard.name,
-                description: currentDashboard.description || '',
-              };
-            ">
-            <el-icon><Edit /></el-icon>
-            <span>编辑</span>
-          </el-button>
-          <el-button
-            v-if="currentDashboard"
-            text
-            class="toolbar-btn"
-            @click="duplicateDashboard(currentDashboard)">
-            <el-icon><CopyDocument /></el-icon>
-            <span>复制</span>
-          </el-button>
-          <el-button
-            text
-            class="toolbar-btn"
-            @click="showDashboardManager = true">
-            <el-icon><Management /></el-icon>
-            <span>管理</span>
-          </el-button>
+          <!-- 布局控制按钮组 -->
+          <template v-if="currentDashboard">
+            <!--<el-divider direction="vertical" class="toolbar-divider" />-->
+            <el-button-group class="layout-controls">
+              <el-button
+                size="medium"
+                :type="layoutType === 'grid' ? 'primary' : 'default'"
+                @click="switchLayoutType('grid')">
+                <el-icon><Grid /></el-icon>
+                <span>网格</span>
+              </el-button>
+              <el-button
+                size="medium"
+                :type="layoutType === 'free' ? 'primary' : 'default'"
+                @click="switchLayoutType('free')">
+                <el-icon><Move /></el-icon>
+                <span>自由</span>
+              </el-button>
+            </el-button-group>
+            <el-button-group class="layout-controls">
+              <template v-if="layoutType === 'grid'">
+                <el-button
+                  size="medium"
+                  :type="gridColumns === 12 ? 'primary' : 'default'"
+                  @click="switchGridColumns(12)">
+                  12列
+                </el-button>
+                <el-button
+                  size="medium"
+                  :type="gridColumns === 24 ? 'primary' : 'default'"
+                  @click="switchGridColumns(24)">
+                  24列
+                </el-button>
+              </template>
+              <el-button
+                size="medium"
+                :type="showGridLines ? 'primary' : 'default'"
+                @click="showGridLines = !showGridLines">
+                <el-icon><View /></el-icon>
+                <span>网格线</span>
+              </el-button>
+            </el-button-group>
+          </template>
         </div>
       </div>
 
@@ -3765,7 +3773,7 @@ $gray-800: #1f2937;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
+  padding: $spacing-sm $spacing-xl;
   background: white;
   border-bottom: 1px solid $gray-200;
   flex-shrink: 0;
@@ -3827,27 +3835,36 @@ $gray-800: #1f2937;
 }
 
 .add-widget-btn {
-  height: 40px;
   padding: 0 16px;
   border-radius: 10px;
+  font-size: 14px;
   font-weight: 500;
   background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
   border: none;
+  color: white;
   box-shadow: 0 4px 14px rgba($primary, 0.35);
   transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba($primary, 0.45);
+    color: white;
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba($primary, 0.3);
   }
 
   .el-icon {
-    margin-right: 6px;
+    font-size: 16px;
   }
 
   .dropdown-icon {
-    margin-left: 6px;
-    margin-right: 0;
+    font-size: 12px;
   }
 }
 
@@ -3855,12 +3872,16 @@ $gray-800: #1f2937;
   height: 40px;
   padding: 0 16px;
   border-radius: 10px;
+  font-size: 14px;
   font-weight: 500;
   background: linear-gradient(135deg, $success 0%, #34d399 100%);
   border: none;
   color: white;
   box-shadow: 0 4px 14px rgba($success, 0.35);
   transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 
   &:hover {
     transform: translateY(-2px);
@@ -3868,25 +3889,13 @@ $gray-800: #1f2937;
     color: white;
   }
 
-  .el-icon {
-    margin-right: 6px;
-  }
-}
-
-.toolbar-btn {
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
-  color: $gray-600;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: $gray-100;
-    color: $gray-800;
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba($success, 0.3);
   }
 
   .el-icon {
-    margin-right: 4px;
+    font-size: 16px;
   }
 }
 
@@ -3894,25 +3903,6 @@ $gray-800: #1f2937;
 .layout-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-
-  .el-radio-group {
-    .el-radio-button {
-      .el-radio-button__inner {
-        padding: 6px 12px;
-        font-size: 13px;
-      }
-    }
-  }
-
-  .grid-lines-checkbox {
-    margin-left: 4px;
-
-    .el-checkbox__label {
-      font-size: 13px;
-      padding-left: 4px;
-    }
-  }
 }
 
 // 组件类型菜单
@@ -3946,6 +3936,46 @@ $gray-800: #1f2937;
         font-size: 12px;
         color: $gray-500;
         margin-top: 2px;
+      }
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .layout-controls {
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    width: 100%;
+    justify-content: center;
+
+    .el-radio-group {
+      .el-radio-button {
+        .el-radio-button__inner {
+          padding: $spacing-xs $spacing-md;
+          font-size: 12px;
+        }
+      }
+    }
+
+    .grid-lines-checkbox {
+      .el-checkbox__label {
+        font-size: 12px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .layout-controls {
+    .el-radio-group {
+      padding: 2px;
+
+      .el-radio-button {
+        .el-radio-button__inner {
+          padding: $spacing-xs $spacing-sm;
+          font-size: 11px;
+        }
       }
     }
   }
@@ -4564,7 +4594,7 @@ $gray-800: #1f2937;
     margin-bottom: 20px;
 
     .create-btn {
-      height: 40px;
+      // height: 40px;
       padding: 0 16px;
       border-radius: 10px;
       font-weight: 500;
