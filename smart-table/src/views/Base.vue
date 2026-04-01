@@ -35,12 +35,16 @@ import Sortable from "sortablejs";
 import { dashboardService } from "@/db/services/dashboardService";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardView from "@/views/Dashboard.vue";
+import { useEntityOperations } from "@/composables/useEntityOperations";
 
 const route = useRoute();
 const router = useRouter();
 const baseStore = useBaseStore();
 const viewStore = useViewStore();
 const tableStore = useTableStore();
+
+// 初始化实体操作
+const { renameTable, deleteTable, toggleStarTable, renameDashboard, deleteDashboard, toggleStarDashboard } = useEntityOperations();
 
 const isLoading = computed(() => baseStore.loading || viewStore.loading);
 const currentTableId = computed(() => baseStore.currentTable?.id || "");
@@ -75,6 +79,7 @@ const renameDashboardDialogVisible = ref(false);
 const renameDashboardForm = reactive({
   id: "",
   name: "",
+  description: "",
 });
 
 // 重命名仪表盘表单引用
@@ -151,6 +156,7 @@ const addRecordGroupInfo = ref<{
 const renameTableForm = reactive({
   id: "",
   name: "",
+  description: "",
 });
 const renameTableFormRef = ref<FormInstance>();
 const renameTableFormRules: FormRules = {
@@ -782,9 +788,14 @@ function closeCreateTableDialog() {
 }
 
 // 打开重命名仪表盘对话框
-function openRenameDashboardDialog(dashboard: { id: string; name: string }) {
+function openRenameDashboardDialog(dashboard: {
+  id: string;
+  name: string;
+  description?: string;
+}) {
   renameDashboardForm.id = dashboard.id;
   renameDashboardForm.name = dashboard.name;
+  renameDashboardForm.description = dashboard.description || "";
   renameDashboardDialogVisible.value = true;
 }
 
@@ -801,16 +812,17 @@ async function handleRenameDashboard() {
   await renameDashboardFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        await dashboardService.updateDashboard(renameDashboardForm.id, {
-          name: renameDashboardForm.name.trim(),
-        });
-        ElMessage.success("仪表盘重命名成功");
+        // 使用通用操作模块
+        await renameDashboard({
+          id: renameDashboardForm.id,
+          name: renameDashboardForm.name,
+          description: renameDashboardForm.description
+        } as Dashboard, renameDashboardForm.name, renameDashboardForm.description);
         closeRenameDashboardDialog();
         // 刷新仪表盘列表
         sidebarRef.value?.refreshDashboards();
       } catch (error) {
-        ElMessage.error("重命名仪表盘失败");
-        console.error(error);
+        // 错误已经在通用模块中处理
       }
     }
   });
@@ -819,30 +831,18 @@ async function handleRenameDashboard() {
 // 处理删除仪表盘
 async function handleDeleteDashboard(dashboard: { id: string; name: string }) {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除仪表盘 "${dashboard.name}" 吗？`,
-      "删除确认",
-      {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
-        type: "warning",
-      },
-    );
-
-    await dashboardService.deleteDashboard(dashboard.id);
-    ElMessage.success("仪表盘删除成功");
-    // 刷新仪表盘列表
-    sidebarRef.value?.refreshDashboards();
-    // 如果当前正在查看该仪表盘，跳转到 base 首页
-    if (route.params.dashboardId === dashboard.id) {
-      const baseId = route.params.id as string;
-      router.push(`/base/${baseId}`);
-    }
+    // 使用通用操作模块
+    await deleteDashboard(dashboard as Dashboard, () => {
+      // 刷新仪表盘列表
+      sidebarRef.value?.refreshDashboards();
+      // 如果当前正在查看该仪表盘，跳转到 base 首页
+      if (route.params.dashboardId === dashboard.id) {
+        const baseId = route.params.id as string;
+        router.push(`/base/${baseId}`);
+      }
+    });
   } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error("删除仪表盘失败");
-      console.error(error);
-    }
+    // 错误已经在通用模块中处理
   }
 }
 
@@ -852,15 +852,12 @@ async function handleToggleStarDashboard(dashboard: {
   isStarred: boolean;
 }) {
   try {
-    await dashboardService.updateDashboard(dashboard.id, {
-      isStarred: !dashboard.isStarred,
-    });
-    ElMessage.success(dashboard.isStarred ? "已取消收藏" : "收藏成功");
+    // 使用通用操作模块
+    await toggleStarDashboard(dashboard as Dashboard);
     // 刷新仪表盘列表
     sidebarRef.value?.refreshDashboards();
   } catch (error) {
-    ElMessage.error("操作失败");
-    console.error(error);
+    // 错误已经在通用模块中处理
   }
 }
 
@@ -910,9 +907,14 @@ async function handleCreateTable() {
 }
 
 // 打开重命名对话框
-function openRenameTableDialog(table: { id: string; name: string }) {
+function openRenameTableDialog(table: {
+  id: string;
+  name: string;
+  description?: string;
+}) {
   renameTableForm.id = table.id;
   renameTableForm.name = table.name;
+  renameTableForm.description = table.description || "";
   renameTableDialogVisible.value = true;
 }
 
@@ -928,21 +930,30 @@ async function handleRenameTable() {
 
   await renameTableFormRef.value.validate(async (valid) => {
     if (valid) {
-      await tableStore.updateTable(renameTableForm.id, {
-        name: renameTableForm.name,
-      });
-      // 同步更新 baseStore 中的表格名称
-      const tableIndex = baseStore.tables.findIndex(
-        (t) => t.id === renameTableForm.id,
-      );
-      if (tableIndex !== -1) {
-        baseStore.tables[tableIndex].name = renameTableForm.name;
+      try {
+        // 使用通用操作模块
+        await renameTable({
+          id: renameTableForm.id,
+          name: renameTableForm.name,
+          description: renameTableForm.description,
+          isStarred: false
+        } as TableEntity, renameTableForm.name, renameTableForm.description);
+        // 同步更新 baseStore 中的表格信息
+        const tableIndex = baseStore.tables.findIndex(
+          (t) => t.id === renameTableForm.id,
+        );
+        if (tableIndex !== -1) {
+          baseStore.tables[tableIndex].name = renameTableForm.name;
+          baseStore.tables[tableIndex].description = renameTableForm.description;
+        }
+        if (baseStore.currentTable?.id === renameTableForm.id) {
+          baseStore.currentTable.name = renameTableForm.name;
+          baseStore.currentTable.description = renameTableForm.description;
+        }
+        closeRenameTableDialog();
+      } catch (error) {
+        // 错误已经在通用模块中处理
       }
-      if (baseStore.currentTable?.id === renameTableForm.id) {
-        baseStore.currentTable.name = renameTableForm.name;
-      }
-      ElMessage.success("重命名成功");
-      closeRenameTableDialog();
     }
   });
 }
@@ -950,36 +961,24 @@ async function handleRenameTable() {
 // 处理删除表格
 async function handleDeleteTable(table: { id: string; name: string }) {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除数据表 "${table.name}" 吗？此操作将删除该表中的所有数据，包括字段、记录和视图，且无法恢复。`,
-      "删除确认",
-      {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
-        type: "warning",
-        confirmButtonClass: "el-button--danger",
-      },
-    );
-
-    await tableStore.deleteTable(table.id);
-    // 从 baseStore 中移除
-    baseStore.tables = baseStore.tables.filter((t) => t.id !== table.id);
-    if (baseStore.currentTable?.id === table.id) {
-      baseStore.currentTable = null;
-      baseStore.fields = [];
-      baseStore.records = [];
-      baseStore.views = [];
-      baseStore.currentView = null;
-      // 如果有其他表格，选中第一个
-      if (baseStore.tables.length > 0) {
-        await baseStore.loadTable(baseStore.tables[0].id);
+    // 使用通用操作模块
+    await deleteTable(table as TableEntity, async () => {
+      // 从 baseStore 中移除
+      baseStore.tables = baseStore.tables.filter((t) => t.id !== table.id);
+      if (baseStore.currentTable?.id === table.id) {
+        baseStore.currentTable = null;
+        baseStore.fields = [];
+        baseStore.records = [];
+        baseStore.views = [];
+        baseStore.currentView = null;
+        // 如果有其他表格，选中第一个
+        if (baseStore.tables.length > 0) {
+          await baseStore.loadTable(baseStore.tables[0].id);
+        }
       }
-    }
-    ElMessage.success("删除成功");
+    });
   } catch (error) {
-    if (error !== "cancel") {
-      ElMessage.error("删除失败");
-    }
+    // 错误已经在通用模块中处理
   }
 }
 
@@ -988,16 +987,20 @@ async function handleToggleStarTable(table: {
   id: string;
   isStarred?: boolean;
 }) {
-  await tableStore.toggleStarTable(table.id);
-  // 同步更新本地状态
-  const tableIndex = baseStore.tables.findIndex((t) => t.id === table.id);
-  if (tableIndex !== -1) {
-    baseStore.tables[tableIndex].isStarred = !table.isStarred;
+  try {
+    // 使用通用操作模块
+    await toggleStarTable(table as TableEntity);
+    // 同步更新本地状态
+    const tableIndex = baseStore.tables.findIndex((t) => t.id === table.id);
+    if (tableIndex !== -1) {
+      baseStore.tables[tableIndex].isStarred = !table.isStarred;
+    }
+    if (baseStore.currentTable?.id === table.id) {
+      baseStore.currentTable.isStarred = !table.isStarred;
+    }
+  } catch (error) {
+    // 错误已经在通用模块中处理
   }
-  if (baseStore.currentTable?.id === table.id) {
-    baseStore.currentTable.isStarred = !table.isStarred;
-  }
-  ElMessage.success(table.isStarred ? "已收藏" : "已取消收藏");
 }
 
 // 打开字段对话框
@@ -1458,7 +1461,7 @@ function handleImported() {
     <!-- 重命名数据表对话框 -->
     <el-dialog
       v-model="renameTableDialogVisible"
-      title="重命名数据表"
+      title="编辑数据表"
       width="500px"
       :close-on-click-modal="false">
       <el-form
@@ -1472,6 +1475,15 @@ function handleImported() {
             placeholder="请输入数据表名称"
             maxlength="50"
             show-word-limit />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+            v-model="renameTableForm.description"
+            placeholder="请输入数据表描述"
+            maxlength="200"
+            show-word-limit
+            type="textarea"
+            :rows="3" />
         </el-form-item>
       </el-form>
 
@@ -1568,7 +1580,7 @@ function handleImported() {
     <!-- 重命名仪表盘对话框 -->
     <el-dialog
       v-model="renameDashboardDialogVisible"
-      title="重命名仪表盘"
+      title="编辑仪表盘"
       width="500px"
       :close-on-click-modal="false">
       <el-form
@@ -1582,6 +1594,15 @@ function handleImported() {
             placeholder="请输入仪表盘名称"
             maxlength="50"
             show-word-limit />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+            v-model="renameDashboardForm.description"
+            placeholder="请输入仪表盘描述"
+            maxlength="200"
+            show-word-limit
+            type="textarea"
+            :rows="3" />
         </el-form-item>
       </el-form>
 

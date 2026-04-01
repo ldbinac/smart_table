@@ -33,10 +33,21 @@ import { FieldType } from "@/types";
 import { ElMessage, ElMessageBox } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
+import { useEntityOperations } from "@/composables/useEntityOperations";
 
 const baseStore = useBaseStore();
 const route = useRoute();
 const router = useRouter();
+
+// 初始化实体操作
+const {
+  renameTable,
+  deleteTable,
+  toggleStarTable,
+  renameDashboard,
+  deleteDashboard,
+  toggleStarDashboard,
+} = useEntityOperations();
 
 // 仪表盘状态
 const dashboards = ref<Dashboard[]>([]);
@@ -505,31 +516,31 @@ async function updateDashboard() {
 }
 
 // 删除仪表盘
-async function deleteDashboard(dashboard: Dashboard) {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除仪表盘 "${dashboard.name}" 吗？`,
-      "确认删除",
-      { type: "warning" },
-    );
+// async function deleteDashboard(dashboard: Dashboard) {
+//   try {
+//     await ElMessageBox.confirm(
+//       `确定要删除仪表盘 "${dashboard.name}" 吗？`,
+//       "确认删除",
+//       { type: "warning" },
+//     );
 
-    await dashboardService.deleteDashboard(dashboard.id);
-    dashboards.value = dashboards.value.filter((d) => d.id !== dashboard.id);
+//     await dashboardService.deleteDashboard(dashboard.id);
+//     dashboards.value = dashboards.value.filter((d) => d.id !== dashboard.id);
 
-    if (currentDashboard.value?.id === dashboard.id) {
-      currentDashboard.value = dashboards.value[0] || null;
-      if (currentDashboard.value) {
-        await selectDashboard(currentDashboard.value);
-      } else {
-        widgets.value = [];
-      }
-    }
+//     if (currentDashboard.value?.id === dashboard.id) {
+//       currentDashboard.value = dashboards.value[0] || null;
+//       if (currentDashboard.value) {
+//         await selectDashboard(currentDashboard.value);
+//       } else {
+//         widgets.value = [];
+//       }
+//     }
 
-    ElMessage.success("仪表盘已删除");
-  } catch {
-    // 用户取消
-  }
-}
+//     ElMessage.success("仪表盘已删除");
+//   } catch {
+//     // 用户取消
+//   }
+// }
 
 // 复制仪表盘
 async function duplicateDashboard(dashboard: Dashboard) {
@@ -696,62 +707,98 @@ const openCreateDashboardDialog = () => {
   dashboardForm.value = { name: "", description: "" };
 };
 
-const handleRenameTable = async (table: { id: string; name: string }) => {
-  try {
-    const { value } = await ElMessageBox.prompt(
-      "请输入新的数据表名称",
-      "重命名数据表",
-      {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-        inputValue: table.name,
-        inputValidator: (value) => {
-          if (!value || value.trim() === "") {
-            return "名称不能为空";
-          }
-          if (value.length > 50) {
-            return "名称长度不能超过50个字符";
-          }
-          return true;
-        },
-      },
-    );
+// 编辑数据表对话框状态
+const isEditingSidebarTable = ref(false);
+// 编辑数据表表单数据
+const sidebarTableForm = reactive({
+  id: "",
+  name: "",
+  description: "",
+});
 
-    if (value && value.trim() !== table.name) {
-      await tableService.updateTable(table.id, {
-        name: value.trim(),
-      });
-      ElMessage.success("数据表重命名成功");
-      await loadTables();
-    }
-  } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error("重命名失败");
-      console.error(error);
-    }
+// 打开编辑数据表对话框
+function openEditSidebarTableDialog(table: {
+  id: string;
+  name: string;
+  description?: string;
+}) {
+  sidebarTableForm.id = table.id;
+  sidebarTableForm.name = table.name;
+  sidebarTableForm.description = table.description || "";
+  isEditingSidebarTable.value = true;
+}
+
+// 处理编辑数据表
+async function handleEditSidebarTable() {
+  if (!sidebarTableForm.name || sidebarTableForm.name.trim() === "") {
+    ElMessage.error("名称不能为空");
+    return;
   }
+  if (sidebarTableForm.name.length > 50) {
+    ElMessage.error("名称长度不能超过50个字符");
+    return;
+  }
+
+  try {
+    // 使用通用操作模块
+    await renameTable(
+      {
+        id: sidebarTableForm.id,
+        name: sidebarTableForm.name,
+        description: sidebarTableForm.description,
+        isStarred: false,
+      } as TableEntity,
+      sidebarTableForm.name,
+      sidebarTableForm.description,
+    );
+    isEditingSidebarTable.value = false;
+    await loadTables();
+    // 直接更新baseStore中的数据表信息
+    if (baseStore.currentBase) {
+      // 重新加载baseStore中的数据表列表
+      baseStore.tables = await tableService.getTablesByBase(
+        baseStore.currentBase.id,
+      );
+      // 如果当前选中的表是被修改的表，也更新currentTable
+      if (baseStore.currentTable?.id === sidebarTableForm.id) {
+        const updatedTable = await tableService.getTable(sidebarTableForm.id);
+        if (updatedTable) {
+          baseStore.currentTable = updatedTable;
+        }
+      }
+    }
+  } catch (error) {
+    ElMessage.error("更新失败");
+    console.error(error);
+  }
+}
+
+// 重命名数据表函数（调用编辑对话框）
+const handleRenameTable = (table: {
+  id: string;
+  name: string;
+  description?: string;
+}) => {
+  openEditSidebarTableDialog(table);
 };
 
 const handleDeleteTable = async (table: { id: string; name: string }) => {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除数据表 "${table.name}" 吗？此操作不可恢复！`,
-      "删除确认",
-      {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
-        type: "warning",
-      },
-    );
-
-    await tableService.deleteTable(table.id);
-    ElMessage.success("数据表删除成功");
-    await loadTables();
+    // 使用通用操作模块
+    await deleteTable(table as TableEntity, async () => {
+      await loadTables();
+      // 直接更新baseStore中的数据表信息
+      if (baseStore.currentBase) {
+        // 重新加载baseStore中的数据表列表
+        baseStore.tables = await tableService.getTablesByBase(
+          baseStore.currentBase.id,
+        );
+      }
+    });
   } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error("删除失败");
-      console.error(error);
-    }
+    // 错误已经在通用模块中处理
+    ElMessage.error("更新失败");
+    console.error(error);
   }
 };
 
@@ -760,62 +807,85 @@ const handleToggleStarTable = async (table: {
   isStarred: boolean;
 }) => {
   try {
-    await tableService.updateTable(table.id, {
-      isStarred: !table.isStarred,
-    });
-    ElMessage.success(table.isStarred ? "已取消收藏" : "收藏成功");
+    // 使用通用操作模块
+    await toggleStarTable(table as TableEntity);
     await loadTables();
+    // 直接更新baseStore中的数据表信息
+    if (baseStore.currentBase) {
+      // 重新加载baseStore中的数据表列表
+      baseStore.tables = await tableService.getTablesByBase(
+        baseStore.currentBase.id,
+      );
+    }
   } catch (error) {
-    ElMessage.error("操作失败");
+    // 错误已经在通用模块中处理
+    ElMessage.error("更新失败");
     console.error(error);
   }
 };
 
-const handleRenameDashboard = async (dashboard: {
+// 编辑仪表盘对话框状态
+const isEditingSidebarDashboard = ref(false);
+// 编辑仪表盘表单数据
+const sidebarDashboardForm = reactive({
+  id: "",
+  name: "",
+  description: "",
+});
+
+// 打开编辑仪表盘对话框
+function openEditSidebarDashboardDialog(dashboard: {
   id: string;
   name: string;
-}) => {
-  try {
-    const { value } = await ElMessageBox.prompt(
-      "请输入新的仪表盘名称",
-      "重命名仪表盘",
-      {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-        inputValue: dashboard.name,
-        inputValidator: (value) => {
-          if (!value || value.trim() === "") {
-            return "名称不能为空";
-          }
-          if (value.length > 50) {
-            return "名称长度不能超过50个字符";
-          }
-          return true;
-        },
-      },
-    );
+  description?: string;
+}) {
+  sidebarDashboardForm.id = dashboard.id;
+  sidebarDashboardForm.name = dashboard.name;
+  sidebarDashboardForm.description = dashboard.description || "";
+  isEditingSidebarDashboard.value = true;
+}
 
-    if (value && value.trim() !== dashboard.name) {
-      await dashboardService.updateDashboard(dashboard.id, {
-        name: value.trim(),
-      });
-      ElMessage.success("仪表盘重命名成功");
-      if (currentDashboard.value?.id === dashboard.id) {
-        const updatedDashboard = await dashboardService.getDashboard(
-          dashboard.id,
-        );
-        if (updatedDashboard) {
-          currentDashboard.value = updatedDashboard;
-        }
-      }
-      await loadDashboards();
-    }
-  } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error("重命名失败");
-      console.error(error);
-    }
+// 处理编辑仪表盘
+async function handleEditSidebarDashboard() {
+  if (!sidebarDashboardForm.name || sidebarDashboardForm.name.trim() === "") {
+    ElMessage.error("名称不能为空");
+    return;
   }
+  if (sidebarDashboardForm.name.length > 50) {
+    ElMessage.error("名称长度不能超过50个字符");
+    return;
+  }
+
+  try {
+    // 使用通用操作模块
+    await renameDashboard(
+      {
+        id: sidebarDashboardForm.id,
+        name: sidebarDashboardForm.name,
+        description: sidebarDashboardForm.description,
+      } as Dashboard,
+      sidebarDashboardForm.name,
+      sidebarDashboardForm.description,
+    );
+    isEditingSidebarDashboard.value = false;
+    // 重新加载仪表盘列表
+    await loadDashboards();
+    // 刷新左侧边栏
+    if (sidebarRef.value) {
+      await sidebarRef.value.refreshDashboards();
+    }
+  } catch (error) {
+    // 错误已经在通用模块中处理
+  }
+}
+
+// 重命名仪表盘函数（调用编辑对话框）
+const handleRenameDashboard = (dashboard: {
+  id: string;
+  name: string;
+  description?: string;
+}) => {
+  openEditSidebarDashboardDialog(dashboard);
 };
 
 const handleDeleteDashboard = async (dashboard: {
@@ -823,38 +893,25 @@ const handleDeleteDashboard = async (dashboard: {
   name: string;
 }) => {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除仪表盘 "${dashboard.name}" 吗？`,
-      "删除确认",
-      {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
-        type: "warning",
-      },
-    );
-
-    await dashboardService.deleteDashboard(dashboard.id);
-    ElMessage.success("仪表盘删除成功");
-
-    if (currentDashboard.value?.id === dashboard.id) {
-      const remainingDashboards = dashboards.value.filter(
-        (d) => d.id !== dashboard.id,
-      );
-      if (remainingDashboards.length > 0) {
-        const baseId = route.params.id as string;
-        router.push(`/base/${baseId}/dashboard/${remainingDashboards[0].id}`);
-      } else {
-        currentDashboard.value = null;
-        widgets.value = [];
+    // 使用通用操作模块
+    await deleteDashboard(dashboard as Dashboard, async () => {
+      if (currentDashboard.value?.id === dashboard.id) {
+        const remainingDashboards = dashboards.value.filter(
+          (d) => d.id !== dashboard.id,
+        );
+        if (remainingDashboards.length > 0) {
+          const baseId = route.params.id as string;
+          router.push(`/base/${baseId}/dashboard/${remainingDashboards[0].id}`);
+        } else {
+          currentDashboard.value = null;
+          widgets.value = [];
+        }
       }
-    }
 
-    await loadDashboards();
+      await loadDashboards();
+    });
   } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error("删除失败");
-      console.error(error);
-    }
+    // 错误已经在通用模块中处理
   }
 };
 
@@ -863,10 +920,8 @@ const handleToggleStarDashboard = async (dashboard: {
   isStarred: boolean;
 }) => {
   try {
-    await dashboardService.updateDashboard(dashboard.id, {
-      isStarred: !dashboard.isStarred,
-    });
-    ElMessage.success(dashboard.isStarred ? "已取消收藏" : "收藏成功");
+    // 使用通用操作模块
+    await toggleStarDashboard(dashboard as Dashboard);
     await loadDashboards();
     if (currentDashboard.value?.id === dashboard.id) {
       const updatedDashboard = await dashboardService.getDashboard(
@@ -877,8 +932,7 @@ const handleToggleStarDashboard = async (dashboard: {
       }
     }
   } catch (error) {
-    ElMessage.error("操作失败");
-    console.error(error);
+    // 错误已经在通用模块中处理
   }
 };
 
@@ -1954,10 +2008,10 @@ function stopResize() {
 // ==================== 组件样式计算 ====================
 
 function getWidgetStyle(widget: WidgetConfig): Record<string, string | number> {
-  if (layoutType.value === 'free') {
+  if (layoutType.value === "free") {
     // 自由布局：使用绝对定位
     return {
-      position: 'absolute',
+      position: "absolute",
       left: `${widget.position.x || 0}px`,
       top: `${widget.position.y || 0}px`,
       width: `${(widget.position.w || 4) * 100}px`,
@@ -2010,28 +2064,28 @@ function onDrag(event: MouseEvent) {
     isDragging.value = true;
   }
 
-  if (layoutType.value === 'free') {
+  if (layoutType.value === "free") {
     // 自由布局：更新像素坐标
     widget.position.x = dragStart.value.widgetX + dx;
     widget.position.y = dragStart.value.widgetY + dy;
   } else {
     // 网格布局：计算网格坐标
-    const gridContainer = document.querySelector('.widgets-grid');
+    const gridContainer = document.querySelector(".widgets-grid");
     if (!gridContainer) return;
-    
+
     const containerRect = gridContainer.getBoundingClientRect();
     const cellWidth = containerRect.width / gridColumns.value;
     const cellHeight = 80; // 与 grid-auto-rows 一致
     const gap = 16; // 与 gap 一致
-    
+
     // 计算鼠标在容器中的相对位置
     const relativeX = event.clientX - containerRect.left;
     const relativeY = event.clientY - containerRect.top;
-    
+
     // 计算网格坐标（考虑间距）
     const gridX = Math.round(relativeX / (cellWidth + gap));
     const gridY = Math.round(relativeY / (cellHeight + gap));
-    
+
     // 限制在网格范围内
     const maxX = gridColumns.value - (widget.position.w || 4);
     widget.position.x = Math.max(0, Math.min(gridX, maxX));
@@ -2051,20 +2105,20 @@ function stopDrag() {
 
 // ==================== 布局切换功能 ====================
 
-async function switchLayoutType(type: 'grid' | 'free') {
+async function switchLayoutType(type: "grid" | "free") {
   if (!currentDashboard.value) return;
-  
+
   layoutType.value = type;
-  
+
   // 更新布局引擎配置
   if (layoutEngine.value) {
     layoutEngine.value.updateConfig({ type });
   }
-  
+
   // 如果切换到网格布局，需要重新计算组件位置
-  if (type === 'grid') {
+  if (type === "grid") {
     // 将自由布局的像素坐标转换为网格坐标
-    widgets.value.forEach(widget => {
+    widgets.value.forEach((widget) => {
       if (widget.position.x !== undefined && widget.position.y !== undefined) {
         // 简化的转换：假设每个网格单元约100px
         widget.position.x = Math.round((widget.position.x || 0) / 100);
@@ -2076,36 +2130,36 @@ async function switchLayoutType(type: 'grid' | 'free') {
     });
   } else {
     // 切换到自由布局，将网格坐标转换为像素坐标
-    widgets.value.forEach(widget => {
+    widgets.value.forEach((widget) => {
       widget.position.x = (widget.position.x || 0) * 100;
       widget.position.y = (widget.position.y || 0) * 80;
     });
   }
-  
+
   // 保存到数据库
   await dashboardService.updateDashboard(currentDashboard.value.id, {
     layoutType: type,
     widgets: widgets.value,
   });
-  
-  ElMessage.success(`已切换到${type === 'grid' ? '网格' : '自由'}布局`);
+
+  ElMessage.success(`已切换到${type === "grid" ? "网格" : "自由"}布局`);
 }
 
 // 切换网格列数
 async function switchGridColumns(columns: 12 | 24) {
   if (!currentDashboard.value) return;
-  
+
   // 更新本地状态
   gridColumns.value = columns;
-  
+
   if (layoutEngine.value) {
     layoutEngine.value.updateConfig({ columns });
   }
-  
+
   await dashboardService.updateDashboard(currentDashboard.value.id, {
     gridColumns: columns,
   });
-  
+
   ElMessage.success(`已切换到${columns}列网格`);
 }
 
@@ -2319,17 +2373,32 @@ onUnmounted(() => {
           <template v-if="currentDashboard">
             <el-divider direction="vertical" class="toolbar-divider" />
             <div class="layout-controls">
-              <el-radio-group v-model="layoutType" size="small" @change="(val: string | number | boolean | undefined) => switchLayoutType(val as 'grid' | 'free')">
+              <el-radio-group
+                v-model="layoutType"
+                size="small"
+                @change="
+                  (val: string | number | boolean | undefined) =>
+                    switchLayoutType(val as 'grid' | 'free')
+                ">
                 <el-radio-button label="grid">网格</el-radio-button>
                 <el-radio-button label="free">自由</el-radio-button>
               </el-radio-group>
               <template v-if="layoutType === 'grid'">
-                <el-radio-group v-model="gridColumns" size="small" @change="(val: string | number | boolean | undefined) => switchGridColumns(val as 12 | 24)">
+                <el-radio-group
+                  v-model="gridColumns"
+                  size="small"
+                  @change="
+                    (val: string | number | boolean | undefined) =>
+                      switchGridColumns(val as 12 | 24)
+                  ">
                   <el-radio-button :label="12">12列</el-radio-button>
                   <el-radio-button :label="24">24列</el-radio-button>
                 </el-radio-group>
               </template>
-              <el-checkbox v-model="showGridLines" size="small" class="grid-lines-checkbox">
+              <el-checkbox
+                v-model="showGridLines"
+                size="small"
+                class="grid-lines-checkbox">
                 网格线
               </el-checkbox>
             </div>
@@ -2388,20 +2457,24 @@ onUnmounted(() => {
       <!-- 仪表盘内容 -->
       <div class="dashboard-content">
         <!-- 组件网格 -->
-        <div 
+        <div
           class="widgets-grid"
           :class="{
             'grid-layout': layoutType === 'grid',
             'free-layout': layoutType === 'free',
             'show-grid-lines': showGridLines && layoutType === 'grid',
-            [`columns-${currentDashboard?.gridColumns || 12}`]: layoutType === 'grid',
+            [`columns-${currentDashboard?.gridColumns || 12}`]:
+              layoutType === 'grid',
           }"
-          :style="layoutType === 'free' ? {
-            position: 'relative',
-            height: '100%',
-            overflow: 'auto'
-          } : {}"
-        >
+          :style="
+            layoutType === 'free'
+              ? {
+                  position: 'relative',
+                  height: '100%',
+                  overflow: 'auto',
+                }
+              : {}
+          ">
           <div
             v-for="widget in widgets"
             :key="widget.id"
@@ -3238,6 +3311,80 @@ onUnmounted(() => {
         </template>
       </el-dialog>
 
+      <!-- 侧边栏编辑仪表盘对话框 -->
+      <el-dialog
+        v-model="isEditingSidebarDashboard"
+        title="编辑仪表盘"
+        width="480px"
+        destroy-on-close
+        class="dashboard-form-dialog">
+        <el-form label-position="top" class="compact-form">
+          <el-form-item label="仪表盘名称" required>
+            <el-input
+              v-model="sidebarDashboardForm.name"
+              placeholder="请输入仪表盘名称"
+              maxlength="50"
+              show-word-limit />
+          </el-form-item>
+          <el-form-item label="描述">
+            <el-input
+              v-model="sidebarDashboardForm.description"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入仪表盘描述（可选）"
+              maxlength="200"
+              show-word-limit />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="isEditingSidebarDashboard = false">取消</el-button>
+          <el-button
+            type="primary"
+            class="confirm-btn"
+            @click="handleEditSidebarDashboard"
+            :disabled="!sidebarDashboardForm.name.trim()">
+            保存
+          </el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 侧边栏编辑数据表对话框 -->
+      <el-dialog
+        v-model="isEditingSidebarTable"
+        title="编辑数据表"
+        width="480px"
+        destroy-on-close
+        class="dashboard-form-dialog">
+        <el-form label-position="top" class="compact-form">
+          <el-form-item label="数据表名称" required>
+            <el-input
+              v-model="sidebarTableForm.name"
+              placeholder="请输入数据表名称"
+              maxlength="50"
+              show-word-limit />
+          </el-form-item>
+          <el-form-item label="描述">
+            <el-input
+              v-model="sidebarTableForm.description"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入数据表描述（可选）"
+              maxlength="200"
+              show-word-limit />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="isEditingSidebarTable = false">取消</el-button>
+          <el-button
+            type="primary"
+            class="confirm-btn"
+            @click="handleEditSidebarTable"
+            :disabled="!sidebarTableForm.name.trim()">
+            保存
+          </el-button>
+        </template>
+      </el-dialog>
+
       <!-- 模板管理对话框 -->
       <DashboardTemplateDialog
         v-model:visible="showTemplateDialog"
@@ -3760,7 +3907,7 @@ $gray-800: #1f2937;
 
   .grid-lines-checkbox {
     margin-left: 4px;
-    
+
     .el-checkbox__label {
       font-size: 13px;
       padding-left: 4px;
