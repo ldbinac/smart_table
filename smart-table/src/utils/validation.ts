@@ -214,3 +214,106 @@ export function createValidationRule(
     ...options,
   };
 }
+
+// ==================== 必填字段校验工具函数 ====================
+
+export interface RequiredValidationResult {
+  valid: boolean;
+  errors: Array<{
+    fieldId: string;
+    fieldName: string;
+    message: string;
+  }>;
+}
+
+/**
+ * 检查字段是否为必填字段
+ * 优先使用 field.isRequired，其次检查 options.required
+ */
+export function isFieldRequired(field: FieldEntity): boolean {
+  return field.isRequired === true || field.options?.required === true;
+}
+
+/**
+ * 检查值是否为空
+ * - null/undefined 视为空
+ * - 空字符串或仅包含空格的字符串视为空
+ * - 空数组视为空
+ * - 0 和 false 不视为空
+ */
+export function isValueEmpty(value: CellValue): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string" && value.trim() === "") return true;
+  if (Array.isArray(value) && value.length === 0) return true;
+  return false;
+}
+
+/**
+ * 验证必填字段
+ * @param fields 字段列表
+ * @param values 字段值
+ * @returns 验证结果
+ */
+export function validateRequiredFields(
+  fields: FieldEntity[],
+  values: Record<string, CellValue>,
+): RequiredValidationResult {
+  const errors: Array<{
+    fieldId: string;
+    fieldName: string;
+    message: string;
+  }> = [];
+
+  for (const field of fields) {
+    // 跳过非必填字段
+    if (!isFieldRequired(field)) continue;
+
+    // 跳过只读字段（系统字段、公式字段等）
+    const readonlyFieldTypes = [
+      FieldType.FORMULA,
+      FieldType.LOOKUP,
+      FieldType.CREATED_BY,
+      FieldType.CREATED_TIME,
+      FieldType.UPDATED_BY,
+      FieldType.UPDATED_TIME,
+      FieldType.AUTO_NUMBER,
+    ];
+    if (readonlyFieldTypes.includes(field.type as unknown as FieldType)) {
+      continue;
+    }
+
+    const value = values[field.id];
+
+    if (isValueEmpty(value)) {
+      errors.push({
+        fieldId: field.id,
+        fieldName: field.name,
+        message: `请填写必填字段：${field.name}`,
+      });
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * 获取必填字段校验的错误提示信息
+ * @param errors 错误列表
+ * @returns 格式化的错误提示
+ */
+export function getRequiredFieldErrorMessage(
+  errors: Array<{ fieldName: string }>,
+): string {
+  if (errors.length === 0) return "";
+
+  const fieldNames = errors.map((e) => e.fieldName).join("、");
+
+  if (errors.length === 1) {
+    return `请填写必填字段：${fieldNames}`;
+  }
+
+  return `请填写以下必填字段：${fieldNames}`;
+}

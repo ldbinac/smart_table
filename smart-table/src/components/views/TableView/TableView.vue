@@ -11,6 +11,7 @@ import TableRow from "./TableRow.vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 import { generateId } from "@/utils/id";
 import { ElMessage, ElIcon } from "element-plus";
+import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ZoomIn, Check } from "@element-plus/icons-vue";
 import RecordDialog from "@/components/dialogs/RecordDialog.vue";
 
@@ -151,7 +152,15 @@ const handleCellUpdate = async (
   fieldId: string,
   value: CellValue,
 ) => {
-  // 使用 JSON.parse(JSON.stringify()) 确保所有值都是纯 JavaScript 对象
+  // 1. 检查必填字段
+  const field = fields.value.find((f) => f.id === fieldId);
+  if (field && isFieldRequired(field) && isValueEmpty(value)) {
+    ElMessage.error(`请填写必填字段：${field.name}`);
+    editingCell.value = null;
+    return;
+  }
+
+  // 2. 使用 JSON.parse(JSON.stringify()) 确保所有值都是纯 JavaScript 对象
   // 避免响应式对象导致的 IndexedDB 克隆错误
   const plainValues = JSON.parse(JSON.stringify(record.values));
   const plainValue = JSON.parse(JSON.stringify(value));

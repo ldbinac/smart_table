@@ -5,6 +5,8 @@ import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
 import MultiSelectField from "@/components/fields/MultiSelectField.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { isFieldRequired, isValueEmpty } from "@/utils/validation";
+import { ElMessage } from "element-plus";
 
 interface Props {
   record: RecordEntity;
@@ -247,6 +249,13 @@ const startEdit = async () => {
 
 const finishEdit = () => {
   if (!isEditing.value) return;
+
+  // 检查必填字段
+  if (isFieldRequired(props.field) && isValueEmpty(editValue.value)) {
+    ElMessage.error(`请填写必填字段：${props.field.name}`);
+    cancelEdit();
+    return;
+  }
 
   isEditing.value = false;
   emit("edit", false);

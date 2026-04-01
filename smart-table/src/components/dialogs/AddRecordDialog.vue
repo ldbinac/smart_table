@@ -21,6 +21,11 @@ import { FieldType } from "@/types";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import {
+  validateRequiredFields,
+  getRequiredFieldErrorMessage,
+} from "@/utils/validation";
+import type { CellValue } from "@/types";
 
 interface GroupLevelInfo {
   fieldId: string;
@@ -313,6 +318,18 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
 
 // 保存记录
 async function handleSave() {
+  // 1. 验证必填字段
+  const validation = validateRequiredFields(
+    visibleFields.value,
+    formData.value as Record<string, CellValue>,
+  );
+
+  if (!validation.valid) {
+    const errorMessage = getRequiredFieldErrorMessage(validation.errors);
+    ElMessage.error(errorMessage);
+    return;
+  }
+
   isSaving.value = true;
   try {
     emit("save", { ...formData.value });

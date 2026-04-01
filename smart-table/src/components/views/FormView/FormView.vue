@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 
 interface Props {
   fields: FieldEntity[];
@@ -99,12 +100,9 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
     return null;
   }
 
-  // 必填验证
-  if (
-    field.options?.required &&
-    (value === null || value === undefined || value === "" || value === false)
-  ) {
-    return `${field.name}为必填项`;
+  // 必填验证 - 支持 field.isRequired 和 field.options.required
+  if (isFieldRequired(field) && isValueEmpty(value)) {
+    return `请填写必填字段：${field.name}`;
   }
 
   // 如果值为空且不是必填项，跳过其他验证

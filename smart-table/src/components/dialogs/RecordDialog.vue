@@ -20,6 +20,11 @@ import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import {
+  validateRequiredFields,
+  getRequiredFieldErrorMessage,
+} from "@/utils/validation";
+import type { CellValue } from "@/types";
 // import { Calculator } from "@element-plus/icons-vue";
 
 const props = defineProps<{
@@ -230,6 +235,18 @@ function handleDateChange(field: FieldEntity, val: Date | null) {
 // 保存记录
 async function handleSave() {
   if (!props.record) return;
+
+  // 1. 验证必填字段
+  const validation = validateRequiredFields(
+    visibleFields.value,
+    formData.value as Record<string, CellValue>,
+  );
+
+  if (!validation.valid) {
+    const errorMessage = getRequiredFieldErrorMessage(validation.errors);
+    ElMessage.error(errorMessage);
+    return;
+  }
 
   isSaving.value = true;
   try {
