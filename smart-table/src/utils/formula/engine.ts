@@ -225,6 +225,7 @@ export class FormulaEngine {
   }
 
   private safeEval(expression: string): unknown {
+    // 只允许数字、运算符、括号和常见数学符号
     const sanitized = expression.replace(
       /[^0-9+\-*/().,%<>=!&|?:'" \t\n]/g,
       "",
@@ -234,11 +235,159 @@ export class FormulaEngine {
       throw new Error("Invalid expression");
     }
 
+    // 使用安全的数学表达式解析器替代 Function 构造函数
+    return this.evaluateMathExpression(sanitized);
+  }
+
+  private evaluateMathExpression(expression: string): unknown {
+    // 移除所有空白字符
+    const expr = expression.replace(/\s+/g, "");
+
+    // 验证表达式只包含允许的字符
+    if (!/^[0-9+\-*/().,%<>=!&|?:'"]+$/.test(expr)) {
+      throw new Error("Invalid characters in expression");
+    }
+
+    // 检查括号匹配
+    let depth = 0;
+    for (const char of expr) {
+      if (char === "(") depth++;
+      if (char === ")") depth--;
+      if (depth < 0) throw new Error("Mismatched parentheses");
+    }
+    if (depth !== 0) throw new Error("Mismatched parentheses");
+
+    // 使用安全的数学表达式求值
     try {
-      return Function(`"use strict"; return (${expression})`)();
+      return this.parseAndEvaluate(expr);
     } catch {
       return expression;
     }
+  }
+
+  private parseAndEvaluate(expr: string): number | boolean {
+    // 处理布尔值
+    if (expr === "true") return true;
+    if (expr === "false") return false;
+
+    // 处理字符串比较
+    const stringMatch = expr.match(/^["'](.+)["']([<>=!]+)["'](.+)["']$/);
+    if (stringMatch) {
+      const [, left, op, right] = stringMatch;
+      return this.compareStrings(left, op, right);
+    }
+
+    // 处理数字比较
+    const comparisonMatch = expr.match(/^(.+?)([<>=!]+)(.+)$/);
+    if (comparisonMatch) {
+      const [, left, op, right] = comparisonMatch;
+      const leftVal = this.parseNumber(left);
+      const rightVal = this.parseNumber(right);
+      if (leftVal !== null && rightVal !== null) {
+        return this.compareNumbers(leftVal, op, rightVal);
+      }
+    }
+
+    // 处理三元运算符
+    const ternaryMatch = expr.match(/^(.+?)\?(.+?):(.+)$/);
+    if (ternaryMatch) {
+      const [, condition, trueVal, falseVal] = ternaryMatch;
+      const condResult = this.parseAndEvaluate(condition);
+      if (typeof condResult === "boolean") {
+        return condResult
+          ? this.parseAndEvaluate(trueVal)
+          : this.parseAndEvaluate(falseVal);
+      }
+    }
+
+    // 处理逻辑运算符
+    if (expr.includes("&&")) {
+      const parts = expr.split("&&");
+      return parts.every((p) => this.parseAndEvaluate(p.trim()));
+    }
+    if (expr.includes("||")) {
+      const parts = expr.split("||");
+      return parts.some((p) => this.parseAndEvaluate(p.trim()));
+    }
+
+    // 处理数学表达式
+    return this.evaluateArithmetic(expr);
+  }
+
+  private parseNumber(str: string): number | null {
+    const num = parseFloat(str);
+    return isNaN(num) ? null : num;
+  }
+
+  private compareNumbers(left: number, op: string, right: number): boolean {
+    switch (op) {
+      case "<":
+        return left < right;
+      case ">":
+        return left > right;
+      case "<=":
+        return left <= right;
+      case ">=":
+        return left >= right;
+      case "==":
+      case "=":
+        return left === right;
+      case "!=":
+        return left !== right;
+      default:
+        return false;
+    }
+  }
+
+  private compareStrings(left: string, op: string, right: string): boolean {
+    switch (op) {
+      case "==":
+      case "=":
+        return left === right;
+      case "!=":
+        return left !== right;
+      default:
+        return false;
+    }
+  }
+
+  private evaluateArithmetic(expr: string): number {
+    // 处理百分比
+    if (expr.endsWith("%")) {
+      return this.evaluateArithmetic(expr.slice(0, -1)) / 100;
+    }
+
+    // 处理括号
+    while (expr.includes("(")) {
+      const match = expr.match(/\(([^()]+)\)/);
+      if (!match) break;
+      const inner = this.evaluateArithmetic(match[1]);
+      expr = expr.replace(match[0], String(inner));
+    }
+
+    // 处理加减法
+    const addSubMatch = expr.match(/^(.+?)([+\-])(.+)$/);
+    if (addSubMatch) {
+      const [, left, op, right] = addSubMatch;
+      const leftVal = this.evaluateArithmetic(left);
+      const rightVal = this.evaluateArithmetic(right);
+      return op === "+" ? leftVal + rightVal : leftVal - rightVal;
+    }
+
+    // 处理乘除法
+    const mulDivMatch = expr.match(/^(.+?)([*\/])(.+)$/);
+    if (mulDivMatch) {
+      const [, left, op, right] = mulDivMatch;
+      const leftVal = this.evaluateArithmetic(left);
+      const rightVal = this.evaluateArithmetic(right);
+      return op === "*" ? leftVal * rightVal : leftVal / rightVal;
+    }
+
+    // 处理纯数字
+    const num = parseFloat(expr);
+    if (!isNaN(num)) return num;
+
+    throw new Error("Invalid expression");
   }
 
   private normalizeResult(result: unknown): CellValue {

@@ -8,6 +8,7 @@ import type { Base } from "@/db/schema";
 import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
 import { templateService } from "@/db/services";
 import { getFieldTypeLabel, getFieldTypeIcon } from "@/types";
+import { debounce } from "@/utils/debounce";
 
 const router = useRouter();
 const baseStore = useBaseStore();
@@ -116,17 +117,11 @@ const unstarLoadingMap = ref<Map<string, boolean>>(new Map());
 // ========== 搜索功能 ==========
 const searchQuery = ref("");
 const searchInputRef = ref<HTMLInputElement | null>(null);
-let searchTimeout: number | null = null;
 
-// 防抖搜索
-const handleSearchInput = () => {
-  if (searchTimeout) {
-    clearTimeout(searchTimeout);
-  }
-  searchTimeout = window.setTimeout(() => {
-    // 搜索逻辑已在计算属性中实现
-  }, 300);
-};
+// 防抖搜索 - 搜索逻辑已在计算属性中实现
+const handleSearchInput = debounce(() => {
+  // 搜索逻辑已在计算属性中实现
+}, 300);
 
 // 高亮匹配文本
 const highlightText = (text: string, query: string): string => {

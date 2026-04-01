@@ -14,6 +14,131 @@ export interface ImportResult {
   totalRows: number;
 }
 
+// 公共格式化函数 - 用于 Excel 导出
+function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
+  if (value === null || value === undefined) return "";
+
+  switch (field.type) {
+    case FieldType.SINGLE_SELECT:
+      // 将选项ID转换为选项名称
+      if (typeof value === "string") {
+        const options = field.options?.options as
+          | Array<{ id: string; name: string; color: string }>
+          | undefined;
+        const option = options?.find((opt) => opt.id === value);
+        return option?.name || value;
+      }
+      return value;
+
+    case FieldType.MULTI_SELECT:
+      // 将选项ID数组转换为选项名称数组
+      if (Array.isArray(value)) {
+        const options = field.options?.options as
+          | Array<{ id: string; name: string; color: string }>
+          | undefined;
+        const names = value.map((id) => {
+          const option = options?.find((opt) => opt.id === id);
+          return option?.name || id;
+        });
+        return names.join(", ");
+      }
+      return value;
+
+    case FieldType.CHECKBOX:
+      return value ? "是" : "否";
+
+    case FieldType.DATE:
+    case FieldType.CREATED_TIME:
+    case FieldType.UPDATED_TIME:
+      if (typeof value === "number") {
+        return new Date(value).toLocaleDateString("zh-CN");
+      }
+      return value;
+
+    case FieldType.MEMBER:
+      if (Array.isArray(value)) {
+        return value
+          .map((m) =>
+            typeof m === "object" && m !== null && "name" in m
+              ? m.name
+              : String(m),
+          )
+          .join(", ");
+      }
+      return value;
+
+    case FieldType.ATTACHMENT:
+      if (Array.isArray(value)) {
+        return value
+          .map((f) =>
+            typeof f === "object" && f !== null && "name" in f
+              ? f.name
+              : String(f),
+          )
+          .join(", ");
+      }
+      return value;
+
+    default:
+      return value;
+  }
+}
+
+// 公共 CSV 转义函数
+function escapeCSV(value: unknown): string {
+  const str = String(value ?? "");
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+// 公共格式化函数 - 用于 CSV 导出
+function formatValueForCSV(value: CellValue, field: FieldEntity): string {
+  if (value === null || value === undefined) return "";
+
+  switch (field.type) {
+    case FieldType.SINGLE_SELECT:
+      // 将选项ID转换为选项名称
+      if (typeof value === "string") {
+        const options = field.options?.options as
+          | Array<{ id: string; name: string; color: string }>
+          | undefined;
+        const option = options?.find((opt) => opt.id === value);
+        return option?.name || value;
+      }
+      return String(value);
+
+    case FieldType.MULTI_SELECT:
+      // 将选项ID数组转换为选项名称数组
+      if (Array.isArray(value)) {
+        const options = field.options?.options as
+          | Array<{ id: string; name: string; color: string }>
+          | undefined;
+        const names = value.map((id) => {
+          const option = options?.find((opt) => opt.id === id);
+          return option?.name || id;
+        });
+        return names.join("; ");
+      }
+      return String(value);
+
+    case FieldType.CHECKBOX:
+      return value ? "是" : "否";
+
+    case FieldType.DATE:
+    case FieldType.CREATED_TIME:
+    case FieldType.UPDATED_TIME:
+      if (typeof value === "number") {
+        return new Date(value).toLocaleDateString("zh-CN");
+      }
+      return String(value);
+
+    default:
+      return String(value);
+  }
+}
+
 export class ExcelExporter {
   static exportTable(
     tableName: string,
@@ -32,7 +157,7 @@ export class ExcelExporter {
     const data = records.map((record) => {
       return fields.map((field) => {
         const value = record.values[field.id];
-        return this.formatValueForExcel(value, field);
+        return formatValueForExcel(value, field);
       });
     });
 
@@ -91,78 +216,6 @@ export class ExcelExporter {
       reader.readAsArrayBuffer(file);
     });
   }
-
-  private static formatValueForExcel(
-    value: CellValue,
-    field: FieldEntity,
-  ): unknown {
-    if (value === null || value === undefined) return "";
-
-    switch (field.type) {
-      case FieldType.SINGLE_SELECT:
-        // 将选项ID转换为选项名称
-        if (typeof value === "string") {
-          const options = field.options?.options as
-            | Array<{ id: string; name: string; color: string }>
-            | undefined;
-          const option = options?.find((opt) => opt.id === value);
-          return option?.name || value;
-        }
-        return value;
-
-      case FieldType.MULTI_SELECT:
-        // 将选项ID数组转换为选项名称数组
-        if (Array.isArray(value)) {
-          const options = field.options?.options as
-            | Array<{ id: string; name: string; color: string }>
-            | undefined;
-          const names = value.map((id) => {
-            const option = options?.find((opt) => opt.id === id);
-            return option?.name || id;
-          });
-          return names.join(", ");
-        }
-        return value;
-
-      case FieldType.CHECKBOX:
-        return value ? "是" : "否";
-
-      case FieldType.DATE:
-      case FieldType.CREATED_TIME:
-      case FieldType.UPDATED_TIME:
-        if (typeof value === "number") {
-          return new Date(value).toLocaleDateString("zh-CN");
-        }
-        return value;
-
-      case FieldType.MEMBER:
-        if (Array.isArray(value)) {
-          return value
-            .map((m) =>
-              typeof m === "object" && m !== null && "name" in m
-                ? m.name
-                : String(m),
-            )
-            .join(", ");
-        }
-        return value;
-
-      case FieldType.ATTACHMENT:
-        if (Array.isArray(value)) {
-          return value
-            .map((f) =>
-              typeof f === "object" && f !== null && "name" in f
-                ? f.name
-                : String(f),
-            )
-            .join(", ");
-        }
-        return value;
-
-      default:
-        return value;
-    }
-  }
 }
 
 export class CSVExporter {
@@ -174,11 +227,11 @@ export class CSVExporter {
   ): void {
     const { filename = tableName, includeHeaders = true } = options;
 
-    const headers = fields.map((f) => this.escapeCSV(f.name));
+    const headers = fields.map((f) => escapeCSV(f.name));
     const data = records.map((record) => {
       return fields.map((field) => {
         const value = record.values[field.id];
-        return this.escapeCSV(this.formatValueForCSV(value, field));
+        return escapeCSV(formatValueForCSV(value, field));
       });
     });
 
@@ -235,14 +288,6 @@ export class CSVExporter {
     });
   }
 
-  private static escapeCSV(value: unknown): string {
-    const str = String(value ?? "");
-    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  }
-
   private static parseCSVLine(line: string): string[] {
     const result: string[] = [];
     let current = "";
@@ -276,54 +321,6 @@ export class CSVExporter {
 
     result.push(current);
     return result;
-  }
-
-  private static formatValueForCSV(
-    value: CellValue,
-    field: FieldEntity,
-  ): string {
-    if (value === null || value === undefined) return "";
-
-    switch (field.type) {
-      case FieldType.SINGLE_SELECT:
-        // 将选项ID转换为选项名称
-        if (typeof value === "string") {
-          const options = field.options?.options as
-            | Array<{ id: string; name: string; color: string }>
-            | undefined;
-          const option = options?.find((opt) => opt.id === value);
-          return option?.name || value;
-        }
-        return String(value);
-
-      case FieldType.MULTI_SELECT:
-        // 将选项ID数组转换为选项名称数组
-        if (Array.isArray(value)) {
-          const options = field.options?.options as
-            | Array<{ id: string; name: string; color: string }>
-            | undefined;
-          const names = value.map((id) => {
-            const option = options?.find((opt) => opt.id === id);
-            return option?.name || id;
-          });
-          return names.join("; ");
-        }
-        return String(value);
-
-      case FieldType.CHECKBOX:
-        return value ? "是" : "否";
-
-      case FieldType.DATE:
-      case FieldType.CREATED_TIME:
-      case FieldType.UPDATED_TIME:
-        if (typeof value === "number") {
-          return new Date(value).toLocaleDateString("zh-CN");
-        }
-        return String(value);
-
-      default:
-        return String(value);
-    }
   }
 }
 
@@ -487,127 +484,4 @@ export function exportToJSON(
   });
 
   return JSON.stringify(exportData, null, 2);
-}
-
-// 辅助函数
-function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
-  if (value === null || value === undefined) return "";
-
-  switch (field.type) {
-    case FieldType.SINGLE_SELECT:
-      // 将选项ID转换为选项名称
-      if (typeof value === "string") {
-        const options = field.options?.options as
-          | Array<{ id: string; name: string; color: string }>
-          | undefined;
-        const option = options?.find((opt) => opt.id === value);
-        return option?.name || value;
-      }
-      return value;
-
-    case FieldType.MULTI_SELECT:
-      // 将选项ID数组转换为选项名称数组
-      if (Array.isArray(value)) {
-        const options = field.options?.options as
-          | Array<{ id: string; name: string; color: string }>
-          | undefined;
-        const names = value.map((id) => {
-          const option = options?.find((opt) => opt.id === id);
-          return option?.name || id;
-        });
-        return names.join(", ");
-      }
-      return value;
-
-    case FieldType.CHECKBOX:
-      return value ? "是" : "否";
-
-    case FieldType.DATE:
-    case FieldType.CREATED_TIME:
-    case FieldType.UPDATED_TIME:
-      if (typeof value === "number") {
-        return new Date(value).toLocaleDateString("zh-CN");
-      }
-      return value;
-
-    case FieldType.MEMBER:
-      if (Array.isArray(value)) {
-        return value
-          .map((m) =>
-            typeof m === "object" && m !== null && "name" in m
-              ? m.name
-              : String(m),
-          )
-          .join(", ");
-      }
-      return value;
-
-    case FieldType.ATTACHMENT:
-      if (Array.isArray(value)) {
-        return value
-          .map((f) =>
-            typeof f === "object" && f !== null && "name" in f
-              ? f.name
-              : String(f),
-          )
-          .join(", ");
-      }
-      return value;
-
-    default:
-      return value;
-  }
-}
-
-function escapeCSV(value: unknown): string {
-  const str = String(value ?? "");
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-function formatValueForCSV(value: CellValue, field: FieldEntity): string {
-  if (value === null || value === undefined) return "";
-
-  switch (field.type) {
-    case FieldType.SINGLE_SELECT:
-      // 将选项ID转换为选项名称
-      if (typeof value === "string") {
-        const options = field.options?.options as
-          | Array<{ id: string; name: string; color: string }>
-          | undefined;
-        const option = options?.find((opt) => opt.id === value);
-        return option?.name || value;
-      }
-      return String(value);
-
-    case FieldType.MULTI_SELECT:
-      // 将选项ID数组转换为选项名称数组
-      if (Array.isArray(value)) {
-        const options = field.options?.options as
-          | Array<{ id: string; name: string; color: string }>
-          | undefined;
-        const names = value.map((id) => {
-          const option = options?.find((opt) => opt.id === id);
-          return option?.name || id;
-        });
-        return names.join("; ");
-      }
-      return String(value);
-
-    case FieldType.CHECKBOX:
-      return value ? "是" : "否";
-
-    case FieldType.DATE:
-    case FieldType.CREATED_TIME:
-    case FieldType.UPDATED_TIME:
-      if (typeof value === "number") {
-        return new Date(value).toLocaleDateString("zh-CN");
-      }
-      return String(value);
-
-    default:
-      return String(value);
-  }
 }

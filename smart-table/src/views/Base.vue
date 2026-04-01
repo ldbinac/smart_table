@@ -257,27 +257,17 @@ const tableListRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
 
 onMounted(async () => {
-  console.log("[Base] onMounted");
   const baseId = route.params.id as string;
   if (baseId) {
     await baseStore.loadBase(baseId);
     // 同步视图数据到 viewStore
     if (baseStore.currentTable) {
-      console.log("[Base] Loading views for table:", baseStore.currentTable.id);
       await viewStore.loadViews(baseStore.currentTable.id);
-      console.log("[Base] Views loaded:", viewStore.views.length);
       // 选择默认视图（这会设置 viewStore.currentView）
       await viewStore.selectDefaultView(baseStore.currentTable.id);
-      console.log(
-        "[Base] Default view selected:",
-        viewStore.currentView?.id,
-        viewStore.currentView?.type,
-      );
-      console.log("[Base] Default view config:", viewStore.currentView?.config);
 
       // 如果默认视图是表单视图，加载表单配置
       if (viewStore.currentView?.type === ViewType.FORM) {
-        console.log("[Base] Default view is FORM, loading form config");
         loadFormConfig();
       }
     }
@@ -288,7 +278,6 @@ onMounted(async () => {
 watch(
   () => route.params.id,
   async (newId) => {
-    console.log("[Base] route.params.id changed:", newId);
     if (newId) {
       await baseStore.loadBase(newId as string);
       // 同步视图数据到 viewStore
@@ -296,11 +285,6 @@ watch(
         await viewStore.loadViews(baseStore.currentTable.id);
         // 选择默认视图（这会设置 viewStore.currentView）
         await viewStore.selectDefaultView(baseStore.currentTable.id);
-        console.log(
-          "[Base] After route change - currentView:",
-          viewStore.currentView?.id,
-          viewStore.currentView?.type,
-        );
       }
     }
   },
@@ -364,12 +348,12 @@ const handleViewChange = async (viewId: string) => {
   }
 };
 
-const handleRecordSelect = (record: any) => {
-  console.log("Selected record:", record);
+const handleRecordSelect = (_record: any) => {
+  // 记录选择处理
 };
 
-const handleRecordsSelect = (records: any[]) => {
-  console.log("Selected records:", records);
+const handleRecordsSelect = (_records: any[]) => {
+  // 多记录选择处理
 };
 
 // 处理添加记录（来自看板视图和日历视图）
@@ -445,7 +429,6 @@ const handleSaveNewRecord = async (values: Record<string, unknown>) => {
     }
   } catch (error) {
     ElMessage.error("创建记录失败");
-    console.error(error);
   }
 };
 
@@ -470,7 +453,6 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
     }
   } catch (error) {
     ElMessage.error("提交失败");
-    console.error(error);
   }
 };
 
@@ -485,10 +467,7 @@ const handleFormCancel = () => {
 
 // 加载表单配置
 const loadFormConfig = () => {
-  console.log("[FormConfig] Loading form config...");
   const currentView = viewStore.currentView;
-  console.log("[FormConfig] Current view:", currentView?.id, currentView?.type);
-  console.log("[FormConfig] Current view config:", currentView?.config);
 
   const systemFieldTypes = [
     "createdBy",
@@ -502,11 +481,6 @@ const loadFormConfig = () => {
   const defaultVisibleFieldIds = baseStore.fields
     .filter((f) => !systemFieldTypes.includes(f.type))
     .map((f) => f.id);
-
-  console.log(
-    "[FormConfig] Default visible field IDs:",
-    defaultVisibleFieldIds,
-  );
 
   if (currentView?.type === ViewType.FORM && currentView.config) {
     const config = currentView.config as {
@@ -522,11 +496,6 @@ const loadFormConfig = () => {
     // 如果 config 中有 visibleFieldIds 属性（即使是空数组），使用它
     // 如果没有 visibleFieldIds 属性，使用默认值
     const hasVisibleFieldIdsConfig = config.visibleFieldIds !== undefined;
-    console.log(
-      "[FormConfig] Has visibleFieldIds config:",
-      hasVisibleFieldIdsConfig,
-    );
-    console.log("[FormConfig] Config visibleFieldIds:", config.visibleFieldIds);
 
     formConfig.value = {
       title: config.title || "数据收集表单",
@@ -539,7 +508,6 @@ const loadFormConfig = () => {
       allowMultipleSubmit: config.allowMultipleSubmit !== false,
     };
   } else {
-    console.log("[FormConfig] Using default config");
     // 使用默认配置
     formConfig.value = {
       title: "数据收集表单",
@@ -550,25 +518,13 @@ const loadFormConfig = () => {
       allowMultipleSubmit: true,
     };
   }
-  console.log("[FormConfig] Loaded formConfig:", formConfig.value);
-  console.log(
-    "[FormConfig] Final visibleFieldIds:",
-    formConfig.value.visibleFieldIds,
-  );
 };
 
 // 监听当前视图变化，自动加载表单配置
 watch(
   () => viewStore.currentView,
   (newView, oldView) => {
-    console.log(
-      "[Base] viewStore.currentView changed:",
-      newView?.id,
-      newView?.type,
-    );
-    console.log("[Base] Old view:", oldView?.id, oldView?.type);
     if (newView?.type === ViewType.FORM && newView?.id !== oldView?.id) {
-      console.log("[Base] Loading form config due to view change");
       loadFormConfig();
     }
   },
@@ -588,16 +544,10 @@ const openFormConfigDialog = () => {
 
 // 保存表单配置
 const handleFormConfigSave = async (config: typeof formConfig.value) => {
-  console.log("[FormConfig] Saving config:", config);
   formConfig.value = { ...config };
 
   // 保存到视图配置
   const currentView = viewStore.currentView;
-  console.log("[FormConfig] Current view:", currentView?.id, currentView?.type);
-  console.log(
-    "[FormConfig] Current view config before save:",
-    currentView?.config,
-  );
 
   if (currentView && currentView.type === ViewType.FORM) {
     const newConfig = {
@@ -609,16 +559,10 @@ const handleFormConfigSave = async (config: typeof formConfig.value) => {
       successMessage: config.successMessage,
       allowMultipleSubmit: config.allowMultipleSubmit,
     };
-    console.log("[FormConfig] New config to save:", newConfig);
 
     await viewStore.updateView(currentView.id, {
       config: newConfig,
     });
-
-    console.log(
-      "[FormConfig] View after update:",
-      viewStore.currentView?.config,
-    );
   }
 
   ElMessage.success("表单配置已保存");
@@ -671,7 +615,6 @@ const handleSaveRecord = async (
     ElMessage.success("记录更新成功");
   } catch (error) {
     ElMessage.error("更新记录失败");
-    console.error(error);
   }
 };
 
@@ -709,7 +652,6 @@ const handleDeleteRecord = async (recordId: string) => {
     // 用户取消删除时不显示错误
     if (error !== "cancel") {
       ElMessage.error("删除记录失败");
-      console.error(error);
     }
   }
 };
@@ -775,7 +717,6 @@ async function handleCreateDashboard() {
         }
       } catch (error) {
         ElMessage.error("创建仪表盘失败");
-        console.error(error);
       }
     }
   });
@@ -873,9 +814,8 @@ async function handleReorderDashboards(dashboardIds: string[]) {
     sidebarRef.value?.refreshDashboards();
   } catch (error) {
     ElMessage.error("排序失败");
-    console.error(error);
   }
-}
+};
 
 // 处理创建数据表
 async function handleCreateTable() {

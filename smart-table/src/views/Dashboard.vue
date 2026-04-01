@@ -34,6 +34,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
+import { freshColors } from "@/utils/helpers";
 
 const baseStore = useBaseStore();
 const route = useRoute();
@@ -107,24 +108,6 @@ const currentShare = ref<DashboardShare | null>(null);
 const shareUrl = ref("");
 const isCreatingShare = ref(false);
 const existingShares = ref<DashboardShare[]>([]);
-
-// 清新配色方案
-const freshColors = {
-  primary: "#3B82F6",
-  primaryLight: "#EFF6FF",
-  success: "#10B981",
-  warning: "#F59E0B",
-  danger: "#EF4444",
-  gray50: "#F9FAFB",
-  gray100: "#F3F4F6",
-  gray200: "#E5E7EB",
-  gray300: "#D1D5DB",
-  gray400: "#9CA3AF",
-  gray500: "#6B7280",
-  gray600: "#4B5563",
-  gray700: "#374151",
-  gray800: "#1F2937",
-};
 
 // 组件类型定义 - 数据图表类
 const chartWidgetTypes = [
@@ -288,7 +271,6 @@ const filteredAggregationTypes = computed(() => {
 async function loadDashboards() {
   const baseId = route.params.id as string;
   if (!baseId) {
-    console.warn("No baseId found in route params");
     return;
   }
 
@@ -301,7 +283,6 @@ async function loadDashboards() {
     }
 
     if (!baseStore.currentBase) {
-      console.warn("Failed to load base");
       ElMessage.error("加载基地信息失败");
       return;
     }
@@ -324,7 +305,6 @@ async function loadDashboards() {
       await selectDashboard(dashboards.value[0]);
     }
   } catch (error) {
-    console.error("加载仪表盘失败:", error);
     ElMessage.error("加载数据失败，请刷新页面重试");
   } finally {
     isLoading.value = false;
@@ -444,7 +424,6 @@ async function applyTemplate(template: DashboardTemplate) {
     ElMessage.success("模板应用成功");
     showTemplateDialog.value = false;
   } catch (error) {
-    console.error("应用模板失败:", error);
     ElMessage.error("应用模板失败");
   }
 }
@@ -478,7 +457,6 @@ async function createDashboard() {
 
     ElMessage.success("仪表盘创建成功");
   } catch (error) {
-    console.error("创建仪表盘失败:", error);
     ElMessage.error("创建仪表盘失败，请重试");
   }
 }
@@ -510,7 +488,6 @@ async function updateDashboard() {
     isCreatingDashboard.value = false;
     ElMessage.success("仪表盘更新成功");
   } catch (error) {
-    console.error("更新仪表盘失败:", error);
     ElMessage.error("更新仪表盘失败，请重试");
   }
 }
@@ -583,7 +560,6 @@ async function saveWidgets(showMessage = true) {
       ElMessage.success("保存成功");
     }
   } catch (error) {
-    console.error("保存失败:", error);
     if (showMessage) {
       ElMessage.error("保存失败，请重试");
     }
@@ -645,7 +621,6 @@ async function createShare() {
 
     ElMessage.success("分享链接创建成功");
   } catch (error) {
-    console.error("创建分享链接失败:", error);
     ElMessage.error("创建分享链接失败");
   } finally {
     isCreatingShare.value = false;
@@ -769,7 +744,6 @@ async function handleEditSidebarTable() {
     }
   } catch (error) {
     ElMessage.error("更新失败");
-    console.error(error);
   }
 }
 
@@ -797,8 +771,6 @@ const handleDeleteTable = async (table: { id: string; name: string }) => {
     });
   } catch (error: any) {
     // 错误已经在通用模块中处理
-    ElMessage.error("更新失败");
-    console.error(error);
   }
 };
 
@@ -819,8 +791,6 @@ const handleToggleStarTable = async (table: {
     }
   } catch (error) {
     // 错误已经在通用模块中处理
-    ElMessage.error("更新失败");
-    console.error(error);
   }
 };
 
@@ -943,7 +913,6 @@ const handleReorderDashboards = async (dashboardIds: string[]) => {
     await loadDashboards();
   } catch (error) {
     ElMessage.error("排序失败");
-    console.error(error);
   }
 };
 
