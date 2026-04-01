@@ -1608,7 +1608,6 @@ function renderClockWidget(widget: WidgetConfig, container: HTMLElement) {
 function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
   const now = new Date();
-  const dayFontSize = config.dayFontSize || 48;
   const monthFontSize = config.monthFontSize || 16;
   // 背景色和文字颜色配置，默认透明背景和黑色文字
   const backgroundColor = config.backgroundColor || "transparent";
@@ -1618,6 +1617,7 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
   const monthYear = now.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "long",
+    day: "numeric",
   });
   const weekday = now.toLocaleDateString("zh-CN", { weekday: "long" });
 
@@ -1633,9 +1633,8 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
       color: ${textColor};
       padding: 16px;
     ">
-      <div style="font-size: ${dayFontSize}px; font-weight: bold; line-height: 1;">${day}</div>
-      <div style="font-size: ${monthFontSize}px; margin-top: 4px;">${monthYear}</div>
-      ${config.showWeekday !== false ? `<div style="font-size: 14px; margin-top: 4px; opacity: 0.8;">${weekday}</div>` : ""}
+      <div style="font-size: ${monthFontSize}px; margin-top: 4px;">${monthYear}
+      ${config.showWeekday !== false ? `<span>${weekday}</span>` : ""}</div>
     </div>
   `;
 }
@@ -2893,14 +2892,6 @@ onUnmounted(() => {
                   </el-form-item>
                   <el-form-item label="日期字体大小">
                     <el-slider
-                      v-model="(selectedWidget!.config as any).dayFontSize"
-                      :min="24"
-                      :max="120"
-                      :step="4"
-                      @change="debouncedSaveWidgets()" />
-                  </el-form-item>
-                  <el-form-item label="月份字体大小">
-                    <el-slider
                       v-model="(selectedWidget!.config as any).monthFontSize"
                       :min="10"
                       :max="32"
@@ -3171,7 +3162,7 @@ onUnmounted(() => {
                 <el-form-item label="高度 (行数)">
                   <el-slider
                     v-model="selectedWidget.position.h"
-                    :min="2"
+                    :min="1"
                     :max="8"
                     :step="1"
                     show-stops
@@ -4063,7 +4054,7 @@ $gray-800: #1f2937;
   flex-direction: column;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  min-height: 160px;
+  // min-height: 160px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
   &:hover {
@@ -4190,7 +4181,7 @@ $gray-800: #1f2937;
 
 .widget-body {
   flex: 1;
-  padding: 16px;
+  padding: $spacing-xs;
   min-height: 0;
   position: relative;
 }

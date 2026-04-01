@@ -1,66 +1,69 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
-import { dashboardShareService } from '@/db/services/dashboardShareService';
-import { dashboardService } from '@/db/services/dashboardService';
-import { recordService } from '@/db/services/recordService';
-import { fieldService } from '@/db/services/fieldService';
-import type { DashboardShare, Dashboard } from '@/db/schema';
-import type { WidgetConfig } from '@/db/services/dashboardService';
-import * as echarts from 'echarts';
-import type { EChartsOption } from 'echarts';
+import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import { useRoute } from "vue-router";
+import { dashboardShareService } from "@/db/services/dashboardShareService";
+import { dashboardService } from "@/db/services/dashboardService";
+import { recordService } from "@/db/services/recordService";
+import { fieldService } from "@/db/services/fieldService";
+import type { DashboardShare, Dashboard } from "@/db/schema";
+import type { WidgetConfig } from "@/db/services/dashboardService";
+import * as echarts from "echarts";
+import type { EChartsOption } from "echarts";
 import {
   processChartData,
   getChartColors,
-  formatLargeNumber
-} from '@/utils/dashboardDataProcessor';
-import { ElMessage } from 'element-plus';
+  formatLargeNumber,
+} from "@/utils/dashboardDataProcessor";
+import { ElMessage } from "element-plus";
 
 const route = useRoute();
 
 // 清新配色方案 - 与 Dashboard.vue 保持一致
 const freshColors = {
-  primary: '#3B82F6',
-  primaryLight: '#EFF6FF',
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  gray50: '#F9FAFB',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  gray700: '#374151',
-  gray800: '#1F2937',
+  primary: "#3B82F6",
+  primaryLight: "#EFF6FF",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+  gray50: "#F9FAFB",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray500: "#6B7280",
+  gray600: "#4B5563",
+  gray700: "#374151",
+  gray800: "#1F2937",
 };
 
 // 状态
 const isLoading = ref(true);
 const isValidating = ref(false);
-const errorMessage = ref('');
+const errorMessage = ref("");
 const shareInfo = ref<DashboardShare | null>(null);
 const dashboard = ref<Dashboard | null>(null);
 const widgets = ref<WidgetConfig[]>([]);
-const accessCode = ref('');
+const accessCode = ref("");
 const chartRefs = ref<Map<string, echarts.ECharts>>(new Map());
 const chartContainers = ref<Map<string, HTMLElement>>(new Map());
 
 // 布局配置
-const layoutType = ref<"grid" | "free">('grid');
+const layoutType = ref<"grid" | "free">("grid");
 const gridColumns = ref<12 | 24>(12);
 
 // 验证分享链接
 async function validateShare() {
   const token = route.params.token as string;
   if (!token) {
-    errorMessage.value = '分享链接无效';
+    errorMessage.value = "分享链接无效";
     isLoading.value = false;
     return;
   }
 
-  const result = await dashboardShareService.validateShare(token, accessCode.value || undefined);
+  const result = await dashboardShareService.validateShare(
+    token,
+    accessCode.value || undefined,
+  );
 
   if (!result.valid) {
     if (result.share?.accessCode && !accessCode.value) {
@@ -69,7 +72,7 @@ async function validateShare() {
       isLoading.value = false;
       return;
     }
-    errorMessage.value = result.error || '分享链接无效';
+    errorMessage.value = result.error || "分享链接无效";
     isLoading.value = false;
     return;
   }
@@ -88,7 +91,7 @@ async function loadDashboard(dashboardId: string) {
   try {
     const dashboardData = await dashboardService.getDashboard(dashboardId);
     if (!dashboardData) {
-      errorMessage.value = '仪表盘不存在或已被删除';
+      errorMessage.value = "仪表盘不存在或已被删除";
       isLoading.value = false;
       return;
     }
@@ -97,11 +100,11 @@ async function loadDashboard(dashboardId: string) {
     widgets.value = (dashboardData.widgets || []) as WidgetConfig[];
 
     // 设置布局配置
-    layoutType.value = dashboardData.layoutType || 'grid';
+    layoutType.value = dashboardData.layoutType || "grid";
     gridColumns.value = (dashboardData.gridColumns as 12 | 24) || 12;
 
     // 加载所有相关表的数据
-    const tableIds = [...new Set(widgets.value.map(w => w.tableId))];
+    const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
     for (const tableId of tableIds) {
       await loadTableData(tableId);
     }
@@ -110,11 +113,11 @@ async function loadDashboard(dashboardId: string) {
 
     // 渲染组件
     nextTick(() => {
-      widgets.value.forEach(widget => renderWidget(widget));
+      widgets.value.forEach((widget) => renderWidget(widget));
     });
   } catch (error) {
-    console.error('加载仪表盘失败:', error);
-    errorMessage.value = '加载仪表盘失败';
+    console.error("加载仪表盘失败:", error);
+    errorMessage.value = "加载仪表盘失败";
     isLoading.value = false;
   }
 }
@@ -130,7 +133,7 @@ async function loadTableData(tableId: string) {
 
   const [fields, records] = await Promise.all([
     fieldService.getFieldsByTable(tableId),
-    recordService.getRecordsByTable(tableId)
+    recordService.getRecordsByTable(tableId),
   ]);
 
   tableFieldsMap.value.set(tableId, fields);
@@ -140,7 +143,7 @@ async function loadTableData(tableId: string) {
 // 提交访问密码
 async function submitAccessCode() {
   if (!accessCode.value.trim()) {
-    ElMessage.warning('请输入访问密码');
+    ElMessage.warning("请输入访问密码");
     return;
   }
   isValidating.value = false;
@@ -150,7 +153,7 @@ async function submitAccessCode() {
 
 // 计算网格单元格尺寸 - 用于自适应布局
 function calculateCellDimensions() {
-  const gridContainer = document.querySelector('.widgets-grid');
+  const gridContainer = document.querySelector(".widgets-grid");
   if (!gridContainer) return { cellWidth: 100, cellHeight: 80 };
 
   const containerRect = gridContainer.getBoundingClientRect();
@@ -182,7 +185,7 @@ function getWidgetStyle(widget: WidgetConfig): Record<string, string | number> {
       width: `${w * cellWidth + (w - 1) * 16}px`,
       height: `${h * cellHeight + (h - 1) * 16}px`,
       zIndex: widget.position.z || 1,
-      ...getBorderStyle(widget)
+      ...getBorderStyle(widget),
     };
   } else {
     // 网格布局：使用 grid-area 指定位置
@@ -193,7 +196,7 @@ function getWidgetStyle(widget: WidgetConfig): Record<string, string | number> {
     return {
       gridColumn: `${x + 1} / span ${w}`,
       gridRow: `${y + 1} / span ${h}`,
-      ...getBorderStyle(widget)
+      ...getBorderStyle(widget),
     };
   }
 }
@@ -202,7 +205,7 @@ function getWidgetStyle(widget: WidgetConfig): Record<string, string | number> {
 // 文字组件默认隐藏标题栏，其他组件根据 showHeader 配置
 function shouldShowHeader(widget: WidgetConfig): boolean {
   // 文字组件默认隐藏标题栏
-  if (widget.type === 'text') {
+  if (widget.type === "text") {
     return widget.config?.showHeader === true;
   }
   // 其他组件默认显示标题栏
@@ -211,33 +214,33 @@ function shouldShowHeader(widget: WidgetConfig): boolean {
 
 // 获取边框样式
 function getBorderStyle(widget: WidgetConfig): Record<string, string> {
-  const borderSize = widget.config?.borderSize || 'none';
+  const borderSize = widget.config?.borderSize || "none";
   const borderWidths = {
-    none: '0px',
-    narrow: '4px',
-    medium: '8px',
-    wide: '16px'
+    none: "0px",
+    narrow: "4px",
+    medium: "8px",
+    wide: "16px",
   };
-  const borderWidth = borderWidths[borderSize] || '0px';
+  const borderWidth = borderWidths[borderSize] || "0px";
 
   return {
     border: `${borderWidth} solid #f0f0f0`,
-    borderRadius: '12px',
-    overflow: 'hidden'
+    borderRadius: "12px",
+    overflow: "hidden",
   };
 }
 
 // 获取内容区域 padding 样式
 function getBodyPaddingStyle(widget: WidgetConfig): Record<string, string> {
-  const borderSize = widget.config?.borderSize || 'none';
+  const borderSize = widget.config?.borderSize || "none";
 
   // 当无边框时，padding 设置为 0px
-  if (borderSize === 'none') {
-    return { padding: '0px' };
+  if (borderSize === "none") {
+    return { padding: "0px" };
   }
 
   // 有边框时，使用默认 padding
-  return { padding: '12px' };
+  return { padding: "12px" };
 }
 
 // 渲染组件
@@ -246,22 +249,22 @@ function renderWidget(widget: WidgetConfig) {
   if (!container) return;
 
   // 大屏专用组件渲染（不需要数据表）
-  if (widget.type === 'clock') {
+  if (widget.type === "clock") {
     renderClockWidget(widget, container);
     return;
   }
 
-  if (widget.type === 'date') {
+  if (widget.type === "date") {
     renderDateWidget(widget, container);
     return;
   }
 
-  if (widget.type === 'marquee') {
+  if (widget.type === "marquee") {
     renderMarqueeWidget(widget, container);
     return;
   }
 
-  if (widget.type === 'text') {
+  if (widget.type === "text") {
     renderTextWidget(widget, container);
     return;
   }
@@ -271,10 +274,10 @@ function renderWidget(widget: WidgetConfig) {
   const records = tableRecordsMap.value.get(widget.tableId) || [];
 
   // 大屏组件 kpi 和 realtime 可以没有数据时显示默认状态
-  if (widget.type === 'kpi' || widget.type === 'realtime') {
+  if (widget.type === "kpi" || widget.type === "realtime") {
     if (!widget.tableId || records.length === 0) {
       // 显示默认空状态
-      if (widget.type === 'kpi') {
+      if (widget.type === "kpi") {
         renderKpiWidget(widget, container, [0]);
       } else {
         renderRealtimeWidgetEmpty(widget, container);
@@ -291,11 +294,11 @@ function renderWidget(widget: WidgetConfig) {
     fields,
     widget.groupBy,
     widget.fieldId,
-    widget.aggregation
+    widget.aggregation,
   );
 
   // 数字卡片
-  if (widget.type === 'number') {
+  if (widget.type === "number") {
     const total = values.reduce((a, b) => a + b, 0);
     const formattedValue = formatLargeNumber(total);
 
@@ -309,25 +312,27 @@ function renderWidget(widget: WidgetConfig) {
   }
 
   // KPI 指标组件
-  if (widget.type === 'kpi') {
+  if (widget.type === "kpi") {
     renderKpiWidget(widget, container, values);
     return;
   }
 
   // 表格
-  if (widget.type === 'table') {
+  if (widget.type === "table") {
     const colors = getChartColors(labels.length);
     container.innerHTML = `
       <div class="table-widget">
         <table class="data-table">
           <thead>
             <tr>
-              <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || '分组' : '类别'}</th>
+              <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || "分组" : "类别"}</th>
               <th>数值</th>
             </tr>
           </thead>
           <tbody>
-            ${labels.map((label, i) => `
+            ${labels
+              .map(
+                (label, i) => `
               <tr>
                 <td>
                   <span class="table-dot" style="background-color: ${colors[i]}"></span>
@@ -335,7 +340,9 @@ function renderWidget(widget: WidgetConfig) {
                 </td>
                 <td class="value-cell">${formatLargeNumber(values[i])}</td>
               </tr>
-            `).join('')}
+            `,
+              )
+              .join("")}
           </tbody>
         </table>
       </div>
@@ -344,7 +351,7 @@ function renderWidget(widget: WidgetConfig) {
   }
 
   // 实时数据流组件
-  if (widget.type === 'realtime') {
+  if (widget.type === "realtime") {
     renderRealtimeWidget(widget, container, labels, values);
     return;
   }
@@ -369,29 +376,29 @@ function renderWidget(widget: WidgetConfig) {
 // 时钟组件
 function renderClockWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const is24Hour = config.timeFormat !== '12h';
+  const is24Hour = config.timeFormat !== "12h";
   const timeFontSize = config.timeFontSize || 32;
   const dateFontSize = config.dateFontSize || 14;
   // 背景色和文字颜色配置，默认透明背景和黑色文字
-  const backgroundColor = config.backgroundColor || 'transparent';
-  const textColor = config.textColor || '#000000';
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
 
   const updateClock = () => {
     const now = new Date();
-    const hours = is24Hour ? now.getHours() : (now.getHours() % 12 || 12);
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+    const hours = is24Hour ? now.getHours() : now.getHours() % 12 || 12;
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const seconds = now.getSeconds().toString().padStart(2, "0");
+    const ampm = now.getHours() >= 12 ? "PM" : "AM";
 
-    const timeStr = is24Hour ?
-      `${hours.toString().padStart(2, '0')}:${minutes}:${seconds}` :
-      `${hours}:${minutes}:${seconds} ${ampm}`;
+    const timeStr = is24Hour
+      ? `${hours.toString().padStart(2, "0")}:${minutes}:${seconds}`
+      : `${hours}:${minutes}:${seconds} ${ampm}`;
 
-    const dateStr = now.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: config.showWeekday !== false ? 'long' : undefined
+    const dateStr = now.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: config.showWeekday !== false ? "long" : undefined,
     });
 
     container.innerHTML = `
@@ -407,7 +414,7 @@ function renderClockWidget(widget: WidgetConfig, container: HTMLElement) {
         padding: 16px;
       ">
         <div style="font-size: ${timeFontSize}px; font-weight: bold; font-family: 'Courier New', monospace;">${timeStr}</div>
-        ${config.showDate !== false ? `<div style="font-size: ${dateFontSize}px; margin-top: 8px; opacity: 0.8;">${dateStr}</div>` : ''}
+        ${config.showDate !== false ? `<div style="font-size: ${dateFontSize}px; margin-top: 8px; opacity: 0.8;">${dateStr}</div>` : ""}
       </div>
     `;
   };
@@ -421,15 +428,18 @@ function renderClockWidget(widget: WidgetConfig, container: HTMLElement) {
 function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
   const now = new Date();
-  const dayFontSize = config.dayFontSize || 48;
   const monthFontSize = config.monthFontSize || 16;
   // 背景色和文字颜色配置，默认透明背景和黑色文字
-  const backgroundColor = config.backgroundColor || 'transparent';
-  const textColor = config.textColor || '#000000';
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
 
   const day = now.getDate();
-  const monthYear = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
-  const weekday = now.toLocaleDateString('zh-CN', { weekday: 'long' });
+  const monthYear = now.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const weekday = now.toLocaleDateString("zh-CN", { weekday: "long" });
 
   container.innerHTML = `
     <div class="screen-widget date-widget" style="
@@ -443,9 +453,8 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
       color: ${textColor};
       padding: 16px;
     ">
-      <div style="font-size: ${dayFontSize}px; font-weight: bold; line-height: 1;">${day}</div>
-      <div style="font-size: ${monthFontSize}px; margin-top: 4px;">${monthYear}</div>
-      ${config.showWeekday !== false ? `<div style="font-size: 14px; margin-top: 4px; opacity: 0.8;">${weekday}</div>` : ''}
+      <div style="font-size: ${monthFontSize}px; margin-top: 4px;">${monthYear}
+      ${config.showWeekday !== false ? `<span>${weekday}</span>` : ""}</div>
     </div>
   `;
 }
@@ -453,17 +462,18 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
 // 跑马灯组件
 function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const content = config.content || '欢迎使用 Smart Table 数据仪表盘';
+  const content = config.content || "欢迎使用 Smart Table 数据仪表盘";
   const speed = config.speed || 2;
   const fontSize = config.fontSize || 16;
-  const direction = config.direction || 'left';
+  const direction = config.direction || "left";
   // 背景色和文字颜色配置，默认透明背景和黑色文字
-  const backgroundColor = config.backgroundColor || 'transparent';
-  const textColor = config.textColor || '#000000';
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
 
-  const animationStyle = direction === 'left'
-    ? `animation: marquee-left ${20 / speed}s linear infinite;`
-    : `animation: marquee-right ${20 / speed}s linear infinite;`;
+  const animationStyle =
+    direction === "left"
+      ? `animation: marquee-left ${20 / speed}s linear infinite;`
+      : `animation: marquee-right ${20 / speed}s linear infinite;`;
 
   container.innerHTML = `
     <div class="screen-widget marquee-widget" style="
@@ -496,19 +506,26 @@ function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
 }
 
 // KPI 指标组件
-function renderKpiWidget(widget: WidgetConfig, container: HTMLElement, values: number[]) {
+function renderKpiWidget(
+  widget: WidgetConfig,
+  container: HTMLElement,
+  values: number[],
+) {
   const config = widget.config || {};
   const total = values.reduce((a, b) => a + b, 0);
   const formattedValue = formatLargeNumber(total);
-  const prefix = config.prefix || '';
-  const suffix = config.suffix || '';
+  const prefix = config.prefix || "";
+  const suffix = config.suffix || "";
 
   // 计算趋势
-  let trendHtml = '';
+  let trendHtml = "";
   if (config.showTrend && values.length > 1) {
     const prevValue = values[values.length - 2] || 0;
     const currentValue = values[values.length - 1] || 0;
-    const trend = prevValue > 0 ? ((currentValue - prevValue) / prevValue * 100).toFixed(1) : 0;
+    const trend =
+      prevValue > 0
+        ? (((currentValue - prevValue) / prevValue) * 100).toFixed(1)
+        : 0;
     const isUp = Number(trend) >= 0;
     trendHtml = `
       <div style="
@@ -516,15 +533,15 @@ function renderKpiWidget(widget: WidgetConfig, container: HTMLElement, values: n
         align-items: center;
         margin-left: 8px;
         font-size: 14px;
-        color: ${isUp ? '#10B981' : '#EF4444'};
+        color: ${isUp ? "#10B981" : "#EF4444"};
       ">
-        <span>${isUp ? '↑' : '↓'} ${Math.abs(Number(trend))}%</span>
+        <span>${isUp ? "↑" : "↓"} ${Math.abs(Number(trend))}%</span>
       </div>
     `;
   }
 
   // 目标值进度
-  let progressHtml = '';
+  let progressHtml = "";
   if (config.showTarget && config.targetValue) {
     const progress = Math.min(100, (total / Number(config.targetValue)) * 100);
     progressHtml = `
@@ -562,9 +579,14 @@ function renderKpiWidget(widget: WidgetConfig, container: HTMLElement, values: n
 }
 
 // 实时数据流组件 - 与 Dashboard.vue 保持一致
-function renderRealtimeWidget(widget: WidgetConfig, container: HTMLElement, labels: string[], values: number[]) {
+function renderRealtimeWidget(
+  widget: WidgetConfig,
+  container: HTMLElement,
+  labels: string[],
+  values: number[],
+) {
   const config = widget.config || {};
-  const chartType = config.chartType || 'line';
+  const chartType = config.chartType || "line";
 
   // 使用 ECharts 渲染实时图表
   let chart = chartRefs.value.get(widget.id);
@@ -575,57 +597,57 @@ function renderRealtimeWidget(widget: WidgetConfig, container: HTMLElement, labe
 
   const colors = config.colors?.length
     ? config.colors
-    : ['#3B82F6', '#10B981', '#F59E0B'];
+    : ["#3B82F6", "#10B981", "#F59E0B"];
 
   const option: EChartsOption = {
     color: colors,
     grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      top: '15%',
+      left: "3%",
+      right: "4%",
+      bottom: "3%",
+      top: "15%",
       containLabel: true,
     },
     tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      trigger: "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
       borderColor: freshColors.gray200,
       borderWidth: 1,
       textStyle: { color: freshColors.gray700, fontSize: 12 },
     },
     xAxis: {
-      type: 'category',
+      type: "category",
       data: labels,
-      boundaryGap: chartType === 'area',
+      boundaryGap: chartType === "area",
       axisLabel: { color: freshColors.gray500, fontSize: 10 },
       axisLine: { lineStyle: { color: freshColors.gray200 } },
     },
     yAxis: {
-      type: 'value',
+      type: "value",
       axisLabel: {
         formatter: (value: number) => formatLargeNumber(value),
         color: freshColors.gray500,
         fontSize: 10,
       },
-      splitLine: { lineStyle: { color: freshColors.gray100, type: 'dashed' } },
+      splitLine: { lineStyle: { color: freshColors.gray100, type: "dashed" } },
     },
     series: [
       {
         name: widget.title,
-        type: 'line',
+        type: "line",
         data: values,
         smooth: config.smooth !== false,
         areaStyle:
-          chartType === 'area'
+          chartType === "area"
             ? {
                 opacity: 0.3,
                 color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                   { offset: 0, color: colors[0] },
-                  { offset: 1, color: 'rgba(255,255,255,0)' },
+                  { offset: 1, color: "rgba(255,255,255,0)" },
                 ]),
               }
             : undefined,
-        symbol: 'circle',
+        symbol: "circle",
         symbolSize: 6,
         lineStyle: { width: 2 },
       },
@@ -643,8 +665,8 @@ function renderRealtimeWidgetEmpty(
   container: HTMLElement,
 ) {
   const config = widget.config || {};
-  const backgroundColor = config.backgroundColor || 'transparent';
-  const textColor = config.textColor || '#000000';
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
 
   container.innerHTML = `
     <div class="screen-widget realtime-widget-empty" style="
@@ -668,31 +690,31 @@ function renderRealtimeWidgetEmpty(
 // 标题文字组件
 function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const text = config.text || widget.title || '标题文字';
-  const subtitle = config.subtitle || '';
+  const text = config.text || widget.title || "标题文字";
+  const subtitle = config.subtitle || "";
   const fontSize = config.fontSize || 32;
   const subtitleFontSize = config.subtitleFontSize || 16;
-  const fontWeight = config.fontWeight || 'bold';
-  const textAlign = config.textAlign || 'center';
+  const fontWeight = config.fontWeight || "bold";
+  const textAlign = config.textAlign || "center";
   // 背景色和文字颜色配置，默认透明背景和黑色文字
-  const backgroundColor = config.backgroundColor || 'transparent';
-  const textColor = config.textColor || '#000000';
-  const subtitleColor = config.subtitleColor || 'rgba(0,0,0,0.6)';
+  const backgroundColor = config.backgroundColor || "transparent";
+  const textColor = config.textColor || "#000000";
+  const subtitleColor = config.subtitleColor || "rgba(0,0,0,0.6)";
   const letterSpacing = config.letterSpacing || 0;
   const lineHeight = config.lineHeight || 1.4;
   const textShadow = config.textShadow !== false;
-  const textShadowColor = config.textShadowColor || 'rgba(0,0,0,0.1)';
+  const textShadowColor = config.textShadowColor || "rgba(0,0,0,0.1)";
   const textShadowBlur = config.textShadowBlur || 2;
 
   const shadowCss = textShadow
     ? `text-shadow: 1px 1px ${textShadowBlur}px ${textShadowColor};`
-    : '';
+    : "";
 
   container.innerHTML = `
     <div class="screen-widget text-widget" style="
       display: flex;
       flex-direction: column;
-      align-items: ${textAlign === 'center' ? 'center' : textAlign === 'left' ? 'flex-start' : 'flex-end'};
+      align-items: ${textAlign === "center" ? "center" : textAlign === "left" ? "flex-start" : "flex-end"};
       justify-content: center;
       height: 100%;
       background: ${backgroundColor};
@@ -710,7 +732,9 @@ function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
         ${shadowCss}
         word-break: break-word;
       ">${text}</div>
-      ${subtitle ? `
+      ${
+        subtitle
+          ? `
         <div style="
           font-size: ${subtitleFontSize}px;
           color: ${subtitleColor};
@@ -719,7 +743,9 @@ function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
           letter-spacing: ${letterSpacing}px;
           ${shadowCss}
         ">${subtitle}</div>
-      ` : ''}
+      `
+          : ""
+      }
     </div>
   `;
 }
@@ -729,13 +755,13 @@ function getChartOption(
   widget: WidgetConfig,
   labels: string[],
   values: number[],
-  colors: string[]
+  colors: string[],
 ): EChartsOption {
   const baseOption: EChartsOption = {
     color: colors,
     tooltip: {
-      trigger: widget.type === 'pie' ? 'item' : 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      trigger: widget.type === "pie" ? "item" : "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
       borderColor: freshColors.gray200,
       borderWidth: 1,
       padding: [12, 16],
@@ -743,7 +769,8 @@ function getChartOption(
         color: freshColors.gray700,
         fontSize: 13,
       },
-      extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 8px;',
+      extraCssText:
+        "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 8px;",
       formatter: (params: any) => {
         if (Array.isArray(params)) {
           const p = params[0];
@@ -753,16 +780,16 @@ function getChartOption(
       },
     },
     grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      top: widget.config?.showLegend ? '15%' : '10%',
+      left: "3%",
+      right: "4%",
+      bottom: "3%",
+      top: widget.config?.showLegend ? "15%" : "10%",
       containLabel: true,
     },
   };
 
   switch (widget.type) {
-    case 'bar':
+    case "bar":
       return {
         ...baseOption,
         legend: widget.config?.showLegend
@@ -773,7 +800,7 @@ function getChartOption(
             }
           : undefined,
         xAxis: {
-          type: 'category',
+          type: "category",
           data: labels,
           axisLabel: {
             rotate: labels.length > 6 ? 45 : 0,
@@ -785,7 +812,7 @@ function getChartOption(
           axisTick: { show: false },
         },
         yAxis: {
-          type: 'value',
+          type: "value",
           axisLabel: {
             formatter: (value: number) => formatLargeNumber(value),
             color: freshColors.gray500,
@@ -794,22 +821,22 @@ function getChartOption(
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: {
-            lineStyle: { color: freshColors.gray100, type: 'dashed' },
+            lineStyle: { color: freshColors.gray100, type: "dashed" },
           },
         },
         series: [
           {
             name: widget.title,
-            type: 'bar',
+            type: "bar",
             data: values,
-            barWidth: '50%',
+            barWidth: "50%",
             itemStyle: {
               borderRadius: [6, 6, 0, 0],
             },
             label: widget.config?.showLabel
               ? {
                   show: true,
-                  position: 'top',
+                  position: "top",
                   formatter: (p: any) => formatLargeNumber(p.value),
                   color: freshColors.gray600,
                   fontSize: 11,
@@ -820,8 +847,8 @@ function getChartOption(
         ],
       };
 
-    case 'line':
-    case 'area':
+    case "line":
+    case "area":
       return {
         ...baseOption,
         legend: widget.config?.showLegend
@@ -832,9 +859,9 @@ function getChartOption(
             }
           : undefined,
         xAxis: {
-          type: 'category',
+          type: "category",
           data: labels,
-          boundaryGap: widget.type === 'area',
+          boundaryGap: widget.type === "area",
           axisLabel: {
             color: freshColors.gray500,
             fontSize: 11,
@@ -843,7 +870,7 @@ function getChartOption(
           axisTick: { show: false },
         },
         yAxis: {
-          type: 'value',
+          type: "value",
           axisLabel: {
             formatter: (value: number) => formatLargeNumber(value),
             color: freshColors.gray500,
@@ -852,17 +879,17 @@ function getChartOption(
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: {
-            lineStyle: { color: freshColors.gray100, type: 'dashed' },
+            lineStyle: { color: freshColors.gray100, type: "dashed" },
           },
         },
         series: [
           {
             name: widget.title,
-            type: 'line',
+            type: "line",
             data: values,
             smooth: widget.config?.smooth ?? true,
             areaStyle:
-              widget.type === 'area'
+              widget.type === "area"
                 ? {
                     opacity: 0.15,
                     color: new (echarts as any).graphic.LinearGradient(
@@ -872,35 +899,35 @@ function getChartOption(
                       1,
                       [
                         { offset: 0, color: colors[0] },
-                        { offset: 1, color: 'rgba(255,255,255,0)' },
+                        { offset: 1, color: "rgba(255,255,255,0)" },
                       ],
                     ),
                   }
                 : undefined,
-            symbol: 'circle',
+            symbol: "circle",
             symbolSize: 8,
             lineStyle: {
               width: 3,
-              shadowColor: 'rgba(0,0,0,0.1)',
+              shadowColor: "rgba(0,0,0,0.1)",
               shadowBlur: 8,
               shadowOffsetY: 4,
             },
             itemStyle: {
               borderWidth: 2,
-              borderColor: '#fff',
+              borderColor: "#fff",
             },
           },
         ],
       };
 
-    case 'pie':
+    case "pie":
       return {
         ...baseOption,
         legend: widget.config?.showLegend
           ? {
-              orient: 'vertical',
+              orient: "vertical",
               right: 10,
-              top: 'center',
+              top: "center",
               data: labels,
               textStyle: { color: freshColors.gray600, fontSize: 11 },
               itemWidth: 10,
@@ -910,9 +937,9 @@ function getChartOption(
           : undefined,
         series: [
           {
-            type: 'pie',
-            radius: ['45%', '75%'],
-            center: widget.config?.showLegend ? ['38%', '50%'] : ['50%', '50%'],
+            type: "pie",
+            radius: ["45%", "75%"],
+            center: widget.config?.showLegend ? ["38%", "50%"] : ["50%", "50%"],
             data: labels.map((label, i) => ({
               name: label,
               value: values[i],
@@ -921,20 +948,20 @@ function getChartOption(
               itemStyle: {
                 shadowBlur: 20,
                 shadowOffsetX: 0,
-                shadowColor: 'rgba(0, 0, 0, 0.2)',
+                shadowColor: "rgba(0, 0, 0, 0.2)",
               },
               scale: true,
               scaleSize: 8,
             },
             itemStyle: {
               borderRadius: 6,
-              borderColor: '#fff',
+              borderColor: "#fff",
               borderWidth: 2,
             },
             label: widget.config?.showLabel
               ? {
                   show: true,
-                  formatter: '{b}\n{c}',
+                  formatter: "{b}\n{c}",
                   color: freshColors.gray600,
                   fontSize: 11,
                 }
@@ -945,18 +972,18 @@ function getChartOption(
         ],
       };
 
-    case 'scatter':
+    case "scatter":
       return {
         ...baseOption,
         xAxis: {
-          type: 'category',
+          type: "category",
           data: labels,
           axisLabel: { color: freshColors.gray500, fontSize: 11 },
           axisLine: { lineStyle: { color: freshColors.gray200 } },
           axisTick: { show: false },
         },
         yAxis: {
-          type: 'value',
+          type: "value",
           axisLabel: {
             formatter: (value: number) => formatLargeNumber(value),
             color: freshColors.gray500,
@@ -965,17 +992,17 @@ function getChartOption(
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: {
-            lineStyle: { color: freshColors.gray100, type: 'dashed' },
+            lineStyle: { color: freshColors.gray100, type: "dashed" },
           },
         },
         series: [
           {
-            type: 'scatter',
+            type: "scatter",
             data: values,
             symbolSize: (val: number) => Math.min(Math.max(val / 10, 10), 50),
             itemStyle: {
               shadowBlur: 10,
-              shadowColor: 'rgba(0,0,0,0.1)',
+              shadowColor: "rgba(0,0,0,0.1)",
               shadowOffsetY: 4,
             },
           },
@@ -998,7 +1025,10 @@ function handleResize() {
 }
 
 // 防抖函数
-function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): (...args: Parameters<T>) => void {
+function debounce<T extends (...args: any[]) => void>(
+  fn: T,
+  delay: number,
+): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   return (...args: Parameters<T>) => {
     if (timeoutId) clearTimeout(timeoutId);
@@ -1011,11 +1041,11 @@ const debouncedResize = debounce(handleResize, 200);
 
 onMounted(() => {
   validateShare();
-  window.addEventListener('resize', debouncedResize);
+  window.addEventListener("resize", debouncedResize);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', debouncedResize);
+  window.removeEventListener("resize", debouncedResize);
   // 清理图表实例
   chartRefs.value.forEach((chart) => chart.dispose());
   chartRefs.value.clear();
@@ -1044,8 +1074,7 @@ onUnmounted(() => {
           placeholder="请输入6位访问密码"
           maxlength="6"
           size="large"
-          @keyup.enter="submitAccessCode"
-        >
+          @keyup.enter="submitAccessCode">
           <template #append>
             <el-button type="primary" @click="submitAccessCode">
               进入
@@ -1060,8 +1089,7 @@ onUnmounted(() => {
       <el-result
         icon="error"
         :title="errorMessage"
-        sub-title="该分享链接可能已过期、被禁用或达到访问次数上限"
-      >
+        sub-title="该分享链接可能已过期、被禁用或达到访问次数上限">
         <template #extra>
           <el-button type="primary" @click="$router.push('/')">
             返回首页
@@ -1073,52 +1101,53 @@ onUnmounted(() => {
     <!-- 仪表盘内容 -->
     <div v-else class="dashboard-content">
       <!-- 头部信息 -->
-      <div class="share-header" style="display: none;">
+      <div class="share-header" style="display: none">
         <div class="header-left">
           <h1>{{ dashboard?.name }}</h1>
           <p v-if="dashboard?.description">{{ dashboard.description }}</p>
         </div>
         <div class="header-right">
-          <el-tag v-if="shareInfo?.permission === 'view'" type="info">仅查看</el-tag>
+          <el-tag v-if="shareInfo?.permission === 'view'" type="info"
+            >仅查看</el-tag
+          >
           <el-tag v-else type="warning">可编辑</el-tag>
         </div>
       </div>
-      
+
       <!-- 组件网格 - 自适应布局 -->
       <div
         class="widgets-grid"
         :class="{
           'columns-24': gridColumns === 24,
-          'free-layout': layoutType === 'free'
+          'free-layout': layoutType === 'free',
         }"
-        :style="layoutType === 'free' ? { position: 'relative' } : {}"
-      >
+        :style="layoutType === 'free' ? { position: 'relative' } : {}">
         <div
           v-for="widget in widgets"
           :key="widget.id"
           class="widget-card"
-          :style="getWidgetStyle(widget)"
-        >
+          :style="getWidgetStyle(widget)">
           <div v-if="shouldShowHeader(widget)" class="widget-header">
             <span class="widget-title">{{ widget.title }}</span>
           </div>
           <div
-            :ref="el => el && chartContainers.set(widget.id, el as HTMLElement)"
+            :ref="
+              (el) => el && chartContainers.set(widget.id, el as HTMLElement)
+            "
             class="widget-body"
             :style="{
               height: shouldShowHeader(widget) ? 'calc(100% - 44px)' : '100%',
-              ...getBodyPaddingStyle(widget)
-            }"
-          ></div>
+              ...getBodyPaddingStyle(widget),
+            }"></div>
         </div>
 
         <div v-if="widgets.length === 0" class="empty-dashboard">
           <el-empty description="该仪表盘暂无组件" />
         </div>
       </div>
-      
+
       <!-- 底部信息 -->
-      <div class="share-footer" style="display: none;">
+      <div class="share-footer" style="display: none">
         <p>通过 Smart Table 分享</p>
       </div>
     </div>
@@ -1126,15 +1155,15 @@ onUnmounted(() => {
 </template>
 
 <script lang="ts">
-import { Lock } from '@element-plus/icons-vue';
+import { Lock } from "@element-plus/icons-vue";
 
 export default {
-  name: 'DashboardShareView'
+  name: "DashboardShareView",
 };
 </script>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
+@use "@/assets/styles/variables" as *;
 
 .dashboard-share-view {
   min-height: 100vh;
@@ -1247,9 +1276,9 @@ export default {
 
   .widget-body {
     flex: 1;
-    padding: $spacing-md;
+    padding: $spacing-xs;
     min-height: 0;
-    overflow: hidden;
+    position: relative;
   }
 }
 
@@ -1294,7 +1323,8 @@ export default {
     width: 100%;
     border-collapse: collapse;
 
-    th, td {
+    th,
+    td {
       padding: $spacing-xs $spacing-sm;
       text-align: left;
       border-bottom: 1px solid $border-color;
