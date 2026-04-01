@@ -61,6 +61,14 @@ const leftTitle = computed(() => {
   return "Smart Table";
 });
 
+// 左侧显示的描述：Base（多维表根）描述信息
+const leftDescription = computed(() => {
+  if (currentBase.value && currentBase.value.description) {
+    return currentBase.value.description;
+  }
+  return "";
+});
+
 // 中间显示的信息
 const centerInfo = computed(() => {
   if (isDashboardPage.value && currentDashboard.value) {
@@ -114,13 +122,22 @@ const centerInfo = computed(() => {
             fill="#3370FF"
             opacity="0.4" />
         </svg>
-        <el-tooltip
-          :content="leftTitle"
-          placement="bottom"
-          :show-after="300"
-          :disabled="leftTitle.length <= 15">
-          <span class="logo-text">{{ leftTitle }}</span>
-        </el-tooltip>
+        <div class="logo-info">
+          <el-tooltip
+            :content="leftTitle"
+            placement="bottom"
+            :show-after="300"
+            :disabled="leftTitle.length <= 30">
+            <span class="logo-text">{{ leftTitle }}</span>
+          </el-tooltip>
+          <el-tooltip
+            v-if="leftDescription"
+            :content="leftDescription"
+            placement="bottom"
+            :show-after="300">
+            <span class="logo-description">{{ leftDescription }}</span>
+          </el-tooltip>
+        </div>
       </div>
     </div>
 
@@ -192,10 +209,29 @@ const centerInfo = computed(() => {
   height: 28px;
 }
 
+.logo-info {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  min-width: 0;
+}
+
 .logo-text {
   font-size: $font-size-lg;
   font-weight: 800;
   color: $text-primary;
+  @include text-ellipsis;
+  max-width: 30ch;
+  line-height: 1.4;
+}
+
+.logo-description {
+  font-size: calc($font-size-lg - 3px);
+  font-weight: 400;
+  color: $text-secondary;
+  @include text-ellipsis;
+  max-width: 40ch;
+  line-height: 1.4;
 }
 
 .header-center {
