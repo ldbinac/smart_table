@@ -24,6 +24,7 @@ import { FormulaEngine } from "@/utils/formula/engine";
 import {
   validateRequiredFields,
   getRequiredFieldErrorMessage,
+  validateFieldsFormat,
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
@@ -328,6 +329,18 @@ async function handleSave() {
 
   if (!validation.valid) {
     const errorMessage = getRequiredFieldErrorMessage(validation.errors);
+    ElMessage.error(errorMessage);
+    return;
+  }
+
+  // 2. 验证字段格式（EMAIL、PHONE、URL）
+  const formatErrors = validateFieldsFormat(
+    visibleFields.value,
+    formData.value as Record<string, CellValue>,
+  );
+
+  if (formatErrors.length > 0) {
+    const errorMessage = formatErrors.map((e) => e.message).join("；");
     ElMessage.error(errorMessage);
     return;
   }

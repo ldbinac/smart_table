@@ -1,5 +1,6 @@
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
+import type { FieldTypeValue } from "@/types";
 
 export interface ValidationError {
   fieldId: string;
@@ -269,7 +270,7 @@ export function validateRequiredFields(
     if (!isFieldRequired(field)) continue;
 
     // 跳过只读字段（系统字段、公式字段等）
-    const readonlyFieldTypes = [
+    const readonlyFieldTypes: FieldTypeValue[] = [
       FieldType.FORMULA,
       FieldType.LOOKUP,
       FieldType.CREATED_BY,
@@ -278,7 +279,7 @@ export function validateRequiredFields(
       FieldType.UPDATED_TIME,
       FieldType.AUTO_NUMBER,
     ];
-    if (readonlyFieldTypes.includes(field.type as unknown as FieldType)) {
+    if (readonlyFieldTypes.includes(field.type as FieldTypeValue)) {
       continue;
     }
 
@@ -316,4 +317,155 @@ export function getRequiredFieldErrorMessage(
   }
 
   return `请填写以下必填字段：${fieldNames}`;
+}
+
+// ==================== 字段类型格式校验工具函数 ====================
+
+export interface FieldFormatValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * 邮箱校验正则表达式
+ * 支持标准邮箱格式：username@domain.com
+ */
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+/**
+ * 手机号校验正则表达式（中国大陆）
+ * 支持 11 位手机号，以 1 开头，第二位为 3-9
+ */
+const PHONE_REGEX = /^1[3-9]\d{9}$/;
+
+/**
+ * 链接校验正则表达式
+ * 支持 http://、https://、ftp://、sftp:// 开头的链接
+ */
+const URL_REGEX = /^(https?|ftp|sftp):\/\/[^\s/$.?#].[^\s]*$/i;
+
+/**
+ * 校验邮箱地址格式
+ * @param value 邮箱地址
+ * @returns 校验结果
+ */
+export function validateEmail(value: string): FieldFormatValidationResult {
+  if (!value || value.trim() === "") {
+    return { valid: true }; // 空值由必填校验处理
+  }
+
+  const trimmed = value.trim();
+  const valid = EMAIL_REGEX.test(trimmed);
+
+  return {
+    valid,
+    error: valid ? undefined : "请输入正确的邮箱地址格式，如：example@domain.com",
+  };
+}
+
+/**
+ * 校验手机号码格式（中国大陆）
+ * @param value 手机号码
+ * @returns 校验结果
+ */
+export function validatePhone(value: string): FieldFormatValidationResult {
+  if (!value || value.trim() === "") {
+    return { valid: true };
+  }
+
+  // 去除空格、横线、括号等分隔符
+  const cleaned = value.replace(/[\s\-\(\)]/g, "");
+  const valid = PHONE_REGEX.test(cleaned);
+
+  return {
+    valid,
+    error: valid ? undefined : "请输入正确的11位手机号码",
+  };
+}
+
+/**
+ * 校验链接地址格式
+ * @param value 链接地址
+ * @returns 校验结果
+ */
+export function validateUrl(value: string): FieldFormatValidationResult {
+  if (!value || value.trim() === "") {
+    return { valid: true };
+  }
+
+  const trimmed = value.trim();
+  const valid = URL_REGEX.test(trimmed);
+
+  return {
+    valid,
+    error: valid
+      ? undefined
+      : "请输入完整的链接地址，需以 http://、https://、ftp:// 或 sftp:// 开头",
+  };
+}
+
+/**
+ * 根据字段类型校验值格式
+ * @param value 字段值
+ * @param fieldType 字段类型
+ * @returns 校验结果
+ */
+export function validateFieldFormat(
+  value: CellValue,
+  fieldType: FieldTypeValue,
+): FieldFormatValidationResult {
+  if (!value || (typeof value === "string" && value.trim() === "")) {
+    return { valid: true };
+  }
+
+  const strValue = String(value);
+
+  switch (fieldType) {
+    case FieldType.EMAIL:
+      return validateEmail(strValue);
+    case FieldType.PHONE:
+      return validatePhone(strValue);
+    case FieldType.URL:
+      return validateUrl(strValue);
+    default:
+      return { valid: true };
+  }
+}
+
+/**
+ * 批量校验记录中的字段格式
+ * @param fields 字段列表
+ * @param values 字段值
+ * @returns 校验错误列表
+ */
+export function validateFieldsFormat(
+  fields: FieldEntity[],
+  values: Record<string, CellValue>,
+): Array<{ fieldId: string; fieldName: string; message: string }> {
+  const errors: Array<{ fieldId: string; fieldName: string; message: string }> =
+    [];
+
+  for (const field of fields) {
+    // 只校验 EMAIL、PHONE、URL 类型字段
+    if (
+      field.type !== FieldType.EMAIL &&
+      field.type !== FieldType.PHONE &&
+      field.type !== FieldType.URL
+    ) {
+      continue;
+    }
+
+    const value = values[field.id];
+    const result = validateFieldFormat(value, field.type as FieldTypeValue);
+
+    if (!result.valid) {
+      errors.push({
+        fieldId: field.id,
+        fieldName: field.name,
+        message: result.error || `${field.name}格式不正确`,
+      });
+    }
+  }
+
+  return errors;
 }

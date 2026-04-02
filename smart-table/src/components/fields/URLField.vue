@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import type { FieldEntity } from "@/db/schema";
 import type { CellValue } from "@/types";
+import { validateUrl } from "@/utils/validation";
 
 interface Props {
   modelValue: CellValue;
@@ -18,23 +19,23 @@ const emit = defineEmits<{
 }>();
 
 const localValue = ref("");
+const validationError = ref("");
 
 watch(
   () => props.modelValue,
   (newVal) => {
     localValue.value = String(newVal || "");
+    // 清空校验错误
+    validationError.value = "";
   },
   { immediate: true },
 );
 
 const isValid = computed(() => {
   if (!localValue.value) return true;
-  try {
-    new URL(localValue.value);
-    return true;
-  } catch {
-    return false;
-  }
+  const result = validateUrl(localValue.value);
+  validationError.value = result.error || "";
+  return result.valid;
 });
 
 const displayUrl = computed(() => {
@@ -49,11 +50,17 @@ const displayUrl = computed(() => {
 
 function handleInput(value: string) {
   localValue.value = value;
+  // 实时校验
+  const result = validateUrl(value);
+  validationError.value = result.error || "";
   emit("update:modelValue", value);
 }
 
 function handleBlur() {
   let value = localValue.value.trim();
+  // 失焦时进行校验
+  const result = validateUrl(value);
+  validationError.value = result.error || "";
   if (value && !value.match(/^https?:\/\//i)) {
     value = "https://" + value;
     localValue.value = value;
@@ -92,8 +99,8 @@ function openUrl() {
       </a>
       <span v-else class="empty-text">-</span>
     </div>
-    <div v-if="!isValid && !readonly" class="error-message">
-      请输入正确的链接地址
+    <div v-if="!isValid && !readonly && validationError" class="error-message">
+      {{ validationError }}
     </div>
   </div>
 </template>

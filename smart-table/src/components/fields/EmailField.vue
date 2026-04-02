@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import type { FieldEntity } from "@/db/schema";
 import type { CellValue } from "@/types";
+import { validateEmail } from "@/utils/validation";
 
 interface Props {
   modelValue: CellValue;
@@ -18,27 +19,37 @@ const emit = defineEmits<{
 }>();
 
 const localValue = ref("");
+const validationError = ref("");
 
 watch(
   () => props.modelValue,
   (newVal) => {
     localValue.value = String(newVal || "");
+    // 清空校验错误
+    validationError.value = "";
   },
   { immediate: true },
 );
 
 const isValid = computed(() => {
   if (!localValue.value) return true;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(localValue.value);
+  const result = validateEmail(localValue.value);
+  validationError.value = result.error || "";
+  return result.valid;
 });
 
 function handleInput(value: string) {
   localValue.value = value;
+  // 实时校验
+  const result = validateEmail(value);
+  validationError.value = result.error || "";
   emit("update:modelValue", value);
 }
 
 function handleBlur() {
+  // 失焦时进行校验
+  const result = validateEmail(localValue.value);
+  validationError.value = result.error || "";
   emit("update:modelValue", localValue.value);
 }
 </script>
@@ -63,8 +74,8 @@ function handleBlur() {
       </a>
       <span v-else class="empty-text">-</span>
     </div>
-    <div v-if="!isValid && !readonly" class="error-message">
-      请输入正确的邮箱地址
+    <div v-if="!isValid && !readonly && validationError" class="error-message">
+      {{ validationError }}
     </div>
   </div>
 </template>

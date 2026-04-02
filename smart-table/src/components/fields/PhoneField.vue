@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import type { FieldEntity } from "@/db/schema";
 import type { CellValue } from "@/types";
+import { validatePhone } from "@/utils/validation";
 
 interface Props {
   modelValue: CellValue;
@@ -18,23 +19,30 @@ const emit = defineEmits<{
 }>();
 
 const localValue = ref("");
+const validationError = ref("");
 
 watch(
   () => props.modelValue,
   (newVal) => {
     localValue.value = String(newVal || "");
+    // 清空校验错误
+    validationError.value = "";
   },
   { immediate: true },
 );
 
 const isValid = computed(() => {
   if (!localValue.value) return true;
-  const phoneRegex = /^1[3-9]\d{9}$/;
-  return phoneRegex.test(localValue.value);
+  const result = validatePhone(localValue.value);
+  validationError.value = result.error || "";
+  return result.valid;
 });
 
 function handleInput(value: string) {
   localValue.value = value;
+  // 实时校验
+  const result = validatePhone(value);
+  validationError.value = result.error || "";
   emit("update:modelValue", value);
 }
 
@@ -47,6 +55,9 @@ function formatPhone(value: string): string {
 
 function handleBlur() {
   const cleaned = localValue.value.replace(/\D/g, "");
+  // 失焦时进行校验
+  const result = validatePhone(cleaned);
+  validationError.value = result.error || "";
   if (cleaned) {
     localValue.value = cleaned;
     emit("update:modelValue", cleaned);
@@ -74,8 +85,8 @@ function handleBlur() {
       </span>
       <span v-else class="empty-text">-</span>
     </div>
-    <div v-if="!isValid && !readonly" class="error-message">
-      请输入正确的手机号码
+    <div v-if="!isValid && !readonly && validationError" class="error-message">
+      {{ validationError }}
     </div>
   </div>
 </template>
