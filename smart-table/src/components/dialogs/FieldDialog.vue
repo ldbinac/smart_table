@@ -16,6 +16,7 @@ import {
   ElIcon,
 } from "element-plus";
 import { fieldService } from "@/db/services/fieldService";
+import { useViewStore } from "@/stores/viewStore";
 import {
   FieldType,
   getFieldTypeLabel,
@@ -27,10 +28,13 @@ import type { FieldOptions } from "@/types";
 import Sortable from "sortablejs";
 import { Rank } from "@element-plus/icons-vue";
 
+const viewStore = useViewStore();
+
 const props = defineProps<{
   visible: boolean;
   tableId: string;
   fields: FieldEntity[];
+  editFieldId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -39,6 +43,7 @@ const emit = defineEmits<{
   "field-updated": [field: FieldEntity];
   "field-deleted": [fieldId: string];
   "fields-reordered": [fieldIds: string[]];
+  "field-visibility-changed": [fieldId: string, isVisible: boolean];
 }>();
 
 const activeTab = ref<"list" | "create" | "edit">("list");
@@ -96,17 +101,27 @@ const attachmentConfig = ref({
   enableThumbnail: true,
 });
 
-// 监听对话框显示，初始化拖拽排序
+// 监听对话框显示，初始化拖拽排序或直接打开编辑界面
 watch(
   () => props.visible,
   (visible) => {
     if (visible) {
+      // 如果指定了 editFieldId，直接打开该字段的编辑界面
+      if (props.editFieldId) {
+        const field = props.fields.find((f) => f.id === props.editFieldId);
+        if (field) {
+          openEditField(field);
+          return;
+        }
+      }
       activeTab.value = "list";
       nextTick(() => {
         initSortable();
       });
     } else {
       destroySortable();
+      // 关闭对话框时清除编辑状态
+      editingField.value = null;
     }
   },
 );
@@ -349,7 +364,9 @@ async function updateField() {
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
       // 使用 JSON 序列化转换为普通数组，避免 IndexedDB 克隆错误
-      options.acceptTypes = JSON.parse(JSON.stringify(attachmentConfig.value.acceptTypes));
+      options.acceptTypes = JSON.parse(
+        JSON.stringify(attachmentConfig.value.acceptTypes),
+      );
       options.maxSize = attachmentConfig.value.maxSize * 1024 * 1024; // 转换为字节
       options.maxCount = attachmentConfig.value.maxCount;
       options.enableThumbnail = attachmentConfig.value.enableThumbnail;
@@ -515,17 +532,105 @@ function insertFieldRef(fieldName: string) {
   }
 }
 
-// 切换字段可见性
-async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
+// 检查字段是否在视图级隐藏列表中
+function isFieldHiddenInView(fieldId: string): boolean {
+  // 使用 viewStore 获取最新的 hiddenFields，确保状态同步
+  const hiddenFields = viewStore.currentView?.hiddenFields || [];
+  const result = hiddenFields.includes(fieldId);
+  console.log(
+    `[FieldDialog] isFieldHiddenInView(${fieldId}):`,
+    result,
+    "hiddenFields:",
+    hiddenFields,
+  );
+  return result;
+}
+
+// 获取字段当前实际显示状态（同时考虑全局隐藏和视图级隐藏）
+function getFieldActualVisibility(field: FieldEntity): boolean {
+  const isGloballyVisible = field.isVisible !== false;
+  const isHiddenInView = isFieldHiddenInView(field.id);
+  const result = isGloballyVisible && !isHiddenInView;
+  console.log(
+    `[FieldDialog] getFieldActualVisibility(${field.name}):`,
+    result,
+    "isGloballyVisible:",
+    isGloballyVisible,
+    "isHiddenInView:",
+    isHiddenInView,
+  );
+  return result;
+}
+
+// 切换字段可见性（同时处理全局隐藏和视图级隐藏）
+async function toggleFieldVisibility(
+  field: FieldEntity,
+  newVisibility: boolean,
+) {
+  console.log(
+    `[FieldDialog] toggleFieldVisibility called for ${field.name}, newVisibility:`,
+    newVisibility,
+  );
+  console.log(`[FieldDialog] current field state:`, {
+    isVisible: field.isVisible,
+    hiddenFields: viewStore.currentView?.hiddenFields,
+  });
+
   try {
-    await fieldService.updateFieldVisibility(field.id, isVisible);
-    // 不直接修改 prop，而是通过事件通知父组件更新
-    emit("field-updated", { ...field, isVisible });
-    ElMessage.success(isVisible ? "字段已显示" : "字段已隐藏");
+    // 获取当前实际显示状态
+    const currentVisibility = getFieldActualVisibility(field);
+    const isHiddenInView = isFieldHiddenInView(field.id);
+    const isGloballyVisible = field.isVisible !== false;
+
+    console.log(
+      `[FieldDialog] currentVisibility:`,
+      currentVisibility,
+      "isHiddenInView:",
+      isHiddenInView,
+      "isGloballyVisible:",
+      isGloballyVisible,
+    );
+
+    // 如果当前是隐藏状态，且用户想要显示
+    if (!currentVisibility && newVisibility) {
+      if (isHiddenInView) {
+        // 如果是视图级隐藏，通知父组件从隐藏列表中移除
+        console.log(
+          `[FieldDialog] Emitting field-visibility-changed: ${field.id}, true`,
+        );
+        emit("field-visibility-changed", field.id, true);
+        ElMessage.success(`字段 "${field.name}" 已显示`);
+        return;
+      } else if (!isGloballyVisible) {
+        // 如果是全局隐藏，更新全局可见性
+        console.log(
+          `[FieldDialog] Updating global visibility: ${field.id}, true`,
+        );
+        await fieldService.updateFieldVisibility(field.id, true);
+        emit("field-updated", { ...field, isVisible: true });
+        ElMessage.success(`字段 "${field.name}" 已显示`);
+        return;
+      }
+    }
+
+    // 如果当前是显示状态，且用户想要隐藏
+    if (currentVisibility && !newVisibility) {
+      // 优先使用视图级隐藏
+      console.log(
+        `[FieldDialog] Emitting field-visibility-changed: ${field.id}, false`,
+      );
+      emit("field-visibility-changed", field.id, false);
+      ElMessage.success(`字段 "${field.name}" 已隐藏`);
+      return;
+    }
+
+    // 如果状态没有变化，给出提示
+    console.log(`[FieldDialog] No state change needed`);
+    ElMessage.info(`字段 "${field.name}" 状态未改变`);
   } catch (error) {
+    console.error(`[FieldDialog] Error in toggleFieldVisibility:`, error);
     ElMessage.error("更新字段可见性失败");
-    // 发生错误时，让父组件重新加载数据以恢复状态
-    emit("field-updated", { ...field, isVisible: field.isVisible });
+    emit("field-updated", { ...field });
   }
 }
 </script>
@@ -567,7 +672,7 @@ async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
           </div>
           <div class="field-actions">
             <ElSwitch
-              :model-value="field.isVisible !== false"
+              :model-value="getFieldActualVisibility(field)"
               :active-value="true"
               :inactive-value="false"
               size="small"
@@ -802,22 +907,28 @@ async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
         <!-- 附件字段配置 -->
         <template v-if="newField.type === FieldType.ATTACHMENT">
           <ElFormItem label="文件类型限制">
-          <ElSelect
-            v-model="attachmentConfig.acceptTypes"
-            multiple
-            placeholder="选择允许的文件类型"
-            style="width: 100%">
-            <ElOption label="图片 (image/*)" value="image/*" />
-            <ElOption label="文档 (PDF)" value="application/pdf" />
-            <ElOption label="文档 (Word .doc)" value="application/msword" />
-            <ElOption label="文档 (Word .docx)" value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-            <ElOption label="文档 (Excel .xls)" value="application/vnd.ms-excel" />
-            <ElOption label="文档 (Excel .xlsx)" value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-            <ElOption label="视频 (video/*)" value="video/*" />
-            <ElOption label="音频 (audio/*)" value="audio/*" />
-          </ElSelect>
-          <div class="field-hint">不选择则表示允许所有文件类型</div>
-        </ElFormItem>
+            <ElSelect
+              v-model="attachmentConfig.acceptTypes"
+              multiple
+              placeholder="选择允许的文件类型"
+              style="width: 100%">
+              <ElOption label="图片 (image/*)" value="image/*" />
+              <ElOption label="文档 (PDF)" value="application/pdf" />
+              <ElOption label="文档 (Word .doc)" value="application/msword" />
+              <ElOption
+                label="文档 (Word .docx)"
+                value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+              <ElOption
+                label="文档 (Excel .xls)"
+                value="application/vnd.ms-excel" />
+              <ElOption
+                label="文档 (Excel .xlsx)"
+                value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+              <ElOption label="视频 (video/*)" value="video/*" />
+              <ElOption label="音频 (audio/*)" value="audio/*" />
+            </ElSelect>
+            <div class="field-hint">不选择则表示允许所有文件类型</div>
+          </ElFormItem>
 
           <ElFormItem label="单个文件大小">
             <ElInputNumber

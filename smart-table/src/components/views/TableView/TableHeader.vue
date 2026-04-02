@@ -320,6 +320,15 @@ const handleContextMenu = (event: MouseEvent) => {
       top: 50%;
       transform: translateY(-50%);
       color: $primary-color;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 10px;
+      font-weight: 500;
+
+      &::after {
+        content: "已冻结";
+      }
     }
   }
 

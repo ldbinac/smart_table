@@ -6,6 +6,7 @@ import { FieldType } from "../../types";
 import { groupRecords } from "../../utils/group";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { ZoomIn } from "@element-plus/icons-vue";
 
 interface Props {
   fields: FieldEntity[];
@@ -40,6 +41,7 @@ const emit = defineEmits<{
   ): void;
   (e: "record-select", record: RecordEntity | null): void;
   (e: "records-select", records: RecordEntity[]): void;
+  (e: "expand-record", record: RecordEntity): void;
 }>();
 
 const groupNodes = ref<GroupNode[]>([]);
@@ -505,6 +507,11 @@ function handleCellClick(record: RecordEntity, field: FieldEntity) {
   emit("cellClick", record, field);
 }
 
+// 处理放大按钮点击
+function handleExpandRecord(record: RecordEntity) {
+  emit("expand-record", record);
+}
+
 function handleAddRecord(item: FlattenedItem) {
   const groupField = item.groupField;
   const groupValue = item.groupValue;
@@ -737,6 +744,13 @@ function isRowSelected(recordId: string): boolean {
                     class="row-checkbox"
                     :model-value="isRowSelected(item.record!.id)"
                     @change="toggleRowSelection(item.record!.id)" />
+                  <button
+                    class="expand-btn"
+                    :class="{ 'is-visible': isRowSelected(item.record!.id) }"
+                    @click.stop="handleExpandRecord(item.record!)"
+                    title="查看/编辑记录">
+                    <el-icon><ZoomIn /></el-icon>
+                  </button>
                   <span class="row-number">{{ item.rowIndex }}</span>
                 </div>
               </td>
@@ -1017,6 +1031,19 @@ export default {
       width: 50px;
       min-width: 50px;
       text-align: center;
+      // 冻结序号列
+      position: sticky;
+      left: 0;
+      z-index: 20;
+      background-color: #f5f7fa;
+    }
+
+    &.expand-column {
+      // 冻结展开列
+      position: sticky;
+      left: 50px;
+      z-index: 20;
+      background-color: #f5f7fa;
     }
 
     &.expand-column {
@@ -1048,6 +1075,11 @@ export default {
   min-width: 50px;
   text-align: center;
   padding: $spacing-sm;
+  // 冻结序号列
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: inherit;
 
   .index-wrapper {
     position: relative;
@@ -1062,6 +1094,38 @@ export default {
       transition: opacity 0.2s ease;
     }
 
+    .expand-btn {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 4px;
+      background-color: #999999;
+      color: white;
+      cursor: pointer;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.2s ease;
+      z-index: 10;
+
+      &:hover {
+        background-color: #666666;
+        transform: scale(1.1);
+      }
+
+      &.is-visible {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .el-icon {
+        font-size: 12px;
+      }
+    }
+
     .row-number {
       font-size: $font-size-sm;
       color: $text-secondary;
@@ -1070,12 +1134,17 @@ export default {
   }
 }
 
-// 数据行悬停时显示复选框，隐藏序号
+// 数据行悬停时显示复选框和放大按钮，隐藏序号
 .data-row {
   &:hover {
     .index-wrapper {
       .row-checkbox {
         opacity: 1;
+      }
+
+      .expand-btn {
+        opacity: 1;
+        transform: scale(1);
       }
 
       .row-number {
@@ -1088,6 +1157,11 @@ export default {
     .index-wrapper {
       .row-checkbox {
         opacity: 1;
+      }
+
+      .expand-btn.is-visible {
+        opacity: 1;
+        transform: scale(1);
       }
 
       .row-number {
@@ -1103,6 +1177,11 @@ export default {
   min-width: 40px;
   text-align: center;
   padding: $spacing-sm;
+  // 冻结展开列
+  position: sticky;
+  left: 50px;
+  z-index: 5;
+  background-color: inherit;
 
   &.empty {
     background-color: transparent;

@@ -44,10 +44,31 @@ const viewStore = useViewStore();
 const tableStore = useTableStore();
 
 // 初始化实体操作
-const { renameTable, deleteTable, toggleStarTable, renameDashboard, deleteDashboard, toggleStarDashboard } = useEntityOperations();
+const {
+  renameTable,
+  deleteTable,
+  toggleStarTable,
+  renameDashboard,
+  deleteDashboard,
+  toggleStarDashboard,
+} = useEntityOperations();
 
 const isLoading = computed(() => baseStore.loading || viewStore.loading);
 const currentTableId = computed(() => baseStore.currentTable?.id || "");
+
+// 使用 viewStore.currentView 计算可见字段，确保状态同步
+const visibleFields = computed(() => {
+  const fields = baseStore.sortedFields;
+  // 首先过滤掉 isVisible 为 false 的字段（全局隐藏）
+  let result = fields.filter((field) => field.isVisible !== false);
+  // 再根据当前视图的 hiddenFields 进行过滤（视图级隐藏）
+  if (viewStore.currentView) {
+    result = result.filter(
+      (field) => !viewStore.currentView!.hiddenFields.includes(field.id),
+    );
+  }
+  return result;
+});
 
 // 创建数据表对话框显示状态
 const createTableDialogVisible = ref(false);
@@ -139,10 +160,10 @@ const editingRecord = ref<any>(null);
 // Drawer 抽屉大小（响应式）
 const drawerSize = computed(() => {
   const width = window.innerWidth;
-  if (width < 768) return '100%';
-  if (width < 1024) return '70%';
-  if (width < 1440) return '50%';
-  return '600px';
+  if (width < 768) return "100%";
+  if (width < 1024) return "70%";
+  if (width < 1440) return "50%";
+  return "600px";
 });
 
 // 添加记录的初始值（用于日历视图等预填充数据）
@@ -601,6 +622,12 @@ const handleEditRecordById = (recordId: string) => {
   }
 };
 
+// 处理放大查看记录（用于 GroupedTableView）
+const handleExpandRecord = (record: RecordEntity) => {
+  editingRecord.value = record;
+  recordDialogVisible.value = true;
+};
+
 // 处理保存记录
 const handleSaveRecord = async (
   recordId: string,
@@ -763,11 +790,15 @@ async function handleRenameDashboard() {
     if (valid) {
       try {
         // 使用通用操作模块
-        await renameDashboard({
-          id: renameDashboardForm.id,
-          name: renameDashboardForm.name,
-          description: renameDashboardForm.description
-        } as Dashboard, renameDashboardForm.name, renameDashboardForm.description);
+        await renameDashboard(
+          {
+            id: renameDashboardForm.id,
+            name: renameDashboardForm.name,
+            description: renameDashboardForm.description,
+          } as Dashboard,
+          renameDashboardForm.name,
+          renameDashboardForm.description,
+        );
         closeRenameDashboardDialog();
         // 刷新仪表盘列表
         sidebarRef.value?.refreshDashboards();
@@ -824,7 +855,7 @@ async function handleReorderDashboards(dashboardIds: string[]) {
   } catch (error) {
     ElMessage.error("排序失败");
   }
-};
+}
 
 // 处理创建数据表
 async function handleCreateTable() {
@@ -881,19 +912,24 @@ async function handleRenameTable() {
     if (valid) {
       try {
         // 使用通用操作模块
-        await renameTable({
-          id: renameTableForm.id,
-          name: renameTableForm.name,
-          description: renameTableForm.description,
-          isStarred: false
-        } as TableEntity, renameTableForm.name, renameTableForm.description);
+        await renameTable(
+          {
+            id: renameTableForm.id,
+            name: renameTableForm.name,
+            description: renameTableForm.description,
+            isStarred: false,
+          } as TableEntity,
+          renameTableForm.name,
+          renameTableForm.description,
+        );
         // 同步更新 baseStore 中的表格信息
         const tableIndex = baseStore.tables.findIndex(
           (t) => t.id === renameTableForm.id,
         );
         if (tableIndex !== -1) {
           baseStore.tables[tableIndex].name = renameTableForm.name;
-          baseStore.tables[tableIndex].description = renameTableForm.description;
+          baseStore.tables[tableIndex].description =
+            renameTableForm.description;
         }
         if (baseStore.currentTable?.id === renameTableForm.id) {
           baseStore.currentTable.name = renameTableForm.name;
@@ -1000,6 +1036,27 @@ function handleFieldsReordered(fieldIds: string[]) {
   });
 
   baseStore.fields = sortedFields;
+}
+
+// 处理字段可见性变化（视图级隐藏/显示）
+async function handleFieldVisibilityChanged(
+  fieldId: string,
+  isVisible: boolean,
+) {
+  if (!viewStore.currentView) return;
+
+  let newHiddenFields: string[];
+  if (isVisible) {
+    // 从隐藏列表中移除
+    newHiddenFields = viewStore.currentView.hiddenFields.filter(
+      (id) => id !== fieldId,
+    );
+  } else {
+    // 添加到隐藏列表
+    newHiddenFields = [...viewStore.currentView.hiddenFields, fieldId];
+  }
+
+  await viewStore.updateHiddenFields(viewStore.currentView.id, newHiddenFields);
 }
 
 // 打开筛选对话框
@@ -1235,12 +1292,13 @@ function handleImported() {
             <!-- 表格视图 - 分组模式 -->
             <GroupedTableView
               v-if="isTableView && hasGroupConfig"
-              :fields="baseStore.visibleFields"
+              :fields="visibleFields"
               :records="filteredRecords as any[]"
               :group-by="currentGroupBys"
               @row-click="handleRecordSelect"
               @cell-click="handleEditRecord"
-              @add-record="handleAddRecordFromGroup" />
+              @add-record="handleAddRecordFromGroup"
+              @expand-record="handleExpandRecord" />
 
             <!-- 表格视图 - 普通模式 -->
             <TableView
@@ -1257,7 +1315,7 @@ function handleImported() {
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
-              :fields="baseStore.visibleFields"
+              :fields="visibleFields"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById"
@@ -1269,7 +1327,7 @@ function handleImported() {
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
-              :fields="baseStore.visibleFields"
+              :fields="visibleFields"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById" />
@@ -1280,7 +1338,7 @@ function handleImported() {
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
-              :fields="baseStore.visibleFields"
+              :fields="visibleFields"
               @updateRecord="handleSaveRecord"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById"
@@ -1290,7 +1348,7 @@ function handleImported() {
             <GalleryView
               v-else-if="isGalleryView"
               :records="filteredRecords"
-              :fields="baseStore.visibleFields"
+              :fields="visibleFields"
               @editRecord="handleEditRecordById"
               @deleteRecord="handleDeleteRecord" />
 
@@ -1452,12 +1510,13 @@ function handleImported() {
       @field-created="handleFieldCreated"
       @field-updated="handleFieldUpdated"
       @field-deleted="handleFieldDeleted"
-      @fields-reordered="handleFieldsReordered" />
+      @fields-reordered="handleFieldsReordered"
+      @field-visibility-changed="handleFieldVisibilityChanged" />
 
     <!-- 筛选对话框 -->
     <FilterDialog
       v-model:visible="filterDialogVisible"
-      :fields="baseStore.visibleFields"
+      :fields="visibleFields"
       :initial-filters="activeFilters"
       :initial-conjunction="filterConjunction"
       @apply="handleFilterApply"
@@ -1466,7 +1525,7 @@ function handleImported() {
     <!-- 排序对话框 -->
     <SortDialog
       v-model:visible="sortDialogVisible"
-      :fields="baseStore.visibleFields"
+      :fields="visibleFields"
       :initial-sorts="activeSorts"
       @apply="handleSortApply"
       @clear="handleSortClear" />
@@ -1474,7 +1533,7 @@ function handleImported() {
     <!-- 分组对话框 -->
     <GroupDialog
       v-model:visible="groupDialogVisible"
-      :fields="baseStore.visibleFields"
+      :fields="visibleFields"
       :initial-group-by="currentGroupBys"
       @apply="handleGroupApply"
       @clear="handleGroupClear" />
@@ -1482,7 +1541,7 @@ function handleImported() {
     <!-- 导出对话框 -->
     <ExportDialog
       v-model:visible="exportDialogVisible"
-      :fields="baseStore.visibleFields"
+      :fields="visibleFields"
       :records="filteredRecords" />
 
     <!-- 记录编辑对话框 -->

@@ -14,6 +14,7 @@ import { ElMessage, ElIcon } from "element-plus";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ZoomIn, Check } from "@element-plus/icons-vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
+import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 
 interface Props {
   tableId?: string;
@@ -51,11 +52,15 @@ const expandDialogVisible = ref(false);
 // Drawer 抽屉大小（响应式）
 const drawerSize = computed(() => {
   const width = window.innerWidth;
-  if (width < 768) return '100%';
-  if (width < 1024) return '70%';
-  if (width < 1440) return '50%';
-  return '600px';
+  if (width < 768) return "100%";
+  if (width < 1024) return "70%";
+  if (width < 1440) return "50%";
+  return "600px";
 });
+
+// 字段编辑对话框相关
+const fieldDialogVisible = ref(false);
+const editingFieldId = ref<string | null>(null);
 
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
@@ -70,9 +75,28 @@ const draggedRowId = ref<string | null>(null);
 
 const records = computed(() => props.records || baseStore.records);
 const fields = computed(() => baseStore.sortedFields);
-const visibleFields = computed(() => baseStore.visibleFields);
-const frozenFields = computed(() => baseStore.frozenFields);
 const currentView = computed(() => viewStore.currentView);
+
+// 使用 viewStore.currentView 计算可见字段，确保状态同步
+const visibleFields = computed(() => {
+  // 首先过滤掉 isVisible 为 false 的字段（全局隐藏）
+  let result = fields.value.filter((field) => field.isVisible !== false);
+  // 再根据当前视图的 hiddenFields 进行过滤（视图级隐藏）
+  if (currentView.value) {
+    result = result.filter(
+      (field) => !currentView.value!.hiddenFields.includes(field.id),
+    );
+  }
+  return result;
+});
+
+// 使用 viewStore.currentView 计算冻结字段
+const frozenFields = computed(() => {
+  if (!currentView.value) return [];
+  return fields.value.filter((field) =>
+    currentView.value!.frozenFields.includes(field.id),
+  );
+});
 
 const rowHeight = computed(() => currentView.value?.rowHeight || "medium");
 
@@ -140,15 +164,15 @@ const contextMenuItems = computed(() => {
 
       const isFrozen = frozenFields.value.some((f) => f.id === field.id);
       if (isFrozen) {
-        items.push({ id: "unfreeze", label: "取消冻结" });
+        items.push({ id: "unfreeze", label: "取消冻结", icon: "freeze" });
       } else {
-        items.push({ id: "freeze", label: "冻结列" });
+        items.push({ id: "freeze", label: "冻结列", icon: "freeze" });
       }
 
       items.push(
         { divider: true, id: "divider2" },
-        { id: "hide-field", label: "隐藏字段" },
-        { id: "edit-field", label: "编辑字段属性" },
+        { id: "hide-field", label: "隐藏字段", icon: "hide" },
+        { id: "edit-field", label: "编辑字段属性", icon: "settings" },
       );
     }
   }
@@ -331,6 +355,7 @@ const handleContextMenuSelect = async (item: any) => {
         await viewStore.updateSorts(currentView.value.id, [
           { fieldId: contextMenuField.value.id, direction: "asc" },
         ]);
+        ElMessage.success(`已按 ${contextMenuField.value.name} 升序排列`);
       }
       break;
 
@@ -339,6 +364,7 @@ const handleContextMenuSelect = async (item: any) => {
         await viewStore.updateSorts(currentView.value.id, [
           { fieldId: contextMenuField.value.id, direction: "desc" },
         ]);
+        ElMessage.success(`已按 ${contextMenuField.value.name} 降序排列`);
       }
       break;
 
@@ -349,6 +375,7 @@ const handleContextMenuSelect = async (item: any) => {
           contextMenuField.value.id,
         ];
         await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
+        ElMessage.success(`已冻结列：${contextMenuField.value.name}`);
       }
       break;
 
@@ -358,16 +385,34 @@ const handleContextMenuSelect = async (item: any) => {
           (fid) => fid !== contextMenuField.value!.id,
         );
         await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
+        ElMessage.success(`已取消冻结列：${contextMenuField.value.name}`);
       }
       break;
 
     case "hide-field":
       if (contextMenuField.value && currentView.value) {
+        // 检查字段是否已经在隐藏列表中
+        if (
+          currentView.value.hiddenFields.includes(contextMenuField.value.id)
+        ) {
+          ElMessage.warning(
+            `字段 "${contextMenuField.value.name}" 已经是隐藏状态`,
+          );
+          break;
+        }
         const newHidden = [
           ...currentView.value.hiddenFields,
           contextMenuField.value.id,
         ];
         await viewStore.updateHiddenFields(currentView.value.id, newHidden);
+        ElMessage.success(`已隐藏字段：${contextMenuField.value.name}`);
+      }
+      break;
+
+    case "edit-field":
+      if (contextMenuField.value) {
+        editingFieldId.value = contextMenuField.value.id;
+        fieldDialogVisible.value = true;
       }
       break;
   }
@@ -521,10 +566,79 @@ const isFieldFrozen = (fieldId: string): boolean => {
   return frozenFields.value.some((f) => f.id === fieldId);
 };
 
+// 计算冻结列的 left 位置
+const getFrozenFieldLeft = (fieldId: string): number => {
+  if (!isFieldFrozen(fieldId)) return 0;
+
+  // 序号列宽度
+  const selectorWidth = 70;
+
+  // 计算在当前冻结列之前的所有冻结列的宽度总和
+  let leftOffset = selectorWidth;
+
+  for (const field of visibleFields.value) {
+    if (field.id === fieldId) break;
+    if (isFieldFrozen(field.id)) {
+      leftOffset += getColumnWidth(field.id);
+    }
+  }
+
+  return leftOffset;
+};
+
 const getFieldSortDirection = (fieldId: string): "asc" | "desc" | null => {
   const sorts = viewStore.currentSorts as SortConfig[];
   const sort = sorts.find((s) => s.fieldId === fieldId);
   return sort?.direction || null;
+};
+
+// 字段更新后的处理
+const handleFieldUpdated = async (_updatedField: FieldEntity) => {
+  // 刷新字段列表
+  if (baseStore.currentTable) {
+    await baseStore.loadTable(baseStore.currentTable.id);
+  }
+  ElMessage.success("字段更新成功");
+};
+
+// 字段删除后的处理
+const handleFieldDeleted = async (fieldId: string) => {
+  // 刷新字段列表
+  if (baseStore.currentTable) {
+    await baseStore.loadTable(baseStore.currentTable.id);
+  }
+  // 如果删除的是当前正在编辑的单元格所在字段，清除编辑状态
+  if (editingCell.value?.fieldId === fieldId) {
+    editingCell.value = null;
+  }
+  ElMessage.success("字段删除成功");
+};
+
+// 字段可见性变化处理（视图级隐藏/显示）
+const handleFieldVisibilityChanged = async (
+  fieldId: string,
+  isVisible: boolean,
+) => {
+  if (!currentView.value) return;
+
+  try {
+    let newHiddenFields: string[];
+
+    if (isVisible) {
+      // 从隐藏列表中移除
+      newHiddenFields = currentView.value.hiddenFields.filter(
+        (id) => id !== fieldId,
+      );
+    } else {
+      // 添加到隐藏列表
+      newHiddenFields = [...currentView.value.hiddenFields, fieldId];
+    }
+
+    await viewStore.updateHiddenFields(currentView.value.id, newHiddenFields);
+    // 注意：不需要调用 loadTable，因为 visibleFields 计算属性会自动响应 currentView 的变化
+  } catch (error) {
+    ElMessage.error("更新字段可见性失败");
+  }
 };
 
 onMounted(() => {
@@ -573,7 +687,12 @@ defineExpose({
             :key="field.id"
             class="header-cell"
             :class="{ 'is-frozen': isFieldFrozen(field.id) }"
-            :style="{ width: `${getColumnWidth(field.id)}px` }">
+            :style="{
+              width: `${getColumnWidth(field.id)}px`,
+              left: isFieldFrozen(field.id)
+                ? `${getFrozenFieldLeft(field.id)}px`
+                : 'auto',
+            }">
             <TableHeader
               :field="field"
               :sort-direction="getFieldSortDirection(field.id)"
@@ -605,7 +724,9 @@ defineExpose({
               :class="{ 'is-checked': selectedRows.includes(record.id) }"
               @click.stop="toggleRowSelection(record.id)">
               <div class="checkbox-inner">
-                <ElIcon v-if="selectedRows.includes(record.id)"><Check /></ElIcon>
+                <ElIcon v-if="selectedRows.includes(record.id)"
+                  ><Check
+                /></ElIcon>
               </div>
             </div>
             <!-- 放大按钮 - 与勾选按钮并列显示 -->
@@ -629,7 +750,12 @@ defineExpose({
                 editingCell?.recordId === record.id &&
                 editingCell?.fieldId === field.id,
             }"
-            :style="{ width: `${getColumnWidth(field.id)}px` }">
+            :style="{
+              width: `${getColumnWidth(field.id)}px`,
+              left: isFieldFrozen(field.id)
+                ? `${getFrozenFieldLeft(field.id)}px`
+                : 'auto',
+            }">
             <TableCell
               :record="record"
               :field="field"
@@ -682,6 +808,16 @@ defineExpose({
       :fields="fields"
       :size="drawerSize"
       @save="handleRecordSave" />
+
+    <!-- 字段编辑对话框 -->
+    <FieldDialog
+      v-model:visible="fieldDialogVisible"
+      :table-id="baseStore.currentTable?.id || ''"
+      :fields="fields"
+      :edit-field-id="editingFieldId || undefined"
+      @field-updated="handleFieldUpdated"
+      @field-deleted="handleFieldDeleted"
+      @field-visibility-changed="handleFieldVisibilityChanged" />
   </div>
 </template>
 
@@ -744,7 +880,7 @@ defineExpose({
 
   &.is-frozen {
     position: sticky;
-    left: 70px;
+    // left 值通过内联样式动态设置
     z-index: 5;
     background-color: $gray-50;
     box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
@@ -759,6 +895,10 @@ defineExpose({
   justify-content: center;
   border-right: 1px solid $gray-200;
   background-color: $gray-50;
+  // 冻结序号列表头
+  position: sticky;
+  left: 0;
+  z-index: 10;
 
   input[type="checkbox"] {
     width: 16px;
@@ -782,7 +922,10 @@ defineExpose({
   padding: 0 8px;
   border-right: 1px solid $gray-200;
   background-color: inherit;
-  position: relative;
+  // 冻结序号列
+  position: sticky;
+  left: 0;
+  z-index: 5;
 
   // 自定义勾选按钮
   .custom-checkbox {
@@ -920,7 +1063,7 @@ defineExpose({
 
   &.is-frozen {
     position: sticky;
-    left: 70px;
+    // left 值通过内联样式动态设置
     z-index: 2;
     background-color: inherit;
     box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
