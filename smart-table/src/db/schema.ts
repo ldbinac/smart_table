@@ -111,12 +111,18 @@ export interface Attachment {
   id: string;
   recordId: string;
   fieldId: string;
+  tableId: string;
+  baseId: string;
   name: string;
+  originalName: string;
   size: number;
   type: string;
+  fileType: string;
+  extension: string;
   data: Blob;
   thumbnail?: Blob;
   createdAt: number;
+  createdBy?: string;
 }
 
 export interface OperationHistory {

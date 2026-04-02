@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { Delete, Plus } from "@element-plus/icons-vue";
 import { FieldType, type FieldOption, type FieldOptions } from "@/types/fields";
 import { generateId } from "@/utils/id";
@@ -32,6 +33,7 @@ const fieldTypeOptions = [
   { label: "单选", value: FieldType.SINGLE_SELECT },
   { label: "多选", value: FieldType.MULTI_SELECT },
   { label: "复选框", value: FieldType.CHECKBOX },
+  { label: "附件", value: FieldType.ATTACHMENT },
 ];
 
 const defaultColors = [
@@ -119,6 +121,9 @@ const showSelectOptions = computed(
   () =>
     localField.value.type === FieldType.SINGLE_SELECT ||
     localField.value.type === FieldType.MULTI_SELECT,
+);
+const showAttachmentOptions = computed(
+  () => localField.value.type === FieldType.ATTACHMENT,
 );
 
 const numberFormatOptions = [
@@ -276,6 +281,65 @@ const currencySymbolOptions = [
             添加选项
           </el-button>
         </div>
+      </div>
+    </template>
+
+    <template v-if="showAttachmentOptions">
+      <div class="config-section">
+        <div class="config-label">文件类型限制</div>
+        <el-select
+          :model-value="localField.options?.acceptTypes || []"
+          @update:model-value="
+            (val: string[]) => updateOption('acceptTypes', val)
+          "
+          multiple
+          placeholder="选择允许的文件类型"
+          class="config-input">
+          <el-option label="图片 (image/*)" value="image/*" />
+          <el-option label="文档 (PDF)" value="application/pdf" />
+          <el-option label="文档 (Word .doc)" value="application/msword" />
+          <el-option label="文档 (Word .docx)" value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+          <el-option label="文档 (Excel .xls)" value="application/vnd.ms-excel" />
+          <el-option label="文档 (Excel .xlsx)" value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+          <el-option label="视频 (video/*)" value="video/*" />
+          <el-option label="音频 (audio/*)" value="audio/*" />
+        </el-select>
+      </div>
+
+      <div class="config-section">
+        <div class="config-label">单个文件大小限制 (MB)</div>
+        <el-input-number
+          :model-value="
+            Math.floor(
+              (localField.options?.maxSize || 10 * 1024 * 1024) / 1024 / 1024,
+            )
+          "
+          @update:model-value="
+            (val: number) => updateOption('maxSize', val * 1024 * 1024)
+          "
+          :min="1"
+          :max="100"
+          :step="1"
+          class="config-input" />
+      </div>
+
+      <div class="config-section">
+        <div class="config-label">最大文件数量</div>
+        <el-input-number
+          :model-value="localField.options?.maxCount || 20"
+          @update:model-value="
+            (val: number | undefined) => updateOption('maxCount', val)
+          "
+          :min="1"
+          :max="50"
+          class="config-input" />
+      </div>
+
+      <div class="config-section">
+        <div class="config-label">生成缩略图</div>
+        <el-switch
+          :model-value="localField.options?.enableThumbnail !== false"
+          @update:model-value="(val) => updateOption('enableThumbnail', val)" />
       </div>
     </template>
   </div>

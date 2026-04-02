@@ -63,6 +63,28 @@ export interface FieldOptions {
   // 自动编号选项
   startNumber?: number;
 
+  // ==================== 附件字段 (Attachment Field) 选项 ====================
+  /** 接受的 MIME 类型 */
+  acceptTypes?: string[];
+  /** 接受的文件扩展名 */
+  acceptExtensions?: string[];
+  /** 单个文件最大大小（字节） */
+  maxSize?: number;
+  /** 总大小限制（字节） */
+  maxTotalSize?: number;
+  /** 最大文件数量 */
+  maxCount?: number;
+  /** 最小文件数量 */
+  minCount?: number;
+  /** 是否生成缩略图 */
+  enableThumbnail?: boolean;
+  /** 缩略图最大宽度 */
+  thumbnailMaxWidth?: number;
+  /** 缩略图最大高度 */
+  thumbnailMaxHeight?: number;
+  /** 缩略图质量 0-1 */
+  thumbnailQuality?: number;
+
   // ==================== 关联字段 (Link Field) 选项 ====================
   /** 关联的目标表 ID */
   linkedTableId?: string;

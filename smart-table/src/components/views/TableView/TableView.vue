@@ -642,7 +642,8 @@ defineExpose({
                     editingCell = null;
                   }
                 }
-              " />
+              "
+              @open-detail="handleExpandRecord(record)" />
           </div>
         </TableRow>
 

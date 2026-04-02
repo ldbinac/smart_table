@@ -25,6 +25,7 @@ import {
   getRequiredFieldErrorMessage,
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
+import AttachmentField from "@/components/fields/AttachmentField.vue";
 // import { Calculator } from "@element-plus/icons-vue";
 
 const props = defineProps<{
@@ -270,6 +271,37 @@ function handleValueChange(fieldId: string, value: unknown) {
   formData.value[fieldId] = value;
 }
 
+// 处理附件上传
+function handleAttachmentUpload(fieldId: string, newFiles: unknown[]) {
+  // 附件已经通过 AttachmentField 组件上传到 IndexedDB
+  // 这里只需要更新表单数据中的附件元数据
+  // 使用 Map 去重，避免重复添加相同 ID 的文件
+  const currentFiles = (formData.value[fieldId] as unknown[]) || [];
+  const fileMap = new Map<string, unknown>();
+  
+  // 添加现有文件
+  currentFiles.forEach(f => {
+    const file = f as { id: string };
+    fileMap.set(file.id, f);
+  });
+  
+  // 添加新文件（如果 ID 不存在）
+  newFiles.forEach(f => {
+    const file = f as { id: string };
+    if (!fileMap.has(file.id)) {
+      fileMap.set(file.id, f);
+    }
+  });
+  
+  formData.value[fieldId] = Array.from(fileMap.values());
+}
+
+// 处理附件删除
+function handleAttachmentDelete(fieldId: string, fileId: string) {
+  const currentFiles = (formData.value[fieldId] as unknown[]) || [];
+  formData.value[fieldId] = currentFiles.filter((f: unknown) => (f as { id: string }).id !== fileId);
+}
+
 // 获取主键字段
 const primaryField = computed(() => {
   return props.fields.find((f) => f.isPrimary) || props.fields[0];
@@ -462,10 +494,13 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
 
         <!-- 附件类型 -->
         <template v-else-if="getFieldComponent(field) === 'attachment'">
-          <div class="attachment-hint">
-            <el-icon><Document /></el-icon>
-            <span>附件功能请在详情页中使用</span>
-          </div>
+          <AttachmentField
+            :model-value="formData[field.id] as CellValue"
+            :field="field"
+            :record-id="props.record?.id"
+            @update:model-value="(val) => handleValueChange(field.id, val)"
+            @upload="(files) => handleAttachmentUpload(field.id, files)"
+            @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
         </template>
 
         <!-- 成员类型 -->

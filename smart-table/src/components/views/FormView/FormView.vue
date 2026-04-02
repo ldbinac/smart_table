@@ -7,6 +7,7 @@ import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
+import AttachmentField from "@/components/fields/AttachmentField.vue";
 
 interface Props {
   fields: FieldEntity[];
@@ -34,6 +35,7 @@ const formValues = ref<Record<string, CellValue>>({});
 const formErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
 const submitSuccess = ref(false);
+const newRecordId = ref(generateId());
 
 // 获取主键字段
 const primaryField = computed(() => {
@@ -261,6 +263,7 @@ function resetForm() {
   formValues.value = {};
   formErrors.value = {};
   submitSuccess.value = false;
+  newRecordId.value = generateId();
 
   // 为主键字段自动生成唯一ID
   if (primaryField.value && !props.record) {
@@ -273,6 +276,37 @@ function resetForm() {
       formValues.value[field.id] = field.options.defaultValue as CellValue;
     }
   });
+}
+
+// 处理附件上传
+function handleAttachmentUpload(fieldId: string, newFiles: unknown[]) {
+  // 使用 Map 去重，避免重复添加相同 ID 的文件
+  const currentFiles = (formValues.value[fieldId] as unknown[]) || [];
+  const fileMap = new Map<string, unknown>();
+
+  // 添加现有文件
+  currentFiles.forEach((f) => {
+    const file = f as { id: string };
+    fileMap.set(file.id, f);
+  });
+
+  // 添加新文件（如果 ID 不存在）
+  newFiles.forEach((f) => {
+    const file = f as { id: string };
+    if (!fileMap.has(file.id)) {
+      fileMap.set(file.id, f);
+    }
+  });
+
+  formValues.value[fieldId] = Array.from(fileMap.values()) as CellValue;
+}
+
+// 处理附件删除
+function handleAttachmentDelete(fieldId: string, fileId: string) {
+  const currentFiles = (formValues.value[fieldId] as unknown[]) || [];
+  formValues.value[fieldId] = currentFiles.filter(
+    (f: unknown) => (f as { id: string }).id !== fileId,
+  ) as CellValue;
 }
 
 // 计算公式字段值
@@ -343,6 +377,8 @@ function getFieldComponentType(field: FieldEntity): string {
       return "checkbox";
     case FieldType.FORMULA:
       return "formula";
+    case FieldType.ATTACHMENT:
+      return "attachment";
     default:
       return "text";
   }
@@ -647,6 +683,18 @@ defineExpose({
                   公式: {{ field.options.formula }}
                 </div>
               </div>
+            </template>
+
+            <!-- 附件字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'attachment'">
+              <AttachmentField
+                :model-value="formValues[field.id]"
+                :field="field"
+                :record-id="props.record?.id || newRecordId"
+                :readonly="readonly"
+                @update:model-value="(val) => handleFieldValueChange(field.id, val)"
+                @upload="(files) => handleAttachmentUpload(field.id, files)"
+                @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
             </template>
           </div>
 

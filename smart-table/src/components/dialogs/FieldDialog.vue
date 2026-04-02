@@ -88,6 +88,14 @@ const selectOptions = ref<{ id: string; name: string; color: string }[]>([]);
 const newOptionName = ref("");
 const newOptionColor = ref("#3370FF");
 
+// 附件字段配置
+const attachmentConfig = ref({
+  acceptTypes: [] as string[],
+  maxSize: 10, // MB
+  maxCount: 20,
+  enableThumbnail: true,
+});
+
 // 监听对话框显示，初始化拖拽排序
 watch(
   () => props.visible,
@@ -168,6 +176,13 @@ function openCreateField() {
     formula: "",
   };
   selectOptions.value = [];
+  // 重置附件配置
+  attachmentConfig.value = {
+    acceptTypes: [],
+    maxSize: 10,
+    maxCount: 20,
+    enableThumbnail: true,
+  };
 }
 
 function openEditField(field: FieldEntity) {
@@ -195,6 +210,25 @@ function openEditField(field: FieldEntity) {
   } else {
     selectOptions.value = [];
   }
+
+  // 加载附件字段配置
+  if (field.type === FieldType.ATTACHMENT) {
+    attachmentConfig.value = {
+      acceptTypes: (field.options?.acceptTypes as string[]) || [],
+      maxSize: Math.floor(
+        ((field.options?.maxSize as number) || 10 * 1024 * 1024) / 1024 / 1024,
+      ),
+      maxCount: (field.options?.maxCount as number) || 20,
+      enableThumbnail: field.options?.enableThumbnail !== false,
+    };
+  } else {
+    attachmentConfig.value = {
+      acceptTypes: [],
+      maxSize: 10,
+      maxCount: 20,
+      enableThumbnail: true,
+    };
+  }
 }
 
 function backToList() {
@@ -210,6 +244,13 @@ function backToList() {
     formula: "",
   };
   selectOptions.value = [];
+  // 重置附件配置
+  attachmentConfig.value = {
+    acceptTypes: [],
+    maxSize: 10,
+    maxCount: 20,
+    enableThumbnail: true,
+  };
 }
 
 async function createField() {
@@ -242,6 +283,16 @@ async function createField() {
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
       options.precision = newField.value.precision || 2;
+    }
+    // 附件字段配置
+    if (newField.value.type === FieldType.ATTACHMENT) {
+      // 使用 toRaw 转换为普通数组，避免 IndexedDB 克隆错误
+      options.acceptTypes = JSON.parse(
+        JSON.stringify(attachmentConfig.value.acceptTypes),
+      );
+      options.maxSize = attachmentConfig.value.maxSize * 1024 * 1024; // 转换为字节
+      options.maxCount = attachmentConfig.value.maxCount;
+      options.enableThumbnail = attachmentConfig.value.enableThumbnail;
     }
 
     const field = await fieldService.createField({
@@ -294,6 +345,14 @@ async function updateField() {
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
       options.precision = newField.value.precision || 2;
+    }
+    // 附件字段配置
+    if (newField.value.type === FieldType.ATTACHMENT) {
+      // 使用 JSON 序列化转换为普通数组，避免 IndexedDB 克隆错误
+      options.acceptTypes = JSON.parse(JSON.stringify(attachmentConfig.value.acceptTypes));
+      options.maxSize = attachmentConfig.value.maxSize * 1024 * 1024; // 转换为字节
+      options.maxCount = attachmentConfig.value.maxCount;
+      options.enableThumbnail = attachmentConfig.value.enableThumbnail;
     }
 
     await fieldService.updateField(editingField.value.id, {
@@ -358,7 +417,10 @@ function onTypeChange() {
     selectOptions.value = [];
   }
   // 切换类型时重置特定配置
-  if (newField.value.type !== FieldType.NUMBER && newField.value.type !== FieldType.FORMULA) {
+  if (
+    newField.value.type !== FieldType.NUMBER &&
+    newField.value.type !== FieldType.FORMULA
+  ) {
     newField.value.precision = 0;
   }
   if (newField.value.type !== FieldType.DATE) {
@@ -403,7 +465,7 @@ const availableFieldsForFormula = computed(() => {
 // 插入函数到公式
 function insertFunction(funcName: string) {
   const formulaInput = document.querySelector(
-    '.formula-field textarea, [placeholder*="公式"]'
+    '.formula-field textarea, [placeholder*="公式"]',
   ) as HTMLTextAreaElement;
   if (formulaInput) {
     const start = formulaInput.selectionStart;
@@ -418,7 +480,10 @@ function insertFunction(funcName: string) {
     // 将光标放在括号内
     nextTick(() => {
       formulaInput.focus();
-      formulaInput.setSelectionRange(start + funcName.length + 1, start + funcName.length + 1);
+      formulaInput.setSelectionRange(
+        start + funcName.length + 1,
+        start + funcName.length + 1,
+      );
     });
   } else {
     newField.value.formula += funcName + "()";
@@ -428,7 +493,7 @@ function insertFunction(funcName: string) {
 // 插入字段引用到公式
 function insertFieldRef(fieldName: string) {
   const formulaInput = document.querySelector(
-    '.formula-field textarea, [placeholder*="公式"]'
+    '.formula-field textarea, [placeholder*="公式"]',
   ) as HTMLTextAreaElement;
   const fieldRef = `{${fieldName}}`;
   if (formulaInput) {
@@ -436,15 +501,13 @@ function insertFieldRef(fieldName: string) {
     const end = formulaInput.selectionEnd;
     const currentValue = newField.value.formula;
     const newValue =
-      currentValue.substring(0, start) +
-      fieldRef +
-      currentValue.substring(end);
+      currentValue.substring(0, start) + fieldRef + currentValue.substring(end);
     newField.value.formula = newValue;
     nextTick(() => {
       formulaInput.focus();
       formulaInput.setSelectionRange(
         start + fieldRef.length,
-        start + fieldRef.length
+        start + fieldRef.length,
       );
     });
   } else {
@@ -457,12 +520,12 @@ async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
   try {
     await fieldService.updateFieldVisibility(field.id, isVisible);
     // 不直接修改 prop，而是通过事件通知父组件更新
-    emit('field-updated', { ...field, isVisible });
-    ElMessage.success(isVisible ? '字段已显示' : '字段已隐藏');
+    emit("field-updated", { ...field, isVisible });
+    ElMessage.success(isVisible ? "字段已显示" : "字段已隐藏");
   } catch (error) {
-    ElMessage.error('更新字段可见性失败');
+    ElMessage.error("更新字段可见性失败");
     // 发生错误时，让父组件重新加载数据以恢复状态
-    emit('field-updated', { ...field, isVisible: field.isVisible });
+    emit("field-updated", { ...field, isVisible: field.isVisible });
   }
 }
 </script>
@@ -512,8 +575,7 @@ async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
               active-text="显示"
               inactive-text="隐藏"
               @change="(val) => toggleFieldVisibility(field, val as boolean)"
-              style="margin-right: 8px"
-            />
+              style="margin-right: 8px" />
             <ElButton
               v-if="!field.isSystem"
               link
@@ -612,7 +674,9 @@ async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
                 :step="1"
                 show-stops
                 style="width: 300px" />
-              <span class="precision-value">{{ newField.precision || 2 }} 位</span>
+              <span class="precision-value"
+                >{{ newField.precision || 2 }} 位</span
+              >
             </div>
             <div class="field-hint">设置公式结果显示的小数位数，默认为 2</div>
           </ElFormItem>
@@ -734,6 +798,54 @@ async function toggleFieldVisibility(field: FieldEntity, isVisible: boolean) {
             </div>
           </div>
         </ElFormItem>
+
+        <!-- 附件字段配置 -->
+        <template v-if="newField.type === FieldType.ATTACHMENT">
+          <ElFormItem label="文件类型限制">
+          <ElSelect
+            v-model="attachmentConfig.acceptTypes"
+            multiple
+            placeholder="选择允许的文件类型"
+            style="width: 100%">
+            <ElOption label="图片 (image/*)" value="image/*" />
+            <ElOption label="文档 (PDF)" value="application/pdf" />
+            <ElOption label="文档 (Word .doc)" value="application/msword" />
+            <ElOption label="文档 (Word .docx)" value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+            <ElOption label="文档 (Excel .xls)" value="application/vnd.ms-excel" />
+            <ElOption label="文档 (Excel .xlsx)" value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            <ElOption label="视频 (video/*)" value="video/*" />
+            <ElOption label="音频 (audio/*)" value="audio/*" />
+          </ElSelect>
+          <div class="field-hint">不选择则表示允许所有文件类型</div>
+        </ElFormItem>
+
+          <ElFormItem label="单个文件大小">
+            <ElInputNumber
+              v-model="attachmentConfig.maxSize"
+              :min="1"
+              :max="100"
+              :step="1"
+              style="width: 200px">
+              <template #suffix>MB</template>
+            </ElInputNumber>
+            <div class="field-hint">单个文件的最大大小，默认为 10MB</div>
+          </ElFormItem>
+
+          <ElFormItem label="最大文件数量">
+            <ElInputNumber
+              v-model="attachmentConfig.maxCount"
+              :min="1"
+              :max="50"
+              :step="1"
+              style="width: 200px" />
+            <div class="field-hint">最多允许上传的文件数量，默认为 20 个</div>
+          </ElFormItem>
+
+          <ElFormItem label="生成缩略图">
+            <ElSwitch v-model="attachmentConfig.enableThumbnail" />
+            <div class="field-hint">开启后会对图片和视频生成缩略图</div>
+          </ElFormItem>
+        </template>
 
         <ElFormItem label="必填">
           <ElSwitch v-model="newField.isRequired" />

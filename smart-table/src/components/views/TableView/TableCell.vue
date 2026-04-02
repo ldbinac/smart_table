@@ -24,6 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: "update", value: CellValue): void;
   (e: "edit", active: boolean): void;
+  (e: "open-detail"): void;
 }>();
 
 const isEditing = ref(false);
@@ -299,6 +300,11 @@ const handleDateChange = (val: Date | null) => {
 };
 
 const handleDoubleClick = () => {
+  // 附件字段双击时打开详情对话框
+  if (fieldType.value === 'attachment') {
+    emit("open-detail");
+    return;
+  }
   startEdit();
 };
 

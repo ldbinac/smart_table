@@ -14,3 +14,9 @@ export { dashboardShareService, DashboardShareService, type CreateShareData, typ
 export { dashboardTemplateService, DashboardTemplateService, type CreateTemplateData, type TemplateFilter } from './dashboardTemplateService';
 export { dashboardRealtimeService, DashboardRealtimeService, type RefreshConfig, type DataChangeEvent, type WidgetDataState } from './dashboardRealtimeService';
 export { templateService, TemplateService } from './templateService';
+export {
+  attachmentService,
+  AttachmentService,
+  type UploadContext,
+  type UploadProgressCallback
+} from './attachmentService';

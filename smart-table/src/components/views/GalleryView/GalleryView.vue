@@ -329,7 +329,7 @@ onMounted(() => {
     <el-dialog
       v-model="previewVisible"
       title="图片预览"
-      width="80%"
+      width="60%"
       destroy-on-close
       class="preview-dialog">
       <div class="preview-container">
@@ -786,7 +786,7 @@ onMounted(() => {
   }
 
   :deep(.el-dialog__body) {
-    padding: $spacing-lg;
+    padding: $spacing-sm;
   }
 }
 
@@ -794,6 +794,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+
+  :deep(.el-carousel__container) {
+    width: 60vw;
+  }
 }
 
 .preview-image-wrapper {
@@ -806,8 +810,8 @@ onMounted(() => {
   gap: $spacing-md;
 
   img {
-    max-width: 100%;
-    max-height: calc(60vh - 40px);
+    max-width: 90vw;
+    max-height: calc(100vh - 40px);
     object-fit: contain;
     border-radius: $border-radius-lg;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
