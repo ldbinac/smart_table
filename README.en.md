@@ -274,15 +274,68 @@ Supports 40+ built-in functions:
 - [x] Star Feature
 - [x] Search Feature
 - [x] Form View Sharing
+- [x] Field Required Attribute
+- [x] Field Validation Rules (Required, Number, Email, Phone, URL)
+- [x] Attachment Field Upload/Download/Delete
+- [x] Dashboard Basic Features
 
 ### Planned Features 📋
 
+#### Field Enhancements
+- [ ] Field Default Values
+- [ ] Attachment Field Preview (Images, Documents, Videos, etc.)
+- [ ] New Field Types (Text Area, ID Card, Geolocation)
+- [ ] Formula Engine Documentation
+
+#### View Enhancements
+- [ ] Form View Enhancements (Linkage, Background Image, Description, Collector Info)
+- [ ] Global Filter
+- [ ] Field Linkage
+- [ ] Dashboard Grid Configuration Optimization
+- [ ] Template Features (Save Base/Dashboard as Template)
+- [ ] Table View Column Freeze
+- [ ] Table View Field Filter
+- [ ] Group Mode Field Display Style Improvements
+
+#### Sharing Features
+- [ ] Base Sharing
+- [ ] Single Table Sharing
+- [ ] Single View Sharing
+- [ ] Sharing Content Configuration
+- [ ] Sharing Menu (My Shares / Shared with Me)
+
+#### History & Collaboration
+- [ ] Version History Management
+- [ ] Change Log
 - [ ] Collaboration Features (based on WebRTC)
 - [ ] Permission Management
+
+#### AI Features
+- [ ] AI Form Builder (Build business tables with natural language)
+- [ ] AI Form Assistant
+- [ ] Data Q&A with Visualization
+
+#### Workflow & Extensions
+- [ ] Workflow Design
 - [ ] Automation Workflows
+- [ ] Script Extension Support
 - [ ] Plugin System
-- [ ] Data Dashboard
+
+#### Open APIs
+- [ ] REST API Interface
+- [ ] MCP Interface
+
+#### Admin Console
+- [ ] Admin Console (Java/Python Stack)
+
+#### Documentation Features
+- [ ] Document CRUD
+- [ ] Rich Text Editor
+- [ ] Document Sharing & Version Management
+
+#### Others
 - [ ] Mobile Adaptation
+- [ ] User Manual Documentation
 
 ## Contributing
 
