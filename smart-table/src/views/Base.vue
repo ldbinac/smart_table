@@ -21,8 +21,8 @@ import FilterDialog from "@/components/dialogs/FilterDialog.vue";
 import SortDialog from "@/components/dialogs/SortDialog.vue";
 import GroupDialog from "@/components/dialogs/GroupDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
-import RecordDialog from "@/components/dialogs/RecordDialog.vue";
-import AddRecordDialog from "@/components/dialogs/AddRecordDialog.vue";
+import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
+import AddRecordDrawer from "@/components/dialogs/AddRecordDrawer.vue";
 import ImportDialog from "@/components/dialogs/ImportDialog.vue";
 import { ViewType } from "@/types";
 import type { FormInstance, FormRules } from "element-plus";
@@ -135,6 +135,15 @@ const formConfig = ref({
 
 // 当前编辑的记录
 const editingRecord = ref<any>(null);
+
+// Drawer 抽屉大小（响应式）
+const drawerSize = computed(() => {
+  const width = window.innerWidth;
+  if (width < 768) return '100%';
+  if (width < 1024) return '70%';
+  if (width < 1440) return '50%';
+  return '600px';
+});
 
 // 添加记录的初始值（用于日历视图等预填充数据）
 const addRecordInitialValues = ref<Record<string, unknown>>({});
@@ -1477,14 +1486,15 @@ function handleImported() {
       :records="filteredRecords" />
 
     <!-- 记录编辑对话框 -->
-    <RecordDialog
+    <RecordDetailDrawer
       v-model:visible="recordDialogVisible"
       :record="editingRecord"
       :fields="baseStore.fields"
+      :size="drawerSize"
       @save="handleSaveRecord" />
 
-    <!-- 添加记录对话框 -->
-    <AddRecordDialog
+    <!-- 添加记录抽屉 -->
+    <AddRecordDrawer
       v-model:visible="addRecordDialogVisible"
       :fields="baseStore.fields"
       :initial-values="addRecordInitialValues"
@@ -1492,6 +1502,7 @@ function handleImported() {
       :group-id="addRecordGroupInfo.groupId"
       :group-name="addRecordGroupInfo.groupName"
       :group-levels="addRecordGroupInfo.groupLevels"
+      :size="drawerSize"
       @save="handleSaveNewRecord" />
 
     <!-- 表单配置对话框 -->

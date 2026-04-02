@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AddRecordDialog: typeof import('./components/dialogs/AddRecordDialog.vue')['default']
+    AddRecordDrawer: typeof import('./components/dialogs/AddRecordDrawer.vue')['default']
     AppHeader: typeof import('./components/common/AppHeader.vue')['default']
     AppSidebar: typeof import('./components/common/AppSidebar.vue')['default']
     AttachmentField: typeof import('./components/fields/AttachmentField.vue')['default']
@@ -109,6 +110,7 @@ declare module 'vue' {
     ProgressField: typeof import('./components/fields/ProgressField.vue')['default']
     RatingField: typeof import('./components/fields/RatingField.vue')['default']
     RealtimeChartWidget: typeof import('./components/dashboard/RealtimeChartWidget.vue')['default']
+    RecordDetailDrawer: typeof import('./components/dialogs/RecordDetailDrawer.vue')['default']
     RecordDialog: typeof import('./components/dialogs/RecordDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

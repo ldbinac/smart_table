@@ -1,0 +1,208 @@
+// 记录详情抽屉样式
+.record-detail-drawer {
+  // 抽屉头部样式
+  .el-drawer__header {
+    padding: 16px 20px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #e4e7ed;
+    background-color: #fff;
+
+    .el-drawer__title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #303133;
+      line-height: 1.4;
+    }
+
+    .el-drawer__close-btn {
+      font-size: 20px;
+      color: #909399;
+      transition: color 0.2s;
+
+      &:hover {
+        color: #409eff;
+      }
+    }
+  }
+
+  // 抽屉内容区域样式
+  .el-drawer__body {
+    padding: 0;
+    overflow: hidden;
+    background-color: #f5f7fa;
+  }
+
+  // 抽屉底部样式
+  .el-drawer__footer {
+    padding: 0;
+    border-top: 1px solid #e4e7ed;
+    background-color: #fff;
+  }
+}
+
+// 抽屉内容区域
+.drawer-content {
+  padding: 0;
+  height: calc(100vh - 120px);
+  overflow-y: auto;
+  background-color: #f5f7fa;
+
+  // 自定义滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c0c4cc;
+    border-radius: 3px;
+
+    &:hover {
+      background: #909399;
+    }
+  }
+}
+
+// 记录表单样式
+.record-form {
+  padding: 20px;
+  background-color: #fff;
+  min-height: 100%;
+}
+
+// 表单字段样式
+.form-field {
+  margin-bottom: 20px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// 字段标签样式
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  line-height: 1.4;
+
+  // 必填标记
+  &.required::after {
+    content: "*";
+    color: #f56c6c;
+    margin-left: 4px;
+  }
+}
+
+// 字段输入框样式
+.field-input {
+  width: 100%;
+
+  // 覆盖 Element Plus 默认样式
+  .el-input__wrapper,
+  .el-textarea__inner {
+    border-radius: 4px;
+  }
+}
+
+// 选择选项样式
+.select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// 选项颜色标记
+.option-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+// 公式字段显示样式
+.formula-field-display {
+  .formula-input {
+    .el-input__wrapper {
+      background-color: #f5f7fa;
+    }
+  }
+
+  .formula-hint {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #909399;
+    line-height: 1.4;
+  }
+}
+
+// 抽屉底部操作栏样式
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background-color: #fff;
+
+  // 按钮样式
+  .el-button {
+    min-width: 80px;
+    padding: 9px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+
+    &--primary {
+      background-color: #409eff;
+      border-color: #409eff;
+
+      &:hover {
+        background-color: #66b1ff;
+        border-color: #66b1ff;
+      }
+    }
+  }
+}
+
+// 响应式样式
+@media screen and (max-width: 768px) {
+  .record-detail-drawer {
+    .el-drawer__header {
+      padding: 12px 16px;
+
+      .el-drawer__title {
+        font-size: 16px;
+      }
+    }
+  }
+
+  .record-form {
+    padding: 16px;
+  }
+
+  .drawer-footer {
+    padding: 12px 16px;
+    flex-direction: column-reverse;
+    gap: 8px;
+
+    .el-button {
+      width: 100%;
+    }
+  }
+}
+
+// 动画过渡
+.el-drawer {
+  transition: transform 0.3s cubic-bezier(0.7, 0.3, 0.1, 1);
+}
+
+// 遮罩层样式
+.el-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+  transition: opacity 0.3s;
+}

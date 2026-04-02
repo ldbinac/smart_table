@@ -13,7 +13,7 @@ import { generateId } from "@/utils/id";
 import { ElMessage, ElIcon } from "element-plus";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ZoomIn, Check } from "@element-plus/icons-vue";
-import RecordDialog from "@/components/dialogs/RecordDialog.vue";
+import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 
 interface Props {
   tableId?: string;
@@ -47,6 +47,15 @@ const editingCell = ref<{ recordId: string; fieldId: string } | null>(null);
 // 放大按钮相关
 const expandedRecord = ref<RecordEntity | null>(null);
 const expandDialogVisible = ref(false);
+
+// Drawer 抽屉大小（响应式）
+const drawerSize = computed(() => {
+  const width = window.innerWidth;
+  if (width < 768) return '100%';
+  if (width < 1024) return '70%';
+  if (width < 1440) return '50%';
+  return '600px';
+});
 
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
@@ -666,11 +675,12 @@ defineExpose({
       @update:visible="contextMenuVisible = $event"
       @select="handleContextMenuSelect" />
 
-    <!-- 记录详情/编辑弹窗 -->
-    <RecordDialog
+    <!-- 记录详情/编辑抽屉 -->
+    <RecordDetailDrawer
       v-model:visible="expandDialogVisible"
       :record="expandedRecord"
       :fields="fields"
+      :size="drawerSize"
       @save="handleRecordSave" />
   </div>
 </template>
