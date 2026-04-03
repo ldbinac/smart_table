@@ -1015,7 +1015,7 @@ function getRatingDisplay(field: FieldEntity, value: unknown): string {
               <!-- 冻结标识 -->
               <div v-if="isFieldFrozen(field.id)" class="frozen-indicator">
                 <el-icon><Lock /></el-icon>
-                <span>已冻结</span>
+                <span>冻结</span>
               </div>
               <!-- 列宽调整手柄 -->
               <div
@@ -1094,7 +1094,7 @@ function getRatingDisplay(field: FieldEntity, value: unknown): string {
               @mouseenter="hoveredRowId = item.record!.id"
               @mouseleave="hoveredRowId = null">
               <!-- 序号/复选框列 -->
-              <td class="index-cell" @click.stop>
+              <td class="index-cell" @click.stop style="padding-top: 8px">
                 <div class="index-wrapper">
                   <!-- 自定义勾选按钮 -->
                   <div
@@ -1473,6 +1473,12 @@ export default {
   table-layout: fixed;
 
   // 表头
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
   .header-row {
     background-color: #f5f7fa;
     height: 36px;
@@ -1480,15 +1486,12 @@ export default {
 
   .column-header {
     text-align: left;
-    padding: 1px 2px 1px 4px;
-    border-bottom: 1px solid $border-color;
+    padding: 1px 2px 0px 4px;
+
     border-right: 1px solid $border-color;
     font-size: $font-size-sm;
     font-weight: 600;
     color: $text-secondary;
-    position: sticky;
-    top: 0;
-    z-index: 10;
     background-color: #f5f7fa;
     height: 36px;
     box-sizing: border-box;
@@ -1501,6 +1504,8 @@ export default {
       display: flex;
       align-items: center;
       gap: 6px;
+      border-bottom: 1px solid $border-color;
+      height: 100%;
     }
 
     .header-icon {
@@ -1537,7 +1542,7 @@ export default {
       justify-content: center;
       border-right: 1px solid $border-color;
       background-color: #f5f7fa;
-      // 冻结序号列 - 最高层级确保不被遮挡
+      // 冻结序号列 - 横向固定在左侧
       position: sticky;
       left: 0;
       z-index: 30;
@@ -1554,10 +1559,10 @@ export default {
       width: 120px;
       min-width: 120px;
       max-width: 120px;
-      // 冻结展开列 - 层级低于序号列和冻结数据列
+      // 冻结展开列 - 横向固定在左侧
       position: sticky;
       left: 70px;
-      z-index: 8;
+      z-index: -1;
       background-color: #f5f7fa;
       padding: $spacing-sm;
       box-sizing: border-box;
@@ -1598,10 +1603,10 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px;
+  padding: 0px 8px;
   border-right: 1px solid $border-color;
   background-color: inherit;
-  // 冻结序号列 - 与表头序号列层级一致
+  // 冻结序号列 - 同时固定横向滚动
   position: sticky;
   left: 0;
   z-index: 10;
@@ -1930,7 +1935,7 @@ export default {
 
   // 斑马纹样式 - 偶数行
   &.is-even {
-    background-color: rgba($bg-color, 0.5);
+    background-color: rgba($bg-color, 0.9);
   }
 
   &:hover {

@@ -87,7 +87,7 @@ const handleDragEnd = (event: DragEvent) => {
   transition: background-color $transition-fast;
 
   &.is-even {
-    background-color: rgba($bg-color, 0.5);
+    background-color: rgba($bg-color, 0.9);
   }
 
   &.is-hovered {

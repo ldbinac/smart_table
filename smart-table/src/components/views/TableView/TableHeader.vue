@@ -275,15 +275,7 @@ const handleContextMenu = (event: MouseEvent) => {
     <div v-if="resizable" class="resize-handle" @mousedown.stop="startResize" />
 
     <div v-if="isFrozen" class="frozen-indicator">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        width="12"
-        height="12">
-        <path d="M12 2v20M2 12h20" />
-      </svg>
+      <el-icon><Lock /></el-icon>
     </div>
   </div>
 </template>
@@ -327,7 +319,7 @@ const handleContextMenu = (event: MouseEvent) => {
       font-weight: 500;
 
       &::after {
-        content: "已冻结";
+        content: "冻结";
       }
     }
   }
