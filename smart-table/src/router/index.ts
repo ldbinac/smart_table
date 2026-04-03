@@ -3,8 +3,29 @@ import {
   createWebHashHistory,
   type RouteRecordRaw,
 } from "vue-router";
+import { authGuard, titleGuard } from "./guards";
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: "/login",
+    name: "Login",
+    component: () => import("@/views/auth/Login.vue"),
+    meta: {
+      title: "登录",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
+    path: "/register",
+    name: "Register",
+    component: () => import("@/views/auth/Register.vue"),
+    meta: {
+      title: "注册",
+      public: true,
+      layout: "blank",
+    },
+  },
   {
     path: "/",
     name: "Home",
@@ -30,13 +51,21 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/base/:id/members",
+    name: "BaseMembers",
+    component: () => import("@/views/base/MemberManagement.vue"),
+    meta: {
+      title: "成员管理",
+    },
+  },
+  {
     path: "/share/dashboard/:token",
     name: "DashboardShare",
     component: () => import("@/views/DashboardShare.vue"),
     meta: {
       title: "仪表盘分享",
-      public: true, // 标记为公开页面
-      layout: "blank", // 使用空白布局
+      public: true,
+      layout: "blank",
     },
   },
   {
@@ -45,8 +74,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/FormShare.vue"),
     meta: {
       title: "表单填写",
-      public: true, // 标记为公开页面，不需要登录
-      layout: "blank", // 使用空白布局，无导航栏和菜单
+      public: true,
+      layout: "blank",
     },
   },
   {
@@ -78,12 +107,8 @@ const router = createRouter({
   },
 });
 
-router.beforeEach((to, _from, next) => {
-  const title = to.meta.title as string;
-  if (title) {
-    document.title = `${title} - Smart Table`;
-  }
-  next();
-});
+// 使用路由守卫
+router.beforeEach(authGuard);
+router.beforeEach(titleGuard);
 
 export default router;
