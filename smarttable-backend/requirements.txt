@@ -1,0 +1,46 @@
+# Flask 核心依赖
+Flask==3.0.0
+
+# 数据库相关
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.23
+Flask-Migrate==4.0.5
+psycopg2-binary==2.9.9
+
+# 认证与安全
+Flask-JWT-Extended==4.6.0
+Flask-Bcrypt==1.0.1
+bcrypt==4.1.2
+
+# CORS 支持
+Flask-CORS==4.0.0
+
+# 缓存
+Flask-Caching==2.1.0
+redis==5.0.1
+
+# WebSocket 支持
+Flask-SocketIO==5.3.6
+eventlet==0.33.3
+
+# 数据序列化
+marshmallow==3.20.1
+marshmallow-sqlalchemy==0.29.0
+
+# 导入导出相关
+pandas==2.1.4
+openpyxl==3.1.2
+xlrd==2.0.1
+
+# 图片处理
+Pillow==10.1.0
+
+# 环境变量
+python-dotenv==1.0.0
+
+# WSGI 服务器
+gunicorn==21.2.0
+
+# 测试相关
+pytest==7.4.3
+pytest-cov==4.1.0

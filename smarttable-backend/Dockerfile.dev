@@ -1,0 +1,31 @@
+# SmartTable Flask 后端开发环境 Dockerfile
+
+FROM python:3.11-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装 Python 依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 设置环境变量
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_APP=run.py
+
+# 创建上传目录
+RUN mkdir -p uploads/attachments uploads/thumbnails
+
+# 暴露端口
+EXPOSE 5000
+
+# 开发模式启动命令
+CMD ["flask", "run", "--host=0.0.0.0", "--reload"]

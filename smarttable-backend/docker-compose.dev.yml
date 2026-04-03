@@ -1,0 +1,63 @@
+# SmartTable 开发环境配置
+# 使用 Flask 内置服务器和热重载
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smarttable-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smarttable
+      POSTGRES_PASSWORD: smarttable123
+      POSTGRES_DB: smarttable_dev
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - smarttable-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: smarttable-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - smarttable-dev-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: smarttable-backend-dev
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+      SECRET_KEY: dev-secret-key
+      DATABASE_URL: postgresql://smarttable:smarttable123@postgres:5432/smarttable_dev
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: dev-jwt-secret
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - uploads_dev_data:/app/uploads
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - smarttable-dev-network
+    command: flask run --host=0.0.0.0 --reload
+
+volumes:
+  postgres_dev_data:
+  uploads_dev_data:
+
+networks:
+  smarttable-dev-network:
+    driver: bridge

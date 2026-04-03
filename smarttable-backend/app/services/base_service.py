@@ -1,0 +1,383 @@
+"""
+基础数据服务模块
+处理 Base（工作区/数据库）的 CRUD 操作和成员管理
+"""
+from typing import List, Optional, Dict, Any
+import uuid
+from datetime import datetime
+
+from sqlalchemy import or_
+
+from app.extensions import db
+from app.models.base import Base, BaseMember, MemberRole
+from app.models.user import User
+
+
+class BaseService:
+    """基础数据服务类"""
+    
+    # 角色权限等级映射
+    ROLE_LEVELS = {
+        MemberRole.OWNER: 4,
+        MemberRole.ADMIN: 3,
+        MemberRole.EDITOR: 2,
+        MemberRole.COMMENTER: 1,
+        MemberRole.VIEWER: 0
+    }
+    
+    @staticmethod
+    def get_all_bases(user_id: str) -> List[Base]:
+        """
+        获取用户的所有基础数据（包括拥有的和作为成员的）
+        
+        Args:
+            user_id: 用户 ID
+            
+        Returns:
+            基础数据列表
+        """
+        # 获取用户拥有的基础数据
+        owned_bases = Base.query.filter_by(owner_id=user_id).all()
+        
+        # 获取用户作为成员的基础数据
+        memberships = BaseMember.query.filter_by(user_id=user_id).all()
+        member_base_ids = [m.base_id for m in memberships]
+        member_bases = Base.query.filter(Base.id.in_(member_base_ids)).all() if member_base_ids else []
+        
+        # 合并并去重（以 id 为键）
+        all_bases = {str(b.id): b for b in owned_bases}
+        for b in member_bases:
+            base_id = str(b.id)
+            if base_id not in all_bases:
+                all_bases[base_id] = b
+        
+        return list(all_bases.values())
+    
+    @staticmethod
+    def get_base(base_id: str) -> Optional[Base]:
+        """
+        获取单个基础数据
+        
+        Args:
+            base_id: 基础数据 ID
+            
+        Returns:
+            基础数据对象或 None
+        """
+        return Base.query.get(base_id)
+    
+    @staticmethod
+    def create_base(data: Dict[str, Any], user_id: str) -> Base:
+        """
+        创建新基础数据
+        
+        Args:
+            data: 创建数据，包含 name, description, icon, color 等
+            user_id: 创建者用户 ID
+            
+        Returns:
+            创建的基础数据对象
+        """
+        base = Base(
+            name=data.get('name', '未命名基础数据'),
+            owner_id=user_id,
+            description=data.get('description'),
+            icon=data.get('icon'),
+            color=data.get('color', '#6366F1'),
+            is_personal=data.get('is_personal', False)
+        )
+        
+        db.session.add(base)
+        db.session.commit()
+        
+        return base
+    
+    @staticmethod
+    def update_base(base_id: str, data: Dict[str, Any]) -> Optional[Base]:
+        """
+        更新基础数据
+        
+        Args:
+            base_id: 基础数据 ID
+            data: 更新数据
+            
+        Returns:
+            更新后的基础数据对象，如果不存在返回 None
+        """
+        base = Base.query.get(base_id)
+        if not base:
+            return None
+        
+        # 允许更新的字段
+        allowed_fields = ['name', 'description', 'icon', 'color', 'is_personal']
+        
+        for field in allowed_fields:
+            if field in data:
+                setattr(base, field, data[field])
+        
+        base.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return base
+    
+    @staticmethod
+    def delete_base(base_id: str) -> bool:
+        """
+        删除基础数据（级联删除关联的表格、字段、记录等）
+        
+        Args:
+            base_id: 基础数据 ID
+            
+        Returns:
+            是否删除成功
+        """
+        base = Base.query.get(base_id)
+        if not base:
+            return False
+        
+        try:
+            db.session.delete(base)
+            db.session.commit()
+            return True
+        except Exception:
+            db.session.rollback()
+            return False
+    
+    @staticmethod
+    def toggle_star(base_id: str, user_id: str) -> Optional[Base]:
+        """
+        切换基础数据的星标状态
+        
+        Args:
+            base_id: 基础数据 ID
+            user_id: 用户 ID
+            
+        Returns:
+            更新后的基础数据对象
+        """
+        # 这里可以实现星标功能，需要在 BaseMember 或单独表中存储
+        # 简化实现：暂时只返回 base 对象
+        base = Base.query.get(base_id)
+        return base
+    
+    @staticmethod
+    def get_members(base_id: str) -> List[Dict[str, Any]]:
+        """
+        获取基础数据的所有成员
+        
+        Args:
+            base_id: 基础数据 ID
+            
+        Returns:
+            成员列表（包含用户信息）
+        """
+        memberships = BaseMember.query.filter_by(base_id=base_id).all()
+        
+        members = []
+        for membership in memberships:
+            member_data = membership.to_dict(include_user=True)
+            members.append(member_data)
+        
+        return members
+    
+    @staticmethod
+    def add_member(base_id: str, email: str, role: str, invited_by: str) -> Dict[str, Any]:
+        """
+        添加成员到基础数据
+        
+        Args:
+            base_id: 基础数据 ID
+            email: 被邀请用户邮箱
+            role: 角色（owner/admin/editor/commenter/viewer）
+            invited_by: 邀请人用户 ID
+            
+        Returns:
+            包含操作结果的字典
+        """
+        # 查找用户
+        user = User.query.filter_by(email=email.lower()).first()
+        if not user:
+            return {'success': False, 'error': '用户不存在'}
+        
+        # 检查是否已经是成员
+        existing = BaseMember.query.filter_by(
+            base_id=base_id,
+            user_id=user.id
+        ).first()
+        
+        if existing:
+            return {'success': False, 'error': '该用户已经是成员'}
+        
+        # 检查是否是基础数据所有者
+        base = Base.query.get(base_id)
+        if base and str(base.owner_id) == str(user.id):
+            return {'success': False, 'error': '所有者是基础数据的拥有者，不能添加为成员'}
+        
+        # 验证角色
+        try:
+            member_role = MemberRole(role.lower())
+        except ValueError:
+            return {'success': False, 'error': '无效的角色类型'}
+        
+        # 创建成员关系
+        membership = BaseMember(
+            base_id=base_id,
+            user_id=user.id,
+            role=member_role,
+            invited_by=invited_by
+        )
+        
+        db.session.add(membership)
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'member': membership.to_dict(include_user=True)
+        }
+    
+    @staticmethod
+    def remove_member(base_id: str, user_id: str) -> bool:
+        """
+        从基础数据中移除成员
+        
+        Args:
+            base_id: 基础数据 ID
+            user_id: 要移除的用户 ID
+            
+        Returns:
+            是否移除成功
+        """
+        membership = BaseMember.query.filter_by(
+            base_id=base_id,
+            user_id=user_id
+        ).first()
+        
+        if not membership:
+            return False
+        
+        try:
+            db.session.delete(membership)
+            db.session.commit()
+            return True
+        except Exception:
+            db.session.rollback()
+            return False
+    
+    @staticmethod
+    def update_member_role(base_id: str, user_id: str, new_role: str) -> Dict[str, Any]:
+        """
+        更新成员角色
+        
+        Args:
+            base_id: 基础数据 ID
+            user_id: 用户 ID
+            new_role: 新角色
+            
+        Returns:
+            包含操作结果的字典
+        """
+        membership = BaseMember.query.filter_by(
+            base_id=base_id,
+            user_id=user_id
+        ).first()
+        
+        if not membership:
+            return {'success': False, 'error': '成员不存在'}
+        
+        try:
+            member_role = MemberRole(new_role.lower())
+        except ValueError:
+            return {'success': False, 'error': '无效的角色类型'}
+        
+        membership.role = member_role
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'member': membership.to_dict(include_user=True)
+        }
+    
+    @classmethod
+    def check_permission(cls, base_id: str, user_id: str, 
+                         min_role: MemberRole = MemberRole.VIEWER) -> bool:
+        """
+        检查用户权限
+        
+        Args:
+            base_id: 基础数据 ID
+            user_id: 用户 ID
+            min_role: 最低要求角色（默认为 VIEWER）
+            
+        Returns:
+            是否有权限
+        """
+        base = Base.query.get(base_id)
+        
+        if not base:
+            return False
+        
+        # 检查是否为所有者
+        if str(base.owner_id) == str(user_id):
+            return True
+        
+        # 检查成员权限
+        membership = BaseMember.query.filter_by(
+            base_id=base_id,
+            user_id=user_id
+        ).first()
+        
+        if not membership:
+            return False
+        
+        return cls.ROLE_LEVELS.get(membership.role, -1) >= cls.ROLE_LEVELS.get(min_role, 0)
+    
+    @classmethod
+    def get_user_role(cls, base_id: str, user_id: str) -> Optional[MemberRole]:
+        """
+        获取用户在基础数据中的角色
+        
+        Args:
+            base_id: 基础数据 ID
+            user_id: 用户 ID
+            
+        Returns:
+            用户角色，如果不是成员则返回 None
+        """
+        base = Base.query.get(base_id)
+        
+        if not base:
+            return None
+        
+        # 检查是否为所有者
+        if str(base.owner_id) == str(user_id):
+            return MemberRole.OWNER
+        
+        # 检查成员权限
+        membership = BaseMember.query.filter_by(
+            base_id=base_id,
+            user_id=user_id
+        ).first()
+        
+        if membership:
+            return membership.role
+        
+        return None
+    
+    @classmethod
+    def require_permission(cls, min_role: MemberRole = MemberRole.VIEWER):
+        """
+        权限检查装饰器工厂
+        
+        Args:
+            min_role: 最低要求角色
+            
+        Returns:
+            装饰器函数
+        """
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                # 这里需要结合 Flask 的 g 对象使用
+                # 实际使用在路由层处理
+                return func(*args, **kwargs)
+            return wrapper
+        return decorator

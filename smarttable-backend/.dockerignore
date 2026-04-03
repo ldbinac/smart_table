@@ -1,0 +1,76 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 环境配置（保留示例文件）
+.env
+!.env.example
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# 日志
+logs/
+*.log
+
+# 上传文件（开发环境除外）
+uploads/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# 文档
+docs/
+*.md
+
+# 其他
+.DS_Store
+Thumbs.db
