@@ -1956,7 +1956,10 @@ function onResize(event: MouseEvent) {
   const dw = Math.round(dx / 50);
   const dh = Math.round(dy / 30);
 
-  widget.position.w = Math.max(2, Math.min(12, resizeStart.value.w + dw));
+  widget.position.w = Math.max(
+    2,
+    Math.min(gridColumns.value, resizeStart.value.w + dw),
+  );
   widget.position.h = Math.max(2, Math.min(8, resizeStart.value.h + dh));
 
   nextTick(() => {
@@ -2117,15 +2120,35 @@ async function switchLayoutType(type: "grid" | "free") {
 async function switchGridColumns(columns: 12 | 24) {
   if (!currentDashboard.value) return;
 
+  const oldColumns = gridColumns.value;
+  const ratio = columns / oldColumns; // 转换比例：12->24=2, 24->12=0.5
+
   // 更新本地状态
   gridColumns.value = columns;
 
+  // 转换所有组件的位置和尺寸以保持视觉一致性
+  widgets.value = widgets.value.map((widget) => ({
+    ...widget,
+    position: {
+      ...widget.position,
+      x: Math.round((widget.position.x || 0) * ratio),
+      w: Math.max(1, Math.round((widget.position.w || 4) * ratio)),
+      y: widget.position.y || 0,
+      h: widget.position.h || 4,
+    },
+  }));
+
   if (layoutEngine.value) {
     layoutEngine.value.updateConfig({ columns });
+    // 重新注册所有组件到新布局引擎
+    widgets.value.forEach((widget) => {
+      layoutEngine.value?.registerWidget(widget);
+    });
   }
 
   await dashboardService.updateDashboard(currentDashboard.value.id, {
     gridColumns: columns,
+    widgets: widgets.value,
   });
 
   ElMessage.success(`已切换到${columns}列网格`);
@@ -2168,6 +2191,20 @@ watch(
         renderWidget(selectedWidget.value!);
       });
     }
+  },
+  { deep: true },
+);
+
+// 监听选中组件的位置变化，实现组件大小和位置的实时更新
+watch(
+  () => selectedWidget.value?.position,
+  (newPosition) => {
+    if (!selectedWidget.value || !newPosition) return;
+
+    // 实时更新组件显示
+    nextTick(() => {
+      renderWidget(selectedWidget.value!);
+    });
   },
   { deep: true },
 );
@@ -2439,8 +2476,7 @@ onUnmounted(() => {
             'grid-layout': layoutType === 'grid',
             'free-layout': layoutType === 'free',
             'show-grid-lines': showGridLines && layoutType === 'grid',
-            [`columns-${currentDashboard?.gridColumns || 12}`]:
-              layoutType === 'grid',
+            [`columns-${gridColumns}`]: layoutType === 'grid',
           }"
           :style="
             layoutType === 'free'
@@ -3122,7 +3158,7 @@ onUnmounted(() => {
                   <el-slider
                     v-model="selectedWidget.position.w"
                     :min="2"
-                    :max="12"
+                    :max="gridColumns"
                     :step="1"
                     show-stops
                     @change="debouncedSaveWidgets()" />
