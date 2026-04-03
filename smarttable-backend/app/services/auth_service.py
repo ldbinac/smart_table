@@ -291,12 +291,15 @@ class AuthService:
         Returns:
             是否成功
         """
-        user = User.query.get(user_id)
-        
-        if not user:
-            return False
-        
+        from uuid import UUID
         try:
+            # 将字符串ID转换为UUID对象
+            uuid_id = UUID(user_id) if isinstance(user_id, str) else user_id
+            user = User.query.get(uuid_id)
+            
+            if not user:
+                return False
+            
             user.update_last_login()
             return True
         except Exception:

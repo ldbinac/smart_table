@@ -42,11 +42,37 @@ class UserRegistrationSchema(Schema):
         description='密码（至少8位，包含大小写字母和数字）'
     )
     name = fields.String(
-        required=True,
+        load_only=True,
         validate=validate.Length(min=1, max=100, error='姓名长度必须在 1-100 个字符之间'),
-        error_messages={'required': '姓名不能为空'},
+        allow_none=True,
         description='用户姓名'
     )
+    username = fields.String(
+        load_only=True,
+        validate=validate.Length(min=1, max=100, error='用户名长度必须在 1-100 个字符之间'),
+        allow_none=True,
+        description='用户名'
+    )
+    
+    @validates('name')
+    def validate_name(self, value):
+        """验证姓名"""
+        if not value or len(value.strip()) == 0:
+            # 如果没有提供name，尝试从username获取
+            if hasattr(self, 'context') and self.context.get('username'):
+                return
+            raise ValidationError('姓名不能为空')
+    
+    @post_load
+    def process_data(self, data, **kwargs):
+        """处理数据，确保name字段有值"""
+        # 如果提供了username但没有提供name，使用username作为name
+        if not data.get('name') and data.get('username'):
+            data['name'] = data['username']
+        # 如果提供了name但没有提供username，使用name作为username
+        if not data.get('username') and data.get('name'):
+            data['username'] = data['name']
+        return data
     
     @validates('password')
     def validate_password_strength(self, value):

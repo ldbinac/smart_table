@@ -114,6 +114,7 @@ class User(db.Model):
     base_memberships = relationship(
         'BaseMember',
         back_populates='user',
+        foreign_keys='BaseMember.user_id',
         lazy='dynamic',
         cascade='all, delete-orphan'
     )

@@ -5,8 +5,8 @@ import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-from sqlalchemy import String, DateTime, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import String, DateTime, ForeignKey, Text, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -40,7 +40,7 @@ class Record(db.Model):
         index=True
     )
     values: Mapped[Dict[str, Any]] = mapped_column(
-        JSONB,
+        JSON,
         default=dict,
         nullable=False
     )

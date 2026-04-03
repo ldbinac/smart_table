@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AddMemberDialog: typeof import('./components/base/AddMemberDialog.vue')['default']
     AddRecordDialog: typeof import('./components/dialogs/AddRecordDialog.vue')['default']
     AddRecordDrawer: typeof import('./components/dialogs/AddRecordDrawer.vue')['default']
     AppHeader: typeof import('./components/common/AppHeader.vue')['default']
@@ -50,6 +51,7 @@ declare module 'vue' {
     ElIcon: typeof import('element-plus/es')['ElIcon']
     ElInput: typeof import('element-plus/es')['ElInput']
     ElInputNumber: typeof import('element-plus/es')['ElInputNumber']
+    ElLink: typeof import('element-plus/es')['ElLink']
     ElOption: typeof import('element-plus/es')['ElOption']
     ElPagination: typeof import('element-plus/es')['ElPagination']
     ElPopover: typeof import('element-plus/es')['ElPopover']
@@ -100,9 +102,11 @@ declare module 'vue' {
     KpiWidget: typeof import('./components/dashboard/KpiWidget.vue')['default']
     LinkField: typeof import('./components/fields/LinkField.vue')['default']
     Loading: typeof import('./components/common/Loading.vue')['default']
+    LoginForm: typeof import('./components/auth/LoginForm.vue')['default']
     LookupField: typeof import('./components/fields/LookupField.vue')['default']
     MarqueeWidget: typeof import('./components/dashboard/MarqueeWidget.vue')['default']
     MemberField: typeof import('./components/fields/MemberField.vue')['default']
+    MemberList: typeof import('./components/base/MemberList.vue')['default']
     MultiSelectDropdown: typeof import('./components/common/MultiSelectDropdown.vue')['default']
     MultiSelectField: typeof import('./components/fields/MultiSelectField.vue')['default']
     NumberField: typeof import('./components/fields/NumberField.vue')['default']
@@ -112,6 +116,7 @@ declare module 'vue' {
     RealtimeChartWidget: typeof import('./components/dashboard/RealtimeChartWidget.vue')['default']
     RecordDetailDrawer: typeof import('./components/dialogs/RecordDetailDrawer.vue')['default']
     RecordDialog: typeof import('./components/dialogs/RecordDialog.vue')['default']
+    RegisterForm: typeof import('./components/auth/RegisterForm.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ShortcutDialog: typeof import('./components/common/ShortcutDialog.vue')['default']

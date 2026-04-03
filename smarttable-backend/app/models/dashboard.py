@@ -6,8 +6,8 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Any, List
 
-from sqlalchemy import String, DateTime, ForeignKey, Boolean, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import String, DateTime, ForeignKey, Boolean, Text, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -78,7 +78,7 @@ class Dashboard(db.Model):
         nullable=False
     )
     layout: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         default=dict
     )
@@ -190,17 +190,17 @@ class DashboardWidget(db.Model):
         nullable=False
     )
     config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         default=dict
     )
     data_source: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         default=dict
     )
     position: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         default=dict
     )

@@ -68,7 +68,7 @@ def register():
     
     email = validated_data['email']
     password = validated_data['password']
-    name = validated_data['name']
+    name = validated_data.get('name') or validated_data.get('username', '')
     
     # 调用服务层进行注册
     user, error = AuthService.register_user(email, password, name)

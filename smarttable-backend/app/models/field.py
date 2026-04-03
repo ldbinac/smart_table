@@ -6,8 +6,8 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Any
 
-from sqlalchemy import String, DateTime, ForeignKey, Integer, Boolean, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import String, DateTime, ForeignKey, Integer, Boolean, Text, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -121,12 +121,12 @@ class Field(db.Model):
         nullable=False
     )
     options: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         default=dict
     )
     config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         default=dict
     )
