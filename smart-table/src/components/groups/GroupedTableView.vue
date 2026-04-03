@@ -6,18 +6,22 @@ import { FieldType } from "../../types";
 import { groupRecords } from "../../utils/group";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
-import { ZoomIn } from "@element-plus/icons-vue";
+import { ZoomIn, Paperclip, Lock } from "@element-plus/icons-vue";
+import ContextMenu from "@/components/common/ContextMenu.vue";
+import type { SortConfig } from "@/types";
 
 interface Props {
   fields: FieldEntity[];
   records: RecordEntity[];
   groupBy: string[];
   rowHeight?: "short" | "medium" | "tall";
+  frozenFields?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
   groupBy: () => [],
   rowHeight: "medium",
+  frozenFields: () => [],
 });
 
 interface GroupLevelInfo {
@@ -42,12 +46,33 @@ const emit = defineEmits<{
   (e: "record-select", record: RecordEntity | null): void;
   (e: "records-select", records: RecordEntity[]): void;
   (e: "expand-record", record: RecordEntity): void;
+  (e: "duplicate-record", record: RecordEntity): void;
+  (e: "delete-records", records: RecordEntity[]): void;
+  (e: "sort", fieldId: string, direction: "asc" | "desc"): void;
+  (e: "freeze-field", fieldId: string): void;
+  (e: "unfreeze-field", fieldId: string): void;
+  (e: "hide-field", fieldId: string): void;
+  (e: "edit-field", fieldId: string): void;
 }>();
 
 const groupNodes = ref<GroupNode[]>([]);
 const expandedKeys = ref<Set<string>>(new Set());
 const selectedRows = ref<Set<string>>(new Set());
 const hoveredRowId = ref<string | null>(null);
+
+// 右键菜单相关状态
+const contextMenuVisible = ref(false);
+const contextMenuX = ref(0);
+const contextMenuY = ref(0);
+const contextMenuTarget = ref<"row" | "header">("row");
+const contextMenuField = ref<FieldEntity | null>(null);
+const contextMenuRecord = ref<RecordEntity | null>(null);
+
+// 排序配置
+const sorts = ref<SortConfig[]>([]);
+
+// 使用 props.frozenFields 替代本地状态
+const frozenFields = computed(() => props.frozenFields || []);
 
 // 列宽管理
 const columnWidths = ref<Record<string, number>>({});
@@ -112,6 +137,203 @@ const dataRowIndices = computed(() => {
 function isEvenRow(recordId: string): boolean {
   const index = dataRowIndices.value.get(recordId);
   return index !== undefined && index % 2 === 1;
+}
+
+// 右键菜单项
+const contextMenuItems = computed(() => {
+  const items: any[] = [];
+
+  if (contextMenuTarget.value === "row") {
+    items.push(
+      { id: "edit", label: "编辑", icon: "edit" },
+      { id: "duplicate", label: "复制记录", icon: "copy" },
+      { divider: true, id: "divider1" },
+    );
+
+    if (selectedRows.value.size > 1) {
+      items.push({
+        id: "delete-selected",
+        label: `删除选中的 ${selectedRows.value.size} 条记录`,
+        icon: "delete",
+        danger: true,
+      });
+    } else {
+      items.push({
+        id: "delete",
+        label: "删除记录",
+        icon: "delete",
+        danger: true,
+      });
+    }
+  } else if (contextMenuTarget.value === "header") {
+    const field = contextMenuField.value;
+    if (field) {
+      items.push(
+        { id: "sort-asc", label: "升序排列", icon: "sort" },
+        { id: "sort-desc", label: "降序排列", icon: "sort" },
+        { divider: true, id: "divider1" },
+      );
+
+      const isFrozen = frozenFields.value.includes(field.id);
+      if (isFrozen) {
+        items.push({ id: "unfreeze", label: "取消冻结", icon: "freeze" });
+      } else {
+        items.push({ id: "freeze", label: "冻结列", icon: "freeze" });
+      }
+
+      items.push(
+        { divider: true, id: "divider2" },
+        { id: "hide-field", label: "隐藏字段", icon: "hide" },
+        { id: "edit-field", label: "编辑字段属性", icon: "settings" },
+      );
+    }
+  }
+
+  return items;
+});
+
+// 处理表头右键菜单
+function handleHeaderContextMenu(field: FieldEntity, event: MouseEvent) {
+  event.preventDefault();
+  contextMenuTarget.value = "header";
+  contextMenuField.value = field;
+  contextMenuX.value = event.clientX;
+  contextMenuY.value = event.clientY;
+  contextMenuVisible.value = true;
+}
+
+// 处理行右键菜单
+function handleRowContextMenu(record: RecordEntity, event: MouseEvent) {
+  event.preventDefault();
+  if (!selectedRows.value.has(record.id)) {
+    selectedRows.value.clear();
+    selectedRows.value.add(record.id);
+    emitSelectedRecords();
+  }
+  contextMenuTarget.value = "row";
+  contextMenuRecord.value = record;
+  contextMenuX.value = event.clientX;
+  contextMenuY.value = event.clientY;
+  contextMenuVisible.value = true;
+}
+
+// 处理右键菜单选择
+async function handleContextMenuSelect(item: any) {
+  const { id } = item;
+
+  switch (id) {
+    case "edit":
+      if (contextMenuRecord.value) {
+        emit("cellClick", contextMenuRecord.value, props.fields[0]);
+      }
+      break;
+
+    case "duplicate":
+      if (contextMenuRecord.value) {
+        emit("duplicate-record", contextMenuRecord.value);
+      }
+      break;
+
+    case "delete":
+      if (contextMenuRecord.value) {
+        // 触发删除事件给父组件处理
+        emit("delete-records", [contextMenuRecord.value]);
+      }
+      break;
+
+    case "delete-selected":
+      emit(
+        "delete-records",
+        Array.from(selectedRows.value)
+          .map((id) => props.records.find((r) => r.id === id)!)
+          .filter(Boolean),
+      );
+      break;
+
+    case "sort-asc":
+      if (contextMenuField.value) {
+        emit("sort", contextMenuField.value.id, "asc");
+      }
+      break;
+
+    case "sort-desc":
+      if (contextMenuField.value) {
+        emit("sort", contextMenuField.value.id, "desc");
+      }
+      break;
+
+    case "freeze":
+      if (contextMenuField.value) {
+        emit("freeze-field", contextMenuField.value.id);
+      }
+      break;
+
+    case "unfreeze":
+      if (contextMenuField.value) {
+        emit("unfreeze-field", contextMenuField.value.id);
+      }
+      break;
+
+    case "hide-field":
+      if (contextMenuField.value) {
+        emit("hide-field", contextMenuField.value.id);
+      }
+      break;
+
+    case "edit-field":
+      if (contextMenuField.value) {
+        emit("edit-field", contextMenuField.value.id);
+      }
+      break;
+  }
+
+  contextMenuVisible.value = false;
+}
+
+// 获取字段排序方向
+function getFieldSortDirection(fieldId: string): "asc" | "desc" | null {
+  const sort = sorts.value.find((s) => s.fieldId === fieldId);
+  return sort?.direction || null;
+}
+
+// 处理字段排序
+function handleFieldSort(fieldId: string, direction: "asc" | "desc") {
+  const existingSortIndex = sorts.value.findIndex((s) => s.fieldId === fieldId);
+  const newSorts = [...sorts.value];
+
+  if (existingSortIndex > -1) {
+    newSorts[existingSortIndex] = { fieldId, direction };
+  } else {
+    newSorts.push({ fieldId, direction });
+  }
+
+  sorts.value = newSorts;
+  emit("sort", fieldId, direction);
+}
+
+// 检查字段是否冻结
+function isFieldFrozen(fieldId: string): boolean {
+  return frozenFields.value.includes(fieldId);
+}
+
+// 计算冻结列的 left 位置
+function getFrozenFieldLeft(fieldId: string): number {
+  if (!isFieldFrozen(fieldId)) return 0;
+
+  // 序号列(70px) + 不计算展开列宽度，否则会导致左侧空白太多。
+  const fixedWidth = 70;
+
+  // 计算在当前冻结列之前的所有冻结列的宽度总和
+  let leftOffset = fixedWidth;
+
+  for (const field of visibleFields.value) {
+    if (field.id === fieldId) break;
+    if (isFieldFrozen(field.id)) {
+      leftOffset += parseInt(getColumnWidth(field.id));
+    }
+  }
+
+  return leftOffset;
 }
 
 const visibleFields = computed(() => {
@@ -444,6 +666,9 @@ function getFormulaDisplay(field: FieldEntity, record: RecordEntity): string {
   }
 }
 
+// 最后选中的行ID（用于Shift多选）
+const lastSelectedRowId = ref<string | null>(null);
+
 // 行选择相关方法
 function toggleRowSelection(recordId: string) {
   if (selectedRows.value.has(recordId)) {
@@ -456,21 +681,123 @@ function toggleRowSelection(recordId: string) {
 }
 
 function handleRowClick(record: RecordEntity, event: MouseEvent) {
-  // 如果点击的是复选框，不处理
-  if ((event.target as HTMLElement).closest(".row-checkbox")) {
+  // 如果点击的是复选框或放大按钮，不处理
+  if ((event.target as HTMLElement).closest(".row-checkbox, .expand-btn")) {
     return;
   }
 
+  // 支持 Shift 范围选择
+  if (event.shiftKey && lastSelectedRowId.value) {
+    const recordIds = getAllRecordIds();
+    const lastIndex = recordIds.indexOf(lastSelectedRowId.value);
+    const currentIndex = recordIds.indexOf(record.id);
+
+    if (lastIndex !== -1 && currentIndex !== -1) {
+      const start = Math.min(lastIndex, currentIndex);
+      const end = Math.max(lastIndex, currentIndex);
+
+      for (let i = start; i <= end; i++) {
+        selectedRows.value.add(recordIds[i]);
+      }
+      emitSelectedRecords();
+    }
+  }
   // 支持 Ctrl/Cmd 多选
-  if (event.ctrlKey || event.metaKey) {
+  else if (event.ctrlKey || event.metaKey) {
     toggleRowSelection(record.id);
+    lastSelectedRowId.value = record.id;
   } else {
     // 单选模式：清除其他选择，只选当前行
     selectedRows.value.clear();
     selectedRows.value.add(record.id);
+    lastSelectedRowId.value = record.id;
     emitSelectedRecords();
     emit("rowClick", record);
   }
+}
+
+// 获取所有记录ID（用于Shift多选）
+function getAllRecordIds(): string[] {
+  const ids: string[] = [];
+  flattenedData.value.forEach((item) => {
+    if (item.type === "record" && item.record) {
+      ids.push(item.record.id);
+    }
+  });
+  return ids;
+}
+
+// 键盘事件处理
+function handleKeyDown(event: KeyboardEvent) {
+  // Ctrl+A 全选
+  if ((event.ctrlKey || event.metaKey) && event.key === "a") {
+    event.preventDefault();
+    toggleSelectAll();
+    return;
+  }
+
+  // 上下箭头导航
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    navigateRows(event.key === "ArrowUp" ? -1 : 1);
+    return;
+  }
+
+  // Delete/Backspace 删除
+  if (event.key === "Delete" || event.key === "Backspace") {
+    if (selectedRows.value.size > 0) {
+      event.preventDefault();
+      emit(
+        "records-select",
+        Array.from(selectedRows.value)
+          .map((id) => props.records.find((r) => r.id === id)!)
+          .filter(Boolean),
+      );
+    }
+    return;
+  }
+
+  // Enter 编辑
+  if (event.key === "Enter") {
+    if (selectedRows.value.size === 1) {
+      const selectedId = Array.from(selectedRows.value)[0];
+      const record = props.records.find((r) => r.id === selectedId);
+      if (record) {
+        emit("cellClick", record, props.fields[0]);
+      }
+    }
+    return;
+  }
+
+  // Escape 取消选择
+  if (event.key === "Escape") {
+    selectedRows.value.clear();
+    emitSelectedRecords();
+    return;
+  }
+}
+
+// 行导航
+function navigateRows(direction: -1 | 1) {
+  const recordIds = getAllRecordIds();
+  if (recordIds.length === 0) return;
+
+  let currentIndex = -1;
+  if (lastSelectedRowId.value) {
+    currentIndex = recordIds.indexOf(lastSelectedRowId.value);
+  }
+
+  let newIndex = currentIndex + direction;
+  if (newIndex < 0) newIndex = 0;
+  if (newIndex >= recordIds.length) newIndex = recordIds.length - 1;
+
+  const newRecordId = recordIds[newIndex];
+  if (!event?.shiftKey) {
+    selectedRows.value.clear();
+  }
+  selectedRows.value.add(newRecordId);
+  lastSelectedRowId.value = newRecordId;
+  emitSelectedRecords();
 }
 
 function toggleSelectAll() {
@@ -596,10 +923,17 @@ function getIndentStyle(level: number) {
 function isRowSelected(recordId: string): boolean {
   return selectedRows.value.has(recordId);
 }
+
+// 获取评分显示
+function getRatingDisplay(field: FieldEntity, value: unknown): string {
+  const maxRating = (field.options?.maxRating as number) || 5;
+  const rating = Number(value) || 0;
+  return "★".repeat(rating) + "☆".repeat(maxRating - rating);
+}
 </script>
 
 <template>
-  <div class="grouped-table-view">
+  <div class="grouped-table-view" tabindex="-1" @keydown="handleKeyDown">
     <!-- 分组工具栏 -->
     <div v-if="isGrouped" class="group-toolbar">
       <div class="toolbar-left">
@@ -626,17 +960,34 @@ function isRowSelected(recordId: string): boolean {
           <tr class="header-row">
             <!-- 全选/序号列 -->
             <th class="column-header index-column">
-              <el-checkbox
-                :model-value="isAllSelected"
+              <input
+                type="checkbox"
+                :checked="isAllSelected"
                 :indeterminate="selectedRows.size > 0 && !isAllSelected"
-                @change="toggleSelectAll" />
+                @change="
+                  (e) => {
+                    if ((e.target as HTMLInputElement).checked) {
+                      toggleSelectAll();
+                    } else {
+                      selectedRows.clear();
+                      emitSelectedRecords();
+                    }
+                  }
+                " />
             </th>
             <th class="column-header expand-column"></th>
             <th
               v-for="field in visibleFields"
               :key="field.id"
               class="column-header resizable"
-              :style="{ width: getColumnWidth(field.id) }">
+              :class="{ 'is-frozen': isFieldFrozen(field.id) }"
+              :style="{
+                width: getColumnWidth(field.id),
+                left: isFieldFrozen(field.id)
+                  ? `${getFrozenFieldLeft(field.id)}px`
+                  : 'auto',
+              }"
+              @contextmenu="(e) => handleHeaderContextMenu(field, e)">
               <div class="header-content">
                 <el-icon
                   v-if="
@@ -661,6 +1012,11 @@ function isRowSelected(recordId: string): boolean {
                 </el-icon>
                 {{ field.name }}
               </div>
+              <!-- 冻结标识 -->
+              <div v-if="isFieldFrozen(field.id)" class="frozen-indicator">
+                <el-icon><Lock /></el-icon>
+                <span>已冻结</span>
+              </div>
               <!-- 列宽调整手柄 -->
               <div
                 class="resize-handle"
@@ -684,8 +1040,6 @@ function isRowSelected(recordId: string): boolean {
                   :class="{ expanded: isGroupExpanded(item.groupKey) }">
                   <ArrowRight />
                 </el-icon>
-              </td>
-              <td :colspan="visibleFields.length" class="group-info-cell">
                 <div class="group-info">
                   <!-- 单选字段分组：使用预定义样式展示 -->
                   <template
@@ -722,6 +1076,7 @@ function isRowSelected(recordId: string): boolean {
                   <span class="group-count">总数：{{ item.node!.count }}</span>
                 </div>
               </td>
+              <td :colspan="visibleFields.length" class="group-info-cell"></td>
             </tr>
 
             <!-- 数据行 -->
@@ -735,15 +1090,24 @@ function isRowSelected(recordId: string): boolean {
               }"
               :style="{ height: rowHeightMap[rowHeight] }"
               @click="handleRowClick(item.record!, $event)"
+              @contextmenu="(e) => handleRowContextMenu(item.record!, e)"
               @mouseenter="hoveredRowId = item.record!.id"
               @mouseleave="hoveredRowId = null">
               <!-- 序号/复选框列 -->
               <td class="index-cell" @click.stop>
                 <div class="index-wrapper">
-                  <el-checkbox
-                    class="row-checkbox"
-                    :model-value="isRowSelected(item.record!.id)"
-                    @change="toggleRowSelection(item.record!.id)" />
+                  <!-- 自定义勾选按钮 -->
+                  <div
+                    class="custom-checkbox"
+                    :class="{ 'is-checked': isRowSelected(item.record!.id) }"
+                    @click.stop="toggleRowSelection(item.record!.id)">
+                    <div class="checkbox-inner">
+                      <el-icon v-if="isRowSelected(item.record!.id)"
+                        ><Check
+                      /></el-icon>
+                    </div>
+                  </div>
+                  <!-- 放大按钮 -->
                   <button
                     class="expand-btn"
                     :class="{ 'is-visible': isRowSelected(item.record!.id) }"
@@ -754,14 +1118,18 @@ function isRowSelected(recordId: string): boolean {
                   <span class="row-number">{{ item.rowIndex }}</span>
                 </div>
               </td>
-              <td
-                class="expand-cell empty"
-                :style="getIndentStyle(item.level)"></td>
+              <td class="expand-cell empty"></td>
               <td
                 v-for="field in visibleFields"
                 :key="field.id"
                 class="data-cell"
-                :style="{ width: getColumnWidth(field.id) }"
+                :class="{ 'is-frozen': isFieldFrozen(field.id) }"
+                :style="{
+                  width: getColumnWidth(field.id),
+                  left: isFieldFrozen(field.id)
+                    ? `${getFrozenFieldLeft(field.id)}px`
+                    : 'auto',
+                }"
                 @click.stop="handleCellClick(item.record!, field)">
                 <!-- 单选字段 - 与标准表格视图样式一致 -->
                 <template v-if="field.type === FieldType.SINGLE_SELECT">
@@ -878,6 +1246,109 @@ function isRowSelected(recordId: string): boolean {
                   </el-tooltip>
                 </template>
 
+                <!-- 链接字段 -->
+                <template v-else-if="field.type === FieldType.URL">
+                  <a
+                    v-if="item.record!.values[field.id]"
+                    :href="String(item.record!.values[field.id])"
+                    target="_blank"
+                    class="url-link"
+                    @click.stop>
+                    {{ item.record!.values[field.id] }}
+                  </a>
+                  <span v-else class="cell-content">-</span>
+                </template>
+
+                <!-- 邮箱字段 -->
+                <template v-else-if="field.type === FieldType.EMAIL">
+                  <a
+                    v-if="item.record!.values[field.id]"
+                    :href="`mailto:${item.record!.values[field.id]}`"
+                    class="email-link"
+                    @click.stop>
+                    {{ item.record!.values[field.id] }}
+                  </a>
+                  <span v-else class="cell-content">-</span>
+                </template>
+
+                <!-- 附件字段 -->
+                <template v-else-if="field.type === FieldType.ATTACHMENT">
+                  <div
+                    class="attachment-cell"
+                    @click.stop="handleExpandRecord(item.record!)">
+                    <el-icon class="attachment-icon"><Paperclip /></el-icon>
+                    <span class="attachment-count">
+                      {{
+                        Array.isArray(item.record!.values[field.id])
+                          ? item.record!.values[field.id].length
+                          : 0
+                      }}
+                      个文件
+                    </span>
+                  </div>
+                </template>
+
+                <!-- 评分字段 -->
+                <template v-else-if="field.type === FieldType.RATING">
+                  <span class="rating-display">
+                    {{ getRatingDisplay(field, item.record!.values[field.id]) }}
+                  </span>
+                </template>
+
+                <!-- 进度字段 -->
+                <template v-else-if="field.type === FieldType.PROGRESS">
+                  <div class="progress-cell">
+                    <div class="progress-bar">
+                      <div
+                        class="progress-fill"
+                        :style="{
+                          width: `${Number(item.record!.values[field.id]) || 0}%`,
+                        }" />
+                    </div>
+                    <span class="progress-text"
+                      >{{ Number(item.record!.values[field.id]) || 0 }}%</span
+                    >
+                  </div>
+                </template>
+
+                <!-- 成员字段 -->
+                <template v-else-if="field.type === FieldType.MEMBER">
+                  <div class="member-cell">
+                    <template
+                      v-if="
+                        Array.isArray(item.record!.values[field.id]) &&
+                        item.record!.values[field.id].length > 0
+                      ">
+                      <div
+                        v-for="(member, idx) in item.record!.values[
+                          field.id
+                        ].slice(0, 3)"
+                        :key="idx"
+                        class="member-tag">
+                        {{ typeof member === "string" ? member : member.name }}
+                      </div>
+                      <span
+                        v-if="item.record!.values[field.id].length > 3"
+                        class="member-more">
+                        +{{ item.record!.values[field.id].length - 3 }}
+                      </span>
+                    </template>
+                    <span v-else class="cell-content">-</span>
+                  </div>
+                </template>
+
+                <!-- 电话字段 -->
+                <template v-else-if="field.type === FieldType.PHONE">
+                  <a
+                    v-if="item.record!.values[field.id]"
+                    :href="`tel:${item.record!.values[field.id]}`"
+                    class="phone-link"
+                    @click.stop>
+                    {{ item.record!.values[field.id] }}
+                  </a>
+                  <span v-else class="cell-content">-</span>
+                </template>
+
                 <!-- 其他字段 -->
                 <template v-else>
                   <el-tooltip
@@ -898,11 +1369,11 @@ function isRowSelected(recordId: string): boolean {
               class="add-button-row"
               :style="{ height: rowHeightMap[rowHeight] }">
               <td class="index-cell"></td>
-              <td
-                class="expand-cell empty"
-                :style="getIndentStyle(item.level)"></td>
+              <td class="expand-cell empty"></td>
               <td :colspan="visibleFields.length" class="add-button-cell">
-                <div class="add-button-wrapper" @click="handleAddRecord(item)">
+                <div
+                  class="add-button-wrapper"
+                  @click.stop="handleAddRecord(item)">
                   <el-icon class="add-icon"><Plus /></el-icon>
                   <span class="add-text">添加记录</span>
                 </div>
@@ -916,6 +1387,15 @@ function isRowSelected(recordId: string): boolean {
         <el-empty description="暂无数据" />
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <ContextMenu
+      :items="contextMenuItems"
+      :x="contextMenuX"
+      :y="contextMenuY"
+      :visible="contextMenuVisible"
+      @update:visible="contextMenuVisible = $event"
+      @select="handleContextMenuSelect" />
   </div>
 </template>
 
@@ -928,6 +1408,7 @@ import {
   Sort,
   Document,
   Plus,
+  Check,
 } from "@element-plus/icons-vue";
 export default {
   name: "GroupedTableView",
@@ -994,7 +1475,7 @@ export default {
   // 表头
   .header-row {
     background-color: #f5f7fa;
-    height: 20px;
+    height: 36px;
   }
 
   .column-header {
@@ -1003,13 +1484,13 @@ export default {
     border-bottom: 1px solid $border-color;
     border-right: 1px solid $border-color;
     font-size: $font-size-sm;
-    font-weight: 500;
+    font-weight: 600;
     color: $text-secondary;
     position: sticky;
     top: 0;
     z-index: 10;
     background-color: #f5f7fa;
-    height: 20px;
+    height: 36px;
     box-sizing: border-box;
 
     &:last-child {
@@ -1027,28 +1508,68 @@ export default {
       color: $text-secondary;
     }
 
+    // 冻结标识
+    .frozen-indicator {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: $primary-color;
+      font-weight: 500;
+      background-color: rgba($primary-color, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+
+      .el-icon {
+        font-size: 12px;
+      }
+    }
+
     &.index-column {
-      width: 50px;
-      min-width: 50px;
-      text-align: center;
-      // 冻结序号列
+      width: 70px;
+      min-width: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid $border-color;
+      background-color: #f5f7fa;
+      // 冻结序号列 - 最高层级确保不被遮挡
       position: sticky;
       left: 0;
-      z-index: 20;
-      background-color: #f5f7fa;
+      z-index: 30;
+
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: $primary-color;
+      }
     }
 
     &.expand-column {
-      // 冻结展开列
+      width: 120px;
+      min-width: 120px;
+      max-width: 120px;
+      // 冻结展开列 - 层级低于序号列和冻结数据列
       position: sticky;
-      left: 50px;
-      z-index: 20;
+      left: 70px;
+      z-index: 8;
       background-color: #f5f7fa;
+      padding: $spacing-sm;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
-    &.expand-column {
-      width: 40px;
-      min-width: 40px;
+    // 冻结列样式 - 数据列冻结时层级最高
+    &.is-frozen {
+      position: sticky;
+      z-index: 25;
+      background-color: #f5f7fa;
+      box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
     }
 
     // 列宽调整手柄
@@ -1071,38 +1592,81 @@ export default {
 
 // 序号列
 .index-cell {
-  width: 50px;
-  min-width: 50px;
-  text-align: center;
-  padding: $spacing-sm;
-  // 冻结序号列
+  width: 70px;
+  min-width: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  border-right: 1px solid $border-color;
+  background-color: inherit;
+  // 冻结序号列 - 与表头序号列层级一致
   position: sticky;
   left: 0;
-  z-index: 5;
-  background-color: inherit;
+  z-index: 10;
 
   .index-wrapper {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     height: 100%;
+    width: 100%;
 
-    .row-checkbox {
+    // 自定义勾选按钮
+    .custom-checkbox {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      border: 2px solid #cccccc;
+      background-color: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+      opacity: 0; // 默认隐藏
       position: absolute;
-      opacity: 0;
-      transition: opacity 0.2s ease;
+      left: 0;
+
+      .checkbox-inner {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .el-icon {
+          font-size: 12px;
+          color: white;
+          font-weight: bold;
+        }
+      }
+
+      // 未勾选但悬停状态 - 灰色边框
+      &:hover {
+        border-color: #999999;
+      }
+
+      // 已勾选状态 - 蓝色填充背景 + 白色对勾
+      &.is-checked {
+        opacity: 1 !important;
+        background-color: $primary-color;
+        border-color: $primary-color;
+      }
     }
 
     .expand-btn {
-      position: absolute;
       width: 20px;
       height: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
       border: none;
-      border-radius: 4px;
+      border-radius: $border-radius-sm;
       background-color: #999999;
       color: white;
       cursor: pointer;
@@ -1110,6 +1674,9 @@ export default {
       transform: scale(0.8);
       transition: all 0.2s ease;
       z-index: 10;
+      flex-shrink: 0;
+      position: absolute;
+      right: 2px;
 
       &:hover {
         background-color: #666666;
@@ -1127,9 +1694,12 @@ export default {
     }
 
     .row-number {
-      font-size: $font-size-sm;
-      color: $text-secondary;
+      font-size: $font-size-xs;
+      color: $gray-400;
       transition: opacity 0.2s ease;
+      position: relative;
+      text-align: center;
+      min-width: 20px;
     }
   }
 }
@@ -1138,7 +1708,7 @@ export default {
 .data-row {
   &:hover {
     .index-wrapper {
-      .row-checkbox {
+      .custom-checkbox:not(.is-checked) {
         opacity: 1;
       }
 
@@ -1155,11 +1725,12 @@ export default {
 
   &.is-selected {
     .index-wrapper {
-      .row-checkbox {
+      // 已勾选行的勾选按钮持续可见
+      .custom-checkbox {
         opacity: 1;
       }
 
-      .expand-btn.is-visible {
+      .expand-btn {
         opacity: 1;
         transform: scale(1);
       }
@@ -1169,22 +1740,38 @@ export default {
       }
     }
   }
+
+  // 行被选中且悬停时的样式
+  &.is-selected:hover {
+    .index-wrapper {
+      .custom-checkbox.is-checked {
+        background-color: darken($primary-color, 5%);
+        border-color: darken($primary-color, 5%);
+      }
+    }
+  }
 }
 
 // 展开列
 .expand-cell {
-  width: 40px;
-  min-width: 40px;
-  text-align: center;
+  width: 650px;
+  text-align: left;
   padding: $spacing-sm;
-  // 冻结展开列
+  // 冻结展开列 - 与表头展开列层级一致
   position: sticky;
-  left: 50px;
-  z-index: 5;
+  left: 70px;
+  z-index: 8;
   background-color: inherit;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  box-sizing: border-box;
+  overflow: hidden;
 
   &.empty {
     background-color: transparent;
+    display: table-cell;
+    padding-left: $spacing-sm;
   }
 }
 
@@ -1217,6 +1804,8 @@ export default {
 
     .group-info-cell {
       padding: $spacing-sm $spacing-md;
+      z-index: 20;
+      position: relative;
     }
 
     .group-name {
@@ -1237,7 +1826,6 @@ export default {
     .group-count {
       font-size: $font-size-sm;
       color: $text-secondary;
-      margin-left: $spacing-md;
     }
   }
 
@@ -1248,6 +1836,8 @@ export default {
 
     .group-info-cell {
       padding: $spacing-sm $spacing-md;
+      z-index: 20;
+      position: relative;
     }
 
     .group-name {
@@ -1268,7 +1858,6 @@ export default {
     .group-count {
       font-size: $font-size-sm;
       color: $text-secondary;
-      margin-left: $spacing-md;
     }
   }
 
@@ -1284,6 +1873,8 @@ export default {
     .group-info-cell {
       padding: $spacing-sm $spacing-md;
       padding-left: 8px;
+      z-index: 20;
+      position: relative;
     }
 
     .group-name {
@@ -1304,7 +1895,6 @@ export default {
     .group-count {
       font-size: $font-size-sm;
       color: $text-secondary;
-      margin-left: $spacing-md;
     }
   }
 }
@@ -1312,6 +1902,24 @@ export default {
 .group-info {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
+  gap: $spacing-sm;
+  overflow: hidden;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+
+  .group-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .group-count {
+    flex-shrink: 0;
+  }
 }
 
 // 数据行
@@ -1348,6 +1956,14 @@ export default {
 
     &:last-child {
       border-right: none;
+    }
+
+    // 冻结列样式 - 与表头冻结列层级一致
+    &.is-frozen {
+      position: sticky;
+      z-index: 15;
+      background-color: inherit;
+      box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
     }
 
     // 单元格内容容器，用于tooltip触发
@@ -1422,6 +2038,97 @@ export default {
       font-size: $font-size-sm;
     }
   }
+}
+
+// 链接、邮箱、电话样式
+.url-link,
+.email-link,
+.phone-link {
+  color: $primary-color;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// 附件样式
+.attachment-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: $primary-color;
+
+  &:hover {
+    opacity: 0.8;
+  }
+
+  .attachment-icon {
+    font-size: 14px;
+  }
+
+  .attachment-count {
+    font-size: $font-size-xs;
+  }
+}
+
+// 评分样式
+.rating-display {
+  color: #fbbf24;
+  letter-spacing: 1px;
+}
+
+// 进度样式
+.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background-color: $bg-color;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: $primary-color;
+  transition: width 0.2s ease;
+}
+
+.progress-text {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  white-space: nowrap;
+}
+
+// 成员样式
+.member-cell {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.member-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: $font-size-xs;
+  color: $text-primary;
+  background-color: $bg-color;
+  border: 1px solid $border-color;
+}
+
+.member-more {
+  font-size: $font-size-xs;
+  color: $text-secondary;
 }
 
 // 空状态

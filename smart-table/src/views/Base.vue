@@ -157,6 +157,9 @@ const formConfig = ref({
 // 当前编辑的记录
 const editingRecord = ref<any>(null);
 
+// 当前编辑的字段ID（用于字段管理对话框）
+const editingFieldId = ref<string | null>(null);
+
 // Drawer 抽屉大小（响应式）
 const drawerSize = computed(() => {
   const width = window.innerWidth;
@@ -626,6 +629,128 @@ const handleEditRecordById = (recordId: string) => {
 const handleExpandRecord = (record: RecordEntity) => {
   editingRecord.value = record;
   recordDialogVisible.value = true;
+};
+
+// 处理分组视图的排序
+const handleSortFromGroup = async (
+  fieldId: string,
+  direction: "asc" | "desc",
+) => {
+  if (!viewStore.currentView) return;
+
+  const currentSorts = viewStore.currentSorts as SortConfig[];
+  const existingSortIndex = currentSorts.findIndex(
+    (s) => s.fieldId === fieldId,
+  );
+  const newSorts = [...currentSorts];
+
+  if (existingSortIndex > -1) {
+    newSorts[existingSortIndex] = { fieldId, direction };
+  } else {
+    newSorts.push({ fieldId, direction });
+  }
+
+  await viewStore.updateSorts(
+    viewStore.currentView.id,
+    newSorts as SortConfig[],
+  );
+  ElMessage.success(
+    `已按字段 ${props.fields.find((f) => f.id === fieldId)?.name || ""} ${direction === "asc" ? "升序" : "降序"}排列`,
+  );
+};
+
+// 处理分组视图的冻结列
+const handleFreezeFieldFromGroup = async (fieldId: string) => {
+  if (!viewStore.currentView) return;
+
+  const newFrozen = [...viewStore.currentView.frozenFields, fieldId];
+  await viewStore.updateFrozenFields(viewStore.currentView.id, newFrozen);
+  ElMessage.success("已冻结列");
+};
+
+// 处理分组视图的取消冻结列
+const handleUnfreezeFieldFromGroup = async (fieldId: string) => {
+  if (!viewStore.currentView) return;
+
+  const newFrozen = viewStore.currentView.frozenFields.filter(
+    (fid) => fid !== fieldId,
+  );
+  await viewStore.updateFrozenFields(viewStore.currentView.id, newFrozen);
+  ElMessage.success("已取消冻结列");
+};
+
+// 处理分组视图的隐藏字段
+const handleHideFieldFromGroup = async (fieldId: string) => {
+  if (!viewStore.currentView) return;
+
+  if (viewStore.currentView.hiddenFields.includes(fieldId)) {
+    ElMessage.warning("该字段已经是隐藏状态");
+    return;
+  }
+
+  const newHidden = [...viewStore.currentView.hiddenFields, fieldId];
+  await viewStore.updateHiddenFields(viewStore.currentView.id, newHidden);
+  ElMessage.success("已隐藏字段");
+};
+
+// 处理分组视图的编辑字段
+const handleEditFieldFromGroup = (fieldId: string) => {
+  editingFieldId.value = fieldId;
+  fieldDialogVisible.value = true;
+};
+
+// 处理分组视图的删除记录
+const handleDeleteRecordsFromGroup = async (records: RecordEntity[]) => {
+  if (records.length === 0) return;
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${records.length} 条记录吗？`,
+      "确认删除",
+      {
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
+    );
+
+    // 批量删除记录
+    for (const record of records) {
+      await tableStore.deleteRecord(record.id);
+      const index = baseStore.records.findIndex((r) => r.id === record.id);
+      if (index > -1) {
+        baseStore.records.splice(index, 1);
+      }
+    }
+
+    ElMessage.success(`已删除 ${records.length} 条记录`);
+  } catch (error) {
+    // 用户取消删除
+  }
+};
+
+// 处理分组视图的复制记录
+const handleDuplicateRecordFromGroup = async (record: RecordEntity) => {
+  if (!baseStore.currentTable) return;
+
+  try {
+    // 创建新记录，复制原记录的值
+    const newRecord = await tableStore.createRecord({
+      tableId: baseStore.currentTable.id,
+      values: { ...record.values },
+    });
+
+    if (newRecord) {
+      baseStore.records.push(newRecord);
+      ElMessage.success("记录复制成功");
+      // 打开新记录的编辑对话框
+      editingRecord.value = newRecord;
+      recordDialogVisible.value = true;
+    }
+  } catch (error) {
+    ElMessage.error("复制记录失败");
+    console.error("复制记录失败:", error);
+  }
 };
 
 // 处理保存记录
@@ -1295,10 +1420,18 @@ function handleImported() {
               :fields="visibleFields"
               :records="filteredRecords as any[]"
               :group-by="currentGroupBys"
+              :frozen-fields="viewStore.currentView?.frozenFields || []"
               @row-click="handleRecordSelect"
               @cell-click="handleEditRecord"
               @add-record="handleAddRecordFromGroup"
-              @expand-record="handleExpandRecord" />
+              @expand-record="handleExpandRecord"
+              @duplicate-record="handleDuplicateRecordFromGroup"
+              @delete-records="handleDeleteRecordsFromGroup"
+              @sort="handleSortFromGroup"
+              @freeze-field="handleFreezeFieldFromGroup"
+              @unfreeze-field="handleUnfreezeFieldFromGroup"
+              @hide-field="handleHideFieldFromGroup"
+              @edit-field="handleEditFieldFromGroup" />
 
             <!-- 表格视图 - 普通模式 -->
             <TableView
@@ -1507,11 +1640,17 @@ function handleImported() {
       v-model:visible="fieldDialogVisible"
       :table-id="currentTableId"
       :fields="baseStore.fields"
+      :edit-field-id="editingFieldId || undefined"
       @field-created="handleFieldCreated"
       @field-updated="handleFieldUpdated"
       @field-deleted="handleFieldDeleted"
       @fields-reordered="handleFieldsReordered"
-      @field-visibility-changed="handleFieldVisibilityChanged" />
+      @field-visibility-changed="handleFieldVisibilityChanged"
+      @update:visible="
+        (val) => {
+          if (!val) editingFieldId = null;
+        }
+      " />
 
     <!-- 筛选对话框 -->
     <FilterDialog

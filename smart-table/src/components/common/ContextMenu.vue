@@ -49,7 +49,8 @@ const menuStyle = computed(() => {
   };
 });
 
-const handleItemClick = (item: MenuItem) => {
+const handleItemClick = (item: MenuItem, event: MouseEvent) => {
+  event.stopPropagation();
   if (item.disabled || item.divider) return;
 
   if (item.action) {
@@ -101,7 +102,7 @@ onBeforeUnmount(() => {
               v-else
               class="menu-item"
               :class="{ disabled: item.disabled, danger: item.danger }"
-              @click="handleItemClick(item)">
+              @click="(e) => handleItemClick(item, e)">
               <span v-if="item.icon" class="menu-icon">
                 <svg
                   v-if="item.icon === 'edit'"
