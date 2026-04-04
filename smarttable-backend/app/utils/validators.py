@@ -252,7 +252,11 @@ def sanitize_string(value: str, max_length: int = 255) -> str:
     if not value:
         return ''
     
-    # 移除 HTML 标签
+    # 移除危险标签及其内容（script, style 等）
+    value = re.sub(r'<script[^>]*>.*?</script>', '', value, flags=re.IGNORECASE | re.DOTALL)
+    value = re.sub(r'<style[^>]*>.*?</style>', '', value, flags=re.IGNORECASE | re.DOTALL)
+    
+    # 移除其余 HTML 标签
     value = re.sub(r'<[^>]+>', '', value)
     
     # 限制长度

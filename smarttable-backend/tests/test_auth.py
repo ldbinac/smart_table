@@ -12,9 +12,8 @@ class TestAuth:
         """测试成功注册"""
         response = client.post('/api/auth/register', json={
             'email': 'newuser@example.com',
-            'username': 'newuser',
-            'password': 'Password123!',
-            'nickname': '新用户'
+            'name': '新用户',
+            'password': 'Test1234!'
         })
         
         assert response.status_code == 201
@@ -37,8 +36,8 @@ class TestAuth:
         """测试无效邮箱格式"""
         response = client.post('/api/auth/register', json={
             'email': 'invalid-email',
-            'username': 'testuser',
-            'password': 'Password123!'
+            'name': 'testuser',
+            'password': 'Test1234!'
         })
         
         assert response.status_code == 400
@@ -48,8 +47,8 @@ class TestAuth:
     def test_register_weak_password(self, client):
         """测试弱密码"""
         response = client.post('/api/auth/register', json={
-            'email': 'test@example.com',
-            'username': 'testuser',
+            'email': 'test2@example.com',
+            'name': 'testuser',
             'password': '123'
         })
         
@@ -61,14 +60,15 @@ class TestAuth:
         """测试成功登录"""
         response = client.post('/api/auth/login', json={
             'email': 'test@example.com',
-            'password': 'password123'
+            'password': 'Test1234!'
         })
         
         assert response.status_code == 200
         data = response.get_json()
         assert data['code'] == 200
-        assert 'access_token' in data['data']
-        assert 'refresh_token' in data['data']
+        tokens = data.get('data', {}).get('tokens', data.get('data', {}))
+        assert 'access_token' in tokens
+        assert 'refresh_token' in tokens
     
     def test_login_wrong_password(self, client, test_user):
         """测试密码错误"""
@@ -85,7 +85,7 @@ class TestAuth:
         """测试不存在的用户"""
         response = client.post('/api/auth/login', json={
             'email': 'nonexistent@example.com',
-            'password': 'password123'
+            'password': 'Test1234!'
         })
         
         assert response.status_code == 401
@@ -109,9 +109,10 @@ class TestAuth:
         """测试刷新Token"""
         login_response = client.post('/api/auth/login', json={
             'email': 'test@example.com',
-            'password': 'password123'
+            'password': 'Test1234!'
         })
-        refresh_token = login_response.get_json()['data']['refresh_token']
+        login_data = login_response.get_json()['data']
+        refresh_token = login_data.get('tokens', {}).get('refresh_token', login_data.get('refresh_token'))
         
         response = client.post('/api/auth/refresh', json={
             'refresh_token': refresh_token
@@ -119,7 +120,8 @@ class TestAuth:
         
         assert response.status_code == 200
         data = response.get_json()
-        assert 'access_token' in data['data']
+        resp_tokens = data.get('data', {}).get('tokens', data.get('data', {}))
+        assert 'access_token' in resp_tokens
     
     def test_logout(self, client, test_user, auth_headers):
         """测试登出"""

@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum as PyEnum
 
 from sqlalchemy import String, DateTime, Enum, ForeignKey, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -15,17 +15,17 @@ from app.extensions import db
 
 class MemberRole(PyEnum):
     """成员角色枚举"""
-    OWNER = 'owner'           # 所有者
-    ADMIN = 'admin'           # 管理员
-    EDITOR = 'editor'         # 编辑者
-    COMMENTER = 'commenter'   # 评论者
-    VIEWER = 'viewer'         # 查看者
+    OWNER = 'owner'
+    ADMIN = 'admin'
+    EDITOR = 'editor'
+    COMMENTER = 'commenter'
+    VIEWER = 'viewer'
 
 
 class Base(db.Model):
     """
     基础数据模型（工作区/数据库）
-    
+
     属性:
         id: UUID 主键
         name: 基础数据名称
@@ -34,12 +34,13 @@ class Base(db.Model):
         icon: 图标
         color: 主题颜色
         is_personal: 是否为个人空间
+        is_starred: 是否已收藏
         created_at: 创建时间
         updated_at: 更新时间
     """
-    
+
     __tablename__ = 'bases'
-    
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -71,6 +72,10 @@ class Base(db.Model):
         default=False,
         nullable=False
     )
+    is_starred: Mapped[bool] = mapped_column(
+        default=False,
+        nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -82,21 +87,20 @@ class Base(db.Model):
         onupdate=datetime.utcnow,
         nullable=False
     )
-    
-    # 关系定义
+
     owner = relationship(
         'User',
         back_populates='owned_bases',
         lazy='joined'
     )
-    
+
     members = relationship(
         'BaseMember',
         back_populates='base',
         lazy='dynamic',
         cascade='all, delete-orphan'
     )
-    
+
     tables = relationship(
         'Table',
         back_populates='base',
@@ -104,32 +108,21 @@ class Base(db.Model):
         cascade='all, delete-orphan',
         order_by='Table.order'
     )
-    
+
     dashboards = relationship(
         'Dashboard',
         back_populates='base',
         lazy='dynamic',
         cascade='all, delete-orphan'
     )
-    
+
     def get_member_count(self) -> int:
-        """获取成员数量"""
         return self.members.count()
-    
+
     def get_table_count(self) -> int:
-        """获取表格数量"""
         return self.tables.count()
-    
+
     def to_dict(self, include_stats: bool = False) -> dict:
-        """
-        转换为字典
-        
-        Args:
-            include_stats: 是否包含统计信息
-            
-        Returns:
-            基础数据字典
-        """
         data = {
             'id': str(self.id),
             'name': self.name,
@@ -138,16 +131,17 @@ class Base(db.Model):
             'icon': self.icon,
             'color': self.color,
             'is_personal': self.is_personal,
+            'is_starred': self.is_starred,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
-        
+
         if include_stats:
             data['member_count'] = self.get_member_count()
             data['table_count'] = self.get_table_count()
-        
+
         return data
-    
+
     def __repr__(self) -> str:
         return f'<Base {self.name}>'
 
@@ -155,7 +149,7 @@ class Base(db.Model):
 class BaseMember(db.Model):
     """
     基础数据成员关系模型
-    
+
     属性:
         id: UUID 主键
         base_id: 基础数据 ID
@@ -164,13 +158,13 @@ class BaseMember(db.Model):
         invited_by: 邀请人 ID
         joined_at: 加入时间
     """
-    
+
     __tablename__ = 'base_members'
-    
+
     __table_args__ = (
         UniqueConstraint('base_id', 'user_id', name='uix_base_member'),
     )
-    
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -201,37 +195,27 @@ class BaseMember(db.Model):
         default=datetime.utcnow,
         nullable=False
     )
-    
-    # 关系定义
+
     base = relationship(
         'Base',
         back_populates='members',
         lazy='joined'
     )
-    
+
     user = relationship(
         'User',
         back_populates='base_memberships',
         foreign_keys=[user_id],
         lazy='joined'
     )
-    
+
     inviter = relationship(
         'User',
         foreign_keys=[invited_by],
         lazy='joined'
     )
-    
+
     def to_dict(self, include_user: bool = False) -> dict:
-        """
-        转换为字典
-        
-        Args:
-            include_user: 是否包含用户信息
-            
-        Returns:
-            成员关系字典
-        """
         data = {
             'id': str(self.id),
             'base_id': str(self.base_id),
@@ -240,11 +224,11 @@ class BaseMember(db.Model):
             'invited_by': str(self.invited_by) if self.invited_by else None,
             'joined_at': self.joined_at.isoformat()
         }
-        
+
         if include_user and self.user:
             data['user'] = self.user.to_dict()
-        
+
         return data
-    
+
     def __repr__(self) -> str:
         return f'<BaseMember {self.user_id}@{self.base_id}>'

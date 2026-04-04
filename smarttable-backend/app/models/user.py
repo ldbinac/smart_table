@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum as PyEnum
 
 from sqlalchemy import String, Boolean, DateTime, Enum, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db, bcrypt
@@ -15,18 +15,18 @@ from app.extensions import db, bcrypt
 
 class UserRole(PyEnum):
     """用户角色枚举"""
-    ADMIN = 'admin'           # 系统管理员
-    WORKSPACE_ADMIN = 'workspace_admin'  # 工作区管理员
-    EDITOR = 'editor'         # 编辑者
-    VIEWER = 'viewer'         # 查看者
+    ADMIN = 'admin'
+    WORKSPACE_ADMIN = 'workspace_admin'
+    EDITOR = 'editor'
+    VIEWER = 'viewer'
 
 
 class UserStatus(PyEnum):
     """用户状态枚举"""
-    ACTIVE = 'active'         # 活跃
-    INACTIVE = 'inactive'     # 未激活
-    SUSPENDED = 'suspended'   # 已暂停
-    DELETED = 'deleted'       # 已删除
+    ACTIVE = 'active'
+    INACTIVE = 'inactive'
+    SUSPENDED = 'suspended'
+    DELETED = 'deleted'
 
 
 class User(db.Model):
@@ -103,7 +103,6 @@ class User(db.Model):
         nullable=False
     )
     
-    # 关系定义
     owned_bases = relationship(
         'Base',
         back_populates='owner',
@@ -134,49 +133,22 @@ class User(db.Model):
             self.set_password(password)
     
     def set_password(self, password: str) -> None:
-        """
-        设置用户密码
-        
-        Args:
-            password: 明文密码
-        """
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
     
     def check_password(self, password: str) -> bool:
-        """
-        验证密码
-        
-        Args:
-            password: 明文密码
-            
-        Returns:
-            密码是否正确
-        """
         return bcrypt.check_password_hash(self.password_hash, password)
     
     def update_last_login(self) -> None:
-        """更新最后登录时间"""
         self.last_login_at = datetime.utcnow()
         db.session.commit()
     
     def is_active(self) -> bool:
-        """检查用户是否活跃"""
         return self.status == UserStatus.ACTIVE
     
     def is_admin(self) -> bool:
-        """检查是否为管理员"""
         return self.role in [UserRole.ADMIN, UserRole.WORKSPACE_ADMIN]
     
     def to_dict(self, include_email: bool = False) -> dict:
-        """
-        转换为字典
-        
-        Args:
-            include_email: 是否包含邮箱
-            
-        Returns:
-            用户数据字典
-        """
         data = {
             'id': str(self.id),
             'name': self.name,
@@ -197,41 +169,21 @@ class User(db.Model):
 
 
 class TokenBlocklist(db.Model):
-    """
-    JWT 令牌黑名单模型
-    用于存储已注销的令牌
-    """
+    """JWT 令牌黑名单模型"""
     
     __tablename__ = 'token_blocklist'
     
-    id: Mapped[int] = mapped_column(
-        primary_key=True
-    )
-    jti: Mapped[str] = mapped_column(
-        String(36),
-        nullable=False,
-        index=True
-    )
-    token_type: Mapped[str] = mapped_column(
-        String(10),
-        nullable=False
-    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    jti: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    token_type: Mapped[str] = mapped_column(String(10), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey('users.id', ondelete='CASCADE'),
         nullable=False
     )
-    revoked_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False
-    )
-    expires_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        nullable=False
-    )
+    revoked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     
-    # 关系定义
     user = relationship('User', lazy='joined')
     
     def __repr__(self) -> str:

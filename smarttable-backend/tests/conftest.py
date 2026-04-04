@@ -57,12 +57,9 @@ def test_user(app, db_session):
     with app.app_context():
         user = User(
             email='test@example.com',
-            username='testuser',
-            password_hash='hashed_password',
-            nickname='测试用户',
-            role='user',
-            status='active'
+            name='测试用户'
         )
+        user.set_password('Test1234!')
         db.session.add(user)
         db.session.commit()
         db.session.refresh(user)
@@ -74,11 +71,14 @@ def auth_headers(client, test_user):
     """获取认证头"""
     response = client.post('/api/auth/login', json={
         'email': 'test@example.com',
-        'password': 'password123'
+        'password': 'Test1234!'
     })
     if response.status_code == 200:
         data = response.get_json()
-        return {'Authorization': f"Bearer {data['data']['access_token']}"}
+        tokens = data.get('data', {}).get('tokens', {})
+        access_token = tokens.get('access_token', data.get('data', {}).get('access_token'))
+        if access_token:
+            return {'Authorization': f'Bearer {access_token}'}
     return {}
 
 
@@ -107,8 +107,7 @@ def test_table(app, db_session, test_base):
             base_id=test_base.id,
             name='测试表格',
             description='这是一个测试表格',
-            order=0,
-            record_count=0
+            order=0
         )
         db.session.add(table)
         db.session.commit()
@@ -119,14 +118,14 @@ def test_table(app, db_session, test_base):
 @pytest.fixture(scope='function')
 def test_field(app, db_session, test_table):
     """创建测试字段"""
+    from app.models.field import FieldType
     with app.app_context():
         field = Field(
             table_id=test_table.id,
             name='名称',
-            type='text',
+            type=FieldType.SINGLE_LINE_TEXT.value,
             order=0,
-            is_required=True,
-            is_system=False
+            is_required=True
         )
         db.session.add(field)
         db.session.commit()
@@ -140,7 +139,7 @@ def test_record(app, db_session, test_table, test_field, test_user):
     with app.app_context():
         record = Record(
             table_id=test_table.id,
-            values={test_field.id: '测试值'},
+            values={str(test_field.id): '测试值'},
             created_by=test_user.id,
             updated_by=test_user.id
         )
@@ -153,11 +152,12 @@ def test_record(app, db_session, test_table, test_field, test_user):
 @pytest.fixture(scope='function')
 def test_view(app, db_session, test_table):
     """创建测试视图"""
+    from app.models.view import ViewType
     with app.app_context():
         view = View(
             table_id=test_table.id,
             name='默认视图',
-            type='grid',
+            type=ViewType.TABLE.value,
             order=0,
             is_default=True
         )

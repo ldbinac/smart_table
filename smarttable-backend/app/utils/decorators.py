@@ -10,7 +10,6 @@ from flask import request, g
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, get_jwt
 
 from app.extensions import cache
-from app.models.user import User, UserRole
 from app.utils.response import forbidden_response, unauthorized_response, error_response
 
 
@@ -32,13 +31,12 @@ def jwt_required(fn: Callable) -> Callable:
     @wraps(fn)
     def wrapper(*args, **kwargs):
         try:
-            # 验证 JWT
+            from app.models.user import User
+            
             verify_jwt_in_request()
             
-            # 获取用户 ID
             user_id = get_jwt_identity()
             
-            # 查询用户
             user = User.query.get(user_id)
             
             if not user:
@@ -47,7 +45,6 @@ def jwt_required(fn: Callable) -> Callable:
             if not user.is_active():
                 return unauthorized_response('用户账号已被禁用')
             
-            # 将用户设置到全局对象
             g.current_user = user
             g.current_user_id = user_id
             
@@ -59,7 +56,7 @@ def jwt_required(fn: Callable) -> Callable:
     return wrapper
 
 
-def role_required(roles: Union[List[UserRole], UserRole]) -> Callable:
+def role_required(roles):
     """
     角色权限检查装饰器
     检查当前用户是否具有指定角色
@@ -73,7 +70,8 @@ def role_required(roles: Union[List[UserRole], UserRole]) -> Callable:
     def decorator(fn: Callable) -> Callable:
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            # 确保已经通过 JWT 认证
+            from app.models.user import UserRole
+            
             if not hasattr(g, 'current_user') or g.current_user is None:
                 return unauthorized_response('请先登录')
             
@@ -102,6 +100,7 @@ def admin_required(fn: Callable) -> Callable:
     Returns:
         装饰后的函数
     """
+    from app.models.user import UserRole
     return role_required([UserRole.ADMIN, UserRole.WORKSPACE_ADMIN])(fn)
 
 

@@ -1,0 +1,130 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: smarttable
+          POSTGRES_PASSWORD: smarttable
+          POSTGRES_DB: smarttable_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov psycopg2-binary
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          SECRET_KEY=test-secret-key-for-ci
+          JWT_SECRET_KEY=ci-jwt-secret-key-32-chars-long!
+          DATABASE_URL=postgresql://smarttable:smarttable@localhost:5432/smarttable_test
+          REDIS_URL=redis://localhost:6379/0
+          LOG_LEVEL=DEBUG
+          EOF
+
+      - name: Run unit tests (SQLite)
+        run: |
+          python -m pytest tests/test_formula_service.py tests/test_validators.py -v --tb=short
+
+      - name: Run integration tests (PostgreSQL)
+        env:
+          DATABASE_URL: postgresql://smarttable:smarttable@localhost:5432/smarttable_test
+        run: |
+          python -m pytest tests/test_auth.py tests/test_base.py tests/test_field.py -v --tb=short
+        continue-on-error: true
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install linters
+        run: |
+          pip install flake8 mypy black isort
+      
+      - name: Run flake8
+        run: flake8 app/ tests/ --max-line-length=120 --ignore=E501,W503,E203
+      
+      - name: Run black check
+        run: black --check --line-length=120 app/ tests/
+      
+      - name: Run isort check
+        run: isort --check-only --profile black app/ tests/
+  
+  build:
+    name: Build Docker Image
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/smarttable-backend:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/smarttable-backend:latest

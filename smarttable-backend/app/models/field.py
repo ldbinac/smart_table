@@ -7,7 +7,7 @@ from enum import Enum as PyEnum
 from typing import Optional, Dict, Any
 
 from sqlalchemy import String, DateTime, ForeignKey, Integer, Boolean, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -15,56 +15,39 @@ from app.extensions import db
 
 class FieldType(PyEnum):
     """字段类型枚举"""
-    # 基础类型
-    SINGLE_LINE_TEXT = 'single_line_text'      # 单行文本
-    LONG_TEXT = 'long_text'                    # 多行文本
-    RICH_TEXT = 'rich_text'                    # 富文本
-    
-    # 数字类型
-    NUMBER = 'number'                          # 数字
-    CURRENCY = 'currency'                      # 货币
-    PERCENT = 'percent'                        # 百分比
-    RATING = 'rating'                          # 评分
-    
-    # 日期时间类型
-    DATE = 'date'                              # 日期
-    DATE_TIME = 'date_time'                    # 日期时间
-    DURATION = 'duration'                      # 时长
-    
-    # 选择类型
-    SINGLE_SELECT = 'single_select'            # 单选
-    MULTI_SELECT = 'multi_select'              # 多选
-    CHECKBOX = 'checkbox'                      # 复选框
-    
-    # 关联类型
-    LINK_TO_RECORD = 'link_to_record'          # 关联记录
-    LOOKUP = 'lookup'                          # 查找引用
-    ROLLUP = 'rollup'                          # 汇总
-    
-    # 人员类型
-    CREATED_BY = 'created_by'                  # 创建者
-    LAST_MODIFIED_BY = 'last_modified_by'      # 最后修改者
-    COLLABORATOR = 'collaborator'              # 协作者
-    
-    # 附件类型
-    ATTACHMENT = 'attachment'                  # 附件
-    
-    # 计算类型
-    FORMULA = 'formula'                        # 公式
-    AUTO_NUMBER = 'auto_number'                # 自动编号
-    BARCODE = 'barcode'                        # 条形码
-    
-    # 其他类型
-    EMAIL = 'email'                            # 邮箱
-    PHONE = 'phone'                            # 电话
-    URL = 'url'                                # URL
-    BUTTON = 'button'                          # 按钮
+    SINGLE_LINE_TEXT = 'single_line_text'
+    LONG_TEXT = 'long_text'
+    RICH_TEXT = 'rich_text'
+    NUMBER = 'number'
+    CURRENCY = 'currency'
+    PERCENT = 'percent'
+    RATING = 'rating'
+    DATE = 'date'
+    DATE_TIME = 'date_time'
+    DURATION = 'duration'
+    SINGLE_SELECT = 'single_select'
+    MULTI_SELECT = 'multi_select'
+    CHECKBOX = 'checkbox'
+    LINK_TO_RECORD = 'link_to_record'
+    LOOKUP = 'lookup'
+    ROLLUP = 'rollup'
+    CREATED_BY = 'created_by'
+    LAST_MODIFIED_BY = 'last_modified_by'
+    COLLABORATOR = 'collaborator'
+    ATTACHMENT = 'attachment'
+    FORMULA = 'formula'
+    AUTO_NUMBER = 'auto_number'
+    BARCODE = 'barcode'
+    EMAIL = 'email'
+    PHONE = 'phone'
+    URL = 'url'
+    BUTTON = 'button'
 
 
 class Field(db.Model):
     """
     字段模型
-    
+
     属性:
         id: UUID 主键
         table_id: 所属表格 ID
@@ -79,9 +62,9 @@ class Field(db.Model):
         created_at: 创建时间
         updated_at: 更新时间
     """
-    
+
     __tablename__ = 'fields'
-    
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -141,24 +124,16 @@ class Field(db.Model):
         onupdate=datetime.utcnow,
         nullable=False
     )
-    
-    # 关系定义
+
     table = relationship(
         'Table',
         back_populates='fields',
         lazy='joined',
         foreign_keys=[table_id]
     )
-    
+
     def get_default_value(self) -> Any:
-        """
-        获取字段默认值
-        
-        Returns:
-            根据字段类型返回相应的默认值
-        """
         field_type = FieldType(self.type)
-        
         defaults = {
             FieldType.SINGLE_LINE_TEXT: '',
             FieldType.LONG_TEXT: '',
@@ -188,50 +163,31 @@ class Field(db.Model):
             FieldType.URL: '',
             FieldType.BUTTON: None
         }
-        
         return defaults.get(field_type)
-    
+
     def validate_value(self, value: Any) -> tuple[bool, Optional[str]]:
-        """
-        验证字段值
-        
-        Args:
-            value: 待验证的值
-            
-        Returns:
-            (是否有效, 错误信息)
-        """
         if self.is_required and value is None:
             return False, f'字段 "{self.name}" 为必填项'
-        
+
         field_type = FieldType(self.type)
-        
-        # 类型特定验证
+
         if field_type == FieldType.NUMBER and value is not None:
             if not isinstance(value, (int, float)):
                 return False, f'字段 "{self.name}" 必须是数字'
-        
         elif field_type == FieldType.EMAIL and value:
             import re
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
             if not re.match(email_pattern, str(value)):
                 return False, f'字段 "{self.name}" 必须是有效的邮箱地址'
-        
         elif field_type == FieldType.URL and value:
             import re
             url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
             if not re.match(url_pattern, str(value)):
                 return False, f'字段 "{self.name}" 必须是有效的 URL'
-        
+
         return True, None
-    
+
     def to_dict(self) -> dict:
-        """
-        转换为字典
-        
-        Returns:
-            字段数据字典
-        """
         return {
             'id': str(self.id),
             'table_id': str(self.table_id),
@@ -246,6 +202,6 @@ class Field(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
-    
+
     def __repr__(self) -> str:
         return f'<Field {self.name} ({self.type})>'

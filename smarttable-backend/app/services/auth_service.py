@@ -278,7 +278,13 @@ class AuthService:
         Returns:
             用户对象，如果不存在则返回 None
         """
-        return User.query.get(user_id)
+        from uuid import UUID
+        try:
+            # 将字符串ID转换为UUID对象
+            uuid_id = UUID(user_id) if isinstance(user_id, str) else user_id
+            return User.query.get(uuid_id)
+        except Exception:
+            return None
     
     @staticmethod
     def update_last_login(user_id: str) -> bool:

@@ -10,6 +10,13 @@ from typing import List, Optional, Dict, Any, Tuple, BinaryIO
 from datetime import datetime
 from enum import Enum as PyEnum
 
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    pd = None
+    HAS_PANDAS = False
+
 from app.extensions import db
 from app.models.table import Table
 from app.models.field import Field, FieldType
@@ -123,7 +130,8 @@ class ImportExportService:
             导入结果或预览数据
         """
         try:
-            import pandas as pd
+            if not HAS_PANDAS:
+                raise ImportError('请安装 pandas: pip install pandas openpyxl')
         except ImportError:
             raise ImportError('请安装 pandas: pip install pandas openpyxl')
         
@@ -291,7 +299,8 @@ class ImportExportService:
             导入结果或预览数据
         """
         try:
-            import pandas as pd
+            if not HAS_PANDAS:
+                raise ImportError('请安装 pandas: pip install pandas')
         except ImportError:
             raise ImportError('请安装 pandas: pip install pandas')
         
@@ -479,9 +488,7 @@ class ImportExportService:
         返回:
             (文件内容字节, 文件名)
         """
-        try:
-            import pandas as pd
-        except ImportError:
+        if not HAS_PANDAS:
             raise ImportError('请安装 pandas: pip install pandas openpyxl')
         
         # 获取表格和字段
@@ -544,9 +551,7 @@ class ImportExportService:
         返回:
             (文件内容字节, 文件名)
         """
-        try:
-            import pandas as pd
-        except ImportError:
+        if not HAS_PANDAS:
             raise ImportError('请安装 pandas: pip install pandas')
         
         # 复用 Excel 的数据准备逻辑
@@ -641,7 +646,7 @@ class ImportExportService:
     def _convert_value(value: Any, field: Field) -> Any:
         """
         转换导入值为字段所需类型
-        
+
         参数:
             value: 原始值
             field: 字段对象
@@ -649,7 +654,10 @@ class ImportExportService:
         返回:
             转换后的值
         """
-        if pd.isna(value) or value is None:
+        if value is None:
+            return None
+        
+        if HAS_PANDAS and pd is not None and pd.isna(value):
             return None
         
         field_type = FieldType(field.type)
@@ -747,9 +755,7 @@ class ImportExportService:
         返回:
             文件结构信息（列名、示例数据等）
         """
-        try:
-            import pandas as pd
-        except ImportError:
+        if not HAS_PANDAS:
             raise ImportError('请安装 pandas: pip install pandas openpyxl')
         
         # 读取文件

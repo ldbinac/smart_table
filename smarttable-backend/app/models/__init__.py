@@ -1,6 +1,5 @@
 """
-模型模块初始化
-导出所有模型类供外部使用
+模型模块初始化，导出所有模型类供外部使用
 """
 from app.models.user import User, TokenBlocklist
 from app.models.base import Base, BaseMember
@@ -10,6 +9,7 @@ from app.models.record import Record
 from app.models.view import View
 from app.models.dashboard import Dashboard
 from app.models.attachment import Attachment
+from app.models.operation_history import OperationHistory, OperationType, ResourceType
 
 __all__ = [
     'User',
@@ -21,5 +21,8 @@ __all__ = [
     'Record',
     'View',
     'Dashboard',
-    'Attachment'
+    'Attachment',
+    'OperationHistory',
+    'OperationType',
+    'ResourceType'
 ]

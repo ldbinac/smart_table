@@ -145,3 +145,23 @@ class TestView:
         data = response.get_json()
         assert data['code'] == 200
         assert len(data['data']) > 0
+    
+    def test_set_default_view(self, client, auth_headers, test_table, test_view):
+        """测试设置默认视图（任务 19.6）"""
+        response = client.put(
+            f'/api/tables/{test_table.id}/views/{test_view.id}/set-default',
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['code'] == 200
+    
+    def test_set_default_nonexistent_view(self, client, auth_headers, test_table):
+        """测试设置不存在的视图为默认"""
+        response = client.put(
+            f'/api/tables/{test_table.id}/views/nonexistent-id/set-default',
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 404

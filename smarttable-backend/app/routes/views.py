@@ -249,6 +249,39 @@ def reorder_views(table_id):
         return error_response(f'更新视图排序失败: {str(e)}', 500)
 
 
+@views_bp.route('/tables/<table_id>/views/<view_id>/set-default', methods=['PUT'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor'])
+def set_default_view(table_id, view_id):
+    """
+    设置默认视图（任务 19.6）
+    
+    将指定视图设为该表格的默认视图，同时取消其他视图的默认状态
+    """
+    table = TableService.get_table_by_id(table_id)
+    if not table:
+        return error_response('表格不存在', 404)
+    
+    view = ViewService.get_view_by_id(view_id)
+    if not view or view.table_id != table_id:
+        return error_response('视图不存在或不属于该表格', 404)
+    
+    try:
+        from app.extensions import db
+        from app.models.view import View
+        
+        View.query.filter_by(table_id=table_id).update({'is_default': False})
+        
+        view.is_default = True
+        db.session.commit()
+        
+        return success_response(view.to_dict(), '已设置为默认视图')
+    
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'设置默认视图失败: {str(e)}', 500)
+
+
 @views_bp.route('/views/types', methods=['GET'])
 @jwt_required
 def get_view_types():

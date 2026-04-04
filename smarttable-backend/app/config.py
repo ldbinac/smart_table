@@ -68,10 +68,12 @@ class TestingConfig(Config):
     """测试环境配置"""
     TESTING = True
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
-        'postgresql://postgres:postgres@localhost:5432/smarttable_test'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_ENGINE_OPTIONS = {}
     WTF_CSRF_ENABLED = False
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    CACHE_TYPE = 'SimpleCache'
+    CACHE_DEFAULT_TIMEOUT = 0
 
 
 class ProductionConfig(Config):

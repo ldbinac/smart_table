@@ -44,6 +44,11 @@ class TableService:
         return Table.query.get(table_id)
     
     @staticmethod
+    def get_table_by_id(table_id: str) -> Optional[Table]:
+        """get_table 的别名，供路由层调用"""
+        return TableService.get_table(table_id)
+    
+    @staticmethod
     def create_table(base_id: str, data: Dict[str, Any]) -> Table:
         """
         创建新表格
