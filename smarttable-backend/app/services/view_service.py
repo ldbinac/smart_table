@@ -4,6 +4,8 @@
 from typing import List, Optional, Dict, Any
 import uuid
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.extensions import db
 from app.models.view import View, ViewType
 
@@ -28,7 +30,8 @@ class ViewService:
     def create_view(table_id: str, name: str, view_type: str = 'grid',
                    config: Dict[str, Any] = None, 
                    filters: List[Dict] = None,
-                   sorts: List[Dict] = None) -> View:
+                   sorts: List[Dict] = None,
+                   group_bys: List[str] = None) -> View:
         """
         创建视图
         
@@ -39,6 +42,7 @@ class ViewService:
             config: 视图配置
             filters: 筛选条件
             sorts: 排序规则
+            group_bys: 分组字段列表
             
         Returns:
             创建的视图对象
@@ -46,14 +50,28 @@ class ViewService:
         # 获取当前最大排序值
         max_order = db.session.query(db.func.max(View.order)).filter_by(table_id=table_id).scalar() or 0
         
+        # 将字符串类型转换为 ViewType 枚举的 value 值（字符串）
+        try:
+            view_type_value = ViewType(view_type).value
+        except ValueError:
+            # 如果是无效的类型，使用默认的 table
+            view_type_value = ViewType.TABLE.value
+        
+        # 构建 group_config
+        group_config = {}
+        if group_bys:
+            group_config['group_bys'] = group_bys
+        
         view = View(
             table_id=table_id,
             name=name,
-            type=view_type,
+            type=view_type_value,  # 使用字符串值而不是枚举对象
             order=max_order + 1,
-            config=config or {},
+            description='',
             filters=filters or [],
-            sorts=sorts or []
+            sort_config=sorts or [],
+            group_config=group_config or {},
+            field_visibility={}
         )
         
         db.session.add(view)
@@ -72,7 +90,8 @@ class ViewService:
         Returns:
             视图对象或 None
         """
-        return View.query.get(view_id)
+        # 使用 filter_by 而不是 get，避免 UUID 转换问题
+        return View.query.filter_by(id=view_id).first()
     
     @staticmethod
     def update_view(view: View, **kwargs) -> View:
@@ -86,12 +105,37 @@ class ViewService:
         Returns:
             更新后的视图对象
         """
-        allowed_fields = ['name', 'config', 'filters', 'sorts', 
-                         'hidden_fields', 'field_widths', 'order', 'description']
+        # 直接映射的字段（字段名相同）
+        direct_fields = ['name', 'config', 'filters', 
+                        'hidden_fields', 'field_widths', 'order', 'description']
         
-        for key in allowed_fields:
+        for key in direct_fields:
             if key in kwargs:
                 setattr(view, key, kwargs[key])
+        
+        # 处理排序配置 - 前端使用 sorts，数据库使用 sort_config
+        if 'sorts' in kwargs:
+            view.sort_config = kwargs['sorts']
+            flag_modified(view, 'sort_config')
+        
+        # 处理分组配置 - 确保保留所有分组层级
+        if 'group_bys' in kwargs:
+            # 确保 group_config 是字典
+            if not view.group_config or not isinstance(view.group_config, dict):
+                view.group_config = {}
+            # 更新 group_bys，保留其他配置
+            view.group_config['group_bys'] = kwargs['group_bys']
+            # 标记 group_config 为已修改（确保 SQLAlchemy 检测到变更）
+            flag_modified(view, 'group_config')
+        
+        if 'group_config' in kwargs:
+            # 如果直接提供了 group_config，合并到现有配置
+            if not view.group_config or not isinstance(view.group_config, dict):
+                view.group_config = {}
+            # 合并配置，新配置覆盖旧配置
+            view.group_config.update(kwargs['group_config'])
+            # 标记 group_config 为已修改
+            flag_modified(view, 'group_config')
         
         db.session.commit()
         return view
@@ -140,7 +184,9 @@ class ViewService:
             description=view.description,
             config=view.config,
             filters=view.filters,
-            sorts=view.sorts,
+            sort_config=view.sort_config,  # 使用 sort_config 而不是 sorts
+            group_config=view.group_config,
+            field_visibility=view.field_visibility,
             hidden_fields=view.hidden_fields,
             field_widths=view.field_widths,
             order=view.order + 1

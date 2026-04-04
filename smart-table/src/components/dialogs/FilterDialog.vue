@@ -171,7 +171,11 @@ function clearFilters() {
 
 watch(() => props.visible, (visible) => {
   if (visible) {
-    filters.value = props.initialFilters ? [...props.initialFilters] : []
+    // 确保 initialFilters 是数组
+    const initialFiltersArray = Array.isArray(props.initialFilters) 
+      ? props.initialFilters 
+      : []
+    filters.value = [...initialFiltersArray]
     conjunction.value = props.initialConjunction || 'and'
     if (filters.value.length === 0 && props.fields.length > 0) {
       addFilter()

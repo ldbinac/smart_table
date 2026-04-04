@@ -19,11 +19,12 @@ class ViewCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1, max=100),
                         error_messages={'required': '视图名称不能为空'})
     type = fields.String(required=True, validate=validate.OneOf([
-        'grid', 'gallery', 'kanban', 'gantt', 'calendar', 'form'
+        'table', 'gallery', 'kanban', 'gantt', 'calendar', 'form', 'timeline', 'list'
     ]), error_messages={'required': '视图类型不能为空'})
     config = fields.Dict(missing=dict)
     filters = fields.List(fields.Dict(), missing=list)
     sorts = fields.List(fields.Dict(), missing=list)
+    group_bys = fields.List(fields.String(), missing=list)
     description = fields.String(missing='')
 
 
@@ -33,6 +34,8 @@ class ViewUpdateSchema(Schema):
     config = fields.Dict()
     filters = fields.List(fields.Dict())
     sorts = fields.List(fields.Dict())
+    group_bys = fields.List(fields.String())
+    group_config = fields.Dict()
     hidden_fields = fields.List(fields.String())
     field_widths = fields.Dict()
     order = fields.Integer()
@@ -98,7 +101,8 @@ def create_view(table_id):
             view_type=json_data['type'],
             config=json_data.get('config', {}),
             filters=json_data.get('filters', []),
-            sorts=json_data.get('sorts', [])
+            sorts=json_data.get('sorts', []),
+            group_bys=json_data.get('group_bys', [])
         )
         
         # 更新描述（如果提供）
@@ -110,7 +114,7 @@ def create_view(table_id):
         return success_response(view.to_dict(), '视图创建成功', 201)
     
     except Exception as e:
-        return error_response(f'创建视图失败: {str(e)}', 500)
+        return error_response(f'创建视图失败：{str(e)}', 500)
 
 
 @views_bp.route('/views/<view_id>', methods=['GET'])

@@ -22,6 +22,7 @@ const instance: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,  // 允许发送凭证（cookies、授权头等）
 });
 
 instance.interceptors.request.use(

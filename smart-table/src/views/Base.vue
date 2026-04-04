@@ -202,7 +202,8 @@ const renameTableFormRules: FormRules = {
 };
 
 // 筛选和排序状态
-const activeFilters = ref<FilterCondition[]>([]);
+// 从 viewStore 获取当前筛选和排序配置
+const activeFilters = computed(() => viewStore.currentFilters);
 const filterConjunction = ref<"and" | "or">("and");
 
 // 从 viewStore 获取当前排序配置
@@ -1197,20 +1198,26 @@ function openFilterDialog() {
 }
 
 // 处理筛选应用
-function handleFilterApply(
+async function handleFilterApply(
   filters: FilterCondition[],
   conjunction: "and" | "or",
 ) {
-  activeFilters.value = filters;
   filterConjunction.value = conjunction;
+  // 同步到后端数据库
+  if (viewStore.currentView) {
+    await viewStore.updateFilters(viewStore.currentView.id, filters);
+  }
   if (filters.length > 0) {
     ElMessage.success(`已应用 ${filters.length} 个筛选条件`);
   }
 }
 
 // 处理筛选清除
-function handleFilterClear() {
-  activeFilters.value = [];
+async function handleFilterClear() {
+  // 同步到后端数据库
+  if (viewStore.currentView) {
+    await viewStore.updateFilters(viewStore.currentView.id, []);
+  }
   ElMessage.success("筛选已清除");
 }
 

@@ -4,7 +4,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from sqlalchemy import String, DateTime, ForeignKey, Integer, Boolean, Text, JSON, Index
 from app.db_types import CompatUUID as UUID
@@ -15,12 +15,14 @@ from app.extensions import db
 
 class ViewType(PyEnum):
     """视图类型枚举"""
-    TABLE = 'table'
-    GALLERY = 'gallery'
-    KANBAN = 'kanban'
-    CALENDAR = 'calendar'
-    TIMELINE = 'timeline'
-    LIST = 'list'
+    TABLE = 'table'        # 表格视图
+    GALLERY = 'gallery'    # 画廊视图
+    KANBAN = 'kanban'      # 看板视图
+    GANTT = 'gantt'        # 甘特图视图
+    CALENDAR = 'calendar'  # 日历视图
+    FORM = 'form'          # 表单视图
+    TIMELINE = 'timeline'  # 时间线视图
+    LIST = 'list'          # 列表视图
 
 
 class View(db.Model):
@@ -89,12 +91,12 @@ class View(db.Model):
         default=False,
         nullable=False
     )
-    filters: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    filters: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(
         JSON,
         nullable=True,
-        default=dict
+        default=list
     )
-    sort_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    sort_config: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(
         JSON,
         nullable=True,
         default=list
@@ -148,17 +150,27 @@ class View(db.Model):
         return query
 
     def to_dict(self) -> dict:
+        # 如果 type 是枚举对象，获取其 value 值；如果是字符串，直接使用
+        type_value = self.type.value if hasattr(self.type, 'value') else self.type
+        
+        # 从 group_config 中提取 group_bys
+        group_bys = []
+        if self.group_config and isinstance(self.group_config, dict):
+            group_bys = self.group_config.get('group_bys', [])
+        
         return {
             'id': str(self.id),
             'table_id': str(self.table_id),
             'name': self.name,
-            'type': self.type.value,
+            'type': type_value,
             'description': self.description,
             'order': self.order,
             'is_default': self.is_default,
             'is_public': self.is_public,
-            'filters': self.filters or {},
+            'filters': self.filters or [],  # filters 是数组
+            'sorts': self.sort_config or [],  # 使用 sorts 而不是 sort_config
             'sort_config': self.sort_config or [],
+            'group_bys': group_bys,  # 添加 group_bys 字段
             'group_config': self.group_config or {},
             'field_visibility': self.field_visibility or {},
             'created_at': self.created_at.isoformat(),
@@ -166,4 +178,6 @@ class View(db.Model):
         }
 
     def __repr__(self) -> str:
-        return f'<View {self.name} ({self.type.value})>'
+        # 如果 type 是枚举对象，获取其 value 值；如果是字符串，直接使用
+        type_value = self.type.value if hasattr(self.type, 'value') else self.type
+        return f'<View {self.name} ({type_value})>'

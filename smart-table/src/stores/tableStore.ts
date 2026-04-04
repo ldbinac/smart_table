@@ -3,7 +3,8 @@ import { ref } from "vue";
 import { tableService } from "../db/services/tableService";
 import { fieldService } from "../db/services/fieldService";
 import { recordService } from "../db/services/recordService";
-import type { TableEntity, FieldEntity, RecordEntity } from "../db/schema";
+import { viewService } from "../db/services/viewService";
+import type { TableEntity, FieldEntity, RecordEntity, ViewEntity } from "../db/schema";
 import type { CellValue, FieldOptions } from "../types";
 import { deserializeRecordValues } from "../utils/recordValueSerializer";
 
@@ -11,6 +12,7 @@ export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
   const currentTable = ref<TableEntity | null>(null);
   const fields = ref<FieldEntity[]>([]);
+  const views = ref<ViewEntity[]>([]);
   const records = ref<RecordEntity[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -39,7 +41,9 @@ export const useTableStore = defineStore("table", () => {
         return;
       }
       currentTable.value = table;
+      // 强制刷新字段、视图和记录，确保与后端一致
       fields.value = await fieldService.getFieldsByTable(tableId);
+      views.value = await viewService.getViewsByTable(tableId, true); // 强制刷新视图
       records.value = await recordService.getRecordsByTable(tableId);
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to select table";

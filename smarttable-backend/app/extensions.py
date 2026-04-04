@@ -60,7 +60,9 @@ def init_extensions(app):
         r"/api/*": {
             "origins": app.config.get('CORS_ORIGINS', ['*']),
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Authorization", "Content-Type"]
+            "allow_headers": ["Authorization", "Content-Type", "*"],
+            "expose_headers": ["Authorization"],
+            "supports_credentials": True
         }
     })
     

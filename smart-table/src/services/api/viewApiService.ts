@@ -13,7 +13,8 @@ export const getView = async (id: string): Promise<View> => {
 };
 
 export const createView = async (tableId: string, data: Partial<View>): Promise<View> => {
-  return apiClient.post<View>(`/tables/${tableId}/views`, { ...data, table_id: tableId });
+  // table_id 从 URL 路径参数获取，不需要在请求体中发送
+  return apiClient.post<View>(`/tables/${tableId}/views`, data);
 };
 
 export const updateView = async (id: string, data: Partial<View>): Promise<View> => {

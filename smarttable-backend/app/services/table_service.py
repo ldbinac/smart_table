@@ -11,6 +11,7 @@ from sqlalchemy import func
 from app.extensions import db
 from app.models.table import Table
 from app.models.field import Field, FieldType
+from app.models.view import View, ViewType
 from app.models.base import Base, MemberRole
 
 
@@ -117,6 +118,22 @@ class TableService:
             config={'auto_fill': 'updated_at'}
         )
         db.session.add(updated_at_field)
+        
+        # 4. 创建默认的表格视图
+        default_view = View(
+            table_id=table.id,
+            name='表格视图',
+            type=ViewType.TABLE.value,  # 表格视图
+            description='默认表格视图',
+            order=0,
+            is_default=True,
+            is_public=True,
+            filters=[],
+            sort_config=[],
+            group_config={},
+            field_visibility={}
+        )
+        db.session.add(default_view)
         
         db.session.commit()
         
