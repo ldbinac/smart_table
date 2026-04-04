@@ -94,7 +94,7 @@ def create_base_dashboard(base_id):
 
 # ==================== 单个仪表盘操作 ====================
 
-@dashboards_bp.route('/<uuid:dashboard_id>', methods=['GET'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>', methods=['GET'])
 @jwt_required
 def get_dashboard(dashboard_id):
     """
@@ -128,7 +128,7 @@ def get_dashboard(dashboard_id):
     )
 
 
-@dashboards_bp.route('/<uuid:dashboard_id>', methods=['PUT'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>', methods=['PUT'])
 @jwt_required
 def update_dashboard(dashboard_id):
     """
@@ -176,7 +176,7 @@ def update_dashboard(dashboard_id):
     )
 
 
-@dashboards_bp.route('/<uuid:dashboard_id>', methods=['DELETE'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>', methods=['DELETE'])
 @jwt_required
 def delete_dashboard(dashboard_id):
     """
@@ -207,7 +207,7 @@ def delete_dashboard(dashboard_id):
 
 # ==================== 组件管理 ====================
 
-@dashboards_bp.route('/<uuid:dashboard_id>/widgets', methods=['POST'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>/widgets', methods=['POST'])
 @jwt_required
 def add_widget(dashboard_id):
     """
@@ -254,7 +254,7 @@ def add_widget(dashboard_id):
     )
 
 
-@dashboards_bp.route('/<uuid:dashboard_id>/widgets', methods=['PUT'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>/widgets', methods=['PUT'])
 @jwt_required
 def update_widgets_batch(dashboard_id):
     """
@@ -296,7 +296,7 @@ def update_widgets_batch(dashboard_id):
     )
 
 
-@dashboards_bp.route('/<uuid:dashboard_id>/widgets/<uuid:widget_id>', methods=['PUT'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>/widgets/<uuid:widget_id>', methods=['PUT'])
 @jwt_required
 def update_widget(dashboard_id, widget_id):
     """
@@ -344,7 +344,7 @@ def update_widget(dashboard_id, widget_id):
     )
 
 
-@dashboards_bp.route('/<uuid:dashboard_id>/widgets/<uuid:widget_id>', methods=['DELETE'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>/widgets/<uuid:widget_id>', methods=['DELETE'])
 @jwt_required
 def delete_widget(dashboard_id, widget_id):
     """
@@ -381,7 +381,7 @@ def delete_widget(dashboard_id, widget_id):
 
 # ==================== 布局管理 ====================
 
-@dashboards_bp.route('/<uuid:dashboard_id>/layout', methods=['PUT'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>/layout', methods=['PUT'])
 @jwt_required
 def update_layout(dashboard_id):
     """
@@ -431,7 +431,7 @@ def update_layout(dashboard_id):
 
 # ==================== 其他操作 ====================
 
-@dashboards_bp.route('/<uuid:dashboard_id>/duplicate', methods=['POST'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>/duplicate', methods=['POST'])
 @jwt_required
 def duplicate_dashboard(dashboard_id):
     """
@@ -472,7 +472,7 @@ def duplicate_dashboard(dashboard_id):
     )
 
 
-@dashboards_bp.route('/<uuid:dashboard_id>/set-default', methods=['POST'])
+@dashboards_bp.route('/dashboards/<uuid:dashboard_id>/set-default', methods=['POST'])
 @jwt_required
 def set_default_dashboard(dashboard_id):
     """

@@ -70,6 +70,11 @@ class Dashboard(db.Model):
         default=False,
         nullable=False
     )
+    is_default: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -94,19 +99,25 @@ class Dashboard(db.Model):
         lazy='joined'
     )
 
-    def to_dict(self) -> dict:
-        return {
+    def to_dict(self, include_widgets: bool = True) -> dict:
+        result = {
             'id': str(self.id),
             'base_id': str(self.base_id),
             'user_id': str(self.user_id) if self.user_id else None,
             'name': self.name,
             'description': self.description,
             'layout': self.layout or {},
-            'widgets': self.widgets or [],
             'is_public': self.is_public,
+            'is_default': self.is_default,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+        
+        # 如果需要包含组件，添加 widgets 字段
+        if include_widgets:
+            result['widgets'] = self.widgets or []
+        
+        return result
 
     def __repr__(self) -> str:
         return f'<Dashboard {self.name}>'

@@ -11,7 +11,7 @@ def create_app(config_name='default'):
     应用工厂函数
 
     Args:
-        config_name: 配置名称，可选值: development, testing, production, default
+        config_name: 配置名称，可选值：development, testing, production, default
 
     Returns:
         Flask 应用实例
@@ -35,6 +35,15 @@ def create_app(config_name='default'):
     
     # 注册 Shell 上下文
     register_shell_context(app)
+    
+    # 开发环境下自动创建数据库表
+    if config_name == 'development':
+        with app.app_context():
+            try:
+                db.create_all()
+                print("数据库表创建成功")
+            except Exception as e:
+                print(f"创建数据库表失败：{e}")
     
     return app
 
@@ -74,8 +83,8 @@ def register_blueprints(app):
     # 注册视图蓝图 (路由中已包含完整路径)
     app.register_blueprint(views_bp, url_prefix='/api')
     
-    # 注册仪表盘蓝图
-    app.register_blueprint(dashboards_bp, url_prefix='/api/dashboards')
+    # 注册仪表盘蓝图 (路由中已包含完整路径)
+    app.register_blueprint(dashboards_bp, url_prefix='/api')
     
     # 注册附件蓝图
     app.register_blueprint(attachments_bp, url_prefix='/api/attachments')
