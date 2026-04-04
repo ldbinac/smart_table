@@ -290,10 +290,10 @@ class AuthService:
     def update_last_login(user_id: str) -> bool:
         """
         更新用户最后登录时间
-        
+
         Args:
             user_id: 用户 ID
-            
+
         Returns:
             是否成功
         """
@@ -301,14 +301,19 @@ class AuthService:
         try:
             # 将字符串ID转换为UUID对象
             uuid_id = UUID(user_id) if isinstance(user_id, str) else user_id
-            user = User.query.get(uuid_id)
-            
+
+            # 使用 filter_by 而不是 get，避免 SQLAlchemy 2.0 的兼容性问题
+            user = User.query.filter_by(id=uuid_id).first()
+
             if not user:
                 return False
-            
-            user.update_last_login()
+
+            # 直接更新字段并提交，避免嵌套事务问题
+            user.last_login_at = datetime.utcnow()
+            db.session.commit()
             return True
-        except Exception:
+        except Exception as e:
+            db.session.rollback()
             return False
     
     @staticmethod

@@ -1,72 +1,40 @@
 /**
- * Table API服务
- * 处理Table相关的API调用
+ * Table API 服务
  */
+import { apiClient } from '@/api/client';
+import type { Table } from '@/api/types';
 
-import { apiClient } from '@/api/client'
-import type { Table, PaginatedData, PaginationParams } from '@/api/types'
+export const getTables = async (baseId: string): Promise<Table[]> => {
+  return apiClient.get<Table[]>(`/bases/${baseId}/tables`);
+};
 
-/**
- * 获取Base下的Table列表
- */
-export const getTables = async (baseId: string, params?: PaginationParams): Promise<PaginatedData<Table>> => {
-  const response = await apiClient.get<PaginatedData<Table>>(`/bases/${baseId}/tables`, params as Record<string, unknown>)
-  return response.data
-}
-
-/**
- * 获取单个Table
- */
 export const getTable = async (id: string): Promise<Table> => {
-  const response = await apiClient.get<Table>(`/tables/${id}`)
-  return response.data
-}
+  return apiClient.get<Table>(`/tables/${id}`);
+};
 
-/**
- * 创建Table
- */
 export const createTable = async (baseId: string, data: Partial<Table>): Promise<Table> => {
-  const response = await apiClient.post<Table>('/tables', {
-    base_id: baseId,
-    ...data
-  } as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.post<Table>(`/bases/${baseId}/tables`, { ...data, base_id: baseId });
+};
 
-/**
- * 更新Table
- */
 export const updateTable = async (id: string, data: Partial<Table>): Promise<Table> => {
-  const response = await apiClient.put<Table>(`/tables/${id}`, data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.put<Table>(`/tables/${id}`, data);
+};
 
-/**
- * 删除Table
- */
 export const deleteTable = async (id: string): Promise<void> => {
-  await apiClient.delete(`/tables/${id}`)
-}
+  await apiClient.delete<void>(`/tables/${id}`);
+};
 
-/**
- * 复制Table
- */
-export const duplicateTable = async (id: string, name?: string): Promise<Table> => {
-  const response = await apiClient.post<Table>(`/tables/${id}/duplicate`, name ? { name } : undefined)
-  return response.data
-}
+export const duplicateTable = async (id: string): Promise<Table> => {
+  return apiClient.post<Table>(`/tables/${id}/duplicate`);
+};
 
-/**
- * 重新排序Tables
- */
-export const reorderTables = async (baseId: string, tableOrders: { id: string; order: number }[]): Promise<Table[]> => {
-  const response = await apiClient.put<Table[]>(`/bases/${baseId}/tables/reorder`, {
-    table_orders: tableOrders
-  })
-  return response.data
-}
+export const reorderTables = async (
+  baseId: string,
+  tableOrders: Array<{ id: string; order: number }>
+): Promise<Table[]> => {
+  return apiClient.put<Table[]>(`/bases/${baseId}/tables/reorder`, { table_orders: tableOrders });
+};
 
-// 导出Table服务
 export const tableApiService = {
   getTables,
   getTable,
@@ -75,6 +43,6 @@ export const tableApiService = {
   deleteTable,
   duplicateTable,
   reorderTables
-}
+};
 
-export default tableApiService
+export default tableApiService;

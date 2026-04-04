@@ -3,75 +3,46 @@
  * 处理用户认证相关的API调用
  */
 
-import { apiClient } from '@/api/client'
-import type { 
-  LoginRequest, 
-  LoginResponse, 
-  RegisterRequest, 
+import { apiClient } from '@/api/client';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
   User,
-  RefreshTokenRequest,
-  RefreshTokenResponse
-} from '@/api/types'
+  TokenPair
+} from '@/api/types';
 
-/**
- * 用户登录
- */
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  const response = await apiClient.post<LoginResponse>('/auth/login', data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.post<LoginResponse>('/auth/login', data);
+};
 
-/**
- * 用户注册
- */
 export const register = async (data: RegisterRequest): Promise<User> => {
-  const response = await apiClient.post<User>('/auth/register', data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.post<User>('/auth/register', data);
+};
 
-/**
- * 用户登出
- */
 export const logout = async (): Promise<void> => {
-  await apiClient.post('/auth/logout')
-}
+  await apiClient.post<void>('/auth/logout');
+};
 
-/**
- * 刷新Token
- */
-export const refreshToken = async (refreshToken: string): Promise<RefreshTokenResponse> => {
-  const data: RefreshTokenRequest = { refresh_token: refreshToken }
-  const response = await apiClient.post<RefreshTokenResponse>('/auth/refresh', data as Record<string, unknown>)
-  return response.data
-}
+export const refreshToken = async (refreshTokenValue: string): Promise<TokenPair> => {
+  return apiClient.post<TokenPair>('/auth/refresh', { refresh_token: refreshTokenValue });
+};
 
-/**
- * 获取当前用户信息
- */
 export const getCurrentUser = async (): Promise<User> => {
-  const response = await apiClient.get<User>('/auth/me')
-  return response.data
-}
+  return apiClient.get<User>('/auth/me');
+};
 
-/**
- * 修改密码
- */
 export const changePassword = async (oldPassword: string, newPassword: string): Promise<void> => {
-  await apiClient.put('/auth/change-password', {
+  await apiClient.put<void>('/auth/change-password', {
     old_password: oldPassword,
     new_password: newPassword
-  })
-}
+  });
+};
 
-/**
- * 更新用户信息
- */
 export const updateProfile = async (data: Partial<User>): Promise<User> => {
-  const response = await apiClient.put<User>('/auth/profile', data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.put<User>('/auth/profile', data);
+};
 
-// 导出认证服务
 export const authService = {
   login,
   register,
@@ -80,6 +51,6 @@ export const authService = {
   getCurrentUser,
   changePassword,
   updateProfile
-}
+};
 
-export default authService
+export default authService;

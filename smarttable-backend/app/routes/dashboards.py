@@ -14,6 +14,8 @@ from app.utils.response import (
 )
 
 dashboards_bp = Blueprint('dashboards', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+dashboards_bp.strict_slashes = False
 
 
 # ==================== 基础数据下的仪表盘操作 ====================

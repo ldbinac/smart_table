@@ -38,9 +38,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authService.login(credentials)
       
-      // 存储Token
-      setToken(response.access_token, remember)
-      setRefreshToken(response.refresh_token, remember)
+      // 存储 Token - 注意后端返回的是 tokens 对象
+      setToken(response.tokens.access_token, remember)
+      setRefreshToken(response.tokens.refresh_token, remember)
       setRememberMe(remember)
       
       // 更新状态

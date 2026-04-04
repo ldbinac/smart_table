@@ -6,6 +6,12 @@
 // API基础URL配置
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 
+// API客户端配置（供client.ts使用）
+export const apiConfig = {
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  timeout: 30000
+};
+
 // 请求配置
 export const REQUEST_CONFIG = {
   // 超时时间（毫秒）

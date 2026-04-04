@@ -1,239 +1,228 @@
-import { defineStore } from "pinia";
-import { ref, computed } from "vue";
-import { baseService } from "../db/services/baseService";
-import { tableService } from "../db/services/tableService";
-import { fieldService } from "../db/services/fieldService";
-import { recordService } from "../db/services/recordService";
-import { viewService } from "../db/services/viewService";
-import type {
-  Base,
-  TableEntity,
-  FieldEntity,
-  RecordEntity,
-  ViewEntity,
-} from "../db/schema";
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import type { Base } from '@/api/types';
 
-export const useBaseStore = defineStore("base", () => {
-  const bases = ref<Base[]>([]);
+import { baseApiService } from '@/services/api/baseApiService';
+import { baseService as baseDexieService } from '@/db/services/baseService';
+
+export const useBaseStore = defineStore('base', () => {
+  const currentBaseId = ref<string | null>(null);
   const currentBase = ref<Base | null>(null);
-  const tables = ref<TableEntity[]>([]);
-  const currentTable = ref<TableEntity | null>(null);
-  const fields = ref<FieldEntity[]>([]);
-  const records = ref<RecordEntity[]>([]);
-  const views = ref<ViewEntity[]>([]);
-  const currentView = ref<ViewEntity | null>(null);
+  const bases = ref<Base[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  const sortedTables = computed(() => {
-    // 先按收藏状态排序（收藏的在前），再按 order 排序
-    return [...tables.value].sort((a, b) => {
-      if (a.isStarred && !b.isStarred) return -1;
-      if (!a.isStarred && b.isStarred) return 1;
-      return a.order - b.order;
+  const sortedBases = computed(() => {
+    return [...bases.value].sort((a, b) => {
+      if (a.is_starred && !b.is_starred) return -1;
+      if (!a.is_starred && b.is_starred) return 1;
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
   });
 
-  const sortedFields = computed(() => {
-    return [...fields.value].sort((a, b) => a.order - b.order);
+  const starredBases = computed(() => {
+    return sortedBases.value.filter(b => b.is_starred);
   });
 
-  const sortedViews = computed(() => {
-    return [...views.value].sort((a, b) => a.order - b.order);
-  });
-
-  const visibleFields = computed(() => {
-    // 首先过滤掉 isVisible 为 false 的字段（全局隐藏）
-    let result = sortedFields.value.filter(
-      (field) => field.isVisible !== false,
-    );
-    // 再根据当前视图的 hiddenFields 进行过滤（视图级隐藏）
-    if (currentView.value) {
-      result = result.filter(
-        (field) => !currentView.value!.hiddenFields.includes(field.id),
-      );
-    }
-    return result;
-  });
-
-  const frozenFields = computed(() => {
-    if (!currentView.value) return [];
-    return sortedFields.value.filter((field) =>
-      currentView.value!.frozenFields.includes(field.id),
-    );
-  });
-
-  async function loadBases() {
+  async function fetchBases() {
     loading.value = true;
     error.value = null;
     try {
-      bases.value = await baseService.getAllBases();
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : "Failed to load bases";
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function loadBase(id: string) {
-    loading.value = true;
-    error.value = null;
-    try {
-      const base = await baseService.getBase(id);
-      if (!base) {
-        error.value = "Base not found";
-        return;
+      const data = await baseApiService.getBases();
+      bases.value = data;
+      for (const base of data) {
+        await baseDexieService.updateBase(base.id, base as Record<string, unknown>).catch(() => {});
       }
-      currentBase.value = base;
-      tables.value = await baseService.getTablesByBase(id);
-      if (tables.value.length > 0) {
-        await loadTable(tables.value[0].id);
-      } else {
-        currentTable.value = null;
-        fields.value = [];
-        records.value = [];
-        views.value = [];
-        currentView.value = null;
-      }
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : "Failed to load base";
+      return data;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '获取 Base 列表失败';
+      error.value = msg;
+      console.error('[baseStore] fetchBases failed:', e);
+      try {
+        const cached = await baseDexieService.getAllBases();
+        if (cached.length > 0) {
+          bases.value = cached.map(b => ({
+            id: b.id,
+            name: b.name,
+            description: b.description,
+            owner_id: '',
+            icon: b.icon,
+            color: b.color,
+            is_personal: false,
+            is_starred: !!b.isStarred,
+            created_at: new Date(b.createdAt).toISOString(),
+            updated_at: new Date(b.updatedAt).toISOString()
+          }));
+          return bases.value;
+        }
+      } catch {}
+      throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  async function loadTable(tableId: string) {
+  async function fetchBase(id: string) {
     loading.value = true;
     error.value = null;
     try {
-      const table = await tableService.getTable(tableId);
-      if (!table) {
-        error.value = "Table not found";
-        return;
-      }
-      currentTable.value = table;
-      fields.value = await fieldService.getFieldsByTable(tableId);
-      records.value = await recordService.getRecordsByTable(tableId);
-      views.value = await viewService.getViewsByTable(tableId);
-
-      const defaultView = await viewService.getDefaultView(tableId);
-      currentView.value = defaultView || null;
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : "Failed to load table";
+      const data = await baseApiService.getBase(id);
+      currentBase.value = data;
+      currentBaseId.value = id;
+      await baseDexieService.updateBase(id, data as Record<string, unknown>).catch(() => {});
+      return data;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '获取 Base 详情失败';
+      error.value = msg;
+      console.error('[baseStore] fetchBase failed:', e);
+      try {
+        const cached = await baseDexieService.getBase(id);
+        if (cached) {
+          const mapped: Base = {
+            id: cached.id,
+            name: cached.name,
+            description: cached.description,
+            owner_id: '',
+            icon: cached.icon,
+            color: cached.color,
+            is_personal: false,
+            is_starred: !!cached.isStarred,
+            created_at: new Date(cached.createdAt).toISOString(),
+            updated_at: new Date(cached.updatedAt).toISOString()
+          };
+          currentBase.value = mapped;
+          currentBaseId.value = id;
+          return mapped;
+        }
+      } catch {}
+      throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  async function createBase(data: {
-    name: string;
-    description?: string;
-    icon?: string;
-    color?: string;
-  }) {
+  async function createBase(baseData: Omit<Base, 'id' | 'created_at' | 'updated_at'>): Promise<Base> {
     loading.value = true;
-    error.value = null;
     try {
-      const base = await baseService.createBase(data);
-      bases.value.unshift(base);
-      return base;
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : "Failed to create base";
-      return null;
+      const newBase = await baseApiService.createBase(baseData);
+      bases.value.push(newBase);
+      await baseDexieService.createBase({
+        name: newBase.name,
+        description: newBase.description,
+        icon: newBase.icon,
+        color: newBase.color
+      }).catch(() => {});
+      return newBase;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '创建 Base 失败';
+      error.value = msg;
+      console.error('[baseStore] createBase failed:', e);
+      throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  async function updateBase(id: string, changes: Partial<Base>) {
+  async function updateBase(
+    id: string,
+    updates: Partial<Pick<Base, 'name' | 'description' | 'icon' | 'color' | 'is_personal'>>
+  ): Promise<Base> {
+    loading.value = true;
     try {
-      await baseService.updateBase(id, changes);
-      const index = bases.value.findIndex((b) => b.id === id);
-      if (index !== -1) {
-        bases.value[index] = {
-          ...bases.value[index],
-          ...changes,
-          updatedAt: Date.now(),
-        };
+      const updated = await baseApiService.updateBase(id, updates);
+      const idx = bases.value.findIndex(b => b.id === id);
+      if (idx !== -1) {
+        bases.value[idx] = updated;
       }
       if (currentBase.value?.id === id) {
-        currentBase.value = {
-          ...currentBase.value,
-          ...changes,
-          updatedAt: Date.now(),
-        };
+        currentBase.value = updated;
       }
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : "Failed to update base";
+      await baseDexieService.updateBase(id, updates as Record<string, unknown>);
+      return updated;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '更新 Base 失败';
+      error.value = msg;
+      console.error('[baseStore] updateBase failed:', e);
+      throw e;
+    } finally {
+      loading.value = false;
     }
   }
 
-  async function deleteBase(id: string) {
+  async function deleteBase(id: string): Promise<void> {
+    loading.value = true;
     try {
-      await baseService.deleteBase(id);
-      bases.value = bases.value.filter((b) => b.id !== id);
+      await baseApiService.deleteBase(id);
+      bases.value = bases.value.filter(b => b.id !== id);
       if (currentBase.value?.id === id) {
         currentBase.value = null;
-        tables.value = [];
-        currentTable.value = null;
-        fields.value = [];
-        records.value = [];
-        views.value = [];
-        currentView.value = null;
+        currentBaseId.value = null;
       }
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : "Failed to delete base";
+      await baseDexieService.deleteBase(id);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '删除 Base 失败';
+      error.value = msg;
+      console.error('[baseStore] deleteBase failed:', e);
+      throw e;
+    } finally {
+      loading.value = false;
     }
   }
 
-  async function toggleStarBase(id: string) {
+  async function toggleStar(id: string): Promise<void> {
+    const base = bases.value.find(b => b.id === id);
+    if (!base) return;
+
     try {
-      await baseService.toggleStar(id);
-      const base = bases.value.find((b) => b.id === id);
-      if (base) {
-        base.isStarred = !base.isStarred;
+      if (base.is_starred) {
+        await baseApiService.unstarBase(id);
+        base.is_starred = false;
+      } else {
+        await baseApiService.starBase(id);
+        base.is_starred = true;
       }
       if (currentBase.value?.id === id) {
-        currentBase.value.isStarred = !currentBase.value.isStarred;
+        currentBase.value.is_starred = base.is_starred;
       }
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : "Failed to toggle star";
+      await baseDexieService.toggleStar(id);
+    } catch (e: unknown) {
+      console.error('[baseStore] toggleStar failed:', e);
     }
   }
 
-  function clearCurrentBase() {
+  function setCurrentBase(base: Base | null) {
+    currentBase.value = base;
+    currentBaseId.value = base?.id ?? null;
+  }
+
+  function clearError() {
+    error.value = null;
+  }
+
+  function $reset() {
+    currentBaseId.value = null;
     currentBase.value = null;
-    tables.value = [];
-    currentTable.value = null;
-    fields.value = [];
-    records.value = [];
-    views.value = [];
-    currentView.value = null;
+    bases.value = [];
+    loading.value = false;
+    error.value = null;
   }
 
   return {
-    bases,
+    currentBaseId,
     currentBase,
-    tables,
-    currentTable,
-    fields,
-    records,
-    views,
-    currentView,
+    bases,
     loading,
     error,
-    sortedTables,
-    sortedFields,
-    sortedViews,
-    visibleFields,
-    frozenFields,
-    loadBases,
-    loadBase,
-    loadTable,
+    sortedBases,
+    starredBases,
+    fetchBases,
+    fetchBase,
     createBase,
     updateBase,
     deleteBase,
-    toggleStarBase,
-    clearCurrentBase,
+    toggleStar,
+    setCurrentBase,
+    clearError,
+    $reset
   };
 });

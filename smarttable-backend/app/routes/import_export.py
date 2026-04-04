@@ -15,6 +15,8 @@ from app.utils.response import (
 )
 
 import_export_bp = Blueprint('import_export', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+import_export_bp.strict_slashes = False
 
 
 # ==================== 导入功能 ====================

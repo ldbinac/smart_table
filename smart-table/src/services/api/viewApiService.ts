@@ -1,85 +1,48 @@
 /**
- * View API服务
- * 处理View相关的API调用
+ * View API 服务
  */
+import { apiClient } from '@/api/client';
+import type { View, ViewType, PaginatedData, PaginationParams } from '@/api/types';
 
-import { apiClient } from '@/api/client'
-import type { View, ViewType, PaginatedData, PaginationParams } from '@/api/types'
+export const getViews = async (tableId: string): Promise<View[]> => {
+  return apiClient.get<View[]>(`/tables/${tableId}/views`);
+};
 
-/**
- * 获取Table下的View列表
- */
-export const getViews = async (tableId: string, params?: PaginationParams): Promise<PaginatedData<View>> => {
-  const response = await apiClient.get<PaginatedData<View>>(`/tables/${tableId}/views`, params as Record<string, unknown>)
-  return response.data
-}
-
-/**
- * 获取单个View
- */
 export const getView = async (id: string): Promise<View> => {
-  const response = await apiClient.get<View>(`/views/${id}`)
-  return response.data
-}
+  return apiClient.get<View>(`/views/${id}`);
+};
 
-/**
- * 创建View
- */
 export const createView = async (tableId: string, data: Partial<View>): Promise<View> => {
-  const response = await apiClient.post<View>(`/tables/${tableId}/views`, data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.post<View>(`/tables/${tableId}/views`, { ...data, table_id: tableId });
+};
 
-/**
- * 更新View
- */
 export const updateView = async (id: string, data: Partial<View>): Promise<View> => {
-  const response = await apiClient.put<View>(`/views/${id}`, data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.put<View>(`/views/${id}`, data);
+};
 
-/**
- * 删除View
- */
 export const deleteView = async (id: string): Promise<void> => {
-  await apiClient.delete(`/views/${id}`)
-}
+  await apiClient.delete<void>(`/views/${id}`);
+};
 
-/**
- * 复制View
- */
 export const duplicateView = async (id: string, name?: string): Promise<View> => {
-  const response = await apiClient.post<View>(`/views/${id}/duplicate`, name ? { name } : undefined)
-  return response.data
-}
+  return apiClient.post<View>(`/views/${id}/duplicate`, name ? { name } : undefined);
+};
 
-/**
- * 设置默认View
- */
-export const setDefaultView = async (id: string): Promise<View> => {
-  const response = await apiClient.post<View>(`/views/${id}/set-default`)
-  return response.data
-}
+export const setDefaultView = async (tableId: string, viewId: string): Promise<View> => {
+  return apiClient.put<View>(`/tables/${tableId}/views/${viewId}/set-default`);
+};
 
-/**
- * 重新排序Views
- */
-export const reorderViews = async (tableId: string, viewOrders: { id: string; order: number }[]): Promise<View[]> => {
-  const response = await apiClient.put<View[]>(`/tables/${tableId}/views/reorder`, {
-    view_orders: viewOrders
-  })
-  return response.data
-}
+export const reorderViews = async (
+  tableId: string,
+  viewOrders: Array<{ id: string; order: number }>
+): Promise<View[]> => {
+  return apiClient.put<View[]>(`/tables/${tableId}/views/reorder`, { view_orders: viewOrders });
+};
 
-/**
- * 获取支持的视图类型列表
- */
 export const getViewTypes = async (): Promise<Array<{ type: ViewType; name: string; description: string; icon: string }>> => {
-  const response = await apiClient.get<Array<{ type: ViewType; name: string; description: string; icon: string }>>('/views/types')
-  return response.data
-}
+  return apiClient.get<Array<{ type: ViewType; name: string; description: string; icon: string }>>('/views/types');
+};
 
-// 导出View服务
 export const viewApiService = {
   getViews,
   getView,
@@ -90,6 +53,6 @@ export const viewApiService = {
   setDefaultView,
   reorderViews,
   getViewTypes
-}
+};
 
-export default viewApiService
+export default viewApiService;

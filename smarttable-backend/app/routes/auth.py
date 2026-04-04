@@ -35,6 +35,8 @@ from app.utils.decorators import (
 )
 
 auth_bp = Blueprint('auth', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+auth_bp.strict_slashes = False
 
 
 @auth_bp.route('/register', methods=['POST'])

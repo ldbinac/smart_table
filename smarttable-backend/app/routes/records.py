@@ -11,6 +11,8 @@ from app.utils.response import success_response, error_response, paginated_respo
 from app.utils.decorators import jwt_required, role_required
 
 records_bp = Blueprint('records', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+records_bp.strict_slashes = False
 
 
 class RecordCreateSchema(Schema):

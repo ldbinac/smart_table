@@ -9,15 +9,18 @@ from app.config import config
 def create_app(config_name='default'):
     """
     应用工厂函数
-    
+
     Args:
         config_name: 配置名称，可选值: development, testing, production, default
-        
+
     Returns:
         Flask 应用实例
     """
     app = Flask(__name__)
-    
+
+    # 禁用严格斜杠，避免 308 重定向
+    app.url_map.strict_slashes = False
+
     # 加载配置
     app.config.from_object(config[config_name])
     

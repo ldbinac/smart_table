@@ -1,192 +1,250 @@
 /**
- * API客户端
- * 封装Axios，提供统一的HTTP请求接口
+ * API 客户端
+ * 基于 axios 封装的 HTTP 请求客户端，统一处理请求/响应
+ * 适配后端 {success, message, data} 统一响应格式
  */
-
-import axios, { 
-  type AxiosInstance, 
-  type AxiosRequestConfig, 
+import axios, {
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
   type AxiosResponse,
-  type AxiosError 
-} from 'axios'
-import { API_BASE_URL, REQUEST_CONFIG } from './config'
-import { useLoadingStore } from '@/stores/loadingStore'
-import { useMessage } from '@/utils/message'
-import type { ApiResponse, ApiError } from './types'
+  type AxiosError,
+} from "axios";
+import { ElMessage } from "element-plus";
+import router from "@/router";
+import { apiConfig } from "./config";
+import { getToken } from "@/utils/auth/token";
 
-// 创建Axios实例
-const axiosInstance: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: REQUEST_CONFIG.TIMEOUT,
-  headers: REQUEST_CONFIG.HEADERS
-})
+const { baseURL, timeout } = apiConfig;
 
-// 请求队列（用于取消重复请求）
-const pendingRequests = new Map<string, AbortController>()
+const instance: AxiosInstance = axios.create({
+  baseURL,
+  timeout,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-// 生成请求唯一标识
-const generateRequestKey = (config: AxiosRequestConfig): string => {
-  return `${config.method}_${config.url}_${JSON.stringify(config.params)}_${JSON.stringify(config.data)}`
-}
-
-// 请求拦截器
-axiosInstance.interceptors.request.use(
-  (config) => {
-    // 添加认证Token
-    const token = localStorage.getItem('access_token')
+instance.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    // 使用 getToken 工具函数，同时支持 localStorage 和 sessionStorage
+    const token = getToken();
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    // 取消重复请求
-    const requestKey = generateRequestKey(config)
-    if (pendingRequests.has(requestKey)) {
-      pendingRequests.get(requestKey)?.abort()
-    }
-    
-    // 创建新的AbortController
-    const controller = new AbortController()
-    config.signal = controller.signal
-    pendingRequests.set(requestKey, controller)
-    
-    // 显示加载状态
-    const loadingStore = useLoadingStore()
-    loadingStore.startLoading()
-    
-    return config
+    return config;
   },
-  (error) => {
-    const loadingStore = useLoadingStore()
-    loadingStore.endLoading()
-    return Promise.reject(error)
-  }
-)
-
-// 响应拦截器
-axiosInstance.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse>) => {
-    // 移除请求记录
-    const requestKey = generateRequestKey(response.config)
-    pendingRequests.delete(requestKey)
-    
-    // 隐藏加载状态
-    const loadingStore = useLoadingStore()
-    loadingStore.endLoading()
-    
-    // 返回响应数据
-    return response
+  (error: AxiosError) => {
+    return Promise.reject(error);
   },
-  async (error: AxiosError<ApiError>) => {
-    // 隐藏加载状态
-    const loadingStore = useLoadingStore()
-    loadingStore.endLoading()
-    
-    // 处理错误
-    const message = useMessage()
-    
-    if (error.response) {
-      // 服务器返回错误
-      const status = error.response.status
-      const errorData = error.response.data
-      
-      switch (status) {
-        case 401:
-          // Token过期，尝试刷新
-          message.error('登录已过期，请重新登录')
-          // 清除Token并跳转到登录页
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
-          break
-        case 403:
-          message.error('没有权限执行此操作')
-          break
-        case 404:
-          message.error('请求的资源不存在')
-          break
-        case 422:
-          message.error(errorData?.message || '请求数据验证失败')
-          break
-        case 429:
-          message.error('请求过于频繁，请稍后再试')
-          break
-        case 500:
-        case 502:
-        case 503:
-          message.error('服务器错误，请稍后重试')
-          break
-        default:
-          message.error(errorData?.message || '请求失败')
-      }
-    } else if (error.request) {
-      // 网络错误
-      message.error('网络连接失败，请检查网络设置')
-    } else {
-      // 请求配置错误
-      message.error('请求配置错误')
-    }
-    
-    return Promise.reject(error)
-  }
-)
+);
 
-// API客户端类
-class ApiClient {
-  /**
-   * 发送GET请求
-   */
-  async get<T>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
-    const response = await axiosInstance.get<ApiResponse<T>>(url, { params })
-    return response.data
-  }
-  
-  /**
-   * 发送POST请求
-   */
-  async post<T>(url: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-    const response = await axiosInstance.post<ApiResponse<T>>(url, data)
-    return response.data
-  }
-  
-  /**
-   * 发送PUT请求
-   */
-  async put<T>(url: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-    const response = await axiosInstance.put<ApiResponse<T>>(url, data)
-    return response.data
-  }
-  
-  /**
-   * 发送DELETE请求
-   */
-  async delete<T>(url: string): Promise<ApiResponse<T>> {
-    const response = await axiosInstance.delete<ApiResponse<T>>(url)
-    return response.data
-  }
-  
-  /**
-   * 发送PATCH请求
-   */
-  async patch<T>(url: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-    const response = await axiosInstance.patch<ApiResponse<T>>(url, data)
-    return response.data
-  }
-  
-  /**
-   * 上传文件
-   */
-  async upload<T>(url: string, formData: FormData): Promise<ApiResponse<T>> {
-    const response = await axiosInstance.post<ApiResponse<T>>(url, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
+instance.interceptors.response.use(
+  (response: AxiosResponse) => {
+    const data = response.data as ApiResponse<unknown>;
+
+    // 适配后端 {success, message, data} 统一响应格式
+    if (typeof data === "object" && data !== null && "success" in data) {
+      const success = data.success as boolean;
+
+      if (success) {
+        return response;
       }
-    })
-    return response.data
-  }
+
+      // 处理错误情况
+      const errorData = data as {
+        success: boolean;
+        message: string;
+        code?: number;
+        error?: string;
+      };
+      const code = errorData.code || response.status;
+
+      if (code === 401) {
+        // 清除 token 并跳转登录页
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        sessionStorage.removeItem("access_token");
+        sessionStorage.removeItem("refresh_token");
+        router.push("/login");
+        ElMessage.error("登录已过期，请重新登录");
+        return Promise.reject(new Error("Unauthorized"));
+      }
+
+      if (code === 403) {
+        ElMessage.error("没有操作权限");
+        return Promise.reject(new Error("Forbidden"));
+      }
+
+      if (code === 404) {
+        console.warn("[API] 资源不存在:", response.config.url);
+        return Promise.reject(new Error("Not Found"));
+      }
+
+      const msg = errorData.message || "请求失败";
+      ElMessage.error(msg);
+      return Promise.reject(new Error(msg));
+    }
+
+    return response;
+  },
+  (error: AxiosError) => {
+    if (!error.response) {
+      ElMessage.error("网络连接失败，请检查网络设置");
+      return Promise.reject(error);
+    }
+
+    const status = error.response.status;
+    const data = error.response.data as
+      | { success?: boolean; message?: string; code?: number }
+      | undefined;
+
+    // 优先使用后端返回的消息
+    const backendMessage = data?.message;
+
+    switch (status) {
+      case 400:
+        ElMessage.error(backendMessage || "请求参数错误");
+        break;
+      case 401:
+        // 清除 token 并跳转登录页
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        sessionStorage.removeItem("access_token");
+        sessionStorage.removeItem("refresh_token");
+        router.push("/login");
+        ElMessage.error(backendMessage || "登录已过期，请重新登录");
+        break;
+      case 403:
+        ElMessage.error(backendMessage || "没有操作权限");
+        break;
+      case 404:
+        ElMessage.error(backendMessage || "请求的资源不存在");
+        break;
+      case 422:
+        ElMessage.error(backendMessage || "数据验证失败");
+        break;
+      case 429:
+        ElMessage.error(backendMessage || "请求过于频繁，请稍后再试");
+        break;
+      case 500:
+        ElMessage.error(backendMessage || "服务器内部错误");
+        break;
+      case 502:
+      case 503:
+      case 504:
+        ElMessage.error(backendMessage || "服务暂时不可用，请稍后再试");
+        break;
+      default:
+        ElMessage.error(backendMessage || `请求失败 (${status})`);
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  code?: number;
+  error?: string;
 }
 
-// 导出API客户端实例
-export const apiClient = new ApiClient()
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
 
-// 导出axios实例（用于需要直接访问的场景）
-export { axiosInstance }
+export const apiClient = {
+  get<T>(
+    url: string,
+    params?: Record<string, unknown>,
+    config?: Record<string, unknown>,
+  ): Promise<T> {
+    return instance.get(url, { params, ...config }).then((res) => {
+      const d = res.data as ApiResponse<T>;
+      return typeof d === "object" && d !== null && "data" in d
+        ? d.data
+        : res.data;
+    });
+  },
+
+  post<T>(
+    url: string,
+    data?: unknown,
+    config?: Record<string, unknown>,
+  ): Promise<T> {
+    return instance.post(url, data, config).then((res) => {
+      const d = res.data as ApiResponse<T>;
+      return typeof d === "object" && d !== null && "data" in d
+        ? d.data
+        : res.data;
+    });
+  },
+
+  put<T>(
+    url: string,
+    data?: unknown,
+    config?: Record<string, unknown>,
+  ): Promise<T> {
+    return instance.put(url, data, config).then((res) => {
+      const d = res.data as ApiResponse<T>;
+      return typeof d === "object" && d !== null && "data" in d
+        ? d.data
+        : res.data;
+    });
+  },
+
+  patch<T>(
+    url: string,
+    data?: unknown,
+    config?: Record<string, unknown>,
+  ): Promise<T> {
+    return instance.patch(url, data, config).then((res) => {
+      const d = res.data as ApiResponse<T>;
+      return typeof d === "object" && d !== null && "data" in d
+        ? d.data
+        : res.data;
+    });
+  },
+
+  delete<T>(url: string, config?: Record<string, unknown>): Promise<T> {
+    return instance.delete(url, config).then((res) => {
+      const d = res.data as ApiResponse<T>;
+      return typeof d === "object" && d !== null && "data" in d
+        ? d.data
+        : res.data;
+    });
+  },
+
+  upload(
+    url: string,
+    formData: FormData,
+    onProgress?: (percent: number) => void,
+  ): Promise<unknown> {
+    return instance
+      .post(url, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (e) => {
+          if (e.total && onProgress) {
+            onProgress(Math.round((e.loaded * 100) / e.total));
+          }
+        },
+      })
+      .then((res) => {
+        const d = res.data as ApiResponse<unknown>;
+        return typeof d === "object" && d !== null && "data" in d
+          ? d.data
+          : res.data;
+      });
+  },
+
+  raw() {
+    return instance;
+  },
+};
+
+export default apiClient;

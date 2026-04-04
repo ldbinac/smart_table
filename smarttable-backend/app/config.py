@@ -12,9 +12,9 @@ class Config:
     # Flask 基础配置
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
     
-    # 数据库配置
+    # 数据库配置 (默认使用 SQLite 进行开发)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgresql://postgres:postgres@localhost:5432/smarttable'
+        'sqlite:///smarttable.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 10,

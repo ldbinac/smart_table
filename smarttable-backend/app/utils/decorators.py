@@ -21,38 +21,45 @@ def jwt_required(fn: Callable) -> Callable:
     """
     JWT 认证装饰器
     验证请求中的 JWT 令牌，并将当前用户设置到 g.current_user
-    
+
     Args:
         fn: 被装饰的函数
-        
+
     Returns:
         装饰后的函数
     """
     @wraps(fn)
     def wrapper(*args, **kwargs):
         try:
+            from uuid import UUID
             from app.models.user import User
-            
+
             verify_jwt_in_request()
-            
+
             user_id = get_jwt_identity()
-            
-            user = User.query.get(user_id)
-            
+
+            # 将字符串 ID 转换为 UUID 对象
+            uuid_id = UUID(user_id) if isinstance(user_id, str) else user_id
+
+            # 使用 filter_by 而不是 get，避免 SQLAlchemy 2.0 的兼容性问题
+            user = User.query.filter_by(id=uuid_id).first()
+
             if not user:
                 return unauthorized_response('用户不存在')
-            
+
             if not user.is_active():
                 return unauthorized_response('用户账号已被禁用')
-            
+
             g.current_user = user
             g.current_user_id = user_id
-            
+
             return fn(*args, **kwargs)
-            
+
         except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f'JWT 验证失败：{str(e)}')
             return unauthorized_response('无效的认证令牌')
-    
+
     return wrapper
 
 

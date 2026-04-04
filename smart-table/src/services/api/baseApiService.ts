@@ -1,132 +1,64 @@
 /**
- * Base API服务
- * 处理Base相关的API调用
+ * Base API 服务
  */
+import { apiClient } from '@/api/client';
+import type { Base, BaseMember } from '@/api/types';
 
-import { apiClient } from '@/api/client'
-import type { 
-  Base, 
-  BaseMember, 
-  BaseRole,
-  PaginatedData, 
-  PaginationParams 
-} from '@/api/types'
+export const getBases = async (): Promise<Base[]> => {
+  return apiClient.get<Base[]>('/bases');
+};
 
-/**
- * 获取Base列表
- */
-export const getBases = async (params?: PaginationParams & { include_archived?: boolean }): Promise<PaginatedData<Base>> => {
-  const response = await apiClient.get<PaginatedData<Base>>('/bases', params as Record<string, unknown>)
-  return response.data
-}
-
-/**
- * 获取单个Base
- */
 export const getBase = async (id: string): Promise<Base> => {
-  const response = await apiClient.get<Base>(`/bases/${id}`)
-  return response.data
-}
+  return apiClient.get<Base>(`/bases/${id}`);
+};
 
-/**
- * 创建Base
- */
 export const createBase = async (data: Partial<Base>): Promise<Base> => {
-  const response = await apiClient.post<Base>('/bases', data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.post<Base>('/bases', data);
+};
 
-/**
- * 更新Base
- */
 export const updateBase = async (id: string, data: Partial<Base>): Promise<Base> => {
-  const response = await apiClient.put<Base>(`/bases/${id}`, data as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.put<Base>(`/bases/${id}`, data);
+};
 
-/**
- * 删除Base
- */
 export const deleteBase = async (id: string): Promise<void> => {
-  await apiClient.delete(`/bases/${id}`)
-}
+  await apiClient.delete<void>(`/bases/${id}`);
+};
 
-/**
- * 归档/取消归档Base
- */
-export const toggleArchiveBase = async (id: string): Promise<Base> => {
-  const response = await apiClient.put<Base>(`/bases/${id}/archive`)
-  return response.data
-}
+export const starBase = async (id: string): Promise<Base> => {
+  return apiClient.post<Base>(`/bases/${id}/star`);
+};
 
-/**
- * 切换Base收藏状态
- */
-export const toggleStarBase = async (id: string): Promise<Base> => {
-  const response = await apiClient.post<Base>(`/bases/${id}/star`)
-  return response.data
-}
+export const unstarBase = async (id: string): Promise<Base> => {
+  return apiClient.delete<Base>(`/bases/${id}/star`);
+};
 
-/**
- * 复制Base
- */
-export const duplicateBase = async (id: string, name?: string): Promise<Base> => {
-  const response = await apiClient.post<Base>(`/bases/${id}/duplicate`, name ? { name } : undefined)
-  return response.data
-}
-
-// ==================== 成员管理 ====================
-
-/**
- * 获取Base成员列表
- */
 export const getBaseMembers = async (baseId: string): Promise<BaseMember[]> => {
-  const response = await apiClient.get<BaseMember[]>(`/bases/${baseId}/members`)
-  return response.data
-}
+  return apiClient.get<BaseMember[]>(`/bases/${baseId}/members`);
+};
 
-/**
- * 添加Base成员
- */
-export const addBaseMember = async (baseId: string, userId: string, role: BaseRole): Promise<BaseMember> => {
-  const response = await apiClient.post<BaseMember>(`/bases/${baseId}/members`, {
-    user_id: userId,
-    role
-  })
-  return response.data
-}
+export const addBaseMember = async (
+  baseId: string,
+  email: string,
+  role?: string
+): Promise<BaseMember> => {
+  return apiClient.post<BaseMember>(`/bases/${baseId}/members`, { email, role });
+};
 
-/**
- * 更新成员角色
- */
-export const updateMemberRole = async (baseId: string, memberId: string, role: BaseRole): Promise<BaseMember> => {
-  const response = await apiClient.put<BaseMember>(`/bases/${baseId}/members/${memberId}`, {
-    role
-  })
-  return response.data
-}
+export const removeBaseMember = async (baseId: string, userId: string): Promise<void> => {
+  await apiClient.delete<void>(`/bases/${baseId}/members/${userId}`);
+};
 
-/**
- * 移除Base成员
- */
-export const removeBaseMember = async (baseId: string, memberId: string): Promise<void> => {
-  await apiClient.delete(`/bases/${baseId}/members/${memberId}`)
-}
-
-// 导出Base服务
 export const baseApiService = {
   getBases,
   getBase,
   createBase,
   updateBase,
   deleteBase,
-  toggleArchiveBase,
-  toggleStarBase,
-  duplicateBase,
+  starBase,
+  unstarBase,
   getBaseMembers,
   addBaseMember,
-  updateMemberRole,
   removeBaseMember
-}
+};
 
-export default baseApiService
+export default baseApiService;

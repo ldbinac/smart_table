@@ -15,6 +15,8 @@ from app.utils.response import (
 )
 
 attachments_bp = Blueprint('attachments', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+attachments_bp.strict_slashes = False
 
 
 @attachments_bp.route('/upload', methods=['POST'])

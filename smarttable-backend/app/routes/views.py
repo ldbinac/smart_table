@@ -10,6 +10,8 @@ from app.utils.response import success_response, error_response
 from app.utils.decorators import jwt_required, role_required
 
 views_bp = Blueprint('views', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+views_bp.strict_slashes = False
 
 
 class ViewCreateSchema(Schema):

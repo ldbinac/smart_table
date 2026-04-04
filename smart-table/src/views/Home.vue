@@ -255,7 +255,7 @@ const clearSearch = () => {
 };
 
 onMounted(async () => {
-  await baseStore.loadBases();
+  await baseStore.fetchBases();
 });
 
 function goToBase(id: string) {

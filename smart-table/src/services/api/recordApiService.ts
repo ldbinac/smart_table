@@ -1,95 +1,73 @@
 /**
- * Record API服务
- * 处理Record相关的API调用
+ * Record API 服务
  */
+import { apiClient } from '@/api/client';
+import type { Record, PaginatedData, PaginationParams } from '@/api/types';
 
-import { apiClient } from '@/api/client'
-import type { Record, PaginatedData, PaginationParams } from '@/api/types'
-
-/**
- * 获取Table下的Record列表
- */
 export const getRecords = async (
-  tableId: string, 
+  tableId: string,
   params?: PaginationParams & { search?: string; view_id?: string }
 ): Promise<PaginatedData<Record>> => {
-  const response = await apiClient.get<PaginatedData<Record>>(`/tables/${tableId}/records`, params as Record<string, unknown>)
-  return response.data
-}
+  return apiClient.get<PaginatedData<Record>>(`/tables/${tableId}/records`, params as Record<string, unknown>);
+};
 
-/**
- * 获取单个Record
- */
 export const getRecord = async (id: string): Promise<Record> => {
-  const response = await apiClient.get<Record>(`/records/${id}`)
-  return response.data
-}
+  return apiClient.get<Record>(`/records/${id}`);
+};
 
-/**
- * 创建Record
- */
-export const createRecord = async (tableId: string, values: Record<string, unknown>): Promise<Record> => {
-  const response = await apiClient.post<Record>(`/tables/${tableId}/records`, { values })
-  return response.data
-}
+export const createRecord = async (
+  tableId: string,
+  values: Record<string, unknown>
+): Promise<Record> => {
+  return apiClient.post<Record>(`/tables/${tableId}/records`, { values });
+};
 
-/**
- * 更新Record
- */
 export const updateRecord = async (id: string, values: Record<string, unknown>): Promise<Record> => {
-  const response = await apiClient.put<Record>(`/records/${id}`, { values })
-  return response.data
-}
+  return apiClient.put<Record>(`/records/${id}`, { values });
+};
 
-/**
- * 删除Record
- */
 export const deleteRecord = async (id: string): Promise<void> => {
-  await apiClient.delete(`/records/${id}`)
-}
+  await apiClient.delete<void>(`/records/${id}`);
+};
 
-/**
- * 批量创建Records
- */
-export const batchCreateRecords = async (tableId: string, records: Array<{ values: Record<string, unknown> }>): Promise<{ created_count: number; records: Record[] }> => {
-  const response = await apiClient.post<{ created_count: number; records: Record[] }>(`/tables/${tableId}/records/batch`, {
-    records
-  })
-  return response.data
-}
+export const batchCreateRecords = async (
+  tableId: string,
+  records: Array<{ values: Record<string, unknown> }>
+): Promise<{ created_count: number; records: Record[] }> => {
+  return apiClient.post<{ created_count: number; records: Record[] }>(
+    `/tables/${tableId}/records/batch`,
+    { records }
+  );
+};
 
-/**
- * 批量更新Records
- */
-export const batchUpdateRecords = async (recordIds: string[], values: Record<string, unknown>): Promise<{ updated_count: number; failed_ids: string[] }> => {
-  const response = await apiClient.put<{ updated_count: number; failed_ids: string[] }>('/records/batch', {
+export const batchUpdateRecords = async (
+  recordIds: string[],
+  values: Record<string, unknown>
+): Promise<{ updated_count: number; failed_ids: string[] }> => {
+  return apiClient.put<{ updated_count: number; failed_ids: string[] }>('/records/batch', {
     record_ids: recordIds,
     values
-  })
-  return response.data
-}
+  });
+};
 
-/**
- * 批量删除Records
- */
-export const batchDeleteRecords = async (recordIds: string[]): Promise<{ deleted_count: number; failed_ids: string[] }> => {
-  const response = await apiClient.delete<{ deleted_count: number; failed_ids: string[] }>('/records/batch', {
+export const batchDeleteRecords = async (
+  recordIds: string[]
+): Promise<{ deleted_count: number; failed_ids: string[] }> => {
+  return apiClient.delete<{ deleted_count: number; failed_ids: string[] }>('/records/batch', {
     record_ids: recordIds
-  } as Record<string, unknown>)
-  return response.data
-}
+  } as Record<string, unknown>);
+};
 
-/**
- * 计算公式值
- */
-export const computeFormulas = async (recordId: string, previewValues?: Record<string, unknown>): Promise<Record<string, unknown>> => {
-  const response = await apiClient.post<Record<string, unknown>>(`/records/${recordId}/compute`, {
-    preview_values: previewValues
-  })
-  return response.data
-}
+export const computeFormulas = async (
+  tableId: string,
+  values: Record<string, unknown>
+): Promise<Record<string, unknown>> => {
+  return apiClient.post<Record<string, unknown>>(
+    `/tables/${tableId}/records/compute-formulas`,
+    { values }
+  );
+};
 
-// 导出Record服务
 export const recordApiService = {
   getRecords,
   getRecord,
@@ -100,6 +78,6 @@ export const recordApiService = {
   batchUpdateRecords,
   batchDeleteRecords,
   computeFormulas
-}
+};
 
-export default recordApiService
+export default recordApiService;

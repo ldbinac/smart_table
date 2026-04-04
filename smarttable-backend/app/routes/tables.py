@@ -13,6 +13,8 @@ from app.utils.response import (
 )
 
 tables_bp = Blueprint('tables', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+tables_bp.strict_slashes = False
 
 
 @tables_bp.route('/bases/<uuid:base_id>/tables', methods=['GET'])

@@ -13,6 +13,8 @@ from app.utils.response import (
 )
 
 bases_bp = Blueprint('bases', __name__)
+# 禁用严格斜杠，允许带或不带斜杠的URL
+bases_bp.strict_slashes = False
 
 
 @bases_bp.route('/', methods=['GET'])
