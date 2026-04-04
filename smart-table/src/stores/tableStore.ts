@@ -5,6 +5,7 @@ import { fieldService } from "../db/services/fieldService";
 import { recordService } from "../db/services/recordService";
 import type { TableEntity, FieldEntity, RecordEntity } from "../db/schema";
 import type { CellValue, FieldOptions } from "../types";
+import { deserializeRecordValues } from "../utils/recordValueSerializer";
 
 export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
@@ -228,9 +229,10 @@ export const useTableStore = defineStore("table", () => {
       await recordService.updateRecord(id, { values });
       const index = records.value.findIndex((r) => r.id === id);
       if (index !== -1) {
+        // 使用反序列化后的值更新本地缓存
         records.value[index] = {
           ...records.value[index],
-          values,
+          values: deserializeRecordValues(values),
           updatedAt: Date.now(),
         };
       }

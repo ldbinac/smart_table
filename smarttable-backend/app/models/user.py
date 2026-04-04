@@ -15,9 +15,11 @@ from app.extensions import db, bcrypt
 
 class UserRole(PyEnum):
     """用户角色枚举"""
+    OWNER = 'owner'
     ADMIN = 'admin'
     WORKSPACE_ADMIN = 'workspace_admin'
     EDITOR = 'editor'
+    COMMENTER = 'commenter'
     VIEWER = 'viewer'
 
 

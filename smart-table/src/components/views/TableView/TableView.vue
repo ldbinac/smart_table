@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useBaseStore } from "@/stores";
+import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { recordService } from "@/db/services/recordService";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
@@ -36,9 +37,11 @@ const emit = defineEmits<{
   (e: "record-update", record: RecordEntity): void;
   (e: "record-create"): void;
   (e: "record-delete", recordIds: string[]): void;
+  (e: "add-record"): void;
 }>();
 
 const baseStore = useBaseStore();
+const tableStore = useTableStore();
 const viewStore = useViewStore();
 
 const selectedRows = ref<string[]>([]);
@@ -73,14 +76,16 @@ const columnWidths = ref<Record<string, number>>({});
 const isDraggingRow = ref(false);
 const draggedRowId = ref<string | null>(null);
 
-const records = computed(() => props.records || baseStore.records);
-const fields = computed(() => baseStore.sortedFields);
+const records = computed(() => props.records || tableStore.records);
+const fields = computed(() => tableStore.fields);
 const currentView = computed(() => viewStore.currentView);
 
-// 使用 viewStore.currentView 计算可见字段，确保状态同步
+// 使用 tableStore.fields 计算可见字段，确保状态同步
 const visibleFields = computed(() => {
   // 首先过滤掉 isVisible 为 false 的字段（全局隐藏）
-  let result = fields.value.filter((field) => field.isVisible !== false);
+  let result = fields.value.filter(
+    (field) => (field as any).isVisible !== false,
+  );
   // 再根据当前视图的 hiddenFields 进行过滤（视图级隐藏）
   if (currentView.value) {
     result = result.filter(
@@ -278,11 +283,13 @@ const handleRecordSave = async (
     await recordService.updateRecord(recordId, {
       values: values as Record<string, CellValue>,
     });
-    await baseStore.loadTable(baseStore.currentTable?.id || "");
+    // 重新加载记录列表
+    await tableStore.refreshRecords(tableStore.currentTable?.id || "");
     ElMessage.success("保存成功");
     expandDialogVisible.value = false;
     expandedRecord.value = null;
   } catch (error) {
+    console.error("Error saving record-tv:", error);
     ElMessage.error("保存失败");
   }
 };
@@ -527,35 +534,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const addNewRecord = async () => {
-  if (!baseStore.currentTable) return;
-
-  // 获取主键字段并生成唯一ID
-  const primaryField = fields.value.find((f) => f.isPrimary) || fields.value[0];
-  const values: Record<string, CellValue> = {};
-  if (primaryField) {
-    values[primaryField.id] = generateId();
-  }
-
-  const newRecord = await recordService.createRecord({
-    tableId: baseStore.currentTable.id,
-    values,
-  });
-
-  if (newRecord) {
-    await baseStore.loadTable(baseStore.currentTable.id);
-    selectedRows.value = [newRecord.id];
-    emit("record-create");
-
-    await nextTick();
-    // 自动进入第二个字段的编辑（跳过主键字段）
-    const editableField = visibleFields.value.find(
-      (f) => f.id !== primaryField?.id,
-    );
-    editingCell.value = {
-      recordId: newRecord.id,
-      fieldId: editableField?.id || visibleFields.value[0]?.id || "",
-    };
-  }
+  // 触发添加记录事件，由父组件处理打开对话框
+  emit("add-record");
 };
 
 const getColumnWidth = (fieldId: string): number => {

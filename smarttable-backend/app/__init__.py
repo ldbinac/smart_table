@@ -62,17 +62,17 @@ def register_blueprints(app):
     # 注册基础数据蓝图
     app.register_blueprint(bases_bp, url_prefix='/api/bases')
     
-    # 注册表格蓝图
-    app.register_blueprint(tables_bp, url_prefix='/api/tables')
+    # 注册表格蓝图 (路由中已包含完整路径)
+    app.register_blueprint(tables_bp, url_prefix='/api')
     
-    # 注册字段蓝图
-    app.register_blueprint(fields_bp, url_prefix='/api/fields')
+    # 注册字段蓝图 (路由中已包含完整路径)
+    app.register_blueprint(fields_bp, url_prefix='/api')
     
-    # 注册记录蓝图
-    app.register_blueprint(records_bp, url_prefix='/api/records')
+    # 注册记录蓝图 (路由中已包含完整路径)
+    app.register_blueprint(records_bp, url_prefix='/api')
     
-    # 注册视图蓝图
-    app.register_blueprint(views_bp, url_prefix='/api/views')
+    # 注册视图蓝图 (路由中已包含完整路径)
+    app.register_blueprint(views_bp, url_prefix='/api')
     
     # 注册仪表盘蓝图
     app.register_blueprint(dashboards_bp, url_prefix='/api/dashboards')

@@ -115,9 +115,9 @@ const tasks = computed<GanttTask[]>(() => {
       if (
         titleField.value &&
         titleField.value.type === FieldType.SINGLE_SELECT &&
-        titleField.value.options?.options
+        titleField.value.options?.choices
       ) {
-        const options = titleField.value.options.options;
+        const options = titleField.value.options.choices;
         const selectedOption = options.find(
           (opt: any) => opt.id === titleValue,
         );

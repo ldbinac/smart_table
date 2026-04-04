@@ -116,9 +116,9 @@ const getFieldComponent = (field: FieldEntity): string => {
     case FieldType.RATING:
       return "number";
     case FieldType.SINGLE_SELECT:
-      return "singleSelect";
+      return "single_select";
     case FieldType.MULTI_SELECT:
-      return "multiSelect";
+      return "multi_select";
     case FieldType.DATE:
       return "date";
     case FieldType.CHECKBOX:
@@ -208,8 +208,8 @@ async function handleSave() {
   try {
     emit("save", props.record.id, { ...formData.value });
     ElMessage.success("记录保存成功");
-    closeDrawer();
   } catch (error) {
+    console.error("Error saving record:", error);
     ElMessage.error("保存失败");
   } finally {
     isSaving.value = false;
@@ -266,7 +266,7 @@ const drawerTitle = computed(() => {
           </template>
 
           <!-- 单选类型 -->
-          <template v-else-if="getFieldComponent(field) === 'singleSelect'">
+          <template v-else-if="getFieldComponent(field) === 'single_select'">
             <el-select
               :model-value="formData[field.id] as string"
               @update:model-value="(val) => handleValueChange(field.id, val)"
@@ -274,7 +274,7 @@ const drawerTitle = computed(() => {
               class="field-input"
               style="width: 100%">
               <el-option
-                v-for="option in field.options?.options || []"
+                v-for="option in field.options?.choices || []"
                 :key="option.id"
                 :label="option.name"
                 :value="option.id">
@@ -289,7 +289,7 @@ const drawerTitle = computed(() => {
           </template>
 
           <!-- 多选类型 -->
-          <template v-else-if="getFieldComponent(field) === 'multiSelect'">
+          <template v-else-if="getFieldComponent(field) === 'multi_select'">
             <el-select
               :model-value="(formData[field.id] as string[]) || []"
               @update:model-value="(val) => handleValueChange(field.id, val)"
@@ -298,7 +298,7 @@ const drawerTitle = computed(() => {
               class="field-input"
               style="width: 100%">
               <el-option
-                v-for="option in field.options?.options || []"
+                v-for="option in field.options?.choices || []"
                 :key="option.id"
                 :label="option.name"
                 :value="option.id">

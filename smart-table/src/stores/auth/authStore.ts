@@ -33,12 +33,13 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 用户登录
    */
-  const login = async (credentials: LoginRequest, remember: boolean = false): Promise<boolean> => {
+  const login = async (credentials: LoginRequest, remember: boolean = true): Promise<boolean> => {
     isLoading.value = true
     try {
       const response = await authService.login(credentials)
       
       // 存储 Token - 注意后端返回的是 tokens 对象
+      // 默认使用 localStorage，这样多标签页可以共享 token
       setToken(response.tokens.access_token, remember)
       setRefreshToken(response.tokens.refresh_token, remember)
       setRememberMe(remember)

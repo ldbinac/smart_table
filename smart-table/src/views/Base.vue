@@ -53,14 +53,16 @@ const {
   toggleStarDashboard,
 } = useEntityOperations();
 
-const isLoading = computed(() => baseStore.loading || viewStore.loading);
-const currentTableId = computed(() => baseStore.currentTable?.id || "");
+const isLoading = computed(
+  () => baseStore.loading || viewStore.loading || tableStore.loading,
+);
+const currentTableId = computed(() => tableStore.currentTable?.id || "");
 
-// 使用 viewStore.currentView 计算可见字段，确保状态同步
+// 使用 tableStore.fields 计算可见字段，确保状态同步
 const visibleFields = computed(() => {
-  const fields = baseStore.sortedFields;
+  const fields = tableStore.fields;
   // 首先过滤掉 isVisible 为 false 的字段（全局隐藏）
-  let result = fields.filter((field) => field.isVisible !== false);
+  let result = fields.filter((field) => (field as any).isVisible !== false);
   // 再根据当前视图的 hiddenFields 进行过滤（视图级隐藏）
   if (viewStore.currentView) {
     result = result.filter(
@@ -211,21 +213,21 @@ const sidebarRef = ref<InstanceType<typeof BaseSidebar> | null>(null);
 
 // 过滤和排序后的记录
 const filteredRecords = computed(() => {
-  let records = [...baseStore.records];
+  let records = [...tableStore.records];
 
   // 应用筛选
   if (activeFilters.value.length > 0) {
     records = applyFilters(
       records,
       activeFilters.value,
-      baseStore.fields,
+      tableStore.fields,
       filterConjunction.value,
     );
   }
 
   // 应用排序
   if (activeSorts.value.length > 0) {
-    records = applySorts(records, activeSorts.value, baseStore.fields);
+    records = applySorts(records, activeSorts.value, tableStore.fields);
   }
 
   return records;
@@ -292,12 +294,13 @@ let sortableInstance: Sortable | null = null;
 onMounted(async () => {
   const baseId = route.params.id as string;
   if (baseId) {
-    await baseStore.loadBase(baseId);
+    await baseStore.fetchBase(baseId);
+    await tableStore.loadTables(baseId);
     // 同步视图数据到 viewStore
-    if (baseStore.currentTable) {
-      await viewStore.loadViews(baseStore.currentTable.id);
+    if (tableStore.currentTable) {
+      await viewStore.loadViews(tableStore.currentTable.id);
       // 选择默认视图（这会设置 viewStore.currentView）
-      await viewStore.selectDefaultView(baseStore.currentTable.id);
+      await viewStore.selectDefaultView(tableStore.currentTable.id);
 
       // 如果默认视图是表单视图，加载表单配置
       if (viewStore.currentView?.type === ViewType.FORM) {
@@ -312,12 +315,13 @@ watch(
   () => route.params.id,
   async (newId) => {
     if (newId) {
-      await baseStore.loadBase(newId as string);
+      await baseStore.fetchBase(newId as string);
+      await tableStore.loadTables(newId as string);
       // 同步视图数据到 viewStore
-      if (baseStore.currentTable) {
-        await viewStore.loadViews(baseStore.currentTable.id);
+      if (tableStore.currentTable) {
+        await viewStore.loadViews(tableStore.currentTable.id);
         // 选择默认视图（这会设置 viewStore.currentView）
-        await viewStore.selectDefaultView(baseStore.currentTable.id);
+        await viewStore.selectDefaultView(tableStore.currentTable.id);
       }
     }
   },
@@ -342,19 +346,19 @@ function initSortable() {
 async function handleTableDragEnd(evt: Sortable.SortableEvent) {
   if (evt.oldIndex === evt.newIndex) return;
 
-  const tableIds = baseStore.tables.map((t) => t.id);
+  const tableIds = tableStore.tables.map((t) => t.id);
   const [movedId] = tableIds.splice(evt.oldIndex!, 1);
   tableIds.splice(evt.newIndex!, 0, movedId);
 
   if (baseStore.currentBase) {
     await tableStore.reorderTables(baseStore.currentBase.id, tableIds);
     // 刷新表格列表
-    baseStore.tables = await tableStore.loadTables(baseStore.currentBase.id);
+    await tableStore.loadTables(baseStore.currentBase.id);
   }
 }
 
 const handleTableSelect = async (tableId: string) => {
-  await baseStore.loadTable(tableId);
+  await tableStore.selectTable(tableId);
   // 同步视图数据到 viewStore
   await viewStore.loadViews(tableId);
   // 选择默认视图（这会设置 viewStore.currentView，并自动加载视图的排序配置）
@@ -394,7 +398,7 @@ const handleAddRecord = (
   values: Record<string, unknown> = {},
   groupInfo?: { groupFieldId?: string; groupId?: string; groupName?: string },
 ) => {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -417,7 +421,7 @@ const handleAddRecordFromGroup = (groupInfo: {
     valueId?: string;
   }>;
 }) => {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -445,16 +449,16 @@ const handleAddRecordFromGroup = (groupInfo: {
 
 // 处理保存新记录
 const handleSaveNewRecord = async (values: Record<string, unknown>) => {
-  if (!baseStore.currentTable) return;
+  if (!tableStore.currentTable) return;
 
   try {
     const record = await tableStore.createRecord({
-      tableId: baseStore.currentTable.id,
+      tableId: tableStore.currentTable.id,
       values: values as Record<string, CellValue>,
     });
 
     if (record) {
-      baseStore.records.push(record);
+      // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success("记录创建成功");
       addRecordDialogVisible.value = false;
     } else {
@@ -467,19 +471,19 @@ const handleSaveNewRecord = async (values: Record<string, unknown>) => {
 
 // 处理表单提交
 const handleFormSubmit = async (values: Record<string, CellValue>) => {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
 
   try {
     const record = await tableStore.createRecord({
-      tableId: baseStore.currentTable.id,
+      tableId: tableStore.currentTable.id,
       values,
     });
 
     if (record) {
-      baseStore.records.push(record);
+      tableStore.records.push(record);
       ElMessage.success("表单提交成功，记录已创建");
     } else {
       ElMessage.error(tableStore.error || "提交失败");
@@ -492,7 +496,7 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
 // 处理表单取消
 const handleFormCancel = () => {
   // 切换到表格视图
-  const tableView = baseStore.views.find((v) => v.type === ViewType.TABLE);
+  const tableView = tableStore.views.find((v) => v.type === ViewType.TABLE);
   if (tableView) {
     viewStore.selectView(tableView.id);
   }
@@ -511,7 +515,7 @@ const loadFormConfig = () => {
   ];
 
   // 获取所有非系统字段作为默认可见字段
-  const defaultVisibleFieldIds = baseStore.fields
+  const defaultVisibleFieldIds = tableStore.fields
     .filter((f) => !systemFieldTypes.includes(f.type))
     .map((f) => f.id);
 
@@ -566,7 +570,7 @@ watch(
 
 // 打开表单配置对话框
 const openFormConfigDialog = () => {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -603,7 +607,7 @@ const handleFormConfigSave = async (config: typeof formConfig.value) => {
 
 // 打开表单分享对话框
 const openFormShareDialog = () => {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -618,7 +622,7 @@ const handleEditRecord = (record: RecordEntity) => {
 
 // 处理编辑记录（用于其他视图，接收 recordId）
 const handleEditRecordById = (recordId: string) => {
-  const record = baseStore.records.find((r) => r.id === recordId);
+  const record = tableStore.records.find((r) => r.id === recordId);
   if (record) {
     editingRecord.value = record;
     recordDialogVisible.value = true;
@@ -717,9 +721,9 @@ const handleDeleteRecordsFromGroup = async (records: RecordEntity[]) => {
     // 批量删除记录
     for (const record of records) {
       await tableStore.deleteRecord(record.id);
-      const index = baseStore.records.findIndex((r) => r.id === record.id);
+      const index = tableStore.records.findIndex((r) => r.id === record.id);
       if (index > -1) {
-        baseStore.records.splice(index, 1);
+        tableStore.records.splice(index, 1);
       }
     }
 
@@ -731,17 +735,17 @@ const handleDeleteRecordsFromGroup = async (records: RecordEntity[]) => {
 
 // 处理分组视图的复制记录
 const handleDuplicateRecordFromGroup = async (record: RecordEntity) => {
-  if (!baseStore.currentTable) return;
+  if (!tableStore.currentTable) return;
 
   try {
     // 创建新记录，复制原记录的值
     const newRecord = await tableStore.createRecord({
-      tableId: baseStore.currentTable.id,
+      tableId: tableStore.currentTable.id,
       values: { ...record.values },
     });
 
     if (newRecord) {
-      baseStore.records.push(newRecord);
+      tableStore.records.push(newRecord);
       ElMessage.success("记录复制成功");
       // 打开新记录的编辑对话框
       editingRecord.value = newRecord;
@@ -765,11 +769,11 @@ const handleSaveRecord = async (
     });
     await tableStore.updateRecord(recordId, typedValues);
     // 更新本地记录
-    const index = baseStore.records.findIndex((r) => r.id === recordId);
+    const index = tableStore.records.findIndex((r) => r.id === recordId);
     if (index !== -1) {
-      baseStore.records[index] = {
-        ...baseStore.records[index],
-        values: { ...baseStore.records[index].values, ...typedValues },
+      tableStore.records[index] = {
+        ...tableStore.records[index],
+        values: { ...tableStore.records[index].values, ...typedValues },
         updatedAt: Date.now(),
       };
     }
@@ -781,7 +785,7 @@ const handleSaveRecord = async (
 
 // 处理删除记录
 const handleDeleteRecord = async (recordId: string) => {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -803,9 +807,9 @@ const handleDeleteRecord = async (recordId: string) => {
     await tableStore.deleteRecord(recordId);
 
     // 从本地记录列表中移除
-    const index = baseStore.records.findIndex((r) => r.id === recordId);
+    const index = tableStore.records.findIndex((r) => r.id === recordId);
     if (index !== -1) {
-      baseStore.records.splice(index, 1);
+      tableStore.records.splice(index, 1);
     }
 
     ElMessage.success("记录删除成功");
@@ -1002,8 +1006,8 @@ async function handleCreateTable() {
         ElMessage.success("数据表创建成功");
         closeCreateTableDialog();
         // 刷新当前 base 的表格列表并选中新创建的表格
-        await baseStore.loadBase(baseStore.currentBase!.id);
-        await baseStore.loadTable(table.id);
+        await tableStore.loadTables(baseStore.currentBase!.id);
+        await tableStore.selectTable(table.id);
       } else {
         ElMessage.error(tableStore.error || "创建失败");
       }
@@ -1047,18 +1051,18 @@ async function handleRenameTable() {
           renameTableForm.name,
           renameTableForm.description,
         );
-        // 同步更新 baseStore 中的表格信息
-        const tableIndex = baseStore.tables.findIndex(
+        // 同步更新 tableStore 中的表格信息
+        const tableIndex = tableStore.tables.findIndex(
           (t) => t.id === renameTableForm.id,
         );
         if (tableIndex !== -1) {
-          baseStore.tables[tableIndex].name = renameTableForm.name;
-          baseStore.tables[tableIndex].description =
+          tableStore.tables[tableIndex].name = renameTableForm.name;
+          tableStore.tables[tableIndex].description =
             renameTableForm.description;
         }
-        if (baseStore.currentTable?.id === renameTableForm.id) {
-          baseStore.currentTable.name = renameTableForm.name;
-          baseStore.currentTable.description = renameTableForm.description;
+        if (tableStore.currentTable?.id === renameTableForm.id) {
+          tableStore.currentTable.name = renameTableForm.name;
+          tableStore.currentTable.description = renameTableForm.description;
         }
         closeRenameTableDialog();
       } catch (error) {
@@ -1073,17 +1077,16 @@ async function handleDeleteTable(table: { id: string; name: string }) {
   try {
     // 使用通用操作模块
     await deleteTable(table as TableEntity, async () => {
-      // 从 baseStore 中移除
-      baseStore.tables = baseStore.tables.filter((t) => t.id !== table.id);
-      if (baseStore.currentTable?.id === table.id) {
-        baseStore.currentTable = null;
-        baseStore.fields = [];
-        baseStore.records = [];
-        baseStore.views = [];
-        baseStore.currentView = null;
+      // 从 tableStore 中移除
+      tableStore.tables = tableStore.tables.filter((t) => t.id !== table.id);
+      if (tableStore.currentTable?.id === table.id) {
+        tableStore.currentTable = null;
+        tableStore.fields = [];
+        tableStore.records = [];
+        tableStore.views = [];
         // 如果有其他表格，选中第一个
-        if (baseStore.tables.length > 0) {
-          await baseStore.loadTable(baseStore.tables[0].id);
+        if (tableStore.tables.length > 0) {
+          await tableStore.selectTable(tableStore.tables[0].id);
         }
       }
     });
@@ -1101,12 +1104,12 @@ async function handleToggleStarTable(table: {
     // 使用通用操作模块
     await toggleStarTable(table as TableEntity);
     // 同步更新本地状态
-    const tableIndex = baseStore.tables.findIndex((t) => t.id === table.id);
+    const tableIndex = tableStore.tables.findIndex((t) => t.id === table.id);
     if (tableIndex !== -1) {
-      baseStore.tables[tableIndex].isStarred = !table.isStarred;
+      tableStore.tables[tableIndex].isStarred = !table.isStarred;
     }
-    if (baseStore.currentTable?.id === table.id) {
-      baseStore.currentTable.isStarred = !table.isStarred;
+    if (tableStore.currentTable?.id === table.id) {
+      tableStore.currentTable.isStarred = !table.isStarred;
     }
   } catch (error) {
     // 错误已经在通用模块中处理
@@ -1115,7 +1118,7 @@ async function handleToggleStarTable(table: {
 
 // 打开字段对话框
 function openFieldDialog() {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -1124,26 +1127,26 @@ function openFieldDialog() {
 
 // 处理字段创建
 function handleFieldCreated(field: any) {
-  baseStore.fields.push(field);
+  tableStore.fields.push(field);
   ElMessage.success(`字段 "${field.name}" 创建成功`);
 }
 
 // 处理字段更新
 function handleFieldUpdated(field: any) {
-  const index = baseStore.fields.findIndex((f) => f.id === field.id);
+  const index = tableStore.fields.findIndex((f) => f.id === field.id);
   if (index !== -1) {
     // 使用 Object.assign 保留响应式，并触发更新
-    Object.assign(baseStore.fields[index], field);
+    Object.assign(tableStore.fields[index], field);
   }
   ElMessage.success(`字段 "${field.name}" 更新成功`);
 }
 
 // 处理字段删除
 function handleFieldDeleted(fieldId: string) {
-  const index = baseStore.fields.findIndex((f) => f.id === fieldId);
+  const index = tableStore.fields.findIndex((f) => f.id === fieldId);
   if (index !== -1) {
-    const fieldName = baseStore.fields[index].name;
-    baseStore.fields.splice(index, 1);
+    const fieldName = tableStore.fields[index].name;
+    tableStore.fields.splice(index, 1);
     ElMessage.success(`字段 "${fieldName}" 删除成功`);
   }
 }
@@ -1152,7 +1155,7 @@ function handleFieldDeleted(fieldId: string) {
 function handleFieldsReordered(fieldIds: string[]) {
   // 更新本地字段顺序
   const sortedFields = fieldIds
-    .map((id) => baseStore.fields.find((f) => f.id === id))
+    .map((id) => tableStore.fields.find((f) => f.id === id))
     .filter((f): f is FieldEntity => f !== undefined);
 
   // 更新 order 属性
@@ -1160,7 +1163,7 @@ function handleFieldsReordered(fieldIds: string[]) {
     field.order = index;
   });
 
-  baseStore.fields = sortedFields;
+  tableStore.fields = sortedFields;
 }
 
 // 处理字段可见性变化（视图级隐藏/显示）
@@ -1186,7 +1189,7 @@ async function handleFieldVisibilityChanged(
 
 // 打开筛选对话框
 function openFilterDialog() {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -1213,7 +1216,7 @@ function handleFilterClear() {
 
 // 打开排序对话框
 function openSortDialog() {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -1240,7 +1243,7 @@ async function handleSortClear() {
 
 // 打开导出对话框
 function openExportDialog() {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -1249,7 +1252,7 @@ function openExportDialog() {
 
 // 打开导入对话框
 function openImportDialog() {
-  if (!baseStore.currentTable) {
+  if (!tableStore.currentTable) {
     ElMessage.warning("请先选择一个数据表");
     return;
   }
@@ -1259,8 +1262,8 @@ function openImportDialog() {
 // 处理导入完成
 function handleImported() {
   // 刷新数据
-  if (baseStore.currentTable) {
-    tableStore.selectTable(baseStore.currentTable.id);
+  if (tableStore.currentTable) {
+    tableStore.selectTable(tableStore.currentTable.id);
   }
 }
 </script>
@@ -1269,7 +1272,7 @@ function handleImported() {
   <div class="base-page">
     <BaseSidebar
       ref="sidebarRef"
-      :current-table-id="baseStore.currentTable?.id"
+      :current-table-id="tableStore.currentTable?.id"
       :show-tables="true"
       :show-dashboards="true"
       @select-table="handleTableSelect"
@@ -1293,7 +1296,7 @@ function handleImported() {
     <!-- 数据表视图 -->
     <main v-else class="main-content">
       <Loading v-if="isLoading" />
-      <template v-else-if="baseStore.currentTable">
+      <template v-else-if="tableStore.currentTable">
         <div class="table-container">
           <ViewSwitcher
             :table-id="currentTableId"
@@ -1315,7 +1318,7 @@ function handleImported() {
                 !isGalleryView
               "
               class="table-info">
-              <h2>{{ baseStore.currentTable.name }}</h2>
+              <h2>{{ tableStore.currentTable.name }}</h2>
               <span class="record-count"
                 >{{ filteredRecords.length }} 条记录</span
               >
@@ -1440,7 +1443,8 @@ function handleImported() {
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
               @record-select="handleRecordSelect"
-              @records-select="handleRecordsSelect" />
+              @records-select="handleRecordsSelect"
+              @add-record="handleAddRecord" />
 
             <!-- 看板视图 -->
             <KanbanView
@@ -1488,7 +1492,7 @@ function handleImported() {
             <!-- 表单视图 -->
             <FormView
               v-else-if="isFormView"
-              :fields="baseStore.fields"
+              :fields="tableStore.fields"
               :readonly="false"
               :title="formConfig.title"
               :description="formConfig.description"
@@ -1639,7 +1643,7 @@ function handleImported() {
     <FieldDialog
       v-model:visible="fieldDialogVisible"
       :table-id="currentTableId"
-      :fields="baseStore.fields"
+      :fields="tableStore.fields"
       :edit-field-id="editingFieldId || undefined"
       @field-created="handleFieldCreated"
       @field-updated="handleFieldUpdated"
@@ -1687,14 +1691,14 @@ function handleImported() {
     <RecordDetailDrawer
       v-model:visible="recordDialogVisible"
       :record="editingRecord"
-      :fields="baseStore.fields"
+      :fields="tableStore.fields"
       :size="drawerSize"
       @save="handleSaveRecord" />
 
     <!-- 添加记录抽屉 -->
     <AddRecordDrawer
       v-model:visible="addRecordDialogVisible"
-      :fields="baseStore.fields"
+      :fields="tableStore.fields"
       :initial-values="addRecordInitialValues"
       :group-field-id="addRecordGroupInfo.groupFieldId"
       :group-id="addRecordGroupInfo.groupId"
@@ -1706,24 +1710,24 @@ function handleImported() {
     <!-- 表单配置对话框 -->
     <FormViewConfig
       v-model:visible="formConfigDialogVisible"
-      :fields="baseStore.fields"
+      :fields="tableStore.fields"
       :initial-config="formConfig"
       @save="handleFormConfigSave" />
 
     <!-- 表单分享对话框 -->
     <FormShareDialog
       v-model:visible="formShareDialogVisible"
-      :fields="baseStore.fields"
-      :table-name="baseStore.currentTable?.name"
-      :table-id="baseStore.currentTable?.id"
+      :fields="tableStore.fields"
+      :table-name="tableStore.currentTable?.name"
+      :table-id="tableStore.currentTable?.id"
       :view-id="viewStore.currentView?.id"
       :form-config="formConfig" />
 
     <!-- 数据导入对话框 -->
     <ImportDialog
       v-model:visible="importDialogVisible"
-      :table-id="baseStore.currentTable?.id || ''"
-      :fields="baseStore.fields"
+      :table-id="tableStore.currentTable?.id || ''"
+      :fields="tableStore.fields"
       @imported="handleImported" />
 
     <!-- 重命名仪表盘对话框 -->

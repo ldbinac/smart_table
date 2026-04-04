@@ -70,7 +70,7 @@ const formRef = ref<FormInstance>()
 const form = reactive({
   email: '',
   password: '',
-  remember: false
+  remember: true  // 默认记住登录状态，使用 localStorage 存储 token
 })
 
 const rules: FormRules = {

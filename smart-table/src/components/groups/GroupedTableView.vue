@@ -564,7 +564,7 @@ function isGroupExpanded(groupKey: string): boolean {
 
 // 获取选项信息
 function getSelectOption(field: FieldEntity, value: string) {
-  const options = (field.options?.options || []) as Array<{
+  const options = (field.options?.choices || []) as Array<{
     id: string;
     name: string;
     color?: string;
@@ -894,8 +894,8 @@ function getGroupIdFromValue(
   value: string | undefined,
   field: FieldEntity,
 ): string | undefined {
-  if (!value || !field.options?.options) return value;
-  const options = field.options.options as Array<{ id: string; name: string }>;
+  if (!value || !field.options?.choices) return value;
+  const options = field.options.choices as Array<{ id: string; name: string }>;
   const option = options.find((opt) => opt.name === value);
   return option?.id || value;
 }

@@ -42,7 +42,7 @@ const groups = computed(() => {
   }
 
   const options =
-    (groupField.value.options?.options as Array<{
+    (groupField.value.options?.choices as Array<{
       id: string;
       name: string;
       color?: string;

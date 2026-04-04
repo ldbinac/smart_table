@@ -88,13 +88,17 @@ class RecordService:
         """
         if values:
             # 合并新值到现有值
-            current_values = record.values or {}
+            # 创建新的字典对象，确保 SQLAlchemy 检测到变化
+            current_values = dict(record.values) if record.values else {}
             current_values.update(values)
+            # 直接赋值新字典对象，SQLAlchemy 会检测到变化
             record.values = current_values
         
         if updated_by:
             record.updated_by = updated_by
         
+        # 刷新对象以确保获取最新的数据库状态
+        db.session.flush()
         db.session.commit()
         return record
     

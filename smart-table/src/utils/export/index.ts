@@ -20,9 +20,9 @@ function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
 
   switch (field.type) {
     case FieldType.SINGLE_SELECT:
-      // 将选项ID转换为选项名称
+      // 将选项 ID 转换为选项名称
       if (typeof value === "string") {
-        const options = field.options?.options as
+        const options = field.options?.choices as
           | Array<{ id: string; name: string; color: string }>
           | undefined;
         const option = options?.find((opt) => opt.id === value);
@@ -31,9 +31,9 @@ function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
       return value;
 
     case FieldType.MULTI_SELECT:
-      // 将选项ID数组转换为选项名称数组
+      // 将选项 ID 数组转换为选项名称数组
       if (Array.isArray(value)) {
-        const options = field.options?.options as
+        const options = field.options?.choices as
           | Array<{ id: string; name: string; color: string }>
           | undefined;
         const names = value.map((id) => {
@@ -99,9 +99,9 @@ function formatValueForCSV(value: CellValue, field: FieldEntity): string {
 
   switch (field.type) {
     case FieldType.SINGLE_SELECT:
-      // 将选项ID转换为选项名称
+      // 将选项 ID 转换为选项名称
       if (typeof value === "string") {
-        const options = field.options?.options as
+        const options = field.options?.choices as
           | Array<{ id: string; name: string; color: string }>
           | undefined;
         const option = options?.find((opt) => opt.id === value);
@@ -110,9 +110,9 @@ function formatValueForCSV(value: CellValue, field: FieldEntity): string {
       return String(value);
 
     case FieldType.MULTI_SELECT:
-      // 将选项ID数组转换为选项名称数组
+      // 将选项 ID 数组转换为选项名称数组
       if (Array.isArray(value)) {
-        const options = field.options?.options as
+        const options = field.options?.choices as
           | Array<{ id: string; name: string; color: string }>
           | undefined;
         const names = value.map((id) => {

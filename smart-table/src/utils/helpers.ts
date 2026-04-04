@@ -168,7 +168,7 @@ export function getCellDisplayValue(
     case "checkbox":
       return value ? "是" : "否";
 
-    case "multiSelect":
+    case "multi_select":
       if (Array.isArray(value)) {
         return value
           .map((v) =>
@@ -187,7 +187,7 @@ export function getCellDisplayValue(
       }
       return "";
 
-    case "singleSelect":
+    case "single_select":
       if (
         typeof value === "object" &&
         value !== null &&

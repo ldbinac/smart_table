@@ -33,21 +33,36 @@ def jwt_required(fn: Callable) -> Callable:
         try:
             from uuid import UUID
             from app.models.user import User
+            from flask import current_app
 
+            # 检查 Authorization 头
+            auth_header = request.headers.get('Authorization')
+            current_app.logger.info(f'[JWT] Authorization header: {auth_header[:20] if auth_header else None}...')
+            
+            # 验证 JWT token
             verify_jwt_in_request()
-
+            
+            # 获取 token payload
+            from flask_jwt_extended import get_jwt
+            jwt_payload = get_jwt()
+            current_app.logger.info(f'[JWT] Token payload: {jwt_payload}')
+            
             user_id = get_jwt_identity()
+            current_app.logger.info(f'[JWT] User ID: {user_id}')
 
             # 将字符串 ID 转换为 UUID 对象
             uuid_id = UUID(user_id) if isinstance(user_id, str) else user_id
 
             # 使用 filter_by 而不是 get，避免 SQLAlchemy 2.0 的兼容性问题
             user = User.query.filter_by(id=uuid_id).first()
+            current_app.logger.info(f'[JWT] User found: {user.email if user else None}')
 
             if not user:
+                current_app.logger.error(f'[JWT] User not found: {user_id}')
                 return unauthorized_response('用户不存在')
 
             if not user.is_active():
+                current_app.logger.error(f'[JWT] User inactive: {user_id}')
                 return unauthorized_response('用户账号已被禁用')
 
             g.current_user = user
@@ -57,8 +72,8 @@ def jwt_required(fn: Callable) -> Callable:
 
         except Exception as e:
             from flask import current_app
-            current_app.logger.error(f'JWT 验证失败：{str(e)}')
-            return unauthorized_response('无效的认证令牌')
+            current_app.logger.error(f'[JWT] JWT 验证失败：{str(e)}', exc_info=True)
+            return unauthorized_response(f'无效的认证令牌：{str(e)}')
 
     return wrapper
 
@@ -69,7 +84,7 @@ def role_required(roles):
     检查当前用户是否具有指定角色
     
     Args:
-        roles: 允许的角色或角色列表
+        roles: 允许的角色或角色列表（可以是字符串或 UserRole 枚举）
         
     Returns:
         装饰器函数
@@ -82,12 +97,42 @@ def role_required(roles):
             if not hasattr(g, 'current_user') or g.current_user is None:
                 return unauthorized_response('请先登录')
             
-            # 标准化角色列表
-            allowed_roles = roles if isinstance(roles, list) else [roles]
-            allowed_role_values = [r.value for r in allowed_roles]
+            # 标准化角色列表（支持字符串和 UserRole 枚举）
+            if isinstance(roles, list):
+                allowed_roles = []
+                for r in roles:
+                    if isinstance(r, str):
+                        # 如果是字符串，尝试转换为 UserRole 枚举
+                        try:
+                            allowed_roles.append(UserRole(r))
+                        except ValueError:
+                            # 如果转换失败，直接使用字符串
+                            allowed_roles.append(r)
+                    else:
+                        allowed_roles.append(r)
+            else:
+                # 单个角色
+                if isinstance(roles, str):
+                    try:
+                        allowed_roles = [UserRole(roles)]
+                    except ValueError:
+                        allowed_roles = [roles]
+                else:
+                    allowed_roles = [roles]
+            
+            # 获取允许的角色值列表
+            allowed_role_values = []
+            for r in allowed_roles:
+                if hasattr(r, 'value'):
+                    allowed_role_values.append(r.value)
+                else:
+                    allowed_role_values.append(r)
             
             # 检查用户角色
-            if g.current_user.role.value not in allowed_role_values:
+            current_user_role = g.current_user.role
+            current_role_value = current_user_role.value if hasattr(current_user_role, 'value') else current_user_role
+            
+            if current_role_value not in allowed_role_values:
                 return forbidden_response('权限不足，无法执行此操作')
             
             return fn(*args, **kwargs)

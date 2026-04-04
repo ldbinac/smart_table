@@ -166,9 +166,9 @@ function getFieldComponent(field: FieldEntity) {
     case FieldType.NUMBER:
       return "number";
     case FieldType.SINGLE_SELECT:
-      return "singleSelect";
+      return "single_select";
     case FieldType.MULTI_SELECT:
-      return "multiSelect";
+      return "multi_select";
     case FieldType.DATE:
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
@@ -216,13 +216,13 @@ function isReadonlyField(field: FieldEntity): boolean {
 
 // 获取单选/多选选项
 function getSelectOptions(field: FieldEntity) {
-  return (
-    (field.options?.options as Array<{
-      id: string;
-      name: string;
-      color?: string;
-    }>) || []
-  );
+  // 后端返回的格式是 {choices: [...]}
+  const choices = (field.options?.choices as Array<{
+    id: string;
+    name: string;
+    color?: string;
+  }>) || [];
+  return choices;
 }
 
 // 获取数值字段精度
@@ -520,7 +520,7 @@ const drawerTitle = computed(() => {
           </template>
 
           <!-- 单选类型 -->
-          <template v-else-if="getFieldComponent(field) === 'singleSelect'">
+          <template v-else-if="getFieldComponent(field) === 'single_select'">
             <ElSelect
               :model-value="formData[field.id] as string | undefined"
               :placeholder="`请选择${field.name}`"
@@ -543,7 +543,7 @@ const drawerTitle = computed(() => {
           </template>
 
           <!-- 多选类型 -->
-          <template v-else-if="getFieldComponent(field) === 'multiSelect'">
+          <template v-else-if="getFieldComponent(field) === 'multi_select'">
             <ElSelect
               :model-value="(formData[field.id] as string[]) || []"
               :placeholder="`请选择${field.name}`"

@@ -23,7 +23,7 @@ export function getOptionDisplayName(
     return '未设置'
   }
 
-  const options = (field.options?.options || []) as Array<{
+  const options = (field.options?.choices || field.options?.options || []) as Array<{
     id: string
     name: string
     color?: string
@@ -44,7 +44,7 @@ export function getOptionInfo(
     return null
   }
 
-  const options = (field.options?.options || []) as Array<{
+  const options = (field.options?.choices || field.options?.options || []) as Array<{
     id: string
     name: string
     color?: string

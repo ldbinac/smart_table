@@ -12,7 +12,7 @@ import axios, {
 import { ElMessage } from "element-plus";
 import router from "@/router";
 import { apiConfig } from "./config";
-import { getToken } from "@/utils/auth/token";
+import { getToken, clearToken } from "@/utils/auth/token";
 
 const { baseURL, timeout } = apiConfig;
 
@@ -61,10 +61,7 @@ instance.interceptors.response.use(
 
       if (code === 401) {
         // 清除 token 并跳转登录页
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        sessionStorage.removeItem("access_token");
-        sessionStorage.removeItem("refresh_token");
+        clearToken();
         router.push("/login");
         ElMessage.error("登录已过期，请重新登录");
         return Promise.reject(new Error("Unauthorized"));
@@ -107,10 +104,7 @@ instance.interceptors.response.use(
         break;
       case 401:
         // 清除 token 并跳转登录页
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        sessionStorage.removeItem("access_token");
-        sessionStorage.removeItem("refresh_token");
+        clearToken();
         router.push("/login");
         ElMessage.error(backendMessage || "登录已过期，请重新登录");
         break;

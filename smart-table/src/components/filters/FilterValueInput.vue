@@ -72,7 +72,7 @@ const showDateRange = computed(() => {
 });
 
 const selectOptions = computed(() => {
-  const options = props.field.options?.options as
+  const options = props.field.options?.choices as
     | Array<{ id: string; name: string; color?: string }>
     | undefined;
   return options || [];

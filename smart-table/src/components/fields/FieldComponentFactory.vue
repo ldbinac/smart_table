@@ -33,7 +33,7 @@ interface Field {
 
 interface Props {
   modelValue: CellValue;
-  field: Field;
+  field?: Field | null;
   readonly?: boolean;
   placeholder?: string;
   // 公式字段需要的上下文
@@ -44,6 +44,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   placeholder: "",
+  field: undefined,
 });
 
 const emit = defineEmits<{
@@ -75,10 +76,16 @@ const componentMap: Record<string, unknown> = {
 };
 
 const currentComponent = computed(() => {
+  if (!props.field || !props.field.type) {
+    return TextField;
+  }
   return componentMap[props.field.type] || TextField;
 });
 
 const isSupported = computed(() => {
+  if (!props.field || !props.field.type) {
+    return false;
+  }
   return props.field.type in componentMap;
 });
 
@@ -98,7 +105,7 @@ defineExpose({ focus });
 
 <template>
   <div class="field-component-factory">
-    <template v-if="isSupported">
+    <template v-if="field && field.type && isSupported">
       <component
         :is="currentComponent"
         v-model="localValue"
@@ -111,7 +118,7 @@ defineExpose({ focus });
     </template>
     <template v-else>
       <div class="unsupported-field">
-        <span class="unsupported-text">不支持的字段类型: {{ field.type }}</span>
+        <span class="unsupported-text">{{ field?.type ? '不支持的字段类型：' + field.type : '字段信息不完整' }}</span>
       </div>
     </template>
   </div>

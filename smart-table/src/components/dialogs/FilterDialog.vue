@@ -139,7 +139,7 @@ function getFieldById(fieldId: string) {
 }
 
 function getSelectOptions(field: FieldEntity) {
-  return (field.options?.options as { id: string; name: string; color: string }[]) || []
+  return (field.options?.choices || field.options?.options) as { id: string; name: string; color: string }[] || []
 }
 
 function onFieldChange(index: number) {

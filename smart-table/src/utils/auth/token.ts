@@ -6,23 +6,29 @@
 import { AUTH_CONFIG } from '@/api/config'
 
 /**
- * 存储Token
+ * 存储 Token
+ * 默认使用 localStorage，支持多标签页共享
  */
-export const setToken = (token: string, remember: boolean = false): void => {
+export const setToken = (token: string, remember: boolean = true): void => {
   if (remember) {
+    // 使用 localStorage，多标签页共享
     localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token)
   } else {
+    // 使用 sessionStorage，仅当前标签页有效
     sessionStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token)
   }
 }
 
 /**
- * 存储Refresh Token
+ * 存储 Refresh Token
+ * 默认使用 localStorage，支持多标签页共享
  */
-export const setRefreshToken = (token: string, remember: boolean = false): void => {
+export const setRefreshToken = (token: string, remember: boolean = true): void => {
   if (remember) {
+    // 使用 localStorage，多标签页共享
     localStorage.setItem(AUTH_CONFIG.REFRESH_TOKEN_KEY, token)
   } else {
+    // 使用 sessionStorage，仅当前标签页有效
     sessionStorage.setItem(AUTH_CONFIG.REFRESH_TOKEN_KEY, token)
   }
 }

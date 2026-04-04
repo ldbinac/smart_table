@@ -368,9 +368,9 @@ function getFieldComponentType(field: FieldEntity): string {
     case FieldType.RATING:
       return "number";
     case FieldType.SINGLE_SELECT:
-      return "singleSelect";
+      return "single_select";
     case FieldType.MULTI_SELECT:
-      return "multiSelect";
+      return "multi_select";
     case FieldType.DATE:
       return "date";
     case FieldType.CHECKBOX:
@@ -387,11 +387,11 @@ function getFieldComponentType(field: FieldEntity): string {
 // 获取单选/多选选项
 function getSelectOptions(field: FieldEntity) {
   return (
-    (field.options?.options as Array<{
+    (field.options?.choices || field.options?.options) as Array<{
       id: string;
       name: string;
       color?: string;
-    }>) || []
+    }> || []
   );
 }
 
@@ -595,7 +595,7 @@ defineExpose({
 
             <!-- 单选类型 -->
             <template
-              v-else-if="getFieldComponentType(field) === 'singleSelect'">
+              v-else-if="getFieldComponentType(field) === 'single_select'">
               <el-select
                 :model-value="formValues[field.id] as string | undefined"
                 :placeholder="`请选择${field.name}`"
@@ -618,7 +618,7 @@ defineExpose({
 
             <!-- 多选类型 -->
             <template
-              v-else-if="getFieldComponentType(field) === 'multiSelect'">
+              v-else-if="getFieldComponentType(field) === 'multi_select'">
               <el-select
                 :model-value="(formValues[field.id] as string[]) || []"
                 :placeholder="`请选择${field.name}`"

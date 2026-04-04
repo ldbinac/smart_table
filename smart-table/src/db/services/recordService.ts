@@ -1,8 +1,8 @@
 import { db } from "../schema";
 import type { RecordEntity } from "../schema";
-import { generateId } from "../../utils/id";
 import type { CellValue } from "../../types";
 import { tableService } from "./tableService";
+import { recordApiService } from "@/services/api/recordApiService";
 import {
   serializeRecordValues,
   deserializeRecordValues,
@@ -22,29 +22,34 @@ export interface UpdateRecordData {
 
 export class RecordService {
   async createRecord(data: CreateRecordData): Promise<RecordEntity> {
-    // 序列化值以支持 IndexedDB 存储
-    const serializedValues = serializeRecordValues(data.values);
+    try {
+      // 先调用后端 API 创建记录
+      const apiRecord = await recordApiService.createRecord(data.tableId, {
+        ...data.values,
+      } as Record<string, unknown>);
 
-    const record: RecordEntity = {
-      id: generateId(),
-      tableId: data.tableId,
-      values: serializedValues,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      createdBy: data.createdBy,
-      updatedBy: data.updatedBy,
-    };
+      // 将后端返回的记录转换为本地格式
+      const localRecord: RecordEntity = {
+        id: apiRecord.id,
+        tableId: data.tableId,
+        values: apiRecord.values as Record<string, CellValue>,
+        createdAt: new Date(apiRecord.created_at).getTime(),
+        updatedAt: new Date(apiRecord.updated_at).getTime(),
+        createdBy: apiRecord.created_by,
+        updatedBy: apiRecord.updated_by,
+      };
 
-    await db.transaction("rw", [db.records, db.tableEntities], async () => {
-      await db.records.add(record);
-      await tableService.updateRecordCount(data.tableId);
-    });
+      // 保存到本地 IndexedDB
+      await db.transaction("rw", [db.records, db.tableEntities], async () => {
+        await db.records.add(localRecord);
+        await tableService.updateRecordCount(data.tableId);
+      });
 
-    // 返回反序列化的记录
-    return {
-      ...record,
-      values: deserializeRecordValues(record.values),
-    };
+      return localRecord;
+    } catch (error) {
+      console.error("[recordService] createRecord failed:", error);
+      throw error;
+    }
   }
 
   async getRecord(id: string): Promise<RecordEntity | undefined> {
@@ -59,11 +64,45 @@ export class RecordService {
   }
 
   async getRecordsByTable(tableId: string): Promise<RecordEntity[]> {
-    const records = await db.records.where("tableId").equals(tableId).toArray();
-    return records.map((record) => ({
-      ...record,
-      values: deserializeRecordValues(record.values),
-    }));
+    try {
+      // 先从后端 API 获取最新数据
+      const apiRecords = await recordApiService.getRecords(tableId);
+
+      // apiRecords 可能是数组（直接返回的 items）或分页对象
+      let recordsToProcess: any[] = [];
+
+      if (Array.isArray(apiRecords)) {
+        // 如果是数组，直接使用
+        recordsToProcess = apiRecords;
+      } else if (apiRecords && typeof apiRecords === "object") {
+        // 如果是分页对象，提取 data 数组
+        recordsToProcess =
+          (apiRecords as any).data || (apiRecords as any).items || [];
+      }
+
+      // 将后端返回的记录转换为本地格式并保存
+      await db.transaction("rw", db.records, async () => {
+        for (const apiRecord of recordsToProcess) {
+          const localRecord: RecordEntity = {
+            id: apiRecord.id,
+            tableId: apiRecord.table_id || tableId,
+            values: apiRecord.values as Record<string, CellValue>,
+            createdAt: new Date(apiRecord.created_at).getTime(),
+            updatedAt: new Date(apiRecord.updated_at).getTime(),
+            createdBy: apiRecord.created_by,
+            updatedBy: apiRecord.updated_by,
+          };
+          await db.records.put(localRecord);
+        }
+      });
+
+      // 从本地 IndexedDB 返回
+      return db.records.where("tableId").equals(tableId).toArray();
+    } catch (error) {
+      console.error("[recordService] getRecordsByTable failed:", error);
+      // 如果 API 调用失败，从本地缓存读取
+      return db.records.where("tableId").equals(tableId).toArray();
+    }
   }
 
   async getRecordsByTableSorted(
@@ -88,76 +127,116 @@ export class RecordService {
   }
 
   async updateRecord(id: string, data: UpdateRecordData): Promise<void> {
-    const record = await this.getRecord(id);
-    if (!record) return;
+    try {
+      // 先调用后端 API 更新记录
+      await recordApiService.updateRecord(id, {
+        ...data.values,
+      } as Record<string, unknown>);
 
-    // 序列化值以支持 IndexedDB 存储
-    const serializedValues = serializeRecordValues(data.values);
+      // 序列化值以支持 IndexedDB 存储
+      const serializedValues = serializeRecordValues(
+        data.values as Record<string, CellValue>,
+      );
 
-    await db.records.update(id, {
-      values: serializedValues,
-      updatedAt: Date.now(),
-      updatedBy: data.updatedBy,
-    });
+      // 构建更新对象，只包含有效的值
+      const updateData: any = {
+        values: serializedValues,
+        updatedAt: Date.now(),
+      };
+
+      // 只有在提供了 updatedBy 时才添加
+      if (data.updatedBy) {
+        updateData.updatedBy = data.updatedBy;
+      }
+
+      // 再更新本地 IndexedDB
+      await db.records.update(id, updateData);
+    } catch (error) {
+      console.error("[recordService] updateRecord failed:", error);
+      throw error;
+    }
   }
 
   async deleteRecord(id: string): Promise<void> {
-    const record = await db.records.get(id);
-    if (!record) return;
+    try {
+      const record = await this.getRecord(id);
+      if (!record) return;
 
-    await db.transaction("rw", [db.records, db.tableEntities], async () => {
-      await db.records.delete(id);
-      await tableService.updateRecordCount(record.tableId);
-    });
+      // 先调用后端 API 删除记录
+      await recordApiService.deleteRecord(id);
+
+      // 再从本地 IndexedDB 删除
+      await db.transaction("rw", [db.records, db.tableEntities], async () => {
+        await db.records.delete(id);
+        if (record) {
+          await tableService.updateRecordCount(record.tableId);
+        }
+      });
+    } catch (error) {
+      console.error("[recordService] deleteRecord failed:", error);
+      throw error;
+    }
   }
 
   async batchCreateRecords(
     tableId: string,
     records: CreateRecordData[],
   ): Promise<RecordEntity[]> {
-    const createdRecords: RecordEntity[] = [];
+    try {
+      // 调用后端 API 批量创建记录
+      const response = await recordApiService.batchCreateRecords(
+        tableId,
+        records.map((r) => ({ values: r.values as Record<string, unknown> })),
+      );
 
-    await db.transaction("rw", [db.records, db.tableEntities], async () => {
-      for (const data of records) {
-        // 序列化值以支持 IndexedDB 存储
-        const serializedValues = serializeRecordValues(data.values);
+      // 将后端返回的记录保存到本地 IndexedDB
+      const createdRecords: RecordEntity[] = [];
+      await db.transaction("rw", [db.records, db.tableEntities], async () => {
+        for (const apiRecord of response.records) {
+          const localRecord: RecordEntity = {
+            id: apiRecord.id,
+            tableId: apiRecord.table_id || tableId,
+            values: apiRecord.values as Record<string, CellValue>,
+            createdAt: new Date(apiRecord.created_at).getTime(),
+            updatedAt: new Date(apiRecord.updated_at).getTime(),
+            createdBy: apiRecord.created_by,
+            updatedBy: apiRecord.updated_by,
+          };
+          await db.records.add(localRecord);
+          createdRecords.push(localRecord);
+        }
+        await tableService.updateRecordCount(tableId);
+      });
 
-        const record: RecordEntity = {
-          id: generateId(),
-          tableId,
-          values: serializedValues,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          createdBy: data.createdBy,
-          updatedBy: data.updatedBy,
-        };
-        await db.records.add(record);
-        createdRecords.push(record);
-      }
-      await tableService.updateRecordCount(tableId);
-    });
-
-    // 返回反序列化的记录
-    return createdRecords.map((record) => ({
-      ...record,
-      values: deserializeRecordValues(record.values),
-    }));
+      return createdRecords;
+    } catch (error) {
+      console.error("[recordService] batchCreateRecords failed:", error);
+      throw error;
+    }
   }
 
   async batchUpdateRecords(
     updates: { id: string; values: Record<string, CellValue> }[],
   ): Promise<void> {
-    await db.transaction("rw", db.records, async () => {
-      for (const update of updates) {
-        // 序列化值以支持 IndexedDB 存储
-        const serializedValues = serializeRecordValues(update.values);
+    try {
+      // 调用后端 API 批量更新记录
+      const recordIds = updates.map((u) => u.id);
+      const values = updates[0]?.values as Record<string, unknown>;
+      await recordApiService.batchUpdateRecords(recordIds, values);
 
-        await db.records.update(update.id, {
-          values: serializedValues,
-          updatedAt: Date.now(),
-        });
-      }
-    });
+      // 更新本地 IndexedDB
+      await db.transaction("rw", db.records, async () => {
+        for (const update of updates) {
+          await db.records.update(update.id, {
+            values: update.values,
+            updatedAt: Date.now(),
+          });
+        }
+      });
+    } catch (error) {
+      console.error("[recordService] batchUpdateRecords failed:", error);
+      throw error;
+    }
   }
 
   async batchDeleteRecords(ids: string[]): Promise<void> {

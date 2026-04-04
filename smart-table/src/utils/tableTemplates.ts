@@ -80,11 +80,11 @@ const projectManagementTemplate: TableTemplate = {
       order: 0,
       fields: [
         { id: 'proj-name', name: '项目名称', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
-        { id: 'proj-status', name: '状态', type: 'singleSelect', options: { options: selectOptions(['规划中', '进行中', '已完成', '已暂停', '已取消']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'proj-status', name: '状态', type: 'single_select', options: { options: selectOptions(['规划中', '进行中', '已完成', '已暂停', '已取消']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
         { id: 'proj-start', name: '开始日期', type: 'date', isPrimary: false, isRequired: true, isVisible: true, order: 2 },
         { id: 'proj-end', name: '结束日期', type: 'date', isPrimary: false, isRequired: true, isVisible: true, order: 3 },
         { id: 'proj-owner', name: '负责人', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 4 },
-        { id: 'proj-priority', name: '优先级', type: 'singleSelect', options: { options: selectOptions(['高', '中', '低']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'proj-priority', name: '优先级', type: 'single_select', options: { options: selectOptions(['高', '中', '低']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
         { id: 'proj-progress', name: '进度', type: 'progress', options: { showPercent: true }, isPrimary: false, isRequired: false, isVisible: true, order: 6 },
         { id: 'proj-desc', name: '描述', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 7 }
       ],
@@ -126,10 +126,10 @@ const projectManagementTemplate: TableTemplate = {
       order: 1,
       fields: [
         { id: 'task-name', name: '任务名称', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
-        { id: 'task-status', name: '状态', type: 'singleSelect', options: { options: selectOptions(['待办', '进行中', '已完成', '已阻塞']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'task-status', name: '状态', type: 'single_select', options: { options: selectOptions(['待办', '进行中', '已完成', '已阻塞']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
         { id: 'task-assignee', name: '负责人', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 2 },
         { id: 'task-due', name: '截止日期', type: 'date', isPrimary: false, isRequired: true, isVisible: true, order: 3 },
-        { id: 'task-priority', name: '优先级', type: 'singleSelect', options: { options: selectOptions(['紧急', '高', '中', '低']) }, isPrimary: false, isRequired: false, isVisible: true, order: 4 }
+        { id: 'task-priority', name: '优先级', type: 'single_select', options: { options: selectOptions(['紧急', '高', '中', '低']) }, isPrimary: false, isRequired: false, isVisible: true, order: 4 }
       ],
       views: [
         { id: 'task-view-1', name: '任务列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: true, order: 0 },
@@ -159,11 +159,11 @@ const taskTrackingTemplate: TableTemplate = {
       order: 0,
       fields: [
         { id: 'tt-title', name: '任务标题', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
-        { id: 'tt-status', name: '状态', type: 'singleSelect', options: { options: selectOptions(['待办', '进行中', '已完成', '已取消']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
-        { id: 'tt-priority', name: '优先级', type: 'singleSelect', options: { options: selectOptions(['紧急', '高', '中', '低']) }, isPrimary: false, isRequired: false, isVisible: true, order: 2 },
+        { id: 'tt-status', name: '状态', type: 'single_select', options: { options: selectOptions(['待办', '进行中', '已完成', '已取消']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'tt-priority', name: '优先级', type: 'single_select', options: { options: selectOptions(['紧急', '高', '中', '低']) }, isPrimary: false, isRequired: false, isVisible: true, order: 2 },
         { id: 'tt-due', name: '截止日期', type: 'date', isPrimary: false, isRequired: false, isVisible: true, order: 3 },
         { id: 'tt-assignee', name: '负责人', type: 'member', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
-        { id: 'tt-tags', name: '标签', type: 'multiSelect', options: { options: selectOptions(['工作', '个人', '学习', '生活']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'tt-tags', name: '标签', type: 'multi_select', options: { options: selectOptions(['工作', '个人', '学习', '生活']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
         { id: 'tt-notes', name: '备注', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 6 }
       ],
       views: [
@@ -196,8 +196,8 @@ const customerManagementTemplate: TableTemplate = {
         { id: 'cust-contact', name: '联系人', type: 'text', isPrimary: false, isRequired: true, isVisible: true, order: 1 },
         { id: 'cust-phone', name: '电话', type: 'phone', isPrimary: false, isRequired: true, isVisible: true, order: 2 },
         { id: 'cust-email', name: '邮箱', type: 'email', isPrimary: false, isRequired: false, isVisible: true, order: 3 },
-        { id: 'cust-stage', name: '阶段', type: 'singleSelect', options: { options: selectOptions(['潜在客户', '意向客户', '跟进中', '成交客户', '流失客户']) }, isPrimary: false, isRequired: true, isVisible: true, order: 4 },
-        { id: 'cust-source', name: '来源', type: 'singleSelect', options: { options: selectOptions(['线上广告', '朋友推荐', '展会', '电话营销', '自然搜索']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'cust-stage', name: '阶段', type: 'single_select', options: { options: selectOptions(['潜在客户', '意向客户', '跟进中', '成交客户', '流失客户']) }, isPrimary: false, isRequired: true, isVisible: true, order: 4 },
+        { id: 'cust-source', name: '来源', type: 'single_select', options: { options: selectOptions(['线上广告', '朋友推荐', '展会', '电话营销', '自然搜索']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
         { id: 'cust-value', name: '预估价值', type: 'number', options: { format: 'currency', currencySymbol: '¥' }, isPrimary: false, isRequired: false, isVisible: true, order: 6 },
         { id: 'cust-address', name: '地址', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 7 }
       ],
@@ -227,12 +227,12 @@ const productRequirementsTemplate: TableTemplate = {
       order: 0,
       fields: [
         { id: 'pr-title', name: '需求标题', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
-        { id: 'pr-type', name: '类型', type: 'singleSelect', options: { options: selectOptions(['新功能', '优化', 'Bug修复', '技术债务']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
-        { id: 'pr-status', name: '状态', type: 'singleSelect', options: { options: selectOptions(['待评估', '规划中', '开发中', '测试中', '已上线', '已拒绝']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
-        { id: 'pr-priority', name: '优先级', type: 'singleSelect', options: { options: selectOptions(['P0-紧急', 'P1-高', 'P2-中', 'P3-低']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'pr-type', name: '类型', type: 'single_select', options: { options: selectOptions(['新功能', '优化', 'Bug修复', '技术债务']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'pr-status', name: '状态', type: 'single_select', options: { options: selectOptions(['待评估', '规划中', '开发中', '测试中', '已上线', '已拒绝']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'pr-priority', name: '优先级', type: 'single_select', options: { options: selectOptions(['P0-紧急', 'P1-高', 'P2-中', 'P3-低']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
         { id: 'pr-effort', name: '工作量', type: 'number', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
         { id: 'pr-reporter', name: '提交人', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 5 },
-        { id: 'pr-created', name: '创建时间', type: 'createdTime', isPrimary: false, isRequired: false, isVisible: true, order: 6 },
+        { id: 'pr-created', name: '创建时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 6 },
         { id: 'pr-description', name: '详细描述', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 7 }
       ],
       views: [
@@ -262,12 +262,12 @@ const contentCalendarTemplate: TableTemplate = {
       order: 0,
       fields: [
         { id: 'cc-title', name: '内容标题', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
-        { id: 'cc-type', name: '内容类型', type: 'singleSelect', options: { options: selectOptions(['博客', '视频', '社交媒体', '邮件', '播客']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
-        { id: 'cc-status', name: '状态', type: 'singleSelect', options: { options: selectOptions(['想法', '草稿', '审核中', '已排期', '已发布']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'cc-type', name: '内容类型', type: 'single_select', options: { options: selectOptions(['博客', '视频', '社交媒体', '邮件', '播客']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'cc-status', name: '状态', type: 'single_select', options: { options: selectOptions(['想法', '草稿', '审核中', '已排期', '已发布']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
         { id: 'cc-publish-date', name: '发布日期', type: 'date', options: { includeTime: true }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
-        { id: 'cc-platform', name: '发布平台', type: 'multiSelect', options: { options: selectOptions(['微信公众号', '微博', '知乎', 'B站', '小红书', '抖音']) }, isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+        { id: 'cc-platform', name: '发布平台', type: 'multi_select', options: { options: selectOptions(['微信公众号', '微博', '知乎', 'B站', '小红书', '抖音']) }, isPrimary: false, isRequired: false, isVisible: true, order: 4 },
         { id: 'cc-author', name: '作者', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 5 },
-        { id: 'cc-tags', name: '标签', type: 'multiSelect', options: { options: selectOptions(['技术', '产品', '运营', '案例', '教程']) }, isPrimary: false, isRequired: false, isVisible: true, order: 6 }
+        { id: 'cc-tags', name: '标签', type: 'multi_select', options: { options: selectOptions(['技术', '产品', '运营', '案例', '教程']) }, isPrimary: false, isRequired: false, isVisible: true, order: 6 }
       ],
       views: [
         { id: 'cc-view-1', name: '内容列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: true, order: 0 },
@@ -297,7 +297,7 @@ const inventoryManagementTemplate: TableTemplate = {
       fields: [
         { id: 'inv-name', name: '商品名称', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
         { id: 'inv-sku', name: 'SKU', type: 'text', isPrimary: false, isRequired: true, isVisible: true, order: 1 },
-        { id: 'inv-category', name: '分类', type: 'singleSelect', options: { options: selectOptions(['电子产品', '服装', '食品', '家居', '办公用品']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'inv-category', name: '分类', type: 'single_select', options: { options: selectOptions(['电子产品', '服装', '食品', '家居', '办公用品']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
         { id: 'inv-stock', name: '当前库存', type: 'number', isPrimary: false, isRequired: true, isVisible: true, order: 3 },
         { id: 'inv-min-stock', name: '最低库存', type: 'number', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
         { id: 'inv-price', name: '单价', type: 'number', options: { format: 'currency', currencySymbol: '¥' }, isPrimary: false, isRequired: true, isVisible: true, order: 5 },
@@ -331,7 +331,7 @@ const attendanceRecordTemplate: TableTemplate = {
       fields: [
         { id: 'att-date', name: '日期', type: 'date', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
         { id: 'att-employee', name: '员工', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 1 },
-        { id: 'att-type', name: '类型', type: 'singleSelect', options: { options: selectOptions(['正常', '迟到', '早退', '请假', '加班', '旷工']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'att-type', name: '类型', type: 'single_select', options: { options: selectOptions(['正常', '迟到', '早退', '请假', '加班', '旷工']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
         { id: 'att-check-in', name: '签到时间', type: 'date', options: { includeTime: true }, isPrimary: false, isRequired: false, isVisible: true, order: 3 },
         { id: 'att-check-out', name: '签退时间', type: 'date', options: { includeTime: true }, isPrimary: false, isRequired: false, isVisible: true, order: 4 },
         { id: 'att-hours', name: '工作时长', type: 'number', isPrimary: false, isRequired: false, isVisible: true, order: 5 },
@@ -363,11 +363,11 @@ const budgetManagementTemplate: TableTemplate = {
       order: 0,
       fields: [
         { id: 'bud-date', name: '日期', type: 'date', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
-        { id: 'bud-type', name: '类型', type: 'singleSelect', options: { options: selectOptions(['收入', '支出']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
-        { id: 'bud-category', name: '分类', type: 'singleSelect', options: { options: selectOptions(['工资', '餐饮', '交通', '购物', '娱乐', '医疗', '教育', '投资', '其他']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'bud-type', name: '类型', type: 'single_select', options: { options: selectOptions(['收入', '支出']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'bud-category', name: '分类', type: 'single_select', options: { options: selectOptions(['工资', '餐饮', '交通', '购物', '娱乐', '医疗', '教育', '投资', '其他']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
         { id: 'bud-amount', name: '金额', type: 'number', options: { format: 'currency', currencySymbol: '¥' }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
         { id: 'bud-description', name: '说明', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
-        { id: 'bud-payment', name: '支付方式', type: 'singleSelect', options: { options: selectOptions(['现金', '微信', '支付宝', '银行卡', '信用卡']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 }
+        { id: 'bud-payment', name: '支付方式', type: 'single_select', options: { options: selectOptions(['现金', '微信', '支付宝', '银行卡', '信用卡']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 }
       ],
       views: [
         { id: 'bud-view-1', name: '收支明细', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: true, order: 0 }
@@ -394,13 +394,13 @@ const surveyFeedbackTemplate: TableTemplate = {
       name: '反馈记录',
       order: 0,
       fields: [
-        { id: 'sur-id', name: '反馈编号', type: 'autoNumber', options: { prefix: 'FB-', startNumber: 1001 }, isPrimary: true, isRequired: true, isVisible: true, order: 0 },
-        { id: 'sur-submit-time', name: '提交时间', type: 'createdTime', isPrimary: false, isRequired: false, isVisible: true, order: 1 },
+        { id: 'sur-id', name: '反馈编号', type: 'auto_number', options: { prefix: 'FB-', startNumber: 1001 }, isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'sur-submit-time', name: '提交时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 1 },
         { id: 'sur-satisfaction', name: '满意度', type: 'rating', options: { maxRating: 5 }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
-        { id: 'sur-category', name: '反馈类型', type: 'singleSelect', options: { options: selectOptions(['功能建议', 'Bug报告', '使用问题', '其他']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'sur-category', name: '反馈类型', type: 'single_select', options: { options: selectOptions(['功能建议', 'Bug报告', '使用问题', '其他']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
         { id: 'sur-content', name: '反馈内容', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: true, isVisible: true, order: 4 },
         { id: 'sur-contact', name: '联系方式', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 5 },
-        { id: 'sur-status', name: '处理状态', type: 'singleSelect', options: { options: selectOptions(['待处理', '处理中', '已解决', '已关闭']) }, isPrimary: false, isRequired: true, isVisible: true, order: 6 }
+        { id: 'sur-status', name: '处理状态', type: 'single_select', options: { options: selectOptions(['待处理', '处理中', '已解决', '已关闭']) }, isPrimary: false, isRequired: true, isVisible: true, order: 6 }
       ],
       views: [
         { id: 'sur-view-1', name: '反馈列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: true, order: 0 },
@@ -433,7 +433,7 @@ const contactListTemplate: TableTemplate = {
         { id: 'con-email', name: '邮箱', type: 'email', isPrimary: false, isRequired: false, isVisible: true, order: 2 },
         { id: 'con-company', name: '公司', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 3 },
         { id: 'con-position', name: '职位', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
-        { id: 'con-group', name: '分组', type: 'singleSelect', options: { options: selectOptions(['家人', '朋友', '同事', '客户', '其他']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'con-group', name: '分组', type: 'single_select', options: { options: selectOptions(['家人', '朋友', '同事', '客户', '其他']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
         { id: 'con-address', name: '地址', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 6 },
         { id: 'con-birthday', name: '生日', type: 'date', isPrimary: false, isRequired: false, isVisible: true, order: 7 },
         { id: 'con-notes', name: '备注', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 8 }

@@ -115,10 +115,19 @@ class Record(db.Model):
         self.values[field_id] = value
 
     def get_primary_value(self) -> str:
-        if self.table and self.table.primary_field_id:
-            primary_value = self.values.get(str(self.table.primary_field_id))
+        try:
+            if not self.table:
+                return '未命名记录'
+            
+            primary_field_id = getattr(self.table, 'primary_field_id', None)
+            if not primary_field_id:
+                return '未命名记录'
+            
+            primary_value = self.values.get(str(primary_field_id))
             return str(primary_value) if primary_value else '未命名记录'
-        return '未命名记录'
+        except Exception:
+            # 如果获取主字段值失败，返回默认值
+            return '未命名记录'
 
     def validate_values(self) -> tuple[bool, Optional[list]]:
         errors = []
@@ -137,7 +146,10 @@ class Record(db.Model):
         }
         if include_values:
             data['values'] = self.values or {}
-            data['primary_value'] = self.get_primary_value()
+            try:
+                data['primary_value'] = self.get_primary_value()
+            except Exception:
+                data['primary_value'] = '未命名记录'
         if include_meta:
             data['created_by'] = str(self.created_by) if self.created_by else None
             data['updated_by'] = str(self.updated_by) if self.updated_by else None

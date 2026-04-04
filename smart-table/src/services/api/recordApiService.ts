@@ -8,7 +8,19 @@ export const getRecords = async (
   tableId: string,
   params?: PaginationParams & { search?: string; view_id?: string }
 ): Promise<PaginatedData<Record>> => {
-  return apiClient.get<PaginatedData<Record>>(`/tables/${tableId}/records`, params as Record<string, unknown>);
+  try {
+    return await apiClient.get<PaginatedData<Record>>(`/tables/${tableId}/records`, params as Record<string, unknown>);
+  } catch (error) {
+    // 401 错误时返回空列表，让前端使用本地缓存
+    console.warn('[recordApiService] getRecords failed:', error);
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      per_page: 100,
+      total_pages: 0,
+    };
+  }
 };
 
 export const getRecord = async (id: string): Promise<Record> => {
@@ -19,15 +31,30 @@ export const createRecord = async (
   tableId: string,
   values: Record<string, unknown>
 ): Promise<Record> => {
-  return apiClient.post<Record>(`/tables/${tableId}/records`, { values });
+  try {
+    return await apiClient.post<Record>(`/tables/${tableId}/records`, { values });
+  } catch (error) {
+    console.error('[recordApiService] createRecord failed:', error);
+    throw error;
+  }
 };
 
 export const updateRecord = async (id: string, values: Record<string, unknown>): Promise<Record> => {
-  return apiClient.put<Record>(`/records/${id}`, { values });
+  try {
+    return await apiClient.put<Record>(`/records/${id}`, { values });
+  } catch (error) {
+    console.error('[recordApiService] updateRecord failed:', error);
+    throw error;
+  }
 };
 
 export const deleteRecord = async (id: string): Promise<void> => {
-  await apiClient.delete<void>(`/records/${id}`);
+  try {
+    await apiClient.delete<void>(`/records/${id}`);
+  } catch (error) {
+    console.error('[recordApiService] deleteRecord failed:', error);
+    throw error;
+  }
 };
 
 export const batchCreateRecords = async (

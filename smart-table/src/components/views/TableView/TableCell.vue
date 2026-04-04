@@ -44,7 +44,8 @@ const recordValuesHash = computed(() => {
 
 // 获取字段配置
 const fieldOptions = computed(() => {
-  return props.field.options as FieldOptions | undefined;
+  const opts = props.field.options as FieldOptions | undefined;
+  return opts;
 });
 
 // 数值字段精度配置
@@ -96,15 +97,25 @@ const displayValue = computed(() => {
         return `${prefix}${formatted}${suffix}`;
       }
       return value === null || value === undefined ? "" : String(value);
-    case "singleSelect": {
+    case "single_select": {
       if (value === null || value === undefined) return "";
-      const opts = options?.options || [];
+      // 兼容两种格式：choices 和 options
+      const opts = (options?.choices || options?.options || []) as Array<{
+        id: string;
+        name: string;
+        color?: string;
+      }>;
       const opt = opts.find((o) => o.id === value || o.name === value);
       return opt?.name || String(value);
     }
-    case "multiSelect": {
+    case "multi_select": {
       if (!Array.isArray(value) || value.length === 0) return "";
-      const opts = options?.options || [];
+      // 兼容两种格式：choices 和 options
+      const opts = (options?.choices || options?.options || []) as Array<{
+        id: string;
+        name: string;
+        color?: string;
+      }>;
       return value
         .map((v) => {
           const opt = opts.find((o) => o.id === v || o.name === v);
@@ -133,7 +144,7 @@ const displayValue = computed(() => {
     }
     case "rating": {
       const maxRating = options?.maxRating || 5;
-      const rating = Number(value) || 0;
+      const rating = Math.max(0, Math.min(Number(value) || 0, maxRating));
       return "★".repeat(rating) + "☆".repeat(maxRating - rating);
     }
     case "progress": {
@@ -221,7 +232,7 @@ const startEdit = async () => {
 
   isEditing.value = true;
   const cv = cellValue.value;
-  if (fieldType.value === "multiSelect") {
+  if (fieldType.value === "multi_select") {
     editValue.value = Array.isArray(cv)
       ? cv.map((v) => (typeof v === "string" ? v : v.id))
       : [];
@@ -317,15 +328,15 @@ const toggleCheckbox = () => {
 
 const getSelectOptions = computed(() => {
   const options = fieldOptions.value;
-  return options?.options || [];
+  return options?.choices || [];
 });
 
 const getOptionColor = (optionId: string) => {
   const options = fieldOptions.value;
-  const opt = options?.options?.find(
+  const opts = options?.choices || options?.options || [];
+  return opts.find(
     (o) => o.id === optionId || o.name === optionId,
-  );
-  return opt?.color || "#6B7280";
+  )?.color || "#6B7280";
 };
 
 const multiSelectDisplayValues = computed(() => {
@@ -376,7 +387,7 @@ const multiSelectDisplayValues = computed(() => {
           @keydown="handleKeydown" />
       </template>
 
-      <template v-else-if="fieldType === 'singleSelect'">
+      <template v-else-if="fieldType === 'single_select'">
         <select
           ref="inputRef"
           :value="editValue as string"
@@ -393,7 +404,7 @@ const multiSelectDisplayValues = computed(() => {
         </select>
       </template>
 
-      <template v-else-if="fieldType === 'multiSelect'">
+      <template v-else-if="fieldType === 'multi_select'">
         <MultiSelectField
           v-model="editValue as string[]"
           :field="field"
@@ -460,7 +471,7 @@ const multiSelectDisplayValues = computed(() => {
 
     <template v-else>
       <div class="cell-content">
-        <template v-if="fieldType === 'singleSelect' && cellValue">
+        <template v-if="fieldType === 'single_select' && cellValue">
           <span
             class="select-tag"
             :style="{ backgroundColor: getOptionColor(cellValue as string) }">
@@ -470,7 +481,7 @@ const multiSelectDisplayValues = computed(() => {
 
         <template
           v-else-if="
-            fieldType === 'multiSelect' &&
+            fieldType === 'multi_select' &&
             Array.isArray(cellValue) &&
             cellValue.length > 0
           ">
@@ -480,7 +491,7 @@ const multiSelectDisplayValues = computed(() => {
             class="select-tag"
             :style="{ backgroundColor: getOptionColor(val) }">
             {{
-              (field.options as FieldOptions)?.options?.find(
+              (field.options as FieldOptions)?.choices?.find(
                 (o) => o.id === val || o.name === val,
               )?.name || val
             }}

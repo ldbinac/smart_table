@@ -145,7 +145,7 @@ function compareSingleSelect(
   const aName = getSelectName(aVal);
   const bName = getSelectName(bVal);
 
-  const options = field.options?.options as
+  const options = field.options?.choices as
     | Array<{ id: string; name: string }>
     | undefined;
   if (options && options.length > 0) {

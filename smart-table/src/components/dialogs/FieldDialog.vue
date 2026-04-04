@@ -217,7 +217,7 @@ function openEditField(field: FieldEntity) {
     field.type === FieldType.MULTI_SELECT
   ) {
     selectOptions.value =
-      (field.options?.options as {
+      (field.options?.choices as {
         id: string;
         name: string;
         color: string;
@@ -280,7 +280,8 @@ async function createField() {
       newField.value.type === FieldType.SINGLE_SELECT ||
       newField.value.type === FieldType.MULTI_SELECT
     ) {
-      options.options = selectOptions.value.map((opt) => ({
+      // 后端期望的格式是 {choices: [...]}
+      options.choices = selectOptions.value.map((opt) => ({
         id: opt.id,
         name: opt.name,
         color: opt.color,
@@ -342,7 +343,8 @@ async function updateField() {
       newField.value.type === FieldType.SINGLE_SELECT ||
       newField.value.type === FieldType.MULTI_SELECT
     ) {
-      options.options = selectOptions.value.map((opt) => ({
+      // 后端期望的格式是 {choices: [...]}
+      options.choices = selectOptions.value.map((opt) => ({
         id: opt.id,
         name: opt.name,
         color: opt.color,

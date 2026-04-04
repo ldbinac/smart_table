@@ -179,8 +179,8 @@ function generateFormHtml(): string {
         case "checkbox":
           inputHtml = `<input type="checkbox" name="${field.id}"${required}>`;
           break;
-        case "singleSelect":
-          const options = (field.options?.options || []) as Array<{
+        case "single_select":
+          const options = (field.options?.choices || field.options?.options || []) as Array<{
             id: string;
             name: string;
           }>;
@@ -189,8 +189,8 @@ function generateFormHtml(): string {
             ${options.map((opt) => `<option value="${opt.id}">${opt.name}</option>`).join("")}
           </select>`;
           break;
-        case "multiSelect":
-          const multiOptions = (field.options?.options || []) as Array<{
+        case "multi_select":
+          const multiOptions = (field.options?.choices || field.options?.options || []) as Array<{
             id: string;
             name: string;
           }>;

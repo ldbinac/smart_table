@@ -30,7 +30,7 @@ const emit = defineEmits<{
 }>();
 
 const options = computed(() => {
-  return props.field?.options?.options ?? [];
+  return props.field?.options?.choices ?? [];
 });
 
 const selectedOptions = computed(() => {

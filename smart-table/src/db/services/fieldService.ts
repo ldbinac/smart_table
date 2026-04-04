@@ -2,6 +2,8 @@ import { db } from "../schema";
 import type { FieldEntity } from "../schema";
 import { generateId } from "../../utils/id";
 import type { CellValue, FieldOptions } from "../../types";
+import { fieldApiService } from "@/services/api/fieldApiService";
+import { normalizeFieldType, denormalizeFieldType } from "@/types/fields";
 
 export interface CreateFieldData {
   tableId: string;
@@ -40,32 +42,46 @@ export interface LookupFieldConfig {
 
 export class FieldService {
   async createField(data: CreateFieldData): Promise<FieldEntity> {
-    const fields = await db.fields
-      .where("tableId")
-      .equals(data.tableId)
-      .toArray();
-    const maxOrder =
-      fields.length > 0 ? Math.max(...fields.map((f) => f.order)) : -1;
+    try {
+      // 将前端类型转换为后端类型
+      const backendType = denormalizeFieldType(data.type);
+      
+      // 先调用后端 API 创建字段
+      const apiField = await fieldApiService.createField(data.tableId, {
+        name: data.name,
+        type: backendType,
+        isRequired: data.isRequired,
+        description: data.description,
+        options: data.options as Record<string, unknown>,
+      });
 
-    const field: FieldEntity = {
-      id: generateId(),
-      tableId: data.tableId,
-      name: data.name,
-      type: data.type,
-      options: data.options as Record<string, unknown> | undefined,
-      isPrimary: false,
-      isSystem: false,
-      isRequired: data.isRequired ?? false,
-      isVisible: true,
-      defaultValue: data.defaultValue,
-      description: data.description,
-      order: maxOrder + 1,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
+      // 将后端返回的字段类型转换为前端类型
+      const frontendType = normalizeFieldType(apiField.type);
+      
+      // 将后端返回的字段保存到本地 IndexedDB
+      const localField: FieldEntity = {
+        id: apiField.id,
+        tableId: data.tableId,
+        name: apiField.name,
+        type: frontendType,
+        options: apiField.options as Record<string, unknown> | undefined,
+        isPrimary: apiField.isPrimary || false,
+        isSystem: apiField.isSystem || false,
+        isRequired: apiField.isRequired || false,
+        isVisible: apiField.isVisible ?? true,
+        defaultValue: apiField.defaultValue,
+        description: apiField.description,
+        order: apiField.order ?? 0,
+        createdAt: new Date(apiField.createdAt).getTime(),
+        updatedAt: new Date(apiField.updatedAt).getTime(),
+      };
 
-    await db.fields.add(field);
-    return field;
+      await db.fields.add(localField);
+      return localField;
+    } catch (error) {
+      console.error("[fieldService] createField failed:", error);
+      throw error;
+    }
   }
 
   async getField(id: string): Promise<FieldEntity | undefined> {
@@ -73,14 +89,72 @@ export class FieldService {
   }
 
   async getFieldsByTable(tableId: string): Promise<FieldEntity[]> {
-    return db.fields.where("tableId").equals(tableId).sortBy("order");
+    try {
+      // 先从后端 API 获取最新数据
+      const apiFields = await fieldApiService.getFields(tableId);
+
+      // 将后端返回的字段保存到本地 IndexedDB
+      await db.transaction("rw", db.fields, async () => {
+        for (const apiField of apiFields) {
+          // 将后端返回的字段类型转换为前端类型
+          const frontendType = normalizeFieldType(apiField.type);
+          
+          const localField: FieldEntity = {
+            id: apiField.id,
+            tableId: apiField.table_id || tableId,
+            name: apiField.name,
+            type: frontendType,
+            options: apiField.options as Record<string, unknown> | undefined,
+            isPrimary: apiField.isPrimary || false,
+            isSystem: apiField.isSystem || false,
+            isRequired: apiField.isRequired || false,
+            isVisible: apiField.isVisible ?? true,
+            defaultValue: apiField.defaultValue,
+            description: apiField.description,
+            order: apiField.order ?? 0,
+            createdAt: new Date(apiField.createdAt).getTime(),
+            updatedAt: new Date(apiField.updatedAt).getTime(),
+          };
+
+          await db.fields.put(localField);
+        }
+      });
+
+      // 从本地 IndexedDB 返回排序后的字段列表
+      return db.fields.where("tableId").equals(tableId).sortBy("order");
+    } catch (error) {
+      console.error("[fieldService] getFieldsByTable failed:", error);
+      // 如果 API 调用失败，从本地缓存读取
+      return db.fields.where("tableId").equals(tableId).sortBy("order");
+    }
   }
 
   async updateField(id: string, changes: Partial<FieldEntity>): Promise<void> {
-    await db.fields.update(id, {
-      ...changes,
-      updatedAt: Date.now(),
-    });
+    try {
+      // 如果需要更新 type，先转换为后端类型
+      const apiChanges: Partial<FieldEntity> = { ...changes };
+      if (changes.type) {
+        apiChanges.type = denormalizeFieldType(changes.type);
+      }
+      
+      // 先调用后端 API 更新字段
+      await fieldApiService.updateField(id, apiChanges as any);
+
+      // 如果需要更新 type，转换为前端类型
+      const localChanges: Partial<FieldEntity> = { ...changes };
+      if (changes.type) {
+        localChanges.type = normalizeFieldType(changes.type);
+      }
+      
+      // 再更新本地 IndexedDB
+      await db.fields.update(id, {
+        ...localChanges,
+        updatedAt: Date.now(),
+      });
+    } catch (error) {
+      console.error("[fieldService] updateField failed:", error);
+      throw error;
+    }
   }
 
   async updateFieldOptions(id: string, options: FieldOptions): Promise<void> {
@@ -98,18 +172,27 @@ export class FieldService {
       throw new Error("Cannot delete system field");
     }
 
-    await db.transaction("rw", [db.fields, db.records], async () => {
-      const records = await db.records
-        .where("tableId")
-        .equals(field.tableId)
-        .toArray();
-      for (const record of records) {
-        const newValues = { ...record.values };
-        delete newValues[id];
-        await db.records.update(record.id, { values: newValues });
-      }
-      await db.fields.delete(id);
-    });
+    try {
+      // 先调用后端 API 删除字段
+      await fieldApiService.deleteField(id);
+
+      // 再从本地 IndexedDB 删除
+      await db.transaction("rw", [db.fields, db.records], async () => {
+        const records = await db.records
+          .where("tableId")
+          .equals(field.tableId)
+          .toArray();
+        for (const record of records) {
+          const newValues = { ...record.values };
+          delete newValues[id];
+          await db.records.update(record.id, { values: newValues });
+        }
+        await db.fields.delete(id);
+      });
+    } catch (error) {
+      console.error("[fieldService] deleteField failed:", error);
+      throw error;
+    }
   }
 
   async reorderFields(_tableId: string, fieldIds: string[]): Promise<void> {
@@ -138,14 +221,15 @@ export class FieldService {
     if (!field) return;
 
     const options =
-      (field.options?.options as Array<{
+      (field.options?.choices || field.options?.options) as Array<{
         id: string;
         name: string;
         color: string;
-      }>) || [];
+      }> || [];
     await this.updateFieldOptions(fieldId, {
       ...(field.options as FieldOptions),
-      options: [...options, option],
+      choices: [...options, option],
+      options: [...options, option], // 保持向后兼容
     });
   }
 
@@ -154,14 +238,16 @@ export class FieldService {
     if (!field) return;
 
     const options =
-      (field.options?.options as Array<{
+      (field.options?.choices || field.options?.options) as Array<{
         id: string;
         name: string;
         color: string;
-      }>) || [];
+      }> || [];
+    const filteredOptions = options.filter((opt) => opt.id !== optionId);
     await this.updateFieldOptions(fieldId, {
       ...(field.options as FieldOptions),
-      options: options.filter((opt) => opt.id !== optionId),
+      choices: filteredOptions,
+      options: filteredOptions, // 保持向后兼容
     });
   }
 

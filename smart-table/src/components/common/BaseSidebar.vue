@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useBaseStore } from "@/stores";
+import { useTableStore } from "@/stores/tableStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import type { Dashboard, TableEntity } from "@/db/schema";
 import { ElMessageBox } from "element-plus";
@@ -18,9 +19,9 @@ import {
 import Sortable from "sortablejs";
 
 const props = defineProps<{
-  // 当前选中的数据表ID
+  // 当前选中的数据表 ID
   currentTableId?: string;
-  // 当前选中的仪表盘ID
+  // 当前选中的仪表盘 ID
   currentDashboardId?: string;
   // 是否显示数据表列表
   showTables?: boolean;
@@ -56,6 +57,7 @@ const emit = defineEmits<{
 }>();
 
 const baseStore = useBaseStore();
+const tableStore = useTableStore();
 
 // 侧边栏展开/收缩状态
 const isCollapsed = ref(false);
@@ -78,10 +80,10 @@ const toggleSidebar = () => {
 // 过滤后的数据表列表
 const filteredTables = computed(() => {
   if (!searchKeyword.value.trim()) {
-    return baseStore.sortedTables;
+    return tableStore.tables;
   }
   const keyword = searchKeyword.value.toLowerCase();
-  return baseStore.sortedTables.filter((table) =>
+  return tableStore.tables.filter((table) =>
     table.name.toLowerCase().includes(keyword),
   );
 });

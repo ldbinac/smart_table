@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { User, LoginResponse } from '@/api/types';
+import { getToken, setToken as setAuthToken, clearToken as clearAuthToken } from '@/utils/auth/token';
 
 import { authService } from '@/services/api/authService';
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem('access_token') || null);
-  const refreshTokenValue = ref<string | null>(localStorage.getItem('refresh_token') || null);
+  const token = ref<string | null>(getToken());
+  const refreshTokenValue = ref<string | null>(getToken());
   const user = ref<User | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -18,17 +19,18 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = accessToken;
     if (refreshTok) {
       refreshTokenValue.value = refreshTok;
-      localStorage.setItem('refresh_token', refreshTok);
+      setAuthToken(accessToken, true);
+      setAuthToken(refreshTok, true);
+    } else {
+      setAuthToken(accessToken, true);
     }
-    localStorage.setItem('access_token', accessToken);
   }
 
   function clearToken() {
     token.value = null;
     refreshTokenValue.value = null;
     user.value = null;
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    clearAuthToken();
   }
 
   async function login(email: string, password: string): Promise<LoginResponse> {

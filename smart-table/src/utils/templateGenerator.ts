@@ -42,17 +42,17 @@ function getSampleValue(field: FieldEntity): any {
       return new Date().toISOString().slice(0, 16).replace("T", " ");
 
     case FieldType.SINGLE_SELECT:
-      const options = (field.options?.options as Array<{ name: string }>) || [];
-      return options[0]?.name || "选项1";
+      const options = (field.options?.choices || field.options?.options) as Array<{ name: string }> || [];
+      return options[0]?.name || "选项 1";
 
     case FieldType.MULTI_SELECT:
       const multiOptions =
-        (field.options?.options as Array<{ name: string }>) || [];
+        (field.options?.choices || field.options?.options) as Array<{ name: string }> || [];
       return (
         multiOptions
           .slice(0, 2)
           .map((o) => o.name)
-          .join(", ") || "选项1, 选项2"
+          .join(", ") || "选项 1, 选项 2"
       );
 
     case FieldType.CHECKBOX:
@@ -96,13 +96,13 @@ function getFieldDescription(field: FieldEntity): string {
       break;
     case FieldType.SINGLE_SELECT:
       const singleOptions =
-        (field.options?.options as Array<{ name: string }>) || [];
-      description = `单选，可选值: ${singleOptions.map((o) => o.name).join(", ")}`;
+        (field.options?.choices || field.options?.options) as Array<{ name: string }> || [];
+      description = `单选，可选值：${singleOptions.map((o) => o.name).join(", ")}`;
       break;
     case FieldType.MULTI_SELECT:
       const multiOptions =
-        (field.options?.options as Array<{ name: string }>) || [];
-      description = `多选，多个值用逗号分隔，可选值: ${multiOptions.map((o) => o.name).join(", ")}`;
+        (field.options?.choices || field.options?.options) as Array<{ name: string }> || [];
+      description = `多选，多个值用逗号分隔，可选值：${multiOptions.map((o) => o.name).join(", ")}`;
       break;
     case FieldType.CHECKBOX:
       description = "复选框，可填: 是/否、true/false、1/0";

@@ -1275,8 +1275,7 @@ class FormulaService:
         
         formula_fields = Field.query.filter_by(
             table_id=table_id,
-            field_type='formula',
-            is_active=True
+            type='formula'
         ).all()
         
         if not formula_fields:
@@ -1343,8 +1342,7 @@ class FormulaService:
         
         query = Field.query.filter_by(
             table_id=table_id,
-            field_type='formula',
-            is_active=True
+            type='formula'
         )
         
         if field_ids:

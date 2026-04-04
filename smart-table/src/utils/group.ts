@@ -179,7 +179,7 @@ function getGroupDisplayValue(key: string, field: FieldEntity): string {
 
   switch (field.type) {
     case FieldType.SINGLE_SELECT: {
-      const options = field.options?.options as
+      const options = field.options?.choices as
         | Array<{ id: string; name: string }>
         | undefined;
       if (options) {
@@ -191,7 +191,7 @@ function getGroupDisplayValue(key: string, field: FieldEntity): string {
 
     case FieldType.MULTI_SELECT:
     case FieldType.MEMBER: {
-      const options = field.options?.options as
+      const options = field.options?.choices as
         | Array<{ id: string; name: string }>
         | undefined;
       if (options) {
@@ -229,7 +229,7 @@ function sortGroups(
     field.type === FieldType.SINGLE_SELECT ||
     field.type === FieldType.MULTI_SELECT
   ) {
-    const options = field.options?.options as
+    const options = field.options?.choices as
       | Array<{ id: string; name: string }>
       | undefined;
     if (options) {

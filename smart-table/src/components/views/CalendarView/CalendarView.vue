@@ -65,8 +65,8 @@ const getSingleSelectDisplay = (
   field: FieldEntity,
   value: string,
 ): { name: string; color: string } | null => {
-  if (!field.options?.options) return null;
-  const options = field.options.options as Array<{
+  if (!field.options?.choices) return null;
+  const options = field.options.choices as Array<{
     id: string;
     name: string;
     color: string;

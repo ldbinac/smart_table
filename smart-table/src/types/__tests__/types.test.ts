@@ -17,8 +17,8 @@ describe("Field Types", () => {
     expect(FieldType.TEXT).toBe("text");
     expect(FieldType.NUMBER).toBe("number");
     expect(FieldType.DATE).toBe("date");
-    expect(FieldType.SINGLE_SELECT).toBe("singleSelect");
-    expect(FieldType.MULTI_SELECT).toBe("multiSelect");
+    expect(FieldType.SINGLE_SELECT).toBe("single_select");
+    expect(FieldType.MULTI_SELECT).toBe("multi_select");
     expect(FieldType.CHECKBOX).toBe("checkbox");
     expect(FieldType.ATTACHMENT).toBe("attachment");
     expect(FieldType.MEMBER).toBe("member");
