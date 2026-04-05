@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
-import { Setting, Share, Upload } from "@element-plus/icons-vue";
+import { Setting, Share, Upload, Document } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
@@ -33,6 +33,7 @@ import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { applyFilters, applySorts } from "@/utils";
 import Sortable from "sortablejs";
 import { dashboardService } from "@/db/services/dashboardService";
+import { tableService } from "@/db/services/tableService";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardView from "@/views/Dashboard.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
@@ -74,6 +75,9 @@ const visibleFields = computed(() => {
 
 // 创建数据表对话框显示状态
 const createTableDialogVisible = ref(false);
+
+// 数据表管理对话框显示状态
+const showTableManager = ref(false);
 
 // 创建仪表盘对话框显示状态
 const createDashboardDialogVisible = ref(false);
@@ -1078,8 +1082,8 @@ async function handleDeleteTable(table: { id: string; name: string }) {
   try {
     // 使用通用操作模块
     await deleteTable(table as TableEntity, async () => {
-      // 从 tableStore 中移除
-      tableStore.tables = tableStore.tables.filter((t) => t.id !== table.id);
+      // 刷新表格列表
+      await refreshTables();
       if (tableStore.currentTable?.id === table.id) {
         tableStore.currentTable = null;
         tableStore.fields = [];
@@ -1104,16 +1108,32 @@ async function handleToggleStarTable(table: {
   try {
     // 使用通用操作模块
     await toggleStarTable(table as TableEntity);
-    // 同步更新本地状态
-    const tableIndex = tableStore.tables.findIndex((t) => t.id === table.id);
-    if (tableIndex !== -1) {
-      tableStore.tables[tableIndex].isStarred = !table.isStarred;
-    }
-    if (tableStore.currentTable?.id === table.id) {
-      tableStore.currentTable.isStarred = !table.isStarred;
-    }
+    // 刷新表格列表
+    await refreshTables();
   } catch (error) {
     // 错误已经在通用模块中处理
+  }
+}
+
+// 处理复制数据表
+async function duplicateTable(table: { id: string; name: string }) {
+  try {
+    await tableService.duplicateTable(table.id);
+    // 刷新表格列表
+    await refreshTables();
+    ElMessage.success("数据表复制成功");
+  } catch (error: any) {
+    console.error("复制数据表失败:", error);
+    ElMessage.error("复制失败，请稍后重试");
+  }
+}
+
+// 刷新数据表列表
+async function refreshTables() {
+  if (baseStore.currentBase) {
+    tableStore.tables = await tableService.getTablesByBase(
+      baseStore.currentBase.id,
+    );
   }
 }
 
@@ -1292,7 +1312,8 @@ function handleImported() {
       @rename-dashboard="openRenameDashboardDialog"
       @delete-dashboard="handleDeleteDashboard"
       @toggle-star-dashboard="handleToggleStarDashboard"
-      @reorder-dashboards="handleReorderDashboards" />
+      @reorder-dashboards="handleReorderDashboards"
+      @manage-tables="showTableManager = true" />
 
     <!-- 仪表盘视图 -->
     <template v-if="route.path.includes('/dashboard/')">
@@ -1644,6 +1665,90 @@ function handleImported() {
           <el-button type="primary" @click="handleRenameTable">确定</el-button>
         </span>
       </template>
+    </el-dialog>
+
+    <!-- 数据表管理对话框 -->
+    <el-dialog
+      v-model="showTableManager"
+      title="数据表管理"
+      width="680px"
+      destroy-on-close
+      class="table-manager-dialog">
+      <div class="table-manager">
+        <div class="manager-header">
+          <el-button
+            type="primary"
+            class="create-btn"
+            @click="
+              openCreateTableDialog();
+              showTableManager = false;
+            ">
+            <el-icon><Plus /></el-icon>
+            新建数据表
+          </el-button>
+        </div>
+
+        <el-table
+          :data="tableStore.tables"
+          style="width: 100%"
+          class="manager-table">
+          <el-table-column prop="name" label="名称" min-width="160">
+            <template #default="{ row }">
+              <div class="table-name-cell">
+                <div class="table-icon">
+                  <el-icon><Document /></el-icon>
+                </div>
+                <span>{{ row.name }}</span>
+                <el-tag
+                  v-if="row.id === tableStore.currentTable?.id"
+                  size="small"
+                  type="primary"
+                  effect="light"
+                  >当前</el-tag
+                >
+                <el-tag
+                  v-if="row.isStarred"
+                  size="small"
+                  type="warning"
+                  effect="plain"
+                  class="star-tag"
+                  >已收藏</el-tag
+                >
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="description"
+            label="描述"
+            min-width="180"
+            show-overflow-tooltip />
+          <el-table-column prop="updatedAt" label="更新时间" width="140">
+            <template #default="{ row }">
+              {{ new Date(row.updatedAt).toLocaleString() }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                @click="
+                  handleTableSelect(row.id);
+                  showTableManager = false;
+                ">
+                打开
+              </el-button>
+              <el-button link @click="openRenameTableDialog(row)"
+                >编辑</el-button
+              >
+              <el-button link @click="duplicateTable(row)">复制</el-button>
+              <el-button link type="danger" @click="handleDeleteTable(row)"
+                >删除</el-button
+              >
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </el-dialog>
 
     <!-- 字段管理对话框 -->
@@ -2257,5 +2362,86 @@ function handleImported() {
 
 :deep(.delete-item) {
   color: $error-color;
+}
+
+// 数据表管理对话框样式
+.table-manager-dialog {
+  :deep(.el-dialog__header) {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid $gray-100;
+
+    .el-dialog__title {
+      font-size: 17px;
+      font-weight: 600;
+      color: $gray-800;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 20px 24px;
+  }
+}
+
+.table-manager {
+  .manager-header {
+    margin-bottom: 20px;
+
+    .create-btn {
+      padding: 0 16px;
+      border-radius: 10px;
+      font-weight: 500;
+      background: linear-gradient(135deg, $primary-color 0%, #6366f1 100%);
+      border: none;
+      box-shadow: 0 4px 14px rgba($primary-color, 0.35);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba($primary-color, 0.45);
+      }
+
+      .el-icon {
+        margin-right: 6px;
+      }
+    }
+  }
+}
+
+.manager-table {
+  :deep(th) {
+    font-weight: 600;
+    color: $gray-600;
+    background: $gray-50;
+  }
+
+  :deep(td) {
+    padding: 12px 0;
+  }
+}
+
+.table-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .table-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $primary-light;
+    border-radius: 8px;
+    color: $primary-color;
+  }
+
+  .el-tag {
+    margin-left: 6px;
+  }
+
+  .star-tag {
+    color: #f7ba2a;
+    border-color: #f7ba2a;
+  }
 }
 </style>

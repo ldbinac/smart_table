@@ -15,6 +15,7 @@ import {
   Edit,
   Delete,
   Plus,
+  Setting,
 } from "@element-plus/icons-vue";
 import Sortable from "sortablejs";
 
@@ -54,6 +55,10 @@ const emit = defineEmits<{
   (e: "reorder-dashboards", dashboardIds: string[]): void;
   // 数据表排序变更
   (e: "reorder-tables", evt: Sortable.SortableEvent): void;
+  // 打开仪表盘管理
+  (e: "manage-dashboards"): void;
+  // 打开数据表管理
+  (e: "manage-tables"): void;
 }>();
 
 const baseStore = useBaseStore();
@@ -187,6 +192,16 @@ const handleToggleStarDashboard = (dashboard: Dashboard) => {
   emit("toggle-star-dashboard", dashboard);
 };
 
+// 处理打开仪表盘管理
+const handleManageDashboards = () => {
+  emit("manage-dashboards");
+};
+
+// 处理打开数据表管理
+const handleManageTables = () => {
+  emit("manage-tables");
+};
+
 // 初始化仪表盘拖拽排序
 const initDashboardSortable = () => {
   if (!dashboardListRef.value) return;
@@ -283,8 +298,19 @@ defineExpose({
       v-if="showDashboards !== false && filteredDashboards.length > 0"
       class="dashboard-section">
       <div v-show="!isCollapsed" class="section-title">
-        仪表盘
-        <span class="section-count">({{ filteredDashboards.length }})</span>
+        <span class="title-text"
+          >仪表盘 &nbsp;<span class="section-count"
+            >({{ filteredDashboards.length }})</span
+          ></span
+        >
+
+        <el-button
+          v-if="currentDashboardId"
+          link
+          class="manage-btn"
+          @click.stop="handleManageDashboards">
+          <el-icon><Setting /></el-icon>
+        </el-button>
       </div>
       <div ref="dashboardListRef" class="dashboard-list">
         <template v-for="dashboard in filteredDashboards" :key="dashboard.id">
@@ -369,8 +395,19 @@ defineExpose({
       v-if="showTables !== false && filteredTables.length > 0"
       class="table-section">
       <div v-show="!isCollapsed" class="section-title">
-        数据表
-        <span class="section-count">({{ filteredTables.length }})</span>
+        <span class="title-text"
+          >数据表&nbsp;<span class="section-count"
+            >({{ filteredTables.length }})</span
+          ></span
+        >
+
+        <el-button
+          v-if="currentTableId"
+          link
+          class="manage-btn"
+          @click.stop="handleManageTables">
+          <el-icon><Setting /></el-icon>
+        </el-button>
       </div>
       <div ref="tableListRef" class="table-list">
         <template v-for="table in filteredTables" :key="table.id">
@@ -637,10 +674,40 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: $spacing-sm;
+  position: relative;
+
+  .title-text {
+    flex-shrink: 0;
+  }
 
   .section-count {
     font-weight: normal;
     color: $text-disabled;
+    flex-shrink: 0;
+  }
+
+  .manage-btn {
+    opacity: 0;
+    visibility: hidden;
+    transition: all $transition-fast;
+    padding: $spacing-xs;
+    color: $text-secondary;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      color: $primary-color;
+      background-color: rgba($primary-color, 0.1);
+    }
+  }
+
+  // 悬停时显示管理按钮
+  &:hover .manage-btn {
+    opacity: 1;
+    visibility: visible;
   }
 }
 

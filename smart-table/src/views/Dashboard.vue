@@ -2301,7 +2301,8 @@ onUnmounted(() => {
       @rename-dashboard="handleRenameDashboard"
       @delete-dashboard="handleDeleteDashboard"
       @toggle-star-dashboard="handleToggleStarDashboard"
-      @reorder-dashboards="handleReorderDashboards" />
+      @reorder-dashboards="handleReorderDashboards"
+      @manage-dashboards="showDashboardManager = true" />
 
     <div class="dashboard-main">
       <!-- 顶部工具栏 -->

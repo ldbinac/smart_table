@@ -47,7 +47,15 @@ export default defineConfig({
         ws: true,
         followRedirects: true,
         configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq, req) => {
+          proxy.on("proxyReq", (proxyReq, req: any) => {
+            // 保留原始请求的所有头信息，包括 Authorization
+            const headers = req.headers;
+            if (headers.authorization) {
+              proxyReq.setHeader("Authorization", headers.authorization);
+            }
+            if (headers["content-type"]) {
+              proxyReq.setHeader("Content-Type", headers["content-type"]);
+            }
             proxyReq.setHeader("Origin", "http://localhost:5000");
             proxyReq.setHeader("Referer", "http://localhost:5000/");
           });

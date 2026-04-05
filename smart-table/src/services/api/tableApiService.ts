@@ -24,8 +24,8 @@ export const deleteTable = async (id: string): Promise<void> => {
   await apiClient.delete<void>(`/tables/${id}`);
 };
 
-export const duplicateTable = async (id: string): Promise<Table> => {
-  return apiClient.post<Table>(`/tables/${id}/duplicate`);
+export const duplicateTable = async (id: string, data?: { name?: string }): Promise<Table> => {
+  return apiClient.post<Table>(`/tables/${id}/duplicate`, data || {});
 };
 
 export const reorderTables = async (

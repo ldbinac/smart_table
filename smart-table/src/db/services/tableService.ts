@@ -2,6 +2,8 @@ import { db } from "../schema";
 import type { TableEntity, FieldEntity, ViewEntity } from "../schema";
 import { generateId } from "../../utils/id";
 import { tableApiService } from "@/services/api/tableApiService";
+import { fieldService } from "./fieldService";
+import { viewService } from "./viewService";
 
 export interface CreateTableData {
   baseId: string;
@@ -196,6 +198,38 @@ export class TableService {
         isStarred: !table.isStarred,
         updatedAt: Date.now(),
       });
+    }
+  }
+
+  async duplicateTable(id: string, newName?: string): Promise<TableEntity> {
+    try {
+      // 调用后端 API 复制表格
+      const apiTable = await tableApiService.duplicateTable(id, newName ? { name: newName } : undefined);
+
+      // 将后端返回的表格保存到本地 IndexedDB
+      const localTable: TableEntity = {
+        id: apiTable.id,
+        baseId: apiTable.base_id,
+        name: apiTable.name,
+        description: apiTable.description,
+        primaryFieldId: apiTable.primary_field_id,
+        recordCount: apiTable.record_count || 0,
+        order: apiTable.order ?? 0,
+        isStarred: apiTable.is_starred || false,
+        createdAt: new Date(apiTable.created_at).getTime(),
+        updatedAt: new Date(apiTable.updated_at).getTime(),
+      };
+
+      await db.tableEntities.add(localTable);
+
+      // 复制字段和视图（后端已经复制，这里从后端获取并保存到本地）
+      await fieldService.getFieldsByTable(apiTable.id);
+      await viewService.getViewsByTable(apiTable.id, true);
+
+      return localTable;
+    } catch (error) {
+      console.error("[tableService] duplicateTable failed:", error);
+      throw error;
     }
   }
 }
