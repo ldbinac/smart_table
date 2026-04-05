@@ -55,11 +55,6 @@ const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
 const newRecordId = ref(generateId());
 
-// 获取主键字段（从所有字段中查找，包括隐藏的）
-const primaryField = computed(() => {
-  return props.fields.find((f) => f.isPrimary) || props.fields[0];
-});
-
 // 可见字段（用于显示）
 const visibleFields = computed(() => {
   return props.fields.filter((f) => f.isVisible !== false);
@@ -71,11 +66,6 @@ watch(
   (isVisible) => {
     if (isVisible) {
       formData.value = {};
-
-      // 为主键字段自动生成唯一ID
-      if (primaryField.value) {
-        formData.value[primaryField.value.id] = generateId();
-      }
 
       // 如果有分组信息，自动填充分组字段
       if (
@@ -292,11 +282,6 @@ function getAutoFilledValue(field: FieldEntity): string | undefined {
   return props.groupId;
 }
 
-// 检查字段是否为主键字段
-function isPrimaryField(field: FieldEntity): boolean {
-  return primaryField.value?.id === field.id;
-}
-
 // 获取只读字段的显示值
 function getReadonlyDisplayValue(field: FieldEntity): string {
   const value = formData.value[field.id];
@@ -414,20 +399,10 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
         :required="
           field.isRequired &&
           !isReadonlyField(field) &&
-          !isPrimaryField(field) &&
           !isAutoFilledField(field)
         ">
-        <!-- 主键字段 - 自动生成ID且只读 -->
-        <template v-if="isPrimaryField(field)">
-          <ElInput
-            :model-value="String(formData[field.id] || '')"
-            disabled
-            :placeholder="`自动生成${field.name}`" />
-          <span class="auto-filled-hint">系统自动生成唯一标识，不可修改</span>
-        </template>
-
         <!-- 只读字段（系统字段、公式字段等） -->
-        <template v-else-if="isReadonlyField(field)">
+        <template v-if="isReadonlyField(field)">
           <template v-if="field.type === FieldType.FORMULA">
             <div class="formula-field-wrapper">
               <ElInput

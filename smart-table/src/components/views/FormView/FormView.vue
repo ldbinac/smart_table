@@ -37,16 +37,6 @@ const isSubmitting = ref(false);
 const submitSuccess = ref(false);
 const newRecordId = ref(generateId());
 
-// 获取主键字段
-const primaryField = computed(() => {
-  return props.fields.find((f) => f.isPrimary) || props.fields[0];
-});
-
-// 检查字段是否为主键字段
-function isPrimaryField(field: FieldEntity): boolean {
-  return primaryField.value?.id === field.id;
-}
-
 const visibleFields = computed(() => {
   // 首先过滤掉 isVisible 为 false 的字段
   let fields = props.fields.filter((f) => f.isVisible !== false);
@@ -97,11 +87,6 @@ watch(
 );
 
 function validateField(field: FieldEntity, value: CellValue): string | null {
-  // 主键字段跳过验证（自动生成）
-  if (isPrimaryField(field)) {
-    return null;
-  }
-
   // 必填验证 - 支持 field.isRequired 和 field.options.required
   if (isFieldRequired(field) && isValueEmpty(value)) {
     return `请填写必填字段：${field.name}`;
@@ -265,14 +250,9 @@ function resetForm() {
   submitSuccess.value = false;
   newRecordId.value = generateId();
 
-  // 为主键字段自动生成唯一ID
-  if (primaryField.value && !props.record) {
-    formValues.value[primaryField.value.id] = generateId();
-  }
-
   // 设置默认值
   visibleFields.value.forEach((field) => {
-    if (field.options?.defaultValue !== undefined && !isPrimaryField(field)) {
+    if (field.options?.defaultValue !== undefined) {
       formValues.value[field.id] = field.options.defaultValue as CellValue;
     }
   });
@@ -519,39 +499,20 @@ defineExpose({
           class="form-item"
           :class="{
             'has-error': formErrors[field.id],
-            'is-readonly': readonly || isPrimaryField(field),
+            'is-readonly': readonly,
           }">
           <label class="form-label">
             {{ field.name }}
             <span
-              v-if="
-                field.options?.required && !readonly && !isPrimaryField(field)
-              "
+              v-if="field.options?.required && !readonly"
               class="required-mark"
               >*</span
             >
           </label>
 
           <div class="form-control">
-            <!-- 主键字段 - 自动生成ID且只读 -->
-            <template v-if="isPrimaryField(field)">
-              <el-input
-                :model-value="String(formValues[field.id] || '')"
-                disabled
-                :placeholder="`自动生成${field.name}`"
-                class="primary-field-input">
-                <template #prefix>
-                  <el-icon><Key /></el-icon>
-                </template>
-              </el-input>
-              <span class="auto-filled-hint">
-                <el-icon><InfoFilled /></el-icon>
-                系统自动生成唯一标识，不可修改
-              </span>
-            </template>
-
             <!-- 文本类型 -->
-            <template v-else-if="getFieldComponentType(field) === 'text'">
+            <template v-if="getFieldComponentType(field) === 'text'">
               <el-input
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
@@ -704,9 +665,7 @@ defineExpose({
           </div>
 
           <div
-            v-if="
-              field.options?.description && !readonly && !isPrimaryField(field)
-            "
+            v-if="field.options?.description && !readonly"
             class="form-field-description">
             <el-icon><InfoFilled /></el-icon>
             <span>{{ field.options.description }}</span>

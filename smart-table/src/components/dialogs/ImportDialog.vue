@@ -216,14 +216,6 @@ async function handleImport() {
           // 转换数据
           const values = convertImportData(row, fieldMappings.value);
 
-          // 自动填充主键值
-          if (primaryField.value) {
-            // 如果用户没有提供主键值，则自动生成
-            if (!values[primaryField.value.id]) {
-              values[primaryField.value.id] = generateId();
-            }
-          }
-
           // 验证数据
           const validation = validateRow(values, availableFields.value);
           if (!validation.valid) {

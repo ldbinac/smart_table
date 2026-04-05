@@ -38,16 +38,6 @@ const formConfig = ref({
   allowMultipleSubmit: true,
 });
 
-// 获取主键字段
-const primaryField = computed(() => {
-  return fields.value.find((f) => f.isPrimary) || fields.value[0];
-});
-
-// 检查字段是否为主键字段
-function isPrimaryField(field: FieldEntity): boolean {
-  return primaryField.value?.id === field.id;
-}
-
 // 可见字段（根据表单配置和表格配置综合判断）
 const visibleFields = computed(() => {
   const systemFieldTypes: FieldTypeValue[] = [
@@ -235,8 +225,6 @@ async function loadTableData(id: string) {
 
 // 验证字段
 function validateField(field: FieldEntity, value: CellValue): string | null {
-  if (isPrimaryField(field)) return null;
-
   if (
     field.options?.required &&
     (value === null || value === undefined || value === "" || value === false)
@@ -354,14 +342,9 @@ function resetForm() {
   formErrors.value = {};
   newRecordId.value = generateId();
 
-  // 为主键字段生成ID
-  if (primaryField.value) {
-    formValues.value[primaryField.value.id] = generateId();
-  }
-
   // 设置默认值
   visibleFields.value.forEach((field) => {
-    if (field.options?.defaultValue !== undefined && !isPrimaryField(field)) {
+    if (field.options?.defaultValue !== undefined) {
       formValues.value[field.id] = field.options.defaultValue as CellValue;
     }
   });
@@ -538,27 +521,15 @@ function handleDateChange(fieldId: string, val: Date | null) {
           <label class="form-label">
             {{ field.name }}
             <span
-              v-if="field.options?.required && !isPrimaryField(field)"
+              v-if="field.options?.required"
               class="required-mark"
               >*</span
             >
           </label>
 
           <div class="form-control">
-            <!-- 主键字段 -->
-            <template v-if="isPrimaryField(field)">
-              <el-input
-                :model-value="String(formValues[field.id] || '')"
-                disabled
-                :placeholder="`自动生成${field.name}`"
-                class="primary-field-input" />
-              <span class="auto-filled-hint"
-                >系统自动生成唯一标识，不可修改</span
-              >
-            </template>
-
             <!-- 文本类型 -->
-            <template v-else-if="getFieldComponentType(field) === 'text'">
+            <template v-if="getFieldComponentType(field) === 'text'">
               <el-input
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
@@ -677,7 +648,7 @@ function handleDateChange(fieldId: string, val: Date | null) {
           </div>
 
           <div
-            v-if="field.options?.description && !isPrimaryField(field)"
+            v-if="field.options?.description"
             class="form-field-description">
             {{ field.options.description }}
           </div>
