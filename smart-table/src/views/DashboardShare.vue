@@ -62,10 +62,37 @@ async function validateShare() {
 
   shareInfo.value = result.share!;
 
+  // 如果返回了 dashboard 数据，直接使用（跨浏览器场景）
+  if (result.dashboard) {
+    console.log(
+      "[DashboardShare] 使用后端返回的 dashboard 数据（跨浏览器场景）",
+    );
+    dashboard.value = result.dashboard;
+    widgets.value = (result.dashboard.widgets || []) as WidgetConfig[];
+    layoutType.value = result.dashboard.layoutType || "grid";
+    gridColumns.value = (result.dashboard.gridColumns as 12 | 24) || 12;
+
+    // 加载所有相关表的数据（字段和记录）
+    const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
+    console.log("[DashboardShare] 需要加载的表 IDs:", tableIds);
+
+    for (const tableId of tableIds) {
+      await loadTableData(tableId);
+    }
+
+    isLoading.value = false;
+
+    // 渲染组件
+    nextTick(() => {
+      widgets.value.forEach((widget) => renderWidget(widget));
+    });
+    return;
+  }
+
   // 记录访问
   await dashboardShareService.recordAccess(result.share!.id);
 
-  // 加载仪表盘数据
+  // 加载仪表盘数据（本地缓存场景）
   await loadDashboard(result.share!.dashboardId);
 }
 
@@ -111,16 +138,34 @@ const tableRecordsMap = ref<Map<string, any[]>>(new Map());
 
 async function loadTableData(tableId: string) {
   if (tableFieldsMap.value.has(tableId) && tableRecordsMap.value.has(tableId)) {
+    console.log(`[DashboardShare] 表 ${tableId} 数据已加载，跳过`);
     return;
   }
 
-  const [fields, records] = await Promise.all([
-    fieldService.getFieldsByTable(tableId),
-    recordService.getRecordsByTable(tableId),
-  ]);
+  try {
+    console.log(`[DashboardShare] 开始加载表 ${tableId} 数据...`);
 
-  tableFieldsMap.value.set(tableId, fields);
-  tableRecordsMap.value.set(tableId, records);
+    // 优先从本地读取字段数据
+    const fields = await fieldService.getFieldsByTable(tableId);
+    console.log(`[DashboardShare] 加载到 ${fields.length} 个字段`);
+    tableFieldsMap.value.set(tableId, fields);
+
+    // 尝试从本地读取记录数据
+    const records = await recordService.getRecordsByTable(tableId);
+    console.log(`[DashboardShare] 加载到 ${records.length} 条记录`);
+    tableRecordsMap.value.set(tableId, records);
+
+    if (fields.length === 0 || records.length === 0) {
+      console.warn(
+        `[DashboardShare] 表 ${tableId} 数据为空！检查 IndexedDB 中是否有数据`,
+      );
+    }
+  } catch (error) {
+    console.error(`加载表 ${tableId} 数据失败:`, error);
+    // 如果加载失败，使用空数据
+    tableFieldsMap.value.set(tableId, []);
+    tableRecordsMap.value.set(tableId, []);
+  }
 }
 
 // 提交访问密码

@@ -101,7 +101,10 @@ export class RecordService {
     } catch (error) {
       console.error("[recordService] getRecordsByTable failed:", error);
       // 如果 API 调用失败，从本地缓存读取
-      return db.records.where("tableId").equals(tableId).toArray();
+      console.log(`[recordService] 从本地缓存读取表 ${tableId} 的记录...`);
+      const records = await db.records.where("tableId").equals(tableId).toArray();
+      console.log(`[recordService] 从本地缓存读取到 ${records.length} 条记录`);
+      return records;
     }
   }
 

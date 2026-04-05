@@ -62,6 +62,7 @@ def register_blueprints(app):
     from app.routes.records import records_bp
     from app.routes.views import views_bp
     from app.routes.dashboards import dashboards_bp
+    from app.routes.dashboards_share import dashboards_share_bp
     from app.routes.attachments import attachments_bp
     from app.routes.import_export import import_export_bp
     
@@ -85,6 +86,9 @@ def register_blueprints(app):
     
     # 注册仪表盘蓝图 (路由中已包含完整路径)
     app.register_blueprint(dashboards_bp, url_prefix='/api')
+    
+    # 注册仪表盘分享蓝图 (路由中已包含完整路径)
+    app.register_blueprint(dashboards_share_bp, url_prefix='/api')
     
     # 注册附件蓝图
     app.register_blueprint(attachments_bp, url_prefix='/api/attachments')

@@ -165,7 +165,7 @@ export class DashboardService {
 
   async getDashboardsByBase(
     baseId: string,
-    forceRefresh: boolean = false,
+    forceRefresh: boolean = true, // 默认强制刷新
   ): Promise<Dashboard[]> {
     try {
       // 如果需要强制刷新，先清空本地缓存
@@ -173,18 +173,8 @@ export class DashboardService {
         await db.dashboards.where('baseId').equals(baseId).delete();
       }
 
-      // 先从本地 IndexedDB 读取
-      const localDashboards = await db.dashboards
-        .where('baseId')
-        .equals(baseId)
-        .sortBy('order');
-
-      // 如果本地有数据且不需要强制刷新，直接返回
-      if (localDashboards.length > 0 && !forceRefresh) {
-        return localDashboards;
-      }
-
-      // 本地没有数据或需要强制刷新，从后端 API 获取
+      // 始终优先从后端 API 获取最新数据
+      console.log('[DashboardService] Fetching dashboards from API for base:', baseId);
       const apiDashboards = await dashboardApiService.getDashboards(baseId);
 
       // 将后端返回的仪表盘转换为本地格式并保存
@@ -222,10 +212,12 @@ export class DashboardService {
         .where('baseId')
         .equals(baseId)
         .sortBy('order');
+      console.log('[DashboardService] Loaded', dashboards.length, 'dashboards from API');
       return dashboards;
     } catch (error) {
-      console.error('[dashboardService] getDashboardsByBase failed:', error);
-      // 如果 API 调用失败，从本地缓存读取
+      console.error('[DashboardService] getDashboardsByBase failed:', error);
+      // 如果 API 调用失败，从本地缓存读取（降级处理）
+      console.warn('[DashboardService] API failed, falling back to local cache');
       const dashboards = await db.dashboards
         .where('baseId')
         .equals(baseId)
@@ -285,6 +277,11 @@ export class DashboardService {
   }
 
   async updateDashboardWidgets(id: string, widgets: WidgetConfig[]): Promise<void> {
+    console.log('[DashboardService] updateDashboardWidgets called:', {
+      id,
+      widgetCount: widgets.length,
+      firstWidget: widgets[0]
+    });
     await this.updateDashboard(id, { widgets: widgets as unknown[] });
   }
 

@@ -125,7 +125,10 @@ export class FieldService {
     } catch (error) {
       console.error("[fieldService] getFieldsByTable failed:", error);
       // 如果 API 调用失败，从本地缓存读取
-      return db.fields.where("tableId").equals(tableId).sortBy("order");
+      console.log(`[fieldService] 从本地缓存读取表 ${tableId} 的字段...`);
+      const fields = await db.fields.where("tableId").equals(tableId).sortBy("order");
+      console.log(`[fieldService] 从本地缓存读取到 ${fields.length} 个字段`);
+      return fields;
     }
   }
 

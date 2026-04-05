@@ -8,6 +8,7 @@ import {
   dashboardRealtimeService,
   type WidgetConfig,
 } from "@/db/services";
+import { dashboardApiService } from "@/services/api/dashboardApiService";
 import { dashboardShareService } from "@/db/services/dashboardShareService";
 import type { DashboardShare, DashboardTemplate } from "@/db/schema";
 import { recordService } from "@/db/services/recordService";
@@ -313,10 +314,26 @@ async function loadDashboards() {
 
 // 选择仪表盘
 async function selectDashboard(dashboard: Dashboard) {
-  currentDashboard.value = dashboard;
-  widgets.value = (dashboard.widgets || []) as WidgetConfig[];
-  layoutType.value = dashboard.layoutType || "grid";
-  gridColumns.value = (dashboard.gridColumns as 12 | 24) || 12;
+  // 从后端获取最新的仪表盘详情（包含完整的组件信息）
+  try {
+    const freshDashboard = await dashboardApiService.getDashboard(dashboard.id);
+    // 使用后端返回的最新数据
+    currentDashboard.value = {
+      ...dashboard,
+      widgets: (freshDashboard.widgets as unknown[]) || [],
+      layout: freshDashboard.layout || {},
+      layoutType: (freshDashboard.layout?.type as 'grid' | 'free') || 'grid',
+      gridColumns: freshDashboard.layout?.config?.gridColumns || 12,
+    };
+  } catch (error) {
+    console.error('[Dashboard] Failed to fetch fresh dashboard data, using cached:', error);
+    // 如果获取失败，使用缓存的数据
+    currentDashboard.value = dashboard;
+  }
+  
+  widgets.value = (currentDashboard.value.widgets || []) as WidgetConfig[];
+  layoutType.value = currentDashboard.value.layoutType || "grid";
+  gridColumns.value = (currentDashboard.value.gridColumns as 12 | 24) || 12;
 
   // 初始化布局引擎
   layoutEngine.value = new DashboardLayoutEngine({

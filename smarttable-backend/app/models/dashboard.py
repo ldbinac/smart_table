@@ -99,6 +99,8 @@ class Dashboard(db.Model):
         lazy='joined'
     )
 
+    shares = relationship('DashboardShare', back_populates='dashboard', cascade='all, delete-orphan')
+
     def to_dict(self, include_widgets: bool = True) -> dict:
         result = {
             'id': str(self.id),

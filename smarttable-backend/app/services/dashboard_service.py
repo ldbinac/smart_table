@@ -67,7 +67,8 @@ class DashboardService:
             name=data.get('name', '未命名仪表盘'),
             description=data.get('description'),
             is_default=data.get('is_default', False),
-            layout=data.get('layout', {})
+            layout=data.get('layout', {}),
+            widgets=data.get('widgets', [])
         )
         
         db.session.add(dashboard)
@@ -82,7 +83,7 @@ class DashboardService:
         
         参数:
             dashboard_id: 仪表盘 ID
-            data: 更新数据，包含 name, description, layout, is_default 等
+            data: 更新数据，包含 name, description, layout, is_default, widgets 等
             
         返回:
             更新后的仪表盘对象，如果不存在返回 None
@@ -99,11 +100,20 @@ class DashboardService:
             ).update({'is_default': False})
         
         # 允许更新的字段
-        allowed_fields = ['name', 'description', 'layout', 'is_default']
+        allowed_fields = ['name', 'description', 'layout', 'is_default', 'widgets']
         
+        # 记录更新的字段
+        update_log = []
         for field in allowed_fields:
             if field in data:
                 setattr(dashboard, field, data[field])
+                update_log.append(field)
+        
+        print(f"[DashboardService] Updating dashboard {dashboard_id} with fields: {update_log}")
+        if 'widgets' in data:
+            print(f"[DashboardService] Widgets data: {len(data['widgets'])} widgets")
+            if data['widgets']:
+                print(f"[DashboardService] First widget: {data['widgets'][0] if data['widgets'] else 'None'}")
         
         dashboard.updated_at = datetime.utcnow()
         db.session.commit()
