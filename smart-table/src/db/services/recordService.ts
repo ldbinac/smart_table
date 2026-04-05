@@ -3,6 +3,7 @@ import type { RecordEntity } from "../schema";
 import type { CellValue } from "../../types";
 import { tableService } from "./tableService";
 import { recordApiService } from "@/services/api/recordApiService";
+import { generateId } from "../../utils/id";
 import {
   serializeRecordValues,
   deserializeRecordValues,
@@ -48,6 +49,34 @@ export class RecordService {
       return localRecord;
     } catch (error) {
       console.error("[recordService] createRecord failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 只保存到本地 IndexedDB，不调用后端 API
+   * 用于从模板创建记录等场景
+   */
+  async createRecordLocalOnly(data: CreateRecordData): Promise<RecordEntity> {
+    try {
+      const localRecord: RecordEntity = {
+        id: data.id || generateId(),
+        tableId: data.tableId,
+        values: data.values as Record<string, CellValue>,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdBy: data.createdBy,
+        updatedBy: data.updatedBy,
+      };
+
+      await db.transaction("rw", [db.records, db.tableEntities], async () => {
+        await db.records.add(localRecord);
+        await tableService.updateRecordCount(data.tableId);
+      });
+
+      return localRecord;
+    } catch (error) {
+      console.error("[recordService] createRecordLocalOnly failed:", error);
       throw error;
     }
   }

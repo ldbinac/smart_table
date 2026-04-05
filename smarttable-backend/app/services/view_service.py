@@ -105,9 +105,12 @@ class ViewService:
         Returns:
             更新后的视图对象
         """
+        from sqlalchemy.orm.attributes import flag_modified
+        
         # 直接映射的字段（字段名相同）
         direct_fields = ['name', 'config', 'filters', 
-                        'hidden_fields', 'field_widths', 'order', 'description']
+                        'hidden_fields', 'frozen_fields', 'row_height', 
+                        'is_default', 'field_widths', 'order', 'description']
         
         for key in direct_fields:
             if key in kwargs:

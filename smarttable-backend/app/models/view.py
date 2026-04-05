@@ -110,6 +110,27 @@ class View(db.Model):
         nullable=True,
         default=dict
     )
+    # 新增字段支持
+    hidden_fields: Mapped[Optional[List[str]]] = mapped_column(
+        JSON,
+        nullable=True,
+        default=list
+    )
+    frozen_fields: Mapped[Optional[List[str]]] = mapped_column(
+        JSON,
+        nullable=True,
+        default=list
+    )
+    row_height: Mapped[str] = mapped_column(
+        String(20),
+        default='medium',
+        nullable=False
+    )
+    field_widths: Mapped[Optional[Dict[str, int]]] = mapped_column(
+        JSON,
+        nullable=True,
+        default=dict
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -173,6 +194,11 @@ class View(db.Model):
             'group_bys': group_bys,  # 添加 group_bys 字段
             'group_config': self.group_config or {},
             'field_visibility': self.field_visibility or {},
+            # 新增字段
+            'hidden_fields': self.hidden_fields or [],
+            'frozen_fields': self.frozen_fields or [],
+            'row_height': self.row_height or 'medium',
+            'field_widths': self.field_widths or {},
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

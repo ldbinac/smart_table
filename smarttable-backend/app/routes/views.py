@@ -26,6 +26,13 @@ class ViewCreateSchema(Schema):
     sorts = fields.List(fields.Dict(), missing=list)
     group_bys = fields.List(fields.String(), missing=list)
     description = fields.String(missing='')
+    # 新增字段支持
+    hidden_fields = fields.List(fields.String(), missing=list)
+    frozen_fields = fields.List(fields.String(), missing=list)
+    row_height = fields.String(missing='medium', validate=validate.OneOf(['small', 'medium', 'large']))
+    is_default = fields.Boolean(missing=False)
+    field_widths = fields.Dict(missing=dict)
+    order = fields.Integer(missing=0)
 
 
 class ViewUpdateSchema(Schema):
@@ -37,6 +44,9 @@ class ViewUpdateSchema(Schema):
     group_bys = fields.List(fields.String())
     group_config = fields.Dict()
     hidden_fields = fields.List(fields.String())
+    frozen_fields = fields.List(fields.String())
+    row_height = fields.String(validate=validate.OneOf(['small', 'medium', 'large']))
+    is_default = fields.Boolean()
     field_widths = fields.Dict()
     order = fields.Integer()
     description = fields.String()
@@ -105,11 +115,24 @@ def create_view(table_id):
             group_bys=json_data.get('group_bys', [])
         )
         
-        # 更新描述（如果提供）
+        # 更新其他可选字段
+        from app.extensions import db
         if json_data.get('description'):
             view.description = json_data['description']
-            from app.extensions import db
-            db.session.commit()
+        if json_data.get('hidden_fields') is not None:
+            view.hidden_fields = json_data['hidden_fields']
+        if json_data.get('frozen_fields') is not None:
+            view.frozen_fields = json_data['frozen_fields']
+        if json_data.get('row_height'):
+            view.row_height = json_data['row_height']
+        if json_data.get('is_default') is not None:
+            view.is_default = json_data['is_default']
+        if json_data.get('field_widths'):
+            view.field_widths = json_data['field_widths']
+        if json_data.get('order') is not None:
+            view.order = json_data['order']
+        
+        db.session.commit()
         
         return success_response(view.to_dict(), '视图创建成功', 201)
     

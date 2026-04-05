@@ -11,18 +11,26 @@ export interface CreateBaseData {
 
 export class BaseService {
   async createBase(data: CreateBaseData): Promise<Base> {
+    const now = Date.now();
     const base: Base = {
       id: generateId(),
       name: data.name,
-      description: data.description,
-      icon: data.icon,
-      color: data.color,
+      description: data.description || '',
+      icon: data.icon || '',
+      color: data.color || '#409EFF',
       isStarred: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: now,
+      updatedAt: now
     };
-    await db.bases.add(base);
-    return base;
+    
+    try {
+      await db.bases.add(base);
+      // 返回一个简单的对象，避免克隆问题
+      return { ...base };
+    } catch (error) {
+      console.error('[baseService] createBase failed:', error);
+      throw error;
+    }
   }
 
   async getBase(id: string): Promise<Base | undefined> {

@@ -170,8 +170,8 @@ const hasSearchResults = computed(() => {
 const filteredTemplates = computed(() => {
   const query = templateSearchQuery.value.trim().toLowerCase();
   if (!query) return tableTemplates;
-  return tableTemplates.filter(template => 
-    template.name.toLowerCase().includes(query)
+  return tableTemplates.filter((template) =>
+    template.name.toLowerCase().includes(query),
   );
 });
 
@@ -431,29 +431,29 @@ function isTemplateLoading(templateId: string): boolean {
 // 获取字段类型颜色
 function getFieldTypeColor(type: string): string {
   const colors: Record<string, string> = {
-    text: '#3B82F6',
-    number: '#10B981',
-    date: '#F59E0B',
-    single_select: '#8B5CF6',
-    multi_select: '#8B5CF6',
-    checkbox: '#EF4444',
-    attachment: '#06B6D4',
-    member: '#EC4899',
-    rating: '#F59E0B',
-    progress: '#10B981',
-    phone: '#3B82F6',
-    email: '#10B981',
-    url: '#8B5CF6',
-    formula: '#EF4444',
-    link: '#06B6D4',
-    lookup: '#EC4899',
-    createdBy: '#3B82F6',
-    createdTime: '#10B981',
-    updatedBy: '#8B5CF6',
-    updatedTime: '#EF4444',
-    autoNumber: '#06B6D4'
+    text: "#3B82F6",
+    number: "#10B981",
+    date: "#F59E0B",
+    single_select: "#8B5CF6",
+    multi_select: "#8B5CF6",
+    checkbox: "#EF4444",
+    attachment: "#06B6D4",
+    member: "#EC4899",
+    rating: "#F59E0B",
+    progress: "#10B981",
+    phone: "#3B82F6",
+    email: "#10B981",
+    url: "#8B5CF6",
+    formula: "#EF4444",
+    link: "#06B6D4",
+    lookup: "#EC4899",
+    createdBy: "#3B82F6",
+    createdTime: "#10B981",
+    updatedBy: "#8B5CF6",
+    updatedTime: "#EF4444",
+    autoNumber: "#06B6D4",
   };
-  return colors[type] || '#6B7280';
+  return colors[type] || "#6B7280";
 }
 
 // 获取字段类型名称（使用导入的函数）
@@ -477,14 +477,48 @@ function closePreview() {
 async function handleUseTemplate(template: TableTemplate) {
   templateLoadingMap.value.set(template.id, true);
 
+  // 显示进度提示
+  const loadingMsg = ElMessage({
+    message: "正在创建多维表...",
+    type: "info",
+    duration: 0, // 不自动关闭
+    icon: "Loading",
+  });
+
+  let currentMsg = loadingMsg;
+
   try {
-    const base = await templateService.createBaseFromTemplate(template);
-    await baseStore.loadBases();
+    const base = await templateService.createBaseFromTemplate(
+      template,
+      (progress) => {
+        // 更新进度提示
+        if (currentMsg) {
+          currentMsg.close();
+        }
+        currentMsg = ElMessage({
+          message: `${progress.message} (${progress.progress}%)`,
+          type: "info",
+          duration: 0,
+          icon: "Loading",
+        });
+      },
+    );
+
+    // 创建成功，关闭进度提示
+    if (currentMsg) {
+      currentMsg.close();
+    }
+
+    await baseStore.fetchBases();
     ElMessage.success(`已成功使用"${template.name}"模板创建多维表格`);
     closePreview();
     goToBase(base.id);
   } catch (error) {
     console.error("Failed to create base from template:", error);
+    // 创建失败，关闭进度提示
+    if (currentMsg) {
+      currentMsg.close();
+    }
     ElMessage.error("创建失败，请稍后重试");
   } finally {
     templateLoadingMap.value.set(template.id, false);
@@ -602,7 +636,10 @@ async function handleUseTemplate(template: TableTemplate) {
               </div>
               <h3>开始创建您的第一个多维表格</h3>
               <p class="empty-desc">多维表格让数据管理更简单、更高效</p>
-              <el-button type="primary" size="large" @click="openCreateChoiceDialog">
+              <el-button
+                type="primary"
+                size="large"
+                @click="openCreateChoiceDialog">
                 <el-icon><Plus /></el-icon>
                 创建多维表格
               </el-button>
@@ -867,9 +904,7 @@ async function handleUseTemplate(template: TableTemplate) {
                   </div>
                 </div>
                 <div class="template-footer">
-                  <el-button
-                    size="small"
-                    @click="openPreview(template)">
+                  <el-button size="small" @click="openPreview(template)">
                     预览
                   </el-button>
                   <el-button
@@ -1296,7 +1331,9 @@ async function handleUseTemplate(template: TableTemplate) {
       <div v-if="previewTemplate" class="preview-content">
         <!-- 模板基本信息 -->
         <div class="preview-header">
-          <div class="preview-icon" :style="{ backgroundColor: previewTemplate.color }">
+          <div
+            class="preview-icon"
+            :style="{ backgroundColor: previewTemplate.color }">
             {{ previewTemplate.icon }}
           </div>
           <div class="preview-info">
@@ -1316,25 +1353,37 @@ async function handleUseTemplate(template: TableTemplate) {
               :name="table.id"
               :title="table.name">
               <div class="table-preview">
-                <p class="table-desc">{{ table.description || '暂无描述' }}</p>
+                <p class="table-desc">{{ table.description || "暂无描述" }}</p>
                 <h5 class="fields-title">字段列表</h5>
                 <div class="fields-grid">
                   <div
                     v-for="field in table.fields"
                     :key="field.id"
                     class="field-card">
-                    <div class="field-icon" :style="{ backgroundColor: getFieldTypeColor(field.type) }">
+                    <div
+                      class="field-icon"
+                      :style="{
+                        backgroundColor: getFieldTypeColor(field.type),
+                      }">
                       {{ getFieldTypeIcon(field.type) }}
                     </div>
                     <div class="field-info">
                       <div class="field-name">{{ field.name }}</div>
-                      <div class="field-type">{{ getFieldTypeName(field.type) }}</div>
+                      <div class="field-type">
+                        {{ getFieldTypeName(field.type) }}
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div v-if="table.sampleData && table.sampleData.length > 0" class="sample-data">
+                <div
+                  v-if="table.sampleData && table.sampleData.length > 0"
+                  class="sample-data">
                   <h5 class="sample-title">示例数据</h5>
-                  <el-table :data="table.sampleData" style="width: 100%" size="small" border>
+                  <el-table
+                    :data="table.sampleData"
+                    style="width: 100%"
+                    size="small"
+                    border>
                     <el-table-column
                       v-for="field in table.fields"
                       :key="field.id"

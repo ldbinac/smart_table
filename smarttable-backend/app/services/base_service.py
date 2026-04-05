@@ -91,6 +91,8 @@ class BaseService:
         Returns:
             创建的基础数据对象
         """
+        from flask import current_app
+        
         base = Base(
             name=data.get('name', '未命名基础数据'),
             owner_id=user_id,
@@ -101,7 +103,25 @@ class BaseService:
         )
         
         db.session.add(base)
+        db.session.flush()  # 获取 base.id
+        
+        current_app.logger.info(f'[BaseService] 创建 Base: {base.id}, owner: {user_id}')
+        
+        # 创建成员关系（拥有者自动成为成员）
+        from app.models.base import MemberRole
+        membership = BaseMember(
+            base_id=base.id,
+            user_id=user_id,
+            role=MemberRole.OWNER,
+            is_starred=False
+        )
+        db.session.add(membership)
+        
+        current_app.logger.info(f'[BaseService] 创建成员关系：base={base.id}, user={user_id}, role=OWNER')
+        
         db.session.commit()
+        
+        current_app.logger.info(f'[BaseService] Base 创建完成：{base.id}')
         
         return base
     
@@ -349,14 +369,22 @@ class BaseService:
         Returns:
             是否有权限
         """
+        from flask import current_app
+        
         base = Base.query.get(base_id)
         
         if not base:
+            current_app.logger.error(f'[BaseService] Base 不存在：{base_id}')
             return False
+        
+        current_app.logger.info(f'[BaseService] 检查权限：base={base_id}, user={user_id}, owner={base.owner_id}')
         
         # 检查是否为所有者
         if str(base.owner_id) == str(user_id):
+            current_app.logger.info(f'[BaseService] 用户是所有者，有权限')
             return True
+        
+        current_app.logger.info(f'[BaseService] 用户不是所有者，检查成员关系...')
         
         # 检查成员权限
         membership = BaseMember.query.filter_by(
@@ -365,9 +393,22 @@ class BaseService:
         ).first()
         
         if not membership:
+            current_app.logger.error(f'[BaseService] 用户不是成员，无权限')
             return False
         
-        return cls.ROLE_LEVELS.get(membership.role, -1) >= cls.ROLE_LEVELS.get(min_role, 0)
+        user_role_level = cls.ROLE_LEVELS.get(membership.role, -1)
+        required_role_level = cls.ROLE_LEVELS.get(min_role, 0)
+        
+        current_app.logger.info(f'[BaseService] 用户角色：{membership.role} (level={user_role_level}), 需要：{min_role} (level={required_role_level})')
+        
+        has_permission = user_role_level >= required_role_level
+        
+        if has_permission:
+            current_app.logger.info(f'[BaseService] 权限检查通过')
+        else:
+            current_app.logger.error(f'[BaseService] 权限不足')
+        
+        return has_permission
     
     @classmethod
     def get_user_role(cls, base_id: str, user_id: str) -> Optional[MemberRole]:
