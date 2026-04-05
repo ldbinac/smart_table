@@ -103,59 +103,60 @@ export class TemplateService {
         );
       }
 
-      // 第二阶段：保存到 IndexedDB（后端创建成功后）
-      progress.stage = "syncing_to_backend";
-      progress.message = "正在保存到本地...";
-      progress.progress = 90;
-      onProgress?.({ ...progress });
+      // 去掉保存到 IndexedDB 的代码，只保存到后台数据库
+      // // 第二阶段：保存到 IndexedDB（后端创建成功后）
+      // progress.stage = "syncing_to_backend";
+      // progress.message = "正在保存到本地...";
+      // progress.progress = 90;
+      // onProgress?.({ ...progress });
 
-      // 保存到 IndexedDB
-      await db.transaction(
-        "rw",
-        [db.bases, db.tableEntities, db.fields, db.views, db.records],
-        async () => {
-          // 1. 保存 Base
-          const localBase = {
-            id: apiBase.id,
-            name: apiBase.name,
-            description: apiBase.description || "",
-            icon: apiBase.icon || "",
-            color: apiBase.color || "#409EFF",
-            isStarred: apiBase.is_starred || false,
-            createdAt: new Date(apiBase.created_at).getTime(),
-            updatedAt: new Date(apiBase.updated_at).getTime(),
-          };
-          await db.bases.add(localBase);
-          createdBase = localBase;
+      // // 保存到 IndexedDB - 使用 put 而不是 add，避免重复
+      // await db.transaction(
+      //   "rw",
+      //   [db.bases, db.tableEntities, db.fields, db.views, db.records],
+      //   async () => {
+      //     // 1. 保存 Base（使用 put 避免重复）
+      const localBase = {
+        id: apiBase.id,
+        name: apiBase.name,
+        description: apiBase.description || "",
+        icon: apiBase.icon || "",
+        color: apiBase.color || "#409EFF",
+        isStarred: apiBase.is_starred || false,
+        createdAt: new Date(apiBase.created_at).getTime(),
+        updatedAt: new Date(apiBase.updated_at).getTime(),
+      };
+      //     await db.bases.put(localBase);
+      createdBase = localBase;
 
-          // 2. 保存 Tables 和 Fields
-          for (const templateTable of template.tables) {
-            const apiTableId = tableIdMap.get(templateTable.id)!;
-            await this.saveTableToLocal(
-              apiBase.id,
-              apiTableId,
-              templateTable,
-              fieldIdMap,
-            );
-          }
+      //     // 2. 保存 Tables 和 Fields
+      //     for (const templateTable of template.tables) {
+      //       const apiTableId = tableIdMap.get(templateTable.id)!;
+      //       await this.saveTableToLocal(
+      //         apiBase.id,
+      //         apiTableId,
+      //         templateTable,
+      //         fieldIdMap,
+      //       );
+      //     }
 
-          // 3. 保存 Views
-          for (const templateTable of template.tables) {
-            const apiTableId = tableIdMap.get(templateTable.id)!;
-            await this.saveViewsToLocal(apiTableId, templateTable, fieldIdMap);
-          }
+      //     // 3. 保存 Views
+      //     for (const templateTable of template.tables) {
+      //       const apiTableId = tableIdMap.get(templateTable.id)!;
+      //       await this.saveViewsToLocal(apiTableId, templateTable, fieldIdMap);
+      //     }
 
-          // 4. 保存 Records
-          for (const templateTable of template.tables) {
-            const apiTableId = tableIdMap.get(templateTable.id)!;
-            await this.saveRecordsToLocal(
-              apiTableId,
-              templateTable.records,
-              fieldIdMap,
-            );
-          }
-        },
-      );
+      //     // 4. 保存 Records
+      //     for (const templateTable of template.tables) {
+      //       const apiTableId = tableIdMap.get(templateTable.id)!;
+      //       await this.saveRecordsToLocal(
+      //         apiTableId,
+      //         templateTable.records,
+      //         fieldIdMap,
+      //       );
+      //     }
+      //   },
+      // );
 
       progress.stage = "completed";
       progress.message = "创建完成！";
@@ -182,6 +183,21 @@ export class TemplateService {
     templateTable: TemplateTable,
     fieldIdMap: Map<string, string>,
   ): Promise<void> {
+    // 先删除已有的 table 和 fields，避免重复
+    const existingTable = await db.tableEntities.get(tableId);
+    if (existingTable) {
+      // 删除该表的所有 fields
+      const existingFieldIds = await db.fields
+        .where("tableId")
+        .equals(tableId)
+        .primaryKeys();
+      if (existingFieldIds.length > 0) {
+        await db.fields.bulkDelete(existingFieldIds);
+      }
+      // 删除 table
+      await db.tableEntities.delete(tableId);
+    }
+
     const table = {
       id: tableId,
       baseId,
@@ -234,6 +250,17 @@ export class TemplateService {
     templateTable: TemplateTable,
     fieldIdMap: Map<string, string>,
   ): Promise<void> {
+    // 先删除该表的所有已有 views，避免重复
+    const existingViewIds = await db.views
+      .where("tableId")
+      .equals(tableId)
+      .primaryKeys();
+
+    if (existingViewIds.length > 0) {
+      await db.views.bulkDelete(existingViewIds);
+    }
+
+    // 然后保存新 views
     for (const templateView of templateTable.views) {
       const view = {
         id: generateId(),
@@ -314,6 +341,17 @@ export class TemplateService {
     records: TemplateRecord[],
     fieldIdMap: Map<string, string>,
   ): Promise<void> {
+    // 先删除该表的所有已有记录，避免重复
+    const existingRecordIds = await db.records
+      .where("tableId")
+      .equals(tableId)
+      .primaryKeys();
+
+    if (existingRecordIds.length > 0) {
+      await db.records.bulkDelete(existingRecordIds);
+    }
+
+    // 然后保存新记录
     for (const templateRecord of records) {
       const newValues: Record<string, unknown> = {};
       for (const [oldFieldId, value] of Object.entries(templateRecord.values)) {
@@ -386,7 +424,7 @@ export class TemplateService {
         if (Array.isArray(frontendOptions)) {
           backendOptions = {
             choices: frontendOptions.map((opt: any) => ({
-              id: opt.id,
+              id: opt.name,
               name: opt.name,
               color: opt.color,
             })),

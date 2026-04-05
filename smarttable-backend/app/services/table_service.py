@@ -83,41 +83,41 @@ class TableService:
         
         # 创建默认字段
         # 1. 主字段（名称字段）
-        primary_field = Field(
-            table_id=table.id,
-            name=data.get('primary_field_name', '名称'),
-            type=FieldType.SINGLE_LINE_TEXT.value,
-            order=0,
-            is_primary=True,
-            is_required=True
-        )
-        db.session.add(primary_field)
-        db.session.flush()
+        # primary_field = Field(
+        #     table_id=table.id,
+        #     name=data.get('primary_field_name', '名称'),
+        #     type=FieldType.SINGLE_LINE_TEXT.value,
+        #     order=0,
+        #     is_primary=True,
+        #     is_required=True
+        # )
+        # db.session.add(primary_field)
+        # db.session.flush()
         
-        # 设置主字段
-        table.primary_field_id = primary_field.id
+        # # 设置主字段
+        # table.primary_field_id = primary_field.id
         
-        # 2. 创建时间字段
-        created_at_field = Field(
-            table_id=table.id,
-            name='创建时间',
-            type=FieldType.DATE_TIME.value,
-            order=1,
-            is_required=False,
-            config={'auto_fill': 'created_at'}
-        )
-        db.session.add(created_at_field)
+        # # 2. 创建时间字段
+        # created_at_field = Field(
+        #     table_id=table.id,
+        #     name='创建时间',
+        #     type=FieldType.DATE_TIME.value,
+        #     order=1,
+        #     is_required=False,
+        #     config={'auto_fill': 'created_at'}
+        # )
+        # db.session.add(created_at_field)
         
-        # 3. 更新时间字段
-        updated_at_field = Field(
-            table_id=table.id,
-            name='更新时间',
-            type=FieldType.DATE_TIME.value,
-            order=2,
-            is_required=False,
-            config={'auto_fill': 'updated_at'}
-        )
-        db.session.add(updated_at_field)
+        # # 3. 更新时间字段
+        # updated_at_field = Field(
+        #     table_id=table.id,
+        #     name='更新时间',
+        #     type=FieldType.DATE_TIME.value,
+        #     order=2,
+        #     is_required=False,
+        #     config={'auto_fill': 'updated_at'}
+        # )
+        # db.session.add(updated_at_field)
         
         # 4. 创建默认的表格视图
         default_view = View(

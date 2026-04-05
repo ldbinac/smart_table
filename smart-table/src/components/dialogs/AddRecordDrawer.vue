@@ -217,11 +217,12 @@ function isReadonlyField(field: FieldEntity): boolean {
 // 获取单选/多选选项
 function getSelectOptions(field: FieldEntity) {
   // 后端返回的格式是 {choices: [...]}
-  const choices = (field.options?.choices as Array<{
-    id: string;
-    name: string;
-    color?: string;
-  }>) || [];
+  const choices =
+    (field.options?.choices as Array<{
+      id: string;
+      name: string;
+      color?: string;
+    }>) || [];
   return choices;
 }
 
@@ -439,10 +440,9 @@ const drawerTitle = computed(() => {
           <template v-if="isPrimaryField(field)">
             <ElInput
               :model-value="String(formData[field.id] || '')"
-              disabled
               :placeholder="`自动生成${field.name}`"
               class="field-input" />
-            <span class="auto-filled-hint">系统自动生成唯一标识，不可修改</span>
+            <!-- <span class="auto-filled-hint">系统自动生成唯一标识，不可修改</span> -->
           </template>
 
           <!-- 只读字段（系统字段、公式字段等） -->

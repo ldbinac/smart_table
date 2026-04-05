@@ -20,7 +20,7 @@ export class TableService {
         description: data.description,
       });
 
-      // 将后端返回的表格保存到本地 IndexedDB
+      // // 将后端返回的表格保存到本地 IndexedDB
       const localTable: TableEntity = {
         id: apiTable.id,
         baseId: apiTable.base_id,
@@ -34,50 +34,50 @@ export class TableService {
         updatedAt: new Date(apiTable.updated_at).getTime(),
       };
 
-      await db.tableEntities.add(localTable);
+      // await db.tableEntities.add(localTable);
 
-      // 后端 API 已经创建了默认字段和视图，从后端获取并保存到本地
-      const fields = await tableApiService.getTable(apiTable.id).then(() => []); // 实际应该调用 getFields API
-      const views = []; // 实际应该调用 getViews API
+      // // 后端 API 已经创建了默认字段和视图，从后端获取并保存到本地
+      // const fields = await tableApiService.getTable(apiTable.id).then(() => []); // 实际应该调用 getFields API
+      // const views = []; // 实际应该调用 getViews API
 
-      // 如果没有从后端获取字段和视图，创建默认的
-      if (fields.length === 0) {
-        const primaryField: FieldEntity = {
-          id: apiTable.primary_field_id,
-          tableId: apiTable.id,
-          name: "主键",
-          type: "text",
-          isPrimary: true,
-          isSystem: true,
-          isRequired: true,
-          isVisible: false,
-          order: 0,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        await db.fields.add(primaryField);
-      }
+      // // 如果没有从后端获取字段和视图，创建默认的
+      // if (fields.length === 0) {
+      //   const primaryField: FieldEntity = {
+      //     id: apiTable.primary_field_id,
+      //     tableId: apiTable.id,
+      //     name: "主键",
+      //     type: "text",
+      //     isPrimary: true,
+      //     isSystem: true,
+      //     isRequired: true,
+      //     isVisible: false,
+      //     order: 0,
+      //     createdAt: Date.now(),
+      //     updatedAt: Date.now(),
+      //   };
+      //   await db.fields.add(primaryField);
+      // }
 
-      if (views.length === 0) {
-        const defaultView: ViewEntity = {
-          id: generateId(),
-          tableId: apiTable.id,
-          name: "表格视图",
-          type: "table",
-          config: {},
-          filters: [],
-          sorts: [],
-          groupBys: [],
-          hiddenFields: [],
-          frozenFields: [],
-          rowHeight: "medium",
-          isDefault: true,
-          order: 0,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        await db.views.add(defaultView);
-      }
+      // if (views.length === 0) {
+      //   const defaultView: ViewEntity = {
+      //     id: generateId(),
+      //     tableId: apiTable.id,
+      //     name: "表格视图",
+      //     type: "table",
+      //     config: {},
+      //     filters: [],
+      //     sorts: [],
+      //     groupBys: [],
+      //     hiddenFields: [],
+      //     frozenFields: [],
+      //     rowHeight: "medium",
+      //     isDefault: true,
+      //     order: 0,
+      //     createdAt: Date.now(),
+      //     updatedAt: Date.now(),
+      //   };
+      //   await db.views.add(defaultView);
+      // }
 
       return localTable;
     } catch (error) {
@@ -204,7 +204,10 @@ export class TableService {
   async duplicateTable(id: string, newName?: string): Promise<TableEntity> {
     try {
       // 调用后端 API 复制表格
-      const apiTable = await tableApiService.duplicateTable(id, newName ? { name: newName } : undefined);
+      const apiTable = await tableApiService.duplicateTable(
+        id,
+        newName ? { name: newName } : undefined,
+      );
 
       // 将后端返回的表格保存到本地 IndexedDB
       const localTable: TableEntity = {
