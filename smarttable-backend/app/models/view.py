@@ -131,6 +131,12 @@ class View(db.Model):
         nullable=True,
         default=dict
     )
+    # 表单视图特定配置
+    form_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON,
+        nullable=True,
+        default=dict
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -179,7 +185,8 @@ class View(db.Model):
         if self.group_config and isinstance(self.group_config, dict):
             group_bys = self.group_config.get('group_bys', [])
         
-        return {
+        # 构建返回字典
+        result = {
             'id': str(self.id),
             'table_id': str(self.table_id),
             'name': self.name,
@@ -199,9 +206,14 @@ class View(db.Model):
             'frozen_fields': self.frozen_fields or [],
             'row_height': self.row_height or 'medium',
             'field_widths': self.field_widths or {},
+            # 为了兼容前端，将 form_config 以 config 的形式返回
+            'config': self.form_config or {},
+            'form_config': self.form_config or {},
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+        
+        return result
 
     def __repr__(self) -> str:
         # 如果 type 是枚举对象，获取其 value 值；如果是字符串，直接使用

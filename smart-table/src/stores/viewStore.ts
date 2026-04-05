@@ -111,18 +111,57 @@ export const useViewStore = defineStore("view", () => {
       await viewService.updateView(id, data);
       const index = views.value.findIndex((v) => v.id === id);
       if (index !== -1) {
-        views.value[index] = {
-          ...views.value[index],
-          ...data,
-          updatedAt: Date.now(),
-        } as ViewEntity;
+        // 处理 config 的反序列化
+        let processedConfig = data.config;
+        if (data.config) {
+          // 从 IndexedDB 获取最新的数据以确保反序列化正确
+          const updatedView = await viewService.getView(id);
+          if (updatedView) {
+            views.value[index] = {
+              ...updatedView,
+              updatedAt: Date.now(),
+            } as ViewEntity;
+          } else {
+            // 如果获取失败，使用原始数据
+            views.value[index] = {
+              ...views.value[index],
+              ...data,
+              updatedAt: Date.now(),
+            } as ViewEntity;
+          }
+        } else {
+          views.value[index] = {
+            ...views.value[index],
+            ...data,
+            updatedAt: Date.now(),
+          } as ViewEntity;
+        }
       }
       if (currentView.value?.id === id) {
-        currentView.value = {
-          ...currentView.value,
-          ...data,
-          updatedAt: Date.now(),
-        } as ViewEntity;
+        // 处理 config 的反序列化
+        if (data.config) {
+          // 从 IndexedDB 获取最新的数据以确保反序列化正确
+          const updatedView = await viewService.getView(id);
+          if (updatedView) {
+            currentView.value = {
+              ...updatedView,
+              updatedAt: Date.now(),
+            } as ViewEntity;
+          } else {
+            // 如果获取失败，使用原始数据
+            currentView.value = {
+              ...currentView.value,
+              ...data,
+              updatedAt: Date.now(),
+            } as ViewEntity;
+          }
+        } else {
+          currentView.value = {
+            ...currentView.value,
+            ...data,
+            updatedAt: Date.now(),
+          } as ViewEntity;
+        }
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to update view";

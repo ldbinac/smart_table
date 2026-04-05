@@ -118,8 +118,10 @@ async function loadFormData(formId: string) {
     console.log("[FormShare] View from database:", view);
 
     if (view && view.type === "form") {
-      // 获取视图配置
-      const config = view.config as {
+      tableId.value = view.tableId;
+
+      // 从 config 字段加载表单配置（后端会将 form_config 以 config 形式返回）
+      const configData = view.config as {
         title?: string;
         description?: string;
         submitButtonText?: string;
@@ -128,19 +130,21 @@ async function loadFormData(formId: string) {
         allowMultipleSubmit?: boolean;
       };
 
-      tableId.value = view.tableId;
-
-      // 加载表单基础配置（标题、描述等UI配置）
-      if (config) {
-        console.log("[FormShare] Loading formConfig from database:", config);
+      // 加载表单基础配置（标题、描述等 UI 配置）
+      if (configData) {
+        console.log(
+          "[FormShare] Loading formConfig from database:",
+          configData,
+        );
 
         formConfig.value = {
-          title: config.title || "数据收集表单",
-          description: config.description || "",
-          submitButtonText: config.submitButtonText || "提交",
-          successMessage: config.successMessage || "提交成功，感谢您的参与！",
-          visibleFieldIds: config.visibleFieldIds || [],
-          allowMultipleSubmit: config.allowMultipleSubmit !== false,
+          title: configData.title || "数据收集表单",
+          description: configData.description || "",
+          submitButtonText: configData.submitButtonText || "提交",
+          successMessage:
+            configData.successMessage || "提交成功，感谢您的参与！",
+          visibleFieldIds: configData.visibleFieldIds || [],
+          allowMultipleSubmit: configData.allowMultipleSubmit !== false,
         };
 
         console.log("[FormShare] Loaded formConfig:", formConfig.value);
@@ -420,11 +424,11 @@ function getFieldComponentType(field: FieldEntity): string {
 // 获取选项
 function getSelectOptions(field: FieldEntity) {
   return (
-    (field.options?.choices || field.options?.options) as Array<{
+    ((field.options?.choices || field.options?.options) as Array<{
       id: string;
       name: string;
       color?: string;
-    }> || []
+    }>) || []
   );
 }
 
@@ -520,11 +524,7 @@ function handleDateChange(fieldId: string, val: Date | null) {
           :class="{ 'has-error': formErrors[field.id] }">
           <label class="form-label">
             {{ field.name }}
-            <span
-              v-if="field.options?.required"
-              class="required-mark"
-              >*</span
-            >
+            <span v-if="field.options?.required" class="required-mark">*</span>
           </label>
 
           <div class="form-control">
@@ -638,7 +638,9 @@ function handleDateChange(fieldId: string, val: Date | null) {
                 :readonly="false"
                 @update:model-value="(val) => handleFieldChange(field.id, val)"
                 @upload="(files) => handleAttachmentUpload(field.id, files)"
-                @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
+                @delete="
+                  (fileId) => handleAttachmentDelete(field.id, fileId)
+                " />
             </template>
           </div>
 
@@ -647,9 +649,7 @@ function handleDateChange(fieldId: string, val: Date | null) {
             {{ formErrors[field.id] }}
           </div>
 
-          <div
-            v-if="field.options?.description"
-            class="form-field-description">
+          <div v-if="field.options?.description" class="form-field-description">
             {{ field.options.description }}
           </div>
         </div>

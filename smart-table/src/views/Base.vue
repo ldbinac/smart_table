@@ -557,8 +557,9 @@ const loadFormConfig = () => {
     .filter((f) => !systemFieldTypes.includes(f.type))
     .map((f) => f.id);
 
-  if (currentView?.type === ViewType.FORM && currentView.config) {
-    const config = currentView.config as {
+  if (currentView?.type === ViewType.FORM) {
+    // 从 config 字段加载表单配置（后端会将 form_config 以 config 形式返回）
+    const configData = currentView.config as {
       title?: string;
       description?: string;
       submitButtonText?: string;
@@ -568,19 +569,19 @@ const loadFormConfig = () => {
     };
 
     // 检查配置中是否明确设置了 visibleFieldIds
-    // 如果 config 中有 visibleFieldIds 属性（即使是空数组），使用它
+    // 如果 configData 中有 visibleFieldIds 属性（即使是空数组），使用它
     // 如果没有 visibleFieldIds 属性，使用默认值
-    const hasVisibleFieldIdsConfig = config.visibleFieldIds !== undefined;
+    const hasVisibleFieldIdsConfig = configData?.visibleFieldIds !== undefined;
 
     formConfig.value = {
-      title: config.title || "数据收集表单",
-      description: config.description || "",
-      submitButtonText: config.submitButtonText || "提交",
+      title: configData?.title || "数据收集表单",
+      description: configData?.description || "",
+      submitButtonText: configData?.submitButtonText || "提交",
       visibleFieldIds: hasVisibleFieldIdsConfig
-        ? config.visibleFieldIds || []
+        ? configData!.visibleFieldIds || []
         : defaultVisibleFieldIds,
-      successMessage: config.successMessage || "提交成功，感谢您的参与！",
-      allowMultipleSubmit: config.allowMultipleSubmit !== false,
+      successMessage: configData?.successMessage || "提交成功，感谢您的参与！",
+      allowMultipleSubmit: configData?.allowMultipleSubmit !== false,
     };
   } else {
     // 使用默认配置

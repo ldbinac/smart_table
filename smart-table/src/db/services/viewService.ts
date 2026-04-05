@@ -203,7 +203,7 @@ export class ViewService {
         updatedAt: Date.now(),
       };
 
-      // 处理 config - 需要与现有配置合并
+      // 处理 config - 需要序列化后存储
       if (data.config) {
         const serializedConfig = serializeViewConfig(data.config);
         console.log("[ViewService] Serialized config:", serializedConfig);
@@ -229,13 +229,6 @@ export class ViewService {
       // 使用 Dexie 的 update 方法
       const updateCount = await db.views.update(id, updateData);
       console.log("[ViewService] Update count:", updateCount);
-
-      // 验证更新是否成功
-      const updatedView = await db.views.get(id);
-      if (updatedView?.config) {
-        updatedView.config = deserializeViewConfig(updatedView.config);
-      }
-      console.log("[ViewService] View after update:", updatedView?.config);
 
       if (updateCount === 0) {
         console.warn("[ViewService] No records were updated!");

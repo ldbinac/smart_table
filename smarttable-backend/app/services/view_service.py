@@ -108,13 +108,18 @@ class ViewService:
         from sqlalchemy.orm.attributes import flag_modified
         
         # 直接映射的字段（字段名相同）
-        direct_fields = ['name', 'config', 'filters', 
+        # 注意：config 字段不存在于数据库中，已移除
+        direct_fields = ['name', 'filters', 
                         'hidden_fields', 'frozen_fields', 'row_height', 
-                        'is_default', 'field_widths', 'order', 'description']
+                        'is_default', 'field_widths', 'order', 'description',
+                        'form_config']
         
         for key in direct_fields:
             if key in kwargs:
                 setattr(view, key, kwargs[key])
+                # 对于 JSON 字段，需要显式标记为已修改
+                if key in ['form_config', 'filters', 'field_widths', 'group_config', 'field_visibility']:
+                    flag_modified(view, key)
         
         # 处理排序配置 - 前端使用 sorts，数据库使用 sort_config
         if 'sorts' in kwargs:

@@ -48,6 +48,7 @@ class ViewUpdateSchema(Schema):
     row_height = fields.String(validate=validate.OneOf(['small', 'medium', 'large']))
     is_default = fields.Boolean()
     field_widths = fields.Dict()
+    form_config = fields.Dict()
     order = fields.Integer()
     description = fields.String()
 
@@ -105,6 +106,19 @@ def create_view(table_id):
         return error_response('数据验证失败', 400, errors)
     
     try:
+        # 处理表单配置：将 config 中的表单特定配置提取到 form_config
+        form_config = {}
+        if 'config' in json_data and isinstance(json_data['config'], dict):
+            config = json_data['config']
+            # 表单特定的配置字段
+            form_config_fields = ['title', 'description', 'submitButtonText', 
+                                 'visibleFieldIds', 'successMessage', 'allowMultipleSubmit']
+            
+            # 提取表单特定配置
+            for field in form_config_fields:
+                if field in config:
+                    form_config[field] = config[field]
+        
         view = ViewService.create_view(
             table_id=table_id,
             name=json_data['name'],
@@ -131,6 +145,9 @@ def create_view(table_id):
             view.field_widths = json_data['field_widths']
         if json_data.get('order') is not None:
             view.order = json_data['order']
+        # 保存表单配置
+        if form_config:
+            view.form_config = form_config
         
         db.session.commit()
         
@@ -178,11 +195,36 @@ def update_view(view_id):
         return error_response('数据验证失败', 400, errors)
     
     try:
+        # 处理表单配置：将 config 中的表单特定配置提取到 form_config
+        if 'config' in json_data and isinstance(json_data['config'], dict):
+            config = json_data['config']
+            
+            # 表单特定的配置字段
+            form_config_fields = ['title', 'description', 'submitButtonText', 
+                                 'visibleFieldIds', 'successMessage', 'allowMultipleSubmit']
+            
+            # 检查是否有表单特定配置
+            has_form_config = any(field in config for field in form_config_fields)
+            
+            if has_form_config:
+                # 提取表单特定配置
+                form_config = {}
+                for field in form_config_fields:
+                    if field in config:
+                        form_config[field] = config[field]
+                
+                # 将 form_config 添加到 json_data 中，供 update_view 使用
+                if form_config:
+                    # 合并到现有的 form_config
+                    existing_form_config = view.form_config or {}
+                    existing_form_config.update(form_config)
+                    json_data['form_config'] = existing_form_config
+        
         view = ViewService.update_view(view, **json_data)
         return success_response(view.to_dict(), '视图更新成功')
     
     except Exception as e:
-        return error_response(f'更新视图失败: {str(e)}', 500)
+        return error_response(f'更新视图失败：{str(e)}', 500)
 
 
 @views_bp.route('/views/<view_id>', methods=['DELETE'])
