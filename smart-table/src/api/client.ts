@@ -31,6 +31,9 @@ instance.interceptors.request.use(
     const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，Token: ${token.substring(0, 20)}...`);
+    } else {
+      console.warn(`[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，但 Token 不存在！`);
     }
     return config;
   },

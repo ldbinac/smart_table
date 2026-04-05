@@ -41,6 +41,9 @@ const baseStore = useBaseStore();
 const route = useRoute();
 const router = useRouter();
 
+// 侧边栏引用
+const sidebarRef = ref<InstanceType<typeof BaseSidebar> | null>(null);
+
 // 初始化实体操作
 const {
   renameTable,
@@ -322,15 +325,18 @@ async function selectDashboard(dashboard: Dashboard) {
       ...dashboard,
       widgets: (freshDashboard.widgets as unknown[]) || [],
       layout: freshDashboard.layout || {},
-      layoutType: (freshDashboard.layout?.type as 'grid' | 'free') || 'grid',
+      layoutType: (freshDashboard.layout?.type as "grid" | "free") || "grid",
       gridColumns: freshDashboard.layout?.config?.gridColumns || 12,
     };
   } catch (error) {
-    console.error('[Dashboard] Failed to fetch fresh dashboard data, using cached:', error);
+    console.error(
+      "[Dashboard] Failed to fetch fresh dashboard data, using cached:",
+      error,
+    );
     // 如果获取失败，使用缓存的数据
     currentDashboard.value = dashboard;
   }
-  
+
   widgets.value = (currentDashboard.value.widgets || []) as WidgetConfig[];
   layoutType.value = currentDashboard.value.layoutType || "grid";
   gridColumns.value = (currentDashboard.value.gridColumns as 12 | 24) || 12;
@@ -509,39 +515,47 @@ async function updateDashboard() {
   }
 }
 
-// 删除仪表盘
-// async function deleteDashboard(dashboard: Dashboard) {
-//   try {
-//     await ElMessageBox.confirm(
-//       `确定要删除仪表盘 "${dashboard.name}" 吗？`,
-//       "确认删除",
-//       { type: "warning" },
-//     );
+// 删除仪表盘 - 使用 useEntityOperations 中的函数
+async function handleDeleteDashboard(dashboard: Dashboard) {
+  await deleteDashboard(dashboard, async () => {
+    // 删除成功后的回调：刷新列表并处理当前仪表盘
+    await loadDashboards();
 
-//     await dashboardService.deleteDashboard(dashboard.id);
-//     dashboards.value = dashboards.value.filter((d) => d.id !== dashboard.id);
+    // 刷新侧边栏的仪表盘列表
+    sidebarRef.value?.refreshDashboards();
 
-//     if (currentDashboard.value?.id === dashboard.id) {
-//       currentDashboard.value = dashboards.value[0] || null;
-//       if (currentDashboard.value) {
-//         await selectDashboard(currentDashboard.value);
-//       } else {
-//         widgets.value = [];
-//       }
-//     }
-
-//     ElMessage.success("仪表盘已删除");
-//   } catch {
-//     // 用户取消
-//   }
-// }
+    // 如果删除的是当前仪表盘，切换到第一个可用的仪表盘
+    const remainingDashboards = dashboards.value.filter(
+      (d) => d.id !== dashboard.id,
+    );
+    if (remainingDashboards.length > 0 && !currentDashboard.value) {
+      await selectDashboard(remainingDashboards[0]);
+    } else if (!remainingDashboards.length) {
+      currentDashboard.value = null;
+      widgets.value = [];
+    }
+  });
+}
 
 // 复制仪表盘
 async function duplicateDashboard(dashboard: Dashboard) {
-  const duplicated = await dashboardService.duplicateDashboard(dashboard.id);
-  dashboards.value.push(duplicated);
-  await selectDashboard(duplicated);
-  ElMessage.success("仪表盘复制成功");
+  try {
+    const duplicated = await dashboardService.duplicateDashboard(dashboard.id);
+
+    // 刷新仪表盘列表
+    await loadDashboards();
+
+    // 刷新侧边栏的仪表盘列表
+    sidebarRef.value?.refreshDashboards();
+
+    // 选中新复制的仪表盘
+    await selectDashboard(duplicated);
+
+    ElMessage.success("仪表盘复制成功");
+  } catch (error) {
+    console.error("复制仪表盘失败:", error);
+    ElMessage.error("复制失败");
+  }
 }
 
 // 保存状态
@@ -873,33 +887,6 @@ const handleRenameDashboard = (dashboard: {
   description?: string;
 }) => {
   openEditSidebarDashboardDialog(dashboard);
-};
-
-const handleDeleteDashboard = async (dashboard: {
-  id: string;
-  name: string;
-}) => {
-  try {
-    // 使用通用操作模块
-    await deleteDashboard(dashboard as Dashboard, async () => {
-      if (currentDashboard.value?.id === dashboard.id) {
-        const remainingDashboards = dashboards.value.filter(
-          (d) => d.id !== dashboard.id,
-        );
-        if (remainingDashboards.length > 0) {
-          const baseId = route.params.id as string;
-          router.push(`/base/${baseId}/dashboard/${remainingDashboards[0].id}`);
-        } else {
-          currentDashboard.value = null;
-          widgets.value = [];
-        }
-      }
-
-      await loadDashboards();
-    });
-  } catch (error: any) {
-    // 错误已经在通用模块中处理
-  }
 };
 
 const handleToggleStarDashboard = async (dashboard: {
@@ -3282,7 +3269,10 @@ onUnmounted(() => {
                 <el-button link @click="duplicateDashboard(row)"
                   >复制</el-button
                 >
-                <el-button link type="danger" @click="deleteDashboard(row)"
+                <el-button
+                  link
+                  type="danger"
+                  @click="handleDeleteDashboard(row)"
                   >删除</el-button
                 >
               </template>

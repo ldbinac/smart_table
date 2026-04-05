@@ -398,6 +398,9 @@ class DashboardService:
         if not source_dashboard:
             return None
         
+        # 复制 widgets JSON 数据
+        widgets_copy = source_dashboard.widgets.copy() if source_dashboard.widgets else []
+        
         # 创建新仪表盘
         new_dashboard = Dashboard(
             base_id=source_dashboard.base_id,
@@ -405,25 +408,11 @@ class DashboardService:
             name=new_name or f"{source_dashboard.name} 副本",
             description=source_dashboard.description,
             is_default=False,
-            layout=source_dashboard.layout
+            layout=source_dashboard.layout,
+            widgets=widgets_copy
         )
         
         db.session.add(new_dashboard)
-        db.session.flush()  # 获取新 ID
-        
-        # 复制所有组件
-        for source_widget in source_dashboard.widgets.all():
-            new_widget = DashboardWidget(
-                dashboard_id=new_dashboard.id,
-                type=source_widget.type,
-                title=source_widget.title,
-                config=source_widget.config,
-                data_source=source_widget.data_source,
-                position=source_widget.position,
-                order=source_widget.order
-            )
-            db.session.add(new_widget)
-        
         db.session.commit()
         
         return new_dashboard
