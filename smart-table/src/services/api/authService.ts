@@ -24,6 +24,10 @@ export const logout = async (): Promise<void> => {
   await apiClient.post<void>('/auth/logout');
 };
 
+export const logoutAll = async (): Promise<void> => {
+  await apiClient.post<void>('/auth/logout-all');
+};
+
 export const refreshToken = async (refreshTokenValue: string): Promise<TokenPair> => {
   return apiClient.post<TokenPair>('/auth/refresh', { refresh_token: refreshTokenValue });
 };
@@ -47,6 +51,7 @@ export const authService = {
   login,
   register,
   logout,
+  logoutAll,
   refreshToken,
   getCurrentUser,
   changePassword,

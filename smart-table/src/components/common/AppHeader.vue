@@ -1,15 +1,72 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
+import { useAuthStore } from "@/stores/auth/authStore";
 import { dashboardService } from "@/db/services/dashboardService";
+import { ElMessageBox } from 'element-plus';
+import { ArrowDown } from '@element-plus/icons-vue';
 import type { Dashboard } from "@/db/schema";
 
 const route = useRoute();
+const router = useRouter();
 const baseStore = useBaseStore();
+const authStore = useAuthStore();
 
 const currentTitle = computed(() => {
   return (route.meta.title as string) || "Smart Table";
+});
+
+// 用户菜单控制
+const userMenuVisible = ref(false);
+
+// 处理退出登录
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要退出登录吗？',
+      '退出确认',
+      {
+        confirmButtonText: '确定退出',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+    
+    await authStore.logout();
+    router.replace('/login');
+  } catch {
+    // 用户取消退出
+  }
+};
+
+// 处理退出所有设备
+const handleLogoutAll = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要从所有设备退出登录吗？此操作将使您在其他所有设备上也被迫下线。',
+      '退出所有设备',
+      {
+        confirmButtonText: '确定退出',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+    
+    await authStore.logout(true);
+    router.replace('/login');
+  } catch {
+    // 用户取消退出
+  }
+};
+
+// 用户信息显示
+const userName = computed(() => {
+  return authStore.user?.name || '用户';
+});
+
+const userEmail = computed(() => {
+  return authStore.user?.email || '';
 });
 
 // 判断是否在Base页面
@@ -163,16 +220,48 @@ const centerInfo = computed(() => {
 
     <div class="header-right">
       <div class="current-title">{{ currentTitle }}</div>
-      <div class="user-avatar">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round" />
-        </svg>
-      </div>
+      <el-dropdown
+        v-model:visible="userMenuVisible"
+        trigger="click"
+        :hide-on-click="false"
+      >
+        <div class="user-menu-trigger">
+          <div class="user-avatar">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <span class="user-name">{{ userName }}</span>
+          <el-icon class="user-menu-arrow"><arrow-down /></el-icon>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <div class="user-info-panel">
+              <div class="user-info-name">{{ userName }}</div>
+              <div class="user-info-email">{{ userEmail }}</div>
+            </div>
+            <el-divider style="margin: 4px 0;" />
+            <el-dropdown-item
+              icon="SwitchButton"
+              @click="handleLogout"
+            >
+              退出登录
+            </el-dropdown-item>
+            <el-dropdown-item
+              icon="Delete"
+              divided
+              @click="handleLogoutAll"
+            >
+              退出所有设备
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </header>
 </template>
@@ -278,23 +367,63 @@ const centerInfo = computed(() => {
   color: $text-secondary;
 }
 
+.user-menu-trigger {
+  @include flex-center;
+  gap: $spacing-xs;
+  cursor: pointer;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $border-radius-base;
+  transition: background-color $transition-fast;
+
+  &:hover {
+    background-color: color.adjust($bg-color, $lightness: -5%);
+  }
+}
+
 .user-avatar {
   @include flex-center;
   width: 32px;
   height: 32px;
   background-color: $bg-color;
   border-radius: 50%;
-  cursor: pointer;
   transition: background-color $transition-fast;
-
-  &:hover {
-    background-color: color.adjust($bg-color, $lightness: -5%);
-  }
 
   svg {
     width: 18px;
     height: 18px;
     color: $text-secondary;
+  }
+}
+
+.user-name {
+  font-size: $font-size-sm;
+  color: $text-primary;
+  font-weight: 500;
+  max-width: 120px;
+  @include text-ellipsis;
+}
+
+.user-menu-arrow {
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+.user-info-panel {
+  padding: $spacing-sm $spacing-md;
+  min-width: 200px;
+
+  .user-info-name {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 4px;
+  }
+
+  .user-info-email {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    @include text-ellipsis;
+    max-width: 240px;
   }
 }
 </style>

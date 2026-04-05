@@ -210,12 +210,8 @@ def logout():
     user_id = get_jwt_identity()
     token_type = jwt_payload.get('type', 'access')
     
-    # 计算令牌过期时间
-    expires_timestamp = jwt_payload.get('exp')
-    expires_at = datetime.utcfromtimestamp(expires_timestamp) if expires_timestamp else None
-    
     # 调用服务层撤销令牌
-    success, error = AuthService.logout_user(jti, user_id, token_type, expires_at)
+    success, error = AuthService.logout_user(jti, user_id, token_type)
     
     if not success:
         return error_response(error or '登出失败', code=500)

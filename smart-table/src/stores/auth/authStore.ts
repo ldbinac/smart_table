@@ -15,7 +15,9 @@ import {
   getRefreshToken,
   setRememberMe,
   getRememberMe,
-  isTokenExpired
+  isTokenExpired,
+  triggerLogoutEvent,
+  onLogoutEvent
 } from '@/utils/auth/token'
 import { message } from '@/utils/message'
 
@@ -24,6 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const isAuthenticated = ref(false)
   const isLoading = ref(false)
+  const isLoggingOut = ref(false)
   
   // 计算属性
   const isLoggedIn = computed(() => isAuthenticated.value && !!user.value)
@@ -78,17 +81,36 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 用户登出
    */
-  const logout = async (): Promise<void> => {
+  const logout = async (logoutAll: boolean = false): Promise<void> => {
+    isLoggingOut.value = true
     try {
-      await authService.logout()
-    } catch {
-      // 忽略登出API错误
+      if (logoutAll) {
+        // 退出所有设备
+        await authService.logoutAll()
+        message.success('已从所有设备退出')
+      } else {
+        // 退出当前设备
+        await authService.logout()
+      }
+    } catch (error) {
+      // 网络错误或其他错误时，仍然清除本地状态
+      console.error('Logout error:', error)
+      if (logoutAll) {
+        message.warning('退出所有设备失败，但已清除本地登录状态')
+      }
     } finally {
-      // 清除状态
+      // 无论成功失败都清除本地状态
       clearToken()
       user.value = null
       isAuthenticated.value = false
-      message.success('已安全退出')
+      isLoggingOut.value = false
+      
+      // 触发登出事件，通知其他标签页
+      triggerLogoutEvent()
+      
+      if (!logoutAll) {
+        message.success('已安全退出')
+      }
     }
   }
   
@@ -183,6 +205,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     isLoading,
+    isLoggingOut,
     
     // 计算属性
     isLoggedIn,

@@ -118,3 +118,24 @@ export const getRememberMe = (): boolean => {
 export const clearRememberMe = (): void => {
   localStorage.removeItem(AUTH_CONFIG.REMEMBER_KEY)
 }
+
+/**
+ * 触发登出事件（用于多标签页同步）
+ */
+export const triggerLogoutEvent = (): void => {
+  // 使用 CustomEvent 通知其他标签页
+  window.dispatchEvent(new Event('user-logout'))
+}
+
+/**
+ * 监听登出事件
+ */
+export const onLogoutEvent = (callback: () => void): (() => void) => {
+  const handler = () => callback()
+  window.addEventListener('user-logout', handler)
+  
+  // 返回取消监听函数
+  return () => {
+    window.removeEventListener('user-logout', handler)
+  }
+}
