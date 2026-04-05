@@ -301,8 +301,22 @@ onMounted(async () => {
   if (baseId) {
     await baseStore.fetchBase(baseId);
     await tableStore.loadTables(baseId);
-    // 同步视图数据到 viewStore
-    if (tableStore.currentTable) {
+    
+    // 如果有表格且当前没有选择表格，自动选择第一个表格
+    if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+      const firstTable = tableStore.tables[0];
+      await tableStore.selectTable(firstTable.id);
+      // 同步视图数据到 viewStore
+      await viewStore.loadViews(firstTable.id);
+      // 选择默认视图（这会设置 viewStore.currentView）
+      await viewStore.selectDefaultView(firstTable.id);
+
+      // 如果默认视图是表单视图，加载表单配置
+      if (viewStore.currentView?.type === ViewType.FORM) {
+        loadFormConfig();
+      }
+    } else if (tableStore.currentTable) {
+      // 如果已经有选中的表格，同步视图数据
       await viewStore.loadViews(tableStore.currentTable.id);
       // 选择默认视图（这会设置 viewStore.currentView）
       await viewStore.selectDefaultView(tableStore.currentTable.id);
@@ -322,11 +336,30 @@ watch(
     if (newId) {
       await baseStore.fetchBase(newId as string);
       await tableStore.loadTables(newId as string);
-      // 同步视图数据到 viewStore
-      if (tableStore.currentTable) {
+      
+      // 如果有表格且当前没有选择表格，自动选择第一个表格
+      if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+        const firstTable = tableStore.tables[0];
+        await tableStore.selectTable(firstTable.id);
+        // 同步视图数据到 viewStore
+        await viewStore.loadViews(firstTable.id);
+        // 选择默认视图（这会设置 viewStore.currentView）
+        await viewStore.selectDefaultView(firstTable.id);
+
+        // 如果默认视图是表单视图，加载表单配置
+        if (viewStore.currentView?.type === ViewType.FORM) {
+          loadFormConfig();
+        }
+      } else if (tableStore.currentTable) {
+        // 如果已经有选中的表格，同步视图数据
         await viewStore.loadViews(tableStore.currentTable.id);
         // 选择默认视图（这会设置 viewStore.currentView）
         await viewStore.selectDefaultView(tableStore.currentTable.id);
+
+        // 如果默认视图是表单视图，加载表单配置
+        if (viewStore.currentView?.type === ViewType.FORM) {
+          loadFormConfig();
+        }
       }
     }
   },
