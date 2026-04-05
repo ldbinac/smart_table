@@ -196,7 +196,7 @@ def toggle_star(base_id):
         return not_found_response('基础数据')
     
     return success_response(
-        data={'is_starred': True},  # 简化实现
+        data={'is_starred': base.is_starred},
         message='星标状态更新成功'
     )
 

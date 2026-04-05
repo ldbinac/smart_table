@@ -51,6 +51,19 @@ class BaseService:
             if base_id not in all_bases:
                 all_bases[base_id] = b
         
+        # 为每个 Base 设置用户的收藏状态
+        for base in all_bases.values():
+            membership = BaseMember.query.filter_by(
+                base_id=base.id, 
+                user_id=user_id
+            ).first()
+            if membership:
+                base.is_starred = membership.is_starred
+            else:
+                # 如果是拥有者但没有成员记录，创建一个
+                if str(base.owner_id) == user_id:
+                    base.is_starred = False
+        
         return list(all_bases.values())
     
     @staticmethod
@@ -155,9 +168,34 @@ class BaseService:
         Returns:
             更新后的基础数据对象
         """
-        # 这里可以实现星标功能，需要在 BaseMember 或单独表中存储
-        # 简化实现：暂时只返回 base 对象
         base = Base.query.get(base_id)
+        if not base:
+            return None
+        
+        # 查找或创建成员关系
+        membership = BaseMember.query.filter_by(
+            base_id=base_id,
+            user_id=user_id
+        ).first()
+        
+        if membership:
+            # 切换收藏状态
+            membership.is_starred = not membership.is_starred
+        else:
+            # 创建新的成员关系（如果是拥有者）
+            if str(base.owner_id) == user_id:
+                membership = BaseMember(
+                    base_id=base_id,
+                    user_id=user_id,
+                    role=MemberRole.OWNER,
+                    is_starred=True
+                )
+                db.session.add(membership)
+            else:
+                return None
+        
+        db.session.commit()
+        base.is_starred = membership.is_starred
         return base
     
     @staticmethod

@@ -139,7 +139,7 @@ const escapeRegExp = (string: string): string => {
 const starredBases = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
   return baseStore.bases
-    .filter((base) => base.isStarred)
+    .filter((base) => base.is_starred)
     .filter((base) => {
       if (!query) return true;
       return base.name.toLowerCase().includes(query);
@@ -379,7 +379,7 @@ async function handleDeleteBase(base: Base) {
 // 处理收藏
 async function handleStarBase(base: Base, event: Event) {
   event.stopPropagation();
-  await baseStore.toggleStarBase(base.id);
+  await baseStore.toggleStar(base.id);
   ElMessage.success("已收藏");
 }
 
@@ -389,7 +389,7 @@ async function handleUnstarBase(base: Base, event: Event) {
   unstarLoadingMap.value.set(base.id, true);
 
   try {
-    await baseStore.toggleStarBase(base.id);
+    await baseStore.toggleStar(base.id);
     ElMessage.success("已取消收藏");
   } catch (error) {
     ElMessage.error("取消收藏失败");
@@ -409,8 +409,8 @@ async function handleToggleStar(base: Base, event: Event) {
   unstarLoadingMap.value.set(base.id, true);
 
   try {
-    await baseStore.toggleStarBase(base.id);
-    ElMessage.success(base.isStarred ? "已取消收藏" : "已收藏");
+    await baseStore.toggleStar(base.id);
+    ElMessage.success(base.is_starred ? "已取消收藏" : "已收藏");
   } catch (error) {
     ElMessage.error("操作失败");
   } finally {
@@ -745,7 +745,7 @@ async function handleUseTemplate(template: TableTemplate) {
                     v-for="base in displayedAllBases"
                     :key="base.id"
                     class="base-card"
-                    :class="{ starred: base.isStarred }"
+                    :class="{ starred: base.is_starred }"
                     @click="goToBase(base.id)">
                     <div class="card-main">
                       <div
@@ -776,7 +776,7 @@ async function handleUseTemplate(template: TableTemplate) {
                       </span>
                       <div class="card-actions" @click.stop="stopPropagation">
                         <el-button
-                          v-if="!base.isStarred"
+                          v-if="!base.is_starred"
                           link
                           @click="handleStarBase(base, $event)">
                           <el-icon><Star /></el-icon>
@@ -1050,17 +1050,17 @@ async function handleUseTemplate(template: TableTemplate) {
                         </div>
                         <div class="item-actions" @click.stop>
                           <el-tooltip
-                            :content="base.isStarred ? '取消收藏' : '收藏'"
+                            :content="base.is_starred ? '取消收藏' : '收藏'"
                             placement="top"
                             :show-after="200">
                             <el-button
                               link
-                              :type="base.isStarred ? 'warning' : 'info'"
+                              :type="base.is_starred ? 'warning' : 'info'"
                               class="action-btn"
                               :loading="isUnstarLoading(base.id)"
                               @click="handleToggleStar(base, $event)">
                               <el-icon>
-                                <StarFilled v-if="base.isStarred" />
+                                <StarFilled v-if="base.is_starred" />
                                 <Star v-else />
                               </el-icon>
                             </el-button>

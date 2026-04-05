@@ -157,6 +157,7 @@ class BaseMember(db.Model):
         role: 成员角色
         invited_by: 邀请人 ID
         joined_at: 加入时间
+        is_starred: 是否已收藏
     """
 
     __tablename__ = 'base_members'
@@ -193,6 +194,10 @@ class BaseMember(db.Model):
     joined_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
+        nullable=False
+    )
+    is_starred: Mapped[bool] = mapped_column(
+        default=False,
         nullable=False
     )
 
