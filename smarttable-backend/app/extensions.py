@@ -85,9 +85,26 @@ def register_jwt_callbacks(jwt_manager):
     def check_if_token_revoked(jwt_header, jwt_payload):
         """检查令牌是否被撤销"""
         from app.models.user import TokenBlocklist
+        from app.extensions import cache
+        
         jti = jwt_payload["jti"]
+        user_id = jwt_payload.get("sub")
+        
+        # 先检查是否在黑名单中
         token = TokenBlocklist.query.filter_by(jti=jti).first()
-        return token is not None
+        if token is not None:
+            return True
+        
+        # 检查令牌版本号（用于退出所有设备功能）
+        cache_key = f"user_token_version:{user_id}"
+        current_version = cache.get(cache_key) or 0
+        token_version = jwt_payload.get('token_version', 0)
+        
+        # 如果令牌版本号小于当前版本号，说明令牌已失效
+        if token_version < current_version:
+            return True
+        
+        return False
     
     @jwt_manager.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):

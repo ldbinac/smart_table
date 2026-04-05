@@ -99,16 +99,22 @@ class AuthService:
         Returns:
             包含令牌信息的字典
         """
-        # 创建访问令牌（短期有效）
+        # 获取当前令牌版本号
+        cache_key = f"user_token_version:{user_id}"
+        token_version = cache.get(cache_key) or 0
+        
+        # 创建访问令牌（短期有效），包含版本号
         access_token = create_access_token(
             identity=user_id,
-            expires_delta=timedelta(seconds=AuthService.ACCESS_TOKEN_EXPIRES)
+            expires_delta=timedelta(seconds=AuthService.ACCESS_TOKEN_EXPIRES),
+            additional_claims={'token_version': token_version}
         )
         
-        # 创建刷新令牌（长期有效）
+        # 创建刷新令牌（长期有效），包含版本号
         refresh_token = create_refresh_token(
             identity=user_id,
-            expires_delta=timedelta(seconds=AuthService.REFRESH_TOKEN_EXPIRES)
+            expires_delta=timedelta(seconds=AuthService.REFRESH_TOKEN_EXPIRES),
+            additional_claims={'token_version': token_version}
         )
         
         return {
