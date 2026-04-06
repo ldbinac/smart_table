@@ -144,7 +144,7 @@ const starredBases = computed(() => {
       if (!query) return true;
       return base.name.toLowerCase().includes(query);
     })
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 });
 
 // 所有 Base 列表（带搜索过滤）
@@ -155,7 +155,7 @@ const allBases = computed(() => {
       if (!query) return true;
       return base.name.toLowerCase().includes(query);
     })
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 });
 
 // 是否有收藏的项目
@@ -698,7 +698,7 @@ async function handleUseTemplate(template: TableTemplate) {
                     <div class="card-footer">
                       <span class="update-time">
                         最后修改时间：{{
-                          new Date(base.updatedAt).toLocaleString("zh-CN", {
+                          new Date(base.updated_at).toLocaleString("zh-CN", {
                             year: "numeric",
                             month: "2-digit",
                             day: "2-digit",
@@ -802,7 +802,7 @@ async function handleUseTemplate(template: TableTemplate) {
                     <div class="card-footer">
                       <span class="update-time">
                         最后修改时间：{{
-                          new Date(base.updatedAt).toLocaleString("zh-CN", {
+                          new Date(base.updated_at).toLocaleString("zh-CN", {
                             year: "numeric",
                             month: "2-digit",
                             day: "2-digit",
@@ -979,7 +979,7 @@ async function handleUseTemplate(template: TableTemplate) {
                         </div>
                         <div class="item-meta">
                           <span class="update-time">
-                            修改于 {{ formatDate(base.updatedAt) }}
+                            修改于 {{ formatDate(base.updated_at) }}
                           </span>
                         </div>
                         <div class="item-actions" @click.stop>
@@ -1080,7 +1080,7 @@ async function handleUseTemplate(template: TableTemplate) {
                         </div>
                         <div class="item-meta">
                           <span class="update-time">
-                            修改于 {{ formatDate(base.updatedAt) }}
+                            修改于 {{ formatDate(base.updated_at) }}
                           </span>
                         </div>
                         <div class="item-actions" @click.stop>
