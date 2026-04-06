@@ -32,25 +32,25 @@ const currentActiveNav = computed(() => {
 const navItems = computed<NavItem[]>(() => [
   {
     id: "home",
-    label: "首页",
+    label: "我的",
     icon: "home",
     path: "/",
   },
-  {
-    id: "bases",
-    label: "多维表格",
-    icon: "table",
-    children: [
-      { id: "base-1", label: "项目表格", icon: "file", path: "/base/1" },
-      { id: "base-2", label: "任务管理", icon: "file", path: "/base/2" },
-    ],
-  },
-  {
-    id: "dashboard",
-    label: "仪表盘",
-    icon: "dashboard",
-    path: "/base/1/dashboard",
-  },
+  // {
+  //   id: "bases",
+  //   label: "多维表格",
+  //   icon: "table",
+  //   children: [
+  //     { id: "base-1", label: "项目表格", icon: "file", path: "/base/1" },
+  //     { id: "base-2", label: "任务管理", icon: "file", path: "/base/2" },
+  //   ],
+  // },
+  // {
+  //   id: "dashboard",
+  //   label: "仪表盘",
+  //   icon: "dashboard",
+  //   path: "/base/1/dashboard",
+  // },
   {
     id: "settings",
     label: "设置",

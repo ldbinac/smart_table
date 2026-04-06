@@ -557,12 +557,9 @@ async function handleUseTemplate(template: TableTemplate) {
         <el-icon><Document /></el-icon>
         <span>模板</span>
       </div>
-    </div>
-
-    <div class="home-content-wrapper">
-      <!-- 顶部搜索栏 -->
-      <header class="home-header">
-        <!-- 全局搜索框 - 居中显示 -->
+      <!-- 右侧搜索和操作区 -->
+      <div class="header-right-section">
+        <!-- 全局搜索框 -->
         <div class="header-search">
           <div class="search-wrapper">
             <el-icon class="search-icon"><Search /></el-icon>
@@ -584,7 +581,21 @@ async function handleUseTemplate(template: TableTemplate) {
             找到 {{ starredBases.length + allBases.length }} 个结果
           </div>
         </div>
+        <div class="header-actions">
+          <el-button
+            type="primary"
+            class="create-btn"
+            @click="openCreateChoiceDialog">
+            <el-icon><Plus /></el-icon>
+            <span>新建</span>
+          </el-button>
+        </div>
+      </div>
+    </div>
 
+    <div class="home-content-wrapper">
+      <!-- 顶部搜索栏 -->
+      <!-- <header class="home-header">
         <div class="header-actions">
           <el-button
             type="primary"
@@ -597,7 +608,7 @@ async function handleUseTemplate(template: TableTemplate) {
             <el-icon><Setting /></el-icon>
           </el-button>
         </div>
-      </header>
+      </header> -->
 
       <main
         class="home-content"
@@ -772,7 +783,9 @@ async function handleUseTemplate(template: TableTemplate) {
 
               <div class="card-grid">
                 <!-- 创建卡片 -->
-                <div class="base-card create-card" @click="openCreateDialog">
+                <div
+                  class="base-card create-card"
+                  @click="openCreateChoiceDialog">
                   <div class="create-content">
                     <div class="create-icon">
                       <el-icon :size="24"><Plus /></el-icon>
@@ -1463,6 +1476,7 @@ $star-color: #f59e0b;
 // 顶部导航 Tab
 .home-nav-tabs {
   display: flex;
+  align-items: center;
   gap: 8px;
   padding: 16px 32px;
   background: white;
@@ -1579,9 +1593,16 @@ $star-color: #f59e0b;
   }
 }
 
+// 右侧搜索和操作区
+.header-right-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-left: auto;
+}
+
 // 搜索框
 .header-search {
-  flex: 1;
   max-width: 480px;
   position: relative;
 
