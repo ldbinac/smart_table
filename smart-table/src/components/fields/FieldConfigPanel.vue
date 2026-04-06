@@ -9,6 +9,7 @@ interface Field {
   name: string;
   type: string;
   options?: FieldOptions;
+  defaultValue?: any;
 }
 
 interface Props {
@@ -126,6 +127,26 @@ const showAttachmentOptions = computed(
   () => localField.value.type === FieldType.ATTACHMENT,
 );
 
+// 默认值相关方法
+const updateDefaultValue = (value: any) => {
+  localField.value = {
+    ...localField.value,
+    defaultValue: value,
+  };
+};
+
+const clearDefaultValue = () => {
+  localField.value = {
+    ...localField.value,
+    defaultValue: undefined,
+  };
+};
+
+// 获取单选/多选的选项列表用于默认值选择
+const getSelectOptions = computed(() => {
+  return localField.value.options?.options || [];
+});
+
 const numberFormatOptions = [
   { label: "数字", value: "number" },
   { label: "货币", value: "currency" },
@@ -159,6 +180,107 @@ const currencySymbolOptions = [
           :label="option.label"
           :value="option.value" />
       </el-select>
+    </div>
+
+    <!-- 默认值配置区域 -->
+    <div class="config-section default-value-section">
+      <div class="config-label">
+        <span>默认值</span>
+        <el-button
+          v-if="localField.defaultValue !== undefined"
+          type="danger"
+          size="small"
+          @click="clearDefaultValue"
+          class="clear-btn">
+          清除
+        </el-button>
+      </div>
+
+      <!-- 文本类型默认值 -->
+      <el-input
+        v-if="showTextOptions"
+        v-model="localField.defaultValue"
+        @update:model-value="updateDefaultValue"
+        placeholder="请输入默认文本"
+        class="config-input" />
+
+      <!-- 数字类型默认值 -->
+      <el-input-number
+        v-if="showNumberOptions"
+        :model-value="localField.defaultValue"
+        @update:model-value="updateDefaultValue"
+        :precision="localField.options?.precision"
+        placeholder="请输入默认数值"
+        class="config-input" />
+
+      <!-- 日期类型默认值 -->
+      <div v-if="showDateOptions" class="date-default-wrapper">
+        <el-radio-group
+          :model-value="
+            localField.defaultValue === 'now' ? 'dynamic' : 'static'
+          "
+          @update:model-value="
+            (val: string) => updateDefaultValue(val === 'dynamic' ? 'now' : '')
+          "
+          size="small"
+          class="date-radio-group">
+          <el-radio-button label="static">指定日期</el-radio-button>
+          <el-radio-button label="dynamic">当前时间</el-radio-button>
+        </el-radio-group>
+        <el-date-picker
+          v-if="localField.defaultValue !== 'now'"
+          v-model="localField.defaultValue"
+          @update:model-value="updateDefaultValue"
+          type="datetime"
+          :format="
+            localField.options?.includeTime
+              ? 'YYYY-MM-DD HH:mm:ss'
+              : 'YYYY-MM-DD'
+          "
+          :show-time="localField.options?.includeTime"
+          placeholder="选择默认日期"
+          class="config-input date-picker" />
+      </div>
+
+      <!-- 单选类型默认值 -->
+      <el-select
+        v-if="localField.type === FieldType.SINGLE_SELECT"
+        :model-value="localField.defaultValue"
+        @update:model-value="updateDefaultValue"
+        placeholder="请选择默认选项"
+        clearable
+        class="config-input">
+        <el-option
+          v-for="option in getSelectOptions"
+          :key="option.id"
+          :label="option.name"
+          :value="option.id" />
+      </el-select>
+
+      <!-- 多选类型默认值 -->
+      <el-select
+        v-if="localField.type === FieldType.MULTI_SELECT"
+        :model-value="localField.defaultValue"
+        @update:model-value="updateDefaultValue"
+        placeholder="请选择默认选项"
+        multiple
+        collapse-tags
+        collapse-tags-tooltip
+        class="config-input">
+        <el-option
+          v-for="option in getSelectOptions"
+          :key="option.id"
+          :label="option.name"
+          :value="option.id" />
+      </el-select>
+
+      <!-- 复选框类型默认值 -->
+      <el-switch
+        v-if="localField.type === FieldType.CHECKBOX"
+        :model-value="localField.defaultValue"
+        @update:model-value="updateDefaultValue"
+        active-text="选中"
+        inactive-text="未选中" />
     </div>
 
     <template v-if="showTextOptions">
@@ -298,9 +420,15 @@ const currencySymbolOptions = [
           <el-option label="图片 (image/*)" value="image/*" />
           <el-option label="文档 (PDF)" value="application/pdf" />
           <el-option label="文档 (Word .doc)" value="application/msword" />
-          <el-option label="文档 (Word .docx)" value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-          <el-option label="文档 (Excel .xls)" value="application/vnd.ms-excel" />
-          <el-option label="文档 (Excel .xlsx)" value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+          <el-option
+            label="文档 (Word .docx)"
+            value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+          <el-option
+            label="文档 (Excel .xls)"
+            value="application/vnd.ms-excel" />
+          <el-option
+            label="文档 (Excel .xlsx)"
+            value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
           <el-option label="视频 (video/*)" value="video/*" />
           <el-option label="音频 (audio/*)" value="audio/*" />
         </el-select>
@@ -363,6 +491,33 @@ const currencySymbolOptions = [
   font-size: $font-size-sm;
   font-weight: 500;
   color: $text-secondary;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clear-btn {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.default-value-section {
+  border-top: 1px solid $border-color;
+  padding-top: $spacing-md;
+  margin-top: $spacing-sm;
+}
+
+.date-default-wrapper {
+  @include flex-column;
+  gap: $spacing-sm;
+}
+
+.date-radio-group {
+  margin-bottom: $spacing-xs;
+}
+
+.date-picker {
+  width: 100%;
 }
 
 .config-input {

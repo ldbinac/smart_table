@@ -133,6 +133,24 @@ class Field(db.Model):
     )
 
     def get_default_value(self) -> Any:
+        """
+        获取字段的默认值
+        
+        优先从 config 中读取用户配置的默认值，如果没有配置则返回类型相关的默认值
+        注意：动态默认值 'now' 会原样返回，由 record_service 在创建记录时动态计算
+        """
+        # 优先使用 config 中配置的默认值
+        if self.config and isinstance(self.config, dict) and 'defaultValue' in self.config:
+            default_value = self.config['defaultValue']
+            
+            # 动态默认值 'now' 原样返回，由 record_service 处理
+            # 这样可以确保每次创建记录时都使用当时的日期
+            if default_value == 'now':
+                return 'now'  # 返回标记，由 record_service 动态计算
+            
+            return default_value
+        
+        # 否则返回类型相关的默认值
         field_type = FieldType(self.type)
         defaults = {
             FieldType.SINGLE_LINE_TEXT: '',
@@ -164,6 +182,81 @@ class Field(db.Model):
             FieldType.BUTTON: None
         }
         return defaults.get(field_type)
+    
+    def validate_default_value(self, value: Any) -> tuple[bool, Optional[str]]:
+        """
+        验证默认值是否符合字段类型
+        
+        Args:
+            value: 待验证的默认值
+            
+        Returns:
+            (是否有效，错误信息)
+        """
+        # None 值总是有效的（表示没有默认值）
+        if value is None:
+            return True, None
+        
+        field_type = FieldType(self.type)
+        
+        # 特殊处理动态默认值
+        if value == 'now':
+            if field_type in [FieldType.DATE, FieldType.DATE_TIME]:
+                return True, None
+            else:
+                return False, f'字段 "{self.name}" 的类型不支持动态默认值'
+        
+        # 根据字段类型验证默认值
+        if field_type in [FieldType.SINGLE_LINE_TEXT, FieldType.LONG_TEXT, FieldType.RICH_TEXT,
+                         FieldType.EMAIL, FieldType.PHONE, FieldType.URL]:
+            if not isinstance(value, str):
+                return False, f'字段 "{self.name}" 的默认值必须是字符串'
+        
+        elif field_type in [FieldType.NUMBER, FieldType.CURRENCY, FieldType.PERCENT, 
+                           FieldType.RATING, FieldType.DURATION]:
+            if not isinstance(value, (int, float)):
+                return False, f'字段 "{self.name}" 的默认值必须是数字'
+        
+        elif field_type in [FieldType.DATE, FieldType.DATE_TIME]:
+            if not isinstance(value, str):
+                return False, f'字段 "{self.name}" 的默认值必须是日期字符串'
+            # 验证日期格式
+            try:
+                datetime.fromisoformat(value.replace('Z', '+00:00'))
+            except ValueError:
+                return False, f'字段 "{self.name}" 的默认值必须是有效的日期格式'
+        
+        elif field_type == FieldType.CHECKBOX:
+            if not isinstance(value, bool):
+                return False, f'字段 "{self.name}" 的默认值必须是布尔值'
+        
+        elif field_type == FieldType.SINGLE_SELECT:
+            # 单选默认值应该是选项 ID（字符串）
+            if not isinstance(value, str):
+                return False, f'字段 "{self.name}" 的默认值必须是选项 ID'
+            # 验证选项是否存在
+            if self.options and isinstance(self.options, dict):
+                choices = self.options.get('choices', [])
+                if not any(choice.get('id') == value for choice in choices):
+                    return False, f'字段 "{self.name}" 的默认值对应的选项不存在'
+        
+        elif field_type == FieldType.MULTI_SELECT:
+            # 多选默认值应该是选项 ID 数组
+            if not isinstance(value, list):
+                return False, f'字段 "{self.name}" 的默认值必须是选项 ID 数组'
+            # 验证所有选项是否存在
+            if self.options and isinstance(self.options, dict):
+                choices = self.options.get('choices', [])
+                for option_id in value:
+                    if not any(choice.get('id') == option_id for choice in choices):
+                        return False, f'字段 "{self.name}" 的默认值包含不存在的选项'
+        
+        elif field_type in [FieldType.LINK_TO_RECORD, FieldType.COLLABORATOR, FieldType.ATTACHMENT]:
+            # 这些类型默认值应该是数组
+            if not isinstance(value, list):
+                return False, f'字段 "{self.name}" 的默认值必须是数组'
+        
+        return True, None
 
     def validate_value(self, value: Any) -> tuple[bool, Optional[str]]:
         if self.is_required and value is None:
@@ -188,7 +281,7 @@ class Field(db.Model):
         return True, None
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             'id': str(self.id),
             'table_id': str(self.table_id),
             'name': self.name,
@@ -202,6 +295,12 @@ class Field(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+        
+        # 将 config 中的 defaultValue 提取到顶层，方便前端使用
+        if self.config and isinstance(self.config, dict) and 'defaultValue' in self.config:
+            result['defaultValue'] = self.config['defaultValue']
+        
+        return result
 
     def __repr__(self) -> str:
         return f'<Field {self.name} ({self.type})>'

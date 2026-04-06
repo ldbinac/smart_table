@@ -8,6 +8,7 @@ import {
   serializeRecordValues,
   deserializeRecordValues,
 } from "../../utils/recordValueSerializer";
+import { fieldService } from "./fieldService";
 
 export interface CreateRecordData {
   tableId: string;
@@ -22,11 +23,38 @@ export interface UpdateRecordData {
 }
 
 export class RecordService {
+  /**
+   * 应用字段的默认值到记录值
+   * @param tableId 表格 ID
+   * @param initialValues 初始值
+   * @returns 应用默认值后的值
+   */
+  private async applyDefaultValues(
+    tableId: string,
+    initialValues: Record<string, CellValue>
+  ): Promise<Record<string, CellValue>> {
+    // 获取所有字段
+    const fields = await fieldService.getFieldsByTable(tableId);
+    
+    // 对每个有默认值的字段，如果 initialValues 中没有提供，则应用默认值
+    const valuesWithDefaults = { ...initialValues };
+    for (const field of fields) {
+      if (field.defaultValue !== undefined && !(field.id in valuesWithDefaults)) {
+        valuesWithDefaults[field.id] = field.defaultValue;
+      }
+    }
+    
+    return valuesWithDefaults;
+  }
+
   async createRecord(data: CreateRecordData): Promise<RecordEntity> {
     try {
+      // 应用字段默认值
+      const valuesWithDefaults = await this.applyDefaultValues(data.tableId, data.values);
+      
       // 先调用后端 API 创建记录
       const apiRecord = await recordApiService.createRecord(data.tableId, {
-        ...data.values,
+        ...valuesWithDefaults,
       } as Record<string, unknown>);
 
       // 将后端返回的记录转换为本地格式

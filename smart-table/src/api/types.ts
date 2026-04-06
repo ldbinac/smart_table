@@ -164,6 +164,7 @@ export interface Field {
   is_required: boolean
   options?: Record<string, unknown>
   config?: FieldConfig
+  defaultValue?: unknown
   created_at: string
   updated_at: string
 }

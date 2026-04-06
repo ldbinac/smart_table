@@ -53,6 +53,7 @@ export class FieldService {
         isRequired: data.isRequired,
         description: data.description,
         options: data.options as Record<string, unknown>,
+        defaultValue: data.defaultValue,
       });
 
       // 将后端返回的字段类型转换为前端类型

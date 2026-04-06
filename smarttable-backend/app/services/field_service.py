@@ -100,9 +100,24 @@ class FieldService:
             if not choices or not isinstance(choices, list):
                 return {'success': False, 'error': f'{field_type} 类型字段必须提供选项列表'}
         
+        # 验证默认值（如果提供）
+        if 'defaultValue' in data or 'default_value' in data:
+            default_value = data.get('defaultValue') or data.get('default_value')
+            is_valid, error_msg = FieldService.validate_default_value(field_type, data.get('options'), default_value)
+            if not is_valid:
+                return {'success': False, 'error': error_msg}
+        
         # 获取当前最大 order
         max_order = db.session.query(func.max(Field.order)).filter_by(table_id=table_id).scalar()
         new_order = (max_order or 0) + 1
+        
+        # 准备 config 数据，包含默认值
+        config = data.get('config', {}) or {}
+        default_value = data.get('defaultValue') or data.get('default_value')
+        if default_value is not None:
+            config['defaultValue'] = default_value
+            config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
+            config['updatedAt'] = datetime.utcnow().isoformat()
         
         # 创建字段
         field = Field(
@@ -114,7 +129,7 @@ class FieldService:
             is_primary=data.get('is_primary', False),
             is_required=data.get('is_required', False),
             options=data.get('options'),
-            config=data.get('config')
+            config=config if config else None
         )
         
         try:
@@ -151,6 +166,22 @@ class FieldService:
         
         # 允许更新的字段
         allowed_fields = ['name', 'description', 'is_required', 'options', 'config']
+        
+        # 处理默认值更新
+        if 'defaultValue' in data or 'default_value' in data:
+            default_value = data.get('defaultValue') or data.get('default_value')
+            is_valid, error_msg = FieldService.validate_default_value(
+                field.type, field.options, default_value
+            )
+            if not is_valid:
+                return {'success': False, 'error': error_msg}
+            
+            # 更新 config 中的默认值
+            if field.config is None:
+                field.config = {}
+            field.config['defaultValue'] = default_value
+            field.config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
+            field.config['updatedAt'] = datetime.utcnow().isoformat()
         
         # 类型字段特殊处理
         if 'type' in data:
@@ -325,6 +356,85 @@ class FieldService:
             return {'success': True}
         else:
             return {'success': False, 'error': error_msg}
+    
+    @staticmethod
+    def validate_default_value(field_type: str, options: Optional[Dict[str, Any]], value: Any) -> tuple[bool, Optional[str]]:
+        """
+        验证默认值是否合法
+        
+        Args:
+            field_type: 字段类型
+            options: 字段选项（用于验证选择类型）
+            value: 待验证的默认值
+            
+        Returns:
+            (是否有效，错误信息)
+        """
+        # None 值总是有效的（表示没有默认值）
+        if value is None:
+            return True, None
+        
+        # 特殊处理动态默认值
+        if value == 'now':
+            if field_type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
+                return True, None
+            else:
+                return False, f'字段类型 {field_type} 不支持动态默认值'
+        
+        # 根据字段类型验证默认值
+        if field_type in [FieldType.SINGLE_LINE_TEXT.value, FieldType.LONG_TEXT.value, 
+                         FieldType.RICH_TEXT.value, FieldType.EMAIL.value, 
+                         FieldType.PHONE.value, FieldType.URL.value]:
+            if not isinstance(value, str):
+                return False, f'字段类型 {field_type} 的默认值必须是字符串'
+        
+        elif field_type in [FieldType.NUMBER.value, FieldType.CURRENCY.value, 
+                           FieldType.PERCENT.value, FieldType.RATING.value, 
+                           FieldType.DURATION.value]:
+            if not isinstance(value, (int, float)):
+                return False, f'字段类型 {field_type} 的默认值必须是数字'
+        
+        elif field_type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
+            if not isinstance(value, str):
+                return False, f'字段类型 {field_type} 的默认值必须是日期字符串'
+            # 验证日期格式
+            try:
+                datetime.fromisoformat(value.replace('Z', '+00:00'))
+            except ValueError:
+                return False, f'字段类型 {field_type} 的默认值必须是有效的日期格式'
+        
+        elif field_type == FieldType.CHECKBOX.value:
+            if not isinstance(value, bool):
+                return False, f'字段类型 {field_type} 的默认值必须是布尔值'
+        
+        elif field_type == FieldType.SINGLE_SELECT.value:
+            # 单选默认值应该是选项 ID（字符串）
+            if not isinstance(value, str):
+                return False, f'字段类型 {field_type} 的默认值必须是选项 ID'
+            # 验证选项是否存在
+            if options and isinstance(options, dict):
+                choices = options.get('choices', [])
+                if not any(choice.get('id') == value for choice in choices):
+                    return False, f'字段类型 {field_type} 的默认值对应的选项不存在'
+        
+        elif field_type == FieldType.MULTI_SELECT.value:
+            # 多选默认值应该是选项 ID 数组
+            if not isinstance(value, list):
+                return False, f'字段类型 {field_type} 的默认值必须是选项 ID 数组'
+            # 验证所有选项是否存在
+            if options and isinstance(options, dict):
+                choices = options.get('choices', [])
+                for option_id in value:
+                    if not any(choice.get('id') == option_id for choice in choices):
+                        return False, f'字段类型 {field_type} 的默认值包含不存在的选项'
+        
+        elif field_type in [FieldType.LINK_TO_RECORD.value, FieldType.COLLABORATOR.value, 
+                           FieldType.ATTACHMENT.value]:
+            # 这些类型默认值应该是数组
+            if not isinstance(value, list):
+                return False, f'字段类型 {field_type} 的默认值必须是数组'
+        
+        return True, None
     
     @staticmethod
     def get_field_type_info(field_type: str) -> Dict[str, Any]:

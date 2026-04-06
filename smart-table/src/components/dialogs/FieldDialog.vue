@@ -61,6 +61,7 @@ const newField = ref<{
   type: FieldTypeValue;
   isRequired: boolean;
   description: string;
+  defaultValue?: any;
   // 数值字段配置
   precision: number;
   // 日期字段配置
@@ -72,6 +73,7 @@ const newField = ref<{
   type: FieldType.TEXT,
   isRequired: false,
   description: "",
+  defaultValue: undefined,
   precision: 0,
   showTime: false,
   formula: "",
@@ -203,11 +205,32 @@ function openCreateField() {
 function openEditField(field: FieldEntity) {
   editingField.value = field;
   activeTab.value = "edit";
+  
+  // 处理日期字段的默认值：直接使用实际值
+  // dateDefaultType 计算属性会自动根据 defaultValue 的值判断类型
+  let dateDefaultValue: any = undefined;
+  
+  if (field.type === FieldType.DATE) {
+    if (field.defaultValue === 'now') {
+      dateDefaultValue = 'now';
+    } else if (field.defaultValue && field.defaultValue !== 'now') {
+      // 指定日期的情况，直接使用实际日期值
+      dateDefaultValue = field.defaultValue;
+    } else {
+      // 不使用默认值
+      dateDefaultValue = undefined;
+    }
+  } else {
+    // 非日期字段，直接使用默认值
+    dateDefaultValue = field.defaultValue;
+  }
+  
   newField.value = {
     name: field.name,
     type: field.type as FieldTypeValue,
     isRequired: field.isRequired ?? false,
     description: field.description || "",
+    defaultValue: dateDefaultValue,
     precision: (field.options?.precision as number) ?? 0,
     showTime: (field.options?.showTime as boolean) ?? false,
     formula: (field.options?.formula as string) ?? "",
@@ -254,6 +277,7 @@ function backToList() {
     type: FieldType.TEXT,
     isRequired: false,
     description: "",
+    defaultValue: undefined,
     precision: 0,
     showTime: false,
     formula: "",
@@ -266,6 +290,35 @@ function backToList() {
     maxCount: 20,
     enableThumbnail: true,
   };
+}
+
+// 计算日期默认值的类型（用于 radio-group 绑定）
+const dateDefaultType = computed({
+  get: () => {
+    if (newField.value.type !== FieldType.DATE) return '';
+    if (newField.value.defaultValue === 'now') return 'now';
+    if (newField.value.defaultValue && newField.value.defaultValue !== 'now') return 'custom';
+    return '';
+  },
+  set: (value: string) => {
+    handleDateDefaultTypeChange(value);
+  },
+});
+
+// 处理日期默认值类型变更
+function handleDateDefaultTypeChange(value: string) {
+  // 如果切换到"不使用默认值"，清空 defaultValue
+  if (value === '') {
+    newField.value.defaultValue = undefined;
+  }
+  // 如果切换到"使用添加记录的日期"，设置为 'now'
+  if (value === 'now') {
+    newField.value.defaultValue = 'now';
+  }
+  // 如果切换到"指定日期"，保持当前值或设置为当前日期
+  if (value === 'custom' && (newField.value.defaultValue === 'now' || !newField.value.defaultValue)) {
+    newField.value.defaultValue = new Date().toISOString().split('T')[0];
+  }
 }
 
 async function createField() {
@@ -317,6 +370,7 @@ async function createField() {
       type: newField.value.type,
       isRequired: newField.value.isRequired,
       description: newField.value.description,
+      defaultValue: newField.value.defaultValue,
       options: Object.keys(options).length > 0 ? options : undefined,
     });
 
@@ -378,6 +432,7 @@ async function updateField() {
       name: newField.value.name.trim(),
       isRequired: newField.value.isRequired,
       description: newField.value.description,
+      defaultValue: newField.value.defaultValue,
       options: options as Record<string, unknown>,
     });
 
@@ -970,6 +1025,87 @@ async function toggleFieldVisibility(
             type="textarea"
             :rows="2"
             placeholder="请输入字段描述（可选）" />
+        </ElFormItem>
+
+        <!-- 默认值配置 -->
+        <ElFormItem label="默认值">
+          <!-- 文本类型 -->
+          <ElInput
+            v-if="newField.type === FieldType.TEXT"
+            v-model="newField.defaultValue"
+            placeholder="请输入默认文本"
+            style="width: 100%" />
+          
+          <!-- 数字类型 -->
+          <ElInputNumber
+            v-else-if="newField.type === FieldType.NUMBER"
+            v-model="newField.defaultValue"
+            :precision="newField.precision"
+            placeholder="请输入默认数值"
+            style="width: 100%" />
+          
+          <!-- 日期类型 -->
+          <div v-else-if="newField.type === FieldType.DATE" style="width: 100%">
+            <div style="margin-bottom: 8px">
+              <el-radio-group
+                v-model="dateDefaultType"
+                size="small">
+                <el-radio-button label="">不使用默认值</el-radio-button>
+                <el-radio-button label="now">使用添加记录的日期</el-radio-button>
+                <el-radio-button label="custom">指定日期</el-radio-button>
+              </el-radio-group>
+            </div>
+            <el-date-picker
+              v-if="dateDefaultType === 'custom'"
+              v-model="newField.defaultValue"
+              type="datetime"
+              :format="newField.showTime ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'"
+              :show-time="newField.showTime"
+              placeholder="选择默认日期"
+              style="width: 100%" />
+          </div>
+          
+          <!-- 单选类型 -->
+          <ElSelect
+            v-else-if="newField.type === FieldType.SINGLE_SELECT"
+            v-model="newField.defaultValue"
+            placeholder="请选择默认选项"
+            clearable
+            style="width: 100%">
+            <ElOption
+              v-for="option in selectOptions"
+              :key="option.id"
+              :label="option.name"
+              :value="option.id" />
+          </ElSelect>
+          
+          <!-- 多选类型 -->
+          <ElSelect
+            v-else-if="newField.type === FieldType.MULTI_SELECT"
+            v-model="newField.defaultValue"
+            placeholder="请选择默认选项"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            style="width: 100%">
+            <ElOption
+              v-for="option in selectOptions"
+              :key="option.id"
+              :label="option.name"
+              :value="option.id" />
+          </ElSelect>
+          
+          <!-- 复选框类型 -->
+          <ElSwitch
+            v-else-if="newField.type === FieldType.CHECKBOX"
+            v-model="newField.defaultValue"
+            active-text="选中"
+            inactive-text="未选中" />
+          
+          <ElTag v-if="newField.defaultValue !== undefined && newField.defaultValue !== null" type="success" size="small" style="margin-left: 8px">
+            已设置
+          </ElTag>
+          <div class="field-hint">设置字段的默认值，创建记录时会自动填充</div>
         </ElFormItem>
       </ElForm>
 

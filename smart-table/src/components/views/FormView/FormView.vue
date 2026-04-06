@@ -78,8 +78,10 @@ watch(
   () => props.record,
   (newRecord) => {
     if (newRecord) {
+      // 编辑模式：使用记录的值
       formValues.value = { ...newRecord.values };
     } else {
+      // 新建模式：应用默认值
       resetForm();
     }
   },
@@ -250,10 +252,21 @@ function resetForm() {
   submitSuccess.value = false;
   newRecordId.value = generateId();
 
-  // 设置默认值
+  // 设置默认值：使用 field.defaultValue（与 AddRecordDrawer 保持一致）
   visibleFields.value.forEach((field) => {
-    if (field.options?.defaultValue !== undefined) {
-      formValues.value[field.id] = field.options.defaultValue as CellValue;
+    if (field.defaultValue !== undefined && field.defaultValue !== null) {
+      // 特殊处理日期字段的动态默认值 'now'
+      if (field.type === FieldType.DATE && field.defaultValue === 'now') {
+        // 动态计算当前日期
+        const showTime = (field.options?.showTime as boolean) ?? false;
+        if (showTime) {
+          formValues.value[field.id] = new Date().toISOString();
+        } else {
+          formValues.value[field.id] = new Date().toISOString().split('T')[0];
+        }
+      } else {
+        formValues.value[field.id] = field.defaultValue as CellValue;
+      }
     }
   });
 }

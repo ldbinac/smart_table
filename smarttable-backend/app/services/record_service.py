@@ -6,6 +6,8 @@ import uuid
 
 from app.extensions import db
 from app.models.record import Record
+from app.models.field import Field
+from app.services.field_service import FieldService
 
 
 class RecordService:
@@ -39,6 +41,8 @@ class RecordService:
         """
         创建记录
         
+        创建记录时会自动应用字段的默认值（如果字段有配置默认值且提供的 values 中没有该字段）
+        
         Args:
             table_id: 表格 ID
             values: 字段值字典
@@ -47,9 +51,34 @@ class RecordService:
         Returns:
             创建的记录对象
         """
+        from datetime import datetime
+        
+        # 获取所有字段并应用默认值
+        fields = FieldService.get_all_fields(table_id)
+        
+        # 从提供的 values 开始
+        final_values = dict(values) if values else {}
+        
+        # 对每个有默认值的字段，如果没有提供值，则应用默认值
+        for field in fields:
+            field_id = str(field.id)
+            if field_id not in final_values:
+                default_value = field.get_default_value()
+                # 只应用非 None 的默认值
+                if default_value is not None:
+                    # 特殊处理动态日期默认值 'now'
+                    if default_value == 'now':
+                        if field.type == 'date_time':
+                            final_values[field_id] = datetime.utcnow().isoformat()
+                        else:
+                            # 仅日期格式
+                            final_values[field_id] = datetime.utcnow().strftime('%Y-%m-%d')
+                    else:
+                        final_values[field_id] = default_value
+        
         record = Record(
             table_id=table_id,
-            values=values or {},
+            values=final_values,
             created_by=created_by,
             updated_by=created_by
         )

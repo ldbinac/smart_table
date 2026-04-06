@@ -68,20 +68,46 @@ watch(
     if (isVisible) {
       formData.value = {};
 
-      // 如果有分组信息，自动填充分组字段
-      if (
+      // 1. 首先应用字段的默认值
+      props.fields.forEach((field) => {
+        if (field.defaultValue !== undefined && field.defaultValue !== null) {
+          // 特殊处理日期字段的动态默认值 'now'
+          if (field.type === FieldType.DATE && field.defaultValue === "now") {
+            // 动态计算当前日期
+            const showTime = (field.options?.showTime as boolean) ?? false;
+            if (showTime) {
+              formData.value[field.id] = new Date().toISOString();
+            } else {
+              formData.value[field.id] = new Date().toISOString().split("T")[0];
+            }
+          } else {
+            formData.value[field.id] = field.defaultValue;
+          }
+        }
+      });
+
+      // 2. 应用传入的初始值（如日历视图的日期）
+      if (props.initialValues) {
+        Object.keys(props.initialValues).forEach((key) => {
+          formData.value[key] = props.initialValues![key];
+        });
+      }
+
+      // 3. 最后应用分组信息（优先级最高）
+      // 优先使用 groupLevels（多层分组）
+      if (props.groupLevels && props.groupLevels.length > 0) {
+        props.groupLevels.forEach((level) => {
+          if (level.valueId && level.valueId !== "uncategorized") {
+            formData.value[level.fieldId] = level.valueId;
+          }
+        });
+      } else if (
+        // 兼容旧版单层分组
         props.groupFieldId &&
         props.groupId &&
         props.groupId !== "uncategorized"
       ) {
         formData.value[props.groupFieldId] = props.groupId;
-      }
-
-      // 应用传入的初始值（如日历视图的日期）
-      if (props.initialValues) {
-        Object.keys(props.initialValues).forEach((key) => {
-          formData.value[key] = props.initialValues![key];
-        });
       }
     }
   },
