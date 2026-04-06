@@ -102,7 +102,7 @@ export const adminGuard = async (
     next()
   } else {
     next({
-      path: '/',
+      path: '/403',
       query: { message: '需要管理员权限' }
     })
   }

@@ -13,7 +13,10 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null);
 
   const isAuthenticated = computed(() => !!token.value);
-  const isAdmin = computed(() => user.value?.role === 'admin');
+  const isAdmin = computed(() => {
+    const userRole = user.value?.role;
+    return userRole === 'admin' || userRole === 'workspace_admin';
+  });
 
   function setToken(accessToken: string, refreshTok?: string) {
     token.value = accessToken;

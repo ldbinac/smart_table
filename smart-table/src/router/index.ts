@@ -3,7 +3,7 @@ import {
   createWebHashHistory,
   type RouteRecordRaw,
 } from "vue-router";
-import { authGuard, titleGuard } from "./guards";
+import { authGuard, titleGuard, adminGuard } from "./guards";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -84,6 +84,44 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/Settings.vue"),
     meta: {
       title: "设置",
+    },
+  },
+  {
+    path: "/admin/users",
+    name: "AdminUsers",
+    component: () => import("@/views/admin/UserManagement.vue"),
+    meta: {
+      title: "用户管理",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/settings",
+    name: "AdminSettings",
+    component: () => import("@/views/admin/SystemSettings.vue"),
+    meta: {
+      title: "系统配置",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/logs",
+    name: "AdminLogs",
+    component: () => import("@/views/admin/OperationLogs.vue"),
+    meta: {
+      title: "操作日志",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/403",
+    name: "Forbidden",
+    component: () => import("@/views/Forbidden.vue"),
+    meta: {
+      title: "禁止访问",
     },
   },
   {

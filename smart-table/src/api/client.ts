@@ -22,18 +22,33 @@ const instance: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true,  // 允许发送凭证（cookies、授权头等）
+  withCredentials: true, // 允许发送凭证（cookies、授权头等）
 });
 
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 使用 getToken 工具函数，同时支持 localStorage 和 sessionStorage
     const token = getToken();
+    console.log(`[API 拦截器] 请求 URL: ${config.url}`);
+    console.log(`[API 拦截器] Token 存在：${!!token}`);
+    console.log(
+      `[API 拦截器] Token 前缀：${token ? token.substring(0, 20) : "N/A"}...`,
+    );
+    console.log(`[API 拦截器] Headers 初始：`, config.headers);
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log(`[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，Token: ${token.substring(0, 20)}...`);
+      console.log(
+        `[API 拦截器] 设置 Authorization 头后的 headers:`,
+        config.headers,
+      );
+      console.log(
+        `[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，Token: ${token.substring(0, 20)}...`,
+      );
     } else {
-      console.warn(`[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，但 Token 不存在！`);
+      console.warn(
+        `[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，但 Token 不存在！`,
+      );
     }
     return config;
   },
@@ -163,10 +178,19 @@ export const apiClient = {
     config?: Record<string, unknown>,
   ): Promise<T> {
     return instance.get(url, { params, ...config }).then((res) => {
-      const d = res.data as ApiResponse<T>;
-      return typeof d === "object" && d !== null && "data" in d
-        ? d.data
-        : res.data;
+      const d = res.data as ApiResponse<T> & { meta?: unknown };
+
+      if (typeof d !== "object" || d === null || !("data" in d)) {
+        return res.data as T;
+      }
+
+      // 如果响应包含 meta 字段，说明是分页列表接口，返回整个对象（包含 data 和 meta）
+      if ("meta" in d && d.meta !== undefined) {
+        return d as unknown as T;
+      }
+
+      // 否则只返回 data 字段
+      return d.data as T;
     });
   },
 

@@ -40,6 +40,8 @@ declare module 'vue' {
     ElCollapseItem: typeof import('element-plus/es')['ElCollapseItem']
     ElColorPicker: typeof import('element-plus/es')['ElColorPicker']
     ElDatePicker: typeof import('element-plus/es')['ElDatePicker']
+    ElDescriptions: typeof import('element-plus/es')['ElDescriptions']
+    ElDescriptionsItem: typeof import('element-plus/es')['ElDescriptionsItem']
     ElDialog: typeof import('element-plus/es')['ElDialog']
     ElDivider: typeof import('element-plus/es')['ElDivider']
     ElDropdown: typeof import('element-plus/es')['ElDropdown']
@@ -117,6 +119,7 @@ declare module 'vue' {
     RecordDetailDrawer: typeof import('./components/dialogs/RecordDetailDrawer.vue')['default']
     RecordDialog: typeof import('./components/dialogs/RecordDialog.vue')['default']
     RegisterForm: typeof import('./components/auth/RegisterForm.vue')['default']
+    ResetPasswordDialog: typeof import('./components/dialogs/admin/ResetPasswordDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ShortcutDialog: typeof import('./components/common/ShortcutDialog.vue')['default']
@@ -133,6 +136,7 @@ declare module 'vue' {
     UpdatedByField: typeof import('./components/fields/UpdatedByField.vue')['default']
     UpdatedTimeField: typeof import('./components/fields/UpdatedTimeField.vue')['default']
     URLField: typeof import('./components/fields/URLField.vue')['default']
+    UserDialog: typeof import('./components/dialogs/admin/UserDialog.vue')['default']
     ViewSwitcher: typeof import('./components/views/ViewSwitcher.vue')['default']
   }
   export interface GlobalDirectives {

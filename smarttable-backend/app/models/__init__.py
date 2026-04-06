@@ -10,6 +10,8 @@ from app.models.view import View
 from app.models.dashboard import Dashboard
 from app.models.attachment import Attachment
 from app.models.operation_history import OperationHistory, OperationType, ResourceType
+from app.models.log import OperationLog, AdminActionType, EntityType
+from app.models.config import SystemConfig
 
 __all__ = [
     'User',
@@ -24,5 +26,9 @@ __all__ = [
     'Attachment',
     'OperationHistory',
     'OperationType',
-    'ResourceType'
+    'ResourceType',
+    'OperationLog',
+    'AdminActionType',
+    'EntityType',
+    'SystemConfig'
 ]

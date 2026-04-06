@@ -89,6 +89,15 @@ class User(db.Model):
         default=False,
         nullable=False
     )
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+    password_changed_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=True
+    )
     last_login_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=True
@@ -135,7 +144,10 @@ class User(db.Model):
             self.set_password(password)
     
     def set_password(self, password: str) -> None:
+        from datetime import datetime
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        self.password_changed_at = datetime.utcnow()
+        self.must_change_password = False
     
     def check_password(self, password: str) -> bool:
         return bcrypt.check_password_hash(self.password_hash, password)
@@ -158,6 +170,8 @@ class User(db.Model):
             'role': self.role.value,
             'status': self.status.value,
             'email_verified': self.email_verified,
+            'must_change_password': self.must_change_password,
+            'password_changed_at': self.password_changed_at.isoformat() if self.password_changed_at else None,
             'last_login_at': self.last_login_at.isoformat() if self.last_login_at else None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
