@@ -2,17 +2,17 @@
 
 中文 | [English](README.en.md)
 
-一个基于 Vue 3 + TypeScript + Pinia + Dexie (IndexedDB) 的智能多维表格系统，类似于 Airtable 或飞书多维表格。
+一个基于 Vue 3 + TypeScript + Pinia 的智能多维表格系统，支持纯前端（IndexedDB）和后端（PostgreSQL）两种部署模式，类似于 Airtable 或飞书多维表格。
 
 ## 功能特性
 
 ### 核心功能
 
-- 多维表格管理 - 创建、编辑、删除、收藏多维表格
-- 数据表管理 - 支持多个数据表，拖拽排序、重命名、删除
-- 字段管理 - 支持 22 种字段类型
-- 记录管理 - 增删改查、批量操作
-- 视图管理 - 6 种视图类型，支持筛选、排序、分组
+- 多维表格管理 - 创建、编辑、删除、收藏多维表格，支持成员管理
+- 数据表管理 - 支持多个数据表，拖拽排序、重命名、删除、复制
+- 字段管理 - 支持 22 种字段类型，包含字段配置、排序、显示隐藏
+- 记录管理 - 增删改查、批量操作、记录详情抽屉
+- 视图管理 - 6 种视图类型，支持筛选、排序、分组、视图切换
 
 ### 支持的字段类型（22 种）
 
@@ -54,15 +54,16 @@
 
 ### 高级功能
 
-- 数据筛选 - 多条件组合筛选，支持 AND/OR 逻辑
-- 数据排序 - 多字段排序
-- 数据分组 - 按字段分组展示，支持分组统计
-- 数据导入 - 支持 Excel、CSV、JSON 格式
-- 数据导出 - 支持 Excel、CSV、JSON 格式
-- 公式引擎 - 40+ 内置函数，支持数学、文本、日期、逻辑、统计计算
-- 拖拽排序 - 表格、字段、视图拖拽排序
-- 收藏功能 - 快速访问常用表格
-- 搜索功能 - 快速搜索表格
+- 数据筛选 - 多条件组合筛选，支持 AND/OR 逻辑，多种操作符
+- 数据排序 - 多字段排序，支持升序/降序，拖拽调整优先级
+- 数据分组 - 按字段分组展示，支持多级分组（最多 3 级）、分组统计
+- 数据导入 - 支持 Excel、CSV、JSON 格式，支持多 Sheet
+- 数据导出 - 支持 Excel、CSV、JSON 格式，自定义导出字段
+- 公式引擎 - 43 个内置函数，支持数学、文本、日期、逻辑、统计计算
+- 拖拽排序 - 表格、字段、视图拖拽排序，看板卡片拖拽
+- 收藏功能 - 快速访问常用表格和仪表盘
+- 搜索功能 - 快速搜索表格和记录
+- 仪表盘 - 支持多种图表组件（数字卡片、图表、实时数据等）
 
 ## 功能预览
 
@@ -76,19 +77,46 @@
 
 ## 技术栈
 
-| 类别      | 技术                  | 版本     |
-| --------- | --------------------- | -------- |
-| 前端框架  | Vue 3                 | ^3.5.30  |
-| 语言      | TypeScript            | \~5.9.3  |
-| 状态管理  | Pinia                 | ^2.3.1   |
-| 数据库    | Dexie (IndexedDB)     | ^3.2.7   |
-| UI 组件库 | Element Plus          | ^2.13.6  |
-| 表格组件  | vxe-table             | ^4.18.7  |
-| 拖拽排序  | sortablejs            | ^1.15.7  |
-| 图表      | echarts + vue-echarts | ^5.6.0   |
-| 日期处理  | dayjs                 | ^1.11.20 |
-| 构建工具  | Vite                  | ^8.0.1   |
-| 测试      | Vitest                | ^3.2.4   |
+### 前端技术栈
+
+| 类别      | 技术                    | 版本     |
+| --------- | ----------------------- | -------- |
+| 前端框架  | Vue 3                   | ^3.5.30  |
+| 语言      | TypeScript              | \~5.9.3  |
+| 状态管理  | Pinia                   | ^2.3.1   |
+| 路由      | Vue Router              | ^4.6.4   |
+| UI 组件库 | Element Plus            | ^2.13.6  |
+| 表格组件  | vxe-table               | ^4.18.7  |
+| 图表库    | echarts + vue-echarts   | ^5.6.0   |
+| 日期处理  | dayjs                   | ^1.11.20 |
+| 拖拽排序  | sortablejs              | ^1.15.7  |
+| 工具库    | lodash-es, @vueuse/core | -        |
+| 构建工具  | Vite                    | ^8.0.1   |
+| 测试      | Vitest                  | ^3.2.4   |
+
+### 数据存储方案
+
+| 模式       | 技术              | 说明                                                      |
+| ---------- | ----------------- | --------------------------------------------------------- |
+| 纯前端模式 | Dexie (IndexedDB) | 数据存储在浏览器本地，无需服务端                          |
+| 后端模式   | SQLite + Flask    | 默认使用 SQLite，支持通过环境变量配置 PostgreSQL 等数据库 |
+
+### 后端技术栈（可选）
+
+| 类别       | 技术                                | 版本                  |
+| ---------- | ----------------------------------- | --------------------- |
+| 框架       | Flask                               | 3.0.0                 |
+| 数据库     | SQLite (默认) / PostgreSQL (可选)   | 3.x / 16              |
+| ORM        | SQLAlchemy                          | 2.0                   |
+| 数据库迁移 | Alembic (Flask-Migrate)             | -                     |
+| 认证       | JWT (Flask-JWT-Extended)            | 4.6.0                 |
+| 安全加密   | Flask-Bcrypt, bcrypt                | 1.0.1 / 4.1.2         |
+| 缓存       | Flask-Caching (+ Redis 可选)        | 2.1.0                 |
+| WebSocket  | Flask-SocketIO, eventlet            | 5.3.6 / 0.33.3        |
+| 数据序列化 | marshmallow, marshmallow-sqlalchemy | 3.20.1 / 0.29.0       |
+| 导入导出   | pandas, openpyxl, xlrd              | 2.1.4 / 3.1.2 / 2.0.1 |
+| 图片处理   | Pillow                              | 10.1.0                |
+| 部署       | Gunicorn, Docker                    | 21.2.0                |
 
 ## 快速开始
 
@@ -97,32 +125,34 @@
 - Node.js >= 18
 - npm >= 9
 
-### 安装依赖
+### 前端开发
+
+#### 安装依赖
 
 ```bash
 cd smart-table
 npm install
 ```
 
-### 开发模式
+#### 开发模式
 
 ```bash
 npm run dev
 ```
 
-### 构建生产版本
+#### 构建生产版本
 
 ```bash
 npm run build
 ```
 
-### 预览生产版本
+#### 预览生产版本
 
 ```bash
 npm run preview
 ```
 
-### 运行测试
+#### 运行测试
 
 ```bash
 # 运行所有测试
@@ -135,7 +165,65 @@ npm run test:watch
 npm run test:coverage
 ```
 
+### 后端服务（可选）
+
+#### 使用 Docker Compose
+
+```bash
+cd smarttable-backend
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件配置数据库连接等（默认使用 SQLite）
+
+# 启动服务（开发模式，使用 SQLite）
+docker-compose up -d
+
+# 或使用 PostgreSQL（可选）
+docker-compose -f docker-compose.dev.yml up -d
+
+# 执行数据库迁移
+docker-compose --profile migrate run --rm migrate
+
+# 访问 API
+# http://localhost:5000/api
+```
+
+#### 本地开发
+
+```bash
+cd smarttable-backend
+
+# 创建虚拟环境
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 配置环境变量
+cp .env.example .env
+# 默认使用 SQLite，无需修改 DATABASE_URL
+
+# 初始化数据库
+flask db upgrade
+
+# 启动开发服务器
+flask run --reload
+```
+
+#### 后端特性
+
+- **默认数据库**: SQLite（轻量级，无需额外安装）
+- **可选数据库**: PostgreSQL（通过环境变量配置）
+- **认证系统**: JWT Token 认证，支持刷新 Token
+- **权限管理**: 基于角色的权限控制
+- **数据迁移**: Alembic 数据库迁移工具
+- **API 文档**: 完整的 RESTful API
+
 ## 项目结构
+
+### 前端项目结构
 
 ```
 smart-table/
@@ -143,39 +231,88 @@ smart-table/
 │   ├── assets/              # 静态资源
 │   │   └── styles/          # SCSS 样式文件
 │   ├── components/          # Vue 组件
-│   │   ├── common/          # 通用组件
-│   │   ├── dialogs/         # 对话框组件
-│   │   ├── fields/          # 22种字段类型组件
+│   │   ├── common/          # 通用组件（AppHeader, AppSidebar, Toast 等）
+│   │   ├── dialogs/         # 对话框组件（FieldDialog, FilterDialog, ImportDialog 等）
+│   │   ├── fields/          # 22 种字段类型组件
 │   │   ├── filters/         # 筛选功能组件
 │   │   ├── groups/          # 分组功能组件
 │   │   ├── sorts/           # 排序功能组件
-│   │   └── views/           # 6种视图组件
-│   ├── db/                  # 数据库层
+│   │   └── views/           # 6 种视图组件
+│   ├── composables/         # 组合式函数
+│   ├── db/                  # 数据库层（IndexedDB）
 │   │   ├── services/        # 数据服务（base/table/field/record/view/dashboard）
 │   │   ├── schema.ts        # Dexie 数据库定义
 │   │   └── __tests__/       # 测试文件
-│   ├── layouts/             # 布局组件
+│   ├── layouts/             # 布局组件（MainLayout, BlankLayout）
 │   ├── router/              # Vue Router 配置
+│   ├── services/api/        # API 服务层
 │   ├── stores/              # Pinia 状态管理
 │   │   ├── baseStore.ts     # 多维表格状态
 │   │   ├── tableStore.ts    # 数据表状态
 │   │   ├── viewStore.ts     # 视图状态
+│   │   ├── authStore.ts     # 认证状态
 │   │   └── ...
 │   ├── types/               # TypeScript 类型定义
 │   │   ├── fields.ts        # 字段类型定义
 │   │   ├── views.ts         # 视图类型定义
-│   │   └── filters.ts       # 筛选类型定义
+│   │   ├── filters.ts       # 筛选类型定义
+│   │   └── attachment.ts    # 附件类型定义
 │   ├── utils/               # 工具函数
 │   │   ├── export/          # 导出功能
-│   │   ├── formula/         # 公式引擎
+│   │   ├── formula/         # 公式引擎（43 个函数）
 │   │   ├── filter.ts        # 筛选逻辑
 │   │   ├── sort.ts          # 排序逻辑
-│   │   └── group.ts         # 分组逻辑
-│   └── views/               # 页面视图
+│   │   ├── group.ts         # 分组逻辑
+│   │   └── validation.ts    # 数据验证
+│   └── views/               # 页面视图（Home, Base, Dashboard, FormShare 等）
 ├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
 └── README.md
+```
+
+### 后端项目结构
+
+```
+smarttable-backend/
+├── app/
+│   ├── __init__.py          # 应用工厂
+│   ├── config.py            # 配置文件
+│   ├── extensions.py        # 扩展初始化
+│   ├── models/              # 数据模型
+│   │   ├── user.py          # 用户模型
+│   │   ├── base.py          # Base 模型
+│   │   ├── table.py         # 表格模型
+│   │   ├── field.py         # 字段模型
+│   │   ├── record.py        # 记录模型
+│   │   ├── view.py          # 视图模型
+│   │   ├── dashboard.py     # 仪表盘模型
+│   │   └── attachment.py    # 附件模型
+│   ├── services/            # 业务逻辑层
+│   │   ├── auth_service.py
+│   │   ├── base_service.py
+│   │   ├── table_service.py
+│   │   ├── field_service.py
+│   │   ├── record_service.py
+│   │   ├── view_service.py
+│   │   ├── formula_service.py
+│   │   ├── dashboard_service.py
+│   │   └── attachment_service.py
+│   ├── routes/              # 路由层
+│   │   ├── auth.py
+│   │   ├── bases.py
+│   │   ├── tables.py
+│   │   ├── fields.py
+│   │   ├── records.py
+│   │   ├── views.py
+│   │   ├── dashboards.py
+│   │   └── attachments.py
+│   └── utils/               # 工具模块
+├── migrations/              # 数据库迁移
+├── tests/                   # 测试目录
+├── requirements.txt         # Python 依赖
+├── run.py                   # 应用入口
+└── docker-compose.yml       # Docker 编排
 ```
 
 ## 数据模型
@@ -207,7 +344,7 @@ smart-table/
 
 ## 公式引擎
 
-- 公式使用方法
+### 公式使用方法
 
 ```
 // 计算总价
@@ -224,26 +361,27 @@ CONCAT({姓}, {名})
 
 // 日期计算
 DATEDIF({开始日期}, {结束日期}, "D")
-支持 40+ 内置函数：
 ```
 
-### 数学函数
+### 支持的函数（43 个）
+
+#### 数学函数（11 个）
 
 `SUM`, `AVG`, `MAX`, `MIN`, `ROUND`, `CEILING`, `FLOOR`, `ABS`, `MOD`, `POWER`, `SQRT`
 
-### 文本函数
+#### 文本函数（10 个）
 
 `CONCAT`, `LEFT`, `RIGHT`, `LEN`, `UPPER`, `LOWER`, `TRIM`, `SUBSTITUTE`, `REPLACE`, `FIND`
 
-### 日期函数
+#### 日期函数（10 个）
 
 `TODAY`, `NOW`, `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE`, `SECOND`, `DATEDIF`, `DATEADD`
 
-### 逻辑函数
+#### 逻辑函数（7 个）
 
 `IF`, `AND`, `OR`, `NOT`, `IFERROR`, `IFS`, `SWITCH`
 
-### 统计函数
+#### 统计函数（5 个）
 
 `COUNT`, `COUNTA`, `COUNTIF`, `SUMIF`, `AVERAGEIF`
 
@@ -258,82 +396,110 @@ DATEDIF({开始日期}, {结束日期}, "D")
 
 ### 已实现功能 ✅
 
-- [x] 多维表格 CRUD
-- [x] 数据表 CRUD
-- [x] 字段管理（22 种类型）
-- [x] 记录管理
+### 数据管理
+
+- [x] 多维表格 CRUD（创建、编辑、删除、收藏）
+- [x] 数据表 CRUD（创建、编辑、删除、复制、排序）
+- [x] 字段管理（22 种类型，支持配置、排序、显示隐藏）
+- [x] 记录管理（增删改查、批量操作、详情抽屉）
+- [x] 成员管理（Base 级别成员列表、添加成员）
+
+### 视图系统
+
 - [x] 6 种视图支持（表格、看板、日历、甘特图、表单、画廊）
-- [x] 数据筛选
-- [x] 数据排序
-- [x] 数据分组
-- [x] 公式引擎（40+函数）
-- [x] 数据导入（Excel/CSV/JSON）
-- [x] 数据导出（Excel/CSV/JSON）
-- [x] 拖拽排序
-- [x] 收藏功能
-- [x] 搜索功能
-- [x] 表单视图分享
+- [x] 视图切换与配置持久化
+- [x] 视图级别字段控制（隐藏、冻结）
+- [x] 表单视图分享（支持分享链接、配置提交选项）
+
+### 数据处理
+
+- [x] 数据筛选（多条件组合，AND/OR 逻辑，多种操作符）
+- [x] 数据排序（多字段排序，拖拽调整优先级）
+- [x] 数据分组（多级分组，最多 3 级，分组统计）
+- [x] 公式引擎（43 个函数，支持字段引用、嵌套计算）
+
+### 数据交换
+
+- [x] 数据导入（Excel/CSV/JSON，支持多 Sheet）
+- [x] 数据导出（Excel/CSV/JSON，自定义字段）
+
+### 用户体验
+
+- [x] 拖拽排序（表格、字段、视图、看板卡片）
+- [x] 收藏功能（表格、仪表盘收藏）
+- [x] 搜索功能（表格名称、记录内容搜索）
+- [x] 快捷键支持（常用操作键盘快捷键）
+- [x] 主题切换（明暗主题）
+- [x] 响应式设计（适配移动端）
+
+### 字段功能
+
 - [x] 字段必填属性
 - [x] 字段校验规则（必填、数字、邮箱、手机号、URL）
-- [x] 附件字段上传/下载/删除
-- [x] 仪表盘基础功能
+- [x] 附件字段上传/下载/删除（IndexedDB Blob 存储）
+- [x] 关联字段（支持一对一、一对多、多对多）
+- [x] 查找字段（跨表查询、聚合计算）
+
+### 仪表盘
+
+- [x] 仪表盘基础功能（创建、编辑、删除）
+- [x] 多种图表组件（数字卡片、时钟、日期、实时图表等）
+- [x] 仪表盘模板（支持保存为模板）
 
 ### 待实现功能 📋
 
 #### 字段功能完善
 
-- [ ] 字段默认值
+- [ ] 字段默认值配置
 - [ ] 附件字段预览功能（图片、文档、视频等）
 - [ ] 新增字段类型（文本框、身份证、地理位置）
 - [ ] 公式功能完善与文档
 
 #### 视图功能丰富化
 
-- [ ] 表单视图增强（联动、背景图、说明文字、收集填写人信息）
+- [ ] 表单视图增强（字段联动、背景图、说明文字、收集填写人信息）
 - [ ] 全局筛选器
 - [ ] 字段之间联动
 - [ ] 仪表盘网格配置优化
-- [ ] 模板功能（多维表/仪表盘另存为模板）
-- [ ] 表格视图列冻结
+- [ ] 表格视图列冻结（前端已支持，需完善 UI）
 - [ ] 表格视图字段筛选
 - [ ] 分组模式下字段显示样式完善
 
-#### 分享功能
+#### 分享与协作
 
 - [ ] 多维表分享
 - [ ] 单个数据表分享
 - [ ] 单个视图分享
 - [ ] 分享内容配置
 - [ ] 分享菜单（我的分享/分享给我）
+- [ ] 实时协作（基于 WebRTC/WebSocket）
+- [ ] 操作历史记录
+- [ ] 评论批注功能
 
-#### 历史与协作
+#### 权限管理
 
-- [ ] 历史版本管理
-- [ ] 变更记录日志
-- [ ] 协作功能（基于 WebRTC）
-- [ ] 权限管理
+- [ ] 用户认证系统（后端模式）
+- [ ] 角色权限（管理员/编辑者/查看者）
+- [ ] 字段级权限控制
+- [ ] 分享权限设置
 
 #### AI 功能
 
 - [ ] AI 表单搭建（一句话搭建业务表格）
 - [ ] 表单辅助填写
-- [ ] 问数（数据问答与可视化）
+- [ ] 数据问答与可视化
 
 #### 流程与扩展
 
-- [ ] 流程设计
+- [ ] 流程设计器
 - [ ] 自动化工作流
 - [ ] 脚本扩展支撑
 - [ ] 插件系统
 
 #### 开放接口
 
-- [ ] REST API 接口
+- [ ] REST API 接口完善
 - [ ] MCP 接口
-
-#### 管理端
-
-- [ ] 配套管理端（Java/Python 技术栈）
 
 #### 文档功能
 
@@ -343,7 +509,7 @@ DATEDIF({开始日期}, {结束日期}, "D")
 
 #### 其他
 
-- [ ] 移动端适配
+- [ ] 移动端适配优化
 - [ ] 操作手册编写
 
 ## 贡献指南
