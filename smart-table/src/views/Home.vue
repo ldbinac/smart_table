@@ -1383,19 +1383,30 @@ async function handleUseTemplate(template: TableTemplate) {
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
-                        <el-button
-                          size="small"
-                          class="action-btn"
-                          @click.stop="copyShareLink(share.share_token)">
-                          复制链接
-                        </el-button>
-                        <el-button
-                          size="small"
-                          type="danger"
-                          class="action-btn"
-                          @click.stop="handleDeleteShare(share.id)">
-                          删除
-                        </el-button>
+                        <el-tooltip
+                          content="复制链接"
+                          placement="top"
+                          :show-after="200">
+                          <el-button
+                            link
+                            type="primary"
+                            class="action-btn"
+                            @click.stop="copyShareLink(share.share_token)">
+                            <el-icon><DocumentCopy /></el-icon>
+                          </el-button>
+                        </el-tooltip>
+                        <el-tooltip
+                          content="删除分享"
+                          placement="top"
+                          :show-after="200">
+                          <el-button
+                            link
+                            type="danger"
+                            class="action-btn"
+                            @click.stop="handleDeleteShare(share.id)">
+                            <el-icon><Delete /></el-icon>
+                          </el-button>
+                        </el-tooltip>
                       </div>
                     </div>
                   </div>
