@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
-import { Setting, Share, Upload, Document } from "@element-plus/icons-vue";
+import { Setting, Share, Upload, Document, User } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
@@ -24,6 +24,8 @@ import ExportDialog from "@/components/dialogs/ExportDialog.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AddRecordDrawer from "@/components/dialogs/AddRecordDrawer.vue";
 import ImportDialog from "@/components/dialogs/ImportDialog.vue";
+import MemberManagementDialog from "@/components/dialogs/MemberManagementDialog.vue";
+import BaseShareDialog from "@/components/dialogs/BaseShareDialog.vue";
 import { ViewType } from "@/types";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -81,6 +83,12 @@ const showTableManager = ref(false);
 
 // 创建仪表盘对话框显示状态
 const createDashboardDialogVisible = ref(false);
+
+// 成员管理对话框显示状态
+const showMemberManagement = ref(false);
+
+// Base 分享对话框显示状态
+const showBaseShare = ref(false);
 
 // 创建仪表盘表单数据
 const createDashboardForm = reactive({
@@ -301,6 +309,19 @@ onMounted(async () => {
   if (baseId) {
     await baseStore.fetchBase(baseId);
     await tableStore.loadTables(baseId);
+    
+    // 检查是否有分享权限信息
+    const shareInfo = localStorage.getItem(`share_permission_${baseId}`);
+    if (shareInfo) {
+      try {
+        const info = JSON.parse(shareInfo);
+        console.log("分享权限信息:", info);
+        // 可以在这里设置分享权限相关的状态
+        // TODO: 根据分享权限控制 UI 显示
+      } catch (e) {
+        console.error("解析分享权限信息失败:", e);
+      }
+    }
     
     // 如果有表格且当前没有选择表格，自动选择第一个表格
     if (tableStore.tables.length > 0 && !tableStore.currentTable) {
@@ -1327,6 +1348,18 @@ function handleImported() {
     tableStore.selectTable(tableStore.currentTable.id);
   }
 }
+
+// 处理成员变更
+function handleMemberChanged() {
+  console.log('成员发生变更，刷新相关数据');
+  // TODO: 刷新 Base 成员列表和权限
+}
+
+// 处理分享变更
+function handleShareChanged() {
+  console.log('分享发生变更，刷新相关数据');
+  // TODO: 刷新 Base 分享列表
+}
 </script>
 
 <template>
@@ -1471,7 +1504,23 @@ function handleImported() {
                     <el-icon><Share /></el-icon>
                     分享
                   </el-button>
+                  <el-button size="medium" @click="showMemberManagement = true">
+                    <el-icon><User /></el-icon>
+                    成员
+                  </el-button>
                 </el-button-group>
+              </template>
+
+              <!-- 其他视图：显示分享和成员按钮 -->
+              <template v-else>
+                <el-button @click="showBaseShare = true">
+                  <el-icon><Share /></el-icon>
+                  分享
+                </el-button>
+                <el-button @click="showMemberManagement = true">
+                  <el-icon><User /></el-icon>
+                  成员
+                </el-button>
               </template>
 
               <!-- 看板、日历、甘特、画册视图：不显示任何操作按钮 -->
@@ -1875,6 +1924,18 @@ function handleImported() {
       :table-id="tableStore.currentTable?.id || ''"
       :fields="tableStore.fields"
       @imported="handleImported" />
+
+    <!-- 成员管理对话框 -->
+    <MemberManagementDialog
+      v-model:visible="showMemberManagement"
+      :base-id="baseStore.currentBase?.id || ''"
+      @member-changed="handleMemberChanged" />
+
+    <!-- Base 分享对话框 -->
+    <BaseShareDialog
+      v-model:visible="showBaseShare"
+      :base-id="baseStore.currentBase?.id || ''"
+      @share-changed="handleShareChanged" />
 
     <!-- 重命名仪表盘对话框 -->
     <el-dialog

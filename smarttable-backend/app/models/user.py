@@ -129,6 +129,14 @@ class User(db.Model):
         cascade='all, delete-orphan'
     )
     
+    base_shares_created = relationship(
+        'BaseShare',
+        back_populates='creator',
+        foreign_keys='BaseShare.created_by',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+    
     dashboards = relationship(
         'Dashboard',
         back_populates='user',

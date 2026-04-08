@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import type { FormInstance, FormRules } from "element-plus";
@@ -16,7 +16,17 @@ const createFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
 
 // 当前导航项
-const currentNav = ref<"home" | "all" | "templates">("home");
+const currentNav = ref<"home" | "all" | "templates" | "shares">("home");
+
+// 分享视图页签状态
+const shareActiveTab = ref<"shared-by-me" | "shared-with-me">("shared-by-me");
+
+// 分享给我的 Base 列表
+const sharedWithMeBases = ref<Base[]>([]);
+// 我创建的分享列表
+const sharedByMeShares = ref<any[]>([]);
+// 分享相关加载状态
+const sharingLoading = ref(false);
 
 // 加载状态
 const templateLoadingMap = ref<Map<string, boolean>>(new Map());
@@ -34,6 +44,14 @@ const starredPageSize = ref(10);
 // 所有多维表格分页状态
 const allCurrentPage = ref(1);
 const allPageSize = ref(10);
+
+// 分享给我的分页状态
+const sharedWithMeCurrentPage = ref(1);
+const sharedWithMePageSize = ref(10);
+
+// 我分享的分页状态
+const sharedByMeCurrentPage = ref(1);
+const sharedByMePageSize = ref(10);
 
 // 创建对话框显示状态
 const createDialogVisible = ref(false);
@@ -254,6 +272,26 @@ const handleAllPageChange = (page: number) => {
   allCurrentPage.value = page;
 };
 
+// 分享给我的分页事件
+const handleSharedWithMeSizeChange = (size: number) => {
+  sharedWithMePageSize.value = size;
+  sharedWithMeCurrentPage.value = 1;
+};
+
+const handleSharedWithMePageChange = (page: number) => {
+  sharedWithMeCurrentPage.value = page;
+};
+
+// 我分享的分页事件
+const handleSharedByMeSizeChange = (size: number) => {
+  sharedByMePageSize.value = size;
+  sharedByMeCurrentPage.value = 1;
+};
+
+const handleSharedByMePageChange = (page: number) => {
+  sharedByMeCurrentPage.value = page;
+};
+
 // 清空搜索
 const clearSearch = () => {
   searchQuery.value = "";
@@ -263,6 +301,90 @@ const clearSearch = () => {
 onMounted(async () => {
   await baseStore.fetchBases();
 });
+
+// 加载分享给我的数据
+async function loadSharedWithMe() {
+  sharingLoading.value = true;
+  try {
+    sharedWithMeBases.value = await baseStore.fetchSharedWithMe();
+  } catch (error) {
+    console.error("加载分享给我的数据失败:", error);
+  } finally {
+    sharingLoading.value = false;
+  }
+}
+
+// 加载我创建的分享数据
+async function loadSharedByMe() {
+  sharingLoading.value = true;
+  try {
+    sharedByMeShares.value = await baseStore.fetchSharedByMe();
+  } catch (error) {
+    console.error("加载我创建的分享数据失败:", error);
+  } finally {
+    sharingLoading.value = false;
+  }
+}
+
+// 监听导航变化，加载对应数据
+watch(currentNav, (newNav) => {
+  if (newNav === "shares") {
+    loadSharedWithMe();
+    loadSharedByMe();
+  }
+});
+
+// 格式化日期（用于分享视图）
+function formatShareDate(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (days === 0) return "今天";
+  if (days === 1) return "昨天";
+  if (days < 7) return `${days}天前`;
+  if (days < 30) return `${Math.floor(days / 7)}周前`;
+  if (days < 365) return `${Math.floor(days / 30)}个月前`;
+  return `${Math.floor(days / 365)}年前`;
+}
+
+// 复制分享链接
+function copyShareLink(shareToken: string) {
+  const baseUrl = window.location.origin;
+  const shareUrl = `${baseUrl}/#/share/${shareToken}`;
+  navigator.clipboard
+    .writeText(shareUrl)
+    .then(() => {
+      ElMessage.success("链接已复制到剪贴板");
+    })
+    .catch(() => {
+      ElMessage.error("复制失败，请手动复制");
+    });
+}
+
+// 删除分享
+async function handleDeleteShare(shareId: string) {
+  try {
+    await ElMessageBox.confirm(
+      "确定要删除此分享链接吗？删除后将无法通过该链接访问。",
+      "确认删除",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
+    );
+
+    await baseStore.deleteShare(shareId);
+    await loadSharedByMe();
+    ElMessage.success("分享链接已删除");
+  } catch (error) {
+    if (error !== "cancel") {
+      console.error("删除分享失败:", error);
+    }
+  }
+}
 
 function goToBase(id: string) {
   const baseUrl = window.location.origin;
@@ -556,6 +678,13 @@ async function handleUseTemplate(template: TableTemplate) {
         @click="currentNav = 'templates'">
         <el-icon><Document /></el-icon>
         <span>模板</span>
+      </div>
+      <div
+        class="nav-tab-item"
+        :class="{ active: currentNav === 'shares' }"
+        @click="currentNav = 'shares'">
+        <el-icon><Share /></el-icon>
+        <span>分享</span>
       </div>
       <!-- 右侧搜索和操作区 -->
       <div class="header-right-section">
@@ -935,7 +1064,7 @@ async function handleUseTemplate(template: TableTemplate) {
         </div>
 
         <!-- 全部多维表视图 -->
-        <div v-else class="all-bases-view">
+        <div v-else-if="currentNav === 'all'" class="all-bases-view">
           <!-- <div class="all-bases-header">
               <h2 class="view-title">多维表管理</h2>
             </div> -->
@@ -1168,6 +1297,240 @@ async function handleUseTemplate(template: TableTemplate) {
                       background
                       @size-change="handleAllSizeChange"
                       @current-change="handleAllPageChange" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分享视图 -->
+        <div v-if="currentNav === 'shares'" class="all-bases-view">
+          <div class="tabs-container">
+            <div class="tabs-header">
+              <div
+                class="tab-item"
+                :class="{ active: shareActiveTab === 'shared-by-me' }"
+                @click="shareActiveTab = 'shared-by-me'">
+                <el-icon><Share /></el-icon>
+                <span>我分享的</span>
+                <span class="tab-count">{{ sharedByMeShares.length }}</span>
+              </div>
+              <div
+                class="tab-item"
+                :class="{ active: shareActiveTab === 'shared-with-me' }"
+                @click="shareActiveTab = 'shared-with-me'">
+                <el-icon><Connection /></el-icon>
+                <span>分享给我的</span>
+                <span class="tab-count">{{ sharedWithMeBases.length }}</span>
+              </div>
+            </div>
+
+            <div class="tabs-content">
+              <!-- 加载状态 -->
+              <div v-if="sharingLoading" class="loading-state">
+                <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
+                <p>正在加载数据...</p>
+              </div>
+
+              <!-- 我分享的页签 -->
+              <div
+                v-else-if="shareActiveTab === 'shared-by-me'"
+                class="tab-panel">
+                <div v-if="sharedByMeShares.length === 0" class="empty-state">
+                  <el-icon :size="48" class="empty-icon"><Share /></el-icon>
+                  <h3>暂无分享</h3>
+                  <p>您还没有创建任何分享链接</p>
+                </div>
+                <div v-else class="table-list-container">
+                  <div class="table-list">
+                    <div
+                      v-for="share in sharedByMeShares"
+                      :key="share.id"
+                      class="table-list-item"
+                      @click="goToBase(share.base.id)">
+                      <div
+                        class="item-icon"
+                        :style="{
+                          backgroundColor: share.base?.color || '#3B82F6',
+                        }">
+                        {{ share.base?.icon || "📊" }}
+                      </div>
+                      <div class="item-info">
+                        <h4 class="item-name">{{ share.base?.name }}</h4>
+                        <div class="share-meta">
+                          <el-tag
+                            :type="
+                              share.permission === 'edit' ? 'warning' : 'info'
+                            "
+                            size="small">
+                            {{
+                              share.permission === "edit" ? "可编辑" : "仅查看"
+                            }}
+                          </el-tag>
+                          <span class="access-count"
+                            >访问 {{ share.access_count }} 次</span
+                          >
+                          <span class="share-time"
+                            >创建于
+                            {{ formatShareDate(share.created_at) }}</span
+                          >
+                        </div>
+                      </div>
+                      <div class="item-meta">
+                        <span class="update-time">
+                          更新于 {{ formatShareDate(share.updated_at) }}
+                        </span>
+                      </div>
+                      <div class="item-actions" @click.stop>
+                        <el-button
+                          size="small"
+                          class="action-btn"
+                          @click.stop="copyShareLink(share.share_token)">
+                          复制链接
+                        </el-button>
+                        <el-button
+                          size="small"
+                          type="danger"
+                          class="action-btn"
+                          @click.stop="handleDeleteShare(share.id)">
+                          删除
+                        </el-button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 分页 -->
+                  <div class="pagination-container">
+                    <div class="pagination-left">
+                      <span class="pagination-total"
+                        >共 {{ sharedByMeShares.length }} 条</span
+                      >
+                      <el-select
+                        v-model="sharedByMePageSize"
+                        class="page-size-select"
+                        size="small">
+                        <el-option :label="'10 条/页'" :value="10" />
+                        <el-option :label="'20 条/页'" :value="20" />
+                        <el-option :label="'50 条/页'" :value="50" />
+                        <el-option :label="'100 条/页'" :value="100" />
+                      </el-select>
+                    </div>
+                    <el-pagination
+                      v-model:current-page="sharedByMeCurrentPage"
+                      v-model:page-size="sharedByMePageSize"
+                      :total="sharedByMeShares.length"
+                      :page-sizes="[10, 20, 50, 100]"
+                      layout="prev, pager, next, jumper"
+                      background
+                      @size-change="handleSharedByMeSizeChange"
+                      @current-change="handleSharedByMePageChange" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分享给我的页签 -->
+              <div v-else class="tab-panel">
+                <div v-if="sharedWithMeBases.length === 0" class="empty-state">
+                  <el-icon :size="48" class="empty-icon"
+                    ><Connection
+                  /></el-icon>
+                  <h3>暂无分享</h3>
+                  <p>还没有其他用户分享给您多维表格</p>
+                </div>
+                <div v-else class="table-list-container">
+                  <div class="table-list">
+                    <div
+                      v-for="base in sharedWithMeBases"
+                      :key="base.id"
+                      class="table-list-item"
+                      @click="goToBase(base.id)">
+                      <div
+                        class="item-icon"
+                        :style="{ backgroundColor: base.color || '#3B82F6' }">
+                        {{ base.icon || "📊" }}
+                      </div>
+                      <div class="item-info">
+                        <h4 class="item-name">{{ base.name }}</h4>
+                        <p class="item-desc">
+                          {{ base.description || "暂无描述" }}
+                        </p>
+                      </div>
+                      <div class="item-meta">
+                        <span class="update-time">
+                          修改于 {{ formatDate(base.updated_at) }}
+                        </span>
+                      </div>
+                      <div class="item-actions" @click.stop>
+                        <el-tooltip
+                          :content="base.is_starred ? '取消收藏' : '收藏'"
+                          placement="top"
+                          :show-after="200">
+                          <el-button
+                            link
+                            :type="base.is_starred ? 'warning' : 'info'"
+                            class="action-btn"
+                            :loading="isUnstarLoading(base.id)"
+                            @click="handleToggleStar(base, $event)">
+                            <el-icon>
+                              <StarFilled v-if="base.is_starred" />
+                              <Star v-else />
+                            </el-icon>
+                          </el-button>
+                        </el-tooltip>
+                        <el-tooltip
+                          content="编辑"
+                          placement="top"
+                          :show-after="200">
+                          <el-button
+                            link
+                            type="primary"
+                            class="action-btn"
+                            @click="openEditDialog(base)">
+                            <el-icon><Edit /></el-icon>
+                          </el-button>
+                        </el-tooltip>
+                        <el-tooltip
+                          content="删除"
+                          placement="top"
+                          :show-after="200">
+                          <el-button
+                            link
+                            type="danger"
+                            class="action-btn"
+                            @click="handleDeleteBase(base)">
+                            <el-icon><Delete /></el-icon>
+                          </el-button>
+                        </el-tooltip>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 分页 -->
+                  <div class="pagination-container">
+                    <div class="pagination-left">
+                      <span class="pagination-total"
+                        >共 {{ sharedWithMeBases.length }} 条</span
+                      >
+                      <el-select
+                        v-model="sharedWithMePageSize"
+                        class="page-size-select"
+                        size="small">
+                        <el-option :label="'10 条/页'" :value="10" />
+                        <el-option :label="'20 条/页'" :value="20" />
+                        <el-option :label="'50 条/页'" :value="50" />
+                        <el-option :label="'100 条/页'" :value="100" />
+                      </el-select>
+                    </div>
+                    <el-pagination
+                      v-model:current-page="sharedWithMeCurrentPage"
+                      v-model:page-size="sharedWithMePageSize"
+                      :total="sharedWithMeBases.length"
+                      :page-sizes="[10, 20, 50, 100]"
+                      layout="prev, pager, next, jumper"
+                      background
+                      @size-change="handleSharedWithMeSizeChange"
+                      @current-change="handleSharedWithMePageChange" />
                   </div>
                 </div>
               </div>
@@ -3118,6 +3481,96 @@ $star-color: #f59e0b;
       .template-desc {
         font-size: 12px;
       }
+    }
+  }
+
+  // 分享视图页签样式
+  .tabs-container {
+    width: 100%;
+  }
+
+  .tabs-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid $gray-100;
+    padding-bottom: 0;
+
+    .tab-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 20px;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      color: $gray-600;
+      background: transparent;
+      border: none;
+      position: relative;
+      bottom: -2px;
+
+      &:hover {
+        background: $gray-50;
+        color: $primary;
+      }
+
+      &.active {
+        color: $primary;
+        background: white;
+        border-bottom: 2px solid white;
+        font-weight: 600;
+
+        .tab-count {
+          background: $primary;
+          color: white;
+        }
+      }
+
+      .tab-count {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: $gray-200;
+        color: $gray-600;
+        margin-left: 4px;
+      }
+    }
+  }
+
+  .tabs-content {
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+
+      .loading-icon {
+        animation: spinning 1s linear infinite;
+        color: $primary;
+        margin-bottom: 16px;
+      }
+
+      p {
+        font-size: 14px;
+        color: $gray-500;
+        margin: 0;
+      }
+    }
+
+    .tab-panel {
+      min-height: 400px;
+    }
+  }
+
+  @keyframes spinning {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
     }
   }
 }

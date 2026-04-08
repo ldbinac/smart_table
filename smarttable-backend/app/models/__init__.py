@@ -3,6 +3,7 @@
 """
 from app.models.user import User, TokenBlocklist
 from app.models.base import Base, BaseMember
+from app.models.base_share import BaseShare, SharePermission
 from app.models.table import Table
 from app.models.field import Field
 from app.models.record import Record
@@ -18,6 +19,8 @@ __all__ = [
     'TokenBlocklist',
     'Base',
     'BaseMember',
+    'BaseShare',
+    'SharePermission',
     'Table',
     'Field',
     'Record',

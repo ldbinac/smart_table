@@ -79,6 +79,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/share/:token",
+    name: "BaseShare",
+    component: () => import("@/views/BaseShare.vue"),
+    meta: {
+      title: "访问分享的多维表格",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
     path: "/settings",
     name: "Settings",
     component: () => import("@/views/Settings.vue"),

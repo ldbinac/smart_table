@@ -66,6 +66,7 @@ def register_blueprints(app):
     from app.routes.attachments import attachments_bp
     from app.routes.import_export import import_export_bp
     from app.routes.admin import admin_bp
+    from app.routes.shares import shares_bp
     
     # 注册认证蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -99,6 +100,9 @@ def register_blueprints(app):
     
     # 注册管理员蓝图
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    
+    # 注册分享蓝图
+    app.register_blueprint(shares_bp, url_prefix='/api')
 
 
 def register_error_handlers(app):

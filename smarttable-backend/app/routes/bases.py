@@ -288,8 +288,95 @@ def add_member(base_id):
     
     return success_response(
         data=result['member'],
-        message='成员添加成功',
+        message='添加成员成功',
         code=201
+    )
+
+
+@bases_bp.route('/<uuid:base_id>/members/batch', methods=['POST'])
+@jwt_required
+def batch_add_members(base_id):
+    """
+    批量添加成员到基础数据
+    
+    Args:
+        base_id: 基础数据 ID
+    
+    Request Body:
+        - members: 成员列表（必填）
+          - email: 被邀请用户邮箱（必填）
+          - role: 角色（可选，默认为 editor）
+    
+    Returns:
+        添加结果统计和失败的成员列表
+    """
+    user_id = g.current_user_id
+    
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
+        return forbidden_response('您没有权限添加成员')
+    
+    data = request.get_json() or {}
+    members_data = data.get('members', [])
+    
+    if not members_data or not isinstance(members_data, list):
+        return error_response('请提供成员列表', code=400)
+    
+    if len(members_data) > 100:
+        return error_response('一次最多只能添加 100 个成员', code=400)
+    
+    results = {
+        'success_count': 0,
+        'failed_count': 0,
+        'successful': [],
+        'failed': []
+    }
+    
+    for idx, member_data in enumerate(members_data):
+        try:
+            # 验证必填字段
+            email = member_data.get('email', '').strip().lower()
+            if not email:
+                results['failed'].append({
+                    'index': idx,
+                    'email': member_data.get('email', '未知'),
+                    'error': '邮箱地址不能为空'
+                })
+                results['failed_count'] += 1
+                continue
+            
+            role = member_data.get('role', 'editor').strip().lower()
+            
+            # 添加成员
+            member_result = BaseService.add_member(
+                base_id=str(base_id),
+                email=email,
+                role=role,
+                invited_by=user_id
+            )
+            
+            if member_result['success']:
+                results['successful'].append(member_result['member'])
+                results['success_count'] += 1
+            else:
+                results['failed'].append({
+                    'index': idx,
+                    'email': email,
+                    'error': member_result['error']
+                })
+                results['failed_count'] += 1
+                
+        except Exception as e:
+            results['failed'].append({
+                'index': idx,
+                'email': member_data.get('email', '未知'),
+                'error': str(e)
+            })
+            results['failed_count'] += 1
+    
+    return success_response(
+        data=results,
+        message=f'批量添加完成：成功 {results["success_count"]} 个，失败 {results["failed_count"]} 个'
     )
 
 

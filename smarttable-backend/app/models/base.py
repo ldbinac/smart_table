@@ -116,11 +116,21 @@ class Base(db.Model):
         cascade='all, delete-orphan'
     )
 
+    shares = relationship(
+        'BaseShare',
+        back_populates='base',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+
     def get_member_count(self) -> int:
         return self.members.count()
 
     def get_table_count(self) -> int:
         return self.tables.count()
+
+    def get_share_count(self) -> int:
+        return self.shares.count()
 
     def to_dict(self, include_stats: bool = False) -> dict:
         data = {
@@ -139,6 +149,7 @@ class Base(db.Model):
         if include_stats:
             data['member_count'] = self.get_member_count()
             data['table_count'] = self.get_table_count()
+            data['share_count'] = self.get_share_count()
 
         return data
 
