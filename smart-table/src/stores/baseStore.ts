@@ -1,16 +1,17 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import type { Base } from '@/api/types';
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import type { Base } from "@/api/types";
 
-import { baseApiService } from '@/services/api/baseApiService';
-import { baseService as baseDexieService } from '@/db/services/baseService';
-import { shareApiService } from '@/services/api/shareApiService';
+import { baseApiService } from "@/services/api/baseApiService";
+import { baseService as baseDexieService } from "@/db/services/baseService";
+import { shareApiService } from "@/services/api/shareApiService";
+import { useAuthStore } from "./authStore";
 
 export interface BaseMember {
   id: string;
   base_id: string;
   user_id: string;
-  role: 'owner' | 'admin' | 'editor' | 'commenter' | 'viewer';
+  role: "owner" | "admin" | "editor" | "commenter" | "viewer";
   invited_by: string | null;
   joined_at: string;
   user?: {
@@ -26,7 +27,7 @@ export interface BaseShare {
   base_id: string;
   share_token: string;
   created_by: string;
-  permission: 'view' | 'edit';
+  permission: "view" | "edit";
   expires_at?: number;
   access_count: number;
   is_active: boolean;
@@ -36,7 +37,7 @@ export interface BaseShare {
   base?: Base;
 }
 
-export const useBaseStore = defineStore('base', () => {
+export const useBaseStore = defineStore("base", () => {
   const currentBaseId = ref<string | null>(null);
   const currentBase = ref<Base | null>(null);
   const bases = ref<Base[]>([]);
@@ -53,12 +54,52 @@ export const useBaseStore = defineStore('base', () => {
     return [...bases.value].sort((a, b) => {
       if (a.is_starred && !b.is_starred) return -1;
       if (!a.is_starred && b.is_starred) return 1;
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      return (
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
     });
   });
 
   const starredBases = computed(() => {
-    return sortedBases.value.filter(b => b.is_starred);
+    return sortedBases.value.filter((b) => b.is_starred);
+  });
+
+  // 当前用户在当前 Base 中的角色
+  const currentUserRole = computed(() => {
+    const authStore = useAuthStore();
+    const currentUserId = authStore.user?.id;
+    if (!currentUserId || !currentBase.value) return null;
+
+    // 检查是否是所有者
+    if (currentBase.value.owner_id === currentUserId) {
+      return "owner";
+    }
+
+    // 检查成员列表
+    const member = members.value.find((m) => m.user_id === currentUserId);
+    return member?.role || null;
+  });
+
+  // 权限检查计算属性
+  const canEdit = computed(() => {
+    const role = currentUserRole.value;
+    return role === "owner" || role === "admin" || role === "editor";
+  });
+
+  const canView = computed(() => {
+    const role = currentUserRole.value;
+    return ["owner", "admin", "editor", "commenter", "viewer"].includes(
+      role || "",
+    );
+  });
+
+  const canManage = computed(() => {
+    const role = currentUserRole.value;
+    return role === "owner" || role === "admin";
+  });
+
+  const isOwner = computed(() => {
+    return currentUserRole.value === "owner";
   });
 
   async function fetchBases() {
@@ -68,27 +109,29 @@ export const useBaseStore = defineStore('base', () => {
       const data = await baseApiService.getBases();
       bases.value = data;
       for (const base of data) {
-        await baseDexieService.updateBase(base.id, base as Record<string, unknown>).catch(() => {});
+        await baseDexieService
+          .updateBase(base.id, base as Record<string, unknown>)
+          .catch(() => {});
       }
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '获取 Base 列表失败';
+      const msg = e instanceof Error ? e.message : "获取 Base 列表失败";
       error.value = msg;
-      console.error('[baseStore] fetchBases failed:', e);
+      console.error("[baseStore] fetchBases failed:", e);
       try {
         const cached = await baseDexieService.getAllBases();
         if (cached.length > 0) {
-          bases.value = cached.map(b => ({
+          bases.value = cached.map((b) => ({
             id: b.id,
             name: b.name,
             description: b.description,
-            owner_id: '',
+            owner_id: "",
             icon: b.icon,
             color: b.color,
             is_personal: false,
             is_starred: !!b.isStarred,
             created_at: new Date(b.createdAt).toISOString(),
-            updated_at: new Date(b.updatedAt).toISOString()
+            updated_at: new Date(b.updatedAt).toISOString(),
           }));
           return bases.value;
         }
@@ -99,19 +142,21 @@ export const useBaseStore = defineStore('base', () => {
     }
   }
 
-  async function fetchBase(id: string) {
+  async function fetchBase(id: string, shareToken?: string) {
     loading.value = true;
     error.value = null;
     try {
-      const data = await baseApiService.getBase(id);
+      const data = await baseApiService.getBase(id, shareToken);
       currentBase.value = data;
       currentBaseId.value = id;
-      await baseDexieService.updateBase(id, data as Record<string, unknown>).catch(() => {});
+      await baseDexieService
+        .updateBase(id, data as Record<string, unknown>)
+        .catch(() => {});
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '获取 Base 详情失败';
+      const msg = e instanceof Error ? e.message : "获取 Base 详情失败";
       error.value = msg;
-      console.error('[baseStore] fetchBase failed:', e);
+      console.error("[baseStore] fetchBase failed:", e);
       try {
         const cached = await baseDexieService.getBase(id);
         if (cached) {
@@ -119,13 +164,13 @@ export const useBaseStore = defineStore('base', () => {
             id: cached.id,
             name: cached.name,
             description: cached.description,
-            owner_id: '',
+            owner_id: "",
             icon: cached.icon,
             color: cached.color,
             is_personal: false,
             is_starred: !!cached.isStarred,
             created_at: new Date(cached.createdAt).toISOString(),
-            updated_at: new Date(cached.updatedAt).toISOString()
+            updated_at: new Date(cached.updatedAt).toISOString(),
           };
           currentBase.value = mapped;
           currentBaseId.value = id;
@@ -138,22 +183,26 @@ export const useBaseStore = defineStore('base', () => {
     }
   }
 
-  async function createBase(baseData: Omit<Base, 'id' | 'created_at' | 'updated_at'>): Promise<Base> {
+  async function createBase(
+    baseData: Omit<Base, "id" | "created_at" | "updated_at">,
+  ): Promise<Base> {
     loading.value = true;
     try {
       const newBase = await baseApiService.createBase(baseData);
       bases.value.push(newBase);
-      await baseDexieService.createBase({
-        name: newBase.name,
-        description: newBase.description,
-        icon: newBase.icon,
-        color: newBase.color
-      }).catch(() => {});
+      await baseDexieService
+        .createBase({
+          name: newBase.name,
+          description: newBase.description,
+          icon: newBase.icon,
+          color: newBase.color,
+        })
+        .catch(() => {});
       return newBase;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '创建 Base 失败';
+      const msg = e instanceof Error ? e.message : "创建 Base 失败";
       error.value = msg;
-      console.error('[baseStore] createBase failed:', e);
+      console.error("[baseStore] createBase failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -162,12 +211,14 @@ export const useBaseStore = defineStore('base', () => {
 
   async function updateBase(
     id: string,
-    updates: Partial<Pick<Base, 'name' | 'description' | 'icon' | 'color' | 'is_personal'>>
+    updates: Partial<
+      Pick<Base, "name" | "description" | "icon" | "color" | "is_personal">
+    >,
   ): Promise<Base> {
     loading.value = true;
     try {
       const updated = await baseApiService.updateBase(id, updates);
-      const idx = bases.value.findIndex(b => b.id === id);
+      const idx = bases.value.findIndex((b) => b.id === id);
       if (idx !== -1) {
         bases.value[idx] = updated;
       }
@@ -177,9 +228,9 @@ export const useBaseStore = defineStore('base', () => {
       await baseDexieService.updateBase(id, updates as Record<string, unknown>);
       return updated;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '更新 Base 失败';
+      const msg = e instanceof Error ? e.message : "更新 Base 失败";
       error.value = msg;
-      console.error('[baseStore] updateBase failed:', e);
+      console.error("[baseStore] updateBase failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -190,16 +241,16 @@ export const useBaseStore = defineStore('base', () => {
     loading.value = true;
     try {
       await baseApiService.deleteBase(id);
-      bases.value = bases.value.filter(b => b.id !== id);
+      bases.value = bases.value.filter((b) => b.id !== id);
       if (currentBase.value?.id === id) {
         currentBase.value = null;
         currentBaseId.value = null;
       }
       await baseDexieService.deleteBase(id);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '删除 Base 失败';
+      const msg = e instanceof Error ? e.message : "删除 Base 失败";
       error.value = msg;
-      console.error('[baseStore] deleteBase failed:', e);
+      console.error("[baseStore] deleteBase failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -207,7 +258,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function toggleStar(id: string): Promise<void> {
-    const base = bases.value.find(b => b.id === id);
+    const base = bases.value.find((b) => b.id === id);
     if (!base) return;
 
     try {
@@ -223,7 +274,7 @@ export const useBaseStore = defineStore('base', () => {
       }
       await baseDexieService.toggleStar(id);
     } catch (e: unknown) {
-      console.error('[baseStore] toggleStar failed:', e);
+      console.error("[baseStore] toggleStar failed:", e);
     }
   }
 
@@ -258,9 +309,9 @@ export const useBaseStore = defineStore('base', () => {
       members.value = data;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '获取成员列表失败';
+      const msg = e instanceof Error ? e.message : "获取成员列表失败";
       error.value = msg;
-      console.error('[baseStore] fetchMembers failed:', e);
+      console.error("[baseStore] fetchMembers failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -274,9 +325,9 @@ export const useBaseStore = defineStore('base', () => {
       members.value.push(data);
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '添加成员失败';
+      const msg = e instanceof Error ? e.message : "添加成员失败";
       error.value = msg;
-      console.error('[baseStore] addMember failed:', e);
+      console.error("[baseStore] addMember failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -285,39 +336,43 @@ export const useBaseStore = defineStore('base', () => {
 
   async function batchAddMembers(
     baseId: string,
-    membersData: Array<{ email: string; role: string }>
+    membersData: Array<{ email: string; role: string }>,
   ) {
     loading.value = true;
     try {
       const result = await shareApiService.batchAddMembers(baseId, membersData);
       // 添加成功的成员到列表
-      result.successful.forEach(member => {
+      result.successful.forEach((member) => {
         members.value.push(member);
       });
       return result;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '批量添加成员失败';
+      const msg = e instanceof Error ? e.message : "批量添加成员失败";
       error.value = msg;
-      console.error('[baseStore] batchAddMembers failed:', e);
+      console.error("[baseStore] batchAddMembers failed:", e);
       throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  async function updateMemberRole(baseId: string, userId: string, role: string) {
+  async function updateMemberRole(
+    baseId: string,
+    userId: string,
+    role: string,
+  ) {
     loading.value = true;
     try {
       const data = await shareApiService.updateMemberRole(baseId, userId, role);
-      const idx = members.value.findIndex(m => m.user_id === userId);
+      const idx = members.value.findIndex((m) => m.user_id === userId);
       if (idx !== -1) {
         members.value[idx] = data;
       }
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '更新成员角色失败';
+      const msg = e instanceof Error ? e.message : "更新成员角色失败";
       error.value = msg;
-      console.error('[baseStore] updateMemberRole failed:', e);
+      console.error("[baseStore] updateMemberRole failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -328,11 +383,11 @@ export const useBaseStore = defineStore('base', () => {
     loading.value = true;
     try {
       await shareApiService.removeMember(baseId, userId);
-      members.value = members.value.filter(m => m.user_id !== userId);
+      members.value = members.value.filter((m) => m.user_id !== userId);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '移除成员失败';
+      const msg = e instanceof Error ? e.message : "移除成员失败";
       error.value = msg;
-      console.error('[baseStore] removeMember failed:', e);
+      console.error("[baseStore] removeMember failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -349,25 +404,33 @@ export const useBaseStore = defineStore('base', () => {
       shares.value = data;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '获取分享列表失败';
+      const msg = e instanceof Error ? e.message : "获取分享列表失败";
       error.value = msg;
-      console.error('[baseStore] fetchShares failed:', e);
+      console.error("[baseStore] fetchShares failed:", e);
       throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  async function createShare(baseId: string, permission: 'view' | 'edit', expiresAt?: number) {
+  async function createShare(
+    baseId: string,
+    permission: "view" | "edit",
+    expiresAt?: number,
+  ) {
     loading.value = true;
     try {
-      const data = await shareApiService.createShare(baseId, permission, expiresAt);
+      const data = await shareApiService.createShare(
+        baseId,
+        permission,
+        expiresAt,
+      );
       shares.value.unshift(data);
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '创建分享链接失败';
+      const msg = e instanceof Error ? e.message : "创建分享链接失败";
       error.value = msg;
-      console.error('[baseStore] createShare failed:', e);
+      console.error("[baseStore] createShare failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -378,11 +441,11 @@ export const useBaseStore = defineStore('base', () => {
     loading.value = true;
     try {
       await shareApiService.deleteShare(shareId);
-      shares.value = shares.value.filter(s => s.id !== shareId);
+      shares.value = shares.value.filter((s) => s.id !== shareId);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '删除分享链接失败';
+      const msg = e instanceof Error ? e.message : "删除分享链接失败";
       error.value = msg;
-      console.error('[baseStore] deleteShare failed:', e);
+      console.error("[baseStore] deleteShare failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -393,15 +456,15 @@ export const useBaseStore = defineStore('base', () => {
     loading.value = true;
     try {
       const updated = await shareApiService.updateShare(shareId, data);
-      const idx = shares.value.findIndex(s => s.id === shareId);
+      const idx = shares.value.findIndex((s) => s.id === shareId);
       if (idx !== -1) {
         shares.value[idx] = updated;
       }
       return updated;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '更新分享链接失败';
+      const msg = e instanceof Error ? e.message : "更新分享链接失败";
       error.value = msg;
-      console.error('[baseStore] updateShare failed:', e);
+      console.error("[baseStore] updateShare failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -416,9 +479,9 @@ export const useBaseStore = defineStore('base', () => {
       sharedWithMe.value = data;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '获取分享给我的 Base 失败';
+      const msg = e instanceof Error ? e.message : "获取分享给我的 Base 失败";
       error.value = msg;
-      console.error('[baseStore] fetchSharedWithMe failed:', e);
+      console.error("[baseStore] fetchSharedWithMe failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -433,9 +496,9 @@ export const useBaseStore = defineStore('base', () => {
       sharedByMe.value = data;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '获取我创建的分享失败';
+      const msg = e instanceof Error ? e.message : "获取我创建的分享失败";
       error.value = msg;
-      console.error('[baseStore] fetchSharedByMe failed:', e);
+      console.error("[baseStore] fetchSharedByMe failed:", e);
       throw e;
     } finally {
       loading.value = false;
@@ -450,6 +513,12 @@ export const useBaseStore = defineStore('base', () => {
     error,
     sortedBases,
     starredBases,
+    // 权限相关计算属性
+    currentUserRole,
+    canEdit,
+    canView,
+    canManage,
+    isOwner,
     // 成员管理和分享相关 state
     members,
     shares,
@@ -477,6 +546,6 @@ export const useBaseStore = defineStore('base', () => {
     deleteShare,
     updateShare,
     fetchSharedWithMe,
-    fetchSharedByMe
+    fetchSharedByMe,
   };
 });

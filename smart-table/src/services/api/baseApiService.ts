@@ -1,22 +1,29 @@
 /**
  * Base API 服务
  */
-import { apiClient } from '@/api/client';
-import type { Base, BaseMember } from '@/api/types';
+import { apiClient } from "@/api/client";
+import type { Base, BaseMember } from "@/api/types";
 
 export const getBases = async (): Promise<Base[]> => {
-  return apiClient.get<Base[]>('/bases');
+  return apiClient.get<Base[]>("/bases");
 };
 
-export const getBase = async (id: string): Promise<Base> => {
-  return apiClient.get<Base>(`/bases/${id}`);
+export const getBase = async (
+  id: string,
+  shareToken?: string,
+): Promise<Base> => {
+  const params = shareToken ? { share_token: shareToken } : undefined;
+  return apiClient.get<Base>(`/bases/${id}`, params);
 };
 
 export const createBase = async (data: Partial<Base>): Promise<Base> => {
-  return apiClient.post<Base>('/bases', data);
+  return apiClient.post<Base>("/bases", data);
 };
 
-export const updateBase = async (id: string, data: Partial<Base>): Promise<Base> => {
+export const updateBase = async (
+  id: string,
+  data: Partial<Base>,
+): Promise<Base> => {
   return apiClient.put<Base>(`/bases/${id}`, data);
 };
 
@@ -39,12 +46,18 @@ export const getBaseMembers = async (baseId: string): Promise<BaseMember[]> => {
 export const addBaseMember = async (
   baseId: string,
   email: string,
-  role?: string
+  role?: string,
 ): Promise<BaseMember> => {
-  return apiClient.post<BaseMember>(`/bases/${baseId}/members`, { email, role });
+  return apiClient.post<BaseMember>(`/bases/${baseId}/members`, {
+    email,
+    role,
+  });
 };
 
-export const removeBaseMember = async (baseId: string, userId: string): Promise<void> => {
+export const removeBaseMember = async (
+  baseId: string,
+  userId: string,
+): Promise<void> => {
   await apiClient.delete<void>(`/bases/${baseId}/members/${userId}`);
 };
 
@@ -58,7 +71,7 @@ export const baseApiService = {
   unstarBase,
   getBaseMembers,
   addBaseMember,
-  removeBaseMember
+  removeBaseMember,
 };
 
 export default baseApiService;

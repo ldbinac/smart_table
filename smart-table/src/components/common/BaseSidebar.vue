@@ -28,6 +28,8 @@ const props = defineProps<{
   showTables?: boolean;
   // 是否显示仪表盘列表
   showDashboards?: boolean;
+  // 是否有编辑权限
+  canEdit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -480,7 +482,7 @@ defineExpose({
     <div class="sidebar-footer">
       <div class="footer-buttons-column">
         <el-button
-          v-if="showTables !== false"
+          v-if="showTables !== false && canEdit !== false"
           type="primary"
           text
           @click="handleAddTable"
@@ -490,7 +492,7 @@ defineExpose({
         </el-button>
         <el-button
           style="margin-left: 0px"
-          v-if="showDashboards !== false"
+          v-if="showDashboards !== false && canEdit !== false"
           type="primary"
           text
           @click="handleAddDashboard"

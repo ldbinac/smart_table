@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
-import { Setting, Share, Upload, Document, User } from "@element-plus/icons-vue";
+import {
+  Setting,
+  Share,
+  Upload,
+  Document,
+  User,
+} from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
@@ -60,6 +66,12 @@ const isLoading = computed(
   () => baseStore.loading || viewStore.loading || tableStore.loading,
 );
 const currentTableId = computed(() => tableStore.currentTable?.id || "");
+
+// 权限控制计算属性
+const canEdit = computed(() => baseStore.canEdit);
+const canManage = computed(() => baseStore.canManage);
+const isOwner = computed(() => baseStore.isOwner);
+const currentUserRole = computed(() => baseStore.currentUserRole);
 
 // 使用 tableStore.fields 计算可见字段，确保状态同步
 const visibleFields = computed(() => {
@@ -307,9 +319,6 @@ let sortableInstance: Sortable | null = null;
 onMounted(async () => {
   const baseId = route.params.id as string;
   if (baseId) {
-    await baseStore.fetchBase(baseId);
-    await tableStore.loadTables(baseId);
-    
     // 检查是否有分享权限信息
     const shareInfo = localStorage.getItem(`share_permission_${baseId}`);
     if (shareInfo) {
@@ -317,12 +326,22 @@ onMounted(async () => {
         const info = JSON.parse(shareInfo);
         console.log("分享权限信息:", info);
         // 可以在这里设置分享权限相关的状态
-        // TODO: 根据分享权限控制 UI 显示
+        // TODO: fetchBase增加一个参数，用于传递分享权限share_token信息
+        // 请求后台接口的时候，把这个share_token传递给后端（可以通过请求头或请求体传递）
+        // 后台对应接口拿到share_token后，根据share_token来获取分享的权限信息
+        // 然后把该信息存储到baseMember表中，并同步返回前端base信息
+        await baseStore.fetchBase(baseId, info.share_token);
       } catch (e) {
         console.error("解析分享权限信息失败:", e);
       }
+    } else {
+      // 没有分享权限信息，加载 Base 详情
+      await baseStore.fetchBase(baseId);
     }
-    
+    // 加载成员信息（用于权限控制）
+    await baseStore.fetchMembers(baseId);
+    await tableStore.loadTables(baseId);
+
     // 如果有表格且当前没有选择表格，自动选择第一个表格
     if (tableStore.tables.length > 0 && !tableStore.currentTable) {
       const firstTable = tableStore.tables[0];
@@ -349,7 +368,34 @@ onMounted(async () => {
     }
     initSortable();
   }
+
+  // 监听来自 AppHeader 的分享和成员按钮点击事件
+  window.addEventListener("open-base-share", handleOpenBaseShare);
+  window.addEventListener("open-member-management", handleOpenMemberManagement);
 });
+
+onUnmounted(() => {
+  // 移除事件监听
+  window.removeEventListener("open-base-share", handleOpenBaseShare);
+  window.removeEventListener(
+    "open-member-management",
+    handleOpenMemberManagement,
+  );
+});
+
+// 处理打开分享对话框
+const handleOpenBaseShare = () => {
+  if (canManage.value) {
+    showBaseShare.value = true;
+  }
+};
+
+// 处理打开成员管理对话框
+const handleOpenMemberManagement = () => {
+  if (canManage.value) {
+    showMemberManagement.value = true;
+  }
+};
 
 watch(
   () => route.params.id,
@@ -357,7 +403,7 @@ watch(
     if (newId) {
       await baseStore.fetchBase(newId as string);
       await tableStore.loadTables(newId as string);
-      
+
       // 如果有表格且当前没有选择表格，自动选择第一个表格
       if (tableStore.tables.length > 0 && !tableStore.currentTable) {
         const firstTable = tableStore.tables[0];
@@ -1351,13 +1397,13 @@ function handleImported() {
 
 // 处理成员变更
 function handleMemberChanged() {
-  console.log('成员发生变更，刷新相关数据');
+  console.log("成员发生变更，刷新相关数据");
   // TODO: 刷新 Base 成员列表和权限
 }
 
 // 处理分享变更
 function handleShareChanged() {
-  console.log('分享发生变更，刷新相关数据');
+  console.log("分享发生变更，刷新相关数据");
   // TODO: 刷新 Base 分享列表
 }
 </script>
@@ -1369,6 +1415,7 @@ function handleShareChanged() {
       :current-table-id="tableStore.currentTable?.id"
       :show-tables="true"
       :show-dashboards="true"
+      :can-edit="canEdit"
       @select-table="handleTableSelect"
       @select-dashboard="handleDashboardClick"
       @add-table="openCreateTableDialog"
@@ -1395,6 +1442,7 @@ function handleShareChanged() {
         <div class="table-container">
           <ViewSwitcher
             :table-id="currentTableId"
+            :readonly="!canEdit"
             @view-change="handleViewChange" />
 
           <header
@@ -1478,12 +1526,18 @@ function handleShareChanged() {
                       {{ currentGroupBys.length }}
                     </el-tag>
                   </el-button>
-                  <el-button size="medium" @click="openFieldDialog">
+                  <el-button
+                    v-if="canEdit"
+                    size="medium"
+                    @click="openFieldDialog">
                     <el-icon><Grid /></el-icon>
                     字段
                   </el-button>
                 </el-button-group>
-                <el-button size="medium" @click="openImportDialog">
+                <el-button
+                  v-if="canEdit"
+                  size="medium"
+                  @click="openImportDialog">
                   <el-icon><Upload /></el-icon>
                   导入
                 </el-button>
@@ -1493,37 +1547,18 @@ function handleShareChanged() {
                 </el-button>
               </template>
 
-              <!-- 表单视图：只显示配置和分享按钮 -->
+              <!-- 表单视图：只显示配置按钮（分享和成员按钮已迁移到顶部导航栏） -->
               <template v-if="isFormView">
                 <el-button-group>
-                  <el-button size="medium" @click="openFormConfigDialog">
+                  <el-button
+                    v-if="canManage"
+                    size="medium"
+                    @click="openFormConfigDialog">
                     <el-icon><Setting /></el-icon>
                     配置
                   </el-button>
-                  <el-button size="medium" @click="openFormShareDialog">
-                    <el-icon><Share /></el-icon>
-                    分享
-                  </el-button>
-                  <el-button size="medium" @click="showMemberManagement = true">
-                    <el-icon><User /></el-icon>
-                    成员
-                  </el-button>
                 </el-button-group>
               </template>
-
-              <!-- 其他视图：显示分享和成员按钮 -->
-              <template v-else>
-                <el-button @click="showBaseShare = true">
-                  <el-icon><Share /></el-icon>
-                  分享
-                </el-button>
-                <el-button @click="showMemberManagement = true">
-                  <el-icon><User /></el-icon>
-                  成员
-                </el-button>
-              </template>
-
-              <!-- 看板、日历、甘特、画册视图：不显示任何操作按钮 -->
             </div>
           </header>
 
@@ -1535,6 +1570,7 @@ function handleShareChanged() {
               :records="filteredRecords as any[]"
               :group-by="currentGroupBys"
               :frozen-fields="viewStore.currentView?.frozenFields || []"
+              :readonly="!canEdit"
               @row-click="handleRecordSelect"
               @cell-click="handleEditRecord"
               @add-record="handleAddRecordFromGroup"
@@ -1553,6 +1589,7 @@ function handleShareChanged() {
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
+              :readonly="!canEdit"
               @record-select="handleRecordSelect"
               @records-select="handleRecordsSelect"
               @add-record="handleAddRecord" />
@@ -1564,6 +1601,7 @@ function handleShareChanged() {
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
               :fields="visibleFields"
+              :readonly="!canEdit"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById"
@@ -1576,6 +1614,7 @@ function handleShareChanged() {
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
               :fields="visibleFields"
+              :readonly="!canEdit"
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById" />
@@ -1587,6 +1626,7 @@ function handleShareChanged() {
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
               :fields="visibleFields"
+              :readonly="!canEdit"
               @updateRecord="handleSaveRecord"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById"
@@ -1597,6 +1637,7 @@ function handleShareChanged() {
               v-else-if="isGalleryView"
               :records="filteredRecords"
               :fields="visibleFields"
+              :readonly="!canEdit"
               @editRecord="handleEditRecordById"
               @deleteRecord="handleDeleteRecord" />
 
@@ -1628,7 +1669,10 @@ function handleShareChanged() {
       </template>
       <div v-else class="empty-state">
         <el-empty description="请选择或创建一个数据表">
-          <el-button type="primary" @click="openCreateTableDialog"
+          <el-button
+            v-if="canEdit"
+            type="primary"
+            @click="openCreateTableDialog"
             >创建数据表</el-button
           >
         </el-empty>
@@ -1888,6 +1932,7 @@ function handleShareChanged() {
       :record="editingRecord"
       :fields="tableStore.fields"
       :size="drawerSize"
+      :readonly="!canEdit"
       @save="handleSaveRecord" />
 
     <!-- 添加记录抽屉 -->

@@ -137,26 +137,29 @@ const contextMenuItems = computed(() => {
   const items: any[] = [];
 
   if (contextMenuTarget.value === "row") {
-    items.push(
-      { id: "edit", label: "编辑", icon: "edit" },
-      { id: "duplicate", label: "复制记录", icon: "copy" },
-      { divider: true, id: "divider1" },
-    );
+    // 非只读模式下显示编辑、复制和删除选项
+    if (!props.readonly) {
+      items.push({ id: "edit", label: "编辑", icon: "edit" });
+      items.push(
+        { id: "duplicate", label: "复制记录", icon: "copy" },
+        { divider: true, id: "divider1" },
+      );
 
-    if (selectedRows.value.length > 1) {
-      items.push({
-        id: "delete-selected",
-        label: `删除选中的 ${selectedRows.value.length} 条记录`,
-        icon: "delete",
-        danger: true,
-      });
-    } else {
-      items.push({
-        id: "delete",
-        label: "删除记录",
-        icon: "delete",
-        danger: true,
-      });
+      if (selectedRows.value.length > 1) {
+        items.push({
+          id: "delete-selected",
+          label: `删除选中的 ${selectedRows.value.length} 条记录`,
+          icon: "delete",
+          danger: true,
+        });
+      } else {
+        items.push({
+          id: "delete",
+          label: "删除记录",
+          icon: "delete",
+          danger: true,
+        });
+      }
     }
   } else if (contextMenuTarget.value === "header") {
     const field = contextMenuField.value;
@@ -493,7 +496,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
     case "Delete":
     case "Backspace":
-      if (selectedRows.value.length > 0) {
+      if (selectedRows.value.length > 0 && !props.readonly) {
         event.preventDefault();
         recordService.batchDeleteRecords(selectedRows.value);
         if (baseStore.currentTable) {
@@ -518,7 +521,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       break;
 
     case "Enter":
-      if (selectedRows.value.length === 1) {
+      if (selectedRows.value.length === 1 && !props.readonly) {
         const record = sortedRecords.value.find(
           (r) => r.id === selectedRows.value[0],
         );
@@ -762,7 +765,7 @@ defineExpose({
           </div>
         </TableRow>
 
-        <div class="add-row-button" @click="addNewRecord">
+        <div v-if="!readonly" class="add-row-button" @click="addNewRecord">
           <span class="add-icon">+</span>
           <span>添加记录</span>
         </div>
@@ -787,6 +790,7 @@ defineExpose({
       :record="expandedRecord"
       :fields="fields"
       :size="drawerSize"
+      :readonly="readonly"
       @save="handleRecordSave" />
 
     <!-- 字段编辑对话框 -->

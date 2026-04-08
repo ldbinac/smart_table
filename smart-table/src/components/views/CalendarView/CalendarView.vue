@@ -10,9 +10,12 @@ interface Props {
   viewId: string;
   fields: FieldEntity[];
   records: RecordEntity[];
+  readonly?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+});
 const emit = defineEmits<{
   (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
   (e: "addRecord", values: Record<string, unknown>): void;
@@ -432,6 +435,7 @@ function handleEventClick(event: CalendarEvent) {
 }
 
 function handleDateClick(date: Date) {
+  if (props.readonly) return;
   const newDate = date.getTime();
   emit("addRecord", { [dateFieldId.value]: newDate });
 }
@@ -768,7 +772,7 @@ watch(
             <el-empty description="暂无事件" :image-size="80">
               <template #description>
                 <p>暂无事件</p>
-                <p class="sub-text">点击空白处添加新记录</p>
+                <p v-if="!readonly" class="sub-text">点击空白处添加新记录</p>
               </template>
             </el-empty>
           </div>

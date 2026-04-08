@@ -17,9 +17,12 @@ interface Props {
   viewId: string;
   fields: FieldEntity[];
   records: RecordEntity[];
+  readonly?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+});
 const emit = defineEmits<{
   (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
   (e: "addRecord", values: Record<string, unknown>): void;

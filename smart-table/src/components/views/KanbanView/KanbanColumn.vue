@@ -16,9 +16,12 @@ interface Props {
   records: RecordEntity[];
   fields: FieldEntity[];
   cardFields: string[];
+  readonly?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+});
 const emit = defineEmits<{
   (e: "addRecord"): void;
   (e: "editRecord", recordId: string): void;
@@ -92,11 +95,14 @@ defineExpose({
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item @click="handleAddClick">
+            <el-dropdown-item v-if="!readonly" @click="handleAddClick">
               <el-icon><Plus /></el-icon>
               添加记录
             </el-dropdown-item>
-            <el-dropdown-item divided @click="$emit('deleteRecord', group.id)">
+            <el-dropdown-item
+              v-if="!readonly"
+              divided
+              @click="$emit('deleteRecord', group.id)">
               <el-icon><Delete /></el-icon>
               删除分组
             </el-dropdown-item>
@@ -116,7 +122,7 @@ defineExpose({
         @delete="$emit('deleteRecord', record.id)" />
     </div>
 
-    <div class="column-footer">
+    <div v-if="!readonly" class="column-footer">
       <button class="add-card-btn" @click="handleAddClick">
         <el-icon class="add-icon"><Plus /></el-icon>
         <span>添加卡片</span>
@@ -254,7 +260,11 @@ defineExpose({
 // 拖拽相关样式
 :deep(.kanban-card-ghost) {
   opacity: 0.6;
-  background: linear-gradient(135deg, rgba($primary-color, 0.08) 0%, rgba($primary-color, 0.04) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba($primary-color, 0.08) 0%,
+    rgba($primary-color, 0.04) 100%
+  );
   border: 2px dashed rgba($primary-color, 0.4);
   border-radius: $border-radius-xl;
   box-shadow: none;

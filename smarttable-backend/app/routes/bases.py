@@ -81,14 +81,30 @@ def get_base(base_id):
     Args:
         base_id: 基础数据 ID
     
+    Query Parameters:
+        share_token: 分享令牌（可选，用于通过分享链接访问）
+    
     Returns:
         基础数据详情
     """
     user_id = g.current_user_id
     
     # 检查权限
-    if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此基础数据')
+    has_permission = BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER)
+    
+    # 如果不是成员，检查是否提供了有效的 share_token
+    if not has_permission:
+        share_token = request.args.get('share_token')
+        if share_token:
+            result = BaseService.verify_share_token_and_add_member(
+                str(base_id), user_id, share_token
+            )
+            if result['success']:
+                has_permission = True
+            else:
+                return forbidden_response(f'您没有权限访问此基础数据：{result.get("error", "")}')
+        else:
+            return forbidden_response('您没有权限访问此基础数据')
     
     base = BaseService.get_base(str(base_id))
     if not base:

@@ -4,8 +4,8 @@ import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { dashboardService } from "@/db/services/dashboardService";
-import { ElMessageBox } from 'element-plus';
-import { ArrowDown } from '@element-plus/icons-vue';
+import { ElMessageBox } from "element-plus";
+import { ArrowDown, Share, User } from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
 
 const route = useRoute();
@@ -23,18 +23,14 @@ const userMenuVisible = ref(false);
 // 处理退出登录
 const handleLogout = async () => {
   try {
-    await ElMessageBox.confirm(
-      '确定要退出登录吗？',
-      '退出确认',
-      {
-        confirmButtonText: '确定退出',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    );
-    
+    await ElMessageBox.confirm("确定要退出登录吗？", "退出确认", {
+      confirmButtonText: "确定退出",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+
     await authStore.logout();
-    router.replace('/login');
+    router.replace("/login");
   } catch {
     // 用户取消退出
   }
@@ -44,17 +40,17 @@ const handleLogout = async () => {
 const handleLogoutAll = async () => {
   try {
     await ElMessageBox.confirm(
-      '确定要从所有设备退出登录吗？此操作将使您在其他所有设备上也被迫下线。',
-      '退出所有设备',
+      "确定要从所有设备退出登录吗？此操作将使您在其他所有设备上也被迫下线。",
+      "退出所有设备",
       {
-        confirmButtonText: '确定退出',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
+        confirmButtonText: "确定退出",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
     );
-    
+
     await authStore.logout(true);
-    router.replace('/login');
+    router.replace("/login");
   } catch {
     // 用户取消退出
   }
@@ -62,16 +58,11 @@ const handleLogoutAll = async () => {
 
 // 用户信息显示
 const userName = computed(() => {
-  return authStore.user?.name || '用户';
+  return authStore.user?.name || "用户";
 });
 
 const userEmail = computed(() => {
-  return authStore.user?.email || '';
-});
-
-// 判断是否在Base页面
-const isBasePage = computed(() => {
-  return route.path.startsWith("/base/");
+  return authStore.user?.email || "";
 });
 
 // 判断是否在仪表盘页面
@@ -81,6 +72,7 @@ const isDashboardPage = computed(() => {
 
 // 当前表格信息
 const currentTable = computed(() => {
+  console.log("currentTable:", baseStore);
   return baseStore.currentTable;
 });
 
@@ -108,6 +100,16 @@ watch(() => route.params.dashboardId, loadDashboard, { immediate: true });
 // 当前Base（多维表根）信息
 const currentBase = computed(() => {
   return baseStore.currentBase;
+});
+
+// 是否有管理权限（控制分享和成员按钮显示）
+const canManage = computed(() => {
+  return baseStore.canManage;
+});
+
+// 是否在Base页面
+const isBasePage = computed(() => {
+  return route.path.startsWith("/base/");
 });
 
 // 左侧显示的标题：Base（多维表根）名称或默认标题
@@ -142,6 +144,18 @@ const centerInfo = computed(() => {
   }
   return null;
 });
+
+// 分享按钮点击事件
+const handleShareClick = () => {
+  // 通过自定义事件通知父组件打开分享对话框
+  window.dispatchEvent(new CustomEvent("open-base-share"));
+};
+
+// 成员按钮点击事件
+const handleMemberClick = () => {
+  // 通过自定义事件通知父组件打开成员管理对话框
+  window.dispatchEvent(new CustomEvent("open-member-management"));
+};
 </script>
 
 <template>
@@ -219,15 +233,31 @@ const centerInfo = computed(() => {
     </div>
 
     <div class="header-right">
-      <div class="current-title">{{ currentTitle }}</div>
+      <!-- Base页面的分享和成员按钮 -->
+      <template v-if="isBasePage && currentBase && canManage">
+        <el-button-group
+          ><el-button class="header-action-btn" @click="handleShareClick">
+            <el-icon><Share /></el-icon>
+            <span>分享</span>
+          </el-button>
+          <el-button class="header-action-btn" @click="handleMemberClick">
+            <el-icon><User /></el-icon>
+            <span>成员</span>
+          </el-button></el-button-group
+        >
+        <el-divider direction="vertical" class="header-divider" />
+      </template>
+      <!-- <div class="current-title">{{ currentTitle }}</div> -->
       <el-dropdown
         v-model:visible="userMenuVisible"
         trigger="click"
-        :hide-on-click="false"
-      >
+        :hide-on-click="false">
         <div class="user-menu-trigger">
           <div class="user-avatar">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z"
                 stroke="currentColor"
@@ -245,18 +275,11 @@ const centerInfo = computed(() => {
               <div class="user-info-name">{{ userName }}</div>
               <div class="user-info-email">{{ userEmail }}</div>
             </div>
-            <el-divider style="margin: 4px 0;" />
-            <el-dropdown-item
-              icon="SwitchButton"
-              @click="handleLogout"
-            >
+            <el-divider style="margin: 4px 0" />
+            <el-dropdown-item icon="SwitchButton" @click="handleLogout">
               退出登录
             </el-dropdown-item>
-            <el-dropdown-item
-              icon="Delete"
-              divided
-              @click="handleLogoutAll"
-            >
+            <el-dropdown-item icon="Delete" divided @click="handleLogoutAll">
               退出所有设备
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -360,6 +383,23 @@ const centerInfo = computed(() => {
 .header-right {
   @include flex-center;
   gap: $spacing-md;
+}
+
+.header-action-btn {
+  @include flex-center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  font-size: $font-size-sm;
+  border-radius: $border-radius-base;
+
+  .el-icon {
+    font-size: 14px;
+  }
+}
+
+.header-divider {
+  height: 20px;
+  margin: 0 $spacing-xs;
 }
 
 .current-title {

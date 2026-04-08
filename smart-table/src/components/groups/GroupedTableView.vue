@@ -16,12 +16,14 @@ interface Props {
   groupBy: string[];
   rowHeight?: "short" | "medium" | "tall";
   frozenFields?: string[];
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   groupBy: () => [],
   rowHeight: "medium",
   frozenFields: () => [],
+  readonly: false,
 });
 
 interface GroupLevelInfo {
@@ -144,26 +146,29 @@ const contextMenuItems = computed(() => {
   const items: any[] = [];
 
   if (contextMenuTarget.value === "row") {
-    items.push(
-      { id: "edit", label: "编辑", icon: "edit" },
-      { id: "duplicate", label: "复制记录", icon: "copy" },
-      { divider: true, id: "divider1" },
-    );
+    // 非只读模式下显示编辑、复制和删除选项
+    if (!props.readonly) {
+      items.push({ id: "edit", label: "编辑", icon: "edit" });
+      items.push(
+        { id: "duplicate", label: "复制记录", icon: "copy" },
+        { divider: true, id: "divider1" },
+      );
 
-    if (selectedRows.value.size > 1) {
-      items.push({
-        id: "delete-selected",
-        label: `删除选中的 ${selectedRows.value.size} 条记录`,
-        icon: "delete",
-        danger: true,
-      });
-    } else {
-      items.push({
-        id: "delete",
-        label: "删除记录",
-        icon: "delete",
-        danger: true,
-      });
+      if (selectedRows.value.size > 1) {
+        items.push({
+          id: "delete-selected",
+          label: `删除选中的 ${selectedRows.value.size} 条记录`,
+          icon: "delete",
+          danger: true,
+        });
+      } else {
+        items.push({
+          id: "delete",
+          label: "删除记录",
+          icon: "delete",
+          danger: true,
+        });
+      }
     }
   } else if (contextMenuTarget.value === "header") {
     const field = contextMenuField.value;
@@ -1365,7 +1370,7 @@ function getRatingDisplay(field: FieldEntity, value: unknown): string {
 
             <!-- 新增按钮行 -->
             <tr
-              v-else-if="item.type === 'addButton'"
+              v-else-if="item.type === 'addButton' && !readonly"
               class="add-button-row"
               :style="{ height: rowHeightMap[rowHeight] }">
               <td class="index-cell"></td>

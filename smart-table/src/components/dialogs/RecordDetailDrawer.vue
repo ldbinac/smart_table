@@ -33,6 +33,7 @@ const props = defineProps<{
   record: RecordEntity | null;
   fields: FieldEntity[];
   size?: string | number;
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -252,6 +253,7 @@ const drawerTitle = computed(() => {
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
+              :disabled="readonly"
               class="field-input" />
           </template>
 
@@ -261,6 +263,7 @@ const drawerTitle = computed(() => {
               :model-value="Number(formData[field.id] || 0)"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
+              :disabled="readonly"
               class="field-input"
               style="width: 100%" />
           </template>
@@ -271,6 +274,7 @@ const drawerTitle = computed(() => {
               :model-value="formData[field.id] as string"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请选择${field.name}`"
+              :disabled="readonly"
               class="field-input"
               style="width: 100%">
               <el-option
@@ -294,6 +298,7 @@ const drawerTitle = computed(() => {
               :model-value="(formData[field.id] as string[]) || []"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请选择${field.name}`"
+              :disabled="readonly"
               multiple
               class="field-input"
               style="width: 100%">
@@ -329,6 +334,7 @@ const drawerTitle = computed(() => {
               "
               type="date"
               :placeholder="`请选择${field.name}`"
+              :disabled="readonly"
               class="field-input"
               style="width: 100%" />
           </template>
@@ -337,6 +343,7 @@ const drawerTitle = computed(() => {
           <template v-else-if="getFieldComponent(field) === 'checkbox'">
             <el-switch
               :model-value="Boolean(formData[field.id])"
+              :disabled="readonly"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
@@ -367,6 +374,7 @@ const drawerTitle = computed(() => {
               :model-value="formData[field.id] as CellValue"
               :field="field"
               :record-id="record.id"
+              :readonly="readonly"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               @upload="(files) => handleAttachmentUpload(field.id, files)"
               @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
@@ -377,8 +385,12 @@ const drawerTitle = computed(() => {
 
     <template #footer>
       <div class="drawer-footer">
-        <el-button @click="closeDrawer">取消</el-button>
-        <el-button type="primary" :loading="isSaving" @click="handleSave">
+        <el-button @click="closeDrawer">关闭</el-button>
+        <el-button
+          v-if="!readonly"
+          type="primary"
+          :loading="isSaving"
+          @click="handleSave">
           保存
         </el-button>
       </div>

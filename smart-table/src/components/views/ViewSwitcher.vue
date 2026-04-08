@@ -5,9 +5,12 @@ import { ViewType, type ViewTypeValue } from "@/types";
 
 interface Props {
   tableId?: string;
+  readonly?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+});
 
 const emit = defineEmits<{
   (e: "view-change", viewId: string): void;
@@ -227,6 +230,7 @@ function getViewLabel(type: string): string {
         <span v-if="view.isDefault" class="default-badge">默认</span>
 
         <el-dropdown
+          v-if="!readonly"
           trigger="click"
           @command="
             (cmd: string) => {
@@ -266,6 +270,7 @@ function getViewLabel(type: string): string {
     </div>
 
     <el-dropdown
+      v-if="!readonly"
       trigger="click"
       @command="(type: ViewTypeValue) => startCreateView(type)">
       <button class="add-view-btn">

@@ -7,9 +7,12 @@ import { FormulaEngine } from "@/utils/formula/engine";
 interface Props {
   fields: FieldEntity[];
   records: RecordEntity[];
+  readonly?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+});
 const emit = defineEmits<{
   (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
   (e: "deleteRecord", recordId: string): void;
@@ -264,7 +267,7 @@ onMounted(() => {
 
             <!-- 悬停操作按钮 -->
             <div class="card-overlay">
-              <div class="card-actions" @click.stop>
+              <div v-if="!readonly" class="card-actions" @click.stop>
                 <el-button
                   circle
                   class="action-btn edit-btn"

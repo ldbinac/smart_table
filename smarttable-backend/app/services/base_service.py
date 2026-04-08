@@ -10,6 +10,7 @@ from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.base import Base, BaseMember, MemberRole
+from app.models.base_share import BaseShare, SharePermission
 from app.models.user import User
 
 
@@ -460,3 +461,66 @@ class BaseService:
                 return func(*args, **kwargs)
             return wrapper
         return decorator
+    
+    @staticmethod
+    def verify_share_token_and_add_member(base_id: str, user_id: str, share_token: str) -> Dict[str, Any]:
+        """
+        验证分享令牌并自动添加用户为 Base 成员
+        
+        Args:
+            base_id: Base ID
+            user_id: 用户 ID
+            share_token: 分享令牌
+            
+        Returns:
+            包含验证结果和角色信息的字典
+        """
+        from flask import current_app
+        
+        current_app.logger.info(f'[BaseService] 验证分享令牌：base={base_id}, user={user_id}, token={share_token}')
+        
+        # 查找分享记录
+        share = BaseShare.query.filter_by(share_token=share_token, base_id=base_id).first()
+        
+        if not share:
+            current_app.logger.error(f'[BaseService] 分享令牌不存在')
+            return {'success': False, 'error': '分享令牌不存在'}
+        
+        # 检查分享是否激活
+        if not share.is_active:
+            current_app.logger.error(f'[BaseService] 分享链接已失效')
+            return {'success': False, 'error': '分享链接已失效'}
+        
+        # 检查是否过期
+        if share.expires_at is not None:
+            if int(datetime.utcnow().timestamp()) > share.expires_at:
+                current_app.logger.error(f'[BaseService] 分享链接已过期')
+                return {'success': False, 'error': '分享链接已过期'}
+        
+        # 检查用户是否已经是成员
+        existing = BaseMember.query.filter_by(base_id=base_id, user_id=user_id).first()
+        if existing:
+            current_app.logger.info(f'[BaseService] 用户已是成员，角色：{existing.role}')
+            return {'success': True, 'role': existing.role}
+        
+        # 根据分享权限确定角色
+        # 分享权限 view -> VIEWER, edit -> EDITOR
+        if share.permission == SharePermission.EDIT:
+            member_role = MemberRole.EDITOR
+        else:
+            member_role = MemberRole.VIEWER
+        
+        # 创建成员关系
+        membership = BaseMember(
+            base_id=base_id,
+            user_id=user_id,
+            role=member_role,
+            invited_by=share.created_by
+        )
+        
+        db.session.add(membership)
+        db.session.commit()
+        
+        current_app.logger.info(f'[BaseService] 已通过分享链接添加成员：base={base_id}, user={user_id}, role={member_role}')
+        
+        return {'success': True, 'role': member_role}

@@ -5,7 +5,6 @@
     width="800px"
     :close-on-click-modal="false"
     class="member-management-dialog">
-    
     <div v-loading="loading" class="member-content">
       <!-- 成员列表 -->
       <div class="member-list">
@@ -17,15 +16,20 @@
           <div class="member-info">
             <div class="member-avatar">
               <el-avatar :size="40" :src="member.user?.avatar">
-                {{ member.user?.name?.charAt(0) || 'U' }}
+                {{ member.user?.name?.charAt(0) || "U" }}
               </el-avatar>
             </div>
             <div class="member-details">
               <div class="member-name">
-                {{ member.user?.name || '未知用户' }}
-                <el-tag v-if="member.role === 'owner'" type="warning" size="small">所有者</el-tag>
+                {{ member.user?.name || "未知用户" }}
+                <el-tag
+                  v-if="member.role === 'owner'"
+                  type="warning"
+                  size="small"
+                  >所有者</el-tag
+                >
               </div>
-              <div class="member-email">{{ member.user?.email || '' }}</div>
+              <div class="member-email">{{ member.user?.email || "" }}</div>
             </div>
           </div>
           <div class="member-actions">
@@ -41,7 +45,7 @@
               <el-option label="查看者" value="viewer" />
             </el-select>
             <el-tag v-else type="warning" size="small">所有者</el-tag>
-            
+
             <el-button
               v-if="member.role !== 'owner' && canManageMembers"
               type="danger"
@@ -74,7 +78,6 @@
     title="添加成员"
     width="600px"
     :close-on-click-modal="false">
-    
     <el-tabs v-model="activeTab">
       <el-tab-pane label="单个添加" name="single">
         <el-form
@@ -98,7 +101,7 @@
           </el-form-item>
         </el-form>
       </el-tab-pane>
-      
+
       <el-tab-pane label="批量添加" name="batch">
         <el-alert
           title="批量添加成员"
@@ -113,7 +116,7 @@
           placeholder="user1@example.com editor&#10;user2@example.com viewer&#10;user3@example.com" />
       </el-tab-pane>
     </el-tabs>
-    
+
     <template #footer>
       <el-button @click="showAddMemberDialog = false">取消</el-button>
       <el-button type="primary" :loading="adding" @click="handleAddMember">
@@ -124,11 +127,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
-import type { FormInstance, FormRules } from 'element-plus';
-import { useBaseStore, type BaseMember } from '@/stores/baseStore';
+import { ref, reactive, computed, watch } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
+import type { FormInstance, FormRules } from "element-plus";
+import { useBaseStore, type BaseMember } from "@/stores/baseStore";
 
 const props = defineProps<{
   baseId: string;
@@ -136,48 +139,49 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:visible', value: boolean): void;
-  (e: 'member-changed'): void;
+  (e: "update:visible", value: boolean): void;
+  (e: "member-changed"): void;
 }>();
 
 const baseStore = useBaseStore();
 
 const dialogVisible = computed({
   get: () => props.visible,
-  set: (value) => emit('update:visible', value)
+  set: (value) => emit("update:visible", value),
 });
 
 const loading = ref(false);
 const adding = ref(false);
 const showAddMemberDialog = ref(false);
-const activeTab = ref('single');
-const batchEmails = ref('');
+const activeTab = ref("single");
+const batchEmails = ref("");
 const canManageMembers = ref(true); // TODO: 实现权限检查
 
 const members = ref<BaseMember[]>([]);
 
 const addMemberFormRef = ref<FormInstance>();
 const addMemberForm = reactive({
-  email: '',
-  role: 'editor'
+  email: "",
+  role: "editor",
 });
 
 const addMemberFormRules: FormRules = {
   email: [
-    { required: true, message: '请输入用户邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
+    { required: true, message: "请输入用户邮箱", trigger: "blur" },
+    { type: "email", message: "请输入有效的邮箱地址", trigger: "blur" },
   ],
-  role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
-  ]
+  role: [{ required: true, message: "请选择角色", trigger: "change" }],
 };
 
 // 监听对话框打开，加载成员列表
-watch(() => props.visible, async (newVal) => {
-  if (newVal && props.baseId) {
-    await loadMembers();
-  }
-});
+watch(
+  () => props.visible,
+  async (newVal) => {
+    if (newVal && props.baseId) {
+      await loadMembers();
+    }
+  },
+);
 
 // 加载成员列表
 async function loadMembers() {
@@ -185,9 +189,10 @@ async function loadMembers() {
   try {
     const data = await baseStore.fetchMembers(props.baseId);
     members.value = data;
+    console.log("加载成员列表成功:", members.value);
   } catch (error) {
-    console.error('加载成员列表失败:', error);
-    ElMessage.error('加载成员列表失败');
+    console.error("加载成员列表失败:", error);
+    ElMessage.error("加载成员列表失败");
   } finally {
     loading.value = false;
   }
@@ -197,11 +202,11 @@ async function loadMembers() {
 async function handleRoleChange(member: BaseMember) {
   try {
     await baseStore.updateMemberRole(props.baseId, member.user_id, member.role);
-    ElMessage.success('成员角色已更新');
-    emit('member-changed');
+    ElMessage.success("成员角色已更新");
+    emit("member-changed");
   } catch (error) {
-    console.error('更新成员角色失败:', error);
-    ElMessage.error('更新成员角色失败');
+    console.error("更新成员角色失败:", error);
+    ElMessage.error("更新成员角色失败");
     // 恢复原角色
     await loadMembers();
   }
@@ -211,30 +216,30 @@ async function handleRoleChange(member: BaseMember) {
 async function handleRemoveMember(member: BaseMember) {
   try {
     await ElMessageBox.confirm(
-      `确定要移除成员"${member.user?.name || '未知用户'}"吗？`,
-      '确认移除',
+      `确定要移除成员"${member.user?.name || "未知用户"}"吗？`,
+      "确认移除",
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
     );
-    
+
     await baseStore.removeMember(props.baseId, member.user_id);
-    ElMessage.success('成员已移除');
+    ElMessage.success("成员已移除");
     await loadMembers();
-    emit('member-changed');
+    emit("member-changed");
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('移除成员失败:', error);
-      ElMessage.error('移除成员失败');
+    if (error !== "cancel") {
+      console.error("移除成员失败:", error);
+      ElMessage.error("移除成员失败");
     }
   }
 }
 
 // 处理添加成员
 async function handleAddMember() {
-  if (activeTab.value === 'batch') {
+  if (activeTab.value === "batch") {
     // 批量添加
     await handleBatchAdd();
   } else {
@@ -246,24 +251,28 @@ async function handleAddMember() {
 // 单个添加
 async function handleSingleAdd() {
   if (!addMemberFormRef.value) return;
-  
+
   try {
     await addMemberFormRef.value.validate();
     adding.value = true;
-    
-    await baseStore.addMember(props.baseId, addMemberForm.email, addMemberForm.role);
-    ElMessage.success('成员添加成功');
+
+    await baseStore.addMember(
+      props.baseId,
+      addMemberForm.email,
+      addMemberForm.role,
+    );
+    ElMessage.success("成员添加成功");
     showAddMemberDialog.value = false;
     await loadMembers();
-    emit('member-changed');
-    
+    emit("member-changed");
+
     // 重置表单
-    addMemberForm.email = '';
-    addMemberForm.role = 'editor';
+    addMemberForm.email = "";
+    addMemberForm.role = "editor";
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('添加成员失败:', error);
-      ElMessage.error('添加成员失败');
+    if (error !== "cancel") {
+      console.error("添加成员失败:", error);
+      ElMessage.error("添加成员失败");
     }
   } finally {
     adding.value = false;
@@ -273,49 +282,53 @@ async function handleSingleAdd() {
 // 批量添加
 async function handleBatchAdd() {
   if (!batchEmails.value.trim()) {
-    ElMessage.warning('请输入成员邮箱列表');
+    ElMessage.warning("请输入成员邮箱列表");
     return;
   }
-  
+
   try {
     adding.value = true;
-    
+
     // 解析邮箱列表
-    const lines = batchEmails.value.split('\n').filter(line => line.trim());
-    const members = lines.map(line => {
+    const lines = batchEmails.value.split("\n").filter((line) => line.trim());
+    const members = lines.map((line) => {
       const parts = line.trim().split(/\s+/);
       const email = parts[0];
-      const role = parts[1] || 'editor';
+      const role = parts[1] || "editor";
       return { email, role };
     });
-    
+
     if (members.length === 0) {
-      ElMessage.warning('没有有效的邮箱地址');
+      ElMessage.warning("没有有效的邮箱地址");
       return;
     }
-    
+
     const result = await baseStore.batchAddMembers(props.baseId, members);
-    
+
     if (result.success_count > 0) {
-      ElMessage.success(`批量添加完成：成功 ${result.success_count} 个，失败 ${result.failed_count} 个`);
-      
+      ElMessage.success(
+        `批量添加完成：成功 ${result.success_count} 个，失败 ${result.failed_count} 个`,
+      );
+
       if (result.failed_count > 0) {
         // 显示失败详情
-        const failedDetails = result.failed.map(f => `${f.email}: ${f.error}`).join('\n');
+        const failedDetails = result.failed
+          .map((f) => `${f.email}: ${f.error}`)
+          .join("\n");
         ElMessage.warning(`失败详情：\n${failedDetails}`);
       }
-      
+
       showAddMemberDialog.value = false;
       await loadMembers();
-      emit('member-changed');
-      batchEmails.value = '';
+      emit("member-changed");
+      batchEmails.value = "";
     } else {
-      ElMessage.error('批量添加失败，请检查邮箱地址格式');
+      ElMessage.error("批量添加失败，请检查邮箱地址格式");
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('批量添加失败:', error);
-      ElMessage.error('批量添加失败');
+    if (error !== "cancel") {
+      console.error("批量添加失败:", error);
+      ElMessage.error("批量添加失败");
     }
   } finally {
     adding.value = false;
@@ -393,6 +406,7 @@ function closeDialog() {
       align-items: center;
       gap: 8px;
       flex-shrink: 0;
+      width: 160px;
     }
   }
 

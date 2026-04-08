@@ -7,9 +7,12 @@ import KanbanColumn from "./KanbanColumn.vue";
 interface Props {
   fields: FieldEntity[];
   records: RecordEntity[];
+  readonly?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+});
 const emit = defineEmits<{
   (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
   (
@@ -184,6 +187,7 @@ onMounted(() => {
         :records="group.records"
         :fields="fields"
         :card-fields="cardFields"
+        :readonly="props.readonly"
         @add-record="handleAddRecord(group.id, group.name)"
         @edit-record="handleEditRecord"
         @update-record="handleUpdateRecord"
