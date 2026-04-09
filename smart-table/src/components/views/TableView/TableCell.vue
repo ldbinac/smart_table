@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, nextTick } from "vue";
+import { computed, ref, nextTick, watch, onMounted } from "vue";
 import dayjs from "dayjs";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
@@ -10,6 +10,7 @@ import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ElMessage } from "element-plus";
 import { FieldType } from "@/types/fields";
 import type { LinkedRecord } from "@/types/link";
+import { linkApiService } from "@/services/api/linkApiService";
 
 interface Props {
   record: RecordEntity;
@@ -39,9 +40,61 @@ const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 const linkedRecords = ref<LinkedRecord[]>([]);
 const isLoadingLinks = ref(false);
 
+// 加载关联记录详情
+const loadLinkedRecords = async () => {
+  if (props.field.type !== FieldType.LINK) return;
+  
+  const linkedIds = cellValue.value as string[] | null;
+  if (!linkedIds || linkedIds.length === 0) {
+    linkedRecords.value = [];
+    return;
+  }
+
+  isLoadingLinks.value = true;
+  try {
+    // 获取记录的关联数据
+    const links = await linkApiService.getRecordLinks(props.record.id);
+    
+    // 找到当前字段的关联数据
+    const fieldLinks = links.outbound.find(l => l.field_id === props.field.id);
+    if (fieldLinks && fieldLinks.linked_records) {
+      linkedRecords.value = fieldLinks.linked_records.map(r => ({
+        record_id: r.record_id,
+        display_value: r.display_value,
+      }));
+    } else {
+      // 如果没有从API获取到，使用ID列表创建简单的记录
+      linkedRecords.value = linkedIds.map(id => ({
+        record_id: id,
+        display_value: id, // 暂时显示ID，后续可以优化
+      }));
+    }
+  } catch (error) {
+    console.error("[TableCell] 加载关联记录失败:", error);
+    // 失败时使用ID列表
+    linkedRecords.value = linkedIds.map(id => ({
+      record_id: id,
+      display_value: id,
+    }));
+  } finally {
+    isLoadingLinks.value = false;
+  }
+};
+
 const cellValue = computed(() => {
   return props.record.values[props.field.id] ?? null;
 });
+
+// 监听关联字段值的变化，重新加载关联记录
+watch(
+  () => [props.record.id, props.field.id, cellValue.value],
+  () => {
+    if (props.field.type === FieldType.LINK) {
+      loadLinkedRecords();
+    }
+  },
+  { immediate: true }
+);
 
 // 创建一个响应式的记录值引用，用于触发公式重新计算
 const recordValuesHash = computed(() => {

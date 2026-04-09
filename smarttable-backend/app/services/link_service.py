@@ -677,11 +677,18 @@ class LinkService:
                 field_id = str(link_relation.source_field_id)
                 if field_id not in result:
                     result[field_id] = []
+                
+                # 获取显示值 - 使用关联字段配置中的 displayFieldId
+                display_value = LinkService._get_link_display_value(
+                    link_value.target_record, 
+                    link_relation.source_field_id
+                )
+                
                 result[field_id].append({
                     'link_value_id': str(link_value.id),
                     'link_relation_id': str(link_relation.id),
                     'target_record_id': str(link_value.target_record_id),
-                    'target_record': link_value.target_record.get_primary_value() if link_value.target_record else None,
+                    'target_record': display_value,
                     'direction': 'outgoing'
                 })
 
@@ -703,11 +710,18 @@ class LinkService:
                     field_id = str(link_relation.target_field_id)
                     if field_id not in result:
                         result[field_id] = []
+                    
+                    # 获取显示值 - 使用关联字段配置中的 displayFieldId
+                    display_value = LinkService._get_link_display_value(
+                        link_value.source_record,
+                        link_relation.target_field_id
+                    )
+                    
                     result[field_id].append({
                         'link_value_id': str(link_value.id),
                         'link_relation_id': str(link_relation.id),
                         'source_record_id': str(link_value.source_record_id),
-                        'source_record': link_value.source_record.get_primary_value() if link_value.source_record else None,
+                        'source_record': display_value,
                         'direction': 'incoming'
                     })
 
@@ -716,3 +730,37 @@ class LinkService:
         except Exception as e:
             current_app.logger.error(f'[LinkService] 获取记录关联信息失败: {str(e)}')
             return {}
+    
+    @staticmethod
+    def _get_link_display_value(target_record, field_id: str) -> str:
+        """
+        获取关联记录的显示值
+        
+        优先使用关联字段配置中的 displayFieldId，如果没有配置则使用主字段
+        
+        Args:
+            target_record: 目标记录
+            field_id: 关联字段ID
+            
+        Returns:
+            显示值字符串
+        """
+        try:
+            if not target_record:
+                return '未命名记录'
+            
+            # 获取关联字段配置
+            from app.models.field import Field
+            field = db.session.get(Field, field_id)
+            if field and field.config:
+                display_field_id = field.config.get('displayFieldId')
+                if display_field_id:
+                    display_value = target_record.values.get(str(display_field_id))
+                    if display_value:
+                        return str(display_value)
+            
+            # 如果没有配置 displayFieldId 或 displayFieldId 没有值，使用主字段
+            return target_record.get_primary_value()
+        except Exception as e:
+            current_app.logger.error(f'[LinkService] 获取显示值失败: {str(e)}')
+            return '未命名记录'

@@ -474,7 +474,7 @@ def get_record_links(record_id):
         record_id: 记录 ID
     
     Returns:
-        关联数据，按字段分组
+        关联数据，按 outbound 和 inbound 分组
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
@@ -484,8 +484,49 @@ def get_record_links(record_id):
         # 获取记录的所有关联信息
         links = LinkService.get_record_links(record_id)
         
+        # 转换为前端期望的格式
+        outbound = []
+        inbound = []
+        
+        for field_id, link_list in links.items():
+            for link in link_list:
+                if link.get('direction') == 'outgoing':
+                    # 找到或创建 outbound 条目
+                    existing = next((o for o in outbound if o['field_id'] == field_id), None)
+                    if not existing:
+                        field = FieldService.get_field(field_id)
+                        existing = {
+                            'field_id': field_id,
+                            'field_name': field.name if field else '未知字段',
+                            'target_table_id': str(field.config.get('linkedTableId')) if field and field.config else None,
+                            'target_table_name': None,
+                            'linked_records': []
+                        }
+                        outbound.append(existing)
+                    existing['linked_records'].append({
+                        'record_id': link['target_record_id'],
+                        'display_value': link.get('target_record') or link['target_record_id']
+                    })
+                elif link.get('direction') == 'incoming':
+                    # 找到或创建 inbound 条目
+                    existing = next((i for i in inbound if i['field_id'] == field_id), None)
+                    if not existing:
+                        field = FieldService.get_field(field_id)
+                        existing = {
+                            'field_id': field_id,
+                            'field_name': field.name if field else '未知字段',
+                            'source_table_id': None,
+                            'source_table_name': None,
+                            'linked_records': []
+                        }
+                        inbound.append(existing)
+                    existing['linked_records'].append({
+                        'record_id': link['source_record_id'],
+                        'display_value': link.get('source_record') or link['source_record_id']
+                    })
+        
         return success_response(
-            data=links,
+            data={'outbound': outbound, 'inbound': inbound},
             message='获取关联数据成功'
         )
     
