@@ -28,6 +28,9 @@
     - [ ] 配置参数的应用和使用
   - [ ] 配置
     - [ ] 用户配置参数的应用和使用
+  - [ ] 邮箱配置
+  - [ ] 忘记密码……
+  - [ ] <br />
 
 ## 一、各种视图的功能丰富化：
 
@@ -109,23 +112,22 @@
 
 ## 四、协作功能
 
-- [ ] 用户协作分享
-- [ ] 协作编辑
-- [ ] 历史记录
+- [x] 用户协作分享
+- [x] 协作编辑
+- [x] 历史记录
 - [ ] 群组创建与管理
 - [ ] …………。。。
 - [ ] <br />
 
 # 五、增加配套管理端
 
-- 初步计划采用Java实现管理端
-  - springboot
-  - postgresql或MySQL或sqlite
-  - redis
-  - minio或文件
-  - …………。。。
-- 或者采用python技术栈
+- 采用python技术栈
   - flask
+  - sqlite
+  - redis
+  - [ ] minio
+- [ ] 采用Java实现管理端
+  - springboot
   - postgresql或MySQL或sqlite
   - redis
   - minio或文件

@@ -64,6 +64,9 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - Star Feature - Quick access to frequently used tables and dashboards
 - Search Feature - Quick search for tables and records
 - Dashboard - Support multiple chart components (number cards, charts, real-time data, etc.)
+- Sharing & Collaboration - Base-level sharing with share links and member management
+- Permission Management - Role-based access control (Owner/Admin/Editor/Commenter/Viewer)
+- Change History - Record change tracking and viewing functionality
 
 ## Feature Preview
 
@@ -428,17 +431,17 @@ DATEDIF({Start Date}, {End Date}, "D")
 - [x] Drag Sorting (Tables, fields, views, Kanban cards)
 - [x] Star Feature (Tables and dashboards)
 - [x] Search Feature (Table names, record content)
-- [x] Keyboard Shortcuts (Common operations)
-- [x] Theme Switching (Light/Dark themes)
-- [x] Responsive Design (Mobile adaptation)
+- [ ] Keyboard Shortcuts (Common operations)
+- [ ] Theme Switching (Light/Dark themes)
+- [ ] Responsive Design (Mobile adaptation)
 
 #### Field Features
 
 - [x] Field Required Attribute
 - [x] Field Validation Rules (Required, Number, Email, Phone, URL)
-- [x] Attachment Field Upload/Download/Delete (IndexedDB Blob storage)
-- [x] Link Field (Support one-to-one, one-to-many, many-to-many)
-- [x] Lookup Field (Cross-table query, aggregation)
+- [x] Attachment Field Upload/Download/Delete (IndexedDB Blob storage) (To be improved)
+- [ ] Link Field (Support one-to-one, one-to-many, many-to-many) (To be improved)
+- [ ] Lookup Field (Cross-table query, aggregation)
 
 #### Dashboard
 
@@ -460,28 +463,28 @@ DATEDIF({Start Date}, {End Date}, "D")
 - [ ] Form View Enhancements (Field Linkage, Background Image, Description, Collector Info)
 - [ ] Global Filter
 - [ ] Field Linkage
-- [ ] Dashboard Grid Configuration Optimization
-- [ ] Table View Column Freeze (Frontend supported, needs UI improvement)
-- [ ] Table View Field Filter
-- [ ] Group Mode Field Display Style Improvements
+- [x] Dashboard Grid Configuration Optimization ✅
+- [x] Table View Column Freeze ✅
+- [x] Table View Field Filter ✅
+- [x] Group Mode Field Display Style Improvements ✅
 
 #### Sharing & Collaboration
 
-- [ ] Base Sharing
+- [x] Base Sharing ✅
 - [ ] Single Table Sharing
 - [ ] Single View Sharing
-- [ ] Sharing Content Configuration
-- [ ] Sharing Menu (My Shares / Shared with Me)
+- [x] Sharing Content Configuration ✅
+- [x] Sharing Menu (My Shares / Shared with Me) ✅
 - [ ] Real-time Collaboration (Based on WebRTC/WebSocket)
-- [ ] Operation History Log
+- [x] Operation History Log ✅
 - [ ] Comment & Annotation Features
 
 #### Permission Management
 
-- [ ] User Authentication System (Backend mode)
-- [ ] Role Permissions (Admin/Editor/Viewer)
+- [x] User Authentication System (Backend mode) ✅
+- [x] Role Permissions (Owner/Admin/Editor/Commenter/Viewer) ✅
 - [ ] Field-level Permission Control
-- [ ] Sharing Permission Settings
+- [x] Sharing Permission Settings ✅
 
 #### AI Features
 
@@ -510,7 +513,13 @@ DATEDIF({Start Date}, {End Date}, "D")
 #### Others
 
 - [ ] Mobile Adaptation Optimization
-- [ ] User Manual Documentation
+- [ ] User Manual Documentation (To be improved)
+- [ ] Help Center (To be improved)
+- [ ] Feedback Mechanism (To be improved)
+- [ ] Performance Optimization (To be improved)
+- [ ] Security Hardening (To be improved)
+- [ ] Performance Testing (To be improved)
+- [ ] Performance Monitoring (To be improved)
 
 ## Contributing
 
