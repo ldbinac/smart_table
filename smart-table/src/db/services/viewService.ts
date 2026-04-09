@@ -263,14 +263,6 @@ export class ViewService {
     }
   }
 
-  async setDefaultView(id: string): Promise<void> {
-    const view = await this.getView(id);
-    if (!view) return;
-
-    await this.clearDefaultViews(view.tableId, id);
-    await this.updateView(id, { isDefault: true });
-  }
-
   async duplicateView(id: string, newName: string): Promise<ViewEntity> {
     try {
       // 调用后端 API 复制视图

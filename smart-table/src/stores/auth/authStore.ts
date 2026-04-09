@@ -71,7 +71,8 @@ export const useAuthStore = defineStore('auth', () => {
       message.success('注册成功，请登录')
       return true
     } catch (error) {
-      message.error('注册失败，请检查输入信息')
+      // 错误信息已在 API 客户端显示，这里不需要重复显示
+      console.error('注册失败:', error)
       return false
     } finally {
       isLoading.value = false

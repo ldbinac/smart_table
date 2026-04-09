@@ -134,7 +134,20 @@ instance.interceptors.response.use(
         ElMessage.error(backendMessage || "请求的资源不存在");
         break;
       case 422:
-        ElMessage.error(backendMessage || "数据验证失败");
+        // 处理验证错误，显示详细的字段错误信息
+        const validationErrorData = error.response.data as {
+          message?: string;
+          details?: Array<{ field: string; message: string }>;
+        };
+        if (validationErrorData.details && validationErrorData.details.length > 0) {
+          // 显示所有字段的验证错误
+          const errorMessages = validationErrorData.details.map(
+            (detail) => detail.message
+          );
+          ElMessage.error(errorMessages.join('\n'));
+        } else {
+          ElMessage.error(backendMessage || "数据验证失败");
+        }
         break;
       case 429:
         ElMessage.error(backendMessage || "请求过于频繁，请稍后再试");
