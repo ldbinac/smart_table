@@ -417,6 +417,11 @@ def create_link_field():
     if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
         return forbidden_response('您没有权限在此表格中创建字段')
     
+    # 获取源表信息
+    source_table = TableService.get_table_by_id(str(table_id))
+    if not source_table:
+        return error_response('源表不存在', code=404)
+    
     try:
         # 1. 创建关联字段
         field_data = {
@@ -437,11 +442,35 @@ def create_link_field():
         
         field = result['field']
         
-        # 2. 创建关联关系
+        # 2. 如果是双向关联，在目标表中创建反向关联字段
+        inverse_field = None
+        if data.get('bidirectional', False):
+            # 确定反向关联类型
+            inverse_relationship_type = 'one_to_many' if relationship_type == 'many_to_one' else 'many_to_one' if relationship_type == 'one_to_many' else 'one_to_one'
+            
+            inverse_field_data = {
+                'name': f"来自 {source_table.name if source_table else '源表'} 的关联",
+                'type': FieldType.LINK_TO_RECORD.value,
+                'description': f'自动创建的反向关联字段，关联到 {source_table.name if source_table else "源表"}',
+                'config': {
+                    'linkedTableId': table_id,
+                    'relationshipType': inverse_relationship_type,
+                    'displayFieldId': None,  # 反向关联字段默认不设置显示字段
+                    'bidirectional': True,
+                    'inverseFieldId': field['id']  # 记录源字段ID
+                }
+            }
+            
+            inverse_result = FieldService.create_field(str(target_table_id), inverse_field_data)
+            if inverse_result['success']:
+                inverse_field = inverse_result['field']
+        
+        # 3. 创建关联关系
         link_data = {
             'source_table_id': str(table_id),
             'target_table_id': str(target_table_id),
             'source_field_id': field['id'],
+            'target_field_id': inverse_field['id'] if inverse_field else None,
             'relationship_type': relationship_type,
             'bidirectional': data.get('bidirectional', False)
         }
@@ -450,11 +479,14 @@ def create_link_field():
         if not link_result[0]:
             # 回滚：删除已创建的字段
             FieldService.delete_field(field['id'])
+            if inverse_field:
+                FieldService.delete_field(inverse_field['id'])
             return error_response(link_result[1], code=400)
         
         return success_response(
             data={
                 'field': field,
+                'inverse_field': inverse_field,
                 'link_relation': link_result[0].to_dict() if link_result[0] else None
             },
             message='关联字段创建成功',
