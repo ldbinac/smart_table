@@ -9,6 +9,7 @@ from app.services.table_service import TableService
 from app.services.formula_service import FormulaService
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.decorators import jwt_required, role_required
+from app.models.record_history import RecordHistory
 
 records_bp = Blueprint('records', __name__)
 # 禁用严格斜杠，允许带或不带斜杠的URL
@@ -387,3 +388,51 @@ def compute_formulas(record_id):
     
     except Exception as e:
         return error_response(f'公式计算失败: {str(e)}', 500)
+
+
+@records_bp.route('/records/<record_id>/history', methods=['GET'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+def get_record_history(record_id):
+    """
+    获取记录变更历史
+    
+    支持分页查询，按时间倒序排列
+    """
+    # 检查记录是否存在
+    record = RecordService.get_record_by_id(record_id)
+    if not record:
+        return error_response('记录不存在', 404)
+    
+    # 获取分页参数
+    page = request.args.get('page', 1, type=int)
+    size = request.args.get('size', 20, type=int)
+    
+    # 限制每页数量
+    if size > 100:
+        size = 100
+    if size < 1:
+        size = 20
+    if page < 1:
+        page = 1
+    
+    try:
+        # 查询变更历史，按时间倒序
+        from app.extensions import db
+        
+        query = RecordHistory.query.filter_by(record_id=record_id) \
+            .order_by(RecordHistory.changed_at.desc())
+        
+        # 获取总数
+        total = query.count()
+        
+        # 分页
+        histories = query.offset((page - 1) * size).limit(size).all()
+        
+        # 序列化
+        items = [h.to_dict() for h in histories]
+        
+        return paginated_response(items, total, page, size)
+    
+    except Exception as e:
+        return error_response(f'获取变更历史失败: {str(e)}', 500)

@@ -13,7 +13,7 @@
         添加成员
       </el-button>
     </div>
-    
+
     <div class="page-content">
       <el-card>
         <MemberList
@@ -27,23 +27,15 @@
           @edit="handleEdit"
           @remove="handleRemove"
           @size-change="handleSizeChange"
-          @page-change="handlePageChange"
-        />
+          @page-change="handlePageChange" />
       </el-card>
     </div>
-    
+
     <!-- 添加成员对话框 -->
-    <AddMemberDialog
-      v-model="showAddDialog"
-      @submit="handleAddMember"
-    />
-    
+    <AddMemberDialog v-model="showAddDialog" @submit="handleAddMember" />
+
     <!-- 编辑角色对话框 -->
-    <el-dialog
-      v-model="showEditDialog"
-      title="编辑成员角色"
-      width="400px"
-    >
+    <el-dialog v-model="showEditDialog" title="编辑成员角色" width="400px">
       <el-form label-width="80px">
         <el-form-item label="当前角色">
           <el-tag :type="getRoleType(editingMember?.role)">
@@ -51,13 +43,15 @@
           </el-tag>
         </el-form-item>
         <el-form-item label="新角色">
-          <el-select v-model="newRole" placeholder="选择新角色" style="width: 100%">
+          <el-select
+            v-model="newRole"
+            placeholder="选择新角色"
+            style="width: 100%">
             <el-option
               v-for="role in roleOptions"
               :key="role.value"
               :label="role.label"
-              :value="role.value"
-            />
+              :value="role.value" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -72,180 +66,187 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Plus } from '@element-plus/icons-vue'
-import { ElMessageBox, ElMessage } from 'element-plus'
-import MemberList from '@/components/base/MemberList.vue'
-import AddMemberDialog from '@/components/base/AddMemberDialog.vue'
-import { baseApiService } from '@/services/api/baseApiService'
-import { useAuthStore } from '@/stores/auth/authStore'
-import type { BaseMember, BaseRole } from '@/api/types'
+import { ref, onMounted, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { ArrowLeft, Plus } from "@element-plus/icons-vue";
+import { ElMessageBox, ElMessage } from "element-plus";
+import MemberList from "@/components/base/MemberList.vue";
+import AddMemberDialog from "@/components/base/AddMemberDialog.vue";
+import { baseApiService } from "@/services/api/baseApiService";
+import { useAuthStore } from "@/stores/auth/authStore";
+import type { BaseMember, BaseRole } from "@/api/types";
 
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 
-const baseId = computed(() => route.params.id as string)
+const baseId = computed(() => route.params.id as string);
 
 // 状态
-const members = ref<BaseMember[]>([])
-const loading = ref(false)
-const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(20)
+const members = ref<BaseMember[]>([]);
+const loading = ref(false);
+const total = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(10);
 
-const showAddDialog = ref(false)
-const showEditDialog = ref(false)
-const editingMember = ref<BaseMember | null>(null)
-const newRole = ref<BaseRole>('editor')
-const updating = ref(false)
+const showAddDialog = ref(false);
+const showEditDialog = ref(false);
+const editingMember = ref<BaseMember | null>(null);
+const newRole = ref<BaseRole>("editor");
+const updating = ref(false);
 
 // 权限检查
 const canEdit = computed(() => {
-  return authStore.hasPermission('admin')
-})
+  return authStore.hasPermission("admin");
+});
 
 const canDelete = computed(() => {
-  return authStore.hasPermission('admin')
-})
+  return authStore.hasPermission("admin");
+});
 
 // 角色选项
 const roleOptions = [
-  { value: 'admin', label: '管理员' },
-  { value: 'editor', label: '编辑者' },
-  { value: 'commenter', label: '评论者' },
-  { value: 'viewer', label: '查看者' }
-]
+  { value: "admin", label: "管理员" },
+  { value: "editor", label: "编辑者" },
+  { value: "commenter", label: "评论者" },
+  { value: "viewer", label: "查看者" },
+];
 
-const roleMap: Record<string, { label: string; type: 'success' | 'warning' | 'info' | 'danger' | '' }> = {
-  owner: { label: '所有者', type: 'danger' },
-  admin: { label: '管理员', type: 'warning' },
-  editor: { label: '编辑者', type: 'success' },
-  commenter: { label: '评论者', type: 'info' },
-  viewer: { label: '查看者', type: '' }
-}
+const roleMap: Record<
+  string,
+  { label: string; type: "success" | "warning" | "info" | "danger" | "" }
+> = {
+  owner: { label: "所有者", type: "danger" },
+  admin: { label: "管理员", type: "warning" },
+  editor: { label: "编辑者", type: "success" },
+  commenter: { label: "评论者", type: "info" },
+  viewer: { label: "查看者", type: "" },
+};
 
 const getRoleLabel = (role?: string): string => {
-  return roleMap[role || '']?.label || role || ''
-}
+  return roleMap[role || ""]?.label || role || "";
+};
 
-const getRoleType = (role?: string): 'success' | 'warning' | 'info' | 'danger' | '' => {
-  return roleMap[role || '']?.type || ''
-}
+const getRoleType = (
+  role?: string,
+): "success" | "warning" | "info" | "danger" | "" => {
+  return roleMap[role || ""]?.type || "";
+};
 
 // 获取成员列表
 const fetchMembers = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    const response = await baseApiService.getBaseMembers(baseId.value)
-    members.value = response
-    total.value = response.length
+    const response = await baseApiService.getBaseMembers(baseId.value);
+    members.value = response;
+    total.value = response.length;
   } catch (error) {
-    ElMessage.error('获取成员列表失败')
+    ElMessage.error("获取成员列表失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 添加成员
 const handleAddMember = async (data: { userId: string; role: BaseRole }) => {
   try {
-    await baseApiService.addBaseMember(baseId.value, data.userId, data.role)
-    ElMessage.success('成员添加成功')
-    fetchMembers()
+    await baseApiService.addBaseMember(baseId.value, data.userId, data.role);
+    ElMessage.success("成员添加成功");
+    fetchMembers();
   } catch (error) {
-    ElMessage.error('添加成员失败')
+    ElMessage.error("添加成员失败");
   }
-}
+};
 
 // 编辑成员
 const handleEdit = (member: BaseMember) => {
-  editingMember.value = member
-  newRole.value = member.role
-  showEditDialog.value = true
-}
+  editingMember.value = member;
+  newRole.value = member.role;
+  showEditDialog.value = true;
+};
 
 const confirmEdit = async () => {
-  if (!editingMember.value) return
-  
-  updating.value = true
+  if (!editingMember.value) return;
+
+  updating.value = true;
   try {
     await baseApiService.updateMemberRole(
       baseId.value,
       editingMember.value.id,
-      newRole.value
-    )
-    ElMessage.success('角色更新成功')
-    showEditDialog.value = false
-    fetchMembers()
+      newRole.value,
+    );
+    ElMessage.success("角色更新成功");
+    showEditDialog.value = false;
+    fetchMembers();
   } catch (error) {
-    ElMessage.error('更新角色失败')
+    ElMessage.error("更新角色失败");
   } finally {
-    updating.value = false
+    updating.value = false;
   }
-}
+};
 
 // 移除成员
 const handleRemove = (member: BaseMember) => {
   ElMessageBox.confirm(
     `确定要移除成员 "${member.user?.nickname || member.user?.username}" 吗？`,
-    '确认移除',
+    "确认移除",
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(async () => {
-    try {
-      await baseApiService.removeBaseMember(baseId.value, member.id)
-      ElMessage.success('成员已移除')
-      fetchMembers()
-    } catch (error) {
-      ElMessage.error('移除成员失败')
-    }
-  }).catch(() => {
-    // 取消操作
-  })
-}
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    },
+  )
+    .then(async () => {
+      try {
+        await baseApiService.removeBaseMember(baseId.value, member.id);
+        ElMessage.success("成员已移除");
+        fetchMembers();
+      } catch (error) {
+        ElMessage.error("移除成员失败");
+      }
+    })
+    .catch(() => {
+      // 取消操作
+    });
+};
 
 // 分页处理
 const handleSizeChange = (size: number) => {
-  pageSize.value = size
-  currentPage.value = 1
-  fetchMembers()
-}
+  pageSize.value = size;
+  currentPage.value = 1;
+  fetchMembers();
+};
 
 const handlePageChange = (page: number) => {
-  currentPage.value = page
-  fetchMembers()
-}
+  currentPage.value = page;
+  fetchMembers();
+};
 
 // 返回
 const goBack = () => {
-  router.back()
-}
+  router.back();
+};
 
 onMounted(() => {
-  fetchMembers()
-})
+  fetchMembers();
+});
 </script>
 
 <style scoped lang="scss">
 .member-management-page {
   padding: 24px;
-  
+
   .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
-    
+
     .header-left {
       display: flex;
       align-items: center;
       gap: 16px;
-      
+
       .page-title {
         font-size: 24px;
         font-weight: 600;
@@ -253,7 +254,7 @@ onMounted(() => {
       }
     }
   }
-  
+
   .page-content {
     .el-card {
       border-radius: 8px;

@@ -172,7 +172,7 @@ const loading = computed(() => adminStore.logLoading);
 const logPagination = computed(() => adminStore.logPagination);
 
 const currentPage = ref(1);
-const pageSize = ref(20);
+const pageSize = ref(10);
 const total = computed(() => logPagination.value.total);
 
 const detailVisible = ref(false);

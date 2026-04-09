@@ -7,6 +7,7 @@ import uuid
 from app.extensions import db
 from app.models.record import Record
 from app.models.field import Field
+from app.models.record_history import RecordHistory, HistoryAction
 from app.services.field_service import FieldService
 
 
@@ -82,10 +83,32 @@ class RecordService:
             created_by=created_by,
             updated_by=created_by
         )
-        
+
         db.session.add(record)
-        db.session.commit()
+        db.session.flush()  # 获取 record.id
+
+        # 创建变更历史记录
+        # 确保 ID 是 UUID 对象
+        record_id = record.id if isinstance(record.id, uuid.UUID) else uuid.UUID(str(record.id))
+        tbl_id = uuid.UUID(table_id) if isinstance(table_id, str) else table_id
+        # created_by 可能是 UUID 对象或字符串
+        if created_by:
+            changer_id = created_by if isinstance(created_by, uuid.UUID) else uuid.UUID(str(created_by))
+        else:
+            changer_id = None
         
+        history = RecordHistory.create_history(
+            record_id=record_id,
+            table_id=tbl_id,
+            action=HistoryAction.CREATE,
+            changed_by=changer_id,
+            changes=None,  # 创建操作没有变更对比
+            snapshot=final_values  # 保存创建时的数据快照
+        )
+        db.session.add(history)
+
+        db.session.commit()
+
         return record
     
     @staticmethod
@@ -106,43 +129,103 @@ class RecordService:
                      updated_by: str = None) -> Record:
         """
         更新记录
-        
+
         Args:
             record: 记录对象
             values: 更新的字段值
             updated_by: 更新者 ID
-            
+
         Returns:
             更新后的记录对象
         """
+        # 保存旧值用于历史记录
+        old_values = dict(record.values) if record.values else {}
+        changes = []
+
         if values:
+            # 计算变更的字段
+            for field_id, new_value in values.items():
+                old_value = old_values.get(field_id)
+                # 只有当值真正发生变化时才记录
+                if old_value != new_value:
+                    changes.append({
+                        'field_id': field_id,
+                        'old_value': old_value,
+                        'new_value': new_value
+                    })
+
             # 合并新值到现有值
             # 创建新的字典对象，确保 SQLAlchemy 检测到变化
-            current_values = dict(record.values) if record.values else {}
+            current_values = dict(old_values)
             current_values.update(values)
             # 直接赋值新字典对象，SQLAlchemy 会检测到变化
             record.values = current_values
-        
+
         if updated_by:
             record.updated_by = updated_by
-        
+
+        # 如果有变更，创建历史记录
+        if changes:
+            # 确保 ID 是 UUID 对象
+            record_id = record.id if isinstance(record.id, uuid.UUID) else uuid.UUID(str(record.id))
+            table_id = record.table_id if isinstance(record.table_id, uuid.UUID) else uuid.UUID(str(record.table_id))
+            # changed_by 可能是 UUID 对象或字符串
+            if updated_by:
+                changed_by = updated_by if isinstance(updated_by, uuid.UUID) else uuid.UUID(str(updated_by))
+            else:
+                changed_by = None
+            
+            history = RecordHistory.create_history(
+                record_id=record_id,
+                table_id=table_id,
+                action=HistoryAction.UPDATE,
+                changed_by=changed_by,
+                changes=changes,
+                snapshot=dict(record.values)  # 保存更新后的快照
+            )
+            db.session.add(history)
+
         # 刷新对象以确保获取最新的数据库状态
         db.session.flush()
         db.session.commit()
         return record
     
     @staticmethod
-    def delete_record(record: Record) -> bool:
+    def delete_record(record: Record, deleted_by: str = None) -> bool:
         """
         删除记录
-        
+
         Args:
             record: 记录对象
-            
+            deleted_by: 删除者 ID
+
         Returns:
             是否成功
         """
         try:
+            # 保存删除前的数据快照
+            snapshot = dict(record.values) if record.values else {}
+
+            # 创建删除历史记录
+            # 确保 ID 是 UUID 对象
+            record_id = record.id if isinstance(record.id, uuid.UUID) else uuid.UUID(str(record.id))
+            table_id = record.table_id if isinstance(record.table_id, uuid.UUID) else uuid.UUID(str(record.table_id))
+            # deleted_by 可能是 UUID 对象或字符串
+            if deleted_by:
+                changer_id = deleted_by if isinstance(deleted_by, uuid.UUID) else uuid.UUID(str(deleted_by))
+            else:
+                changer_id = None
+            
+            history = RecordHistory.create_history(
+                record_id=record_id,
+                table_id=table_id,
+                action=HistoryAction.DELETE,
+                changed_by=changer_id,
+                changes=None,  # 删除操作没有字段变更对比
+                snapshot=snapshot  # 保存删除前的完整数据
+            )
+            db.session.add(history)
+
             db.session.delete(record)
             db.session.commit()
             return True

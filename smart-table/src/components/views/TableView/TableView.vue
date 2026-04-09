@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useBaseStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
-import { recordService } from "@/db/services/recordService";
+
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import type { CellValue, SortConfig } from "@/types";
 import TableCell from "./TableCell.vue";
@@ -11,7 +11,7 @@ import TableHeader from "./TableHeader.vue";
 import TableRow from "./TableRow.vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 import { generateId } from "@/utils/id";
-import { ElMessage, ElIcon } from "element-plus";
+import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ZoomIn, Check } from "@element-plus/icons-vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
@@ -344,20 +344,52 @@ const handleContextMenuSelect = async (item: any) => {
 
     case "delete":
       if (contextMenuRecord.value) {
-        await recordService.deleteRecord(contextMenuRecord.value.id);
-        await baseStore.loadTable(contextMenuRecord.value.tableId);
-        selectedRows.value = [];
-        emit("record-delete", [contextMenuRecord.value.id]);
+        try {
+          await ElMessageBox.confirm(
+            "确定要删除这条记录吗？此操作不可恢复。",
+            "删除确认",
+            {
+              confirmButtonText: "确定删除",
+              cancelButtonText: "取消",
+              type: "warning",
+              confirmButtonClass: "el-button--danger",
+            },
+          );
+          await tableStore.deleteRecord(contextMenuRecord.value.id);
+          selectedRows.value = [];
+          emit("record-delete", [contextMenuRecord.value.id]);
+          ElMessage.success("记录删除成功");
+        } catch (error: any) {
+          if (error !== "cancel") {
+            console.error("删除记录失败:", error);
+            ElMessage.error("删除记录失败");
+          }
+        }
       }
       break;
 
     case "delete-selected":
-      await recordService.batchDeleteRecords(selectedRows.value);
-      if (baseStore.currentTable) {
-        await baseStore.loadTable(baseStore.currentTable.id);
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除选中的 ${selectedRows.value.length} 条记录吗？此操作不可恢复。`,
+          "批量删除确认",
+          {
+            confirmButtonText: "确定删除",
+            cancelButtonText: "取消",
+            type: "warning",
+            confirmButtonClass: "el-button--danger",
+          },
+        );
+        await tableStore.batchDeleteRecords(selectedRows.value);
+        emit("record-delete", [...selectedRows.value]);
+        selectedRows.value = [];
+        ElMessage.success("记录删除成功");
+      } catch (error: any) {
+        if (error !== "cancel") {
+          console.error("删除记录失败:", error);
+          ElMessage.error("删除记录失败");
+        }
       }
-      emit("record-delete", [...selectedRows.value]);
-      selectedRows.value = [];
       break;
 
     case "sort-asc":
@@ -467,7 +499,7 @@ const handleRowDragEnd = () => {
   draggedRowId.value = null;
 };
 
-const handleKeyDown = (event: KeyboardEvent) => {
+const handleKeyDown = async (event: KeyboardEvent) => {
   if (editingCell.value) return;
 
   const currentIndex =
@@ -498,12 +530,27 @@ const handleKeyDown = (event: KeyboardEvent) => {
     case "Backspace":
       if (selectedRows.value.length > 0 && !props.readonly) {
         event.preventDefault();
-        recordService.batchDeleteRecords(selectedRows.value);
-        if (baseStore.currentTable) {
-          baseStore.loadTable(baseStore.currentTable.id);
+        try {
+          await ElMessageBox.confirm(
+            `确定要删除选中的 ${selectedRows.value.length} 条记录吗？此操作不可恢复。`,
+            "批量删除确认",
+            {
+              confirmButtonText: "确定删除",
+              cancelButtonText: "取消",
+              type: "warning",
+              confirmButtonClass: "el-button--danger",
+            },
+          );
+          await tableStore.batchDeleteRecords(selectedRows.value);
+          emit("record-delete", [...selectedRows.value]);
+          selectedRows.value = [];
+          ElMessage.success("记录删除成功");
+        } catch (error: any) {
+          if (error !== "cancel") {
+            console.error("删除记录失败:", error);
+            ElMessage.error("删除记录失败");
+          }
         }
-        emit("record-delete", [...selectedRows.value]);
-        selectedRows.value = [];
       }
       break;
 

@@ -300,6 +300,15 @@ export class RecordService {
   }
 
   async batchDeleteRecords(ids: string[]): Promise<void> {
+    // 先调用后端 API 删除记录
+    try {
+      await recordApiService.batchDeleteRecords(ids);
+    } catch (error) {
+      console.error("[recordService] 后端批量删除失败:", error);
+      throw error;
+    }
+
+    // 删除本地 IndexedDB 中的记录
     const records = await db.records.where("id").anyOf(ids).toArray();
     const tableIds = [...new Set(records.map((r) => r.tableId))];
 

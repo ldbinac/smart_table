@@ -16,6 +16,7 @@ import {
   ElSlider,
   ElIcon,
 } from "element-plus";
+import { Clock } from "@element-plus/icons-vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import dayjs from "dayjs";
@@ -27,6 +28,7 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 
 const props = defineProps<{
   visible: boolean;
@@ -43,6 +45,12 @@ const emit = defineEmits<{
 
 const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
+const historyVisible = ref(false);
+
+// 显示变更历史
+const showHistory = () => {
+  historyVisible.value = true;
+};
 
 // 可见字段（用于显示）
 const visibleFields = computed(() => {
@@ -387,6 +395,12 @@ const drawerTitle = computed(() => {
       <div class="drawer-footer">
         <el-button @click="closeDrawer">关闭</el-button>
         <el-button
+          v-if="record?.id"
+          @click="showHistory">
+          <el-icon><Clock /></el-icon>
+          变更历史
+        </el-button>
+        <el-button
           v-if="!readonly"
           type="primary"
           :loading="isSaving"
@@ -396,6 +410,12 @@ const drawerTitle = computed(() => {
       </div>
     </template>
   </el-drawer>
+
+  <!-- 变更历史抽屉 -->
+  <RecordHistoryDrawer
+    v-model="historyVisible"
+    :record-id="record?.id"
+    :fields="fields" />
 </template>
 
 <style lang="scss" scoped>
