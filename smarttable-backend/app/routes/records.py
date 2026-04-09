@@ -7,9 +7,12 @@ from marshmallow import Schema, fields, validate
 from app.services.record_service import RecordService
 from app.services.table_service import TableService
 from app.services.formula_service import FormulaService
+from app.services.link_service import LinkService
+from app.services.field_service import FieldService
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.decorators import jwt_required, role_required
 from app.models.record_history import RecordHistory
+from app.models.field import FieldType
 
 records_bp = Blueprint('records', __name__)
 # 禁用严格斜杠，允许带或不带斜杠的URL
@@ -82,10 +85,28 @@ def get_records(table_id):
                 table_id, page=page, per_page=per_page
             )
         
+        # 获取表格的所有关联字段
+        link_fields = FieldService.get_fields_by_type(table_id, FieldType.LINK_TO_RECORD.value)
+        
         # 序列化记录数据
         items = []
         for record in records:
             item = record.to_dict()
+            
+            # 填充关联字段数据
+            if link_fields:
+                record_links = LinkService.get_record_links(str(record.id))
+                for field in link_fields:
+                    field_id = str(field.id)
+                    if field_id in record_links:
+                        # 获取关联的记录ID列表
+                        linked_ids = [
+                            link['target_record_id'] 
+                            for link in record_links[field_id]
+                            if link.get('direction') == 'outgoing'
+                        ]
+                        item['values'][field_id] = linked_ids
+            
             # 如果有公式字段，计算公式值
             item['computed_values'] = FormulaService.compute_record_formulas(
                 table_id, record.values
@@ -436,3 +457,180 @@ def get_record_history(record_id):
     
     except Exception as e:
         return error_response(f'获取变更历史失败: {str(e)}', 500)
+
+
+# ==================== 关联记录 API ====================
+
+@records_bp.route('/records/<record_id>/links', methods=['GET'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+def get_record_links(record_id):
+    """
+    获取记录的关联数据
+    
+    返回该记录所有关联字段的关联数据
+    
+    Args:
+        record_id: 记录 ID
+    
+    Returns:
+        关联数据，按字段分组
+    """
+    record = RecordService.get_record_by_id(record_id)
+    if not record:
+        return error_response('记录不存在', 404)
+    
+    try:
+        # 获取记录的所有关联信息
+        links = LinkService.get_record_links(record_id)
+        
+        return success_response(
+            data=links,
+            message='获取关联数据成功'
+        )
+    
+    except Exception as e:
+        return error_response(f'获取关联数据失败: {str(e)}', 500)
+
+
+@records_bp.route('/records/<record_id>/links/<field_id>', methods=['PUT'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor'])
+def update_record_link(record_id, field_id):
+    """
+    更新记录的关联值
+    
+    Args:
+        record_id: 记录 ID
+        field_id: 关联字段 ID
+    
+    Request Body:
+        - target_record_ids: 目标记录 ID 列表（必填）
+    
+    Returns:
+        更新结果
+    """
+    record = RecordService.get_record_by_id(record_id)
+    if not record:
+        return error_response('记录不存在', 404)
+    
+    field = FieldService.get_field(field_id)
+    if not field:
+        return error_response('字段不存在', 404)
+    
+    # 检查是否为关联字段
+    if field.type != FieldType.LINK_TO_RECORD.value:
+        return error_response('该字段不是关联字段', 400)
+    
+    data = request.get_json()
+    if not data:
+        return error_response('请求数据不能为空', 400)
+    
+    target_record_ids = data.get('target_record_ids', [])
+    if not isinstance(target_record_ids, list):
+        return error_response('target_record_ids 必须是数组', 400)
+    
+    try:
+        # 获取关联关系
+        link_relation = LinkService.get_link_relation_by_field(field_id)
+        if not link_relation:
+            return error_response('关联关系不存在', 404)
+        
+        # 验证一对一约束
+        if link_relation.relationship_type == 'one_to_one' and len(target_record_ids) > 1:
+            return error_response('一对一关联只能关联一条记录', 400)
+        
+        # 更新关联值
+        result = LinkService.update_link_values(
+            link_relation_id=link_relation.id,
+            source_record_id=record_id,
+            target_record_ids=target_record_ids,
+            updated_by=g.current_user.id
+        )
+        
+        if not result[0]:
+            return error_response(result[1], 400)
+        
+        return success_response(
+            data={'updated_count': result[0]},
+            message='关联值更新成功'
+        )
+    
+    except Exception as e:
+        return error_response(f'更新关联值失败: {str(e)}', 500)
+
+
+@records_bp.route('/tables/<table_id>/records/search', methods=['GET'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+def search_linkable_records(table_id):
+    """
+    搜索可关联的记录
+    
+    用于关联字段选择器，搜索目标表中可关联的记录
+    
+    Args:
+        table_id: 目标表 ID
+    
+    Query Parameters:
+        - keyword: 搜索关键词（可选）
+        - exclude_ids: 排除的记录 ID 列表（可选，逗号分隔）
+        - page: 页码（可选，默认 1）
+        - per_page: 每页数量（可选，默认 20）
+    
+    Returns:
+        记录列表
+    """
+    table = TableService.get_table_by_id(table_id)
+    if not table:
+        return error_response('表格不存在', 404)
+    
+    # 获取查询参数
+    keyword = request.args.get('keyword', '')
+    exclude_ids_str = request.args.get('exclude_ids', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    # 限制每页数量
+    if per_page > 100:
+        per_page = 100
+    
+    # 解析排除的 ID 列表
+    exclude_ids = [id.strip() for id in exclude_ids_str.split(',') if id.strip()]
+    
+    try:
+        # 搜索记录
+        if keyword:
+            records = RecordService.search_records(table_id, keyword)
+            total = len(records)
+        else:
+            records, total = RecordService.get_table_records(table_id, page=page, per_page=per_page)
+        
+        # 过滤排除的记录
+        if exclude_ids:
+            records = [r for r in records if str(r.id) not in exclude_ids]
+            # 更新总数（排除后）
+            if keyword:
+                total = len(records)
+        
+        # 手动分页（如果是搜索模式）
+        if keyword:
+            start = (page - 1) * per_page
+            end = start + per_page
+            records = records[start:end]
+        
+        # 序列化记录数据
+        items = []
+        for record in records:
+            item = record.to_dict()
+            # 只返回基本信息，减少数据量
+            items.append({
+                'id': item['id'],
+                'values': item.get('values', {}),
+                'created_at': item.get('created_at')
+            })
+        
+        return paginated_response(items, total, page, per_page)
+    
+    except Exception as e:
+        return error_response(f'搜索记录失败: {str(e)}', 500)

@@ -5,6 +5,9 @@ import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
+import { recordService } from "@/db/services";
+import { linkApiService } from "@/services/api/linkApiService";
+import { FieldType } from "@/types/fields";
 import type { CellValue, SortConfig } from "@/types";
 import TableCell from "./TableCell.vue";
 import TableHeader from "./TableHeader.vue";
@@ -201,13 +204,31 @@ const handleCellUpdate = async (
     return;
   }
 
-  // 2. 使用 JSON.parse(JSON.stringify()) 确保所有值都是纯 JavaScript 对象
+  // 2. 处理关联字段 - 使用专用API保存到link_values表
+  if (field && field.type === FieldType.LINK) {
+    try {
+      const targetRecordIds = Array.isArray(value) ? value : [];
+      await linkApiService.updateRecordLink(record.id, fieldId, {
+        target_record_ids: targetRecordIds,
+      });
+      await tableStore.refreshRecords(record.tableId);
+      editingCell.value = null;
+      return;
+    } catch (error) {
+      console.error("更新关联字段失败:", error);
+      ElMessage.error("更新关联字段失败");
+      editingCell.value = null;
+      return;
+    }
+  }
+
+  // 3. 使用 JSON.parse(JSON.stringify()) 确保所有值都是纯 JavaScript 对象
   // 避免响应式对象导致的 IndexedDB 克隆错误
   const plainValues = JSON.parse(JSON.stringify(record.values));
   const plainValue = JSON.parse(JSON.stringify(value));
   const newValues = { ...plainValues, [fieldId]: plainValue };
   await recordService.updateRecord(record.id, { values: newValues });
-  await baseStore.loadTable(record.tableId);
+  await tableStore.refreshRecords(record.tableId);
   editingCell.value = null;
 };
 

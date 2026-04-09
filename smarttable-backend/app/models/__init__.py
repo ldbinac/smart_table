@@ -14,6 +14,7 @@ from app.models.attachment import Attachment
 from app.models.operation_history import OperationHistory, OperationType, ResourceType
 from app.models.log import OperationLog, AdminActionType, EntityType
 from app.models.config import SystemConfig
+from app.models.link_relation import LinkRelation, LinkValue, RelationshipType
 
 __all__ = [
     'User',
@@ -36,5 +37,8 @@ __all__ = [
     'OperationLog',
     'AdminActionType',
     'EntityType',
-    'SystemConfig'
+    'SystemConfig',
+    'LinkRelation',
+    'LinkValue',
+    'RelationshipType'
 ]

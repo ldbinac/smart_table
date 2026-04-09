@@ -6,7 +6,9 @@ from flask import Blueprint, request, g
 
 from app.services.field_service import FieldService
 from app.services.table_service import TableService
+from app.services.link_service import LinkService
 from app.models.base import MemberRole
+from app.models.field import FieldType
 from app.utils.decorators import jwt_required
 from app.utils.response import (
     success_response, error_response, not_found_response, forbidden_response
@@ -369,3 +371,241 @@ def validate_field_value(field_id):
         return success_response(message='验证通过')
     else:
         return error_response(result['error'], code=400)
+
+
+# ==================== 关联字段 API ====================
+
+@fields_bp.route('/fields/link', methods=['POST'])
+@jwt_required
+def create_link_field():
+    """
+    创建关联字段
+    
+    自动创建 LinkRelation 记录
+    
+    Request Body:
+        - table_id: 源表 ID（必填）
+        - name: 字段名称（必填）
+        - target_table_id: 目标表 ID（必填）
+        - relationship_type: 关联类型（必填，'one_to_one' 或 'one_to_many'）
+        - display_field_id: 显示字段 ID（可选）
+        - bidirectional: 是否双向关联（可选，默认 False）
+        - description: 描述（可选）
+    
+    Returns:
+        创建的字段和关联关系详情
+    """
+    user_id = g.current_user_id
+    data = request.get_json() or {}
+    
+    # 验证必填字段
+    table_id = data.get('table_id')
+    target_table_id = data.get('target_table_id')
+    relationship_type = data.get('relationship_type')
+    name = data.get('name', '关联字段')
+    
+    if not table_id:
+        return error_response('请提供表格ID', code=400)
+    if not target_table_id:
+        return error_response('请提供目标表ID', code=400)
+    if not relationship_type:
+        return error_response('请提供关联类型', code=400)
+    if relationship_type not in ['one_to_one', 'one_to_many']:
+        return error_response('关联类型必须是 one_to_one 或 one_to_many', code=400)
+    
+    # 检查权限
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
+        return forbidden_response('您没有权限在此表格中创建字段')
+    
+    try:
+        # 1. 创建关联字段
+        field_data = {
+            'name': name,
+            'type': FieldType.LINK_TO_RECORD.value,
+            'description': data.get('description', ''),
+            'config': {
+                'linkedTableId': target_table_id,
+                'relationshipType': relationship_type,
+                'displayFieldId': data.get('display_field_id'),
+                'bidirectional': data.get('bidirectional', False)
+            }
+        }
+        
+        result = FieldService.create_field(str(table_id), field_data)
+        if not result['success']:
+            return error_response(result['error'], code=400)
+        
+        field = result['field']
+        
+        # 2. 创建关联关系
+        link_data = {
+            'source_table_id': str(table_id),
+            'target_table_id': str(target_table_id),
+            'source_field_id': field['id'],
+            'relationship_type': relationship_type,
+            'bidirectional': data.get('bidirectional', False)
+        }
+        
+        link_result = LinkService.create_link_relation(link_data)
+        if not link_result[0]:
+            # 回滚：删除已创建的字段
+            FieldService.delete_field(field['id'])
+            return error_response(link_result[1], code=400)
+        
+        return success_response(
+            data={
+                'field': field,
+                'link_relation': link_result[0].to_dict() if link_result[0] else None
+            },
+            message='关联字段创建成功',
+            code=201
+        )
+    
+    except Exception as e:
+        return error_response(f'创建关联字段失败: {str(e)}', code=500)
+
+
+@fields_bp.route('/fields/<uuid:field_id>/link', methods=['PUT'])
+@jwt_required
+def update_link_field(field_id):
+    """
+    更新关联字段配置
+    
+    Args:
+        field_id: 字段 ID
+    
+    Request Body:
+        - relationship_type: 关联类型（可选）
+        - display_field_id: 显示字段 ID（可选）
+        - bidirectional: 是否双向关联（可选）
+        - name: 字段名称（可选）
+        - description: 描述（可选）
+    
+    Returns:
+        更新后的字段和关联关系详情
+    """
+    user_id = g.current_user_id
+    
+    # 检查权限
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
+        return forbidden_response('您没有权限修改此字段')
+    
+    field = FieldService.get_field(str(field_id))
+    if not field:
+        return not_found_response('字段')
+    
+    # 检查是否为关联字段
+    if field.type != FieldType.LINK_TO_RECORD.value:
+        return error_response('该字段不是关联字段', code=400)
+    
+    data = request.get_json() or {}
+    
+    try:
+        # 1. 更新字段基本信息
+        field_data = {}
+        if 'name' in data:
+            field_data['name'] = data['name']
+        if 'description' in data:
+            field_data['description'] = data['description']
+        if 'display_field_id' in data:
+            field_data['config'] = field.config or {}
+            field_data['config']['displayFieldId'] = data['display_field_id']
+        
+        if field_data:
+            result = FieldService.update_field(str(field_id), field_data)
+            if not result['success']:
+                return error_response(result['error'], code=400)
+        
+        # 2. 更新关联关系
+        link_relation = LinkService.get_link_relation_by_field(str(field_id))
+        if link_relation and link_relation[0]:
+            link_data = {}
+            if 'relationship_type' in data:
+                link_data['relationship_type'] = data['relationship_type']
+            if 'bidirectional' in data:
+                link_data['bidirectional'] = data['bidirectional']
+            
+            if link_data:
+                LinkService.update_link_relation(link_relation[0].id, link_data)
+        
+        # 重新获取更新后的字段
+        updated_field = FieldService.get_field(str(field_id))
+        
+        return success_response(
+            data=updated_field.to_dict(),
+            message='关联字段更新成功'
+        )
+    
+    except Exception as e:
+        return error_response(f'更新关联字段失败: {str(e)}', code=500)
+
+
+@fields_bp.route('/fields/<uuid:field_id>/link', methods=['DELETE'])
+@jwt_required
+def delete_link_field(field_id):
+    """
+    删除关联字段
+    
+    同时删除关联的 LinkRelation 记录
+    
+    Args:
+        field_id: 字段 ID
+    
+    Returns:
+        删除结果
+    """
+    user_id = g.current_user_id
+    
+    # 检查权限
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
+        return forbidden_response('您没有权限删除此字段')
+    
+    field = FieldService.get_field(str(field_id))
+    if not field:
+        return not_found_response('字段')
+    
+    try:
+        # 1. 删除关联关系（会级联删除关联值）
+        link_relation = LinkService.get_link_relation_by_field(str(field_id))
+        if link_relation and link_relation[0]:
+            LinkService.delete_link_relation(link_relation[0].id)
+        
+        # 2. 删除字段
+        result = FieldService.delete_field(str(field_id))
+        if not result['success']:
+            return error_response(result['error'], code=400)
+        
+        return success_response(message='关联字段删除成功')
+    
+    except Exception as e:
+        return error_response(f'删除关联字段失败: {str(e)}', code=500)
+
+
+@fields_bp.route('/tables/<uuid:table_id>/links', methods=['GET'])
+@jwt_required
+def get_table_link_relations(table_id):
+    """
+    获取表格的所有关联关系
+    
+    Args:
+        table_id: 表格 ID
+    
+    Returns:
+        关联关系列表
+    """
+    user_id = g.current_user_id
+    
+    # 检查权限
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
+        return forbidden_response('您没有权限访问此表格')
+    
+    try:
+        link_relations = LinkService.get_table_link_relations(str(table_id))
+        
+        return success_response(
+            data=[link.to_dict(include_related=True) for link in link_relations],
+            message='获取关联关系列表成功'
+        )
+    
+    except Exception as e:
+        return error_response(f'获取关联关系列表失败: {str(e)}', code=500)

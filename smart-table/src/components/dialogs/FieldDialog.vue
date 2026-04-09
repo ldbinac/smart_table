@@ -12,11 +12,14 @@ import {
   ElColorPicker,
   ElTag,
   ElMessage,
+  ElMessageBox,
   ElSlider,
   ElIcon,
 } from "element-plus";
 import { fieldService } from "@/db/services/fieldService";
 import { useViewStore } from "@/stores/viewStore";
+import { useBaseStore } from "@/stores/baseStore";
+import { useTableStore } from "@/stores/tableStore";
 import {
   FieldType,
   getFieldTypeLabel,
@@ -25,16 +28,21 @@ import {
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
+import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
-import { Rank } from "@element-plus/icons-vue";
+import { Rank, ArrowRight } from "@element-plus/icons-vue";
+import { linkApiService } from "@/services/api/linkApiService";
 
 const viewStore = useViewStore();
+const baseStore = useBaseStore();
+const tableStore = useTableStore();
 
 const props = defineProps<{
   visible: boolean;
   tableId: string;
   fields: FieldEntity[];
   editFieldId?: string;
+  baseId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -68,6 +76,13 @@ const newField = ref<{
   showTime: boolean;
   // 公式字段配置
   formula: string;
+  // 关联字段配置
+  linkConfig: {
+    targetTableId: string;
+    relationshipType: RelationshipType;
+    displayFieldId: string;
+    bidirectional: boolean;
+  };
 }>({
   name: "",
   type: FieldType.TEXT,
@@ -77,6 +92,12 @@ const newField = ref<{
   precision: 0,
   showTime: false,
   formula: "",
+  linkConfig: {
+    targetTableId: "",
+    relationshipType: "one_to_many",
+    displayFieldId: "",
+    bidirectional: false,
+  },
 });
 
 const systemTypes = [
@@ -102,6 +123,43 @@ const attachmentConfig = ref({
   maxCount: 20,
   enableThumbnail: true,
 });
+
+// 关联字段配置 - 可关联的表列表
+const availableTables = computed(() => {
+  // 使用 tableStore.tables 获取当前 base 的所有表
+  return tableStore.tables.filter((t) => t.id !== props.tableId);
+});
+
+// 目标表的字段列表
+const targetTableFields = ref<FieldEntity[]>([]);
+
+// 加载目标表的字段
+async function loadTargetTableFields(tableId: string) {
+  if (!tableId) {
+    targetTableFields.value = [];
+    return;
+  }
+  try {
+    // 使用 fieldService 加载目标表的字段
+    const fields = await fieldService.getFieldsByTable(tableId);
+    targetTableFields.value = fields || [];
+  } catch (error) {
+    console.error("加载目标表字段失败:", error);
+    targetTableFields.value = [];
+  }
+}
+
+// 监听目标表变化
+watch(
+  () => newField.value.linkConfig.targetTableId,
+  (newTableId) => {
+    if (newTableId) {
+      loadTargetTableFields(newTableId);
+    } else {
+      targetTableFields.value = [];
+    }
+  },
+);
 
 // 监听对话框显示，初始化拖拽排序或直接打开编辑界面
 watch(
@@ -191,8 +249,15 @@ function openCreateField() {
     precision: 0,
     showTime: false,
     formula: "",
+    linkConfig: {
+      targetTableId: "",
+      relationshipType: "one_to_many",
+      displayFieldId: "",
+      bidirectional: false,
+    },
   };
   selectOptions.value = [];
+  targetTableFields.value = [];
   // 重置附件配置
   attachmentConfig.value = {
     acceptTypes: [],
@@ -205,15 +270,15 @@ function openCreateField() {
 function openEditField(field: FieldEntity) {
   editingField.value = field;
   activeTab.value = "edit";
-  
+
   // 处理日期字段的默认值：直接使用实际值
   // dateDefaultType 计算属性会自动根据 defaultValue 的值判断类型
   let dateDefaultValue: any = undefined;
-  
+
   if (field.type === FieldType.DATE) {
-    if (field.defaultValue === 'now') {
-      dateDefaultValue = 'now';
-    } else if (field.defaultValue && field.defaultValue !== 'now') {
+    if (field.defaultValue === "now") {
+      dateDefaultValue = "now";
+    } else if (field.defaultValue && field.defaultValue !== "now") {
       // 指定日期的情况，直接使用实际日期值
       dateDefaultValue = field.defaultValue;
     } else {
@@ -224,7 +289,7 @@ function openEditField(field: FieldEntity) {
     // 非日期字段，直接使用默认值
     dateDefaultValue = field.defaultValue;
   }
-  
+
   newField.value = {
     name: field.name,
     type: field.type as FieldTypeValue,
@@ -234,7 +299,23 @@ function openEditField(field: FieldEntity) {
     precision: (field.options?.precision as number) ?? 0,
     showTime: (field.options?.showTime as boolean) ?? false,
     formula: (field.options?.formula as string) ?? "",
+    // 关联字段的配置保存在 config 中
+    linkConfig: {
+      targetTableId: (field.config?.linkedTableId as string) ?? "",
+      relationshipType:
+        (field.config?.relationshipType as RelationshipType) ?? "one_to_many",
+      displayFieldId: (field.config?.displayFieldId as string) ?? "",
+      bidirectional: (field.config?.bidirectional as boolean) ?? false,
+    },
   };
+
+  // 如果是关联字段，加载目标表字段
+  if (
+    field.type === FieldType.LINK &&
+    newField.value.linkConfig.targetTableId
+  ) {
+    loadTargetTableFields(newField.value.linkConfig.targetTableId);
+  }
   if (
     field.type === FieldType.SINGLE_SELECT ||
     field.type === FieldType.MULTI_SELECT
@@ -281,8 +362,15 @@ function backToList() {
     precision: 0,
     showTime: false,
     formula: "",
+    linkConfig: {
+      targetTableId: "",
+      relationshipType: "one_to_many",
+      displayFieldId: "",
+      bidirectional: false,
+    },
   };
   selectOptions.value = [];
+  targetTableFields.value = [];
   // 重置附件配置
   attachmentConfig.value = {
     acceptTypes: [],
@@ -295,10 +383,11 @@ function backToList() {
 // 计算日期默认值的类型（用于 radio-group 绑定）
 const dateDefaultType = computed({
   get: () => {
-    if (newField.value.type !== FieldType.DATE) return '';
-    if (newField.value.defaultValue === 'now') return 'now';
-    if (newField.value.defaultValue && newField.value.defaultValue !== 'now') return 'custom';
-    return '';
+    if (newField.value.type !== FieldType.DATE) return "";
+    if (newField.value.defaultValue === "now") return "now";
+    if (newField.value.defaultValue && newField.value.defaultValue !== "now")
+      return "custom";
+    return "";
   },
   set: (value: string) => {
     handleDateDefaultTypeChange(value);
@@ -308,16 +397,19 @@ const dateDefaultType = computed({
 // 处理日期默认值类型变更
 function handleDateDefaultTypeChange(value: string) {
   // 如果切换到"不使用默认值"，清空 defaultValue
-  if (value === '') {
+  if (value === "") {
     newField.value.defaultValue = undefined;
   }
   // 如果切换到"使用添加记录的日期"，设置为 'now'
-  if (value === 'now') {
-    newField.value.defaultValue = 'now';
+  if (value === "now") {
+    newField.value.defaultValue = "now";
   }
   // 如果切换到"指定日期"，保持当前值或设置为当前日期
-  if (value === 'custom' && (newField.value.defaultValue === 'now' || !newField.value.defaultValue)) {
-    newField.value.defaultValue = new Date().toISOString().split('T')[0];
+  if (
+    value === "custom" &&
+    (newField.value.defaultValue === "now" || !newField.value.defaultValue)
+  ) {
+    newField.value.defaultValue = new Date().toISOString().split("T")[0];
   }
 }
 
@@ -325,6 +417,14 @@ async function createField() {
   if (!newField.value.name.trim()) {
     ElMessage.warning("请输入字段名称");
     return;
+  }
+
+  // 关联字段特殊验证
+  if (newField.value.type === FieldType.LINK) {
+    if (!newField.value.linkConfig.targetTableId) {
+      ElMessage.warning("请选择目标数据表");
+      return;
+    }
   }
 
   try {
@@ -363,16 +463,46 @@ async function createField() {
       options.maxCount = attachmentConfig.value.maxCount;
       options.enableThumbnail = attachmentConfig.value.enableThumbnail;
     }
+    // 关联字段配置
+    if (newField.value.type === FieldType.LINK) {
+      options.linkedTableId = newField.value.linkConfig.targetTableId;
+      options.relationshipType = newField.value.linkConfig.relationshipType;
+      options.displayFieldId = newField.value.linkConfig.displayFieldId;
+      options.bidirectional = newField.value.linkConfig.bidirectional;
+    }
 
-    const field = await fieldService.createField({
-      tableId: props.tableId,
-      name: newField.value.name.trim(),
-      type: newField.value.type,
-      isRequired: newField.value.isRequired,
-      description: newField.value.description,
-      defaultValue: newField.value.defaultValue,
-      options: Object.keys(options).length > 0 ? options : undefined,
-    });
+    let field;
+
+    // 如果是关联字段，使用专门的关联字段创建接口
+    if (newField.value.type === FieldType.LINK) {
+      try {
+        const result = await linkApiService.createLinkField({
+          table_id: props.tableId,
+          name: newField.value.name.trim(),
+          target_table_id: newField.value.linkConfig.targetTableId,
+          relationship_type: newField.value.linkConfig.relationshipType,
+          display_field_id:
+            newField.value.linkConfig.displayFieldId || undefined,
+          bidirectional: newField.value.linkConfig.bidirectional,
+          description: newField.value.description,
+        });
+        field = result.field as FieldEntity;
+      } catch (linkError) {
+        console.error("创建关联字段失败:", linkError);
+        throw linkError;
+      }
+    } else {
+      // 非关联字段，使用普通字段创建
+      field = await fieldService.createField({
+        tableId: props.tableId,
+        name: newField.value.name.trim(),
+        type: newField.value.type,
+        isRequired: newField.value.isRequired,
+        description: newField.value.description,
+        defaultValue: newField.value.defaultValue,
+        options: Object.keys(options).length > 0 ? options : undefined,
+      });
+    }
 
     emit("field-created", field);
     ElMessage.success("字段创建成功");
@@ -389,6 +519,14 @@ async function updateField() {
   if (!newField.value.name.trim()) {
     ElMessage.warning("请输入字段名称");
     return;
+  }
+
+  // 关联字段特殊验证
+  if (newField.value.type === FieldType.LINK) {
+    if (!newField.value.linkConfig.targetTableId) {
+      ElMessage.warning("请选择目标数据表");
+      return;
+    }
   }
 
   try {
@@ -427,6 +565,13 @@ async function updateField() {
       options.maxCount = attachmentConfig.value.maxCount;
       options.enableThumbnail = attachmentConfig.value.enableThumbnail;
     }
+    // 关联字段配置
+    if (newField.value.type === FieldType.LINK) {
+      options.linkedTableId = newField.value.linkConfig.targetTableId;
+      options.relationshipType = newField.value.linkConfig.relationshipType;
+      options.displayFieldId = newField.value.linkConfig.displayFieldId;
+      options.bidirectional = newField.value.linkConfig.bidirectional;
+    }
 
     await fieldService.updateField(editingField.value.id, {
       name: newField.value.name.trim(),
@@ -435,6 +580,23 @@ async function updateField() {
       defaultValue: newField.value.defaultValue,
       options: options as Record<string, unknown>,
     });
+
+    // 如果是关联字段，更新关联关系
+    if (newField.value.type === FieldType.LINK) {
+      try {
+        await linkApiService.updateLinkField(editingField.value.id, {
+          relationship_type: newField.value.linkConfig.relationshipType,
+          display_field_id:
+            newField.value.linkConfig.displayFieldId || undefined,
+          bidirectional: newField.value.linkConfig.bidirectional,
+          name: newField.value.name.trim(),
+          description: newField.value.description,
+        });
+      } catch (linkError) {
+        console.error("更新关联关系失败:", linkError);
+        // 关联关系更新失败不影响字段更新
+      }
+    }
 
     const updatedField = {
       ...editingField.value,
@@ -458,10 +620,26 @@ async function deleteField(field: FieldEntity) {
   }
 
   try {
+    // 二次确认对话框
+    await ElMessageBox.confirm(
+      `确定要删除字段 "${field.name}" 吗？删除后该字段的数据将无法恢复。`,
+      "删除确认",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+        confirmButtonClass: "el-button--danger",
+      },
+    );
+
     await fieldService.deleteField(field.id);
     emit("field-deleted", field.id);
     ElMessage.success("字段删除成功");
   } catch (error) {
+    // 用户取消删除时，ElMessageBox.confirm 会抛出错误，不需要显示错误提示
+    if (error === "cancel" || error === "close") {
+      return;
+    }
     ElMessage.error(
       "字段删除失败: " + (error instanceof Error ? error.message : "未知错误"),
     );
@@ -502,6 +680,16 @@ function onTypeChange() {
   }
   if (newField.value.type !== FieldType.FORMULA) {
     newField.value.formula = "";
+  }
+  // 切换类型时重置关联字段配置
+  if (newField.value.type !== FieldType.LINK) {
+    newField.value.linkConfig = {
+      targetTableId: "",
+      relationshipType: "one_to_many",
+      displayFieldId: "",
+      bidirectional: false,
+    };
+    targetTableFields.value = [];
   }
 }
 
@@ -1015,6 +1203,90 @@ async function toggleFieldVisibility(
           </ElFormItem>
         </template>
 
+        <!-- 关联字段配置 -->
+        <template v-if="newField.type === FieldType.LINK">
+          <ElFormItem label="目标表" required>
+            <ElSelect
+              v-model="newField.linkConfig.targetTableId"
+              placeholder="选择要关联的数据表"
+              style="width: 100%">
+              <ElOption
+                v-for="table in availableTables"
+                :key="table.id"
+                :label="table.name"
+                :value="table.id" />
+            </ElSelect>
+            <div class="field-hint">选择要关联的目标数据表</div>
+          </ElFormItem>
+
+          <ElFormItem label="关联类型" required>
+            <ElRadioGroup v-model="newField.linkConfig.relationshipType">
+              <ElRadioButton label="one_to_one">一对一</ElRadioButton>
+              <ElRadioButton label="one_to_many">一对多</ElRadioButton>
+            </ElRadioGroup>
+            <div class="field-hint">
+              一对一：每条记录只能关联一条目标记录；一对多：每条记录可以关联多条目标记录
+            </div>
+          </ElFormItem>
+
+          <ElFormItem label="显示字段">
+            <ElSelect
+              v-model="newField.linkConfig.displayFieldId"
+              placeholder="选择在关联字段中显示的字段"
+              clearable
+              style="width: 100%">
+              <ElOption
+                v-for="field in targetTableFields"
+                :key="field.id"
+                :label="field.name"
+                :value="field.id" />
+            </ElSelect>
+            <div class="field-hint">
+              选择要在关联字段中显示的目标表字段，不选择则显示第一条字段
+            </div>
+          </ElFormItem>
+
+          <ElFormItem label="双向关联">
+            <ElSwitch v-model="newField.linkConfig.bidirectional" />
+            <div class="field-hint">
+              开启后会在目标表中自动创建一个反向关联字段，方便从目标记录查看关联的源记录
+            </div>
+          </ElFormItem>
+
+          <!-- 关联关系预览 -->
+          <ElFormItem v-if="newField.linkConfig.targetTableId" label="关联预览">
+            <div class="link-preview">
+              <div class="link-preview-item">
+                <span class="link-preview-label">当前表:</span>
+                <ElTag size="small">{{
+                  tableStore.tables.find((t) => t.id === tableId)?.name ||
+                  tableId
+                }}</ElTag>
+              </div>
+              <div class="link-preview-arrow">
+                <ElIcon><ArrowRight /></ElIcon>
+                <span class="link-preview-type">
+                  {{
+                    newField.linkConfig.relationshipType === "one_to_one"
+                      ? "一对一"
+                      : "一对多"
+                  }}
+                </span>
+              </div>
+              <div class="link-preview-item">
+                <span class="link-preview-label">目标表:</span>
+                <ElTag size="small" type="success">
+                  {{
+                    tableStore.tables.find(
+                      (t) => t.id === newField.linkConfig.targetTableId,
+                    )?.name || newField.linkConfig.targetTableId
+                  }}
+                </ElTag>
+              </div>
+            </div>
+          </ElFormItem>
+        </template>
+
         <ElFormItem label="必填">
           <ElSwitch v-model="newField.isRequired" />
         </ElFormItem>
@@ -1035,7 +1307,7 @@ async function toggleFieldVisibility(
             v-model="newField.defaultValue"
             placeholder="请输入默认文本"
             style="width: 100%" />
-          
+
           <!-- 数字类型 -->
           <ElInputNumber
             v-else-if="newField.type === FieldType.NUMBER"
@@ -1043,15 +1315,15 @@ async function toggleFieldVisibility(
             :precision="newField.precision"
             placeholder="请输入默认数值"
             style="width: 100%" />
-          
+
           <!-- 日期类型 -->
           <div v-else-if="newField.type === FieldType.DATE" style="width: 100%">
             <div style="margin-bottom: 8px">
-              <el-radio-group
-                v-model="dateDefaultType"
-                size="small">
+              <el-radio-group v-model="dateDefaultType" size="small">
                 <el-radio-button label="">不使用默认值</el-radio-button>
-                <el-radio-button label="now">使用添加记录的日期</el-radio-button>
+                <el-radio-button label="now"
+                  >使用添加记录的日期</el-radio-button
+                >
                 <el-radio-button label="custom">指定日期</el-radio-button>
               </el-radio-group>
             </div>
@@ -1064,7 +1336,7 @@ async function toggleFieldVisibility(
               placeholder="选择默认日期"
               style="width: 100%" />
           </div>
-          
+
           <!-- 单选类型 -->
           <ElSelect
             v-else-if="newField.type === FieldType.SINGLE_SELECT"
@@ -1078,7 +1350,7 @@ async function toggleFieldVisibility(
               :label="option.name"
               :value="option.id" />
           </ElSelect>
-          
+
           <!-- 多选类型 -->
           <ElSelect
             v-else-if="newField.type === FieldType.MULTI_SELECT"
@@ -1094,15 +1366,22 @@ async function toggleFieldVisibility(
               :label="option.name"
               :value="option.id" />
           </ElSelect>
-          
+
           <!-- 复选框类型 -->
           <ElSwitch
             v-else-if="newField.type === FieldType.CHECKBOX"
             v-model="newField.defaultValue"
             active-text="选中"
             inactive-text="未选中" />
-          
-          <ElTag v-if="newField.defaultValue !== undefined && newField.defaultValue !== null" type="success" size="small" style="margin-left: 8px">
+
+          <ElTag
+            v-if="
+              newField.defaultValue !== undefined &&
+              newField.defaultValue !== null
+            "
+            type="success"
+            size="small"
+            style="margin-left: 8px">
             已设置
           </ElTag>
           <div class="field-hint">设置字段的默认值，创建记录时会自动填充</div>
@@ -1313,6 +1592,41 @@ async function toggleFieldVisibility(
       &:hover {
         background-color: $primary-color;
         color: white;
+      }
+    }
+  }
+
+  // 关联字段预览样式
+  .link-preview {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background-color: $bg-color;
+    border-radius: $border-radius-md;
+    border: 1px dashed $border-color;
+
+    .link-preview-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .link-preview-label {
+        font-size: $font-size-sm;
+        color: $text-secondary;
+      }
+    }
+
+    .link-preview-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: $primary-color;
+
+      .link-preview-type {
+        font-size: calc($font-size-xs * 0.85);
+        color: $text-secondary;
       }
     }
   }

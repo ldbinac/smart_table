@@ -32,6 +32,7 @@ export interface FieldEntity {
   name: string;
   type: string;
   options?: Record<string, unknown>;
+  config?: Record<string, unknown>; // 字段配置（关联字段等）
   isPrimary: boolean;
   isSystem: boolean;
   isRequired: boolean;

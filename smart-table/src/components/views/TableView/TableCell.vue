@@ -4,9 +4,12 @@ import dayjs from "dayjs";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
 import MultiSelectField from "@/components/fields/MultiSelectField.vue";
+import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ElMessage } from "element-plus";
+import { FieldType } from "@/types/fields";
+import type { LinkedRecord } from "@/types/link";
 
 interface Props {
   record: RecordEntity;
@@ -31,6 +34,10 @@ const isEditing = ref(false);
 const editValue = ref<string | number | boolean | string[] | null>(null);
 const dateEditValue = ref<Date | null>(null);
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+// 关联字段相关
+const linkedRecords = ref<LinkedRecord[]>([]);
+const isLoadingLinks = ref(false);
 
 const cellValue = computed(() => {
   return props.record.values[props.field.id] ?? null;
@@ -227,6 +234,27 @@ const isEditable = computed(() => {
   );
 });
 
+// 关联字段配置
+const linkFieldConfig = computed(() => {
+  if (props.field.type !== FieldType.LINK) return null;
+  // 关联字段的配置保存在 config 中
+  const config = props.field.config as Record<string, unknown>;
+  return {
+    targetTableId: config?.linkedTableId as string,
+    relationshipType:
+      (config?.relationshipType as "one_to_one" | "one_to_many") ||
+      "one_to_many",
+    displayFieldId: config?.displayFieldId as string,
+  };
+});
+
+// 处理关联字段值更新
+const handleLinkFieldChange = (value: string[], records: LinkedRecord[]) => {
+  linkedRecords.value = records;
+  emit("update", value as CellValue);
+  isEditing.value = false;
+};
+
 const startEdit = async () => {
   if (!isEditable.value) return;
 
@@ -250,6 +278,10 @@ const startEdit = async () => {
     } else {
       dateEditValue.value = null;
     }
+  } else if (fieldType.value === FieldType.LINK) {
+    // 关联字段特殊处理
+    editValue.value = Array.isArray(cv) ? cv : cv ? [cv] : [];
+    // 这里可以加载已关联的记录详情
   } else {
     editValue.value = cv as string | number | boolean | null;
   }
@@ -312,7 +344,7 @@ const handleDateChange = (val: Date | null) => {
 
 const handleDoubleClick = () => {
   // 附件字段双击时打开详情对话框
-  if (fieldType.value === 'attachment') {
+  if (fieldType.value === "attachment") {
     emit("open-detail");
     return;
   }
@@ -334,9 +366,10 @@ const getSelectOptions = computed(() => {
 const getOptionColor = (optionId: string) => {
   const options = fieldOptions.value;
   const opts = options?.choices || options?.options || [];
-  return opts.find(
-    (o) => o.id === optionId || o.name === optionId,
-  )?.color || "#6B7280";
+  return (
+    opts.find((o) => o.id === optionId || o.name === optionId)?.color ||
+    "#6B7280"
+  );
 };
 
 const multiSelectDisplayValues = computed(() => {
@@ -457,6 +490,18 @@ const multiSelectDisplayValues = computed(() => {
           @blur="finishEdit" />
       </template>
 
+      <template v-else-if="fieldType === FieldType.LINK">
+        <LinkField
+          :value="(editValue as string[]) || []"
+          :linked-records="linkedRecords"
+          :target-table-id="linkFieldConfig?.targetTableId"
+          :display-field-id="linkFieldConfig?.displayFieldId"
+          :relationship-type="linkFieldConfig?.relationshipType"
+          :is-editing="true"
+          @change="handleLinkFieldChange"
+          @edit-end="cancelEdit" />
+      </template>
+
       <template v-else>
         <input
           ref="inputRef"
@@ -536,6 +581,17 @@ const multiSelectDisplayValues = computed(() => {
           <a :href="`mailto:${cellValue}`" class="email-link" @click.stop>
             {{ displayValue }}
           </a>
+        </template>
+
+        <template v-else-if="fieldType === FieldType.LINK">
+          <LinkField
+            :value="(cellValue as string[]) || []"
+            :linked-records="linkedRecords"
+            :target-table-id="linkFieldConfig?.targetTableId"
+            :display-field-id="linkFieldConfig?.displayFieldId"
+            :relationship-type="linkFieldConfig?.relationshipType"
+            :is-editing="false"
+            @edit-start="startEdit" />
         </template>
 
         <template v-else>

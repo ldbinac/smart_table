@@ -41,7 +41,7 @@ const showRecordSelector = ref(false);
 
 // 多对多关联
 const isManyToMany = computed(() => {
-  return props.field.options?.relationshipType === "manyToMany";
+  return props.field.options?.relationshipType === "many_to_many";
 });
 
 // 是否允许多选

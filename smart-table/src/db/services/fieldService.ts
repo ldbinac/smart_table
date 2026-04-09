@@ -20,7 +20,7 @@ export interface LinkFieldConfig {
   linkedFieldId?: string;
   displayFieldId?: string;
   allowMultiple?: boolean;
-  relationshipType?: "oneToOne" | "oneToMany" | "manyToMany";
+  relationshipType?: "one_to_one" | "one_to_many" | "many_to_many";
   bidirectional?: boolean;
   inverseFieldId?: string;
 }
@@ -66,6 +66,7 @@ export class FieldService {
         name: apiField.name,
         type: frontendType,
         options: apiField.options as Record<string, unknown> | undefined,
+        config: apiField.config as Record<string, unknown> | undefined,
         isPrimary: apiField.isPrimary || false,
         isSystem: apiField.isSystem || false,
         isRequired: apiField.isRequired || false,
@@ -106,6 +107,7 @@ export class FieldService {
             name: apiField.name,
             type: frontendType,
             options: apiField.options as Record<string, unknown> | undefined,
+            config: apiField.config as Record<string, unknown> | undefined,
             isPrimary: apiField.isPrimary || false,
             isSystem: apiField.isSystem || false,
             isRequired: apiField.isRequired || false,
@@ -279,7 +281,7 @@ export class FieldService {
       linkedFieldId: config.linkedFieldId,
       displayFieldId: config.displayFieldId,
       allowMultiple: config.allowMultiple ?? false,
-      relationshipType: config.relationshipType ?? "oneToMany",
+      relationshipType: config.relationshipType ?? "one_to_many",
       bidirectional: config.bidirectional ?? false,
       inverseFieldId: config.inverseFieldId,
     };
@@ -321,8 +323,8 @@ export class FieldService {
         linkedTableId: sourceField.tableId,
         linkedFieldId: sourceFieldId,
         allowMultiple:
-          config.relationshipType === "manyToMany" ||
-          config.relationshipType === "oneToMany",
+          config.relationshipType === "many_to_many" ||
+          config.relationshipType === "one_to_many",
         relationshipType: this.getInverseRelationshipType(
           config.relationshipType,
         ),
@@ -345,17 +347,17 @@ export class FieldService {
    * 获取反向关联类型
    */
   private getInverseRelationshipType(
-    type?: "oneToOne" | "oneToMany" | "manyToMany",
-  ): "oneToOne" | "oneToMany" | "manyToMany" {
+    type?: "one_to_one" | "one_to_many" | "many_to_many",
+  ): "one_to_one" | "one_to_many" | "many_to_many" {
     switch (type) {
-      case "oneToMany":
-        return "manyToMany";
-      case "manyToMany":
-        return "manyToMany";
-      case "oneToOne":
-        return "oneToOne";
+      case "one_to_many":
+        return "many_to_many";
+      case "many_to_many":
+        return "many_to_many";
+      case "one_to_one":
+        return "one_to_one";
       default:
-        return "oneToMany";
+        return "one_to_many";
     }
   }
 
@@ -381,9 +383,9 @@ export class FieldService {
       displayFieldId: field.options?.displayFieldId as string,
       allowMultiple: field.options?.allowMultiple as boolean,
       relationshipType: field.options?.relationshipType as
-        | "oneToOne"
-        | "oneToMany"
-        | "manyToMany",
+        | "one_to_one"
+        | "one_to_many"
+        | "many_to_many",
       bidirectional: field.options?.bidirectional as boolean,
       inverseFieldId: field.options?.inverseFieldId as string,
     };

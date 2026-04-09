@@ -49,6 +49,20 @@ class FieldService:
         return Field.query.filter_by(table_id=table_id).order_by(Field.order.asc()).all()
     
     @staticmethod
+    def get_fields_by_type(table_id: str, field_type: str) -> List[Field]:
+        """
+        获取表格中指定类型的字段
+        
+        Args:
+            table_id: 表格 ID
+            field_type: 字段类型
+            
+        Returns:
+            字段列表
+        """
+        return Field.query.filter_by(table_id=table_id, type=field_type).all()
+    
+    @staticmethod
     def get_field(field_id: str) -> Optional[Field]:
         """
         获取单个字段

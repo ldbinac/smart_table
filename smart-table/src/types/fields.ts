@@ -30,7 +30,7 @@ export interface FieldOption {
   color: string;
 }
 
-export type RelationshipType = "oneToOne" | "oneToMany" | "manyToMany";
+export type RelationshipType = "one_to_one" | "one_to_many" | "many_to_many";
 
 export type AggregationType =
   | "single"
@@ -185,9 +185,9 @@ export function getFieldTypeIcon(type: string): string {
  */
 export function getRelationshipTypeLabel(type: RelationshipType): string {
   const labels: Record<RelationshipType, string> = {
-    oneToOne: "一对一",
-    oneToMany: "一对多",
-    manyToMany: "多对多",
+    one_to_one: "一对一",
+    one_to_many: "一对多",
+    many_to_many: "多对多",
   };
   return labels[type] || type;
 }
