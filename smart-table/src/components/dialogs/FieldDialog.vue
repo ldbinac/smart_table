@@ -1223,9 +1223,10 @@ async function toggleFieldVisibility(
             <ElRadioGroup v-model="newField.linkConfig.relationshipType">
               <ElRadioButton label="one_to_one">一对一</ElRadioButton>
               <ElRadioButton label="one_to_many">一对多</ElRadioButton>
+              <ElRadioButton label="many_to_one">多对一</ElRadioButton>
             </ElRadioGroup>
             <div class="field-hint">
-              一对一：每条记录只能关联一条目标记录；一对多：每条记录可以关联多条目标记录
+              一对一：每条记录只能关联一条目标记录；一对多：每条记录可以关联多条目标记录；多对一：多条记录可以关联到同一条目标记录
             </div>
           </ElFormItem>
 
@@ -1269,7 +1270,9 @@ async function toggleFieldVisibility(
                   {{
                     newField.linkConfig.relationshipType === "one_to_one"
                       ? "一对一"
-                      : "一对多"
+                      : newField.linkConfig.relationshipType === "one_to_many"
+                        ? "一对多"
+                        : "多对一"
                   }}
                 </span>
               </div>

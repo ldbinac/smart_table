@@ -17,6 +17,8 @@ class RelationshipType(PyEnum):
     """关联类型枚举"""
     ONE_TO_ONE = 'one_to_one'
     ONE_TO_MANY = 'one_to_many'
+    MANY_TO_ONE = 'many_to_one'
+    MANY_TO_MANY = 'many_to_many'
 
 
 class LinkRelation(db.Model):

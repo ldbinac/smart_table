@@ -387,7 +387,7 @@ def create_link_field():
         - table_id: 源表 ID（必填）
         - name: 字段名称（必填）
         - target_table_id: 目标表 ID（必填）
-        - relationship_type: 关联类型（必填，'one_to_one' 或 'one_to_many'）
+        - relationship_type: 关联类型（必填，'one_to_one', 'one_to_many' 或 'many_to_one'）
         - display_field_id: 显示字段 ID（可选）
         - bidirectional: 是否双向关联（可选，默认 False）
         - description: 描述（可选）
@@ -410,8 +410,8 @@ def create_link_field():
         return error_response('请提供目标表ID', code=400)
     if not relationship_type:
         return error_response('请提供关联类型', code=400)
-    if relationship_type not in ['one_to_one', 'one_to_many']:
-        return error_response('关联类型必须是 one_to_one 或 one_to_many', code=400)
+    if relationship_type not in ['one_to_one', 'one_to_many', 'many_to_one']:
+        return error_response('关联类型必须是 one_to_one, one_to_many 或 many_to_one', code=400)
     
     # 检查权限
     if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
