@@ -8,7 +8,6 @@ import type { Base } from "@/db/schema";
 import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
 import { templateService } from "@/db/services";
 import { getFieldTypeLabel, getFieldTypeIcon } from "@/types";
-import { debounce } from "@/utils/debounce";
 
 const router = useRouter();
 const baseStore = useBaseStore();
@@ -132,14 +131,8 @@ const colorOptions = [
 // 取消收藏加载状态
 const unstarLoadingMap = ref<Map<string, boolean>>(new Map());
 
-// ========== 搜索功能 ==========
+// ========== 搜索功能（从 AppHeader 接收） ==========
 const searchQuery = ref("");
-const searchInputRef = ref<HTMLInputElement | null>(null);
-
-// 防抖搜索 - 搜索逻辑已在计算属性中实现
-const handleSearchInput = debounce(() => {
-  // 搜索逻辑已在计算属性中实现
-}, 300);
 
 // 高亮匹配文本
 const highlightText = (text: string, query: string): string => {
@@ -295,11 +288,17 @@ const handleSharedByMePageChange = (page: number) => {
 // 清空搜索
 const clearSearch = () => {
   searchQuery.value = "";
-  searchInputRef.value?.focus();
+  // 通知 AppHeader 清空搜索框
+  window.dispatchEvent(new CustomEvent("home-search-clear"));
 };
 
 onMounted(async () => {
   await baseStore.fetchBases();
+
+  // 监听来自 AppHeader 的搜索事件
+  window.addEventListener("home-search-query-change", ((event: CustomEvent) => {
+    searchQuery.value = event.detail.query;
+  }) as EventListener);
 });
 
 // 加载分享给我的数据
@@ -686,30 +685,8 @@ async function handleUseTemplate(template: TableTemplate) {
         <el-icon><Share /></el-icon>
         <span>分享</span>
       </div>
-      <!-- 右侧搜索和操作区 -->
+      <!-- 右侧操作区 -->
       <div class="header-right-section">
-        <!-- 全局搜索框 -->
-        <div class="header-search">
-          <div class="search-wrapper">
-            <el-icon class="search-icon"><Search /></el-icon>
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              class="search-input"
-              placeholder="搜索多维表格..."
-              @input="handleSearchInput" />
-            <el-icon
-              v-if="searchQuery"
-              class="search-clear"
-              @click="clearSearch">
-              <CircleClose />
-            </el-icon>
-          </div>
-          <div v-if="searchQuery" class="search-stats">
-            找到 {{ starredBases.length + allBases.length }} 个结果
-          </div>
-        </div>
         <div class="header-actions">
           <el-button
             type="primary"
@@ -1967,76 +1944,12 @@ $star-color: #f59e0b;
   }
 }
 
-// 右侧搜索和操作区
+// 右侧操作区
 .header-right-section {
   display: flex;
   align-items: center;
   gap: 24px;
   margin-left: auto;
-}
-
-// 搜索框
-.header-search {
-  max-width: 480px;
-  position: relative;
-
-  .search-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
-  .search-icon {
-    position: absolute;
-    left: 14px;
-    color: $gray-400;
-    font-size: 18px;
-    z-index: 1;
-  }
-
-  .search-input {
-    width: 100%;
-    height: 42px;
-    padding: 0 40px;
-    border: 1px solid $gray-200;
-    border-radius: 21px;
-    font-size: 14px;
-    background: $gray-50;
-    transition: all 0.2s ease;
-
-    &::placeholder {
-      color: $gray-400;
-    }
-
-    &:focus {
-      outline: none;
-      background: white;
-      border-color: $primary;
-      box-shadow: 0 0 0 3px rgba($primary, 0.1);
-    }
-  }
-
-  .search-clear {
-    position: absolute;
-    right: 14px;
-    color: $gray-400;
-    cursor: pointer;
-    font-size: 16px;
-    transition: color 0.2s;
-
-    &:hover {
-      color: $gray-600;
-    }
-  }
-
-  .search-stats {
-    position: absolute;
-    top: 100%;
-    left: 16px;
-    margin-top: 6px;
-    font-size: 12px;
-    color: $gray-500;
-  }
 }
 
 .header-actions {

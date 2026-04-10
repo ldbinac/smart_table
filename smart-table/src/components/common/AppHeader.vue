@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import { ElMessageBox } from "element-plus";
-import { ArrowDown, Share, User } from "@element-plus/icons-vue";
+import {
+  ArrowDown,
+  Share,
+  User,
+  Search,
+  CircleClose,
+} from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
+import { debounce } from "@/utils/debounce";
 
 const route = useRoute();
 const router = useRouter();
@@ -156,6 +163,59 @@ const handleMemberClick = () => {
   // 通过自定义事件通知父组件打开成员管理对话框
   window.dispatchEvent(new CustomEvent("open-member-management"));
 };
+
+// ========== 搜索功能（仅在首页显示） ==========
+const isHomePage = computed(() => {
+  return route.path === "/" || route.path === "/home";
+});
+
+// 搜索查询
+const searchQuery = ref("");
+const searchInputRef = ref<HTMLInputElement | null>(null);
+
+// 防抖搜索输入处理
+const handleSearchInput = debounce(() => {
+  // 搜索逻辑通过事件传递给 Home.vue
+  window.dispatchEvent(
+    new CustomEvent("home-search-query-change", {
+      detail: { query: searchQuery.value },
+    }),
+  );
+}, 300);
+
+// 清空搜索
+const clearSearch = () => {
+  searchQuery.value = "";
+  searchInputRef.value?.focus();
+  window.dispatchEvent(
+    new CustomEvent("home-search-query-change", {
+      detail: { query: "" },
+    }),
+  );
+};
+
+// 搜索结果统计
+const searchStats = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  if (!query) return 0;
+
+  const starredCount = baseStore.bases.filter(
+    (base) => base.is_starred && base.name.toLowerCase().includes(query),
+  ).length;
+
+  const allCount = baseStore.bases.filter((base) =>
+    base.name.toLowerCase().includes(query),
+  ).length;
+
+  return starredCount + allCount;
+});
+
+// 监听来自 Home.vue 的搜索清除事件
+onMounted(() => {
+  window.addEventListener("home-search-clear", () => {
+    searchQuery.value = "";
+  });
+});
 </script>
 
 <template>
@@ -230,21 +290,55 @@ const handleMemberClick = () => {
           <p class="table-description">{{ centerInfo.description }}</p>
         </el-tooltip>
       </div>
+
+      <!-- 首页全局搜索框 -->
+      <div v-if="isHomePage" class="header-search">
+        <div class="search-wrapper">
+          <el-icon class="search-icon"><Search /></el-icon>
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="text"
+            class="search-input"
+            placeholder="搜索多维表格..."
+            @input="handleSearchInput" />
+          <el-icon v-if="searchQuery" class="search-clear" @click="clearSearch">
+            <CircleClose />
+          </el-icon>
+        </div>
+        <div v-if="searchQuery" class="search-stats">
+          找到 {{ searchStats }} 个结果
+        </div>
+      </div>
     </div>
 
     <div class="header-right">
       <!-- Base页面的分享和成员按钮 -->
       <template v-if="isBasePage && currentBase && canManage">
-        <el-button-group
-          ><el-button class="header-action-btn" @click="handleShareClick">
+        <el-tooltip
+          class="box-item"
+          effect="dark"
+          content="分享"
+          placement="bottom">
+          <el-button type="primary" plain circle @click="handleShareClick">
             <el-icon><Share /></el-icon>
-            <span>分享</span>
           </el-button>
-          <el-button class="header-action-btn" @click="handleMemberClick">
-            <el-icon><User /></el-icon>
-            <span>成员</span>
-          </el-button></el-button-group
-        >
+        </el-tooltip>
+        <el-tooltip
+          class="box-item"
+          effect="dark"
+          content="成员"
+          placement="bottom">
+          <el-button
+            type="primary"
+            plain
+            circle
+            @click="handleMemberClick"
+            style="margin-left: 0px">
+            <el-icon><Avatar /></el-icon>
+            <!-- <span>成员</span> -->
+          </el-button>
+        </el-tooltip>
         <el-divider direction="vertical" class="header-divider" />
       </template>
       <!-- <div class="current-title">{{ currentTitle }}</div> -->
@@ -388,7 +482,7 @@ const handleMemberClick = () => {
 .header-action-btn {
   @include flex-center;
   gap: $spacing-xs;
-  padding: $spacing-xs $spacing-md;
+  padding: $spacing-sm;
   font-size: $font-size-sm;
   border-radius: $border-radius-base;
 
@@ -464,6 +558,71 @@ const handleMemberClick = () => {
     color: $text-secondary;
     @include text-ellipsis;
     max-width: 240px;
+  }
+}
+
+// 首页搜索框样式
+.header-search {
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+
+  .search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    color: $text-secondary;
+    font-size: 18px;
+    z-index: 1;
+  }
+
+  .search-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 40px;
+    border: 1px solid $border-color;
+    border-radius: 20px;
+    font-size: $font-size-sm;
+    background: $bg-color;
+    transition: all 0.2s ease;
+
+    &::placeholder {
+      color: $text-secondary;
+    }
+
+    &:focus {
+      outline: none;
+      background: white;
+      border-color: $primary-color;
+      box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+    }
+  }
+
+  .search-clear {
+    position: absolute;
+    right: 14px;
+    color: $text-secondary;
+    cursor: pointer;
+    font-size: 16px;
+    transition: color 0.2s;
+
+    &:hover {
+      color: $text-primary;
+    }
+  }
+
+  .search-stats {
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: $text-secondary;
   }
 }
 </style>
