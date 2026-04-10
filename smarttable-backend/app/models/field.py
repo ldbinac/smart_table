@@ -29,6 +29,7 @@ class FieldType(PyEnum):
     MULTI_SELECT = 'multi_select'
     CHECKBOX = 'checkbox'
     LINK_TO_RECORD = 'link_to_record'
+    LINK = 'link'  # 前端使用的关联字段类型别名
     LOOKUP = 'lookup'
     ROLLUP = 'rollup'
     CREATED_BY = 'created_by'
@@ -167,6 +168,7 @@ class Field(db.Model):
             FieldType.MULTI_SELECT: [],
             FieldType.CHECKBOX: False,
             FieldType.LINK_TO_RECORD: [],
+            FieldType.LINK: [],
             FieldType.LOOKUP: [],
             FieldType.ROLLUP: None,
             FieldType.CREATED_BY: None,
@@ -251,11 +253,11 @@ class Field(db.Model):
                     if not any(choice.get('id') == option_id for choice in choices):
                         return False, f'字段 "{self.name}" 的默认值包含不存在的选项'
         
-        elif field_type in [FieldType.LINK_TO_RECORD, FieldType.COLLABORATOR, FieldType.ATTACHMENT]:
+        elif field_type in [FieldType.LINK_TO_RECORD, FieldType.LINK, FieldType.COLLABORATOR, FieldType.ATTACHMENT]:
             # 这些类型默认值应该是数组
             if not isinstance(value, list):
                 return False, f'字段 "{self.name}" 的默认值必须是数组'
-        
+
         return True, None
 
     def validate_value(self, value: Any) -> tuple[bool, Optional[str]]:

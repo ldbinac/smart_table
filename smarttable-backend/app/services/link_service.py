@@ -80,11 +80,11 @@ class LinkService:
                 if field not in data:
                     return None, f'缺少必需字段: {field}'
 
-            # 验证源字段是否存在且为 LINK_TO_RECORD 类型
+            # 验证源字段是否存在且为 LINK_TO_RECORD 或 LINK 类型
             source_field = db.session.get(Field, data['source_field_id'])
             if not source_field:
                 return None, '源字段不存在'
-            if source_field.type != FieldType.LINK_TO_RECORD.value:
+            if source_field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
                 return None, '源字段必须是关联字段类型'
 
             # 验证表是否存在
@@ -222,26 +222,36 @@ class LinkService:
             return False, f'删除关联关系失败: {str(e)}'
 
     @staticmethod
-    def get_link_relation_by_field(field_id: str) -> Optional[LinkRelation]:
+    def get_link_relation_by_field(field_id: str, target_table_id: str = None) -> Optional[LinkRelation]:
         """
         根据字段获取关联关系
 
         Args:
             field_id: 字段 ID
+            target_table_id: 可选，目标表ID用于精确匹配
 
         Returns:
             关联关系对象或 None
         """
         try:
-            # 检查字段作为源字段或目标字段的关联关系
-            result = db.session.execute(
-                select(LinkRelation).where(
-                    or_(
-                        LinkRelation.source_field_id == field_id,
-                        LinkRelation.target_field_id == field_id
+            from sqlalchemy import and_
+            # 检查字段作为源字段的关联关系
+            if target_table_id:
+                result = db.session.execute(
+                    select(LinkRelation).where(
+                        and_(
+                            LinkRelation.source_field_id == field_id,
+                            LinkRelation.target_table_id == target_table_id
+                        )
                     )
-                )
-            ).scalar_one_or_none()
+                ).scalar_one_or_none()
+            else:
+                # 只根据源字段ID查询
+                result = db.session.execute(
+                    select(LinkRelation).where(
+                        LinkRelation.source_field_id == field_id
+                    )
+                ).scalar_one_or_none()
 
             return result
 

@@ -526,8 +526,8 @@ def update_link_field(field_id):
     if not field:
         return not_found_response('字段')
     
-    # 检查是否为关联字段
-    if field.type != FieldType.LINK_TO_RECORD.value:
+    # 检查是否为关联字段（支持 'link' 和 'link_to_record' 两种类型）
+    if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
         return error_response('该字段不是关联字段', code=400)
     
     data = request.get_json() or {}
@@ -550,15 +550,15 @@ def update_link_field(field_id):
         
         # 2. 更新关联关系
         link_relation = LinkService.get_link_relation_by_field(str(field_id))
-        if link_relation and link_relation[0]:
+        if link_relation:
             link_data = {}
             if 'relationship_type' in data:
                 link_data['relationship_type'] = data['relationship_type']
             if 'bidirectional' in data:
                 link_data['bidirectional'] = data['bidirectional']
-            
+
             if link_data:
-                LinkService.update_link_relation(link_relation[0].id, link_data)
+                LinkService.update_link_relation(str(link_relation.id), link_data)
         
         # 重新获取更新后的字段
         updated_field = FieldService.get_field(str(field_id))

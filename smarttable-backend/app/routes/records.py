@@ -1,7 +1,7 @@
 """
 记录管理路由模块
 """
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, current_app
 from marshmallow import Schema, fields, validate
 
 from app.services.record_service import RecordService
@@ -85,8 +85,10 @@ def get_records(table_id):
                 table_id, page=page, per_page=per_page
             )
         
-        # 获取表格的所有关联字段
+        # 获取表格的所有关联字段（支持 'link' 和 'link_to_record' 两种类型）
         link_fields = FieldService.get_fields_by_type(table_id, FieldType.LINK_TO_RECORD.value)
+        link_fields_link = FieldService.get_fields_by_type(table_id, 'link')
+        link_fields = link_fields + link_fields_link
         
         # 序列化记录数据
         items = []
@@ -559,8 +561,8 @@ def update_record_link(record_id, field_id):
     if not field:
         return error_response('字段不存在', 404)
     
-    # 检查是否为关联字段
-    if field.type != FieldType.LINK_TO_RECORD.value:
+    # 检查是否为关联字段（支持 'link' 和 'link_to_record' 两种类型）
+    if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
         return error_response('该字段不是关联字段', 400)
     
     data = request.get_json()
@@ -572,10 +574,37 @@ def update_record_link(record_id, field_id):
         return error_response('target_record_ids 必须是数组', 400)
     
     try:
-        # 获取关联关系
-        link_relation = LinkService.get_link_relation_by_field(field_id)
+        # 获取字段配置中的目标表ID
+        field_config = field.config or {}
+        target_table_id = field_config.get('linkedTableId')
+        
+        if not target_table_id:
+            return error_response('字段配置缺少关联表ID', 400)
+        
+        # 获取关联关系（使用目标表ID进行精确匹配）
+        link_relation = LinkService.get_link_relation_by_field(field_id, target_table_id)
         if not link_relation:
-            return error_response('关联关系不存在', 404)
+            # 尝试根据字段配置自动创建关联关系
+            relationship_type = field_config.get('relationshipType', 'one_to_many')
+            bidirectional = field_config.get('bidirectional', False)
+
+            # 创建关联关系
+            link_data = {
+                'source_table_id': str(field.table_id),
+                'target_table_id': str(target_table_id),
+                'source_field_id': field_id,
+                'target_field_id': None,  # 暂时不设置反向字段
+                'relationship_type': relationship_type,
+                'bidirectional': bidirectional
+            }
+
+            link_result = LinkService.create_link_relation(link_data)
+            if not link_result[0]:
+                return error_response(f'自动创建关联关系失败: {link_result[1]}', 400)
+
+            link_relation = link_result[0]
+            current_app.logger.info(f'[update_record_links] 自动创建关联关系: {link_relation.id}')
+
         
         # 验证一对一约束
         if link_relation.relationship_type == 'one_to_one' and len(target_record_ids) > 1:

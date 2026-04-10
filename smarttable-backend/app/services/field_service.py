@@ -442,12 +442,12 @@ class FieldService:
                     if not any(choice.get('id') == option_id for choice in choices):
                         return False, f'字段类型 {field_type} 的默认值包含不存在的选项'
         
-        elif field_type in [FieldType.LINK_TO_RECORD.value, FieldType.COLLABORATOR.value, 
-                           FieldType.ATTACHMENT.value]:
+        elif field_type in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value,
+                           FieldType.COLLABORATOR.value, FieldType.ATTACHMENT.value]:
             # 这些类型默认值应该是数组
             if not isinstance(value, list):
                 return False, f'字段类型 {field_type} 的默认值必须是数组'
-        
+
         return True, None
     
     @staticmethod
@@ -541,6 +541,12 @@ class FieldService:
                 'configurable': ['default_value']
             },
             FieldType.LINK_TO_RECORD.value: {
+                'name': '关联记录',
+                'icon': 'link',
+                'description': '关联到其他表格的记录',
+                'configurable': ['linked_table_id', 'allow_multiple']
+            },
+            FieldType.LINK.value: {
                 'name': '关联记录',
                 'icon': 'link',
                 'description': '关联到其他表格的记录',
