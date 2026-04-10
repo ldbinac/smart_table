@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
+import { useAuthStore } from "@/stores/authStore";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { Base } from "@/db/schema";
@@ -11,8 +12,17 @@ import { getFieldTypeLabel, getFieldTypeIcon } from "@/types";
 
 const router = useRouter();
 const baseStore = useBaseStore();
+const authStore = useAuthStore();
 const createFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
+
+// 当前登录用户ID
+const currentUserId = computed(() => authStore.user?.id);
+
+// 判断当前用户是否是Base的所有者
+const isBaseOwner = (base: Base) => {
+  return base.owner_id === currentUserId.value;
+};
 
 // 当前导航项
 const currentNav = ref<"home" | "all" | "templates" | "shares">("home");
@@ -847,6 +857,7 @@ async function handleUseTemplate(template: TableTemplate) {
                         <el-icon><StarFilled /></el-icon>
                       </el-button>
                       <el-dropdown
+                        v-if="isBaseOwner(base)"
                         trigger="click"
                         @command="
                           (cmd) => {
@@ -959,6 +970,7 @@ async function handleUseTemplate(template: TableTemplate) {
                         <el-icon><StarFilled /></el-icon>
                       </el-button>
                       <el-dropdown
+                        v-if="isBaseOwner(base)"
                         trigger="click"
                         @command="
                           (cmd) => {
@@ -1127,30 +1139,32 @@ async function handleUseTemplate(template: TableTemplate) {
                             <el-icon><StarFilled /></el-icon>
                           </el-button>
                         </el-tooltip>
-                        <el-tooltip
-                          content="编辑"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            type="primary"
-                            class="action-btn"
-                            @click="openEditDialog(base)">
-                            <el-icon><Edit /></el-icon>
-                          </el-button>
-                        </el-tooltip>
-                        <el-tooltip
-                          content="删除"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            type="danger"
-                            class="action-btn"
-                            @click="handleDeleteBase(base)">
-                            <el-icon><Delete /></el-icon>
-                          </el-button>
-                        </el-tooltip>
+                        <template v-if="isBaseOwner(base)">
+                          <el-tooltip
+                            content="编辑"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="primary"
+                              class="action-btn"
+                              @click="openEditDialog(base)">
+                              <el-icon><Edit /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                          <el-tooltip
+                            content="删除"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="danger"
+                              class="action-btn"
+                              @click="handleDeleteBase(base)">
+                              <el-icon><Delete /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                        </template>
                       </div>
                     </div>
                   </div>
@@ -1231,30 +1245,32 @@ async function handleUseTemplate(template: TableTemplate) {
                             </el-icon>
                           </el-button>
                         </el-tooltip>
-                        <el-tooltip
-                          content="编辑"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            type="primary"
-                            class="action-btn"
-                            @click="openEditDialog(base)">
-                            <el-icon><Edit /></el-icon>
-                          </el-button>
-                        </el-tooltip>
-                        <el-tooltip
-                          content="删除"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            type="danger"
-                            class="action-btn"
-                            @click="handleDeleteBase(base)">
-                            <el-icon><Delete /></el-icon>
-                          </el-button>
-                        </el-tooltip>
+                        <template v-if="isBaseOwner(base)">
+                          <el-tooltip
+                            content="编辑"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="primary"
+                              class="action-btn"
+                              @click="openEditDialog(base)">
+                              <el-icon><Edit /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                          <el-tooltip
+                            content="删除"
+                            placement="top"
+                            :show-after="200">
+                            <el-button
+                              link
+                              type="danger"
+                              class="action-btn"
+                              @click="handleDeleteBase(base)">
+                              <el-icon><Delete /></el-icon>
+                            </el-button>
+                          </el-tooltip>
+                        </template>
                       </div>
                     </div>
                   </div>
@@ -1474,30 +1490,6 @@ async function handleUseTemplate(template: TableTemplate) {
                               <StarFilled v-if="base.is_starred" />
                               <Star v-else />
                             </el-icon>
-                          </el-button>
-                        </el-tooltip>
-                        <el-tooltip
-                          content="编辑"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            type="primary"
-                            class="action-btn"
-                            @click="openEditDialog(base)">
-                            <el-icon><Edit /></el-icon>
-                          </el-button>
-                        </el-tooltip>
-                        <el-tooltip
-                          content="删除"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            type="danger"
-                            class="action-btn"
-                            @click="handleDeleteBase(base)">
-                            <el-icon><Delete /></el-icon>
                           </el-button>
                         </el-tooltip>
                       </div>
