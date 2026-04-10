@@ -164,6 +164,12 @@ const handleMemberClick = () => {
   window.dispatchEvent(new CustomEvent("open-member-management"));
 };
 
+// Logo 点击事件 - 跳转到首页并清空当前 Base
+const handleLogoClick = () => {
+  baseStore.setCurrentBase(null);
+  router.push("/");
+};
+
 // ========== 搜索功能（仅在首页显示） ==========
 const isHomePage = computed(() => {
   return route.path === "/" || route.path === "/home";
@@ -221,7 +227,7 @@ onMounted(() => {
 <template>
   <header class="app-header">
     <div class="header-left">
-      <div class="logo">
+      <div class="logo" @click="handleLogoClick">
         <svg
           class="logo-icon"
           viewBox="0 0 24 24"
