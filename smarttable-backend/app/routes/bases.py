@@ -241,21 +241,32 @@ def get_members(base_id):
     
     members = BaseService.get_members(str(base_id))
     
-    # 添加所有者信息
-    owner_data = {
-        'id': None,
-        'base_id': str(base_id),
-        'user_id': str(base.owner_id),
-        'role': 'owner',
-        'invited_by': None,
-        'joined_at': base.created_at.isoformat(),
-        'user': base.owner.to_dict()
-    }
+    # 查找所有者是否已存在于成员列表中
+    owner_index = None
+    for idx, member in enumerate(members):
+        if member.get('role') == 'owner' or member.get('user_id') == str(base.owner_id):
+            owner_index = idx
+            break
     
-    all_members = [owner_data] + members
+    if owner_index is not None:
+        # 如果所有者已存在，将其移到第一位
+        owner_data = members.pop(owner_index)
+        members = [owner_data] + members
+    else:
+        # 如果成员列表中不包含所有者，则手动添加
+        owner_data = {
+            'id': None,
+            'base_id': str(base_id),
+            'user_id': str(base.owner_id),
+            'role': 'owner',
+            'invited_by': None,
+            'joined_at': base.created_at.isoformat(),
+            'user': base.owner.to_dict()
+        }
+        members = [owner_data] + members
     
     return success_response(
-        data=all_members,
+        data=members,
         message='获取成员列表成功'
     )
 
