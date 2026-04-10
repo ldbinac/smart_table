@@ -4,6 +4,56 @@
 import { apiClient } from "@/api/client";
 import type { LinkRelation, LinkValue } from "@/types/link";
 
+// 简单的内存缓存
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+class LinkDataCache {
+  private cache = new Map<string, CacheEntry<unknown>>();
+  private readonly TTL = 5 * 60 * 1000; // 5分钟缓存
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    // 检查是否过期
+    if (Date.now() - entry.timestamp > this.TTL) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return entry.data as T;
+  }
+
+  set<T>(key: string, data: T): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  invalidate(key: string): void {
+    this.cache.delete(key);
+  }
+
+  invalidateByPattern(pattern: string): void {
+    for (const key of this.cache.keys()) {
+      if (key.includes(pattern)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+// 全局缓存实例
+const linkCache = new LinkDataCache();
+
 export interface CreateLinkFieldData {
   table_id: string;
   name: string;
@@ -75,10 +125,11 @@ export const getTableLinkRelations = async (
 };
 
 /**
- * 获取记录的关联数据
+ * 获取记录的关联数据（带缓存）
  */
 export const getRecordLinks = async (
-  recordId: string
+  recordId: string,
+  useCache: boolean = true
 ): Promise<{
   outbound: Array<{
     field_id: string;
@@ -101,7 +152,47 @@ export const getRecordLinks = async (
     }>;
   }>;
 }> => {
-  return apiClient.get(`/records/${recordId}/links`);
+  const cacheKey = `record_links:${recordId}`;
+
+  // 尝试从缓存获取
+  if (useCache) {
+    const cached = linkCache.get<ReturnType<typeof getRecordLinks>>(cacheKey);
+    if (cached) {
+      console.log(`[linkApiService] 从缓存获取记录 ${recordId} 的关联数据`);
+      return cached;
+    }
+  }
+
+  // 从 API 获取
+  const result = await apiClient.get<{
+    outbound: Array<{
+      field_id: string;
+      field_name: string;
+      target_table_id: string;
+      target_table_name: string;
+      linked_records: Array<{
+        record_id: string;
+        display_value: string;
+      }>;
+    }>;
+    inbound: Array<{
+      field_id: string;
+      field_name: string;
+      source_table_id: string;
+      source_table_name: string;
+      linked_records: Array<{
+        record_id: string;
+        display_value: string;
+      }>;
+    }>;
+  }>(`/records/${recordId}/links`);
+
+  // 存入缓存
+  if (useCache) {
+    linkCache.set(cacheKey, result);
+  }
+
+  return result;
 };
 
 /**
@@ -112,10 +203,15 @@ export const updateRecordLink = async (
   fieldId: string,
   data: UpdateLinkValueData
 ): Promise<{ updated_count: number }> => {
-  return apiClient.put<{ updated_count: number }>(
+  const result = await apiClient.put<{ updated_count: number }>(
     `/records/${recordId}/links/${fieldId}`,
     data
   );
+
+  // 清除相关缓存
+  linkCache.invalidate(`record_links:${recordId}`);
+
+  return result;
 };
 
 /**
@@ -189,6 +285,10 @@ export const linkApiService = {
   getRecordLinks,
   updateRecordLink,
   searchLinkableRecords,
+  // 缓存操作
+  invalidateCache: (key: string) => linkCache.invalidate(key),
+  invalidateCacheByPattern: (pattern: string) => linkCache.invalidateByPattern(pattern),
+  clearCache: () => linkCache.clear(),
 };
 
 export default linkApiService;

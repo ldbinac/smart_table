@@ -47,6 +47,23 @@ const dateFields = computed(() => {
   );
 });
 
+// 关联字段
+const linkFields = computed(() => {
+  return props.fields.filter((f) => f.type === FieldType.LINK);
+});
+
+// 获取记录的关联字段显示文本
+const getRecordLinkSummary = (record: RecordEntity): string => {
+  if (linkFields.value.length === 0) return "";
+  
+  const linkField = linkFields.value[0]; // 显示第一个关联字段
+  const linkedIds = record.values[linkField.id] as string[] | undefined;
+  
+  if (!linkedIds || linkedIds.length === 0) return "";
+  
+  return `[${linkedIds.length}]`;
+};
+
 const titleFields = computed(() => {
   return props.fields.filter(
     (f) =>
@@ -630,7 +647,7 @@ watch(
               class="event-item"
               :style="{ borderLeftColor: event.color }"
               @click.stop="handleEventClick(event)">
-              {{ event.title }}
+              {{ event.title }} {{ getRecordLinkSummary(event.record) }}
             </div>
             <div v-if="day.events.length > 3" class="more-events">
               +{{ day.events.length - 3 }} 更多
@@ -651,7 +668,7 @@ watch(
                 class="tooltip-event-item"
                 :style="{ borderLeftColor: event.color }"
                 @click.stop="handleEventClick(event)">
-                {{ event.title }}
+                {{ event.title }} {{ getRecordLinkSummary(event.record) }}
               </div>
             </div>
           </div>
@@ -708,7 +725,7 @@ watch(
                 <el-icon><Clock /></el-icon>
                 {{ formatTime(event.start) }}
               </div>
-              <div class="event-title">{{ event.title }}</div>
+              <div class="event-title">{{ event.title }} {{ getRecordLinkSummary(event.record) }}</div>
             </div>
           </div>
         </div>
@@ -765,7 +782,7 @@ watch(
                 - {{ formatTime(event.end) }}
               </span>
             </div>
-            <div class="event-title">{{ event.title }}</div>
+            <div class="event-title">{{ event.title }} {{ getRecordLinkSummary(event.record) }}</div>
           </div>
 
           <div v-if="currentDayData.events.length === 0" class="no-events">

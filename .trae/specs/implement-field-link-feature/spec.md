@@ -20,6 +20,7 @@
 3. **新增关联选择器组件** - 用于选择关联记录
 4. **修改字段类型定义** - 完善 Link 字段类型配置选项
 5. **新增关联关系服务** - 处理关联数据的 CRUD 操作
+6. **各视图集成关联字段** - TableView、GroupedTableView、KanbanView、RecordDetailDrawer、CalendarView
 
 ### 后端变更
 1. **新增关联关系模型** - 存储表与表之间的关联关系
@@ -40,6 +41,11 @@
   - `smart-table/src/components/fields/` - 新增 LinkField 组件
   - `smart-table/src/components/dialogs/FieldDialog.vue` - 字段配置对话框
   - `smart-table/src/services/api/` - 新增 linkApiService.ts
+  - `smart-table/src/components/views/TableView/` - 表格视图关联字段集成
+  - `smart-table/src/components/groups/GroupedTableView.vue` - 分组表格视图关联字段集成
+  - `smart-table/src/components/views/KanbanView/` - 看板视图关联字段集成
+  - `smart-table/src/components/dialogs/RecordDetailDrawer.vue` - 记录详情关联字段集成
+  - `smart-table/src/components/views/CalendarView/` - 日历视图关联字段集成
 
 - 受影响的后端文件：
   - `smarttable-backend/app/models/` - 新增 link_relation.py
@@ -71,6 +77,15 @@
 - **THEN** 成功创建一对多关联字段
 - **AND** 在目标表中自动生成反向关联字段（可选）
 
+#### Scenario: 创建多对一关联字段
+- **GIVEN** 用户正在创建新字段
+- **WHEN** 选择字段类型为"关联"
+- **AND** 选择关联类型为"多对一"
+- **AND** 选择目标数据表
+- **AND** 选择显示字段
+- **THEN** 成功创建多对一关联字段
+- **AND** 多条记录可以关联到同一条目标记录
+
 #### Scenario: 配置双向关联
 - **GIVEN** 用户正在配置关联字段
 - **WHEN** 启用"双向关联"选项
@@ -86,6 +101,34 @@
 - **WHEN** 用户查看表格视图
 - **THEN** 关联字段显示关联记录的目标字段值
 - **AND** 多个关联值以逗号分隔显示
+- **AND** 支持点击关联标签跳转
+
+#### Scenario: 在分组表格视图中显示关联数据
+- **GIVEN** 分组表格中存在关联字段
+- **WHEN** 用户查看分组表格视图
+- **THEN** 关联字段正确显示关联记录
+- **AND** 支持在分组行中编辑关联字段
+- **AND** 关联数据随分组展开/折叠保持同步
+
+#### Scenario: 在看板视图中显示关联数据
+- **GIVEN** 看板卡片中存在关联字段
+- **WHEN** 用户查看看板视图
+- **THEN** 关联字段在卡片上正确显示
+- **AND** 支持点击关联标签跳转
+- **AND** 关联数据随卡片移动保持同步
+
+#### Scenario: 在记录详情中显示和编辑关联数据
+- **GIVEN** 记录详情中存在关联字段
+- **WHEN** 用户查看记录详情
+- **THEN** 关联字段正确显示关联记录
+- **AND** 支持在详情中编辑关联字段
+- **AND** 支持打开关联选择器选择记录
+
+#### Scenario: 在日历视图中显示关联数据
+- **GIVEN** 日历视图中存在关联字段
+- **WHEN** 用户查看日历视图
+- **THEN** 关联字段在事件卡片上正确显示
+- **AND** 支持点击关联标签跳转
 
 #### Scenario: 编辑关联字段值
 - **GIVEN** 用户正在编辑记录
@@ -98,6 +141,36 @@
 - **GIVEN** 用户选择了多条记录
 - **WHEN** 批量编辑关联字段
 - **THEN** 支持添加关联、移除关联、替换关联三种操作
+
+### Requirement: 各视图关联字段集成
+
+#### Scenario: GroupedTableView 关联字段集成
+- **GIVEN** GroupedTableView 组件已存在
+- **WHEN** 集成 LinkField 组件
+- **THEN** 分组表格行中正确显示关联字段
+- **AND** 支持点击关联标签跳转
+- **AND** 支持在分组行中编辑关联字段
+- **AND** 关联数据随分组展开/折叠保持同步
+
+#### Scenario: KanbanView 关联字段集成
+- **GIVEN** KanbanView 组件已存在
+- **WHEN** 在看板卡片中集成 LinkField 组件
+- **THEN** 看板卡片正确显示关联字段
+- **AND** 支持点击关联标签跳转
+- **AND** 关联数据随卡片移动保持同步
+
+#### Scenario: RecordDetailDrawer 关联字段集成
+- **GIVEN** RecordDetailDrawer 组件已存在
+- **WHEN** 在详情表单中集成 LinkField 组件
+- **THEN** 记录详情正确显示关联字段
+- **AND** 支持在详情中编辑关联字段
+- **AND** 支持打开关联选择器选择记录
+
+#### Scenario: CalendarView 关联字段集成
+- **GIVEN** CalendarView 组件已存在
+- **WHEN** 在日历事件卡片中集成 LinkField 组件
+- **THEN** 日历事件卡片正确显示关联字段
+- **AND** 支持点击关联标签跳转
 
 ### Requirement: 关联关系维护
 
@@ -138,7 +211,7 @@
 
 **修改后**: 
 - 完善 Link 字段的配置选项
-- 支持 relationshipType: "oneToOne" | "oneToMany"
+- 支持 relationshipType: "oneToOne" | "oneToMany" | "manyToOne"
 - 支持 linkedTableId、displayFieldId、bidirectional 等配置
 
 ### Requirement: 记录数据存储
@@ -150,10 +223,20 @@
 - 支持通过关联关系表查询完整关联数据
 - 保持与现有数据格式的向后兼容
 
+### Requirement: 视图集成
+
+**原需求**: 仅在 TableView 中支持关联字段
+
+**修改后**:
+- 在 GroupedTableView 中支持关联字段显示和编辑
+- 在 KanbanView 中支持关联字段显示
+- 在 RecordDetailDrawer 中支持关联字段显示和编辑
+- 在 CalendarView 中支持关联字段显示
+
 ## REMOVED Requirements
 
 ### Requirement: 多对多关联
 
-**原因**: 当前版本优先实现一对一和一对多关联，多对多关联复杂度较高，计划在后续版本实现
+**原因**: 当前版本优先实现一对一、一对多和多对一关联，多对多关联复杂度较高，计划在后续版本实现
 
 **迁移**: 用户可通过两个一对多关联字段间接实现多对多关系

@@ -226,6 +226,10 @@ class RecordService:
             )
             db.session.add(history)
 
+            # 清理关联数据
+            from app.services.link_service import LinkService
+            LinkService.delete_record_links(str(record_id))
+
             db.session.delete(record)
             db.session.commit()
             return True

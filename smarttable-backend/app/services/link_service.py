@@ -2,6 +2,7 @@
 关联字段服务模块
 处理 LinkRelation（关联关系）和 LinkValue（关联值）的 CRUD 操作
 支持双向关联的自动同步
+使用 Redis 缓存优化性能
 """
 import uuid
 from typing import List, Optional, Dict, Any, Tuple
@@ -11,11 +12,45 @@ from sqlalchemy import select, and_, or_, delete
 from sqlalchemy.orm import joinedload
 from flask import current_app
 
-from app.extensions import db
+from app.extensions import db, cache
 from app.models.link_relation import LinkRelation, LinkValue, RelationshipType
 from app.models.field import Field, FieldType
 from app.models.record import Record
 from app.models.table import Table
+
+
+# 缓存键前缀
+CACHE_PREFIX = "link:"
+CACHE_TTL = 300  # 5分钟缓存过期时间
+
+
+def _get_cache_key(*parts: str) -> str:
+    """生成缓存键"""
+    return f"{CACHE_PREFIX}{':'.join(parts)}"
+
+
+def _get_record_links_cache_key(record_id: str) -> str:
+    """获取记录关联数据的缓存键"""
+    return _get_cache_key("record", record_id, "links")
+
+
+def _get_field_links_cache_key(field_id: str) -> str:
+    """获取字段关联关系的缓存键"""
+    return _get_cache_key("field", field_id, "relation")
+
+
+def _invalidate_record_links_cache(record_id: str) -> None:
+    """清除记录关联数据的缓存"""
+    cache_key = _get_record_links_cache_key(record_id)
+    cache.delete(cache_key)
+    current_app.logger.debug(f"[LinkService] 清除缓存: {cache_key}")
+
+
+def _invalidate_field_links_cache(field_id: str) -> None:
+    """清除字段关联关系的缓存"""
+    cache_key = _get_field_links_cache_key(field_id)
+    cache.delete(cache_key)
+    current_app.logger.debug(f"[LinkService] 清除缓存: {cache_key}")
 
 
 class LinkService:
@@ -646,16 +681,28 @@ class LinkService:
             return False, f'验证失败: {str(e)}'
 
     @staticmethod
-    def get_record_links(record_id: str) -> Dict[str, List[Dict[str, Any]]]:
+    def get_record_links(record_id: str, use_cache: bool = True) -> Dict[str, List[Dict[str, Any]]]:
         """
         获取记录的所有关联信息
+        
+        使用 Redis 缓存优化性能，默认缓存 5 分钟
 
         Args:
             record_id: 记录 ID
+            use_cache: 是否使用缓存，默认为 True
 
         Returns:
             按字段分组的关联信息
         """
+        cache_key = _get_record_links_cache_key(record_id)
+        
+        # 尝试从缓存获取
+        if use_cache:
+            cached_result = cache.get(cache_key)
+            if cached_result is not None:
+                current_app.logger.debug(f'[LinkService] 从缓存获取记录 {record_id} 的关联数据')
+                return cached_result
+        
         try:
             record = db.session.get(Record, record_id)
             if not record:
@@ -725,6 +772,11 @@ class LinkService:
                         'direction': 'incoming'
                     })
 
+            # 存入缓存
+            if use_cache:
+                cache.set(cache_key, result, timeout=CACHE_TTL)
+                current_app.logger.debug(f'[LinkService] 缓存记录 {record_id} 的关联数据')
+
             return result
 
         except Exception as e:
@@ -764,3 +816,29 @@ class LinkService:
         except Exception as e:
             current_app.logger.error(f'[LinkService] 获取显示值失败: {str(e)}')
             return '未命名记录'
+    
+    @staticmethod
+    def delete_record_links(record_id: str) -> bool:
+        """
+        删除记录的所有关联数据
+        
+        当记录被删除时，自动清理该记录的所有关联关系
+        
+        Args:
+            record_id: 记录 ID
+            
+        Returns:
+            是否成功
+        """
+        try:
+            # 删除作为源记录的关联
+            LinkValue.query.filter_by(source_record_id=record_id).delete()
+            
+            # 删除作为目标记录的关联
+            LinkValue.query.filter_by(target_record_id=record_id).delete()
+            
+            current_app.logger.info(f'[LinkService] 已删除记录 {record_id} 的所有关联数据')
+            return True
+        except Exception as e:
+            current_app.logger.error(f'[LinkService] 删除记录关联数据失败: {str(e)}')
+            return False

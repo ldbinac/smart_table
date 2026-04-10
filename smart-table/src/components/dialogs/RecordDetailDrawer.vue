@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, onMounted } from "vue";
 import {
   ElDrawer,
   ElButton,
@@ -29,6 +29,9 @@ import {
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
+import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import type { LinkedRecord } from "@/types/link";
+import { linkApiService } from "@/services/api/linkApiService";
 
 const props = defineProps<{
   visible: boolean;
@@ -47,10 +50,129 @@ const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
 const historyVisible = ref(false);
 
+// 关联字段相关状态
+const linkFieldRecords = ref<Map<string, LinkedRecord[]>>(new Map());
+const linkFieldLoading = ref<Set<string>>(new Set());
+const editingLinkField = ref<string | null>(null);
+
 // 显示变更历史
 const showHistory = () => {
   historyVisible.value = true;
 };
+
+// 获取关联字段配置
+const getLinkFieldConfig = (field: FieldEntity) => {
+  if (field.type !== FieldType.LINK) return null;
+  const config = field.config as Record<string, unknown>;
+  return {
+    targetTableId: config?.linkedTableId as string,
+    relationshipType:
+      (config?.relationshipType as "one_to_one" | "one_to_many") ||
+      "one_to_many",
+    displayFieldId: config?.displayFieldId as string,
+  };
+};
+
+// 加载关联记录详情
+const loadLinkedRecords = async (field: FieldEntity) => {
+  if (!props.record || field.type !== FieldType.LINK) return;
+
+  const fieldId = field.id;
+  const linkedIds = (formData.value[fieldId] as string[]) || [];
+
+  if (linkedIds.length === 0) {
+    linkFieldRecords.value.set(fieldId, []);
+    return;
+  }
+
+  linkFieldLoading.value.add(fieldId);
+  try {
+    const links = await linkApiService.getRecordLinks(props.record.id);
+    const fieldLinks = links.outbound.find((l) => l.field_id === fieldId);
+    if (fieldLinks && fieldLinks.linked_records) {
+      linkFieldRecords.value.set(
+        fieldId,
+        fieldLinks.linked_records.map((r) => ({
+          record_id: r.record_id,
+          display_value: r.display_value,
+        }))
+      );
+    } else {
+      linkFieldRecords.value.set(
+        fieldId,
+        linkedIds.map((id) => ({
+          record_id: id,
+          display_value: id,
+        }))
+      );
+    }
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 加载关联记录失败:", error);
+    linkFieldRecords.value.set(
+      fieldId,
+      linkedIds.map((id) => ({
+        record_id: id,
+        display_value: id,
+      }))
+    );
+  } finally {
+    linkFieldLoading.value.delete(fieldId);
+  }
+};
+
+// 获取关联记录数据
+const getLinkedRecords = (field: FieldEntity): LinkedRecord[] => {
+  return linkFieldRecords.value.get(field.id) || [];
+};
+
+// 处理关联字段编辑
+const handleLinkFieldEdit = (fieldId: string) => {
+  editingLinkField.value = fieldId;
+};
+
+// 处理关联字段值更新
+const handleLinkFieldChange = async (
+  field: FieldEntity,
+  value: string[],
+  records: LinkedRecord[]
+) => {
+  if (!props.record) return;
+
+  try {
+    await linkApiService.updateRecordLink(props.record.id, field.id, {
+      target_record_ids: value,
+    });
+    formData.value[field.id] = value;
+    linkFieldRecords.value.set(field.id, records);
+    editingLinkField.value = null;
+    ElMessage.success("关联字段更新成功");
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 更新关联字段失败:", error);
+    ElMessage.error("更新关联字段失败");
+  }
+};
+
+// 加载所有关联字段数据
+const loadAllLinkFields = async () => {
+  if (!props.record) return;
+
+  const linkFields = visibleFields.value.filter(
+    (f) => f.type === FieldType.LINK
+  );
+  for (const field of linkFields) {
+    await loadLinkedRecords(field);
+  }
+};
+
+// 监听记录变化，加载关联数据
+watch(
+  () => props.record,
+  () => {
+    linkFieldRecords.value.clear();
+    loadAllLinkFields();
+  },
+  { immediate: true }
+);
 
 // 可见字段（用于显示）
 const visibleFields = computed(() => {
@@ -136,6 +258,8 @@ const getFieldComponent = (field: FieldEntity): string => {
       return "formula";
     case FieldType.ATTACHMENT:
       return "attachment";
+    case FieldType.LINK:
+      return "link";
     default:
       return "text";
   }
@@ -386,6 +510,22 @@ const drawerTitle = computed(() => {
               @update:model-value="(val) => handleValueChange(field.id, val)"
               @upload="(files) => handleAttachmentUpload(field.id, files)"
               @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
+          </template>
+
+          <!-- 关联字段类型 -->
+          <template v-else-if="getFieldComponent(field) === 'link'">
+            <LinkField
+              :value="(formData[field.id] as string[]) || []"
+              :linked-records="getLinkedRecords(field)"
+              :target-table-id="getLinkFieldConfig(field)?.targetTableId"
+              :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
+              :relationship-type="getLinkFieldConfig(field)?.relationshipType"
+              :is-editing="editingLinkField === field.id"
+              :readonly="readonly"
+              @edit-start="handleLinkFieldEdit(field.id)"
+              @update:value="(val) => handleLinkFieldChange(field, val, getLinkedRecords(field))"
+              @change="(val, records) => handleLinkFieldChange(field, val, records)"
+              @edit-end="editingLinkField = null" />
           </template>
         </div>
       </el-form>

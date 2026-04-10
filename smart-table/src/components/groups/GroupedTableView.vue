@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import type { FieldEntity, RecordEntity } from "../../db/schema";
 import type { GroupNode } from "../../utils/group";
 import { FieldType } from "../../types";
@@ -9,6 +9,9 @@ import { FormulaEngine } from "@/utils/formula/engine";
 import { ZoomIn, Paperclip, Lock } from "@element-plus/icons-vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 import type { SortConfig } from "@/types";
+import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import type { LinkedRecord } from "@/types/link";
+import { linkApiService } from "@/services/api/linkApiService";
 
 interface Props {
   fields: FieldEntity[];
@@ -515,6 +518,10 @@ function toggleExpandAll() {
       }
     };
     collectKeys(groupNodes.value);
+    // 延迟加载关联数据
+    nextTick(() => {
+      loadLinkDataForVisibleRecords();
+    });
   }
   refreshCounter.value++;
 }
@@ -523,6 +530,10 @@ function updateGroups() {
   if (props.groupBy.length === 0) {
     groupNodes.value = [];
     expandedKeys.value.clear();
+    // 无分组模式下也加载关联数据
+    nextTick(() => {
+      loadLinkDataForVisibleRecords();
+    });
     return;
   }
 
@@ -544,6 +555,11 @@ function updateGroups() {
     }
   };
   collectKeys(groupNodes.value);
+
+  // 初始加载完成后加载关联数据
+  nextTick(() => {
+    loadLinkDataForVisibleRecords();
+  });
 }
 
 watch(
@@ -555,12 +571,41 @@ watch(
 );
 
 function toggleGroup(groupKey: string) {
-  if (expandedKeys.value.has(groupKey)) {
-    expandedKeys.value.delete(groupKey);
-  } else {
+  const isExpanding = !expandedKeys.value.has(groupKey);
+  if (isExpanding) {
     expandedKeys.value.add(groupKey);
+    // 延迟加载关联数据，确保DOM已更新
+    nextTick(() => {
+      loadLinkDataForVisibleRecords();
+    });
+  } else {
+    expandedKeys.value.delete(groupKey);
   }
   refreshCounter.value++;
+}
+
+// 加载可见记录的关联数据
+function loadLinkDataForVisibleRecords() {
+  // 获取所有可见的数据行
+  const visibleRecords = flattenedData.value
+    .filter((item) => item.type === "record" && item.record)
+    .map((item) => item.record!);
+
+  // 为每条记录的关联字段加载数据
+  for (const record of visibleRecords) {
+    for (const field of visibleFields.value) {
+      if (field.type === FieldType.LINK) {
+        const linkedIds = record.values[field.id] as string[] | null;
+        if (linkedIds && linkedIds.length > 0) {
+          // 检查是否已加载
+          const existingData = recordLinkData.value.get(record.id)?.get(field.id);
+          if (!existingData) {
+            loadLinkedRecords(record, field);
+          }
+        }
+      }
+    }
+  }
 }
 
 function isGroupExpanded(groupKey: string): boolean {
@@ -934,6 +979,129 @@ function getRatingDisplay(field: FieldEntity, value: unknown): string {
   const maxRating = (field.options?.maxRating as number) || 5;
   const rating = Number(value) || 0;
   return "★".repeat(rating) + "☆".repeat(maxRating - rating);
+}
+
+// ========== 关联字段相关 ==========
+
+// 存储每条记录的关联字段数据
+const recordLinkData = ref<Map<string, Map<string, LinkedRecord[]>>>(new Map());
+const recordLinkLoading = ref<Map<string, Set<string>>>(new Map());
+
+// 获取关联字段配置
+function getLinkFieldConfig(field: FieldEntity) {
+  if (field.type !== FieldType.LINK) return null;
+  const config = field.config as Record<string, unknown>;
+  return {
+    targetTableId: config?.linkedTableId as string,
+    relationshipType:
+      (config?.relationshipType as "one_to_one" | "one_to_many") ||
+      "one_to_many",
+    displayFieldId: config?.displayFieldId as string,
+  };
+}
+
+// 加载关联记录详情
+async function loadLinkedRecords(record: RecordEntity, field: FieldEntity) {
+  if (field.type !== FieldType.LINK) return;
+
+  const recordId = record.id;
+  const fieldId = field.id;
+  const linkedIds = record.values[fieldId] as string[] | null;
+
+  if (!linkedIds || linkedIds.length === 0) {
+    // 清空关联数据
+    if (!recordLinkData.value.has(recordId)) {
+      recordLinkData.value.set(recordId, new Map());
+    }
+    recordLinkData.value.get(recordId)!.set(fieldId, []);
+    return;
+  }
+
+  // 标记加载中
+  if (!recordLinkLoading.value.has(recordId)) {
+    recordLinkLoading.value.set(recordId, new Set());
+  }
+  recordLinkLoading.value.get(recordId)!.add(fieldId);
+
+  try {
+    // 获取记录的关联数据
+    const links = await linkApiService.getRecordLinks(recordId);
+
+    // 找到当前字段的关联数据
+    const fieldLinks = links.outbound.find((l) => l.field_id === fieldId);
+    let linkedRecords: LinkedRecord[] = [];
+
+    if (fieldLinks && fieldLinks.linked_records) {
+      linkedRecords = fieldLinks.linked_records.map((r) => ({
+        record_id: r.record_id,
+        display_value: r.display_value,
+      }));
+    } else {
+      // 如果没有从API获取到，使用ID列表创建简单的记录
+      linkedRecords = linkedIds.map((id) => ({
+        record_id: id,
+        display_value: id,
+      }));
+    }
+
+    // 存储关联数据
+    if (!recordLinkData.value.has(recordId)) {
+      recordLinkData.value.set(recordId, new Map());
+    }
+    recordLinkData.value.get(recordId)!.set(fieldId, linkedRecords);
+  } catch (error) {
+    console.error("[GroupedTableView] 加载关联记录失败:", error);
+    // 失败时使用ID列表
+    if (!recordLinkData.value.has(recordId)) {
+      recordLinkData.value.set(recordId, new Map());
+    }
+    recordLinkData.value.get(recordId)!.set(
+      fieldId,
+      linkedIds.map((id) => ({
+        record_id: id,
+        display_value: id,
+      }))
+    );
+  } finally {
+    // 移除加载标记
+    recordLinkLoading.value.get(recordId)?.delete(fieldId);
+  }
+}
+
+// 获取关联记录数据
+function getLinkedRecords(record: RecordEntity, field: FieldEntity): LinkedRecord[] {
+  if (field.type !== FieldType.LINK) return [];
+  return recordLinkData.value.get(record.id)?.get(field.id) || [];
+}
+
+// 检查关联记录是否正在加载
+function isLinkLoading(record: RecordEntity, field: FieldEntity): boolean {
+  if (field.type !== FieldType.LINK) return false;
+  return recordLinkLoading.value.get(record.id)?.has(field.id) || false;
+}
+
+// 处理关联字段点击编辑
+function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
+  if (props.readonly) return;
+  // 触发单元格点击事件，父组件会处理编辑
+  emit("cellClick", record, field);
+}
+
+// 处理关联字段值更新
+function handleLinkFieldChange(
+  record: RecordEntity,
+  field: FieldEntity,
+  value: string[],
+  records: LinkedRecord[]
+) {
+  // 更新本地关联数据
+  if (!recordLinkData.value.has(record.id)) {
+    recordLinkData.value.set(record.id, new Map());
+  }
+  recordLinkData.value.get(record.id)!.set(field.id, records);
+
+  // 触发更新事件
+  emit("cellClick", record, field);
 }
 </script>
 
@@ -1352,6 +1520,18 @@ function getRatingDisplay(field: FieldEntity, value: unknown): string {
                     {{ item.record!.values[field.id] }}
                   </a>
                   <span v-else class="cell-content">-</span>
+                </template>
+
+                <!-- 关联字段 -->
+                <template v-else-if="field.type === FieldType.LINK">
+                  <LinkField
+                    :value="(item.record!.values[field.id] as string[]) || []"
+                    :linked-records="getLinkedRecords(item.record!, field)"
+                    :target-table-id="getLinkFieldConfig(field)?.targetTableId"
+                    :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
+                    :relationship-type="getLinkFieldConfig(field)?.relationshipType"
+                    :is-editing="false"
+                    @edit-start="handleLinkFieldClick(item.record!, field)" />
                 </template>
 
                 <!-- 其他字段 -->
