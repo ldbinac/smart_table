@@ -338,6 +338,7 @@ function copyEmbedCode() {
   width="100%" 
   height="600" 
   frameborder="0"
+  sandbox="allow-scripts allow-forms allow-same-origin"
   style="border: 1px solid #dee0e3; border-radius: 8px;"
 ></iframe>`;
 

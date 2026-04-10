@@ -135,10 +135,20 @@ const unstarLoadingMap = ref<Map<string, boolean>>(new Map());
 const searchQuery = ref("");
 
 // 高亮匹配文本
+const escapeHtml = (str: string): string => {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
 const highlightText = (text: string, query: string): string => {
-  if (!query.trim()) return text;
+  if (!query.trim()) return escapeHtml(text);
+  const escaped = escapeHtml(text);
   const regex = new RegExp(`(${escapeRegExp(query)})`, "gi");
-  return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+  return escaped.replace(regex, '<mark class="search-highlight">$1</mark>');
 };
 
 // 转义正则特殊字符

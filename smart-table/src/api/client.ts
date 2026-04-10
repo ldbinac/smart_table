@@ -27,28 +27,10 @@ const instance: AxiosInstance = axios.create({
 
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 使用 getToken 工具函数，同时支持 localStorage 和 sessionStorage
     const token = getToken();
-    console.log(`[API 拦截器] 请求 URL: ${config.url}`);
-    console.log(`[API 拦截器] Token 存在：${!!token}`);
-    console.log(
-      `[API 拦截器] Token 前缀：${token ? token.substring(0, 20) : "N/A"}...`,
-    );
-    console.log(`[API 拦截器] Headers 初始：`, config.headers);
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log(
-        `[API 拦截器] 设置 Authorization 头后的 headers:`,
-        config.headers,
-      );
-      console.log(
-        `[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，Token: ${token.substring(0, 20)}...`,
-      );
-    } else {
-      console.warn(
-        `[API] 发送请求 ${config.method?.toUpperCase()} ${config.url}，但 Token 不存在！`,
-      );
     }
     return config;
   },

@@ -21,7 +21,7 @@ export const authGuard = async (
   const authStore = useAuthStore()
   
   // 检查是否在白名单中
-  if (whiteList.includes(to.path)) {
+  if (whiteList.includes(to.path) || to.meta.public) {
     // 如果已登录，跳转到首页
     if (authStore.isLoggedIn) {
       next('/')

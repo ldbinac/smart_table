@@ -70,7 +70,11 @@ function handleBlur() {
 
 function openUrl() {
   if (localValue.value) {
-    window.open(localValue.value, "_blank", "noopener,noreferrer");
+    const url = localValue.value.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 }
 </script>
