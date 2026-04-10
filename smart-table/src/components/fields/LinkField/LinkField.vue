@@ -8,7 +8,7 @@
           :key="record.record_id"
           size="small"
           class="link-tag"
-          @click.stop="navigateToRecord(record.record_id)"
+          @click.stop="showRecordDetail(record.record_id)"
         >
           {{ record.display_value }}
         </el-tag>
@@ -36,14 +36,22 @@
         @cancel="handleCancel"
       />
     </div>
+
+    <!-- 关联记录详情弹窗 -->
+    <LinkedRecordDetailDialog
+      v-model:visible="detailDialogVisible"
+      :record-id="selectedRecordId"
+      :table-id="targetTableId || ''"
+      @close="handleDetailClose"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { computed, ref } from "vue";
 import { ElTag } from "element-plus";
 import LinkRecordSelector from "./LinkRecordSelector.vue";
+import LinkedRecordDetailDialog from "./LinkedRecordDetailDialog.vue";
 import type { LinkedRecord } from "@/types/link";
 
 interface Props {
@@ -71,8 +79,6 @@ const emit = defineEmits<{
   (e: "edit-end"): void;
 }>();
 
-const router = useRouter();
-
 // 选中的记录 ID 列表
 const selectedRecordIds = computed(() => props.value || []);
 
@@ -89,6 +95,10 @@ const hasMoreRecords = computed(() => {
   return props.linkedRecords.length > props.maxDisplayCount;
 });
 
+// 详情弹窗状态
+const detailDialogVisible = ref(false);
+const selectedRecordId = ref("");
+
 // 处理点击事件
 const handleClick = () => {
   if (!props.isEditing) {
@@ -96,17 +106,17 @@ const handleClick = () => {
   }
 };
 
-// 跳转到关联记录
-const navigateToRecord = (recordId: string) => {
-  if (props.targetTableId) {
-    // 在新标签页打开关联记录
-    const route = router.resolve({
-      name: "Base",
-      params: { tableId: props.targetTableId },
-      query: { recordId },
-    });
-    window.open(route.href, "_blank");
-  }
+// 显示记录详情弹窗
+const showRecordDetail = (recordId: string) => {
+  if (!props.targetTableId) return;
+  
+  selectedRecordId.value = recordId;
+  detailDialogVisible.value = true;
+};
+
+// 处理详情弹窗关闭
+const handleDetailClose = () => {
+  selectedRecordId.value = "";
 };
 
 // 处理确认选择
