@@ -279,22 +279,21 @@ export class RecordService {
     updates: { id: string; values: Record<string, CellValue> }[],
   ): Promise<void> {
     try {
-      // 调用后端 API 批量更新记录
-      const recordIds = updates.map((u) => u.id);
-      const values = updates[0]?.values as Record<string, unknown>;
-      await recordApiService.batchUpdateRecords(recordIds, values);
+      for (const update of updates) {
+        const serializedValues = serializeRecordValues(update.values);
+        await recordApiService.updateRecord(update.id, { values: serializedValues });
+      }
 
-      // 更新本地 IndexedDB
       await db.transaction("rw", db.records, async () => {
         for (const update of updates) {
+          const serializedValues = serializeRecordValues(update.values);
           await db.records.update(update.id, {
-            values: update.values,
+            values: serializedValues,
             updatedAt: Date.now(),
           });
         }
       });
     } catch (error) {
-      console.error("[recordService] batchUpdateRecords failed:", error);
       throw error;
     }
   }

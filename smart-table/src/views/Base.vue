@@ -324,15 +324,15 @@ onMounted(async () => {
     if (shareInfo) {
       try {
         const info = JSON.parse(shareInfo);
-        console.log("分享权限信息:", info);
-        // 可以在这里设置分享权限相关的状态
-        // TODO: fetchBase增加一个参数，用于传递分享权限share_token信息
-        // 请求后台接口的时候，把这个share_token传递给后端（可以通过请求头或请求体传递）
-        // 后台对应接口拿到share_token后，根据share_token来获取分享的权限信息
-        // 然后把该信息存储到baseMember表中，并同步返回前端base信息
-        await baseStore.fetchBase(baseId, info.share_token);
+        if (info && info.share_token && typeof info.share_token === 'string') {
+          await baseStore.fetchBase(baseId, info.share_token);
+        } else {
+          localStorage.removeItem(`share_permission_${baseId}`);
+          await baseStore.fetchBase(baseId);
+        }
       } catch (e) {
-        console.error("解析分享权限信息失败:", e);
+        localStorage.removeItem(`share_permission_${baseId}`);
+        await baseStore.fetchBase(baseId);
       }
     } else {
       // 没有分享权限信息，加载 Base 详情

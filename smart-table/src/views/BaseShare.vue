@@ -115,9 +115,8 @@ async function enterBase() {
     localStorage.setItem(
       `share_permission_${shareData.value.base.id}`,
       JSON.stringify({
-        permission: shareData.value.permission,
         share_token: shareData.value.share_token,
-        base: shareData.value.base,
+        base_id: shareData.value.base.id,
       })
     );
 

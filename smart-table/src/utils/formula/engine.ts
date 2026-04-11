@@ -92,7 +92,12 @@ export class FormulaEngine {
   ): string {
     if (value === null || value === undefined) return "null";
 
-    if (!field) return JSON.stringify(String(value));
+    // 无字段上下文时（如函数返回值），根据值类型直接转换
+    if (!field) {
+      if (typeof value === "number") return String(value);
+      if (typeof value === "boolean") return value ? "1" : "0";
+      return JSON.stringify(String(value));
+    }
 
     switch (field.type) {
       case FieldType.NUMBER:
@@ -116,18 +121,18 @@ export class FormulaEngine {
 
   private evaluateFunctions(expression: string): string {
     const functionNames = Object.keys(formulaFunctions).join("|");
-    
+
     // 递归处理嵌套函数 - 从内到外处理
     let result = expression;
     let prevResult: string;
-    
+
     // 循环处理直到没有变化（所有函数都被执行）
     do {
       prevResult = result;
-      
+
       // 使用更精确的正则匹配函数调用（处理嵌套括号）
       const regex = new RegExp(`(${functionNames})\\s*\\(([^()]*)\\)`, "gi");
-      
+
       result = result.replace(regex, (match, funcName, args) => {
         const func = formulaFunctions[funcName.toUpperCase()];
         if (!func) return match;
@@ -143,7 +148,7 @@ export class FormulaEngine {
         }
       });
     } while (result !== prevResult);
-    
+
     return result;
   }
 
@@ -365,8 +370,8 @@ export class FormulaEngine {
       expr = expr.replace(match[0], String(inner));
     }
 
-    // 处理加减法
-    const addSubMatch = expr.match(/^(.+?)([+\-])(.+)$/);
+    // 处理加减法（低优先级，贪婪匹配左侧以实现左结合）
+    const addSubMatch = expr.match(/^(.+)([+\-])(.+)$/);
     if (addSubMatch) {
       const [, left, op, right] = addSubMatch;
       const leftVal = this.evaluateArithmetic(left);
@@ -374,8 +379,8 @@ export class FormulaEngine {
       return op === "+" ? leftVal + rightVal : leftVal - rightVal;
     }
 
-    // 处理乘除法
-    const mulDivMatch = expr.match(/^(.+?)([*\/])(.+)$/);
+    // 处理乘除法（高优先级，贪婪匹配左侧以实现左结合）
+    const mulDivMatch = expr.match(/^(.+)([*\/])(.+)$/);
     if (mulDivMatch) {
       const [, left, op, right] = mulDivMatch;
       const leftVal = this.evaluateArithmetic(left);

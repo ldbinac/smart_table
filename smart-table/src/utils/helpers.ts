@@ -1,6 +1,15 @@
 import type { CellValue } from "../types";
 import type { FieldEntity } from "../db/schema";
 
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }

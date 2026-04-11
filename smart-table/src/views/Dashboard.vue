@@ -28,6 +28,7 @@ import {
   formatLargeNumber,
 } from "@/utils/dashboardDataProcessor";
 import { DashboardLayoutEngine } from "@/utils/dashboardLayoutEngine";
+import { escapeHtml } from "@/utils/helpers";
 // widgetRegistry 暂时未使用，但保留以备将来扩展
 // import { widgetRegistry } from "@/utils/dashboardWidgetRegistry";
 import { FieldType } from "@/types";
@@ -1135,7 +1136,7 @@ function renderWidget(widget: WidgetConfig) {
     container.innerHTML = `
       <div class="number-card" style="--number-color: ${color}">
         <div class="number-value">${formattedValue}</div>
-        <div class="number-label">${widget.title}</div>
+        <div class="number-label">${escapeHtml(widget.title)}</div>
         ${values.length > 1 ? `<div class="number-detail">共 ${values.length} 项数据</div>` : ""}
       </div>
     `;
@@ -1160,7 +1161,7 @@ function renderWidget(widget: WidgetConfig) {
               <tr>
                 <td>
                   <span class="table-dot" style="background-color: ${colors[i]}"></span>
-                  ${label}
+                  ${escapeHtml(String(label))}
                 </td>
                 <td class="value-cell">${formatLargeNumber(values[i])}</td>
               </tr>
@@ -1615,7 +1616,7 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
 // 跑马灯组件
 function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const content = config.content || "欢迎使用 Smart Table 数据仪表盘";
+  const content = escapeHtml(config.content || "欢迎使用 Smart Table 数据仪表盘");
   const speed = config.speed || 2;
   const fontSize = config.fontSize || 16;
   const direction = config.direction || "left";
@@ -1668,8 +1669,8 @@ function renderKpiWidget(
   const config = widget.config || {};
   const total = values.reduce((a, b) => a + b, 0);
   const formattedValue = formatLargeNumber(total);
-  const prefix = config.prefix || "";
-  const suffix = config.suffix || "";
+  const prefix = escapeHtml(config.prefix || "");
+  const suffix = escapeHtml(config.suffix || "");
 
   // 计算趋势（如果有历史数据）
   let trendHtml = "";
@@ -1722,7 +1723,7 @@ function renderKpiWidget(
       padding: 20px;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     ">
-      <div style="font-size: 14px; color: #6B7280; margin-bottom: 8px;">${widget.title}</div>
+      <div style="font-size: 14px; color: #6B7280; margin-bottom: 8px;">${escapeHtml(widget.title)}</div>
       <div style="font-size: 32px; font-weight: bold; color: #111827;">
         ${prefix}${formattedValue}${suffix}
         ${trendHtml}
@@ -1816,8 +1817,8 @@ function renderRealtimeWidget(
 // 标题文字组件
 function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const text = config.text || widget.title || "标题文字";
-  const subtitle = config.subtitle || "";
+  const text = escapeHtml(config.text || widget.title || "标题文字");
+  const subtitle = escapeHtml(config.subtitle || "");
   const fontSize = config.fontSize || 32;
   const subtitleFontSize = config.subtitleFontSize || 16;
   const fontWeight = config.fontWeight || "bold";

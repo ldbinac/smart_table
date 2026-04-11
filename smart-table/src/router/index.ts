@@ -157,6 +157,13 @@ const router = createRouter({
 
 // 使用路由守卫
 router.beforeEach(authGuard);
+router.beforeEach(async (to, _from, next) => {
+  if (to.meta.requiresAdmin) {
+    await adminGuard(to, _from, next);
+  } else {
+    next();
+  }
+});
 router.beforeEach(titleGuard);
 
 export default router;
