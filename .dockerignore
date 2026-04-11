@@ -1,0 +1,83 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+.npm
+.yarn
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 文档和测试
+*.md
+doc/
+docs/
+tests/
+test/
+*.test.ts
+*.spec.ts
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+docker/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 日志
+logs/
+*.log
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 上传文件
+uploads/
+
+# 前端构建产物
+smart-table/dist/
+smart-table/build/
+
+# 后端迁移
+migrations/
+alembic.ini
+
+# 其他
+*.bak
+*.tmp
+.Trae/
+.trae/

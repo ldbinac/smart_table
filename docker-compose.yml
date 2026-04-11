@@ -1,0 +1,57 @@
+# SmartTable 统一 Docker 镜像部署配置
+# 使用 SQLite 数据库的简化版本，适合快速部署和测试
+
+version: '3.8'
+
+services:
+  # SmartTable 统一应用（包含前后端）
+  smarttable:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smarttable
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    environment:
+      # Flask 配置
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret-in-production}
+      
+      # 数据库配置（使用 SQLite）
+      DATABASE_URL: sqlite:///app/smarttable.db
+      
+      # 上传配置
+      UPLOAD_FOLDER: /app/uploads
+      MAX_CONTENT_LENGTH: 52428800  # 50MB
+      
+      # 日志配置
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      # 持久化数据库
+      - sqlite_data:/app
+      # 持久化上传文件
+      - uploads_data:/app/uploads
+      # 日志文件
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - smarttable-network
+
+# 数据卷定义
+volumes:
+  sqlite_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+# 网络定义
+networks:
+  smarttable-network:
+    driver: bridge
