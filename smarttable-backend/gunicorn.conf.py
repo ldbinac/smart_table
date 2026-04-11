@@ -9,14 +9,16 @@ import os
 bind = "0.0.0.0:5000"
 
 # 工作进程数
-# 建议: 2-4 x $(NUM_CORES)
-workers = multiprocessing.cpu_count() * 2 + 1
+# eventlet 模式下建议单 worker（协程并发），多 worker 需要额外的消息队列支持
+workers = 1
 
 # 工作进程类型
-worker_class = "sync"
+# Flask-SocketIO 需要 eventlet worker，使用 sync 会导致 WebSocket 异常
+worker_class = "eventlet"
 
 # 每个工作进程的线程数
-threads = 4
+# eventlet 模式下使用协程，不需要多线程
+threads = 1
 
 # 工作进程超时时间（秒）
 timeout = 120
@@ -43,7 +45,8 @@ loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
 # 是否使用虚拟主机
-forwarded_allow_ips = "*"
+# 仅信任本地反向代理的 X-Forwarded-For 头，防止 IP 伪造
+forwarded_allow_ips = "127.0.0.1"
 
 # 安全限制
 limit_request_line = 4096

@@ -12,7 +12,7 @@ from marshmallow import Schema, fields, validate, ValidationError
 
 from app.services.admin_service import AdminService
 from app.models.log import AdminActionType, EntityType
-from app.utils.decorators import jwt_required, admin_required
+from app.utils.decorators import jwt_required, admin_required, get_client_ip, get_user_agent
 from app.utils.response import (
     success_response,
     error_response,
@@ -70,18 +70,6 @@ user_status_update_schema = UserStatusUpdateSchema()
 password_reset_schema = PasswordResetSchema()
 system_config_update_schema = SystemConfigUpdateSchema()
 system_config_batch_update_schema = SystemConfigBatchUpdateSchema()
-
-
-def get_client_ip() -> str:
-    """获取客户端 IP 地址"""
-    if request.headers.get('X-Forwarded-For'):
-        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
-    return request.remote_addr or 'unknown'
-
-
-def get_user_agent() -> Optional[str]:
-    """获取用户代理"""
-    return request.headers.get('User-Agent')
 
 
 @admin_bp.route('/users', methods=['GET'])

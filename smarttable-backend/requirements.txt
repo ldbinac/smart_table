@@ -21,7 +21,7 @@ redis==5.0.1
 
 # WebSocket 支持
 Flask-SocketIO==5.3.6
-eventlet==0.33.3
+eventlet==0.36.1
 
 # 数据序列化
 marshmallow==3.20.1
@@ -33,7 +33,7 @@ openpyxl==3.1.2
 xlrd==2.0.1
 
 # 图片处理
-Pillow==10.1.0
+Pillow==10.4.0
 
 # 环境变量
 python-dotenv==1.0.0

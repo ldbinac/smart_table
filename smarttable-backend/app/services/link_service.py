@@ -719,6 +719,8 @@ class LinkService:
                 return {}
 
             result = {}
+            # 字段缓存，避免 N+1 查询
+            field_cache = {}
 
             # 作为源记录的关联
             source_links = db.session.execute(
@@ -738,7 +740,8 @@ class LinkService:
                 # 获取显示值 - 使用关联字段配置中的 displayFieldId
                 display_value = LinkService._get_link_display_value(
                     link_value.target_record, 
-                    link_relation.source_field_id
+                    link_relation.source_field_id,
+                    _field_cache=field_cache
                 )
                 
                 result[field_id].append({
@@ -771,7 +774,8 @@ class LinkService:
                     # 获取显示值 - 使用关联字段配置中的 displayFieldId
                     display_value = LinkService._get_link_display_value(
                         link_value.source_record,
-                        link_relation.target_field_id
+                        link_relation.target_field_id,
+                        _field_cache=field_cache
                     )
                     
                     result[field_id].append({
@@ -794,7 +798,7 @@ class LinkService:
             return {}
     
     @staticmethod
-    def _get_link_display_value(target_record, field_id: str) -> str:
+    def _get_link_display_value(target_record, field_id: str, _field_cache: dict = None) -> str:
         """
         获取关联记录的显示值
         
@@ -803,6 +807,7 @@ class LinkService:
         Args:
             target_record: 目标记录
             field_id: 关联字段ID
+            _field_cache: 字段缓存字典（避免 N+1 查询）
             
         Returns:
             显示值字符串
@@ -811,9 +816,16 @@ class LinkService:
             if not target_record:
                 return '未命名记录'
             
-            # 获取关联字段配置
-            from app.models.field import Field
-            field = db.session.get(Field, field_id)
+            # 获取关联字段配置（优先使用缓存）
+            field = None
+            if _field_cache is not None:
+                field = _field_cache.get(str(field_id))
+            if field is None:
+                from app.models.field import Field
+                field = db.session.get(Field, field_id)
+                if _field_cache is not None and field:
+                    _field_cache[str(field_id)] = field
+            
             if field and field.config:
                 display_field_id = field.config.get('displayFieldId')
                 if display_field_id:
@@ -852,3 +864,104 @@ class LinkService:
         except Exception as e:
             current_app.logger.error(f'[LinkService] 删除记录关联数据失败: {str(e)}')
             return False
+
+    @staticmethod
+    def create_link_field(table_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        创建关联字段（包含字段创建、反向字段创建和关联关系创建的完整业务逻辑）
+        
+        Args:
+            table_id: 源表 ID
+            data: 创建数据，包含:
+                - name: 字段名称
+                - target_table_id: 目标表 ID（必需）
+                - relationship_type: 关联类型（必需）
+                - display_field_id: 显示字段 ID（可选）
+                - bidirectional: 是否双向关联（可选，默认 False）
+                - description: 描述（可选）
+            
+        Returns:
+            包含操作结果的字典
+        """
+        from app.services.field_service import FieldService
+        from app.services.table_service import TableService
+
+        target_table_id = data.get('target_table_id')
+        relationship_type = data.get('relationship_type')
+        name = data.get('name', '关联字段')
+
+        # 获取源表信息
+        source_table = TableService.get_table_by_id(str(table_id))
+        if not source_table:
+            return {'success': False, 'error': '源表不存在'}
+
+        try:
+            # 1. 创建关联字段
+            field_data = {
+                'name': name,
+                'type': FieldType.LINK_TO_RECORD.value,
+                'description': data.get('description', ''),
+                'config': {
+                    'linkedTableId': target_table_id,
+                    'relationshipType': relationship_type,
+                    'displayFieldId': data.get('display_field_id'),
+                    'bidirectional': data.get('bidirectional', False)
+                }
+            }
+
+            result = FieldService.create_field(str(table_id), field_data)
+            if not result['success']:
+                return result
+
+            field = result['field']
+
+            # 2. 如果是双向关联，在目标表中创建反向关联字段
+            inverse_field = None
+            if data.get('bidirectional', False):
+                inverse_relationship_type = 'one_to_many' if relationship_type == 'many_to_one' else 'many_to_one' if relationship_type == 'one_to_many' else 'one_to_one'
+
+                inverse_field_data = {
+                    'name': f"来自 {source_table.name if source_table else '源表'} 的关联",
+                    'type': FieldType.LINK_TO_RECORD.value,
+                    'description': f'自动创建的反向关联字段，关联到 {source_table.name if source_table else "源表"}',
+                    'config': {
+                        'linkedTableId': table_id,
+                        'relationshipType': inverse_relationship_type,
+                        'displayFieldId': None,
+                        'bidirectional': True,
+                        'inverseFieldId': field['id']
+                    }
+                }
+
+                inverse_result = FieldService.create_field(str(target_table_id), inverse_field_data)
+                if inverse_result['success']:
+                    inverse_field = inverse_result['field']
+
+            # 3. 创建关联关系
+            link_data = {
+                'source_table_id': str(table_id),
+                'target_table_id': str(target_table_id),
+                'source_field_id': field['id'],
+                'target_field_id': inverse_field['id'] if inverse_field else None,
+                'relationship_type': relationship_type,
+                'bidirectional': data.get('bidirectional', False)
+            }
+
+            link_result = LinkService.create_link_relation(link_data)
+            if not link_result[0]:
+                # 回滚：删除已创建的字段
+                FieldService.delete_field(field['id'])
+                if inverse_field:
+                    FieldService.delete_field(inverse_field['id'])
+                return {'success': False, 'error': link_result[1]}
+
+            return {
+                'success': True,
+                'field': field,
+                'inverse_field': inverse_field,
+                'link_relation': link_result[0].to_dict() if link_result[0] else None
+            }
+
+        except Exception as e:
+            current_app.logger.error(f'[LinkService] 创建关联字段失败: {str(e)}')
+            return {'success': False, 'error': f'创建关联字段失败: {str(e)}'}

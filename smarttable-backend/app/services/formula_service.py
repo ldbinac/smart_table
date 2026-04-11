@@ -887,9 +887,10 @@ def fn_datediff(args: List[Any]) -> int:
     if start_date is None or end_date is None:
         return None
     
-    for d in [start_date, end_date]:
-        if isinstance(d, str):
-            d = datetime.fromisoformat(d.replace('Z', '+00:00'))
+    if isinstance(start_date, str):
+        start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+    if isinstance(end_date, str):
+        end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
     
     delta = end_date - start_date
     

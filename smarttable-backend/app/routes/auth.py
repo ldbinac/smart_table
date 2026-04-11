@@ -40,6 +40,7 @@ auth_bp.strict_slashes = False
 
 
 @auth_bp.route('/register', methods=['POST'])
+@rate_limit(max_attempts=3, window=3600)
 def register():
     """
     用户注册

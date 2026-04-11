@@ -98,7 +98,7 @@ def capture_request_info() -> Dict[str, Any]:
     return info
 
 
-def jwt_required(fn: Callable) -> Callable:
+def authenticate(fn: Callable) -> Callable:
     """
     JWT 认证装饰器
     验证请求中的 JWT 令牌，并将当前用户设置到 g.current_user
@@ -118,15 +118,12 @@ def jwt_required(fn: Callable) -> Callable:
 
             # 检查 Authorization 头
             auth_header = request.headers.get('Authorization')
-            current_app.logger.info(f'[JWT] Authorization header: {auth_header[:20] if auth_header else None}...')
             
             # 验证 JWT token
             verify_jwt_in_request()
             
             # 获取 token payload
             from flask_jwt_extended import get_jwt
-            jwt_payload = get_jwt()
-            current_app.logger.info(f'[JWT] Token payload: {jwt_payload}')
             
             user_id = get_jwt_identity()
             current_app.logger.info(f'[JWT] User ID: {user_id}')
@@ -136,7 +133,6 @@ def jwt_required(fn: Callable) -> Callable:
 
             # 使用 filter_by 而不是 get，避免 SQLAlchemy 2.0 的兼容性问题
             user = User.query.filter_by(id=uuid_id).first()
-            current_app.logger.info(f'[JWT] User found: {user.email if user else None}')
 
             if not user:
                 current_app.logger.error(f'[JWT] User not found: {user_id}')
@@ -154,9 +150,14 @@ def jwt_required(fn: Callable) -> Callable:
         except Exception as e:
             from flask import current_app
             current_app.logger.error(f'[JWT] JWT 验证失败：{str(e)}', exc_info=True)
-            return unauthorized_response(f'无效的认证令牌：{str(e)}')
+            return unauthorized_response('无效的认证令牌')
 
     return wrapper
+
+
+# 兼容别名：避免与 flask_jwt_extended.jwt_required 命名冲突
+# 新代码应使用 @authenticate，旧代码的 @jwt_required 仍可正常工作
+jwt_required = authenticate
 
 
 def role_required(roles) -> Callable:

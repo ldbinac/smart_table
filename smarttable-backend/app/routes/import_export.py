@@ -339,9 +339,45 @@ def export_data():
     返回:
         文件下载
     """
-    user_id = g.current_user_id
-    
     data = request.get_json() or {}
+    return _do_export(data)
+
+
+@import_export_bp.route('/export/excel', methods=['POST'])
+@jwt_required
+def export_excel():
+    """导出为 Excel 格式（便捷接口）"""
+    data = request.get_json() or {}
+    data['format'] = 'excel'
+    return _do_export(data)
+
+
+@import_export_bp.route('/export/csv', methods=['POST'])
+@jwt_required
+def export_csv():
+    """导出为 CSV 格式（便捷接口）"""
+    data = request.get_json() or {}
+    data['format'] = 'csv'
+    return _do_export(data)
+
+
+@import_export_bp.route('/export/json', methods=['POST'])
+@jwt_required
+def export_json():
+    """导出为 JSON 格式（便捷接口）"""
+    data = request.get_json() or {}
+    data['format'] = 'json'
+    return _do_export(data)
+
+
+def _do_export(data: dict):
+    """
+    内部导出实现，接收已解析的参数字典
+    
+    Args:
+        data: 包含 table_id, format, record_ids, field_ids 等参数的字典
+    """
+    user_id = g.current_user_id
     
     table_id = data.get('table_id')
     export_format = data.get('format', 'excel').lower()
@@ -394,36 +430,6 @@ def export_data():
     except Exception as e:
         current_app.logger.error(f'数据导出失败: {str(e)}')
         return error_response('数据导出失败，请稍后重试', code=500)
-
-
-@import_export_bp.route('/export/excel', methods=['POST'])
-@jwt_required
-def export_excel():
-    """导出为 Excel 格式（便捷接口）"""
-    data = request.get_json() or {}
-    data['format'] = 'excel'
-    request._cached_json = data
-    return export_data()
-
-
-@import_export_bp.route('/export/csv', methods=['POST'])
-@jwt_required
-def export_csv():
-    """导出为 CSV 格式（便捷接口）"""
-    data = request.get_json() or {}
-    data['format'] = 'csv'
-    request._cached_json = data
-    return export_data()
-
-
-@import_export_bp.route('/export/json', methods=['POST'])
-@jwt_required
-def export_json():
-    """导出为 JSON 格式（便捷接口）"""
-    data = request.get_json() or {}
-    data['format'] = 'json'
-    request._cached_json = data
-    return export_data()
 
 
 # ==================== 任务状态查询 ====================

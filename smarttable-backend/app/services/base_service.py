@@ -47,12 +47,17 @@ class BaseService:
             if base_id not in all_bases:
                 all_bases[base_id] = b
         
-        # 为每个 Base 设置用户的收藏状态
+        # 批量查询所有相关成员关系，避免 N+1 查询
+        all_base_ids = list(all_bases.keys())
+        all_memberships = BaseMember.query.filter(
+            BaseMember.base_id.in_(all_base_ids),
+            BaseMember.user_id == user_id
+        ).all() if all_base_ids else []
+        
+        membership_map = {str(m.base_id): m for m in all_memberships}
+        
         for base in all_bases.values():
-            membership = BaseMember.query.filter_by(
-                base_id=base.id, 
-                user_id=user_id
-            ).first()
+            membership = membership_map.get(str(base.id))
             if membership:
                 base.is_starred = membership.is_starred
             else:
@@ -493,7 +498,7 @@ class BaseService:
         """
         from flask import current_app
         
-        current_app.logger.info(f'[BaseService] 验证分享令牌：base={base_id}, user={user_id}, token={share_token}')
+        current_app.logger.info(f'[BaseService] 验证分享令牌：base={base_id}, user={user_id}')
         
         # 查找分享记录
         share = BaseShare.query.filter_by(share_token=share_token, base_id=base_id).first()
