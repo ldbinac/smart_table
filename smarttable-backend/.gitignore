@@ -148,6 +148,11 @@ logs/
 *.dump
 *.backup
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
 # Docker
 .docker/
 
@@ -163,3 +168,11 @@ minio_data/
 
 # Gunicorn
 *.pid
+
+# Certificate and key files
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx

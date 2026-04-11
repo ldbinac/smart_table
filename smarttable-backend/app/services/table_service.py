@@ -186,8 +186,10 @@ class TableService:
             db.session.delete(table)
             db.session.commit()
             return True
-        except Exception:
+        except Exception as e:
             db.session.rollback()
+            from flask import current_app
+            current_app.logger.error(f'[TableService] 删除表格失败：{table_id}, 错误：{str(e)}')
             return False
     
     @staticmethod

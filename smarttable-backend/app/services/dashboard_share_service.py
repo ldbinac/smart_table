@@ -137,8 +137,8 @@ class DashboardShareService:
         if share.max_access_count and share.current_access_count >= share.max_access_count:
             return False, share, '分享链接访问次数已达上限'
         
-        # 验证访问密码
-        if share.access_code and share.access_code != access_code:
+        # 验证访问密码（使用时间安全比较防止时序攻击）
+        if share.access_code and not secrets.compare_digest(share.access_code, access_code or ''):
             return False, share, '访问密码错误'
         
         return True, share, None

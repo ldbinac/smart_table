@@ -139,8 +139,10 @@ class DashboardService:
             db.session.delete(dashboard)
             db.session.commit()
             return True
-        except Exception:
+        except Exception as e:
             db.session.rollback()
+            from flask import current_app
+            current_app.logger.error(f'[DashboardService] 删除仪表盘失败：{dashboard_id}, 错误：{str(e)}')
             return False
     
     # ==================== Widget 管理 ====================

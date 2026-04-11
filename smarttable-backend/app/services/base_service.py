@@ -173,8 +173,9 @@ class BaseService:
             db.session.delete(base)
             db.session.commit()
             return True
-        except Exception:
+        except Exception as e:
             db.session.rollback()
+            current_app.logger.error(f'[BaseService] 删除 Base 失败：{base_id}, 错误：{str(e)}')
             return False
     
     @staticmethod

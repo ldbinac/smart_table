@@ -233,8 +233,10 @@ class RecordService:
             db.session.delete(record)
             db.session.commit()
             return True
-        except Exception:
+        except Exception as e:
             db.session.rollback()
+            from flask import current_app
+            current_app.logger.error(f'[RecordService] 删除记录失败：{record_id}, 错误：{str(e)}')
             return False
     
     @staticmethod

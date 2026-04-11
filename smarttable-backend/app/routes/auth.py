@@ -391,6 +391,7 @@ def change_password():
 
 
 @auth_bp.route('/check-email', methods=['GET'])
+@rate_limit(max_attempts=10, window=60)
 def check_email():
     """
     检查邮箱是否可用

@@ -40,7 +40,3 @@ python-dotenv==1.0.0
 
 # WSGI 服务器
 gunicorn==21.2.0
-
-# 测试相关
-pytest==7.4.3
-pytest-cov==4.1.0

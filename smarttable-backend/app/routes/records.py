@@ -2,7 +2,6 @@
 记录管理路由模块
 """
 from flask import Blueprint, request, g, current_app
-from marshmallow import Schema, fields, validate
 
 from app.services.record_service import RecordService
 from app.services.table_service import TableService
@@ -10,6 +9,12 @@ from app.services.formula_service import FormulaService
 from app.services.link_service import LinkService
 from app.services.field_service import FieldService
 from app.services.permission_service import PermissionService
+from app.schemas.record_schema import (
+    record_create_schema,
+    record_update_schema,
+    batch_create_schema,
+    batch_update_schema
+)
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.decorators import jwt_required, role_required
 from app.models.record_history import RecordHistory
@@ -19,34 +24,6 @@ from app.models.base import MemberRole
 records_bp = Blueprint('records', __name__)
 # 禁用严格斜杠，允许带或不带斜杠的URL
 records_bp.strict_slashes = False
-
-
-class RecordCreateSchema(Schema):
-    """记录创建验证模式"""
-    values = fields.Dict(required=True, error_messages={'required': '字段值不能为空'})
-
-
-class RecordUpdateSchema(Schema):
-    """记录更新验证模式"""
-    values = fields.Dict(required=True, error_messages={'required': '字段值不能为空'})
-
-
-class BatchCreateSchema(Schema):
-    """批量创建验证模式"""
-    records = fields.List(fields.Dict(), required=True, error_messages={'required': '记录列表不能为空'})
-
-
-class BatchUpdateSchema(Schema):
-    """批量更新验证模式"""
-    record_ids = fields.List(fields.String(), required=True, error_messages={'required': '记录ID列表不能为空'})
-    values = fields.Dict(required=True, error_messages={'required': '字段值不能为空'})
-
-
-# 初始化验证模式
-record_create_schema = RecordCreateSchema()
-record_update_schema = RecordUpdateSchema()
-batch_create_schema = BatchCreateSchema()
-batch_update_schema = BatchUpdateSchema()
 
 
 @records_bp.route('/tables/<table_id>/records', methods=['GET'])
