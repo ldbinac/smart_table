@@ -10,7 +10,7 @@ class Config:
     """基础配置类"""
     
     # Flask 基础配置
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
+    SECRET_KEY = os.environ.get('SECRET_KEY')
     
     # 数据库配置 (默认使用 SQLite 进行开发)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
@@ -23,7 +23,7 @@ class Config:
     }
     
     # JWT 配置
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-string'
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
         seconds=int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES', 86400))
     )
@@ -62,6 +62,8 @@ class DevelopmentConfig(Config):
     """开发环境配置"""
     DEBUG = True
     SQLALCHEMY_ECHO = True
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-not-for-production'
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-jwt-secret-not-for-production'
 
 
 class TestingConfig(Config):
@@ -83,6 +85,12 @@ class ProductionConfig(Config):
     @classmethod
     def init_app(cls, app):
         """生产环境初始化"""
+        # 强制校验关键环境变量
+        if not app.config.get('SECRET_KEY'):
+            raise RuntimeError("生产环境必须设置 SECRET_KEY 环境变量")
+        if not app.config.get('JWT_SECRET_KEY'):
+            raise RuntimeError("生产环境必须设置 JWT_SECRET_KEY 环境变量")
+        
         # 配置日志
         import logging
         from logging.handlers import RotatingFileHandler

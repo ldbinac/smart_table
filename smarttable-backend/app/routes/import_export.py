@@ -457,29 +457,4 @@ def get_import_task(task_id):
 
 # ==================== 辅助权限检查方法 ====================
 
-# 需要在 BaseService 中添加此方法
-# 临时在这里实现
-
-def check_table_permission(table_id: str, user_id: str, min_role: MemberRole) -> bool:
-    """
-    检查用户对表格的权限
-    
-    参数:
-        table_id: 表格 ID
-        user_id: 用户 ID
-        min_role: 最低要求角色
-        
-    返回:
-        是否有权限
-    """
-    from app.models.table import Table
-    
-    table = Table.query.get(table_id)
-    if not table:
-        return False
-    
-    return BaseService.check_permission(str(table.base_id), user_id, min_role)
-
-
-# 动态添加到 BaseService
-BaseService.check_permission_for_table = staticmethod(check_table_permission)
+# BaseService.check_permission_for_table 已在 base_service.py 中实现

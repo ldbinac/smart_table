@@ -12,19 +12,14 @@ from app.extensions import db
 from app.models.base import Base, BaseMember, MemberRole
 from app.models.base_share import BaseShare, SharePermission
 from app.models.user import User
+from app.utils.constants import ROLE_LEVELS
 
 
 class BaseService:
     """基础数据服务类"""
     
-    # 角色权限等级映射
-    ROLE_LEVELS = {
-        MemberRole.OWNER: 4,
-        MemberRole.ADMIN: 3,
-        MemberRole.EDITOR: 2,
-        MemberRole.COMMENTER: 1,
-        MemberRole.VIEWER: 0
-    }
+    # 角色权限等级映射（引用公共常量）
+    ROLE_LEVELS = ROLE_LEVELS
     
     @staticmethod
     def get_all_bases(user_id: str) -> List[Base]:
@@ -462,6 +457,27 @@ class BaseService:
             return wrapper
         return decorator
     
+    @staticmethod
+    def check_permission_for_table(table_id: str, user_id: str, min_role: MemberRole) -> bool:
+        """
+        检查用户对表格的权限
+        
+        Args:
+            table_id: 表格 ID
+            user_id: 用户 ID
+            min_role: 最低要求角色
+            
+        Returns:
+            是否有权限
+        """
+        from app.models.table import Table
+        
+        table = Table.query.get(table_id)
+        if not table:
+            return False
+        
+        return BaseService.check_permission(str(table.base_id), user_id, min_role)
+
     @staticmethod
     def verify_share_token_and_add_member(base_id: str, user_id: str, share_token: str) -> Dict[str, Any]:
         """

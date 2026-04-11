@@ -7,19 +7,14 @@ from typing import Optional, Tuple
 
 from app.models.base import Base, BaseMember, MemberRole
 from app.models.base_share import BaseShare, SharePermission
+from app.utils.constants import ROLE_LEVELS
 
 
 class PermissionService:
     """权限验证服务"""
     
-    # 角色等级映射
-    ROLE_LEVELS = {
-        MemberRole.OWNER: 5,
-        MemberRole.ADMIN: 4,
-        MemberRole.EDITOR: 3,
-        MemberRole.COMMENTER: 2,
-        MemberRole.VIEWER: 1
-    }
+    # 角色等级映射（引用公共常量）
+    ROLE_LEVELS = ROLE_LEVELS
     
     @classmethod
     def get_user_role(cls, base_id: str, user_id: str) -> Optional[MemberRole]:

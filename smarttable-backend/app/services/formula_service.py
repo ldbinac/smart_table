@@ -1375,7 +1375,7 @@ class FormulaService:
             ).offset(offset).limit(batch_size).all()
             
             for record in records:
-                values = record.data or {}
+                values = record.values or {}
                 
                 for field in formula_fields:
                     formula_expr = (field.config or {}).get('formula', '')
@@ -1390,10 +1390,10 @@ class FormulaService:
                             use_cache=False
                         )
                         
-                        if record.data is None:
-                            record.data = {}
+                        if record.values is None:
+                            record.values = {}
                         
-                        record.data[field.name] = cls._serialize_result(result)
+                        record.values[field.name] = cls._serialize_result(result)
                         
                         if field.id not in updated_fields:
                             updated_fields.append(field.id)

@@ -251,19 +251,26 @@ class RecordService:
         Returns:
             记录列表
         """
-        # 简化实现，实际应该使用全文搜索
-        records = Record.query.filter_by(table_id=table_id).all()
+        # 简化实现，使用数据库层搜索
+        from sqlalchemy import or_, cast, String
+        from app.models.record import Record
         
-        results = []
-        query_lower = query.lower()
+        query_obj = Record.query.filter_by(table_id=table_id)
         
-        for record in records:
-            values = record.values or {}
-            for field_id, value in values.items():
-                if field_ids and field_id not in field_ids:
-                    continue
-                if value and query_lower in str(value).lower():
-                    results.append(record)
-                    break
+        if field_ids:
+            # 搜索指定字段
+            conditions = []
+            for field_id in field_ids:
+                conditions.append(
+                    cast(Record.values[field_id].astext, String).ilike(f'%{query}%')
+                )
+            if conditions:
+                query_obj = query_obj.filter(or_(*conditions))
+        else:
+            # 全字段搜索：使用 JSON 遍历
+            query_obj = query_obj.filter(
+                cast(Record.values.astext, String).ilike(f'%{query}%')
+            )
         
+        results = query_obj.all()
         return results

@@ -9,10 +9,12 @@ from app.services.table_service import TableService
 from app.services.formula_service import FormulaService
 from app.services.link_service import LinkService
 from app.services.field_service import FieldService
+from app.services.permission_service import PermissionService
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.decorators import jwt_required, role_required
 from app.models.record_history import RecordHistory
 from app.models.field import FieldType
+from app.models.base import MemberRole
 
 records_bp = Blueprint('records', __name__)
 # 禁用严格斜杠，允许带或不带斜杠的URL
@@ -49,7 +51,6 @@ batch_update_schema = BatchUpdateSchema()
 
 @records_bp.route('/tables/<table_id>/records', methods=['GET'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
 def get_records(table_id):
     """
     获取表格记录列表
@@ -60,6 +61,12 @@ def get_records(table_id):
     table = TableService.get_table_by_id(table_id)
     if not table:
         return error_response('表格不存在', 404)
+    
+    # 资源级权限检查
+    if not PermissionService.check_permission(
+        str(table.base_id), g.current_user.id, MemberRole.VIEWER
+    ):
+        return error_response('无权访问该表格', 403)
     
     # 获取分页参数
     page = request.args.get('page', 1, type=int)
@@ -123,7 +130,6 @@ def get_records(table_id):
 
 @records_bp.route('/tables/<table_id>/records', methods=['POST'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor'])
 def create_record(table_id):
     """
     创建记录
@@ -132,6 +138,12 @@ def create_record(table_id):
     table = TableService.get_table_by_id(table_id)
     if not table:
         return error_response('表格不存在', 404)
+    
+    # 资源级权限检查
+    if not PermissionService.check_permission(
+        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+    ):
+        return error_response('无权在该表格中创建记录', 403)
     
     # 验证请求数据
     json_data = request.get_json()
@@ -164,7 +176,6 @@ def create_record(table_id):
 
 @records_bp.route('/tables/<table_id>/records/batch', methods=['POST'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor'])
 def batch_create_records(table_id):
     """
     批量创建记录
@@ -173,6 +184,12 @@ def batch_create_records(table_id):
     table = TableService.get_table_by_id(table_id)
     if not table:
         return error_response('表格不存在', 404)
+    
+    # 资源级权限检查
+    if not PermissionService.check_permission(
+        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+    ):
+        return error_response('无权在该表格中创建记录', 403)
     
     # 验证请求数据
     json_data = request.get_json()
@@ -208,7 +225,6 @@ def batch_create_records(table_id):
 
 @records_bp.route('/records/<record_id>', methods=['GET'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
 def get_record(record_id):
     """
     获取记录详情
@@ -216,6 +232,13 @@ def get_record(record_id):
     record = RecordService.get_record_by_id(record_id)
     if not record:
         return error_response('记录不存在', 404)
+    
+    # 资源级权限检查
+    table = TableService.get_table_by_id(record.table_id)
+    if table and not PermissionService.check_permission(
+        str(table.base_id), g.current_user.id, MemberRole.VIEWER
+    ):
+        return error_response('无权访问该记录', 403)
     
     try:
         result = record.to_dict()
@@ -231,7 +254,6 @@ def get_record(record_id):
 
 @records_bp.route('/records/<record_id>', methods=['PUT'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor'])
 def update_record(record_id):
     """
     更新记录
@@ -239,6 +261,13 @@ def update_record(record_id):
     record = RecordService.get_record_by_id(record_id)
     if not record:
         return error_response('记录不存在', 404)
+    
+    # 资源级权限检查
+    table = TableService.get_table_by_id(record.table_id)
+    if table and not PermissionService.check_permission(
+        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+    ):
+        return error_response('无权修改该记录', 403)
     
     # 验证请求数据
     json_data = request.get_json()
@@ -270,7 +299,6 @@ def update_record(record_id):
 
 @records_bp.route('/records/batch', methods=['PUT'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor'])
 def batch_update_records():
     """
     批量更新记录
@@ -289,6 +317,19 @@ def batch_update_records():
     
     if len(record_ids) > 1000:
         return error_response('单次批量更新记录数量不能超过1000条', 400)
+    
+    # 收集所有记录的 base_id 并进行权限检查
+    base_ids_checked = set()
+    for record_id in record_ids:
+        record = RecordService.get_record_by_id(record_id)
+        if record:
+            table = TableService.get_table_by_id(record.table_id)
+            if table and str(table.base_id) not in base_ids_checked:
+                if not PermissionService.check_permission(
+                    str(table.base_id), g.current_user.id, MemberRole.EDITOR
+                ):
+                    return error_response(f'无权修改表格 {table.base_id} 中的记录', 403)
+                base_ids_checked.add(str(table.base_id))
     
     try:
         updated_count = 0
@@ -317,7 +358,6 @@ def batch_update_records():
 
 @records_bp.route('/records/<record_id>', methods=['DELETE'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor'])
 def delete_record(record_id):
     """
     删除记录
@@ -325,6 +365,13 @@ def delete_record(record_id):
     record = RecordService.get_record_by_id(record_id)
     if not record:
         return error_response('记录不存在', 404)
+    
+    # 资源级权限检查
+    table = TableService.get_table_by_id(record.table_id)
+    if table and not PermissionService.check_permission(
+        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+    ):
+        return error_response('无权删除该记录', 403)
     
     try:
         success = RecordService.delete_record(record)
@@ -339,7 +386,6 @@ def delete_record(record_id):
 
 @records_bp.route('/records/batch', methods=['DELETE'])
 @jwt_required
-@role_required(['owner', 'admin', 'editor'])
 def batch_delete_records():
     """
     批量删除记录
@@ -355,6 +401,19 @@ def batch_delete_records():
     
     if len(record_ids) > 1000:
         return error_response('单次批量删除记录数量不能超过1000条', 400)
+    
+    # 收集所有记录的 base_id 并进行权限检查
+    base_ids_checked = set()
+    for record_id in record_ids:
+        record = RecordService.get_record_by_id(record_id)
+        if record:
+            table = TableService.get_table_by_id(record.table_id)
+            if table and str(table.base_id) not in base_ids_checked:
+                if not PermissionService.check_permission(
+                    str(table.base_id), g.current_user.id, MemberRole.EDITOR
+                ):
+                    return error_response(f'无权删除表格 {table.base_id} 中的记录', 403)
+                base_ids_checked.add(str(table.base_id))
     
     try:
         deleted_count = 0
