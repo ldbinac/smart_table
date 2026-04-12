@@ -4,7 +4,7 @@
 """
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.extensions import db
 from app.models.dashboard import Dashboard, DashboardWidget

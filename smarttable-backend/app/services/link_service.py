@@ -6,7 +6,7 @@
 """
 import uuid
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select, and_, or_, delete
 from sqlalchemy.orm import joinedload

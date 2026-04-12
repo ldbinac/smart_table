@@ -3,7 +3,7 @@
 处理用户认证相关的业务逻辑，包括注册、登录、令牌管理、密码修改等功能
 """
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, Dict, Any
 from uuid import UUID
 

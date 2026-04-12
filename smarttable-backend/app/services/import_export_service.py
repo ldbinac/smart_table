@@ -7,7 +7,7 @@ import io
 import json
 import uuid
 from typing import List, Optional, Dict, Any, Tuple, BinaryIO
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
 try:

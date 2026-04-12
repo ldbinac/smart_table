@@ -2,7 +2,7 @@
 权限验证服务模块
 提供 Base 访问权限验证，包括成员权限和分享链接权限
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from app.models.base import Base, BaseMember, MemberRole
