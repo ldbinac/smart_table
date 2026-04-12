@@ -5,6 +5,7 @@
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, Dict, Any
+from uuid import UUID
 
 from flask_jwt_extended import (
     create_access_token,

@@ -13,6 +13,7 @@ from app.models.table import Table
 from app.models.field import Field, FieldType
 from app.models.view import View, ViewType
 from app.models.base import Base, MemberRole
+from app.services.base_service import BaseService
 
 
 class TableService:

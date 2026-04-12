@@ -4,6 +4,7 @@
 from flask import Blueprint, request, g
 from marshmallow import Schema, fields, validate
 
+from app.extensions import db
 from app.services.view_service import ViewService
 from app.services.table_service import TableService
 from app.utils.response import success_response, error_response

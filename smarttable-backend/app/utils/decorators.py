@@ -118,6 +118,8 @@ def authenticate(fn: Callable) -> Callable:
 
             # 检查 Authorization 头
             auth_header = request.headers.get('Authorization')
+            current_app.logger.info(f'[JWT] Request method: {request.method}, Path: {request.path}')
+            current_app.logger.info(f'[JWT] Authorization header: {auth_header[:50]}...' if auth_header and len(auth_header) > 50 else f'[JWT] Authorization header: {auth_header}')
             
             # 验证 JWT token
             verify_jwt_in_request()
