@@ -19,7 +19,7 @@ tables_bp.strict_slashes = False
 
 @tables_bp.route('/bases/<uuid:base_id>/tables', methods=['GET'])
 @jwt_required
-def get_tables(base_id):
+def get_tables(base_id) -> tuple:
     """
     获取基础数据中的所有表格
     
@@ -48,7 +48,7 @@ def get_tables(base_id):
 
 @tables_bp.route('/bases/<uuid:base_id>/tables', methods=['POST'])
 @jwt_required
-def create_table(base_id):
+def create_table(base_id) -> tuple:
     """
     在基础数据中创建新表格
     
@@ -90,7 +90,7 @@ def create_table(base_id):
 
 @tables_bp.route('/tables/<uuid:table_id>', methods=['GET'])
 @jwt_required
-def get_table(table_id):
+def get_table(table_id) -> tuple:
     """
     获取单个表格详情
     
@@ -118,7 +118,7 @@ def get_table(table_id):
 
 @tables_bp.route('/tables/<uuid:table_id>', methods=['PUT'])
 @jwt_required
-def update_table(table_id):
+def update_table(table_id) -> tuple:
     """
     更新表格
     
@@ -159,7 +159,7 @@ def update_table(table_id):
 
 @tables_bp.route('/tables/<uuid:table_id>', methods=['DELETE'])
 @jwt_required
-def delete_table(table_id):
+def delete_table(table_id) -> tuple:
     """
     删除表格（级联删除关联的字段、记录、视图等）
     
@@ -188,7 +188,7 @@ def delete_table(table_id):
 
 @tables_bp.route('/bases/<uuid:base_id>/tables/reorder', methods=['POST'])
 @jwt_required
-def reorder_tables(base_id):
+def reorder_tables(base_id) -> tuple:
     """
     批量重新排序表格
     
@@ -223,7 +223,7 @@ def reorder_tables(base_id):
 
 @tables_bp.route('/tables/<uuid:table_id>/duplicate', methods=['POST'])
 @jwt_required
-def duplicate_table(table_id):
+def duplicate_table(table_id) -> tuple:
     """
     复制表格（包括字段结构，不包括记录数据）
     

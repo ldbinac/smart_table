@@ -2,7 +2,7 @@
 视图模型模块
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Any, List
 
@@ -139,13 +139,13 @@ class View(db.Model):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
@@ -158,7 +158,6 @@ class View(db.Model):
     def apply_filters(self, query):
         if not self.filters:
             return query
-        from app.models.record import Record
         for filter_item in self.filters:
             field_name = filter_item.get('field')
             operator = filter_item.get('operator')

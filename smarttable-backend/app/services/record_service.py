@@ -52,7 +52,6 @@ class RecordService:
         Returns:
             创建的记录对象
         """
-        from datetime import datetime
         
         # 获取所有字段并应用默认值
         fields = FieldService.get_all_fields(table_id)
@@ -70,10 +69,10 @@ class RecordService:
                     # 特殊处理动态日期默认值 'now'
                     if default_value == 'now':
                         if field.type == 'date_time':
-                            final_values[field_id] = datetime.utcnow().isoformat()
+                            final_values[field_id] = datetime.now(timezone.utc).isoformat()
                         else:
                             # 仅日期格式
-                            final_values[field_id] = datetime.utcnow().strftime('%Y-%m-%d')
+                            final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d')
                     else:
                         final_values[field_id] = default_value
         
@@ -227,7 +226,6 @@ class RecordService:
             db.session.add(history)
 
             # 清理关联数据
-            from app.services.link_service import LinkService
             LinkService.delete_record_links(str(record_id))
 
             db.session.delete(record)
@@ -254,8 +252,6 @@ class RecordService:
             记录列表
         """
         # 简化实现，使用数据库层搜索
-        from sqlalchemy import or_, cast, String
-        from app.models.record import Record
         
         query_obj = Record.query.filter_by(table_id=table_id)
         

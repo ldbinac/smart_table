@@ -98,7 +98,7 @@ class PermissionService:
             return False, share, '该分享链接已失效'
         
         if share.expires_at is not None:
-            if int(datetime.utcnow().timestamp()) > share.expires_at:
+            if int(datetime.now(timezone.utc).timestamp()) > share.expires_at:
                 return False, share, '该分享链接已过期'
         
         return True, share, ''
@@ -137,10 +137,9 @@ class PermissionService:
         Args:
             share: 分享对象
         """
-        from app.extensions import db
         
         share.access_count += 1
-        share.last_accessed_at = datetime.utcnow()
+        share.last_accessed_at = datetime.now(timezone.utc)
         db.session.commit()
     
     @classmethod

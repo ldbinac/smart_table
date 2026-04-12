@@ -162,7 +162,7 @@ class TableService:
             if field in data:
                 setattr(table, field, data[field])
         
-        table.updated_at = datetime.utcnow()
+        table.updated_at = datetime.now(timezone.utc)
         db.session.commit()
         
         return table
@@ -324,7 +324,6 @@ class TableService:
         Returns:
             是否有权限
         """
-        from app.services.base_service import BaseService
         
         table = Table.query.get(table_id)
         if not table:

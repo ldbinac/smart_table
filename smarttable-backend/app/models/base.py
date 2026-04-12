@@ -3,7 +3,7 @@
 包含 Base（数据库/工作区）和 BaseMember（成员关系）模型
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
 from sqlalchemy import String, DateTime, Enum, ForeignKey, UniqueConstraint
@@ -78,13 +78,13 @@ class Base(db.Model):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
@@ -204,7 +204,7 @@ class BaseMember(db.Model):
     )
     joined_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
     is_starred: Mapped[bool] = mapped_column(

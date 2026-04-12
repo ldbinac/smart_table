@@ -3,7 +3,7 @@
 记录用户在 Base/Table/Record 等资源上的操作日志
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Any
 
@@ -103,7 +103,7 @@ class OperationHistory(db.Model):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
         index=True
     )

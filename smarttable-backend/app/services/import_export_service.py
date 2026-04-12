@@ -83,8 +83,8 @@ class ImportExportService:
             'error_count': 0,
             'errors': [],
             'result': None,
-            'created_at': datetime.utcnow().isoformat(),
-            'updated_at': datetime.utcnow().isoformat(),
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat(),
             'completed_at': None
         }
         return task_id
@@ -94,7 +94,7 @@ class ImportExportService:
         """更新任务状态"""
         if task_id in cls._tasks:
             cls._tasks[task_id].update(kwargs)
-            cls._tasks[task_id]['updated_at'] = datetime.utcnow().isoformat()
+            cls._tasks[task_id]['updated_at'] = datetime.now(timezone.utc).isoformat()
     
     @classmethod
     def get_task(cls, task_id: str) -> Optional[Dict[str, Any]]:
@@ -251,7 +251,7 @@ class ImportExportService:
                 task_id,
                 status=ImportStatus.COMPLETED.value,
                 progress=100,
-                completed_at=datetime.utcnow().isoformat(),
+                completed_at=datetime.now(timezone.utc).isoformat(),
                 result={
                     'imported_count': success_count,
                     'error_count': error_count
@@ -456,7 +456,7 @@ class ImportExportService:
                 task_id,
                 status=ImportStatus.COMPLETED.value,
                 progress=100,
-                completed_at=datetime.utcnow().isoformat(),
+                completed_at=datetime.now(timezone.utc).isoformat(),
                 result={'imported_count': success_count, 'error_count': error_count}
             )
             
@@ -531,7 +531,7 @@ class ImportExportService:
             df.to_excel(writer, index=False, sheet_name=table.name[:31])  # Excel 工作表名最多 31 字符
         output.seek(0)
         
-        filename = f"{table.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"{table.name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.xlsx"
         
         return output.getvalue(), filename
     
@@ -587,7 +587,7 @@ class ImportExportService:
         df.to_csv(output, index=False, encoding=encoding)
         output.seek(0)
         
-        filename = f"{table.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"{table.name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         
         return output.getvalue(), filename
     
@@ -636,7 +636,7 @@ class ImportExportService:
         output.write(json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'))
         output.seek(0)
         
-        filename = f"{table.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = f"{table.name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
         
         return output.getvalue(), filename
     
@@ -691,7 +691,6 @@ class ImportExportService:
             if isinstance(value, str):
                 # 支持逗号分隔或 JSON 数组字符串
                 try:
-                    import json
                     return json.loads(value)
                 except:
                     return [v.strip() for v in value.split(',') if v.strip()]

@@ -17,8 +17,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    # 生产环境不应暴露数据库端口到宿主机，仅通过内部网络访问
+    # 开发调试时可取消注释以下端口映射
+    # ports:
+    #   - "${DB_PORT:-5432}:5432"
     networks:
       - smarttable-network
     healthcheck:
@@ -35,8 +37,10 @@ services:
     command: redis-server --requirepass ${REDIS_PASSWORD:-redis123}
     volumes:
       - redis_data:/data
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    # 生产环境不应暴露 Redis 端口到宿主机，仅通过内部网络访问
+    # 开发调试时可取消注释以下端口映射
+    # ports:
+    #   - "${REDIS_PORT:-6379}:6379"
     networks:
       - smarttable-network
     healthcheck:

@@ -115,7 +115,7 @@ class DashboardService:
             if data['widgets']:
                 print(f"[DashboardService] First widget: {data['widgets'][0] if data['widgets'] else 'None'}")
         
-        dashboard.updated_at = datetime.utcnow()
+        dashboard.updated_at = datetime.now(timezone.utc)
         db.session.commit()
         
         return dashboard
@@ -206,7 +206,7 @@ class DashboardService:
             if field in data:
                 setattr(widget, field, data[field])
         
-        widget.updated_at = datetime.utcnow()
+        widget.updated_at = datetime.now(timezone.utc)
         db.session.commit()
         
         return widget
@@ -279,7 +279,7 @@ class DashboardService:
                     for field in allowed_fields:
                         if field in widget_data:
                             setattr(widget, field, widget_data[field])
-                    widget.updated_at = datetime.utcnow()
+                    widget.updated_at = datetime.now(timezone.utc)
                     updated_widgets.append(widget)
             else:
                 # 创建新组件
@@ -348,10 +348,10 @@ class DashboardService:
                             'maxW': widget_position.get('maxW'),
                             'maxH': widget_position.get('maxH')
                         }
-                        widget.updated_at = datetime.utcnow()
+                        widget.updated_at = datetime.now(timezone.utc)
         
         dashboard.layout = current_layout
-        dashboard.updated_at = datetime.utcnow()
+        dashboard.updated_at = datetime.now(timezone.utc)
         db.session.commit()
         
         return dashboard
@@ -378,7 +378,7 @@ class DashboardService:
         ).update({'is_default': False})
         
         dashboard.is_default = True
-        dashboard.updated_at = datetime.utcnow()
+        dashboard.updated_at = datetime.now(timezone.utc)
         db.session.commit()
         
         return dashboard

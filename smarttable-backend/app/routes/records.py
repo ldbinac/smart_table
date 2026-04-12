@@ -28,7 +28,7 @@ records_bp.strict_slashes = False
 
 @records_bp.route('/tables/<table_id>/records', methods=['GET'])
 @jwt_required
-def get_records(table_id):
+def get_records(table_id) -> tuple:
     """
     获取表格记录列表
     
@@ -107,7 +107,7 @@ def get_records(table_id):
 
 @records_bp.route('/tables/<table_id>/records', methods=['POST'])
 @jwt_required
-def create_record(table_id):
+def create_record(table_id) -> tuple:
     """
     创建记录
     """
@@ -153,7 +153,7 @@ def create_record(table_id):
 
 @records_bp.route('/tables/<table_id>/records/batch', methods=['POST'])
 @jwt_required
-def batch_create_records(table_id):
+def batch_create_records(table_id) -> tuple:
     """
     批量创建记录
     """
@@ -202,7 +202,7 @@ def batch_create_records(table_id):
 
 @records_bp.route('/records/<record_id>', methods=['GET'])
 @jwt_required
-def get_record(record_id):
+def get_record(record_id) -> tuple:
     """
     获取记录详情
     """
@@ -231,7 +231,7 @@ def get_record(record_id):
 
 @records_bp.route('/records/<record_id>', methods=['PUT'])
 @jwt_required
-def update_record(record_id):
+def update_record(record_id) -> tuple:
     """
     更新记录
     """
@@ -276,7 +276,7 @@ def update_record(record_id):
 
 @records_bp.route('/records/batch', methods=['PUT'])
 @jwt_required
-def batch_update_records():
+def batch_update_records() -> tuple:
     """
     批量更新记录
     """
@@ -335,7 +335,7 @@ def batch_update_records():
 
 @records_bp.route('/records/<record_id>', methods=['DELETE'])
 @jwt_required
-def delete_record(record_id):
+def delete_record(record_id) -> tuple:
     """
     删除记录
     """
@@ -363,7 +363,7 @@ def delete_record(record_id):
 
 @records_bp.route('/records/batch', methods=['DELETE'])
 @jwt_required
-def batch_delete_records():
+def batch_delete_records() -> tuple:
     """
     批量删除记录
     """
@@ -419,7 +419,7 @@ def batch_delete_records():
 @records_bp.route('/records/<record_id>/compute', methods=['POST'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
-def compute_formulas(record_id):
+def compute_formulas(record_id) -> tuple:
     """
     计算记录的公式值
     
@@ -452,7 +452,7 @@ def compute_formulas(record_id):
 @records_bp.route('/records/<record_id>/history', methods=['GET'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
-def get_record_history(record_id):
+def get_record_history(record_id) -> tuple:
     """
     获取记录变更历史
     
@@ -477,7 +477,6 @@ def get_record_history(record_id):
     
     try:
         # 查询变更历史，按时间倒序
-        from app.extensions import db
         
         query = RecordHistory.query.filter_by(record_id=record_id) \
             .order_by(RecordHistory.changed_at.desc())
@@ -502,7 +501,7 @@ def get_record_history(record_id):
 @records_bp.route('/records/<record_id>/links', methods=['GET'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
-def get_record_links(record_id):
+def get_record_links(record_id) -> tuple:
     """
     获取记录的关联数据
     
@@ -575,7 +574,7 @@ def get_record_links(record_id):
 @records_bp.route('/records/<record_id>/links/<field_id>', methods=['PUT'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])
-def update_record_link(record_id, field_id):
+def update_record_link(record_id, field_id) -> tuple:
     """
     更新记录的关联值
     
@@ -669,7 +668,7 @@ def update_record_link(record_id, field_id):
 @records_bp.route('/tables/<table_id>/records/search', methods=['GET'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
-def search_linkable_records(table_id):
+def search_linkable_records(table_id) -> tuple:
     """
     搜索可关联的记录
     

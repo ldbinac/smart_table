@@ -149,8 +149,21 @@ def authenticate(fn: Callable) -> Callable:
 
         except Exception as e:
             from flask import current_app
-            current_app.logger.error(f'[JWT] JWT 验证失败：{str(e)}', exc_info=True)
-            return unauthorized_response('无效的认证令牌')
+            error_type = type(e).__name__
+            error_msg = str(e)
+            # 根据异常类型返回更具体的错误信息
+            if 'No such table' in error_msg or 'OperationalError' in error_type:
+                current_app.logger.error(f'[JWT] 数据库表不存在，请运行数据库迁移：{error_msg}', exc_info=True)
+                return error_response('服务配置错误，请联系管理员', code=500)
+            elif 'Signature verification' in error_msg or 'Signature' in error_msg:
+                current_app.logger.error(f'[JWT] Token 签名验证失败：{error_msg}')
+                return unauthorized_response('无效的认证令牌')
+            elif 'ExpiredSignature' in error_msg:
+                current_app.logger.error(f'[JWT] Token 已过期：{error_msg}')
+                return unauthorized_response('认证令牌已过期，请重新登录')
+            else:
+                current_app.logger.error(f'[JWT] JWT 验证失败 [{error_type}]：{error_msg}', exc_info=True)
+                return unauthorized_response('无效的认证令牌')
 
     return wrapper
 

@@ -56,8 +56,7 @@ class DashboardShareService:
         # 计算过期时间
         expires_at = None
         if expires_in_hours:
-            from datetime import timedelta
-            expires_at = int((datetime.utcnow() + timedelta(hours=expires_in_hours)).timestamp())
+            expires_at = int((datetime.now(timezone.utc) + timedelta(hours=expires_in_hours)).timestamp())
         
         # 创建分享对象
         share = DashboardShare(
@@ -130,7 +129,7 @@ class DashboardShareService:
             return False, share, '分享链接已被禁用'
         
         # 检查是否过期
-        if share.expires_at and datetime.utcnow().timestamp() > share.expires_at:
+        if share.expires_at and datetime.now(timezone.utc).timestamp() > share.expires_at:
             return False, share, '分享链接已过期'
         
         # 检查访问次数
@@ -159,7 +158,7 @@ class DashboardShareService:
             return False
         
         share.current_access_count += 1
-        share.last_accessed_at = datetime.utcnow()
+        share.last_accessed_at = datetime.now(timezone.utc)
         db.session.commit()
         
         return True
@@ -212,7 +211,7 @@ class DashboardShareService:
         返回:
             清理的数量
         """
-        now = int(datetime.utcnow().timestamp())
+        now = int(datetime.now(timezone.utc).timestamp())
         expired_shares = DashboardShare.query.filter(
             DashboardShare.is_active == True,
             DashboardShare.expires_at != None,

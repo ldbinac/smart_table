@@ -170,7 +170,7 @@ class AuthService:
         try:
             # 如果没有提供过期时间，使用默认时间
             if expires_at is None:
-                expires_at = datetime.utcnow() + timedelta(days=7)
+                expires_at = datetime.now(timezone.utc) + timedelta(days=7)
             
             # 创建黑名单记录
             token_block = TokenBlocklist(
@@ -185,7 +185,7 @@ class AuthService:
             
             # 同时缓存到 Redis 以提高检查效率
             cache_key = f"token_blacklist:{jti}"
-            cache.set(cache_key, True, timeout=int((expires_at - datetime.utcnow()).total_seconds()))
+            cache.set(cache_key, True, timeout=int((expires_at - datetime.now(timezone.utc)).total_seconds()))
             
             return True
             
@@ -284,7 +284,6 @@ class AuthService:
         Returns:
             用户对象，如果不存在则返回 None
         """
-        from uuid import UUID
         try:
             # 将字符串ID转换为UUID对象
             uuid_id = UUID(user_id) if isinstance(user_id, str) else user_id
@@ -303,7 +302,6 @@ class AuthService:
         Returns:
             是否成功
         """
-        from uuid import UUID
         try:
             # 将字符串ID转换为UUID对象
             uuid_id = UUID(user_id) if isinstance(user_id, str) else user_id
@@ -315,7 +313,7 @@ class AuthService:
                 return False
 
             # 直接更新字段并提交，避免嵌套事务问题
-            user.last_login_at = datetime.utcnow()
+            user.last_login_at = datetime.now(timezone.utc)
             db.session.commit()
             return True
         except Exception as e:
@@ -378,7 +376,7 @@ class AuthService:
         """
         try:
             expired_tokens = TokenBlocklist.query.filter(
-                TokenBlocklist.expires_at < datetime.utcnow()
+                TokenBlocklist.expires_at < datetime.now(timezone.utc)
             ).all()
             
             count = len(expired_tokens)

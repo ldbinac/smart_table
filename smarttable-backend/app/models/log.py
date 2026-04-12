@@ -3,7 +3,7 @@
 记录管理员用户管理系统中的所有操作日志
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 from typing import Optional
 
@@ -115,7 +115,7 @@ class OperationLog(db.Model):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
         index=True
     )
@@ -157,7 +157,6 @@ class OperationLog(db.Model):
         Returns:
             OperationLog: 创建的操作日志对象
         """
-        import json
         log = OperationLog(
             user_id=user_id,
             action=action.value if isinstance(action, AdminActionType) else action,
@@ -223,7 +222,6 @@ class OperationLog(db.Model):
         Returns:
             包含操作日志信息的字典
         """
-        import json
         return {
             'id': str(self.id),
             'user_id': str(self.user_id) if self.user_id else None,

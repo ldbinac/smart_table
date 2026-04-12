@@ -21,7 +21,7 @@ shares_bp.strict_slashes = False
 
 @shares_bp.route('/bases/<uuid:base_id>/shares', methods=['POST'])
 @jwt_required
-def create_share(base_id):
+def create_share(base_id) -> tuple:
     """
     创建 Base 分享链接
     
@@ -56,7 +56,7 @@ def create_share(base_id):
 
 @shares_bp.route('/bases/<uuid:base_id>/shares', methods=['GET'])
 @jwt_required
-def get_shares(base_id):
+def get_shares(base_id) -> tuple:
     """
     获取 Base 的所有分享链接列表
     
@@ -83,7 +83,7 @@ def get_shares(base_id):
 
 @shares_bp.route('/shares/<share_id>', methods=['PUT'])
 @jwt_required
-def update_share(share_id):
+def update_share(share_id) -> tuple:
     """
     更新分享链接（启用/禁用）
     
@@ -125,7 +125,7 @@ def update_share(share_id):
 
 @shares_bp.route('/shares/<share_id>', methods=['DELETE'])
 @jwt_required
-def delete_share(share_id):
+def delete_share(share_id) -> tuple:
     user_id = g.current_user_id
     
     # 查找分享并检查权限
@@ -148,7 +148,7 @@ def delete_share(share_id):
 
 
 @shares_bp.route('/share/<share_token>', methods=['GET'])
-def access_share(share_token):
+def access_share(share_token) -> tuple:
     """
     通过分享令牌访问 Base
     
@@ -178,7 +178,7 @@ def access_share(share_token):
 
 @shares_bp.route('/bases/shared-with-me', methods=['GET'])
 @jwt_required
-def get_shared_with_me():
+def get_shared_with_me() -> tuple:
     """
     获取分享给当前用户的所有 Base
     
@@ -210,7 +210,7 @@ def get_shared_with_me():
 
 @shares_bp.route('/bases/shared-by-me', methods=['GET'])
 @jwt_required
-def get_shared_by_me():
+def get_shared_by_me() -> tuple:
     """
     获取当前用户创建的所有分享
     

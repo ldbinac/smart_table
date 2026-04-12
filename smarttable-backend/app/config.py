@@ -41,10 +41,10 @@ class Config:
     CACHE_DEFAULT_TIMEOUT = 300
     
     # MinIO 配置
-    MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT') or 'localhost:9000'
-    MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY') or 'minioadmin'
-    MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY') or 'minioadmin'
-    MINIO_BUCKET_NAME = os.environ.get('MINIO_BUCKET_NAME') or 'smarttable'
+    MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT', 'localhost:9000')
+    MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY')
+    MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY')
+    MINIO_BUCKET_NAME = os.environ.get('MINIO_BUCKET_NAME', 'smarttable')
     MINIO_SECURE = os.environ.get('MINIO_SECURE', 'False').lower() == 'true'
     
     # 分页配置
@@ -64,6 +64,8 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_ECHO = True
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-not-for-production'
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-jwt-secret-not-for-production'
+    MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY') or 'minioadmin'
+    MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY') or 'minioadmin'
 
 
 class TestingConfig(Config):
@@ -82,6 +84,9 @@ class ProductionConfig(Config):
     """生产环境配置"""
     DEBUG = False
     
+    # 生产环境 CORS 必须通过环境变量明确指定允许的来源
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '').split(',') if os.environ.get('CORS_ORIGINS') else []
+    
     @classmethod
     def init_app(cls, app):
         """生产环境初始化"""
@@ -90,6 +95,8 @@ class ProductionConfig(Config):
             raise RuntimeError("生产环境必须设置 SECRET_KEY 环境变量")
         if not app.config.get('JWT_SECRET_KEY'):
             raise RuntimeError("生产环境必须设置 JWT_SECRET_KEY 环境变量")
+        if not app.config.get('CORS_ORIGINS'):
+            raise RuntimeError("生产环境必须设置 CORS_ORIGINS 环境变量（逗号分隔的允许来源列表）")
         
         # 配置日志
         import logging

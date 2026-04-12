@@ -14,7 +14,7 @@ dashboards_share_bp = Blueprint('dashboards_share', __name__)
 
 @dashboards_share_bp.route('/dashboards/<uuid:dashboard_id>/shares', methods=['GET'])
 @jwt_required
-def get_dashboard_shares(dashboard_id):
+def get_dashboard_shares(dashboard_id) -> tuple:
     """
     获取仪表盘的所有分享链接
     
@@ -45,7 +45,7 @@ def get_dashboard_shares(dashboard_id):
 
 @dashboards_share_bp.route('/dashboards/<uuid:dashboard_id>/shares', methods=['POST'])
 @jwt_required
-def create_dashboard_share(dashboard_id):
+def create_dashboard_share(dashboard_id) -> tuple:
     """
     创建仪表盘分享链接
     
@@ -95,7 +95,7 @@ def create_dashboard_share(dashboard_id):
 
 @dashboards_share_bp.route('/shares/<uuid:share_id>', methods=['DELETE'])
 @jwt_required
-def delete_dashboard_share(share_id):
+def delete_dashboard_share(share_id) -> tuple:
     """
     删除分享链接
     
@@ -130,7 +130,7 @@ def delete_dashboard_share(share_id):
 
 @dashboards_share_bp.route('/shares/<uuid:share_id>/deactivate', methods=['POST'])
 @jwt_required
-def deactivate_dashboard_share(share_id):
+def deactivate_dashboard_share(share_id) -> tuple:
     """
     禁用分享链接
     
@@ -166,7 +166,7 @@ def deactivate_dashboard_share(share_id):
 # ==================== 公开访问接口（不需要登录） ====================
 
 @dashboards_share_bp.route('/shares/<token>/validate', methods=['POST'])
-def validate_dashboard_share(token):
+def validate_dashboard_share(token) -> tuple:
     """
     验证分享链接（公开接口，用于分享页面）
     
@@ -198,9 +198,6 @@ def validate_dashboard_share(token):
     table_ids = list(set([w.get('tableId') for w in widgets if w.get('tableId')]))
     
     # 获取所有表及其字段数据
-    from app.models.table import Table
-    from app.models.field import Field
-    from app.models.record import Record
     
     tables_data = []
     for table_id in table_ids:
@@ -228,7 +225,7 @@ def validate_dashboard_share(token):
 
 
 @dashboards_share_bp.route('/shares/<token>/dashboard', methods=['GET'])
-def get_shared_dashboard(token):
+def get_shared_dashboard(token) -> tuple:
     """
     获取分享的仪表盘数据（公开接口，用于分享页面）
     

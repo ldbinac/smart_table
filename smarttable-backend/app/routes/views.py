@@ -67,7 +67,7 @@ view_duplicate_schema = ViewDuplicateSchema()
 @views_bp.route('/tables/<table_id>/views', methods=['GET'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
-def get_views(table_id):
+def get_views(table_id) -> tuple:
     """
     获取表格视图列表
     """
@@ -87,7 +87,7 @@ def get_views(table_id):
 @views_bp.route('/tables/<table_id>/views', methods=['POST'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])
-def create_view(table_id):
+def create_view(table_id) -> tuple:
     """
     创建视图
     """
@@ -130,7 +130,6 @@ def create_view(table_id):
         )
         
         # 更新其他可选字段
-        from app.extensions import db
         if json_data.get('description'):
             view.description = json_data['description']
         if json_data.get('hidden_fields') is not None:
@@ -160,7 +159,7 @@ def create_view(table_id):
 @views_bp.route('/views/<view_id>', methods=['GET'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
-def get_view(view_id):
+def get_view(view_id) -> tuple:
     """
     获取视图详情
     """
@@ -177,7 +176,7 @@ def get_view(view_id):
 @views_bp.route('/views/<view_id>', methods=['PUT'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])
-def update_view(view_id):
+def update_view(view_id) -> tuple:
     """
     更新视图
     """
@@ -230,7 +229,7 @@ def update_view(view_id):
 @views_bp.route('/views/<view_id>', methods=['DELETE'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])
-def delete_view(view_id):
+def delete_view(view_id) -> tuple:
     """
     删除视图
     """
@@ -252,7 +251,7 @@ def delete_view(view_id):
 @views_bp.route('/views/<view_id>/duplicate', methods=['POST'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])
-def duplicate_view(view_id):
+def duplicate_view(view_id) -> tuple:
     """
     复制视图
     """
@@ -280,7 +279,7 @@ def duplicate_view(view_id):
 @views_bp.route('/tables/<table_id>/views/reorder', methods=['PUT'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])
-def reorder_views(table_id):
+def reorder_views(table_id) -> tuple:
     """
     重新排序视图
     
@@ -298,7 +297,6 @@ def reorder_views(table_id):
     view_orders = json_data['view_orders']
     
     try:
-        from app.extensions import db
         
         for item in view_orders:
             view_id = item.get('id')
@@ -323,7 +321,7 @@ def reorder_views(table_id):
 @views_bp.route('/tables/<table_id>/views/<view_id>/set-default', methods=['PUT'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])
-def set_default_view(table_id, view_id):
+def set_default_view(table_id, view_id) -> tuple:
     """
     设置默认视图（任务 19.6）
     
@@ -338,8 +336,6 @@ def set_default_view(table_id, view_id):
         return error_response('视图不存在或不属于该表格', 404)
     
     try:
-        from app.extensions import db
-        from app.models.view import View
         
         View.query.filter_by(table_id=table_id).update({'is_default': False})
         
@@ -355,7 +351,7 @@ def set_default_view(table_id, view_id):
 
 @views_bp.route('/views/types', methods=['GET'])
 @jwt_required
-def get_view_types():
+def get_view_types() -> tuple:
     """
     获取支持的视图类型列表
     

@@ -4,14 +4,16 @@
 """
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
+from flask import current_app
 from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.base import Base, BaseMember, MemberRole
 from app.models.base_share import BaseShare, SharePermission
 from app.models.user import User
+from app.models.table import Table
 from app.utils.constants import ROLE_LEVELS
 
 
@@ -92,8 +94,6 @@ class BaseService:
         Returns:
             创建的基础数据对象
         """
-        from flask import current_app
-        
         base = Base(
             name=data.get('name', '未命名基础数据'),
             owner_id=user_id,
@@ -109,7 +109,6 @@ class BaseService:
         current_app.logger.info(f'[BaseService] 创建 Base: {base.id}, owner: {user_id}')
         
         # 创建成员关系（拥有者自动成为成员）
-        from app.models.base import MemberRole
         membership = BaseMember(
             base_id=base.id,
             user_id=user_id,
@@ -149,7 +148,7 @@ class BaseService:
             if field in data:
                 setattr(base, field, data[field])
         
-        base.updated_at = datetime.utcnow()
+        base.updated_at = datetime.now(timezone.utc)
         db.session.commit()
         
         return base
@@ -371,8 +370,6 @@ class BaseService:
         Returns:
             是否有权限
         """
-        from flask import current_app
-        
         base = Base.query.get(base_id)
         
         if not base:
@@ -476,8 +473,6 @@ class BaseService:
         Returns:
             是否有权限
         """
-        from app.models.table import Table
-        
         table = Table.query.get(table_id)
         if not table:
             return False
@@ -497,8 +492,6 @@ class BaseService:
         Returns:
             包含验证结果和角色信息的字典
         """
-        from flask import current_app
-        
         current_app.logger.info(f'[BaseService] 验证分享令牌：base={base_id}, user={user_id}')
         
         # 查找分享记录
@@ -515,7 +508,7 @@ class BaseService:
         
         # 检查是否过期
         if share.expires_at is not None:
-            if int(datetime.utcnow().timestamp()) > share.expires_at:
+            if int(datetime.now(timezone.utc).timestamp()) > share.expires_at:
                 current_app.logger.error(f'[BaseService] 分享链接已过期')
                 return {'success': False, 'error': '分享链接已过期'}
         

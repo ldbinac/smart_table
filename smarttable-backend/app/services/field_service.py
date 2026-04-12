@@ -131,7 +131,7 @@ class FieldService:
         if default_value is not None:
             config['defaultValue'] = default_value
             config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
-            config['updatedAt'] = datetime.utcnow().isoformat()
+            config['updatedAt'] = datetime.now(timezone.utc).isoformat()
         
         # 创建字段
         field = Field(
@@ -195,7 +195,7 @@ class FieldService:
                 field.config = {}
             field.config['defaultValue'] = default_value
             field.config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
-            field.config['updatedAt'] = datetime.utcnow().isoformat()
+            field.config['updatedAt'] = datetime.now(timezone.utc).isoformat()
         
         # 类型字段特殊处理
         if 'type' in data:
@@ -217,7 +217,7 @@ class FieldService:
             if not choices or not isinstance(choices, list):
                 return {'success': False, 'error': f'{field.type} 类型字段必须提供选项列表'}
         
-        field.updated_at = datetime.utcnow()
+        field.updated_at = datetime.now(timezone.utc)
         
         try:
             db.session.commit()
@@ -716,7 +716,6 @@ class FieldService:
         Returns:
             是否有权限
         """
-        from app.services.base_service import BaseService
         
         field = Field.query.get(field_id)
         if not field:

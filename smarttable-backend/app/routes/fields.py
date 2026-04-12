@@ -9,7 +9,7 @@ from app.services.table_service import TableService
 from app.services.link_service import LinkService
 from app.models.base import MemberRole
 from app.models.field import FieldType
-from app.utils.decorators import authenticate
+from app.utils.decorators import authenticate, jwt_required
 from app.utils.response import (
     success_response, error_response, not_found_response, forbidden_response
 )
@@ -21,7 +21,7 @@ fields_bp.strict_slashes = False
 
 @fields_bp.route('/tables/<uuid:table_id>/fields', methods=['GET'])
 @jwt_required
-def get_fields(table_id):
+def get_fields(table_id) -> tuple:
     """
     获取表格中的所有字段
     
@@ -50,7 +50,7 @@ def get_fields(table_id):
 
 @fields_bp.route('/tables/<uuid:table_id>/fields', methods=['POST'])
 @jwt_required
-def create_field(table_id):
+def create_field(table_id) -> tuple:
     """
     在表格中创建新字段
     
@@ -110,7 +110,7 @@ def create_field(table_id):
 
 @fields_bp.route('/fields/<uuid:field_id>', methods=['GET'])
 @jwt_required
-def get_field(field_id):
+def get_field(field_id) -> tuple:
     """
     获取单个字段详情
     
@@ -138,7 +138,7 @@ def get_field(field_id):
 
 @fields_bp.route('/fields/<uuid:field_id>', methods=['PUT'])
 @jwt_required
-def update_field(field_id):
+def update_field(field_id) -> tuple:
     """
     更新字段
     
@@ -192,7 +192,7 @@ def update_field(field_id):
 
 @fields_bp.route('/fields/<uuid:field_id>', methods=['DELETE'])
 @jwt_required
-def delete_field(field_id):
+def delete_field(field_id) -> tuple:
     """
     删除字段
     
@@ -224,7 +224,7 @@ def delete_field(field_id):
 
 @fields_bp.route('/fields/reorder', methods=['POST'])
 @jwt_required
-def reorder_fields():
+def reorder_fields() -> tuple:
     """
     批量重新排序字段
     
@@ -262,7 +262,7 @@ def reorder_fields():
 
 @fields_bp.route('/fields/<uuid:field_id>/duplicate', methods=['POST'])
 @jwt_required
-def duplicate_field(field_id):
+def duplicate_field(field_id) -> tuple:
     """
     复制字段
     
@@ -302,7 +302,7 @@ def duplicate_field(field_id):
 
 @fields_bp.route('/fields/types', methods=['GET'])
 @jwt_required
-def get_field_types():
+def get_field_types() -> tuple:
     """
     获取所有支持的字段类型信息
     
@@ -319,7 +319,7 @@ def get_field_types():
 
 @fields_bp.route('/fields/types/<field_type>', methods=['GET'])
 @jwt_required
-def get_field_type_detail(field_type):
+def get_field_type_detail(field_type) -> tuple:
     """
     获取特定字段类型的详细信息
     
@@ -339,7 +339,7 @@ def get_field_type_detail(field_type):
 
 @fields_bp.route('/fields/<uuid:field_id>/validate', methods=['POST'])
 @jwt_required
-def validate_field_value(field_id):
+def validate_field_value(field_id) -> tuple:
     """
     验证字段值
     
@@ -377,7 +377,7 @@ def validate_field_value(field_id):
 
 @fields_bp.route('/fields/link', methods=['POST'])
 @jwt_required
-def create_link_field():
+def create_link_field() -> tuple:
     """
     创建关联字段
     
@@ -435,7 +435,7 @@ def create_link_field():
 
 @fields_bp.route('/fields/<uuid:field_id>/link', methods=['PUT'])
 @jwt_required
-def update_link_field(field_id):
+def update_link_field(field_id) -> tuple:
     """
     更新关联字段配置
     
@@ -510,7 +510,7 @@ def update_link_field(field_id):
 
 @fields_bp.route('/fields/<uuid:field_id>/link', methods=['DELETE'])
 @jwt_required
-def delete_link_field(field_id):
+def delete_link_field(field_id) -> tuple:
     """
     删除关联字段
     
@@ -551,7 +551,7 @@ def delete_link_field(field_id):
 
 @fields_bp.route('/tables/<uuid:table_id>/links', methods=['GET'])
 @jwt_required
-def get_table_link_relations(table_id):
+def get_table_link_relations(table_id) -> tuple:
     """
     获取表格的所有关联关系
     

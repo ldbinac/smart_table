@@ -23,7 +23,7 @@ import_export_bp.strict_slashes = False
 
 @import_export_bp.route('/import/preview', methods=['POST'])
 @jwt_required
-def preview_import():
+def preview_import() -> tuple:
     """
     预览导入数据（不实际导入）
     
@@ -111,7 +111,7 @@ def preview_import():
 
 @import_export_bp.route('/import', methods=['POST'])
 @jwt_required
-def import_data():
+def import_data() -> tuple:
     """
     执行数据导入
     
@@ -207,7 +207,7 @@ def import_data():
 
 @import_export_bp.route('/import/json', methods=['POST'])
 @jwt_required
-def import_json():
+def import_json() -> tuple:
     """
     从 JSON 数据导入
     
@@ -276,7 +276,7 @@ def import_json():
 
 @import_export_bp.route('/import/analyze', methods=['POST'])
 @jwt_required
-def analyze_import_file():
+def analyze_import_file() -> tuple:
     """
     分析导入文件结构
     
@@ -326,7 +326,7 @@ def analyze_import_file():
 
 @import_export_bp.route('/export', methods=['POST'])
 @jwt_required
-def export_data():
+def export_data() -> tuple:
     """
     导出表格数据
     
@@ -345,7 +345,7 @@ def export_data():
 
 @import_export_bp.route('/export/excel', methods=['POST'])
 @jwt_required
-def export_excel():
+def export_excel() -> tuple:
     """导出为 Excel 格式（便捷接口）"""
     data = request.get_json() or {}
     data['format'] = 'excel'
@@ -354,7 +354,7 @@ def export_excel():
 
 @import_export_bp.route('/export/csv', methods=['POST'])
 @jwt_required
-def export_csv():
+def export_csv() -> tuple:
     """导出为 CSV 格式（便捷接口）"""
     data = request.get_json() or {}
     data['format'] = 'csv'
@@ -363,14 +363,14 @@ def export_csv():
 
 @import_export_bp.route('/export/json', methods=['POST'])
 @jwt_required
-def export_json():
+def export_json() -> tuple:
     """导出为 JSON 格式（便捷接口）"""
     data = request.get_json() or {}
     data['format'] = 'json'
     return _do_export(data)
 
 
-def _do_export(data: dict):
+def _do_export(data: dict) -> tuple:
     """
     内部导出实现，接收已解析的参数字典
     
@@ -436,7 +436,7 @@ def _do_export(data: dict):
 
 @import_export_bp.route('/import/<task_id>', methods=['GET'])
 @jwt_required
-def get_import_task(task_id):
+def get_import_task(task_id) -> tuple:
     """
     获取导入任务状态
     

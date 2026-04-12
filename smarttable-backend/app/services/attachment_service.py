@@ -84,7 +84,6 @@ class AttachmentService:
         返回:
             MIME 类型
         """
-        import mimetypes
         mime_type, _ = mimetypes.guess_type(filename)
         return mime_type or 'application/octet-stream'
     
@@ -101,7 +100,7 @@ class AttachmentService:
         """
         ext = os.path.splitext(original_filename)[1]
         unique_id = uuid.uuid4().hex[:16]
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
         return f"{timestamp}_{unique_id}{ext}"
     
     @staticmethod
@@ -129,7 +128,7 @@ class AttachmentService:
         """
         upload_path = cls.get_upload_path()
         # 按日期创建子目录
-        today = datetime.utcnow().strftime('%Y/%m/%d')
+        today = datetime.now(timezone.utc).strftime('%Y/%m/%d')
         upload_dir = os.path.join(upload_path, today)
         os.makedirs(upload_dir, exist_ok=True)
         return upload_dir
@@ -265,7 +264,6 @@ class AttachmentService:
             (宽度, 高度)，如果不是图片返回 (None, None)
         """
         try:
-            from PIL import Image
             with Image.open(file_path) as img:
                 return img.width, img.height
         except Exception:
@@ -284,7 +282,6 @@ class AttachmentService:
             缩略图 URL，失败返回 None
         """
         try:
-            from PIL import Image
             
             # 打开图片
             with Image.open(file_path) as img:

@@ -10,6 +10,7 @@ psycopg2-binary==2.9.9
 # 认证与安全
 Flask-JWT-Extended==4.6.0
 Flask-Bcrypt==1.0.1
+Flask-WTF==1.2.1
 bcrypt==4.1.2
 
 # CORS 支持

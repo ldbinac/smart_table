@@ -3,7 +3,7 @@
 用于存储记录的创建、更新、删除操作历史
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any, List
 
@@ -74,7 +74,7 @@ class RecordHistory(db.Model):
     )
     changed_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
         index=True
     )

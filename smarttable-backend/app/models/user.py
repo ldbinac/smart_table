@@ -3,7 +3,7 @@
 包含用户和令牌黑名单模型
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
 from sqlalchemy import String, Boolean, DateTime, Enum, Text, ForeignKey
@@ -104,13 +104,13 @@ class User(db.Model):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
     
@@ -152,16 +152,15 @@ class User(db.Model):
             self.set_password(password)
     
     def set_password(self, password: str) -> None:
-        from datetime import datetime
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
-        self.password_changed_at = datetime.utcnow()
+        self.password_changed_at = datetime.now(timezone.utc)
         self.must_change_password = False
     
     def check_password(self, password: str) -> bool:
         return bcrypt.check_password_hash(self.password_hash, password)
     
     def update_last_login(self) -> None:
-        self.last_login_at = datetime.utcnow()
+        self.last_login_at = datetime.now(timezone.utc)
         db.session.commit()
     
     def is_active(self) -> bool:
@@ -205,7 +204,7 @@ class TokenBlocklist(db.Model):
         ForeignKey('users.id', ondelete='CASCADE'),
         nullable=False
     )
-    revoked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     
     user = relationship('User', lazy='joined')

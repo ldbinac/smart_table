@@ -42,7 +42,7 @@ class ShareService:
             try:
                 expires_at = int(expires_at)
                 # 验证过期时间不能是过去的时间
-                if expires_at < int(datetime.utcnow().timestamp()):
+                if expires_at < int(datetime.now(timezone.utc).timestamp()):
                     return {'success': False, 'error': '过期时间不能是过去的时间'}
             except (ValueError, TypeError):
                 return {'success': False, 'error': '过期时间必须是有效的 Unix 时间戳'}
@@ -99,7 +99,7 @@ class ShareService:
             if data['expires_at'] is not None:
                 try:
                     expires_at = int(data['expires_at'])
-                    if expires_at < int(datetime.utcnow().timestamp()):
+                    if expires_at < int(datetime.now(timezone.utc).timestamp()):
                         return {'success': False, 'error': '过期时间不能是过去的时间'}
                     share.expires_at = expires_at
                 except (ValueError, TypeError):
@@ -107,7 +107,7 @@ class ShareService:
             else:
                 share.expires_at = None
 
-        share.updated_at = datetime.utcnow()
+        share.updated_at = datetime.now(timezone.utc)
         db.session.commit()
 
         current_app.logger.info(f'[ShareService] 更新分享链接：share={share_id}, by={user_id}')
@@ -159,12 +159,12 @@ class ShareService:
 
         # 检查是否过期
         if share.expires_at is not None:
-            if int(datetime.utcnow().timestamp()) > share.expires_at:
+            if int(datetime.now(timezone.utc).timestamp()) > share.expires_at:
                 return {'success': False, 'error': '该分享链接已过期', 'status': 403}
 
         # 更新访问次数和最后访问时间
         share.access_count += 1
-        share.last_accessed_at = datetime.utcnow()
+        share.last_accessed_at = datetime.now(timezone.utc)
         db.session.commit()
 
         # 获取 Base 信息

@@ -731,7 +731,7 @@ def fn_value(args: List[Any]) -> Optional[float]:
 @FormulaEvaluator.register('NOW')
 def fn_now(args: List[Any]) -> datetime:
     """当前日期时间"""
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 @FormulaEvaluator.register('TODAY')
 def fn_today(args: List[Any]) -> date:
@@ -1299,7 +1299,7 @@ class FormulaService:
                     field.config = {}
                 field.config['_last_computed'] = {
                     'result': cls._serialize_result(result),
-                    'computed_at': datetime.utcnow().isoformat(),
+                    'computed_at': datetime.now(timezone.utc).isoformat(),
                     'user_id': str(user_id) if user_id else None
                 }
                 

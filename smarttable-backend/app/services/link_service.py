@@ -170,7 +170,7 @@ class LinkService:
                             return None, f'无效的关联类型: {data[field]}'
                     setattr(link_relation, field, data[field])
 
-            link_relation.updated_at = datetime.utcnow()
+            link_relation.updated_at = datetime.now(timezone.utc)
 
             current_app.logger.info(f'[LinkService] 更新关联关系: {link_relation_id}')
 
@@ -234,7 +234,6 @@ class LinkService:
             关联关系对象或 None
         """
         try:
-            from sqlalchemy import and_
             # 检查字段作为源字段的关联关系
             if target_table_id:
                 result = db.session.execute(
@@ -821,7 +820,6 @@ class LinkService:
             if _field_cache is not None:
                 field = _field_cache.get(str(field_id))
             if field is None:
-                from app.models.field import Field
                 field = db.session.get(Field, field_id)
                 if _field_cache is not None and field:
                     _field_cache[str(field_id)] = field
@@ -883,8 +881,6 @@ class LinkService:
         Returns:
             包含操作结果的字典
         """
-        from app.services.field_service import FieldService
-        from app.services.table_service import TableService
 
         target_table_id = data.get('target_table_id')
         relationship_type = data.get('relationship_type')

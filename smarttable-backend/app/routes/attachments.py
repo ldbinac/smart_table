@@ -21,7 +21,7 @@ attachments_bp.strict_slashes = False
 
 @attachments_bp.route('/upload', methods=['POST'])
 @jwt_required
-def upload_attachment():
+def upload_attachment() -> tuple:
     """
     上传附件
     
@@ -78,7 +78,7 @@ def upload_attachment():
 
 @attachments_bp.route('/<uuid:attachment_id>', methods=['GET'])
 @jwt_required
-def get_attachment(attachment_id):
+def get_attachment(attachment_id) -> tuple:
     """
     获取附件详情
     
@@ -109,7 +109,7 @@ def get_attachment(attachment_id):
 
 @attachments_bp.route('/<uuid:attachment_id>/download', methods=['GET'])
 @jwt_required
-def download_attachment(attachment_id):
+def download_attachment(attachment_id) -> tuple:
     """
     下载附件
     
@@ -156,7 +156,7 @@ def download_attachment(attachment_id):
 
 @attachments_bp.route('/<uuid:attachment_id>/preview', methods=['GET'])
 @jwt_required
-def preview_attachment(attachment_id):
+def preview_attachment(attachment_id) -> tuple:
     """
     预览附件（内联显示）
     
@@ -207,7 +207,7 @@ def preview_attachment(attachment_id):
 
 @attachments_bp.route('/<uuid:attachment_id>', methods=['DELETE'])
 @jwt_required
-def delete_attachment(attachment_id):
+def delete_attachment(attachment_id) -> tuple:
     """
     删除附件
     
@@ -246,7 +246,7 @@ def delete_attachment(attachment_id):
 
 @attachments_bp.route('/bases/<uuid:base_id>', methods=['GET'])
 @jwt_required
-def get_base_attachments(base_id):
+def get_base_attachments(base_id) -> tuple:
     """
     获取基础数据下的附件列表
     
@@ -298,7 +298,7 @@ def get_base_attachments(base_id):
 
 @attachments_bp.route('/<uuid:attachment_id>/thumbnail', methods=['GET'])
 @jwt_required
-def get_thumbnail(attachment_id):
+def get_thumbnail(attachment_id) -> tuple:
     """
     获取附件缩略图
     
@@ -326,7 +326,6 @@ def get_thumbnail(attachment_id):
         return error_response('此文件没有缩略图', code=404)
     
     # 获取缩略图路径
-    from app.services.attachment_service import AttachmentService as AS
     thumbnail_filename = os.path.basename(attachment.thumbnail_url)
     thumbnail_path = AS.get_file_path(thumbnail_filename)
     

@@ -2,7 +2,7 @@
 字段模型模块
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Any
 
@@ -116,13 +116,13 @@ class Field(db.Model):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
@@ -270,12 +270,10 @@ class Field(db.Model):
             if not isinstance(value, (int, float)):
                 return False, f'字段 "{self.name}" 必须是数字'
         elif field_type == FieldType.EMAIL and value:
-            import re
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
             if not re.match(email_pattern, str(value)):
                 return False, f'字段 "{self.name}" 必须是有效的邮箱地址'
         elif field_type == FieldType.URL and value:
-            import re
             url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
             if not re.match(url_pattern, str(value)):
                 return False, f'字段 "{self.name}" 必须是有效的 URL'

@@ -36,7 +36,7 @@ admin_bp.strict_slashes = False
 @admin_bp.route('/users', methods=['GET'])
 @jwt_required
 @admin_required
-def get_users():
+def get_users() -> tuple:
     """
     获取所有用户（分页）
     
@@ -90,7 +90,7 @@ def get_users():
 @admin_bp.route('/users', methods=['POST'])
 @jwt_required
 @admin_required
-def create_user():
+def create_user() -> tuple:
     """
     创建用户
     
@@ -157,7 +157,7 @@ def create_user():
 @admin_bp.route('/users/<user_id>', methods=['GET'])
 @jwt_required
 @admin_required
-def get_user(user_id):
+def get_user(user_id) -> tuple:
     """
     获取用户详情
     
@@ -184,7 +184,7 @@ def get_user(user_id):
 @admin_bp.route('/users/<user_id>', methods=['PUT'])
 @jwt_required
 @admin_required
-def update_user(user_id):
+def update_user(user_id) -> tuple:
     """
     更新用户信息
     
@@ -247,7 +247,7 @@ def update_user(user_id):
 @admin_bp.route('/users/<user_id>', methods=['DELETE'])
 @jwt_required
 @admin_required
-def delete_user(user_id):
+def delete_user(user_id) -> tuple:
     """
     删除用户（软删除）
     
@@ -289,7 +289,7 @@ def delete_user(user_id):
 @admin_bp.route('/users/<user_id>/status', methods=['PUT'])
 @jwt_required
 @admin_required
-def update_user_status(user_id):
+def update_user_status(user_id) -> tuple:
     """
     更新用户状态
     
@@ -358,7 +358,7 @@ def update_user_status(user_id):
 @admin_bp.route('/users/<user_id>/reset-password', methods=['POST'])
 @jwt_required
 @admin_required
-def reset_user_password(user_id):
+def reset_user_password(user_id) -> tuple:
     """
     重置用户密码
     
@@ -420,7 +420,7 @@ def reset_user_password(user_id):
 @admin_bp.route('/settings', methods=['GET'])
 @jwt_required
 @admin_required
-def get_settings():
+def get_settings() -> tuple:
     """
     获取所有系统配置
     
@@ -448,7 +448,7 @@ def get_settings():
 @admin_bp.route('/settings', methods=['PUT'])
 @jwt_required
 @admin_required
-def update_settings():
+def update_settings() -> tuple:
     """
     更新系统配置
     
@@ -525,7 +525,7 @@ def update_settings():
 @admin_bp.route('/operation-logs', methods=['GET'])
 @jwt_required
 @admin_required
-def get_operation_logs():
+def get_operation_logs() -> tuple:
     """
     获取操作日志（分页）
     
@@ -597,7 +597,7 @@ def get_operation_logs():
 @admin_bp.route('/operation-logs/export', methods=['GET'])
 @jwt_required
 @admin_required
-def export_operation_logs():
+def export_operation_logs() -> tuple:
     """
     导出操作日志为 CSV 文件
     
@@ -671,7 +671,7 @@ def export_operation_logs():
 @admin_bp.route('/roles', methods=['GET'])
 @jwt_required
 @admin_required
-def get_roles():
+def get_roles() -> tuple:
     """
     获取所有角色及其描述
     
@@ -694,7 +694,6 @@ def get_roles():
             }
         ]
     """
-    from app.models.user import UserRole
     
     roles_info = {
         UserRole.OWNER.value: {

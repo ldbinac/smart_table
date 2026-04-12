@@ -19,7 +19,7 @@ bases_bp.strict_slashes = False
 
 @bases_bp.route('/', methods=['GET'])
 @jwt_required
-def get_bases():
+def get_bases() -> tuple:
     """
     获取当前用户的所有基础数据列表
     
@@ -40,7 +40,7 @@ def get_bases():
 
 @bases_bp.route('/', methods=['POST'])
 @jwt_required
-def create_base():
+def create_base() -> tuple:
     """
     创建新基础数据
     
@@ -74,7 +74,7 @@ def create_base():
 
 @bases_bp.route('/<uuid:base_id>', methods=['GET'])
 @jwt_required
-def get_base(base_id):
+def get_base(base_id) -> tuple:
     """
     获取单个基础数据详情
     
@@ -118,7 +118,7 @@ def get_base(base_id):
 
 @bases_bp.route('/<uuid:base_id>', methods=['PUT'])
 @jwt_required
-def update_base(base_id):
+def update_base(base_id) -> tuple:
     """
     更新基础数据
     
@@ -162,7 +162,7 @@ def update_base(base_id):
 
 @bases_bp.route('/<uuid:base_id>', methods=['DELETE'])
 @jwt_required
-def delete_base(base_id):
+def delete_base(base_id) -> tuple:
     """
     删除基础数据（级联删除所有关联数据）
     
@@ -191,7 +191,7 @@ def delete_base(base_id):
 
 @bases_bp.route('/<uuid:base_id>/star', methods=['POST'])
 @jwt_required
-def toggle_star(base_id):
+def toggle_star(base_id) -> tuple:
     """
     切换基础数据的星标状态
     
@@ -219,7 +219,7 @@ def toggle_star(base_id):
 
 @bases_bp.route('/<uuid:base_id>/members', methods=['GET'])
 @jwt_required
-def get_members(base_id):
+def get_members(base_id) -> tuple:
     """
     获取基础数据的所有成员
     
@@ -273,7 +273,7 @@ def get_members(base_id):
 
 @bases_bp.route('/<uuid:base_id>/members', methods=['POST'])
 @jwt_required
-def add_member(base_id):
+def add_member(base_id) -> tuple:
     """
     添加成员到基础数据
     
@@ -322,7 +322,7 @@ def add_member(base_id):
 
 @bases_bp.route('/<uuid:base_id>/members/batch', methods=['POST'])
 @jwt_required
-def batch_add_members(base_id):
+def batch_add_members(base_id) -> tuple:
     """
     批量添加成员到基础数据
     
@@ -409,7 +409,7 @@ def batch_add_members(base_id):
 
 @bases_bp.route('/<uuid:base_id>/members/<uuid:user_id>', methods=['PUT'])
 @jwt_required
-def update_member(base_id, user_id):
+def update_member(base_id, user_id) -> tuple:
     """
     更新成员角色
     
@@ -456,7 +456,7 @@ def update_member(base_id, user_id):
 
 @bases_bp.route('/<uuid:base_id>/members/<uuid:user_id>', methods=['DELETE'])
 @jwt_required
-def remove_member(base_id, user_id):
+def remove_member(base_id, user_id) -> tuple:
     """
     从基础数据中移除成员
     

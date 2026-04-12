@@ -278,7 +278,7 @@ class AdminService:
                 except ValueError:
                     return None, f'无效的状态：{data["status"]}'
             
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
             db.session.commit()
             
             logger.info(f"更新用户成功：{user.email}")
@@ -310,7 +310,7 @@ class AdminService:
             
             # 软删除：设置状态为 DELETED
             user.status = UserStatus.DELETED
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
             db.session.commit()
             
             logger.info(f"删除用户成功：{user.email}")
@@ -344,7 +344,7 @@ class AdminService:
                 return None, '用户已被暂停'
             
             user.status = UserStatus.SUSPENDED
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
             db.session.commit()
             
             logger.info(f"暂停用户成功：{user.email}")
@@ -378,7 +378,7 @@ class AdminService:
                 return None, '用户已是激活状态'
             
             user.status = UserStatus.ACTIVE
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
             db.session.commit()
             
             logger.info(f"激活用户成功：{user.email}")
@@ -423,7 +423,7 @@ class AdminService:
             # 设置新密码
             user.set_password(temporary_password)
             user.must_change_password = True
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
             db.session.commit()
             
             logger.info(f"重置用户密码成功：{user.email}")
@@ -697,7 +697,7 @@ class AdminService:
                 config.config_group = group
             if description:
                 config.description = description
-            config.updated_at = datetime.utcnow()
+            config.updated_at = datetime.now(timezone.utc)
         else:
             # 创建新配置
             config = SystemConfig(

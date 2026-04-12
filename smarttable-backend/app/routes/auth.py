@@ -41,7 +41,7 @@ auth_bp.strict_slashes = False
 
 @auth_bp.route('/register', methods=['POST'])
 @rate_limit(max_attempts=3, window=3600)
-def register():
+def register() -> tuple:
     """
     用户注册
     
@@ -97,7 +97,7 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 @rate_limit(max_attempts=5, window=900)  # 5次尝试，15分钟锁定
-def login():
+def login() -> tuple:
     """
     用户登录
     
@@ -158,7 +158,7 @@ def login():
 
 @auth_bp.route('/refresh', methods=['POST'])
 @flask_jwt_required(refresh=True)
-def refresh():
+def refresh() -> tuple:
     """
     刷新访问令牌
     
@@ -192,7 +192,7 @@ def refresh():
 
 @auth_bp.route('/logout', methods=['POST'])
 @flask_jwt_required()
-def logout():
+def logout() -> tuple:
     """
     用户登出
     
@@ -222,7 +222,7 @@ def logout():
 
 @auth_bp.route('/logout-all', methods=['POST'])
 @flask_jwt_required()
-def logout_all():
+def logout_all() -> tuple:
     """
     从所有设备登出
     
@@ -251,7 +251,7 @@ def logout_all():
 
 @auth_bp.route('/me', methods=['GET'])
 @flask_jwt_required()
-def get_current_user():
+def get_current_user() -> tuple:
     """
     获取当前用户信息
     
@@ -279,7 +279,7 @@ def get_current_user():
 
 @auth_bp.route('/me', methods=['PUT'])
 @flask_jwt_required()
-def update_current_user():
+def update_current_user() -> tuple:
     """
     更新当前用户信息
     
@@ -339,7 +339,7 @@ def update_current_user():
 
 @auth_bp.route('/password', methods=['PUT'])
 @flask_jwt_required()
-def change_password():
+def change_password() -> tuple:
     """
     修改密码
     
@@ -392,7 +392,7 @@ def change_password():
 
 @auth_bp.route('/check-email', methods=['GET'])
 @rate_limit(max_attempts=10, window=60)
-def check_email():
+def check_email() -> tuple:
     """
     检查邮箱是否可用
     
@@ -420,7 +420,7 @@ def check_email():
 
 @auth_bp.route('/verify-token', methods=['GET'])
 @flask_jwt_required()
-def verify_token():
+def verify_token() -> tuple:
     """
     验证令牌有效性
     

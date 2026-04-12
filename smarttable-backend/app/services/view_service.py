@@ -4,8 +4,6 @@
 from typing import List, Optional, Dict, Any
 import uuid
 
-from sqlalchemy.orm.attributes import flag_modified
-
 from app.extensions import db
 from app.models.view import View, ViewType
 
@@ -105,7 +103,6 @@ class ViewService:
         Returns:
             更新后的视图对象
         """
-        from sqlalchemy.orm.attributes import flag_modified
         
         # 直接映射的字段（字段名相同）
         # 注意：config 字段不存在于数据库中，已移除
