@@ -156,7 +156,7 @@ class BaseService:
     @staticmethod
     def delete_base(base_id: str) -> bool:
         """
-        删除基础数据（级联删除关联的表格、字段、记录等）
+        删除基础数据（级联删除关联的表格、字段、记录、关联关系等）
         
         Args:
             base_id: 基础数据 ID
@@ -169,6 +169,37 @@ class BaseService:
             return False
         
         try:
+            # 获取该 Base 下的所有表格 ID
+            table_ids = [str(t.id) for t in base.tables]
+            
+            # 删除这些表格相关的 LinkValue（关联值）
+            if table_ids:
+                from app.models.link_relation import LinkValue, LinkRelation
+                from app.models.record import Record
+                
+                # 获取该 Base 下所有记录的 ID
+                record_ids = []
+                for table in base.tables:
+                    for record in table.records:
+                        record_ids.append(str(record.id))
+                
+                # 删除这些记录相关的 LinkValue
+                if record_ids:
+                    LinkValue.query.filter(
+                        db.or_(
+                            LinkValue.source_record_id.in_(record_ids),
+                            LinkValue.target_record_id.in_(record_ids)
+                        )
+                    ).delete(synchronize_session=False)
+                
+                # 删除该 Base 下表格之间的 LinkRelation（关联关系）
+                LinkRelation.query.filter(
+                    db.or_(
+                        LinkRelation.source_table_id.in_(table_ids),
+                        LinkRelation.target_table_id.in_(table_ids)
+                    )
+                ).delete(synchronize_session=False)
+            
             db.session.delete(base)
             db.session.commit()
             return True
