@@ -374,9 +374,10 @@ function getFieldComponentType(field: FormFieldSchema): string {
     case FieldType.BARCODE:
       return "text";
     case FieldType.NUMBER:
-    case FieldType.RATING:
     case FieldType.CURRENCY:
       return "number";
+    case FieldType.RATING:
+      return "rating";
     case FieldType.PERCENT:
     case FieldType.PROGRESS:
       return "progress";
@@ -430,6 +431,15 @@ function getSelectOptions(field: FormFieldSchema) {
 // 获取数值字段精度
 function getNumberPrecision(field: FormFieldSchema): number {
   return (field.config?.precision as number) ?? 0;
+}
+
+// 获取评分最大值
+function getMaxRating(field: FormFieldSchema): number {
+  return (
+    (field.config?.maxRating as number) ??
+    (field.options?.maxRating as number) ??
+    5
+  );
 }
 
 // 获取日期字段是否显示时间
@@ -562,6 +572,16 @@ function getProgressMin(field: FormFieldSchema): number {
                 style="width: 100%"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val as CellValue)
+                " />
+            </template>
+
+            <!-- 评分类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'rating'">
+              <el-rate
+                :model-value="Number(formValues[field.id] || 0)"
+                :max="getMaxRating(field)"
+                @update:model-value="
+                  (val) => handleFieldChange(field.id, val)
                 " />
             </template>
 

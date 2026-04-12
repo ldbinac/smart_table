@@ -244,8 +244,9 @@ const getFieldComponent = (field: FieldEntity): string => {
     case FieldType.PHONE:
       return "text";
     case FieldType.NUMBER:
-    case FieldType.RATING:
       return "number";
+    case FieldType.RATING:
+      return "rating";
     case FieldType.SINGLE_SELECT:
       return "single_select";
     case FieldType.MULTI_SELECT:
@@ -271,6 +272,11 @@ const getFieldComponent = (field: FieldEntity): string => {
 // 处理值变更
 function handleValueChange(fieldId: string, value: unknown) {
   formData.value[fieldId] = value;
+}
+
+// 获取评分最大值
+function getMaxRating(field: FieldEntity): number {
+  return (field.options?.maxRating as number) ?? 5;
 }
 
 // 处理附件上传
@@ -495,6 +501,15 @@ const drawerTitle = computed(() => {
                 " />
               <span class="progress-value">{{ formData[field.id] || 0 }}%</span>
             </div>
+          </template>
+
+          <!-- 评分字段类型 -->
+          <template v-else-if="getFieldComponent(field) === 'rating'">
+            <el-rate
+              :model-value="Number(formData[field.id] || 0)"
+              :max="getMaxRating(field)"
+              :disabled="readonly"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 公式字段类型 -->
