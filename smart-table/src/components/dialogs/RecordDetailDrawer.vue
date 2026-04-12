@@ -95,7 +95,7 @@ const loadLinkedRecords = async (field: FieldEntity) => {
         fieldLinks.linked_records.map((r) => ({
           record_id: r.record_id,
           display_value: r.display_value,
-        }))
+        })),
       );
     } else {
       linkFieldRecords.value.set(
@@ -103,7 +103,7 @@ const loadLinkedRecords = async (field: FieldEntity) => {
         linkedIds.map((id) => ({
           record_id: id,
           display_value: id,
-        }))
+        })),
       );
     }
   } catch (error) {
@@ -113,7 +113,7 @@ const loadLinkedRecords = async (field: FieldEntity) => {
       linkedIds.map((id) => ({
         record_id: id,
         display_value: id,
-      }))
+      })),
     );
   } finally {
     linkFieldLoading.value.delete(fieldId);
@@ -134,7 +134,7 @@ const handleLinkFieldEdit = (fieldId: string) => {
 const handleLinkFieldChange = async (
   field: FieldEntity,
   value: string[],
-  records: LinkedRecord[]
+  records: LinkedRecord[],
 ) => {
   if (!props.record) return;
 
@@ -157,7 +157,7 @@ const loadAllLinkFields = async () => {
   if (!props.record) return;
 
   const linkFields = visibleFields.value.filter(
-    (f) => f.type === FieldType.LINK
+    (f) => f.type === FieldType.LINK,
   );
   for (const field of linkFields) {
     await loadLinkedRecords(field);
@@ -171,7 +171,7 @@ watch(
     linkFieldRecords.value.clear();
     loadAllLinkFields();
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // 可见字段（用于显示）
@@ -260,6 +260,9 @@ const getFieldComponent = (field: FieldEntity): string => {
       return "attachment";
     case FieldType.LINK:
       return "link";
+    case FieldType.PROGRESS:
+    case FieldType.PERCENT:
+      return "progress";
     default:
       return "text";
   }
@@ -479,6 +482,21 @@ const drawerTitle = computed(() => {
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
+          <!-- 进度字段类型 -->
+          <template v-else-if="getFieldComponent(field) === 'progress'">
+            <div class="progress-field">
+              <el-slider
+                :model-value="Number(formData[field.id] || 0)"
+                :max="100"
+                :disabled="readonly"
+                :format-tooltip="(val: number) => `${val}%`"
+                @update:model-value="
+                  (val) => handleValueChange(field.id, val)
+                " />
+              <span class="progress-value">{{ formData[field.id] || 0 }}%</span>
+            </div>
+          </template>
+
           <!-- 公式字段类型 -->
           <template v-else-if="getFieldComponent(field) === 'formula'">
             <div class="formula-field-wrapper">
@@ -523,8 +541,13 @@ const drawerTitle = computed(() => {
               :is-editing="editingLinkField === field.id"
               :readonly="readonly"
               @edit-start="handleLinkFieldEdit(field.id)"
-              @update:value="(val) => handleLinkFieldChange(field, val, getLinkedRecords(field))"
-              @change="(val, records) => handleLinkFieldChange(field, val, records)"
+              @update:value="
+                (val) =>
+                  handleLinkFieldChange(field, val, getLinkedRecords(field))
+              "
+              @change="
+                (val, records) => handleLinkFieldChange(field, val, records)
+              "
               @edit-end="editingLinkField = null" />
           </template>
         </div>
@@ -534,9 +557,7 @@ const drawerTitle = computed(() => {
     <template #footer>
       <div class="drawer-footer">
         <el-button @click="closeDrawer">关闭</el-button>
-        <el-button
-          v-if="record?.id"
-          @click="showHistory">
+        <el-button v-if="record?.id" @click="showHistory">
           <el-icon><Clock /></el-icon>
           变更历史
         </el-button>
@@ -655,6 +676,23 @@ const drawerTitle = computed(() => {
       border-radius: 3px;
       word-break: break-all;
     }
+  }
+}
+
+.progress-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .el-slider {
+    flex: 1;
+  }
+
+  .progress-value {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    min-width: 40px;
+    text-align: right;
   }
 }
 

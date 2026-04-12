@@ -231,6 +231,20 @@ function getStatusType(share: FormShareConfig): string {
 function closeDialog() {
   dialogVisible.value = false;
 }
+
+// 复制现有分享链接
+function copyExistingShareUrl(share: FormShareConfig) {
+  const shareUrl = `${window.location.origin}/#/form/${share.share_token}`;
+  
+  navigator.clipboard
+    .writeText(shareUrl)
+    .then(() => {
+      ElMessage.success("链接已复制到剪贴板");
+    })
+    .catch(() => {
+      ElMessage.error("复制失败，请手动复制");
+    });
+}
 </script>
 
 <template>
@@ -366,8 +380,16 @@ function closeDialog() {
             {{ formatDate(row.expires_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
+            <el-button
+              v-if="row.can_submit"
+              link
+              type="success"
+              size="small"
+              @click="copyExistingShareUrl(row)">
+              复制链接
+            </el-button>
             <el-button
               link
               type="primary"

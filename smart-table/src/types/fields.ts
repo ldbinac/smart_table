@@ -9,6 +9,7 @@ export const FieldType = {
   MEMBER: "member",
   RATING: "rating",
   PROGRESS: "progress",
+  PERCENT: "percent",
   PHONE: "phone",
   EMAIL: "email",
   URL: "url",

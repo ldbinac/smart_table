@@ -40,33 +40,27 @@ function handleChange(value: number) {
   currentValue.value = value;
   emit("update:modelValue", value);
 }
-
-function handleInputChange(value: number | undefined) {
-  if (props.readonly) return;
-  const val = Math.min(100, Math.max(0, value || 0));
-  handleChange(val);
-}
 </script>
 
 <template>
   <div class="progress-field">
     <div class="progress-wrapper">
-      <el-progress
-        :percentage="currentValue"
-        :stroke-width="10"
-        :color="progressColor"
-        :show-text="false" />
-      <div v-if="!readonly" class="progress-input">
-        <el-input-number
+      <template v-if="!readonly">
+        <el-slider
           :model-value="currentValue"
-          :min="0"
           :max="100"
-          :controls="false"
-          size="small"
-          @update:model-value="handleInputChange" />
-        <span class="percent-sign">%</span>
-      </div>
-      <span v-else class="progress-value"> {{ currentValue }}% </span>
+          :format-tooltip="(val: number) => `${val}%`"
+          @update:model-value="handleChange" />
+        <span class="progress-value">{{ currentValue }}%</span>
+      </template>
+      <template v-else>
+        <el-progress
+          :percentage="currentValue"
+          :stroke-width="10"
+          :color="progressColor"
+          :show-text="false" />
+        <span class="progress-value readonly">{{ currentValue }}%</span>
+      </template>
     </div>
   </div>
 </template>
@@ -82,26 +76,10 @@ function handleInputChange(value: number | undefined) {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
-}
 
-.progress-input {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  :deep(.el-input-number) {
-    width: 60px;
-
-    .el-input__inner {
-      text-align: center;
-      padding: 0 4px;
-    }
+  .el-slider {
+    flex: 1;
   }
-}
-
-.percent-sign {
-  font-size: $font-size-sm;
-  color: $text-secondary;
 }
 
 .progress-value {
@@ -109,5 +87,9 @@ function handleInputChange(value: number | undefined) {
   color: $text-secondary;
   min-width: 40px;
   text-align: right;
+
+  &.readonly {
+    margin-left: $spacing-sm;
+  }
 }
 </style>

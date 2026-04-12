@@ -18,6 +18,7 @@ from app.services.record_service import RecordService
 from app.services.table_service import TableService
 from app.services.field_service import FieldService
 from app.services.permission_service import PermissionService
+from app.utils.captcha import CaptchaService
 
 
 class FormShareError(Exception):
@@ -288,9 +289,10 @@ class FormShareService:
             if not captcha:
                 return {'success': False, 'error': '请输入验证码', 'status': 400}
             
-            # TODO: 实现验证码验证逻辑
-            # if not verify_captcha(token, captcha):
-            #     return {'success': False, 'error': '验证码错误或已过期', 'status': 400}
+            # 验证验证码
+            is_valid, error_msg = CaptchaService.verify_captcha(token, captcha)
+            if not is_valid:
+                return {'success': False, 'error': error_msg, 'status': 400}
         
         try:
             # 获取提交的值

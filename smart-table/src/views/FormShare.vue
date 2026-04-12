@@ -4,7 +4,11 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
-import { formShareApi, type FormSchema, type FormFieldSchema } from "@/api/formShare";
+import {
+  formShareApi,
+  type FormSchema,
+  type FormFieldSchema,
+} from "@/api/formShare";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
@@ -52,7 +56,7 @@ const visibleFields = computed(() => {
 
   // 过滤掉系统字段
   return fields.value.filter(
-    (f) => !systemFieldTypes.includes(f.type as FieldTypeValue)
+    (f) => !systemFieldTypes.includes(f.type as FieldTypeValue),
   );
 });
 
@@ -131,14 +135,22 @@ async function loadFormData(token: string) {
 
 // 刷新验证码
 async function refreshCaptcha() {
-  // TODO: 实现验证码获取接口
-  // const result = await formShareApi.getCaptcha(shareToken.value);
-  // captchaImage.value = result.image;
-  console.log("[FormShare] Refresh captcha");
+  if (!shareToken.value) return;
+
+  try {
+    const result = await formShareApi.getCaptcha(shareToken.value);
+    captchaImage.value = result.image;
+  } catch (error) {
+    console.error("[FormShare] 获取验证码失败:", error);
+    ElMessage.error("获取验证码失败，请刷新重试");
+  }
 }
 
 // 验证字段
-function validateField(field: FormFieldSchema, value: CellValue): string | null {
+function validateField(
+  field: FormFieldSchema,
+  value: CellValue,
+): string | null {
   if (
     field.required &&
     (value === null || value === undefined || value === "" || value === false)
@@ -175,16 +187,10 @@ function validateField(field: FormFieldSchema, value: CellValue): string | null 
       if (typeof value === "number" || !isNaN(Number(value))) {
         const numValue = Number(value);
         const config = field.config || {};
-        if (
-          config.min !== undefined &&
-          numValue < Number(config.min)
-        ) {
+        if (config.min !== undefined && numValue < Number(config.min)) {
           return `${field.name}不能小于${config.min}`;
         }
-        if (
-          config.max !== undefined &&
-          numValue > Number(config.max)
-        ) {
+        if (config.max !== undefined && numValue > Number(config.max)) {
           return `${field.name}不能大于${config.max}`;
         }
       }
@@ -255,7 +261,7 @@ async function handleSubmit() {
     ElMessage.success(formConfig.value.successMessage);
   } catch (error: any) {
     console.error("提交表单失败:", error);
-    
+
     // 处理验证错误
     if (error.response?.status === 400 && error.response?.data?.details) {
       const details = error.response.data.details;
@@ -288,19 +294,26 @@ function resetForm() {
   visibleFields.value.forEach((field) => {
     const config = field.config || {};
     const defaultValue = config.defaultValue ?? config.default ?? null;
-    
-    if (defaultValue !== null && defaultValue !== undefined && defaultValue !== "") {
+
+    if (
+      defaultValue !== null &&
+      defaultValue !== undefined &&
+      defaultValue !== ""
+    ) {
       // 特殊处理日期字段的动态默认值 'now'
-      if (field.type === FieldType.DATE && defaultValue === 'now') {
-        const showTime = config.showTime as boolean ?? false;
+      if (field.type === FieldType.DATE && defaultValue === "now") {
+        const showTime = (config.showTime as boolean) ?? false;
         if (showTime) {
           formValues.value[field.id] = new Date().toISOString();
         } else {
-          formValues.value[field.id] = new Date().toISOString().split('T')[0];
+          formValues.value[field.id] = new Date().toISOString().split("T")[0];
         }
-      } else if (field.type === FieldType.DATE_TIME && defaultValue === 'now') {
+      } else if (field.type === FieldType.DATE_TIME && defaultValue === "now") {
         formValues.value[field.id] = new Date().toISOString();
-      } else if (field.type === FieldType.MULTI_SELECT && !Array.isArray(defaultValue)) {
+      } else if (
+        field.type === FieldType.MULTI_SELECT &&
+        !Array.isArray(defaultValue)
+      ) {
         // 多选字段默认值必须是数组
         formValues.value[field.id] = [defaultValue];
       } else {
@@ -362,9 +375,11 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "text";
     case FieldType.NUMBER:
     case FieldType.RATING:
-    case FieldType.PERCENT:
     case FieldType.CURRENCY:
       return "number";
+    case FieldType.PERCENT:
+    case FieldType.PROGRESS:
+      return "progress";
     case FieldType.SINGLE_SELECT:
       return "single_select";
     case FieldType.MULTI_SELECT:
@@ -391,21 +406,24 @@ function getFieldComponentType(field: FormFieldSchema): string {
 // 获取选项
 function getSelectOptions(field: FormFieldSchema) {
   const config = field.config || {};
-  
+
   // 支持多种选项格式
   let options = config.choices || config.options || [];
-  
+
   // 确保选项是数组
   if (!Array.isArray(options)) {
-    console.warn(`[FormShare] Field ${field.name} options is not an array:`, options);
+    console.warn(
+      `[FormShare] Field ${field.name} options is not an array:`,
+      options,
+    );
     return [];
   }
-  
+
   // 规范化选项格式
   return options.map((opt: any) => ({
     id: opt.id || opt.value || String(opt),
     name: opt.name || opt.label || String(opt),
-    color: opt.color || opt.colorCode || '#3370FF'
+    color: opt.color || opt.colorCode || "#3370FF",
   }));
 }
 
@@ -618,7 +636,8 @@ function getProgressMin(field: FormFieldSchema): number {
                 format="YYYY-MM-DD HH:mm:ss"
                 style="width: 100%"
                 @update:model-value="
-                  (val) => handleFieldChange(field.id, val ? val.toISOString() : null)
+                  (val) =>
+                    handleFieldChange(field.id, val ? val.toISOString() : null)
                 " />
             </template>
 
@@ -640,13 +659,15 @@ function getProgressMin(field: FormFieldSchema): number {
                   :max="getProgressMax(field)"
                   show-stops
                   show-input
-                  @update:model-value="(val) => handleFieldChange(field.id, val)"
-                />
+                  @update:model-value="
+                    (val) => handleFieldChange(field.id, val)
+                  " />
               </div>
             </template>
 
             <!-- 联系人类型 -->
-            <template v-else-if="getFieldComponentType(field) === 'collaborator'">
+            <template
+              v-else-if="getFieldComponentType(field) === 'collaborator'">
               <el-input
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}（邮箱或用户名）`"
@@ -700,16 +721,20 @@ function getProgressMin(field: FormFieldSchema): number {
               v-model="captchaCode"
               placeholder="请输入验证码"
               maxlength="6"
-              style="flex: 1"
-            />
-            <div class="captcha-image" @click="refreshCaptcha">
-              <!-- TODO: 实现验证码图片显示 -->
-              <el-button link type="primary" @click="refreshCaptcha">
+              style="flex: 1" />
+            <div class="captcha-image-wrapper" @click="refreshCaptcha">
+              <img
+                v-if="captchaImage"
+                :src="captchaImage"
+                alt="验证码"
+                class="captcha-image" />
+              <div v-else class="captcha-placeholder">
                 <el-icon><Refresh /></el-icon>
-                刷新验证码
-              </el-button>
+                <span>点击刷新</span>
+              </div>
             </div>
           </div>
+          <div class="captcha-hint">点击图片刷新验证码</div>
         </div>
 
         <div class="form-actions">
@@ -838,16 +863,42 @@ function getProgressMin(field: FormFieldSchema): number {
     align-items: center;
   }
 
-  .captcha-image {
+  .captcha-image-wrapper {
     cursor: pointer;
-    padding: 8px 16px;
+    width: 120px;
+    height: 40px;
     background: $bg-color;
     border-radius: $border-radius-base;
     border: 1px solid $border-color;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     &:hover {
-      background: $border-color;
+      border-color: $primary-color;
     }
+
+    .captcha-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .captcha-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      color: $text-secondary;
+      font-size: $font-size-xs;
+    }
+  }
+
+  .captcha-hint {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    margin-top: 4px;
   }
 }
 

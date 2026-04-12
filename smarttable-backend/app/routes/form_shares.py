@@ -8,6 +8,7 @@ from app.services.form_share_service import FormShareService
 from app.utils.decorators import jwt_required
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.decorators import get_client_ip
+from app.utils.captcha import CaptchaService
 
 form_shares_bp = Blueprint('form_shares', __name__)
 form_shares_bp.strict_slashes = False
@@ -321,3 +322,40 @@ def validate_form_share(token: str) -> tuple:
         },
         message='表单分享有效'
     )
+
+
+@form_shares_bp.route('/form-shares/<token>/captcha', methods=['GET'])
+def get_captcha(token: str) -> tuple:
+    """
+    获取验证码（公开接口）
+    
+    Args:
+        token: 分享令牌
+    
+    Returns:
+        验证码图片（Base64编码）
+    """
+    # 验证表单分享是否有效
+    valid, form_share, error = FormShareService.validate_form_share(token)
+    
+    if not valid:
+        status = 403 if '失效' in error or '过期' in error or '上限' in error else 404
+        return error_response(error, status)
+    
+    # 检查是否需要验证码
+    if not form_share.require_captcha:
+        return error_response('该表单不需要验证码', 400)
+    
+    try:
+        # 生成验证码
+        code, image_base64, mime_type = CaptchaService.generate_captcha(token)
+        
+        return success_response(
+            data={
+                'image': f'data:{mime_type};base64,{image_base64}',
+                'expire': 300  # 5分钟有效期
+            },
+            message='验证码生成成功'
+        )
+    except Exception as e:
+        return error_response(f'验证码生成失败: {str(e)}', 500)

@@ -220,6 +220,14 @@ export const formShareApi = {
   },
 
   /**
+   * 获取验证码（公开接口）
+   * @param token 分享令牌
+   */
+  getCaptcha(token: string): Promise<{ image: string; expire: number }> {
+    return apiClient.get(`/form-shares/${token}/captcha`);
+  },
+
+  /**
    * 提交表单数据（公开接口）
    * @param token 分享令牌
    * @param data 提交数据
