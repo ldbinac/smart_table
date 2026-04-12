@@ -1,86 +1,164 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
-import { ElMessage } from "element-plus";
-import {
-  CopyDocument,
-  Refresh,
-  Document,
-  DocumentChecked,
-  ArrowRight,
-} from "@element-plus/icons-vue";
+import { FieldType } from "@/types";
 
-interface Props {
+const props = defineProps<{
   visible: boolean;
+  tableId: string;
+  tableName: string;
   fields: FieldEntity[];
-  tableName?: string;
-  tableId?: string;
-  viewId?: string;
-  formConfig?: {
-    title?: string;
-    description?: string;
-    submitButtonText?: string;
-    successMessage?: string;
-    visibleFieldIds?: string[];
-    allowMultipleSubmit?: boolean;
-  };
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  tableName: "",
-  tableId: "",
-  viewId: "",
-  formConfig: () => ({
-    title: "数据收集表单",
-    description: "",
-    submitButtonText: "提交",
-    successMessage: "提交成功，感谢您的参与！",
-    visibleFieldIds: [],
-    allowMultipleSubmit: true,
-  }),
-});
+}>();
 
 const emit = defineEmits<{
   (e: "update:visible", value: boolean): void;
+  (e: "created", share: FormShareConfig): void;
 }>();
 
-const activeTab = ref("link");
+// 对话框可见性
+const dialogVisible = computed({
+  get: () => props.visible,
+  set: (val) => emit("update:visible", val),
+});
+
+// 当前步骤
+const currentStep = ref(1);
+
+// 表单分享配置
+const formConfig = ref({
+  title: "",
+  description: "",
+  submitButtonText: "提交",
+  successMessage: "提交成功，感谢您的参与！",
+  allowAnonymous: true,
+  requireCaptcha: false,
+  expiresAt: null as Date | null,
+  maxSubmissions: null as number | null,
+  allowedFields: [] as string[],
+  theme: "default",
+});
+
+// 已创建的分享
+const createdShare = ref<FormShareConfig | null>(null);
 const shareUrl = ref("");
-const isGenerating = ref(false);
-const currentFormId = ref("");
 
-// 生成分享链接
-function generateShareLink() {
-  isGenerating.value = true;
+// 加载状态
+const isCreating = ref(false);
+const isLoadingList = ref(false);
 
-  // 检查是否有viewId
-  if (!props.viewId) {
-    ElMessage.error("无法获取视图ID，请确保您在表单视图中");
-    isGenerating.value = false;
-    return;
+// 现有分享列表
+const existingShares = ref<FormShareConfig[]>([]);
+
+// 可选字段（排除系统字段）
+const availableFields = computed(() => {
+  const systemFieldTypes: string[] = [
+    FieldType.CREATED_BY,
+    FieldType.CREATED_TIME,
+    FieldType.UPDATED_BY,
+    FieldType.UPDATED_TIME,
+    FieldType.AUTO_NUMBER,
+  ];
+
+  return props.fields.filter(
+    (f) => !systemFieldTypes.includes(f.type as FieldType)
+  );
+});
+
+// 监听对话框打开
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) {
+      currentStep.value = 1;
+      resetForm();
+      loadExistingShares();
+    }
   }
+);
 
-  // 使用当前视图的ID作为formId，这样FormShare.vue可以直接从数据库获取配置
-  const viewId = props.viewId;
-  currentFormId.value = viewId;
-
-  // 生成分享链接（使用hash路由格式）
-  setTimeout(() => {
-    const baseUrl = window.location.origin;
-    // 使用hash路由格式：/#/form/:id
-    // 这里的id是视图ID，FormShare.vue会用它从数据库查询配置
-    shareUrl.value = `${baseUrl}/#/form/${viewId}`;
-    isGenerating.value = false;
-    ElMessage.success("分享链接已生成");
-  }, 800);
+// 重置表单
+function resetForm() {
+  formConfig.value = {
+    title: props.tableName || "数据收集表单",
+    description: "",
+    submitButtonText: "提交",
+    successMessage: "提交成功，感谢您的参与！",
+    allowAnonymous: true,
+    requireCaptcha: false,
+    expiresAt: null,
+    maxSubmissions: null,
+    allowedFields: availableFields.value.map((f) => f.id),
+    theme: "default",
+  };
+  createdShare.value = null;
+  shareUrl.value = "";
 }
 
-// 复制链接
-function copyLink() {
-  if (!shareUrl.value) {
-    ElMessage.warning("请先生成分享链接");
+// 加载现有分享列表
+async function loadExistingShares() {
+  if (!props.tableId) return;
+
+  isLoadingList.value = true;
+  try {
+    const shares = await formShareApi.getFormShares(props.tableId);
+    existingShares.value = shares;
+  } catch (error) {
+    console.error("加载分享列表失败:", error);
+  } finally {
+    isLoadingList.value = false;
+  }
+}
+
+// 创建表单分享
+async function createShare() {
+  if (!props.tableId) {
+    ElMessage.error("表格ID不能为空");
     return;
   }
+
+  if (formConfig.value.allowedFields.length === 0) {
+    ElMessage.error("请至少选择一个字段");
+    return;
+  }
+
+  isCreating.value = true;
+  try {
+    const result = await formShareApi.createFormShare(props.tableId, {
+      title: formConfig.value.title,
+      description: formConfig.value.description || undefined,
+      submit_button_text: formConfig.value.submitButtonText,
+      success_message: formConfig.value.successMessage,
+      allow_anonymous: formConfig.value.allowAnonymous,
+      require_captcha: formConfig.value.requireCaptcha,
+      expires_at: formConfig.value.expiresAt
+        ? Math.floor(formConfig.value.expiresAt.getTime() / 1000)
+        : undefined,
+      max_submissions: formConfig.value.maxSubmissions || undefined,
+      allowed_fields: formConfig.value.allowedFields,
+      theme: formConfig.value.theme,
+    });
+
+    createdShare.value = result;
+    shareUrl.value = `${window.location.origin}/#/form/${result.share_token}`;
+
+    ElMessage.success("表单分享创建成功");
+    emit("created", result);
+
+    // 进入下一步
+    currentStep.value = 2;
+  } catch (error: any) {
+    console.error("创建表单分享失败:", error);
+    ElMessage.error(error.response?.data?.message || "创建失败，请稍后重试");
+  } finally {
+    isCreating.value = false;
+  }
+}
+
+// 复制分享链接
+function copyShareUrl() {
+  if (!shareUrl.value) return;
 
   navigator.clipboard
     .writeText(shareUrl.value)
@@ -88,384 +166,288 @@ function copyLink() {
       ElMessage.success("链接已复制到剪贴板");
     })
     .catch(() => {
-      // 降级方案
-      const input = document.createElement("input");
-      input.value = shareUrl.value;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand("copy");
-      document.body.removeChild(input);
-      ElMessage.success("链接已复制到剪贴板");
+      ElMessage.error("复制失败，请手动复制");
     });
 }
 
-// 导出表单为 HTML
-function exportAsHtml() {
-  const htmlContent = generateFormHtml();
-  const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${props.tableName || "form"}_${Date.now()}.html`;
-  a.click();
-  URL.revokeObjectURL(url);
-  ElMessage.success("表单已导出为 HTML 文件");
-}
-
-// 导出表单数据为 JSON
-function exportAsJson() {
-  const data = {
-    tableName: props.tableName,
-    tableId: props.tableId,
-    exportTime: new Date().toISOString(),
-    fields: props.fields.map((f) => ({
-      id: f.id,
-      name: f.name,
-      type: f.type,
-      required: f.options?.required,
-      options: f.options,
-    })),
-    formConfig: props.formConfig,
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${props.tableName || "form"}_config_${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  ElMessage.success("表单配置已导出");
-}
-
-// 生成表单 HTML
-function generateFormHtml(): string {
-  const formFields = props.fields
-    .filter(
-      (f) =>
-        ![
-          "createdBy",
-          "createdTime",
-          "updatedBy",
-          "updatedTime",
-          "autoNumber",
-        ].includes(f.type),
-    )
-    .map((field) => {
-      const required = field.options?.required ? " required" : "";
-      let inputHtml = "";
-
-      switch (field.type) {
-        case "text":
-          inputHtml = `<input type="text" name="${field.id}" placeholder="请输入${field.name}"${required}>`;
-          break;
-        case "number":
-          inputHtml = `<input type="number" name="${field.id}" placeholder="请输入${field.name}"${required}>`;
-          break;
-        case "email":
-          inputHtml = `<input type="email" name="${field.id}" placeholder="请输入${field.name}"${required}>`;
-          break;
-        case "phone":
-          inputHtml = `<input type="tel" name="${field.id}" placeholder="请输入${field.name}"${required}>`;
-          break;
-        case "url":
-          inputHtml = `<input type="url" name="${field.id}" placeholder="请输入${field.name}"${required}>`;
-          break;
-        case "date":
-          inputHtml = `<input type="date" name="${field.id}"${required}>`;
-          break;
-        case "checkbox":
-          inputHtml = `<input type="checkbox" name="${field.id}"${required}>`;
-          break;
-        case "single_select":
-          const options = (field.options?.choices || field.options?.options || []) as Array<{
-            id: string;
-            name: string;
-          }>;
-          inputHtml = `<select name="${field.id}"${required}>
-            <option value="">请选择</option>
-            ${options.map((opt) => `<option value="${opt.id}">${opt.name}</option>`).join("")}
-          </select>`;
-          break;
-        case "multi_select":
-          const multiOptions = (field.options?.choices || field.options?.options || []) as Array<{
-            id: string;
-            name: string;
-          }>;
-          inputHtml = `<div class="checkbox-group">
-            ${multiOptions
-              .map(
-                (opt) => `
-              <label><input type="checkbox" name="${field.id}[]" value="${opt.id}"> ${opt.name}</label>
-            `,
-              )
-              .join("")}
-          </div>`;
-          break;
-        default:
-          inputHtml = `<input type="text" name="${field.id}" placeholder="请输入${field.name}"${required}>`;
-      }
-
-      return `
-        <div class="form-field">
-          <label>${field.name}${required ? ' <span class="required">*</span>' : ""}</label>
-          ${inputHtml}
-        </div>
-      `;
-    })
-    .join("");
-
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${props.tableName || "数据收集表单"}</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f6f7;
-      padding: 20px;
-      margin: 0;
-    }
-    .form-container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: white;
-      padding: 40px;
-      border-radius: 8px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-      color: #1f2329;
-      margin-bottom: 30px;
-    }
-    .form-field {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: #1f2329;
-      font-weight: 500;
-    }
-    input, select, textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #dee0e3;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #3370ff;
-    }
-    .required { color: #ef4444; }
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .checkbox-group label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: normal;
-    }
-    .checkbox-group input {
-      width: auto;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #3370ff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #2860e0;
-    }
-    @media (max-width: 768px) {
-      .form-container {
-        padding: 20px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="form-container">
-    <h1>${props.tableName || "数据收集表单"}</h1>
-    <form id="dataForm">
-      ${formFields}
-      <button type="submit">提交</button>
-    </form>
-  </div>
-  <script>
-    document.getElementById('dataForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      const data = {};
-      formData.forEach((value, key) => {
-        if (data[key]) {
-          if (Array.isArray(data[key])) {
-            data[key].push(value);
-          } else {
-            data[key] = [data[key], value];
-          }
-        } else {
-          data[key] = value;
-        }
-      });
-      console.log('Form Data:', data);
-      alert('表单数据（实际应用中会提交到服务器）：\\n' + JSON.stringify(data, null, 2));
+// 删除分享
+async function deleteShare(shareId: string) {
+  try {
+    await ElMessageBox.confirm("确定要删除这个表单分享吗？", "确认删除", {
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
+      type: "warning",
     });
-  <\/script>
-</body>
-</html>`;
+
+    await formShareApi.deleteFormShare(shareId);
+    ElMessage.success("删除成功");
+    loadExistingShares();
+  } catch (error: any) {
+    if (error !== "cancel") {
+      console.error("删除失败:", error);
+      ElMessage.error("删除失败，请稍后重试");
+    }
+  }
 }
 
-// 复制嵌入代码
-function copyEmbedCode() {
-  const embedCode = `<iframe 
-  src="${shareUrl.value || window.location.href}" 
-  width="100%" 
-  height="600" 
-  frameborder="0"
-  sandbox="allow-scripts allow-forms allow-same-origin"
-  style="border: 1px solid #dee0e3; border-radius: 8px;"
-></iframe>`;
-
-  navigator.clipboard
-    .writeText(embedCode)
-    .then(() => {
-      ElMessage.success("嵌入代码已复制");
-    })
-    .catch(() => {
-      ElMessage.error("复制失败");
+// 切换分享状态
+async function toggleShareStatus(share: FormShareConfig) {
+  try {
+    await formShareApi.updateFormShare(share.id, {
+      is_active: !share.is_active,
     });
+    ElMessage.success(share.is_active ? "已停用" : "已启用");
+    loadExistingShares();
+  } catch (error) {
+    console.error("更新状态失败:", error);
+    ElMessage.error("操作失败，请稍后重试");
+  }
 }
 
-function handleClose() {
-  emit("update:visible", false);
-  shareUrl.value = "";
-  currentFormId.value = "";
-  activeTab.value = "link";
+// 格式化日期
+function formatDate(timestamp: number | null): string {
+  if (!timestamp) return "永久有效";
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleString("zh-CN");
+}
+
+// 获取状态文本
+function getStatusText(share: FormShareConfig): string {
+  if (!share.is_active) return "已停用";
+  if (share.is_expired) return "已过期";
+  if (share.is_reached_limit) return "已达上限";
+  return "有效";
+}
+
+// 获取状态类型
+function getStatusType(share: FormShareConfig): string {
+  if (!share.is_active) return "info";
+  if (share.is_expired) return "danger";
+  if (share.is_reached_limit) return "warning";
+  return "success";
+}
+
+// 关闭对话框
+function closeDialog() {
+  dialogVisible.value = false;
 }
 </script>
 
 <template>
   <el-dialog
-    :model-value="visible"
-    @update:model-value="handleClose"
-    title="分享表单"
-    width="550px"
-    :close-on-click-modal="false">
-    <el-tabs v-model="activeTab" class="share-tabs">
-      <!-- 链接分享 -->
-      <el-tab-pane label="链接分享" name="link">
-        <div class="share-section">
-          <p class="share-desc">
-            生成一个分享链接，其他人可以通过链接访问并填写表单
-          </p>
+    v-model="dialogVisible"
+    title="创建表单分享"
+    width="700px"
+    :close-on-click-modal="false"
+    destroy-on-close>
+    <el-steps :active="currentStep" finish-status="success" class="mb-4">
+      <el-step title="配置表单" />
+      <el-step title="获取链接" />
+    </el-steps>
 
-          <div v-if="!shareUrl" class="generate-section">
-            <el-button
-              type="primary"
-              :loading="isGenerating"
-              @click="generateShareLink">
-              生成分享链接
-            </el-button>
+    <!-- 步骤1：配置表单 -->
+    <div v-if="currentStep === 1" class="step-content">
+      <el-form label-position="top">
+        <!-- 基本信息 -->
+        <el-divider content-position="left">基本信息</el-divider>
+
+        <el-form-item label="表单标题">
+          <el-input
+            v-model="formConfig.title"
+            placeholder="请输入表单标题"
+            maxlength="200"
+            show-word-limit />
+        </el-form-item>
+
+        <el-form-item label="表单描述">
+          <el-input
+            v-model="formConfig.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入表单描述（可选）" />
+        </el-form-item>
+
+        <el-form-item label="提交按钮文字">
+          <el-input
+            v-model="formConfig.submitButtonText"
+            placeholder="提交"
+            maxlength="50" />
+        </el-form-item>
+
+        <el-form-item label="成功提示信息">
+          <el-input
+            v-model="formConfig.successMessage"
+            placeholder="提交成功，感谢您的参与！"
+            maxlength="500" />
+        </el-form-item>
+
+        <!-- 权限设置 -->
+        <el-divider content-position="left">权限设置</el-divider>
+
+        <el-form-item>
+          <el-switch v-model="formConfig.allowAnonymous" active-text="允许匿名提交" />
+        </el-form-item>
+
+        <el-form-item>
+          <el-switch v-model="formConfig.requireCaptcha" active-text="需要验证码" />
+        </el-form-item>
+
+        <el-form-item label="过期时间">
+          <el-date-picker
+            v-model="formConfig.expiresAt"
+            type="datetime"
+            placeholder="选择过期时间（可选）"
+            style="width: 100%" />
+        </el-form-item>
+
+        <el-form-item label="最大提交次数">
+          <el-input-number
+            v-model="formConfig.maxSubmissions"
+            :min="1"
+            :max="10000"
+            placeholder="不限制"
+            style="width: 100%" />
+        </el-form-item>
+
+        <!-- 字段选择 -->
+        <el-divider content-position="left">字段选择</el-divider>
+
+        <el-form-item label="允许填写的字段">
+          <el-checkbox-group v-model="formConfig.allowedFields" class="field-checkbox-group">
+            <el-checkbox
+              v-for="field in availableFields"
+              :key="field.id"
+              :label="field.id">
+              {{ field.name }}
+              <el-tag v-if="field.isRequired" size="small" type="danger" class="ml-2">
+                必填
+              </el-tag>
+            </el-checkbox>
+          </el-checkbox-group>
+          <div v-if="formConfig.allowedFields.length === 0" class="field-hint">
+            <el-alert
+              title="请至少选择一个字段"
+              type="warning"
+              :closable="false"
+              show-icon />
           </div>
+        </el-form-item>
+      </el-form>
 
-          <div v-else class="link-section">
-            <el-input v-model="shareUrl" readonly class="link-input">
+      <!-- 现有分享列表 -->
+      <el-divider content-position="left">现有分享</el-divider>
+
+      <div v-if="isLoadingList" class="text-center py-4">
+        <el-loading :visible="true" />
+      </div>
+
+      <el-empty
+        v-else-if="existingShares.length === 0"
+        description="暂无表单分享"
+        :image-size="60" />
+
+      <el-table v-else :data="existingShares" size="small" class="share-table">
+        <el-table-column prop="title" label="标题" min-width="120" show-overflow-tooltip />
+        <el-table-column label="状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row)" size="small">
+              {{ getStatusText(row) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="提交数" width="100">
+          <template #default="{ row }">
+            {{ row.current_submissions }}
+            <span v-if="row.max_submissions">/ {{ row.max_submissions }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="过期时间" min-width="120">
+          <template #default="{ row }">
+            {{ formatDate(row.expires_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              link
+              type="primary"
+              size="small"
+              @click="toggleShareStatus(row)">
+              {{ row.is_active ? "停用" : "启用" }}
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              size="small"
+              @click="deleteShare(row.id)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <!-- 步骤2：获取链接 -->
+    <div v-else-if="currentStep === 2" class="step-content">
+      <el-result
+        icon="success"
+        title="表单分享创建成功"
+        sub-title="您可以将以下链接分享给他人填写">
+        <template #extra>
+          <div class="share-url-container">
+            <el-input
+              v-model="shareUrl"
+              readonly
+              class="share-url-input"
+              size="large">
               <template #append>
-                <el-button @click="copyLink">
+                <el-button type="primary" @click="copyShareUrl">
                   <el-icon><CopyDocument /></el-icon>
-                  复制
+                  复制链接
                 </el-button>
               </template>
             </el-input>
-
-            <div class="link-actions">
-              <el-button link type="primary" @click="generateShareLink">
-                <el-icon><Refresh /></el-icon>
-                重新生成
-              </el-button>
-            </div>
-          </div>
-        </div>
-      </el-tab-pane>
-
-      <!-- 嵌入代码 -->
-      <el-tab-pane label="嵌入网页" name="embed">
-        <div class="share-section">
-          <p class="share-desc">将表单嵌入到你的网站中</p>
-
-          <div v-if="!shareUrl" class="generate-section">
-            <el-button
-              type="primary"
-              :loading="isGenerating"
-              @click="generateShareLink">
-              先生成分享链接
-            </el-button>
           </div>
 
-          <div v-else class="embed-section">
-            <el-input
-              type="textarea"
-              :rows="4"
-              readonly
-              :model-value="`<iframe src=&quot;${shareUrl}&quot; width=&quot;100%&quot; height=&quot;600&quot; frameborder=&quot;0&quot; style=&quot;border: 1px solid #dee0e3; border-radius: 8px;&quot;></iframe>`" />
-            <el-button type="primary" class="copy-btn" @click="copyEmbedCode">
-              <el-icon><CopyDocument /></el-icon>
-              复制嵌入代码
-            </el-button>
+          <div class="share-info mt-4">
+            <el-descriptions :column="1" border size="small">
+              <el-descriptions-item label="表单标题">
+                {{ createdShare?.title }}
+              </el-descriptions-item>
+              <el-descriptions-item label="允许匿名">
+                {{ createdShare?.allow_anonymous ? "是" : "否" }}
+              </el-descriptions-item>
+              <el-descriptions-item label="需要验证码">
+                {{ createdShare?.require_captcha ? "是" : "否" }}
+              </el-descriptions-item>
+              <el-descriptions-item label="过期时间">
+                {{ formatDate(createdShare?.expires_at || null) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="最大提交次数">
+                {{ createdShare?.max_submissions || "不限制" }}
+              </el-descriptions-item>
+            </el-descriptions>
           </div>
-        </div>
-      </el-tab-pane>
 
-      <!-- 导出表单 -->
-      <el-tab-pane label="导出表单" name="export">
-        <div class="share-section">
-          <p class="share-desc">将表单导出为文件，方便离线使用或备份</p>
-
-          <div class="export-options">
-            <div class="export-item" @click="exportAsHtml">
-              <div class="export-icon">
-                <el-icon :size="32"><Document /></el-icon>
-              </div>
-              <div class="export-info">
-                <h4>导出为 HTML</h4>
-                <p>生成独立的 HTML 文件，可在浏览器中打开</p>
-              </div>
-              <el-icon class="export-arrow"><ArrowRight /></el-icon>
-            </div>
-
-            <div class="export-item" @click="exportAsJson">
-              <div class="export-icon">
-                <el-icon :size="32"><DocumentChecked /></el-icon>
-              </div>
-              <div class="export-info">
-                <h4>导出配置 (JSON)</h4>
-                <p>导出表单配置数据，用于备份或迁移</p>
-              </div>
-              <el-icon class="export-arrow"><ArrowRight /></el-icon>
-            </div>
+          <div class="mt-4">
+            <el-button type="primary" @click="closeDialog">完成</el-button>
+            <el-button @click="currentStep = 1">创建新的分享</el-button>
           </div>
-        </div>
-      </el-tab-pane>
-    </el-tabs>
+        </template>
+      </el-result>
+    </div>
 
     <template #footer>
-      <el-button @click="handleClose">关闭</el-button>
+      <span v-if="currentStep === 1" class="dialog-footer">
+        <el-button @click="closeDialog">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="isCreating"
+          :disabled="formConfig.allowedFields.length === 0"
+          @click="createShare">
+          创建分享
+        </el-button>
+      </span>
     </template>
   </el-dialog>
 </template>
@@ -473,89 +455,73 @@ function handleClose() {
 <style lang="scss" scoped>
 @use "@/assets/styles/variables" as *;
 
-.share-tabs {
-  :deep(.el-tabs__header) {
-    margin-bottom: $spacing-lg;
-  }
+.step-content {
+  min-height: 400px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
-.share-section {
-  min-height: 200px;
-}
-
-.share-desc {
-  color: $text-secondary;
-  margin-bottom: $spacing-lg;
-  line-height: 1.6;
-}
-
-.generate-section {
+.field-checkbox-group {
   display: flex;
-  justify-content: center;
-  padding: $spacing-xl 0;
-}
+  flex-wrap: wrap;
+  gap: 12px;
 
-.link-section {
-  .link-input {
-    margin-bottom: $spacing-sm;
-  }
-
-  .link-actions {
-    display: flex;
-    justify-content: center;
+  :deep(.el-checkbox) {
+    margin-right: 0;
+    min-width: 140px;
   }
 }
 
-.embed-section {
-  .copy-btn {
-    margin-top: $spacing-md;
-    width: 100%;
+.field-hint {
+  margin-top: 8px;
+}
+
+.share-table {
+  margin-top: 16px;
+}
+
+.share-url-container {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.share-url-input {
+  :deep(.el-input__wrapper) {
+    background-color: $bg-color;
   }
 }
 
-.export-options {
+.share-info {
+  max-width: 500px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.dialog-footer {
   display: flex;
-  flex-direction: column;
-  gap: $spacing-md;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
-.export-item {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
-  padding: $spacing-md;
-  border: 1px solid $border-color;
-  border-radius: $border-radius-md;
-  cursor: pointer;
-  transition: all 0.2s;
+.mb-4 {
+  margin-bottom: 24px;
+}
 
-  &:hover {
-    border-color: $primary-color;
-    background-color: rgba($primary-color, 0.02);
-  }
+.mt-4 {
+  margin-top: 24px;
+}
 
-  .export-icon {
-    color: $primary-color;
-  }
+.ml-2 {
+  margin-left: 8px;
+}
 
-  .export-info {
-    flex: 1;
+.py-4 {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
 
-    h4 {
-      margin: 0 0 $spacing-xs;
-      font-size: $font-size-base;
-      color: $text-primary;
-    }
-
-    p {
-      margin: 0;
-      font-size: $font-size-sm;
-      color: $text-secondary;
-    }
-  }
-
-  .export-arrow {
-    color: $text-disabled;
-  }
+.text-center {
+  text-align: center;
 }
 </style>

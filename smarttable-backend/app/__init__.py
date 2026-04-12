@@ -67,6 +67,7 @@ def register_blueprints(app):
     from app.routes.import_export import import_export_bp
     from app.routes.admin import admin_bp
     from app.routes.shares import shares_bp
+    from app.routes.form_shares import form_shares_bp
     
     # 注册认证蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -103,6 +104,9 @@ def register_blueprints(app):
     
     # 注册分享蓝图
     app.register_blueprint(shares_bp, url_prefix='/api')
+    
+    # 注册表单分享蓝图 (路由中已包含完整路径)
+    app.register_blueprint(form_shares_bp, url_prefix='/api')
 
 
 def register_error_handlers(app):

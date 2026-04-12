@@ -324,7 +324,7 @@ onMounted(async () => {
     if (shareInfo) {
       try {
         const info = JSON.parse(shareInfo);
-        if (info && info.share_token && typeof info.share_token === 'string') {
+        if (info && info.share_token && typeof info.share_token === "string") {
           await baseStore.fetchBase(baseId, info.share_token);
         } else {
           localStorage.removeItem(`share_permission_${baseId}`);
@@ -1547,7 +1547,7 @@ function handleShareChanged() {
                 </el-button>
               </template>
 
-              <!-- 表单视图：只显示配置按钮（分享和成员按钮已迁移到顶部导航栏） -->
+              <!-- 表单视图：显示配置和分享按钮 -->
               <template v-if="isFormView">
                 <el-button-group>
                   <el-button
@@ -1556,6 +1556,13 @@ function handleShareChanged() {
                     @click="openFormConfigDialog">
                     <el-icon><Setting /></el-icon>
                     配置
+                  </el-button>
+                  <el-button
+                    v-if="canManage"
+                    size="medium"
+                    @click="openFormShareDialog">
+                    <el-icon><Share /></el-icon>
+                    分享
                   </el-button>
                 </el-button-group>
               </template>

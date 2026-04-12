@@ -1,32 +1,35 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
-import { useTableStore } from "@/stores/tableStore";
-import { viewService } from "@/db/services/viewService";
+import { formShareApi, type FormSchema, type FormFieldSchema } from "@/api/formShare";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 
 const route = useRoute();
 const router = useRouter();
-const tableStore = useTableStore();
 
 // 加载状态
 const isLoading = ref(true);
 const loadError = ref("");
 
 // 表单数据
+const shareToken = ref("");
 const tableId = ref("");
 const tableName = ref("");
-const fields = ref<FieldEntity[]>([]);
+const fields = ref<FormFieldSchema[]>([]);
 const formValues = ref<Record<string, CellValue>>({});
 const formErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
 const submitSuccess = ref(false);
 const newRecordId = ref(generateId());
+
+// 验证码
+const captchaCode = ref("");
+const captchaImage = ref("");
 
 // 表单配置
 const formConfig = ref({
@@ -34,13 +37,12 @@ const formConfig = ref({
   description: "",
   submitButtonText: "提交",
   successMessage: "提交成功，感谢您的参与！",
-  visibleFieldIds: [] as string[],
-  allowMultipleSubmit: true,
+  requireCaptcha: false,
 });
 
 // 可见字段（根据表单配置和表格配置综合判断）
 const visibleFields = computed(() => {
-  const systemFieldTypes: FieldTypeValue[] = [
+  const systemFieldTypes: string[] = [
     FieldType.CREATED_BY,
     FieldType.CREATED_TIME,
     FieldType.UPDATED_BY,
@@ -48,58 +50,26 @@ const visibleFields = computed(() => {
     FieldType.AUTO_NUMBER,
   ];
 
-  // 首先过滤掉系统字段和明确隐藏的字段
-  let filteredFields = fields.value
-    .filter((f) => !f.options?.hidden)
-    .filter((f) => !systemFieldTypes.includes(f.type as FieldTypeValue));
-
-  console.log("[FormShare] visibleFields computed:");
-  console.log("[FormShare] All fields count:", fields.value.length);
-  console.log("[FormShare] Filtered fields count:", filteredFields.length);
-  console.log(
-    "[FormShare] formConfig.visibleFieldIds:",
-    formConfig.value.visibleFieldIds,
+  // 过滤掉系统字段
+  return fields.value.filter(
+    (f) => !systemFieldTypes.includes(f.type as FieldTypeValue)
   );
-
-  // 检查是否明确设置了 visibleFieldIds（包括空数组的情况）
-  const hasVisibleFieldIds =
-    "visibleFieldIds" in formConfig.value &&
-    Array.isArray(formConfig.value.visibleFieldIds);
-
-  console.log("[FormShare] hasVisibleFieldIds:", hasVisibleFieldIds);
-
-  if (hasVisibleFieldIds && formConfig.value.visibleFieldIds.length > 0) {
-    // 按照 visibleFieldIds 的顺序排序，并只显示包含在列表中的字段
-    const fieldMap = new Map(filteredFields.map((f) => [f.id, f]));
-    const result = formConfig.value.visibleFieldIds
-      .map((id) => fieldMap.get(id))
-      .filter((f): f is FieldEntity => f !== undefined);
-    console.log(
-      "[FormShare] Using visibleFieldIds order, result count:",
-      result.length,
-    );
-    return result;
-  }
-
-  // 如果没有设置 visibleFieldIds 或为空数组，显示所有非系统字段
-  console.log("[FormShare] Using default order");
-  return filteredFields.sort((a, b) => (a.order || 0) - (b.order || 0));
 });
 
 // 页面加载时获取表单数据
 onMounted(async () => {
-  const formId = route.params.id as string;
+  const token = route.params.token as string;
 
-  if (!formId) {
+  if (!token) {
     loadError.value = "无效的表单链接";
     isLoading.value = false;
     return;
   }
 
+  shareToken.value = token;
+
   try {
-    // 从 formId 解析 tableId（实际项目中应该从后端获取）
-    // 这里使用模拟数据，实际应该调用 API 获取表单配置
-    await loadFormData(formId);
+    await loadFormData(token);
   } catch (error) {
     console.error("加载表单失败:", error);
     loadError.value = "表单加载失败，请检查链接是否有效";
@@ -109,128 +79,68 @@ onMounted(async () => {
 });
 
 // 加载表单数据
-async function loadFormData(formId: string) {
-  console.log("[FormShare] Loading form data for formId:", formId);
+async function loadFormData(token: string) {
+  console.log("[FormShare] Loading form data for token:", token);
 
   try {
-    // 从数据库获取视图配置（formId 实际上是 viewId）
-    const view = await viewService.getView(formId);
-    console.log("[FormShare] View from database:", view);
+    // 1. 先验证表单分享是否有效
+    const validation = await formShareApi.validateFormShare(token);
+    console.log("[FormShare] Form validation:", validation);
 
-    if (view && view.type === "form") {
-      tableId.value = view.tableId;
+    if (!validation.valid) {
+      loadError.value = "该表单分享已失效或已过期";
+      return;
+    }
 
-      // 从 config 字段加载表单配置（后端会将 form_config 以 config 形式返回）
-      const configData = view.config as {
-        title?: string;
-        description?: string;
-        submitButtonText?: string;
-        visibleFieldIds?: string[];
-        successMessage?: string;
-        allowMultipleSubmit?: boolean;
-      };
+    // 2. 获取表单结构
+    const schema = await formShareApi.getFormSchema(token);
+    console.log("[FormShare] Form schema:", schema);
 
-      // 加载表单基础配置（标题、描述等 UI 配置）
-      if (configData) {
-        console.log(
-          "[FormShare] Loading formConfig from database:",
-          configData,
-        );
+    tableId.value = schema.table_id;
+    tableName.value = schema.table_name;
+    fields.value = schema.fields;
 
-        formConfig.value = {
-          title: configData.title || "数据收集表单",
-          description: configData.description || "",
-          submitButtonText: configData.submitButtonText || "提交",
-          successMessage:
-            configData.successMessage || "提交成功，感谢您的参与！",
-          visibleFieldIds: configData.visibleFieldIds || [],
-          allowMultipleSubmit: configData.allowMultipleSubmit !== false,
-        };
+    // 加载表单配置
+    formConfig.value = {
+      title: schema.form_title || "数据收集表单",
+      description: schema.form_description || "",
+      submitButtonText: schema.submit_button_text || "提交",
+      successMessage: schema.success_message || "提交成功，感谢您的参与！",
+      requireCaptcha: schema.require_captcha || false,
+    };
 
-        console.log("[FormShare] Loaded formConfig:", formConfig.value);
-        console.log(
-          "[FormShare] visibleFieldIds:",
-          formConfig.value.visibleFieldIds,
-        );
-      }
-
-      // 从数据库加载表格数据（字段）
-      await loadTableData(view.tableId);
-    } else {
-      // 如果数据库中没有找到视图配置，尝试从 localStorage 获取（兼容旧数据）
-      console.log(
-        "[FormShare] View not found in database, trying localStorage",
-      );
-      await loadFromLocalStorage(formId);
+    // 如果需要验证码，加载验证码
+    if (schema.require_captcha) {
+      await refreshCaptcha();
     }
 
     // 初始化表单值
     resetForm();
-  } catch (error) {
+  } catch (error: any) {
     console.error("[FormShare] Error loading form data:", error);
+    if (error.response?.status === 404) {
+      loadError.value = "表单分享不存在";
+    } else if (error.response?.status === 403) {
+      loadError.value = "该表单分享已失效、已过期或已达到提交次数上限";
+    } else {
+      loadError.value = "表单加载失败，请稍后重试";
+    }
     throw error;
   }
 }
 
-// 从 localStorage 加载（兼容旧数据）
-async function loadFromLocalStorage(formId: string) {
-  const storedConfig = localStorage.getItem(`form_config_${formId}`);
-
-  if (storedConfig) {
-    const config = JSON.parse(storedConfig);
-    tableId.value = config.tableId;
-    tableName.value = config.tableName;
-
-    if (config.formConfig) {
-      formConfig.value = {
-        title: config.formConfig.title || "数据收集表单",
-        description: config.formConfig.description || "",
-        submitButtonText: config.formConfig.submitButtonText || "提交",
-        successMessage:
-          config.formConfig.successMessage || "提交成功，感谢您的参与！",
-        visibleFieldIds: config.formConfig.visibleFieldIds || [],
-        allowMultipleSubmit: config.formConfig.allowMultipleSubmit !== false,
-      };
-    }
-
-    if (config.fields && config.fields.length > 0) {
-      fields.value = config.fields;
-    } else if (tableId.value) {
-      await loadTableData(tableId.value);
-    }
-  } else {
-    // 如果没有存储的配置，尝试从 URL 参数解析
-    const queryTableId = route.query.tableId as string;
-    if (queryTableId) {
-      tableId.value = queryTableId;
-      await loadTableData(queryTableId);
-    } else {
-      throw new Error("无法找到表单配置");
-    }
-  }
-}
-
-// 加载表格数据
-async function loadTableData(id: string) {
-  try {
-    // 从 tableStore 加载表格数据
-    await tableStore.selectTable(id);
-    if (tableStore.currentTable) {
-      tableName.value = tableStore.currentTable.name;
-      fields.value = tableStore.fields || [];
-    } else {
-      throw new Error("表格不存在");
-    }
-  } catch (error) {
-    console.error("加载表格数据失败:", error);
-    throw error;
-  }
+// 刷新验证码
+async function refreshCaptcha() {
+  // TODO: 实现验证码获取接口
+  // const result = await formShareApi.getCaptcha(shareToken.value);
+  // captchaImage.value = result.image;
+  console.log("[FormShare] Refresh captcha");
 }
 
 // 验证字段
-function validateField(field: FieldEntity, value: CellValue): string | null {
+function validateField(field: FormFieldSchema, value: CellValue): string | null {
   if (
-    field.options?.required &&
+    field.required &&
     (value === null || value === undefined || value === "" || value === false)
   ) {
     return `${field.name}为必填项`;
@@ -260,19 +170,22 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
       break;
     case FieldType.NUMBER:
     case FieldType.RATING:
+    case FieldType.PERCENT:
+    case FieldType.CURRENCY:
       if (typeof value === "number" || !isNaN(Number(value))) {
         const numValue = Number(value);
+        const config = field.config || {};
         if (
-          field.options?.min !== undefined &&
-          numValue < Number(field.options.min)
+          config.min !== undefined &&
+          numValue < Number(config.min)
         ) {
-          return `${field.name}不能小于${field.options.min}`;
+          return `${field.name}不能小于${config.min}`;
         }
         if (
-          field.options?.max !== undefined &&
-          numValue > Number(field.options.max)
+          config.max !== undefined &&
+          numValue > Number(config.max)
         ) {
-          return `${field.name}不能大于${field.options.max}`;
+          return `${field.name}不能大于${config.max}`;
         }
       }
       break;
@@ -313,28 +226,52 @@ async function handleSubmit() {
     return;
   }
 
-  if (!tableId.value) {
+  if (!shareToken.value) {
     ElMessage.error("表单配置错误");
+    return;
+  }
+
+  // 验证验证码
+  if (formConfig.value.requireCaptcha && !captchaCode.value) {
+    ElMessage.error("请输入验证码");
     return;
   }
 
   isSubmitting.value = true;
 
   try {
-    const record = await tableStore.createRecord({
-      tableId: tableId.value,
+    const submitData: any = {
       values: { ...formValues.value },
-    });
+    };
 
-    if (record) {
-      submitSuccess.value = true;
-      ElMessage.success(formConfig.value.successMessage);
-    } else {
-      ElMessage.error(tableStore.error || "提交失败");
+    // 如果需要验证码，添加验证码
+    if (formConfig.value.requireCaptcha) {
+      submitData.captcha = captchaCode.value;
     }
-  } catch (error) {
+
+    const result = await formShareApi.submitForm(shareToken.value, submitData);
+
+    submitSuccess.value = true;
+    ElMessage.success(formConfig.value.successMessage);
+  } catch (error: any) {
     console.error("提交表单失败:", error);
-    ElMessage.error("提交失败，请稍后重试");
+    
+    // 处理验证错误
+    if (error.response?.status === 400 && error.response?.data?.details) {
+      const details = error.response.data.details;
+      Object.entries(details).forEach(([fieldId, message]) => {
+        formErrors.value[fieldId] = message as string;
+      });
+      ElMessage.error("表单数据验证失败，请检查填写内容");
+    } else {
+      ElMessage.error(error.response?.data?.message || "提交失败，请稍后重试");
+    }
+
+    // 刷新验证码
+    if (formConfig.value.requireCaptcha) {
+      await refreshCaptcha();
+      captchaCode.value = "";
+    }
   } finally {
     isSubmitting.value = false;
   }
@@ -345,21 +282,29 @@ function resetForm() {
   formValues.value = {};
   formErrors.value = {};
   newRecordId.value = generateId();
+  captchaCode.value = "";
 
-  // 设置默认值：使用 field.defaultValue（与 AddRecordDrawer 保持一致）
+  // 设置默认值
   visibleFields.value.forEach((field) => {
-    if (field.defaultValue !== undefined && field.defaultValue !== null) {
+    const config = field.config || {};
+    const defaultValue = config.defaultValue ?? config.default ?? null;
+    
+    if (defaultValue !== null && defaultValue !== undefined && defaultValue !== "") {
       // 特殊处理日期字段的动态默认值 'now'
-      if (field.type === FieldType.DATE && field.defaultValue === 'now') {
-        // 动态计算当前日期
-        const showTime = (field.options?.showTime as boolean) ?? false;
+      if (field.type === FieldType.DATE && defaultValue === 'now') {
+        const showTime = config.showTime as boolean ?? false;
         if (showTime) {
           formValues.value[field.id] = new Date().toISOString();
         } else {
           formValues.value[field.id] = new Date().toISOString().split('T')[0];
         }
+      } else if (field.type === FieldType.DATE_TIME && defaultValue === 'now') {
+        formValues.value[field.id] = new Date().toISOString();
+      } else if (field.type === FieldType.MULTI_SELECT && !Array.isArray(defaultValue)) {
+        // 多选字段默认值必须是数组
+        formValues.value[field.id] = [defaultValue];
       } else {
-        formValues.value[field.id] = field.defaultValue as CellValue;
+        formValues.value[field.id] = defaultValue as CellValue;
       }
     }
   });
@@ -367,17 +312,14 @@ function resetForm() {
 
 // 处理附件上传
 function handleAttachmentUpload(fieldId: string, newFiles: unknown[]) {
-  // 使用 Map 去重，避免重复添加相同 ID 的文件
   const currentFiles = (formValues.value[fieldId] as unknown[]) || [];
   const fileMap = new Map<string, unknown>();
 
-  // 添加现有文件
   currentFiles.forEach((f) => {
     const file = f as { id: string };
     fileMap.set(file.id, f);
   });
 
-  // 添加新文件（如果 ID 不存在）
   newFiles.forEach((f) => {
     const file = f as { id: string };
     if (!fileMap.has(file.id)) {
@@ -407,15 +349,21 @@ function reload() {
 }
 
 // 获取字段组件类型
-function getFieldComponentType(field: FieldEntity): string {
+function getFieldComponentType(field: FormFieldSchema): string {
   switch (field.type) {
     case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
     case FieldType.URL:
     case FieldType.EMAIL:
     case FieldType.PHONE:
+    case FieldType.BARCODE:
       return "text";
     case FieldType.NUMBER:
     case FieldType.RATING:
+    case FieldType.PERCENT:
+    case FieldType.CURRENCY:
       return "number";
     case FieldType.SINGLE_SELECT:
       return "single_select";
@@ -423,43 +371,61 @@ function getFieldComponentType(field: FieldEntity): string {
       return "multi_select";
     case FieldType.DATE:
       return "date";
+    case FieldType.DATE_TIME:
+      return "datetime";
     case FieldType.CHECKBOX:
       return "checkbox";
     case FieldType.ATTACHMENT:
       return "attachment";
+    case FieldType.COLLABORATOR:
+    case FieldType.CREATED_BY:
+    case FieldType.LAST_MODIFIED_BY:
+      return "collaborator";
+    case FieldType.PROGRESS:
+      return "progress";
     default:
       return "text";
   }
 }
 
 // 获取选项
-function getSelectOptions(field: FieldEntity) {
-  return (
-    ((field.options?.choices || field.options?.options) as Array<{
-      id: string;
-      name: string;
-      color?: string;
-    }>) || []
-  );
+function getSelectOptions(field: FormFieldSchema) {
+  const config = field.config || {};
+  
+  // 支持多种选项格式
+  let options = config.choices || config.options || [];
+  
+  // 确保选项是数组
+  if (!Array.isArray(options)) {
+    console.warn(`[FormShare] Field ${field.name} options is not an array:`, options);
+    return [];
+  }
+  
+  // 规范化选项格式
+  return options.map((opt: any) => ({
+    id: opt.id || opt.value || String(opt),
+    name: opt.name || opt.label || String(opt),
+    color: opt.color || opt.colorCode || '#3370FF'
+  }));
 }
 
 // 获取数值字段精度
-function getNumberPrecision(field: FieldEntity): number {
-  return (field.options?.precision as number) ?? 0;
+function getNumberPrecision(field: FormFieldSchema): number {
+  return (field.config?.precision as number) ?? 0;
 }
 
 // 获取日期字段是否显示时间
-function getDateShowTime(field: FieldEntity): boolean {
-  return (field.options?.showTime as boolean) ?? false;
+function getDateShowTime(field: FormFieldSchema): boolean {
+  return (field.config?.showTime as boolean) ?? false;
 }
 
 // 获取日期字段格式
-function getDateFormat(field: FieldEntity): string {
+function getDateFormat(field: FormFieldSchema): string {
   return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 }
 
 // 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): "date" | "datetime" {
+function getDatePickerType(field: FormFieldSchema): "date" | "datetime" {
   return getDateShowTime(field) ? "datetime" : "date";
 }
 
@@ -475,12 +441,20 @@ function handleDateChange(fieldId: string, val: Date | null) {
 
   const showTime = getDateShowTime(field);
   if (showTime) {
-    // 显示时间时存储为时间戳
     handleFieldChange(fieldId, val.getTime());
   } else {
-    // 仅日期时存储为日期字符串
     handleFieldChange(fieldId, dayjs(val).format("YYYY-MM-DD"));
   }
+}
+
+// 获取进度最大值
+function getProgressMax(field: FormFieldSchema): number {
+  return (field.config?.max as number) ?? 100;
+}
+
+// 获取进度最小值
+function getProgressMin(field: FormFieldSchema): number {
+  return (field.config?.min as number) ?? 0;
 }
 </script>
 
@@ -535,7 +509,7 @@ function handleDateChange(fieldId: string, val: Date | null) {
           :class="{ 'has-error': formErrors[field.id] }">
           <label class="form-label">
             {{ field.name }}
-            <span v-if="field.options?.required" class="required-mark">*</span>
+            <span v-if="field.required" class="required-mark">*</span>
           </label>
 
           <div class="form-control">
@@ -544,6 +518,8 @@ function handleDateChange(fieldId: string, val: Date | null) {
               <el-input
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
+                :type="field.type === FieldType.LONG_TEXT ? 'textarea' : 'text'"
+                :rows="field.type === FieldType.LONG_TEXT ? 4 : undefined"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val)
                 " />
@@ -556,13 +532,13 @@ function handleDateChange(fieldId: string, val: Date | null) {
                 :placeholder="`请输入${field.name}`"
                 :precision="getNumberPrecision(field)"
                 :min="
-                  field.options?.min !== undefined
-                    ? Number(field.options.min)
+                  field.config?.min !== undefined
+                    ? Number(field.config.min)
                     : undefined
                 "
                 :max="
-                  field.options?.max !== undefined
-                    ? Number(field.options.max)
+                  field.config?.max !== undefined
+                    ? Number(field.config.max)
                     : undefined
                 "
                 style="width: 100%"
@@ -631,6 +607,21 @@ function handleDateChange(fieldId: string, val: Date | null) {
                 " />
             </template>
 
+            <!-- 日期时间类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'datetime'">
+              <el-date-picker
+                :model-value="
+                  formValues[field.id] as unknown as Date | undefined
+                "
+                type="datetime"
+                :placeholder="`请选择${field.name}`"
+                format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+                @update:model-value="
+                  (val) => handleFieldChange(field.id, val ? val.toISOString() : null)
+                " />
+            </template>
+
             <!-- 复选框类型 -->
             <template v-else-if="getFieldComponentType(field) === 'checkbox'">
               <el-switch
@@ -640,11 +631,35 @@ function handleDateChange(fieldId: string, val: Date | null) {
                 " />
             </template>
 
+            <!-- 进度类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'progress'">
+              <div class="progress-field">
+                <el-slider
+                  :model-value="Number(formValues[field.id] || 0)"
+                  :min="getProgressMin(field)"
+                  :max="getProgressMax(field)"
+                  show-stops
+                  show-input
+                  @update:model-value="(val) => handleFieldChange(field.id, val)"
+                />
+              </div>
+            </template>
+
+            <!-- 联系人类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'collaborator'">
+              <el-input
+                :model-value="String(formValues[field.id] || '')"
+                :placeholder="`请输入${field.name}（邮箱或用户名）`"
+                @update:model-value="
+                  (val) => handleFieldChange(field.id, val)
+                " />
+            </template>
+
             <!-- 附件字段类型 -->
             <template v-else-if="getFieldComponentType(field) === 'attachment'">
               <AttachmentField
                 :model-value="formValues[field.id]"
-                :field="field"
+                :field="field as unknown as FieldEntity"
                 :record-id="newRecordId"
                 :readonly="false"
                 @update:model-value="(val) => handleFieldChange(field.id, val)"
@@ -653,6 +668,15 @@ function handleDateChange(fieldId: string, val: Date | null) {
                   (fileId) => handleAttachmentDelete(field.id, fileId)
                 " />
             </template>
+
+            <!-- 不支持的字段类型 -->
+            <template v-else>
+              <el-alert
+                :title="`不支持的字段类型: ${field.type}`"
+                type="warning"
+                :closable="false"
+                show-icon />
+            </template>
           </div>
 
           <div v-if="formErrors[field.id]" class="form-error">
@@ -660,8 +684,31 @@ function handleDateChange(fieldId: string, val: Date | null) {
             {{ formErrors[field.id] }}
           </div>
 
-          <div v-if="field.options?.description" class="form-field-description">
-            {{ field.options.description }}
+          <div v-if="field.config?.description" class="form-field-description">
+            {{ field.config.description }}
+          </div>
+        </div>
+
+        <!-- 验证码 -->
+        <div v-if="formConfig.requireCaptcha" class="form-item captcha-item">
+          <label class="form-label">
+            验证码
+            <span class="required-mark">*</span>
+          </label>
+          <div class="captcha-input-group">
+            <el-input
+              v-model="captchaCode"
+              placeholder="请输入验证码"
+              maxlength="6"
+              style="flex: 1"
+            />
+            <div class="captcha-image" @click="refreshCaptcha">
+              <!-- TODO: 实现验证码图片显示 -->
+              <el-button link type="primary" @click="refreshCaptcha">
+                <el-icon><Refresh /></el-icon>
+                刷新验证码
+              </el-button>
+            </div>
           </div>
         </div>
 
@@ -783,6 +830,32 @@ function handleDateChange(fieldId: string, val: Date | null) {
   line-height: 1.5;
 }
 
+// 验证码样式
+.captcha-item {
+  .captcha-input-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .captcha-image {
+    cursor: pointer;
+    padding: 8px 16px;
+    background: $bg-color;
+    border-radius: $border-radius-base;
+    border: 1px solid $border-color;
+
+    &:hover {
+      background: $border-color;
+    }
+  }
+}
+
+// 进度条样式
+.progress-field {
+  padding: 8px 0;
+}
+
 .form-actions {
   margin-top: 32px;
   padding-top: 24px;
@@ -806,19 +879,6 @@ function handleDateChange(fieldId: string, val: Date | null) {
     font-size: $font-size-xs;
     color: $text-secondary;
   }
-}
-
-.primary-field-input {
-  :deep(.el-input__wrapper) {
-    background-color: $bg-color;
-  }
-}
-
-.auto-filled-hint {
-  font-size: $font-size-xs;
-  color: $text-secondary;
-  margin-top: 4px;
-  display: block;
 }
 
 .option-color {
@@ -853,6 +913,11 @@ function handleDateChange(fieldId: string, val: Date | null) {
 
   .form-content {
     padding: 20px;
+  }
+
+  .captcha-item .captcha-input-group {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

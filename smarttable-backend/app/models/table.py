@@ -105,6 +105,13 @@ class Table(db.Model):
         cascade='all, delete-orphan'
     )
 
+    form_shares = relationship(
+        'FormShare',
+        back_populates='table',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+
     def get_record_count(self) -> int:
         return self.records.count()
 

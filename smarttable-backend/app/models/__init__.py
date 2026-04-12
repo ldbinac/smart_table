@@ -15,6 +15,8 @@ from app.models.operation_history import OperationHistory, OperationType, Resour
 from app.models.log import OperationLog, AdminActionType, EntityType
 from app.models.config import SystemConfig
 from app.models.link_relation import LinkRelation, LinkValue, RelationshipType
+from app.models.form_share import FormShare
+from app.models.form_submission import FormSubmission
 
 __all__ = [
     'User',
@@ -40,5 +42,7 @@ __all__ = [
     'SystemConfig',
     'LinkRelation',
     'LinkValue',
-    'RelationshipType'
+    'RelationshipType',
+    'FormShare',
+    'FormSubmission'
 ]

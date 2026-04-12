@@ -69,7 +69,7 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
-    path: "/form/:id",
+    path: "/form/:token",
     name: "FormShare",
     component: () => import("@/views/FormShare.vue"),
     meta: {
