@@ -7,9 +7,49 @@ from datetime import datetime, timezone
 
 from app.extensions import db
 from app.models.record import Record
-from app.models.field import Field
+from app.models.field import Field, FieldType
 from app.models.record_history import RecordHistory, HistoryAction
 from app.services.field_service import FieldService
+
+
+def _format_date_value(value: str, field: Field) -> str:
+    """
+    根据字段的 showTime 配置格式化日期值
+
+    Args:
+        value: 原始日期值（ISO 8601 格式或 YYYY-MM-DD 格式）
+        field: 字段对象
+
+    Returns:
+        格式化后的日期字符串
+    """
+    if value is None:
+        return None
+
+    # 获取 showTime 配置
+    options = field.options or {}
+    show_time = options.get('showTime', False)
+
+    try:
+        # 解析日期时间
+        if 'T' in str(value):
+            # ISO 8601 格式: 2026-04-12T00:00:00.000Z 或 2026-04-12T00:00:00+00:00
+            dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        else:
+            # 已经是 YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss 格式
+            if len(str(value)) <= 10:
+                dt = datetime.strptime(str(value), '%Y-%m-%d')
+            else:
+                dt = datetime.strptime(str(value), '%Y-%m-%d %H:%M:%S')
+
+        # 根据 showTime 配置格式化
+        if show_time:
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            return dt.strftime('%Y-%m-%d')
+    except (ValueError, TypeError):
+        # 如果解析失败，返回原始值
+        return value
 
 
 class RecordService:
@@ -59,7 +99,16 @@ class RecordService:
         
         # 从提供的 values 开始
         final_values = dict(values) if values else {}
-        
+
+        # 创建字段 ID 到字段对象的映射，用于后续处理
+        field_map = {str(field.id): field for field in fields}
+
+        # 处理日期字段值：根据 showTime 配置格式化
+        for field_id, value in list(final_values.items()):
+            field = field_map.get(field_id)
+            if field and field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
+                final_values[field_id] = _format_date_value(value, field)
+
         # 对每个有默认值的字段，如果没有提供值，则应用默认值
         for field in fields:
             field_id = str(field.id)
@@ -69,14 +118,16 @@ class RecordService:
                 if default_value is not None:
                     # 特殊处理动态日期默认值 'now'
                     if default_value == 'now':
-                        if field.type == 'date_time':
-                            final_values[field_id] = datetime.now(timezone.utc).isoformat()
+                        # 根据字段的 showTime 配置格式化当前时间
+                        options = field.options or {}
+                        show_time = options.get('showTime', False)
+                        if show_time:
+                            final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                         else:
-                            # 仅日期格式
                             final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d')
                     else:
                         final_values[field_id] = default_value
-        
+
         record = Record(
             table_id=table_id,
             values=final_values,
@@ -143,8 +194,21 @@ class RecordService:
         changes = []
 
         if values:
-            # 计算变更的字段
+            # 获取表格的所有字段，用于处理日期字段
+            fields = FieldService.get_all_fields(str(record.table_id))
+            field_map = {str(field.id): field for field in fields}
+
+            # 处理日期字段值：根据 showTime 配置格式化
+            formatted_values = {}
             for field_id, new_value in values.items():
+                field = field_map.get(field_id)
+                if field and field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
+                    formatted_values[field_id] = _format_date_value(new_value, field)
+                else:
+                    formatted_values[field_id] = new_value
+
+            # 计算变更的字段
+            for field_id, new_value in formatted_values.items():
                 old_value = old_values.get(field_id)
                 # 只有当值真正发生变化时才记录
                 if old_value != new_value:
@@ -157,7 +221,7 @@ class RecordService:
             # 合并新值到现有值
             # 创建新的字典对象，确保 SQLAlchemy 检测到变化
             current_values = dict(old_values)
-            current_values.update(values)
+            current_values.update(formatted_values)
             # 直接赋值新字典对象，SQLAlchemy 会检测到变化
             record.values = current_values
 

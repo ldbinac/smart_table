@@ -3,6 +3,7 @@
 处理 Field 的 CRUD 操作、排序管理和类型验证
 支持 22 种字段类型
 """
+import logging
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
@@ -14,6 +15,50 @@ from app.extensions import db
 from app.models.field import Field, FieldType
 from app.models.table import Table
 from app.models.base import MemberRole
+from app.services.base_service import BaseService
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+
+def _format_date_default_value(default_value: str, options: Optional[Dict[str, Any]]) -> str:
+    """
+    根据日期字段的 showTime 配置格式化默认值
+
+    Args:
+        default_value: 原始默认值（ISO 8601 格式或 YYYY-MM-DD 格式）
+        options: 字段选项，包含 showTime 配置
+
+    Returns:
+        格式化后的日期字符串
+    """
+    if default_value is None or default_value == 'now':
+        return default_value
+
+    # 获取 showTime 配置
+    show_time = options.get('showTime', False) if options else False
+
+    try:
+        # 解析日期时间
+        if 'T' in default_value:
+            # ISO 8601 格式: 2026-04-12T00:00:00.000Z 或 2026-04-12T00:00:00+00:00
+            dt = datetime.fromisoformat(default_value.replace('Z', '+00:00'))
+        else:
+            # 已经是 YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss 格式
+            if len(default_value) <= 10:
+                dt = datetime.strptime(default_value, '%Y-%m-%d')
+            else:
+                dt = datetime.strptime(default_value, '%Y-%m-%d %H:%M:%S')
+
+        # 根据 showTime 配置格式化
+        if show_time:
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            return dt.strftime('%Y-%m-%d')
+    except (ValueError, TypeError):
+        # 如果解析失败，返回原始值
+        return default_value
 
 
 class FieldService:
@@ -129,6 +174,9 @@ class FieldService:
         config = data.get('config', {}) or {}
         default_value = data.get('defaultValue') or data.get('default_value')
         if default_value is not None:
+            # 日期类型字段根据 showTime 配置格式化默认值
+            if field_type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
+                default_value = _format_date_default_value(default_value, data.get('options'))
             config['defaultValue'] = default_value
             config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
             config['updatedAt'] = datetime.now(timezone.utc).isoformat()
@@ -171,6 +219,7 @@ class FieldService:
             包含操作结果的字典
         """
         field = Field.query.get(field_id)
+        
         if not field:
             return {'success': False, 'error': '字段不存在'}
         
@@ -189,13 +238,22 @@ class FieldService:
             )
             if not is_valid:
                 return {'success': False, 'error': error_msg}
-            
+
+            # 日期类型字段根据 showTime 配置格式化默认值
+            if field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
+                # 使用传入的 options 或字段现有的 options
+                options = data.get('options') or field.options
+                default_value = _format_date_default_value(default_value, options)
+
             # 更新 config 中的默认值
             if field.config is None:
                 field.config = {}
             field.config['defaultValue'] = default_value
             field.config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
             field.config['updatedAt'] = datetime.now(timezone.utc).isoformat()
+            # 标记 config 字段为已修改，确保 SQLAlchemy 检测到变更
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(field, 'config')
         
         # 类型字段特殊处理
         if 'type' in data:
@@ -205,7 +263,7 @@ class FieldService:
                 if not FieldService._is_valid_type_conversion(field.type, new_type):
                     return {'success': False, 'error': f'不能将 {field.type} 转换为 {new_type}'}
                 field.type = new_type
-        
+
         for field_name in allowed_fields:
             if field_name in data:
                 setattr(field, field_name, data[field_name])
