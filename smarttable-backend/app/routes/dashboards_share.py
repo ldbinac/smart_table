@@ -8,6 +8,9 @@ from app.services.dashboard_share_service import DashboardShareService
 from app.services.base_service import BaseService
 from app.models.dashboard import Dashboard
 from app.models.base import MemberRole
+from app.models.table import Table
+from app.models.field import Field
+from app.models.record import Record
 
 dashboards_share_bp = Blueprint('dashboards_share', __name__)
 
