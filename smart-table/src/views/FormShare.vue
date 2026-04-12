@@ -268,9 +268,14 @@ async function handleSubmit() {
       Object.entries(details).forEach(([fieldId, message]) => {
         formErrors.value[fieldId] = message as string;
       });
-      ElMessage.error("表单数据验证失败，请检查填写内容");
+      // 显示详细的验证错误信息
+      const errorMessages = Object.values(details).join("；");
+      ElMessage.error(errorMessages || "表单数据验证失败，请检查填写内容");
     } else {
-      ElMessage.error(error.response?.data?.message || "提交失败，请稍后重试");
+      // 兼容没有 details 的情况，直接显示 message
+      const errorMessage =
+        error.response?.data?.message || "提交失败，请稍后重试";
+      ElMessage.error(errorMessage);
     }
 
     // 刷新验证码
@@ -285,6 +290,9 @@ async function handleSubmit() {
 
 // 重置表单
 function resetForm() {
+  // 重置提交成功状态，显示表单
+  submitSuccess.value = false;
+
   formValues.value = {};
   formErrors.value = {};
   newRecordId.value = generateId();
