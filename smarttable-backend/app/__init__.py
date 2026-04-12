@@ -68,9 +68,13 @@ def register_blueprints(app):
     from app.routes.admin import admin_bp
     from app.routes.shares import shares_bp
     from app.routes.form_shares import form_shares_bp
+    from app.routes.auth_captcha import auth_captcha_bp
     
     # 注册认证蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    
+    # 注册认证验证码蓝图
+    app.register_blueprint(auth_captcha_bp, url_prefix='/api')
     
     # 注册基础数据蓝图
     app.register_blueprint(bases_bp, url_prefix='/api/bases')

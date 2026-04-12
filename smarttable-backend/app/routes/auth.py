@@ -3,6 +3,7 @@
 处理用户注册、登录、登出、令牌刷新、密码修改等认证相关功能
 """
 from datetime import datetime
+import logging
 
 from flask import Blueprint, request
 from flask_jwt_extended import (
@@ -33,6 +34,10 @@ from app.utils.decorators import (
     rate_limit,
     record_login_attempt
 )
+from app.utils.captcha import CaptchaService
+
+# 设置日志记录器
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 # 禁用严格斜杠，允许带或不带斜杠的URL
@@ -49,12 +54,14 @@ def register() -> tuple:
         {
             "email": "user@example.com",
             "password": "Password123",
-            "name": "用户名"
+            "name": "用户名",
+            "captcha": "ABCD"
         }
     
     响应:
         201: 注册成功，返回用户信息和令牌
         400: 请求数据验证失败
+        403: 验证码错误
         409: 邮箱已被注册
     """
     # 获取请求数据
@@ -72,6 +79,24 @@ def register() -> tuple:
     email = validated_data['email']
     password = validated_data['password']
     name = validated_data.get('name') or validated_data.get('username', '')
+    captcha = validated_data.get('captcha')
+    
+    # 验证验证码
+    client_ip = request.remote_addr or 'unknown'
+    captcha_token = f"auth:register:{client_ip}"
+    
+    if captcha:
+        is_valid, error_msg = CaptchaService.verify_captcha(captcha_token, captcha)
+        if not is_valid:
+            # 记录验证码验证失败的日志
+            logger.warning(
+                f"注册验证码验证失败 - IP: {client_ip}, Email: {email}, Reason: {error_msg}"
+            )
+            return error_response(f'验证码错误: {error_msg}', code=403, error='captcha_invalid')
+    else:
+        # 未提供验证码
+        logger.warning(f"注册尝试未提供验证码 - IP: {client_ip}, Email: {email}")
+        return error_response('请输入验证码', code=403, error='captcha_required')
     
     # 调用服务层进行注册
     user, error = AuthService.register_user(email, password, name)
@@ -80,6 +105,9 @@ def register() -> tuple:
         if '已被注册' in error:
             return error_response(error, code=409, error='email_already_exists')
         return error_response(error, code=500)
+    
+    # 记录注册成功日志
+    logger.info(f"用户注册成功 - IP: {client_ip}, UserID: {user.id}, Email: {email}")
     
     # 生成令牌
     tokens = AuthService.generate_tokens(str(user.id))
@@ -104,13 +132,15 @@ def login() -> tuple:
     请求体:
         {
             "email": "user@example.com",
-            "password": "Password123"
+            "password": "Password123",
+            "captcha": "ABCD"
         }
     
     响应:
         200: 登录成功，返回用户信息和令牌
         400: 请求数据验证失败
         401: 邮箱或密码错误，或账号被禁用
+        403: 验证码错误
         429: 登录尝试次数过多，账户被锁定
     """
     # 获取请求数据
@@ -129,6 +159,26 @@ def login() -> tuple:
     
     email = validated_data['email']
     password = validated_data['password']
+    captcha = validated_data.get('captcha')
+    
+    # 验证验证码
+    client_ip = request.remote_addr or 'unknown'
+    captcha_token = f"auth:login:{client_ip}"
+    
+    if captcha:
+        is_valid, error_msg = CaptchaService.verify_captcha(captcha_token, captcha)
+        if not is_valid:
+            # 记录验证码验证失败的日志
+            logger.warning(
+                f"登录验证码验证失败 - IP: {client_ip}, Email: {email}, Reason: {error_msg}"
+            )
+            record_login_attempt(success=False)
+            return error_response(f'验证码错误: {error_msg}', code=403, error='captcha_invalid')
+    else:
+        # 未提供验证码
+        logger.warning(f"登录尝试未提供验证码 - IP: {client_ip}, Email: {email}")
+        record_login_attempt(success=False)
+        return error_response('请输入验证码', code=403, error='captcha_required')
     
     # 调用服务层进行认证
     user, error = AuthService.authenticate_user(email, password)
@@ -142,6 +192,9 @@ def login() -> tuple:
     
     # 记录登录成功，清除失败记录
     record_login_attempt(success=True)
+    
+    # 记录成功登录日志
+    logger.info(f"用户登录成功 - IP: {client_ip}, UserID: {user.id}, Email: {email}")
     
     # 生成令牌
     tokens = AuthService.generate_tokens(str(user.id))

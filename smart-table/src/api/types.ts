@@ -43,12 +43,14 @@ export type UserStatus = 'active' | 'inactive' | 'suspended' | 'deleted'
 export interface LoginRequest {
   email: string
   password: string
+  captcha?: string
 }
 
 export interface RegisterRequest {
   email: string
   name: string
   password: string
+  captcha?: string
 }
 
 export interface LoginResponse {

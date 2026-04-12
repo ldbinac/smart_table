@@ -53,6 +53,11 @@ class UserRegistrationSchema(Schema):
         allow_none=True,
         description='用户名'
     )
+    captcha = fields.String(
+        load_only=True,
+        allow_none=True,
+        description='验证码（可选）'
+    )
     
     @validates('name')
     def validate_name(self, value):
@@ -108,6 +113,11 @@ class UserLoginSchema(Schema):
         load_only=True,
         error_messages={'required': '密码不能为空'},
         description='密码'
+    )
+    captcha = fields.String(
+        load_only=True,
+        allow_none=True,
+        description='验证码（可选）'
     )
 
 

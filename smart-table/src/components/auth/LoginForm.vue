@@ -11,7 +11,7 @@
         v-model="form.email"
         placeholder="请输入邮箱"
         size="large"
-        :prefix-icon="Message"
+        :prefix-icon="User"
       />
     </el-form-item>
     
@@ -26,13 +26,29 @@
         @keyup.enter="handleSubmit"
       />
     </el-form-item>
-    
-    <el-form-item>
-      <div class="form-options">
-        <el-checkbox v-model="form.remember">记住登录状态</el-checkbox>
-        <el-link type="primary" :underline="false" @click="$emit('forgot-password')">
-          忘记密码？
-        </el-link>
+
+    <!-- 验证码 -->
+    <el-form-item prop="captcha">
+      <div class="captcha-input-group">
+        <el-input
+          v-model="form.captcha"
+          placeholder="请输入验证码"
+          size="large"
+          maxlength="6"
+          style="flex: 1"
+        />
+        <div class="captcha-image-wrapper" @click="refreshCaptcha">
+          <img
+            v-if="captchaImage"
+            :src="captchaImage"
+            alt="验证码"
+            class="captcha-image"
+          />
+          <div v-else class="captcha-placeholder">
+            <el-icon><Refresh /></el-icon>
+            <span>点击刷新</span>
+          </div>
+        </div>
       </div>
     </el-form-item>
     
@@ -51,26 +67,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { Message, Lock } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted } from 'vue'
+import { User, Lock, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { LoginRequest } from '@/api/types'
+import { getAuthCaptcha } from '@/api/captcha'
 
 const props = defineProps<{
   loading?: boolean
 }>()
 
 const emit = defineEmits<{
-  submit: [data: LoginRequest & { remember: boolean }]
-  'forgot-password': []
+  submit: [data: LoginRequest]
 }>()
 
 const formRef = ref<FormInstance>()
+const captchaImage = ref('')
 
 const form = reactive({
   email: '',
   password: '',
-  remember: true  // 默认记住登录状态，使用 localStorage 存储 token
+  captcha: ''
 })
 
 const rules: FormRules = {
@@ -81,7 +98,21 @@ const rules: FormRules = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+  ],
+  captcha: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { len: 4, message: '验证码长度为4位', trigger: 'blur' }
   ]
+}
+
+// 刷新验证码
+async function refreshCaptcha() {
+  try {
+    const result = await getAuthCaptcha('login')
+    captchaImage.value = result.image
+  } catch (error) {
+    console.error('获取验证码失败:', error)
+  }
 }
 
 const handleSubmit = async () => {
@@ -93,24 +124,60 @@ const handleSubmit = async () => {
   emit('submit', {
     email: form.email,
     password: form.password,
-    remember: form.remember
+    captcha: form.captcha
   })
 }
+
+// 组件挂载时加载验证码
+onMounted(() => {
+  refreshCaptcha()
+})
 </script>
 
 <style scoped lang="scss">
 .login-form {
   width: 100%;
   
-  .form-options {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-  }
-  
   .submit-btn {
     width: 100%;
+  }
+
+  .captcha-input-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .captcha-image-wrapper {
+    cursor: pointer;
+    width: 120px;
+    height: 40px;
+    background: #f5f7fa;
+    border-radius: 4px;
+    border: 1px solid #dcdfe6;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      border-color: #409eff;
+    }
+
+    .captcha-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .captcha-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      color: #909399;
+      font-size: 12px;
+    }
   }
 }
 </style>
