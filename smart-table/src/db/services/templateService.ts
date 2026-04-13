@@ -16,6 +16,7 @@ import { tableApiService } from "@/services/api/tableApiService";
 import { fieldApiService } from "@/services/api/fieldApiService";
 import { viewApiService } from "@/services/api/viewApiService";
 import { recordApiService } from "@/services/api/recordApiService";
+import { createLinkField } from "@/services/api/linkApiService";
 
 export interface CreateTemplateProgress {
   stage:
@@ -57,25 +58,41 @@ export class TemplateService {
         color: template.color,
       });
 
-      // 2. 同步 Tables 和 Fields
+      // 2. 同步 Tables（先创建所有表，不创建字段）
       progress.stage = "creating_tables";
-      progress.message = "正在创建数据表和字段...";
+      progress.message = "正在创建数据表...";
       progress.progress = 30;
       onProgress?.({ ...progress });
 
       const tableIdMap = new Map<string, string>();
-      const fieldIdMap = new Map<string, string>();
 
+      // 第一步：创建所有表
       for (const templateTable of template.tables) {
-        const apiTable = await this.syncTableToBackend(
-          apiBase.id,
-          templateTable,
-          fieldIdMap,
-        );
+        const apiTable = await tableApiService.createTable(apiBase.id, {
+          name: templateTable.name,
+          description: templateTable.description,
+        });
         tableIdMap.set(templateTable.id, apiTable.id);
       }
 
-      // 3. 同步 Views
+      // 3. 同步 Fields（创建所有字段，包括关联字段的 linkedTableId 映射）
+      progress.message = "正在创建字段...";
+      progress.progress = 45;
+      onProgress?.({ ...progress });
+
+      const fieldIdMap = new Map<string, string>();
+
+      for (const templateTable of template.tables) {
+        const actualTableId = tableIdMap.get(templateTable.id)!;
+        await this.syncFieldsToBackend(
+          actualTableId,
+          templateTable,
+          fieldIdMap,
+          tableIdMap,
+        );
+      }
+
+      // 4. 同步 Views
       progress.stage = "creating_views";
       progress.message = "正在创建视图...";
       progress.progress = 60;
@@ -89,7 +106,7 @@ export class TemplateService {
         );
       }
 
-      // 4. 同步 Records
+      // 5. 同步 Records
       progress.stage = "creating_records";
       progress.message = "正在导入初始数据...";
       progress.progress = 80;
@@ -389,18 +406,13 @@ export class TemplateService {
     console.warn("[templateService] syncToBackend 方法已废弃");
   }
 
-  private async syncTableToBackend(
-    baseId: string,
+  private async syncFieldsToBackend(
+    tableId: string,
     templateTable: TemplateTable,
     fieldIdMap: Map<string, string>,
-  ): Promise<any> {
-    // 1. 先创建 Table（不指定主字段）
-    const apiTable = await tableApiService.createTable(baseId, {
-      name: templateTable.name,
-      description: templateTable.description,
-    });
-
-    // 2. 创建所有字段（包括主字段），并映射类型
+    tableIdMap: Map<string, string>,
+  ): Promise<void> {
+    // 创建所有字段（包括主字段），并映射类型
     for (const templateField of templateTable.fields) {
       // 映射前端类型到后端类型
       const fieldTypeMap: Record<string, string> = {
@@ -432,7 +444,32 @@ export class TemplateService {
         }
       }
 
-      const apiField = await fieldApiService.createField(apiTable.id, {
+      // 处理关联字段 - 使用专门的 link 接口
+      if (backendType === "link" && backendOptions) {
+        const options = backendOptions as Record<string, unknown>;
+        const linkedTableId = options.linkedTableId as string;
+        
+        // 映射 linkedTableId 到实际表ID
+        let targetTableId = linkedTableId;
+        if (linkedTableId && tableIdMap.has(linkedTableId)) {
+          targetTableId = tableIdMap.get(linkedTableId)!;
+        }
+
+        // 使用 createLinkField 接口创建关联字段
+        const linkResult = await createLinkField({
+          table_id: tableId,
+          name: templateField.name,
+          target_table_id: targetTableId,
+          relationship_type: (options.relationshipType as "one_to_one" | "one_to_many") || "many_to_one",
+          bidirectional: options.bidirectional !== false, // 默认双向
+        });
+
+        // 保存字段ID映射
+        fieldIdMap.set(templateField.id, linkResult.field.id as string);
+        continue; // 跳过后续的普通字段创建
+      }
+
+      const apiField = await fieldApiService.createField(tableId, {
         name: templateField.name,
         type: backendType as any,
         options: backendOptions,
@@ -441,8 +478,6 @@ export class TemplateService {
       });
       fieldIdMap.set(templateField.id, apiField.id);
     }
-
-    return apiTable;
   }
 
   private async syncViewsToBackend(
@@ -451,11 +486,14 @@ export class TemplateService {
     fieldIdMap: Map<string, string>,
   ): Promise<void> {
     for (const templateView of templateTable.views) {
+      // 处理视图配置中的字段ID映射
+      const config = this.mapConfigFieldIds(templateView.config || {}, fieldIdMap);
+
       // 传递完整的视图字段参数
       const viewData: any = {
         name: templateView.name,
         type: templateView.type,
-        config: templateView.config || {},
+        config: config,
         filters: templateView.filters || [],
         sorts: templateView.sorts || [],
         group_bys: templateView.groupBys || [], // 使用下划线格式
@@ -474,6 +512,31 @@ export class TemplateService {
 
       await viewApiService.createView(tableId, viewData);
     }
+  }
+
+  /**
+   * 映射视图配置中的字段ID
+   */
+  private mapConfigFieldIds(
+    config: Record<string, unknown>,
+    fieldIdMap: Map<string, string>,
+  ): Record<string, unknown> {
+    const mappedConfig: Record<string, unknown> = {};
+    
+    for (const [key, value] of Object.entries(config)) {
+      // 处理字段ID类型的配置项
+      if (
+        key.endsWith('FieldId') && 
+        typeof value === 'string' && 
+        fieldIdMap.has(value)
+      ) {
+        mappedConfig[key] = fieldIdMap.get(value);
+      } else {
+        mappedConfig[key] = value;
+      }
+    }
+    
+    return mappedConfig;
   }
 
   private async syncRecordsToBackend(

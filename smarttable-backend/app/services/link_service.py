@@ -17,6 +17,8 @@ from app.models.link_relation import LinkRelation, LinkValue, RelationshipType
 from app.models.field import Field, FieldType
 from app.models.record import Record
 from app.models.table import Table
+from app.services.table_service import TableService
+from app.services.field_service import FieldService
 
 
 # 缓存键前缀
