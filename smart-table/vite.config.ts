@@ -38,6 +38,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: '0.0.0.0', // 允许远程访问
     open: true,
     proxy: {
       "/api": {
