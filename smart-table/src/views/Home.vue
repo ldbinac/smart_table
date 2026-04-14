@@ -9,6 +9,8 @@ import type { Base } from "@/db/schema";
 import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
 import { templateService } from "@/db/services";
 import { getFieldTypeLabel, getFieldTypeIcon } from "@/types";
+import { copyBase } from "@/services/api/baseApiService";
+import { DocumentCopy } from "@element-plus/icons-vue";
 
 const router = useRouter();
 const baseStore = useBaseStore();
@@ -140,6 +142,14 @@ const colorOptions = [
 
 // 取消收藏加载状态
 const unstarLoadingMap = ref<Map<string, boolean>>(new Map());
+
+// 复制加载状态
+const copyLoadingMap = ref<Map<string, boolean>>(new Map());
+
+// 判断是否正在复制
+const isCopyLoading = (baseId: string) => {
+  return copyLoadingMap.value.get(baseId) || false;
+};
 
 // ========== 搜索功能（从 AppHeader 接收） ==========
 const searchQuery = ref("");
@@ -671,6 +681,56 @@ async function handleUseTemplate(template: TableTemplate) {
     templateLoadingMap.value.set(template.id, false);
   }
 }
+
+// 处理复制 Base
+async function handleCopyBase(base: Base, event: Event) {
+  event.stopPropagation();
+
+  // 确认对话框
+  try {
+    await ElMessageBox.confirm(
+      `确定要复制"${base.name}"吗？将创建一个包含所有数据和配置的副本。`,
+      "复制确认",
+      {
+        confirmButtonText: "复制",
+        cancelButtonText: "取消",
+        type: "info",
+      }
+    );
+  } catch {
+    // 用户取消
+    return;
+  }
+
+  // 设置加载状态
+  copyLoadingMap.value.set(base.id, true);
+
+  // 显示进度提示
+  const loadingMsg = ElMessage({
+    message: "正在复制多维表格...",
+    type: "info",
+    duration: 0,
+    icon: "Loading",
+  });
+
+  try {
+    const newBase = await copyBase(base.id);
+
+    // 关闭进度提示
+    loadingMsg.close();
+
+    // 刷新列表
+    await baseStore.fetchBases();
+
+    ElMessage.success(`复制成功：${newBase.name}`);
+  } catch (error) {
+    console.error("Failed to copy base:", error);
+    loadingMsg.close();
+    ElMessage.error("复制失败，请稍后重试");
+  } finally {
+    copyLoadingMap.value.set(base.id, false);
+  }
+}
 </script>
 
 <template>
@@ -856,6 +916,13 @@ async function handleUseTemplate(template: TableTemplate) {
                         @click="handleUnstarBase(base, $event)">
                         <el-icon><StarFilled /></el-icon>
                       </el-button>
+                      <el-button
+                        link
+                        :loading="isCopyLoading(base.id)"
+                        @click="handleCopyBase(base, $event)"
+                        title="复制">
+                        <el-icon><DocumentCopy /></el-icon>
+                      </el-button>
                       <el-dropdown
                         v-if="isBaseOwner(base)"
                         trigger="click"
@@ -968,6 +1035,13 @@ async function handleUseTemplate(template: TableTemplate) {
                         type="warning"
                         @click="handleUnstarBase(base, $event)">
                         <el-icon><StarFilled /></el-icon>
+                      </el-button>
+                      <el-button
+                        link
+                        :loading="isCopyLoading(base.id)"
+                        @click="handleCopyBase(base, $event)"
+                        title="复制">
+                        <el-icon><DocumentCopy /></el-icon>
                       </el-button>
                       <el-dropdown
                         v-if="isBaseOwner(base)"
@@ -1126,45 +1200,46 @@ async function handleUseTemplate(template: TableTemplate) {
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
-                        <el-tooltip
-                          content="取消收藏"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            type="warning"
-                            class="action-btn"
-                            :loading="isUnstarLoading(base.id)"
-                            @click="handleUnstarBase(base, $event)">
-                            <el-icon><StarFilled /></el-icon>
+                        <el-button
+                          link
+                          type="warning"
+                          :loading="isUnstarLoading(base.id)"
+                          @click="handleUnstarBase(base, $event)">
+                          <el-icon><StarFilled /></el-icon>
+                        </el-button>
+                        <el-button
+                          link
+                          :loading="isCopyLoading(base.id)"
+                          @click="handleCopyBase(base, $event)"
+                          title="复制">
+                          <el-icon><DocumentCopy /></el-icon>
+                        </el-button>
+                        <el-dropdown
+                          v-if="isBaseOwner(base)"
+                          trigger="click"
+                          @command="
+                            (cmd) => {
+                              if (cmd === 'edit') openEditDialog(base);
+                              else if (cmd === 'delete') handleDeleteBase(base);
+                            }
+                          ">
+                          <el-button link>
+                            <el-icon><MoreFilled /></el-icon>
                           </el-button>
-                        </el-tooltip>
-                        <template v-if="isBaseOwner(base)">
-                          <el-tooltip
-                            content="编辑"
-                            placement="top"
-                            :show-after="200">
-                            <el-button
-                              link
-                              type="primary"
-                              class="action-btn"
-                              @click="openEditDialog(base)">
-                              <el-icon><Edit /></el-icon>
-                            </el-button>
-                          </el-tooltip>
-                          <el-tooltip
-                            content="删除"
-                            placement="top"
-                            :show-after="200">
-                            <el-button
-                              link
-                              type="danger"
-                              class="action-btn"
-                              @click="handleDeleteBase(base)">
-                              <el-icon><Delete /></el-icon>
-                            </el-button>
-                          </el-tooltip>
-                        </template>
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item command="edit">
+                                <el-icon><Edit /></el-icon>编辑
+                              </el-dropdown-item>
+                              <el-dropdown-item
+                                divided
+                                command="delete"
+                                class="delete-item">
+                                <el-icon><Delete /></el-icon>删除
+                              </el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
                       </div>
                     </div>
                   </div>
@@ -1229,48 +1304,52 @@ async function handleUseTemplate(template: TableTemplate) {
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
-                        <el-tooltip
-                          :content="base.is_starred ? '取消收藏' : '收藏'"
-                          placement="top"
-                          :show-after="200">
-                          <el-button
-                            link
-                            :type="base.is_starred ? 'warning' : 'info'"
-                            class="action-btn"
-                            :loading="isUnstarLoading(base.id)"
-                            @click="handleToggleStar(base, $event)">
-                            <el-icon>
-                              <StarFilled v-if="base.is_starred" />
-                              <Star v-else />
-                            </el-icon>
+                        <el-button
+                          v-if="!base.is_starred"
+                          link
+                          @click="handleStarBase(base, $event)">
+                          <el-icon><Star /></el-icon>
+                        </el-button>
+                        <el-button
+                          v-else
+                          link
+                          type="warning"
+                          @click="handleUnstarBase(base, $event)">
+                          <el-icon><StarFilled /></el-icon>
+                        </el-button>
+                        <el-button
+                          link
+                          :loading="isCopyLoading(base.id)"
+                          @click="handleCopyBase(base, $event)"
+                          title="复制">
+                          <el-icon><DocumentCopy /></el-icon>
+                        </el-button>
+                        <el-dropdown
+                          v-if="isBaseOwner(base)"
+                          trigger="click"
+                          @command="
+                            (cmd) => {
+                              if (cmd === 'edit') openEditDialog(base);
+                              else if (cmd === 'delete') handleDeleteBase(base);
+                            }
+                          ">
+                          <el-button link>
+                            <el-icon><MoreFilled /></el-icon>
                           </el-button>
-                        </el-tooltip>
-                        <template v-if="isBaseOwner(base)">
-                          <el-tooltip
-                            content="编辑"
-                            placement="top"
-                            :show-after="200">
-                            <el-button
-                              link
-                              type="primary"
-                              class="action-btn"
-                              @click="openEditDialog(base)">
-                              <el-icon><Edit /></el-icon>
-                            </el-button>
-                          </el-tooltip>
-                          <el-tooltip
-                            content="删除"
-                            placement="top"
-                            :show-after="200">
-                            <el-button
-                              link
-                              type="danger"
-                              class="action-btn"
-                              @click="handleDeleteBase(base)">
-                              <el-icon><Delete /></el-icon>
-                            </el-button>
-                          </el-tooltip>
-                        </template>
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item command="edit">
+                                <el-icon><Edit /></el-icon>编辑
+                              </el-dropdown-item>
+                              <el-dropdown-item
+                                divided
+                                command="delete"
+                                class="delete-item">
+                                <el-icon><Delete /></el-icon>删除
+                              </el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
                       </div>
                     </div>
                   </div>

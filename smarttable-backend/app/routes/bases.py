@@ -487,3 +487,56 @@ def remove_member(base_id, user_id) -> tuple:
         return error_response('成员不存在或移除失败', code=400)
     
     return success_response(message='成员移除成功')
+
+
+@bases_bp.route('/<uuid:base_id>/copy', methods=['POST'])
+@jwt_required
+def copy_base(base_id) -> tuple:
+    """
+    复制基础数据（多维表格）
+    
+    复制内容包括：
+    - Base 基本信息
+    - 所有数据表结构及字段配置
+    - 所有数据记录
+    - 所有视图配置
+    - 所有仪表盘配置
+    
+    排除内容：
+    - 分享设置
+    - 访问权限设置
+    - 评论及协作历史记录
+    
+    Args:
+        base_id: 源基础数据 ID
+    
+    Request Body:
+        - name: 新基础数据名称（可选，默认为"原名称+副本"）
+    
+    Returns:
+        复制后的新基础数据详情
+    """
+    user_id = g.current_user_id
+    
+    # 检查权限（需要 VIEWER 或更高权限）
+    if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
+        return forbidden_response('您没有权限复制此基础数据')
+    
+    data = request.get_json() or {}
+    new_name = data.get('name', '').strip()
+    
+    # 调用复制服务
+    result = BaseService.copy_base(
+        base_id=str(base_id),
+        user_id=user_id,
+        new_name=new_name if new_name else None
+    )
+    
+    if not result['success']:
+        return error_response(result['error'], code=400)
+    
+    return success_response(
+        data=result['base'],
+        message='复制成功',
+        code=201
+    )

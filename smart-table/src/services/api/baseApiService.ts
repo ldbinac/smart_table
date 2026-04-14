@@ -61,6 +61,13 @@ export const removeBaseMember = async (
   await apiClient.delete<void>(`/bases/${baseId}/members/${userId}`);
 };
 
+export const copyBase = async (
+  baseId: string,
+  name?: string,
+): Promise<Base> => {
+  return apiClient.post<Base>(`/bases/${baseId}/copy`, { name });
+};
+
 export const baseApiService = {
   getBases,
   getBase,
@@ -72,6 +79,7 @@ export const baseApiService = {
   getBaseMembers,
   addBaseMember,
   removeBaseMember,
+  copyBase,
 };
 
 export default baseApiService;
