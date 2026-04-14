@@ -571,18 +571,22 @@ const drawerTitle = computed(() => {
 
     <template #footer>
       <div class="drawer-footer">
-        <el-button @click="closeDrawer">关闭</el-button>
-        <el-button v-if="record?.id" @click="showHistory">
-          <el-icon><Clock /></el-icon>
-          变更历史
-        </el-button>
         <el-button
-          v-if="!readonly"
-          type="primary"
-          :loading="isSaving"
-          @click="handleSave">
-          保存
-        </el-button>
+          v-if="record?.id"
+          :icon="Clock"
+          circle
+          title="变更历史"
+          @click="showHistory" />
+        <div class="footer-right">
+          <el-button @click="closeDrawer">关闭</el-button>
+          <el-button
+            v-if="!readonly"
+            type="primary"
+            :loading="isSaving"
+            @click="handleSave">
+            保存
+          </el-button>
+        </div>
       </div>
     </template>
   </el-drawer>
@@ -713,7 +717,13 @@ const drawerTitle = computed(() => {
 
 .drawer-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
+
+  .footer-right {
+    display: flex;
+    gap: 12px;
+  }
 }
 </style>
