@@ -264,8 +264,15 @@ class FieldService:
                     return {'success': False, 'error': f'不能将 {field.type} 转换为 {new_type}'}
                 field.type = new_type
 
+        # 处理 config 更新 - 需要特殊处理以确保 SQLAlchemy 检测到变更
+        if 'config' in data:
+            field.config = data['config']
+            # 标记 config 字段为已修改，确保 SQLAlchemy 检测到变更
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(field, 'config')
+        
         for field_name in allowed_fields:
-            if field_name in data:
+            if field_name in data and field_name != 'config':  # config 已单独处理
                 setattr(field, field_name, data[field_name])
         
         # 验证选择类型字段的选项

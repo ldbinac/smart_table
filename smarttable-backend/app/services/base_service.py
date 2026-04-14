@@ -1007,7 +1007,26 @@ class BaseService:
             
             # 7. 提交所有更改
             db.session.commit()
+
+            # 8. 验证并修复关联字段的 config
+            from sqlalchemy.orm.attributes import flag_modified
+            for source_field_id, (new_field_id, target_table_id, link_relation_id) in link_field_map.items():
+                if link_relation_id:
+                    new_field = Field.query.get(new_field_id)
+                    if new_field:
+                        # 检查 config 中的 linkedTableId 是否正确
+                        if new_field.config is None:
+                            new_field.config = {}
+                        current_linked_table_id = new_field.config.get('linkedTableId')
+                        if str(current_linked_table_id) != str(target_table_id):
+                            current_app.logger.warning(f'[BaseService] 修复字段 {new_field_id} 的 config.linkedTableId: {current_linked_table_id} -> {target_table_id}')
+                            new_field.config['linkedTableId'] = target_table_id
+                            flag_modified(new_field, 'config')
             
+            if link_field_map:
+                db.session.commit()
+                current_app.logger.info(f'[BaseService] 已验证并修复 {len(link_field_map)} 个关联字段的 config')
+
             current_app.logger.info(f'[BaseService] Base 复制完成：{new_base.id}')
             
             return {
