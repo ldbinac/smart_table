@@ -912,6 +912,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       <el-button
                         link
                         type="warning"
+                        title="取消收藏"
                         :loading="isUnstarLoading(base.id)"
                         @click="handleUnstarBase(base, $event)">
                         <el-icon><StarFilled /></el-icon>
@@ -1026,6 +1027,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       <el-button
                         v-if="!base.is_starred"
                         link
+                        title="收藏"
                         @click="handleStarBase(base, $event)">
                         <el-icon><Star /></el-icon>
                       </el-button>
@@ -1033,6 +1035,7 @@ async function handleCopyBase(base: Base, event: Event) {
                         v-else
                         link
                         type="warning"
+                        title="取消收藏"
                         @click="handleUnstarBase(base, $event)">
                         <el-icon><StarFilled /></el-icon>
                       </el-button>
@@ -1203,6 +1206,7 @@ async function handleCopyBase(base: Base, event: Event) {
                         <el-button
                           link
                           type="warning"
+                          title="取消收藏"
                           :loading="isUnstarLoading(base.id)"
                           @click="handleUnstarBase(base, $event)">
                           <el-icon><StarFilled /></el-icon>
@@ -1307,12 +1311,14 @@ async function handleCopyBase(base: Base, event: Event) {
                         <el-button
                           v-if="!base.is_starred"
                           link
+                          title="收藏"
                           @click="handleStarBase(base, $event)">
                           <el-icon><Star /></el-icon>
                         </el-button>
                         <el-button
                           v-else
                           link
+                          title="取消收藏"
                           type="warning"
                           @click="handleUnstarBase(base, $event)">
                           <el-icon><StarFilled /></el-icon>

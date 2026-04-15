@@ -36,7 +36,7 @@ export const starBase = async (id: string): Promise<Base> => {
 };
 
 export const unstarBase = async (id: string): Promise<Base> => {
-  return apiClient.delete<Base>(`/bases/${id}/star`);
+  return apiClient.post<Base>(`/bases/${id}/star`);
 };
 
 export const getBaseMembers = async (baseId: string): Promise<BaseMember[]> => {
