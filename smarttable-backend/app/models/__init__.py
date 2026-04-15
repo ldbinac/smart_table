@@ -17,6 +17,8 @@ from app.models.config import SystemConfig
 from app.models.link_relation import LinkRelation, LinkValue, RelationshipType
 from app.models.form_share import FormShare
 from app.models.form_submission import FormSubmission
+from app.models.email_template import EmailTemplate
+from app.models.email_log import EmailLog, EmailStatus
 
 __all__ = [
     'User',
@@ -44,5 +46,8 @@ __all__ = [
     'LinkValue',
     'RelationshipType',
     'FormShare',
-    'FormSubmission'
+    'FormSubmission',
+    'EmailTemplate',
+    'EmailLog',
+    'EmailStatus'
 ]

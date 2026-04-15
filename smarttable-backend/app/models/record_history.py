@@ -39,9 +39,6 @@ class RecordHistory(db.Model):
     __tablename__ = 'record_history'
 
     __table_args__ = (
-        Index('ix_record_history_record_id', 'record_id'),
-        Index('ix_record_history_table_id', 'table_id'),
-        Index('ix_record_history_changed_at', 'changed_at'),
         Index('ix_record_history_record_changed', 'record_id', 'changed_at'),
     )
 

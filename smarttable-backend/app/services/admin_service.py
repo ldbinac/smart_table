@@ -7,17 +7,23 @@ import io
 import json
 import logging
 import secrets
+import smtplib
+import ssl
 import string
 from datetime import datetime, timezone
+from email.mime.text import MIMEText
 from typing import Optional, Tuple, Dict, Any, List
 from uuid import UUID
 
+from cryptography.fernet import Fernet
 from sqlalchemy import or_, and_
 
 from app.extensions import db
 from app.models.user import User, UserRole, UserStatus
 from app.models.log import OperationLog, AdminActionType, EntityType
 from app.models.config import SystemConfig
+from app.services.email_config_service import EmailConfigService
+from app.services.email_sender_service import EmailSenderService
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +314,22 @@ class AdminService:
             if not user or user.status == UserStatus.DELETED:
                 return False, '用户不存在'
             
+            # 发送账号删除通知邮件（在删除前发送）
+            if EmailConfigService.is_email_enabled():
+                try:
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='account_deleted',
+                        template_data={
+                            'user_name': user.name,
+                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'admin_name': '系统管理员'
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f'发送账号删除通知邮件失败: {str(e)}')
+            
             # 软删除：设置状态为 DELETED
             user.status = UserStatus.DELETED
             user.updated_at = datetime.now(timezone.utc)
@@ -349,6 +371,23 @@ class AdminService:
             
             logger.info(f"暂停用户成功：{user.email}")
             
+            # 发送账号停用通知邮件
+            if EmailConfigService.is_email_enabled():
+                try:
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='account_suspended',
+                        template_data={
+                            'user_name': user.name,
+                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'reason': '账号已被管理员暂停使用',
+                            'admin_name': '系统管理员'
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f'发送账号停用通知邮件失败: {str(e)}')
+            
             return user.to_dict(include_email=True), None
             
         except Exception as e:
@@ -382,6 +421,23 @@ class AdminService:
             db.session.commit()
             
             logger.info(f"激活用户成功：{user.email}")
+            
+            # 发送账号启用通知邮件
+            if EmailConfigService.is_email_enabled():
+                try:
+                    login_link = f"{EmailConfigService.get_frontend_url()}/login"
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='account_activated',
+                        template_data={
+                            'user_name': user.name,
+                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'login_link': login_link
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f'发送账号启用通知邮件失败: {str(e)}')
             
             return user.to_dict(include_email=True), None
             
@@ -427,6 +483,21 @@ class AdminService:
             db.session.commit()
             
             logger.info(f"重置用户密码成功：{user.email}")
+            
+            # 发送密码重置通知邮件
+            if EmailConfigService.is_email_enabled():
+                try:
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='password_changed',
+                        template_data={
+                            'user_name': user.name,
+                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f'发送密码重置通知邮件失败: {str(e)}')
             
             return temporary_password, None
             
@@ -742,3 +813,221 @@ class AdminService:
             db.session.rollback()
             logger.error(f"删除配置失败：{str(e)}")
             return False, f'删除配置失败：{str(e)}'
+    
+    @staticmethod
+    def _get_encryption_key(secret_key: str) -> bytes:
+        """
+        从应用密钥生成 Fernet 加密密钥
+        
+        Args:
+            secret_key: 应用密钥
+            
+        Returns:
+            Fernet 加密密钥
+        """
+        import base64
+        import hashlib
+        
+        key_hash = hashlib.sha256(secret_key.encode()).digest()
+        return base64.urlsafe_b64encode(key_hash)
+    
+    @staticmethod
+    def encrypt_smtp_password(password: str, secret_key: str) -> str:
+        """
+        使用应用密钥加密 SMTP 密码
+        
+        Args:
+            password: 明文密码
+            secret_key: 应用密钥
+            
+        Returns:
+            加密后的密码字符串
+        """
+        try:
+            key = AdminService._get_encryption_key(secret_key)
+            f = Fernet(key)
+            encrypted = f.encrypt(password.encode())
+            return encrypted.decode()
+        except Exception as e:
+            logger.error(f"加密 SMTP 密码失败：{str(e)}")
+            raise
+    
+    @staticmethod
+    def decrypt_smtp_password(encrypted_password: str, secret_key: str) -> str:
+        """
+        解密 SMTP 密码
+        
+        Args:
+            encrypted_password: 加密后的密码
+            secret_key: 应用密钥
+            
+        Returns:
+            明文密码
+        """
+        try:
+            key = AdminService._get_encryption_key(secret_key)
+            f = Fernet(key)
+            decrypted = f.decrypt(encrypted_password.encode())
+            return decrypted.decode()
+        except Exception as e:
+            logger.error(f"解密 SMTP 密码失败：{str(e)}")
+            raise
+    
+    @staticmethod
+    def verify_email_config(config_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """
+        验证 SMTP 配置是否有效
+        
+        Args:
+            config_data: 邮件配置数据，包含：
+                - smtp_host: SMTP 服务器地址
+                - smtp_port: SMTP 端口
+                - smtp_username: SMTP 用户名
+                - smtp_password: SMTP 密码（明文或加密）
+                - smtp_use_tls: 是否使用 TLS（可选，默认 True）
+                - smtp_use_ssl: 是否使用 SSL（可选，默认 False）
+                - from_email: 发件人邮箱
+                
+        Returns:
+            (是否有效，错误信息) - 有效时错误信息为 None
+        """
+        required_fields = ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'from_email']
+        
+        for field in required_fields:
+            if field not in config_data or not config_data[field]:
+                return False, f'缺少必需字段：{field}'
+        
+        try:
+            smtp_host = config_data['smtp_host']
+            smtp_port = int(config_data['smtp_port'])
+            smtp_username = config_data['smtp_username']
+            smtp_password = config_data['smtp_password']
+            smtp_use_tls = config_data.get('smtp_use_tls', True)
+            smtp_use_ssl = config_data.get('smtp_use_ssl', False)
+            
+            if smtp_port < 1 or smtp_port > 65535:
+                return False, 'SMTP 端口必须在 1-65535 范围内'
+            
+            context = ssl.create_default_context()
+            
+            if smtp_use_ssl:
+                server = smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=10)
+            else:
+                server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+            
+            with server:
+                if not smtp_use_ssl and smtp_use_tls:
+                    server.starttls(context=context)
+                
+                server.login(smtp_username, smtp_password)
+            
+            logger.info(f"SMTP 配置验证成功：{smtp_host}:{smtp_port}")
+            return True, None
+            
+        except smtplib.SMTPAuthenticationError:
+            return False, 'SMTP 认证失败，请检查用户名和密码'
+        except smtplib.SMTPConnectError:
+            return False, '无法连接到 SMTP 服务器，请检查服务器地址和端口'
+        except smtplib.SMTPException as e:
+            return False, f'SMTP 错误：{str(e)}'
+        except ValueError:
+            return False, 'SMTP 端口格式错误'
+        except Exception as e:
+            logger.error(f"验证 SMTP 配置失败：{str(e)}")
+            return False, f'验证失败：{str(e)}'
+    
+    @staticmethod
+    def send_test_email(config_data: Dict[str, Any], test_email: str, secret_key: str) -> Tuple[bool, Optional[str]]:
+        """
+        发送测试邮件
+        
+        Args:
+            config_data: 邮件配置数据，包含：
+                - smtp_host: SMTP 服务器地址
+                - smtp_port: SMTP 端口
+                - smtp_username: SMTP 用户名
+                - smtp_password: SMTP 密码（明文或加密）
+                - smtp_use_tls: 是否使用 TLS（可选，默认 True）
+                - smtp_use_ssl: 是否使用 SSL（可选，默认 False）
+                - from_email: 发件人邮箱
+                - from_name: 发件人名称（可选）
+            test_email: 测试邮件接收地址
+            secret_key: 应用密钥（用于解密密码）
+            
+        Returns:
+            (是否成功，错误信息) - 成功时错误信息为 None
+        """
+        required_fields = ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'from_email']
+        
+        for field in required_fields:
+            if field not in config_data or not config_data[field]:
+                return False, f'缺少必需字段：{field}'
+        
+        if not test_email or '@' not in test_email:
+            return False, '测试邮箱地址格式不正确'
+        
+        try:
+            smtp_host = config_data['smtp_host']
+            smtp_port = int(config_data['smtp_port'])
+            smtp_username = config_data['smtp_username']
+            smtp_password = config_data['smtp_password']
+            smtp_use_tls = config_data.get('smtp_use_tls', True)
+            smtp_use_ssl = config_data.get('smtp_use_ssl', False)
+            from_email = config_data['from_email']
+            from_name = config_data.get('from_name', 'SmartTable')
+            
+            # 尝试解密密码（如果已加密）
+            try:
+                decrypted_password = AdminService.decrypt_smtp_password(smtp_password, secret_key)
+            except Exception:
+                decrypted_password = smtp_password
+            
+            subject = 'SmartTable 邮件配置测试'
+            body = f'''
+您好！
+
+这是一封测试邮件，用于验证 SmartTable 系统的邮件配置是否正确。
+
+配置信息：
+- SMTP 服务器：{smtp_host}:{smtp_port}
+- 发件人：{from_email}
+- 发送时间：{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+如果您收到此邮件，说明邮件配置已成功生效。
+
+此邮件由系统自动发送，请勿回复。
+            '''.strip()
+            
+            msg = MIMEText(body, 'plain', 'utf-8')
+            msg['Subject'] = subject
+            msg['From'] = f'{from_name} <{from_email}>'
+            msg['To'] = test_email
+            
+            context = ssl.create_default_context()
+            
+            if smtp_use_ssl:
+                server = smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=10)
+            else:
+                server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+            
+            with server:
+                if not smtp_use_ssl and smtp_use_tls:
+                    server.starttls(context=context)
+                
+                server.login(smtp_username, decrypted_password)
+                server.sendmail(from_email, [test_email], msg.as_string())
+            
+            logger.info(f"测试邮件发送成功：{test_email}")
+            return True, None
+            
+        except smtplib.SMTPAuthenticationError:
+            return False, 'SMTP 认证失败，请检查用户名和密码'
+        except smtplib.SMTPConnectError:
+            return False, '无法连接到 SMTP 服务器，请检查服务器地址和端口'
+        except smtplib.SMTPRecipientsRefused:
+            return False, '收件人地址被拒绝'
+        except smtplib.SMTPException as e:
+            return False, f'SMTP 错误：{str(e)}'
+        except Exception as e:
+            logger.error(f"发送测试邮件失败：{str(e)}")
+            return False, f'发送失败：{str(e)}'

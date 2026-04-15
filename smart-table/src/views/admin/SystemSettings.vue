@@ -5,7 +5,7 @@
     </div>
 
     <div class="page-content">
-      <el-tabs v-model="activeTab" type="border-card">
+      <el-tabs v-model="activeTab" type="border-card" class="settings-tabs">
         <!-- 基础配置 -->
         <el-tab-pane label="基础配置" name="basic">
           <el-form :model="basicConfigs" label-width="200px" label-position="top">
@@ -69,26 +69,100 @@
         </el-tab-pane>
 
         <!-- 邮件配置 -->
-        <el-tab-pane label="邮件配置" name="email">
-          <el-form :model="emailConfigs" label-width="200px" label-position="top">
-            <el-form-item label="SMTP 服务器">
-              <el-input v-model="emailConfigs.smtp_host" placeholder="smtp.example.com" />
+        <el-tab-pane label="邮件配置" name="email" class="email-config-pane">
+          <div class="email-form-container">
+            <el-form
+              ref="emailFormRef"
+              :model="emailConfigs"
+              :rules="emailRules"
+              label-width="200px"
+              label-position="top"
+            >
+            <el-form-item label="启用邮件服务">
+              <el-switch v-model="emailConfigs.email_enabled" />
             </el-form-item>
-            <el-form-item label="SMTP 端口">
-              <el-input-number v-model="emailConfigs.smtp_port" :min="1" :max="65535" />
+            <el-form-item label="SMTP 服务器" prop="smtp_host">
+              <el-input
+                v-model="emailConfigs.smtp_host"
+                placeholder="smtp.example.com"
+                :disabled="!emailConfigs.email_enabled"
+              />
             </el-form-item>
-            <el-form-item label="发件人邮箱">
-              <el-input v-model="emailConfigs.sender_email" placeholder="noreply@example.com" />
+            <el-form-item label="SMTP 端口" prop="smtp_port">
+              <el-input-number
+                v-model="emailConfigs.smtp_port"
+                :min="1"
+                :max="65535"
+                :disabled="!emailConfigs.email_enabled"
+              />
             </el-form-item>
-            <el-form-item label="使用 SSL">
-              <el-switch v-model="emailConfigs.use_ssl" />
+            <el-form-item label="发件人邮箱" prop="sender_email">
+              <el-input
+                v-model="emailConfigs.sender_email"
+                placeholder="noreply@example.com"
+                :disabled="!emailConfigs.email_enabled"
+              />
+            </el-form-item>
+            <el-form-item label="发件人显示名称">
+              <el-input
+                v-model="emailConfigs.sender_name"
+                placeholder="Smart Table"
+                :disabled="!emailConfigs.email_enabled"
+              />
+            </el-form-item>
+            <el-form-item label="SMTP 账号" prop="smtp_username">
+              <el-input
+                v-model="emailConfigs.smtp_username"
+                placeholder="请输入SMTP账号"
+                :disabled="!emailConfigs.email_enabled"
+              />
+            </el-form-item>
+            <el-form-item label="SMTP 密码" prop="smtp_password">
+              <el-input
+                v-model="emailConfigs.smtp_password"
+                type="password"
+                placeholder="请输入SMTP密码"
+                show-password
+                :disabled="!emailConfigs.email_enabled"
+              />
+            </el-form-item>
+            <el-form-item label="加密方式">
+              <el-select
+                v-model="emailConfigs.encryption_type"
+                placeholder="请选择加密方式"
+                :disabled="!emailConfigs.email_enabled"
+                style="width: 100%"
+              >
+                <el-option label="SSL" value="ssl" />
+                <el-option label="TLS" value="tls" />
+                <el-option label="无" value="none" />
+              </el-select>
+            </el-form-item>
+            <el-divider />
+            <el-form-item label="测试邮箱地址">
+              <el-input
+                v-model="emailConfigs.test_email"
+                placeholder="请输入测试邮箱地址"
+                :disabled="!emailConfigs.email_enabled"
+              />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" :loading="saving" @click="saveEmailConfigs">
-                保存配置
+              <el-button
+                type="success"
+                :disabled="!emailConfigs.email_enabled || !emailConfigs.test_email"
+                :loading="sendingTestEmail"
+                @click="sendTestEmail"
+              >
+                发送测试邮件
               </el-button>
             </el-form-item>
-          </el-form>
+              <el-form-item>
+                <el-button type="primary" :loading="saving" @click="saveEmailConfigs">
+                  保存配置
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
         </el-tab-pane>
 
         <!-- 其他配置 -->
@@ -121,6 +195,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { useAdminStore } from '@/stores/adminStore'
 
@@ -128,6 +203,8 @@ const adminStore = useAdminStore()
 
 const activeTab = ref('basic')
 const saving = ref(false)
+const sendingTestEmail = ref(false)
+const emailFormRef = ref<FormInstance>()
 
 const systemConfigs = computed(() => adminStore.systemConfigs)
 
@@ -145,10 +222,15 @@ const securityConfigs = reactive({
 })
 
 const emailConfigs = reactive({
+  email_enabled: false,
   smtp_host: '',
   smtp_port: 587,
   sender_email: '',
-  use_ssl: true
+  sender_name: '',
+  smtp_username: '',
+  smtp_password: '',
+  encryption_type: 'ssl' as 'ssl' | 'tls' | 'none',
+  test_email: ''
 })
 
 const otherConfigs = reactive({
@@ -156,6 +238,25 @@ const otherConfigs = reactive({
   log_retention_days: 30,
   enable_performance_monitoring: false
 })
+
+const emailRules: FormRules = {
+  smtp_host: [
+    { required: true, message: '请输入SMTP服务器地址', trigger: 'blur' }
+  ],
+  smtp_port: [
+    { required: true, message: '请输入SMTP端口', trigger: 'blur' }
+  ],
+  sender_email: [
+    { required: true, message: '请输入发件人邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  smtp_username: [
+    { required: true, message: '请输入SMTP账号', trigger: 'blur' }
+  ],
+  smtp_password: [
+    { required: true, message: '请输入SMTP密码', trigger: 'blur' }
+  ]
+}
 
 const loadConfigs = () => {
   const configs = systemConfigs.value
@@ -172,10 +273,14 @@ const loadConfigs = () => {
   securityConfigs.enable_registration = configs['enable_registration']?.config_value || true
 
   // 邮件配置
+  emailConfigs.email_enabled = configs['email_enabled']?.config_value || false
   emailConfigs.smtp_host = configs['smtp_host']?.config_value || ''
   emailConfigs.smtp_port = configs['smtp_port']?.config_value || 587
   emailConfigs.sender_email = configs['sender_email']?.config_value || ''
-  emailConfigs.use_ssl = configs['use_ssl']?.config_value || true
+  emailConfigs.sender_name = configs['sender_name']?.config_value || ''
+  emailConfigs.smtp_username = configs['smtp_username']?.config_value || ''
+  emailConfigs.smtp_password = configs['smtp_password']?.config_value || ''
+  emailConfigs.encryption_type = configs['encryption_type']?.config_value || 'ssl'
 
   // 其他配置
   otherConfigs.enable_logging = configs['enable_logging']?.config_value || true
@@ -217,13 +322,22 @@ const saveSecurityConfigs = async () => {
 }
 
 const saveEmailConfigs = async () => {
+  if (!emailFormRef.value) return
+
+  const valid = await emailFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
   saving.value = true
   try {
     await adminStore.updateSystemConfig([
+      { key: 'email_enabled', value: emailConfigs.email_enabled, group: 'email' },
       { key: 'smtp_host', value: emailConfigs.smtp_host, group: 'email' },
       { key: 'smtp_port', value: emailConfigs.smtp_port, group: 'email' },
       { key: 'sender_email', value: emailConfigs.sender_email, group: 'email' },
-      { key: 'use_ssl', value: emailConfigs.use_ssl, group: 'email' }
+      { key: 'sender_name', value: emailConfigs.sender_name, group: 'email' },
+      { key: 'smtp_username', value: emailConfigs.smtp_username, group: 'email' },
+      { key: 'smtp_password', value: emailConfigs.smtp_password, group: 'email' },
+      { key: 'encryption_type', value: emailConfigs.encryption_type, group: 'email' }
     ])
     ElMessage.success('邮件配置保存成功')
   } catch (error) {
@@ -249,8 +363,32 @@ const saveOtherConfigs = async () => {
   }
 }
 
-onMounted(() => {
-  adminStore.fetchSystemConfigs()
+const sendTestEmail = async () => {
+  if (!emailConfigs.test_email) {
+    ElMessage.warning('请输入测试邮箱地址')
+    return
+  }
+
+  sendingTestEmail.value = true
+  try {
+    await adminStore.sendTestEmail({
+      smtp_host: emailConfigs.smtp_host,
+      smtp_port: emailConfigs.smtp_port,
+      sender_email: emailConfigs.sender_email,
+      sender_name: emailConfigs.sender_name,
+      smtp_username: emailConfigs.smtp_username,
+      smtp_password: emailConfigs.smtp_password,
+      encryption_type: emailConfigs.encryption_type
+    }, emailConfigs.test_email)
+  } catch (error) {
+    console.error('发送测试邮件失败:', error)
+  } finally {
+    sendingTestEmail.value = false
+  }
+}
+
+onMounted(async () => {
+  await adminStore.fetchSystemConfigs()
   loadConfigs()
 })
 </script>
@@ -270,8 +408,18 @@ onMounted(() => {
   }
 
   .page-content {
-    .el-tabs {
+    .settings-tabs {
       min-height: 500px;
+    }
+
+    .settings-tabs :deep(.el-tabs__content) {
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+      padding-right: 16px;
+    }
+
+    .settings-tabs :deep(.el-tab-pane) {
+      padding-bottom: 40px;
     }
 
     .el-form {

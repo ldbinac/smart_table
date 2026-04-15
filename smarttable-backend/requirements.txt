@@ -39,5 +39,8 @@ Pillow==10.4.0
 # 环境变量
 python-dotenv==1.0.0
 
+# 加密
+cryptography==42.0.5
+
 # WSGI 服务器
 gunicorn==21.2.0

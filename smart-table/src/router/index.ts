@@ -127,6 +127,36 @@ const routes: RouteRecordRaw[] = [
     beforeEnter: adminGuard,
   },
   {
+    path: "/admin/email/templates",
+    name: "EmailTemplates",
+    component: () => import("@/views/admin/EmailTemplates.vue"),
+    meta: {
+      title: "邮件模板",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/email/logs",
+    name: "EmailLogs",
+    component: () => import("@/views/admin/EmailLogs.vue"),
+    meta: {
+      title: "邮件日志",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/email/stats",
+    name: "EmailStats",
+    component: () => import("@/views/admin/EmailStats.vue"),
+    meta: {
+      title: "邮件统计",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
     path: "/403",
     name: "Forbidden",
     component: () => import("@/views/Forbidden.vue"),

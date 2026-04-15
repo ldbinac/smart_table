@@ -43,9 +43,36 @@ class SystemConfigBatchUpdateSchema(Schema):
     configs = fields.List(fields.Nested(SystemConfigUpdateSchema), required=True, description='配置列表')
 
 
+class EmailConfigVerifySchema(Schema):
+    """邮件配置验证 Schema"""
+    smtp_host = fields.String(required=True, description='SMTP 服务器地址')
+    smtp_port = fields.Integer(required=True, validate=validate.Range(min=1, max=65535), description='SMTP 端口')
+    smtp_username = fields.String(required=True, description='SMTP 用户名')
+    smtp_password = fields.String(required=True, description='SMTP 密码')
+    smtp_use_tls = fields.Boolean(load_default=True, description='是否使用 TLS')
+    smtp_use_ssl = fields.Boolean(load_default=False, description='是否使用 SSL')
+    from_email = fields.Email(required=True, description='发件人邮箱')
+    from_name = fields.String(allow_none=True, description='发件人名称')
+
+
+class EmailConfigTestSchema(Schema):
+    """邮件配置测试 Schema"""
+    smtp_host = fields.String(required=True, description='SMTP 服务器地址')
+    smtp_port = fields.Integer(required=True, validate=validate.Range(min=1, max=65535), description='SMTP 端口')
+    smtp_username = fields.String(required=True, description='SMTP 用户名')
+    smtp_password = fields.String(required=True, description='SMTP 密码')
+    smtp_use_tls = fields.Boolean(load_default=True, description='是否使用 TLS')
+    smtp_use_ssl = fields.Boolean(load_default=False, description='是否使用 SSL')
+    from_email = fields.Email(required=True, description='发件人邮箱')
+    from_name = fields.String(allow_none=True, description='发件人名称')
+    test_email = fields.Email(required=True, description='测试邮件接收地址')
+
+
 user_create_schema = UserCreateSchema()
 user_update_schema = UserUpdateSchema()
 user_status_update_schema = UserStatusUpdateSchema()
 password_reset_schema = PasswordResetSchema()
 system_config_update_schema = SystemConfigUpdateSchema()
 system_config_batch_update_schema = SystemConfigBatchUpdateSchema()
+email_config_verify_schema = EmailConfigVerifySchema()
+email_config_test_schema = EmailConfigTestSchema()

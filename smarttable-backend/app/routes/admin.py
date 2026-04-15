@@ -7,18 +7,22 @@ import io
 from datetime import datetime
 from typing import Optional
 
-from flask import Blueprint, request, g, make_response
+from flask import Blueprint, request, g, make_response, current_app
 from marshmallow import ValidationError
 
 from app.services.admin_service import AdminService
+from app.services.email_config_service import EmailConfigService
 from app.models.log import AdminActionType, EntityType
+from app.models.user import UserRole
 from app.schemas.admin_schema import (
     user_create_schema,
     user_update_schema,
     user_status_update_schema,
     password_reset_schema,
     system_config_update_schema,
-    system_config_batch_update_schema
+    system_config_batch_update_schema,
+    email_config_verify_schema,
+    email_config_test_schema
 )
 from app.utils.decorators import jwt_required, admin_required, get_client_ip, get_user_agent
 from app.utils.response import (
@@ -489,6 +493,15 @@ def update_settings() -> tuple:
         group = config_data.get('group', 'basic')
         description = config_data.get('description')
         
+        # 如果是 SMTP 密码，进行加密
+        if key == 'smtp_password' and value:
+            try:
+                secret_key = current_app.config.get('SECRET_KEY')
+                value = EmailConfigService.encrypt_password(value, secret_key)
+            except Exception as e:
+                current_app.logger.error(f'加密 SMTP 密码失败: {str(e)}')
+                return error_response('加密密码失败', code=500)
+        
         old_value = AdminService.get_config(key)
         
         config = AdminService.update_config(
@@ -733,4 +746,117 @@ def get_roles() -> tuple:
     return success_response(
         data=roles_list,
         message='获取角色列表成功'
+    )
+
+
+@admin_bp.route('/email/verify-config', methods=['POST'])
+@jwt_required
+@admin_required
+def verify_email_config() -> tuple:
+    """
+    验证邮件配置有效性
+    
+    请求体:
+        {
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 587,
+            "smtp_username": "user@example.com",
+            "smtp_password": "password",
+            "smtp_use_tls": true (可选，默认 true),
+            "smtp_use_ssl": false (可选，默认 false),
+            "from_email": "noreply@example.com",
+            "from_name": "SmartTable" (可选)
+        }
+    
+    响应:
+        200: 配置有效
+        400: 请求数据验证失败或配置无效
+        401: 未授权访问
+        403: 权限不足
+    """
+    data = request.get_json()
+    
+    if not data:
+        return error_response('请求体不能为空', code=400)
+    
+    try:
+        validated_data = email_config_verify_schema.load(data)
+    except ValidationError as err:
+        return validation_error_response(err.messages)
+    
+    is_valid, error = AdminService.verify_email_config(validated_data)
+    
+    if not is_valid:
+        return error_response(error, code=400, error='invalid_email_config')
+    
+    return success_response(
+        message='邮件配置验证成功'
+    )
+
+
+@admin_bp.route('/email/test', methods=['POST'])
+@jwt_required
+@admin_required
+def send_test_email() -> tuple:
+    """
+    发送测试邮件
+    
+    请求体:
+        {
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 587,
+            "smtp_username": "user@example.com",
+            "smtp_password": "password",
+            "smtp_use_tls": true (可选，默认 true),
+            "smtp_use_ssl": false (可选，默认 false),
+            "from_email": "noreply@example.com",
+            "from_name": "SmartTable" (可选),
+            "test_email": "test@example.com"
+        }
+    
+    响应:
+        200: 发送成功
+        400: 请求数据验证失败或发送失败
+        401: 未授权访问
+        403: 权限不足
+    """
+    from flask import current_app
+    
+    data = request.get_json()
+    
+    if not data:
+        return error_response('请求体不能为空', code=400)
+    
+    try:
+        validated_data = email_config_test_schema.load(data)
+    except ValidationError as err:
+        return validation_error_response(err.messages)
+    
+    test_email = validated_data.pop('test_email')
+    secret_key = current_app.config.get('SECRET_KEY')
+    
+    if not secret_key:
+        return error_response('服务器未配置加密密钥', code=500)
+    
+    success, error = AdminService.send_test_email(
+        config_data=validated_data,
+        test_email=test_email,
+        secret_key=secret_key
+    )
+    
+    if not success:
+        return error_response(error, code=400, error='send_test_email_failed')
+    
+    AdminService.log_operation(
+        user_id=g.current_user_id,
+        action=AdminActionType.CONFIG_CHANGE.value,
+        entity_type=EntityType.CONFIG.value,
+        entity_id=None,
+        new_value={'action': 'send_test_email', 'test_email': test_email},
+        ip_address=get_client_ip(),
+        user_agent=get_user_agent()
+    )
+    
+    return success_response(
+        message=f'测试邮件已发送至 {test_email}'
     )

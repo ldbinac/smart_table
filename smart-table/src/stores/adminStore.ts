@@ -379,6 +379,34 @@ export const useAdminStore = defineStore("admin", () => {
     }
   }
 
+  async function sendTestEmail(config: {
+    smtp_host: string;
+    smtp_port: number;
+    sender_email: string;
+    sender_name?: string;
+    smtp_username: string;
+    smtp_password: string;
+    encryption_type: 'ssl' | 'tls' | 'none';
+  }, testEmail: string) {
+    try {
+      const response = await adminApiService.sendTestEmail(config, testEmail);
+      console.log("[adminStore] sendTestEmail - 后端返回:", response);
+      
+      if (response.success) {
+        ElMessage.success(response.message || "测试邮件发送成功");
+        return response;
+      } else {
+        ElMessage.error(response.message || "测试邮件发送失败");
+        throw new Error(response.message);
+      }
+    } catch (error: any) {
+      console.error("[adminStore] sendTestEmail failed:", error);
+      const errorMessage = error.response?.data?.message || error.message || "测试邮件发送失败";
+      ElMessage.error(errorMessage);
+      throw error;
+    }
+  }
+
   function $reset() {
     users.value = [];
     userPagination.value = {
@@ -420,6 +448,7 @@ export const useAdminStore = defineStore("admin", () => {
     fetchOperationLogs,
     exportOperationLogs,
     fetchRoles,
+    sendTestEmail,
     $reset,
   };
 });

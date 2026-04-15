@@ -16,6 +16,9 @@ from flask_jwt_extended import (
 
 from app.extensions import db, cache
 from app.models.user import User, TokenBlocklist, UserStatus
+from app.services.email_config_service import EmailConfigService
+from app.services.email_sender_service import EmailSenderService
+from app.services.email_template_service import EmailTemplateService
 
 
 class AuthService:
@@ -57,6 +60,27 @@ class AuthService:
             
             db.session.add(user)
             db.session.commit()
+            
+            # 生成验证令牌
+            verification_token = user.generate_verification_token()
+            
+            # 如果邮件服务启用，发送验证邮件
+            if EmailConfigService.is_email_enabled():
+                try:
+                    verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='user_registration',
+                        template_data={
+                            'user_name': user.name,
+                            'verification_link': verification_link
+                        }
+                    )
+                except Exception as e:
+                    # 邮件发送失败不影响注册流程，记录错误即可
+                    from flask import current_app
+                    current_app.logger.error(f'发送验证邮件失败: {str(e)}')
             
             return user, None
             

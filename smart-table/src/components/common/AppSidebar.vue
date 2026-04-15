@@ -82,6 +82,24 @@ const navItems = computed<NavItem[]>(() => [
               icon: "Document",
               path: "/admin/logs",
             },
+            {
+              id: "admin-email-templates",
+              label: "邮件模板",
+              icon: "Message",
+              path: "/admin/email/templates",
+            },
+            {
+              id: "admin-email-logs",
+              label: "邮件日志",
+              icon: "MessageBox",
+              path: "/admin/email/logs",
+            },
+            {
+              id: "admin-email-stats",
+              label: "邮件统计",
+              icon: "DataLine",
+              path: "/admin/email/stats",
+            },
           ],
         },
       ]

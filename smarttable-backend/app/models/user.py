@@ -3,7 +3,7 @@
 包含用户和令牌黑名单模型
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from enum import Enum as PyEnum
 
 from sqlalchemy import String, Boolean, DateTime, Enum, Text, ForeignKey
@@ -89,6 +89,24 @@ class User(db.Model):
         default=False,
         nullable=False
     )
+    verification_token: Mapped[str] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True
+    )
+    verification_token_expires: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+    reset_token: Mapped[str] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True
+    )
+    reset_token_expires: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=True
+    )
     must_change_password: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -161,6 +179,48 @@ class User(db.Model):
     
     def update_last_login(self) -> None:
         self.last_login_at = datetime.now(timezone.utc)
+        db.session.commit()
+    
+    def generate_verification_token(self) -> str:
+        """生成邮箱验证令牌，有效期24小时"""
+        import secrets
+        self.verification_token = secrets.token_urlsafe(32)
+        self.verification_token_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+        db.session.commit()
+        return self.verification_token
+    
+    def verify_email(self, token: str) -> bool:
+        """验证邮箱令牌"""
+        if not self.verification_token or self.verification_token != token:
+            return False
+        if not self.verification_token_expires or datetime.now(timezone.utc) > self.verification_token_expires:
+            return False
+        self.email_verified = True
+        self.verification_token = None
+        self.verification_token_expires = None
+        db.session.commit()
+        return True
+    
+    def generate_reset_token(self) -> str:
+        """生成密码重置令牌，有效期1小时"""
+        import secrets
+        self.reset_token = secrets.token_urlsafe(32)
+        self.reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        db.session.commit()
+        return self.reset_token
+    
+    def verify_reset_token(self, token: str) -> bool:
+        """验证密码重置令牌"""
+        if not self.reset_token or self.reset_token != token:
+            return False
+        if not self.reset_token_expires or datetime.now(timezone.utc) > self.reset_token_expires:
+            return False
+        return True
+    
+    def clear_reset_token(self) -> None:
+        """清除密码重置令牌"""
+        self.reset_token = None
+        self.reset_token_expires = None
         db.session.commit()
     
     def is_active(self) -> bool:

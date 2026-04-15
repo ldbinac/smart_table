@@ -40,10 +40,24 @@ def create_app(config_name='default'):
     if config_name == 'development':
         with app.app_context():
             try:
+                # 先删除所有表，再重新创建（确保表结构最新）
+               # db.drop_all()
                 db.create_all()
                 print("数据库表创建成功")
+                
+                # 初始化默认邮件模板
+                from app.utils.init_email_templates import init_default_email_templates
+                init_default_email_templates()
             except Exception as e:
                 print(f"创建数据库表失败：{e}")
+    else:
+        # 生产环境也初始化邮件模板
+        with app.app_context():
+            try:
+                from app.utils.init_email_templates import init_default_email_templates
+                init_default_email_templates()
+            except Exception as e:
+                print(f"初始化邮件模板失败：{e}")
     
     return app
 
@@ -69,6 +83,7 @@ def register_blueprints(app):
     from app.routes.shares import shares_bp
     from app.routes.form_shares import form_shares_bp
     from app.routes.auth_captcha import auth_captcha_bp
+    from app.routes.email import email_bp
     
     # 注册认证蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -105,7 +120,10 @@ def register_blueprints(app):
     
     # 注册管理员蓝图
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    
+
+    # 注册邮件服务蓝图
+    app.register_blueprint(email_bp, url_prefix='/api/admin/email')
+
     # 注册分享蓝图
     app.register_blueprint(shares_bp, url_prefix='/api')
     

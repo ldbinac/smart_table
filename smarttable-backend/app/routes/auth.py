@@ -502,3 +502,226 @@ def verify_token() -> tuple:
         },
         message='令牌有效'
     )
+
+
+@auth_bp.route('/verify-email', methods=['GET'])
+def verify_email() -> tuple:
+    """
+    验证邮箱
+    
+    查询参数:
+        token: 验证令牌
+    
+    响应:
+        200: 验证成功
+        400: 令牌无效或已过期
+        404: 用户不存在
+    """
+    token = request.args.get('token')
+    
+    if not token:
+        return error_response('请提供验证令牌', code=400)
+    
+    # 查找具有该验证令牌的用户
+    user = User.query.filter_by(verification_token=token).first()
+    
+    if not user:
+        return error_response('验证令牌无效', code=400, error='invalid_token')
+    
+    # 验证令牌
+    if user.verify_email(token):
+        return success_response(
+            data={'email_verified': True},
+            message='邮箱验证成功'
+        )
+    else:
+        return error_response('验证令牌已过期', code=400, error='token_expired')
+
+
+@auth_bp.route('/resend-verification', methods=['POST'])
+@flask_jwt_required()
+def resend_verification() -> tuple:
+    """
+    重新发送验证邮件
+    
+    请求头:
+        Authorization: Bearer <access_token>
+    
+    响应:
+        200: 发送成功
+        400: 邮箱已验证或邮件服务未启用
+        401: 令牌无效
+        404: 用户不存在
+    """
+    from app.services.email_config_service import EmailConfigService
+    from app.services.email_sender_service import EmailSenderService
+    
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return not_found_response('用户')
+    
+    if user.email_verified:
+        return error_response('邮箱已验证', code=400, error='already_verified')
+    
+    # 检查邮件服务是否启用
+    if not EmailConfigService.is_email_enabled():
+        return error_response('邮件服务未启用', code=400, error='email_service_disabled')
+    
+    # 生成新的验证令牌
+    verification_token = user.generate_verification_token()
+    
+    try:
+        verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
+        EmailSenderService.send_email_quick(
+            to_email=user.email,
+            to_name=user.name,
+            template_key='user_registration',
+            template_data={
+                'user_name': user.name,
+                'verification_link': verification_link
+            }
+        )
+        
+        return success_response(
+            message='验证邮件已发送，请查收'
+        )
+    except Exception as e:
+        logger.error(f'发送验证邮件失败: {str(e)}')
+        return error_response('发送验证邮件失败，请稍后重试', code=500)
+
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+@rate_limit(max_attempts=3, window=300)  # 5分钟内最多3次
+def forgot_password() -> tuple:
+    """
+    忘记密码 - 发送重置邮件
+    
+    请求体:
+        {
+            "email": "user@example.com"
+        }
+    
+    响应:
+        200: 如果邮箱存在，发送重置邮件
+        400: 请求数据验证失败
+    """
+    from app.services.email_config_service import EmailConfigService
+    from app.services.email_sender_service import EmailSenderService
+    
+    data = request.get_json()
+    
+    if not data:
+        return error_response('请求体不能为空', code=400)
+    
+    email = data.get('email', '').strip().lower()
+    
+    if not email:
+        return error_response('请提供邮箱地址', code=400)
+    
+    # 查找用户（不泄露用户是否存在）
+    user = User.query.filter_by(email=email).first()
+    
+    # 即使用户不存在，也返回相同的消息（安全考虑）
+    if not user:
+        return success_response(
+            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
+        )
+    
+    # 检查邮件服务是否启用
+    if not EmailConfigService.is_email_enabled():
+        return success_response(
+            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
+        )
+    
+    # 生成重置令牌
+    reset_token = user.generate_reset_token()
+    
+    try:
+        reset_link = f"{EmailConfigService.get_frontend_url()}/reset-password?token={reset_token}"
+        EmailSenderService.send_email_quick(
+            to_email=user.email,
+            to_name=user.name,
+            template_key='password_reset',
+            template_data={
+                'user_name': user.name,
+                'reset_link': reset_link
+            }
+        )
+        
+        return success_response(
+            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
+        )
+    except Exception as e:
+        logger.error(f'发送密码重置邮件失败: {str(e)}')
+        return success_response(
+            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
+        )
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password() -> tuple:
+    """
+    重置密码
+    
+    请求体:
+        {
+            "token": "重置令牌",
+            "new_password": "新密码"
+        }
+    
+    响应:
+        200: 密码重置成功
+        400: 令牌无效或已过期，或密码不符合要求
+    """
+    data = request.get_json()
+    
+    if not data:
+        return error_response('请求体不能为空', code=400)
+    
+    token = data.get('token')
+    new_password = data.get('new_password')
+    
+    if not token or not new_password:
+        return error_response('请提供令牌和新密码', code=400)
+    
+    # 验证密码长度
+    if len(new_password) < 8:
+        return error_response('密码长度至少为8位', code=400)
+    
+    # 查找具有该重置令牌的用户
+    user = User.query.filter_by(reset_token=token).first()
+    
+    if not user or not user.verify_reset_token(token):
+        return error_response('重置令牌无效或已过期', code=400, error='invalid_token')
+    
+    # 重置密码
+    try:
+        user.set_password(new_password)
+        user.clear_reset_token()
+        
+        # 发送密码重置通知邮件
+        from app.services.email_config_service import EmailConfigService
+        from app.services.email_sender_service import EmailSenderService
+        
+        if EmailConfigService.is_email_enabled():
+            try:
+                EmailSenderService.send_email_quick(
+                    to_email=user.email,
+                    to_name=user.name,
+                    template_key='password_changed',
+                    template_data={
+                        'user_name': user.name,
+                        'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                )
+            except Exception as e:
+                logger.error(f'发送密码重置通知邮件失败: {str(e)}')
+        
+        return success_response(
+            message='密码重置成功，请使用新密码登录'
+        )
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'密码重置失败: {str(e)}', code=500)

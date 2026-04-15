@@ -196,6 +196,40 @@ export const getRoles = async (): Promise<Role[]> => {
   return apiClient.get('/admin/roles');
 };
 
+export interface EmailConfig {
+  smtp_host: string;
+  smtp_port: number;
+  sender_email: string;
+  sender_name?: string;
+  smtp_username: string;
+  smtp_password: string;
+  encryption_type: 'ssl' | 'tls' | 'none';
+}
+
+export interface SendTestEmailResponse {
+  success: boolean;
+  message: string;
+  data: null;
+}
+
+export const sendTestEmail = async (config: EmailConfig, testEmail: string): Promise<SendTestEmailResponse> => {
+  // 转换字段名以匹配后端期望的格式
+  const backendConfig = {
+    smtp_host: config.smtp_host,
+    smtp_port: config.smtp_port,
+    smtp_username: config.smtp_username,
+    smtp_password: config.smtp_password,
+    from_email: config.sender_email,
+    from_name: config.sender_name,
+    smtp_use_tls: config.encryption_type === 'tls',
+    smtp_use_ssl: config.encryption_type === 'ssl',
+    test_email: testEmail
+  };
+  // 使用 raw() 获取完整响应，因为后端返回的 data 为 null，但我们需要 success 和 message
+  const response = await apiClient.raw().post('/admin/email/test', backendConfig);
+  return response.data as SendTestEmailResponse;
+};
+
 export const adminApiService = {
   getUserList,
   getUser,
@@ -209,6 +243,7 @@ export const adminApiService = {
   getOperationLogs,
   exportOperationLogs,
   getRoles,
+  sendTestEmail,
 };
 
 export default adminApiService;
