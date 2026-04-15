@@ -55,7 +55,8 @@ const mainContentStyle = computed(() => {
 .layout-body {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
+  height: calc(100vh - 64px);
 }
 
 .main-content {
@@ -64,6 +65,8 @@ const mainContentStyle = computed(() => {
   flex-direction: column;
   overflow: hidden;
   transition: margin-left $transition-normal;
+  position: relative;
+  z-index: 1;
 }
 
 .content-wrapper {
