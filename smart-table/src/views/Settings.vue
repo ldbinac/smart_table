@@ -444,7 +444,9 @@ export default {
   max-width: 900px;
   margin: 0 auto;
   background: linear-gradient(180deg, $gray-50 0%, $surface-color 100%);
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .settings-header {
