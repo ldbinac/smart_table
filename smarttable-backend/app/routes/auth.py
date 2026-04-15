@@ -427,9 +427,13 @@ def change_password() -> tuple:
     
     old_password = validated_data['old_password']
     new_password = validated_data['new_password']
-    
+
+    # 获取客户端信息用于日志记录
+    ip_address = request.remote_addr
+    user_agent = request.headers.get('User-Agent', '')
+
     # 调用服务层修改密码
-    success, error = AuthService.change_password(user_id, old_password, new_password)
+    success, error = AuthService.change_password(user_id, old_password, new_password, ip_address, user_agent)
     
     if not success:
         if '旧密码错误' in error:

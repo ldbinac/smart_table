@@ -11,6 +11,7 @@ import {
   User,
   Search,
   CircleClose,
+  Lock,
 } from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
 import { debounce } from "@/utils/debounce";
@@ -61,6 +62,16 @@ const handleLogoutAll = async () => {
   } catch {
     // 用户取消退出
   }
+};
+
+// 处理修改密码 - 跳转到设置页面
+const handleChangePassword = () => {
+  userMenuVisible.value = false;
+  router.push("/settings");
+  // 延迟打开修改密码对话框
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent("open-change-password-dialog"));
+  }, 100);
 };
 
 // 用户信息显示
@@ -366,10 +377,16 @@ onMounted(() => {
               <div class="user-info-email">{{ userEmail }}</div>
             </div>
             <el-divider style="margin: 4px 0" />
-            <el-dropdown-item icon="SwitchButton" @click="handleLogout">
+            <el-dropdown-item @click="handleChangePassword">
+              <el-icon><Lock /></el-icon>
+              修改密码
+            </el-dropdown-item>
+            <el-dropdown-item divided @click="handleLogout">
+              <el-icon><SwitchButton /></el-icon>
               退出登录
             </el-dropdown-item>
-            <el-dropdown-item icon="Delete" divided @click="handleLogoutAll">
+            <el-dropdown-item @click="handleLogoutAll">
+              <el-icon><Delete /></el-icon>
               退出所有设备
             </el-dropdown-item>
           </el-dropdown-menu>

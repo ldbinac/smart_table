@@ -1,8 +1,130 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useSettingsStore } from '@/stores';
+import { useAuthStore } from '@/stores/auth/authStore';
 import { Brush, Grid, DataLine, Calendar, RefreshLeft } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import type { FormInstance, FormRules } from 'element-plus';
+import apiClient from '@/api/client';
 
 const settingsStore = useSettingsStore();
+const authStore = useAuthStore();
+
+// 修改密码相关
+const passwordDialogVisible = ref(false);
+const passwordFormRef = ref<FormInstance>();
+const passwordLoading = ref(false);
+
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+});
+
+// 验证两次密码是否一致
+const validateConfirmPassword = (_rule: any, value: string, callback: Function) => {
+  if (value !== passwordForm.value.newPassword) {
+    callback(new Error('两次输入的密码不一致'));
+  } else {
+    callback();
+  }
+};
+
+// 密码强度验证
+const validatePasswordStrength = (_rule: any, value: string, callback: Function) => {
+  if (value.length < 8) {
+    callback(new Error('密码长度至少为8位'));
+    return;
+  }
+  if (!/[A-Z]/.test(value)) {
+    callback(new Error('密码必须包含至少一个大写字母'));
+    return;
+  }
+  if (!/[a-z]/.test(value)) {
+    callback(new Error('密码必须包含至少一个小写字母'));
+    return;
+  }
+  if (!/\d/.test(value)) {
+    callback(new Error('密码必须包含至少一个数字'));
+    return;
+  }
+  callback();
+};
+
+const passwordRules: FormRules = {
+  oldPassword: [
+    { required: true, message: '请输入当前密码', trigger: 'blur' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { validator: validatePasswordStrength, trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { validator: validateConfirmPassword, trigger: 'blur' }
+  ]
+};
+
+// 打开修改密码对话框
+const openPasswordDialog = () => {
+  passwordForm.value = {
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  passwordDialogVisible.value = true;
+};
+
+// 提交修改密码
+const submitPasswordChange = async () => {
+  if (!passwordFormRef.value) return;
+
+  await passwordFormRef.value.validate(async (valid) => {
+    if (!valid) return;
+
+    passwordLoading.value = true;
+
+    try {
+      await apiClient.put('/auth/password', {
+        old_password: passwordForm.value.oldPassword,
+        new_password: passwordForm.value.newPassword
+      });
+
+      ElMessage.success('密码修改成功，请重新登录');
+      passwordDialogVisible.value = false;
+
+      // 延迟后登出并跳转到登录页
+      setTimeout(async () => {
+        await authStore.logout();
+      }, 1500);
+
+    } catch (error: any) {
+      const message = error?.response?.data?.message || '密码修改失败';
+      const errorCode = error?.response?.data?.error;
+
+      if (errorCode === 'invalid_old_password') {
+        ElMessage.error('当前密码错误');
+      } else {
+        ElMessage.error(message);
+      }
+    } finally {
+      passwordLoading.value = false;
+    }
+  });
+};
+
+// 监听打开修改密码对话框事件
+const handleOpenPasswordDialog = () => {
+  openPasswordDialog();
+};
+
+onMounted(() => {
+  window.addEventListener('open-change-password-dialog', handleOpenPasswordDialog);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('open-change-password-dialog', handleOpenPasswordDialog);
+});
 </script>
 
 <template>
@@ -247,6 +369,62 @@ const settingsStore = useSettingsStore();
         <p class="reset-hint">此操作将恢复所有设置到初始状态，不可撤销</p>
       </div>
     </main>
+
+    <!-- 修改密码对话框 -->
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="修改密码"
+      width="450px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="passwordFormRef"
+        :model="passwordForm"
+        :rules="passwordRules"
+        label-position="top"
+      >
+        <el-form-item label="当前密码" prop="oldPassword">
+          <el-input
+            v-model="passwordForm.oldPassword"
+            type="password"
+            placeholder="请输入当前密码"
+            show-password
+          />
+        </el-form-item>
+
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input
+            v-model="passwordForm.newPassword"
+            type="password"
+            placeholder="请输入新密码"
+            show-password
+          />
+          <div class="password-hint">
+            密码长度至少8位，需包含大小写字母和数字
+          </div>
+        </el-form-item>
+
+        <el-form-item label="确认新密码" prop="confirmPassword">
+          <el-input
+            v-model="passwordForm.confirmPassword"
+            type="password"
+            placeholder="请再次输入新密码"
+            show-password
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="passwordLoading"
+          @click="submitPasswordChange"
+        >
+          确认修改
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -432,6 +610,12 @@ export default {
     color: $gray-400;
     margin: 0;
   }
+}
+
+.password-hint {
+  font-size: $font-size-sm;
+  color: $gray-400;
+  margin-top: 4px;
 }
 
 // 响应式适配

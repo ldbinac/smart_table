@@ -262,40 +262,108 @@ class AuthService:
         return token is not None
     
     @staticmethod
-    def change_password(user_id: str, old_password: str, new_password: str) -> Tuple[bool, Optional[str]]:
+    def change_password(user_id: str, old_password: str, new_password: str, ip_address: str = None, user_agent: str = None) -> Tuple[bool, Optional[str]]:
         """
         修改用户密码
-        
+
         Args:
             user_id: 用户 ID
             old_password: 旧密码
             new_password: 新密码
-            
+            ip_address: 客户端IP地址（用于日志记录）
+            user_agent: 客户端User-Agent（用于日志记录）
+
         Returns:
             (是否成功, 错误信息)
         """
+        from app.models.operation_history import OperationHistory
+
         user = User.query.get(user_id)
-        
+
         if not user:
+            # 记录操作日志 - 用户不存在
+            OperationHistory.log(
+                user_id=user_id,
+                resource_type='user',
+                resource_id=user_id,
+                operation_type='password_change_failed',
+                detail={'reason': 'user_not_found', 'ip': ip_address},
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            db.session.commit()
             return False, '用户不存在'
-        
+
         # 验证旧密码
         if not user.check_password(old_password):
+            # 记录操作日志 - 旧密码错误
+            OperationHistory.log(
+                user_id=user.id,
+                resource_type='user',
+                resource_id=str(user.id),
+                operation_type='password_change_failed',
+                detail={'reason': 'invalid_old_password', 'email': user.email, 'ip': ip_address},
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            db.session.commit()
             return False, '旧密码错误'
-        
+
         try:
             # 设置新密码
             user.set_password(new_password)
-            
+
             # 撤销用户的所有令牌，强制重新登录
             AuthService.revoke_all_user_tokens(user_id)
-            
+
+            # 记录操作日志 - 密码修改成功
+            OperationHistory.log(
+                user_id=user.id,
+                resource_type='user',
+                resource_id=str(user.id),
+                operation_type='password_changed',
+                detail={'email': user.email, 'ip': ip_address},
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+
             db.session.commit()
-            
+
+            # 发送密码修改通知邮件
+            from app.services.email_config_service import EmailConfigService
+            from app.services.email_sender_service import EmailSenderService
+
+            if EmailConfigService.is_email_enabled():
+                try:
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='password_changed',
+                        template_data={
+                            'user_name': user.name,
+                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f'发送密码修改通知邮件失败: {str(e)}')
+
             return True, None
-            
+
         except Exception as e:
             db.session.rollback()
+
+            # 记录操作日志 - 系统错误
+            OperationHistory.log(
+                user_id=user.id,
+                resource_type='user',
+                resource_id=str(user.id),
+                operation_type='password_change_error',
+                detail={'error': str(e), 'email': user.email, 'ip': ip_address},
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            db.session.commit()
+
             return False, f'密码修改失败: {str(e)}'
     
     @staticmethod
