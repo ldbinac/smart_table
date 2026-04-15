@@ -266,6 +266,10 @@ class EmailSenderService:
 
         # 渲染模板
         try:
+            subject = EmailTemplateService.render_template(
+                template['subject'],
+                template_data
+            )
             html_content = EmailTemplateService.render_template(
                 template['content_html'],
                 template_data
@@ -283,7 +287,7 @@ class EmailSenderService:
         return self.send_email(
             to_email=to_email,
             to_name=to_name,
-            subject=template['subject'],
+            subject=subject,
             html_content=html_content,
             text_content=text_content,
             log_email=log_email,

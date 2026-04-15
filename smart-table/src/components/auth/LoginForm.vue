@@ -27,6 +27,13 @@
       />
     </el-form-item>
 
+    <!-- 忘记密码 -->
+    <div class="forgot-password-link">
+      <el-link type="primary" :underline="false" @click="emit('forgotPassword')">
+        忘记密码？
+      </el-link>
+    </div>
+
     <!-- 验证码 -->
     <el-form-item prop="captcha">
       <div class="captcha-input-group">
@@ -79,6 +86,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   submit: [data: LoginRequest]
+  forgotPassword: []
 }>()
 
 const formRef = ref<FormInstance>()
@@ -137,7 +145,13 @@ onMounted(() => {
 <style scoped lang="scss">
 .login-form {
   width: 100%;
-  
+
+  .forgot-password-link {
+    text-align: right;
+    margin-bottom: 16px;
+    margin-top: -8px;
+  }
+
   .submit-btn {
     width: 100%;
   }

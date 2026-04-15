@@ -85,8 +85,7 @@ const handleLogin = async (
 };
 
 const handleForgotPassword = () => {
-  // TODO: 实现忘记密码功能
-  console.log("忘记密码");
+  router.push('/forgot-password');
 };
 </script>
 

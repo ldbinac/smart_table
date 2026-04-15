@@ -442,7 +442,8 @@ def update_member(base_id, user_id) -> tuple:
     result = BaseService.update_member_role(
         base_id=str(base_id),
         user_id=str(user_id),
-        new_role=role
+        new_role=role,
+        updated_by=str(current_user_id)
     )
     
     if not result['success']:
@@ -482,7 +483,7 @@ def remove_member(base_id, user_id) -> tuple:
     if base and str(base.owner_id) == str(user_id):
         return error_response('不能移除基础数据所有者', code=400)
     
-    success = BaseService.remove_member(str(base_id), str(user_id))
+    success = BaseService.remove_member(str(base_id), str(user_id), removed_by=str(current_user_id))
     if not success:
         return error_response('成员不存在或移除失败', code=400)
     

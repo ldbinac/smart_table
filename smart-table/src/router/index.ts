@@ -27,6 +27,36 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/verify-email",
+    name: "VerifyEmail",
+    component: () => import("@/views/auth/VerifyEmail.vue"),
+    meta: {
+      title: "验证邮箱",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
+    path: "/forgot-password",
+    name: "ForgotPassword",
+    component: () => import("@/views/auth/ForgotPassword.vue"),
+    meta: {
+      title: "找回密码",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
+    path: "/reset-password",
+    name: "ResetPassword",
+    component: () => import("@/views/auth/ResetPassword.vue"),
+    meta: {
+      title: "重置密码",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
     path: "/",
     name: "Home",
     component: () => import("@/views/Home.vue"),

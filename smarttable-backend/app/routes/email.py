@@ -379,6 +379,65 @@ def get_email_stats() -> tuple:
         return error_response(f'获取邮件发送统计失败：{str(e)}', code=500)
 
 
+@email_bp.route('/queue/stats', methods=['GET'])
+@jwt_required
+@admin_required
+def get_email_queue_stats() -> tuple:
+    """
+    获取邮件队列统计信息
+
+    响应:
+        200: 返回邮件队列统计
+        401: 未授权访问
+        403: 权限不足
+
+    返回示例:
+        {
+            "queued": 100,
+            "sent": 95,
+            "failed": 3,
+            "retried": 2,
+            "pending": 5,
+            "is_running": true
+        }
+    """
+    try:
+        from app.services.email_queue_service import email_queue
+
+        stats = email_queue.get_stats()
+
+        return success_response(
+            data=stats,
+            message='获取邮件队列统计成功'
+        )
+
+    except Exception as e:
+        return error_response(f'获取邮件队列统计失败：{str(e)}', code=500)
+
+
+@email_bp.route('/queue/clear', methods=['POST'])
+@jwt_required
+@admin_required
+def clear_email_queue_stats() -> tuple:
+    """
+    清除邮件队列统计信息
+
+    响应:
+        200: 清除成功
+        401: 未授权访问
+        403: 权限不足
+    """
+    try:
+        from app.services.email_queue_service import email_queue
+
+        email_queue.clear_stats()
+
+        return success_response(message='邮件队列统计已清除')
+
+    except Exception as e:
+        return error_response(f'清除邮件队列统计失败：{str(e)}', code=500)
+
+
 def _get_default_templates() -> dict:
     """
     获取系统默认邮件模板内容

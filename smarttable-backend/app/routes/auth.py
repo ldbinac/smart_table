@@ -597,47 +597,58 @@ def resend_verification() -> tuple:
 def forgot_password() -> tuple:
     """
     忘记密码 - 发送重置邮件
-    
+
     请求体:
         {
-            "email": "user@example.com"
+            "email": "user@example.com",
+            "captcha": "1234"
         }
-    
+
     响应:
         200: 如果邮箱存在，发送重置邮件
-        400: 请求数据验证失败
+        400: 请求数据验证失败或验证码错误
     """
     from app.services.email_config_service import EmailConfigService
     from app.services.email_sender_service import EmailSenderService
-    
+    from app.utils.captcha import CaptchaService
+
     data = request.get_json()
-    
+
     if not data:
         return error_response('请求体不能为空', code=400)
-    
+
     email = data.get('email', '').strip().lower()
-    
+    captcha = data.get('captcha', '').strip()
+
     if not email:
         return error_response('请提供邮箱地址', code=400)
-    
+
+    # 验证验证码
+    client_ip = request.remote_addr or 'unknown'
+    captcha_token = f"auth:forgot_password:{client_ip}"
+    is_valid, error_msg = CaptchaService.verify_captcha(captcha_token, captcha)
+
+    if not is_valid:
+        return error_response(error_msg, code=400)
+
     # 查找用户（不泄露用户是否存在）
     user = User.query.filter_by(email=email).first()
-    
+
     # 即使用户不存在，也返回相同的消息（安全考虑）
     if not user:
         return success_response(
             message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
         )
-    
+
     # 检查邮件服务是否启用
     if not EmailConfigService.is_email_enabled():
         return success_response(
             message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
         )
-    
+
     # 生成重置令牌
     reset_token = user.generate_reset_token()
-    
+
     try:
         reset_link = f"{EmailConfigService.get_frontend_url()}/reset-password?token={reset_token}"
         EmailSenderService.send_email_quick(
@@ -649,7 +660,7 @@ def forgot_password() -> tuple:
                 'reset_link': reset_link
             }
         )
-        
+
         return success_response(
             message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
         )

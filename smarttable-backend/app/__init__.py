@@ -44,7 +44,7 @@ def create_app(config_name='default'):
                # db.drop_all()
                 db.create_all()
                 print("数据库表创建成功")
-                
+
                 # 初始化默认邮件模板
                 from app.utils.init_email_templates import init_default_email_templates
                 init_default_email_templates()
@@ -58,8 +58,37 @@ def create_app(config_name='default'):
                 init_default_email_templates()
             except Exception as e:
                 print(f"初始化邮件模板失败：{e}")
-    
+
+    # 注册应用生命周期钩子
+    register_lifecycle_hooks(app)
+
     return app
+
+
+def register_lifecycle_hooks(app):
+    """
+    注册应用生命周期钩子
+
+    Args:
+        app: Flask 应用实例
+    """
+    # 使用 before_request 配合标志位实现 before_first_request 功能
+    # 因为 Flask 2.3+ 已移除 before_first_request
+    _first_request_initialized = False
+
+    @app.before_request
+    def init_services():
+        """应用首次请求时初始化服务"""
+        nonlocal _first_request_initialized
+        if not _first_request_initialized:
+            _first_request_initialized = True
+            from app.services.email_queue_service import init_email_queue
+            init_email_queue(app)
+
+    @app.teardown_appcontext
+    def shutdown_services(exception=None):
+        """应用上下文销毁时关闭服务"""
+        pass  # 邮件队列服务在应用退出时统一关闭
 
 
 def register_blueprints(app):

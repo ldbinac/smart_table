@@ -15,6 +15,8 @@ from app.models.base_share import BaseShare, SharePermission
 from app.models.user import User
 from app.models.table import Table
 from app.utils.constants import ROLE_LEVELS
+from app.services.email_config_service import EmailConfigService
+from app.services.email_sender_service import EmailSenderService
 
 
 class BaseService:
@@ -274,13 +276,13 @@ class BaseService:
     def add_member(base_id: str, email: str, role: str, invited_by: str) -> Dict[str, Any]:
         """
         添加成员到基础数据
-        
+
         Args:
             base_id: 基础数据 ID
             email: 被邀请用户邮箱
             role: 角色（owner/admin/editor/commenter/viewer）
             invited_by: 邀请人用户 ID
-            
+
         Returns:
             包含操作结果的字典
         """
@@ -288,27 +290,27 @@ class BaseService:
         user = User.query.filter_by(email=email.lower()).first()
         if not user:
             return {'success': False, 'error': '用户不存在'}
-        
+
         # 检查是否已经是成员
         existing = BaseMember.query.filter_by(
             base_id=base_id,
             user_id=user.id
         ).first()
-        
+
         if existing:
             return {'success': False, 'error': '该用户已经是成员'}
-        
+
         # 检查是否是基础数据所有者
         base = Base.query.get(base_id)
         if base and str(base.owner_id) == str(user.id):
             return {'success': False, 'error': '所有者是基础数据的拥有者，不能添加为成员'}
-        
+
         # 验证角色
         try:
             member_role = MemberRole(role.lower())
         except ValueError:
             return {'success': False, 'error': '无效的角色类型'}
-        
+
         # 创建成员关系
         membership = BaseMember(
             base_id=base_id,
@@ -316,24 +318,52 @@ class BaseService:
             role=member_role,
             invited_by=invited_by
         )
-        
+
         db.session.add(membership)
         db.session.commit()
-        
+
+        # 发送分享邀请邮件
+        if EmailConfigService.is_email_enabled():
+            try:
+                inviter = User.query.get(invited_by)
+                base_link = f"{EmailConfigService.get_frontend_url()}/base/{base_id}"
+                permission_map = {
+                    'owner': '所有者',
+                    'admin': '管理员',
+                    'editor': '编辑者',
+                    'commenter': '评论者',
+                    'viewer': '查看者'
+                }
+                EmailSenderService.send_email_quick(
+                    to_email=user.email,
+                    to_name=user.name,
+                    template_key='share_invitation',
+                    template_data={
+                        'sharer_name': inviter.name if inviter else '系统管理员',
+                        'base_name': base.name if base else '未命名多维表',
+                        'base_description': base.description or '暂无描述',
+                        'permission': permission_map.get(member_role.value, member_role.value),
+                        'base_link': base_link
+                    }
+                )
+            except Exception as e:
+                current_app.logger.error(f'发送分享邀请邮件失败: {str(e)}')
+
         return {
             'success': True,
             'member': membership.to_dict(include_user=True)
         }
     
     @staticmethod
-    def remove_member(base_id: str, user_id: str) -> bool:
+    def remove_member(base_id: str, user_id: str, removed_by: str = None) -> bool:
         """
         从基础数据中移除成员
-        
+
         Args:
             base_id: 基础数据 ID
             user_id: 要移除的用户 ID
-            
+            removed_by: 执行移除操作的用户 ID（可选）
+
         Returns:
             是否移除成功
         """
@@ -341,28 +371,52 @@ class BaseService:
             base_id=base_id,
             user_id=user_id
         ).first()
-        
+
         if not membership:
             return False
-        
+
+        # 获取用户信息用于发送邮件
+        user = User.query.get(user_id)
+        base = Base.query.get(base_id)
+
         try:
             db.session.delete(membership)
             db.session.commit()
+
+            # 发送分享移除通知邮件
+            if EmailConfigService.is_email_enabled() and user and base:
+                try:
+                    operator = User.query.get(removed_by) if removed_by else None
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='share_removed',
+                        template_data={
+                            'user_name': user.name,
+                            'base_name': base.name,
+                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'operator_name': operator.name if operator else '系统管理员'
+                        }
+                    )
+                except Exception as e:
+                    current_app.logger.error(f'发送分享移除通知邮件失败: {str(e)}')
+
             return True
         except Exception:
             db.session.rollback()
             return False
     
     @staticmethod
-    def update_member_role(base_id: str, user_id: str, new_role: str) -> Dict[str, Any]:
+    def update_member_role(base_id: str, user_id: str, new_role: str, updated_by: str = None) -> Dict[str, Any]:
         """
         更新成员角色
-        
+
         Args:
             base_id: 基础数据 ID
             user_id: 用户 ID
             new_role: 新角色
-            
+            updated_by: 执行更新操作的用户 ID（可选）
+
         Returns:
             包含操作结果的字典
         """
@@ -370,18 +424,55 @@ class BaseService:
             base_id=base_id,
             user_id=user_id
         ).first()
-        
+
         if not membership:
             return {'success': False, 'error': '成员不存在'}
-        
+
+        # 保存旧角色用于邮件通知
+        old_role = membership.role
+
         try:
             member_role = MemberRole(new_role.lower())
         except ValueError:
             return {'success': False, 'error': '无效的角色类型'}
-        
+
         membership.role = member_role
         db.session.commit()
-        
+
+        # 发送权限变更通知邮件
+        if EmailConfigService.is_email_enabled():
+            try:
+                user = User.query.get(user_id)
+                base = Base.query.get(base_id)
+
+                if user and base:
+                    operator = User.query.get(updated_by) if updated_by else None
+                    permission_map = {
+                        'owner': '所有者',
+                        'admin': '管理员',
+                        'editor': '编辑者',
+                        'commenter': '评论者',
+                        'viewer': '查看者'
+                    }
+                    base_link = f"{EmailConfigService.get_frontend_url()}/base/{base_id}"
+
+                    EmailSenderService.send_email_quick(
+                        to_email=user.email,
+                        to_name=user.name,
+                        template_key='permission_changed',
+                        template_data={
+                            'user_name': user.name,
+                            'base_name': base.name,
+                            'old_permission': permission_map.get(old_role.value, old_role.value),
+                            'new_permission': permission_map.get(member_role.value, member_role.value),
+                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'operator_name': operator.name if operator else '系统管理员',
+                            'base_link': base_link
+                        }
+                    )
+            except Exception as e:
+                current_app.logger.error(f'发送权限变更通知邮件失败: {str(e)}')
+
         return {
             'success': True,
             'member': membership.to_dict(include_user=True)
