@@ -74,29 +74,29 @@
   - [x] SubTask 10.2: 实现冲突检测逻辑
   - [x] SubTask 10.3: 实现编辑锁交互
 
-- [ ] Task 11: 禁用实时协作模式下的功能完整性测试
-  - [ ] SubTask 11.1: 编写后端测试——验证默认启动后所有 REST API 正常工作
-  - [ ] SubTask 11.2: 编写后端测试——验证禁用模式下 Service 层不调用 `collaboration_service`
-  - [ ] SubTask 11.3: 编写后端测试——验证 `GET /api/realtime/status` 在禁用模式下返回 `{enabled: false}`
-  - [ ] SubTask 11.4: 编写前端测试——验证禁用模式下前端不加载 `socket.io-client`
-  - [ ] SubTask 11.5: 编写前端测试——验证禁用模式下所有视图组件的数据操作通过 REST API 正常完成
-  - [ ] SubTask 11.6: 手动验证——禁用模式下核心功能全部正常
+- [x] Task 11: 禁用实时协作模式下的功能完整性测试
+  - [x] SubTask 11.1: 编写后端测试——验证默认启动后所有 REST API 正常工作
+  - [x] SubTask 11.2: 编写后端测试——验证禁用模式下 Service 层不调用 `collaboration_service`
+  - [x] SubTask 11.3: 编写后端测试——验证 `GET /api/realtime/status` 在禁用模式下返回 `{enabled: false}`
+  - [x] SubTask 11.4: 编写前端测试——验证禁用模式下前端不加载 `socket.io-client`
+  - [x] SubTask 11.5: 编写前端测试——验证禁用模式下所有视图组件的数据操作通过 REST API 正常完成
+  - [x] SubTask 11.6: 手动验证——禁用模式下核心功能全部正常
 
-- [ ] Task 12: 启用实时协作模式下的功能测试
-  - [ ] SubTask 12.1: 编写后端 SocketIO 事件处理器单元测试
-  - [ ] SubTask 12.2: 编写后端协作服务单元测试
-  - [ ] SubTask 12.3: 编写前端协作 Store 和 Composable 单元测试
-  - [ ] SubTask 12.4: 进行多浏览器标签页手动集成测试
-  - [ ] SubTask 12.5: 进行网络断开/恢复场景测试
-  - [ ] SubTask 12.6: 进行并发编辑冲突场景测试
+- [x] Task 12: 启用实时协作模式下的功能测试
+  - [x] SubTask 12.1: 编写后端 SocketIO 事件处理器单元测试
+  - [x] SubTask 12.2: 编写后端协作服务单元测试
+  - [x] SubTask 12.3: 编写前端协作 Store 和 Composable 单元测试
+  - [x] SubTask 12.4: 进行多浏览器标签页手动集成测试
+  - [x] SubTask 12.5: 进行网络断开/恢复场景测试
+  - [x] SubTask 12.6: 进行并发编辑冲突场景测试
 
-- [ ] Task 13: 启动参数与模式切换测试
-  - [ ] SubTask 13.1: 测试 `python run.py` 默认启动
-  - [ ] SubTask 13.2: 测试 `python run.py --enable-realtime` 启动
-  - [ ] SubTask 13.3: 测试 `python run.py -r` 简写参数
-  - [ ] SubTask 13.4: 测试环境变量 `ENABLE_REALTIME=true`
-  - [ ] SubTask 13.5: 测试从禁用模式重启到启用模式
-  - [ ] SubTask 13.6: 测试 Docker 部署下 `ENABLE_REALTIME` 环境变量的两种模式
+- [x] Task 13: 启动参数与模式切换测试
+  - [x] SubTask 13.1: 测试 `python run.py` 默认启动
+  - [x] SubTask 13.2: 测试 `python run.py --enable-realtime` 启动
+  - [x] SubTask 13.3: 测试 `python run.py -r` 简写参数
+  - [x] SubTask 13.4: 测试环境变量 `ENABLE_REALTIME=true`
+  - [x] SubTask 13.5: 测试从禁用模式重启到启用模式
+  - [x] SubTask 13.6: 测试 Docker 部署下 `ENABLE_REALTIME` 环境变量的两种模式
 
 # Task Dependencies
 
