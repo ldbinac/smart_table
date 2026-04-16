@@ -1916,7 +1916,7 @@ $star-color: #f59e0b;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 16px 32px;
+  padding: 8px 32px;
   background: white;
   border-bottom: 1px solid $gray-200;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);

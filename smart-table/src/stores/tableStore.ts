@@ -7,6 +7,16 @@ import { viewService } from "../db/services/viewService";
 import type { TableEntity, FieldEntity, RecordEntity, ViewEntity } from "../db/schema";
 import type { CellValue, FieldOptions } from "../types";
 import { deserializeRecordValues } from "../utils/recordValueSerializer";
+import { useCollaborationStore } from "./collaborationStore";
+import { realtimeEventEmitter } from "../services/realtime/eventEmitter";
+import type {
+  DataRecordCreatedBroadcast,
+  DataRecordUpdatedBroadcast,
+  DataRecordDeletedBroadcast,
+  DataFieldCreatedBroadcast,
+  DataFieldUpdatedBroadcast,
+  DataFieldDeletedBroadcast,
+} from "../services/realtime/eventTypes";
 
 export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
@@ -287,6 +297,103 @@ export const useTableStore = defineStore("table", () => {
     records.value = [];
   }
 
+  function setupRealtimeListeners() {
+    const collabStore = useCollaborationStore();
+    if (!collabStore.isRealtimeAvailable) return;
+
+    const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
+      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
+      const record = data.record as unknown as RecordEntity;
+      if (record && !records.value.find((r) => r.id === record.id)) {
+        records.value.push(record);
+        currentTable.value.recordCount++;
+      }
+    };
+
+    const onRecordUpdated = (data: DataRecordUpdatedBroadcast) => {
+      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
+      const index = records.value.findIndex((r) => r.id === data.record_id);
+      if (index !== -1) {
+        const existing = records.value[index];
+        const updatedValues = { ...existing.values };
+        for (const change of data.changes) {
+          updatedValues[change.field_id] = change.new_value;
+        }
+        records.value[index] = {
+          ...existing,
+          values: updatedValues,
+          updatedAt: Date.now(),
+        };
+      }
+    };
+
+    const onRecordDeleted = (data: DataRecordDeletedBroadcast) => {
+      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
+      const existed = records.value.find((r) => r.id === data.record_id);
+      records.value = records.value.filter((r) => r.id !== data.record_id);
+      if (existed && currentTable.value) {
+        currentTable.value.recordCount--;
+      }
+    };
+
+    const onFieldCreated = (data: DataFieldCreatedBroadcast) => {
+      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
+      const field = data.field as unknown as FieldEntity;
+      if (field && !fields.value.find((f) => f.id === field.id)) {
+        fields.value.push(field);
+      }
+    };
+
+    const onFieldUpdated = (data: DataFieldUpdatedBroadcast) => {
+      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
+      const index = fields.value.findIndex((f) => f.id === data.field_id);
+      if (index !== -1) {
+        fields.value[index] = {
+          ...fields.value[index],
+          ...data.changes,
+          updatedAt: Date.now(),
+        } as FieldEntity;
+      }
+    };
+
+    const onFieldDeleted = (data: DataFieldDeletedBroadcast) => {
+      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
+      fields.value = fields.value.filter((f) => f.id !== data.field_id);
+      records.value = records.value.map((record) => {
+        const newValues = { ...record.values };
+        delete newValues[data.field_id];
+        return { ...record, values: newValues };
+      });
+    };
+
+    realtimeEventEmitter.on("data:record_created", onRecordCreated);
+    realtimeEventEmitter.on("data:record_updated", onRecordUpdated);
+    realtimeEventEmitter.on("data:record_deleted", onRecordDeleted);
+    realtimeEventEmitter.on("data:field_created", onFieldCreated);
+    realtimeEventEmitter.on("data:field_updated", onFieldUpdated);
+    realtimeEventEmitter.on("data:field_deleted", onFieldDeleted);
+
+    return () => {
+      realtimeEventEmitter.off("data:record_created", onRecordCreated);
+      realtimeEventEmitter.off("data:record_updated", onRecordUpdated);
+      realtimeEventEmitter.off("data:record_deleted", onRecordDeleted);
+      realtimeEventEmitter.off("data:field_created", onFieldCreated);
+      realtimeEventEmitter.off("data:field_updated", onFieldUpdated);
+      realtimeEventEmitter.off("data:field_deleted", onFieldDeleted);
+    };
+  }
+
+  function cleanupRealtimeListeners() {
+    const collabStore = useCollaborationStore();
+    if (!collabStore.isRealtimeAvailable) return;
+    realtimeEventEmitter.removeAllListeners("data:record_created");
+    realtimeEventEmitter.removeAllListeners("data:record_updated");
+    realtimeEventEmitter.removeAllListeners("data:record_deleted");
+    realtimeEventEmitter.removeAllListeners("data:field_created");
+    realtimeEventEmitter.removeAllListeners("data:field_updated");
+    realtimeEventEmitter.removeAllListeners("data:field_deleted");
+  }
+
   return {
     tables,
     currentTable,
@@ -311,5 +418,7 @@ export const useTableStore = defineStore("table", () => {
     batchDeleteRecords,
     refreshRecords,
     clearTable,
+    setupRealtimeListeners,
+    cleanupRealtimeListeners,
   };
 });

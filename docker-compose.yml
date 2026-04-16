@@ -28,6 +28,8 @@ services:
       
       # 日志配置
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # 实时协作配置
+      ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
     volumes:
       # 持久化数据库
       - sqlite_data:/app

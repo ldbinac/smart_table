@@ -41,6 +41,7 @@ services:
       DATABASE_URL: postgresql://smarttable:smarttable123@postgres:5432/smarttable_dev
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: dev-jwt-secret
+      ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
     volumes:
       - .:/app
       - /app/__pycache__

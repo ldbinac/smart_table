@@ -145,6 +145,19 @@ class ViewService:
             flag_modified(view, 'group_config')
         
         db.session.commit()
+
+        try:
+            from app.services.collaboration_service import CollaborationService
+            CollaborationService.broadcast_if_enabled('data:view_updated', str(view.table.base_id), {
+                'table_id': str(view.table_id),
+                'view_id': str(view.id),
+                'changes': kwargs,
+                'changed_by': None,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            })
+        except Exception:
+            pass
+
         return view
     
     @staticmethod

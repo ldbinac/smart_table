@@ -45,12 +45,22 @@ import { tableService } from "@/db/services/tableService";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardView from "@/views/Dashboard.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
+import { useRealtimeCollaboration } from "@/composables/useRealtimeCollaboration";
+import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
+import ConnectionStatusBar from "@/components/collaboration/ConnectionStatusBar.vue";
+import CollaborationToast from "@/components/collaboration/CollaborationToast.vue";
+import ConflictDialog from "@/components/collaboration/ConflictDialog.vue";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 
 const route = useRoute();
 const router = useRouter();
 const baseStore = useBaseStore();
 const viewStore = useViewStore();
 const tableStore = useTableStore();
+const collaborationStore = useCollaborationStore();
+
+const baseId = route.params.id as string;
+const realtimeCollab = baseId ? useRealtimeCollaboration(baseId) : null;
 
 // 初始化实体操作
 const {
@@ -317,30 +327,27 @@ const tableListRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
 
 onMounted(async () => {
-  const baseId = route.params.id as string;
-  if (baseId) {
-    // 检查是否有分享权限信息
-    const shareInfo = localStorage.getItem(`share_permission_${baseId}`);
+  const currentBaseId = route.params.id as string;
+  if (currentBaseId) {
+    const shareInfo = localStorage.getItem(`share_permission_${currentBaseId}`);
     if (shareInfo) {
       try {
         const info = JSON.parse(shareInfo);
         if (info && info.share_token && typeof info.share_token === "string") {
-          await baseStore.fetchBase(baseId, info.share_token);
+          await baseStore.fetchBase(currentBaseId, info.share_token);
         } else {
-          localStorage.removeItem(`share_permission_${baseId}`);
-          await baseStore.fetchBase(baseId);
+          localStorage.removeItem(`share_permission_${currentBaseId}`);
+          await baseStore.fetchBase(currentBaseId);
         }
       } catch (e) {
-        localStorage.removeItem(`share_permission_${baseId}`);
-        await baseStore.fetchBase(baseId);
+        localStorage.removeItem(`share_permission_${currentBaseId}`);
+        await baseStore.fetchBase(currentBaseId);
       }
     } else {
-      // 没有分享权限信息，加载 Base 详情
-      await baseStore.fetchBase(baseId);
+      await baseStore.fetchBase(currentBaseId);
     }
-    // 加载成员信息（用于权限控制）
-    await baseStore.fetchMembers(baseId);
-    await tableStore.loadTables(baseId);
+    await baseStore.fetchMembers(currentBaseId);
+    await tableStore.loadTables(currentBaseId);
 
     // 如果有表格且当前没有选择表格，自动选择第一个表格
     if (tableStore.tables.length > 0 && !tableStore.currentTable) {
@@ -369,13 +376,17 @@ onMounted(async () => {
     initSortable();
   }
 
+  tableStore.setupRealtimeListeners();
+  viewStore.setupRealtimeListeners();
+
   // 监听来自 AppHeader 的分享和成员按钮点击事件
   window.addEventListener("open-base-share", handleOpenBaseShare);
   window.addEventListener("open-member-management", handleOpenMemberManagement);
 });
 
 onUnmounted(() => {
-  // 移除事件监听
+  tableStore.cleanupRealtimeListeners();
+  viewStore.cleanupRealtimeListeners();
   window.removeEventListener("open-base-share", handleOpenBaseShare);
   window.removeEventListener(
     "open-member-management",
@@ -1410,6 +1421,7 @@ function handleShareChanged() {
 
 <template>
   <div class="base-page">
+    <ConnectionStatusBar v-if="collaborationStore.isRealtimeAvailable" />
     <BaseSidebar
       ref="sidebarRef"
       :current-table-id="tableStore.currentTable?.id"
@@ -1480,6 +1492,7 @@ function handleShareChanged() {
                   >分组: {{ currentGroupBys.length }}</el-tag
                 >
               </span>
+              <OnlineUsers v-if="collaborationStore.isRealtimeAvailable" />
             </div>
             <div
               class="table-actions"
@@ -2027,6 +2040,13 @@ function handleShareChanged() {
         </span>
       </template>
     </el-dialog>
+    <CollaborationToast v-if="collaborationStore.isRealtimeAvailable" />
+    <ConflictDialog
+      v-if="collaborationStore.isRealtimeAvailable && realtimeCollab"
+      :visible="realtimeCollab.conflictVisible.value"
+      :conflict="realtimeCollab.currentConflict.value"
+      @resolve="realtimeCollab.resolveConflict"
+    />
   </div>
 </template>
 

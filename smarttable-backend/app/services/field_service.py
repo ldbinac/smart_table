@@ -197,6 +197,17 @@ class FieldService:
         try:
             db.session.add(field)
             db.session.commit()
+
+            try:
+                from app.services.collaboration_service import CollaborationService
+                CollaborationService.broadcast_if_enabled('data:field_created', str(field.table.base_id), {
+                    'table_id': table_id,
+                    'field': field.to_dict(),
+                    'changed_by': None,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+            except Exception:
+                pass
             
             return {
                 'success': True,
@@ -286,6 +297,19 @@ class FieldService:
         
         try:
             db.session.commit()
+
+            try:
+                from app.services.collaboration_service import CollaborationService
+                CollaborationService.broadcast_if_enabled('data:field_updated', str(field.table.base_id), {
+                    'table_id': str(field.table_id),
+                    'field_id': field_id,
+                    'field': field.to_dict(),
+                    'changed_by': None,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+            except Exception:
+                pass
+
             return {
                 'success': True,
                 'field': field.to_dict()
@@ -322,10 +346,26 @@ class FieldService:
                 return {'success': False, 'error': f'{field.type} 是系统字段类型，不能被删除'}
         except ValueError:
             pass
+
+        saved_base_id = str(field.table.base_id)
+        saved_table_id = str(field.table_id)
+        saved_field_id = str(field.id)
         
         try:
             db.session.delete(field)
             db.session.commit()
+
+            try:
+                from app.services.collaboration_service import CollaborationService
+                CollaborationService.broadcast_if_enabled('data:field_deleted', saved_base_id, {
+                    'table_id': saved_table_id,
+                    'field_id': saved_field_id,
+                    'changed_by': None,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+            except Exception:
+                pass
+
             return {'success': True}
         except Exception as e:
             db.session.rollback()

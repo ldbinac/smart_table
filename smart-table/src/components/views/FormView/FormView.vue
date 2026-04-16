@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -8,6 +8,16 @@ import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import { useCollaborationStore } from "@/stores/collaborationStore";
+import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
+import type {
+  DataRecordUpdatedBroadcast,
+  DataRecordCreatedBroadcast,
+  DataRecordDeletedBroadcast,
+  DataFieldCreatedBroadcast,
+  DataFieldUpdatedBroadcast,
+  DataFieldDeletedBroadcast,
+} from "@/services/realtime/eventTypes";
 
 interface Props {
   fields: FieldEntity[];
@@ -455,6 +465,49 @@ function exportFormData() {
 
   ElMessage.success("表单数据已导出");
 }
+
+const collabStore = useCollaborationStore();
+const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
+
+function setupRealtimeListenersForView() {
+  if (!collabStore.isRealtimeAvailable) return;
+
+  const onRecordUpdated = (_data: DataRecordUpdatedBroadcast) => {};
+  const onRecordCreated = (_data: DataRecordCreatedBroadcast) => {};
+  const onRecordDeleted = (_data: DataRecordDeletedBroadcast) => {};
+  const onFieldCreated = (_data: DataFieldCreatedBroadcast) => {};
+  const onFieldUpdated = (_data: DataFieldUpdatedBroadcast) => {};
+  const onFieldDeleted = (_data: DataFieldDeletedBroadcast) => {};
+
+  realtimeEventEmitter.on("data:record_updated", onRecordUpdated);
+  realtimeEventEmitter.on("data:record_created", onRecordCreated);
+  realtimeEventEmitter.on("data:record_deleted", onRecordDeleted);
+  realtimeEventEmitter.on("data:field_created", onFieldCreated);
+  realtimeEventEmitter.on("data:field_updated", onFieldUpdated);
+  realtimeEventEmitter.on("data:field_deleted", onFieldDeleted);
+
+  realtimeHandlers.push(
+    { event: "data:record_updated", handler: onRecordUpdated as (...args: unknown[]) => void },
+    { event: "data:record_created", handler: onRecordCreated as (...args: unknown[]) => void },
+    { event: "data:record_deleted", handler: onRecordDeleted as (...args: unknown[]) => void },
+    { event: "data:field_created", handler: onFieldCreated as (...args: unknown[]) => void },
+    { event: "data:field_updated", handler: onFieldUpdated as (...args: unknown[]) => void },
+    { event: "data:field_deleted", handler: onFieldDeleted as (...args: unknown[]) => void },
+  );
+}
+
+function cleanupRealtimeListenersForView() {
+  for (const { event, handler } of realtimeHandlers) {
+    realtimeEventEmitter.off(event as any, handler as any);
+  }
+  realtimeHandlers.length = 0;
+}
+
+setupRealtimeListenersForView();
+
+onBeforeUnmount(() => {
+  cleanupRealtimeListenersForView();
+});
 
 defineExpose({
   resetForm,

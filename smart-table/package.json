@@ -20,6 +20,7 @@
     "element-plus": "^2.13.6",
     "lodash-es": "^4.17.23",
     "pinia": "^2.3.1",
+    "socket.io-client": "^4.8.3",
     "sortablejs": "^1.15.7",
     "vue": "^3.5.30",
     "vue-echarts": "^6.7.3",

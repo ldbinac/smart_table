@@ -10,15 +10,23 @@ bind = "0.0.0.0:5000"
 
 # 工作进程数
 # eventlet 模式下建议单 worker（协程并发），多 worker 需要额外的消息队列支持
-workers = 1
+# gthread 模式下可以根据 CPU 核心数调整
+if os.environ.get('ENABLE_REALTIME', '').lower() == 'true':
+    workers = 1
+else:
+    workers = int(os.environ.get('GUNICORN_WORKERS', multiprocessing.cpu_count() * 2 + 1))
 
 # 工作进程类型
+# 根据 ENABLE_REALTIME 环境变量动态选择 worker 类型
 # Flask-SocketIO 需要 eventlet worker，使用 sync 会导致 WebSocket 异常
-worker_class = "eventlet"
+# 未启用实时协作时使用 gthread worker，性能更好
+_worker_class = "eventlet" if os.environ.get('ENABLE_REALTIME', '').lower() == 'true' else "gthread"
+worker_class = _worker_class
 
 # 每个工作进程的线程数
 # eventlet 模式下使用协程，不需要多线程
-threads = 1
+# gthread 模式下使用多线程
+threads = 1 if os.environ.get('ENABLE_REALTIME', '').lower() == 'true' else int(os.environ.get('GUNICORN_THREADS', 4))
 
 # 工作进程超时时间（秒）
 timeout = 120

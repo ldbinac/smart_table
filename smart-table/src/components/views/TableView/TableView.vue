@@ -3,6 +3,16 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useBaseStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
+import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
+import type {
+  DataRecordUpdatedBroadcast,
+  DataRecordCreatedBroadcast,
+  DataRecordDeletedBroadcast,
+  DataFieldCreatedBroadcast,
+  DataFieldUpdatedBroadcast,
+  DataFieldDeletedBroadcast,
+} from "@/services/realtime/eventTypes";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { recordService } from "@/db/services";
@@ -692,12 +702,100 @@ const handleFieldVisibilityChanged = async (
   }
 };
 
+const collabStore = useCollaborationStore();
+
+const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
+
+function setupRealtimeListenersForView() {
+  if (!collabStore.isRealtimeAvailable) return;
+
+  const onRecordUpdated = (data: DataRecordUpdatedBroadcast) => {
+    if (data.table_id !== props.tableId) return;
+    const index = tableStore.records.findIndex((r) => r.id === data.record_id);
+    if (index !== -1) {
+      const existing = tableStore.records[index];
+      const updatedValues = { ...existing.values };
+      for (const change of data.changes) {
+        updatedValues[change.field_id] = change.new_value;
+      }
+      tableStore.records[index] = {
+        ...existing,
+        values: updatedValues,
+        updatedAt: Date.now(),
+      };
+    }
+  };
+
+  const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
+    if (data.table_id !== props.tableId) return;
+    const record = data.record as unknown as RecordEntity;
+    if (record && !tableStore.records.find((r) => r.id === record.id)) {
+      tableStore.records.push(record);
+    }
+  };
+
+  const onRecordDeleted = (data: DataRecordDeletedBroadcast) => {
+    if (data.table_id !== props.tableId) return;
+    tableStore.records = tableStore.records.filter((r) => r.id !== data.record_id);
+  };
+
+  const onFieldCreated = (data: DataFieldCreatedBroadcast) => {
+    if (data.table_id !== props.tableId) return;
+    const field = data.field as unknown as FieldEntity;
+    if (field && !tableStore.fields.find((f) => f.id === field.id)) {
+      tableStore.fields.push(field);
+    }
+  };
+
+  const onFieldUpdated = (data: DataFieldUpdatedBroadcast) => {
+    if (data.table_id !== props.tableId) return;
+    const index = tableStore.fields.findIndex((f) => f.id === data.field_id);
+    if (index !== -1) {
+      tableStore.fields[index] = {
+        ...tableStore.fields[index],
+        ...data.changes,
+        updatedAt: Date.now(),
+      } as FieldEntity;
+    }
+  };
+
+  const onFieldDeleted = (data: DataFieldDeletedBroadcast) => {
+    if (data.table_id !== props.tableId) return;
+    tableStore.fields = tableStore.fields.filter((f) => f.id !== data.field_id);
+  };
+
+  realtimeEventEmitter.on("data:record_updated", onRecordUpdated);
+  realtimeEventEmitter.on("data:record_created", onRecordCreated);
+  realtimeEventEmitter.on("data:record_deleted", onRecordDeleted);
+  realtimeEventEmitter.on("data:field_created", onFieldCreated);
+  realtimeEventEmitter.on("data:field_updated", onFieldUpdated);
+  realtimeEventEmitter.on("data:field_deleted", onFieldDeleted);
+
+  realtimeHandlers.push(
+    { event: "data:record_updated", handler: onRecordUpdated as (...args: unknown[]) => void },
+    { event: "data:record_created", handler: onRecordCreated as (...args: unknown[]) => void },
+    { event: "data:record_deleted", handler: onRecordDeleted as (...args: unknown[]) => void },
+    { event: "data:field_created", handler: onFieldCreated as (...args: unknown[]) => void },
+    { event: "data:field_updated", handler: onFieldUpdated as (...args: unknown[]) => void },
+    { event: "data:field_deleted", handler: onFieldDeleted as (...args: unknown[]) => void },
+  );
+}
+
+function cleanupRealtimeListenersForView() {
+  for (const { event, handler } of realtimeHandlers) {
+    realtimeEventEmitter.off(event as any, handler as any);
+  }
+  realtimeHandlers.length = 0;
+}
+
 onMounted(() => {
   document.addEventListener("keydown", handleKeyDown);
+  setupRealtimeListenersForView();
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", handleKeyDown);
+  cleanupRealtimeListenersForView();
 });
 
 defineExpose({

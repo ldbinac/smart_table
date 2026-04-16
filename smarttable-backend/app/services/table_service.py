@@ -137,6 +137,17 @@ class TableService:
         db.session.add(default_view)
         
         db.session.commit()
+
+        try:
+            from app.services.collaboration_service import CollaborationService
+            CollaborationService.broadcast_if_enabled('data:table_created', base_id, {
+                'table_id': str(table.id),
+                'table': table.to_dict(),
+                'changed_by': None,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            })
+        except Exception:
+            pass
         
         return table
     
@@ -165,6 +176,17 @@ class TableService:
         
         table.updated_at = datetime.now(timezone.utc)
         db.session.commit()
+
+        try:
+            from app.services.collaboration_service import CollaborationService
+            CollaborationService.broadcast_if_enabled('data:table_updated', str(table.base_id), {
+                'table_id': table_id,
+                'changes': data,
+                'changed_by': None,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            })
+        except Exception:
+            pass
         
         return table
     
@@ -182,10 +204,24 @@ class TableService:
         table = Table.query.get(table_id)
         if not table:
             return False
+
+        saved_base_id = str(table.base_id)
+        saved_table_id = str(table.id)
         
         try:
             db.session.delete(table)
             db.session.commit()
+
+            try:
+                from app.services.collaboration_service import CollaborationService
+                CollaborationService.broadcast_if_enabled('data:table_deleted', saved_base_id, {
+                    'table_id': saved_table_id,
+                    'changed_by': None,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+            except Exception:
+                pass
+
             return True
         except Exception as e:
             db.session.rollback()

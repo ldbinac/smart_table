@@ -76,8 +76,16 @@ def init_extensions(app):
         }
     })
     
-    # 初始化 WebSocket（使用配置中的允许来源列表，不再允许所有来源）
-    socketio.init_app(app, cors_allowed_origins=app.config.get('CORS_ORIGINS', ['http://localhost:3000']))
+    if app.config.get('REALTIME_ENABLED', False):
+        socketio_kwargs = {
+            'cors_allowed_origins': app.config.get('CORS_ORIGINS', ['http://localhost:3000']),
+            'ping_timeout': app.config.get('SOCKETIO_PING_TIMEOUT', 60),
+            'ping_interval': app.config.get('SOCKETIO_PING_INTERVAL', 25),
+        }
+        message_queue = app.config.get('SOCKETIO_MESSAGE_QUEUE')
+        if message_queue:
+            socketio_kwargs['message_queue'] = message_queue
+        socketio.init_app(app, **socketio_kwargs)
     
     # 注册 JWT 回调函数
     register_jwt_callbacks(jwt)

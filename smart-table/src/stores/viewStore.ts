@@ -3,6 +3,9 @@ import { ref, computed } from "vue";
 import { viewService } from "../db/services/viewService";
 import type { ViewEntity } from "../db/schema";
 import type { FilterCondition, SortConfig } from "../types";
+import { useCollaborationStore } from "./collaborationStore";
+import { realtimeEventEmitter } from "../services/realtime/eventEmitter";
+import type { DataViewUpdatedBroadcast } from "../services/realtime/eventTypes";
 
 export const useViewStore = defineStore("view", () => {
   const views = ref<ViewEntity[]>([]);
@@ -258,6 +261,41 @@ export const useViewStore = defineStore("view", () => {
     currentView.value = null;
   }
 
+  function setupRealtimeListeners() {
+    const collabStore = useCollaborationStore();
+    if (!collabStore.isRealtimeAvailable) return;
+
+    const onViewUpdated = (data: DataViewUpdatedBroadcast) => {
+      const index = views.value.findIndex((v) => v.id === data.view_id);
+      if (index !== -1) {
+        views.value[index] = {
+          ...views.value[index],
+          ...data.changes,
+          updatedAt: Date.now(),
+        } as ViewEntity;
+      }
+      if (currentView.value?.id === data.view_id) {
+        currentView.value = {
+          ...currentView.value,
+          ...data.changes,
+          updatedAt: Date.now(),
+        } as ViewEntity;
+      }
+    };
+
+    realtimeEventEmitter.on("data:view_updated", onViewUpdated);
+
+    return () => {
+      realtimeEventEmitter.off("data:view_updated", onViewUpdated);
+    };
+  }
+
+  function cleanupRealtimeListeners() {
+    const collabStore = useCollaborationStore();
+    if (!collabStore.isRealtimeAvailable) return;
+    realtimeEventEmitter.removeAllListeners("data:view_updated");
+  }
+
   return {
     views,
     currentView,
@@ -285,5 +323,7 @@ export const useViewStore = defineStore("view", () => {
     updateRowHeight,
     updateGroupBys,
     clearView,
+    setupRealtimeListeners,
+    cleanupRealtimeListeners,
   };
 });

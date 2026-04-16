@@ -84,6 +84,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-jwt-secret-change-this}
+      ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}

@@ -9,7 +9,9 @@ from app.extensions import db
 from app.models.record import Record
 from app.models.field import Field, FieldType
 from app.models.record_history import RecordHistory, HistoryAction
+from app.models.table import Table
 from app.services.field_service import FieldService
+from app.errors.handlers import ConflictError
 
 
 def _format_date_value(value: str, field: Field) -> str:
@@ -160,6 +162,19 @@ class RecordService:
 
         db.session.commit()
 
+        try:
+            from app.services.collaboration_service import CollaborationService
+            table = Table.query.get(table_id)
+            if table:
+                CollaborationService.broadcast_if_enabled('data:record_created', str(table.base_id), {
+                    'table_id': table_id,
+                    'record': record.to_dict(),
+                    'changed_by': created_by,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+        except Exception:
+            pass
+
         return record
     
     @staticmethod
@@ -177,7 +192,8 @@ class RecordService:
     
     @staticmethod
     def update_record(record: Record, values: Dict[str, Any] = None,
-                     updated_by: str = None) -> Record:
+                     updated_by: str = None,
+                     expected_updated_at: str = None) -> Record:
         """
         更新记录
 
@@ -185,10 +201,18 @@ class RecordService:
             record: 记录对象
             values: 更新的字段值
             updated_by: 更新者 ID
+            expected_updated_at: 乐观锁预期更新时间（ISO格式字符串）
 
         Returns:
             更新后的记录对象
+
+        Raises:
+            ConflictError: 乐观锁校验失败时抛出409冲突
         """
+        if expected_updated_at is not None:
+            current_updated_at = record.updated_at.isoformat() if record.updated_at else None
+            if current_updated_at != expected_updated_at:
+                raise ConflictError('记录已被其他用户修改，请刷新后重试')
         # 保存旧值用于历史记录
         old_values = dict(record.values) if record.values else {}
         changes = []
@@ -252,6 +276,21 @@ class RecordService:
         # 刷新对象以确保获取最新的数据库状态
         db.session.flush()
         db.session.commit()
+
+        try:
+            from app.services.collaboration_service import CollaborationService
+            table = Table.query.get(str(record.table_id))
+            if table:
+                CollaborationService.broadcast_if_enabled('data:record_updated', str(table.base_id), {
+                    'table_id': str(record.table_id),
+                    'record_id': str(record.id),
+                    'changes': changes,
+                    'changed_by': updated_by,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+        except Exception:
+            pass
+
         return record
     
     @staticmethod
@@ -267,8 +306,11 @@ class RecordService:
             是否成功
         """
         try:
-            # 保存删除前的数据快照
             snapshot = dict(record.values) if record.values else {}
+
+            saved_base_id = str(record.table.base_id)
+            saved_table_id = str(record.table_id)
+            saved_record_id = str(record.id)
 
             # 创建删除历史记录
             # 确保 ID 是 UUID 对象
@@ -295,6 +337,19 @@ class RecordService:
 
             db.session.delete(record)
             db.session.commit()
+
+            try:
+                from app.services.collaboration_service import CollaborationService
+                CollaborationService.broadcast_if_enabled('data:record_deleted', saved_base_id, {
+                    'table_id': saved_table_id,
+                    'record_id': saved_record_id,
+                    'snapshot': snapshot,
+                    'changed_by': deleted_by,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+            except Exception:
+                pass
+
             return True
         except Exception as e:
             db.session.rollback()

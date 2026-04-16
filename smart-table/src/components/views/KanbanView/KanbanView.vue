@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from "vue";
+import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import KanbanColumn from "./KanbanColumn.vue";
+import { useCollaborationStore } from "@/stores/collaborationStore";
+import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
+import type {
+  DataRecordUpdatedBroadcast,
+  DataRecordCreatedBroadcast,
+  DataRecordDeletedBroadcast,
+} from "@/services/realtime/eventTypes";
 
 interface Props {
   fields: FieldEntity[];
@@ -27,6 +34,54 @@ const emit = defineEmits<{
 const groupFieldId = ref<string>("");
 const cardFields = ref<string[]>([]);
 const columnRefs = ref<InstanceType<typeof KanbanColumn>[]>([]);
+
+const collabStore = useCollaborationStore();
+const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
+
+function setupRealtimeListenersForView() {
+  if (!collabStore.isRealtimeAvailable) return;
+
+  const onRecordUpdated = (data: DataRecordUpdatedBroadcast) => {
+    const index = props.records.findIndex((r) => r.id === data.record_id);
+    if (index !== -1) {
+      const existing = props.records[index];
+      const updatedValues = { ...existing.values };
+      for (const change of data.changes) {
+        updatedValues[change.field_id] = change.new_value;
+      }
+      Object.assign(props.records[index], { values: updatedValues, updatedAt: Date.now() });
+    }
+  };
+
+  const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
+    const record = data.record as unknown as RecordEntity;
+    if (record && !props.records.find((r) => r.id === record.id)) {
+      props.records.push(record);
+    }
+  };
+
+  const onRecordDeleted = (data: DataRecordDeletedBroadcast) => {
+    const idx = props.records.findIndex((r) => r.id === data.record_id);
+    if (idx !== -1) props.records.splice(idx, 1);
+  };
+
+  realtimeEventEmitter.on("data:record_updated", onRecordUpdated);
+  realtimeEventEmitter.on("data:record_created", onRecordCreated);
+  realtimeEventEmitter.on("data:record_deleted", onRecordDeleted);
+
+  realtimeHandlers.push(
+    { event: "data:record_updated", handler: onRecordUpdated as (...args: unknown[]) => void },
+    { event: "data:record_created", handler: onRecordCreated as (...args: unknown[]) => void },
+    { event: "data:record_deleted", handler: onRecordDeleted as (...args: unknown[]) => void },
+  );
+}
+
+function cleanupRealtimeListenersForView() {
+  for (const { event, handler } of realtimeHandlers) {
+    realtimeEventEmitter.off(event as any, handler as any);
+  }
+  realtimeHandlers.length = 0;
+}
 
 const groupField = computed(() => {
   return props.fields.find((f) => f.id === groupFieldId.value);
@@ -141,6 +196,11 @@ onMounted(() => {
     cardFields.value = props.fields.slice(0, 3).map((f) => f.id);
   }
   initSortable();
+  setupRealtimeListenersForView();
+});
+
+onBeforeUnmount(() => {
+  cleanupRealtimeListenersForView();
 });
 </script>
 

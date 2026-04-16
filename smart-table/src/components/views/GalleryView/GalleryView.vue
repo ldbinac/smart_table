@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { useCollaborationStore } from "@/stores/collaborationStore";
+import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
+import type {
+  DataRecordUpdatedBroadcast,
+  DataRecordCreatedBroadcast,
+  DataRecordDeletedBroadcast,
+} from "@/services/realtime/eventTypes";
 
 interface Props {
   fields: FieldEntity[];
@@ -25,6 +32,54 @@ const previewVisible = ref(false);
 const previewImages = ref<Array<{ url: string; name: string }>>([]);
 const previewIndex = ref(0);
 const imageLoadingMap = ref<Map<string, boolean>>(new Map());
+
+const collabStore = useCollaborationStore();
+const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
+
+function setupRealtimeListenersForView() {
+  if (!collabStore.isRealtimeAvailable) return;
+
+  const onRecordUpdated = (data: DataRecordUpdatedBroadcast) => {
+    const index = props.records.findIndex((r) => r.id === data.record_id);
+    if (index !== -1) {
+      const existing = props.records[index];
+      const updatedValues = { ...existing.values };
+      for (const change of data.changes) {
+        updatedValues[change.field_id] = change.new_value;
+      }
+      Object.assign(props.records[index], { values: updatedValues, updatedAt: Date.now() });
+    }
+  };
+
+  const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
+    const record = data.record as unknown as RecordEntity;
+    if (record && !props.records.find((r) => r.id === record.id)) {
+      props.records.push(record);
+    }
+  };
+
+  const onRecordDeleted = (data: DataRecordDeletedBroadcast) => {
+    const idx = props.records.findIndex((r) => r.id === data.record_id);
+    if (idx !== -1) props.records.splice(idx, 1);
+  };
+
+  realtimeEventEmitter.on("data:record_updated", onRecordUpdated);
+  realtimeEventEmitter.on("data:record_created", onRecordCreated);
+  realtimeEventEmitter.on("data:record_deleted", onRecordDeleted);
+
+  realtimeHandlers.push(
+    { event: "data:record_updated", handler: onRecordUpdated as (...args: unknown[]) => void },
+    { event: "data:record_created", handler: onRecordCreated as (...args: unknown[]) => void },
+    { event: "data:record_deleted", handler: onRecordDeleted as (...args: unknown[]) => void },
+  );
+}
+
+function cleanupRealtimeListenersForView() {
+  for (const { event, handler } of realtimeHandlers) {
+    realtimeEventEmitter.off(event as any, handler as any);
+  }
+  realtimeHandlers.length = 0;
+}
 
 const attachmentFields = computed(() => {
   return props.fields.filter((f) => f.type === FieldType.ATTACHMENT);
@@ -177,6 +232,11 @@ onMounted(() => {
   if (attachmentFields.value.length > 0) {
     imageFieldId.value = attachmentFields.value[0].id;
   }
+  setupRealtimeListenersForView();
+});
+
+onBeforeUnmount(() => {
+  cleanupRealtimeListenersForView();
 });
 </script>
 

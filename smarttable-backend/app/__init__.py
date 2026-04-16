@@ -6,12 +6,13 @@ from app.extensions import init_extensions, db
 from app.config import config
 
 
-def create_app(config_name='default'):
+def create_app(config_name='default', enable_realtime=False):
     """
     应用工厂函数
 
     Args:
         config_name: 配置名称，可选值：development, testing, production, default
+        enable_realtime: 是否启用实时协作功能
 
     Returns:
         Flask 应用实例
@@ -23,9 +24,16 @@ def create_app(config_name='default'):
 
     # 加载配置
     app.config.from_object(config[config_name])
+
+    # 设置实时协作配置
+    app.config['REALTIME_ENABLED'] = enable_realtime
     
     # 初始化扩展
     init_extensions(app)
+
+    # 条件初始化 SocketIO 事件处理器
+    if app.config.get('REALTIME_ENABLED', False):
+        register_socketio_handlers(app)
     
     # 注册蓝图
     register_blueprints(app)
@@ -113,6 +121,7 @@ def register_blueprints(app):
     from app.routes.form_shares import form_shares_bp
     from app.routes.auth_captcha import auth_captcha_bp
     from app.routes.email import email_bp
+    from app.routes.realtime import realtime_bp
     
     # 注册认证蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -159,6 +168,9 @@ def register_blueprints(app):
     # 注册表单分享蓝图 (路由中已包含完整路径)
     app.register_blueprint(form_shares_bp, url_prefix='/api')
 
+    # 注册实时协作蓝图
+    app.register_blueprint(realtime_bp, url_prefix='/api')
+
 
 def register_error_handlers(app):
     """
@@ -197,3 +209,9 @@ def register_shell_context(app):
             'Dashboard': Dashboard,
             'Attachment': Attachment
         }
+
+
+def register_socketio_handlers(app):
+    from app.extensions import socketio
+    from app.routes.socketio_events import register_socketio_handlers as _register
+    _register(socketio, app)
