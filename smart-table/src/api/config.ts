@@ -6,6 +6,18 @@
 // API基础URL配置
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 
+// 实时协作WebSocket URL配置
+// 从API_BASE_URL提取基础URL，或使用专用环境变量
+function extractBaseUrl(apiUrl: string): string {
+  try {
+    const url = new URL(apiUrl)
+    return url.origin
+  } catch {
+    return 'http://localhost:5000'
+  }
+}
+export const REALTIME_BASE_URL = import.meta.env.VITE_REALTIME_URL || extractBaseUrl(API_BASE_URL)
+
 // API客户端配置（供client.ts使用）
 export const apiConfig = {
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',

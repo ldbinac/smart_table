@@ -25,7 +25,9 @@ import type {
   DataTableDeletedBroadcast,
 } from '../services/realtime/eventTypes'
 import { apiClient } from '@/api/client'
+import { REALTIME_BASE_URL } from '@/api/config'
 import { useAuthStore } from '../stores/authStore'
+import { getToken } from '@/utils/auth/token'
 import { realtimeEventEmitter } from '../services/realtime/eventEmitter'
 import { ElMessage } from 'element-plus'
 import type { ConflictInfo } from '@/components/collaboration/ConflictDialog.vue'
@@ -73,20 +75,26 @@ export function useRealtimeCollaboration(baseId: string) {
     collaborationStore.setCurrentBase(baseId)
     collaborationStore.setConnectionStatus('connecting')
 
+    console.log('[RealtimeCollaboration] Checking realtime availability...')
     const available = await checkRealtimeAvailability()
+    console.log('[RealtimeCollaboration] Realtime available:', available)
     if (!available) {
       collaborationStore.setConnectionStatus('disconnected')
       return
     }
 
-    const token = authStore.token
+    const token = getToken()
+    console.log('[RealtimeCollaboration] Token from getToken():', token ? 'exists' : 'null')
+    console.log('[RealtimeCollaboration] authStore.isAuthenticated:', authStore.isAuthenticated)
+    console.log('[RealtimeCollaboration] localStorage access_token:', localStorage.getItem('access_token') ? 'exists' : 'null')
     if (!token) {
+      console.log('[RealtimeCollaboration] No token available')
       collaborationStore.setConnectionStatus('disconnected')
       return
     }
 
-    const serverUrl = import.meta.env.VITE_REALTIME_URL || window.location.origin
-    const client = await createSocketClient(serverUrl, token)
+    console.log('[RealtimeCollaboration] Server URL:', REALTIME_BASE_URL)
+    const client = await createSocketClient(REALTIME_BASE_URL, token)
     socketClient.value = client
 
     setupEventListeners()

@@ -14,19 +14,44 @@ from app.models.base import MemberRole
 
 def _authenticate_connection():
     token = request.args.get('token')
+    current_app.logger.info(f'[SocketIO] Auth attempt - token from args: {bool(token)}')
+    
     if not token:
         auth_header = request.headers.get('Authorization', '')
         if auth_header.startswith('Bearer '):
             token = auth_header[7:]
+            current_app.logger.info(f'[SocketIO] Auth - token from header: {bool(token)}')
+    
     if not token:
+        auth = getattr(request, 'auth', None)
+        current_app.logger.info(f'[SocketIO] Auth - request.auth: {auth}')
+        if auth and isinstance(auth, dict):
+            token = auth.get('token')
+            current_app.logger.info(f'[SocketIO] Auth - token from request.auth: {bool(token)}')
+    
+    if not token:
+        from flask import g
+        auth_data = getattr(g, 'auth', None)
+        current_app.logger.info(f'[SocketIO] Auth - g.auth: {auth_data}')
+        if auth_data and isinstance(auth_data, dict):
+            token = auth_data.get('token')
+            current_app.logger.info(f'[SocketIO] Auth - token from g.auth: {bool(token)}')
+    
+    if not token:
+        current_app.logger.info(f'[SocketIO] Auth - request.headers: {dict(request.headers)}')
+        current_app.logger.info(f'[SocketIO] Auth - request.args: {dict(request.args)}')
+        current_app.logger.warning('[SocketIO] Auth - no token found')
         return None
     try:
         decoded = decode_token(token)
         user_id = decoded.get('sub')
         if not user_id:
+            current_app.logger.warning('[SocketIO] Auth - no user_id in token')
             return None
+        current_app.logger.info(f'[SocketIO] Auth - success, user_id={user_id}')
         return user_id
-    except Exception:
+    except Exception as e:
+        current_app.logger.error(f'[SocketIO] Auth - token decode error: {e}')
         return None
 
 
@@ -34,6 +59,7 @@ def register_socketio_handlers(socketio, app):
 
     @socketio.on('connect')
     def handle_connect():
+        current_app.logger.info(f'[SocketIO] Connect event received, sid={request.sid}')
         user_id = _authenticate_connection()
         if not user_id:
             current_app.logger.warning(f'SocketIO connect rejected: no valid token, sid={request.sid}')

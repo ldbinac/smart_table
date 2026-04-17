@@ -42,9 +42,13 @@ class SocketClientImpl implements RealtimeSocketClient {
   async connect(): Promise<void> {
     if (this.socket || this.destroyed) return
 
+    const urlWithToken = `${this.serverUrl}?token=${encodeURIComponent(this.token)}`
+    console.log('[SocketIO] Connecting to:', this.serverUrl)
+
     try {
       const { io } = await import('socket.io-client')
       this.socket = io(this.serverUrl, {
+        query: { token: this.token },
         auth: { token: this.token },
         transports: ['websocket', 'polling'],
         reconnection: false,
@@ -52,6 +56,7 @@ class SocketClientImpl implements RealtimeSocketClient {
 
       this.setupEventHandlers()
     } catch (_e) {
+      console.error('[SocketIO] Failed to create socket:', _e)
       this.scheduleReconnect()
     }
   }
@@ -60,12 +65,18 @@ class SocketClientImpl implements RealtimeSocketClient {
     if (!this.socket) return
 
     this.socket.on('connect', () => {
+      console.log('[SocketIO] Connected successfully')
       this.connected = true
       this.reconnectAttempts = 0
       realtimeEventEmitter.emit('connect')
     })
 
+    this.socket.on('connect_ack', (data: unknown) => {
+      console.log('[SocketIO] Server acknowledged connection:', data)
+    })
+
     this.socket.on('disconnect', (reason: string) => {
+      console.log('[SocketIO] Disconnected:', reason)
       this.connected = false
       realtimeEventEmitter.emit('disconnect', reason)
       if (!this.destroyed) {
@@ -73,11 +84,16 @@ class SocketClientImpl implements RealtimeSocketClient {
       }
     })
 
-    this.socket.on('connect_error', () => {
+    this.socket.on('connect_error', (error: Error) => {
+      console.error('[SocketIO] Connection error:', error)
       this.connected = false
       if (!this.destroyed) {
         this.scheduleReconnect()
       }
+    })
+
+    this.socket.on('error', (error: Error) => {
+      console.error('[SocketIO] Error:', error)
     })
 
     const serverEvents: (keyof RealtimeEventMap)[] = [
