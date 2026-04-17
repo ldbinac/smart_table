@@ -224,11 +224,20 @@ export function useRealtimeCollaboration(baseId: string) {
   }
 
   function handleRecordUpdated(data: DataRecordUpdatedBroadcast) {
-    console.log('[RealtimeCollaboration] Record updated:', data)
+    console.log('[RealtimeCollaboration] Record updated event received:', data)
+    console.log('[RealtimeCollaboration] Current user ID:', authStore.user?.id)
+    console.log('[RealtimeCollaboration] Changed by:', data.changed_by)
+    
     const currentUserId = authStore.user?.id
-    if (data.changed_by === currentUserId) return
+    if (data.changed_by === currentUserId) {
+      console.log('[RealtimeCollaboration] Skipping update from self')
+      return
+    }
 
+    console.log('[RealtimeCollaboration] Processing update, table_id:', data.table_id, 'record_id:', data.record_id)
+    
     if (data.table_id && data.record_id) {
+      console.log('[RealtimeCollaboration] Calling tableStore.updateRecordFromRemote')
       tableStore.updateRecordFromRemote(data.table_id, data.record_id, data.changes)
     }
 

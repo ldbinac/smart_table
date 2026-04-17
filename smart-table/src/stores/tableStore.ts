@@ -403,8 +403,18 @@ export const useTableStore = defineStore("table", () => {
   }
 
   function updateRecordFromRemote(tableId: string, recordId: string, changes: Array<{ field_id: string; old_value: any; new_value: any }>) {
-    if (currentTable.value?.id !== tableId) return
+    console.log('[TableStore] updateRecordFromRemote called, tableId:', tableId, 'recordId:', recordId)
+    console.log('[TableStore] currentTable?.id:', currentTable.value?.id)
+    console.log('[TableStore] changes:', changes)
+    
+    if (currentTable.value?.id !== tableId) {
+      console.log('[TableStore] Skipping update - table mismatch')
+      return
+    }
+    
     const index = records.value.findIndex((r) => r.id === recordId)
+    console.log('[TableStore] Record index:', index)
+    
     if (index !== -1) {
       const existing = records.value[index]
       const updatedValues = { ...existing.values }
@@ -416,6 +426,9 @@ export const useTableStore = defineStore("table", () => {
         values: updatedValues,
         updatedAt: Date.now(),
       }
+      console.log('[TableStore] Record updated successfully')
+    } else {
+      console.log('[TableStore] Record not found in local store')
     }
   }
 

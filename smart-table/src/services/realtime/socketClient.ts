@@ -68,6 +68,7 @@ class SocketClientImpl implements RealtimeSocketClient {
       console.log('[SocketIO] Connected successfully')
       this.connected = true
       this.reconnectAttempts = 0
+      console.log('[SocketIO] Emitting connect event to realtimeEventEmitter')
       realtimeEventEmitter.emit('connect')
     })
 
@@ -117,7 +118,7 @@ class SocketClientImpl implements RealtimeSocketClient {
 
     for (const event of serverEvents) {
       this.socket.on(event as string, (data: unknown) => {
-        console.log(`[SocketIO] Received event: ${event}`, data)
+        console.log(`[SocketIO] Received event: ${event}`, JSON.stringify(data))
         realtimeEventEmitter.emit(event, data as never)
       })
     }

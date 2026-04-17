@@ -169,11 +169,12 @@ class RecordService:
                 CollaborationService.broadcast_if_enabled('data:record_created', str(table.base_id), {
                     'table_id': table_id,
                     'record': record.to_dict(),
-                    'changed_by': created_by,
+                    'changed_by': str(created_by) if created_by else None,
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f'[RecordService] broadcast_if_enabled (create) error: {e}')
 
         return record
     
@@ -285,11 +286,12 @@ class RecordService:
                     'table_id': str(record.table_id),
                     'record_id': str(record.id),
                     'changes': changes,
-                    'changed_by': updated_by,
+                    'changed_by': str(updated_by) if updated_by else None,
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f'[RecordService] broadcast_if_enabled error: {e}')
 
         return record
     
@@ -344,11 +346,12 @@ class RecordService:
                     'table_id': saved_table_id,
                     'record_id': saved_record_id,
                     'snapshot': snapshot,
-                    'changed_by': deleted_by,
+                    'changed_by': str(deleted_by) if deleted_by else None,
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
-            except Exception:
-                pass
+            except Exception as e:
+                from flask import current_app
+                current_app.logger.error(f'[RecordService] broadcast_if_enabled (delete) error: {e}')
 
             return True
         except Exception as e:

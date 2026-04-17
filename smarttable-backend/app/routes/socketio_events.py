@@ -78,12 +78,14 @@ def register_socketio_handlers(socketio, app):
 
     @socketio.on('room:join')
     def handle_room_join(data):
+        from flask_socketio import rooms
         user_id = _authenticate_connection()
         if not user_id:
             disconnect()
             return
         base_id = data.get('base_id')
-        current_app.logger.info(f'[SocketIO] room:join request from user={user_id}, base={base_id}')
+        current_app.logger.info(f'[SocketIO] room:join request from user={user_id}, base={base_id}, sid={request.sid}')
+        current_app.logger.info(f'[SocketIO] Current rooms before join: {rooms()}')
         if not base_id:
             emit('error', {'message': 'base_id is required'})
             return
@@ -93,6 +95,7 @@ def register_socketio_handlers(socketio, app):
         try:
             result = CollaborationService.join_room(base_id, user_id, request.sid)
             join_room(f'base:{base_id}')
+            current_app.logger.info(f'[SocketIO] Current rooms after join: {rooms()}')
             online_users = CollaborationService.get_online_users(base_id)
             current_app.logger.info(f'[SocketIO] room:join success, online_users={len(online_users)}')
             emit('room:joined', {'status': 'ok', 'base_id': base_id, 'online_users': online_users})

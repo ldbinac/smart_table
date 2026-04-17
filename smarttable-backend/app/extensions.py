@@ -34,8 +34,8 @@ cors = CORS()
 # CSRF 保护扩展
 csrf = CSRFProtect()
 
-# WebSocket 扩展（cors_allowed_origins 在 init_app 中根据配置动态设置）
-socketio = SocketIO(async_mode='threading')
+# WebSocket 扩展（async_mode 在 init_app 中根据配置动态设置）
+socketio = SocketIO()
 
 
 def init_extensions(app):
@@ -78,6 +78,7 @@ def init_extensions(app):
     
     if app.config.get('REALTIME_ENABLED', False):
         socketio_kwargs = {
+            'async_mode': 'threading',
             'cors_allowed_origins': app.config.get('CORS_ORIGINS', ['http://localhost:3000']),
             'ping_timeout': app.config.get('SOCKETIO_PING_TIMEOUT', 60),
             'ping_interval': app.config.get('SOCKETIO_PING_INTERVAL', 25),

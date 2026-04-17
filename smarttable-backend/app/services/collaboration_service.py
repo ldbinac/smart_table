@@ -204,7 +204,15 @@ class CollaborationService:
     @staticmethod
     def broadcast_change(event_name: str, base_id: str, data: dict):
         current_app.logger.info(f'[CollaborationService] Broadcasting {event_name} to base:{base_id}')
-        socketio.emit(event_name, data, room=f'base:{base_id}')
+        current_app.logger.info(f'[CollaborationService] Broadcast data: {data}')
+        current_app.logger.info(f'[CollaborationService] SocketIO instance: {socketio}')
+        try:
+            result = socketio.emit(event_name, data, room=f'base:{base_id}')
+            current_app.logger.info(f'[CollaborationService] Broadcast result: {result}')
+        except Exception as e:
+            current_app.logger.error(f'[CollaborationService] Broadcast error: {e}')
+            import traceback
+            traceback.print_exc()
 
     @staticmethod
     def broadcast_presence(base_id: str, event_name: str, data: dict):
