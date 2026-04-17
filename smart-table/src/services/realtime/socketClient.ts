@@ -117,9 +117,15 @@ class SocketClientImpl implements RealtimeSocketClient {
 
     for (const event of serverEvents) {
       this.socket.on(event as string, (data: unknown) => {
+        console.log(`[SocketIO] Received event: ${event}`, data)
         realtimeEventEmitter.emit(event, data as never)
       })
     }
+
+    this.socket.on('room:joined', (data: unknown) => {
+      console.log('[SocketIO] Room joined:', data)
+      realtimeEventEmitter.emit('room:joined' as never, data as never)
+    })
   }
 
   private scheduleReconnect(): void {
@@ -167,8 +173,11 @@ class SocketClientImpl implements RealtimeSocketClient {
   }
 
   emit<E extends keyof RealtimeEventMap>(event: E, ...args: unknown[]): void {
+    console.log(`[SocketIO] emit called: ${event}, connected: ${this.connected}, hasSocket: ${!!this.socket}`)
     if (this.socket && this.connected) {
       this.socket.emit(event as string, ...args)
+    } else {
+      console.warn(`[SocketIO] Cannot emit ${event}: not connected`)
     }
   }
 

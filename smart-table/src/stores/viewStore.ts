@@ -296,6 +296,24 @@ export const useViewStore = defineStore("view", () => {
     realtimeEventEmitter.removeAllListeners("data:view_updated");
   }
 
+  function updateViewFromRemote(viewId: string, changes: Partial<ViewEntity>) {
+    const index = views.value.findIndex((v) => v.id === viewId);
+    if (index !== -1) {
+      views.value[index] = {
+        ...views.value[index],
+        ...changes,
+        updatedAt: Date.now(),
+      } as ViewEntity;
+    }
+    if (currentView.value?.id === viewId) {
+      currentView.value = {
+        ...currentView.value,
+        ...changes,
+        updatedAt: Date.now(),
+      } as ViewEntity;
+    }
+  }
+
   return {
     views,
     currentView,
@@ -325,5 +343,6 @@ export const useViewStore = defineStore("view", () => {
     clearView,
     setupRealtimeListeners,
     cleanupRealtimeListeners,
+    updateViewFromRemote,
   };
 });

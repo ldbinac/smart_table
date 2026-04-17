@@ -199,6 +199,7 @@ export type ClientToServerEvents = {
 }
 
 export type ServerToClientEvents = {
+  'room:joined': (data: { base_id: string; online_users: OnlineUser[] }) => void
   'presence:user_joined': (data: PresenceUserJoinedBroadcast) => void
   'presence:user_left': (data: PresenceUserLeftBroadcast) => void
   'presence:view_changed': (data: PresenceViewChangedBroadcast) => void

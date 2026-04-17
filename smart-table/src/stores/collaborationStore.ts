@@ -47,6 +47,13 @@ export const useCollaborationStore = defineStore('collaboration', () => {
     onlineUsers.value.delete(userId)
   }
 
+  function setOnlineUsers(users: OnlineUser[]) {
+    onlineUsers.value.clear()
+    for (const user of users) {
+      onlineUsers.value.set(user.user_id, user)
+    }
+  }
+
   function setLockedCell(key: string, info: LockInfo) {
     lockedCells.value.set(key, info)
   }
@@ -116,6 +123,7 @@ export const useCollaborationStore = defineStore('collaboration', () => {
     setConnectionStatus,
     addOnlineUser,
     removeOnlineUser,
+    setOnlineUsers,
     setLockedCell,
     removeLockedCell,
     addToOfflineQueue,

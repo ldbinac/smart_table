@@ -394,6 +394,102 @@ export const useTableStore = defineStore("table", () => {
     realtimeEventEmitter.removeAllListeners("data:field_deleted");
   }
 
+  function addRecordFromRemote(tableId: string, record: RecordEntity) {
+    if (currentTable.value?.id !== tableId) return
+    if (!records.value.find((r) => r.id === record.id)) {
+      records.value.push(record)
+      currentTable.value.recordCount++
+    }
+  }
+
+  function updateRecordFromRemote(tableId: string, recordId: string, changes: Array<{ field_id: string; old_value: any; new_value: any }>) {
+    if (currentTable.value?.id !== tableId) return
+    const index = records.value.findIndex((r) => r.id === recordId)
+    if (index !== -1) {
+      const existing = records.value[index]
+      const updatedValues = { ...existing.values }
+      for (const change of changes) {
+        updatedValues[change.field_id] = change.new_value
+      }
+      records.value[index] = {
+        ...existing,
+        values: updatedValues,
+        updatedAt: Date.now(),
+      }
+    }
+  }
+
+  function deleteRecordFromRemote(tableId: string, recordId: string) {
+    if (currentTable.value?.id !== tableId) return
+    const existed = records.value.find((r) => r.id === recordId)
+    records.value = records.value.filter((r) => r.id !== recordId)
+    if (existed && currentTable.value) {
+      currentTable.value.recordCount--
+    }
+  }
+
+  function addFieldFromRemote(tableId: string, field: FieldEntity) {
+    if (currentTable.value?.id !== tableId) return
+    if (!fields.value.find((f) => f.id === field.id)) {
+      fields.value.push(field)
+    }
+  }
+
+  function updateFieldFromRemote(tableId: string, fieldId: string, changes: Partial<FieldEntity>) {
+    if (currentTable.value?.id !== tableId) return
+    const index = fields.value.findIndex((f) => f.id === fieldId)
+    if (index !== -1) {
+      fields.value[index] = {
+        ...fields.value[index],
+        ...changes,
+        updatedAt: Date.now(),
+      } as FieldEntity
+    }
+  }
+
+  function deleteFieldFromRemote(tableId: string, fieldId: string) {
+    if (currentTable.value?.id !== tableId) return
+    fields.value = fields.value.filter((f) => f.id !== fieldId)
+    records.value = records.value.map((record) => {
+      const newValues = { ...record.values }
+      delete newValues[fieldId]
+      return { ...record, values: newValues }
+    })
+  }
+
+  function addTableFromRemote(table: TableEntity) {
+    if (!tables.value.find((t) => t.id === table.id)) {
+      tables.value.push(table)
+    }
+  }
+
+  function updateTableFromRemote(tableId: string, changes: Partial<TableEntity>) {
+    const index = tables.value.findIndex((t) => t.id === tableId)
+    if (index !== -1) {
+      tables.value[index] = {
+        ...tables.value[index],
+        ...changes,
+        updatedAt: Date.now(),
+      }
+    }
+    if (currentTable.value?.id === tableId) {
+      currentTable.value = {
+        ...currentTable.value,
+        ...changes,
+        updatedAt: Date.now(),
+      }
+    }
+  }
+
+  function deleteTableFromRemote(tableId: string) {
+    tables.value = tables.value.filter((t) => t.id !== tableId)
+    if (currentTable.value?.id === tableId) {
+      currentTable.value = null
+      fields.value = []
+      records.value = []
+    }
+  }
+
   return {
     tables,
     currentTable,
@@ -420,5 +516,14 @@ export const useTableStore = defineStore("table", () => {
     clearTable,
     setupRealtimeListeners,
     cleanupRealtimeListeners,
+    addRecordFromRemote,
+    updateRecordFromRemote,
+    deleteRecordFromRemote,
+    addFieldFromRemote,
+    updateFieldFromRemote,
+    deleteFieldFromRemote,
+    addTableFromRemote,
+    updateTableFromRemote,
+    deleteTableFromRemote,
   };
 });

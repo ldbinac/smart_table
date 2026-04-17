@@ -83,6 +83,7 @@ def register_socketio_handlers(socketio, app):
             disconnect()
             return
         base_id = data.get('base_id')
+        current_app.logger.info(f'[SocketIO] room:join request from user={user_id}, base={base_id}')
         if not base_id:
             emit('error', {'message': 'base_id is required'})
             return
@@ -93,12 +94,18 @@ def register_socketio_handlers(socketio, app):
             result = CollaborationService.join_room(base_id, user_id, request.sid)
             join_room(f'base:{base_id}')
             online_users = CollaborationService.get_online_users(base_id)
+            current_app.logger.info(f'[SocketIO] room:join success, online_users={len(online_users)}')
             emit('room:joined', {'status': 'ok', 'base_id': base_id, 'online_users': online_users})
+            user_info = CollaborationService._get_user_brief(user_id)
+            current_app.logger.info(f'[SocketIO] Broadcasting presence:user_joined for user={user_id}')
             socketio_ext.emit('presence:user_joined', {
                 'base_id': base_id,
                 'user_id': user_id,
+                'nickname': user_info.get('name', 'Unknown'),
+                'avatar': user_info.get('avatar'),
+                'current_view': None,
                 'online_users': online_users
-            }, room=f'base:{base_id}')
+            }, room=f'base:{base_id}', include_self=False)
         except Exception as e:
             current_app.logger.error(f'room:join error: {e}')
             emit('error', {'message': str(e)})

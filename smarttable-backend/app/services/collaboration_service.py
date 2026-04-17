@@ -203,20 +203,25 @@ class CollaborationService:
 
     @staticmethod
     def broadcast_change(event_name: str, base_id: str, data: dict):
+        current_app.logger.info(f'[CollaborationService] Broadcasting {event_name} to base:{base_id}')
         socketio.emit(event_name, data, room=f'base:{base_id}')
 
     @staticmethod
     def broadcast_presence(base_id: str, event_name: str, data: dict):
+        current_app.logger.info(f'[CollaborationService] Broadcasting presence {event_name} to base:{base_id}')
         socketio.emit(event_name, data, room=f'base:{base_id}')
 
     @staticmethod
     def broadcast_lock(base_id: str, event_name: str, data: dict):
+        current_app.logger.info(f'[CollaborationService] Broadcasting lock {event_name} to base:{base_id}')
         socketio.emit(event_name, data, room=f'base:{base_id}')
 
     @staticmethod
     def broadcast_if_enabled(event_name: str, base_id: str, data: dict):
         if not current_app.config.get('REALTIME_ENABLED', False):
+            current_app.logger.info(f'[CollaborationService] Realtime disabled, skipping {event_name}')
             return
+        current_app.logger.info(f'[CollaborationService] broadcast_if_enabled: {event_name} to base:{base_id}')
         CollaborationService.broadcast_change(event_name, base_id, data)
 
     @staticmethod

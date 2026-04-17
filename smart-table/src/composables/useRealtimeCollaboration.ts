@@ -31,6 +31,8 @@ import { getToken } from '@/utils/auth/token'
 import { realtimeEventEmitter } from '../services/realtime/eventEmitter'
 import { ElMessage } from 'element-plus'
 import type { ConflictInfo } from '@/components/collaboration/ConflictDialog.vue'
+import { useTableStore } from '../stores/tableStore'
+import { useViewStore } from '../stores/viewStore'
 
 interface RealtimeStatusResponse {
   enabled: boolean
@@ -39,6 +41,8 @@ interface RealtimeStatusResponse {
 export function useRealtimeCollaboration(baseId: string) {
   const collaborationStore = useCollaborationStore()
   const authStore = useAuthStore()
+  const tableStore = useTableStore()
+  const viewStore = useViewStore()
 
   const socketClient = ref<RealtimeSocketClient | null>(null)
 
@@ -107,9 +111,16 @@ export function useRealtimeCollaboration(baseId: string) {
 
     socketClient.value.on('connect', () => {
       collaborationStore.setConnectionStatus('connected')
+      console.log('[RealtimeCollaboration] Connected, joining room:', baseId)
+      joinRoom()
       if (collaborationStore.offlineQueue.length > 0) {
         collaborationStore.processOfflineQueue()
       }
+    })
+
+    socketClient.value.on('room:joined', (data: { base_id: string; online_users: OnlineUser[] }) => {
+      console.log('[RealtimeCollaboration] Room joined, online users:', data.online_users)
+      collaborationStore.setOnlineUsers(data.online_users || [])
     })
 
     socketClient.value.on('disconnect', () => {
@@ -202,14 +213,26 @@ export function useRealtimeCollaboration(baseId: string) {
     }
   }
 
-  function handleRecordCreated(_data: DataRecordCreatedBroadcast) {
+  function handleRecordCreated(data: DataRecordCreatedBroadcast) {
+    console.log('[RealtimeCollaboration] Record created:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.record && data.table_id) {
+      tableStore.addRecordFromRemote(data.table_id, data.record)
+    }
   }
 
   function handleRecordUpdated(data: DataRecordUpdatedBroadcast) {
+    console.log('[RealtimeCollaboration] Record updated:', data)
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
 
-    for (const change of data.changes) {
+    if (data.table_id && data.record_id) {
+      tableStore.updateRecordFromRemote(data.table_id, data.record_id, data.changes)
+    }
+
+    for (const change of data.changes || []) {
       const pendingKey = `${data.record_id}:${change.field_id}`
       const pending = pendingChanges.value.get(pendingKey)
       if (pending) {
@@ -227,32 +250,93 @@ export function useRealtimeCollaboration(baseId: string) {
     }
   }
 
-  function handleRecordDeleted(_data: DataRecordDeletedBroadcast) {
+  function handleRecordDeleted(data: DataRecordDeletedBroadcast) {
+    console.log('[RealtimeCollaboration] Record deleted:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.table_id && data.record_id) {
+      tableStore.deleteRecordFromRemote(data.table_id, data.record_id)
+    }
   }
 
-  function handleFieldCreated(_data: DataFieldCreatedBroadcast) {
+  function handleFieldCreated(data: DataFieldCreatedBroadcast) {
+    console.log('[RealtimeCollaboration] Field created:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.field && data.table_id) {
+      tableStore.addFieldFromRemote(data.table_id, data.field)
+    }
   }
 
-  function handleFieldUpdated(_data: DataFieldUpdatedBroadcast) {
+  function handleFieldUpdated(data: DataFieldUpdatedBroadcast) {
+    console.log('[RealtimeCollaboration] Field updated:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.table_id && data.field_id) {
+      tableStore.updateFieldFromRemote(data.table_id, data.field_id, data.changes)
+    }
   }
 
-  function handleFieldDeleted(_data: DataFieldDeletedBroadcast) {
+  function handleFieldDeleted(data: DataFieldDeletedBroadcast) {
+    console.log('[RealtimeCollaboration] Field deleted:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.table_id && data.field_id) {
+      tableStore.deleteFieldFromRemote(data.table_id, data.field_id)
+    }
   }
 
-  function handleViewUpdated(_data: DataViewUpdatedBroadcast) {
+  function handleViewUpdated(data: DataViewUpdatedBroadcast) {
+    console.log('[RealtimeCollaboration] View updated:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.view_id) {
+      viewStore.updateViewFromRemote(data.view_id, data.changes)
+    }
   }
 
-  function handleTableCreated(_data: DataTableCreatedBroadcast) {
+  function handleTableCreated(data: DataTableCreatedBroadcast) {
+    console.log('[RealtimeCollaboration] Table created:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.table) {
+      tableStore.addTableFromRemote(data.table)
+    }
   }
 
-  function handleTableUpdated(_data: DataTableUpdatedBroadcast) {
+  function handleTableUpdated(data: DataTableUpdatedBroadcast) {
+    console.log('[RealtimeCollaboration] Table updated:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.table_id) {
+      tableStore.updateTableFromRemote(data.table_id, data.changes)
+    }
   }
 
-  function handleTableDeleted(_data: DataTableDeletedBroadcast) {
+  function handleTableDeleted(data: DataTableDeletedBroadcast) {
+    console.log('[RealtimeCollaboration] Table deleted:', data)
+    const currentUserId = authStore.user?.id
+    if (data.changed_by === currentUserId) return
+    
+    if (data.table_id) {
+      tableStore.deleteTableFromRemote(data.table_id)
+    }
   }
 
   function joinRoom() {
-    if (!collaborationStore.isRealtimeAvailable || !socketClient.value) return
+    console.log('[RealtimeCollaboration] joinRoom called, isRealtimeAvailable:', collaborationStore.isRealtimeAvailable, 'socketClient:', !!socketClient.value)
+    if (!collaborationStore.isRealtimeAvailable || !socketClient.value) {
+      console.log('[RealtimeCollaboration] joinRoom skipped')
+      return
+    }
+    console.log('[RealtimeCollaboration] Emitting room:join for base:', baseId)
     socketClient.value.emit('room:join' as never, { base_id: baseId } as never)
   }
 
