@@ -254,9 +254,13 @@ class CollaborationService:
 
             session.is_active = False
 
+            user_info = CollaborationService._get_user_brief(user_id)
             socketio.emit('presence:user_left', {
                 'base_id': base_id,
-                'user_id': user_id
+                'user_id': user_id,
+                'nickname': user_info.get('name', 'Unknown'),
+                'name': user_info.get('name', 'Unknown'),
+                'avatar': user_info.get('avatar')
             }, room=f'base:{base_id}')
 
         if sessions:

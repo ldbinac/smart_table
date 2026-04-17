@@ -41,7 +41,7 @@ function getAvatarColor(index: number): string {
       <ElTooltip
         v-for="(user, index) in displayUsers"
         :key="user.user_id"
-        :content="`${user.nickname}${user.current_view ? ' - ' + user.current_view.view_type : ''}`"
+        :content="`${user.nickname || user.name}${user.current_view ? ' - ' + user.current_view.view_type : ''}`"
         placement="bottom">
         <ElAvatar
           :size="28"
@@ -52,7 +52,7 @@ function getAvatarColor(index: number): string {
             border: '2px solid #fff',
             zIndex: displayUsers.length - index,
           }">
-          {{ getInitials(user.nickname) }}
+          {{ getInitials(user.nickname || user.name) }}
         </ElAvatar>
       </ElTooltip>
       <div

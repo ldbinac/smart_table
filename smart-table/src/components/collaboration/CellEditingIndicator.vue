@@ -40,7 +40,7 @@ function getColor(userId: string): string {
       class="cell-indicator"
       :style="{ borderColor: getColor(cell.user_id) }">
       <ElTooltip
-        :content="`${cell.nickname} 正在编辑`"
+        :content="`${cell.nickname || cell.name} 正在编辑`"
         placement="top"
         :show-after="300">
         <ElAvatar
@@ -48,7 +48,7 @@ function getColor(userId: string): string {
           :src="cell.avatar"
           :style="{ backgroundColor: getColor(cell.user_id) }"
           class="indicator-avatar">
-          {{ cell.nickname ? cell.nickname.charAt(0) : "?" }}
+          {{ (cell.nickname || cell.name) ? (cell.nickname || cell.name).charAt(0) : "?" }}
         </ElAvatar>
       </ElTooltip>
     </div>

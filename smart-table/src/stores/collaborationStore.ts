@@ -6,6 +6,7 @@ import { apiClient } from '@/api/client'
 export interface LockInfo {
   user_id: string
   nickname: string
+  name: string
   avatar?: string
   table_id: string
   record_id: string

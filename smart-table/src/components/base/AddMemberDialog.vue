@@ -117,8 +117,8 @@ const searchUsers = async (query: string) => {
     
     // 模拟数据
     userOptions.value = [
-      { id: '1', username: 'user1', email: 'user1@example.com', nickname: '用户1', role: 'user', status: 'active', created_at: '', updated_at: '' },
-      { id: '2', username: 'user2', email: 'user2@example.com', nickname: '用户2', role: 'user', status: 'active', created_at: '', updated_at: '' }
+      { id: '1', username: 'user1', email: 'user1@example.com', nickname: '用户1', name: '用户1', avatar_url: '用户1', role: 'user', status: 'active', created_at: '', updated_at: '' },
+      { id: '2', username: 'user2', email: 'user2@example.com', nickname: '用户2', name: '用户2', avatar_url: '用户2', role: 'user', status: 'active', created_at: '', updated_at: '' }
     ]
   } finally {
     searching.value = false

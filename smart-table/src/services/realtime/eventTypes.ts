@@ -19,6 +19,7 @@ export interface RoomLeaveRequest {
 export interface OnlineUser {
   user_id: string
   nickname: string
+  name: string
   avatar?: string
   current_view?: CurrentView
 }
@@ -39,6 +40,7 @@ export interface PresenceViewChangedRequest {
 export interface PresenceViewChangedBroadcast {
   user_id: string
   nickname: string
+  name: string
   avatar?: string
   table_id: string
   view_id: string
@@ -55,6 +57,7 @@ export interface PresenceCellSelectedRequest {
 export interface PresenceCellSelectedBroadcast {
   user_id: string
   nickname: string
+  name: string
   avatar?: string
   table_id: string
   record_id: string
@@ -64,13 +67,17 @@ export interface PresenceCellSelectedBroadcast {
 export interface PresenceUserJoinedBroadcast {
   user_id: string
   nickname: string
+  name: string
   avatar?: string
   current_view?: CurrentView
 }
 
 export interface PresenceUserLeftBroadcast {
+  base_id: string
   user_id: string
   nickname: string
+  name: string
+  avatar?: string
 }
 
 export interface LockAcquireRequest {
@@ -81,12 +88,13 @@ export interface LockAcquireRequest {
 
 export interface LockAcquireCallback {
   success: boolean
-  locked_by?: { user_id: string; nickname: string; avatar?: string }
+  locked_by?: { user_id: string; nickname: string; name: string; avatar?: string }
 }
 
 export interface LockAcquiredBroadcast {
   user_id: string
   nickname: string
+  name: string
   avatar?: string
   table_id: string
   record_id: string

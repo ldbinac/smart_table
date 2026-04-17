@@ -172,6 +172,7 @@ export function useRealtimeCollaboration(baseId: string) {
     collaborationStore.addOnlineUser({
       user_id: data.user_id,
       nickname: data.nickname,
+      name: data.name,
       avatar: data.avatar,
       current_view: data.current_view,
     })
@@ -192,6 +193,7 @@ export function useRealtimeCollaboration(baseId: string) {
     collaborationStore.setLockedCell(key, {
       user_id: data.user_id,
       nickname: data.nickname,
+      name: data.name,
       avatar: data.avatar,
       table_id: data.table_id,
       record_id: data.record_id,
@@ -373,7 +375,7 @@ export function useRealtimeCollaboration(baseId: string) {
       const key = `${data.record_id}:${data.field_id}`
       const existingLock = collaborationStore.lockedCells.get(key)
       if (existingLock && existingLock.user_id !== authStore.user?.id) {
-        ElMessage.warning(`${existingLock.nickname} 正在编辑此单元格`)
+        ElMessage.warning(`${existingLock.nickname || existingLock.name} 正在编辑此单元格`)
         waitingForLocks.value.add(key)
         resolve({ success: false, reason: 'locked' })
         return

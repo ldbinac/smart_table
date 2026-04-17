@@ -105,6 +105,7 @@ def register_socketio_handlers(socketio, app):
                 'base_id': base_id,
                 'user_id': user_id,
                 'nickname': user_info.get('name', 'Unknown'),
+                'name': user_info.get('name', 'Unknown'),
                 'avatar': user_info.get('avatar'),
                 'current_view': None,
                 'online_users': online_users
@@ -122,11 +123,15 @@ def register_socketio_handlers(socketio, app):
         if not base_id:
             return
         try:
+            user_info = CollaborationService._get_user_brief(user_id)
             CollaborationService.leave_room(base_id, user_id)
             leave_room(f'base:{base_id}')
             socketio_ext.emit('presence:user_left', {
                 'base_id': base_id,
-                'user_id': user_id
+                'user_id': user_id,
+                'nickname': user_info.get('name', 'Unknown'),
+                'name': user_info.get('name', 'Unknown'),
+                'avatar': user_info.get('avatar')
             }, room=f'base:{base_id}')
         except Exception as e:
             current_app.logger.error(f'room:leave error: {e}')

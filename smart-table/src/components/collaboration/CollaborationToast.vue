@@ -26,11 +26,11 @@ function addToast(message: string, type: ToastItem["type"] = "info") {
 }
 
 function handleUserJoined(data: PresenceUserJoinedBroadcast) {
-  addToast(`${data.nickname} 加入了协作`, "info");
+  addToast(`${data.nickname || data.name} 加入了协作`, "info");
 }
 
 function handleUserLeft(data: PresenceUserLeftBroadcast) {
-  addToast(`${data.nickname} 离开了协作`, "warning");
+  addToast(`${data.nickname || data.name} 离开了协作`, "warning");
 }
 
 onMounted(() => {

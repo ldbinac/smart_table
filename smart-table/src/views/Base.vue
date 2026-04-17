@@ -1421,7 +1421,6 @@ function handleShareChanged() {
 
 <template>
   <div class="base-page">
-    <ConnectionStatusBar v-if="collaborationStore.isRealtimeAvailable" />
     <BaseSidebar
       ref="sidebarRef"
       :current-table-id="tableStore.currentTable?.id"
@@ -1473,7 +1472,7 @@ function handleShareChanged() {
                 !isGalleryView
               "
               class="table-info">
-              <h2>{{ tableStore.currentTable.name }}</h2>
+              <!-- <h2>{{ tableStore.currentTable.name }}</h2> -->
               <span class="record-count"
                 >{{ filteredRecords.length }} 条记录</span
               >
@@ -1492,6 +1491,7 @@ function handleShareChanged() {
                   >分组: {{ currentGroupBys.length }}</el-tag
                 >
               </span>
+              <ConnectionStatusBar v-if="collaborationStore.isRealtimeAvailable" />
               <OnlineUsers v-if="collaborationStore.isRealtimeAvailable" />
             </div>
             <div
