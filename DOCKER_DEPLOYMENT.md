@@ -225,6 +225,8 @@ curl http://localhost/api/health
 | `JWT_SECRET_KEY` | JWT 密钥 | - | `your-jwt-secret` |
 | `LOG_LEVEL` | 日志级别 | `INFO` | `DEBUG` |
 | `MAX_CONTENT_LENGTH` | 最大上传大小 | `52428800` (50MB) | `104857600` (100MB) |
+| `ENABLE_REALTIME` | 启用实时协作 | `false` | `true` |
+| `SOCKETIO_MESSAGE_QUEUE` | SocketIO 消息队列 | - | `redis://redis:6379/1` |
 
 ### 端口映射
 

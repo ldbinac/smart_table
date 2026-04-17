@@ -65,6 +65,7 @@
 - 搜索功能 - 快速搜索表格和记录
 - 仪表盘 - 支持多种图表组件（数字卡片、图表、实时数据等）
 - 分享协作 - Base 级别分享，支持分享链接和成员管理
+- 实时协作 - 基于 WebSocket 的多人实时协作，支持在线状态、单元格锁定、冲突解决
 - 权限管理 - 基于角色的权限控制（所有者/管理员/编辑者/评论者/查看者）
 - 变更历史 - 记录变更历史追踪与查看功能
 
@@ -116,6 +117,7 @@
 | 安全加密   | Flask-Bcrypt, bcrypt                | 1.0.1 / 4.1.2         |
 | 缓存       | Flask-Caching (+ Redis 可选)        | 2.1.0                 |
 | WebSocket  | Flask-SocketIO, eventlet            | 5.3.6 / 0.33.3        |
+| 实时通信   | socket.io-client                    | ^4.8.1                 |
 | 数据序列化 | marshmallow, marshmallow-sqlalchemy | 3.20.1 / 0.29.0       |
 | 导入导出   | pandas, openpyxl, xlrd              | 2.1.4 / 3.1.2 / 2.0.1 |
 | 图片处理   | Pillow                              | 10.1.0                |
@@ -211,8 +213,16 @@ cp .env.example .env
 # 初始化数据库
 flask db upgrade
 
-# 启动开发服务器
+# 启动开发服务器（默认不启用实时协作）
 flask run --reload
+
+# 或使用 run.py 启动
+python run.py
+
+# 启用实时协作功能
+python run.py --enable-realtime
+# 或使用短参数
+python run.py -r
 ```
 
 #### 后端特性
@@ -223,6 +233,7 @@ flask run --reload
 - **权限管理**: 基于角色的权限控制
 - **数据迁移**: Alembic 数据库迁移工具
 - **API 文档**: 完整的 RESTful API
+- **实时协作**: 可选的 WebSocket 实时协作功能（通过 `--enable-realtime` 启用）
 
 ## 项目结构
 
@@ -235,6 +246,7 @@ smart-table/
 │   │   └── styles/          # SCSS 样式文件
 │   ├── components/          # Vue 组件
 │   │   ├── common/          # 通用组件（AppHeader, AppSidebar, Toast 等）
+│   │   ├── collaboration/   # 协作组件（OnlineUsers, CellEditingIndicator, ConflictDialog 等）
 │   │   ├── dialogs/         # 对话框组件（FieldDialog, FilterDialog, ImportDialog 等）
 │   │   ├── fields/          # 22 种字段类型组件
 │   │   ├── filters/         # 筛选功能组件
@@ -242,6 +254,7 @@ smart-table/
 │   │   ├── sorts/           # 排序功能组件
 │   │   └── views/           # 6 种视图组件
 │   ├── composables/         # 组合式函数
+│   │   └── useRealtimeCollaboration.ts  # 实时协作组合式函数
 │   ├── db/                  # 数据库层（IndexedDB）
 │   │   ├── services/        # 数据服务（base/table/field/record/view/dashboard）
 │   │   ├── schema.ts        # Dexie 数据库定义
@@ -249,11 +262,13 @@ smart-table/
 │   ├── layouts/             # 布局组件（MainLayout, BlankLayout）
 │   ├── router/              # Vue Router 配置
 │   ├── services/api/        # API 服务层
+│   ├── services/realtime/   # 实时协作服务层（Socket.IO 客户端、事件类型、事件总线）
 │   ├── stores/              # Pinia 状态管理
 │   │   ├── baseStore.ts     # 多维表格状态
 │   │   ├── tableStore.ts    # 数据表状态
 │   │   ├── viewStore.ts     # 视图状态
 │   │   ├── authStore.ts     # 认证状态
+│   │   ├── collaborationStore.ts  # 协作状态（在线用户、锁定单元格、离线队列）
 │   │   └── ...
 │   ├── types/               # TypeScript 类型定义
 │   │   ├── fields.ts        # 字段类型定义
@@ -290,7 +305,8 @@ smarttable-backend/
 │   │   ├── record.py        # 记录模型
 │   │   ├── view.py          # 视图模型
 │   │   ├── dashboard.py     # 仪表盘模型
-│   │   └── attachment.py    # 附件模型
+│   │   ├── attachment.py    # 附件模型
+│   │   └── collaboration_session.py  # 协作会话模型
 │   ├── services/            # 业务逻辑层
 │   │   ├── auth_service.py
 │   │   ├── base_service.py
@@ -300,7 +316,8 @@ smarttable-backend/
 │   │   ├── view_service.py
 │   │   ├── formula_service.py
 │   │   ├── dashboard_service.py
-│   │   └── attachment_service.py
+│   │   ├── attachment_service.py
+│   │   └── collaboration_service.py  # 协作服务（房间管理、在线状态、单元格锁定、广播）
 │   ├── routes/              # 路由层
 │   │   ├── auth.py
 │   │   ├── bases.py
@@ -309,7 +326,8 @@ smarttable-backend/
 │   │   ├── records.py
 │   │   ├── views.py
 │   │   ├── dashboards.py
-│   │   └── attachments.py
+│   │   ├── attachments.py
+│   │   └── realtime.py      # 实时协作状态 API（/api/realtime/status）
 │   └── utils/               # 工具模块
 ├── migrations/              # 数据库迁移
 ├── tests/                   # 测试目录
@@ -344,6 +362,12 @@ smarttable-backend/
 
 - 数据展示方式
 - 支持筛选、排序、分组配置
+
+### CollaborationSession（协作会话）
+
+- 实时协作会话追踪
+- 记录用户加入/离开、活跃状态
+- 仅在启用实时协作功能时使用
 
 ## 公式引擎
 
@@ -394,6 +418,75 @@ DATEDIF({开始日期}, {结束日期}, "D")
 - Firefox >= 88
 - Safari >= 14
 - Edge >= 90
+
+## 实时协作配置
+
+实时协作功能默认关闭，可通过启动参数或环境变量启用。
+
+### 启动参数
+
+```bash
+# 启用实时协作
+python run.py --enable-realtime
+# 或使用短参数
+python run.py -r
+
+# 不启用实时协作（默认行为）
+python run.py
+```
+
+### 环境变量
+
+```env
+# 启用实时协作
+ENABLE_REALTIME=true
+
+# SocketIO 消息队列（使用 Redis 时推荐）
+SOCKETIO_MESSAGE_QUEUE=redis://localhost:6379/1
+
+# SocketIO 心跳配置
+SOCKETIO_PING_TIMEOUT=60
+SOCKETIO_PING_INTERVAL=25
+```
+
+### Docker 部署
+
+在 `docker-compose.yml` 或 `.env` 文件中添加：
+
+```yaml
+environment:
+  - ENABLE_REALTIME=true
+```
+
+### 功能说明
+
+| 功能 | 说明 |
+|------|------|
+| 在线状态 | 显示当前正在编辑同一表格的用户 |
+| 视图同步 | 实时同步其他用户的视图切换和滚动位置 |
+| 单元格锁定 | 正在编辑的单元格自动锁定，防止冲突 |
+| 冲突检测 | 基于乐观锁的冲突检测，返回 409 状态码 |
+| 离线队列 | 断线时操作自动缓存，重连后自动重放 |
+| 优雅降级 | 实时协作不可用时自动降级为普通模式 |
+
+### API 端点
+
+| 端点 | 说明 |
+|------|------|
+| `GET /api/realtime/status` | 查询实时协作服务状态 |
+
+### Socket.IO 事件
+
+| 事件类别 | 事件名称 | 说明 |
+|---------|---------|------|
+| 房间 | `room:join` / `room:leave` | 加入/离开协作房间 |
+| 在线状态 | `presence:view_changed` / `presence:cell_selected` | 视图切换/单元格选中 |
+| 在线状态 | `presence:user_joined` / `presence:user_left` | 用户加入/离开通知 |
+| 锁定 | `lock:acquire` / `lock:release` | 获取/释放单元格锁 |
+| 锁定 | `lock:acquired` / `lock:released` | 锁定/解锁通知 |
+| 数据 | `data:record_updated` / `data:record_created` / `data:record_deleted` | 记录变更推送 |
+| 数据 | `data:field_updated` / `data:field_created` / `data:field_deleted` | 字段变更推送 |
+| 数据 | `data:view_updated` / `data:table_updated` / `data:table_created` / `data:table_deleted` | 视图/表格变更推送 |
 
 ## 开发计划
 
@@ -475,7 +568,7 @@ DATEDIF({开始日期}, {结束日期}, "D")
 - [ ] 单个视图分享
 - [x] 分享内容配置 ✅
 - [x] 分享菜单（我的分享/分享给我） ✅
-- [ ] 实时协作（基于 WebRTC/WebSocket）
+- [x] 实时协作（基于 WebSocket，支持在线状态、单元格锁定、冲突解决） ✅
 - [x] 操作历史记录 ✅
 - [ ] 评论批注功能
 

@@ -14,6 +14,7 @@ SmartTable 是一个功能强大的多维表格管理系统，支持：
 - 文件附件管理
 - 数据导入导出
 - 权限管理
+- 实时协作（可选，通过 `--enable-realtime` 启用）
 
 ## 技术栈
 
@@ -21,6 +22,7 @@ SmartTable 是一个功能强大的多维表格管理系统，支持：
 - **数据库**: PostgreSQL 16 + SQLAlchemy 2.0
 - **缓存**: Redis 7
 - **认证**: JWT (Flask-JWT-Extended)
+- **实时通信**: Flask-SocketIO 5.3.6 + eventlet 0.33.3
 - **迁移**: Alembic
 - **部署**: Docker + Docker Compose
 - **WSGI**: Gunicorn
@@ -66,6 +68,9 @@ flask db upgrade
 
 # 5. 启动开发服务器
 flask run --reload
+
+# 或启用实时协作
+python run.py --enable-realtime
 ```
 
 ## 项目结构
@@ -85,7 +90,8 @@ smarttable-backend/
 │   │   ├── record.py      # 记录模型
 │   │   ├── view.py        # 视图模型
 │   │   ├── dashboard.py   # 仪表盘模型
-│   │   └── attachment.py  # 附件模型
+│   │   ├── attachment.py  # 附件模型
+│   │   └── collaboration_session.py  # 协作会话模型
 │   ├── services/          # 业务逻辑层
 │   │   ├── auth_service.py
 │   │   ├── base_service.py
@@ -96,6 +102,7 @@ smarttable-backend/
 │   │   ├── formula_service.py
 │   │   ├── dashboard_service.py
 │   │   ├── attachment_service.py
+│   │   ├── collaboration_service.py  # 协作服务（房间、在线状态、锁定、广播）
 │   │   └── import_export_service.py
 │   ├── routes/            # 路由层
 │   │   ├── auth.py        # 认证路由
@@ -106,6 +113,7 @@ smarttable-backend/
 │   │   ├── views.py       # 视图路由
 │   │   ├── dashboards.py  # 仪表盘路由
 │   │   ├── attachments.py # 附件路由
+│   │   ├── realtime.py    # 实时协作状态路由
 │   │   └── import_export.py # 导入导出路由
 │   ├── utils/             # 工具模块
 │   │   ├── response.py    # 响应工具
@@ -161,6 +169,10 @@ pytest --cov=app --cov-report=html
 | JWT_SECRET_KEY | JWT密钥 | - |
 | UPLOAD_FOLDER | 上传目录 | ./uploads |
 | MAX_CONTENT_LENGTH | 最大上传大小 | 52428800 |
+| ENABLE_REALTIME | 启用实时协作 | false |
+| SOCKETIO_MESSAGE_QUEUE | SocketIO消息队列 | - |
+| SOCKETIO_PING_TIMEOUT | SocketIO心跳超时 | 60 |
+| SOCKETIO_PING_INTERVAL | SocketIO心跳间隔 | 25 |
 
 ## 主要功能
 
@@ -200,6 +212,33 @@ pytest --cov=app --cov-report=html
 - Excel/CSV/JSON格式
 - 批量导入
 - 数据备份
+
+### 8. 实时协作（可选）
+- 基于 Flask-SocketIO 的 WebSocket 实时通信
+- 房间管理（加入/离开协作房间）
+- 在线状态（用户加入/离开通知、视图切换、单元格选中）
+- 单元格锁定（编辑时自动锁定，防止冲突）
+- 数据变更广播（记录/字段/视图/表格变更实时推送）
+- 乐观锁冲突检测（`expected_updated_at` 参数，冲突返回 409）
+- 优雅降级（禁用时无额外资源开销）
+
+#### 启用方式
+
+```bash
+# 命令行参数
+python run.py --enable-realtime
+# 或
+python run.py -r
+
+# 环境变量
+ENABLE_REALTIME=true
+```
+
+#### API 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/realtime/status` | GET | 查询实时协作服务状态 |
 
 ## 许可证
 

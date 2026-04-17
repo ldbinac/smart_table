@@ -111,6 +111,25 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
+### 启用实时协作
+
+编辑 `.env` 文件，添加：
+
+```env
+ENABLE_REALTIME=true
+SOCKETIO_MESSAGE_QUEUE=redis://redis:6379/1
+```
+
+> **注意**：启用实时协作时，需使用完整部署模式（`docker-compose.full.yml`）以确保 Redis 服务可用。
+
+重新构建：
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
 ## 🐛 故障排查
 
 ### 查看日志

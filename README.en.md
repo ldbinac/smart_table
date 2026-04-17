@@ -65,6 +65,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - Search Feature - Quick search for tables and records
 - Dashboard - Support multiple chart components (number cards, charts, real-time data, etc.)
 - Sharing & Collaboration - Base-level sharing with share links and member management
+- Real-time Collaboration - WebSocket-based multi-user real-time collaboration with online presence, cell locking, and conflict resolution
 - Permission Management - Role-based access control (Owner/Admin/Editor/Commenter/Viewer)
 - Change History - Record change tracking and viewing functionality
 
@@ -116,6 +117,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 | Security & Encryption| Flask-Bcrypt, bcrypt                 | 1.0.1 / 4.1.2     |
 | Caching              | Flask-Caching (+ Redis Optional)     | 2.1.0             |
 | WebSocket            | Flask-SocketIO, eventlet             | 5.3.6 / 0.33.3    |
+| Real-time Client     | socket.io-client                    | ^4.8.1             |
 | Data Serialization   | marshmallow, marshmallow-sqlalchemy  | 3.20.1 / 0.29.0   |
 | Import/Export        | pandas, openpyxl, xlrd               | 2.1.4 / 3.1.2     |
 | Image Processing     | Pillow                               | 10.1.0            |
@@ -211,8 +213,16 @@ cp .env.example .env
 # Initialize database
 flask db upgrade
 
-# Start development server
+# Start development server (real-time collaboration disabled by default)
 flask run --reload
+
+# Or use run.py to start
+python run.py
+
+# Enable real-time collaboration
+python run.py --enable-realtime
+# Or use short flag
+python run.py -r
 ```
 
 #### Backend Features
@@ -223,6 +233,7 @@ flask run --reload
 - **Permission Management**: Role-based access control
 - **Database Migration**: Alembic migration tool
 - **API Documentation**: Complete RESTful API
+- **Real-time Collaboration**: Optional WebSocket real-time collaboration (enabled via `--enable-realtime`)
 
 ## Project Structure
 
@@ -235,6 +246,7 @@ smart-table/
 │   │   └── styles/          # SCSS style files
 │   ├── components/          # Vue components
 │   │   ├── common/          # Common components (AppHeader, AppSidebar, Toast, etc.)
+│   │   ├── collaboration/   # Collaboration components (OnlineUsers, CellEditingIndicator, ConflictDialog, etc.)
 │   │   ├── dialogs/         # Dialog components (FieldDialog, FilterDialog, ImportDialog, etc.)
 │   │   ├── fields/          # 22 field type components
 │   │   ├── filters/         # Filter components
@@ -242,6 +254,7 @@ smart-table/
 │   │   ├── sorts/           # Sort components
 │   │   └── views/           # 6 view components
 │   ├── composables/         # Composable functions
+│   │   └── useRealtimeCollaboration.ts  # Real-time collaboration composable
 │   ├── db/                  # Database layer (IndexedDB)
 │   │   ├── services/        # Data services (base/table/field/record/view/dashboard)
 │   │   ├── schema.ts        # Dexie database schema
@@ -249,11 +262,13 @@ smart-table/
 │   ├── layouts/             # Layout components (MainLayout, BlankLayout)
 │   ├── router/              # Vue Router config
 │   ├── services/api/        # API service layer
+│   ├── services/realtime/   # Real-time collaboration service (Socket.IO client, event types, event bus)
 │   ├── stores/              # Pinia state management
 │   │   ├── baseStore.ts     # Base state
 │   │   ├── tableStore.ts    # Table state
 │   │   ├── viewStore.ts     # View state
 │   │   ├── authStore.ts     # Authentication state
+│   │   ├── collaborationStore.ts  # Collaboration state (online users, locked cells, offline queue)
 │   │   └── ...
 │   ├── types/               # TypeScript type definitions
 │   │   ├── fields.ts        # Field type definitions
@@ -290,7 +305,8 @@ smarttable-backend/
 │   │   ├── record.py        # Record model
 │   │   ├── view.py          # View model
 │   │   ├── dashboard.py     # Dashboard model
-│   │   └── attachment.py    # Attachment model
+│   │   ├── attachment.py    # Attachment model
+│   │   └── collaboration_session.py  # Collaboration session model
 │   ├── services/            # Business logic layer
 │   │   ├── auth_service.py
 │   │   ├── base_service.py
@@ -300,7 +316,8 @@ smarttable-backend/
 │   │   ├── view_service.py
 │   │   ├── formula_service.py
 │   │   ├── dashboard_service.py
-│   │   └── attachment_service.py
+│   │   ├── attachment_service.py
+│   │   └── collaboration_service.py  # Collaboration service (room mgmt, presence, cell locking, broadcast)
 │   ├── routes/              # Routes layer
 │   │   ├── auth.py
 │   │   ├── bases.py
@@ -309,7 +326,8 @@ smarttable-backend/
 │   │   ├── records.py
 │   │   ├── views.py
 │   │   ├── dashboards.py
-│   │   └── attachments.py
+│   │   ├── attachments.py
+│   │   └── realtime.py      # Real-time collaboration status API (/api/realtime/status)
 │   └── utils/               # Utility modules
 ├── migrations/              # Database migrations
 ├── tests/                   # Test directory
@@ -344,6 +362,12 @@ smarttable-backend/
 
 - Data display method
 - Support filter, sort, and group configuration
+
+### CollaborationSession
+
+- Real-time collaboration session tracking
+- Records user join/leave and active status
+- Only used when real-time collaboration is enabled
 
 ## Formula Engine
 
@@ -394,6 +418,75 @@ DATEDIF({Start Date}, {End Date}, "D")
 - Firefox >= 88
 - Safari >= 14
 - Edge >= 90
+
+## Real-time Collaboration Configuration
+
+Real-time collaboration is disabled by default and can be enabled via startup parameters or environment variables.
+
+### Startup Parameters
+
+```bash
+# Enable real-time collaboration
+python run.py --enable-realtime
+# Or use short flag
+python run.py -r
+
+# Disable real-time collaboration (default behavior)
+python run.py
+```
+
+### Environment Variables
+
+```env
+# Enable real-time collaboration
+ENABLE_REALTIME=true
+
+# SocketIO message queue (recommended when using Redis)
+SOCKETIO_MESSAGE_QUEUE=redis://localhost:6379/1
+
+# SocketIO heartbeat configuration
+SOCKETIO_PING_TIMEOUT=60
+SOCKETIO_PING_INTERVAL=25
+```
+
+### Docker Deployment
+
+Add to `docker-compose.yml` or `.env` file:
+
+```yaml
+environment:
+  - ENABLE_REALTIME=true
+```
+
+### Feature Overview
+
+| Feature | Description |
+|---------|-------------|
+| Online Presence | Display users currently editing the same table |
+| View Sync | Real-time sync of view switching and scroll position |
+| Cell Locking | Automatically lock cells being edited to prevent conflicts |
+| Conflict Detection | Optimistic locking-based conflict detection, returns 409 status code |
+| Offline Queue | Operations are cached when disconnected and replayed on reconnection |
+| Graceful Degradation | Automatically degrades to normal mode when real-time collaboration is unavailable |
+
+### API Endpoint
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/realtime/status` | Query real-time collaboration service status |
+
+### Socket.IO Events
+
+| Category | Event Name | Description |
+|----------|------------|-------------|
+| Room | `room:join` / `room:leave` | Join/leave collaboration room |
+| Presence | `presence:view_changed` / `presence:cell_selected` | View switch/cell selection |
+| Presence | `presence:user_joined` / `presence:user_left` | User join/leave notification |
+| Lock | `lock:acquire` / `lock:release` | Acquire/release cell lock |
+| Lock | `lock:acquired` / `lock:released` | Lock acquired/released notification |
+| Data | `data:record_updated` / `data:record_created` / `data:record_deleted` | Record change push |
+| Data | `data:field_updated` / `data:field_created` / `data:field_deleted` | Field change push |
+| Data | `data:view_updated` / `data:table_updated` / `data:table_created` / `data:table_deleted` | View/table change push |
 
 ## Development Roadmap
 
@@ -475,7 +568,7 @@ DATEDIF({Start Date}, {End Date}, "D")
 - [ ] Single View Sharing
 - [x] Sharing Content Configuration ✅
 - [x] Sharing Menu (My Shares / Shared with Me) ✅
-- [ ] Real-time Collaboration (Based on WebRTC/WebSocket)
+- [x] Real-time Collaboration (WebSocket-based, with online presence, cell locking, conflict resolution) ✅
 - [x] Operation History Log ✅
 - [ ] Comment & Annotation Features
 
