@@ -72,14 +72,6 @@ export const useAdminStore = defineStore("admin", () => {
   ) {
     userLoading.value = true;
     try {
-      console.log("[adminStore] fetchUsers - 调用参数:", {
-        page: params.page || userPagination.value.page,
-        pageSize: params.pageSize || userPagination.value.pageSize,
-        search: params.search,
-        role: params.role,
-        status: params.status,
-      });
-
       const response = await adminApiService.getUserList({
         page: params.page || userPagination.value.page,
         pageSize: params.pageSize || userPagination.value.pageSize,
@@ -88,13 +80,6 @@ export const useAdminStore = defineStore("admin", () => {
         status: params.status,
       });
 
-      console.log("[adminStore] fetchUsers - API 返回:", response);
-      console.log("[adminStore] fetchUsers - response.items:", response.items);
-      console.log(
-        "[adminStore] fetchUsers - response.items 长度:",
-        response.items?.length,
-      );
-
       users.value = response.items;
       userPagination.value = {
         page: response.page,
@@ -102,15 +87,8 @@ export const useAdminStore = defineStore("admin", () => {
         total: response.total,
       };
 
-      console.log("[adminStore] fetchUsers - users.value:", users.value);
-      console.log(
-        "[adminStore] fetchUsers - users.value 长度:",
-        users.value.length,
-      );
-
       return response;
     } catch (error) {
-      console.error("[adminStore] fetchUsers failed:", error);
       throw error;
     } finally {
       userLoading.value = false;
@@ -131,10 +109,7 @@ export const useAdminStore = defineStore("admin", () => {
       ElMessage.success("用户创建成功");
       return newUser;
     } catch (error) {
-      console.error("[adminStore] createUser failed:", error);
       throw error;
-    } finally {
-      userLoading.value = false;
     }
   }
 
@@ -155,7 +130,6 @@ export const useAdminStore = defineStore("admin", () => {
       ElMessage.success("用户信息更新成功");
       return updatedUser;
     } catch (error) {
-      console.error("[adminStore] updateUser failed:", error);
       throw error;
     }
   }
@@ -167,7 +141,6 @@ export const useAdminStore = defineStore("admin", () => {
       userPagination.value.total -= 1;
       ElMessage.success("用户删除成功");
     } catch (error) {
-      console.error("[adminStore] deleteUser failed:", error);
       throw error;
     }
   }
@@ -185,7 +158,6 @@ export const useAdminStore = defineStore("admin", () => {
       ElMessage.success("用户状态更新成功");
       return updatedUser;
     } catch (error) {
-      console.error("[adminStore] updateUserStatus failed:", error);
       throw error;
     }
   }
@@ -200,7 +172,6 @@ export const useAdminStore = defineStore("admin", () => {
       }
       return result;
     } catch (error) {
-      console.error("[adminStore] resetUserPassword failed:", error);
       throw error;
     }
   }
@@ -208,31 +179,20 @@ export const useAdminStore = defineStore("admin", () => {
   async function fetchSystemConfigs() {
     configLoading.value = true;
     try {
-      // apiClient.get 返回 data 字段
-      // 后端返回的 data 格式：{"basic": {"site_name": "xxx", ...}, "email": {...}, ...}
       const groupedConfigs = await adminApiService.getSystemConfigs();
 
-      console.log(
-        "[adminStore] fetchSystemConfigs - 后端返回的分组配置:",
-        groupedConfigs,
-      );
-
-      // 将分组配置转换为扁平的 Map 结构，key 为配置键，value 为配置对象
       const configMap: Record<string, any> = {};
 
       if (groupedConfigs && typeof groupedConfigs === "object") {
-        // 遍历每个分组
         Object.keys(groupedConfigs).forEach((group) => {
           const groupData = groupedConfigs[group];
           if (groupData && typeof groupData === "object") {
-            // 遍历分组内的每个配置
             Object.keys(groupData).forEach((key) => {
               const value = groupData[key];
-              // 转换为前端期望的格式
               configMap[key] = {
                 key: key,
                 value: value,
-                config_value: value, // 兼容现有代码
+                config_value: value,
                 group: group,
               };
             });
@@ -240,11 +200,9 @@ export const useAdminStore = defineStore("admin", () => {
         });
       }
 
-      console.log("[adminStore] fetchSystemConfigs - 转换后的配置:", configMap);
       systemConfigs.value = configMap;
       return configMap;
     } catch (error) {
-      console.error("[adminStore] fetchSystemConfigs failed:", error);
       throw error;
     } finally {
       configLoading.value = false;
@@ -260,15 +218,10 @@ export const useAdminStore = defineStore("admin", () => {
     }>,
   ) {
     try {
-      // 后端返回格式：{"configs": [...]} 或直接返回分组配置
       const response = await adminApiService.updateSystemConfigs(configs);
 
-      console.log("[adminStore] updateSystemConfig - 后端返回:", response);
-
-      // 处理返回结果，转换为扁平的 Map 结构
       const configMap: Record<string, any> = {};
 
-      // 如果返回的是 {configs: [...]} 格式
       if (response && response.configs && Array.isArray(response.configs)) {
         response.configs.forEach((config: any) => {
           configMap[config.key] = {
@@ -277,7 +230,6 @@ export const useAdminStore = defineStore("admin", () => {
           };
         });
       }
-      // 如果返回的是分组配置格式
       else if (response && typeof response === "object") {
         Object.keys(response).forEach((group) => {
           const groupData = response[group];
@@ -299,7 +251,6 @@ export const useAdminStore = defineStore("admin", () => {
       ElMessage.success("系统配置更新成功");
       return configMap;
     } catch (error) {
-      console.error("[adminStore] updateSystemConfig failed:", error);
       throw error;
     }
   }
@@ -336,7 +287,6 @@ export const useAdminStore = defineStore("admin", () => {
 
       return response;
     } catch (error) {
-      console.error("[adminStore] fetchOperationLogs failed:", error);
       throw error;
     } finally {
       logLoading.value = false;
@@ -364,7 +314,6 @@ export const useAdminStore = defineStore("admin", () => {
       window.URL.revokeObjectURL(url);
       ElMessage.success("日志导出成功");
     } catch (error) {
-      console.error("[adminStore] exportOperationLogs failed:", error);
       throw error;
     }
   }
@@ -374,7 +323,6 @@ export const useAdminStore = defineStore("admin", () => {
       roles.value = await adminApiService.getRoles();
       return roles.value;
     } catch (error) {
-      console.error("[adminStore] fetchRoles failed:", error);
       throw error;
     }
   }
@@ -390,7 +338,6 @@ export const useAdminStore = defineStore("admin", () => {
   }, testEmail: string) {
     try {
       const response = await adminApiService.sendTestEmail(config, testEmail);
-      console.log("[adminStore] sendTestEmail - 后端返回:", response);
       
       if (response.success) {
         ElMessage.success(response.message || "测试邮件发送成功");
@@ -400,7 +347,6 @@ export const useAdminStore = defineStore("admin", () => {
         throw new Error(response.message);
       }
     } catch (error: any) {
-      console.error("[adminStore] sendTestEmail failed:", error);
       const errorMessage = error.response?.data?.message || error.message || "测试邮件发送失败";
       ElMessage.error(errorMessage);
       throw error;

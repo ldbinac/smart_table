@@ -78,5 +78,9 @@ export default defineConfig({
   },
   build: {
     sourcemap: process.env.NODE_ENV === 'development',
+    minify: 'esbuild',
+    esbuild: {
+      drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    },
   },
 });

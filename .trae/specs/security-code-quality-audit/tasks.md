@@ -25,10 +25,10 @@
   - [x] SubTask 1.4.3: 修复 GanttView.vue - 将匿名 scroll 监听器改为命名函数以便清理
   - [x] SubTask 1.4.4: 审计 theme.ts mediaQuery 监听器，评估是否需要清理机制
 
-- [ ] Task 1.5: 生产环境日志安全 - 清理 console.log
-  - [ ] SubTask 1.5.1: 扫描并移除所有包含敏感信息的 console.log（Token、API 响应等）
-  - [ ] SubTask 1.5.2: 配置 Vite 生产构建自动移除 console.log（drop_console）
-  - [ ] SubTask 1.5.3: 将必要的调试日志替换为条件日志（仅开发环境输出）
+- [x] Task 1.5: 生产环境日志安全 - 清理 console.log
+  - [x] SubTask 1.5.1: 扫描并移除所有包含敏感信息的 console.log（Token、API 响应等）
+  - [x] SubTask 1.5.2: 配置 Vite 生产构建自动移除 console.log（drop_console）
+  - [x] SubTask 1.5.3: 将必要的调试日志替换为条件日志（仅开发环境输出）
 
 ## Phase 2: Medium 优先级修复
 

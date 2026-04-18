@@ -27,9 +27,9 @@
 - [x] theme.ts mediaQuery 监听器有清理机制（cleanup 函数）
 
 ### 1.5 生产环境日志安全
-- [ ] 无 console.log 直接打印 Token、API 响应等敏感信息
-- [ ] Vite 生产构建配置 drop_console 自动移除 console.log
-- [ ] 必要的调试日志使用条件判断（仅开发环境输出）
+- [x] 无 console.log 直接打印 Token、API 响应等敏感信息
+- [x] Vite 生产构建配置 drop_console 自动移除 console.log
+- [x] 必要的调试日志使用条件判断（仅开发环境输出）
 
 ## Phase 2: Medium 优先级修复
 

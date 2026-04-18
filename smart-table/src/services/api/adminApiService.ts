@@ -74,15 +74,12 @@ export const getUserList = async (params: UserListParams): Promise<{
   // 将前端参数名映射为后端期望的参数名
   const backendParams: Record<string, any> = {
     page: params.page,
-    per_page: params.pageSize,  // 后端期望 per_page，前端使用 pageSize
+    per_page: params.pageSize,
     search: params.search,
     role: params.role,
     status: params.status,
   };
   
-  console.log('[adminApiService] getUserList - 发送请求参数:', backendParams);
-  
-  // apiClient.get 现在会返回整个响应对象 {data: [...], meta: {...}, success: true, message: "..."}
   const response = await apiClient.get<{
     data: User[];
     meta?: {
@@ -96,10 +93,6 @@ export const getUserList = async (params: UserListParams): Promise<{
       };
     };
   }>('/admin/users', backendParams);
-  
-  console.log('[adminApiService] getUserList - apiClient 返回:', response);
-  console.log('[adminApiService] getUserList - response.data:', response.data);
-  console.log('[adminApiService] getUserList - response.meta:', response.meta);
   
   return {
     items: response.data || [],
