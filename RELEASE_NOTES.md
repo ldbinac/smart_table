@@ -1,10 +1,148 @@
-# SmartTable v1.0.0 Release Notes
+# SmartTable Release Notes
 
 ## 版本发布说明 / Release Notes
 
 ---
 
+# SmartTable v1.1.0 Release Notes
+
+**发布日期 / Release Date**: 2026-04-18
+
+**版本号 / Version**: v1.1.0
+
+**标签 / Tags**: `release`, `v1.1.0`, `stable`
+
+---
+
 ## 中文版本
+
+### 🎉 SmartTable v1.1.0 更新说明
+
+本次更新带来了多项重要功能增强和安全改进，包括实时协作功能、邮件服务系统、全面的安全加固以及多项Bug修复。
+
+### ✨ 新增功能
+
+#### 🚀 实时协作功能
+- **WebSocket 实时同步** - 基于 WebSocket 的实时数据同步，支持多用户同时编辑
+- **协作状态显示** - 显示当前正在编辑的用户信息
+- **用户姓名字段** - 支持显示协作用户的真实姓名
+
+#### 📧 邮件服务系统
+- **完整邮件模块** - 实现完整的邮件服务功能模块
+- **邮件队列服务** - 支持异步邮件发送，提高系统响应速度
+- **密码找回功能** - 通过邮件实现密码重置功能
+- **修改密码功能** - 用户可在设置中修改密码
+
+#### 🔒 安全增强
+- **XSS 防护** - 使用 DOMPurify 实现 HTML 消毒，防止 XSS 攻击
+- **安全响应头** - 添加 X-Content-Type-Options、X-Frame-Options、X-XSS-Protection 等安全响应头
+- **API 速率限制** - 防止暴力破解和恶意请求，超出限制返回 429 状态码
+- **文件上传安全** - 增强 Magic Number 和 MIME Type 验证，移除 SVG 等高风险文件类型
+- **异常信息安全** - 统一异常处理，防止内部错误信息泄露
+- **生产日志安全** - 生产环境自动移除 console.log，防止敏感信息泄露
+
+#### 🎨 UI/UX 改进
+- **侧边栏悬浮菜单** - 收起状态下支持悬浮二级菜单
+- **多维表格复制** - 支持一键复制多维表格
+- **验证码功能** - 登录和注册流程增加验证码验证
+- **评分字段** - 新增评分字段类型支持
+- **日期格式化** - 日期字段值支持格式化显示
+
+#### 🐳 部署支持
+- **Docker 部署** - 添加完整的 Docker 部署配置和文档
+- **远程访问** - 开发服务器支持远程访问
+
+### 🐛 Bug 修复
+
+- 修复仪表盘配置界面刷新报错问题
+- 修复前端内存泄漏问题（多个组件事件监听器未清理）
+- 修复密码重置路由验证绕过问题
+- 修复取消收藏接口 HTTP 方法错误
+- 修复 SQLAlchemy 无法检测 config 变更的问题
+- 修复时区问题，统一使用 UTC 时间
+- 修复前端安全漏洞问题
+- 修复表单验证错误处理和重置逻辑
+
+### 🔧 优化改进
+
+- 优化记录详情抽屉底部按钮布局
+- 优化模板同步流程
+- 优化错误处理机制
+- 完善基础数据删除时的级联删除逻辑
+
+### 📝 文档更新
+
+- 添加安全与代码质量审计报告
+- 添加实时协作功能规格说明
+- 添加群组管理系统规格文档
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.1.0 Release Notes
+
+This release brings significant feature enhancements and security improvements, including real-time collaboration, email service system, comprehensive security hardening, and multiple bug fixes.
+
+### ✨ New Features
+
+#### 🚀 Real-time Collaboration
+- **WebSocket Real-time Sync** - Real-time data synchronization based on WebSocket, supporting multi-user simultaneous editing
+- **Collaboration Status Display** - Shows information about users currently editing
+- **User Name Field** - Support for displaying collaborator's real names
+
+#### 📧 Email Service System
+- **Complete Email Module** - Fully implemented email service functionality
+- **Email Queue Service** - Asynchronous email sending for improved system responsiveness
+- **Password Recovery** - Password reset via email
+- **Change Password** - Users can change password in settings
+
+#### 🔒 Security Enhancements
+- **XSS Protection** - HTML sanitization using DOMPurify to prevent XSS attacks
+- **Security Headers** - Added X-Content-Type-Options, X-Frame-Options, X-XSS-Protection security headers
+- **API Rate Limiting** - Prevent brute force attacks and malicious requests, returns 429 status code when exceeded
+- **File Upload Security** - Enhanced Magic Number and MIME Type validation, removed SVG and other high-risk file types
+- **Exception Information Security** - Unified exception handling to prevent internal error information leakage
+- **Production Log Security** - Automatic removal of console.log in production to prevent sensitive information leakage
+
+#### 🎨 UI/UX Improvements
+- **Sidebar Hover Menu** - Floating secondary menu in collapsed state
+- **Base Duplication** - One-click base duplication
+- **CAPTCHA Feature** - Added CAPTCHA verification for login and registration
+- **Rating Field** - New rating field type support
+- **Date Formatting** - Date field values support formatted display
+
+#### 🐳 Deployment Support
+- **Docker Deployment** - Complete Docker deployment configuration and documentation
+- **Remote Access** - Development server supports remote access
+
+### 🐛 Bug Fixes
+
+- Fixed dashboard configuration page refresh error
+- Fixed frontend memory leak issues (multiple component event listeners not cleaned up)
+- Fixed password reset route validation bypass issue
+- Fixed incorrect HTTP method for unstar API
+- Fixed SQLAlchemy config change detection issue
+- Fixed timezone issues, unified UTC time usage
+- Fixed frontend security vulnerabilities
+- Fixed form validation error handling and reset logic
+
+### 🔧 Improvements
+
+- Optimized record detail drawer bottom button layout
+- Optimized template synchronization process
+- Optimized error handling mechanism
+- Improved cascade deletion logic for base data
+
+### 📝 Documentation Updates
+
+- Added security and code quality audit report
+- Added real-time collaboration feature specification
+- Added group management system specification document
+
+---
+
+# SmartTable v1.0.0 Release Notes
 
 ### 🎉 欢迎使用 SmartTable v1.0.0
 
