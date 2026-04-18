@@ -15,10 +15,10 @@
 - [x] 统一的异常处理工具函数已创建并使用
 
 ### 1.3 前端 XSS 防护
-- [ ] DOMPurify 已安装并创建 sanitizeHtml 工具函数
-- [ ] EmailTemplates.vue 中 v-html 渲染前经过 DOMPurify 消毒
-- [ ] Dashboard.vue 和 DashboardShare.vue 中所有 innerHTML 插值点经过转义
-- [ ] Home.vue 搜索高亮 v-html 确认转义正确
+- [x] DOMPurify 已安装并创建 sanitizeHtml 工具函数
+- [x] EmailTemplates.vue 中 v-html 渲染前经过 DOMPurify 消毒
+- [x] Dashboard.vue 和 DashboardShare.vue 中所有 innerHTML 插值点经过转义
+- [x] Home.vue 搜索高亮 v-html 确认转义正确
 
 ### 1.4 前端内存泄漏修复
 - [x] EmailStats.vue 在 onUnmounted 中清理 resize 监听器

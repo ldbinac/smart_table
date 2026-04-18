@@ -75,7 +75,7 @@
               />
             </el-tab-pane>
             <el-tab-pane label="预览">
-              <div class="html-preview" v-html="form.content_html" />
+              <div class="html-preview" v-html="sanitizedFormHtml" />
             </el-tab-pane>
           </el-tabs>
         </el-form-item>
@@ -130,17 +130,18 @@
             <span>{{ previewData.subject }}</span>
           </div>
         </div>
-        <div class="preview-body" v-html="previewData.content_html" />
+        <div class="preview-body" v-html="sanitizedPreviewHtml" />
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { emailApiService } from '@/services/api/emailApiService'
+import { sanitizeEmailHtml } from '@/utils/sanitize'
 
 interface EmailTemplate {
   id: string
@@ -181,6 +182,10 @@ const previewData = ref({
   subject: '',
   content_html: ''
 })
+
+const sanitizedFormHtml = computed(() => sanitizeEmailHtml(form.value.content_html))
+
+const sanitizedPreviewHtml = computed(() => sanitizeEmailHtml(previewData.value.content_html))
 
 const formatDate = (date: string) => {
   if (!date) return '-'

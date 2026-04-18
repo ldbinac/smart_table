@@ -1212,9 +1212,9 @@ function getChartOption(
       formatter: (params: any) => {
         if (Array.isArray(params)) {
           const p = params[0];
-          return `<div style="font-weight: 600; margin-bottom: 4px;">${p.name}</div><div style="color: ${freshColors.primary}; font-weight: 500;">${formatLargeNumber(p.value)}</div>`;
+          return `<div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(p.name)}</div><div style="color: ${freshColors.primary}; font-weight: 500;">${formatLargeNumber(p.value)}</div>`;
         }
-        return `<div style="font-weight: 600; margin-bottom: 4px;">${params.name}</div><div style="color: ${freshColors.primary}; font-weight: 500;">${formatLargeNumber(params.value)} (${params.percent}%)</div>`;
+        return `<div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(params.name)}</div><div style="color: ${freshColors.primary}; font-weight: 500;">${formatLargeNumber(params.value)} (${params.percent}%)</div>`;
       },
     },
     grid: {
