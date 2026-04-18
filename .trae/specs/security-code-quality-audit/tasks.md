@@ -19,11 +19,11 @@
   - [ ] SubTask 1.3.3: 审计 Dashboard.vue 和 DashboardShare.vue 中 38 处 innerHTML，确保所有用户输入经过转义
   - [ ] SubTask 1.3.4: 审计 Home.vue 中 v-html 搜索高亮，确认转义处理正确
 
-- [ ] Task 1.4: 前端内存泄漏修复
-  - [ ] SubTask 1.4.1: 修复 EmailStats.vue - 添加 onUnmounted 清理 resize 监听器
-  - [ ] SubTask 1.4.2: 修复 Home.vue - 添加 onUnmounted 清理自定义事件监听器
-  - [ ] SubTask 1.4.3: 修复 GanttView.vue - 将匿名 scroll 监听器改为命名函数以便清理
-  - [ ] SubTask 1.4.4: 审计 theme.ts mediaQuery 监听器，评估是否需要清理机制
+- [x] Task 1.4: 前端内存泄漏修复
+  - [x] SubTask 1.4.1: 修复 EmailStats.vue - 添加 onUnmounted 清理 resize 监听器
+  - [x] SubTask 1.4.2: 修复 Home.vue - 添加 onUnmounted 清理自定义事件监听器
+  - [x] SubTask 1.4.3: 修复 GanttView.vue - 将匿名 scroll 监听器改为命名函数以便清理
+  - [x] SubTask 1.4.4: 审计 theme.ts mediaQuery 监听器，评估是否需要清理机制
 
 - [ ] Task 1.5: 生产环境日志安全 - 清理 console.log
   - [ ] SubTask 1.5.1: 扫描并移除所有包含敏感信息的 console.log（Token、API 响应等）

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from "vue";
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/authStore";
@@ -322,13 +322,22 @@ const clearSearch = () => {
   window.dispatchEvent(new CustomEvent("home-search-clear"));
 };
 
+// 搜索事件处理函数（命名函数以便清理）
+const handleSearchQueryChange = (event: Event) => {
+  const customEvent = event as CustomEvent;
+  searchQuery.value = customEvent.detail.query;
+};
+
 onMounted(async () => {
   await baseStore.fetchBases();
 
   // 监听来自 AppHeader 的搜索事件
-  window.addEventListener("home-search-query-change", ((event: CustomEvent) => {
-    searchQuery.value = event.detail.query;
-  }) as EventListener);
+  window.addEventListener("home-search-query-change", handleSearchQueryChange as EventListener);
+});
+
+onUnmounted(() => {
+  // 清理事件监听器
+  window.removeEventListener("home-search-query-change", handleSearchQueryChange as EventListener);
 });
 
 // 加载分享给我的数据

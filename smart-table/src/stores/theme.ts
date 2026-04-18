@@ -42,12 +42,20 @@ export const useThemeStore = defineStore("theme", () => {
 
   watch(theme, updateDarkMode, { immediate: true });
 
+  // 系统主题变化处理函数（命名函数以便清理）
   const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  mediaQuery.addEventListener("change", () => {
+  const handleMediaQueryChange = () => {
     if (theme.value === "system") {
       updateDarkMode();
     }
-  });
+  };
+  
+  mediaQuery.addEventListener("change", handleMediaQueryChange);
+
+  // 清理函数（用于测试或特殊场景）
+  function cleanup() {
+    mediaQuery.removeEventListener("change", handleMediaQueryChange);
+  }
 
   return {
     theme,
@@ -55,5 +63,6 @@ export const useThemeStore = defineStore("theme", () => {
     setTheme,
     toggleTheme,
     updateDarkMode,
+    cleanup,
   };
 });

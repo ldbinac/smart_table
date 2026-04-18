@@ -21,10 +21,10 @@
 - [ ] Home.vue 搜索高亮 v-html 确认转义正确
 
 ### 1.4 前端内存泄漏修复
-- [ ] EmailStats.vue 在 onUnmounted 中清理 resize 监听器
-- [ ] Home.vue 在 onUnmounted 中清理自定义事件监听器
-- [ ] GanttView.vue scroll 监听器使用命名函数，可在 onBeforeUnmount 中清理
-- [ ] theme.ts mediaQuery 监听器有清理机制或合理说明
+- [x] EmailStats.vue 在 onUnmounted 中清理 resize 监听器
+- [x] Home.vue 在 onUnmounted 中清理自定义事件监听器
+- [x] GanttView.vue scroll 监听器使用命名函数，可在 onBeforeUnmount 中清理
+- [x] theme.ts mediaQuery 监听器有清理机制（cleanup 函数）
 
 ### 1.5 生产环境日志安全
 - [ ] 无 console.log 直接打印 Token、API 响应等敏感信息

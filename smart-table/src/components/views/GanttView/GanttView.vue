@@ -461,6 +461,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cleanupRealtimeListenersForView();
+  cleanupScrollSync();
 });
 
 const collabStore = useCollaborationStore();
@@ -520,10 +521,25 @@ function setupScrollSync() {
 
   if (!contentEl || !headerEl) return;
 
-  // 内容区域滚动时同步表头
-  contentEl.addEventListener("scroll", () => {
+  // 内容区域滚动时同步表头（命名函数以便清理）
+  const handleScroll = () => {
     headerEl.scrollLeft = contentEl.scrollLeft;
-  });
+  };
+  
+  contentEl.addEventListener("scroll", handleScroll);
+  
+  // 保存引用以便清理
+  scrollSyncHandler = { contentEl, handleScroll };
+}
+
+// 清理滚动同步监听器
+let scrollSyncHandler: { contentEl: HTMLElement; handleScroll: () => void } | null = null;
+
+function cleanupScrollSync() {
+  if (scrollSyncHandler) {
+    scrollSyncHandler.contentEl.removeEventListener("scroll", scrollSyncHandler.handleScroll);
+    scrollSyncHandler = null;
+  }
 }
 
 watch(
