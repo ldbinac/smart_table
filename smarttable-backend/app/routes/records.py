@@ -16,7 +16,7 @@ from app.schemas.record_schema import (
     batch_update_schema
 )
 from app.utils.response import success_response, error_response, paginated_response
-from app.utils.decorators import jwt_required, role_required
+from app.utils.decorators import jwt_required, role_required, query_rate_limit, write_rate_limit
 from app.models.record_history import RecordHistory
 from app.models.field import FieldType
 from app.models.base import MemberRole
@@ -28,6 +28,7 @@ records_bp.strict_slashes = False
 
 @records_bp.route('/tables/<table_id>/records', methods=['GET'])
 @jwt_required
+@query_rate_limit(max_queries=200, window=60)
 def get_records(table_id) -> tuple:
     """
     获取表格记录列表
@@ -107,6 +108,7 @@ def get_records(table_id) -> tuple:
 
 @records_bp.route('/tables/<table_id>/records', methods=['POST'])
 @jwt_required
+@write_rate_limit(max_writes=100, window=60)
 def create_record(table_id) -> tuple:
     """
     创建记录
@@ -153,6 +155,7 @@ def create_record(table_id) -> tuple:
 
 @records_bp.route('/tables/<table_id>/records/batch', methods=['POST'])
 @jwt_required
+@write_rate_limit(max_writes=50, window=60)
 def batch_create_records(table_id) -> tuple:
     """
     批量创建记录
@@ -231,6 +234,7 @@ def get_record(record_id) -> tuple:
 
 @records_bp.route('/records/<record_id>', methods=['PUT'])
 @jwt_required
+@write_rate_limit(max_writes=100, window=60)
 def update_record(record_id) -> tuple:
     """
     更新记录
@@ -276,6 +280,7 @@ def update_record(record_id) -> tuple:
 
 @records_bp.route('/records/batch', methods=['PUT'])
 @jwt_required
+@write_rate_limit(max_writes=50, window=60)
 def batch_update_records() -> tuple:
     """
     批量更新记录
@@ -335,6 +340,7 @@ def batch_update_records() -> tuple:
 
 @records_bp.route('/records/<record_id>', methods=['DELETE'])
 @jwt_required
+@write_rate_limit(max_writes=100, window=60)
 def delete_record(record_id) -> tuple:
     """
     删除记录
@@ -363,6 +369,7 @@ def delete_record(record_id) -> tuple:
 
 @records_bp.route('/records/batch', methods=['DELETE'])
 @jwt_required
+@write_rate_limit(max_writes=50, window=60)
 def batch_delete_records() -> tuple:
     """
     批量删除记录

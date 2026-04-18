@@ -50,10 +50,10 @@
 - [ ] localStorage/sessionStorage 中 Token 键名已混淆
 
 ### 2.4 API 速率限制
-- [ ] 数据查询 API 有速率限制
-- [ ] 文件上传 API 有速率限制
-- [ ] 记录操作 API 有速率限制
-- [ ] 超出限制返回 429 状态码
+- [x] 数据查询 API 有速率限制
+- [x] 文件上传 API 有速率限制
+- [x] 记录操作 API 有速率限制
+- [x] 超出限制返回 429 状态码
 
 ### 2.5 安全响应头
 - [ ] 所有 HTTP 响应包含 X-Content-Type-Options: nosniff

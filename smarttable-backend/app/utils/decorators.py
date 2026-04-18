@@ -617,3 +617,175 @@ def clear_login_attempts(identifier: str):
     lockout_key = f"login_lockout:{identifier}"
     cache.delete(cache_key)
     cache.delete(lockout_key)
+
+
+def api_rate_limit(
+    max_requests: int = 100,
+    window: int = 60,
+    key_prefix: str = 'api',
+    by_user: bool = True,
+    by_ip: bool = True
+) -> Callable:
+    """
+    通用 API 速率限制装饰器
+    
+    限制单位时间内的 API 请求次数，防止滥用和 DoS 攻击
+    
+    Args:
+        max_requests: 最大请求数（默认 100 次）
+        window: 时间窗口（秒，默认 60 秒）
+        key_prefix: 缓存键前缀（用于区分不同类型的 API）
+        by_user: 是否按用户限制（默认 True）
+        by_ip: 是否按 IP 限制（默认 True）
+        
+    Returns:
+        装饰器函数
+        
+    使用示例:
+        @api_rate_limit(max_requests=50, window=60, key_prefix='query')
+        def get_records():
+            ...
+    """
+    def decorator(fn: Callable) -> Callable:
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            identifiers = []
+            
+            # 按用户限制
+            if by_user:
+                try:
+                    verify_jwt_in_request(optional=True)
+                    user_id = get_jwt_identity()
+                    if user_id:
+                        identifiers.append(f"user:{user_id}")
+                except:
+                    pass
+            
+            # 按 IP 限制
+            if by_ip:
+                client_ip = get_client_ip()
+                identifiers.append(f"ip:{client_ip}")
+            
+            # 如果没有任何标识符，使用 IP
+            if not identifiers:
+                identifiers.append(f"ip:{get_client_ip()}")
+            
+            # 检查所有限制
+            for identifier in identifiers:
+                cache_key = f"rate_limit:{key_prefix}:{identifier}"
+                
+                # 获取当前请求计数
+                request_data = cache.get(cache_key)
+                current_time = time.time()
+                
+                if request_data is None:
+                    # 首次请求
+                    request_data = {
+                        'count': 1,
+                        'first_request': current_time
+                    }
+                    cache.set(cache_key, request_data, timeout=window)
+                else:
+                    # 检查时间窗口是否过期
+                    if current_time - request_data['first_request'] > window:
+                        # 重置计数
+                        request_data = {
+                            'count': 1,
+                            'first_request': current_time
+                        }
+                        cache.set(cache_key, request_data, timeout=window)
+                    else:
+                        # 增加计数
+                        request_data['count'] += 1
+                        
+                        # 检查是否超过限制
+                        if request_data['count'] > max_requests:
+                            remaining_time = int(window - (current_time - request_data['first_request']))
+                            return error_response(
+                                message=f'请求过于频繁，请 {remaining_time} 秒后再试',
+                                code=429,
+                                error='too_many_requests'
+                            )
+                        
+                        # 更新缓存
+                        cache.set(cache_key, request_data, timeout=window)
+            
+            return fn(*args, **kwargs)
+        
+        return wrapper
+    return decorator
+
+
+def upload_rate_limit(
+    max_uploads: int = 20,
+    window: int = 3600
+) -> Callable:
+    """
+    文件上传速率限制装饰器
+    
+    限制单位时间内的文件上传次数，防止存储滥用
+    
+    Args:
+        max_uploads: 最大上传次数（默认 20 次/小时）
+        window: 时间窗口（秒，默认 1 小时 = 3600 秒）
+        
+    Returns:
+        装饰器函数
+    """
+    return api_rate_limit(
+        max_requests=max_uploads,
+        window=window,
+        key_prefix='upload',
+        by_user=True,
+        by_ip=True
+    )
+
+
+def query_rate_limit(
+    max_queries: int = 200,
+    window: int = 60
+) -> Callable:
+    """
+    数据查询速率限制装饰器
+    
+    限制单位时间内的数据查询次数，防止数据库过载
+    
+    Args:
+        max_queries: 最大查询次数（默认 200 次/分钟）
+        window: 时间窗口（秒，默认 60 秒）
+        
+    Returns:
+        装饰器函数
+    """
+    return api_rate_limit(
+        max_requests=max_queries,
+        window=window,
+        key_prefix='query',
+        by_user=True,
+        by_ip=True
+    )
+
+
+def write_rate_limit(
+    max_writes: int = 100,
+    window: int = 60
+) -> Callable:
+    """
+    数据写入速率限制装饰器
+    
+    限制单位时间内的数据写入次数，防止恶意写入
+    
+    Args:
+        max_writes: 最大写入次数（默认 100 次/分钟）
+        window: 时间窗口（秒，默认 60 秒）
+        
+    Returns:
+        装饰器函数
+    """
+    return api_rate_limit(
+        max_requests=max_writes,
+        window=window,
+        key_prefix='write',
+        by_user=True,
+        by_ip=True
+    )

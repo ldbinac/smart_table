@@ -6,7 +6,7 @@ from flask import Blueprint, request, g
 
 from app.services.base_service import BaseService
 from app.models.base import MemberRole
-from app.utils.decorators import jwt_required
+from app.utils.decorators import jwt_required, query_rate_limit
 from app.utils.response import (
     success_response, error_response, not_found_response, 
     forbidden_response, validation_error_response
@@ -19,6 +19,7 @@ bases_bp.strict_slashes = False
 
 @bases_bp.route('/', methods=['GET'])
 @jwt_required
+@query_rate_limit(max_queries=100, window=60)
 def get_bases() -> tuple:
     """
     获取当前用户的所有基础数据列表

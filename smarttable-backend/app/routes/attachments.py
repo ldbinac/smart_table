@@ -8,7 +8,7 @@ from flask import Blueprint, request, g, send_file, current_app
 from app.services.attachment_service import AttachmentService
 from app.services.base_service import BaseService
 from app.models.base import MemberRole
-from app.utils.decorators import jwt_required
+from app.utils.decorators import jwt_required, upload_rate_limit
 from app.utils.response import (
     success_response, error_response, not_found_response,
     forbidden_response, paginated_response
@@ -21,6 +21,7 @@ attachments_bp.strict_slashes = False
 
 @attachments_bp.route('/upload', methods=['POST'])
 @jwt_required
+@upload_rate_limit(max_uploads=20, window=3600)
 def upload_attachment() -> tuple:
     """
     上传附件

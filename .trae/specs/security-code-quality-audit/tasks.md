@@ -47,11 +47,11 @@
   - [ ] SubTask 2.3.3: 修改 Token 刷新逻辑适配新的存储方式
   - [ ] SubTask 2.3.4: 混淆 localStorage/sessionStorage 中的 Token 键名
 
-- [ ] Task 2.4: API 速率限制扩展
-  - [ ] SubTask 2.4.1: 创建全局速率限制中间件/装饰器
-  - [ ] SubTask 2.4.2: 对数据查询 API 添加速率限制
-  - [ ] SubTask 2.4.3: 对文件上传 API 添加速率限制
-  - [ ] SubTask 2.4.4: 对记录操作 API 添加速率限制
+- [x] Task 2.4: API 速率限制扩展
+  - [x] SubTask 2.4.1: 创建全局速率限制中间件/装饰器
+  - [x] SubTask 2.4.2: 对数据查询 API 添加速率限制
+  - [x] SubTask 2.4.3: 对文件上传 API 添加速率限制
+  - [x] SubTask 2.4.4: 对记录操作 API 添加速率限制
 
 - [ ] Task 2.5: 安全响应头配置
   - [ ] SubTask 2.5.1: 安装 Flask-Talisman 或创建安全头中间件
