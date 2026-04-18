@@ -224,7 +224,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"创建用户失败：{str(e)}")
-            return None, f'创建用户失败：{str(e)}'
+            return None, '创建用户失败，请稍后重试'
     
     @staticmethod
     def update_user(
@@ -294,7 +294,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"更新用户失败：{str(e)}")
-            return None, f'更新用户失败：{str(e)}'
+            return None, '更新用户失败，请稍后重试'
     
     @staticmethod
     def delete_user(user_id: str) -> Tuple[bool, Optional[str]]:
@@ -342,7 +342,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"删除用户失败：{str(e)}")
-            return False, f'删除用户失败：{str(e)}'
+            return False, '删除用户失败，请稍后重试'
     
     @staticmethod
     def suspend_user(user_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -393,7 +393,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"暂停用户失败：{str(e)}")
-            return None, f'暂停用户失败：{str(e)}'
+            return None, '暂停用户失败，请稍后重试'
     
     @staticmethod
     def activate_user(user_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -444,7 +444,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"激活用户失败：{str(e)}")
-            return None, f'激活用户失败：{str(e)}'
+            return None, '激活用户失败，请稍后重试'
     
     @staticmethod
     def reset_password(
@@ -504,7 +504,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"重置用户密码失败：{str(e)}")
-            return None, f'重置密码失败：{str(e)}'
+            return None, '重置密码失败，请稍后重试'
     
     @staticmethod
     def log_operation(
@@ -812,7 +812,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"删除配置失败：{str(e)}")
-            return False, f'删除配置失败：{str(e)}'
+            return False, '删除配置失败，请稍后重试'
     
     @staticmethod
     def _get_encryption_key(secret_key: str) -> bytes:
@@ -928,13 +928,13 @@ class AdminService:
             return False, 'SMTP 认证失败，请检查用户名和密码'
         except smtplib.SMTPConnectError:
             return False, '无法连接到 SMTP 服务器，请检查服务器地址和端口'
-        except smtplib.SMTPException as e:
-            return False, f'SMTP 错误：{str(e)}'
+        except smtplib.SMTPException:
+            return False, 'SMTP 连接错误，请检查配置'
         except ValueError:
             return False, 'SMTP 端口格式错误'
         except Exception as e:
             logger.error(f"验证 SMTP 配置失败：{str(e)}")
-            return False, f'验证失败：{str(e)}'
+            return False, '验证失败，请稍后重试'
     
     @staticmethod
     def send_test_email(config_data: Dict[str, Any], test_email: str, secret_key: str) -> Tuple[bool, Optional[str]]:
@@ -1026,8 +1026,8 @@ class AdminService:
             return False, '无法连接到 SMTP 服务器，请检查服务器地址和端口'
         except smtplib.SMTPRecipientsRefused:
             return False, '收件人地址被拒绝'
-        except smtplib.SMTPException as e:
-            return False, f'SMTP 错误：{str(e)}'
+        except smtplib.SMTPException:
+            return False, 'SMTP 连接错误，请检查配置'
         except Exception as e:
             logger.error(f"发送测试邮件失败：{str(e)}")
-            return False, f'发送失败：{str(e)}'
+            return False, '发送失败，请稍后重试'

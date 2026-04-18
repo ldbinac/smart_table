@@ -97,7 +97,7 @@ class EmailSenderService:
             raise ConnectionError(f'无法连接到 SMTP 服务器：{self._config["host"]}:{self._config["port"]}')
         except Exception as e:
             logger.error(f'SMTP 连接失败：{str(e)}')
-            raise ConnectionError(f'SMTP 连接失败：{str(e)}')
+            raise ConnectionError('SMTP 连接失败，请检查配置')
 
     def close(self) -> None:
         """
@@ -281,7 +281,7 @@ class EmailSenderService:
                     template_data
                 )
         except Exception as e:
-            return False, f'渲染模板失败：{str(e)}'
+            return False, '渲染模板失败，请检查模板格式'
 
         # 发送邮件
         return self.send_email(
@@ -343,7 +343,7 @@ class EmailSenderService:
             return False, str(e)
         except Exception as e:
             logger.error(f'快速发送邮件失败：{str(e)}')
-            return False, f'发送失败：{str(e)}'
+            return False, '发送失败，请稍后重试'
 
     def is_connected(self) -> bool:
         """

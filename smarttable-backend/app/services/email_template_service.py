@@ -295,7 +295,7 @@ class EmailTemplateService:
             logger.error(f'获取模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'获取模板失败：{str(e)}'
+                'error': '获取模板失败，请稍后重试'
             }
 
     @staticmethod
@@ -336,7 +336,7 @@ class EmailTemplateService:
 
         except Exception as e:
             logger.error(f'渲染模板失败：{str(e)}')
-            raise ValueError(f'渲染模板失败：{str(e)}')
+            raise ValueError('渲染模板失败，请检查模板格式')
 
     @staticmethod
     def get_all_templates() -> Dict[str, Any]:
@@ -379,7 +379,7 @@ class EmailTemplateService:
             logger.error(f'获取所有模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'获取模板失败：{str(e)}'
+                'error': '获取模板列表失败，请稍后重试'
             }
 
     @staticmethod
@@ -458,7 +458,7 @@ class EmailTemplateService:
             logger.error(f'更新模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'更新模板失败：{str(e)}'
+                'error': '更新模板失败，请稍后重试'
             }
 
     @staticmethod
@@ -522,7 +522,7 @@ class EmailTemplateService:
             logger.error(f'重置模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'重置模板失败：{str(e)}'
+                'error': '重置模板失败，请稍后重试'
             }
 
     @staticmethod
@@ -567,7 +567,7 @@ class EmailTemplateService:
             logger.error(f'删除模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'删除模板失败：{str(e)}'
+                'error': '删除模板失败，请稍后重试'
             }
 
     @staticmethod
@@ -600,5 +600,5 @@ class EmailTemplateService:
             logger.error(f'搜索模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'搜索模板失败：{str(e)}'
+                'error': '搜索模板失败，请稍后重试'
             }

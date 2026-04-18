@@ -86,7 +86,7 @@ class AuthService:
             
         except Exception as e:
             db.session.rollback()
-            return None, f'注册失败: {str(e)}'
+            return None, '注册失败，请稍后重试'
     
     @staticmethod
     def authenticate_user(email: str, password: str) -> Tuple[Optional[User], Optional[str]]:
@@ -364,7 +364,7 @@ class AuthService:
             )
             db.session.commit()
 
-            return False, f'密码修改失败: {str(e)}'
+            return False, '密码修改失败，请稍后重试'
     
     @staticmethod
     def get_current_user(user_id: str) -> Optional[User]:

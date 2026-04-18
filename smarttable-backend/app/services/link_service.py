@@ -139,7 +139,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 创建关联关系失败: {str(e)}')
-            return None, f'创建关联关系失败: {str(e)}'
+            return None, '创建关联关系失败，请稍后重试'
 
     @staticmethod
     def update_link_relation(link_relation_id: str, data: Dict[str, Any]) -> Tuple[Optional[LinkRelation], Optional[str]]:
@@ -182,7 +182,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 更新关联关系失败: {str(e)}')
-            return None, f'更新关联关系失败: {str(e)}'
+            return None, '更新关联关系失败，请稍后重试'
 
     @staticmethod
     def delete_link_relation(link_relation_id: str) -> Tuple[bool, Optional[str]]:
@@ -221,7 +221,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 删除关联关系失败: {str(e)}')
-            return False, f'删除关联关系失败: {str(e)}'
+            return False, '删除关联关系失败，请稍后重试'
 
     @staticmethod
     def get_link_relation_by_field(field_id: str, target_table_id: str = None) -> Optional[LinkRelation]:
@@ -328,7 +328,7 @@ class LinkService:
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 获取关联记录失败: {str(e)}')
-            return None, f'获取关联记录失败: {str(e)}'
+            return None, '获取关联记录失败，请稍后重试'
 
     @staticmethod
     def update_link_values(
@@ -433,7 +433,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 更新关联值失败: {str(e)}')
-            return False, f'更新关联值失败: {str(e)}'
+            return False, '更新关联值失败，请稍后重试'
 
     @staticmethod
     def _sync_bidirectional_links(
@@ -549,7 +549,7 @@ class LinkService:
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 双向关联同步失败: {str(e)}')
-            return False, str(e)
+            return False, '双向关联同步失败，请稍后重试'
 
     @staticmethod
     def sync_bidirectional_link(link_relation_id: str) -> Tuple[bool, Optional[str]]:
@@ -606,7 +606,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 双向关联同步失败: {str(e)}')
-            return False, f'双向关联同步失败: {str(e)}'
+            return False, '双向关联同步失败，请稍后重试'
 
     @staticmethod
     def get_table_link_relations(table_id: str) -> List[LinkRelation]:
@@ -689,7 +689,7 @@ class LinkService:
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 验证关联约束失败: {str(e)}')
-            return False, f'验证失败: {str(e)}'
+            return False, '验证失败，请稍后重试'
 
     @staticmethod
     def get_record_links(record_id: str, use_cache: bool = True) -> Dict[str, List[Dict[str, Any]]]:
@@ -962,4 +962,4 @@ class LinkService:
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 创建关联字段失败: {str(e)}')
-            return {'success': False, 'error': f'创建关联字段失败: {str(e)}'}
+            return {'success': False, 'error': '创建关联字段失败，请稍后重试'}

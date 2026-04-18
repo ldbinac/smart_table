@@ -72,7 +72,7 @@ class EmailLogService:
             logger.error(f'记录邮件发送日志失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'记录日志失败：{str(e)}'
+                'error': '记录日志失败，请稍后重试'
             }
 
     @staticmethod
@@ -110,7 +110,7 @@ class EmailLogService:
             logger.error(f'标记邮件发送状态失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'更新状态失败：{str(e)}'
+                'error': '更新状态失败，请稍后重试'
             }
 
     @staticmethod
@@ -149,7 +149,7 @@ class EmailLogService:
             logger.error(f'标记邮件失败状态失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'更新状态失败：{str(e)}'
+                'error': '更新状态失败，请稍后重试'
             }
 
     @staticmethod
@@ -187,7 +187,7 @@ class EmailLogService:
             logger.error(f'标记邮件重试状态失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'更新状态失败：{str(e)}'
+                'error': '更新状态失败，请稍后重试'
             }
 
     @staticmethod
@@ -290,7 +290,7 @@ class EmailLogService:
             logger.error(f'查询邮件日志失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'查询日志失败：{str(e)}'
+                'error': '查询日志失败，请稍后重试'
             }
 
     @staticmethod
@@ -322,7 +322,7 @@ class EmailLogService:
             logger.error(f'获取邮件日志详情失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'获取日志详情失败：{str(e)}'
+                'error': '获取日志详情失败，请稍后重试'
             }
 
     @staticmethod
@@ -439,7 +439,7 @@ class EmailLogService:
             logger.error(f'获取邮件统计失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'获取统计失败：{str(e)}'
+                'error': '获取统计失败，请稍后重试'
             }
 
     @staticmethod
@@ -466,7 +466,7 @@ class EmailLogService:
             logger.error(f'获取待发送邮件失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'获取待发送邮件失败：{str(e)}'
+                'error': '获取待发送邮件失败，请稍后重试'
             }
 
     @staticmethod
@@ -499,7 +499,7 @@ class EmailLogService:
             logger.error(f'获取失败邮件失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'获取失败邮件失败：{str(e)}'
+                'error': '获取失败邮件失败，请稍后重试'
             }
 
     @staticmethod
@@ -540,5 +540,5 @@ class EmailLogService:
             logger.error(f'删除旧邮件日志失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'删除旧日志失败：{str(e)}'
+                'error': '删除旧日志失败，请稍后重试'
             }

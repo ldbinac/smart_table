@@ -111,7 +111,7 @@ class EmailRetryService:
             logger.error(f'安排邮件重试失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'安排重试失败：{str(e)}'
+                'error': '安排重试失败，请稍后重试'
             }
 
     @staticmethod
@@ -306,7 +306,7 @@ class EmailRetryService:
             logger.error(f'处理待发送邮件失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'处理失败：{str(e)}',
+                'error': '处理失败，请稍后重试',
                 'results': results
             }
 
@@ -382,10 +382,10 @@ class EmailRetryService:
 
         except Exception as e:
             logger.error(f'重试邮件失败：{str(e)}')
-            EmailLogService.mark_as_failed(log_id, str(e))
+            EmailLogService.mark_as_failed(log_id, '重试发送失败')
             return {
                 'success': False,
-                'error': f'重试失败：{str(e)}'
+                'error': '重试失败，请稍后重试'
             }
 
     @staticmethod
@@ -449,7 +449,7 @@ class EmailRetryService:
             logger.error(f'获取重试统计失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'获取统计失败：{str(e)}'
+                'error': '获取统计失败，请稍后重试'
             }
 
     @staticmethod
@@ -495,5 +495,5 @@ class EmailRetryService:
             logger.error(f'取消邮件重试失败：{str(e)}')
             return {
                 'success': False,
-                'error': f'取消失败：{str(e)}'
+                'error': '取消失败，请稍后重试'
             }

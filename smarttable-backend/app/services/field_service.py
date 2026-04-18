@@ -215,7 +215,7 @@ class FieldService:
             }
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': f'创建字段失败: {str(e)}'}
+            return {'success': False, 'error': '创建字段失败，请稍后重试'}
     
     @staticmethod
     def update_field(field_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -316,7 +316,7 @@ class FieldService:
             }
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': f'更新字段失败: {str(e)}'}
+            return {'success': False, 'error': '更新字段失败，请稍后重试'}
     
     @staticmethod
     def delete_field(field_id: str) -> Dict[str, Any]:
@@ -369,7 +369,7 @@ class FieldService:
             return {'success': True}
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': f'删除字段失败: {str(e)}'}
+            return {'success': False, 'error': '删除字段失败，请稍后重试'}
     
     @staticmethod
     def reorder_fields(table_id: str, field_orders: List[Dict[str, Any]]) -> bool:
@@ -451,7 +451,7 @@ class FieldService:
             }
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': f'复制字段失败: {str(e)}'}
+            return {'success': False, 'error': '复制字段失败，请稍后重试'}
     
     @staticmethod
     def validate_field_value(field_id: str, value: Any) -> Dict[str, Any]:

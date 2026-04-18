@@ -83,7 +83,7 @@ class EmailConfigService:
             return decrypted.decode()
         except Exception as e:
             logger.error(f'解密 SMTP 密码失败：{str(e)}')
-            raise ValueError(f'解密密码失败：{str(e)}')
+            raise ValueError('解密密码失败，请检查配置')
 
     @staticmethod
     def encrypt_password(password: str, secret_key: Optional[str] = None) -> str:
@@ -112,7 +112,7 @@ class EmailConfigService:
             return encrypted.decode()
         except Exception as e:
             logger.error(f'加密 SMTP 密码失败：{str(e)}')
-            raise ValueError(f'加密密码失败：{str(e)}')
+            raise ValueError('加密密码失败，请稍后重试')
 
     @staticmethod
     def get_email_config() -> Dict[str, Any]:
@@ -304,7 +304,7 @@ class EmailConfigService:
         except Exception as e:
             db.session.rollback()
             logger.error(f'保存邮件配置失败：{str(e)}')
-            return {'success': False, 'error': f'保存配置失败：{str(e)}'}
+            return {'success': False, 'error': '保存配置失败，请稍后重试'}
 
     @staticmethod
     def test_config() -> Dict[str, Any]:
@@ -352,8 +352,8 @@ class EmailConfigService:
             return {'success': False, 'error': 'SMTP 认证失败，请检查用户名和密码'}
         except smtplib.SMTPConnectError:
             return {'success': False, 'error': '无法连接到 SMTP 服务器，请检查服务器地址和端口'}
-        except smtplib.SMTPException as e:
-            return {'success': False, 'error': f'SMTP 错误：{str(e)}'}
+        except smtplib.SMTPException:
+            return {'success': False, 'error': 'SMTP 连接错误，请检查配置'}
         except Exception as e:
             logger.error(f'测试邮件配置失败：{str(e)}')
-            return {'success': False, 'error': f'测试失败：{str(e)}'}
+            return {'success': False, 'error': '测试失败，请稍后重试'}

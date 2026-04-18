@@ -1129,4 +1129,4 @@ class BaseService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[BaseService] 复制 Base 失败：{base_id}, 错误：{str(e)}')
-            return {'success': False, 'error': f'复制失败：{str(e)}'}
+            return {'success': False, 'error': '复制失败，请稍后重试'}
