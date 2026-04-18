@@ -18,39 +18,39 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 | Category | Field Type    | Status |
 | -------- | ------------- | ------ |
-| Basic    | Text          | ✅     |
-| Basic    | Number        | ✅     |
-| Basic    | Date          | ✅     |
-| Basic    | Single Select | ✅     |
-| Basic    | Multi Select  | ✅     |
-| Basic    | Checkbox      | ✅     |
-| Contact  | Member        | ✅     |
-| Contact  | Phone         | ✅     |
-| Contact  | Email         | ✅     |
-| Contact  | URL           | ✅     |
-| Media    | Attachment    | ✅     |
-| Computed | Formula       | ✅     |
-| Computed | Link          | ✅     |
-| Computed | Lookup        | ✅     |
-| System   | Created By    | ✅     |
-| System   | Created Time  | ✅     |
-| System   | Updated By    | ✅     |
-| System   | Updated Time  | ✅     |
-| System   | Auto Number   | ✅     |
-| Others   | Rating        | ✅     |
-| Others   | Progress      | ✅     |
-| Others   | URL           | ✅     |
+| Basic    | Text          | ✅      |
+| Basic    | Number        | ✅      |
+| Basic    | Date          | ✅      |
+| Basic    | Single Select | ✅      |
+| Basic    | Multi Select  | ✅      |
+| Basic    | Checkbox      | ✅      |
+| Contact  | Member        | ✅      |
+| Contact  | Phone         | ✅      |
+| Contact  | Email         | ✅      |
+| Contact  | URL           | ✅      |
+| Media    | Attachment    | ✅      |
+| Computed | Formula       | ✅      |
+| Computed | Link          | ✅      |
+| Computed | Lookup        | ✅      |
+| System   | Created By    | ✅      |
+| System   | Created Time  | ✅      |
+| System   | Updated By    | ✅      |
+| System   | Updated Time  | ✅      |
+| System   | Auto Number   | ✅      |
+| Others   | Rating        | ✅      |
+| Others   | Progress      | ✅      |
+| Others   | URL           | ✅      |
 
 ### Supported View Types (6 Types)
 
-| View Type     | Description                                                 | Status |
-| ------------- | ----------------------------------------------------------- | ------ |
-| Table View    | Classic table display with virtual scroll and column freeze | ✅     |
-| Kanban View   | Card-based display with drag sorting                        | ✅     |
-| Calendar View | Time-based display                                          | ✅     |
-| Gantt View    | Project timeline display                                    | ✅     |
-| Form View     | Data collection form with sharing                           | ✅     |
-| Gallery View  | Image card display                                          | ✅     |
+| View Type     | Description                              | Status |
+| ------------- | ---------------------------------------- | ------ |
+| Table View    | Classic table display with virtual scroll and column freeze | ✅      |
+| Kanban View   | Card-based display with drag sorting     | ✅      |
+| Calendar View | Time-based display                       | ✅      |
+| Gantt View    | Project timeline display                 | ✅      |
+| Form View     | Data collection form with sharing        | ✅      |
+| Gallery View  | Image card display                       | ✅      |
 
 ### Advanced Features
 
@@ -71,13 +71,13 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 ## Feature Preview
 
-| Feature     | Preview                               | Feature       | Preview                                   |
-| ----------- | ------------------------------------- | ------------- | ----------------------------------------- |
-| Home        | ![Home](./doc/home.jpeg)              | Home          | ![Home2](./doc/home-all.jpeg)             |
-| Table View  | ![Table View](./doc/TableView.jpeg)   | Table View    | ![Table View](./doc/TableViewGroup.jpeg)  |
-| Kanban View | ![Kanban View](./doc/KanbanView.jpeg) | Calendar View | ![Calendar View](./doc/CalendarView.jpeg) |
-| Gantt View  | ![Gantt View](./doc/GanttView.jpeg)   | Form View     | ![Form View](./doc/FormView.jpeg)         |
-| Form View   | ![Form View](./doc/FormView.jpeg)     | Dashboard     | ![Dashboard](./doc/Dashboard.jpeg)        |
+| Feature     | Preview                                  | Feature       | Preview                                  |
+| ----------- | ---------------------------------------- | ------------- | ---------------------------------------- |
+| Home        | ![Home](./doc/img/home.jpeg)             | Home          | ![Home2](./doc/img/home-all.jpeg)        |
+| Table View  | ![Table View](./doc/img/TableView.jpeg)  | Table View    | ![Table View](./doc/img/TableViewGroup.jpeg) |
+| Kanban View | ![Kanban View](./doc/img/KanbanView.jpeg) | Calendar View | ![Calendar View](./doc/img/CalendarView.jpeg) |
+| Gantt View  | ![Gantt View](./doc/img/GanttView.jpeg)  | Form View     | ![Form View](./doc/img/FormView.jpeg)    |
+| Form View   | ![Form View](./doc/img/FormView.jpeg)    | Dashboard     | ![Dashboard](./doc/img/Dashboard.jpeg)   |
 
 ## Tech Stack
 
@@ -100,28 +100,28 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 ### Data Storage Options
 
-| Mode               | Technology         | Description                                                           |
-| ------------------ | ------------------ | --------------------------------------------------------------------- |
-| Pure Frontend Mode | Dexie (IndexedDB)  | Data stored in browser locally, no server required                    |
-| Backend Mode       | SQLite + Flask     | Default SQLite, supports PostgreSQL via environment variable          |
+| Mode               | Technology        | Description                              |
+| ------------------ | ----------------- | ---------------------------------------- |
+| Pure Frontend Mode | Dexie (IndexedDB) | Data stored in browser locally, no server required |
+| Backend Mode       | SQLite + Flask    | Default SQLite, supports PostgreSQL via environment variable |
 
 ### Backend Tech Stack (Optional)
 
-| Category             | Technology                           | Version           |
-| -------------------- | ------------------------------------ | ----------------- |
-| Framework            | Flask                                | 3.0.0             |
-| Database             | SQLite (Default) / PostgreSQL        | 3.x / 16          |
-| ORM                  | SQLAlchemy                           | 2.0               |
-| Database Migration   | Alembic (Flask-Migrate)              | -                 |
-| Authentication       | JWT (Flask-JWT-Extended)             | 4.6.0             |
-| Security & Encryption| Flask-Bcrypt, bcrypt                 | 1.0.1 / 4.1.2     |
-| Caching              | Flask-Caching (+ Redis Optional)     | 2.1.0             |
-| WebSocket            | Flask-SocketIO, eventlet             | 5.3.6 / 0.33.3    |
-| Real-time Client     | socket.io-client                    | ^4.8.1             |
-| Data Serialization   | marshmallow, marshmallow-sqlalchemy  | 3.20.1 / 0.29.0   |
-| Import/Export        | pandas, openpyxl, xlrd               | 2.1.4 / 3.1.2     |
-| Image Processing     | Pillow                               | 10.1.0            |
-| Deployment           | Gunicorn, Docker                     | 21.2.0            |
+| Category              | Technology                          | Version         |
+| --------------------- | ----------------------------------- | --------------- |
+| Framework             | Flask                               | 3.0.0           |
+| Database              | SQLite (Default) / PostgreSQL       | 3.x / 16        |
+| ORM                   | SQLAlchemy                          | 2.0             |
+| Database Migration    | Alembic (Flask-Migrate)             | -               |
+| Authentication        | JWT (Flask-JWT-Extended)            | 4.6.0           |
+| Security & Encryption | Flask-Bcrypt, bcrypt                | 1.0.1 / 4.1.2   |
+| Caching               | Flask-Caching (+ Redis Optional)    | 2.1.0           |
+| WebSocket             | Flask-SocketIO, eventlet            | 5.3.6 / 0.33.3  |
+| Real-time Client      | socket.io-client                    | ^4.8.1          |
+| Data Serialization    | marshmallow, marshmallow-sqlalchemy | 3.20.1 / 0.29.0 |
+| Import/Export         | pandas, openpyxl, xlrd              | 2.1.4 / 3.1.2   |
+| Image Processing      | Pillow                              | 10.1.0          |
+| Deployment            | Gunicorn, Docker                    | 21.2.0          |
 
 ## Quick Start
 
@@ -460,33 +460,33 @@ environment:
 
 ### Feature Overview
 
-| Feature | Description |
-|---------|-------------|
-| Online Presence | Display users currently editing the same table |
-| View Sync | Real-time sync of view switching and scroll position |
-| Cell Locking | Automatically lock cells being edited to prevent conflicts |
-| Conflict Detection | Optimistic locking-based conflict detection, returns 409 status code |
-| Offline Queue | Operations are cached when disconnected and replayed on reconnection |
+| Feature              | Description                              |
+| -------------------- | ---------------------------------------- |
+| Online Presence      | Display users currently editing the same table |
+| View Sync            | Real-time sync of view switching and scroll position |
+| Cell Locking         | Automatically lock cells being edited to prevent conflicts |
+| Conflict Detection   | Optimistic locking-based conflict detection, returns 409 status code |
+| Offline Queue        | Operations are cached when disconnected and replayed on reconnection |
 | Graceful Degradation | Automatically degrades to normal mode when real-time collaboration is unavailable |
 
 ### API Endpoint
 
-| Endpoint | Description |
-|----------|-------------|
+| Endpoint                   | Description                              |
+| -------------------------- | ---------------------------------------- |
 | `GET /api/realtime/status` | Query real-time collaboration service status |
 
 ### Socket.IO Events
 
-| Category | Event Name | Description |
-|----------|------------|-------------|
-| Room | `room:join` / `room:leave` | Join/leave collaboration room |
-| Presence | `presence:view_changed` / `presence:cell_selected` | View switch/cell selection |
-| Presence | `presence:user_joined` / `presence:user_left` | User join/leave notification |
-| Lock | `lock:acquire` / `lock:release` | Acquire/release cell lock |
-| Lock | `lock:acquired` / `lock:released` | Lock acquired/released notification |
-| Data | `data:record_updated` / `data:record_created` / `data:record_deleted` | Record change push |
-| Data | `data:field_updated` / `data:field_created` / `data:field_deleted` | Field change push |
-| Data | `data:view_updated` / `data:table_updated` / `data:table_created` / `data:table_deleted` | View/table change push |
+| Category | Event Name                               | Description                         |
+| -------- | ---------------------------------------- | ----------------------------------- |
+| Room     | `room:join` / `room:leave`               | Join/leave collaboration room       |
+| Presence | `presence:view_changed` / `presence:cell_selected` | View switch/cell selection          |
+| Presence | `presence:user_joined` / `presence:user_left` | User join/leave notification        |
+| Lock     | `lock:acquire` / `lock:release`          | Acquire/release cell lock           |
+| Lock     | `lock:acquired` / `lock:released`        | Lock acquired/released notification |
+| Data     | `data:record_updated` / `data:record_created` / `data:record_deleted` | Record change push                  |
+| Data     | `data:field_updated` / `data:field_created` / `data:field_deleted` | Field change push                   |
+| Data     | `data:view_updated` / `data:table_updated` / `data:table_created` / `data:table_deleted` | View/table change push              |
 
 ## Development Roadmap
 
