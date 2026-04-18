@@ -13,11 +13,11 @@
   - [x] SubTask 1.2.2: 扫描并修复所有服务层中 str(e) 直接返回客户端的位置（50+ 处）
   - [x] SubTask 1.2.3: 确保异常详情仅记录到服务端日志，返回通用错误消息
 
-- [ ] Task 1.3: 前端 XSS 防护 - v-html 和 innerHTML 加固
-  - [ ] SubTask 1.3.1: 安装 DOMPurify 依赖，创建 sanitizeHtml 工具函数
-  - [ ] SubTask 1.3.2: 修复 EmailTemplates.vue 中 v-html 渲染，添加 DOMPurify 消毒
-  - [ ] SubTask 1.3.3: 审计 Dashboard.vue 和 DashboardShare.vue 中 38 处 innerHTML，确保所有用户输入经过转义
-  - [ ] SubTask 1.3.4: 审计 Home.vue 中 v-html 搜索高亮，确认转义处理正确
+- [x] Task 1.3: 前端 XSS 防护 - v-html 和 innerHTML 加固
+  - [x] SubTask 1.3.1: 安装 DOMPurify 依赖，创建 sanitizeHtml 工具函数
+  - [x] SubTask 1.3.2: 修复 EmailTemplates.vue 中 v-html 渲染，添加 DOMPurify 消毒
+  - [x] SubTask 1.3.3: 审计 Dashboard.vue 和 DashboardShare.vue 中 38 处 innerHTML，确保所有用户输入经过转义
+  - [x] SubTask 1.3.4: 审计 Home.vue 中 v-html 搜索高亮，确认转义处理正确
 
 - [x] Task 1.4: 前端内存泄漏修复
   - [x] SubTask 1.4.1: 修复 EmailStats.vue - 添加 onUnmounted 清理 resize 监听器
@@ -66,22 +66,22 @@
 
 ## Phase 3: 验证与报告
 
-- [ ] Task 3.1: 安全修复验证
-  - [ ] SubTask 3.1.1: 验证 XSS 修复 - 测试 v-html 和 innerHTML 不再执行恶意脚本
-  - [ ] SubTask 3.1.2: 验证异常信息安全 - 确认 API 响应不包含内部错误详情
-  - [ ] SubTask 3.1.3: 验证密码重置安全 - 测试弱密码被拒绝
-  - [ ] SubTask 3.1.4: 验证文件上传安全 - 测试伪造扩展名的文件被拒绝
-  - [ ] SubTask 3.1.5: 验证速率限制 - 测试超出限制返回 429
+- [x] Task 3.1: 安全修复验证
+  - [x] SubTask 3.1.1: 验证 XSS 修复 - 测试 v-html 和 innerHTML 不再执行恶意脚本
+  - [x] SubTask 3.1.2: 验证异常信息安全 - 确认 API 响应不包含内部错误详情
+  - [x] SubTask 3.1.3: 验证密码重置安全 - 测试弱密码被拒绝
+  - [x] SubTask 3.1.4: 验证文件上传安全 - 测试伪造扩展名的文件被拒绝
+  - [x] SubTask 3.1.5: 验证速率限制 - 测试超出限制返回 429
 
-- [ ] Task 3.2: 代码质量验证
-  - [ ] SubTask 3.2.1: 验证内存泄漏修复 - 组件卸载后无残留监听器
-  - [ ] SubTask 3.2.2: 验证 console.log 清理 - 生产构建无调试输出
-  - [ ] SubTask 3.2.3: 验证 TypeScript 类型改进 - 无新增 any 类型警告
+- [x] Task 3.2: 代码质量验证
+  - [x] SubTask 3.2.1: 验证内存泄漏修复 - 组件卸载后无残留监听器
+  - [x] SubTask 3.2.2: 验证 console.log 清理 - 生产构建无调试输出
+  - [x] SubTask 3.2.3: 验证 TypeScript 类型改进 - 无新增 any 类型警告
 
-- [ ] Task 3.3: 生成审计报告
-  - [ ] SubTask 3.3.1: 汇总所有修复项和验证结果
-  - [ ] SubTask 3.3.2: 生成安全审计报告文档
-  - [ ] SubTask 3.3.3: 列出仍需关注的风险项和后续改进建议
+- [x] Task 3.3: 生成审计报告
+  - [x] SubTask 3.3.1: 汇总所有修复项和验证结果
+  - [x] SubTask 3.3.2: 生成安全审计报告文档
+  - [x] SubTask 3.3.3: 列出仍需关注的风险项和后续改进建议
 
 # Task Dependencies
 
