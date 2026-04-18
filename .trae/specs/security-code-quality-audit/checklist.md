@@ -56,11 +56,11 @@
 - [x] 超出限制返回 429 状态码
 
 ### 2.5 安全响应头
-- [ ] 所有 HTTP 响应包含 X-Content-Type-Options: nosniff
-- [ ] 所有 HTTP 响应包含 X-Frame-Options: DENY
-- [ ] 所有 HTTP 响应包含 X-XSS-Protection: 1; mode=block
-- [ ] 配置了 Content-Security-Policy
-- [ ] 生产环境配置了 Strict-Transport-Security
+- [x] 所有 HTTP 响应包含 X-Content-Type-Options: nosniff
+- [x] 所有 HTTP 响应包含 X-Frame-Options: DENY
+- [x] 所有 HTTP 响应包含 X-XSS-Protection: 1; mode=block
+- [x] 配置了 Content-Security-Policy
+- [x] 生产环境配置了 Strict-Transport-Security
 
 ### 2.6 TypeScript 类型安全
 - [ ] Base.vue、TableView.vue、adminStore.ts 中关键 any 类型已替换

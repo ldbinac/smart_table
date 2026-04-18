@@ -53,11 +53,11 @@
   - [x] SubTask 2.4.3: 对文件上传 API 添加速率限制
   - [x] SubTask 2.4.4: 对记录操作 API 添加速率限制
 
-- [ ] Task 2.5: 安全响应头配置
-  - [ ] SubTask 2.5.1: 安装 Flask-Talisman 或创建安全头中间件
-  - [ ] SubTask 2.5.2: 配置 X-Content-Type-Options、X-Frame-Options、X-XSS-Protection
-  - [ ] SubTask 2.5.3: 配置 Content-Security-Policy
-  - [ ] SubTask 2.5.4: 生产环境配置 Strict-Transport-Security (HSTS)
+- [x] Task 2.5: 安全响应头配置
+  - [x] SubTask 2.5.1: 安装 Flask-Talisman 或创建安全头中间件
+  - [x] SubTask 2.5.2: 配置 X-Content-Type-Options、X-Frame-Options、X-XSS-Protection
+  - [x] SubTask 2.5.3: 配置 Content-Security-Policy
+  - [x] SubTask 2.5.4: 生产环境配置 Strict-Transport-Security (HSTS)
 
 - [ ] Task 2.6: TypeScript 类型安全改进
   - [ ] SubTask 2.6.1: 修复关键文件中的 any 类型（Base.vue、TableView.vue、adminStore.ts）

@@ -88,6 +88,10 @@ def init_extensions(app):
             socketio_kwargs['message_queue'] = message_queue
         socketio.init_app(app, **socketio_kwargs)
     
+    # 初始化安全响应头中间件
+    from app.middleware import init_security_headers
+    init_security_headers(app)
+    
     # 注册 JWT 回调函数
     register_jwt_callbacks(jwt)
 
