@@ -36,10 +36,10 @@
   - [x] SubTask 2.1.1: 修改 auth.py reset-password 路由，使用 PasswordResetConfirmSchema 验证
   - [x] SubTask 2.1.2: 添加测试用例验证密码强度要求生效
 
-- [ ] Task 2.2: 文件上传安全加固
-  - [ ] SubTask 2.2.1: 添加文件内容验证（Magic Number / MIME Type 检查）
-  - [ ] SubTask 2.2.2: 对 SVG 文件进行消毒处理或从允许列表中移除
-  - [ ] SubTask 2.2.3: 添加文件上传安全测试用例
+- [x] Task 2.2: 文件上传安全加固
+  - [x] SubTask 2.2.1: 添加文件内容验证（Magic Number / MIME Type 检查）
+  - [x] SubTask 2.2.2: 对 SVG 文件进行消毒处理或从允许列表中移除
+  - [x] SubTask 2.2.3: 添加文件上传安全测试用例
 
 - [ ] Task 2.3: Token 存储安全改造
   - [ ] SubTask 2.3.1: 后端添加 Refresh Token 的 HttpOnly Cookie 设置

@@ -39,9 +39,9 @@
 - [x] 密码强度要求：大写字母 + 小写字母 + 数字，至少 8 位
 
 ### 2.2 文件上传安全
-- [ ] 文件上传验证文件实际内容（Magic Number / MIME Type）
-- [ ] SVG 文件经过消毒处理或已从允许列表移除
-- [ ] 伪造扩展名的恶意文件被拒绝上传
+- [x] 文件上传验证文件实际内容（Magic Number / MIME Type）
+- [x] SVG 文件已从允许列表移除
+- [x] 伪造扩展名的恶意文件被拒绝上传
 
 ### 2.3 Token 存储安全
 - [ ] Refresh Token 通过 HttpOnly + Secure + SameSite Cookie 存储
