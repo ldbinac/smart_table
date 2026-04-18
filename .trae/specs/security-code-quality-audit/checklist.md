@@ -34,9 +34,9 @@
 ## Phase 2: Medium 优先级修复
 
 ### 2.1 密码重置安全
-- [ ] reset-password 路由使用 PasswordResetConfirmSchema 验证
-- [ ] 弱密码（如全小写 8 位）被拒绝
-- [ ] 密码强度要求：大写字母 + 小写字母 + 数字，至少 8 位
+- [x] reset-password 路由使用 PasswordResetConfirmSchema 验证
+- [x] 弱密码（如全小写 8 位）被拒绝
+- [x] 密码强度要求：大写字母 + 小写字母 + 数字，至少 8 位
 
 ### 2.2 文件上传安全
 - [ ] 文件上传验证文件实际内容（Magic Number / MIME Type）

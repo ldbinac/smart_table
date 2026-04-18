@@ -21,7 +21,8 @@ from app.schemas.user_schema import (
     user_login_schema,
     user_update_schema,
     change_password_schema,
-    user_profile_schema
+    user_profile_schema,
+    password_reset_confirm_schema
 )
 from app.utils.response import (
     success_response,
@@ -695,15 +696,14 @@ def reset_password() -> tuple:
     if not data:
         return error_response('请求体不能为空', code=400)
     
-    token = data.get('token')
-    new_password = data.get('new_password')
+    # 使用 Schema 验证请求参数（包含密码强度验证）
+    try:
+        validated_data = password_reset_confirm_schema.load(data)
+    except ValidationError as err:
+        return validation_error_response(err.messages)
     
-    if not token or not new_password:
-        return error_response('请提供令牌和新密码', code=400)
-    
-    # 验证密码长度
-    if len(new_password) < 8:
-        return error_response('密码长度至少为8位', code=400)
+    token = validated_data.get('token')
+    new_password = validated_data.get('new_password')
     
     # 查找具有该重置令牌的用户
     user = User.query.filter_by(reset_token=token).first()
@@ -739,4 +739,5 @@ def reset_password() -> tuple:
         )
     except Exception as e:
         db.session.rollback()
-        return error_response(f'密码重置失败: {str(e)}', code=500)
+        logger.error(f'密码重置失败: {str(e)}')
+        return error_response('密码重置失败，请稍后重试', code=500)

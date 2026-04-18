@@ -32,9 +32,9 @@
 
 ## Phase 2: Medium 优先级修复
 
-- [ ] Task 2.1: 密码重置安全 - 修复 reset-password 路由验证绕过
-  - [ ] SubTask 2.1.1: 修改 auth.py reset-password 路由，使用 PasswordResetConfirmSchema 验证
-  - [ ] SubTask 2.1.2: 添加测试用例验证密码强度要求生效
+- [x] Task 2.1: 密码重置安全 - 修复 reset-password 路由验证绕过
+  - [x] SubTask 2.1.1: 修改 auth.py reset-password 路由，使用 PasswordResetConfirmSchema 验证
+  - [x] SubTask 2.1.2: 添加测试用例验证密码强度要求生效
 
 - [ ] Task 2.2: 文件上传安全加固
   - [ ] SubTask 2.2.1: 添加文件内容验证（Magic Number / MIME Type 检查）
