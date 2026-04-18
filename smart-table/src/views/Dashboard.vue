@@ -284,7 +284,7 @@ async function loadDashboards() {
 
   try {
     if (!baseStore.currentBase || baseStore.currentBase.id !== baseId) {
-      await baseStore.loadBase(baseId);
+      await baseStore.fetchBase(baseId);
     }
 
     if (!baseStore.currentBase) {
