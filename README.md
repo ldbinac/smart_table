@@ -73,6 +73,7 @@
 
 | 功能    | 预览图                                | 功能   | 预览图                                    |
 | ----- | ---------------------------------- | ---- | -------------------------------------- |
+| 登录    | ![](./doc/img/login.png)           | 注册   | ![](./doc/img/register.png)            |
 | 首页    | ![首页](./doc/img/home.jpeg)         | 首页   | ![首页2](./doc/img/home-all.jpeg)        |
 | 表格视图  | ![表格视图](./doc/img/TableView.jpeg)  | 表格视图 | ![表格视图](./doc/img/TableViewGroup.jpeg) |
 | 看板视图  | ![看板视图](./doc/img/KanbanView.jpeg) | 日历视图 | ![日历视图](./doc/img/CalendarView.jpeg)   |
