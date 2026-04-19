@@ -1,7 +1,7 @@
 # Smart Table 智能数据表格管理系统 — 使用操作手册
 
-> 版本：v1.0  
-> 更新日期：2026-04-10  
+> 版本：v1.1  
+> 更新日期：2026-04-18  
 > 适用对象：所有用户（普通用户、管理员）
 
 ---
@@ -72,46 +72,62 @@
 | 状态管理 | Pinia |
 | UI 组件库 | Element Plus |
 | 路由 | Vue Router (Hash 模式) |
-| 本地数据库 | IndexedDB (Dexie.js) |
+| HTTP 客户端 | Axios |
 | 图表 | ECharts (vue-echarts) |
 | 表格组件 | VXE Table |
+| XSS 防护 | DOMPurify |
 | 构建 | Vite |
 | 样式 | SCSS |
-| 测试 | Vitest |
+| 后端框架 | Flask |
+| ORM | SQLAlchemy |
+| 数据库 | PostgreSQL / SQLite |
+| 认证 | JWT (Flask-JWT-Extended) |
+| 实时通信 | Flask-SocketIO (可选) |
+| 部署 | Docker + Nginx + Gunicorn |
 
 ### 项目结构
 
 ```
-smart-table/
-├── public/                  # 静态资源
-├── src/
-│   ├── api/                 # API 客户端与类型定义
-│   ├── assets/              # 样式与图片资源
-│   ├── components/          # 组件
-│   │   ├── auth/            # 登录/注册组件
-│   │   ├── base/            # 基础组件（成员列表等）
-│   │   ├── common/          # 通用组件（头部、侧边栏、Toast等）
-│   │   ├── dashboard/       # 仪表盘组件（KPI、图表、时钟等）
-│   │   ├── dialogs/         # 对话框组件（筛选、排序、导入导出等）
-│   │   ├── fields/          # 字段组件（20+字段类型）
-│   │   ├── filters/         # 筛选组件
-│   │   ├── groups/          # 分组组件
-│   │   ├── sorts/           # 排序组件
-│   │   └── views/           # 视图组件（表格、看板、日历等）
-│   ├── composables/         # 组合式函数
-│   ├── db/                  # IndexedDB 数据库层
-│   │   ├── schema.ts        # 数据库表结构定义
-│   │   └── services/        # 数据服务（CRUD操作）
-│   ├── layouts/             # 布局组件
-│   ├── router/              # 路由配置与守卫
-│   ├── services/api/        # 后端 API 服务层
-│   ├── stores/              # Pinia 状态管理
-│   ├── types/               # TypeScript 类型定义
-│   ├── utils/               # 工具函数
-│   └── views/               # 页面视图
-├── doc/                     # 文档目录
-├── package.json
-└── vite.config.ts
+smart-table-spec/
+├── smart-table/               # 前端项目
+│   ├── src/
+│   │   ├── api/               # API 接口
+│   │   ├── assets/            # 静态资源
+│   │   ├── components/        # 公共组件
+│   │   │   ├── dashboard/     # 仪表盘组件
+│   │   │   ├── fields/        # 字段组件
+│   │   │   ├── views/         # 视图组件
+│   │   │   ├── collaboration/ # 协作组件
+│   │   │   └── common/        # 通用组件
+│   │   ├── composables/       # 组合式函数
+│   │   ├── router/            # 路由配置
+│   │   ├── services/          # 服务层
+│   │   │   ├── api/           # API 服务
+│   │   │   └── realtime/      # 实时通信
+│   │   ├── stores/            # Pinia 状态管理
+│   │   ├── utils/             # 工具函数
+│   │   └── views/             # 页面组件
+│   │       ├── admin/         # 管理员页面
+│   │       ├── auth/          # 认证页面
+│   │       └── base/          # 多维表格子页面
+│   └── vite.config.ts
+├── smarttable-backend/        # 后端项目
+│   ├── app/
+│   │   ├── routes/            # API 路由
+│   │   ├── services/          # 业务逻辑
+│   │   ├── models/            # 数据模型
+│   │   ├── schemas/           # 数据验证
+│   │   ├── middleware/        # 中间件
+│   │   ├── utils/             # 工具函数
+│   │   └── data/              # 默认数据
+│   ├── migrations/            # 数据库迁移
+│   └── run.py
+├── docker/                    # Docker 配置
+│   ├── nginx/                 # Nginx 配置
+│   └── supervisor/            # Supervisor 配置
+├── Dockerfile                 # 统一 Docker 构建
+├── docker-compose.yml         # Docker Compose 配置
+└── doc/                       # 项目文档
 ```
 
 ### 数据模型
@@ -138,29 +154,50 @@ smart-table/
 
 ### 安装与运行
 
+#### 方式一：Docker 部署（推荐）
+
 ```bash
-# 1. 进入项目目录
-cd smart-table
+# 克隆仓库
+git clone https://github.com/ldbinac/smart_table.git
+cd smart_table
 
-# 2. 安装依赖
+# 使用 Docker Compose 启动
+docker-compose up -d
+
+# 访问系统
+# http://localhost
+```
+
+#### 方式二：手动部署
+
+```bash
+# 启动后端
+cd smarttable-backend
+pip install -r requirements.txt
+python run.py
+
+# 启动前端
+cd ../smart-table
 npm install
-
-# 3. 启动开发服务器
 npm run dev
+```
 
-# 4. 构建生产版本
+#### 前端开发常用命令
+
+```bash
+# 构建生产版本
 npm run build
 
-# 5. 预览构建结果
+# 预览构建结果
 npm run preview
 
-# 6. 运行测试
+# 运行测试
 npm run test
 
-# 7. 运行测试（监听模式）
+# 运行测试（监听模式）
 npm run test:watch
 
-# 8. 生成测试覆盖率
+# 生成测试覆盖率
 npm run test:coverage
 ```
 
@@ -182,16 +219,42 @@ VITE_API_BASE_URL=http://your-backend-server/api
 #### 注册
 
 1. 访问系统，点击「注册」进入注册页面
-2. 填写邮箱地址、用户名和密码
+2. 填写注册信息：
+   - **用户名**：3-20个字符
+   - **邮箱**：有效的邮箱地址（用于密码找回和邮箱验证）
+   - **密码**：至少8位，必须包含大写字母、小写字母和数字
+   - **验证码**：输入图片验证码
 3. 点击「注册」按钮完成注册
-4. 注册成功后自动跳转到登录页面
+4. 系统会发送邮箱验证邮件，点击邮件中的链接完成验证
+5. 注册成功后自动跳转到登录页面
+
+> ⚠️ **密码要求**：密码必须包含至少一个大写字母、一个小写字母和一个数字，长度不少于8位。
 
 #### 登录
 
 1. 访问系统，在登录页面输入邮箱和密码
-2. 点击「登录」按钮
-3. 登录成功后跳转到首页
-4. 系统使用 JWT Token 进行身份验证，支持 Token 自动刷新
+2. 输入图片验证码
+3. 点击「登录」按钮
+4. 登录成功后跳转到首页
+5. 系统使用 JWT Token 进行身份验证，支持 Token 自动刷新
+
+> ⚠️ **安全提示**：连续5次登录失败后，账户将被锁定15分钟。
+
+#### 忘记密码
+
+1. 在登录页面点击「忘记密码」链接
+2. 输入注册时使用的邮箱地址和验证码
+3. 系统会发送密码重置邮件到您的邮箱
+4. 点击邮件中的重置链接
+5. 设置新密码（需满足密码强度要求）
+
+#### 修改密码
+
+1. 登录系统后，点击右上角用户头像
+2. 选择「设置」
+3. 在设置页面中找到「修改密码」
+4. 输入当前密码和新密码
+5. 点击「确认修改」
 
 #### 退出登录
 
@@ -1035,9 +1098,21 @@ VITE_API_BASE_URL=http://your-backend-server/api
 
 ### Q13: 忘记密码怎么办？
 
-**A:** 目前需要联系管理员通过后台管理页面重置密码。后续版本将增加密码找回功能。
+**A:** 在登录页面点击「忘记密码」，输入注册邮箱和验证码，系统会发送密码重置邮件到您的邮箱，点击邮件中的链接即可重置密码。
 
-### Q14: 实时协作功能如何启用？
+### Q14: 登录时提示账户被锁定？
+
+**A:** 连续5次登录失败后，账户将被锁定15分钟，请稍后再试或通过「忘记密码」重置密码。
+
+### Q15: 注册后收不到验证邮件？
+
+**A:** 请检查垃圾邮件文件夹。如果仍未收到，可以登录后在设置中重新发送验证邮件，或联系管理员。
+
+### Q16: 密码有什么要求？
+
+**A:** 密码必须至少8位，包含大写字母、小写字母和数字。
+
+### Q17: 实时协作功能如何启用？
 
 **A:** 实时协作功能需要后端管理员启用。启用方式：
 - 命令行启动时添加 `--enable-realtime` 参数：`python run.py --enable-realtime`
