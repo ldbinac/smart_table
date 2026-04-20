@@ -167,6 +167,143 @@ export function truncate(str: string, maxLength: number): string {
   return str.substring(0, maxLength - 3) + "...";
 }
 
+/**
+ * 去除HTML标签，返回纯文本
+ * @param html 包含HTML标签的字符串
+ * @returns 纯文本字符串
+ */
+export function stripHtml(html: string): string {
+  if (!html) return "";
+  // 创建一个临时DOM元素来解析HTML
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}
+
+/**
+ * 截取富文本内容（去除HTML后截取）
+ * @param html 包含HTML标签的字符串
+ * @param maxLength 最大长度，默认30
+ * @returns 截取后的纯文本
+ */
+export function truncateRichText(html: string, maxLength: number = 30): string {
+  if (!html) return "";
+  const plainText = stripHtml(html);
+  if (plainText.length <= maxLength) return plainText;
+  return plainText.substring(0, maxLength) + "...";
+}
+
+/**
+ * 允许的标签白名单
+ */
+const ALLOWED_TAGS = [
+  'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del',
+  'p', 'br', 'div', 'span',
+  'ul', 'ol', 'li',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'blockquote', 'pre', 'code'
+];
+
+/**
+ * 允许的HTML属性白名单
+ */
+const ALLOWED_ATTRS: Record<string, string[]> = {
+  '*': ['class'],
+  'a': ['href', 'title', 'target'],
+  'img': ['src', 'alt', 'title', 'width', 'height']
+};
+
+/**
+ * 净化HTML内容，移除危险标签和属性
+ * @param html 原始HTML字符串
+ * @returns 净化后的HTML字符串
+ */
+export function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  
+  // 创建一个临时的div元素
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  
+  // 递归清理节点
+  function cleanNode(node: Node): Node | null {
+    // 文本节点直接保留
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.cloneNode(true);
+    }
+    
+    // 元素节点需要检查
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as HTMLElement;
+      const tagName = element.tagName.toLowerCase();
+      
+      // 检查标签是否在白名单中
+      if (!ALLOWED_TAGS.includes(tagName)) {
+        // 不在白名单中，返回其文本内容
+        return document.createTextNode(element.textContent || '');
+      }
+      
+      // 创建新元素
+      const newElement = document.createElement(tagName);
+      
+      // 复制允许的属性和样式
+      const allowedAttrs = [...(ALLOWED_ATTRS['*'] || []), ...(ALLOWED_ATTRS[tagName] || [])];
+      
+      // 处理class属性
+      if (allowedAttrs.includes('class') && element.className) {
+        newElement.className = element.className;
+      }
+      
+      // 处理其他属性
+      for (const attr of allowedAttrs) {
+        if (attr !== 'class' && element.hasAttribute(attr)) {
+          const value = element.getAttribute(attr);
+          if (value) {
+            // 对href和src进行安全检查
+            if (attr === 'href' || attr === 'src') {
+              // 只允许http/https/mailto/tel协议
+              if (/^(https?:|mailto:|tel:|data:image\/(png|jpeg|gif|webp);)/i.test(value)) {
+                newElement.setAttribute(attr, value);
+              }
+            } else {
+              newElement.setAttribute(attr, value);
+            }
+          }
+        }
+      }
+      
+      // 递归处理子节点
+      while (element.firstChild) {
+        const child = cleanNode(element.firstChild);
+        if (child) {
+          newElement.appendChild(child);
+        }
+        element.removeChild(element.firstChild);
+      }
+      
+      return newElement;
+    }
+    
+    // 其他类型的节点返回null
+    return null;
+  }
+  
+  // 清理所有子节点
+  const fragment = document.createDocumentFragment();
+  while (tmp.firstChild) {
+    const cleaned = cleanNode(tmp.firstChild);
+    if (cleaned) {
+      fragment.appendChild(cleaned);
+    }
+    tmp.removeChild(tmp.firstChild);
+  }
+  
+  // 将清理后的内容放回tmp
+  tmp.appendChild(fragment);
+  
+  return tmp.innerHTML;
+}
+
 export function getCellDisplayValue(
   value: CellValue,
   field: FieldEntity,

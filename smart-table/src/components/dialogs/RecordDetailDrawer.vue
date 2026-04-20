@@ -18,7 +18,7 @@ import {
 } from "element-plus";
 import { Clock } from "@element-plus/icons-vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
-import { FieldType } from "@/types";
+import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 import {
@@ -30,6 +30,7 @@ import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import RichTextField from "@/components/fields/RichTextField.vue";
 import type { LinkedRecord } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 
@@ -390,11 +391,35 @@ const drawerTitle = computed(() => {
 
           <!-- 文本类型 -->
           <template v-if="getFieldComponent(field) === 'text'">
+            <!-- 单行文本 -->
             <el-input
+              v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
               :disabled="readonly"
+              :maxlength="field.options?.maxLength"
+              class="field-input" />
+            <!-- 多行文本 -->
+            <el-input
+              v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
+              :model-value="String(formData[field.id] || '')"
+              @update:model-value="(val) => handleValueChange(field.id, val)"
+              :placeholder="`请输入${field.name}`"
+              :disabled="readonly"
+              :maxlength="field.options?.maxLength"
+              type="textarea"
+              :rows="3"
+              resize="none"
+              class="field-input" />
+            <!-- 富文本 -->
+            <RichTextField
+              v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
+              :model-value="(formData[field.id] as string) || null"
+              @update:model-value="(val) => handleValueChange(field.id, val)"
+              :placeholder="`请输入${field.name}`"
+              :readonly="readonly"
+              :max-length="field.options?.maxLength"
               class="field-input" />
           </template>
 

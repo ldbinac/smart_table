@@ -17,7 +17,7 @@ import {
   ElIcon,
 } from "element-plus";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
-import { FieldType } from "@/types";
+import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -28,6 +28,7 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import RichTextField from "@/components/fields/RichTextField.vue";
 
 interface GroupLevelInfo {
   fieldId: string;
@@ -502,9 +503,31 @@ const drawerTitle = computed(() => {
 
           <!-- 文本类型 -->
           <template v-else-if="getFieldComponent(field) === 'text'">
+            <!-- 单行文本 -->
             <ElInput
+              v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
               :model-value="String(formData[field.id] || '')"
               :placeholder="`请输入${field.name}`"
+              :maxlength="field.options?.maxLength"
+              class="field-input"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
+            <!-- 多行文本 -->
+            <ElInput
+              v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
+              :model-value="String(formData[field.id] || '')"
+              :placeholder="`请输入${field.name}`"
+              :maxlength="field.options?.maxLength"
+              type="textarea"
+              :rows="3"
+              resize="none"
+              class="field-input"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
+            <!-- 富文本 -->
+            <RichTextField
+              v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
+              :model-value="(formData[field.id] as string) || null"
+              :placeholder="`请输入${field.name}`"
+              :max-length="field.options?.maxLength"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>

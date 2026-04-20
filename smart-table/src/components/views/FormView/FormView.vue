@@ -2,12 +2,14 @@
 import { ref, computed, watch, onBeforeUnmount } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
+import { TextFieldType, getTextFieldType } from "@/types/fields";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import RichTextField from "@/components/fields/RichTextField.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import type {
@@ -579,10 +581,13 @@ defineExpose({
           <div class="form-control">
             <!-- 文本类型 -->
             <template v-if="getFieldComponentType(field) === 'text'">
+              <!-- 单行文本 -->
               <el-input
+                v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
                 :disabled="readonly"
+                :maxlength="field.options?.maxLength"
                 class="form-input"
                 @update:model-value="(val) => handleFieldChange(field.id, val)">
                 <template v-if="field.type === FieldType.EMAIL" #prefix>
@@ -595,6 +600,27 @@ defineExpose({
                   <el-icon><Link /></el-icon>
                 </template>
               </el-input>
+              <!-- 多行文本 -->
+              <el-input
+                v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
+                :model-value="String(formValues[field.id] || '')"
+                :placeholder="`请输入${field.name}`"
+                :disabled="readonly"
+                :maxlength="field.options?.maxLength"
+                type="textarea"
+                :rows="4"
+                resize="none"
+                class="form-input"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+              <!-- 富文本 -->
+              <RichTextField
+                v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
+                :model-value="(formValues[field.id] as string) || null"
+                :placeholder="`请输入${field.name}`"
+                :readonly="readonly"
+                :max-length="field.options?.maxLength"
+                class="form-rich-text"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 数字类型 -->
@@ -1309,6 +1335,31 @@ defineExpose({
     font-size: $font-size-xs;
     color: $text-secondary;
     font-family: "SF Mono", Monaco, monospace;
+  }
+}
+
+// 富文本字段样式
+.form-rich-text {
+  width: 100%;
+
+  :deep(.rich-text-field) {
+    border-radius: $border-radius-lg;
+    border: 1px solid $gray-200;
+
+    &.is-focused {
+      border-color: $primary-color;
+      box-shadow:
+        0 0 0 3px rgba($primary-color, 0.1),
+        0 2px 8px rgba($primary-color, 0.15);
+    }
+
+    .rich-text-toolbar {
+      border-radius: $border-radius-lg $border-radius-lg 0 0;
+    }
+
+    .rich-text-editor {
+      border-radius: 0 0 $border-radius-lg $border-radius-lg;
+    }
   }
 }
 

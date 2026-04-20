@@ -2,9 +2,10 @@
 import { ref, computed, watch, nextTick } from "vue";
 import type { FieldEntity, RecordEntity } from "../../db/schema";
 import type { GroupNode } from "../../utils/group";
-import { FieldType } from "../../types";
+import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
 import { groupRecords } from "../../utils/group";
 import dayjs from "dayjs";
+import { truncateRichText } from "@/utils/helpers";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { ZoomIn, Paperclip, Lock } from "@element-plus/icons-vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
@@ -1532,6 +1533,25 @@ function handleLinkFieldChange(
                     :relationship-type="getLinkFieldConfig(field)?.relationshipType"
                     :is-editing="false"
                     @edit-start="handleLinkFieldClick(item.record!, field)" />
+                </template>
+
+                <!-- 文本字段 -->
+                <template v-else-if="field.type === FieldType.TEXT">
+                  <el-tooltip
+                    :content="field.options?.textFieldType === TextFieldType.RICH_TEXT 
+                      ? truncateRichText(String(item.record!.values[field.id] ?? ''), 100)
+                      : String(item.record!.values[field.id] ?? '')"
+                    placement="top"
+                    :show-after="200">
+                    <span class="cell-content">
+                      <template v-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT">
+                        {{ truncateRichText(String(item.record!.values[field.id] ?? ''), 30) }}
+                      </template>
+                      <template v-else>
+                        {{ item.record!.values[field.id] ?? "" }}
+                      </template>
+                    </span>
+                  </el-tooltip>
                 </template>
 
                 <!-- 其他字段 -->

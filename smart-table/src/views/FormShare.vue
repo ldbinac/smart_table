@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
+import { TextFieldType, getTextFieldType } from "@/types/fields";
 import {
   formShareApi,
   type FormSchema,
@@ -12,6 +13,7 @@ import {
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import RichTextField from "@/components/fields/RichTextField.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -492,6 +494,24 @@ function getProgressMax(field: FormFieldSchema): number {
 function getProgressMin(field: FormFieldSchema): number {
   return (field.config?.min as number) ?? 0;
 }
+
+// 获取文本字段类型（适配表单分享的字段结构）
+function getFormTextFieldType(field: FormFieldSchema): TextFieldTypeValue {
+  const config = field.config || {};
+  
+  // 优先使用 textFieldType
+  if (config.textFieldType) {
+    return config.textFieldType as TextFieldTypeValue;
+  }
+  
+  // 向后兼容：根据 isRichText 判断
+  if (config.isRichText) {
+    return TextFieldType.LONG_TEXT;
+  }
+  
+  // 默认单行文本
+  return TextFieldType.SINGLE_LINE_TEXT;
+}
 </script>
 
 <template>
@@ -551,14 +571,31 @@ function getProgressMin(field: FormFieldSchema): number {
           <div class="form-control">
             <!-- 文本类型 -->
             <template v-if="getFieldComponentType(field) === 'text'">
+              <!-- 单行文本 -->
               <el-input
+                v-if="getFormTextFieldType(field) === TextFieldType.SINGLE_LINE_TEXT"
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
-                :type="field.type === FieldType.LONG_TEXT ? 'textarea' : 'text'"
-                :rows="field.type === FieldType.LONG_TEXT ? 4 : undefined"
-                @update:model-value="
-                  (val) => handleFieldChange(field.id, val)
-                " />
+                :maxlength="field.config?.maxLength"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+              <!-- 多行文本 -->
+              <el-input
+                v-else-if="getFormTextFieldType(field) === TextFieldType.LONG_TEXT"
+                :model-value="String(formValues[field.id] || '')"
+                :placeholder="`请输入${field.name}`"
+                :maxlength="field.config?.maxLength"
+                type="textarea"
+                :rows="4"
+                resize="none"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+              <!-- 富文本 -->
+              <RichTextField
+                v-else-if="getFormTextFieldType(field) === TextFieldType.RICH_TEXT"
+                :model-value="(formValues[field.id] as string) || null"
+                :placeholder="`请输入${field.name}`"
+                :max-length="field.config?.maxLength"
+                class="form-rich-text"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 数字类型 -->
@@ -967,6 +1004,29 @@ function getProgressMin(field: FormFieldSchema): number {
   border-radius: 50%;
   margin-right: 8px;
   vertical-align: middle;
+}
+
+// 富文本字段样式
+.form-rich-text {
+  width: 100%;
+
+  :deep(.rich-text-field) {
+    border-radius: $border-radius-base;
+    border: 1px solid $border-color;
+
+    &.is-focused {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 1px $primary-color;
+    }
+
+    .rich-text-toolbar {
+      border-radius: $border-radius-base $border-radius-base 0 0;
+    }
+
+    .rich-text-editor {
+      border-radius: 0 0 $border-radius-base $border-radius-base;
+    }
+  }
 }
 
 // 响应式适配

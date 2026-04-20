@@ -219,6 +219,15 @@ class FormShareService:
                     # 如果 options 中有 options，合并到 config
                     if 'options' in options:
                         merged_config['options'] = options['options']
+                    # 合并文本字段类型配置
+                    if 'textFieldType' in options:
+                        merged_config['textFieldType'] = options['textFieldType']
+                    # 合并向后兼容的 isRichText
+                    if 'isRichText' in options:
+                        merged_config['isRichText'] = options['isRichText']
+                    # 合并最大长度配置
+                    if 'maxLength' in options:
+                        merged_config['maxLength'] = options['maxLength']
                 
                 field_schema = {
                     'id': str(field.id),

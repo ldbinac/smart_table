@@ -7,10 +7,11 @@ import MultiSelectField from "@/components/fields/MultiSelectField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
-import { ElMessage } from "element-plus";
-import { FieldType } from "@/types/fields";
+import { ElMessage, ElTooltip } from "element-plus";
+import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
 import type { LinkedRecord } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
+import { truncateRichText } from "@/utils/helpers";
 
 interface Props {
   record: RecordEntity;
@@ -146,8 +147,14 @@ const displayValue = computed(() => {
     case "text":
     case "email":
     case "url":
-    case "phone":
-      return value === null || value === undefined ? "" : String(value);
+    case "phone": {
+      if (value === null || value === undefined) return "";
+      // 富文本类型：去除HTML标签并截取30字符
+      if (type === "text" && getTextFieldType(options) === TextFieldType.RICH_TEXT) {
+        return truncateRichText(String(value), 30);
+      }
+      return String(value);
+    }
     case "number":
       if (typeof value === "number") {
         const precision = options?.precision ?? 0;
@@ -443,21 +450,35 @@ const multiSelectDisplayValues = computed(() => {
     @dblclick="handleDoubleClick">
     <template v-if="isEditing">
       <template v-if="fieldType === 'text'">
-        <textarea
-          v-if="(field.options as FieldOptions)?.isRichText"
-          ref="inputRef"
-          :value="editValue as string"
-          class="cell-input textarea"
-          @input="editValue = ($event.target as HTMLTextAreaElement).value"
-          @blur="finishEdit"
-          @keydown="handleKeydown" />
+        <!-- 单行文本 -->
         <input
-          v-else
+          v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
           ref="inputRef"
           :value="editValue as string"
           type="text"
           class="cell-input"
+          :maxlength="field.options?.maxLength"
           @input="editValue = ($event.target as HTMLInputElement).value"
+          @blur="finishEdit"
+          @keydown="handleKeydown" />
+        <!-- 多行文本 -->
+        <textarea
+          v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
+          ref="inputRef"
+          :value="editValue as string"
+          class="cell-input textarea"
+          :maxlength="field.options?.maxLength"
+          @input="editValue = ($event.target as HTMLTextAreaElement).value"
+          @blur="finishEdit"
+          @keydown="handleKeydown" />
+        <!-- 富文本 - 在表格中使用纯文本编辑 -->
+        <textarea
+          v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
+          ref="inputRef"
+          :value="editValue as string"
+          class="cell-input textarea"
+          :maxlength="field.options?.maxLength"
+          @input="editValue = ($event.target as HTMLTextAreaElement).value"
           @blur="finishEdit"
           @keydown="handleKeydown" />
       </template>
@@ -647,6 +668,18 @@ const multiSelectDisplayValues = computed(() => {
             @edit-start="startEdit" />
         </template>
 
+        <template v-else-if="fieldType === 'text'">
+          <!-- 多行文本和富文本显示时支持 tooltip -->
+          <ElTooltip
+            v-if="getTextFieldType(field.options) !== TextFieldType.SINGLE_LINE_TEXT && displayValue"
+            :content="displayValue"
+            placement="top"
+            :show-after="500">
+            <span class="text-display multiline">{{ displayValue }}</span>
+          </ElTooltip>
+          <span v-else class="text-display">{{ displayValue || "" }}</span>
+        </template>
+
         <template v-else>
           <span class="text-display">{{ displayValue || "" }}</span>
         </template>
@@ -736,6 +769,17 @@ const multiSelectDisplayValues = computed(() => {
 .text-display {
   @include text-ellipsis;
   width: 100%;
+  
+  &.multiline {
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+    max-height: 2.8em;
+  }
 }
 
 .select-tag {

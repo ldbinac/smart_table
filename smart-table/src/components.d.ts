@@ -136,6 +136,7 @@ declare module 'vue' {
     RecordHistoryDrawer: typeof import('./components/dialogs/RecordHistoryDrawer.vue')['default']
     RegisterForm: typeof import('./components/auth/RegisterForm.vue')['default']
     ResetPasswordDialog: typeof import('./components/dialogs/admin/ResetPasswordDialog.vue')['default']
+    RichTextField: typeof import('./components/fields/RichTextField.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ShortcutDialog: typeof import('./components/common/ShortcutDialog.vue')['default']
