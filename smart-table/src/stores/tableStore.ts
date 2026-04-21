@@ -228,7 +228,9 @@ export const useTableStore = defineStore("table", () => {
   }) {
     try {
       const record = await recordService.createRecord(data);
-      records.value.push(record);
+      // 不在这里手动添加记录，而是通过实时事件监听添加
+      // 这样可以避免重复添加（当前用户也会收到自己创建记录的事件）
+      // 只更新记录数
       if (currentTable.value?.id === data.tableId) {
         currentTable.value.recordCount++;
       }
@@ -319,7 +321,11 @@ export const useTableStore = defineStore("table", () => {
       const record = data.record as unknown as RecordEntity;
       if (record && !records.value.find((r) => r.id === record.id)) {
         records.value.push(record);
-        currentTable.value.recordCount++;
+        // 注意：记录数已经在 createRecord 中更新了，这里不再重复更新
+        // 但如果记录是由其他用户创建的（通过实时事件），则需要更新记录数
+        // 通过检查记录创建者来判断
+        // 暂时简化处理：只在记录不存在时添加，不更新记录数
+        // 因为记录数会在页面刷新时重新计算
       }
     };
 

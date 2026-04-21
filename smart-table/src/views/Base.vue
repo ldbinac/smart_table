@@ -856,13 +856,15 @@ const handleDuplicateRecordFromGroup = async (record: RecordEntity) => {
 
   try {
     // 创建新记录，复制原记录的值
+    // tableStore.createRecord 不再手动添加记录，而是通过实时事件监听添加
     const newRecord = await tableStore.createRecord({
       tableId: tableStore.currentTable.id,
       values: { ...record.values },
     });
 
     if (newRecord) {
-      tableStore.records.push(newRecord);
+      // 不再手动 push，因为实时事件会添加记录
+      // 但为了立即打开编辑对话框，我们需要使用返回的记录
       ElMessage.success("记录复制成功");
       // 打开新记录的编辑对话框
       editingRecord.value = newRecord;
