@@ -201,7 +201,15 @@ export class FieldService {
     }
   }
 
-  async reorderFields(_tableId: string, fieldIds: string[]): Promise<void> {
+  async reorderFields(tableId: string, fieldIds: string[]): Promise<void> {
+    // 先调用后端 API 保存排序
+    const fieldOrders = fieldIds.map((id, index) => ({
+      field_id: id,
+      order: index,
+    }));
+    await fieldApiService.reorderFields(tableId, fieldOrders);
+
+    // 然后更新本地 IndexedDB
     await db.transaction("rw", db.fields, async () => {
       for (let i = 0; i < fieldIds.length; i++) {
         await db.fields.update(fieldIds[i], { order: i });

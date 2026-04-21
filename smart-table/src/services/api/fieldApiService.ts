@@ -25,9 +25,13 @@ export const deleteField = async (id: string): Promise<void> => {
 };
 
 export const reorderFields = async (
-  fieldOrders: Array<{ id: string; order: number }>
+  tableId: string,
+  fieldOrders: Array<{ field_id: string; order: number }>
 ): Promise<Field[]> => {
-  return apiClient.put<Field[]>('/fields/reorder', { field_orders: fieldOrders });
+  return apiClient.post<Field[]>('/fields/reorder', {
+    table_id: tableId,
+    orders: fieldOrders
+  });
 };
 
 export const getFieldTypes = async (): Promise<Array<{

@@ -242,7 +242,18 @@ function initSortable() {
     sortableInstance = new Sortable(fieldListRef.value, {
       handle: ".drag-handle",
       animation: 150,
-      onEnd: handleFieldDragEnd,
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      dragClass: "sortable-drag",
+      onStart: () => {
+        // 拖拽开始时的视觉反馈
+        document.body.style.cursor = "grabbing";
+      },
+      onEnd: (evt) => {
+        // 拖拽结束恢复光标
+        document.body.style.cursor = "";
+        handleFieldDragEnd(evt);
+      },
     });
   }
 }
@@ -1716,6 +1727,25 @@ async function toggleFieldVisibility(
     .field-actions {
       display: flex;
       gap: 8px;
+    }
+
+    // 拖拽排序视觉反馈样式
+    &.sortable-ghost {
+      opacity: 0.4;
+      background-color: $primary-light;
+      border: 2px dashed $primary-color;
+    }
+
+    &.sortable-chosen {
+      background-color: $primary-light;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    &.sortable-drag {
+      opacity: 0.9;
+      background-color: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transform: scale(1.02);
     }
   }
 }
