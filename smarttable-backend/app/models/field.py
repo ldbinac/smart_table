@@ -302,5 +302,82 @@ class Field(db.Model):
         
         return result
 
+    def get_auto_number_config(self) -> dict:
+        """
+        获取自动编号字段的配置
+        
+        Returns:
+            自动编号配置字典，包含 prefix, suffix, digitLength, includeDate, dateFormat 等
+        """
+        if self.type != FieldType.AUTO_NUMBER.value:
+            return {}
+        
+        # 自动编号配置可能存储在 config 或 options 中
+        # 优先从 config 中读取，如果没有则从 options 中读取
+        config = self.config or {}
+        options = self.options or {}
+        
+        return {
+            'prefix': config.get('prefix') if config.get('prefix') is not None else options.get('prefix', ''),
+            'suffix': config.get('suffix') if config.get('suffix') is not None else options.get('suffix', ''),
+            'digitLength': config.get('digitLength') if config.get('digitLength') is not None else options.get('digitLength', 0),
+            'includeDate': config.get('includeDate') if config.get('includeDate') is not None else options.get('includeDate', False),
+            'dateFormat': config.get('dateFormat') if config.get('dateFormat') is not None else options.get('dateFormat', 'YYYYMMDD'),
+            'startNumber': config.get('startNumber') if config.get('startNumber') is not None else options.get('startNumber', 1)
+        }
+    
+    def generate_auto_number(self, sequence: int, record_date: datetime = None) -> str:
+        """
+        生成自动编号字符串
+        
+        Args:
+            sequence: 序列号
+            record_date: 记录创建日期，用于日期前缀。如果为None则使用当前日期
+            
+        Returns:
+            格式化后的编号字符串
+        """
+        if self.type != FieldType.AUTO_NUMBER.value:
+            return str(sequence)
+        
+        config = self.get_auto_number_config()
+        prefix = config.get('prefix', '')
+        suffix = config.get('suffix', '')
+        digit_length = config.get('digitLength', 0)
+        include_date = config.get('includeDate', False)
+        date_format = config.get('dateFormat', 'YYYYMMDD')
+        
+        # 格式化数字部分（补零）
+        number_part = str(sequence)
+        if digit_length > 0 and len(number_part) < digit_length:
+            number_part = number_part.zfill(digit_length)
+        
+        # 生成日期前缀（使用记录创建日期或当前日期）
+        date_part = ''
+        if include_date:
+            from datetime import datetime
+            # 使用传入的日期或当前日期
+            use_date = record_date if record_date else datetime.now()
+            year = use_date.strftime('%Y')
+            month = use_date.strftime('%m')
+            day = use_date.strftime('%d')
+            yy = year[-2:]
+            
+            if date_format == 'YYYYMMDD':
+                date_part = f'{year}{month}{day}'
+            elif date_format == 'YYYYMM':
+                date_part = f'{year}{month}'
+            elif date_format == 'YYYY':
+                date_part = year
+            elif date_format == 'YYMMDD':
+                date_part = f'{yy}{month}{day}'
+            else:
+                date_part = f'{year}{month}{day}'
+            
+            if date_part:
+                date_part = f'{date_part}-'
+        
+        return f'{prefix}{date_part}{number_part}{suffix}'
+
     def __repr__(self) -> str:
         return f'<Field {self.name} ({self.type})>'

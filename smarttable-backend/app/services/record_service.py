@@ -11,7 +11,13 @@ from app.models.field import Field, FieldType
 from app.models.record_history import RecordHistory, HistoryAction
 from app.models.table import Table
 from app.services.field_service import FieldService
+from app.services.link_service import LinkService
 from app.errors.handlers import ConflictError
+
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 def _format_date_value(value: str, field: Field) -> str:
@@ -56,9 +62,62 @@ def _format_date_value(value: str, field: Field) -> str:
 
 class RecordService:
     """记录服务类"""
-    
+
     @staticmethod
-    def get_table_records(table_id: str, page: int = 1, 
+    def _get_next_auto_number_sequence(table_id: str, field_id: str, field: Field) -> int:
+        """
+        获取自动编号字段的下一个序列号
+
+        Args:
+            table_id: 表格 ID
+            field_id: 字段 ID
+            field: 字段对象
+
+        Returns:
+            下一个序列号
+        """
+        from sqlalchemy import func
+        from sqlalchemy.dialects.postgresql import JSONB
+
+        # 获取起始编号
+        config = field.get_auto_number_config()
+        start_number = config.get('startNumber', 1)
+
+        # 查询当前表格中该字段的最大值
+        # 由于值存储在 JSON 中，需要提取并转换为整数
+        records = Record.query.filter_by(table_id=table_id).all()
+
+        max_number = 0
+        for record in records:
+            values = record.values or {}
+            field_value = values.get(field_id)
+            if field_value:
+                # 尝试从自动编号字符串中提取数字部分
+                try:
+                    # 移除前缀和后缀，提取数字
+                    import re
+                    # 获取字段配置中的后缀
+                    suffix = config.get('suffix', '')
+                    value_str = str(field_value)
+                    # 如果存在后缀，先移除后缀
+                    if suffix and value_str.endswith(suffix):
+                        value_str = value_str[:-len(suffix)]
+                    # 匹配末尾的数字部分（即序列号）
+                    # 例如：Num-260421-001 应该提取 001 -> 1
+                    # Num-260421-001-A 移除后缀 -A 后，提取 001
+                    # 使用 .*? 匹配前缀，然后捕获最后的数字组
+                    match = re.search(r'.*?(\d+)$', value_str)
+                    if match:
+                        num = int(match.group(1))
+                        max_number = max(max_number, num)
+                except (ValueError, TypeError):
+                    continue
+
+        # 返回下一个序列号
+        return max(max_number + 1, start_number)
+
+    @staticmethod
+    def get_table_records(table_id: str, page: int = 1,
                          per_page: int = 20) -> tuple:
         """
         获取表格下的记录列表
@@ -130,6 +189,20 @@ class RecordService:
                     else:
                         final_values[field_id] = default_value
 
+        # 处理自动编号字段
+        auto_number_fields = [f for f in fields if f.type == FieldType.AUTO_NUMBER.value]
+        # 获取当前时间作为记录的创建日期（用于自动编号的日期前缀）
+        from datetime import datetime
+        record_created_at = datetime.now()
+        for field in auto_number_fields:
+            field_id = str(field.id)
+            if field_id not in final_values or not final_values[field_id]:
+                # 获取当前表格中该自动编号字段的最大值
+                sequence = RecordService._get_next_auto_number_sequence(table_id, field_id, field)
+                # 生成自动编号，传入记录创建日期以确保日期前缀使用创建时的日期
+                final_values[field_id] = field.generate_auto_number(sequence, record_created_at)
+
+        log.info(f'create_record: {final_values}')
         record = Record(
             table_id=table_id,
             values=final_values,
@@ -223,9 +296,27 @@ class RecordService:
             fields = FieldService.get_all_fields(str(record.table_id))
             field_map = {str(field.id): field for field in fields}
 
+            # 过滤掉自动编号字段的修改（自动编号字段不可编辑）
+            auto_number_field_ids = {
+                str(field.id) for field in fields
+                if field.type == FieldType.AUTO_NUMBER.value
+            }
+            filtered_values = {
+                k: v for k, v in values.items()
+                if k not in auto_number_field_ids
+            }
+
+            # 如果有尝试修改自动编号字段的情况，记录日志
+            if len(filtered_values) < len(values):
+                from flask import current_app
+                current_app.logger.warning(
+                    f'[RecordService] Attempt to modify auto_number fields blocked. '
+                    f'Record: {record.id}, Fields: {auto_number_field_ids & set(values.keys())}'
+                )
+
             # 处理日期字段值：根据 showTime 配置格式化
             formatted_values = {}
-            for field_id, new_value in values.items():
+            for field_id, new_value in filtered_values.items():
                 field = field_map.get(field_id)
                 if field and field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
                     formatted_values[field_id] = _format_date_value(new_value, field)

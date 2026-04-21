@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FieldType } from "../fields";
+import { FieldType, generateAutoNumber, getFieldTypeLabel, getFieldTypeIcon } from "../fields";
 import { FilterOperator, type FilterCondition } from "../filters";
 import { SortDirection, type SortConfig } from "../filters";
 import {
@@ -35,6 +35,61 @@ describe("Field Types", () => {
     expect(FieldType.UPDATED_BY).toBe("updatedBy");
     expect(FieldType.UPDATED_TIME).toBe("updatedTime");
     expect(FieldType.AUTO_NUMBER).toBe("autoNumber");
+  });
+
+  it("should return correct field type labels", () => {
+    expect(getFieldTypeLabel("text")).toBe("文本");
+    expect(getFieldTypeLabel("number")).toBe("数字");
+    expect(getFieldTypeLabel("auto_number")).toBe("自动编号");
+    expect(getFieldTypeLabel("formula")).toBe("公式");
+    expect(getFieldTypeLabel("unknown")).toBe("unknown");
+  });
+
+  it("should return correct field type icons", () => {
+    expect(getFieldTypeIcon("text")).toBe("📝");
+    expect(getFieldTypeIcon("number")).toBe("🔢");
+    expect(getFieldTypeIcon("auto_number")).toBe("🔢");
+    expect(getFieldTypeIcon("unknown")).toBe("📝");
+  });
+});
+
+describe("Auto Number Generation", () => {
+  it("should generate simple auto number without options", () => {
+    expect(generateAutoNumber(1)).toBe("1");
+    expect(generateAutoNumber(100)).toBe("100");
+  });
+
+  it("should generate auto number with prefix and suffix", () => {
+    const options = { prefix: "NO-", suffix: "-A" };
+    expect(generateAutoNumber(1, options)).toBe("NO-1-A");
+    expect(generateAutoNumber(100, options)).toBe("NO-100-A");
+  });
+
+  it("should generate auto number with digit length padding", () => {
+    const options = { digitLength: 5 };
+    expect(generateAutoNumber(1, options)).toBe("00001");
+    expect(generateAutoNumber(100, options)).toBe("00100");
+    expect(generateAutoNumber(10000, options)).toBe("10000");
+  });
+
+  it("should generate auto number with date prefix", () => {
+    const options = { includeDate: true, dateFormat: "YYYYMMDD" };
+    const result = generateAutoNumber(1, options);
+    // 验证格式包含日期和编号
+    expect(result).toMatch(/^\d{8}-\d+$/);
+  });
+
+  it("should generate auto number with all options", () => {
+    const options = {
+      prefix: "ORD-",
+      suffix: "-X",
+      digitLength: 4,
+      includeDate: true,
+      dateFormat: "YYYYMM"
+    };
+    const result = generateAutoNumber(1, options);
+    // 验证格式: ORD-YYYYMM-0001-X
+    expect(result).toMatch(/^ORD-\d{6}-\d{4}-X$/);
   });
 });
 

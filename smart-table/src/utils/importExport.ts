@@ -186,13 +186,29 @@ export async function parseFile(file: File): Promise<ParsedFileData> {
 /**
  * 自动匹配字段
  */
+/**
+ * 不可导入的字段类型（系统自动生成或只读）
+ */
+const NON_IMPORTABLE_FIELD_TYPES: FieldTypeValue[] = [
+  FieldType.AUTO_NUMBER,
+  FieldType.CREATED_BY,
+  FieldType.CREATED_TIME,
+  FieldType.UPDATED_BY,
+  FieldType.UPDATED_TIME,
+];
+
 export function autoMatchFields(
   sourceColumns: string[],
   targetFields: FieldEntity[]
 ): FieldMapping[] {
+  // 过滤掉不可导入的字段类型
+  const importableFields = targetFields.filter(
+    (field) => !NON_IMPORTABLE_FIELD_TYPES.includes(field.type as FieldTypeValue)
+  );
+
   return sourceColumns.map((column) => {
     // 尝试找到匹配的字段（名称相同或相似）
-    const matchedField = targetFields.find(
+    const matchedField = importableFields.find(
       (field) => field.name.toLowerCase() === column.toLowerCase() ||
                 field.name.toLowerCase().includes(column.toLowerCase()) ||
                 column.toLowerCase().includes(field.name.toLowerCase())
@@ -277,14 +293,18 @@ export function convertImportData(
   fieldMappings: FieldMapping[]
 ): Record<string, CellValue> {
   const result: Record<string, CellValue> = {};
-  
+
   fieldMappings.forEach((mapping) => {
+    // 跳过不可导入的字段类型
+    if (mapping.targetFieldType && NON_IMPORTABLE_FIELD_TYPES.includes(mapping.targetFieldType)) {
+      return;
+    }
     if (mapping.targetFieldId && mapping.targetFieldType) {
       const value = rowData[mapping.sourceColumn];
       result[mapping.targetFieldId] = convertValue(value, mapping.targetFieldType);
     }
   });
-  
+
   return result;
 }
 

@@ -114,3 +114,49 @@ class TestField:
         data = response.get_json()
         assert data['code'] == 200
         assert len(data['data']) > 0
+
+    def test_create_auto_number_field(self, client, auth_headers, test_table):
+        """测试创建自动编号字段"""
+        response = client.post(f'/api/tables/{test_table.id}/fields',
+            json={
+                'name': '编号',
+                'type': 'auto_number',
+                'options': {
+                    'prefix': 'NO-',
+                    'suffix': '-A',
+                    'digitLength': 4,
+                    'startNumber': 1,
+                    'includeDate': False
+                }
+            },
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['code'] == 201
+        assert data['data']['type'] == 'auto_number'
+        assert data['data']['options']['prefix'] == 'NO-'
+        assert data['data']['options']['digitLength'] == 4
+
+    def test_create_auto_number_field_with_date(self, client, auth_headers, test_table):
+        """测试创建带日期前缀的自动编号字段"""
+        response = client.post(f'/api/tables/{test_table.id}/fields',
+            json={
+                'name': '订单编号',
+                'type': 'auto_number',
+                'options': {
+                    'prefix': 'ORD-',
+                    'digitLength': 3,
+                    'includeDate': True,
+                    'dateFormat': 'YYYYMM'
+                }
+            },
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['code'] == 201
+        assert data['data']['options']['includeDate'] is True
+        assert data['data']['options']['dateFormat'] == 'YYYYMM'

@@ -409,6 +409,8 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "collaborator";
     case FieldType.PROGRESS:
       return "progress";
+    case FieldType.AUTO_NUMBER:
+      return "auto_number";
     default:
       return "text";
   }
@@ -755,6 +757,14 @@ function getFormTextFieldType(field: FormFieldSchema): TextFieldTypeValue {
                 " />
             </template>
 
+            <!-- 自动编号字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'auto_number'">
+              <div class="auto-number-display">
+                <span class="auto-number-value">{{ formValues[field.id] || '-' }}</span>
+                <span v-if="!formValues[field.id]" class="auto-number-hint">提交后自动生成</span>
+              </div>
+            </template>
+
             <!-- 不支持的字段类型 -->
             <template v-else>
               <el-alert
@@ -1018,14 +1028,43 @@ function getFormTextFieldType(field: FormFieldSchema): TextFieldTypeValue {
       border-color: $primary-color;
       box-shadow: 0 0 0 1px $primary-color;
     }
+  }
+}
 
-    .rich-text-toolbar {
-      border-radius: $border-radius-base $border-radius-base 0 0;
-    }
+// 自动编号字段样式
+.auto-number-display {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  background-color: $bg-color;
+  border: 1px dashed $border-color;
+  border-radius: $border-radius-base;
+  min-height: 40px;
 
-    .rich-text-editor {
-      border-radius: 0 0 $border-radius-base $border-radius-base;
-    }
+  .auto-number-value {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $primary-color;
+    letter-spacing: 0.5px;
+  }
+
+  .auto-number-hint {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    font-style: italic;
+  }
+}
+
+// 富文本字段内部样式
+.form-rich-text {
+  :deep(.rich-text-toolbar) {
+    border-radius: $border-radius-base $border-radius-base 0 0;
+  }
+
+  :deep(.rich-text-editor) {
+    border-radius: 0 0 $border-radius-base $border-radius-base;
   }
 }
 

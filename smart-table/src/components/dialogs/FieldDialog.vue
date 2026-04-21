@@ -113,12 +113,28 @@ const systemTypes = [
   FieldType.CREATED_TIME,
   FieldType.UPDATED_BY,
   FieldType.UPDATED_TIME,
+];
+
+// 用户可创建的字段类型（包括自动编号）
+const userCreatableTypes = [
+  FieldType.TEXT,
+  FieldType.NUMBER,
+  FieldType.DATE,
+  FieldType.SINGLE_SELECT,
+  FieldType.MULTI_SELECT,
+  FieldType.CHECKBOX,
+  FieldType.ATTACHMENT,
+  FieldType.RATING,
+  FieldType.PROGRESS,
+  FieldType.PHONE,
+  FieldType.EMAIL,
+  FieldType.URL,
+  FieldType.FORMULA,
+  FieldType.LINK,
   FieldType.AUTO_NUMBER,
 ];
-const fieldTypes = Object.values(FieldType).filter(
-  (type): type is FieldTypeValue =>
-    !systemTypes.includes(type as (typeof systemTypes)[number]),
-);
+// 用户可选择的字段类型列表
+const fieldTypes = userCreatableTypes;
 
 const selectOptions = ref<{ id: string; name: string; color: string }[]>([]);
 const newOptionName = ref("");
@@ -130,6 +146,16 @@ const attachmentConfig = ref({
   maxSize: 10, // MB
   maxCount: 20,
   enableThumbnail: true,
+});
+
+// 自动编号字段配置
+const autoNumberConfig = ref({
+  prefix: '',
+  suffix: '',
+  digitLength: 0,
+  includeDate: false,
+  dateFormat: 'YYYYMMDD' as 'YYYYMMDD' | 'YYYYMM' | 'YYYY' | 'YYMMDD',
+  startNumber: 1,
 });
 
 // 关联字段配置 - 可关联的表列表
@@ -362,6 +388,27 @@ function openEditField(field: FieldEntity) {
       enableThumbnail: true,
     };
   }
+
+  // 加载自动编号字段配置
+  if (field.type === FieldType.AUTO_NUMBER) {
+    autoNumberConfig.value = {
+      prefix: (field.options?.prefix as string) || '',
+      suffix: (field.options?.suffix as string) || '',
+      digitLength: (field.options?.digitLength as number) || 0,
+      includeDate: (field.options?.includeDate as boolean) || false,
+      dateFormat: (field.options?.dateFormat as 'YYYYMMDD' | 'YYYYMM' | 'YYYY' | 'YYMMDD') || 'YYYYMMDD',
+      startNumber: (field.options?.startNumber as number) || 1,
+    };
+  } else {
+    autoNumberConfig.value = {
+      prefix: '',
+      suffix: '',
+      digitLength: 0,
+      includeDate: false,
+      dateFormat: 'YYYYMMDD',
+      startNumber: 1,
+    };
+  }
 }
 
 function backToList() {
@@ -493,6 +540,15 @@ async function createField() {
         options.maxLength = newField.value.maxLength;
       }
     }
+    // 自动编号字段配置
+    if (newField.value.type === FieldType.AUTO_NUMBER) {
+      options.startNumber = autoNumberConfig.value.startNumber;
+      options.prefix = autoNumberConfig.value.prefix;
+      options.suffix = autoNumberConfig.value.suffix;
+      options.digitLength = autoNumberConfig.value.digitLength;
+      options.includeDate = autoNumberConfig.value.includeDate;
+      options.dateFormat = autoNumberConfig.value.dateFormat;
+    }
 
     let field;
 
@@ -601,6 +657,15 @@ async function updateField() {
       if (newField.value.maxLength) {
         options.maxLength = newField.value.maxLength;
       }
+    }
+    // 自动编号字段配置
+    if (newField.value.type === FieldType.AUTO_NUMBER) {
+      options.startNumber = autoNumberConfig.value.startNumber;
+      options.prefix = autoNumberConfig.value.prefix;
+      options.suffix = autoNumberConfig.value.suffix;
+      options.digitLength = autoNumberConfig.value.digitLength;
+      options.includeDate = autoNumberConfig.value.includeDate;
+      options.dateFormat = autoNumberConfig.value.dateFormat;
     }
 
     await fieldService.updateField(editingField.value.id, {
@@ -752,6 +817,48 @@ const availableFieldsForFormula = computed(() => {
     }
     return true;
   });
+});
+
+// 自动编号预览
+const autoNumberPreview = computed(() => {
+  const { prefix, suffix, digitLength, includeDate, dateFormat, startNumber } = autoNumberConfig.value;
+  
+  let numberPart = String(startNumber);
+  if (digitLength > 0 && numberPart.length < digitLength) {
+    numberPart = numberPart.padStart(digitLength, '0');
+  }
+  
+  let datePart = '';
+  if (includeDate) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const yy = String(year).slice(-2);
+    
+    switch (dateFormat) {
+      case 'YYYYMMDD':
+        datePart = `${year}${month}${day}`;
+        break;
+      case 'YYYYMM':
+        datePart = `${year}${month}`;
+        break;
+      case 'YYYY':
+        datePart = `${year}`;
+        break;
+      case 'YYMMDD':
+        datePart = `${yy}${month}${day}`;
+        break;
+      default:
+        datePart = `${year}${month}${day}`;
+    }
+    
+    if (datePart) {
+      datePart = `${datePart}-`;
+    }
+  }
+  
+  return `${prefix}${datePart}${numberPart}${suffix}`;
 });
 
 // 插入函数到公式
@@ -1156,6 +1263,74 @@ async function toggleFieldVisibility(
                 {{ field.name }}
               </ElTag>
             </div>
+          </ElFormItem>
+        </template>
+
+        <!-- 自动编号字段配置 -->
+        <template v-if="newField.type === FieldType.AUTO_NUMBER">
+          <ElFormItem label="编号预览">
+            <div class="auto-number-preview">
+              <span class="preview-label">预览:</span>
+              <span class="preview-value">{{ autoNumberPreview }}</span>
+            </div>
+          </ElFormItem>
+
+          <ElFormItem label="起始编号">
+            <ElInputNumber
+              v-model="autoNumberConfig.startNumber"
+              :min="1"
+              :max="999999"
+              :step="1"
+              style="width: 200px" />
+            <div class="field-hint">设置编号的起始值，默认为 1</div>
+          </ElFormItem>
+
+          <ElFormItem label="编号前缀">
+            <ElInput
+              v-model="autoNumberConfig.prefix"
+              placeholder="如: NO-"
+              maxlength="20"
+              show-word-limit
+              style="width: 200px" />
+            <div class="field-hint">在编号前添加固定前缀</div>
+          </ElFormItem>
+
+          <ElFormItem label="编号后缀">
+            <ElInput
+              v-model="autoNumberConfig.suffix"
+              placeholder="如: -A"
+              maxlength="20"
+              show-word-limit
+              style="width: 200px" />
+            <div class="field-hint">在编号后添加固定后缀</div>
+          </ElFormItem>
+
+          <ElFormItem label="编号位数">
+            <ElInputNumber
+              v-model="autoNumberConfig.digitLength"
+              :min="0"
+              :max="10"
+              :step="1"
+              style="width: 200px" />
+            <div class="field-hint">设置编号位数，不足时前面补0（0表示不补零）</div>
+          </ElFormItem>
+
+          <ElFormItem label="包含日期">
+            <ElSwitch
+              v-model="autoNumberConfig.includeDate"
+              active-text="是"
+              inactive-text="否" />
+            <div class="field-hint">开启后在编号中包含日期前缀</div>
+          </ElFormItem>
+
+          <ElFormItem v-if="autoNumberConfig.includeDate" label="日期格式">
+            <ElSelect v-model="autoNumberConfig.dateFormat" style="width: 200px">
+              <ElOption label="YYYYMMDD (20240115)" value="YYYYMMDD" />
+              <ElOption label="YYYYMM (202401)" value="YYYYMM" />
+              <ElOption label="YYYY (2024)" value="YYYY" />
+              <ElOption label="YYMMDD (240115)" value="YYMMDD" />
+            </ElSelect>
+            <div class="field-hint">选择日期前缀的显示格式</div>
           </ElFormItem>
         </template>
 
@@ -1652,6 +1827,31 @@ async function toggleFieldVisibility(
         background-color: $primary-color;
         color: white;
       }
+    }
+  }
+
+  // 自动编号预览样式
+  .auto-number-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background-color: $bg-color;
+    border-radius: $border-radius-md;
+    border: 1px dashed $border-color;
+
+    .preview-label {
+      font-size: $font-size-sm;
+      color: $text-secondary;
+      font-weight: 500;
+    }
+
+    .preview-value {
+      font-size: $font-size-base;
+      color: $primary-color;
+      font-weight: 600;
+      font-family: "SF Mono", Monaco, monospace;
+      letter-spacing: 0.5px;
     }
   }
 

@@ -115,8 +115,19 @@ export interface FieldOptions {
   // 公式选项
   formula?: string;
 
-  // 自动编号选项
+  // ==================== 自动编号字段 (Auto Number Field) 选项 ====================
+  /** 起始编号 */
   startNumber?: number;
+  /** 编号前缀 */
+  prefix?: string;
+  /** 编号后缀 */
+  suffix?: string;
+  /** 编号位数（不足时前面补0） */
+  digitLength?: number;
+  /** 是否包含日期前缀 */
+  includeDate?: boolean;
+  /** 日期格式（用于编号前缀） */
+  dateFormat?: string;
 
   // ==================== 附件字段 (Attachment Field) 选项 ====================
   /** 接受的 MIME 类型 */
@@ -310,4 +321,67 @@ export function denormalizeFieldType(frontendType: string): string {
   
   // 如果映射表中存在则返回映射后的值，否则返回原值
   return typeMap[frontendType] || frontendType;
+}
+
+/**
+ * 生成自动编号字符串
+ * @param sequence 序列号
+ * @param options 自动编号配置选项
+ * @returns 格式化后的编号字符串
+ */
+export function generateAutoNumber(
+  sequence: number,
+  options?: FieldOptions
+): string {
+  if (!options) {
+    return String(sequence);
+  }
+
+  const {
+    prefix = '',
+    suffix = '',
+    digitLength = 0,
+    includeDate = false,
+    dateFormat = 'YYYYMMDD',
+  } = options;
+
+  let numberPart = String(sequence);
+
+  // 补零
+  if (digitLength > 0 && numberPart.length < digitLength) {
+    numberPart = numberPart.padStart(digitLength, '0');
+  }
+
+  // 日期前缀
+  let datePart = '';
+  if (includeDate) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    switch (dateFormat) {
+      case 'YYYYMMDD':
+        datePart = `${year}${month}${day}`;
+        break;
+      case 'YYYYMM':
+        datePart = `${year}${month}`;
+        break;
+      case 'YYYY':
+        datePart = `${year}`;
+        break;
+      case 'YYMMDD':
+        datePart = `${String(year).slice(-2)}${month}${day}`;
+        break;
+      default:
+        datePart = `${year}${month}${day}`;
+    }
+
+    // 日期和数字之间用连字符分隔
+    if (datePart) {
+      datePart = `${datePart}-`;
+    }
+  }
+
+  return `${prefix}${datePart}${numberPart}${suffix}`;
 }

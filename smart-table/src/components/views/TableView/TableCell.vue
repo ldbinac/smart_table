@@ -236,6 +236,9 @@ const displayValue = computed(() => {
       // 公式字段使用独立的 computed 属性
       return formulaValue.value;
     }
+    case "auto_number":
+      // 自动编号字段直接显示值（值已在后端格式化）
+      return value === null || value === undefined ? "" : String(value);
     default:
       return value === null || value === undefined ? "" : String(value);
   }
@@ -281,6 +284,9 @@ const isEditable = computed(() => {
   // 主键字段不可编辑
   if (props.field.isPrimary) return false;
 
+  // 自动编号字段不可编辑
+  if (props.field.type === FieldType.AUTO_NUMBER) return false;
+
   return (
     !props.readonly &&
     ![
@@ -289,7 +295,6 @@ const isEditable = computed(() => {
       "createdTime",
       "updatedBy",
       "updatedTime",
-      "autoNumber",
     ].includes(props.field.type)
   );
 });
@@ -680,6 +685,10 @@ const multiSelectDisplayValues = computed(() => {
           <span v-else class="text-display">{{ displayValue || "" }}</span>
         </template>
 
+        <template v-else-if="fieldType === 'auto_number'">
+          <span class="text-display auto-number">{{ displayValue || "" }}</span>
+        </template>
+
         <template v-else>
           <span class="text-display">{{ displayValue || "" }}</span>
         </template>
@@ -769,7 +778,7 @@ const multiSelectDisplayValues = computed(() => {
 .text-display {
   @include text-ellipsis;
   width: 100%;
-  
+
   &.multiline {
     white-space: pre-wrap;
     word-break: break-word;
@@ -779,6 +788,13 @@ const multiSelectDisplayValues = computed(() => {
     overflow: hidden;
     line-height: 1.4;
     max-height: 2.8em;
+  }
+
+  &.auto-number {
+    font-family: "SF Mono", Monaco, monospace;
+    font-weight: 500;
+    color: $primary-color;
+    letter-spacing: 0.5px;
   }
 }
 

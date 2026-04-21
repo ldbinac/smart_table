@@ -5,7 +5,8 @@ import { fieldService } from "../db/services/fieldService";
 import { recordService } from "../db/services/recordService";
 import { viewService } from "../db/services/viewService";
 import type { TableEntity, FieldEntity, RecordEntity, ViewEntity } from "../db/schema";
-import type { CellValue, FieldOptions } from "../types";
+import type { CellValue } from "../types";
+import { FieldType } from "../types/fields";
 import { deserializeRecordValues } from "../utils/recordValueSerializer";
 import { useCollaborationStore } from "./collaborationStore";
 import { realtimeEventEmitter } from "../services/realtime/eventEmitter";
@@ -240,13 +241,25 @@ export const useTableStore = defineStore("table", () => {
 
   async function updateRecord(id: string, values: Record<string, CellValue>) {
     try {
-      await recordService.updateRecord(id, { values });
+      // 过滤掉自动编号字段（只读字段不可编辑）
+      const editableValues: Record<string, CellValue> = {};
+      const autoNumberFieldIds = fields.value
+        .filter((f) => f.type === FieldType.AUTO_NUMBER)
+        .map((f) => f.id);
+
+      for (const [fieldId, value] of Object.entries(values)) {
+        if (!autoNumberFieldIds.includes(fieldId)) {
+          editableValues[fieldId] = value;
+        }
+      }
+
+      await recordService.updateRecord(id, { values: editableValues });
       const index = records.value.findIndex((r) => r.id === id);
       if (index !== -1) {
         // 使用反序列化后的值更新本地缓存
         records.value[index] = {
           ...records.value[index],
-          values: deserializeRecordValues(values),
+          values: deserializeRecordValues(editableValues),
           updatedAt: Date.now(),
         };
       }

@@ -384,6 +384,8 @@ function getFieldComponentType(field: FieldEntity): string {
       return "formula";
     case FieldType.ATTACHMENT:
       return "attachment";
+    case FieldType.AUTO_NUMBER:
+      return "auto_number";
     default:
       return "text";
   }
@@ -749,6 +751,14 @@ defineExpose({
                 @upload="(files) => handleAttachmentUpload(field.id, files)"
                 @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
             </template>
+
+            <!-- 自动编号字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'auto_number'">
+              <div class="auto-number-display">
+                <span class="auto-number-value">{{ formValues[field.id] || '-' }}</span>
+                <span v-if="!formValues[field.id]" class="auto-number-hint">保存后自动生成</span>
+              </div>
+            </template>
           </div>
 
           <div v-if="formErrors[field.id]" class="form-error">
@@ -1071,6 +1081,32 @@ defineExpose({
   :deep(.el-switch__action) {
     background-color: $surface-color;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+}
+
+// 自动编号字段样式
+.auto-number-display {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  background-color: $gray-50;
+  border: 1px dashed $border-color;
+  border-radius: $border-radius-lg;
+  min-height: 40px;
+
+  .auto-number-value {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $primary-color;
+    letter-spacing: 0.5px;
+  }
+
+  .auto-number-hint {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    font-style: italic;
   }
 }
 

@@ -265,6 +265,8 @@ const getFieldComponent = (field: FieldEntity): string => {
     case FieldType.PROGRESS:
     case FieldType.PERCENT:
       return "progress";
+    case FieldType.AUTO_NUMBER:
+      return "auto_number";
     default:
       return "text";
   }
@@ -590,6 +592,13 @@ const drawerTitle = computed(() => {
               "
               @edit-end="editingLinkField = null" />
           </template>
+
+          <!-- 自动编号字段类型 -->
+          <template v-else-if="getFieldComponent(field) === 'auto_number'">
+            <div class="auto-number-display">
+              <span class="auto-number-value">{{ formData[field.id] || '-' }}</span>
+            </div>
+          </template>
         </div>
       </el-form>
     </div>
@@ -749,6 +758,25 @@ const drawerTitle = computed(() => {
   .footer-right {
     display: flex;
     gap: 12px;
+  }
+}
+
+// 自动编号字段样式
+.auto-number-display {
+  padding: 8px 12px;
+  background-color: #f5f7fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+
+  .auto-number-value {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #409eff;
+    letter-spacing: 0.5px;
   }
 }
 </style>

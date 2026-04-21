@@ -17,7 +17,7 @@ import {
   ElIcon,
 } from "element-plus";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
-import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
+import { FieldType, TextFieldType, getTextFieldType, generateAutoNumber, type FieldOptions } from "@/types/fields";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -333,6 +333,21 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
   }
 }
 
+// 获取自动编号预览值（用于新建记录时显示）
+function getAutoNumberPreview(field: FieldEntity): string {
+  // 如果已经有值（编辑模式），直接显示值
+  const value = formData.value[field.id];
+  if (value !== null && value !== undefined && value !== "") {
+    return String(value);
+  }
+
+  // 新建模式：根据字段配置生成预览
+  // 自动编号配置存储在 config 中
+  const config = field.config as Record<string, unknown> | undefined;
+  // 使用1作为序列号预览（实际序列号由后端生成）
+  return generateAutoNumber(1, config as FieldOptions);
+}
+
 // 保存记录
 async function handleSave() {
   // 1. 验证必填字段
@@ -468,6 +483,12 @@ const drawerTitle = computed(() => {
                 </div>
               </div>
             </template>
+            <template v-else-if="field.type === FieldType.AUTO_NUMBER">
+              <div class="auto-number-preview">
+                <span class="auto-number-value">{{ getAutoNumberPreview(field) }}</span>
+                <span class="auto-number-hint">保存后自动生成</span>
+              </div>
+            </template>
             <template v-else>
               <ElInput
                 :model-value="getReadonlyDisplayValue(field)"
@@ -475,14 +496,12 @@ const drawerTitle = computed(() => {
                 :placeholder="field.name"
                 class="field-input" />
             </template>
-            <span class="auto-filled-hint">{{
+            <span v-if="field.type !== FieldType.AUTO_NUMBER" class="auto-filled-hint">{{
               field.type === FieldType.FORMULA
                 ? "公式计算字段，不可修改"
                 : field.type === FieldType.LOOKUP
                   ? "查找字段，不可修改"
-                  : field.type === FieldType.AUTO_NUMBER
-                    ? "自动编号，不可修改"
-                    : "系统字段，不可修改"
+                  : "系统字段，不可修改"
             }}</span>
           </template>
 
@@ -818,5 +837,31 @@ const drawerTitle = computed(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+// 自动编号预览样式
+.auto-number-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background-color: #f5f7fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  min-height: 32px;
+
+  .auto-number-value {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #409eff;
+    letter-spacing: 0.5px;
+  }
+
+  .auto-number-hint {
+    font-size: 12px;
+    color: $text-secondary;
+    font-style: italic;
+  }
 }
 </style>
