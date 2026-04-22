@@ -14,7 +14,6 @@ import {
 } from '@/types/attachment';
 import {
   validateFiles,
-  readFileAsArrayBuffer,
   checkStorageSpace
 } from '@/utils/attachment';
 import {
@@ -24,6 +23,7 @@ import {
 import {
   createAttachmentNotFoundError
 } from '@/utils/attachment';
+import { attachmentApiService } from '@/services/api/attachmentApiService';
 
 /**
  * 上传上下文
@@ -94,64 +94,78 @@ export class AttachmentService {
     context: UploadContext,
     options?: AttachmentFieldOptions
   ): Promise<AttachmentFile> {
-    // 读取文件数据
-    const arrayBuffer = await readFileAsArrayBuffer(file);
-    const blob = new Blob([arrayBuffer], { type: file.type });
-
-    // 生成缩略图
-    let thumbnailBlob: Blob | undefined;
-    const enableThumbnail = options?.enableThumbnail !== false;
-
-    if (enableThumbnail) {
-      try {
-        if (isImageFile(file)) {
-          thumbnailBlob = await generateThumbnail(file, options);
-        } else if (isVideoFile(file)) {
-          thumbnailBlob = await generateVideoThumbnail(file, {
-            maxWidth: options?.thumbnailMaxWidth,
-            maxHeight: options?.thumbnailMaxHeight,
-            quality: options?.thumbnailQuality
-          });
-        }
-      } catch (error) {
-        // 缩略图生成失败不影响主流程
-        console.warn('缩略图生成失败:', error);
+    // 调用后端 API 上传文件
+    const uploadResult = await attachmentApiService.uploadFile(
+      file,
+      {
+        table_id: context.tableId,
+        record_id: context.recordId,
+        field_id: context.fieldId
       }
-    }
+    );
 
-    // 创建附件记录
-    const attachment: Attachment = {
-      id: generateId(),
-      recordId: context.recordId,
-      fieldId: context.fieldId,
-      tableId: context.tableId,
-      baseId: context.baseId,
-      name: file.name,
-      originalName: file.name,
-      size: file.size,
-      type: file.type || 'application/octet-stream',
-      fileType: getFileType(file.type) as AttachmentFileType,
-      extension: getFileExtension(file.name),
-      data: blob,
-      thumbnail: thumbnailBlob,
-      createdAt: Date.now()
-    };
-
-    // 存储到 IndexedDB
-    await db.attachments.add(attachment);
-
-    // 构建返回的元数据
+    // 从后端返回的数据构建 AttachmentFile
+    const attachmentData = uploadResult.attachment;
     const attachmentFile: AttachmentFile = {
-      id: attachment.id,
-      name: attachment.name,
-      originalName: attachment.originalName,
-      size: attachment.size,
-      type: attachment.type,
-      fileType: attachment.fileType as AttachmentFileType,
-      extension: attachment.extension,
-      thumbnail: thumbnailBlob ? URL.createObjectURL(thumbnailBlob) : undefined,
-      createdAt: attachment.createdAt
+      id: attachmentData.id,
+      name: attachmentData.filename || file.name,
+      originalName: attachmentData.original_name || file.name,
+      size: attachmentData.file_size || file.size,
+      type: attachmentData.mime_type || file.type || 'application/octet-stream',
+      fileType: getFileType(attachmentData.mime_type || file.type) as AttachmentFileType,
+      extension: getFileExtension(file.name),
+      thumbnail: attachmentData.thumbnail_url,
+      url: attachmentData.url,
+      createdAt: new Date(attachmentData.created_at).getTime()
     };
+
+    // 同时保存到本地 IndexedDB 以便离线访问
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { type: file.type });
+
+      // 生成缩略图用于本地预览
+      let thumbnailBlob: Blob | undefined;
+      const enableThumbnail = options?.enableThumbnail !== false;
+
+      if (enableThumbnail) {
+        try {
+          if (isImageFile(file)) {
+            thumbnailBlob = await generateThumbnail(file, options);
+          } else if (isVideoFile(file)) {
+            thumbnailBlob = await generateVideoThumbnail(file, {
+              maxWidth: options?.thumbnailMaxWidth,
+              maxHeight: options?.thumbnailMaxHeight,
+              quality: options?.thumbnailQuality
+            });
+          }
+        } catch (error) {
+          console.warn('本地缩略图生成失败:', error);
+        }
+      }
+
+      const localAttachment: Attachment = {
+        id: attachmentData.id,
+        recordId: context.recordId,
+        fieldId: context.fieldId,
+        tableId: context.tableId,
+        baseId: context.baseId,
+        name: file.name,
+        originalName: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        fileType: getFileType(file.type) as AttachmentFileType,
+        extension: getFileExtension(file.name),
+        data: blob,
+        thumbnail: thumbnailBlob,
+        createdAt: Date.now()
+      };
+
+      await db.attachments.add(localAttachment);
+    } catch (error) {
+      console.warn('本地缓存附件失败:', error);
+      // 本地缓存失败不影响主流程
+    }
 
     return attachmentFile;
   }
@@ -167,10 +181,34 @@ export class AttachmentService {
    * 获取附件文件元数据
    */
   async getAttachmentFile(attachmentId: string): Promise<AttachmentFile | undefined> {
-    const attachment = await this.getAttachment(attachmentId);
-    if (!attachment) return undefined;
+    // 首先尝试从本地 IndexedDB 获取
+    const localAttachment = await this.getAttachment(attachmentId);
+    if (localAttachment) {
+      return this.toAttachmentFile(localAttachment);
+    }
 
-    return this.toAttachmentFile(attachment);
+    // 如果本地没有，从后端 API 获取
+    try {
+      const apiAttachment = await attachmentApiService.getAttachment(attachmentId);
+      if (apiAttachment) {
+        return {
+          id: apiAttachment.id,
+          name: apiAttachment.filename || apiAttachment.original_name,
+          originalName: apiAttachment.original_name,
+          size: apiAttachment.file_size,
+          type: apiAttachment.mime_type,
+          fileType: getFileType(apiAttachment.mime_type) as AttachmentFileType,
+          extension: getFileExtension(apiAttachment.original_name || apiAttachment.filename || ''),
+          url: apiAttachment.url,
+          thumbnail: apiAttachment.thumbnail_url,
+          createdAt: new Date(apiAttachment.created_at).getTime()
+        };
+      }
+    } catch (error) {
+      console.error('从后端获取附件详情失败:', error);
+    }
+
+    return undefined;
   }
 
   /**
@@ -195,25 +233,53 @@ export class AttachmentService {
    * 下载附件
    */
   async downloadAttachment(attachmentId: string): Promise<void> {
-    const attachment = await this.getAttachment(attachmentId);
-    if (!attachment) {
-      throw createAttachmentNotFoundError(attachmentId);
+    // 首先尝试从本地 IndexedDB 获取
+    const localAttachment = await this.getAttachment(attachmentId);
+
+    if (localAttachment && localAttachment.data) {
+      // 本地有数据，使用本地数据下载
+      const url = URL.createObjectURL(localAttachment.data);
+
+      try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = localAttachment.originalName || localAttachment.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } finally {
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      return;
     }
 
-    // 创建 Blob URL
-    const url = URL.createObjectURL(attachment.data);
-
+    // 本地没有，从后端 API 下载
     try {
-      // 创建下载链接
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = attachment.originalName || attachment.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } finally {
-      // 清理 URL 对象
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      // 首先获取附件元数据
+      const attachmentFile = await this.getAttachmentFile(attachmentId);
+      if (!attachmentFile) {
+        throw createAttachmentNotFoundError(attachmentId);
+      }
+
+      // 从后端下载文件 Blob
+      const blob = await attachmentApiService.downloadAttachment(attachmentId);
+
+      // 创建 Blob URL 并下载
+      const url = URL.createObjectURL(blob);
+
+      try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachmentFile.originalName || attachmentFile.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } finally {
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (error) {
+      console.error('从后端下载附件失败:', error);
+      throw error;
     }
   }
 

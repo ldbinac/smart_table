@@ -74,6 +74,13 @@ export default defineConfig({
           });
         },
       },
+      // 代理上传文件请求到后端
+      "/uploads": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => `/api/attachments${path}`,
+      },
     },
   },
   build: {

@@ -57,6 +57,16 @@ class Config:
     # 日志配置
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 
+    # 文件上传配置
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or 'uploads'
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 最大文件大小 50MB
+    ALLOWED_EXTENSIONS = {
+        'image': ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+        'document': ['doc', 'docx', 'pdf', 'txt', 'md'],
+        'video': ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv'],
+        'audio': ['mp3', 'wav', 'ogg', 'flac', 'aac']
+    }
+
     # 实时协作配置
     REALTIME_ENABLED = False
 

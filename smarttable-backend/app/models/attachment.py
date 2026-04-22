@@ -125,7 +125,16 @@ class Attachment(db.Model):
             size /= 1024
         return f'{size:.1f} TB'
 
-    def to_dict(self) -> dict:
+    def to_dict(self, include_urls: bool = False) -> dict:
+        """
+        转换为字典
+
+        Args:
+            include_urls: 是否包含URL（用于兼容调用）
+
+        Returns:
+            附件数据字典
+        """
         return {
             'id': str(self.id),
             'record_id': str(self.record_id) if self.record_id else None,
@@ -140,6 +149,41 @@ class Attachment(db.Model):
             'uploaded_by': str(self.uploaded_by) if self.uploaded_by else None,
             'created_at': self.created_at.isoformat()
         }
+
+    @staticmethod
+    def detect_type(mime_type: str, filename: str) -> str:
+        """
+        根据 MIME 类型和文件名检测附件类型
+
+        Args:
+            mime_type: MIME 类型
+            filename: 文件名
+
+        Returns:
+            附件类型字符串
+        """
+        import os
+
+        # 根据 MIME 类型判断
+        if mime_type.startswith('image/'):
+            return AttachmentType.IMAGE.value
+        elif mime_type.startswith('video/'):
+            return AttachmentType.VIDEO.value
+        elif mime_type.startswith('audio/'):
+            return AttachmentType.AUDIO.value
+
+        # 根据扩展名判断
+        ext = os.path.splitext(filename.lower())[1]
+
+        document_extensions = {'.doc', '.docx', '.pdf', '.txt', '.md', '.rtf', '.odt'}
+        archive_extensions = {'.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'}
+
+        if ext in document_extensions:
+            return AttachmentType.DOCUMENT.value
+        elif ext in archive_extensions:
+            return AttachmentType.ARCHIVE.value
+
+        return AttachmentType.OTHER.value
 
     def __repr__(self) -> str:
         return f'<Attachment {self.original_name}>'

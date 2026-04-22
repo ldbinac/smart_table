@@ -147,9 +147,42 @@ const canUpload = computed(() => {
 // 监听值变化
 watch(
   () => props.modelValue,
-  (newVal) => {
+  async (newVal) => {
     if (Array.isArray(newVal)) {
-      files.value = newVal as AttachmentFile[];
+      // 处理两种数据格式：
+      // 1. 完整的 AttachmentFile 对象（新上传的文件）
+      // 2. 附件 ID 字符串数组（从后端加载的记录）
+      const processedFiles: AttachmentFile[] = [];
+
+      for (const item of newVal) {
+        if (typeof item === 'string') {
+          // 如果是字符串 ID，需要从后端获取附件详情
+          try {
+            const attachment = await attachmentService.getAttachment(item);
+            if (attachment) {
+              processedFiles.push({
+                id: attachment.id,
+                name: attachment.name,
+                originalName: attachment.originalName,
+                size: attachment.size,
+                type: attachment.type,
+                fileType: attachment.fileType,
+                extension: attachment.extension,
+                url: attachment.url,
+                thumbnail: attachment.thumbnail,
+                createdAt: attachment.createdAt
+              });
+            }
+          } catch (error) {
+            console.error('获取附件详情失败:', item, error);
+          }
+        } else if (item && typeof item === 'object' && item.id) {
+          // 如果是完整的 AttachmentFile 对象
+          processedFiles.push(item as AttachmentFile);
+        }
+      }
+
+      files.value = processedFiles;
     } else {
       files.value = [];
     }

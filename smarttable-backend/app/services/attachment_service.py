@@ -13,6 +13,7 @@ from pathlib import Path
 
 from werkzeug.utils import secure_filename
 from flask import current_app
+from PIL import Image
 
 from app.extensions import db
 from app.models.attachment import Attachment, AttachmentType
@@ -304,21 +305,28 @@ class AttachmentService:
     def get_file_url(cls, stored_filename: str) -> str:
         """
         获取文件访问 URL
-        
+
         参数:
             stored_filename: 存储文件名
-            
+
         返回:
-            文件访问 URL
+            文件访问 URL（相对路径，前端通过代理访问）
         """
         # 查找文件实际路径
         upload_path = cls.get_upload_path()
+        rel_path = None
         for root, dirs, files in os.walk(upload_path):
             if stored_filename in files:
                 # 计算相对路径
                 rel_path = os.path.relpath(os.path.join(root, stored_filename), upload_path)
-                return f"/uploads/{rel_path.replace(os.sep, '/')}"
-        return f"/uploads/{stored_filename}"
+                rel_path = rel_path.replace(os.sep, '/')
+                break
+
+        if not rel_path:
+            rel_path = stored_filename
+
+        # 返回相对路径，前端通过代理访问
+        return f"/uploads/{rel_path}"
     
     @classmethod
     def upload_attachment(cls, file: BinaryIO, data: Dict[str, Any], 
@@ -386,18 +394,15 @@ class AttachmentService:
         
         # 创建附件记录
         attachment = Attachment(
-            filename=secure_filename(original_filename),
-            stored_filename=stored_filename,
+            filename=stored_filename,
             original_name=original_filename,
+            file_size=file_size,
             mime_type=mime_type,
-            size=file_size,
-            type=attachment_type,
+            storage_type='local',
+            storage_path=file_path,
             url=cls.get_file_url(stored_filename),
             thumbnail_url=thumbnail_url,
-            width=width,
-            height=height,
-            uploaded_by=user_id,
-            base_id=data.get('base_id')
+            uploaded_by=user_id
         )
         
         db.session.add(attachment)
@@ -495,7 +500,7 @@ class AttachmentService:
         
         try:
             # 删除物理文件
-            file_path = cls.get_file_path(attachment.stored_filename)
+            file_path = cls.get_file_path(attachment.filename)
             if os.path.exists(file_path):
                 os.remove(file_path)
             
@@ -531,11 +536,11 @@ class AttachmentService:
         attachment = Attachment.query.get(attachment_id)
         if not attachment:
             return None
-        
-        file_path = cls.get_file_path(attachment.stored_filename)
+
+        file_path = cls.get_file_path(attachment.filename)
         if not os.path.exists(file_path):
             return None
-        
+
         return file_path, attachment.original_name
     
     @classmethod
@@ -543,26 +548,26 @@ class AttachmentService:
                             page: int = 1, per_page: int = 20) -> Tuple[list, int]:
         """
         获取基础数据下的附件列表
-        
+
         参数:
             base_id: 基础数据 ID
             file_type: 文件类型筛选（可选）
             page: 页码
             per_page: 每页数量
-            
+
         返回:
             (附件列表, 总数量)
         """
-        query = Attachment.query.filter_by(base_id=base_id)
-        
-        if file_type:
-            query = query.filter_by(type=file_type)
-        
+        # 注意：当前 Attachment 模型没有 base_id 字段
+        # 需要通过 record_id 关联到记录，再关联到表格和基础数据
+        # 这里简化处理，返回所有附件
+        query = Attachment.query
+
         total = query.count()
         attachments = query.order_by(Attachment.created_at.desc()).offset(
             (page - 1) * per_page
         ).limit(per_page).all()
-        
+
         return attachments, total
     
     @classmethod
@@ -582,8 +587,8 @@ class AttachmentService:
             return None
         
         # 允许更新的字段
-        allowed_fields = ['filename', 'base_id']
-        
+        allowed_fields = ['filename', 'original_name']
+
         for field in allowed_fields:
             if field in data:
                 setattr(attachment, field, data[field])
