@@ -16,12 +16,41 @@ auth_captcha_bp.strict_slashes = False
 def get_auth_captcha() -> tuple:
     """
     获取登录/注册验证码（公开接口）
-    
-    Query Parameters:
-        - key: 验证码标识（可选，用于区分不同场景）
-    
-    Returns:
-        验证码图片（Base64编码）
+    ---
+    tags:
+      - Auth Captcha
+    description: 获取用于登录和注册页面的图形验证码
+    parameters:
+      - name: key
+        in: query
+        type: string
+        description: 验证码标识（可选，用于区分不同场景，如 login/register）
+        example: "login"
+    responses:
+      200:
+        description: 验证码生成成功
+        schema:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 200
+            message:
+              type: string
+              example: "验证码生成成功"
+            data:
+              type: object
+              properties:
+                image:
+                  type: string
+                  description: Base64编码的验证码图片
+                  example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+                expire:
+                  type: integer
+                  description: 验证码有效期（秒）
+                  example: 300
+      500:
+        description: 验证码生成失败
     """
     # 获取客户端IP作为验证码key的一部分
     client_ip = request.remote_addr or 'unknown'

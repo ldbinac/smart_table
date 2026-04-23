@@ -32,8 +32,34 @@ records_bp.strict_slashes = False
 def get_records(table_id) -> tuple:
     """
     获取表格记录列表
-    
-    支持分页和搜索
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+      - name: search
+        in: query
+        type: string
+        description: 搜索关键词
+    responses:
+      200:
+        description: 记录列表（分页）
     """
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
@@ -112,6 +138,30 @@ def get_records(table_id) -> tuple:
 def create_record(table_id) -> tuple:
     """
     创建记录
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - values
+          properties:
+            values:
+              type: object
+              description: 记录字段值
+    responses:
+      201:
+        description: 记录创建成功
     """
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)

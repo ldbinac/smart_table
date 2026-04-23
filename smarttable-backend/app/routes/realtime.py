@@ -6,6 +6,36 @@ realtime_bp = Blueprint('realtime', __name__)
 
 @realtime_bp.route('/realtime/status', methods=['GET'])
 def get_realtime_status():
+    """
+    获取实时服务状态（公开接口）
+    ---
+    tags:
+      - Realtime
+    description: 获取实时协作服务的状态和 WebSocket 连接地址
+    responses:
+      200:
+        description: 实时服务状态
+        schema:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 200
+            message:
+              type: string
+              example: "success"
+            data:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: 实时服务是否启用
+                  example: true
+                socket_url:
+                  type: string
+                  description: WebSocket 连接地址（服务启用时返回）
+                  example: "ws://localhost:5000"
+    """
     enabled = current_app.config.get('REALTIME_ENABLED', False)
     socket_url = None
     if enabled:

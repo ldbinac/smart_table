@@ -24,16 +24,35 @@ shares_bp.strict_slashes = False
 def create_share(base_id) -> tuple:
     """
     创建 Base 分享链接
-    
-    Args:
-        base_id: Base ID
-    
-    Request Body:
-        - permission: 分享权限（必填，可选值：view/edit）
-        - expires_at: 过期时间（可选，Unix 时间戳）
-    
-    Returns:
-        创建的分享信息
+    ---
+    tags:
+      - Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: Base ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - permission
+          properties:
+            permission:
+              type: string
+              enum: ['view', 'edit']
+              description: 分享权限
+            expires_at:
+              type: integer
+              description: 过期时间（Unix 时间戳，可选）
+    responses:
+      201:
+        description: 创建的分享信息
     """
     user_id = g.current_user_id
     
@@ -59,12 +78,20 @@ def create_share(base_id) -> tuple:
 def get_shares(base_id) -> tuple:
     """
     获取 Base 的所有分享链接列表
-    
-    Args:
-        base_id: Base ID
-    
-    Returns:
-        分享链接列表
+    ---
+    tags:
+      - Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: Base ID
+    responses:
+      200:
+        description: 分享链接列表
     """
     user_id = g.current_user_id
     

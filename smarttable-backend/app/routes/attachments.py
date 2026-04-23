@@ -25,15 +25,26 @@ attachments_bp.strict_slashes = False
 def upload_attachment() -> tuple:
     """
     上传附件
-    
-    支持 multipart/form-data 格式上传
-    
-    请求参数:
-        - file: 文件数据（必填）
-        - base_id: 所属基础数据 ID（可选）
-        
-    返回:
-        上传成功的附件信息
+    ---
+    tags:
+      - Attachments
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    parameters:
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: 文件数据
+      - name: base_id
+        in: formData
+        type: string
+        description: 所属基础数据 ID（可选）
+    responses:
+      201:
+        description: 上传成功的附件信息
     """
     user_id = g.current_user_id
     
@@ -81,12 +92,20 @@ def upload_attachment() -> tuple:
 def get_attachment(attachment_id) -> tuple:
     """
     获取附件详情
-    
-    参数:
-        attachment_id: 附件 ID
-        
-    返回:
-        附件详细信息
+    ---
+    tags:
+      - Attachments
+    security:
+      - Bearer: []
+    parameters:
+      - name: attachment_id
+        in: path
+        type: string
+        required: true
+        description: 附件 ID
+    responses:
+      200:
+        description: 附件详细信息
     """
     user_id = g.current_user_id
     

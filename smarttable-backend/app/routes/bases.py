@@ -23,9 +23,14 @@ bases_bp.strict_slashes = False
 def get_bases() -> tuple:
     """
     获取当前用户的所有基础数据列表
-    
-    Returns:
-        基础数据列表
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: 基础数据列表
     """
     user_id = g.current_user_id
     bases = BaseService.get_all_bases(user_id)
@@ -44,16 +49,35 @@ def get_bases() -> tuple:
 def create_base() -> tuple:
     """
     创建新基础数据
-    
-    Request Body:
-        - name: 基础数据名称（可选，默认为"未命名基础数据"）
-        - description: 描述（可选）
-        - icon: 图标（可选）
-        - color: 主题颜色（可选，默认#6366F1）
-        - is_personal: 是否为个人空间（可选，默认False）
-    
-    Returns:
-        创建的基础数据详情
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 基础数据名称（可选，默认为"未命名基础数据"）
+            description:
+              type: string
+              description: 描述（可选）
+            icon:
+              type: string
+              description: 图标（可选）
+            color:
+              type: string
+              description: 主题颜色（可选，默认#6366F1）
+            is_personal:
+              type: boolean
+              description: 是否为个人空间（可选，默认False）
+    responses:
+      201:
+        description: 创建的基础数据详情
     """
     data = request.get_json() or {}
     user_id = g.current_user_id
@@ -78,15 +102,28 @@ def create_base() -> tuple:
 def get_base(base_id) -> tuple:
     """
     获取单个基础数据详情
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Query Parameters:
-        share_token: 分享令牌（可选，用于通过分享链接访问）
-    
-    Returns:
-        基础数据详情
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: share_token
+        in: query
+        type: string
+        description: 分享令牌（可选，用于通过分享链接访问）
+    responses:
+      200:
+        description: 基础数据详情
+      403:
+        description: 无权限访问
+      404:
+        description: 基础数据不存在
     """
     user_id = g.current_user_id
     
@@ -122,19 +159,46 @@ def get_base(base_id) -> tuple:
 def update_base(base_id) -> tuple:
     """
     更新基础数据
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Request Body:
-        - name: 新名称（可选）
-        - description: 新描述（可选）
-        - icon: 新图标（可选）
-        - color: 新颜色（可选）
-        - is_personal: 是否为个人空间（可选）
-    
-    Returns:
-        更新后的基础数据详情
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新名称（可选）
+            description:
+              type: string
+              description: 新描述（可选）
+            icon:
+              type: string
+              description: 新图标（可选）
+            color:
+              type: string
+              description: 新颜色（可选）
+            is_personal:
+              type: boolean
+              description: 是否为个人空间（可选）
+    responses:
+      200:
+        description: 更新后的基础数据详情
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限修改
+      404:
+        description: 基础数据不存在
     """
     user_id = g.current_user_id
     
@@ -166,12 +230,24 @@ def update_base(base_id) -> tuple:
 def delete_base(base_id) -> tuple:
     """
     删除基础数据（级联删除所有关联数据）
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Returns:
-        删除结果
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 只有基础数据所有者可以删除
+      404:
+        description: 基础数据不存在
     """
     user_id = g.current_user_id
     
@@ -195,12 +271,30 @@ def delete_base(base_id) -> tuple:
 def toggle_star(base_id) -> tuple:
     """
     切换基础数据的星标状态
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Returns:
-        更新后的星标状态
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+    responses:
+      200:
+        description: 星标状态更新成功
+        schema:
+          type: object
+          properties:
+            is_starred:
+              type: boolean
+              description: 是否已星标
+      403:
+        description: 无权限访问
+      404:
+        description: 基础数据不存在
     """
     user_id = g.current_user_id
     
@@ -223,12 +317,24 @@ def toggle_star(base_id) -> tuple:
 def get_members(base_id) -> tuple:
     """
     获取基础数据的所有成员
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Returns:
-        成员列表
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+    responses:
+      200:
+        description: 成员列表
+      403:
+        description: 无权限访问
+      404:
+        description: 基础数据不存在
     """
     user_id = g.current_user_id
     
@@ -277,16 +383,43 @@ def get_members(base_id) -> tuple:
 def add_member(base_id) -> tuple:
     """
     添加成员到基础数据
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Request Body:
-        - email: 被邀请用户邮箱（必填）
-        - role: 角色（可选，默认为 editor，可选值：admin/editor/commenter/viewer）
-    
-    Returns:
-        新添加的成员信息
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+          properties:
+            email:
+              type: string
+              description: 被邀请用户邮箱
+              example: "user@example.com"
+            role:
+              type: string
+              enum: ['admin', 'editor', 'commenter', 'viewer']
+              default: 'editor'
+              description: 角色（可选，默认为 editor）
+    responses:
+      201:
+        description: 新添加的成员信息
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限添加成员
+      404:
+        description: 基础数据不存在
     """
     user_id = g.current_user_id
     
@@ -326,17 +459,46 @@ def add_member(base_id) -> tuple:
 def batch_add_members(base_id) -> tuple:
     """
     批量添加成员到基础数据
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Request Body:
-        - members: 成员列表（必填）
-          - email: 被邀请用户邮箱（必填）
-          - role: 角色（可选，默认为 editor）
-    
-    Returns:
-        添加结果统计和失败的成员列表
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - members
+          properties:
+            members:
+              type: array
+              description: 成员列表（最多100个）
+              items:
+                type: object
+                properties:
+                  email:
+                    type: string
+                    description: 被邀请用户邮箱
+                  role:
+                    type: string
+                    enum: ['admin', 'editor', 'commenter', 'viewer']
+                    default: 'editor'
+                    description: 角色
+    responses:
+      200:
+        description: 添加结果统计和失败的成员列表
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限添加成员
     """
     user_id = g.current_user_id
     
@@ -413,16 +575,43 @@ def batch_add_members(base_id) -> tuple:
 def update_member(base_id, user_id) -> tuple:
     """
     更新成员角色
-    
-    Args:
-        base_id: 基础数据 ID
-        user_id: 成员用户 ID
-    
-    Request Body:
-        - role: 新角色（必填，可选值：admin/editor/commenter/viewer）
-    
-    Returns:
-        更新后的成员信息
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 成员用户 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - role
+          properties:
+            role:
+              type: string
+              enum: ['admin', 'editor', 'commenter', 'viewer']
+              description: 新角色
+    responses:
+      200:
+        description: 更新后的成员信息
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限修改成员角色
+      404:
+        description: 基础数据或成员不存在
     """
     current_user_id = g.current_user_id
     
@@ -461,13 +650,31 @@ def update_member(base_id, user_id) -> tuple:
 def remove_member(base_id, user_id) -> tuple:
     """
     从基础数据中移除成员
-    
-    Args:
-        base_id: 基础数据 ID
-        user_id: 要移除的用户 ID
-    
-    Returns:
-        移除结果
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 要移除的用户 ID
+    responses:
+      200:
+        description: 成员移除成功
+      400:
+        description: 不能移除自己或所有者
+      403:
+        description: 无权限移除成员
+      404:
+        description: 基础数据或成员不存在
     """
     current_user_id = g.current_user_id
     
@@ -496,27 +703,35 @@ def remove_member(base_id, user_id) -> tuple:
 def copy_base(base_id) -> tuple:
     """
     复制基础数据（多维表格）
-    
-    复制内容包括：
-    - Base 基本信息
-    - 所有数据表结构及字段配置
-    - 所有数据记录
-    - 所有视图配置
-    - 所有仪表盘配置
-    
-    排除内容：
-    - 分享设置
-    - 访问权限设置
-    - 评论及协作历史记录
-    
-    Args:
-        base_id: 源基础数据 ID
-    
-    Request Body:
-        - name: 新基础数据名称（可选，默认为"原名称+副本"）
-    
-    Returns:
-        复制后的新基础数据详情
+    ---
+    tags:
+      - Bases
+    security:
+      - Bearer: []
+    description: |
+      复制内容包括：Base 基本信息、所有数据表结构及字段配置、所有数据记录、所有视图配置、所有仪表盘配置
+      排除内容：分享设置、访问权限设置、评论及协作历史记录
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 源基础数据 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新基础数据名称（可选，默认为"原名称+副本"）
+    responses:
+      201:
+        description: 复制后的新基础数据详情
+      403:
+        description: 无权限复制
+      404:
+        description: 基础数据不存在
     """
     user_id = g.current_user_id
     

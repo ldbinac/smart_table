@@ -71,6 +71,20 @@ view_duplicate_schema = ViewDuplicateSchema()
 def get_views(table_id) -> tuple:
     """
     获取表格视图列表
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+    responses:
+      200:
+        description: 视图列表
     """
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
@@ -91,6 +105,51 @@ def get_views(table_id) -> tuple:
 def create_view(table_id) -> tuple:
     """
     创建视图
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+            - type
+          properties:
+            name:
+              type: string
+              description: 视图名称
+            type:
+              type: string
+              enum: ['table', 'gallery', 'kanban', 'gantt', 'calendar', 'form', 'timeline', 'list']
+              description: 视图类型
+            config:
+              type: object
+              description: 视图配置
+            filters:
+              type: array
+              description: 过滤器
+            sorts:
+              type: array
+              description: 排序规则
+            group_bys:
+              type: array
+              description: 分组字段
+            description:
+              type: string
+              description: 视图描述
+    responses:
+      201:
+        description: 视图创建成功
     """
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)

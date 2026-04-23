@@ -21,24 +21,67 @@ form_shares_bp.strict_slashes = False
 def create_form_share(table_id: str) -> tuple:
     """
     创建表单分享
-    
-    Args:
-        table_id: 表格 ID
-    
-    Request Body:
-        - allow_anonymous: 是否允许匿名提交（默认 true）
-        - require_captcha: 是否需要验证码（默认 false）
-        - expires_at: 过期时间（Unix 时间戳，可选）
-        - max_submissions: 最大提交次数（可选）
-        - allowed_fields: 允许提交的字段 ID 列表（可选）
-        - title: 表单标题（可选）
-        - description: 表单描述（可选）
-        - submit_button_text: 提交按钮文字（可选，默认"提交"）
-        - success_message: 成功提示信息（可选）
-        - theme: 主题样式（可选，默认"default"）
-    
-    Returns:
-        创建的表单分享信息
+    ---
+    tags:
+      - Form Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            allow_anonymous:
+              type: boolean
+              default: true
+              description: 是否允许匿名提交
+            require_captcha:
+              type: boolean
+              default: false
+              description: 是否需要验证码
+            expires_at:
+              type: integer
+              description: 过期时间（Unix 时间戳，可选）
+            max_submissions:
+              type: integer
+              description: 最大提交次数（可选）
+            allowed_fields:
+              type: array
+              items:
+                type: string
+              description: 允许提交的字段 ID 列表（可选）
+            title:
+              type: string
+              description: 表单标题（可选）
+            description:
+              type: string
+              description: 表单描述（可选）
+            submit_button_text:
+              type: string
+              default: "提交"
+              description: 提交按钮文字（可选）
+            success_message:
+              type: string
+              description: 成功提示信息（可选）
+            theme:
+              type: string
+              default: "default"
+              description: 主题样式（可选）
+    responses:
+      201:
+        description: 创建的表单分享信息
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限创建
+      404:
+        description: 表格不存在
     """
     user_id = g.current_user_id
     data = request.get_json() or {}
@@ -65,12 +108,24 @@ def create_form_share(table_id: str) -> tuple:
 def get_form_shares(table_id: str) -> tuple:
     """
     获取表格的所有表单分享列表
-    
-    Args:
-        table_id: 表格 ID
-    
-    Returns:
-        表单分享列表
+    ---
+    tags:
+      - Form Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+    responses:
+      200:
+        description: 表单分享列表
+      403:
+        description: 无权限查看
+      404:
+        description: 表格不存在
     """
     user_id = g.current_user_id
     
@@ -91,12 +146,22 @@ def get_form_shares(table_id: str) -> tuple:
 def get_form_share(share_id: str) -> tuple:
     """
     获取表单分享详情
-    
-    Args:
-        share_id: 表单分享 ID
-    
-    Returns:
-        表单分享详情
+    ---
+    tags:
+      - Form Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 表单分享 ID
+    responses:
+      200:
+        description: 表单分享详情
+      404:
+        description: 表单分享不存在
     """
     form_share = FormShareService.get_form_share_by_id(share_id)
     
@@ -114,25 +179,66 @@ def get_form_share(share_id: str) -> tuple:
 def update_form_share(share_id: str) -> tuple:
     """
     更新表单分享配置
-    
-    Args:
-        share_id: 表单分享 ID
-    
-    Request Body:
-        - is_active: 是否激活（可选）
-        - allow_anonymous: 是否允许匿名提交（可选）
-        - require_captcha: 是否需要验证码（可选）
-        - expires_at: 过期时间（可选）
-        - max_submissions: 最大提交次数（可选）
-        - allowed_fields: 允许提交的字段列表（可选）
-        - title: 表单标题（可选）
-        - description: 表单描述（可选）
-        - submit_button_text: 提交按钮文字（可选）
-        - success_message: 成功提示信息（可选）
-        - theme: 主题样式（可选）
-    
-    Returns:
-        更新后的表单分享信息
+    ---
+    tags:
+      - Form Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 表单分享 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            is_active:
+              type: boolean
+              description: 是否激活（可选）
+            allow_anonymous:
+              type: boolean
+              description: 是否允许匿名提交（可选）
+            require_captcha:
+              type: boolean
+              description: 是否需要验证码（可选）
+            expires_at:
+              type: integer
+              description: 过期时间（可选）
+            max_submissions:
+              type: integer
+              description: 最大提交次数（可选）
+            allowed_fields:
+              type: array
+              items:
+                type: string
+              description: 允许提交的字段列表（可选）
+            title:
+              type: string
+              description: 表单标题（可选）
+            description:
+              type: string
+              description: 表单描述（可选）
+            submit_button_text:
+              type: string
+              description: 提交按钮文字（可选）
+            success_message:
+              type: string
+              description: 成功提示信息（可选）
+            theme:
+              type: string
+              description: 主题样式（可选）
+    responses:
+      200:
+        description: 更新后的表单分享信息
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限更新
+      404:
+        description: 表单分享不存在
     """
     user_id = g.current_user_id
     data = request.get_json() or {}
@@ -156,12 +262,24 @@ def update_form_share(share_id: str) -> tuple:
 def delete_form_share(share_id: str) -> tuple:
     """
     删除表单分享
-    
-    Args:
-        share_id: 表单分享 ID
-    
-    Returns:
-        删除结果
+    ---
+    tags:
+      - Form Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 表单分享 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 无权限删除
+      404:
+        description: 表单分享不存在
     """
     user_id = g.current_user_id
     
@@ -181,16 +299,34 @@ def delete_form_share(share_id: str) -> tuple:
 def get_form_submissions(share_id: str) -> tuple:
     """
     获取表单提交记录
-    
-    Args:
-        share_id: 表单分享 ID
-    
-    Query Parameters:
-        - page: 页码（默认 1）
-        - per_page: 每页数量（默认 20，最大 100）
-    
-    Returns:
-        提交记录列表
+    ---
+    tags:
+      - Form Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 表单分享 ID
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码（默认 1）
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量（默认 20，最大 100）
+    responses:
+      200:
+        description: 提交记录列表
+      403:
+        description: 无权限查看
+      404:
+        description: 表单分享不存在
     """
     user_id = g.current_user_id
     
@@ -229,14 +365,21 @@ def get_form_submissions(share_id: str) -> tuple:
 def get_form_schema(token: str) -> tuple:
     """
     获取表单结构（公开接口）
-    
-    用于表单填写页面获取字段定义
-    
-    Args:
-        token: 分享令牌
-    
-    Returns:
-        表单结构，包含字段定义
+    ---
+    tags:
+      - Form Shares
+    description: 用于表单填写页面获取字段定义（无需认证）
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+    responses:
+      200:
+        description: 表单结构，包含字段定义
+      404:
+        description: 表单分享不存在或已失效
     """
     result = FormShareService.get_form_schema(token)
     
@@ -254,17 +397,42 @@ def get_form_schema(token: str) -> tuple:
 def submit_form(token: str) -> tuple:
     """
     提交表单数据（公开接口）
-    
-    Args:
-        token: 分享令牌
-    
-    Request Body:
-        - values: 字段值字典（必填）
-        - submitter_info: 提交者信息（可选，如邮箱、姓名）
-        - captcha: 验证码（如果需要）
-    
-    Returns:
-        提交结果
+    ---
+    tags:
+      - Form Shares
+    description: 提交表单数据（无需认证）
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - values
+          properties:
+            values:
+              type: object
+              description: 字段值字典（必填）
+            submitter_info:
+              type: object
+              description: 提交者信息（可选，如邮箱、姓名）
+            captcha:
+              type: string
+              description: 验证码（如果需要）
+    responses:
+      200:
+        description: 提交成功
+      400:
+        description: 数据验证失败
+      403:
+        description: 表单分享已失效或需要验证码
+      404:
+        description: 表单分享不存在
     """
     data = request.get_json() or {}
     
@@ -299,14 +467,35 @@ def submit_form(token: str) -> tuple:
 def validate_form_share(token: str) -> tuple:
     """
     验证表单分享是否有效（公开接口）
-    
-    用于表单填写页面预先检查分享链接是否可用
-    
-    Args:
-        token: 分享令牌
-    
-    Returns:
-        验证结果
+    ---
+    tags:
+      - Form Shares
+    description: 用于表单填写页面预先检查分享链接是否可用（无需认证）
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+    responses:
+      200:
+        description: 表单分享有效
+        schema:
+          type: object
+          properties:
+            valid:
+              type: boolean
+              example: true
+            require_captcha:
+              type: boolean
+              example: false
+            can_submit:
+              type: boolean
+              example: true
+      403:
+        description: 表单分享已失效或过期
+      404:
+        description: 表单分享不存在
     """
     valid, form_share, error = FormShareService.validate_form_share(token)
     
@@ -328,12 +517,36 @@ def validate_form_share(token: str) -> tuple:
 def get_captcha(token: str) -> tuple:
     """
     获取验证码（公开接口）
-    
-    Args:
-        token: 分享令牌
-    
-    Returns:
-        验证码图片（Base64编码）
+    ---
+    tags:
+      - Form Shares
+    description: 获取表单验证码（无需认证）
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+    responses:
+      200:
+        description: 验证码生成成功
+        schema:
+          type: object
+          properties:
+            image:
+              type: string
+              description: Base64编码的验证码图片
+              example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+            expire:
+              type: integer
+              description: 验证码有效期（秒）
+              example: 300
+      400:
+        description: 该表单不需要验证码
+      404:
+        description: 表单分享不存在或已失效
+      500:
+        description: 验证码生成失败
     """
     # 验证表单分享是否有效
     valid, form_share, error = FormShareService.validate_form_share(token)

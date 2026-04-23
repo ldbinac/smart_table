@@ -44,3 +44,6 @@ cryptography==42.0.5
 
 # WSGI 服务器
 gunicorn==21.2.0
+
+# API 文档生成
+flasgger==0.9.7b2

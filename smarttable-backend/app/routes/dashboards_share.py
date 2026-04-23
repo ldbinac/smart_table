@@ -20,12 +20,24 @@ dashboards_share_bp = Blueprint('dashboards_share', __name__)
 def get_dashboard_shares(dashboard_id) -> tuple:
     """
     获取仪表盘的所有分享链接
-    
-    参数:
-        dashboard_id: 仪表盘 ID
-        
-    返回:
-        分享链接列表
+    ---
+    tags:
+      - Dashboards Share
+    security:
+      - Bearer: []
+    parameters:
+      - name: dashboard_id
+        in: path
+        type: string
+        required: true
+        description: 仪表盘 ID
+    responses:
+      200:
+        description: 分享链接列表
+      403:
+        description: 无权限管理此仪表盘的分享
+      404:
+        description: 仪表盘不存在
     """
     user_id = g.current_user_id
     
@@ -51,18 +63,46 @@ def get_dashboard_shares(dashboard_id) -> tuple:
 def create_dashboard_share(dashboard_id) -> tuple:
     """
     创建仪表盘分享链接
-    
-    参数:
-        dashboard_id: 仪表盘 ID
-        
-    请求体:
-        - requireAccessCode: 是否需要访问密码（可选，默认 false）
-        - expiresInHours: 过期时间（小时）（可选）
-        - maxAccessCount: 最大访问次数（可选）
-        - permission: 分享权限（view/edit，默认 view）
-        
-    返回:
-        创建的分享链接信息
+    ---
+    tags:
+      - Dashboards Share
+    security:
+      - Bearer: []
+    parameters:
+      - name: dashboard_id
+        in: path
+        type: string
+        required: true
+        description: 仪表盘 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            requireAccessCode:
+              type: boolean
+              default: false
+              description: 是否需要访问密码
+            expiresInHours:
+              type: integer
+              description: 过期时间（小时）（可选）
+            maxAccessCount:
+              type: integer
+              description: 最大访问次数（可选）
+            permission:
+              type: string
+              enum: ['view', 'edit']
+              default: 'view'
+              description: 分享权限
+    responses:
+      201:
+        description: 创建的分享链接信息
+      403:
+        description: 无权限创建分享链接
+      404:
+        description: 仪表盘不存在
+      500:
+        description: 创建分享链接失败
     """
     user_id = g.current_user_id
     
@@ -101,12 +141,26 @@ def create_dashboard_share(dashboard_id) -> tuple:
 def delete_dashboard_share(share_id) -> tuple:
     """
     删除分享链接
-    
-    参数:
-        share_id: 分享 ID
-        
-    返回:
-        删除结果
+    ---
+    tags:
+      - Dashboards Share
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 分享 ID
+    responses:
+      200:
+        description: 分享链接删除成功
+      403:
+        description: 无权限删除此分享链接
+      404:
+        description: 分享链接或仪表盘不存在
+      500:
+        description: 删除分享链接失败
     """
     user_id = g.current_user_id
     
@@ -136,12 +190,26 @@ def delete_dashboard_share(share_id) -> tuple:
 def deactivate_dashboard_share(share_id) -> tuple:
     """
     禁用分享链接
-    
-    参数:
-        share_id: 分享 ID
-        
-    返回:
-        禁用结果
+    ---
+    tags:
+      - Dashboards Share
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 分享 ID
+    responses:
+      200:
+        description: 分享链接已禁用
+      403:
+        description: 无权限禁用此分享链接
+      404:
+        description: 分享链接或仪表盘不存在
+      500:
+        description: 禁用分享链接失败
     """
     user_id = g.current_user_id
     
@@ -172,15 +240,29 @@ def deactivate_dashboard_share(share_id) -> tuple:
 def validate_dashboard_share(token) -> tuple:
     """
     验证分享链接（公开接口，用于分享页面）
-    
-    参数:
-        token: 分享令牌
-        
-    请求体:
-        - accessCode: 访问密码（可选）
-        
-    返回:
-        验证结果和仪表盘信息（如果有效），包括所有相关表和字段数据
+    ---
+    tags:
+      - Dashboards Share
+    description: 验证分享链接（无需认证）
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            accessCode:
+              type: string
+              description: 访问密码（可选）
+    responses:
+      200:
+        description: 验证成功，返回分享信息和仪表盘数据
+      400:
+        description: 分享链接无效或访问密码错误
     """
     data = request.get_json() or {}
     access_code = data.get('accessCode')
@@ -231,12 +313,23 @@ def validate_dashboard_share(token) -> tuple:
 def get_shared_dashboard(token) -> tuple:
     """
     获取分享的仪表盘数据（公开接口，用于分享页面）
-    
-    参数:
-        token: 分享令牌
-        
-    返回:
-        仪表盘数据和组件信息
+    ---
+    tags:
+      - Dashboards Share
+    description: 获取分享的仪表盘数据（无需认证）
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+    responses:
+      200:
+        description: 仪表盘数据和组件信息
+      400:
+        description: 分享链接已过期
+      404:
+        description: 分享链接不存在或已失效
     """
     share = DashboardShareService.get_share_by_token(token)
     

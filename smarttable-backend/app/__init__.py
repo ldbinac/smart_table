@@ -2,6 +2,7 @@
 SmartTable Flask 应用工厂模块
 """
 from flask import Flask
+from flasgger import Swagger
 from app.extensions import init_extensions, db
 from app.config import config
 
@@ -40,6 +41,9 @@ def create_app(config_name='default', enable_realtime=False):
 
     # 注册 API 文档路由
     register_api_docs(app)
+
+    # 初始化 Flasgger Swagger
+    init_swagger(app)
 
     # 注册错误处理器
     register_error_handlers(app)
@@ -769,3 +773,50 @@ def register_api_docs(app):
     def api_docs_json():
         """API 文档 JSON 格式"""
         return jsonify(API_DOCUMENTATION)
+
+
+def init_swagger(app):
+    """
+    初始化 Flasgger Swagger
+    
+    Args:
+        app: Flask 应用实例
+    """
+    swagger_config = {
+        "headers": [],
+        "specs": [
+            {
+                "endpoint": "apispec_1",
+                "route": "/apispec_1.json",
+                "rule_filter": lambda rule: True,
+                "model_filter": lambda tag: True,
+            }
+        ],
+        "static_url_path": "/flasgger_static",
+        "swagger_ui": True,
+        "specs_route": "/apidocs/",
+    }
+    
+    swagger_template = {
+        "swagger": "2.0",
+        "info": {
+            "title": "SmartTable API",
+            "description": "SmartTable 数据管理系统 RESTful API 文档",
+            "version": "1.0.0",
+            "contact": {
+                "name": "SmartTable Team",
+            },
+        },
+        "basePath": "/api",
+        "schemes": ["http", "https"],
+        "securityDefinitions": {
+            "Bearer": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "description": "JWT Token 认证，格式：Bearer <token>",
+            }
+        },
+    }
+    
+    Swagger(app, config=swagger_config, template=swagger_template)

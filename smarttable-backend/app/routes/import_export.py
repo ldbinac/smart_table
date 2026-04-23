@@ -26,15 +26,36 @@ import_export_bp.strict_slashes = False
 def preview_import() -> tuple:
     """
     预览导入数据（不实际导入）
-    
-    请求参数:
-        - file: 文件（Excel 或 CSV）
-        - table_id: 目标表格 ID
-        - field_mapping: 字段映射 JSON 字符串 {列名: field_id}
-        - file_type: 文件类型（excel/csv，可选，自动检测）
-        
-    返回:
-        预览数据和验证结果
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    parameters:
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: 文件（Excel 或 CSV）
+      - name: table_id
+        in: formData
+        type: string
+        required: true
+        description: 目标表格 ID
+      - name: field_mapping
+        in: formData
+        type: string
+        description: "字段映射 JSON 字符串 {列名: field_id}"
+      - name: file_type
+        in: formData
+        type: string
+        enum: ['excel', 'csv']
+        description: 文件类型（可选，自动检测）
+    responses:
+      200:
+        description: 预览数据和验证结果
     """
     user_id = g.current_user_id
     
@@ -114,15 +135,36 @@ def preview_import() -> tuple:
 def import_data() -> tuple:
     """
     执行数据导入
-    
-    请求参数:
-        - file: 文件（Excel 或 CSV）
-        - table_id: 目标表格 ID
-        - field_mapping: 字段映射 JSON 字符串 {列名: field_id}
-        - file_type: 文件类型（excel/csv，可选）
-        
-    返回:
-        导入任务 ID 和结果
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    parameters:
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: 文件（Excel 或 CSV）
+      - name: table_id
+        in: formData
+        type: string
+        required: true
+        description: 目标表格 ID
+      - name: field_mapping
+        in: formData
+        type: string
+        description: "字段映射 JSON 字符串 {列名: field_id}"
+      - name: file_type
+        in: formData
+        type: string
+        enum: ['excel', 'csv']
+        description: 文件类型（可选，自动检测）
+    responses:
+      200:
+        description: 导入任务 ID 和结果
     """
     user_id = g.current_user_id
     

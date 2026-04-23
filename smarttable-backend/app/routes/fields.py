@@ -24,12 +24,20 @@ fields_bp.strict_slashes = False
 def get_fields(table_id) -> tuple:
     """
     获取表格中的所有字段
-    
-    Args:
-        table_id: 表格 ID
-    
-    Returns:
-        字段列表
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+    responses:
+      200:
+        description: 字段列表
     """
     user_id = g.current_user_id
     
@@ -53,28 +61,48 @@ def get_fields(table_id) -> tuple:
 def create_field(table_id) -> tuple:
     """
     在表格中创建新字段
-    
-    Args:
-        table_id: 表格 ID
-    
-    Request Body:
-        - name: 字段名称（可选，默认为"未命名字段"）
-        - type: 字段类型（必填）
-        - description: 描述（可选）
-        - is_required: 是否必填（可选，默认 False）
-        - options: 字段选项（可选，选择类型字段必填）
-            例如：{"choices": [{"id": "1", "name": "选项 1", "color": "red"}]}
-        - config: 字段配置（可选）
-        - defaultValue: 字段默认值（可选，根据字段类型设置相应类型的值）
-            文本类型：字符串
-            数字类型：数字
-            日期类型：ISO 日期字符串或"now"（当前时间）
-            单选类型：选项 ID（字符串）
-            多选类型：选项 ID 数组
-            复选框：布尔值
-    
-    Returns:
-        创建的字段详情
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - type
+          properties:
+            name:
+              type: string
+              description: 字段名称（可选，默认为"未命名字段"）
+            type:
+              type: string
+              description: 字段类型（必填）
+            description:
+              type: string
+              description: 描述（可选）
+            is_required:
+              type: boolean
+              description: 是否必填（可选，默认 False）
+            options:
+              type: object
+              description: 字段选项（可选，选择类型字段必填）
+            config:
+              type: object
+              description: 字段配置（可选）
+            defaultValue:
+              type: object
+              description: 字段默认值（可选）
+    responses:
+      201:
+        description: 创建的字段详情
     """
     user_id = g.current_user_id
     

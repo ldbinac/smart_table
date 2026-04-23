@@ -50,20 +50,41 @@ auth_bp.strict_slashes = False
 def register() -> tuple:
     """
     用户注册
-    
-    请求体:
-        {
-            "email": "user@example.com",
-            "password": "Password123",
-            "name": "用户名",
-            "captcha": "ABCD"
-        }
-    
-    响应:
-        201: 注册成功，返回用户信息和令牌
-        400: 请求数据验证失败
-        403: 验证码错误
-        409: 邮箱已被注册
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - password
+            - captcha
+          properties:
+            email:
+              type: string
+              example: "user@example.com"
+            password:
+              type: string
+              example: "Password123"
+            name:
+              type: string
+              example: "用户名"
+            captcha:
+              type: string
+              example: "ABCD"
+    responses:
+      201:
+        description: 注册成功，返回用户信息和令牌
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 验证码错误
+      409:
+        description: 邮箱已被注册
     """
     # 获取请求数据
     data = request.get_json()
@@ -129,20 +150,40 @@ def register() -> tuple:
 def login() -> tuple:
     """
     用户登录
-    
-    请求体:
-        {
-            "email": "user@example.com",
-            "password": "Password123",
-            "captcha": "ABCD"
-        }
-    
-    响应:
-        200: 登录成功，返回用户信息和令牌
-        400: 请求数据验证失败
-        401: 邮箱或密码错误，或账号被禁用
-        403: 验证码错误
-        429: 登录尝试次数过多，账户被锁定
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - password
+            - captcha
+          properties:
+            email:
+              type: string
+              example: "user@example.com"
+            password:
+              type: string
+              example: "Password123"
+            captcha:
+              type: string
+              example: "ABCD"
+    responses:
+      200:
+        description: 登录成功，返回用户信息和令牌
+      400:
+        description: 请求数据验证失败
+      401:
+        description: 邮箱或密码错误，或账号被禁用
+      403:
+        description: 验证码错误
+      429:
+        description: 登录尝试次数过多，账户被锁定
     """
     # 获取请求数据
     data = request.get_json()
@@ -215,15 +256,22 @@ def login() -> tuple:
 def refresh() -> tuple:
     """
     刷新访问令牌
-    
-    使用刷新令牌获取新的访问令牌
-    
-    请求头:
-        Authorization: Bearer <refresh_token>
-    
-    响应:
-        200: 刷新成功，返回新的访问令牌
-        401: 刷新令牌无效或过期
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer <refresh_token>
+    responses:
+      200:
+        description: 刷新成功，返回新的访问令牌
+      401:
+        description: 刷新令牌无效或过期
     """
     # 获取用户 ID
     user_id = get_jwt_identity()
@@ -249,15 +297,17 @@ def refresh() -> tuple:
 def logout() -> tuple:
     """
     用户登出
-    
-    将当前访问令牌加入黑名单，使其失效
-    
-    请求头:
-        Authorization: Bearer <access_token>
-    
-    响应:
-        200: 登出成功
-        401: 令牌无效
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    description: 将当前访问令牌加入黑名单，使其失效
+    responses:
+      200:
+        description: 登出成功
+      401:
+        description: 令牌无效
     """
     # 获取 JWT 信息
     jwt_payload = get_jwt()
@@ -279,15 +329,17 @@ def logout() -> tuple:
 def logout_all() -> tuple:
     """
     从所有设备登出
-    
-    撤销用户的所有令牌，强制从所有设备重新登录
-    
-    请求头:
-        Authorization: Bearer <access_token>
-    
-    响应:
-        200: 登出成功
-        401: 令牌无效
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    description: 撤销用户的所有令牌，强制从所有设备重新登录
+    responses:
+      200:
+        description: 登出成功
+      401:
+        description: 令牌无效
     """
     user_id = get_jwt_identity()
     
@@ -308,14 +360,18 @@ def logout_all() -> tuple:
 def get_current_user() -> tuple:
     """
     获取当前用户信息
-    
-    请求头:
-        Authorization: Bearer <access_token>
-    
-    响应:
-        200: 获取成功，返回用户信息
-        401: 令牌无效
-        404: 用户不存在
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: 获取成功，返回用户信息
+      401:
+        description: 令牌无效
+      404:
+        description: 用户不存在
     """
     user_id = get_jwt_identity()
     
@@ -336,21 +392,34 @@ def get_current_user() -> tuple:
 def update_current_user() -> tuple:
     """
     更新当前用户信息
-    
-    请求头:
-        Authorization: Bearer <access_token>
-    
-    请求体:
-        {
-            "name": "新用户名",
-            "avatar": "https://example.com/avatar.jpg"
-        }
-    
-    响应:
-        200: 更新成功，返回更新后的用户信息
-        400: 请求数据验证失败
-        401: 令牌无效
-        404: 用户不存在
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新用户名
+              example: "新用户名"
+            avatar:
+              type: string
+              description: 头像URL
+              example: "https://example.com/avatar.jpg"
+    responses:
+      200:
+        description: 更新成功，返回更新后的用户信息
+      400:
+        description: 请求数据验证失败
+      401:
+        description: 令牌无效
+      404:
+        description: 用户不存在
     """
     user_id = get_jwt_identity()
     
@@ -396,21 +465,38 @@ def update_current_user() -> tuple:
 def change_password() -> tuple:
     """
     修改密码
-    
-    请求头:
-        Authorization: Bearer <access_token>
-    
-    请求体:
-        {
-            "old_password": "旧密码",
-            "new_password": "新密码"
-        }
-    
-    响应:
-        200: 密码修改成功
-        400: 请求数据验证失败或旧密码错误
-        401: 令牌无效
-        404: 用户不存在
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - old_password
+            - new_password
+          properties:
+            old_password:
+              type: string
+              description: 旧密码
+              example: "OldPassword123"
+            new_password:
+              type: string
+              description: 新密码（至少8位，包含大小写字母和数字）
+              example: "NewPassword456"
+    responses:
+      200:
+        description: 密码修改成功
+      400:
+        description: 请求数据验证失败或旧密码错误
+      401:
+        description: 令牌无效
+      404:
+        description: 用户不存在
     """
     user_id = get_jwt_identity()
     
@@ -453,12 +539,28 @@ def change_password() -> tuple:
 def check_email() -> tuple:
     """
     检查邮箱是否可用
-    
-    查询参数:
-        email: 要检查的邮箱地址
-    
-    响应:
-        200: 返回邮箱是否可用
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: email
+        in: query
+        type: string
+        required: true
+        description: 要检查的邮箱地址
+        example: "user@example.com"
+    responses:
+      200:
+        description: 返回邮箱是否可用
+        schema:
+          type: object
+          properties:
+            available:
+              type: boolean
+              description: 是否可用
+            email:
+              type: string
+              description: 邮箱地址
     """
     email = request.args.get('email', '').strip().lower()
     
@@ -481,15 +583,17 @@ def check_email() -> tuple:
 def verify_token() -> tuple:
     """
     验证令牌有效性
-    
-    用于前端检查当前令牌是否仍然有效
-    
-    请求头:
-        Authorization: Bearer <access_token>
-    
-    响应:
-        200: 令牌有效
-        401: 令牌无效或已过期
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    description: 用于前端检查当前令牌是否仍然有效
+    responses:
+      200:
+        description: 令牌有效
+      401:
+        description: 令牌无效或已过期
     """
     user_id = get_jwt_identity()
     user = AuthService.get_current_user(user_id)
@@ -513,14 +617,22 @@ def verify_token() -> tuple:
 def verify_email() -> tuple:
     """
     验证邮箱
-    
-    查询参数:
-        token: 验证令牌
-    
-    响应:
-        200: 验证成功
-        400: 令牌无效或已过期
-        404: 用户不存在
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: token
+        in: query
+        type: string
+        required: true
+        description: 验证令牌
+    responses:
+      200:
+        description: 验证成功
+      400:
+        description: 令牌无效或已过期
+      404:
+        description: 用户不存在
     """
     token = request.args.get('token')
     
@@ -548,15 +660,20 @@ def verify_email() -> tuple:
 def resend_verification() -> tuple:
     """
     重新发送验证邮件
-    
-    请求头:
-        Authorization: Bearer <access_token>
-    
-    响应:
-        200: 发送成功
-        400: 邮箱已验证或邮件服务未启用
-        401: 令牌无效
-        404: 用户不存在
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: 发送成功
+      400:
+        description: 邮箱已验证或邮件服务未启用
+      401:
+        description: 令牌无效
+      404:
+        description: 用户不存在
     """
     from app.services.email_config_service import EmailConfigService
     from app.services.email_sender_service import EmailSenderService
@@ -602,16 +719,32 @@ def resend_verification() -> tuple:
 def forgot_password() -> tuple:
     """
     忘记密码 - 发送重置邮件
-
-    请求体:
-        {
-            "email": "user@example.com",
-            "captcha": "1234"
-        }
-
-    响应:
-        200: 如果邮箱存在，发送重置邮件
-        400: 请求数据验证失败或验证码错误
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - captcha
+          properties:
+            email:
+              type: string
+              description: 用户邮箱
+              example: "user@example.com"
+            captcha:
+              type: string
+              description: 验证码
+              example: "1234"
+    responses:
+      200:
+        description: 如果邮箱存在，发送重置邮件
+      400:
+        description: 请求数据验证失败或验证码错误
     """
     from app.services.email_config_service import EmailConfigService
     from app.services.email_sender_service import EmailSenderService
@@ -680,16 +813,32 @@ def forgot_password() -> tuple:
 def reset_password() -> tuple:
     """
     重置密码
-    
-    请求体:
-        {
-            "token": "重置令牌",
-            "new_password": "新密码"
-        }
-    
-    响应:
-        200: 密码重置成功
-        400: 令牌无效或已过期，或密码不符合要求
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - token
+            - new_password
+          properties:
+            token:
+              type: string
+              description: 重置令牌
+              example: "reset_token_here"
+            new_password:
+              type: string
+              description: 新密码（至少8位，包含大小写字母和数字）
+              example: "NewPassword123"
+    responses:
+      200:
+        description: 密码重置成功
+      400:
+        description: 令牌无效或已过期，或密码不符合要求
     """
     data = request.get_json()
     

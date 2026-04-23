@@ -30,19 +30,34 @@ email_bp.strict_slashes = False
 def get_email_templates() -> tuple:
     """
     获取邮件模板列表
-
-    查询参数:
-        page: 页码，从 1 开始，默认 1
-        per_page: 每页数量，默认 20
-        is_default: 是否只显示默认模板（true/false）
-
-    响应:
-        200: 返回分页邮件模板列表
-        401: 未授权访问
-        403: 权限不足
-
-    示例:
-        GET /api/admin/email/templates?page=1&per_page=20&is_default=true
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 获取邮件模板列表（需要管理员权限）
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码，从 1 开始
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+      - name: is_default
+        in: query
+        type: boolean
+        description: 是否只显示默认模板
+    responses:
+      200:
+        description: 返回分页邮件模板列表
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         page = request.args.get('page', 1, type=int)
@@ -83,15 +98,27 @@ def get_email_templates() -> tuple:
 def get_email_template(template_key: str) -> tuple:
     """
     获取单个邮件模板详情
-
-    路径参数:
-        template_key: 模板标识（如 'user_registration', 'password_reset'）
-
-    响应:
-        200: 返回邮件模板详情
-        401: 未授权访问
-        403: 权限不足
-        404: 模板不存在
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 获取单个邮件模板详情（需要管理员权限）
+    parameters:
+      - name: template_key
+        in: path
+        type: string
+        required: true
+        description: 模板标识（如 'user_registration', 'password_reset'）
+    responses:
+      200:
+        description: 返回邮件模板详情
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 模板不存在
     """
     template = EmailTemplate.query.filter_by(template_key=template_key).first()
 
@@ -110,25 +137,49 @@ def get_email_template(template_key: str) -> tuple:
 def update_email_template(template_key: str) -> tuple:
     """
     更新邮件模板
-
-    路径参数:
-        template_key: 模板标识
-
-    请求体:
-        {
-            "name": "模板名称" (可选),
-            "subject": "邮件主题" (可选),
-            "content_html": "HTML内容" (可选),
-            "content_text": "纯文本内容" (可选),
-            "description": "模板描述" (可选)
-        }
-
-    响应:
-        200: 更新成功，返回更新后的模板
-        400: 请求数据验证失败
-        401: 未授权访问
-        403: 权限不足
-        404: 模板不存在
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 更新邮件模板（需要管理员权限）
+    parameters:
+      - name: template_key
+        in: path
+        type: string
+        required: true
+        description: 模板标识
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 模板名称
+            subject:
+              type: string
+              description: 邮件主题
+            content_html:
+              type: string
+              description: HTML内容
+            content_text:
+              type: string
+              description: 纯文本内容
+            description:
+              type: string
+              description: 模板描述
+    responses:
+      200:
+        description: 更新成功，返回更新后的模板
+      400:
+        description: 请求数据验证失败
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 模板不存在
     """
     template = EmailTemplate.query.filter_by(template_key=template_key).first()
 
@@ -168,16 +219,29 @@ def update_email_template(template_key: str) -> tuple:
 def reset_email_template(template_key: str) -> tuple:
     """
     重置邮件模板为默认模板
-
-    路径参数:
-        template_key: 模板标识
-
-    响应:
-        200: 重置成功
-        400: 该模板不支持重置
-        401: 未授权访问
-        403: 权限不足
-        404: 模板不存在
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 重置邮件模板为默认模板（需要管理员权限）
+    parameters:
+      - name: template_key
+        in: path
+        type: string
+        required: true
+        description: 模板标识
+    responses:
+      200:
+        description: 重置成功
+      400:
+        description: 该模板不支持重置
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 模板不存在
     """
     template = EmailTemplate.query.filter_by(template_key=template_key).first()
 
@@ -218,21 +282,53 @@ def reset_email_template(template_key: str) -> tuple:
 def get_email_logs() -> tuple:
     """
     获取邮件发送日志
-
-    查询参数:
-        page: 页码，从 1 开始，默认 1
-        per_page: 每页数量，默认 20
-        status: 状态过滤（pending, sent, failed, retrying）
-        template_key: 模板标识过滤
-        recipient_email: 收件人邮箱过滤
-        start_date: 开始时间（ISO 8601 格式）
-        end_date: 结束时间（ISO 8601 格式）
-
-    响应:
-        200: 返回分页邮件发送日志列表
-        400: 时间格式错误
-        401: 未授权访问
-        403: 权限不足
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 获取邮件发送日志（需要管理员权限）
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码，从 1 开始
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+      - name: status
+        in: query
+        type: string
+        enum: ['pending', 'sent', 'failed', 'retrying']
+        description: 状态过滤
+      - name: template_key
+        in: query
+        type: string
+        description: 模板标识过滤
+      - name: recipient_email
+        in: query
+        type: string
+        description: 收件人邮箱过滤
+      - name: start_date
+        in: query
+        type: string
+        description: 开始时间（ISO 8601 格式）
+      - name: end_date
+        in: query
+        type: string
+        description: 结束时间（ISO 8601 格式）
+    responses:
+      200:
+        description: 返回分页邮件发送日志列表
+      400:
+        description: 时间格式错误
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         page = request.args.get('page', 1, type=int)
@@ -300,31 +396,61 @@ def get_email_logs() -> tuple:
 def get_email_stats() -> tuple:
     """
     获取邮件发送统计
-
-    响应:
-        200: 返回邮件发送统计数据
-        401: 未授权访问
-        403: 权限不足
-
-    返回示例:
-        {
-            "total": 1000,
-            "sent": 950,
-            "failed": 40,
-            "pending": 5,
-            "retrying": 5,
-            "success_rate": 95.0,
-            "by_template": {
-                "user_registration": {"total": 100, "sent": 98, "failed": 2},
-                "password_reset": {"total": 50, "sent": 50, "failed": 0}
-            },
-            "by_status": {
-                "pending": 5,
-                "sent": 950,
-                "failed": 40,
-                "retrying": 5
-            }
-        }
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 获取邮件发送统计数据（需要管理员权限）
+    responses:
+      200:
+        description: 返回邮件发送统计数据
+        schema:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 200
+            message:
+              type: string
+              example: "获取邮件发送统计成功"
+            data:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  description: 总发送数量
+                  example: 1000
+                sent:
+                  type: integer
+                  description: 成功发送数量
+                  example: 950
+                failed:
+                  type: integer
+                  description: 失败数量
+                  example: 40
+                pending:
+                  type: integer
+                  description: 待发送数量
+                  example: 5
+                retrying:
+                  type: integer
+                  description: 重试中数量
+                  example: 5
+                success_rate:
+                  type: number
+                  description: 成功率
+                  example: 95.0
+                by_template:
+                  type: object
+                  description: 按模板统计
+                by_status:
+                  type: object
+                  description: 按状态统计
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         total = EmailLog.query.count()
@@ -385,21 +511,55 @@ def get_email_stats() -> tuple:
 def get_email_queue_stats() -> tuple:
     """
     获取邮件队列统计信息
-
-    响应:
-        200: 返回邮件队列统计
-        401: 未授权访问
-        403: 权限不足
-
-    返回示例:
-        {
-            "queued": 100,
-            "sent": 95,
-            "failed": 3,
-            "retried": 2,
-            "pending": 5,
-            "is_running": true
-        }
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 获取邮件队列统计信息（需要管理员权限）
+    responses:
+      200:
+        description: 返回邮件队列统计
+        schema:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 200
+            message:
+              type: string
+              example: "获取邮件队列统计成功"
+            data:
+              type: object
+              properties:
+                queued:
+                  type: integer
+                  description: 队列中数量
+                  example: 100
+                sent:
+                  type: integer
+                  description: 已发送数量
+                  example: 95
+                failed:
+                  type: integer
+                  description: 失败数量
+                  example: 3
+                retried:
+                  type: integer
+                  description: 重试数量
+                  example: 2
+                pending:
+                  type: integer
+                  description: 待处理数量
+                  example: 5
+                is_running:
+                  type: boolean
+                  description: 队列是否运行中
+                  example: true
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         from app.services.email_queue_service import email_queue
@@ -421,11 +581,19 @@ def get_email_queue_stats() -> tuple:
 def clear_email_queue_stats() -> tuple:
     """
     清除邮件队列统计信息
-
-    响应:
-        200: 清除成功
-        401: 未授权访问
-        403: 权限不足
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 清除邮件队列统计信息（需要管理员权限）
+    responses:
+      200:
+        description: 清除成功
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         from app.services.email_queue_service import email_queue

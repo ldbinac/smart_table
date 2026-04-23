@@ -25,12 +25,20 @@ dashboards_bp.strict_slashes = False
 def get_base_dashboards(base_id) -> tuple:
     """
     获取基础数据下的所有仪表盘
-    
-    参数:
-        base_id: 基础数据 ID
-        
-    返回:
-        仪表盘列表
+    ---
+    tags:
+      - Dashboards
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+    responses:
+      200:
+        description: 仪表盘列表
     """
     user_id = g.current_user_id
     
@@ -51,18 +59,37 @@ def get_base_dashboards(base_id) -> tuple:
 def create_base_dashboard(base_id) -> tuple:
     """
     在基础数据下创建新仪表盘
-    
-    参数:
-        base_id: 基础数据 ID
-        
-    请求体:
-        - name: 仪表盘名称（可选，默认"未命名仪表盘"）
-        - description: 描述（可选）
-        - is_default: 是否设为默认（可选，默认false）
-        - layout: 布局配置（可选）
-        
-    返回:
-        创建的仪表盘详情
+    ---
+    tags:
+      - Dashboards
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 仪表盘名称（可选，默认"未命名仪表盘"）
+            description:
+              type: string
+              description: 描述（可选）
+            is_default:
+              type: boolean
+              description: 是否设为默认（可选，默认false）
+            layout:
+              type: object
+              description: 布局配置（可选）
+    responses:
+      201:
+        description: 创建的仪表盘详情
     """
     user_id = g.current_user_id
     

@@ -22,12 +22,20 @@ tables_bp.strict_slashes = False
 def get_tables(base_id) -> tuple:
     """
     获取基础数据中的所有表格
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Returns:
-        表格列表
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+    responses:
+      200:
+        description: 表格列表
     """
     user_id = g.current_user_id
     
@@ -51,17 +59,34 @@ def get_tables(base_id) -> tuple:
 def create_table(base_id) -> tuple:
     """
     在基础数据中创建新表格
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Request Body:
-        - name: 表格名称（可选，默认为"未命名表格"）
-        - description: 描述（可选）
-        - primary_field_name: 主字段名称（可选，默认为"名称"）
-    
-    Returns:
-        创建的表格详情
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 表格名称（可选，默认为"未命名表格"）
+            description:
+              type: string
+              description: 描述（可选）
+            primary_field_name:
+              type: string
+              description: 主字段名称（可选，默认为"名称"）
+    responses:
+      201:
+        description: 创建的表格详情
     """
     user_id = g.current_user_id
     
@@ -93,12 +118,20 @@ def create_table(base_id) -> tuple:
 def get_table(table_id) -> tuple:
     """
     获取单个表格详情
-    
-    Args:
-        table_id: 表格 ID
-    
-    Returns:
-        表格详情
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+    responses:
+      200:
+        description: 表格详情
     """
     user_id = g.current_user_id
     
@@ -121,16 +154,37 @@ def get_table(table_id) -> tuple:
 def update_table(table_id) -> tuple:
     """
     更新表格
-    
-    Args:
-        table_id: 表格 ID
-    
-    Request Body:
-        - name: 新名称（可选）
-        - description: 新描述（可选）
-    
-    Returns:
-        更新后的表格详情
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新名称（可选）
+            description:
+              type: string
+              description: 新描述（可选）
+    responses:
+      200:
+        description: 更新后的表格详情
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限修改
+      404:
+        description: 表格不存在
     """
     user_id = g.current_user_id
     
@@ -162,12 +216,24 @@ def update_table(table_id) -> tuple:
 def delete_table(table_id) -> tuple:
     """
     删除表格（级联删除关联的字段、记录、视图等）
-    
-    Args:
-        table_id: 表格 ID
-    
-    Returns:
-        删除结果
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 无权限删除
+      404:
+        description: 表格不存在
     """
     user_id = g.current_user_id
     
@@ -191,16 +257,44 @@ def delete_table(table_id) -> tuple:
 def reorder_tables(base_id) -> tuple:
     """
     批量重新排序表格
-    
-    Args:
-        base_id: 基础数据 ID
-    
-    Request Body:
-        - orders: 排序列表，每个元素包含 table_id 和 order
-          例如：[{"table_id": "xxx", "order": 0}, {"table_id": "yyy", "order": 1}]
-    
-    Returns:
-        排序结果
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - orders
+          properties:
+            orders:
+              type: array
+              description: 排序列表，每个元素包含 table_id 和 order
+              items:
+                type: object
+                properties:
+                  table_id:
+                    type: string
+                    description: 表格ID
+                  order:
+                    type: integer
+                    description: 排序序号
+    responses:
+      200:
+        description: 排序成功
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限修改
     """
     user_id = g.current_user_id
     
@@ -226,15 +320,32 @@ def reorder_tables(base_id) -> tuple:
 def duplicate_table(table_id) -> tuple:
     """
     复制表格（包括字段结构，不包括记录数据）
-    
-    Args:
-        table_id: 源表格 ID
-    
-    Request Body:
-        - name: 新表格名称（可选）
-    
-    Returns:
-        新创建的表格详情
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 源表格 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新表格名称（可选）
+    responses:
+      201:
+        description: 新创建的表格详情
+      403:
+        description: 无权限复制
+      404:
+        description: 表格不存在
     """
     user_id = g.current_user_id
     

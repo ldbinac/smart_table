@@ -43,21 +43,44 @@ admin_bp.strict_slashes = False
 def get_users() -> tuple:
     """
     获取所有用户（分页）
-    
-    查询参数:
-        page: 页码，从 1 开始，默认 1
-        per_page: 每页数量，默认 20
-        search: 搜索关键词（支持邮箱和姓名）
-        role: 角色过滤（owner, admin, workspace_admin, editor, commenter, viewer）
-        status: 状态过滤（active, inactive, suspended）
-    
-    响应:
-        200: 返回分页用户列表
-        401: 未授权访问
-        403: 权限不足
-    
-    示例:
-        GET /api/admin/users?page=1&per_page=20&search=张三&role=admin&status=active
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 获取所有用户列表（需要管理员权限）
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码，从 1 开始
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+      - name: search
+        in: query
+        type: string
+        description: 搜索关键词（支持邮箱和姓名）
+      - name: role
+        in: query
+        type: string
+        enum: ['owner', 'admin', 'workspace_admin', 'editor', 'commenter', 'viewer']
+        description: 角色过滤
+      - name: status
+        in: query
+        type: string
+        enum: ['active', 'inactive', 'suspended']
+        description: 状态过滤
+    responses:
+      200:
+        description: 返回分页用户列表
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         page = request.args.get('page', 1, type=int)
