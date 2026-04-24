@@ -127,12 +127,24 @@ def get_attachment(attachment_id) -> tuple:
 def download_attachment(attachment_id) -> tuple:
     """
     下载附件
-    
-    参数:
-        attachment_id: 附件 ID
-        
-    返回:
-        文件下载响应
+    ---
+    tags:
+      - Attachments
+    security:
+      - Bearer: []
+    parameters:
+      - name: attachment_id
+        in: path
+        type: string
+        required: true
+        description: 附件 ID
+    responses:
+      200:
+        description: 文件下载响应
+      404:
+        description: 附件或文件不存在
+      500:
+        description: 下载失败
     """
     user_id = g.current_user_id
     
@@ -170,12 +182,26 @@ def download_attachment(attachment_id) -> tuple:
 def preview_attachment(attachment_id) -> tuple:
     """
     预览附件（内联显示）
-    
-    参数:
-        attachment_id: 附件 ID
-        
-    返回:
-        文件预览响应
+    ---
+    tags:
+      - Attachments
+    security:
+      - Bearer: []
+    parameters:
+      - name: attachment_id
+        in: path
+        type: string
+        required: true
+        description: 附件 ID
+    responses:
+      200:
+        description: 文件预览响应
+      400:
+        description: 此文件类型不支持预览
+      404:
+        description: 附件或文件不存在
+      500:
+        description: 预览失败
     """
     user_id = g.current_user_id
     
@@ -217,12 +243,26 @@ def preview_attachment(attachment_id) -> tuple:
 def delete_attachment(attachment_id) -> tuple:
     """
     删除附件
-    
-    参数:
-        attachment_id: 附件 ID
-        
-    返回:
-        删除结果
+    ---
+    tags:
+      - Attachments
+    security:
+      - Bearer: []
+    parameters:
+      - name: attachment_id
+        in: path
+        type: string
+        required: true
+        description: 附件 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 无权限
+      404:
+        description: 附件不存在
+      500:
+        description: 删除失败
     """
     user_id = g.current_user_id
     
@@ -252,17 +292,36 @@ def delete_attachment(attachment_id) -> tuple:
 def get_base_attachments(base_id) -> tuple:
     """
     获取基础数据下的附件列表
-    
-    参数:
-        base_id: 基础数据 ID
-        
-    查询参数:
-        - file_type: 文件类型筛选（可选）
-        - page: 页码（可选，默认1）
-        - per_page: 每页数量（可选，默认20）
-        
-    返回:
-        附件列表（分页）
+    ---
+    tags:
+      - Attachments
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: file_type
+        in: query
+        type: string
+        description: 文件类型筛选
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+    responses:
+      200:
+        description: 附件列表（分页）
+      403:
+        description: 无权限
     """
     user_id = g.current_user_id
     
@@ -304,12 +363,26 @@ def get_base_attachments(base_id) -> tuple:
 def get_thumbnail(attachment_id) -> tuple:
     """
     获取附件缩略图
-    
-    参数:
-        attachment_id: 附件 ID
-        
-    返回:
-        缩略图文件
+    ---
+    tags:
+      - Attachments
+    security:
+      - Bearer: []
+    parameters:
+      - name: attachment_id
+        in: path
+        type: string
+        required: true
+        description: 附件 ID
+    responses:
+      200:
+        description: 缩略图文件
+      403:
+        description: 无权限
+      404:
+        description: 附件或缩略图不存在
+      500:
+        description: 获取失败
     """
     user_id = g.current_user_id
     
@@ -349,12 +422,24 @@ def get_thumbnail(attachment_id) -> tuple:
 def serve_uploaded_file(filename) -> tuple:
     """
     提供上传文件的静态访问
-
-    参数:
-        filename: 文件路径（包含子目录）
-
-    返回:
-        文件内容
+    ---
+    tags:
+      - Attachments
+    parameters:
+      - name: filename
+        in: path
+        type: string
+        required: true
+        description: 文件路径（包含子目录）
+    responses:
+      200:
+        description: 文件内容
+      403:
+        description: 无效的文件路径
+      404:
+        description: 文件不存在
+      500:
+        description: 访问失败
     """
     from flask import send_from_directory
     from app.services.attachment_service import AttachmentService

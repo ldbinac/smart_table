@@ -222,6 +222,22 @@ def create_view(table_id) -> tuple:
 def get_view(view_id) -> tuple:
     """
     获取视图详情
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    parameters:
+      - name: view_id
+        in: path
+        type: string
+        required: true
+        description: 视图 ID
+    responses:
+      200:
+        description: 视图详情
+      404:
+        description: 视图不存在
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
@@ -239,6 +255,69 @@ def get_view(view_id) -> tuple:
 def update_view(view_id) -> tuple:
     """
     更新视图
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    parameters:
+      - name: view_id
+        in: path
+        type: string
+        required: true
+        description: 视图 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 视图名称
+            config:
+              type: object
+              description: 视图配置
+            filters:
+              type: array
+              description: 过滤器
+            sorts:
+              type: array
+              description: 排序规则
+            group_bys:
+              type: array
+              description: 分组字段
+            hidden_fields:
+              type: array
+              description: 隐藏字段
+            frozen_fields:
+              type: array
+              description: 冻结字段
+            row_height:
+              type: string
+              enum: ['small', 'medium', 'large']
+              description: 行高
+            is_default:
+              type: boolean
+              description: 是否设为默认
+            field_widths:
+              type: object
+              description: 字段宽度配置
+            form_config:
+              type: object
+              description: 表单配置
+            order:
+              type: integer
+              description: 排序顺序
+            description:
+              type: string
+              description: 视图描述
+    responses:
+      200:
+        description: 视图更新成功
+      400:
+        description: 参数错误
+      404:
+        description: 视图不存在
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
@@ -292,6 +371,24 @@ def update_view(view_id) -> tuple:
 def delete_view(view_id) -> tuple:
     """
     删除视图
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    parameters:
+      - name: view_id
+        in: path
+        type: string
+        required: true
+        description: 视图 ID
+    responses:
+      200:
+        description: 删除成功
+      400:
+        description: 默认视图不能删除
+      404:
+        description: 视图不存在
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
@@ -314,6 +411,32 @@ def delete_view(view_id) -> tuple:
 def duplicate_view(view_id) -> tuple:
     """
     复制视图
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    parameters:
+      - name: view_id
+        in: path
+        type: string
+        required: true
+        description: 视图 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新视图名称
+    responses:
+      201:
+        description: 视图复制成功
+      400:
+        description: 参数错误
+      404:
+        description: 视图不存在
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
@@ -342,8 +465,44 @@ def duplicate_view(view_id) -> tuple:
 def reorder_views(table_id) -> tuple:
     """
     重新排序视图
-    
-    请求体: {"view_orders": [{"id": "view_id", "order": 1}, ...]}
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - view_orders
+          properties:
+            view_orders:
+              type: array
+              description: 视图排序列表
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: 视图 ID
+                  order:
+                    type: integer
+                    description: 排序顺序
+    responses:
+      200:
+        description: 排序更新成功
+      400:
+        description: 参数错误
+      404:
+        description: 表格不存在
     """
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
@@ -383,9 +542,29 @@ def reorder_views(table_id) -> tuple:
 @role_required(['owner', 'admin', 'editor'])
 def set_default_view(table_id, view_id) -> tuple:
     """
-    设置默认视图（任务 19.6）
-    
-    将指定视图设为该表格的默认视图，同时取消其他视图的默认状态
+    设置默认视图
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    description: 将指定视图设为该表格的默认视图，同时取消其他视图的默认状态
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: view_id
+        in: path
+        type: string
+        required: true
+        description: 视图 ID
+    responses:
+      200:
+        description: 设置成功
+      404:
+        description: 表格或视图不存在
     """
     table = TableService.get_table_by_id(table_id)
     if not table:
@@ -414,8 +593,15 @@ def set_default_view(table_id, view_id) -> tuple:
 def get_view_types() -> tuple:
     """
     获取支持的视图类型列表
-    
-    返回所有可用的视图类型及其配置说明
+    ---
+    tags:
+      - Views
+    security:
+      - Bearer: []
+    description: 返回所有可用的视图类型及其配置说明
+    responses:
+      200:
+        description: 视图类型列表
     """
     view_types = [
         {

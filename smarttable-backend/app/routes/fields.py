@@ -141,12 +141,24 @@ def create_field(table_id) -> tuple:
 def get_field(field_id) -> tuple:
     """
     获取单个字段详情
-    
-    Args:
-        field_id: 字段 ID
-    
-    Returns:
-        字段详情
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+    responses:
+      200:
+        description: 字段详情
+      403:
+        description: 无权限访问
+      404:
+        description: 字段不存在
     """
     user_id = g.current_user_id
     
@@ -169,27 +181,52 @@ def get_field(field_id) -> tuple:
 def update_field(field_id) -> tuple:
     """
     更新字段
-    
-    Args:
-        field_id: 字段 ID
-    
-    Request Body:
-        - name: 新名称（可选）
-        - description: 新描述（可选）
-        - type: 新类型（可选，需要满足类型转换规则）
-        - is_required: 是否必填（可选）
-        - options: 字段选项（可选）
-        - config: 字段配置（可选）
-        - defaultValue: 字段默认值（可选，根据字段类型设置相应类型的值）
-            文本类型：字符串
-            数字类型：数字
-            日期类型：ISO 日期字符串或"now"（当前时间）
-            单选类型：选项 ID（字符串）
-            多选类型：选项 ID 数组
-            复选框：布尔值
-    
-    Returns:
-        更新后的字段详情
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新名称（可选）
+            description:
+              type: string
+              description: 新描述（可选）
+            type:
+              type: string
+              description: 新类型（可选，需要满足类型转换规则）
+            is_required:
+              type: boolean
+              description: 是否必填（可选）
+            options:
+              type: object
+              description: 字段选项（可选）
+            config:
+              type: object
+              description: 字段配置（可选）
+            defaultValue:
+              type: object
+              description: 字段默认值（可选）
+    responses:
+      200:
+        description: 更新后的字段详情
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限修改
+      404:
+        description: 字段不存在
     """
     user_id = g.current_user_id
     
@@ -223,14 +260,27 @@ def update_field(field_id) -> tuple:
 def delete_field(field_id) -> tuple:
     """
     删除字段
-    
-    注意：主字段和系统字段类型不能被删除
-    
-    Args:
-        field_id: 字段 ID
-    
-    Returns:
-        删除结果
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    description: 注意：主字段和系统字段类型不能被删除
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+    responses:
+      200:
+        description: 删除成功
+      400:
+        description: 主字段或系统字段不能被删除
+      403:
+        description: 无权限删除
+      404:
+        description: 字段不存在
     """
     user_id = g.current_user_id
     
@@ -255,14 +305,43 @@ def delete_field(field_id) -> tuple:
 def reorder_fields() -> tuple:
     """
     批量重新排序字段
-    
-    Request Body:
-        - table_id: 表格 ID（必填）
-        - orders: 排序列表，每个元素包含 field_id 和 order（必填）
-          例如：[{"field_id": "xxx", "order": 0}, {"field_id": "yyy", "order": 1}]
-    
-    Returns:
-        排序结果
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - table_id
+            - orders
+          properties:
+            table_id:
+              type: string
+              description: 表格 ID
+            orders:
+              type: array
+              description: 排序列表
+              items:
+                type: object
+                properties:
+                  field_id:
+                    type: string
+                    description: 字段 ID
+                  order:
+                    type: integer
+                    description: 排序顺序
+    responses:
+      200:
+        description: 排序成功
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
     """
     user_id = g.current_user_id
     data = request.get_json() or {}
@@ -293,15 +372,32 @@ def reorder_fields() -> tuple:
 def duplicate_field(field_id) -> tuple:
     """
     复制字段
-    
-    Args:
-        field_id: 源字段 ID
-    
-    Request Body:
-        - name: 新字段名称（可选）
-    
-    Returns:
-        新创建的字段详情
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 源字段 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新字段名称
+    responses:
+      201:
+        description: 字段复制成功
+      403:
+        description: 无权限
+      404:
+        description: 字段不存在
     """
     user_id = g.current_user_id
     
@@ -333,9 +429,14 @@ def duplicate_field(field_id) -> tuple:
 def get_field_types() -> tuple:
     """
     获取所有支持的字段类型信息
-    
-    Returns:
-        字段类型列表，包含名称、图标、描述和可配置项
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: 字段类型列表
     """
     types = FieldService.get_all_field_types()
     
@@ -350,12 +451,20 @@ def get_field_types() -> tuple:
 def get_field_type_detail(field_type) -> tuple:
     """
     获取特定字段类型的详细信息
-    
-    Args:
-        field_type: 字段类型标识
-    
-    Returns:
-        字段类型详细信息
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: field_type
+        in: path
+        type: string
+        required: true
+        description: 字段类型标识
+    responses:
+      200:
+        description: 字段类型详细信息
     """
     type_info = FieldService.get_field_type_info(field_type)
     
@@ -370,15 +479,37 @@ def get_field_type_detail(field_type) -> tuple:
 def validate_field_value(field_id) -> tuple:
     """
     验证字段值
-    
-    Args:
-        field_id: 字段 ID
-    
-    Request Body:
-        - value: 待验证的值（必填）
-    
-    Returns:
-        验证结果
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - value
+          properties:
+            value:
+              type: object
+              description: 待验证的值
+    responses:
+      200:
+        description: 验证通过
+      400:
+        description: 验证失败
+      403:
+        description: 无权限
+      404:
+        description: 字段不存在
     """
     user_id = g.current_user_id
     
@@ -408,20 +539,52 @@ def validate_field_value(field_id) -> tuple:
 def create_link_field() -> tuple:
     """
     创建关联字段
-    
-    自动创建 LinkRelation 记录
-    
-    Request Body:
-        - table_id: 源表 ID（必填）
-        - name: 字段名称（必填）
-        - target_table_id: 目标表 ID（必填）
-        - relationship_type: 关联类型（必填，'one_to_one', 'one_to_many' 或 'many_to_one'）
-        - display_field_id: 显示字段 ID（可选）
-        - bidirectional: 是否双向关联（可选，默认 False）
-        - description: 描述（可选）
-    
-    Returns:
-        创建的字段和关联关系详情
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - table_id
+            - name
+            - target_table_id
+            - relationship_type
+          properties:
+            table_id:
+              type: string
+              description: 源表 ID
+            name:
+              type: string
+              description: 字段名称
+            target_table_id:
+              type: string
+              description: 目标表 ID
+            relationship_type:
+              type: string
+              enum: ['one_to_one', 'one_to_many', 'many_to_one']
+              description: 关联类型
+            display_field_id:
+              type: string
+              description: 显示字段 ID
+            bidirectional:
+              type: boolean
+              description: 是否双向关联
+            description:
+              type: string
+              description: 字段描述
+    responses:
+      201:
+        description: 创建的字段和关联关系详情
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
     """
     user_id = g.current_user_id
     data = request.get_json() or {}
@@ -466,19 +629,47 @@ def create_link_field() -> tuple:
 def update_link_field(field_id) -> tuple:
     """
     更新关联字段配置
-    
-    Args:
-        field_id: 字段 ID
-    
-    Request Body:
-        - relationship_type: 关联类型（可选）
-        - display_field_id: 显示字段 ID（可选）
-        - bidirectional: 是否双向关联（可选）
-        - name: 字段名称（可选）
-        - description: 描述（可选）
-    
-    Returns:
-        更新后的字段和关联关系详情
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            relationship_type:
+              type: string
+              enum: ['one_to_one', 'one_to_many', 'many_to_one']
+              description: 关联类型
+            display_field_id:
+              type: string
+              description: 显示字段 ID
+            bidirectional:
+              type: boolean
+              description: 是否双向关联
+            name:
+              type: string
+              description: 字段名称
+            description:
+              type: string
+              description: 字段描述
+    responses:
+      200:
+        description: 更新后的字段详情
+      400:
+        description: 参数错误或不是关联字段
+      403:
+        description: 无权限
+      404:
+        description: 字段不存在
     """
     user_id = g.current_user_id
     
@@ -541,14 +732,27 @@ def update_link_field(field_id) -> tuple:
 def delete_link_field(field_id) -> tuple:
     """
     删除关联字段
-    
-    同时删除关联的 LinkRelation 记录
-    
-    Args:
-        field_id: 字段 ID
-    
-    Returns:
-        删除结果
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    description: 同时删除关联的 LinkRelation 记录
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 无权限
+      404:
+        description: 字段不存在
+      500:
+        description: 删除失败
     """
     user_id = g.current_user_id
     
@@ -582,12 +786,24 @@ def delete_link_field(field_id) -> tuple:
 def get_table_link_relations(table_id) -> tuple:
     """
     获取表格的所有关联关系
-    
-    Args:
-        table_id: 表格 ID
-    
-    Returns:
-        关联关系列表
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+    responses:
+      200:
+        description: 关联关系列表
+      403:
+        description: 无权限
+      500:
+        description: 获取失败
     """
     user_id = g.current_user_id
     

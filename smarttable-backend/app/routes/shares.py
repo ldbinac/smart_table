@@ -113,17 +113,39 @@ def get_shares(base_id) -> tuple:
 def update_share(share_id) -> tuple:
     """
     更新分享链接（启用/禁用）
-    
-    Args:
-        share_id: 分享 ID
-    
-    Request Body:
-        - is_active: 是否激活（可选）
-        - permission: 权限级别（可选）
-        - expires_at: 过期时间（可选）
-    
-    Returns:
-        更新后的分享信息
+    ---
+    tags:
+      - Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 分享 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            is_active:
+              type: boolean
+              description: 是否激活
+            permission:
+              type: string
+              enum: ['view', 'edit']
+              description: 权限级别
+            expires_at:
+              type: integer
+              description: 过期时间（Unix 时间戳）
+    responses:
+      200:
+        description: 更新后的分享信息
+      403:
+        description: 无权限
+      404:
+        description: 分享链接不存在
     """
     user_id = g.current_user_id
     
@@ -153,6 +175,27 @@ def update_share(share_id) -> tuple:
 @shares_bp.route('/shares/<share_id>', methods=['DELETE'])
 @jwt_required
 def delete_share(share_id) -> tuple:
+    """
+    删除分享链接
+    ---
+    tags:
+      - Shares
+    security:
+      - Bearer: []
+    parameters:
+      - name: share_id
+        in: path
+        type: string
+        required: true
+        description: 分享 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 无权限
+      404:
+        description: 分享链接不存在
+    """
     user_id = g.current_user_id
     
     # 查找分享并检查权限
@@ -178,12 +221,22 @@ def delete_share(share_id) -> tuple:
 def access_share(share_token) -> tuple:
     """
     通过分享令牌访问 Base
-    
-    Args:
-        share_token: 分享令牌
-    
-    Returns:
-        Base 信息和访问权限
+    ---
+    tags:
+      - Shares
+    parameters:
+      - name: share_token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+    responses:
+      200:
+        description: Base 信息和访问权限
+      403:
+        description: 分享链接已禁用或过期
+      404:
+        description: 分享链接不存在
     """
     result = ShareService.access_share(share_token)
     
@@ -208,9 +261,14 @@ def access_share(share_token) -> tuple:
 def get_shared_with_me() -> tuple:
     """
     获取分享给当前用户的所有 Base
-    
-    Returns:
-        Base 列表
+    ---
+    tags:
+      - Shares
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Base 列表
     """
     user_id = g.current_user_id
     
@@ -240,9 +298,14 @@ def get_shared_with_me() -> tuple:
 def get_shared_by_me() -> tuple:
     """
     获取当前用户创建的所有分享
-    
-    Returns:
-        分享列表
+    ---
+    tags:
+      - Shares
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: 分享列表
     """
     user_id = g.current_user_id
     

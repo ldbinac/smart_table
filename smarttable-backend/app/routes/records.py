@@ -209,6 +209,43 @@ def create_record(table_id) -> tuple:
 def batch_create_records(table_id) -> tuple:
     """
     批量创建记录
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - records
+          properties:
+            records:
+              type: array
+              description: 记录列表
+              items:
+                type: object
+                properties:
+                  values:
+                    type: object
+                    description: 记录字段值
+    responses:
+      200:
+        description: 批量创建结果
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
+      404:
+        description: 表格不存在
     """
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
@@ -258,6 +295,24 @@ def batch_create_records(table_id) -> tuple:
 def get_record(record_id) -> tuple:
     """
     获取记录详情
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 记录 ID
+    responses:
+      200:
+        description: 记录详情
+      403:
+        description: 无权限
+      404:
+        description: 记录不存在
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
@@ -288,6 +343,37 @@ def get_record(record_id) -> tuple:
 def update_record(record_id) -> tuple:
     """
     更新记录
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 记录 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - values
+          properties:
+            values:
+              type: object
+              description: 记录字段值
+    responses:
+      200:
+        description: 更新后的记录详情
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
+      404:
+        description: 记录不存在
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
@@ -334,6 +420,36 @@ def update_record(record_id) -> tuple:
 def batch_update_records() -> tuple:
     """
     批量更新记录
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - record_ids
+            - values
+          properties:
+            record_ids:
+              type: array
+              description: 记录 ID 列表
+              items:
+                type: string
+            values:
+              type: object
+              description: 要更新的字段值
+    responses:
+      200:
+        description: 批量更新结果
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
     """
     # 验证请求数据
     json_data = request.get_json()
@@ -394,6 +510,26 @@ def batch_update_records() -> tuple:
 def delete_record(record_id) -> tuple:
     """
     删除记录
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 记录 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 无权限
+      404:
+        description: 记录不存在
+      500:
+        description: 删除失败
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
@@ -423,6 +559,32 @@ def delete_record(record_id) -> tuple:
 def batch_delete_records() -> tuple:
     """
     批量删除记录
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - record_ids
+          properties:
+            record_ids:
+              type: array
+              description: 记录 ID 列表
+              items:
+                type: string
+    responses:
+      200:
+        description: 批量删除结果
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
     """
     # 验证请求数据
     json_data = request.get_json()
@@ -479,8 +641,33 @@ def batch_delete_records() -> tuple:
 def compute_formulas(record_id) -> tuple:
     """
     计算记录的公式值
-    
-    用于实时预览公式计算结果
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    description: 用于实时预览公式计算结果
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 记录 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            preview_values:
+              type: object
+              description: 预览值（可能包含未保存的修改）
+    responses:
+      200:
+        description: 公式计算结果
+      404:
+        description: 记录不存在
+      500:
+        description: 计算失败
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
@@ -512,8 +699,35 @@ def compute_formulas(record_id) -> tuple:
 def get_record_history(record_id) -> tuple:
     """
     获取记录变更历史
-    
-    支持分页查询，按时间倒序排列
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    description: 支持分页查询，按时间倒序排列
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 记录 ID
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码
+      - name: size
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+    responses:
+      200:
+        description: 变更历史列表（分页）
+      404:
+        description: 记录不存在
+      500:
+        description: 获取失败
     """
     # 检查记录是否存在
     record = RecordService.get_record_by_id(record_id)
@@ -561,14 +775,25 @@ def get_record_history(record_id) -> tuple:
 def get_record_links(record_id) -> tuple:
     """
     获取记录的关联数据
-    
-    返回该记录所有关联字段的关联数据
-    
-    Args:
-        record_id: 记录 ID
-    
-    Returns:
-        关联数据，按 outbound 和 inbound 分组
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    description: 返回该记录所有关联字段的关联数据
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 记录 ID
+    responses:
+      200:
+        description: 关联数据，按 outbound 和 inbound 分组
+      404:
+        description: 记录不存在
+      500:
+        description: 获取失败
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
@@ -634,16 +859,44 @@ def get_record_links(record_id) -> tuple:
 def update_record_link(record_id, field_id) -> tuple:
     """
     更新记录的关联值
-    
-    Args:
-        record_id: 记录 ID
-        field_id: 关联字段 ID
-    
-    Request Body:
-        - target_record_ids: 目标记录 ID 列表（必填）
-    
-    Returns:
-        更新结果
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 记录 ID
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 关联字段 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - target_record_ids
+          properties:
+            target_record_ids:
+              type: array
+              description: 目标记录 ID 列表
+              items:
+                type: string
+    responses:
+      200:
+        description: 关联值更新成功
+      400:
+        description: 参数错误或不是关联字段
+      404:
+        description: 记录或字段不存在
+      500:
+        description: 更新失败
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
@@ -728,20 +981,43 @@ def update_record_link(record_id, field_id) -> tuple:
 def search_linkable_records(table_id) -> tuple:
     """
     搜索可关联的记录
-    
-    用于关联字段选择器，搜索目标表中可关联的记录
-    
-    Args:
-        table_id: 目标表 ID
-    
-    Query Parameters:
-        - keyword: 搜索关键词（可选）
-        - exclude_ids: 排除的记录 ID 列表（可选，逗号分隔）
-        - page: 页码（可选，默认 1）
-        - per_page: 每页数量（可选，默认 20）
-    
-    Returns:
-        记录列表
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    description: 用于关联字段选择器，搜索目标表中可关联的记录
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 目标表 ID
+      - name: keyword
+        in: query
+        type: string
+        description: 搜索关键词
+      - name: exclude_ids
+        in: query
+        type: string
+        description: 排除的记录 ID 列表（逗号分隔）
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+    responses:
+      200:
+        description: 记录列表（分页）
+      404:
+        description: 表格不存在
+      500:
+        description: 搜索失败
     """
     table = TableService.get_table_by_id(table_id)
     if not table:
