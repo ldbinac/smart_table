@@ -706,10 +706,38 @@ def create_table_from_excel() -> tuple:
             if field_type in ['single_select', 'multi_select']:
                 # 从数据中推断选项
                 if source_column and source_column in df.columns:
-                    unique_values = df[source_column].dropna().unique()[:20]  # 最多20个选项
-                    options = [{'name': str(v), 'color': _get_option_color(i)} 
+                    # 获取该列的所有非空值
+                    column_values = df[source_column].dropna()
+                    
+                    # 收集所有选项值
+                    all_options = []
+                    if field_type == 'multi_select':
+                        # 多选字段：对每个值按逗号分割，去空格，收集所有子项
+                        for value in column_values:
+                            if isinstance(value, str):
+                                # 按逗号分割，去除前后空格
+                                split_values = [v.strip() for v in value.split(',')]
+                                all_options.extend(split_values)
+                            else:
+                                all_options.append(str(value))
+                    else:
+                        # 单选字段：直接使用值
+                        all_options = [str(v) for v in column_values]
+                    
+                    # 去重并限制最多20个选项
+                    unique_values = []
+                    seen = set()
+                    for opt in all_options:
+                        if opt and opt not in seen:
+                            unique_values.append(opt)
+                            seen.add(opt)
+                            if len(unique_values) >= 20:
+                                break
+                    
+                    choices = [{'name': v, 'color': _get_option_color(i)} 
                               for i, v in enumerate(unique_values)]
-                    field_config['options'] = options
+                    # 选项需要包装在 choices 数组中
+                    field_config['options'] = {'choices': choices}
             
             try:
                 field_result = FieldService.create_field(

@@ -682,8 +682,25 @@ class ImportExportService:
             if isinstance(value, bool):
                 return value
             if isinstance(value, str):
-                return value.lower() in ('true', '1', 'yes', '是', 'y')
+                value = value.strip()
+                # 明确的真值
+                if value.lower() in ('true', '1', 'yes', '是', 'y', '✓', '☑', 'checked', 'on'):
+                    return True
+                # 明确的假值
+                if value.lower() in ('false', '0', 'no', '否', 'n', '', '✗', '☐', 'unchecked', 'off'):
+                    return False
+                # 其他字符串视为真（非空即为真）
+                return True
+            if isinstance(value, (int, float)):
+                # 数字：1 为真，0 为假，其他非零数字根据业务需求（这里视为真）
+                return value == 1 or value == True
             return bool(value)
+        
+        # 单选类型
+        if field_type == FieldType.SINGLE_SELECT:
+            if isinstance(value, str):
+                return value.strip()
+            return str(value) if value is not None else None
         
         # 多选类型
         if field_type == FieldType.MULTI_SELECT:
@@ -701,13 +718,41 @@ class ImportExportService:
         if field_type == FieldType.DATE:
             if isinstance(value, datetime):
                 return value.strftime('%Y-%m-%d')
-            return str(value)
+            # 尝试解析字符串日期
+            if isinstance(value, str):
+                try:
+                    # 尝试多种日期格式
+                    for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d %H:%M:%S']:
+                        try:
+                            dt = datetime.strptime(value.strip(), fmt)
+                            return dt.strftime('%Y-%m-%d')
+                        except ValueError:
+                            continue
+                    # 如果都解析失败，返回原值
+                    return value
+                except Exception:
+                    return value
+            return str(value) if value is not None else None
         
         # 日期时间类型
         if field_type == FieldType.DATE_TIME:
             if isinstance(value, datetime):
                 return value.isoformat()
-            return str(value)
+            # 尝试解析字符串日期时间
+            if isinstance(value, str):
+                try:
+                    # 尝试多种日期时间格式
+                    for fmt in ['%Y-%m-%d %H:%M:%S', '%Y/%m/%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d']:
+                        try:
+                            dt = datetime.strptime(value.strip(), fmt)
+                            return dt.isoformat()
+                        except ValueError:
+                            continue
+                    # 如果都解析失败，返回原值
+                    return value
+                except Exception:
+                    return value
+            return str(value) if value is not None else None
         
         # 默认转为字符串
         return str(value)
