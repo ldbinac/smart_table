@@ -601,7 +601,7 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
     });
 
     if (record) {
-      tableStore.records.push(record);
+      // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success("表单提交成功，记录已创建");
     } else {
       ElMessage.error(tableStore.error || "提交失败");

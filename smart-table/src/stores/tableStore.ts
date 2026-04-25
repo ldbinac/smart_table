@@ -228,11 +228,23 @@ export const useTableStore = defineStore("table", () => {
   }) {
     try {
       const record = await recordService.createRecord(data);
-      // 不在这里手动添加记录，而是通过实时事件监听添加
-      // 这样可以避免重复添加（当前用户也会收到自己创建记录的事件）
-      // 只更新记录数
-      if (currentTable.value?.id === data.tableId) {
-        currentTable.value.recordCount++;
+      // 当实时协作不可用时，手动添加记录到列表
+      // 当实时协作可用时，通过实时事件监听添加，避免重复添加
+      const collabStore = useCollaborationStore();
+      if (!collabStore.isRealtimeAvailable) {
+        if (currentTable.value?.id === data.tableId) {
+          // 检查记录是否已存在，避免重复添加
+          if (!records.value.find((r) => r.id === record.id)) {
+            records.value.push(record);
+          }
+          currentTable.value.recordCount++;
+        }
+      } else {
+        // 实时协作可用时，只更新记录数
+        // 记录会通过实时事件自动添加
+        if (currentTable.value?.id === data.tableId) {
+          currentTable.value.recordCount++;
+        }
       }
       return record;
     } catch (e) {
