@@ -490,6 +490,7 @@ defineExpose({
     <div class="sidebar-footer">
       <div class="footer-buttons-column">
         <el-button
+          title="添加新的空白数据表"
           v-if="showTables !== false && canEdit !== false"
           type="primary"
           text
@@ -499,6 +500,7 @@ defineExpose({
           <span v-show="!isCollapsed">添加数据表</span>
         </el-button>
         <el-button
+          title="添加新的空白仪表盘"
           style="margin-left: 0px"
           v-if="showDashboards !== false && canEdit !== false"
           type="primary"
@@ -509,6 +511,7 @@ defineExpose({
           <span v-show="!isCollapsed">添加仪表盘</span>
         </el-button>
         <el-button
+        title="根据Excel表格的表头和数据，自动识别创建数据表的字段，并支持创建后直接导入数据"
           style="margin-left: 0px"
           v-if="showTables !== false && canEdit !== false"
           type="primary"
