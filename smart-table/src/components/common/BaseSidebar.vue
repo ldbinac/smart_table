@@ -16,6 +16,7 @@ import {
   Delete,
   Plus,
   Setting,
+  Upload,
 } from "@element-plus/icons-vue";
 import Sortable from "sortablejs";
 
@@ -41,6 +42,8 @@ const emit = defineEmits<{
   (e: "add-table"): void;
   // 添加仪表盘
   (e: "add-dashboard"): void;
+  // Excel导入创建
+  (e: "excel-import-create"): void;
   // 重命名数据表
   (e: "rename-table", table: TableEntity): void;
   // 删除数据表
@@ -149,6 +152,11 @@ const handleAddTable = () => {
 // 处理打开添加仪表盘对话框
 const handleAddDashboard = () => {
   emit("add-dashboard");
+};
+
+// 处理Excel导入创建
+const handleExcelImportCreate = () => {
+  emit("excel-import-create");
 };
 
 // 处理打开重命名对话框
@@ -499,6 +507,16 @@ defineExpose({
           class="footer-btn">
           <el-icon><DataAnalysis /></el-icon>
           <span v-show="!isCollapsed">添加仪表盘</span>
+        </el-button>
+        <el-button
+          style="margin-left: 0px"
+          v-if="showTables !== false && canEdit !== false"
+          type="primary"
+          text
+          @click="handleExcelImportCreate"
+          class="footer-btn">
+          <el-icon><Upload /></el-icon>
+          <span v-show="!isCollapsed">Excel导入创建</span>
         </el-button>
       </div>
     </div>

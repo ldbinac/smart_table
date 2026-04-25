@@ -90,6 +90,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     EmailField: typeof import('./components/fields/EmailField.vue')['default']
     EmptyState: typeof import('./components/common/EmptyState.vue')['default']
+    ExcelImportCreateDialog: typeof import('./components/dialogs/ExcelImportCreateDialog.vue')['default']
     ExportDialog: typeof import('./components/dialogs/ExportDialog.vue')['default']
     FieldComponentFactory: typeof import('./components/fields/FieldComponentFactory.vue')['default']
     FieldConfigPanel: typeof import('./components/fields/FieldConfigPanel.vue')['default']

@@ -95,6 +95,92 @@ export const getExportTaskStatus = async (taskId: string): Promise<TaskStatus> =
   return apiClient.get<TaskStatus>(`/export/tasks/${taskId}`);
 };
 
+// Excel导入创建数据表相关接口
+export interface ExcelColumnAnalysis {
+  name: string;
+  source_column: string;
+  suggested_type: string;
+  confidence: number;
+  sample_values: string[];
+  is_primary_candidate: boolean;
+}
+
+export interface ExcelAnalysisResult {
+  total_rows: number;
+  total_columns: number;
+  columns: ExcelColumnAnalysis[];
+  sheet_name: string;
+  file_key: string;
+  original_filename: string;
+}
+
+export interface FieldConfig {
+  source_column: string;
+  name: string;
+  type: string;
+  is_primary: boolean;
+  included: boolean;
+}
+
+export interface CreateTableFromExcelRequest {
+  base_id: string;
+  table_name: string;
+  description?: string;
+  file_key: string;
+  fields: FieldConfig[];
+  import_data: boolean;
+}
+
+export interface CreateTableFromExcelResult {
+  table_id: string;
+  table_name: string;
+  created_fields_count: number;
+  imported_rows: number;
+  failed_rows: number;
+  task_id?: string;
+}
+
+export const analyzeExcelForTable = async (file: File): Promise<{
+  success: boolean;
+  data?: ExcelAnalysisResult;
+  message?: string;
+}> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  // 使用 raw() 获取原始响应，以便获取完整的响应结构
+  const response = await apiClient.raw().post('/import/excel/analyze', formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  
+  const result = response.data as {
+    success: boolean;
+    data?: ExcelAnalysisResult;
+    message?: string;
+  };
+  
+  return result;
+};
+
+export const createTableFromExcel = async (
+  params: CreateTableFromExcelRequest
+): Promise<{
+  success: boolean;
+  data?: CreateTableFromExcelResult;
+  message?: string;
+}> => {
+  // 使用 raw() 获取原始响应，以便获取完整的响应结构
+  const response = await apiClient.raw().post('/import/excel/create-table', params);
+  
+  const result = response.data as {
+    success: boolean;
+    data?: CreateTableFromExcelResult;
+    message?: string;
+  };
+  
+  return result;
+};
+
 export const importExportApiService = {
   analyzeImportFile,
   previewCSVImport,
@@ -103,7 +189,9 @@ export const importExportApiService = {
   importFromJSON,
   exportData,
   getImportTaskStatus,
-  getExportTaskStatus
+  getExportTaskStatus,
+  analyzeExcelForTable,
+  createTableFromExcel
 };
 
 export default importExportApiService;

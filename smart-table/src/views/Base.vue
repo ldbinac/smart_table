@@ -30,6 +30,7 @@ import ExportDialog from "@/components/dialogs/ExportDialog.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AddRecordDrawer from "@/components/dialogs/AddRecordDrawer.vue";
 import ImportDialog from "@/components/dialogs/ImportDialog.vue";
+import ExcelImportCreateDialog from "@/components/dialogs/ExcelImportCreateDialog.vue";
 import MemberManagementDialog from "@/components/dialogs/MemberManagementDialog.vue";
 import BaseShareDialog from "@/components/dialogs/BaseShareDialog.vue";
 import { ViewType } from "@/types";
@@ -179,6 +180,7 @@ const addRecordDialogVisible = ref(false);
 const formConfigDialogVisible = ref(false);
 const formShareDialogVisible = ref(false);
 const importDialogVisible = ref(false);
+const excelImportCreateDialogVisible = ref(false);
 
 // 表单配置
 const formConfig = ref({
@@ -1400,6 +1402,28 @@ function openImportDialog() {
   importDialogVisible.value = true;
 }
 
+// 打开Excel导入创建对话框
+function openExcelImportCreateDialog() {
+  if (!baseStore.currentBase) {
+    ElMessage.warning("请先选择一个Base");
+    return;
+  }
+  excelImportCreateDialogVisible.value = true;
+}
+
+// 处理Excel导入创建完成
+async function handleExcelImportCreated(tableId: string) {
+  // 刷新表格列表
+  if (baseStore.currentBase) {
+    await tableStore.loadTables(baseStore.currentBase.id);
+    // 自动选中新创建的表格
+    await tableStore.selectTable(tableId);
+    // 加载视图
+    await viewStore.loadViews(tableId);
+    await viewStore.selectDefaultView(tableId);
+  }
+}
+
 // 处理导入完成
 function handleImported() {
   // 刷新数据
@@ -1433,6 +1457,7 @@ function handleShareChanged() {
       @select-dashboard="handleDashboardClick"
       @add-table="openCreateTableDialog"
       @add-dashboard="openCreateDashboardDialog"
+      @excel-import-create="openExcelImportCreateDialog"
       @rename-table="openRenameTableDialog"
       @delete-table="handleDeleteTable"
       @toggle-star="handleToggleStarTable"
@@ -1991,6 +2016,12 @@ function handleShareChanged() {
       :table-id="tableStore.currentTable?.id || ''"
       :fields="tableStore.fields"
       @imported="handleImported" />
+
+    <!-- Excel导入创建数据表对话框 -->
+    <ExcelImportCreateDialog
+      v-model:visible="excelImportCreateDialogVisible"
+      :base-id="baseStore.currentBase?.id || ''"
+      @created="handleExcelImportCreated" />
 
     <!-- 成员管理对话框 -->
     <MemberManagementDialog

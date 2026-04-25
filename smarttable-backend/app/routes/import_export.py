@@ -5,6 +5,13 @@
 import io
 from flask import Blueprint, request, g, send_file, current_app
 
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    pd = None
+    HAS_PANDAS = False
+
 from app.services.import_export_service import ImportExportService
 from app.services.base_service import BaseService
 from app.models.base import MemberRole
@@ -501,6 +508,298 @@ def get_import_task(task_id) -> tuple:
         data=task,
         message='获取任务状态成功'
     )
+
+
+# ==================== Excel导入创建数据表功能 ====================
+
+@import_export_bp.route('/import/excel/analyze', methods=['POST'])
+@jwt_required
+def analyze_excel_for_table() -> tuple:
+    """
+    分析Excel文件，用于创建数据表
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    parameters:
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: Excel文件(.xlsx或.xls)
+    responses:
+      200:
+        description: 文件结构信息和字段建议
+    """
+    # 检查文件
+    if 'file' not in request.files:
+        return error_response('请选择要上传的文件', code=400)
+    
+    file = request.files['file']
+    if file.filename == '':
+        return error_response('文件名不能为空', code=400)
+    
+    # 验证文件类型
+    filename = file.filename.lower()
+    if not filename.endswith(('.xlsx', '.xls')):
+        return error_response('请上传Excel文件(.xlsx或.xls格式)', code=400)
+    
+    try:
+        # 保存临时文件
+        file_key = _save_temp_file(file)
+        
+        # 重新读取文件进行分析
+        file.seek(0)
+        result = ImportExportService.analyze_excel_for_table(file)
+        result['file_key'] = file_key
+        result['original_filename'] = file.filename
+        
+        return success_response(
+            data=result,
+            message='文件分析成功'
+        )
+    except ValueError as e:
+        return error_response(str(e), code=400)
+    except ImportError as e:
+        return error_response(str(e), code=500)
+    except Exception as e:
+        current_app.logger.error(f'文件分析失败: {str(e)}')
+        return error_response('文件分析失败，请稍后重试', code=500)
+
+
+@import_export_bp.route('/import/excel/create-table', methods=['POST'])
+@jwt_required
+def create_table_from_excel() -> tuple:
+    """
+    从Excel文件创建数据表
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    consumes:
+      - application/json
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            base_id:
+              type: string
+              description: Base ID
+            table_name:
+              type: string
+              description: 数据表名称
+            file_key:
+              type: string
+              description: 临时文件标识
+            fields:
+              type: array
+              description: 字段配置
+            import_data:
+              type: boolean
+              description: 是否同时导入数据
+    responses:
+      200:
+        description: 创建结果
+    """
+    from app.services.table_service import TableService
+    from app.services.field_service import FieldService
+    from app.models.base import MemberRole
+    
+    user_id = g.current_user_id
+    data = request.get_json() or {}
+    
+    # 验证参数
+    base_id = data.get('base_id')
+    table_name = data.get('table_name')
+    file_key = data.get('file_key')
+    fields_config = data.get('fields', [])
+    import_data = data.get('import_data', False)
+    
+    if not base_id:
+        return error_response('请指定Base ID', code=400)
+    
+    if not table_name:
+        return error_response('请输入数据表名称', code=400)
+    
+    if not file_key:
+        return error_response('请提供文件标识', code=400)
+    
+    if not fields_config:
+        return error_response('请至少选择一个字段', code=400)
+    
+    # 检查权限
+    if not BaseService.check_permission(base_id, user_id, MemberRole.EDITOR):
+        return forbidden_response('您没有权限在此Base中创建数据表')
+    
+    # 获取临时文件路径
+    temp_file_path = _get_temp_file_path(file_key)
+    if not temp_file_path or not os.path.exists(temp_file_path):
+        return error_response('文件已过期，请重新上传', code=400)
+    
+    # 检查 pandas 是否可用
+    if not HAS_PANDAS or pd is None:
+        return error_response('请安装 pandas: pip install pandas openpyxl', code=500)
+    
+    try:
+        # 读取Excel文件
+        df = pd.read_excel(temp_file_path)
+        
+        # 创建数据表
+        table = TableService.create_table(
+            base_id=base_id,
+            data={
+                'name': table_name,
+                'description': data.get('description', '')
+            }
+        )
+        
+        if not table:
+            return error_response('创建数据表失败', code=500)
+        
+        created_fields = []
+        field_mapping = {}  # source_column -> field_id
+        
+        # 字段类型映射：前端类型 -> 后端类型
+        field_type_mapping = {
+            'text': 'single_line_text',
+            'rich_text': 'rich_text',
+            'number': 'number',
+            'date': 'date',
+            'date_time': 'date_time',
+            'email': 'email',
+            'phone': 'phone',
+            'url': 'url',
+            'checkbox': 'checkbox',
+            'single_select': 'single_select',
+            'multi_select': 'multi_select'
+        }
+        
+        # 创建字段
+        for idx, field_conf in enumerate(fields_config):
+            if not field_conf.get('included', True):
+                continue
+                
+            field_name = field_conf.get('name', field_conf.get('source_column', f'字段{idx+1}'))
+            frontend_type = field_conf.get('type', 'text')
+            field_type = field_type_mapping.get(frontend_type, frontend_type)
+            source_column = field_conf.get('source_column')
+            is_primary = field_conf.get('is_primary', False)
+            
+            # 准备字段配置
+            field_config = {
+                'name': field_name,
+                'type': field_type,
+                'description': field_conf.get('description', ''),
+                'is_primary': is_primary,
+                'order': idx
+            }
+            
+            # 添加类型特定的配置
+            if field_type in ['single_select', 'multi_select']:
+                # 从数据中推断选项
+                if source_column and source_column in df.columns:
+                    unique_values = df[source_column].dropna().unique()[:20]  # 最多20个选项
+                    options = [{'name': str(v), 'color': _get_option_color(i)} 
+                              for i, v in enumerate(unique_values)]
+                    field_config['options'] = options
+            
+            try:
+                field_result = FieldService.create_field(
+                    table_id=str(table.id),
+                    data=field_config
+                )
+                if field_result.get('success') and field_result.get('field'):
+                    field_data = field_result['field']
+                    created_fields.append(field_data)
+                    if source_column:
+                        field_mapping[source_column] = field_data.get('id', '')
+                else:
+                    current_app.logger.error(f'创建字段失败: {field_result.get("error", "未知错误")}')
+            except Exception as e:
+                current_app.logger.error(f'创建字段失败: {str(e)}')
+                continue
+        
+        result = {
+            'table_id': str(table.id),
+            'table_name': table.name,
+            'created_fields_count': len(created_fields),
+            'imported_rows': 0,
+            'failed_rows': 0
+        }
+        
+        # 如果选择了导入数据
+        if import_data and field_mapping:
+            import_result = ImportExportService.import_from_excel(
+                file=open(temp_file_path, 'rb'),
+                table_id=str(table.id),
+                field_mapping=field_mapping,
+                user_id=user_id,
+                preview_only=False
+            )
+            
+            if import_result.get('success'):
+                result['imported_rows'] = import_result.get('imported_count', 0)
+                result['failed_rows'] = import_result.get('error_count', 0)
+                result['task_id'] = import_result.get('task_id')
+        
+        # 清理临时文件
+        try:
+            os.remove(temp_file_path)
+        except:
+            pass
+        
+        return success_response(
+            data=result,
+            message='数据表创建成功',
+            code=201
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f'从Excel创建表失败: {str(e)}')
+        return error_response(f'创建失败: {str(e)}', code=500)
+
+
+# ==================== 临时文件存储 ====================
+
+import os
+import uuid
+from flask import current_app
+
+# 临时文件存储字典
+_temp_files: Dict[str, str] = {}
+
+
+def _save_temp_file(file) -> str:
+    """保存文件到临时目录，返回文件标识"""
+    temp_dir = current_app.config.get('TEMP_DIR', '/tmp')
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    file_key = f"excel_{uuid.uuid4().hex[:16]}"
+    file_path = os.path.join(temp_dir, f"{file_key}_{file.filename}")
+    
+    file.save(file_path)
+    _temp_files[file_key] = file_path
+    
+    return file_key
+
+
+def _get_temp_file_path(file_key: str) -> Optional[str]:
+    """获取临时文件路径"""
+    return _temp_files.get(file_key)
+
+
+def _get_option_color(index: int) -> str:
+    """获取选项颜色"""
+    colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', 
+              '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
+    return colors[index % len(colors)]
 
 
 # ==================== 辅助权限检查方法 ====================

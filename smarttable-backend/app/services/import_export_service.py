@@ -6,6 +6,7 @@
 import io
 import json
 import uuid
+import re
 from typing import List, Optional, Dict, Any, Tuple, BinaryIO
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
@@ -741,6 +742,181 @@ class ImportExportService:
             return f'[{len(value)} 个附件]'
         
         return value
+
+    @staticmethod
+    def detect_field_type(sample_values: List[Any], column_name: str = '') -> Dict[str, Any]:
+        """
+        根据样本数据智能识别字段类型
+        
+        参数:
+            sample_values: 样本数据列表
+            column_name: 列名（用于辅助判断）
+            
+        返回:
+            包含建议类型和置信度的字典
+        """
+        if not sample_values:
+            return {'type': 'text', 'confidence': 0.5}
+        
+        # 过滤掉None和空值
+        values = [v for v in sample_values if v is not None and str(v).strip() != '']
+        if not values:
+            return {'type': 'text', 'confidence': 0.5}
+        
+        total = len(values)
+        
+        # 检查是否为布尔值
+        bool_patterns = ['是', '否', 'true', 'false', 'yes', 'no', '1', '0', 'y', 'n', 'on', 'off']
+        bool_count = sum(1 for v in values if str(v).lower().strip() in bool_patterns)
+        if bool_count / total >= 0.8:
+            return {'type': 'checkbox', 'confidence': 0.9}
+        
+        # 检查是否为日期
+        date_patterns = [
+            r'^\d{4}-\d{2}-\d{2}$',  # 2024-01-01
+            r'^\d{4}/\d{2}/\d{2}$',  # 2024/01/01
+            r'^\d{2}-\d{2}-\d{4}$',  # 01-01-2024
+            r'^\d{2}/\d{2}/\d{4}$',  # 01/01/2024
+            r'^\d{4}年\d{2}月\d{2}日$',  # 2024年01月01日
+        ]
+        date_count = 0
+        for v in values:
+            v_str = str(v).strip()
+            if any(re.match(pattern, v_str) for pattern in date_patterns):
+                date_count += 1
+        if date_count / total >= 0.8:
+            return {'type': 'date', 'confidence': 0.9}
+        
+        # 检查是否为日期时间
+        datetime_patterns = [
+            r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}',
+            r'^\d{4}/\d{2}/\d{2}[T ]\d{2}:\d{2}:\d{2}',
+            r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$',
+            r'^\d{4}/\d{2}/\d{2} \d{2}:\d{2}$',
+        ]
+        datetime_count = 0
+        for v in values:
+            v_str = str(v).strip()
+            if any(re.match(pattern, v_str) for pattern in datetime_patterns):
+                datetime_count += 1
+        if datetime_count / total >= 0.8:
+            return {'type': 'date_time', 'confidence': 0.9}
+        
+        # 检查是否为邮箱
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        email_count = sum(1 for v in values if re.match(email_pattern, str(v).strip()))
+        if email_count / total >= 0.8:
+            return {'type': 'email', 'confidence': 0.95}
+        
+        # 检查是否为URL
+        url_pattern = r'^https?://[^\s<>"{}|\\^`\[\]]+$'
+        url_count = sum(1 for v in values if re.match(url_pattern, str(v).strip()))
+        if url_count / total >= 0.8:
+            return {'type': 'url', 'confidence': 0.95}
+        
+        # 检查是否为电话号码
+        phone_patterns = [
+            r'^1[3-9]\d{9}$',  # 中国大陆手机号
+            r'^\d{3,4}-\d{7,8}$',  # 座机号
+            r'^\+86[\s-]?1[3-9]\d{9}$',  # +86手机号
+            r'^\(\d{3,4}\)\d{7,8}$',  # (区号)号码
+        ]
+        phone_count = 0
+        for v in values:
+            v_str = re.sub(r'[\s-]', '', str(v).strip())
+            if any(re.match(pattern, v_str) for pattern in phone_patterns):
+                phone_count += 1
+        if phone_count / total >= 0.8:
+            return {'type': 'phone', 'confidence': 0.9}
+        
+        # 检查是否为数字
+        number_count = 0
+        for v in values:
+            try:
+                float(str(v).replace(',', '').strip())
+                number_count += 1
+            except (ValueError, TypeError):
+                pass
+        if number_count / total >= 0.9:
+            # 检查是否为整数
+            int_count = 0
+            for v in values:
+                try:
+                    v_str = str(v).replace(',', '').strip()
+                    if float(v_str) == int(float(v_str)):
+                        int_count += 1
+                except (ValueError, TypeError):
+                    pass
+            if int_count / total >= 0.9:
+                return {'type': 'number', 'confidence': 0.9, 'is_integer': True}
+            return {'type': 'number', 'confidence': 0.9}
+        
+        # 检查是否为多选（包含逗号或分号分隔的值）
+        multi_select_count = 0
+        for v in values:
+            v_str = str(v).strip()
+            if ',' in v_str or '，' in v_str or ';' in v_str:
+                multi_select_count += 1
+        if multi_select_count / total >= 0.5:
+            return {'type': 'multi_select', 'confidence': 0.7}
+        
+        # 检查文本长度
+        avg_length = sum(len(str(v)) for v in values) / total
+        if avg_length > 100:
+            return {'type': 'rich_text', 'confidence': 0.8}
+        
+        # 检查是否为单选（唯一值较少）
+        unique_values = set(str(v).strip() for v in values)
+        if len(unique_values) <= 10 and len(unique_values) / total < 0.5:
+            return {'type': 'single_select', 'confidence': 0.7}
+        
+        # 默认返回文本类型
+        return {'type': 'text', 'confidence': 0.6}
+    
+    @classmethod
+    def analyze_excel_for_table(cls, file: BinaryIO) -> Dict[str, Any]:
+        """
+        分析Excel文件，用于创建数据表
+        
+        参数:
+            file: Excel文件对象
+            
+        返回:
+            文件结构信息和字段建议
+        """
+        if not HAS_PANDAS:
+            raise ImportError('请安装 pandas: pip install pandas openpyxl')
+        
+        # 读取Excel文件
+        try:
+            df = pd.read_excel(file)
+        except Exception as e:
+            raise ValueError(f'无法读取Excel文件: {str(e)}')
+        
+        if len(df) == 0:
+            raise ValueError('Excel文件为空或没有数据行')
+        
+        # 分析列
+        columns = []
+        for col in df.columns:
+            sample_values = df[col].dropna().head(5).tolist()
+            detected = cls.detect_field_type(sample_values, str(col))
+            
+            columns.append({
+                'name': str(col),
+                'source_column': str(col),
+                'suggested_type': detected['type'],
+                'confidence': detected['confidence'],
+                'sample_values': [str(v) for v in sample_values[:3]],
+                'is_primary_candidate': len(columns) == 0  # 第一列作为主字段候选
+            })
+        
+        return {
+            'total_rows': len(df),
+            'total_columns': len(df.columns),
+            'columns': columns,
+            'sheet_name': 'Sheet1'
+        }
     
     @classmethod
     def analyze_import_file(cls, file: BinaryIO, file_type: str) -> Dict[str, Any]:
