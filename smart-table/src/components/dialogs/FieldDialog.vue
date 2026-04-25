@@ -22,12 +22,9 @@ import { useBaseStore } from "@/stores/baseStore";
 import { useTableStore } from "@/stores/tableStore";
 import {
   FieldType,
-  TextFieldType,
   getFieldTypeLabel,
   getFieldTypeIcon,
-  getTextFieldTypeLabel,
   type FieldTypeValue,
-  type TextFieldTypeValue,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
@@ -87,11 +84,10 @@ const newField = ref<{
     bidirectional: boolean;
   };
   // 文本字段配置
-  textFieldType: TextFieldTypeValue;
   maxLength?: number;
 }>({
   name: "",
-  type: FieldType.TEXT,
+  type: FieldType.SINGLE_LINE_TEXT,
   isRequired: false,
   description: "",
   defaultValue: undefined,
@@ -104,7 +100,6 @@ const newField = ref<{
     displayFieldId: "",
     bidirectional: false,
   },
-  textFieldType: TextFieldType.SINGLE_LINE_TEXT,
   maxLength: undefined,
 });
 
@@ -117,7 +112,9 @@ const systemTypes = [
 
 // 用户可创建的字段类型（包括自动编号）
 const userCreatableTypes = [
-  FieldType.TEXT,
+  FieldType.SINGLE_LINE_TEXT,
+  FieldType.LONG_TEXT,
+  FieldType.RICH_TEXT,
   FieldType.NUMBER,
   FieldType.DATE,
   FieldType.SINGLE_SELECT,
@@ -288,7 +285,7 @@ function openCreateField() {
   activeTab.value = "create";
   newField.value = {
     name: "",
-    type: FieldType.TEXT,
+    type: FieldType.SINGLE_LINE_TEXT,
     isRequired: false,
     description: "",
     precision: 0,
@@ -300,7 +297,6 @@ function openCreateField() {
       displayFieldId: "",
       bidirectional: false,
     },
-    textFieldType: TextFieldType.SINGLE_LINE_TEXT,
     maxLength: undefined,
   };
   selectOptions.value = [];
@@ -354,9 +350,6 @@ function openEditField(field: FieldEntity) {
       displayFieldId: (field.config?.displayFieldId as string) ?? "",
       bidirectional: (field.config?.bidirectional as boolean) ?? false,
     },
-    // 文本字段配置（向后兼容：优先使用 textFieldType，否则根据 isRichText 判断）
-    textFieldType: (field.options?.textFieldType as TextFieldTypeValue) 
-      || (field.options?.isRichText ? TextFieldType.LONG_TEXT : TextFieldType.SINGLE_LINE_TEXT),
     maxLength: (field.options?.maxLength as number) ?? undefined,
   };
 
@@ -427,7 +420,7 @@ function backToList() {
   editingField.value = null;
   newField.value = {
     name: "",
-    type: FieldType.TEXT,
+    type: FieldType.SINGLE_LINE_TEXT,
     isRequired: false,
     description: "",
     defaultValue: undefined,
@@ -440,7 +433,6 @@ function backToList() {
       displayFieldId: "",
       bidirectional: false,
     },
-    textFieldType: TextFieldType.SINGLE_LINE_TEXT,
     maxLength: undefined,
   };
   selectOptions.value = [];
@@ -545,8 +537,9 @@ async function createField() {
       options.bidirectional = newField.value.linkConfig.bidirectional;
     }
     // 文本字段配置
-    if (newField.value.type === FieldType.TEXT) {
-      options.textFieldType = newField.value.textFieldType;
+    if (newField.value.type === FieldType.SINGLE_LINE_TEXT ||
+        newField.value.type === FieldType.LONG_TEXT ||
+        newField.value.type === FieldType.RICH_TEXT) {
       if (newField.value.maxLength) {
         options.maxLength = newField.value.maxLength;
       }
@@ -663,8 +656,9 @@ async function updateField() {
       options.bidirectional = newField.value.linkConfig.bidirectional;
     }
     // 文本字段配置
-    if (newField.value.type === FieldType.TEXT) {
-      options.textFieldType = newField.value.textFieldType;
+    if (newField.value.type === FieldType.SINGLE_LINE_TEXT ||
+        newField.value.type === FieldType.LONG_TEXT ||
+        newField.value.type === FieldType.RICH_TEXT) {
       if (newField.value.maxLength) {
         options.maxLength = newField.value.maxLength;
       }
@@ -1124,21 +1118,9 @@ async function toggleFieldVisibility(
           </ElSelect>
         </ElFormItem>
 
-        <!-- 文本字段类型配置 -->
-        <ElFormItem v-if="newField.type === FieldType.TEXT" label="文本类型">
-          <ElSelect v-model="newField.textFieldType" style="width: 100%">
-            <ElOption
-              v-for="type in [TextFieldType.SINGLE_LINE_TEXT, TextFieldType.LONG_TEXT, TextFieldType.RICH_TEXT]"
-              :key="type"
-              :label="getTextFieldTypeLabel(type)"
-              :value="type" />
-          </ElSelect>
-          <div class="field-hint">选择文本字段的显示类型</div>
-        </ElFormItem>
-
         <!-- 文本字段最大长度配置 -->
         <ElFormItem
-          v-if="newField.type === FieldType.TEXT"
+          v-if="newField.type === FieldType.SINGLE_LINE_TEXT || newField.type === FieldType.LONG_TEXT || newField.type === FieldType.RICH_TEXT"
           label="最大长度">
           <ElInputNumber
             v-model="newField.maxLength"
@@ -1546,10 +1528,28 @@ async function toggleFieldVisibility(
 
         <!-- 默认值配置 -->
         <ElFormItem label="默认值">
-          <!-- 文本类型 -->
+          <!-- 单行文本 -->
           <ElInput
-            v-if="newField.type === FieldType.TEXT"
+            v-if="newField.type === FieldType.SINGLE_LINE_TEXT"
             v-model="newField.defaultValue"
+            placeholder="请输入默认文本"
+            style="width: 100%" />
+
+          <!-- 多行文本 -->
+          <ElInput
+            v-else-if="newField.type === FieldType.LONG_TEXT"
+            v-model="newField.defaultValue"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入默认文本"
+            style="width: 100%" />
+
+          <!-- 富文本 -->
+          <ElInput
+            v-else-if="newField.type === FieldType.RICH_TEXT"
+            v-model="newField.defaultValue"
+            type="textarea"
+            :rows="3"
             placeholder="请输入默认文本"
             style="width: 100%" />
 

@@ -32,8 +32,14 @@ export function generateTemplateData(fields: FieldEntity[]): {
  */
 function getSampleValue(field: FieldEntity): any {
   switch (field.type) {
-    case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
       return "示例文本";
+
+    case FieldType.LONG_TEXT:
+      return "这是一段多行文本示例\n可以包含多行内容";
+
+    case FieldType.RICH_TEXT:
+      return "<p>这是一段<strong>富文本</strong>示例</p>";
 
     case FieldType.NUMBER:
       return 100;
@@ -85,8 +91,14 @@ function getFieldDescription(field: FieldEntity): string {
   let description = "";
 
   switch (field.type) {
-    case FieldType.TEXT:
-      description = "文本类型";
+    case FieldType.SINGLE_LINE_TEXT:
+      description = "单行文本类型";
+      break;
+    case FieldType.LONG_TEXT:
+      description = "多行文本类型";
+      break;
+    case FieldType.RICH_TEXT:
+      description = "富文本类型，支持HTML格式";
       break;
     case FieldType.NUMBER:
       description = "数字类型";

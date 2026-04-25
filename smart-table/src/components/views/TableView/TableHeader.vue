@@ -32,7 +32,9 @@ const resizeStartWidth = ref(0);
 
 const fieldIcon = computed(() => {
   const icons: Record<string, string> = {
-    [FieldType.TEXT]: "text",
+    [FieldType.SINGLE_LINE_TEXT]: "text",
+    [FieldType.LONG_TEXT]: "text",
+    [FieldType.RICH_TEXT]: "text",
     [FieldType.NUMBER]: "number",
     [FieldType.DATE]: "calendar",
     [FieldType.SINGLE_SELECT]: "select",

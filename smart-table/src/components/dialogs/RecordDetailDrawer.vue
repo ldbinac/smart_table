@@ -18,7 +18,7 @@ import {
 } from "element-plus";
 import { Clock } from "@element-plus/icons-vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
-import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
+import { FieldType } from "@/types/fields";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 import {
@@ -239,7 +239,9 @@ const calculateFormulaValue = (
 // 获取字段组件类型
 const getFieldComponent = (field: FieldEntity): string => {
   switch (field.type) {
-    case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
     case FieldType.URL:
     case FieldType.EMAIL:
     case FieldType.PHONE:
@@ -391,32 +393,51 @@ const drawerTitle = computed(() => {
         <div v-for="field in visibleFields" :key="field.id" class="form-field">
           <label class="field-label">{{ field.name }}</label>
 
-          <!-- 文本类型 -->
-          <template v-if="getFieldComponent(field) === 'text'">
-            <!-- 单行文本 -->
+          <!-- 单行文本 -->
+          <template v-if="field.type === FieldType.SINGLE_LINE_TEXT">
             <el-input
-              v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
               :disabled="readonly"
               :maxlength="field.options?.maxLength"
               class="field-input" />
-            <!-- 多行文本 -->
-            <el-input
-              v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
-              :model-value="String(formData[field.id] || '')"
-              @update:model-value="(val) => handleValueChange(field.id, val)"
-              :placeholder="`请输入${field.name}`"
-              :disabled="readonly"
-              :maxlength="field.options?.maxLength"
-              type="textarea"
-              :rows="3"
-              resize="none"
-              class="field-input" />
-            <!-- 富文本 -->
+          </template>
+
+          <!-- 多行文本 -->
+          <template v-else-if="field.type === FieldType.LONG_TEXT">
+            <div class="textarea-wrapper">
+              <el-input
+                :model-value="String(formData[field.id] || '')"
+                @update:model-value="(val) => handleValueChange(field.id, val)"
+                :placeholder="`请输入${field.name}`"
+                :disabled="readonly"
+                :maxlength="field.options?.maxLength"
+                type="textarea"
+                :rows="3"
+                resize="none"
+                class="field-input" />
+              <div
+                v-if="field.options?.maxLength"
+                class="textarea-counter"
+                :class="{
+                  'is-warning':
+                    String(formData[field.id] || '').length >=
+                    field.options.maxLength * 0.9,
+                  'is-error':
+                    String(formData[field.id] || '').length >=
+                    field.options.maxLength,
+                }">
+                {{ String(formData[field.id] || '').length }}/{{
+                  field.options.maxLength
+                }}
+              </div>
+            </div>
+          </template>
+
+          <!-- 富文本 -->
+          <template v-else-if="field.type === FieldType.RICH_TEXT">
             <RichTextField
-              v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
               :model-value="(formData[field.id] as string) || null"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
@@ -777,6 +798,39 @@ const drawerTitle = computed(() => {
     font-weight: 600;
     color: #409eff;
     letter-spacing: 0.5px;
+  }
+}
+
+// 多行文本计数器样式
+.textarea-wrapper {
+  position: relative;
+
+  .textarea-counter {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 12px;
+    color: #606266;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    transition: all 0.2s ease;
+
+    &.is-warning {
+      color: #e6a23c;
+      background: rgba(230, 162, 60, 0.1);
+    }
+
+    &.is-error {
+      color: #f56c6c;
+      background: rgba(245, 108, 108, 0.1);
+      font-weight: 500;
+    }
+  }
+
+  :deep(.el-textarea__inner) {
+    padding-bottom: 28px;
   }
 }
 </style>

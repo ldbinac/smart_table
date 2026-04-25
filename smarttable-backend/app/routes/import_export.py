@@ -668,7 +668,8 @@ def create_table_from_excel() -> tuple:
         
         # 字段类型映射：前端类型 -> 后端类型
         field_type_mapping = {
-            'text': 'single_line_text',
+            'single_line_text': 'single_line_text',
+            'long_text': 'long_text',
             'rich_text': 'rich_text',
             'number': 'number',
             'date': 'date',
@@ -687,7 +688,7 @@ def create_table_from_excel() -> tuple:
                 continue
                 
             field_name = field_conf.get('name', field_conf.get('source_column', f'字段{idx+1}'))
-            frontend_type = field_conf.get('type', 'text')
+            frontend_type = field_conf.get('type', 'single_line_text')
             field_type = field_type_mapping.get(frontend_type, frontend_type)
             source_column = field_conf.get('source_column')
             is_primary = field_conf.get('is_primary', False)

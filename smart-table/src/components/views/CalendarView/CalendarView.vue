@@ -74,7 +74,7 @@ const getRecordLinkSummary = (record: RecordEntity): string => {
 const titleFields = computed(() => {
   return props.fields.filter(
     (f) =>
-      f.type === FieldType.TEXT ||
+      f.type === FieldType.SINGLE_LINE_TEXT ||
       f.type === FieldType.NUMBER ||
       f.type === FieldType.SINGLE_SELECT,
   );
@@ -517,7 +517,7 @@ function initTitleField() {
     // 优先选择主字段，如果没有则选择第一个文本字段
     const primaryField = props.fields.find((f) => f.isPrimary);
     const textField = props.fields.find(
-      (f) => f.type === FieldType.TEXT || f.type === FieldType.SINGLE_SELECT,
+      (f) => f.type === FieldType.SINGLE_LINE_TEXT || f.type === FieldType.SINGLE_SELECT,
     );
     titleFieldId.value =
       primaryField?.id || textField?.id || props.fields[0]?.id || "";

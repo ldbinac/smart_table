@@ -4,7 +4,6 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
-import { TextFieldType, getTextFieldType } from "@/types/fields";
 import {
   formShareApi,
   type FormSchema,
@@ -197,6 +196,14 @@ function validateField(
         }
       }
       break;
+    case FieldType.LONG_TEXT:
+      // 多行文本长度验证
+      const strValue = String(value);
+      const maxLength = field.config?.maxLength;
+      if (maxLength && strValue.length > maxLength) {
+        return `${field.name}不能超过${maxLength}个字符`;
+      }
+      break;
   }
 
   return null;
@@ -374,7 +381,6 @@ function reload() {
 // 获取字段组件类型
 function getFieldComponentType(field: FormFieldSchema): string {
   switch (field.type) {
-    case FieldType.TEXT:
     case FieldType.SINGLE_LINE_TEXT:
     case FieldType.LONG_TEXT:
     case FieldType.RICH_TEXT:
@@ -497,22 +503,9 @@ function getProgressMin(field: FormFieldSchema): number {
   return (field.config?.min as number) ?? 0;
 }
 
-// 获取文本字段类型（适配表单分享的字段结构）
-function getFormTextFieldType(field: FormFieldSchema): TextFieldTypeValue {
-  const config = field.config || {};
-  
-  // 优先使用 textFieldType
-  if (config.textFieldType) {
-    return config.textFieldType as TextFieldTypeValue;
-  }
-  
-  // 向后兼容：根据 isRichText 判断
-  if (config.isRichText) {
-    return TextFieldType.LONG_TEXT;
-  }
-  
-  // 默认单行文本
-  return TextFieldType.SINGLE_LINE_TEXT;
+// 获取字段类型（直接返回字段类型，不再需要转换）
+function getFieldType(field: FormFieldSchema): FieldTypeValue {
+  return field.type as FieldTypeValue;
 }
 </script>
 
@@ -575,24 +568,42 @@ function getFormTextFieldType(field: FormFieldSchema): TextFieldTypeValue {
             <template v-if="getFieldComponentType(field) === 'text'">
               <!-- 单行文本 -->
               <el-input
-                v-if="getFormTextFieldType(field) === TextFieldType.SINGLE_LINE_TEXT"
+                v-if="getFieldType(field) === FieldType.SINGLE_LINE_TEXT"
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
                 :maxlength="field.config?.maxLength"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 多行文本 -->
-              <el-input
-                v-else-if="getFormTextFieldType(field) === TextFieldType.LONG_TEXT"
-                :model-value="String(formValues[field.id] || '')"
-                :placeholder="`请输入${field.name}`"
-                :maxlength="field.config?.maxLength"
-                type="textarea"
-                :rows="4"
-                resize="none"
-                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+              <div
+                v-else-if="getFieldType(field) === FieldType.LONG_TEXT"
+                class="textarea-wrapper">
+                <el-input
+                  :model-value="String(formValues[field.id] || '')"
+                  :placeholder="`请输入${field.name}`"
+                  :maxlength="field.config?.maxLength"
+                  type="textarea"
+                  :rows="4"
+                  resize="none"
+                  @update:model-value="(val) => handleFieldChange(field.id, val)" />
+                <div
+                  v-if="field.config?.maxLength"
+                  class="textarea-counter"
+                  :class="{
+                    'is-warning':
+                      String(formValues[field.id] || '').length >=
+                      field.config.maxLength * 0.9,
+                    'is-error':
+                      String(formValues[field.id] || '').length >=
+                      field.config.maxLength,
+                  }">
+                  {{ String(formValues[field.id] || '').length }}/{{
+                    field.config.maxLength
+                  }}
+                </div>
+              </div>
               <!-- 富文本 -->
               <RichTextField
-                v-else-if="getFormTextFieldType(field) === TextFieldType.RICH_TEXT"
+                v-else-if="getFieldType(field) === FieldType.RICH_TEXT"
                 :model-value="(formValues[field.id] as string) || null"
                 :placeholder="`请输入${field.name}`"
                 :max-length="field.config?.maxLength"
@@ -1065,6 +1076,39 @@ function getFormTextFieldType(field: FormFieldSchema): TextFieldTypeValue {
 
   :deep(.rich-text-editor) {
     border-radius: 0 0 $border-radius-base $border-radius-base;
+  }
+}
+
+// 多行文本计数器样式
+.textarea-wrapper {
+  position: relative;
+
+  .textarea-counter {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    background: rgba($surface-color, 0.9);
+    padding: 2px 6px;
+    border-radius: $border-radius-sm;
+    pointer-events: none;
+    transition: all 0.2s ease;
+
+    &.is-warning {
+      color: $warning-color;
+      background: rgba($warning-color, 0.1);
+    }
+
+    &.is-error {
+      color: $error-color;
+      background: rgba($error-color, 0.1);
+      font-weight: 500;
+    }
+  }
+
+  :deep(.el-textarea__inner) {
+    padding-bottom: 28px;
   }
 }
 

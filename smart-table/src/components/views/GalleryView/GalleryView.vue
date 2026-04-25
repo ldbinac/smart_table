@@ -88,7 +88,7 @@ const attachmentFields = computed(() => {
 const titleFields = computed(() => {
   return props.fields.filter(
     (f) =>
-      f.type === FieldType.TEXT ||
+      f.type === FieldType.SINGLE_LINE_TEXT ||
       f.type === FieldType.NUMBER ||
       f.type === FieldType.SINGLE_SELECT ||
       f.type === FieldType.FORMULA,

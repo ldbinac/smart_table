@@ -8,7 +8,7 @@ import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ElMessage, ElTooltip } from "element-plus";
-import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
+import { FieldType } from "@/types/fields";
 import type { LinkedRecord } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { truncateRichText } from "@/utils/helpers";
@@ -144,16 +144,21 @@ const displayValue = computed(() => {
   const options = fieldOptions.value;
 
   switch (type) {
-    case "text":
-    case "email":
-    case "url":
-    case "phone": {
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.EMAIL:
+    case FieldType.URL:
+    case FieldType.PHONE: {
+      if (value === null || value === undefined) return "";
+      return String(value);
+    }
+    case FieldType.LONG_TEXT: {
+      if (value === null || value === undefined) return "";
+      return String(value);
+    }
+    case FieldType.RICH_TEXT: {
       if (value === null || value === undefined) return "";
       // 富文本类型：去除HTML标签并截取30字符
-      if (type === "text" && getTextFieldType(options) === TextFieldType.RICH_TEXT) {
-        return truncateRichText(String(value), 30);
-      }
-      return String(value);
+      return truncateRichText(String(value), 30);
     }
     case "number":
       if (typeof value === "number") {
@@ -454,10 +459,9 @@ const multiSelectDisplayValues = computed(() => {
     :data-field-type="fieldType"
     @dblclick="handleDoubleClick">
     <template v-if="isEditing">
-      <template v-if="fieldType === 'text'">
-        <!-- 单行文本 -->
+      <!-- 单行文本 -->
+      <template v-if="fieldType === FieldType.SINGLE_LINE_TEXT">
         <input
-          v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
           ref="inputRef"
           :value="editValue as string"
           type="text"
@@ -466,9 +470,10 @@ const multiSelectDisplayValues = computed(() => {
           @input="editValue = ($event.target as HTMLInputElement).value"
           @blur="finishEdit"
           @keydown="handleKeydown" />
-        <!-- 多行文本 -->
+      </template>
+      <!-- 多行文本 -->
+      <template v-else-if="fieldType === FieldType.LONG_TEXT">
         <textarea
-          v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
           ref="inputRef"
           :value="editValue as string"
           class="cell-input textarea"
@@ -476,9 +481,10 @@ const multiSelectDisplayValues = computed(() => {
           @input="editValue = ($event.target as HTMLTextAreaElement).value"
           @blur="finishEdit"
           @keydown="handleKeydown" />
-        <!-- 富文本 - 在表格中使用纯文本编辑 -->
+      </template>
+      <!-- 富文本 - 在表格中使用纯文本编辑 -->
+      <template v-else-if="fieldType === FieldType.RICH_TEXT">
         <textarea
-          v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
           ref="inputRef"
           :value="editValue as string"
           class="cell-input textarea"
@@ -673,10 +679,25 @@ const multiSelectDisplayValues = computed(() => {
             @edit-start="startEdit" />
         </template>
 
-        <template v-else-if="fieldType === 'text'">
-          <!-- 多行文本和富文本显示时支持 tooltip -->
+        <!-- 单行文本 -->
+        <template v-else-if="fieldType === FieldType.SINGLE_LINE_TEXT">
+          <span class="text-display">{{ displayValue || "" }}</span>
+        </template>
+        <!-- 多行文本 -->
+        <template v-else-if="fieldType === FieldType.LONG_TEXT">
           <ElTooltip
-            v-if="getTextFieldType(field.options) !== TextFieldType.SINGLE_LINE_TEXT && displayValue"
+            v-if="displayValue"
+            :content="displayValue"
+            placement="top"
+            :show-after="500">
+            <span class="text-display multiline">{{ displayValue }}</span>
+          </ElTooltip>
+          <span v-else class="text-display">{{ displayValue || "" }}</span>
+        </template>
+        <!-- 富文本 -->
+        <template v-else-if="fieldType === FieldType.RICH_TEXT">
+          <ElTooltip
+            v-if="displayValue"
             :content="displayValue"
             placement="top"
             :show-after="500">

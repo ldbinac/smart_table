@@ -81,8 +81,9 @@ const analysisResult = ref<{
 
 // 字段类型选项
 const fieldTypeOptions = [
-  { value: "text", label: "文本" },
-  { value: "rich_text", label: "长文本" },
+  { value: "single_line_text", label: "单行文本" },
+  { value: "long_text", label: "多行文本" },
+  { value: "rich_text", label: "富文本" },
   { value: "number", label: "数字" },
   { value: "date", label: "日期" },
   { value: "date_time", label: "日期时间" },

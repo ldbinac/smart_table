@@ -27,7 +27,27 @@ export const OPERATOR_LABELS: Record<FilterOperatorValue, string> = {
 };
 
 export const OPERATORS_BY_FIELD_TYPE: Record<string, FilterOperatorValue[]> = {
-  [FieldType.TEXT]: [
+  [FieldType.SINGLE_LINE_TEXT]: [
+    FilterOperator.EQUALS,
+    FilterOperator.NOT_EQUALS,
+    FilterOperator.CONTAINS,
+    FilterOperator.NOT_CONTAINS,
+    FilterOperator.STARTS_WITH,
+    FilterOperator.ENDS_WITH,
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
+  [FieldType.LONG_TEXT]: [
+    FilterOperator.EQUALS,
+    FilterOperator.NOT_EQUALS,
+    FilterOperator.CONTAINS,
+    FilterOperator.NOT_CONTAINS,
+    FilterOperator.STARTS_WITH,
+    FilterOperator.ENDS_WITH,
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
+  [FieldType.RICH_TEXT]: [
     FilterOperator.EQUALS,
     FilterOperator.NOT_EQUALS,
     FilterOperator.CONTAINS,
@@ -164,7 +184,7 @@ export function getOperatorsForFieldType(
 ): FilterOperatorValue[] {
   return (
     OPERATORS_BY_FIELD_TYPE[fieldType] ||
-    OPERATORS_BY_FIELD_TYPE[FieldType.TEXT]
+    OPERATORS_BY_FIELD_TYPE[FieldType.SINGLE_LINE_TEXT]
   );
 }
 

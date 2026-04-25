@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { FieldType, type FieldOptions, type CellValue } from "@/types/fields";
-import TextField from "./TextField.vue";
+import SingleLineTextField from "./SingleLineTextField.vue";
+import LongTextField from "./LongTextField.vue";
+import RichTextField from "./RichTextField.vue";
 import NumberField from "./NumberField.vue";
 import DateField from "./DateField.vue";
 import SingleSelectField from "./SingleSelectField.vue";
@@ -52,7 +54,9 @@ const emit = defineEmits<{
 }>();
 
 const componentMap: Record<string, unknown> = {
-  [FieldType.TEXT]: TextField,
+  [FieldType.SINGLE_LINE_TEXT]: SingleLineTextField,
+  [FieldType.LONG_TEXT]: LongTextField,
+  [FieldType.RICH_TEXT]: RichTextField,
   [FieldType.NUMBER]: NumberField,
   [FieldType.DATE]: DateField,
   [FieldType.SINGLE_SELECT]: SingleSelectField,

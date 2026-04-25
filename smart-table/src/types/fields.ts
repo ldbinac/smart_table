@@ -1,5 +1,7 @@
 export const FieldType = {
-  TEXT: "text",
+  SINGLE_LINE_TEXT: "single_line_text",
+  LONG_TEXT: "long_text",
+  RICH_TEXT: "rich_text",
   NUMBER: "number",
   DATE: "date",
   SINGLE_SELECT: "single_select",
@@ -25,51 +27,6 @@ export const FieldType = {
 
 export type FieldTypeValue = (typeof FieldType)[keyof typeof FieldType];
 
-/**
- * 文本字段类型常量
- */
-export const TextFieldType = {
-  SINGLE_LINE_TEXT: "single_line_text",
-  LONG_TEXT: "long_text",
-  RICH_TEXT: "rich_text",
-} as const;
-
-export type TextFieldTypeValue = (typeof TextFieldType)[keyof typeof TextFieldType];
-
-/**
- * 获取文本字段类型的标签
- */
-export function getTextFieldTypeLabel(type: TextFieldTypeValue | string): string {
-  const labels: Record<string, string> = {
-    single_line_text: "单行文本",
-    long_text: "多行文本",
-    rich_text: "富文本",
-  };
-  return labels[type] || "单行文本";
-}
-
-/**
- * 获取文本字段类型（向后兼容）
- * 如果字段没有 textFieldType，则根据 isRichText 判断
- * @param options 字段选项
- * @returns 文本字段类型
- */
-export function getTextFieldType(options?: FieldOptions | null): TextFieldTypeValue {
-  if (!options) return TextFieldType.SINGLE_LINE_TEXT;
-  
-  // 如果明确设置了 textFieldType，直接使用
-  if (options.textFieldType) {
-    return options.textFieldType as TextFieldTypeValue;
-  }
-  
-  // 向后兼容：根据 isRichText 判断
-  if (options.isRichText) {
-    return TextFieldType.LONG_TEXT;
-  }
-  
-  return TextFieldType.SINGLE_LINE_TEXT;
-}
-
 export interface FieldOption {
   id: string;
   name: string;
@@ -89,9 +46,6 @@ export type AggregationType =
 
 export interface FieldOptions {
   // 通用选项
-  isRichText?: boolean;
-  /** 文本字段类型: single_line_text | long_text | rich_text */
-  textFieldType?: TextFieldTypeValue;
   maxLength?: number;
   precision?: number;
   format?: "number" | "currency" | "percent";
@@ -187,7 +141,9 @@ export type CellValue =
 
 export function getFieldTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    text: "文本",
+    single_line_text: "单行文本",
+    long_text: "多行文本",
+    rich_text: "富文本",
     number: "数字",
     date: "日期",
     single_select: "单选",
@@ -214,7 +170,9 @@ export function getFieldTypeLabel(type: string): string {
 
 export function getFieldTypeIcon(type: string): string {
   const icons: Record<string, string> = {
-    text: "📝",
+    single_line_text: "📝",
+    long_text: "📄",
+    rich_text: "🎨",
     number: "🔢",
     date: "📅",
     single_select: "☑️",
@@ -274,11 +232,6 @@ export function getAggregationTypeLabel(type: AggregationType): string {
  */
 export function normalizeFieldType(backendType: string): string {
   const typeMap: Record<string, string> = {
-    // 文本类型
-    'single_line_text': 'text',
-    'long_text': 'text',
-    'rich_text': 'text',
-    
     // 日期时间类型
     'date_time': 'date',
     'duration': 'number',
@@ -294,9 +247,6 @@ export function normalizeFieldType(backendType: string): string {
     // 其他类型映射
     'currency': 'number',
     'percent': 'progress',  // 后端的 percent 映射为前端的 progress
-    
-    // 前端特有或后端不支持的类型（保持原样）
-    'auto_number': 'auto_number',
   };
   
   // 如果映射表中存在则返回映射后的值，否则返回原值
@@ -309,14 +259,12 @@ export function normalizeFieldType(backendType: string): string {
  */
 export function denormalizeFieldType(frontendType: string): string {
   const typeMap: Record<string, string> = {
-    'text': 'single_line_text',
     'date': 'date',
     'link': 'link_to_record',
     'updated_by': 'last_modified_by',
     'member': 'collaborator',
     'number': 'number',
     'progress': 'percent',  // 前端的 progress 映射为后端的 percent
-    'auto_number': 'auto_number',
   };
   
   // 如果映射表中存在则返回映射后的值，否则返回原值

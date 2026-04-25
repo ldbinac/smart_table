@@ -756,12 +756,12 @@ class ImportExportService:
             包含建议类型和置信度的字典
         """
         if not sample_values:
-            return {'type': 'text', 'confidence': 0.5}
+            return {'type': 'single_line_text', 'confidence': 0.5}
         
         # 过滤掉None和空值
         values = [v for v in sample_values if v is not None and str(v).strip() != '']
         if not values:
-            return {'type': 'text', 'confidence': 0.5}
+            return {'type': 'single_line_text', 'confidence': 0.5}
         
         total = len(values)
         
@@ -863,15 +863,15 @@ class ImportExportService:
         # 检查文本长度
         avg_length = sum(len(str(v)) for v in values) / total
         if avg_length > 100:
-            return {'type': 'rich_text', 'confidence': 0.8}
+            return {'type': 'long_text', 'confidence': 0.8}
         
         # 检查是否为单选（唯一值较少）
         unique_values = set(str(v).strip() for v in values)
         if len(unique_values) <= 10 and len(unique_values) / total < 0.5:
             return {'type': 'single_select', 'confidence': 0.7}
         
-        # 默认返回文本类型
-        return {'type': 'text', 'confidence': 0.6}
+        # 默认返回单行文本类型
+        return {'type': 'single_line_text', 'confidence': 0.6}
     
     @classmethod
     def analyze_excel_for_table(cls, file: BinaryIO) -> Dict[str, Any]:

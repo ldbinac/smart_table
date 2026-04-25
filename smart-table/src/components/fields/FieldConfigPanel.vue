@@ -28,7 +28,9 @@ const localField = computed({
 });
 
 const fieldTypeOptions = [
-  { label: "文本", value: FieldType.TEXT },
+  { label: "单行文本", value: FieldType.SINGLE_LINE_TEXT },
+  { label: "多行文本", value: FieldType.LONG_TEXT },
+  { label: "富文本", value: FieldType.RICH_TEXT },
   { label: "数字", value: FieldType.NUMBER },
   { label: "日期", value: FieldType.DATE },
   { label: "单选", value: FieldType.SINGLE_SELECT },
@@ -110,7 +112,9 @@ const updateBooleanOption = (
 };
 
 const showTextOptions = computed(
-  () => localField.value.type === FieldType.TEXT,
+  () => localField.value.type === FieldType.SINGLE_LINE_TEXT ||
+       localField.value.type === FieldType.LONG_TEXT ||
+       localField.value.type === FieldType.RICH_TEXT,
 );
 const showNumberOptions = computed(
   () => localField.value.type === FieldType.NUMBER,

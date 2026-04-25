@@ -147,7 +147,9 @@ const calculateFormulaValue = (
 // 获取字段类型对应的组件
 function getFieldComponent(field: FieldEntity) {
   switch (field.type) {
-    case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
     case FieldType.URL:
     case FieldType.EMAIL:
     case FieldType.PHONE:

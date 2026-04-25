@@ -100,7 +100,9 @@ const groupableFieldTypes: FieldTypeValue[] = [
   FieldType.CREATED_TIME,
   FieldType.UPDATED_TIME,
   FieldType.MEMBER,
-  FieldType.TEXT,
+  FieldType.SINGLE_LINE_TEXT,
+  FieldType.LONG_TEXT,
+  FieldType.RICH_TEXT,
   FieldType.NUMBER,
 ];
 

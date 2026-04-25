@@ -232,7 +232,9 @@ export function convertValue(value: any, targetType: FieldTypeValue): CellValue 
   }
   
   switch (targetType) {
-    case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
     case FieldType.URL:
     case FieldType.EMAIL:
     case FieldType.PHONE:

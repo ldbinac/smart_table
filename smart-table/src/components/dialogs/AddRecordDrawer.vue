@@ -17,7 +17,7 @@ import {
   ElIcon,
 } from "element-plus";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
-import { FieldType, TextFieldType, getTextFieldType, generateAutoNumber, type FieldOptions } from "@/types/fields";
+import { FieldType, generateAutoNumber, type FieldOptions } from "@/types/fields";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -175,7 +175,9 @@ const calculateFormulaValue = (
 // 获取字段类型对应的组件
 function getFieldComponent(field: FieldEntity) {
   switch (field.type) {
-    case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
     case FieldType.URL:
     case FieldType.EMAIL:
     case FieldType.PHONE:
@@ -520,30 +522,49 @@ const drawerTitle = computed(() => {
             <span class="auto-filled-hint">已自动关联当前分组</span>
           </template>
 
-          <!-- 文本类型 -->
-          <template v-else-if="getFieldComponent(field) === 'text'">
-            <!-- 单行文本 -->
+          <!-- 单行文本 -->
+          <template v-else-if="field.type === FieldType.SINGLE_LINE_TEXT">
             <ElInput
-              v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
               :model-value="String(formData[field.id] || '')"
               :placeholder="`请输入${field.name}`"
               :maxlength="field.options?.maxLength"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
-            <!-- 多行文本 -->
-            <ElInput
-              v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
-              :model-value="String(formData[field.id] || '')"
-              :placeholder="`请输入${field.name}`"
-              :maxlength="field.options?.maxLength"
-              type="textarea"
-              :rows="3"
-              resize="none"
-              class="field-input"
-              @update:model-value="(val) => handleValueChange(field.id, val)" />
-            <!-- 富文本 -->
+          </template>
+
+          <!-- 多行文本 -->
+          <template v-else-if="field.type === FieldType.LONG_TEXT">
+            <div class="textarea-wrapper">
+              <ElInput
+                :model-value="String(formData[field.id] || '')"
+                :placeholder="`请输入${field.name}`"
+                :maxlength="field.options?.maxLength"
+                type="textarea"
+                :rows="3"
+                resize="none"
+                class="field-input"
+                @update:model-value="(val) => handleValueChange(field.id, val)" />
+              <div
+                v-if="field.options?.maxLength"
+                class="textarea-counter"
+                :class="{
+                  'is-warning':
+                    String(formData[field.id] || '').length >=
+                    field.options.maxLength * 0.9,
+                  'is-error':
+                    String(formData[field.id] || '').length >=
+                    field.options.maxLength,
+                }">
+                {{ String(formData[field.id] || '').length }}/{{
+                  field.options.maxLength
+                }}
+              </div>
+            </div>
+          </template>
+
+          <!-- 富文本 -->
+          <template v-else-if="field.type === FieldType.RICH_TEXT">
             <RichTextField
-              v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
               :model-value="(formData[field.id] as string) || null"
               :placeholder="`请输入${field.name}`"
               :max-length="field.options?.maxLength"
@@ -837,6 +858,39 @@ const drawerTitle = computed(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+// 多行文本计数器样式
+.textarea-wrapper {
+  position: relative;
+
+  .textarea-counter {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 12px;
+    color: #606266;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    transition: all 0.2s ease;
+
+    &.is-warning {
+      color: #e6a23c;
+      background: rgba(230, 162, 60, 0.1);
+    }
+
+    &.is-error {
+      color: #f56c6c;
+      background: rgba(245, 108, 108, 0.1);
+      font-weight: 500;
+    }
+  }
+
+  :deep(.el-textarea__inner) {
+    padding-bottom: 28px;
+  }
 }
 
 // 自动编号预览样式

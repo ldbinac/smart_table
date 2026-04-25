@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick } from "vue";
 import type { FieldEntity, RecordEntity } from "../../db/schema";
 import type { GroupNode } from "../../utils/group";
-import { FieldType, TextFieldType, getTextFieldType } from "@/types/fields";
+import { FieldType } from "@/types/fields";
 import { groupRecords } from "../../utils/group";
 import dayjs from "dayjs";
 import { truncateRichText } from "@/utils/helpers";
@@ -1535,21 +1535,38 @@ function handleLinkFieldChange(
                     @edit-start="handleLinkFieldClick(item.record!, field)" />
                 </template>
 
-                <!-- 文本字段 -->
-                <template v-else-if="field.type === FieldType.TEXT">
+                <!-- 单行文本 -->
+                <template v-else-if="field.type === FieldType.SINGLE_LINE_TEXT">
                   <el-tooltip
-                    :content="field.options?.textFieldType === TextFieldType.RICH_TEXT 
-                      ? truncateRichText(String(item.record!.values[field.id] ?? ''), 100)
-                      : String(item.record!.values[field.id] ?? '')"
+                    :content="String(item.record!.values[field.id] ?? '')"
                     placement="top"
                     :show-after="200">
                     <span class="cell-content">
-                      <template v-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT">
-                        {{ truncateRichText(String(item.record!.values[field.id] ?? ''), 30) }}
-                      </template>
-                      <template v-else>
-                        {{ item.record!.values[field.id] ?? "" }}
-                      </template>
+                      {{ item.record!.values[field.id] ?? "" }}
+                    </span>
+                  </el-tooltip>
+                </template>
+
+                <!-- 多行文本 -->
+                <template v-else-if="field.type === FieldType.LONG_TEXT">
+                  <el-tooltip
+                    :content="String(item.record!.values[field.id] ?? '')"
+                    placement="top"
+                    :show-after="200">
+                    <span class="cell-content">
+                      {{ item.record!.values[field.id] ?? "" }}
+                    </span>
+                  </el-tooltip>
+                </template>
+
+                <!-- 富文本 -->
+                <template v-else-if="field.type === FieldType.RICH_TEXT">
+                  <el-tooltip
+                    :content="truncateRichText(String(item.record!.values[field.id] ?? ''), 100)"
+                    placement="top"
+                    :show-after="200">
+                    <span class="cell-content">
+                      {{ truncateRichText(String(item.record!.values[field.id] ?? ''), 30) }}
                     </span>
                   </el-tooltip>
                 </template>

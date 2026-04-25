@@ -2,7 +2,6 @@
 import { ref, computed, watch, onBeforeUnmount } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
-import { TextFieldType, getTextFieldType } from "@/types/fields";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
@@ -150,7 +149,9 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
         }
       }
       break;
-    case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
     case FieldType.MULTI_SELECT:
       const strValue = String(value);
       // 最小长度验证
@@ -364,7 +365,9 @@ watch(
 // 获取字段类型对应的组件类型
 function getFieldComponentType(field: FieldEntity): string {
   switch (field.type) {
-    case FieldType.TEXT:
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
     case FieldType.URL:
     case FieldType.EMAIL:
     case FieldType.PHONE:
@@ -581,11 +584,9 @@ defineExpose({
           </label>
 
           <div class="form-control">
-            <!-- 文本类型 -->
-            <template v-if="getFieldComponentType(field) === 'text'">
-              <!-- 单行文本 -->
+            <!-- 单行文本 -->
+            <template v-if="field.type === FieldType.SINGLE_LINE_TEXT">
               <el-input
-                v-if="getTextFieldType(field.options) === TextFieldType.SINGLE_LINE_TEXT"
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
                 :disabled="readonly"
@@ -602,21 +603,42 @@ defineExpose({
                   <el-icon><Link /></el-icon>
                 </template>
               </el-input>
-              <!-- 多行文本 -->
-              <el-input
-                v-else-if="getTextFieldType(field.options) === TextFieldType.LONG_TEXT"
-                :model-value="String(formValues[field.id] || '')"
-                :placeholder="`请输入${field.name}`"
-                :disabled="readonly"
-                :maxlength="field.options?.maxLength"
-                type="textarea"
-                :rows="4"
-                resize="none"
-                class="form-input"
-                @update:model-value="(val) => handleFieldChange(field.id, val)" />
-              <!-- 富文本 -->
+            </template>
+
+            <!-- 多行文本 -->
+            <template v-else-if="field.type === FieldType.LONG_TEXT">
+              <div class="textarea-wrapper">
+                <el-input
+                  :model-value="String(formValues[field.id] || '')"
+                  :placeholder="`请输入${field.name}`"
+                  :disabled="readonly"
+                  :maxlength="field.options?.maxLength"
+                  type="textarea"
+                  :rows="4"
+                  resize="none"
+                  class="form-input"
+                  @update:model-value="(val) => handleFieldChange(field.id, val)" />
+                <div
+                  v-if="field.options?.maxLength"
+                  class="textarea-counter"
+                  :class="{
+                    'is-warning':
+                      String(formValues[field.id] || '').length >=
+                      field.options.maxLength * 0.9,
+                    'is-error':
+                      String(formValues[field.id] || '').length >=
+                      field.options.maxLength,
+                  }">
+                  {{ String(formValues[field.id] || '').length }}/{{
+                    field.options.maxLength
+                  }}
+                </div>
+              </div>
+            </template>
+
+            <!-- 富文本 -->
+            <template v-else-if="field.type === FieldType.RICH_TEXT">
               <RichTextField
-                v-else-if="getTextFieldType(field.options) === TextFieldType.RICH_TEXT"
                 :model-value="(formValues[field.id] as string) || null"
                 :placeholder="`请输入${field.name}`"
                 :readonly="readonly"
@@ -1396,6 +1418,39 @@ defineExpose({
     .rich-text-editor {
       border-radius: 0 0 $border-radius-lg $border-radius-lg;
     }
+  }
+}
+
+// 多行文本计数器样式
+.textarea-wrapper {
+  position: relative;
+
+  .textarea-counter {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    background: rgba($surface-color, 0.9);
+    padding: 2px 6px;
+    border-radius: $border-radius-sm;
+    pointer-events: none;
+    transition: all 0.2s ease;
+
+    &.is-warning {
+      color: $warning-color;
+      background: rgba($warning-color, 0.1);
+    }
+
+    &.is-error {
+      color: $error-color;
+      background: rgba($error-color, 0.1);
+      font-weight: 500;
+    }
+  }
+
+  :deep(.el-textarea__inner) {
+    padding-bottom: 28px;
   }
 }
 
