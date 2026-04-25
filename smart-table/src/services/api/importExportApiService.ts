@@ -88,7 +88,7 @@ export const exportData = async (options: ExportOptions): Promise<Blob | unknown
 };
 
 export const getImportTaskStatus = async (taskId: string): Promise<TaskStatus> => {
-  return apiClient.get<TaskStatus>(`/import/tasks/${taskId}`);
+  return apiClient.get<TaskStatus>(`/import/${taskId}`);
 };
 
 export const getExportTaskStatus = async (taskId: string): Promise<TaskStatus> => {

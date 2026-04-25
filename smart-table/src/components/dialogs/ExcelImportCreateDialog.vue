@@ -7,6 +7,11 @@ import {
   ArrowLeft,
   Check,
   Document,
+  Loading,
+  DataLine,
+  CircleCheck,
+  CircleClose,
+  InfoFilled,
 } from "@element-plus/icons-vue";
 import { importExportApiService } from "@/services/api/importExportApiService";
 
@@ -61,6 +66,11 @@ const importData = ref(true);
 // 创建进度
 const isCreating = ref(false);
 const createProgress = ref(0);
+const createStatus = ref<'idle' | 'creating_table' | 'importing_data' | 'completed' | 'failed'>('idle');
+const createStatusText = ref("");
+const currentTaskId = ref("");
+let progressTimer: ReturnType<typeof setInterval> | null = null;
+
 const createResult = ref<{
   success: boolean;
   tableId?: string;
@@ -82,17 +92,24 @@ const analysisResult = ref<{
 // 字段类型选项
 const fieldTypeOptions = [
   { value: "single_line_text", label: "单行文本" },
-  { value: "long_text", label: "多行文本" },
-  { value: "rich_text", label: "富文本" },
   { value: "number", label: "数字" },
   { value: "date", label: "日期" },
   { value: "date_time", label: "日期时间" },
+  { value: "single_select", label: "单选" },
+  { value: "multi_select", label: "多选" },
+  { value: "checkbox", label: "复选框" },
   { value: "email", label: "邮箱" },
   { value: "phone", label: "电话" },
   { value: "url", label: "链接" },
-  { value: "checkbox", label: "复选框" },
-  { value: "single_select", label: "单选" },
-  { value: "multi_select", label: "多选" },
+  { value: "long_text", label: "多行文本" },
+  { value: "rich_text", label: "富文本" },
+];
+
+// 创建步骤配置
+const createSteps = [
+  { key: 'creating_table', label: '创建数据表结构', icon: 'Document' },
+  { key: 'importing_data', label: '导入数据', icon: 'DataLine' },
+  { key: 'completed', label: '完成', icon: 'CircleCheck' },
 ];
 
 // 获取字段类型标签
@@ -184,6 +201,69 @@ const primaryField = computed(() => {
   return fieldConfigs.value.find((f) => f.is_primary && f.included);
 });
 
+// 查询任务进度
+async function queryTaskProgress(taskId: string) {
+  try {
+    const status = await importExportApiService.getImportTaskStatus(taskId);
+    
+    if (status) {
+      createProgress.value = status.progress || 0;
+      
+      // 根据状态更新UI
+      switch (status.status) {
+        case 'pending':
+          createStatus.value = 'creating_table';
+          createStatusText.value = '等待处理...';
+          break;
+        case 'processing':
+          if (createProgress.value < 30) {
+            createStatus.value = 'creating_table';
+            createStatusText.value = '正在创建数据表结构...';
+          } else if (createProgress.value < 90) {
+            createStatus.value = 'importing_data';
+            createStatusText.value = `正在导入数据... ${createProgress.value}%`;
+          } else {
+            createStatus.value = 'importing_data';
+            createStatusText.value = '正在完成导入...';
+          }
+          break;
+        case 'completed':
+          createProgress.value = 100;
+          createStatus.value = 'completed';
+          createStatusText.value = '处理完成';
+          stopProgressTimer();
+          break;
+        case 'failed':
+          createStatus.value = 'failed';
+          createStatusText.value = status.error || '处理失败';
+          stopProgressTimer();
+          break;
+      }
+    }
+  } catch (error) {
+    console.error('查询任务进度失败:', error);
+  }
+}
+
+// 启动进度定时器
+function startProgressTimer(taskId: string) {
+  // 立即查询一次
+  queryTaskProgress(taskId);
+  
+  // 每1秒查询一次进度
+  progressTimer = setInterval(() => {
+    queryTaskProgress(taskId);
+  }, 1000);
+}
+
+// 停止进度定时器
+function stopProgressTimer() {
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+}
+
 // 执行创建
 async function handleCreate() {
   if (!tableName.value.trim()) {
@@ -204,6 +284,9 @@ async function handleCreate() {
 
   isCreating.value = true;
   createProgress.value = 0;
+  createStatus.value = 'creating_table';
+  createStatusText.value = '正在创建数据表结构...';
+  currentTaskId.value = "";
 
   try {
     const result = await importExportApiService.createTableFromExcel({
@@ -222,6 +305,19 @@ async function handleCreate() {
     });
 
     if (result.success && result.data) {
+      // 如果有task_id，启动轮询查询进度
+      if (result.data.task_id && importData.value) {
+        currentTaskId.value = result.data.task_id;
+        startProgressTimer(result.data.task_id);
+        
+        // 等待任务完成（最多等待5分钟）
+        await waitForTaskComplete(result.data.task_id, 300);
+      } else {
+        // 没有task_id或不需要导入数据，直接完成
+        createProgress.value = 100;
+        createStatus.value = 'completed';
+      }
+
       createResult.value = {
         success: true,
         tableId: result.data.table_id,
@@ -234,6 +330,7 @@ async function handleCreate() {
       ElMessage.success("数据表创建成功");
       emit("created", result.data.table_id);
     } else {
+      createStatus.value = 'failed';
       createResult.value = {
         success: false,
         message: result.message || "创建失败",
@@ -242,6 +339,7 @@ async function handleCreate() {
       ElMessage.error(result.message || "创建失败");
     }
   } catch (error) {
+    createStatus.value = 'failed';
     createResult.value = {
       success: false,
       message: error instanceof Error ? error.message : "创建失败",
@@ -250,7 +348,34 @@ async function handleCreate() {
     ElMessage.error(error instanceof Error ? error.message : "创建失败");
   } finally {
     isCreating.value = false;
+    stopProgressTimer();
   }
+}
+
+// 等待任务完成
+async function waitForTaskComplete(taskId: string, maxAttempts: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const checkInterval = setInterval(async () => {
+      attempts++;
+      
+      if (attempts >= maxAttempts) {
+        clearInterval(checkInterval);
+        resolve(true); // 超时也算完成
+        return;
+      }
+      
+      try {
+        const status = await importExportApiService.getImportTaskStatus(taskId);
+        if (status && (status.status === 'completed' || status.status === 'failed')) {
+          clearInterval(checkInterval);
+          resolve(true);
+        }
+      } catch (error) {
+        console.error('查询任务状态失败:', error);
+      }
+    }, 1000);
+  });
 }
 
 // 上一步
@@ -284,6 +409,10 @@ function nextStep() {
 
 // 关闭对话框
 function handleClose() {
+  // 如果正在创建中，先停止定时器
+  if (isCreating.value) {
+    stopProgressTimer();
+  }
   emit("update:visible", false);
   resetState();
 }
@@ -301,7 +430,11 @@ function resetState() {
   importData.value = true;
   isCreating.value = false;
   createProgress.value = 0;
+  createStatus.value = 'idle';
+  createStatusText.value = "";
+  currentTaskId.value = "";
   createResult.value = null;
+  stopProgressTimer();
 }
 
 // 重新创建
@@ -318,6 +451,13 @@ watch(
     }
   }
 );
+
+// 组件卸载时清理定时器
+watch(() => props.visible, () => {
+  if (!props.visible) {
+    stopProgressTimer();
+  }
+});
 </script>
 
 <template>
@@ -326,7 +466,8 @@ watch(
     @update:model-value="handleClose"
     title="Excel导入创建数据表"
     width="900px"
-    :close-on-click-modal="false"
+    :close-on-click-modal="!isCreating"
+    :close-on-press-escape="!isCreating"
     class="excel-import-dialog"
   >
     <!-- 步骤条 -->
@@ -349,6 +490,7 @@ watch(
         :show-file-list="false"
         accept=".xlsx,.xls"
         class="upload-area"
+        :disabled="isParsing"
       >
         <el-icon class="upload-icon"><Upload /></el-icon>
         <div class="upload-text">
@@ -375,8 +517,19 @@ watch(
         </el-alert>
       </div>
 
+      <!-- 文件解析进度 -->
       <div v-if="isParsing" class="parsing-status">
-        <el-loading :visible="true" text="正在解析文件..." />
+        <div class="progress-indicator">
+          <el-icon class="rotating-icon"><Loading /></el-icon>
+          <span class="progress-text">正在解析文件，请稍候...</span>
+        </div>
+        <el-progress 
+          :percentage="100" 
+          :indeterminate="true" 
+          :stroke-width="8"
+          :show-text="false"
+          class="parsing-progress"
+        />
       </div>
     </div>
 
@@ -512,17 +665,73 @@ watch(
         </el-result>
       </div>
 
-      <!-- 创建进度 -->
-      <div v-else-if="isCreating" class="progress-section">
-        <el-progress :percentage="createProgress" :stroke-width="20" striped />
-        <p class="progress-text">正在创建数据表，请勿关闭窗口...</p>
+      <!-- 创建进度 - 优化后的设计 -->
+      <div v-else-if="isCreating" class="creating-section">
+        <div class="creating-container">
+          <!-- 主进度条 -->
+          <div class="main-progress-wrapper">
+            <el-progress 
+              :percentage="createProgress" 
+              :stroke-width="12"
+              :status="createStatus === 'failed' ? 'exception' : ''"
+              class="main-progress"
+            />
+            <div class="progress-percentage">{{ createProgress }}%</div>
+          </div>
+
+          <!-- 状态文字 -->
+          <div class="status-text-wrapper">
+            <el-icon v-if="createStatus !== 'failed'" class="rotating-icon status-icon">
+              <Loading />
+            </el-icon>
+            <el-icon v-else class="status-icon error-icon">
+              <CircleClose />
+            </el-icon>
+            <span class="status-text" :class="{ 'error-text': createStatus === 'failed' }">
+              {{ createStatusText }}
+            </span>
+          </div>
+
+          <!-- 处理步骤指示器 -->
+          <div class="process-steps">
+            <div 
+              v-for="(step, index) in createSteps" 
+              :key="step.key"
+              class="process-step"
+              :class="{
+                'step-active': createStatus === step.key || (createStatus === 'importing_data' && step.key === 'creating_table') || (createStatus === 'completed' && index < 2),
+                'step-completed': createStatus === 'completed' || (createStatus === 'importing_data' && step.key === 'creating_table'),
+                'step-pending': !((createStatus === step.key) || (createStatus === 'importing_data' && step.key === 'creating_table') || (createStatus === 'completed' && index < 2))
+              }"
+            >
+              <div class="step-icon-wrapper">
+                <el-icon v-if="(createStatus === 'completed' && index < 2) || (createStatus === 'importing_data' && step.key === 'creating_table')" class="step-icon">
+                  <CircleCheck />
+                </el-icon>
+                <el-icon v-else-if="createStatus === step.key" class="step-icon rotating">
+                  <Loading />
+                </el-icon>
+                <el-icon v-else class="step-icon">
+                  <component :is="step.icon" />
+                </el-icon>
+              </div>
+              <span class="step-label">{{ step.label }}</span>
+            </div>
+          </div>
+
+          <!-- 提示信息 -->
+          <div class="creating-hint">
+            <el-icon><Info-Filled /></el-icon>
+            <span>正在处理您的Excel文件，请勿关闭窗口或刷新页面</span>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- 底部按钮 -->
     <template #footer>
       <div class="dialog-footer">
-        <el-button v-if="currentStep > 1 && currentStep < 3" @click="prevStep">
+        <el-button v-if="currentStep > 1 && currentStep < 3" @click="prevStep" :disabled="isCreating">
           <el-icon><ArrowLeft /></el-icon>
           上一步
         </el-button>
@@ -615,9 +824,36 @@ watch(
 }
 
 .parsing-status {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
+  margin-top: 24px;
+  padding: 20px;
+  background: $gray-50;
+  border-radius: $border-radius-lg;
+  border: 1px solid $border-color;
+
+  .progress-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    .rotating-icon {
+      font-size: 24px;
+      color: $primary-color;
+      animation: rotating 2s linear infinite;
+    }
+
+    .progress-text {
+      font-size: $font-size-base;
+      color: $text-primary;
+      font-weight: 500;
+    }
+  }
+
+  .parsing-progress {
+    max-width: 400px;
+    margin: 0 auto;
+  }
 }
 
 .table-info-section {
@@ -692,16 +928,177 @@ watch(
   gap: 12px;
 }
 
-.progress-section {
+// 优化后的创建进度样式
+.creating-section {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
+  min-height: 350px;
+  padding: 20px;
+}
 
-  .progress-text {
-    margin-top: 20px;
-    color: $text-secondary;
+.creating-container {
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+}
+
+.main-progress-wrapper {
+  position: relative;
+  margin-bottom: 24px;
+
+  .main-progress {
+    :deep(.el-progress-bar__outer) {
+      border-radius: 6px;
+      background-color: $gray-200;
+    }
+
+    :deep(.el-progress-bar__inner) {
+      border-radius: 6px;
+      background: linear-gradient(90deg, $primary-color 0%, $primary-hover 100%);
+      transition: width 0.3s ease;
+    }
+  }
+
+  .progress-percentage {
+    position: absolute;
+    right: 0;
+    top: -28px;
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $primary-color;
+  }
+}
+
+.status-text-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 32px;
+
+  .status-icon {
+    font-size: 20px;
+    color: $primary-color;
+
+    &.rotating-icon {
+      animation: rotating 2s linear infinite;
+    }
+
+    &.error-icon {
+      color: $error-color;
+    }
+  }
+
+  .status-text {
+    font-size: $font-size-lg;
+    font-weight: 500;
+    color: $text-primary;
+
+    &.error-text {
+      color: $error-color;
+    }
+  }
+}
+
+.process-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 32px;
+  padding: 24px;
+  background: $gray-50;
+  border-radius: $border-radius-xl;
+  border: 1px solid $border-color;
+
+  .process-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+
+    .step-icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: $gray-200;
+      transition: all 0.3s ease;
+
+      .step-icon {
+        font-size: 24px;
+        color: $text-secondary;
+        transition: all 0.3s ease;
+
+        &.rotating {
+          animation: rotating 2s linear infinite;
+        }
+      }
+    }
+
+    .step-label {
+      font-size: $font-size-sm;
+      color: $text-secondary;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    // 激活状态
+    &.step-active {
+      .step-icon-wrapper {
+        background: $primary-light;
+        box-shadow: 0 0 0 3px rgba($primary-color, 0.2);
+
+        .step-icon {
+          color: $primary-color;
+        }
+      }
+
+      .step-label {
+        color: $primary-color;
+        font-weight: 600;
+      }
+    }
+
+    // 完成状态
+    &.step-completed {
+      .step-icon-wrapper {
+        background: $success-light;
+
+        .step-icon {
+          color: $success-color;
+        }
+      }
+
+      .step-label {
+        color: $success-color;
+      }
+    }
+  }
+}
+
+.creating-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: $warning-light;
+  border-radius: $border-radius-lg;
+  border: 1px solid rgba($warning-color, 0.3);
+
+  .el-icon {
+    font-size: 16px;
+    color: $warning-color;
+  }
+
+  span {
+    font-size: $font-size-sm;
+    color: $warning-dark;
   }
 }
 
@@ -709,5 +1106,15 @@ watch(
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+// 旋转动画
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
