@@ -255,6 +255,7 @@ const getFieldComponent = (field: FieldEntity): string => {
     case FieldType.MULTI_SELECT:
       return "multi_select";
     case FieldType.DATE:
+    case FieldType.DATE_TIME:
       return "date";
     case FieldType.CHECKBOX:
       return "checkbox";
@@ -282,6 +283,21 @@ function handleValueChange(fieldId: string, value: unknown) {
 // 获取评分最大值
 function getMaxRating(field: FieldEntity): number {
   return (field.options?.maxRating as number) ?? 5;
+}
+
+// 获取日期字段是否显示时间
+function getDateShowTime(field: FieldEntity): boolean {
+  return field.type === FieldType.DATE_TIME;
+}
+
+// 获取日期字段格式
+function getDateFormat(field: FieldEntity): string {
+  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
+}
+
+// 获取日期选择器类型
+function getDatePickerType(field: FieldEntity): "date" | "datetime" {
+  return getDateShowTime(field) ? "datetime" : "date";
 }
 
 // 处理附件上传
@@ -518,11 +534,12 @@ const drawerTitle = computed(() => {
                 (val) =>
                   handleValueChange(
                     field.id,
-                    val ? dayjs(val).format('YYYY-MM-DD') : null,
+                    val ? dayjs(val).format(getDateFormat(field)) : null,
                   )
               "
-              type="date"
+              :type="getDatePickerType(field)"
               :placeholder="`请选择${field.name}`"
+              :format="getDateFormat(field)"
               :disabled="readonly"
               class="field-input"
               style="width: 100%" />

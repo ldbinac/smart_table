@@ -22,13 +22,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _format_date_default_value(default_value: str, options: Optional[Dict[str, Any]]) -> str:
+def _format_date_default_value(default_value: str, field_type: str) -> str:
     """
-    根据日期字段的 showTime 配置格式化默认值
+    根据字段类型（date 或 date_time）格式化默认值
 
     Args:
         default_value: 原始默认值（ISO 8601 格式或 YYYY-MM-DD 格式）
-        options: 字段选项，包含 showTime 配置
+        field_type: 字段类型（'date' 或 'date_time'）
 
     Returns:
         格式化后的日期字符串
@@ -36,8 +36,8 @@ def _format_date_default_value(default_value: str, options: Optional[Dict[str, A
     if default_value is None or default_value == 'now':
         return default_value
 
-    # 获取 showTime 配置
-    show_time = options.get('showTime', False) if options else False
+    # 根据字段类型决定格式
+    is_date_time = field_type == FieldType.DATE_TIME.value
 
     try:
         # 解析日期时间
@@ -51,8 +51,8 @@ def _format_date_default_value(default_value: str, options: Optional[Dict[str, A
             else:
                 dt = datetime.strptime(default_value, '%Y-%m-%d %H:%M:%S')
 
-        # 根据 showTime 配置格式化
-        if show_time:
+        # 根据字段类型格式化
+        if is_date_time:
             return dt.strftime('%Y-%m-%d %H:%M:%S')
         else:
             return dt.strftime('%Y-%m-%d')
@@ -174,9 +174,9 @@ class FieldService:
         config = data.get('config', {}) or {}
         default_value = data.get('defaultValue') or data.get('default_value')
         if default_value is not None:
-            # 日期类型字段根据 showTime 配置格式化默认值
+            # 日期类型字段根据字段类型格式化默认值
             if field_type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
-                default_value = _format_date_default_value(default_value, data.get('options'))
+                default_value = _format_date_default_value(default_value, field_type)
             config['defaultValue'] = default_value
             config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
             config['updatedAt'] = datetime.now(timezone.utc).isoformat()
@@ -250,11 +250,9 @@ class FieldService:
             if not is_valid:
                 return {'success': False, 'error': error_msg}
 
-            # 日期类型字段根据 showTime 配置格式化默认值
+            # 日期类型字段根据字段类型格式化默认值
             if field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
-                # 使用传入的 options 或字段现有的 options
-                options = data.get('options') or field.options
-                default_value = _format_date_default_value(default_value, options)
+                default_value = _format_date_default_value(default_value, field.type)
 
             # 更新 config 中的默认值
             if field.config is None:

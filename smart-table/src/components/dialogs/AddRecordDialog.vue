@@ -161,6 +161,7 @@ function getFieldComponent(field: FieldEntity) {
     case FieldType.MULTI_SELECT:
       return "multi_select";
     case FieldType.DATE:
+    case FieldType.DATE_TIME:
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       return "date";
@@ -223,7 +224,7 @@ function getNumberPrecision(field: FieldEntity): number {
 
 // 获取日期字段是否显示时间
 function getDateShowTime(field: FieldEntity): boolean {
-  return (field.options?.showTime as boolean) ?? false;
+  return field.type === FieldType.DATE_TIME;
 }
 
 // 获取日期字段格式

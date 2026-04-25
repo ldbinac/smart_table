@@ -73,10 +73,10 @@ watch(
       props.fields.forEach((field) => {
         if (field.defaultValue !== undefined && field.defaultValue !== null) {
           // 特殊处理日期字段的动态默认值 'now'
-          if (field.type === FieldType.DATE && field.defaultValue === "now") {
+          if ((field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) && field.defaultValue === "now") {
             // 动态计算当前日期
-            const showTime = (field.options?.showTime as boolean) ?? false;
-            if (showTime) {
+            const isDateTime = field.type === FieldType.DATE_TIME;
+            if (isDateTime) {
               formData.value[field.id] = new Date().toISOString();
             } else {
               formData.value[field.id] = new Date().toISOString().split("T")[0];
@@ -189,6 +189,7 @@ function getFieldComponent(field: FieldEntity) {
     case FieldType.MULTI_SELECT:
       return "multi_select";
     case FieldType.DATE:
+    case FieldType.DATE_TIME:
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       return "date";
@@ -252,7 +253,7 @@ function getNumberPrecision(field: FieldEntity): number {
 
 // 获取日期字段是否显示时间
 function getDateShowTime(field: FieldEntity): boolean {
-  return (field.options?.showTime as boolean) ?? false;
+  return field.type === FieldType.DATE_TIME;
 }
 
 // 获取日期字段格式

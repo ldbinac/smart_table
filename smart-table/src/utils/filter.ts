@@ -76,6 +76,15 @@ export const OPERATORS_BY_FIELD_TYPE: Record<string, FilterOperatorValue[]> = {
     FilterOperator.IS_EMPTY,
     FilterOperator.IS_NOT_EMPTY,
   ],
+  [FieldType.DATE_TIME]: [
+    FilterOperator.EQUALS,
+    FilterOperator.NOT_EQUALS,
+    FilterOperator.IS_BEFORE,
+    FilterOperator.IS_AFTER,
+    FilterOperator.IS_WITHIN,
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
   [FieldType.SINGLE_SELECT]: [
     FilterOperator.EQUALS,
     FilterOperator.NOT_EQUALS,
@@ -301,6 +310,7 @@ export function evaluateCondition(
       }
       if (
         field.type === FieldType.DATE ||
+        field.type === FieldType.DATE_TIME ||
         field.type === FieldType.CREATED_TIME ||
         field.type === FieldType.UPDATED_TIME
       ) {
@@ -342,6 +352,7 @@ export function evaluateCondition(
       }
       if (
         field.type === FieldType.DATE ||
+        field.type === FieldType.DATE_TIME ||
         field.type === FieldType.CREATED_TIME ||
         field.type === FieldType.UPDATED_TIME
       ) {
@@ -424,6 +435,7 @@ export function evaluateCondition(
       }
       if (
         field.type === FieldType.DATE ||
+        field.type === FieldType.DATE_TIME ||
         field.type === FieldType.CREATED_TIME ||
         field.type === FieldType.UPDATED_TIME
       ) {
@@ -447,6 +459,7 @@ export function evaluateCondition(
       }
       if (
         field.type === FieldType.DATE ||
+        field.type === FieldType.DATE_TIME ||
         field.type === FieldType.CREATED_TIME ||
         field.type === FieldType.UPDATED_TIME
       ) {
@@ -470,6 +483,7 @@ export function evaluateCondition(
       }
       if (
         field.type === FieldType.DATE ||
+        field.type === FieldType.DATE_TIME ||
         field.type === FieldType.CREATED_TIME ||
         field.type === FieldType.UPDATED_TIME
       ) {
@@ -493,6 +507,7 @@ export function evaluateCondition(
       }
       if (
         field.type === FieldType.DATE ||
+        field.type === FieldType.DATE_TIME ||
         field.type === FieldType.CREATED_TIME ||
         field.type === FieldType.UPDATED_TIME
       ) {

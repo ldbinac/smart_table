@@ -26,7 +26,7 @@ const emit = defineEmits<{
   (e: "update:modelValue", value: string | null): void;
 }>();
 
-const displayFormat = "YYYY-MM-DD";
+const displayFormat = "YYYY-MM-DD HH:mm:ss";
 
 const displayValue = computed(() => {
   if (!props.modelValue) return "-";
@@ -57,22 +57,22 @@ defineExpose({ focus });
 </script>
 
 <template>
-  <div class="date-field" :class="{ 'is-readonly': readonly }">
+  <div class="date-time-field" :class="{ 'is-readonly': readonly }">
     <template v-if="readonly">
-      <div class="date-field-readonly">
+      <div class="date-time-field-readonly">
         {{ displayValue }}
       </div>
     </template>
     <template v-else>
       <el-date-picker
         v-model="localValue"
-        type="date"
-        :placeholder="placeholder || '请选择日期'"
+        type="datetime"
+        :placeholder="placeholder || '请选择日期时间'"
         :format="displayFormat"
         :value-format="displayFormat"
         clearable
         ref="pickerRef"
-        class="date-picker" />
+        class="date-time-picker" />
     </template>
   </div>
 </template>
@@ -80,18 +80,18 @@ defineExpose({ focus });
 <style lang="scss" scoped>
 @use "@/assets/styles/variables" as *;
 
-.date-field {
+.date-time-field {
   width: 100%;
 
   &.is-readonly {
-    .date-field-readonly {
+    .date-time-field-readonly {
       padding: $spacing-sm;
       color: $text-primary;
       font-size: $font-size-base;
     }
   }
 
-  .date-picker {
+  .date-time-picker {
     width: 100%;
 
     :deep(.el-input__wrapper) {

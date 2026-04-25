@@ -6,6 +6,7 @@ import LongTextField from "./LongTextField.vue";
 import RichTextField from "./RichTextField.vue";
 import NumberField from "./NumberField.vue";
 import DateField from "./DateField.vue";
+import DateTimeField from "./DateTimeField.vue";
 import SingleSelectField from "./SingleSelectField.vue";
 import MultiSelectField from "./MultiSelectField.vue";
 import CheckboxField from "./CheckboxField.vue";
@@ -59,6 +60,7 @@ const componentMap: Record<string, unknown> = {
   [FieldType.RICH_TEXT]: RichTextField,
   [FieldType.NUMBER]: NumberField,
   [FieldType.DATE]: DateField,
+  [FieldType.DATE_TIME]: DateTimeField,
   [FieldType.SINGLE_SELECT]: SingleSelectField,
   [FieldType.MULTI_SELECT]: MultiSelectField,
   [FieldType.CHECKBOX]: CheckboxField,

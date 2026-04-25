@@ -92,8 +92,8 @@ export function formatDateValue(
     return '未设置'
   }
 
-  const showTime = (field.options?.showTime as boolean) ?? false
-  const format = showTime ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD'
+  const isDateTime = field.type === 'date_time'
+  const format = isDateTime ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD'
 
   if (typeof value === 'number') {
     return dayjs(value).format(format)

@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 def _format_date_value(value: str, field: Field) -> str:
     """
-    根据字段的 showTime 配置格式化日期值
+    根据字段类型（date 或 date_time）格式化日期值
 
     Args:
         value: 原始日期值（ISO 8601 格式或 YYYY-MM-DD 格式）
@@ -34,9 +34,8 @@ def _format_date_value(value: str, field: Field) -> str:
     if value is None:
         return None
 
-    # 获取 showTime 配置
-    options = field.options or {}
-    show_time = options.get('showTime', False)
+    # 根据字段类型决定格式
+    is_date_time = field.type == FieldType.DATE_TIME.value
 
     try:
         # 解析日期时间
@@ -50,8 +49,8 @@ def _format_date_value(value: str, field: Field) -> str:
             else:
                 dt = datetime.strptime(str(value), '%Y-%m-%d %H:%M:%S')
 
-        # 根据 showTime 配置格式化
-        if show_time:
+        # 根据字段类型格式化
+        if is_date_time:
             return dt.strftime('%Y-%m-%d %H:%M:%S')
         else:
             return dt.strftime('%Y-%m-%d')
@@ -164,7 +163,7 @@ class RecordService:
         # 创建字段 ID 到字段对象的映射，用于后续处理
         field_map = {str(field.id): field for field in fields}
 
-        # 处理日期字段值：根据 showTime 配置格式化
+        # 处理日期字段值：根据字段类型格式化
         for field_id, value in list(final_values.items()):
             field = field_map.get(field_id)
             if field and field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
@@ -179,10 +178,8 @@ class RecordService:
                 if default_value is not None:
                     # 特殊处理动态日期默认值 'now'
                     if default_value == 'now':
-                        # 根据字段的 showTime 配置格式化当前时间
-                        options = field.options or {}
-                        show_time = options.get('showTime', False)
-                        if show_time:
+                        # 根据字段类型格式化当前时间
+                        if field.type == FieldType.DATE_TIME.value:
                             final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                         else:
                             final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -314,7 +311,7 @@ class RecordService:
                     f'Record: {record.id}, Fields: {auto_number_field_ids & set(values.keys())}'
                 )
 
-            # 处理日期字段值：根据 showTime 配置格式化
+            # 处理日期字段值：根据字段类型格式化
             formatted_values = {}
             for field_id, new_value in filtered_values.items():
                 field = field_map.get(field_id)

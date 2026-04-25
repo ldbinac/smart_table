@@ -32,6 +32,7 @@ declare module 'vue' {
     CreatedTimeField: typeof import('./components/fields/CreatedTimeField.vue')['default']
     DashboardTemplateDialog: typeof import('./components/dialogs/DashboardTemplateDialog.vue')['default']
     DateField: typeof import('./components/fields/DateField.vue')['default']
+    DateTimeField: typeof import('./components/fields/DateTimeField.vue')['default']
     DateWidget: typeof import('./components/dashboard/DateWidget.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']

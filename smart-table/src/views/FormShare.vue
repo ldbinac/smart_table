@@ -318,15 +318,13 @@ function resetForm() {
       defaultValue !== ""
     ) {
       // 特殊处理日期字段的动态默认值 'now'
-      if (field.type === FieldType.DATE && defaultValue === "now") {
-        const showTime = (config.showTime as boolean) ?? false;
-        if (showTime) {
+      if ((field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) && defaultValue === "now") {
+        const isDateTime = field.type === FieldType.DATE_TIME;
+        if (isDateTime) {
           formValues.value[field.id] = new Date().toISOString();
         } else {
           formValues.value[field.id] = new Date().toISOString().split("T")[0];
         }
-      } else if (field.type === FieldType.DATE_TIME && defaultValue === "now") {
-        formValues.value[field.id] = new Date().toISOString();
       } else if (
         field.type === FieldType.MULTI_SELECT &&
         !Array.isArray(defaultValue)
@@ -462,7 +460,7 @@ function getMaxRating(field: FormFieldSchema): number {
 
 // 获取日期字段是否显示时间
 function getDateShowTime(field: FormFieldSchema): boolean {
-  return (field.config?.showTime as boolean) ?? false;
+  return field.type === FieldType.DATE_TIME;
 }
 
 // 获取日期字段格式

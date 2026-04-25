@@ -645,14 +645,15 @@ function getMultiSelectDisplay(field: FieldEntity, value: unknown) {
 function getDateDisplay(field: FieldEntity, value: unknown): string {
   if (value === null || value === undefined || value === "") return "";
 
-  const showTime = (field.options?.showTime as boolean) ?? false;
-  const format = showTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
+  // 根据字段类型判断是否显示时间
+  const isDateTime = field.type === FieldType.DATE_TIME;
+  const format = isDateTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 
   // 处理字符串格式的日期（如 "2024-01-15"）
   if (typeof value === "string") {
     // 如果是标准日期格式，直接返回
     if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-      return value.substring(0, showTime ? 19 : 10);
+      return value.substring(0, isDateTime ? 19 : 10);
     }
     // 尝试解析为数字时间戳
     const num = parseInt(value);
@@ -1172,7 +1173,7 @@ function handleLinkFieldChange(
                   <CollectionTag />
                 </el-icon>
                 <el-icon
-                  v-else-if="field.type === FieldType.DATE"
+                  v-else-if="field.type === FieldType.DATE || field.type === FieldType.DATE_TIME"
                   class="header-icon">
                   <Calendar />
                 </el-icon>
@@ -1371,7 +1372,7 @@ function handleLinkFieldChange(
                 </template>
 
                 <!-- 日期字段 -->
-                <template v-else-if="field.type === FieldType.DATE">
+                <template v-else-if="field.type === FieldType.DATE || field.type === FieldType.DATE_TIME">
                   <el-tooltip
                     :content="
                       getDateDisplay(field, item.record!.values[field.id])

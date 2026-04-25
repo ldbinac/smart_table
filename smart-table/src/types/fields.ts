@@ -4,6 +4,7 @@ export const FieldType = {
   RICH_TEXT: "rich_text",
   NUMBER: "number",
   DATE: "date",
+  DATE_TIME: "date_time",
   SINGLE_SELECT: "single_select",
   MULTI_SELECT: "multi_select",
   CHECKBOX: "checkbox",
@@ -51,7 +52,6 @@ export interface FieldOptions {
   format?: "number" | "currency" | "percent";
   currencySymbol?: string;
   includeTime?: boolean;
-  showTime?: boolean;
   dateFormat?: string;
   prefix?: string;
   suffix?: string;
@@ -146,6 +146,7 @@ export function getFieldTypeLabel(type: string): string {
     rich_text: "富文本",
     number: "数字",
     date: "日期",
+    date_time: "日期时间",
     single_select: "单选",
     multi_select: "多选",
     checkbox: "复选框",
@@ -175,7 +176,8 @@ export function getFieldTypeIcon(type: string): string {
     rich_text: "🎨",
     number: "🔢",
     date: "📅",
-    single_select: "☑️",
+    date_time: "🕐",
+    single_select: "🔘",
     multi_select: "☑️",
     checkbox: "✅",
     attachment: "📎",
@@ -232,8 +234,7 @@ export function getAggregationTypeLabel(type: AggregationType): string {
  */
 export function normalizeFieldType(backendType: string): string {
   const typeMap: Record<string, string> = {
-    // 日期时间类型
-    'date_time': 'date',
+    // 日期时间类型 - date_time 保持为 date_time，date 保持为 date
     'duration': 'number',
     
     // 关联类型

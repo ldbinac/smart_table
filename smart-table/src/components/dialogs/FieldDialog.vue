@@ -72,8 +72,6 @@ const newField = ref<{
   defaultValue?: any;
   // 数值字段配置
   precision: number;
-  // 日期字段配置
-  showTime: boolean;
   // 公式字段配置
   formula: string;
   // 关联字段配置
@@ -92,7 +90,6 @@ const newField = ref<{
   description: "",
   defaultValue: undefined,
   precision: 0,
-  showTime: false,
   formula: "",
   linkConfig: {
     targetTableId: "",
@@ -117,6 +114,7 @@ const userCreatableTypes = [
   FieldType.RICH_TEXT,
   FieldType.NUMBER,
   FieldType.DATE,
+  FieldType.DATE_TIME,
   FieldType.SINGLE_SELECT,
   FieldType.MULTI_SELECT,
   FieldType.CHECKBOX,
@@ -289,7 +287,6 @@ function openCreateField() {
     isRequired: false,
     description: "",
     precision: 0,
-    showTime: false,
     formula: "",
     linkConfig: {
       targetTableId: "",
@@ -318,7 +315,7 @@ function openEditField(field: FieldEntity) {
   // dateDefaultType 计算属性会自动根据 defaultValue 的值判断类型
   let dateDefaultValue: any = undefined;
 
-  if (field.type === FieldType.DATE) {
+  if (field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) {
     if (field.defaultValue === "now") {
       dateDefaultValue = "now";
     } else if (field.defaultValue && field.defaultValue !== "now") {
@@ -340,7 +337,6 @@ function openEditField(field: FieldEntity) {
     description: field.description || "",
     defaultValue: dateDefaultValue,
     precision: (field.options?.precision as number) ?? 0,
-    showTime: (field.options?.showTime as boolean) ?? false,
     formula: (field.options?.formula as string) ?? "",
     // 关联字段的配置保存在 config 中
     linkConfig: {
@@ -425,7 +421,6 @@ function backToList() {
     description: "",
     defaultValue: undefined,
     precision: 0,
-    showTime: false,
     formula: "",
     linkConfig: {
       targetTableId: "",
@@ -449,7 +444,7 @@ function backToList() {
 // 计算日期默认值的类型（用于 radio-group 绑定）
 const dateDefaultType = computed({
   get: () => {
-    if (newField.value.type !== FieldType.DATE) return "";
+    if (newField.value.type !== FieldType.DATE && newField.value.type !== FieldType.DATE_TIME) return "";
     if (newField.value.defaultValue === "now") return "now";
     if (newField.value.defaultValue && newField.value.defaultValue !== "now")
       return "custom";
@@ -509,10 +504,6 @@ async function createField() {
     // 数值字段精度配置
     if (newField.value.type === FieldType.NUMBER) {
       options.precision = newField.value.precision;
-    }
-    // 日期字段时间显示配置
-    if (newField.value.type === FieldType.DATE) {
-      options.showTime = newField.value.showTime;
     }
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
@@ -628,10 +619,6 @@ async function updateField() {
     // 数值字段精度配置
     if (newField.value.type === FieldType.NUMBER) {
       options.precision = newField.value.precision;
-    }
-    // 日期字段时间显示配置
-    if (newField.value.type === FieldType.DATE) {
-      options.showTime = newField.value.showTime;
     }
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
@@ -774,9 +761,6 @@ function onTypeChange() {
     newField.value.type !== FieldType.FORMULA
   ) {
     newField.value.precision = 0;
-  }
-  if (newField.value.type !== FieldType.DATE) {
-    newField.value.showTime = false;
   }
   if (newField.value.type !== FieldType.FORMULA) {
     newField.value.formula = "";
@@ -1145,15 +1129,6 @@ async function toggleFieldVisibility(
             <span class="precision-value">{{ newField.precision }} 位</span>
           </div>
           <div class="field-hint">设置数值显示的小数位数，默认为 0</div>
-        </ElFormItem>
-
-        <!-- 日期字段时间显示配置 -->
-        <ElFormItem v-if="newField.type === FieldType.DATE" label="显示时间">
-          <ElSwitch
-            v-model="newField.showTime"
-            active-text="YYYY-MM-DD HH:mm:ss"
-            inactive-text="YYYY-MM-DD" />
-          <div class="field-hint">开启后将显示日期和时间，关闭则仅显示日期</div>
         </ElFormItem>
 
         <!-- 公式字段配置 -->
@@ -1575,10 +1550,29 @@ async function toggleFieldVisibility(
             <el-date-picker
               v-if="dateDefaultType === 'custom'"
               v-model="newField.defaultValue"
-              type="datetime"
-              :format="newField.showTime ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'"
-              :show-time="newField.showTime"
+              type="date"
+              format="YYYY-MM-DD"
               placeholder="选择默认日期"
+              style="width: 100%" />
+          </div>
+
+          <!-- 日期时间类型 -->
+          <div v-else-if="newField.type === FieldType.DATE_TIME" style="width: 100%">
+            <div style="margin-bottom: 8px">
+              <el-radio-group v-model="dateDefaultType" size="small">
+                <el-radio-button label="">不使用默认值</el-radio-button>
+                <el-radio-button label="now"
+                  >使用添加记录的日期时间</el-radio-button
+                >
+                <el-radio-button label="custom">指定日期时间</el-radio-button>
+              </el-radio-group>
+            </div>
+            <el-date-picker
+              v-if="dateDefaultType === 'custom'"
+              v-model="newField.defaultValue"
+              type="datetime"
+              format="YYYY-MM-DD HH:mm:ss"
+              placeholder="选择默认日期时间"
               style="width: 100%" />
           </div>
 

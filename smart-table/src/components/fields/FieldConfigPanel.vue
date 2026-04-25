@@ -33,6 +33,7 @@ const fieldTypeOptions = [
   { label: "富文本", value: FieldType.RICH_TEXT },
   { label: "数字", value: FieldType.NUMBER },
   { label: "日期", value: FieldType.DATE },
+  { label: "日期时间", value: FieldType.DATE_TIME },
   { label: "单选", value: FieldType.SINGLE_SELECT },
   { label: "多选", value: FieldType.MULTI_SELECT },
   { label: "复选框", value: FieldType.CHECKBOX },
@@ -105,7 +106,7 @@ const updateOptionColor = (optionId: string, color: string) => {
 };
 
 const updateBooleanOption = (
-  key: "isRichText" | "includeTime",
+  key: "isRichText",
   val: string | number | boolean,
 ) => {
   updateOption(key, Boolean(val));
@@ -120,7 +121,10 @@ const showNumberOptions = computed(
   () => localField.value.type === FieldType.NUMBER,
 );
 const showDateOptions = computed(
-  () => localField.value.type === FieldType.DATE,
+  () => localField.value.type === FieldType.DATE || localField.value.type === FieldType.DATE_TIME,
+);
+const isDateTimeField = computed(
+  () => localField.value.type === FieldType.DATE_TIME,
 );
 const showSelectOptions = computed(
   () =>
@@ -229,20 +233,15 @@ const currencySymbolOptions = [
           size="small"
           class="date-radio-group">
           <el-radio-button label="static">指定日期</el-radio-button>
-          <el-radio-button label="dynamic">当前时间</el-radio-button>
+          <el-radio-button label="dynamic">当前{{ isDateTimeField ? '日期时间' : '日期' }}</el-radio-button>
         </el-radio-group>
         <el-date-picker
           v-if="localField.defaultValue !== 'now'"
           v-model="localField.defaultValue"
           @update:model-value="updateDefaultValue"
-          type="datetime"
-          :format="
-            localField.options?.includeTime
-              ? 'YYYY-MM-DD HH:mm:ss'
-              : 'YYYY-MM-DD'
-          "
-          :show-time="localField.options?.includeTime"
-          placeholder="选择默认日期"
+          :type="isDateTimeField ? 'datetime' : 'date'"
+          :format="isDateTimeField ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'"
+          :placeholder="isDateTimeField ? '选择默认日期时间' : '选择默认日期'"
           class="config-input date-picker" />
       </div>
 
@@ -356,17 +355,6 @@ const currencySymbolOptions = [
           :max="10"
           :controls="false"
           class="config-input" />
-      </div>
-    </template>
-
-    <template v-if="showDateOptions">
-      <div class="config-section">
-        <div class="config-label">包含时间</div>
-        <el-switch
-          :model-value="localField.options?.includeTime || false"
-          @update:model-value="
-            (val) => updateBooleanOption('includeTime', val)
-          " />
       </div>
     </template>
 

@@ -114,19 +114,19 @@ const numberPrecision = computed(() => {
   return fieldOptions.value?.precision ?? 0;
 });
 
-// 日期字段时间显示配置
-const dateShowTime = computed(() => {
-  return fieldOptions.value?.showTime ?? false;
+// 日期字段类型判断
+const isDateTimeField = computed(() => {
+  return props.field?.type === FieldType.DATE_TIME;
 });
 
 // 日期显示格式
 const dateDisplayFormat = computed(() => {
-  return dateShowTime.value ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
+  return isDateTimeField.value ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 });
 
 // 日期选择器类型
 const datePickerType = computed(() => {
-  return dateShowTime.value ? "datetime" : "date";
+  return isDateTimeField.value ? "datetime" : "date";
 });
 
 // 公式字段计算结果 - 使用独立的 computed 来确保响应性
@@ -197,19 +197,19 @@ const displayValue = computed(() => {
     }
     case "checkbox":
       return value ? "✓" : "";
-    case "date": {
+    case "date":
+    case "date_time": {
       if (!value) return "";
-      // 根据配置显示日期或日期时间
-      const showTime = options?.showTime ?? false;
-      const format = showTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
+      // 根据字段类型显示日期或日期时间
+      const isDateTime = type === "date_time";
+      const format = isDateTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 
-      // 处理时间戳格式
-      const timestamp = typeof value === "string" ? Number(value) : value;
-      if (typeof timestamp === "number" && !isNaN(timestamp)) {
-        return dayjs(timestamp).format(format);
-      }
       // 处理字符串日期格式
       if (typeof value === "string") {
+        return dayjs(value).format(format);
+      }
+      // 处理数字时间戳格式
+      if (typeof value === "number") {
         return dayjs(value).format(format);
       }
       return String(value);
@@ -397,13 +397,12 @@ const handleKeydown = (event: KeyboardEvent) => {
 const handleDateChange = (val: Date | null) => {
   dateEditValue.value = val;
   if (val) {
-    // 根据配置决定存储格式
-    const showTime = dateShowTime.value;
-    if (showTime) {
-      // 存储为时间戳
-      emit("update", val.getTime() as CellValue);
+    // 根据字段类型决定存储格式
+    if (isDateTimeField.value) {
+      // 日期时间字段存储为 ISO 格式
+      emit("update", dayjs(val).format("YYYY-MM-DD HH:mm:ss") as CellValue);
     } else {
-      // 存储为日期字符串
+      // 日期字段存储为日期字符串
       emit("update", dayjs(val).format("YYYY-MM-DD") as CellValue);
     }
   } else {
@@ -538,12 +537,12 @@ const multiSelectDisplayValues = computed(() => {
           @change="finishEdit" />
       </template>
 
-      <template v-else-if="fieldType === 'date'">
+      <template v-else-if="fieldType === 'date' || fieldType === 'date_time'">
         <el-date-picker
           ref="inputRef"
           v-model="dateEditValue"
           :type="datePickerType"
-          :placeholder="dateShowTime ? '选择日期时间' : '选择日期'"
+          :placeholder="isDateTimeField ? '选择日期时间' : '选择日期'"
           :format="dateDisplayFormat"
           class="cell-date-picker"
           @change="handleDateChange" />
