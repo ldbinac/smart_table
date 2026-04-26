@@ -43,14 +43,14 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 ### Supported View Types (6 Types)
 
-| View Type     | Description                              | Status |
-| ------------- | ---------------------------------------- | ------ |
+| View Type     | Description                                                 | Status |
+| ------------- | ----------------------------------------------------------- | ------ |
 | Table View    | Classic table display with virtual scroll and column freeze | ✅      |
-| Kanban View   | Card-based display with drag sorting     | ✅      |
-| Calendar View | Time-based display                       | ✅      |
-| Gantt View    | Project timeline display                 | ✅      |
-| Form View     | Data collection form with sharing        | ✅      |
-| Gallery View  | Image card display                       | ✅      |
+| Kanban View   | Card-based display with drag sorting                        | ✅      |
+| Calendar View | Time-based display                                          | ✅      |
+| Gantt View    | Project timeline display                                    | ✅      |
+| Form View     | Data collection form with sharing                           | ✅      |
+| Gallery View  | Image card display                                          | ✅      |
 
 ### Advanced Features
 
@@ -71,13 +71,13 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 ## Feature Preview
 
-| Feature     | Preview                                  | Feature       | Preview                                  |
-| ----------- | ---------------------------------------- | ------------- | ---------------------------------------- |
-| Home        | ![Home](./doc/img/home.jpeg)             | Home          | ![Home2](./doc/img/home-all.jpeg)        |
-| Table View  | ![Table View](./doc/img/TableView.jpeg)  | Table View    | ![Table View](./doc/img/TableViewGroup.jpeg) |
+| Feature     | Preview                                   | Feature       | Preview                                       |
+| ----------- | ----------------------------------------- | ------------- | --------------------------------------------- |
+| Home        | ![Home](./doc/img/home.jpeg)              | Home          | ![Home2](./doc/img/home-all.jpeg)             |
+| Table View  | ![Table View](./doc/img/TableView.jpeg)   | Table View    | ![Table View](./doc/img/TableViewGroup.jpeg)  |
 | Kanban View | ![Kanban View](./doc/img/KanbanView.jpeg) | Calendar View | ![Calendar View](./doc/img/CalendarView.jpeg) |
-| Gantt View  | ![Gantt View](./doc/img/GanttView.jpeg)  | Form View     | ![Form View](./doc/img/FormView.jpeg)    |
-| Form View   | ![Form View](./doc/img/FormView.jpeg)    | Dashboard     | ![Dashboard](./doc/img/Dashboard.jpeg)   |
+| Gantt View  | ![Gantt View](./doc/img/GanttView.jpeg)   | Form View     | ![Form View](./doc/img/FormView.jpeg)         |
+| Form View   | ![Form View](./doc/img/FormView.jpeg)     | Dashboard     | ![Dashboard](./doc/img/Dashboard.jpeg)        |
 
 ## Tech Stack
 
@@ -86,7 +86,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 | Category             | Technology              | Version  |
 | -------------------- | ----------------------- | -------- |
 | Frontend Framework   | Vue 3                   | ^3.5.30  |
-| Language             | TypeScript              | ~5.9.3   |
+| Language             | TypeScript              | \~5.9.3  |
 | State Management     | Pinia                   | ^2.3.1   |
 | Router               | Vue Router              | ^4.6.4   |
 | UI Component Library | Element Plus            | ^2.13.6  |
@@ -100,9 +100,9 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 ### Data Storage Options
 
-| Mode               | Technology        | Description                              |
-| ------------------ | ----------------- | ---------------------------------------- |
-| Pure Frontend Mode | Dexie (IndexedDB) | Data stored in browser locally, no server required |
+| Mode               | Technology        | Description                                                  |
+| ------------------ | ----------------- | ------------------------------------------------------------ |
+| Pure Frontend Mode | Dexie (IndexedDB) | Data stored in browser locally, no server required           |
 | Backend Mode       | SQLite + Flask    | Default SQLite, supports PostgreSQL via environment variable |
 
 ### Backend Tech Stack (Optional)
@@ -460,32 +460,32 @@ environment:
 
 ### Feature Overview
 
-| Feature              | Description                              |
-| -------------------- | ---------------------------------------- |
-| Online Presence      | Display users currently editing the same table |
-| View Sync            | Real-time sync of view switching and scroll position |
-| Cell Locking         | Automatically lock cells being edited to prevent conflicts |
-| Conflict Detection   | Optimistic locking-based conflict detection, returns 409 status code |
-| Offline Queue        | Operations are cached when disconnected and replayed on reconnection |
+| Feature              | Description                                                                       |
+| -------------------- | --------------------------------------------------------------------------------- |
+| Online Presence      | Display users currently editing the same table                                    |
+| View Sync            | Real-time sync of view switching and scroll position                              |
+| Cell Locking         | Automatically lock cells being edited to prevent conflicts                        |
+| Conflict Detection   | Optimistic locking-based conflict detection, returns 409 status code              |
+| Offline Queue        | Operations are cached when disconnected and replayed on reconnection              |
 | Graceful Degradation | Automatically degrades to normal mode when real-time collaboration is unavailable |
 
 ### API Endpoint
 
-| Endpoint                   | Description                              |
-| -------------------------- | ---------------------------------------- |
+| Endpoint                   | Description                                  |
+| -------------------------- | -------------------------------------------- |
 | `GET /api/realtime/status` | Query real-time collaboration service status |
 
 ### Socket.IO Events
 
-| Category | Event Name                               | Description                         |
-| -------- | ---------------------------------------- | ----------------------------------- |
-| Room     | `room:join` / `room:leave`               | Join/leave collaboration room       |
-| Presence | `presence:view_changed` / `presence:cell_selected` | View switch/cell selection          |
-| Presence | `presence:user_joined` / `presence:user_left` | User join/leave notification        |
-| Lock     | `lock:acquire` / `lock:release`          | Acquire/release cell lock           |
-| Lock     | `lock:acquired` / `lock:released`        | Lock acquired/released notification |
-| Data     | `data:record_updated` / `data:record_created` / `data:record_deleted` | Record change push                  |
-| Data     | `data:field_updated` / `data:field_created` / `data:field_deleted` | Field change push                   |
+| Category | Event Name                                                                               | Description                         |
+| -------- | ---------------------------------------------------------------------------------------- | ----------------------------------- |
+| Room     | `room:join` / `room:leave`                                                               | Join/leave collaboration room       |
+| Presence | `presence:view_changed` / `presence:cell_selected`                                       | View switch/cell selection          |
+| Presence | `presence:user_joined` / `presence:user_left`                                            | User join/leave notification        |
+| Lock     | `lock:acquire` / `lock:release`                                                          | Acquire/release cell lock           |
+| Lock     | `lock:acquired` / `lock:released`                                                        | Lock acquired/released notification |
+| Data     | `data:record_updated` / `data:record_created` / `data:record_deleted`                    | Record change push                  |
+| Data     | `data:field_updated` / `data:field_created` / `data:field_deleted`                       | Field change push                   |
 | Data     | `data:view_updated` / `data:table_updated` / `data:table_created` / `data:table_deleted` | View/table change push              |
 
 ## Development Roadmap
@@ -546,8 +546,8 @@ environment:
 
 #### Field Enhancements
 
-- [ ] Field Default Values Configuration
-- [ ] Attachment Field Preview (Images, Documents, Videos, etc.)
+- [x] Field Default Values Configuration
+- [x] Attachment Field Preview (Images, Documents, Videos, etc.)
 - [ ] New Field Types (Text Area, ID Card, Geolocation)
 - [ ] Formula Engine Documentation
 
@@ -583,7 +583,7 @@ environment:
 
 - [ ] AI Form Builder (Build business tables with natural language)
 - [ ] AI Form Assistant
-- [ ] Data Q&A with Visualization
+- [ ] Data Q\&A with Visualization
 
 #### Workflow & Extensions
 
