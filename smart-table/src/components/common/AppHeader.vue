@@ -3,6 +3,7 @@ import { computed, ref, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/auth/authStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import { ElMessageBox } from "element-plus";
 import {
@@ -15,11 +16,14 @@ import {
 } from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
 import { debounce } from "@/utils/debounce";
+import ConnectionStatusBar from "@/components/collaboration/ConnectionStatusBar.vue";
+import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
 
 const route = useRoute();
 const router = useRouter();
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
+const collaborationStore = useCollaborationStore();
 
 const currentTitle = computed(() => {
   return (route.meta.title as string) || "Smart Table";
@@ -330,6 +334,15 @@ onMounted(() => {
     </div>
 
     <div class="header-right">
+      <!-- 协作状态栏和在线用户 -->
+      <template v-if="collaborationStore.isRealtimeAvailable">
+        <div class="collaboration-widgets">
+          <ConnectionStatusBar />
+          <OnlineUsers />
+        </div>
+        <el-divider direction="vertical" class="header-divider" />
+      </template>
+
       <!-- Base页面的分享和成员按钮 -->
       <template v-if="isBasePage && currentBase && canManage">
         <el-tooltip
@@ -490,6 +503,45 @@ onMounted(() => {
 .header-right {
   @include flex-center;
   gap: $spacing-md;
+}
+
+// 协作状态栏和在线用户组件容器
+.collaboration-widgets {
+  @include flex-center;
+  gap: $spacing-sm;
+  padding: $spacing-xs $spacing-sm;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: $border-radius-md;
+  border: 0px solid $border-color;
+
+  // 平板设备适配
+  @media (max-width: 1024px) {
+    gap: $spacing-xs;
+    padding: $spacing-xs;
+  }
+
+  // 移动设备适配 - 隐藏连接状态文字，只显示状态点
+  @media (max-width: 768px) {
+    :deep(.status-label) {
+      display: none;
+    }
+
+    :deep(.status-indicator) {
+      padding: 2px 4px;
+    }
+  }
+
+  // 小屏移动设备 - 只显示在线用户数
+  @media (max-width: 480px) {
+    :deep(.online-users) {
+      .users-avatars {
+        // 只显示前3个用户
+        > *:nth-child(n+4) {
+          display: none;
+        }
+      }
+    }
+  }
 }
 
 .header-action-btn {

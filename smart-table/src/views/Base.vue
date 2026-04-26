@@ -1523,8 +1523,6 @@ function handleShareChanged() {
                 <el-icon><Plus /></el-icon>
                 添加记录
               </el-button>
-              <ConnectionStatusBar v-if="collaborationStore.isRealtimeAvailable" />
-              <OnlineUsers v-if="collaborationStore.isRealtimeAvailable" />
             </div>
             <div
               class="table-actions"
