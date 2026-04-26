@@ -374,6 +374,8 @@ async function handleSave() {
   try {
     emit("save", props.record.id, { ...formData.value });
     ElMessage.success("记录保存成功");
+    // 保存成功后自动关闭抽屉
+    closeDrawer();
   } catch (error) {
     console.error("Error saving record:", error);
     ElMessage.error("保存失败");
