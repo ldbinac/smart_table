@@ -169,34 +169,100 @@ export function getFieldTypeLabel(type: string): string {
   return labels[type] || type;
 }
 
-export function getFieldTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    single_line_text: "📝",
-    long_text: "📄",
-    rich_text: "🎨",
-    number: "🔢",
-    date: "📅",
-    date_time: "🕐",
-    single_select: "🔘",
-    multi_select: "☑️",
-    checkbox: "✅",
-    attachment: "📎",
-    member: "👤",
-    rating: "⭐",
-    progress: "📊",
-    phone: "📞",
-    email: "📧",
-    url: "🔗",
-    formula: "🔣",
-    link: "🔗",
-    lookup: "🔍",
-    created_by: "👤",
-    created_time: "🕐",
-    updated_by: "👤",
-    updated_time: "🕐",
-    auto_number: "🔢",
-  };
-  return icons[type] || "📝";
+// export function getFieldTypeIcon(type: string): string {
+//   const icons: Record<string, string> = {
+//     single_line_text: "📝",
+//     long_text: "📄",
+//     rich_text: "🎨",
+//     number: "🔢",
+//     date: "📅",
+//     date_time: "🕐",
+//     single_select: "🔘",
+//     multi_select: "☑️",
+//     checkbox: "✅",
+//     attachment: "📎",
+//     member: "👤",
+//     rating: "⭐",
+//     progress: "📊",
+//     phone: "📞",
+//     email: "📧",
+//     url: "🔗",
+//     formula: "🔣",
+//     link: "🔗",
+//     lookup: "🔍",
+//     created_by: "👤",
+//     created_time: "🕐",
+//     updated_by: "👤",
+//     updated_time: "🕐",
+//     auto_number: "🔢",
+//   };
+//   return icons[type] || "📝";
+// }
+
+// ==================== Element Plus 图标组件映射 ====================
+
+import type { Component } from "vue";
+import {
+  EditPen,
+  Document,
+  Memo,
+  Sort,
+  Calendar,
+  AlarmClock,
+  CircleCheck,
+  FolderChecked,
+  TurnOff,
+  Paperclip,
+  User,
+  Star,
+  TrendCharts,
+  Phone,
+  Message,
+  Link,
+  Share,
+  Search,
+  Timer,
+  ScaleToOriginal,
+} from "@element-plus/icons-vue";
+
+/**
+ * 字段类型到 Element Plus 图标组件的映射
+ */
+const fieldTypeIconComponentMap: Record<string, Component> = {
+  single_line_text: EditPen,
+  long_text: Document,
+  rich_text: Memo,
+  number: ScaleToOriginal,
+  percent: Sort,
+  date: Calendar,
+  date_time: AlarmClock,
+  single_select: CircleCheck,
+  multi_select: FolderChecked,
+  checkbox: TurnOff,
+  attachment: Paperclip,
+  member: User,
+  created_by: User,
+  updated_by: User,
+  rating: Star,
+  progress: TrendCharts,
+  phone: Phone,
+  email: Message,
+  url: Link,
+  link: Link,
+  formula: Share,
+  lookup: Search,
+  created_time: Timer,
+  updated_time: Timer,
+  auto_number: Document,
+};
+
+/**
+ * 获取字段类型对应的 Element Plus 图标组件
+ * @param type 字段类型
+ * @returns 图标组件，如果没有匹配则返回 Document 组件
+ */
+export function getFieldTypeIconComponent(type: string): Component {
+  return fieldTypeIconComponentMap[type] || Document;
 }
 
 /**

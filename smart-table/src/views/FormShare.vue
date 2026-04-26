@@ -3,7 +3,7 @@ import { ref, computed, onMounted, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
-import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
+import { FieldType, type CellValue, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
 import {
   formShareApi,
   type FormSchema,
@@ -557,6 +557,9 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
           class="form-item"
           :class="{ 'has-error': formErrors[field.id] }">
           <label class="form-label">
+            <el-icon class="field-icon">
+              <component :is="getFieldTypeIconComponent(getFieldType(field) || field.type)" />
+            </el-icon>
             {{ field.name }}
             <span v-if="field.required" class="required-mark">*</span>
           </label>
@@ -907,11 +910,18 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
 }
 
 .form-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: $font-size-sm;
   font-weight: 500;
   color: $text-primary;
   margin-bottom: 8px;
+
+  .field-icon {
+    color: $text-secondary;
+    font-size: 16px;
+  }
 }
 
 .required-mark {

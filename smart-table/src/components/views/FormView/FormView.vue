@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
-import { FieldType, type CellValue, type FieldTypeValue } from "@/types";
+import { FieldType, type CellValue, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
@@ -576,6 +576,9 @@ defineExpose({
             'is-readonly': readonly,
           }">
           <label class="form-label">
+            <el-icon class="field-icon">
+              <component :is="getFieldTypeIconComponent(field.type)" />
+            </el-icon>
             {{ field.name }}
             <span
               v-if="field.options?.required && !readonly"
@@ -954,7 +957,13 @@ defineExpose({
   color: $text-primary;
   display: flex;
   align-items: center;
+  gap: 6px;
   letter-spacing: 0.3px;
+
+  .field-icon {
+    color: $text-secondary;
+    font-size: 16px;
+  }
 }
 
 .required-mark {

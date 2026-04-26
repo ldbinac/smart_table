@@ -23,7 +23,7 @@ import { useTableStore } from "@/stores/tableStore";
 import {
   FieldType,
   getFieldTypeLabel,
-  getFieldTypeIcon,
+  getFieldTypeIconComponent,
   type FieldTypeValue,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
@@ -1033,7 +1033,11 @@ async function toggleFieldVisibility(
             <span class="drag-handle" title="拖拽排序">
               <ElIcon><Rank /></ElIcon>
             </span>
-            <span class="field-icon">{{ getFieldTypeIcon(field.type) }}</span>
+            <span class="field-icon">
+              <el-icon>
+                <component :is="getFieldTypeIconComponent(field.type)" />
+              </el-icon>
+            </span>
             <span class="field-name">{{ field.name }}</span>
             <span class="field-type">{{ getFieldTypeLabel(field.type) }}</span>
             <ElTag v-if="field.isSystem" size="small" type="info">系统</ElTag>
@@ -1095,7 +1099,11 @@ async function toggleFieldVisibility(
               :label="getFieldTypeLabel(type)"
               :value="type">
               <span class="type-option">
-                <span class="type-icon">{{ getFieldTypeIcon(type) }}</span>
+                <span class="type-icon">
+                  <el-icon>
+                    <component :is="getFieldTypeIconComponent(type)" />
+                  </el-icon>
+                </span>
                 <span>{{ getFieldTypeLabel(type) }}</span>
               </span>
             </ElOption>

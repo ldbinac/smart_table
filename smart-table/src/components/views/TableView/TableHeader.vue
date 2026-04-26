@@ -1,27 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import type { FieldEntity } from "@/db/schema";
-import { FieldType } from "@/types";
-import {
-  Document,
-  Sort,
-  Calendar,
-  CircleCheck,
-  FolderChecked,
-  TurnOff,
-  AlarmClock,
-  Paperclip,
-  User,
-  Star,
-  TrendCharts,
-  Phone,
-  Message,
-  Link,
-  Share,
-  Search,
-  Timer,
-  Lock,
-} from "@element-plus/icons-vue";
+import { getFieldTypeIconComponent } from "@/types/fields";
+import { Sort, Lock } from "@element-plus/icons-vue";
 
 interface Props {
   field: FieldEntity;
@@ -103,100 +84,8 @@ const handleContextMenu = (event: MouseEvent) => {
     @contextmenu="handleContextMenu">
     <div class="header-content" @click="handleSort">
       <span class="field-icon">
-        <!-- 文本类型 -->
-        <el-icon
-          v-if="
-            field.type === FieldType.SINGLE_LINE_TEXT ||
-            field.type === FieldType.LONG_TEXT ||
-            field.type === FieldType.RICH_TEXT
-          ">
-          <Document />
-        </el-icon>
-        <!-- 数字类型 -->
-        <el-icon
-          v-else-if="
-            field.type === FieldType.NUMBER ||
-            field.type === FieldType.PERCENT
-          ">
-          <Sort />
-        </el-icon>
-        <!-- 日期类型 -->
-        <el-icon v-else-if="field.type === FieldType.DATE">
-          <Calendar />
-        </el-icon>
-        <!-- 日期时间类型 -->
-        <el-icon v-else-if="field.type === FieldType.DATE_TIME">
-          <AlarmClock />
-        </el-icon>
-        <!-- 单选类型 -->
-        <el-icon v-else-if="field.type === FieldType.SINGLE_SELECT">
-          <CircleCheck />
-        </el-icon>
-        <!-- 多选类型 -->
-        <el-icon v-else-if="field.type === FieldType.MULTI_SELECT">
-          <FolderChecked />
-        </el-icon>
-        <!-- 复选框类型 -->
-        <el-icon v-else-if="field.type === FieldType.CHECKBOX">
-          <TurnOff />
-        </el-icon>
-        <!-- 附件类型 -->
-        <el-icon v-else-if="field.type === FieldType.ATTACHMENT">
-          <Paperclip />
-        </el-icon>
-        <!-- 成员类型 -->
-        <el-icon
-          v-else-if="
-            field.type === FieldType.MEMBER ||
-            field.type === FieldType.CREATED_BY ||
-            field.type === FieldType.UPDATED_BY
-          ">
-          <User />
-        </el-icon>
-        <!-- 评分类型 -->
-        <el-icon v-else-if="field.type === FieldType.RATING">
-          <Star />
-        </el-icon>
-        <!-- 进度类型 -->
-        <el-icon v-else-if="field.type === FieldType.PROGRESS">
-          <TrendCharts />
-        </el-icon>
-        <!-- 电话类型 -->
-        <el-icon v-else-if="field.type === FieldType.PHONE">
-          <Phone />
-        </el-icon>
-        <!-- 邮箱类型 -->
-        <el-icon v-else-if="field.type === FieldType.EMAIL">
-          <Message />
-        </el-icon>
-        <!-- 链接类型 -->
-        <el-icon
-          v-else-if="field.type === FieldType.URL || field.type === FieldType.LINK">
-          <Link />
-        </el-icon>
-        <!-- 公式类型 -->
-        <el-icon v-else-if="field.type === FieldType.FORMULA">
-          <Share />
-        </el-icon>
-        <!-- 查找引用类型 -->
-        <el-icon v-else-if="field.type === FieldType.LOOKUP">
-          <Search />
-        </el-icon>
-        <!-- 创建时间/更新时间类型 -->
-        <el-icon
-          v-else-if="
-            field.type === FieldType.CREATED_TIME ||
-            field.type === FieldType.UPDATED_TIME
-          ">
-          <Timer />
-        </el-icon>
-        <!-- 自动编号类型 -->
-        <el-icon v-else-if="field.type === FieldType.AUTO_NUMBER">
-          <Document />
-        </el-icon>
-        <!-- 默认图标 -->
-        <el-icon v-else>
-          <Document />
+        <el-icon>
+          <component :is="getFieldTypeIconComponent(field.type)" />
         </el-icon>
       </span>
       <span class="field-name">{{ field.name }}</span>

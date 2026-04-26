@@ -8,7 +8,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import type { Base } from "@/db/schema";
 import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
 import { templateService } from "@/db/services";
-import { getFieldTypeLabel, getFieldTypeIcon } from "@/types";
+import { getFieldTypeLabel, getFieldTypeIconComponent } from "@/types";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 
@@ -1826,7 +1826,9 @@ async function handleCopyBase(base: Base, event: Event) {
                       :style="{
                         backgroundColor: getFieldTypeColor(field.type),
                       }">
-                      {{ getFieldTypeIcon(field.type) }}
+                      <el-icon>
+                        <component :is="getFieldTypeIconComponent(field.type)" />
+                      </el-icon>
                     </div>
                     <div class="field-info">
                       <div class="field-name">{{ field.name }}</div>

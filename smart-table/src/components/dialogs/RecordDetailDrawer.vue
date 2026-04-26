@@ -18,7 +18,7 @@ import {
 } from "element-plus";
 import { Clock } from "@element-plus/icons-vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
-import { FieldType } from "@/types/fields";
+import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 import {
@@ -407,7 +407,12 @@ const drawerTitle = computed(() => {
     <div v-if="record" class="drawer-content">
       <el-form label-position="top" class="record-form">
         <div v-for="field in visibleFields" :key="field.id" class="form-field">
-          <label class="field-label">{{ field.name }}</label>
+          <label class="field-label">
+            <el-icon class="field-icon">
+              <component :is="getFieldTypeIconComponent(field.type)" />
+            </el-icon>
+            {{ field.name }}
+          </label>
 
           <!-- 单行文本 -->
           <template v-if="field.type === FieldType.SINGLE_LINE_TEXT">
@@ -688,11 +693,18 @@ const drawerTitle = computed(() => {
 }
 
 .field-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 500;
   color: $text-primary;
+
+  .field-icon {
+    color: $text-secondary;
+    font-size: 16px;
+  }
 }
 
 .field-input {

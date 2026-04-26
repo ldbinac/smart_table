@@ -17,7 +17,7 @@ import {
   ElIcon,
 } from "element-plus";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
-import { FieldType, generateAutoNumber, type FieldOptions } from "@/types/fields";
+import { FieldType, generateAutoNumber, type FieldOptions, getFieldTypeIconComponent } from "@/types/fields";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -453,6 +453,9 @@ const drawerTitle = computed(() => {
       <ElForm label-position="top" class="record-form">
         <div v-for="field in visibleFields" :key="field.id" class="form-field">
           <label class="field-label">
+            <el-icon class="field-icon">
+              <component :is="getFieldTypeIconComponent(field.type)" />
+            </el-icon>
             {{ field.name }}
             <span
               v-if="
@@ -743,11 +746,18 @@ const drawerTitle = computed(() => {
 }
 
 .field-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 500;
   color: $text-primary;
+
+  .field-icon {
+    color: $text-secondary;
+    font-size: 16px;
+  }
 }
 
 .required-mark {

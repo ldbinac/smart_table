@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FieldType, generateAutoNumber, getFieldTypeLabel, getFieldTypeIcon } from "../fields";
+import { FieldType, generateAutoNumber, getFieldTypeLabel, getFieldTypeIconComponent } from "../fields";
 import { FilterOperator, type FilterCondition } from "../filters";
 import { SortDirection, type SortConfig } from "../filters";
 import {
@@ -45,11 +45,14 @@ describe("Field Types", () => {
     expect(getFieldTypeLabel("unknown")).toBe("unknown");
   });
 
-  it("should return correct field type icons", () => {
-    expect(getFieldTypeIcon("text")).toBe("📝");
-    expect(getFieldTypeIcon("number")).toBe("🔢");
-    expect(getFieldTypeIcon("auto_number")).toBe("🔢");
-    expect(getFieldTypeIcon("unknown")).toBe("📝");
+  it("should return correct field type icon components", () => {
+    // getFieldTypeIconComponent 返回 Vue 组件，这里只验证函数存在且能正常调用
+    expect(typeof getFieldTypeIconComponent("text")).toBe("object");
+    expect(typeof getFieldTypeIconComponent("number")).toBe("object");
+    expect(typeof getFieldTypeIconComponent("auto_number")).toBe("object");
+    expect(typeof getFieldTypeIconComponent("unknown")).toBe("object");
+    // 未知类型应该返回默认的 Document 组件
+    expect(getFieldTypeIconComponent("unknown")).toBe(getFieldTypeIconComponent("single_line_text"));
   });
 });
 
