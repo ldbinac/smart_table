@@ -595,6 +595,9 @@ const handleSaveNewRecord = async (values: Record<string, unknown>) => {
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success("记录创建成功");
       addRecordDialogVisible.value = false;
+
+      // 强制刷新记录列表，确保分组表格视图等能正确显示新记录
+      await tableStore.refreshRecords(tableStore.currentTable.id);
     } else {
       ElMessage.error(tableStore.error || "创建记录失败");
     }
@@ -619,6 +622,9 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
     if (record) {
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success("表单提交成功，记录已创建");
+
+      // 强制刷新记录列表，确保分组表格视图等能正确显示新记录
+      await tableStore.refreshRecords(tableStore.currentTable.id);
     } else {
       ElMessage.error(tableStore.error || "提交失败");
     }
