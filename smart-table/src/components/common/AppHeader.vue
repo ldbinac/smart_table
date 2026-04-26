@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useTableStore } from "@/stores/tableStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import { ElMessageBox } from "element-plus";
 import {
@@ -13,6 +14,8 @@ import {
   Search,
   CircleClose,
   Lock,
+  Loading,
+  Warning,
 } from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
 import { debounce } from "@/utils/debounce";
@@ -24,6 +27,7 @@ const router = useRouter();
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
 const collaborationStore = useCollaborationStore();
+const tableStore = useTableStore();
 
 const currentTitle = computed(() => {
   return (route.meta.title as string) || "Smart Table";
@@ -92,32 +96,46 @@ const isDashboardPage = computed(() => {
   return route.path.includes("/dashboard/");
 });
 
-// 当前表格信息
+// 当前表格信息 - 从 tableStore 获取
 const currentTable = computed(() => {
-  console.log("currentTable:", baseStore);
-  return baseStore.currentTable;
+  return tableStore.currentTable;
 });
 
 // 当前仪表盘信息
 const currentDashboard = ref<Dashboard | undefined>(undefined);
+const isLoadingDashboard = ref(false);
+const dashboardError = ref<string | null>(null);
 
 // 加载仪表盘信息
 const loadDashboard = async () => {
   const dashboardId = route.params.dashboardId as string;
   if (dashboardId) {
+    isLoadingDashboard.value = true;
+    dashboardError.value = null;
     try {
       currentDashboard.value = await dashboardService.getDashboard(dashboardId);
     } catch (error) {
       console.error("加载仪表盘失败:", error);
+      dashboardError.value = "加载仪表盘失败";
       currentDashboard.value = undefined;
+    } finally {
+      isLoadingDashboard.value = false;
     }
   } else {
     currentDashboard.value = undefined;
+    dashboardError.value = null;
   }
 };
 
 // 监听路由变化，加载仪表盘信息
 watch(() => route.params.dashboardId, loadDashboard, { immediate: true });
+
+// 监听表格变化，确保表格信息能正确显示
+watch(() => tableStore.currentTable, (newTable) => {
+  if (newTable) {
+    console.log("[AppHeader] 表格已更新:", newTable.name);
+  }
+}, { immediate: true });
 
 // 当前Base（多维表根）信息
 const currentBase = computed(() => {
@@ -295,21 +313,38 @@ onMounted(() => {
 
     <div class="header-center">
       <!-- 在Base页面显示表格或仪表盘名称和描述 -->
-      <div v-if="isBasePage && centerInfo" class="table-info-header">
-        <el-tooltip
-          :content="centerInfo.name"
-          placement="bottom"
-          :show-after="300"
-          :disabled="centerInfo.name.length <= 20">
-          <h2 class="table-name">{{ centerInfo.name }}</h2>
-        </el-tooltip>
-        <el-tooltip
-          v-if="centerInfo.description"
-          :content="centerInfo.description"
-          placement="bottom"
-          :show-after="300">
-          <p class="table-description">{{ centerInfo.description }}</p>
-        </el-tooltip>
+      <div v-if="isBasePage" class="table-info-header">
+        <!-- 加载状态 -->
+        <div v-if="isLoadingDashboard" class="loading-state">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <span>加载中...</span>
+        </div>
+        <!-- 错误状态 -->
+        <div v-else-if="dashboardError" class="error-state">
+          <el-icon><Warning /></el-icon>
+          <span>{{ dashboardError }}</span>
+        </div>
+        <!-- 正常显示 -->
+        <template v-else-if="centerInfo">
+          <el-tooltip
+            :content="centerInfo.name"
+            placement="bottom"
+            :show-after="300"
+            :disabled="centerInfo.name.length <= 20">
+            <h2 class="table-name">{{ centerInfo.name }}</h2>
+          </el-tooltip>
+          <el-tooltip
+            v-if="centerInfo.description"
+            :content="centerInfo.description"
+            placement="bottom"
+            :show-after="300">
+            <p class="table-description">{{ centerInfo.description }}</p>
+          </el-tooltip>
+        </template>
+        <!-- 无数据状态 -->
+        <div v-else class="empty-state">
+          <span>请选择表格或仪表盘</span>
+        </div>
       </div>
 
       <!-- 首页全局搜索框 -->
@@ -482,7 +517,7 @@ onMounted(() => {
 
   .table-name {
     margin: 0;
-    font-size: $font-size-lg;
+    font-size: calc($font-size-lg * 0.95);
     font-weight: 600;
     color: $text-primary;
     @include text-ellipsis;
@@ -492,11 +527,41 @@ onMounted(() => {
 
   .table-description {
     margin: 0;
-    font-size: $font-size-xs;
+    font-size: calc($font-size-xs * 0.85);
     color: $text-secondary;
     @include text-ellipsis;
     max-width: 500px;
     line-height: 1.4;
+  }
+
+  // 加载状态
+  .loading-state {
+    @include flex-center;
+    gap: $spacing-xs;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+
+    .el-icon {
+      font-size: 16px;
+    }
+  }
+
+  // 错误状态
+  .error-state {
+    @include flex-center;
+    gap: $spacing-xs;
+    color: $error-color;
+    font-size: $font-size-sm;
+
+    .el-icon {
+      font-size: 16px;
+    }
+  }
+
+  // 空状态
+  .empty-state {
+    color: $text-secondary;
+    font-size: $font-size-sm;
   }
 }
 
@@ -619,7 +684,7 @@ onMounted(() => {
   }
 
   .user-info-email {
-    font-size: $font-size-xs;
+    font-size: calc($font-size-xs * 0.85);
     color: $text-secondary;
     @include text-ellipsis;
     max-width: 240px;
