@@ -11,6 +11,7 @@ import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useAuthStore } from "@/stores/authStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import type {
   DataRecordUpdatedBroadcast,
@@ -48,6 +49,12 @@ const formErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
 const submitSuccess = ref(false);
 const newRecordId = ref(generateId());
+const authStore = useAuthStore();
+
+// 获取当前用户ID
+function getCurrentUserId(): string | null {
+  return authStore.user?.id || null;
+}
 
 const visibleFields = computed(() => {
   // 首先过滤掉 isVisible 为 false 的字段
@@ -280,6 +287,24 @@ function resetForm() {
         }
       } else {
         formValues.value[field.id] = field.defaultValue as CellValue;
+      }
+    }
+    // 处理成员字段的默认值配置
+    // 统一使用数组格式存储成员字段值
+    else if (field.type === FieldType.MEMBER) {
+      const memberDefaultType = field.options?.memberDefaultType as string | undefined;
+      if (memberDefaultType === 'current_user') {
+        // 设置为当前用户ID（数组格式）
+        const currentUserId = getCurrentUserId();
+        if (currentUserId) {
+          formValues.value[field.id] = [currentUserId];
+        }
+      } else if (memberDefaultType === 'specific_user') {
+        // 使用配置中存储的数组格式默认值
+        const defaultValue = field.options?.defaultValue as string[] | undefined;
+        if (defaultValue && defaultValue.length > 0) {
+          formValues.value[field.id] = defaultValue;
+        }
       }
     }
   });
