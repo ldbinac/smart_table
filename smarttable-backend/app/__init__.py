@@ -129,6 +129,7 @@ def register_blueprints(app):
     from app.routes.auth_captcha import auth_captcha_bp
     from app.routes.email import email_bp
     from app.routes.realtime import realtime_bp
+    from app.routes.users import users_bp
     
     # 注册认证蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -177,6 +178,9 @@ def register_blueprints(app):
 
     # 注册实时协作蓝图
     app.register_blueprint(realtime_bp, url_prefix='/api')
+
+    # 注册用户管理蓝图
+    app.register_blueprint(users_bp, url_prefix='/api')
 
 
 def register_error_handlers(app):

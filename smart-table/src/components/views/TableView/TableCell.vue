@@ -5,6 +5,8 @@ import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
 import MultiSelectField from "@/components/fields/MultiSelectField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import MemberDisplay from "@/components/common/MemberDisplay.vue";
+import MemberSelect from "@/components/common/MemberSelect.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ElMessage, ElTooltip } from "element-plus";
@@ -224,14 +226,8 @@ const displayValue = computed(() => {
       return `${progress}%`;
     }
     case "member": {
-      if (!Array.isArray(value)) return "";
-      return value
-        .map((m) => {
-          if (typeof m === "string") return m;
-          return m.name || "";
-        })
-        .filter(Boolean)
-        .join(", ");
+      // 成员字段使用 MemberDisplay 组件显示，这里返回空字符串
+      return "";
     }
     case "attachment": {
       if (!Array.isArray(value)) return "";
@@ -562,6 +558,16 @@ const multiSelectDisplayValues = computed(() => {
         </div>
       </template>
 
+      <!-- 成员字段编辑 -->
+      <template v-else-if="fieldType === 'member'">
+        <MemberSelect
+          v-model="editValue as string[]"
+          :placeholder="'选择成员'"
+          :allow-multiple="false"
+          class="cell-member-select"
+          @update:model-value="finishEdit" />
+      </template>
+
       <template v-else-if="fieldType === 'progress'">
         <input
           ref="inputRef"
@@ -649,6 +655,14 @@ const multiSelectDisplayValues = computed(() => {
 
         <template v-else-if="fieldType === 'rating'">
           <span class="rating-display">{{ displayValue }}</span>
+        </template>
+
+        <template v-else-if="fieldType === 'member' && cellValue">
+          <MemberDisplay
+            :user-ids="cellValue as string[]"
+            mode="tag"
+            :max-display="2"
+            :avatar-size="20" />
         </template>
 
         <template v-else-if="fieldType === 'url' && cellValue">
@@ -999,6 +1013,35 @@ const multiSelectDisplayValues = computed(() => {
 
   &:hover {
     text-decoration: underline;
+  }
+}
+
+// 成员选择器样式
+.cell-member-select {
+  width: 100%;
+  
+  :deep(.member-select-trigger) {
+    min-height: 28px;
+    padding: 2px 6px;
+    border: 1px solid $primary-color;
+    background-color: white;
+    
+    &:hover {
+      border-color: $primary-color;
+    }
+    
+    .member-tag {
+      padding: 1px 6px;
+      
+      .member-avatar {
+        width: 18px;
+        height: 18px;
+      }
+      
+      .member-name {
+        font-size: 12px;
+      }
+    }
   }
 }
 </style>

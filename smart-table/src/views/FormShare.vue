@@ -13,6 +13,7 @@ import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import MemberSelect from "@/components/common/MemberSelect.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -415,6 +416,8 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "progress";
     case FieldType.AUTO_NUMBER:
       return "auto_number";
+    case FieldType.MEMBER:
+      return "member";
     default:
       return "text";
   }
@@ -775,6 +778,16 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 <span class="auto-number-value">{{ formValues[field.id] || '-' }}</span>
                 <span v-if="!formValues[field.id]" class="auto-number-hint">提交后自动生成</span>
               </div>
+            </template>
+
+            <!-- 成员字段类型 -->
+            <!-- 统一使用数组格式存储成员字段值 -->
+            <template v-else-if="getFieldComponentType(field) === 'member'">
+              <MemberSelect
+                v-model="formValues[field.id]"
+                :placeholder="`请选择${field.name}`"
+                :allow-multiple="false"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 不支持的字段类型 -->

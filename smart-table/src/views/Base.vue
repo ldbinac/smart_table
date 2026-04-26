@@ -48,6 +48,7 @@ import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardView from "@/views/Dashboard.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
 import { useRealtimeCollaboration } from "@/composables/useRealtimeCollaboration";
+import { useUserCacheStore } from "@/stores/userCacheStore";
 import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
 import ConnectionStatusBar from "@/components/collaboration/ConnectionStatusBar.vue";
 import CollaborationToast from "@/components/collaboration/CollaborationToast.vue";
@@ -60,6 +61,7 @@ const baseStore = useBaseStore();
 const viewStore = useViewStore();
 const tableStore = useTableStore();
 const collaborationStore = useCollaborationStore();
+const userCacheStore = useUserCacheStore();
 
 const baseId = route.params.id as string;
 const realtimeCollab = baseId ? useRealtimeCollaboration(baseId) : null;
@@ -349,7 +351,20 @@ onMounted(async () => {
     } else {
       await baseStore.fetchBase(currentBaseId);
     }
-    await baseStore.fetchMembers(currentBaseId);
+    const members = await baseStore.fetchMembers(currentBaseId);
+    // 将成员信息缓存到 userCacheStore
+    // 注意：BaseMember 中的用户信息在 user 对象中
+    if (members && members.length > 0) {
+      userCacheStore.cacheUsers(
+        members.map(m => ({
+          id: m.user_id,
+          name: m.user?.name || m.user?.email || '',
+          email: m.user?.email || '',
+          avatar: m.user?.avatar,
+          role: m.role,
+        }))
+      );
+    }
     await tableStore.loadTables(currentBaseId);
 
     // 如果有表格且当前没有选择表格，自动选择第一个表格

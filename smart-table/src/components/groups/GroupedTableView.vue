@@ -13,6 +13,7 @@ import {
   Lock,
 } from "@element-plus/icons-vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
+import MemberDisplay from "@/components/common/MemberDisplay.vue";
 import type { SortConfig } from "@/types";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import type { LinkedRecord } from "@/types/link";
@@ -1474,28 +1475,11 @@ function handleLinkFieldChange(
 
                 <!-- 成员字段 -->
                 <template v-else-if="field.type === FieldType.MEMBER">
-                  <div class="member-cell">
-                    <template
-                      v-if="
-                        Array.isArray(item.record!.values[field.id]) &&
-                        item.record!.values[field.id].length > 0
-                      ">
-                      <div
-                        v-for="(member, idx) in item.record!.values[
-                          field.id
-                        ].slice(0, 3)"
-                        :key="idx"
-                        class="member-tag">
-                        {{ typeof member === "string" ? member : member.name }}
-                      </div>
-                      <span
-                        v-if="item.record!.values[field.id].length > 3"
-                        class="member-more">
-                        +{{ item.record!.values[field.id].length - 3 }}
-                      </span>
-                    </template>
-                    <span v-else class="cell-content">-</span>
-                  </div>
+                  <MemberDisplay
+                    :user-ids="item.record!.values[field.id] as string[]"
+                    mode="tag"
+                    :max-display="2"
+                    :avatar-size="20" />
                 </template>
 
                 <!-- 电话字段 -->

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import type { FieldEntity } from '@/db/schema'
 import type { CellValue } from '@/types'
+import { useUserCacheStore } from '@/stores/userCacheStore'
 
 interface Member {
   id: string
@@ -23,6 +24,9 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: CellValue): void
 }>()
 
+// 用户缓存存储
+const userCacheStore = useUserCacheStore()
+
 const selectedMembers = ref<Member[]>([])
 const searchQuery = ref('')
 const visible = ref(false)
@@ -43,15 +47,52 @@ const filteredMembers = computed(() => {
   )
 })
 
-watch(() => props.modelValue, (newVal) => {
-  if (Array.isArray(newVal)) {
-    selectedMembers.value = newVal as Member[]
+// 加载选中成员信息（使用缓存）
+async function loadSelectedMembers() {
+  const newVal = props.modelValue
+  
+  if (Array.isArray(newVal) && newVal.length > 0) {
+    // 如果是成员对象数组（有name字段），直接使用
+    if (typeof newVal[0] === 'object' && (newVal[0] as Member).name) {
+      selectedMembers.value = newVal as Member[]
+      return
+    }
+    
+    // 否则是ID数组，从缓存获取用户信息
+    const userIds = newVal as string[]
+    const cachedUsers = await userCacheStore.fetchUsers(userIds)
+    
+    selectedMembers.value = cachedUsers.map(user => ({
+      id: user.id,
+      name: user.name,
+      avatar: user.avatar
+    }))
   } else if (newVal) {
-    const member = members.value.find(m => m.id === newVal)
-    selectedMembers.value = member ? [member] : []
+    // 单值情况
+    if (typeof newVal === 'object' && (newVal as Member).name) {
+      selectedMembers.value = [newVal as Member]
+      return
+    }
+    
+    const userId = newVal as string
+    const cachedUser = await userCacheStore.fetchUser(userId)
+    
+    if (cachedUser) {
+      selectedMembers.value = [{
+        id: cachedUser.id,
+        name: cachedUser.name,
+        avatar: cachedUser.avatar
+      }]
+    } else {
+      selectedMembers.value = []
+    }
   } else {
     selectedMembers.value = []
   }
+}
+
+watch(() => props.modelValue, () => {
+  loadSelectedMembers()
 }, { immediate: true })
 
 function isSelected(member: Member): boolean {
@@ -80,8 +121,20 @@ function removeMember(memberId: string) {
   emit('update:modelValue', selectedMembers.value)
 }
 
-function getInitials(name: string): string {
+function getInitials(name: string | undefined): string {
+  if (!name) return '?'
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
+// 生成头像背景色（与 MemberDisplay 保持一致）
+function getAvatarColor(name: string | undefined): string {
+  const colors = ['#2d7cfc', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+  if (!name) return colors[0]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return colors[Math.abs(hash) % colors.length]
 }
 </script>
 
@@ -92,8 +145,12 @@ function getInitials(name: string): string {
         v-for="member in selectedMembers"
         :key="member.id"
         class="member-tag"
+        :title="member.name"
       >
-        <div class="member-avatar">
+        <div
+          class="member-avatar"
+          :style="{ backgroundColor: getAvatarColor(member.name) }"
+        >
           <img v-if="member.avatar" :src="member.avatar" :alt="member.name" />
           <span v-else class="avatar-initials">{{ getInitials(member.name) }}</span>
         </div>
@@ -115,8 +172,12 @@ function getInitials(name: string): string {
             v-for="member in selectedMembers"
             :key="member.id"
             class="member-tag"
+            :title="member.name"
           >
-            <div class="member-avatar">
+            <div
+              class="member-avatar"
+              :style="{ backgroundColor: getAvatarColor(member.name) }"
+            >
               <img v-if="member.avatar" :src="member.avatar" :alt="member.name" />
               <span v-else class="avatar-initials">{{ getInitials(member.name) }}</span>
             </div>
@@ -148,7 +209,10 @@ function getInitials(name: string): string {
             :class="{ selected: isSelected(member) }"
             @click="toggleMember(member)"
           >
-            <div class="member-avatar">
+            <div
+              class="member-avatar"
+              :style="{ backgroundColor: getAvatarColor(member.name) }"
+            >
               <img v-if="member.avatar" :src="member.avatar" :alt="member.name" />
               <span v-else class="avatar-initials">{{ getInitials(member.name) }}</span>
             </div>
@@ -210,10 +274,10 @@ function getInitials(name: string): string {
   height: 20px;
   border-radius: 50%;
   overflow: hidden;
-  background-color: $primary-color;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   
   img {
     width: 100%;

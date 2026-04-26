@@ -18,6 +18,8 @@ import {
 } from "element-plus";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, generateAutoNumber, type FieldOptions, getFieldTypeIconComponent } from "@/types/fields";
+import MemberSelect from "@/components/common/MemberSelect.vue";
+import { useAuthStore } from "@/stores/authStore";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -56,6 +58,12 @@ const emit = defineEmits<{
 const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
 const newRecordId = ref(generateId());
+const authStore = useAuthStore();
+
+// 获取当前用户ID
+function getCurrentUserId(): string | null {
+  return authStore.user?.id || null;
+}
 
 // 可见字段（用于显示）
 const visibleFields = computed(() => {
@@ -83,6 +91,24 @@ watch(
             }
           } else {
             formData.value[field.id] = field.defaultValue;
+          }
+        }
+        // 处理成员字段的默认值配置
+        // 统一使用数组格式存储成员字段值
+        else if (field.type === FieldType.MEMBER) {
+          const memberDefaultType = field.options?.memberDefaultType as string | undefined;
+          if (memberDefaultType === 'current_user') {
+            // 设置为当前用户ID（数组格式）
+            const currentUserId = getCurrentUserId();
+            if (currentUserId) {
+              formData.value[field.id] = [currentUserId];
+            }
+          } else if (memberDefaultType === 'specific_user') {
+            // 使用配置中存储的数组格式默认值
+            const defaultValue = field.options?.defaultValue as string[] | undefined;
+            if (defaultValue && defaultValue.length > 0) {
+              formData.value[field.id] = defaultValue;
+            }
           }
         }
       });
@@ -688,14 +714,12 @@ const drawerTitle = computed(() => {
 
           <!-- 成员类型 -->
           <template v-else-if="getFieldComponent(field) === 'member'">
-            <ElSelect
-              :model-value="formData[field.id] as string | undefined"
+            <MemberSelect
+              v-model="formData[field.id]"
               :placeholder="`请选择${field.name}`"
+              :allow-multiple="false"
               class="field-input"
-              clearable
-              @update:model-value="(val) => handleValueChange(field.id, val)">
-              <ElOption label="当前用户" value="current_user" />
-            </ElSelect>
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 关联类型 -->

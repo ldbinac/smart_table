@@ -128,6 +128,17 @@ export interface FieldOptions {
   aggregationType?: AggregationType;
   /** 连接分隔符（用于 concat 聚合） */
   separator?: string;
+
+  // ==================== 成员字段 (Member Field) 选项 ====================
+  /** 默认值类型：当前用户或指定用户 */
+  memberDefaultType?: "current_user" | "specific_user";
+  /** 默认用户（当 memberDefaultType 为 specific_user 时使用） */
+  memberDefaultUser?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
 }
 
 export type CellValue =

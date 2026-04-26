@@ -20,6 +20,7 @@ import { Clock } from "@element-plus/icons-vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
 import dayjs from "dayjs";
+import MemberSelect from "@/components/common/MemberSelect.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
 import {
   validateRequiredFields,
@@ -270,6 +271,8 @@ const getFieldComponent = (field: FieldEntity): string => {
       return "progress";
     case FieldType.AUTO_NUMBER:
       return "auto_number";
+    case FieldType.MEMBER:
+      return "member";
     default:
       return "text";
   }
@@ -613,6 +616,18 @@ const drawerTitle = computed(() => {
               @update:model-value="(val) => handleValueChange(field.id, val)"
               @upload="(files) => handleAttachmentUpload(field.id, files)"
               @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
+          </template>
+
+          <!-- 成员类型 -->
+          <!-- 统一使用数组格式存储成员字段值 -->
+          <template v-else-if="getFieldComponent(field) === 'member'">
+            <MemberSelect
+              v-model="formData[field.id]"
+              :placeholder="`请选择${field.name}`"
+              :allow-multiple="false"
+              :disabled="readonly"
+              class="field-input"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 关联字段类型 -->

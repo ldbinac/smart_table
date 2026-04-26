@@ -32,6 +32,7 @@ import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
 import { Rank, ArrowRight } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
+import MemberSelect from "@/components/common/MemberSelect.vue";
 
 const viewStore = useViewStore();
 const baseStore = useBaseStore();
@@ -153,6 +154,12 @@ const autoNumberConfig = ref({
   includeDate: false,
   dateFormat: 'YYYYMMDD' as 'YYYYMMDD' | 'YYYYMM' | 'YYYY' | 'YYMMDD',
   startNumber: 1,
+});
+
+// 成员字段配置
+const memberConfig = ref({
+  defaultType: 'none' as 'none' | 'current_user' | 'specific_user',
+  defaultUser: null as { id: string; name: string; email: string; avatar?: string } | null,
 });
 
 // 关联字段配置 - 可关联的表列表
@@ -307,6 +314,11 @@ function openCreateField() {
     maxCount: 20,
     enableThumbnail: true,
   };
+  // 重置成员配置
+  memberConfig.value = {
+    defaultType: 'none',
+    defaultUser: null,
+  };
 }
 
 function openEditField(field: FieldEntity) {
@@ -410,6 +422,26 @@ function openEditField(field: FieldEntity) {
       dateFormat: 'YYYYMMDD',
       startNumber: 1,
     };
+  }
+
+  // 加载成员字段配置
+  if (field.type === FieldType.MEMBER) {
+    const memberDefaultType = field.options?.memberDefaultType as string | undefined;
+    if (memberDefaultType === 'current_user') {
+      memberConfig.value.defaultType = 'current_user';
+      newField.value.defaultValue = 'current_user';
+    } else if (memberDefaultType === 'specific_user' && field.options?.memberDefaultUser) {
+      memberConfig.value.defaultType = 'specific_user';
+      memberConfig.value.defaultUser = field.options.memberDefaultUser as typeof memberConfig.value.defaultUser;
+      newField.value.defaultValue = memberConfig.value.defaultUser?.id;
+    } else {
+      memberConfig.value.defaultType = 'none';
+      memberConfig.value.defaultUser = null;
+      newField.value.defaultValue = undefined;
+    }
+  } else {
+    memberConfig.value.defaultType = 'none';
+    memberConfig.value.defaultUser = null;
   }
 }
 
@@ -546,6 +578,32 @@ async function createField() {
       options.includeDate = autoNumberConfig.value.includeDate;
       options.dateFormat = autoNumberConfig.value.dateFormat;
     }
+    // 成员字段配置
+    // 统一使用数组格式存储，通过 memberDefaultType 区分不同类型
+    if (newField.value.type === FieldType.MEMBER) {
+      if (memberConfig.value.defaultType === 'current_user') {
+        options.memberDefaultType = 'current_user';
+        delete options.memberDefaultUser;
+        // 统一存储为数组格式，但使用空数组表示动态获取当前用户
+        options.defaultValue = [];
+      } else if (memberConfig.value.defaultType === 'specific_user' && memberConfig.value.defaultUser) {
+        options.memberDefaultType = 'specific_user';
+        // 使用解构创建普通对象，避免响应式代理问题
+        options.memberDefaultUser = {
+          id: memberConfig.value.defaultUser.id,
+          name: memberConfig.value.defaultUser.name,
+          email: memberConfig.value.defaultUser.email,
+          avatar: memberConfig.value.defaultUser.avatar,
+        };
+        // 统一存储为数组格式
+        options.defaultValue = [memberConfig.value.defaultUser.id];
+      } else {
+        // 不设默认值
+        delete options.memberDefaultType;
+        delete options.memberDefaultUser;
+        options.defaultValue = [];
+      }
+    }
 
     let field;
 
@@ -569,15 +627,22 @@ async function createField() {
       }
     } else {
       // 非关联字段，使用普通字段创建
-      field = await fieldService.createField({
+      // 构建创建数据
+      const createData: Record<string, unknown> = {
         tableId: props.tableId,
         name: newField.value.name.trim(),
         type: newField.value.type,
         isRequired: newField.value.isRequired,
         description: newField.value.description,
-        defaultValue: newField.value.defaultValue,
         options: Object.keys(options).length > 0 ? options : undefined,
-      });
+      };
+
+      // 对于非成员字段，使用 defaultValue；成员字段的默认值已在 options 中设置
+      if (newField.value.type !== FieldType.MEMBER && newField.value.defaultValue !== undefined) {
+        createData.defaultValue = newField.value.defaultValue;
+      }
+
+      field = await fieldService.createField(createData as any);
     }
 
     emit("field-created", field);
@@ -661,14 +726,47 @@ async function updateField() {
       options.includeDate = autoNumberConfig.value.includeDate;
       options.dateFormat = autoNumberConfig.value.dateFormat;
     }
+    // 成员字段配置
+    // 统一使用数组格式存储，通过 memberDefaultType 区分不同类型
+    if (newField.value.type === FieldType.MEMBER) {
+      if (memberConfig.value.defaultType === 'current_user') {
+        options.memberDefaultType = 'current_user';
+        delete options.memberDefaultUser;
+        // 统一存储为数组格式，但使用空数组表示动态获取当前用户
+        options.defaultValue = [];
+      } else if (memberConfig.value.defaultType === 'specific_user' && memberConfig.value.defaultUser) {
+        options.memberDefaultType = 'specific_user';
+        // 使用解构创建普通对象，避免响应式代理问题
+        options.memberDefaultUser = {
+          id: memberConfig.value.defaultUser.id,
+          name: memberConfig.value.defaultUser.name,
+          email: memberConfig.value.defaultUser.email,
+          avatar: memberConfig.value.defaultUser.avatar,
+        };
+        // 统一存储为数组格式
+        options.defaultValue = [memberConfig.value.defaultUser.id];
+      } else {
+        // 不设默认值
+        delete options.memberDefaultType;
+        delete options.memberDefaultUser;
+        options.defaultValue = [];
+      }
+    }
 
-    await fieldService.updateField(editingField.value.id, {
+    // 构建更新数据
+    const updateData: Record<string, unknown> = {
       name: newField.value.name.trim(),
       isRequired: newField.value.isRequired,
       description: newField.value.description,
-      defaultValue: newField.value.defaultValue,
       options: options as Record<string, unknown>,
-    });
+    };
+
+    // 对于非成员字段，使用 defaultValue；成员字段的默认值已在 options 中设置
+    if (newField.value.type !== FieldType.MEMBER && newField.value.defaultValue !== undefined) {
+      updateData.defaultValue = newField.value.defaultValue;
+    }
+
+    await fieldService.updateField(editingField.value.id, updateData);
 
     // 如果是关联字段，更新关联关系
     if (newField.value.type === FieldType.LINK) {
@@ -1623,10 +1721,57 @@ async function toggleFieldVisibility(
             active-text="选中"
             inactive-text="未选中" />
 
+          <!-- 成员类型 -->
+          <div v-else-if="newField.type === FieldType.MEMBER" style="width: 100%">
+            <div style="margin-bottom: 8px">
+              <el-radio-group v-model="memberConfig.defaultType" size="small" @change="(val: string) => {
+                if (val === 'none') {
+                  newField.defaultValue = undefined;
+                } else if (val === 'current_user') {
+                  newField.defaultValue = 'current_user';
+                } else if (val === 'specific_user') {
+                  newField.defaultValue = memberConfig.defaultUser?.id;
+                }
+              }">
+                <el-radio-button label="none">不使用默认值</el-radio-button>
+                <el-radio-button label="current_user">添加记录用户</el-radio-button>
+                <el-radio-button label="specific_user">指定用户</el-radio-button>
+              </el-radio-group>
+            </div>
+            <!-- 指定用户选择 -->
+            <div v-show="memberConfig.defaultType === 'specific_user'" class="member-default-select" @click.stop>
+              <MemberSelect
+                v-model="memberConfig.defaultUser"
+                placeholder="选择默认用户"
+                :allow-multiple="false"
+                :return-object="true"
+                @update:model-value="(val: { id: string; name: string; email: string } | null) => {
+                  if (val) {
+                    memberConfig.defaultUser = val;
+                    newField.defaultValue = val.id;
+                  } else {
+                    memberConfig.defaultUser = null;
+                    newField.defaultValue = undefined;
+                  }
+                }" />
+            </div>
+          </div>
+
           <ElTag
             v-if="
               newField.defaultValue !== undefined &&
-              newField.defaultValue !== null
+              newField.defaultValue !== null &&
+              newField.type !== FieldType.MEMBER
+            "
+            type="success"
+            size="small"
+            style="margin-left: 8px">
+            已设置
+          </ElTag>
+          <ElTag
+            v-if="
+              newField.type === FieldType.MEMBER &&
+              memberConfig.defaultType !== 'none'
             "
             type="success"
             size="small"
