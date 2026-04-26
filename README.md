@@ -1476,9 +1476,9 @@ SOFTWARE.
 
 ## 📞 联系我们
 
-- 📧 Email: [your-email@example.com]
-- 💬 Issues: [GitHub Issues](https://github.com/your-repo/smart-table/issues)
-- 📖 Documentation: [Wiki](https://github.com/your-repo/smart-table/wiki)
+- 📧 Email: [ldengbin@126.com](mailto:ldengbin@126.com)
+- 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
+- 📖 Documentation: [User-Manual](https://github.com/ldbinac/smart_table/blob/main/doc/Smart-Table-User-Manual.md)
 
 ---
 
