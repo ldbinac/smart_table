@@ -119,6 +119,7 @@ const userCreatableTypes = [
   FieldType.MULTI_SELECT,
   FieldType.CHECKBOX,
   FieldType.ATTACHMENT,
+  FieldType.MEMBER,
   FieldType.RATING,
   FieldType.PROGRESS,
   FieldType.PHONE,
@@ -126,6 +127,7 @@ const userCreatableTypes = [
   FieldType.URL,
   FieldType.FORMULA,
   FieldType.LINK,
+  FieldType.LOOKUP,
   FieldType.AUTO_NUMBER,
 ];
 // 用户可选择的字段类型列表
