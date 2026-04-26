@@ -10,6 +10,7 @@ import {
   Upload,
   Document,
   User,
+  Plus,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView } from "@/components/views/TableView";
@@ -1499,6 +1500,14 @@ function handleShareChanged() {
                 !isGalleryView
               "
               class="table-info">
+              <el-button
+                v-if="canEdit && (isTableView || hasGroupConfig)"
+                type="primary" plain
+                size="medium"
+                @click="handleAddRecord">
+                <el-icon><Plus /></el-icon>
+                添加记录
+              </el-button>
               <ConnectionStatusBar v-if="collaborationStore.isRealtimeAvailable" />
               <OnlineUsers v-if="collaborationStore.isRealtimeAvailable" />
             </div>
@@ -1555,17 +1564,19 @@ function handleShareChanged() {
                     字段
                   </el-button>
                 </el-button-group>
-                <el-button
-                  v-if="canEdit"
-                  size="medium"
-                  @click="openImportDialog">
-                  <el-icon><Upload /></el-icon>
-                  导入
-                </el-button>
-                <el-button size="medium" @click="openExportDialog">
-                  <el-icon><Download /></el-icon>
-                  导出
-                </el-button>
+                <el-button-group>
+                  <el-button
+                    v-if="canEdit"
+                    size="medium"
+                    @click="openImportDialog">
+                    <el-icon><Upload /></el-icon>
+                    导入
+                  </el-button>
+                  <el-button size="medium" @click="openExportDialog">
+                    <el-icon><Download /></el-icon>
+                    导出
+                  </el-button>
+                </el-button-group>
               </template>
 
               <!-- 表单视图：显示配置和分享按钮 -->
