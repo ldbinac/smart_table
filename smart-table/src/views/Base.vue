@@ -1499,25 +1499,6 @@ function handleShareChanged() {
                 !isGalleryView
               "
               class="table-info">
-              <!-- <h2>{{ tableStore.currentTable.name }}</h2> -->
-              <span class="record-count"
-                >{{ filteredRecords.length }} 条记录</span
-              >
-              <span v-if="activeFilters.length > 0" class="filter-badge">
-                <el-tag size="small" type="warning"
-                  >筛选: {{ activeFilters.length }}</el-tag
-                >
-              </span>
-              <span v-if="activeSorts.length > 0" class="sort-badge">
-                <el-tag size="small" type="success"
-                  >排序: {{ activeSorts.length }}</el-tag
-                >
-              </span>
-              <span v-if="hasGroupConfig" class="group-badge">
-                <el-tag size="small" type="primary"
-                  >分组: {{ currentGroupBys.length }}</el-tag
-                >
-              </span>
               <ConnectionStatusBar v-if="collaborationStore.isRealtimeAvailable" />
               <OnlineUsers v-if="collaborationStore.isRealtimeAvailable" />
             </div>
@@ -1711,6 +1692,30 @@ function handleShareChanged() {
                 </template>
               </el-empty>
             </div>
+          </div>
+
+          <!-- 底部统计信息栏 -->
+          <div
+            v-if="
+              !isGanttView &&
+              !isKanbanView &&
+              !isCalendarView &&
+              !isGalleryView &&
+              !isFormView
+            "
+            class="table-footer-stats">
+            <span class="record-count">
+              {{ filteredRecords.length }} 条记录
+            </span>
+            <span v-if="activeFilters.length > 0" class="filter-badge">
+              <el-tag size="small" type="warning">筛选: {{ activeFilters.length }}</el-tag>
+            </span>
+            <span v-if="activeSorts.length > 0" class="sort-badge">
+              <el-tag size="small" type="success">排序: {{ activeSorts.length }}</el-tag>
+            </span>
+            <span v-if="hasGroupConfig" class="group-badge">
+              <el-tag size="small" type="primary">分组: {{ currentGroupBys.length }}</el-tag>
+            </span>
           </div>
         </div>
       </template>
@@ -2529,6 +2534,33 @@ function handleShareChanged() {
 .table-content {
   flex: 1;
   overflow-y: auto;
+}
+
+// 底部统计信息栏
+.table-footer-stats {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm $spacing-xl;
+  background: $surface-color;
+  border-top: 1px solid $gray-200;
+  font-size: $font-size-sm;
+
+  .record-count {
+    color: $text-secondary;
+    background-color: $gray-100;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius-md;
+  }
+
+  .filter-badge,
+  .sort-badge,
+  .group-badge {
+    :deep(.el-tag) {
+      border-radius: $border-radius-md;
+      font-weight: 500;
+    }
+  }
 }
 
 .empty-state {
