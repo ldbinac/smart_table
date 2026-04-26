@@ -3,7 +3,9 @@
     v-model="visible"
     title="变更历史"
     :size="drawerSize"
-    :close-on-click-modal="false"
+    :close-on-click-modal="true"
+    :show-close="true"
+    :close-on-press-escape="true"
     class="record-history-drawer">
     <div v-loading="loading" class="history-content">
       <!-- 空状态 -->
