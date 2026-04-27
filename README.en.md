@@ -16,47 +16,48 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 ### 📝 Supported Field Types (26 Types)
 
-| Category | Field Type | Description | Status |
-| ---- | ---- | ---- | -- |
-| **Text Types** | Single Line Text | Short text input with validation rules | ✅ |
-| **Text Types** | Long Text | Long text/paragraph input with multi-line editing | ✅ |
-| **Text Types** | Rich Text | HTML rich text editor with formatting support | ✅ |
-| **Numeric Types** | Number | Integer/decimal with formatting (number/currency/percent) | ✅ |
-| **Date Types** | Date | Date picker supporting multiple date formats | ✅ |
-| **Date Types** | Date Time | DateTime picker accurate to seconds | ✅ |
-| **Selection Types** | Single Select | Dropdown single select with custom options and colors | ✅ |
-| **Selection Types** | Multi Select | Tag-style multi select with custom options | ✅ |
-| **Selection Types** | Checkbox | Boolean toggle | ✅ |
-| **People Types** | Member | User selection with current user default value | ✅ |
-| **Contact Types** | Phone | Phone number input and formatted display | ✅ |
-| **Contact Types** | Email | Email address input and validation | ✅ |
-| **Contact Types** | URL | URL link with click-to-navigate | ✅ |
-| **Media Types** | Attachment | File upload/download with image preview and thumbnails | ✅ |
-| **Computed Types** | Formula | 43 built-in functions with field references and nested calculations | ✅ |
-| **Relation Types** | Link | Table relationships supporting one-to-one/one-to-many/many-to-many | ✅ |
-| **Lookup Types** | Lookup | Cross-table queries with aggregation (sum/avg/count/etc.) | ✅ |
-| **System Types** | Created By | Auto-record record creator | ✅ |
-| **System Types** | Created Time | Auto-record creation timestamp | ✅ |
-| **System Types** | Updated By | Auto-record last modifier | ✅ |
-| **System Types** | Updated Time | Auto-record last modification time | ✅ |
-| **System Types** | Auto Number | Auto-increment with prefix/suffix/date format/padding | ✅ |
-| **Others** | Rating | Star rating component | ✅ |
-| **Others** | Progress | Progress bar/percentage display | ✅ |
+| Category            | Field Type       | Description                                                         | Status |
+| ------------------- | ---------------- | ------------------------------------------------------------------- | ------ |
+| **Text Types**      | Single Line Text | Short text input with validation rules                              | ✅      |
+| **Text Types**      | Long Text        | Long text/paragraph input with multi-line editing                   | ✅      |
+| **Text Types**      | Rich Text        | HTML rich text editor with formatting support                       | ✅      |
+| **Numeric Types**   | Number           | Integer/decimal with formatting (number/currency/percent)           | ✅      |
+| **Date Types**      | Date             | Date picker supporting multiple date formats                        | ✅      |
+| **Date Types**      | Date Time        | DateTime picker accurate to seconds                                 | ✅      |
+| **Selection Types** | Single Select    | Dropdown single select with custom options and colors               | ✅      |
+| **Selection Types** | Multi Select     | Tag-style multi select with custom options                          | ✅      |
+| **Selection Types** | Checkbox         | Boolean toggle                                                      | ✅      |
+| **People Types**    | Member           | User selection with current user default value                      | ✅      |
+| **Contact Types**   | Phone            | Phone number input and formatted display                            | ✅      |
+| **Contact Types**   | Email            | Email address input and validation                                  | ✅      |
+| **Contact Types**   | URL              | URL link with click-to-navigate                                     | ✅      |
+| **Media Types**     | Attachment       | File upload/download with image preview and thumbnails              | ✅      |
+| **Computed Types**  | Formula          | 43 built-in functions with field references and nested calculations | ✅      |
+| **Relation Types**  | Link             | Table relationships supporting one-to-one/one-to-many/many-to-many  | ✅      |
+| **Lookup Types**    | Lookup           | Cross-table queries with aggregation (sum/avg/count/etc.)           | ✅      |
+| **System Types**    | Created By       | Auto-record record creator                                          | ✅      |
+| **System Types**    | Created Time     | Auto-record creation timestamp                                      | ✅      |
+| **System Types**    | Updated By       | Auto-record last modifier                                           | ✅      |
+| **System Types**    | Updated Time     | Auto-record last modification time                                  | ✅      |
+| **System Types**    | Auto Number      | Auto-increment with prefix/suffix/date format/padding               | ✅      |
+| **Others**          | Rating           | Star rating component                                               | ✅      |
+| **Others**          | Progress         | Progress bar/percentage display                                     | ✅      |
 
 ### 🎨 Supported View Types (6 Types)
 
-| View Type | Description | Status |
-| ---- | ---- | -- |
-| **Table View** | Classic table display with virtual scroll, column freeze, field filter | ✅ |
-| **Kanban View** | Card-based display with drag-sort and grouping | ✅ |
-| **Calendar View** | Time-based display grouped by date | ✅ |
-| **Gantt View** | Project timeline display with task dependencies | ✅ |
-| **Form View** | Data collection form with public sharing and customization | ✅ |
-| **Gallery View** | Image card grid display for media content | ✅ |
+| View Type         | Description                                                            | Status |
+| ----------------- | ---------------------------------------------------------------------- | ------ |
+| **Table View**    | Classic table display with virtual scroll, column freeze, field filter | ✅      |
+| **Kanban View**   | Card-based display with drag-sort and grouping                         | ✅      |
+| **Calendar View** | Time-based display grouped by date                                     | ✅      |
+| **Gantt View**    | Project timeline display with task dependencies                        | ✅      |
+| **Form View**     | Data collection form with public sharing and customization             | ✅      |
+| **Gallery View**  | Image card grid display for media content                              | ✅      |
 
 ### 🚀 Advanced Features
 
 #### Data Processing
+
 - **Data Filtering** - Multi-condition combined filtering with AND/OR logic, 20+ operators
 - **Data Sorting** - Multi-field sorting with ascending/descending order, drag to adjust priority
 - **Data Grouping** - Group by field with multi-level grouping (up to 3 levels), group statistics
@@ -65,6 +66,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - **Data Export** - Support Excel, CSV, JSON formats with custom field selection
 
 #### Collaboration & Sharing
+
 - **Base Sharing** - Base-level sharing with link sharing and permission control
 - **Form Sharing** - Form view public sharing with submission options configuration
 - **Dashboard Sharing** - Dashboard public sharing with real-time data display
@@ -78,6 +80,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
   - Graceful degradation (auto-switch to normal mode when unavailable)
 
 #### Permissions & Security
+
 - **User Authentication** - JWT Token authentication with refresh token, email verification, password reset
 - **Role-Based Access Control (RBAC)**:
   - Owner - Full control permissions
@@ -89,6 +92,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - **Operation Logs** - Complete operation audit logs
 
 #### User Experience
+
 - **Drag Sorting** - Drag to sort tables, fields, views, Kanban cards
 - **Star Feature** - Quick access to frequently used tables and dashboards
 - **Search Feature** - Quick search for table names and record content
@@ -96,6 +100,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - **Keyboard Shortcuts** - Common operation keyboard shortcuts
 
 #### Dashboard System
+
 - **Multiple Chart Components** - Number cards, clock, date, KPI cards, marquee, real-time charts, etc.
 - **Dashboard Templates** - Save and reuse dashboard configurations as templates
 - **Grid Layout** - Flexible grid layout system with customizable rows/columns
@@ -103,6 +108,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - **Sharing Feature** - Dashboard public sharing with embed support for external websites
 
 #### Email System (Optional)
+
 - **SMTP Configuration** - Custom SMTP server support
 - **Email Templates** - Customizable email templates (registration verification, password reset, etc.)
 - **Email Queue** - Async email sending queue with retry mechanism
@@ -111,71 +117,71 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 
 ## 📸 Feature Preview
 
-| Feature | Preview | Feature | Preview |
-| ---- | ---- | ---- | ---- |
-| Login | ![](./doc/img/login.png) | Register | ![](./doc/img/register.png) |
-| Home | ![Home](./doc/img/home.jpeg) | All Home | ![Home2](./doc/img/home-all.jpeg) |
-| Table View | ![Table View](./doc/img/TableView.jpeg) | Grouped Table | ![Grouped Table](./doc/img/TableViewGroup.jpeg) |
-| Table Fields | ![Table Fields](./doc/img/TableViewFields.jpeg) | Kanban View | ![Kanban View](./doc/img/KanbanView.jpeg) |
-| Calendar View | ![Calendar View](./doc/img/CalendarView.jpeg) | Gantt View | ![Gantt View](./doc/img/GanttView.jpeg) |
-| Form View | ![Form View](./doc/img/FormView.jpeg) | Dashboard | ![Dashboard](./doc/img/Dashboard.jpeg) |
-| Sharing | ![Sharing](./doc/img/sharing.png) | - | - |
+| Feature       | Preview                                         | Feature       | Preview                                         |
+| ------------- | ----------------------------------------------- | ------------- | ----------------------------------------------- |
+| Login         | ![](./doc/img/login.png)                        | Register      | ![](./doc/img/register.png)                     |
+| Home          | ![Home](./doc/img/home.jpeg)                    | All Home      | ![Home2](./doc/img/home-all.jpeg)               |
+| Table View    | ![Table View](./doc/img/TableView.jpeg)         | Grouped Table | ![Grouped Table](./doc/img/TableViewGroup.jpeg) |
+| Table Fields  | ![Table Fields](./doc/img/TableViewFields.jpeg) | Kanban View   | ![Kanban View](./doc/img/KanbanView.jpeg)       |
+| Calendar View | ![Calendar View](./doc/img/CalendarView.jpeg)   | Gantt View    | ![Gantt View](./doc/img/GanttView.jpeg)         |
+| Form View     | ![Form View](./doc/img/FormView.jpeg)           | Dashboard     | ![Dashboard](./doc/img/Dashboard.jpeg)          |
+| Sharing       | ![Sharing](./doc/img/sharing.png)               | -             | -                                               |
 
 ## 🛠️ Tech Stack
 
 ### Frontend Tech Stack
 
-| Category | Technology | Version | Description |
-| ---- | ---- | ---- | ---- |
-| Frontend Framework | Vue 3 | ^3.5.30 | Composition API |
-| Language | TypeScript | ~5.9.3 | Type safety |
-| State Management | Pinia | ^2.3.1 | Lightweight state management |
-| Router | Vue Router | ^4.6.4 | SPA routing |
-| UI Component Library | Element Plus | ^2.13.6 | Enterprise UI components |
-| Table Component | vxe-table | ^4.18.7 | High-performance virtual scroll table |
-| Charts | echarts + vue-echarts | ^5.6.0 / ^6.7.3 | Data visualization |
-| Date Processing | dayjs | ^1.11.20 | Lightweight date library |
-| Drag Sorting | sortablejs | ^1.15.7 | Drag functionality |
-| HTTP Client | axios | ^1.14.0 | HTTP requests |
-| Local Database | Dexie | ^3.2.7 | IndexedDB wrapper |
-| WebSocket | socket.io-client | ^4.8.3 | Real-time communication |
-| Utilities | lodash-es, @vueuse/core | - | Utility function sets |
-| Rich Text | dompurify | ^3.4.0 | XSS protection |
-| Spreadsheet | xlsx | ^0.18.5 | Excel parsing/generation |
-| Build Tool | Vite | ^8.0.1 | Ultra-fast build tool |
-| Testing | Vitest | ^3.2.4 | Unit testing |
+| Category             | Technology              | Version         | Description                           |
+| -------------------- | ----------------------- | --------------- | ------------------------------------- |
+| Frontend Framework   | Vue 3                   | ^3.5.30         | Composition API                       |
+| Language             | TypeScript              | \~5.9.3         | Type safety                           |
+| State Management     | Pinia                   | ^2.3.1          | Lightweight state management          |
+| Router               | Vue Router              | ^4.6.4          | SPA routing                           |
+| UI Component Library | Element Plus            | ^2.13.6         | Enterprise UI components              |
+| Table Component      | vxe-table               | ^4.18.7         | High-performance virtual scroll table |
+| Charts               | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | Data visualization                    |
+| Date Processing      | dayjs                   | ^1.11.20        | Lightweight date library              |
+| Drag Sorting         | sortablejs              | ^1.15.7         | Drag functionality                    |
+| HTTP Client          | axios                   | ^1.14.0         | HTTP requests                         |
+| Local Database       | Dexie                   | ^3.2.7          | IndexedDB wrapper                     |
+| WebSocket            | socket.io-client        | ^4.8.3          | Real-time communication               |
+| Utilities            | lodash-es, @vueuse/core | -               | Utility function sets                 |
+| Rich Text            | dompurify               | ^3.4.0          | XSS protection                        |
+| Spreadsheet          | xlsx                    | ^0.18.5         | Excel parsing/generation              |
+| Build Tool           | Vite                    | ^8.0.1          | Ultra-fast build tool                 |
+| Testing              | Vitest                  | ^3.2.4          | Unit testing                          |
 
 ### Backend Tech Stack (Optional)
 
-| Category | Technology | Version | Description |
-| ---- | ---- | ---- | ---- |
-| Framework | Flask | 3.0.0 | Python Web framework |
-| Database | SQLite (Default) / PostgreSQL | 3.x / 16+ | Relational database |
-| ORM | SQLAlchemy | 2.0.23 | Python ORM |
-| Database Migration | Alembic (Flask-Migrate) | 4.0.5 | Database version management |
-| Authentication | JWT (Flask-JWT-Extended) | 4.6.0 | Token authentication |
-| Password Encryption | Flask-Bcrypt, bcrypt | 1.0.1 / 4.1.2 | Password hashing |
-| Form Validation | Flask-WTF | 1.2.1 | CSRF protection |
-| CORS | Flask-CORS | 4.0.0 | Cross-origin support |
-| Caching | Flask-Caching (+ Redis Optional) | 2.1.0 | Caching acceleration |
-| WebSocket | Flask-SocketIO | 5.3.6 | Real-time communication |
-| Async Support | eventlet | 0.36.1 | Async processing |
-| Data Serialization | marshmallow | 3.20.1 | Data validation/serialization |
-| Import/Export | pandas, openpyxl, xlrd | 2.1.4 / 3.1.2 / 2.0.1 | Data processing |
-| Image Processing | Pillow | 10.4.0 | Image thumbnails |
-| Object Storage | MinIO (Optional) | - | File object storage |
-| Encryption | cryptography | 42.0.5 | Encryption algorithms |
-| API Documentation | Flasgger | 0.9.7b2 | Swagger UI |
-| WSGI Server | Gunicorn | 21.2.0 | Production server |
-| Deployment | Docker, Nginx | - | Containerized deployment |
+| Category            | Technology                       | Version               | Description                   |
+| ------------------- | -------------------------------- | --------------------- | ----------------------------- |
+| Framework           | Flask                            | 3.0.0                 | Python Web framework          |
+| Database            | SQLite (Default) / PostgreSQL    | 3.x / 16+             | Relational database           |
+| ORM                 | SQLAlchemy                       | 2.0.23                | Python ORM                    |
+| Database Migration  | Alembic (Flask-Migrate)          | 4.0.5                 | Database version management   |
+| Authentication      | JWT (Flask-JWT-Extended)         | 4.6.0                 | Token authentication          |
+| Password Encryption | Flask-Bcrypt, bcrypt             | 1.0.1 / 4.1.2         | Password hashing              |
+| Form Validation     | Flask-WTF                        | 1.2.1                 | CSRF protection               |
+| CORS                | Flask-CORS                       | 4.0.0                 | Cross-origin support          |
+| Caching             | Flask-Caching (+ Redis Optional) | 2.1.0                 | Caching acceleration          |
+| WebSocket           | Flask-SocketIO                   | 5.3.6                 | Real-time communication       |
+| Async Support       | eventlet                         | 0.36.1                | Async processing              |
+| Data Serialization  | marshmallow                      | 3.20.1                | Data validation/serialization |
+| Import/Export       | pandas, openpyxl, xlrd           | 2.1.4 / 3.1.2 / 2.0.1 | Data processing               |
+| Image Processing    | Pillow                           | 10.4.0                | Image thumbnails              |
+| Object Storage      | MinIO (Optional)                 | -                     | File object storage           |
+| Encryption          | cryptography                     | 42.0.5                | Encryption algorithms         |
+| API Documentation   | Flasgger                         | 0.9.7b2               | Swagger UI                    |
+| WSGI Server         | Gunicorn                         | 21.2.0                | Production server             |
+| Deployment          | Docker, Nginx                    | -                     | Containerized deployment      |
 
 ### Data Storage Options
 
-| Mode | Technology | Description |
-| ---- | ---- | ---- |
-| **Pure Frontend Mode** | Dexie (IndexedDB) | Data stored locally in browser, no server required, suitable for personal use or offline scenarios |
-| **Backend Mode** | SQLite + Flask | Default uses SQLite, lightweight without additional database installation |
-| **Production Mode** | PostgreSQL + Flask | Supports PostgreSQL, suitable for multi-user concurrent access and production environments |
+| Mode                   | Technology         | Description                                                                                        |
+| ---------------------- | ------------------ | -------------------------------------------------------------------------------------------------- |
+| **Pure Frontend Mode** | Dexie (IndexedDB)  | Data stored locally in browser, no server required, suitable for personal use or offline scenarios |
+| **Backend Mode**       | SQLite + Flask     | Default uses SQLite, lightweight without additional database installation                          |
+| **Production Mode**    | PostgreSQL + Flask | Supports PostgreSQL, suitable for multi-user concurrent access and production environments         |
 
 ## 🚀 Quick Start
 
@@ -198,9 +204,10 @@ Use the startup script in the project root:
 ```
 
 The script will automatically:
+
 1. Install frontend dependencies and start dev server (port 5173)
 2. Install backend dependencies and start Flask server (port 5000)
-3. Open browser at http://localhost:5173
+3. Open browser at <http://localhost:5173>
 
 ### Frontend Development
 
@@ -217,7 +224,7 @@ npm install
 npm run dev
 ```
 
-Visit http://localhost:5173
+Visit <http://localhost:5173>
 
 #### Build for Production
 
@@ -310,16 +317,16 @@ python run.py -r
 
 #### Backend Features
 
-✅ **Default Database**: SQLite (lightweight, no additional installation required)  
-✅ **Optional Database**: PostgreSQL (configurable via `DATABASE_URL` environment variable)  
-✅ **Authentication**: JWT Token authentication with refresh token, email verification  
-✅ **Permission Management**: Role-based access control (RBAC)  
-✅ **Database Migration**: Alembic migration tool  
-✅ **API Documentation**: Complete Swagger/OpenAPI documentation (Flasgger)  
-✅ **Real-time Collaboration**: Optional WebSocket real-time collaboration (enable via `--enable-realtime`)  
-✅ **Email System**: Optional SMTP email sending  
-✅ **Object Storage**: Optional MinIO file storage  
-✅ **Security Protection**: XSS protection, rate limiting, security headers  
+✅ **Default Database**: SQLite (lightweight, no additional installation required)\
+✅ **Optional Database**: PostgreSQL (configurable via `DATABASE_URL` environment variable)\
+✅ **Authentication**: JWT Token authentication with refresh token, email verification\
+✅ **Permission Management**: Role-based access control (RBAC)\
+✅ **Database Migration**: Alembic migration tool\
+✅ **API Documentation**: Complete Swagger/OpenAPI documentation (Flasgger)\
+✅ **Real-time Collaboration**: Optional WebSocket real-time collaboration (enable via `--enable-realtime`)\
+✅ **Email System**: Optional SMTP email sending\
+✅ **Object Storage**: Optional MinIO file storage\
+✅ **Security Protection**: XSS protection, rate limiting, security headers
 
 ## 📁 Project Structure
 
@@ -729,38 +736,45 @@ View (View)
 ### Main Model Descriptions
 
 #### User
+
 - User authentication info (username, email, password hash)
 - Email verification status
 - Role permissions (regular user/admin)
 - Avatar and profile info
 
 #### Base (Multi-dimensional Table)
+
 - Base unit for multi-dimensional tables
 - Support starring, custom icon and color
 - Member management and permission control
 - Sharing settings (public/private/password protected)
 
 #### Table (Data Table)
+
 - Contains field definitions and record data
 - Support drag-sort, starring
 - Relationship configuration
 
 #### Field (Field)
+
 - Define column types and properties
 - Support 26 field types
 - Rich field options (validation rules, default values, formatting, etc.)
 
 #### Record (Record)
+
 - Data row storing values for each field
 - Support CRUD, batch operations
 - Complete change history tracking
 
 #### View (View)
+
 - Data display method (6 view types)
 - Independent filter, sort, group configurations
 - View-level field control (hidden, freeze, width)
 
 #### CollaborationSession
+
 - Real-time collaboration session tracking
 - Records user join/leave and active status
 - Only used when real-time collaboration is enabled
@@ -796,70 +810,70 @@ LOOKUP({Related Table.Related Records}, {Target Field})
 
 #### 📊 Math Functions (11)
 
-| Function | Description | Example |
-| ---- | ---- | ---- |
-| `SUM` | Sum | `SUM({Field1}, {Field2})` |
-| `AVG` | Average | `AVG({Score})` |
-| `MAX` | Maximum | `MAX({Age})` |
-| `MIN` | Minimum | `MIN({Price})` |
-| `ROUND` | Round | `ROUND({Value}, 2)` |
-| `CEILING` | Round up | `CEILING({Value})` |
-| `FLOOR` | Round down | `FLOOR({Value})` |
-| `ABS` | Absolute value | `ABS({Difference})` |
-| `MOD` | Modulo | `MOD({Value}, 2)` |
-| `POWER` | Power | `POWER({Base}, 2)` |
-| `SQRT` | Square root | `SQRT({Value})` |
+| Function  | Description    | Example                   |
+| --------- | -------------- | ------------------------- |
+| `SUM`     | Sum            | `SUM({Field1}, {Field2})` |
+| `AVG`     | Average        | `AVG({Score})`            |
+| `MAX`     | Maximum        | `MAX({Age})`              |
+| `MIN`     | Minimum        | `MIN({Price})`            |
+| `ROUND`   | Round          | `ROUND({Value}, 2)`       |
+| `CEILING` | Round up       | `CEILING({Value})`        |
+| `FLOOR`   | Round down     | `FLOOR({Value})`          |
+| `ABS`     | Absolute value | `ABS({Difference})`       |
+| `MOD`     | Modulo         | `MOD({Value}, 2)`         |
+| `POWER`   | Power          | `POWER({Base}, 2)`        |
+| `SQRT`    | Square root    | `SQRT({Value})`           |
 
 #### 📝 Text Functions (10)
 
-| Function | Description | Example |
-| ---- | ---- | ---- |
-| `CONCAT` | Concatenate text | `CONCAT({First}, {Last})` |
-| `LEFT` | Left extract | `LEFT({Text}, 3)` |
-| `RIGHT` | Right extract | `RIGHT({Text}, 3)` |
-| `LEN` | Text length | `LEN({Description})` |
-| `UPPER` | To uppercase | `UPPER({Text})` |
-| `LOWER` | To lowercase | `LOWER({Text})` |
-| `TRIM` | Trim spaces | `TRIM({Text})` |
-| `SUBSTITUTE` | Replace text | `SUBSTITUTE({Text}, "Old", "New")` |
-| `REPLACE` | Replace position | `REPLACE({Text}, 1, 3, "New")` |
-| `FIND` | Find position | `FIND("Substring", {Text})` |
+| Function     | Description      | Example                            |
+| ------------ | ---------------- | ---------------------------------- |
+| `CONCAT`     | Concatenate text | `CONCAT({First}, {Last})`          |
+| `LEFT`       | Left extract     | `LEFT({Text}, 3)`                  |
+| `RIGHT`      | Right extract    | `RIGHT({Text}, 3)`                 |
+| `LEN`        | Text length      | `LEN({Description})`               |
+| `UPPER`      | To uppercase     | `UPPER({Text})`                    |
+| `LOWER`      | To lowercase     | `LOWER({Text})`                    |
+| `TRIM`       | Trim spaces      | `TRIM({Text})`                     |
+| `SUBSTITUTE` | Replace text     | `SUBSTITUTE({Text}, "Old", "New")` |
+| `REPLACE`    | Replace position | `REPLACE({Text}, 1, 3, "New")`     |
+| `FIND`       | Find position    | `FIND("Substring", {Text})`        |
 
 #### 📅 Date Functions (10)
 
-| Function | Description | Example |
-| ---- | ---- | ---- |
-| `TODAY` | Today's date | `TODAY()` |
-| `NOW` | Current time | `NOW()` |
-| `YEAR` | Extract year | `YEAR({Date})` |
-| `MONTH` | Extract month | `MONTH({Date})` |
-| `DAY` | Extract day | `DAY({Date})` |
-| `HOUR` | Extract hour | `HOUR({Time})` |
-| `MINUTE` | Extract minute | `MINUTE({Time})` |
-| `SECOND` | Extract second | `SECOND({Time})` |
-| `DATEDIF` | Date difference | `DATEDIF({Start}, {End}, "D")` |
-| `DATEADD` | Date add/subtract | `DATEADD({Date}, 7, "D")` |
+| Function  | Description       | Example                        |
+| --------- | ----------------- | ------------------------------ |
+| `TODAY`   | Today's date      | `TODAY()`                      |
+| `NOW`     | Current time      | `NOW()`                        |
+| `YEAR`    | Extract year      | `YEAR({Date})`                 |
+| `MONTH`   | Extract month     | `MONTH({Date})`                |
+| `DAY`     | Extract day       | `DAY({Date})`                  |
+| `HOUR`    | Extract hour      | `HOUR({Time})`                 |
+| `MINUTE`  | Extract minute    | `MINUTE({Time})`               |
+| `SECOND`  | Extract second    | `SECOND({Time})`               |
+| `DATEDIF` | Date difference   | `DATEDIF({Start}, {End}, "D")` |
+| `DATEADD` | Date add/subtract | `DATEADD({Date}, 7, "D")`      |
 
 #### 🧠 Logic Functions (7)
 
-| Function | Description | Example |
-| ---- | ---- | ---- |
-| `IF` | Conditional | `IF({Condition}, "True", "False")` |
-| `AND` | Logical AND | `AND({Cond1}, {Cond2})` |
-| `OR` | Logical OR | `OR({Cond1}, {Cond2})` |
-| `NOT` | Logical NOT | `NOT({Condition})` |
-| `IFERROR` | Error handling | `IFERROR({Formula}, "Default")` |
-| `IFS` | Multi-condition | `IFS({C1}, {V1}, {C2}, {V2})` |
-| `SWITCH` | Multi-value match | `SWITCH({Field}, "A", 1, "B", 2)` |
+| Function  | Description       | Example                            |
+| --------- | ----------------- | ---------------------------------- |
+| `IF`      | Conditional       | `IF({Condition}, "True", "False")` |
+| `AND`     | Logical AND       | `AND({Cond1}, {Cond2})`            |
+| `OR`      | Logical OR        | `OR({Cond1}, {Cond2})`             |
+| `NOT`     | Logical NOT       | `NOT({Condition})`                 |
+| `IFERROR` | Error handling    | `IFERROR({Formula}, "Default")`    |
+| `IFS`     | Multi-condition   | `IFS({C1}, {V1}, {C2}, {V2})`      |
+| `SWITCH`  | Multi-value match | `SWITCH({Field}, "A", 1, "B", 2)`  |
 
 #### 📈 Statistical Functions (5)
 
-| Function | Description | Example |
-| ---- | ---- | ---- |
-| `COUNT` | Count | `COUNT({Field})` |
-| `COUNTA` | Non-empty count | `COUNTA({Field})` |
-| `COUNTIF` | Conditional count | `COUNTIF({Field}, ">100")` |
-| `SUMIF` | Conditional sum | `SUMIF({Category}, "A", {Amount})` |
+| Function    | Description         | Example                                    |
+| ----------- | ------------------- | ------------------------------------------ |
+| `COUNT`     | Count               | `COUNT({Field})`                           |
+| `COUNTA`    | Non-empty count     | `COUNTA({Field})`                          |
+| `COUNTIF`   | Conditional count   | `COUNTIF({Field}, ">100")`                 |
+| `SUMIF`     | Conditional sum     | `SUMIF({Category}, "A", {Amount})`         |
 | `AVERAGEIF` | Conditional average | `AVERAGEIF({Department}, "R&D", {Salary})` |
 
 ## 🌐 RESTful API Endpoints
@@ -869,159 +883,10 @@ LOOKUP({Related Table.Related Records}, {Target Field})
 - **Base URL**: `http://localhost:5000/api`
 - **Authentication**: Bearer Token (JWT)
 - **Data Format**: JSON
-- **API Documentation**: 
-  - Swagger UI: `http://localhost:5000/api/docs`
-  - ReDoc: `http://localhost:5000/api/apidoc`
+- **API Documentation**:
+  - Swagger UI: `http://localhost:5000/apidocs`
 
-### Auth Endpoints (`/api/auth`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| POST | `/api/auth/register` | User registration | ❌ |
-| POST | `/api/auth/login` | User login | ❌ |
-| POST | `/api/auth/logout` | Logout (invalidate all tokens) | ✅ |
-| POST | `/api/auth/refresh` | Refresh token | ✅ |
-| GET | `/api/auth/me` | Get current user info | ✅ |
-| POST | `/api/auth/forgot-password` | Forgot password | ❌ |
-| POST | `/api/auth/reset-password` | Reset password | ❌ |
-| GET | `/api/auth/verify-email` | Verify email | ❌ |
-| GET | `/api/auth/captcha` | Get captcha image | ❌ |
-
-### Base Endpoints (`/api/bases`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/bases` | Get base list | ✅ |
-| POST | `/api/bases` | Create base | ✅ |
-| GET | `/api/bases/{base_id}` | Get base details | ✅ |
-| PUT | `/api/bases/{base_id}` | Update base | ✅ |
-| DELETE | `/api/bases/{base_id}` | Delete base | ✅ |
-| POST | `/api/bases/{base_id}/star` | Star/unstar base | ✅ |
-| GET | `/api/bases/{base_id}/members` | Get member list | ✅ |
-| POST | `/api/bases/{base_id}/members` | Add member | ✅ |
-| PUT | `/api/bases/{base_id}/members/{user_id}` | Update member role | ✅ |
-| DELETE | `/api/bases/{base_id}/members/{user_id}` | Remove member | ✅ |
-| POST | `/api/bases/{base_id}/share` | Create share link | ✅ |
-| GET | `/api/bases/{base_id}/shares` | Get share list | ✅ |
-
-### Table Endpoints (`/api/bases/{base_id}/tables`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/tables` | Get table list | ✅ |
-| POST | `/api/tables` | Create table | ✅ |
-| GET | `/api/tables/{table_id}` | Get table details | ✅ |
-| PUT | `/api/tables/{table_id}` | Update table | ✅ |
-| DELETE | `/api/tables/{table_id}` | Delete table | ✅ |
-| POST | `/api/tables/{table_id}/duplicate` | Duplicate table | ✅ |
-| PUT | `/api/tables/{table_id}/sort` | Update sort order | ✅ |
-| POST | `/api/tables/{table_id}/star` | Star/unstar table | ✅ |
-
-### Field Endpoints (`/api/fields`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/fields?table_id={id}` | Get field list | ✅ |
-| POST | `/api/fields` | Create field | ✅ |
-| PUT | `/api/fields/{field_id}` | Update field | ✅ |
-| DELETE | `/api/fields/{field_id}` | Delete field | ✅ |
-| PUT | `/api/fields/{field_id}/sort` | Update field sort | ✅ |
-| PUT | `/api/fields/batch-sort` | Batch update sort | ✅ |
-
-### Record Endpoints (`/api/records`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/records?table_id={id}` | Get record list | ✅ |
-| POST | `/api/records` | Create record | ✅ |
-| GET | `/api/records/{record_id}` | Get record details | ✅ |
-| PUT | `/api/records/{record_id}` | Update record | ✅ |
-| DELETE | `/api/records/{record_id}` | Delete record | ✅ |
-| POST | `/api/records/batch-delete` | Batch delete | ✅ |
-| GET | `/api/records/{record_id}/history` | Get change history | ✅ |
-
-### View Endpoints (`/api/views`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/views?table_id={id}` | Get view list | ✅ |
-| POST | `/api/views` | Create view | ✅ |
-| PUT | `/api/views/{view_id}` | Update view | ✅ |
-| DELETE | `/api/views/{view_id}` | Delete view | ✅ |
-| PUT | `/api/views/{view_id}/config` | Update view config | ✅ |
-
-### Dashboard Endpoints (`/api/dashboards`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/dashboards` | Get dashboard list | ✅ |
-| POST | `/api/dashboards` | Create dashboard | ✅ |
-| GET | `/api/dashboards/{dashboard_id}` | Get dashboard details | ✅ |
-| PUT | `/api/dashboards/{dashboard_id}` | Update dashboard | ✅ |
-| DELETE | `/api/dashboards/{dashboard_id}` | Delete dashboard | ✅ |
-| POST | `/api/dashboards/{dashboard_id}/star` | Star/unstar dashboard | ✅ |
-| POST | `/api/dashboards/{dashboard_id}/share` | Create share link | ✅ |
-
-### Attachment Endpoints (`/api/attachments`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| POST | `/api/attachments/upload` | Upload attachment | ✅ |
-| GET | `/api/attachments/{attachment_id}` | Get attachment info | ✅ |
-| GET | `/api/attachments/{attachment_id}/download` | Download attachment | ✅ |
-| DELETE | `/api/attachments/{attachment_id}` | Delete attachment | ✅ |
-| GET | `/api/attachments/{attachment_id}/thumbnail` | Get thumbnail | ✅ |
-
-### Import/Export Endpoints (`/api/import-export`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| POST | `/api/import-export/import` | Import data (Excel/CSV/JSON) | ✅ |
-| POST | `/api/import-export/create-table-from-excel` | Create new table from Excel ⭐ | ✅ |
-| GET | `/api/import-export/export` | Export data (Excel/CSV/JSON) | ✅ |
-| GET | `/api/import-export/templates` | Get import templates | ✅ |
-
-### Sharing Endpoints (`/api/shares`, `/api/form-shares`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/shares/my-shares` | My shares | ✅ |
-| GET | `/api/shares/shared-with-me` | Shared with me | ✅ |
-| POST | `/api/form-shares` | Create form share | ✅ |
-| GET | `/api/form-shares/{share_token}` | Get form share info | ❌ |
-| POST | `/api/form-shares/{share_token}/submit` | Submit form data | ❌ |
-
-### Email Endpoints (`/api/email`) [Admin]
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/email/config` | Get email config | ✅ Admin |
-| PUT | `/api/email/config` | Update email config | ✅ Admin |
-| GET | `/api/email/templates` | Get email template list | ✅ Admin |
-| PUT | `/api/email/templates/{template_id}` | Update email template | ✅ Admin |
-| GET | `/api/email/logs` | Get email logs | ✅ Admin |
-| GET | `/api/email/stats` | Get email stats | ✅ Admin |
-| POST | `/api/email/test` | Send test email | ✅ Admin |
-
-### Admin Endpoints (`/api/admin`) [Admin]
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/admin/users` | Get user list | ✅ Admin |
-| PUT | `/api/admin/users/{user_id}` | Update user | ✅ Admin |
-| DELETE | `/api/admin/users/{user_id}` | Delete user | ✅ Admin |
-| PUT | `/api/admin/users/{user_id}/reset-password` | Reset password | ✅ Admin |
-| GET | `/api/admin/settings` | Get system settings | ✅ Admin |
-| PUT | `/api/admin/settings` | Update system settings | ✅ Admin |
-| GET | `/api/admin/operation-logs` | Get operation logs | ✅ Admin |
-
-### Real-time Collaboration Endpoint (`/api/realtime`)
-
-| Method | Endpoint | Description | Auth |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/realtime/status` | Query real-time collaboration status | ✅ |
-
-> ⚠️ **Note**: Real-time collaboration is disabled by default, enable via `--enable-realtime` flag or `ENABLE_REALTIME=true` environment variable
+    <br />
 
 ## ⚡ Real-time Collaboration Configuration
 
@@ -1065,34 +930,34 @@ environment:
 
 ### Feature Overview
 
-| Feature | Description |
-| ---- | ---- |
-| **Online Presence** | Display users currently editing the same table with cursor positions |
-| **View Sync** | Real-time sync of other users' view switching and scroll positions |
-| **Cell Locking** | Automatically lock cells being edited to prevent conflicts |
-| **Conflict Detection** | Optimistic locking-based conflict detection, returns 409 Conflict status code |
-| **Offline Queue** | Operations auto-cached when disconnected, auto-replayed in order on reconnection |
-| **Graceful Degradation** | Auto-degrade to normal HTTP polling when WebSocket unavailable |
+| Feature                  | Description                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| **Online Presence**      | Display users currently editing the same table with cursor positions             |
+| **View Sync**            | Real-time sync of other users' view switching and scroll positions               |
+| **Cell Locking**         | Automatically lock cells being edited to prevent conflicts                       |
+| **Conflict Detection**   | Optimistic locking-based conflict detection, returns 409 Conflict status code    |
+| **Offline Queue**        | Operations auto-cached when disconnected, auto-replayed in order on reconnection |
+| **Graceful Degradation** | Auto-degrade to normal HTTP polling when WebSocket unavailable                   |
 
 ### Socket.IO Events
 
-| Event Category | Event Name | Description |
-| ---- | ---- | ---- |
-| **Room Management** | `room:join` / `room:leave` | Join/leave collaboration room |
-| **Presence** | `presence:view_changed` | View switch notification |
-| | `presence:cell_selected` | Cell selection notification |
-| | `presence:user_joined` | User joined notification |
-| | `presence:user_left` | User left notification |
-| **Cell Locking** | `lock:acquire` / `lock:release` | Acquire/release cell lock |
-| | `lock:acquired` / `lock:released` | Lock/unlock broadcast notification |
-| **Data Sync** | `data:record_updated` | Record update push |
-| | `data:record_created` | Record creation push |
-| | `data:record_deleted` | Record deletion push |
-| | `data:field_updated` | Field update push |
-| | `data:view_updated` | View update push |
-| | `data:table_updated` | Table update push |
-| | `data:table_created` | Table creation push |
-| | `data:table_deleted` | Table deletion push |
+| Event Category      | Event Name                        | Description                        |
+| ------------------- | --------------------------------- | ---------------------------------- |
+| **Room Management** | `room:join` / `room:leave`        | Join/leave collaboration room      |
+| **Presence**        | `presence:view_changed`           | View switch notification           |
+| <br />              | `presence:cell_selected`          | Cell selection notification        |
+| <br />              | `presence:user_joined`            | User joined notification           |
+| <br />              | `presence:user_left`              | User left notification             |
+| **Cell Locking**    | `lock:acquire` / `lock:release`   | Acquire/release cell lock          |
+| <br />              | `lock:acquired` / `lock:released` | Lock/unlock broadcast notification |
+| **Data Sync**       | `data:record_updated`             | Record update push                 |
+| <br />              | `data:record_created`             | Record creation push               |
+| <br />              | `data:record_deleted`             | Record deletion push               |
+| <br />              | `data:field_updated`              | Field update push                  |
+| <br />              | `data:view_updated`               | View update push                   |
+| <br />              | `data:table_updated`              | Table update push                  |
+| <br />              | `data:table_created`              | Table creation push                |
+| <br />              | `data:table_deleted`              | Table deletion push                |
 
 ## 🐳 Docker Deployment
 
@@ -1118,9 +983,10 @@ docker-compose logs -f
 ```
 
 Access URLs:
-- Frontend: http://localhost
-- Backend API: http://localhost:5000/api
-- API Docs: http://localhost:5000/api/docs
+
+- Frontend: <http://localhost>
+- Backend API: <http://localhost:5000/api>
+- API Docs: <http://localhost:5000/api/docs>
 
 ### Production Deployment (PostgreSQL + Redis)
 
@@ -1156,24 +1022,24 @@ See [.env.example](.env.example) and [smarttable-backend/.env.example](smarttabl
 
 Key configuration items:
 
-| Variable | Description | Default | Required |
-| ---- | ---- | ---- | ---- |
-| `SECRET_KEY` | Flask secret key | - | ✅ Production |
-| `JWT_SECRET_KEY` | JWT secret key | - | ✅ Production |
-| `DATABASE_URL` | Database connection | sqlite:///smarttable.db | ❌ |
-| `REDIS_URL` | Redis address | redis://localhost:6379/0 | ❌ |
-| `ENABLE_REALTIME` | Enable real-time collaboration | false | ❌ |
-| `MAIL_SERVER` | SMTP server | - | ❌ (email feature needed) |
-| `MINIO_ENDPOINT` | MinIO address | - | ❌ (object storage needed) |
+| Variable          | Description                    | Default                   | Required                  |
+| ----------------- | ------------------------------ | ------------------------- | ------------------------- |
+| `SECRET_KEY`      | Flask secret key               | -                         | ✅ Production              |
+| `JWT_SECRET_KEY`  | JWT secret key                 | -                         | ✅ Production              |
+| `DATABASE_URL`    | Database connection            | sqlite:///smarttable.db   | ❌                         |
+| `REDIS_URL`       | Redis address                  | redis\://localhost:6379/0 | ❌                         |
+| `ENABLE_REALTIME` | Enable real-time collaboration | false                     | ❌                         |
+| `MAIL_SERVER`     | SMTP server                    | -                         | ❌ (email feature needed)  |
+| `MINIO_ENDPOINT`  | MinIO address                  | -                         | ❌ (object storage needed) |
 
 ## 🌍 Browser Support
 
 | Browser | Minimum Version |
-| ---- | ---- |
-| Chrome | >= 90 |
-| Firefox | >= 88 |
-| Safari | >= 14 |
-| Edge | >= 90 |
+| ------- | --------------- |
+| Chrome  | >= 90           |
+| Firefox | >= 88           |
+| Safari  | >= 14           |
+| Edge    | >= 90           |
 
 > 💡 **Tip**: Recommended to use the latest version of Chrome or Edge for best experience
 
@@ -1181,7 +1047,7 @@ Key configuration items:
 
 ### v1.2.0 - Latest Version (In Development)
 
-#### Recent 10 Days Important Updates (2026-04-16 ~ 2026-04-26)
+#### Recent 10 Days Important Updates (2026-04-16 \~ 2026-04-26)
 
 ##### ✨ New Features
 
@@ -1339,14 +1205,12 @@ Key configuration items:
 - [ ] **AI Feature Integration**
   - [ ] AI Form Builder (Natural language description to auto-generate business tables)
   - [ ] AI Form Assistant (Smart suggestions and data completion)
-  - [ ] AI Data Q&A (Natural language query for data analysis)
+  - [ ] AI Data Q\&A (Natural language query for data analysis)
   - [ ] AI Data Visualization (Intelligent chart type recommendation)
-
 - [ ] **Workflow Automation**
   - [ ] Workflow Designer (Visual business process design)
   - [ ] Automation Workflows (Triggers + Actions + Conditions)
   - [ ] Scheduled Tasks (Timed execution of automation workflows)
-
 - [ ] **Plugin System**
   - [ ] Plugin Marketplace (Third-party plugin distribution)
   - [ ] Plugin SDK (Plugin development toolkit)
@@ -1359,13 +1223,11 @@ Key configuration items:
   - [ ] MCP Interface (Model Context Protocol integration)
   - [ ] Webhook (Event-triggered callbacks)
   - [ ] OAuth 2.0 Third-party Authorization
-
 - [ ] **Documentation Features**
   - [ ] Document CRUD (Wiki-style document management)
   - [ ] Rich Text Editor Enhancement (Collaborative editing, version comparison)
   - [ ] Document Sharing & Version Management
   - [ ] Document-Table Integration
-
 - [ ] **Mobile Adaptation**
   - [ ] Responsive Design Optimization
   - [ ] Mobile Native Apps (iOS/Android)
@@ -1379,7 +1241,6 @@ Key configuration items:
   - [ ] Multi-tenant Isolation
   - [ ] Compliance Reports (GDPR, etc.)
   - [ ] Enhanced Audit Logs (Operation replay)
-
 - [ ] **Ecosystem Building**
   - [ ] Template Marketplace (Industry solution templates)
   - [ ] Integration Marketplace (Third-party service integrations)
@@ -1460,27 +1321,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
----
+***
 
 ## 🙏 Acknowledgments
 
 Thanks to all developers and users who contributed to this project!
 
 Special thanks to:
+
 - Vue.js team for the excellent frontend framework
 - Element Plus team for the comprehensive UI component library
 - Flask community for the flexible backend framework
 - All Issue submitters and PR contributors
 
----
+***
 
 ## 📞 Contact Us
 
-- 📧 Email: [ldengbin@126.com](mailto:ldengbin@126.com)
+- 📧 Email: <ldengbin@126.com>
 - 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
 - 📖 Documentation: [User-Manual](https://github.com/ldbinac/smart_table/blob/main/doc/Smart-Table-User-Manual.md)
 
----
+***
 
 **⭐ If this project helps you, please give us a Star! ⭐**
 

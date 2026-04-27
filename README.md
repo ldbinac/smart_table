@@ -16,47 +16,48 @@
 
 ### 📝 支持的字段类型（26 种）
 
-| 类别 | 字段类型 | 说明 | 状态 |
-| ---- | ---- | ---- | -- |
-| **文本类型** | 单行文本 | 短文本输入，支持验证规则 | ✅ |
-| **文本类型** | 多行文本 | 长文本输入，支持多行编辑 | ✅ |
-| **文本类型** | 富文本 | HTML富文本编辑器，支持格式化 | ✅ |
-| **数值类型** | 数字 | 整数/小数，支持格式化（数字/货币/百分比） | ✅ |
-| **日期类型** | 日期 | 日期选择器，支持多种日期格式 | ✅ |
-| **日期类型** | 日期时间 | 日期时间选择器，精确到秒 | ✅ |
-| **选择类型** | 单选 | 下拉单选，支持自定义选项和颜色 | ✅ |
-| **选择类型** | 多选 | 标签式多选，支持自定义选项 | ✅ |
-| **选择类型** | 复选框 | 布尔值开关 | ✅ |
-| **人员类型** | 成员 | 用户选择，支持当前用户默认值 | ✅ |
-| **联系方式** | 电话 | 电话号码输入和格式化显示 | ✅ |
-| **联系方式** | 邮箱 | 邮箱地址输入和验证 | ✅ |
-| **联系方式** | 链接 (URL) | URL链接，支持点击跳转 | ✅ |
-| **媒体类型** | 附件 | 文件上传下载，支持图片预览和缩略图 | ✅ |
-| **计算类型** | 公式 | 43个内置函数，支持字段引用和嵌套计算 | ✅ |
-| **关联类型** | 关联 (Link) | 表间关联，支持一对一/一对多/多对多关系 | ✅ |
-| **查找类型** | 查找 (Lookup) | 跨表查询，支持聚合计算（求和/平均值/计数等） | ✅ |
-| **系统类型** | 创建人 | 自动记录记录创建者 | ✅ |
-| **系统类型** | 创建时间 | 自动记录创建时间戳 | ✅ |
-| **系统类型** | 更新人 | 自动记录最后修改者 | ✅ |
-| **系统类型** | 更新时间 | 自动记录最后修改时间 | ✅ |
-| **系统类型** | 自动编号 | 自增编号，支持前缀/后缀/日期格式/补零 | ✅ |
-| **其他** | 评分 | 星级评分组件 | ✅ |
-| **其他** | 进度 | 进度条/百分比显示 | ✅ |
+| 类别       | 字段类型        | 说明                      | 状态 |
+| -------- | ----------- | ----------------------- | -- |
+| **文本类型** | 单行文本        | 短文本输入，支持验证规则            | ✅  |
+| **文本类型** | 多行文本        | 长文本输入，支持多行编辑            | ✅  |
+| **文本类型** | 富文本         | HTML富文本编辑器，支持格式化        | ✅  |
+| **数值类型** | 数字          | 整数/小数，支持格式化（数字/货币/百分比）  | ✅  |
+| **日期类型** | 日期          | 日期选择器，支持多种日期格式          | ✅  |
+| **日期类型** | 日期时间        | 日期时间选择器，精确到秒            | ✅  |
+| **选择类型** | 单选          | 下拉单选，支持自定义选项和颜色         | ✅  |
+| **选择类型** | 多选          | 标签式多选，支持自定义选项           | ✅  |
+| **选择类型** | 复选框         | 布尔值开关                   | ✅  |
+| **人员类型** | 成员          | 用户选择，支持当前用户默认值          | ✅  |
+| **联系方式** | 电话          | 电话号码输入和格式化显示            | ✅  |
+| **联系方式** | 邮箱          | 邮箱地址输入和验证               | ✅  |
+| **联系方式** | 链接 (URL)    | URL链接，支持点击跳转            | ✅  |
+| **媒体类型** | 附件          | 文件上传下载，支持图片预览和缩略图       | ✅  |
+| **计算类型** | 公式          | 43个内置函数，支持字段引用和嵌套计算     | ✅  |
+| **关联类型** | 关联 (Link)   | 表间关联，支持一对一/一对多/多对多关系    | ✅  |
+| **查找类型** | 查找 (Lookup) | 跨表查询，支持聚合计算（求和/平均值/计数等） | ✅  |
+| **系统类型** | 创建人         | 自动记录记录创建者               | ✅  |
+| **系统类型** | 创建时间        | 自动记录创建时间戳               | ✅  |
+| **系统类型** | 更新人         | 自动记录最后修改者               | ✅  |
+| **系统类型** | 更新时间        | 自动记录最后修改时间              | ✅  |
+| **系统类型** | 自动编号        | 自增编号，支持前缀/后缀/日期格式/补零    | ✅  |
+| **其他**   | 评分          | 星级评分组件                  | ✅  |
+| **其他**   | 进度          | 进度条/百分比显示               | ✅  |
 
 ### 🎨 支持的视图类型（6 种）
 
-| 视图类型 | 功能描述 | 状态 |
-| ---- | ---- | -- |
-| **表格视图** | 经典表格展示，支持虚拟滚动、列冻结、字段筛选 | ✅ |
-| **看板视图** | 卡片式展示，支持拖拽排序和分组 | ✅ |
-| **日历视图** | 时间维度展示，按日期分组显示 | ✅ |
-| **甘特图视图** | 项目进度时间线展示，支持任务依赖 | ✅ |
-| **表单视图** | 数据收集表单，支持公开分享和自定义配置 | ✅ |
-| **画廊视图** | 图片卡片网格展示，适合媒体内容 | ✅ |
+| 视图类型      | 功能描述                   | 状态 |
+| --------- | ---------------------- | -- |
+| **表格视图**  | 经典表格展示，支持虚拟滚动、列冻结、字段筛选 | ✅  |
+| **看板视图**  | 卡片式展示，支持拖拽排序和分组        | ✅  |
+| **日历视图**  | 时间维度展示，按日期分组显示         | ✅  |
+| **甘特图视图** | 项目进度时间线展示，支持任务依赖       | ✅  |
+| **表单视图**  | 数据收集表单，支持公开分享和自定义配置    | ✅  |
+| **画廊视图**  | 图片卡片网格展示，适合媒体内容        | ✅  |
 
 ### 🚀 高级功能
 
 #### 数据处理
+
 - **数据筛选** - 多条件组合筛选，支持 AND/OR 逻辑，20+ 种操作符
 - **数据排序** - 多字段排序，支持升序/降序，拖拽调整优先级
 - **数据分组** - 按字段分组展示，支持多级分组（最多 3 级）、分组统计
@@ -65,6 +66,7 @@
 - **数据导出** - 支持 Excel、CSV、JSON 格式，自定义导出字段
 
 #### 协作与分享
+
 - **Base 分享** - 多维表级别分享，支持链接分享和权限控制
 - **表单分享** - 表单视图公开分享，支持配置提交选项
 - **仪表盘分享** - 仪表盘公开分享，支持实时数据展示
@@ -78,6 +80,7 @@
   - 优雅降级（实时不可用时自动切换为普通模式）
 
 #### 权限与安全
+
 - **用户认证** - JWT Token 认证，支持刷新 Token、邮箱验证、密码重置
 - **角色权限** - 基于角色的访问控制（RBAC）
   - 所有者（Owner）- 完全控制权限
@@ -89,6 +92,7 @@
 - **操作日志** - 完整的操作审计日志
 
 #### 用户体验
+
 - **拖拽排序** - 表格、字段、视图、看板卡片拖拽排序
 - **收藏功能** - 快速访问常用的表格和仪表盘
 - **搜索功能** - 快速搜索表格名称和记录内容
@@ -96,6 +100,7 @@
 - **快捷键支持** - 常用操作的键盘快捷键
 
 #### 仪表盘系统
+
 - **多种图表组件** - 数字卡片、时钟组件、日期组件、KPI 卡片、跑马灯、实时图表等
 - **仪表盘模板** - 支持保存和复用仪表盘配置模板
 - **网格布局** - 灵活的网格布局系统，支持自定义行列配置
@@ -103,6 +108,7 @@
 - **分享功能** - 仪表盘公开分享，支持嵌入外部网站
 
 #### 邮件系统（可选）
+
 - **SMTP 配置** - 支持自定义 SMTP 服务器
 - **邮件模板** - 可自定义邮件模板（注册验证、密码重置等）
 - **邮件队列** - 异步邮件发送队列，支持重试机制
@@ -111,71 +117,71 @@
 
 ## 📸 功能预览
 
-| 功能 | 预览图 | 功能 | 预览图 |
-| ---- | ---- | ---- | ---- |
-| 登录 | ![](./doc/img/login.png) | 注册 | ![](./doc/img/register.png) |
-| 首页 | ![首页](./doc/img/home.jpeg) | 全部首页 | ![首页2](./doc/img/home-all.jpeg) |
-| 表格视图 | ![表格视图](./doc/img/TableView.jpeg) | 分组表格 | ![分组表格](./doc/img/TableViewGroup.jpeg) |
-| 表格字段 | ![表格字段](./doc/img/TableViewFields.jpeg) | 看板视图 | ![看板视图](./doc/img/KanbanView.jpeg) |
-| 日历视图 | ![日历视图](./doc/img/CalendarView.jpeg) | 甘特图视图 | ![甘特图视图](./doc/img/GanttView.jpeg) |
-| 表单视图 | ![表单视图](./doc/img/FormView.jpeg) | 仪表盘 | ![仪表盘](./doc/img/Dashboard.jpeg) |
-| 分享功能 | ![分享](./doc/img/sharing.png) | - | - |
+| 功能   | 预览图                                     | 功能    | 预览图                                    |
+| ---- | --------------------------------------- | ----- | -------------------------------------- |
+| 登录   | ![](./doc/img/login.png)                | 注册    | ![](./doc/img/register.png)            |
+| 首页   | ![首页](./doc/img/home.jpeg)              | 全部首页  | ![首页2](./doc/img/home-all.jpeg)        |
+| 表格视图 | ![表格视图](./doc/img/TableView.jpeg)       | 分组表格  | ![分组表格](./doc/img/TableViewGroup.jpeg) |
+| 表格字段 | ![表格字段](./doc/img/TableViewFields.jpeg) | 看板视图  | ![看板视图](./doc/img/KanbanView.jpeg)     |
+| 日历视图 | ![日历视图](./doc/img/CalendarView.jpeg)    | 甘特图视图 | ![甘特图视图](./doc/img/GanttView.jpeg)     |
+| 表单视图 | ![表单视图](./doc/img/FormView.jpeg)        | 仪表盘   | ![仪表盘](./doc/img/Dashboard.jpeg)       |
+| 分享功能 | ![分享](./doc/img/sharing.png)            | -     | -                                      |
 
 ## 🛠️ 技术栈
 
 ### 前端技术栈
 
-| 类别 | 技术 | 版本 | 说明 |
-| ---- | ---- | ---- | ---- |
-| 前端框架 | Vue 3 | ^3.5.30 | Composition API |
-| 语言 | TypeScript | ~5.9.3 | 类型安全 |
-| 状态管理 | Pinia | ^2.3.1 | 轻量级状态管理 |
-| 路由 | Vue Router | ^4.6.4 | SPA 路由 |
-| UI 组件库 | Element Plus | ^2.13.6 | 企业级 UI 组件 |
-| 表格组件 | vxe-table | ^4.18.7 | 高性能虚拟滚动表格 |
-| 图表库 | echarts + vue-echarts | ^5.6.0 / ^6.7.3 | 数据可视化 |
-| 日期处理 | dayjs | ^1.11.20 | 轻量级日期库 |
-| 拖拽排序 | sortablejs | ^1.15.7 | 拖拽功能 |
-| HTTP 客户端 | axios | ^1.14.0 | HTTP 请求 |
-| 本地数据库 | Dexie | ^3.2.7 | IndexedDB 封装 |
-| WebSocket | socket.io-client | ^4.8.3 | 实时通信 |
-| 工具库 | lodash-es, @vueuse/core | - | 工具函数集 |
-| 富文本 | dompurify | ^3.4.0 | XSS 防护 |
-| 电子表格 | xlsx | ^0.18.5 | Excel 解析生成 |
-| 构建工具 | Vite | ^8.0.1 | 极速构建工具 |
-| 测试框架 | Vitest | ^3.2.4 | 单元测试 |
+| 类别        | 技术                      | 版本              | 说明              |
+| --------- | ----------------------- | --------------- | --------------- |
+| 前端框架      | Vue 3                   | ^3.5.30         | Composition API |
+| 语言        | TypeScript              | \~5.9.3         | 类型安全            |
+| 状态管理      | Pinia                   | ^2.3.1          | 轻量级状态管理         |
+| 路由        | Vue Router              | ^4.6.4          | SPA 路由          |
+| UI 组件库    | Element Plus            | ^2.13.6         | 企业级 UI 组件       |
+| 表格组件      | vxe-table               | ^4.18.7         | 高性能虚拟滚动表格       |
+| 图表库       | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | 数据可视化           |
+| 日期处理      | dayjs                   | ^1.11.20        | 轻量级日期库          |
+| 拖拽排序      | sortablejs              | ^1.15.7         | 拖拽功能            |
+| HTTP 客户端  | axios                   | ^1.14.0         | HTTP 请求         |
+| 本地数据库     | Dexie                   | ^3.2.7          | IndexedDB 封装    |
+| WebSocket | socket.io-client        | ^4.8.3          | 实时通信            |
+| 工具库       | lodash-es, @vueuse/core | -               | 工具函数集           |
+| 富文本       | dompurify               | ^3.4.0          | XSS 防护          |
+| 电子表格      | xlsx                    | ^0.18.5         | Excel 解析生成      |
+| 构建工具      | Vite                    | ^8.0.1          | 极速构建工具          |
+| 测试框架      | Vitest                  | ^3.2.4          | 单元测试            |
 
 ### 后端技术栈（可选）
 
-| 类别 | 技术 | 版本 | 说明 |
-| ---- | ---- | ---- | ---- |
-| 框架 | Flask | 3.0.0 | Python Web 框架 |
-| 数据库 | SQLite (默认) / PostgreSQL | 3.x / 16+ | 关系型数据库 |
-| ORM | SQLAlchemy | 2.0.23 | Python ORM |
-| 数据库迁移 | Alembic (Flask-Migrate) | 4.0.5 | 数据库版本管理 |
-| 认证 | JWT (Flask-JWT-Extended) | 4.6.0 | Token 认证 |
-| 密码加密 | Flask-Bcrypt, bcrypt | 1.0.1 / 4.1.2 | 密码哈希 |
-| 表单验证 | Flask-WTF | 1.2.1 | CSRF 保护 |
-| CORS | Flask-CORS | 4.0.0 | 跨域支持 |
-| 缓存 | Flask-Caching (+ Redis 可选) | 2.1.0 | 缓存加速 |
-| WebSocket | Flask-SocketIO | 5.3.6 | 实时通信 |
-| 异步支持 | eventlet | 0.36.1 | 异步处理 |
-| 数据序列化 | marshmallow | 3.20.1 | 数据验证序列化 |
-| 导入导出 | pandas, openpyxl, xlrd | 2.1.4 / 3.1.2 / 2.0.1 | 数据处理 |
-| 图片处理 | Pillow | 10.4.0 | 图片缩略图 |
-| 对象存储 | MinIO (可选) | - | 文件对象存储 |
-| 加密 | cryptography | 42.0.5 | 加密算法 |
-| API 文档 | Flasgger | 0.9.7b2 | Swagger UI |
-| WSGI 服务器 | Gunicorn | 21.2.0 | 生产服务器 |
-| 部署 | Docker, Nginx | - | 容器化部署 |
+| 类别        | 技术                         | 版本                    | 说明            |
+| --------- | -------------------------- | --------------------- | ------------- |
+| 框架        | Flask                      | 3.0.0                 | Python Web 框架 |
+| 数据库       | SQLite (默认) / PostgreSQL   | 3.x / 16+             | 关系型数据库        |
+| ORM       | SQLAlchemy                 | 2.0.23                | Python ORM    |
+| 数据库迁移     | Alembic (Flask-Migrate)    | 4.0.5                 | 数据库版本管理       |
+| 认证        | JWT (Flask-JWT-Extended)   | 4.6.0                 | Token 认证      |
+| 密码加密      | Flask-Bcrypt, bcrypt       | 1.0.1 / 4.1.2         | 密码哈希          |
+| 表单验证      | Flask-WTF                  | 1.2.1                 | CSRF 保护       |
+| CORS      | Flask-CORS                 | 4.0.0                 | 跨域支持          |
+| 缓存        | Flask-Caching (+ Redis 可选) | 2.1.0                 | 缓存加速          |
+| WebSocket | Flask-SocketIO             | 5.3.6                 | 实时通信          |
+| 异步支持      | eventlet                   | 0.36.1                | 异步处理          |
+| 数据序列化     | marshmallow                | 3.20.1                | 数据验证序列化       |
+| 导入导出      | pandas, openpyxl, xlrd     | 2.1.4 / 3.1.2 / 2.0.1 | 数据处理          |
+| 图片处理      | Pillow                     | 10.4.0                | 图片缩略图         |
+| 对象存储      | MinIO (可选)                 | -                     | 文件对象存储        |
+| 加密        | cryptography               | 42.0.5                | 加密算法          |
+| API 文档    | Flasgger                   | 0.9.7b2               | Swagger UI    |
+| WSGI 服务器  | Gunicorn                   | 21.2.0                | 生产服务器         |
+| 部署        | Docker, Nginx              | -                     | 容器化部署         |
 
 ### 数据存储方案
 
-| 模式 | 技术 | 说明 |
-| ---- | ---- | ---- |
-| **纯前端模式** | Dexie (IndexedDB) | 数据存储在浏览器本地，无需服务端，适合个人使用或离线场景 |
-| **后端模式** | SQLite + Flask | 默认使用 SQLite，轻量级无需额外安装数据库 |
-| **生产模式** | PostgreSQL + Flask | 支持 PostgreSQL，适合多用户并发和生产环境 |
+| 模式        | 技术                 | 说明                           |
+| --------- | ------------------ | ---------------------------- |
+| **纯前端模式** | Dexie (IndexedDB)  | 数据存储在浏览器本地，无需服务端，适合个人使用或离线场景 |
+| **后端模式**  | SQLite + Flask     | 默认使用 SQLite，轻量级无需额外安装数据库     |
+| **生产模式**  | PostgreSQL + Flask | 支持 PostgreSQL，适合多用户并发和生产环境   |
 
 ## 🚀 快速开始
 
@@ -198,9 +204,10 @@
 ```
 
 脚本会自动：
+
 1. 安装前端依赖并启动开发服务器（端口 5173）
 2. 安装后端依赖并启动 Flask 服务器（端口 5000）
-3. 打开浏览器访问 http://localhost:5173
+3. 打开浏览器访问 <http://localhost:5173>
 
 ### 前端开发
 
@@ -217,7 +224,7 @@ npm install
 npm run dev
 ```
 
-访问 http://localhost:5173
+访问 <http://localhost:5173>
 
 #### 构建生产版本
 
@@ -310,16 +317,16 @@ python run.py -r
 
 #### 后端特性
 
-✅ **默认数据库**: SQLite（轻量级，无需额外安装）  
-✅ **可选数据库**: PostgreSQL（通过环境变量 `DATABASE_URL` 配置）  
-✅ **认证系统**: JWT Token 认证，支持刷新 Token、邮箱验证  
-✅ **权限管理**: 基于角色的权限控制（RBAC）  
-✅ **数据迁移**: Alembic 数据库迁移工具  
-✅ **API 文档**: 完整的 Swagger/OpenAPI 文档（Flasgger）  
-✅ **实时协作**: 可选的 WebSocket 实时协作功能（通过 `--enable-realtime` 启用）  
-✅ **邮件系统**: 可选的 SMTP 邮件发送功能  
-✅ **对象存储**: 可选的 MinIO 文件存储  
-✅ **安全防护**: XSS 防护、速率限制、安全响应头  
+✅ **默认数据库**: SQLite（轻量级，无需额外安装）\
+✅ **可选数据库**: PostgreSQL（通过环境变量 `DATABASE_URL` 配置）\
+✅ **认证系统**: JWT Token 认证，支持刷新 Token、邮箱验证\
+✅ **权限管理**: 基于角色的权限控制（RBAC）\
+✅ **数据迁移**: Alembic 数据库迁移工具\
+✅ **API 文档**: 完整的 Swagger/OpenAPI 文档（Flasgger）\
+✅ **实时协作**: 可选的 WebSocket 实时协作功能（通过 `--enable-realtime` 启用）\
+✅ **邮件系统**: 可选的 SMTP 邮件发送功能\
+✅ **对象存储**: 可选的 MinIO 文件存储\
+✅ **安全防护**: XSS 防护、速率限制、安全响应头
 
 ## 📁 项目结构
 
@@ -729,38 +736,45 @@ View (视图)
 ### 主要模型说明
 
 #### User（用户）
+
 - 用户认证信息（用户名、邮箱、密码哈希）
 - 邮箱验证状态
 - 角色权限（普通用户/管理员）
 - 头像和个人资料
 
 #### Base（多维表格）
+
 - 多维表格基础单元
 - 支持收藏、自定义图标和颜色
 - 成员管理和权限控制
 - 分享设置（公开/私有/密码保护）
 
 #### Table（数据表）
+
 - 包含字段定义和记录数据
 - 支持拖拽排序、收藏
 - 关联关系配置
 
 #### Field（字段）
+
 - 定义数据列的类型和属性
 - 支持 26 种字段类型
 - 丰富的字段选项（验证规则、默认值、格式化等）
 
 #### Record（记录）
+
 - 数据行，存储各字段的值
 - 支持增删改查、批量操作
 - 完整的变更历史追踪
 
 #### View（视图）
+
 - 数据展示方式（6 种视图类型）
 - 独立的筛选、排序、分组配置
 - 视图级别字段控制（隐藏、冻结、宽度）
 
 #### CollaborationSession（协作会话）
+
 - 实时协作会话追踪
 - 记录用户加入/离开、活跃状态
 - 仅在启用实时协作功能时使用
@@ -796,70 +810,70 @@ LOOKUP({关联表.相关记录}, {目标字段})
 
 #### 📊 数学函数（11 个）
 
-| 函数 | 说明 | 示例 |
-| ---- | ---- | ---- |
-| `SUM` | 求和 | `SUM({字段1}, {字段2})` |
-| `AVG` | 平均值 | `AVG({分数})` |
-| `MAX` | 最大值 | `MAX({年龄})` |
-| `MIN` | 最小值 | `MIN({价格})` |
-| `ROUND` | 四舍五入 | `ROUND({数值}, 2)` |
-| `CEILING` | 向上取整 | `CEILING({数值})` |
-| `FLOOR` | 向下取整 | `FLOOR({数值})` |
-| `ABS` | 绝对值 | `ABS({差值})` |
-| `MOD` | 取余 | `MOD({数值}, 2)` |
-| `POWER` | 幂运算 | `POWER({底数}, 2)` |
-| `SQRT` | 平方根 | `SQRT({数值})` |
+| 函数        | 说明   | 示例                  |
+| --------- | ---- | ------------------- |
+| `SUM`     | 求和   | `SUM({字段1}, {字段2})` |
+| `AVG`     | 平均值  | `AVG({分数})`         |
+| `MAX`     | 最大值  | `MAX({年龄})`         |
+| `MIN`     | 最小值  | `MIN({价格})`         |
+| `ROUND`   | 四舍五入 | `ROUND({数值}, 2)`    |
+| `CEILING` | 向上取整 | `CEILING({数值})`     |
+| `FLOOR`   | 向下取整 | `FLOOR({数值})`       |
+| `ABS`     | 绝对值  | `ABS({差值})`         |
+| `MOD`     | 取余   | `MOD({数值}, 2)`      |
+| `POWER`   | 幂运算  | `POWER({底数}, 2)`    |
+| `SQRT`    | 平方根  | `SQRT({数值})`        |
 
 #### 📝 文本函数（10 个）
 
-| 函数 | 说明 | 示例 |
-| ---- | ---- | ---- |
-| `CONCAT` | 连接文本 | `CONCAT({姓}, {名})` |
-| `LEFT` | 左侧截取 | `LEFT({文本}, 3)` |
-| `RIGHT` | 右侧截取 | `RIGHT({文本}, 3)` |
-| `LEN` | 文本长度 | `LEN({描述})` |
-| `UPPER` | 转大写 | `UPPER({文本})` |
-| `LOWER` | 转小写 | `LOWER({文本})` |
-| `TRIM` | 去除空格 | `TRIM({文本})` |
+| 函数           | 说明   | 示例                           |
+| ------------ | ---- | ---------------------------- |
+| `CONCAT`     | 连接文本 | `CONCAT({姓}, {名})`           |
+| `LEFT`       | 左侧截取 | `LEFT({文本}, 3)`              |
+| `RIGHT`      | 右侧截取 | `RIGHT({文本}, 3)`             |
+| `LEN`        | 文本长度 | `LEN({描述})`                  |
+| `UPPER`      | 转大写  | `UPPER({文本})`                |
+| `LOWER`      | 转小写  | `LOWER({文本})`                |
+| `TRIM`       | 去除空格 | `TRIM({文本})`                 |
 | `SUBSTITUTE` | 替换文本 | `SUBSTITUTE({文本}, "旧", "新")` |
-| `REPLACE` | 替换位置 | `REPLACE({文本}, 1, 3, "新")` |
-| `FIND` | 查找位置 | `FIND("子串", {文本})` |
+| `REPLACE`    | 替换位置 | `REPLACE({文本}, 1, 3, "新")`   |
+| `FIND`       | 查找位置 | `FIND("子串", {文本})`           |
 
 #### 📅 日期函数（10 个）
 
-| 函数 | 说明 | 示例 |
-| ---- | ---- | ---- |
-| `TODAY` | 今天日期 | `TODAY()` |
-| `NOW` | 当前时间 | `NOW()` |
-| `YEAR` | 提取年份 | `YEAR({日期})` |
-| `MONTH` | 提取月份 | `MONTH({日期})` |
-| `DAY` | 提取日期 | `DAY({日期})` |
-| `HOUR` | 提取小时 | `HOUR({时间})` |
-| `MINUTE` | 提取分钟 | `MINUTE({时间})` |
-| `SECOND` | 提取秒数 | `SECOND({时间})` |
-| `DATEDIF` | 日期差 | `DATEDIF({开始}, {结束}, "D")` |
-| `DATEADD` | 日期加减 | `DATEADD({日期}, 7, "D")` |
+| 函数        | 说明   | 示例                         |
+| --------- | ---- | -------------------------- |
+| `TODAY`   | 今天日期 | `TODAY()`                  |
+| `NOW`     | 当前时间 | `NOW()`                    |
+| `YEAR`    | 提取年份 | `YEAR({日期})`               |
+| `MONTH`   | 提取月份 | `MONTH({日期})`              |
+| `DAY`     | 提取日期 | `DAY({日期})`                |
+| `HOUR`    | 提取小时 | `HOUR({时间})`               |
+| `MINUTE`  | 提取分钟 | `MINUTE({时间})`             |
+| `SECOND`  | 提取秒数 | `SECOND({时间})`             |
+| `DATEDIF` | 日期差  | `DATEDIF({开始}, {结束}, "D")` |
+| `DATEADD` | 日期加减 | `DATEADD({日期}, 7, "D")`    |
 
 #### 🧠 逻辑函数（7 个）
 
-| 函数 | 说明 | 示例 |
-| ---- | ---- | ---- |
-| `IF` | 条件判断 | `IF({条件}, "真值", "假值")` |
-| `AND` | 逻辑与 | `AND({条件1}, {条件2})` |
-| `OR` | 逻辑或 | `OR({条件1}, {条件2})` |
-| `NOT` | 逻辑非 | `NOT({条件})` |
-| `IFERROR` | 错误处理 | `IFERROR({公式}, "默认值")` |
-| `IFS` | 多条件判断 | `IFS({条件1}, {值1}, {条件2}, {值2})` |
-| `SWITCH` | 多值匹配 | `SWITCH({字段}, "A", 1, "B", 2)` |
+| 函数        | 说明    | 示例                              |
+| --------- | ----- | ------------------------------- |
+| `IF`      | 条件判断  | `IF({条件}, "真值", "假值")`          |
+| `AND`     | 逻辑与   | `AND({条件1}, {条件2})`             |
+| `OR`      | 逻辑或   | `OR({条件1}, {条件2})`              |
+| `NOT`     | 逻辑非   | `NOT({条件})`                     |
+| `IFERROR` | 错误处理  | `IFERROR({公式}, "默认值")`          |
+| `IFS`     | 多条件判断 | `IFS({条件1}, {值1}, {条件2}, {值2})` |
+| `SWITCH`  | 多值匹配  | `SWITCH({字段}, "A", 1, "B", 2)`  |
 
 #### 📈 统计函数（5 个）
 
-| 函数 | 说明 | 示例 |
-| ---- | ---- | ---- |
-| `COUNT` | 计数 | `COUNT({字段})` |
-| `COUNTA` | 非空计数 | `COUNTA({字段})` |
-| `COUNTIF` | 条件计数 | `COUNTIF({字段}, ">100")` |
-| `SUMIF` | 条件求和 | `SUMIF({类别}, "A", {金额})` |
+| 函数          | 说明   | 示例                            |
+| ----------- | ---- | ----------------------------- |
+| `COUNT`     | 计数   | `COUNT({字段})`                 |
+| `COUNTA`    | 非空计数 | `COUNTA({字段})`                |
+| `COUNTIF`   | 条件计数 | `COUNTIF({字段}, ">100")`       |
+| `SUMIF`     | 条件求和 | `SUMIF({类别}, "A", {金额})`      |
 | `AVERAGEIF` | 条件平均 | `AVERAGEIF({部门}, "研发", {薪资})` |
 
 ## 🌐 RESTful API 接口
@@ -869,159 +883,10 @@ LOOKUP({关联表.相关记录}, {目标字段})
 - **Base URL**: `http://localhost:5000/api`
 - **认证方式**: Bearer Token (JWT)
 - **数据格式**: JSON
-- **API 文档**: 
-  - Swagger UI: `http://localhost:5000/api/docs`
-  - ReDoc: `http://localhost:5000/api/apidoc`
+- **API 文档**:
+  - Swagger UI: `http://localhost:5000/apidocs`
 
-### 认证接口 (`/api/auth`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| POST | `/api/auth/register` | 用户注册 | ❌ |
-| POST | `/api/auth/login` | 用户登录 | ❌ |
-| POST | `/api/auth/logout` | 登出（注销所有Token） | ✅ |
-| POST | `/api/auth/refresh` | 刷新 Token | ✅ |
-| GET | `/api/auth/me` | 获取当前用户信息 | ✅ |
-| POST | `/api/auth/forgot-password` | 忘记密码 | ❌ |
-| POST | `/api/auth/reset-password` | 重置密码 | ❌ |
-| GET | `/api/auth/verify-email` | 验证邮箱 | ❌ |
-| GET | `/api/auth/captcha` | 获取验证码图片 | ❌ |
-
-### Base 接口 (`/api/bases`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/bases` | 获取 Base 列表 | ✅ |
-| POST | `/api/bases` | 创建 Base | ✅ |
-| GET | `/api/bases/{base_id}` | 获取 Base 详情 | ✅ |
-| PUT | `/api/bases/{base_id}` | 更新 Base | ✅ |
-| DELETE | `/api/bases/{base_id}` | 删除 Base | ✅ |
-| POST | `/api/bases/{base_id}/star` | 收藏/取消收藏 | ✅ |
-| GET | `/api/bases/{base_id}/members` | 获取成员列表 | ✅ |
-| POST | `/api/bases/{base_id}/members` | 添加成员 | ✅ |
-| PUT | `/api/bases/{base_id}/members/{user_id}` | 更新成员角色 | ✅ |
-| DELETE | `/api/bases/{base_id}/members/{user_id}` | 移除成员 | ✅ |
-| POST | `/api/bases/{base_id}/share` | 创建分享链接 | ✅ |
-| GET | `/api/bases/{base_id}/shares` | 获取分享列表 | ✅ |
-
-### 表格接口 (`/api/bases/{base_id}/tables`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/tables` | 获取表格列表 | ✅ |
-| POST | `/api/tables` | 创建表格 | ✅ |
-| GET | `/api/tables/{table_id}` | 获取表格详情 | ✅ |
-| PUT | `/api/tables/{table_id}` | 更新表格 | ✅ |
-| DELETE | `/api/tables/{table_id}` | 删除表格 | ✅ |
-| POST | `/api/tables/{table_id}/duplicate` | 复制表格 | ✅ |
-| PUT | `/api/tables/{table_id}/sort` | 更新排序 | ✅ |
-| POST | `/api/tables/{table_id}/star` | 收藏/取消收藏 | ✅ |
-
-### 字段接口 (`/api/fields`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/fields?table_id={id}` | 获取字段列表 | ✅ |
-| POST | `/api/fields` | 创建字段 | ✅ |
-| PUT | `/api/fields/{field_id}` | 更新字段 | ✅ |
-| DELETE | `/api/fields/{field_id}` | 删除字段 | ✅ |
-| PUT | `/api/fields/{field_id}/sort` | 更新字段排序 | ✅ |
-| PUT | `/api/fields/batch-sort` | 批量更新排序 | ✅ |
-
-### 记录接口 (`/api/records`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/records?table_id={id}` | 获取记录列表 | ✅ |
-| POST | `/api/records` | 创建记录 | ✅ |
-| GET | `/api/records/{record_id}` | 获取记录详情 | ✅ |
-| PUT | `/api/records/{record_id}` | 更新记录 | ✅ |
-| DELETE | `/api/records/{record_id}` | 删除记录 | ✅ |
-| POST | `/api/records/batch-delete` | 批量删除 | ✅ |
-| GET | `/api/records/{record_id}/history` | 获取变更历史 | ✅ |
-
-### 视图接口 (`/api/views`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/views?table_id={id}` | 获取视图列表 | ✅ |
-| POST | `/api/views` | 创建视图 | ✅ |
-| PUT | `/api/views/{view_id}` | 更新视图 | ✅ |
-| DELETE | `/api/views/{view_id}` | 删除视图 | ✅ |
-| PUT | `/api/views/{view_id}/config` | 更新视图配置 | ✅ |
-
-### 仪表盘接口 (`/api/dashboards`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/dashboards` | 获取仪表盘列表 | ✅ |
-| POST | `/api/dashboards` | 创建仪表盘 | ✅ |
-| GET | `/api/dashboards/{dashboard_id}` | 获取仪表盘详情 | ✅ |
-| PUT | `/api/dashboards/{dashboard_id}` | 更新仪表盘 | ✅ |
-| DELETE | `/api/dashboards/{dashboard_id}` | 删除仪表盘 | ✅ |
-| POST | `/api/dashboards/{dashboard_id}/star` | 收藏/取消收藏 | ✅ |
-| POST | `/api/dashboards/{dashboard_id}/share` | 创建分享链接 | ✅ |
-
-### 附件接口 (`/api/attachments`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| POST | `/api/attachments/upload` | 上传附件 | ✅ |
-| GET | `/api/attachments/{attachment_id}` | 获取附件信息 | ✅ |
-| GET | `/api/attachments/{attachment_id}/download` | 下载附件 | ✅ |
-| DELETE | `/api/attachments/{attachment_id}` | 删除附件 | ✅ |
-| GET | `/api/attachments/{attachment_id}/thumbnail` | 获取缩略图 | ✅ |
-
-### 导入导出接口 (`/api/import-export`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| POST | `/api/import-export/import` | 导入数据（Excel/CSV/JSON） | ✅ |
-| POST | `/api/import-export/create-table-from-excel` | 从 Excel 创建新表 ⭐ | ✅ |
-| GET | `/api/import-export/export` | 导出数据（Excel/CSV/JSON） | ✅ |
-| GET | `/api/import-export/templates` | 获取导入模板 | ✅ |
-
-### 分享接口 (`/api/shares`, `/api/form-shares`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/shares/my-shares` | 我的分享 | ✅ |
-| GET | `/api/shares/shared-with-me` | 分享给我 | ✅ |
-| POST | `/api/form-shares` | 创建表单分享 | ✅ |
-| GET | `/api/form-shares/{share_token}` | 获取表单分享信息 | ❌ |
-| POST | `/api/form-shares/{share_token}/submit` | 提交表单数据 | ❌ |
-
-### 邮件接口 (`/api/email`) [管理员]
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/email/config` | 获取邮件配置 | ✅ Admin |
-| PUT | `/api/email/config` | 更新邮件配置 | ✅ Admin |
-| GET | `/api/email/templates` | 获取邮件模板列表 | ✅ Admin |
-| PUT | `/api/email/templates/{template_id}` | 更新邮件模板 | ✅ Admin |
-| GET | `/api/email/logs` | 获取邮件日志 | ✅ Admin |
-| GET | `/api/email/stats` | 获取邮件统计 | ✅ Admin |
-| POST | `/api/email/test` | 发送测试邮件 | ✅ Admin |
-
-### 管理接口 (`/api/admin`) [管理员]
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/admin/users` | 获取用户列表 | ✅ Admin |
-| PUT | `/api/admin/users/{user_id}` | 更新用户 | ✅ Admin |
-| DELETE | `/api/admin/users/{user_id}` | 删除用户 | ✅ Admin |
-| PUT | `/api/admin/users/{user_id}/reset-password` | 重置密码 | ✅ Admin |
-| GET | `/api/admin/settings` | 获取系统设置 | ✅ Admin |
-| PUT | `/api/admin/settings` | 更新系统设置 | ✅ Admin |
-| GET | `/api/admin/operation-logs` | 获取操作日志 | ✅ Admin |
-
-### 实时协作接口 (`/api/realtime`)
-
-| 方法 | 端点 | 说明 | 认证 |
-| ---- | ---- | ---- | ---- |
-| GET | `/api/realtime/status` | 查询实时协作服务状态 | ✅ |
-
-> ⚠️ **注意**: 实时协作功能默认关闭，需通过启动参数 `--enable-realtime` 或环境变量 `ENABLE_REALTIME=true` 启用
+##
 
 ## ⚡ 实时协作配置
 
@@ -1065,34 +930,34 @@ environment:
 
 ### 功能特性
 
-| 功能 | 说明 |
-| ---- | ---- |
-| **在线状态** | 显示当前正在编辑同一表格的用户及其光标位置 |
-| **视图同步** | 实时同步其他用户的视图切换和滚动位置 |
-| **单元格锁定** | 正在编辑的单元格自动锁定，防止多人同时编辑冲突 |
-| **冲突检测** | 基于乐观锁的冲突检测机制，返回 409 Conflict 状态码 |
-| **离线队列** | 断网时操作自动缓存在本地，重新连接后自动按顺序重放 |
-| **优雅降级** | 当 WebSocket 连接不可用时，自动降级为普通的 HTTP 轮询模式 |
+| 功能        | 说明                                    |
+| --------- | ------------------------------------- |
+| **在线状态**  | 显示当前正在编辑同一表格的用户及其光标位置                 |
+| **视图同步**  | 实时同步其他用户的视图切换和滚动位置                    |
+| **单元格锁定** | 正在编辑的单元格自动锁定，防止多人同时编辑冲突               |
+| **冲突检测**  | 基于乐观锁的冲突检测机制，返回 409 Conflict 状态码      |
+| **离线队列**  | 断网时操作自动缓存在本地，重新连接后自动按顺序重放             |
+| **优雅降级**  | 当 WebSocket 连接不可用时，自动降级为普通的 HTTP 轮询模式 |
 
 ### Socket.IO 事件
 
-| 事件类别 | 事件名称 | 说明 |
-| ---- | ---- | ---- |
-| **房间管理** | `room:join` / `room:leave` | 加入/离开协作房间 |
-| **在线状态** | `presence:view_changed` | 视图切换通知 |
-| | `presence:cell_selected` | 单元格选中通知 |
-| | `presence:user_joined` | 用户加入通知 |
-| | `presence:user_left` | 用户离开通知 |
-| **单元格锁定** | `lock:acquire` / `lock:release` | 获取/释放单元格锁 |
-| | `lock:acquired` / `lock:released` | 锁定/解锁广播通知 |
-| **数据同步** | `data:record_updated` | 记录更新推送 |
-| | `data:record_created` | 记录创建推送 |
-| | `data:record_deleted` | 记录删除推送 |
-| | `data:field_updated` | 字段更新推送 |
-| | `data:view_updated` | 视图更新推送 |
-| | `data:table_updated` | 表格更新推送 |
-| | `data:table_created` | 表格创建推送 |
-| | `data:table_deleted` | 表格删除推送 |
+| 事件类别      | 事件名称                              | 说明        |
+| --------- | --------------------------------- | --------- |
+| **房间管理**  | `room:join` / `room:leave`        | 加入/离开协作房间 |
+| **在线状态**  | `presence:view_changed`           | 视图切换通知    |
+| <br />    | `presence:cell_selected`          | 单元格选中通知   |
+| <br />    | `presence:user_joined`            | 用户加入通知    |
+| <br />    | `presence:user_left`              | 用户离开通知    |
+| **单元格锁定** | `lock:acquire` / `lock:release`   | 获取/释放单元格锁 |
+| <br />    | `lock:acquired` / `lock:released` | 锁定/解锁广播通知 |
+| **数据同步**  | `data:record_updated`             | 记录更新推送    |
+| <br />    | `data:record_created`             | 记录创建推送    |
+| <br />    | `data:record_deleted`             | 记录删除推送    |
+| <br />    | `data:field_updated`              | 字段更新推送    |
+| <br />    | `data:view_updated`               | 视图更新推送    |
+| <br />    | `data:table_updated`              | 表格更新推送    |
+| <br />    | `data:table_created`              | 表格创建推送    |
+| <br />    | `data:table_deleted`              | 表格删除推送    |
 
 ## 🐳 Docker 部署
 
@@ -1118,9 +983,10 @@ docker-compose logs -f
 ```
 
 访问地址：
-- 前端应用: http://localhost
-- 后端 API: http://localhost:5000/api
-- API 文档: http://localhost:5000/api/docs
+
+- 前端应用: <http://localhost>
+- 后端 API: <http://localhost:5000/api>
+- API 文档: <http://localhost:5000/api/docs>
 
 ### 生产环境部署（PostgreSQL + Redis）
 
@@ -1156,24 +1022,24 @@ smart-table-spec/
 
 关键配置项：
 
-| 变量名 | 说明 | 默认值 | 必填 |
-| ---- | ---- | ---- | ---- |
-| `SECRET_KEY` | Flask 密钥 | - | ✅ 生产环境 |
-| `JWT_SECRET_KEY` | JWT 密钥 | - | ✅ 生产环境 |
-| `DATABASE_URL` | 数据库连接 | sqlite:///smarttable.db | ❌ |
-| `REDIS_URL` | Redis 地址 | redis://localhost:6379/0 | ❌ |
-| `ENABLE_REALTIME` | 启用实时协作 | false | ❌ |
-| `MAIL_SERVER` | SMTP 服务器 | - | ❌（邮件功能需要） |
-| `MINIO_ENDPOINT` | MinIO 地址 | - | ❌（对象存储需要） |
+| 变量名               | 说明       | 默认值                       | 必填        |
+| ----------------- | -------- | ------------------------- | --------- |
+| `SECRET_KEY`      | Flask 密钥 | -                         | ✅ 生产环境    |
+| `JWT_SECRET_KEY`  | JWT 密钥   | -                         | ✅ 生产环境    |
+| `DATABASE_URL`    | 数据库连接    | sqlite:///smarttable.db   | ❌         |
+| `REDIS_URL`       | Redis 地址 | redis\://localhost:6379/0 | ❌         |
+| `ENABLE_REALTIME` | 启用实时协作   | false                     | ❌         |
+| `MAIL_SERVER`     | SMTP 服务器 | -                         | ❌（邮件功能需要） |
+| `MINIO_ENDPOINT`  | MinIO 地址 | -                         | ❌（对象存储需要） |
 
 ## 🌍 浏览器支持
 
-| 浏览器 | 最低版本 |
-| ---- | ---- |
-| Chrome | >= 90 |
+| 浏览器     | 最低版本  |
+| ------- | ----- |
+| Chrome  | >= 90 |
 | Firefox | >= 88 |
-| Safari | >= 14 |
-| Edge | >= 90 |
+| Safari  | >= 14 |
+| Edge    | >= 90 |
 
 > 💡 **提示**: 推荐使用最新版本的 Chrome 或 Edge 以获得最佳体验
 
@@ -1181,7 +1047,7 @@ smart-table-spec/
 
 ### v1.2.0 - 最新版本（开发中）
 
-#### 最近 10 天重要更新（2026-04-16 ~ 2026-04-26）
+#### 最近 10 天重要更新（2026-04-16 \~ 2026-04-26）
 
 ##### ✨ 新功能
 
@@ -1341,12 +1207,10 @@ smart-table-spec/
   - [ ] AI 辅助填写（智能建议和数据补全）
   - [ ] AI 数据问答（自然语言查询数据分析）
   - [ ] AI 数据可视化（智能推荐图表类型）
-
 - [ ] **流程自动化**
   - [ ] 流程设计器（可视化的业务流程设计）
   - [ ] 自动化工作流（触发器 + 动作 + 条件）
   - [ ] 定时任务（定时执行自动化流程）
-
 - [ ] **插件系统**
   - [ ] 插件市场（第三方插件分发）
   - [ ] 插件 SDK（插件开发工具包）
@@ -1359,13 +1223,11 @@ smart-table-spec/
   - [ ] MCP 接口（Model Context Protocol 集成）
   - [ ] Webhook（事件触发回调）
   - [ ] OAuth 2.0 第三方授权
-
 - [ ] **文档功能**
   - [ ] 文档 CRUD（Wiki 式文档管理）
   - [ ] 富文本编辑器增强（协作编辑、版本对比）
   - [ ] 文档分享与版本管理
   - [ ] 文档与表格联动
-
 - [ ] **移动端适配**
   - [ ] 响应式设计优化
   - [ ] 移动端原生 App（iOS/Android）
@@ -1379,7 +1241,6 @@ smart-table-spec/
   - [ ] 多租户隔离
   - [ ] 合规性报告（GDPR 等）
   - [ ] 审计日志增强（操作回放）
-
 - [ ] **生态建设**
   - [ ] 模板市场（行业解决方案模板）
   - [ ] 集成市场（第三方服务集成）
@@ -1460,27 +1321,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
----
+***
 
 ## 🙏 致谢
 
 感谢所有为本项目做出贡献的开发者和用户！
 
 特别感谢：
+
 - Vue.js 团队提供优秀的前端框架
 - Element Plus 团队提供完善的 UI 组件库
 - Flask 社区提供灵活的后端框架
 - 所有 Issue 提交者和 Pull Request 贡献者
 
----
+***
 
 ## 📞 联系我们
 
-- 📧 Email: [ldengbin@126.com](mailto:ldengbin@126.com)
+- 📧 Email: <ldengbin@126.com>
 - 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
 - 📖 Documentation: [User-Manual](https://github.com/ldbinac/smart_table/blob/main/doc/Smart-Table-User-Manual.md)
 
----
+***
 
 **⭐ 如果这个项目对你有帮助，请给我们一个 Star！⭐**
 
