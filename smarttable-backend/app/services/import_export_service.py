@@ -218,10 +218,11 @@ class ImportExportService:
         task_id = cls._create_task('import', table_id, user_id)
         cls._update_task(task_id, status=ImportStatus.PROCESSING.value, total=len(records_data))
         
-        # 执行导入
+        # 执行导入（使用 savepoint 保证数据一致性）
         success_count = 0
         error_count = 0
-        imported_records = []
+        imported_record_ids = []
+        batch_records = []
         
         try:
             for i, record_data in enumerate(records_data):
@@ -232,21 +233,42 @@ class ImportExportService:
                         created_by=user_id
                     )
                     db.session.add(record)
-                    
-                    # 批量提交
-                    if (i + 1) % cls.BATCH_SIZE == 0:
-                        db.session.commit()
-                        imported_records.extend([r.id for r in db.session.new if isinstance(r, Record)])
+                    batch_records.append(record)
                     
                     success_count += 1
+                    
+                    if (i + 1) % cls.BATCH_SIZE == 0:
+                        savepoint = db.session.begin_nested()
+                        try:
+                            db.session.flush()
+                            record_ids = [str(r.id) for r in batch_records]
+                            db.session.commit()
+                            imported_record_ids.extend(record_ids)
+                            batch_records = []
+                        except Exception as batch_err:
+                            savepoint.rollback()
+                            error_count += len(batch_records)
+                            success_count -= len(batch_records)
+                            batch_records = []
+                            cls._update_task(task_id, error_count=error_count)
+                    
                     cls._update_task(task_id, processed=i+1, success_count=success_count)
                     
                 except Exception as e:
                     error_count += 1
                     cls._update_task(task_id, error_count=error_count)
             
-            # 提交剩余记录
-            db.session.commit()
+            if batch_records:
+                savepoint = db.session.begin_nested()
+                try:
+                    db.session.flush()
+                    record_ids = [str(r.id) for r in batch_records]
+                    db.session.commit()
+                    imported_record_ids.extend(record_ids)
+                except Exception as batch_err:
+                    savepoint.rollback()
+                    error_count += len(batch_records)
+                    success_count -= len(batch_records)
             
             cls._update_task(
                 task_id,
@@ -255,7 +277,8 @@ class ImportExportService:
                 completed_at=datetime.now(timezone.utc).isoformat(),
                 result={
                     'imported_count': success_count,
-                    'error_count': error_count
+                    'error_count': error_count,
+                    'imported_record_ids': imported_record_ids
                 }
             )
             
