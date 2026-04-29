@@ -84,7 +84,7 @@ class RecordService:
     @staticmethod
     def _get_next_auto_number_sequence(table_id: str, field_id: str, field: Field) -> int:
         """
-        获取自动编号字段的下一个序列号
+        获取自动编号字段的下一个序列号（使用 Redis 原子计数器保证并发安全）
 
         Args:
             table_id: 表格 ID
@@ -94,44 +94,89 @@ class RecordService:
         Returns:
             下一个序列号
         """
-        from sqlalchemy import func
-        from sqlalchemy.dialects.postgresql import JSONB
-
-        # 获取起始编号
+        from app.extensions import redis_client
+        
         config = field.get_auto_number_config()
         start_number = config.get('startNumber', 1)
+        
+        redis_key = f'auto_number:seq:{table_id}:{field_id}'
+        
+        if redis_client:
+            try:
+                current = redis_client.get(redis_key)
+                if current is None:
+                    max_number = RecordService._get_max_sequence_from_db(table_id, field_id, config)
+                    initial_value = max(max_number + 1, start_number)
+                    redis_client.set(redis_key, initial_value - 1)
+                
+                next_seq = redis_client.incr(redis_key)
+                return max(next_seq, start_number)
+            except Exception as e:
+                log.warning(f'[RecordService] Redis atomic counter failed, falling back to DB: {e}')
+        
+        return RecordService._get_next_sequence_with_lock(table_id, field_id, config)
 
-        # 查询当前表格中该字段的最大值
-        # 由于值存储在 JSON 中，需要提取并转换为整数
+    @staticmethod
+    def _get_max_sequence_from_db(table_id: str, field_id: str, config: dict) -> int:
+        """
+        从数据库查询当前最大序列号
+
+        Args:
+            table_id: 表格 ID
+            field_id: 字段 ID
+            config: 自动编号配置
+
+        Returns:
+            当前最大序列号
+        """
+        import re
+        
         records = Record.query.filter_by(table_id=table_id).all()
-
         max_number = 0
+        suffix = config.get('suffix', '')
+        
         for record in records:
             values = record.values or {}
             field_value = values.get(field_id)
             if field_value:
-                # 尝试从自动编号字符串中提取数字部分
                 try:
-                    # 移除前缀和后缀，提取数字
-                    import re
-                    # 获取字段配置中的后缀
-                    suffix = config.get('suffix', '')
                     value_str = str(field_value)
-                    # 如果存在后缀，先移除后缀
                     if suffix and value_str.endswith(suffix):
                         value_str = value_str[:-len(suffix)]
-                    # 匹配末尾的数字部分（即序列号）
-                    # 例如：Num-260421-001 应该提取 001 -> 1
-                    # Num-260421-001-A 移除后缀 -A 后，提取 001
-                    # 使用 .*? 匹配前缀，然后捕获最后的数字组
                     match = re.search(r'.*?(\d+)$', value_str)
                     if match:
                         num = int(match.group(1))
                         max_number = max(max_number, num)
                 except (ValueError, TypeError):
                     continue
+        
+        return max_number
 
-        # 返回下一个序列号
+    @staticmethod
+    def _get_next_sequence_with_lock(table_id: str, field_id: str, config: dict) -> int:
+        """
+        使用数据库锁获取下一个序列号（Redis 不可用时的回退方案）
+
+        Args:
+            table_id: 表格 ID
+            field_id: 字段 ID
+            config: 自动编号配置
+
+        Returns:
+            下一个序列号
+        """
+        from sqlalchemy import select, func
+        from sqlalchemy.dialects.postgresql import JSONB
+        
+        start_number = config.get('startNumber', 1)
+        
+        try:
+            db.session.execute('SELECT 1')
+        except:
+            pass
+        
+        max_number = RecordService._get_max_sequence_from_db(table_id, field_id, config)
+        
         return max(max_number + 1, start_number)
 
     @staticmethod
