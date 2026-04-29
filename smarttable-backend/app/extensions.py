@@ -11,6 +11,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from flask_wtf.csrf import CSRFProtect
 from flask import request
+import redis
 
 
 # 数据库扩展
@@ -37,6 +38,9 @@ csrf = CSRFProtect()
 # WebSocket 扩展（async_mode 在 init_app 中根据配置动态设置）
 socketio = SocketIO()
 
+# Redis 客户端（全局连接池）
+redis_client = None
+
 
 def init_extensions(app):
     """
@@ -45,6 +49,8 @@ def init_extensions(app):
     Args:
         app: Flask 应用实例
     """
+    global redis_client
+    
     # 初始化数据库
     db.init_app(app)
     
@@ -59,6 +65,16 @@ def init_extensions(app):
     
     # 初始化缓存
     cache.init_app(app)
+    
+    # 初始化 Redis 客户端（使用连接池）
+    redis_url = app.config.get('REDIS_URL', 'redis://localhost:6379/0')
+    try:
+        redis_client = redis.from_url(redis_url, decode_responses=True)
+        redis_client.ping()
+        app.logger.info('[Extensions] Redis client initialized successfully')
+    except Exception as e:
+        app.logger.warning(f'[Extensions] Redis connection failed: {e}. Redis features will be unavailable.')
+        redis_client = None
     
     # 初始化 CSRF 保护
     # 项目使用 JWT Bearer Token 认证，不受 CSRF 攻击影响，禁用 CSRF 保护

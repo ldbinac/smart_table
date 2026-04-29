@@ -2,17 +2,24 @@ import json
 from datetime import datetime, timezone
 from typing import Optional, Tuple, List, Dict, Any
 
-import redis
 from flask import current_app
 
-from app.extensions import db, socketio
+from app.extensions import db, socketio, redis_client
 from app.models.collaboration_session import CollaborationSession
 from app.models.user import User
 
 
 def _get_redis_client():
-    redis_url = current_app.config.get('REDIS_URL', 'redis://localhost:6379/0')
-    return redis.from_url(redis_url, decode_responses=True)
+    """
+    获取 Redis 客户端实例
+    
+    Returns:
+        Redis 客户端实例，如果未初始化则返回 None
+    """
+    if redis_client is None:
+        current_app.logger.warning('[CollaborationService] Redis client not initialized')
+        return None
+    return redis_client
 
 
 class CollaborationService:
@@ -22,8 +29,7 @@ class CollaborationService:
     @staticmethod
     def join_room(base_id: str, user_id: str, socket_id: str) -> dict:
         r = _get_redis_client()
-        room_key = f'collab:room:{base_id}:users'
-
+        
         user = User.query.get(user_id)
         user_info = {
             'user_id': user_id,
@@ -32,7 +38,10 @@ class CollaborationService:
             'socket_id': socket_id,
             'joined_at': datetime.now(timezone.utc).isoformat()
         }
-        r.hset(room_key, user_id, json.dumps(user_info))
+        
+        if r:
+            room_key = f'collab:room:{base_id}:users'
+            r.hset(room_key, user_id, json.dumps(user_info))
 
         existing = CollaborationSession.query.filter_by(
             base_id=base_id,
@@ -59,11 +68,13 @@ class CollaborationService:
     @staticmethod
     def leave_room(base_id: str, user_id: str):
         r = _get_redis_client()
-        room_key = f'collab:room:{base_id}:users'
-        r.hdel(room_key, user_id)
+        
+        if r:
+            room_key = f'collab:room:{base_id}:users'
+            r.hdel(room_key, user_id)
 
-        presence_key = f'collab:presence:{base_id}:{user_id}'
-        r.delete(presence_key)
+            presence_key = f'collab:presence:{base_id}:{user_id}'
+            r.delete(presence_key)
 
         session = CollaborationSession.query.filter_by(
             base_id=base_id,
@@ -77,6 +88,9 @@ class CollaborationService:
     @staticmethod
     def get_online_users(base_id: str) -> List[dict]:
         r = _get_redis_client()
+        if not r:
+            return []
+        
         room_key = f'collab:room:{base_id}:users'
         users_data = r.hgetall(room_key)
         result = []
@@ -90,12 +104,14 @@ class CollaborationService:
     @staticmethod
     def update_user_view(base_id: str, user_id: str, table_id: str, view_id: str, view_type: str):
         r = _get_redis_client()
-        presence_key = f'collab:presence:{base_id}:{user_id}'
-        r.hset(presence_key, mapping={
-            'table_id': table_id or '',
-            'view_id': view_id or '',
-            'view_type': view_type or ''
-        })
+        
+        if r:
+            presence_key = f'collab:presence:{base_id}:{user_id}'
+            r.hset(presence_key, mapping={
+                'table_id': table_id or '',
+                'view_id': view_id or '',
+                'view_type': view_type or ''
+            })
 
         session = CollaborationSession.query.filter_by(
             base_id=base_id,
@@ -112,12 +128,14 @@ class CollaborationService:
     @staticmethod
     def update_user_cell(base_id: str, user_id: str, table_id: str, record_id: str, field_id: str):
         r = _get_redis_client()
-        presence_key = f'collab:presence:{base_id}:{user_id}'
-        r.hset(presence_key, mapping={
-            'table_id': table_id or '',
-            'record_id': record_id or '',
-            'field_id': field_id or ''
-        })
+        
+        if r:
+            presence_key = f'collab:presence:{base_id}:{user_id}'
+            r.hset(presence_key, mapping={
+                'table_id': table_id or '',
+                'record_id': record_id or '',
+                'field_id': field_id or ''
+            })
 
         session = CollaborationSession.query.filter_by(
             base_id=base_id,
@@ -132,6 +150,9 @@ class CollaborationService:
     @staticmethod
     def get_user_presence(base_id: str, user_id: str) -> Optional[dict]:
         r = _get_redis_client()
+        if not r:
+            return None
+        
         presence_key = f'collab:presence:{base_id}:{user_id}'
         data = r.hgetall(presence_key)
         if not data:
@@ -148,6 +169,9 @@ class CollaborationService:
     @staticmethod
     def acquire_lock(base_id: str, user_id: str, table_id: str, record_id: str, field_id: str) -> Tuple[bool, Optional[dict]]:
         r = _get_redis_client()
+        if not r:
+            return False, None
+        
         lock_key = f'collab:lock:{base_id}:{table_id}:{record_id}:{field_id}'
 
         current_holder = r.get(lock_key)
@@ -172,6 +196,9 @@ class CollaborationService:
     @staticmethod
     def release_lock(base_id: str, user_id: str, table_id: str, record_id: str, field_id: str):
         r = _get_redis_client()
+        if not r:
+            return
+        
         lock_key = f'collab:lock:{base_id}:{table_id}:{record_id}:{field_id}'
 
         current_holder = r.get(lock_key)
@@ -181,6 +208,9 @@ class CollaborationService:
     @staticmethod
     def release_all_locks(base_id: str, user_id: str):
         r = _get_redis_client()
+        if not r:
+            return
+        
         pattern = f'collab:lock:{base_id}:*'
         cursor = 0
         while True:
@@ -195,6 +225,9 @@ class CollaborationService:
     @staticmethod
     def get_lock_info(base_id: str, table_id: str, record_id: str, field_id: str) -> Optional[dict]:
         r = _get_redis_client()
+        if not r:
+            return None
+        
         lock_key = f'collab:lock:{base_id}:{table_id}:{record_id}:{field_id}'
         holder = r.get(lock_key)
         if not holder:
@@ -244,11 +277,12 @@ class CollaborationService:
             user_id = session.user_id
 
             r = _get_redis_client()
-            room_key = f'collab:room:{base_id}:users'
-            r.hdel(room_key, user_id)
+            if r:
+                room_key = f'collab:room:{base_id}:users'
+                r.hdel(room_key, user_id)
 
-            presence_key = f'collab:presence:{base_id}:{user_id}'
-            r.delete(presence_key)
+                presence_key = f'collab:presence:{base_id}:{user_id}'
+                r.delete(presence_key)
 
             CollaborationService.release_all_locks(base_id, user_id)
 
