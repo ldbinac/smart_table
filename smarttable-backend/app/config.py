@@ -82,8 +82,30 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_ECHO = True
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-not-for-production'
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-jwt-secret-not-for-production'
-    MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY') or 'minioadmin'
-    MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY') or 'minioadmin'
+    
+    @classmethod
+    def init_app(cls, app):
+        """开发环境初始化 - 检查并警告未配置的敏感凭据"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        if not os.environ.get('MINIO_ACCESS_KEY') or not os.environ.get('MINIO_SECRET_KEY'):
+            logger.warning(
+                '⚠️  MINIO_ACCESS_KEY 或 MINIO_SECRET_KEY 未设置！'
+                'MinIO 文件存储功能将不可用。'
+                '请在 .env 文件中配置这些环境变量。'
+            )
+            app.config['MINIO_ACCESS_KEY'] = None
+            app.config['MINIO_SECRET_KEY'] = None
+        
+        if cls.SECRET_KEY == 'dev-secret-key-not-for-production':
+            logger.warning(
+                '⚠️  使用默认开发密钥！请勿在生产环境中使用。'
+            )
+        if cls.JWT_SECRET_KEY == 'dev-jwt-secret-not-for-production':
+            logger.warning(
+                '⚠️  使用默认 JWT 密钥！请勿在生产环境中使用。'
+            )
 
 
 class TestingConfig(Config):
