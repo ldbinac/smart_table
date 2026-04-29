@@ -3,7 +3,11 @@
 """
 from typing import List, Optional, Dict, Any
 import uuid
+import re
 from datetime import datetime, timezone
+
+from sqlalchemy import cast, or_
+from sqlalchemy.types import String
 
 from app.extensions import db
 from app.models.record import Record
@@ -18,6 +22,21 @@ import logging
 
 
 log = logging.getLogger(__name__)
+
+
+def _escape_like_pattern(pattern: str) -> str:
+    """
+    转义 SQL LIKE 查询中的通配符，防止通配符注入
+    
+    Args:
+        pattern: 原始搜索模式
+        
+    Returns:
+        转义后的安全搜索模式
+    """
+    if not pattern:
+        return pattern
+    return pattern.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 
 
 def _format_date_value(value: str, field: Field) -> str:
@@ -462,23 +481,31 @@ class RecordService:
         Returns:
             记录列表
         """
-        # 简化实现，使用数据库层搜索
+        escaped_query = _escape_like_pattern(query)
+        like_pattern = f'%{escaped_query}%'
         
         query_obj = Record.query.filter_by(table_id=table_id)
         
         if field_ids:
-            # 搜索指定字段
-            conditions = []
+            valid_field_ids = []
+            uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
             for field_id in field_ids:
-                conditions.append(
-                    cast(Record.values[field_id].astext, String).ilike(f'%{query}%')
-                )
-            if conditions:
-                query_obj = query_obj.filter(or_(*conditions))
+                if uuid_pattern.match(str(field_id)):
+                    valid_field_ids.append(field_id)
+                else:
+                    log.warning(f'[RecordService] Invalid field_id format, skipped: {field_id}')
+            
+            if valid_field_ids:
+                conditions = []
+                for field_id in valid_field_ids:
+                    conditions.append(
+                        cast(Record.values[field_id].astext, String).ilike(like_pattern)
+                    )
+                if conditions:
+                    query_obj = query_obj.filter(or_(*conditions))
         else:
-            # 全字段搜索：使用 JSON 遍历
             query_obj = query_obj.filter(
-                cast(Record.values.astext, String).ilike(f'%{query}%')
+                cast(Record.values.astext, String).ilike(like_pattern)
             )
         
         results = query_obj.all()
