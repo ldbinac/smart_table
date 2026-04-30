@@ -153,6 +153,26 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
   }
 
+  async function checkAuth(): Promise<boolean> {
+    if (!token.value) return false;
+    if (user.value) return true;
+    const fetchedUser = await fetchUser();
+    return !!fetchedUser;
+  }
+
+  function hasPermission(requiredRole: string): boolean {
+    if (!user.value) return false;
+    const roleHierarchy: Record<string, number> = {
+      'viewer': 1,
+      'editor': 2,
+      'admin': 3,
+      'workspace_admin': 4
+    };
+    const userLevel = roleHierarchy[user.value.role] || 0;
+    const requiredLevel = roleHierarchy[requiredRole] || 0;
+    return userLevel >= requiredLevel;
+  }
+
   return {
     token,
     refreshTokenValue,
@@ -170,6 +190,8 @@ export const useAuthStore = defineStore('auth', () => {
     refreshAccessToken,
     changePassword,
     updateProfile,
+    checkAuth,
+    hasPermission,
     $reset
   };
 });
