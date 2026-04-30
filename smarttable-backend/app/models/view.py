@@ -156,6 +156,8 @@ class View(db.Model):
     )
 
     def apply_filters(self, query):
+        from app.models.record import Record
+        
         if not self.filters:
             return query
         for filter_item in self.filters:

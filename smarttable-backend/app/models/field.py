@@ -1,6 +1,7 @@
 """
 字段模型模块
 """
+import re
 import uuid
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
