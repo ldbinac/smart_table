@@ -68,7 +68,7 @@ def get_records(table_id) -> tuple:
     
     # 资源级权限检查
     if not PermissionService.check_permission(
-        str(table.base_id), g.current_user.id, MemberRole.VIEWER
+        str(table.base_id), g.current_user_id, MemberRole.VIEWER
     ):
         return error_response('无权访问该表格', 403)
     
@@ -170,7 +170,7 @@ def create_record(table_id) -> tuple:
     
     # 资源级权限检查
     if not PermissionService.check_permission(
-        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+        str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
         return error_response('无权在该表格中创建记录', 403)
     
@@ -188,7 +188,7 @@ def create_record(table_id) -> tuple:
         record = RecordService.create_record(
             table_id=table_id,
             values=json_data['values'],
-            created_by=g.current_user.id
+            created_by=g.current_user_id
         )
         
         result = record.to_dict()
@@ -254,7 +254,7 @@ def batch_create_records(table_id) -> tuple:
     
     # 资源级权限检查
     if not PermissionService.check_permission(
-        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+        str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
         return error_response('无权在该表格中创建记录', 403)
     
@@ -277,7 +277,7 @@ def batch_create_records(table_id) -> tuple:
             record = RecordService.create_record(
                 table_id=table_id,
                 values=record_data.get('values', {}),
-                created_by=g.current_user.id
+                created_by=g.current_user_id
             )
             created_records.append(record.to_dict())
         
@@ -321,7 +321,7 @@ def get_record(record_id) -> tuple:
     # 资源级权限检查
     table = TableService.get_table_by_id(record.table_id)
     if table and not PermissionService.check_permission(
-        str(table.base_id), g.current_user.id, MemberRole.VIEWER
+        str(table.base_id), g.current_user_id, MemberRole.VIEWER
     ):
         return error_response('无权访问该记录', 403)
     
@@ -382,7 +382,7 @@ def update_record(record_id) -> tuple:
     # 资源级权限检查
     table = TableService.get_table_by_id(record.table_id)
     if table and not PermissionService.check_permission(
-        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+        str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
         return error_response('无权修改该记录', 403)
     
@@ -399,7 +399,7 @@ def update_record(record_id) -> tuple:
         record = RecordService.update_record(
             record=record,
             values=json_data['values'],
-            updated_by=g.current_user.id
+            updated_by=g.current_user_id
         )
         
         result = record.to_dict()
@@ -474,7 +474,7 @@ def batch_update_records() -> tuple:
             table = TableService.get_table_by_id(record.table_id)
             if table and str(table.base_id) not in base_ids_checked:
                 if not PermissionService.check_permission(
-                    str(table.base_id), g.current_user.id, MemberRole.EDITOR
+                    str(table.base_id), g.current_user_id, MemberRole.EDITOR
                 ):
                     return error_response(f'无权修改表格 {table.base_id} 中的记录', 403)
                 base_ids_checked.add(str(table.base_id))
@@ -489,7 +489,7 @@ def batch_update_records() -> tuple:
                 RecordService.update_record(
                     record=record,
                     values=values,
-                    updated_by=g.current_user.id
+                    updated_by=g.current_user_id
                 )
                 updated_count += 1
             else:
@@ -538,7 +538,7 @@ def delete_record(record_id) -> tuple:
     # 资源级权限检查
     table = TableService.get_table_by_id(record.table_id)
     if table and not PermissionService.check_permission(
-        str(table.base_id), g.current_user.id, MemberRole.EDITOR
+        str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
         return error_response('无权删除该记录', 403)
     
@@ -606,7 +606,7 @@ def batch_delete_records() -> tuple:
             table = TableService.get_table_by_id(record.table_id)
             if table and str(table.base_id) not in base_ids_checked:
                 if not PermissionService.check_permission(
-                    str(table.base_id), g.current_user.id, MemberRole.EDITOR
+                    str(table.base_id), g.current_user_id, MemberRole.EDITOR
                 ):
                     return error_response(f'无权删除表格 {table.base_id} 中的记录', 403)
                 base_ids_checked.add(str(table.base_id))
@@ -960,7 +960,7 @@ def update_record_link(record_id, field_id) -> tuple:
             link_relation_id=link_relation.id,
             source_record_id=record_id,
             target_record_ids=target_record_ids,
-            updated_by=g.current_user.id
+            updated_by=g.current_user_id
         )
         
         if not result[0]:
