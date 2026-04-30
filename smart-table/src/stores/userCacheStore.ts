@@ -62,28 +62,35 @@ export const useUserCacheStore = defineStore('userCache', () => {
   }
   
   // 获取单个用户信息（带缓存）
-  const fetchUser = async (userId: string): Promise<CachedUser | null> => {
+  const fetchUser = async (userId: string | unknown): Promise<CachedUser | null> => {
+    // 验证 userId
+    const id = String(userId)
+    if (!id || id.trim() === '') {
+      console.warn('[UserCache] 无效的用户ID: 空字符串')
+      return null
+    }
+    
     // 检查缓存
-    const cached = getCachedUser(userId)
+    const cached = getCachedUser(id)
     if (cached) {
-      console.log(`[UserCache] 从缓存获取用户: ${userId}`)
+      console.log(`[UserCache] 从缓存获取用户: ${id}`)
       return cached
     }
     
     // 检查是否正在加载中
-    if (loadingUsers.value.has(userId)) {
-      console.log(`[UserCache] 用户正在加载中: ${userId}`)
+    if (loadingUsers.value.has(id)) {
+      console.log(`[UserCache] 用户正在加载中: ${id}`)
       // 等待加载完成
-      await waitForUserLoad(userId)
-      return getCachedUser(userId) || null
+      await waitForUserLoad(id)
+      return getCachedUser(id) || null
     }
     
     // 标记为加载中
-    loadingUsers.value.add(userId)
+    loadingUsers.value.add(id)
     
     try {
-      console.log(`[UserCache] 从API获取用户: ${userId}`)
-      const user = await userApi.getUserById(userId)
+      console.log(`[UserCache] 从API获取用户: ${id}`)
+      const user = await userApi.getUserById(id)
       
       if (user) {
         const cachedUser: CachedUser = {
@@ -101,10 +108,10 @@ export const useUserCacheStore = defineStore('userCache', () => {
       
       return null
     } catch (error) {
-      console.error(`[UserCache] 获取用户失败: ${userId}`, error)
+      console.error(`[UserCache] 获取用户失败: ${id}`, error)
       return null
     } finally {
-      loadingUsers.value.delete(userId)
+      loadingUsers.value.delete(id)
     }
   }
   

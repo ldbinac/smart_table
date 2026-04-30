@@ -32,6 +32,9 @@ export const searchUsers = async (params: SearchUsersParams): Promise<SearchUser
  * @returns 用户信息
  */
 export const getUserById = async (id: string): Promise<User> => {
+  if (!id || id.trim() === '') {
+    throw new Error('用户ID不能为空')
+  }
   return apiClient.get<User>(`/users/${id}`)
 }
 

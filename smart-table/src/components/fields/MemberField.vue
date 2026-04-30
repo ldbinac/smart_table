@@ -74,7 +74,13 @@ async function loadSelectedMembers() {
       return
     }
     
-    const userId = newVal as string
+    const userId = String(newVal)
+    // 验证 userId 是否有效
+    if (!userId || userId.trim() === '') {
+      selectedMembers.value = []
+      return
+    }
+    
     const cachedUser = await userCacheStore.fetchUser(userId)
     
     if (cachedUser) {
