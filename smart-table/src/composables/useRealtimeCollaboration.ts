@@ -99,24 +99,28 @@ export function useRealtimeCollaboration(baseId: string) {
     await client.connect()
   }
 
+  function handleConnect() {
+    collaborationStore.setConnectionStatus('connected')
+    joinRoom()
+    if (collaborationStore.offlineQueue.length > 0) {
+      collaborationStore.processOfflineQueue()
+    }
+  }
+
+  function handleDisconnect() {
+    collaborationStore.setConnectionStatus('reconnecting')
+  }
+
   function setupEventListeners() {
     if (!socketClient.value) return
 
-    socketClient.value.on('connect', () => {
-      collaborationStore.setConnectionStatus('connected')
-      joinRoom()
-      if (collaborationStore.offlineQueue.length > 0) {
-        collaborationStore.processOfflineQueue()
-      }
-    })
+    socketClient.value.on('connect', handleConnect)
 
     socketClient.value.on('room:joined', (data: { base_id: string; online_users: OnlineUser[] }) => {
       collaborationStore.setOnlineUsers(data.online_users || [])
     })
 
-    socketClient.value.on('disconnect', () => {
-      collaborationStore.setConnectionStatus('reconnecting')
-    })
+    socketClient.value.on('disconnect', handleDisconnect)
 
     socketClient.value.on('presence:user_joined', handleUserJoined)
     socketClient.value.on('presence:user_left', handleUserLeft)
@@ -139,8 +143,8 @@ export function useRealtimeCollaboration(baseId: string) {
   function removeEventListeners() {
     if (!socketClient.value) return
 
-    socketClient.value.off('connect', () => {})
-    socketClient.value.off('disconnect', () => {})
+    socketClient.value.off('connect', handleConnect)
+    socketClient.value.off('disconnect', handleDisconnect)
     socketClient.value.off('presence:user_joined', handleUserJoined)
     socketClient.value.off('presence:user_left', handleUserLeft)
     socketClient.value.off('presence:view_changed', handleViewChanged)
