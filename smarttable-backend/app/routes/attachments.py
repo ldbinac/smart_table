@@ -403,7 +403,7 @@ def get_thumbnail(attachment_id) -> tuple:
     
     # 获取缩略图路径
     thumbnail_filename = os.path.basename(attachment.thumbnail_url)
-    thumbnail_path = AS.get_file_path(thumbnail_filename)
+    thumbnail_path = AttachmentService.get_file_path(thumbnail_filename)
     
     if not os.path.exists(thumbnail_path):
         return error_response('缩略图不存在', code=404)
