@@ -5,6 +5,7 @@
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
+from app.extensions import db
 from app.models.base import Base, BaseMember, MemberRole
 from app.models.base_share import BaseShare, SharePermission
 from app.utils.constants import ROLE_LEVELS
