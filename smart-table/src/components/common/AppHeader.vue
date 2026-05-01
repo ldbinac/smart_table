@@ -5,6 +5,7 @@ import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useTableStore } from "@/stores/tableStore";
+import { useMemberStore } from "@/stores/memberStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import { ElMessageBox } from "element-plus";
 import {
@@ -28,6 +29,7 @@ const baseStore = useBaseStore();
 const authStore = useAuthStore();
 const collaborationStore = useCollaborationStore();
 const tableStore = useTableStore();
+const memberStore = useMemberStore();
 
 const currentTitle = computed(() => {
   return (route.meta.title as string) || "Smart Table";
@@ -144,7 +146,7 @@ const currentBase = computed(() => {
 
 // 是否有管理权限（控制分享和成员按钮显示）
 const canManage = computed(() => {
-  return baseStore.canManage;
+  return memberStore.canManage;
 });
 
 // 是否在Base页面

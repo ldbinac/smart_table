@@ -4,38 +4,7 @@ import type { Base } from "@/api/types";
 
 import { baseApiService } from "@/services/api/baseApiService";
 import { baseService as baseDexieService } from "@/db/services/baseService";
-import { shareApiService } from "@/services/api/shareApiService";
-import { useAuthStore } from "./authStore";
-
-export interface BaseMember {
-  id: string;
-  base_id: string;
-  user_id: string;
-  role: "owner" | "admin" | "editor" | "commenter" | "viewer";
-  invited_by: string | null;
-  joined_at: string;
-  user?: {
-    id: string;
-    name: string;
-    avatar?: string;
-    email?: string;
-  };
-}
-
-export interface BaseShare {
-  id: string;
-  base_id: string;
-  share_token: string;
-  created_by: string;
-  permission: "view" | "edit";
-  expires_at?: number;
-  access_count: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  last_accessed_at?: string;
-  base?: Base;
-}
+import { useMemberStore } from "./memberStore";
 
 export const useBaseStore = defineStore("base", () => {
   const currentBaseId = ref<string | null>(null);
@@ -43,12 +12,6 @@ export const useBaseStore = defineStore("base", () => {
   const bases = ref<Base[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
-
-  // 成员管理相关 state
-  const members = ref<BaseMember[]>([]);
-  const shares = ref<BaseShare[]>([]);
-  const sharedWithMe = ref<Base[]>([]);
-  const sharedByMe = ref<BaseShare[]>([]);
 
   const sortedBases = computed(() => {
     return [...bases.value].sort((a, b) => {
@@ -62,44 +25,6 @@ export const useBaseStore = defineStore("base", () => {
 
   const starredBases = computed(() => {
     return sortedBases.value.filter((b) => b.is_starred);
-  });
-
-  // 当前用户在当前 Base 中的角色
-  const currentUserRole = computed(() => {
-    const authStore = useAuthStore();
-    const currentUserId = authStore.user?.id;
-    if (!currentUserId || !currentBase.value) return null;
-
-    // 检查是否是所有者
-    if (currentBase.value.owner_id === currentUserId) {
-      return "owner";
-    }
-
-    // 检查成员列表
-    const member = members.value.find((m) => m.user_id === currentUserId);
-    return member?.role || null;
-  });
-
-  // 权限检查计算属性
-  const canEdit = computed(() => {
-    const role = currentUserRole.value;
-    return role === "owner" || role === "admin" || role === "editor";
-  });
-
-  const canView = computed(() => {
-    const role = currentUserRole.value;
-    return ["owner", "admin", "editor", "commenter", "viewer"].includes(
-      role || "",
-    );
-  });
-
-  const canManage = computed(() => {
-    const role = currentUserRole.value;
-    return role === "owner" || role === "admin";
-  });
-
-  const isOwner = computed(() => {
-    return currentUserRole.value === "owner";
   });
 
   async function fetchBases() {
@@ -149,6 +74,10 @@ export const useBaseStore = defineStore("base", () => {
       const data = await baseApiService.getBase(id, shareToken);
       currentBase.value = data;
       currentBaseId.value = id;
+      
+      const memberStore = useMemberStore();
+      memberStore.setCurrentBaseOwner(data.owner_id);
+      
       await baseDexieService
         .updateBase(id, data as Record<string, unknown>)
         .catch(() => {});
@@ -184,7 +113,7 @@ export const useBaseStore = defineStore("base", () => {
   }
 
   async function createBase(
-    baseData: Omit<Base, "id" | "created_at" | "updated_at">,
+    baseData: Omit<Base, "id" | "created_at" | "updated_at">
   ): Promise<Base> {
     loading.value = true;
     try {
@@ -213,7 +142,7 @@ export const useBaseStore = defineStore("base", () => {
     id: string,
     updates: Partial<
       Pick<Base, "name" | "description" | "icon" | "color" | "is_personal">
-    >,
+    >
   ): Promise<Base> {
     loading.value = true;
     try {
@@ -245,6 +174,10 @@ export const useBaseStore = defineStore("base", () => {
       if (currentBase.value?.id === id) {
         currentBase.value = null;
         currentBaseId.value = null;
+        
+        const memberStore = useMemberStore();
+        memberStore.setCurrentBaseOwner(null);
+        memberStore.clearMembers();
       }
       await baseDexieService.deleteBase(id);
     } catch (e: unknown) {
@@ -281,6 +214,9 @@ export const useBaseStore = defineStore("base", () => {
   function setCurrentBase(base: Base | null) {
     currentBase.value = base;
     currentBaseId.value = base?.id ?? null;
+    
+    const memberStore = useMemberStore();
+    memberStore.setCurrentBaseOwner(base?.owner_id ?? null);
   }
 
   function clearError() {
@@ -293,216 +229,6 @@ export const useBaseStore = defineStore("base", () => {
     bases.value = [];
     loading.value = false;
     error.value = null;
-    members.value = [];
-    shares.value = [];
-    sharedWithMe.value = [];
-    sharedByMe.value = [];
-  }
-
-  // ==================== 成员管理相关 methods ====================
-
-  async function fetchMembers(baseId: string) {
-    loading.value = true;
-    error.value = null;
-    try {
-      const data = await shareApiService.getMembers(baseId);
-      members.value = data;
-      return data;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取成员列表失败";
-      error.value = msg;
-      console.error("[baseStore] fetchMembers failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function addMember(baseId: string, email: string, role: string) {
-    loading.value = true;
-    try {
-      const data = await shareApiService.addMember(baseId, email, role);
-      members.value.push(data);
-      return data;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "添加成员失败";
-      error.value = msg;
-      console.error("[baseStore] addMember failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function batchAddMembers(
-    baseId: string,
-    membersData: Array<{ email: string; role: string }>,
-  ) {
-    loading.value = true;
-    try {
-      const result = await shareApiService.batchAddMembers(baseId, membersData);
-      // 添加成功的成员到列表
-      result.successful.forEach((member) => {
-        members.value.push(member);
-      });
-      return result;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "批量添加成员失败";
-      error.value = msg;
-      console.error("[baseStore] batchAddMembers failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function updateMemberRole(
-    baseId: string,
-    userId: string,
-    role: string,
-  ) {
-    loading.value = true;
-    try {
-      const data = await shareApiService.updateMemberRole(baseId, userId, role);
-      const idx = members.value.findIndex((m) => m.user_id === userId);
-      if (idx !== -1) {
-        members.value[idx] = data;
-      }
-      return data;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "更新成员角色失败";
-      error.value = msg;
-      console.error("[baseStore] updateMemberRole failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function removeMember(baseId: string, userId: string) {
-    loading.value = true;
-    try {
-      await shareApiService.removeMember(baseId, userId);
-      members.value = members.value.filter((m) => m.user_id !== userId);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "移除成员失败";
-      error.value = msg;
-      console.error("[baseStore] removeMember failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  // ==================== 分享管理相关 methods ====================
-
-  async function fetchShares(baseId: string) {
-    loading.value = true;
-    error.value = null;
-    try {
-      const data = await shareApiService.getShares(baseId);
-      shares.value = data;
-      return data;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取分享列表失败";
-      error.value = msg;
-      console.error("[baseStore] fetchShares failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function createShare(
-    baseId: string,
-    permission: "view" | "edit",
-    expiresAt?: number,
-  ) {
-    loading.value = true;
-    try {
-      const data = await shareApiService.createShare(
-        baseId,
-        permission,
-        expiresAt,
-      );
-      shares.value.unshift(data);
-      return data;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "创建分享链接失败";
-      error.value = msg;
-      console.error("[baseStore] createShare failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function deleteShare(shareId: string) {
-    loading.value = true;
-    try {
-      await shareApiService.deleteShare(shareId);
-      shares.value = shares.value.filter((s) => s.id !== shareId);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "删除分享链接失败";
-      error.value = msg;
-      console.error("[baseStore] deleteShare failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function updateShare(shareId: string, data: Partial<BaseShare>) {
-    loading.value = true;
-    try {
-      const updated = await shareApiService.updateShare(shareId, data);
-      const idx = shares.value.findIndex((s) => s.id === shareId);
-      if (idx !== -1) {
-        shares.value[idx] = updated;
-      }
-      return updated;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "更新分享链接失败";
-      error.value = msg;
-      console.error("[baseStore] updateShare failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function fetchSharedWithMe() {
-    loading.value = true;
-    error.value = null;
-    try {
-      const data = await shareApiService.getSharedWithMe();
-      sharedWithMe.value = data;
-      return data;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取分享给我的 Base 失败";
-      error.value = msg;
-      console.error("[baseStore] fetchSharedWithMe failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function fetchSharedByMe() {
-    loading.value = true;
-    error.value = null;
-    try {
-      const data = await shareApiService.getSharedByMe();
-      sharedByMe.value = data;
-      return data;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取我创建的分享失败";
-      error.value = msg;
-      console.error("[baseStore] fetchSharedByMe failed:", e);
-      throw e;
-    } finally {
-      loading.value = false;
-    }
   }
 
   return {
@@ -513,18 +239,6 @@ export const useBaseStore = defineStore("base", () => {
     error,
     sortedBases,
     starredBases,
-    // 权限相关计算属性
-    currentUserRole,
-    canEdit,
-    canView,
-    canManage,
-    isOwner,
-    // 成员管理和分享相关 state
-    members,
-    shares,
-    sharedWithMe,
-    sharedByMe,
-    // Base 相关 methods
     fetchBases,
     fetchBase,
     createBase,
@@ -534,18 +248,5 @@ export const useBaseStore = defineStore("base", () => {
     setCurrentBase,
     clearError,
     $reset,
-    // 成员管理相关 methods
-    fetchMembers,
-    addMember,
-    batchAddMembers,
-    updateMemberRole,
-    removeMember,
-    // 分享管理相关 methods
-    fetchShares,
-    createShare,
-    deleteShare,
-    updateShare,
-    fetchSharedWithMe,
-    fetchSharedByMe,
   };
 });

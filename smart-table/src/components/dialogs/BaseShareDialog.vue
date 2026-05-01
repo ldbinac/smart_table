@@ -112,7 +112,7 @@ import { ref, reactive, computed, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Share } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import { useBaseStore, type BaseShare } from '@/stores/baseStore';
+import { useShareStore, type BaseShare } from '@/stores/shareStore';
 
 const props = defineProps<{
   baseId: string;
@@ -124,7 +124,7 @@ const emit = defineEmits<{
   (e: 'share-changed'): void;
 }>();
 
-const baseStore = useBaseStore();
+const shareStore = useShareStore();
 
 const dialogVisible = computed({
   get: () => props.visible,
@@ -168,7 +168,7 @@ function disabledDate(date: Date) {
 async function loadShares() {
   loading.value = true;
   try {
-    const data = await baseStore.fetchShares(props.baseId);
+    const data = await shareStore.fetchShares(props.baseId);
     shares.value = data;
   } catch (error) {
     console.error('加载分享列表失败:', error);
@@ -224,7 +224,7 @@ async function handleCreateShare() {
       expiresAt = shareForm.customExpiresAt;
     }
     
-    await baseStore.createShare(props.baseId, shareForm.permission, expiresAt);
+    await shareStore.createShare(props.baseId, shareForm.permission, expiresAt);
     ElMessage.success('分享链接创建成功');
     
     await loadShares();
@@ -271,7 +271,7 @@ async function toggleShareStatus(share: BaseShare) {
       }
     );
     
-    await baseStore.updateShare(share.id, { is_active: newStatus });
+    await shareStore.updateShare(share.id, { is_active: newStatus });
     ElMessage.success(`${action}成功`);
     await loadShares();
     emit('share-changed');
@@ -296,7 +296,7 @@ async function handleDeleteShare(shareId: string) {
       }
     );
     
-    await baseStore.deleteShare(shareId);
+    await shareStore.deleteShare(shareId);
     ElMessage.success('分享链接已删除');
     await loadShares();
     emit('share-changed');

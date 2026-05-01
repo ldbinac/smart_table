@@ -3,6 +3,7 @@ import { ref, reactive, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/authStore";
+import { useShareStore } from "@/stores/shareStore";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { Base } from "@/db/schema";
@@ -15,6 +16,7 @@ import { DocumentCopy } from "@element-plus/icons-vue";
 const router = useRouter();
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
+const shareStore = useShareStore();
 const createFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
 
@@ -414,7 +416,7 @@ async function handleDeleteShare(shareId: string) {
       },
     );
 
-    await baseStore.deleteShare(shareId);
+    await shareStore.deleteShare(shareId);
     await loadSharedByMe();
     ElMessage.success("分享链接已删除");
   } catch (error) {

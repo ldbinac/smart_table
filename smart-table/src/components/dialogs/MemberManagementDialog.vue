@@ -131,7 +131,7 @@ import { ref, reactive, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
-import { useBaseStore, type BaseMember } from "@/stores/baseStore";
+import { useMemberStore, type BaseMember } from "@/stores/memberStore";
 
 const props = defineProps<{
   baseId: string;
@@ -143,7 +143,7 @@ const emit = defineEmits<{
   (e: "member-changed"): void;
 }>();
 
-const baseStore = useBaseStore();
+const memberStore = useMemberStore();
 
 const dialogVisible = computed({
   get: () => props.visible,
@@ -187,7 +187,7 @@ watch(
 async function loadMembers() {
   loading.value = true;
   try {
-    const data = await baseStore.fetchMembers(props.baseId);
+    const data = await memberStore.fetchMembers(props.baseId);
     members.value = data;
     console.log("加载成员列表成功:", members.value);
   } catch (error) {
@@ -201,7 +201,7 @@ async function loadMembers() {
 // 处理角色变更
 async function handleRoleChange(member: BaseMember) {
   try {
-    await baseStore.updateMemberRole(props.baseId, member.user_id, member.role);
+    await memberStore.updateMemberRole(props.baseId, member.user_id, member.role);
     ElMessage.success("成员角色已更新");
     emit("member-changed");
   } catch (error) {
@@ -225,7 +225,7 @@ async function handleRemoveMember(member: BaseMember) {
       },
     );
 
-    await baseStore.removeMember(props.baseId, member.user_id);
+    await memberStore.removeMember(props.baseId, member.user_id);
     ElMessage.success("成员已移除");
     await loadMembers();
     emit("member-changed");
@@ -256,7 +256,7 @@ async function handleSingleAdd() {
     await addMemberFormRef.value.validate();
     adding.value = true;
 
-    await baseStore.addMember(
+    await memberStore.addMember(
       props.baseId,
       addMemberForm.email,
       addMemberForm.role,
@@ -303,7 +303,7 @@ async function handleBatchAdd() {
       return;
     }
 
-    const result = await baseStore.batchAddMembers(props.baseId, members);
+    const result = await memberStore.batchAddMembers(props.baseId, members);
 
     if (result.success_count > 0) {
       ElMessage.success(

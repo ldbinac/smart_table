@@ -7,3 +7,5 @@ export { useAuthStore } from "./authStore";
 export { useTableStore } from "./tableStore";
 export { useViewStore } from "./viewStore";
 export { useSettingsStore } from "./settingsStore";
+export { useMemberStore } from "./memberStore";
+export { useShareStore } from "./shareStore";

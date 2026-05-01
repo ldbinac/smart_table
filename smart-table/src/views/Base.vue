@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
+import { useMemberStore } from "@/stores/memberStore";
 import {
   Setting,
   Share,
@@ -60,6 +61,7 @@ const router = useRouter();
 const baseStore = useBaseStore();
 const viewStore = useViewStore();
 const tableStore = useTableStore();
+const memberStore = useMemberStore();
 const collaborationStore = useCollaborationStore();
 const userCacheStore = useUserCacheStore();
 
@@ -82,10 +84,10 @@ const isLoading = computed(
 const currentTableId = computed(() => tableStore.currentTable?.id || "");
 
 // 权限控制计算属性
-const canEdit = computed(() => baseStore.canEdit);
-const canManage = computed(() => baseStore.canManage);
-const isOwner = computed(() => baseStore.isOwner);
-const currentUserRole = computed(() => baseStore.currentUserRole);
+const canEdit = computed(() => memberStore.canEdit);
+const canManage = computed(() => memberStore.canManage);
+const isOwner = computed(() => memberStore.isOwner);
+const currentUserRole = computed(() => memberStore.currentUserRole);
 
 // 使用 tableStore.fields 计算可见字段，确保状态同步
 const visibleFields = computed(() => {
@@ -351,7 +353,7 @@ onMounted(async () => {
     } else {
       await baseStore.fetchBase(currentBaseId);
     }
-    const members = await baseStore.fetchMembers(currentBaseId);
+    const members = await memberStore.fetchMembers(currentBaseId);
     // 将成员信息缓存到 userCacheStore
     // 注意：BaseMember 中的用户信息在 user 对象中
     if (members && members.length > 0) {
