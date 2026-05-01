@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useAuthStore } from "@/stores/authStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import type {
   PresenceUserJoinedBroadcast,
@@ -14,8 +15,13 @@ interface ToastItem {
 }
 
 const collaborationStore = useCollaborationStore();
+const authStore = useAuthStore();
 const toasts = ref<ToastItem[]>([]);
 let toastId = 0;
+
+const DEBOUNCE_MS = 5000;
+const recentJoinEvents = new Map<string, number>();
+const recentLeaveEvents = new Map<string, number>();
 
 function addToast(message: string, type: ToastItem["type"] = "info") {
   const id = ++toastId;
@@ -26,10 +32,34 @@ function addToast(message: string, type: ToastItem["type"] = "info") {
 }
 
 function handleUserJoined(data: PresenceUserJoinedBroadcast) {
+  const currentUserId = authStore.user?.id;
+  if (data.user_id === currentUserId) {
+    return;
+  }
+
+  const now = Date.now();
+  const lastTime = recentJoinEvents.get(data.user_id);
+  if (lastTime && now - lastTime < DEBOUNCE_MS) {
+    return;
+  }
+  recentJoinEvents.set(data.user_id, now);
+
   addToast(`${data.nickname || data.name} 加入了协作`, "info");
 }
 
 function handleUserLeft(data: PresenceUserLeftBroadcast) {
+  const currentUserId = authStore.user?.id;
+  if (data.user_id === currentUserId) {
+    return;
+  }
+
+  const now = Date.now();
+  const lastTime = recentLeaveEvents.get(data.user_id);
+  if (lastTime && now - lastTime < DEBOUNCE_MS) {
+    return;
+  }
+  recentLeaveEvents.set(data.user_id, now);
+
   addToast(`${data.nickname || data.name} 离开了协作`, "warning");
 }
 
@@ -43,6 +73,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   realtimeEventEmitter.off("presence:user_joined", handleUserJoined);
   realtimeEventEmitter.off("presence:user_left", handleUserLeft);
+  recentJoinEvents.clear();
+  recentLeaveEvents.clear();
 });
 </script>
 

@@ -27,6 +27,7 @@ export const useTableStore = defineStore("table", () => {
   const records = ref<RecordEntity[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  let cleanupTableListeners: (() => void) | null = null;
 
   async function loadTables(baseId: string) {
     loading.value = true;
@@ -328,16 +329,15 @@ export const useTableStore = defineStore("table", () => {
     const collabStore = useCollaborationStore();
     if (!collabStore.isRealtimeAvailable) return;
 
+    if (cleanupTableListeners) {
+      cleanupTableListeners();
+    }
+
     const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
       if (!currentTable.value || data.table_id !== currentTable.value.id) return;
       const record = data.record as unknown as RecordEntity;
       if (record && !records.value.find((r) => r.id === record.id)) {
         records.value.push(record);
-        // 注意：记录数已经在 createRecord 中更新了，这里不再重复更新
-        // 但如果记录是由其他用户创建的（通过实时事件），则需要更新记录数
-        // 通过检查记录创建者来判断
-        // 暂时简化处理：只在记录不存在时添加，不更新记录数
-        // 因为记录数会在页面刷新时重新计算
       }
     };
 
@@ -404,7 +404,7 @@ export const useTableStore = defineStore("table", () => {
     realtimeEventEmitter.on("data:field_updated", onFieldUpdated);
     realtimeEventEmitter.on("data:field_deleted", onFieldDeleted);
 
-    return () => {
+    cleanupTableListeners = () => {
       realtimeEventEmitter.off("data:record_created", onRecordCreated);
       realtimeEventEmitter.off("data:record_updated", onRecordUpdated);
       realtimeEventEmitter.off("data:record_deleted", onRecordDeleted);
@@ -415,14 +415,10 @@ export const useTableStore = defineStore("table", () => {
   }
 
   function cleanupRealtimeListeners() {
-    const collabStore = useCollaborationStore();
-    if (!collabStore.isRealtimeAvailable) return;
-    realtimeEventEmitter.removeAllListeners("data:record_created");
-    realtimeEventEmitter.removeAllListeners("data:record_updated");
-    realtimeEventEmitter.removeAllListeners("data:record_deleted");
-    realtimeEventEmitter.removeAllListeners("data:field_created");
-    realtimeEventEmitter.removeAllListeners("data:field_updated");
-    realtimeEventEmitter.removeAllListeners("data:field_deleted");
+    if (cleanupTableListeners) {
+      cleanupTableListeners();
+      cleanupTableListeners = null;
+    }
   }
 
   function addRecordFromRemote(tableId: string, record: RecordEntity) {

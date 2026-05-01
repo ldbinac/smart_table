@@ -50,6 +50,10 @@ export function useRealtimeCollaboration(baseId: string) {
   const conflictVisible = ref(false)
   const currentConflict = ref<ConflictInfo | null>(null)
   const waitingForLocks = ref<Set<string>>(new Set())
+  const pendingLockRequests = ref<Map<string, { 
+    resolve: (result: { success: boolean; reason?: string; locked_by?: { name: string } }) => void
+    timeout: ReturnType<typeof setTimeout>
+  }>>(new Map())
 
   const {
     isRealtimeAvailable,
@@ -114,6 +118,8 @@ export function useRealtimeCollaboration(baseId: string) {
   function setupEventListeners() {
     if (!socketClient.value) return
 
+    removeEventListeners()
+
     socketClient.value.on('connect', handleConnect)
 
     socketClient.value.on('room:joined', (data: { base_id: string; online_users: OnlineUser[] }) => {
@@ -128,6 +134,7 @@ export function useRealtimeCollaboration(baseId: string) {
     socketClient.value.on('presence:cell_selected', handleCellSelected)
     socketClient.value.on('lock:acquired', handleLockAcquired)
     socketClient.value.on('lock:released', handleLockReleased)
+    socketClient.value.on('lock_result', handleLockResult)
     socketClient.value.on('data:record_created', handleRecordCreated)
     socketClient.value.on('data:record_updated', handleRecordUpdated)
     socketClient.value.on('data:record_deleted', handleRecordDeleted)
@@ -151,6 +158,7 @@ export function useRealtimeCollaboration(baseId: string) {
     socketClient.value.off('presence:cell_selected', handleCellSelected)
     socketClient.value.off('lock:acquired', handleLockAcquired)
     socketClient.value.off('lock:released', handleLockReleased)
+    socketClient.value.off('lock_result', handleLockResult)
     socketClient.value.off('data:record_created', handleRecordCreated)
     socketClient.value.off('data:record_updated', handleRecordUpdated)
     socketClient.value.off('data:record_deleted', handleRecordDeleted)
@@ -181,6 +189,34 @@ export function useRealtimeCollaboration(baseId: string) {
   }
 
   function handleCellSelected(_data: PresenceCellSelectedBroadcast) {
+  }
+
+  function handleLockResult(data: { 
+    success: boolean
+    base_id: string
+    table_id: string
+    record_id: string
+    field_id: string
+    locked_by?: { name: string; nickname: string }
+    message?: string
+  }) {
+    const key = `${data.record_id}:${data.field_id}`
+    const pending = pendingLockRequests.value.get(key)
+    
+    if (pending) {
+      clearTimeout(pending.timeout)
+      pendingLockRequests.value.delete(key)
+      
+      if (data.success) {
+        pending.resolve({ success: true })
+      } else {
+        pending.resolve({ 
+          success: false, 
+          reason: 'locked',
+          locked_by: data.locked_by
+        })
+      }
+    }
   }
 
   function handleLockAcquired(data: LockAcquiredBroadcast) {
@@ -356,8 +392,24 @@ export function useRealtimeCollaboration(baseId: string) {
         return
       }
 
+      // 如果已有等待中的请求，先清除
+      const existingPending = pendingLockRequests.value.get(key)
+      if (existingPending) {
+        clearTimeout(existingPending.timeout)
+        pendingLockRequests.value.delete(key)
+      }
+
+      // 设置超时（5秒）
+      const timeout = setTimeout(() => {
+        pendingLockRequests.value.delete(key)
+        resolve({ success: false, reason: 'timeout' })
+      }, 5000)
+
+      // 存储等待中的请求
+      pendingLockRequests.value.set(key, { resolve, timeout })
+
+      // 发送锁请求
       socketClient.value!.emit('lock:acquire' as never, data as never)
-      resolve({ success: true })
     })
   }
 
@@ -367,6 +419,13 @@ export function useRealtimeCollaboration(baseId: string) {
   }
 
   function disconnect() {
+    // 清理所有等待中的锁请求
+    pendingLockRequests.value.forEach((pending) => {
+      clearTimeout(pending.timeout)
+      pending.resolve({ success: false, reason: 'disconnected' })
+    })
+    pendingLockRequests.value.clear()
+    
     if (socketClient.value) {
       removeEventListeners()
       socketClient.value.disconnect()

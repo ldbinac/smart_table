@@ -104,6 +104,7 @@ class SocketClientImpl implements RealtimeSocketClient {
       'presence:cell_selected',
       'lock:acquired',
       'lock:released',
+      'lock_result',
       'data:record_created',
       'data:record_updated',
       'data:record_deleted',
@@ -170,7 +171,6 @@ class SocketClientImpl implements RealtimeSocketClient {
       this.socket = null
     }
     this.connected = false
-    realtimeEventEmitter.removeAllListeners()
   }
 
   emit<E extends keyof RealtimeEventMap>(event: E, ...args: unknown[]): void {

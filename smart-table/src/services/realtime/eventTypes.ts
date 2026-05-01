@@ -115,6 +115,21 @@ export interface LockReleasedBroadcast {
   reason?: 'manual' | 'timeout' | 'disconnect'
 }
 
+export interface LockResultBroadcast {
+  success: boolean
+  base_id: string
+  table_id: string
+  record_id: string
+  field_id: string
+  locked_by?: {
+    user_id: string
+    name: string
+    nickname: string
+    avatar?: string
+  }
+  message?: string
+}
+
 export interface FieldChange {
   field_id: string
   old_value: unknown
@@ -214,6 +229,7 @@ export type ServerToClientEvents = {
   'presence:cell_selected': (data: PresenceCellSelectedBroadcast) => void
   'lock:acquired': (data: LockAcquiredBroadcast) => void
   'lock:released': (data: LockReleasedBroadcast) => void
+  'lock_result': (data: LockResultBroadcast) => void
   'data:record_created': (data: DataRecordCreatedBroadcast) => void
   'data:record_updated': (data: DataRecordUpdatedBroadcast) => void
   'data:record_deleted': (data: DataRecordDeletedBroadcast) => void

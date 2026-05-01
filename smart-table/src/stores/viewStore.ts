@@ -12,6 +12,7 @@ export const useViewStore = defineStore("view", () => {
   const currentView = ref<ViewEntity | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  let cleanupViewListeners: (() => void) | null = null;
 
   const sortedViews = computed(() => {
     return [...views.value].sort((a, b) => a.order - b.order);
@@ -265,6 +266,10 @@ export const useViewStore = defineStore("view", () => {
     const collabStore = useCollaborationStore();
     if (!collabStore.isRealtimeAvailable) return;
 
+    if (cleanupViewListeners) {
+      cleanupViewListeners();
+    }
+
     const onViewUpdated = (data: DataViewUpdatedBroadcast) => {
       const index = views.value.findIndex((v) => v.id === data.view_id);
       if (index !== -1) {
@@ -285,15 +290,16 @@ export const useViewStore = defineStore("view", () => {
 
     realtimeEventEmitter.on("data:view_updated", onViewUpdated);
 
-    return () => {
+    cleanupViewListeners = () => {
       realtimeEventEmitter.off("data:view_updated", onViewUpdated);
     };
   }
 
   function cleanupRealtimeListeners() {
-    const collabStore = useCollaborationStore();
-    if (!collabStore.isRealtimeAvailable) return;
-    realtimeEventEmitter.removeAllListeners("data:view_updated");
+    if (cleanupViewListeners) {
+      cleanupViewListeners();
+      cleanupViewListeners = null;
+    }
   }
 
   function updateViewFromRemote(viewId: string, changes: Partial<ViewEntity>) {
