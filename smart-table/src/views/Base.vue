@@ -1288,8 +1288,11 @@ function openFieldDialog() {
 
 // 处理字段创建
 function handleFieldCreated(field: any) {
-  tableStore.fields.push(field);
-  ElMessage.success(`字段 "${field.name}" 创建成功`);
+  // 立即添加字段到 store（提供即时反馈）
+  // 实时事件处理器会通过 changed_by 检查避免重复添加
+  if (!tableStore.fields.find((f) => f.id === field.id)) {
+    tableStore.fields.push(field);
+  }
 }
 
 // 处理字段更新

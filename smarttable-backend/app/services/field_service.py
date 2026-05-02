@@ -121,7 +121,7 @@ class FieldService:
         return Field.query.get(field_id)
     
     @staticmethod
-    def create_field(table_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_field(table_id: str, data: Dict[str, Any], user_id: str = None) -> Dict[str, Any]:
         """
         创建新字段
         
@@ -203,7 +203,7 @@ class FieldService:
                 CollaborationService.broadcast_if_enabled('data:field_created', str(field.table.base_id), {
                     'table_id': table_id,
                     'field': field.to_dict(),
-                    'changed_by': None,
+                    'changed_by': user_id,
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
             except Exception:
@@ -218,7 +218,7 @@ class FieldService:
             return {'success': False, 'error': '创建字段失败，请稍后重试'}
     
     @staticmethod
-    def update_field(field_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_field(field_id: str, data: Dict[str, Any], user_id: str = None) -> Dict[str, Any]:
         """
         更新字段
         
@@ -302,7 +302,7 @@ class FieldService:
                     'table_id': str(field.table_id),
                     'field_id': field_id,
                     'field': field.to_dict(),
-                    'changed_by': None,
+                    'changed_by': user_id,
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
             except Exception:
@@ -317,7 +317,7 @@ class FieldService:
             return {'success': False, 'error': '更新字段失败，请稍后重试'}
     
     @staticmethod
-    def delete_field(field_id: str) -> Dict[str, Any]:
+    def delete_field(field_id: str, user_id: str = None) -> Dict[str, Any]:
         """
         删除字段
         
@@ -358,7 +358,7 @@ class FieldService:
                 CollaborationService.broadcast_if_enabled('data:field_deleted', saved_base_id, {
                     'table_id': saved_table_id,
                     'field_id': saved_field_id,
-                    'changed_by': None,
+                    'changed_by': user_id,
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
             except Exception:

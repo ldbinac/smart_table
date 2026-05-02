@@ -367,50 +367,14 @@ export const useTableStore = defineStore("table", () => {
       }
     };
 
-    const onFieldCreated = (data: DataFieldCreatedBroadcast) => {
-      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
-      const field = data.field as unknown as FieldEntity;
-      if (field && !fields.value.find((f) => f.id === field.id)) {
-        fields.value.push(field);
-      }
-    };
-
-    const onFieldUpdated = (data: DataFieldUpdatedBroadcast) => {
-      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
-      const index = fields.value.findIndex((f) => f.id === data.field_id);
-      if (index !== -1) {
-        fields.value[index] = {
-          ...fields.value[index],
-          ...data.changes,
-          updatedAt: Date.now(),
-        } as FieldEntity;
-      }
-    };
-
-    const onFieldDeleted = (data: DataFieldDeletedBroadcast) => {
-      if (!currentTable.value || data.table_id !== currentTable.value.id) return;
-      fields.value = fields.value.filter((f) => f.id !== data.field_id);
-      records.value = records.value.map((record) => {
-        const newValues = { ...record.values };
-        delete newValues[data.field_id];
-        return { ...record, values: newValues };
-      });
-    };
-
     realtimeEventEmitter.on("data:record_created", onRecordCreated);
     realtimeEventEmitter.on("data:record_updated", onRecordUpdated);
     realtimeEventEmitter.on("data:record_deleted", onRecordDeleted);
-    realtimeEventEmitter.on("data:field_created", onFieldCreated);
-    realtimeEventEmitter.on("data:field_updated", onFieldUpdated);
-    realtimeEventEmitter.on("data:field_deleted", onFieldDeleted);
 
     cleanupTableListeners = () => {
       realtimeEventEmitter.off("data:record_created", onRecordCreated);
       realtimeEventEmitter.off("data:record_updated", onRecordUpdated);
       realtimeEventEmitter.off("data:record_deleted", onRecordDeleted);
-      realtimeEventEmitter.off("data:field_created", onFieldCreated);
-      realtimeEventEmitter.off("data:field_updated", onFieldUpdated);
-      realtimeEventEmitter.off("data:field_deleted", onFieldDeleted);
     };
   }
 

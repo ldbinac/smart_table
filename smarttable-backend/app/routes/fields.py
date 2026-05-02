@@ -124,7 +124,7 @@ def create_field(table_id) -> tuple:
         data['name'] = name
     
     # 创建字段
-    result = FieldService.create_field(str(table_id), data)
+    result = FieldService.create_field(str(table_id), data, user_id)
     
     if not result['success']:
         return error_response(result['error'], code=400)
@@ -244,7 +244,7 @@ def update_field(field_id) -> tuple:
         data['name'] = name
     
     # 更新字段
-    result = FieldService.update_field(str(field_id), data)
+    result = FieldService.update_field(str(field_id), data, user_id)
     
     if not result['success']:
         return error_response(result['error'], code=400)
@@ -292,7 +292,7 @@ def delete_field(field_id) -> tuple:
     if not field:
         return not_found_response('字段')
     
-    result = FieldService.delete_field(str(field_id))
+    result = FieldService.delete_field(str(field_id), user_id)
     
     if not result['success']:
         return error_response(result['error'], code=400)
@@ -699,7 +699,7 @@ def update_link_field(field_id) -> tuple:
             field_data['config']['displayFieldId'] = data['display_field_id']
         
         if field_data:
-            result = FieldService.update_field(str(field_id), field_data)
+            result = FieldService.update_field(str(field_id), field_data, user_id)
             if not result['success']:
                 return error_response(result['error'], code=400)
         
@@ -771,7 +771,7 @@ def delete_link_field(field_id) -> tuple:
             LinkService.delete_link_relation(link_relation[0].id)
         
         # 2. 删除字段
-        result = FieldService.delete_field(str(field_id))
+        result = FieldService.delete_field(str(field_id), user_id)
         if not result['success']:
             return error_response(result['error'], code=400)
         

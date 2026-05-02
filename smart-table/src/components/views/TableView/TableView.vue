@@ -9,9 +9,6 @@ import type {
   DataRecordUpdatedBroadcast,
   DataRecordCreatedBroadcast,
   DataRecordDeletedBroadcast,
-  DataFieldCreatedBroadcast,
-  DataFieldUpdatedBroadcast,
-  DataFieldDeletedBroadcast,
 } from "@/services/realtime/eventTypes";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
@@ -739,45 +736,14 @@ function setupRealtimeListenersForView() {
     tableStore.records = tableStore.records.filter((r) => r.id !== data.record_id);
   };
 
-  const onFieldCreated = (data: DataFieldCreatedBroadcast) => {
-    if (data.table_id !== props.tableId) return;
-    const field = data.field as unknown as FieldEntity;
-    if (field && !tableStore.fields.find((f) => f.id === field.id)) {
-      tableStore.fields.push(field);
-    }
-  };
-
-  const onFieldUpdated = (data: DataFieldUpdatedBroadcast) => {
-    if (data.table_id !== props.tableId) return;
-    const index = tableStore.fields.findIndex((f) => f.id === data.field_id);
-    if (index !== -1) {
-      tableStore.fields[index] = {
-        ...tableStore.fields[index],
-        ...data.changes,
-        updatedAt: Date.now(),
-      } as FieldEntity;
-    }
-  };
-
-  const onFieldDeleted = (data: DataFieldDeletedBroadcast) => {
-    if (data.table_id !== props.tableId) return;
-    tableStore.fields = tableStore.fields.filter((f) => f.id !== data.field_id);
-  };
-
   realtimeEventEmitter.on("data:record_updated", onRecordUpdated);
   realtimeEventEmitter.on("data:record_created", onRecordCreated);
   realtimeEventEmitter.on("data:record_deleted", onRecordDeleted);
-  realtimeEventEmitter.on("data:field_created", onFieldCreated);
-  realtimeEventEmitter.on("data:field_updated", onFieldUpdated);
-  realtimeEventEmitter.on("data:field_deleted", onFieldDeleted);
 
   realtimeHandlers.push(
     { event: "data:record_updated", handler: onRecordUpdated as (...args: unknown[]) => void },
     { event: "data:record_created", handler: onRecordCreated as (...args: unknown[]) => void },
     { event: "data:record_deleted", handler: onRecordDeleted as (...args: unknown[]) => void },
-    { event: "data:field_created", handler: onFieldCreated as (...args: unknown[]) => void },
-    { event: "data:field_updated", handler: onFieldUpdated as (...args: unknown[]) => void },
-    { event: "data:field_deleted", handler: onFieldDeleted as (...args: unknown[]) => void },
   );
 }
 
