@@ -567,7 +567,7 @@ def create_link_field() -> tuple:
               description: 目标表 ID
             relationship_type:
               type: string
-              enum: ['one_to_one', 'one_to_many', 'many_to_one']
+              enum: ['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many']
               description: 关联类型
             display_field_id:
               type: string
@@ -600,15 +600,14 @@ def create_link_field() -> tuple:
         return error_response('请提供目标表ID', code=400)
     if not relationship_type:
         return error_response('请提供关联类型', code=400)
-    if relationship_type not in ['one_to_one', 'one_to_many', 'many_to_one']:
-        return error_response('关联类型必须是 one_to_one, one_to_many 或 many_to_one', code=400)
+    valid_types = ['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many']
+    if relationship_type not in valid_types:
+        return error_response(f'关联类型必须是: {", ".join(valid_types)}', code=400)
     
-    # 检查权限
     if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
         return forbidden_response('您没有权限在此表格中创建字段')
     
-    # 调用 LinkService 完成关联字段创建
-    result = LinkService.create_link_field(str(table_id), data)
+    result = LinkService.create_link_field(str(table_id), data, user_id)
     
     if not result['success']:
         return error_response(result['error'], code=400)
@@ -703,19 +702,20 @@ def update_link_field(field_id) -> tuple:
             if not result['success']:
                 return error_response(result['error'], code=400)
         
-        # 2. 更新关联关系
-        link_relation = LinkService.get_link_relation_by_field(str(field_id))
-        if link_relation:
-            link_data = {}
-            if 'relationship_type' in data:
-                link_data['relationship_type'] = data['relationship_type']
-            if 'bidirectional' in data:
-                link_data['bidirectional'] = data['bidirectional']
-
-            if link_data:
+        if 'relationship_type' in data:
+            rel_result = LinkService.update_link_field_relationship(
+                str(field_id),
+                data['relationship_type'],
+                user_id
+            )
+            if not rel_result['success']:
+                return error_response(rel_result['error'], code=400)
+        elif 'bidirectional' in data:
+            link_relation = LinkService.get_link_relation_by_field(str(field_id))
+            if link_relation:
+                link_data = {'bidirectional': data['bidirectional']}
                 LinkService.update_link_relation(str(link_relation.id), link_data)
-        
-        # 重新获取更新后的字段
+
         updated_field = FieldService.get_field(str(field_id))
         
         return success_response(

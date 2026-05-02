@@ -32,7 +32,7 @@ import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
-import type { LinkedRecord } from "@/types/link";
+import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 
 const props = defineProps<{
@@ -62,14 +62,13 @@ const showHistory = () => {
   historyVisible.value = true;
 };
 
-// 获取关联字段配置
 const getLinkFieldConfig = (field: FieldEntity) => {
   if (field.type !== FieldType.LINK) return null;
   const config = field.config as Record<string, unknown>;
   return {
     targetTableId: config?.linkedTableId as string,
     relationshipType:
-      (config?.relationshipType as "one_to_one" | "one_to_many") ||
+      (config?.relationshipType as RelationshipType) ||
       "one_to_many",
     displayFieldId: config?.displayFieldId as string,
   };

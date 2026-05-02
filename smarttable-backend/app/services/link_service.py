@@ -59,6 +59,79 @@ class LinkService:
     """关联字段服务类"""
 
     @staticmethod
+    def get_inverse_relationship_type(relationship_type: str) -> str:
+        """
+        获取反向关联类型
+        
+        根据关联关系类型返回对应的反向类型：
+        - one_to_one → one_to_one
+        - one_to_many → many_to_one
+        - many_to_one → one_to_many
+        - many_to_many → many_to_many
+        
+        Args:
+            relationship_type: 原始关联类型
+            
+        Returns:
+            反向关联类型
+        """
+        mapping = {
+            RelationshipType.ONE_TO_ONE.value: RelationshipType.ONE_TO_ONE.value,
+            RelationshipType.ONE_TO_MANY.value: RelationshipType.MANY_TO_ONE.value,
+            RelationshipType.MANY_TO_ONE.value: RelationshipType.ONE_TO_MANY.value,
+            RelationshipType.MANY_TO_MANY.value: RelationshipType.MANY_TO_MANY.value,
+        }
+        return mapping.get(relationship_type, RelationshipType.ONE_TO_MANY.value)
+
+    @staticmethod
+    def check_relationship_conflict(
+        source_table_id: str,
+        target_table_id: str,
+        relationship_type: str,
+        exclude_field_id: str = None
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        检查关联关系冲突
+        
+        检测是否存在冲突的关联关系配置：
+        - 同一字段已有不同类型的关联
+        - 目标表中已存在不兼容的关联类型
+        
+        Args:
+            source_table_id: 源表 ID
+            target_table_id: 目标表 ID
+            relationship_type: 关联类型
+            exclude_field_id: 排除的字段 ID（用于更新时排除自身）
+            
+        Returns:
+            (是否存在冲突, 冲突描述)
+        """
+        try:
+            existing_relations = db.session.execute(
+                select(LinkRelation).where(
+                    and_(
+                        LinkRelation.source_table_id == source_table_id,
+                        LinkRelation.target_table_id == target_table_id
+                    )
+                )
+            ).scalars().all()
+            
+            for relation in existing_relations:
+                if exclude_field_id and str(relation.source_field_id) == exclude_field_id:
+                    continue
+                    
+                if relation.relationship_type != relationship_type:
+                    existing_field = db.session.get(Field, relation.source_field_id)
+                    field_name = existing_field.name if existing_field else '未知字段'
+                    return True, f'已存在不同类型的关联字段 "{field_name}"，类型为 {relation.relationship_type}'
+            
+            return False, None
+            
+        except Exception as e:
+            current_app.logger.error(f'[LinkService] 检查关联冲突失败: {str(e)}')
+            return False, None
+
+    @staticmethod
     def create_link_relation(data: Dict[str, Any]) -> Tuple[Optional[LinkRelation], Optional[str]]:
         """
         创建关联关系
@@ -466,14 +539,18 @@ class LinkService:
                 )
             ).scalar_one_or_none()
 
-            # 如果没有反向关联关系，创建一个
             if not reverse_relation:
+                inverse_relationship_type = LinkService.get_inverse_relationship_type(link_relation.relationship_type)
+                current_app.logger.info(
+                    f'[_sync_bidirectional_links] 创建反向关联关系: '
+                    f'正向类型={link_relation.relationship_type}, 反向类型={inverse_relationship_type}'
+                )
                 reverse_relation = LinkRelation(
                     source_table_id=link_relation.target_table_id,
                     target_table_id=link_relation.source_table_id,
                     source_field_id=link_relation.target_field_id,
                     target_field_id=link_relation.source_field_id,
-                    relationship_type=link_relation.relationship_type,
+                    relationship_type=inverse_relationship_type,
                     bidirectional=True
                 )
                 db.session.add(reverse_relation)
@@ -866,9 +943,15 @@ class LinkService:
             return False
 
     @staticmethod
-    def create_link_field(table_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_link_field(table_id: str, data: Dict[str, Any], user_id: str = None) -> Dict[str, Any]:
         """
         创建关联字段（包含字段创建、反向字段创建和关联关系创建的完整业务逻辑）
+        
+        支持的双向关联类型映射：
+        - one_to_one → one_to_one（双向一对一）
+        - one_to_many → many_to_one（一对多 ↔ 多对一）
+        - many_to_one → one_to_many（多对一 ↔ 一对多）
+        - many_to_many → many_to_many（双向多对多）
         
         Args:
             table_id: 源表 ID
@@ -877,8 +960,9 @@ class LinkService:
                 - target_table_id: 目标表 ID（必需）
                 - relationship_type: 关联类型（必需）
                 - display_field_id: 显示字段 ID（可选）
-                - bidirectional: 是否双向关联（可选，默认 False）
+                - bidirectional: 是否双向关联（可选，默认 True）
                 - description: 描述（可选）
+            user_id: 用户 ID（用于协同广播）
             
         Returns:
             包含操作结果的字典
@@ -887,14 +971,29 @@ class LinkService:
         target_table_id = data.get('target_table_id')
         relationship_type = data.get('relationship_type')
         name = data.get('name', '关联字段')
+        bidirectional = data.get('bidirectional', True)
 
-        # 获取源表信息
+        current_app.logger.info(
+            f'[LinkService] create_link_field 调用参数: '
+            f'table_id={table_id}, target_table_id={target_table_id}, '
+            f'relationship_type={relationship_type}, bidirectional={bidirectional}'
+        )
+
         source_table = TableService.get_table_by_id(str(table_id))
         if not source_table:
             return {'success': False, 'error': '源表不存在'}
 
+        target_table = TableService.get_table_by_id(str(target_table_id))
+        if not target_table:
+            return {'success': False, 'error': '目标表不存在'}
+
+        has_conflict, conflict_msg = LinkService.check_relationship_conflict(
+            str(table_id), str(target_table_id), relationship_type
+        )
+        if has_conflict:
+            return {'success': False, 'error': f'关联关系冲突: {conflict_msg}'}
+
         try:
-            # 1. 创建关联字段
             field_data = {
                 'name': name,
                 'type': FieldType.LINK_TO_RECORD.value,
@@ -903,25 +1002,30 @@ class LinkService:
                     'linkedTableId': target_table_id,
                     'relationshipType': relationship_type,
                     'displayFieldId': data.get('display_field_id'),
-                    'bidirectional': data.get('bidirectional', False)
+                    'bidirectional': bidirectional
                 }
             }
 
-            result = FieldService.create_field(str(table_id), field_data)
+            result = FieldService.create_field(str(table_id), field_data, user_id)
             if not result['success']:
                 return result
 
             field = result['field']
 
-            # 2. 如果是双向关联，在目标表中创建反向关联字段
             inverse_field = None
-            if data.get('bidirectional', False):
-                inverse_relationship_type = 'one_to_many' if relationship_type == 'many_to_one' else 'many_to_one' if relationship_type == 'one_to_many' else 'one_to_one'
-
+            if bidirectional:
+                inverse_relationship_type = LinkService.get_inverse_relationship_type(relationship_type)
+                
+                current_app.logger.info(
+                    f'[LinkService] 创建反向关联字段: '
+                    f'原始类型={relationship_type}, 反向类型={inverse_relationship_type}'
+                )
+                
+                source_table_name = source_table.name if source_table else '源表'
                 inverse_field_data = {
-                    'name': f"来自 {source_table.name if source_table else '源表'} 的关联",
+                    'name': f"来自 {source_table_name} 的关联",
                     'type': FieldType.LINK_TO_RECORD.value,
-                    'description': f'自动创建的反向关联字段，关联到 {source_table.name if source_table else "源表"}',
+                    'description': f'自动创建的反向关联字段，关联到 {source_table_name}',
                     'config': {
                         'linkedTableId': table_id,
                         'relationshipType': inverse_relationship_type,
@@ -931,27 +1035,68 @@ class LinkService:
                     }
                 }
 
-                inverse_result = FieldService.create_field(str(target_table_id), inverse_field_data)
+                inverse_result = FieldService.create_field(str(target_table_id), inverse_field_data, user_id)
                 if inverse_result['success']:
                     inverse_field = inverse_result['field']
+                    
+                    source_field = db.session.get(Field, field['id'])
+                    if source_field and source_field.config:
+                        config = source_field.config.copy() if source_field.config else {}
+                        config['inverseFieldId'] = inverse_field['id']
+                        source_field.config = config
+                        from sqlalchemy.orm.attributes import flag_modified
+                        flag_modified(source_field, 'config')
 
-            # 3. 创建关联关系
             link_data = {
                 'source_table_id': str(table_id),
                 'target_table_id': str(target_table_id),
                 'source_field_id': field['id'],
                 'target_field_id': inverse_field['id'] if inverse_field else None,
                 'relationship_type': relationship_type,
-                'bidirectional': data.get('bidirectional', False)
+                'bidirectional': bidirectional
             }
 
             link_result = LinkService.create_link_relation(link_data)
             if not link_result[0]:
-                # 回滚：删除已创建的字段
                 FieldService.delete_field(field['id'])
                 if inverse_field:
                     FieldService.delete_field(inverse_field['id'])
                 return {'success': False, 'error': link_result[1]}
+
+            if bidirectional and inverse_field:
+                inverse_relationship_type = LinkService.get_inverse_relationship_type(relationship_type)
+                reverse_link_data = {
+                    'source_table_id': str(target_table_id),
+                    'target_table_id': str(table_id),
+                    'source_field_id': inverse_field['id'],
+                    'target_field_id': field['id'],
+                    'relationship_type': inverse_relationship_type,
+                    'bidirectional': True
+                }
+                reverse_link_result = LinkService.create_link_relation(reverse_link_data)
+                if reverse_link_result[0]:
+                    current_app.logger.info(
+                        f'[LinkService] 创建反向关联关系成功: '
+                        f'source_field={inverse_field["id"]}, type={inverse_relationship_type}'
+                    )
+
+            try:
+                from app.services.collaboration_service import CollaborationService
+                CollaborationService.broadcast_if_enabled('data:field_created', str(source_table.base_id), {
+                    'table_id': str(table_id),
+                    'field': field,
+                    'changed_by': user_id,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+                if inverse_field:
+                    CollaborationService.broadcast_if_enabled('data:field_created', str(target_table.base_id), {
+                        'table_id': str(target_table_id),
+                        'field': inverse_field,
+                        'changed_by': user_id,
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    })
+            except Exception:
+                pass
 
             return {
                 'success': True,
@@ -961,5 +1106,102 @@ class LinkService:
             }
 
         except Exception as e:
+            db.session.rollback()
             current_app.logger.error(f'[LinkService] 创建关联字段失败: {str(e)}')
             return {'success': False, 'error': '创建关联字段失败，请稍后重试'}
+
+    @staticmethod
+    def update_link_field_relationship(
+        field_id: str,
+        new_relationship_type: str,
+        user_id: str = None
+    ) -> Dict[str, Any]:
+        """
+        更新关联字段的关系类型，并同步更新反向字段
+        
+        当一方关系类型变更时，自动调整对应数据表的关联配置
+        
+        Args:
+            field_id: 字段 ID
+            new_relationship_type: 新的关联类型
+            user_id: 用户 ID
+            
+        Returns:
+            操作结果
+        """
+        try:
+            field = db.session.get(Field, field_id)
+            if not field:
+                return {'success': False, 'error': '字段不存在'}
+            
+            if field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
+                return {'success': False, 'error': '字段不是关联类型'}
+            
+            link_relation = LinkService.get_link_relation_by_field(field_id)
+            if not link_relation:
+                return {'success': False, 'error': '关联关系不存在'}
+            
+            old_relationship_type = link_relation.relationship_type
+            if old_relationship_type == new_relationship_type:
+                return {'success': True, 'message': '关系类型未变化'}
+            
+            has_conflict, conflict_msg = LinkService.check_relationship_conflict(
+                str(link_relation.source_table_id),
+                str(link_relation.target_table_id),
+                new_relationship_type,
+                exclude_field_id=field_id
+            )
+            if has_conflict:
+                return {'success': False, 'error': f'关联关系冲突: {conflict_msg}'}
+            
+            link_relation.relationship_type = new_relationship_type
+            link_relation.updated_at = datetime.now(timezone.utc)
+            
+            if field.config:
+                config = field.config.copy() if field.config else {}
+                config['relationshipType'] = new_relationship_type
+                field.config = config
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(field, 'config')
+            
+            if link_relation.bidirectional and link_relation.target_field_id:
+                inverse_relationship_type = LinkService.get_inverse_relationship_type(new_relationship_type)
+                
+                inverse_field = db.session.get(Field, link_relation.target_field_id)
+                if inverse_field and inverse_field.config:
+                    config = inverse_field.config.copy() if inverse_field.config else {}
+                    config['relationshipType'] = inverse_relationship_type
+                    inverse_field.config = config
+                    from sqlalchemy.orm.attributes import flag_modified
+                    flag_modified(inverse_field, 'config')
+                
+                reverse_relation = db.session.execute(
+                    select(LinkRelation).where(
+                        and_(
+                            LinkRelation.source_field_id == link_relation.target_field_id,
+                            LinkRelation.target_field_id == link_relation.source_field_id
+                        )
+                    )
+                ).scalar_one_or_none()
+                
+                if reverse_relation:
+                    reverse_relation.relationship_type = inverse_relationship_type
+                    reverse_relation.updated_at = datetime.now(timezone.utc)
+            
+            db.session.commit()
+            
+            current_app.logger.info(
+                f'[LinkService] 更新关联字段关系类型: field={field_id}, '
+                f'{old_relationship_type} -> {new_relationship_type}'
+            )
+            
+            return {
+                'success': True,
+                'field': field.to_dict(),
+                'inverse_field': inverse_field.to_dict() if link_relation.target_field_id else None
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'[LinkService] 更新关联字段关系类型失败: {str(e)}')
+            return {'success': False, 'error': '更新关联关系类型失败，请稍后重试'}

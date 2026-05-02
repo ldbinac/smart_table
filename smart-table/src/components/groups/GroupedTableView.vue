@@ -16,7 +16,7 @@ import ContextMenu from "@/components/common/ContextMenu.vue";
 import MemberDisplay from "@/components/common/MemberDisplay.vue";
 import type { SortConfig } from "@/types";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
-import type { LinkedRecord } from "@/types/link";
+import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 
 interface Props {
@@ -1001,7 +1001,7 @@ function getLinkFieldConfig(field: FieldEntity) {
   return {
     targetTableId: config?.linkedTableId as string,
     relationshipType:
-      (config?.relationshipType as "one_to_one" | "one_to_many") ||
+      (config?.relationshipType as RelationshipType) ||
       "one_to_many",
     displayFieldId: config?.displayFieldId as string,
   };

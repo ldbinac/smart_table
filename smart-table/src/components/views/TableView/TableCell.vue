@@ -11,7 +11,7 @@ import { FormulaEngine } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ElMessage, ElTooltip } from "element-plus";
 import { FieldType } from "@/types/fields";
-import type { LinkedRecord } from "@/types/link";
+import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { truncateRichText } from "@/utils/helpers";
 
@@ -303,12 +303,11 @@ const isEditable = computed(() => {
 // 关联字段配置
 const linkFieldConfig = computed(() => {
   if (props.field.type !== FieldType.LINK) return null;
-  // 关联字段的配置保存在 config 中
   const config = props.field.config as Record<string, unknown>;
   return {
     targetTableId: config?.linkedTableId as string,
     relationshipType:
-      (config?.relationshipType as "one_to_one" | "one_to_many") ||
+      (config?.relationshipType as RelationshipType) ||
       "one_to_many",
     displayFieldId: config?.displayFieldId as string,
   };

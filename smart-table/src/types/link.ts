@@ -3,7 +3,26 @@
  */
 
 /** 关联关系类型 */
-export type RelationshipType = "one_to_one" | "one_to_many";
+export type RelationshipType = "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+
+/** 关联关系类型标签映射 */
+export const RELATIONSHIP_TYPE_LABELS: Record<RelationshipType, string> = {
+  one_to_one: "一对一",
+  one_to_many: "一对多",
+  many_to_one: "多对一",
+  many_to_many: "多对多",
+};
+
+/** 获取反向关联类型 */
+export function getInverseRelationshipType(type: RelationshipType): RelationshipType {
+  const mapping: Record<RelationshipType, RelationshipType> = {
+    one_to_one: "one_to_one",
+    one_to_many: "many_to_one",
+    many_to_one: "one_to_many",
+    many_to_many: "many_to_many",
+  };
+  return mapping[type];
+}
 
 /** 关联关系 */
 export interface LinkRelation {

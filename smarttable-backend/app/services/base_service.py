@@ -768,16 +768,20 @@ class BaseService:
         
         new_options = copy.deepcopy(source_field.options) if source_field.options else {}
         
+        config = source_field.config if isinstance(source_field.config, dict) else {}
+        
         target_table_id = None
         if isinstance(new_options, dict) and 'linkedTableId' in new_options:
             old_linked_table_id = new_options['linkedTableId']
             target_table_id = table_id_map.get(old_linked_table_id, old_linked_table_id)
         
-        if not target_table_id and source_field.config:
-            config = source_field.config if isinstance(source_field.config, dict) else {}
+        if not target_table_id and config.get('linkedTableId'):
             linked_table_id = config.get('linkedTableId')
             if linked_table_id:
                 target_table_id = table_id_map.get(linked_table_id, linked_table_id)
+        
+        relationship_type = config.get('relationshipType') or new_options.get('relationshipType', 'many_to_one')
+        bidirectional = config.get('bidirectional', new_options.get('bidirectional', False))
         
         if target_table_id:
             link_result = LinkService.create_link_field(
@@ -785,8 +789,8 @@ class BaseService:
                 {
                     'name': source_field.name,
                     'target_table_id': target_table_id,
-                    'relationship_type': new_options.get('relationshipType', 'many_to_one'),
-                    'bidirectional': new_options.get('bidirectional', False),
+                    'relationship_type': relationship_type,
+                    'bidirectional': bidirectional,
                     'description': source_field.description or ''
                 }
             )

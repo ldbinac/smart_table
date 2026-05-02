@@ -52,16 +52,16 @@ import { computed, ref } from "vue";
 import { ElTag } from "element-plus";
 import LinkRecordSelector from "./LinkRecordSelector.vue";
 import LinkedRecordDetailDialog from "./LinkedRecordDetailDialog.vue";
-import type { LinkedRecord } from "@/types/link";
+import type { LinkedRecord, RelationshipType } from "@/types/link";
 
 interface Props {
-  value?: string[]; // 关联记录 ID 数组
-  linkedRecords?: LinkedRecord[]; // 关联记录详情
-  targetTableId?: string; // 目标表 ID
-  displayFieldId?: string; // 显示字段 ID
-  relationshipType?: "one_to_one" | "one_to_many"; // 关联类型
-  isEditing?: boolean; // 是否处于编辑模式
-  maxDisplayCount?: number; // 最大显示数量
+  value?: string[];
+  linkedRecords?: LinkedRecord[];
+  targetTableId?: string;
+  displayFieldId?: string;
+  relationshipType?: RelationshipType;
+  isEditing?: boolean;
+  maxDisplayCount?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,11 +79,12 @@ const emit = defineEmits<{
   (e: "edit-end"): void;
 }>();
 
-// 选中的记录 ID 列表
 const selectedRecordIds = computed(() => props.value || []);
 
-// 是否允许多选
-const allowMultiple = computed(() => props.relationshipType === "one_to_many");
+const allowMultiple = computed(() => 
+  props.relationshipType === "one_to_many" || 
+  props.relationshipType === "many_to_many"
+);
 
 // 显示的记录列表
 const displayedRecords = computed(() => {
