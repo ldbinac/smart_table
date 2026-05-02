@@ -74,12 +74,21 @@ const getLinkFieldConfig = (field: FieldEntity) => {
   };
 };
 
-// 加载关联记录详情
 const loadLinkedRecords = async (field: FieldEntity) => {
   if (!props.record || field.type !== FieldType.LINK) return;
 
   const fieldId = field.id;
-  const linkedIds = (formData.value[fieldId] as string[]) || [];
+  const rawValue = formData.value[fieldId];
+  const linkedIds = Array.isArray(rawValue)
+    ? rawValue
+    : rawValue
+      ? [String(rawValue)]
+      : [];
+
+  console.log(
+    `[RecordDetailDrawer] loadLinkedRecords: field=${field.name}, linkedIds=`,
+    linkedIds
+  );
 
   if (linkedIds.length === 0) {
     linkFieldRecords.value.set(fieldId, []);
@@ -89,6 +98,8 @@ const loadLinkedRecords = async (field: FieldEntity) => {
   linkFieldLoading.value.add(fieldId);
   try {
     const links = await linkApiService.getRecordLinks(props.record.id);
+    console.log(`[RecordDetailDrawer] API 返回关联数据:`, links);
+    
     const fieldLinks = links.outbound.find((l) => l.field_id === fieldId);
     if (fieldLinks && fieldLinks.linked_records) {
       linkFieldRecords.value.set(
@@ -153,6 +164,11 @@ const handleLinkFieldChange = async (
   }
 };
 
+// 可见字段（用于显示）
+const visibleFields = computed(() => {
+  return props.fields.filter((f) => f.isVisible !== false);
+});
+
 // 加载所有关联字段数据
 const loadAllLinkFields = async () => {
   if (!props.record) return;
@@ -165,27 +181,32 @@ const loadAllLinkFields = async () => {
   }
 };
 
-// 监听记录变化，加载关联数据
-watch(
-  () => props.record,
-  () => {
-    linkFieldRecords.value.clear();
-    loadAllLinkFields();
-  },
-  { immediate: true },
-);
-
-// 可见字段（用于显示）
-const visibleFields = computed(() => {
-  return props.fields.filter((f) => f.isVisible !== false);
-});
-
-// 初始化表单数据
+// 监听记录变化，初始化表单数据并加载关联数据
 watch(
   () => props.record,
   (newRecord) => {
+    linkFieldRecords.value.clear();
+    
     if (newRecord) {
-      formData.value = { ...newRecord.values };
+      const values = { ...newRecord.values };
+      
+      // 确保关联字段的值是数组格式
+      props.fields.forEach((field) => {
+        if (field.type === FieldType.LINK) {
+          const rawValue = values[field.id];
+          if (rawValue === null || rawValue === undefined) {
+            values[field.id] = [];
+          } else if (!Array.isArray(rawValue)) {
+            values[field.id] = [String(rawValue)];
+          }
+        }
+      });
+      
+      formData.value = values;
+      console.log("[RecordDetailDrawer] 初始化 formData:", formData.value);
+      
+      // 在 formData 初始化后再加载关联数据
+      loadAllLinkFields();
     } else {
       formData.value = {};
     }
