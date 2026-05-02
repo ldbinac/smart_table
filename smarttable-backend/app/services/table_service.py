@@ -84,19 +84,19 @@ class TableService:
         
         # 创建默认字段
         # 1. 主字段（名称字段）
-        # primary_field = Field(
-        #     table_id=table.id,
-        #     name=data.get('primary_field_name', '名称'),
-        #     type=FieldType.SINGLE_LINE_TEXT.value,
-        #     order=0,
-        #     is_primary=True,
-        #     is_required=True
-        # )
-        # db.session.add(primary_field)
-        # db.session.flush()
+        primary_field = Field(
+            table_id=table.id,
+            name=data.get('primary_field_name', '文本'),
+            type=FieldType.SINGLE_LINE_TEXT.value,
+            order=0,
+            is_primary=True,
+            is_required=True
+        )
+        db.session.add(primary_field)
+        db.session.flush()
         
-        # # 设置主字段
-        # table.primary_field_id = primary_field.id
+        # 设置主字段
+        table.primary_field_id = primary_field.id
         
         # # 2. 创建时间字段
         # created_at_field = Field(

@@ -163,10 +163,12 @@ export interface Field {
   description?: string
   order: number
   is_primary: boolean
+  is_system: boolean
   is_required: boolean
+  is_visible: boolean
   options?: Record<string, unknown>
   config?: FieldConfig
-  defaultValue?: unknown
+  default_value?: unknown
   created_at: string
   updated_at: string
 }

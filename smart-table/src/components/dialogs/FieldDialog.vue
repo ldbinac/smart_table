@@ -15,6 +15,8 @@ import {
   ElMessageBox,
   ElSlider,
   ElIcon,
+  ElTooltip,
+  ElNotification,
 } from "element-plus";
 import { fieldService } from "@/db/services/fieldService";
 import { useViewStore } from "@/stores/viewStore";
@@ -249,12 +251,43 @@ function initSortable() {
       ghostClass: "sortable-ghost",
       chosenClass: "sortable-chosen",
       dragClass: "sortable-drag",
+      filter: ".is-primary-field",
       onStart: () => {
-        // 拖拽开始时的视觉反馈
         document.body.style.cursor = "grabbing";
       },
+      onMove: (evt) => {
+        const primaryField = sortedFields.value.find((f) => f.isPrimary);
+        if (!primaryField) return true;
+
+        const primaryFieldIndex = sortedFields.value.findIndex((f) => f.id === primaryField.id);
+        if (primaryFieldIndex !== 0) return true;
+
+        const draggedElement = evt.dragged;
+        const relatedElement = evt.related;
+
+        const allItems = Array.from(fieldListRef.value!.children);
+        const draggedIndex = allItems.indexOf(draggedElement);
+        const relatedIndex = allItems.indexOf(relatedElement);
+
+        if (draggedIndex === -1 || relatedIndex === -1) return true;
+
+        const isTryingToMoveBeforePrimary = relatedIndex === 0 && draggedIndex > 0;
+
+        if (isTryingToMoveBeforePrimary) {
+          ElMessage.closeAll();
+          ElMessage({
+            type: "warning",
+            message: "不能将字段拖动到索引列之前",
+            duration: 2000,
+            showClose: true,
+            customClass: "field-reorder-warning",
+          });
+          return false;
+        }
+
+        return true;
+      },
       onEnd: (evt) => {
-        // 拖拽结束恢复光标
         document.body.style.cursor = "";
         handleFieldDragEnd(evt);
       },
@@ -272,7 +305,38 @@ function destroySortable() {
 async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
   if (evt.oldIndex === evt.newIndex) return;
 
-  // 使用排序后的字段列表
+  const primaryField = sortedFields.value.find((f) => f.isPrimary);
+  const primaryFieldIndex = primaryField ? sortedFields.value.findIndex((f) => f.id === primaryField.id) : -1;
+
+  if (primaryField && primaryFieldIndex === 0) {
+    const currentSortedFields = [...sortedFields.value];
+    const [movedField] = currentSortedFields.splice(evt.oldIndex!, 1);
+    
+    if (movedField.id === primaryField.id) {
+      ElNotification({
+        title: "操作不允许",
+        message: "索引列字段不能被移动，它是表格的标识字段",
+        type: "warning",
+        duration: 3000,
+        position: "top",
+      });
+      nextTick(() => initSortable());
+      return;
+    }
+
+    if (evt.newIndex! <= primaryFieldIndex) {
+      ElNotification({
+        title: "操作不允许",
+        message: "其他字段不能调整到索引列字段之前，索引列始终位于最左侧",
+        type: "warning",
+        duration: 3000,
+        position: "top",
+      });
+      nextTick(() => initSortable());
+      return;
+    }
+  }
+
   const currentSortedFields = [...sortedFields.value];
   const [movedField] = currentSortedFields.splice(evt.oldIndex!, 1);
   currentSortedFields.splice(evt.newIndex!, 0, movedField);
@@ -285,6 +349,7 @@ async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
     ElMessage.success("字段排序已更新");
   } catch (error) {
     ElMessage.error("字段排序失败");
+    nextTick(() => initSortable());
   }
 }
 
@@ -803,8 +868,12 @@ async function deleteField(field: FieldEntity) {
     return;
   }
 
+  if (field.isPrimary) {
+    ElMessage.warning("索引列字段不能删除");
+    return;
+  }
+
   try {
-    // 二次确认对话框
     await ElMessageBox.confirm(
       `确定要删除字段 "${field.name}" 吗？删除后该字段的数据将无法恢复。`,
       "删除确认",
@@ -820,7 +889,6 @@ async function deleteField(field: FieldEntity) {
     emit("field-deleted", field.id);
     ElMessage.success("字段删除成功");
   } catch (error) {
-    // 用户取消删除时，ElMessageBox.confirm 会抛出错误，不需要显示错误提示
     if (error === "cancel" || error === "close") {
       return;
     }
@@ -1030,11 +1098,15 @@ function getFieldActualVisibility(field: FieldEntity): boolean {
   return result;
 }
 
-// 切换字段可见性（同时处理全局隐藏和视图级隐藏）
 async function toggleFieldVisibility(
   field: FieldEntity,
   newVisibility: boolean,
 ) {
+  if (field.isPrimary && !newVisibility) {
+    ElMessage.warning("索引列字段不能被隐藏");
+    return;
+  }
+
   console.log(
     `[FieldDialog] toggleFieldVisibility called for ${field.name}, newVisibility:`,
     newVisibility,
@@ -1045,7 +1117,6 @@ async function toggleFieldVisibility(
   });
 
   try {
-    // 获取当前实际显示状态
     const currentVisibility = getFieldActualVisibility(field);
     const isHiddenInView = isFieldHiddenInView(field.id);
     const isGloballyVisible = field.isVisible !== false;
@@ -1059,10 +1130,8 @@ async function toggleFieldVisibility(
       isGloballyVisible,
     );
 
-    // 如果当前是隐藏状态，且用户想要显示
     if (!currentVisibility && newVisibility) {
       if (isHiddenInView) {
-        // 如果是视图级隐藏，通知父组件从隐藏列表中移除
         console.log(
           `[FieldDialog] Emitting field-visibility-changed: ${field.id}, true`,
         );
@@ -1070,7 +1139,6 @@ async function toggleFieldVisibility(
         ElMessage.success(`字段 "${field.name}" 已显示`);
         return;
       } else if (!isGloballyVisible) {
-        // 如果是全局隐藏，更新全局可见性
         console.log(
           `[FieldDialog] Updating global visibility: ${field.id}, true`,
         );
@@ -1081,9 +1149,7 @@ async function toggleFieldVisibility(
       }
     }
 
-    // 如果当前是显示状态，且用户想要隐藏
     if (currentVisibility && !newVisibility) {
-      // 优先使用视图级隐藏
       console.log(
         `[FieldDialog] Emitting field-visibility-changed: ${field.id}, false`,
       );
@@ -1092,7 +1158,6 @@ async function toggleFieldVisibility(
       return;
     }
 
-    // 如果状态没有变化，给出提示
     console.log(`[FieldDialog] No state change needed`);
     ElMessage.info(`字段 "${field.name}" 状态未改变`);
   } catch (error) {
@@ -1120,57 +1185,75 @@ async function toggleFieldVisibility(
       </div>
 
       <div ref="fieldListRef" class="field-items">
-        <div
+        <ElTooltip
           v-for="field in sortedFields"
           :key="field.id"
-          class="field-item"
-          :class="{ 'is-system': field.isSystem }"
-          :data-field-id="field.id">
-          <div class="field-info">
-            <span class="drag-handle" title="拖拽排序">
-              <ElIcon><Rank /></ElIcon>
-            </span>
-            <span class="field-icon">
-              <el-icon>
-                <component :is="getFieldTypeIconComponent(field.type)" />
-              </el-icon>
-            </span>
-            <span class="field-name">{{ field.name }}</span>
-            <span class="field-type">{{ getFieldTypeLabel(field.type) }}</span>
-            <ElTag v-if="field.isSystem" size="small" type="info">系统</ElTag>
-            <ElTag v-if="field.isRequired" size="small" type="warning"
-              >必填</ElTag
-            >
+          :disabled="!field.isPrimary"
+          placement="top"
+          effect="dark">
+          <template #content>
+            <div class="primary-field-tooltip">
+              索引列：用来标识每条记录。不能被删除、移动或隐藏。
+            </div>
+          </template>
+          <div
+            class="field-item"
+            :class="{ 
+              'is-system': field.isSystem,
+              'is-primary-field': field.isPrimary 
+            }"
+            :data-field-id="field.id">
+            <div class="field-info">
+              <span 
+                class="drag-handle" 
+                :class="{ 'disabled': field.isPrimary }"
+                :title="field.isPrimary ? '索引列字段不能移动' : '拖拽排序'">
+                <ElIcon><Rank /></ElIcon>
+              </span>
+              <span class="field-icon">
+                <el-icon>
+                  <component :is="getFieldTypeIconComponent(field.type)" />
+                </el-icon>
+              </span>
+              <span class="field-name">{{ field.name }}</span>
+              <span class="field-type">{{ getFieldTypeLabel(field.type) }}</span>
+              <ElTag v-if="field.isPrimary" size="small" type="success">索引列</ElTag>
+              <ElTag v-if="field.isSystem" size="small" type="info">系统</ElTag>
+              <ElTag v-if="field.isRequired" size="small" type="warning"
+                >必填</ElTag
+              >
+            </div>
+            <div class="field-actions">
+              <ElSwitch
+                v-if="!field.isPrimary"
+                :model-value="getFieldActualVisibility(field)"
+                :active-value="true"
+                :inactive-value="false"
+                size="small"
+                inline-prompt
+                active-text="显示"
+                inactive-text="隐藏"
+                @change="(val) => toggleFieldVisibility(field, val as boolean)"
+                style="margin-right: 8px" />
+              <ElButton
+                v-if="!field.isSystem"
+                link
+                type="primary"
+                size="small"
+                @click="openEditField(field)">
+                编辑
+              </ElButton>
+              <ElButton
+                v-if="!field.isSystem && !field.isPrimary"
+                link
+                type="danger"
+                size="small"
+                @click="deleteField(field)">
+                删除
+              </ElButton>
+            </div>
           </div>
-          <div class="field-actions">
-            <ElSwitch
-              :model-value="getFieldActualVisibility(field)"
-              :active-value="true"
-              :inactive-value="false"
-              size="small"
-              inline-prompt
-              active-text="显示"
-              inactive-text="隐藏"
-              @change="(val) => toggleFieldVisibility(field, val as boolean)"
-              style="margin-right: 8px" />
-            <ElButton
-              v-if="!field.isSystem"
-              link
-              type="primary"
-              size="small"
-              @click="openEditField(field)">
-              编辑
-            </ElButton>
-            <ElButton
-              v-if="!field.isSystem"
-              link
-              type="danger"
-              size="small"
-              @click="deleteField(field)">
-              删除
-            </ElButton>
-          </div>
-        </div>
+        </ElTooltip>
       </div>
     </div>
 
@@ -1825,13 +1908,27 @@ async function toggleFieldVisibility(
     &:hover {
       background-color: $bg-color;
 
-      .drag-handle {
+      .drag-handle:not(.disabled) {
         opacity: 1;
       }
     }
 
     &.is-system {
       opacity: 0.7;
+    }
+
+    &.is-primary-field {
+      background-color: rgba(16, 185, 129, 0.05);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+
+      &:hover {
+        background-color: rgba(16, 185, 129, 0.1);
+      }
+
+      .field-name {
+        font-weight: 600;
+        color: #10b981;
+      }
     }
 
     .field-info {
@@ -1849,6 +1946,11 @@ async function toggleFieldVisibility(
 
         &:active {
           cursor: grabbing;
+        }
+
+        &.disabled {
+          opacity: 0.3 !important;
+          cursor: not-allowed;
         }
       }
 
@@ -1875,7 +1977,6 @@ async function toggleFieldVisibility(
       gap: 8px;
     }
 
-    // 拖拽排序视觉反馈样式
     &.sortable-ghost {
       opacity: 0.4;
       background-color: $primary-light;
@@ -1894,6 +1995,20 @@ async function toggleFieldVisibility(
       transform: scale(1.02);
     }
   }
+}
+
+.field-reorder-warning {
+  font-weight: 500;
+  
+  .el-message__content {
+    font-size: 14px;
+  }
+}
+
+.primary-field-tooltip {
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 280px;
 }
 
 .field-form {
