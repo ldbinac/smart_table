@@ -424,12 +424,19 @@ export const useTableStore = defineStore("table", () => {
     }
   }
 
-  function deleteRecordFromRemote(tableId: string, recordId: string) {
+  async function deleteRecordFromRemote(tableId: string, recordId: string) {
     if (currentTable.value?.id !== tableId) return
     const existed = records.value.find((r) => r.id === recordId)
     records.value = records.value.filter((r) => r.id !== recordId)
     if (existed && currentTable.value) {
       currentTable.value.recordCount--
+    }
+
+    try {
+      await db.records.delete(recordId)
+      console.log(`[tableStore] 已从本地缓存删除远程删除的记录: ${recordId}`)
+    } catch (error) {
+      console.error(`[tableStore] 删除本地记录缓存失败:`, error)
     }
   }
 
@@ -504,12 +511,19 @@ export const useTableStore = defineStore("table", () => {
     }
   }
 
-  function deleteTableFromRemote(tableId: string) {
+  async function deleteTableFromRemote(tableId: string) {
     tables.value = tables.value.filter((t) => t.id !== tableId)
     if (currentTable.value?.id === tableId) {
       currentTable.value = null
       fields.value = []
       records.value = []
+    }
+
+    try {
+      await tableService.deleteTableFromLocal(tableId)
+      console.log(`[tableStore] 已从本地缓存删除远程删除的表格: ${tableId}`)
+    } catch (error) {
+      console.error(`[tableStore] 删除本地缓存失败:`, error)
     }
   }
 

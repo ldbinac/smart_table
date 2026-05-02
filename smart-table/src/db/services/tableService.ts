@@ -92,11 +92,23 @@ export class TableService {
 
   async getTablesByBase(baseId: string): Promise<TableEntity[]> {
     try {
-      // 先从后端 API 获取最新数据
       const apiTables = await tableApiService.getTables(baseId);
 
-      // 将后端返回的表格保存到本地 IndexedDB
+      const apiTableIds = new Set(apiTables.map((t) => t.id));
+
       await db.transaction("rw", db.tableEntities, async () => {
+        const localTables = await db.tableEntities
+          .where("baseId")
+          .equals(baseId)
+          .toArray();
+
+        for (const localTable of localTables) {
+          if (!apiTableIds.has(localTable.id)) {
+            console.log(`[tableService] 清理本地已删除的表格: ${localTable.id}`);
+            await db.tableEntities.delete(localTable.id);
+          }
+        }
+
         for (const apiTable of apiTables) {
           const localTable: TableEntity = {
             id: apiTable.id,
@@ -115,11 +127,9 @@ export class TableService {
         }
       });
 
-      // 从本地 IndexedDB 返回排序后的表格列表
       return db.tableEntities.where("baseId").equals(baseId).sortBy("order");
     } catch (error) {
       console.error("[tableService] getTablesByBase failed:", error);
-      // 如果 API 调用失败，从本地缓存读取
       return db.tableEntities.where("baseId").equals(baseId).sortBy("order");
     }
   }
@@ -150,22 +160,33 @@ export class TableService {
 
   async deleteTable(id: string): Promise<void> {
     try {
-      // 先调用后端 API 删除表格
       await tableApiService.deleteTable(id);
 
-      // 再从本地 IndexedDB 删除
+      await this.deleteTableFromLocal(id);
+    } catch (error) {
+      console.error("[tableService] deleteTable failed:", error);
+      throw error;
+    }
+  }
+
+  async deleteTableFromLocal(id: string): Promise<void> {
+    try {
       await db.transaction(
         "rw",
-        [db.tableEntities, db.fields, db.records, db.views],
+        [db.tableEntities, db.fields, db.records, db.views, db.cacheMeta],
         async () => {
           await db.fields.where("tableId").equals(id).delete();
           await db.records.where("tableId").equals(id).delete();
           await db.views.where("tableId").equals(id).delete();
           await db.tableEntities.delete(id);
+          
+          const fieldCacheKey = `fields_${id}`;
+          await db.cacheMeta.where("key").equals(fieldCacheKey).delete();
         },
       );
+      console.log(`[tableService] 已从本地删除表格 ${id} 及其关联数据`);
     } catch (error) {
-      console.error("[tableService] deleteTable failed:", error);
+      console.error("[tableService] deleteTableFromLocal failed:", error);
       throw error;
     }
   }
