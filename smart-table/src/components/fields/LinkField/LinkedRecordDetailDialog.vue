@@ -49,28 +49,103 @@
         >
           <div class="field-label">{{ field.name }}</div>
           <div class="field-value">
+            <!-- 关联字段 -->
             <template v-if="field.type === 'link'">
-              <!-- 关联字段特殊处理 -->
-              <el-tag size="small" type="info">关联字段</el-tag>
+              <template v-if="getLinkFieldValue(field.id)">
+                <el-tag
+                  v-for="(item, index) in getLinkFieldValue(field.id)"
+                  :key="index"
+                  size="small"
+                  class="value-tag"
+                  type="primary"
+                >
+                  {{ item }}
+                </el-tag>
+              </template>
+              <span v-else class="empty-value">-</span>
             </template>
+            <!-- 附件字段 -->
             <template v-else-if="field.type === 'attachment'">
-              <!-- 附件字段 -->
-              <el-tag size="small" type="info">附件</el-tag>
+              <template v-if="getAttachmentFieldValue(field.id).length > 0">
+                <el-tag
+                  v-for="(file, index) in getAttachmentFieldValue(field.id).slice(0, 3)"
+                  :key="index"
+                  size="small"
+                  class="value-tag"
+                  type="info"
+                >
+                  {{ file.name || file.filename || '附件' }}
+                </el-tag>
+                <span v-if="getAttachmentFieldValue(field.id).length > 3" class="more-count">
+                  +{{ getAttachmentFieldValue(field.id).length - 3 }}
+                </span>
+              </template>
+              <span v-else class="empty-value">-</span>
             </template>
-            <template v-else-if="isArrayValue(recordDetail.values[field.id])">
-              <!-- 数组值（如多选） -->
+            <!-- 多选字段 -->
+            <template v-else-if="field.type === 'multi_select' && isArrayValue(recordDetail.values[field.id])">
               <el-tag
                 v-for="(item, index) in recordDetail.values[field.id]"
                 :key="index"
                 size="small"
                 class="value-tag"
               >
-                {{ item }}
+                {{ getSelectOptionName(field, item) }}
               </el-tag>
             </template>
-            <template v-else-if="recordDetail.values[field.id] !== null && recordDetail.values[field.id] !== undefined">
+            <!-- 单选字段 -->
+            <template v-else-if="field.type === 'single_select' && recordDetail.values[field.id]">
+              <el-tag size="small" class="value-tag">
+                {{ getSelectOptionName(field, recordDetail.values[field.id]) }}
+              </el-tag>
+            </template>
+            <!-- 复选框字段 -->
+            <template v-else-if="field.type === 'checkbox'">
+              <el-tag size="small" :type="recordDetail.values[field.id] ? 'success' : 'info'">
+                {{ recordDetail.values[field.id] ? '是' : '否' }}
+              </el-tag>
+            </template>
+            <!-- 日期/日期时间字段 -->
+            <template v-else-if="field.type === 'date' || field.type === 'date_time'">
+              {{ formatDateTime(recordDetail.values[field.id]) }}
+            </template>
+            <!-- 评分字段 -->
+            <template v-else-if="field.type === 'rating'">
+              <el-rate
+                :model-value="Number(recordDetail.values[field.id]) || 0"
+                :max="field.options?.maxRating || 5"
+                disabled
+                size="small"
+              />
+            </template>
+            <!-- 进度/百分比字段 -->
+            <template v-else-if="field.type === 'progress' || field.type === 'percent'">
+              <div class="progress-value">
+                <el-progress
+                  :percentage="Number(recordDetail.values[field.id]) || 0"
+                  :stroke-width="8"
+                  style="width: 100px"
+                />
+              </div>
+            </template>
+            <!-- 公式字段 -->
+            <template v-else-if="field.type === 'formula'">
+              <span class="formula-value">{{ recordDetail.values[field.id] || '-' }}</span>
+            </template>
+            <!-- 成员字段 -->
+            <template v-else-if="field.type === 'member'">
+              <template v-if="recordDetail.values[field.id]">
+                <el-tag size="small" type="info">
+                  {{ getMemberDisplayName(recordDetail.values[field.id]) }}
+                </el-tag>
+              </template>
+              <span v-else class="empty-value">-</span>
+            </template>
+            <!-- 其他字段类型 -->
+            <template v-else-if="recordDetail.values[field.id] !== null && recordDetail.values[field.id] !== undefined && recordDetail.values[field.id] !== ''">
               {{ formatFieldValue(recordDetail.values[field.id], field) }}
             </template>
+            <!-- 空值 -->
             <span v-else class="empty-value">-</span>
           </div>
         </div>
@@ -84,22 +159,38 @@
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose">关闭</el-button>
-        <el-button type="primary" @click="navigateToTable">
+        <el-button type="primary" @click="showFullRecordDetail">
           查看完整记录
         </el-button>
       </div>
     </template>
   </el-dialog>
+
+  <!-- 完整记录详情抽屉 -->
+  <RecordDetailDrawer
+    v-model:visible="detailDrawerVisible"
+    :record="fullRecordData"
+    :fields="fields"
+    :readonly="true"
+    size="50%"
+    @save="handleDetailSave"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import {
+  ElMessage,
+  ElTag,
+  ElRate,
+  ElProgress,
+} from "element-plus";
 import dayjs from "dayjs";
 import { recordApiService } from "@/services/api/recordApiService";
 import { fieldService } from "@/db/services";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
+import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 
 interface Props {
   visible: boolean;
@@ -139,12 +230,25 @@ const recordDetail = ref<RecordEntity | null>(null);
 // 字段列表
 const fields = ref<FieldEntity[]>([]);
 
-// 显示的字段（排除系统字段和隐藏字段）
+// 显示的字段（仅显示可视字段，隐藏非可视字段和系统字段）
 const displayFields = computed(() => {
-  return fields.value.filter(
-    (f) => !f.isSystem && f.isVisible && f.type !== "primaryKey"
-  );
+  return fields.value.filter((f) => {
+    // 排除系统字段
+    if (f.isSystem) return false;
+    
+    // 排除主键类型字段（主键已在记录头部显示）
+    if (f.type === "primaryKey") return false;
+    
+    // 只显示可视字段（isVisible 为 undefined 或 true 时显示，false 时隐藏）
+    return f.isVisible !== false;
+  });
 });
+
+// 完整记录详情抽屉状态
+const detailDrawerVisible = ref(false);
+
+// 完整记录数据
+const fullRecordData = computed(() => recordDetail.value);
 
 // 监听弹窗显示状态
 watch(
@@ -220,7 +324,81 @@ const isArrayValue = (value: unknown): boolean => {
   return Array.isArray(value) && value.length > 0;
 };
 
-// 跳转到目标表
+// 获取关联字段的显示值
+const getLinkFieldValue = (fieldId: string): string[] => {
+  if (!recordDetail.value) return [];
+  const value = recordDetail.value.values[fieldId];
+  if (!value) return [];
+  
+  // 关联字段值可能是数组或单个值
+  if (Array.isArray(value)) {
+    return value.map((v) => {
+      if (typeof v === "object" && v !== null && "display_value" in v) {
+        return (v as { display_value: string }).display_value;
+      }
+      return String(v);
+    });
+  }
+  if (typeof value === "object" && value !== null && "display_value" in value) {
+    return [(value as { display_value: string }).display_value];
+  }
+  return [String(value)];
+};
+
+// 获取附件字段的文件列表
+const getAttachmentFieldValue = (fieldId: string): Array<{ name?: string; filename?: string }> => {
+  if (!recordDetail.value) return [];
+  const value = recordDetail.value.values[fieldId];
+  if (!value) return [];
+  
+  if (Array.isArray(value)) {
+    return value.map((v) => {
+      if (typeof v === "object" && v !== null) {
+        return v as { name?: string; filename?: string };
+      }
+      return { name: String(v) };
+    });
+  }
+  return [];
+};
+
+// 获取选择字段选项的名称
+const getSelectOptionName = (field: FieldEntity, optionId: unknown): string => {
+  if (!optionId) return "-";
+  
+  const choices = field.options?.choices as Array<{ id: string; name: string }> | undefined;
+  if (!choices) return String(optionId);
+  
+  const option = choices.find((c) => c.id === optionId);
+  return option?.name || String(optionId);
+};
+
+// 获取成员的显示名称
+const getMemberDisplayName = (value: unknown): string => {
+  if (!value) return "-";
+  
+  if (typeof value === "object" && value !== null) {
+    const member = value as { name?: string; displayName?: string; email?: string };
+    return member.name || member.displayName || member.email || "未知成员";
+  }
+  return String(value);
+};
+
+// 显示完整记录详情弹窗
+const showFullRecordDetail = () => {
+  if (!recordDetail.value) {
+    ElMessage.warning("记录数据未加载");
+    return;
+  }
+  detailDrawerVisible.value = true;
+};
+
+// 处理详情保存（只读模式下不会触发，但需要处理）
+const handleDetailSave = (recordId: string, values: Record<string, unknown>) => {
+  console.log("[LinkedRecordDetailDialog] 详情保存:", recordId, values);
+};
+
+// 跳转到目标表（保留原功能，可通过其他方式触发）
 const navigateToTable = () => {
   if (props.tableId && props.recordId) {
     const route = router.resolve({
@@ -328,5 +506,26 @@ const handleClose = () => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.progress-value {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.formula-value {
+  font-family: "SF Mono", Monaco, monospace;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  background-color: var(--el-fill-color-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.more-count {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-left: 4px;
 }
 </style>
