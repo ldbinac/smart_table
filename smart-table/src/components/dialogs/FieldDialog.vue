@@ -766,7 +766,7 @@ async function updateField() {
       updateData.defaultValue = newField.value.defaultValue;
     }
 
-    await fieldService.updateField(editingField.value.id, updateData);
+    const updatedField = await fieldService.updateField(editingField.value.id, updateData);
 
     // 如果是关联字段，更新关联关系
     if (newField.value.type === FieldType.LINK) {
@@ -785,12 +785,9 @@ async function updateField() {
       }
     }
 
-    const updatedField = {
-      ...editingField.value,
-      ...newField.value,
-      options: options as Record<string, unknown>,
-    };
-    emit("field-updated", updatedField);
+    if (updatedField) {
+      emit("field-updated", updatedField);
+    }
     ElMessage.success("字段更新成功");
     backToList();
   } catch (error) {

@@ -33,9 +33,31 @@ import { ElMessage } from 'element-plus'
 import type { ConflictInfo } from '@/components/collaboration/ConflictDialog.vue'
 import { useTableStore } from '../stores/tableStore'
 import { useViewStore } from '../stores/viewStore'
+import type { FieldEntity } from '../db/schema'
+import { normalizeFieldType } from '@/types/fields'
 
 interface RealtimeStatusResponse {
   enabled: boolean
+}
+
+function convertApiFieldToEntity(apiField: any): FieldEntity {
+  return {
+    id: apiField.id,
+    tableId: apiField.table_id,
+    name: apiField.name,
+    type: normalizeFieldType(apiField.type),
+    options: apiField.options as Record<string, unknown> | undefined,
+    config: apiField.config as Record<string, unknown> | undefined,
+    isPrimary: apiField.is_primary || false,
+    isSystem: apiField.is_system || false,
+    isRequired: apiField.is_required || false,
+    isVisible: apiField.is_visible ?? true,
+    defaultValue: apiField.default_value,
+    description: apiField.description,
+    order: apiField.order ?? 0,
+    createdAt: new Date(apiField.created_at).getTime(),
+    updatedAt: new Date(apiField.updated_at).getTime(),
+  }
 }
 
 export function useRealtimeCollaboration(baseId: string) {
@@ -297,7 +319,8 @@ export function useRealtimeCollaboration(baseId: string) {
     if (data.changed_by === currentUserId) return
     
     if (data.field && data.table_id) {
-      tableStore.addFieldFromRemote(data.table_id, data.field)
+      const fieldEntity = convertApiFieldToEntity(data.field)
+      tableStore.addFieldFromRemote(data.table_id, fieldEntity)
     }
   }
 
@@ -305,8 +328,9 @@ export function useRealtimeCollaboration(baseId: string) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
     
-    if (data.table_id && data.field_id) {
-      tableStore.updateFieldFromRemote(data.table_id, data.field_id, data.changes)
+    if (data.table_id && data.field_id && data.field) {
+      const fieldEntity = convertApiFieldToEntity(data.field)
+      tableStore.updateFieldFromRemote(data.table_id, data.field_id, fieldEntity)
     }
   }
 

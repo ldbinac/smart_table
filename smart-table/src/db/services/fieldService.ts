@@ -131,11 +131,17 @@ export class FieldService {
       console.log(`[fieldService] 从本地缓存读取表 ${tableId} 的字段...`);
       const fields = await db.fields.where("tableId").equals(tableId).sortBy("order");
       console.log(`[fieldService] 从本地缓存读取到 ${fields.length} 个字段`);
+      
+      // 如果本地缓存也为空，抛出错误
+      if (fields.length === 0) {
+        throw new Error('无法获取字段数据，请检查网络连接后重试');
+      }
+      
       return fields;
     }
   }
 
-  async updateField(id: string, changes: Partial<FieldEntity>): Promise<void> {
+  async updateField(id: string, changes: Partial<FieldEntity>): Promise<FieldEntity | undefined> {
     try {
       // 如果需要更新 type，先转换为后端类型
       const apiChanges: Partial<FieldEntity> = { ...changes };
@@ -143,20 +149,35 @@ export class FieldService {
         apiChanges.type = denormalizeFieldType(changes.type);
       }
       
-      // 先调用后端 API 更新字段
-      await fieldApiService.updateField(id, apiChanges as any);
+      // 先调用后端 API 更新字段，获取更新后的数据
+      const apiField = await fieldApiService.updateField(id, apiChanges as any);
 
-      // 如果需要更新 type，转换为前端类型
-      const localChanges: Partial<FieldEntity> = { ...changes };
-      if (changes.type) {
-        localChanges.type = normalizeFieldType(changes.type);
-      }
+      // 将后端返回的字段类型转换为前端类型
+      const frontendType = normalizeFieldType(apiField.type);
       
-      // 再更新本地 IndexedDB
-      await db.fields.update(id, {
-        ...localChanges,
-        updatedAt: Date.now(),
-      });
+      // 构建更新后的本地字段对象
+      const localField: FieldEntity = {
+        id: apiField.id,
+        tableId: apiField.table_id,
+        name: apiField.name,
+        type: frontendType,
+        options: apiField.options as Record<string, unknown> | undefined,
+        config: apiField.config as Record<string, unknown> | undefined,
+        isPrimary: apiField.isPrimary || false,
+        isSystem: apiField.isSystem || false,
+        isRequired: apiField.isRequired || false,
+        isVisible: apiField.isVisible ?? true,
+        defaultValue: apiField.defaultValue,
+        description: apiField.description,
+        order: apiField.order ?? 0,
+        createdAt: new Date(apiField.createdAt).getTime(),
+        updatedAt: new Date(apiField.updatedAt).getTime(),
+      };
+      
+      // 更新本地 IndexedDB
+      await db.fields.put(localField);
+      
+      return localField;
     } catch (error) {
       console.error("[fieldService] updateField failed:", error);
       throw error;

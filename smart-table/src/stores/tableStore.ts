@@ -4,6 +4,7 @@ import { tableService } from "../db/services/tableService";
 import { fieldService } from "../db/services/fieldService";
 import { recordService } from "../db/services/recordService";
 import { viewService } from "../db/services/viewService";
+import { db } from "../db/schema";
 import type { TableEntity, FieldEntity, RecordEntity, ViewEntity } from "../db/schema";
 import type { CellValue } from "../types";
 import { FieldType } from "../types/fields";
@@ -432,26 +433,39 @@ export const useTableStore = defineStore("table", () => {
     }
   }
 
-  function addFieldFromRemote(tableId: string, field: FieldEntity) {
+  async function addFieldFromRemote(tableId: string, field: FieldEntity) {
     if (currentTable.value?.id !== tableId) return
     if (!fields.value.find((f) => f.id === field.id)) {
       fields.value.push(field)
+      try {
+        await db.fields.put(field)
+      } catch (e) {
+        console.error('[tableStore] Failed to sync field to IndexedDB:', e)
+      }
     }
   }
 
-  function updateFieldFromRemote(tableId: string, fieldId: string, changes: Partial<FieldEntity>) {
+  async function updateFieldFromRemote(tableId: string, fieldId: string, field: Partial<FieldEntity>) {
     if (currentTable.value?.id !== tableId) return
     const index = fields.value.findIndex((f) => f.id === fieldId)
     if (index !== -1) {
       fields.value[index] = {
         ...fields.value[index],
-        ...changes,
+        ...field,
         updatedAt: Date.now(),
       } as FieldEntity
+      try {
+        await db.fields.update(fieldId, {
+          ...field,
+          updatedAt: Date.now(),
+        })
+      } catch (e) {
+        console.error('[tableStore] Failed to sync field update to IndexedDB:', e)
+      }
     }
   }
 
-  function deleteFieldFromRemote(tableId: string, fieldId: string) {
+  async function deleteFieldFromRemote(tableId: string, fieldId: string) {
     if (currentTable.value?.id !== tableId) return
     fields.value = fields.value.filter((f) => f.id !== fieldId)
     records.value = records.value.map((record) => {
@@ -459,6 +473,11 @@ export const useTableStore = defineStore("table", () => {
       delete newValues[fieldId]
       return { ...record, values: newValues }
     })
+    try {
+      await db.fields.delete(fieldId)
+    } catch (e) {
+      console.error('[tableStore] Failed to sync field deletion to IndexedDB:', e)
+    }
   }
 
   function addTableFromRemote(table: TableEntity) {

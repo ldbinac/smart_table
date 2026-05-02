@@ -170,6 +170,7 @@ export interface DataFieldCreatedBroadcast {
 export interface DataFieldUpdatedBroadcast {
   table_id: string
   field_id: string
+  field: Record<string, unknown>
   changes: Record<string, unknown>
   changed_by: string
   timestamp: string
