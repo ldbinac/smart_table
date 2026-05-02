@@ -47,21 +47,51 @@
         <div v-else-if="records.length === 0" class="empty-state">
           <el-empty description="暂无可用记录" />
         </div>
-        <div v-else class="records-list">
-          <div
-            v-for="record in records"
-            :key="record.id"
-            class="record-item"
-            :class="{ selected: isSelected(record.id) }"
-            @click="toggleSelect(record)"
-          >
-            <el-checkbox
-              :model-value="isSelected(record.id)"
-              @click.stop
-              @change="() => toggleSelect(record)"
-            />
-            <span class="record-value">{{ getDisplayValue(record) }}</span>
-          </div>
+        <div v-else class="records-table-container">
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th class="checkbox-column">
+                  <el-checkbox
+                    :model-value="false"
+                    :indeterminate="false"
+                    disabled
+                  />
+                </th>
+                <th
+                  v-for="field in displayFields"
+                  :key="field.id"
+                  class="field-header"
+                >
+                  {{ field.name }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="record in records"
+                :key="record.id"
+                class="record-row"
+                :class="{ selected: isSelected(record.id) }"
+                @click="toggleSelect(record)"
+              >
+                <td class="checkbox-column">
+                  <el-checkbox
+                    :model-value="isSelected(record.id)"
+                    @click.stop
+                    @change="() => toggleSelect(record)"
+                  />
+                </td>
+                <td
+                  v-for="field in displayFields"
+                  :key="field.id"
+                  class="field-cell"
+                >
+                  {{ getFieldValue(record, field.id) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -104,7 +134,9 @@ import {
 } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
+import { fieldCacheService } from "@/db/services/fieldCacheService";
 import type { LinkedRecord } from "@/types/link";
+import type { FieldEntity } from "@/db/schema";
 import { debounce } from "lodash-es";
 
 interface Props {
@@ -119,6 +151,16 @@ const props = withDefaults(defineProps<Props>(), {
   selectedIds: () => [],
   allowMultiple: true,
 });
+
+const MAX_DISPLAY_FIELDS = 5;
+
+interface DisplayField {
+  id: string;
+  name: string;
+  type: string;
+}
+
+const displayFields = ref<DisplayField[]>([]);
 
 const emit = defineEmits<{
   (e: "confirm", selectedIds: string[], records: LinkedRecord[]): void;
@@ -155,6 +197,7 @@ watch(
   (visible) => {
     if (visible) {
       initSelectedRecords();
+      loadDisplayFields();
       loadRecords();
     }
   }
@@ -162,8 +205,37 @@ watch(
 
 // 初始化已选记录
 const initSelectedRecords = () => {
-  // 根据 selectedIds 初始化，实际使用时可能需要从父组件传入完整记录数据
   selectedRecords.value = [];
+};
+
+// 加载关联表的可显示字段
+const loadDisplayFields = async () => {
+  if (!props.targetTableId) {
+    console.log("[LinkRecordSelector] targetTableId 为空，不加载字段");
+    displayFields.value = [];
+    return;
+  }
+
+  try {
+    const allFields = await fieldCacheService.getFieldsWithCache(props.targetTableId);
+    
+    const visibleFields = allFields
+      .filter((field: FieldEntity) => field.isVisible !== false)
+      .sort((a: FieldEntity, b: FieldEntity) => a.order - b.order);
+    
+    displayFields.value = visibleFields
+      .slice(0, MAX_DISPLAY_FIELDS)
+      .map((field: FieldEntity) => ({
+        id: field.id,
+        name: field.name,
+        type: field.type,
+      }));
+
+    console.log("[LinkRecordSelector] 加载可显示字段:", displayFields.value.length, "个");
+  } catch (error) {
+    console.error("[LinkRecordSelector] 加载字段失败:", error);
+    displayFields.value = [];
+  }
 };
 
 // 加载记录列表
@@ -216,17 +288,42 @@ const handlePageChange = () => {
   loadRecords();
 };
 
-// 获取显示值
+// 获取显示值（用于已选记录标签显示）
 const getDisplayValue = (record: { id: string; values: Record<string, unknown> }): string => {
   if (props.displayFieldId && record.values[props.displayFieldId]) {
     return String(record.values[props.displayFieldId]);
   }
-  // 如果没有指定显示字段，尝试使用第一个字段或返回 ID
+  if (displayFields.value.length > 0 && record.values[displayFields.value[0].id]) {
+    return String(record.values[displayFields.value[0].id]);
+  }
   const values = Object.values(record.values);
   if (values.length > 0) {
     return String(values[0]);
   }
   return record.id;
+};
+
+// 获取字段显示值
+const getFieldValue = (record: { id: string; values: Record<string, unknown> }, fieldId: string): string => {
+  const value = record.values[fieldId];
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  if (Array.isArray(value)) {
+    return value.map(v => {
+      if (typeof v === "object" && v !== null && "name" in v) {
+        return (v as { name: string }).name;
+      }
+      return String(v);
+    }).join(", ");
+  }
+  if (typeof value === "object" && value !== null) {
+    if ("name" in value) {
+      return (value as { name: string }).name;
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
 };
 
 // 是否已选中
@@ -284,6 +381,7 @@ const handleCancel = () => {
 
 onMounted(() => {
   if (props.visible) {
+    loadDisplayFields();
     loadRecords();
   }
 });
@@ -331,18 +429,39 @@ onMounted(() => {
   padding: 20px 0;
 }
 
-.records-list {
+.records-table-container {
   border: 1px solid var(--el-border-color-light);
   border-radius: 4px;
   max-height: 300px;
   overflow-y: auto;
 }
 
-.record-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.checkbox-column {
+  width: 50px;
+  text-align: center;
+  padding: 8px;
+}
+
+.field-header {
   padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  background-color: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.record-row {
   cursor: pointer;
   transition: background-color 0.2s;
   border-bottom: 1px solid var(--el-border-color-lighter);
@@ -360,10 +479,18 @@ onMounted(() => {
   }
 }
 
-.record-value {
-  flex: 1;
+.field-cell {
+  padding: 10px 12px;
   font-size: 14px;
   color: var(--el-text-color-regular);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--el-border-color-lighter);
+
+  &:last-child {
+    border-right: none;
+  }
 }
 
 .pagination {

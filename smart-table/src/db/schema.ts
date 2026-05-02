@@ -155,6 +155,13 @@ export interface DashboardShare {
   lastAccessedAt?: number;
 }
 
+export interface CacheMeta {
+  id: string;
+  key: string;
+  timestamp: number;
+  ttl: number;
+}
+
 class SmartTableDB extends Dexie {
   bases!: DexieTable<Base>;
   tableEntities!: DexieTable<TableEntity>;
@@ -166,11 +173,12 @@ class SmartTableDB extends Dexie {
   attachments!: DexieTable<Attachment>;
   history!: DexieTable<OperationHistory>;
   dashboardShares!: DexieTable<DashboardShare>;
+  cacheMeta!: DexieTable<CacheMeta>;
 
   constructor() {
     super("SmartTableDB");
 
-    this.version(5).stores({
+    this.version(6).stores({
       bases: "id, name, updatedAt, isStarred",
       tableEntities: "id, baseId, name, order, updatedAt, isStarred",
       fields: "id, tableId, name, type, order, [tableId+order]",
@@ -182,8 +190,8 @@ class SmartTableDB extends Dexie {
       history: "++id, baseId, tableId, timestamp, [baseId+timestamp]",
       dashboardShares:
         "id, dashboardId, shareToken, isActive, expiresAt, [dashboardId+isActive]",
+      cacheMeta: "id, &key, timestamp",
     }).upgrade((tx) => {
-      // 迁移现有仪表盘数据，添加新字段的默认值
       return tx.table("dashboards").toCollection().modify((dashboard: Dashboard) => {
         if (!dashboard.layoutType) {
           dashboard.layoutType = "grid";
