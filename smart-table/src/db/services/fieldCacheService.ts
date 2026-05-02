@@ -115,7 +115,7 @@ export class FieldCacheService {
           isSystem: apiField.is_system || false,
           isRequired: apiField.is_required || false,
           isVisible: apiField.is_visible ?? true,
-          defaultValue: apiField.default_value,
+          defaultValue: apiField.defaultValue,
           description: apiField.description,
           order: apiField.order ?? 0,
           createdAt: new Date(apiField.created_at).getTime(),

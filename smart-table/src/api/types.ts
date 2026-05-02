@@ -168,7 +168,7 @@ export interface Field {
   is_visible: boolean
   options?: Record<string, unknown>
   config?: FieldConfig
-  default_value?: unknown
+  defaultValue?: unknown
   created_at: string
   updated_at: string
 }
