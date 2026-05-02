@@ -3,6 +3,9 @@
 处理数据导入导出请求，支持 Excel、CSV、JSON 格式
 """
 import io
+import os
+import uuid
+from typing import Dict, Optional
 from flask import Blueprint, request, g, send_file, current_app
 
 try:
@@ -15,6 +18,7 @@ except ImportError:
 from app.services.import_export_service import ImportExportService
 from app.services.base_service import BaseService
 from app.models.base import MemberRole
+from app.extensions import db
 from app.utils.decorators import jwt_required
 from app.utils.response import (
     success_response, error_response, not_found_response,
@@ -651,13 +655,14 @@ def create_table_from_excel() -> tuple:
         # 读取Excel文件
         df = pd.read_excel(temp_file_path)
         
-        # 创建数据表
+        # 创建数据表（不自动创建默认字段，导入逻辑会自行创建字段）
         table = TableService.create_table(
             base_id=base_id,
             data={
                 'name': table_name,
                 'description': data.get('description', '')
-            }
+            },
+            create_default_fields=False
         )
         
         if not table:
@@ -665,6 +670,7 @@ def create_table_from_excel() -> tuple:
         
         created_fields = []
         field_mapping = {}  # source_column -> field_id
+        primary_field_id = None  # 记录主字段 ID
         
         # 字段类型映射：前端类型 -> 后端类型
         field_type_mapping = {
@@ -749,11 +755,23 @@ def create_table_from_excel() -> tuple:
                     created_fields.append(field_data)
                     if source_column:
                         field_mapping[source_column] = field_data.get('id', '')
+                    
+                    # 记录主字段 ID
+                    if is_primary or (primary_field_id is None and idx == 0):
+                        primary_field_id = field_data.get('id')
                 else:
                     current_app.logger.error(f'创建字段失败: {field_result.get("error", "未知错误")}')
             except Exception as e:
                 current_app.logger.error(f'创建字段失败: {str(e)}')
                 continue
+        
+        # 更新表格的主字段 ID
+        if primary_field_id:
+            table.primary_field_id = primary_field_id
+            db.session.commit()
+            current_app.logger.info(
+                f'[import_export] 设置表格 {table.id} 的主字段: {primary_field_id}'
+            )
         
         result = {
             'table_id': str(table.id),
@@ -796,10 +814,6 @@ def create_table_from_excel() -> tuple:
 
 
 # ==================== 临时文件存储 ====================
-
-import os
-import uuid
-from flask import current_app
 
 # 临时文件存储字典
 _temp_files: Dict[str, str] = {}

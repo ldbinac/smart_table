@@ -66,11 +66,12 @@ export class TemplateService {
 
       const tableIdMap = new Map<string, string>();
 
-      // 第一步：创建所有表
+      // 第一步：创建所有表（不创建默认字段，模板会自行定义字段）
       for (const templateTable of template.tables) {
         const apiTable = await tableApiService.createTable(apiBase.id, {
           name: templateTable.name,
           description: templateTable.description,
+          create_default_fields: false,
         });
         tableIdMap.set(templateTable.id, apiTable.id);
       }
@@ -473,8 +474,8 @@ export class TemplateService {
         name: templateField.name,
         type: backendType as any,
         options: backendOptions,
-        isPrimary: templateField.isPrimary,
-        isRequired: templateField.isRequired,
+        is_primary: templateField.isPrimary,
+        is_required: templateField.isRequired,
       });
       fieldIdMap.set(templateField.id, apiField.id);
     }

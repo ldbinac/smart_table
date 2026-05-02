@@ -84,6 +84,9 @@ def create_table(base_id) -> tuple:
             primary_field_name:
               type: string
               description: 主字段名称（可选，默认为"名称"）
+            create_default_fields:
+              type: boolean
+              description: 是否创建默认字段（可选，默认为true。从模板创建时为false）
     responses:
       201:
         description: 创建的表格详情
@@ -103,8 +106,15 @@ def create_table(base_id) -> tuple:
             return error_response('表格名称不能超过100个字符', code=400)
         data['name'] = name
     
+    # 获取 create_default_fields 参数，默认为 True
+    create_default_fields = data.pop('create_default_fields', True)
+    
     # 创建表格
-    table = TableService.create_table(str(base_id), data)
+    table = TableService.create_table(
+        str(base_id), 
+        data, 
+        create_default_fields=create_default_fields
+    )
     
     return success_response(
         data=table.to_dict(include_stats=True),

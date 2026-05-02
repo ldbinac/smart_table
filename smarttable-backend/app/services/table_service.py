@@ -14,6 +14,7 @@ from app.models.field import Field, FieldType
 from app.models.view import View, ViewType
 from app.models.base import Base, MemberRole
 from app.services.base_service import BaseService
+from flask import current_app
 
 
 class TableService:
@@ -51,11 +52,11 @@ class TableService:
         return TableService.get_table(table_id)
     
     @staticmethod
-    def create_table(base_id: str, data: Dict[str, Any]) -> Table:
+    def create_table(base_id: str, data: Dict[str, Any], create_default_fields: bool = True) -> Table:
         """
         创建新表格
         
-        创建表格时会自动创建默认字段：
+        创建表格时可根据参数决定是否自动创建默认字段：
         - 主字段（单行文本）
         - 创建时间字段
         - 更新时间字段
@@ -63,6 +64,8 @@ class TableService:
         Args:
             base_id: 基础数据 ID
             data: 创建数据，包含 name, description 等
+            create_default_fields: 是否创建默认字段，默认为 True。
+                                   普通创建时为 True，Excel 导入时为 False（导入逻辑会自行创建字段）
             
         Returns:
             创建的表格对象
@@ -82,21 +85,28 @@ class TableService:
         db.session.add(table)
         db.session.flush()  # 获取 table.id
         
-        # 创建默认字段
-        # 1. 主字段（名称字段）
-        primary_field = Field(
-            table_id=table.id,
-            name=data.get('primary_field_name', '文本'),
-            type=FieldType.SINGLE_LINE_TEXT.value,
-            order=0,
-            is_primary=True,
-            is_required=True
-        )
-        db.session.add(primary_field)
-        db.session.flush()
-        
-        # 设置主字段
-        table.primary_field_id = primary_field.id
+        # 根据 create_default_fields 参数决定是否创建默认字段
+        if create_default_fields:
+            # 创建默认字段
+            # 1. 主字段（名称字段）
+            primary_field = Field(
+                table_id=table.id,
+                name=data.get('primary_field_name', '文本'),
+                type=FieldType.SINGLE_LINE_TEXT.value,
+                order=0,
+                is_primary=True,
+                is_required=True
+            )
+            db.session.add(primary_field)
+            db.session.flush()
+            
+            # 设置主字段
+            table.primary_field_id = primary_field.id
+        else:
+            # 不创建默认字段时，记录日志
+            current_app.logger.info(
+                f'[TableService] 创建表格 {table.id} 跳过默认字段创建（create_default_fields=False）'
+            )
         
         # # 2. 创建时间字段
         # created_at_field = Field(

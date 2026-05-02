@@ -4,6 +4,13 @@
 import { apiClient } from '@/api/client';
 import type { Table } from '@/api/types';
 
+export interface CreateTableOptions {
+  name?: string;
+  description?: string;
+  primary_field_name?: string;
+  create_default_fields?: boolean;
+}
+
 export const getTables = async (baseId: string): Promise<Table[]> => {
   return apiClient.get<Table[]>(`/bases/${baseId}/tables`);
 };
@@ -12,8 +19,11 @@ export const getTable = async (id: string): Promise<Table> => {
   return apiClient.get<Table>(`/tables/${id}`);
 };
 
-export const createTable = async (baseId: string, data: Partial<Table>): Promise<Table> => {
-  return apiClient.post<Table>(`/bases/${baseId}/tables`, { ...data, base_id: baseId });
+export const createTable = async (
+  baseId: string, 
+  data: CreateTableOptions
+): Promise<Table> => {
+  return apiClient.post<Table>(`/bases/${baseId}/tables`, data);
 };
 
 export const updateTable = async (id: string, data: Partial<Table>): Promise<Table> => {
