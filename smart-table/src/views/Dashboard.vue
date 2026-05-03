@@ -35,6 +35,7 @@ import { FieldType } from "@/types";
 import { ElMessage, ElMessageBox } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
+import DashboardPreviewDialog from "@/components/dashboard/DashboardPreviewDialog.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
 import { freshColors } from "@/utils/helpers";
 
@@ -701,6 +702,17 @@ async function copyAccessCode() {
   } else {
     ElMessage.error("复制失败，请手动复制");
   }
+}
+
+// 预览功能
+const showPreviewDialog = ref(false);
+
+function openPreviewDialog() {
+  if (!currentDashboard.value) {
+    ElMessage.warning("请先选择仪表盘");
+    return;
+  }
+  showPreviewDialog.value = true;
 }
 
 const handleTableSelect = (_tableId: string) => {
@@ -2553,6 +2565,14 @@ onUnmounted(() => {
               <el-icon><Share /></el-icon>
               <span>分享</span>
             </el-button>
+            <el-button
+              v-if="currentDashboard"
+              size="medium"
+              title="预览仪表盘效果"
+              @click="openPreviewDialog">
+              <el-icon><View /></el-icon>
+              <span>预览</span>
+            </el-button>
           </el-button-group>
         </div>
 
@@ -3712,6 +3732,13 @@ onUnmounted(() => {
           </div>
         </div>
       </el-dialog>
+
+      <!-- 预览对话框 -->
+      <DashboardPreviewDialog
+        v-model:visible="showPreviewDialog"
+        :dashboard="currentDashboard"
+        :widgets="widgets"
+        :grid-columns="gridColumns" />
     </div>
   </div>
 </template>
@@ -3737,6 +3764,7 @@ import {
   Link,
   Setting,
   Grid,
+  View,
   // 大屏组件图标 - 在模板中动态使用
   Clock as _Clock,
   ChatDotRound as _ChatDotRound,

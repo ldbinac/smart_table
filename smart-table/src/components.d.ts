@@ -30,6 +30,7 @@ declare module 'vue' {
     ContextMenu: typeof import('./components/common/ContextMenu.vue')['default']
     CreatedByField: typeof import('./components/fields/CreatedByField.vue')['default']
     CreatedTimeField: typeof import('./components/fields/CreatedTimeField.vue')['default']
+    DashboardPreviewDialog: typeof import('./components/dashboard/DashboardPreviewDialog.vue')['default']
     DashboardTemplateDialog: typeof import('./components/dialogs/DashboardTemplateDialog.vue')['default']
     DateField: typeof import('./components/fields/DateField.vue')['default']
     DateTimeField: typeof import('./components/fields/DateTimeField.vue')['default']
