@@ -69,15 +69,21 @@ const previewTemplate = ref<DashboardTemplate | null>(null)
 // 分类列表
 const categories = [
   { label: '全部', value: 'all' },
-  { label: '销售', value: '销售' },
-  { label: '运营', value: '运营' },
-  { label: '财务', value: '财务' },
+  // { label: '销售', value: '销售' },
+  { label: '运营营销', value: '运营' },
+  { label: '销售财务', value: '财务' },
+  { label: '项目管理', value: '项目管理' },
+  { label: '人力资源', value: '人力资源' },
+  { label: '客户服务', value: '客户服务' },
+  // { label: '营销', value: '营销' },
+  { label: 'IT运维', value: 'IT运维' },
+  { label: '生产制造', value: '生产' },
   { label: '自定义', value: '自定义' },
   { label: '我的收藏', value: 'starred' },
 ]
 
 // 分类选项（用于保存表单）
-const categoryOptions = ['销售', '运营', '财务', '自定义']
+const categoryOptions = ['销售', '运营', '财务', '项目管理', '人力资源', '客户服务', '营销', 'IT运维',  '生产', '自定义']
 
 // 过滤后的模板列表
 const filteredTemplates = computed(() => {
@@ -122,6 +128,7 @@ async function loadTemplates() {
   loading.value = true
   try {
     await dashboardTemplateService.initPresetTemplates()
+    await dashboardTemplateService.cleanupDuplicatePresets()
     templates.value = await dashboardTemplateService.getAllTemplates()
   } catch (error) {
     ElMessage.error('加载模板失败')
@@ -234,6 +241,12 @@ function getTemplateIcon(category: string): string {
     '销售': '💰',
     '运营': '📊',
     '财务': '💵',
+    '项目管理': '📋',
+    '人力资源': '👥',
+    '客户服务': '🎧',
+    '营销': '📢',
+    'IT运维': '🖥️',
+    '生产': '🏭',
     '自定义': '🎨',
   }
   return iconMap[category] || '📋'
@@ -245,6 +258,12 @@ function getTemplateColor(category: string): string {
     '销售': '#52c41a',
     '运营': '#1890ff',
     '财务': '#faad14',
+    '项目管理': '#722ed1',
+    '人力资源': '#eb2f96',
+    '客户服务': '#13c2c2',
+    '营销': '#fa8c16',
+    'IT运维': '#2f54eb',
+    '生产': '#52c41a',
     '自定义': '#722ed1',
   }
   return colorMap[category] || '#8c8c8c'
@@ -786,7 +805,7 @@ onMounted(() => {
   overflow-x: auto;
 
   .category-tab {
-    padding: 6px 16px;
+    padding: 6px 8px;
     border-radius: $border-radius-md;
     cursor: pointer;
     font-size: $font-size-sm;
