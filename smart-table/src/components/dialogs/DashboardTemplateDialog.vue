@@ -17,6 +17,25 @@ import { Star, StarFilled, Search, View, Check, Plus } from '@element-plus/icons
 import { dashboardTemplateService } from '@/db/services'
 import type { DashboardTemplate, Dashboard } from '@/db/schema'
 
+interface WidgetPosition {
+  x: number
+  y: number
+  w: number
+  h: number
+  z?: number
+}
+
+interface WidgetConfig {
+  id: string
+  type: string
+  title: string
+  tableId?: string
+  fieldId?: string
+  aggregation?: string
+  position: WidgetPosition
+  config?: Record<string, unknown>
+}
+
 const props = defineProps<{
   visible: boolean
   currentDashboard?: Dashboard
@@ -235,6 +254,109 @@ function getTemplateColor(category: string): string {
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('zh-CN')
 }
+
+// 获取组件类型图标
+function getWidgetIcon(type: string): string {
+  const iconMap: Record<string, string> = {
+    kpi: '📊',
+    number: '🔢',
+    line: '📈',
+    bar: '📊',
+    pie: '🥧',
+    table: '📋',
+    clock: '🕐',
+    realtime: '⚡',
+    marquee: '📢',
+    gauge: '🎯',
+    map: '🗺️',
+    radar: '📡',
+  }
+  return iconMap[type] || '📦'
+}
+
+// 获取组件类型颜色
+function getWidgetColor(type: string): string {
+  const colorMap: Record<string, string> = {
+    kpi: '#1890ff',
+    number: '#52c41a',
+    line: '#722ed1',
+    bar: '#fa8c16',
+    pie: '#eb2f96',
+    table: '#13c2c2',
+    clock: '#faad14',
+    realtime: '#f5222d',
+    marquee: '#2f54eb',
+    gauge: '#fa541c',
+    map: '#52c41a',
+    radar: '#722ed1',
+  }
+  return colorMap[type] || '#8c8c8c'
+}
+
+// 获取组件主题颜色
+function getWidgetTheme(widget: WidgetConfig): string {
+  const config = widget.config || {}
+  const theme = config.theme as string
+  if (theme) {
+    const themeColors: Record<string, string> = {
+      blue: '#1890ff',
+      green: '#52c41a',
+      orange: '#fa8c16',
+      purple: '#722ed1',
+      red: '#f5222d',
+      cyan: '#13c2c2',
+    }
+    return themeColors[theme] || '#1890ff'
+  }
+  return getWidgetColor(widget.type)
+}
+
+// 生成模拟数据
+function getMockValue(widget: WidgetConfig): string {
+  const config = widget.config || {}
+  const prefix = (config.prefix as string) || ''
+  const suffix = (config.suffix as string) || ''
+  const decimal = (config.decimal as number) || 0
+  
+  const mockValues: Record<string, () => number> = {
+    kpi: () => Math.random() * 100000 + 50000,
+    number: () => Math.random() * 1000 + 100,
+    avg: () => Math.random() * 100,
+    sum: () => Math.random() * 100000,
+    count: () => Math.floor(Math.random() * 10000),
+  }
+  
+  const aggregation = widget.aggregation || 'sum'
+  const value = mockValues[aggregation]?.() || Math.random() * 1000
+  
+  return `${prefix}${value.toFixed(decimal)}${suffix}`
+}
+
+// 计算预览布局
+const previewLayoutStyle = computed(() => {
+  if (!previewTemplate.value) return {}
+  const gridColumns = previewTemplate.value.gridColumns || 12
+  return {
+    gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+  }
+})
+
+// 获取组件样式
+function getWidgetStyle(widget: WidgetConfig): Record<string, string> {
+  const pos = widget.position
+  return {
+    gridColumn: `${pos.x + 1} / span ${pos.w}`,
+    gridRow: `${pos.y + 1} / span ${pos.h}`,
+  }
+}
+
+// 计算预览网格行数
+const previewGridRows = computed(() => {
+  if (!previewTemplate.value?.widgets?.length) return 6
+  const widgets = previewTemplate.value.widgets as WidgetConfig[]
+  const maxY = Math.max(...widgets.map((w) => w.position.y + w.position.h))
+  return Math.max(maxY, 6)
+})
 
 // 监听对话框打开
 watch(
@@ -462,9 +584,10 @@ onMounted(() => {
     <ElDialog
       v-model="previewDialogVisible"
       :title="previewTemplate?.name || '模板预览'"
-      width="700px"
+      width="900px"
       :close-on-click-modal="false"
       append-to-body
+      class="template-preview-dialog"
     >
       <div v-if="previewTemplate" class="preview-content">
         <div class="preview-info">
@@ -485,6 +608,93 @@ onMounted(() => {
             </div>
           </div>
         </div>
+
+        <div class="preview-section">
+          <h4 class="section-title">
+            <span class="title-icon">🖥️</span>
+            仪表盘效果预览
+          </h4>
+          <div class="dashboard-preview-container">
+            <div 
+              class="dashboard-preview-grid"
+              :style="{ ...previewLayoutStyle, gridTemplateRows: `repeat(${previewGridRows}, 40px)` }"
+            >
+              <div
+                v-for="(widget, index) in (previewTemplate.widgets || []) as WidgetConfig[]"
+                :key="index"
+                class="preview-widget"
+                :style="{ ...getWidgetStyle(widget), borderColor: getWidgetTheme(widget) }"
+              >
+                <div class="widget-header">
+                  <span class="widget-type-icon">{{ getWidgetIcon(widget.type) }}</span>
+                  <span class="widget-title">{{ widget.title }}</span>
+                </div>
+                <div class="widget-body">
+                  <template v-if="['kpi', 'number'].includes(widget.type)">
+                    <div class="mock-kpi-value" :style="{ color: getWidgetTheme(widget) }">
+                      {{ getMockValue(widget) }}
+                    </div>
+                  </template>
+                  <template v-else-if="widget.type === 'clock'">
+                    <div class="mock-clock">
+                      {{ new Date().toLocaleTimeString() }}
+                    </div>
+                  </template>
+                  <template v-else-if="['line', 'bar'].includes(widget.type)">
+                    <div class="mock-chart">
+                      <div class="chart-bars">
+                        <div v-for="i in 8" :key="i" class="bar" :style="{ height: Math.random() * 80 + 20 + '%', backgroundColor: getWidgetTheme(widget) }"></div>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else-if="widget.type === 'pie'">
+                    <div class="mock-pie">
+                      <div class="pie-chart" :style="{ background: `conic-gradient(${getWidgetTheme(widget)} 0% 35%, ${getWidgetTheme(widget)}99 35% 60%, ${getWidgetTheme(widget)}66 60% 85%, ${getWidgetTheme(widget)}33 85% 100%)` }"></div>
+                    </div>
+                  </template>
+                  <template v-else-if="widget.type === 'table'">
+                    <div class="mock-table">
+                      <div class="table-row header">
+                        <div class="cell">列1</div>
+                        <div class="cell">列2</div>
+                        <div class="cell">列3</div>
+                      </div>
+                      <div v-for="i in 2" :key="i" class="table-row">
+                        <div class="cell">-</div>
+                        <div class="cell">-</div>
+                        <div class="cell">-</div>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else-if="widget.type === 'realtime'">
+                    <div class="mock-realtime">
+                      <div class="realtime-line">
+                        <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                          <polyline
+                            :points="Array.from({length: 20}, (_, i) => `${i * 5},${15 + Math.sin(i) * 10 + Math.random() * 5}`).join(' ')"
+                            fill="none"
+                            :stroke="getWidgetTheme(widget)"
+                            stroke-width="2"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else-if="widget.type === 'marquee'">
+                    <div class="mock-marquee">
+                      <span class="marquee-text">📢 系统公告：欢迎使用仪表盘模板...</span>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="mock-default">
+                      <span class="type-label">{{ widget.type.toUpperCase() }}</span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         
         <div class="preview-widgets">
           <h4>包含组件 ({{ (previewTemplate.widgets || []).length }})</h4>
@@ -494,8 +704,8 @@ onMounted(() => {
               :key="index"
               class="widget-item"
             >
-              <span class="widget-type">{{ (widget as any).type }}</span>
-              <span class="widget-title">{{ (widget as any).title }}</span>
+              <span class="widget-type">{{ (widget as WidgetConfig).type }}</span>
+              <span class="widget-title">{{ (widget as WidgetConfig).title }}</span>
             </div>
           </div>
         </div>
@@ -843,6 +1053,201 @@ onMounted(() => {
     }
   }
 
+  .preview-section {
+    margin-bottom: 20px;
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: $font-size-base;
+      font-weight: 500;
+      color: $text-primary;
+      margin: 0 0 12px 0;
+
+      .title-icon {
+        font-size: 18px;
+      }
+    }
+  }
+
+  .dashboard-preview-container {
+    background-color: #1a1a2e;
+    border-radius: $border-radius-lg;
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  .dashboard-preview-grid {
+    display: grid;
+    gap: 8px;
+    min-height: 200px;
+  }
+
+  .preview-widget {
+    background: linear-gradient(135deg, #2d2d44 0%, #1f1f35 100%);
+    border: 1px solid;
+    border-radius: $border-radius-md;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.2s;
+
+    &:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+      flex-shrink: 0;
+
+      .widget-type-icon {
+        font-size: 12px;
+      }
+
+      .widget-title {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.8);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .widget-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .mock-kpi-value {
+      font-size: 18px;
+      font-weight: 600;
+      text-shadow: 0 0 10px currentColor;
+    }
+
+    .mock-clock {
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      font-family: monospace;
+    }
+
+    .mock-chart {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      padding: 4px;
+
+      .chart-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        width: 100%;
+        height: 100%;
+
+        .bar {
+          flex: 1;
+          border-radius: 2px 2px 0 0;
+          opacity: 0.8;
+          min-height: 4px;
+        }
+      }
+    }
+
+    .mock-pie {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+
+      .pie-chart {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+      }
+    }
+
+    .mock-table {
+      width: 100%;
+      font-size: 9px;
+
+      .table-row {
+        display: flex;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+        &.header {
+          background-color: rgba(255, 255, 255, 0.1);
+          font-weight: 500;
+        }
+
+        .cell {
+          flex: 1;
+          padding: 2px 4px;
+          color: rgba(255, 255, 255, 0.7);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .mock-realtime {
+      width: 100%;
+      height: 100%;
+      padding: 4px;
+
+      .realtime-line {
+        width: 100%;
+        height: 100%;
+
+        svg {
+          width: 100%;
+          height: 100%;
+        }
+      }
+    }
+
+    .mock-marquee {
+      width: 100%;
+      overflow: hidden;
+
+      .marquee-text {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.8);
+        white-space: nowrap;
+        animation: marquee 5s linear infinite;
+        display: inline-block;
+      }
+    }
+
+    .mock-default {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .type-label {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.5);
+        padding: 4px 8px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+      }
+    }
+  }
+
   .preview-widgets,
   .preview-layout {
     margin-bottom: 20px;
@@ -906,6 +1311,15 @@ onMounted(() => {
         font-weight: 500;
       }
     }
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
   }
 }
 </style>

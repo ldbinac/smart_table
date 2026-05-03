@@ -2387,13 +2387,7 @@ onUnmounted(() => {
             <el-button
               v-if="currentDashboard"
               size="medium"
-              @click="showTemplateDialog = true">
-              <el-icon><Grid /></el-icon>
-              <span>模板</span>
-            </el-button>
-            <el-button
-              v-if="currentDashboard"
-              size="medium"
+              title="编辑当前仪表盘"
               @click="
                 isEditingDashboard = true;
                 isCreatingDashboard = false;
@@ -2408,17 +2402,20 @@ onUnmounted(() => {
             <el-button
               v-if="currentDashboard"
               size="medium"
+              title="复制当前仪表盘"
               @click="duplicateDashboard(currentDashboard)">
               <el-icon><CopyDocument /></el-icon>
               <span>复制</span>
             </el-button>
-            <el-button size="medium" @click="showDashboardManager = true">
-              <el-icon><Management /></el-icon>
-              <span>管理</span>
-            </el-button>
+            <!-- el-button size="medium" @click="showDashboardManager = true">
+                <el-icon><Management /></el-icon>
+                <span>管理</span>
+              </el-button
+            -->
             <el-button
               v-if="currentDashboard"
               size="medium"
+              title="分享当前仪表盘"
               @click="openShareDialog">
               <el-icon><Share /></el-icon>
               <span>分享</span>
@@ -2429,7 +2426,7 @@ onUnmounted(() => {
         <div class="toolbar-right">
           <!-- 布局控制按钮组 -->
           <template v-if="currentDashboard">
-            <!--<el-divider direction="vertical" class="toolbar-divider" />-->
+            <!--<el-divider direction="vertical" class="toolbar-divider" />
             <el-button-group class="layout-controls">
               <el-button
                 size="medium"
@@ -2445,17 +2442,19 @@ onUnmounted(() => {
                 <el-icon><Move /></el-icon>
                 <span>自由</span>
               </el-button>
-            </el-button-group>
+            </el-button-group>-->
             <el-button-group class="layout-controls">
               <template v-if="layoutType === 'grid'">
                 <el-button
                   size="medium"
+                  title="切换为12列布局"
                   :type="gridColumns === 12 ? 'primary' : 'default'"
                   @click="switchGridColumns(12)">
                   12列
                 </el-button>
                 <el-button
                   size="medium"
+                  title="切换为24列布局"
                   :type="gridColumns === 24 ? 'primary' : 'default'"
                   @click="switchGridColumns(24)">
                   24列
@@ -2463,6 +2462,7 @@ onUnmounted(() => {
               </template>
               <el-button
                 size="medium"
+                title="切换网格线显示状态"
                 :type="showGridLines ? 'primary' : 'default'"
                 @click="showGridLines = !showGridLines">
                 <el-icon><View /></el-icon>
@@ -2613,20 +2613,23 @@ onUnmounted(() => {
               请先创建一个仪表盘
             </p>
             <el-button
-              v-if="!currentDashboard"
-              type="primary"
-              class="create-dashboard-btn"
-              @click="isEditingDashboard = true">
-              <el-icon><Plus /></el-icon>
-              创建仪表盘
-            </el-button>
-            <el-button
               v-else
               type="primary"
               class="create-dashboard-btn"
               @click="addWidget('bar')">
               <el-icon><Plus /></el-icon>
               添加第一个组件
+            </el-button>
+            <h4 class="empty-title">或</h4>
+            <el-button
+              v-if="currentDashboard"
+              type="primary"
+              class="create-dashboard-btn"
+              size="medium"
+              title="使用模板快速创建仪表盘"
+              @click="showTemplateDialog = true">
+              <el-icon><Grid /></el-icon>
+              <span>使用模板创建</span>
             </el-button>
           </div>
         </div>
