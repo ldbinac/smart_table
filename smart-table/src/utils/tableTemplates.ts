@@ -524,6 +524,301 @@ const contactListTemplate: TableTemplate = {
   ]
 };
 
+// ==================== 11. 会议管理模板 ====================
+const meetingManagementTemplate: TableTemplate = {
+  id: 'meeting-management',
+  name: '会议管理',
+  description: '会议记录、参会人员和会议纪要管理',
+  icon: '🎯',
+  color: '#7C3AED',
+  category: '团队协作',
+  tables: [
+    {
+      id: 'meetings',
+      name: '会议',
+      order: 0,
+      fields: [
+        { id: 'meet-title', name: '会议主题', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'meet-type', name: '会议类型', type: 'single_select', options: { options: selectOptions(['例会', '项目会议', '评审会议', '培训', '其他']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'meet-date', name: '会议时间', type: 'date_time', options: { includeTime: true }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'meet-duration', name: '时长(分钟)', type: 'number', isPrimary: false, isRequired: false, isVisible: true, order: 3 },
+        { id: 'meet-location', name: '会议地点', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+        { id: 'meet-host', name: '主持人', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 5 },
+        { id: 'meet-attendees', name: '参会人员', type: 'member', options: { multiple: true }, isPrimary: false, isRequired: false, isVisible: true, order: 6 },
+        { id: 'meet-status', name: '状态', type: 'single_select', options: { options: selectOptions(['待召开', '进行中', '已结束', '已取消']) }, isPrimary: false, isRequired: true, isVisible: true, order: 7 },
+        { id: 'meet-agenda', name: '会议议程', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 8 },
+        { id: 'meet-minutes', name: '会议纪要', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 9 },
+        { id: 'meet-attachments', name: '会议材料', type: 'attachment', isPrimary: false, isRequired: false, isVisible: true, order: 10 },
+        { id: 'meet-created', name: '创建时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 11 }
+      ],
+      views: [
+        { id: 'meet-view-1', name: '会议列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 0 },
+        { id: 'meet-view-2', name: '日历视图', type: 'calendar', config: { dateFieldId: 'meet-date' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 },
+        { id: 'meet-view-3', name: '按状态分组', type: 'kanban', config: { groupFieldId: 'meet-status' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
+      ],
+      records: [
+        { id: 'meet-rec-1', values: { 'meet-title': '周例会', 'meet-type': '例会', 'meet-date': Date.now() + 1 * 24 * 60 * 60 * 1000, 'meet-duration': 60, 'meet-location': '会议室A', 'meet-status': '待召开', 'meet-agenda': '1.上周工作总结\n2.本周工作计划\n3.问题讨论' } },
+        { id: 'meet-rec-2', values: { 'meet-title': '产品评审会', 'meet-type': '评审会议', 'meet-date': Date.now() - 2 * 24 * 60 * 60 * 1000, 'meet-duration': 90, 'meet-location': '线上会议', 'meet-status': '已结束', 'meet-minutes': '评审通过，下周开始开发' } },
+        { id: 'meet-rec-3', values: { 'meet-title': '技术分享会', 'meet-type': '培训', 'meet-date': Date.now() + 3 * 24 * 60 * 60 * 1000, 'meet-duration': 120, 'meet-location': '培训室', 'meet-status': '待召开', 'meet-agenda': 'Vue3新特性分享' } },
+        { id: 'meet-rec-4', values: { 'meet-title': '项目启动会', 'meet-type': '项目会议', 'meet-date': Date.now() - 5 * 24 * 60 * 60 * 1000, 'meet-duration': 60, 'meet-location': '会议室B', 'meet-status': '已结束', 'meet-minutes': '确定项目里程碑和分工' } },
+        { id: 'meet-rec-5', values: { 'meet-title': '需求讨论', 'meet-type': '项目会议', 'meet-date': Date.now(), 'meet-duration': 45, 'meet-location': '线上会议', 'meet-status': '进行中' } },
+        { id: 'meet-rec-6', values: { 'meet-title': '部门聚餐', 'meet-type': '其他', 'meet-date': Date.now() - 1 * 24 * 60 * 60 * 1000, 'meet-status': '已取消', 'meet-duration': 180 } }
+      ]
+    }
+  ]
+};
+
+// ==================== 12. 学习计划模板 ====================
+const learningPlanTemplate: TableTemplate = {
+  id: 'learning-plan',
+  name: '学习计划',
+  description: '课程学习、进度跟踪和知识管理',
+  icon: '📚',
+  color: '#059669',
+  category: '个人管理',
+  tables: [
+    {
+      id: 'courses',
+      name: '课程',
+      order: 0,
+      fields: [
+        { id: 'learn-title', name: '课程名称', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'learn-category', name: '分类', type: 'single_select', options: { options: selectOptions(['编程开发', '产品设计', '数据分析', '语言学习', '职业技能', '其他']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'learn-platform', name: '学习平台', type: 'single_select', options: { options: selectOptions(['Coursera', 'Udemy', 'B站', '慕课网', '极客时间', '自学']) }, isPrimary: false, isRequired: false, isVisible: true, order: 2 },
+        { id: 'learn-status', name: '学习状态', type: 'single_select', options: { options: selectOptions(['未开始', '学习中', '已完成', '已暂停']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'learn-progress', name: '学习进度', type: 'progress', options: { showPercent: true }, isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+        { id: 'learn-start', name: '开始日期', type: 'date', isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'learn-end', name: '目标完成', type: 'date', isPrimary: false, isRequired: false, isVisible: true, order: 6 },
+        { id: 'learn-hours', name: '已学时长', type: 'number', options: { suffix: '小时' }, isPrimary: false, isRequired: false, isVisible: true, order: 7 },
+        { id: 'learn-rating', name: '课程评分', type: 'rating', options: { maxRating: 5 }, isPrimary: false, isRequired: false, isVisible: true, order: 8 },
+        { id: 'learn-url', name: '课程链接', type: 'url', isPrimary: false, isRequired: false, isVisible: true, order: 9 },
+        { id: 'learn-notes', name: '学习笔记', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 10 },
+        { id: 'learn-resources', name: '学习资料', type: 'attachment', isPrimary: false, isRequired: false, isVisible: true, order: 11 },
+        { id: 'learn-created', name: '创建时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 12 }
+      ],
+      views: [
+        { id: 'learn-view-1', name: '课程列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 0 },
+        { id: 'learn-view-2', name: '学习看板', type: 'kanban', config: { groupFieldId: 'learn-status' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 },
+        { id: 'learn-view-3', name: '按分类', type: 'kanban', config: { groupFieldId: 'learn-category' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
+      ],
+      records: [
+        { id: 'learn-rec-1', values: { 'learn-title': 'Vue3从入门到精通', 'learn-category': '编程开发', 'learn-platform': 'B站', 'learn-status': '学习中', 'learn-progress': 65, 'learn-start': Date.now() - 14 * 24 * 60 * 60 * 1000, 'learn-hours': 20, 'learn-rating': 5 } },
+        { id: 'learn-rec-2', values: { 'learn-title': 'Python数据分析', 'learn-category': '数据分析', 'learn-platform': 'Coursera', 'learn-status': '已完成', 'learn-progress': 100, 'learn-hours': 40, 'learn-rating': 4 } },
+        { id: 'learn-rec-3', values: { 'learn-title': '英语口语提升', 'learn-category': '语言学习', 'learn-platform': '自学', 'learn-status': '学习中', 'learn-progress': 30, 'learn-hours': 15, 'learn-rating': 3 } },
+        { id: 'learn-rec-4', values: { 'learn-title': '产品经理实战课', 'learn-category': '产品设计', 'learn-platform': '极客时间', 'learn-status': '未开始', 'learn-progress': 0, 'learn-rating': 0 } },
+        { id: 'learn-rec-5', values: { 'learn-title': 'TypeScript高级教程', 'learn-category': '编程开发', 'learn-platform': '慕课网', 'learn-status': '已暂停', 'learn-progress': 45, 'learn-hours': 12, 'learn-rating': 4 } },
+        { id: 'learn-rec-6', values: { 'learn-title': '职场沟通技巧', 'learn-category': '职业技能', 'learn-platform': 'Udemy', 'learn-status': '学习中', 'learn-progress': 80, 'learn-hours': 8, 'learn-rating': 4 } }
+      ]
+    }
+  ]
+};
+
+// ==================== 13. 招聘管理模板 ====================
+const recruitmentTemplate: TableTemplate = {
+  id: 'recruitment',
+  name: '招聘管理',
+  description: '职位发布、候选人管理和面试流程跟踪',
+  icon: '👔',
+  color: '#DC2626',
+  category: '人事管理',
+  tables: [
+    {
+      id: 'candidates',
+      name: '候选人',
+      order: 0,
+      fields: [
+        { id: 'rec-name', name: '姓名', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'rec-position', name: '应聘职位', type: 'single_select', options: { options: selectOptions(['前端开发', '后端开发', '产品经理', 'UI设计师', '测试工程师', '运营专员']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'rec-stage', name: '面试阶段', type: 'single_select', options: { options: selectOptions(['简历筛选', '初试', '复试', '终试', '已录用', '已淘汰']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'rec-phone', name: '电话', type: 'phone', isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'rec-email', name: '邮箱', type: 'email', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+        { id: 'rec-source', name: '来源', type: 'single_select', options: { options: selectOptions(['智联招聘', '前程无忧', 'BOSS直聘', '猎头推荐', '内推', '官网投递']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'rec-experience', name: '工作经验', type: 'number', options: { suffix: '年' }, isPrimary: false, isRequired: false, isVisible: true, order: 6 },
+        { id: 'rec-expected-salary', name: '期望薪资', type: 'number', options: { format: 'currency', currencySymbol: '¥' }, isPrimary: false, isRequired: false, isVisible: true, order: 7 },
+        { id: 'rec-interview-date', name: '面试时间', type: 'date_time', options: { includeTime: true }, isPrimary: false, isRequired: false, isVisible: true, order: 8 },
+        { id: 'rec-interviewer', name: '面试官', type: 'member', isPrimary: false, isRequired: false, isVisible: true, order: 9 },
+        { id: 'rec-rating', name: '综合评分', type: 'rating', options: { maxRating: 5 }, isPrimary: false, isRequired: false, isVisible: true, order: 10 },
+        { id: 'rec-resume', name: '简历', type: 'attachment', isPrimary: false, isRequired: false, isVisible: true, order: 11 },
+        { id: 'rec-feedback', name: '面试反馈', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 12 },
+        { id: 'rec-created', name: '投递时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 13 }
+      ],
+      views: [
+        { id: 'rec-view-1', name: '候选人列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 0 },
+        { id: 'rec-view-2', name: '面试看板', type: 'kanban', config: { groupFieldId: 'rec-stage' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 },
+        { id: 'rec-view-3', name: '面试日历', type: 'calendar', config: { dateFieldId: 'rec-interview-date' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
+      ],
+      records: [
+        { id: 'rec-rec-1', values: { 'rec-name': '张小明', 'rec-position': '前端开发', 'rec-stage': '复试', 'rec-phone': '13800138001', 'rec-email': 'zhangxm@example.com', 'rec-source': 'BOSS直聘', 'rec-experience': 3, 'rec-expected-salary': 18000, 'rec-rating': 4 } },
+        { id: 'rec-rec-2', values: { 'rec-name': '李小红', 'rec-position': '产品经理', 'rec-stage': '已录用', 'rec-phone': '13900139002', 'rec-source': '内推', 'rec-experience': 5, 'rec-expected-salary': 25000, 'rec-rating': 5 } },
+        { id: 'rec-rec-3', values: { 'rec-name': '王小华', 'rec-position': 'UI设计师', 'rec-stage': '初试', 'rec-phone': '13700137003', 'rec-source': '前程无忧', 'rec-experience': 2, 'rec-expected-salary': 12000, 'rec-rating': 3 } },
+        { id: 'rec-rec-4', values: { 'rec-name': '赵小龙', 'rec-position': '后端开发', 'rec-stage': '已淘汰', 'rec-phone': '13600136004', 'rec-source': '智联招聘', 'rec-experience': 1, 'rec-rating': 2, 'rec-feedback': '技术能力不足' } },
+        { id: 'rec-rec-5', values: { 'rec-name': '钱小芳', 'rec-position': '测试工程师', 'rec-stage': '终试', 'rec-phone': '13500135005', 'rec-source': '猎头推荐', 'rec-experience': 4, 'rec-expected-salary': 15000, 'rec-rating': 4 } },
+        { id: 'rec-rec-6', values: { 'rec-name': '孙小强', 'rec-position': '运营专员', 'rec-stage': '简历筛选', 'rec-phone': '13300133006', 'rec-source': '官网投递', 'rec-experience': 2, 'rec-expected-salary': 10000 } }
+      ]
+    }
+  ]
+};
+
+// ==================== 14. 资产管理模板 ====================
+const assetManagementTemplate: TableTemplate = {
+  id: 'asset-management',
+  name: '资产管理',
+  description: '固定资产、设备领用和资产盘点管理',
+  icon: '🖥️',
+  color: '#0891B2',
+  category: '行政管理',
+  tables: [
+    {
+      id: 'assets',
+      name: '资产',
+      order: 0,
+      fields: [
+        { id: 'asset-code', name: '资产编号', type: 'auto_number', options: { prefix: 'AS-', startNumber: 10001 }, isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'asset-name', name: '资产名称', type: 'text', isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'asset-category', name: '资产类别', type: 'single_select', options: { options: selectOptions(['电脑设备', '办公家具', '电子设备', '交通工具', '其他']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'asset-status', name: '状态', type: 'single_select', options: { options: selectOptions(['在用', '闲置', '维修中', '已报废', '已丢失']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'asset-user', name: '使用人', type: 'member', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+        { id: 'asset-department', name: '所属部门', type: 'single_select', options: { options: selectOptions(['研发部', '产品部', '运营部', '市场部', '人事部', '财务部']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'asset-purchase-date', name: '购买日期', type: 'date', isPrimary: false, isRequired: true, isVisible: true, order: 6 },
+        { id: 'asset-price', name: '购买价格', type: 'number', options: { format: 'currency', currencySymbol: '¥' }, isPrimary: false, isRequired: true, isVisible: true, order: 7 },
+        { id: 'asset-location', name: '存放位置', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 8 },
+        { id: 'asset-warranty', name: '保修期至', type: 'date', isPrimary: false, isRequired: false, isVisible: true, order: 9 },
+        { id: 'asset-image', name: '资产照片', type: 'attachment', isPrimary: false, isRequired: false, isVisible: true, order: 10 },
+        { id: 'asset-remark', name: '备注', type: 'text', isPrimary: false, isRequired: false, isVisible: true, order: 11 },
+        { id: 'asset-created', name: '入库时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 12 }
+      ],
+      views: [
+        { id: 'asset-view-1', name: '资产列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 0 },
+        { id: 'asset-view-2', name: '按状态分组', type: 'kanban', config: { groupFieldId: 'asset-status' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 },
+        { id: 'asset-view-3', name: '按类别分组', type: 'kanban', config: { groupFieldId: 'asset-category' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
+      ],
+      records: [
+        { id: 'asset-rec-1', values: { 'asset-name': 'MacBook Pro 14寸', 'asset-category': '电脑设备', 'asset-status': '在用', 'asset-department': '研发部', 'asset-purchase-date': Date.now() - 180 * 24 * 60 * 60 * 1000, 'asset-price': 14999, 'asset-location': '工位A01', 'asset-warranty': Date.now() + 545 * 24 * 60 * 60 * 1000 } },
+        { id: 'asset-rec-2', values: { 'asset-name': '人体工学椅', 'asset-category': '办公家具', 'asset-status': '在用', 'asset-department': '产品部', 'asset-purchase-date': Date.now() - 365 * 24 * 60 * 60 * 1000, 'asset-price': 1999, 'asset-location': '工位B02' } },
+        { id: 'asset-rec-3', values: { 'asset-name': '投影仪', 'asset-category': '电子设备', 'asset-status': '闲置', 'asset-purchase-date': Date.now() - 500 * 24 * 60 * 60 * 1000, 'asset-price': 5999, 'asset-location': '会议室A' } },
+        { id: 'asset-rec-4', values: { 'asset-name': 'iPhone 15 Pro', 'asset-category': '电子设备', 'asset-status': '维修中', 'asset-department': '运营部', 'asset-purchase-date': Date.now() - 90 * 24 * 60 * 60 * 1000, 'asset-price': 8999, 'asset-remark': '屏幕损坏维修中' } },
+        { id: 'asset-rec-5', values: { 'asset-name': '台式电脑', 'asset-category': '电脑设备', 'asset-status': '已报废', 'asset-department': '市场部', 'asset-purchase-date': Date.now() - 1000 * 24 * 60 * 60 * 1000, 'asset-price': 4500, 'asset-remark': '已使用5年，性能不足' } },
+        { id: 'asset-rec-6', values: { 'asset-name': '公司车辆-粤A12345', 'asset-category': '交通工具', 'asset-status': '在用', 'asset-department': '人事部', 'asset-purchase-date': Date.now() - 300 * 24 * 60 * 60 * 1000, 'asset-price': 180000 } }
+      ]
+    }
+  ]
+};
+
+// ==================== 15. Bug跟踪模板 ====================
+const bugTrackingTemplate: TableTemplate = {
+  id: 'bug-tracking',
+  name: 'Bug跟踪',
+  description: '软件缺陷记录、优先级管理和修复进度跟踪',
+  icon: '🐛',
+  color: '#BE185D',
+  category: '研发管理',
+  tables: [
+    {
+      id: 'bugs',
+      name: '缺陷',
+      order: 0,
+      fields: [
+        { id: 'bug-id', name: '缺陷编号', type: 'auto_number', options: { prefix: 'BUG-', startNumber: 1001 }, isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'bug-title', name: '缺陷标题', type: 'text', isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'bug-severity', name: '严重程度', type: 'single_select', options: { options: selectOptions(['致命', '严重', '一般', '轻微', '建议']) }, isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'bug-priority', name: '优先级', type: 'single_select', options: { options: selectOptions(['P0-紧急', 'P1-高', 'P2-中', 'P3-低']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'bug-status', name: '状态', type: 'single_select', options: { options: selectOptions(['新建', '确认中', '处理中', '待验证', '已关闭', '重新打开']) }, isPrimary: false, isRequired: true, isVisible: true, order: 4 },
+        { id: 'bug-module', name: '所属模块', type: 'single_select', options: { options: selectOptions(['用户模块', '订单模块', '支付模块', '数据统计', '系统设置', '其他']) }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'bug-reporter', name: '报告人', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 6 },
+        { id: 'bug-assignee', name: '处理人', type: 'member', isPrimary: false, isRequired: false, isVisible: true, order: 7 },
+        { id: 'bug-found-date', name: '发现日期', type: 'date', isPrimary: false, isRequired: true, isVisible: true, order: 8 },
+        { id: 'bug-fix-date', name: '修复日期', type: 'date', isPrimary: false, isRequired: false, isVisible: true, order: 9 },
+        { id: 'bug-environment', name: '环境', type: 'single_select', options: { options: selectOptions(['生产环境', '测试环境', '开发环境']) }, isPrimary: false, isRequired: false, isVisible: true, order: 10 },
+        { id: 'bug-description', name: '缺陷描述', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: true, isVisible: true, order: 11 },
+        { id: 'bug-steps', name: '复现步骤', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 12 },
+        { id: 'bug-screenshot', name: '截图', type: 'attachment', isPrimary: false, isRequired: false, isVisible: true, order: 13 },
+        { id: 'bug-created', name: '创建时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 14 }
+      ],
+      views: [
+        { id: 'bug-view-1', name: '缺陷列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 0 },
+        { id: 'bug-view-2', name: '状态看板', type: 'kanban', config: { groupFieldId: 'bug-status' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 },
+        { id: 'bug-view-3', name: '按严重程度', type: 'kanban', config: { groupFieldId: 'bug-severity' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
+      ],
+      records: [
+        { id: 'bug-rec-1', values: { 'bug-title': '登录页面无法正常加载', 'bug-severity': '致命', 'bug-priority': 'P0-紧急', 'bug-status': '处理中', 'bug-module': '用户模块', 'bug-found-date': Date.now() - 1 * 24 * 60 * 60 * 1000, 'bug-environment': '生产环境', 'bug-description': '用户反馈登录页面白屏，无法进行登录操作' } },
+        { id: 'bug-rec-2', values: { 'bug-title': '订单列表分页失效', 'bug-severity': '严重', 'bug-priority': 'P1-高', 'bug-status': '待验证', 'bug-module': '订单模块', 'bug-found-date': Date.now() - 2 * 24 * 60 * 60 * 1000, 'bug-fix-date': Date.now() - 1 * 24 * 60 * 60 * 1000, 'bug-environment': '测试环境' } },
+        { id: 'bug-rec-3', values: { 'bug-title': '支付成功后订单状态未更新', 'bug-severity': '严重', 'bug-priority': 'P0-紧急', 'bug-status': '新建', 'bug-module': '支付模块', 'bug-found-date': Date.now(), 'bug-environment': '生产环境' } },
+        { id: 'bug-rec-4', values: { 'bug-title': '数据统计图表显示异常', 'bug-severity': '一般', 'bug-priority': 'P2-中', 'bug-status': '已关闭', 'bug-module': '数据统计', 'bug-found-date': Date.now() - 5 * 24 * 60 * 60 * 1000, 'bug-fix-date': Date.now() - 3 * 24 * 60 * 60 * 1000, 'bug-environment': '测试环境' } },
+        { id: 'bug-rec-5', values: { 'bug-title': '设置页面保存按钮无响应', 'bug-severity': '一般', 'bug-priority': 'P2-中', 'bug-status': '确认中', 'bug-module': '系统设置', 'bug-found-date': Date.now() - 1 * 24 * 60 * 60 * 1000, 'bug-environment': '测试环境' } },
+        { id: 'bug-rec-6', values: { 'bug-title': '建议增加批量导出功能', 'bug-severity': '建议', 'bug-priority': 'P3-低', 'bug-status': '新建', 'bug-module': '其他', 'bug-found-date': Date.now() - 7 * 24 * 60 * 60 * 1000, 'bug-environment': '生产环境' } }
+      ]
+    }
+  ]
+};
+
+// ==================== 16. OKR目标管理模板 ====================
+const okrTemplate: TableTemplate = {
+  id: 'okr-management',
+  name: 'OKR目标',
+  description: '目标和关键结果管理，进度跟踪和对齐',
+  icon: '🎯',
+  color: '#9333EA',
+  category: '目标管理',
+  tables: [
+    {
+      id: 'objectives',
+      name: '目标',
+      order: 0,
+      fields: [
+        { id: 'okr-title', name: '目标名称', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'okr-period', name: '周期', type: 'single_select', options: { options: selectOptions(['2024 Q1', '2024 Q2', '2024 Q3', '2024 Q4', '2024年度']) }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'okr-owner', name: '负责人', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'okr-level', name: '层级', type: 'single_select', options: { options: selectOptions(['公司级', '部门级', '个人级']) }, isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'okr-progress', name: '完成进度', type: 'progress', options: { showPercent: true }, isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+        { id: 'okr-status', name: '状态', type: 'single_select', options: { options: selectOptions(['正常', '有风险', '已延期', '已完成']) }, isPrimary: false, isRequired: true, isVisible: true, order: 5 },
+        { id: 'okr-start', name: '开始日期', type: 'date', isPrimary: false, isRequired: true, isVisible: true, order: 6 },
+        { id: 'okr-end', name: '结束日期', type: 'date', isPrimary: false, isRequired: true, isVisible: true, order: 7 },
+        { id: 'okr-score', name: '最终得分', type: 'number', options: { precision: 1, min: 0, max: 1 }, isPrimary: false, isRequired: false, isVisible: true, order: 8 },
+        { id: 'okr-description', name: '目标描述', type: 'text', options: { isRichText: true }, isPrimary: false, isRequired: false, isVisible: true, order: 9 },
+        { id: 'okr-created', name: '创建时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 10 }
+      ],
+      views: [
+        { id: 'okr-view-1', name: '目标列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 0 },
+        { id: 'okr-view-2', name: '按周期分组', type: 'kanban', config: { groupFieldId: 'okr-period' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 },
+        { id: 'okr-view-3', name: '按层级分组', type: 'kanban', config: { groupFieldId: 'okr-level' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
+      ],
+      records: [
+        { id: 'okr-rec-1', values: { 'okr-title': '提升产品用户体验', 'okr-period': '2024 Q1', 'okr-level': '公司级', 'okr-progress': 75, 'okr-status': '正常', 'okr-start': Date.now() - 60 * 24 * 60 * 60 * 1000, 'okr-end': Date.now() + 30 * 24 * 60 * 60 * 1000, 'okr-description': '通过优化核心功能和界面设计，提升用户满意度' } },
+        { id: 'okr-rec-2', values: { 'okr-title': '完成新功能开发', 'okr-period': '2024 Q1', 'okr-level': '部门级', 'okr-progress': 60, 'okr-status': '有风险', 'okr-start': Date.now() - 60 * 24 * 60 * 60 * 1000, 'okr-end': Date.now() + 30 * 24 * 60 * 60 * 1000 } },
+        { id: 'okr-rec-3', values: { 'okr-title': '学习新技术栈', 'okr-period': '2024 Q1', 'okr-level': '个人级', 'okr-progress': 80, 'okr-status': '正常', 'okr-start': Date.now() - 60 * 24 * 60 * 60 * 1000, 'okr-end': Date.now() + 30 * 24 * 60 * 60 * 1000 } },
+        { id: 'okr-rec-4', values: { 'okr-title': '提升团队协作效率', 'okr-period': '2024 Q1', 'okr-level': '部门级', 'okr-progress': 45, 'okr-status': '已延期', 'okr-start': Date.now() - 60 * 24 * 60 * 60 * 1000, 'okr-end': Date.now() + 30 * 24 * 60 * 60 * 1000 } },
+        { id: 'okr-rec-5', values: { 'okr-title': '用户增长目标', 'okr-period': '2024 Q2', 'okr-level': '公司级', 'okr-progress': 0, 'okr-status': '正常', 'okr-start': Date.now() + 30 * 24 * 60 * 60 * 1000, 'okr-end': Date.now() + 120 * 24 * 60 * 60 * 1000 } },
+        { id: 'okr-rec-6', values: { 'okr-title': '技术债务清理', 'okr-period': '2024 Q1', 'okr-level': '部门级', 'okr-progress': 100, 'okr-status': '已完成', 'okr-start': Date.now() - 90 * 24 * 60 * 60 * 1000, 'okr-end': Date.now() - 30 * 24 * 60 * 60 * 1000, 'okr-score': 0.85 } }
+      ]
+    },
+    {
+      id: 'key-results',
+      name: '关键结果',
+      order: 1,
+      fields: [
+        { id: 'kr-title', name: '关键结果', type: 'text', isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'kr-objective', name: '所属目标', type: 'link', options: { linkedTableId: 'objectives', relationshipType: 'many_to_one' }, isPrimary: false, isRequired: true, isVisible: true, order: 1 },
+        { id: 'kr-metric', name: '衡量指标', type: 'text', isPrimary: false, isRequired: true, isVisible: true, order: 2 },
+        { id: 'kr-target', name: '目标值', type: 'number', isPrimary: false, isRequired: true, isVisible: true, order: 3 },
+        { id: 'kr-current', name: '当前值', type: 'number', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+        { id: 'kr-progress', name: '完成进度', type: 'progress', options: { showPercent: true }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'kr-owner', name: '负责人', type: 'member', isPrimary: false, isRequired: true, isVisible: true, order: 6 },
+        { id: 'kr-weight', name: '权重', type: 'number', options: { suffix: '%', min: 0, max: 100 }, isPrimary: false, isRequired: false, isVisible: true, order: 7 },
+        { id: 'kr-score', name: '得分', type: 'number', options: { precision: 2, min: 0, max: 1 }, isPrimary: false, isRequired: false, isVisible: true, order: 8 },
+        { id: 'kr-created', name: '创建时间', type: 'created_time', isPrimary: false, isRequired: false, isVisible: true, order: 9 }
+      ],
+      views: [
+        { id: 'kr-view-1', name: '关键结果列表', type: 'table', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 0 }
+      ],
+      records: [
+        { id: 'kr-rec-1', values: { 'kr-title': '用户满意度提升至4.5分', 'kr-metric': '用户满意度评分', 'kr-target': 4.5, 'kr-current': 4.2, 'kr-progress': 80, 'kr-weight': 30 } },
+        { id: 'kr-rec-2', values: { 'kr-title': '核心功能使用率提升20%', 'kr-metric': '功能使用率', 'kr-target': 120, 'kr-current': 105, 'kr-progress': 75, 'kr-weight': 40 } },
+        { id: 'kr-rec-3', values: { 'kr-title': '用户流失率降低至5%', 'kr-metric': '月度流失率', 'kr-target': 5, 'kr-current': 7, 'kr-progress': 60, 'kr-weight': 30 } }
+      ]
+    }
+  ]
+};
+
 export const tableTemplates: TableTemplate[] = [
   projectManagementTemplate,
   taskTrackingTemplate,
@@ -534,7 +829,13 @@ export const tableTemplates: TableTemplate[] = [
   attendanceRecordTemplate,
   budgetManagementTemplate,
   surveyFeedbackTemplate,
-  contactListTemplate
+  contactListTemplate,
+  meetingManagementTemplate,
+  learningPlanTemplate,
+  recruitmentTemplate,
+  assetManagementTemplate,
+  bugTrackingTemplate,
+  okrTemplate
 ];
 
 // 类型已在文件顶部导出，无需重复导出
