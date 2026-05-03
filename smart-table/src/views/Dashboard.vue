@@ -611,6 +611,16 @@ function debouncedSaveWidgets(delay = 1000) {
   }, delay);
 }
 
+// 组件配置更改时实时更新预览
+function onWidgetConfigChange() {
+  if (selectedWidget.value) {
+    nextTick(() => {
+      renderWidget(selectedWidget.value!);
+    });
+  }
+  debouncedSaveWidgets();
+}
+
 // ==================== 分享功能 ====================
 
 async function openShareDialog() {
@@ -1878,27 +1888,68 @@ function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
   `;
 }
 
-// KPI 组件空状态渲染（无数据时）
+// KPI 组件空状态渲染（无数据时）- 支持配置预览
 function renderKpiWidgetEmpty(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const backgroundColor = config.backgroundColor || "transparent";
-  const textColor = config.textColor || "#000000";
+  const backgroundColor = config.backgroundColor || "white";
+  const textColor = config.textColor || "#111827";
+  const prefix = escapeHtml(config.prefix || "");
+  const suffix = escapeHtml(config.suffix || "");
+  const showTrend = config.showTrend;
+  const showTarget = config.showTarget;
+  const targetValue = config.targetValue || 100;
+
+  // 模拟趋势数据
+  const mockTrendValue = 12.5;
+  const trendHtml = showTrend
+    ? `
+      <div style="
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
+        font-size: 14px;
+        color: #10B981;
+      ">
+        <span>↑ ${mockTrendValue}%</span>
+      </div>
+    `
+    : "";
+
+  // 目标值进度
+  const progressHtml = showTarget
+    ? `
+      <div style="margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
+          <span>目标: ${prefix}${targetValue.toLocaleString()}${suffix}</span>
+          <span>75%</span>
+        </div>
+        <div style="height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
+          <div style="width: 75%; height: 100%; background: linear-gradient(90deg, #10B981, #34D399); border-radius: 3px;"></div>
+        </div>
+      </div>
+    `
+    : "";
 
   container.innerHTML = `
-    <div class="screen-widget kpi-widget-empty" style="
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
+    <div class="screen-widget kpi-widget" style="
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      height: 100%; 
       background: ${backgroundColor};
       border-radius: 12px;
-      color: ${textColor};
       padding: 20px;
-      text-align: center;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     ">
-      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">KPI 指标组件</div>
-      <div style="font-size: 12px; opacity: 0.5;">请配置数据表和字段以显示数据</div>
+      <div style="font-size: 14px; color: #6B7280; margin-bottom: 8px;">${escapeHtml(widget.title)}</div>
+      <div style="font-size: 32px; font-weight: bold; color: ${textColor};">
+        ${prefix}75,000${suffix}
+        ${trendHtml}
+      </div>
+      ${progressHtml}
+      <div style="font-size: 11px; color: #9CA3AF; margin-top: 8px; text-align: center;">
+        预览效果（请配置数据源）
+      </div>
     </div>
   `;
 }
@@ -2960,23 +3011,23 @@ onUnmounted(() => {
                     <el-input
                       v-model="(selectedWidget!.config as any).prefix"
                       placeholder="如：¥、$"
-                      @change="debouncedSaveWidgets()" />
+                      @input="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="后缀">
                     <el-input
                       v-model="(selectedWidget!.config as any).suffix"
                       placeholder="如：%、个"
-                      @change="debouncedSaveWidgets()" />
+                      @input="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="显示趋势">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showTrend"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="显示目标">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showTarget"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item
                     v-if="(selectedWidget!.config as any).showTarget"
@@ -2984,7 +3035,7 @@ onUnmounted(() => {
                     <el-input-number
                       v-model="(selectedWidget!.config as any).targetValue"
                       :min="0"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                 </template>
 
