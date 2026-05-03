@@ -154,6 +154,7 @@ declare module 'vue' {
     TableHeader: typeof import('./components/views/TableView/TableHeader.vue')['default']
     TableRow: typeof import('./components/views/TableView/TableRow.vue')['default']
     TableView: typeof import('./components/views/TableView/TableView.vue')['default']
+    TemplatePreviewDialog: typeof import('./components/templates/TemplatePreviewDialog.vue')['default']
     TextField: typeof import('./components/fields/TextField.vue')['default']
     Toast: typeof import('./components/common/Toast.vue')['default']
     UpdatedByField: typeof import('./components/fields/UpdatedByField.vue')['default']

@@ -12,6 +12,7 @@ import { templateService } from "@/db/services";
 import { getFieldTypeLabel, getFieldTypeIconComponent } from "@/types";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
+import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
 
 const router = useRouter();
 const baseStore = useBaseStore();
@@ -75,7 +76,6 @@ const editDialogVisible = ref(false);
 // 预览对话框显示状态
 const previewDialogVisible = ref(false);
 const previewTemplate = ref<TableTemplate | null>(null);
-const activePreviewTables = ref<string[]>([]);
 
 // 模板搜索状态
 const templateSearchQuery = ref("");
@@ -639,6 +639,12 @@ function openPreview(template: TableTemplate) {
 function closePreview() {
   previewDialogVisible.value = false;
   previewTemplate.value = null;
+}
+
+// 从预览确认使用模板
+function handlePreviewConfirm(template: TableTemplate) {
+  closePreview();
+  handleUseTemplate(template);
 }
 
 // 从模板创建 base
@@ -1784,95 +1790,13 @@ async function handleCopyBase(base: Base, event: Event) {
       </div>
     </el-dialog>
 
-    <!-- 预览对话框 -->
-    <el-dialog
-      v-model="previewDialogVisible"
-      :title="previewTemplate?.name"
-      width="800px"
-      :close-on-click-modal="false"
-      class="preview-dialog">
-      <div v-if="previewTemplate" class="preview-content">
-        <!-- 模板基本信息 -->
-        <div class="preview-header">
-          <div
-            class="preview-icon"
-            :style="{ backgroundColor: previewTemplate.color }">
-            {{ previewTemplate.icon }}
-          </div>
-          <div class="preview-info">
-            <h3 class="preview-title">{{ previewTemplate.name }}</h3>
-            <p class="preview-desc">{{ previewTemplate.description }}</p>
-            <span class="preview-category">{{ previewTemplate.category }}</span>
-          </div>
-        </div>
-
-        <!-- 模板包含的数据表 -->
-        <div class="preview-section">
-          <h4 class="section-title">包含的数据表</h4>
-          <el-collapse v-model="activePreviewTables" accordion>
-            <el-collapse-item
-              v-for="table in previewTemplate.tables"
-              :key="table.id"
-              :name="table.id"
-              :title="table.name">
-              <div class="table-preview">
-                <p class="table-desc">{{ table.description || "暂无描述" }}</p>
-                <h5 class="fields-title">字段列表</h5>
-                <div class="fields-grid">
-                  <div
-                    v-for="field in table.fields"
-                    :key="field.id"
-                    class="field-card">
-                    <div
-                      class="field-icon"
-                      :style="{
-                        backgroundColor: getFieldTypeColor(field.type),
-                      }">
-                      <el-icon>
-                        <component :is="getFieldTypeIconComponent(field.type)" />
-                      </el-icon>
-                    </div>
-                    <div class="field-info">
-                      <div class="field-name">{{ field.name }}</div>
-                      <div class="field-type">
-                        {{ getFieldTypeName(field.type) }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  v-if="table.sampleData && table.sampleData.length > 0"
-                  class="sample-data">
-                  <h5 class="sample-title">示例数据</h5>
-                  <el-table
-                    :data="table.sampleData"
-                    style="width: 100%"
-                    size="small"
-                    border>
-                    <el-table-column
-                      v-for="field in table.fields"
-                      :key="field.id"
-                      :prop="field.id"
-                      :label="field.name"
-                      show-overflow-tooltip />
-                  </el-table>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
-        </div>
-      </div>
-
-      <template #footer>
-        <el-button @click="closePreview">关闭</el-button>
-        <el-button
-          type="primary"
-          :loading="isTemplateLoading(previewTemplate?.id || '')"
-          @click="previewTemplate && handleUseTemplate(previewTemplate)">
-          应用此模板
-        </el-button>
-      </template>
-    </el-dialog>
+    <!-- 模板预览对话框 -->
+    <TemplatePreviewDialog
+      v-model:visible="previewDialogVisible"
+      :template="previewTemplate"
+      @confirm="handlePreviewConfirm"
+      @close="closePreview"
+    />
   </div>
 </template>
 
