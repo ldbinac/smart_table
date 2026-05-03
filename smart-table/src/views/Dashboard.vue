@@ -119,7 +119,7 @@ const chartWidgetTypes = [
   {
     value: "bar",
     label: "柱状图",
-    icon: "BarChart",
+    icon: "Histogram",
     description: "展示分类数据的对比",
     category: "chart",
   },
@@ -133,7 +133,7 @@ const chartWidgetTypes = [
   {
     value: "area",
     label: "面积图",
-    icon: "Histogram",
+    icon: "Management",
     description: "强调数量随时间变化的程度",
     category: "chart",
   },
@@ -1954,32 +1954,114 @@ function renderKpiWidgetEmpty(widget: WidgetConfig, container: HTMLElement) {
   `;
 }
 
-// 实时数据组件空状态渲染（无数据时）
+// 实时数据组件空状态渲染（无数据时）- 支持配置预览
 function renderRealtimeWidgetEmpty(
   widget: WidgetConfig,
   container: HTMLElement,
 ) {
   const config = widget.config || {};
-  const backgroundColor = config.backgroundColor || "transparent";
-  const textColor = config.textColor || "#000000";
+  const chartType = config.chartType || "line";
+  const smooth = config.smooth !== false;
+  const maxDataPoints = config.maxDataPoints || 50;
+  const colors = config.colors?.length ? config.colors : ["#3B82F6", "#10B981", "#F59E0B"];
 
-  container.innerHTML = `
-    <div class="screen-widget realtime-widget-empty" style="
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      background: ${backgroundColor};
-      border-radius: 12px;
-      color: ${textColor};
-      padding: 20px;
-      text-align: center;
-    ">
-      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">实时数据流组件</div>
-      <div style="font-size: 12px; opacity: 0.5;">请配置数据表和字段以显示实时数据</div>
-    </div>
+  // 生成模拟数据
+  const mockLabels = Array.from({ length: 20 }, (_, i) => `${i + 1}`);
+  const mockValues = Array.from({ length: 20 }, (_, i) => Math.floor(Math.random() * 100) + 50);
+
+  // 使用 ECharts 渲染预览图表
+  let chart = chartRefs.value.get(widget.id);
+  if (!chart) {
+    chart = echarts.init(container);
+    chartRefs.value.set(widget.id, chart);
+  }
+
+  const option: EChartsOption = {
+    color: colors,
+    grid: {
+      left: "3%",
+      right: "4%",
+      bottom: "3%",
+      top: "15%",
+      containLabel: true,
+    },
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderColor: "#E5E7EB",
+      borderWidth: 1,
+      textStyle: { color: "#374151", fontSize: 12 },
+    },
+    title: {
+      text: widget.title,
+      left: "center",
+      top: 5,
+      textStyle: { color: "#6B7280", fontSize: 14, fontWeight: "normal" },
+    },
+    xAxis: {
+      type: "category",
+      data: mockLabels,
+      boundaryGap: chartType === "area",
+      axisLabel: { color: "#9CA3AF", fontSize: 10 },
+      axisLine: { lineStyle: { color: "#E5E7EB" } },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value: number) => formatLargeNumber(value),
+        color: "#9CA3AF",
+        fontSize: 10,
+      },
+      splitLine: { lineStyle: { color: "#F3F4F6", type: "dashed" } },
+    },
+    series: [
+      {
+        name: "预览数据",
+        type: "line",
+        data: mockValues,
+        smooth: smooth,
+        areaStyle:
+          chartType === "area"
+            ? {
+                opacity: 0.3,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: colors[0] },
+                  { offset: 1, color: "rgba(255,255,255,0)" },
+                ]),
+              }
+            : undefined,
+        lineStyle: { width: 2 },
+        itemStyle: { borderWidth: 0 },
+        emphasis: {
+          focus: "series",
+          itemStyle: { borderWidth: 2, borderColor: "#fff" },
+        },
+      },
+    ],
+  };
+
+  chart.setOption(option);
+
+  // 添加预览提示
+  const previewTip = document.createElement("div");
+  previewTip.style.cssText = `
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #9CA3AF;
+    background: rgba(255,255,255,0.9);
+    padding: 2px 8px;
+    border-radius: 4px;
   `;
+  previewTip.textContent = `预览效果 · ${chartType === "area" ? "面积图" : "折线图"} · 最大${maxDataPoints}点`;
+  
+  container.style.position = "relative";
+  if (!container.querySelector(".preview-tip")) {
+    previewTip.className = "preview-tip";
+    container.appendChild(previewTip);
+  }
 }
 
 function getTableById(tableId: string): TableEntity | undefined {
@@ -2730,7 +2812,7 @@ onUnmounted(() => {
                 <el-form-item label="标题">
                   <el-input
                     v-model="selectedWidget.title"
-                    @change="debouncedSaveWidgets()" />
+                    @input="onWidgetConfigChange()" />
                 </el-form-item>
 
                 <!-- 数据表选择 - 仅对需要数据的组件显示 -->
@@ -2775,7 +2857,7 @@ onUnmounted(() => {
                     v-model="selectedWidget.groupBy"
                     clearable
                     placeholder="不分组"
-                    @change="debouncedSaveWidgets()">
+                    @change="onWidgetConfigChange()">
                     <el-option
                       v-for="field in fields.filter(
                         (f) => f.tableId === selectedWidget!.tableId,
@@ -2802,7 +2884,7 @@ onUnmounted(() => {
                   <el-select
                     v-model="selectedWidget!.fieldId"
                     placeholder="选择字段"
-                    @change="debouncedSaveWidgets()">
+                    @change="onWidgetConfigChange()">
                     <el-option
                       v-for="field in fields.filter(
                         (f) => f.tableId === selectedWidget!.tableId,
@@ -2828,7 +2910,7 @@ onUnmounted(() => {
                 <el-form-item label="聚合方式">
                   <el-select
                     v-model="selectedWidget.aggregation"
-                    @change="debouncedSaveWidgets()">
+                    @change="onWidgetConfigChange()">
                     <el-option
                       v-for="agg in filteredAggregationTypes"
                       :key="agg.value"
@@ -2868,7 +2950,7 @@ onUnmounted(() => {
                 <el-form-item label="边框大小">
                   <el-select
                     v-model="(selectedWidget!.config as any).borderSize"
-                    @change="debouncedSaveWidgets()">
+                    @change="onWidgetConfigChange()">
                     <el-option label="无边框" value="none" />
                     <el-option label="窄边框" value="narrow" />
                     <el-option label="中边框" value="medium" />
@@ -2881,12 +2963,12 @@ onUnmounted(() => {
                   <el-color-picker
                     v-model="(selectedWidget!.config as any).backgroundColor"
                     show-alpha
-                    @change="debouncedSaveWidgets()" />
+                    @change="onWidgetConfigChange()" />
                 </el-form-item>
                 <el-form-item label="文字颜色">
                   <el-color-picker
                     v-model="(selectedWidget!.config as any).textColor"
-                    @change="debouncedSaveWidgets()" />
+                    @change="onWidgetConfigChange()" />
                 </el-form-item>
 
                 <!-- 时钟组件配置 -->
@@ -2895,12 +2977,12 @@ onUnmounted(() => {
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="时间格式">
                     <el-select
                       v-model="(selectedWidget!.config as any).timeFormat"
-                      @change="debouncedSaveWidgets()">
+                      @change="onWidgetConfigChange()">
                       <el-option label="24小时制" value="24h" />
                       <el-option label="12小时制" value="12h" />
                     </el-select>
@@ -2909,19 +2991,19 @@ onUnmounted(() => {
                     <el-switch
                       v-model="(selectedWidget!.config as any).showSeconds"
                       :default-value="true"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="显示日期">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showDate"
                       :default-value="true"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="显示星期">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showWeekday"
                       :default-value="true"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="时间字体大小">
                     <el-slider
@@ -2929,7 +3011,7 @@ onUnmounted(() => {
                       :min="16"
                       :max="72"
                       :step="2"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="日期字体大小">
                     <el-slider
@@ -2937,7 +3019,7 @@ onUnmounted(() => {
                       :min="10"
                       :max="32"
                       :step="1"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                 </template>
 
@@ -2947,13 +3029,13 @@ onUnmounted(() => {
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="显示星期">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showWeekday"
                       :default-value="true"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="日期字体大小">
                     <el-slider
@@ -2961,7 +3043,7 @@ onUnmounted(() => {
                       :min="10"
                       :max="32"
                       :step="1"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                 </template>
 
@@ -2971,13 +3053,13 @@ onUnmounted(() => {
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="显示内容">
                     <el-input
                       v-model="(selectedWidget!.config as any).content"
                       placeholder="请输入滚动内容"
-                      @change="debouncedSaveWidgets()" />
+                      @input="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="滚动速度">
                     <el-slider
@@ -2985,12 +3067,12 @@ onUnmounted(() => {
                       :min="1"
                       :max="10"
                       :step="1"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="滚动方向">
                     <el-select
                       v-model="(selectedWidget!.config as any).direction"
-                      @change="debouncedSaveWidgets()">
+                      @change="onWidgetConfigChange()">
                       <el-option label="向左" value="left" />
                       <el-option label="向右" value="right" />
                     </el-select>
@@ -3001,7 +3083,7 @@ onUnmounted(() => {
                       :min="12"
                       :max="48"
                       :step="1"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                 </template>
 
@@ -3044,7 +3126,7 @@ onUnmounted(() => {
                   <el-form-item label="图表类型">
                     <el-select
                       v-model="(selectedWidget!.config as any).chartType"
-                      @change="debouncedSaveWidgets()">
+                      @change="onWidgetConfigChange()">
                       <el-option label="折线图" value="line" />
                       <el-option label="面积图" value="area" />
                     </el-select>
@@ -3055,13 +3137,13 @@ onUnmounted(() => {
                       :min="10"
                       :max="200"
                       :step="10"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="平滑曲线">
                     <el-switch
                       v-model="(selectedWidget!.config as any).smooth"
                       :default-value="true"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                 </template>
 
@@ -3071,19 +3153,19 @@ onUnmounted(() => {
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="主标题文字">
                     <el-input
                       v-model="(selectedWidget!.config as any).text"
                       placeholder="请输入主标题"
-                      @change="debouncedSaveWidgets()" />
+                      @input="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="副标题文字">
                     <el-input
                       v-model="(selectedWidget!.config as any).subtitle"
                       placeholder="请输入副标题（可选）"
-                      @change="debouncedSaveWidgets()" />
+                      @input="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="主标题字体大小">
                     <el-slider
@@ -3091,7 +3173,7 @@ onUnmounted(() => {
                       :min="16"
                       :max="120"
                       :step="2"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="副标题字体大小">
                     <el-slider
@@ -3099,12 +3181,12 @@ onUnmounted(() => {
                       :min="10"
                       :max="48"
                       :step="1"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="字体粗细">
                     <el-select
                       v-model="(selectedWidget!.config as any).fontWeight"
-                      @change="debouncedSaveWidgets()">
+                      @change="onWidgetConfigChange()">
                       <el-option label="正常" value="normal" />
                       <el-option label="中等" value="500" />
                       <el-option label="粗体" value="bold" />
@@ -3114,7 +3196,7 @@ onUnmounted(() => {
                   <el-form-item label="文字对齐">
                     <el-radio-group
                       v-model="(selectedWidget!.config as any).textAlign"
-                      @change="debouncedSaveWidgets()">
+                      @change="onWidgetConfigChange()">
                       <el-radio-button label="left">左对齐</el-radio-button>
                       <el-radio-button label="center">居中</el-radio-button>
                       <el-radio-button label="right">右对齐</el-radio-button>
@@ -3123,17 +3205,17 @@ onUnmounted(() => {
                   <el-form-item label="主标题颜色">
                     <el-color-picker
                       v-model="(selectedWidget!.config as any).textColor"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="副标题颜色">
                     <el-color-picker
                       v-model="(selectedWidget!.config as any).subtitleColor"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="背景样式">
                     <el-select
                       v-model="(selectedWidget!.config as any).backgroundStyle"
-                      @change="debouncedSaveWidgets()">
+                      @change="onWidgetConfigChange()">
                       <el-option label="渐变" value="gradient" />
                       <el-option label="纯色" value="solid" />
                       <el-option label="透明" value="transparent" />
@@ -3145,7 +3227,7 @@ onUnmounted(() => {
                       :min="0"
                       :max="20"
                       :step="1"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="行高">
                     <el-slider
@@ -3153,13 +3235,13 @@ onUnmounted(() => {
                       :min="1"
                       :max="2.5"
                       :step="0.1"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item label="文字阴影">
                     <el-switch
                       v-model="(selectedWidget!.config as any).textShadow"
                       :default-value="true"
-                      @change="debouncedSaveWidgets()" />
+                      @change="onWidgetConfigChange()" />
                   </el-form-item>
                 </template>
               </div>
@@ -3181,7 +3263,7 @@ onUnmounted(() => {
                   ">
                   <el-switch
                     v-model="(selectedWidget!.config as any).showLegend"
-                    @change="debouncedSaveWidgets()" />
+                    @change="onWidgetConfigChange()" />
                 </el-form-item>
 
                 <el-form-item
@@ -3192,7 +3274,7 @@ onUnmounted(() => {
                   ">
                   <el-switch
                     v-model="(selectedWidget!.config as any).showLabel"
-                    @change="debouncedSaveWidgets()" />
+                    @change="onWidgetConfigChange()" />
                 </el-form-item>
 
                 <el-form-item
@@ -3203,7 +3285,7 @@ onUnmounted(() => {
                   ">
                   <el-switch
                     v-model="(selectedWidget!.config as any).smooth"
-                    @change="debouncedSaveWidgets()" />
+                    @change="onWidgetConfigChange()" />
                 </el-form-item>
               </div>
 
@@ -3221,7 +3303,7 @@ onUnmounted(() => {
                     :max="gridColumns"
                     :step="1"
                     show-stops
-                    @change="debouncedSaveWidgets()" />
+                    @change="onWidgetConfigChange()" />
                 </el-form-item>
 
                 <el-form-item label="高度 (行数)">
@@ -3231,7 +3313,7 @@ onUnmounted(() => {
                     :max="8"
                     :step="1"
                     show-stops
-                    @change="debouncedSaveWidgets()" />
+                    @change="onWidgetConfigChange()" />
                 </el-form-item>
               </div>
 
