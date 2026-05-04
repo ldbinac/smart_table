@@ -812,6 +812,7 @@ async function updateField() {
     // 构建更新数据
     const updateData: Record<string, unknown> = {
       name: newField.value.name.trim(),
+      type: newField.value.type,
       isRequired: newField.value.isRequired,
       description: newField.value.description,
       options: options as Record<string, unknown>,
