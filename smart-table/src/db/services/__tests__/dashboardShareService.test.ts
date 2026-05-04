@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { dashboardShareService } from "../dashboardShareService";
-import { db } from "../../schema";
 import { apiClient } from "@/api/client";
 
 // 模拟数据库操作

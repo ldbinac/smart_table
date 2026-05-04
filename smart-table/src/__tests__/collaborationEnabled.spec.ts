@@ -120,7 +120,7 @@ describe('RealtimeEventEmitter', () => {
   it('on and emit work', () => {
     const handler = vi.fn()
     realtimeEventEmitter.on('data:record_updated', handler)
-    realtimeEventEmitter.emit('data:record_updated', { table_id: 't1', record_id: 'r1' })
+    realtimeEventEmitter.emit('data:record_updated', { table_id: 't1', record_id: 'r1' } as any)
     expect(handler).toHaveBeenCalledWith({ table_id: 't1', record_id: 'r1' })
     realtimeEventEmitter.off('data:record_updated', handler)
   })
@@ -129,7 +129,7 @@ describe('RealtimeEventEmitter', () => {
     const handler = vi.fn()
     realtimeEventEmitter.on('data:record_updated', handler)
     realtimeEventEmitter.off('data:record_updated', handler)
-    realtimeEventEmitter.emit('data:record_updated', { table_id: 't1' })
+    realtimeEventEmitter.emit('data:record_updated', { table_id: 't1' } as any)
     expect(handler).not.toHaveBeenCalled()
   })
 
@@ -139,8 +139,8 @@ describe('RealtimeEventEmitter', () => {
     realtimeEventEmitter.on('data:record_updated', handler1)
     realtimeEventEmitter.on('data:record_created', handler2)
     realtimeEventEmitter.removeAllListeners()
-    realtimeEventEmitter.emit('data:record_updated', {})
-    realtimeEventEmitter.emit('data:record_created', {})
+    realtimeEventEmitter.emit('data:record_updated', {} as any)
+    realtimeEventEmitter.emit('data:record_created', {} as any)
     expect(handler1).not.toHaveBeenCalled()
     expect(handler2).not.toHaveBeenCalled()
   })

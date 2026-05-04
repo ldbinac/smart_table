@@ -5,6 +5,11 @@ import type { CellValue, FieldOptions } from "../../types";
 import { fieldApiService } from "@/services/api/fieldApiService";
 import { normalizeFieldType, denormalizeFieldType } from "@/types/fields";
 
+// 内存缓存：防止短时间内重复请求
+const fieldsCache = new Map<string, { data: FieldEntity[]; timestamp: number }>();
+const pendingRequests = new Map<string, Promise<FieldEntity[]>>();
+const CACHE_TTL = 5000; // 缓存有效期5秒
+
 export interface CreateFieldData {
   tableId: string;
   name: string;
@@ -93,54 +98,85 @@ export class FieldService {
 
   async getFieldsByTable(tableId: string): Promise<FieldEntity[]> {
     try {
-      // 先从后端 API 获取最新数据
-      const apiFields = await fieldApiService.getFields(tableId);
+      // 检查内存缓存（5秒内有效）
+      const cached = fieldsCache.get(tableId);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        console.log(`[fieldService] 使用缓存数据 (tableId: ${tableId})`);
+        return cached.data;
+      }
 
-      // 将后端返回的字段保存到本地 IndexedDB
-      await db.transaction("rw", db.fields, async () => {
-        for (const apiField of apiFields) {
-          // 将后端返回的字段类型转换为前端类型
-          const frontendType = normalizeFieldType(apiField.type);
-          const fData = apiField as any;
-          
-          const localField: FieldEntity = {
-            id: fData.id,
-            tableId: fData.table_id || tableId,
-            name: fData.name,
-            type: frontendType,
-            options: fData.options as Record<string, unknown> | undefined,
-            config: fData.config as Record<string, unknown> | undefined,
-            isPrimary: fData.is_primary || false,
-            isSystem: fData.is_system || false,
-            isRequired: fData.is_required || false,
-            isVisible: fData.is_visible ?? true,
-            defaultValue: fData.defaultValue as any,
-            description: fData.description,
-            order: apiField.order ?? 0,
-            createdAt: new Date(apiField.created_at).getTime(),
-            updatedAt: new Date(apiField.updated_at).getTime(),
-          };
+      // 检查是否有正在进行的相同请求（防止并发重复请求）
+      if (pendingRequests.has(tableId)) {
+        console.log(`[fieldService] 复用进行中的请求 (tableId: ${tableId})`);
+        return pendingRequests.get(tableId)!;
+      }
 
-          await db.fields.put(localField);
-        }
-      });
+      // 创建新请求并缓存 Promise
+      const requestPromise = this._fetchAndCacheFields(tableId);
+      pendingRequests.set(tableId, requestPromise);
 
-      // 从本地 IndexedDB 返回排序后的字段列表
-      return db.fields.where("tableId").equals(tableId).sortBy("order");
+      try {
+        const result = await requestPromise;
+        return result;
+      } finally {
+        pendingRequests.delete(tableId);
+      }
     } catch (error) {
       console.error("[fieldService] getFieldsByTable failed:", error);
       // 如果 API 调用失败，从本地缓存读取
       console.log(`[fieldService] 从本地缓存读取表 ${tableId} 的字段...`);
       const fields = await db.fields.where("tableId").equals(tableId).sortBy("order");
       console.log(`[fieldService] 从本地缓存读取到 ${fields.length} 个字段`);
-      
+
       // 如果本地缓存也为空，抛出错误
       if (fields.length === 0) {
         throw new Error('无法获取字段数据，请检查网络连接后重试');
       }
-      
+
       return fields;
     }
+  }
+
+  private async _fetchAndCacheFields(tableId: string): Promise<FieldEntity[]> {
+    // 先从后端 API 获取最新数据
+    const apiFields = await fieldApiService.getFields(tableId);
+
+    // 将后端返回的字段保存到本地 IndexedDB
+    await db.transaction("rw", db.fields, async () => {
+      for (const apiField of apiFields) {
+        // 将后端返回的字段类型转换为前端类型
+        const frontendType = normalizeFieldType(apiField.type);
+        const fData = apiField as any;
+
+        const localField: FieldEntity = {
+          id: fData.id,
+          tableId: fData.table_id || tableId,
+          name: fData.name,
+          type: frontendType,
+          options: fData.options as Record<string, unknown> | undefined,
+          config: fData.config as Record<string, unknown> | undefined,
+          isPrimary: fData.is_primary || false,
+          isSystem: fData.is_system || false,
+          isRequired: fData.is_required || false,
+          isVisible: fData.is_visible ?? true,
+          defaultValue: fData.defaultValue as any,
+          description: fData.description,
+          order: apiField.order ?? 0,
+          createdAt: new Date(apiField.created_at).getTime(),
+          updatedAt: new Date(apiField.updated_at).getTime(),
+        };
+
+        await db.fields.put(localField);
+      }
+    });
+
+    // 从本地 IndexedDB 返回排序后的字段列表
+    const fields = await db.fields.where("tableId").equals(tableId).sortBy("order");
+
+    // 更新内存缓存
+    fieldsCache.set(tableId, { data: fields, timestamp: Date.now() });
+
+    return fields;
   }
 
   async updateField(id: string, changes: Partial<FieldEntity>): Promise<FieldEntity | undefined> {
@@ -150,14 +186,14 @@ export class FieldService {
       if (changes.type) {
         apiChanges.type = denormalizeFieldType(changes.type);
       }
-      
+
       // 先调用后端 API 更新字段，获取更新后的数据
       const apiField = await fieldApiService.updateField(id, apiChanges as any);
 
       // 将后端返回的字段类型转换为前端类型
       const frontendType = normalizeFieldType(apiField.type);
       const updData = apiField as any;
-      
+
       // 构建更新后的本地字段对象
       const localField: FieldEntity = {
         id: updData.id,
@@ -176,15 +212,27 @@ export class FieldService {
         createdAt: new Date(apiField.created_at).getTime(),
         updatedAt: new Date(apiField.updated_at).getTime(),
       };
-      
+
       // 更新本地 IndexedDB
       await db.fields.put(localField);
-      
+
+      // 清除该表的字段缓存，确保下次获取最新数据
+      this.invalidateCache(localField.tableId);
+
       return localField;
     } catch (error) {
       console.error("[fieldService] updateField failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * 清除指定表的字段缓存
+   * @param tableId 表ID
+   */
+  invalidateCache(tableId: string): void {
+    fieldsCache.delete(tableId);
+    console.log(`[fieldService] 缓存已清除 (tableId: ${tableId})`);
   }
 
   async updateFieldOptions(id: string, options: FieldOptions): Promise<void> {
