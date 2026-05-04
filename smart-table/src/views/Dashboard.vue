@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBaseStore, useTableStore } from "@/stores";
@@ -1007,7 +1007,13 @@ function formatExpireTime(timestamp: number): string {
 
 async function loadTables() {
   if (!baseStore.currentBase) return;
-  tables.value = await tableService.getTablesByBase(baseStore.currentBase.id);
+  const loadedTables = await tableService.getTablesByBase(baseStore.currentBase.id);
+  tables.value = loadedTables;
+
+  // 同步到 tableStore，确保 BaseSidebar 能正确显示数据表列表
+  if (tableStore.tables.length === 0 || tableStore.tables[0]?.baseId !== baseStore.currentBase.id) {
+    await tableStore.loadTables(baseStore.currentBase.id);
+  }
 }
 
 async function loadTableData(tableId: string) {
@@ -2322,9 +2328,13 @@ function handleResize() {
   chartRefs.value.forEach((chart) => chart.resize());
 }
 
-onMounted(() => {
-  loadTables();
-  loadDashboards();
+onMounted(async () => {
+  // 先加载 base 信息和仪表盘列表
+  await loadDashboards();
+
+  // 再加载数据表列表（确保 baseStore.currentBase 已就绪）
+  await loadTables();
+
   window.addEventListener("resize", handleResize);
 });
 
@@ -2396,6 +2406,7 @@ onUnmounted(() => {
       :current-dashboard-id="currentDashboard?.id"
       :show-tables="true"
       :show-dashboards="true"
+      :can-edit="true"
       @select-table="handleTableSelect"
       @select-dashboard="handleDashboardSelect"
       @add-table="openCreateTableDialog"
