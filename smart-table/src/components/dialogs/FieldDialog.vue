@@ -688,7 +688,7 @@ async function createField() {
         tableId: props.tableId,
         name: newField.value.name.trim(),
         type: newField.value.type,
-        isRequired: newField.value.isRequired,
+        is_required: newField.value.isRequired,
         description: newField.value.description,
         options: Object.keys(options).length > 0 ? options : undefined,
       };
@@ -813,7 +813,7 @@ async function updateField() {
     const updateData: Record<string, unknown> = {
       name: newField.value.name.trim(),
       type: newField.value.type,
-      isRequired: newField.value.isRequired,
+      is_required: newField.value.isRequired,
       description: newField.value.description,
       options: options as Record<string, unknown>,
     };
