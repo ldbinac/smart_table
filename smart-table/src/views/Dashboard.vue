@@ -36,6 +36,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
 import DashboardPreviewDialog from "@/components/dashboard/DashboardPreviewDialog.vue";
+import ExcelImportCreateDialog from "@/components/dialogs/ExcelImportCreateDialog.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
 import { freshColors } from "@/utils/helpers";
 
@@ -67,6 +68,16 @@ const dashboardForm = ref({
   name: "",
   description: "",
 });
+
+// 创建数据表对话框状态
+const createTableDialogVisible = ref(false);
+const createTableForm = reactive({
+  name: "",
+  description: "",
+});
+
+// Excel导入创建对话框状态
+const excelImportCreateDialogVisible = ref(false);
 
 // 加载状态
 const isLoading = ref(false);
@@ -728,9 +739,76 @@ const handleDashboardSelect = (dashboardId: string) => {
 };
 
 const openCreateTableDialog = () => {
-  const baseId = route.params.id as string;
-  router.push(`/base/${baseId}`);
+  if (!baseStore.currentBase) {
+    ElMessage.warning("请先选择一个 Base");
+    return;
+  }
+  createTableDialogVisible.value = true;
+  createTableForm.name = "";
+  createTableForm.description = "";
 };
+
+// 关闭创建数据表对话框
+const closeCreateTableDialog = () => {
+  createTableDialogVisible.value = false;
+};
+
+// 处理创建数据表
+async function handleCreateTable() {
+  if (!baseStore.currentBase) {
+    ElMessage.error("请先选择一个 Base");
+    return;
+  }
+
+  if (!createTableForm.name.trim()) {
+    ElMessage.warning("请输入数据表名称");
+    return;
+  }
+
+  try {
+    const table = await tableStore.createTable({
+      baseId: baseStore.currentBase.id,
+      name: createTableForm.name,
+      description: createTableForm.description || undefined,
+    });
+
+    if (table) {
+      ElMessage.success("数据表创建成功");
+      closeCreateTableDialog();
+      // 刷新表格列表
+      await loadTables();
+      // 自动跳转到新创建的数据表页面
+      const baseId = baseStore.currentBase.id;
+      router.push(`/base/${baseId}/table/${table.id}`);
+    } else {
+      ElMessage.error(tableStore.error || "创建失败");
+    }
+  } catch (error) {
+    console.error("[Dashboard] 创建数据表失败:", error);
+    ElMessage.error("创建数据表失败，请重试");
+  }
+}
+
+// 打开Excel导入创建对话框
+function openExcelImportCreateDialog() {
+  if (!baseStore.currentBase) {
+    ElMessage.warning("请先选择一个 Base");
+    return;
+  }
+  excelImportCreateDialogVisible.value = true;
+}
+
+// 处理Excel导入创建完成
+async function handleExcelImportCreated(tableId: string) {
+  // 刷新表格列表
+  if (baseStore.currentBase) {
+    await loadTables();
+    console.log(`[Dashboard] Excel导入创建成功, tableId: ${tableId}`);
+    // 自动跳转到新创建的数据表页面
+    const baseId = baseStore.currentBase.id;
+    router.push(`/base/${baseId}/table/${tableId}`);
+  }
+}
 
 const openCreateDashboardDialog = () => {
   isEditingDashboard.value = true;
@@ -2418,7 +2496,8 @@ onUnmounted(() => {
       @delete-dashboard="handleDeleteDashboard"
       @toggle-star-dashboard="handleToggleStarDashboard"
       @reorder-dashboards="handleReorderDashboards"
-      @manage-dashboards="showDashboardManager = true" />
+      @manage-dashboards="showDashboardManager = true"
+      @excel-import-create="openExcelImportCreateDialog" />
 
     <div class="dashboard-main">
       <!-- 顶部工具栏 -->
@@ -3709,7 +3788,44 @@ onUnmounted(() => {
         :dashboard="currentDashboard"
         :widgets="widgets"
         :grid-columns="gridColumns" />
-    </div>
+
+    <!-- 创建数据表对话框 -->
+    <el-dialog
+      v-model="createTableDialogVisible"
+      title="新建数据表"
+      width="500px"
+      :close-on-click-modal="false"
+      @close="closeCreateTableDialog">
+      <el-form label-width="80px" @submit.prevent>
+        <el-form-item label="名称" required>
+          <el-input
+            v-model="createTableForm.name"
+            placeholder="请输入数据表名称"
+            maxlength="50"
+            show-word-limit />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+            v-model="createTableForm.description"
+            type="textarea"
+            placeholder="请输入数据表描述（可选）"
+            :rows="3"
+            maxlength="200"
+            show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeCreateTableDialog">取消</el-button>
+        <el-button type="primary" @click="handleCreateTable">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Excel导入创建数据表对话框 -->
+    <ExcelImportCreateDialog
+      v-model:visible="excelImportCreateDialogVisible"
+      :base-id="baseStore.currentBase?.id || ''"
+      @created="handleExcelImportCreated" />
+  </div>
   </div>
 </template>
 

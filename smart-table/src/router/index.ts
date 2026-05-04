@@ -73,6 +73,14 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/base/:id/table/:tableId",
+    name: "BaseTable",
+    component: () => import("@/views/Base.vue"),
+    meta: {
+      title: "数据表",
+    },
+  },
+  {
     path: "/base/:id/dashboard/:dashboardId",
     name: "Dashboard",
     component: () => import("@/views/Dashboard.vue"),

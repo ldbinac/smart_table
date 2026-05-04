@@ -363,8 +363,23 @@ onMounted(async () => {
     }
     await tableStore.loadTables(currentBaseId);
 
-    // 如果有表格且当前没有选择表格，自动选择第一个表格
-    if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+    // 检查是否通过路由参数指定了数据表（如 /base/:id/table/:tableId）
+    const targetTableId = route.params.tableId as string | undefined;
+
+    if (targetTableId) {
+      // 如果指定了 tableId，尝试选择该数据表
+      const targetTable = tableStore.tables.find(t => t.id === targetTableId);
+      if (targetTable) {
+        await handleTableSelect(targetTable.id);
+      } else {
+        // 指定的数据表不存在，回退到第一个表格
+        console.warn(`[Base] 路由指定的数据表不存在: ${targetTableId}，回退到默认选择`);
+        if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+          await handleTableSelect(tableStore.tables[0].id);
+        }
+      }
+    } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+      // 如果没有指定 tableId，自动选择第一个表格（原有逻辑）
       const firstTable = tableStore.tables[0];
       await tableStore.selectTable(firstTable.id);
       // 同步视图数据到 viewStore
