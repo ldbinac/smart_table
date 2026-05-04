@@ -260,7 +260,7 @@ def access_share(share_token) -> tuple:
 @jwt_required
 def get_shared_with_me() -> tuple:
     """
-    获取分享给当前用户的所有 Base
+    获取分享给当前用户的所有 Base（排除自己创建的）
     ---
     tags:
       - Shares
@@ -271,22 +271,25 @@ def get_shared_with_me() -> tuple:
         description: Base 列表
     """
     user_id = g.current_user_id
-    
+
     # 查询当前用户是成员的 Base
     memberships = BaseMember.query.filter_by(user_id=str(user_id)).all()
-    
+
     base_ids = [str(membership.base_id) for membership in memberships]
-    
+
     if not base_ids:
         return success_response(
             data=[],
             message='暂无分享给您的 Base'
         )
-    
-    # 查询 Base 信息
-    bases = Base.query.filter(Base.id.in_(base_ids)).all()
+
+    # 查询 Base 信息，但排除当前用户自己创建的 Base
+    bases = Base.query.filter(
+        Base.id.in_(base_ids),
+        Base.owner_id != str(user_id)  # 排除自己创建的 Base
+    ).all()
     bases_data = [base.to_dict(include_stats=True) for base in bases]
-    
+
     return success_response(
         data=bases_data,
         message='获取分享给您的 Base 成功'
