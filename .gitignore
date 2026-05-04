@@ -91,3 +91,6 @@ __pypackages__/
 # pyenv
 .python-version
 tools/redis-windows/redis-server.exe
+
+# Documentation directory
+docs/
