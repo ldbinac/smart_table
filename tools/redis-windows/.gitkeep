@@ -1,0 +1,10 @@
+# 此目录用于存放 Windows 版本的 Redis 可执行文件
+# 请将 redis-server.exe 放置在此目录中
+# 
+# 获取方式：
+# 1. 运行 ..\download-redis.ps1 (PowerShell) 自动检测和复制
+# 2. 或手动从以下来源下载：
+#    - MemuraiValkey: https://www.memurai.com/get-memurai-valkey (推荐)
+#    - Redis for Windows: https://github.com/tporadowski/redis/releases
+#
+# 验证命令：.\redis-server.exe --version

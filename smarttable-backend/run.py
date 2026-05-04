@@ -1,6 +1,6 @@
 """
 SmartTable Flask 应用入口文件
-用于启动开发服务器
+用于启动开发服务器或打包后的独立运行
 """
 import argparse
 import os
@@ -38,6 +38,50 @@ enable_realtime = args.enable_realtime
 
 from app import create_app
 app = create_app(config_name, enable_realtime=enable_realtime)
+
+# 打包模式集成：全局 Redis 管理器实例
+redis_manager = None
+
+
+def initialize_packaging_mode(app_instance, realtime_enabled=False):
+    """
+    初始化打包模式的特殊配置
+    
+    在 PyInstaller 打包后的环境中，此函数负责：
+    1. 配置前端静态文件服务（将 Vue 构建产物嵌入）
+    2. 自动启动 Redis 服务（如果需要）
+    
+    Args:
+        app_instance: Flask 应用实例
+        realtime_enabled: 是否启用实时协作功能
+    """
+    global redis_manager
+    
+    # 配置前端静态文件托管（始终启用，即使 dist 不存在也会注册友好错误页面）
+    from app.static_serving import configure_static_serving
+    configure_static_serving(app_instance)
+    
+    # 尝试自动启动 Redis（可选，失败不影响核心功能）
+    if True:  # 默认总是尝试启动 Redis
+        try:
+            from app.redis_manager import RedisManager
+            
+            redis_port = int(os.environ.get('REDIS_PORT', 6379))
+            redis_host = os.environ.get('REDIS_HOST', 'localhost')
+            
+            redis_manager = RedisManager(port=redis_port, host=redis_host)
+            
+            if redis_manager.start():
+                print(f'[Packaging] ✓ Redis auto-started on {redis_host}:{redis_port}')
+            else:
+                print('[Packaging] ⚠️ Redis failed to start - running in degraded mode')
+                print('[Packaging]   (Caching and real-time features may be limited)')
+                redis_manager = None
+                
+        except Exception as e:
+            print(f'[Packaging] ⚠️ Redis initialization error: {e}')
+            print('[Packaging]   Continuing without Redis...')
+            redis_manager = None
 
 
 def init_db():
@@ -129,9 +173,27 @@ if __name__ == '__main__':
     print(f'Debug: {debug}')
     print(f'Real-time collaboration: {"enabled" if enable_realtime else "disabled"}')
     print(f'API Documentation: http://{host}:{port}/api/')
-
-    if enable_realtime:
-        from app.extensions import socketio
-        socketio.run(app, host=host, port=port, debug=debug)
+    
+    # 检测是否为 PyInstaller 打包环境
+    is_packaged = getattr(sys, 'frozen', False)
+    if is_packaged:
+        print(f'[Packaging] Running in packaged mode (PyInstaller)')
+        print(f'Frontend URL: http://{host}:{port}/')
     else:
-        app.run(host=host, port=port, debug=debug)
+        print(f'[Development] Running in development mode')
+        print(f'Frontend URL: http://localhost:3000 (Vite dev server)')
+
+    # 初始化打包模式（静态文件服务 + Redis 管理）
+    initialize_packaging_mode(app, enable_realtime=enable_realtime)
+
+    try:
+        if enable_realtime:
+            from app.extensions import socketio
+            socketio.run(app, host=host, port=port, debug=debug)
+        else:
+            app.run(host=host, port=port, debug=debug)
+    finally:
+        # 确保退出时清理 Redis 进程
+        if redis_manager and redis_manager.is_running():
+            print('\n[Packaging] Stopping Redis...')
+            redis_manager.stop()

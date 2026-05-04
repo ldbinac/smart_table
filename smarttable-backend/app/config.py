@@ -1,8 +1,9 @@
 """
 应用配置模块
-包含开发、测试、生产环境的配置类
+包含开发、测试、生产环境的配置
 """
 import os
+import sys
 from datetime import timedelta
 
 
@@ -12,9 +13,21 @@ class Config:
     # Flask 基础配置
     SECRET_KEY = os.environ.get('SECRET_KEY')
     
-    # 数据库配置 (默认使用 SQLite 进行开发)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///smarttable.db'
+    # ===== 打包模式检测与配置 =====
+    # 检测是否为 PyInstaller 打包环境
+    PACKAGING_MODE = getattr(sys, 'frozen', False)
+    
+    # 数据目录（相对路径，便于分发）
+    DATA_DIR = os.environ.get('DATA_DIR', 'data')
+    DATABASE_PATH = os.path.join(DATA_DIR, 'smarttable.db')
+    
+    # 数据库配置 (默认使用 SQLite 进行开发/打包)
+    if not os.environ.get('DATABASE_URL'):
+        # 打包模式或未显式指定时使用 SQLite
+        SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
+    else:
+        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+        
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 10,
@@ -40,12 +53,13 @@ class Config:
     CACHE_REDIS_URL = REDIS_URL
     CACHE_DEFAULT_TIMEOUT = 300
     
-    # MinIO 配置
-    MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT', 'localhost:9000')
-    MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY')
-    MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY')
-    MINIO_BUCKET_NAME = os.environ.get('MINIO_BUCKET_NAME', 'smarttable')
-    MINIO_SECURE = os.environ.get('MINIO_SECURE', 'False').lower() == 'true'
+    # MinIO 对象存储配置（打包模式下禁用，使用本地文件系统）
+    MINIO_ENABLED = os.environ.get('MINIO_ENABLED', 'false').lower() == 'true'
+    MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT', '') if MINIO_ENABLED else ''
+    MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY', '') if MINIO_ENABLED else ''
+    MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY', '') if MINIO_ENABLED else ''
+    MINIO_BUCKET_NAME = os.environ.get('MINIO_BUCKET_NAME', 'smarttable') if MINIO_ENABLED else ''
+    MINIO_SECURE = False
     
     # 分页配置
     DEFAULT_PAGE_SIZE = 20

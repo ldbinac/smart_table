@@ -77,6 +77,16 @@ def create_app(config_name='default', enable_realtime=False):
     # 注册应用生命周期钩子
     register_lifecycle_hooks(app)
 
+    # 打包模式：配置前端静态文件托管（如果尚未配置）
+    # 注意：在 run.py 中也会调用 configure_static_serving，这里作为备用
+    if not hasattr(app, '_static_serving_configured'):
+        try:
+            from app.static_serving import configure_static_serving
+            if configure_static_serving(app):
+                app._static_serving_configured = True
+        except Exception as e:
+            print(f"[Warning] Failed to configure static serving: {e}")
+
     return app
 
 

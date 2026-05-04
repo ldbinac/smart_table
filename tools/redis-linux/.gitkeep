@@ -1,0 +1,9 @@
+# 此目录用于存放 Linux 版的 Redis 可执行文件
+# 请将 redis-server 二进制文件放置在此目录中
+#
+# 获取方式：
+# 1. 运行 chmod +x ../download-redis.sh && ../download-redis.sh 自动编译
+# 2. 或从系统复制：cp $(which redis-server) ./redis-server
+# 3. 或手动编译：make && cp src/redis-server ./redis-server
+#
+# 验证命令：./redis-server --version
