@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="member-management-page">
     <div class="page-header">
       <div class="header-left">
@@ -74,7 +74,7 @@ import MemberList from "@/components/base/MemberList.vue";
 import AddMemberDialog from "@/components/base/AddMemberDialog.vue";
 import { baseApiService } from "@/services/api/baseApiService";
 import { useAuthStore } from "@/stores/auth/authStore";
-import type { BaseMember, BaseRole } from "@/api/types";
+import type { BaseMember } from "@/api/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -92,7 +92,7 @@ const pageSize = ref(10);
 const showAddDialog = ref(false);
 const showEditDialog = ref(false);
 const editingMember = ref<BaseMember | null>(null);
-const newRole = ref<BaseRole>("editor");
+const newRole = ref<string>("editor");
 const updating = ref(false);
 
 // 权限检查
@@ -129,8 +129,8 @@ const getRoleLabel = (role?: string): string => {
 
 const getRoleType = (
   role?: string,
-): "success" | "warning" | "info" | "danger" | "" => {
-  return roleMap[role || ""]?.type || "";
+): "success" | "warning" | "info" | "danger" | "primary" | undefined => {
+  return roleMap[role || ""]?.type || "info";
 };
 
 // 获取成员列表
@@ -148,7 +148,7 @@ const fetchMembers = async () => {
 };
 
 // 添加成员
-const handleAddMember = async (data: { userId: string; role: BaseRole }) => {
+const handleAddMember = async (data: { userId: string; role: string }) => {
   try {
     await baseApiService.addBaseMember(baseId.value, data.userId, data.role);
     ElMessage.success("成员添加成功");
@@ -188,7 +188,7 @@ const confirmEdit = async () => {
 // 移除成员
 const handleRemove = (member: BaseMember) => {
   ElMessageBox.confirm(
-    `确定要移除成员 "${member.user?.nickname || member.user?.username}" 吗？`,
+    `确定要移除成员 "${member.user?.name || member.user_id}" 吗？`,
     "确认移除",
     {
       confirmButtonText: "确定",

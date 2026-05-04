@@ -28,12 +28,12 @@ const emit = defineEmits<{
 }>();
 
 const options = computed(() => {
-  return props.field?.options?.choices ?? [];
+  return (props.field?.options as any)?.choices ?? (props.field?.options?.options ?? []);
 });
 
 const selectedOption = computed(() => {
   if (!props.modelValue) return null;
-  return options.value.find((opt) => opt.id === props.modelValue);
+  return options.value.find((opt: any) => opt.id === props.modelValue);
 });
 
 const localValue = computed({

@@ -1,6 +1,9 @@
-export { default as TextField } from "./TextField.vue";
+export { default as SingleLineTextField } from "./SingleLineTextField.vue";
+export { default as LongTextField } from "./LongTextField.vue";
+export { default as RichTextField } from "./RichTextField.vue";
 export { default as NumberField } from "./NumberField.vue";
 export { default as DateField } from "./DateField.vue";
+export { default as DateTimeField } from "./DateTimeField.vue";
 export { default as SingleSelectField } from "./SingleSelectField.vue";
 export { default as MultiSelectField } from "./MultiSelectField.vue";
 export { default as CheckboxField } from "./CheckboxField.vue";

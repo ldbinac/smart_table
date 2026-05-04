@@ -61,6 +61,14 @@ export const removeBaseMember = async (
   await apiClient.delete<void>(`/bases/${baseId}/members/${userId}`);
 };
 
+export const updateMemberRole = async (
+  baseId: string,
+  userId: string,
+  role: string,
+): Promise<void> => {
+  await apiClient.put<void>(`/bases/${baseId}/members/${userId}`, { role });
+};
+
 export const copyBase = async (
   baseId: string,
   name?: string,
@@ -79,6 +87,7 @@ export const baseApiService = {
   getBaseMembers,
   addBaseMember,
   removeBaseMember,
+  updateMemberRole,
   copyBase,
 };
 

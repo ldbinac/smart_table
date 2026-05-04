@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from "vue";
+import { ref, watch, computed } from "vue";
 import {
   ElDrawer,
   ElButton,
   ElForm,
-  ElFormItem,
   ElInput,
   ElInputNumber,
   ElSelect,
@@ -446,7 +445,7 @@ const drawerTitle = computed(() => {
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
               :disabled="readonly"
-              :maxlength="field.options?.maxLength"
+              :maxlength="(field.options?.maxLength as number) || undefined"
               class="field-input" />
           </template>
 
@@ -458,7 +457,7 @@ const drawerTitle = computed(() => {
                 @update:model-value="(val) => handleValueChange(field.id, val)"
                 :placeholder="`请输入${field.name}`"
                 :disabled="readonly"
-                :maxlength="field.options?.maxLength"
+                :maxlength="(field.options?.maxLength as number) || undefined"
                 type="textarea"
                 :rows="3"
                 resize="none"
@@ -469,10 +468,10 @@ const drawerTitle = computed(() => {
                 :class="{
                   'is-warning':
                     String(formData[field.id] || '').length >=
-                    field.options.maxLength * 0.9,
+                    (field.options.maxLength as number) * 0.9,
                   'is-error':
                     String(formData[field.id] || '').length >=
-                    field.options.maxLength,
+                    (field.options.maxLength as number),
                 }">
                 {{ String(formData[field.id] || '').length }}/{{
                   field.options.maxLength
@@ -488,7 +487,7 @@ const drawerTitle = computed(() => {
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
               :readonly="readonly"
-              :max-length="field.options?.maxLength"
+              :max-length="(field.options?.maxLength as number) || undefined"
               class="field-input" />
           </template>
 
@@ -513,7 +512,7 @@ const drawerTitle = computed(() => {
               class="field-input"
               style="width: 100%">
               <el-option
-                v-for="option in field.options?.choices || []"
+                v-for="option in (field.options?.choices as any) || []"
                 :key="option.id"
                 :label="option.name"
                 :value="option.id">
@@ -538,7 +537,7 @@ const drawerTitle = computed(() => {
               class="field-input"
               style="width: 100%">
               <el-option
-                v-for="option in field.options?.choices || []"
+                v-for="option in (field.options?.choices as any) || []"
                 :key="option.id"
                 :label="option.name"
                 :value="option.id">
@@ -644,7 +643,7 @@ const drawerTitle = computed(() => {
           <!-- 统一使用数组格式存储成员字段值 -->
           <template v-else-if="getFieldComponent(field) === 'member'">
             <MemberSelect
-              v-model="formData[field.id]"
+              :model-value="(formData[field.id] as string | null)"
               :placeholder="`请选择${field.name}`"
               :allow-multiple="false"
               :disabled="readonly"
@@ -709,7 +708,7 @@ const drawerTitle = computed(() => {
   <RecordHistoryDrawer
     v-model="historyVisible"
     :record-id="record?.id"
-    :fields="fields" />
+    :fields="(fields as any)" />
 </template>
 
 <style lang="scss" scoped>

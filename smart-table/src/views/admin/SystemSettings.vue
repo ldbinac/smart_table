@@ -259,33 +259,33 @@ const emailRules: FormRules = {
 }
 
 const loadConfigs = () => {
-  const configs = systemConfigs.value
+  const configs = systemConfigs.value as unknown as Record<string, { config_value: any }>
 
   // 基础配置
-  basicConfigs.system_name = configs['system_name']?.config_value || 'Smart Table'
-  basicConfigs.system_description = configs['system_description']?.config_value || ''
-  basicConfigs.page_size = configs['page_size']?.config_value || 20
+  basicConfigs.system_name = String(configs['system_name']?.config_value ?? 'Smart Table')
+  basicConfigs.system_description = String(configs['system_description']?.config_value ?? '')
+  basicConfigs.page_size = Number(configs['page_size']?.config_value ?? 20)
 
   // 安全配置
-  securityConfigs.password_min_length = configs['password_min_length']?.config_value || 8
-  securityConfigs.session_timeout = configs['session_timeout']?.config_value || 60
-  securityConfigs.enable_2fa = configs['enable_2fa']?.config_value || false
-  securityConfigs.enable_registration = configs['enable_registration']?.config_value || true
+  securityConfigs.password_min_length = Number(configs['password_min_length']?.config_value ?? 8)
+  securityConfigs.session_timeout = Number(configs['session_timeout']?.config_value ?? 60)
+  securityConfigs.enable_2fa = Boolean(configs['enable_2fa']?.config_value)
+  securityConfigs.enable_registration = Boolean(configs['enable_registration']?.config_value ?? true)
 
   // 邮件配置
-  emailConfigs.email_enabled = configs['email_enabled']?.config_value || false
-  emailConfigs.smtp_host = configs['smtp_host']?.config_value || ''
-  emailConfigs.smtp_port = configs['smtp_port']?.config_value || 587
-  emailConfigs.sender_email = configs['sender_email']?.config_value || ''
-  emailConfigs.sender_name = configs['sender_name']?.config_value || ''
-  emailConfigs.smtp_username = configs['smtp_username']?.config_value || ''
-  emailConfigs.smtp_password = configs['smtp_password']?.config_value || ''
-  emailConfigs.encryption_type = configs['encryption_type']?.config_value || 'ssl'
+  emailConfigs.email_enabled = Boolean(configs['email_enabled']?.config_value)
+  emailConfigs.smtp_host = String(configs['smtp_host']?.config_value ?? '')
+  emailConfigs.smtp_port = Number(configs['smtp_port']?.config_value ?? 587)
+  emailConfigs.sender_email = String(configs['sender_email']?.config_value ?? '')
+  emailConfigs.sender_name = String(configs['sender_name']?.config_value ?? '')
+  emailConfigs.smtp_username = String(configs['smtp_username']?.config_value ?? '')
+  emailConfigs.smtp_password = String(configs['smtp_password']?.config_value ?? '')
+  emailConfigs.encryption_type = (String(configs['encryption_type']?.config_value ?? 'ssl') as "none" | "ssl" | "tls")
 
   // 其他配置
-  otherConfigs.enable_logging = configs['enable_logging']?.config_value || true
-  otherConfigs.log_retention_days = configs['log_retention_days']?.config_value || 30
-  otherConfigs.enable_performance_monitoring = configs['enable_performance_monitoring']?.config_value || false
+  otherConfigs.enable_logging = Boolean(configs['enable_logging']?.config_value ?? true)
+  otherConfigs.log_retention_days = Number(configs['log_retention_days']?.config_value ?? 30)
+  otherConfigs.enable_performance_monitoring = Boolean(configs['enable_performance_monitoring']?.config_value)
 }
 
 const saveBasicConfigs = async () => {

@@ -1278,7 +1278,7 @@ export class DashboardTemplateService {
           category: preset.category,
           description: preset.description,
           updatedAt: Date.now(),
-        }))
+        }).then(() => void 0))
       }
     }
     

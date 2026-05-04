@@ -607,7 +607,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
 </template>
 
 <script lang="ts">
-import { Document, Link } from "@element-plus/icons-vue";
+import { Link } from "@element-plus/icons-vue";
 export default {
   name: "AddRecordDialog",
 };

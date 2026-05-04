@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { FormulaEngine, formulaEngine } from "../engine";
 import {
   formulaFunctions,
@@ -42,7 +42,7 @@ const mockFields: FieldEntity[] = [
     id: "name",
     tableId: "table1",
     name: "Name",
-    type: FieldType.TEXT,
+    type: FieldType.SINGLE_LINE_TEXT,
     options: {},
     order: 2,
     isPrimary: true,

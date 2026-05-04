@@ -7,6 +7,7 @@ import { viewService } from "../db/services/viewService";
 import { db } from "../db/schema";
 import type { TableEntity, FieldEntity, RecordEntity, ViewEntity } from "../db/schema";
 import type { CellValue } from "../types";
+import type { FieldOptions } from "../types/fields";
 import { FieldType } from "../types/fields";
 import { deserializeRecordValues } from "../utils/recordValueSerializer";
 import { useCollaborationStore } from "./collaborationStore";
@@ -15,9 +16,6 @@ import type {
   DataRecordCreatedBroadcast,
   DataRecordUpdatedBroadcast,
   DataRecordDeletedBroadcast,
-  DataFieldCreatedBroadcast,
-  DataFieldUpdatedBroadcast,
-  DataFieldDeletedBroadcast,
 } from "../services/realtime/eventTypes";
 
 export const useTableStore = defineStore("table", () => {
@@ -349,7 +347,7 @@ export const useTableStore = defineStore("table", () => {
         const existing = records.value[index];
         const updatedValues = { ...existing.values };
         for (const change of data.changes) {
-          updatedValues[change.field_id] = change.new_value;
+          updatedValues[change.field_id] = change.new_value as any;
         }
         records.value[index] = {
           ...existing,

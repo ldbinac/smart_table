@@ -28,7 +28,10 @@ export interface User {
   id: string
   email: string
   name: string
+  nickname?: string
+  username?: string
   avatar?: string
+  avatar_url?: string
   role: UserRole
   status: UserStatus
   email_verified: boolean
@@ -92,6 +95,22 @@ export interface BaseMember {
 }
 
 export type MemberRole = 'owner' | 'admin' | 'editor' | 'commenter' | 'viewer'
+
+export interface BaseShare {
+  id: string
+  base_id: string
+  share_token: string
+  permission: 'view' | 'edit'
+  created_by: string
+  expires_at?: number
+  is_active: boolean
+  access_count: number
+  max_access_count?: number
+  created_at: string
+  updated_at: string
+  last_accessed_at?: string
+  base?: Base
+}
 
 export interface Table {
   id: string
@@ -173,7 +192,7 @@ export interface Field {
   updated_at: string
 }
 
-export interface Record {
+export interface TableRecord {
   id: string
   table_id: string
   values: Record<string, unknown>

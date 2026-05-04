@@ -28,7 +28,6 @@ import { apiClient } from '@/api/client'
 import { REALTIME_BASE_URL } from '@/api/config'
 import { useAuthStore } from '../stores/authStore'
 import { getToken } from '@/utils/auth/token'
-import { realtimeEventEmitter } from '../services/realtime/eventEmitter'
 import { ElMessage } from 'element-plus'
 import type { ConflictInfo } from '@/components/collaboration/ConflictDialog.vue'
 import { useTableStore } from '../stores/tableStore'
@@ -273,7 +272,7 @@ export function useRealtimeCollaboration(baseId: string) {
     if (data.changed_by === currentUserId) return
     
     if (data.record && data.table_id) {
-      tableStore.addRecordFromRemote(data.table_id, data.record)
+      tableStore.addRecordFromRemote(data.table_id, data.record as any)
     }
   }
 
@@ -357,7 +356,7 @@ export function useRealtimeCollaboration(baseId: string) {
     if (data.changed_by === currentUserId) return
     
     if (data.table) {
-      tableStore.addTableFromRemote(data.table)
+      tableStore.addTableFromRemote(data.table as any)
     }
   }
 

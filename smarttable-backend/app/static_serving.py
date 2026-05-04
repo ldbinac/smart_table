@@ -12,6 +12,9 @@
 import os
 import sys
 
+# 全局标志：防止重复注册路由
+_static_serving_initialized = False
+
 
 def get_dist_path():
     """
@@ -60,6 +63,13 @@ def configure_static_serving(app):
     Returns:
         bool: 是否成功配置（如果 dist 目录不存在则返回 False）
     """
+    global _static_serving_initialized
+
+    # 防止重复注册路由
+    if _static_serving_initialized:
+        print('[Static Serving] Already configured, skipping...')
+        return True
+
     from flask import send_from_directory, abort
 
     dist_path = get_dist_path()
@@ -67,10 +77,10 @@ def configure_static_serving(app):
     if not dist_path:
         print('[Static Serving] ⚠️ Warning: Frontend dist directory not found!')
         print('[Static Serving]   Please run "npm run build" in smart-table/ first.')
-        
-        # 注册一个友好的 404 页面
+
+        # 注册一个友好的 503 页面
         @app.route('/')
-        @app.route('/<path:path>')
+        @app.route('/<path:path>', endpoint='frontend_not_built')
         def frontend_not_built():
             return '''
             <!DOCTYPE html>
@@ -109,8 +119,10 @@ def configure_static_serving(app):
         
         return False
 
+    print(f'[Static Serving] ✓ Frontend dist path: {dist_path}')
+
     @app.route('/', defaults={'path': ''})
-    @app.route('/<path:path>')
+    @app.route('/<path:path>', endpoint='serve_frontend')
     def serve_frontend(path):
         """处理所有非 API 请求，返回前端静态资源"""
         
@@ -142,6 +154,7 @@ def configure_static_serving(app):
 
     print(f'[Static Serving] ✓ Frontend dist path: {dist_path}')
     print(f'[Static Serving] ✓ Static file serving configured')
+    _static_serving_initialized = True
     return True
 
 

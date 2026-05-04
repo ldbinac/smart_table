@@ -151,6 +151,12 @@ def shell():
         code.interact(local=context)
 
 
+
+# 确保数据目录存在
+data_dir = os.environ.get('DATA_DIR', 'data')
+os.makedirs(data_dir, exist_ok=True)
+print(f'[Init] Data directory: {os.path.abspath(data_dir)}')
+
 if __name__ == '__main__':
     if args.command == 'init-db':
         init_db()
@@ -184,7 +190,7 @@ if __name__ == '__main__':
         print(f'Frontend URL: http://localhost:3000 (Vite dev server)')
 
     # 初始化打包模式（静态文件服务 + Redis 管理）
-    initialize_packaging_mode(app, enable_realtime=enable_realtime)
+    initialize_packaging_mode(app, realtime_enabled=enable_realtime)
 
     try:
         if enable_realtime:

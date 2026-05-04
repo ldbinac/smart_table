@@ -1,6 +1,5 @@
 import { db } from "../schema";
 import type { ViewEntity } from "../schema";
-import { generateId } from "../../utils/id";
 import type { FilterCondition, SortConfig } from "../../types";
 import {
   serializeViewConfig,
@@ -34,27 +33,27 @@ export class ViewService {
       // 先调用后端 API 创建视图
       const apiView = await viewApiService.createView(data.tableId, {
         name: data.name,
-        type: data.type,
-        config: {},
+        type: data.type as any,
         filters: [],
         sorts: [],
         description: "",
-      });
+      } as any);
 
       // 将后端返回的视图转换为本地格式
+      const viewData = apiView as any;
       const localView: ViewEntity = {
-        id: apiView.id,
-        tableId: apiView.table_id || data.tableId,
-        name: apiView.name,
-        type: apiView.type as string,
-        config: apiView.config || {},
-        filters: (apiView.filters as FilterCondition[]) || [],
-        sorts: (apiView.sorts as SortConfig[]) || [],
-        groupBys: (apiView.group_bys as string[]) || [],
-        hiddenFields: (apiView.hidden_fields as string[]) || [],
-        frozenFields: (apiView.frozen_fields as string[]) || [],
+        id: viewData.id,
+        tableId: viewData.table_id || data.tableId,
+        name: viewData.name,
+        type: viewData.type as string,
+        config: viewData.config || {},
+        filters: (viewData.filters as FilterCondition[]) || [],
+        sorts: (viewData.sorts as SortConfig[]) || [],
+        groupBys: (viewData.group_bys as string[]) || [],
+        hiddenFields: (viewData.hidden_fields as string[]) || [],
+        frozenFields: (viewData.frozen_fields as string[]) || [],
         rowHeight:
-          (apiView.row_height as "short" | "medium" | "tall") || "medium",
+          (viewData.row_height as "short" | "medium" | "tall") || "medium",
         isDefault: apiView.is_default || false,
         order: apiView.order ?? 0,
         createdAt: new Date(apiView.created_at).getTime(),
@@ -114,23 +113,24 @@ export class ViewService {
 
         // 保存新数据
         for (const apiView of apiViews) {
+          const viewData = apiView as any;
           const localView: ViewEntity = {
-            id: apiView.id,
-            tableId: apiView.table_id || tableId,
-            name: apiView.name,
-            type: apiView.type as string,
-            config: apiView.config || {},
-            filters: (apiView.filters as FilterCondition[]) || [],
-            sorts: (apiView.sorts as SortConfig[]) || [],
-            groupBys: (apiView.group_bys as string[]) || [],
-            hiddenFields: (apiView.hidden_fields as string[]) || [],
-            frozenFields: (apiView.frozen_fields as string[]) || [],
+            id: viewData.id,
+            tableId: viewData.table_id || tableId,
+            name: viewData.name,
+            type: viewData.type as string,
+            config: viewData.config || {},
+            filters: (viewData.filters as FilterCondition[]) || [],
+            sorts: (viewData.sorts as SortConfig[]) || [],
+            groupBys: (viewData.group_bys as string[]) || [],
+            hiddenFields: (viewData.hidden_fields as string[]) || [],
+            frozenFields: (viewData.frozen_fields as string[]) || [],
             rowHeight:
-              (apiView.row_height as "short" | "medium" | "tall") || "medium",
-            isDefault: apiView.is_default || false,
-            order: apiView.order ?? 0,
-            createdAt: new Date(apiView.created_at).getTime(),
-            updatedAt: new Date(apiView.updated_at).getTime(),
+              (viewData.row_height as "short" | "medium" | "tall") || "medium",
+            isDefault: viewData.is_default || false,
+            order: viewData.order ?? 0,
+            createdAt: new Date(viewData.created_at).getTime(),
+            updatedAt: new Date(viewData.updated_at).getTime(),
           };
           await db.views.put(localView);
         }
@@ -141,7 +141,7 @@ export class ViewService {
         .where("tableId")
         .equals(tableId)
         .sortBy("order");
-      return views.map((view) => {
+      return views.map((view: ViewEntity) => {
         if (view.config) {
           view.config = deserializeViewConfig(view.config);
         }
@@ -154,7 +154,7 @@ export class ViewService {
         .where("tableId")
         .equals(tableId)
         .sortBy("order");
-      return views.map((view) => {
+      return views.map((view: ViewEntity) => {
         if (view.config) {
           view.config = deserializeViewConfig(view.config);
         }
@@ -266,7 +266,8 @@ export class ViewService {
   async duplicateView(id: string, newName: string): Promise<ViewEntity> {
     try {
       // 调用后端 API 复制视图
-      const apiView = await viewApiService.duplicateView(id, newName);
+      const apiResponse = await viewApiService.duplicateView(id, newName);
+      const apiView = apiResponse as any;
 
       // 将后端返回的视图转换为本地格式
       const localView: ViewEntity = {

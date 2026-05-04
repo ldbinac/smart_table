@@ -3,7 +3,7 @@
  * 处理表单分享的创建、管理和数据提交
  */
 import { apiClient } from "./client";
-import type { ApiResponse, PaginatedResponse } from "./client";
+import type { PaginatedResponse } from "./client";
 
 /**
  * 表单分享配置

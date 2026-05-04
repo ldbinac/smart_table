@@ -59,15 +59,12 @@
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/auth/authStore";
 import LoginForm from "@/components/auth/LoginForm.vue";
-import type { LoginRequest } from "@/api/types";
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 
-const handleLogin = async (
-  data: LoginRequest & { remember: boolean; captcha?: string },
-) => {
+const handleLogin = async (data: any) => {
   const success = await authStore.login(
     {
       email: data.email,

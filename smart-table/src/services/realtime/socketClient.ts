@@ -43,6 +43,7 @@ class SocketClientImpl implements RealtimeSocketClient {
     if (this.socket || this.destroyed) return
 
     const urlWithToken = `${this.serverUrl}?token=${encodeURIComponent(this.token)}`
+    void urlWithToken // 预留用于调试
     console.log('[SocketIO] Connecting to:', this.serverUrl)
 
     try {
@@ -126,7 +127,9 @@ class SocketClientImpl implements RealtimeSocketClient {
 
     this.socket.on('room:joined', (data: unknown) => {
       console.log('[SocketIO] Room joined:', data)
-      realtimeEventEmitter.emit('room:joined' as never, data as never)
+      if (data) {
+        realtimeEventEmitter.emit('room:joined', data as never)
+      }
     })
   }
 

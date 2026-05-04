@@ -1,6 +1,5 @@
 import { db } from "../schema";
 import type { Dashboard } from "../schema";
-import { generateId } from "../../utils/id";
 import { dashboardApiService } from "@/services/api/dashboardApiService";
 
 export interface WidgetConfig {
@@ -141,28 +140,30 @@ export class DashboardService {
           config: {
             gridColumns: data.gridColumns || 12,
           },
-        },
+        } as any,
       });
 
       // 将后端返回的仪表盘转换为本地格式
+      const apiData = apiDashboard as any;
+      const apiLayout = (apiData.layout || {}) as Record<string, any>;
       const localView: Dashboard = {
-        id: apiDashboard.id,
-        baseId: apiDashboard.base_id || data.baseId,
-        name: apiDashboard.name,
-        description: apiDashboard.description,
-        widgets: (apiDashboard.widgets as unknown[]) || [],
-        layout: apiDashboard.layout || {},
-        layoutType: (apiDashboard.layout?.type as "grid" | "free") || "grid",
-        gridColumns: apiDashboard.layout?.config?.gridColumns || 12,
+        id: apiData.id,
+        baseId: apiData.base_id || data.baseId,
+        name: apiData.name,
+        description: apiData.description,
+        widgets: (apiData.widgets as unknown[]) || [],
+        layout: apiLayout,
+        layoutType: (apiLayout?.type as "grid" | "free") || "grid",
+        gridColumns: apiLayout?.config?.gridColumns || 12,
         refreshConfig: {
           enabled: false,
           interval: 30000,
           autoRefresh: false,
         },
         isStarred: false,
-        order: apiDashboard.order ?? 0,
-        createdAt: new Date(apiDashboard.created_at).getTime(),
-        updatedAt: new Date(apiDashboard.updated_at).getTime(),
+        order: apiData.order ?? 0,
+        createdAt: new Date(apiData.created_at).getTime(),
+        updatedAt: new Date(apiData.updated_at).getTime(),
       };
 
       // 保存到本地 IndexedDB
@@ -203,26 +204,30 @@ export class DashboardService {
 
         // 保存新数据
         for (const apiDashboard of apiDashboards) {
+          const dashData = apiDashboard as any;
+          const updateLayout = (dashData.layout || {}) as Record<string, any>;
+          
           const localView: Dashboard = {
-            id: apiDashboard.id,
-            baseId: apiDashboard.base_id || baseId,
-            name: apiDashboard.name,
-            description: apiDashboard.description,
-            widgets: (apiDashboard.widgets as unknown[]) || [],
-            layout: apiDashboard.layout || {},
+            id: dashData.id,
+            baseId: dashData.base_id || baseId,
+            name: dashData.name,
+            description: dashData.description,
+            widgets: (dashData.widgets as unknown[]) || [],
+            layout: updateLayout,
             layoutType:
-              (apiDashboard.layout?.type as "grid" | "free") || "grid",
-            gridColumns: apiDashboard.layout?.config?.gridColumns || 12,
+                (updateLayout?.type as "grid" | "free") || "grid",
+            gridColumns: updateLayout?.config?.gridColumns || 12,
             refreshConfig: {
-              enabled: false,
-              interval: 30000,
-              autoRefresh: false,
-            },
+                enabled: false,
+                interval: 30000,
+                autoRefresh: false,
+              },
             isStarred: false,
-            order: apiDashboard.order ?? 0,
-            createdAt: new Date(apiDashboard.created_at).getTime(),
-            updatedAt: new Date(apiDashboard.updated_at).getTime(),
+            order: dashData.order ?? 0,
+            createdAt: new Date(dashData.created_at).getTime(),
+            updatedAt: new Date(dashData.updated_at).getTime(),
           };
+          
           await db.dashboards.put(localView);
         }
       });
@@ -347,6 +352,7 @@ export class DashboardService {
       );
 
       // 将后端返回的仪表盘转换为本地格式
+      const dupLayout = (apiDashboard.layout || {}) as Record<string, any>;
       const localView: Dashboard = {
         id: apiDashboard.id,
         baseId:
@@ -354,19 +360,19 @@ export class DashboardService {
         name: apiDashboard.name,
         description: apiDashboard.description,
         widgets: (apiDashboard.widgets as unknown[]) || [],
-        layout: apiDashboard.layout || {},
-        layoutType: (apiDashboard.layout?.type as "grid" | "free") || "grid",
-        gridColumns: apiDashboard.layout?.config?.gridColumns || 12,
+        layout: dupLayout,
+        layoutType: (dupLayout?.type as "grid" | "free") || "grid",
+        gridColumns: dupLayout?.config?.gridColumns || 12,
         refreshConfig: {
           enabled: false,
           interval: 30000,
           autoRefresh: false,
         },
         isStarred: false,
-        order: apiDashboard.order ?? 0,
+        order: (apiDashboard as unknown as Record<string, unknown>).order as number ?? 0,
         createdAt: new Date(apiDashboard.created_at).getTime(),
         updatedAt: new Date(apiDashboard.updated_at).getTime(),
-      };
+      } as Dashboard;
 
       // 保存到本地 IndexedDB
       await db.dashboards.add(localView);
@@ -378,7 +384,7 @@ export class DashboardService {
   }
 
   async reorderDashboards(
-    baseId: string,
+    _baseId: string,
     dashboardIds: string[],
   ): Promise<void> {
     try {

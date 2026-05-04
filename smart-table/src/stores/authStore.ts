@@ -57,7 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function register(
     email: string,
     password: string,
-    username?: string
+    name?: string
   ): Promise<User> {
     loading.value = true;
     error.value = null;
@@ -65,7 +65,7 @@ export const useAuthStore = defineStore('auth', () => {
       const newUser = await authService.register({
         email,
         password,
-        username: username || email.split('@')[0],
+        name: name || email.split('@')[0],
       });
       return newUser;
     } catch (e: unknown) {

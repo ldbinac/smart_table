@@ -104,8 +104,8 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="重试次数">{{ currentLog?.retry_count || 0 }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatDate(currentLog?.created_at) }}</el-descriptions-item>
-        <el-descriptions-item label="发送时间">{{ formatDate(currentLog?.sent_at) || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ formatDate(currentLog?.created_at || null) }}</el-descriptions-item>
+        <el-descriptions-item label="发送时间">{{ formatDate(currentLog?.sent_at || null) || '-' }}</el-descriptions-item>
         <el-descriptions-item v-if="currentLog?.error_message" label="错误信息">
           <span style="color: #f56c6c">{{ currentLog.error_message }}</span>
         </el-descriptions-item>

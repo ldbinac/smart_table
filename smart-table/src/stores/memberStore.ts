@@ -8,7 +8,7 @@ export interface BaseMember {
   base_id: string;
   user_id: string;
   role: "owner" | "admin" | "editor" | "commenter" | "viewer";
-  invited_by: string | null;
+  invited_by: string | null | undefined;
   joined_at: string;
   user?: {
     id: string;
@@ -66,7 +66,7 @@ export const useMemberStore = defineStore("member", () => {
     error.value = null;
     try {
       const data = await shareApiService.getMembers(baseId);
-      members.value = data;
+      members.value = data as any;
       return data;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "获取成员列表失败";
@@ -82,7 +82,7 @@ export const useMemberStore = defineStore("member", () => {
     loading.value = true;
     try {
       const data = await shareApiService.addMember(baseId, email, role);
-      members.value.push(data);
+      members.value.push(data as any);
       return data;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "添加成员失败";
@@ -102,7 +102,7 @@ export const useMemberStore = defineStore("member", () => {
     try {
       const result = await shareApiService.batchAddMembers(baseId, membersData);
       result.successful.forEach((member) => {
-        members.value.push(member);
+        members.value.push(member as any);
       });
       return result;
     } catch (e: unknown) {
@@ -121,7 +121,7 @@ export const useMemberStore = defineStore("member", () => {
       const data = await shareApiService.updateMemberRole(baseId, userId, role);
       const idx = members.value.findIndex((m) => m.user_id === userId);
       if (idx !== -1) {
-        members.value[idx] = data;
+        members.value[idx] = data as any;
       }
       return data;
     } catch (e: unknown) {

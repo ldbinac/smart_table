@@ -64,10 +64,8 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { ArrowRight, Lock, WarningFilled } from "@element-plus/icons-vue";
 import { shareApiService } from "@/services/api/shareApiService";
-import { useBaseStore } from "@/stores/baseStore";
 
 const router = useRouter();
-const baseStore = useBaseStore();
 
 const loading = ref(true);
 const error = ref(false);

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="operation-logs-page">
     <div class="page-header">
       <h1 class="page-title">操作日志</h1>
@@ -203,10 +203,10 @@ const getActionLabel = (action: string): string => {
 
 const getActionTagType = (
   action: string,
-): "success" | "warning" | "info" | "danger" | "" => {
+): "success" | "warning" | "info" | "danger" | undefined => {
   const typeMap: Record<
     string,
-    "success" | "warning" | "info" | "danger" | ""
+    "success" | "warning" | "info" | "danger" | undefined
   > = {
     create: "success",
     update: "warning",
@@ -215,7 +215,7 @@ const getActionTagType = (
     activate: "success",
     reset_password: "info",
   };
-  return typeMap[action] || "";
+  return typeMap[action] || undefined;
 };
 
 const getEntityTypeLabel = (entityType: string): string => {

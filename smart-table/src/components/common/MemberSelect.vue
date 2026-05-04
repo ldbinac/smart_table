@@ -64,21 +64,6 @@ function userToMember(user: User): Member {
   }
 }
 
-// 根据ID获取成员信息（使用缓存）
-async function fetchMemberById(id: string): Promise<Member | null> {
-  // 使用缓存存储获取用户信息
-  const cachedUser = await userCacheStore.fetchUser(id)
-  if (cachedUser) {
-    return {
-      id: cachedUser.id,
-      name: cachedUser.name,
-      email: cachedUser.email,
-      avatar: cachedUser.avatar,
-    }
-  }
-  return null
-}
-
 // 搜索成员 - 仅在输入关键词时调用
 async function searchMembers(query: string): Promise<Member[]> {
   // 如果没有输入查询内容，返回空数组，不调用接口

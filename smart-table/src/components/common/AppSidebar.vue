@@ -28,17 +28,6 @@ const floatingMenuPosition = ref({ top: 0, left: 0 });
 // 用于延迟关闭的计时器
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
-// 当前激活的导航项（用于首页内部导航）
-const currentActiveNav = computed(() => {
-  if (route.path === "/") return "home";
-  if (route.path.startsWith("/bases") || route.path.startsWith("/base/"))
-    return "bases";
-  if (route.path.startsWith("/dashboard")) return "dashboard";
-  if (route.path.startsWith("/settings")) return "settings";
-  if (route.path.startsWith("/admin")) return "admin";
-  return "home";
-});
-
 const navItems = computed<NavItem[]>(() => [
   {
     id: "home",

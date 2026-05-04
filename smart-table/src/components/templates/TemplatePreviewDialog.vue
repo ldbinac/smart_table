@@ -98,7 +98,7 @@
                     <template v-else-if="field.type === 'rating'">
                       <ElRate
                         :model-value="Number(record.values[field.id]) || 0"
-                        :max="field.options?.maxRating || 5"
+                        :max="(field.options as any)?.maxRating || 5"
                         disabled
                         size="small"
                       />
@@ -237,8 +237,6 @@ import {
   DataLine,
   Grid,
   Calendar as CalendarIcon,
-  Picture as PictureIcon,
-  DataLine as GanttIcon,
 } from "@element-plus/icons-vue";
 import dayjs from "dayjs";
 import type { TableTemplate, TemplateTable, TemplateField, TemplateRecord } from "@/utils/tableTemplates";
@@ -263,22 +261,6 @@ const dialogVisible = computed({
 
 const activeTableIndex = ref(0);
 const currentViewType = ref("table");
-
-const viewIcons: Record<string, typeof Grid> = {
-  table: Grid,
-  kanban: CalendarIcon,
-  calendar: Calendar,
-  gallery: PictureIcon,
-  gantt: GanttIcon,
-};
-
-const viewLabels: Record<string, string> = {
-  table: "表格",
-  kanban: "看板",
-  calendar: "日历",
-  gallery: "画廊",
-  gantt: "甘特图",
-};
 
 const currentTable = computed<TemplateTable | undefined>(() => {
   if (!props.template) return undefined;
@@ -347,7 +329,7 @@ const kanbanGroups = computed(() => {
     records: currentRecords.value.filter(r => {
       const value = r.values[field.id];
       if (Array.isArray(value)) {
-        return value.includes(opt.name);
+        return (value as any[]).includes(opt.name);
       }
       return value === opt.name;
     }),
@@ -391,14 +373,14 @@ watch(() => props.visible, (visible) => {
   }
 });
 
-const getSelectValues = (value: unknown, field: TemplateField): string[] => {
+const getSelectValues = (value: unknown, _field: TemplateField): string[] => {
   if (!value) return [];
   if (Array.isArray(value)) return value.map(String);
   return [String(value)];
 };
 
 const getSelectColor = (value: string, field: TemplateField): string => {
-  const options = (field.options as { options?: { name: string; color: string }[] })?.options || [];
+  const options = (field.options as { choices?: { name: string; color: string }[] })?.choices || [];
   const option = options.find(o => o.name === value);
   return option?.color || "#909399";
 };

@@ -30,12 +30,12 @@ const emit = defineEmits<{
 }>();
 
 const options = computed(() => {
-  return props.field?.options?.choices ?? [];
+  return (props.field?.options as any)?.choices ?? (props.field?.options?.options ?? []);
 });
 
 const selectedOptions = computed(() => {
   if (!props.modelValue || props.modelValue.length === 0) return [];
-  return options.value.filter((opt) => props.modelValue!.includes(opt.id));
+  return options.value.filter((opt: any) => props.modelValue!.includes(opt.id));
 });
 
 const localValue = computed({

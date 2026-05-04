@@ -241,7 +241,7 @@ const handleSave = async () => {
     
     saving.value = true
     try {
-      await emailApiService.updateTemplate(currentTemplate.value.template_key, form.value)
+      await emailApiService.updateTemplate(currentTemplate.value?.template_key || '', form.value)
       ElMessage.success('保存成功')
       editDialogVisible.value = false
       await fetchTemplates()

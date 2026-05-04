@@ -10,7 +10,6 @@ import {
   Share,
   Upload,
   Document,
-  User,
   Plus,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
@@ -40,7 +39,7 @@ import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FilterCondition, SortConfig } from "@/types/filters";
 import type { CellValue } from "@/types";
-import type { FieldEntity, RecordEntity } from "@/db/schema";
+import type { FieldEntity, RecordEntity, TableEntity, Dashboard } from "@/db/schema";
 import { applyFilters, applySorts } from "@/utils";
 import Sortable from "sortablejs";
 import { dashboardService } from "@/db/services/dashboardService";
@@ -50,8 +49,6 @@ import DashboardView from "@/views/Dashboard.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
 import { useRealtimeCollaboration } from "@/composables/useRealtimeCollaboration";
 import { useUserCacheStore } from "@/stores/userCacheStore";
-import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
-import ConnectionStatusBar from "@/components/collaboration/ConnectionStatusBar.vue";
 import CollaborationToast from "@/components/collaboration/CollaborationToast.vue";
 import ConflictDialog from "@/components/collaboration/ConflictDialog.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -86,9 +83,6 @@ const currentTableId = computed(() => tableStore.currentTable?.id || "");
 // 权限控制计算属性
 const canEdit = computed(() => memberStore.canEdit);
 const canManage = computed(() => memberStore.canManage);
-const isOwner = computed(() => memberStore.isOwner);
-const currentUserRole = computed(() => memberStore.currentUserRole);
-
 // 使用 tableStore.fields 计算可见字段，确保状态同步
 const visibleFields = computed(() => {
   const fields = tableStore.fields;
@@ -244,7 +238,7 @@ const renameTableFormRules: FormRules = {
 
 // 筛选和排序状态
 // 从 viewStore 获取当前筛选和排序配置
-const activeFilters = computed(() => viewStore.currentFilters);
+const activeFilters = ref<FilterCondition[]>(viewStore.currentFilters as FilterCondition[]);
 const filterConjunction = ref<"and" | "or">("and");
 
 // 从 viewStore 获取当前排序配置
@@ -360,9 +354,9 @@ onMounted(async () => {
       userCacheStore.cacheUsers(
         members.map(m => ({
           id: m.user_id,
-          name: m.user?.name || m.user?.email || '',
-          email: m.user?.email || '',
-          avatar: m.user?.avatar,
+          name: (m.user as any)?.name || (m.user as any)?.email || '',
+          email: (m.user as any)?.email || '',
+          avatar: (m.user as any)?.avatar,
           role: m.role,
         }))
       );
@@ -638,7 +632,7 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
 // 处理表单取消
 const handleFormCancel = () => {
   // 切换到表格视图
-  const tableView = tableStore.views.find((v) => v.type === ViewType.TABLE);
+  const tableView = viewStore.views.find((v) => v.type === ViewType.TABLE);
   if (tableView) {
     viewStore.selectView(tableView.id);
   }
@@ -802,7 +796,7 @@ const handleSortFromGroup = async (
     newSorts as SortConfig[],
   );
   ElMessage.success(
-    `已按字段 ${props.fields.find((f) => f.id === fieldId)?.name || ""} ${direction === "asc" ? "升序" : "降序"}排列`,
+    `已按字段 ${tableStore.fields.find((f) => f.id === fieldId)?.name || ""} ${direction === "asc" ? "升序" : "降序"}排列`,
   );
 };
 
@@ -1228,7 +1222,7 @@ async function handleDeleteTable(table: { id: string; name: string }) {
         tableStore.currentTable = null;
         tableStore.fields = [];
         tableStore.records = [];
-        tableStore.views = [];
+        viewStore.views = [];
         // 如果有其他表格，选中第一个
         if (tableStore.tables.length > 0) {
           await tableStore.selectTable(tableStore.tables[0].id);
@@ -1529,8 +1523,8 @@ function handleShareChanged() {
               <el-button
                 v-if="canEdit && (isTableView || hasGroupConfig)"
                 type="primary" plain
-                size="medium"
-                @click="handleAddRecord">
+                size="default"
+                @click="handleAddRecord()">
                 <el-icon><Plus /></el-icon>
                 添加记录
               </el-button>
@@ -1542,47 +1536,47 @@ function handleShareChanged() {
               <template v-if="isTableView">
                 <el-button-group>
                   <el-button
-                    size="medium"
+                    size="default"
                     :type="activeFilters.length > 0 ? 'primary' : 'default'"
                     @click="openFilterDialog">
                     <el-icon><Filter /></el-icon>
                     筛选
                     <el-tag
                       v-if="activeFilters.length > 0"
-                      size="medium"
+                      size="default"
                       class="filter-badge">
                       {{ activeFilters.length }}
                     </el-tag>
                   </el-button>
                   <el-button
-                    size="medium"
+                    size="default"
                     :type="activeSorts.length > 0 ? 'primary' : 'default'"
                     @click="openSortDialog">
                     <el-icon><Sort /></el-icon>
                     排序
                     <el-tag
                       v-if="activeSorts.length > 0"
-                      size="medium"
+                      size="default"
                       class="sort-badge">
                       {{ activeSorts.length }}
                     </el-tag>
                   </el-button>
                   <el-button
-                    size="medium"
+                    size="default"
                     :type="hasGroupConfig ? 'primary' : 'default'"
                     @click="openGroupDialog">
                     <el-icon><Folder /></el-icon>
                     分组
                     <el-tag
                       v-if="hasGroupConfig"
-                      size="medium"
+                      size="default"
                       class="group-badge">
                       {{ currentGroupBys.length }}
                     </el-tag>
                   </el-button>
                   <el-button
                     v-if="canEdit"
-                    size="medium"
+                    size="default"
                     @click="openFieldDialog">
                     <el-icon><Grid /></el-icon>
                     字段
@@ -1591,12 +1585,12 @@ function handleShareChanged() {
                 <el-button-group>
                   <el-button
                     v-if="canEdit"
-                    size="medium"
+                    size="default"
                     @click="openImportDialog">
                     <el-icon><Upload /></el-icon>
                     导入
                   </el-button>
-                  <el-button size="medium" @click="openExportDialog">
+                  <el-button size="default" @click="openExportDialog">
                     <el-icon><Download /></el-icon>
                     导出
                   </el-button>
@@ -1608,14 +1602,14 @@ function handleShareChanged() {
                 <el-button-group>
                   <el-button
                     v-if="canManage"
-                    size="medium"
+                    size="default"
                     @click="openFormConfigDialog">
                     <el-icon><Setting /></el-icon>
                     配置
                   </el-button>
                   <el-button
                     v-if="canManage"
-                    size="medium"
+                    size="default"
                     @click="openFormShareDialog">
                     <el-icon><Share /></el-icon>
                     分享
@@ -1986,7 +1980,7 @@ function handleShareChanged() {
     <FilterDialog
       v-model:visible="filterDialogVisible"
       :fields="visibleFields"
-      :initial-filters="activeFilters"
+      :initial-filters="(activeFilters as FilterCondition[])"
       :initial-conjunction="filterConjunction"
       @apply="handleFilterApply"
       @clear="handleFilterClear" />
@@ -2045,8 +2039,8 @@ function handleShareChanged() {
     <FormShareDialog
       v-model:visible="formShareDialogVisible"
       :fields="tableStore.fields"
-      :table-name="tableStore.currentTable?.name"
-      :table-id="tableStore.currentTable?.id"
+      :table-name="tableStore.currentTable?.name || ''"
+      :table-id="tableStore.currentTable?.id || ''"
       :view-id="viewStore.currentView?.id"
       :form-config="formConfig" />
 

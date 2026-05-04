@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import type { UploadFile, UploadRawFile } from 'element-plus';
+import type { UploadFile } from 'element-plus';
 import {
   UploadFilled,
   Document,
@@ -22,7 +22,9 @@ import type { AttachmentFile, AttachmentFieldOptions } from '@/types/attachment'
 import { formatFileSize, isImageFile, isVideoFile, isAudioFile } from '@/types/attachment';
 import { attachmentService } from '@/db/services';
 import { AttachmentError } from '@/utils/attachment';
-import { useTableStore } from '@/stores';
+import { useBaseStore } from '@/stores';
+
+const baseStore = useBaseStore();
 
 interface Props {
   modelValue: CellValue;
@@ -40,8 +42,6 @@ const emit = defineEmits<{
   (e: 'upload', files: AttachmentFile[]): void;
   (e: 'delete', fileId: string): void;
 }>();
-
-const tableStore = useTableStore();
 
 // 状态
 const files = ref<AttachmentFile[]>([]);
@@ -166,10 +166,10 @@ watch(
                 originalName: attachment.originalName,
                 size: attachment.size,
                 type: attachment.type,
-                fileType: attachment.fileType,
+                fileType: attachment.fileType as any,
                 extension: attachment.extension,
-                url: attachment.url,
-                thumbnail: attachment.thumbnail,
+                url: (attachment as any).url,
+                thumbnail: attachment.thumbnail as any,
                 createdAt: attachment.createdAt
               });
             }
@@ -225,7 +225,7 @@ async function handleUpload(uploadFile: UploadFile) {
       recordId: props.recordId,
       fieldId: props.field.id,
       tableId: props.field.tableId,
-      baseId: tableStore.currentBaseId || ''
+      baseId: baseStore.currentBaseId || ''
     };
 
     const uploadedFiles = await attachmentService.uploadFiles(
@@ -244,60 +244,6 @@ async function handleUpload(uploadFile: UploadFile) {
     emit('upload', uploadedFiles);
 
     ElMessage.success(`文件 "${file.name}" 上传成功`);
-  } catch (error) {
-    if (error instanceof AttachmentError) {
-      ElMessage.error(error.message);
-    } else {
-      ElMessage.error('文件上传失败');
-      console.error('Upload error:', error);
-    }
-  } finally {
-    uploading.value = false;
-    uploadProgress.value = 0;
-    currentUploadFile.value = '';
-  }
-}
-
-// 处理批量上传
-async function handleBatchUpload(uploadFiles: UploadFile[]) {
-  const rawFiles = uploadFiles
-    .map(f => f.raw)
-    .filter((f): f is UploadRawFile => !!f);
-
-  if (rawFiles.length === 0) return;
-
-  if (!props.recordId) {
-    ElMessage.error('请先保存记录后再上传附件');
-    return;
-  }
-
-  uploading.value = true;
-  uploadProgress.value = 0;
-
-  try {
-    const context = {
-      recordId: props.recordId,
-      fieldId: props.field.id,
-      tableId: props.field.tableId,
-      baseId: tableStore.currentBaseId || ''
-    };
-
-    const uploadedFiles = await attachmentService.uploadFiles(
-      rawFiles,
-      context,
-      options.value,
-      (progress, name) => {
-        uploadProgress.value = progress;
-        currentUploadFile.value = name;
-      }
-    );
-
-    // 更新文件列表
-    files.value = [...files.value, ...uploadedFiles];
-    emit('update:modelValue', files.value);
-    emit('upload', uploadedFiles);
-
-    ElMessage.success(`成功上传 ${uploadedFiles.length} 个文件`);
   } catch (error) {
     if (error instanceof AttachmentError) {
       ElMessage.error(error.message);
@@ -365,12 +311,6 @@ async function handlePreview(file: AttachmentFile) {
       console.error('获取预览 URL 失败:', error);
     }
   }
-}
-
-// 关闭预览
-function closePreview() {
-  previewVisible.value = false;
-  previewFile.value = null;
 }
 
 // 判断是否可以预览

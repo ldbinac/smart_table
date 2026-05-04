@@ -24,7 +24,7 @@ const primaryValue = computed(() => {
   
   // 处理单选字段，显示选项名称而不是 ID
   if (primaryField.value.type === 'single_select' && primaryField.value.options?.choices) {
-    const options = primaryField.value.options.choices;
+    const options = (primaryField.value.options.choices as any[]) || [];
     const selectedOption = options.find((opt: any) => opt.id === value);
     return selectedOption?.name || value || "";
   }

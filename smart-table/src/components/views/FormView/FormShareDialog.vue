@@ -3,7 +3,7 @@ import { ref, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
-import { FieldType } from "@/types";
+import { FieldType, type FieldTypeValue } from "@/types";
 
 const props = defineProps<{
   visible: boolean;
@@ -62,7 +62,7 @@ const availableFields = computed(() => {
   ];
 
   return props.fields.filter(
-    (f) => !systemFieldTypes.includes(f.type as FieldType)
+    (f) => !systemFieldTypes.includes(f.type as FieldTypeValue)
   );
 });
 
@@ -220,7 +220,7 @@ function getStatusText(share: FormShareConfig): string {
 }
 
 // 获取状态类型
-function getStatusType(share: FormShareConfig): string {
+function getStatusType(share: FormShareConfig): "primary" | "success" | "warning" | "info" | "danger" {
   if (!share.is_active) return "info";
   if (share.is_expired) return "danger";
   if (share.is_reached_limit) return "warning";

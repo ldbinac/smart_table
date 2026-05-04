@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { createPinia } from 'pinia'
 import MemberSelect from '../MemberSelect.vue'
 import { userApi } from '@/api/user'
 
@@ -17,9 +18,18 @@ describe('MemberSelect', () => {
     vi.clearAllMocks()
   })
 
+  const mountWithPinia = (options: any = {}) => {
+    return mount(MemberSelect, {
+      global: {
+        plugins: [createPinia()],
+      },
+      ...options,
+    })
+  }
+
   describe('基础渲染', () => {
     it('应该正确渲染占位符', () => {
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
           placeholder: '请选择成员',
@@ -34,12 +44,17 @@ describe('MemberSelect', () => {
         id: '1',
         name: '张三',
         email: 'zhangsan@example.com',
-        avatar: null,
+        avatar: undefined,
+        role: 'editor' as const,
+        status: 'active' as const,
+        email_verified: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       }
 
       vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: '1',
         },
@@ -53,7 +68,7 @@ describe('MemberSelect', () => {
 
   describe('搜索功能', () => {
     it('空查询时不应该调用搜索接口', async () => {
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
         },
@@ -72,7 +87,17 @@ describe('MemberSelect', () => {
     it('输入关键词后应该调用搜索接口', async () => {
       const mockResponse = {
         users: [
-          { id: '1', name: '张三', email: 'zhangsan@example.com', avatar: null },
+          {
+            id: '1',
+            name: '张三',
+            email: 'zhangsan@example.com',
+            avatar: undefined,
+            role: 'editor' as const,
+            status: 'active' as const,
+            email_verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
         ],
         total: 1,
         page: 1,
@@ -82,7 +107,7 @@ describe('MemberSelect', () => {
 
       vi.mocked(userApi.searchUsers).mockResolvedValue(mockResponse)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
         },
@@ -109,7 +134,7 @@ describe('MemberSelect', () => {
     it('搜索失败时应该显示错误提示', async () => {
       vi.mocked(userApi.searchUsers).mockRejectedValue(new Error('网络错误'))
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
         },
@@ -137,7 +162,17 @@ describe('MemberSelect', () => {
     it('单选模式下选择成员应该更新 modelValue', async () => {
       const mockResponse = {
         users: [
-          { id: '1', name: '张三', email: 'zhangsan@example.com', avatar: null },
+          {
+            id: '1',
+            name: '张三',
+            email: 'zhangsan@example.com',
+            avatar: undefined,
+            role: 'editor' as const,
+            status: 'active' as const,
+            email_verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
         ],
         total: 1,
         page: 1,
@@ -147,7 +182,7 @@ describe('MemberSelect', () => {
 
       vi.mocked(userApi.searchUsers).mockResolvedValue(mockResponse)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
           'onUpdate:modelValue': vi.fn(),
@@ -176,12 +211,17 @@ describe('MemberSelect', () => {
         id: '1',
         name: '张三',
         email: 'zhangsan@example.com',
-        avatar: null,
+        avatar: undefined,
+        role: 'editor' as const,
+        status: 'active' as const,
+        email_verified: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       }
 
       vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: '1',
           'onUpdate:modelValue': vi.fn(),
@@ -201,7 +241,7 @@ describe('MemberSelect', () => {
 
   describe('禁用状态', () => {
     it('禁用状态下不应该响应点击事件', async () => {
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
           disabled: true,
@@ -217,12 +257,17 @@ describe('MemberSelect', () => {
         id: '1',
         name: '张三',
         email: 'zhangsan@example.com',
-        avatar: null,
+        avatar: undefined,
+        role: 'editor' as const,
+        status: 'active' as const,
+        email_verified: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       }
 
       vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: '1',
           disabled: true,
@@ -239,8 +284,28 @@ describe('MemberSelect', () => {
     it('多选模式下应该允许多个选择', async () => {
       const mockResponse = {
         users: [
-          { id: '1', name: '张三', email: 'zhangsan@example.com', avatar: null },
-          { id: '2', name: '李四', email: 'lisi@example.com', avatar: null },
+          {
+            id: '1',
+            name: '张三',
+            email: 'zhangsan@example.com',
+            avatar: undefined,
+            role: 'editor' as const,
+            status: 'active' as const,
+            email_verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+          {
+            id: '2',
+            name: '李四',
+            email: 'lisi@example.com',
+            avatar: undefined,
+            role: 'editor' as const,
+            status: 'active' as const,
+            email_verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
         ],
         total: 2,
         page: 1,
@@ -250,7 +315,7 @@ describe('MemberSelect', () => {
 
       vi.mocked(userApi.searchUsers).mockResolvedValue(mockResponse)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: [],
           allowMultiple: true,
@@ -281,12 +346,17 @@ describe('MemberSelect', () => {
         id: '1',
         name: '张三',
         email: 'zhangsan@example.com',
-        avatar: null,
+        avatar: undefined,
+        role: 'editor' as const,
+        status: 'active' as const,
+        email_verified: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       }
 
       vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: ['1'],
           allowMultiple: true,
@@ -301,7 +371,7 @@ describe('MemberSelect', () => {
 
   describe('空状态显示', () => {
     it('未输入关键词时应该显示提示', async () => {
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
         },
@@ -330,7 +400,7 @@ describe('MemberSelect', () => {
 
       vi.mocked(userApi.searchUsers).mockResolvedValue(mockResponse)
 
-      const wrapper = mount(MemberSelect, {
+      const wrapper = mountWithPinia({
         props: {
           modelValue: null,
         },

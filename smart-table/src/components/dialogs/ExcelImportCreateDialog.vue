@@ -5,10 +5,7 @@ import {
   Upload,
   ArrowRight,
   ArrowLeft,
-  Check,
-  Document,
   Loading,
-  DataLine,
   CircleCheck,
   CircleClose,
   InfoFilled,
@@ -112,12 +109,6 @@ const createSteps = [
   { key: 'completed', label: '完成', icon: 'CircleCheck' },
 ];
 
-// 获取字段类型标签
-function getFieldTypeLabel(type: string): string {
-  const option = fieldTypeOptions.find((o) => o.value === type);
-  return option?.label || type;
-}
-
 // 文件上传处理
 async function handleFileChange(file: File) {
   const validExtensions = [".xlsx", ".xls"];
@@ -179,8 +170,9 @@ function handleFieldTypeChange(index: number, newType: string) {
 }
 
 // 处理主字段变更
-function handlePrimaryChange(index: number, isPrimary: boolean) {
-  if (isPrimary) {
+function handlePrimaryChange(index: number, isPrimary: string | number | boolean) {
+  const primary = Boolean(isPrimary);
+  if (primary) {
     // 取消其他字段的主字段状态
     fieldConfigs.value.forEach((field, i) => {
       if (i !== index) {
@@ -188,7 +180,7 @@ function handlePrimaryChange(index: number, isPrimary: boolean) {
       }
     });
   }
-  fieldConfigs.value[index].is_primary = isPrimary;
+  fieldConfigs.value[index].is_primary = primary;
 }
 
 // 获取已启用的字段
@@ -583,7 +575,7 @@ watch(() => props.visible, () => {
                 v-model="row.is_primary"
                 :label="true"
                 :disabled="!row.included"
-                @change="handlePrimaryChange($index, $event)"
+                @change="handlePrimaryChange($index, $event as boolean)"
               >
                 <span></span>
               </el-radio>
@@ -595,7 +587,7 @@ watch(() => props.visible, () => {
               <el-input
                 v-model="row.name"
                 size="small"
-                :disabled="!row.included"
+                :disabled="row.included !== true"
                 maxlength="50"
               />
             </template>

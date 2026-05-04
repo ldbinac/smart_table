@@ -60,7 +60,7 @@ export default defineConfig({
             proxyReq.setHeader("Origin", "http://localhost:5000");
             proxyReq.setHeader("Referer", "http://localhost:5000/");
           });
-          proxy.on("proxyRes", (proxyRes, req) => {
+          proxy.on("proxyRes", (proxyRes, _req) => {
             // 移除重定向响应中的 Location 主机部分，保持代理路径
             if (
               proxyRes.headers.location &&
@@ -86,8 +86,5 @@ export default defineConfig({
   build: {
     sourcemap: process.env.NODE_ENV === 'development',
     minify: 'esbuild',
-    esbuild: {
-      drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
-    },
   },
 });

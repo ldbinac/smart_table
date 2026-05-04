@@ -23,7 +23,7 @@ export interface SearchUsersResponse {
  * @returns 用户列表
  */
 export const searchUsers = async (params: SearchUsersParams): Promise<SearchUsersResponse> => {
-  return apiClient.get<SearchUsersResponse>('/users/search', params)
+  return apiClient.get<SearchUsersResponse>('/users/search', params as Record<string, unknown>)
 }
 
 /**

@@ -2,14 +2,14 @@
  * Record API 服务
  */
 import { apiClient } from "@/api/client";
-import type { Record, PaginatedData, PaginationParams } from "@/api/types";
+import type { TableRecord, PaginatedData, PaginationParams } from "@/api/types";
 
 export const getRecords = async (
   tableId: string,
   params?: PaginationParams & { search?: string; view_id?: string },
-): Promise<PaginatedData<Record>> => {
+): Promise<PaginatedData<TableRecord>> => {
   try {
-    return await apiClient.get<PaginatedData<Record>>(
+    return await apiClient.get<PaginatedData<TableRecord>>(
       `/tables/${tableId}/records`,
       params as Record<string, unknown>,
     );
@@ -17,7 +17,7 @@ export const getRecords = async (
     // 401 错误时返回空列表，让前端使用本地缓存
     console.warn("[recordApiService] getRecords failed:", error);
     return {
-      data: [],
+      items: [],
       total: 0,
       page: 1,
       per_page: 100,
@@ -26,16 +26,16 @@ export const getRecords = async (
   }
 };
 
-export const getRecord = async (id: string): Promise<Record> => {
-  return apiClient.get<Record>(`/records/${id}`);
+export const getRecord = async (id: string): Promise<TableRecord> => {
+  return apiClient.get<TableRecord>(`/records/${id}`);
 };
 
 export const createRecord = async (
   tableId: string,
   values: Record<string, unknown>,
-): Promise<Record> => {
+): Promise<TableRecord> => {
   try {
-    return await apiClient.post<Record>(`/tables/${tableId}/records`, {
+    return await apiClient.post<TableRecord>(`/tables/${tableId}/records`, {
       values,
     });
   } catch (error) {
@@ -47,9 +47,9 @@ export const createRecord = async (
 export const updateRecord = async (
   id: string,
   values: Record<string, unknown>,
-): Promise<Record> => {
+): Promise<TableRecord> => {
   try {
-    return await apiClient.put<Record>(`/records/${id}`, { values });
+    return await apiClient.put<TableRecord>(`/records/${id}`, { values });
   } catch (error) {
     console.error("[recordApiService] updateRecord failed:", error);
     throw error;
@@ -68,8 +68,8 @@ export const deleteRecord = async (id: string): Promise<void> => {
 export const batchCreateRecords = async (
   tableId: string,
   records: Array<{ values: Record<string, unknown> }>,
-): Promise<{ created_count: number; records: Record[] }> => {
-  return apiClient.post<{ created_count: number; records: Record[] }>(
+): Promise<{ created_count: number; records: TableRecord[] }> => {
+  return apiClient.post<{ created_count: number; records: TableRecord[] }>(
     `/tables/${tableId}/records/batch`,
     { records },
   );

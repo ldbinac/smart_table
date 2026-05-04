@@ -4,11 +4,20 @@
  */
 import DOMPurify from 'dompurify'
 
+type DomPurifyConfig = {
+  ALLOWED_TAGS?: string[]
+  ALLOWED_ATTR?: string[]
+  ALLOW_DATA_ATTR?: boolean
+  ADD_ATTR?: string[]
+  FORCE_BODY?: boolean
+  [key: string]: unknown
+}
+
 /**
  * 默认 DOMPurify 配置
  * 允许的标签和属性
  */
-const DEFAULT_CONFIG: DOMPurify.Config = {
+const DEFAULT_CONFIG: DomPurifyConfig = {
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'em', 'u', 's', 'span',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -32,7 +41,7 @@ const DEFAULT_CONFIG: DOMPurify.Config = {
  * 邮件模板配置
  * 允许更多标签用于邮件内容
  */
-const EMAIL_TEMPLATE_CONFIG: DOMPurify.Config = {
+const EMAIL_TEMPLATE_CONFIG: DomPurifyConfig = {
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'em', 'u', 's', 'span',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -64,11 +73,11 @@ const EMAIL_TEMPLATE_CONFIG: DOMPurify.Config = {
  * @param config - 可选的自定义配置
  * @returns 消毒后的安全 HTML 字符串
  */
-export function sanitizeHtml(html: string, config?: DOMPurify.Config): string {
+export function sanitizeHtml(html: string, config?: DomPurifyConfig): string {
   if (!html) return ''
-  
+
   const mergedConfig = { ...DEFAULT_CONFIG, ...config }
-  return DOMPurify.sanitize(html, mergedConfig)
+  return DOMPurify.sanitize(html, mergedConfig) as string
 }
 
 /**
@@ -80,7 +89,7 @@ export function sanitizeHtml(html: string, config?: DOMPurify.Config): string {
  */
 export function sanitizeEmailHtml(html: string): string {
   if (!html) return ''
-  return DOMPurify.sanitize(html, EMAIL_TEMPLATE_CONFIG)
+  return DOMPurify.sanitize(html, EMAIL_TEMPLATE_CONFIG) as string
 }
 
 /**

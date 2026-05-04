@@ -67,7 +67,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import type { User, BaseRole } from '@/api/types'
+import type { User, MemberRole } from '@/api/types'
 
 const props = defineProps<{
   modelValue: boolean
@@ -75,7 +75,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  submit: [data: { userId: string; role: BaseRole }]
+  submit: [data: { userId: string; role: MemberRole }]
 }>()
 
 const visible = computed({
@@ -90,7 +90,7 @@ const userOptions = ref<User[]>([])
 
 const form = reactive({
   userId: '',
-  role: 'editor' as BaseRole
+  role: 'editor' as MemberRole
 })
 
 const rules: FormRules = {
@@ -117,8 +117,8 @@ const searchUsers = async (query: string) => {
     
     // 模拟数据
     userOptions.value = [
-      { id: '1', username: 'user1', email: 'user1@example.com', nickname: '用户1', name: '用户1', avatar_url: '用户1', role: 'user', status: 'active', created_at: '', updated_at: '' },
-      { id: '2', username: 'user2', email: 'user2@example.com', nickname: '用户2', name: '用户2', avatar_url: '用户2', role: 'user', status: 'active', created_at: '', updated_at: '' }
+      { id: '1', username: 'user1', email: 'user1@example.com', nickname: '用户1', name: '用户1', avatar_url: 'avatar1.png', role: 'viewer', status: 'active', email_verified: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+      { id: '2', username: 'user2', email: 'user2@example.com', nickname: '用户2', name: '用户2', avatar_url: 'avatar2.png', role: 'viewer', status: 'active', email_verified: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' }
     ]
   } finally {
     searching.value = false

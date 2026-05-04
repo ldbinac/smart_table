@@ -147,7 +147,7 @@ const showRecordDetail = async (recordId: string) => {
   try {
     // 加载记录详情
     const record = await recordApiService.getRecord(recordId);
-    selectedRecord.value = record;
+    selectedRecord.value = record as any;
     
     // 确保字段已加载
     if (targetTableFields.value.length === 0) {

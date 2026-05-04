@@ -20,7 +20,6 @@ import {
 } from "@/utils/importExport";
 import { exportTemplate } from "@/utils/templateGenerator";
 import { useTableStore } from "@/stores/tableStore";
-import { generateId } from "@/utils/id";
 
 interface Props {
   visible: boolean;
@@ -61,11 +60,6 @@ const importResult = ref<{
 // 计算可用的目标字段
 const availableFields = computed(() => {
   return props.fields.filter((f) => !f.isSystem);
-});
-
-// 获取主键字段
-const primaryField = computed(() => {
-  return props.fields.find((f) => f.isPrimary);
 });
 
 // 获取字段类型标签

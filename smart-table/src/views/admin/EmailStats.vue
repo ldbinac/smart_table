@@ -169,15 +169,16 @@ const fetchStats = async () => {
 
     if (data) {
       // 转换后端数据结构到前端数据结构
+      const statsData = (data as any).data || data;
       stats.value = {
-        total_emails: data.total || 0,
-        sent_count: data.sent || 0,
-        failed_count: data.failed || 0,
-        pending_count: data.pending || 0,
-        retrying_count: data.retrying || 0,
-        success_rate: data.success_rate || 0,
+        total_emails: statsData.total || 0,
+        sent_count: statsData.sent || 0,
+        failed_count: statsData.failed || 0,
+        pending_count: statsData.pending || 0,
+        retrying_count: statsData.retrying || 0,
+        success_rate: statsData.success_rate || 0,
         // 将 by_template 对象转换为数组
-        template_stats: data.by_template ? Object.entries(data.by_template).map(([key, value]: [string, any]) => ({
+        template_stats: statsData.by_template ? Object.entries(statsData.by_template).map(([key, value]: [string, any]) => ({
           template_key: key,
           total: value.total || 0,
           sent: value.sent || 0,

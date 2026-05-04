@@ -14,7 +14,6 @@ import {
 } from "@element-plus/icons-vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 import MemberDisplay from "@/components/common/MemberDisplay.vue";
-import type { SortConfig } from "@/types";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
@@ -78,9 +77,6 @@ const contextMenuY = ref(0);
 const contextMenuTarget = ref<"row" | "header">("row");
 const contextMenuField = ref<FieldEntity | null>(null);
 const contextMenuRecord = ref<RecordEntity | null>(null);
-
-// 排序配置
-const sorts = ref<SortConfig[]>([]);
 
 // 使用 props.frozenFields 替代本地状态
 const frozenFields = computed(() => props.frozenFields || []);
@@ -302,27 +298,6 @@ async function handleContextMenuSelect(item: any) {
   }
 
   contextMenuVisible.value = false;
-}
-
-// 获取字段排序方向
-function getFieldSortDirection(fieldId: string): "asc" | "desc" | null {
-  const sort = sorts.value.find((s) => s.fieldId === fieldId);
-  return sort?.direction || null;
-}
-
-// 处理字段排序
-function handleFieldSort(fieldId: string, direction: "asc" | "desc") {
-  const existingSortIndex = sorts.value.findIndex((s) => s.fieldId === fieldId);
-  const newSorts = [...sorts.value];
-
-  if (existingSortIndex > -1) {
-    newSorts[existingSortIndex] = { fieldId, direction };
-  } else {
-    newSorts.push({ fieldId, direction });
-  }
-
-  sorts.value = newSorts;
-  emit("sort", fieldId, direction);
 }
 
 // 检查字段是否冻结
@@ -835,7 +810,7 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 // 行导航
-function navigateRows(direction: -1 | 1) {
+function navigateRows(direction: -1 | 1, event?: KeyboardEvent) {
   const recordIds = getAllRecordIds();
   if (recordIds.length === 0) return;
 
@@ -1081,12 +1056,6 @@ function getLinkedRecords(record: RecordEntity, field: FieldEntity): LinkedRecor
   return recordLinkData.value.get(record.id)?.get(field.id) || [];
 }
 
-// 检查关联记录是否正在加载
-function isLinkLoading(record: RecordEntity, field: FieldEntity): boolean {
-  if (field.type !== FieldType.LINK) return false;
-  return recordLinkLoading.value.get(record.id)?.has(field.id) || false;
-}
-
 // 处理关联字段点击编辑
 function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
   if (props.readonly) return;
@@ -1094,22 +1063,6 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
   emit("cellClick", record, field);
 }
 
-// 处理关联字段值更新
-function handleLinkFieldChange(
-  record: RecordEntity,
-  field: FieldEntity,
-  value: string[],
-  records: LinkedRecord[]
-) {
-  // 更新本地关联数据
-  if (!recordLinkData.value.has(record.id)) {
-    recordLinkData.value.set(record.id, new Map());
-  }
-  recordLinkData.value.get(record.id)!.set(field.id, records);
-
-  // 触发更新事件
-  emit("cellClick", record, field);
-}
 </script>
 
 <template>
@@ -1441,8 +1394,8 @@ function handleLinkFieldChange(
                     <el-icon class="attachment-icon"><Paperclip /></el-icon>
                     <span class="attachment-count">
                       {{
-                        Array.isArray(item.record!.values[field.id])
-                          ? item.record!.values[field.id].length
+                        Array.isArray(item.record?.values[field.id])
+                          ? (item.record!.values[field.id] as any[]).length
                           : 0
                       }}
                       个文件
@@ -1596,10 +1549,6 @@ function handleLinkFieldChange(
 import {
   ArrowRight,
   ArrowDown,
-  CollectionTag,
-  Calendar,
-  Sort,
-  Document,
   Plus,
   Check,
 } from "@element-plus/icons-vue";

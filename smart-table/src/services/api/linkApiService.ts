@@ -2,7 +2,7 @@
  * 关联字段 API 服务
  */
 import { apiClient } from "@/api/client";
-import type { LinkRelation, LinkValue } from "@/types/link";
+import type { LinkRelation } from "@/types/link";
 
 // 简单的内存缓存
 interface CacheEntry<T> {

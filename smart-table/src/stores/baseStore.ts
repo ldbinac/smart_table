@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+﻿import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { Base } from "@/api/types";
 
@@ -35,7 +35,7 @@ export const useBaseStore = defineStore("base", () => {
       bases.value = data;
       for (const base of data) {
         await baseDexieService
-          .updateBase(base.id, base as Record<string, unknown>)
+          .updateBase(base.id, base as unknown as Record<string, unknown>)
           .catch(() => {});
       }
       return data;
@@ -79,7 +79,7 @@ export const useBaseStore = defineStore("base", () => {
       memberStore.setCurrentBaseOwner(data.owner_id);
       
       await baseDexieService
-        .updateBase(id, data as Record<string, unknown>)
+        .updateBase(id, data as unknown as Record<string, unknown>)
         .catch(() => {});
       return data;
     } catch (e: unknown) {

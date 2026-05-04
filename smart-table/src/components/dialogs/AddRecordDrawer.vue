@@ -4,7 +4,6 @@ import {
   ElDrawer,
   ElButton,
   ElForm,
-  ElFormItem,
   ElInput,
   ElInputNumber,
   ElSelect,
@@ -557,7 +556,7 @@ const drawerTitle = computed(() => {
             <ElInput
               :model-value="String(formData[field.id] || '')"
               :placeholder="`请输入${field.name}`"
-              :maxlength="field.options?.maxLength"
+              :maxlength="(field.options?.maxLength as number) || undefined"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
@@ -568,7 +567,7 @@ const drawerTitle = computed(() => {
               <ElInput
                 :model-value="String(formData[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
-                :maxlength="field.options?.maxLength"
+                :maxlength="(field.options?.maxLength as number) || undefined"
                 type="textarea"
                 :rows="3"
                 resize="none"
@@ -580,10 +579,10 @@ const drawerTitle = computed(() => {
                 :class="{
                   'is-warning':
                     String(formData[field.id] || '').length >=
-                    field.options.maxLength * 0.9,
+                    (field.options.maxLength as number) * 0.9,
                   'is-error':
                     String(formData[field.id] || '').length >=
-                    field.options.maxLength,
+                    (field.options.maxLength as number),
                 }">
                 {{ String(formData[field.id] || '').length }}/{{
                   field.options.maxLength
@@ -597,7 +596,7 @@ const drawerTitle = computed(() => {
             <RichTextField
               :model-value="(formData[field.id] as string) || null"
               :placeholder="`请输入${field.name}`"
-              :max-length="field.options?.maxLength"
+              :max-length="(field.options?.maxLength as number) || undefined"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
@@ -715,7 +714,7 @@ const drawerTitle = computed(() => {
           <!-- 成员类型 -->
           <template v-else-if="getFieldComponent(field) === 'member'">
             <MemberSelect
-              v-model="formData[field.id]"
+              :model-value="(formData[field.id] as string | null)"
               :placeholder="`请选择${field.name}`"
               :allow-multiple="false"
               class="field-input"

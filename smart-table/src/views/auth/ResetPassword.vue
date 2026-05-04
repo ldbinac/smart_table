@@ -149,7 +149,7 @@ const handleSubmit = async () => {
       const response = await apiClient.post('/auth/reset-password', {
         token: token.value,
         password: form.password
-      })
+      }) as { success: boolean; message?: string }
 
       if (response.success) {
         resetSuccess.value = true

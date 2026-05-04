@@ -58,7 +58,7 @@
     </el-table>
     
     <!-- 分页 -->
-    <div class="pagination-container" v-if="total > 0">
+    <div class="pagination-container" v-if="total && total > 0">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import type { BaseMember, BaseRole } from '@/api/types'
+import type { BaseMember, MemberRole } from '@/api/types'
 
 const props = defineProps<{
   members: BaseMember[]
@@ -93,20 +93,20 @@ const emit = defineEmits<{
 const currentPage = defineModel<number>('currentPage', { default: 1 })
 const pageSize = defineModel<number>('pageSize', { default: 20 })
 
-const roleMap: Record<BaseRole, { label: string; type: 'success' | 'warning' | 'info' | 'danger' | '' }> = {
+const roleMap: Record<MemberRole, { label: string; type: 'success' | 'warning' | 'info' | 'danger' }> = {
   owner: { label: '所有者', type: 'danger' },
   admin: { label: '管理员', type: 'warning' },
   editor: { label: '编辑者', type: 'success' },
   commenter: { label: '评论者', type: 'info' },
-  viewer: { label: '查看者', type: '' }
+  viewer: { label: '查看者', type: 'info' }
 }
 
-const getRoleLabel = (role: BaseRole): string => {
+const getRoleLabel = (role: MemberRole): string => {
   return roleMap[role]?.label || role
 }
 
-const getRoleType = (role: BaseRole): 'success' | 'warning' | 'info' | 'danger' | '' => {
-  return roleMap[role]?.type || ''
+const getRoleType = (role: MemberRole): 'success' | 'warning' | 'info' | 'danger' | undefined => {
+  return roleMap[role]?.type
 }
 
 const formatDate = (date: string): string => {

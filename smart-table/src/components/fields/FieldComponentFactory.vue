@@ -83,9 +83,9 @@ const componentMap: Record<string, unknown> = {
 
 const currentComponent = computed(() => {
   if (!props.field || !props.field.type) {
-    return TextField;
+    return SingleLineTextField;
   }
-  return componentMap[props.field.type] || TextField;
+  return componentMap[props.field.type] || SingleLineTextField;
 });
 
 const isSupported = computed(() => {

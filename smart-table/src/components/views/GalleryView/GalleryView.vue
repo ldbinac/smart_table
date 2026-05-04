@@ -45,14 +45,14 @@ function setupRealtimeListenersForView() {
       const existing = props.records[index];
       const updatedValues = { ...existing.values };
       for (const change of data.changes) {
-        updatedValues[change.field_id] = change.new_value;
+        updatedValues[change.field_id] = change.new_value as any;
       }
       Object.assign(props.records[index], { values: updatedValues, updatedAt: Date.now() });
     }
   };
 
   const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
-    const record = data.record as unknown as RecordEntity;
+    const record = data.record as any as RecordEntity;
     if (record && !props.records.find((r) => r.id === record.id)) {
       props.records.push(record);
     }
@@ -134,7 +134,7 @@ const getRecordTitle = (record: RecordEntity): string => {
   // 单选字段：返回选项名称而不是 ID
   if (field.type === FieldType.SINGLE_SELECT && field.options?.choices) {
     const value = record.values[field.id];
-    const options = field.options.choices;
+    const options = (field.options.choices as any[]) || [];
     const selectedOption = options.find((opt: any) => opt.id === value);
     return selectedOption?.name || String(value || "无标题");
   }

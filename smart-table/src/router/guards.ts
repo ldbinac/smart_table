@@ -10,7 +10,7 @@ const whiteList = ['/login', '/register', '/forgot-password']
 
 export const authGuard = async (
   to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ): Promise<void> => {
   const authStore = useAuthStore()
@@ -39,7 +39,7 @@ export const authGuard = async (
 export const permissionGuard = (requiredRole: string) => {
   return async (
     to: RouteLocationNormalized,
-    from: RouteLocationNormalized,
+    _from: RouteLocationNormalized,
     next: NavigationGuardNext
   ): Promise<void> => {
     const authStore = useAuthStore()
@@ -65,7 +65,7 @@ export const permissionGuard = (requiredRole: string) => {
 
 export const adminGuard = async (
   to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ): Promise<void> => {
   const authStore = useAuthStore()
@@ -90,7 +90,7 @@ export const adminGuard = async (
 
 export const titleGuard = (
   to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ): void => {
   const title = to.meta.title as string
@@ -103,8 +103,8 @@ export const titleGuard = (
 }
 
 export const scrollBehavior = (
-  to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
+  _to: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
   savedPosition: { left: number; top: number } | null
 ): { left: number; top: number } | void => {
   if (savedPosition) {

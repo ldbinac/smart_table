@@ -67,10 +67,11 @@ async function validateShare() {
     console.log(
       "[DashboardShare] 使用后端返回的 dashboard 数据（跨浏览器场景）",
     );
-    dashboard.value = result.dashboard;
-    widgets.value = (result.dashboard.widgets || []) as WidgetConfig[];
-    layoutType.value = result.dashboard.layoutType || "grid";
-    gridColumns.value = (result.dashboard.gridColumns as 12 | 24) || 12;
+    const dash = result.dashboard;
+    dashboard.value = dash as unknown as Dashboard;
+    widgets.value = (dash.widgets || []) as WidgetConfig[];
+    layoutType.value = (dash.layoutType as "grid" | "free") || "grid";
+    gridColumns.value = (dash.gridColumns as 12 | 24) || 12;
 
     // 加载所有相关表的数据（字段和记录）
     const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
@@ -461,7 +462,6 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
   const backgroundColor = config.backgroundColor || "transparent";
   const textColor = config.textColor || "#000000";
 
-  const day = now.getDate();
   const monthYear = now.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "long",

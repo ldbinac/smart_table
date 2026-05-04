@@ -75,7 +75,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { ElMessage } from 'element-plus'
 import { useAdminStore } from '@/stores/adminStore'
 import type { User, UserRole } from '@/api/types'
 

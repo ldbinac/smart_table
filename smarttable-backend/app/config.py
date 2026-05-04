@@ -14,12 +14,25 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY')
     
     # ===== 打包模式检测与配置 =====
-    # 检测是否为 PyInstaller 打包环境
+     # 检测是否为 PyInstaller 打包环境
     PACKAGING_MODE = getattr(sys, 'frozen', False)
     
-    # 数据目录（相对路径，便于分发）
+    # 数据目录配置
     DATA_DIR = os.environ.get('DATA_DIR', 'data')
-    DATABASE_PATH = os.path.join(DATA_DIR, 'smarttable.db')
+    
+    # ✅ 关键修复：使用绝对路径确保数据库位置确定
+    _abs_data_dir = os.path.abspath(DATA_DIR)
+    
+    # 确保数据目录存在
+    if not os.path.exists(_abs_data_dir):
+        try:
+            os.makedirs(_abs_data_dir, exist_ok=True)
+            print(f'[Config] ✓ 自动创建数据目录: {_abs_data_dir}')
+        except OSError as e:
+            print(f'[Config] ⚠️ 无法创建数据目录 {_abs_data_dir}: {e}')
+    
+    # 数据库路径（绝对路径）
+    DATABASE_PATH = os.path.join(_abs_data_dir, 'smarttable.db')
     
     # 数据库配置 (默认使用 SQLite 进行开发/打包)
     if not os.environ.get('DATABASE_URL'):

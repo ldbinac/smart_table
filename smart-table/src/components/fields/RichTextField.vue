@@ -32,7 +32,7 @@ const isFocused = ref(false);
 // 当前内容（HTML格式）
 const currentHtml = computed({
   get: () => props.modelValue || "",
-  set: (val: string) => {
+  set: (val: string | null) => {
     emit("update:modelValue", val || null);
   },
 });

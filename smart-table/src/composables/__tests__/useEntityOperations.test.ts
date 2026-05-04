@@ -18,10 +18,21 @@ vi.mock("element-plus", () => ({
   },
 }));
 
-const mockTableService = tableService as jest.Mocked<typeof tableService>;
-const mockDashboardService = dashboardService as jest.Mocked<typeof dashboardService>;
-const mockElMessage = ElMessage as jest.Mocked<typeof ElMessage>;
-const mockElMessageBox = ElMessageBox as jest.Mocked<typeof ElMessageBox>;
+const mockTableService = tableService as unknown as typeof tableService & {
+  updateTable: ReturnType<typeof vi.fn>;
+  deleteTable: ReturnType<typeof vi.fn>;
+};
+const mockDashboardService = dashboardService as unknown as typeof dashboardService & {
+  updateDashboard: ReturnType<typeof vi.fn>;
+  deleteDashboard: ReturnType<typeof vi.fn>;
+};
+const mockElMessage = ElMessage as unknown as typeof ElMessage & {
+  success: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+};
+const mockElMessageBox = ElMessageBox as unknown as typeof ElMessageBox & {
+  confirm: ReturnType<typeof vi.fn>;
+};
 
 describe("useEntityOperations", () => {
   let operations: ReturnType<typeof useEntityOperations>;

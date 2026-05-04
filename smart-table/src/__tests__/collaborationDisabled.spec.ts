@@ -49,8 +49,9 @@ describe('CollaborationStore - Disabled Mode', () => {
     store.addOnlineUser({
       user_id: 'user-1',
       nickname: 'Test User',
-      avatar: null,
-      current_view: null
+      name: 'Test User',
+      avatar: undefined,
+      current_view: undefined
     })
     expect(store.onlineUsers.size).toBe(1)
     expect(store.isRealtimeAvailable).toBe(false)
@@ -61,8 +62,9 @@ describe('CollaborationStore - Disabled Mode', () => {
     store.addOnlineUser({
       user_id: 'user-1',
       nickname: 'Test User',
-      avatar: null,
-      current_view: null
+      name: 'Test User',
+      avatar: undefined,
+      current_view: undefined
     })
     store.removeOnlineUser('user-1')
     expect(store.onlineUsers.size).toBe(0)
@@ -73,7 +75,8 @@ describe('CollaborationStore - Disabled Mode', () => {
     store.setLockedCell('record-1:field-1', {
       user_id: 'user-1',
       nickname: 'Test User',
-      avatar: null,
+      name: 'Test User',
+      avatar: undefined,
       table_id: 'table-1',
       record_id: 'record-1',
       field_id: 'field-1'
@@ -86,7 +89,8 @@ describe('CollaborationStore - Disabled Mode', () => {
     store.setLockedCell('record-1:field-1', {
       user_id: 'user-1',
       nickname: 'Test User',
-      avatar: null,
+      name: 'Test User',
+      avatar: undefined,
       table_id: 'table-1',
       record_id: 'record-1',
       field_id: 'field-1'

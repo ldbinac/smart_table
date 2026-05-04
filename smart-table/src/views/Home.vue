@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from "vue";
-import { useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/authStore";
 import { useShareStore } from "@/stores/shareStore";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
-import type { Base } from "@/db/schema";
+import type { Base } from "@/api/types";
 import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
 import { templateService } from "@/db/services";
-import { getFieldTypeLabel, getFieldTypeIconComponent } from "@/types";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
 
-const router = useRouter();
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
 const shareStore = useShareStore();
@@ -263,7 +260,7 @@ const paginatedAllBases = computed(() => {
 });
 
 // 日期格式化
-const formatDate = (timestamp: number): string => {
+const formatDate = (timestamp: number | string): string => {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -360,7 +357,7 @@ onUnmounted(() => {
 async function loadSharedWithMe() {
   sharingLoading.value = true;
   try {
-    sharedWithMeBases.value = await baseStore.fetchSharedWithMe();
+    sharedWithMeBases.value = await shareStore.fetchSharedWithMe();
   } catch (error) {
     console.error("加载分享给我的数据失败:", error);
   } finally {
@@ -372,7 +369,7 @@ async function loadSharedWithMe() {
 async function loadSharedByMe() {
   sharingLoading.value = true;
   try {
-    sharedByMeShares.value = await baseStore.fetchSharedByMe();
+    sharedByMeShares.value = await shareStore.fetchSharedByMe();
   } catch (error) {
     console.error("加载我创建的分享数据失败:", error);
   } finally {
@@ -445,10 +442,6 @@ function goToBase(id: string) {
   window.open(`${baseUrl}/#/base/${id}`, "_blank");
 }
 
-function goToSettings() {
-  router.push("/settings");
-}
-
 function openCreateChoiceDialog() {
   createChoiceDialogVisible.value = true;
 }
@@ -490,6 +483,9 @@ async function handleCreateBase() {
         description: createForm.description || undefined,
         icon: createForm.icon,
         color: createForm.color,
+        owner_id: authStore.user?.id || "",
+        is_personal: true,
+        is_starred: false,
       });
 
       if (base) {
@@ -608,39 +604,6 @@ function stopPropagation(event: Event) {
 // 获取模板加载状态
 function isTemplateLoading(templateId: string): boolean {
   return templateLoadingMap.value.get(templateId) || false;
-}
-
-// 获取字段类型颜色
-function getFieldTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    text: "#3B82F6",
-    number: "#10B981",
-    date: "#F59E0B",
-    single_select: "#8B5CF6",
-    multi_select: "#8B5CF6",
-    checkbox: "#EF4444",
-    attachment: "#06B6D4",
-    member: "#EC4899",
-    rating: "#F59E0B",
-    progress: "#10B981",
-    phone: "#3B82F6",
-    email: "#10B981",
-    url: "#8B5CF6",
-    formula: "#EF4444",
-    link: "#06B6D4",
-    lookup: "#EC4899",
-    createdBy: "#3B82F6",
-    createdTime: "#10B981",
-    updatedBy: "#8B5CF6",
-    updatedTime: "#EF4444",
-    autoNumber: "#06B6D4",
-  };
-  return colors[type] || "#6B7280";
-}
-
-// 获取字段类型名称（使用导入的函数）
-function getFieldTypeName(type: string): string {
-  return getFieldTypeLabel(type);
 }
 
 // 打开预览对话框
@@ -1823,14 +1786,12 @@ import {
   StarFilled,
   MoreFilled,
   Grid,
-  Setting,
   Search,
   CircleClose,
   HomeFilled,
   Loading,
   Document,
   ArrowRight,
-  DocumentCopy,
 } from "@element-plus/icons-vue";
 
 export default {

@@ -68,7 +68,7 @@ const verifyEmail = async () => {
   }
 
   try {
-    const response = await apiClient.get(`/auth/verify-email?token=${token}`)
+    const response = await apiClient.get(`/auth/verify-email?token=${token}`) as { success: boolean }
 
     if (response.success) {
       success.value = true
@@ -91,7 +91,7 @@ const verifyEmail = async () => {
 
 const resendVerification = async () => {
   try {
-    const response = await apiClient.post('/auth/resend-verification')
+    const response = await apiClient.post('/auth/resend-verification') as { success: boolean }
 
     if (response.success) {
       ElMessage.success('验证邮件已重新发送，请查收')

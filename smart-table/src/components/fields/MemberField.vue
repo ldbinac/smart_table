@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { FieldEntity } from '@/db/schema'
 import type { CellValue } from '@/types'
 import { useUserCacheStore } from '@/stores/userCacheStore'
@@ -69,8 +69,8 @@ async function loadSelectedMembers() {
     }))
   } else if (newVal) {
     // 单值情况
-    if (typeof newVal === 'object' && (newVal as Member).name) {
-      selectedMembers.value = [newVal as Member]
+    if (typeof newVal === 'object' && (newVal as any).name) {
+      selectedMembers.value = [newVal as any]
       return
     }
     

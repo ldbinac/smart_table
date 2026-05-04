@@ -32,9 +32,9 @@
           <span class="label">记录ID:</span>
           <span class="value">{{ recordDetail.id }}</span>
         </div>
-        <div class="record-time" v-if="recordDetail.created_at">
+        <div class="record-time" v-if="recordDetail.createdAt">
           <span class="label">创建时间:</span>
-          <span class="value">{{ formatDateTime(recordDetail.created_at) }}</span>
+          <span class="value">{{ formatDateTime(recordDetail.createdAt) }}</span>
         </div>
       </div>
 
@@ -107,13 +107,13 @@
             </template>
             <!-- 日期/日期时间字段 -->
             <template v-else-if="field.type === 'date' || field.type === 'date_time'">
-              {{ formatDateTime(recordDetail.values[field.id]) }}
+              {{ formatDateTime(recordDetail.values[field.id] as string | number | Date) }}
             </template>
             <!-- 评分字段 -->
             <template v-else-if="field.type === 'rating'">
               <el-rate
                 :model-value="Number(recordDetail.values[field.id]) || 0"
-                :max="field.options?.maxRating || 5"
+                :max="(field.options?.maxRating as number) || 5"
                 disabled
                 size="small"
               />
@@ -179,7 +179,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { useRouter } from "vue-router";
 import {
   ElMessage,
   ElTag,
@@ -204,8 +203,6 @@ const emit = defineEmits<{
   (e: "update:visible", value: boolean): void;
   (e: "close"): void;
 }>();
-
-const router = useRouter();
 
 // 弹窗可见性
 const dialogVisible = computed({
@@ -271,7 +268,7 @@ const loadRecordDetail = async () => {
 
   try {
     const record = await recordApiService.getRecord(props.recordId);
-    recordDetail.value = record;
+    recordDetail.value = record as any;
   } catch (err) {
     console.error("[LinkedRecordDetailDialog] 加载记录详情失败:", err);
     error.value = "加载记录详情失败，请稍后重试";
@@ -396,19 +393,6 @@ const showFullRecordDetail = () => {
 // 处理详情保存（只读模式下不会触发，但需要处理）
 const handleDetailSave = (recordId: string, values: Record<string, unknown>) => {
   console.log("[LinkedRecordDetailDialog] 详情保存:", recordId, values);
-};
-
-// 跳转到目标表（保留原功能，可通过其他方式触发）
-const navigateToTable = () => {
-  if (props.tableId && props.recordId) {
-    const route = router.resolve({
-      name: "Base",
-      params: { tableId: props.tableId },
-      query: { recordId: props.recordId },
-    });
-    window.open(route.href, "_blank");
-  }
-  handleClose();
 };
 
 // 关闭弹窗

@@ -104,19 +104,20 @@ export class FieldCacheService {
 
       const fields: FieldEntity[] = apiFields.map((apiField) => {
         const frontendType = normalizeFieldType(apiField.type);
+        const fData = apiField as any;
         return {
-          id: apiField.id,
-          tableId: apiField.table_id || tableId,
-          name: apiField.name,
+          id: fData.id,
+          tableId: fData.table_id || tableId,
+          name: fData.name,
           type: frontendType,
-          options: apiField.options as Record<string, unknown> | undefined,
-          config: apiField.config as Record<string, unknown> | undefined,
-          isPrimary: apiField.is_primary || false,
-          isSystem: apiField.is_system || false,
-          isRequired: apiField.is_required || false,
-          isVisible: apiField.is_visible ?? true,
-          defaultValue: apiField.defaultValue,
-          description: apiField.description,
+          options: fData.options as Record<string, unknown> | undefined,
+          config: fData.config as Record<string, unknown> | undefined,
+          isPrimary: fData.is_primary || false,
+          isSystem: fData.is_system || false,
+          isRequired: fData.is_required || false,
+          isVisible: fData.is_visible ?? true,
+          defaultValue: fData.defaultValue as any,
+          description: fData.description,
           order: apiField.order ?? 0,
           createdAt: new Date(apiField.created_at).getTime(),
           updatedAt: new Date(apiField.updated_at).getTime(),

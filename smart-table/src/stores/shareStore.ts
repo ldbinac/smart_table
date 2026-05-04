@@ -1,27 +1,14 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { Base } from "@/api/types";
+import type { Base, BaseShare as BaseShareType } from "@/api/types";
 import { shareApiService } from "@/services/api/shareApiService";
 
-export interface BaseShare {
-  id: string;
-  base_id: string;
-  share_token: string;
-  created_by: string;
-  permission: "view" | "edit";
-  expires_at?: number;
-  access_count: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  last_accessed_at?: string;
-  base?: Base;
-}
+export type { BaseShareType as BaseShare };
 
 export const useShareStore = defineStore("share", () => {
-  const shares = ref<BaseShare[]>([]);
+  const shares = ref<BaseShareType[]>([]);
   const sharedWithMe = ref<Base[]>([]);
-  const sharedByMe = ref<BaseShare[]>([]);
+  const sharedByMe = ref<BaseShareType[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -77,7 +64,7 @@ export const useShareStore = defineStore("share", () => {
     }
   }
 
-  async function updateShare(shareId: string, data: Partial<BaseShare>) {
+  async function updateShare(shareId: string, data: Partial<BaseShareType>) {
     loading.value = true;
     try {
       const updated = await shareApiService.updateShare(shareId, data);

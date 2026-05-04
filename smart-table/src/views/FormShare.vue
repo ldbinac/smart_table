@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
 import {
   formShareApi,
-  type FormSchema,
   type FormFieldSchema,
 } from "@/api/formShare";
 import { generateId } from "@/utils/id";
@@ -200,8 +199,8 @@ function validateField(
     case FieldType.LONG_TEXT:
       // 多行文本长度验证
       const strValue = String(value);
-      const maxLength = field.config?.maxLength;
-      if (maxLength && strValue.length > maxLength) {
+      const maxLength = field.config?.maxLength as number | undefined;
+  if (maxLength && strValue.length > maxLength) {
         return `${field.name}不能超过${maxLength}个字符`;
       }
       break;
@@ -265,7 +264,7 @@ async function handleSubmit() {
       submitData.captcha = captchaCode.value;
     }
 
-    const result = await formShareApi.submitForm(shareToken.value, submitData);
+    await formShareApi.submitForm(shareToken.value, submitData);
 
     submitSuccess.value = true;
     ElMessage.success(formConfig.value.successMessage);
@@ -331,7 +330,7 @@ function resetForm() {
         !Array.isArray(defaultValue)
       ) {
         // 多选字段默认值必须是数组
-        formValues.value[field.id] = [defaultValue];
+        formValues.value[field.id] = [defaultValue] as CellValue;
       } else {
         formValues.value[field.id] = defaultValue as CellValue;
       }
@@ -456,7 +455,6 @@ function getNumberPrecision(field: FormFieldSchema): number {
 function getMaxRating(field: FormFieldSchema): number {
   return (
     (field.config?.maxRating as number) ??
-    (field.options?.maxRating as number) ??
     5
   );
 }
@@ -575,7 +573,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 v-if="getFieldType(field) === FieldType.SINGLE_LINE_TEXT"
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
-                :maxlength="field.config?.maxLength"
+                :maxlength="(field.config?.maxLength as number | undefined)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 多行文本 -->
               <div
@@ -584,7 +582,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 <el-input
                   :model-value="String(formValues[field.id] || '')"
                   :placeholder="`请输入${field.name}`"
-                  :maxlength="field.config?.maxLength"
+                  :maxlength="(field.config?.maxLength as number | undefined)"
                   type="textarea"
                   :rows="4"
                   resize="none"
@@ -595,13 +593,13 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                   :class="{
                     'is-warning':
                       String(formValues[field.id] || '').length >=
-                      field.config.maxLength * 0.9,
+                      (field.config.maxLength as number) * 0.9,
                     'is-error':
                       String(formValues[field.id] || '').length >=
-                      field.config.maxLength,
+                      (field.config.maxLength as number),
                   }">
                   {{ String(formValues[field.id] || '').length }}/{{
-                    field.config.maxLength
+                    field.config.maxLength as number
                   }}
                 </div>
               </div>
@@ -610,7 +608,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 v-else-if="getFieldType(field) === FieldType.RICH_TEXT"
                 :model-value="(formValues[field.id] as string) || null"
                 :placeholder="`请输入${field.name}`"
-                :max-length="field.config?.maxLength"
+                :max-length="(field.config?.maxLength as number | undefined)"
                 class="form-rich-text"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
@@ -742,7 +740,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                   show-stops
                   show-input
                   @update:model-value="
-                    (val) => handleFieldChange(field.id, val)
+                    (val: unknown) => handleFieldChange(field.id, Number(val) as CellValue)
                   " />
               </div>
             </template>
@@ -784,10 +782,10 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
             <!-- 统一使用数组格式存储成员字段值 -->
             <template v-else-if="getFieldComponentType(field) === 'member'">
               <MemberSelect
-                v-model="formValues[field.id]"
+                v-model="(formValues[field.id] as string | string[] | null)"
                 :placeholder="`请选择${field.name}`"
                 :allow-multiple="false"
-                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+                @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)" />
             </template>
 
             <!-- 不支持的字段类型 -->

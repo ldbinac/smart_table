@@ -1,6 +1,5 @@
 import { db } from "../schema";
-import type { DashboardShare } from "../schema";
-import { generateId } from "../../utils/id";
+import type { DashboardShare, Dashboard } from "../schema";
 import { apiClient } from "@/api/client";
 
 export interface CreateShareData {
@@ -14,23 +13,16 @@ export interface CreateShareData {
 export interface ShareValidationResult {
   valid: boolean;
   share?: DashboardShare;
+  dashboard?: {
+    widgets: unknown[];
+    layoutType: string;
+    gridColumns: number;
+  };
+  tables?: any[];
   error?: string;
 }
 
 export class DashboardShareService {
-  /**
-   * 生成随机分享令牌
-   */
-  private generateShareToken(): string {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let token = "";
-    for (let i = 0; i < 16; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return token;
-  }
-
   /**
    * 生成访问密码
    */
@@ -59,7 +51,7 @@ export class DashboardShareService {
           maxAccessCount: data.maxAccessCount,
           permission: data.permission || "view",
         },
-      );
+      ) as any;
 
       console.log("[DashboardShare] API response:", response);
 
@@ -148,7 +140,7 @@ export class DashboardShareService {
       );
 
       // 调用后端 API 获取分享列表
-      const response = await apiClient.get(`/dashboards/${dashboardId}/shares`);
+      const response = await apiClient.get(`/dashboards/${dashboardId}/shares`) as any;
       console.log("[DashboardShare] API response:", response);
 
       // 适配后端响应格式 {success, message, data}
@@ -221,7 +213,7 @@ export class DashboardShareService {
       // 调用后端 API 验证
       const response = await apiClient.post(`/shares/${token}/validate`, {
         accessCode,
-      });
+      }) as any;
 
       console.log("[DashboardShare] Full response:", response);
 
@@ -312,6 +304,8 @@ export class DashboardShareService {
               description: table.description,
               order: table.order || 0,
               primaryFieldId: table.primary_field_id,
+              recordCount: 0,
+              isStarred: false,
               createdAt: new Date(table.created_at).getTime(),
               updatedAt: new Date(table.updated_at).getTime(),
             });
@@ -331,7 +325,9 @@ export class DashboardShareService {
                   description: field.description,
                   order: field.order || 0,
                   isPrimary: field.is_primary || false,
+                  isSystem: false,
                   isRequired: field.is_required || false,
+                  isVisible: true,
                   options: field.options || null,
                   config: field.config || null,
                   createdAt: new Date(field.created_at).getTime(),
@@ -350,8 +346,8 @@ export class DashboardShareService {
                   id: record.id,
                   tableId: record.table_id,
                   values: record.values || {},
-                  created_at: new Date(record.created_at).getTime(),
-                  updated_at: new Date(record.updated_at).getTime(),
+                  createdAt: new Date(record.created_at).getTime(),
+                  updatedAt: new Date(record.updated_at).getTime(),
                 });
               }
             }
@@ -369,7 +365,11 @@ export class DashboardShareService {
         return {
           valid: true,
           share: localShare,
-          dashboard: localDashboard,
+          dashboard: {
+            widgets: localDashboard.widgets || [],
+            layoutType: localDashboard.layoutType || 'grid',
+            gridColumns: localDashboard.gridColumns || 12,
+          },
           tables: tables || [], // 返回表数据
         };
       } else {

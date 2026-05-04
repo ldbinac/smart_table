@@ -617,12 +617,12 @@ defineExpose({
 
           <div class="form-control">
             <!-- 单行文本 -->
-            <template v-if="field.type === FieldType.SINGLE_LINE_TEXT">
+            <template v-if="field.type === FieldType.SINGLE_LINE_TEXT || field.type === FieldType.EMAIL || field.type === FieldType.PHONE || field.type === FieldType.URL">
               <el-input
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="`请输入${field.name}`"
                 :disabled="readonly"
-                :maxlength="field.options?.maxLength"
+                :maxlength="(field.options?.maxLength as number | undefined)"
                 class="form-input"
                 @update:model-value="(val) => handleFieldChange(field.id, val)">
                 <template v-if="field.type === FieldType.EMAIL" #prefix>
@@ -644,25 +644,25 @@ defineExpose({
                   :model-value="String(formValues[field.id] || '')"
                   :placeholder="`请输入${field.name}`"
                   :disabled="readonly"
-                  :maxlength="field.options?.maxLength"
+                  :maxlength="(field.options?.maxLength as number | undefined)"
                   type="textarea"
                   :rows="4"
                   resize="none"
                   class="form-input"
                   @update:model-value="(val) => handleFieldChange(field.id, val)" />
                 <div
-                  v-if="field.options?.maxLength"
+                  v-if="(field.options?.maxLength as number | undefined)"
                   class="textarea-counter"
                   :class="{
                     'is-warning':
                       String(formValues[field.id] || '').length >=
-                      field.options.maxLength * 0.9,
+                      ((field.options?.maxLength as number) || 0) * 0.9,
                     'is-error':
                       String(formValues[field.id] || '').length >=
-                      field.options.maxLength,
+                      ((field.options?.maxLength as number) || 0),
                   }">
                   {{ String(formValues[field.id] || '').length }}/{{
-                    field.options.maxLength
+                    (field.options?.maxLength as number | undefined)
                   }}
                 </div>
               </div>
@@ -674,7 +674,7 @@ defineExpose({
                 :model-value="(formValues[field.id] as string) || null"
                 :placeholder="`请输入${field.name}`"
                 :readonly="readonly"
-                :max-length="field.options?.maxLength"
+                :max-length="(field.options?.maxLength as number | undefined)"
                 class="form-rich-text"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
@@ -801,7 +801,7 @@ defineExpose({
                 :field="field"
                 :record-id="props.record?.id || newRecordId"
                 :readonly="readonly"
-                @update:model-value="(val) => handleFieldValueChange(field.id, val)"
+                @update:model-value="(val) => handleFieldChange(field.id, val)"
                 @upload="(files) => handleAttachmentUpload(field.id, files)"
                 @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
             </template>
@@ -818,12 +818,12 @@ defineExpose({
             <!-- 统一使用数组格式存储成员字段值 -->
             <template v-else-if="getFieldComponentType(field) === 'member'">
               <MemberSelect
-                v-model="formValues[field.id]"
+                v-model="(formValues[field.id] as any)"
                 :placeholder="`请选择${field.name}`"
                 :allow-multiple="false"
                 :disabled="readonly"
                 class="form-select"
-                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+                @update:model-value="(val: any) => handleFieldChange(field.id, val)" />
             </template>
           </div>
 

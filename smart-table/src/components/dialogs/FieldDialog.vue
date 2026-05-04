@@ -20,7 +20,6 @@ import {
 } from "element-plus";
 import { fieldService } from "@/db/services/fieldService";
 import { useViewStore } from "@/stores/viewStore";
-import { useBaseStore } from "@/stores/baseStore";
 import { useTableStore } from "@/stores/tableStore";
 import {
   FieldType,
@@ -37,7 +36,6 @@ import { linkApiService } from "@/services/api/linkApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 
 const viewStore = useViewStore();
-const baseStore = useBaseStore();
 const tableStore = useTableStore();
 
 const props = defineProps<{
@@ -102,13 +100,6 @@ const newField = ref<{
   },
   maxLength: undefined,
 });
-
-const systemTypes = [
-  FieldType.CREATED_BY,
-  FieldType.CREATED_TIME,
-  FieldType.UPDATED_BY,
-  FieldType.UPDATED_TIME,
-];
 
 // 用户可创建的字段类型（包括自动编号）
 const userCreatableTypes = [
@@ -318,7 +309,7 @@ async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
         message: "索引列字段不能被移动，它是表格的标识字段",
         type: "warning",
         duration: 3000,
-        position: "top",
+        position: "top" as any,
       });
       nextTick(() => initSortable());
       return;
@@ -330,7 +321,7 @@ async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
         message: "其他字段不能调整到索引列字段之前，索引列始终位于最左侧",
         type: "warning",
         duration: 3000,
-        position: "top",
+        position: "top" as any,
       });
       nextTick(() => initSortable());
       return;
@@ -685,7 +676,7 @@ async function createField() {
           bidirectional: newField.value.linkConfig.bidirectional,
           description: newField.value.description,
         });
-        field = result.field as FieldEntity;
+        field = result.field as unknown as FieldEntity;
       } catch (linkError) {
         console.error("创建关联字段失败:", linkError);
         throw linkError;
@@ -1804,7 +1795,7 @@ async function toggleFieldVisibility(
           <!-- 成员类型 -->
           <div v-else-if="newField.type === FieldType.MEMBER" style="width: 100%">
             <div style="margin-bottom: 8px">
-              <el-radio-group v-model="memberConfig.defaultType" size="small" @change="(val: string) => {
+              <el-radio-group v-model="memberConfig.defaultType" size="small" @change="(val: string | number | boolean | undefined) => {
                 if (val === 'none') {
                   newField.defaultValue = undefined;
                 } else if (val === 'current_user') {
@@ -1825,7 +1816,7 @@ async function toggleFieldVisibility(
                 placeholder="选择默认用户"
                 :allow-multiple="false"
                 :return-object="true"
-                @update:model-value="(val: { id: string; name: string; email: string } | null) => {
+                @update:model-value="(val: any) => {
                   if (val) {
                     memberConfig.defaultUser = val;
                     newField.defaultValue = val.id;

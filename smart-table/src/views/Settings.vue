@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useSettingsStore } from '@/stores';
 import { useAuthStore } from '@/stores/auth/authStore';
 import { Brush, Grid, DataLine, Calendar, RefreshLeft } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import apiClient from '@/api/client';
 

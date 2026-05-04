@@ -31,10 +31,6 @@ const collaborationStore = useCollaborationStore();
 const tableStore = useTableStore();
 const memberStore = useMemberStore();
 
-const currentTitle = computed(() => {
-  return (route.meta.title as string) || "Smart Table";
-});
-
 // 用户菜单控制
 const userMenuVisible = ref(false);
 

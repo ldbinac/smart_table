@@ -1,6 +1,5 @@
 import { db } from "../schema";
-import type { TableEntity, FieldEntity, ViewEntity } from "../schema";
-import { generateId } from "../../utils/id";
+import type { TableEntity } from "../schema";
 import { tableApiService } from "@/services/api/tableApiService";
 import { fieldService } from "./fieldService";
 import { viewService } from "./viewService";
@@ -21,17 +20,18 @@ export class TableService {
       });
 
       // // 将后端返回的表格保存到本地 IndexedDB
+      const apiData = apiTable as any;
       const localTable: TableEntity = {
-        id: apiTable.id,
-        baseId: apiTable.base_id,
-        name: apiTable.name,
-        description: apiTable.description,
-        primaryFieldId: apiTable.primary_field_id,
-        recordCount: apiTable.record_count || 0,
-        order: apiTable.order ?? 0,
-        isStarred: apiTable.is_starred || false,
-        createdAt: new Date(apiTable.created_at).getTime(),
-        updatedAt: new Date(apiTable.updated_at).getTime(),
+        id: apiData.id,
+        baseId: apiData.base_id,
+        name: apiData.name,
+        description: apiData.description,
+        primaryFieldId: apiData.primary_field_id || "",
+        recordCount: apiData.record_count || 0,
+        order: apiData.order ?? 0,
+        isStarred: apiData.is_starred || false,
+        createdAt: new Date(apiData.created_at).getTime(),
+        updatedAt: new Date(apiData.updated_at).getTime(),
       };
 
       // await db.tableEntities.add(localTable);
@@ -110,17 +110,18 @@ export class TableService {
         }
 
         for (const apiTable of apiTables) {
+          const tableData = apiTable as any;
           const localTable: TableEntity = {
-            id: apiTable.id,
-            baseId: apiTable.base_id,
-            name: apiTable.name,
-            description: apiTable.description,
-            primaryFieldId: apiTable.primary_field_id,
-            recordCount: apiTable.record_count || 0,
-            order: apiTable.order ?? 0,
-            isStarred: apiTable.is_starred || false,
-            createdAt: new Date(apiTable.created_at).getTime(),
-            updatedAt: new Date(apiTable.updated_at).getTime(),
+            id: tableData.id,
+            baseId: tableData.base_id,
+            name: tableData.name,
+            description: tableData.description || "",
+            primaryFieldId: tableData.primary_field_id || "",
+            recordCount: tableData.record_count || 0,
+            order: tableData.order ?? 0,
+            isStarred: tableData.is_starred || false,
+            createdAt: new Date(tableData.created_at).getTime(),
+            updatedAt: new Date(tableData.updated_at).getTime(),
           };
 
           await db.tableEntities.put(localTable);
@@ -231,17 +232,18 @@ export class TableService {
       );
 
       // 将后端返回的表格保存到本地 IndexedDB
+      const dupData = apiTable as any;
       const localTable: TableEntity = {
-        id: apiTable.id,
-        baseId: apiTable.base_id,
-        name: apiTable.name,
-        description: apiTable.description,
-        primaryFieldId: apiTable.primary_field_id,
-        recordCount: apiTable.record_count || 0,
-        order: apiTable.order ?? 0,
-        isStarred: apiTable.is_starred || false,
-        createdAt: new Date(apiTable.created_at).getTime(),
-        updatedAt: new Date(apiTable.updated_at).getTime(),
+        id: dupData.id,
+        baseId: dupData.base_id,
+        name: dupData.name,
+        description: dupData.description || "",
+        primaryFieldId: dupData.primary_field_id || "",
+        recordCount: dupData.record_count || 0,
+        order: dupData.order ?? 0,
+        isStarred: dupData.is_starred || false,
+        createdAt: new Date(dupData.created_at).getTime(),
+        updatedAt: new Date(dupData.updated_at).getTime(),
       };
 
       await db.tableEntities.add(localTable);

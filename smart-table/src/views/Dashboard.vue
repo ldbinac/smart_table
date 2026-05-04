@@ -1,7 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useBaseStore } from "@/stores";
+import { useBaseStore, useTableStore } from "@/stores";
 import {
   dashboardService,
   dashboardTemplateService,
@@ -40,6 +40,7 @@ import { useEntityOperations } from "@/composables/useEntityOperations";
 import { freshColors } from "@/utils/helpers";
 
 const baseStore = useBaseStore();
+const tableStore = useTableStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -323,12 +324,13 @@ async function selectDashboard(dashboard: Dashboard) {
   try {
     const freshDashboard = await dashboardApiService.getDashboard(dashboard.id);
     // 使用后端返回的最新数据
+    const layout = freshDashboard.layout as Record<string, unknown> | undefined;
     currentDashboard.value = {
       ...dashboard,
       widgets: (freshDashboard.widgets as unknown[]) || [],
-      layout: freshDashboard.layout || {},
-      layoutType: (freshDashboard.layout?.type as "grid" | "free") || "grid",
-      gridColumns: freshDashboard.layout?.config?.gridColumns || 12,
+      layout: layout || {},
+      layoutType: (layout?.type as "grid" | "free") || "grid",
+      gridColumns: (layout?.config as Record<string, unknown>)?.gridColumns as number || 12,
     };
   } catch (error) {
     console.error(
@@ -785,14 +787,14 @@ async function handleEditSidebarTable() {
     // 直接更新baseStore中的数据表信息
     if (baseStore.currentBase) {
       // 重新加载baseStore中的数据表列表
-      baseStore.tables = await tableService.getTablesByBase(
+      tableStore.tables = await tableService.getTablesByBase(
         baseStore.currentBase.id,
       );
       // 如果当前选中的表是被修改的表，也更新currentTable
-      if (baseStore.currentTable?.id === sidebarTableForm.id) {
+      if (tableStore.currentTable?.id === sidebarTableForm.id) {
         const updatedTable = await tableService.getTable(sidebarTableForm.id);
         if (updatedTable) {
-          baseStore.currentTable = updatedTable;
+          tableStore.currentTable = updatedTable;
         }
       }
     }
@@ -818,7 +820,7 @@ const handleDeleteTable = async (table: { id: string; name: string }) => {
       // 直接更新baseStore中的数据表信息
       if (baseStore.currentBase) {
         // 重新加载baseStore中的数据表列表
-        baseStore.tables = await tableService.getTablesByBase(
+        tableStore.tables = await tableService.getTablesByBase(
           baseStore.currentBase.id,
         );
       }
@@ -839,7 +841,7 @@ const handleToggleStarTable = async (table: {
     // 直接更新baseStore中的数据表信息
     if (baseStore.currentBase) {
       // 重新加载baseStore中的数据表列表
-      baseStore.tables = await tableService.getTablesByBase(
+      tableStore.tables = await tableService.getTablesByBase(
         baseStore.currentBase.id,
       );
     }
@@ -1609,7 +1611,6 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
   const backgroundColor = config.backgroundColor || "transparent";
   const textColor = config.textColor || "#000000";
 
-  const day = now.getDate();
   const monthYear = now.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "long",
@@ -1978,8 +1979,8 @@ function renderRealtimeWidgetEmpty(
   const colors = config.colors?.length ? config.colors : ["#3B82F6", "#10B981", "#F59E0B"];
 
   // 生成模拟数据
-  const mockLabels = Array.from({ length: 20 }, (_, i) => `${i + 1}`);
-  const mockValues = Array.from({ length: 20 }, (_, i) => Math.floor(Math.random() * 100) + 50);
+  const mockLabels = Array.from({ length: 20 }, (_, idx) => `${idx + 1}`);
+  const mockValues = Array.from({ length: 20 }, () => Math.floor(Math.random() * 100) + 50);
 
   // 使用 ECharts 渲染预览图表
   let chart = chartRefs.value.get(widget.id);
@@ -2224,48 +2225,6 @@ function stopDrag() {
   document.removeEventListener("mouseup", stopDrag);
 }
 
-// ==================== 布局切换功能 ====================
-
-async function switchLayoutType(type: "grid" | "free") {
-  if (!currentDashboard.value) return;
-
-  layoutType.value = type;
-
-  // 更新布局引擎配置
-  if (layoutEngine.value) {
-    layoutEngine.value.updateConfig({ type });
-  }
-
-  // 如果切换到网格布局，需要重新计算组件位置
-  if (type === "grid") {
-    // 将自由布局的像素坐标转换为网格坐标
-    widgets.value.forEach((widget) => {
-      if (widget.position.x !== undefined && widget.position.y !== undefined) {
-        // 简化的转换：假设每个网格单元约100px
-        widget.position.x = Math.round((widget.position.x || 0) / 100);
-        widget.position.y = Math.round((widget.position.y || 0) / 80);
-        // 确保最小尺寸
-        widget.position.w = Math.max(2, widget.position.w || 4);
-        widget.position.h = Math.max(2, widget.position.h || 4);
-      }
-    });
-  } else {
-    // 切换到自由布局，将网格坐标转换为像素坐标
-    widgets.value.forEach((widget) => {
-      widget.position.x = (widget.position.x || 0) * 100;
-      widget.position.y = (widget.position.y || 0) * 80;
-    });
-  }
-
-  // 保存到数据库
-  await dashboardService.updateDashboard(currentDashboard.value.id, {
-    layoutType: type,
-    widgets: widgets.value,
-  });
-
-  ElMessage.success(`已切换到${type === "grid" ? "网格" : "自由"}布局`);
-}
-
 // 切换网格列数
 async function switchGridColumns(columns: 12 | 24) {
   if (!currentDashboard.value) return;
@@ -2469,7 +2428,7 @@ onUnmounted(() => {
           <el-divider direction="vertical" class="toolbar-divider" />
           -->
           <el-dropdown @command="addWidget" :max-height="400">
-            <el-button size="medium" type="primary">
+            <el-button size="default" type="primary">
               <el-icon><Plus /></el-icon>
               <span>添加组件</span>
               <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
@@ -2531,7 +2490,7 @@ onUnmounted(() => {
           <el-button-group>
             <el-button
               v-if="currentDashboard"
-              size="medium"
+              size="default"
               title="编辑当前仪表盘"
               @click="
                 isEditingDashboard = true;
@@ -2546,20 +2505,20 @@ onUnmounted(() => {
             </el-button>
             <el-button
               v-if="currentDashboard"
-              size="medium"
+              size="default"
               title="复制当前仪表盘"
               @click="duplicateDashboard(currentDashboard)">
               <el-icon><CopyDocument /></el-icon>
               <span>复制</span>
             </el-button>
-            <!-- el-button size="medium" @click="showDashboardManager = true">
+            <!-- el-button size="default" @click="showDashboardManager = true">
                 <el-icon><Management /></el-icon>
                 <span>管理</span>
               </el-button
             -->
             <el-button
               v-if="currentDashboard"
-              size="medium"
+              size="default"
               title="分享当前仪表盘"
               @click="openShareDialog">
               <el-icon><Share /></el-icon>
@@ -2567,7 +2526,7 @@ onUnmounted(() => {
             </el-button>
             <el-button
               v-if="currentDashboard"
-              size="medium"
+              size="default"
               title="预览仪表盘效果"
               @click="openPreviewDialog">
               <el-icon><View /></el-icon>
@@ -2582,14 +2541,14 @@ onUnmounted(() => {
             <!--<el-divider direction="vertical" class="toolbar-divider" />
             <el-button-group class="layout-controls">
               <el-button
-                size="medium"
+                size="default"
                 :type="layoutType === 'grid' ? 'primary' : 'default'"
                 @click="switchLayoutType('grid')">
                 <el-icon><Grid /></el-icon>
                 <span>网格</span>
               </el-button>
               <el-button
-                size="medium"
+                size="default"
                 :type="layoutType === 'free' ? 'primary' : 'default'"
                 @click="switchLayoutType('free')">
                 <el-icon><Move /></el-icon>
@@ -2599,14 +2558,14 @@ onUnmounted(() => {
             <el-button-group class="layout-controls">
               <template v-if="layoutType === 'grid'">
                 <el-button
-                  size="medium"
+                  size="default"
                   title="切换为12列布局"
                   :type="gridColumns === 12 ? 'primary' : 'default'"
                   @click="switchGridColumns(12)">
                   12列
                 </el-button>
                 <el-button
-                  size="medium"
+                  size="default"
                   title="切换为24列布局"
                   :type="gridColumns === 24 ? 'primary' : 'default'"
                   @click="switchGridColumns(24)">
@@ -2614,7 +2573,7 @@ onUnmounted(() => {
                 </el-button>
               </template>
               <el-button
-                size="medium"
+                size="default"
                 title="切换网格线显示状态"
                 :type="showGridLines ? 'primary' : 'default'"
                 @click="showGridLines = !showGridLines">
@@ -2778,7 +2737,7 @@ onUnmounted(() => {
               v-if="currentDashboard"
               type="primary"
               class="create-dashboard-btn"
-              size="medium"
+              size="default"
               title="使用模板快速创建仪表盘"
               @click="showTemplateDialog = true">
               <el-icon><Grid /></el-icon>
@@ -3751,7 +3710,6 @@ import {
   ArrowDown,
   Edit,
   CopyDocument,
-  Management,
   Close,
   FullScreen,
   CollectionTag,

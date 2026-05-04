@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, nextTick, watch, onMounted } from "vue";
+import { computed, ref, nextTick, watch } from "vue";
 import dayjs from "dayjs";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
@@ -345,7 +345,7 @@ const startEdit = async () => {
     }
   } else if (fieldType.value === FieldType.LINK) {
     // 关联字段特殊处理
-    editValue.value = Array.isArray(cv) ? cv : cv ? [cv] : [];
+    editValue.value = (Array.isArray(cv) ? cv : cv ? [cv] : []) as any;
     // 这里可以加载已关联的记录详情
   } else {
     editValue.value = cv as string | number | boolean | null;
@@ -460,7 +460,7 @@ const multiSelectDisplayValues = computed(() => {
           :value="editValue as string"
           type="text"
           class="cell-input"
-          :maxlength="field.options?.maxLength"
+          :maxlength="(field.options?.maxLength as number | undefined)"
           @input="editValue = ($event.target as HTMLInputElement).value"
           @blur="finishEdit"
           @keydown="handleKeydown" />
@@ -471,7 +471,7 @@ const multiSelectDisplayValues = computed(() => {
           ref="inputRef"
           :value="editValue as string"
           class="cell-input textarea"
-          :maxlength="field.options?.maxLength"
+          :maxlength="(field.options?.maxLength as number | undefined)"
           @input="editValue = ($event.target as HTMLTextAreaElement).value"
           @blur="finishEdit"
           @keydown="handleKeydown" />
@@ -482,7 +482,7 @@ const multiSelectDisplayValues = computed(() => {
           ref="inputRef"
           :value="editValue as string"
           class="cell-input textarea"
-          :maxlength="field.options?.maxLength"
+          :maxlength="(field.options?.maxLength as number | undefined)"
           @input="editValue = ($event.target as HTMLTextAreaElement).value"
           @blur="finishEdit"
           @keydown="handleKeydown" />

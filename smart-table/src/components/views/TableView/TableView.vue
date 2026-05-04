@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
-import { useBaseStore } from "@/stores";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -20,7 +19,6 @@ import TableCell from "./TableCell.vue";
 import TableHeader from "./TableHeader.vue";
 import TableRow from "./TableRow.vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
-import { generateId } from "@/utils/id";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ZoomIn, Check } from "@element-plus/icons-vue";
@@ -50,7 +48,6 @@ const emit = defineEmits<{
   (e: "add-record"): void;
 }>();
 
-const baseStore = useBaseStore();
 const tableStore = useTableStore();
 const viewStore = useViewStore();
 
@@ -214,7 +211,10 @@ const handleCellUpdate = async (
   // 2. 处理关联字段 - 使用专用API保存到link_values表
   if (field && field.type === FieldType.LINK) {
     try {
-      const targetRecordIds = Array.isArray(value) ? value : [];
+      const rawValue = Array.isArray(value) ? value : [];
+      const targetRecordIds = rawValue.map((item: any) =>
+        typeof item === 'string' ? item : item.id
+      );
       await linkApiService.updateRecordLink(record.id, fieldId, {
         target_record_ids: targetRecordIds,
       });
@@ -365,7 +365,7 @@ const handleContextMenuSelect = async (item: any) => {
           values: { ...contextMenuRecord.value.values },
         });
         if (newRecord) {
-          await baseStore.loadTable(contextMenuRecord.value.tableId);
+          await tableStore.loadTables(contextMenuRecord.value.tableId);
         }
       }
       break;
@@ -652,18 +652,16 @@ const getFieldSortDirection = (fieldId: string): "asc" | "desc" | null => {
 
 // 字段更新后的处理
 const handleFieldUpdated = async (_updatedField: FieldEntity) => {
-  // 刷新字段列表
-  if (baseStore.currentTable) {
-    await baseStore.loadTable(baseStore.currentTable.id);
+  if (tableStore.currentTable) {
+    await tableStore.loadTables(tableStore.currentTable.baseId);
   }
   ElMessage.success("字段更新成功");
 };
 
 // 字段删除后的处理
 const handleFieldDeleted = async (fieldId: string) => {
-  // 刷新字段列表
-  if (baseStore.currentTable) {
-    await baseStore.loadTable(baseStore.currentTable.id);
+  if (tableStore.currentTable) {
+    await tableStore.loadTables(tableStore.currentTable.baseId);
   }
   // 如果删除的是当前正在编辑的单元格所在字段，清除编辑状态
   if (editingCell.value?.fieldId === fieldId) {
@@ -713,7 +711,7 @@ function setupRealtimeListenersForView() {
       const existing = tableStore.records[index];
       const updatedValues = { ...existing.values };
       for (const change of data.changes) {
-        updatedValues[change.field_id] = change.new_value;
+        updatedValues[change.field_id] = change.new_value as any;
       }
       tableStore.records[index] = {
         ...existing,
@@ -767,7 +765,11 @@ onBeforeUnmount(() => {
 defineExpose({
   addNewRecord,
   selectedRows,
-  refresh: () => baseStore.loadTable(baseStore.currentTable?.id || ""),
+  refresh: () => {
+    if (tableStore.currentTable) {
+      tableStore.loadTables(tableStore.currentTable.baseId);
+    }
+  },
 });
 </script>
 
@@ -928,7 +930,7 @@ defineExpose({
     <!-- 字段编辑对话框 -->
     <FieldDialog
       v-model:visible="fieldDialogVisible"
-      :table-id="baseStore.currentTable?.id || ''"
+      :table-id="tableStore.currentTable?.id || ''"
       :fields="fields"
       :edit-field-id="editingFieldId || undefined"
       @field-updated="handleFieldUpdated"

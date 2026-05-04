@@ -35,10 +35,11 @@ watch(
   { immediate: true },
 );
 
-function handleChange(value: number) {
+function handleChange(value: number | number[]) {
   if (props.readonly) return;
-  currentValue.value = value;
-  emit("update:modelValue", value);
+  const numValue = Array.isArray(value) ? value[0] : value;
+  currentValue.value = numValue;
+  emit("update:modelValue", numValue);
 }
 </script>
 
@@ -49,7 +50,7 @@ function handleChange(value: number) {
         <el-slider
           :model-value="currentValue"
           :max="100"
-          :format-tooltip="(val: number) => `${val}%`"
+          :format-tooltip="(val: any) => `${Array.isArray(val) ? val[0] : val}%`"
           @update:model-value="handleChange" />
         <span class="progress-value">{{ currentValue }}%</span>
       </template>

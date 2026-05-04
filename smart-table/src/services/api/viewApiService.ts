@@ -2,7 +2,7 @@
  * View API 服务
  */
 import { apiClient } from '@/api/client';
-import type { View, ViewType, PaginatedData, PaginationParams } from '@/api/types';
+import type { View, ViewType } from '@/api/types';
 
 export const getViews = async (tableId: string): Promise<View[]> => {
   return apiClient.get<View[]>(`/tables/${tableId}/views`);

@@ -11,6 +11,7 @@ import {
 import { fieldService } from "./fieldService";
 
 export interface CreateRecordData {
+  id?: string;
   tableId: string;
   values: Record<string, CellValue>;
   createdBy?: string;

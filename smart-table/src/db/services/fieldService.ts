@@ -49,8 +49,8 @@ export class FieldService {
       // 先调用后端 API 创建字段
       const apiField = await fieldApiService.createField(data.tableId, {
         name: data.name,
-        type: backendType,
-        isRequired: data.isRequired,
+        type: backendType as any,
+        is_required: data.isRequired,
         description: data.description,
         options: data.options as Record<string, unknown>,
         defaultValue: data.defaultValue,
@@ -59,19 +59,20 @@ export class FieldService {
       // 将后端返回的字段类型转换为前端类型
       const frontendType = normalizeFieldType(apiField.type);
       
+      const fieldData = apiField as any;
       // 将后端返回的字段保存到本地 IndexedDB
       const localField: FieldEntity = {
-        id: apiField.id,
+        id: fieldData.id,
         tableId: data.tableId,
-        name: apiField.name,
+        name: fieldData.name,
         type: frontendType,
-        options: apiField.options as Record<string, unknown> | undefined,
-        config: apiField.config as Record<string, unknown> | undefined,
-        isPrimary: apiField.is_primary || false,
-        isSystem: apiField.is_system || false,
-        isRequired: apiField.is_required || false,
-        isVisible: apiField.is_visible ?? true,
-        defaultValue: apiField.defaultValue,
+        options: fieldData.options as Record<string, unknown> | undefined,
+        config: fieldData.config as Record<string, unknown> | undefined,
+        isPrimary: fieldData.is_primary || false,
+        isSystem: fieldData.is_system || false,
+        isRequired: fieldData.is_required || false,
+        isVisible: fieldData.is_visible ?? true,
+        defaultValue: fieldData.defaultValue as any,
         description: apiField.description,
         order: apiField.order ?? 0,
         createdAt: new Date(apiField.created_at).getTime(),
@@ -100,20 +101,21 @@ export class FieldService {
         for (const apiField of apiFields) {
           // 将后端返回的字段类型转换为前端类型
           const frontendType = normalizeFieldType(apiField.type);
+          const fData = apiField as any;
           
           const localField: FieldEntity = {
-            id: apiField.id,
-            tableId: apiField.table_id || tableId,
-            name: apiField.name,
+            id: fData.id,
+            tableId: fData.table_id || tableId,
+            name: fData.name,
             type: frontendType,
-            options: apiField.options as Record<string, unknown> | undefined,
-            config: apiField.config as Record<string, unknown> | undefined,
-            isPrimary: apiField.is_primary || false,
-            isSystem: apiField.is_system || false,
-            isRequired: apiField.is_required || false,
-            isVisible: apiField.is_visible ?? true,
-            defaultValue: apiField.defaultValue,
-            description: apiField.description,
+            options: fData.options as Record<string, unknown> | undefined,
+            config: fData.config as Record<string, unknown> | undefined,
+            isPrimary: fData.is_primary || false,
+            isSystem: fData.is_system || false,
+            isRequired: fData.is_required || false,
+            isVisible: fData.is_visible ?? true,
+            defaultValue: fData.defaultValue as any,
+            description: fData.description,
             order: apiField.order ?? 0,
             createdAt: new Date(apiField.created_at).getTime(),
             updatedAt: new Date(apiField.updated_at).getTime(),
@@ -154,21 +156,22 @@ export class FieldService {
 
       // 将后端返回的字段类型转换为前端类型
       const frontendType = normalizeFieldType(apiField.type);
+      const updData = apiField as any;
       
       // 构建更新后的本地字段对象
       const localField: FieldEntity = {
-        id: apiField.id,
-        tableId: apiField.table_id,
-        name: apiField.name,
+        id: updData.id,
+        tableId: updData.table_id,
+        name: updData.name,
         type: frontendType,
-        options: apiField.options as Record<string, unknown> | undefined,
-        config: apiField.config as Record<string, unknown> | undefined,
-        isPrimary: apiField.is_primary || false,
-        isSystem: apiField.is_system || false,
-        isRequired: apiField.is_required || false,
-        isVisible: apiField.is_visible ?? true,
-        defaultValue: apiField.defaultValue,
-        description: apiField.description,
+        options: updData.options as Record<string, unknown> | undefined,
+        config: updData.config as Record<string, unknown> | undefined,
+        isPrimary: updData.is_primary || false,
+        isSystem: updData.is_system || false,
+        isRequired: updData.is_required || false,
+        isVisible: updData.is_visible ?? true,
+        defaultValue: updData.defaultValue as any,
+        description: updData.description,
         order: apiField.order ?? 0,
         createdAt: new Date(apiField.created_at).getTime(),
         updatedAt: new Date(apiField.updated_at).getTime(),

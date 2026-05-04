@@ -151,11 +151,11 @@ export const getOperationLogs = async (params: OperationLogListParams): Promise<
   const backendParams: Record<string, any> = {
     page: params.page,
     per_page: params.pageSize,  // 后端期望 per_page，前端使用 pageSize
-    user_id: params.user_id,
+    user_id: params.userId,
     action: params.action,
-    entity_type: params.entity_type,
-    start_date: params.start_date,
-    end_date: params.end_date,
+    entity_type: params.entityType,
+    start_date: params.startDate,
+    end_date: params.endDate,
   };
   
   const response = await apiClient.get<{

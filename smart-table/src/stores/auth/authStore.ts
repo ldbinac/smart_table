@@ -16,8 +16,7 @@ import {
   setRememberMe,
   getRememberMe,
   isTokenExpired,
-  triggerLogoutEvent,
-  onLogoutEvent
+  triggerLogoutEvent
 } from '@/utils/auth/token'
 import { message } from '@/utils/message'
 

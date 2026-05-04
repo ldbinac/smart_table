@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="user-management-page">
     <div class="page-header">
       <h1 class="page-title">用户管理</h1>
@@ -220,32 +220,32 @@ const getStatusLabel = (status: UserStatus): string => {
 
 const getRoleTagType = (
   role: UserRole,
-): "success" | "warning" | "info" | "danger" | "" => {
+): "success" | "warning" | "info" | "danger" | undefined => {
   const typeMap: Record<
     UserRole,
-    "success" | "warning" | "info" | "danger" | ""
+    "success" | "warning" | "info" | "danger" | undefined
   > = {
     admin: "danger",
     workspace_admin: "warning",
     editor: "success",
     viewer: "info",
   };
-  return typeMap[role] || "";
+  return typeMap[role] || undefined;
 };
 
 const getStatusTagType = (
   status: UserStatus,
-): "success" | "warning" | "info" | "danger" | "" => {
+): "success" | "warning" | "info" | "danger" | undefined => {
   const typeMap: Record<
     UserStatus,
-    "success" | "warning" | "info" | "danger" | ""
+    "success" | "warning" | "info" | "danger" | undefined
   > = {
     active: "success",
     inactive: "info",
     suspended: "warning",
     deleted: "danger",
   };
-  return typeMap[status] || "";
+  return typeMap[status] || undefined;
 };
 
 const formatDate = (dateString: string): string => {

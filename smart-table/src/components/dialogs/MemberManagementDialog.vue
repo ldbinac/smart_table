@@ -188,7 +188,7 @@ async function loadMembers() {
   loading.value = true;
   try {
     const data = await memberStore.fetchMembers(props.baseId);
-    members.value = data;
+    members.value = data as any;
     console.log("加载成员列表成功:", members.value);
   } catch (error) {
     console.error("加载成员列表失败:", error);

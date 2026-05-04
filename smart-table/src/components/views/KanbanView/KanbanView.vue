@@ -47,14 +47,14 @@ function setupRealtimeListenersForView() {
       const existing = props.records[index];
       const updatedValues = { ...existing.values };
       for (const change of data.changes) {
-        updatedValues[change.field_id] = change.new_value;
+        updatedValues[change.field_id] = change.new_value as any;
       }
       Object.assign(props.records[index], { values: updatedValues, updatedAt: Date.now() });
     }
   };
 
   const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
-    const record = data.record as unknown as RecordEntity;
+    const record = data.record as any as RecordEntity;
     if (record && !props.records.find((r) => r.id === record.id)) {
       props.records.push(record);
     }

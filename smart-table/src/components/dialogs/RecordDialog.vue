@@ -560,7 +560,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
 </template>
 
 <script lang="ts">
-import { Document, Link } from "@element-plus/icons-vue";
+import { Link } from "@element-plus/icons-vue";
 export default {
   name: "RecordDialog",
 };

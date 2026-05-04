@@ -1,6 +1,5 @@
 import { apiClient } from '@/api/client';
-import type { BaseMember, BaseShare } from '@/stores/baseStore';
-import type { Base } from '@/api/types';
+import type { BaseMember, BaseShare, Base } from '@/api/types';
 
 export const shareApiService = {
   async getMembers(baseId: string): Promise<BaseMember[]> {

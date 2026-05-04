@@ -24,6 +24,10 @@ export const FieldType = {
   UPDATED_BY: "updated_by",
   UPDATED_TIME: "updated_time",
   AUTO_NUMBER: "auto_number",
+  CURRENCY: "currency",
+  BARCODE: "barcode",
+  COLLABORATOR: "collaborator",
+  LAST_MODIFIED_BY: "last_modified_by",
 } as const;
 
 export type FieldTypeValue = (typeof FieldType)[keyof typeof FieldType];
@@ -52,12 +56,11 @@ export interface FieldOptions {
   format?: "number" | "currency" | "percent";
   currencySymbol?: string;
   includeTime?: boolean;
-  dateFormat?: string;
-  prefix?: string;
-  suffix?: string;
+  defaultValue?: string | number | boolean | string[];
 
   // 单选/多选选项
   options?: FieldOption[];
+  choices?: FieldOption[];
   allowAddOptions?: boolean;
 
   // 评分选项
@@ -65,6 +68,14 @@ export interface FieldOptions {
 
   // 进度选项
   showPercent?: boolean;
+  min?: number;
+  max?: number;
+
+  // 富文本选项
+  isRichText?: boolean;
+
+  // 成员选项
+  multiple?: boolean;
 
   // 公式选项
   formula?: string;

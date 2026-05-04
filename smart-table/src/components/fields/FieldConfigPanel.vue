@@ -228,7 +228,7 @@ const currencySymbolOptions = [
             localField.defaultValue === 'now' ? 'dynamic' : 'static'
           "
           @update:model-value="
-            (val: string) => updateDefaultValue(val === 'dynamic' ? 'now' : '')
+            (val: string | number | boolean | undefined) => updateDefaultValue(val === 'dynamic' ? 'now' : (val as string))
           "
           size="small"
           class="date-radio-group">
@@ -435,7 +435,7 @@ const currencySymbolOptions = [
             )
           "
           @update:model-value="
-            (val: number) => updateOption('maxSize', val * 1024 * 1024)
+            (val: number | undefined) => updateOption('maxSize', (val || 0) * 1024 * 1024)
           "
           :min="1"
           :max="100"
@@ -459,7 +459,7 @@ const currencySymbolOptions = [
         <div class="config-label">生成缩略图</div>
         <el-switch
           :model-value="localField.options?.enableThumbnail !== false"
-          @update:model-value="(val) => updateOption('enableThumbnail', val)" />
+          @update:model-value="(val: string | number | boolean) => updateOption('enableThumbnail', !!val)" />
       </div>
     </template>
   </div>

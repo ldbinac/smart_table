@@ -116,7 +116,6 @@ export const useViewStore = defineStore("view", () => {
       const index = views.value.findIndex((v) => v.id === id);
       if (index !== -1) {
         // 处理 config 的反序列化
-        let processedConfig = data.config;
         if (data.config) {
           // 从 IndexedDB 获取最新的数据以确保反序列化正确
           const updatedView = await viewService.getView(id);

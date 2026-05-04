@@ -3,12 +3,6 @@ import { tableService } from '@/db/services/tableService';
 import { dashboardService } from '@/db/services/dashboardService';
 import type { TableEntity, Dashboard } from '@/db/schema';
 
-// 通用操作选项接口
-interface EntityOperationOptions {
-  onSuccess?: () => void;
-  onError?: (error: any) => void;
-}
-
 // 数据表操作接口
 interface TableOperations {
   renameTable: (table: TableEntity, newName: string, newDescription?: string) => Promise<void>;
