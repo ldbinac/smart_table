@@ -5,7 +5,8 @@ SmartTable Flask 应用入口文件
 import argparse
 import os
 import sys
-
+import webbrowser
+import threading
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -124,6 +125,98 @@ def create_admin(email: str, password: str, name: str):
         print(f'Name: {name}')
 
 
+def ensure_default_admin_exists():
+    """
+    确保默认管理员账号存在
+    
+    如果数据库中没有 ADMIN 角色的用户，则自动创建默认管理员：
+    - 账号：root
+    - 邮箱：ldengbin@126.com
+    - 密码：LDengBin@126.com
+    
+    并将管理员信息打印到控制台（醒目格式）
+    """
+    with app.app_context():
+        from app.extensions import db
+        from app.models.user import User, UserRole, UserStatus
+
+        # 检查是否已有管理员用户
+        admin_count = User.query.filter_by(role=UserRole.ADMIN).count()
+        
+        if admin_count > 0:
+            print('\n' + '='*60)
+            print('✅ 管理员账号检查完成')
+            print(f'   数据库中已有 {admin_count} 个管理员账号')
+            print('='*60 + '\n')
+            return
+
+        # 创建默认管理员
+        default_admin_email = 'ldengbin@126.com'
+        default_admin_password = 'LDengBin@126.com'
+        default_admin_name = 'root'
+
+        print('\n' + '='*60)
+        print('⚠️  未检测到管理员账号')
+        print('   正在自动创建默认管理员...')
+        print('='*60)
+
+        try:
+            admin = User(
+                email=default_admin_email,
+                password=default_admin_password,
+                name=default_admin_name,
+                role=UserRole.ADMIN,
+                status=UserStatus.ACTIVE,
+                email_verified=True
+            )
+
+            db.session.add(admin)
+            db.session.commit()
+
+            # 醒目格式输出管理员信息
+            print('\n' + '█'*60)
+            print('█' + ' '*58 + '█')
+            print('█' + '  ✅ 默认管理员账号已自动创建'.center(52) + '█')
+            print('█' + ' '*58 + '█')
+            print('█'*60)
+            print(f'█  账号 (Account):  {default_admin_name:<34} █')
+            print(f'█  邮箱 (Email):    {default_admin_email:<34} █')
+            print(f'█  密码 (Password): {default_admin_password:<34} █')
+            print('█'*60)
+            print('█  ⚠️  请登录后立即修改默认密码！'.center(56) + '█')
+            print('█'*60 + '\n')
+
+        except Exception as e:
+            print(f'\n❌ 自动创建管理员失败: {e}')
+            print('   请手动执行: python run.py create-admin <email> <password> <name>\n')
+
+
+def open_browser_after_delay(url: str, delay_seconds: float = 2.0):
+    """
+    在延迟后自动打开浏览器访问指定 URL
+    
+    Args:
+        url: 要访问的 URL（如 http://localhost:5000）
+        delay_seconds: 延迟秒数（等待服务启动完成）
+    """
+    def _open():
+        import time
+        time.sleep(delay_seconds)
+        print(f'\n🌐 正在打开浏览器访问: {url}')
+        
+        try:
+            # 尝试使用系统默认浏览器
+            webbrowser.open(url, new=2)  # new=2 表示新标签页（如果支持）
+            print(f'✅ 浏览器已启动')
+        except Exception as e:
+            print(f'⚠️ 自动打开浏览器失败: {e}')
+            print(f'   请手动在浏览器中访问: {url}\n')
+    
+    # 在后台线程中执行，不阻塞主进程
+    thread = threading.Thread(target=_open, daemon=True)
+    thread.start()
+
+
 def shell():
     with app.app_context():
         from app.extensions import db
@@ -191,6 +284,15 @@ if __name__ == '__main__':
 
     # 初始化打包模式（静态文件服务 + Redis 管理）
     initialize_packaging_mode(app, realtime_enabled=enable_realtime)
+
+    # 确保默认管理员账号存在（自动创建）
+    ensure_default_admin_exists()
+
+    if is_packaged:
+        # 自动打开浏览器访问服务地址
+        host1 = os.environ.get('FLASK_HOST', 'localhost')
+        service_url = f'http://{host1}:{port}'
+        open_browser_after_delay(service_url, delay_seconds=2.0)
 
     try:
         if enable_realtime:

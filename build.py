@@ -13,7 +13,7 @@ import platform
 from pathlib import Path
 from datetime import datetime
 
-VERSION = "1.2.3"
+VERSION = "1.3.0"
 PROJECT_NAME = "SmartTable"
 PROJECT_ROOT = Path(__file__).parent.absolute()
 FRONTEND_DIR = PROJECT_ROOT / "smart-table"
@@ -112,14 +112,26 @@ def build_backend(platform):
     t = time.time()
     for d in [PROJECT_ROOT / 'build', PROJECT_ROOT / 'dist']:
         if d.exists(): shutil.rmtree(d)
-    exe = f'{PROJECT_NAME}_{platform}'
+    # PyInstaller .spec 文件中定义的 name 是 'SmartTable'（不带平台后缀）
+    exe_name = 'SmartTable'  # 与 smarttable.spec 中的 name 保持一致
     cmd = [sys.executable, '-m', 'PyInstaller', '--clean', '-y', str(SPEC_FILE)]
-    # 注意：--onefile, --name, --windowed 等选项已在 .spec 文件中定义
-    # 如果需要修改平台特定选项，请编辑 smarttable.spec 文件
     run_command(cmd)
+    
     ext = '.exe' if platform == 'windows' else ''
-    out = PROJECT_ROOT / 'dist' / f'{exe}{ext}'
-    if not out.exists(): log(f'❌ 构建失败: {out}', 'ERROR'); sys.exit(1)
+    out = PROJECT_ROOT / 'dist' / f'{exe_name}{ext}'
+    if not out.exists(): 
+        # 尝试查找可能的变体
+        candidates = list(PROJECT_ROOT.glob(f'dist/*{ext}')) or list(PROJECT_ROOT.glob(f'dist/{PROJECT_NAME}*{ext}'))
+        if candidates:
+            out = candidates[0]
+            log(f'⚠️ 找到替代文件: {out.name}', 'WARNING')
+        else:
+            log(f'❌ 构建失败: 未找到可执行文件 (期望: {out})', 'ERROR')
+            log(f'   dist/ 目录内容:', 'ERROR')
+            if PROJECT_ROOT.exists('dist'):
+                for f in PROJECT_ROOT.iterdir():
+                    if f.is_file(): log(f'     - {f.name} ({f.stat().st_size/1e6:.1f} MB)', 'ERROR')
+            sys.exit(1)
     size = out.stat().st_size / (1024*1024)
     log(f'✅ 后端完成 ({time.time()-t:.1f}s, {size:.1f} MB) -> {out}', 'SUCCESS')
 
@@ -132,11 +144,21 @@ def prepare_release_package(platform):
 
     # 复制主程序
     ext = '.exe' if platform == 'windows' else ''
-    # .spec 文件中的 name 是 'SmartTable'，不是 'SmartTable_windows'
-    src = PROJECT_ROOT / 'dist' / f'SmartTable{ext}'
+    # .spec 文件中的 name 是 'SmartTable'（不带平台后缀），与 build_backend 函数保持一致
+    exe_name = 'SmartTable'
+    src = PROJECT_ROOT / 'dist' / f'{exe_name}{ext}'
+    
     if not src.exists():
-        log(f'❌ 未找到构建产物: {src}', 'ERROR')
-        sys.exit(1)
+        # 智能查找：尝试匹配任何 exe 文件
+        candidates = list(PROJECT_ROOT.glob(f'dist/*{ext}'))
+        if candidates:
+            src = candidates[0]
+            log(f'⚠️ 使用替代文件: {src.name}', 'WARNING')
+        else:
+            log(f'❌ 未找到构建产物: {src}', 'ERROR')
+            log(f'   请先运行: python build.py {platform}', 'ERROR')
+            return
+    
     shutil.copy2(src, release_subdir / info['exe_name'])
     log(f'  主程序: {info["exe_name"]} ({src.stat().st_size/1e6:.1f} MB)')
 

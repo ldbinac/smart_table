@@ -94,3 +94,11 @@ tools/redis-windows/redis-server.exe
 
 # Documentation directory
 docs/
+
+# build directory
+tools/redis-windows/
+tools/redis-linux/
+release/
+dist/
+data/
+build/
