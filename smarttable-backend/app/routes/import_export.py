@@ -740,7 +740,7 @@ def create_table_from_excel() -> tuple:
                             if len(unique_values) >= 20:
                                 break
                     
-                    choices = [{'name': v, 'color': _get_option_color(i)} 
+                    choices = [{'id': v, 'name': v, 'color': _get_option_color(i)}
                               for i, v in enumerate(unique_values)]
                     # 选项需要包装在 choices 数组中
                     field_config['options'] = {'choices': choices}
