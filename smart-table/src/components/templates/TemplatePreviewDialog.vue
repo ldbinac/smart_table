@@ -319,13 +319,21 @@ const kanbanGroupField = computed(() => {
 
 const kanbanGroups = computed(() => {
   if (!kanbanGroupField.value) return [];
-  
+
   const field = kanbanGroupField.value;
-  const options = (field.options as { options?: { name: string; color: string }[] })?.options || [];
   
-  return options.map(opt => ({
+  // ✅ 修复：支持两种格式 - choices（标准格式）和 options（兼容旧格式）
+  const choices = (field.options as { choices?: { name: string; color: string }[] })?.choices || [];
+  const options = (field.options as { options?: { name: string; color: string }[] })?.options || [];
+  const allOptions = choices.length > 0 ? choices : options;
+  
+  if (allOptions.length === 0) return [];
+
+  // 添加"未分组"列
+  const groups = allOptions.map(opt => ({
     id: opt.name,
     name: opt.name,
+    color: opt.color,
     records: currentRecords.value.filter(r => {
       const value = r.values[field.id];
       if (Array.isArray(value)) {
@@ -334,6 +342,24 @@ const kanbanGroups = computed(() => {
       return value === opt.name;
     }),
   }));
+
+  // 找出未分组的记录
+  const groupedRecordIds = new Set<string>();
+  groups.forEach(group => {
+    group.records.forEach((r: TemplateRecord) => groupedRecordIds.add(r.id));
+  });
+
+  const ungroupedRecords = currentRecords.value.filter(r => !groupedRecordIds.has(r.id));
+  if (ungroupedRecords.length > 0) {
+    groups.push({
+      id: 'uncategorized',
+      name: '未分组',
+      color: '#909399',
+      records: ungroupedRecords,
+    });
+  }
+
+  return groups;
 });
 
 const getDateFieldName = computed(() => {
@@ -380,8 +406,12 @@ const getSelectValues = (value: unknown, _field: TemplateField): string[] => {
 };
 
 const getSelectColor = (value: string, field: TemplateField): string => {
-  const options = (field.options as { choices?: { name: string; color: string }[] })?.choices || [];
-  const option = options.find(o => o.name === value);
+  // ✅ 修复：支持两种格式 - choices（标准格式）和 options（兼容旧格式）
+  const choices = (field.options as { choices?: { name: string; color: string }[] })?.choices || [];
+  const options = (field.options as { options?: { name: string; color: string }[] })?.options || [];
+  const allOptions = choices.length > 0 ? choices : options;
+  
+  const option = allOptions.find(o => o.name === value);
   return option?.color || "#909399";
 };
 
