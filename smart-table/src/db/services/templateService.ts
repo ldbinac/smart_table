@@ -27,6 +27,9 @@ export interface CreateTemplateProgress {
 }
 
 export class TemplateService {
+  // 选项名称到新ID的映射（用于转换样例数据）
+  private optionNameToIdMap: Map<string, Map<string, string>> = new Map();
+
   async createBaseFromTemplate(
     template: TableTemplate,
     onProgress?: (progress: CreateTemplateProgress) => void,
@@ -434,13 +437,34 @@ export class TemplateService {
       ) {
         const frontendOptions = (backendOptions as any).options;
         if (Array.isArray(frontendOptions)) {
-          backendOptions = {
-            options: frontendOptions.map((opt: any) => ({
-              id: opt.name,
+          // 建立选项名称到新ID的映射（用于转换样例数据）
+          const nameToIdMap = new Map<string, string>();
+
+          const mappedOptions = frontendOptions.map((opt: any) => {
+            // 使用选项名称作为新的 ID（确保 id 和 name 一致）
+            const newId = opt.name;
+            // 建立映射：原始名称 → 新 ID
+            nameToIdMap.set(opt.name, newId);
+            return {
+              id: newId,
               name: opt.name,
               color: opt.color,
-            })),
+            };
+          });
+
+          // 保存该字段的选项映射（使用模板字段 ID 作为 key）
+          this.optionNameToIdMap.set(templateField.id, nameToIdMap);
+
+          // ✅ 关键修复：后端期望 'choices' 键，不是 'options'
+          backendOptions = {
+            choices: mappedOptions,
           } as any;
+
+          console.log(`[TemplateService] 字段 "${templateField.name}" 选项处理:`);
+          console.log(`  - 原始选项:`, JSON.stringify(frontendOptions, null, 2));
+          console.log(`  - 映射后选项:`, JSON.stringify(mappedOptions, null, 2));
+          console.log(`  - 发送后端格式:`, JSON.stringify(backendOptions, null, 2));
+          console.log(`  - 名称→ID映射:`, Object.fromEntries(nameToIdMap));
         }
       }
 
@@ -448,7 +472,7 @@ export class TemplateService {
       if (backendType === "link" && backendOptions) {
         const options = backendOptions as Record<string, unknown>;
         const linkedTableId = options.linkedTableId as string;
-        
+
         // 映射 linkedTableId 到实际表ID
         let targetTableId = linkedTableId;
         if (linkedTableId && tableIdMap.has(linkedTableId)) {
@@ -476,6 +500,37 @@ export class TemplateService {
         is_primary: templateField.isPrimary,
         is_required: templateField.isRequired,
       });
+
+      // 🎯 关键修复：使用后端返回的真实选项ID更新映射！
+      if (
+        (backendType === "single_select" || backendType === "multi_select") &&
+        apiField.options
+      ) {
+        const returnedChoices = (apiField.options as any).choices;
+        if (Array.isArray(returnedChoices)) {
+          // 从后端返回的数据中提取真实的选项ID
+          const realOptionMap = new Map<string, string>();
+          returnedChoices.forEach((choice: any) => {
+            if (choice.name && choice.id) {
+              realOptionMap.set(choice.name, choice.id);  // 名称 → 真实ID
+            }
+          });
+
+          // 用真实的映射覆盖之前建立的映射
+          if (realOptionMap.size > 0) {
+            this.optionNameToIdMap.set(templateField.id, realOptionMap);
+            console.log(`[TemplateService] ✅ 更新字段 "${templateField.name}" 的真实选项映射:`);
+            console.log(`  - 后端返回的choices:`, JSON.stringify(returnedChoices, null, 2));
+            console.log(`  - 真实映射(名称→ID):`, Object.fromEntries(realOptionMap));
+          }
+        }
+      }
+
+      // 📝 诊断日志：打印后端返回的实际字段数据
+      console.log(`[TemplateService] 后端返回字段 "${templateField.name}":`);
+      console.log(`  - 字段 ID: ${apiField.id}`);
+      console.log(`  - 实际 options:`, JSON.stringify(apiField.options, null, 2));
+
       fieldIdMap.set(templateField.id, apiField.id);
     }
   }
@@ -556,14 +611,50 @@ export class TemplateService {
         )) {
           const newFieldId = fieldIdMap.get(oldFieldId);
           if (newFieldId) {
-            newValues[newFieldId] = value;
+            // 检查是否是单选/多选字段，需要转换选项值
+            const optionNameMap = this.optionNameToIdMap.get(oldFieldId);
+            if (optionNameMap) {
+              // 单选字段：将选项名称转换为新的选项 ID
+              if (typeof value === 'string' && optionNameMap.has(value)) {
+                const convertedValue = optionNameMap.get(value)!;
+                newValues[newFieldId] = convertedValue;
+                console.log(`[TemplateService] 记录值转换 (单选): "${value}" → "${convertedValue}"`);
+              }
+              // 多选字段：将选项名称数组转换为新的选项 ID 数组
+              else if (Array.isArray(value)) {
+                const convertedArray = value
+                  .filter((v: unknown) => typeof v === 'string')
+                  .map((v: string) => optionNameMap.get(v) || v);
+                newValues[newFieldId] = convertedArray;
+                console.log(`[TemplateService] 记录值转换 (多选):`, value, '→', convertedArray);
+              }
+              else {
+                // 无法转换，保留原值
+                newValues[newFieldId] = value;
+                console.log(`[TemplateService] 无法转换值 (类型不匹配):`, typeof value, value);
+              }
+            } else {
+              // 非选择类型字段，直接使用原值
+              newValues[newFieldId] = value;
+            }
           }
         }
+        
+        // 📝 诊断日志：打印每条记录的完整转换结果
+        console.log(`[TemplateService] 记录转换完成:`);
+        console.log(`  - 原始值:`, templateRecord.values);
+        console.log(`  - 转换后:`, newValues);
+        
         return { values: newValues };
       });
 
+      console.log(`[TemplateService] 准备批量插入 ${recordsData.length} 条记录...`);
       await recordApiService.batchCreateRecords(tableId, recordsData);
+      console.log(`[TemplateService] ✅ 记录插入完成`);
     }
+
+    // 清空选项映射（避免影响下次模板创建）
+    this.optionNameToIdMap.clear();
   }
 }
 
