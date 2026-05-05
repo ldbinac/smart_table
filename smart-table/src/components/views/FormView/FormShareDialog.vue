@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { Share, Plus, CopyDocument } from "@element-plus/icons-vue";
 import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type FieldTypeValue } from "@/types";
@@ -66,12 +67,22 @@ const availableFields = computed(() => {
   );
 });
 
+// 计算属性：有效分享数量
+const activeSharesCount = computed(() => {
+  return existingShares.value.filter(s => s.is_active && !s.is_expired && !s.is_reached_limit).length;
+});
+
+// 计算属性：总提交数
+const totalSubmissions = computed(() => {
+  return existingShares.value.reduce((sum, s) => sum + (s.current_submissions || 0), 0);
+});
+
 // 监听对话框打开
 watch(
   () => props.visible,
   (val) => {
     if (val) {
-      currentStep.value = 1;
+      currentStep.value = 0;  // 从步骤0（已分享表单）开始
       resetForm();
       loadExistingShares();
     }
@@ -146,7 +157,7 @@ async function createShare() {
     ElMessage.success("表单分享创建成功");
     emit("created", result);
 
-    // 进入下一步
+    // 进入下一步（获取链接）
     currentStep.value = 2;
   } catch (error: any) {
     console.error("创建表单分享失败:", error);
@@ -232,6 +243,18 @@ function closeDialog() {
   dialogVisible.value = false;
 }
 
+// 跳转到创建分享步骤
+function goToCreateShare() {
+  currentStep.value = 1;  // 步骤1：配置表单
+  resetForm();
+}
+
+// 跳转到分享列表步骤
+function goToSharesList() {
+  currentStep.value = 0;  // 步骤0：已分享表单
+  loadExistingShares();   // 刷新列表
+}
+
 // 复制现有分享链接
 function copyExistingShareUrl(share: FormShareConfig) {
   const shareUrl = `${window.location.origin}/#/form/${share.share_token}`;
@@ -255,11 +278,100 @@ function copyExistingShareUrl(share: FormShareConfig) {
     :close-on-click-modal="false"
     destroy-on-close>
     <el-steps :active="currentStep" finish-status="success" class="mb-4">
+      <el-step title="已分享表单" />
       <el-step title="配置表单" />
       <el-step title="获取链接" />
     </el-steps>
 
-    <!-- 步骤1：配置表单 -->
+    <!-- 步骤1：已分享表单 -->
+    <div v-if="currentStep === 0" class="step-content">
+      <div class="shares-header">
+        <h3 class="shares-title">当前表单的所有分享记录</h3>
+        <p class="shares-description">您可以查看、管理已有的分享，或创建新的分享链接</p>
+      </div>
+
+      <div v-if="isLoadingList" class="text-center py-4">
+        <el-loading :visible="true" />
+      </div>
+
+      <el-empty
+        v-else-if="existingShares.length === 0"
+        description="暂无表单分享"
+        :image-size="80">
+        <template #image>
+          <el-icon :size="60" color="#c0c4cc"><Share /></el-icon>
+        </template>
+        <template #description>
+          <p style="color: #909399; margin-top: 8px;">还没有创建任何分享</p>
+          <p style="color: #b0b3b8; font-size: 13px;">点击下方按钮创建第一个分享链接</p>
+        </template>
+      </el-empty>
+
+      <div v-else class="shares-list">
+        <el-table :data="existingShares" size="default" class="share-table" stripe>
+          <el-table-column prop="title" label="分享标题" min-width="140" show-overflow-tooltip />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row)" size="small" effect="light">
+                {{ getStatusText(row) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="提交数" width="100">
+            <template #default="{ row }">
+              <span class="submission-count">{{ row.current_submissions }}</span>
+              <span v-if="row.max_submissions" class="submission-limit">/ {{ row.max_submissions }}</span>
+              <span v-else class="submission-unlimited">/ 无限制</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="过期时间" min-width="140">
+            <template #default="{ row }">
+              {{ formatDate(row.expires_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                v-if="row.can_submit"
+                link
+                type="primary"
+                size="small"
+                @click="copyExistingShareUrl(row)">
+                复制链接
+              </el-button>
+              <el-button
+                link
+                :type="row.is_active ? 'warning' : 'success'"
+                size="small"
+                @click="toggleShareStatus(row)">
+                {{ row.is_active ? "停用" : "启用" }}
+              </el-button>
+              <el-button
+                link
+                type="danger"
+                size="small"
+                @click="deleteShare(row.id)">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="shares-summary">
+          共 <strong>{{ existingShares.length }}</strong> 个分享，
+          其中 <strong>{{ activeSharesCount }}</strong> 个有效，
+          <strong>{{ totalSubmissions }}</strong> 次提交
+        </div>
+      </div>
+
+      <div class="new-share-action">
+        <el-button type="primary" size="large" @click="goToCreateShare">
+          <el-icon><Plus /></el-icon>
+          新建分享
+        </el-button>
+      </div>
+    </div>
+      <!-- 步骤2：配置表单 -->
     <div v-if="currentStep === 1" class="step-content">
       <el-form label-position="top">
         <!-- 基本信息 -->
@@ -347,69 +459,9 @@ function copyExistingShareUrl(share: FormShareConfig) {
           </div>
         </el-form-item>
       </el-form>
-
-      <!-- 现有分享列表 -->
-      <el-divider content-position="left">现有分享</el-divider>
-
-      <div v-if="isLoadingList" class="text-center py-4">
-        <el-loading :visible="true" />
-      </div>
-
-      <el-empty
-        v-else-if="existingShares.length === 0"
-        description="暂无表单分享"
-        :image-size="60" />
-
-      <el-table v-else :data="existingShares" size="small" class="share-table">
-        <el-table-column prop="title" label="标题" min-width="120" show-overflow-tooltip />
-        <el-table-column label="状态" width="80">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row)" size="small">
-              {{ getStatusText(row) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="提交数" width="100">
-          <template #default="{ row }">
-            {{ row.current_submissions }}
-            <span v-if="row.max_submissions">/ {{ row.max_submissions }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="过期时间" min-width="120">
-          <template #default="{ row }">
-            {{ formatDate(row.expires_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              v-if="row.can_submit"
-              link
-              type="success"
-              size="small"
-              @click="copyExistingShareUrl(row)">
-              复制链接
-            </el-button>
-            <el-button
-              link
-              type="primary"
-              size="small"
-              @click="toggleShareStatus(row)">
-              {{ row.is_active ? "停用" : "启用" }}
-            </el-button>
-            <el-button
-              link
-              type="danger"
-              size="small"
-              @click="deleteShare(row.id)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
     </div>
 
-    <!-- 步骤2：获取链接 -->
+    <!-- 步骤3：获取链接 -->
     <div v-else-if="currentStep === 2" class="step-content">
       <el-result
         icon="success"
@@ -453,7 +505,8 @@ function copyExistingShareUrl(share: FormShareConfig) {
 
           <div class="mt-4">
             <el-button type="primary" @click="closeDialog">完成</el-button>
-            <el-button @click="currentStep = 1">创建新的分享</el-button>
+            <el-button @click="goToSharesList">返回分享列表</el-button>
+            <el-button type="success" plain @click="goToCreateShare">再创建一个</el-button>
           </div>
         </template>
       </el-result>
@@ -461,7 +514,7 @@ function copyExistingShareUrl(share: FormShareConfig) {
 
     <template #footer>
       <span v-if="currentStep === 1" class="dialog-footer">
-        <el-button @click="closeDialog">取消</el-button>
+        <el-button @click="goToSharesList">返回</el-button>
         <el-button
           type="primary"
           :loading="isCreating"
@@ -469,6 +522,9 @@ function copyExistingShareUrl(share: FormShareConfig) {
           @click="createShare">
           创建分享
         </el-button>
+      </span>
+      <span v-else-if="currentStep === 0" class="dialog-footer">
+        <el-button @click="closeDialog">关闭</el-button>
       </span>
     </template>
   </el-dialog>
@@ -482,6 +538,78 @@ function copyExistingShareUrl(share: FormShareConfig) {
   max-height: 60vh;
   overflow-y: auto;
   padding-right: 8px;
+}
+
+// 步骤1：已分享表单
+.shares-header {
+  margin-bottom: 24px;
+  
+  .shares-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0 0 8px 0;
+  }
+  
+  .shares-description {
+    font-size: 14px;
+    color: $text-secondary;
+    margin: 0;
+  }
+}
+
+.shares-list {
+  .share-table {
+    margin-top: 16px;
+    
+    :deep(.el-table__header th) {
+      background-color: #fafafa;
+      font-weight: 600;
+      color: $text-primary;
+    }
+  }
+  
+  .shares-summary {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background-color: #f5f7fa;
+    border-radius: $border-radius-base;
+    font-size: 13px;
+    color: $text-secondary;
+    
+    strong {
+      color: $primary-color;
+      font-weight: 600;
+    }
+  }
+}
+
+.new-share-action {
+  margin-top: 32px;
+  text-align: center;
+  padding: 24px;
+  border-top: 1px dashed $border-color;
+  
+  .el-button {
+    padding: 12px 32px;
+    font-size: 15px;
+  }
+}
+
+// 提交数显示样式
+.submission-count {
+  font-weight: 600;
+  color: $primary-color;
+}
+
+.submission-limit {
+  color: $text-secondary;
+  font-size: 13px;
+}
+
+.submission-unlimited {
+  color: #b0b3b8;
+  font-size: 13px;
 }
 
 .field-checkbox-group {
