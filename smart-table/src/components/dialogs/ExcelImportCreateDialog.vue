@@ -11,6 +11,7 @@ import {
   InfoFilled,
 } from "@element-plus/icons-vue";
 import { importExportApiService } from "@/services/api/importExportApiService";
+import { getImportableFieldTypeOptions } from "@/types/fields";
 
 interface ExcelColumn {
   name: string;
@@ -86,21 +87,8 @@ const analysisResult = ref<{
   sheet_name: string;
 } | null>(null);
 
-// 字段类型选项
-const fieldTypeOptions = [
-  { value: "single_line_text", label: "单行文本" },
-  { value: "number", label: "数字" },
-  { value: "date", label: "日期" },
-  { value: "date_time", label: "日期时间" },
-  { value: "single_select", label: "单选" },
-  { value: "multi_select", label: "多选" },
-  { value: "checkbox", label: "复选框" },
-  { value: "email", label: "邮箱" },
-  { value: "phone", label: "电话" },
-  { value: "url", label: "链接" },
-  { value: "long_text", label: "多行文本" },
-  { value: "rich_text", label: "富文本" },
-];
+// 字段类型选项（从中央模块获取，确保一致性）
+const fieldTypeOptions = getImportableFieldTypeOptions();
 
 // 创建步骤配置
 const createSteps = [

@@ -28,6 +28,8 @@ export const FieldType = {
   BARCODE: "barcode",
   COLLABORATOR: "collaborator",
   LAST_MODIFIED_BY: "last_modified_by",
+  DURATION: "duration",
+  BUTTON: "button",
 } as const;
 
 export type FieldTypeValue = (typeof FieldType)[keyof typeof FieldType];
@@ -163,32 +165,77 @@ export type CellValue =
 
 export function getFieldTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    single_line_text: "单行文本",
+    single_line_text: "文本",
     long_text: "多行文本",
     rich_text: "富文本",
     number: "数字",
+    currency: "货币",
+    percent: "百分比",
+    rating: "评分",
     date: "日期",
     date_time: "日期时间",
+    duration: "时长",
     single_select: "单选",
     multi_select: "多选",
     checkbox: "复选框",
     attachment: "附件",
     member: "成员",
-    rating: "评分",
-    progress: "进度",
+    collaborator: "协作者",
     phone: "电话",
     email: "邮箱",
     url: "链接",
-    formula: "公式",
+    link_to_record: "关联记录",
     link: "关联",
     lookup: "查找",
+    rollup: "汇总",
+    formula: "公式",
+    auto_number: "自动编号",
+    barcode: "条形码",
+    button: "按钮",
+    progress: "进度",
     created_by: "创建人",
     created_time: "创建时间",
     updated_by: "修改人",
     updated_time: "修改时间",
-    auto_number: "自动编号",
+    last_modified_by: "最后修改人",
   };
   return labels[type] || type;
+}
+
+/**
+ * 获取可用于导入/创建的字段类型选项列表
+ * 排除系统生成的字段类型（如创建人、创建时间、修改人、修改时间、自动编号等）
+ */
+export function getImportableFieldTypeOptions(): { value: string; label: string }[] {
+  const importableTypes = [
+    FieldType.SINGLE_LINE_TEXT,
+    FieldType.LONG_TEXT,
+    FieldType.RICH_TEXT,
+    FieldType.NUMBER,
+    FieldType.CURRENCY,
+    FieldType.PERCENT,
+    FieldType.RATING,
+    FieldType.DATE,
+    FieldType.DATE_TIME,
+    FieldType.DURATION,
+    FieldType.SINGLE_SELECT,
+    FieldType.MULTI_SELECT,
+    FieldType.CHECKBOX,
+    FieldType.ATTACHMENT,
+    FieldType.MEMBER,
+    FieldType.COLLABORATOR,
+    FieldType.PHONE,
+    FieldType.EMAIL,
+    FieldType.URL,
+    FieldType.BARCODE,
+    FieldType.BUTTON,
+    FieldType.PROGRESS,
+  ];
+
+  return importableTypes.map((type) => ({
+    value: type,
+    label: getFieldTypeLabel(type),
+  }));
 }
 
 // export function getFieldTypeIcon(type: string): string {

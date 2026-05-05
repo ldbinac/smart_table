@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import type { FieldEntity } from "@/db/schema";
 import { ElMessage } from "element-plus";
+import { getFieldTypeLabel } from "@/types/fields";
 
 interface FormConfig {
   title: string;
@@ -143,27 +144,7 @@ function getFieldName(fieldId: string): string {
 }
 
 // 获取字段类型标签
-function getFieldTypeLabel(type: string): string {
-  const typeMap: Record<string, string> = {
-    text: "文本",
-    number: "数字",
-    date: "日期",
-    single_select: "单选",
-    multi_select: "多选",
-    checkbox: "复选框",
-    attachment: "附件",
-    member: "成员",
-    rating: "评分",
-    progress: "进度",
-    phone: "电话",
-    email: "邮箱",
-    url: "链接",
-    link: "关联",
-    lookup: "查找",
-    formula: "公式",
-  };
-  return typeMap[type] || type;
-}
+
 </script>
 
 <template>

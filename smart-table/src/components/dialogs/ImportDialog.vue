@@ -19,6 +19,7 @@ import {
   type ParsedFileData,
   type FieldMapping,
 } from "@/utils/importExport";
+import { getFieldTypeLabel } from "@/types/fields";
 import { exportTemplate } from "@/utils/templateGenerator";
 import { useTableStore } from "@/stores/tableStore";
 
@@ -62,41 +63,6 @@ const importResult = ref<{
 const availableFields = computed(() => {
   return props.fields.filter((f) => !f.isSystem);
 });
-
-// 获取字段类型标签
-function getFieldTypeLabel(type: string): string {
-  const typeMap: Record<string, string> = {
-    single_line_text: "文本",
-    long_text: "多行文本",
-    rich_text: "富文本",
-    number: "数字",
-    currency: "货币",
-    percent: "百分比",
-    rating: "评分",
-    date: "日期",
-    date_time: "日期时间",
-    duration: "时长",
-    single_select: "单选",
-    multi_select: "多选",
-    checkbox: "复选框",
-    attachment: "附件",
-    member: "成员",
-    collaborator: "协作者",
-    phone: "电话",
-    email: "邮箱",
-    url: "链接",
-    link_to_record: "关联记录",
-    lookup: "查找",
-    rollup: "汇总",
-    formula: "公式",
-    auto_number: "自动编号",
-    barcode: "条形码",
-    button: "按钮",
-    progress: "进度",
-    link: "关联",
-  };
-  return typeMap[type] || type;
-}
 
 // 文件上传处理
 async function handleFileChange(file: File) {
@@ -502,8 +468,8 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
     <!-- 步骤 2: 字段映射 -->
     <div v-if="currentStep === 2" class="step-content">
       <div class="mapping-section">
-        <h4>字段映射配置</h4>
         <p class="mapping-hint">
+        <span style="font-weight: bolder;">字段映射配置&nbsp;</span>
           将文件中的列映射到表格字段，未映射的列将被忽略
         </p>
 
@@ -543,8 +509,8 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
     <!-- 步骤 3: 数据预览 -->
     <div v-if="currentStep === 3" class="step-content">
       <div class="preview-section">
-        <h4>数据预览（前 5 行）</h4>
         <p class="preview-hint">
+        <span style="font-weight: bold;">数据预览（前 5 行）</span>
           预览导入数据，确认数据格式正确
         </p>
         <div class="preview-table-wrapper">
@@ -552,20 +518,22 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
             :data="previewData"
             border
             size="small"
+            height="300"
             class="preview-table">
-            <el-table-column type="index" label="行号" width="60" />
+            <el-table-column type="index" label="行号" width="30" fixed />
             <el-table-column
               v-for="field in mappedFields"
               :key="field.id"
               :prop="`displayData.${field.id}`"
-              :label="`${field.name} (${getFieldTypeLabel(field.type)})`">
+              :label="`${field.name} (${getFieldTypeLabel(field.type)})`"
+              show-overflow-tooltip>
               <template #default="{ row }">
                 <span :class="{ 'error-cell': row.errors.length > 0 }">
                   {{ row.displayData[field.id] ?? "-" }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column label="验证" width="100">
+            <el-table-column label="验证结果" width="100" fixed="right">
               <template #default="{ row }">
                 <el-tag
                   v-if="row.errors.length === 0"
@@ -806,8 +774,7 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
 }
 
 .preview-table-wrapper {
-  max-height: 250px;
-  overflow: auto;
+  overflow: visible;
 }
 
 .preview-table {
