@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="分享 Base"
+    title="分享多维表Base"
     width="700px"
     :close-on-click-modal="false"
     class="base-share-dialog">
