@@ -38,7 +38,7 @@ const tableStore = useTableStore();
 
 // 当前步骤
 const currentStep = ref(1);
-const totalSteps = 3;
+const totalSteps = 4;
 
 // 文件相关
 const uploadedFile = ref<File | null>(null);
@@ -240,7 +240,7 @@ async function handleImport() {
     }
 
     importResult.value = result;
-    currentStep.value = 3;
+    currentStep.value = 4;
 
     if (result.success > 0) {
       ElMessage.success(`成功导入 ${result.success} 条记录`);
@@ -277,6 +277,10 @@ function nextStep() {
       ElMessage.warning("请至少配置一个字段映射");
       return;
     }
+  } else if (currentStep.value === 3) {
+    // 数据预览步骤，点击开始导入
+    handleImport();
+    return;
   }
 
   if (currentStep.value < totalSteps) {
@@ -353,6 +357,7 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
       class="import-steps">
       <el-step title="选择文件" />
       <el-step title="字段映射" />
+      <el-step title="数据预览" />
       <el-step title="导入完成" />
     </el-steps>
 
@@ -457,10 +462,15 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
           </el-table-column>
         </el-table>
       </div>
+    </div>
 
-      <!-- 数据预览 -->
-      <div v-if="previewData.length > 0" class="preview-section">
+    <!-- 步骤 3: 数据预览 -->
+    <div v-if="currentStep === 3" class="step-content">
+      <div class="preview-section">
         <h4>数据预览（前 5 行）</h4>
+        <p class="preview-hint">
+          预览导入数据，确认数据格式正确
+        </p>
         <div class="preview-table-wrapper">
           <el-table
             :data="previewData"
@@ -500,8 +510,8 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
       </div>
     </div>
 
-    <!-- 步骤 3: 导入完成 -->
-    <div v-if="currentStep === 3" class="step-content">
+    <!-- 步骤 4: 导入完成 -->
+    <div v-if="currentStep === 4" class="step-content">
       <div v-if="importResult" class="result-section">
         <el-result
           :icon="
@@ -566,7 +576,7 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
     <!-- 底部按钮 -->
     <template #footer>
       <div class="dialog-footer">
-        <el-button v-if="currentStep > 1 && currentStep < 3" @click="prevStep">
+        <el-button v-if="currentStep > 1 && currentStep < 4" @click="prevStep">
           <el-icon><ArrowLeft /></el-icon>
           上一步
         </el-button>
@@ -583,9 +593,17 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
         <el-button
           v-if="currentStep === 2"
           type="primary"
-          @click="handleImport"
-          :loading="isImporting"
+          @click="nextStep"
           :disabled="fieldMappings.filter((m) => m.targetFieldId).length === 0">
+          下一步
+          <el-icon><ArrowRight /></el-icon>
+        </el-button>
+
+        <el-button
+          v-if="currentStep === 3"
+          type="primary"
+          @click="nextStep"
+          :loading="isImporting">
           开始导入
         </el-button>
       </div>
@@ -699,9 +717,15 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
 
 .preview-section {
   h4 {
-    margin: 0 0 16px;
+    margin: 0 0 8px;
     font-size: $font-size-base;
     color: $text-primary;
+  }
+
+  .preview-hint {
+    margin: 0 0 16px;
+    color: $text-secondary;
+    font-size: $font-size-sm;
   }
 }
 
