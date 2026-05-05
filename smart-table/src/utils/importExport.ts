@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { FieldEntity } from '@/db/schema';
-import { FieldType, type CellValue, type FieldTypeValue } from '@/types';
+import { FieldType, type CellValue, type FieldTypeValue, type FieldOption } from '@/types';
 
 export interface ParsedFileData {
   data: Record<string, any>[];
@@ -224,13 +224,60 @@ export function autoMatchFields(
 }
 
 /**
- * 转换值为目标字段类型
+ * 获取字段的选项列表
  */
-export function convertValue(value: any, targetType: FieldTypeValue): CellValue {
+export function getFieldOptions(field?: FieldEntity): FieldOption[] {
+  if (!field || !field.options) return [];
+  return (field.options.choices || field.options.options || []) as FieldOption[];
+}
+
+/**
+ * 将选项名称转换为选项ID
+ */
+function findOptionIdByName(options: FieldOption[], name: string): string | null {
+  const trimmedName = name.trim();
+  if (!trimmedName) return null;
+
+  // 首先尝试精确匹配（不区分大小写）
+  const exactMatch = options.find(
+    (opt) => opt.name.toLowerCase() === trimmedName.toLowerCase()
+  );
+  if (exactMatch) return exactMatch.id;
+
+  // 然后尝试包含匹配
+  const partialMatch = options.find(
+    (opt) =>
+      opt.name.toLowerCase().includes(trimmedName.toLowerCase()) ||
+      trimmedName.toLowerCase().includes(opt.name.toLowerCase())
+  );
+  if (partialMatch) return partialMatch.id;
+
+  return null;
+}
+
+/**
+ * 将选项ID转换为选项名称
+ */
+export function findOptionNameById(options: FieldOption[], id: string): string | null {
+  const option = options.find((opt) => opt.id === id);
+  return option?.name ?? null;
+}
+
+/**
+ * 转换值为目标字段类型
+ * @param value 原始值
+ * @param targetType 目标字段类型
+ * @param field 字段定义（用于单选/多选字段的选项映射）
+ */
+export function convertValue(
+  value: any,
+  targetType: FieldTypeValue,
+  field?: FieldEntity
+): CellValue {
   if (value === null || value === undefined || value === '') {
     return null;
   }
-  
+
   switch (targetType) {
     case FieldType.SINGLE_LINE_TEXT:
     case FieldType.LONG_TEXT:
@@ -239,14 +286,15 @@ export function convertValue(value: any, targetType: FieldTypeValue): CellValue 
     case FieldType.EMAIL:
     case FieldType.PHONE:
       return String(value);
-      
+
     case FieldType.NUMBER:
     case FieldType.RATING:
     case FieldType.PROGRESS:
       const num = Number(value);
       return isNaN(num) ? null : num;
-      
+
     case FieldType.DATE:
+    case FieldType.DATE_TIME:
       // 处理多种日期格式
       if (typeof value === 'number') {
         // Excel 日期序列号
@@ -262,7 +310,7 @@ export function convertValue(value: any, targetType: FieldTypeValue): CellValue 
         return isNaN(date.getTime()) ? null : date.getTime();
       }
       return null;
-      
+
     case FieldType.CHECKBOX:
       if (typeof value === 'boolean') return value;
       if (typeof value === 'string') {
@@ -270,18 +318,59 @@ export function convertValue(value: any, targetType: FieldTypeValue): CellValue 
       }
       if (typeof value === 'number') return value !== 0;
       return false;
-      
-    case FieldType.SINGLE_SELECT:
-      return String(value);
-      
-    case FieldType.MULTI_SELECT:
-      if (Array.isArray(value)) return value.map(String);
-      if (typeof value === 'string') {
-        // 尝试解析为数组（逗号分隔）
-        return value.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+
+    case FieldType.SINGLE_SELECT: {
+      const strValue = String(value).trim();
+      if (!strValue) return null;
+
+      const options = getFieldOptions(field);
+      if (options.length === 0) {
+        // 没有选项定义时，如果值看起来像ID则直接使用
+        return strValue;
       }
-      return [String(value)];
-      
+
+      // 首先检查值是否已经是有效的选项ID
+      const existingOption = options.find((opt) => opt.id === strValue);
+      if (existingOption) return strValue;
+
+      // 尝试按名称查找选项ID
+      const optionId = findOptionIdByName(options, strValue);
+      return optionId || strValue;
+    }
+
+    case FieldType.MULTI_SELECT: {
+      const options = getFieldOptions(field);
+
+      // 将输入值标准化为字符串数组
+      let valueNames: string[];
+      if (Array.isArray(value)) {
+        valueNames = value.map((v) => String(v).trim()).filter(Boolean);
+      } else if (typeof value === 'string') {
+        // 尝试解析为数组（逗号分隔）
+        valueNames = value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+      } else {
+        valueNames = [String(value).trim()].filter(Boolean);
+      }
+
+      if (valueNames.length === 0) return null;
+
+      if (options.length === 0) {
+        // 没有选项定义时，如果值看起来像ID则直接使用
+        return valueNames;
+      }
+
+      // 将每个值转换为选项ID
+      return valueNames.map((name) => {
+        // 首先检查是否已经是有效的选项ID
+        const existingOption = options.find((opt) => opt.id === name);
+        if (existingOption) return name;
+
+        // 尝试按名称查找选项ID
+        const optionId = findOptionIdByName(options, name);
+        return optionId || name;
+      });
+    }
+
     default:
       return String(value);
   }
@@ -289,10 +378,14 @@ export function convertValue(value: any, targetType: FieldTypeValue): CellValue 
 
 /**
  * 将导入数据行转换为记录值
+ * @param rowData 行数据
+ * @param fieldMappings 字段映射
+ * @param fields 字段定义列表（用于单选/多选字段的选项映射）
  */
 export function convertImportData(
   rowData: Record<string, any>,
-  fieldMappings: FieldMapping[]
+  fieldMappings: FieldMapping[],
+  fields?: FieldEntity[]
 ): Record<string, CellValue> {
   const result: Record<string, CellValue> = {};
 
@@ -303,7 +396,9 @@ export function convertImportData(
     }
     if (mapping.targetFieldId && mapping.targetFieldType) {
       const value = rowData[mapping.sourceColumn];
-      result[mapping.targetFieldId] = convertValue(value, mapping.targetFieldType);
+      // 查找字段定义以支持单选/多选选项映射
+      const field = fields?.find((f) => f.id === mapping.targetFieldId);
+      result[mapping.targetFieldId] = convertValue(value, mapping.targetFieldType, field);
     }
   });
 
@@ -318,39 +413,66 @@ export function validateRow(
   fields: FieldEntity[]
 ): ValidationResult {
   const errors: string[] = [];
-  
+
   fields.forEach((field) => {
+    const value = rowData[field.id];
+
     if (field.options?.required) {
-      const value = rowData[field.id];
-      if (value === null || value === undefined || value === '' || 
+      if (value === null || value === undefined || value === '' ||
           (Array.isArray(value) && value.length === 0)) {
         errors.push(`${field.name} 为必填项`);
       }
     }
-    
+
     // 验证邮箱格式
-    if (field.type === FieldType.EMAIL && rowData[field.id]) {
-      const email = String(rowData[field.id]);
+    if (field.type === FieldType.EMAIL && value) {
+      const email = String(value);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         errors.push(`${field.name} 格式不正确`);
       }
     }
-    
+
     // 验证手机格式
-    if (field.type === FieldType.PHONE && rowData[field.id]) {
-      const phone = String(rowData[field.id]);
+    if (field.type === FieldType.PHONE && value) {
+      const phone = String(value);
       if (!/^1[3-9]\d{9}$/.test(phone)) {
         errors.push(`${field.name} 格式不正确`);
       }
     }
-    
+
     // 验证 URL 格式
-    if (field.type === FieldType.URL && rowData[field.id]) {
-      const url = String(rowData[field.id]);
+    if (field.type === FieldType.URL && value) {
+      const url = String(value);
       try {
         new URL(url);
       } catch {
         errors.push(`${field.name} 格式不正确`);
+      }
+    }
+
+    // 验证单选字段值是否为有效选项ID
+    if (field.type === FieldType.SINGLE_SELECT && value) {
+      const options = getFieldOptions(field);
+      if (options.length > 0) {
+        const strValue = String(value);
+        const validOption = options.find((opt) => opt.id === strValue);
+        if (!validOption) {
+          errors.push(`${field.name} 的值不是有效的选项`);
+        }
+      }
+    }
+
+    // 验证多选字段值是否均为有效选项ID
+    if (field.type === FieldType.MULTI_SELECT && value) {
+      const options = getFieldOptions(field);
+      if (options.length > 0 && Array.isArray(value)) {
+        const invalidValues = value.filter((v) => {
+          const strV = String(v);
+          return !options.find((opt) => opt.id === strV);
+        });
+        if (invalidValues.length > 0) {
+          errors.push(`${field.name} 包含无效选项: ${invalidValues.join(', ')}`);
+        }
       }
     }
   });

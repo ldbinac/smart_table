@@ -9,12 +9,13 @@ import {
   ArrowDown,
 } from "@element-plus/icons-vue";
 import type { FieldEntity } from "@/db/schema";
-import type { CellValue } from "@/types";
 import {
   parseFile,
   autoMatchFields,
   convertImportData,
   validateRow,
+  getFieldOptions,
+  findOptionNameById,
   type ParsedFileData,
   type FieldMapping,
 } from "@/utils/importExport";
@@ -141,25 +142,88 @@ function handleMappingChange(index: number, fieldId: string | null) {
   }
 }
 
+// 格式化日期时间戳为可读字符串
+function formatDateValue(timestamp: number, includeTime: boolean): string {
+  if (!timestamp || isNaN(timestamp)) return "-";
+
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return "-";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  if (!includeTime) {
+    return `${year}-${month}-${day}`;
+  }
+
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// 生成预览显示值（将单选/多选ID转换为名称，日期格式化为可读格式）
+function generateDisplayData(
+  convertedRow: Record<string, any>,
+  fields: FieldEntity[]
+): Record<string, string> {
+  const displayData: Record<string, string> = {};
+
+  fields.forEach((field) => {
+    const value = convertedRow[field.id];
+    if (value === null || value === undefined) {
+      displayData[field.id] = "-";
+      return;
+    }
+
+    if (field.type === "single_select") {
+      const options = getFieldOptions(field);
+      const name = findOptionNameById(options, String(value));
+      displayData[field.id] = name ?? String(value);
+    } else if (field.type === "multi_select") {
+      const options = getFieldOptions(field);
+      if (Array.isArray(value)) {
+        const names = value
+          .map((v) => findOptionNameById(options, String(v)) ?? String(v))
+          .filter(Boolean);
+        displayData[field.id] = names.join(", ") || "-";
+      } else {
+        const name = findOptionNameById(options, String(value));
+        displayData[field.id] = name ?? String(value);
+      }
+    } else if (field.type === "date") {
+      displayData[field.id] = formatDateValue(Number(value), false);
+    } else if (field.type === "date_time") {
+      displayData[field.id] = formatDateValue(Number(value), true);
+    } else {
+      displayData[field.id] = String(value);
+    }
+  });
+
+  return displayData;
+}
+
 // 获取预览数据（前5行）
 const previewData = computed(() => {
   if (!parsedData.value) return [];
 
   return parsedData.value.data.slice(0, 5).map((row, rowIndex) => {
-    const convertedRow: Record<string, CellValue> = {};
-    fieldMappings.value.forEach((mapping) => {
-      if (mapping.targetFieldId) {
-        convertedRow[mapping.targetFieldId] = row[mapping.sourceColumn];
-      }
-    });
+    // 使用 convertImportData 进行完整的值转换（包括单选/多选选项ID映射）
+    const convertedRow = convertImportData(row, fieldMappings.value, availableFields.value);
 
     // 验证数据
     const validation = validateRow(convertedRow, availableFields.value);
+
+    // 生成显示值（ID转名称）
+    const displayData = generateDisplayData(convertedRow, availableFields.value);
 
     return {
       rowIndex: rowIndex + 1,
       rawData: row,
       convertedData: convertedRow,
+      displayData,
       errors: validation.errors,
     };
   });
@@ -207,8 +271,8 @@ async function handleImport() {
         const rowIndex = i + j + 1;
 
         try {
-          // 转换数据
-          const values = convertImportData(row, fieldMappings.value);
+          // 转换数据（传入字段定义以支持单选/多选选项ID映射）
+          const values = convertImportData(row, fieldMappings.value, availableFields.value);
 
           // 验证数据
           const validation = validateRow(values, availableFields.value);
@@ -481,11 +545,11 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
             <el-table-column
               v-for="field in mappedFields"
               :key="field.id"
-              :prop="`convertedData.${field.id}`"
+              :prop="`displayData.${field.id}`"
               :label="`${field.name} (${getFieldTypeLabel(field.type)})`">
               <template #default="{ row }">
                 <span :class="{ 'error-cell': row.errors.length > 0 }">
-                  {{ row.convertedData[field.id] ?? "-" }}
+                  {{ row.displayData[field.id] ?? "-" }}
                 </span>
               </template>
             </el-table-column>
