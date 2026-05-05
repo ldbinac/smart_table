@@ -572,3 +572,122 @@ def get_captcha(token: str) -> tuple:
         )
     except Exception as e:
         return error_response(f'验证码生成失败: {str(e)}', 500)
+
+
+@form_shares_bp.route('/form-shares/<token>/members/search', methods=['GET'])
+def search_members_for_form(token: str) -> tuple:
+    """
+    搜索表单所属多维表的成员（公开接口）
+    ---
+    tags:
+      - Form Shares
+    description: 用于分享表单页面的成员字段搜索（无需认证）
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: 分享令牌
+      - name: query
+        in: query
+        type: string
+        required: true
+        description: 搜索关键词（匹配用户名或邮箱）
+    responses:
+      200:
+        description: 成员列表
+        schema:
+          type: object
+          properties:
+            users:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  email:
+                    type: string
+                  avatar:
+                    type: string
+            total:
+              type: integer
+      403:
+        description: 表单分享已失效或过期
+      404:
+        description: 表单分享不存在
+    """
+    from app.models import Table, Base, BaseMember, User
+    from app.models.user import UserStatus
+    from app.extensions import db
+
+    # 验证表单分享是否有效
+    valid, form_share, error = FormShareService.validate_form_share(token)
+
+    if not valid:
+        status = 403 if '失效' in error or '过期' in error or '上限' in error else 404
+        return error_response(error, status)
+
+    # 获取搜索关键词
+    query = request.args.get('query', '').strip()
+
+    if not query:
+        return success_response(
+            data={'users': [], 'total': 0},
+            message='请输入搜索关键词'
+        )
+
+    try:
+        # 获取表格对应的 base_id
+        table = db.session.get(Table, form_share.table_id)
+        if not table:
+            return error_response('关联的表格不存在', 404)
+
+        base_id = table.base_id
+
+        # 查询该 base 的活跃成员
+        member_query = (
+            db.session.query(User)
+            .join(BaseMember, User.id == BaseMember.user_id)
+            .filter(
+                BaseMember.base_id == base_id,
+                User.status == UserStatus.ACTIVE
+            )
+        )
+
+        # 应用搜索过滤
+        search_pattern = f'%{query}%'
+        member_query = member_query.filter(
+            (User.name.ilike(search_pattern)) |
+            (User.email.ilike(search_pattern))
+        )
+
+        # 执行查询并限制结果数量
+        members = member_query.limit(20).all()
+
+        # 格式化返回数据
+        users_data = [
+            {
+                'id': str(user.id),
+                'name': user.name,
+                'email': user.email,
+                'avatar': user.avatar,
+            }
+            for user in members
+        ]
+
+        return success_response(
+            data={
+                'users': users_data,
+                'total': len(users_data)
+            },
+            message='搜索成员成功'
+        )
+
+    except Exception as e:
+        print(f'[FormShare] 搜索成员失败: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return error_response(f'搜索成员失败: {str(e)}', 500)

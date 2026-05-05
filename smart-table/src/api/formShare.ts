@@ -238,6 +238,18 @@ export const formShareApi = {
   ): Promise<SubmitFormResponse> {
     return apiClient.post(`/form-shares/${token}/submit`, data);
   },
+
+  /**
+   * 搜索表单所属多维表的成员（公开接口）
+   * @param token 分享令牌
+   * @param query 搜索关键词
+   */
+  searchMembers(
+    token: string,
+    query: string
+  ): Promise<{ users: Array<{ id: string; name: string; email: string; avatar?: string }>; total: number }> {
+    return apiClient.get(`/form-shares/${token}/members/search`, { query });
+  },
 };
 
 export default formShareApi;

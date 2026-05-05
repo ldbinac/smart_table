@@ -12,7 +12,8 @@ import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
-import MemberSelect from "@/components/common/MemberSelect.vue";
+import { Search as SearchIcon } from '@element-plus/icons-vue';
+import { useDebounceFn } from '@vueuse/core';
 
 const route = useRoute();
 const router = useRouter();
@@ -35,6 +36,50 @@ const newRecordId = ref(generateId());
 // 验证码
 const captchaCode = ref("");
 const captchaImage = ref("");
+
+// 成员搜索状态（用于成员字段）
+interface MemberOption {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
+const memberSearchResults = ref<Record<string, MemberOption[]>>({});
+const memberLoading = ref<Record<string, boolean>>({});
+
+// 搜索成员（使用分享表单专用接口）
+async function searchMembers(fieldId: string, query: string): Promise<MemberOption[]> {
+  if (!query.trim() || !shareToken.value) {
+    return [];
+  }
+  
+  console.log('[FormShare] Searching members for field:', fieldId, 'query:', query);
+  
+  memberLoading.value[fieldId] = true;
+  try {
+    const response = await formShareApi.searchMembers(shareToken.value, query.trim());
+    console.log('[FormShare] Search results:', response);
+    return response.users.map((user: any) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+    }));
+  } catch (error) {
+    console.error('[FormShare] Search members failed:', error);
+    return [];
+  } finally {
+    memberLoading.value[fieldId] = false;
+  }
+}
+
+// 防抖搜索函数
+const debouncedMemberSearch = (fieldId: string) => {
+  return useDebounceFn(async (query: string) => {
+    const results = await searchMembers(fieldId, query);
+    memberSearchResults.value[fieldId] = results;
+  }, 300);
+};
 
 // 表单配置
 const formConfig = ref({
@@ -745,15 +790,49 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
               </div>
             </template>
 
-            <!-- 联系人类型 -->
-            <template
-              v-else-if="getFieldComponentType(field) === 'collaborator'">
-              <el-input
-                :model-value="String(formValues[field.id] || '')"
-                :placeholder="`请输入${field.name}（邮箱或用户名）`"
-                @update:model-value="
-                  (val) => handleFieldChange(field.id, val)
-                " />
+            <!-- 联系人/成员类型（collaborator 和 member 都使用远程搜索） -->
+            <template v-else-if="getFieldComponentType(field) === 'collaborator' || getFieldComponentType(field) === 'member'">
+              <el-select
+                :model-value="(formValues[field.id] as string | string[] | null)"
+                :placeholder="`请选择${field.name}`"
+                filterable
+                remote
+                reserve-keyword
+                :remote-method="(query: string) => debouncedMemberSearch(field.id)(query)"
+                :loading="memberLoading[field.id]"
+                style="width: 100%"
+                clearable
+                popper-class="form-share-member-dropdown"
+                @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)">
+                <el-option
+                  v-for="option in (memberSearchResults[field.id] || [])"
+                  :key="option.id"
+                  :label="option.name"
+                  :value="option.id">
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+                    <div
+                      v-if="option.avatar"
+                      style="width: 28px; height: 28px; border-radius: 50%; overflow: hidden; flex-shrink: 0;"
+                    >
+                      <img :src="option.avatar" :alt="option.name" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>
+                    <div v-else
+                      style="width: 28px; height: 28px; border-radius: 50%; background-color: #2d7cfc; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; flex-shrink: 0;">
+                      {{ (option.name || '?').charAt(0).toUpperCase() }}
+                    </div>
+                    <div style="min-width: 0;">
+                      <div style="font-size: 14px; font-weight: 500; line-height: 1.4;">{{ option.name }}</div>
+                      <div style="font-size: 12px; color: #909399; line-height: 1.3;">{{ option.email }}</div>
+                    </div>
+                  </div>
+                </el-option>
+                <template #empty>
+                  <div style="padding: 20px 16px; text-align: center; color: #909399;">
+                    <el-icon :size="24" style="color: #c0c4cc;"><SearchIcon /></el-icon>
+                    <p style="margin: 10px 0 0 0; font-size: 13px;">请输入关键词搜索成员</p>
+                  </div>
+                </template>
+              </el-select>
             </template>
 
             <!-- 附件字段类型 -->
@@ -779,13 +858,48 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
             </template>
 
             <!-- 成员字段类型 -->
-            <!-- 统一使用数组格式存储成员字段值 -->
+            <!-- 使用 el-select 远程搜索实现成员选择 -->
             <template v-else-if="getFieldComponentType(field) === 'member'">
-              <MemberSelect
-                v-model="(formValues[field.id] as string | string[] | null)"
+              <el-select
+                :model-value="(formValues[field.id] as string | string[] | null)"
                 :placeholder="`请选择${field.name}`"
-                :allow-multiple="false"
-                @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)" />
+                filterable
+                remote
+                reserve-keyword
+                :remote-method="(query: string) => debouncedMemberSearch(field.id)(query)"
+                :loading="memberLoading[field.id]"
+                style="width: 100%"
+                clearable
+                @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)">
+                <el-option
+                  v-for="option in (memberSearchResults[field.id] || [])"
+                  :key="option.id"
+                  :label="option.name"
+                  :value="option.id">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <div
+                      v-if="option.avatar"
+                      style="width: 24px; height: 24px; border-radius: 50%; overflow: hidden;"
+                    >
+                      <img :src="option.avatar" :alt="option.name" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>
+                    <div v-else
+                      style="width: 24px; height: 24px; border-radius: 50%; background-color: #2d7cfc; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 600;">
+                      {{ (option.name || '?').charAt(0).toUpperCase() }}
+                    </div>
+                    <div>
+                      <div style="font-size: 14px; font-weight: 500;">{{ option.name }}</div>
+                      <div style="font-size: 12px; color: #909399;">{{ option.email }}</div>
+                    </div>
+                  </div>
+                </el-option>
+                <template #empty>
+                  <div style="padding: 10px; text-align: center; color: #909399;">
+                    <el-icon><SearchIcon /></el-icon>
+                    <p style="margin: 8px 0 0 0; font-size: 13px;">请输入关键词搜索成员</p>
+                  </div>
+                </template>
+              </el-select>
             </template>
 
             <!-- 不支持的字段类型 -->
@@ -1159,6 +1273,45 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
   .captcha-item .captcha-input-group {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+</style>
+
+<!-- 全局样式：分享表单成员选择下拉框（不能使用 scoped） -->
+<style lang="scss">
+.form-share-member-dropdown {
+  max-height: 320px !important;  // 增加下拉框最大高度
+  overflow-y: auto !important;
+
+  .el-select-dropdown__wrap {
+    max-height: 320px !important;
+  }
+
+  // 每个选项增加内边距和最小高度
+  .el-select-dropdown__item {
+    height: auto;
+    min-height: 52px;
+    padding: 8px 12px;
+    line-height: 1.4;
+  }
+
+  // 滚动条美化
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c0c4cc;
+    border-radius: 3px;
+
+    &:hover {
+      background: #909399;
+    }
   }
 }
 </style>

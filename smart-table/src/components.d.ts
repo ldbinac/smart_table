@@ -100,6 +100,7 @@ declare module 'vue' {
     FilterPanel: typeof import('./components/filters/FilterPanel.vue')['default']
     FilterValueInput: typeof import('./components/filters/FilterValueInput.vue')['default']
     FormShareDialog: typeof import('./components/views/FormView/FormShareDialog.vue')['default']
+    FormShareMemberSelect: typeof import('./components/common/FormShareMemberSelect.vue')['default']
     FormulaField: typeof import('./components/fields/FormulaField.vue')['default']
     FormView: typeof import('./components/views/FormView/FormView.vue')['default']
     FormViewConfig: typeof import('./components/views/FormView/FormViewConfig.vue')['default']
