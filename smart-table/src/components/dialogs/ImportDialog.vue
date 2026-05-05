@@ -66,22 +66,34 @@ const availableFields = computed(() => {
 // 获取字段类型标签
 function getFieldTypeLabel(type: string): string {
   const typeMap: Record<string, string> = {
-    text: "文本",
+    single_line_text: "文本",
+    long_text: "多行文本",
+    rich_text: "富文本",
     number: "数字",
+    currency: "货币",
+    percent: "百分比",
+    rating: "评分",
     date: "日期",
+    date_time: "日期时间",
+    duration: "时长",
     single_select: "单选",
     multi_select: "多选",
     checkbox: "复选框",
     attachment: "附件",
     member: "成员",
-    rating: "评分",
-    progress: "进度",
+    collaborator: "协作者",
     phone: "电话",
     email: "邮箱",
     url: "链接",
-    link: "关联",
+    link_to_record: "关联记录",
     lookup: "查找",
+    rollup: "汇总",
     formula: "公式",
+    auto_number: "自动编号",
+    barcode: "条形码",
+    button: "按钮",
+    progress: "进度",
+    link: "关联",
   };
   return typeMap[type] || type;
 }
