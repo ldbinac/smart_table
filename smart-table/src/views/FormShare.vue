@@ -47,39 +47,43 @@ interface MemberOption {
 const memberSearchResults = ref<Record<string, MemberOption[]>>({});
 const memberLoading = ref<Record<string, boolean>>({});
 
-// 搜索成员（使用分享表单专用接口）
-async function searchMembers(fieldId: string, query: string): Promise<MemberOption[]> {
-  if (!query.trim() || !shareToken.value) {
-    return [];
-  }
-  
-  console.log('[FormShare] Searching members for field:', fieldId, 'query:', query);
-  
-  memberLoading.value[fieldId] = true;
-  try {
-    const response = await formShareApi.searchMembers(shareToken.value, query.trim());
-    console.log('[FormShare] Search results:', response);
-    return response.users.map((user: any) => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar,
-    }));
-  } catch (error) {
-    console.error('[FormShare] Search members failed:', error);
-    return [];
-  } finally {
-    memberLoading.value[fieldId] = false;
-  }
-}
+// 防抖函数缓存（避免每次渲染创建新函数导致死循环）
+const debounceCache = new Map<string, (query: string) => void>();
 
-// 防抖搜索函数
-const debouncedMemberSearch = (fieldId: string) => {
-  return useDebounceFn(async (query: string) => {
-    const results = await searchMembers(fieldId, query);
-    memberSearchResults.value[fieldId] = results;
-  }, 300);
-};
+// 获取或创建字段的防抖搜索函数
+function getDebouncedSearch(fieldId: string): (query: string) => void {
+  if (!debounceCache.has(fieldId)) {
+    const debouncedFn = useDebounceFn(async (query: string) => {
+      console.log('[FormShare] Searching members for field:', fieldId, 'query:', query);
+      
+      if (!query.trim() || !shareToken.value) {
+        memberSearchResults.value[fieldId] = [];
+        return;
+      }
+      
+      memberLoading.value[fieldId] = true;
+      try {
+        const response = await formShareApi.searchMembers(shareToken.value, query.trim());
+        console.log('[FormShare] Search results:', response);
+        memberSearchResults.value[fieldId] = response.users.map((user: any) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+        }));
+      } catch (error) {
+        console.error('[FormShare] Search members failed:', error);
+        memberSearchResults.value[fieldId] = [];
+      } finally {
+        memberLoading.value[fieldId] = false;
+      }
+    }, 300);
+    
+    debounceCache.set(fieldId, debouncedFn);
+  }
+  
+  return debounceCache.get(fieldId)!;
+}
 
 // 表单配置
 const formConfig = ref({
@@ -798,7 +802,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 filterable
                 remote
                 reserve-keyword
-                :remote-method="(query: string) => debouncedMemberSearch(field.id)(query)"
+                :remote-method="getDebouncedSearch(field.id)"
                 :loading="memberLoading[field.id]"
                 style="width: 100%"
                 clearable
@@ -866,7 +870,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 filterable
                 remote
                 reserve-keyword
-                :remote-method="(query: string) => debouncedMemberSearch(field.id)(query)"
+                :remote-method="getDebouncedSearch(field.id)"
                 :loading="memberLoading[field.id]"
                 style="width: 100%"
                 clearable
