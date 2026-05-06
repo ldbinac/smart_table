@@ -278,12 +278,12 @@ if __name__ == '__main__':
     if is_packaged:
         print(f'[Packaging] Running in packaged mode (PyInstaller)')
         print(f'Frontend URL: http://{host}:{port}/')
+        # 初始化打包模式（静态文件服务 + Redis 管理）
+        initialize_packaging_mode(app, realtime_enabled=enable_realtime)
     else:
         print(f'[Development] Running in development mode')
         print(f'Frontend URL: http://localhost:3000 (Vite dev server)')
 
-    # 初始化打包模式（静态文件服务 + Redis 管理）
-    initialize_packaging_mode(app, realtime_enabled=enable_realtime)
 
     # 确保默认管理员账号存在（自动创建）
     ensure_default_admin_exists()
