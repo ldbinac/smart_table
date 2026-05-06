@@ -119,6 +119,9 @@ export class TemplateService {
         );
       }
 
+      // 所有表记录处理完成后，清空选项映射
+      this.optionNameToIdMap.clear();
+
       // 去掉保存到 IndexedDB 的代码，只保存到后台数据库
       // // 第二阶段：保存到 IndexedDB（后端创建成功后）
       // progress.stage = "syncing_to_backend";
@@ -652,9 +655,6 @@ export class TemplateService {
       await recordApiService.batchCreateRecords(tableId, recordsData);
       console.log(`[TemplateService] ✅ 记录插入完成`);
     }
-
-    // 清空选项映射（避免影响下次模板创建）
-    this.optionNameToIdMap.clear();
   }
 }
 
