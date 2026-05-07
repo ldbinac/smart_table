@@ -1,0 +1,14 @@
+{
+  "version": "1.2.3",
+  "product_name": "SmartTable",
+  "company_name": "SmartTable Team",
+  "copyright": "Copyright © {year} SmartTable Team. All rights reserved.",
+  "description": {
+    "zh_CN": "智能表格应用 - 零依赖跨平台版",
+    "en_US": "Intelligent Spreadsheet - Zero-Dependency"
+  },
+  "metadata": {
+    "internal_name": "smarttable",
+    "original_filename": "SmartTable.exe"
+  }
+}
