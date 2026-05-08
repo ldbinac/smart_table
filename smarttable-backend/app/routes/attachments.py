@@ -3,7 +3,7 @@
 处理文件上传、下载、预览和删除
 """
 import os
-from flask import Blueprint, request, g, send_file, current_app
+from flask import Blueprint, request, g, send_file, current_app, send_from_directory
 
 from app.services.attachment_service import AttachmentService
 from app.services.base_service import BaseService
@@ -441,9 +441,6 @@ def serve_uploaded_file(filename) -> tuple:
       500:
         description: 访问失败
     """
-    from flask import send_from_directory
-    from app.services.attachment_service import AttachmentService
-
     upload_path = AttachmentService.get_upload_path()
     file_path = os.path.join(upload_path, filename)
 

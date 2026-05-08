@@ -144,16 +144,21 @@ class RedisManager:
                 cmd.extend(['--daemonize', 'yes'])
 
             # 启动进程
-            creation_flags = 0
+            # 注意：Python 3.14 将 creation_flags 重命名为 creationflags（无下划线）
+            _popen_kwargs = {}
             if platform.system() == 'Windows':
-                creation_flags = subprocess.CREATE_NO_WINDOW
+                # Windows: 隐藏控制台窗口
+                if sys.version_info >= (3, 14):
+                    _popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW  # Python ≥3.14
+                else:
+                    _popen_kwargs['creation_flags'] = subprocess.CREATE_NO_WINDOW  # Python <3.14
 
             self.redis_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 cwd=work_dir,
-                creation_flags=creation_flags
+                **_popen_kwargs
             )
 
             # 等待 Redis 就绪

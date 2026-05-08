@@ -5,11 +5,81 @@ SmartTable Flask 应用入口文件
 import argparse
 import os
 import sys
+import time
 import webbrowser
 import threading
+import code
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+from app import create_app
+from app.extensions import db, socketio
+from app.models import (
+    User, Base, BaseMember, Table, Field,
+    Record, View, Dashboard, Attachment
+)
+from app.models.user import User as UserModel, UserRole, UserStatus
+from app.static_serving import configure_static_serving
+from app.redis_manager import RedisManager
+
+# ===== 智能加载 .env 配置文件 =====
+def load_env_config():
+    """
+    从多个可能的位置加载 .env 配置文件
+
+    加载优先级（从高到低）：
+    1. config/.env          （用户配置）
+    2. .env                  （项目根目录）
+    3. smarttable-backend/.env（开发环境）
+
+    这确保了无论在开发模式还是打包模式下，
+    都能正确读取用户修改的配置文件。
+    """
+    # 检测运行模式
+    is_packaged = getattr(sys, 'frozen', False)
+
+    if is_packaged:
+        # ===== 打包模式：基于 EXE 所在目录查找配置文件 =====
+        exe_dir = Path(sys.executable).parent
+
+        env_files = [
+            exe_dir / 'config' / '.env',           # <EXE>/config/.env (发布包内)
+            exe_dir.parent / 'config' / '.env',     # <项目根>/config/.env (开发环境)
+            exe_dir / '.env',                       # <EXE>/.env
+        ]
+    else:
+        # ===== 开发模式：基于脚本所在位置查找 =====
+        script_dir = Path(__file__).parent
+
+        env_files = [
+            script_dir.parent / 'config' / '.env',   # 项目根/config/.env
+            script_dir.parent / '.env',               # 项目根/.env
+            script_dir / '.env',                     # smarttable-backend/.env
+        ]
+
+    # 诊断输出：显示实际搜索的路径
+    print(f'[Config] 🔍 运行模式: {"打包" if is_packaged else "开发"}')
+    print(f'[Config] 🔍 __file__: {__file__}')
+    if is_packaged:
+        print(f'[Config] 🔍 sys.executable: {sys.executable}')
+        print(f'[Config] 🔍 EXE 目录: {Path(sys.executable).parent}')
+
+    for idx, env_path in enumerate(env_files, 1):
+        exists = env_path.exists()
+        print(f'[Config] 🔍 [{idx}] 检查: {env_path} {"✓ 存在" if exists else "✗ 不存在"}')
+
+        if exists:
+            load_dotenv(env_path, override=True)
+            print(f'[Config] ✓ 已加载配置文件: {env_path}')
+            return env_path
+
+    # 如果都没有找到，尝试默认行为（当前工作目录）
+    load_dotenv()
+    print('[Config] ⚠️ 未找到 .env 配置文件，使用环境变量或默认值')
+    print(f'[Config] ⚠️ 当前工作目录: {os.getcwd()}')
+    return None
+
+_LOADED_ENV = load_env_config()
 
 config_name = os.environ.get('FLASK_ENV', 'development')
 
@@ -47,38 +117,35 @@ redis_manager = None
 def initialize_packaging_mode(app_instance, realtime_enabled=False):
     """
     初始化打包模式的特殊配置
-    
+
     在 PyInstaller 打包后的环境中，此函数负责：
     1. 配置前端静态文件服务（将 Vue 构建产物嵌入）
     2. 自动启动 Redis 服务（如果需要）
-    
+
     Args:
         app_instance: Flask 应用实例
         realtime_enabled: 是否启用实时协作功能
     """
     global redis_manager
-    
+
     # 配置前端静态文件托管（始终启用，即使 dist 不存在也会注册友好错误页面）
-    from app.static_serving import configure_static_serving
     configure_static_serving(app_instance)
-    
+
     # 尝试自动启动 Redis（可选，失败不影响核心功能）
     if True:  # 默认总是尝试启动 Redis
         try:
-            from app.redis_manager import RedisManager
-            
             redis_port = int(os.environ.get('REDIS_PORT', 6379))
             redis_host = os.environ.get('REDIS_HOST', 'localhost')
-            
+
             redis_manager = RedisManager(port=redis_port, host=redis_host)
-            
+
             if redis_manager.start():
                 print(f'[Packaging] ✓ Redis auto-started on {redis_host}:{redis_port}')
             else:
                 print('[Packaging] ⚠️ Redis failed to start - running in degraded mode')
                 print('[Packaging]   (Caching and real-time features may be limited)')
                 redis_manager = None
-                
+
         except Exception as e:
             print(f'[Packaging] ⚠️ Redis initialization error: {e}')
             print('[Packaging]   Continuing without Redis...')
@@ -87,12 +154,6 @@ def initialize_packaging_mode(app_instance, realtime_enabled=False):
 
 def init_db():
     with app.app_context():
-        from app.extensions import db
-        from app.models import (
-            User, Base, BaseMember, Table, Field,
-            Record, View, Dashboard, Attachment
-        )
-
         print('Creating database tables...')
         db.create_all()
         print('Database tables created successfully!')
@@ -100,15 +161,12 @@ def init_db():
 
 def create_admin(email: str, password: str, name: str):
     with app.app_context():
-        from app.extensions import db
-        from app.models.user import User, UserRole, UserStatus
-
-        existing_user = User.query.filter_by(email=email).first()
+        existing_user = UserModel.query.filter_by(email=email).first()
         if existing_user:
             print(f'User with email {email} already exists!')
             return
 
-        admin = User(
+        admin = UserModel(
             email=email,
             password=password,
             name=name,
@@ -128,20 +186,17 @@ def create_admin(email: str, password: str, name: str):
 def ensure_default_admin_exists():
     """
     确保默认管理员账号存在
-    
+
     如果数据库中没有 ADMIN 角色的用户，则自动创建默认管理员：
     - 账号：root
     - 邮箱：ldengbin@126.com
     - 密码：LDengBin@126.com
-    
+
     并将管理员信息打印到控制台（醒目格式）
     """
     with app.app_context():
-        from app.extensions import db
-        from app.models.user import User, UserRole, UserStatus
-
         # 检查是否已有管理员用户
-        admin_count = User.query.filter_by(role=UserRole.ADMIN).count()
+        admin_count = UserModel.query.filter_by(role=UserRole.ADMIN).count()
         
         if admin_count > 0:
             print('\n' + '='*60)
@@ -161,7 +216,7 @@ def ensure_default_admin_exists():
         print('='*60)
 
         try:
-            admin = User(
+            admin = UserModel(
                 email=default_admin_email,
                 password=default_admin_password,
                 name=default_admin_name,
@@ -200,7 +255,6 @@ def open_browser_after_delay(url: str, delay_seconds: float = 2.0):
         delay_seconds: 延迟秒数（等待服务启动完成）
     """
     def _open():
-        import time
         time.sleep(delay_seconds)
         print(f'\n🌐 正在打开浏览器访问: {url}')
         
@@ -219,18 +273,10 @@ def open_browser_after_delay(url: str, delay_seconds: float = 2.0):
 
 def shell():
     with app.app_context():
-        from app.extensions import db
-        from app.models import (
-            User, Base, BaseMember, Table, Field,
-            Record, View, Dashboard, Attachment
-        )
-
-        import code
-
         context = {
             'app': app,
             'db': db,
-            'User': User,
+            'User': UserModel,
             'Base': Base,
             'BaseMember': BaseMember,
             'Table': Table,
@@ -285,6 +331,14 @@ if __name__ == '__main__':
         print(f'Frontend URL: http://localhost:3000 (Vite dev server)')
 
 
+    # ===== 初始化数据库表结构（确保所有表存在）=====
+    print('[Init] Checking database schema...')
+    try:
+        init_db()
+    except Exception as e:
+        print(f'[Init] ⚠️ Database init warning: {e}')
+        print('[Init]   (If this is a fresh install, tables will be created on first use)')
+
     # 确保默认管理员账号存在（自动创建）
     ensure_default_admin_exists()
 
@@ -296,7 +350,6 @@ if __name__ == '__main__':
 
     try:
         if enable_realtime:
-            from app.extensions import socketio
             socketio.run(app, host=host, port=port, debug=debug)
         else:
             app.run(host=host, port=port, debug=debug)

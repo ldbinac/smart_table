@@ -11,6 +11,7 @@
 
 import os
 import sys
+from flask import send_from_directory, abort
 
 # 全局标志：防止重复注册路由
 _static_serving_initialized = False
@@ -70,7 +71,7 @@ def configure_static_serving(app):
         print('[Static Serving] Already configured, skipping...')
         return True
 
-    from flask import send_from_directory, abort
+    from app.services.attachment_service import AttachmentService
 
     dist_path = get_dist_path()
     
@@ -125,10 +126,26 @@ def configure_static_serving(app):
     @app.route('/<path:path>', endpoint='serve_frontend')
     def serve_frontend(path):
         """处理所有非 API 请求，返回前端静态资源"""
-        
+
         # API 请求由其他路由处理，不拦截
-        if path.startswith('api/') or path.startswith('uploads'):
-            return None  # 让 Flask 继续匹配其他路由
+        if path.startswith('api/'):
+            return None
+
+        # ===== 上传文件请求：直接服务（避免返回 None 导致 TypeError）=====
+        if path.startswith('uploads/'):
+            try:
+                upload_path = AttachmentService.get_upload_path()
+                file_path = os.path.join(upload_path, path[8:])  # 去掉 "uploads/" 前缀
+
+                if os.path.isfile(file_path):
+                    return send_from_directory(
+                        os.path.dirname(file_path),
+                        os.path.basename(file_path)
+                    )
+            except Exception as e:
+                print(f'[Static Serving] ⚠️ uploads 文件服务失败: {e}')
+
+            abort(404)
 
         # 尝试查找请求的静态文件
         file_path = os.path.join(dist_path, path)
@@ -153,7 +170,7 @@ def configure_static_serving(app):
         abort(404)
 
     print(f'[Static Serving] ✓ Frontend dist path: {dist_path}')
-    print(f'[Static Serving] ✓ Static file serving configured')
+    print('[Static Serving] ✓ Static file serving configured')
     _static_serving_initialized = True
     return True
 

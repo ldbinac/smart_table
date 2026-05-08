@@ -14,6 +14,7 @@ from app.models.field import Field, FieldType
 from app.models.view import View, ViewType
 from app.models.base import Base, MemberRole
 from app.services.base_service import BaseService
+from app.services.collaboration_service import CollaborationService
 from flask import current_app
 
 
@@ -149,7 +150,6 @@ class TableService:
         db.session.commit()
 
         try:
-            from app.services.collaboration_service import CollaborationService
             CollaborationService.broadcast_if_enabled('data:table_created', base_id, {
                 'table_id': str(table.id),
                 'table': table.to_dict(),
@@ -158,7 +158,7 @@ class TableService:
             })
         except Exception:
             pass
-        
+
         return table
     
     @staticmethod
@@ -188,7 +188,6 @@ class TableService:
         db.session.commit()
 
         try:
-            from app.services.collaboration_service import CollaborationService
             CollaborationService.broadcast_if_enabled('data:table_updated', str(table.base_id), {
                 'table_id': table_id,
                 'changes': data,
@@ -197,7 +196,7 @@ class TableService:
             })
         except Exception:
             pass
-        
+
         return table
     
     @staticmethod
@@ -223,7 +222,6 @@ class TableService:
             db.session.commit()
 
             try:
-                from app.services.collaboration_service import CollaborationService
                 CollaborationService.broadcast_if_enabled('data:table_deleted', saved_base_id, {
                     'table_id': saved_table_id,
                     'changed_by': None,
@@ -235,7 +233,6 @@ class TableService:
             return True
         except Exception as e:
             db.session.rollback()
-            from flask import current_app
             current_app.logger.error(f'[TableService] 删除表格失败：{table_id}, 错误：{str(e)}')
             return False
     

@@ -320,9 +320,15 @@ def check_prerequisites(skip_frontend=False):
 
 def clean_build_artifacts(skip_frontend=False):
     log('清理旧产物...', 'STEP')
-    # 清理 PyInstaller 产物
+    # 清理 PyInstaller 产物（添加错误处理，避免因文件锁定导致构建失败）
     for d in [PROJECT_ROOT / 'build', PROJECT_ROOT / 'dist', RELEASE_DIR]:
-        if d.exists(): shutil.rmtree(d); log(f'  删除: {d.relative_to(PROJECT_ROOT)}')
+        if d.exists():
+            try:
+                shutil.rmtree(d)
+                log(f'  删除: {d.relative_to(PROJECT_ROOT)}')
+            except (PermissionError, OSError) as e:
+                log(f'  ⚠️ 无法删除 {d.relative_to(PROJECT_ROOT)}: {e}', 'WARNING')
+                log(f'     （可能有程序正在使用该目录，尝试继续构建...）', 'WARNING')
     
     # 只有在不跳过前端构建时才清理前端产物
     if not skip_frontend:
@@ -406,10 +412,22 @@ def prepare_release_package(platform):
         log(f'  Redis: {info["redis_dest"]}')
     else: log(f'  ⚠️ Redis 未找到', 'WARNING')
 
-    # 配置
+    # 配置文件（优先级：config/.env > smarttable-backend/.env.example）
     config_dir = release_subdir / 'config'; config_dir.mkdir(exist_ok=True)
-    env_src = BACKEND_DIR / '.env.example'
-    if env_src.exists(): shutil.copy2(env_src, config_dir / '.env')
+
+    # 1. 优先查找用户自定义配置（config/.env）
+    user_env = PROJECT_ROOT / 'config' / '.env'
+    if user_env.exists():
+        shutil.copy2(user_env, config_dir / '.env')
+        log(f'  Config: config/.env (用户配置)')
+    else:
+        # 2. 回退到示例配置
+        env_src = BACKEND_DIR / '.env.example'
+        if env_src.exists():
+            shutil.copy2(env_src, config_dir / '.env')
+            log(f'  Config: .env.example (默认模板)')
+        else:
+            log(f'  ⚠️ 未找到配置文件', 'WARNING')
 
     # 脚本
     if platform == 'windows':

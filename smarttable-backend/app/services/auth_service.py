@@ -3,6 +3,7 @@
 处理用户认证相关的业务逻辑，包括注册、登录、令牌管理、密码修改等功能
 """
 import uuid
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, Dict, Any
 from uuid import UUID
@@ -13,12 +14,16 @@ from flask_jwt_extended import (
     decode_token,
     get_jwt_identity
 )
+from flask import current_app
 
 from app.extensions import db, cache
 from app.models.user import User, TokenBlocklist, UserStatus
+from app.models.operation_history import OperationHistory
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_template_service import EmailTemplateService
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -79,7 +84,6 @@ class AuthService:
                     )
                 except Exception as e:
                     # 邮件发送失败不影响注册流程，记录错误即可
-                    from flask import current_app
                     current_app.logger.error(f'发送验证邮件失败: {str(e)}')
             
             return user, None
@@ -276,8 +280,6 @@ class AuthService:
         Returns:
             (是否成功, 错误信息)
         """
-        from app.models.operation_history import OperationHistory
-
         user = User.query.get(user_id)
 
         if not user:
@@ -330,9 +332,6 @@ class AuthService:
             db.session.commit()
 
             # 发送密码修改通知邮件
-            from app.services.email_config_service import EmailConfigService
-            from app.services.email_sender_service import EmailSenderService
-
             if EmailConfigService.is_email_enabled():
                 try:
                     EmailSenderService.send_email_quick(
@@ -341,7 +340,7 @@ class AuthService:
                         template_key='password_changed',
                         template_data={
                             'user_name': user.name,
-                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            'operation_time': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                         }
                     )
                 except Exception as e:

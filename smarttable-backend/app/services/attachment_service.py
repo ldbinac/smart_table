@@ -4,6 +4,7 @@
 支持本地文件系统和 MinIO 对象存储
 """
 import os
+import sys
 import uuid
 import shutil
 import mimetypes
@@ -256,16 +257,37 @@ class AttachmentService:
     def get_upload_path() -> str:
         """
         获取上传文件存储路径
-        
+
         返回:
             上传目录绝对路径
+
+        路径策略：
+        - 打包模式（PyInstaller）：使用 EXE 根目录下的 uploads/（与 exe 同级）
+        - 开发模式：使用项目根目录下的 uploads/
         """
+
+        is_packaged = getattr(sys, 'frozen', False)
         upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-        # 确保是绝对路径
-        if not os.path.isabs(upload_folder):
-            upload_folder = os.path.join(current_app.root_path, '..', upload_folder)
-            upload_folder = os.path.abspath(upload_folder)
-        return upload_folder
+
+        if is_packaged:
+            # ===== 打包模式：使用 EXE 根目录下的 uploads/（与 exe 同级）=====
+            exe_dir = Path(sys.executable).parent
+            upload_path = exe_dir / 'uploads'
+            os.makedirs(upload_path, exist_ok=True)
+            return str(upload_path)
+        else:
+            # ===== 开发模式：基于项目根目录 =====
+            if not os.path.isabs(upload_folder):
+                # 相对于 smarttable-backend 的上级目录（项目根）
+                backend_root = Path(current_app.root_path)
+                project_root = backend_root.parent
+                upload_path = project_root / upload_folder
+                upload_path = str(upload_path)
+            else:
+                upload_path = upload_folder
+
+            os.makedirs(upload_path, exist_ok=True)
+            return os.path.abspath(upload_path)
     
     @classmethod
     def ensure_upload_dir(cls) -> str:

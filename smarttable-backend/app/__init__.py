@@ -1,10 +1,41 @@
 """
 SmartTable Flask 应用工厂模块
 """
-from flask import Flask
+from flask import Flask, jsonify, render_template_string
 from flasgger import Swagger
 from app.extensions import init_extensions, db
 from app.config import config
+
+# 蓝图导入
+from app.routes.auth import auth_bp
+from app.routes.bases import bases_bp
+from app.routes.tables import tables_bp
+from app.routes.fields import fields_bp
+from app.routes.records import records_bp
+from app.routes.views import views_bp
+from app.routes.dashboards import dashboards_bp
+from app.routes.dashboards_share import dashboards_share_bp
+from app.routes.attachments import attachments_bp
+from app.routes.import_export import import_export_bp
+from app.routes.admin import admin_bp
+from app.routes.shares import shares_bp
+from app.routes.form_shares import form_shares_bp
+from app.routes.auth_captcha import auth_captcha_bp
+from app.routes.email import email_bp
+from app.routes.realtime import realtime_bp
+from app.routes.users import users_bp
+
+# 服务导入
+from app.services.email_queue_service import init_email_queue
+from app.utils.init_email_templates import init_default_email_templates
+from app.static_serving import configure_static_serving
+from app.errors.handlers import register_handlers
+from app.models import (
+    User, Base, BaseMember, Table, Field,
+    Record, View, Dashboard, Attachment
+)
+from app.extensions import socketio
+from app.routes.socketio_events import register_socketio_handlers as _register_socketio
 
 
 def create_app(config_name='default', enable_realtime=False):
@@ -25,6 +56,11 @@ def create_app(config_name='default', enable_realtime=False):
 
     # 加载配置
     app.config.from_object(config[config_name])
+
+    # 调用配置类的 init_app 方法（初始化日志、校验等）
+    config_class = config.get(config_name)
+    if hasattr(config_class, 'init_app') and callable(config_class.init_app):
+        config_class.init_app(app)
 
     # 设置实时协作配置
     app.config['REALTIME_ENABLED'] = enable_realtime
@@ -61,7 +97,6 @@ def create_app(config_name='default', enable_realtime=False):
                 print("数据库表创建成功")
 
                 # 初始化默认邮件模板
-                from app.utils.init_email_templates import init_default_email_templates
                 init_default_email_templates()
             except Exception as e:
                 print(f"创建数据库表失败：{e}")
@@ -69,7 +104,6 @@ def create_app(config_name='default', enable_realtime=False):
         # 生产环境也初始化邮件模板
         with app.app_context():
             try:
-                from app.utils.init_email_templates import init_default_email_templates
                 init_default_email_templates()
             except Exception as e:
                 print(f"初始化邮件模板失败：{e}")
@@ -81,7 +115,6 @@ def create_app(config_name='default', enable_realtime=False):
     # 注意：在 run.py 中也会调用 configure_static_serving，这里作为备用
     if not hasattr(app, '_static_serving_configured'):
         try:
-            from app.static_serving import configure_static_serving
             if configure_static_serving(app):
                 app._static_serving_configured = True
         except Exception as e:
@@ -107,7 +140,6 @@ def register_lifecycle_hooks(app):
         nonlocal _first_request_initialized
         if not _first_request_initialized:
             _first_request_initialized = True
-            from app.services.email_queue_service import init_email_queue
             init_email_queue(app)
 
     @app.teardown_appcontext
@@ -119,61 +151,43 @@ def register_lifecycle_hooks(app):
 def register_blueprints(app):
     """
     注册 Flask 蓝图
-    
+
     Args:
         app: Flask 应用实例
     """
-    from app.routes.auth import auth_bp
-    from app.routes.bases import bases_bp
-    from app.routes.tables import tables_bp
-    from app.routes.fields import fields_bp
-    from app.routes.records import records_bp
-    from app.routes.views import views_bp
-    from app.routes.dashboards import dashboards_bp
-    from app.routes.dashboards_share import dashboards_share_bp
-    from app.routes.attachments import attachments_bp
-    from app.routes.import_export import import_export_bp
-    from app.routes.admin import admin_bp
-    from app.routes.shares import shares_bp
-    from app.routes.form_shares import form_shares_bp
-    from app.routes.auth_captcha import auth_captcha_bp
-    from app.routes.email import email_bp
-    from app.routes.realtime import realtime_bp
-    from app.routes.users import users_bp
-    
     # 注册认证蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    
+
     # 注册认证验证码蓝图
     app.register_blueprint(auth_captcha_bp, url_prefix='/api')
-    
+
     # 注册基础数据蓝图
     app.register_blueprint(bases_bp, url_prefix='/api/bases')
-    
+
     # 注册表格蓝图 (路由中已包含完整路径)
     app.register_blueprint(tables_bp, url_prefix='/api')
-    
+
     # 注册字段蓝图 (路由中已包含完整路径)
     app.register_blueprint(fields_bp, url_prefix='/api')
-    
+
     # 注册记录蓝图 (路由中已包含完整路径)
     app.register_blueprint(records_bp, url_prefix='/api')
-    
+
     # 注册视图蓝图 (路由中已包含完整路径)
     app.register_blueprint(views_bp, url_prefix='/api')
-    
+
     # 注册仪表盘蓝图 (路由中已包含完整路径)
     app.register_blueprint(dashboards_bp, url_prefix='/api')
-    
+
     # 注册仪表盘分享蓝图 (路由中已包含完整路径)
     app.register_blueprint(dashboards_share_bp, url_prefix='/api')
-    
+
     # 注册附件蓝图
     app.register_blueprint(attachments_bp, url_prefix='/api/attachments')
-    
+
     # 注册导入导出蓝图
     app.register_blueprint(import_export_bp, url_prefix='/api')
-    
+
     # 注册管理员蓝图
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
@@ -182,7 +196,7 @@ def register_blueprints(app):
 
     # 注册分享蓝图
     app.register_blueprint(shares_bp, url_prefix='/api')
-    
+
     # 注册表单分享蓝图 (路由中已包含完整路径)
     app.register_blueprint(form_shares_bp, url_prefix='/api')
 
@@ -196,11 +210,10 @@ def register_blueprints(app):
 def register_error_handlers(app):
     """
     注册错误处理器
-    
+
     Args:
         app: Flask 应用实例
     """
-    from app.errors.handlers import register_handlers
     register_handlers(app)
 
 
@@ -214,10 +227,6 @@ def register_shell_context(app):
     @app.shell_context_processor
     def make_shell_context():
         """为 Flask Shell 提供上下文"""
-        from app.models import (
-            User, Base, BaseMember, Table, Field, 
-            Record, View, Dashboard, Attachment
-        )
         return {
             'db': db,
             'User': User,
@@ -233,9 +242,7 @@ def register_shell_context(app):
 
 
 def register_socketio_handlers(app):
-    from app.extensions import socketio
-    from app.routes.socketio_events import register_socketio_handlers as _register
-    _register(socketio, app)
+    _register_socketio(socketio, app)
 
 
 def register_api_docs(app):
@@ -245,8 +252,6 @@ def register_api_docs(app):
     Args:
         app: Flask 应用实例
     """
-    from flask import jsonify, render_template_string
-
     API_DOCUMENTATION = {
         "name": "SmartTable API",
         "version": "1.0.0",

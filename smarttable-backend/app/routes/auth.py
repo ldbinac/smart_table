@@ -16,6 +16,8 @@ from marshmallow import ValidationError
 from app.extensions import db
 from app.models.user import User, TokenBlocklist
 from app.services.auth_service import AuthService
+from app.services.email_config_service import EmailConfigService
+from app.services.email_sender_service import EmailSenderService
 from app.schemas.user_schema import (
     user_registration_schema,
     user_login_schema,
@@ -675,25 +677,22 @@ def resend_verification() -> tuple:
       404:
         description: 用户不存在
     """
-    from app.services.email_config_service import EmailConfigService
-    from app.services.email_sender_service import EmailSenderService
-    
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
-    
+
     if not user:
         return not_found_response('用户')
-    
+
     if user.email_verified:
         return error_response('邮箱已验证', code=400, error='already_verified')
-    
+
     # 检查邮件服务是否启用
     if not EmailConfigService.is_email_enabled():
         return error_response('邮件服务未启用', code=400, error='email_service_disabled')
-    
+
     # 生成新的验证令牌
     verification_token = user.generate_verification_token()
-    
+
     try:
         verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
         EmailSenderService.send_email_quick(
@@ -705,7 +704,7 @@ def resend_verification() -> tuple:
                 'verification_link': verification_link
             }
         )
-        
+
         return success_response(
             message='验证邮件已发送，请查收'
         )
@@ -746,10 +745,6 @@ def forgot_password() -> tuple:
       400:
         description: 请求数据验证失败或验证码错误
     """
-    from app.services.email_config_service import EmailConfigService
-    from app.services.email_sender_service import EmailSenderService
-    from app.utils.captcha import CaptchaService
-
     data = request.get_json()
 
     if not data:
@@ -864,11 +859,8 @@ def reset_password() -> tuple:
     try:
         user.set_password(new_password)
         user.clear_reset_token()
-        
+
         # 发送密码重置通知邮件
-        from app.services.email_config_service import EmailConfigService
-        from app.services.email_sender_service import EmailSenderService
-        
         if EmailConfigService.is_email_enabled():
             try:
                 EmailSenderService.send_email_quick(
@@ -882,7 +874,7 @@ def reset_password() -> tuple:
                 )
             except Exception as e:
                 logger.error(f'发送密码重置通知邮件失败: {str(e)}')
-        
+
         return success_response(
             message='密码重置成功，请使用新密码登录'
         )
