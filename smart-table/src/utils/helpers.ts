@@ -131,25 +131,16 @@ export function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
+import { formatDateTime as tzFormatDateTime } from "./timezone";
+
 export function formatDate(
-  timestamp: number,
+  timestamp: number | string | Date | null | undefined,
   format: string = "YYYY-MM-DD",
 ): string {
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-
-  return format
-    .replace("YYYY", String(year))
-    .replace("MM", month)
-    .replace("DD", day)
-    .replace("HH", hours)
-    .replace("mm", minutes)
-    .replace("ss", seconds);
+  if (timestamp === null || timestamp === undefined || timestamp === "") {
+    return "";
+  }
+  return tzFormatDateTime(timestamp, format);
 }
 
 export function generateColor(seed: string): string {
