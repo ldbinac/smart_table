@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import dayjs from "dayjs";
+import { formatDateTime } from "@/utils/timezone";
 
 interface Props {
   modelValue: string | null;
@@ -30,7 +31,7 @@ const displayFormat = "YYYY-MM-DD HH:mm:ss";
 
 const displayValue = computed(() => {
   if (!props.modelValue) return "-";
-  return dayjs(props.modelValue).format(displayFormat);
+  return formatDateTime(props.modelValue, displayFormat);
 });
 
 const localValue = computed({
