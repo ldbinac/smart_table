@@ -240,6 +240,7 @@ import {
 } from "@element-plus/icons-vue";
 import dayjs from "dayjs";
 import type { TableTemplate, TemplateTable, TemplateField, TemplateRecord } from "@/utils/tableTemplates";
+import { formatDate as tzFormatDate } from "@/utils/timezone";
 
 interface Props {
   visible: boolean;
@@ -419,7 +420,7 @@ const formatDate = (value: unknown): string => {
   if (!value) return "-";
   const timestamp = Number(value);
   if (isNaN(timestamp)) return String(value);
-  return dayjs(timestamp).format("YYYY-MM-DD");
+  return tzFormatDate(timestamp, "YYYY-MM-DD");
 };
 
 const formatCellValue = (value: unknown, field: TemplateField): string => {
