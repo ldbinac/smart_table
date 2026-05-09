@@ -14,6 +14,7 @@ import { FieldType } from "@/types/fields";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { truncateRichText } from "@/utils/helpers";
+import { formatDateTime, formatDate } from "@/utils/timezone";
 
 interface Props {
   record: RecordEntity;
@@ -204,15 +205,14 @@ const displayValue = computed(() => {
       if (!value) return "";
       // 根据字段类型显示日期或日期时间
       const isDateTime = type === "date_time";
-      const format = isDateTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 
       // 处理字符串日期格式
       if (typeof value === "string") {
-        return dayjs(value).format(format);
+        return isDateTime ? formatDateTime(value) : formatDate(value);
       }
       // 处理数字时间戳格式
       if (typeof value === "number") {
-        return dayjs(value).format(format);
+        return isDateTime ? formatDateTime(value) : formatDate(value);
       }
       return String(value);
     }
