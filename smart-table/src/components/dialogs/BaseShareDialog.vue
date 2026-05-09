@@ -189,22 +189,24 @@ function isExpired(share: BaseShare) {
   return Date.now() > share.expires_at;
 }
 
+import { formatDate as tzFormatDate } from "@/utils/timezone";
+
 // 格式化日期
 function formatDate(dateString: string) {
   const date = new Date(dateString);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  
+
   if (days === 0) return '今天';
   if (days === 1) return '昨天';
   if (days < 7) return `${days}天前`;
-  return date.toLocaleDateString('zh-CN');
+  return tzFormatDate(dateString, "YYYY-MM-DD");
 }
 
 // 格式化过期时间
 function formatExpiresAt(timestamp: number) {
-  return new Date(timestamp).toLocaleDateString('zh-CN');
+  return tzFormatDate(timestamp, "YYYY-MM-DD");
 }
 
 // 创建分享链接
