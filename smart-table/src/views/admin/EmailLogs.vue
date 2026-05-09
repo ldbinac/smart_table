@@ -156,9 +156,11 @@ const pagination = reactive({
   total: 0
 })
 
+import { formatDateTime } from "@/utils/timezone";
+
 const formatDate = (date: string | null) => {
   if (!date) return '-'
-  return new Date(date).toLocaleString('zh-CN')
+  return formatDateTime(date, "YYYY-MM-DD HH:mm:ss")
 }
 
 const getStatusType = (status: string | undefined) => {

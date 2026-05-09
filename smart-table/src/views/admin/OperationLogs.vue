@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="operation-logs-page">
     <div class="page-header">
       <h1 class="page-title">操作日志</h1>
@@ -232,16 +232,11 @@ const getEntityTypeLabel = (entityType: string): string => {
   return typeMap[entityType] || entityType;
 };
 
+import { formatDateTime } from "@/utils/timezone";
+
 const formatDate = (dateString: string): string => {
   if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(dateString, "YYYY-MM-DD HH:mm:ss");
 };
 
 const fetchLogs = async () => {

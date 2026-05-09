@@ -187,9 +187,11 @@ const sanitizedFormHtml = computed(() => sanitizeEmailHtml(form.value.content_ht
 
 const sanitizedPreviewHtml = computed(() => sanitizeEmailHtml(previewData.value.content_html))
 
+import { formatDateTime } from "@/utils/timezone";
+
 const formatDate = (date: string) => {
   if (!date) return '-'
-  return new Date(date).toLocaleString('zh-CN')
+  return formatDateTime(date, "YYYY-MM-DD HH:mm:ss")
 }
 
 const fetchTemplates = async () => {
@@ -227,7 +229,7 @@ const handlePreview = (row: EmailTemplate) => {
       .replace(/\{\{base_name\}\}/g, '示例多维表')
       .replace(/\{\{sharer_name\}\}/g, '李四')
       .replace(/\{\{permission\}\}/g, '编辑权限')
-      .replace(/\{\{operation_time\}\}/g, new Date().toLocaleString('zh-CN'))
+      .replace(/\{\{operation_time\}\}/g, formatDateTime(new Date().toISOString(), "YYYY-MM-DD HH:mm:ss"))
       .replace(/\{\{admin_name\}\}/g, '系统管理员')
   }
   previewDialogVisible.value = true
