@@ -28,6 +28,7 @@ import FilterDialog from "@/components/dialogs/FilterDialog.vue";
 import SortDialog from "@/components/dialogs/SortDialog.vue";
 import GroupDialog from "@/components/dialogs/GroupDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
+import { formatDateTime } from "@/utils/timezone";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AddRecordDrawer from "@/components/dialogs/AddRecordDrawer.vue";
 import ImportDialog from "@/components/dialogs/ImportDialog.vue";
@@ -1947,7 +1948,7 @@ function handleShareChanged() {
             show-overflow-tooltip />
           <el-table-column prop="updatedAt" label="更新时间" width="140">
             <template #default="{ row }">
-              {{ new Date(row.updatedAt).toLocaleString() }}
+              {{ formatDateTime(row.updatedAt) }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="220" fixed="right">

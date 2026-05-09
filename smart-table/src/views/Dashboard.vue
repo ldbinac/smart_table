@@ -29,6 +29,7 @@ import {
 } from "@/utils/dashboardDataProcessor";
 import { DashboardLayoutEngine } from "@/utils/dashboardLayoutEngine";
 import { escapeHtml } from "@/utils/helpers";
+import { formatDateTime, formatDate } from "@/utils/timezone";
 // widgetRegistry 暂时未使用，但保留以备将来扩展
 // import { widgetRegistry } from "@/utils/dashboardWidgetRegistry";
 import { FieldType } from "@/types";
@@ -3459,7 +3460,7 @@ onUnmounted(() => {
               show-overflow-tooltip />
             <el-table-column prop="updatedAt" label="更新时间" width="140">
               <template #default="{ row }">
-                {{ new Date(row.updatedAt).toLocaleString() }}
+                {{ formatDateTime(row.updatedAt) }}
               </template>
             </el-table-column>
             <el-table-column label="操作" width="180" fixed="right">
@@ -3703,7 +3704,7 @@ onUnmounted(() => {
                 type="info"
                 effect="light">
                 有效期至：{{
-                  new Date(currentShare.expiresAt).toLocaleString()
+                  formatDateTime(currentShare.expiresAt)
                 }}
               </el-tag>
               <el-tag v-else size="small" type="info" effect="light"
@@ -3726,7 +3727,7 @@ onUnmounted(() => {
             <el-table :data="existingShares" size="small" style="width: 100%">
               <el-table-column label="创建时间" width="130">
                 <template #default="{ row }">
-                  {{ new Date(row.createdAt).toLocaleDateString() }}
+                  {{ formatDate(row.createdAt) }}
                 </template>
               </el-table-column>
               <el-table-column label="有效期" width="110">
