@@ -345,6 +345,8 @@ if __name__ == '__main__':
     if is_packaged:
         # 自动打开浏览器访问服务地址
         host1 = os.environ.get('FLASK_HOST', 'localhost')
+        if host1 == '0.0.0.0':
+            host1 = 'localhost'
         service_url = f'http://{host1}:{port}'
         open_browser_after_delay(service_url, delay_seconds=2.0)
 

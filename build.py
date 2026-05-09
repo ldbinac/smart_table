@@ -455,7 +455,7 @@ echo ============================================
 tasklist /FI "IMAGENAME eq redis-server.exe" 2>NUL | find /I /N "redis-server">NUL
 if "%ERRORLEVEL%"=="0" (echo [Redis] 已运行) else (start /B "" "%~dp0redis-server.exe" --port 6379 >nul 2>&1 & timeout /t 2 >nul)
 echo.
-echo [SmartTable] 启动中... http://localhost:5000
+echo [SmartTable] 启动中......
 echo 按 Ctrl+C 停止
 start /B "" "%~dp0SmartTable.exe"
 :loop
@@ -476,7 +476,7 @@ cd "$(dirname "$0")"
 if ! pgrep -x redis-server >/dev/null; then
     ./redis-server --port 6379 --daemonize yes 2>/dev/null && echo "[Redis] ✓" || echo "[Redis] ⚠️"
 fi
-echo "启动中... http://localhost:5000"
+echo "启动中......"
 ./smarttable &
 PID=$!
 cleanup() {{ kill $PID 2>/dev/null; pkill -x redis-server 2>/dev/null; exit 0; }}

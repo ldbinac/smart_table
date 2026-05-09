@@ -143,12 +143,12 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_ECHO = True
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-not-for-production'
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-jwt-secret-not-for-production'
-    
+
     @classmethod
     def init_app(cls, app):
-        """开发环境初始化 - 检查并警告未配置的敏感凭据"""
+        """开发环境初始化 - 检查并警告未配置的敏感凭据，配置日志"""
         logger = logging.getLogger(__name__)
-        
+
         if not os.environ.get('MINIO_ACCESS_KEY') or not os.environ.get('MINIO_SECRET_KEY'):
             logger.warning(
                 '⚠️  MINIO_ACCESS_KEY 或 MINIO_SECRET_KEY 未设置！'
@@ -157,7 +157,7 @@ class DevelopmentConfig(Config):
             )
             app.config['MINIO_ACCESS_KEY'] = None
             app.config['MINIO_SECRET_KEY'] = None
-        
+
         if cls.SECRET_KEY == 'dev-secret-key-not-for-production':
             logger.warning(
                 '⚠️  使用默认开发密钥！请勿在生产环境中使用。'
@@ -166,6 +166,38 @@ class DevelopmentConfig(Config):
             logger.warning(
                 '⚠️  使用默认 JWT 密钥！请勿在生产环境中使用。'
             )
+
+        # ===== 配置开发环境日志（与生产环境保持一致）=====
+        _data_dir = app.config.get('DATA_DIR', 'data')
+        if getattr(sys, 'frozen', False):
+            _exe_dir = os.path.dirname(sys.executable)
+            _abs_data_dir = os.path.join(_exe_dir, _data_dir)
+            logs_dir = os.path.join(_exe_dir, 'logs')
+        else:
+            _abs_data_dir = os.path.abspath(_data_dir)
+            logs_dir = 'logs'
+
+        os.makedirs(logs_dir, exist_ok=True)
+        log_file = os.path.join(logs_dir, 'smarttable.log')
+
+        formatter = logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s '
+            '[in %(pathname)s:%(lineno)d]'
+        )
+
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,
+            backupCount=10,
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.DEBUG)  # 开发模式使用 DEBUG 级别
+
+        app.logger.addHandler(file_handler)
+        app.logger.setLevel(logging.DEBUG)  # 开发模式记录更详细的日志
+        app.logger.info(f'[Dev] SmartTable startup (log file: {log_file})')
+        print(f'[Config] ✓ 日志文件已配置: {log_file}')
 
 
 class TestingConfig(Config):
@@ -220,7 +252,7 @@ class ProductionConfig(Config):
         else:
             _abs_data_dir = os.path.abspath(_data_dir)
 
-        logs_dir = os.path.join(_abs_data_dir, 'logs') if cls.PACKAGING_MODE else 'logs'
+        logs_dir = os.path.join(_exe_dir, 'logs') if cls.PACKAGING_MODE else 'logs'
         os.makedirs(logs_dir, exist_ok=True)
 
         log_file = os.path.join(logs_dir, 'smarttable.log')
