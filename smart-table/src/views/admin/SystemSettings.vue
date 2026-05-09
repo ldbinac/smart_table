@@ -28,6 +28,27 @@
                 :step="10"
               />
             </el-form-item>
+            <el-form-item label="时区模式">
+              <el-radio-group v-model="basicConfigs.timezone_mode">
+                <el-radio label="utc">UTC</el-radio>
+                <el-radio label="local">本地时区</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="本地时区" v-if="basicConfigs.timezone_mode === 'local'">
+              <el-select v-model="basicConfigs.timezone_name" placeholder="请选择时区" style="width: 100%">
+                <el-option label="Asia/Shanghai (中国标准时间)" value="Asia/Shanghai" />
+                <el-option label="Asia/Hong_Kong (香港时间)" value="Asia/Hong_Kong" />
+                <el-option label="Asia/Tokyo (日本标准时间)" value="Asia/Tokyo" />
+                <el-option label="Asia/Seoul (韩国标准时间)" value="Asia/Seoul" />
+                <el-option label="Asia/Singapore (新加坡时间)" value="Asia/Singapore" />
+                <el-option label="America/New_York (美国东部时间)" value="America/New_York" />
+                <el-option label="America/Los_Angeles (美国西部时间)" value="America/Los_Angeles" />
+                <el-option label="Europe/London (格林尼治时间)" value="Europe/London" />
+                <el-option label="Europe/Paris (中欧时间)" value="Europe/Paris" />
+                <el-option label="Australia/Sydney (澳大利亚东部时间)" value="Australia/Sydney" />
+                <el-option label="Pacific/Auckland (新西兰时间)" value="Pacific/Auckland" />
+              </el-select>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="saving" @click="saveBasicConfigs">
                 保存配置
@@ -211,7 +232,9 @@ const systemConfigs = computed(() => adminStore.systemConfigs)
 const basicConfigs = reactive({
   system_name: '',
   system_description: '',
-  page_size: 20
+  page_size: 20,
+  timezone_mode: 'utc' as 'utc' | 'local',
+  timezone_name: 'Asia/Shanghai'
 })
 
 const securityConfigs = reactive({
@@ -265,6 +288,8 @@ const loadConfigs = () => {
   basicConfigs.system_name = String(configs['system_name']?.config_value ?? 'Smart Table')
   basicConfigs.system_description = String(configs['system_description']?.config_value ?? '')
   basicConfigs.page_size = Number(configs['page_size']?.config_value ?? 20)
+  basicConfigs.timezone_mode = String(configs['timezone_mode']?.config_value ?? 'utc') as 'utc' | 'local'
+  basicConfigs.timezone_name = String(configs['timezone_name']?.config_value ?? 'Asia/Shanghai')
 
   // 安全配置
   securityConfigs.password_min_length = Number(configs['password_min_length']?.config_value ?? 8)
@@ -294,7 +319,9 @@ const saveBasicConfigs = async () => {
     await adminStore.updateSystemConfig([
       { key: 'system_name', value: basicConfigs.system_name, group: 'basic' },
       { key: 'system_description', value: basicConfigs.system_description, group: 'basic' },
-      { key: 'page_size', value: basicConfigs.page_size, group: 'basic' }
+      { key: 'page_size', value: basicConfigs.page_size, group: 'basic' },
+      { key: 'timezone_mode', value: basicConfigs.timezone_mode, group: 'basic' },
+      { key: 'timezone_name', value: basicConfigs.timezone_name, group: 'basic' }
     ])
     ElMessage.success('基础配置保存成功')
   } catch (error) {
