@@ -23,8 +23,8 @@ export function getEffectiveTimezone(): string {
     return "UTC";
   }
 
-  const mode = adminStore.systemConfigs["timezone_mode"]?.config_value;
-  const name = adminStore.systemConfigs["timezone_name"]?.config_value;
+  const mode = (adminStore.systemConfigs["timezone_mode"] as any)?.config_value;
+  const name = (adminStore.systemConfigs["timezone_name"] as any)?.config_value;
 
   if (mode === "local" && name && typeof name === "string") {
     try {

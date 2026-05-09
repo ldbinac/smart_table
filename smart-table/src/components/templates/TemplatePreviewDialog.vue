@@ -238,7 +238,6 @@ import {
   Grid,
   Calendar as CalendarIcon,
 } from "@element-plus/icons-vue";
-import dayjs from "dayjs";
 import type { TableTemplate, TemplateTable, TemplateField, TemplateRecord } from "@/utils/tableTemplates";
 import { formatDate as tzFormatDate } from "@/utils/timezone";
 
