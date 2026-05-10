@@ -53,7 +53,8 @@ def _format_date_default_value(default_value: str, field_type: str) -> str:
 
         # 根据字段类型格式化
         if is_date_time:
-            return dt.strftime('%Y-%m-%d %H:%M:%S')
+            # 保留 UTC ISO 格式（如 2026-05-10T16:16:40Z）
+            return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
         else:
             return dt.strftime('%Y-%m-%d')
     except (ValueError, TypeError):

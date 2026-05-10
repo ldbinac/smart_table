@@ -120,11 +120,19 @@ function handleMappingChange(index: number, fieldId: string | null) {
   }
 }
 
-// 格式化日期时间戳为可读字符串
-function formatDateValue(timestamp: number, includeTime: boolean): string {
-  if (!timestamp || isNaN(timestamp)) return "-";
+// 格式化日期时间值为可读字符串（支持时间戳、ISO字符串、日期字符串）
+function formatDateValue(value: string | number, includeTime: boolean): string {
+  if (!value || value === "") return "-";
 
-  const date = new Date(timestamp);
+  let date: Date;
+
+  if (typeof value === "number") {
+    date = new Date(value);
+  } else {
+    // 字符串格式：ISO 字符串（2026-05-10T16:16:40.478Z）或日期字符串（2026-05-10）
+    date = new Date(value);
+  }
+
   if (isNaN(date.getTime())) return "-";
 
   const year = date.getFullYear();
@@ -172,9 +180,9 @@ function generateDisplayData(
         displayData[field.id] = name ?? String(value);
       }
     } else if (field.type === "date") {
-      displayData[field.id] = formatDateValue(Number(value), false);
+      displayData[field.id] = formatDateValue(value as string | number, false);
     } else if (field.type === "date_time") {
-      displayData[field.id] = formatDateValue(Number(value), true);
+      displayData[field.id] = formatDateValue(value as string | number, true);
     } else {
       displayData[field.id] = String(value);
     }

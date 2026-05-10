@@ -336,8 +336,8 @@ function formatDateForSubmit(val: unknown, showTime: boolean): string | null {
   if (!val) return null;
   const d = dayjs(val as Date);
   if (!d.isValid()) return null;
-  // 转换为 UTC 时间字符串
-  return d.utc().format(showTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD");
+  // 转换为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）或日期字符串（如 2026-05-10）
+  return showTime ? d.toISOString() : d.format("YYYY-MM-DD");
 }
 
 // 处理附件上传

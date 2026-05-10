@@ -760,7 +760,10 @@ class ImportExportService:
         # 日期时间类型
         if field_type == FieldType.DATE_TIME:
             if isinstance(value, datetime):
-                return value.isoformat()
+                # 处理 tz-naive 的 datetime（如 pandas Timestamp）
+                if value.tzinfo is None:
+                    return value.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                return value.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             # 尝试解析字符串日期时间
             if isinstance(value, str):
                 try:
@@ -768,7 +771,8 @@ class ImportExportService:
                     for fmt in ['%Y-%m-%d %H:%M:%S', '%Y/%m/%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d']:
                         try:
                             dt = datetime.strptime(value.strip(), fmt)
-                            return dt.isoformat()
+                            # 将本地时间转换为 UTC ISO 格式
+                            return dt.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
                         except ValueError:
                             continue
                     # 如果都解析失败，返回原值
@@ -808,6 +812,22 @@ class ImportExportService:
         # 附件类型
         if field_type == FieldType.ATTACHMENT and isinstance(value, list):
             return f'[{len(value)} 个附件]'
+        
+        # 日期时间类型：将 UTC ISO 格式转换为本地时区格式
+        if field_type == FieldType.DATE_TIME and isinstance(value, str):
+            try:
+                # 解析 UTC 时间
+                if value.endswith('Z'):
+                    dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                elif 'T' in value:
+                    dt = datetime.fromisoformat(value)
+                else:
+                    return value
+                # 转换为本地时区（系统本地时区）
+                local_dt = dt.astimezone()
+                return local_dt.strftime('%Y-%m-%d %H:%M:%S')
+            except (ValueError, TypeError):
+                return value
         
         return value
 

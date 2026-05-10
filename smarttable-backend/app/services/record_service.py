@@ -70,7 +70,8 @@ def _format_date_value(value: str, field: Field) -> str:
 
         # 根据字段类型格式化
         if is_date_time:
-            return dt.strftime('%Y-%m-%d %H:%M:%S')
+            # 保留 UTC ISO 格式（如 2026-05-10T16:16:40.478Z）
+            return dt.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
         else:
             return dt.strftime('%Y-%m-%d')
     except (ValueError, TypeError):
@@ -244,7 +245,7 @@ class RecordService:
                     if default_value == 'now':
                         # 根据字段类型格式化当前时间
                         if field.type == FieldType.DATE_TIME.value:
-                            final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+                            final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
                         else:
                             final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d')
                     else:

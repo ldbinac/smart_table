@@ -294,20 +294,38 @@ export function convertValue(
       return isNaN(num) ? null : num;
 
     case FieldType.DATE:
-    case FieldType.DATE_TIME:
       // 处理多种日期格式
       if (typeof value === 'number') {
         // Excel 日期序列号
         if (value > 30000 && value < 50000) {
-          // Excel 日期序列号转时间戳
-          const excelEpoch = new Date(1899, 11, 30);
-          return excelEpoch.getTime() + value * 24 * 60 * 60 * 1000;
+          // Excel 日期序列号转 UTC 日期字符串
+          const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+          const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+          return date.toISOString().split('T')[0]; // YYYY-MM-DD
         }
         return value;
       }
       if (typeof value === 'string') {
         const date = new Date(value);
-        return isNaN(date.getTime()) ? null : date.getTime();
+        return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0]; // YYYY-MM-DD
+      }
+      return null;
+
+    case FieldType.DATE_TIME:
+      // 处理多种日期时间格式
+      if (typeof value === 'number') {
+        // Excel 日期序列号
+        if (value > 30000 && value < 50000) {
+          // Excel 日期序列号转 UTC ISO 字符串
+          const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+          const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+          return date.toISOString(); // 2026-05-10T16:16:40.478Z
+        }
+        return value;
+      }
+      if (typeof value === 'string') {
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? null : date.toISOString(); // 2026-05-10T16:16:40.478Z
       }
       return null;
 

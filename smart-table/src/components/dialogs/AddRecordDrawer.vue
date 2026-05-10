@@ -306,10 +306,10 @@ function handleDateChange(field: FieldEntity, val: Date | null) {
 
   const showTime = getDateShowTime(field);
   if (showTime) {
-    // 显示时间时存储为时间戳
-    formData.value[field.id] = val.getTime();
+    // 显示时间时存储为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）
+    formData.value[field.id] = dayjs(val).toISOString();
   } else {
-    // 仅日期时存储为日期字符串
+    // 仅日期时存储为 UTC 日期字符串（如 2026-05-10）
     formData.value[field.id] = dayjs(val).format("YYYY-MM-DD");
   }
 }
