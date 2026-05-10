@@ -33,6 +33,7 @@ import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
+import { formatDateTime, formatDate } from "@/utils/timezone";
 
 const props = defineProps<{
   visible: boolean;
@@ -553,25 +554,39 @@ const drawerTitle = computed(() => {
 
           <!-- 日期类型 -->
           <template v-else-if="getFieldComponent(field) === 'date'">
-            <el-date-picker
-              :model-value="
-                formData[field.id]
-                  ? dayjs(formData[field.id] as string).toDate()
-                  : null
-              "
-              @update:model-value="
-                (val) =>
-                  handleValueChange(
-                    field.id,
-                    val ? dayjs(val).format(getDateFormat(field)) : null,
-                  )
-              "
-              :type="getDatePickerType(field)"
-              :placeholder="`请选择${field.name}`"
-              :format="getDateFormat(field)"
-              :disabled="readonly"
-              class="field-input"
-              style="width: 100%" />
+            <template v-if="readonly">
+              <el-input
+                :model-value="
+                  formData[field.id]
+                    ? (getDateShowTime(field)
+                        ? formatDateTime(formData[field.id] as string)
+                        : formatDate(formData[field.id] as string))
+                    : '-'
+                "
+                disabled
+                class="field-input" />
+            </template>
+            <template v-else>
+              <el-date-picker
+                :model-value="
+                  formData[field.id]
+                    ? dayjs(formData[field.id] as string).toDate()
+                    : null
+                "
+                @update:model-value="
+                  (val) =>
+                    handleValueChange(
+                      field.id,
+                      val ? dayjs(val).format(getDateFormat(field)) : null,
+                    )
+                "
+                :type="getDatePickerType(field)"
+                :placeholder="`请选择${field.name}`"
+                :format="getDateFormat(field)"
+                :disabled="readonly"
+                class="field-input"
+                style="width: 100%" />
+            </template>
           </template>
 
           <!-- 复选框类型 -->

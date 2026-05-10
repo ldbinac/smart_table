@@ -134,5 +134,26 @@ describe("timezone", () => {
       expect(result).not.toBeNull();
       expect(result!.format("YYYY-MM-DD HH:mm:ss")).toBe("2024-06-15 08:30:00");
     });
+
+    it("无时区后缀的 UTC 字符串按 UTC 解析", () => {
+      mockStore.systemConfigs = {
+        timezone_mode: { config_value: "local" },
+        timezone_name: { config_value: "Asia/Shanghai" },
+      };
+      // 后端返回的无 Z 后缀 UTC 时间
+      const result = toConfiguredTimezone("2024-06-15 08:30:00");
+      expect(result).not.toBeNull();
+      expect(result!.format("YYYY-MM-DD HH:mm:ss")).toBe("2024-06-15 16:30:00");
+    });
+
+    it("带 Z 后缀的 ISO 字符串正常解析", () => {
+      mockStore.systemConfigs = {
+        timezone_mode: { config_value: "local" },
+        timezone_name: { config_value: "Asia/Shanghai" },
+      };
+      const result = toConfiguredTimezone("2024-06-15T08:30:00Z");
+      expect(result).not.toBeNull();
+      expect(result!.format("YYYY-MM-DD HH:mm:ss")).toBe("2024-06-15 16:30:00");
+    });
   });
 });

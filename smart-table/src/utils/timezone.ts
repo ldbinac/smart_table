@@ -48,7 +48,26 @@ export function toConfiguredTimezone(
     return null;
   }
 
-  const d = dayjs(value);
+  let d: dayjs.Dayjs;
+
+  if (typeof value === "string") {
+    // 后端返回的 UTC 时间字符串可能没有 Z 后缀（如 "2026-05-10 05:21:11"）
+    // 这种情况下需要显式指定为 UTC 解析，避免被当作本地时间
+    const trimmed = value.trim();
+    if (
+      trimmed.length >= 19 &&
+      !trimmed.endsWith("Z") &&
+      !trimmed.match(/[+-]\d{2}:\d{2}$/)
+    ) {
+      // 无时区信息的字符串，按 UTC 解析
+      d = dayjs.utc(trimmed);
+    } else {
+      d = dayjs(value);
+    }
+  } else {
+    d = dayjs(value);
+  }
+
   if (!d.isValid()) {
     return null;
   }
