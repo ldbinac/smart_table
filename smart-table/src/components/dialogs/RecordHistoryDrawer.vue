@@ -94,7 +94,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { UserFilled, ArrowRight } from "@element-plus/icons-vue";
-import dayjs from "dayjs";
+import { formatDateTime } from "@/utils/timezone";
 import type { Field } from "@/api/types";
 import {
   recordHistoryApiService,
@@ -174,7 +174,7 @@ const getActionClass = (action: string): string => {
 
 // 格式化时间
 const formatTime = (time: string): string => {
-  return dayjs(time).format("YYYY-MM-DD HH:mm:ss");
+  return formatDateTime(time);
 };
 
 // 加载历史数据

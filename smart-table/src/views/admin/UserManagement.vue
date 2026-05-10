@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="user-management-page">
     <div class="page-header">
       <h1 class="page-title">用户管理</h1>
@@ -84,7 +84,7 @@
           </el-table-column>
           <el-table-column prop="created_at" label="创建时间" width="180">
             <template #default="{ row }">
-              {{ formatDate(row.created_at) }}
+              {{ formatUserDate(row.created_at) }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="280" fixed="right">
@@ -169,6 +169,7 @@ import { useAdminStore } from "@/stores/adminStore";
 import type { User, UserRole, UserStatus } from "@/api/types";
 import UserDialog from "@/components/dialogs/admin/UserDialog.vue";
 import ResetPasswordDialog from "@/components/dialogs/admin/ResetPasswordDialog.vue";
+import { formatDateTime } from "@/utils/timezone";
 
 const adminStore = useAdminStore();
 
@@ -248,16 +249,9 @@ const getStatusTagType = (
   return typeMap[status] || undefined;
 };
 
-const formatDate = (dateString: string): string => {
+const formatUserDate = (dateString: string): string => {
   if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(dateString, "YYYY-MM-DD HH:mm");
 };
 
 const fetchUsers = async () => {

@@ -22,6 +22,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { formatDateTime } from "@/utils/timezone";
 import {
   validateRequiredFields,
   getRequiredFieldErrorMessage,
@@ -348,7 +349,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       if (typeof value === "number") {
-        return dayjs(value).format("YYYY-MM-DD HH:mm:ss");
+        return formatDateTime(value);
       }
       return String(value);
     case FieldType.CREATED_BY:

@@ -4,7 +4,7 @@ import type { FieldEntity, RecordEntity } from "../../db/schema";
 import type { GroupNode } from "../../utils/group";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
 import { groupRecords } from "../../utils/group";
-import dayjs from "dayjs";
+import { formatDateTime } from "@/utils/timezone";
 import { truncateRichText } from "@/utils/helpers";
 import { FormulaEngine } from "@/utils/formula/engine";
 import {
@@ -629,18 +629,18 @@ function getDateDisplay(field: FieldEntity, value: unknown): string {
   const isDateTime = field.type === FieldType.DATE_TIME;
   const format = isDateTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
 
-  // 处理字符串格式的日期（如 "2024-01-15"）
+  // 处理字符串格式的日期（如 "2024-01-15" 或 "2026-05-10 15:35:00"）
   if (typeof value === "string") {
-    // 如果是标准日期格式，直接返回
+    // 如果是标准日期格式，使用时区转换
     if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-      return value.substring(0, isDateTime ? 19 : 10);
+      return formatDateTime(value, format);
     }
     // 尝试解析为数字时间戳
     const num = parseInt(value);
     if (!isNaN(num) && num > 0) {
       // 判断是秒级还是毫秒级时间戳
       const msTimestamp = num < 1e10 ? num * 1000 : num;
-      return dayjs(msTimestamp).format(format);
+      return formatDateTime(msTimestamp, format);
     }
     return value;
   }
@@ -650,7 +650,7 @@ function getDateDisplay(field: FieldEntity, value: unknown): string {
     if (value <= 0) return "";
     // 判断是秒级还是毫秒级时间戳（秒级时间戳通常小于 1e10）
     const msTimestamp = value < 1e10 ? value * 1000 : value;
-    return dayjs(msTimestamp).format(format);
+    return formatDateTime(msTimestamp, format);
   }
 
   return String(value);

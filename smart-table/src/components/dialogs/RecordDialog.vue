@@ -27,6 +27,7 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import { formatDateTime, toConfiguredTimezone } from "@/utils/timezone";
 // import { Calculator } from "@element-plus/icons-vue";
 
 const props = defineProps<{
@@ -219,6 +220,14 @@ function getMaxRating(field: FieldEntity): number {
   return (field.options?.maxRating as number) ?? 5;
 }
 
+// 将 UTC 日期字符串转换为配置时区的 Date 对象（用于 el-date-picker 显示）
+function parseUtcDateForPicker(value: unknown): Date | undefined {
+  if (!value || typeof value !== "string") return undefined;
+  const converted = toConfiguredTimezone(value);
+  if (!converted) return undefined;
+  return converted.toDate();
+}
+
 // 处理日期变更
 function handleDateChange(field: FieldEntity, val: Date | null) {
   if (!val) {
@@ -228,11 +237,11 @@ function handleDateChange(field: FieldEntity, val: Date | null) {
 
   const showTime = getDateShowTime(field);
   if (showTime) {
-    // 显示时间时存储为时间戳
-    formData.value[field.id] = val.getTime();
+    // 显示时间时存储为 UTC 时间戳
+    formData.value[field.id] = dayjs(val).utc().valueOf();
   } else {
-    // 仅日期时存储为日期字符串
-    formData.value[field.id] = dayjs(val).format("YYYY-MM-DD");
+    // 仅日期时存储为 UTC 日期字符串
+    formData.value[field.id] = dayjs(val).utc().format("YYYY-MM-DD");
   }
 }
 
@@ -336,7 +345,14 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       if (typeof value === "number") {
-        return dayjs(value).format("YYYY-MM-DD HH:mm:ss");
+        return formatDateTime(value);
+      }
+      return String(value);
+    case FieldType.DATE:
+    case FieldType.DATE_TIME:
+      if (value) {
+        const format = field.type === FieldType.DATE_TIME ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
+        return formatDateTime(value as string | number, format);
       }
       return String(value);
     case FieldType.CREATED_BY:
@@ -474,7 +490,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
         <!-- 日期类型 -->
         <template v-else-if="getFieldComponent(field) === 'date'">
           <ElDatePicker
-            :model-value="formData[field.id] as Date | undefined"
+            :model-value="parseUtcDateForPicker(formData[field.id])"
             :type="getDatePickerType(field)"
             :placeholder="`请选择${field.name}`"
             :format="getDateFormat(field)"

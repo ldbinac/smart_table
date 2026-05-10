@@ -80,7 +80,7 @@ export class DashboardShareService {
         accessCode: apiShare.has_access_code
           ? this.generateAccessCode()
           : undefined,
-        expiresAt: apiShare.expires_at,
+        expiresAt: apiShare.expires_at ? apiShare.expires_at * 1000 : undefined,
         maxAccessCount: apiShare.max_access_count,
         currentAccessCount: apiShare.current_access_count,
         isActive: apiShare.is_active,
@@ -165,7 +165,7 @@ export class DashboardShareService {
             accessCode: apiShare.has_access_code
               ? this.generateAccessCode()
               : undefined,
-            expiresAt: apiShare.expires_at,
+            expiresAt: apiShare.expires_at ? apiShare.expires_at * 1000 : undefined,
             maxAccessCount: apiShare.max_access_count,
             currentAccessCount: apiShare.current_access_count,
             isActive: apiShare.is_active,
@@ -255,7 +255,7 @@ export class DashboardShareService {
           dashboardId: share.dashboard_id,
           shareToken: share.share_token,
           accessCode: accessCode,
-          expiresAt: share.expires_at,
+          expiresAt: share.expires_at ? share.expires_at * 1000 : undefined,
           maxAccessCount: share.max_access_count,
           currentAccessCount: share.current_access_count,
           isActive: share.is_active,

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from "vue"
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import dayjs from "dayjs";
+import { formatDate } from "@/utils/timezone";
 import {
   Calendar,
   EditPen,
@@ -276,8 +277,8 @@ function getTaskRowStyle(index: number): Record<string, string> {
   };
 }
 
-function formatDate(date: Date): string {
-  return dayjs(date).format("MM/DD");
+function formatGanttDate(date: Date): string {
+  return formatDate(date.getTime(), "MM/DD");
 }
 
 function isToday(date: Date): boolean {
@@ -700,7 +701,7 @@ watch(
             <div class="task-info">
               <div class="task-name" :title="task.title">{{ task.title }}</div>
               <div class="task-date">
-                {{ formatDate(task.start) }} - {{ formatDate(task.end) }}
+                {{ formatGanttDate(task.start) }} - {{ formatGanttDate(task.end) }}
               </div>
             </div>
           </div>
@@ -813,13 +814,13 @@ watch(
                   <div class="tooltip-row">
                     <span class="tooltip-label">开始:</span>
                     <span class="tooltip-value">{{
-                      formatDate(task.start)
+                      formatGanttDate(task.start)
                     }}</span>
                   </div>
                   <div class="tooltip-row">
                     <span class="tooltip-label">结束:</span>
                     <span class="tooltip-value">{{
-                      formatDate(task.end)
+                      formatGanttDate(task.end)
                     }}</span>
                   </div>
                   <div class="tooltip-row">

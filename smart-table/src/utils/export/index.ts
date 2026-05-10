@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
+import { formatDate } from "@/utils/timezone";
 
 export interface ExportOptions {
   filename?: string;
@@ -51,7 +52,7 @@ function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       if (typeof value === "number") {
-        return new Date(value).toLocaleDateString("zh-CN");
+        return formatDate(value);
       }
       return value;
 
@@ -130,7 +131,7 @@ function formatValueForCSV(value: CellValue, field: FieldEntity): string {
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       if (typeof value === "number") {
-        return new Date(value).toLocaleDateString("zh-CN");
+        return formatDate(value);
       }
       return String(value);
 

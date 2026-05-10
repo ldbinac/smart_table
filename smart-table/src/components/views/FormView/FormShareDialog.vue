@@ -5,6 +5,7 @@ import { Share, Plus, CopyDocument } from "@element-plus/icons-vue";
 import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type FieldTypeValue } from "@/types";
+import { formatDateTime } from "@/utils/timezone";
 
 const props = defineProps<{
   visible: boolean;
@@ -216,10 +217,9 @@ async function toggleShareStatus(share: FormShareConfig) {
 }
 
 // 格式化日期
-function formatDate(timestamp: number | null): string {
+function formatShareDate(timestamp: number | null): string {
   if (!timestamp) return "永久有效";
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleString("zh-CN");
+  return formatDateTime(timestamp * 1000);
 }
 
 // 获取状态文本
@@ -326,7 +326,7 @@ function copyExistingShareUrl(share: FormShareConfig) {
           </el-table-column>
           <el-table-column label="过期时间" min-width="140">
             <template #default="{ row }">
-              {{ formatDate(row.expires_at) }}
+              {{ formatShareDate(row.expires_at) }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="180" fixed="right">
@@ -495,7 +495,7 @@ function copyExistingShareUrl(share: FormShareConfig) {
                 {{ createdShare?.require_captcha ? "是" : "否" }}
               </el-descriptions-item>
               <el-descriptions-item label="过期时间">
-                {{ formatDate(createdShare?.expires_at || null) }}
+                {{ formatShareDate(createdShare?.expires_at || null) }}
               </el-descriptions-item>
               <el-descriptions-item label="最大提交次数">
                 {{ createdShare?.max_submissions || "不限制" }}

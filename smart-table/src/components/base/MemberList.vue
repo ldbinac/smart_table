@@ -29,7 +29,7 @@
       
       <el-table-column label="加入时间" width="180">
         <template #default="{ row }">
-          {{ formatDate(row.joined_at) }}
+          {{ formatDateTime(row.joined_at) }}
         </template>
       </el-table-column>
       
@@ -109,9 +109,7 @@ const getRoleType = (role: MemberRole): 'success' | 'warning' | 'info' | 'danger
   return roleMap[role]?.type
 }
 
-const formatDate = (date: string): string => {
-  return new Date(date).toLocaleDateString('zh-CN')
-}
+import { formatDateTime } from "@/utils/timezone";
 </script>
 
 <style scoped lang="scss">

@@ -185,7 +185,7 @@ import {
   ElRate,
   ElProgress,
 } from "element-plus";
-import dayjs from "dayjs";
+import { formatDateTime as tzFormatDateTime } from "@/utils/timezone";
 import { recordApiService } from "@/services/api/recordApiService";
 import { fieldService } from "@/db/services";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
@@ -293,7 +293,7 @@ const loadFields = async () => {
 // 格式化日期时间
 const formatDateTime = (value: string | number | Date): string => {
   if (!value) return "-";
-  return dayjs(value).format("YYYY-MM-DD HH:mm:ss");
+  return tzFormatDateTime(value);
 };
 
 // 格式化字段值

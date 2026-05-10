@@ -269,9 +269,11 @@ function getTemplateColor(category: string): string {
   return colorMap[category] || '#8c8c8c'
 }
 
+import { formatDate, formatDateTime } from "@/utils/timezone";
+
 // 格式化日期
-function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString('zh-CN')
+function formatTemplateDate(timestamp: number): string {
+  return formatDate(timestamp)
 }
 
 // 获取组件类型图标
@@ -484,7 +486,7 @@ onMounted(() => {
                       <span class="template-type" :class="{ preset: template.isPreset }">
                         {{ template.isPreset ? '预设' : '自定义' }}
                       </span>
-                      <span class="template-date">{{ formatDate(template.updatedAt) }}</span>
+                      <span class="template-date">{{ formatTemplateDate(template.updatedAt) }}</span>
                     </div>
                   </div>
                   <div class="card-footer">
@@ -656,7 +658,7 @@ onMounted(() => {
                   </template>
                   <template v-else-if="widget.type === 'clock'">
                     <div class="mock-clock">
-                      {{ new Date().toLocaleTimeString() }}
+                      {{ formatDateTime(Date.now(), "HH:mm:ss") }}
                     </div>
                   </template>
                   <template v-else-if="['line', 'bar'].includes(widget.type)">

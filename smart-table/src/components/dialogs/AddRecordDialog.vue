@@ -28,6 +28,7 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import { formatDateTime } from "@/utils/timezone";
 
 interface GroupLevelInfo {
   fieldId: string;
@@ -294,7 +295,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       if (typeof value === "number") {
-        return dayjs(value).format("YYYY-MM-DD HH:mm:ss");
+        return formatDateTime(value);
       }
       return String(value);
     case FieldType.CREATED_BY:

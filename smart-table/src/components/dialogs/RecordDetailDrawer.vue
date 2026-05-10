@@ -33,7 +33,7 @@ import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
-import { formatDateTime, formatDate } from "@/utils/timezone";
+import { formatDateTime, formatDate, toConfiguredTimezone } from "@/utils/timezone";
 
 const props = defineProps<{
   visible: boolean;
@@ -323,6 +323,23 @@ function getDatePickerType(field: FieldEntity): "date" | "datetime" {
   return getDateShowTime(field) ? "datetime" : "date";
 }
 
+// 将 UTC 日期字符串转换为配置时区的 Date 对象（用于 el-date-picker 显示）
+function parseUtcDateForPicker(value: string | unknown): Date | null {
+  if (!value || typeof value !== "string") return null;
+  const converted = toConfiguredTimezone(value);
+  if (!converted) return null;
+  return converted.toDate();
+}
+
+// 将 Date 对象转换为 UTC 日期字符串（用于提交到后端）
+function formatDateForSubmit(val: unknown, showTime: boolean): string | null {
+  if (!val) return null;
+  const d = dayjs(val as Date);
+  if (!d.isValid()) return null;
+  // 转换为 UTC 时间字符串
+  return d.utc().format(showTime ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD");
+}
+
 // 处理附件上传
 function handleAttachmentUpload(fieldId: string, newFiles: unknown[]) {
   const currentFiles = (formData.value[fieldId] as unknown[]) || [];
@@ -568,16 +585,12 @@ const drawerTitle = computed(() => {
             </template>
             <template v-else>
               <el-date-picker
-                :model-value="
-                  formData[field.id]
-                    ? dayjs(formData[field.id] as string).toDate()
-                    : null
-                "
+                :model-value="parseUtcDateForPicker(formData[field.id])"
                 @update:model-value="
                   (val) =>
                     handleValueChange(
                       field.id,
-                      val ? dayjs(val).format(getDateFormat(field)) : null,
+                      formatDateForSubmit(val, getDateShowTime(field)),
                     )
                 "
                 :type="getDatePickerType(field)"

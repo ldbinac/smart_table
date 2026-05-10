@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { FieldEntity } from "@/db/schema";
 import type { CellValue } from "@/types";
-import dayjs from "dayjs";
+import { formatDateTime } from "@/utils/timezone";
 
 interface Props {
   modelValue: CellValue;
@@ -25,7 +25,7 @@ const displayValue = computed(() => {
   }
 
   const format = (props.field.options?.format as string) || "YYYY-MM-DD HH:mm";
-  return dayjs(timestamp).format(format);
+  return formatDateTime(timestamp, format);
 });
 </script>
 

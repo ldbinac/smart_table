@@ -1,6 +1,6 @@
 import type { FieldEntity, RecordEntity } from '@/db/schema'
 import { FieldType } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/timezone'
 
 export interface ProcessedData {
   labels: string[]
@@ -96,13 +96,13 @@ export function formatDateValue(
   const format = isDateTime ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD'
 
   if (typeof value === 'number') {
-    return dayjs(value).format(format)
+    return formatDateTime(value, format)
   }
 
   if (typeof value === 'string') {
     const num = parseInt(value)
     if (!isNaN(num) && String(num).length >= 10) {
-      return dayjs(num).format(format)
+      return formatDateTime(num, format)
     }
     return value
   }

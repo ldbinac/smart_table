@@ -11,6 +11,7 @@ import { templateService } from "@/db/services";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
+import { formatDateTime, formatDate } from "@/utils/timezone";
 
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
@@ -259,8 +260,8 @@ const paginatedAllBases = computed(() => {
   return allBases.value.slice(start, end);
 });
 
-// 日期格式化
-const formatDate = (timestamp: number | string): string => {
+// 日期格式化（相对时间）
+const formatRelativeDate = (timestamp: number | string): string => {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -280,11 +281,7 @@ const formatDate = (timestamp: number | string): string => {
   } else if (days < 30) {
     return `${Math.floor(days / 7)}周前`;
   } else {
-    return date.toLocaleDateString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
+    return formatDate(timestamp);
   }
 };
 
@@ -892,15 +889,7 @@ async function handleCopyBase(base: Base, event: Event) {
                   </div>
                   <div class="card-footer">
                     <span class="update-time">
-                      最后修改时间：{{
-                        new Date(base.updated_at).toLocaleString("zh-CN", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      }}
+                      最后修改时间：{{ formatDateTime(base.updated_at) }}
                     </span>
                     <div class="card-actions" @click.stop="stopPropagation">
                       <el-button
@@ -1007,15 +996,7 @@ async function handleCopyBase(base: Base, event: Event) {
                   </div>
                   <div class="card-footer">
                     <span class="update-time">
-                      最后修改时间：{{
-                        new Date(base.updated_at).toLocaleString("zh-CN", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      }}
+                      最后修改时间：{{ formatDateTime(base.updated_at) }}
                     </span>
                     <div class="card-actions" @click.stop="stopPropagation">
                       <el-button
@@ -1193,7 +1174,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatDate(base.updated_at) }}
+                          修改于 {{ formatRelativeDate(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
@@ -1298,7 +1279,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatDate(base.updated_at) }}
+                          修改于 {{ formatRelativeDate(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
@@ -1551,7 +1532,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatDate(base.updated_at) }}
+                          修改于 {{ formatRelativeDate(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
