@@ -6,12 +6,14 @@ import MainLayout from '@/layouts/MainLayout.vue'
 import BlankLayout from '@/layouts/BlankLayout.vue'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardShortcutsStore } from '@/stores/keyboardShortcuts'
+import { useAdminStore } from '@/stores/adminStore'
 import { onLogoutEvent } from '@/utils/auth/token'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardShortcutsStore()
+const adminStore = useAdminStore()
 
 // 监听登出事件，实现多标签页同步
 let removeLogoutListener: (() => void) | null = null
@@ -26,9 +28,16 @@ const layoutComponent = computed(() => {
   return MainLayout
 })
 
-onMounted(() => {
+onMounted(async () => {
   themeStore.updateDarkMode()
-  
+
+  // 预加载系统配置（时区等）
+  try {
+    await adminStore.fetchSystemConfigs()
+  } catch (error) {
+    console.warn('[App] 预加载系统配置失败:', error)
+  }
+
   document.addEventListener('keydown', keyboardStore.handleKeyDown)
   
   keyboardStore.registerShortcut({
