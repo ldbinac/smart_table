@@ -18,22 +18,57 @@ export interface GroupConfig {
 }
 
 export function groupRecords(
-  records: RecordEntity[],
-  config: GroupConfig,
-  fields: FieldEntity[],
+    records: RecordEntity[],
+    config: GroupConfig,
+    fields: FieldEntity[],
 ): GroupNode[] {
-  if (!config.fieldIds || config.fieldIds.length === 0) {
-    return [
-      {
-        key: "all",
-        value: "全部",
-        records,
-        count: records.length,
-      },
-    ];
-  }
+    if (!config.fieldIds || config.fieldIds.length === 0) {
+        return [
+            {
+                key: "all",
+                value: "全部",
+                records,
+                count: records.length,
+            },
+        ];
+    }
 
-  return groupByField(records, config.fieldIds, 0, fields, config);
+    return groupByField(records, config.fieldIds, 0, fields, config);
+}
+
+// 优化后的分组函数，支持虚拟滚动
+export function groupRecordsLazy(
+    records: RecordEntity[],
+    config: GroupConfig,
+    fields: FieldEntity[],
+    options: {
+        expandedGroups?: Set<string>; // 已展开的组
+    } = {}
+): {
+    groups: GroupNode[];
+    totalRecords: number;
+} {
+    const groups = groupRecords(records, config, fields);
+    const expandedGroups = options.expandedGroups || new Set();
+    
+    // 标记展开状态
+    const processGroups = (nodes: GroupNode[], level: number): GroupNode[] => {
+        return nodes.map(node => {
+            const newNode = { ...node };
+            newNode.isExpanded = level === 0 || expandedGroups.has(node.key);
+            
+            if (node.children && node.children.length > 0) {
+                newNode.children = processGroups(node.children, level + 1);
+            }
+            
+            return newNode;
+        });
+    };
+    
+    const processedGroups = processGroups(groups, 0);
+    const totalRecords = countAllRecords(processedGroups);
+    
+    return { groups: processedGroups, totalRecords };
 }
 
 function groupByField(

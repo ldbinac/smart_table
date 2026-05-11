@@ -84,7 +84,7 @@ class FieldService:
     @staticmethod
     def get_all_fields(table_id: str) -> List[Field]:
         """
-        获取表格中的所有字段
+        获取表格中的所有字段（带缓存）
         
         Args:
             table_id: 表格 ID
@@ -92,7 +92,24 @@ class FieldService:
         Returns:
             字段列表（按 order 排序）
         """
-        return Field.query.filter_by(table_id=table_id).order_by(Field.order.asc()).all()
+        try:
+            from app.extensions import cache
+            cache_key = f'fields:table:{table_id}'
+            
+            # 尝试从缓存获取
+            cached_fields = cache.get(cache_key)
+            if cached_fields is not None:
+                return cached_fields
+                
+            # 缓存未命中，从数据库查询
+            fields = Field.query.filter_by(table_id=table_id).order_by(Field.order.asc()).all()
+            
+            # 设置缓存（5分钟）
+            cache.set(cache_key, fields, timeout=300)
+            return fields
+        except ImportError:
+            # 缓存不可用，回退到数据库查询
+            return Field.query.filter_by(table_id=table_id).order_by(Field.order.asc()).all()
     
     @staticmethod
     def get_fields_by_type(table_id: str, field_type: str) -> List[Field]:
@@ -199,6 +216,13 @@ class FieldService:
             db.session.add(field)
             db.session.commit()
 
+            # 清除缓存
+            try:
+                from app.extensions import cache
+                cache.delete(f'fields:table:{table_id}')
+            except Exception:
+                pass
+
             try:
                 from app.services.collaboration_service import CollaborationService
                 CollaborationService.broadcast_if_enabled('data:field_created', str(field.table.base_id), {
@@ -297,6 +321,13 @@ class FieldService:
         try:
             db.session.commit()
 
+            # 清除缓存
+            try:
+                from app.extensions import cache
+                cache.delete(f'fields:table:{field.table_id}')
+            except Exception:
+                pass
+
             try:
                 from app.services.collaboration_service import CollaborationService
                 CollaborationService.broadcast_if_enabled('data:field_updated', str(field.table.base_id), {
@@ -354,6 +385,13 @@ class FieldService:
             db.session.delete(field)
             db.session.commit()
 
+            # 清除缓存
+            try:
+                from app.extensions import cache
+                cache.delete(f'fields:table:{saved_table_id}')
+            except Exception:
+                pass
+
             try:
                 from app.services.collaboration_service import CollaborationService
                 CollaborationService.broadcast_if_enabled('data:field_deleted', saved_base_id, {
@@ -400,6 +438,14 @@ class FieldService:
                     field.order = new_order
             
             db.session.commit()
+            
+            # 清除缓存
+            try:
+                from app.extensions import cache
+                cache.delete(f'fields:table:{table_id}')
+            except Exception:
+                pass
+                
             return True
         except Exception:
             db.session.rollback()
@@ -444,6 +490,13 @@ class FieldService:
             db.session.add(new_field)
             db.session.commit()
             
+            # 清除缓存
+            try:
+                from app.extensions import cache
+                cache.delete(f'fields:table:{source_field.table_id}')
+            except Exception:
+                pass
+                
             return {
                 'success': True,
                 'field': new_field.to_dict()

@@ -120,7 +120,7 @@ class RecordService:
     @staticmethod
     def _get_max_sequence_from_db(table_id: str, field_id: str, config: dict) -> int:
         """
-        从数据库查询当前最大序列号
+        从数据库查询当前最大序列号 (优化版：使用分批查询避免全表加载)
 
         Args:
             table_id: 表格 ID
@@ -132,13 +132,16 @@ class RecordService:
         """
         import re
         
-        records = Record.query.filter_by(table_id=table_id).all()
         max_number = 0
         suffix = config.get('suffix', '')
         
-        for record in records:
-            values = record.values or {}
-            field_value = values.get(field_id)
+        # 使用 yield_per 分批查询，避免一次性加载所有记录
+        records = Record.query.filter_by(table_id=table_id).with_entities(
+            Record.values
+        ).yield_per(1000)
+        
+        for (values,) in records:
+            field_value = (values or {}).get(field_id)
             if field_value:
                 try:
                     value_str = str(field_value)

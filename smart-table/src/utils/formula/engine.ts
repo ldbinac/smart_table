@@ -22,15 +22,17 @@ export interface ParseResult {
 }
 
 export class FormulaEngine {
-  private fields: Map<string, FieldEntity>;
-  private fieldNameToId: Map<string, string>;
+    private fields: Map<string, FieldEntity>;
+    private fieldNameToId: Map<string, string>;
+    private calculationCache: Map<string, CellValue | FormulaError>;
 
-  constructor(fields: FieldEntity[]) {
-    this.fields = new Map(fields.map((f) => [f.id, f]));
-    this.fieldNameToId = new Map(
-      fields.map((f) => [f.name.toLowerCase(), f.id]),
-    );
-  }
+    constructor(fields: FieldEntity[]) {
+        this.fields = new Map(fields.map((f) => [f.id, f]));
+        this.fieldNameToId = new Map(
+            fields.map((f) => [f.name.toLowerCase(), f.id])
+        );
+        this.calculationCache = new Map();
+    }
 
   parseFieldRefs(formula: string): string[] {
     const refs: string[] = [];
@@ -47,15 +49,34 @@ export class FormulaEngine {
   }
 
   calculate(record: RecordEntity, formula: string): CellValue | FormulaError {
+    // 生成缓存键
+    const fieldValues = this.parseFieldRefs(formula)
+      .map(fieldId => `${fieldId}:${JSON.stringify(record.values[fieldId])}`)
+      .join('|');
+    const cacheKey = `${record.id}:${formula}:${fieldValues}`;
+
+    // 检查缓存
+    if (this.calculationCache.has(cacheKey)) {
+      return this.calculationCache.get(cacheKey)!;
+    }
+
     try {
       const result = this.evaluate(formula, record);
+      this.calculationCache.set(cacheKey, result);
       return result;
     } catch (error) {
-      return {
+      const errorResult = {
         message: error instanceof Error ? error.message : "计算错误",
         code: "CALCULATION_ERROR",
       };
+      this.calculationCache.set(cacheKey, errorResult);
+      return errorResult;
     }
+  }
+
+  // 清除缓存的方法
+  clearCache(): void {
+    this.calculationCache.clear();
   }
 
   private evaluate(formula: string, record: RecordEntity): CellValue {
