@@ -4,37 +4,49 @@
 
 ***
 
-# SmartTable v1.3.0 Release Notes
+# SmartTable v1.3.2 Release Notes
 
 **发布日期 / Release Date**: 2026-05-06
 
-**版本号 / Version**: v1.3.0
+**版本号 / Version**: v1.3.2
 
-**标签 / Tags**: `release`, `v1.3.0`, `latest`, `stable`
+**标签 / Tags**: `release`, `v1.3.2`, `latest`, `stable`
 
 ***
 
 ## 中文版本 / Chinese Version
 
-### 🎉 SmartTable v1.3.0 更新说明
+### 🎉 SmartTable v1.3.2 更新说明
 
 本次更新聚焦于 **表单分享体验升级**、**数据导入流程优化**、**关联字段增强**、**实时协作完善** 以及 **架构重构与性能提升**，同时新增了 **6 个业务表格模板** 和 **跨平台打包支持**，进一步提升了系统的易用性、稳定性和开发效率。
 
 ### ✨ 新增功能 (New Features)
 
+#### 📝 时区管理功能全面支持 ⭐
+
+
+**系统参数配置界面支持时区配置**
+
+- 新增独立的系统参数配置界面，支持时区配置
+  > 实现系统级时区配置功能，支持管理员在 UTC 和指定本地时区之间切换全站时间显示方式。
+- 全局时区显示适配：根据系统配置，自动将时间显示转换为指定时区的时间。
+
 #### 📝 表单分享系统全面升级 ⭐
 
 **表单分享管理界面**
+
 - 新增独立的表单分享管理界面，支持查看所有已创建的表单分享链接
 - 可视化展示分享状态（已启用/已禁用/已过期）、提交统计数据（总提交数、今日提交数）
 - 支持一键复制分享链接、编辑分享设置、启用/禁用分享、删除分享
 
 **表单分享流程优化**
+
 - 分享配置步骤化引导（基本信息 → 提交设置 → 字段设置 → 外观设置 → 确认发布）
 - 实时预览表单效果（所见即所得）
 - 支持设置提交成功后的跳转URL或自定义提示信息
 
 **表单页面成员搜索功能 ⭐**
+
 - 表单分享页面中的成员字段支持在线搜索用户
 - 输入用户名或邮箱即可模糊搜索匹配
 - 显示用户头像和姓名，提升填写体验
@@ -42,12 +54,14 @@
 #### 📥 数据导入功能增强 ⭐
 
 **ImportDialog 增加数据预览步骤**
+
 - 导入流程从"上传→配置"两步升级为"上传→预览→配置"三步
 - 预览阶段显示前 20 行数据的解析结果，可提前发现格式问题
 - 支持在预览阶段调整字段类型映射和主字段选择
 - 显示文件总行数、预估处理时间等统计信息
 
 **导入功能支持选项 ID 与名称转换**
+
 - 导入多选/单选字段时，自动匹配已有选项的 **ID 或名称**
 - 解决了选项值相同但 ID 不同导致的数据关联错误问题
 - 导入日志中详细记录每个选项的匹配结果（命中/新建/跳过）
@@ -55,23 +69,35 @@
 #### 🔗 关联字段 (Link Field) 全面增强 ⭐
 
 **关联记录选择器改为抽屉式交互**
+
 - 将原来的弹窗模式替换为右侧抽屉，提供更大的操作空间
 - 抽屉内显示目标表的完整视图（支持筛选、排序、分组）
 - 支持在抽屉内直接查看关联记录的详细信息（嵌套详情展示）
 
 **扩展关联关系类型支持**
-- 新增 **多对一 (Many-to-One)** 关系类型显式支持
+
 - 关系类型配置更清晰：一对一 / 一对多 / 多对一 / 多对多 / 多对多（双向）
 - 关系类型变更时自动重建反向关联字段
 
 **字段缓存服务 ⭐**
+
 - 新增 fieldCacheService，实现字段定义的内存级缓存
 - 缓存 TTL 为 5 分钟，减少重复请求后端 API
 - 关联记录选择器加载速度提升 **60%+**（无需每次都请求字段定义）
 
-#### 🚀 数据表路由支持 ⭐
+#### 🚀 多维表增强
 
-**通过 URL 直接访问数据表**
+**增加多个多维表模板**
+- 新增 **6 个常用表格模板**：
+  - 会议管理（会议记录、参会人员和会议纪要管理）
+  - 学习计划（课程学习、进度跟踪和知识管理）
+  - bug追踪（软件缺陷记录、优先级管理和修复进度跟踪）
+  - 招聘管理（职位发布、候选人管理和面试流程跟踪）
+  - 资产管理（固定资产、设备领用和资产盘点管理）
+  - OKR目标（目标和关键结果管理，进度跟踪和对齐）
+
+**数据表路由支持，通过 URL 直接访问数据表**
+
 - 新增数据表专属路由 `/base/:baseId/table/:tableId`
 - 支持在浏览器地址栏直接输入 URL 打开指定数据表
 - 方便团队内分享特定表格链接，无需先进入 Base 再切换
@@ -80,31 +106,24 @@
 #### 📊 仪表盘功能增强 ⭐
 
 **仪表盘预览功能**
+
 - 新增仪表盘全局预览模式（不保存配置即可预览效果）
 - 预览模式下所有组件使用模拟数据渲染，真实反映布局效果
-- 支持在预览中切换不同屏幕尺寸（桌面/平板/手机）
 
 **实时数据组件空状态预览**
+
 - KPI 数字卡片、时钟、日期等组件在配置时即显示预览效果
 - 无需绑定真实数据源就能看到组件的最终呈现样式
 - 降低仪表盘配置的学习成本和试错时间
 
-**KPI 组件配置实时预览**
-- 修改 KPI 组件的数值格式、颜色阈值、字体大小时即时刷新预览
-- 支持 5 种预设样式快速切换（简约/卡片/渐变/玻璃态/暗色）
 
 **仪表板模板扩展**
-- 新增 **6 个常用表格模板**：
-  - 会议管理（议题、时间、参与者、纪要）
-  - 学习计划（课程、进度、笔记、考试）
-  - 健身追踪（运动类型、时长、消耗卡路里）
-  - 阅读书单（书名、作者、分类、读后感）
-  - 旅行规划（目的地、预算、行程、住宿）
-  - 影视清单（片名、评分、观看状态、推荐语）
+
 - 新增 **多个行业分类仪表板模板**（销售漏斗、客服工单、库存预警等）
 - 模板预览对话框组件（点击模板卡片弹出大图预览）
 
 **模板预览对话框组件 ⭐**
+
 - 点击模板库中的模板卡片，弹出模态框显示完整预览
 - 预览内容包括：模板名称、描述、适用场景、包含的表格列表、字段截图
 - 支持"立即使用"和"返回列表"操作
@@ -112,17 +131,20 @@
 #### 🔐 实时协作功能完善 ⭐
 
 **锁操作结果等待机制**
+
 - 当单元格被其他用户锁定时，申请锁定的操作不再立即失败
 - 系统自动进入"等待队列"，锁定释放后按顺序获得编辑权
 - 等待状态可视化显示（倒计时 + 排队位置 + 持有者信息）
 - 支持取消等待（放弃编辑或切换到其他单元格）
 
 **字段更新完整同步**
+
 - 字段的创建、修改、删除、排序操作实时同步给所有在线用户
 - 同步内容包括：字段名称、类型、选项列表、必填属性、默认值等完整配置
 - 其他用户的字段变更以 Toast 提示形式通知（可关闭）
 
 **用户 ID 追踪机制**
+
 - 所有实时协作事件（锁定、解锁、编辑、同步）携带操作者的用户 ID
 - 解决了同名用户导致的操作混淆问题
 - 在线用户列表显示唯一标识（用户名 + ID 后四位）
@@ -130,33 +152,22 @@
 #### 🛠️ 架构与工具链改进
 
 **跨平台打包功能及 Redis 集成 ⭐**
+
 - 支持 Windows/Linux/macOS 三平台一键打包（PyInstaller + Nuitka 双引擎）
+  - Windows平台验证通过，确保在 Windows 环境下正常运行
+  - **🐛Linux、macOS 等 Unix 系统验证通过，理论可行（待测试）**
 - 生产环境 Redis 集成优化（连接池配置、哨兵模式支持、集群模式适配）
 - 打包产物自动包含运行时依赖（Python 解释器、动态库、资源文件）
 - 打包脚本优化（增量构建、签名、压缩）
 
 **Store 架构重构 ⭐**
+
 - **baseStore 拆分为 memberStore + shareStore**：
   - memberStore：负责 Base 成员管理（添加、移除、角色变更）
   - shareStore：负责 Base 分享管理（创建链接、权限设置、统计分析）
   - 拆分后单个 Store 职责更清晰，代码维护性提升
   - 减少了不必要的响应式数据监听，性能提升 **15%**
 
-**创建表格时的默认字段控制**
-- 新建数据表时可选择是否自动创建默认字段（标题、创建时间等）
-- 选择"不创建默认字段"时，系统会引导用户手动添加第一个字段
-- 适用于从 Excel 导入或已知结构的场景（避免产生多余字段）
-
-**图标选项扩展**
-- 图标选择器新增 **50+ 表情符号图标**（😀 😎 🎉 💡 🔥 等）
-- 图标按类别分组（常用/手势/物体/符号/人物），便于查找
-- 支持最近使用的图标快速选择
-
-**Husky Pre-commit 钩子配置**
-- 集成 Husky 实现 Git 提交前自动检查
-- 配置 ESLint + Prettier 自动格式化
-- 配置 Vitest 自动运行相关测试
-- 阻止不规范代码提交到仓库
 
 ***
 
@@ -164,18 +175,20 @@
 
 #### 📦 服务层重构
 
-**copy_base 方法拆分**
-- 将 base_service 中的 copy_base 大方法拆分为 6 个独立函数：
-  - copy_base_metadata() - 复制基础信息
-  - copy_base_tables() - 复制数据表结构
-  - copy_base_fields() - 复制字段定义
-  - copy_base_views() - 复制视图配置
-  - copy_base_records() - 复制记录数据（可选）
-  - copy_base_permissions() - 复制权限设置
+**copy\_base 方法拆分**
+
+- 将 base\_service 中的 copy\_base 大方法拆分为 6 个独立函数：
+  - copy\_base\_metadata() - 复制基础信息
+  - copy\_base\_tables() - 复制数据表结构
+  - copy\_base\_fields() - 复制字段定义
+  - copy\_base\_views() - 复制视图配置
+  - copy\_base\_records() - 复制记录数据（可选）
+  - copy\_base\_permissions() - 复制权限设置
 - 拆分后每个函数可独立测试和复用
 - 复制操作的错误定位更精确（能知道具体哪一步失败）
 
 **字段类型标签映射集中管理**
+
 - 将分散在各组件中的字段类型中文标签映射集中到 `types/fields.ts`
 - 统一了字段类型在前端的所有显示名称
 - 新增字段类型时只需修改一处，避免遗漏
@@ -183,11 +196,13 @@
 #### 🔄 数据同步优化
 
 **远程删除操作的本地缓存清理**
+
 - 当其他用户删除了本地 IndexedDB 中存在的记录时，自动清理本地缓存
 - 避免了"幽灵记录"问题（服务器已删除但本地仍显示）
 - 清理操作通过 WebSocket 推送触发，无需手动刷新
 
 **看板视图兼容旧格式选项**
+
 - 兼容 v1.1.x 及之前版本的选项数据格式（纯文本数组 vs 对象数组）
 - 自动迁移旧格式的选项数据为新格式（含 id、name、color）
 - 新增"未分组"列（显示未分配任何选项值的记录）
@@ -195,10 +210,12 @@
 #### 🎨 UI/UX 改进
 
 **分享对话框文案修正**
+
 - 分享对话框标题从"Base 分享"修正为"多维表 Base 分享"
 - 统一了产品术语的使用规范（Base = 多维表）
 
 **Dashboard 数据表加载顺序修复**
+
 - 仪表盘组件初始化时确保数据表列表已加载完成
 - 修复了偶发的"数据表下拉框为空"的问题
 - 加载状态同步到 tableStore，全局状态一致
@@ -210,78 +227,81 @@
 #### SQL 注入防护增强 ⭐
 
 **LIKE 通配符注入漏洞修复**
+
 - 修复了搜索功能中用户输入的 `%`、`_` 等 LIKE 通配符未转义的问题
 - 攻击者可通过输入 `%` 匹配所有记录，绕过搜索限制
 - 修复方案：对用户输入进行 `escape()` 处理后再传入查询
 - 影响范围：表格搜索、全局搜索、API 搜索接口
 
 **Redis 连接安全问题**
+
 - 修复了 Redis 连接未正确复用导致连接池耗尽的问题
 - 每个 Redis 操作现在都从连接池获取连接，用完后归还
 - 防止了因连接泄漏导致的 Redis 服务不可用
 
 **安全配置警告机制**
-- 检测到不安全的配置项（如 DEBUG=True、SECRET_KEY 为空）时输出警告日志
+
+- 检测到不安全的配置项（如 DEBUG=True、SECRET\_KEY 为空）时输出警告日志
 - 启动时进行安全检查，发现问题立即提示管理员
 - 包含 12 项常见安全配置检查项
 
 ***
 
-### 🐛 Bug 修复 (Bug Fixes) [30+ 项]
+### 🐛 Bug 修复 (Bug Fixes) \[30+ 项]
 
 #### 核心功能修复 (10 项)
 
-| 问题 | 修复内容 | 影响 |
-|------|----------|------|
-| **🔧 模板选项残留** | 模板处理完成后立即清空选项映射内存 | 避免下次导入时混入旧数据 |
-| **🔧 选项配置缺少 ID** | 修复导入时选项配置对象缺少 id 字段 | 关联字段选项匹配失败 |
-| **🔧 成员搜索死循环** | 修复 FormShare 中成员搜索函数递归调用导致的无限循环 | 浏览器卡死 |
-| **🔧 模板选项值转换** | 修复模板服务中选项字段值类型转换异常 | 模板创建的字段选项丢失 |
-| **🔧 自己的 Base 显示** | 修复"分享给我"列表中显示自己创建的 Base | 列表数据不准确 |
-| **🔧 字段属性命名** | 字段对话框将 isRequired 统一为 is_required | 与后端 API 字段名一致 |
-| **🔧 字段更新缺 type** | 修复 FieldDialog 更新字段时未传递 type 字段 | 字段类型回退为文本 |
-| **🔧 默认值字段映射** | 修复新建记录时默认值字段映射缺失 | 默认值不生效 |
-| **🔧 用户身份获取** | records 模块统一使用 g.current_user_id | 权限判断不一致 |
-| **🔧 用户 ID 空值校验** | 添加用户 ID 空值校验并统一处理逻辑 | 未登录状态下操作报错 |
+| 问题                 | 修复内容                               | 影响            |
+| ------------------ | ---------------------------------- | ------------- |
+| **🔧 模板选项残留**      | 模板处理完成后立即清空选项映射内存                  | 避免下次导入时混入旧数据  |
+| **🔧 选项配置缺少 ID**   | 修复导入时选项配置对象缺少 id 字段                | 关联字段选项匹配失败    |
+| **🔧 成员搜索死循环**     | 修复 FormShare 中成员搜索函数递归调用导致的无限循环    | 浏览器卡死         |
+| **🔧 模板选项值转换**     | 修复模板服务中选项字段值类型转换异常                 | 模板创建的字段选项丢失   |
+| **🔧 自己的 Base 显示** | 修复"分享给我"列表中显示自己创建的 Base            | 列表数据不准确       |
+| **🔧 字段属性命名**      | 字段对话框将 isRequired 统一为 is\_required | 与后端 API 字段名一致 |
+| **🔧 字段更新缺 type**  | 修复 FieldDialog 更新字段时未传递 type 字段    | 字段类型回退为文本     |
+| **🔧 默认值字段映射**     | 修复新建记录时默认值字段映射缺失                   | 默认值不生效        |
+| **🔧 用户身份获取**      | records 模块统一使用 g.current\_user\_id | 权限判断不一致       |
+| **🔧 用户 ID 空值校验**  | 添加用户 ID 空值校验并统一处理逻辑                | 未登录状态下操作报错    |
 
 #### 协作与同步修复 (5 项)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 字段同步失败** | 修复字段操作（创建/修改/删除）的实时同步问题，添加用户 ID 追踪 |
-| **🔧 锁定状态不同步** | 修复单元格锁定状态在多客户端间不一致的问题 |
-| **🔧 视图切换延迟** | 优化其他用户切换视图时的推送延迟（< 100ms） |
-| **🔧 离线队列溢出** | 修复离线操作超过 100 条时队列崩溃的问题 |
-| **🔧 冲突弹窗残留** | 点击"放弃"或"覆盖"后冲突解决弹窗不消失 |
+| 问题             | 修复内容                               |
+| -------------- | ---------------------------------- |
+| **🔧 字段同步失败**  | 修复字段操作（创建/修改/删除）的实时同步问题，添加用户 ID 追踪 |
+| **🔧 锁定状态不同步** | 修复单元格锁定状态在多客户端间不一致的问题              |
+| **🔧 视图切换延迟**  | 优化其他用户切换视图时的推送延迟（< 100ms）          |
+| **🔧 离线队列溢出**  | 修复离线操作超过 100 条时队列崩溃的问题             |
+| **🔧 冲突弹窗残留**  | 点击"放弃"或"覆盖"后冲突解决弹窗不消失              |
 
 #### 导入导出修复 (3 项)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 批量导入数据不一致** | 修复批量导入时部分记录数据丢失或重复的问题 |
-| **🔧 自动编号竞态条件** | 使用 Redis 原子计数器（INCR）修复并发创建记录时编号冲突 |
-| **🔧 看板旧格式兼容** | 支持旧版本文本选项格式，自动迁移为新格式 |
+| 问题               | 修复内容                              |
+| ---------------- | --------------------------------- |
+| **🔧 批量导入数据不一致** | 修复批量导入时部分记录数据丢失或重复的问题             |
+| **🔧 自动编号竞态条件**  | 使用 Redis 原子计数器（INCR）修复并发创建记录时编号冲突 |
+| **🔧 看板旧格式兼容**   | 支持旧版本文本选项格式，自动迁移为新格式              |
 
 #### UI/UX 修复 (4 项)
 
-| 问题 | 修复内容 |
-|------|----------|
+| 问题              | 修复内容                                  |
+| --------------- | ------------------------------------- |
 | **🔧 关联记录抽屉数据** | 修复 RecordDetailDrawer 中关联字段数据初始化为空的问题 |
-| **🔧 内存泄漏** | 修复前端事件监听器无法正确移除导致的内存泄漏（组件销毁时清理）|
-| **🔧 缩略图变量未定义** | 修复附件缩略图接口中 AS 变量未定义导致的 500 错误 |
-| **🔧 运行时错误** | 修复缺少模块导入导致的启动时报 NameError |
+| **🔧 内存泄漏**     | 修复前端事件监听器无法正确移除导致的内存泄漏（组件销毁时清理）       |
+| **🔧 缩略图变量未定义** | 修复附件缩略图接口中 AS 变量未定义导致的 500 错误         |
+| **🔧 运行时错误**    | 修复缺少模块导入导致的启动时报 NameError             |
 
 #### 后端修复 (5 项)
 
-| 问题 | 修复内容 |
-|------|----------|
+| 问题                            | 修复内容                       |
+| ----------------------------- | -------------------------- |
 | **🔧 permission\_service 导入** | 添加缺失的 db 模块导入，修复 NameError |
-| **🔧 安全配置** | 修复安全中间件配置加载顺序问题 |
-| **🔧 Redis 连接池** | 修复 Redis 连接未复用导致的连接数耗尽 |
-| **🔧 打包脚本** | 修复跨平台打包时的路径分隔符问题 |
-| **🔧 .gitignore** | 更新忽略规则，排除构建产物和敏感文件 |
+| **🔧 安全配置**                   | 修复安全中间件配置加载顺序问题            |
+| **🔧 Redis 连接池**              | 修复 Redis 连接未复用导致的连接数耗尽     |
+| **🔧 打包脚本**                   | 修复跨平台打包时的路径分隔符问题           |
+| **🔧 .gitignore**             | 更新忽略规则，排除构建产物和敏感文件         |
 
----
+***
 
 ### 📊 性能优化 (Performance Optimizations)
 
@@ -291,7 +311,6 @@
   - 相同字段的重复请求减少 **80%**
   - 关联记录选择器打开速度提升 **60%**
   - 切换数据表时字段加载延迟降低 **70%**
-
 - **Store 拆分收益** - baseStore → memberStore + shareStore
   - 不必要的响应式数据监听减少 **40%**
   - 页面切换流畅度提升 **15%**
@@ -302,46 +321,44 @@
 - **Redis 原子计数器** - 使用 INCR 替代 "读取+写入"两步操作
   - 并发创建记录时自动编号冲突率降至 **0%**
   - 编号生成吞吐量提升 **3x**
-
 - **数据库查询优化** - 复杂查询添加复合索引
   - 分页查询深分页性能提升 **10x**
-  - 记录搜索响应时间 < 200ms（万级数据量）
 
----
+***
 
-### 📝 文档与工具链更新
-
-- ✅ **构建文档** - 更新跨平台打包文档并优化构建脚本（支持 CI/CD）
-- ✅ **字段类型映射文档** - 更新 26 种字段类型的中文标签映射说明
-- ✅ **任务清单** - 更新 Todo-Task 任务列表中的完成状态（标记已完成项）
-- ✅ **代码审计报告** - 更新安全审计报告中问题的修复状态
-- ✅ **项目文档** - 更新 README 和架构设计文档
-- ✅ **.gitignore** - 更新版本控制忽略规则（排除 node_modules、__pycache__、.env 等）
-- ✅ **Husky 配置** - 添加 pre-commit 钩子（ESLint + Prettier + Vitest）
-
----
 
 ## English Version
 
-### 🎉 SmartTable v1.3.0 Release Notes
+### 🎉 SmartTable v1.3.2 Release Notes
 
-This release focuses on **enhanced form sharing experience**, **optimized data import workflow**, **improved link fields**, **refined real-time collaboration**, and **architecture refactoring with performance improvements**, along with **6 new business table templates** and **cross-platform build support**, further enhancing usability, stability, and development efficiency.
+This release focuses on **timezone management support**, **enhanced form sharing experience**, **optimized data import workflow**, **improved link fields**, **multi-dimensional table enhancements**, **refined real-time collaboration**, and **architecture refactoring with performance improvements**, along with **6 new business table templates** and **cross-platform build support**, further enhancing usability, stability, and development efficiency.
 
 ### ✨ New Features
+
+#### 📝 Timezone Management Full Support ⭐
+
+**System Parameter Configuration Interface with Timezone Support**
+
+- New standalone system parameter configuration interface with timezone configuration support
+  > Implements system-level timezone configuration, allowing administrators to switch between UTC and specified local time zone for site-wide time display.
+- Global timezone display adaptation: Automatically converts time display to the specified timezone based on system configuration.
 
 #### 📝 Form Sharing System Comprehensive Upgrade ⭐
 
 **Form Sharing Management Interface**
+
 - New standalone form sharing management interface for viewing all created form share links
 - Visual display of share status (enabled/disabled/expired), submission statistics (total/today)
 - One-click copy link, edit settings, enable/disable, delete shares
 
 **Form Sharing Workflow Optimization**
+
 - Step-by-step configuration wizard (Basic Info → Submission Settings → Field Settings → Appearance → Publish)
 - Real-time preview (WYSIWYG)
 - Support custom redirect URL or success message after submission
 
 **Form Page Member Search ⭐**
+
 - Member fields in form pages support online user search
 - Fuzzy search by username or email
 - Displays avatar and name for better UX
@@ -349,12 +366,14 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 📥 Data Import Enhancement ⭐
 
 **ImportDialog Data Preview Step**
+
 - Upgraded from 2-step to 3-step: Upload → Preview → Configure
 - Preview shows first 20 rows of parsed results, catch format issues early
 - Adjust field type mapping and primary field selection during preview
 - Shows file statistics (total rows, estimated processing time)
 
 **Option ID & Name Conversion Support**
+
 - Auto-match existing options by **ID or name** when importing multi/single-select fields
 - Resolves data association errors when option values match but IDs differ
 - Import logs record matching result per option (hit/new/skip)
@@ -362,23 +381,36 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 🔗 Link Field Comprehensive Enhancement ⭐
 
 **Drawer-style Link Record Selector**
+
 - Replaced popup with right-side drawer for larger workspace
 - Drawer shows target table's full view (with filter/sort/group)
 - View linked record details inline (nested detail view)
 
 **Extended Relationship Type Support**
-- Explicit **Many-to-One** relationship type support
-- Clearer config: One-to-One / One-to-Many / Many-to-One / Many-to-Many / Many-to-Many (Bidirectional)
+
+- Clearer relationship type configuration: One-to-One / One-to-Many / Many-to-One / Many-to-Many / Many-to-Many (Bidirectional)
 - Auto-rebuild reverse relation field on type change
 
 **Field Cache Service ⭐**
+
 - New fieldCacheService with in-memory field definition cache
 - Cache TTL: 5 minutes, reduces repeated backend API calls
 - Link record selector loading speed improved by **60%+**
 
-#### 🚀 Table Route Support ⭐
+#### 🚀 Multi-dimensional Table Enhancements
 
-**Direct Table Access via URL**
+**Added Multiple Base Templates**
+
+- **6 new commonly used table templates**:
+  - Meeting Management (meeting records, participant management, and meeting minutes)
+  - Study Plan (course learning, progress tracking, and knowledge management)
+  - Bug Tracking (software defect recording, priority management, and fix progress tracking)
+  - Recruitment Management (job posting, candidate management, and interview process tracking)
+  - Asset Management (fixed assets, equipment allocation, and inventory management)
+  - OKR Objectives (objectives and key results management, progress tracking, and alignment)
+
+**Table Route Support - Direct Access via URL**
+
 - New dedicated route: `/base/:baseId/table/:tableId`
 - Open specific table by typing URL in browser address bar
 - Convenient for sharing specific table links without navigating through Base first
@@ -387,31 +419,23 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 📊 Dashboard Enhancements ⭐
 
 **Dashboard Preview Mode**
+
 - New global preview mode (preview effect without saving)
 - All components render with mock data, reflecting actual layout
-- Support switching viewport sizes (desktop/tablet/mobile)
 
 **Real-time Component Empty State Preview**
+
 - KPI cards, clock, date components show preview during configuration
 - See final rendering without binding real data source
 - Reduces dashboard configuration learning curve
 
-**KPI Component Config Live Preview**
-- Instant refresh when changing number format, color threshold, font size
-- 5 preset styles quick switch (Minimal/Card/Gradient/Glassmorphism/Dark)
+**Dashboard Template Expansion**
 
-**Template Library Expansion**
-- **6 new table templates**:
-  - Meeting Management (agenda, time, participants, minutes)
-  - Study Plan (course, progress, notes, exams)
-  - Fitness Tracking (exercise type, duration, calories burned)
-  - Reading List (book title, author, category, review)
-  - Travel Planning (destination, budget, itinerary, accommodation)
-  - Movie/TV List (title, rating, watch status, recommendation)
-- Multiple industry dashboard templates (sales funnel, helpdesk ticket, inventory alert, etc.)
+- **Multiple industry dashboard templates** added (sales funnel, helpdesk ticket, inventory alert, etc.)
 - Template preview dialog component (click template card for modal preview)
 
 **Template Preview Dialog ⭐**
+
 - Click template in library → modal shows full preview
 - Preview includes: name, description, use case, table list, field screenshots
 - Supports "Use Now" and "Back to List" actions
@@ -419,17 +443,20 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 🔐 Real-time Collaboration Improvements ⭐
 
 **Lock Operation Wait Mechanism**
+
 - When cell locked by another user, lock request no longer fails immediately
 - System auto-enters "wait queue", acquires edit right after lock releases (FIFO)
 - Visual wait status (countdown + queue position + holder info)
 - Support canceling wait (give up editing or switch cells)
 
 **Field Update Full Sync**
+
 - Field create/modify/delete/sort operations sync to all online users
 - Sync includes: name, type, options, required attr, default value, etc.
 - Other users' field changes notified via Toast (dismissible)
 
 **User ID Tracking Mechanism**
+
 - All collaboration events carry operator's user ID
 - Resolves confusion between same-name users
 - Online user list shows unique identifier (username + last 4 digits of ID)
@@ -437,33 +464,21 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 🛠️ Architecture & Toolchain Improvements
 
 **Cross-platform Build & Redis Integration ⭐**
+
 - Windows/Linux/macOS one-click build (PyInstaller + Nuitka dual engine)
+  - Windows platform verified, ensuring normal operation under Windows environment
+  - **🐛 Linux, macOS and other Unix systems verified feasible (pending testing)**
 - Production Redis optimization (connection pool, sentinel mode, cluster mode adaptation)
 - Build artifacts auto-include runtime deps (Python interpreter, DLLs, resources)
 - Build script optimization (incremental build, signing, compression)
 
 **Store Architecture Refactoring ⭐**
+
 - **baseStore split into memberStore + shareStore**:
   - memberStore: Base member management (add, remove, role change)
   - shareStore: Base sharing management (create links, permissions, analytics)
   - Clearer responsibilities, better maintainability
   - Reduced unnecessary reactive watchers, **15%** perf gain
-
-**Default Field Control on Table Creation**
-- Choose whether to auto-create default fields (title, created_time, etc.) when creating tables
-- Select "no default fields" → system guides manual first field addition
-- Useful for Excel import or known structure scenarios (avoid redundant fields)
-
-**Icon Options Expansion**
-- Icon selector adds **50+ emoji icons** (😀 😎 🎉 💡 🔥 etc.)
-- Icons grouped by category (common/gesture/object/symbol/person), easier to find
-- Recently used icons quick select
-
-**Husky Pre-commit Hook**
-- Integrated Husky for automatic pre-commit checks
-- Configured ESLint + Prettier auto-formatting
-- Configured Vitest auto-run related tests
-- Prevents non-compliant code commits
 
 ***
 
@@ -472,6 +487,7 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 📦 Service Layer Refactoring
 
 **copy_base Method Decomposition**
+
 - Split monolithic copy_base into 6 independent functions:
   - copy_base_metadata() - Copy basic info
   - copy_base_tables() - Copy table structure
@@ -483,6 +499,7 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 - More precise error location (know exactly which step failed)
 
 **Centralized Field Type Label Mapping**
+
 - Scattered field type Chinese label mappings consolidated into `types/fields.ts`
 - Unified all frontend display names for field types
 - New field types only need one place update, prevent omissions
@@ -490,11 +507,13 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 🔄 Data Sync Optimization
 
 **Remote Delete Local Cache Cleanup**
+
 - When other users delete records existing in local IndexedDB, auto-cleanup local cache
 - Avoids "ghost records" issue (server deleted but still showing locally)
 - Cleanup triggered via WebSocket push, no manual refresh needed
 
 **Kanban View Legacy Format Compatibility**
+
 - Compatible with v1.1.x and earlier option data formats (text array vs object array)
 - Auto-migrate old format options to new format (id, name, color)
 - Added "Ungrouped" column (shows records without any option value assigned)
@@ -502,10 +521,12 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### 🎨 UI/UX Improvements
 
 **Share Dialog Text Correction**
+
 - Share dialog title corrected from "Base Share" to "Multi-dimensional Table Base Share"
 - Unified product terminology usage (Base = Multi-dimensional Table)
 
 **Dashboard Table Load Order Fix**
+
 - Dashboard component init ensures table list loaded before rendering
 - Fixed occasional "empty table dropdown" issue
 - Load status synced to tableStore, consistent global state
@@ -517,17 +538,20 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### SQL Injection Prevention Enhancement ⭐
 
 **LIKE Wildcard Injection Fix**
+
 - Fixed unescaped `%`, `_` LIKE wildcards in user input for search
 - Attackers could use `%` to match all records, bypass search restrictions
 - Fix: escape() user input before passing to query
 - Scope: Table search, global search, API search endpoints
 
 **Redis Connection Security**
+
 - Fixed Redis connection not being properly reused causing pool exhaustion
 - Each Redis operation now gets from pool, returns after use
 - Prevents Redis unavailability due to connection leak
 
 **Security Config Warning Mechanism**
+
 - Detects insecure configs (DEBUG=True, empty SECRET_KEY) and logs warnings
 - Security check at startup, alerts admin immediately
 - 12 common security config check items included
@@ -598,7 +622,6 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
   - Repeated requests for same field reduced by **80%**
   - Link record selector open speed improved by **60%**
   - Field loading latency on table switch reduced by **70%**
-
 - **Store Split Benefits** - baseStore → memberStore + shareStore
   - Unnecessary reactive watchers reduced by **40%**
   - Page transition smoothness improved by **15%**
@@ -607,26 +630,8 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 #### Backend Performance
 
 - **Redis Atomic Counter** - Use INCR instead of read+write two-step
-  - Concurrent record creation auto-number conflict rate down to **0%**
-  - Number generation throughput increased **3x**
-
-- **DB Query Optimization** - Composite indexes on complex queries
-  - Deep pagination performance improved **10x**
-  - Record search response time <200ms (10k records)
 
 ---
-
-### 📝 Documentation & Toolchain Updates
-
-- ✅ **Build Docs** - Updated cross-platform build docs and optimized build scripts (CI/CD ready)
-- ✅ **Field Type Mapping Doc** - Updated 26 field type Chinese label mapping docs
-- ✅ **Task List** - Updated Todo-Task completion status (marked done items)
-- ✅ **Code Audit Report** - Updated security audit report fix statuses
-- ✅ **Project Docs** - Updated README and architecture design docs
-- ✅ **.gitignore** - Updated ignore rules (exclude node_modules, __pycache__, .env, etc.)
-- ✅ **Husky Config** - Added pre-commit hooks (ESLint + Prettier + Vitest)
-
-***
 
 # SmartTable v1.2.0 Release Notes
 
@@ -769,8 +774,6 @@ This release focuses on **enhanced form sharing experience**, **optimized data i
 - Magic Number 校验（文件头字节验证）
 - 文件大小限制（单文件默认 10MB，可配置）
 - 文件数量限制（每字段 0-100 个）
-
-  <br />
 
 ***
 
@@ -1214,8 +1217,6 @@ Complete backend file upload pipeline and access proxy:
 - Magic Number verification (file header byte validation)
 - File size limit (single file default 10MB, configurable)
 - File count limit (0-100 per field)
-
-  <br />
 
 ***
 
