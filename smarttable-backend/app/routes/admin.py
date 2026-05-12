@@ -446,16 +446,14 @@ def reset_user_password(user_id) -> tuple:
 
 @admin_bp.route('/settings', methods=['GET'])
 @jwt_required
-@admin_required
 def get_settings() -> tuple:
     """
     获取所有系统配置
-    
+
     响应:
         200: 返回分组配置信息
         401: 未授权访问
-        403: 权限不足
-    
+
     示例返回:
         {
             "basic": {"site_name": "My Site", "site_url": "https://example.com"},
