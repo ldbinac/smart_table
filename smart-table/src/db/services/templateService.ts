@@ -114,7 +114,7 @@ export class TemplateService {
       for (const templateTable of template.tables) {
         await this.syncRecordsToBackend(
           tableIdMap.get(templateTable.id)!,
-          templateTable.records,
+          templateTable,
           fieldIdMap,
         );
       }
@@ -600,54 +600,63 @@ export class TemplateService {
 
   private async syncRecordsToBackend(
     tableId: string,
-    records: TemplateRecord[],
+    templateTable: TemplateTable,
     fieldIdMap: Map<string, string>,
   ): Promise<void> {
+    // 构建字段ID到字段类型的映射（使用原始字段ID）
+    const fieldTypeMap = new Map<string, string>();
+    for (const field of templateTable.fields) {
+      fieldTypeMap.set(field.id, field.type);
+    }
+
     // 批量创建记录（每次最多 100 条）
     const batchSize = 100;
-    for (let i = 0; i < records.length; i += batchSize) {
-      const batch = records.slice(i, i + batchSize);
+    for (let i = 0; i < templateTable.records.length; i += batchSize) {
+      const batch = templateTable.records.slice(i, i + batchSize);
       const recordsData = batch.map((templateRecord) => {
         const newValues: Record<string, unknown> = {};
         for (const [oldFieldId, value] of Object.entries(
           templateRecord.values,
         )) {
           const newFieldId = fieldIdMap.get(oldFieldId);
-          if (newFieldId) {
-            // 检查是否是单选/多选字段，需要转换选项值
+          if (!newFieldId) {
+            continue;
+          }
+
+          const fieldType = fieldTypeMap.get(oldFieldId);
+          let convertedValue = value;
+
+          // 日期/日期时间字段：将数字时间戳转换为 ISO 8601 UTC 字符串
+          if (
+            (fieldType === 'date' || fieldType === 'date_time') &&
+            typeof value === 'number'
+          ) {
+            convertedValue = new Date(value).toISOString();
+          }
+          // 单选/多选字段：转换选项值
+          else {
             const optionNameMap = this.optionNameToIdMap.get(oldFieldId);
             if (optionNameMap) {
-              // 单选字段：将选项名称转换为新的选项 ID
               if (typeof value === 'string' && optionNameMap.has(value)) {
-                const convertedValue = optionNameMap.get(value)!;
-                newValues[newFieldId] = convertedValue;
+                convertedValue = optionNameMap.get(value)!;
                 console.log(`[TemplateService] 记录值转换 (单选): "${value}" → "${convertedValue}"`);
-              }
-              // 多选字段：将选项名称数组转换为新的选项 ID 数组
-              else if (Array.isArray(value)) {
-                const convertedArray = value
+              } else if (Array.isArray(value)) {
+                convertedValue = value
                   .filter((v: unknown) => typeof v === 'string')
                   .map((v: string) => optionNameMap.get(v) || v);
-                newValues[newFieldId] = convertedArray;
-                console.log(`[TemplateService] 记录值转换 (多选):`, value, '→', convertedArray);
+                console.log(`[TemplateService] 记录值转换 (多选):`, value, '→', convertedValue);
               }
-              else {
-                // 无法转换，保留原值
-                newValues[newFieldId] = value;
-                console.log(`[TemplateService] 无法转换值 (类型不匹配):`, typeof value, value);
-              }
-            } else {
-              // 非选择类型字段，直接使用原值
-              newValues[newFieldId] = value;
             }
           }
+
+          newValues[newFieldId] = convertedValue;
         }
-        
+
         // 📝 诊断日志：打印每条记录的完整转换结果
         console.log(`[TemplateService] 记录转换完成:`);
         console.log(`  - 原始值:`, templateRecord.values);
         console.log(`  - 转换后:`, newValues);
-        
+
         return { values: newValues };
       });
 
