@@ -19,7 +19,18 @@ function extractBaseUrl(apiUrl: string): string {
     return window.location.origin
   }
 }
-export const REALTIME_BASE_URL = import.meta.env.VITE_REALTIME_URL || extractBaseUrl(API_BASE_URL)
+
+function getRealtimeBaseUrl(): string {
+  const apiBase = extractBaseUrl(API_BASE_URL)
+  // 开发模式下前端端口(3000)和后端端口(5000)不同
+  // Socket.IO 需要连接到后端服务器，所以将端口替换为后端端口
+  if (apiBase.includes(':3000')) {
+    return apiBase.replace(':3000', ':5000')
+  }
+  return apiBase
+}
+
+export const REALTIME_BASE_URL = import.meta.env.VITE_REALTIME_URL || getRealtimeBaseUrl()
 
 // API客户端配置（供client.ts使用）
 export const apiConfig = {

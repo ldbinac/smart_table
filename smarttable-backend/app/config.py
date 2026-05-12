@@ -129,7 +129,7 @@ class Config:
     }
 
     # 实时协作配置
-    REALTIME_ENABLED = False
+    REALTIME_ENABLED = os.environ.get('ENABLE_REALTIME', '').lower() == 'true'
 
     # SocketIO 配置
     SOCKETIO_MESSAGE_QUEUE = os.environ.get('SOCKETIO_MESSAGE_QUEUE') or 'redis://localhost:6379/2'
