@@ -298,6 +298,36 @@ const getFieldComponent = (field: FieldEntity): string => {
   }
 };
 
+// 检查字段是否为只读字段（系统字段、公式字段等）
+function isReadonlyField(field: FieldEntity): boolean {
+  return (
+    [
+      FieldType.FORMULA,
+      FieldType.LOOKUP,
+      FieldType.CREATED_BY,
+      FieldType.CREATED_TIME,
+      FieldType.UPDATED_BY,
+      FieldType.UPDATED_TIME,
+      FieldType.AUTO_NUMBER,
+    ].includes(field.type as any) || field.isSystem
+  );
+}
+
+// 检查字段是否已自动填充（分组字段）
+function isAutoFilledField(field: FieldEntity): boolean {
+  // 优先使用 groupLevels（多层分组）
+  if (props.groupLevels && props.groupLevels.length > 0) {
+    return props.groupLevels.some(
+      (level) =>
+        level.fieldId === field.id &&
+        level.valueId &&
+        level.valueId !== "uncategorized",
+    );
+  }
+  // 兼容旧版单层分组
+  return props.groupFieldId === field.id && props.groupId !== "uncategorized";
+}
+
 // 处理值变更
 function handleValueChange(fieldId: string, value: unknown) {
   formData.value[fieldId] = value;
@@ -454,6 +484,15 @@ const drawerTitle = computed(() => {
               <component :is="getFieldTypeIconComponent(field.type)" />
             </el-icon>
             {{ field.name }}
+            <span
+              v-if="
+                field.isRequired &&
+                !isReadonlyField(field) &&
+                !isAutoFilledField(field)
+              "
+              class="required-mark"
+              >*</span
+            >
           </label>
 
           <!-- 单行文本 -->
@@ -754,6 +793,11 @@ const drawerTitle = computed(() => {
 
 .form-field {
   margin-bottom: 20px;
+}
+
+.required-mark {
+  color: #f56c6c;
+  margin-left: 4px;
 }
 
 .field-label {
