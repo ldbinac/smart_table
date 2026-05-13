@@ -688,7 +688,7 @@ async function createField() {
         tableId: props.tableId,
         name: newField.value.name.trim(),
         type: newField.value.type,
-        is_required: newField.value.isRequired,
+        isRequired: newField.value.isRequired,
         description: newField.value.description,
         options: Object.keys(options).length > 0 ? options : undefined,
       };
