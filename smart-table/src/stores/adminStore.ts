@@ -21,6 +21,48 @@ export interface LogPagination {
   total: number;
 }
 
+// 系统配置缓存常量
+const CONFIG_CACHE_KEY = "system_configs_cache";
+const CONFIG_CACHE_TTL = 22 * 60 * 60 * 1000; // 22小时（毫秒）
+
+interface ConfigCache {
+  data: Record<string, SystemConfig>;
+  timestamp: number;
+}
+
+function getCachedConfigs(): ConfigCache | null {
+  try {
+    const raw = localStorage.getItem(CONFIG_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ConfigCache;
+    if (!parsed.data || typeof parsed.timestamp !== "number") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedConfigs(data: Record<string, SystemConfig>): void {
+  try {
+    const cache: ConfigCache = { data, timestamp: Date.now() };
+    localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    console.warn("[adminStore] Failed to write config cache:", error);
+  }
+}
+
+function clearConfigCache(): void {
+  try {
+    localStorage.removeItem(CONFIG_CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function isCacheValid(cache: ConfigCache): boolean {
+  return Date.now() - cache.timestamp < CONFIG_CACHE_TTL;
+}
+
 export const useAdminStore = defineStore("admin", () => {
   const users = ref<User[]>([]);
   const userLoading = ref(false);
@@ -177,6 +219,13 @@ export const useAdminStore = defineStore("admin", () => {
   }
 
   async function fetchSystemConfigs() {
+    // 1. 检查缓存
+    const cached = getCachedConfigs();
+    if (cached && isCacheValid(cached)) {
+      systemConfigs.value = cached.data;
+      return cached.data;
+    }
+
     configLoading.value = true;
     try {
       const groupedConfigs = await adminApiService.getSystemConfigs();
@@ -201,8 +250,15 @@ export const useAdminStore = defineStore("admin", () => {
       }
 
       systemConfigs.value = configMap;
+      // 写入缓存
+      setCachedConfigs(configMap);
       return configMap;
     } catch (error) {
+      // API 请求失败时，使用过期的缓存作为 fallback
+      if (cached) {
+        systemConfigs.value = cached.data;
+        return cached.data;
+      }
       throw error;
     } finally {
       configLoading.value = false;
@@ -248,6 +304,8 @@ export const useAdminStore = defineStore("admin", () => {
       }
 
       systemConfigs.value = configMap;
+      // 配置更新后清除缓存，下次获取时重新请求
+      clearConfigCache();
       ElMessage.success("系统配置更新成功");
       return configMap;
     } catch (error) {
