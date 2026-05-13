@@ -395,13 +395,13 @@ const handleDateChange = (val: Date | null) => {
     // 根据字段类型决定存储格式
     if (isDateTimeField.value) {
       // 日期时间字段存储为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）
-      emit("update", dayjs(val).toISOString() as CellValue);
+      editValue.value = dayjs(val).toISOString();
     } else {
       // 日期字段存储为日期字符串（如 2026-05-10）
-      emit("update", dayjs(val).format("YYYY-MM-DD") as CellValue);
+      editValue.value = dayjs(val).format("YYYY-MM-DD");
     }
   } else {
-    emit("update", null);
+    editValue.value = null;
   }
   finishEdit();
 };
