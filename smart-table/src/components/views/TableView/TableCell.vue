@@ -500,20 +500,22 @@ const multiSelectDisplayValues = computed(() => {
       </template>
 
       <template v-else-if="fieldType === 'single_select'">
-        <select
+        <el-select
           ref="inputRef"
-          :value="editValue as string"
+          v-model="editValue"
           class="cell-select"
-          @blur="finishEdit"
-          @change="
-            editValue = ($event.target as HTMLSelectElement).value;
-            finishEdit();
-          ">
-          <option :value="null">无</option>
-          <option v-for="opt in getSelectOptions" :key="opt.id" :value="opt.id">
-            {{ opt.name }}
-          </option>
-        </select>
+          @change="finishEdit"
+          @blur="finishEdit">
+          <el-option value="" label="无" />
+          <el-option
+            v-for="opt in getSelectOptions"
+            :key="opt.id"
+            :label="opt.name"
+            :value="opt.id">
+            <span class="option-color-dot" :style="{ backgroundColor: opt.color }" />
+            <span class="option-label">{{ opt.name }}</span>
+          </el-option>
+        </el-select>
       </template>
 
       <template v-else-if="fieldType === 'multi_select'">
@@ -1016,9 +1018,23 @@ const multiSelectDisplayValues = computed(() => {
 }
 
 // 成员选择器样式
+.option-color-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.option-label {
+  vertical-align: middle;
+}
+
 .cell-member-select {
   width: 100%;
-  
+
   :deep(.member-select-trigger) {
     min-height: 28px;
     padding: 2px 6px;
