@@ -136,6 +136,11 @@ class Config:
     SOCKETIO_PING_TIMEOUT = int(os.environ.get('SOCKETIO_PING_TIMEOUT', 60))
     SOCKETIO_PING_INTERVAL = int(os.environ.get('SOCKETIO_PING_INTERVAL', 25))
 
+    # 错误处理配置
+    ERROR_SHOW_DETAILS = os.environ.get('ERROR_SHOW_DETAILS', 'false').lower() == 'true'
+    ERROR_LOG_STACK_TRACE = True
+    ERROR_REQUEST_ID_HEADER = 'X-Request-ID'
+
 
 class DevelopmentConfig(Config):
     """开发环境配置"""
