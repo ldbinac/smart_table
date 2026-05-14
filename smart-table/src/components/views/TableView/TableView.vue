@@ -351,10 +351,7 @@ const handleContextMenuSelect = async (item: any) => {
   switch (id) {
     case "edit":
       if (contextMenuRecord.value) {
-        editingCell.value = {
-          recordId: contextMenuRecord.value.id,
-          fieldId: fields.value[0]?.id || "",
-        };
+        handleExpandRecord(contextMenuRecord.value);
       }
       break;
 

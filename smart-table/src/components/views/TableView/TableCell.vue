@@ -320,6 +320,18 @@ const handleLinkFieldChange = (value: string[], records: LinkedRecord[]) => {
   isEditing.value = false;
 };
 
+// 监听 selected 属性变化，当外部（如右键菜单）触发编辑时自动进入编辑模式
+watch(
+  () => props.selected,
+  (newVal) => {
+    if (newVal && !isEditing.value) {
+      void startEdit();
+    } else if (!newVal && isEditing.value) {
+      finishEdit();
+    }
+  },
+);
+
 const startEdit = async () => {
   if (!isEditable.value) return;
 
