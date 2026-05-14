@@ -2,7 +2,8 @@
 表单分享路由模块
 处理表单分享的创建、管理和数据提交
 """
-from flask import Blueprint, request, g
+import traceback
+from flask import Blueprint, request, g, current_app
 
 from app.services.form_share_service import FormShareService
 from app.utils.decorators import jwt_required
@@ -571,7 +572,10 @@ def get_captcha(token: str) -> tuple:
             message='验证码生成成功'
         )
     except Exception as e:
-        return error_response(f'验证码生成失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 验证码生成失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('验证码生成失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @form_shares_bp.route('/form-shares/<token>/members/search', methods=['GET'])
@@ -687,7 +691,7 @@ def search_members_for_form(token: str) -> tuple:
         )
 
     except Exception as e:
-        print(f'[FormShare] 搜索成员失败: {str(e)}')
-        import traceback
-        traceback.print_exc()
-        return error_response(f'搜索成员失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 搜索成员失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('搜索成员失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
