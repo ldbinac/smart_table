@@ -4,8 +4,9 @@
 """
 from datetime import datetime
 import logging
+import traceback
 
-from flask import Blueprint, request
+from flask import Blueprint, request, g
 from flask_jwt_extended import (
     jwt_required as flask_jwt_required,
     get_jwt_identity,
@@ -459,7 +460,10 @@ def update_current_user() -> tuple:
         
     except Exception as e:
         db.session.rollback()
-        return error_response(f'更新失败: {str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        logger.error(f'[{request_id}] 更新失败: {str(e)}')
+        logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('更新失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @auth_bp.route('/password', methods=['PUT'])
