@@ -2,9 +2,10 @@
 邮件服务 API 路由模块
 处理邮件模板管理和邮件发送日志查询等功能
 """
+import traceback
 from datetime import datetime
 
-from flask import Blueprint, request
+from flask import Blueprint, request, g, current_app
 from marshmallow import ValidationError
 from sqlalchemy import func, case
 
@@ -89,7 +90,10 @@ def get_email_templates() -> tuple:
         )
 
     except Exception as e:
-        return error_response(f'获取邮件模板列表失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取邮件模板列表失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('获取邮件模板列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/templates/<template_key>', methods=['GET'])
