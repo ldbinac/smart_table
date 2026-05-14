@@ -341,8 +341,8 @@ const startEdit = async () => {
     editValue.value = Array.isArray(cv)
       ? cv.map((v) => (typeof v === "string" ? v : v.id))
       : [];
-  } else if (fieldType.value === "date") {
-    // 日期字段特殊处理
+  } else if (fieldType.value === "date" || fieldType.value === "date_time") {
+    // 日期/日期时间字段特殊处理
     if (cv) {
       const timestamp = typeof cv === "string" ? Number(cv) : cv;
       if (typeof timestamp === "number" && !isNaN(timestamp)) {
@@ -371,18 +371,32 @@ const startEdit = async () => {
 const finishEdit = () => {
   if (!isEditing.value) return;
 
-  // 检查必填字段
-  if (isFieldRequired(props.field) && isValueEmpty(editValue.value)) {
-    ElMessage.error(`请填写必填字段：${props.field.name}`);
-    cancelEdit();
-    return;
-  }
-
   isEditing.value = false;
   emit("edit", false);
 
-  if (editValue.value !== cellValue.value) {
-    emit("update", editValue.value as CellValue);
+  // 日期/日期时间字段使用 dateEditValue 进行比较和更新
+  if (fieldType.value === "date" || fieldType.value === "date_time") {
+    let newValue: CellValue = null;
+    if (dateEditValue.value) {
+      if (isDateTimeField.value) {
+        newValue = dayjs(dateEditValue.value).toISOString();
+      } else {
+        newValue = dayjs(dateEditValue.value).format("YYYY-MM-DD");
+      }
+    }
+    if (newValue !== cellValue.value) {
+      emit("update", newValue);
+    }
+  } else {
+    // 检查必填字段
+    if (isFieldRequired(props.field) && isValueEmpty(editValue.value)) {
+      ElMessage.error(`请填写必填字段：${props.field.name}`);
+      cancelEdit();
+      return;
+    }
+    if (editValue.value !== cellValue.value) {
+      emit("update", editValue.value as CellValue);
+    }
   }
 };
 
