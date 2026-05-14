@@ -2,7 +2,8 @@
 认证验证码路由模块
 提供登录和注册的验证码功能
 """
-from flask import Blueprint, request
+import traceback
+from flask import Blueprint, request, g, current_app
 import base64
 
 from app.utils.response import success_response, error_response
@@ -69,4 +70,7 @@ def get_auth_captcha() -> tuple:
             message='验证码生成成功'
         )
     except Exception as e:
-        return error_response(f'验证码生成失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 验证码生成失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('验证码生成失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
