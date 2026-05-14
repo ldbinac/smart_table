@@ -364,8 +364,8 @@ const handleContextMenuSelect = async (item: any) => {
           tableId: contextMenuRecord.value.tableId,
           values: { ...contextMenuRecord.value.values },
         });
-        if (newRecord) {
-          await tableStore.loadTables(contextMenuRecord.value.tableId);
+        if (newRecord && tableStore.currentTable) {
+          await tableStore.loadTables(tableStore.currentTable.baseId);
         }
       }
       break;
