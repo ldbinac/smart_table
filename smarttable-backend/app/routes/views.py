@@ -217,7 +217,10 @@ def create_view(table_id) -> tuple:
         return success_response(view.to_dict(), '视图创建成功', 201)
     
     except Exception as e:
-        return error_response(f'创建视图失败：{str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 创建视图失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('创建视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>', methods=['GET'])
@@ -250,7 +253,10 @@ def get_view(view_id) -> tuple:
     try:
         return success_response(view.to_dict())
     except Exception as e:
-        return error_response(f'获取视图详情失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取视图详情失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取视图详情失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>', methods=['PUT'])
@@ -366,7 +372,10 @@ def update_view(view_id) -> tuple:
         return success_response(view.to_dict(), '视图更新成功')
     
     except Exception as e:
-        return error_response(f'更新视图失败：{str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 更新视图失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('更新视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>', methods=['DELETE'])
@@ -406,7 +415,10 @@ def delete_view(view_id) -> tuple:
             return error_response('默认视图不能删除', 400)
     
     except Exception as e:
-        return error_response(f'删除视图失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 删除视图失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('删除视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>/duplicate', methods=['POST'])
@@ -460,7 +472,10 @@ def duplicate_view(view_id) -> tuple:
         return success_response(new_view.to_dict(), '视图复制成功', 201)
     
     except Exception as e:
-        return error_response(f'复制视图失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 复制视图失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('复制视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/tables/<table_id>/views/reorder', methods=['PUT'])
@@ -538,7 +553,10 @@ def reorder_views(table_id) -> tuple:
     
     except Exception as e:
         db.session.rollback()
-        return error_response(f'更新视图排序失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 更新视图排序失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('更新视图排序失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/tables/<table_id>/views/<view_id>/set-default', methods=['PUT'])
@@ -589,7 +607,10 @@ def set_default_view(table_id, view_id) -> tuple:
     
     except Exception as e:
         db.session.rollback()
-        return error_response(f'设置默认视图失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 设置默认视图失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('设置默认视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/types', methods=['GET'])
