@@ -3,6 +3,7 @@
 处理文件上传、下载、预览和删除
 """
 import os
+import traceback
 from flask import Blueprint, request, g, send_file, current_app, send_from_directory
 
 from app.services.attachment_service import AttachmentService
@@ -83,8 +84,10 @@ def upload_attachment() -> tuple:
     except ValueError as e:
         return error_response(str(e), code=400)
     except Exception as e:
-        current_app.logger.error(f'文件上传失败: {str(e)}')
-        return error_response('文件上传失败，请稍后重试', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 文件上传失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('文件上传失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @attachments_bp.route('/<uuid:attachment_id>', methods=['GET'])
