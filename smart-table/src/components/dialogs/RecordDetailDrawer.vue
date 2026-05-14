@@ -35,12 +35,20 @@ import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { formatDateTime, formatDate, toConfiguredTimezone } from "@/utils/timezone";
 
+interface GroupLevel {
+  fieldId: string;
+  valueId: string;
+}
+
 const props = defineProps<{
   visible: boolean;
   record: RecordEntity | null;
   fields: FieldEntity[];
   size?: string | number;
   readonly?: boolean;
+  groupLevels?: GroupLevel[];
+  groupFieldId?: string;
+  groupId?: string;
 }>();
 
 const emit = defineEmits<{
