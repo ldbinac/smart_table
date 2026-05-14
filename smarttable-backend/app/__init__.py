@@ -1,7 +1,8 @@
 """
 SmartTable Flask 应用工厂模块
 """
-from flask import Flask, jsonify, render_template_string
+import uuid
+from flask import Flask, jsonify, render_template_string, g
 from flasgger import Swagger
 from app.extensions import init_extensions, db
 from app.config import config
@@ -133,6 +134,11 @@ def register_lifecycle_hooks(app):
     # 使用 before_request 配合标志位实现 before_first_request 功能
     # 因为 Flask 2.3+ 已移除 before_first_request
     _first_request_initialized = False
+
+    @app.before_request
+    def generate_request_id():
+        """为每个请求生成唯一 ID"""
+        g.request_id = str(uuid.uuid4())
 
     @app.before_request
     def init_services():
