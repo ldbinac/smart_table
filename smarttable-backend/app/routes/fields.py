@@ -2,7 +2,8 @@
 字段路由模块
 处理 Field 的 CRUD 操作、排序管理和类型查询
 """
-from flask import Blueprint, request, g
+import traceback
+from flask import Blueprint, request, g, current_app
 
 from app.services.field_service import FieldService
 from app.services.table_service import TableService
@@ -724,7 +725,10 @@ def update_link_field(field_id) -> tuple:
         )
     
     except Exception as e:
-        return error_response(f'更新关联字段失败: {str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 更新关联字段失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('更新关联字段失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @fields_bp.route('/fields/<uuid:field_id>/link', methods=['DELETE'])
@@ -778,7 +782,10 @@ def delete_link_field(field_id) -> tuple:
         return success_response(message='关联字段删除成功')
     
     except Exception as e:
-        return error_response(f'删除关联字段失败: {str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 删除关联字段失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('删除关联字段失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @fields_bp.route('/tables/<uuid:table_id>/links', methods=['GET'])
@@ -820,4 +827,7 @@ def get_table_link_relations(table_id) -> tuple:
         )
     
     except Exception as e:
-        return error_response(f'获取关联关系列表失败: {str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取关联关系列表失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取关联关系列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
