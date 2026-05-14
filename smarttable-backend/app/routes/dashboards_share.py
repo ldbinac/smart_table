@@ -1,7 +1,8 @@
 """
 仪表盘分享路由
 """
-from flask import Blueprint, request, g
+import traceback
+from flask import Blueprint, request, g, current_app
 from app.utils.decorators import jwt_required
 from app.utils.response import success_response, error_response, not_found_response, forbidden_response
 from app.services.dashboard_share_service import DashboardShareService
@@ -133,7 +134,10 @@ def create_dashboard_share(dashboard_id) -> tuple:
             code=201
         )
     except Exception as e:
-        return error_response(f'创建分享链接失败：{str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 创建分享链接失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('创建分享链接失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @dashboards_share_bp.route('/shares/<uuid:share_id>', methods=['DELETE'])
