@@ -214,7 +214,10 @@ def update_email_template(template_key: str) -> tuple:
 
     except Exception as e:
         db.session.rollback()
-        return error_response(f'更新邮件模板失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 更新邮件模板失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('更新邮件模板失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/templates/<template_key>/reset', methods=['POST'])
@@ -277,7 +280,10 @@ def reset_email_template(template_key: str) -> tuple:
 
     except Exception as e:
         db.session.rollback()
-        return error_response(f'重置邮件模板失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 重置邮件模板失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('重置邮件模板失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/logs', methods=['GET'])
@@ -391,7 +397,10 @@ def get_email_logs() -> tuple:
         )
 
     except Exception as e:
-        return error_response(f'获取邮件发送日志失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取邮件发送日志失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('获取邮件发送日志失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/stats', methods=['GET'])
@@ -506,7 +515,10 @@ def get_email_stats() -> tuple:
         )
 
     except Exception as e:
-        return error_response(f'获取邮件发送统计失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取邮件发送统计失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('获取邮件发送统计失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/queue/stats', methods=['GET'])
@@ -576,7 +588,10 @@ def get_email_queue_stats() -> tuple:
         )
 
     except Exception as e:
-        return error_response(f'获取邮件队列统计失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取邮件队列统计失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('获取邮件队列统计失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/queue/clear', methods=['POST'])
@@ -607,7 +622,10 @@ def clear_email_queue_stats() -> tuple:
         return success_response(message='邮件队列统计已清除')
 
     except Exception as e:
-        return error_response(f'清除邮件队列统计失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 清除邮件队列统计失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
+        return error_response('清除邮件队列统计失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 def _get_default_templates() -> dict:
