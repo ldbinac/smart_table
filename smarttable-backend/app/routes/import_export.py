@@ -5,6 +5,7 @@
 import io
 import os
 import uuid
+import traceback
 from typing import Dict, Optional
 from flask import Blueprint, request, g, send_file, current_app
 
@@ -135,10 +136,14 @@ def preview_import() -> tuple:
     except ValueError as e:
         return error_response(str(e), code=400)
     except ImportError as e:
-        return error_response(str(e), code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 导入预览失败: {str(e)}')
+        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
-        current_app.logger.error(f'导入预览失败: {str(e)}')
-        return error_response('导入预览失败，请稍后重试', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 导入预览失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('导入预览失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import', methods=['POST'])
@@ -252,10 +257,14 @@ def import_data() -> tuple:
     except ValueError as e:
         return error_response(str(e), code=400)
     except ImportError as e:
-        return error_response(str(e), code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 数据导入失败: {str(e)}')
+        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
-        current_app.logger.error(f'数据导入失败: {str(e)}')
-        return error_response('数据导入失败，请稍后重试', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 数据导入失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('数据导入失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import/json', methods=['POST'])
@@ -323,8 +332,10 @@ def import_json() -> tuple:
     except ValueError as e:
         return error_response(str(e), code=400)
     except Exception as e:
-        current_app.logger.error(f'JSON 导入失败: {str(e)}')
-        return error_response('数据导入失败，请稍后重试', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] JSON 导入失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('数据导入失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import/analyze', methods=['POST'])
@@ -369,10 +380,14 @@ def analyze_import_file() -> tuple:
     except ValueError as e:
         return error_response(str(e), code=400)
     except ImportError as e:
-        return error_response(str(e), code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
+        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
-        current_app.logger.error(f'文件分析失败: {str(e)}')
-        return error_response('文件分析失败', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('文件分析失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 导出功能 ====================
@@ -479,10 +494,14 @@ def _do_export(data: dict) -> tuple:
     except ValueError as e:
         return error_response(str(e), code=400)
     except ImportError as e:
-        return error_response(str(e), code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 数据导出失败: {str(e)}')
+        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
-        current_app.logger.error(f'数据导出失败: {str(e)}')
-        return error_response('数据导出失败，请稍后重试', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 数据导出失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('数据导出失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 任务状态查询 ====================
@@ -568,10 +587,14 @@ def analyze_excel_for_table() -> tuple:
     except ValueError as e:
         return error_response(str(e), code=400)
     except ImportError as e:
-        return error_response(str(e), code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
+        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
-        current_app.logger.error(f'文件分析失败: {str(e)}')
-        return error_response('文件分析失败，请稍后重试', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('文件分析失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import/excel/create-table', methods=['POST'])
@@ -809,8 +832,10 @@ def create_table_from_excel() -> tuple:
         )
         
     except Exception as e:
-        current_app.logger.error(f'从Excel创建表失败: {str(e)}')
-        return error_response(f'创建失败: {str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 从Excel创建表失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('创建失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 临时文件存储 ====================
