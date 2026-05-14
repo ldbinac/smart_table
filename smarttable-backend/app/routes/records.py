@@ -1,6 +1,7 @@
 """
 记录管理路由模块
 """
+import traceback
 from flask import Blueprint, request, g, current_app
 
 from app.services.record_service import RecordService
@@ -129,7 +130,10 @@ def get_records(table_id) -> tuple:
         return paginated_response(items, total, page, per_page)
     
     except Exception as e:
-        return error_response(f'获取记录列表失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取记录列表失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取记录列表失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records', methods=['POST'])
@@ -200,7 +204,10 @@ def create_record(table_id) -> tuple:
         return success_response(result, '记录创建成功', 201)
     
     except Exception as e:
-        return error_response(f'创建记录失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 创建记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('创建记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records/batch', methods=['POST'])
@@ -287,7 +294,10 @@ def batch_create_records(table_id) -> tuple:
         }, f'成功创建 {len(created_records)} 条记录')
     
     except Exception as e:
-        return error_response(f'批量创建记录失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 批量创建记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('批量创建记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>', methods=['GET'])
@@ -334,7 +344,10 @@ def get_record(record_id) -> tuple:
         
         return success_response(result)
     except Exception as e:
-        return error_response(f'获取记录详情失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取记录详情失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取记录详情失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>', methods=['PUT'])
@@ -411,7 +424,10 @@ def update_record(record_id) -> tuple:
         return success_response(result, '记录更新成功')
     
     except Exception as e:
-        return error_response(f'更新记录失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 更新记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('更新记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/batch', methods=['PUT'])
@@ -501,7 +517,10 @@ def batch_update_records() -> tuple:
         }, f'成功更新 {updated_count} 条记录')
     
     except Exception as e:
-        return error_response(f'批量更新记录失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 批量更新记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('批量更新记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>', methods=['DELETE'])
@@ -550,7 +569,10 @@ def delete_record(record_id) -> tuple:
             return error_response('删除记录失败', 500)
     
     except Exception as e:
-        return error_response(f'删除记录失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 删除记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('删除记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/batch', methods=['DELETE'])
@@ -632,7 +654,10 @@ def batch_delete_records() -> tuple:
         }, f'成功删除 {deleted_count} 条记录')
     
     except Exception as e:
-        return error_response(f'批量删除记录失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 批量删除记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('批量删除记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/compute', methods=['POST'])
@@ -690,7 +715,10 @@ def compute_formulas(record_id) -> tuple:
         })
     
     except Exception as e:
-        return error_response(f'公式计算失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 公式计算失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('公式计算失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/history', methods=['GET'])
@@ -764,7 +792,10 @@ def get_record_history(record_id) -> tuple:
         return paginated_response(items, total, page, size)
     
     except Exception as e:
-        return error_response(f'获取变更历史失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取变更历史失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取变更历史失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 关联记录 API ====================
@@ -850,7 +881,10 @@ def get_record_links(record_id) -> tuple:
         )
     
     except Exception as e:
-        return error_response(f'获取关联数据失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取关联数据失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取关联数据失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/links/<field_id>', methods=['PUT'])
@@ -972,7 +1006,10 @@ def update_record_link(record_id, field_id) -> tuple:
         )
     
     except Exception as e:
-        return error_response(f'更新关联值失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 更新关联值失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('更新关联值失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records/search', methods=['GET'])
@@ -1071,4 +1108,7 @@ def search_linkable_records(table_id) -> tuple:
         return paginated_response(items, total, page, per_page)
     
     except Exception as e:
-        return error_response(f'搜索记录失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 搜索记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('搜索记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
