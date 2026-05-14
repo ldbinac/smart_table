@@ -1,7 +1,8 @@
 """
 视图管理路由模块
 """
-from flask import Blueprint, request, g
+import traceback
+from flask import Blueprint, request, g, current_app
 from marshmallow import Schema, fields, validate
 
 from app.extensions import db
@@ -96,7 +97,10 @@ def get_views(table_id) -> tuple:
         return success_response([view.to_dict() for view in views])
     
     except Exception as e:
-        return error_response(f'获取视图列表失败: {str(e)}', 500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取视图列表失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取视图列表失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/tables/<table_id>/views', methods=['POST'])
