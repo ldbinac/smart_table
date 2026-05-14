@@ -40,7 +40,8 @@ def error_response(
     message: str = '操作失败',
     code: int = 400,
     error: Optional[str] = None,
-    details: Optional[List[Dict]] = None
+    details: Optional[List[Dict]] = None,
+    request_id: Optional[str] = None
 ) -> Response:
     """
     错误响应
@@ -50,6 +51,7 @@ def error_response(
         code: HTTP 状态码
         error: 错误代码
         details: 详细错误信息列表
+        request_id: 请求追踪ID
         
     Returns:
         Flask Response 对象
@@ -64,6 +66,9 @@ def error_response(
     
     if details is not None:
         response['details'] = details
+    
+    if request_id is not None:
+        response['request_id'] = request_id
     
     return jsonify(response), code
 
