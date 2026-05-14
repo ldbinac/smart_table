@@ -4,6 +4,7 @@
 """
 import csv
 import io
+import traceback
 from datetime import datetime
 from typing import Optional
 
@@ -111,7 +112,10 @@ def get_users() -> tuple:
         )
         
     except Exception as e:
-        return error_response(f'获取用户列表失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取用户列表失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取用户列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/users', methods=['POST'])
@@ -467,7 +471,10 @@ def get_settings() -> tuple:
             message='获取系统配置成功'
         )
     except Exception as e:
-        return error_response(f'获取系统配置失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取系统配置失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取系统配置失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/settings', methods=['PUT'])
@@ -625,7 +632,10 @@ def get_operation_logs() -> tuple:
         )
         
     except Exception as e:
-        return error_response(f'获取操作日志失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取操作日志失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取操作日志失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/operation-logs/export', methods=['GET'])
@@ -699,7 +709,10 @@ def export_operation_logs() -> tuple:
         return response
         
     except Exception as e:
-        return error_response(f'导出操作日志失败：{str(e)}', code=500)
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 导出操作日志失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('导出操作日志失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/roles', methods=['GET'])
