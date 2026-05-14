@@ -2,6 +2,7 @@
  * API 客户端
  * 基于 axios 封装的 HTTP 请求客户端，统一处理请求/响应
  * 适配后端 {success, message, data} 统一响应格式
+ * 增强版：支持 request_id 追踪和详细的错误日志
  */
 import axios, {
   type AxiosInstance,
@@ -13,6 +14,7 @@ import { ElMessage } from "element-plus";
 import router from "@/router";
 import { apiConfig } from "./config";
 import { getToken, clearToken } from "@/utils/auth/token";
+import devLog from "@/utils/logger";
 
 const { baseURL, timeout } = apiConfig;
 
@@ -51,36 +53,70 @@ instance.interceptors.response.use(
         return response;
       }
 
-      // 处理错误情况
+      // 处理错误情况（增强版）
       const errorData = data as {
         success: boolean;
         message: string;
         code?: number;
         error?: string;
+        details?: Array<{ field: string; message: string }>;
+        request_id?: string;
       };
       const code = errorData.code || response.status;
+      const requestId = errorData.request_id;
+
+      // 记录详细错误日志（开发环境）
+      devLog.apiError({
+        requestId,
+        url: response.config.url,
+        method: response.config.method?.toUpperCase(),
+        status: code,
+        message: errorData.message,
+      });
 
       if (code === 401) {
         // 清除 token 并跳转登录页
         clearToken();
         router.push("/login");
         ElMessage.error("登录已过期，请重新登录");
-        return Promise.reject(new Error("Unauthorized"));
+        return Promise.reject(
+          Object.assign(new Error("Unauthorized"), { 
+            requestId,
+            code: 401 
+          })
+        );
       }
 
       if (code === 403) {
         ElMessage.error("没有操作权限");
-        return Promise.reject(new Error("Forbidden"));
+        return Promise.reject(
+          Object.assign(new Error("Forbidden"), { 
+            requestId,
+            code: 403 
+          })
+        );
       }
 
       if (code === 404) {
         console.warn("[API] 资源不存在:", response.config.url);
-        return Promise.reject(new Error("Not Found"));
+        return Promise.reject(
+          Object.assign(new Error("Not Found"), { 
+            requestId,
+            code: 404 
+          })
+        );
       }
 
       const msg = errorData.message || "请求失败";
       ElMessage.error(msg);
-      return Promise.reject(new Error(msg));
+      return Promise.reject(
+        Object.assign(new Error(msg), { 
+          requestId,
+          code,
+          error: errorData.error,
+          details: errorData.details 
+        })
+      );
     }
 
     return response;
@@ -93,8 +129,27 @@ instance.interceptors.response.use(
 
     const status = error.response.status;
     const data = error.response.data as
-      | { success?: boolean; message?: string; code?: number }
+      | { 
+          success?: boolean; 
+          message?: string; 
+          code?: number;
+          error?: string;
+          details?: Array<{ field: string; message: string }>;
+          request_id?: string;
+        }
       | undefined;
+
+    const requestId = data?.request_id;
+
+    // 记录详细错误日志（开发环境）
+    devLog.apiError({
+      requestId,
+      url: error.config?.url,
+      method: error.config?.method?.toUpperCase(),
+      status,
+      message: data?.message || error.message,
+      stack: error.stack
+    });
 
     // 优先使用后端返回的消息
     const backendMessage = data?.message;
@@ -120,6 +175,7 @@ instance.interceptors.response.use(
         const validationErrorData = error.response.data as {
           message?: string;
           details?: Array<{ field: string; message: string }>;
+          request_id?: string;
         };
         if (validationErrorData.details && validationErrorData.details.length > 0) {
           // 显示所有字段的验证错误
@@ -146,9 +202,21 @@ instance.interceptors.response.use(
         ElMessage.error(backendMessage || `请求失败 (${status})`);
     }
 
-    return Promise.reject(error);
+    return Promise.reject(
+      Object.assign(error, { 
+        requestId,
+        error: data?.error,
+        details: data?.details 
+      })
+    );
   },
 );
+
+export interface ErrorDetail {
+  field?: string;
+  message: string;
+  code?: string;
+}
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -156,6 +224,8 @@ export interface ApiResponse<T> {
   data: T;
   code?: number;
   error?: string;
+  details?: ErrorDetail[];
+  request_id?: string;
 }
 
 export interface PaginatedResponse<T> {

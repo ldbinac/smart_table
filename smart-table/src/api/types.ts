@@ -3,7 +3,25 @@
  * 与后端 Flask API 响应格式保持一致
  */
 
+// 增强的错误响应类型（支持 request_id）
+export interface ErrorDetail {
+  field?: string
+  message: string
+  code?: string
+}
+
 export interface ApiResponse<T> {
+  success: boolean
+  message: string
+  data: T
+  code?: number
+  error?: string
+  details?: ErrorDetail[]
+  request_id?: string
+}
+
+// 旧格式兼容
+export interface LegacyApiResponse<T> {
   code: number
   message: string
   data: T
