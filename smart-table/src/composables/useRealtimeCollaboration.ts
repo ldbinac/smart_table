@@ -39,6 +39,40 @@ interface RealtimeStatusResponse {
   enabled: boolean
 }
 
+// 实时状态缓存常量
+const REALTIME_STATUS_CACHE_KEY = 'realtime_status_cache'
+const REALTIME_STATUS_CACHE_TTL = 2 * 60 * 60 * 1000 // 2小时（毫秒）
+
+interface RealtimeStatusCache {
+  enabled: boolean
+  timestamp: number
+}
+
+function getRealtimeStatusCache(): RealtimeStatusCache | null {
+  try {
+    const raw = localStorage.getItem(REALTIME_STATUS_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as RealtimeStatusCache
+    if (typeof parsed.enabled !== 'boolean' || typeof parsed.timestamp !== 'number') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function setRealtimeStatusCache(enabled: boolean): void {
+  try {
+    const cache: RealtimeStatusCache = { enabled, timestamp: Date.now() }
+    localStorage.setItem(REALTIME_STATUS_CACHE_KEY, JSON.stringify(cache))
+  } catch (error) {
+    console.warn('[realtime] Failed to write status cache:', error)
+  }
+}
+
+function isRealtimeStatusCacheValid(cache: RealtimeStatusCache): boolean {
+  return Date.now() - cache.timestamp < REALTIME_STATUS_CACHE_TTL
+}
+
 function convertApiFieldToEntity(apiField: any): FieldEntity {
   return {
     id: apiField.id,
@@ -87,13 +121,27 @@ export function useRealtimeCollaboration(baseId: string) {
   } = toRefs(collaborationStore)
 
   async function checkRealtimeAvailability(): Promise<boolean> {
+    // 检查缓存
+    const cached = getRealtimeStatusCache()
+    if (cached && isRealtimeStatusCacheValid(cached)) {
+      collaborationStore.setRealtimeAvailable(cached.enabled)
+      return cached.enabled
+    }
+
     try {
       const response = await apiClient.get<RealtimeStatusResponse>('/realtime/status')
       const enabled = response.enabled === true
       collaborationStore.setRealtimeAvailable(enabled)
+      // 写入缓存
+      setRealtimeStatusCache(enabled)
       return enabled
     } catch {
       collaborationStore.setRealtimeAvailable(false)
+      // 请求失败时，如有过期缓存则使用过期缓存作为 fallback
+      if (cached) {
+        collaborationStore.setRealtimeAvailable(cached.enabled)
+        return cached.enabled
+      }
       return false
     }
   }
