@@ -10,7 +10,7 @@ from flask_caching import Cache
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from flask_wtf.csrf import CSRFProtect
-from flask import request
+from flask import request, g, current_app
 import redis
 
 
@@ -125,7 +125,6 @@ def register_jwt_callbacks(jwt_manager):
         """检查令牌是否被撤销"""
         from app.models.user import TokenBlocklist
         from app.extensions import cache
-        from flask import current_app
         
         jti = jwt_payload["jti"]
         user_id = jwt_payload.get("sub")
@@ -158,26 +157,43 @@ def register_jwt_callbacks(jwt_manager):
     @jwt_manager.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
         """令牌过期回调"""
+        request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
             'message': '令牌已过期，请重新登录',
-            'error': 'token_expired'
+            'error': 'token_expired',
+            'request_id': request_id
         }, 401
     
     @jwt_manager.invalid_token_loader
     def invalid_token_callback(error):
         """无效令牌回调"""
+        request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
             'message': '无效的令牌',
-            'error': 'invalid_token'
+            'error': 'invalid_token',
+            'request_id': request_id
         }, 401
     
     @jwt_manager.unauthorized_loader
     def missing_token_callback(error):
         """缺少令牌回调"""
+        request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
             'message': '请求缺少认证令牌',
-            'error': 'authorization_required'
+            'error': 'authorization_required',
+            'request_id': request_id
+        }, 401
+    
+    @jwt_manager.revoked_token_loader
+    def revoked_token_callback(jwt_header, jwt_payload):
+        """被撤销的令牌回调"""
+        request_id = getattr(g, 'request_id', None)
+        return {
+            'success': False,
+            'message': '令牌已被撤销，请重新登录',
+            'error': 'token_revoked',
+            'request_id': request_id
         }, 401

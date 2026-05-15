@@ -88,7 +88,29 @@ instance.interceptors.response.use(
       }
 
       if (code === 403) {
-        ElMessage.error("没有操作权限");
+        // 检查是否是认证令牌相关的错误
+        const isAuthError = 
+          errorData.error?.toLowerCase().includes('token') ||
+          errorData.error?.toLowerCase().includes('auth') ||
+          errorData.message?.toLowerCase().includes('token') ||
+          errorData.message?.toLowerCase().includes('认证') ||
+          errorData.message?.toLowerCase().includes('无效');
+        
+        if (isAuthError) {
+          // 清除 token 并跳转登录页
+          clearToken();
+          router.push("/login");
+          ElMessage.error(errorData.message || "认证令牌无效，请重新登录");
+          return Promise.reject(
+            Object.assign(new Error("Forbidden - Invalid Token"), { 
+              requestId,
+              code: 403 
+            })
+          );
+        }
+        
+        // 普通权限不足错误
+        ElMessage.error(errorData.message || "没有操作权限");
         return Promise.reject(
           Object.assign(new Error("Forbidden"), { 
             requestId,
@@ -165,7 +187,23 @@ instance.interceptors.response.use(
         ElMessage.error(backendMessage || "登录已过期，请重新登录");
         break;
       case 403:
-        ElMessage.error(backendMessage || "没有操作权限");
+        // 检查是否是认证令牌相关的错误
+        const isAuthErrorFor403 = 
+          data?.error?.toLowerCase().includes('token') ||
+          data?.error?.toLowerCase().includes('auth') ||
+          backendMessage?.toLowerCase().includes('token') ||
+          backendMessage?.toLowerCase().includes('认证') ||
+          backendMessage?.toLowerCase().includes('无效');
+        
+        if (isAuthErrorFor403) {
+          // 清除 token 并跳转登录页
+          clearToken();
+          router.push("/login");
+          ElMessage.error(backendMessage || "认证令牌无效，请重新登录");
+        } else {
+          // 普通权限不足错误
+          ElMessage.error(backendMessage || "没有操作权限");
+        }
         break;
       case 404:
         ElMessage.error(backendMessage || "请求的资源不存在");
