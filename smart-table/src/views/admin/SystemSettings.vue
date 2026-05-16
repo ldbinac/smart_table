@@ -10,7 +10,8 @@
         <el-tab-pane label="基础配置" name="basic">
           <el-form :model="basicConfigs" label-width="200px" label-position="top">
             <el-form-item label="系统名称">
-              <el-input v-model="basicConfigs.system_name" placeholder="请输入系统名称" />
+              <el-input v-model="basicConfigs.system_name" placeholder="请输入系统名称" disabled />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">该配置当前暂未启用</div>
             </el-form-item>
             <el-form-item label="系统描述">
               <el-input
@@ -18,7 +19,9 @@
                 type="textarea"
                 :rows="3"
                 placeholder="请输入系统描述"
+                disabled
               />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">该配置当前暂未启用</div>
             </el-form-item>
             <el-form-item label="每页记录数">
               <el-input-number
@@ -26,7 +29,9 @@
                 :min="10"
                 :max="100"
                 :step="10"
+                disabled
               />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">该配置当前暂未启用</div>
             </el-form-item>
             <el-form-item label="时区模式">
               <el-radio-group v-model="basicConfigs.timezone_mode">
@@ -317,9 +322,6 @@ const saveBasicConfigs = async () => {
   saving.value = true
   try {
     await adminStore.updateSystemConfig([
-      { key: 'system_name', value: basicConfigs.system_name, group: 'basic' },
-      { key: 'system_description', value: basicConfigs.system_description, group: 'basic' },
-      { key: 'page_size', value: basicConfigs.page_size, group: 'basic' },
       { key: 'timezone_mode', value: basicConfigs.timezone_mode, group: 'basic' },
       { key: 'timezone_name', value: basicConfigs.timezone_name, group: 'basic' }
     ])
