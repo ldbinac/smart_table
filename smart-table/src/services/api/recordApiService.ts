@@ -9,10 +9,23 @@ export const getRecords = async (
   params?: PaginationParams & { search?: string; view_id?: string },
 ): Promise<PaginatedData<TableRecord>> => {
   try {
-    return await apiClient.get<PaginatedData<TableRecord>>(
-      `/tables/${tableId}/records`,
-      params as Record<string, unknown>,
-    );
+    const response = await apiClient.get<
+      PaginatedData<TableRecord> & { data?: TableRecord[]; meta?: { pagination?: PaginatedData<TableRecord> } }
+    >(`/tables/${tableId}/records`, params as Record<string, unknown>);
+
+    // 适配后端 {success, message, data, meta} 格式
+    const res = response as any;
+    if (res.data && res.meta?.pagination) {
+      return {
+        items: res.data,
+        total: res.meta.pagination.total,
+        page: res.meta.pagination.page,
+        per_page: res.meta.pagination.per_page,
+        total_pages: res.meta.pagination.total_pages,
+      };
+    }
+
+    return response as PaginatedData<TableRecord>;
   } catch (error) {
     // 401 错误时返回空列表，让前端使用本地缓存
     console.warn("[recordApiService] getRecords failed:", error);

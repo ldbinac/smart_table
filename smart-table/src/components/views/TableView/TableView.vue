@@ -24,6 +24,7 @@ import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import { ZoomIn, Check } from "@element-plus/icons-vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
+import LoadingProgress from "@/components/common/LoadingProgress.vue";
 
 interface Props {
   tableId?: string;
@@ -933,6 +934,12 @@ defineExpose({
       @field-updated="handleFieldUpdated"
       @field-deleted="handleFieldDeleted"
       @field-visibility-changed="handleFieldVisibilityChanged" />
+
+    <!-- 加载进度提示 -->
+    <LoadingProgress
+      :visible="tableStore.streamingState.isLoading"
+      :loaded-count="tableStore.streamingState.loadedCount"
+      :total-count="tableStore.streamingState.totalCount" />
   </div>
 </template>
 

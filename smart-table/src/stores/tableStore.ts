@@ -17,6 +17,7 @@ import type {
   DataRecordUpdatedBroadcast,
   DataRecordDeletedBroadcast,
 } from "../services/realtime/eventTypes";
+import type { StreamingLoadState } from "../db/services/recordService";
 
 export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
@@ -26,6 +27,14 @@ export const useTableStore = defineStore("table", () => {
   const records = ref<RecordEntity[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const streamingState = ref<StreamingLoadState>({
+    isLoading: false,
+    loadedCount: 0,
+    totalCount: 0,
+    currentPage: 0,
+    totalPages: 0,
+    error: null,
+  });
   let cleanupTableListeners: (() => void) | null = null;
 
   async function loadTables(baseId: string) {
@@ -52,14 +61,53 @@ export const useTableStore = defineStore("table", () => {
         return;
       }
       currentTable.value = table;
-      // 强制刷新字段、视图和记录，确保与后端一致
+      // 强制刷新字段、视图
       fields.value = await fieldService.getFieldsByTable(tableId);
-      views.value = await viewService.getViewsByTable(tableId, true); // 强制刷新视图
-      records.value = await recordService.getRecordsByTable(tableId);
+      views.value = await viewService.getViewsByTable(tableId, true);
+
+      // 使用流式加载记录
+      const { initialRecords, loadPromise } = await recordService.streamLoadRecords(
+        tableId,
+        {
+          onProgress: (state) => {
+            streamingState.value = { ...state };
+            // 每加载一页都刷新记录列表，让UI实时更新
+            refreshRecords(tableId);
+          },
+          onComplete: (state) => {
+            streamingState.value = { ...state };
+            // 加载完成后刷新记录列表
+            refreshRecords(tableId);
+          },
+          onError: (err) => {
+            console.error("[tableStore] 流式加载失败:", err);
+            error.value = err;
+          },
+        },
+        50,
+      );
+
+      records.value = initialRecords;
+
+      // 后台加载不阻塞
+      loadPromise.catch((err) => {
+        console.error("[tableStore] 后台加载失败:", err);
+      });
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to select table";
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function refreshRecords(tableId: string) {
+    try {
+      // 直接从 IndexedDB 读取所有已加载的记录，避免重复调用API
+      const localRecords = await recordService.getLocalRecordsByTable(tableId);
+      records.value = localRecords;
+      console.log(`[tableStore] 已从本地刷新记录列表: ${localRecords.length} 条`);
+    } catch (e) {
+      console.error("[tableStore] refreshRecords failed:", e);
     }
   }
 
@@ -309,15 +357,6 @@ export const useTableStore = defineStore("table", () => {
     }
   }
 
-  async function refreshRecords(tableId: string) {
-    try {
-      records.value = await recordService.getRecordsByTable(tableId);
-    } catch (e) {
-      error.value =
-        e instanceof Error ? e.message : "Failed to refresh records";
-    }
-  }
-
   function clearTable() {
     currentTable.value = null;
     fields.value = [];
@@ -529,11 +568,14 @@ export const useTableStore = defineStore("table", () => {
     tables,
     currentTable,
     fields,
+    views,
     records,
     loading,
     error,
+    streamingState,
     loadTables,
     selectTable,
+    refreshRecords,
     createTable,
     updateTable,
     deleteTable,
@@ -547,7 +589,6 @@ export const useTableStore = defineStore("table", () => {
     updateRecord,
     deleteRecord,
     batchDeleteRecords,
-    refreshRecords,
     clearTable,
     setupRealtimeListeners,
     cleanupRealtimeListeners,

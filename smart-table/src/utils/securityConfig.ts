@@ -75,12 +75,13 @@ async function getSecurityConfigs(): Promise<Record<string, any>> {
   }
 
   const configs = await fetchPublicConfigs()
+  const mergedConfigs = { ...DEFAULT_SECURITY_CONFIGS, ...configs }
   configCache = {
-    data: { ...DEFAULT_SECURITY_CONFIGS, ...configs },
+    data: mergedConfigs,
     timestamp: Date.now(),
     ttl: configCache.ttl
   }
-  return configCache.data
+  return mergedConfigs
 }
 
 /**

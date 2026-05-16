@@ -23,6 +23,21 @@ export interface UpdateRecordData {
   updatedBy?: string;
 }
 
+export interface StreamingLoadState {
+  isLoading: boolean;
+  loadedCount: number;
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  error: string | null;
+}
+
+export interface StreamingLoadCallbacks {
+  onProgress?: (state: StreamingLoadState) => void;
+  onComplete?: (state: StreamingLoadState) => void;
+  onError?: (error: string) => void;
+}
+
 export class RecordService {
   /**
    * 应用字段的默认值到记录值
@@ -185,6 +200,165 @@ export class RecordService {
       ...record,
       values: deserializeRecordValues(record.values),
     }));
+  }
+
+  /**
+   * 流式加载表格记录
+   * 先加载第一页用于快速显示，然后后台加载剩余页面
+   */
+  async streamLoadRecords(
+    tableId: string,
+    callbacks?: StreamingLoadCallbacks,
+    pageSize: number = 50,
+  ): Promise<{ initialRecords: RecordEntity[]; loadPromise: Promise<void> }> {
+    const state: StreamingLoadState = {
+      isLoading: true,
+      loadedCount: 0,
+      totalCount: 0,
+      currentPage: 1,
+      totalPages: 0,
+      error: null,
+    };
+
+    // 1. 加载第一页数据
+    console.log(`[recordService] 开始流式加载表 ${tableId}，页大小: ${pageSize}`);
+    const firstPage = await recordApiService.getRecords(tableId, {
+      page: 1,
+      per_page: pageSize,
+    });
+
+    const totalCount = firstPage.total || firstPage.items.length;
+    const totalPages = firstPage.total_pages || 1;
+
+    state.totalCount = totalCount;
+    state.totalPages = totalPages;
+    state.loadedCount = firstPage.items.length;
+    state.currentPage = 1;
+
+    console.log(`[recordService] 第一页加载完成: ${firstPage.items.length}/${totalCount} 条, 共 ${totalPages} 页`);
+
+    // 2. 将第一页数据保存到 IndexedDB
+    await this.saveRecordsToLocal(tableId, firstPage.items);
+
+    // 3. 获取第一页记录（已从 IndexedDB 反序列化）
+    const initialRecords = await this.getLocalRecordsByTable(tableId);
+
+    // 4. 如果只有一页，直接完成
+    if (totalPages <= 1) {
+      state.isLoading = false;
+      callbacks?.onProgress?.(state);
+      callbacks?.onComplete?.(state);
+      return { initialRecords, loadPromise: Promise.resolve() };
+    }
+
+    // 5. 启动后台加载剩余页面
+    const loadPromise = this.loadRemainingPages(
+      tableId,
+      state,
+      pageSize,
+      callbacks,
+    );
+
+    // 6. 通知进度
+    callbacks?.onProgress?.(state);
+
+    return { initialRecords, loadPromise };
+  }
+
+  /**
+   * 后台加载剩余页面
+   */
+  private async loadRemainingPages(
+    tableId: string,
+    state: StreamingLoadState,
+    pageSize: number,
+    callbacks?: StreamingLoadCallbacks,
+  ): Promise<void> {
+    try {
+      for (let page = 2; page <= state.totalPages; page++) {
+        // 检查是否被中断
+        if (!state.isLoading) {
+          console.log(`[recordService] 流式加载被中断`);
+          return;
+        }
+
+        console.log(`[recordService] 加载第 ${page}/${state.totalPages} 页`);
+
+        const response = await recordApiService.getRecords(tableId, {
+          page,
+          per_page: pageSize,
+        });
+
+        // 保存到 IndexedDB
+        await this.saveRecordsToLocal(tableId, response.items);
+
+        // 更新状态
+        state.currentPage = page;
+        state.loadedCount += response.items.length;
+
+        console.log(`[recordService] 第 ${page} 页加载完成，累计: ${state.loadedCount}/${state.totalCount}`);
+
+        // 通知进度
+        callbacks?.onProgress?.({ ...state });
+
+        // 每页之间添加小延迟，避免占用过多带宽
+        if (page < state.totalPages) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      state.isLoading = false;
+      console.log(`[recordService] 流式加载完成，共 ${state.loadedCount} 条记录`);
+      callbacks?.onComplete?.({ ...state });
+    } catch (error) {
+      state.isLoading = false;
+      state.error = error instanceof Error ? error.message : '加载失败';
+      console.error(`[recordService] 流式加载失败:`, error);
+      callbacks?.onError?.(state.error);
+    }
+  }
+
+  /**
+   * 将 API 记录保存到本地 IndexedDB
+   */
+  private async saveRecordsToLocal(
+    tableId: string,
+    apiRecords: any[],
+  ): Promise<void> {
+    if (!apiRecords || apiRecords.length === 0) return;
+
+    await db.transaction("rw", db.records, async () => {
+      for (const apiRecord of apiRecords) {
+        const localRecord: RecordEntity = {
+          id: apiRecord.id,
+          tableId: apiRecord.table_id || tableId,
+          values: apiRecord.values as Record<string, CellValue>,
+          createdAt: new Date(apiRecord.created_at).getTime(),
+          updatedAt: new Date(apiRecord.updated_at).getTime(),
+          createdBy: apiRecord.created_by,
+          updatedBy: apiRecord.updated_by,
+        };
+        await db.records.put(localRecord);
+      }
+    });
+  }
+
+  /**
+   * 从本地 IndexedDB 获取记录（带反序列化）
+   */
+  async getLocalRecordsByTable(tableId: string): Promise<RecordEntity[]> {
+    const records = await db.records.where("tableId").equals(tableId).toArray();
+    return records.map((record) => ({
+      ...record,
+      values: deserializeRecordValues(record.values),
+    }));
+  }
+
+  /**
+   * 停止流式加载
+   */
+  stopStreamingLoad(state: StreamingLoadState): void {
+    state.isLoading = false;
   }
 
   async updateRecord(id: string, data: UpdateRecordData): Promise<void> {

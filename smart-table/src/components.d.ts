@@ -118,6 +118,7 @@ declare module 'vue' {
     LinkField: typeof import('./components/fields/LinkField/LinkField.vue')['default']
     LinkRecordSelector: typeof import('./components/fields/LinkField/LinkRecordSelector.vue')['default']
     Loading: typeof import('./components/common/Loading.vue')['default']
+    LoadingProgress: typeof import('./components/common/LoadingProgress.vue')['default']
     LoginForm: typeof import('./components/auth/LoginForm.vue')['default']
     LongTextField: typeof import('./components/fields/LongTextField.vue')['default']
     LookupField: typeof import('./components/fields/LookupField.vue')['default']
