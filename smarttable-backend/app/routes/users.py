@@ -142,12 +142,23 @@ def get_users_batch():
     if not isinstance(user_ids, list):
         return error_response(message='ids 必须是数组', code=400)
     
-    if len(user_ids) > 100:
+    # 过滤无效ID
+    valid_ids = []
+    for user_id in user_ids:
+        str_id = str(user_id).strip()
+        if str_id and str_id != '[]':
+            valid_ids.append(str_id)
+    
+    if len(valid_ids) == 0:
+        current_app.logger.debug('[Users] 无有效用户ID，返回空列表')
+        return success_response([])
+    
+    if len(valid_ids) > 100:
         return error_response(message='一次最多查询100个用户', code=400)
     
     # 查询用户
     users = db.session.query(User).filter(
-        User.id.in_(user_ids),
+        User.id.in_(valid_ids),
         User.status == UserStatus.ACTIVE
     ).all()
     

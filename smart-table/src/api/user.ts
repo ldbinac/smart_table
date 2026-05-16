@@ -44,7 +44,25 @@ export const getUserById = async (id: string): Promise<User> => {
  * @returns 用户列表
  */
 export const getUsersByIds = async (ids: string[]): Promise<User[]> => {
-  return apiClient.post<User[]>('/users/batch', { ids })
+  // 验证输入
+  if (!ids || ids.length === 0) {
+    console.warn('[UserApi] 用户ID列表为空，跳过API请求')
+    return []
+  }
+  
+  // 过滤无效ID
+  const validIds = ids.filter(id => {
+    const strId = String(id)
+    return strId && strId.trim() !== '' && strId !== '[]'
+  })
+  
+  if (validIds.length === 0) {
+    console.warn('[UserApi] 过滤后无有效用户ID，跳过API请求')
+    return []
+  }
+  
+  console.log(`[UserApi] 批量查询 ${validIds.length} 个用户`)
+  return apiClient.post<User[]>('/users/batch', { ids: validIds })
 }
 
 /**

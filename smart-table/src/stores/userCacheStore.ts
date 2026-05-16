@@ -117,8 +117,25 @@ export const useUserCacheStore = defineStore('userCache', () => {
   
   // 批量获取用户信息（带缓存）
   const fetchUsers = async (userIds: string[]): Promise<CachedUser[]> => {
+    // 验证输入
+    if (!userIds || userIds.length === 0) {
+      console.log('[UserCache] 用户ID列表为空，跳过查询')
+      return []
+    }
+    
+    // 过滤掉无效ID
+    const validIds = userIds.filter(id => {
+      const strId = String(id)
+      return strId && strId.trim() !== '' && strId !== '[]'
+    })
+    
+    if (validIds.length === 0) {
+      console.log('[UserCache] 过滤后无有效用户ID，跳过查询')
+      return []
+    }
+    
     // 去重
-    const uniqueIds = [...new Set(userIds)]
+    const uniqueIds = [...new Set(validIds)]
     
     // 分离已缓存和未缓存的用户ID
     const cachedUsers: CachedUser[] = []

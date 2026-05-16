@@ -58,8 +58,17 @@ async function loadSelectedMembers() {
       return
     }
     
-    // 否则是ID数组，从缓存获取用户信息
-    const userIds = newVal as string[]
+    // 否则是ID数组，过滤出有效的用户ID
+    const userIds = (newVal as string[]).filter(id => {
+      const strId = String(id)
+      return strId && strId.trim() !== '' && strId !== '[]'
+    })
+    
+    if (userIds.length === 0) {
+      selectedMembers.value = []
+      return
+    }
+    
     const cachedUsers = await userCacheStore.fetchUsers(userIds)
     
     selectedMembers.value = cachedUsers.map(user => ({
@@ -76,7 +85,7 @@ async function loadSelectedMembers() {
     
     const userId = String(newVal)
     // 验证 userId 是否有效
-    if (!userId || userId.trim() === '') {
+    if (!userId || userId.trim() === '' || userId === '[]') {
       selectedMembers.value = []
       return
     }
