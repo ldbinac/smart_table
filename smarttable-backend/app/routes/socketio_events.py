@@ -58,8 +58,8 @@ def _authenticate_connection():
 def register_socketio_handlers(socketio, app):
 
     @socketio.on('connect')
-    def handle_connect():
-        current_app.logger.info(f'[SocketIO] Connect event received, sid={request.sid}')
+    def handle_connect(auth=None):
+        current_app.logger.info(f'[SocketIO] Connect event received, sid={request.sid}, auth={bool(auth)}')
         user_id = _authenticate_connection()
         if not user_id:
             current_app.logger.warning(f'SocketIO connect rejected: no valid token, sid={request.sid}')

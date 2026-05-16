@@ -9,6 +9,24 @@ from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 
 
+class SafeRotatingFileHandler(RotatingFileHandler):
+    """
+    安全的日志文件处理器，解决 Windows 上文件占用问题
+    """
+    def doRollover(self):
+        """
+        重写日志轮转方法，处理 Windows 文件占用问题
+        """
+        try:
+            super().doRollover()
+        except PermissionError:
+            # Windows 上文件被占用时，跳过此次轮转
+            pass
+        except Exception:
+            # 其他错误也静默处理，避免影响应用运行
+            pass
+
+
 class Config:
     """基础配置类"""
     
@@ -190,7 +208,7 @@ class DevelopmentConfig(Config):
             '[in %(pathname)s:%(lineno)d]'
         )
 
-        file_handler = RotatingFileHandler(
+        file_handler = SafeRotatingFileHandler(
             log_file,
             maxBytes=10 * 1024 * 1024,
             backupCount=10,
