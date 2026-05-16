@@ -31,11 +31,13 @@ const layoutComponent = computed(() => {
 onMounted(async () => {
   themeStore.updateDarkMode()
 
-  // 预加载系统配置（时区等）
-  try {
-    await adminStore.fetchSystemConfigs()
-  } catch (error) {
-    console.warn('[App] 预加载系统配置失败:', error)
+  // 只在登录状态下预加载系统配置
+  if (authStore.isAuthenticated) {
+    try {
+      await adminStore.fetchSystemConfigs()
+    } catch (error) {
+      console.warn('[App] 预加载系统配置失败:', error)
+    }
   }
 
   document.addEventListener('keydown', keyboardStore.handleKeyDown)

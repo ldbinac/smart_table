@@ -91,6 +91,7 @@ import { User, Message, Lock, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { RegisterRequest } from '@/api/types'
 import { getAuthCaptcha } from '@/api/captcha'
+import { getPasswordMinLength, validatePasswordStrength } from '@/utils/securityConfig'
 
 const props = defineProps<{
   loading?: boolean
@@ -102,6 +103,7 @@ const emit = defineEmits<{
 
 const formRef = ref<FormInstance>()
 const captchaImage = ref('')
+const passwordMinLength = ref(8)
 
 const form = reactive({
   username: '',
@@ -119,6 +121,15 @@ const validateConfirmPassword = (_rule: unknown, value: string, callback: (error
   }
 }
 
+const validatePassword = async (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  const [valid, errorMsg] = await validatePasswordStrength(value)
+  if (!valid && errorMsg) {
+    callback(new Error(errorMsg))
+  } else {
+    callback()
+  }
+}
+
 const rules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
@@ -130,7 +141,7 @@ const rules: FormRules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
@@ -141,6 +152,16 @@ const rules: FormRules = {
     { len: 4, message: '验证码长度为4位', trigger: 'blur' }
   ]
 }
+
+// 在组件挂载时预加载配置
+onMounted(async () => {
+  try {
+    passwordMinLength.value = await getPasswordMinLength()
+  } catch (error) {
+    console.warn('Failed to load security config, using default:', error)
+  }
+  refreshCaptcha()
+})
 
 // 刷新验证码
 async function refreshCaptcha() {
@@ -165,11 +186,6 @@ const handleSubmit = async () => {
     captcha: form.captcha
   })
 }
-
-// 组件挂载时加载验证码
-onMounted(() => {
-  refreshCaptcha()
-})
 </script>
 
 <style scoped lang="scss">

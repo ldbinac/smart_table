@@ -136,6 +136,12 @@ export const getSystemConfigs = async (): Promise<Record<string, any>> => {
   return apiClient.get('/admin/settings');
 };
 
+export const getPublicConfigs = async (): Promise<Record<string, any>> => {
+  // 后端返回格式：{"security": {"enable_registration": true, ...}, "basic": {...}}
+  // 无需登录的公开配置
+  return apiClient.get('/admin/configs/public');
+};
+
 export const updateSystemConfigs = async (configs: Array<{key: string; value: any; group?: string; description?: string}>): Promise<Record<string, any>> => {
   return apiClient.put('/admin/settings', { configs });
 };
@@ -232,6 +238,7 @@ export const adminApiService = {
   updateUserStatus,
   resetUserPassword,
   getSystemConfigs,
+  getPublicConfigs,
   updateSystemConfigs,
   getOperationLogs,
   exportOperationLogs,

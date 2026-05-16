@@ -19,6 +19,7 @@ from app.models.user import User, TokenBlocklist
 from app.services.auth_service import AuthService
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
+from app.services.security_config_service import SecurityConfigService
 from app.schemas.user_schema import (
     user_registration_schema,
     user_login_schema,
@@ -85,10 +86,15 @@ def register() -> tuple:
       400:
         description: 请求数据验证失败
       403:
-        description: 验证码错误
+        description: 验证码错误或注册功能已关闭
       409:
         description: 邮箱已被注册
     """
+    # 检查是否允许注册
+    if not SecurityConfigService.is_registration_enabled():
+        logger.warning(f"注册尝试被拒绝 - IP: {request.remote_addr}, 原因: 系统已关闭注册功能")
+        return error_response('当前系统暂不开放注册功能', code=403, error='registration_disabled')
+    
     # 获取请求数据
     data = request.get_json()
     
@@ -105,6 +111,11 @@ def register() -> tuple:
     password = validated_data['password']
     name = validated_data.get('name') or validated_data.get('username', '')
     captcha = validated_data.get('captcha')
+    
+    # 验证密码强度
+    is_valid_password, password_error = SecurityConfigService.validate_password_strength(password)
+    if not is_valid_password:
+        return error_response(password_error, code=400, error='invalid_password_strength')
     
     # 验证验证码
     client_ip = request.remote_addr or 'unknown'
@@ -520,6 +531,11 @@ def change_password() -> tuple:
     
     old_password = validated_data['old_password']
     new_password = validated_data['new_password']
+    
+    # 验证密码强度
+    is_valid_password, password_error = SecurityConfigService.validate_password_strength(new_password)
+    if not is_valid_password:
+        return error_response(password_error, code=400, error='invalid_password_strength')
 
     # 获取客户端信息用于日志记录
     ip_address = request.remote_addr
@@ -852,6 +868,11 @@ def reset_password() -> tuple:
     
     token = validated_data.get('token')
     new_password = validated_data.get('new_password')
+    
+    # 验证密码强度
+    is_valid_password, password_error = SecurityConfigService.validate_password_strength(new_password)
+    if not is_valid_password:
+        return error_response(password_error, code=400, error='invalid_password_strength')
     
     # 查找具有该重置令牌的用户
     user = User.query.filter_by(reset_token=token).first()

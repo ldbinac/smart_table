@@ -24,6 +24,8 @@ from app.models.log import OperationLog, AdminActionType, EntityType
 from app.models.config import SystemConfig
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
+from app.services.security_config_service import SecurityConfigService
+from app.services.config_cache_service import ConfigCacheService
 
 logger = logging.getLogger(__name__)
 
@@ -200,9 +202,10 @@ class AdminService:
         except ValueError:
             return None, f'无效的角色：{role}'
         
-        # 验证密码强度
-        if len(password) < 8:
-            return None, '密码长度至少为 8 位'
+        # 验证密码强度（使用安全配置）
+        valid, error_msg = SecurityConfigService.validate_password_strength(password)
+        if not valid:
+            return None, error_msg
         
         try:
             # 创建新用户
@@ -472,9 +475,10 @@ class AdminService:
             if not temporary_password:
                 temporary_password = AdminService._generate_temporary_password()
             
-            # 验证密码强度
-            if len(temporary_password) < 8:
-                return None, '密码长度至少为 8 位'
+            # 验证密码强度（使用安全配置）
+            valid, error_msg = SecurityConfigService.validate_password_strength(temporary_password)
+            if not valid:
+                return None, error_msg
             
             # 设置新密码
             user.set_password(temporary_password)
@@ -707,26 +711,17 @@ class AdminService:
     @staticmethod
     def get_all_configs() -> Dict[str, Dict[str, Any]]:
         """
-        获取所有系统配置，按配置分组
+        获取所有系统配置，按配置分组（优先缓存）
         
         Returns:
             按分组组织的配置字典：{group: {key: value}}
         """
-        configs = SystemConfig.query.all()
-        
-        result = {}
-        for config in configs:
-            group = config.config_group
-            if group not in result:
-                result[group] = {}
-            result[group][config.config_key] = config.config_value
-        
-        return result
+        return ConfigCacheService.get_all_configs()
     
     @staticmethod
     def get_config(key: str) -> Optional[Any]:
         """
-        获取配置值
+        获取配置值（优先缓存）
         
         Args:
             key: 配置键
@@ -734,11 +729,7 @@ class AdminService:
         Returns:
             配置值，如果不存在则返回 None
         """
-        config = SystemConfig.query.filter_by(config_key=key).first()
-        
-        if config:
-            return config.config_value
-        return None
+        return ConfigCacheService.get_config(key)
     
     @staticmethod
     def update_config(
@@ -783,6 +774,9 @@ class AdminService:
         
         logger.info(f"更新配置成功：{key}")
         
+        # 失效配置缓存
+        ConfigCacheService.invalidate_config_cache(key)
+        
         return config
     
     @staticmethod
@@ -806,6 +800,9 @@ class AdminService:
             db.session.commit()
             
             logger.info(f"删除配置成功：{key}")
+            
+            # 失效配置缓存
+            ConfigCacheService.invalidate_config_cache(key)
             
             return True, None
             

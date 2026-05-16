@@ -22,6 +22,7 @@ from app.models.operation_history import OperationHistory
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_template_service import EmailTemplateService
+from app.services.security_config_service import SecurityConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,26 @@ class AuthService:
     提供用户认证相关的所有业务逻辑
     """
     
-    # 访问令牌过期时间（秒）
-    ACCESS_TOKEN_EXPIRES = 86400  # 24 小时
-    # 刷新令牌过期时间（秒）
-    REFRESH_TOKEN_EXPIRES = 2592000  # 30 天
+    # 访问令牌过期时间（秒）- 默认值
+    DEFAULT_ACCESS_TOKEN_EXPIRES = 86400  # 24 小时
+    # 刷新令牌过期时间（秒）- 默认值
+    DEFAULT_REFRESH_TOKEN_EXPIRES = 2592000  # 30 天
+    
+    @staticmethod
+    def get_access_token_expires() -> int:
+        """
+        获取访问令牌过期时间（秒），从配置中读取
+        
+        Returns:
+            访问令牌过期秒数
+        """
+        try:
+            # 会话超时配置是分钟，转换为秒
+            session_timeout_minutes = SecurityConfigService.get_session_timeout_minutes()
+            return session_timeout_minutes * 60
+        except Exception as e:
+            logger.error(f"获取会话超时配置失败: {str(e)}, 使用默认值")
+            return AuthService.DEFAULT_ACCESS_TOKEN_EXPIRES
     
     @staticmethod
     def register_user(email: str, password: str, name: str) -> Tuple[Optional[User], Optional[str]]:
@@ -54,6 +71,11 @@ class AuthService:
         existing_user = User.query.filter_by(email=email.lower()).first()
         if existing_user:
             return None, '该邮箱已被注册'
+        
+        # 验证密码强度
+        valid, error_msg = SecurityConfigService.validate_password_strength(password)
+        if not valid:
+            return None, error_msg
         
         try:
             # 创建新用户
@@ -132,17 +154,20 @@ class AuthService:
         cache_key = f"user_token_version:{user_id}"
         token_version = cache.get(cache_key) or 0
         
+        # 获取可配置的过期时间
+        access_token_expires = AuthService.get_access_token_expires()
+        
         # 创建访问令牌（短期有效），包含版本号
         access_token = create_access_token(
             identity=user_id,
-            expires_delta=timedelta(seconds=AuthService.ACCESS_TOKEN_EXPIRES),
+            expires_delta=timedelta(seconds=access_token_expires),
             additional_claims={'token_version': token_version}
         )
         
         # 创建刷新令牌（长期有效），包含版本号
         refresh_token = create_refresh_token(
             identity=user_id,
-            expires_delta=timedelta(seconds=AuthService.REFRESH_TOKEN_EXPIRES),
+            expires_delta=timedelta(seconds=AuthService.DEFAULT_REFRESH_TOKEN_EXPIRES),
             additional_claims={'token_version': token_version}
         )
         
@@ -150,7 +175,7 @@ class AuthService:
             'access_token': access_token,
             'refresh_token': refresh_token,
             'token_type': 'Bearer',
-            'expires_in': AuthService.ACCESS_TOKEN_EXPIRES
+            'expires_in': access_token_expires
         }
     
     @staticmethod
@@ -173,10 +198,13 @@ class AuthService:
         if not user.is_active():
             return None, '用户账号已被禁用'
         
+        # 获取可配置的过期时间
+        access_token_expires = AuthService.get_access_token_expires()
+        
         # 生成新的访问令牌
         access_token = create_access_token(
             identity=user_id,
-            expires_delta=timedelta(seconds=AuthService.ACCESS_TOKEN_EXPIRES)
+            expires_delta=timedelta(seconds=access_token_expires)
         )
         
         return access_token, None
@@ -310,6 +338,11 @@ class AuthService:
             )
             db.session.commit()
             return False, '旧密码错误'
+        
+        # 验证新密码强度
+        valid, error_msg = SecurityConfigService.validate_password_strength(new_password)
+        if not valid:
+            return False, error_msg
 
         try:
             # 设置新密码

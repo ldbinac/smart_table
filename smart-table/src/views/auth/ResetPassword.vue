@@ -80,6 +80,7 @@ import { ElMessage } from 'element-plus'
 import { Loading, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import apiClient from '@/api/client'
+import { validatePasswordStrength, getPasswordMinLength } from '@/utils/securityConfig'
 
 const route = useRoute()
 const router = useRouter()
@@ -91,6 +92,7 @@ const resetSuccess = ref(false)
 const submitting = ref(false)
 const errorMessage = ref('链接无效或已过期')
 const token = ref('')
+const passwordMinLength = ref(8)
 
 const form = reactive({
   password: '',
@@ -105,21 +107,35 @@ const validateConfirmPassword = (_rule: any, value: string, callback: Function) 
   }
 }
 
+const validatePassword = async (_rule: any, value: string, callback: Function) => {
+  const [valid, errorMsg] = await validatePasswordStrength(value)
+  if (!valid && errorMsg) {
+    callback(new Error(errorMsg))
+  } else {
+    callback()
+  }
+}
+
 const rules: FormRules = {
   password: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, message: '密码长度至少为8位', trigger: 'blur' },
-    {
-      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      message: '密码必须包含大小写字母和数字',
-      trigger: 'blur'
-    }
+    { validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ]
 }
+
+// 在组件挂载时预加载配置
+onMounted(async () => {
+  try {
+    passwordMinLength.value = await getPasswordMinLength()
+  } catch (error) {
+    console.warn('Failed to load security config, using default:', error)
+  }
+  validateToken()
+})
 
 const validateToken = async () => {
   token.value = route.query.token as string
@@ -178,10 +194,6 @@ const goToLogin = () => {
 const goToForgotPassword = () => {
   router.push('/forgot-password')
 }
-
-onMounted(() => {
-  validateToken()
-})
 </script>
 
 <style scoped lang="scss">

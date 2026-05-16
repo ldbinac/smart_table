@@ -72,6 +72,21 @@
                 :max="50"
               />
             </el-form-item>
+            <el-divider content-position="left">密码复杂度要求</el-divider>
+            <el-form-item label="需要大写字母">
+              <el-switch v-model="securityConfigs.password_require_uppercase" />
+            </el-form-item>
+            <el-form-item label="需要小写字母">
+              <el-switch v-model="securityConfigs.password_require_lowercase" />
+            </el-form-item>
+            <el-form-item label="需要数字">
+              <el-switch v-model="securityConfigs.password_require_digit" />
+            </el-form-item>
+            <el-form-item label="需要特殊字符">
+              <el-switch v-model="securityConfigs.password_require_special" />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">允许的特殊字符: !@#$%^&amp;*()_+-=[]{}|;:,.&lt;&gt;?/</div>
+            </el-form-item>
+            <el-divider />
             <el-form-item label="会话超时时间（分钟）">
               <el-input-number
                 v-model="securityConfigs.session_timeout"
@@ -244,6 +259,10 @@ const basicConfigs = reactive({
 
 const securityConfigs = reactive({
   password_min_length: 8,
+  password_require_uppercase: false,
+  password_require_lowercase: false,
+  password_require_digit: false,
+  password_require_special: false,
   session_timeout: 60,
   enable_2fa: false,
   enable_registration: true
@@ -298,6 +317,10 @@ const loadConfigs = () => {
 
   // 安全配置
   securityConfigs.password_min_length = Number(configs['password_min_length']?.config_value ?? 8)
+  securityConfigs.password_require_uppercase = Boolean(configs['password_require_uppercase']?.config_value)
+  securityConfigs.password_require_lowercase = Boolean(configs['password_require_lowercase']?.config_value)
+  securityConfigs.password_require_digit = Boolean(configs['password_require_digit']?.config_value)
+  securityConfigs.password_require_special = Boolean(configs['password_require_special']?.config_value)
   securityConfigs.session_timeout = Number(configs['session_timeout']?.config_value ?? 60)
   securityConfigs.enable_2fa = Boolean(configs['enable_2fa']?.config_value)
   securityConfigs.enable_registration = Boolean(configs['enable_registration']?.config_value ?? true)
@@ -338,6 +361,10 @@ const saveSecurityConfigs = async () => {
   try {
     await adminStore.updateSystemConfig([
       { key: 'password_min_length', value: securityConfigs.password_min_length, group: 'security' },
+      { key: 'password_require_uppercase', value: securityConfigs.password_require_uppercase, group: 'security' },
+      { key: 'password_require_lowercase', value: securityConfigs.password_require_lowercase, group: 'security' },
+      { key: 'password_require_digit', value: securityConfigs.password_require_digit, group: 'security' },
+      { key: 'password_require_special', value: securityConfigs.password_require_special, group: 'security' },
       { key: 'session_timeout', value: securityConfigs.session_timeout, group: 'security' },
       { key: 'enable_2fa', value: securityConfigs.enable_2fa, group: 'security' },
       { key: 'enable_registration', value: securityConfigs.enable_registration, group: 'security' }

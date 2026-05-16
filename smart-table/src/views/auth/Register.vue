@@ -6,12 +6,32 @@
         <p class="subtitle">多维表格管理系统</p>
       </div>
 
-      <div class="register-box">
+      <!-- 注册已关闭提示 -->
+      <div v-if="!isRegistrationEnabled && !isLoading" class="register-box disabled">
+        <div class="disabled-icon">
+          <el-icon :size="48"><Lock /></el-icon>
+        </div>
+        <h2 class="box-title">注册已关闭</h2>
+        <p class="disabled-text">当前系统暂不开放新用户注册，请联系管理员获取账号。</p>
+        <div class="register-footer">
+          <el-button type="primary" @click="$router.push('/login')">
+            前往登录
+          </el-button>
+        </div>
+      </div>
+
+      <!-- 正常注册表单 -->
+      <div v-else class="register-box">
         <h2 class="box-title">用户注册</h2>
 
-        <RegisterForm :loading="authStore.isLoading" @submit="handleRegister" />
+        <div v-if="isLoading" class="loading-box">
+          <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
+          <p>正在加载...</p>
+        </div>
 
-        <div class="register-footer">
+        <RegisterForm v-else :loading="authStore.isLoading" @submit="handleRegister" />
+
+        <div v-if="!isLoading" class="register-footer">
           <span>已有账号？</span>
           <el-link type="primary" @click="$router.push('/login')">
             立即登录
@@ -54,15 +74,27 @@
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
+import { ref, onMounted } from "vue";
 import { useAuthStore } from "@/stores/auth/authStore";
 import RegisterForm from "@/components/auth/RegisterForm.vue";
 import type { RegisterRequest } from "@/api/types";
 import { ElMessage } from "element-plus";
+import { Lock, Loading } from '@element-plus/icons-vue';
+import { isRegistrationEnabled } from '@/utils/securityConfig';
 
 const router = useRouter();
 const authStore = useAuthStore();
 
+const isLoading = ref(true);
+const isRegistrationEnabledState = ref(true);
+
 const handleRegister = async (data: RegisterRequest) => {
+  // 二次检查注册是否启用
+  if (!isRegistrationEnabledState.value) {
+    ElMessage.error("当前系统暂不开放新用户注册");
+    return;
+  }
+
   const success = await authStore.register(data);
 
   if (success) {
@@ -70,6 +102,17 @@ const handleRegister = async (data: RegisterRequest) => {
     router.push("/login");
   }
 };
+
+onMounted(async () => {
+  try {
+    isRegistrationEnabledState.value = await isRegistrationEnabled();
+  } catch {
+    // 加载失败时也显示表单，由后端进行最终验证
+    isRegistrationEnabledState.value = true;
+  } finally {
+    isLoading.value = false;
+  }
+});
 </script>
 
 <style scoped lang="scss">
@@ -111,12 +154,38 @@ const handleRegister = async (data: RegisterRequest) => {
   padding: 40px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 
+  &.disabled {
+    text-align: center;
+  }
+
   .box-title {
     font-size: 24px;
     font-weight: 600;
     text-align: center;
     margin-bottom: 30px;
     color: #333;
+  }
+
+  .disabled-icon {
+    color: #909399;
+    margin-bottom: 20px;
+  }
+
+  .disabled-text {
+    color: #666;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .loading-box {
+    text-align: center;
+    padding: 40px 0;
+    color: #909399;
+
+    .loading-icon {
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
   }
 }
 
@@ -168,6 +237,15 @@ const handleRegister = async (data: RegisterRequest) => {
   .footer-text {
     font-size: 14px;
     opacity: 0.8;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

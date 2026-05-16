@@ -13,6 +13,7 @@ from marshmallow import ValidationError
 
 from app.services.admin_service import AdminService
 from app.services.email_config_service import EmailConfigService
+from app.services.config_cache_service import ConfigCacheService
 from app.models.log import AdminActionType, EntityType
 from app.models.user import UserRole
 from app.schemas.admin_schema import (
@@ -36,6 +37,28 @@ from app.utils.response import (
 
 admin_bp = Blueprint('admin', __name__)
 admin_bp.strict_slashes = False
+
+
+@admin_bp.route('/configs/public', methods=['GET'])
+def get_public_configs() -> tuple:
+    """
+    获取公开系统配置（无需登录）
+    用于登录页、注册页等未认证场景
+    
+    响应:
+        200: 返回公开配置信息
+    """
+    try:
+        configs = ConfigCacheService.get_public_configs()
+        return success_response(
+            data=configs,
+            message='获取公开配置成功'
+        )
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取公开配置失败：{str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取公开配置失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/users', methods=['GET'])

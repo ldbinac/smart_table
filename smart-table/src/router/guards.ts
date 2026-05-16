@@ -5,6 +5,7 @@
 
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { isRegistrationEnabled } from '@/utils/securityConfig'
 
 const whiteList = ['/login', '/register', '/forgot-password']
 
@@ -14,6 +15,21 @@ export const authGuard = async (
   next: NavigationGuardNext
 ): Promise<void> => {
   const authStore = useAuthStore()
+  
+  // 如果是注册页，先检查是否启用了注册
+  if (to.path === '/register') {
+    try {
+      const enabled = await isRegistrationEnabled()
+      if (!enabled) {
+        // 注册未启用，跳转到登录页
+        next('/login')
+        return
+      }
+    } catch (error) {
+      console.warn('[authGuard] 检查注册配置失败:', error)
+      // 检查失败时，默认允许访问，由后端进行最终验证
+    }
+  }
   
   if (whiteList.includes(to.path) || to.meta.public) {
     if (authStore.isAuthenticated) {

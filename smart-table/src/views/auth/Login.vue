@@ -14,7 +14,7 @@
           @submit="handleLogin"
           @forgot-password="handleForgotPassword" />
 
-        <div class="login-footer">
+        <div v-if="isRegistrationEnabledState && !isLoading" class="login-footer">
           <span>还没有账号？</span>
           <el-link type="primary" @click="$router.push('/register')">
             立即注册
@@ -58,11 +58,15 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/auth/authStore";
+import { ref, onMounted } from "vue";
 import LoginForm from "@/components/auth/LoginForm.vue";
+import { isRegistrationEnabled } from "@/utils/securityConfig";
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const isLoading = ref(true);
+const isRegistrationEnabledState = ref(true);
 
 const handleLogin = async (data: any) => {
   const success = await authStore.login(
@@ -84,6 +88,16 @@ const handleLogin = async (data: any) => {
 const handleForgotPassword = () => {
   router.push('/forgot-password');
 };
+
+onMounted(async () => {
+  try {
+    isRegistrationEnabledState.value = await isRegistrationEnabled();
+  } catch (error) {
+    console.warn('[Login] 加载注册配置失败:', error);
+  } finally {
+    isLoading.value = false;
+  }
+});
 </script>
 
 <style scoped lang="scss">
