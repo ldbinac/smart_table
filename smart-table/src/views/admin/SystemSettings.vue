@@ -96,7 +96,8 @@
               />
             </el-form-item>
             <el-form-item label="启用双因素认证">
-              <el-switch v-model="securityConfigs.enable_2fa" />
+              <el-switch v-model="securityConfigs.enable_2fa" disabled/>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
             </el-form-item>
             <el-form-item label="允许注册">
               <el-switch v-model="securityConfigs.enable_registration" />
@@ -210,20 +211,24 @@
         <el-tab-pane label="其他配置" name="other">
           <el-form :model="otherConfigs" label-width="200px" label-position="top">
             <el-form-item label="启用日志记录">
-              <el-switch v-model="otherConfigs.enable_logging" />
+              <el-switch v-model="otherConfigs.enable_logging" disabled />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
             </el-form-item>
             <el-form-item label="日志保留天数">
               <el-input-number
                 v-model="otherConfigs.log_retention_days"
                 :min="1"
                 :max="365"
+                disabled
               />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
             </el-form-item>
             <el-form-item label="启用性能监控">
-              <el-switch v-model="otherConfigs.enable_performance_monitoring" />
+              <el-switch v-model="otherConfigs.enable_performance_monitoring" disabled />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" :loading="saving" @click="saveOtherConfigs">
+              <el-button type="primary" :loading="saving" @click="saveOtherConfigs" disabled>
                 保存配置
               </el-button>
             </el-form-item>
