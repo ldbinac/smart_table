@@ -239,7 +239,7 @@ const renameTableFormRules: FormRules = {
 
 // 筛选和排序状态
 // 从 viewStore 获取当前筛选和排序配置
-const activeFilters = ref<FilterCondition[]>(viewStore.currentFilters as FilterCondition[]);
+const activeFilters = computed(() => viewStore.currentFilters as FilterCondition[]);
 const filterConjunction = ref<"and" | "or">("and");
 
 // 从 viewStore 获取当前排序配置
@@ -510,7 +510,7 @@ const handleTableSelect = async (tableId: string) => {
   // 选择默认视图（这会设置 viewStore.currentView，并自动加载视图的排序配置）
   await viewStore.selectDefaultView(tableId);
   // 重置筛选
-  activeFilters.value = [];
+  filterConjunction.value = "and";
   // 关闭分组弹窗，确保切换数据表时弹窗状态正确
   groupDialogVisible.value = false;
 };
@@ -1387,6 +1387,7 @@ async function handleFilterApply(
 
 // 处理筛选清除
 async function handleFilterClear() {
+  filterConjunction.value = "and";
   // 同步到后端数据库
   if (viewStore.currentView) {
     await viewStore.updateFilters(viewStore.currentView.id, []);
