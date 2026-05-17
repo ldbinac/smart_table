@@ -351,9 +351,20 @@ if __name__ == '__main__':
         open_browser_after_delay(service_url, delay_seconds=2.0)
 
     try:
-        if enable_realtime:
+        # 检查 SocketIO 是否真正初始化成功
+        # （extensions.py 中可能因异常而禁用了 REALTIME_ENABLED）
+        realtime_enabled = enable_realtime and app.config.get('REALTIME_ENABLED', False)
+
+        if realtime_enabled and hasattr(socketio, 'eio') and socketio.eio is not None:
+            print(f'[Server] Starting with SocketIO real-time support...')
             socketio.run(app, host=host, port=port, debug=debug)
         else:
+            if enable_realtime and not app.config.get('REALTIME_ENABLED', False):
+                print('[Server] ⚠️ Real-time collaboration was disabled due to initialization error')
+                print('[Server]   Running in standard mode (without WebSocket support)')
+            elif enable_realtime:
+                print('[Server] ⚠️ SocketIO object not properly initialized')
+                print('[Server]   Running in standard mode')
             app.run(host=host, port=port, debug=debug)
     finally:
         # 确保退出时清理 Redis 进程

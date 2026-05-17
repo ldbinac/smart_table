@@ -12,6 +12,7 @@ from flask_socketio import SocketIO
 from flask_wtf.csrf import CSRFProtect
 from flask import request, g, current_app
 import redis
+import sys
 
 
 # 数据库扩展
@@ -99,10 +100,23 @@ def init_extensions(app):
             'ping_timeout': app.config.get('SOCKETIO_PING_TIMEOUT', 60),
             'ping_interval': app.config.get('SOCKETIO_PING_INTERVAL', 25),
         }
-        message_queue = app.config.get('SOCKETIO_MESSAGE_QUEUE')
-        if message_queue:
-            socketio_kwargs['message_queue'] = message_queue
-        socketio.init_app(app, **socketio_kwargs)
+        
+        # 在打包环境中，避免使用 message_queue（可能导致初始化失败）
+        # 单进程模式下不需要消息队列
+        is_packaged = getattr(sys, 'frozen', False)
+        if not is_packaged:
+            message_queue = app.config.get('SOCKETIO_MESSAGE_QUEUE')
+            if message_queue:
+                socketio_kwargs['message_queue'] = message_queue
+        
+        try:
+            socketio.init_app(app, **socketio_kwargs)
+            app.logger.info(f'[Extensions] ✓ SocketIO initialized successfully (mode: threading, packaged: {is_packaged})')
+        except Exception as e:
+            app.logger.error(f'[Extensions] ⚠️ SocketIO initialization failed: {e}')
+            app.logger.error('[Extensions]   This usually happens in PyInstaller environment with message_queue')
+            app.logger.error('[Extensions]   Real-time collaboration will be disabled')
+            app.config['REALTIME_ENABLED'] = False
     
     # 初始化安全响应头中间件
     from app.middleware import init_security_headers
