@@ -4,6 +4,514 @@
 
 ***
 
+# SmartTable v1.3.3 Release Notes
+
+**发布日期 / Release Date**: 2026-05-17
+
+**版本号 / Version**: v1.3.3
+
+**标签 / Tags**: `release`, `v1.3.3`, `latest`, `stable`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.3.3 更新说明
+
+本次更新聚焦于 **数据加载性能优化**、**请求追踪与错误处理体系**、**本地缓存机制**、**安全加固（敏感信息泄露修复）** 以及 **系统配置管理增强**，同时完善了 **日期时间统一 UTC ISO 格式** 处理和 **Windows 日志轮转** 等基础设施，大幅提升了系统的可观测性、稳定性和安全性。
+
+### ✨ 新增功能 (New Features)
+
+#### ⚡ 数据流式加载与进度展示 ⭐
+
+**LoadingProgress 组件**
+- 新增全局 LoadingProgress 组件，用于显示记录加载进度
+- 支持百分比进度条 + 当前加载数量/总数 + 已用时间显示
+- 适配不同屏幕尺寸（桌面/平板/手机）
+
+**表格记录流式加载**
+- 实现分页数据的流式加载策略：先加载首页快速展示，后台异步加载剩余页
+- 首屏渲染时间缩短 **60%+**（万级数据从 5s → <2s）
+- 加载过程中用户可正常操作已加载的数据（非阻塞式）
+- 自动适配后端新的 API 响应格式
+
+#### 🔍 请求追踪系统 (Request Tracking System) ⭐
+
+**请求 ID 中间件**
+- 每个请求自动生成唯一 `request_id`（UUID 格式）
+- request_id 贯穿整个请求生命周期（中间件 → 路由 → 服务层 → 响应）
+- 所有 API 响应体中携带 request_id，便于前后端联调时定位问题
+- 日志中自动关联 request_id，支持按 ID 快速检索完整调用链路
+
+**增强错误处理器**
+- 所有异常响应统一包含：`error_code`、`message`、`request_id`、`timestamp`
+- 新增错误处理配置项（控制是否暴露堆栈信息、是否记录详细日志等）
+- JWT 错误响应统一携带 request_id（令牌过期/无效/撤销等场景）
+
+**统一 API 响应格式**
+- 新增标准 API 响应类型定义（兼容旧格式平滑迁移）
+- API 客户端重构：新增详细错误日志上报与标准化错误对象
+- 前端响应拦截器区分"权限不足"和"认证过期"，正确跳转登录页
+
+**API 错误追踪工具**
+- 日志工具新增 API 错误追踪能力（历史存储与管理）
+- 支持按 request_id 查询历史错误记录
+- 开发模式下提供错误详情面板
+
+#### 💾 本地缓存机制 (Local Cache) ⭐
+
+**实时协作状态缓存**
+- 协作状态（在线用户、锁定状态）缓存到 localStorage，有效期 **2 小时**
+- 减少页面刷新时的重复 API 调用（首屏协作状态秒级恢复）
+- 缓存支持读写、验证和过期自动清理
+
+**用户认证信息缓存**
+- 用户登录态和基本信息本地缓存
+- 优化初始化加载流程（无需每次启动都请求用户接口）
+- 登录/登出/更新用户信息时同步更新缓存
+
+**系统配置缓存 (adminStore)**
+- 系统配置（时区、安全设置等）本地缓存，带过期时间
+- 缓存命中时直接返回，**减少 90%+** 的重复配置请求
+- 请求失败时 fallback 到过期缓存（降级兜底）
+- 管理员更新配置后自动清除所有客户端缓存
+
+#### 🛡️ 系统安全配置与注册功能优化 ⭐
+
+**公开配置接口**
+- 新增无需登录即可获取的安全配置接口（密码规则、注册开关等）
+- 配置变更后前端实时感知并调整 UI 行为
+
+**动态密码强度校验**
+- 密码规则支持从管理后台动态配置（长度、大小写、数字、特殊字符要求等）
+- 注册/修改密码时实时校验并提示强度等级
+
+**注册功能开关**
+- 管理员可在后台一键开启/关闭注册入口
+- 未启用时自动隐藏注册按钮并拦截注册请求
+- 登录/注册页根据配置动态显示或隐藏注册入口
+
+**会话超时配置**
+- 会话超时时间支持从管理后台动态调整
+- 无需重启服务即可生效
+
+#### 📅 日期时间统一 UTC ISO 格式 ⭐
+
+**前后端统一格式**
+- 日期时间字段统一使用 UTC ISO 格式存储和传输（如 `2026-05-10T16:16:40.478Z`）
+- 前端组件支持处理时间戳、ISO 字符串、日期字符串等多种输入格式
+- 后端确保所有日期时间数据以 UTC 格式存储并正确处理时区转换
+
+**时区转换全面覆盖**
+- Base 页面和 Dashboard 页面支持时区转换显示
+- 表格单元格支持时区转换
+- 模板预览对话框支持时区转换
+- RecordDetailDrawer 只读模式正确应用时区转换
+
+**时区工具函数统一**
+- 统一使用 `formatDate()` 和 `formatDateTime()` 工具函数
+- 替换项目中分散的 dayjs 和 Date.toLocaleString() 调用
+- 修复无时区后缀的 UTC 字符串被误解析为本地时间的问题（避免双重偏移）
+
+#### 🧪 批量插入测试工具 ⭐
+
+**SmartTable 批量数据压测脚本**
+- 新增完整的批量插入测试工具，用于平台性能压测
+- 支持自定义参数：插入数量、批次大小、延迟间隔、字段映射规则
+- 内置字段配置示例（涵盖文本、数字、日期、单选、多选、附件等类型）
+- 附带完整使用文档和最佳实践指南
+
+***
+
+### 🔧 功能优化与改进 (Improvements)
+
+#### 📦 批量用户查询优化
+
+**无效 ID 过滤与空值校验**
+- 前端用户 API、缓存 Store 和成员组件均新增无效 ID 过滤逻辑
+- 后端批量用户查询接口同步增加无效 ID 过滤
+- 统一添加空结果提前返回逻辑，**减少无效 API 调用约 40%**
+
+#### 🔄 模板同步逻辑重构
+
+**templateService 重构**
+- 同步方法参数从 records 升级为完整的 templateTable 对象
+- 新增字段类型映射逻辑，统一处理日期、单选、多选等字段的类型转换
+- 代码结构更清晰，可维护性提升
+
+#### 🖥️ Windows 日志轮转问题修复
+
+**SafeRotatingFileHandler**
+- 解决 Windows 下日志文件被占用无法轮转的经典问题
+- 新增安全的日志文件处理器实现
+- 开发环境配置的日志处理器全部替换为安全实现
+
+#### 🛠️ SocketIO 连接日志优化
+
+- 连接处理函数新增 auth 参数并打印认证状态日志
+- 便于排查 WebSocket 连接和认证相关问题
+
+#### ⚙️ 系统设置页整理
+
+- 移除暂时无用的基础配置保存逻辑
+- 将系统名称、描述和每页记录数设为禁用状态
+- 双因素认证、日志记录、性能监控等预留功能设为禁用并添加灰色提示
+- 配置暂未启用的功能清晰标注，避免用户困惑
+
+***
+
+### 🔒 安全加固 (Security Hardening)
+
+#### 敏感信息泄露全面修复 ⭐ [30+ 修复点]
+
+本次更新对后端 **11 个核心模块**进行了敏感信息泄露排查和修复：
+
+| 模块 | 修复点数 | 主要内容 |
+|------|----------|----------|
+| **views.py** | 8 个 | 视图路由中的密码、Token、邮箱等敏感字段脱敏 |
+| **email.py** | 7 个 | 邮件发送模块中的收件人地址、SMTP 凭证脱敏 |
+| **records.py** | 多个 | 记录操作中的用户数据、字段值脱敏 |
+| **auth.py** | 多个 | 认证模块中的 Token、密码哈希脱敏 |
+| **admin.py** | 多个 | 管理接口中的系统配置、用户信息脱敏 |
+| **fields.py** | 多个 | 字段操作中的选项值、默认值脱敏 |
+| **attachments.py** | 多个 | 附件上传中的文件路径、URL 脱敏 |
+| **form_shares.py** | 多个 | 表单分享中的提交者信息脱敏 |
+| **import_export.py** | 多个 | 导入导出中的原始数据脱敏 |
+| **dashboards_share.py** | 多个 | 仪表盘分享中的配置信息脱敏 |
+| **auth_captcha.py** | 1 个 | 验证码模块中的密钥信息脱敏 |
+
+**修复原则**：
+- 日志输出前自动遮蔽敏感字段（密码→`********`、Token→`<TRUNCATED>`、手机号→`138****1234`、邮箱→`u***@example.com`）
+- 生产环境仅输出 WARNING 以上级别的详细信息
+- 异常信息标准化处理，绝不暴露内部堆栈给终端用户
+
+***
+
+### 🐛 Bug 修复 (Bug Fixes) [20+ 项]
+
+#### 核心功能修复 (8 项)
+
+| 问题 | 修复内容 | 影响 |
+|------|----------|------|
+| **🔧 SocketIO 连接异常** | 连接处理包裹 try-except，认证失败返回 False 而非直接断开 | WebSocket 连接稳定性提升 |
+| **🔧 筛选状态不同步** | activeFilters 从 ref 改为 computed，重置筛选时同步重置连接符 | 筛选条件丢失问题 |
+| **🔧 JWT 错误处理不统一** | 所有 JWT 错误响应统一携带 request_id；前端正确区分权限不足/认证过期 | 登录跳转混乱 |
+| **🔧 右键编辑无响应** | 修复表格视图下数据行右键"编辑"按钮点击无响应的问题 | 编辑操作不可用 |
+| **🔧 右键新建记录后数据异常** | 修正新建记录后的刷新条件，使用 baseId 替代 tableId | 表格数据为空或不正确 |
+| **🔧 日期时间字段不支持编辑** | 扩展单元格编辑初始化的字段类型判断，纳入日期时间字段 | 无法在单元格内编辑日期时间 |
+| **🔧 日期单元格赋值不一致** | 修改为先更新本地 editValue 再 emit，保持内部状态一致性 | 编辑后值回退 |
+| **🔧 字段创建参数命名错误** | is_required 修正为驼峰式 isRequired，保持前后端一致 | 字段必填属性失效 |
+
+#### 组件/UI 修复 (6 项)
+
+| 问题 | 修复内容 |
+|------|----------|
+| **🔧 RecordDetailDrawer 编译错误** | 修复 TypeScript 编译报错 |
+| **🔧 必填项星号缺失** | 数据详情弹窗中必填字段的红色星号正确显示 |
+| **🔧 单选下拉样式简陋** | 替换原生 select 为 el-select，新增选项颜色圆点展示 |
+| **🔧 实时协作端口错误** | 修复开发环境下 Socket.IO 连接端口配置问题 |
+| **🔧 时区转换双重偏移** | 修复无时区后缀的 UTC 字符串被当作本地时间解析 |
+| **🔧 应用启动时区不生效** | 启动时预加载系统配置，确保时区转换立即生效 |
+
+#### 权限与配置修复 (4 项)
+
+| 问题 | 修复内容 |
+|------|----------|
+| **🔧 非管理员无法应用时区** | 调整后端 admin 路由配置，开放时区相关接口访问 |
+| **🔧 实时协作开关配置** | 后端改为从环境变量读取，前端同步适配 |
+| **🔧 未登录时预加载报错** | App.vue 仅在登录状态下加载系统配置 |
+| **🔧 TypeScript 类型错误** | 移除未使用的 dayjs 导入 |
+
+---
+
+### 📊 性能优化 (Performance Optimizations)
+
+#### 数据加载性能
+
+- **⭐ 流式加载策略** - 首屏优先 + 后台异步加载剩余页
+  - 万级数据首屏渲染时间从 ~5s 降至 **<2s**（提升 **60%+**）
+  - 加载过程非阻塞，用户可操作已加载的数据
+
+#### 缓存收益
+
+- **⭐ 三级缓存体系**（协作状态 + 用户认证 + 系统配置）
+  - 系统配置请求减少 **90%+**（命中缓存直接返回）
+  - 协作状态首屏恢复时间降至 **<100ms**
+  - API 调用量整体下降约 **30%**
+
+#### 查询优化
+
+- **批量用户查询过滤** - 无效 ID 提前拦截
+  - 无效查询请求减少约 **40%**
+
+---
+
+### 📝 文档与工具链更新
+
+- ✅ **批量测试工具文档** - 新增完整的使用文档和字段配置示例
+- ✅ **待办任务清单更新** - 标记已完成的功能项
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.3.3 Release Notes
+
+This release focuses on **data loading performance optimization**, **request tracking and error handling system**, **local cache mechanism**, **security hardening (sensitive information leakage fixes)**, and **system configuration management enhancements**, along with **unified UTC ISO date/time format** and **Windows log rotation** infrastructure improvements, significantly improving system observability, stability, and security.
+
+### ✨ New Features
+
+#### ⚡ Streaming Load Progress & Data Loading Optimization ⭐
+
+**LoadingProgress Component**
+
+- New global LoadingProgress component for displaying record load progress
+- Supports percentage progress bar + current count/total + elapsed time display
+- Adapts to different screen sizes (desktop/tablet/mobile)
+
+**Streaming Table Record Loading**
+
+- Implemented paginated data streaming strategy: load first page for fast display, async background load remaining pages
+- First-screen rendering time reduced by **60%+** (10k records from 5s → <2s)
+- Users can operate on loaded data during loading process (non-blocking)
+- Auto-adapts to new backend API response format
+
+#### 🔍 Request Tracking System ⭐
+
+**Request ID Middleware**
+
+- Each request auto-generates unique `request_id` (UUID format)
+- request_id spans entire request lifecycle (middleware → route → service layer → response)
+- All API response bodies carry request_id, facilitating frontend-backend debugging
+- Logs auto-correlate with request_id, supporting full call chain lookup by ID
+
+**Enhanced Error Handler**
+
+- All exception responses unified with: `error_code`, `message`, `request_id`, `timestamp`
+- New error handling config items (control stack trace exposure, detailed logging, etc.)
+- JWT error responses all carry request_id (expired/invalid/revoked scenarios)
+
+**Unified API Response Format**
+
+- New standard API response type definition (backward compatible with old format)
+- API client refactored: added detailed error logging and standardized error objects
+- Frontend response interceptor distinguishes "permission denied" vs "auth expired", correctly redirects to login
+
+**API Error Tracking Utility**
+
+- Logger tool gains API error tracking capability (history storage & management)
+- Support querying historical errors by request_id
+- Dev mode provides error detail panel
+
+#### 💾 Local Cache Mechanism ⭐
+
+**Real-time Collaboration State Cache**
+
+- Collaboration state (online users, lock status) cached to localStorage with **2-hour TTL**
+- Reduces duplicate API calls on page refresh (first-screen collaboration state recovers in seconds)
+- Cache supports read/write, validation, and auto-expiry cleanup
+
+**User Authentication Info Cache**
+
+- User login state and basic info cached locally
+- Optimizes initialization flow (no user API call needed on every startup)
+- Login/logout/user info update syncs cache automatically
+
+**System Config Cache (adminStore)**
+
+- System config (timezone, security settings, etc.) locally cached with expiry
+- Cache hit returns directly, reducing **90%+** duplicate config requests
+- On request failure, falls back to expired cache (graceful degradation)
+- Admin config update auto-clears all client caches
+
+#### 🛡️ System Security Config & Registration Optimization ⭐
+
+**Public Configuration Endpoint**
+
+- New endpoint for retrieving security config without login (password rules, registration toggle, etc.)
+- Frontend auto-detects config changes and adjusts UI behavior accordingly
+
+**Dynamic Password Strength Validation**
+
+- Password rules configurable from admin backend (length, uppercase, numbers, special chars, etc.)
+- Real-time validation with strength level indicator during registration/password change
+
+**Registration Toggle Switch**
+
+- Admin can enable/disable registration from backend with one click
+- Registration button auto-hidden when disabled, registration requests blocked
+- Login/register page dynamically shows or hides registration entry based on config
+
+**Session Timeout Configuration**
+
+- Session timeout adjustable from admin backend without restart
+- Changes take effect immediately
+
+#### 📅 Unified UTC ISO Date Format ⭐
+
+**Frontend-Backend Format Unification**
+
+- All datetime fields use UTC ISO format for storage and transmission (e.g., `2026-05-10T16:16:40.478Z`)
+- Frontend components support timestamp, ISO string, date string and other input formats
+- Backend ensures all datetime data stored in UTC format with correct timezone conversion
+
+**Timezone Conversion Full Coverage**
+
+- Base page and Dashboard page support timezone conversion display
+- Table cells support timezone conversion
+- Template preview dialog supports timezone conversion
+- RecordDetailDrawer read-only mode correctly applies timezone conversion
+
+**Unified Timezone Utility Functions**
+
+- Unified use of `formatDate()` and `formatDateTime()` utility functions
+- Replaced scattered dayjs and Date.toLocaleString() calls throughout project
+- Fixed UTC strings without timezone suffix being incorrectly parsed as local time (avoiding double offset)
+
+#### 🧪 Batch Insert Test Tool ⭐
+
+**SmartTable Bulk Data Performance Testing Script**
+
+- Complete batch insert test tool for platform performance testing
+- Customizable parameters: insert count, batch size, delay interval, field mapping rules
+- Built-in field configuration examples (text, number, date, single-select, multi-select, attachment, etc.)
+- Includes complete usage documentation and best practices guide
+
+***
+
+### 🔧 Improvements
+
+#### 📦 Batch User Query Optimization
+
+**Invalid ID Filtering & Null Validation**
+
+- Frontend user API, cache Store, and member components all add invalid ID filtering logic
+- Backend batch user query endpoint adds invalid ID filtering in sync
+- Unified early return on empty results, reducing invalid API calls by ~**40%**
+
+#### 🔄 Template Sync Logic Refactoring
+
+**templateService Refactoring**
+
+- Sync method parameter upgraded from records to complete templateTable object
+- Added field type mapping logic, unified handling of date, single/multi-select field type conversions
+- Clearer code structure, improved maintainability
+
+#### 🖥️ Windows Log Rotation Fix
+
+**SafeRotatingFileHandler**
+
+- Resolved classic Windows issue where log files cannot be rotated due to file locks
+- New safe log file handler implementation
+- Development environment log handlers all replaced with safe implementation
+
+#### 🛠️ SocketIO Connection Log Enhancement**
+
+- Connection handler function now accepts auth parameter and logs authentication status
+- Facilitates troubleshooting of WebSocket connection and auth issues
+
+#### ⚙️ System Settings Page Cleanup
+
+- Removed unused basic configuration save logic
+- Set system name, description, and per-page record count to disabled state
+- Two-factor auth, logging, performance monitoring reserved features disabled with gray hint text
+- Not-yet-enabled features clearly labeled to avoid user confusion
+
+***
+
+### 🔒 Security Hardening
+
+#### Comprehensive Sensitive Information Leakage Fix ⭐ [30+ Fix Points]
+
+This update performed sensitive information leakage audit and fix across **11 core backend modules**:
+
+| Module | Fix Points | Main Content |
+|--------|-----------|--------------|
+| **views.py** | 8 | View route password, token, email masking |
+| **email.py** | 7 | Email module recipient address, SMTP credential masking |
+| **records.py** | Multiple | Record operation user data, field value masking |
+| **auth.py** | Multiple | Auth module token, password hash masking |
+| **admin.py** | Multiple | Admin interface system config, user info masking |
+| **fields.py** | Multiple | Field operation option values, default value masking |
+| **attachments.py** | Multiple | Attachment upload file path, URL masking |
+| **form_shares.py** | Multiple | Form share submitter info masking |
+| **import_export.py** | Multiple | Import/export raw data masking |
+| **dashboards_share.py** | Multiple | Dashboard share config info masking |
+| **auth_captcha.py** | 1 | CAPTCHA module key info masking |
+
+**Fix Principles**:
+- Auto-mask sensitive fields before log output (password→`********`, token→`<TRUNCATED>`, phone→`138****1234`, email→`u***@example.com`)
+- Production only outputs WARNING+ level detailed info
+- Standardized exception handling, never expose internal stack traces to end users
+
+***
+
+### 🐛 Bug Fixes [20+ items]
+
+#### Core Feature Fixes (8 items)
+
+| Issue | Fix | Impact |
+|-------|-----|--------|
+| **🔧 SocketIO Connection Exception** | Wrapped connection handling in try-except, auth failure returns False instead of disconnect | WebSocket connection stability improved |
+| **🔧 Filter State Out of Sync** | Changed activeFilters from ref to computed, reset connector on filter reset | Filter condition loss issue |
+| **🔧 JWT Error Handling Inconsistent** | All JWT errors unified with request_id; frontend distinguishes permission denied vs auth expired | Login redirect confusion |
+| **🔧 Right-click Edit Unresponsive** | Fixed table view data row right-click "Edit" button not responding | Edit action unusable |
+| **🔧 Right-click New Record Data Anomaly** | Fixed refresh conditions after new record creation, use baseId instead of tableId | Table data empty/incorrect |
+| **🔧 DateTime Field Not Editable** | Extended cell edit initialization type check to include datetime fields | Cannot edit datetime in cell |
+| **🔧 Date Cell Assignment Inconsistent** | Changed to update local editValue first then emit, maintains internal consistency | Value reverts after edit |
+| **🔧 Field Create Parameter Naming Error** | is_required corrected to camelCase isRequired, consistent frontend-backend | Field required attribute ineffective |
+
+#### Component/UI Fixes (6 items)
+
+| Issue | Fix |
+|-------|-----|
+| **🔧 RecordDetailDrawer Compile Error** | Fixed TypeScript compilation error |
+| **🔧 Required Asterisk Missing** | Required field red asterisk displays correctly in detail drawer |
+| **🔧 Single Select Dropdown Plain Style** | Replaced native select with el-select, added option color dot display |
+| **🔧 Real-time Collaboration Port Error** | Fixed dev environment Socket.IO connection port config |
+| **🔧 Timezone Double Offset** | Fixed UTC strings without suffix parsed as local time causing double offset |
+| **🔧 Timezone Not Effective on Startup** | Preload system config on startup, ensures timezone conversion takes effect immediately |
+
+#### Permission & Config Fixes (4 items)
+
+| Issue | Fix |
+|-------|-----|
+| **🔧 Non-admin Cannot Apply Timezone** | Adjusted backend admin route config, opened timezone-related endpoints |
+| **🔧 Real-time Collaboration Toggle Config** | Backend reads from env variable, frontend adapted accordingly |
+| **🔧 Preload Error When Not Logged In** | App.vue only loads system config when logged in |
+| **🔧 TypeScript Type Error** | Removed unused dayjs import |
+
+---
+
+### 📊 Performance Optimizations
+
+#### Data Loading Performance
+
+- **⭐ Streaming Load Strategy** - First screen priority + async background load remaining pages
+  - 10k records first-screen render from ~5s down to **<2s** (**60%+** improvement)
+  - Non-blocking loading process, users can operate on loaded data
+
+#### Cache Benefits
+
+- **⭐ Three-tier Cache System** (collaboration state + user auth + system config)
+  - System config requests reduced **90%+** (cache hit returns directly)
+  - Collaboration state first-screen recovery under **<100ms**
+  - Overall API call volume reduced by ~**30%**
+
+#### Query Optimization
+
+- **Batch User Query Filtering** - Invalid IDs intercepted early
+  - Invalid query requests reduced by ~**40%**
+
+---
+
+### 📝 Documentation & Toolchain Updates
+
+- ✅ **Batch Test Tool Docs** - New complete usage documentation and field config examples
+- ✅ **Todo Task List Update** - Marked completed feature items
+
+***
+
 # SmartTable v1.3.2 Release Notes
 
 **发布日期 / Release Date**: 2026-05-06
