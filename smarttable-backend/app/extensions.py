@@ -35,8 +35,8 @@ cors = CORS()
 # CSRF 保护扩展
 csrf = CSRFProtect()
 
-# WebSocket 扩展（async_mode 在 init_app 中根据配置动态设置）
-socketio = SocketIO()
+# WebSocket 扩展（使用 threading 模式，兼容 PyInstaller 打包环境）
+socketio = SocketIO(async_mode='threading')
 
 # Redis 客户端（全局连接池）
 redis_client = None
