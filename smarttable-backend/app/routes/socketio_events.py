@@ -59,14 +59,17 @@ def register_socketio_handlers(socketio, app):
 
     @socketio.on('connect')
     def handle_connect(auth=None):
-        current_app.logger.info(f'[SocketIO] Connect event received, sid={request.sid}, auth={bool(auth)}')
-        user_id = _authenticate_connection()
-        if not user_id:
-            current_app.logger.warning(f'SocketIO connect rejected: no valid token, sid={request.sid}')
-            disconnect()
+        try:
+            current_app.logger.info(f'[SocketIO] Connect event received, sid={request.sid}, auth={bool(auth)}')
+            user_id = _authenticate_connection()
+            if not user_id:
+                current_app.logger.warning(f'SocketIO connect rejected: no valid token, sid={request.sid}')
+                return False
+            current_app.logger.info(f'SocketIO connected: user_id={user_id}, sid={request.sid}')
+            emit('connect_ack', {'status': 'ok', 'sid': request.sid})
+        except Exception as e:
+            current_app.logger.error(f'[SocketIO] Connect handler error: {e}')
             return False
-        current_app.logger.info(f'SocketIO connected: user_id={user_id}, sid={request.sid}')
-        emit('connect_ack', {'status': 'ok', 'sid': request.sid})
 
     @socketio.on('disconnect')
     def handle_disconnect():
