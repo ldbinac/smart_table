@@ -20,6 +20,7 @@ from app.models.form_submission import FormSubmission
 from app.models.email_template import EmailTemplate
 from app.models.email_log import EmailLog, EmailStatus
 from app.models.collaboration_session import CollaborationSession
+from app.models.document import Document
 
 __all__ = [
     'User',
@@ -51,5 +52,6 @@ __all__ = [
     'EmailTemplate',
     'EmailLog',
     'EmailStatus',
-    'CollaborationSession'
+    'CollaborationSession',
+    'Document'
 ]

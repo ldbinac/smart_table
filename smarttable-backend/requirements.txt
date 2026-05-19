@@ -47,3 +47,6 @@ gunicorn==21.2.0
 
 # API 文档生成
 flasgger==0.9.7b2
+
+# PDF 导出
+WeasyPrint==53.3

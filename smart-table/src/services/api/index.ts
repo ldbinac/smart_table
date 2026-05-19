@@ -10,3 +10,4 @@ export { viewApiService } from './viewApiService';
 export { dashboardApiService } from './dashboardApiService';
 export { attachmentApiService } from './attachmentApiService';
 export { importExportApiService } from './importExportApiService';
+export { documentApiService } from './documentApiService';

@@ -35,6 +35,7 @@ declare module 'vue' {
     DateField: typeof import('./components/fields/DateField.vue')['default']
     DateTimeField: typeof import('./components/fields/DateTimeField.vue')['default']
     DateWidget: typeof import('./components/dashboard/DateWidget.vue')['default']
+    DocumentEditor: typeof import('./components/documents/DocumentEditor.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
     ElButton: typeof import('element-plus/es')['ElButton']

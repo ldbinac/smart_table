@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useBaseStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
 import { dashboardService } from "@/db/services/dashboardService";
-import type { Dashboard, TableEntity } from "@/db/schema";
+import type { Dashboard, TableEntity, DocumentEntity } from "@/db/schema";
 import { ElMessageBox } from "element-plus";
 import {
   Search,
@@ -25,10 +25,14 @@ const props = defineProps<{
   currentTableId?: string;
   // 当前选中的仪表盘 ID
   currentDashboardId?: string;
+  // 当前选中的文档 ID
+  currentDocumentId?: string;
   // 是否显示数据表列表
   showTables?: boolean;
   // 是否显示仪表盘列表
   showDashboards?: boolean;
+  // 是否显示文档列表
+  showDocuments?: boolean;
   // 是否有编辑权限
   canEdit?: boolean;
 }>();
@@ -64,6 +68,16 @@ const emit = defineEmits<{
   (e: "manage-dashboards"): void;
   // 打开数据表管理
   (e: "manage-tables"): void;
+  // 选择文档
+  (e: "select-document", documentId: string): void;
+  // 添加文档
+  (e: "add-document"): void;
+  // 重命名文档
+  (e: "rename-document", document: DocumentEntity): void;
+  // 删除文档
+  (e: "delete-document", document: DocumentEntity): void;
+  // 切换文档置顶状态
+  (e: "toggle-pin-document", document: DocumentEntity): void;
 }>();
 
 const baseStore = useBaseStore();
@@ -78,9 +92,13 @@ const searchKeyword = ref("");
 // 仪表盘列表
 const dashboards = ref<Dashboard[]>([]);
 
+// 文档列表
+const documents = ref<DocumentEntity[]>([]);
+
 // 仪表盘列表的ref，用于拖拽排序
 const dashboardListRef = ref<HTMLElement | null>(null);
 const tableListRef = ref<HTMLElement | null>(null);
+const documentListRef = ref<HTMLElement | null>(null);
 
 // 切换侧边栏状态
 const toggleSidebar = () => {
@@ -121,9 +139,30 @@ const filteredDashboards = computed(() => {
   return result;
 });
 
+// 排序后的文档列表（置顶的置顶）
+const sortedDocuments = computed(() => {
+  return [...documents.value].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return a.order - b.order;
+  });
+});
+
+// 过滤后的文档列表
+const filteredDocuments = computed(() => {
+  let result = sortedDocuments.value;
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.toLowerCase();
+    result = result.filter((doc) =>
+      doc.name.toLowerCase().includes(keyword),
+    );
+  }
+  return result;
+});
+
 // 是否有搜索结果
 const hasSearchResults = computed(() => {
-  return filteredTables.value.length > 0 || filteredDashboards.value.length > 0;
+  return filteredTables.value.length > 0 || filteredDashboards.value.length > 0 || filteredDocuments.value.length > 0;
 });
 
 // 加载仪表盘列表
@@ -132,6 +171,15 @@ const loadDashboards = async () => {
   dashboards.value = await dashboardService.getDashboardsByBase(
     baseStore.currentBase.id,
   );
+};
+
+// 加载文档列表
+const loadDocuments = async () => {
+  if (!baseStore.currentBase) return;
+  const { useDocumentStore } = await import('@/stores/documentStore');
+  const documentStore = useDocumentStore();
+  await documentStore.fetchDocuments(baseStore.currentBase.id);
+  documents.value = documentStore.documents;
 };
 
 // 处理点击数据表
@@ -212,6 +260,44 @@ const handleManageTables = () => {
   emit("manage-tables");
 };
 
+// 处理点击文档
+const handleDocumentClick = (docId: string) => {
+  emit("select-document", docId);
+};
+
+// 处理添加文档
+const handleAddDocument = () => {
+  emit("add-document");
+};
+
+// 处理重命名文档
+const handleRenameDocument = (doc: DocumentEntity) => {
+  emit("rename-document", doc);
+};
+
+// 处理删除文档
+const handleDeleteDocument = async (doc: DocumentEntity) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除文档 "${doc.name}" 吗？`,
+      "删除确认",
+      {
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
+    );
+    emit("delete-document", doc);
+  } catch {
+    // 用户取消删除
+  }
+};
+
+// 处理切换文档置顶状态
+const handleTogglePinDocument = (doc: DocumentEntity) => {
+  emit("toggle-pin-document", doc);
+};
+
 // 初始化仪表盘拖拽排序
 const initDashboardSortable = () => {
   if (!dashboardListRef.value) return;
@@ -248,16 +334,18 @@ const initTableSortable = () => {
   });
 };
 
-// 监听base变化，重新加载仪表盘
+// 监听base变化，重新加载仪表盘和文档
 watch(
   () => baseStore.currentBase?.id,
   () => {
     loadDashboards();
+    loadDocuments();
   },
 );
 
 onMounted(() => {
   loadDashboards();
+  loadDocuments();
   // 延迟初始化拖拽，确保DOM已渲染
   setTimeout(() => {
     initDashboardSortable();
@@ -395,6 +483,88 @@ defineExpose({
       v-if="
         showDashboards !== false &&
         filteredDashboards.length > 0 &&
+        (showTables !== false && filteredTables.length > 0 || showDocuments !== false && filteredDocuments.length > 0)
+      "
+      class="section-divider"></div>
+
+    <!-- 文档列表 -->
+    <div
+      v-if="showDocuments !== false && filteredDocuments.length > 0"
+      class="document-section">
+      <div v-show="!isCollapsed" class="section-title">
+        <span class="title-text"
+          >文档&nbsp;<span class="section-count"
+            >({{ filteredDocuments.length }})</span
+          ></span
+        >
+      </div>
+      <div ref="documentListRef" class="document-list">
+        <template v-for="doc in filteredDocuments" :key="doc.id">
+          <!-- 收缩状态下的文档项（带Tooltip） -->
+          <el-tooltip
+            v-if="isCollapsed"
+            :content="doc.name"
+            placement="right"
+            :show-after="300">
+            <div
+              class="document-item"
+              :class="{ active: currentDocumentId === doc.id }"
+              @click="handleDocumentClick(doc.id)">
+              <el-icon class="document-icon"><Document /></el-icon>
+            </div>
+          </el-tooltip>
+          <!-- 展开状态下的文档项 -->
+          <div
+            v-else
+            class="document-item"
+            :class="{ active: currentDocumentId === doc.id }"
+            @click="handleDocumentClick(doc.id)">
+            <el-icon class="document-icon"><Document /></el-icon>
+            <span class="document-name">{{ doc.name }}</span>
+            <span v-if="doc.isPinned" class="pin-icon">
+              <el-icon><StarFilled /></el-icon>
+            </span>
+            <el-dropdown
+              trigger="click"
+              @command="
+                (cmd) => {
+                  if (cmd === 'rename') handleRenameDocument(doc);
+                  else if (cmd === 'delete') handleDeleteDocument(doc);
+                  else if (cmd === 'pin') handleTogglePinDocument(doc);
+                }
+              "
+              @click.stop>
+              <span class="more-icon" @click.stop>
+                <el-icon><MoreFilled /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="rename">
+                    <el-icon><Edit /></el-icon>重命名
+                  </el-dropdown-item>
+                  <el-dropdown-item command="pin">
+                    <el-icon><StarFilled /></el-icon>
+                    {{ doc.isPinned ? "取消置顶" : "置顶" }}
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    divided
+                    command="delete"
+                    class="delete-item">
+                    <el-icon><Delete /></el-icon>删除
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 分隔线 -->
+    <div
+      v-if="
+        showDocuments !== false &&
+        filteredDocuments.length > 0 &&
         showTables !== false &&
         filteredTables.length > 0
       "
@@ -511,7 +681,7 @@ defineExpose({
           <span v-show="!isCollapsed">添加仪表盘</span>
         </el-button>
         <el-button
-        title="根据Excel表格的表头和数据，自动识别创建数据表的字段，并支持创建后直接导入数据"
+          title="根据Excel表格的表头和数据，自动识别创建数据表的字段，并支持创建后直接导入数据"
           style="margin-left: 0px"
           v-if="showTables !== false && canEdit !== false"
           type="primary"
@@ -520,6 +690,17 @@ defineExpose({
           class="footer-btn">
           <el-icon><Upload /></el-icon>
           <span v-show="!isCollapsed">Excel导入创建</span>
+        </el-button>
+        <el-button
+          title="添加新文档"
+          style="margin-left: 0px"
+          v-if="showDocuments !== false && canEdit !== false"
+          type="primary"
+          text
+          @click="handleAddDocument"
+          class="footer-btn">
+          <el-icon><Plus /></el-icon>
+          <span v-show="!isCollapsed">添加文档</span>
         </el-button>
       </div>
     </div>
@@ -558,12 +739,14 @@ defineExpose({
     }
 
     .table-list,
-    .dashboard-list {
+    .dashboard-list,
+    .document-list {
       padding: $spacing-sm 0;
     }
 
     .table-item,
-    .dashboard-item {
+    .dashboard-item,
+    .document-item {
       justify-content: center;
       padding: $spacing-md $spacing-sm;
       gap: 0;
@@ -571,13 +754,16 @@ defineExpose({
       .drag-handle,
       .table-name,
       .dashboard-name,
+      .document-name,
       .star-icon,
+      .pin-icon,
       .more-icon {
         display: none;
       }
 
       .table-icon,
-      .dashboard-icon {
+      .dashboard-icon,
+      .document-icon {
         margin: 0;
       }
     }
@@ -682,7 +868,8 @@ defineExpose({
 }
 
 .dashboard-section,
-.table-section {
+.table-section,
+.document-section {
   display: flex;
   flex-direction: column;
 }
@@ -741,14 +928,16 @@ defineExpose({
 }
 
 .dashboard-list,
-.table-list {
+.table-list,
+.document-list {
   overflow-y: auto;
   padding: $spacing-sm 0;
   max-height: 300px; // 限制最大高度，避免过度扩张
 }
 
 .dashboard-item,
-.table-item {
+.table-item,
+.document-item {
   display: flex;
   align-items: center;
   padding: $spacing-sm $spacing-lg;
@@ -793,15 +982,17 @@ defineExpose({
     }
 
     .table-icon,
-    .dashboard-icon {
-      color: $primary-color;
-    }
+  .dashboard-icon,
+  .document-icon {
+    color: $primary-color;
+  }
 
-    .table-name,
-    .dashboard-name {
-      color: $primary-color;
-      font-weight: 500;
-    }
+  .table-name,
+  .dashboard-name,
+  .document-name {
+    color: $primary-color;
+    font-weight: 500;
+  }
   }
 
   // 拖拽排序时的视觉反馈
@@ -835,20 +1026,23 @@ defineExpose({
 }
 
 .table-icon,
-.dashboard-icon {
+.dashboard-icon,
+.document-icon {
   color: $text-secondary;
   flex-shrink: 0;
 }
 
 .table-name,
-.dashboard-name {
+.dashboard-name,
+.document-name {
   flex: 1;
   font-size: $font-size-sm;
   color: $text-primary;
   @include text-ellipsis;
 }
 
-.star-icon {
+.star-icon,
+.pin-icon {
   color: #f7ba2a;
   display: flex;
   align-items: center;

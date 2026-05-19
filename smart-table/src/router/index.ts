@@ -97,6 +97,14 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/base/:id/documents/:docId",
+    name: "BaseDocument",
+    component: () => import("@/views/Base.vue"),
+    meta: {
+      title: "文档",
+    },
+  },
+  {
     path: "/share/dashboard/:token",
     name: "DashboardShare",
     component: () => import("@/views/DashboardShare.vue"),

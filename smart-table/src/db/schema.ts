@@ -155,6 +155,20 @@ export interface DashboardShare {
   lastAccessedAt?: number;
 }
 
+export interface DocumentEntity {
+  id: string;
+  baseId: string;
+  name: string;
+  content: string;
+  contentFormat: 'delta' | 'markdown';
+  order: number;
+  isPinned: boolean;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface CacheMeta {
   id: string;
   key: string;
@@ -173,12 +187,13 @@ class SmartTableDB extends Dexie {
   attachments!: DexieTable<Attachment>;
   history!: DexieTable<OperationHistory>;
   dashboardShares!: DexieTable<DashboardShare>;
+  documents!: DexieTable<DocumentEntity>;
   cacheMeta!: DexieTable<CacheMeta>;
 
   constructor() {
     super("SmartTableDB");
 
-    this.version(6).stores({
+    this.version(7).stores({
       bases: "id, name, updatedAt, isStarred",
       tableEntities: "id, baseId, name, order, updatedAt, isStarred",
       fields: "id, tableId, name, type, order, [tableId+order]",
@@ -190,6 +205,7 @@ class SmartTableDB extends Dexie {
       history: "++id, baseId, tableId, timestamp, [baseId+timestamp]",
       dashboardShares:
         "id, dashboardId, shareToken, isActive, expiresAt, [dashboardId+isActive]",
+      documents: "id, baseId, name, order, isPinned, [baseId+order]",
       cacheMeta: "id, &key, timestamp",
     }).upgrade((tx) => {
       return tx.table("dashboards").toCollection().modify((dashboard: Dashboard) => {

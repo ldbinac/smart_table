@@ -53,6 +53,8 @@ import { useUserCacheStore } from "@/stores/userCacheStore";
 import CollaborationToast from "@/components/collaboration/CollaborationToast.vue";
 import ConflictDialog from "@/components/collaboration/ConflictDialog.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useDocumentStore } from "@/stores/documentStore";
+import { DocumentEditor } from "@/components/documents";
 
 const route = useRoute();
 const router = useRouter();
@@ -62,6 +64,7 @@ const tableStore = useTableStore();
 const memberStore = useMemberStore();
 const collaborationStore = useCollaborationStore();
 const userCacheStore = useUserCacheStore();
+const documentStore = useDocumentStore();
 
 const baseId = route.params.id as string;
 const realtimeCollab = baseId ? useRealtimeCollaboration(baseId) : null;
@@ -1481,6 +1484,95 @@ function handleShareChanged() {
   console.log("分享发生变更，刷新相关数据");
   // TODO: 刷新 Base 分享列表
 }
+
+// ========== 文档功能 ==========
+
+// 处理选择文档
+const handleDocumentSelect = (docId: string) => {
+  const baseId = route.params.id as string;
+  router.push(`/base/${baseId}/documents/${docId}`);
+};
+
+// 处理添加文档
+const handleAddDocument = async () => {
+  if (!baseStore.currentBase) return;
+  try {
+    const doc = await documentStore.createDocument(baseStore.currentBase.id, {
+      name: '未命名文档',
+      content: JSON.stringify({ ops: [{ insert: '\n' }] }),
+      contentFormat: 'delta'
+    });
+    router.push(`/base/${baseStore.currentBase.id}/documents/${doc.id}`);
+    ElMessage.success('文档创建成功');
+  } catch (error) {
+    ElMessage.error('创建文档失败');
+  }
+};
+
+// 处理重命名文档
+const handleRenameDocument = async (doc: any) => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入新名称', '重命名文档', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputValue: doc.name,
+      inputValidator: (value) => {
+        if (!value.trim()) return '名称不能为空';
+        return true;
+      }
+    });
+    await documentStore.updateDocument(doc.id, { name: value.trim() });
+    ElMessage.success('重命名成功');
+  } catch {
+    // 用户取消
+  }
+};
+
+// 处理删除文档
+const handleDeleteDocument = async (doc: any) => {
+  try {
+    await documentStore.deleteDocument(doc.id);
+    // 如果当前正在查看该文档，跳转到 base 首页
+    if (route.params.docId === doc.id) {
+      const baseId = route.params.id as string;
+      router.push(`/base/${baseId}`);
+    }
+    ElMessage.success('文档删除成功');
+  } catch (error) {
+    ElMessage.error('删除文档失败');
+  }
+};
+
+// 处理切换文档置顶
+const handleTogglePinDocument = async (doc: any) => {
+  try {
+    await documentStore.updateDocument(doc.id, { isPinned: !doc.isPinned });
+    ElMessage.success(doc.isPinned ? '已取消置顶' : '已置顶');
+  } catch (error) {
+    ElMessage.error('操作失败');
+  }
+};
+
+// 处理文档保存
+const handleDocumentSave = (doc: any) => {
+  console.log('文档已保存:', doc.name);
+};
+
+// 处理文档导出 PDF
+const handleDocumentExportPdf = async () => {
+  if (!documentStore.currentDocument) return;
+  try {
+    const result = await documentStore.exportPdf(documentStore.currentDocument.id, 'backend');
+    // 下载文件
+    const link = document.createElement('a');
+    link.href = result.downloadUrl;
+    link.download = result.filename;
+    link.click();
+    ElMessage.success('PDF 导出成功');
+  } catch (error) {
+    ElMessage.error('PDF 导出失败');
+  }
+};
 </script>
 
 <template>
@@ -1488,13 +1580,17 @@ function handleShareChanged() {
     <BaseSidebar
       ref="sidebarRef"
       :current-table-id="tableStore.currentTable?.id"
+      :current-document-id="currentDocumentId"
       :show-tables="true"
       :show-dashboards="true"
+      :show-documents="true"
       :can-edit="canEdit"
       @select-table="handleTableSelect"
       @select-dashboard="handleDashboardClick"
+      @select-document="handleDocumentSelect"
       @add-table="openCreateTableDialog"
       @add-dashboard="openCreateDashboardDialog"
+      @add-document="handleAddDocument"
       @excel-import-create="openExcelImportCreateDialog"
       @rename-table="openRenameTableDialog"
       @delete-table="handleDeleteTable"
@@ -1503,12 +1599,29 @@ function handleShareChanged() {
       @delete-dashboard="handleDeleteDashboard"
       @toggle-star-dashboard="handleToggleStarDashboard"
       @reorder-dashboards="handleReorderDashboards"
+      @rename-document="handleRenameDocument"
+      @delete-document="handleDeleteDocument"
+      @toggle-pin-document="handleTogglePinDocument"
       @manage-tables="showTableManager = true" />
 
     <!-- 仪表盘视图 -->
     <template v-if="route.path.includes('/dashboard/')">
       <div class="dashboard-container">
         <DashboardView :dashboard-id="route.params.dashboardId as string" />
+      </div>
+    </template>
+    <!-- 文档视图 -->
+    <template v-else-if="isDocumentView">
+      <div class="document-container">
+        <DocumentEditor
+          v-if="documentStore.currentDocument"
+          :document="documentStore.currentDocument"
+          :base-id="baseId"
+          @save="handleDocumentSave"
+          @export-pdf="handleDocumentExportPdf" />
+        <div v-else class="empty-state">
+          <el-empty description="加载文档中..." />
+        </div>
       </div>
     </template>
     <!-- 数据表视图 -->
@@ -2424,7 +2537,8 @@ function handleShareChanged() {
   overflow: hidden;
 }
 
-.dashboard-container {
+.dashboard-container,
+.document-container {
   flex: 1;
   display: flex;
   flex-direction: column;

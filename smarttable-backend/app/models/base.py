@@ -123,6 +123,14 @@ class Base(db.Model):
         cascade='all, delete-orphan'
     )
 
+    documents = relationship(
+        'Document',
+        back_populates='base',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+        order_by='Document.order'
+    )
+
     def get_member_count(self) -> int:
         return self.members.count()
 
