@@ -15,6 +15,7 @@ export const useDocumentStore = defineStore('document', () => {
 
   const documentCount = computed(() => documents.value.length);
   const canCreateMore = computed(() => documents.value.length < 10);
+  const currentDocumentId = computed(() => currentDocument.value?.id);
 
   async function fetchDocuments(baseId: string) {
     loading.value = true;
@@ -72,9 +73,31 @@ export const useDocumentStore = defineStore('document', () => {
     return doc;
   }
 
+  async function exportPdf(docId: string, mode: 'frontend' | 'backend' = 'frontend') {
+    // 先获取文档内容
+    const doc = await documentApiService.getById(docId);
+    if (mode === 'frontend') {
+      // 前端导出
+      const { exportPdfFrontend } = await import('@/utils/export/pdfExport');
+      await exportPdfFrontend(doc.name, doc.content);
+      return { filename: `${doc.name}.pdf` };
+    } else {
+      // 后端导出
+      try {
+        const response = await documentApiService.exportPdf(docId);
+        return response;
+      } catch {
+        // 后端不可用时回退到前端
+        const { exportPdfFrontend } = await import('@/utils/export/pdfExport');
+        await exportPdfFrontend(doc.name, doc.content);
+        return { filename: `${doc.name}.pdf` };
+      }
+    }
+  }
+
   return {
     documents, currentDocument, loading, error,
-    documentCount, canCreateMore,
-    fetchDocuments, createDocument, updateDocument, deleteDocument, fetchDocumentDetail
+    documentCount, canCreateMore, currentDocumentId,
+    fetchDocuments, createDocument, updateDocument, deleteDocument, fetchDocumentDetail, exportPdf
   };
 });

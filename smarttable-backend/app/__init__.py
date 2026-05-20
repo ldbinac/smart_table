@@ -26,6 +26,7 @@ from app.routes.email import email_bp
 from app.routes.realtime import realtime_bp
 from app.routes.users import users_bp
 from app.routes.documents import documents_bp
+from app.routes.document_versions import document_versions_bp
 
 # 服务导入
 from app.services.email_queue_service import init_email_queue
@@ -215,6 +216,9 @@ def register_blueprints(app):
 
     # 注册文档蓝图 (路由中已包含完整路径)
     app.register_blueprint(documents_bp, url_prefix='/api')
+
+    # 注册文档版本历史蓝图
+    app.register_blueprint(document_versions_bp, url_prefix='/api')
 
 
 def register_error_handlers(app):

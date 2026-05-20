@@ -9,6 +9,10 @@
         @blur="handleSaveName"
       />
       <div class="document-editor__actions">
+        <el-button @click="handleShowVersionHistory">
+          <el-icon><Clock /></el-icon>
+          版本历史
+        </el-button>
         <el-button @click="handleExportPdf">
           <el-icon><Download /></el-icon>
           导出 PDF
@@ -23,17 +27,34 @@
     <div class="document-editor__container">
       <div ref="editorRef" class="document-editor__content"></div>
     </div>
+
+    <!-- 版本历史侧边栏 -->
+    <el-drawer
+      v-model="versionHistoryVisible"
+      title="版本历史"
+      size="400px"
+      destroy-on-close
+    >
+      <DocumentVersionHistory
+        :document-id="props.document.id"
+        @close="versionHistoryVisible = false"
+        @restore="handleVersionRestored"
+      />
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
-import { Download } from '@element-plus/icons-vue';
+import { Download, Clock } from '@element-plus/icons-vue';
 import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import { documentApiService } from '@/services/api/documentApiService';
-import { attachmentApiService } from '@/services/api/attachmentApiService';
+import { uploadFile } from '@/services/api/attachmentApiService';
+import { ElMessage } from 'element-plus';
+import DocumentVersionHistory from './DocumentVersionHistory.vue';
 import type { Document } from '@/types/document';
+import type { DocumentVersion } from '@/types/documentVersion';
 
 const props = defineProps<{
   document: Document;
@@ -47,6 +68,7 @@ const emit = defineEmits<{
 
 const editorRef = ref<HTMLDivElement>();
 const documentName = ref(props.document.name);
+const versionHistoryVisible = ref(false);
 let editor: FluentEditor | null = null;
 
 onMounted(() => {
@@ -69,13 +91,12 @@ onMounted(() => {
       ],
       imageUploader: {
         upload: async (file: File) => {
-          const result = await attachmentApiService.upload({
-            file,
-            baseId: props.baseId,
-            recordId: 'document',
-            fieldId: 'content'
+          const result = await uploadFile(file, {
+            table_id: props.baseId,
+            record_id: 'document',
+            field_id: 'content'
           });
-          return result.url;
+          return result.attachment.url || '';
         }
       }
     }
@@ -90,7 +111,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  editor?.destroy();
   editor = null;
 });
 
@@ -123,6 +143,21 @@ const handleSave = async () => {
 
 const handleExportPdf = () => {
   emit('export-pdf');
+};
+
+const handleShowVersionHistory = () => {
+  versionHistoryVisible.value = true;
+};
+
+const handleVersionRestored = (version: DocumentVersion) => {
+  if (editor && version.content) {
+    const content = version.contentFormat === 'delta'
+      ? JSON.parse(version.content)
+      : version.content;
+    editor.setContents(content);
+  }
+  documentName.value = version.name.replace(/^版本\s+/, '');
+  ElMessage.success('已恢复到选中版本，请保存以生效');
 };
 </script>
 

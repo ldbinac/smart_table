@@ -21,6 +21,7 @@ from app.models.email_template import EmailTemplate
 from app.models.email_log import EmailLog, EmailStatus
 from app.models.collaboration_session import CollaborationSession
 from app.models.document import Document
+from app.models.document_version import DocumentVersion
 
 __all__ = [
     'User',
@@ -53,5 +54,6 @@ __all__ = [
     'EmailLog',
     'EmailStatus',
     'CollaborationSession',
-    'Document'
+    'Document',
+    'DocumentVersion'
 ]

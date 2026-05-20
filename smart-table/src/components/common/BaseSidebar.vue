@@ -98,7 +98,7 @@ const documents = ref<DocumentEntity[]>([]);
 // 仪表盘列表的ref，用于拖拽排序
 const dashboardListRef = ref<HTMLElement | null>(null);
 const tableListRef = ref<HTMLElement | null>(null);
-const documentListRef = ref<HTMLElement | null>(null);
+// const documentListRef = ref<HTMLElement | null>(null);
 
 // 切换侧边栏状态
 const toggleSidebar = () => {

@@ -105,6 +105,14 @@ class Document(db.Model):
         lazy='joined'
     )
 
+    versions = relationship(
+        'DocumentVersion',
+        back_populates='document',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+        order_by='DocumentVersion.version_number.desc()'
+    )
+
     def to_dict(self, include_content: bool = False) -> dict:
         """转换为字典"""
         data = {

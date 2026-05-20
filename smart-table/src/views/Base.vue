@@ -83,6 +83,8 @@ const isLoading = computed(
   () => baseStore.loading || viewStore.loading || tableStore.loading,
 );
 const currentTableId = computed(() => tableStore.currentTable?.id || "");
+const currentDocumentId = computed(() => documentStore.currentDocumentId);
+const isDocumentView = computed(() => route.path.includes('/document/'));
 
 // 权限控制计算属性
 const canEdit = computed(() => memberStore.canEdit);
@@ -1562,12 +1564,7 @@ const handleDocumentSave = (doc: any) => {
 const handleDocumentExportPdf = async () => {
   if (!documentStore.currentDocument) return;
   try {
-    const result = await documentStore.exportPdf(documentStore.currentDocument.id, 'backend');
-    // 下载文件
-    const link = document.createElement('a');
-    link.href = result.downloadUrl;
-    link.download = result.filename;
-    link.click();
+    await documentStore.exportPdf(documentStore.currentDocument.id, 'frontend');
     ElMessage.success('PDF 导出成功');
   } catch (error) {
     ElMessage.error('PDF 导出失败');
