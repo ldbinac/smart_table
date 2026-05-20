@@ -165,7 +165,7 @@ export type CellValue =
 
 export function getFieldTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    single_line_text: "文本",
+    single_line_text: "单行文本",
     long_text: "多行文本",
     rich_text: "富文本",
     number: "数字",

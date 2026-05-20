@@ -3,7 +3,7 @@ import { dashboardShareService } from "../dashboardShareService";
 import { apiClient } from "@/api/client";
 
 // 模拟数据库操作
-vi.mock("../../schema", () => ({
+vi.mock("../schema", () => ({
   db: {
     dashboardShares: {
       add: vi.fn().mockResolvedValue(undefined),
@@ -46,21 +46,7 @@ vi.mock("@/api/client", () => ({
     get: vi.fn().mockResolvedValue({ 
       data: { valid: true, share: {}, dashboard: {} } 
     }),
-    post: vi.fn().mockResolvedValue({
-      data: {
-        id: "share-1",
-        dashboard_id: "dashboard-1",
-        share_token: "test-token-1234567890",
-        has_access_code: true,
-        expires_at: Date.now() + 86400000,
-        max_access_count: 10,
-        current_access_count: 0,
-        is_active: true,
-        permission: "edit",
-        created_at: new Date().toISOString(),
-        created_by: "user-1",
-      },
-    }),
+    post: vi.fn(),
     put: vi.fn().mockResolvedValue({ data: {} }),
     delete: vi.fn().mockResolvedValue({}),
   },
@@ -73,6 +59,22 @@ describe("DashboardShareService", () => {
 
   describe("createShare", () => {
     it("should create a share with correct properties", async () => {
+      (apiClient.post as any).mockResolvedValue({
+        data: {
+          id: "share-1",
+          dashboard_id: "dashboard-1",
+          share_token: "test-token-1234567890",
+          has_access_code: true,
+          expires_at: Date.now() + 86400000,
+          max_access_count: 10,
+          current_access_count: 0,
+          is_active: true,
+          permission: "edit",
+          created_at: new Date().toISOString(),
+          created_by: "user-1",
+        },
+      });
+      
       const dashboardId = "dashboard-1";
       const result = await dashboardShareService.createShare({
         dashboardId,
@@ -96,6 +98,22 @@ describe("DashboardShareService", () => {
     });
 
     it("should create a share without optional properties", async () => {
+      (apiClient.post as any).mockResolvedValue({
+        data: {
+          id: "share-2",
+          dashboard_id: "dashboard-1",
+          share_token: "test-token-view",
+          has_access_code: false,
+          expires_at: Date.now() + 86400000,
+          max_access_count: 10,
+          current_access_count: 0,
+          is_active: true,
+          permission: "view",
+          created_at: new Date().toISOString(),
+          created_by: "user-1",
+        },
+      });
+
       const dashboardId = "dashboard-1";
       const result = await dashboardShareService.createShare({ dashboardId });
 
