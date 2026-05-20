@@ -98,9 +98,8 @@ def update_document(doc_id):
 
         # 乐观锁检查
         if expected_updated_at:
-            from datetime import datetime
-            expected = datetime.fromisoformat(expected_updated_at.replace('Z', '+00:00'))
-            if doc.updated_at != expected:
+            current_updated_at = doc.updated_at.isoformat() if doc.updated_at else None
+            if current_updated_at != expected_updated_at:
                 return api_error('文档已被他人修改，请刷新后重试', 409)
 
         updated = document_service.update(doc_id=doc_id, user_id=user_id, **data)
