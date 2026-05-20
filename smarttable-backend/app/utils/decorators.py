@@ -146,6 +146,7 @@ def authenticate(fn: Callable) -> Callable:
 
             g.current_user = user
             g.current_user_id = user_id
+            g.user_id = user_id  # 兼容性别名
 
             return fn(*args, **kwargs)
 
