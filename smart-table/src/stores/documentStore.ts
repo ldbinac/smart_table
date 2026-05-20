@@ -40,6 +40,7 @@ export const useDocumentStore = defineStore('document', () => {
   async function createDocument(baseId: string, data: DocumentCreateRequest) {
     const doc = await documentApiService.create(baseId, data);
     documents.value.push(doc);
+    currentDocument.value = doc;
     await db.documents.put({
       ...doc,
       createdAt: new Date(doc.createdAt).getTime(),

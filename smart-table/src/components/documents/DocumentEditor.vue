@@ -89,14 +89,28 @@ onMounted(() => {
         ['link', 'image', 'video'],
         ['clean']
       ],
-      imageUploader: {
-        upload: async (file: File) => {
-          const result = await uploadFile(file, {
-            table_id: props.baseId,
-            record_id: 'document',
-            field_id: 'content'
-          });
-          return result.attachment.url || '';
+      uploader: {
+        mimetypes: {
+          image: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+        },
+        maxSize: 10 * 1024 * 1024, // 10MB
+        multiple: false,
+        handler: async (range, files) => {
+          const urls: string[] = [];
+          for (const file of files) {
+            try {
+              const result = await uploadFile(file, {
+                table_id: props.baseId,
+                record_id: 'document',
+                field_id: 'content'
+              });
+              urls.push(result.attachment.url || '');
+            } catch (error) {
+              ElMessage.error('图片上传失败');
+              console.error('Image upload error:', error);
+            }
+          }
+          return urls;
         }
       }
     }

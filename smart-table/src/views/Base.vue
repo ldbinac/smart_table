@@ -80,11 +80,11 @@ const {
 } = useEntityOperations();
 
 const isLoading = computed(
-  () => baseStore.loading || viewStore.loading || tableStore.loading,
+  () => baseStore.loading || viewStore.loading || tableStore.loading || documentStore.loading,
 );
 const currentTableId = computed(() => tableStore.currentTable?.id || "");
 const currentDocumentId = computed(() => documentStore.currentDocumentId);
-const isDocumentView = computed(() => route.path.includes('/document/'));
+const isDocumentView = computed(() => route.path.includes('/documents/'));
 
 // 权限控制计算属性
 const canEdit = computed(() => memberStore.canEdit);
@@ -112,6 +112,9 @@ const showTableManager = ref(false);
 // 创建仪表盘对话框显示状态
 const createDashboardDialogVisible = ref(false);
 
+// 创建文档对话框显示状态
+const createDocumentDialogVisible = ref(false);
+
 // 成员管理对话框显示状态
 const showMemberManagement = ref(false);
 
@@ -124,13 +127,29 @@ const createDashboardForm = reactive({
   description: "",
 });
 
+// 创建文档表单数据
+const createDocumentForm = reactive({
+  name: "",
+});
+
 // 仪表盘表单引用
 const createDashboardFormRef = ref<FormInstance>();
+
+// 创建文档表单引用
+const createDocumentFormRef = ref<FormInstance>();
 
 // 仪表盘表单验证规则
 const createDashboardFormRules: FormRules = {
   name: [
     { required: true, message: "请输入仪表盘名称", trigger: "blur" },
+    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+  ],
+};
+
+// 创建文档表单验证规则
+const createDocumentFormRules: FormRules = {
+  name: [
+    { required: true, message: "请输入文档名称", trigger: "blur" },
     { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
   ],
 };
@@ -368,44 +387,57 @@ onMounted(async () => {
       );
     }
     await tableStore.loadTables(currentBaseId);
+    // 加载文档列表
+    await documentStore.fetchDocuments(currentBaseId);
 
-    // 检查是否通过路由参数指定了数据表（如 /base/:id/table/:tableId）
-    const targetTableId = route.params.tableId as string | undefined;
+    // 检查是否通过路由参数指定了文档（如 /base/:id/documents/:docId）
+    const targetDocId = route.params.docId as string | undefined;
+    if (targetDocId) {
+      try {
+        await documentStore.fetchDocumentDetail(targetDocId);
+      } catch (error) {
+        ElMessage.error('加载文档失败');
+        console.error('Failed to load document:', error);
+      }
+    } else {
+      // 检查是否通过路由参数指定了数据表（如 /base/:id/table/:tableId）
+      const targetTableId = route.params.tableId as string | undefined;
 
-    if (targetTableId) {
-      // 如果指定了 tableId，尝试选择该数据表
-      const targetTable = tableStore.tables.find(t => t.id === targetTableId);
-      if (targetTable) {
-        await handleTableSelect(targetTable.id);
-      } else {
-        // 指定的数据表不存在，回退到第一个表格
-        console.warn(`[Base] 路由指定的数据表不存在: ${targetTableId}，回退到默认选择`);
-        if (tableStore.tables.length > 0 && !tableStore.currentTable) {
-          await handleTableSelect(tableStore.tables[0].id);
+      if (targetTableId) {
+        // 如果指定了 tableId，尝试选择该数据表
+        const targetTable = tableStore.tables.find(t => t.id === targetTableId);
+        if (targetTable) {
+          await handleTableSelect(targetTable.id);
+        } else {
+          // 指定的数据表不存在，回退到第一个表格
+          console.warn(`[Base] 路由指定的数据表不存在: ${targetTableId}，回退到默认选择`);
+          if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+            await handleTableSelect(tableStore.tables[0].id);
+          }
         }
-      }
-    } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
-      // 如果没有指定 tableId，自动选择第一个表格（原有逻辑）
-      const firstTable = tableStore.tables[0];
-      await tableStore.selectTable(firstTable.id);
-      // 同步视图数据到 viewStore
-      await viewStore.loadViews(firstTable.id);
-      // 选择默认视图（这会设置 viewStore.currentView）
-      await viewStore.selectDefaultView(firstTable.id);
+      } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+        // 如果没有指定 tableId，自动选择第一个表格（原有逻辑）
+        const firstTable = tableStore.tables[0];
+        await tableStore.selectTable(firstTable.id);
+        // 同步视图数据到 viewStore
+        await viewStore.loadViews(firstTable.id);
+        // 选择默认视图（这会设置 viewStore.currentView）
+        await viewStore.selectDefaultView(firstTable.id);
 
-      // 如果默认视图是表单视图，加载表单配置
-      if (viewStore.currentView?.type === ViewType.FORM) {
-        loadFormConfig();
-      }
-    } else if (tableStore.currentTable) {
-      // 如果已经有选中的表格，同步视图数据
-      await viewStore.loadViews(tableStore.currentTable.id);
-      // 选择默认视图（这会设置 viewStore.currentView）
-      await viewStore.selectDefaultView(tableStore.currentTable.id);
+        // 如果默认视图是表单视图，加载表单配置
+        if (viewStore.currentView?.type === ViewType.FORM) {
+          loadFormConfig();
+        }
+      } else if (tableStore.currentTable) {
+        // 如果已经有选中的表格，同步视图数据
+        await viewStore.loadViews(tableStore.currentTable.id);
+        // 选择默认视图（这会设置 viewStore.currentView）
+        await viewStore.selectDefaultView(tableStore.currentTable.id);
 
-      // 如果默认视图是表单视图，加载表单配置
-      if (viewStore.currentView?.type === ViewType.FORM) {
-        loadFormConfig();
+        // 如果默认视图是表单视图，加载表单配置
+        if (viewStore.currentView?.type === ViewType.FORM) {
+          loadFormConfig();
+        }
       }
     }
     initSortable();
@@ -444,35 +476,56 @@ const handleOpenMemberManagement = () => {
 };
 
 watch(
-  () => route.params.id,
-  async (newId) => {
+  () => [route.params.id, route.params.tableId, route.params.docId],
+  async ([newId, newTableId, newDocId]) => {
     if (newId) {
-      await baseStore.fetchBase(newId as string);
-      await tableStore.loadTables(newId as string);
+      try {
+        await baseStore.fetchBase(newId as string);
+        await tableStore.loadTables(newId as string);
+        await documentStore.fetchDocuments(newId as string);
 
-      // 如果有表格且当前没有选择表格，自动选择第一个表格
-      if (tableStore.tables.length > 0 && !tableStore.currentTable) {
-        const firstTable = tableStore.tables[0];
-        await tableStore.selectTable(firstTable.id);
-        // 同步视图数据到 viewStore
-        await viewStore.loadViews(firstTable.id);
-        // 选择默认视图（这会设置 viewStore.currentView）
-        await viewStore.selectDefaultView(firstTable.id);
-
-        // 如果默认视图是表单视图，加载表单配置
-        if (viewStore.currentView?.type === ViewType.FORM) {
-          loadFormConfig();
+        if (newDocId) {
+          // 如果有文档ID，加载文档
+          try {
+            await documentStore.fetchDocumentDetail(newDocId as string);
+          } catch (error) {
+            ElMessage.error('加载文档失败');
+            console.error('Failed to load document:', error);
+          }
+        } else if (newTableId) {
+          // 如果有表格ID，选择表格
+          const targetTable = tableStore.tables.find(t => t.id === newTableId);
+          if (targetTable) {
+            await handleTableSelect(targetTable.id);
+          } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+            // 回退到第一个表格
+            const firstTable = tableStore.tables[0];
+            await tableStore.selectTable(firstTable.id);
+            await viewStore.loadViews(firstTable.id);
+            await viewStore.selectDefaultView(firstTable.id);
+            if (viewStore.currentView?.type === ViewType.FORM) {
+              loadFormConfig();
+            }
+          }
+        } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+          // 如果没有指定，自动选择第一个表格
+          const firstTable = tableStore.tables[0];
+          await tableStore.selectTable(firstTable.id);
+          await viewStore.loadViews(firstTable.id);
+          await viewStore.selectDefaultView(firstTable.id);
+          if (viewStore.currentView?.type === ViewType.FORM) {
+            loadFormConfig();
+          }
+        } else if (tableStore.currentTable) {
+          await viewStore.loadViews(tableStore.currentTable.id);
+          await viewStore.selectDefaultView(tableStore.currentTable.id);
+          if (viewStore.currentView?.type === ViewType.FORM) {
+            loadFormConfig();
+          }
         }
-      } else if (tableStore.currentTable) {
-        // 如果已经有选中的表格，同步视图数据
-        await viewStore.loadViews(tableStore.currentTable.id);
-        // 选择默认视图（这会设置 viewStore.currentView）
-        await viewStore.selectDefaultView(tableStore.currentTable.id);
-
-        // 如果默认视图是表单视图，加载表单配置
-        if (viewStore.currentView?.type === ViewType.FORM) {
-          loadFormConfig();
-        }
+      } catch (error) {
+        ElMessage.error('加载数据失败');
+        console.error('Failed to load data:', error);
       }
     }
   },
@@ -1490,25 +1543,65 @@ function handleShareChanged() {
 // ========== 文档功能 ==========
 
 // 处理选择文档
-const handleDocumentSelect = (docId: string) => {
+const handleDocumentSelect = async (docId: string) => {
   const baseId = route.params.id as string;
-  router.push(`/base/${baseId}/documents/${docId}`);
+  try {
+    // 先获取文档详情
+    await documentStore.fetchDocumentDetail(docId);
+    // 跳转路由
+    router.push(`/base/${baseId}/documents/${docId}`);
+  } catch (error) {
+    ElMessage.error('加载文档失败');
+    console.error('Failed to load document:', error);
+  }
+};
+
+// 打开创建文档对话框
+const openCreateDocumentDialog = () => {
+  if (!baseStore.currentBase) {
+    ElMessage.warning("请先选择一个 Base");
+    return;
+  }
+  createDocumentDialogVisible.value = true;
+  createDocumentForm.name = "";
+};
+
+// 关闭创建文档对话框
+const closeCreateDocumentDialog = () => {
+  createDocumentDialogVisible.value = false;
+  createDocumentFormRef.value?.resetFields();
+};
+
+// 处理创建文档
+const handleCreateDocument = async () => {
+  if (!createDocumentFormRef.value) return;
+  if (!baseStore.currentBase) {
+    ElMessage.error("请先选择一个 Base");
+    return;
+  }
+
+  await createDocumentFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const doc = await documentStore.createDocument(baseStore.currentBase.id, {
+          name: createDocumentForm.name.trim(),
+          content: JSON.stringify({ ops: [{ insert: '\n' }] }),
+          contentFormat: 'delta'
+        });
+        ElMessage.success('文档创建成功');
+        closeCreateDocumentDialog();
+        // 跳转到新创建的文档
+        router.push(`/base/${baseStore.currentBase.id}/documents/${doc.id}`);
+      } catch (error) {
+        ElMessage.error('创建文档失败');
+      }
+    }
+  });
 };
 
 // 处理添加文档
-const handleAddDocument = async () => {
-  if (!baseStore.currentBase) return;
-  try {
-    const doc = await documentStore.createDocument(baseStore.currentBase.id, {
-      name: '未命名文档',
-      content: JSON.stringify({ ops: [{ insert: '\n' }] }),
-      contentFormat: 'delta'
-    });
-    router.push(`/base/${baseStore.currentBase.id}/documents/${doc.id}`);
-    ElMessage.success('文档创建成功');
-  } catch (error) {
-    ElMessage.error('创建文档失败');
-  }
+const handleAddDocument = () => {
+  openCreateDocumentDialog();
 };
 
 // 处理重命名文档
@@ -1959,6 +2052,36 @@ const handleDocumentExportPdf = async () => {
         <span class="dialog-footer">
           <el-button @click="closeCreateDashboardDialog">取消</el-button>
           <el-button type="primary" @click="handleCreateDashboard"
+            >确定</el-button
+          >
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 创建文档对话框 -->
+    <el-dialog
+      v-model="createDocumentDialogVisible"
+      title="创建文档"
+      width="500px"
+      :close-on-click-modal="false">
+      <el-form
+        ref="createDocumentFormRef"
+        :model="createDocumentForm"
+        :rules="createDocumentFormRules"
+        label-width="80px">
+        <el-form-item label="名称" prop="name">
+          <el-input
+            v-model="createDocumentForm.name"
+            placeholder="请输入文档名称"
+            maxlength="50"
+            show-word-limit />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="closeCreateDocumentDialog">取消</el-button>
+          <el-button type="primary" @click="handleCreateDocument"
             >确定</el-button
           >
         </span>
