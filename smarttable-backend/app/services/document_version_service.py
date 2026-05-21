@@ -99,7 +99,13 @@ class DocumentVersionService:
         # 检查时间间隔
         latest = self.get_latest_version(document_id)
         if latest:
-            time_diff = datetime.now(timezone.utc) - latest.created_at
+            # 确保两个 datetime 都是 aware 的（带 timezone）
+            now = datetime.now(timezone.utc)
+            # 如果 latest.created_at 是 naive 的，添加 UTC timezone
+            latest_created = latest.created_at
+            if latest_created.tzinfo is None:
+                latest_created = latest_created.replace(tzinfo=timezone.utc)
+            time_diff = now - latest_created
             if time_diff >= timedelta(minutes=self.MIN_INTERVAL_MINUTES):
                 return True, '定时自动保存'
 
@@ -145,7 +151,8 @@ class DocumentVersionService:
             return
 
         # 计算保留截止日期
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.RETENTION_DAYS)
+        now = datetime.now(timezone.utc)
+        cutoff_date = now - timedelta(days=self.RETENTION_DAYS)
 
         # 保留策略：
         # 1. 保留最近 MAX_VERSIONS 个版本
@@ -158,7 +165,11 @@ class DocumentVersionService:
 
         # 保留最近 RETENTION_DAYS 天内的
         for v in versions:
-            if v.created_at >= cutoff_date:
+            # 确保 v.created_at 是 aware datetime
+            created_at = v.created_at
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if created_at >= cutoff_date:
                 versions_to_keep.add(v.id)
 
         # 删除不需要保留的版本
