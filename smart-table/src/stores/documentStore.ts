@@ -27,7 +27,8 @@ function convertSnakeToCamel<T extends Record<string, unknown>>(obj: Record<stri
 export const useDocumentStore = defineStore('document', () => {
   const documents = ref<Document[]>([]);
   const currentDocument = ref<Document | null>(null);
-  const loading = ref(false);
+  const loading = ref(false); // 文档列表加载状态
+  const loadingDocumentDetail = ref(false); // 单个文档详情加载状态
   const error = ref<string | null>(null);
   const lastLoadedBaseId = ref<string | null>(null); // 记录最后加载的 baseId，防止重复调用
 
@@ -95,10 +96,15 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   async function fetchDocumentDetail(docId: string) {
-    const doc = await documentApiService.getById(docId);
-    const convertedDoc = convertSnakeToCamel<Document>(doc);
-    currentDocument.value = convertedDoc;
-    return convertedDoc;
+    loadingDocumentDetail.value = true;
+    try {
+      const doc = await documentApiService.getById(docId);
+      const convertedDoc = convertSnakeToCamel<Document>(doc);
+      currentDocument.value = convertedDoc;
+      return convertedDoc;
+    } finally {
+      loadingDocumentDetail.value = false;
+    }
   }
 
   async function exportPdf(docId: string, mode: 'frontend' | 'backend' = 'frontend') {
@@ -124,7 +130,7 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   return {
-    documents, currentDocument, loading, error,
+    documents, currentDocument, loading, loadingDocumentDetail, error,
     documentCount, canCreateMore, currentDocumentId,
     fetchDocuments, createDocument, updateDocument, deleteDocument, fetchDocumentDetail, exportPdf
   };

@@ -85,6 +85,7 @@ const isLoading = computed(
 const currentTableId = computed(() => tableStore.currentTable?.id || "");
 const currentDocumentId = computed(() => documentStore.currentDocumentId);
 const isDocumentView = computed(() => route.path.includes('/documents/'));
+const isDashboardView = computed(() => route.path.includes('/dashboard/'));
 
 // 权限控制计算属性
 const canEdit = computed(() => memberStore.canEdit);
@@ -114,6 +115,9 @@ const createDashboardDialogVisible = ref(false);
 
 // 创建文档对话框显示状态
 const createDocumentDialogVisible = ref(false);
+
+// 仪表盘加载状态
+const dashboardLoading = ref(false);
 
 // 成员管理对话框显示状态
 const showMemberManagement = ref(false);
@@ -506,6 +510,27 @@ watch(
   },
 );
 
+// 监听 dashboardId 变化
+watch(
+  () => route.params.dashboardId,
+  async (newDashboardId, oldDashboardId) => {
+    if (isInitializing || !newDashboardId || newDashboardId === oldDashboardId) {
+      return;
+    }
+    // 给 DashboardView 一点时间加载完成，然后清除 loading
+    try {
+      // 暂时先延时清除 loading，后续可以用 emit 或其他方式更精确
+      setTimeout(() => {
+        dashboardLoading.value = false;
+      }, 1000);
+    } catch (error) {
+      dashboardLoading.value = false;
+      ElMessage.error('加载仪表盘失败');
+      console.error('Failed to load dashboard:', error);
+    }
+  },
+);
+
 // 监听 tableId 变化
 watch(
   () => route.params.tableId,
@@ -516,7 +541,16 @@ watch(
     try {
       const targetTable = tableStore.tables.find(t => t.id === newTableId);
       if (targetTable) {
-        await handleTableSelect(targetTable.id);
+        // 现在直接调用 selectTable，因为我们已经跳转到路由了
+        await tableStore.selectTable(targetTable.id);
+        // 同步视图数据到 viewStore
+        await viewStore.loadViews(targetTable.id);
+        // 选择默认视图（这会设置 viewStore.currentView，并自动加载视图的排序配置）
+        await viewStore.selectDefaultView(targetTable.id);
+        // 重置筛选
+        filterConjunction.value = "and";
+        // 关闭分组弹窗，确保切换数据表时弹窗状态正确
+        groupDialogVisible.value = false;
       } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
         const firstTable = tableStore.tables[0];
         await tableStore.selectTable(firstTable.id);
@@ -529,6 +563,9 @@ watch(
     } catch (error) {
       ElMessage.error('加载数据失败');
       console.error('Failed to load data:', error);
+    } finally {
+      // 确保 loading 状态被清除
+      tableStore.loading = false;
     }
   },
 );
@@ -564,19 +601,19 @@ async function handleTableDragEnd(evt: Sortable.SortableEvent) {
 }
 
 const handleTableSelect = async (tableId: string) => {
-  await tableStore.selectTable(tableId);
-  // 同步视图数据到 viewStore
-  await viewStore.loadViews(tableId);
-  // 选择默认视图（这会设置 viewStore.currentView，并自动加载视图的排序配置）
-  await viewStore.selectDefaultView(tableId);
-  // 重置筛选
-  filterConjunction.value = "and";
-  // 关闭分组弹窗，确保切换数据表时弹窗状态正确
-  groupDialogVisible.value = false;
+  // 立即设置 loading 状态，让用户看到提示
+  tableStore.loading = true;
+  
+  // 直接跳转路由，让 watch 来处理加载
+  const baseId = route.params.id as string;
+  router.push(`/base/${baseId}/tables/${tableId}`);
 };
 
 // 处理点击仪表盘
 const handleDashboardClick = (dashboardId: string) => {
+  // 立即设置 loading 状态，让用户看到提示
+  dashboardLoading.value = true;
+  
   // 使用正确的路由格式：/base/:id/dashboard/:dashboardId
   const baseId = route.params.id as string;
   router.push(`/base/${baseId}/dashboard/${dashboardId}`);
@@ -1547,11 +1584,16 @@ function handleShareChanged() {
 // 处理选择文档
 const handleDocumentSelect = async (docId: string) => {
   const baseId = route.params.id as string;
+  
+  // 立即设置 loading 状态，让用户看到提示
+  documentStore.loadingDocumentDetail = true;
+  
   try {
     // 直接跳转路由，让 watch 来处理加载文档详情
     router.push(`/base/${baseId}/documents/${docId}`);
   } catch (error) {
     ElMessage.error('加载文档失败');
+    documentStore.loadingDocumentDetail = false;
     console.error('Failed to load document:', error);
   }
 };
@@ -1695,14 +1737,25 @@ const handleDocumentExportPdf = async () => {
       @manage-tables="showTableManager = true" />
 
     <!-- 仪表盘视图 -->
-    <template v-if="route.path.includes('/dashboard/')">
+    <template v-if="isDashboardView">
       <div class="dashboard-container">
+        <Loading
+          v-if="dashboardLoading"
+          text="仪表盘加载中..."
+          size="large"
+          absolute />
         <DashboardView :dashboard-id="route.params.dashboardId as string" />
       </div>
     </template>
     <!-- 文档视图 -->
     <template v-else-if="isDocumentView">
       <div class="document-container">
+        <!-- Loading 遮罩层：使用通用 Loading 组件 -->
+        <Loading
+          v-if="documentStore.loadingDocumentDetail"
+          text="文档加载中..."
+          size="large"
+          absolute />
         <DocumentEditor
           v-if="documentStore.currentDocument"
           :key="documentStore.currentDocument.id"
@@ -2664,6 +2717,7 @@ const handleDocumentExportPdf = async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .table-container {
