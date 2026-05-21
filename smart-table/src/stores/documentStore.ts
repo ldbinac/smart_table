@@ -7,23 +7,47 @@ import { documentApiService } from '@/services/api/documentApiService';
 import { db } from '@/db/schema';
 import type { Document, DocumentCreateRequest, DocumentUpdateRequest } from '@/types/document';
 
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function convertSnakeToCamel<T extends Record<string, unknown>>(obj: Record<string, unknown>): T {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const camelKey = snakeToCamel(key);
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      result[camelKey] = convertSnakeToCamel(value as Record<string, unknown>);
+    } else {
+      result[camelKey] = value;
+    }
+  }
+  return result as T;
+}
+
 export const useDocumentStore = defineStore('document', () => {
   const documents = ref<Document[]>([]);
   const currentDocument = ref<Document | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const lastLoadedBaseId = ref<string | null>(null); // 记录最后加载的 baseId，防止重复调用
 
   const documentCount = computed(() => documents.value.length);
   const canCreateMore = computed(() => documents.value.length < 10);
   const currentDocumentId = computed(() => currentDocument.value?.id);
 
-  async function fetchDocuments(baseId: string) {
+  async function fetchDocuments(baseId: string, force = false) {
+    // 如果正在加载，或者已经加载过相同的 baseId 且不是强制刷新，跳过重复请求
+    if (loading.value || (!force && lastLoadedBaseId.value === baseId)) {
+      return;
+    }
+    
     loading.value = true;
     error.value = null;
     try {
       const { items } = await documentApiService.getList(baseId);
-      documents.value = items;
-      await db.documents.bulkPut(items.map(doc => ({
+      documents.value = items.map(item => convertSnakeToCamel<Document>(item));
+      lastLoadedBaseId.value = baseId; // 更新最后加载的 baseId
+      await db.documents.bulkPut(documents.value.map(doc => ({
         ...doc,
         createdAt: new Date(doc.createdAt).getTime(),
         updatedAt: new Date(doc.updatedAt).getTime()
@@ -39,27 +63,29 @@ export const useDocumentStore = defineStore('document', () => {
 
   async function createDocument(baseId: string, data: DocumentCreateRequest) {
     const doc = await documentApiService.create(baseId, data);
-    documents.value.push(doc);
-    currentDocument.value = doc;
+    const convertedDoc = convertSnakeToCamel<Document>(doc);
+    documents.value.push(convertedDoc);
+    currentDocument.value = convertedDoc;
     await db.documents.put({
-      ...doc,
-      createdAt: new Date(doc.createdAt).getTime(),
-      updatedAt: new Date(doc.updatedAt).getTime()
+      ...convertedDoc,
+      createdAt: new Date(convertedDoc.createdAt).getTime(),
+      updatedAt: new Date(convertedDoc.updatedAt).getTime()
     });
-    return doc;
+    return convertedDoc;
   }
 
   async function updateDocument(docId: string, data: DocumentUpdateRequest) {
     const updated = await documentApiService.update(docId, data);
+    const convertedUpdated = convertSnakeToCamel<Document>(updated);
     const index = documents.value.findIndex(d => d.id === docId);
-    if (index !== -1) documents.value[index] = updated;
-    if (currentDocument.value?.id === docId) currentDocument.value = updated;
+    if (index !== -1) documents.value[index] = convertedUpdated;
+    if (currentDocument.value?.id === docId) currentDocument.value = convertedUpdated;
     await db.documents.put({
-      ...updated,
-      createdAt: new Date(updated.createdAt).getTime(),
-      updatedAt: new Date(updated.updatedAt).getTime()
+      ...convertedUpdated,
+      createdAt: new Date(convertedUpdated.createdAt).getTime(),
+      updatedAt: new Date(convertedUpdated.updatedAt).getTime()
     });
-    return updated;
+    return convertedUpdated;
   }
 
   async function deleteDocument(docId: string) {
@@ -70,8 +96,9 @@ export const useDocumentStore = defineStore('document', () => {
 
   async function fetchDocumentDetail(docId: string) {
     const doc = await documentApiService.getById(docId);
-    currentDocument.value = doc;
-    return doc;
+    const convertedDoc = convertSnakeToCamel<Document>(doc);
+    currentDocument.value = convertedDoc;
+    return convertedDoc;
   }
 
   async function exportPdf(docId: string, mode: 'frontend' | 'backend' = 'frontend') {

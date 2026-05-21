@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { Download, Clock } from '@element-plus/icons-vue';
 import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
@@ -71,9 +71,32 @@ const documentName = ref(props.document.name);
 const versionHistoryVisible = ref(false);
 let editor: FluentEditor | null = null;
 
+// 加载内容到编辑器的函数
+const loadContentToEditor = (doc: Document) => {
+  if (!editor) return;
+  
+  const contentFormat = doc.contentFormat || doc.content_format || 'delta';
+  const content = doc.content;
+  
+  console.log('[DocumentEditor] 加载内容到编辑器', {
+    docId: doc.id,
+    content,
+    contentFormat,
+    rawDoc: doc
+  });
+  
+  try {
+    const parsedContent = contentFormat === 'delta' ? JSON.parse(content) : content;
+    editor.setContents(parsedContent);
+  } catch (e) {
+    console.error('[DocumentEditor] 解析内容失败:', e);
+  }
+};
+
 onMounted(() => {
   if (!editorRef.value) return;
 
+  console.log('[DocumentEditor] 初始化编辑器');
   editor = new FluentEditor(editorRef.value, {
     theme: 'snow',
     placeholder: '开始编写文档...',
@@ -116,25 +139,24 @@ onMounted(() => {
     }
   });
 
-  if (props.document.content) {
-    const content = props.document.contentFormat === 'delta'
-      ? JSON.parse(props.document.content)
-      : props.document.content;
-    editor.setContents(content);
-  }
+  // 编辑器初始化完成后立即加载内容
+  loadContentToEditor(props.document);
 });
 
 onBeforeUnmount(() => {
   editor = null;
 });
 
-watch(() => props.document, (newDoc) => {
+watch(() => props.document, (newDoc, oldDoc) => {
+  console.log('[DocumentEditor] props.document 变化:', newDoc.id, '旧值:', oldDoc?.id);
   documentName.value = newDoc.name;
-  if (editor && newDoc.content) {
-    const content = newDoc.contentFormat === 'delta'
-      ? JSON.parse(newDoc.content)
-      : newDoc.content;
-    editor.setContents(content);
+  
+  // 只有在文档实际发生变化时才重新加载内容
+  if (editor && newDoc.id !== oldDoc?.id) {
+    // 等待 DOM 更新后再加载内容
+    nextTick(() => {
+      loadContentToEditor(newDoc);
+    });
   }
 }, { deep: true });
 

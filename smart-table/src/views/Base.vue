@@ -351,96 +351,92 @@ async function handleGroupClear() {
 // 表格列表引用（用于拖拽排序）
 const tableListRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
+let isInitializing = false; // 防止初始化期间重复请求
 
 onMounted(async () => {
   const currentBaseId = route.params.id as string;
   if (currentBaseId) {
-    const shareInfo = localStorage.getItem(`share_permission_${currentBaseId}`);
-    if (shareInfo) {
-      try {
-        const info = JSON.parse(shareInfo);
-        if (info && info.share_token && typeof info.share_token === "string") {
-          await baseStore.fetchBase(currentBaseId, info.share_token);
-        } else {
+    isInitializing = true;
+    try {
+      const shareInfo = localStorage.getItem(`share_permission_${currentBaseId}`);
+      if (shareInfo) {
+        try {
+          const info = JSON.parse(shareInfo);
+          if (info && info.share_token && typeof info.share_token === "string") {
+            await baseStore.fetchBase(currentBaseId, info.share_token);
+          } else {
+            localStorage.removeItem(`share_permission_${currentBaseId}`);
+            await baseStore.fetchBase(currentBaseId);
+          }
+        } catch (e) {
           localStorage.removeItem(`share_permission_${currentBaseId}`);
           await baseStore.fetchBase(currentBaseId);
         }
-      } catch (e) {
-        localStorage.removeItem(`share_permission_${currentBaseId}`);
+      } else {
         await baseStore.fetchBase(currentBaseId);
       }
-    } else {
-      await baseStore.fetchBase(currentBaseId);
-    }
-    const members = await memberStore.fetchMembers(currentBaseId);
-    // 将成员信息缓存到 userCacheStore
-    // 注意：BaseMember 中的用户信息在 user 对象中
-    if (members && members.length > 0) {
-      userCacheStore.cacheUsers(
-        members.map(m => ({
-          id: m.user_id,
-          name: (m.user as any)?.name || (m.user as any)?.email || '',
-          email: (m.user as any)?.email || '',
-          avatar: (m.user as any)?.avatar,
-          role: m.role,
-        }))
-      );
-    }
-    await tableStore.loadTables(currentBaseId);
-    // 加载文档列表
-    await documentStore.fetchDocuments(currentBaseId);
-
-    // 检查是否通过路由参数指定了文档（如 /base/:id/documents/:docId）
-    const targetDocId = route.params.docId as string | undefined;
-    if (targetDocId) {
-      try {
-        await documentStore.fetchDocumentDetail(targetDocId);
-      } catch (error) {
-        ElMessage.error('加载文档失败');
-        console.error('Failed to load document:', error);
+      const members = await memberStore.fetchMembers(currentBaseId);
+      // 将成员信息缓存到 userCacheStore
+      // 注意：BaseMember 中的用户信息在 user 对象中
+      if (members && members.length > 0) {
+        userCacheStore.cacheUsers(
+          members.map(m => ({
+            id: m.user_id,
+            name: (m.user as any)?.name || (m.user as any)?.email || '',
+            email: (m.user as any)?.email || '',
+            avatar: (m.user as any)?.avatar,
+            role: m.role,
+          }))
+        );
       }
-    } else {
-      // 检查是否通过路由参数指定了数据表（如 /base/:id/table/:tableId）
+      
+      // 加载表格和文档列表
+      await tableStore.loadTables(currentBaseId);
+      await documentStore.fetchDocuments(currentBaseId);
+      
+      // 初始加载：直接检查路由参数并加载对应内容
+      const targetDocId = route.params.docId as string | undefined;
       const targetTableId = route.params.tableId as string | undefined;
-
-      if (targetTableId) {
-        // 如果指定了 tableId，尝试选择该数据表
+      
+      if (targetDocId) {
+        // 如果在文档路由，直接加载文档详情
+        try {
+          await documentStore.fetchDocumentDetail(targetDocId);
+        } catch (error) {
+          ElMessage.error('加载文档失败');
+          console.error('Failed to load document:', error);
+        }
+      } else if (targetTableId) {
+        // 如果在表格路由，选择表格
         const targetTable = tableStore.tables.find(t => t.id === targetTableId);
         if (targetTable) {
           await handleTableSelect(targetTable.id);
-        } else {
-          // 指定的数据表不存在，回退到第一个表格
-          console.warn(`[Base] 路由指定的数据表不存在: ${targetTableId}，回退到默认选择`);
-          if (tableStore.tables.length > 0 && !tableStore.currentTable) {
-            await handleTableSelect(tableStore.tables[0].id);
+        } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+          // 回退到第一个表格
+          const firstTable = tableStore.tables[0];
+          await tableStore.selectTable(firstTable.id);
+          await viewStore.loadViews(firstTable.id);
+          await viewStore.selectDefaultView(firstTable.id);
+          if (viewStore.currentView?.type === ViewType.FORM) {
+            loadFormConfig();
           }
         }
       } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
-        // 如果没有指定 tableId，自动选择第一个表格（原有逻辑）
+        // 默认选择第一个表格
         const firstTable = tableStore.tables[0];
         await tableStore.selectTable(firstTable.id);
-        // 同步视图数据到 viewStore
         await viewStore.loadViews(firstTable.id);
-        // 选择默认视图（这会设置 viewStore.currentView）
         await viewStore.selectDefaultView(firstTable.id);
-
-        // 如果默认视图是表单视图，加载表单配置
-        if (viewStore.currentView?.type === ViewType.FORM) {
-          loadFormConfig();
-        }
-      } else if (tableStore.currentTable) {
-        // 如果已经有选中的表格，同步视图数据
-        await viewStore.loadViews(tableStore.currentTable.id);
-        // 选择默认视图（这会设置 viewStore.currentView）
-        await viewStore.selectDefaultView(tableStore.currentTable.id);
-
-        // 如果默认视图是表单视图，加载表单配置
         if (viewStore.currentView?.type === ViewType.FORM) {
           loadFormConfig();
         }
       }
+      
+      // 初始化拖拽排序
+      initSortable();
+    } finally {
+      isInitializing = false;
     }
-    initSortable();
   }
 
   tableStore.setupRealtimeListeners();
@@ -475,58 +471,64 @@ const handleOpenMemberManagement = () => {
   }
 };
 
+// 监听路由变化
+// 监听 baseId 变化
 watch(
-  () => [route.params.id, route.params.tableId, route.params.docId],
-  async ([newId, newTableId, newDocId]) => {
-    if (newId) {
-      try {
-        await baseStore.fetchBase(newId as string);
-        await tableStore.loadTables(newId as string);
-        await documentStore.fetchDocuments(newId as string);
+  () => route.params.id,
+  async (newId, oldId) => {
+    if (isInitializing || !newId || newId === oldId) {
+      return;
+    }
+    try {
+      await baseStore.fetchBase(newId as string);
+      await tableStore.loadTables(newId as string);
+      await documentStore.fetchDocuments(newId as string);
+    } catch (error) {
+      ElMessage.error('加载数据失败');
+      console.error('Failed to load data:', error);
+    }
+  },
+);
 
-        if (newDocId) {
-          // 如果有文档ID，加载文档
-          try {
-            await documentStore.fetchDocumentDetail(newDocId as string);
-          } catch (error) {
-            ElMessage.error('加载文档失败');
-            console.error('Failed to load document:', error);
-          }
-        } else if (newTableId) {
-          // 如果有表格ID，选择表格
-          const targetTable = tableStore.tables.find(t => t.id === newTableId);
-          if (targetTable) {
-            await handleTableSelect(targetTable.id);
-          } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
-            // 回退到第一个表格
-            const firstTable = tableStore.tables[0];
-            await tableStore.selectTable(firstTable.id);
-            await viewStore.loadViews(firstTable.id);
-            await viewStore.selectDefaultView(firstTable.id);
-            if (viewStore.currentView?.type === ViewType.FORM) {
-              loadFormConfig();
-            }
-          }
-        } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
-          // 如果没有指定，自动选择第一个表格
-          const firstTable = tableStore.tables[0];
-          await tableStore.selectTable(firstTable.id);
-          await viewStore.loadViews(firstTable.id);
-          await viewStore.selectDefaultView(firstTable.id);
-          if (viewStore.currentView?.type === ViewType.FORM) {
-            loadFormConfig();
-          }
-        } else if (tableStore.currentTable) {
-          await viewStore.loadViews(tableStore.currentTable.id);
-          await viewStore.selectDefaultView(tableStore.currentTable.id);
-          if (viewStore.currentView?.type === ViewType.FORM) {
-            loadFormConfig();
-          }
+// 监听 docId 变化
+watch(
+  () => route.params.docId,
+  async (newDocId, oldDocId) => {
+    if (isInitializing || !newDocId || newDocId === oldDocId) {
+      return;
+    }
+    try {
+      await documentStore.fetchDocumentDetail(newDocId as string);
+    } catch (error) {
+      ElMessage.error('加载文档失败');
+      console.error('Failed to load document:', error);
+    }
+  },
+);
+
+// 监听 tableId 变化
+watch(
+  () => route.params.tableId,
+  async (newTableId, oldTableId) => {
+    if (isInitializing || !newTableId || newTableId === oldTableId) {
+      return;
+    }
+    try {
+      const targetTable = tableStore.tables.find(t => t.id === newTableId);
+      if (targetTable) {
+        await handleTableSelect(targetTable.id);
+      } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
+        const firstTable = tableStore.tables[0];
+        await tableStore.selectTable(firstTable.id);
+        await viewStore.loadViews(firstTable.id);
+        await viewStore.selectDefaultView(firstTable.id);
+        if (viewStore.currentView?.type === ViewType.FORM) {
+          loadFormConfig();
         }
-      } catch (error) {
-        ElMessage.error('加载数据失败');
-        console.error('Failed to load data:', error);
       }
+    } catch (error) {
+      ElMessage.error('加载数据失败');
+      console.error('Failed to load data:', error);
     }
   },
 );
@@ -1546,9 +1548,7 @@ function handleShareChanged() {
 const handleDocumentSelect = async (docId: string) => {
   const baseId = route.params.id as string;
   try {
-    // 先获取文档详情
-    await documentStore.fetchDocumentDetail(docId);
-    // 跳转路由
+    // 直接跳转路由，让 watch 来处理加载文档详情
     router.push(`/base/${baseId}/documents/${docId}`);
   } catch (error) {
     ElMessage.error('加载文档失败');
@@ -1705,6 +1705,7 @@ const handleDocumentExportPdf = async () => {
       <div class="document-container">
         <DocumentEditor
           v-if="documentStore.currentDocument"
+          :key="documentStore.currentDocument.id"
           :document="documentStore.currentDocument"
           :base-id="baseId"
           @save="handleDocumentSave"
