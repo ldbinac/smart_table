@@ -58,6 +58,7 @@
       :title="previewVersion?.name"
       width="800px"
       destroy-on-close
+      @open="handleDialogOpen"
     >
       <div class="version-preview">
         <div class="version-preview__meta">
@@ -68,7 +69,20 @@
           </span>
           <span class="version-preview__time">{{ formatDate(previewVersion?.createdAt || previewVersion?.created_at || 0) }}</span>
         </div>
+        
+        <!-- 编辑器容器始终在 DOM 中 -->
         <div ref="previewRef" class="version-preview__content"></div>
+        
+        <!-- 加载和错误状态覆盖层 -->
+        <div v-if="previewLoading" class="version-preview__loading-overlay">
+          <el-skeleton :rows="6" animated />
+        </div>
+        <div v-else-if="previewError" class="version-preview__error-overlay">
+          <el-empty description="内容加载失败">
+            <p>{{ previewError }}</p>
+            <el-button type="primary" @click="reloadPreview">重新加载</el-button>
+          </el-empty>
+        </div>
       </div>
       <template #footer>
         <el-button @click="previewVisible = false">关闭</el-button>
@@ -85,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, nextTick } from 'vue';
 import { Close, Clock } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import FluentEditor from '@opentiny/fluent-editor';
@@ -113,6 +127,8 @@ const loading = ref(false);
 const previewVisible = ref(false);
 const previewVersion = ref<DocumentVersion | null>(null);
 const previewRef = ref<HTMLDivElement>();
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
 let previewEditor: FluentEditor | null = null;
 
 // 获取用户名的辅助函数
@@ -181,32 +197,93 @@ const formatDate = (dateValue: any) => {
   return formatDateTime(dateValue, "YYYY-MM-DD HH:mm");
 };
 
-watch(previewVisible, (visible) => {
-  if (visible && previewRef.value && previewVersion.value) {
-    setTimeout(() => {
-      if (!previewRef.value) return;
-      // 销毁旧的编辑器
-      if (previewEditor) {
-        previewEditor = null;
-      }
-      previewEditor = new FluentEditor(previewRef.value, {
-        theme: 'snow',
-        readOnly: true,
-        modules: {
-          toolbar: false
-        }
-      });
+// 对话框打开事件
+const handleDialogOpen = async () => {
+  console.log('[DocumentVersionHistory] 对话框打开');
+  await initPreviewEditor();
+};
 
-      if (previewVersion.value?.content) {
-        const contentFormat = previewVersion.value.contentFormat || previewVersion.value.content_format || 'delta';
-        const content = contentFormat === 'delta'
-          ? JSON.parse(previewVersion.value.content)
-          : previewVersion.value.content;
-        previewEditor.setContents(content);
-      }
-    }, 100);
-  } else if (!visible && previewEditor) {
+// 初始化或更新预览编辑器
+const initPreviewEditor = async () => {
+  if (!previewVersion.value) return;
+
+  previewLoading.value = true;
+  previewError.value = null;
+
+  try {
+    console.log('[DocumentVersionHistory] 开始初始化预览编辑器');
+    
+    // 简单等待，让 el-dialog 完全渲染
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    if (!previewRef.value) {
+      previewError.value = '编辑器容器未找到';
+      console.error('[DocumentVersionHistory] 未能找到编辑器容器');
+      return;
+    }
+
+    console.log('[DocumentVersionHistory] 初始化预览编辑器', {
+      versionId: previewVersion.value.id,
+      content: previewVersion.value.content,
+      contentFormat: previewVersion.value.contentFormat || previewVersion.value.content_format
+    });
+
+    // 销毁旧编辑器
     previewEditor = null;
+
+    // 创建新的编辑器实例
+    previewEditor = new FluentEditor(previewRef.value, {
+      theme: 'snow',
+      readOnly: true,
+      modules: {
+        toolbar: false
+      }
+    });
+
+    // 加载内容
+    if (previewVersion.value.content) {
+      const contentFormat = previewVersion.value.contentFormat || previewVersion.value.content_format || 'delta';
+      
+      try {
+        let content;
+        if (contentFormat === 'delta') {
+          content = JSON.parse(previewVersion.value.content);
+        } else {
+          content = previewVersion.value.content;
+        }
+        
+        console.log('[DocumentVersionHistory] 加载预览内容', { contentFormat, content });
+        previewEditor.setContents(content);
+      } catch (parseError) {
+        console.error('[DocumentVersionHistory] 解析内容失败:', parseError);
+        previewError.value = '内容解析失败';
+      }
+    } else {
+      console.log('[DocumentVersionHistory] 版本内容为空');
+    }
+  } catch (error) {
+    console.error('[DocumentVersionHistory] 初始化预览编辑器失败:', error);
+    previewError.value = error instanceof Error ? error.message : '加载失败';
+  } finally {
+    previewLoading.value = false;
+  }
+};
+
+// 重新加载预览
+const reloadPreview = () => {
+  if (previewVersion.value) {
+    initPreviewEditor();
+  }
+};
+
+// 监听对话框关闭进行清理
+watch(previewVisible, (visible) => {
+  if (!visible) {
+    // 对话框关闭时清理
+    previewEditor = null;
+    previewError.value = null;
+    previewLoading.value = false;
   }
 });
 
@@ -327,6 +404,8 @@ onMounted(() => {
 }
 
 .version-preview {
+  position: relative;
+  
   &__meta {
     display: flex;
     align-items: center;
@@ -359,6 +438,22 @@ onMounted(() => {
     :deep(.ql-container) {
       border: none;
     }
+  }
+
+  &__loading-overlay,
+  &__error-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    min-height: 300px;
+    max-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--el-bg-color);
+    z-index: 10;
   }
 }
 </style>
