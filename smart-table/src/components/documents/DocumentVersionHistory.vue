@@ -32,8 +32,8 @@
           <div class="version-item__time">
             <el-icon><Clock /></el-icon>
             {{ formatDate(version.createdAt || version.created_at || 0) }}
-            <span v-if="version.createdByName || version.createdBy" class="version-item__creator">
-              by {{ version.createdByName || version.createdBy }}
+            <span v-if="version.createdByName || version.createdBy || version.created_by" class="version-item__creator">
+              by {{ version.createdByName || getUserName(version.createdBy || version.created_by) }}
             </span>
           </div>
         </div>
@@ -63,6 +63,9 @@
         <div class="version-preview__meta">
           <el-tag size="small">#{{ previewVersion?.versionNumber || previewVersion?.version_number }}</el-tag>
           <span>{{ previewVersion?.changeSummary || previewVersion?.change_summary }}</span>
+          <span v-if="previewVersion?.createdByName || previewVersion?.createdBy || previewVersion?.created_by" class="version-preview__creator">
+            by {{ previewVersion?.createdByName || getUserName(previewVersion?.createdBy || previewVersion?.created_by) }}
+          </span>
           <span class="version-preview__time">{{ formatDate(previewVersion?.createdAt || previewVersion?.created_at || 0) }}</span>
         </div>
         <div ref="previewRef" class="version-preview__content"></div>
@@ -82,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { Close, Clock } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import FluentEditor from '@opentiny/fluent-editor';
@@ -90,6 +93,7 @@ import '@opentiny/fluent-editor/style.css';
 import { documentVersionApiService } from '@/services/api/documentVersionApiService';
 import type { DocumentVersion } from '@/types/documentVersion';
 import { formatDateTime, initDayjsPlugins } from "@/utils/timezone";
+import { useUserCacheStore } from '@/stores/userCacheStore';
 
 const props = defineProps<{
   documentId: string;
@@ -101,6 +105,9 @@ const emit = defineEmits<{
   (e: 'restore', version: DocumentVersion): void;
 }>();
 
+// 用户缓存存储
+const userCacheStore = useUserCacheStore();
+
 const versions = ref<DocumentVersion[]>([]);
 const loading = ref(false);
 const previewVisible = ref(false);
@@ -108,11 +115,28 @@ const previewVersion = ref<DocumentVersion | null>(null);
 const previewRef = ref<HTMLDivElement>();
 let previewEditor: FluentEditor | null = null;
 
+// 获取用户名的辅助函数
+const getUserName = (userId?: string): string => {
+  if (!userId) return '';
+  const cachedUser = userCacheStore.getCachedUser(userId);
+  return cachedUser?.name || userId;
+};
+
 const fetchVersions = async () => {
   loading.value = true;
   try {
     const { items } = await documentVersionApiService.getList(props.documentId);
     versions.value = items;
+    
+    // 收集所有创建者ID
+    const userIds = items
+      .map(version => version.createdBy || version.created_by)
+      .filter((id): id is string => !!id);
+    
+    // 批量获取用户信息并缓存
+    if (userIds.length > 0) {
+      await userCacheStore.fetchUsers(userIds);
+    }
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : '获取版本历史失败');
   } finally {
@@ -310,6 +334,11 @@ onMounted(() => {
     margin-bottom: 16px;
     padding-bottom: 12px;
     border-bottom: 1px solid var(--el-border-color-light);
+  }
+
+  &__creator {
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
   }
 
   &__time {
