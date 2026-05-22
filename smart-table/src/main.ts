@@ -9,6 +9,10 @@ import "vxe-table/lib/style.css";
 import App from "./App.vue";
 import router from "./router";
 import { db } from "./db";
+import { initDayjsPlugins } from "./utils/timezone";
+
+// 初始化时区插件
+initDayjsPlugins();
 
 // 将 db 暴露到全局，方便调试
 if (typeof window !== "undefined") {

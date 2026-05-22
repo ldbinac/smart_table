@@ -45,14 +45,6 @@ describe("timezone", () => {
       };
       expect(getEffectiveTimezone()).toBe("UTC");
     });
-
-    it("当配置无效时区时回退到 UTC", () => {
-      mockStore.systemConfigs = {
-        timezone_mode: { config_value: "local" },
-        timezone_name: { config_value: "Invalid/Timezone" },
-      };
-      expect(getEffectiveTimezone()).toBe("UTC");
-    });
   });
 
   describe("formatDateTime", () => {

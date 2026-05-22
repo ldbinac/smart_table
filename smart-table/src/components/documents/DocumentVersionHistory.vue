@@ -26,14 +26,14 @@
         <div class="version-item__info">
           <div class="version-item__name">{{ version.name }}</div>
           <div class="version-item__meta">
-            <span class="version-item__number">#{{ version.versionNumber }}</span>
-            <span class="version-item__summary">{{ version.changeSummary }}</span>
+            <span class="version-item__number">#{{ version.versionNumber || version.version_number }}</span>
+            <span class="version-item__summary">{{ version.changeSummary || version.change_summary }}</span>
           </div>
           <div class="version-item__time">
             <el-icon><Clock /></el-icon>
-            {{ formatDate(version.createdAt) }}
-            <span v-if="version.createdByName" class="version-item__creator">
-              by {{ version.createdByName }}
+            {{ formatDate(version.createdAt || version.created_at || 0) }}
+            <span v-if="version.createdByName || version.createdBy" class="version-item__creator">
+              by {{ version.createdByName || version.createdBy }}
             </span>
           </div>
         </div>
@@ -61,9 +61,9 @@
     >
       <div class="version-preview">
         <div class="version-preview__meta">
-          <el-tag size="small">#{{ previewVersion?.versionNumber }}</el-tag>
-          <span>{{ previewVersion?.changeSummary }}</span>
-          <span class="version-preview__time">{{ formatDate(previewVersion?.createdAt || 0) }}</span>
+          <el-tag size="small">#{{ previewVersion?.versionNumber || previewVersion?.version_number }}</el-tag>
+          <span>{{ previewVersion?.changeSummary || previewVersion?.change_summary }}</span>
+          <span class="version-preview__time">{{ formatDate(previewVersion?.createdAt || previewVersion?.created_at || 0) }}</span>
         </div>
         <div ref="previewRef" class="version-preview__content"></div>
       </div>
@@ -89,6 +89,7 @@ import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import { documentVersionApiService } from '@/services/api/documentVersionApiService';
 import type { DocumentVersion } from '@/types/documentVersion';
+import { formatDateTime, initDayjsPlugins } from "@/utils/timezone";
 
 const props = defineProps<{
   documentId: string;
@@ -152,21 +153,18 @@ const handleRestore = async (version: DocumentVersion) => {
   }
 };
 
-const formatDate = (timestamp: number) => {
-  const date = new Date(timestamp);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+const formatDate = (dateValue: any) => {
+  return formatDateTime(dateValue, "YYYY-MM-DD HH:mm");
 };
 
 watch(previewVisible, (visible) => {
   if (visible && previewRef.value && previewVersion.value) {
     setTimeout(() => {
       if (!previewRef.value) return;
+      // 销毁旧的编辑器
+      if (previewEditor) {
+        previewEditor = null;
+      }
       previewEditor = new FluentEditor(previewRef.value, {
         theme: 'snow',
         readOnly: true,
@@ -176,7 +174,8 @@ watch(previewVisible, (visible) => {
       });
 
       if (previewVersion.value?.content) {
-        const content = previewVersion.value.contentFormat === 'delta'
+        const contentFormat = previewVersion.value.contentFormat || previewVersion.value.content_format || 'delta';
+        const content = contentFormat === 'delta'
           ? JSON.parse(previewVersion.value.content)
           : previewVersion.value.content;
         previewEditor.setContents(content);
@@ -188,6 +187,7 @@ watch(previewVisible, (visible) => {
 });
 
 onMounted(() => {
+  initDayjsPlugins();
   fetchVersions();
 });
 </script>

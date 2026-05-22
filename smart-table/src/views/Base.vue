@@ -28,7 +28,7 @@ import FilterDialog from "@/components/dialogs/FilterDialog.vue";
 import SortDialog from "@/components/dialogs/SortDialog.vue";
 import GroupDialog from "@/components/dialogs/GroupDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
-import { formatDateTime } from "@/utils/timezone";
+import { formatDateTime, initDayjsPlugins } from "@/utils/timezone";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AddRecordDrawer from "@/components/dialogs/AddRecordDrawer.vue";
 import ImportDialog from "@/components/dialogs/ImportDialog.vue";
@@ -358,6 +358,7 @@ let sortableInstance: Sortable | null = null;
 let isInitializing = false; // 防止初始化期间重复请求
 
 onMounted(async () => {
+  initDayjsPlugins();
   const currentBaseId = route.params.id as string;
   if (currentBaseId) {
     isInitializing = true;

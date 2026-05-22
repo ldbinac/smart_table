@@ -89,6 +89,7 @@ class DocumentVersion(db.Model):
             'id': str(self.id),
             'document_id': str(self.document_id),
             'name': self.name,
+            'content': self.content,
             'content_format': self.content_format,
             'version_number': self.version_number,
             'change_summary': self.change_summary,

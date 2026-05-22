@@ -1,7 +1,6 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { useAdminStore } from "@/stores/adminStore";
 
 let pluginsInitialized = false;
 
@@ -13,30 +12,19 @@ export function initDayjsPlugins(): void {
   }
 }
 
-export function getEffectiveTimezone(): string {
-  initDayjsPlugins();
-
-  let adminStore;
+function getBrowserLocalTimezone(): string {
   try {
-    adminStore = useAdminStore();
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch {
     return "UTC";
   }
+}
 
-  const mode = (adminStore.systemConfigs["timezone_mode"] as any)?.config_value;
-  const name = (adminStore.systemConfigs["timezone_name"] as any)?.config_value;
+export function getEffectiveTimezone(): string {
+  initDayjsPlugins();
 
-  if (mode === "local" && name && typeof name === "string") {
-    try {
-      const test = dayjs().tz(name);
-      if (test.isValid()) {
-        return name;
-      }
-    } catch {
-      // 无效时区，回退到 UTC
-    }
-  }
-  return "UTC";
+  // 默认总是使用浏览器本地时区
+  return getBrowserLocalTimezone();
 }
 
 export function toConfiguredTimezone(

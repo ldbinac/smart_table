@@ -4,15 +4,21 @@
 
 export interface DocumentVersion {
   id: string;
-  documentId: string;
+  documentId?: string;
+  document_id?: string;
   name: string;
   content: string;
-  contentFormat: 'delta' | 'markdown';
-  versionNumber: number;
-  changeSummary: string;
+  contentFormat?: 'delta' | 'markdown';
+  content_format?: 'delta' | 'markdown';
+  versionNumber?: number;
+  version_number?: number;
+  changeSummary?: string;
+  change_summary?: string;
   createdBy?: string;
+  created_by?: string;
   createdByName?: string;
-  createdAt: number;
+  createdAt: number | string;
+  created_at?: string;
 }
 
 export interface DocumentVersionListResponse {
