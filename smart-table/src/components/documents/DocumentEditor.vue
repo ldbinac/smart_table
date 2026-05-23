@@ -49,12 +49,16 @@ import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { Download, Clock } from '@element-plus/icons-vue';
 import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
+import MarkdownShortcuts from 'quill-markdown-shortcuts';
 import { documentApiService } from '@/services/api/documentApiService';
 import { uploadFile } from '@/services/api/attachmentApiService';
 import { ElMessage } from 'element-plus';
 import DocumentVersionHistory from './DocumentVersionHistory.vue';
 import type { Document } from '@/types/document';
 import type { DocumentVersion } from '@/types/documentVersion';
+
+// 注册 Markdown 模块
+FluentEditor.register('modules/markdownShortcuts', MarkdownShortcuts);
 
 const props = defineProps<{
   document: Document;
@@ -99,15 +103,15 @@ onMounted(() => {
   console.log('[DocumentEditor] 初始化编辑器');
   editor = new FluentEditor(editorRef.value, {
     theme: 'snow',
-    placeholder: '开始编写文档...',
+    placeholder: '开始编写文档... 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）',
     modules: {
       toolbar: [
-        [{ header: [1, 2, 3, 4, 5, 6, false] }],
+        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
         ['bold', 'italic', 'underline', 'strike'],
-        [{ color: [] }, { background: [] }],
-        [{ align: [] }],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        [{ indent: '-1' }, { indent: '+1' }],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'align': [] }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        [{ 'indent': '-1' }, { 'indent': '+1' }],
         ['blockquote', 'code-block'],
         ['link', 'image', 'video'],
         ['clean']
@@ -135,7 +139,8 @@ onMounted(() => {
           }
           return urls;
         }
-      }
+      },
+      markdownShortcuts: {} // 启用 Markdown 快捷键支持
     }
   });
 
