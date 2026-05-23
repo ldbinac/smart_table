@@ -68,7 +68,7 @@ import type { DocumentVersion } from '@/types/documentVersion';
 
 // 注册 Markdown 模块
 FluentEditor.register('modules/markdownShortcuts', MarkdownShortcuts);
-// 注册 HeaderList 模块
+// 注册 HeaderList 模块（注册 HeaderWithID 格式 + 工具栏按钮）
 FluentEditor.register('modules/header-list', HeaderList, true);
 
 const props = defineProps<{
@@ -90,6 +90,9 @@ let editor: FluentEditor | null = null;
 let scrollContainer: HTMLElement | null = null;
 let scrollHandler: (() => void) | null = null;
 let headerClickHandler: ((e: MouseEvent) => void) | null = null;
+let textChangeHandler: (() => void) | null = null;
+let updateTimer: ReturnType<typeof setTimeout> | null = null;
+let currentHighlightId = '';
 
 // 加载内容到编辑器的函数
 const loadContentToEditor = (doc: Document) => {
@@ -117,8 +120,59 @@ const loadContentToEditor = (doc: Document) => {
 const getHeaderOffsetTop = (headerEl: HTMLElement, container: HTMLElement): number => {
   const containerRect = container.getBoundingClientRect();
   const headerRect = headerEl.getBoundingClientRect();
-  // 元素相对于容器顶部的位置 = 当前视口差值 + 容器已滚动距离
   return headerRect.top - containerRect.top + container.scrollTop;
+};
+
+// 实时重建标题列表（全量替换，避免 quill-header-list update 方法的 bug）
+const rebuildHeaderList = () => {
+  if (!editor || !headerListRef.value) return;
+
+  const quillRoot = editor.root;
+  const headers = quillRoot.querySelectorAll<HTMLElement>(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6');
+
+  const wrapper = headerListRef.value;
+  // 清空现有列表
+  wrapper.innerHTML = '';
+
+  if (headers.length === 0) {
+    const emptyTip = document.createElement('div');
+    emptyTip.className = 'header-list-empty';
+    emptyTip.textContent = '暂无标题';
+    wrapper.appendChild(emptyTip);
+    return;
+  }
+
+  const listRoot = document.createElement('div');
+  listRoot.classList.add('hl-header-list');
+
+  headers.forEach(headerEl => {
+    const tagName = headerEl.tagName.toLowerCase();
+    const level = parseInt(tagName.replace('h', ''), 10);
+    const id = headerEl.getAttribute('data-block-id') || '';
+    const text = headerEl.textContent || '';
+
+    const item = document.createElement('div');
+    item.classList.add('hl-header-list__item', `level-${level}`);
+    item.dataset.id = id;
+    item.textContent = text;
+
+    // 恢复之前的高亮状态
+    if (id === currentHighlightId) {
+      item.classList.add('is-highlight');
+    }
+
+    listRoot.appendChild(item);
+  });
+
+  wrapper.appendChild(listRoot);
+};
+
+// 节流的标题列表更新（避免频繁重建导致性能问题）
+const scheduleHeaderListUpdate = () => {
+  if (updateTimer) clearTimeout(updateTimer);
+  updateTimer = setTimeout(() => {
+    rebuildHeaderList();
+  }, 300);
 };
 
 // 滚动高亮：检测当前视口内最顶部的标题并高亮
@@ -142,6 +196,9 @@ const handleScrollHighlight = () => {
       break;
     }
   }
+
+  // 记住当前高亮 ID，供 rebuildHeaderList 恢复
+  currentHighlightId = activeId;
 
   // 更新高亮状态
   headerItems.forEach(item => {
@@ -183,8 +240,8 @@ onMounted(() => {
     placeholder: '开始编写文档... 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）',
     modules: {
       toolbar: [
-        ['header-list'], // 添加官方的 header-list 工具栏按钮
-        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+        ['header-list'],
+        [{ 'header': [1, 2, 3, 4, 5, false] }],
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }],
         [{ 'align': [] }],
@@ -218,10 +275,12 @@ onMounted(() => {
           return urls;
         }
       },
-      markdownShortcuts: {}, // 启用 Markdown 快捷键支持
+      markdownShortcuts: {},
+      // header-list 模块仅用于注册 HeaderWithID 格式和工具栏按钮
+      // 标题列表的构建和更新由自定义逻辑处理
       'header-list': {
         container: headerListRef.value,
-        scrollContainer: '.ql-editor'
+        scrollContainer: containerRef.value
       }
     }
   });
@@ -238,6 +297,15 @@ onMounted(() => {
     headerListModule.show();
   }
 
+  // 监听编辑器内容变化，实时更新标题列表
+  textChangeHandler = () => scheduleHeaderListUpdate();
+  editor.on('text-change', textChangeHandler);
+
+  // 初始构建标题列表（延迟等待内容渲染完成）
+  nextTick(() => {
+    rebuildHeaderList();
+  });
+
   // 自定义滚动高亮监听
   scrollHandler = () => handleScrollHighlight();
   scrollContainer.addEventListener('scroll', scrollHandler);
@@ -248,6 +316,12 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  // 清理定时器
+  if (updateTimer) clearTimeout(updateTimer);
+  // 清理编辑器事件监听
+  if (textChangeHandler && editor) {
+    editor.off('text-change', textChangeHandler);
+  }
   // 清理滚动监听
   if (scrollHandler && scrollContainer) {
     scrollContainer.removeEventListener('scroll', scrollHandler);
@@ -386,7 +460,6 @@ const handleVersionRestored = (version: DocumentVersion) => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: calc(100% - 50px);
 
   &__item {
     width: 100%;
@@ -394,11 +467,13 @@ const handleVersionRestored = (version: DocumentVersion) => {
     padding: 2px 10px 2px 0;
     margin-bottom: 6px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 14px;
     line-height: 22px;
     cursor: pointer;
     font-weight: 500;
-    transition: background-color 0.25s linear;
+    transition: background-color 0.25s linear, border-color 0.25s linear;
 
     &:hover {
       background-color: #f5f5f5;
@@ -417,6 +492,13 @@ const handleVersionRestored = (version: DocumentVersion) => {
       font-weight: 900;
     }
   }
+}
+
+.header-list-empty {
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px 0;
 }
 
 .is-hidden {
