@@ -502,13 +502,18 @@ const handleSaveName = async () => {
 
 const handleSave = async () => {
   if (!editor) return;
-  const content = JSON.stringify(editor.getContents());
-  const updated = await documentApiService.update(props.document.id, {
-    content,
-    contentFormat: 'delta'
-  });
-  emit('save', updated);
-  ElMessage.success('保存成功');
+  try {
+    const content = JSON.stringify(editor.getContents());
+    const updated = await documentApiService.update(props.document.id, {
+      content,
+      contentFormat: 'delta'
+    });
+    emit('save', updated);
+    ElMessage.success('保存成功');
+  } catch (error) {
+    console.error('[DocumentEditor] 保存失败:', error);
+    ElMessage.error('保存失败，请重试');
+  }
 };
 
 const handleExportPdf = () => {
@@ -529,10 +534,17 @@ const toggleFullscreen = () => {
   }
 };
 
-// ESC 退出全屏
+// 键盘快捷键处理
 const handleKeydown = (e: KeyboardEvent) => {
+  // ESC 退出全屏
   if (e.key === 'Escape' && isFullscreen.value) {
     toggleFullscreen();
+    return;
+  }
+  // Ctrl+S / Cmd+S 保存文档
+  if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    handleSave();
   }
 };
 
