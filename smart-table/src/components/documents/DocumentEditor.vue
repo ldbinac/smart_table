@@ -299,12 +299,23 @@ onMounted(async () => {
           { module: TableMenuContextmenu },
           { module: TableResizeLine },
         ],
+      },
+      // 国际化：设置为中文
+      i18n: {
+        locale: 'zh-CN',
       }
     }
   });
 
   // 实际滚动容器是 .ql-editor（Quill 编辑器自带 overflow-y: auto）
   scrollContainer = editor.root;
+
+  // 触发 i18n 初始化：设置 locale 会触发 I18N_LOCALE_CHANGE 事件，
+  // Snow 主题监听此事件来更新工具栏文本为中文
+  const i18nModule = editor.getModule('i18n') as { setLocale: (locale: string) => void };
+  if (i18nModule) {
+    i18nModule.setLocale('zh-CN');
+  }
 
   // 编辑器初始化完成后立即加载内容
   loadContentToEditor(props.document);
