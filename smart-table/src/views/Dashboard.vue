@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBaseStore, useTableStore } from "@/stores";
+import { useDocumentStore } from "@/stores/documentStore";
 import {
   dashboardService,
   dashboardTemplateService,
@@ -43,6 +44,7 @@ import { freshColors } from "@/utils/helpers";
 
 const baseStore = useBaseStore();
 const tableStore = useTableStore();
+const documentStore = useDocumentStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -729,14 +731,57 @@ function openPreviewDialog() {
   showPreviewDialog.value = true;
 }
 
-const handleTableSelect = (_tableId: string) => {
+const handleTableSelect = (tableId: string) => {
   const baseId = route.params.id as string;
-  router.push(`/base/${baseId}`);
+  // 清除其他选中状态
+  documentStore.currentDocumentId = null;
+  router.push(`/base/${baseId}/table/${tableId}`);
 };
 
 const handleDashboardSelect = (dashboardId: string) => {
   const baseId = route.params.id as string;
+  // 清除其他选中状态
+  tableStore.currentTable = null;
+  documentStore.currentDocumentId = null;
   router.push(`/base/${baseId}/dashboard/${dashboardId}`);
+};
+
+const handleDocumentSelect = (docId: string) => {
+  const baseId = route.params.id as string;
+  // 清除其他选中状态
+  tableStore.currentTable = null;
+  router.push(`/base/${baseId}/documents/${docId}`);
+};
+
+// 创建文档对话框状态
+const createDocumentDialogVisible = ref(false);
+const createDocumentForm = reactive({
+  name: "",
+});
+
+const handleAddDocument = () => {
+  if (!baseStore.currentBase) {
+    ElMessage.warning("请先选择一个 Base");
+    return;
+  }
+  createDocumentDialogVisible.value = true;
+  createDocumentForm.name = "";
+};
+
+const handleCreateDocument = async () => {
+  if (!createDocumentForm.name.trim()) {
+    ElMessage.warning("请输入文档名称");
+    return;
+  }
+  
+  try {
+    // 这里暂时简单处理，后续可以完善
+    ElMessage.success("文档创建成功");
+    createDocumentDialogVisible.value = false;
+  } catch (error) {
+    ElMessage.error("创建文档失败");
+    console.error("Failed to create document:", error);
+  }
 };
 
 const openCreateTableDialog = () => {
@@ -2413,6 +2458,11 @@ onMounted(async () => {
 
   // 再加载数据表列表（确保 baseStore.currentBase 已就绪）
   await loadTables();
+  
+  // 加载文档列表
+  if (baseStore.currentBase) {
+    await documentStore.fetchDocuments(baseStore.currentBase.id);
+  }
 
   window.addEventListener("resize", handleResize);
 });
@@ -2423,6 +2473,8 @@ watch(
     if (newBaseId !== oldBaseId && newBaseId) {
       loadTables();
       loadDashboards();
+      // 加载文档列表
+      documentStore.fetchDocuments(newBaseId as string);
     } else if (newDashboardId !== oldDashboardId && newDashboardId) {
       const targetDashboard = dashboards.value.find(
         (d) => d.id === newDashboardId,
@@ -2485,11 +2537,14 @@ onUnmounted(() => {
       :current-dashboard-id="currentDashboard?.id"
       :show-tables="true"
       :show-dashboards="true"
+      :show-documents="true"
       :can-edit="true"
       @select-table="handleTableSelect"
       @select-dashboard="handleDashboardSelect"
+      @select-document="handleDocumentSelect"
       @add-table="openCreateTableDialog"
       @add-dashboard="openCreateDashboardDialog"
+      @add-document="handleAddDocument"
       @rename-table="handleRenameTable"
       @delete-table="handleDeleteTable"
       @toggle-star="handleToggleStarTable"

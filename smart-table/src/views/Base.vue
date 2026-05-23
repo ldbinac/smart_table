@@ -602,16 +602,47 @@ async function handleTableDragEnd(evt: Sortable.SortableEvent) {
 }
 
 const handleTableSelect = async (tableId: string) => {
+  // 如果点击的是当前已选中的表格，不做任何操作
+  if (tableId === tableStore.currentTable?.id) {
+    return;
+  }
+  
+  // 清除其他选中状态
+  documentStore.currentDocumentId = null;
+  
   // 立即设置 loading 状态，让用户看到提示
   tableStore.loading = true;
   
-  // 直接跳转路由，让 watch 来处理加载
-  const baseId = route.params.id as string;
-  router.push(`/base/${baseId}/tables/${tableId}`);
+  try {
+    // 跳转到路由
+    const baseId = route.params.id as string;
+    router.push(`/base/${baseId}/table/${tableId}`);
+    
+    // 直接处理加载逻辑，不依赖 watch
+    const targetTable = tableStore.tables.find(t => t.id === tableId);
+    if (targetTable) {
+      await tableStore.selectTable(targetTable.id);
+      await viewStore.loadViews(targetTable.id);
+      await viewStore.selectDefaultView(targetTable.id);
+      if (viewStore.currentView?.type === ViewType.FORM) {
+        loadFormConfig();
+      }
+    }
+  } catch (error) {
+    ElMessage.error('加载数据失败');
+    console.error('Failed to load data:', error);
+  } finally {
+    // 确保 loading 状态被清除
+    tableStore.loading = false;
+  }
 };
 
 // 处理点击仪表盘
 const handleDashboardClick = (dashboardId: string) => {
+  // 清除其他选中状态
+  tableStore.currentTable = null;
+  documentStore.currentDocumentId = null;
+  
   // 立即设置 loading 状态，让用户看到提示
   dashboardLoading.value = true;
   
@@ -1585,6 +1616,10 @@ function handleShareChanged() {
 // 处理选择文档
 const handleDocumentSelect = async (docId: string) => {
   const baseId = route.params.id as string;
+  
+  // 清除当前选中的表格，避免双重高亮
+  tableStore.currentTable = null;
+  tableStore.loading = false;
   
   // 立即设置 loading 状态，让用户看到提示
   documentStore.loadingDocumentDetail = true;

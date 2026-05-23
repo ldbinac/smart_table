@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
+import { useRoute } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import type { Dashboard, TableEntity, DocumentEntity } from "@/db/schema";
 import { ElMessageBox } from "element-plus";
@@ -80,8 +82,18 @@ const emit = defineEmits<{
   (e: "toggle-pin-document", document: DocumentEntity): void;
 }>();
 
+const route = useRoute();
 const baseStore = useBaseStore();
 const tableStore = useTableStore();
+const documentStore = useDocumentStore();
+
+// 判断当前视图类型
+const isTableView = computed(() => route.path.includes('/table/'));
+const isDocumentView = computed(() => route.path.includes('/documents/'));
+const isDashboardView = computed(() => route.path.includes('/dashboard/'));
+const isDefaultView = computed(() => 
+  !isTableView.value && !isDocumentView.value && !isDashboardView.value
+);
 
 // 侧边栏展开/收缩状态
 const isCollapsed = ref(false);
@@ -158,6 +170,31 @@ const filteredDocuments = computed(() => {
     );
   }
   return result;
+});
+
+// 根据当前视图和路由参数判断高亮状态
+const activeTableId = computed(() => {
+  // 在表格视图或默认视图时都高亮当前表格
+  if (isTableView.value || isDefaultView.value) {
+    return props.currentTableId || '';
+  }
+  return '';
+});
+
+const activeDocumentId = computed(() => {
+  // 只有在文档视图时才高亮当前文档
+  if (isDocumentView.value) {
+    return props.currentDocumentId || '';
+  }
+  return '';
+});
+
+const activeDashboardId = computed(() => {
+  // 只有在仪表盘视图时才高亮当前仪表盘
+  if (isDashboardView.value) {
+    return props.currentDashboardId || '';
+  }
+  return '';
 });
 
 // 是否有搜索结果
@@ -403,7 +440,7 @@ defineExpose({
         >
 
         <el-button
-          v-if="currentDashboardId"
+          v-if="isDashboardView"
           link
           class="manage-btn"
           @click.stop="handleManageDashboards">
@@ -420,7 +457,7 @@ defineExpose({
             :show-after="300">
             <div
               class="dashboard-item"
-              :class="{ active: currentDashboardId === dashboard.id }"
+              :class="{ active: activeDashboardId === dashboard.id }"
               @click="handleDashboardClick(dashboard.id)">
               <el-icon class="dashboard-icon"><DataAnalysis /></el-icon>
             </div>
@@ -429,7 +466,7 @@ defineExpose({
           <div
             v-else
             class="dashboard-item"
-            :class="{ active: currentDashboardId === dashboard.id }"
+            :class="{ active: activeDashboardId === dashboard.id }"
             @click="handleDashboardClick(dashboard.id)">
             <span class="drag-handle" @click.stop>
               <el-icon><Rank /></el-icon>
@@ -508,7 +545,7 @@ defineExpose({
             :show-after="300">
             <div
               class="document-item"
-              :class="{ active: currentDocumentId === doc.id }"
+              :class="{ active: activeDocumentId === doc.id }"
               @click="handleDocumentClick(doc.id)">
               <el-icon class="document-icon"><Document /></el-icon>
             </div>
@@ -517,7 +554,7 @@ defineExpose({
           <div
             v-else
             class="document-item"
-            :class="{ active: currentDocumentId === doc.id }"
+            :class="{ active: activeDocumentId === doc.id }"
             @click="handleDocumentClick(doc.id)">
             <el-icon class="document-icon"><Document /></el-icon>
             <span class="document-name">{{ doc.name }}</span>
@@ -582,7 +619,7 @@ defineExpose({
         >
 
         <el-button
-          v-if="currentTableId"
+          v-if="isTableView || isDefaultView"
           link
           class="manage-btn"
           @click.stop="handleManageTables">
@@ -599,7 +636,7 @@ defineExpose({
             :show-after="300">
             <div
               class="table-item"
-              :class="{ active: currentTableId === table.id }"
+              :class="{ active: activeTableId === table.id }"
               @click="handleTableClick(table.id)">
               <el-icon class="table-icon"><Document /></el-icon>
             </div>
@@ -608,7 +645,7 @@ defineExpose({
           <div
             v-else
             class="table-item"
-            :class="{ active: currentTableId === table.id }"
+            :class="{ active: activeTableId === table.id }"
             @click="handleTableClick(table.id)">
             <span class="drag-handle" @click.stop>
               <el-icon><Rank /></el-icon>
