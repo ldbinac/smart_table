@@ -322,7 +322,7 @@ onMounted(async () => {
 
   editor = new FluentEditor(editorRef.value, {
     theme: 'snow',
-    placeholder: '开始编写文档... 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）',
+    placeholder: '开始编写文档...…… 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）直接撰写文档...…… 支持Ctrl+S 快速保存文档……',
     modules: {
       toolbar: [
         ['format-painter',
@@ -632,16 +632,20 @@ const handleVersionRestored = (version: DocumentVersion) => {
 
     // Quill 编辑器容器：灰色背景衬托白色内容区
     // overflow: visible 确保 toolbar-tip 提示文字不被裁切
-    // 编辑器内容滚动由 .ql-editor 的 overflow-y: auto 控制
+    // display:flex 让 .ql-editor 和 .ql-counter 正确排列
     :deep(.ql-container) {
       flex: 1;
       min-height: 0;
       overflow: visible;
+      display: flex;
+      flex-direction: column;
       background: var(--el-bg-color-page);
     }
 
     // 编辑内容区：预留左侧导航空间后居中展示
     :deep(.ql-editor) {
+      flex: 1;
+      height: auto;
       padding: 24px 0 24px 220px;
       background: var(--el-bg-color-page);
       outline: none;
@@ -685,13 +689,32 @@ const handleVersionRestored = (version: DocumentVersion) => {
       }
     }
 
-    // 占位符文本也居中
+    // 占位符文本：居中到内容区域，支持换行
     :deep(.ql-editor.ql-blank::before) {
       max-width: 800px;
       margin-left: auto;
       margin-right: auto;
       padding: 0 16px;
+      left: 235px;
+      right: 10px;
+      top: 39px;
       font-style: normal;
+      white-space: normal;
+      word-break: break-all;
+    }
+
+    // 空白文档时，白色纸张区域最小高度，避免内容区看起来太小
+    :deep(.ql-editor.ql-blank > p) {
+      min-height: 400px;
+    }
+
+    // 文字统计条：flex-shrink:0 确保不被压缩，padding 确保不被遮挡
+    :deep(.ql-counter) {
+      flex-shrink: 0;
+      position: relative;
+      bottom: auto;
+      padding: 4px 12px;
+      background: var(--el-bg-color);
     }
   }
 
