@@ -30,6 +30,7 @@
     "quill-header-list": "^1.0.0",
     "quill-markdown-shortcuts": "^0.0.10",
     "quill-table-up": "^3.5.1",
+    "quill-toolbar-tip": "^1.1.0",
     "socket.io-client": "^4.8.3",
     "sortablejs": "^1.15.7",
     "vue": "^3.5.30",

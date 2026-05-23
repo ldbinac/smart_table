@@ -27,6 +27,7 @@
     <div class="document-editor__main">
       <!-- 左侧：文档标题列表导航 -->
       <div class="document-editor__header-list">
+        <p style="font-size: 16px; font-weight: bolder; padding-bottom: 10px; color: blue;">大纲目录</p>
         <div ref="headerListRef" class="document-editor__header-list-wrapper"></div>
       </div>
       
@@ -59,6 +60,8 @@ import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import MarkdownShortcuts from 'quill-markdown-shortcuts';
 import HeaderList from 'quill-header-list';
+import QuillToolbarTip, { createI18nToolbarTipMap } from 'quill-toolbar-tip';
+import 'quill-toolbar-tip/dist/index.css';
 import 'quill-table-up/index.css';
 import 'quill-table-up/table-creator.css';
 import { documentApiService } from '@/services/api/documentApiService';
@@ -72,6 +75,61 @@ import type { DocumentVersion } from '@/types/documentVersion';
 FluentEditor.register('modules/markdownShortcuts', MarkdownShortcuts);
 // 注册 HeaderList 模块（注册 HeaderWithID 格式 + 工具栏按钮）
 FluentEditor.register('modules/header-list', HeaderList, true);
+// 注册工具栏提示模块
+FluentEditor.register({ [`modules/${QuillToolbarTip.moduleName}`]: QuillToolbarTip }, true);
+
+// 基于官方 zh-CN 语言包构建 toolbar 嵌套键，供 createI18nToolbarTipMap 使用
+// 官方翻译使用扁平键（如 bold、list-ordered），toolbar-tip 需要 toolbar.bold、toolbar.list.ordered
+const toolbarI18nMessages = {
+  'zh-CN': {
+    toolbar: {
+      'format-painter': '格式刷',
+      'header-list': '标题列表',
+      header: { '': '正文', '1': '标题1', '2': '标题2', '3': '标题3', '4': '标题4', '5': '标题5', '6': '标题6' },
+      size: { '': '字体大小', '12px': '12px', '13px': '13px', '14px': '14px', '15px': '15px', '16px': '16px', '19px': '19px', '22px': '22px', '24px': '24px', '29px': '29px', '32px': '32px', '40px': '40px', '48px': '48px' },
+      bold: '粗体',
+      italic: '斜体',
+      underline: '下划线',
+      strike: '删除线',
+      script: { sub: '下标', super: '上标' },
+      code: '行内代码',
+      color: '字体颜色',
+      background: '背景色',
+      align: { '': '左对齐', center: '居中对齐', right: '右对齐', justify: '两端对齐' },
+      list: { ordered: '有序列表', bullet: '无序列表', check: '任务列表' },
+      indent: { '-1': '减少缩进', '+1': '增加缩进' },
+      'line-height': { '': '行距', '1': '1倍行距', '1.15': '1.15倍行距', '1.5': '1.5倍行距', '2': '2倍行距', '2.5': '2.5倍行距', '3': '3倍行距' },
+      link: '超链接',
+      blockquote: '引用',
+      divider: '分割线',
+      'code-block': '代码块',
+      image: '图片',
+      video: '视频',
+      'table-up': { '': '表格' },
+      clean: '清除格式',
+      fullscreen: '全屏',
+    }
+  }
+};
+
+// 使用 createI18nToolbarTipMap 生成基于 i18n 的提示映射
+// 传入自定义 formats 以覆盖 divider、table-up、line-height 等不在默认列表中的按钮
+const toolbarTipTextMap = createI18nToolbarTipMap({
+  formats: {
+    simple: ['format-painter', 'bold', 'italic', 'underline', 'strike', 'color', 'background', 'blockquote', 'code-block', 'code', 'link', 'image', 'video', 'formula', 'clean', 'divider', 'fullscreen'],
+    withValues: {
+      list: ['ordered', 'bullet', 'check'],
+      script: ['sub', 'super'],
+      indent: ['-1', '+1'],
+      header: ['', '1', '2', '3', '4', '5', '6'],
+      align: ['', 'center', 'right', 'justify'],
+      size: ['12px', '13px', '14px', '15px', '16px', '19px', '22px', '24px', '29px', '32px', '40px', '48px'],
+      'line-height': ['1', '1.15', '1.5', '2', '2.5', '3'],
+      'table-up': [''],
+      
+    }
+  }
+});
 
 const props = defineProps<{
   document: Document;
@@ -248,17 +306,29 @@ onMounted(async () => {
     placeholder: '开始编写文档... 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）',
     modules: {
       toolbar: [
-        ['header-list'],
-        [{ 'header': [1, 2, 3, 4, 5, false] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ 'color': [] }, { 'background': [] }],
-        [{ 'align': [] }],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        [{ 'indent': '-1' }, { 'indent': '+1' }],
-        ['blockquote', 'code-block'],
+        // ['header-list'],
+        ['format-painter'],
+        [{ 'header': [1, 2, 3, 4, 5, false] },
+         { size: ['12px', '13px', '14px', '15px', '16px', '19px', '22px', '24px', '29px', '32px', '40px', '48px'] },
+         'bold', 'italic', 'underline', 'strike',
+          { script: 'super' },
+          { script: 'sub' },
+          'code',
+         { 'color': [] }, { 'background': [] }],
+        [{ 'align': [] },
+         { 'list': 'ordered' }, { 'list': 'bullet' },
+         { 'indent': '-1' }, { 'indent': '+1' },
+         { 'line-height': ['1', '1.15', '1.5', '2', '2.5', '3'] },
+        ],
+        [{ list: 'check' }, 
+         'link', 
+         'blockquote', 
+         'divider',
+         'code-block'],
         ['link', 'image', 'video'],
         [{ 'table-up': [] }],
-        ['clean']
+        ['clean'],
+        ['fullscreen'],
       ],
       uploader: {
         mimetypes: {
@@ -300,15 +370,31 @@ onMounted(async () => {
           { module: TableResizeLine },
         ],
       },
-      // 国际化：设置为中文
+      // 国际化：设置为中文，并注入 toolbar 嵌套键供 toolbar-tip 模块使用
       i18n: {
         locale: 'zh-CN',
+        messages: toolbarI18nMessages,
+      },
+      // 工具栏提示
+      [QuillToolbarTip.moduleName]: {
+        tipTextMap: toolbarTipTextMap,
       }
     }
   });
 
   // 实际滚动容器是 .ql-editor（Quill 编辑器自带 overflow-y: auto）
   scrollContainer = editor.root;
+
+  // 自定义全屏逻辑：让整个 .document-editor 全屏，而非仅编辑器内容区
+  const editorContainer = editorRef.value!.closest('.document-editor') as HTMLElement;
+  const originalFullscreenHandler = () => {
+    if (editor!.isFullscreen) {
+      editorContainer.classList.remove('document-editor--fullscreen');
+    } else {
+      editorContainer.classList.add('document-editor--fullscreen');
+    }
+  };
+  editor.on('fullscreen-change', originalFullscreenHandler);
 
   // 触发 i18n 初始化：设置 locale 会触发 I18N_LOCALE_CHANGE 事件，
   // Snow 主题监听此事件来更新工具栏文本为中文
@@ -450,6 +536,7 @@ const handleVersionRestored = (version: DocumentVersion) => {
     display: flex;
     flex: 1;
     overflow: hidden;
+    padding-bottom: 70px;
   }
 
   &__header-list {
@@ -484,6 +571,17 @@ const handleVersionRestored = (version: DocumentVersion) => {
 </style>
 
 <style lang="scss">
+/* 全屏模式样式 */
+.document-editor--fullscreen {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999;
+  background: var(--el-bg-color);
+}
+
 /* quill-header-list 样式（包的 exports 字段导致 CSS 无法直接导入） */
 .hl-header-list {
   display: flex;
