@@ -28,15 +28,14 @@
 
     <!-- 编辑器主体 -->
     <div class="document-editor__main">
-      <!-- 左侧：文档标题列表导航 -->
-      <div class="document-editor__header-list">
-        <p style="font-size: 16px; font-weight: bolder; padding-bottom: 10px; color: blue;">大纲目录</p>
-        <div ref="headerListRef" class="document-editor__header-list-wrapper"></div>
-      </div>
-      
-      <!-- 中间：TinyEditor 编辑器 -->
+      <!-- 编辑器区域（工具栏 + 内容区横向布局） -->
       <div ref="containerRef" class="document-editor__container">
         <div ref="editorRef" class="document-editor__content"></div>
+        <!-- 左侧：文档标题列表导航，定位在编辑内容区左侧 -->
+        <div class="document-editor__header-list">
+          <p class="document-editor__header-list-title">大纲目录</p>
+          <div ref="headerListRef" class="document-editor__header-list-wrapper"></div>
+        </div>
       </div>
     </div>
 
@@ -146,6 +145,7 @@ const emit = defineEmits<{
 const editorRef = ref<HTMLDivElement>();
 const headerListRef = ref<HTMLDivElement>();
 const containerRef = ref<HTMLDivElement>();
+const editorRootRef = ref<HTMLElement>();
 const documentName = ref(props.document.name);
 const versionHistoryVisible = ref(false);
 const isFullscreen = ref(false);
@@ -156,6 +156,20 @@ let headerClickHandler: ((e: MouseEvent) => void) | null = null;
 let textChangeHandler: (() => void) | null = null;
 let updateTimer: ReturnType<typeof setTimeout> | null = null;
 let currentHighlightId = '';
+let resizeObserver: ResizeObserver | null = null;
+
+// 动态计算导航目录位置：始终在工具栏下方
+const updateHeaderListPosition = () => {
+  if (!containerRef.value || !editor) return;
+
+  const toolbar = containerRef.value.querySelector('.ql-toolbar') as HTMLElement;
+  const headerList = containerRef.value.querySelector('.document-editor__header-list') as HTMLElement;
+  if (!toolbar || !headerList) return;
+
+  const toolbarHeight = toolbar.offsetHeight;
+  headerList.style.top = `${toolbarHeight}px`;
+  headerList.style.height = `calc(100% - ${toolbarHeight}px)`;
+};
 
 // 加载内容到编辑器的函数
 const loadContentToEditor = (doc: Document) => {
@@ -380,7 +394,10 @@ onMounted(async () => {
       // 工具栏提示
       [QuillToolbarTip.moduleName]: {
         tipTextMap: toolbarTipTextMap,
-      }
+      },
+      counter: {
+        count: 25000,
+      },
     }
   });
 
@@ -410,7 +427,17 @@ onMounted(async () => {
   // 初始构建标题列表（延迟等待内容渲染完成）
   nextTick(() => {
     rebuildHeaderList();
+    updateHeaderListPosition();
   });
+
+  // 监听工具栏高度变化（窗口调整、工具栏换行等），动态更新导航目录位置
+  const toolbar = containerRef.value.querySelector('.ql-toolbar') as HTMLElement;
+  if (toolbar) {
+    resizeObserver = new ResizeObserver(() => {
+      updateHeaderListPosition();
+    });
+    resizeObserver.observe(toolbar);
+  }
 
   // 自定义滚动高亮监听
   scrollHandler = () => handleScrollHighlight();
@@ -427,6 +454,11 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   // 清理定时器
   if (updateTimer) clearTimeout(updateTimer);
+  // 清理 ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   // 清理编辑器事件监听
   if (textChangeHandler && editor) {
     editor.off('text-change', textChangeHandler);
@@ -484,7 +516,6 @@ const handleExportPdf = () => {
 };
 
 // 全屏切换
-const editorRootRef = ref<HTMLElement>();
 const toggleFullscreen = () => {
   const root = editorRootRef.value;
   if (!root) return;
@@ -561,33 +592,73 @@ const handleVersionRestored = (version: DocumentVersion) => {
     padding-bottom: 70px;
   }
 
+  &__container {
+    flex: 1;
+    position: relative;
+    padding: 0;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+
+    // Quill 工具栏横跨全宽
+    :deep(.ql-toolbar) {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--el-bg-color);
+      border-bottom: 1px solid var(--el-border-color-light);
+    }
+
+    // Quill 编辑器容器
+    :deep(.ql-container) {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    // 编辑内容区左侧留出导航目录空间
+    :deep(.ql-editor) {
+      padding-left: 220px;
+    }
+  }
+
+  &__content {
+    // 不再需要，编辑器由 FluentEditor 直接管理
+    max-width: 1000px;
+    //margin: 0 auto;
+    min-height: 600px;
+    background: var(--el-bg-color);
+    // 左侧留出导航目录的空间
+    margin-left: 230px;
+  }
+
   &__header-list {
-    width: 260px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200px;
+    // top 偏移到工具栏下方，通过 JS 动态计算
+    height: 100%;
     background: var(--el-bg-color-page);
     border-right: 1px solid var(--el-border-color-light);
     overflow-y: auto;
-    padding: 20px 16px;
-    flex-shrink: 0;
-    height: 100%;
+    padding: 12px;
     box-sizing: border-box;
+    z-index: 5;
+    transition: top 0.15s ease;
+  }
+
+  &__header-list-title {
+    font-size: 14px;
+    font-weight: 700;
+    padding-bottom: 8px;
+    color: var(--el-text-color-primary);
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    margin-bottom: 8px;
   }
 
   &__header-list-wrapper {
     width: 100%;
-  }
-
-  &__container {
-    flex: 1;
-    //overflow: auto;
-    padding: 24px;
-    min-width: 0;
-  }
-
-  &__content {
-    max-width: 800px;
-    margin: 0 auto;
-    min-height: 600px;
-    background: var(--el-bg-color);
   }
 }
 </style>
@@ -654,5 +725,14 @@ const handleVersionRestored = (version: DocumentVersion) => {
 
 .is-hidden {
   display: none;
+}
+
+.document-editor__header-list-title {
+  font-size: 14px;
+  font-weight: 700;
+  padding-bottom: 8px;
+  color: var(--el-text-color-primary);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  margin-bottom: 8px;
 }
 </style>
