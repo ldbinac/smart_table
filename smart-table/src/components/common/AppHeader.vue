@@ -5,6 +5,7 @@ import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useTableStore } from "@/stores/tableStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { useMemberStore } from "@/stores/memberStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import { ElMessageBox } from "element-plus";
@@ -29,6 +30,7 @@ const baseStore = useBaseStore();
 const authStore = useAuthStore();
 const collaborationStore = useCollaborationStore();
 const tableStore = useTableStore();
+const documentStore = useDocumentStore();
 const memberStore = useMemberStore();
 
 // 用户菜单控制
@@ -92,6 +94,11 @@ const userEmail = computed(() => {
 // 判断是否在仪表盘页面
 const isDashboardPage = computed(() => {
   return route.path.includes("/dashboard/");
+});
+
+// 判断是否在文档页面
+const isDocumentPage = computed(() => {
+  return route.path.includes("/documents/");
 });
 
 // 当前表格信息 - 从 tableStore 获取
@@ -172,6 +179,12 @@ const centerInfo = computed(() => {
     return {
       name: currentDashboard.value.name,
       description: currentDashboard.value.description || "",
+    };
+  }
+  if (isDocumentPage.value && documentStore.currentDocument) {
+    return {
+      name: documentStore.currentDocument.name,
+      description: documentStore.currentDocument.description || "",
     };
   }
   if (currentTable.value) {
@@ -341,7 +354,7 @@ onMounted(() => {
         </template>
         <!-- 无数据状态 -->
         <div v-else class="empty-state">
-          <span>请选择表格或仪表盘</span>
+          <span>请选择表格、文档或仪表盘</span>
         </div>
       </div>
 
