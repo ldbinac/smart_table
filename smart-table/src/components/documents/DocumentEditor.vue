@@ -18,9 +18,11 @@
           导出 PDF
         </el-button>
         <el-button @click="toggleFullscreen">
+          <el-icon><FullScreen v-if="!isFullscreen" /><Crop v-else /></el-icon>
           {{ isFullscreen ? '退出全屏' : '全屏' }}
         </el-button>
         <el-button type="primary" @click="handleSave">
+          <el-icon><FolderChecked /></el-icon>
           保存
         </el-button>
       </div>
@@ -57,7 +59,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
-import { Download, Clock } from '@element-plus/icons-vue';
+import { Download, Clock, FullScreen, Crop, FolderChecked } from '@element-plus/icons-vue';
 import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import MarkdownShortcuts from 'quill-markdown-shortcuts';
@@ -117,7 +119,7 @@ const toolbarI18nMessages = {
 // 传入自定义 formats 以覆盖 divider、table-up、line-height 等不在默认列表中的按钮
 const toolbarTipTextMap = createI18nToolbarTipMap({
   formats: {
-    simple: ['bold', 'italic', 'underline', 'strike', 'color', 'background', 'blockquote', 'code-block', 'code', 'link', 'image', 'video', 'formula', 'clean', 'divider'],
+    simple: ['format-painter', 'header-list', 'bold', 'italic', 'underline', 'strike', 'color', 'background', 'blockquote', 'code-block', 'code', 'link', 'image', 'video', 'formula', 'clean', 'divider'],
     withValues: {
       list: ['ordered', 'bullet', 'check'],
       script: ['sub', 'super'],
@@ -323,26 +325,21 @@ onMounted(async () => {
     placeholder: '开始编写文档... 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）',
     modules: {
       toolbar: [
-        // ['header-list'],
-        ['format-painter'],
-        [{ 'header': [1, 2, 3, 4, 5, false] },
-         { size: ['12px', '13px', '14px', '15px', '16px', '19px', '22px', '24px', '29px', '32px', '40px', '48px'] },
+        ['format-painter',
+         { 'header': [1, 2, 3, 4, 5, false] }],
+        [{ size: ['12px', '13px', '14px', '15px', '16px', '19px', '22px', '24px', '29px', '32px', '40px', '48px'] },
          'bold', 'italic', 'underline', 'strike',
-          { script: 'super' },
-          { script: 'sub' },
-          'code',
+         { script: 'super' }, { script: 'sub' },
+         'code',
          { 'color': [] }, { 'background': [] }],
         [{ 'align': [] },
-         { 'list': 'ordered' }, { 'list': 'bullet' },
+         { 'list': 'ordered' }, { 'list': 'bullet' }, { list: 'check' },
          { 'indent': '-1' }, { 'indent': '+1' },
          { 'line-height': ['1', '1.15', '1.5', '2', '2.5', '3'] },
         ],
-        [{ list: 'check' }, 
-         'link', 
-         'blockquote', 
-         'divider',
-         'code-block'],
-        ['link', 'image', 'video'],
+        ['link', 'image', 
+        //  'video', 
+         'blockquote', 'divider', 'code-block'],
         [{ 'table-up': [] }],
         ['clean'],
       ],
@@ -600,8 +597,11 @@ const handleVersionRestored = (version: DocumentVersion) => {
   &__main {
     display: flex;
     flex: 1;
-    overflow: hidden;
-    padding-bottom: 70px;
+    min-height: 0;
+    // overflow: visible 确保 toolbar-tip 提示文字不被裁切
+    // 编辑器内容滚动由 .ql-editor 的 overflow-y: auto 控制
+    overflow: visible;
+    padding-bottom: 10px;
   }
 
   &__container {
@@ -613,35 +613,90 @@ const handleVersionRestored = (version: DocumentVersion) => {
     display: flex;
     flex-direction: column;
 
-    // Quill 工具栏横跨全宽
+    // Quill 工具栏：居中展示，允许换行
     :deep(.ql-toolbar) {
       position: sticky;
       top: 0;
       z-index: 10;
       background: var(--el-bg-color);
       border-bottom: 1px solid var(--el-border-color-light);
+      text-align: center;
+      white-space: normal;
+      padding: 8px 12px;
+
+      .ql-formats {
+        display: inline-flex;
+        align-items: center;
+      }
     }
 
-    // Quill 编辑器容器
+    // Quill 编辑器容器：灰色背景衬托白色内容区
+    // overflow: visible 确保 toolbar-tip 提示文字不被裁切
+    // 编辑器内容滚动由 .ql-editor 的 overflow-y: auto 控制
     :deep(.ql-container) {
       flex: 1;
-      overflow: hidden;
+      min-height: 0;
+      overflow: visible;
+      background: var(--el-bg-color-page);
     }
 
-    // 编辑内容区左侧留出导航目录空间
+    // 编辑内容区：预留左侧导航空间后居中展示
     :deep(.ql-editor) {
-      padding-left: 220px;
+      padding: 24px 0 24px 220px;
+      background: var(--el-bg-color-page);
+      outline: none;
+
+      // 所有直接子元素居中 + 最大宽度限制
+      > * {
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      // 文本内容元素：白色背景
+      > h1, > h2, > h3, > h4, > h5, > h6,
+      > p, > ul, > ol, > blockquote {
+        background: var(--el-bg-color);
+      }
+
+      // 代码块：深色背景
+      pre.ql-syntax {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        border-radius: 4px;
+        padding: 16px;
+        overflow-x: auto;
+      }
+
+      // 行内代码：浅灰背景
+      code {
+        background: #f0f0f0;
+        color: #e83e8c;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 95%;
+      }
+
+      // 表格不受最大宽度限制
+      .ql-table-wrapper {
+        max-width: none;
+      }
+    }
+
+    // 占位符文本也居中
+    :deep(.ql-editor.ql-blank::before) {
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 0 16px;
+      font-style: normal;
     }
   }
 
   &__content {
-    // 不再需要，编辑器由 FluentEditor 直接管理
-    max-width: 1000px;
-    //margin: 0 auto;
-    min-height: 600px;
-    background: var(--el-bg-color);
-    // 左侧留出导航目录的空间
-    margin-left: 230px;
+    // FluentEditor 挂载点，样式由 :deep 控制
   }
 
   &__header-list {
