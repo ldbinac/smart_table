@@ -1,5 +1,5 @@
 <template>
-  <div class="document-editor">
+  <div ref="editorRootRef" class="document-editor">
     <!-- 编辑器头部 -->
     <div class="document-editor__header">
       <el-input
@@ -16,6 +16,9 @@
         <el-button @click="handleExportPdf">
           <el-icon><Download /></el-icon>
           导出 PDF
+        </el-button>
+        <el-button @click="toggleFullscreen">
+          {{ isFullscreen ? '退出全屏' : '全屏' }}
         </el-button>
         <el-button type="primary" @click="handleSave">
           保存
@@ -107,7 +110,6 @@ const toolbarI18nMessages = {
       video: '视频',
       'table-up': { '': '表格' },
       clean: '清除格式',
-      fullscreen: '全屏',
     }
   }
 };
@@ -116,7 +118,7 @@ const toolbarI18nMessages = {
 // 传入自定义 formats 以覆盖 divider、table-up、line-height 等不在默认列表中的按钮
 const toolbarTipTextMap = createI18nToolbarTipMap({
   formats: {
-    simple: ['format-painter', 'bold', 'italic', 'underline', 'strike', 'color', 'background', 'blockquote', 'code-block', 'code', 'link', 'image', 'video', 'formula', 'clean', 'divider', 'fullscreen'],
+    simple: ['bold', 'italic', 'underline', 'strike', 'color', 'background', 'blockquote', 'code-block', 'code', 'link', 'image', 'video', 'formula', 'clean', 'divider'],
     withValues: {
       list: ['ordered', 'bullet', 'check'],
       script: ['sub', 'super'],
@@ -146,6 +148,7 @@ const headerListRef = ref<HTMLDivElement>();
 const containerRef = ref<HTMLDivElement>();
 const documentName = ref(props.document.name);
 const versionHistoryVisible = ref(false);
+const isFullscreen = ref(false);
 let editor: FluentEditor | null = null;
 let scrollContainer: HTMLElement | null = null;
 let scrollHandler: (() => void) | null = null;
@@ -328,7 +331,6 @@ onMounted(async () => {
         ['link', 'image', 'video'],
         [{ 'table-up': [] }],
         ['clean'],
-        ['fullscreen'],
       ],
       uploader: {
         mimetypes: {
@@ -385,17 +387,6 @@ onMounted(async () => {
   // 实际滚动容器是 .ql-editor（Quill 编辑器自带 overflow-y: auto）
   scrollContainer = editor.root;
 
-  // 自定义全屏逻辑：让整个 .document-editor 全屏，而非仅编辑器内容区
-  const editorContainer = editorRef.value!.closest('.document-editor') as HTMLElement;
-  const originalFullscreenHandler = () => {
-    if (editor!.isFullscreen) {
-      editorContainer.classList.remove('document-editor--fullscreen');
-    } else {
-      editorContainer.classList.add('document-editor--fullscreen');
-    }
-  };
-  editor.on('fullscreen-change', originalFullscreenHandler);
-
   // 触发 i18n 初始化：设置 locale 会触发 I18N_LOCALE_CHANGE 事件，
   // Snow 主题监听此事件来更新工具栏文本为中文
   const i18nModule = editor.getModule('i18n') as { setLocale: (locale: string) => void };
@@ -428,6 +419,9 @@ onMounted(async () => {
   // 自定义标题点击导航
   headerClickHandler = handleHeaderClick;
   headerListRef.value.addEventListener('click', headerClickHandler);
+
+  // ESC 退出全屏
+  document.addEventListener('keydown', handleKeydown);
 });
 
 onBeforeUnmount(() => {
@@ -444,6 +438,12 @@ onBeforeUnmount(() => {
   // 清理点击监听
   if (headerClickHandler && headerListRef.value) {
     headerListRef.value.removeEventListener('click', headerClickHandler);
+  }
+  // 清理键盘监听
+  document.removeEventListener('keydown', handleKeydown);
+  // 退出全屏
+  if (isFullscreen.value) {
+    editorRootRef.value?.classList.remove('document-editor--fullscreen');
   }
   scrollContainer = null;
   editor = null;
@@ -481,6 +481,28 @@ const handleSave = async () => {
 
 const handleExportPdf = () => {
   emit('export-pdf');
+};
+
+// 全屏切换
+const editorRootRef = ref<HTMLElement>();
+const toggleFullscreen = () => {
+  const root = editorRootRef.value;
+  if (!root) return;
+
+  if (isFullscreen.value) {
+    root.classList.remove('document-editor--fullscreen');
+    isFullscreen.value = false;
+  } else {
+    root.classList.add('document-editor--fullscreen');
+    isFullscreen.value = true;
+  }
+};
+
+// ESC 退出全屏
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && isFullscreen.value) {
+    toggleFullscreen();
+  }
 };
 
 const handleShowVersionHistory = () => {
@@ -574,11 +596,13 @@ const handleVersionRestored = (version: DocumentVersion) => {
 /* 全屏模式样式 */
 .document-editor--fullscreen {
   position: fixed !important;
-  top: 0;
-  left: 0;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 9999;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 9999 !important;
   background: var(--el-bg-color);
 }
 

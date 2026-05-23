@@ -58,6 +58,7 @@ const mainContentStyle = computed(() => {
   flex: 1;
   overflow: visible;
   height: calc(100vh - #{$header-height});
+  z-index: 101;
 }
 
 .main-content {
