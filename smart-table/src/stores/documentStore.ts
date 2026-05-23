@@ -108,19 +108,25 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   async function exportPdf(docId: string, mode: 'frontend' | 'backend' = 'frontend') {
+    console.log('[DocumentStore] 开始导出 PDF', { docId, mode });
     // 先获取文档内容
     const doc = await documentApiService.getById(docId);
+    console.log('[DocumentStore] 获取文档成功', { docName: doc.name });
+    
     if (mode === 'frontend') {
       // 前端导出
+      console.log('[DocumentStore] 使用前端导出');
       const { exportPdfFrontend } = await import('@/utils/export/pdfExport');
       await exportPdfFrontend(doc.name, doc.content);
       return { filename: `${doc.name}.pdf` };
     } else {
       // 后端导出
       try {
+        console.log('[DocumentStore] 使用后端导出');
         const response = await documentApiService.exportPdf(docId);
         return response;
-      } catch {
+      } catch (err) {
+        console.warn('[DocumentStore] 后端导出失败，回退到前端导出', err);
         // 后端不可用时回退到前端
         const { exportPdfFrontend } = await import('@/utils/export/pdfExport');
         await exportPdfFrontend(doc.name, doc.content);
