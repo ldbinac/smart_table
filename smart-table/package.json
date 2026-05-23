@@ -27,6 +27,7 @@
     "lodash-es": "^4.17.23",
     "pinia": "^2.3.1",
     "quill-delta-to-html": "^0.12.1",
+    "quill-header-list": "^1.0.0",
     "quill-markdown-shortcuts": "^0.0.10",
     "socket.io-client": "^4.8.3",
     "sortablejs": "^1.15.7",

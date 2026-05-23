@@ -23,9 +23,17 @@
       </div>
     </div>
 
-    <!-- TinyEditor 编辑器 -->
-    <div class="document-editor__container">
-      <div ref="editorRef" class="document-editor__content"></div>
+    <!-- 编辑器主体 -->
+    <div class="document-editor__main">
+      <!-- 左侧：文档标题列表导航 -->
+      <div class="document-editor__header-list">
+        <div ref="headerListRef" class="document-editor__header-list-wrapper"></div>
+      </div>
+      
+      <!-- 中间：TinyEditor 编辑器 -->
+      <div ref="containerRef" class="document-editor__container">
+        <div ref="editorRef" class="document-editor__content"></div>
+      </div>
     </div>
 
     <!-- 版本历史侧边栏 -->
@@ -50,6 +58,7 @@ import { Download, Clock } from '@element-plus/icons-vue';
 import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import MarkdownShortcuts from 'quill-markdown-shortcuts';
+import HeaderList from 'quill-header-list';
 import { documentApiService } from '@/services/api/documentApiService';
 import { uploadFile } from '@/services/api/attachmentApiService';
 import { ElMessage } from 'element-plus';
@@ -59,6 +68,8 @@ import type { DocumentVersion } from '@/types/documentVersion';
 
 // 注册 Markdown 模块
 FluentEditor.register('modules/markdownShortcuts', MarkdownShortcuts);
+// 注册 HeaderList 模块
+FluentEditor.register('modules/header-list', HeaderList, true);
 
 const props = defineProps<{
   document: Document;
@@ -71,24 +82,29 @@ const emit = defineEmits<{
 }>();
 
 const editorRef = ref<HTMLDivElement>();
+const headerListRef = ref<HTMLDivElement>();
+const containerRef = ref<HTMLDivElement>();
 const documentName = ref(props.document.name);
 const versionHistoryVisible = ref(false);
 let editor: FluentEditor | null = null;
+let scrollContainer: HTMLElement | null = null;
+let scrollHandler: (() => void) | null = null;
+let headerClickHandler: ((e: MouseEvent) => void) | null = null;
 
 // 加载内容到编辑器的函数
 const loadContentToEditor = (doc: Document) => {
   if (!editor) return;
-  
+
   const contentFormat = doc.contentFormat || doc.content_format || 'delta';
   const content = doc.content;
-  
+
   console.log('[DocumentEditor] 加载内容到编辑器', {
     docId: doc.id,
     content,
     contentFormat,
     rawDoc: doc
   });
-  
+
   try {
     const parsedContent = contentFormat === 'delta' ? JSON.parse(content) : content;
     editor.setContents(parsedContent);
@@ -97,15 +113,77 @@ const loadContentToEditor = (doc: Document) => {
   }
 };
 
+// 计算标题相对于滚动容器顶部的偏移位置
+const getHeaderOffsetTop = (headerEl: HTMLElement, container: HTMLElement): number => {
+  const containerRect = container.getBoundingClientRect();
+  const headerRect = headerEl.getBoundingClientRect();
+  // 元素相对于容器顶部的位置 = 当前视口差值 + 容器已滚动距离
+  return headerRect.top - containerRect.top + container.scrollTop;
+};
+
+// 滚动高亮：检测当前视口内最顶部的标题并高亮
+const handleScrollHighlight = () => {
+  if (!editor || !headerListRef.value || !scrollContainer) return;
+
+  const scrollTop = scrollContainer.scrollTop;
+  const headerItems = headerListRef.value.querySelectorAll<HTMLElement>('.hl-header-list__item');
+  if (headerItems.length === 0) return;
+
+  const quillRoot = editor.root;
+  const headers = quillRoot.querySelectorAll<HTMLElement>(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6');
+
+  // 找到当前视口顶部对应的标题
+  let activeId = '';
+  for (let i = headers.length - 1; i >= 0; i--) {
+    const headerEl = headers[i];
+    const offsetTop = getHeaderOffsetTop(headerEl, scrollContainer);
+    if (offsetTop <= scrollTop + 40) {
+      activeId = headerEl.getAttribute('data-block-id') || '';
+      break;
+    }
+  }
+
+  // 更新高亮状态
+  headerItems.forEach(item => {
+    if (item.dataset.id === activeId) {
+      item.classList.add('is-highlight');
+    } else {
+      item.classList.remove('is-highlight');
+    }
+  });
+};
+
+// 点击标题导航：平滑滚动到对应标题位置
+const handleHeaderClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  if (!target || !target.classList.contains('hl-header-list__item')) return;
+
+  const id = target.dataset.id;
+  if (!id || !editor || !scrollContainer) return;
+
+  const quillRoot = editor.root;
+  const headerEl = quillRoot.querySelector(`:scope > h1[data-block-id="${id}"], :scope > h2[data-block-id="${id}"], :scope > h3[data-block-id="${id}"], :scope > h4[data-block-id="${id}"], :scope > h5[data-block-id="${id}"], :scope > h6[data-block-id="${id}"]`) as HTMLElement;
+  if (!headerEl) return;
+
+  const offsetTop = getHeaderOffsetTop(headerEl, scrollContainer);
+
+  scrollContainer.scrollTo({
+    top: offsetTop - 20,
+    behavior: 'smooth'
+  });
+};
+
 onMounted(() => {
-  if (!editorRef.value) return;
+  if (!editorRef.value || !headerListRef.value || !containerRef.value) return;
 
   console.log('[DocumentEditor] 初始化编辑器');
+
   editor = new FluentEditor(editorRef.value, {
     theme: 'snow',
     placeholder: '开始编写文档... 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）',
     modules: {
       toolbar: [
+        ['header-list'], // 添加官方的 header-list 工具栏按钮
         [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }],
@@ -140,15 +218,45 @@ onMounted(() => {
           return urls;
         }
       },
-      markdownShortcuts: {} // 启用 Markdown 快捷键支持
+      markdownShortcuts: {}, // 启用 Markdown 快捷键支持
+      'header-list': {
+        container: headerListRef.value,
+        scrollContainer: '.ql-editor'
+      }
     }
   });
 
+  // 实际滚动容器是 .ql-editor（Quill 编辑器自带 overflow-y: auto）
+  scrollContainer = editor.root;
+
   // 编辑器初始化完成后立即加载内容
   loadContentToEditor(props.document);
+
+  // 自动显示标题列表（模块默认隐藏）
+  const headerListModule = editor.getModule('header-list') as { show: () => void };
+  if (headerListModule) {
+    headerListModule.show();
+  }
+
+  // 自定义滚动高亮监听
+  scrollHandler = () => handleScrollHighlight();
+  scrollContainer.addEventListener('scroll', scrollHandler);
+
+  // 自定义标题点击导航
+  headerClickHandler = handleHeaderClick;
+  headerListRef.value.addEventListener('click', headerClickHandler);
 });
 
 onBeforeUnmount(() => {
+  // 清理滚动监听
+  if (scrollHandler && scrollContainer) {
+    scrollContainer.removeEventListener('scroll', scrollHandler);
+  }
+  // 清理点击监听
+  if (headerClickHandler && headerListRef.value) {
+    headerListRef.value.removeEventListener('click', headerClickHandler);
+  }
+  scrollContainer = null;
   editor = null;
 });
 
@@ -216,6 +324,7 @@ const handleVersionRestored = (version: DocumentVersion) => {
     padding: 16px 24px;
     border-bottom: 1px solid var(--el-border-color-light);
     background: var(--el-bg-color);
+    flex-shrink: 0;
   }
 
   &__title {
@@ -234,10 +343,32 @@ const handleVersionRestored = (version: DocumentVersion) => {
     }
   }
 
+  &__main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  &__header-list {
+    width: 260px;
+    background: var(--el-bg-color-page);
+    border-right: 1px solid var(--el-border-color-light);
+    overflow-y: auto;
+    padding: 20px 16px;
+    flex-shrink: 0;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  &__header-list-wrapper {
+    width: 100%;
+  }
+
   &__container {
     flex: 1;
-    overflow: auto;
+    //overflow: auto;
     padding: 24px;
+    min-width: 0;
   }
 
   &__content {
@@ -246,5 +377,49 @@ const handleVersionRestored = (version: DocumentVersion) => {
     min-height: 600px;
     background: var(--el-bg-color);
   }
+}
+</style>
+
+<style lang="scss">
+/* quill-header-list 样式（包的 exports 字段导致 CSS 无法直接导入） */
+.hl-header-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: calc(100% - 50px);
+
+  &__item {
+    width: 100%;
+    height: 26px;
+    padding: 2px 10px 2px 0;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 22px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.25s linear;
+
+    &:hover {
+      background-color: #f5f5f5;
+      font-weight: 900;
+    }
+
+    &.level-1 { padding-left: 16px; }
+    &.level-2 { padding-left: 32px; }
+    &.level-3 { padding-left: 48px; }
+    &.level-4 { padding-left: 64px; }
+    &.level-5 { padding-left: 80px; }
+    &.level-6 { padding-left: 96px; }
+
+    &.is-highlight {
+      border-left: 2px solid currentColor;
+      font-weight: 900;
+    }
+  }
+}
+
+.is-hidden {
+  display: none;
 }
 </style>

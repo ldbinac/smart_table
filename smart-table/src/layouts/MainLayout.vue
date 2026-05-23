@@ -49,6 +49,7 @@ const mainContentStyle = computed(() => {
   @include flex-column;
   width: 100%;
   height: 100vh;
+  overflow: hidden;
   background-color: $bg-color;
 }
 
@@ -56,7 +57,7 @@ const mainContentStyle = computed(() => {
   display: flex;
   flex: 1;
   overflow: visible;
-  height: calc(100vh - 64px);
+  height: calc(100vh - #{$header-height});
 }
 
 .main-content {
