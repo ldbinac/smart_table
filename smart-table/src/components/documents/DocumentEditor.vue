@@ -59,6 +59,8 @@ import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import MarkdownShortcuts from 'quill-markdown-shortcuts';
 import HeaderList from 'quill-header-list';
+import 'quill-table-up/index.css';
+import 'quill-table-up/table-creator.css';
 import { documentApiService } from '@/services/api/documentApiService';
 import { uploadFile } from '@/services/api/attachmentApiService';
 import { ElMessage } from 'element-plus';
@@ -230,10 +232,16 @@ const handleHeaderClick = (e: MouseEvent) => {
   });
 };
 
-onMounted(() => {
+onMounted(async () => {
   if (!editorRef.value || !headerListRef.value || !containerRef.value) return;
 
   console.log('[DocumentEditor] 初始化编辑器');
+
+  // 动态导入表格模块（SSR 兼容）
+  const { defaultCustomSelect, TableUp, TableSelection, TableMenuContextmenu, TableResizeLine } = await import('quill-table-up');
+  const { generateTableUp } = await import('@opentiny/fluent-editor');
+  // 注册表格模块
+  FluentEditor.register({ 'modules/table-up': generateTableUp(TableUp) }, true);
 
   editor = new FluentEditor(editorRef.value, {
     theme: 'snow',
@@ -249,6 +257,7 @@ onMounted(() => {
         [{ 'indent': '-1' }, { 'indent': '+1' }],
         ['blockquote', 'code-block'],
         ['link', 'image', 'video'],
+        [{ 'table-up': [] }],
         ['clean']
       ],
       uploader: {
@@ -281,6 +290,15 @@ onMounted(() => {
       'header-list': {
         container: headerListRef.value,
         scrollContainer: containerRef.value
+      },
+      // 表格模块：右键菜单 + 单元格选择 + 大小调整
+      'table-up': {
+        customSelect: defaultCustomSelect,
+        modules: [
+          { module: TableSelection },
+          { module: TableMenuContextmenu },
+          { module: TableResizeLine },
+        ],
       }
     }
   });
