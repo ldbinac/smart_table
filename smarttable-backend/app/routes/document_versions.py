@@ -19,7 +19,68 @@ permission_service = PermissionService()
 @document_versions_bp.route('/documents/<doc_id>/versions', methods=['GET'])
 @jwt_required
 def get_versions(doc_id):
-    """获取文档的版本列表"""
+    """
+    获取文档的版本列表
+    ---
+    tags:
+      - Document Versions
+    security:
+      - Bearer: []
+    parameters:
+      - name: doc_id
+        in: path
+        type: string
+        required: true
+        description: 文档 ID
+    responses:
+      200:
+        description: 版本列表，包含 items 和 total 字段
+        schema:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 200
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: 版本 ID
+                      document_id:
+                        type: string
+                        description: 所属文档 ID
+                      name:
+                        type: string
+                        description: 版本名称
+                      version_number:
+                        type: integer
+                        description: 版本号
+                      change_summary:
+                        type: string
+                        description: 变更摘要
+                      created_by:
+                        type: string
+                        description: 创建者 ID
+                      created_at:
+                        type: string
+                        format: date-time
+                        description: 创建时间
+                total:
+                  type: integer
+                  description: 版本总数
+      403:
+        description: 无权访问该文档所在的数据基础
+      404:
+        description: 文档不存在
+      500:
+        description: 服务器内部错误
+    """
     try:
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
@@ -41,7 +102,50 @@ def get_versions(doc_id):
 @document_versions_bp.route('/documents/<doc_id>/versions', methods=['POST'])
 @jwt_required
 def create_version(doc_id):
-    """手动创建新版本"""
+    """
+    手动创建新版本
+    ---
+    tags:
+      - Document Versions
+    security:
+      - Bearer: []
+    parameters:
+      - name: doc_id
+        in: path
+        type: string
+        required: true
+        description: 文档 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 版本名称（可选，自动生成 "版本 #N"）
+            change_summary:
+              type: string
+              description: 变更摘要（可选，默认"手动保存版本"）
+    responses:
+      201:
+        description: 创建成功的版本详情
+        schema:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 201
+            data:
+              type: object
+              description: 版本对象（包含版本号、名称、变更摘要等）
+      403:
+        description: 无权编辑该文档所在的数据基础
+      404:
+        description: 文档不存在
+      500:
+        description: 服务器内部错误
+    """
     try:
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
@@ -72,7 +176,34 @@ def create_version(doc_id):
 @document_versions_bp.route('/documents/<doc_id>/versions/<version_id>', methods=['GET'])
 @jwt_required
 def get_version(doc_id, version_id):
-    """获取版本详情"""
+    """
+    获取版本详情（包含完整内容）
+    ---
+    tags:
+      - Document Versions
+    security:
+      - Bearer: []
+    parameters:
+      - name: doc_id
+        in: path
+        type: string
+        required: true
+        description: 文档 ID
+      - name: version_id
+        in: path
+        type: string
+        required: true
+        description: 版本 ID
+    responses:
+      200:
+        description: 版本详情（包含 content 字段）
+      403:
+        description: 无权访问该文档所在的数据基础
+      404:
+        description: 文档或版本不存在
+      500:
+        description: 服务器内部错误
+    """
     try:
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
@@ -97,7 +228,34 @@ def get_version(doc_id, version_id):
 @document_versions_bp.route('/documents/<doc_id>/versions/<version_id>/restore', methods=['POST'])
 @jwt_required
 def restore_version(doc_id, version_id):
-    """恢复到指定版本"""
+    """
+    恢复到指定版本（会创建新版本记录）
+    ---
+    tags:
+      - Document Versions
+    security:
+      - Bearer: []
+    parameters:
+      - name: doc_id
+        in: path
+        type: string
+        required: true
+        description: 文档 ID
+      - name: version_id
+        in: path
+        type: string
+        required: true
+        description: 要恢复的版本 ID
+    responses:
+      200:
+        description: 恢复操作产生的新版本详情
+      403:
+        description: 无权编辑该文档所在的数据基础
+      404:
+        description: 文档或版本不存在
+      500:
+        description: 服务器内部错误
+    """
     try:
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
@@ -130,7 +288,34 @@ def restore_version(doc_id, version_id):
 @document_versions_bp.route('/documents/<doc_id>/versions/<version_id>', methods=['DELETE'])
 @jwt_required
 def delete_version(doc_id, version_id):
-    """删除版本"""
+    """
+    删除指定版本
+    ---
+    tags:
+      - Document Versions
+    security:
+      - Bearer: []
+    parameters:
+      - name: doc_id
+        in: path
+        type: string
+        required: true
+        description: 文档 ID
+      - name: version_id
+        in: path
+        type: string
+        required: true
+        description: 要删除的版本 ID
+    responses:
+      204:
+        description: 删除成功，无返回内容
+      403:
+        description: 无权编辑该文档所在的数据基础
+      404:
+        description: 文档或版本不存在
+      500:
+        description: 服务器内部错误
+    """
     try:
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
