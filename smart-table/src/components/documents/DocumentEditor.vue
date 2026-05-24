@@ -174,7 +174,7 @@ const updateHeaderListPosition = () => {
 };
 
 // 加载内容到编辑器的函数
-const loadContentToEditor = (doc: Document) => {
+const loadContentToEditor = async (doc: Document) => {
   if (!editor) return;
 
   const contentFormat = doc.contentFormat || doc.content_format || 'delta';
@@ -188,10 +188,29 @@ const loadContentToEditor = (doc: Document) => {
   });
 
   try {
-    const parsedContent = contentFormat === 'delta' ? JSON.parse(content) : content;
-    editor.setContents(parsedContent);
+    if (contentFormat === 'delta') {
+      const parsedContent = JSON.parse(content);
+      editor.setContents(parsedContent);
+    } else {
+      // HTML 格式：使用 clipboard API 加载
+      (editor as any).clipboard.dangerouslyPasteHTML(content);
+    }
   } catch (e) {
-    console.error('[DocumentEditor] 解析内容失败:', e);
+    console.error('[DocumentEditor] setContents 失败，尝试回退加载:', e);
+    // setContents 失败时（如表格 blot 不兼容导致 sortMergeChildren 报错），
+    // 回退到 dangerouslyPasteHTML 方式加载
+    try {
+      if (contentFormat === 'delta') {
+        const parsedContent = JSON.parse(content);
+        // 将 Delta 转为 HTML 后通过 clipboard 加载
+        const { QuillDeltaToHtmlConverter } = await import('quill-delta-to-html');
+        const converter = new QuillDeltaToHtmlConverter(parsedContent.ops || parsedContent, {});
+        const html = converter.convert();
+        (editor as any).clipboard.dangerouslyPasteHTML(html);
+      }
+    } catch (e2) {
+      console.error('[DocumentEditor] 回退加载也失败:', e2);
+    }
   }
 };
 
@@ -375,7 +394,9 @@ onMounted(async () => {
         scrollContainer: containerRef.value
       },
       // 表格模块：右键菜单 + 单元格选择 + 大小调整
+      // full: true 使用百分比列宽，表格自适应容器宽度
       'table-up': {
+        full: true,
         customSelect: defaultCustomSelect,
         modules: [
           { module: TableSelection },
@@ -650,28 +671,32 @@ const handleVersionRestored = (version: DocumentVersion) => {
       background: var(--el-bg-color-page);
       outline: none;
 
-      // 所有直接子元素居中 + 最大宽度限制
-      > * {
+      // 文本内容元素：居中 + 最大宽度 + 白色背景
+      > h1, > h2, > h3, > h4, > h5, > h6,
+      > p, > ul, > ol, > blockquote {
         max-width: 800px;
         margin-left: auto;
         margin-right: auto;
         padding-left: 16px;
         padding-right: 16px;
-      }
-
-      // 文本内容元素：白色背景
-      > h1, > h2, > h3, > h4, > h5, > h6,
-      > p, > ul, > ol, > blockquote {
         background: var(--el-bg-color);
       }
 
-      // 代码块：深色背景
-      pre.ql-syntax {
-        background: #1e1e1e;
+      // 代码块容器：与文本元素保持一致的宽度约束
+      > .ql-code-block-container {
+        max-width: 790px;
+        margin-left: auto;
+        margin-right: auto;
+        background-color: #1e1e1e;
         color: #d4d4d4;
         border-radius: 4px;
         padding: 16px;
         overflow-x: auto;
+        white-space: pre;
+        word-break: normal;
+        word-wrap: normal;
+        font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+        font-size: 13px;
       }
 
       // 行内代码：浅灰背景
@@ -683,9 +708,16 @@ const handleVersionRestored = (version: DocumentVersion) => {
         font-size: 95%;
       }
 
-      // 表格不受最大宽度限制
-      .ql-table-wrapper {
-        max-width: none;
+      // 表格：与文本元素保持一致的宽度约束，超出时可横向滚动
+      > .ql-table-wrapper {
+        max-width: 790px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: auto;
+        // 表格默认填满 wrapper 宽度，避免少列时出现横向滚动条
+        .ql-table {
+          width: 100% !important;
+        }
       }
     }
 
