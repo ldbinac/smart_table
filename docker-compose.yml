@@ -1,14 +1,16 @@
 # SmartTable 统一 Docker 镜像部署配置
-# 使用 SQLite 数据库的简化版本，适合快速部署和测试
+# 内嵌 Redis + SQLite 数据库的简化版本，适合快速部署和测试
+# 单个容器包含：前端(Vue.js) + 后端(Flask) + Redis
 
 version: '3.8'
 
 services:
-  # SmartTable 统一应用（包含前后端）
+  # SmartTable 统一应用（包含前后端 + Redis）
   smarttable:
     build:
       context: .
       dockerfile: Dockerfile
+    image: smarttable:latest
     container_name: smarttable
     restart: unless-stopped
     ports:
@@ -18,9 +20,15 @@ services:
       FLASK_ENV: ${FLASK_ENV:-production}
       SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret-in-production}
+      JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-86400}
       
-      # 数据库配置（使用 SQLite）
-      DATABASE_URL: sqlite:///app/smarttable.db
+      # 数据库配置（使用 SQLite，不设置则 Config 自动生成正确路径）
+      
+      # Redis 配置（内嵌 Redis，连接本地）
+      REDIS_URL: redis://localhost:6379/0
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      SOCKETIO_MESSAGE_QUEUE: redis://localhost:6379/2
       
       # 上传配置
       UPLOAD_FOLDER: /app/uploads
@@ -32,7 +40,9 @@ services:
       ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
     volumes:
       # 持久化数据库
-      - sqlite_data:/app
+      - sqlite_data:/app/data
+      # 持久化 Redis 数据
+      - redis_data:/data/redis
       # 持久化上传文件
       - uploads_data:/app/uploads
       # 日志文件
@@ -42,13 +52,15 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     networks:
       - smarttable-network
 
 # 数据卷定义
 volumes:
   sqlite_data:
+    driver: local
+  redis_data:
     driver: local
   uploads_data:
     driver: local

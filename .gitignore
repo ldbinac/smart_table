@@ -102,3 +102,4 @@ release/
 dist/
 data/
 build/
+logs/

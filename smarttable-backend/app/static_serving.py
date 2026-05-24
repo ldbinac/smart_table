@@ -43,6 +43,12 @@ def get_dist_path():
         if os.path.exists(alternative_path):
             dist_path = os.path.abspath(alternative_path)
 
+    # Docker 环境中前端被复制到 /app/static
+    if not os.path.exists(dist_path):
+        static_path = os.path.join(base_path, 'static')
+        if os.path.exists(static_path):
+            dist_path = static_path
+
     if os.path.exists(dist_path):
         return os.path.abspath(dist_path)
     

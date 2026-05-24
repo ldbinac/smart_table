@@ -104,7 +104,15 @@ def parse_args():
     return args
 
 
-args = parse_args()
+# 当被 Gunicorn 作为 WSGI 应用导入时，跳过 CLI 参数解析
+# （避免 gunicorn 的命令行参数污染 run.py 的 argparse）
+_is_gunicorn_import = any('gunicorn' in arg for arg in sys.argv) or __name__ != '__main__'
+
+if not _is_gunicorn_import:
+    args = parse_args()
+else:
+    args = argparse.Namespace(enable_realtime=os.environ.get('ENABLE_REALTIME', '').lower() == 'true', command=None)
+
 enable_realtime = args.enable_realtime
 
 from app import create_app

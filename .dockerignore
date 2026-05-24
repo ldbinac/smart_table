@@ -37,7 +37,6 @@ pnpm-debug.log
 .DS_Store
 
 # 文档和测试
-*.md
 doc/
 docs/
 tests/
@@ -45,11 +44,9 @@ test/
 *.test.ts
 *.spec.ts
 
-# Docker
-Dockerfile
+# Docker Compose 文件（无需加入镜像）
 docker-compose*.yml
-.dockerignore
-docker/
+docker-compose*.yaml
 
 # 环境变量
 .env

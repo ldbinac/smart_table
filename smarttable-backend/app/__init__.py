@@ -111,6 +111,9 @@ def create_app(config_name='default', enable_realtime=False):
             except Exception as e:
                 print(f"初始化邮件模板失败：{e}")
 
+    # 注册健康检查端点
+    register_health_check(app)
+
     # 注册应用生命周期钩子
     register_lifecycle_hooks(app)
 
@@ -124,6 +127,24 @@ def create_app(config_name='default', enable_realtime=False):
             print(f"[Warning] Failed to configure static serving: {e}")
 
     return app
+
+
+def register_health_check(app):
+    """
+    注册健康检查端点
+
+    Args:
+        app: Flask 应用实例
+    """
+    @app.route('/api/health')
+    def health_check():
+        """健康检查接口，返回服务状态和当前时间"""
+        from datetime import datetime
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'service': 'smarttable'
+        })
 
 
 def register_lifecycle_hooks(app):
