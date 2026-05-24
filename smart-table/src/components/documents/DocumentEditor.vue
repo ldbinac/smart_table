@@ -677,26 +677,37 @@ const handleVersionRestored = (version: DocumentVersion) => {
         max-width: 800px;
         margin-left: auto;
         margin-right: auto;
-        padding-left: 16px;
-        padding-right: 16px;
+        padding-left: 32px;
+        padding-right: 32px;
         background: var(--el-bg-color);
       }
 
       // 代码块容器：与文本元素保持一致的宽度约束
       > .ql-code-block-container {
-        max-width: 790px;
+        max-width: 800px;
         margin-left: auto;
         margin-right: auto;
-        background-color: #1e1e1e;
-        color: #d4d4d4;
-        border-radius: 4px;
-        padding: 16px;
-        overflow-x: auto;
+        margin-top: 0%;
+        margin-bottom: 0%;
+        background: var(--el-bg-color);
+        padding-left: 32px;
+        padding-right: 32px;
+        padding-top: 16px;
+        padding-bottom: 16px;
         white-space: pre;
+        color: #d4d4d4;
+        border: none;
+        border-radius: 0px;
+        overflow-x: auto;
         word-break: normal;
         word-wrap: normal;
         font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
         font-size: 13px;
+        .ql-code-block {
+          padding-left: 8px;
+          padding-right: 8px;
+          background-color: #1e1e1e;
+        }
       }
 
       // 行内代码：浅灰背景
@@ -710,11 +721,14 @@ const handleVersionRestored = (version: DocumentVersion) => {
 
       // 表格：与文本元素保持一致的宽度约束，超出时可横向滚动
       > .ql-table-wrapper {
-        max-width: 790px;
+        max-width: 800px;
         margin-left: auto;
         margin-right: auto;
         overflow-x: auto;
+        padding-left: 32px;
+        padding-right: 32px;
         // 表格默认填满 wrapper 宽度，避免少列时出现横向滚动条
+        background: var(--el-bg-color);
         .ql-table {
           width: 100% !important;
         }
@@ -745,8 +759,12 @@ const handleVersionRestored = (version: DocumentVersion) => {
       flex-shrink: 0;
       position: relative;
       bottom: auto;
-      padding: 4px 12px;
       background: var(--el-bg-color);
+      // 精确对齐 .ql-editor > p 内容区左边缘
+      // 推导: >p左边缘 = 220px + ((容器宽-220px)-800px)/2 = 50% - 290px
+      max-width: 800px;
+      margin-left: calc(50% - 296px);
+      text-align: center;
     }
   }
 
@@ -758,7 +776,7 @@ const handleVersionRestored = (version: DocumentVersion) => {
     position: absolute;
     top: 0;
     left: 0;
-    width: 200px;
+    width: 210px;
     // top 偏移到工具栏下方，通过 JS 动态计算
     height: 100%;
     background: var(--el-bg-color-page);

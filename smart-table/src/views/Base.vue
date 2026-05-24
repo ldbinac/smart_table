@@ -1732,13 +1732,17 @@ const handleDocumentSave = (doc: any) => {
 };
 
 // 处理文档导出 PDF
+const isExportingPdf = ref(false);
 const handleDocumentExportPdf = async () => {
   if (!documentStore.currentDocument) return;
+  isExportingPdf.value = true;
   try {
     await documentStore.exportPdf(documentStore.currentDocument.id, 'frontend');
     ElMessage.success('PDF 导出成功');
   } catch (error) {
     ElMessage.error('PDF 导出失败');
+  } finally {
+    isExportingPdf.value = false;
   }
 };
 </script>
@@ -2454,6 +2458,12 @@ const handleDocumentExportPdf = async () => {
       :conflict="realtimeCollab.currentConflict.value"
       @resolve="realtimeCollab.resolveConflict"
     />
+    <div v-if="isExportingPdf" class="pdf-export-loading">
+      <div class="pdf-export-loading__track">
+        <div class="pdf-export-loading__thumb"></div>
+      </div>
+      <span class="pdf-export-loading__text">正在导出 PDF...</span>
+    </div>
   </div>
 </template>
 
@@ -3045,6 +3055,65 @@ const handleDocumentExportPdf = async () => {
   .star-tag {
     color: #f7ba2a;
     border-color: #f7ba2a;
+  }
+}
+
+.pdf-export-loading {
+  position: fixed;
+  bottom: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 2000;
+  animation: pdf-loading-enter 0.25s ease-out;
+
+  &__track {
+    width: 200px;
+    height: 16px;
+    background: var(--el-border-color-lighter);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  &__thumb {
+    width: 30%;
+    height: 100%;
+    background: var(--el-color-primary);
+    border-radius: 3px;
+    animation: pdf-scroll-slide 1.2s ease-in-out infinite;
+  }
+
+  &__text {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+  }
+}
+
+@keyframes pdf-loading-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes pdf-scroll-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(420%);
   }
 }
 </style>
