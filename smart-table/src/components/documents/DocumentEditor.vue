@@ -368,7 +368,7 @@ onMounted(async () => {
         },
         maxSize: 10 * 1024 * 1024, // 10MB
         multiple: false,
-        handler: async (range, files) => {
+        handler: async (_range, files) => {
           const urls: string[] = [];
           for (const file of files) {
             try {

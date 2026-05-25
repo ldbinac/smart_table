@@ -3,7 +3,6 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import type { Dashboard, TableEntity, DocumentEntity } from "@/db/schema";
 import { ElMessageBox } from "element-plus";
@@ -85,7 +84,6 @@ const emit = defineEmits<{
 const route = useRoute();
 const baseStore = useBaseStore();
 const tableStore = useTableStore();
-const documentStore = useDocumentStore();
 
 // 判断当前视图类型
 const isTableView = computed(() => route.path.includes('/table/'));
@@ -216,7 +214,7 @@ const loadDocuments = async () => {
   const { useDocumentStore } = await import('@/stores/documentStore');
   const documentStore = useDocumentStore();
   await documentStore.fetchDocuments(baseStore.currentBase.id);
-  documents.value = documentStore.documents;
+  documents.value = documentStore.documents as DocumentEntity[];
 };
 
 // 处理点击数据表

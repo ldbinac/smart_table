@@ -7,6 +7,7 @@ export interface Document {
   baseId: string;
   base_id?: string;
   name: string;
+  description?: string;
   content: string;
   contentFormat: 'delta' | 'markdown';
   content_format?: 'delta' | 'markdown';

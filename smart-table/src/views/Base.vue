@@ -608,7 +608,7 @@ const handleTableSelect = async (tableId: string) => {
   }
   
   // 清除其他选中状态
-  documentStore.currentDocumentId = null;
+  documentStore.clearCurrentDocumentId();
   
   // 立即设置 loading 状态，让用户看到提示
   tableStore.loading = true;
@@ -641,7 +641,7 @@ const handleTableSelect = async (tableId: string) => {
 const handleDashboardClick = (dashboardId: string) => {
   // 清除其他选中状态
   tableStore.currentTable = null;
-  documentStore.currentDocumentId = null;
+  documentStore.clearCurrentDocumentId();
   
   // 立即设置 loading 状态，让用户看到提示
   dashboardLoading.value = true;
@@ -1661,7 +1661,7 @@ const handleCreateDocument = async () => {
   await createDocumentFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        const doc = await documentStore.createDocument(baseStore.currentBase.id, {
+        const doc = await documentStore.createDocument(baseStore.currentBase!.id, {
           name: createDocumentForm.name.trim(),
           content: JSON.stringify({ ops: [{ insert: '\n' }] }),
           contentFormat: 'delta'
@@ -1669,7 +1669,7 @@ const handleCreateDocument = async () => {
         ElMessage.success('文档创建成功');
         closeCreateDocumentDialog();
         // 跳转到新创建的文档
-        router.push(`/base/${baseStore.currentBase.id}/documents/${doc.id}`);
+        router.push(`/base/${baseStore.currentBase!.id}/documents/${doc.id}`);
       } catch (error) {
         ElMessage.error('创建文档失败');
       }

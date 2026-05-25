@@ -11,7 +11,7 @@ function snakeToCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
-function convertSnakeToCamel<T extends Record<string, unknown>>(obj: Record<string, unknown>): T {
+function convertSnakeToCamel<T>(obj: object): T {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     const camelKey = snakeToCamel(key);
@@ -35,6 +35,10 @@ export const useDocumentStore = defineStore('document', () => {
   const documentCount = computed(() => documents.value.length);
   const canCreateMore = computed(() => documents.value.length < 10);
   const currentDocumentId = computed(() => currentDocument.value?.id);
+
+  function clearCurrentDocumentId() {
+    currentDocument.value = null;
+  }
 
   async function fetchDocuments(baseId: string, force = false) {
     // 如果正在加载，或者已经加载过相同的 baseId 且不是强制刷新，跳过重复请求
@@ -137,7 +141,7 @@ export const useDocumentStore = defineStore('document', () => {
 
   return {
     documents, currentDocument, loading, loadingDocumentDetail, error,
-    documentCount, canCreateMore, currentDocumentId,
+    documentCount, canCreateMore, currentDocumentId, clearCurrentDocumentId,
     fetchDocuments, createDocument, updateDocument, deleteDocument, fetchDocumentDetail, exportPdf
   };
 });

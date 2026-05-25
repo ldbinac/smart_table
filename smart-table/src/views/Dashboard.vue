@@ -734,7 +734,7 @@ function openPreviewDialog() {
 const handleTableSelect = (tableId: string) => {
   const baseId = route.params.id as string;
   // 清除其他选中状态
-  documentStore.currentDocumentId = null;
+  documentStore.clearCurrentDocumentId();
   router.push(`/base/${baseId}/table/${tableId}`);
 };
 
@@ -742,7 +742,7 @@ const handleDashboardSelect = (dashboardId: string) => {
   const baseId = route.params.id as string;
   // 清除其他选中状态
   tableStore.currentTable = null;
-  documentStore.currentDocumentId = null;
+  documentStore.clearCurrentDocumentId();
   router.push(`/base/${baseId}/dashboard/${dashboardId}`);
 };
 
@@ -766,22 +766,6 @@ const handleAddDocument = () => {
   }
   createDocumentDialogVisible.value = true;
   createDocumentForm.name = "";
-};
-
-const handleCreateDocument = async () => {
-  if (!createDocumentForm.name.trim()) {
-    ElMessage.warning("请输入文档名称");
-    return;
-  }
-  
-  try {
-    // 这里暂时简单处理，后续可以完善
-    ElMessage.success("文档创建成功");
-    createDocumentDialogVisible.value = false;
-  } catch (error) {
-    ElMessage.error("创建文档失败");
-    console.error("Failed to create document:", error);
-  }
 };
 
 const openCreateTableDialog = () => {

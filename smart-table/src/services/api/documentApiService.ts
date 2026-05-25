@@ -8,7 +8,7 @@ function snakeToCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
-function convertSnakeToCamel<T extends Record<string, unknown>>(obj: Record<string, unknown>): T {
+function convertSnakeToCamel<T>(obj: object): T {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     const camelKey = snakeToCamel(key);

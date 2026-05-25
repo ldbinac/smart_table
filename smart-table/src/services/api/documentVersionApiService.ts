@@ -22,21 +22,21 @@ export const documentVersionApiService = {
   async getList(docId: string): Promise<DocumentVersionListResponse> {
     const response = await apiClient.get<{ items: any[]; total: number }>(`/documents/${docId}/versions`);
     return {
-      items: response.items.map(snakeToCamel),
+      items: response.items.map(snakeToCamel) as DocumentVersion[],
       total: response.total
     };
   },
 
   async getById(docId: string, versionId: string): Promise<DocumentVersion> {
     const response = await apiClient.get<any>(`/documents/${docId}/versions/${versionId}`);
-    return snakeToCamel(response);
+    return snakeToCamel(response) as DocumentVersion;
   },
 
   async restore(docId: string, versionId: string): Promise<{ document: unknown; version: DocumentVersion }> {
     const response = await apiClient.post<{ document: unknown; version: any }>(`/documents/${docId}/versions/${versionId}/restore`);
     return {
       document: response.document,
-      version: snakeToCamel(response.version)
+      version: snakeToCamel(response.version) as DocumentVersion
     };
   },
 
