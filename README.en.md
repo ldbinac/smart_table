@@ -2,7 +2,7 @@
 
 [中文](README.md) | English
 
-A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supporting both pure frontend (IndexedDB) and backend (PostgreSQL/SQLite) deployment modes, similar to Airtable or Lark Base.
+A smart multi-dimensional table system based on Vue 3 + Flask, supporting both pure frontend (IndexedDB) and backend (PostgreSQL/SQLite) deployment modes, similar to Airtable or Lark Base .
 
 ## ✨ Features
 
@@ -13,6 +13,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - **Field Management** - Support **26 field types** with configuration, sorting, visibility control, and default values
 - **Record Management** - CRUD operations, batch actions, detail drawer, and change history tracking
 - **View Management** - **6 view types** with filtering, sorting, grouping, view switching, and column freezing
+- **Document Management** - Document CRUD, rich text editing (Quill), Markdown support, PDF export, version history
 
 ### 📝 Supported Field Types (26 Types)
 
@@ -63,6 +64,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - **Data Grouping** - Group by field with multi-level grouping (up to 3 levels), group statistics
 - **Formula Engine** - **43 built-in functions** for math, text, date, logic, and statistics
 - **Data Import** - Support Excel, CSV, JSON formats with multi-sheet, can import to create new tables
+- **Streaming Data Loading** - First-screen rendering in seconds for 10k records, async background loading, non-blocking
 - **Data Export** - Support Excel, CSV, JSON formats with custom field selection
 
 #### Collaboration & Sharing
@@ -78,6 +80,8 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
   - Conflict detection & resolution (optimistic locking)
   - Offline queue (auto-cache on disconnect, auto-replay on reconnect)
   - Graceful degradation (auto-switch to normal mode when unavailable)
+- **Request Tracking System** - Request ID full-chain tracing, unified error handling, standardized API response
+- **Local Cache System** - Collaboration state, user auth, system config caching; config requests reduced by 90%+
 
 #### Permissions & Security
 
@@ -89,6 +93,8 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
   - Commenter - Comment and view permissions
   - Viewer - Read-only permissions
 - **Security Protection** - XSS protection, CSRF protection, security headers, API rate limiting, file upload validation
+- **Security Config Management** - Dynamic password rules, registration toggle, session timeout config, public config endpoint
+- **Sensitive Info Protection** - 30+ log sanitization fix points auto-masking passwords/tokens/phones/emails
 - **Operation Logs** - Complete operation audit logs
 
 #### User Experience
@@ -115,6 +121,14 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 - **Email Logs** - Complete email sending logs and statistics
 - **Admin Panel** - Email configuration management and monitoring interface
 
+#### 📄 Document Management (v1.4.0)
+
+- **Document CRUD** - Create, edit, delete, query documents with Base-associated permissions
+- **Rich Text Editor** - Quill-based with bold/italic/lists/links/tables formatting
+- **Markdown Support** - Markdown syntax with real-time rendering
+- **Version History** - Version tracking and rollback, comparison view, creator tracking
+- **PDF Export** - Export documents as PDF with DOM direct parsing for accurate styling
+
 ## 📸 Feature Preview
 
 | Feature       | Preview                                         | Feature       | Preview                                         |
@@ -125,7 +139,7 @@ A smart multi-dimensional table system based on Vue 3 + TypeScript + Pinia, supp
 | Table Fields  | ![Table Fields](./doc/img/TableViewFields.jpeg) | Kanban View   | ![Kanban View](./doc/img/KanbanView.jpeg)       |
 | Calendar View | ![Calendar View](./doc/img/CalendarView.jpeg)   | Gantt View    | ![Gantt View](./doc/img/GanttView.jpeg)         |
 | Form View     | ![Form View](./doc/img/FormView.jpeg)           | Dashboard     | ![Dashboard](./doc/img/Dashboard.jpeg)          |
-| Sharing       | ![Sharing](./doc/img/sharing.png)               | -             | -                                               |
+| Sharing       | ![Sharing](./doc/img/sharing.png)               | Document Management     | ![文档管理](./doc/img/Document.png)               |
 
 ## 🛠️ Tech Stack
 
@@ -264,6 +278,8 @@ cp .env.example .env
 
 # Start all services (SQLite mode)
 docker-compose up -d
+
+# v1.4.0: Docker now embeds Redis, no separate Redis container needed
 
 # Or use PostgreSQL + Redis (for production)
 docker-compose -f docker-compose.dev.yml up -d
@@ -422,6 +438,10 @@ smart-table/
 │   │   │   ├── RealtimeChartWidget.vue   # Real-time chart
 │   │   │   ├── MarqueeWidget.vue         # Marquee widget
 │   │   │   └── index.ts
+│   │   ├── documents/            # Document management (v1.4.0)
+│   │   │   ├── DocumentEditor.vue      # Document editor
+│   │   │   ├── DocumentHistory.vue     # Version history
+│   │   │   └── DocumentList.vue        # Document list
 │   │   ├── auth/                 # Auth components
 │   │   │   ├── LoginForm.vue             # Login form
 │   │   │   └── RegisterForm.vue          # Register form
@@ -622,6 +642,8 @@ smarttable-backend/
 │   │   ├── form_shares.py          # Form share routes (/api/form-shares/*)
 │   │   ├── import_export.py        # Import/Export routes (/api/import-export/*)
 │   │   ├── email.py                # Email routes (/api/email/*)
+│   │   ├── documents.py           # Document routes (/api/documents/*)
+│   │   ├── document_versions.py   # Document version routes
 │   │   ├── admin.py                # Admin routes (/api/admin/*)
 │   │   ├── users.py                # User routes (/api/users/*)
 │   │   ├── realtime.py             # Real-time collaboration status API (/api/realtime/*)
@@ -772,6 +794,18 @@ View (View)
 - Data display method (6 view types)
 - Independent filter, sort, group configurations
 - View-level field control (hidden, freeze, width)
+
+#### Document (v1.4.0)
+
+- Document storage and management, linked to Base
+- Supports rich text and Markdown content
+- Permissions inherited from parent Base
+
+#### DocumentVersion (v1.4.0)
+
+- Document version history tracking
+- Snapshot and creator per save
+- Supports version rollback and comparison
 
 #### CollaborationSession
 

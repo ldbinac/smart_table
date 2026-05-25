@@ -4,6 +4,180 @@
 
 ***
 
+# SmartTable v1.4.0 Release Notes
+
+**发布日期 / Release Date**: 2026-05-25
+
+**版本号 / Version**: v1.4.0
+
+**标签 / Tags**: `release`, `v1.4.0`, `latest`, `stable`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.4.0 更新说明
+
+本次更新重磅推出了 **文档管理模块**，支持富文本编辑、Markdown 编写、PDF 导出、版本历史管理等完整文档功能；同时优化了 **Docker 部署架构**（内嵌 Redis 单容器部署），统一了前后端字段命名规范，并对时区处理、加载体验等进行了全面优化。
+
+### ✨ 新增功能 (New Features)
+
+#### 📄 文档管理模块 ⭐
+
+**完整的文档 CRUD 功能**
+- 新增文档管理功能，支持文档的创建、编辑、删除、查询等完整操作
+- 文档与 Base 关联，支持基于 Base 的权限控制
+
+**文档编辑器（Quill）**
+- 基于 Quill 的富文本编辑器，支持加粗、斜体、列表、链接、表格等格式化功能
+- 支持 Markdown 语法编写文档内容
+- 支持键盘快捷键操作（Ctrl+S 保存等）
+- 自定义全屏切换功能
+- 全局中文国际化配置
+
+**文档版本历史**
+- 支持文档版本历史记录与回溯
+- 版本对比查看，可按版本号恢复历史内容
+- 显示版本创建者信息
+
+**PDF 导出**
+- 支持将文档内容导出为 PDF 文件
+- 使用 DOM 直接解析替代 delta 转换，PDF 样式更准确
+- 修复 PDF 导出中的图片 URL 问题
+
+**用户体验优化**
+- 文档编辑器加载状态与通用加载组件
+- AppHeader 新增文档页面下的顶部栏信息展示
+- 文档标题大纲导航功能
+- 文档详情加载状态显示
+
+#### 🐳 Docker 部署架构重构 ⭐
+
+- 重构 Docker 部署架构，内嵌 Redis 服务
+- 统一单容器部署方案，大幅简化部署流程
+- 无需额外启动 Redis 容器，方便快速启动服务
+
+### 🔧 功能优化与改进 (Improvements)
+
+#### 📝 文档编辑器优化
+
+- 优化文档编辑器加载逻辑与样式（布局、占位符、工具栏）
+- 重构文档编辑器布局与目录逻辑
+- 重构文档版本历史预览逻辑
+
+#### 🔄 字段命名统一与时区处理
+
+- 统一前后端字段命名格式（驼峰式与蛇形命名适配）
+- 优化时区处理，修复时区不一致导致的版本检查问题
+- 完善乐观锁校验逻辑
+
+#### 📦 API 文档完善
+
+- 为 document_versions.py 和 documents.py 下的全部路由接口补充完整的 Swagger 文档注释
+- 统一接口文档规范（标签、安全校验、参数定义、响应格式、错误码说明）
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+| 问题 | 修复内容 |
+|------|----------|
+| **🔧 列表选中状态异常** | 修复列表选中状态异常问题 |
+| **🔧 文档乐观锁校验** | 修复文档乐观锁校验逻辑错误 |
+| **🔧 时区不一致** | 修复版本历史时区不一致导致的版本检查问题 |
+| **🔧 版本创建者显示** | 优化版本历史的创建者显示逻辑 |
+| **🔧 PDF 图片 URL 问题** | 修复 PDF 导出中图片 URL 路径错误 |
+| **🔧 编辑器国际化** | 为富文本编辑器配置并初始化中文国际化 |
+| **🔧 装饰器兼容性** | 兼容别名新增 g.user_id 变量 |
+
+### 🧪 测试覆盖
+
+- 新增前端 DocumentEditor 组件的 Vue 单元测试
+- 新增后端文档模块的 API 和模型测试
+- 测试覆盖文档增删改查、权限控制、导出等核心场景
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.4.0 Release Notes
+
+This release introduces the **Document Management Module** as a major new feature, supporting rich text editing, Markdown writing, PDF export, version history management, and complete document workflows. It also **refactors the Docker deployment architecture** (embedded Redis in single container), unifies frontend-backend field naming conventions, and optimizes timezone handling and loading experience.
+
+### ✨ New Features
+
+#### 📄 Document Management Module ⭐
+
+**Complete Document CRUD**
+- New document management feature supporting create, edit, delete, query operations
+- Documents associated with Base, supporting Base-based permission control
+
+**Document Editor (Quill)**
+- Quill-based rich text editor with bold, italic, lists, links, tables, and more
+- Markdown syntax support for writing document content
+- Keyboard shortcut support (Ctrl+S save, etc.)
+- Custom fullscreen toggle functionality
+- Global Chinese i18n configuration
+
+**Document Version History**
+- Document version history tracking and rollback
+- Version comparison view, restore historical content by version number
+- Display of version creator information
+
+**PDF Export**
+- Export document content as PDF files
+- DOM direct parsing replaces delta conversion for more accurate PDF styling
+- Fixed image URL issues in PDF export
+
+**User Experience Optimization**
+- Document editor loading states and universal loading component
+- AppHeader info display for document pages
+- Document header outline navigation feature
+- Document detail loading state display
+
+#### 🐳 Docker Deployment Architecture Refactoring ⭐
+
+- Refactored Docker deployment architecture with embedded Redis
+- Unified single-container deployment scheme, greatly simplifying deployment
+- No need for additional Redis container, convenient for quick service startup
+
+### 🔧 Improvements
+
+#### 📝 Document Editor Optimization
+
+- Optimized document editor loading logic and styles (layout, placeholder, toolbar)
+- Refactored document editor layout and outline logic
+- Refactored document version history preview logic
+
+#### 🔄 Field Naming Unification & Timezone Handling
+
+- Unified frontend-backend field naming convention (camelCase/snake_case adaptation)
+- Optimized timezone handling, fixed version check issues due to timezone inconsistency
+- Improved optimistic lock validation logic
+
+#### 📦 API Documentation Enhancement
+
+- Added complete Swagger documentation comments for all routes in document_versions.py and documents.py
+- Unified API documentation standards (tags, security, parameters, response format, error codes)
+
+### 🐛 Bug Fixes
+
+| Issue | Fix |
+|-------|-----|
+| **🔧 List Selection State Anomaly** | Fixed abnormal list selection state |
+| **🔧 Document Optimistic Lock** | Fixed optimistic lock validation logic |
+| **🔧 Timezone Inconsistency** | Fixed version check issue due to timezone inconsistency |
+| **🔧 Version Creator Display** | Optimized version history creator display logic |
+| **🔧 PDF Image URL Issue** | Fixed image URL path issues in PDF export |
+| **🔧 Editor i18n** | Configured and initialized Chinese i18n for rich text editor |
+| **🔧 Decorator Compatibility** | Added g.user_id variable for alias compatibility |
+
+### 🧪 Test Coverage
+
+- Added frontend Vue unit tests for DocumentEditor component
+- Added backend document module API and model tests
+- Test coverage includes document CRUD, permission control, export, and other core scenarios
+
+***
+
 # SmartTable v1.3.3 Release Notes
 
 **发布日期 / Release Date**: 2026-05-17

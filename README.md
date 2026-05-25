@@ -2,7 +2,7 @@
 
 中文 | [English](README.en.md)
 
-一个基于 Vue 3 + TypeScript + Pinia 的智能多维表格系统，支持纯前端（IndexedDB）和后端（PostgreSQL/SQLite）两种部署模式，类似于 Airtable 或飞书多维表格。
+一个基于 Vue 3 + Flask 的智能多维表格系统，支持纯前端（IndexedDB）和后端（PostgreSQL/SQLite）两种部署模式，类似于 Airtable 或飞书多维表格。
 
 ## ✨ 功能特性
 
@@ -13,6 +13,7 @@
 - **字段管理** - 支持 **26 种字段类型**，包含字段配置、排序、显示隐藏、默认值设置
 - **记录管理** - 增删改查、批量操作、记录详情抽屉、变更历史追踪
 - **视图管理** - **6 种视图类型**，支持筛选、排序、分组、视图切换、列冻结
+- **文档管理** - 文档创建编辑、富文本编辑（Quill）、Markdown 支持、PDF 导出、版本历史管理
 
 ### 📝 支持的字段类型（26 种）
 
@@ -62,6 +63,7 @@
 - **数据排序** - 多字段排序，支持升序/降序，拖拽调整优先级
 - **数据分组** - 按字段分组展示，支持多级分组（最多 3 级）、分组统计
 - **公式引擎** - **43 个内置函数**，支持数学、文本、日期、逻辑、统计计算
+- **流式数据加载** - 万级数据首屏秒级渲染，异步加载剩余页，非阻塞式操作
 - **数据导入** - 支持 Excel、CSV、JSON 格式，支持多 Sheet，可导入创建新表
 - **数据导出** - 支持 Excel、CSV、JSON 格式，自定义导出字段
 
@@ -78,6 +80,8 @@
   - 冲突检测与解决（基于乐观锁）
   - 离线队列（断线自动缓存，重连自动重放）
   - 优雅降级（实时不可用时自动切换为普通模式）
+- **请求追踪系统** - 请求 ID 全链路追踪、统一错误处理、标准化 API 响应格式
+- **本地缓存体系** - 协作状态缓存、用户认证缓存、系统配置缓存，配置请求减少 90%+
 
 #### 权限与安全
 
@@ -88,6 +92,8 @@
   - 编辑者（Editor）- 编辑权限
   - 评论者（Commenter）- 评论和查看权限
   - 查看者（Viewer）- 只读权限
+- **安全配置管理** - 动态密码强度规则、注册开关、会话超时配置、公开配置接口
+- **敏感信息保护** - 30+ 修复点的日志脱敏，密码/Token/手机号/邮箱自动遮蔽
 - **安全防护** - XSS 防护、CSRF 保护、安全响应头、API 速率限制、文件上传安全验证
 - **操作日志** - 完整的操作审计日志
 
@@ -115,6 +121,14 @@
 - **邮件日志** - 完整的邮件发送日志和统计
 - **管理员面板** - 邮件配置管理和监控界面
 
+#### 📄 文档管理（v1.4.0 新增）
+
+- **文档 CRUD** - 支持文档创建、编辑、删除、查询，与 Base 关联权限控制
+- **富文本编辑器** - 基于 Quill，支持加粗/斜体/列表/链接/表格等格式化功能
+- **Markdown 编写** - 支持 Markdown 语法实时渲染
+- **版本历史** - 版本记录与回溯，版本对比查看，创建者追踪
+- **PDF 导出** - 文档内容导出为 PDF，DOM 直接解析确保样式准确
+
 ## 📸 功能预览
 
 | 功能   | 预览图                                     | 功能    | 预览图                                    |
@@ -125,7 +139,7 @@
 | 表格字段 | ![表格字段](./doc/img/TableViewFields.jpeg) | 看板视图  | ![看板视图](./doc/img/KanbanView.jpeg)     |
 | 日历视图 | ![日历视图](./doc/img/CalendarView.jpeg)    | 甘特图视图 | ![甘特图视图](./doc/img/GanttView.jpeg)     |
 | 表单视图 | ![表单视图](./doc/img/FormView.jpeg)        | 仪表盘   | ![仪表盘](./doc/img/Dashboard.jpeg)       |
-| 分享功能 | ![分享](./doc/img/sharing.png)            | -     | -                                      |
+| 分享功能 | ![分享](./doc/img/sharing.png)            | 文档管理     | ![文档管理](./doc/img/Document.png)       |
 
 ## 🛠️ 技术栈
 
@@ -270,6 +284,7 @@ cp .env.example .env
 docker-compose up -d
 
 # 或使用 PostgreSQL + Redis（适合生产环境）
+# v1.4.0 优化：Docker 部署内嵌 Redis，无需额外启动 Redis 容器
 docker-compose -f docker-compose.dev.yml up -d
 
 # 执行数据库迁移
@@ -426,6 +441,10 @@ smart-table/
 │   │   │   ├── RealtimeChartWidget.vue   # 实时图表
 │   │   │   ├── MarqueeWidget.vue         # 跑马灯
 │   │   │   └── index.ts
+│   │   ├── documents/            # 文档管理组件（v1.4.0 新增）
+│   │   │   ├── DocumentEditor.vue      # 文档编辑器
+│   │   │   ├── DocumentHistory.vue     # 版本历史
+│   │   │   └── DocumentList.vue        # 文档列表
 │   │   ├── auth/                 # 认证组件
 │   │   │   ├── LoginForm.vue             # 登录表单
 │   │   │   └── RegisterForm.vue          # 注册表单
@@ -626,6 +645,8 @@ smarttable-backend/
 │   │   ├── form_shares.py          # 表单分享路由 (/api/form-shares/*)
 │   │   ├── import_export.py        # 导入导出路由 (/api/import-export/*)
 │   │   ├── email.py                # 邮件路由 (/api/email/*)
+│   │   ├── documents.py           # 文档路由 (/api/documents/*)
+│   │   ├── document_versions.py   # 文档版本路由
 │   │   ├── admin.py                # 管理路由 (/api/admin/*)
 │   │   ├── users.py                # 用户路由 (/api/users/*)
 │   │   ├── realtime.py             # 实时协作状态 API (/api/realtime/*)
@@ -776,6 +797,16 @@ View (视图)
 - 数据展示方式（6 种视图类型）
 - 独立的筛选、排序、分组配置
 - 视图级别字段控制（隐藏、冻结、宽度）
+
+#### Document（文档）（v1.4.0 新增）
+- 文档存储与管理，关联到 Base
+- 支持富文本和 Markdown 内容
+- 权限继承自所属 Base
+
+#### DocumentVersion（文档版本）（v1.4.0 新增）
+- 文档版本历史追踪
+- 记录每次保存的快照和创建者
+- 支持版本回溯和对比
 
 #### CollaborationSession（协作会话）
 
