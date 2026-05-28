@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy import String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.db_types import CompatUUID as UUID
 from app.extensions import db
 
 
@@ -28,23 +29,23 @@ class FormSubmission(db.Model):
     
     __tablename__ = 'form_submissions'
     
-    id: Mapped[str] = mapped_column(
-        String(36),
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4
     )
     
     # 关联的表单分享 ID
-    form_share_id: Mapped[str] = mapped_column(
-        String(36),
+    form_share_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey('form_shares.id', ondelete='CASCADE'),
         nullable=False,
         index=True
     )
     
     # 创建的记录 ID
-    record_id: Mapped[str] = mapped_column(
-        String(36),
+    record_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey('records.id', ondelete='SET NULL'),
         nullable=True,
         index=True

@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 from sqlalchemy import String, Text, Boolean, DateTime, Integer, ForeignKey, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
+from app.db_types import CompatUUID as UUID
 from app.extensions import db
 
 
@@ -24,15 +24,15 @@ class DashboardShare(db.Model):
     
     __tablename__ = 'dashboard_shares'
     
-    id: Mapped[str] = mapped_column(
-        String(36),
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4
     )
     
     # 关联的仪表盘 ID
     dashboard_id: Mapped[uuid.UUID] = mapped_column(
-        String(36),
+        UUID(as_uuid=True),
         ForeignKey('dashboards.id', ondelete='CASCADE'),
         nullable=False,
         index=True
@@ -107,8 +107,8 @@ class DashboardShare(db.Model):
     )
     
     # 创建者 ID（可选）
-    created_by: Mapped[Optional[str]] = mapped_column(
-        String(36),
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey('users.id', ondelete='SET NULL'),
         nullable=True
     )

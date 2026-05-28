@@ -8,6 +8,18 @@ import logging
 from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 
+# 修复 Windows 终端 GBK 编码无法打印 Unicode 字符的问题
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 
 class SafeRotatingFileHandler(RotatingFileHandler):
     """

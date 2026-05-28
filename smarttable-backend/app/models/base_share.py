@@ -9,6 +9,7 @@ from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey, Enum as S
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
+from app.db_types import CompatUUID as UUID
 from app.extensions import db
 
 
@@ -38,15 +39,15 @@ class BaseShare(db.Model):
     
     __tablename__ = 'base_shares'
     
-    id: Mapped[str] = mapped_column(
-        String(36),
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4
     )
     
     # 关联的 Base ID
-    base_id: Mapped[str] = mapped_column(
-        String(36),
+    base_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey('bases.id', ondelete='CASCADE'),
         nullable=False,
         index=True
@@ -61,8 +62,8 @@ class BaseShare(db.Model):
     )
     
     # 创建者 ID
-    created_by: Mapped[str] = mapped_column(
-        String(36),
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey('users.id', ondelete='CASCADE'),
         nullable=False
     )

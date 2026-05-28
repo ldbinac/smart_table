@@ -1,29 +1,30 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import String, DateTime, Boolean, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
-from app.db_types import CompatJSON
+from app.db_types import CompatUUID as UUID, CompatJSON
 
 
 class CollaborationSession(db.Model):
 
     __tablename__ = 'collaboration_sessions'
 
-    id: Mapped[str] = mapped_column(
-        String(36),
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4
     )
-    base_id: Mapped[str] = mapped_column(
-        String(36),
+    base_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey('bases.id', ondelete='CASCADE'),
         nullable=False
     )
-    user_id: Mapped[str] = mapped_column(
-        String(36),
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey('users.id', ondelete='CASCADE'),
         nullable=False
     )
@@ -31,12 +32,12 @@ class CollaborationSession(db.Model):
         String(64),
         nullable=False
     )
-    current_table_id: Mapped[str] = mapped_column(
-        String(36),
+    current_table_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
         nullable=True
     )
-    current_view_id: Mapped[str] = mapped_column(
-        String(36),
+    current_view_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
         nullable=True
     )
     current_view_type: Mapped[str] = mapped_column(

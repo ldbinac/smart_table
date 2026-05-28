@@ -12,6 +12,25 @@ import code
 from dotenv import load_dotenv
 from pathlib import Path
 
+# ⚠️ 必须在导入 app 模块之前加载 .env 配置文件
+# 否则 config.py 读取环境变量时 DATABASE_URL 等值尚未设置
+_load_env_result = None
+_env_loaded = False
+for _env_path in [
+    Path(__file__).parent.parent / 'config' / '.env',
+    Path(__file__).parent.parent / '.env',
+    Path(__file__).parent / '.env',
+]:
+    if _env_path.exists():
+        load_dotenv(_env_path, override=True)
+        _env_loaded = True
+        _load_env_result = _env_path
+        break
+if not _env_loaded:
+    load_dotenv()
+
+config_name = os.environ.get('FLASK_ENV', 'development')
+
 from app import create_app
 from app.extensions import db, socketio
 from app.models import (
@@ -21,67 +40,6 @@ from app.models import (
 from app.models.user import User as UserModel, UserRole, UserStatus
 from app.static_serving import configure_static_serving
 from app.redis_manager import RedisManager
-
-# ===== 智能加载 .env 配置文件 =====
-def load_env_config():
-    """
-    从多个可能的位置加载 .env 配置文件
-
-    加载优先级（从高到低）：
-    1. config/.env          （用户配置）
-    2. .env                  （项目根目录）
-    3. smarttable-backend/.env（开发环境）
-
-    这确保了无论在开发模式还是打包模式下，
-    都能正确读取用户修改的配置文件。
-    """
-    # 检测运行模式
-    is_packaged = getattr(sys, 'frozen', False)
-
-    if is_packaged:
-        # ===== 打包模式：基于 EXE 所在目录查找配置文件 =====
-        exe_dir = Path(sys.executable).parent
-
-        env_files = [
-            exe_dir / 'config' / '.env',           # <EXE>/config/.env (发布包内)
-            exe_dir.parent / 'config' / '.env',     # <项目根>/config/.env (开发环境)
-            exe_dir / '.env',                       # <EXE>/.env
-        ]
-    else:
-        # ===== 开发模式：基于脚本所在位置查找 =====
-        script_dir = Path(__file__).parent
-
-        env_files = [
-            script_dir.parent / 'config' / '.env',   # 项目根/config/.env
-            script_dir.parent / '.env',               # 项目根/.env
-            script_dir / '.env',                     # smarttable-backend/.env
-        ]
-
-    # 诊断输出：显示实际搜索的路径
-    print(f'[Config] 🔍 运行模式: {"打包" if is_packaged else "开发"}')
-    print(f'[Config] 🔍 __file__: {__file__}')
-    if is_packaged:
-        print(f'[Config] 🔍 sys.executable: {sys.executable}')
-        print(f'[Config] 🔍 EXE 目录: {Path(sys.executable).parent}')
-
-    for idx, env_path in enumerate(env_files, 1):
-        exists = env_path.exists()
-        print(f'[Config] 🔍 [{idx}] 检查: {env_path} {"✓ 存在" if exists else "✗ 不存在"}')
-
-        if exists:
-            load_dotenv(env_path, override=True)
-            print(f'[Config] ✓ 已加载配置文件: {env_path}')
-            return env_path
-
-    # 如果都没有找到，尝试默认行为（当前工作目录）
-    load_dotenv()
-    print('[Config] ⚠️ 未找到 .env 配置文件，使用环境变量或默认值')
-    print(f'[Config] ⚠️ 当前工作目录: {os.getcwd()}')
-    return None
-
-_LOADED_ENV = load_env_config()
-
-config_name = os.environ.get('FLASK_ENV', 'development')
 
 
 def parse_args():
