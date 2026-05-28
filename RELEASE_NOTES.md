@@ -28,8 +28,8 @@
 - 新增文档管理功能，支持文档的创建、编辑、删除、查询等完整操作
 - 文档与 Base 关联，支持基于 Base 的权限控制
 
-**文档编辑器（Quill）**
-- 基于 Quill 的富文本编辑器，支持加粗、斜体、列表、链接、表格等格式化功能
+**文档编辑器（[TinyEditor](https://github.com/opentiny/tiny-editor/)）**
+- 基于 TinyEditor 的富文本编辑器，支持加粗、斜体、列表、链接、表格等格式化功能
 - 支持 Markdown 语法编写文档内容
 - 支持键盘快捷键操作（Ctrl+S 保存等）
 - 自定义全屏切换功能
@@ -110,8 +110,8 @@ This release introduces the **Document Management Module** as a major new featur
 - New document management feature supporting create, edit, delete, query operations
 - Documents associated with Base, supporting Base-based permission control
 
-**Document Editor (Quill)**
-- Quill-based rich text editor with bold, italic, lists, links, tables, and more
+**Document Editor ([TinyEditor](https://github.com/opentiny/tiny-editor/))**
+- TinyEditor-based rich text editor with bold, italic, lists, links, tables, and more
 - Markdown syntax support for writing document content
 - Keyboard shortcut support (Ctrl+S save, etc.)
 - Custom fullscreen toggle functionality
