@@ -14,11 +14,25 @@ from pathlib import Path
 
 # ⚠️ 必须在导入 app 模块之前加载 .env 配置文件
 # 否则 config.py 读取环境变量时 DATABASE_URL 等值尚未设置
+#
+# 查找路径规则（由 getattr(sys, 'frozen', False) 区分打包/开发模式）：
+# - 打包模式（EXE）：以 EXE 所在目录为基准
+# - 开发模式：以项目根目录（run.py 的父目录的父目录）为基准
+#
+# 加载优先级（从高到低）：
+#   1. {base_dir}/config/.env  （用户配置，最高优先级）
+#   2. {base_dir}/.env         （项目根目录 / EXE 根目录）
+#   3. smarttable-backend/.env  （开发环境，最低优先级）
+_load_env_base = (
+    Path(sys.executable).parent
+    if getattr(sys, 'frozen', False)
+    else Path(__file__).parent.parent
+)
 _load_env_result = None
 _env_loaded = False
 for _env_path in [
-    Path(__file__).parent.parent / 'config' / '.env',
-    Path(__file__).parent.parent / '.env',
+    _load_env_base / 'config' / '.env',
+    _load_env_base / '.env',
     Path(__file__).parent / '.env',
 ]:
     if _env_path.exists():
