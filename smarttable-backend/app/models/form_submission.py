@@ -73,7 +73,7 @@ class FormSubmission(db.Model):
     
     # 提交时间
     submitted_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
         index=True

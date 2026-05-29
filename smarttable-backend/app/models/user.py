@@ -95,7 +95,7 @@ class User(db.Model):
         index=True
     )
     verification_token_expires: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True
     )
     reset_token: Mapped[str] = mapped_column(
@@ -104,7 +104,7 @@ class User(db.Model):
         index=True
     )
     reset_token_expires: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True
     )
     must_change_password: Mapped[bool] = mapped_column(
@@ -113,20 +113,20 @@ class User(db.Model):
         nullable=False
     )
     password_changed_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True
     )
     last_login_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
@@ -264,8 +264,8 @@ class TokenBlocklist(db.Model):
         ForeignKey('users.id', ondelete='CASCADE'),
         nullable=False
     )
-    revoked_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     
     user = relationship('User', lazy='joined')
     
