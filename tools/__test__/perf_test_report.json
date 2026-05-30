@@ -1,0 +1,32 @@
+{
+  "test_time": "2026-05-29T23:13:33.071126",
+  "environment": {
+    "record_count": 5000,
+    "batch_size": 100,
+    "base_delay_ms": 600,
+    "database": "PostgreSQL"
+  },
+  "single_record_import": {
+    "total_records": 100,
+    "success": 99,
+    "failed": 1,
+    "total_time_seconds": 18.27,
+    "rate_per_second": 5.47
+  },
+  "batch_import": {
+    "total_records": 5000,
+    "success": 4900,
+    "failed": 100,
+    "total_time_seconds": 323.96,
+    "rate_per_second": 15.43,
+    "total_batches": 50,
+    "avg_response_time_ms": 5307.7,
+    "final_delay_ms": 1542
+  },
+  "comparison": {
+    "speedup_factor": 2.82,
+    "http_requests_single": 100,
+    "http_requests_batch": 50,
+    "request_reduction_factor": 2.0
+  }
+}
