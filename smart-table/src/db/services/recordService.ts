@@ -448,15 +448,18 @@ export class RecordService {
       // 将后端返回的记录保存到本地 IndexedDB
       const createdRecords: RecordEntity[] = [];
       await db.transaction("rw", [db.records, db.tableEntities], async () => {
-        for (const apiRecord of response.records) {
+        const now = Date.now();
+        for (let i = 0; i < response.record_ids.length; i++) {
+          const recordId = response.record_ids[i];
+          const originalRecord = records[i];
           const localRecord: RecordEntity = {
-            id: apiRecord.id,
-            tableId: apiRecord.table_id || tableId,
-            values: apiRecord.values as Record<string, CellValue>,
-            createdAt: new Date(apiRecord.created_at).getTime(),
-            updatedAt: new Date(apiRecord.updated_at).getTime(),
-            createdBy: apiRecord.created_by,
-            updatedBy: apiRecord.updated_by,
+            id: recordId,
+            tableId,
+            values: originalRecord.values,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: originalRecord.createdBy,
+            updatedBy: originalRecord.updatedBy,
           };
           await db.records.add(localRecord);
           createdRecords.push(localRecord);

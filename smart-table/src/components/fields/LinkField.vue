@@ -192,7 +192,13 @@ async function removeRecord(recordId: string) {
   if (deleting.value) return;
 
   const recordName = getRecordDisplayValue(
-    selectedRecords.value.find((r) => r.id === recordId) || { id: recordId, values: {} }
+    selectedRecords.value.find((r) => r.id === recordId) || {
+      id: recordId,
+      tableId: props.record?.tableId || "",
+      values: {},
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
   );
 
   try {

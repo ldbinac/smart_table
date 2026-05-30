@@ -58,7 +58,6 @@ import { ElTag, ElMessage, ElMessageBox } from "element-plus";
 import LinkRecordSelector from "./LinkRecordSelector.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import { recordApiService } from "@/services/api/recordApiService";
-import { linkApiService } from "@/services/api/linkApiService";
 import { fieldService } from "@/db/services/fieldService";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import type { FieldEntity, RecordEntity } from "@/db/schema";

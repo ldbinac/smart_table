@@ -105,7 +105,7 @@ const titleField = computed(() => {
 interface GalleryCard {
   id: string;
   title: string;
-  images: Array<{ url: string; name: string }>;
+  images: Array<{ url: string; name: string; originalName: string }>;
   record: RecordEntity;
 }
 
@@ -163,6 +163,7 @@ const cards = computed<GalleryCard[]>(() => {
         url?: string;
         name?: string;
         thumbnail?: string;
+        originalName?: string;
       }>;
       const title = getRecordTitle(record);
 

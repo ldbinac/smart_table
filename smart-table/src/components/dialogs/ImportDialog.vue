@@ -24,7 +24,7 @@ import {
   type ParsedFileData,
   type FieldMapping,
 } from "@/utils/importExport";
-import { getFieldTypeLabel } from "@/types/fields";
+import { getFieldTypeLabel, type CellValue } from "@/types/fields";
 import { exportTemplate } from "@/utils/templateGenerator";
 import {
   BatchImportController,
@@ -211,19 +211,19 @@ const mappedFields = computed(() => {
     }));
 });
 
-function prepareImportData(): Record<string, unknown>[] {
+function prepareImportData(): Record<string, CellValue>[] {
   if (!parsedData.value) return [];
   return parsedData.value.data.map((row) => {
     return convertImportData(row, fieldMappings.value, availableFields.value);
   });
 }
 
-function validateAllRows(rows: Record<string, unknown>[]): {
-  validRows: Record<string, unknown>[];
-  invalidRows: Array<{ index: number; row: Record<string, unknown>; errors: string[] }>;
+function validateAllRows(rows: Record<string, CellValue>[]): {
+  validRows: Record<string, CellValue>[];
+  invalidRows: Array<{ index: number; row: Record<string, CellValue>; errors: string[] }>;
 } {
-  const validRows: Record<string, unknown>[] = [];
-  const invalidRows: Array<{ index: number; row: Record<string, unknown>; errors: string[] }> = [];
+  const validRows: Record<string, CellValue>[] = [];
+  const invalidRows: Array<{ index: number; row: Record<string, CellValue>; errors: string[] }> = [];
 
   rows.forEach((row, index) => {
     const validation = validateRow(row, availableFields.value);

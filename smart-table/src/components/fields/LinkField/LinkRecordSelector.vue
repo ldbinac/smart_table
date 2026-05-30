@@ -227,7 +227,7 @@ const indeterminate = computed(() => {
   return selectedCount > 0 && selectedCount < records.value.length;
 });
 
-function toggleSelectAll(checked: boolean) {
+function toggleSelectAll(checked: boolean | string | number) {
   if (!props.allowMultiple) {
     if (checked && records.value.length > 0) {
       selectedRecords.value = [records.value[0]];
@@ -437,7 +437,7 @@ watch(
 // 当 selectedIds 或 linkedRecords 发生变化时，重新初始化已选记录
 watch(
   [() => props.selectedIds, () => props.linkedRecords],
-  ([newIds, newRecords]) => {
+  ([newIds]) => {
     if (props.visible && newIds && newIds.length > 0) {
       console.log('[LinkRecordSelector] selectedIds/linkedRecords changed, re-initializing');
       initSelectedRecords();
