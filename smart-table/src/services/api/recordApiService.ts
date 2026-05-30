@@ -27,15 +27,8 @@ export const getRecords = async (
 
     return response as PaginatedData<TableRecord>;
   } catch (error) {
-    // 401 错误时返回空列表，让前端使用本地缓存
     console.warn("[recordApiService] getRecords failed:", error);
-    return {
-      items: [],
-      total: 0,
-      page: 1,
-      per_page: 100,
-      total_pages: 0,
-    };
+    throw error;
   }
 };
 

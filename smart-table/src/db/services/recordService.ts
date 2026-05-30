@@ -274,6 +274,8 @@ export class RecordService {
     pageSize: number,
     callbacks?: StreamingLoadCallbacks,
   ): Promise<void> {
+    const MAX_RETRIES = 3;
+
     try {
       for (let page = 2; page <= state.totalPages; page++) {
         // 检查是否被中断
@@ -284,17 +286,33 @@ export class RecordService {
 
         console.log(`[recordService] 加载第 ${page}/${state.totalPages} 页`);
 
-        const response = await recordApiService.getRecords(tableId, {
-          page,
-          per_page: pageSize,
-        });
+        // 带重试的API调用
+        let response;
+        let retryCount = 0;
+        while (retryCount < MAX_RETRIES) {
+          try {
+            response = await recordApiService.getRecords(tableId, {
+              page,
+              per_page: pageSize,
+            });
+            break;
+          } catch (error) {
+            retryCount++;
+            if (retryCount >= MAX_RETRIES) {
+              throw error;
+            }
+            const delay = 1000 * retryCount;
+            console.warn(`[recordService] 第 ${page} 页加载失败，${delay}ms 后重试 (${retryCount}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
 
         // 保存到 IndexedDB
-        await this.saveRecordsToLocal(tableId, response.items);
+        await this.saveRecordsToLocal(tableId, response!.items);
 
         // 更新状态
         state.currentPage = page;
-        state.loadedCount += response.items.length;
+        state.loadedCount += response!.items.length;
 
         console.log(`[recordService] 第 ${page} 页加载完成，累计: ${state.loadedCount}/${state.totalCount}`);
 
@@ -315,6 +333,9 @@ export class RecordService {
       state.error = error instanceof Error ? error.message : '加载失败';
       console.error(`[recordService] 流式加载失败:`, error);
       callbacks?.onError?.(state.error);
+      // 即使出错也通知一次进度，让UI显示已成功加载的数据
+      callbacks?.onProgress?.({ ...state });
+      throw error;
     }
   }
 

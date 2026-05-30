@@ -36,6 +36,7 @@ export const useTableStore = defineStore("table", () => {
     error: null,
   });
   let cleanupTableListeners: (() => void) | null = null;
+  let refreshRecordsGeneration = 0;
 
   async function loadTables(baseId: string) {
     loading.value = true;
@@ -82,6 +83,8 @@ export const useTableStore = defineStore("table", () => {
           onError: (err) => {
             console.error("[tableStore] 流式加载失败:", err);
             error.value = err;
+            // 加载失败也刷新本地数据，展示已成功加载的部分
+            refreshRecords(tableId);
           },
         },
         50,
@@ -101,11 +104,13 @@ export const useTableStore = defineStore("table", () => {
   }
 
   async function refreshRecords(tableId: string) {
+    const gen = ++refreshRecordsGeneration;
     try {
-      // 直接从 IndexedDB 读取所有已加载的记录，避免重复调用API
       const localRecords = await recordService.getLocalRecordsByTable(tableId);
-      records.value = localRecords;
-      console.log(`[tableStore] 已从本地刷新记录列表: ${localRecords.length} 条`);
+      if (gen === refreshRecordsGeneration) {
+        records.value = localRecords;
+        console.log(`[tableStore] 已从本地刷新记录列表: ${localRecords.length} 条`);
+      }
     } catch (e) {
       console.error("[tableStore] refreshRecords failed:", e);
     }
