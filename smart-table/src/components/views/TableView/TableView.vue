@@ -25,6 +25,7 @@ import { ZoomIn, Check } from "@element-plus/icons-vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 import LoadingProgress from "@/components/common/LoadingProgress.vue";
+import LoadingOverlay from "@/components/common/LoadingOverlay.vue";
 
 interface Props {
   tableId?: string;
@@ -55,6 +56,8 @@ const viewStore = useViewStore();
 const selectedRows = ref<string[]>([]);
 const hoveredRowId = ref<string | null>(null);
 const editingCell = ref<{ recordId: string; fieldId: string } | null>(null);
+
+const deleteLoading = ref(false);
 
 // 放大按钮相关
 const expandedRecord = ref<RecordEntity | null>(null);
@@ -406,10 +409,15 @@ const handleContextMenuSelect = async (item: any) => {
             confirmButtonClass: "el-button--danger",
           },
         );
-        await tableStore.batchDeleteRecords(selectedRows.value);
-        emit("record-delete", [...selectedRows.value]);
-        selectedRows.value = [];
-        ElMessage.success("记录删除成功");
+        deleteLoading.value = true;
+        try {
+          await tableStore.batchDeleteRecords(selectedRows.value);
+          emit("record-delete", [...selectedRows.value]);
+          selectedRows.value = [];
+          ElMessage.success("记录删除成功");
+        } finally {
+          deleteLoading.value = false;
+        }
       } catch (error: any) {
         if (error !== "cancel") {
           console.error("删除记录失败:", error);
@@ -567,10 +575,15 @@ const handleKeyDown = async (event: KeyboardEvent) => {
               confirmButtonClass: "el-button--danger",
             },
           );
-          await tableStore.batchDeleteRecords(selectedRows.value);
-          emit("record-delete", [...selectedRows.value]);
-          selectedRows.value = [];
-          ElMessage.success("记录删除成功");
+          deleteLoading.value = true;
+          try {
+            await tableStore.batchDeleteRecords(selectedRows.value);
+            emit("record-delete", [...selectedRows.value]);
+            selectedRows.value = [];
+            ElMessage.success("记录删除成功");
+          } finally {
+            deleteLoading.value = false;
+          }
         } catch (error: any) {
           if (error !== "cancel") {
             console.error("删除记录失败:", error);
@@ -940,6 +953,12 @@ defineExpose({
       :visible="tableStore.streamingState.isLoading"
       :loaded-count="tableStore.streamingState.loadedCount"
       :total-count="tableStore.streamingState.totalCount" />
+
+    <!-- 批量删除加载遮罩 -->
+    <LoadingOverlay
+      :visible="deleteLoading"
+      :record-count="selectedRows.length"
+      action-text="删除" />
   </div>
 </template>
 
