@@ -372,7 +372,7 @@ function canPreview(file: AttachmentFile): boolean {
             v-if="file.thumbnail"
             :src="file.thumbnail"
             class="file-thumbnail"
-            :alt="file.name"
+            :alt="file.originalName"
           />
           <div
             v-else
@@ -387,7 +387,7 @@ function canPreview(file: AttachmentFile): boolean {
 
         <!-- 文件信息 -->
         <div class="file-info">
-          <span class="file-name" :title="file.name">{{ file.name }}</span>
+          <span class="file-name" :title="file.originalName">{{ file.originalName }}</span>
           <span class="file-size">{{ formatFileSize(file.size) }}</span>
         </div>
 
@@ -426,7 +426,7 @@ function canPreview(file: AttachmentFile): boolean {
     <!-- 预览对话框 -->
     <el-dialog
       v-model="previewVisible"
-      :title="previewFile?.name || '预览'"
+      :title="previewFile?.originalName || '预览'"
       width="90%"
       top="5vh"
       destroy-on-close
@@ -440,7 +440,7 @@ function canPreview(file: AttachmentFile): boolean {
             <img
               :src="previewFile.url || previewFile.thumbnail"
               class="preview-image"
-              :alt="previewFile.name"
+              :alt="previewFile.originalName"
               :style="imagePreviewStyle"
               @mousedown="startImageDrag"
               @mousemove="handleImageDrag"
