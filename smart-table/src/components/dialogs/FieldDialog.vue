@@ -31,7 +31,7 @@ import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
 import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
-import { Rank, ArrowRight } from "@element-plus/icons-vue";
+import { Rank, ArrowRight, Link } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 
@@ -1603,9 +1603,10 @@ async function toggleFieldVisibility(
               <ElRadioButton label="one_to_one">一对一</ElRadioButton>
               <ElRadioButton label="one_to_many">一对多</ElRadioButton>
               <ElRadioButton label="many_to_one">多对一</ElRadioButton>
+              <ElRadioButton label="many_to_many">多对多</ElRadioButton>
             </ElRadioGroup>
             <div class="field-hint">
-              一对一：每条记录只能关联一条目标记录；一对多：每条记录可以关联多条目标记录；多对一：多条记录可以关联到同一条目标记录
+              一对一：每条记录只能关联一条目标记录；一对多：每条记录可以关联多条目标记录；多对一：多条记录可以关联到同一条目标记录；多对多：多条记录可相互关联
             </div>
           </ElFormItem>
 
@@ -1630,6 +1631,23 @@ async function toggleFieldVisibility(
             <ElSwitch v-model="newField.linkConfig.bidirectional" />
             <div class="field-hint">
               开启后会在目标表中自动创建一个反向关联字段，方便从目标记录查看关联的源记录
+            </div>
+          </ElFormItem>
+
+          <!-- 双向关联预览 -->
+          <ElFormItem
+            v-if="newField.linkConfig.bidirectional && newField.linkConfig.targetTableId"
+            label="反向关联预览"
+          >
+            <div class="inverse-preview">
+              <div class="inverse-preview-row">
+                <el-icon><Link /></el-icon>
+                <span>目标表「<b>{{ tableStore.tables.find((t) => t.id === newField.linkConfig.targetTableId)?.name || '目标表' }}</b>」将自动新增字段：</span>
+              </div>
+              <el-tag size="small" type="success" effect="plain" class="inverse-field-tag">
+                <el-icon style="margin-right: 4px; font-size: 12px;"><Link /></el-icon>
+                来自 {{ tableStore.tables.find((t) => t.id === tableId)?.name || '当前表' }} 的关联
+              </el-tag>
             </div>
           </ElFormItem>
 
@@ -2170,6 +2188,34 @@ async function toggleFieldVisibility(
         font-size: calc($font-size-xs * 0.85);
         color: $text-secondary;
       }
+    }
+  }
+
+  // 反向关联预览样式
+  .inverse-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background-color: rgba(16, 185, 129, 0.04);
+    border-radius: $border-radius-md;
+    border: 1px solid rgba(16, 185, 129, 0.15);
+
+    .inverse-preview-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: $font-size-sm;
+      color: $text-secondary;
+      line-height: 1.5;
+
+      b {
+        color: $text-primary;
+      }
+    }
+
+    .inverse-field-tag {
+      width: fit-content;
     }
   }
 }

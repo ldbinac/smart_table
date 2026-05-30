@@ -108,8 +108,9 @@ const loadLinkedRecords = async (field: FieldEntity) => {
     const links = await linkApiService.getRecordLinks(props.record.id);
     console.log(`[RecordDetailDrawer] API 返回关联数据:`, links);
     
-    const fieldLinks = links.outbound.find((l) => l.field_id === fieldId);
-    if (fieldLinks && fieldLinks.linked_records) {
+    const fieldLinks = links.outbound.find((l) => l.field_id === fieldId)
+      || links.inbound.find((l) => l.field_id === fieldId);
+    if (fieldLinks && fieldLinks.linked_records && fieldLinks.linked_records.length > 0) {
       linkFieldRecords.value.set(
         fieldId,
         fieldLinks.linked_records.map((r) => ({
@@ -169,6 +170,38 @@ const handleLinkFieldChange = async (
   } catch (error) {
     console.error("[RecordDetailDrawer] 更新关联字段失败:", error);
     ElMessage.error("更新关联字段失败");
+  }
+};
+
+// 处理关联字段删除单个关联
+const handleLinkFieldRemove = async (
+  field: FieldEntity,
+  targetRecordId: string,
+) => {
+  if (!props.record) return;
+
+  try {
+    await linkApiService.deleteRecordLink(
+      props.record.id,
+      field.id,
+      targetRecordId,
+    );
+
+    const currentRecords = linkFieldRecords.value.get(field.id) || [];
+    const updatedRecords = currentRecords.filter(
+      (r) => r.record_id !== targetRecordId,
+    );
+    linkFieldRecords.value.set(field.id, updatedRecords);
+
+    const currentValue = (formData.value[field.id] as string[]) || [];
+    formData.value[field.id] = currentValue.filter(
+      (id) => id !== targetRecordId,
+    );
+
+    ElMessage.success("已解除关联");
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 解除关联失败:", error);
+    ElMessage.error("解除关联失败，请稍后重试");
   }
 };
 
@@ -736,15 +769,14 @@ const drawerTitle = computed(() => {
               :relationship-type="getLinkFieldConfig(field)?.relationshipType"
               :is-editing="editingLinkField === field.id"
               :readonly="readonly"
+              :record-id="record?.id || ''"
+              :field-id="field.id"
               @edit-start="handleLinkFieldEdit(field.id)"
-              @update:value="
-                (val) =>
-                  handleLinkFieldChange(field, val, getLinkedRecords(field))
-              "
               @change="
                 (val, records) => handleLinkFieldChange(field, val, records)
               "
-              @edit-end="editingLinkField = null" />
+              @edit-end="editingLinkField = null"
+              @remove="(targetId) => handleLinkFieldRemove(field, targetId)" />
           </template>
 
           <!-- 自动编号字段类型 -->

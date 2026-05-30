@@ -7,8 +7,10 @@
           v-for="record in displayedRecords"
           :key="record.record_id"
           size="small"
+          :closable="!props.readonly"
           class="link-tag"
           @click.stop="showRecordDetail(record.record_id)"
+          @close.stop="handleRemove(record.record_id)"
         >
           {{ record.display_value }}
         </el-tag>
@@ -31,6 +33,7 @@
         :target-table-id="targetTableId"
         :display-field-id="displayFieldId"
         :selected-ids="selectedRecordIds"
+        :linked-records="linkedRecords"
         :allow-multiple="allowMultiple"
         @confirm="handleConfirm"
         @cancel="handleCancel"
@@ -51,10 +54,11 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ElTag, ElMessage } from "element-plus";
+import { ElTag, ElMessage, ElMessageBox } from "element-plus";
 import LinkRecordSelector from "./LinkRecordSelector.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import { recordApiService } from "@/services/api/recordApiService";
+import { linkApiService } from "@/services/api/linkApiService";
 import { fieldService } from "@/db/services/fieldService";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
@@ -67,6 +71,9 @@ interface Props {
   relationshipType?: RelationshipType;
   isEditing?: boolean;
   maxDisplayCount?: number;
+  readonly?: boolean;
+  recordId?: string;
+  fieldId?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -75,6 +82,9 @@ const props = withDefaults(defineProps<Props>(), {
   relationshipType: "one_to_many",
   isEditing: false,
   maxDisplayCount: 3,
+  readonly: false,
+  recordId: "",
+  fieldId: "",
 });
 
 const emit = defineEmits<{
@@ -82,6 +92,7 @@ const emit = defineEmits<{
   (e: "change", value: string[], records: LinkedRecord[]): void;
   (e: "edit-start"): void;
   (e: "edit-end"): void;
+  (e: "remove", recordId: string): void;
 }>();
 
 const selectedRecordIds = computed(() => props.value || []);
@@ -181,6 +192,29 @@ const handleCancel = () => {
   // 取消编辑，通知父组件关闭编辑状态
   emit("edit-end");
 };
+
+// 处理删除单个关联
+const handleRemove = async (recordId: string) => {
+  if (props.readonly) return;
+
+  const record = props.linkedRecords.find((r) => r.record_id === recordId);
+  const recordName = record?.display_value || recordId;
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要解除与「${recordName}」的关联关系吗？`,
+      "确认解除关联",
+      {
+        confirmButtonText: "确认解除",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
+    );
+
+    emit("remove", recordId);
+  } catch {
+  }
+};
 </script>
 
 <style scoped lang="scss">
@@ -212,6 +246,16 @@ const handleCancel = () => {
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  :deep(.el-tag__close) {
+    opacity: 1;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background-color: var(--el-color-danger);
+      color: #fff;
+    }
   }
 }
 

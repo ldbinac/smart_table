@@ -426,33 +426,46 @@ const handleClose = () => {
 .record-detail-content {
   .record-header {
     margin-bottom: 16px;
+    padding: 12px 16px;
+    background-color: var(--el-fill-color-light);
+    border-radius: 8px;
 
     .record-id,
     .record-time {
       display: flex;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
 
       .label {
         color: var(--el-text-color-secondary);
-        font-size: 14px;
+        font-size: 13px;
         margin-right: 8px;
         min-width: 70px;
+        flex-shrink: 0;
       }
 
       .value {
         color: var(--el-text-color-primary);
-        font-size: 14px;
-        font-family: monospace;
+        font-size: 13px;
+        font-family: "SF Mono", Monaco, monospace;
+        word-break: break-all;
       }
     }
+  }
+
+  .el-divider {
+    margin: 16px 0;
   }
 
   .fields-list {
     .field-item {
       display: flex;
       align-items: flex-start;
-      padding: 12px 0;
+      padding: 10px 0;
       border-bottom: 1px solid var(--el-border-color-lighter);
 
       &:last-child {
@@ -460,18 +473,20 @@ const handleClose = () => {
       }
 
       .field-label {
-        width: 120px;
+        width: 100px;
         flex-shrink: 0;
         color: var(--el-text-color-secondary);
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
+        padding-top: 2px;
       }
 
       .field-value {
         flex: 1;
         color: var(--el-text-color-primary);
-        font-size: 14px;
+        font-size: 13px;
         word-break: break-all;
+        line-height: 1.6;
 
         .value-tag {
           margin-right: 4px;

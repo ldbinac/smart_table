@@ -124,12 +124,15 @@ def get_records(table_id) -> tuple:
                 for field in link_fields:
                     field_id = str(field.id)
                     if field_id in record_links:
-                        # 获取关联的记录ID列表
-                        linked_ids = [
-                            link['target_record_id'] 
-                            for link in record_links[field_id]
-                            if link.get('direction') == 'outgoing'
-                        ]
+                        # 获取关联的记录ID列表 - 同时支持 outgoing 和 incoming 链接
+                        linked_ids = []
+                        for link in record_links[field_id]:
+                            if link.get('direction') == 'outgoing':
+                                linked_ids.append(link['target_record_id'])
+                            elif link.get('direction') == 'incoming':
+                                linked_ids.append(link['source_record_id'])
+                        # 去重处理，解决双向关联时同一记录同时出现在 outgoing 和 incoming 导致重复的问题
+                        linked_ids = list(dict.fromkeys(linked_ids))
                         item['values'][field_id] = linked_ids
             
             # 如果有公式字段，计算公式值
@@ -1118,6 +1121,99 @@ def update_record_link(record_id, field_id) -> tuple:
         current_app.logger.error(f'[{request_id}] 更新关联值失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response('更新关联值失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+
+
+@records_bp.route('/records/<record_id>/links/<field_id>', methods=['DELETE'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor'])
+def delete_record_link(record_id, field_id) -> tuple:
+    """
+    删除单个关联值（解除记录之间的关联关系）
+
+    仅解除关联关系，不删除关联数据本身。
+    如果是双向关联，同步删除反向关联关系。
+
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 源记录 ID
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 关联字段 ID
+      - name: target_record_id
+        in: query
+        type: string
+        required: true
+        description: 目标记录 ID
+    responses:
+      200:
+        description: 关联解除成功
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
+      404:
+        description: 记录或关联关系不存在
+      500:
+        description: 操作失败
+    """
+    record = RecordService.get_record_by_id(record_id)
+    if not record:
+        return error_response('记录不存在', 404)
+
+    field = FieldService.get_field(field_id)
+    if not field:
+        return error_response('字段不存在', 404)
+
+    if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
+        return error_response('该字段不是关联字段', 400)
+
+    target_record_id = request.args.get('target_record_id')
+    if not target_record_id:
+        return error_response('缺少 target_record_id 参数', 400)
+
+    try:
+        # 获取字段配置中的目标表ID
+        field_config = field.config or {}
+        target_table_id = field_config.get('linkedTableId')
+        if not target_table_id:
+            return error_response('字段配置缺少关联表ID', 400)
+
+        # 获取关联关系
+        link_relation = LinkService.get_link_relation_by_field(field_id, target_table_id)
+        if not link_relation:
+            return error_response('关联关系不存在', 404)
+
+        # 执行删除
+        result = LinkService.delete_link_value_by_target(
+            link_relation_id=str(link_relation.id),
+            source_record_id=record_id,
+            target_record_id=target_record_id,
+            updated_by=g.current_user_id
+        )
+
+        if not result[0]:
+            return error_response(result[1], 400)
+
+        return success_response(
+            data={'link_relation_id': str(link_relation.id)},
+            message='关联已解除'
+        )
+
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 删除关联值失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('删除关联值失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records/search', methods=['GET'])

@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Link, ArrowRight, Close, Search, Check } from "@element-plus/icons-vue";
 import { tableService } from "@/db/services/tableService";
 import { fieldService } from "@/db/services/fieldService";
 import { recordService } from "@/db/services/recordService";
+import { recordApiService } from "@/services/api/recordApiService";
+import { linkApiService } from "@/services/api/linkApiService";
 import type { FieldEntity, RecordEntity, TableEntity } from "@/db/schema";
 import type { CellValue } from "@/types";
-import { Check, Link, ArrowRight } from "@element-plus/icons-vue";
+import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 
 interface Props {
   modelValue: CellValue;
   field: FieldEntity;
   readonly?: boolean;
   baseId?: string;
+  record?: RecordEntity;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -23,43 +27,40 @@ const emit = defineEmits<{
   (e: "update:modelValue", value: CellValue): void;
 }>();
 
-// 关联表相关
-const currentBaseId = ref<string>("");
+const MAX_DISPLAY_COUNT = 3;
+
 const linkedTableId = ref<string>("");
-const linkedFieldId = ref<string>("");
 const linkedTables = ref<TableEntity[]>([]);
 const linkedFields = ref<FieldEntity[]>([]);
 const linkedRecords = ref<RecordEntity[]>([]);
 const selectedRecords = ref<RecordEntity[]>([]);
 
-// UI 状态
-const visible = ref(false);
 const searchQuery = ref("");
 const loading = ref(false);
 const recordLoading = ref(false);
 const showRecordSelector = ref(false);
+const deleting = ref(false);
 
-// 多对多关联
-const isManyToMany = computed(() => {
-  return props.field.options?.relationshipType === "many_to_many";
-});
-
-// 是否允许多选
-const allowMultiple = computed(() => {
-  return props.field.options?.allowMultiple !== false || isManyToMany.value;
-});
-
-// 显示字段 - 用于显示关联记录的哪个字段值
 const displayField = computed(() => {
-  const displayFieldId = props.field.options?.displayFieldId as string;
+  const displayFieldId = props.field.config?.displayFieldId as string;
   if (displayFieldId) {
     return linkedFields.value.find((f) => f.id === displayFieldId);
   }
-  // 默认使用主字段或第一个字段
   return linkedFields.value.find((f) => f.isPrimary) || linkedFields.value[0];
 });
 
-// 过滤后的记录
+const displayRecords = computed(() => {
+  return selectedRecords.value.slice(0, MAX_DISPLAY_COUNT);
+});
+
+const hasMoreRecords = computed(() => {
+  return selectedRecords.value.length > MAX_DISPLAY_COUNT;
+});
+
+const hiddenRecordCount = computed(() => {
+  return selectedRecords.value.length - MAX_DISPLAY_COUNT;
+});
+
 const filteredRecords = computed(() => {
   if (!searchQuery.value) return linkedRecords.value;
   const query = searchQuery.value.toLowerCase();
@@ -68,68 +69,52 @@ const filteredRecords = computed(() => {
     const value = displayFieldValue
       ? record.values[displayFieldValue.id]
       : record.id;
-    return String(value || "")
-      .toLowerCase()
-      .includes(query);
+    return String(value || "").toLowerCase().includes(query);
   });
 });
 
-// 已选记录的 ID 列表
 const selectedRecordIds = computed(() => {
   return selectedRecords.value.map((r) => r.id);
 });
 
-// 获取当前表的基础 ID
-async function loadCurrentBaseId() {
-  if (props.baseId) {
-    currentBaseId.value = props.baseId;
-    return;
-  }
-  // 从当前字段的表获取基础 ID
+const targetTableName = computed(() => {
+  const table = linkedTables.value.find((t) => t.id === linkedTableId.value);
+  return table?.name || "";
+});
+
+async function loadCurrentBaseId(): Promise<string> {
+  if (props.baseId) return props.baseId;
   const field = await fieldService.getField(props.field.id);
   if (field) {
     const table = await tableService.getTable(field.tableId);
-    if (table) {
-      currentBaseId.value = table.baseId;
-    }
+    if (table) return table.baseId;
   }
+  return "";
 }
 
-// 加载可关联的表列表
 async function loadLinkedTables() {
-  if (!currentBaseId.value) return;
+  const baseId = await loadCurrentBaseId();
+  if (!baseId) return;
   try {
     loading.value = true;
-    linkedTables.value = await tableService.getTablesByBase(
-      currentBaseId.value,
-    );
+    linkedTables.value = await tableService.getTablesByBase(baseId);
   } catch (error) {
     console.error("加载关联表失败:", error);
-    ElMessage.error("加载关联表失败");
   } finally {
     loading.value = false;
   }
 }
 
-// 加载关联表的数据（字段和记录）
 async function loadLinkedTableData() {
   if (!linkedTableId.value) {
     linkedFields.value = [];
     linkedRecords.value = [];
     return;
   }
-
   try {
     recordLoading.value = true;
-    // 加载字段
-    linkedFields.value = await fieldService.getFieldsByTable(
-      linkedTableId.value,
-    );
-    // 加载记录
-    linkedRecords.value = await recordService.getRecordsByTable(
-      linkedTableId.value,
-    );
-    // 更新已选记录
+    linkedFields.value = await fieldService.getFieldsByTable(linkedTableId.value);
+    linkedRecords.value = await recordService.getRecordsByTable(linkedTableId.value);
     updateSelectedRecordsFromModelValue();
   } catch (error) {
     console.error("加载关联表数据失败:", error);
@@ -139,121 +124,177 @@ async function loadLinkedTableData() {
   }
 }
 
-// 从 modelValue 更新已选记录
 function updateSelectedRecordsFromModelValue() {
   const value = props.modelValue;
+  console.log('[LinkField] updateSelectedRecordsFromModelValue: value=', value);
   if (!value) {
+    selectedRecords.value = [];
+    console.log('[LinkField] updateSelectedRecordsFromModelValue: no value, cleared');
+    return;
+  }
+
+  let ids: string[] = [];
+  if (Array.isArray(value)) {
+    ids = value.map((v) =>
+      typeof v === "string" ? v : (v as { id: string }).id,
+    );
+  } else if (value && typeof value === "object" && "id" in value) {
+    ids = [(value as { id: string }).id];
+  } else if (typeof value === "string") {
+    ids = [value];
+  }
+
+  console.log('[LinkField] updateSelectedRecordsFromModelValue: parsed ids=', ids);
+
+  if (ids.length === 0) {
     selectedRecords.value = [];
     return;
   }
 
-  if (Array.isArray(value)) {
-    const ids = value.map((v) =>
-      typeof v === "string" ? v : (v as { id: string }).id,
-    );
-    selectedRecords.value = linkedRecords.value.filter((r) =>
-      ids.includes(r.id),
-    );
-  } else if (value && typeof value === "object" && "id" in value) {
-    const id = (value as { id: string }).id;
-    selectedRecords.value = linkedRecords.value.filter((r) => r.id === id);
-  } else {
-    selectedRecords.value = [];
-  }
+  const existingIds = new Set(linkedRecords.value.map((r) => r.id));
+  const matched = linkedRecords.value.filter((r) => ids.includes(r.id));
+  const unmatched = ids
+    .filter((id) => !existingIds.has(id))
+    .map((id) => ({ id, tableId: "", values: {} } as RecordEntity));
+
+  console.log('[LinkField] updateSelectedRecordsFromModelValue: matched=', matched.length, 'unmatched=', unmatched.length);
+  console.log('[LinkField] linkedRecords ids:', linkedRecords.value.map(r => r.id));
+
+  selectedRecords.value = [...matched, ...unmatched];
 }
 
-// 处理关联表变更
-function handleTableChange(tableId: string) {
-  linkedTableId.value = tableId;
-  linkedFieldId.value = "";
-  selectedRecords.value = [];
-  emit("update:modelValue", allowMultiple.value ? [] : null);
-  loadLinkedTableData();
-}
-
-// 处理显示字段变更
-function handleDisplayFieldChange(fieldId: string) {
-  linkedFieldId.value = fieldId;
-}
-
-// 检查记录是否已选中
 function isSelected(record: RecordEntity): boolean {
   return selectedRecordIds.value.includes(record.id);
 }
 
-// 切换记录选中状态
 function toggleRecord(record: RecordEntity) {
   if (props.readonly) return;
 
-  if (allowMultiple.value) {
+  const allowMultiple = props.field.config?.relationshipType !== "one_to_one";
+
+  if (allowMultiple) {
     const index = selectedRecords.value.findIndex((r) => r.id === record.id);
     if (index > -1) {
       selectedRecords.value.splice(index, 1);
     } else {
       selectedRecords.value.push(record);
     }
-    emit(
-      "update:modelValue",
-      selectedRecords.value.map((r) => r.id),
-    );
+    emit("update:modelValue", selectedRecords.value.map((r) => r.id));
   } else {
     selectedRecords.value = [record];
     emit("update:modelValue", record.id);
-    visible.value = false;
+    showRecordSelector.value = false;
   }
 }
 
-// 移除已选记录
-function removeRecord(recordId: string) {
+async function removeRecord(recordId: string) {
   if (props.readonly) return;
+  if (deleting.value) return;
 
-  selectedRecords.value = selectedRecords.value.filter(
-    (r) => r.id !== recordId,
+  const recordName = getRecordDisplayValue(
+    selectedRecords.value.find((r) => r.id === recordId) || { id: recordId, values: {} }
   );
-  if (allowMultiple.value) {
-    emit(
-      "update:modelValue",
-      selectedRecords.value.map((r) => r.id),
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要解除与「${recordName}」的关联关系吗？`,
+      "确认解除关联",
+      {
+        confirmButtonText: "确认解除",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
     );
-  } else {
-    emit("update:modelValue", null);
+  } catch {
+    return;
+  }
+
+  deleting.value = true;
+  try {
+    if (props.record?.id) {
+      await linkApiService.deleteRecordLink(
+        props.record.id,
+        props.field.id,
+        recordId,
+      );
+    }
+
+    selectedRecords.value = selectedRecords.value.filter((r) => r.id !== recordId);
+    const allowMultiple = props.field.config?.relationshipType !== "one_to_one";
+    if (allowMultiple) {
+      emit("update:modelValue", selectedRecords.value.map((r) => r.id));
+    } else {
+      emit("update:modelValue", null);
+    }
+
+    ElMessage.success("已解除关联");
+  } catch (error) {
+    console.error("解除关联失败:", error);
+    ElMessage.error("解除关联失败，请稍后重试");
+  } finally {
+    deleting.value = false;
   }
 }
 
-// 获取记录的显示值
 function getRecordDisplayValue(record: RecordEntity): string {
-  if (!displayField.value) return record.id;
+  if (!displayField.value) return record.id.slice(0, 8);
   const value = record.values[displayField.value.id];
   return value !== undefined && value !== null ? String(value) : "无标题";
 }
 
-// 打开记录选择器
 function openRecordSelector() {
   if (props.readonly) return;
+
+  if (!linkedTableId.value) {
+    linkedTableId.value = (props.field.config?.linkedTableId || props.field.options?.linkedTableId) as string;
+  }
+
+  console.log('[LinkField] openRecordSelector: modelValue=', props.modelValue, 'linkedRecords.length=', linkedRecords.value.length);
+  updateSelectedRecordsFromModelValue();
+  console.log('[LinkField] after updateSelectedRecordsFromModelValue: selectedRecords.length=', selectedRecords.value.length, 'selectedRecords=', selectedRecords.value.map(r => r.id));
+
   showRecordSelector.value = true;
   searchQuery.value = "";
-  loadLinkedTableData();
+
+  if (linkedRecords.value.length === 0 && linkedTableId.value) {
+    loadLinkedTableData();
+  }
 }
 
-// 关闭记录选择器
 function closeRecordSelector() {
   showRecordSelector.value = false;
 }
 
-// 确认选择
 function confirmSelection() {
-  if (allowMultiple.value) {
-    emit(
-      "update:modelValue",
-      selectedRecords.value.map((r) => r.id),
-    );
+  const allowMultiple = props.field.config?.relationshipType !== "one_to_one";
+  if (allowMultiple) {
+    emit("update:modelValue", selectedRecords.value.map((r) => r.id));
   } else {
     emit("update:modelValue", selectedRecords.value[0]?.id || null);
   }
   closeRecordSelector();
 }
 
-// 监听字段选项变化
+// 记录详情抽屉
+const detailDrawerVisible = ref(false);
+const detailRecord = ref<RecordEntity | null>(null);
+const detailFields = ref<FieldEntity[]>([]);
+
+async function showRecordDetail(recordId: string) {
+  try {
+    const record = await recordApiService.getRecord(recordId);
+    detailRecord.value = record as unknown as RecordEntity;
+    detailFields.value = linkedFields.value;
+    detailDrawerVisible.value = true;
+  } catch (error) {
+    console.error("加载记录详情失败:", error);
+    ElMessage.error("加载记录详情失败");
+  }
+}
+
+function handleDetailSave(_recordId: string, _values: Record<string, unknown>) {
+}
+
 watch(
   () => props.field.options,
   async (options) => {
@@ -261,14 +302,21 @@ watch(
       linkedTableId.value = options.linkedTableId as string;
       await loadLinkedTableData();
     }
-    if (options?.linkedFieldId) {
-      linkedFieldId.value = options.linkedFieldId as string;
+  },
+  { immediate: true, deep: true },
+);
+
+watch(
+  () => props.field.config,
+  async (config) => {
+    if (config?.linkedTableId) {
+      linkedTableId.value = config.linkedTableId as string;
+      await loadLinkedTableData();
     }
   },
   { immediate: true, deep: true },
 );
 
-// 监听 modelValue 变化
 watch(
   () => props.modelValue,
   () => {
@@ -278,152 +326,156 @@ watch(
 );
 
 onMounted(async () => {
-  await loadCurrentBaseId();
   await loadLinkedTables();
 });
 </script>
 
 <template>
-  <div class="link-field">
+  <div class="link-field" :class="{ 'is-readonly': readonly }">
     <!-- 只读模式 -->
     <div v-if="readonly" class="link-display">
-      <el-tag
-        v-for="record in selectedRecords"
-        :key="record.id"
-        size="small"
-        class="link-tag"
-        type="primary">
-        <el-icon class="link-icon"><Link /></el-icon>
-        {{ getRecordDisplayValue(record) }}
-      </el-tag>
-      <span v-if="selectedRecords.length === 0" class="empty-text">-</span>
+      <div class="link-records">
+        <div
+          v-for="record in displayRecords"
+          :key="record.id"
+          class="link-record-chip"
+          @click="showRecordDetail(record.id)"
+        >
+          <el-icon class="chip-link-icon"><Link /></el-icon>
+          <span class="chip-text">{{ getRecordDisplayValue(record) }}</span>
+        </div>
+        <div v-if="hasMoreRecords" class="link-record-more">
+          +{{ hiddenRecordCount }}
+        </div>
+        <span v-if="selectedRecords.length === 0" class="empty-text">-</span>
+      </div>
     </div>
 
     <!-- 编辑模式 -->
     <div v-else class="link-editor">
-      <!-- 已选记录展示 -->
-      <div class="selected-records" @click="openRecordSelector">
-        <el-tag
-          v-for="record in selectedRecords"
+      <div class="link-records" @click="openRecordSelector">
+        <div
+          v-for="record in displayRecords"
           :key="record.id"
-          size="small"
-          closable
-          class="link-tag"
-          type="primary"
-          @close.stop="removeRecord(record.id)">
-          <el-icon class="link-icon"><Link /></el-icon>
-          {{ getRecordDisplayValue(record) }}
-        </el-tag>
-        <span v-if="selectedRecords.length === 0" class="placeholder">
-          <el-icon><Link /></el-icon>
-          选择关联记录
-        </span>
-        <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+          class="link-record-chip"
+          @click.stop="showRecordDetail(record.id)"
+        >
+          <el-icon class="chip-link-icon"><Link /></el-icon>
+          <span class="chip-text">{{ getRecordDisplayValue(record) }}</span>
+          <el-icon
+            class="chip-remove-icon"
+            :class="{ 'is-loading': deleting }"
+            @click.stop="removeRecord(record.id)"
+          >
+            <Close />
+          </el-icon>
+        </div>
+        <div v-if="hasMoreRecords" class="link-record-more">
+          +{{ hiddenRecordCount }}
+        </div>
+        <div v-if="selectedRecords.length === 0" class="link-placeholder">
+          <el-icon class="placeholder-icon"><Link /></el-icon>
+          <span>选择关联记录</span>
+        </div>
+        <el-icon class="edit-arrow"><ArrowRight /></el-icon>
       </div>
 
       <!-- 记录选择弹窗 -->
       <el-dialog
         v-model="showRecordSelector"
         title="选择关联记录"
-        width="600px"
+        width="620px"
         destroy-on-close
-        class="link-record-dialog">
-        <div class="dialog-content">
-          <!-- 关联表选择 -->
-          <div class="section">
-            <label class="section-label">关联数据表</label>
-            <el-select
-              v-model="linkedTableId"
-              placeholder="选择关联表"
-              size="default"
-              class="table-select"
-              @change="handleTableChange">
-              <el-option
-                v-for="table in linkedTables"
-                :key="table.id"
-                :label="table.name"
-                :value="table.id">
-                <span>{{ table.name }}</span>
-                <span class="record-count"
-                  >({{ table.recordCount }} 条记录)</span
-                >
-              </el-option>
-            </el-select>
+        class="link-selector-dialog"
+      >
+        <div class="selector-body">
+          <!-- 关联目标提示 -->
+          <div class="selector-header">
+            <el-icon class="header-link-icon"><Link /></el-icon>
+            <span>关联到：</span>
+            <el-tag size="small" type="primary" effect="plain">
+              {{ targetTableName || linkedTableId }}
+            </el-tag>
           </div>
 
-          <!-- 显示字段选择 -->
-          <div v-if="linkedFields.length > 0" class="section">
-            <label class="section-label">显示字段</label>
-            <el-select
-              v-model="linkedFieldId"
-              placeholder="选择显示字段"
-              size="default"
-              class="field-select"
-              @change="handleDisplayFieldChange">
-              <el-option
-                v-for="field in linkedFields"
-                :key="field.id"
-                :label="field.name"
-                :value="field.id">
-                <span>{{ field.name }}</span>
-                <span v-if="field.isPrimary" class="primary-badge">主字段</span>
-              </el-option>
-            </el-select>
-          </div>
-
-          <!-- 记录搜索和列表 -->
-          <div v-if="linkedTableId" class="section">
-            <label class="section-label">
-              选择记录
-              <span v-if="allowMultiple" class="multi-hint">（可多选）</span>
-            </label>
+          <!-- 搜索 -->
+          <div class="selector-search">
             <el-input
               v-model="searchQuery"
-              placeholder="搜索记录"
-              prefix-icon="Search"
-              size="default"
+              placeholder="搜索记录..."
               clearable
-              class="search-input" />
+              size="default"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
 
-            <div v-loading="recordLoading" class="record-list-container">
-              <div v-if="filteredRecords.length > 0" class="record-list">
-                <div
-                  v-for="record in filteredRecords"
-                  :key="record.id"
-                  class="record-item"
-                  :class="{ selected: isSelected(record) }"
-                  @click="toggleRecord(record)">
-                  <div class="record-checkbox">
-                    <el-checkbox :model-value="isSelected(record)" />
-                  </div>
-                  <div class="record-info">
-                    <span class="record-name">{{
-                      getRecordDisplayValue(record)
-                    }}</span>
-                    <span class="record-id"
-                      >ID: {{ record.id.slice(0, 8) }}...</span
-                    >
-                  </div>
-                  <el-icon v-if="isSelected(record)" class="check-icon">
-                    <Check />
-                  </el-icon>
-                </div>
-              </div>
-              <div v-else class="no-records">
-                <el-empty description="暂无记录" :image-size="60" />
-              </div>
+          <!-- 已选记录摘要 -->
+          <div v-if="selectedRecords.length > 0" class="selector-selected-summary">
+            <span class="summary-label">已选择</span>
+            <div class="summary-tags">
+              <el-tag
+                v-for="record in selectedRecords"
+                :key="record.id"
+                closable
+                size="small"
+                type="primary"
+                @close="removeRecord(record.id)"
+              >
+                {{ getRecordDisplayValue(record) }}
+              </el-tag>
             </div>
           </div>
 
-          <!-- 未选择表时的提示 -->
-          <div v-else class="no-table-hint">
-            <el-empty description="请先选择关联的数据表" :image-size="80" />
+          <!-- 记录列表 -->
+          <div class="selector-records">
+            <div v-if="recordLoading" class="records-loading">
+              <el-skeleton :rows="4" animated />
+            </div>
+            <template v-else>
+              <div
+                v-for="record in filteredRecords"
+                :key="record.id"
+                class="selector-record-item"
+                :class="{ 'is-selected': isSelected(record) }"
+                @click="toggleRecord(record)"
+              >
+                <el-checkbox
+                  :model-value="isSelected(record)"
+                  size="default"
+                  @click.stop
+                  @change="() => toggleRecord(record)"
+                />
+                <div class="record-item-info">
+                  <div class="record-item-name">
+                    {{ getRecordDisplayValue(record) }}
+                  </div>
+                  <div class="record-item-id">
+                    ID: {{ record.id.slice(0, 8) }}...
+                  </div>
+                </div>
+                <el-icon
+                  v-if="isSelected(record)"
+                  class="record-check-icon"
+                >
+                  <Check />
+                </el-icon>
+              </div>
+              <div
+                v-if="filteredRecords.length === 0"
+                class="records-empty"
+              >
+                <el-empty description="暂无匹配的记录" :image-size="60" />
+              </div>
+            </template>
           </div>
         </div>
 
         <template #footer>
-          <div class="dialog-footer">
-            <span class="selected-count">
+          <div class="selector-footer">
+            <span class="footer-count">
               已选择 {{ selectedRecords.length }} 条记录
             </span>
             <div class="footer-actions">
@@ -435,6 +487,16 @@ onMounted(async () => {
           </div>
         </template>
       </el-dialog>
+
+      <!-- 记录详情抽屉 -->
+      <RecordDetailDrawer
+        v-model:visible="detailDrawerVisible"
+        :record="detailRecord"
+        :fields="detailFields"
+        :readonly="true"
+        size="50%"
+        @save="handleDetailSave"
+      />
     </div>
   </div>
 </template>
@@ -444,210 +506,289 @@ onMounted(async () => {
 
 .link-field {
   width: 100%;
-}
-
-// 只读模式
-.link-display {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $spacing-xs;
   min-height: 32px;
-  align-items: center;
-
-  .link-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-
-    .link-icon {
-      font-size: 12px;
-    }
-  }
-
-  .empty-text {
-    color: $text-disabled;
-    font-size: $font-size-sm;
-  }
 }
 
-// 编辑模式
+.link-display,
 .link-editor {
   width: 100%;
 }
 
-.selected-records {
+.link-records {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: $spacing-xs;
+  gap: 4px;
   min-height: 32px;
-  padding: $spacing-xs $spacing-sm;
-  border: 1px solid $border-color;
-  border-radius: $border-radius-sm;
+  padding: 2px 4px;
+}
+
+.link-editor .link-records {
   cursor: pointer;
-  transition: all 0.2s;
+  border: 1px solid transparent;
+  border-radius: $border-radius-sm;
+  transition: all 0.2s ease;
+  padding: 2px 4px;
 
   &:hover {
-    border-color: $primary-color;
-  }
+    border-color: $border-color;
+    background-color: rgba($primary-color, 0.02);
 
-  .link-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-
-    .link-icon {
-      font-size: 12px;
+    .edit-arrow {
+      opacity: 1;
     }
   }
-
-  .placeholder {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: $text-disabled;
-    font-size: $font-size-sm;
-  }
-
-  .arrow-icon {
-    margin-left: auto;
-    color: $text-secondary;
-    font-size: 14px;
-  }
 }
 
-// 弹窗内容
-:deep(.link-record-dialog) {
-  .el-dialog__body {
-    padding: $spacing-md;
-  }
-}
-
-.dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-sm;
-}
-
-.section-label {
-  font-size: $font-size-sm;
-  font-weight: 500;
-  color: $text-primary;
-
-  .multi-hint {
-    color: $text-secondary;
-    font-weight: normal;
-  }
-}
-
-.table-select,
-.field-select {
-  width: 100%;
-}
-
-.record-count {
-  margin-left: auto;
-  color: $text-secondary;
-  font-size: $font-size-xs;
-}
-
-.primary-badge {
-  margin-left: auto;
-  padding: 2px 6px;
-  background-color: $primary-color;
-  color: white;
-  font-size: $font-size-xs;
-  border-radius: $border-radius-sm;
-}
-
-.search-input {
-  width: 100%;
-}
-
-.record-list-container {
-  min-height: 200px;
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid $border-color;
-  border-radius: $border-radius-sm;
-}
-
-.record-list {
-  padding: $spacing-xs;
-}
-
-.record-item {
-  display: flex;
+.link-record-chip {
+  display: inline-flex;
   align-items: center;
-  gap: $spacing-sm;
-  padding: $spacing-sm;
-  border-radius: $border-radius-sm;
+  gap: 2px;
+  padding: 1px 6px 1px 8px;
+  background-color: rgba($primary-color, 0.08);
+  border: 1px solid rgba($primary-color, 0.15);
+  border-radius: 12px;
+  font-size: $font-size-sm;
+  color: $primary-color;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  max-width: 180px;
+  overflow: hidden;
+  user-select: none;
 
   &:hover {
-    background-color: rgba($primary-color, 0.05);
+    background-color: rgba($primary-color, 0.14);
+    border-color: rgba($primary-color, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba($primary-color, 0.12);
   }
 
-  &.selected {
-    background-color: rgba($primary-color, 0.1);
-  }
-
-  .record-checkbox {
+  .chip-link-icon {
+    font-size: 11px;
     flex-shrink: 0;
   }
 
-  .record-info {
+  .chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.6;
+    margin-right: 2px;
+  }
+
+  .chip-remove-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 10px;
+    flex-shrink: 0;
+    color: $text-secondary;
+    background-color: transparent;
+    transition: all 0.15s ease;
+    margin-left: 2px;
+
+    &:hover {
+      color: #fff;
+      background-color: $error-color;
+    }
+
+    &.is-loading {
+      color: $text-disabled;
+      pointer-events: none;
+      animation: spin 1s linear infinite;
+      background-color: transparent;
+    }
+  }
+
+  &:hover .chip-remove-icon {
+    color: $text-secondary;
+  }
+}
+
+.link-record-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  background-color: $bg-color;
+  border: 1px solid $border-color;
+  border-radius: 12px;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  cursor: default;
+}
+
+.link-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: $text-disabled;
+  font-size: $font-size-sm;
+
+  .placeholder-icon {
+    font-size: 13px;
+  }
+}
+
+.empty-text {
+  color: $text-disabled;
+  font-size: $font-size-sm;
+}
+
+.edit-arrow {
+  margin-left: auto;
+  font-size: 13px;
+  color: $text-secondary;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.is-readonly {
+  .link-record-chip {
+    cursor: pointer;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// 选择器弹窗样式
+:deep(.link-selector-dialog) {
+  .el-dialog__body {
+    padding: 0;
+  }
+}
+
+.selector-body {
+  padding: 0 20px 20px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.selector-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0 12px;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  border-bottom: 1px solid $border-color;
+
+  .header-link-icon {
+    font-size: 14px;
+    color: $primary-color;
+  }
+}
+
+.selector-search {
+  padding: 12px 0;
+}
+
+.selector-selected-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background-color: rgba($primary-color, 0.04);
+  border: 1px solid rgba($primary-color, 0.1);
+  border-radius: $border-radius-sm;
+
+  .summary-label {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    font-weight: 500;
+  }
+
+  .summary-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+
+.selector-records {
+  border: 1px solid $border-color;
+  border-radius: $border-radius-sm;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.records-loading {
+  padding: 16px;
+}
+
+.selector-record-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid $border-color;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: rgba($primary-color, 0.04);
+  }
+
+  &.is-selected {
+    background-color: rgba($primary-color, 0.08);
+  }
+
+  .record-item-info {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-
-    .record-name {
-      font-size: $font-size-sm;
-      color: $text-primary;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .record-id {
-      font-size: $font-size-xs;
-      color: $text-secondary;
-    }
+    gap: 1px;
   }
 
-  .check-icon {
+  .record-item-name {
+    font-size: $font-size-sm;
+    color: $text-primary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .record-item-id {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+  }
+
+  .record-check-icon {
+    font-size: 15px;
     color: $primary-color;
-    font-size: 16px;
+    flex-shrink: 0;
   }
 }
 
-.no-records,
-.no-table-hint {
-  padding: $spacing-xl 0;
+.records-empty {
+  padding: 24px 0;
 }
 
-.dialog-footer {
+.selector-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
 
-  .selected-count {
+  .footer-count {
     font-size: $font-size-sm;
     color: $text-secondary;
   }

@@ -47,6 +47,20 @@ const lookupValue = computed(() => {
   return values;
 });
 
+const displayText = computed(() => {
+  const val = lookupValue.value;
+  if (val === null || val === undefined) return "-";
+  if (Array.isArray(val)) {
+    return val.map((v) => formatSingleValue(v as CellValue)).join(", ");
+  }
+  return formatSingleValue(val as CellValue);
+});
+
+function formatSingleValue(value: CellValue): string {
+  if (value === null || value === undefined) return "-";
+  return String(value);
+}
+
 watch(
   () => props.field.options,
   async (options) => {
@@ -67,21 +81,11 @@ watch(
   },
   { immediate: true },
 );
-
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return "-";
-  if (Array.isArray(value)) {
-    return value.map((v) => formatValue(v as CellValue)).join(", ");
-  }
-  return String(value);
-}
 </script>
 
 <template>
   <div class="lookup-field">
-    <span class="lookup-value">{{
-      formatValue(lookupValue as CellValue)
-    }}</span>
+    <span class="lookup-value">{{ displayText }}</span>
   </div>
 </template>
 
@@ -90,10 +94,16 @@ function formatValue(value: unknown): string {
 
 .lookup-field {
   width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
 }
 
 .lookup-value {
   font-size: $font-size-sm;
   color: $text-primary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

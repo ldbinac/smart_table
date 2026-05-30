@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select, and_, or_, delete
 from sqlalchemy.orm import joinedload
+from sqlalchemy.orm.attributes import flag_modified
 from flask import current_app
 
 from app.extensions import db, cache
@@ -485,6 +486,7 @@ class LinkService:
             field_values = source_record.values or {}
             field_values[str(link_relation.source_field_id)] = list(new_target_ids)
             source_record.values = field_values
+            flag_modified(source_record, 'values')
 
             current_app.logger.info(
                 f'[LinkService] 更新关联值: link_relation={link_relation_id}, '
@@ -501,6 +503,17 @@ class LinkService:
                     return False, f'双向同步失败: {sync_error}'
 
             db.session.commit()
+
+            # 清除缓存：源记录和所有涉及的目标记录
+            _invalidate_record_links_cache(source_record_id)
+            for tid in existing_target_ids | new_target_ids:
+                _invalidate_record_links_cache(tid)
+
+            current_app.logger.info(
+                f'[LinkService] 更新关联值成功: link_relation={link_relation_id}, '
+                f'source_record={source_record_id}, 添加 {len(to_add)}, 删除 {len(to_delete)}'
+            )
+
             return True, None
 
         except Exception as e:
@@ -591,6 +604,7 @@ class LinkService:
                     current_links.append(source_record_id)
                     target_values[str(link_relation.target_field_id)] = current_links
                     target_record.values = target_values
+                    flag_modified(target_record, 'values')
 
             # 处理已移除的关联（需要删除反向关联）
             # 获取所有应该存在的反向关联
@@ -617,6 +631,7 @@ class LinkService:
                             current_links.remove(source_record_id)
                             target_values[str(link_relation.target_field_id)] = current_links
                             target_record.values = target_values
+                            flag_modified(target_record, 'values')
 
             current_app.logger.info(
                 f'[LinkService] 双向关联同步完成: link_relation={link_relation.id}'
@@ -881,6 +896,7 @@ class LinkService:
         获取关联记录的显示值
         
         优先使用关联字段配置中的 displayFieldId，如果没有配置则使用主字段
+        如果仍然无法获取，尝试使用目标记录的第一个非空字段值
         
         Args:
             target_record: 目标记录
@@ -907,8 +923,32 @@ class LinkService:
                 display_field_id = field.config.get('displayFieldId')
                 if display_field_id:
                     display_value = target_record.values.get(str(display_field_id))
-                    if display_value:
+                    if display_value is not None and display_value != '':
                         return str(display_value)
+                
+                # 尝试使用 inverseFieldId 对应的源字段的 displayFieldId
+                inverse_field_id = field.config.get('inverseFieldId')
+                if inverse_field_id:
+                    inverse_field = None
+                    if _field_cache is not None:
+                        inverse_field = _field_cache.get(str(inverse_field_id))
+                    if inverse_field is None:
+                        inverse_field = db.session.get(Field, inverse_field_id)
+                        if _field_cache is not None and inverse_field:
+                            _field_cache[str(inverse_field_id)] = inverse_field
+                    
+                    if inverse_field and inverse_field.config:
+                        display_field_id = inverse_field.config.get('displayFieldId')
+                        if display_field_id:
+                            display_value = target_record.values.get(str(display_field_id))
+                            if display_value is not None and display_value != '':
+                                return str(display_value)
+            
+            # 尝试获取目标记录的第一个有意义的字段值
+            if target_record.values:
+                for val in target_record.values.values():
+                    if val is not None and val != '' and not isinstance(val, list) and not isinstance(val, dict):
+                        return str(val)
             
             # 如果没有配置 displayFieldId 或 displayFieldId 没有值，使用主字段
             return target_record.get_primary_value()
@@ -941,6 +981,127 @@ class LinkService:
         except Exception as e:
             current_app.logger.error(f'[LinkService] 删除记录关联数据失败: {str(e)}')
             return False
+
+    @staticmethod
+    def delete_link_value_by_target(
+        link_relation_id: str,
+        source_record_id: str,
+        target_record_id: str,
+        updated_by: Optional[str] = None
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        删除单个关联值（解除两个记录之间的关联关系）
+        
+        仅解除关联关系，不删除关联数据本身。
+        如果是双向关联，同步删除反向的关联关系。
+        
+        Args:
+            link_relation_id: 关联关系 ID
+            source_record_id: 源记录 ID
+            target_record_id: 目标记录 ID
+            updated_by: 更新者 ID
+            
+        Returns:
+            (是否成功, 错误信息)
+        """
+        try:
+            link_relation = db.session.get(LinkRelation, link_relation_id)
+            if not link_relation:
+                return False, '关联关系不存在'
+
+            # 查找要删除的关联值
+            link_value = db.session.execute(
+                select(LinkValue).where(
+                    and_(
+                        LinkValue.link_relation_id == link_relation_id,
+                        LinkValue.source_record_id == source_record_id,
+                        LinkValue.target_record_id == target_record_id
+                    )
+                )
+            ).scalar_one_or_none()
+
+            if not link_value:
+                return False, '关联关系不存在'
+
+            # 删除关联值
+            db.session.delete(link_value)
+
+            # 更新源记录的字段值
+            source_record = db.session.get(Record, source_record_id)
+            if source_record:
+                values = source_record.values or {}
+                field_links = values.get(str(link_relation.source_field_id), [])
+                if isinstance(field_links, list):
+                    field_links = [id for id in field_links if str(id) != target_record_id]
+                    values[str(link_relation.source_field_id)] = field_links
+                    source_record.values = values
+                    flag_modified(source_record, 'values')
+                elif isinstance(field_links, str):
+                    if field_links == target_record_id:
+                        values[str(link_relation.source_field_id)] = None
+                        source_record.values = values
+                        flag_modified(source_record, 'values')
+
+            # 如果是双向关联，同步删除反向关联
+            if link_relation.bidirectional and link_relation.target_field_id:
+                # 查找反向关联关系
+                reverse_relation = db.session.execute(
+                    select(LinkRelation).where(
+                        and_(
+                            LinkRelation.source_field_id == link_relation.target_field_id,
+                            LinkRelation.target_field_id == link_relation.source_field_id
+                        )
+                    )
+                ).scalar_one_or_none()
+
+                if reverse_relation:
+                    # 删除对应的反向 LinkValue
+                    reverse_link = db.session.execute(
+                        select(LinkValue).where(
+                            and_(
+                                LinkValue.link_relation_id == reverse_relation.id,
+                                LinkValue.source_record_id == target_record_id,
+                                LinkValue.target_record_id == source_record_id
+                            )
+                        )
+                    ).scalar_one_or_none()
+
+                    if reverse_link:
+                        db.session.delete(reverse_link)
+
+                    # 更新目标记录的字段值
+                    target_record = db.session.get(Record, target_record_id)
+                    if target_record:
+                        target_values = target_record.values or {}
+                        reverse_field_links = target_values.get(str(link_relation.target_field_id), [])
+                        if isinstance(reverse_field_links, list):
+                            reverse_field_links = [id for id in reverse_field_links if str(id) != source_record_id]
+                            target_values[str(link_relation.target_field_id)] = reverse_field_links
+                            target_record.values = target_values
+                            flag_modified(target_record, 'values')
+                        elif isinstance(reverse_field_links, str):
+                            if reverse_field_links == source_record_id:
+                                target_values[str(link_relation.target_field_id)] = None
+                                target_record.values = target_values
+                                flag_modified(target_record, 'values')
+
+            # 清除缓存
+            _invalidate_record_links_cache(source_record_id)
+            _invalidate_record_links_cache(target_record_id)
+
+            current_app.logger.info(
+                f'[LinkService] 删除关联值: link_relation={link_relation_id}, '
+                f'source_record={source_record_id}, target_record={target_record_id}, '
+                f'bidirectional={link_relation.bidirectional}'
+            )
+
+            db.session.commit()
+            return True, None
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'[LinkService] 删除关联值失败: {str(e)}')
+            return False, '删除关联值失败，请稍后重试'
 
     @staticmethod
     def create_link_field(table_id: str, data: Dict[str, Any], user_id: str = None) -> Dict[str, Any]:

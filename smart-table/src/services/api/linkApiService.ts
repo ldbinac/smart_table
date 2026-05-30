@@ -227,8 +227,33 @@ export const updateRecordLink = async (
     data
   );
 
-  // 清除相关缓存
+  // 清除相关缓存（源记录和目标记录都会被缓存影响）
   linkCache.invalidate(`record_links:${recordId}`);
+  linkCache.invalidateByPattern('record_links:');
+
+  return result;
+};
+
+/**
+ * 删除单个关联值（解除记录之间的关联关系）
+ * 仅解除关联关系，不删除关联数据本身。
+ * 如果是双向关联，后端会自动同步删除反向关联关系。
+ */
+export const deleteRecordLink = async (
+  recordId: string,
+  fieldId: string,
+  targetRecordId: string
+): Promise<{ link_relation_id: string }> => {
+  const result = await apiClient.delete<{ link_relation_id: string }>(
+    `/records/${recordId}/links/${fieldId}`,
+    {
+      params: { target_record_id: targetRecordId },
+    }
+  );
+
+  // 清除相关缓存（源记录和目标记录都会被缓存影响）
+  linkCache.invalidate(`record_links:${recordId}`);
+  linkCache.invalidateByPattern('record_links:');
 
   return result;
 };
@@ -303,6 +328,7 @@ export const linkApiService = {
   getTableLinkRelations,
   getRecordLinks,
   updateRecordLink,
+  deleteRecordLink,
   searchLinkableRecords,
   // 缓存操作
   invalidateCache: (key: string) => linkCache.invalidate(key),

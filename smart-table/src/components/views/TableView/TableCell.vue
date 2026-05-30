@@ -60,8 +60,9 @@ const loadLinkedRecords = async () => {
     const links = await linkApiService.getRecordLinks(props.record.id);
     
     // 找到当前字段的关联数据
-    const fieldLinks = links.outbound.find(l => l.field_id === props.field.id);
-    if (fieldLinks && fieldLinks.linked_records) {
+    const fieldLinks = links.outbound.find(l => l.field_id === props.field.id)
+      || links.inbound.find(l => l.field_id === props.field.id);
+    if (fieldLinks && fieldLinks.linked_records && fieldLinks.linked_records.length > 0) {
       linkedRecords.value = fieldLinks.linked_records.map(r => ({
         record_id: r.record_id,
         display_value: r.display_value,
@@ -70,7 +71,7 @@ const loadLinkedRecords = async () => {
       // 如果没有从API获取到，使用ID列表创建简单的记录
       linkedRecords.value = linkedIds.map(id => ({
         record_id: id,
-        display_value: id, // 暂时显示ID，后续可以优化
+        display_value: id,
       }));
     }
   } catch (error) {
@@ -318,6 +319,29 @@ const handleLinkFieldChange = (value: string[], records: LinkedRecord[]) => {
   linkedRecords.value = records;
   emit("update", value as CellValue);
   isEditing.value = false;
+};
+
+// 处理关联字段删除单个关联
+const handleLinkRemove = async (recordId: string) => {
+  try {
+    await linkApiService.deleteRecordLink(
+      props.record.id,
+      props.field.id,
+      recordId,
+    );
+
+    linkedRecords.value = linkedRecords.value.filter(
+      (r) => r.record_id !== recordId,
+    );
+    const newValue = (cellValue.value as string[])?.filter(
+      (id) => id !== recordId,
+    );
+    emit("update", newValue as CellValue);
+    ElMessage.success("已解除关联");
+  } catch (error) {
+    console.error("[TableCell] 解除关联失败:", error);
+    ElMessage.error("解除关联失败，请稍后重试");
+  }
 };
 
 // 监听 selected 属性变化，当外部（如右键菜单）触发编辑时自动进入编辑模式
@@ -615,8 +639,12 @@ const multiSelectDisplayValues = computed(() => {
           :display-field-id="linkFieldConfig?.displayFieldId"
           :relationship-type="linkFieldConfig?.relationshipType"
           :is-editing="true"
+          :readonly="readonly"
+          :record-id="record.id"
+          :field-id="field.id"
           @change="handleLinkFieldChange"
-          @edit-end="cancelEdit" />
+          @edit-end="cancelEdit"
+          @remove="handleLinkRemove" />
       </template>
 
       <template v-else>
@@ -716,7 +744,11 @@ const multiSelectDisplayValues = computed(() => {
             :display-field-id="linkFieldConfig?.displayFieldId"
             :relationship-type="linkFieldConfig?.relationshipType"
             :is-editing="false"
-            @edit-start="startEdit" />
+            :readonly="readonly"
+            :record-id="record.id"
+            :field-id="field.id"
+            @edit-start="startEdit"
+            @remove="handleLinkRemove" />
         </template>
 
         <!-- 单行文本 -->

@@ -545,13 +545,13 @@ class RecordService:
                 conditions = []
                 for field_id in valid_field_ids:
                     conditions.append(
-                        cast(Record.values[field_id].astext, String).ilike(like_pattern)
+                        cast(Record.values[field_id], String).ilike(like_pattern)
                     )
                 if conditions:
                     query_obj = query_obj.filter(or_(*conditions))
         else:
             query_obj = query_obj.filter(
-                cast(Record.values.astext, String).ilike(like_pattern)
+                cast(Record.values, String).ilike(like_pattern)
             )
         
         results = query_obj.all()
