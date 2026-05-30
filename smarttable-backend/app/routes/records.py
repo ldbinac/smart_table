@@ -1,10 +1,14 @@
 """
 记录管理路由模块
 """
+import uuid
 import traceback
+from datetime import datetime, timezone
 from flask import Blueprint, request, g, current_app
 
-from app.services.record_service import RecordService
+from sqlalchemy import insert
+
+from app.services.record_service import RecordService, _format_date_value
 from app.services.table_service import TableService
 from app.services.formula_service import FormulaService
 from app.services.link_service import LinkService
@@ -18,13 +22,20 @@ from app.schemas.record_schema import (
 )
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.decorators import jwt_required, role_required, query_rate_limit, write_rate_limit
-from app.models.record_history import RecordHistory
+from app.extensions import db
+from app.models.record import Record
+from app.models.record_history import RecordHistory, HistoryAction
 from app.models.field import FieldType
 from app.models.base import MemberRole
 
 records_bp = Blueprint('records', __name__)
 # 禁用严格斜杠，允许带或不带斜杠的URL
 records_bp.strict_slashes = False
+
+
+def _to_uuid(value: str) -> uuid.UUID:
+    """将字符串转为 UUID 对象"""
+    return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
 
 
 @records_bp.route('/tables/<table_id>/records', methods=['GET'])
@@ -212,7 +223,7 @@ def create_record(table_id) -> tuple:
 
 @records_bp.route('/tables/<table_id>/records/batch', methods=['POST'])
 @jwt_required
-@write_rate_limit(max_writes=50, window=60)
+@write_rate_limit(max_writes=200, window=60)
 def batch_create_records(table_id) -> tuple:
     """
     批量创建记录
@@ -258,42 +269,139 @@ def batch_create_records(table_id) -> tuple:
     table = TableService.get_table_by_id(table_id)
     if not table:
         return error_response('表格不存在', 404)
-    
+
     # 资源级权限检查
     if not PermissionService.check_permission(
         str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
         return error_response('无权在该表格中创建记录', 403)
-    
+
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
         return error_response('请求数据不能为空', 400)
-    
+
     errors = batch_create_schema.validate(json_data)
     if errors:
         return error_response('数据验证失败', 400, errors)
-    
+
     records_data = json_data.get('records', [])
     if len(records_data) > 1000:
         return error_response('单次批量创建记录数量不能超过1000条', 400)
-    
+
     try:
-        created_records = []
+        # ---------- 批量预加载（只需一次） ----------
+        fields = FieldService.get_all_fields(table_id)
+        field_map = {str(f.id): f for f in fields}
+        auto_number_fields = [f for f in fields if f.type == FieldType.AUTO_NUMBER.value]
+        now = datetime.now(timezone.utc)
+        changer_id = _to_uuid(g.current_user_id) if g.current_user_id else None
+        tbl_id = _to_uuid(table_id)
+
+        # ---------- 组装批量数据 ----------
+        records_dicts = []
+        history_dicts = []
+        created_record_ids = []
+
         for record_data in records_data:
-            record = RecordService.create_record(
-                table_id=table_id,
-                values=record_data.get('values', {}),
-                created_by=g.current_user_id
-            )
-            created_records.append(record.to_dict())
-        
+            raw_values = record_data.get('values', {})
+            final_values = dict(raw_values) if raw_values else {}
+
+            # 格式化日期字段值
+            for field_id, value in list(final_values.items()):
+                field = field_map.get(field_id)
+                if field and field.type in (FieldType.DATE.value, FieldType.DATE_TIME.value):
+                    final_values[field_id] = _format_date_value(value, field)
+
+            # 应用字段默认值
+            for field in fields:
+                field_id = str(field.id)
+                if field_id not in final_values:
+                    default_value = field.get_default_value()
+                    if default_value is not None:
+                        if default_value == 'now':
+                            if field.type == FieldType.DATE_TIME.value:
+                                final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                            else:
+                                final_values[field_id] = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+                        else:
+                            final_values[field_id] = default_value
+
+            # 处理自动编号字段
+            record_created_at = datetime.now()
+            for field in auto_number_fields:
+                field_id = str(field.id)
+                if field_id not in final_values or not final_values[field_id]:
+                    sequence = RecordService._get_next_auto_number_sequence(
+                        table_id, field_id, field
+                    )
+                    final_values[field_id] = field.generate_auto_number(sequence, record_created_at)
+
+            record_id = uuid.uuid4()
+            created_record_ids.append(record_id)
+
+            records_dicts.append({
+                'id': record_id,
+                'table_id': tbl_id,
+                'values': final_values,
+                'is_deleted': False,
+                'created_by': changer_id,
+                'updated_by': changer_id,
+                'created_at': now,
+                'updated_at': now,
+            })
+
+            history_dicts.append({
+                'id': uuid.uuid4(),
+                'record_id': record_id,
+                'table_id': tbl_id,
+                'action': HistoryAction.CREATE.value,
+                'changed_by': changer_id,
+                'changed_at': now,
+                'changes': None,
+                'snapshot': final_values,
+            })
+
+        # ---------- 批量 SQL 插入（仅 2 条 SQL） ----------
+        stmt_records = insert(Record.__table__)
+        db.session.execute(stmt_records, records_dicts)
+
+        stmt_history = insert(RecordHistory.__table__)
+        db.session.execute(stmt_history, history_dicts)
+
+        db.session.commit()
+
+        # ---------- 广播协作事件（不影响主流程） ----------
+        try:
+            from app.services.collaboration_service import CollaborationService
+            if table:
+                for record_id_uuid in created_record_ids:
+                    CollaborationService.broadcast_if_enabled(
+                        'data:record_created',
+                        str(table.base_id),
+                        {
+                            'table_id': table_id,
+                            'record': {
+                                'id': str(record_id_uuid),
+                                'table_id': table_id,
+                                'values': {},
+                                'created_at': now.isoformat(),
+                                'updated_at': now.isoformat(),
+                            },
+                            'changed_by': str(g.current_user_id) if g.current_user_id else None,
+                            'timestamp': now.isoformat(),
+                        }
+                    )
+        except Exception as e:
+            current_app.logger.error(f'[batch_create_records] broadcast error: {e}')
+
         return success_response({
-            'created_count': len(created_records),
-            'records': created_records
-        }, f'成功创建 {len(created_records)} 条记录')
-    
+            'created_count': len(records_dicts),
+            'record_ids': [str(rid) for rid in created_record_ids],
+        }, f'成功创建 {len(records_dicts)} 条记录')
+
     except Exception as e:
+        db.session.rollback()
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 批量创建记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')

@@ -81,8 +81,8 @@ export const deleteRecord = async (id: string): Promise<void> => {
 export const batchCreateRecords = async (
   tableId: string,
   records: Array<{ values: Record<string, unknown> }>,
-): Promise<{ created_count: number; records: TableRecord[] }> => {
-  return apiClient.post<{ created_count: number; records: TableRecord[] }>(
+): Promise<{ created_count: number; record_ids: string[] }> => {
+  return apiClient.post<{ created_count: number; record_ids: string[] }>(
     `/tables/${tableId}/records/batch`,
     { records },
   );
