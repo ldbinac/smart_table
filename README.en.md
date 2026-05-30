@@ -2,7 +2,7 @@
 
 [中文](README.md) | English
 
-A smart multi-dimensional table system based on Vue 3 + Flask, supporting both pure frontend (IndexedDB) and backend (PostgreSQL/SQLite) deployment modes, similar to Airtable or Lark Base .
+A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtable or Lark Base. Supports multiple views (table view, grouped view, kanban view, calendar view, Gantt view, form view, dashboard, etc.), with rich field types; supports markdown for writing rich text documents.
 
 ## ✨ Features
 
@@ -63,8 +63,8 @@ A smart multi-dimensional table system based on Vue 3 + Flask, supporting both p
 - **Data Sorting** - Multi-field sorting with ascending/descending order, drag to adjust priority
 - **Data Grouping** - Group by field with multi-level grouping (up to 3 levels), group statistics
 - **Formula Engine** - **43 built-in functions** for math, text, date, logic, and statistics
+- **Streaming Data Loading** - First-screen rendering in seconds for 10k+ records, async background loading of remaining pages, non-blocking operations
 - **Data Import** - Support Excel, CSV, JSON formats with multi-sheet, can import to create new tables
-- **Streaming Data Loading** - First-screen rendering in seconds for 10k records, async background loading, non-blocking
 - **Data Export** - Support Excel, CSV, JSON formats with custom field selection
 
 #### Collaboration & Sharing
@@ -92,9 +92,9 @@ A smart multi-dimensional table system based on Vue 3 + Flask, supporting both p
   - Editor - Edit permissions
   - Commenter - Comment and view permissions
   - Viewer - Read-only permissions
-- **Security Protection** - XSS protection, CSRF protection, security headers, API rate limiting, file upload validation
 - **Security Config Management** - Dynamic password rules, registration toggle, session timeout config, public config endpoint
 - **Sensitive Info Protection** - 30+ log sanitization fix points auto-masking passwords/tokens/phones/emails
+- **Security Protection** - XSS protection, CSRF protection, security headers, API rate limiting, file upload validation
 - **Operation Logs** - Complete operation audit logs
 
 #### User Experience
@@ -139,7 +139,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, supporting both p
 | Table Fields  | ![Table Fields](./doc/img/TableViewFields.jpeg) | Kanban View   | ![Kanban View](./doc/img/KanbanView.jpeg)       |
 | Calendar View | ![Calendar View](./doc/img/CalendarView.jpeg)   | Gantt View    | ![Gantt View](./doc/img/GanttView.jpeg)         |
 | Form View     | ![Form View](./doc/img/FormView.jpeg)           | Dashboard     | ![Dashboard](./doc/img/Dashboard.jpeg)          |
-| Sharing       | ![Sharing](./doc/img/sharing.png)               | Document Management     | ![文档管理](./doc/img/Document.png)               |
+| Sharing       | ![Sharing](./doc/img/sharing.png)               | Document Management     | ![Document Management](./doc/img/Document.png)               |
 
 ## 🛠️ Tech Stack
 
@@ -160,7 +160,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, supporting both p
 | Local Database       | Dexie                   | ^3.2.7          | IndexedDB wrapper                     |
 | WebSocket            | socket.io-client        | ^4.8.3          | Real-time communication               |
 | Utilities            | lodash-es, @vueuse/core | -               | Utility function sets                 |
-| Rich Text            | dompurify               | ^3.4.0          | XSS protection                        |
+| Rich Text            | tinyeditor              | ^4.0.0          | Rich text editor                      |
 | Spreadsheet          | xlsx                    | ^0.18.5         | Excel parsing/generation              |
 | Build Tool           | Vite                    | ^8.0.1          | Ultra-fast build tool                 |
 | Testing              | Vitest                  | ^3.2.4          | Unit testing                          |
@@ -199,29 +199,69 @@ A smart multi-dimensional table system based on Vue 3 + Flask, supporting both p
 
 ## 🚀 Quick Start
 
-### Requirements
-
-- Node.js >= 18
-- npm >= 9
-- Python >= 3.9 (Only for backend mode)
-
 ### One-click Start (Recommended)
 
-Use the startup script in the project root:
+Download the latest release package, extract it and start with one click:
 
 ```bash
 # Windows PowerShell
-.\start.ps1
+.\start.bat
 
 # Linux/macOS
 ./start.sh
 ```
 
-The script will automatically:
+<br />
 
-1. Install frontend dependencies and start dev server (port 5173)
-2. Install backend dependencies and start Flask server (port 5000)
-3. Open browser at <http://localhost:5173>
+> This one-click startup package requires no external dependencies, just double-click to run.
+>
+> **No need to install any dependencies, no need to manually create an account.**
+>
+> After startup, the browser will open automatically, then log in with the account email and password printed in the console to try it out.
+
+### Docker Start
+
+Start with the official Docker image:
+
+```bash
+docker run -d \
+  --name smarttable \
+  -p 80:80 \
+  -v smarttable_data:/app/data \
+  -v smarttable_uploads:/app/uploads \
+  -v smarttable_redis:/data/redis \
+  ygbinac/smarttable:latest
+```
+
+* Or use docker compose, just create the following docker-compose.yml:
+
+```bash
+services:
+  smarttable:
+    image: ygbinac/smarttable:latest
+    container_name: smarttable
+    ports:
+      - "80:80"
+    volumes:
+      - smarttable_data:/app/data
+      - smarttable_uploads:/app/uploads
+      - smarttable_redis:/data/redis
+    restart: unless-stopped
+
+volumes:
+  smarttable_data:
+  smarttable_uploads:
+  smarttable_redis:
+```
+
+
+## Development Environment
+
+### Requirements
+
+- Node.js >= 18
+- npm >= 9
+- Python >= 3.9 (Only for backend mode)
 
 ### Frontend Development
 
@@ -272,16 +312,15 @@ npm run test:coverage
 ```bash
 cd smarttable-backend
 
-# Copy environment variables
+# Copy environment variables configuration
 cp .env.example .env
 # Edit .env file to configure database connection (default uses SQLite)
 
 # Start all services (SQLite mode)
 docker-compose up -d
 
-# v1.4.0: Docker now embeds Redis, no separate Redis container needed
-
-# Or use PostgreSQL + Redis (for production)
+# Or use PostgreSQL + Redis (for production environment)
+# v1.4.0 optimization: Docker deployment embeds Redis, no separate Redis container needed
 docker-compose -f docker-compose.dev.yml up -d
 
 # Run database migrations
@@ -312,7 +351,7 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy environment variables
+# Copy environment variables configuration
 cp .env.example .env
 # Default uses SQLite, no need to modify DATABASE_URL
 
@@ -995,18 +1034,52 @@ environment:
 
 ## 🐳 Docker Deployment
 
-### Quick Deploy (One-click Start)
+### Quick Deploy (Official Image One-click Start)
+
+Directly start:
+
+```bash
+docker run -d \
+  --name smarttable \
+  -p 80:80 \
+  -v smarttable_data:/app/data \
+  -v smarttable_uploads:/app/uploads \
+  -v smarttable_redis:/data/redis \
+  ygbinac/smarttable:latest
+```
+
+* Or use docker compose, just create the following docker-compose.yml:
+```bash
+services:
+  smarttable:
+    image: ygbinac/smarttable:latest
+    container_name: smarttable
+    ports:
+      - "80:80"
+    volumes:
+      - smarttable_data:/app/data
+      - smarttable_uploads:/app/uploads
+      - smarttable_redis:/data/redis
+    restart: unless-stopped
+
+volumes:
+  smarttable_data:
+  smarttable_uploads:
+  smarttable_redis:
+```
+
+### Source Deploy
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/ldbinac/smart_table.git
 cd smart-table-spec
 
-# Copy environment variables
+# Copy environment variables configuration
 cp .env.example .env
 # Edit .env file, modify configuration as needed
 
-# Start all services (frontend + backend + database)
+# Start all services (frontend + backend + database) with one command
 docker-compose up -d
 
 # Check service status
@@ -1020,7 +1093,7 @@ Access URLs:
 
 - Frontend: <http://localhost>
 - Backend API: <http://localhost:5000/api>
-- API Docs: <http://localhost:5000/api/docs>
+- API Docs: <http://localhost:5000/apidocs>
 
 ### Production Deployment (PostgreSQL + Redis)
 
@@ -1056,15 +1129,15 @@ See [.env.example](.env.example) and [smarttable-backend/.env.example](smarttabl
 
 Key configuration items:
 
-| Variable          | Description                    | Default                   | Required                  |
-| ----------------- | ------------------------------ | ------------------------- | ------------------------- |
-| `SECRET_KEY`      | Flask secret key               | -                         | ✅ Production              |
-| `JWT_SECRET_KEY`  | JWT secret key                 | -                         | ✅ Production              |
-| `DATABASE_URL`    | Database connection            | sqlite:///smarttable.db   | ❌                         |
-| `REDIS_URL`       | Redis address                  | redis\://localhost:6379/0 | ❌                         |
-| `ENABLE_REALTIME` | Enable real-time collaboration | false                     | ❌                         |
-| `MAIL_SERVER`     | SMTP server                    | -                         | ❌ (email feature needed)  |
-| `MINIO_ENDPOINT`  | MinIO address                  | -                         | ❌ (object storage needed) |
+| Variable               | Description                    | Default                   | Required                  |
+| ---------------------- | ------------------------------ | ------------------------- | ------------------------- |
+| `SECRET_KEY`           | Flask secret key               | -                         | ✅ Production              |
+| `JWT_SECRET_KEY`       | JWT secret key                 | -                         | ✅ Production              |
+| `DATABASE_URL`         | Database connection            | sqlite:///smarttable.db   | ❌                         |
+| `REDIS_URL`            | Redis address                  | redis\://localhost:6379/0 | ❌                         |
+| `ENABLE_REALTIME`      | Enable real-time collaboration | false                     | ❌                         |
+| `MAIL_SERVER`          | SMTP server                    | -                         | ❌ (email feature needed)  |
+| `MINIO_ENDPOINT`       | MinIO address                  | -                         | ❌ (object storage needed) |
 
 ## 🌍 Browser Support
 
@@ -1149,6 +1222,7 @@ Special thanks to:
 - Vue.js team for the excellent frontend framework
 - Element Plus team for the comprehensive UI component library
 - Flask community for the flexible backend framework
+- TinyEditor team for the powerful text editor component
 - All Issue submitters and PR contributors
 
 ***
@@ -1158,8 +1232,8 @@ Special thanks to:
 - 📧 Email: <ldengbin@126.com>
 - 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
 - 📖 Documentation: [User-Manual](https://github.com/ldbinac/smart_table/blob/main/doc/Smart-Table-User-Manual.md)
-
-- Follow the author on WeChat: ![WeChat Official Account](./doc/img/wechat_official_account.png)
+- Follow the author on WeChat:
+  ![](./doc/img/wechat_official_account.png)
 
 
 

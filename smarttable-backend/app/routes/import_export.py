@@ -272,15 +272,45 @@ def import_data() -> tuple:
 def import_json() -> tuple:
     """
     从 JSON 数据导入
-    
-    请求体:
-        - table_id: 目标表格 ID
-        - data: JSON 数据数组
-        - field_mapping: 字段映射（可选，默认按名称匹配）
-        - preview_only: 是否仅预览（可选，默认false）
-        
-    返回:
-        导入结果或预览数据
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    description: 从 JSON 数据导入记录到指定表格
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - table_id
+            - data
+          properties:
+            table_id:
+              type: string
+              description: 目标表格 ID
+            data:
+              type: array
+              items:
+                type: object
+              description: JSON 数据数组
+            field_mapping:
+              type: object
+              description: 字段映射（可选，默认按名称匹配）
+            preview_only:
+              type: boolean
+              default: false
+              description: 是否仅预览
+    responses:
+      200:
+        description: 导入成功或预览数据
+      400:
+        description: 请求参数错误
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     user_id = g.current_user_id
     
@@ -343,13 +373,31 @@ def import_json() -> tuple:
 def analyze_import_file() -> tuple:
     """
     分析导入文件结构
-    
-    请求参数:
-        - file: 文件（Excel 或 CSV）
-        - file_type: 文件类型（excel/csv，可选）
-        
-    返回:
-        文件结构信息（列名、示例数据等）
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    description: 分析导入文件（Excel / CSV）的结构，返回列名和示例数据
+    parameters:
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: 文件（Excel 或 CSV）
+      - name: file_type
+        in: formData
+        type: string
+        description: 文件类型（excel/csv，可选，自动检测）
+    responses:
+      200:
+        description: 返回文件结构信息（列名、示例数据等）
+      400:
+        description: 请选择要分析的文件
+      401:
+        description: 未授权访问
     """
     # 检查文件
     if 'file' not in request.files:
@@ -414,7 +462,45 @@ def export_data() -> tuple:
 @import_export_bp.route('/export/excel', methods=['POST'])
 @jwt_required
 def export_excel() -> tuple:
-    """导出为 Excel 格式（便捷接口）"""
+    """
+    导出为 Excel 格式（便捷接口）
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    description: 导出表格数据为 Excel 格式
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - table_id
+          properties:
+            table_id:
+              type: string
+              description: 表格 ID
+            record_ids:
+              type: array
+              items:
+                type: string
+              description: 指定记录 ID 列表（可选）
+            field_ids:
+              type: array
+              items:
+                type: string
+              description: 指定字段 ID 列表（可选）
+    responses:
+      200:
+        description: 返回 Excel 文件
+      400:
+        description: 请求参数错误
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+    """
     data = request.get_json() or {}
     data['format'] = 'excel'
     return _do_export(data)
@@ -423,7 +509,45 @@ def export_excel() -> tuple:
 @import_export_bp.route('/export/csv', methods=['POST'])
 @jwt_required
 def export_csv() -> tuple:
-    """导出为 CSV 格式（便捷接口）"""
+    """
+    导出为 CSV 格式（便捷接口）
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    description: 导出表格数据为 CSV 格式
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - table_id
+          properties:
+            table_id:
+              type: string
+              description: 表格 ID
+            record_ids:
+              type: array
+              items:
+                type: string
+              description: 指定记录 ID 列表（可选）
+            field_ids:
+              type: array
+              items:
+                type: string
+              description: 指定字段 ID 列表（可选）
+    responses:
+      200:
+        description: 返回 CSV 文件
+      400:
+        description: 请求参数错误
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+    """
     data = request.get_json() or {}
     data['format'] = 'csv'
     return _do_export(data)
@@ -511,12 +635,27 @@ def _do_export(data: dict) -> tuple:
 def get_import_task(task_id) -> tuple:
     """
     获取导入任务状态
-    
-    参数:
-        task_id: 任务 ID
-        
-    返回:
-        任务状态和进度
+    ---
+    tags:
+      - Import/Export
+    security:
+      - Bearer: []
+    description: 获取异步导入任务的当前状态和进度
+    parameters:
+      - name: task_id
+        in: path
+        type: string
+        required: true
+        description: 任务 ID
+    responses:
+      200:
+        description: 返回任务状态和进度
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 任务不存在
     """
     task = ImportExportService.get_task(task_id)
     

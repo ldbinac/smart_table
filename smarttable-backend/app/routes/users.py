@@ -18,16 +18,36 @@ users_bp = Blueprint('users', __name__)
 def search_users():
     """
     搜索用户
-    
-    查询参数:
-        - query: 搜索关键词（匹配用户名或邮箱）
-        - base_id: 可选，限制在指定基础的成员中搜索
-        - page: 页码，默认 1
-        - per_page: 每页数量，默认 20，最大 100
-    
-    返回:
-        - users: 用户列表
-        - total: 总数
+    ---
+    tags:
+      - Users
+    security:
+      - Bearer: []
+    description: 根据关键词搜索用户（匹配用户名或邮箱）
+    parameters:
+      - name: query
+        in: query
+        type: string
+        description: 搜索关键词（匹配用户名或邮箱）
+      - name: base_id
+        in: query
+        type: string
+        description: 可选，限制在指定基础的成员中搜索
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量，最大 100
+    responses:
+      200:
+        description: 返回用户列表及总数
+      401:
+        description: 未授权访问
     """
     # 获取查询参数
     query = request.args.get('query', '').strip()
@@ -95,12 +115,25 @@ def search_users():
 def get_user(user_id):
     """
     根据ID获取用户信息
-    
-    路径参数:
-        - user_id: 用户ID
-    
-    返回:
-        - 用户详细信息
+    ---
+    tags:
+      - Users
+    security:
+      - Bearer: []
+    description: 根据用户 ID 获取用户详细信息
+    parameters:
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 用户 ID
+    responses:
+      200:
+        description: 返回用户详细信息
+      401:
+        description: 未授权访问
+      404:
+        description: 用户不存在
     """
     user = db.session.get(User, user_id)
     
@@ -125,12 +158,32 @@ def get_user(user_id):
 def get_users_batch():
     """
     批量获取用户信息
-    
-    请求体:
-        - ids: 用户ID列表
-    
-    返回:
-        - 用户列表
+    ---
+    tags:
+      - Users
+    security:
+      - Bearer: []
+    description: 通过用户 ID 列表批量获取用户信息
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - ids
+          properties:
+            ids:
+              type: array
+              items:
+                type: string
+              description: 用户 ID 列表，最多 100 个
+    responses:
+      200:
+        description: 返回用户列表
+      400:
+        description: 缺少用户 ID 列表或超过数量限制
+      401:
+        description: 未授权访问
     """
     data = request.get_json()
     

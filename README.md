@@ -2,7 +2,7 @@
 
 中文 | [English](README.en.md)
 
-一个基于 Vue 3 + Flask 的智能多维表格系统，支持纯前端（IndexedDB）和后端（PostgreSQL/SQLite）两种部署模式，类似于 Airtable 或飞书多维表格。
+一个基于 Vue 3 + Flask 的智能多维表格系统，类似于 Airtable 或飞书多维表格。支持多种视图（表格视图、分组视图、看板视图、日历视图、甘特视图、表单视图、仪表盘等），拥有丰富的字段类型；支持markdown编写富文本文档。
 
 ## ✨ 功能特性
 
@@ -139,7 +139,7 @@
 | 表格字段 | ![表格字段](./doc/img/TableViewFields.jpeg) | 看板视图  | ![看板视图](./doc/img/KanbanView.jpeg)     |
 | 日历视图 | ![日历视图](./doc/img/CalendarView.jpeg)    | 甘特图视图 | ![甘特图视图](./doc/img/GanttView.jpeg)     |
 | 表单视图 | ![表单视图](./doc/img/FormView.jpeg)        | 仪表盘   | ![仪表盘](./doc/img/Dashboard.jpeg)       |
-| 分享功能 | ![分享](./doc/img/sharing.png)            | 文档管理     | ![文档管理](./doc/img/Document.png)       |
+| 分享功能 | ![分享](./doc/img/sharing.png)            | 文档管理  | ![文档管理](./doc/img/Document.png)        |
 
 ## 🛠️ 技术栈
 
@@ -160,7 +160,7 @@
 | 本地数据库     | Dexie                   | ^3.2.7          | IndexedDB 封装    |
 | WebSocket | socket.io-client        | ^4.8.3          | 实时通信            |
 | 工具库       | lodash-es, @vueuse/core | -               | 工具函数集           |
-| 富文本       | dompurify               | ^3.4.0          | XSS 防护          |
+| 富文本       | tinyeditor              | ^4.0.0          | 富文本编辑器          |
 | 电子表格      | xlsx                    | ^0.18.5         | Excel 解析生成      |
 | 构建工具      | Vite                    | ^8.0.1          | 极速构建工具          |
 | 测试框架      | Vitest                  | ^3.2.4          | 单元测试            |
@@ -193,8 +193,8 @@
 
 | 模式        | 技术                 | 说明                           |
 | --------- | ------------------ | ---------------------------- |
-| **纯前端模式** | Dexie (IndexedDB)  | 数据存储在浏览器本地，无需服务端，适合个人使用或离线场景 |
-| **后端模式**  | SQLite + Flask     | 默认使用 SQLite，轻量级无需额外安装数据库     |
+| *前端** | Dexie (IndexedDB)  | 数据存储在浏览器本地作为缓存 |
+| **后端**  | SQLite + Flask     | 默认使用 SQLite，轻量级无需额外安装数据库     |
 | **生产模式**  | PostgreSQL + Flask | 支持 PostgreSQL，适合多用户并发和生产环境   |
 
 ## 🚀 快速开始
@@ -218,6 +218,42 @@
 > **无需安装任何依赖，无需手工创建账号。**
 >
 > 启动后会自动打开浏览器，然后试用控制台打印的账号邮箱和密码登录即可试用。
+
+### docker启动
+
+使用官方docker镜像启动：
+
+```bash
+docker run -d \
+  --name smarttable \
+  -p 80:80 \
+  -v smarttable_data:/app/data \
+  -v smarttable_uploads:/app/uploads \
+  -v smarttable_redis:/data/redis \
+  ygbinac/smarttable:latest
+```
+
+* 或者使用 docker compose ，只需创建以下 docker-compose.yml ：：
+
+```bash
+services:
+  smarttable:
+    image: ygbinac/smarttable:latest
+    container_name: smarttable
+    ports:
+      - "80:80"
+    volumes:
+      - smarttable_data:/app/data
+      - smarttable_uploads:/app/uploads
+      - smarttable_redis:/data/redis
+    restart: unless-stopped
+
+volumes:
+  smarttable_data:
+  smarttable_uploads:
+  smarttable_redis:
+```
+
 
 ## 开发环境
 
@@ -799,11 +835,13 @@ View (视图)
 - 视图级别字段控制（隐藏、冻结、宽度）
 
 #### Document（文档）（v1.4.0 新增）
+
 - 文档存储与管理，关联到 Base
 - 支持富文本和 Markdown 内容
 - 权限继承自所属 Base
 
 #### DocumentVersion（文档版本）（v1.4.0 新增）
+
 - 文档版本历史追踪
 - 记录每次保存的快照和创建者
 - 支持版本回溯和对比
@@ -996,11 +1034,45 @@ environment:
 
 ## 🐳 Docker 部署
 
-### 快速部署（一键启动）
+### 快速部署（官方镜像一键启动）
+
+直接启动：
+
+```bash
+docker run -d \
+  --name smarttable \
+  -p 80:80 \
+  -v smarttable_data:/app/data \
+  -v smarttable_uploads:/app/uploads \
+  -v smarttable_redis:/data/redis \
+  ygbinac/smarttable:latest
+```
+
+* 或者使用 docker compose ，只需创建以下 docker-compose.yml ：：
+```bash
+services:
+  smarttable:
+    image: ygbinac/smarttable:latest
+    container_name: smarttable
+    ports:
+      - "80:80"
+    volumes:
+      - smarttable_data:/app/data
+      - smarttable_uploads:/app/uploads
+      - smarttable_redis:/data/redis
+    restart: unless-stopped
+
+volumes:
+  smarttable_data:
+  smarttable_uploads:
+  smarttable_redis:
+```
+
+### 源码部署
 
 ```bash
 # 克隆项目
-git clone <repository-url>
+git clone https://github.com/ldbinac/smart_table.git
 cd smart-table-spec
 
 # 复制环境变量配置
@@ -1021,7 +1093,7 @@ docker-compose logs -f
 
 - 前端应用: <http://localhost>
 - 后端 API: <http://localhost:5000/api>
-- API 文档: <http://localhost:5000/api/docs>
+- API 文档: <http://localhost:5000/apidocs>
 
 ### 生产环境部署（PostgreSQL + Redis）
 
@@ -1150,6 +1222,7 @@ SOFTWARE.
 - Vue.js 团队提供优秀的前端框架
 - Element Plus 团队提供完善的 UI 组件库
 - Flask 社区提供灵活的后端框架
+- TinyEditor 团队提供功能强大的文本编辑器组件
 - 所有 Issue 提交者和 Pull Request 贡献者
 
 ***
@@ -1160,7 +1233,7 @@ SOFTWARE.
 - 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
 - 📖 Documentation: [User-Manual](https://github.com/ldbinac/smart_table/blob/main/doc/Smart-Table-User-Manual.md)
 - 关注作者：
-![](./doc/img/wechat_official_account.png) 
+  ![](./doc/img/wechat_official_account.png)
 
 ***
 

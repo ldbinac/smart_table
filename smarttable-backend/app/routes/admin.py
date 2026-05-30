@@ -43,10 +43,15 @@ admin_bp.strict_slashes = False
 def get_public_configs() -> tuple:
     """
     获取公开系统配置（无需登录）
-    用于登录页、注册页等未认证场景
-    
-    响应:
-        200: 返回公开配置信息
+    ---
+    tags:
+      - Admin
+    description: 获取公开系统配置，用于登录页、注册页等未认证场景
+    responses:
+      200:
+        description: 返回公开配置信息
+      500:
+        description: 服务器内部错误
     """
     try:
         configs = ConfigCacheService.get_public_configs()
@@ -214,15 +219,27 @@ def create_user() -> tuple:
 def get_user(user_id) -> tuple:
     """
     获取用户详情
-    
-    路径参数:
-        user_id: 用户 ID
-    
-    响应:
-        200: 返回用户详情
-        401: 未授权访问
-        403: 权限不足
-        404: 用户不存在
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 获取指定用户的详细信息（需要管理员权限）
+    parameters:
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 用户 ID
+    responses:
+      200:
+        description: 返回用户详情
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 用户不存在
     """
     user_info = AdminService.get_user(user_id)
     
@@ -241,24 +258,46 @@ def get_user(user_id) -> tuple:
 def update_user(user_id) -> tuple:
     """
     更新用户信息
-    
-    路径参数:
-        user_id: 用户 ID
-    
-    请求体:
-        {
-            "email": "newemail@example.com" (可选),
-            "name": "新用户名" (可选),
-            "role": "admin" (可选),
-            "status": "active" (可选)
-        }
-    
-    响应:
-        200: 更新成功，返回用户信息
-        400: 请求数据验证失败
-        401: 未授权访问
-        403: 权限不足
-        404: 用户不存在
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 更新指定用户的邮箱、名称、角色等信息（需要管理员权限）
+    parameters:
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 用户 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+              description: 新邮箱
+            name:
+              type: string
+              description: 新用户名
+            role:
+              type: string
+              description: 新角色
+            status:
+              type: string
+              description: 状态
+    responses:
+      200:
+        description: 更新成功，返回用户信息
+      400:
+        description: 请求数据验证失败
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 用户不存在
     """
     data = request.get_json()
     
@@ -304,15 +343,27 @@ def update_user(user_id) -> tuple:
 def delete_user(user_id) -> tuple:
     """
     删除用户（软删除）
-    
-    路径参数:
-        user_id: 用户 ID
-    
-    响应:
-        200: 删除成功
-        401: 未授权访问
-        403: 权限不足
-        404: 用户不存在
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 软删除指定用户（需要管理员权限）
+    parameters:
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 用户 ID
+    responses:
+      200:
+        description: 删除成功
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 用户不存在
     """
     old_user_info = AdminService.get_user(user_id)
     if not old_user_info:
@@ -346,21 +397,40 @@ def delete_user(user_id) -> tuple:
 def update_user_status(user_id) -> tuple:
     """
     更新用户状态
-    
-    路径参数:
-        user_id: 用户 ID
-    
-    请求体:
-        {
-            "status": "active" (active, inactive, suspended)
-        }
-    
-    响应:
-        200: 更新成功，返回用户信息
-        400: 请求数据验证失败
-        401: 未授权访问
-        403: 权限不足
-        404: 用户不存在
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 更新指定用户的状态（激活/暂停）（需要管理员权限）
+    parameters:
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 用户 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              enum: [active, inactive, suspended]
+              description: 目标状态
+    responses:
+      200:
+        description: 更新成功，返回用户信息
+      400:
+        description: 请求数据验证失败
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 用户不存在
     """
     data = request.get_json()
     
@@ -415,21 +485,37 @@ def update_user_status(user_id) -> tuple:
 def reset_user_password(user_id) -> tuple:
     """
     重置用户密码
-    
-    路径参数:
-        user_id: 用户 ID
-    
-    请求体:
-        {
-            "temporary_password": "TempPass123" (可选，不提供则自动生成)
-        }
-    
-    响应:
-        200: 重置成功，返回临时密码
-        400: 请求数据验证失败
-        401: 未授权访问
-        403: 权限不足
-        404: 用户不存在
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 重置指定用户的密码（需要管理员权限）
+    parameters:
+      - name: user_id
+        in: path
+        type: string
+        required: true
+        description: 用户 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            temporary_password:
+              type: string
+              description: 临时密码（可选，不提供则自动生成）
+    responses:
+      200:
+        description: 重置成功，返回临时密码
+      400:
+        description: 请求数据验证失败
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
+      404:
+        description: 用户不存在
     """
     data = request.get_json() or {}
     
@@ -476,16 +562,17 @@ def reset_user_password(user_id) -> tuple:
 def get_settings() -> tuple:
     """
     获取所有系统配置
-
-    响应:
-        200: 返回分组配置信息
-        401: 未授权访问
-
-    示例返回:
-        {
-            "basic": {"site_name": "My Site", "site_url": "https://example.com"},
-            "email": {"smtp_host": "smtp.example.com", "smtp_port": 587}
-        }
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 获取所有系统配置信息（需要登录权限）
+    responses:
+      200:
+        description: 返回分组配置信息
+      401:
+        description: 未授权访问
     """
     try:
         configs = AdminService.get_all_configs()
@@ -506,24 +593,46 @@ def get_settings() -> tuple:
 def update_settings() -> tuple:
     """
     更新系统配置
-    
-    请求体:
-        {
-            "configs": [
-                {
-                    "key": "site_name",
-                    "value": "My Site",
-                    "group": "basic",
-                    "description": "网站名称"
-                }
-            ]
-        }
-    
-    响应:
-        200: 更新成功，返回更新后的配置列表
-        400: 请求数据验证失败
-        401: 未授权访问
-        403: 权限不足
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 批量更新系统配置项（需要管理员权限）
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - configs
+          properties:
+            configs:
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                    description: 配置项键名
+                  value:
+                    type: string
+                    description: 配置项值
+                  group:
+                    type: string
+                    description: 配置分组
+                  description:
+                    type: string
+                    description: 配置描述
+    responses:
+      200:
+        description: 更新成功，返回更新后的配置列表
+      400:
+        description: 请求数据验证失败
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     data = request.get_json()
     
@@ -592,20 +701,50 @@ def update_settings() -> tuple:
 def get_operation_logs() -> tuple:
     """
     获取操作日志（分页）
-    
-    查询参数:
-        page: 页码，从 1 开始，默认 1
-        per_page: 每页数量，默认 20
-        user_id: 用户 ID 过滤
-        action: 操作类型过滤（create, update, delete, suspend, activate, reset_password 等）
-        entity_type: 实体类型过滤（user, config 等）
-        start_date: 开始时间（ISO 8601 格式）
-        end_date: 结束时间（ISO 8601 格式）
-    
-    响应:
-        200: 返回分页操作日志列表
-        401: 未授权访问
-        403: 权限不足
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 获取操作日志列表（需要管理员权限）
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码，从 1 开始
+      - name: per_page
+        in: query
+        type: integer
+        default: 20
+        description: 每页数量
+      - name: user_id
+        in: query
+        type: string
+        description: 用户 ID 过滤
+      - name: action
+        in: query
+        type: string
+        description: 操作类型过滤（create, update, delete, suspend 等）
+      - name: entity_type
+        in: query
+        type: string
+        description: 实体类型过滤（user, config 等）
+      - name: start_date
+        in: query
+        type: string
+        description: 开始时间（ISO 8601 格式）
+      - name: end_date
+        in: query
+        type: string
+        description: 结束时间（ISO 8601 格式）
+    responses:
+      200:
+        description: 返回分页操作日志列表
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         page = request.args.get('page', 1, type=int)
@@ -667,19 +806,42 @@ def get_operation_logs() -> tuple:
 def export_operation_logs() -> tuple:
     """
     导出操作日志为 CSV 文件
-    
-    查询参数:
-        user_id: 用户 ID 过滤
-        action: 操作类型过滤
-        entity_type: 实体类型过滤
-        start_date: 开始时间（ISO 8601 格式）
-        end_date: 结束时间（ISO 8601 格式）
-    
-    响应:
-        200: 返回 CSV 文件
-        400: 时间格式错误
-        401: 未授权访问
-        403: 权限不足
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 导出操作日志为 CSV 文件下载（需要管理员权限）
+    parameters:
+      - name: user_id
+        in: query
+        type: string
+        description: 用户 ID 过滤
+      - name: action
+        in: query
+        type: string
+        description: 操作类型过滤
+      - name: entity_type
+        in: query
+        type: string
+        description: 实体类型过滤
+      - name: start_date
+        in: query
+        type: string
+        description: 开始时间（ISO 8601 格式）
+      - name: end_date
+        in: query
+        type: string
+        description: 结束时间（ISO 8601 格式）
+    responses:
+      200:
+        description: 返回 CSV 文件
+      400:
+        description: 时间格式错误
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     try:
         user_id = request.args.get('user_id', None)
@@ -744,25 +906,19 @@ def export_operation_logs() -> tuple:
 def get_roles() -> tuple:
     """
     获取所有角色及其描述
-    
-    响应:
-        200: 返回角色列表
-        401: 未授权访问
-        403: 权限不足
-    
-    返回示例:
-        [
-            {
-                "value": "owner",
-                "name": "所有者",
-                "description": "系统最高权限，可以执行所有操作"
-            },
-            {
-                "value": "admin",
-                "name": "管理员",
-                "description": "管理员权限，可以管理用户和系统配置"
-            }
-        ]
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 获取系统中所有角色及其描述信息（需要管理员权限）
+    responses:
+      200:
+        description: 返回角色列表
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     
     roles_info = {
@@ -812,24 +968,57 @@ def get_roles() -> tuple:
 def verify_email_config() -> tuple:
     """
     验证邮件配置有效性
-    
-    请求体:
-        {
-            "smtp_host": "smtp.example.com",
-            "smtp_port": 587,
-            "smtp_username": "user@example.com",
-            "smtp_password": "password",
-            "smtp_use_tls": true (可选，默认 true),
-            "smtp_use_ssl": false (可选，默认 false),
-            "from_email": "noreply@example.com",
-            "from_name": "SmartTable" (可选)
-        }
-    
-    响应:
-        200: 配置有效
-        400: 请求数据验证失败或配置无效
-        401: 未授权访问
-        403: 权限不足
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 验证 SMTP 邮件配置是否有效（需要管理员权限）
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - smtp_host
+            - smtp_port
+            - from_email
+          properties:
+            smtp_host:
+              type: string
+              description: SMTP 服务器地址
+            smtp_port:
+              type: integer
+              description: SMTP 端口
+            smtp_username:
+              type: string
+              description: SMTP 用户名
+            smtp_password:
+              type: string
+              description: SMTP 密码
+            smtp_use_tls:
+              type: boolean
+              default: true
+              description: 是否使用 TLS
+            smtp_use_ssl:
+              type: boolean
+              default: false
+              description: 是否使用 SSL
+            from_email:
+              type: string
+              description: 发件人邮箱
+            from_name:
+              type: string
+              description: 发件人名称
+    responses:
+      200:
+        description: 配置有效
+      400:
+        description: 请求数据验证失败或配置无效
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     data = request.get_json()
     
@@ -857,25 +1046,61 @@ def verify_email_config() -> tuple:
 def send_test_email() -> tuple:
     """
     发送测试邮件
-    
-    请求体:
-        {
-            "smtp_host": "smtp.example.com",
-            "smtp_port": 587,
-            "smtp_username": "user@example.com",
-            "smtp_password": "password",
-            "smtp_use_tls": true (可选，默认 true),
-            "smtp_use_ssl": false (可选，默认 false),
-            "from_email": "noreply@example.com",
-            "from_name": "SmartTable" (可选),
-            "test_email": "test@example.com"
-        }
-    
-    响应:
-        200: 发送成功
-        400: 请求数据验证失败或发送失败
-        401: 未授权访问
-        403: 权限不足
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    description: 发送测试邮件以验证邮件配置（需要管理员权限）
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - smtp_host
+            - smtp_port
+            - from_email
+            - test_email
+          properties:
+            smtp_host:
+              type: string
+              description: SMTP 服务器地址
+            smtp_port:
+              type: integer
+              description: SMTP 端口
+            smtp_username:
+              type: string
+              description: SMTP 用户名
+            smtp_password:
+              type: string
+              description: SMTP 密码
+            smtp_use_tls:
+              type: boolean
+              default: true
+              description: 是否使用 TLS
+            smtp_use_ssl:
+              type: boolean
+              default: false
+              description: 是否使用 SSL
+            from_email:
+              type: string
+              description: 发件人邮箱
+            from_name:
+              type: string
+              description: 发件人名称
+            test_email:
+              type: string
+              description: 测试接收邮箱
+    responses:
+      200:
+        description: 发送成功
+      400:
+        description: 请求数据验证失败或发送失败
+      401:
+        description: 未授权访问
+      403:
+        description: 权限不足
     """
     from flask import current_app
     
