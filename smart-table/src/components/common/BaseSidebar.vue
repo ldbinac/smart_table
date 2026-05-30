@@ -734,7 +734,7 @@ defineExpose({
           text
           @click="handleAddDocument"
           class="footer-btn">
-          <el-icon><Plus /></el-icon>
+          <el-icon><Edit /></el-icon>
           <span v-show="!isCollapsed">添加文档</span>
         </el-button>
       </div>
