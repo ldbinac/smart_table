@@ -29,7 +29,7 @@ const emit = defineEmits<{
 const imageFieldId = ref<string>("");
 const titleFieldId = ref<string>("");
 const previewVisible = ref(false);
-const previewImages = ref<Array<{ url: string; name: string }>>([]);
+const previewImages = ref<Array<{ url: string; name: string; originalName: string }>>([]);
 const previewIndex = ref(0);
 const imageLoadingMap = ref<Map<string, boolean>>(new Map());
 
@@ -173,6 +173,7 @@ const cards = computed<GalleryCard[]>(() => {
           .map((img) => ({
             url: img.url || img.thumbnail || "",
             name: img.name || "未命名",
+            originalName: img.originalName || img.name || "未命名",
           }))
           .filter((img) => img.url),
         record,
@@ -392,21 +393,21 @@ onBeforeUnmount(() => {
     <el-dialog
       v-model="previewVisible"
       title="图片预览"
-      width="60%"
+      width="80%"
       destroy-on-close
       class="preview-dialog">
       <div class="preview-container">
         <el-carousel
           :initial-index="previewIndex"
           indicator-position="outside"
-          height="60vh"
+          height="80vh"
           arrow="always">
           <el-carousel-item
             v-for="(image, index) in previewImages"
             :key="index">
             <div class="preview-image-wrapper">
-              <img :src="image.url" :alt="image.name" />
-              <span class="preview-image-name">{{ image.name }}</span>
+              <img :src="image.url" :alt="image.originalName" />
+              <span class="preview-image-name">{{ image.originalName }}</span>
             </div>
           </el-carousel-item>
         </el-carousel>
@@ -859,7 +860,8 @@ onBeforeUnmount(() => {
   justify-content: center;
 
   :deep(.el-carousel__container) {
-    width: 60vw;
+    width: 80vw;
+    height: 80vh;
   }
 }
 
@@ -873,8 +875,8 @@ onBeforeUnmount(() => {
   gap: $spacing-md;
 
   img {
-    max-width: 90vw;
-    max-height: calc(100vh - 40px);
+    // max-width: 100vw;
+    max-height: calc(100vh - 20px);
     object-fit: contain;
     border-radius: $border-radius-lg;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
