@@ -1,8 +1,8 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "product_name": "SmartTable",
   "company_name": "ldengbin@126.com",
-  "copyright": "Copyright © {year} SmartTable Team. All rights reserved.",
+  "copyright": "Copyright © {year} by ldengbin@126.com. All rights reserved.",
   "description": {
     "zh_CN": "智能多维表格应用-by ldengbin@126.com ",
     "en_US": "Intelligent Multi-Dimensional Spreadsheet by ldengbin@126.com"

@@ -4,6 +4,98 @@
 
 ***
 
+# SmartTable v1.4.1 Release Notes
+
+**发布日期 / Release Date**: 2026-05-31
+
+**版本号 / Version**: v1.4.1
+
+**标签 / Tags**: `release`, `v1.4.1`, `latest`, `stable`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.4.1 更新说明
+
+本次更新聚焦于 **postgresql v13+版本 数据库支持**、 **关联字段功能增强**、**批量导入体验优化** 以及 **交互体验优化**。同时修复了多个影响使用的问题，并完善了 API 文档注释。
+
+### ✨ 新增功能 (New Features)
+
+#### 🔗 关联字段增强
+
+- 新增关联字段**解除关联**功能，支持断开已建立的记录关联
+- 完善**双向关联**支持，关联双方数据同步更准确
+- 修复关联字段在多种场景下的显示与数据一致性问题
+
+#### 📥 批量导入优化
+
+- 新增批量导入功能，大幅提升大量数据录入效率
+- 优化导入流程体验，界面反馈更清晰
+- 配套添加批量插入和性能测试工具
+
+#### ⚙️ 交互体验优化
+- 优化画廊视图下图片预览样式，视觉效果更佳
+- 新增 `LoadingOverlay` 通用加载遮罩组件,集成至批量删除等耗时操作场景，提升操作反馈体验
+- 侧边栏样式微调（编辑图标替换）
+- 时区优化，默认不配置时区时直接使用浏览器本地时区转换展示时间，简化用户上手成本
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+| 问题 | 修复内容 |
+|------|----------|
+| **🔧 postgresql数据库兼容问题** | 修复 PostgreSQL 数据库兼容性问题，实现postgresql v13+版本 支持 |
+| **🔧 附件文件名错误** | 修正附件展示使用错误的文件名字段 |
+| **🔧 二级缓存遗漏** | 修复大批量数据请求时二级缓存部分数据遗漏问题 |
+| **🔧 环境变量加载路径** | 修正 `.env` 文件加载的基准路径逻辑 |
+| **🔧 终端编码问题** | 修复后端终端输出编码异常 |
+| **🔧 类型与数据问题** | 优化多处代码逻辑并修复类型/数据兼容性问题 |
+| **🔧 时区兼容性** | 统一将数据库 datetime 字段改为带时区类型，兼容 PostgreSQL 环境下的时区转换 |
+
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.4.1 Release Notes
+
+This release focuses on **PostgreSQL v13+ database support**, **Link field enhancements**, **batch import experience optimization**, and **interaction experience improvements**. Multiple bugs have been fixed, and API documentation has been improved.
+
+### ✨ New Features
+
+#### 🔗 Link Field Enhancements
+
+- Added **unlink** functionality for link fields, allowing disconnection of established record relationships
+- Enhanced **bidirectional linking** support for more accurate data synchronization
+- Fixed link field display and data consistency issues in various scenarios
+
+#### 📥 Batch Import Optimization
+
+- Added batch import feature for significantly improved data entry efficiency
+- Optimized import workflow experience with clearer interface feedback
+- Added batch insert and performance test utilities
+
+#### ⚙️ Interaction Experience Optimization
+
+- Optimized Gallery View image preview styling for better visual effect
+- Added `LoadingOverlay` universal loading overlay component, integrated into batch delete and other time-consuming operations for better feedback
+- Sidebar style refinement (edit icon replacement)
+- Timezone optimization: when no timezone is configured, uses browser local timezone for display by default, simplifying user onboarding
+
+### 🐛 Bug Fixes
+
+| Issue | Fix |
+|-------|-----|
+| **🔧 PostgreSQL Compatibility** | Fixed PostgreSQL database compatibility issues, enabled PostgreSQL v13+ support |
+| **🔧 Attachment Filename** | Fixed attachment display using wrong filename field |
+| **🔧 Cache Miss** | Fixed secondary cache data loss during large batch requests |
+| **🔧 Env Loading Path** | Fixed `.env` file loading base path logic |
+| **🔧 Terminal Encoding** | Fixed backend terminal output encoding issue |
+| **🔧 Type/Data Issues** | Optimized multiple code logic and fixed type/data compatibility issues |
+| **🔧 Timezone Compatibility** | Unified database datetime fields to timezone-aware types for PostgreSQL environment compatibility |
+
+---
+
 # SmartTable v1.4.0 Release Notes
 
 **发布日期 / Release Date**: 2026-05-25

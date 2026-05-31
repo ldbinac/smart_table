@@ -451,6 +451,14 @@ chcp 65001 >nul
 title SmartTable Server v{ver}
 echo ============================================
 echo   SmartTable v{ver}
+echo   --                                     
+echo   GitHub（主仓库）：https://github.com/ldbinac/smart_table
+echo   Gitee国内镜像）：https://gitee.com/binac/smart_table
+echo   微信公众号：程序员吕洞宾
+echo   CSDN：程序员吕洞宾 
+echo   稀土掘金：程序员吕洞宾 
+echo   知乎：程序员吕洞宾 
+echo   邮箱：ldengbin@126.com                                 
 echo ============================================
 tasklist /FI "IMAGENAME eq redis-server.exe" 2>NUL | find /I /N "redis-server">NUL
 if "%ERRORLEVEL%"=="0" (echo [Redis] 已运行) else (start /B "" "%~dp0redis-server.exe" --port 6379 >nul 2>&1 & timeout /t 2 >nul)
@@ -512,8 +520,21 @@ def _create_readme(d, platform):
 - 端口被占用: 修改 .env 的 FLASK_PORT
 - Redis 启动失败: 可忽略，核心功能正常
 - 杀毒软件误报: 添加信任区域
+- 数据库切换: 修改 .env 的 DATABASE_URL
 
 ## 技术支持
+
+| 平台 | 账号 / 地址 |
+|------|------------|
+| 🌐 **GitHub**（主仓库） | [https://github.com/ldbinac/smart_table](https://github.com/ldbinac/smart_table) |
+| 🇨🇳 **Gitee**（国内镜像） | [https://gitee.com/binac/smart_table](https://gitee.com/binac/smart_table) |
+| 💬 **微信公众号** | 程序员吕洞宾 |
+| 💻 **CSDN** | 程序员吕洞宾 |
+| ⛏ **稀土掘金** | 程序员吕洞宾 |
+| 📝 **知乎** | 程序员吕洞宾 |
+| 📮 **邮箱** | ldengbin@126.com |
+
+关注不迷路，版本持续迭代中～
 
 查看控制台输出和 logs/ 目录下的日志文件。
 ''', encoding='utf-8')
