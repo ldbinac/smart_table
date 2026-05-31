@@ -221,6 +221,8 @@ Download the latest release package, extract it and start with one click:
 
 ### Docker Start
 
+> For ARM architectures, please use the corresponding version image：`ygbinac/smarttable:1.4.1-arm64`
+
 Start with the official Docker image:
 
 ```bash
@@ -1035,6 +1037,8 @@ environment:
 ## 🐳 Docker Deployment
 
 ### Quick Deploy (Official Image One-click Start)
+
+> For ARM architectures, please use the corresponding version image：`ygbinac/smarttable:1.4.1-arm64`
 
 Directly start:
 
