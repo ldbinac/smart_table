@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
+import { ZoomIn } from "@element-plus/icons-vue";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -76,6 +77,15 @@ const editingFieldId = ref<string | null>(null);
 const expandDialogVisible = ref(false);
 const expandedRecord = ref<RecordEntity | null>(null);
 
+// Drawer 抽屉大小（响应式）
+const drawerSize = computed(() => {
+  const width = window.innerWidth;
+  if (width < 768) return "100%";
+  if (width < 1024) return "70%";
+  if (width < 1440) return "50%";
+  return "600px";
+});
+
 // 初始化列宽（可以从localStorage或其他地方恢复）
 const initColumnWidths = () => {
   // 这里可以从localStorage恢复列宽，暂时留空
@@ -95,6 +105,12 @@ const contextMenuItems = computed(() => {
 
   if (contextMenuTarget.value === "row") {
     // 行菜单
+    items.push({ id: "view-detail", label: "查看详情", icon: "search", action: () => {
+      if (contextMenuRecord.value) {
+        handleExpandRecord(contextMenuRecord.value);
+      }
+    }});
+    
     if (!props.readonly) {
       items.push({ id: "edit", label: "编辑", icon: "edit", action: () => handleEditRecord() });
       items.push({ id: "duplicate", label: "复制记录", icon: "copy", action: () => handleDuplicateRecord() });
@@ -546,17 +562,29 @@ const buildTableConfig = (): any => {
   });
 
   // 添加序号列
-  columns.unshift({
-    field: '_index',
-    title: '#',
-    width: 60,
-    minWidth: 50,
-  });
+  // columns.unshift({
+  //   field: '_index',
+  //   title: '#',
+  //   width: 70,
+  //   minWidth: 60,
+  //   // 自定义渲染序号列
+  //   customRender: (args: any) => {
+  //     if (!args || !args.record) return "";
+  //     const index = args.record._index || "";
+  //     const recordId = args.record._recordId || "";
+  //     const isSelected = selectedRows.value.includes(recordId);
+      
+  //     if (isSelected) {
+  //       return `${index} 👁️`;
+  //     }
+  //     return index;
+  //   },
+  // });
 
   // 转换 records 为 VTable 需要的格式 - 保留原始记录引用
   const tableRecords = sortedRecords.value.map((record, index) => {
     const row: any = {
-      _index: index + 1, // 直接设置为从1开始
+      _index: index, 
       _recordId: record?.id || '',
       _originalRecord: record, // 保存原始记录引用
     };
@@ -603,6 +631,13 @@ const buildTableConfig = (): any => {
     select: {
       mode: 'multiple',
       enable: true,
+      highlightMode: 'row', // 整行高亮
+    },
+    rowSeriesNumber: {
+      title: '#',
+      width: 'auto',
+      cellType: 'checkbox', // 设置单元格类型为复选框
+      headerType: 'checkbox' // 表头也显示复选框
     },
     theme: {
       table: {
@@ -619,6 +654,9 @@ const buildTableConfig = (): any => {
           color: '#374151',
           fontSize: 13,
         },
+      },
+      selectionStyle: {
+        inlineRowBgColor: 'rgba(64, 158, 255, 0.1)', // 整行选中的背景色
       },
     },
   };
@@ -644,7 +682,8 @@ const bindTableEvents = () => {
 
   // 选择单元格/行
   tableInstanceAny.on('selected', (args: any) => {
-    if (args.type === 'cell' && args.cells) {
+    console.log('Selected event:', args);
+    if (args.cells && args.cells.length > 0) {
       // 获取选中的记录
       const selectedRecordIds: string[] = [];
       args.cells.forEach((cell: any) => {
@@ -654,6 +693,7 @@ const bindTableEvents = () => {
       });
       
       selectedRows.value = Array.from(new Set(selectedRecordIds));
+      console.log('Selected rows:', selectedRows.value);
       
       if (selectedRows.value.length > 0) {
         const firstSelectedRecord = sortedRecords.value.find(r => r.id === selectedRows.value[0]);
@@ -664,6 +704,9 @@ const bindTableEvents = () => {
       
       const selectedRecords = sortedRecords.value.filter(r => selectedRows.value.includes(r.id));
       emit('records-select', selectedRecords);
+      
+      // 更新表格显示
+      updateTable();
     }
   });
 
@@ -715,11 +758,29 @@ const bindTableEvents = () => {
   // 单元格点击
   tableInstanceAny.on('cellClick', (args: any) => {
     console.log('Cell clicked:', args);
+    
+    // 检查是否是序号列
+    if (args.col === 0 && args.record && args.record._originalRecord) {
+      const recordId = args.record._recordId;
+      
+      // 检查该行是否已选中
+      if (selectedRows.value.includes(recordId)) {
+        // 如果已选中，打开详情
+        handleExpandRecord(args.record._originalRecord);
+      } else {
+        // 如果未选中，先选中该行
+        console.log('Selecting row:', recordId);
+      }
+    }
   });
 
   // 单元格双击
   tableInstanceAny.on('cellDblClick', (args: any) => {
     console.log('Cell double clicked:', args);
+    // 双击任意单元格也打开记录详情
+    if (args.record && args.record._originalRecord) {
+      handleExpandRecord(args.record._originalRecord);
+    }
   });
 };
 
@@ -869,6 +930,13 @@ watch(() => viewStore.currentView, () => {
   updateTable();
 }, { deep: true });
 
+// 监听选中状态变化，更新表格显示
+watch(selectedRows, () => {
+  if (tableInstance) {
+    updateTable();
+  }
+}, { deep: true });
+
 onMounted(() => {
   initColumnWidths();
   initTable();
@@ -924,6 +992,7 @@ defineExpose({
       :record="expandedRecord"
       :table-id="tableId"
       :fields="tableStore.fields"
+      :size="drawerSize"
       :readonly="readonly"
       @save="handleRecordSave"
     />
