@@ -915,14 +915,24 @@ watch(selectedRows, () => {
   // 选中行变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新
 }, { deep: true });
 
+// 处理文档点击 - 点击表格外部时隐藏悬浮图标
+const handleDocumentClick = (e: MouseEvent) => {
+  // 如果点击在表格容器内，由 click_cell 管理图标显示
+  if (tableContainerRef.value?.contains(e.target as Node)) return;
+  actionIconVisible.value = false;
+  selectedCell.value = null;
+};
+
 onMounted(() => {
   initColumnWidths();
   initTable();
   setupRealtimeListeners();
+  document.addEventListener('click', handleDocumentClick);
 });
 
 onBeforeUnmount(() => {
   cleanupRealtimeListeners();
+  document.removeEventListener('click', handleDocumentClick);
   if (tableInstance) {
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
