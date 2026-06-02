@@ -18,6 +18,8 @@ import { FieldType } from "@/types/fields";
 import { ListTable } from "@visactor/vtable";
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
+// 导入字段属性对话框
+import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 
 interface Props {
   tableId?: string;
@@ -57,6 +59,10 @@ const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuColumn = ref<FieldEntity | null>(null);
+
+// 字段属性对话框相关
+const fieldDialogVisible = ref(false);
+const editingFieldId = ref<string | null>(null);
 
 // 初始化列宽（可以从localStorage或其他地方恢复）
 const initColumnWidths = () => {
@@ -199,8 +205,8 @@ const handleHideColumn = async () => {
 // 处理字段属性
 const handleFieldSettings = () => {
   if (!contextMenuColumn.value) return;
-  // TODO: 这里可以打开字段设置对话框
-  ElMessage.info('字段属性功能开发中...');
+  editingFieldId.value = contextMenuColumn.value.id;
+  fieldDialogVisible.value = true;
   contextMenuVisible.value = false;
 };
 
@@ -727,6 +733,14 @@ defineExpose({
       :x="contextMenuX"
       :y="contextMenuY"
       v-model:visible="contextMenuVisible"
+    />
+    
+    <!-- 字段属性对话框 -->
+    <FieldDialog
+      v-model:visible="fieldDialogVisible"
+      :edit-field-id="editingFieldId"
+      :table-id="tableId"
+      :fields="tableStore.fields"
     />
   </div>
 </template>
