@@ -13,7 +13,7 @@ import {
   Plus,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
-import { TableView } from "@/components/views/TableView";
+import { TableView, VTableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
 import CalendarView from "@/components/views/CalendarView/CalendarView.vue";
 import GanttView from "@/components/views/GanttView/GanttView.vue";
@@ -106,6 +106,9 @@ const visibleFields = computed(() => {
 
 // 创建数据表对话框显示状态
 const createTableDialogVisible = ref(false);
+
+// VTable 临时测试开关
+const useVTable = ref(false);
 
 // 数据表管理对话框显示状态
 const showTableManager = ref(false);
@@ -1909,6 +1912,15 @@ const handleDocumentExportPdf = async () => {
                     导出
                   </el-button>
                 </el-button-group>
+                <el-button-group>
+                  <el-button
+                    size="default"
+                    :type="useVTable ? 'success' : 'default'"
+                    @click="useVTable = !useVTable">
+                    <el-icon><Setting /></el-icon>
+                    {{ useVTable ? 'VTable' : '原生表格' }}
+                  </el-button>
+                </el-button-group>
               </template>
 
               <!-- 表单视图：显示配置和分享按钮 -->
@@ -1956,7 +1968,18 @@ const handleDocumentExportPdf = async () => {
 
             <!-- 表格视图 - 普通模式 -->
             <TableView
-              v-else-if="isTableView"
+              v-else-if="isTableView && !useVTable"
+              :table-id="currentTableId"
+              :view-id="viewStore.currentView?.id || ''"
+              :records="filteredRecords"
+              :readonly="!canEdit"
+              @record-select="handleRecordSelect"
+              @records-select="handleRecordsSelect"
+              @add-record="handleAddRecord" />
+
+            <!-- VTable 测试视图 -->
+            <VTableView
+              v-else-if="isTableView && useVTable"
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"

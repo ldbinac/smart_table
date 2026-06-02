@@ -165,6 +165,7 @@ declare module 'vue' {
     URLField: typeof import('./components/fields/URLField.vue')['default']
     UserDialog: typeof import('./components/dialogs/admin/UserDialog.vue')['default']
     ViewSwitcher: typeof import('./components/views/ViewSwitcher.vue')['default']
+    VTableView: typeof import('./components/views/TableView/VTableView.vue')['default']
   }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']
