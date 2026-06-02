@@ -56,6 +56,7 @@ const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
 
 const selectedRows = ref<string[]>([]);
+const checkboxSelectedRows = ref<string[]>([]);
 const columnWidths = ref<Record<string, number>>({});
 
 // 右键菜单相关
@@ -106,32 +107,34 @@ const contextMenuItems = computed(() => {
 
   if (contextMenuTarget.value === "row") {
     // 行菜单
-    items.push({ id: "view-detail", label: "查看详情", icon: "search", action: () => {
-      if (contextMenuRecord.value) {
-        handleExpandRecord(contextMenuRecord.value);
-      }
-    }});
+    // items.push({ id: "view-detail", label: "查看详情", icon: "search", action: () => {
+    //   if (contextMenuRecord.value) {
+    //     handleExpandRecord(contextMenuRecord.value);
+    //   }
+    // }});
     
     if (!props.readonly) {
       items.push({ id: "edit", label: "编辑", icon: "edit", action: () => handleEditRecord() });
       items.push({ id: "duplicate", label: "复制记录", icon: "copy", action: () => handleDuplicateRecord() });
       items.push({ divider: true, id: "divider1", label: "" });
 
-      if (selectedRows.value.length > 1) {
+      // 始终显示"删除当前记录"
+      items.push({
+        id: "delete",
+        label: "删除当前记录",
+        icon: "delete",
+        danger: true,
+        action: () => handleDeleteRecord(),
+      });
+
+      // 只要有勾选的记录，就显示"删除选中的x条记录"
+      if (checkboxSelectedRows.value.length >= 1) {
         items.push({
           id: "delete-selected",
-          label: `删除选中的 ${selectedRows.value.length} 条记录`,
+          label: `删除选中的 ${checkboxSelectedRows.value.length} 条记录`,
           icon: "delete",
           danger: true,
           action: () => handleDeleteSelectedRecords(),
-        });
-      } else {
-        items.push({
-          id: "delete",
-          label: "删除记录",
-          icon: "delete",
-          danger: true,
-          action: () => handleDeleteRecord(),
         });
       }
     }
@@ -313,6 +316,7 @@ const handleDeleteRecord = async () => {
     );
     await tableStore.deleteRecord(contextMenuRecord.value.id);
     selectedRows.value = [];
+    checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => id !== contextMenuRecord.value.id);
     emit("record-delete", [contextMenuRecord.value.id]);
     ElMessage.success("记录删除成功");
   } catch (error: any) {
@@ -324,11 +328,14 @@ const handleDeleteRecord = async () => {
   contextMenuVisible.value = false;
 };
 
-// 处理删除选中的记录
+// 处理删除选中的记录 - 仅删除通过复选框勾选的记录
 const handleDeleteSelectedRecords = async () => {
+  const ids = [...checkboxSelectedRows.value];
+  const count = ids.length;
+  if (count === 0) return;
   try {
     await ElMessageBox.confirm(
-      `确定要删除选中的 ${selectedRows.value.length} 条记录吗？此操作不可恢复。`,
+      `确定要删除选中的 ${count} 条记录吗？此操作不可恢复。`,
       "批量删除确认",
       {
         confirmButtonText: "确定删除",
@@ -337,10 +344,11 @@ const handleDeleteSelectedRecords = async () => {
         confirmButtonClass: "el-button--danger",
       },
     );
-    await tableStore.batchDeleteRecords(selectedRows.value);
-    emit("record-delete", [...selectedRows.value]);
-    selectedRows.value = [];
-    ElMessage.success("记录删除成功");
+    await tableStore.batchDeleteRecords(ids);
+    emit("record-delete", ids);
+    selectedRows.value = selectedRows.value.filter(id => !ids.includes(id));
+    checkboxSelectedRows.value = [];
+    ElMessage.success(`成功删除 ${count} 条记录`);
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除记录失败:", error);
@@ -648,6 +656,33 @@ const bindTableEvents = () => {
     }
   });
 
+  // 复选框状态变更 - 仅更新 checkboxSelectedRows
+  tableInstanceAny.on('checkbox_state_change', (args: any) => {
+    if (!tableInstance) return;
+
+    const { col, row, checked } = args;
+
+    if (tableInstance.isHeader(col, row)) {
+      // 表头复选框（全选/取消全选）
+      checkboxSelectedRows.value = checked
+        ? sortedRecords.value.map(r => r.id)
+        : [];
+    } else {
+      // 行复选框（单个切换）
+      const record = tableInstance.getCellOriginRecord(col, row);
+      if (record && record._recordId) {
+        const id = record._recordId;
+        if (checked) {
+          if (!checkboxSelectedRows.value.includes(id)) {
+            checkboxSelectedRows.value = [...checkboxSelectedRows.value, id];
+          }
+        } else {
+          checkboxSelectedRows.value = checkboxSelectedRows.value.filter(i => i !== id);
+        }
+      }
+    }
+  });
+
   // 列宽调整
   tableInstanceAny.on('columnResize', (args: any) => {
     const colIndex = args.col;
@@ -817,14 +852,6 @@ const handleContainerContextMenu = (e: MouseEvent) => {
         const rowIndex = Math.floor((clickY - 40) / 36);
         if (rowIndex >= 0 && rowIndex < sortedRecords.value.length) {
           const record = sortedRecords.value[rowIndex];
-          
-          if (!selectedRows.value.includes(record.id)) {
-            selectedRows.value = [record.id];
-            const firstSelectedRecord = sortedRecords.value.find(r => r.id === record.id);
-            emit('record-select', firstSelectedRecord || null);
-            const selectedRecords = sortedRecords.value.filter(r => selectedRows.value.includes(r.id));
-            emit('records-select', selectedRecords);
-          }
           
           contextMenuX.value = e.clientX;
           contextMenuY.value = e.clientY;
