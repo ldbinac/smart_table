@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -12,7 +12,11 @@ import type {
 } from "@/services/realtime/eventTypes";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
+import { recordService } from "@/db/services";
+import { linkApiService } from "@/services/api/linkApiService";
 import { FieldType } from "@/types/fields";
+import type { CellValue } from "@/types";
+import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 
 // 导入 VTable
 import { ListTable } from "@visactor/vtable";
@@ -20,6 +24,8 @@ import { ListTable } from "@visactor/vtable";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
+// 导入记录详情对话框
+import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 
 interface Props {
   tableId?: string;
@@ -59,10 +65,16 @@ const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuColumn = ref<FieldEntity | null>(null);
+const contextMenuTarget = ref<"row" | "header" | "cell">("cell");
+const contextMenuRecord = ref<RecordEntity | null>(null);
 
 // 字段属性对话框相关
 const fieldDialogVisible = ref(false);
 const editingFieldId = ref<string | null>(null);
+
+// 记录详情对话框相关
+const expandDialogVisible = ref(false);
+const expandedRecord = ref<RecordEntity | null>(null);
 
 // 初始化列宽（可以从localStorage或其他地方恢复）
 const initColumnWidths = () => {
@@ -81,61 +93,87 @@ const contextMenuItems = computed(() => {
     action?: () => void;
   }> = [];
 
-  if (!contextMenuColumn.value) return items;
+  if (contextMenuTarget.value === "row") {
+    // 行菜单
+    if (!props.readonly) {
+      items.push({ id: "edit", label: "编辑", icon: "edit", action: () => handleEditRecord() });
+      items.push({ id: "duplicate", label: "复制记录", icon: "copy", action: () => handleDuplicateRecord() });
+      items.push({ divider: true, id: "divider1" });
 
-  const field = contextMenuColumn.value;
-  const isFrozen = currentView.value?.frozenFields.includes(field.id) || false;
-  const currentSort = currentSorts.value.find(s => s.fieldId === field.id);
+      if (selectedRows.value.length > 1) {
+        items.push({
+          id: "delete-selected",
+          label: `删除选中的 ${selectedRows.value.length} 条记录`,
+          icon: "delete",
+          danger: true,
+          action: () => handleDeleteSelectedRecords(),
+        });
+      } else {
+        items.push({
+          id: "delete",
+          label: "删除记录",
+          icon: "delete",
+          danger: true,
+          action: () => handleDeleteRecord(),
+        });
+      }
+    }
+  } else if (contextMenuTarget.value === "header" && contextMenuColumn.value) {
+    // 表头菜单
+    const field = contextMenuColumn.value;
+    const isFrozen = currentView.value?.frozenFields.includes(field.id) || false;
+    const currentSort = currentSorts.value.find(s => s.fieldId === field.id);
 
-  // 排序相关
-  items.push({
-    id: 'sort-asc',
-    label: '升序排列',
-    icon: 'sort',
-    action: () => handleSort('asc'),
-  });
-
-  items.push({
-    id: 'sort-desc',
-    label: '降序排列',
-    icon: 'sort',
-    action: () => handleSort('desc'),
-  });
-
-  if (currentSort) {
+    // 排序相关
     items.push({
-      id: 'sort-clear',
-      label: '取消排序',
-      action: () => handleSort(null),
+      id: 'sort-asc',
+      label: '升序排列',
+      icon: 'sort',
+      action: () => handleSort('asc'),
+    });
+
+    items.push({
+      id: 'sort-desc',
+      label: '降序排列',
+      icon: 'sort',
+      action: () => handleSort('desc'),
+    });
+
+    if (currentSort) {
+      items.push({
+        id: 'sort-clear',
+        label: '取消排序',
+        action: () => handleSort(null),
+      });
+    }
+
+    items.push({ id: 'divider-1', divider: true });
+
+    // 冻结相关
+    items.push({
+      id: isFrozen ? 'unfreeze' : 'freeze',
+      label: isFrozen ? '取消冻结' : '冻结列',
+      icon: 'freeze',
+      action: () => handleFreeze(!isFrozen),
+    });
+
+    items.push({
+      id: 'hide',
+      label: '隐藏该列',
+      icon: 'hide',
+      action: () => handleHideColumn(),
+    });
+
+    items.push({ id: 'divider-2', divider: true });
+
+    // 字段属性
+    items.push({
+      id: 'field-settings',
+      label: '字段属性',
+      icon: 'settings',
+      action: () => handleFieldSettings(),
     });
   }
-
-  items.push({ id: 'divider-1', divider: true });
-
-  // 冻结相关
-  items.push({
-    id: isFrozen ? 'unfreeze' : 'freeze',
-    label: isFrozen ? '取消冻结' : '冻结列',
-    icon: 'freeze',
-    action: () => handleFreeze(!isFrozen),
-  });
-
-  items.push({
-    id: 'hide',
-    label: '隐藏该列',
-    icon: 'hide',
-    action: () => handleHideColumn(),
-  });
-
-  items.push({ id: 'divider-2', divider: true });
-
-  // 字段属性
-  items.push({
-    id: 'field-settings',
-    label: '字段属性',
-    icon: 'settings',
-    action: () => handleFieldSettings(),
-  });
 
   return items;
 });
@@ -208,6 +246,111 @@ const handleFieldSettings = () => {
   editingFieldId.value = contextMenuColumn.value.id;
   fieldDialogVisible.value = true;
   contextMenuVisible.value = false;
+};
+
+// 处理放大按钮点击 - 打开记录详情
+const handleExpandRecord = (record: RecordEntity) => {
+  expandedRecord.value = record;
+  expandDialogVisible.value = true;
+};
+
+// 处理编辑记录
+const handleEditRecord = () => {
+  if (!contextMenuRecord.value) return;
+  handleExpandRecord(contextMenuRecord.value);
+  contextMenuVisible.value = false;
+};
+
+// 处理复制记录
+const handleDuplicateRecord = async () => {
+  if (!contextMenuRecord.value) return;
+  try {
+    const newRecord = await recordService.createRecord({
+      tableId: contextMenuRecord.value.tableId,
+      values: { ...contextMenuRecord.value.values },
+    });
+    if (newRecord && tableStore.currentTable) {
+      await tableStore.loadTables(tableStore.currentTable.baseId);
+      ElMessage.success("复制记录成功");
+    }
+  } catch (error) {
+    console.error("复制记录失败:", error);
+    ElMessage.error("复制记录失败");
+  }
+  contextMenuVisible.value = false;
+};
+
+// 处理删除记录
+const handleDeleteRecord = async () => {
+  if (!contextMenuRecord.value) return;
+  try {
+    await ElMessageBox.confirm(
+      "确定要删除这条记录吗？此操作不可恢复。",
+      "删除确认",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+        confirmButtonClass: "el-button--danger",
+      },
+    );
+    await tableStore.deleteRecord(contextMenuRecord.value.id);
+    selectedRows.value = [];
+    emit("record-delete", [contextMenuRecord.value.id]);
+    ElMessage.success("记录删除成功");
+  } catch (error: any) {
+    if (error !== "cancel") {
+      console.error("删除记录失败:", error);
+      ElMessage.error("删除记录失败");
+    }
+  }
+  contextMenuVisible.value = false;
+};
+
+// 处理删除选中的记录
+const handleDeleteSelectedRecords = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedRows.value.length} 条记录吗？此操作不可恢复。`,
+      "批量删除确认",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+        confirmButtonClass: "el-button--danger",
+      },
+    );
+    await tableStore.batchDeleteRecords(selectedRows.value);
+    emit("record-delete", [...selectedRows.value]);
+    selectedRows.value = [];
+    ElMessage.success("记录删除成功");
+  } catch (error: any) {
+    if (error !== "cancel") {
+      console.error("删除记录失败:", error);
+      ElMessage.error("删除记录失败");
+    }
+  }
+  contextMenuVisible.value = false;
+};
+
+// 处理记录保存
+const handleRecordSave = async (
+  recordId: string,
+  values: Record<string, unknown>,
+) => {
+  try {
+    await recordService.updateRecord(recordId, {
+      values: values as Record<string, CellValue>,
+    });
+    // 重新加载记录列表
+    await tableStore.refreshRecords(tableStore.currentTable?.id || "");
+    ElMessage.success("保存成功");
+    expandDialogVisible.value = false;
+    expandedRecord.value = null;
+  } catch (error) {
+    console.error("Error saving record-tv:", error);
+    ElMessage.error("保存失败");
+  }
 };
 
 const records = computed(() => props.records || tableStore.records);
@@ -611,36 +754,68 @@ const handleContainerContextMenu = (e: MouseEvent) => {
       // 获取容器相对于视口的位置
       const rect = tableContainerRef.value.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
       
-      // 计算点击的是哪一列
-      let currentX = 0;
-      let foundField = null;
+      // 判断是否点击在表头区域（高度约40px）
+      const isHeader = clickY < 40;
       
-      // 序号列宽度
-      if (clickX < 60) {
-        // 点击在序号列，不显示菜单
-        return;
-      }
-      currentX += 60;
-      
-      // 遍历有序的可见字段（冻结列在前），计算列位置
-      for (let i = 0; i < orderedVisibleFields.value.length; i++) {
-        const field = orderedVisibleFields.value[i];
-        const fieldWidth = columnWidths.value[field.id] ?? 150;
+      if (isHeader) {
+        // 表头右键菜单
+        // 计算点击的是哪一列
+        let currentX = 0;
+        let foundField = null;
         
-        if (clickX >= currentX && clickX < currentX + fieldWidth) {
-          foundField = field;
-          break;
+        // 序号列宽度
+        if (clickX < 60) {
+          // 点击在序号列，不显示菜单
+          return;
+        }
+        currentX += 60;
+        
+        // 遍历有序的可见字段（冻结列在前），计算列位置
+        for (let i = 0; i < orderedVisibleFields.value.length; i++) {
+          const field = orderedVisibleFields.value[i];
+          const fieldWidth = columnWidths.value[field.id] ?? 150;
+          
+          if (clickX >= currentX && clickX < currentX + fieldWidth) {
+            foundField = field;
+            break;
+          }
+          
+          currentX += fieldWidth;
         }
         
-        currentX += fieldWidth;
-      }
-      
-      if (foundField) {
-        contextMenuX.value = e.clientX;
-        contextMenuY.value = e.clientY;
-        contextMenuColumn.value = foundField;
-        contextMenuVisible.value = true;
+        if (foundField) {
+          contextMenuX.value = e.clientX;
+          contextMenuY.value = e.clientY;
+          contextMenuColumn.value = foundField;
+          contextMenuTarget.value = "header";
+          contextMenuRecord.value = null;
+          contextMenuVisible.value = true;
+        }
+      } else {
+        // 行右键菜单
+        // 计算点击的是哪一行（行高约36px，减去表头40px）
+        const rowIndex = Math.floor((clickY - 40) / 36);
+        if (rowIndex >= 0 && rowIndex < sortedRecords.value.length) {
+          const record = sortedRecords.value[rowIndex];
+          
+          // 如果行未被选中，则选中它
+          if (!selectedRows.value.includes(record.id)) {
+            selectedRows.value = [record.id];
+            const firstSelectedRecord = sortedRecords.value.find(r => r.id === record.id);
+            emit('record-select', firstSelectedRecord || null);
+            const selectedRecords = sortedRecords.value.filter(r => selectedRows.value.includes(r.id));
+            emit('records-select', selectedRecords);
+          }
+          
+          contextMenuX.value = e.clientX;
+          contextMenuY.value = e.clientY;
+          contextMenuColumn.value = null;
+          contextMenuTarget.value = "row";
+          contextMenuRecord.value = record;
+          contextMenuVisible.value = true;
+        }
       }
     } catch (error) {
       console.error('处理右键事件失败:', error);
@@ -741,6 +916,16 @@ defineExpose({
       :edit-field-id="editingFieldId"
       :table-id="tableId"
       :fields="tableStore.fields"
+    />
+    
+    <!-- 记录详情对话框 -->
+    <RecordDetailDrawer
+      v-model:visible="expandDialogVisible"
+      :record="expandedRecord"
+      :table-id="tableId"
+      :fields="tableStore.fields"
+      :readonly="readonly"
+      @save="handleRecordSave"
     />
   </div>
 </template>
