@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
-import { ZoomIn } from "@element-plus/icons-vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -14,10 +13,8 @@ import type {
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { recordService } from "@/db/services";
-import { linkApiService } from "@/services/api/linkApiService";
 import { FieldType } from "@/types/fields";
 import type { CellValue } from "@/types";
-import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 
 // 导入 VTable
 import { ListTable } from "@visactor/vtable";
@@ -77,6 +74,10 @@ const editingFieldId = ref<string | null>(null);
 const expandDialogVisible = ref(false);
 const expandedRecord = ref<RecordEntity | null>(null);
 
+// 选中单元格相关 - 用于显示悬浮图标
+const selectedCell = ref<{col: number, row: number, record: any, x: number, y: number} | null>(null);
+const actionIconVisible = ref(false);
+
 // Drawer 抽屉大小（响应式）
 const drawerSize = computed(() => {
   const width = window.innerWidth;
@@ -114,7 +115,7 @@ const contextMenuItems = computed(() => {
     if (!props.readonly) {
       items.push({ id: "edit", label: "编辑", icon: "edit", action: () => handleEditRecord() });
       items.push({ id: "duplicate", label: "复制记录", icon: "copy", action: () => handleDuplicateRecord() });
-      items.push({ divider: true, id: "divider1" });
+      items.push({ divider: true, id: "divider1", label: "" });
 
       if (selectedRows.value.length > 1) {
         items.push({
@@ -163,7 +164,7 @@ const contextMenuItems = computed(() => {
       });
     }
 
-    items.push({ id: 'divider-1', divider: true });
+    items.push({ id: 'divider-1', divider: true, label: '' });
 
     // 冻结相关
     items.push({
@@ -180,7 +181,7 @@ const contextMenuItems = computed(() => {
       action: () => handleHideColumn(),
     });
 
-    items.push({ id: 'divider-2', divider: true });
+    items.push({ id: 'divider-2', divider: true, label: '' });
 
     // 字段属性
     items.push({
@@ -426,70 +427,12 @@ const frozenFields = computed(() => {
 // 获取当前排序配置
 const currentSorts = computed(() => viewStore.currentSorts);
 
-// 格式化单元格值用于显示
-const formatCellValue = (record: RecordEntity, field: FieldEntity): string => {
-  const value = record.values[field.id];
-  if (value === null || value === undefined) return "";
-
-  switch (field.type) {
-    case FieldType.CHECKBOX:
-      return value ? "✓" : "";
-    case FieldType.DATE:
-    case FieldType.DATE_TIME:
-      if (typeof value === "number") {
-        return new Date(value).toLocaleString();
-      }
-      return String(value);
-    case FieldType.SINGLE_SELECT:
-      const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-      const selectedOption = options.find(opt => opt.id === value || opt.name === value);
-      return selectedOption?.name || String(value);
-    case FieldType.MULTI_SELECT:
-      if (!Array.isArray(value)) return "";
-      const multiOptions = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-      return value.map(v => {
-        const opt = multiOptions.find(o => o.id === v || o.name === v);
-        return opt?.name || String(v);
-      }).join(", ");
-    case FieldType.RATING:
-      const maxRating = Number(field.options?.maxRating) || 5;
-      const rating = Math.max(0, Math.min(Number(value) || 0, maxRating));
-      return "★".repeat(rating) + "☆".repeat(maxRating - rating);
-    case FieldType.PROGRESS:
-      return `${Number(value) || 0}%`;
-    case FieldType.MEMBER:
-      if (Array.isArray(value)) {
-        return value.length > 0 ? `${value.length} 成员` : "";
-      }
-      return "";
-    case FieldType.ATTACHMENT:
-      if (Array.isArray(value)) {
-        return value.length > 0 ? `${value.length} 个文件` : "";
-      }
-      return "";
-    case FieldType.LINK:
-      if (Array.isArray(value)) {
-        return value.length > 0 ? `关联 ${value.length} 条` : "";
-      }
-      return "";
-    case FieldType.FORMULA:
-    case FieldType.AUTO_NUMBER:
-    case FieldType.CREATED_BY:
-    case FieldType.CREATED_TIME:
-    case FieldType.UPDATED_BY:
-    case FieldType.UPDATED_TIME:
-      return String(value);
-    default:
-      return String(value);
-  }
-};
-
 // 保持原始列顺序不变
 const orderedVisibleFields = computed(() => visibleFields.value);
 
 // 构建 VTable 配置
 const buildTableConfig = (): any => {
-  const columns = orderedVisibleFields.value.map((field, index) => {
+  const columns = orderedVisibleFields.value.map((field) => {
     const sortInfo = currentSorts.value.find(s => s.fieldId === field.id);
     
     return {
@@ -497,96 +440,101 @@ const buildTableConfig = (): any => {
       title: field.name,
       width: columnWidths.value[field.id] || 150,
       minWidth: 60,
-      sort: true, // 启用排序
-      sortState: sortInfo ? (sortInfo.direction === 'asc' ? 'asc' : 'desc') : 'normal', // 当前排序状态
-      // 自定义渲染 - 直接获取值
+      sort: true,
+      sortState: sortInfo ? (sortInfo.direction === 'asc' ? 'asc' : 'desc') : 'normal',
       customRender: (args: any) => {
-        // 添加安全检查
         if (!args || !args.record) return "";
         const value = args.record[field.id];
         if (value === null || value === undefined) return "";
 
+        let displayValue = "";
         switch (field.type) {
           case FieldType.CHECKBOX:
-            return value ? "✓" : "";
+            displayValue = value ? "✓" : "";
+            break;
           case FieldType.DATE:
           case FieldType.DATE_TIME:
             if (typeof value === "number") {
-              return new Date(value).toLocaleString();
+              displayValue = new Date(value).toLocaleString();
+            } else {
+              displayValue = String(value);
             }
-            return String(value);
+            break;
           case FieldType.SINGLE_SELECT:
             const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
             const selectedOption = options.find(opt => opt.id === value || opt.name === value);
-            return selectedOption?.name || String(value);
+            displayValue = selectedOption?.name || String(value);
+            break;
           case FieldType.MULTI_SELECT:
-            if (!Array.isArray(value)) return "";
-            const multiOptions = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-            return value.map(v => {
-              const opt = multiOptions.find(o => o.id === v || o.name === v);
-              return opt?.name || String(v);
-            }).join(", ");
+            if (Array.isArray(value)) {
+              const multiOptions = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
+              displayValue = value.map(v => {
+                const opt = multiOptions.find(o => o.id === v || o.name === v);
+                return opt?.name || String(v);
+              }).join(", ");
+            }
+            break;
           case FieldType.RATING:
             const maxRating = Number(field.options?.maxRating) || 5;
             const rating = Math.max(0, Math.min(Number(value) || 0, maxRating));
-            return "★".repeat(rating) + "☆".repeat(maxRating - rating);
+            displayValue = "★".repeat(rating) + "☆".repeat(maxRating - rating);
+            break;
           case FieldType.PROGRESS:
-            return `${Number(value) || 0}%`;
+            displayValue = `${Number(value) || 0}%`;
+            break;
           case FieldType.MEMBER:
             if (Array.isArray(value)) {
-              return value.length > 0 ? `${value.length} 成员` : "";
+              displayValue = value.length > 0 ? `${value.length} 成员` : "";
             }
-            return "";
+            break;
           case FieldType.ATTACHMENT:
             if (Array.isArray(value)) {
-              return value.length > 0 ? `${value.length} 个文件` : "";
+              displayValue = value.length > 0 ? `${value.length} 个文件` : "";
             }
-            return "";
+            break;
           case FieldType.LINK:
             if (Array.isArray(value)) {
-              return value.length > 0 ? `关联 ${value.length} 条` : "";
+              displayValue = value.length > 0 ? `关联 ${value.length} 条` : "";
             }
-            return "";
+            break;
           case FieldType.FORMULA:
           case FieldType.AUTO_NUMBER:
           case FieldType.CREATED_BY:
           case FieldType.CREATED_TIME:
           case FieldType.UPDATED_BY:
           case FieldType.UPDATED_TIME:
-            return String(value);
+            displayValue = String(value);
+            break;
           default:
-            return String(value);
+            displayValue = String(value);
         }
+
+        return displayValue;
       },
     };
   });
 
   // 添加序号列
-  // columns.unshift({
-  //   field: '_index',
-  //   title: '#',
-  //   width: 70,
-  //   minWidth: 60,
-  //   // 自定义渲染序号列
-  //   customRender: (args: any) => {
-  //     if (!args || !args.record) return "";
-  //     const index = args.record._index || "";
-  //     const recordId = args.record._recordId || "";
-  //     const isSelected = selectedRows.value.includes(recordId);
-      
-  //     if (isSelected) {
-  //       return `${index} 👁️`;
-  //     }
-  //     return index;
-  //   },
-  // });
+  columns.unshift({
+    field: '_index',
+    title: '#',
+    width: 70,
+    minWidth: 60,
+    sort: false,
+    sortState: 'normal',
+    customRender: (args: any) => {
+      if (!args || !args.record) return "";
+      const index = (args.record._index ?? 0) + 1;
+      return index;
+    },
+  });
 
   // 转换 records 为 VTable 需要的格式 - 保留原始记录引用
   const tableRecords = sortedRecords.value.map((record, index) => {
     const row: any = {
       _index: index, 
       _recordId: record?.id || '',
-      _originalRecord: record, // 保存原始记录引用
+      _originalRecord: record,
     };
     orderedVisibleFields.value.forEach(field => {
       if (field?.id && record?.values) {
@@ -596,32 +544,29 @@ const buildTableConfig = (): any => {
     return row;
   });
 
-  // 计算冻结列数：找到最右侧的冻结列，冻结该列及其左侧所有列
-  let frozenColCount = 1; // 至少冻结序号列
+  // 计算冻结列数
+  let frozenColCount = 1;
   if (frozenFields.value.length > 0) {
     const frozenFieldIds = new Set(frozenFields.value.map(f => f.id));
-    // 找到最右侧的冻结列在可见字段数组中的索引
     let rightmostFrozenIndex = -1;
     visibleFields.value.forEach((field, index) => {
       if (frozenFieldIds.has(field.id)) {
         rightmostFrozenIndex = Math.max(rightmostFrozenIndex, index);
       }
     });
-    // 如果有冻结列，冻结到最右侧的冻结列（序号列 + 到最右侧冻结列的所有列）
     if (rightmostFrozenIndex >= 0) {
       frozenColCount = 1 + rightmostFrozenIndex + 1;
     }
   }
 
-  // 设置允许冻结列操作，这样表头会显示固定列图标
-  const allowFrozenColCount = visibleFields.value.length + 1; // +1 表示序号列也可以参与
+  const allowFrozenColCount = visibleFields.value.length + 1;
 
   return {
     columns,
     records: tableRecords,
     frozenColCount,
-    showFrozenIcon: true, // 显示固定列图标
-    allowFrozenColCount, // 设置允许操作冻结列数
+    showFrozenIcon: true,
+    allowFrozenColCount,
     widthMode: 'standard',
     heightMode: 'standard',
     autoFillWidth: false,
@@ -631,13 +576,7 @@ const buildTableConfig = (): any => {
     select: {
       mode: 'multiple',
       enable: true,
-      highlightMode: 'row', // 整行高亮
-    },
-    rowSeriesNumber: {
-      title: '#',
-      width: 'auto',
-      cellType: 'checkbox', // 设置单元格类型为复选框
-      headerType: 'checkbox' // 表头也显示复选框
+      highlightMode: 'row',
     },
     theme: {
       table: {
@@ -656,10 +595,22 @@ const buildTableConfig = (): any => {
         },
       },
       selectionStyle: {
-        inlineRowBgColor: 'rgba(64, 158, 255, 0.1)', // 整行选中的背景色
+        inlineRowBgColor: 'rgba(64, 158, 255, 0.1)',
       },
     },
   };
+};
+
+// 处理悬浮操作图标点击 - 打开记录详情
+const handleActionIconClick = () => {
+  if (selectedCell.value && selectedCell.value.record._originalRecord) {
+    console.log('================================================');
+    console.log('点击操作图标，打开记录详情:', selectedCell.value.record._originalRecord);
+    console.log('================================================');
+    handleExpandRecord(selectedCell.value.record._originalRecord);
+  }
+  actionIconVisible.value = false;
+  selectedCell.value = null;
 };
 
 // 初始化表格
@@ -669,7 +620,6 @@ const initTable = () => {
   const config = buildTableConfig();
   tableInstance = new ListTable(tableContainerRef.value, config);
 
-  // 绑定事件
   bindTableEvents();
 };
 
@@ -677,14 +627,11 @@ const initTable = () => {
 const bindTableEvents = () => {
   if (!tableInstance) return;
 
-  // 使用类型断言来避免 TypeScript 错误
   const tableInstanceAny = tableInstance as any;
 
   // 选择单元格/行
   tableInstanceAny.on('selected', (args: any) => {
-    console.log('Selected event:', args);
     if (args.cells && args.cells.length > 0) {
-      // 获取选中的记录
       const selectedRecordIds: string[] = [];
       args.cells.forEach((cell: any) => {
         if (cell.record && cell.record._recordId) {
@@ -692,32 +639,33 @@ const bindTableEvents = () => {
         }
       });
       
-      selectedRows.value = Array.from(new Set(selectedRecordIds));
-      console.log('Selected rows:', selectedRows.value);
+      const newIds = Array.from(new Set(selectedRecordIds));
+      const oldIds = selectedRows.value;
+      const changed = newIds.length !== oldIds.length || newIds.some(id => !oldIds.includes(id));
       
-      if (selectedRows.value.length > 0) {
-        const firstSelectedRecord = sortedRecords.value.find(r => r.id === selectedRows.value[0]);
+      if (changed) {
+        selectedRows.value = newIds;
+      }
+      
+      if (newIds.length > 0) {
+        const firstSelectedRecord = sortedRecords.value.find(r => r.id === newIds[0]);
         emit('record-select', firstSelectedRecord || null);
       } else {
         emit('record-select', null);
       }
       
-      const selectedRecords = sortedRecords.value.filter(r => selectedRows.value.includes(r.id));
+      const selectedRecords = sortedRecords.value.filter(r => newIds.includes(r.id));
       emit('records-select', selectedRecords);
-      
-      // 更新表格显示
-      updateTable();
     }
   });
 
   // 列宽调整
   tableInstanceAny.on('columnResize', (args: any) => {
     const colIndex = args.col;
-    if (colIndex > 0) { // 跳过序号列
+    if (colIndex > 0) {
       const field = visibleFields.value[colIndex - 1];
       if (field) {
-        columnWidths.value[field.id] = Math.max(60, args.width); // 确保最小宽度
-        console.log(`列宽调整: ${field.name} = ${args.width}px`);
+        columnWidths.value[field.id] = Math.max(60, args.width);
       }
     }
   });
@@ -727,23 +675,21 @@ const bindTableEvents = () => {
     if (!currentView.value || !args.col) return;
     
     const colIndex = args.col;
-    if (colIndex <= 0) return; // 跳过序号列
+    if (colIndex <= 0) return;
     
     const field = visibleFields.value[colIndex - 1];
     if (!field) return;
     
-    // 确定新的排序方向
     const currentSort = currentSorts.value.find(s => s.fieldId === field.id);
     let newDirection: 'asc' | 'desc' | null = 'asc';
     if (currentSort) {
       if (currentSort.direction === 'asc') {
         newDirection = 'desc';
       } else if (currentSort.direction === 'desc') {
-        newDirection = null; // 取消排序
+        newDirection = null;
       }
     }
     
-    // 更新排序配置
     let newSorts: any[] = [];
     if (newDirection) {
       newSorts = [{ fieldId: field.id, direction: newDirection }];
@@ -755,51 +701,82 @@ const bindTableEvents = () => {
     await viewStore.updateSorts(currentView.value.id, newSorts);
   });
 
-  // 单元格点击
-  tableInstanceAny.on('cellClick', (args: any) => {
-    console.log('Cell clicked:', args);
-    
-    // 检查是否是序号列
-    if (args.col === 0 && args.record && args.record._originalRecord) {
-      const recordId = args.record._recordId;
-      
-      // 检查该行是否已选中
-      if (selectedRows.value.includes(recordId)) {
-        // 如果已选中，打开详情
-        handleExpandRecord(args.record._originalRecord);
-      } else {
-        // 如果未选中，先选中该行
-        console.log('Selecting row:', recordId);
+  // 单元格点击 - 使用 VTable API 获取单元格位置
+  tableInstanceAny.on('click_cell', (args: any) => {
+    if (args.col !== undefined && args.row !== undefined) {
+      const cellRecord = args.originData || args.record;
+
+      // 获取单元格矩形：优先用事件参数中的 rect，不可用时用 VTable API
+      let cellRect = args.rect;
+      if (!cellRect) {
+        try {
+          cellRect = tableInstanceAny.getCellRect(args.col, args.row);
+        } catch (e) {
+          console.warn('获取单元格位置失败:', e);
+        }
+      }
+
+      if (cellRecord && cellRect) {
+        const containerRect = tableContainerRef.value!.getBoundingClientRect();
+        const iconX = containerRect.left + cellRect.left + cellRect.width + 8;
+        const iconY = containerRect.top + cellRect.top;
+
+        selectedCell.value = {
+          col: args.col,
+          row: args.row,
+          record: cellRecord,
+          x: Math.min(iconX, window.innerWidth - 40),
+          y: Math.max(iconY, 4),
+        };
+        actionIconVisible.value = true;
+      }
+
+      if (cellRecord && cellRecord._originalRecord) {
+        console.log('================================================');
+        console.log('点击单元格，所在行完整数据:', cellRecord._originalRecord);
+        console.log('================================================');
+        // ElMessage.success('已输出行数据到浏览器控制台');
       }
     }
   });
 
   // 单元格双击
-  tableInstanceAny.on('cellDblClick', (args: any) => {
-    console.log('Cell double clicked:', args);
-    // 双击任意单元格也打开记录详情
+  tableInstanceAny.on('dblclick_cell', (args: any) => {
     if (args.record && args.record._originalRecord) {
       handleExpandRecord(args.record._originalRecord);
     }
   });
 };
 
-// 更新表格数据
+// 更新表格数据（带防重入保护和延迟队列）
+let isUpdating = false;
+let pendingUpdate = false;
 const updateTable = () => {
   if (!tableInstance || !tableContainerRef.value) return;
+  if (isUpdating) {
+    pendingUpdate = true;
+    return;
+  }
+  
+  isUpdating = true;
+  pendingUpdate = false;
   
   try {
-    // 先销毁旧表格
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
     }
     
-    // 重新初始化表格
     const config = buildTableConfig();
     tableInstance = new ListTable(tableContainerRef.value, config);
     bindTableEvents();
   } catch (error) {
     console.error('更新表格失败:', error);
+  } finally {
+    isUpdating = false;
+    // 如果有排队的更新请求，在当前更新完成后立即执行一次
+    if (pendingUpdate) {
+      updateTable();
+    }
   }
 };
 
@@ -812,28 +789,21 @@ const handleContainerContextMenu = (e: MouseEvent) => {
   
   if (tableInstance && tableContainerRef.value) {
     try {
-      // 获取容器相对于视口的位置
       const rect = tableContainerRef.value.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
       
-      // 判断是否点击在表头区域（高度约40px）
       const isHeader = clickY < 40;
       
       if (isHeader) {
-        // 表头右键菜单
-        // 计算点击的是哪一列
         let currentX = 0;
         let foundField = null;
         
-        // 序号列宽度
         if (clickX < 60) {
-          // 点击在序号列，不显示菜单
           return;
         }
         currentX += 60;
         
-        // 遍历有序的可见字段（冻结列在前），计算列位置
         for (let i = 0; i < orderedVisibleFields.value.length; i++) {
           const field = orderedVisibleFields.value[i];
           const fieldWidth = columnWidths.value[field.id] ?? 150;
@@ -855,13 +825,10 @@ const handleContainerContextMenu = (e: MouseEvent) => {
           contextMenuVisible.value = true;
         }
       } else {
-        // 行右键菜单
-        // 计算点击的是哪一行（行高约36px，减去表头40px）
         const rowIndex = Math.floor((clickY - 40) / 36);
         if (rowIndex >= 0 && rowIndex < sortedRecords.value.length) {
           const record = sortedRecords.value[rowIndex];
           
-          // 如果行未被选中，则选中它
           if (!selectedRows.value.includes(record.id)) {
             selectedRows.value = [record.id];
             const firstSelectedRecord = sortedRecords.value.find(r => r.id === record.id);
@@ -889,7 +856,6 @@ const setupRealtimeListeners = () => {
 
   const onRecordUpdated = (data: DataRecordUpdatedBroadcast) => {
     if (data.table_id !== props.tableId) return;
-    // 延迟更新以确保 store 已更新
     setTimeout(updateTable, 100);
   };
 
@@ -921,7 +887,6 @@ const cleanupRealtimeListeners = () => {
   realtimeHandlers.length = 0;
 };
 
-// 监听数据变化
 watch([() => tableStore.records, () => tableStore.fields], () => {
   updateTable();
 }, { deep: true });
@@ -930,11 +895,8 @@ watch(() => viewStore.currentView, () => {
   updateTable();
 }, { deep: true });
 
-// 监听选中状态变化，更新表格显示
 watch(selectedRows, () => {
-  if (tableInstance) {
-    updateTable();
-  }
+  // 选中行变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新
 }, { deep: true });
 
 onMounted(() => {
@@ -946,7 +908,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cleanupRealtimeListeners();
   if (tableInstance) {
-    // 直接移除 DOM 元素来清理表格
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
     }
@@ -970,6 +931,26 @@ defineExpose({
       @contextmenu.prevent="handleContainerContextMenu"
     ></div>
     
+    <!-- 悬浮操作图标 -->
+    <div
+      v-if="actionIconVisible && selectedCell"
+      class="vtable-action-icon"
+      :style="{
+        left: selectedCell.x + 'px',
+        top: selectedCell.y + 'px',
+      }"
+      @click.stop="handleActionIconClick"
+      @mouseenter="actionIconVisible = true"
+      title="查看行数据"
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <line x1="11" y1="8" x2="11" y2="14"/>
+        <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+    </div>
+    
     <!-- 右键菜单 -->
     <ContextMenu
       :items="contextMenuItems"
@@ -981,8 +962,8 @@ defineExpose({
     <!-- 字段属性对话框 -->
     <FieldDialog
       v-model:visible="fieldDialogVisible"
-      :edit-field-id="editingFieldId"
-      :table-id="tableId"
+      :edit-field-id="editingFieldId ?? undefined"
+      :table-id="props.tableId"
       :fields="tableStore.fields"
     />
     
@@ -990,10 +971,10 @@ defineExpose({
     <RecordDetailDrawer
       v-model:visible="expandDialogVisible"
       :record="expandedRecord"
-      :table-id="tableId"
+      :table-id="props.tableId"
       :fields="tableStore.fields"
       :size="drawerSize"
-      :readonly="readonly"
+      :readonly="props.readonly"
       @save="handleRecordSave"
     />
   </div>
@@ -1001,6 +982,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 .vtable-view {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -1009,5 +991,44 @@ defineExpose({
 .vtable-container {
   width: 100%;
   height: 100%;
+}
+
+.vtable-action-icon {
+  position: fixed;
+  z-index: 1000;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #409eff;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+  pointer-events: auto;
+  animation: iconFadeIn 0.2s ease;
+
+  &:hover {
+    background-color: #66b1ff;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+
+  &:active {
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
+@keyframes iconFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 </style>
