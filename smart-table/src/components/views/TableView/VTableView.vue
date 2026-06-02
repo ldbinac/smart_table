@@ -514,25 +514,9 @@ const buildTableConfig = (): any => {
     };
   });
 
-  // 添加序号列
-  columns.unshift({
-    field: '_index',
-    title: '#',
-    width: 70,
-    minWidth: 60,
-    sort: false,
-    sortState: 'normal',
-    customRender: (args: any) => {
-      if (!args || !args.record) return "";
-      const index = (args.record._index ?? 0) + 1;
-      return index;
-    },
-  });
-
   // 转换 records 为 VTable 需要的格式 - 保留原始记录引用
-  const tableRecords = sortedRecords.value.map((record, index) => {
+  const tableRecords = sortedRecords.value.map((record) => {
     const row: any = {
-      _index: index, 
       _recordId: record?.id || '',
       _originalRecord: record,
     };
@@ -571,7 +555,12 @@ const buildTableConfig = (): any => {
     heightMode: 'standard',
     autoFillWidth: false,
     autoFillHeight: false,
-    showRowNumber: false,
+    rowSeriesNumber: {
+      title: '#',
+      width: 'auto',
+      cellType: 'checkbox',
+      headerType: 'checkbox'
+    },
     allowCopy: true,
     select: {
       mode: 'multiple',
