@@ -159,13 +159,24 @@ const handleFreeze = async (freeze: boolean) => {
   const field = contextMenuColumn.value;
   const currentFrozen = currentView.value.frozenFields;
 
+  // 找到该列在可见字段数组中的索引
+  const fieldIndex = visibleFields.value.findIndex(f => f.id === field.id);
+  if (fieldIndex === -1) return;
+
   let newFrozen: string[];
   if (freeze) {
-    newFrozen = [...currentFrozen, field.id];
-    ElMessage.success(`已冻结 ${field.name}`);
+    // 冻结：冻结该列及其左侧所有列
+    newFrozen = visibleFields.value
+      .slice(0, fieldIndex + 1)
+      .map(f => f.id);
+    ElMessage.success(`已冻结 ${field.name} 及其左侧列`);
   } else {
-    newFrozen = currentFrozen.filter(id => id !== field.id);
-    ElMessage.success(`已取消冻结 ${field.name}`);
+    // 取消冻结：取消该列及其右侧所有列的冻结
+    newFrozen = currentFrozen.filter(frozenId => {
+      const frozenIndex = visibleFields.value.findIndex(f => f.id === frozenId);
+      return frozenIndex !== -1 && frozenIndex < fieldIndex;
+    });
+    ElMessage.success(`已取消冻结 ${field.name} 及其右侧列`);
   }
 
   await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
@@ -308,17 +319,18 @@ const formatCellValue = (record: RecordEntity, field: FieldEntity): string => {
   }
 };
 
+// 保持原始列顺序不变
+const orderedVisibleFields = computed(() => visibleFields.value);
+
 // 构建 VTable 配置
 const buildTableConfig = (): any => {
-  const columns = visibleFields.value.map((field, index) => {
-    const isFrozen = frozenFields.value.some(f => f.id === field.id);
+  const columns = orderedVisibleFields.value.map((field, index) => {
     const sortInfo = currentSorts.value.find(s => s.fieldId === field.id);
     
     return {
       field: field.id,
       title: field.name,
       width: columnWidths.value[field.id] || 150,
-      frozen: isFrozen ? (index === 0 ? 'left' : 'left') : false,
       minWidth: 60,
       sort: true, // 启用排序
       sortState: sortInfo ? (sortInfo.direction === 'asc' ? 'asc' : 'desc') : 'normal', // 当前排序状态
@@ -389,7 +401,6 @@ const buildTableConfig = (): any => {
     field: '_index',
     title: '#',
     width: 60,
-    frozen: 'left',
     minWidth: 50,
   });
 
@@ -400,7 +411,7 @@ const buildTableConfig = (): any => {
       _recordId: record?.id || '',
       _originalRecord: record, // 保存原始记录引用
     };
-    visibleFields.value.forEach(field => {
+    orderedVisibleFields.value.forEach(field => {
       if (field?.id && record?.values) {
         row[field.id] = record.values[field.id];
       }
@@ -408,9 +419,32 @@ const buildTableConfig = (): any => {
     return row;
   });
 
+  // 计算冻结列数：找到最右侧的冻结列，冻结该列及其左侧所有列
+  let frozenColCount = 1; // 至少冻结序号列
+  if (frozenFields.value.length > 0) {
+    const frozenFieldIds = new Set(frozenFields.value.map(f => f.id));
+    // 找到最右侧的冻结列在可见字段数组中的索引
+    let rightmostFrozenIndex = -1;
+    visibleFields.value.forEach((field, index) => {
+      if (frozenFieldIds.has(field.id)) {
+        rightmostFrozenIndex = Math.max(rightmostFrozenIndex, index);
+      }
+    });
+    // 如果有冻结列，冻结到最右侧的冻结列（序号列 + 到最右侧冻结列的所有列）
+    if (rightmostFrozenIndex >= 0) {
+      frozenColCount = 1 + rightmostFrozenIndex + 1;
+    }
+  }
+
+  // 设置允许冻结列操作，这样表头会显示固定列图标
+  const allowFrozenColCount = visibleFields.value.length + 1; // +1 表示序号列也可以参与
+
   return {
     columns,
     records: tableRecords,
+    frozenColCount,
+    showFrozenIcon: true, // 显示固定列图标
+    allowFrozenColCount, // 设置允许操作冻结列数
     widthMode: 'standard',
     heightMode: 'standard',
     autoFillWidth: false,
@@ -538,40 +572,6 @@ const bindTableEvents = () => {
   tableInstanceAny.on('cellDblClick', (args: any) => {
     console.log('Cell double clicked:', args);
   });
-
-  // 右键点击 - 表头
-  tableInstanceAny.on('headerContextMenu', (args: any) => {
-    console.log('Header context menu:', args);
-    const colIndex = args.col;
-    if (colIndex <= 0) return; // 跳过序号列
-
-    const field = visibleFields.value[colIndex - 1];
-    if (!field) return;
-
-    // 获取鼠标位置
-    const event = args.event || { clientX: 0, clientY: 0 };
-    contextMenuX.value = event.clientX || 0;
-    contextMenuY.value = event.clientY || 0;
-    contextMenuColumn.value = field;
-    contextMenuVisible.value = true;
-  });
-
-  // 右键点击 - 单元格
-  tableInstanceAny.on('cellContextMenu', (args: any) => {
-    console.log('Cell context menu:', args);
-    const colIndex = args.col;
-    if (colIndex <= 0) return; // 跳过序号列
-
-    const field = visibleFields.value[colIndex - 1];
-    if (!field) return;
-
-    // 获取鼠标位置
-    const event = args.event || { clientX: 0, clientY: 0 };
-    contextMenuX.value = event.clientX || 0;
-    contextMenuY.value = event.clientY || 0;
-    contextMenuColumn.value = field;
-    contextMenuVisible.value = true;
-  });
 };
 
 // 更新表格数据
@@ -595,6 +595,52 @@ const updateTable = () => {
 
 // 实时协作事件监听
 const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
+
+// 容器右键事件处理
+const handleContainerContextMenu = (e: MouseEvent) => {
+  e.preventDefault();
+  
+  if (tableInstance && tableContainerRef.value) {
+    try {
+      // 获取容器相对于视口的位置
+      const rect = tableContainerRef.value.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      
+      // 计算点击的是哪一列
+      let currentX = 0;
+      let foundField = null;
+      
+      // 序号列宽度
+      if (clickX < 60) {
+        // 点击在序号列，不显示菜单
+        return;
+      }
+      currentX += 60;
+      
+      // 遍历有序的可见字段（冻结列在前），计算列位置
+      for (let i = 0; i < orderedVisibleFields.value.length; i++) {
+        const field = orderedVisibleFields.value[i];
+        const fieldWidth = columnWidths.value[field.id] ?? 150;
+        
+        if (clickX >= currentX && clickX < currentX + fieldWidth) {
+          foundField = field;
+          break;
+        }
+        
+        currentX += fieldWidth;
+      }
+      
+      if (foundField) {
+        contextMenuX.value = e.clientX;
+        contextMenuY.value = e.clientY;
+        contextMenuColumn.value = foundField;
+        contextMenuVisible.value = true;
+      }
+    } catch (error) {
+      console.error('处理右键事件失败:', error);
+    }
+  }
+};
 
 const setupRealtimeListeners = () => {
   if (!collabStore.isRealtimeAvailable) return;
@@ -669,7 +715,11 @@ defineExpose({
 
 <template>
   <div class="vtable-view">
-    <div ref="tableContainerRef" class="vtable-container"></div>
+    <div 
+      ref="tableContainerRef" 
+      class="vtable-container"
+      @contextmenu.prevent="handleContainerContextMenu"
+    ></div>
     
     <!-- 右键菜单 -->
     <ContextMenu
