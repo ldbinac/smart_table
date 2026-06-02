@@ -287,7 +287,7 @@ const handleDuplicateRecord = async () => {
       values: { ...contextMenuRecord.value.values },
     });
     if (newRecord && tableStore.currentTable) {
-      await tableStore.loadTables(tableStore.currentTable.baseId);
+      await tableStore.refreshRecords(tableStore.currentTable.id);
       ElMessage.success("复制记录成功");
     }
   } catch (error) {
