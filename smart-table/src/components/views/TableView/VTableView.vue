@@ -479,7 +479,23 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
   switch (field.type) {
     case FieldType.PROGRESS:
       config.cellType = 'progressbar';
-      config.fieldFormat = (value: any) => `${Number(value) || 0}%`;
+      config.min = 0;
+      config.max = 100;
+      config.fieldFormat = (record: any) => {
+        const value = record?.[field.id];
+        const num = Number(value);
+        return isNaN(num) ? '0%' : `${Math.round(num)}%`;
+      };
+      config.style = {
+        barColor: '#409eff',
+        barBgColor: '#e5e7eb',
+        barHeight: '30%',
+        textAlign: 'center',
+        textBaseline: 'middle',
+        fontSize: 12,
+        color: '#374151',
+        fontWeight: '500',
+      };
       break;
     case FieldType.CHECKBOX:
       config.cellType = 'switch';
