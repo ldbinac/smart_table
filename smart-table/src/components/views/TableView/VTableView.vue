@@ -15,9 +15,14 @@ import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { recordService } from "@/db/services";
 import { FieldType } from "@/types/fields";
 import type { CellValue } from "@/types";
+import { formatDateTime, formatDate } from "@/utils/timezone";
 
 // 导入 VTable
-import { ListTable } from "@visactor/vtable";
+import { ListTable, register as registerVTable } from "@visactor/vtable";
+// 导入 VRender 图形工厂函数（用于 customLayout）
+import { createGroup, createText, createRect, createCircle } from '@visactor/vtable/es/vrender';
+// 导入 VTable 编辑器
+import { InputEditor, DateInputEditor, ListEditor } from '@visactor/vtable-editors';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
@@ -54,6 +59,12 @@ const collabStore = useCollaborationStore();
 
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
+
+// 注册 VTable 编辑器
+const inputEditor = new InputEditor();
+const dateEditor = new DateInputEditor();
+registerVTable.editor('input', inputEditor);
+registerVTable.editor('date', dateEditor);
 
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
@@ -314,11 +325,14 @@ const handleDeleteRecord = async () => {
         confirmButtonClass: "el-button--danger",
       },
     );
-    await tableStore.deleteRecord(contextMenuRecord.value.id);
-    selectedRows.value = [];
-    checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => id !== contextMenuRecord.value.id);
-    emit("record-delete", [contextMenuRecord.value.id]);
-    ElMessage.success("记录删除成功");
+    if (contextMenuRecord.value && contextMenuRecord.value.id) {
+      const recordId = contextMenuRecord.value.id;
+      await tableStore.deleteRecord(recordId);
+      selectedRows.value = [];
+      checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => id !== recordId);
+      emit("record-delete", [recordId]);
+      ElMessage.success("记录删除成功");
+    }
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除记录失败:", error);
@@ -438,10 +452,144 @@ const currentSorts = computed(() => viewStore.currentSorts);
 // 保持原始列顺序不变
 const orderedVisibleFields = computed(() => visibleFields.value);
 
+// 根据字段类型获取 VTable 列配置
+const getCellTypeConfig = (field: any): Record<string, any> => {
+  const config: Record<string, any> = {};
+  
+  switch (field.type) {
+    case FieldType.PROGRESS:
+      config.cellType = 'progressbar';
+      config.fieldFormat = (value: any) => `${Number(value) || 0}%`;
+      break;
+    case FieldType.CHECKBOX:
+      config.cellType = 'checkbox';
+      break;
+    case FieldType.URL:
+    case FieldType.EMAIL:
+      config.cellType = 'link';
+      break;
+    case FieldType.DATE:
+    case FieldType.DATE_TIME:
+      config.cellType = 'text';
+      config.fieldFormat = (value: any) => {
+        // eslint-disable-next-line no-console
+        if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
+          console.log('[VTable-DEBUG] DATE value type:', typeof value, value?.constructor?.name, JSON.stringify(value).slice(0,200));
+        }
+        // 处理 Date 对象
+        if (value instanceof Date) {
+          const ts = value.getTime();
+          return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
+        }
+        // 处理对象
+        if (typeof value === 'object' && value !== null) {
+          // 尝试 valueOf
+          if (typeof value.valueOf === 'function') {
+            const v = value.valueOf();
+            if (typeof v === 'number' && !isNaN(v)) {
+              return field.type === FieldType.DATE ? formatDate(v) : formatDateTime(v);
+            }
+            if (typeof v === 'string') {
+              const ts = Date.parse(v);
+              if (!isNaN(ts)) {
+                return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
+              }
+            }
+          }
+          // 尝试遍历对象属性找到数字值
+          for (const key of Object.keys(value)) {
+            const prop = (value as any)[key];
+            if (typeof prop === 'number' && prop > 1000000000 && prop < 9999999999999) {
+              // 看起来像时间戳
+              return field.type === FieldType.DATE ? formatDate(prop) : formatDateTime(prop);
+            }
+            if (typeof prop === 'string' && /^\d{4}-\d{2}/.test(prop)) {
+              // 看起来像 ISO 日期字符串
+              const ts = Date.parse(prop);
+              if (!isNaN(ts)) {
+                return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
+              }
+            }
+          }
+          // 最后尝试 String(value)
+          const strVal = String(value);
+          if (strVal && strVal !== '[object Object]') {
+            const ts = Date.parse(strVal);
+            if (!isNaN(ts)) {
+              return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
+            }
+          }
+          return ""; // 确实无法解析
+        }
+        // 处理数字时间戳
+        if (typeof value === "number") {
+          return field.type === FieldType.DATE ? formatDate(value) : formatDateTime(value);
+        }
+        // 处理字符串
+        if (typeof value === "string") {
+          return field.type === FieldType.DATE ? formatDate(value) : formatDateTime(value);
+        }
+        return String(value || "");
+      };
+      config.editor = 'date';
+      break;
+    case FieldType.SINGLE_SELECT:
+      config.cellType = 'text';
+      break;
+    case FieldType.MULTI_SELECT:
+      config.cellType = 'text';
+      break;
+    case FieldType.RATING:
+      config.cellType = 'text';
+      config.fieldFormat = (value: any) => {
+        const maxR = Number(field.options?.maxRating) || 5;
+        const r = Math.max(0, Math.min(Number(value) || 0, maxR));
+        return "★".repeat(r) + "☆".repeat(maxR - r);
+      };
+      break;
+    case FieldType.MEMBER:
+      config.cellType = 'text';
+      break;
+    case FieldType.ATTACHMENT:
+      config.cellType = 'text';
+      break;
+    case FieldType.LINK:
+      config.cellType = 'text';
+      config.fieldFormat = (value: any) => {
+        if (Array.isArray(value)) return value.length > 0 ? `关联 ${value.length} 条` : '';
+        return '';
+      };
+      break;
+    case FieldType.NUMBER:
+    case FieldType.PERCENT:
+    case FieldType.CURRENCY:
+    case FieldType.DURATION:
+    case FieldType.PHONE:
+    case FieldType.BARCODE:
+      config.cellType = 'text';
+      config.editor = 'input';
+      break;
+    default:
+      // 文本类、数字类等使用默认 text 类型
+      config.cellType = 'text';
+      config.editor = 'input';
+      break;
+  }
+  
+  return config;
+};
+
 // 构建 VTable 配置
 const buildTableConfig = (): any => {
   const columns = orderedVisibleFields.value.map((field) => {
     const sortInfo = currentSorts.value.find(s => s.fieldId === field.id);
+    const cellTypeConfig = getCellTypeConfig(field);
+    
+    // 为 single_select 字段创建带选项的 ListEditor
+    if (field.type === FieldType.SINGLE_SELECT) {
+      const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
+      cellTypeConfig.editor = new ListEditor({ values: options.map(o => o.name) });
+    }
     
     return {
       field: field.id,
@@ -450,87 +598,428 @@ const buildTableConfig = (): any => {
       minWidth: 60,
       sort: true,
       sortState: sortInfo ? (sortInfo.direction === 'asc' ? 'asc' : 'desc') : 'normal',
-      customRender: (args: any) => {
-        if (!args || !args.record) return "";
-        const value = args.record[field.id];
-        if (value === null || value === undefined) return "";
-
-        let displayValue = "";
-        switch (field.type) {
-          case FieldType.CHECKBOX:
-            displayValue = value ? "✓" : "";
-            break;
-          case FieldType.DATE:
-          case FieldType.DATE_TIME:
-            if (typeof value === "number") {
-              displayValue = new Date(value).toLocaleString();
-            } else {
-              displayValue = String(value);
-            }
-            break;
-          case FieldType.SINGLE_SELECT:
-            const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-            const selectedOption = options.find(opt => opt.id === value || opt.name === value);
-            displayValue = selectedOption?.name || String(value);
-            break;
-          case FieldType.MULTI_SELECT:
-            if (Array.isArray(value)) {
-              const multiOptions = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-              displayValue = value.map(v => {
-                const opt = multiOptions.find(o => o.id === v || o.name === v);
-                return opt?.name || String(v);
-              }).join(", ");
-            }
-            break;
-          case FieldType.RATING:
-            const maxRating = Number(field.options?.maxRating) || 5;
-            const rating = Math.max(0, Math.min(Number(value) || 0, maxRating));
-            displayValue = "★".repeat(rating) + "☆".repeat(maxRating - rating);
-            break;
-          case FieldType.PROGRESS:
-            displayValue = `${Number(value) || 0}%`;
-            break;
-          case FieldType.MEMBER:
-            if (Array.isArray(value)) {
-              displayValue = value.length > 0 ? `${value.length} 成员` : "";
-            }
-            break;
-          case FieldType.ATTACHMENT:
-            if (Array.isArray(value)) {
-              displayValue = value.length > 0 ? `${value.length} 个文件` : "";
-            }
-            break;
-          case FieldType.LINK:
-            if (Array.isArray(value)) {
-              displayValue = value.length > 0 ? `关联 ${value.length} 条` : "";
-            }
-            break;
-          case FieldType.FORMULA:
-          case FieldType.AUTO_NUMBER:
-          case FieldType.CREATED_BY:
-          case FieldType.CREATED_TIME:
-          case FieldType.UPDATED_BY:
-          case FieldType.UPDATED_TIME:
-            displayValue = String(value);
-            break;
-          default:
-            displayValue = String(value);
+      ...cellTypeConfig,
+      // 单选/多选/成员字段由 customLayout 接管渲染，不设置 Canvas 层样式
+      ...((field.type === FieldType.SINGLE_SELECT || field.type === FieldType.MULTI_SELECT) ? {
+        style: {
+          padding: [0, 8],
         }
-
-        return displayValue;
-      },
+      } : {}),
     };
   });
 
-  // 转换 records 为 VTable 需要的格式 - 保留原始记录引用
+  // 为需要自定义渲染的复杂类型添加 customRender
+  // 注意：customRender 输出 Canvas 文本，不支持 HTML 标签
+  const complexTypes = [
+    FieldType.RATING,
+    FieldType.FORMULA,
+    FieldType.AUTO_NUMBER,
+    FieldType.CREATED_BY,
+    FieldType.CREATED_TIME,
+    FieldType.UPDATED_BY,
+    FieldType.UPDATED_TIME,
+  ];
+  
+  columns.forEach((col: any) => {
+    const field = orderedVisibleFields.value.find(f => f.id === col.field);
+    if (!field || !complexTypes.includes(field.type as typeof complexTypes[number])) return;
+    
+    col.customRender = (args: any) => {
+      if (!args || !args.record) return "";
+      const value = args.record[field.id];
+      if (value === null || value === undefined) return "";
+
+      let displayValue = "";
+      switch (field.type) {
+        case FieldType.SINGLE_SELECT: {
+          // 支持：string ID | {id, name, color} 对象
+          const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+          let selectedId = '';
+          let selectedName = '';
+          let selectedColor = '#6B7280';
+          if (typeof value === 'object' && value !== null) {
+            selectedId = String((value as any).id || '');
+            selectedName = String((value as any).name || '');
+            selectedColor = String((value as any).color || '#6B7280');
+          } else {
+            selectedId = String(value);
+          }
+          const selectedOption = options.find(opt => opt.id === selectedId || opt.name === selectedName || opt.name === selectedId);
+          const displayText = selectedName || selectedOption?.name || selectedId;
+          const color = selectedOption?.color || selectedColor;
+          return `<span style="background-color: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; line-height: 1.5; display: inline-flex; align-items: center; white-space: nowrap;">${displayText}</span>`;
+        }
+        case FieldType.MULTI_SELECT: {
+          // 支持：string[] | {id, name}[] | JSON 字符串
+          let items: any[] = [];
+          if (Array.isArray(value)) {
+            items = value;
+          } else if (typeof value === 'string') {
+            try { const p = JSON.parse(value); if (Array.isArray(p)) items = p; } catch {}
+          }
+          if (items.length === 0) return "";
+          const multiOptions = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+          return items.map(v => {
+            const itemId = typeof v === 'object' && v !== null ? String((v as any).id || '') : String(v);
+            const itemName = typeof v === 'object' && v !== null ? String((v as any).name || '') : '';
+            const itemColor = typeof v === 'object' && v !== null ? String((v as any).color || '') : '';
+            const opt = multiOptions.find(o => o.id === itemId || o.name === itemName || o.name === itemId);
+            const color = opt?.color || itemColor || '#6B7280';
+            const label = itemName || opt?.name || itemId;
+            return `<span style="background-color: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; line-height: 1.5; display: inline-flex; align-items: center; white-space: nowrap; margin-right: 4px;">${label}</span>`;
+          }).join("");
+        }
+        case FieldType.RATING:
+          const maxRating = Number(field.options?.maxRating) || 5;
+          const rating = Math.max(0, Math.min(Number(value) || 0, maxRating));
+          displayValue = "★".repeat(rating) + "☆".repeat(maxRating - rating);
+          break;
+        case FieldType.MEMBER: {
+          // 支持：string[] | {id, name}[] | {id, name} 对象 | JSON 字符串
+          let members: any[] = [];
+          if (Array.isArray(value)) {
+            members = value;
+          } else if (typeof value === 'string') {
+            try { const p = JSON.parse(value); if (Array.isArray(p)) members = p; } catch {}
+          } else if (typeof value === 'object' && value !== null) {
+            // 单个成员对象，包装为数组
+            members = [value];
+          }
+          if (members.length === 0) return "";
+          const colors = ['#2d7cfc', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+          const displayMembers = members.slice(0, 2);
+          const overflow = members.length > 2 ? members.length - 2 : 0;
+          let html = '<div style="display: flex; align-items: center; gap: 4px;">';
+          displayMembers.forEach((m: any) => {
+            const memberId = typeof m === 'string' ? m : String((m as any).id || m);
+            const memberName = typeof m === 'string' ? m : String((m as any).name || m);
+            const hash = memberId.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
+            const avatarColor = colors[Math.abs(hash) % colors.length];
+            const initial = memberName.charAt(0).toUpperCase();
+            html += `<span style="width: 20px; height: 20px; border-radius: 50%; background-color: ${avatarColor}; color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0;">${initial}</span>`;
+          });
+          if (overflow > 0) {
+            html += `<span style="padding: 0 6px; background-color: #e5e7eb; border-radius: 4px; font-size: 11px; color: #6B7280; line-height: 20px;">+${overflow}</span>`;
+          }
+          html += '</div>';
+          return html;
+        }
+        case FieldType.ATTACHMENT: {
+          // 支持：{id, url, name}[] | {id, url, name} 对象 | JSON 字符串
+          let files: any[] = [];
+          if (Array.isArray(value)) {
+            files = value;
+          } else if (typeof value === 'string') {
+            try { const p = JSON.parse(value); if (Array.isArray(p)) files = p; } catch {}
+          } else if (typeof value === 'object' && value !== null) {
+            // 单个文件对象，包装为数组
+            files = [value];
+          }
+          if (files.length === 0) return "";
+          return `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #6B7280;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <span>${files.length} 个文件</span>
+          </span>`;
+        }
+        case FieldType.LINK:
+          if (Array.isArray(value)) {
+            displayValue = value.length > 0 ? `关联 ${value.length} 条` : "";
+          }
+          break;
+        case FieldType.FORMULA:
+        case FieldType.AUTO_NUMBER:
+        case FieldType.CREATED_BY:
+        case FieldType.CREATED_TIME:
+        case FieldType.UPDATED_BY:
+        case FieldType.UPDATED_TIME:
+          displayValue = String(value);
+          break;
+        default:
+          displayValue = String(value);
+      }
+
+      return displayValue;
+    };
+  });
+
+  // 为需要 VRender 自定义布局的字段类型添加 customLayout
+  // 返回 VRender Group 节点，支持 flex 布局和自动换行
+  // 参考: https://visactor.io/vtable/demo/custom-render/cell-custom-reactive-layout
+  const layoutTypes = [
+    FieldType.SINGLE_SELECT,
+    FieldType.MULTI_SELECT,
+    FieldType.MEMBER,
+  ];
+  columns.forEach((col: any) => {
+    const field = orderedVisibleFields.value.find(f => f.id === col.field);
+    if (!field || !layoutTypes.includes(field.type as typeof layoutTypes[number])) return;
+
+    col.customLayout = (args: any) => {
+      const { table, row, col: colIdx, rect } = args;
+      if (!table) return { renderDefault: true };
+
+      const value = table.getCellValue(colIdx, row);
+      if (!value) return { renderDefault: true };
+
+      const cellHeight = rect?.height || table.getCellRect(colIdx, row).height || 40;
+      const cellWidth = rect?.width || table.getCellRect(colIdx, row).width || 150;
+      const fontFamily = 'system-ui, -apple-system, sans-serif';
+      const fontSize = 12;
+
+      // 测量文本宽度
+      const measureText = (text: string): number => {
+        try {
+          if (table && typeof table.measureText === 'function') {
+            const result = table.measureText(text, { fontSize, fontFamily });
+            if (result && typeof result.width === 'number') return result.width;
+          }
+        } catch (_) { /* ignore */ }
+        return text.length * 7;
+      };
+
+      switch (field.type) {
+        case FieldType.SINGLE_SELECT: {
+          const val = String(value);
+          const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+          const found = options.find(o => o.name === val);
+          const color = found?.color || '#6B7280';
+
+          const tagHeight = 26;
+          const textWidth = measureText(val);
+          const tagWidth = Math.min(textWidth + 16, cellWidth);
+          const yOffset = Math.max(0, (cellHeight - tagHeight) / 2);
+
+          const container = createGroup({
+            width: cellWidth,
+            height: cellHeight
+          });
+
+          const bg = createRect({
+            x: 0,
+            y: yOffset,
+            width: tagWidth,
+            height: tagHeight,
+            cornerRadius: 12,
+            fill: color
+          });
+          container.add(bg);
+
+          const text = createText({
+            x: 8,
+            y: yOffset + tagHeight / 2,
+            text: val,
+            fontSize,
+            fill: '#ffffff',
+            textBaseline: 'middle'
+          });
+          container.add(text);
+
+          return { rootContainer: container, renderDefault: false };
+        }
+        case FieldType.MULTI_SELECT: {
+          const vals = String(value).split(', ').filter(Boolean);
+          if (vals.length === 0) return { renderDefault: true };
+          const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+
+          const tagHeight = 26;
+          const gap = 8;
+
+          // 使用 flex 布局容器实现自动换行
+          const container = createGroup({
+            width: cellWidth,
+            height: cellHeight,
+            display: 'flex',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignContent: 'center',
+            alignItems: 'center'
+          });
+
+          vals.forEach((v) => {
+            const opt = options.find(o => o.name === v);
+            const color = opt?.color || '#6B7280';
+            const textWidth = measureText(v);
+            const tagWidth = textWidth + 16;
+
+            // 每个标签用一个子 Group 包裹（flex 布局下自动排列）
+            const tagGroup = createGroup({
+              width: tagWidth + gap,
+              height: tagHeight,
+              flexDirection: 'row' as const,
+              alignItems: 'center' as const
+            });
+
+            const bg = createRect({
+              x: 0,
+              y: 0,
+              width: tagWidth,
+              height: tagHeight,
+              cornerRadius: 12,
+              fill: color
+            });
+            tagGroup.add(bg);
+
+            const text = createText({
+              x: 8,
+              y: tagHeight / 2,
+              text: v,
+              fontSize,
+              fill: '#ffffff',
+              textBaseline: 'middle'
+            });
+            tagGroup.add(text);
+
+            container.add(tagGroup);
+          });
+
+          return { rootContainer: container, renderDefault: false };
+        }
+        case FieldType.MEMBER: {
+          const members = String(value).split(', ').filter(Boolean);
+          if (members.length === 0) return { renderDefault: true };
+          const avatarColors = ['#2d7cfc', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+          const avatarSize = 22;
+          const radius = avatarSize / 2;
+          const displayMembers = members.slice(0, 2);
+          const overflow = members.length > 2 ? members.length - 2 : 0;
+
+          const container = createGroup({
+            width: cellWidth,
+            height: cellHeight
+          });
+
+          let currentX = 0;
+          const yOffset = Math.max(0, (cellHeight - avatarSize) / 2);
+          const gap = 4;
+
+          displayMembers.forEach((m) => {
+            const hash = m.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+            const avatarColor = avatarColors[Math.abs(hash) % avatarColors.length];
+            const initial = m.charAt(0).toUpperCase();
+
+            const circle = createCircle({
+              x: currentX + radius,
+              y: yOffset + radius,
+              radius,
+              fill: avatarColor
+            });
+            container.add(circle);
+
+            const text = createText({
+              x: currentX + radius,
+              y: yOffset + radius,
+              text: initial,
+              fontSize: 10,
+              fontWeight: '600',
+              fill: '#ffffff',
+              textBaseline: 'middle',
+              textAlign: 'center'
+            });
+            container.add(text);
+
+            currentX += avatarSize + gap;
+          });
+
+          if (overflow > 0) {
+            const overflowText = `+${overflow}`;
+            const overflowPadding = 6;
+            const overflowTextWidth = measureText(overflowText);
+            const overflowWidth = overflowTextWidth + overflowPadding * 2;
+            const overflowHeight = 20;
+            const overflowY = Math.max(0, (cellHeight - overflowHeight) / 2);
+
+            const overflowBg = createRect({
+              x: currentX,
+              y: overflowY,
+              width: overflowWidth,
+              height: overflowHeight,
+              cornerRadius: 4,
+              fill: '#e5e7eb'
+            });
+            container.add(overflowBg);
+
+            const overflowLabel = createText({
+              x: currentX + overflowPadding,
+              y: overflowY + overflowHeight / 2,
+              text: overflowText,
+              fontSize: 11,
+              fill: '#6B7280',
+              textBaseline: 'middle'
+            });
+            container.add(overflowLabel);
+          }
+
+          return { rootContainer: container, renderDefault: false };
+        }
+      }
+
+      return { renderDefault: true };
+    };
+  });
+
+  // 转换 records 为 VTable 需要的格式 - 预处理字段值
   const tableRecords = sortedRecords.value.map((record) => {
     const row: any = {
       _recordId: record?.id || '',
       _originalRecord: record,
     };
     orderedVisibleFields.value.forEach(field => {
-      if (field?.id && record?.values) {
-        row[field.id] = record.values[field.id];
+      if (!field?.id || !record?.values) return;
+      const rawVal = record.values[field.id];
+      
+      switch (field.type) {
+        case FieldType.SINGLE_SELECT: {
+          // 将 ID 映射为选项名称
+          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+          const selId = typeof rawVal === 'object' && rawVal !== null ? String((rawVal as any).id || '') : String(rawVal || '');
+          const found = opts.find(o => o.id === selId || o.name === selId);
+          row[field.id] = found?.name || selId;
+          break;
+        }
+        case FieldType.MULTI_SELECT: {
+          // 将 ID 数组映射为逗号分隔的名称
+          let items: any[] = [];
+          if (Array.isArray(rawVal)) items = rawVal;
+          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) items = p; } catch {}
+          if (items.length === 0) { row[field.id] = ''; break; }
+          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
+          row[field.id] = items.map(v => {
+            const vid = typeof v === 'object' ? String((v as any).id || '') : String(v);
+            const vname = typeof v === 'object' ? String((v as any).name || '') : '';
+            const of = opts.find(o => o.id === vid || o.name === vid);
+            return vname || of?.name || vid;
+          }).join(', ');
+          break;
+        }
+        case FieldType.MEMBER: {
+          // 将成员 ID/对象数组映射为名称列表
+          let mems: any[] = [];
+          if (Array.isArray(rawVal)) mems = rawVal;
+          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) mems = p; } catch {}
+          else if (typeof rawVal === 'object' && rawVal !== null) mems = [rawVal];
+          row[field.id] = mems.map(m => typeof m === 'string' ? m : String((m as any).name || (m as any).id || m)).join(', ');
+          break;
+        }
+        case FieldType.ATTACHMENT: {
+          // 统计文件数量
+          if (!rawVal) { row[field.id] = ''; break; }
+          if (Array.isArray(rawVal)) { row[field.id] = `${rawVal.length} 个文件`; break; }
+          if (typeof rawVal === 'string') {
+            try { const p = JSON.parse(rawVal); if (Array.isArray(p)) { row[field.id] = `${p.length} 个文件`; break; } } catch {}
+            row[field.id] = rawVal; break;
+          }
+          if (typeof rawVal === 'object' && rawVal !== null) {
+            if (typeof (rawVal as any).length === 'number') { row[field.id] = `${(rawVal as any).length} 个文件`; break; }
+            const keys = Object.keys(rawVal);
+            row[field.id] = keys.length > 0 ? `${keys.length} 个文件` : ''; break;
+          }
+          row[field.id] = String(rawVal);
+          break;
+        }
+        default:
+          row[field.id] = rawVal;
       }
     });
     return row;
@@ -563,6 +1052,8 @@ const buildTableConfig = (): any => {
     heightMode: 'standard',
     autoFillWidth: false,
     autoFillHeight: false,
+    defaultRowHeight: 36,
+    autoRowHeight: false,
     rowSeriesNumber: {
       title: '#',
       width: 'auto',
@@ -570,31 +1061,41 @@ const buildTableConfig = (): any => {
       headerType: 'checkbox'
     },
     allowCopy: true,
+    editCellTrigger: 'doubleclick',
+    keyboardOptions: {
+      editCellOnEnter: true,
+      moveFocusCellOnTab: true,
+      moveEditCellOnArrowKeys: true,
+    },
     select: {
       mode: 'multiple',
       enable: true,
       highlightMode: 'row',
     },
-    theme: {
-      table: {
-        borderLineWidth: 1,
-        borderColor: '#e5e7eb',
-        headerStyle: {
-          bgColor: '#f9fafb',
-          color: '#374151',
-          fontSize: 13,
-          fontWeight: 'bold',
-        },
-        bodyStyle: {
-          bgColor: '#ffffff',
-          color: '#374151',
-          fontSize: 13,
-        },
-      },
-      selectionStyle: {
-        inlineRowBgColor: 'rgba(64, 158, 255, 0.1)',
-      },
+    containerFit: {
+      width: true,
+      height: true
     },
+    // theme: {
+    //   table: {
+    //     borderLineWidth: 1,
+    //     borderColor: '#e5e7eb',
+    //     headerStyle: {
+    //       bgColor: '#f9fafb',
+    //       color: '#374151',
+    //       fontSize: 13,
+    //       fontWeight: 'bold',
+    //     },
+    //     bodyStyle: {
+    //       bgColor: '#ffffff',
+    //       color: '#374151',
+    //       fontSize: 13,
+    //     },
+    //   },
+    //   selectionStyle: {
+    //     inlineRowBgColor: 'rgba(64, 158, 255, 0.1)',
+    //   },
+    // },
   };
 };
 
@@ -768,6 +1269,39 @@ const bindTableEvents = () => {
   tableInstanceAny.on('dblclick_cell', (args: any) => {
     if (args.record && args.record._originalRecord) {
       handleExpandRecord(args.record._originalRecord);
+    }
+  });
+
+  // 单元格值变更事件
+  tableInstanceAny.on('change_cell_value', async (args: any) => {
+    if (!args || !args.record || !args.record._recordId || !args.record._originalRecord) return;
+    
+    const recordId = args.record._recordId;
+    const fieldId = orderedVisibleFields.value[args.col - 1]?.id;
+    if (!fieldId) return;
+    
+    const newValue = args.newValue;
+    const originalRecord = args.record._originalRecord;
+    
+    try {
+      const tableId = tableStore.currentTable?.id;
+      if (!tableId) return;
+      
+      const values = {
+        ...originalRecord.values,
+        [fieldId]: newValue,
+      };
+      
+      await recordService.updateRecord(recordId, {
+        values: values as Record<string, CellValue>,
+      });
+      
+      // 刷新表格数据
+      await tableStore.refreshRecords(tableId);
+      ElMessage.success('编辑保存成功');
+    } catch (error) {
+      console.error('编辑保存失败:', error);
+      ElMessage.error('编辑保存失败');
     }
   });
 };
