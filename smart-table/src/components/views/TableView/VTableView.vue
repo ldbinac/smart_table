@@ -462,7 +462,7 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.fieldFormat = (value: any) => `${Number(value) || 0}%`;
       break;
     case FieldType.CHECKBOX:
-      config.cellType = 'checkbox';
+      config.cellType = 'switch';
       break;
     case FieldType.URL:
     case FieldType.EMAIL:
@@ -1179,6 +1179,43 @@ const bindTableEvents = () => {
           }
         } else {
           checkboxSelectedRows.value = checkboxSelectedRows.value.filter(i => i !== id);
+        }
+      }
+    }
+  });
+
+  // 开关状态变更 - 更新数据并持久化
+  tableInstanceAny.on('switch_state_change', async (args: any) => {
+    if (!tableInstance) return;
+
+    const { col, row, checked } = args;
+
+    // 仅处理行数据（非表头）
+    if (!tableInstance.isHeader(col, row)) {
+      const record = tableInstance.getCellOriginRecord(col, row);
+      if (record && record._recordId && record._originalRecord) {
+        const recordId = record._recordId;
+        const fieldId = orderedVisibleFields.value[col - 1]?.id;
+        if (!fieldId) return;
+
+        const originalRecord = record._originalRecord;
+
+        try {
+          const tableId = tableStore.currentTable?.id;
+          if (!tableId) return;
+
+          await recordService.updateRecord(recordId, {
+            values: {
+              ...originalRecord.values,
+              [fieldId]: checked,
+            } as Record<string, CellValue>,
+          });
+
+          // 刷新表格数据
+          await tableStore.refreshRecords(tableId);
+        } catch (error) {
+          console.error('开关状态保存失败:', error);
+          ElMessage.error('开关状态保存失败');
         }
       }
     }
