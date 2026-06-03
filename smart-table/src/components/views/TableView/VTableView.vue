@@ -21,7 +21,7 @@ import { useUserCacheStore } from "@/stores/userCacheStore";
 // 导入 VTable
 import { ListTable, register as registerVTable } from "@visactor/vtable";
 // 导入 VRender 图形工厂函数（用于 customLayout）
-import { createGroup, createText, createRect, createCircle } from '@visactor/vtable/es/vrender';
+import { createGroup, createText, createRect, createCircle, createPath } from '@visactor/vtable/es/vrender';
 // 导入 VTable 编辑器
 import { InputEditor, DateInputEditor, ListEditor } from '@visactor/vtable-editors';
 // 导入 ContextMenu 组件
@@ -454,6 +454,24 @@ const currentSorts = computed(() => viewStore.currentSorts);
 // 保持原始列顺序不变
 const orderedVisibleFields = computed(() => visibleFields.value);
 
+// 生成五角星 SVG path 数据
+const getStarPath = (cx: number, cy: number, outerR: number, points: number, innerRatio: number): string => {
+  const innerR = outerR * innerRatio;
+  const step = Math.PI / points;
+  const startAngle = -Math.PI / 2;
+  const parts: string[] = [];
+
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outerR : innerR;
+    const angle = startAngle + i * step;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle);
+    parts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+  parts.push('Z');
+  return parts.join('');
+};
+
 // 根据字段类型获取 VTable 列配置
 const getCellTypeConfig = (field: any): Record<string, any> => {
   const config: Record<string, any> = {};
@@ -543,11 +561,6 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       break;
     case FieldType.RATING:
       config.cellType = 'text';
-      config.fieldFormat = (value: any) => {
-        const maxR = Number(field.options?.maxRating) || 5;
-        const r = Math.max(0, Math.min(Number(value) || 0, maxR));
-        return "★".repeat(r) + "☆".repeat(maxR - r);
-      };
       break;
     case FieldType.MEMBER:
       config.cellType = 'text';
@@ -613,7 +626,6 @@ const buildTableConfig = (): any => {
   // 为需要自定义渲染的复杂类型添加 customRender
   // 注意：customRender 输出 Canvas 文本，不支持 HTML 标签
   const complexTypes = [
-    FieldType.RATING,
     FieldType.FORMULA,
     FieldType.AUTO_NUMBER,
     FieldType.CREATED_BY,
@@ -671,11 +683,6 @@ const buildTableConfig = (): any => {
             return `<span style="background-color: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; line-height: 1.5; display: inline-flex; align-items: center; white-space: nowrap; margin-right: 4px;">${label}</span>`;
           }).join("");
         }
-        case FieldType.RATING:
-          const maxRating = Number(field.options?.maxRating) || 5;
-          const rating = Math.max(0, Math.min(Number(value) || 0, maxRating));
-          displayValue = "★".repeat(rating) + "☆".repeat(maxRating - rating);
-          break;
         case FieldType.MEMBER: {
           // 支持：string[] | {id, name}[] | {id, name} 对象 | JSON 字符串
           let members: any[] = [];
@@ -753,6 +760,7 @@ const buildTableConfig = (): any => {
     FieldType.SINGLE_SELECT,
     FieldType.MULTI_SELECT,
     FieldType.MEMBER,
+    FieldType.RATING,
   ];
   columns.forEach((col: any) => {
     const field = orderedVisibleFields.value.find(f => f.id === col.field);
@@ -763,7 +771,8 @@ const buildTableConfig = (): any => {
       if (!table) return { renderDefault: true };
 
       const value = table.getCellValue(colIdx, row);
-      if (!value) return { renderDefault: true };
+      // 仅对 null/undefined 回退到默认渲染，数值 0 应正常显示灰星星
+      if (value === null || value === undefined) return { renderDefault: true };
 
       const cellHeight = rect?.height || table.getCellRect(colIdx, row).height || 40;
       const cellWidth = rect?.width || table.getCellRect(colIdx, row).width || 150;
@@ -996,6 +1005,65 @@ const buildTableConfig = (): any => {
               textBaseline: 'middle'
             });
             container.add(overflowLabel);
+          }
+
+          return { rootContainer: container, renderDefault: false };
+        }
+        case FieldType.RATING: {
+          const maxRating = Number(field.options?.maxRating) || 5;
+          const rating = Math.max(0, Math.min(Number(value) || 0, maxRating));
+          const starSize = 16;
+          const starSpacing = 4;
+          const totalWidth = maxRating * (starSize + starSpacing) - starSpacing;
+          const xOffset = Math.max(0, (cellWidth - totalWidth) / 2);
+          const yOffset = Math.max(0, (cellHeight - starSize) / 2);
+
+          const container = createGroup({
+            width: cellWidth,
+            height: cellHeight
+          });
+
+          // 绘制灰色背景星星
+          for (let i = 0; i < maxRating; i++) {
+            const cx = xOffset + i * (starSize + starSpacing) + starSize / 2;
+            const cy = yOffset + starSize / 2;
+            const star = createPath({
+              path: getStarPath(cx, cy, starSize / 2, 5, 0.5),
+              fill: '#e5e7eb'
+            });
+            container.add(star);
+          }
+
+          // 绘制黄色前景星星（整星）
+          const fullStars = Math.floor(rating);
+          for (let i = 0; i < fullStars; i++) {
+            const cx = xOffset + i * (starSize + starSpacing) + starSize / 2;
+            const cy = yOffset + starSize / 2;
+            const star = createPath({
+              path: getStarPath(cx, cy, starSize / 2, 5, 0.5),
+              fill: '#F59E0B'
+            });
+            container.add(star);
+          }
+
+          // 绘制半星（通过 Group clip 裁剪左侧一半）
+          const halfStar = rating - fullStars;
+          if (halfStar >= 0.5) {
+            const cx = xOffset + fullStars * (starSize + starSpacing) + starSize / 2;
+            const cy = yOffset + starSize / 2;
+            const star = createPath({
+              path: getStarPath(cx, cy, starSize / 2, 5, 0.5),
+              fill: '#F59E0B'
+            });
+            const halfGroup = createGroup({
+              x: xOffset + fullStars * (starSize + starSpacing),
+              y: yOffset,
+              width: starSize / 2,
+              height: starSize,
+              clip: true
+            });
+            halfGroup.add(star);
+            container.add(halfGroup);
           }
 
           return { rootContainer: container, renderDefault: false };
