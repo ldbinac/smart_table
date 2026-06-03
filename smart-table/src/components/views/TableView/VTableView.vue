@@ -16,6 +16,7 @@ import { recordService } from "@/db/services";
 import { FieldType } from "@/types/fields";
 import type { CellValue } from "@/types";
 import { formatDateTime, formatDate } from "@/utils/timezone";
+import { useUserCacheStore } from "@/stores/userCacheStore";
 
 // 导入 VTable
 import { ListTable, register as registerVTable } from "@visactor/vtable";
@@ -56,6 +57,7 @@ const emit = defineEmits<{
 const tableStore = useTableStore();
 const viewStore = useViewStore();
 const collabStore = useCollaborationStore();
+const userCacheStore = useUserCacheStore();
 
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
@@ -877,13 +879,41 @@ const buildTableConfig = (): any => {
           return { rootContainer: container, renderDefault: false };
         }
         case FieldType.MEMBER: {
-          const members = String(value).split(', ').filter(Boolean);
-          if (members.length === 0) return { renderDefault: true };
+          // 解析结构化成员数据 [{"id":"...","name":"..."}]
+          let memberData: Array<{id: string, name: string}> = [];
+          try {
+            const parsed = JSON.parse(String(value));
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              memberData = parsed.map((m: any) => ({
+                id: String(m.id || ''),
+                name: String(m.name || m.id || '')
+              }));
+            }
+          } catch (_) {
+            // 降级：尝试逗号分隔的回退解析
+            const parts = String(value).split(', ').filter(Boolean);
+            memberData = parts.map(p => ({ id: p, name: p }));
+          }
+          if (memberData.length === 0) {
+            // 空值显示占位符 -
+            const emptyLabel = createText({
+              x: 0,
+              y: cellHeight / 2,
+              text: '-',
+              fontSize: 12,
+              fill: '#999999',
+              textBaseline: 'middle'
+            });
+            const container = createGroup({ width: cellWidth, height: cellHeight });
+            container.add(emptyLabel);
+            return { rootContainer: container, renderDefault: false };
+          }
+
           const avatarColors = ['#2d7cfc', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
           const avatarSize = 22;
           const radius = avatarSize / 2;
-          const displayMembers = members.slice(0, 2);
-          const overflow = members.length > 2 ? members.length - 2 : 0;
+          const displayMembers = memberData.slice(0, 2);
+          const overflow = memberData.length > 2 ? memberData.length - 2 : 0;
 
           const container = createGroup({
             width: cellWidth,
@@ -892,13 +922,15 @@ const buildTableConfig = (): any => {
 
           let currentX = 0;
           const yOffset = Math.max(0, (cellHeight - avatarSize) / 2);
-          const gap = 4;
+          const nameSpacing = 4; // 头像与名称间距
+          const memberSpacing = 12; // 成员间间距
 
           displayMembers.forEach((m) => {
-            const hash = m.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+            const hash = m.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
             const avatarColor = avatarColors[Math.abs(hash) % avatarColors.length];
-            const initial = m.charAt(0).toUpperCase();
+            const initial = m.name.charAt(0).toUpperCase();
 
+            // 圆形头像
             const circle = createCircle({
               x: currentX + radius,
               y: yOffset + radius,
@@ -907,7 +939,8 @@ const buildTableConfig = (): any => {
             });
             container.add(circle);
 
-            const text = createText({
+            // 首字母
+            const initialText = createText({
               x: currentX + radius,
               y: yOffset + radius,
               text: initial,
@@ -917,9 +950,23 @@ const buildTableConfig = (): any => {
               textBaseline: 'middle',
               textAlign: 'center'
             });
-            container.add(text);
+            container.add(initialText);
 
-            currentX += avatarSize + gap;
+            // 完整名称
+            const nameTextX = currentX + avatarSize + nameSpacing;
+            const nameText = createText({
+              x: nameTextX,
+              y: yOffset + radius,
+              text: m.name,
+              fontSize: 12,
+              fill: '#333333',
+              textBaseline: 'middle'
+            });
+            container.add(nameText);
+
+            // 计算当前成员的宽度（头像+间距+名称宽度+成员间距）
+            const nameWidth = measureText(m.name);
+            currentX += avatarSize + nameSpacing + nameWidth + memberSpacing;
           });
 
           if (overflow > 0) {
@@ -994,14 +1041,36 @@ const buildTableConfig = (): any => {
           break;
         }
         case FieldType.MEMBER: {
-          // 将成员 ID/对象数组映射为名称列表
-          let mems: any[] = [];
-          if (Array.isArray(rawVal)) mems = rawVal;
-          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) mems = p; } catch {}
-          else if (typeof rawVal === 'object' && rawVal !== null) mems = [rawVal];
-          row[field.id] = mems.map(m => typeof m === 'string' ? m : String((m as any).name || (m as any).id || m)).join(', ');
-          break;
-        }
+  // 将成员 ID/对象解析为结构化成员列表，尝试从缓存解析名称
+  let mems: any[] = [];
+  if (Array.isArray(rawVal)) mems = rawVal;
+  else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) mems = p; } catch {}
+  else if (typeof rawVal === 'object' && rawVal !== null) mems = [rawVal];
+
+  const resolvedMembers = mems.map((m) => {
+    let id = '';
+    let name: string | undefined;
+
+    if (typeof m === 'string') {
+      id = m;
+    } else if (typeof m === 'object' && m !== null) {
+      id = String(m.user_id || m.id || '');
+      name = m.name || undefined;
+    } else {
+      id = String(m);
+    }
+
+    if (!name) {
+      const cached = userCacheStore.getCachedUser(id);
+      name = cached?.name || id;
+    }
+
+    return { id, name: name || id };
+  });
+
+  row[field.id] = JSON.stringify(resolvedMembers);
+  break;
+}
         case FieldType.ATTACHMENT: {
           // 统计文件数量
           if (!rawVal) { row[field.id] = ''; break; }
@@ -1485,6 +1554,11 @@ watch(() => viewStore.currentView, () => {
 watch(selectedRows, () => {
   // 选中行变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新
 }, { deep: true });
+
+// 用户缓存更新时刷新表格（成员名称异步加载完成后重渲染）
+watch(() => userCacheStore.cacheStats.size, () => {
+  updateTable();
+});
 
 // 处理文档点击 - 点击表格外部时隐藏悬浮图标
 const handleDocumentClick = (e: MouseEvent) => {
