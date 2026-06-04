@@ -68,6 +68,117 @@ const dateEditor = new DateInputEditor();
 registerVTable.editor('input', inputEditor);
 registerVTable.editor('date', dateEditor);
 
+// 自定义日期编辑器（仅日期，支持 input type=date 格式转换）
+class DateOnlyEditor extends InputEditor {
+  editorType = 'DateOnly';
+  createElement() {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'date');
+    input.style.padding = '4px';
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
+    input.style.position = 'absolute';
+    input.style.backgroundColor = '#FFFFFF';
+    input.style.borderRadius = '0px';
+    input.style.border = '2px solid #d9d9d9';
+    input.addEventListener('focus', () => {
+      input.style.borderColor = '#4A90E2';
+      input.style.outline = 'none';
+    });
+    input.addEventListener('blur', () => {
+      input.style.borderColor = '#d9d9d9';
+    });
+    this.element = input;
+    this.container.appendChild(input);
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'a' && (e.ctrlKey || e.metaKey)) e.stopPropagation();
+    });
+    input.addEventListener('wheel', (e: Event) => { e.preventDefault(); });
+  }
+  setValue(value: any) {
+    let date: Date | null = null;
+    if (value instanceof Date) {
+      date = value;
+    } else if (typeof value === 'number') {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) date = d;
+    } else if (typeof value === 'string') {
+      const ts = Date.parse(value);
+      if (!isNaN(ts)) date = new Date(ts);
+    }
+    if (date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      this.element.value = `${y}-${m}-${d}`;
+    } else {
+      this.element.value = '';
+    }
+  }
+  getValue() {
+    const val = this.element?.value;
+    return val ? new Date(val).getTime() : null;
+  }
+}
+
+// 自定义日期时间编辑器（日期+时间，支持 input type=datetime-local 格式转换）
+class DateTimeEditor extends InputEditor {
+  editorType = 'DateTime';
+  createElement() {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'datetime-local');
+    input.style.padding = '4px';
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
+    input.style.position = 'absolute';
+    input.style.backgroundColor = '#FFFFFF';
+    input.style.borderRadius = '0px';
+    input.style.border = '2px solid #d9d9d9';
+    input.addEventListener('focus', () => {
+      input.style.borderColor = '#4A90E2';
+      input.style.outline = 'none';
+    });
+    input.addEventListener('blur', () => {
+      input.style.borderColor = '#d9d9d9';
+    });
+    this.element = input;
+    this.container.appendChild(input);
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'a' && (e.ctrlKey || e.metaKey)) e.stopPropagation();
+    });
+    input.addEventListener('wheel', (e: Event) => { e.preventDefault(); });
+  }
+  setValue(value: any) {
+    let date: Date | null = null;
+    if (value instanceof Date) {
+      date = value;
+    } else if (typeof value === 'number') {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) date = d;
+    } else if (typeof value === 'string') {
+      const ts = Date.parse(value);
+      if (!isNaN(ts)) date = new Date(ts);
+    }
+    if (date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      const h = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      this.element.value = `${y}-${m}-${d}T${h}:${min}`;
+    } else {
+      this.element.value = '';
+    }
+  }
+  getValue() {
+    const val = this.element?.value;
+    return val ? new Date(val).getTime() : null;
+  }
+}
+
+registerVTable.editor('date-only', new DateOnlyEditor());
+registerVTable.editor('date-time', new DateTimeEditor());
+
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
 const columnWidths = ref<Record<string, number>>({});
@@ -505,69 +616,48 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.cellType = 'link';
       break;
     case FieldType.DATE:
+      config.cellType = 'text';
+      config.fieldFormat = (value: any) => {
+        // fieldFormat 接收的是整条 record，需用 field.id 提取单元格值
+        const cellValue = value?.[field.id];
+        if (cellValue == null || cellValue === '') return '';
+        // 处理 Date 对象
+        if (cellValue instanceof Date) {
+          return formatDate(cellValue.getTime());
+        }
+        // 处理数字时间戳
+        if (typeof cellValue === "number") {
+          return formatDate(cellValue);
+        }
+        // 处理字符串
+        if (typeof cellValue === "string") {
+          return formatDate(cellValue);
+        }
+        return String(cellValue);
+      };
+      config.editor = 'date-only';
+      break;
     case FieldType.DATE_TIME:
       config.cellType = 'text';
       config.fieldFormat = (value: any) => {
-        // eslint-disable-next-line no-console
-        if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
-          console.log('[VTable-DEBUG] DATE value type:', typeof value, value?.constructor?.name, JSON.stringify(value).slice(0,200));
-        }
+        // fieldFormat 接收的是整条 record，需用 field.id 提取单元格值
+        const cellValue = value?.[field.id];
+        if (cellValue == null || cellValue === '') return '';
         // 处理 Date 对象
-        if (value instanceof Date) {
-          const ts = value.getTime();
-          return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
-        }
-        // 处理对象
-        if (typeof value === 'object' && value !== null) {
-          // 尝试 valueOf
-          if (typeof value.valueOf === 'function') {
-            const v = value.valueOf();
-            if (typeof v === 'number' && !isNaN(v)) {
-              return field.type === FieldType.DATE ? formatDate(v) : formatDateTime(v);
-            }
-            if (typeof v === 'string') {
-              const ts = Date.parse(v);
-              if (!isNaN(ts)) {
-                return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
-              }
-            }
-          }
-          // 尝试遍历对象属性找到数字值
-          for (const key of Object.keys(value)) {
-            const prop = (value as any)[key];
-            if (typeof prop === 'number' && prop > 1000000000 && prop < 9999999999999) {
-              // 看起来像时间戳
-              return field.type === FieldType.DATE ? formatDate(prop) : formatDateTime(prop);
-            }
-            if (typeof prop === 'string' && /^\d{4}-\d{2}/.test(prop)) {
-              // 看起来像 ISO 日期字符串
-              const ts = Date.parse(prop);
-              if (!isNaN(ts)) {
-                return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
-              }
-            }
-          }
-          // 最后尝试 String(value)
-          const strVal = String(value);
-          if (strVal && strVal !== '[object Object]') {
-            const ts = Date.parse(strVal);
-            if (!isNaN(ts)) {
-              return field.type === FieldType.DATE ? formatDate(ts) : formatDateTime(ts);
-            }
-          }
-          return ""; // 确实无法解析
+        if (cellValue instanceof Date) {
+          return formatDateTime(cellValue.getTime());
         }
         // 处理数字时间戳
-        if (typeof value === "number") {
-          return field.type === FieldType.DATE ? formatDate(value) : formatDateTime(value);
+        if (typeof cellValue === "number") {
+          return formatDateTime(cellValue);
         }
         // 处理字符串
-        if (typeof value === "string") {
-          return field.type === FieldType.DATE ? formatDate(value) : formatDateTime(value);
+        if (typeof cellValue === "string") {
+          return formatDateTime(cellValue);
         }
-        return String(value || "");
+        return String(cellValue);
       };
-      config.editor = 'date';
+      config.editor = 'date-time';
       break;
     case FieldType.SINGLE_SELECT:
       config.cellType = 'text';
