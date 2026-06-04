@@ -24,6 +24,7 @@ import { ListTable, register as registerVTable } from "@visactor/vtable";
 import { createGroup, createText, createRect, createCircle, createPath } from '@visactor/vtable/es/vrender';
 // 导入 VTable 编辑器
 import { InputEditor, DateInputEditor, ListEditor } from '@visactor/vtable-editors';
+import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors/es/types';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
@@ -178,6 +179,135 @@ class DateTimeEditor extends InputEditor {
 
 registerVTable.editor('date-only', new DateOnlyEditor());
 registerVTable.editor('date-time', new DateTimeEditor());
+
+// 自定义多选编辑器（checkbox 下拉列表，支持多项选择和 Enter/外部点击退出）
+class MultiSelectEditor implements IEditor {
+  editorType = 'MultiSelect';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  editorConfig: { values: string[] };
+  successCallback?: () => void;
+  selectedValues: string[] = [];
+
+  constructor(editorConfig: { values: string[] }) {
+    this.editorConfig = editorConfig;
+  }
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    const currentValue = String(value ?? '');
+    this.selectedValues = currentValue ? currentValue.split(', ').filter(Boolean) : [];
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+  }
+
+  createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      position: absolute;
+      background: #ffffff;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      z-index: 1000;
+      max-height: 220px;
+      overflow-y: auto;
+      min-width: 160px;
+      padding: 4px 0;
+    `;
+
+    const { values } = this.editorConfig;
+    if (values && values.length > 0) {
+      values.forEach(opt => {
+        const label = document.createElement('label');
+        label.style.cssText = `
+          display: flex;
+          align-items: center;
+          padding: 6px 12px;
+          cursor: pointer;
+          font-size: 13px;
+          color: #333;
+          transition: background-color 0.15s;
+        `;
+        label.addEventListener('mouseenter', () => { label.style.backgroundColor = '#f0f5ff'; });
+        label.addEventListener('mouseleave', () => { label.style.backgroundColor = ''; });
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = opt;
+        checkbox.checked = this.selectedValues.includes(opt);
+        checkbox.style.cssText = 'margin-right: 8px; cursor: pointer; accent-color: #409eff;';
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            if (!this.selectedValues.includes(opt)) this.selectedValues.push(opt);
+          } else {
+            this.selectedValues = this.selectedValues.filter(v => v !== opt);
+          }
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(opt));
+        wrapper.appendChild(label);
+      });
+    } else {
+      const emptyHint = document.createElement('div');
+      emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
+      emptyHint.textContent = '无可用选项';
+      wrapper.appendChild(emptyHint);
+    }
+
+    // Enter 键确认
+    const keydownHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        document.removeEventListener('keydown', keydownHandler);
+        this.successCallback?.();
+      }
+    };
+    wrapper.addEventListener('keydown', keydownHandler);
+
+    // 点击外部退出
+    const outsideHandler = (e: MouseEvent) => {
+      if (wrapper && !wrapper.contains(e.target as Node)) {
+        document.removeEventListener('mousedown', outsideHandler, true);
+        // 延时确保 checkbox 点击事件已处理
+        setTimeout(() => this.successCallback?.(), 0);
+      }
+    };
+    // 使用捕获阶段以在冒泡前拦截
+    setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
+
+    this.element = wrapper;
+    this.container?.appendChild(wrapper);
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+    const top = rect.top - 1;
+    const left = rect.left - 1;
+    const width = Math.max(rect.width + 2, 160);
+    this.element.style.top = `${top}px`;
+    this.element.style.left = `${left}px`;
+    this.element.style.width = `${width}px`;
+  }
+
+  getValue() {
+    return this.selectedValues.join(', ');
+  }
+
+  onEnd() {
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    return this.element?.contains(target) ?? false;
+  }
+}
+
+registerVTable.editor('multi-select', new MultiSelectEditor({ values: [] }));
 
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
@@ -710,6 +840,12 @@ const buildTableConfig = (): any => {
     if (field.type === FieldType.SINGLE_SELECT) {
       const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
       cellTypeConfig.editor = new ListEditor({ values: options.map(o => o.name) });
+    }
+    
+    // 为 multi_select 字段创建带选项的 MultiSelectEditor
+    if (field.type === FieldType.MULTI_SELECT) {
+      const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
+      cellTypeConfig.editor = new MultiSelectEditor({ values: options.map(o => o.name) });
     }
     
     return {
