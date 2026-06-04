@@ -2007,7 +2007,11 @@ const bindTableEvents = () => {
 
       if (cellRecord && cellRect) {
         const containerRect = tableContainerRef.value!.getBoundingClientRect();
-        const iconX = containerRect.left + cellRect.left + cellRect.width + 8;
+        // 获取水平滚动偏移量，非冻结列需要减去 scrollLeft 以修正位置
+        const scrollLeft = tableInstanceAny.scrollLeft || 0;
+        const frozenColCount = tableInstanceAny.frozenColCount || 1;
+        const adjustedLeft = args.col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
+        const iconX = containerRect.left + adjustedLeft + cellRect.width + 8;
         const iconY = containerRect.top + cellRect.top;
 
         selectedCell.value = {
@@ -2161,11 +2165,19 @@ const handleContainerContextMenu = (e: MouseEvent) => {
         }
         currentX += 60;
         
+        // 获取水平滚动偏移量，非冻结列的视觉位置会向左偏移
+        const scrollLeft = (tableInstance as any).scrollLeft || 0;
+        const frozenFieldIds = new Set(frozenFields.value.map((f: {id: string}) => f.id));
+        
         for (let i = 0; i < orderedVisibleFields.value.length; i++) {
           const field = orderedVisibleFields.value[i];
           const fieldWidth = columnWidths.value[field.id] ?? 150;
+          const isFrozenField = frozenFieldIds.has(field.id);
           
-          if (clickX >= currentX && clickX < currentX + fieldWidth) {
+          // 冻结列位置不变，非冻结列位置需要减去 scrollLeft
+          const checkX = isFrozenField ? currentX : currentX - scrollLeft;
+          
+          if (clickX >= checkX && clickX < checkX + fieldWidth) {
             foundField = field;
             break;
           }
