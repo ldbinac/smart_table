@@ -383,32 +383,50 @@ export class RecordService {
   }
 
   async updateRecord(id: string, data: UpdateRecordData): Promise<void> {
-    try {
-      // 先调用后端 API 更新记录
-      await recordApiService.updateRecord(id, {
-        ...data.values,
-      } as Record<string, unknown>);
+    const MAX_RETRIES = 3;
+    let lastError: Error | null = null;
 
-      // 序列化值以支持 IndexedDB 存储
+    // 带重试的后端 API 调用
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await recordApiService.updateRecord(id, {
+          ...data.values,
+        } as Record<string, unknown>);
+        lastError = null; // 成功，清除错误
+        break;
+      } catch (error) {
+        lastError = error as Error;
+        if (attempt < MAX_RETRIES) {
+          console.warn(`[recordService] updateRecord API 重试 ${attempt}/${MAX_RETRIES}`, error);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+
+    // 如果 API 调用全部失败，抛出最后一次错误
+    if (lastError) {
+      console.error("[recordService] updateRecord API 调用失败:", lastError);
+      throw lastError;
+    }
+
+    // API 成功后，更新本地 IndexedDB
+    try {
       const serializedValues = serializeRecordValues(
         data.values as Record<string, CellValue>,
       );
 
-      // 构建更新对象，只包含有效的值
       const updateData: any = {
         values: serializedValues,
         updatedAt: Date.now(),
       };
 
-      // 只有在提供了 updatedBy 时才添加
       if (data.updatedBy) {
         updateData.updatedBy = data.updatedBy;
       }
 
-      // 再更新本地 IndexedDB
       await db.records.update(id, updateData);
     } catch (error) {
-      console.error("[recordService] updateRecord failed:", error);
+      console.error("[recordService] updateRecord IndexedDB 更新失败:", error);
       throw error;
     }
   }

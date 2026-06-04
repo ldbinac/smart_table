@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useAuthStore } from "@/stores/authStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import type {
   DataRecordUpdatedBroadcast,
@@ -197,7 +198,13 @@ class MultiSelectEditor implements IEditor {
     this.container = container;
     this.successCallback = endEdit;
     const currentValue = String(value ?? '');
-    this.selectedValues = currentValue ? currentValue.split(', ').filter(Boolean) : [];
+    // 兼容 JSON 数组格式和旧版逗号分隔格式
+    let parsed: string[] = [];
+    if (currentValue) {
+      try { const p = JSON.parse(currentValue); if (Array.isArray(p)) parsed = p.map(v => String(v)); } catch {}
+      if (parsed.length === 0) parsed = currentValue.split(', ').filter(Boolean);
+    }
+    this.selectedValues = parsed;
     this.createElement();
     if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
   }
@@ -292,7 +299,7 @@ class MultiSelectEditor implements IEditor {
   }
 
   getValue() {
-    return this.selectedValues.join(', ');
+    return JSON.stringify(this.selectedValues);
   }
 
   onEnd() {
@@ -308,6 +315,239 @@ class MultiSelectEditor implements IEditor {
 }
 
 registerVTable.editor('multi-select', new MultiSelectEditor({ values: [] }));
+
+// TextAreaEditor - 多行文本编辑器
+class TextAreaEditor extends InputEditor {
+  editorType = 'TextArea';
+  createElement() {
+    const textarea = document.createElement('textarea');
+    textarea.style.width = '100%';
+    textarea.style.height = '100%';
+    textarea.style.border = '2px solid #4A90E2';
+    textarea.style.outline = 'none';
+    textarea.style.resize = 'none';
+    textarea.style.padding = '4px';
+    textarea.style.fontSize = '14px';
+    textarea.style.boxSizing = 'border-box';
+    textarea.style.backgroundColor = '#FFFFFF';
+    this.element = textarea as unknown as HTMLInputElement;
+    this.container.appendChild(textarea);
+  }
+}
+
+// RatingEditor - 评分编辑器（星星选择）
+class RatingEditor implements IEditor {
+  editorType = 'Rating';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  value: number = 0;
+  successCallback?: () => void;
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    this.value = Number(value) || 0;
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+  }
+
+  createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      display: flex;
+      padding: 8px;
+      gap: 4px;
+      background: #fff;
+    `;
+
+    for (let i = 1; i <= 5; i++) {
+      const star = document.createElement('span');
+      star.textContent = '★';
+      star.style.cssText = `
+        cursor: pointer;
+        font-size: 24px;
+        color: ${this.value >= i ? '#F59E0B' : '#e5e7eb'};
+        transition: transform 0.15s, color 0.15s;
+        user-select: none;
+      `;
+      star.addEventListener('mouseenter', () => {
+        star.style.transform = 'scale(1.2)';
+      });
+      star.addEventListener('mouseleave', () => {
+        star.style.transform = 'scale(1)';
+      });
+      star.addEventListener('click', () => {
+        this.value = i;
+        this.successCallback?.();
+      });
+      wrapper.appendChild(star);
+    }
+
+    this.element = wrapper;
+    this.container?.appendChild(wrapper);
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+    this.element.style.position = 'absolute';
+    this.element.style.top = `${rect.top}px`;
+    this.element.style.left = `${rect.left}px`;
+    this.element.style.width = `${rect.width}px`;
+  }
+
+  getValue() {
+    return this.value;
+  }
+
+  onEnd() {
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    return this.element?.contains(target) ?? false;
+  }
+}
+
+// MemberEditor - 成员选择编辑器（多选 checkbox 列表）
+class MemberEditor implements IEditor {
+  editorType = 'Member';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  editorConfig: { members: Array<{id: string, name: string}> };
+  successCallback?: () => void;
+  selectedMembers: Array<{id: string, name: string}> = [];
+
+  constructor(editorConfig: { members: Array<{id: string, name: string}> }) {
+    this.editorConfig = editorConfig;
+  }
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    // 解析当前值
+    if (value) {
+      try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        if (Array.isArray(parsed)) {
+          this.selectedMembers = parsed;
+        }
+      } catch {
+        this.selectedMembers = [];
+      }
+    } else {
+      this.selectedMembers = [];
+    }
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+  }
+
+  createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      position: absolute;
+      background: #ffffff;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      z-index: 1000;
+      max-height: 220px;
+      overflow-y: auto;
+      min-width: 160px;
+      padding: 4px 0;
+    `;
+
+    const { members } = this.editorConfig;
+    if (members && members.length > 0) {
+      members.forEach(member => {
+        const label = document.createElement('label');
+        label.style.cssText = `
+          display: flex;
+          align-items: center;
+          padding: 6px 12px;
+          cursor: pointer;
+          font-size: 13px;
+          color: #333;
+          transition: background-color 0.15s;
+        `;
+        label.addEventListener('mouseenter', () => { label.style.backgroundColor = '#f0f5ff'; });
+        label.addEventListener('mouseleave', () => { label.style.backgroundColor = ''; });
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = member.id;
+        checkbox.checked = this.selectedMembers.some(m => m.id === member.id);
+        checkbox.style.cssText = 'margin-right: 8px; cursor: pointer; accent-color: #409eff;';
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            if (!this.selectedMembers.some(m => m.id === member.id)) {
+              this.selectedMembers.push({ id: member.id, name: member.name });
+            }
+          } else {
+            this.selectedMembers = this.selectedMembers.filter(m => m.id !== member.id);
+          }
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(member.name));
+        wrapper.appendChild(label);
+      });
+    } else {
+      const emptyHint = document.createElement('div');
+      emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
+      emptyHint.textContent = '无可用成员';
+      wrapper.appendChild(emptyHint);
+    }
+
+    // Enter 键确认
+    const keydownHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        document.removeEventListener('keydown', keydownHandler);
+        this.successCallback?.();
+      }
+    };
+    wrapper.addEventListener('keydown', keydownHandler);
+
+    // 点击外部退出
+    const outsideHandler = (e: MouseEvent) => {
+      if (wrapper && !wrapper.contains(e.target as Node)) {
+        document.removeEventListener('mousedown', outsideHandler, true);
+        setTimeout(() => this.successCallback?.(), 0);
+      }
+    };
+    setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
+
+    this.element = wrapper;
+    this.container?.appendChild(wrapper);
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+    this.element.style.top = `${rect.top - 1}px`;
+    this.element.style.left = `${rect.left - 1}px`;
+    this.element.style.width = `${Math.max(rect.width + 2, 160)}px`;
+  }
+
+  getValue() {
+    return JSON.stringify(this.selectedMembers);
+  }
+
+  onEnd() {
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    return this.element?.contains(target) ?? false;
+  }
+}
+
+registerVTable.editor('text-area', new TextAreaEditor());
+registerVTable.editor('rating', new RatingEditor());
 
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
@@ -730,7 +970,8 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.style = {
         barColor: '#409eff',
         barBgColor: '#e5e7eb',
-        barHeight: '30%',
+        barHeight: '20%',
+        barBottom:'30%',
         textAlign: 'center',
         textBaseline: 'middle',
         fontSize: 12,
@@ -847,7 +1088,29 @@ const buildTableConfig = (): any => {
       const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
       cellTypeConfig.editor = new MultiSelectEditor({ values: options.map(o => o.name) });
     }
-    
+
+    // 为 LONG_TEXT/RICH_TEXT 分配 TextAreaEditor
+    if (field.type === FieldType.LONG_TEXT || field.type === FieldType.RICH_TEXT) {
+      cellTypeConfig.editor = new TextAreaEditor();
+    }
+
+    // 为 PROGRESS 分配 InputEditor（整数输入 0-100）
+    if (field.type === FieldType.PROGRESS) {
+      cellTypeConfig.editor = new InputEditor();
+    }
+
+    // 为 RATING 分配 RatingEditor
+    if (field.type === FieldType.RATING) {
+      cellTypeConfig.editor = new RatingEditor();
+    }
+
+    // 为 MEMBER 分配 MemberEditor（从 userCacheStore 获取成员列表）
+    if (field.type === FieldType.MEMBER) {
+      const cachedUsers = Array.from(userCacheStore.userCache.values());
+      const members = cachedUsers.map(u => ({ id: u.id, name: u.name }));
+      cellTypeConfig.editor = new MemberEditor({ members });
+    }
+
     return {
       field: field.id,
       title: field.name,
@@ -1072,7 +1335,14 @@ const buildTableConfig = (): any => {
           return { rootContainer: container, renderDefault: false };
         }
         case FieldType.MULTI_SELECT: {
-          const vals = String(value).split(', ').filter(Boolean);
+          // 兼容：string[] | JSON 数组字符串 | 旧版逗号分隔字符串
+          let vals: string[] = [];
+          if (Array.isArray(value)) {
+            vals = value.map(v => typeof v === 'object' ? String((v as any).name || (v as any).id || '') : String(v));
+          } else if (typeof value === 'string') {
+            try { const p = JSON.parse(value); if (Array.isArray(p)) vals = p.map(v => String(v)); } catch {}
+            if (vals.length === 0) vals = value.split(', ').filter(Boolean);
+          }
           if (vals.length === 0) return { renderDefault: true };
           const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
 
@@ -1579,8 +1849,34 @@ const bindTableEvents = () => {
 
         const originalRecord = record._originalRecord;
 
+        // 协同编辑：检查锁状态
+        const authStore = useAuthStore();
+        const currentUserId = authStore.user?.id;
+        const tableId = tableStore.currentTable?.id;
+
+        if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+          // 如果被其他用户锁定，回退开关状态并提示
+          if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
+            const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
+            ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格，无法更改`);
+            // 回退到原始状态（需要刷新表格）
+            tableStore.refreshRecords(tableId);
+            return;
+          }
+
+          // 尝试获取锁
+          const lockResult = await collabStore.acquireLock(
+            { table_id: tableId, record_id: recordId, field_id: fieldId },
+            currentUserId
+          );
+          if (!lockResult.success && lockResult.reason === 'locked') {
+            ElMessage.warning(`${lockResult.locked_by?.nickname || lockResult.locked_by?.name || '其他用户'} 正在编辑此单元格`);
+            tableStore.refreshRecords(tableId);
+            return;
+          }
+        }
+
         try {
-          const tableId = tableStore.currentTable?.id;
           if (!tableId) return;
 
           await recordService.updateRecord(recordId, {
@@ -1592,12 +1888,64 @@ const bindTableEvents = () => {
 
           // 刷新表格数据
           await tableStore.refreshRecords(tableId);
+
+          // 协同编辑：释放锁
+          if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+            collabStore.releaseLock({
+              table_id: tableId,
+              record_id: recordId,
+              field_id: fieldId,
+            });
+          }
         } catch (error) {
           console.error('开关状态保存失败:', error);
           ElMessage.error('开关状态保存失败');
         }
       }
     }
+  });
+
+  // 编辑开始前事件 - 协同锁检查
+  tableInstanceAny.on('before_start_edit', (args: any) => {
+    if (!tableInstance) return;
+
+    const { col, row } = args;
+    // 跳过行号列
+    if (col <= 0) return;
+
+    const record = tableInstance.getCellOriginRecord(col, row);
+    if (!record?._recordId) return;
+
+    const fieldId = orderedVisibleFields.value[col - 1]?.id;
+    if (!fieldId) return;
+
+    const authStore = useAuthStore();
+    const currentUserId = authStore.user?.id;
+    if (!currentUserId) return;
+
+    // 检查是否被其他用户锁定
+    if (collabStore.isCellLockedByOther(record._recordId, fieldId, currentUserId)) {
+      const lockInfo = collabStore.getCellLockInfo(record._recordId, fieldId);
+      ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格`);
+      return false; // 阻止编辑
+    }
+
+    // 如果没有锁定或由当前用户锁定，异步获取锁
+    const tableId = tableStore.currentTable?.id;
+    if (tableId && collabStore.isRealtimeAvailable) {
+      collabStore.acquireLock(
+        { table_id: tableId, record_id: record._recordId, field_id: fieldId },
+        currentUserId
+      ).then((result) => {
+        if (!result.success && result.reason === 'locked') {
+          // 竞争条件：在我们检查后锁被其他用户获取
+          ElMessage.warning(`${result.locked_by?.nickname || result.locked_by?.name || '其他用户'} 已锁定此单元格`);
+          // 通知用户但编辑已开启 - 保存时处理冲突
+        }
+      });
+    }
+
+    return true; // 允许编辑
   });
 
   // 列宽调整
@@ -1689,18 +2037,43 @@ const bindTableEvents = () => {
   });
 
   // 单元格值变更事件
+  // 注意：VTable 1.26.1 的 change_cell_value 事件参数为 { col, row, changedValue, rawValue, currentValue }
+  // 不含 record 字段，需要通过 getCellOriginRecord 查找记录
   tableInstanceAny.on('change_cell_value', async (args: any) => {
-    if (!args || !args.record || !args.record._recordId || !args.record._originalRecord) return;
+    if (!args || !tableInstance) return;
     
-    const recordId = args.record._recordId;
-    const fieldId = orderedVisibleFields.value[args.col - 1]?.id;
+    const { col, row } = args;
+    // 跳过行号列
+    if (col <= 0) return;
+    
+    const record = tableInstance.getCellOriginRecord(col, row);
+    if (!record?._recordId || !record._originalRecord) return;
+    
+    const recordId = record._recordId;
+    const fieldId = orderedVisibleFields.value[col - 1]?.id;
     if (!fieldId) return;
     
-    const newValue = args.newValue;
-    const originalRecord = args.record._originalRecord;
+    const newValue = args.changedValue ?? args.currentValue;
+    const originalRecord = record._originalRecord;
+    
+    const authStore = useAuthStore();
+    const currentUserId = authStore.user?.id;
+    const tableId = tableStore.currentTable?.id;
+    
+    // 协同编辑：检查锁状态，如果被其他用户锁定则阻止保存
+    if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+      if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
+        const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
+        ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格，保存被拒绝`);
+        // 刷新表格以显示原始数据
+        if (tableId) {
+          await tableStore.refreshRecords(tableId);
+        }
+        return;
+      }
+    }
     
     try {
-      const tableId = tableStore.currentTable?.id;
       if (!tableId) return;
       
       const values = {
@@ -1714,6 +2087,16 @@ const bindTableEvents = () => {
       
       // 刷新表格数据
       await tableStore.refreshRecords(tableId);
+      
+      // 协同编辑：保存成功后释放锁
+      if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+        collabStore.releaseLock({
+          table_id: tableId,
+          record_id: recordId,
+          field_id: fieldId,
+        });
+      }
+      
       ElMessage.success('编辑保存成功');
     } catch (error) {
       console.error('编辑保存失败:', error);
@@ -1886,6 +2269,11 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  // 释放所有持有的协同编辑锁
+  const tableId = tableStore.currentTable?.id;
+  if (tableId && collabStore.isRealtimeAvailable) {
+    collabStore.releaseAllCurrentLocks(tableId);
+  }
   cleanupRealtimeListeners();
   document.removeEventListener('click', handleDocumentClick);
   if (tableInstance) {
