@@ -785,6 +785,17 @@ const drawerTitle = computed(() => {
               <span class="auto-number-value">{{ formData[field.id] || '-' }}</span>
             </div>
           </template>
+
+          <!-- 默认文本类型（URL、EMAIL、PHONE 等） -->
+          <template v-else>
+            <el-input
+              :model-value="String(formData[field.id] || '')"
+              @update:model-value="(val) => handleValueChange(field.id, val)"
+              :placeholder="`请输入${field.name}`"
+              :disabled="readonly"
+              :maxlength="(field.options?.maxLength as number) || undefined"
+              class="field-input" />
+          </template>
         </div>
       </el-form>
     </div>
