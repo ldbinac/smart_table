@@ -20,7 +20,7 @@ import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 
 // 导入 VTable
-import { ListTable, register as registerVTable } from "@visactor/vtable";
+import { ListTable, themes, register as registerVTable } from "@visactor/vtable";
 // 导入 VRender 图形工厂函数（用于 customLayout）
 import { createGroup, createText, createRect, createCircle, createPath } from '@visactor/vtable/es/vrender';
 // 导入 VTable 编辑器
@@ -1773,26 +1773,7 @@ const buildTableConfig = (): any => {
       width: true,
       height: true
     },
-    // theme: {
-    //   table: {
-    //     borderLineWidth: 1,
-    //     borderColor: '#e5e7eb',
-    //     headerStyle: {
-    //       bgColor: '#f9fafb',
-    //       color: '#374151',
-    //       fontSize: 13,
-    //       fontWeight: 'bold',
-    //     },
-    //     bodyStyle: {
-    //       bgColor: '#ffffff',
-    //       color: '#374151',
-    //       fontSize: 13,
-    //     },
-    //   },
-    //   selectionStyle: {
-    //     inlineRowBgColor: 'rgba(64, 158, 255, 0.1)',
-    //   },
-    // },
+    theme: themes.ARCO,
   };
 };
 
