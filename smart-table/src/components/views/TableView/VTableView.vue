@@ -19,6 +19,7 @@ import type { CellValue } from "@/types";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
+import { FormulaEngine } from "@/utils/formula/engine";
 
 // 导入 VTable
 import { ListTable, themes, register as registerVTable } from "@visactor/vtable";
@@ -1186,6 +1187,17 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.cellType = 'text';
       config.editor = 'input';
       break;
+    // 公式/只读字段，不绑定编辑器
+    case FieldType.FORMULA:
+    case FieldType.LOOKUP:
+    case FieldType.AUTO_NUMBER:
+    case FieldType.CREATED_BY:
+    case FieldType.CREATED_TIME:
+    case FieldType.UPDATED_BY:
+    case FieldType.UPDATED_TIME:
+      config.cellType = 'text';
+      // 不设置 editor，保持只读
+      break;
     default:
       // 文本类、数字类等使用默认 text 类型
       config.cellType = 'text';
@@ -1938,8 +1950,42 @@ const buildTableConfig = (): any => {
           row[field.id] = rawVal;
       }
     });
+
     return row;
   });
+
+  // 公式字段：在 records 数组外创建一次 FormulaEngine，对所有记录计算并覆写值
+  const formulaFields = orderedVisibleFields.value.filter(f => f.type === FieldType.FORMULA);
+  if (formulaFields.length > 0) {
+    const engine = new FormulaEngine(fields.value);
+    tableRecords.forEach(row => {
+      const record = row._originalRecord;
+      if (!record) return;
+      formulaFields.forEach(field => {
+        const formula = field.options?.formula as string;
+        if (!formula) {
+          row[field.id] = '';
+          return;
+        }
+        try {
+          const result = engine.calculate(record, formula);
+          if (result === '#ERROR') {
+            row[field.id] = '计算错误';
+          } else if (typeof result === 'number') {
+            const precision = (field.options?.precision as number) ?? 2;
+            row[field.id] = result.toLocaleString('zh-CN', {
+              minimumFractionDigits: precision,
+              maximumFractionDigits: precision,
+            });
+          } else {
+            row[field.id] = String(result);
+          }
+        } catch (e) {
+          row[field.id] = '计算错误';
+        }
+      });
+    });
+  }
 
   // 计算冻结列数
   let frozenColCount = 1;
