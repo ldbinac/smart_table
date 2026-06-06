@@ -72,6 +72,7 @@ const attachmentManagerPosition = ref({ x: 0, y: 0 });
 const attachmentManagerField = ref<FieldEntity | null>(null);
 const attachmentManagerRecordId = ref<string>('');
 const attachmentManagerInitialValue = ref<any>(null);
+const attachmentManagerOriginalRecord = ref<any>(null);
 
 // 注册 VTable 编辑器
 const inputEditor = new InputEditor();
@@ -1156,6 +1157,12 @@ const buildTableConfig = (): any => {
       cellTypeConfig.editor = new MemberEditor({ members });
     }
 
+    // 附件类型字段不需要编辑器，由自定义双击浮窗 AttachmentManager 处理
+    // 防止 VTable 内置 'input' 编辑器将数组值 toString 为 "[object Object]"
+    if (field.type === FieldType.ATTACHMENT) {
+      cellTypeConfig.editor = undefined;
+    }
+
     return {
       field: field.id,
       title: field.name,
@@ -1624,11 +1631,15 @@ const buildTableConfig = (): any => {
           } else if (typeof value === 'string') {
             try { const p = JSON.parse(value); if (Array.isArray(p)) files = p; } catch {}
           } else if (value && typeof value === 'object') {
-            files = [value];
+            // 单个文件对象
+            if ((value as any).id || (value as any).url) {
+              files = [value];
+            }
           }
-          if (files.length === 0) return { renderDefault: true };
+          // 过滤掉无效条目，始终渲染空容器而非 renderDefault（避免数组被 toString 渲染为 "[object Object]"）
+          files = files.filter((f: any) => f && (typeof f === 'string' || typeof f === 'object'));
 
-          // 判断是否为图片文件
+          // 判断文件名是否为图片
           const isImageFile = (name: string): boolean => {
             const ext = (name || '').split('.').pop()?.toLowerCase() || '';
             return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
@@ -2170,25 +2181,30 @@ const bindTableEvents = () => {
 
   // 单元格双击
   tableInstanceAny.on('dblclick_cell', (args: any) => {
-    // 判断是否为附件类型字段
     const colIndex = args.col;
+    const rowIndex = args.row;
+
+    // 判断是否为附件类型字段
     if (colIndex > 0 && orderedVisibleFields.value[colIndex - 1]) {
       const field = orderedVisibleFields.value[colIndex - 1];
       if (field.type === FieldType.ATTACHMENT) {
         // 获取单元格位置，用于定位浮动面板
-        const cellRect = (tableInstance as any)?.getCellRect(colIndex, args.row);
+        const cellRect = (tableInstance as any)?.getCellRect(colIndex, rowIndex);
         const containerRect = tableContainerRef.value?.getBoundingClientRect();
-        if (cellRect && containerRect && args.record?._recordId) {
+        if (cellRect && containerRect) {
+          // 使用 VTable getCellOriginRecord API 可靠获取原始记录（与 change_cell_value 共用同一模式）
+          const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
+          if (!cellRecord) return;
+
           // 计算面板显示位置（单元格右下角）
           attachmentManagerPosition.value = {
             x: containerRect.left + cellRect.left,
             y: containerRect.top + cellRect.bottom,
           };
           attachmentManagerField.value = field;
-          attachmentManagerRecordId.value = args.record._recordId;
-          // 获取当前附件值
-          const originalRecord = args.record._originalRecord;
-          attachmentManagerInitialValue.value = originalRecord?.values?.[field.id] ?? null;
+          attachmentManagerRecordId.value = cellRecord._recordId || cellRecord._originalRecord?.id || '';
+          attachmentManagerInitialValue.value = cellRecord[field.id] ?? cellRecord._originalRecord?.values?.[field.id] ?? null;
+          attachmentManagerOriginalRecord.value = cellRecord._originalRecord || null;
           attachmentManagerVisible.value = true;
           return;
         }
@@ -2469,6 +2485,7 @@ function closeAttachmentManager() {
   attachmentManagerField.value = null;
   attachmentManagerRecordId.value = '';
   attachmentManagerInitialValue.value = null;
+  attachmentManagerOriginalRecord.value = null;
 }
 
 // 附件管理器：值变更保存
@@ -2476,12 +2493,11 @@ async function handleAttachmentUpdate(value: any) {
   if (!attachmentManagerRecordId.value || !attachmentManagerField.value || !props.tableId) return;
   try {
     const fieldId = attachmentManagerField.value.id;
-    // 通过 recordId 查找并更新记录
-    const record = (tableInstance as any)?.getRecordByCell?.(0, attachmentManagerRecordId.value);
-    if (record?._originalRecord?.values) {
-      const values = { ...record._originalRecord.values, [fieldId]: value };
+    const originalRecord = attachmentManagerOriginalRecord.value;
+    if (originalRecord?.values) {
+      const newValues = { ...originalRecord.values, [fieldId]: value };
       await recordService.updateRecord(attachmentManagerRecordId.value, {
-        values: values as Record<string, CellValue>,
+        values: newValues as Record<string, CellValue>,
       });
       await tableStore.refreshRecords(props.tableId);
     }

@@ -146,10 +146,20 @@ const canUpload = computed(() => {
 watch(
   () => props.modelValue,
   async (newVal) => {
+    // 解析可能的多种数据格式
+    let items: any[] = [];
     if (Array.isArray(newVal)) {
+      items = newVal;
+    } else if (typeof newVal === 'string') {
+      try { const p = JSON.parse(newVal); if (Array.isArray(p)) items = p; } catch {}
+    } else if (newVal && typeof newVal === 'object') {
+      items = [newVal];
+    }
+
+    if (items.length > 0) {
       const processedFiles: AttachmentFile[] = [];
 
-      for (const item of newVal) {
+      for (const item of items) {
         if (typeof item === 'string') {
           try {
             const attachment = await attachmentService.getAttachment(item);
@@ -170,8 +180,27 @@ watch(
           } catch (error) {
             console.error('获取附件详情失败:', item, error);
           }
-        } else if (item && typeof item === 'object' && item.id) {
-          processedFiles.push(item as AttachmentFile);
+        } else if (item && typeof item === 'object') {
+          // 处理各种文件对象格式
+          if (item.id) {
+            // 标准格式：{ id, name, url, ... }
+            processedFiles.push(item as AttachmentFile);
+          } else if (item.fileId || item.uuid) {
+            // 其他常见 ID 字段名
+            processedFiles.push({ id: item.fileId || item.uuid, ...item } as unknown as AttachmentFile);
+          } else if (item.name || item.fileName || item.originalName || item.url) {
+            // 没有 ID 但有文件属性（兼容无 id 的缓存数据）
+            processedFiles.push({
+              id: item.url || item.name || item.fileName || item.originalName,
+              name: item.name || item.fileName || item.originalName || '',
+              originalName: item.originalName || item.name || item.fileName || '',
+              size: item.size || 0,
+              type: item.type || '',
+              url: item.url || '',
+              thumbnail: item.thumbnail || '',
+              createdAt: item.createdAt || Date.now()
+            } as AttachmentFile);
+          }
         }
       }
 
