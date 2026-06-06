@@ -1486,7 +1486,7 @@ const buildTableConfig = (): any => {
           });
 
           const bg = createRect({
-            x: 0,
+            x: 8,
             y: yOffset,
             width: tagWidth,
             height: tagHeight,
@@ -1496,7 +1496,7 @@ const buildTableConfig = (): any => {
           container.add(bg);
 
           const text = createText({
-            x: 8,
+            x: 16,
             y: yOffset + tagHeight / 2,
             text: val,
             fontSize,
@@ -1532,6 +1532,16 @@ const buildTableConfig = (): any => {
             alignContent: 'center',
             alignItems: 'center'
           });
+
+          // 左留白 8px（flex 布局不支持 padding，用占位元素实现）
+          const spacerLeft = createRect({
+            x: 0,
+            y: 0,
+            width: 8,
+            height: tagHeight,
+            fill: 'transparent'
+          });
+          container.add(spacerLeft);
 
           vals.forEach((v) => {
             const opt = options.find(o => o.name === v);
@@ -1591,7 +1601,7 @@ const buildTableConfig = (): any => {
           if (memberData.length === 0) {
             // 空值显示占位符 -
             const emptyLabel = createText({
-              x: 0,
+              x: 8,
               y: cellHeight / 2,
               text: '-',
               fontSize: 12,
@@ -1614,7 +1624,7 @@ const buildTableConfig = (): any => {
             height: cellHeight
           });
 
-          let currentX = 0;
+          let currentX = 8;
           const yOffset = Math.max(0, (cellHeight - avatarSize) / 2);
           const nameSpacing = 4; // 头像与名称间距
           const memberSpacing = 12; // 成员间间距
