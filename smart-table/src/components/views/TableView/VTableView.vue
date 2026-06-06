@@ -73,6 +73,8 @@ const attachmentManagerField = ref<FieldEntity | null>(null);
 const attachmentManagerRecordId = ref<string>('');
 const attachmentManagerInitialValue = ref<any>(null);
 const attachmentManagerOriginalRecord = ref<any>(null);
+// 记录触发浮窗的单元格坐标，用于滚动实时同步位置
+const lastAttachmentCellCoords = ref<{ col: number; row: number } | null>(null);
 
 // 注册 VTable 编辑器
 const inputEditor = new InputEditor();
@@ -2191,16 +2193,46 @@ const bindTableEvents = () => {
           const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
           if (!cellRecord) return;
 
-          // 计算面板显示位置（单元格右下角）
+          // 获取水平滚动偏移量，非冻结列需要减去 scrollLeft 以修正位置
+          const scrollLeft = (tableInstance as any).scrollLeft || 0;
+          const frozenColCount = (tableInstance as any).frozenColCount || 1;
+          const adjustedLeft = colIndex < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
+
+          // 基准位置：单元格右下角
+          let panelX = containerRect.left + adjustedLeft + cellRect.width;
+          let panelY = containerRect.top + cellRect.bottom;
+
+          // 视口边界检测：浮窗宽度约 380px，高度约 480px
+          const panelWidth = 380;
+          const panelHeight = 480;
+          // 水平方向：如果超出右侧，则改为在单元格左侧显示
+          if (panelX + panelWidth > window.innerWidth - 16) {
+            panelX = containerRect.left + adjustedLeft - panelWidth;
+          }
+          // 垂直方向：如果超出底部，则改为在单元格上方显示
+          if (panelY + panelHeight > window.innerHeight - 16) {
+            panelY = containerRect.top + cellRect.top - panelHeight;
+          }
+          // 水平不超出左边界
+          if (panelX < 8) {
+            panelX = 8;
+          }
+          // 垂直不超出上边界
+          if (panelY < 8) {
+            panelY = 8;
+          }
+
           attachmentManagerPosition.value = {
-            x: containerRect.left + cellRect.left,
-            y: containerRect.top + cellRect.bottom,
+            x: panelX,
+            y: panelY,
           };
           attachmentManagerField.value = field;
           attachmentManagerRecordId.value = cellRecord._recordId || cellRecord._originalRecord?.id || '';
           attachmentManagerInitialValue.value = cellRecord[field.id] ?? cellRecord._originalRecord?.values?.[field.id] ?? null;
           attachmentManagerOriginalRecord.value = cellRecord._originalRecord || null;
           attachmentManagerVisible.value = true;
+          // 记录触发单元格的位置偏移量，用于滚动实时更新
+          lastAttachmentCellCoords.value = { col: colIndex, row: rowIndex };
           return;
         }
       }
@@ -2209,6 +2241,36 @@ const bindTableEvents = () => {
     if (args.record && args.record._originalRecord) {
       handleExpandRecord(args.record._originalRecord);
     }
+  });
+
+  // 表格滚动事件 - 实时更新附件浮窗位置
+  tableInstanceAny.on('scroll', (args: any) => {
+    if (!attachmentManagerVisible.value || !lastAttachmentCellCoords.value) return;
+    const { col, row } = lastAttachmentCellCoords.value;
+    const cellRect = (tableInstance as any)?.getCellRect(col, row);
+    const containerRect = tableContainerRef.value?.getBoundingClientRect();
+    if (!cellRect || !containerRect) return;
+
+    const scrollLeft = (tableInstance as any).scrollLeft || 0;
+    const frozenColCount = (tableInstance as any).frozenColCount || 1;
+    const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
+
+    let panelX = containerRect.left + adjustedLeft + cellRect.width;
+    let panelY = containerRect.top + cellRect.bottom;
+
+    // 视口边界检测
+    const panelWidth = 380;
+    const panelHeight = 480;
+    if (panelX + panelWidth > window.innerWidth - 16) {
+      panelX = containerRect.left + adjustedLeft - panelWidth;
+    }
+    if (panelY + panelHeight > window.innerHeight - 16) {
+      panelY = containerRect.top + cellRect.top - panelHeight;
+    }
+    if (panelX < 8) panelX = 8;
+    if (panelY < 8) panelY = 8;
+
+    attachmentManagerPosition.value = { x: panelX, y: panelY };
   });
 
   // 单元格值变更事件
@@ -2449,6 +2511,7 @@ onMounted(() => {
   initTable();
   setupRealtimeListeners();
   document.addEventListener('click', handleDocumentClick);
+  window.addEventListener('resize', handleAttachmentWindowResize);
 });
 
 onBeforeUnmount(() => {
@@ -2459,6 +2522,7 @@ onBeforeUnmount(() => {
   }
   cleanupRealtimeListeners();
   document.removeEventListener('click', handleDocumentClick);
+  window.removeEventListener('resize', handleAttachmentWindowResize);
   if (tableInstance) {
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
@@ -2481,6 +2545,36 @@ function closeAttachmentManager() {
   attachmentManagerRecordId.value = '';
   attachmentManagerInitialValue.value = null;
   attachmentManagerOriginalRecord.value = null;
+  lastAttachmentCellCoords.value = null;
+}
+
+// 窗口 resize 事件 - 重新定位附件浮窗
+function handleAttachmentWindowResize() {
+  if (!attachmentManagerVisible.value || !lastAttachmentCellCoords.value) return;
+  const { col, row } = lastAttachmentCellCoords.value;
+  const cellRect = (tableInstance as any)?.getCellRect(col, row);
+  const containerRect = tableContainerRef.value?.getBoundingClientRect();
+  if (!cellRect || !containerRect) return;
+
+  const scrollLeft = (tableInstance as any).scrollLeft || 0;
+  const frozenColCount = (tableInstance as any).frozenColCount || 1;
+  const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
+
+  let panelX = containerRect.left + adjustedLeft + cellRect.width;
+  let panelY = containerRect.top + cellRect.bottom;
+
+  const panelWidth = 380;
+  const panelHeight = 480;
+  if (panelX + panelWidth > window.innerWidth - 16) {
+    panelX = containerRect.left + adjustedLeft - panelWidth;
+  }
+  if (panelY + panelHeight > window.innerHeight - 16) {
+    panelY = containerRect.top + cellRect.top - panelHeight;
+  }
+  if (panelX < 8) panelX = 8;
+  if (panelY < 8) panelY = 8;
+
+  attachmentManagerPosition.value = { x: panelX, y: panelY };
 }
 
 // 附件管理器：值变更保存
