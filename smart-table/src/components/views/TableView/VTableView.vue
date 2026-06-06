@@ -18,6 +18,7 @@ import { FieldType } from "@/types/fields";
 import type { CellValue } from "@/types";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
+import { validateFieldFormat } from "@/utils/validation";
 
 // 导入 VTable
 import { ListTable, themes, register as registerVTable } from "@visactor/vtable";
@@ -75,6 +76,121 @@ const attachmentManagerInitialValue = ref<any>(null);
 const attachmentManagerOriginalRecord = ref<any>(null);
 // 记录触发浮窗的单元格坐标，用于滚动实时同步位置
 const lastAttachmentCellCoords = ref<{ col: number; row: number } | null>(null);
+
+// ==================== 单元格值校验 ====================
+
+// 自定义单元格校验结果类型
+interface CellValidationError {
+  col: number;
+  row: number;
+  fieldId: string;
+  message: string;
+}
+
+// 当前被标记为校验失败的单元格
+const cellErrors = ref<CellValidationError[]>([]);
+
+// 校验单元格值（按字段类型）
+function validateCellValue(
+  value: any,
+  field: FieldEntity
+): { valid: boolean; message?: string } {
+  // 空值不校验（由必填逻辑处理）
+  if (value === null || value === undefined || value === '') {
+    return { valid: true };
+  }
+
+  const strValue = String(value);
+
+  switch (field.type) {
+    case FieldType.NUMBER:
+      if (isNaN(Number(value))) {
+        return { valid: false, message: `"${field.name}" 字段只能填写数字` };
+      }
+      return { valid: true };
+
+    case FieldType.PROGRESS:
+      if (isNaN(Number(value))) {
+        return { valid: false, message: `"${field.name}" 字段只能填写数字` };
+      }
+      const num = Number(value);
+      if (num < 0 || num > 100) {
+        return { valid: false, message: `"${field.name}" 字段的值应在 0-100 之间` };
+      }
+      return { valid: true };
+
+    case FieldType.EMAIL: {
+      const result = validateFieldFormat(value, FieldType.EMAIL as any);
+      if (!result.valid) {
+        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的邮箱地址` };
+      }
+      return { valid: true };
+    }
+
+    case FieldType.PHONE: {
+      const result = validateFieldFormat(value, FieldType.PHONE as any);
+      if (!result.valid) {
+        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的11位手机号码` };
+      }
+      return { valid: true };
+    }
+
+    case FieldType.URL:
+    case FieldType.LINK: {
+      const result = validateFieldFormat(value, FieldType.URL as any);
+      if (!result.valid) {
+        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的链接地址` };
+      }
+      return { valid: true };
+    }
+
+    default:
+      return { valid: true };
+  }
+}
+
+// 标记单元格校验失败（红色边框高亮）
+function markCellError(col: number, row: number, fieldId: string, message: string) {
+  // 清除该单元格的旧错误标记
+  clearCellError(col, row);
+
+  // 记录错误
+  cellErrors.value.push({ col, row, fieldId, message });
+
+  // 通过 VTable registerCustomCellStyle + arrangeCustomCellStyle 实现红色高亮
+  try {
+    const tableAny = tableInstance as any;
+    // 注册错误样式（只在首次注册）
+    tableAny.registerCustomCellStyle('validation-error-cell', {
+      borderColor: ['red', 'red', 'red', 'red'],
+      borderLineWidth: [2, 2, 2, 2],
+      bgColor: '#fff5f5'
+    });
+    // 应用到单元格
+    tableAny.arrangeCustomCellStyle({ col, row }, 'validation-error-cell');
+  } catch (e) {
+    console.warn('标记单元格错误样式失败:', e);
+  }
+}
+
+// 清除单元格校验错误标记
+function clearCellError(col: number, row: number) {
+  const idx = cellErrors.value.findIndex(e => e.col === col && e.row === row);
+  if (idx >= 0) {
+    cellErrors.value.splice(idx, 1);
+  }
+  try {
+    (tableInstance as any)?.arrangeCustomCellStyle({ col, row }, '');
+  } catch (e) {
+    // ignore
+  }
+}
+
+// 清除所有单元格校验错误标记
+function clearAllCellErrors() {
+  cellErrors.value = [];
+  // 不需要逐个清除，刷新表格时会重新渲染
+}
 
 // 注册 VTable 编辑器
 const inputEditor = new InputEditor();
@@ -2292,6 +2408,20 @@ const bindTableEvents = () => {
     
     const newValue = args.changedValue ?? args.currentValue;
     const originalRecord = record._originalRecord;
+
+    // ==================== 字段值校验 ====================
+    const targetField = orderedVisibleFields.value[col - 1] ?? null;
+    if (targetField) {
+      const validation = validateCellValue(newValue, targetField);
+      if (!validation.valid) {
+        // 校验失败：标记红色高亮 + 警告提示，不执行保存
+        markCellError(col, row, fieldId, validation.message!);
+        ElMessage.warning(validation.message);
+        return;
+      }
+    }
+    // 校验通过，清除该单元格可能存在的错误标记
+    clearCellError(col, row);
     
     const authStore = useAuthStore();
     const currentUserId = authStore.user?.id;
