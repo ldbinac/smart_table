@@ -383,7 +383,7 @@ onUnmounted(() => {
 <template>
   <teleport to="body">
     <!-- 遮罩层 -->
-    <div class="attachment-manager-overlay" @click.self="closePanel" />
+    <div class="attachment-manager-overlay" />
 
     <!-- 面板 -->
     <div
@@ -512,79 +512,79 @@ onUnmounted(() => {
           <span class="empty-text">暂无附件</span>
         </div>
       </div>
+    </div>
 
-      <!-- 预览对话框 -->
-      <el-dialog
-        v-model="previewVisible"
-        :title="previewFile?.originalName || '预览'"
-        width="90%"
-        top="5vh"
-        destroy-on-close
-        class="attachment-preview-dialog"
-        @opened="initPreview"
-      >
-        <div v-if="previewFile" class="preview-content">
-          <!-- 图片预览 -->
-          <div v-if="isImageFile(previewFile)" class="image-preview-container">
-            <div class="image-preview-wrapper" @wheel="handleImageWheel">
-              <img
-                :src="previewFile.url || previewFile.thumbnail"
-                class="preview-image"
-                :alt="previewFile.originalName"
-                :style="imagePreviewStyle"
-                @mousedown="startImageDrag"
-                @mousemove="handleImageDrag"
-                @mouseup="stopImageDrag"
-                @mouseleave="stopImageDrag"
-              />
-            </div>
-            <div class="preview-toolbar">
-              <el-button-group>
-                <el-button size="small" @click="zoomOut">
-                  <el-icon><ZoomOut /></el-icon>
-                </el-button>
-                <el-button size="small" disabled>{{ Math.round(imageScale * 100) }}%</el-button>
-                <el-button size="small" @click="zoomIn">
-                  <el-icon><ZoomIn /></el-icon>
-                </el-button>
-                <el-button size="small" @click="resetZoom">
-                  <el-icon><RefreshRight /></el-icon> 重置
-                </el-button>
-              </el-button-group>
-              <el-button size="small" type="primary" @click="handleDownload(previewFile)">
-                <el-icon><Download /></el-icon> 下载
-              </el-button>
-            </div>
+    <!-- 预览对话框 - 独立于面板之外，避免被面板 CSS 约束尺寸 -->
+    <el-dialog
+      v-model="previewVisible"
+      :title="previewFile?.originalName || '预览'"
+      width="90%"
+      top="5vh"
+      destroy-on-close
+      class="attachment-preview-dialog"
+      @opened="initPreview"
+    >
+      <div v-if="previewFile" class="preview-content">
+        <!-- 图片预览 -->
+        <div v-if="isImageFile(previewFile)" class="image-preview-container">
+          <div class="image-preview-wrapper" @wheel="handleImageWheel">
+            <img
+              :src="previewFile.url || previewFile.thumbnail"
+              class="preview-image"
+              :alt="previewFile.originalName"
+              :style="imagePreviewStyle"
+              @mousedown="startImageDrag"
+              @mousemove="handleImageDrag"
+              @mouseup="stopImageDrag"
+              @mouseleave="stopImageDrag"
+            />
           </div>
-          <!-- 视频预览 -->
-          <video
-            v-else-if="isVideoFile(previewFile)"
-            controls
-            class="preview-video"
-          >
-            <source :src="previewFile.url" :type="previewFile.type" />
-            您的浏览器不支持视频播放
-          </video>
-          <!-- 音频预览 -->
-          <audio
-            v-else-if="isAudioFile(previewFile)"
-            controls
-            class="preview-audio"
-          >
-            <source :src="previewFile.url" :type="previewFile.type" />
-            您的浏览器不支持音频播放
-          </audio>
-          <!-- 其他文件 -->
-          <div v-else class="preview-other">
-            <el-icon size="64"><Document /></el-icon>
-            <p>该文件类型暂不支持预览</p>
-            <el-button type="primary" @click="handleDownload(previewFile)">
-              下载文件
+          <div class="preview-toolbar">
+            <el-button-group>
+              <el-button size="small" @click="zoomOut">
+                <el-icon><ZoomOut /></el-icon>
+              </el-button>
+              <el-button size="small" disabled>{{ Math.round(imageScale * 100) }}%</el-button>
+              <el-button size="small" @click="zoomIn">
+                <el-icon><ZoomIn /></el-icon>
+              </el-button>
+              <el-button size="small" @click="resetZoom">
+                <el-icon><RefreshRight /></el-icon> 重置
+              </el-button>
+            </el-button-group>
+            <el-button size="small" type="primary" @click="handleDownload(previewFile)">
+              <el-icon><Download /></el-icon> 下载
             </el-button>
           </div>
         </div>
-      </el-dialog>
-    </div>
+        <!-- 视频预览 -->
+        <video
+          v-else-if="isVideoFile(previewFile)"
+          controls
+          class="preview-video"
+        >
+          <source :src="previewFile.url" :type="previewFile.type" />
+          您的浏览器不支持视频播放
+        </video>
+        <!-- 音频预览 -->
+        <audio
+          v-else-if="isAudioFile(previewFile)"
+          controls
+          class="preview-audio"
+        >
+          <source :src="previewFile.url" :type="previewFile.type" />
+          您的浏览器不支持音频播放
+        </audio>
+        <!-- 其他文件 -->
+        <div v-else class="preview-other">
+          <el-icon size="64"><Document /></el-icon>
+          <p>该文件类型暂不支持预览</p>
+          <el-button type="primary" @click="handleDownload(previewFile)">
+            下载文件
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
   </teleport>
 </template>
 
@@ -913,5 +913,16 @@ onUnmounted(() => {
   to {
     transform: rotate(360deg);
   }
+}
+</style>
+
+<!-- 非 scoped 样式：保证预览对话框在面板之上 -->
+<style lang="scss">
+.attachment-preview-dialog.el-dialog {
+  z-index: 10001 !important;
+}
+
+.el-overlay:has(.attachment-preview-dialog) {
+  z-index: 10000 !important;
 }
 </style>

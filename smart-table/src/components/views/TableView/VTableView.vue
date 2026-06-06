@@ -1682,24 +1682,15 @@ const buildTableConfig = (): any => {
               itemGroup.add(img);
               container.add(itemGroup);
             } else {
-              // 文件类型图标 - 灰底方块 + 回形针 SVG
+              // 文件类型图标 - 仅显示回形针 SVG 图标
               const itemGroup = createGroup({
                 width: itemSize + gap,
                 height: itemSize,
                 display: 'flex',
                 alignItems: 'center'
               });
-              const bgRect = createRect({
-                width: itemSize,
-                height: itemSize,
-                cornerRadius: 4,
-                fill: '#f3f4f6',
-                stroke: '#e5e7eb',
-                lineWidth: 1
-              });
-              itemGroup.add(bgRect);
 
-              // 简化回形针图标
+              // 回形针图标
               const pinPath = createPath({
                 path: 'M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48',
                 x: (itemSize - 14) / 2,
@@ -1723,18 +1714,11 @@ const buildTableConfig = (): any => {
               alignItems: 'center',
               justifyContent: 'center'
             });
-            const overflowBg = createRect({
-              width: itemSize,
-              height: itemSize,
-              cornerRadius: 4,
-              fill: '#f3f4f6'
-            });
-            overflowGroup.add(overflowBg);
             const overflowText = createText({
               x: itemSize / 2,
               y: itemSize / 2,
               text: `+${overflow}`,
-              fontSize: 11,
+              fontSize: 15,
               fill: '#6B7280',
               textBaseline: 'middle',
               textAlign: 'center'
