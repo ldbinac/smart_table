@@ -2352,12 +2352,13 @@ const bindTableEvents = () => {
 
       if (cellRecord && cellRect) {
         const containerRect = tableContainerRef.value!.getBoundingClientRect();
-        // 获取水平滚动偏移量，非冻结列需要减去 scrollLeft 以修正位置
+        // 获取水平和垂直滚动偏移量，非冻结列需要减去 scrollLeft，所有行需要减去 scrollTop
         const scrollLeft = tableInstanceAny.scrollLeft || 0;
+        const scrollTop = tableInstanceAny.scrollTop || 0;
         const frozenColCount = tableInstanceAny.frozenColCount || 1;
         const adjustedLeft = args.col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
         const iconX = containerRect.left + adjustedLeft + cellRect.width + 8;
-        const iconY = containerRect.top + cellRect.top;
+        const iconY = containerRect.top + cellRect.top - scrollTop;
 
         selectedCell.value = {
           col: args.col,
@@ -2395,14 +2396,15 @@ const bindTableEvents = () => {
           const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
           if (!cellRecord) return;
 
-          // 获取水平滚动偏移量，非冻结列需要减去 scrollLeft 以修正位置
+          // 获取水平和垂直滚动偏移量，非冻结列/行需要减去 scrollLeft/scrollTop 以修正位置
           const scrollLeft = (tableInstance as any).scrollLeft || 0;
+          const scrollTop = (tableInstance as any).scrollTop || 0;
           const frozenColCount = (tableInstance as any).frozenColCount || 1;
           const adjustedLeft = colIndex < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
 
-          // 基准位置：单元格右下角
+          // 基准位置：单元格右下角（垂直需减去 scrollTop 修正）
           let panelX = containerRect.left + adjustedLeft + cellRect.width;
-          let panelY = containerRect.top + cellRect.bottom;
+          let panelY = containerRect.top + cellRect.bottom - scrollTop;
 
           // 视口边界检测：浮窗宽度约 380px，高度约 480px
           const panelWidth = 380;
@@ -2411,9 +2413,9 @@ const bindTableEvents = () => {
           if (panelX + panelWidth > window.innerWidth - 16) {
             panelX = containerRect.left + adjustedLeft - panelWidth;
           }
-          // 垂直方向：如果超出底部，则改为在单元格上方显示
+          // 垂直方向：如果超出底部，则改为在单元格上方显示（使用修正后的 top）
           if (panelY + panelHeight > window.innerHeight - 16) {
-            panelY = containerRect.top + cellRect.top - panelHeight;
+            panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
           }
           // 水平不超出左边界
           if (panelX < 8) {
@@ -2498,11 +2500,13 @@ const bindTableEvents = () => {
     if (!cellRect || !containerRect) return;
 
     const scrollLeft = (tableInstance as any).scrollLeft || 0;
+    const scrollTop = (tableInstance as any).scrollTop || 0;
     const frozenColCount = (tableInstance as any).frozenColCount || 1;
     const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
 
+    // 重新计算位置并减去 scrollTop 以修正垂直滚动偏移
     let panelX = containerRect.left + adjustedLeft + cellRect.width;
-    let panelY = containerRect.top + cellRect.bottom;
+    let panelY = containerRect.top + cellRect.bottom - scrollTop;
 
     // 视口边界检测
     const panelWidth = 380;
@@ -2511,7 +2515,7 @@ const bindTableEvents = () => {
       panelX = containerRect.left + adjustedLeft - panelWidth;
     }
     if (panelY + panelHeight > window.innerHeight - 16) {
-      panelY = containerRect.top + cellRect.top - panelHeight;
+      panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
     }
     if (panelX < 8) panelX = 8;
     if (panelY < 8) panelY = 8;
@@ -2817,11 +2821,13 @@ function handleAttachmentWindowResize() {
   if (!cellRect || !containerRect) return;
 
   const scrollLeft = (tableInstance as any).scrollLeft || 0;
+  const scrollTop = (tableInstance as any).scrollTop || 0;
   const frozenColCount = (tableInstance as any).frozenColCount || 1;
   const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
 
+  // 重新计算位置并减去 scrollTop 以修正垂直滚动偏移
   let panelX = containerRect.left + adjustedLeft + cellRect.width;
-  let panelY = containerRect.top + cellRect.bottom;
+  let panelY = containerRect.top + cellRect.bottom - scrollTop;
 
   const panelWidth = 380;
   const panelHeight = 480;
@@ -2829,7 +2835,7 @@ function handleAttachmentWindowResize() {
     panelX = containerRect.left + adjustedLeft - panelWidth;
   }
   if (panelY + panelHeight > window.innerHeight - 16) {
-    panelY = containerRect.top + cellRect.top - panelHeight;
+    panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
   }
   if (panelX < 8) panelX = 8;
   if (panelY < 8) panelY = 8;
