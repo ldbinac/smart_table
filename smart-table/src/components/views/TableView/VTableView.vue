@@ -20,6 +20,7 @@ import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { linkApiService } from "@/services/api/linkApiService";
 
 // 导入 VTable
 import { ListTable, themes, register as registerVTable } from "@visactor/vtable";
@@ -36,6 +37,8 @@ import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 // 导入附件管理浮动面板
 import AttachmentManager from "@/components/fields/AttachmentManager.vue";
+// 导入关联记录选择器
+import LinkRecordSelector from "@/components/fields/LinkField/LinkRecordSelector.vue";
 
 interface Props {
   tableId?: string;
@@ -77,6 +80,24 @@ const attachmentManagerInitialValue = ref<any>(null);
 const attachmentManagerOriginalRecord = ref<any>(null);
 // 记录触发浮窗的单元格坐标，用于滚动实时同步位置
 const lastAttachmentCellCoords = ref<{ col: number; row: number } | null>(null);
+
+// ==================== 关联记录选择器状态 ====================
+const linkSelectorVisible = ref(false);
+const linkSelectorTargetTableId = ref('');
+const linkSelectorDisplayFieldId = ref('');
+const linkSelectorSelectedIds = ref<string[]>([]);
+const linkSelectorFieldId = ref('');
+const linkSelectorRecordId = ref('');
+const linkSelectorAllowMultiple = ref(true);
+const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string }[]>([]);
+
+// ==================== 关联字段数据缓存 ====================
+// 键: `${recordId}:${fieldId}`, 值: display_value 数组
+const linkDisplayCache = reactive<Record<string, string[]>>({});
+// 关联字段加载状态
+const linkLoadingStates = reactive<Record<string, boolean>>({});
+// 关联字段错误状态
+const linkErrorStates = reactive<Record<string, string>>({});
 
 // ==================== 单元格值校验 ====================
 
@@ -1173,8 +1194,22 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       break;
     case FieldType.LINK:
       config.cellType = 'text';
-      config.fieldFormat = (value: any) => {
-        if (Array.isArray(value)) return value.length > 0 ? `关联 ${value.length} 条` : '';
+      config.fieldFormat = (record: any) => {
+        const rawIds: string[] = record?.[field.id];
+        if (!rawIds) return '';
+        const recordId = record?._originalRecord?.id || record?._recordId || '';
+        const cacheKey = recordId ? `${recordId}:${field.id}` : '';
+
+        if (cacheKey && linkLoadingStates[cacheKey]) return '加载中...';
+        if (cacheKey && linkErrorStates[cacheKey]) return '加载失败';
+
+        const displayValues = cacheKey ? linkDisplayCache[cacheKey] : undefined;
+        if (displayValues && displayValues.length > 0) {
+          return displayValues.join(', ');
+        }
+        if (Array.isArray(rawIds) && rawIds.length > 0) {
+          return `关联 ${rawIds.length} 条`;
+        }
         return '';
       };
       break;
@@ -1409,11 +1444,6 @@ const buildTableConfig = (): any => {
           html += '</div>';
           return html;
         }
-        case FieldType.LINK:
-          if (Array.isArray(value)) {
-            displayValue = value.length > 0 ? `关联 ${value.length} 条` : "";
-          }
-          break;
         case FieldType.FORMULA:
         case FieldType.AUTO_NUMBER:
         case FieldType.CREATED_BY:
@@ -2408,6 +2438,50 @@ const bindTableEvents = () => {
           return;
         }
       }
+      // 关联字段：打开记录选择器
+      if (field.type === FieldType.LINK) {
+        const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
+        if (!cellRecord) return;
+        const recordId = cellRecord._recordId || cellRecord._originalRecord?.id || '';
+        const rawValue = cellRecord[field.id] ?? cellRecord._originalRecord?.values?.[field.id] ?? [];
+
+        // 解析当前选中的记录 ID
+        let currentIds: string[] = [];
+        if (Array.isArray(rawValue)) {
+          currentIds = rawValue.map((id: any) => String(id));
+        }
+
+        // 判断是否允许多选
+        const relationshipType = field.options?.relationshipType || field.options?.relationship_type || field.config?.relationshipType || field.config?.relationship_type || 'many_to_many';
+        const allowMultiple = relationshipType !== 'one_to_one' && relationshipType !== 'many_to_one';
+
+        linkSelectorTargetTableId.value = (field.options?.linkedTableId || field.options?.linked_table_id || field.config?.linkedTableId || field.config?.linked_table_id || '') as string;
+        linkSelectorDisplayFieldId.value = (field.options?.displayFieldId || field.options?.display_field_id || field.config?.displayFieldId || field.config?.display_field_id || '') as string;
+        linkSelectorSelectedIds.value = currentIds;
+        linkSelectorFieldId.value = field.id;
+        linkSelectorRecordId.value = recordId;
+        linkSelectorAllowMultiple.value = allowMultiple;
+
+        // 构建 linkedRecords：从缓存中获取已选记录的 display_value
+        const linkedRecords: { record_id: string; display_value: string }[] = [];
+        if (currentIds.length > 0) {
+          const cacheKey = `${recordId}:${field.id}`;
+          const cachedDVs = linkDisplayCache[cacheKey] || [];
+          // 先按缓存顺序配对（缓存是从 API response 按序提取的）
+          // 再对未在缓存中的 ID 使用 ID 本身作为回退
+          for (let i = 0; i < currentIds.length; i++) {
+            const id = currentIds[i];
+            linkedRecords.push({
+              record_id: id,
+              display_value: cachedDVs[i] || id,
+            });
+          }
+        }
+        linkSelectorLinkedRecords.value = linkedRecords;
+
+        linkSelectorVisible.value = true;
+        return;
+      }
     }
     // 非附件字段，保持原有行为
     if (args.record && args.record._originalRecord) {
@@ -2781,6 +2855,137 @@ async function handleAttachmentUpdate(value: any) {
     ElMessage.error('附件保存失败');
   }
 }
+
+// ==================== 关联字段数据加载 ====================
+// 批量加载所有可见 LINK 字段的关联记录 display_value
+async function loadLinkDisplayData() {
+  const linkFields = orderedVisibleFields.value.filter(f => f.type === FieldType.LINK);
+  if (linkFields.length === 0) return;
+
+  // 收集所有需要加载的 (recordId, fieldId) 对
+  const needsLoad: Array<{ recordId: string; fieldId: string }> = [];
+
+  for (const record of sortedRecords.value) {
+    for (const field of linkFields) {
+      const key = `${record.id}:${field.id}`;
+      if (linkDisplayCache[key] !== undefined) continue; // 已有缓存
+      // 字段有值（目标记录ID数组）才加载
+      const rawVal = record.values?.[field.id];
+      if (rawVal && Array.isArray(rawVal) && rawVal.length > 0) {
+        needsLoad.push({ recordId: record.id, fieldId: field.id });
+        linkLoadingStates[key] = true; // 标记加载中
+        linkErrorStates[key] = '';     // 清除旧错误
+      } else {
+        linkDisplayCache[key] = [];    // 空缓存
+      }
+    }
+  }
+
+  if (needsLoad.length === 0) return;
+
+  // 按 recordId 分组去重，每条记录只调一次 API
+  const recordIds = [...new Set(needsLoad.map(n => n.recordId))];
+
+  try {
+    const results = await Promise.allSettled(
+      recordIds.map(recordId => linkApiService.getRecordLinks(recordId))
+    );
+
+    for (let i = 0; i < recordIds.length; i++) {
+      const recordId = recordIds[i];
+      const result = results[i];
+
+      if (result.status === 'rejected') {
+        // 该记录下所有字段标记错误
+        for (const n of needsLoad.filter(n => n.recordId === recordId)) {
+          const key = `${recordId}:${n.fieldId}`;
+          linkErrorStates[key] = result.reason?.message || '加载关联数据失败';
+          linkLoadingStates[key] = false;
+        }
+        continue;
+      }
+
+      const linkData = result.value;
+
+      // 遍历该记录下需要加载的 LINK 字段
+      for (const n of needsLoad.filter(n => n.recordId === recordId)) {
+        const key = `${recordId}:${n.fieldId}`;
+        // 从 outbound 中找到匹配的字段
+        const outbound = linkData.outbound.find(o => o.field_id === n.fieldId);
+        if (outbound && outbound.linked_records.length > 0) {
+          linkDisplayCache[key] = outbound.linked_records.map(lr => lr.display_value);
+        } else {
+          linkDisplayCache[key] = [];
+        }
+        linkLoadingStates[key] = false;
+      }
+    }
+  } catch (error) {
+    for (const n of needsLoad) {
+      const key = `${n.recordId}:${n.fieldId}`;
+      linkErrorStates[key] = '加载关联数据失败';
+      linkLoadingStates[key] = false;
+    }
+  }
+
+  // 缓存更新后触发 VTable 重渲染，确保 fieldFormat 读取最新缓存
+  if (needsLoad.length > 0 && tableInstance) {
+    try {
+      (tableInstance as any).renderWithRecreateCells();
+    } catch {}
+  }
+}
+
+// ==================== 关联记录选择器事件处理 ====================
+// 确认选择关联记录后保存
+async function handleLinkSelectorConfirm(selectedIds: string[]) {
+  if (!linkSelectorRecordId.value || !linkSelectorFieldId.value || !props.tableId) {
+    linkSelectorVisible.value = false;
+    return;
+  }
+
+  try {
+    await linkApiService.updateRecordLink(linkSelectorRecordId.value, linkSelectorFieldId.value, {
+      target_record_ids: selectedIds,
+    });
+
+    // 刷新缓存和数据
+    const cacheKey = `${linkSelectorRecordId.value}:${linkSelectorFieldId.value}`;
+    delete linkDisplayCache[cacheKey];
+    delete linkLoadingStates[cacheKey];
+    delete linkErrorStates[cacheKey];
+
+    await tableStore.refreshRecords(props.tableId);
+  } catch (error) {
+    console.error('更新关联字段失败:', error);
+    ElMessage.error('更新关联字段失败');
+  }
+
+  linkSelectorVisible.value = false;
+}
+
+function handleLinkSelectorCancel() {
+  linkSelectorVisible.value = false;
+}
+
+// 监听记录变化，重新加载关联数据
+watch(
+  () => [records.value, orderedVisibleFields.value],
+  () => {
+    // 清空旧缓存，避免数据过时
+    for (const key of Object.keys(linkDisplayCache)) {
+      delete linkDisplayCache[key];
+    }
+    for (const key of Object.keys(linkLoadingStates)) {
+      delete linkLoadingStates[key];
+    }
+    for (const key of Object.keys(linkErrorStates)) {
+      delete linkErrorStates[key];
+    }
+    loadLinkDisplayData();
+  },
+  { deep: false, immediate: true }
+);
 </script>
 
 <template>
@@ -2847,6 +3052,18 @@ async function handleAttachmentUpdate(value: any) {
       :position="attachmentManagerPosition"
       @update:model-value="handleAttachmentUpdate"
       @close="closeAttachmentManager"
+    />
+
+    <!-- 关联记录选择器 -->
+    <LinkRecordSelector
+      :visible="linkSelectorVisible"
+      :target-table-id="linkSelectorTargetTableId"
+      :display-field-id="linkSelectorDisplayFieldId"
+      :selected-ids="linkSelectorSelectedIds"
+      :linked-records="linkSelectorLinkedRecords"
+      :allow-multiple="linkSelectorAllowMultiple"
+      @confirm="handleLinkSelectorConfirm"
+      @cancel="handleLinkSelectorCancel"
     />
   </div>
 </template>
