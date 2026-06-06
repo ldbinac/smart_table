@@ -22,7 +22,7 @@ import { useUserCacheStore } from "@/stores/userCacheStore";
 // 导入 VTable
 import { ListTable, themes, register as registerVTable } from "@visactor/vtable";
 // 导入 VRender 图形工厂函数（用于 customLayout）
-import { createGroup, createText, createRect, createCircle, createPath } from '@visactor/vtable/es/vrender';
+import { createGroup, createText, createRect, createCircle, createPath, createImage } from '@visactor/vtable/es/vrender';
 // 导入 VTable 编辑器
 import { InputEditor, DateInputEditor, ListEditor } from '@visactor/vtable-editors';
 import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors/es/types';
@@ -32,6 +32,8 @@ import ContextMenu from "@/components/common/ContextMenu.vue";
 import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 // 导入记录详情对话框
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
+// 导入附件管理浮动面板
+import AttachmentManager from "@/components/fields/AttachmentManager.vue";
 
 interface Props {
   tableId?: string;
@@ -63,6 +65,13 @@ const userCacheStore = useUserCacheStore();
 
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
+
+// 附件管理器状态
+const attachmentManagerVisible = ref(false);
+const attachmentManagerPosition = ref({ x: 0, y: 0 });
+const attachmentManagerField = ref<FieldEntity | null>(null);
+const attachmentManagerRecordId = ref<string>('');
+const attachmentManagerInitialValue = ref<any>(null);
 
 // 注册 VTable 编辑器
 const inputEditor = new InputEditor();
@@ -1042,9 +1051,6 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
     case FieldType.MEMBER:
       config.cellType = 'text';
       break;
-    case FieldType.ATTACHMENT:
-      config.cellType = 'text';
-      break;
     case FieldType.LINK:
       config.cellType = 'text';
       config.fieldFormat = (value: any) => {
@@ -1266,25 +1272,6 @@ const buildTableConfig = (): any => {
           html += '</div>';
           return html;
         }
-        case FieldType.ATTACHMENT: {
-          // 支持：{id, url, name}[] | {id, url, name} 对象 | JSON 字符串
-          let files: any[] = [];
-          if (Array.isArray(value)) {
-            files = value;
-          } else if (typeof value === 'string') {
-            try { const p = JSON.parse(value); if (Array.isArray(p)) files = p; } catch {}
-          } else if (typeof value === 'object' && value !== null) {
-            // 单个文件对象，包装为数组
-            files = [value];
-          }
-          if (files.length === 0) return "";
-          return `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #6B7280;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-            </svg>
-            <span>${files.length} 个文件</span>
-          </span>`;
-        }
         case FieldType.LINK:
           if (Array.isArray(value)) {
             displayValue = value.length > 0 ? `关联 ${value.length} 条` : "";
@@ -1314,6 +1301,7 @@ const buildTableConfig = (): any => {
     FieldType.MULTI_SELECT,
     FieldType.MEMBER,
     FieldType.RATING,
+    FieldType.ATTACHMENT,
   ];
   columns.forEach((col: any) => {
     const field = orderedVisibleFields.value.find(f => f.id === col.field);
@@ -1628,6 +1616,124 @@ const buildTableConfig = (): any => {
 
           return { rootContainer: container, renderDefault: false };
         }
+        case FieldType.ATTACHMENT: {
+          // 解析附件数据，数据格式: [{id, url, name, type?}]
+          let files: any[] = [];
+          if (Array.isArray(value)) {
+            files = value;
+          } else if (typeof value === 'string') {
+            try { const p = JSON.parse(value); if (Array.isArray(p)) files = p; } catch {}
+          } else if (value && typeof value === 'object') {
+            files = [value];
+          }
+          if (files.length === 0) return { renderDefault: true };
+
+          // 判断是否为图片文件
+          const isImageFile = (name: string): boolean => {
+            const ext = (name || '').split('.').pop()?.toLowerCase() || '';
+            return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
+          };
+
+          const itemSize = 32;
+          const gap = 6;
+          const maxDisplay = 3;
+          const displayFiles = files.slice(0, maxDisplay);
+          const overflow = files.length > maxDisplay ? files.length - maxDisplay : 0;
+
+          const container = createGroup({
+            width: cellWidth,
+            height: cellHeight,
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            flexWrap: 'nowrap'
+          });
+
+          displayFiles.forEach((file: any) => {
+            const fileName = file.name || '';
+            const fileUrl = file.url || file.thumbnail || file.preview || '';
+            const isImage = isImageFile(fileName);
+
+            if (isImage && fileUrl) {
+              // 图片缩略图
+              const img = createImage({
+                width: itemSize,
+                height: itemSize,
+                image: fileUrl,
+                cornerRadius: 4,
+              });
+              const itemGroup = createGroup({
+                width: itemSize + gap,
+                height: itemSize,
+                display: 'flex',
+                alignItems: 'center'
+              });
+              itemGroup.add(img);
+              container.add(itemGroup);
+            } else {
+              // 文件类型图标 - 灰底方块 + 回形针 SVG
+              const itemGroup = createGroup({
+                width: itemSize + gap,
+                height: itemSize,
+                display: 'flex',
+                alignItems: 'center'
+              });
+              const bgRect = createRect({
+                width: itemSize,
+                height: itemSize,
+                cornerRadius: 4,
+                fill: '#f3f4f6',
+                stroke: '#e5e7eb',
+                lineWidth: 1
+              });
+              itemGroup.add(bgRect);
+
+              // 简化回形针图标
+              const pinPath = createPath({
+                path: 'M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48',
+                x: (itemSize - 14) / 2,
+                y: (itemSize - 14) / 2,
+                stroke: '#9CA3AF',
+                lineWidth: 1.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+                fill: 'none'
+              });
+              itemGroup.add(pinPath);
+              container.add(itemGroup);
+            }
+          });
+
+          if (overflow > 0) {
+            const overflowGroup = createGroup({
+              width: itemSize,
+              height: itemSize,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            });
+            const overflowBg = createRect({
+              width: itemSize,
+              height: itemSize,
+              cornerRadius: 4,
+              fill: '#f3f4f6'
+            });
+            overflowGroup.add(overflowBg);
+            const overflowText = createText({
+              x: itemSize / 2,
+              y: itemSize / 2,
+              text: `+${overflow}`,
+              fontSize: 11,
+              fill: '#6B7280',
+              textBaseline: 'middle',
+              textAlign: 'center'
+            });
+            overflowGroup.add(overflowText);
+            container.add(overflowGroup);
+          }
+
+          return { rootContainer: container, renderDefault: false };
+        }
       }
 
       return { renderDefault: true };
@@ -1700,19 +1806,19 @@ const buildTableConfig = (): any => {
   break;
 }
         case FieldType.ATTACHMENT: {
-          // 统计文件数量
+          // 保留原始结构化数据，customLayout 中处理渲染
           if (!rawVal) { row[field.id] = ''; break; }
-          if (Array.isArray(rawVal)) { row[field.id] = `${rawVal.length} 个文件`; break; }
+          if (Array.isArray(rawVal)) { row[field.id] = rawVal; break; }
+          if (typeof rawVal === 'object' && rawVal !== null) {
+            if ((rawVal as any).url) { row[field.id] = [rawVal]; break; }
+            const arr = Object.values(rawVal);
+            if (Array.isArray(arr)) { row[field.id] = arr; break; }
+          }
           if (typeof rawVal === 'string') {
-            try { const p = JSON.parse(rawVal); if (Array.isArray(p)) { row[field.id] = `${p.length} 个文件`; break; } } catch {}
+            try { const p = JSON.parse(rawVal); if (Array.isArray(p)) { row[field.id] = p; break; } } catch {}
             row[field.id] = rawVal; break;
           }
-          if (typeof rawVal === 'object' && rawVal !== null) {
-            if (typeof (rawVal as any).length === 'number') { row[field.id] = `${(rawVal as any).length} 个文件`; break; }
-            const keys = Object.keys(rawVal);
-            row[field.id] = keys.length > 0 ? `${keys.length} 个文件` : ''; break;
-          }
-          row[field.id] = String(rawVal);
+          row[field.id] = rawVal;
           break;
         }
         default:
@@ -2064,6 +2170,31 @@ const bindTableEvents = () => {
 
   // 单元格双击
   tableInstanceAny.on('dblclick_cell', (args: any) => {
+    // 判断是否为附件类型字段
+    const colIndex = args.col;
+    if (colIndex > 0 && orderedVisibleFields.value[colIndex - 1]) {
+      const field = orderedVisibleFields.value[colIndex - 1];
+      if (field.type === FieldType.ATTACHMENT) {
+        // 获取单元格位置，用于定位浮动面板
+        const cellRect = (tableInstance as any)?.getCellRect(colIndex, args.row);
+        const containerRect = tableContainerRef.value?.getBoundingClientRect();
+        if (cellRect && containerRect && args.record?._recordId) {
+          // 计算面板显示位置（单元格右下角）
+          attachmentManagerPosition.value = {
+            x: containerRect.left + cellRect.left,
+            y: containerRect.top + cellRect.bottom,
+          };
+          attachmentManagerField.value = field;
+          attachmentManagerRecordId.value = args.record._recordId;
+          // 获取当前附件值
+          const originalRecord = args.record._originalRecord;
+          attachmentManagerInitialValue.value = originalRecord?.values?.[field.id] ?? null;
+          attachmentManagerVisible.value = true;
+          return;
+        }
+      }
+    }
+    // 非附件字段，保持原有行为
     if (args.record && args.record._originalRecord) {
       handleExpandRecord(args.record._originalRecord);
     }
@@ -2331,6 +2462,34 @@ defineExpose({
     updateTable();
   },
 });
+
+// 附件管理器：关闭
+function closeAttachmentManager() {
+  attachmentManagerVisible.value = false;
+  attachmentManagerField.value = null;
+  attachmentManagerRecordId.value = '';
+  attachmentManagerInitialValue.value = null;
+}
+
+// 附件管理器：值变更保存
+async function handleAttachmentUpdate(value: any) {
+  if (!attachmentManagerRecordId.value || !attachmentManagerField.value || !props.tableId) return;
+  try {
+    const fieldId = attachmentManagerField.value.id;
+    // 通过 recordId 查找并更新记录
+    const record = (tableInstance as any)?.getRecordByCell?.(0, attachmentManagerRecordId.value);
+    if (record?._originalRecord?.values) {
+      const values = { ...record._originalRecord.values, [fieldId]: value };
+      await recordService.updateRecord(attachmentManagerRecordId.value, {
+        values: values as Record<string, CellValue>,
+      });
+      await tableStore.refreshRecords(props.tableId);
+    }
+  } catch (error) {
+    console.error('附件保存失败:', error);
+    ElMessage.error('附件保存失败');
+  }
+}
 </script>
 
 <template>
@@ -2386,6 +2545,17 @@ defineExpose({
       :size="drawerSize"
       :readonly="props.readonly"
       @save="handleRecordSave"
+    />
+
+    <!-- 附件管理浮动面板 -->
+    <AttachmentManager
+      v-if="attachmentManagerVisible && attachmentManagerField"
+      :field="attachmentManagerField"
+      :record-id="attachmentManagerRecordId"
+      :model-value="attachmentManagerInitialValue"
+      :position="attachmentManagerPosition"
+      @update:model-value="handleAttachmentUpdate"
+      @close="closeAttachmentManager"
     />
   </div>
 </template>

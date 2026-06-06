@@ -17,6 +17,7 @@ declare module 'vue' {
     AppHeader: typeof import('./components/common/AppHeader.vue')['default']
     AppSidebar: typeof import('./components/common/AppSidebar.vue')['default']
     AttachmentField: typeof import('./components/fields/AttachmentField.vue')['default']
+    AttachmentManager: typeof import('./components/fields/AttachmentManager.vue')['default']
     AutoNumberField: typeof import('./components/fields/AutoNumberField.vue')['default']
     BaseShareDialog: typeof import('./components/dialogs/BaseShareDialog.vue')['default']
     BaseSidebar: typeof import('./components/common/BaseSidebar.vue')['default']
