@@ -1131,6 +1131,9 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       break;
     case FieldType.CHECKBOX:
       config.cellType = 'switch';
+      config.style = {
+        textAlign: 'center'
+      };
       break;
     case FieldType.URL:
     case FieldType.EMAIL:
@@ -1138,6 +1141,9 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       break;
     case FieldType.DATE:
       config.cellType = 'text';
+      config.style = {
+        textAlign: 'center'
+      };
       config.fieldFormat = (value: any) => {
         // fieldFormat 接收的是整条 record，需用 field.id 提取单元格值
         const cellValue = value?.[field.id];
@@ -1217,6 +1223,12 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
     case FieldType.PERCENT:
     case FieldType.CURRENCY:
     case FieldType.DURATION:
+      config.cellType = 'text';
+      config.editor = 'input';
+      config.style = {
+        textAlign: 'right'
+      };
+      break;
     case FieldType.PHONE:
     case FieldType.BARCODE:
       config.cellType = 'text';
@@ -1508,6 +1520,7 @@ const buildTableConfig = (): any => {
           const tagHeight = 26;
           const textWidth = measureText(val);
           const tagWidth = Math.min(textWidth + 16, cellWidth);
+          const xOffset = Math.max(0, (cellWidth - tagWidth) / 2);
           const yOffset = Math.max(0, (cellHeight - tagHeight) / 2);
 
           const container = createGroup({
@@ -1516,7 +1529,7 @@ const buildTableConfig = (): any => {
           });
 
           const bg = createRect({
-            x: 8,
+            x: xOffset,
             y: yOffset,
             width: tagWidth,
             height: tagHeight,
@@ -1526,7 +1539,7 @@ const buildTableConfig = (): any => {
           container.add(bg);
 
           const text = createText({
-            x: 16,
+            x: xOffset + 8,
             y: yOffset + tagHeight / 2,
             text: val,
             fontSize,
