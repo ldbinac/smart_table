@@ -435,8 +435,7 @@ onUnmounted(() => {
             </div>
             <template #tip>
               <div class="upload-tip">
-                <div>最大文件大小: {{ formatFileSize(maxSize) }}</div>
-                <div v-if="maxCount">最多 {{ maxCount }} 个文件</div>
+                <div>文件最大: {{ formatFileSize(maxSize) }};&nbsp;<span v-if="maxCount">最多 {{ maxCount }} 个文件</span></div>
               </div>
             </template>
           </el-upload>

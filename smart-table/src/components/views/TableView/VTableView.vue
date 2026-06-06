@@ -1874,7 +1874,18 @@ const buildTableConfig = (): any => {
       width: true,
       height: true
     },
-    theme: themes.ARCO,
+    theme: themes.ARCO.extends({
+      scrollStyle: {
+        barToSide: true,
+        visible: 'always'
+      },
+      headerStyle: {
+        color: '#6B7280'
+      },
+      bodyStyle: {
+        color: '#374151'
+      }
+    }),
   };
 };
 
