@@ -65,6 +65,7 @@ const emit = defineEmits<{
   (e: "record-create"): void;
   (e: "record-delete", recordIds: string[]): void;
   (e: "add-record"): void;
+  (e: "group-add-record", groupFieldValues: Record<string, any>): void;
 }>();
 
 const tableStore = useTableStore();
@@ -1932,6 +1933,113 @@ const buildTableConfig = (): any => {
     };
   });
 
+  // 为所有列添加虚拟添加按钮行的渲染逻辑
+  if (props.groupBy && props.groupBy.length > 0) {
+    columns.forEach((col: any) => {
+      const existingCustomLayout = col.customLayout;
+
+      col.customLayout = (args: any) => {
+        const { table, row, col: colIdx, rect } = args;
+        if (!table) return { renderDefault: true };
+
+        const record = table.getCellOriginRecord(colIdx, row);
+
+        // 检测是否为虚拟添加按钮行
+        if (record && record._rowType === 'addButton') {
+          const cellHeight = rect?.height || table.getCellRect(colIdx, row).height || 36;
+          const cellWidth = rect?.width || table.getCellRect(colIdx, row).width || 150;
+
+          // 仅在第一个数据列（colIdx === 1，0 为行序号列）渲染完整按钮
+          if (colIdx === 1) {
+            const container = createGroup({
+              width: cellWidth,
+              height: cellHeight,
+              display: 'flex',
+              alignItems: 'center',
+            });
+
+            // 悬停提示背景 - 使用淡色区分
+            const bg = createRect({
+              x: 0,
+              y: 0,
+              width: cellWidth,
+              height: cellHeight,
+              fill: '#f9fafb',
+            });
+            container.add(bg);
+
+            // 虚线边框（左侧）
+            const leftDash = createRect({
+              x: 0,
+              y: 0,
+              width: 3,
+              height: cellHeight,
+              fill: '#d1d5db',
+              cornerRadius: 1,
+            });
+            container.add(leftDash);
+
+            // 加号图标圆圈
+            const circleRadius = 10;
+            const circleBg = createCircle({
+              x: 28,
+              y: cellHeight / 2,
+              radius: circleRadius,
+              fill: '#e0e7ff',
+            });
+            container.add(circleBg);
+
+            const plusText = createText({
+              x: 28,
+              y: cellHeight / 2,
+              text: '+',
+              fontSize: 14,
+              fill: '#6366f1',
+              textBaseline: 'middle',
+              textAlign: 'center',
+              fontWeight: 'bold',
+            });
+            container.add(plusText);
+
+            // 添加记录文本
+            const addLabel = createText({
+              x: 48,
+              y: cellHeight / 2,
+              text: '添加记录',
+              fontSize: 12,
+              fill: '#6366f1',
+              textBaseline: 'middle',
+            });
+            container.add(addLabel);
+
+            return { rootContainer: container, renderDefault: false };
+          }
+
+          // 其他列渲染空单元格
+          const emptyContainer = createGroup({
+            width: cellWidth,
+            height: cellHeight,
+          });
+          const emptyBg = createRect({
+            x: 0,
+            y: 0,
+            width: cellWidth,
+            height: cellHeight,
+            fill: '#f9fafb',
+          });
+          emptyContainer.add(emptyBg);
+          return { rootContainer: emptyContainer, renderDefault: false };
+        }
+
+        // 非虚拟行，回退到原有 customLayout 或默认渲染
+        if (existingCustomLayout) {
+          return existingCustomLayout(args);
+        }
+        return { renderDefault: true };
+      };
+    });
+  }
+
   // 转换 records 为 VTable 需要的格式 - 预处理字段值
   const tableRecords = sortedRecords.value.map((record) => {
     const row: any = {
@@ -2054,6 +2162,59 @@ const buildTableConfig = (): any => {
     });
   }
 
+  // 分组末尾添加按钮行：为每个分组注入一条虚拟「添加记录」行
+  if (props.groupBy && props.groupBy.length > 0 && tableRecords.length > 0) {
+    // 按分组字段值对记录重新分组，确保虚拟行在每个分组的末尾
+    const groupToRecords = new Map<string, any[]>();
+    for (const row of tableRecords) {
+      const groupKey = props.groupBy.map(fieldId => {
+        const val = row[fieldId];
+        return val !== null && val !== undefined ? String(val) : '__empty__';
+      }).join('||');
+      if (!groupToRecords.has(groupKey)) {
+        groupToRecords.set(groupKey, []);
+      }
+      groupToRecords.get(groupKey)!.push(row);
+    }
+
+    // 重建 tableRecords，在每个分组末尾插入虚拟行
+    const rebuiltRecords: any[] = [];
+    for (const [groupKey, records] of groupToRecords) {
+      rebuiltRecords.push(...records);
+
+      // 为当前分组创建虚拟添加按钮行
+      const groupValues: Record<string, any> = {};
+      props.groupBy.forEach(fieldId => {
+        groupValues[fieldId] = records[0][fieldId] ?? null;
+      });
+
+      const addButtonRecord: any = {
+        _recordId: '__add_button__',
+        _originalRecord: null,
+        _rowType: 'addButton',
+        _groupValues: { ...groupValues },
+      };
+
+      // 设置分组字段值，以便 VTable 正确归组
+      for (const fieldId of props.groupBy) {
+        addButtonRecord[fieldId] = groupValues[fieldId];
+      }
+
+      // 为其他可见字段设置空值
+      orderedVisibleFields.value.forEach(field => {
+        if (!props.groupBy!.includes(field.id)) {
+          addButtonRecord[field.id] = '';
+        }
+      });
+
+      rebuiltRecords.push(addButtonRecord);
+    }
+
+    // 将重建后的记录写回 tableRecords 数组
+    tableRecords.length = 0;
+    tableRecords.push(...rebuiltRecords);
+  }
+
   // 计算冻结列数
   let frozenColCount = 1;
   if (frozenFields.value.length > 0) {
@@ -2112,6 +2273,13 @@ const buildTableConfig = (): any => {
         groupBy: props.groupBy,
         enableTreeStickCell: true,
         titleCheckbox: true,
+        // 分组标题格式化：显示分组名和记录总数（排除虚拟添加按钮行）
+        titleFieldFormat: (record: any) => {
+          const groupName = record?.vtableMergeName || '';
+          const children = record?.vtableChildren || record?.children || [];
+          const realCount = children.filter((c: any) => c._rowType !== 'addButton').length;
+          return `${groupName} (${realCount} 条)`;
+        },
       },
       enableCheckboxCascade: true,
     } : {}),
@@ -2132,13 +2300,30 @@ const buildTableConfig = (): any => {
           fontSize: 13,
           color: '#1f2937',
           textAlign: 'left',
+          lineHeight: '38px',
           bgColor: (args: any) => {
             const { col, row, table } = args;
             if (!table) return '#f3f4f6';
-            // 获取分组层级，不同层级使用不同背景色
+            // 获取分组层级，不同层级使用不同背景色（与 GroupedTableView 风格一致）
             const level = table.getGroupTitleLevel(col, row);
             const colors = ['#eef2ff', '#f5f3ff', '#fefce8'];
             return level !== undefined ? colors[level % colors.length] : '#f3f4f6';
+          },
+          // 分组标题下方边框，与数据行视觉分离
+          underline: (args: any) => {
+            const { col, row, table } = args;
+            if (!table) return false;
+            return true;
+          },
+          // 悬停背景色
+          hover: {
+            bgColor: (args: any) => {
+              const { col, row, table } = args;
+              if (!table) return '#e5e7eb';
+              const level = table.getGroupTitleLevel(col, row);
+              const hoverColors = ['#dce8ff', '#e2d9ff', '#fee9b8'];
+              return level !== undefined ? hoverColors[level % hoverColors.length] : '#e5e7eb';
+            },
           },
         }
       } : {}),
@@ -2390,6 +2575,14 @@ const bindTableEvents = () => {
 
   // 单元格点击 - 使用 VTable API 获取单元格位置
   tableInstanceAny.on('click_cell', (args: any) => {
+    // 检测是否为虚拟添加按钮行点击
+    const clickedRecord = args.originData || args.record;
+    if (clickedRecord && clickedRecord._rowType === 'addButton') {
+      const groupValues = clickedRecord._groupValues || {};
+      emit('group-add-record', groupValues);
+      return;
+    }
+
     if (args.col !== undefined && args.row !== undefined) {
       const cellRecord = args.originData || args.record;
 

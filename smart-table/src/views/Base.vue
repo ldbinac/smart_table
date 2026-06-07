@@ -725,6 +725,20 @@ const handleAddRecordFromGroup = (groupInfo: {
   addRecordDialogVisible.value = true;
 };
 
+// 处理 VTable 分组视图的添加记录
+const handleVTableGroupAddRecord = (groupFieldValues: Record<string, any>) => {
+  if (!tableStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+
+  // 构建初始值，直接使用分组字段值作为初始值
+  const initialValues: Record<string, unknown> = { ...groupFieldValues };
+  addRecordInitialValues.value = initialValues;
+  addRecordGroupInfo.value = { groupLevels: [] };
+  addRecordDialogVisible.value = true;
+};
+
 // 处理保存新记录
 const handleSaveNewRecord = async (values: Record<string, unknown>) => {
   if (!tableStore.currentTable) return;
@@ -1987,7 +2001,8 @@ const handleDocumentExportPdf = async () => {
               :group-by="currentGroupBys"
               @record-select="handleRecordSelect"
               @records-select="handleRecordsSelect"
-              @add-record="handleAddRecord" />
+              @add-record="handleAddRecord"
+              @group-add-record="handleVTableGroupAddRecord" />
 
             <!-- 看板视图 -->
             <KanbanView
