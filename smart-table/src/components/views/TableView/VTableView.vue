@@ -1530,7 +1530,7 @@ const buildTableConfig = (): any => {
           const val = String(value);
           const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
           const found = options.find(o => o.name === val);
-          const color = found?.color || '#6B7280';
+          const color = found?.color;
 
           const tagHeight = 26;
           const textWidth = measureText(val);
@@ -2272,7 +2272,7 @@ const buildTableConfig = (): any => {
       groupConfig: {
         groupBy: props.groupBy,
         enableTreeStickCell: true,
-        titleCheckbox: true,
+        titleCheckbox: false,
         // 分组标题格式化：显示分组名和记录总数（排除虚拟添加按钮行）
         titleFieldFormat: (record: any) => {
           const groupName = record?.vtableMergeName || '';
@@ -2283,13 +2283,14 @@ const buildTableConfig = (): any => {
       },
       enableCheckboxCascade: true,
     } : {}),
-    theme: themes.ARCO.extends({
+    theme: themes.DEFAULT.extends({
       scrollStyle: {
         barToSide: true,
         visible: 'always'
       },
       headerStyle: {
-        color: '#6B7280'
+        color: '#646A73',
+        fontSize: 13,
       },
       bodyStyle: {
         color: '#374151'
@@ -2300,31 +2301,15 @@ const buildTableConfig = (): any => {
           fontSize: 13,
           color: '#1f2937',
           textAlign: 'left',
-          lineHeight: '38px',
           bgColor: (args: any) => {
             const { col, row, table } = args;
             if (!table) return '#f3f4f6';
-            // 获取分组层级，不同层级使用不同背景色（与 GroupedTableView 风格一致）
+            // 获取分组层级，不同层级使用不同背景色
             const level = table.getGroupTitleLevel(col, row);
             const colors = ['#eef2ff', '#f5f3ff', '#fefce8'];
             return level !== undefined ? colors[level % colors.length] : '#f3f4f6';
           },
-          // 分组标题下方边框，与数据行视觉分离
-          underline: (args: any) => {
-            const { col, row, table } = args;
-            if (!table) return false;
-            return true;
-          },
-          // 悬停背景色
-          hover: {
-            bgColor: (args: any) => {
-              const { col, row, table } = args;
-              if (!table) return '#e5e7eb';
-              const level = table.getGroupTitleLevel(col, row);
-              const hoverColors = ['#dce8ff', '#e2d9ff', '#fee9b8'];
-              return level !== undefined ? hoverColors[level % hoverColors.length] : '#e5e7eb';
-            },
-          },
+          // underline: true,
         }
       } : {}),
     }),
