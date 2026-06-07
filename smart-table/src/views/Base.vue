@@ -108,7 +108,7 @@ const visibleFields = computed(() => {
 const createTableDialogVisible = ref(false);
 
 // VTable 临时测试开关
-const useVTable = ref(false);
+const useVTable = ref(true);
 
 // 数据表管理对话框显示状态
 const showTableManager = ref(false);
@@ -1918,7 +1918,7 @@ const handleDocumentExportPdf = async () => {
                     :type="useVTable ? 'success' : 'default'"
                     @click="useVTable = !useVTable">
                     <el-icon><Setting /></el-icon>
-                    {{ useVTable ? 'VTable' : '原生表格' }}
+                    {{ useVTable ? '原生表格' : 'VTable' }}
                   </el-button>
                 </el-button-group>
               </template>
