@@ -2504,45 +2504,46 @@ const bindTableEvents = () => {
     await viewStore.updateSorts(currentView.value.id, newSorts);
   });
 
-  // 单元格右键菜单 - 数据行
+  // 右键菜单 - 统一处理表头和单元格（VTable 的 contextmenu_cell 对所有单元格触发，包括表头）
   tableInstanceAny.on('contextmenu_cell', (args: any) => {
     const { col, row } = args;
-
-    const record = tableInstance?.getCellOriginRecord(col, row);
-    if (!record) return;
-
-    // 跳过新增按钮行
-    if (record._rowType === 'addButton') return;
-
-    // 跳过分组标题行（没有原始数据记录）
-    if (!record._originalRecord) return;
+    if (!tableInstance) return;
 
     const mouseEvent = args.event as MouseEvent | undefined;
-    contextMenuX.value = mouseEvent?.clientX ?? 0;
-    contextMenuY.value = mouseEvent?.clientY ?? 0;
-    contextMenuColumn.value = null;
-    contextMenuTarget.value = "row";
-    contextMenuRecord.value = record._originalRecord;
-    contextMenuVisible.value = true;
-  });
+    const clientX = mouseEvent?.clientX ?? 0;
+    const clientY = mouseEvent?.clientY ?? 0;
 
-  // 表头右键菜单
-  tableInstanceAny.on('header_contextmenu', (args: any) => {
-    const { col } = args;
+    if (tableInstance.isHeader(col, row)) {
+      // 表头右键菜单
+      if (col <= 0) return; // 跳过行号列表头
 
-    // 跳过行号列表头（col 0）
-    if (col <= 0) return;
+      const field = orderedVisibleFields.value[col - 1];
+      if (!field) return;
 
-    const field = orderedVisibleFields.value[col - 1];
-    if (!field) return;
+      contextMenuX.value = clientX;
+      contextMenuY.value = clientY;
+      contextMenuColumn.value = field;
+      contextMenuTarget.value = "header";
+      contextMenuRecord.value = null;
+      contextMenuVisible.value = true;
+    } else {
+      // 数据行右键菜单
+      const record = tableInstance.getCellOriginRecord(col, row);
+      if (!record) return;
 
-    const mouseEvent = args.event as MouseEvent | undefined;
-    contextMenuX.value = mouseEvent?.clientX ?? 0;
-    contextMenuY.value = mouseEvent?.clientY ?? 0;
-    contextMenuColumn.value = field;
-    contextMenuTarget.value = "header";
-    contextMenuRecord.value = null;
-    contextMenuVisible.value = true;
+      // 跳过新增按钮行
+      if (record._rowType === 'addButton') return;
+
+      // 跳过分组标题行（没有原始数据记录）
+      if (!record._originalRecord) return;
+
+      contextMenuX.value = clientX;
+      contextMenuY.value = clientY;
+      contextMenuColumn.value = null;
+      contextMenuTarget.value = "row";
+      contextMenuRecord.value = record._originalRecord;
+      contextMenuVisible.value = true;
+    }
   });
 
   // 单元格点击 - 使用 VTable API 获取单元格位置
