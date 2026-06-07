@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { Close } from '@element-plus/icons-vue';
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -39,6 +40,8 @@ import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AttachmentManager from "@/components/fields/AttachmentManager.vue";
 // 导入关联记录选择器
 import LinkRecordSelector from "@/components/fields/LinkField/LinkRecordSelector.vue";
+// 导入成员选择器
+import MemberSelect from "@/components/common/MemberSelect.vue";
 
 interface Props {
   tableId?: string;
@@ -90,6 +93,16 @@ const linkSelectorFieldId = ref('');
 const linkSelectorRecordId = ref('');
 const linkSelectorAllowMultiple = ref(true);
 const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string }[]>([]);
+
+// ==================== 成员选择器浮动面板状态 ====================
+const memberSelectorVisible = ref(false);
+const memberSelectorPosition = ref({ x: 0, y: 0 });
+const memberSelectorField = ref<FieldEntity | null>(null);
+const memberSelectorRecordId = ref<string>('');
+const memberSelectorInitialValue = ref<any>(null);
+const lastMemberCellCoords = ref<{ col: number; row: number } | null>(null);
+const memberSelectorAllowMultiple = ref(true);
+const memberSelectorEditingValue = ref<string[]>([]);
 
 // ==================== 关联字段数据缓存 ====================
 // 键: `${recordId}:${fieldId}`, 值: display_value 数组
@@ -2392,6 +2405,31 @@ const bindTableEvents = () => {
     }
   });
 
+  // 从成员字段值中提取成员 ID 列表（兼容多种存储格式）
+  function extractMemberIds(value: any): string[] {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      if (value.length === 0) return [];
+      // 如果第一项是字符串，直接作为 ID 返回
+      if (typeof value[0] === 'string') return value.filter(Boolean);
+      // 对象数组，提取 id 字段
+      return value.map((m: any) => String(m.id || m.name || '')).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed.map((m: any) => String(m.id || m.name || m)).filter(Boolean);
+        }
+      } catch {}
+      return value ? [value] : [];
+    }
+    if (typeof value === 'object' && value !== null) {
+      return [String((value as any).id || (value as any).name || '')].filter(Boolean);
+    }
+    return [];
+  }
+
   // 单元格双击
   tableInstanceAny.on('dblclick_cell', (args: any) => {
     const colIndex = args.col;
@@ -2497,33 +2535,69 @@ const bindTableEvents = () => {
         linkSelectorVisible.value = true;
         return;
       }
+      // 成员字段：打开成员选择器浮动面板
+      if (field.type === FieldType.MEMBER) {
+        const cellRect = (tableInstance as any)?.getCellRect(colIndex, rowIndex);
+        const containerRect = tableContainerRef.value?.getBoundingClientRect();
+        if (cellRect && containerRect) {
+          const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
+          if (!cellRecord) return;
+
+          const scrollLeft = (tableInstance as any).scrollLeft || 0;
+          const scrollTop = (tableInstance as any).scrollTop || 0;
+          const frozenColCount = (tableInstance as any).frozenColCount || 1;
+          const adjustedLeft = colIndex < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
+
+          // 基准位置：单元格右下角
+          let panelX = containerRect.left + adjustedLeft + cellRect.width;
+          let panelY = containerRect.top + cellRect.bottom - scrollTop;
+
+          // 视口边界检测
+          const panelWidth = 360;
+          const panelHeight = 420;
+          if (panelX + panelWidth > window.innerWidth - 16) {
+            panelX = containerRect.left + adjustedLeft - panelWidth;
+          }
+          if (panelY + panelHeight > window.innerHeight - 16) {
+            panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
+          }
+          if (panelX < 8) panelX = 8;
+          if (panelY < 8) panelY = 8;
+
+          memberSelectorPosition.value = { x: panelX, y: panelY };
+          memberSelectorField.value = field;
+          memberSelectorRecordId.value = cellRecord._recordId || cellRecord._originalRecord?.id || '';
+          memberSelectorInitialValue.value = cellRecord[field.id] ?? cellRecord._originalRecord?.values?.[field.id] ?? null;
+          memberSelectorAllowMultiple.value = field.options?.allowMultiple !== false;
+          // 初始化编辑值：从当前值中提取成员 ID 列表
+          memberSelectorEditingValue.value = extractMemberIds(memberSelectorInitialValue.value);
+          memberSelectorVisible.value = true;
+          lastMemberCellCoords.value = { col: colIndex, row: rowIndex };
+          return;
+        }
+      }
     }
-    // 非附件字段，保持原有行为
+    // 非附件/关联/成员字段，保持原有行为
     if (args.record && args.record._originalRecord) {
       handleExpandRecord(args.record._originalRecord);
     }
   });
 
-  // 表格滚动事件 - 实时更新附件浮窗位置
-  tableInstanceAny.on('scroll', (args: any) => {
-    if (!attachmentManagerVisible.value || !lastAttachmentCellCoords.value) return;
-    const { col, row } = lastAttachmentCellCoords.value;
+  // 重算弹窗位置（附件/成员通用）
+  function recalcFloatingPanelPosition(col: number, row: number, panelWidth: number, panelHeight: number): { x: number; y: number } | null {
     const cellRect = (tableInstance as any)?.getCellRect(col, row);
     const containerRect = tableContainerRef.value?.getBoundingClientRect();
-    if (!cellRect || !containerRect) return;
+    if (!cellRect || !containerRect) return null;
 
     const scrollLeft = (tableInstance as any).scrollLeft || 0;
     const scrollTop = (tableInstance as any).scrollTop || 0;
     const frozenColCount = (tableInstance as any).frozenColCount || 1;
     const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
 
-    // 重新计算位置并减去 scrollTop 以修正垂直滚动偏移
     let panelX = containerRect.left + adjustedLeft + cellRect.width;
     let panelY = containerRect.top + cellRect.bottom - scrollTop;
 
     // 视口边界检测
-    const panelWidth = 380;
-    const panelHeight = 480;
     if (panelX + panelWidth > window.innerWidth - 16) {
       panelX = containerRect.left + adjustedLeft - panelWidth;
     }
@@ -2533,7 +2607,23 @@ const bindTableEvents = () => {
     if (panelX < 8) panelX = 8;
     if (panelY < 8) panelY = 8;
 
-    attachmentManagerPosition.value = { x: panelX, y: panelY };
+    return { x: panelX, y: panelY };
+  }
+
+  // 表格滚动事件 - 实时更新附件/成员浮窗位置
+  tableInstanceAny.on('scroll', (args: any) => {
+    // 更新附件浮窗
+    if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
+      const { col, row } = lastAttachmentCellCoords.value;
+      const pos = recalcFloatingPanelPosition(col, row, 380, 480);
+      if (pos) attachmentManagerPosition.value = pos;
+    }
+    // 更新成员选择器浮窗
+    if (memberSelectorVisible.value && lastMemberCellCoords.value) {
+      const { col, row } = lastMemberCellCoords.value;
+      const pos = recalcFloatingPanelPosition(col, row, 360, 420);
+      if (pos) memberSelectorPosition.value = pos;
+    }
   });
 
   // 单元格值变更事件
@@ -2788,7 +2878,7 @@ onMounted(() => {
   initTable();
   setupRealtimeListeners();
   document.addEventListener('click', handleDocumentClick);
-  window.addEventListener('resize', handleAttachmentWindowResize);
+  window.addEventListener('resize', handleFloatingPanelWindowResize);
 });
 
 onBeforeUnmount(() => {
@@ -2799,7 +2889,7 @@ onBeforeUnmount(() => {
   }
   cleanupRealtimeListeners();
   document.removeEventListener('click', handleDocumentClick);
-  window.removeEventListener('resize', handleAttachmentWindowResize);
+  window.removeEventListener('resize', handleFloatingPanelWindowResize);
   if (tableInstance) {
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
@@ -2825,35 +2915,20 @@ function closeAttachmentManager() {
   lastAttachmentCellCoords.value = null;
 }
 
-// 窗口 resize 事件 - 重新定位附件浮窗
-function handleAttachmentWindowResize() {
-  if (!attachmentManagerVisible.value || !lastAttachmentCellCoords.value) return;
-  const { col, row } = lastAttachmentCellCoords.value;
-  const cellRect = (tableInstance as any)?.getCellRect(col, row);
-  const containerRect = tableContainerRef.value?.getBoundingClientRect();
-  if (!cellRect || !containerRect) return;
-
-  const scrollLeft = (tableInstance as any).scrollLeft || 0;
-  const scrollTop = (tableInstance as any).scrollTop || 0;
-  const frozenColCount = (tableInstance as any).frozenColCount || 1;
-  const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
-
-  // 重新计算位置并减去 scrollTop 以修正垂直滚动偏移
-  let panelX = containerRect.left + adjustedLeft + cellRect.width;
-  let panelY = containerRect.top + cellRect.bottom - scrollTop;
-
-  const panelWidth = 380;
-  const panelHeight = 480;
-  if (panelX + panelWidth > window.innerWidth - 16) {
-    panelX = containerRect.left + adjustedLeft - panelWidth;
+// 窗口 resize 事件 - 重新定位所有浮窗
+function handleFloatingPanelWindowResize() {
+  // 更新附件浮窗
+  if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
+    const { col, row } = lastAttachmentCellCoords.value;
+    const pos = recalcFloatingPanelPosition(col, row, 380, 480);
+    if (pos) attachmentManagerPosition.value = pos;
   }
-  if (panelY + panelHeight > window.innerHeight - 16) {
-    panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
+  // 更新成员选择器浮窗
+  if (memberSelectorVisible.value && lastMemberCellCoords.value) {
+    const { col, row } = lastMemberCellCoords.value;
+    const pos = recalcFloatingPanelPosition(col, row, 360, 420);
+    if (pos) memberSelectorPosition.value = pos;
   }
-  if (panelX < 8) panelX = 8;
-  if (panelY < 8) panelY = 8;
-
-  attachmentManagerPosition.value = { x: panelX, y: panelY };
 }
 
 // 附件管理器：值变更保存
@@ -2873,6 +2948,38 @@ async function handleAttachmentUpdate(value: any) {
     console.error('附件保存失败:', error);
     ElMessage.error('附件保存失败');
   }
+}
+
+// ==================== 成员选择器：关闭、确认 ====================
+function closeMemberSelector() {
+  memberSelectorVisible.value = false;
+  memberSelectorField.value = null;
+  memberSelectorRecordId.value = '';
+  memberSelectorInitialValue.value = null;
+  memberSelectorEditingValue.value = [];
+  lastMemberCellCoords.value = null;
+}
+
+// 成员选择器：保存
+async function handleMemberUpdate(value: any) {
+  memberSelectorEditingValue.value = extractMemberIds(value);
+}
+
+// 成员选择器：确认保存到数据库
+async function confirmMemberUpdate() {
+  if (!memberSelectorRecordId.value || !memberSelectorField.value || !props.tableId) return;
+  const fieldId = memberSelectorField.value.id;
+  const newValue = memberSelectorEditingValue.value;
+  try {
+    await recordService.updateRecord(memberSelectorRecordId.value, {
+      values: { [fieldId]: newValue } as Record<string, CellValue>,
+    });
+    await tableStore.refreshRecords(props.tableId);
+  } catch (error) {
+    console.error('成员字段保存失败:', error);
+    ElMessage.error('成员字段保存失败');
+  }
+  closeMemberSelector();
 }
 
 // ==================== 关联字段数据加载 ====================
@@ -3084,6 +3191,33 @@ watch(
       @confirm="handleLinkSelectorConfirm"
       @cancel="handleLinkSelectorCancel"
     />
+
+    <!-- 成员选择器浮动面板 -->
+    <div
+      v-if="memberSelectorVisible && memberSelectorField"
+      class="member-selector-panel"
+      :style="{
+        left: memberSelectorPosition.x + 'px',
+        top: memberSelectorPosition.y + 'px',
+      }"
+      @click.stop
+    >
+      <div class="member-selector-header">
+        <span>{{ memberSelectorField.name }}</span>
+        <el-icon class="close-btn" @click="closeMemberSelector">
+          <Close />
+        </el-icon>
+      </div>
+      <MemberSelect
+        v-model="memberSelectorEditingValue"
+        :allow-multiple="memberSelectorAllowMultiple"
+        @update:model-value="handleMemberUpdate"
+      />
+      <div class="member-selector-footer">
+        <el-button size="small" @click="closeMemberSelector">取消</el-button>
+        <el-button size="small" type="primary" @click="confirmMemberUpdate">确定</el-button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -3136,6 +3270,52 @@ watch(
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+// 成员选择器浮动面板
+.member-selector-panel {
+  position: fixed;
+  z-index: 1001;
+  width: 320px;
+  background-color: #fff;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+
+  .member-selector-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid #ebeef5;
+    font-size: 13px;
+    font-weight: 500;
+    color: #303133;
+
+    .close-btn {
+      cursor: pointer;
+      color: #909399;
+      font-size: 14px;
+
+      &:hover {
+        color: #303133;
+      }
+    }
+  }
+
+  .member-selector-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid #ebeef5;
+  }
+
+  // MemberSelect 组件在面板内的间距
+  .member-select {
+    padding: 8px 12px;
   }
 }
 </style>

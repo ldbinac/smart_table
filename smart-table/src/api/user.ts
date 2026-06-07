@@ -50,19 +50,19 @@ export const getUsersByIds = async (ids: string[]): Promise<User[]> => {
     return []
   }
   
-  // 过滤无效ID
-  const validIds = ids.filter(id => {
-    const strId = String(id)
-    return strId && strId.trim() !== '' && strId !== '[]'
-  })
+  // 防御性规范化：将 {id, name} 对象转为 ID 字符串，过滤无效值
+  const normalizedIds = ids.map(id => {
+    if (typeof id === 'object' && id !== null) return String((id as any).id || '')
+    return String(id)
+  }).filter(id => id && id.trim() !== '' && id !== '[]')
   
-  if (validIds.length === 0) {
-    console.warn('[UserApi] 过滤后无有效用户ID，跳过API请求')
+  if (normalizedIds.length === 0) {
+    console.warn('[UserApi] 规范化后无有效用户ID，跳过API请求')
     return []
   }
   
-  console.log(`[UserApi] 批量查询 ${validIds.length} 个用户`)
-  return apiClient.post<User[]>('/users/batch', { ids: validIds })
+  console.log(`[UserApi] 批量查询 ${normalizedIds.length} 个用户`)
+  return apiClient.post<User[]>('/users/batch', { ids: normalizedIds })
 }
 
 /**
