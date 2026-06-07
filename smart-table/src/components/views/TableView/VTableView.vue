@@ -2504,6 +2504,47 @@ const bindTableEvents = () => {
     await viewStore.updateSorts(currentView.value.id, newSorts);
   });
 
+  // 单元格右键菜单 - 数据行
+  tableInstanceAny.on('contextmenu_cell', (args: any) => {
+    const { col, row } = args;
+
+    const record = tableInstance?.getCellOriginRecord(col, row);
+    if (!record) return;
+
+    // 跳过新增按钮行
+    if (record._rowType === 'addButton') return;
+
+    // 跳过分组标题行（没有原始数据记录）
+    if (!record._originalRecord) return;
+
+    const mouseEvent = args.event as MouseEvent | undefined;
+    contextMenuX.value = mouseEvent?.clientX ?? 0;
+    contextMenuY.value = mouseEvent?.clientY ?? 0;
+    contextMenuColumn.value = null;
+    contextMenuTarget.value = "row";
+    contextMenuRecord.value = record._originalRecord;
+    contextMenuVisible.value = true;
+  });
+
+  // 表头右键菜单
+  tableInstanceAny.on('header_contextmenu', (args: any) => {
+    const { col } = args;
+
+    // 跳过行号列表头（col 0）
+    if (col <= 0) return;
+
+    const field = orderedVisibleFields.value[col - 1];
+    if (!field) return;
+
+    const mouseEvent = args.event as MouseEvent | undefined;
+    contextMenuX.value = mouseEvent?.clientX ?? 0;
+    contextMenuY.value = mouseEvent?.clientY ?? 0;
+    contextMenuColumn.value = field;
+    contextMenuTarget.value = "header";
+    contextMenuRecord.value = null;
+    contextMenuVisible.value = true;
+  });
+
   // 单元格点击 - 使用 VTable API 获取单元格位置
   tableInstanceAny.on('click_cell', (args: any) => {
     // 检测是否为虚拟添加按钮行点击
@@ -2895,74 +2936,6 @@ const updateTable = () => {
 // 实时协作事件监听
 const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
 
-// 容器右键事件处理
-const handleContainerContextMenu = (e: MouseEvent) => {
-  e.preventDefault();
-  
-  if (tableInstance && tableContainerRef.value) {
-    try {
-      const rect = tableContainerRef.value.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-      
-      const isHeader = clickY < 40;
-      
-      if (isHeader) {
-        let currentX = 0;
-        let foundField = null;
-        
-        if (clickX < 60) {
-          return;
-        }
-        currentX += 60;
-        
-        // 获取水平滚动偏移量，非冻结列的视觉位置会向左偏移
-        const scrollLeft = (tableInstance as any).scrollLeft || 0;
-        const frozenFieldIds = new Set(frozenFields.value.map((f: {id: string}) => f.id));
-        
-        for (let i = 0; i < orderedVisibleFields.value.length; i++) {
-          const field = orderedVisibleFields.value[i];
-          const fieldWidth = columnWidths.value[field.id] ?? 150;
-          const isFrozenField = frozenFieldIds.has(field.id);
-          
-          // 冻结列位置不变，非冻结列位置需要减去 scrollLeft
-          const checkX = isFrozenField ? currentX : currentX - scrollLeft;
-          
-          if (clickX >= checkX && clickX < checkX + fieldWidth) {
-            foundField = field;
-            break;
-          }
-          
-          currentX += fieldWidth;
-        }
-        
-        if (foundField) {
-          contextMenuX.value = e.clientX;
-          contextMenuY.value = e.clientY;
-          contextMenuColumn.value = foundField;
-          contextMenuTarget.value = "header";
-          contextMenuRecord.value = null;
-          contextMenuVisible.value = true;
-        }
-      } else {
-        const rowIndex = Math.floor((clickY - 40) / 36);
-        if (rowIndex >= 0 && rowIndex < sortedRecords.value.length) {
-          const record = sortedRecords.value[rowIndex];
-          
-          contextMenuX.value = e.clientX;
-          contextMenuY.value = e.clientY;
-          contextMenuColumn.value = null;
-          contextMenuTarget.value = "row";
-          contextMenuRecord.value = record;
-          contextMenuVisible.value = true;
-        }
-      }
-    } catch (error) {
-      console.error('处理右键事件失败:', error);
-    }
-  }
-};
-
 const setupRealtimeListeners = () => {
   if (!collabStore.isRealtimeAvailable) return;
 
@@ -3285,7 +3258,7 @@ watch(
     <div 
       ref="tableContainerRef" 
       class="vtable-container"
-      @contextmenu.prevent="handleContainerContextMenu"
+      @contextmenu.prevent
     ></div>
     
     <!-- 悬浮操作图标 -->
