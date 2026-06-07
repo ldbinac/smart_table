@@ -48,6 +48,7 @@ interface Props {
   viewId?: string;
   readonly?: boolean;
   records?: any[];
+  groupBy?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -2104,6 +2105,16 @@ const buildTableConfig = (): any => {
       width: true,
       height: true
     },
+    // 分组配置：当设置分组条件时，使用 VTable 原生分组展示
+    // 配置 items 分组字段、分组标题吸顶、分组标题复选框、复选框级联
+    ...(props.groupBy && props.groupBy.length > 0 ? {
+      groupConfig: {
+        groupBy: props.groupBy,
+        enableTreeStickCell: true,
+        titleCheckbox: true,
+      },
+      enableCheckboxCascade: true,
+    } : {}),
     theme: themes.ARCO.extends({
       scrollStyle: {
         barToSide: true,
@@ -2114,7 +2125,23 @@ const buildTableConfig = (): any => {
       },
       bodyStyle: {
         color: '#374151'
-      }
+      },
+      ...(props.groupBy && props.groupBy.length > 0 ? {
+        groupTitleStyle: {
+          fontWeight: 'bold',
+          fontSize: 13,
+          color: '#1f2937',
+          textAlign: 'left',
+          bgColor: (args: any) => {
+            const { col, row, table } = args;
+            if (!table) return '#f3f4f6';
+            // 获取分组层级，不同层级使用不同背景色
+            const level = table.getGroupTitleLevel(col, row);
+            const colors = ['#eef2ff', '#f5f3ff', '#fefce8'];
+            return level !== undefined ? colors[level % colors.length] : '#f3f4f6';
+          },
+        }
+      } : {}),
     }),
   };
 };
@@ -3111,6 +3138,21 @@ watch(
     loadLinkDisplayData();
   },
   { deep: false, immediate: true }
+);
+
+// 监听分组配置变化，重新初始化表格
+watch(
+  () => props.groupBy,
+  () => {
+    if (tableInstance) {
+      tableInstance.release();
+      tableInstance = null as any;
+    }
+    nextTick(() => {
+      initTable();
+    });
+  },
+  { deep: true }
 );
 </script>
 

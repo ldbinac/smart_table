@@ -1946,9 +1946,9 @@ const handleDocumentExportPdf = async () => {
           </header>
 
           <div class="table-content">
-            <!-- 表格视图 - 分组模式 -->
+            <!-- 表格视图 - 分组模式（仅原生表格使用，VTable 自带分组） -->
             <GroupedTableView
-              v-if="isTableView && hasGroupConfig"
+              v-if="isTableView && hasGroupConfig && !useVTable"
               :fields="visibleFields"
               :records="filteredRecords as any[]"
               :group-by="currentGroupBys"
@@ -1977,13 +1977,14 @@ const handleDocumentExportPdf = async () => {
               @records-select="handleRecordsSelect"
               @add-record="handleAddRecord" />
 
-            <!-- VTable 测试视图 -->
+            <!-- VTable 视图（支持 VTable 原生分组） -->
             <VTableView
               v-else-if="isTableView && useVTable"
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
               :readonly="!canEdit"
+              :group-by="currentGroupBys"
               @record-select="handleRecordSelect"
               @records-select="handleRecordsSelect"
               @add-record="handleAddRecord" />
