@@ -1933,132 +1933,6 @@ const buildTableConfig = (): any => {
     };
   });
 
-  // 为所有列添加虚拟添加按钮行的渲染逻辑
-  if (props.groupBy && props.groupBy.length > 0) {
-    columns.forEach((col: any) => {
-      const existingCustomLayout = col.customLayout;
-
-      col.customLayout = (args: any) => {
-        const { table, row, col: colIdx, rect } = args;
-        if (!table) return { renderDefault: true };
-
-        const record = table.getCellOriginRecord(colIdx, row);
-
-        // 检测是否为虚拟添加按钮行
-        if (record && record._rowType === 'addButton') {
-          const cellHeight = rect?.height || table.getCellRect(colIdx, row).height || 36;
-          const cellWidth = rect?.width || table.getCellRect(colIdx, row).width || 150;
-
-          // 仅在第一个数据列（colIdx === 1，0 为行序号列）渲染完整按钮
-          if (colIdx === 1) {
-            const container = createGroup({
-              width: cellWidth,
-              height: cellHeight,
-              display: 'flex',
-              alignItems: 'center',
-            });
-
-            // 悬停提示背景 - 使用淡色区分
-            const bg = createRect({
-              x: 0,
-              y: 0,
-              width: cellWidth,
-              height: cellHeight,
-              fill: '#f9fafb',
-            });
-            container.add(bg);
-
-            // 顶部边框线 - 与数据行底部边框衔接，消除断裂感
-            const topBorder = createRect({
-              x: 0,
-              y: 0,
-              width: cellWidth,
-              height: 1,
-              fill: '#e5e7eb',
-            });
-            container.add(topBorder);
-
-            // 虚线边框（左侧）
-            const leftDash = createRect({
-              x: 0,
-              y: 0,
-              width: 3,
-              height: cellHeight,
-              fill: '#d1d5db',
-              cornerRadius: 1,
-            });
-            container.add(leftDash);
-
-            // 加号图标圆圈
-            const circleRadius = 10;
-            const circleBg = createCircle({
-              x: 28,
-              y: cellHeight / 2,
-              radius: circleRadius,
-              fill: '#e0e7ff',
-            });
-            container.add(circleBg);
-
-            const plusText = createText({
-              x: 28,
-              y: cellHeight / 2,
-              text: '+',
-              fontSize: 14,
-              fill: '#6366f1',
-              textBaseline: 'middle',
-              textAlign: 'center',
-              fontWeight: 'bold',
-            });
-            container.add(plusText);
-
-            // 添加记录文本
-            const addLabel = createText({
-              x: 48,
-              y: cellHeight / 2,
-              text: '添加记录',
-              fontSize: 12,
-              fill: '#6366f1',
-              textBaseline: 'middle',
-            });
-            container.add(addLabel);
-
-            return { rootContainer: container, renderDefault: false };
-          }
-
-          // 其他列渲染空单元格
-          const emptyContainer = createGroup({
-            width: cellWidth,
-            height: cellHeight,
-          });
-          const emptyBg = createRect({
-            x: 0,
-            y: 0,
-            width: cellWidth,
-            height: cellHeight,
-            fill: '#f9fafb',
-          });
-          emptyContainer.add(emptyBg);
-          // 顶部边框线 - 与数据行衔接
-          const emptyTopBorder = createRect({
-            x: 0,
-            y: 0,
-            width: cellWidth,
-            height: 1,
-            fill: '#e5e7eb',
-          });
-          emptyContainer.add(emptyTopBorder);
-          return { rootContainer: emptyContainer, renderDefault: false };
-        }
-
-        // 非虚拟行，回退到原有 customLayout 或默认渲染
-        if (existingCustomLayout) {
-          return existingCustomLayout(args);
-        }
-        return { renderDefault: true };
-      };
-    });
-  }
-
   // 转换 records 为 VTable 需要的格式 - 预处理字段值
   const tableRecords = sortedRecords.value.map((record) => {
     const row: any = {
@@ -2251,7 +2125,7 @@ const buildTableConfig = (): any => {
 
   const allowFrozenColCount = visibleFields.value.length + 1;
 
-  return {
+  const config = {
     columns,
     records: tableRecords,
     frozenColCount,
@@ -2299,13 +2173,11 @@ const buildTableConfig = (): any => {
       height: true
     },
     // 分组配置：当设置分组条件时，使用 VTable 原生分组展示
-    // 配置 items 分组字段、分组标题吸顶、分组标题复选框、复选框级联
     ...(props.groupBy && props.groupBy.length > 0 ? {
       groupConfig: {
         groupBy: props.groupBy,
         enableTreeStickCell: true,
         titleCheckbox: false,
-        // 分组标题格式化：显示分组名和记录总数（排除虚拟添加按钮行）
         titleFieldFormat: (record: any) => {
           const groupName = record?.vtableMergeName || '';
           const children = record?.vtableChildren || record?.children || [];
@@ -2336,16 +2208,56 @@ const buildTableConfig = (): any => {
           bgColor: (args: any) => {
             const { col, row, table } = args;
             if (!table) return '#f3f4f6';
-            // 获取分组层级，不同层级使用不同背景色
             const level = table.getGroupTitleLevel(col, row);
             const colors = ['#eef2ff', '#f5f3ff', '#fefce8'];
             return level !== undefined ? colors[level % colors.length] : '#f3f4f6';
           },
-          // underline: true,
         }
       } : {}),
     }),
   };
+
+  // 为所有数据列添加 addButton 行处理：覆盖单元格内容，隐藏分组字段值
+  // customMergeCell 与 groupBy 不兼容，故使用每列 customLayout 方式
+  if (props.groupBy && props.groupBy.length > 0) {
+    columns.forEach((col: any) => {
+      const origCustomLayout = col.customLayout;
+      col.customLayout = (args: any) => {
+        const { table, row, col: colIdx, rect } = args;
+        if (!table) return { renderDefault: true };
+        const record = table.getCellOriginRecord(colIdx, row);
+        if (record && record._rowType === 'addButton') {
+          const cellHeight = rect?.height || table.getCellRect(colIdx, row).height || 36;
+          const cellWidth = rect?.width || table.getCellRect(colIdx, row).width || 150;
+          const container = createGroup({ width: cellWidth, height: cellHeight });
+          const bg = createRect({ x: 0, y: 0, width: cellWidth, height: cellHeight, fill: '#f9fafb' });
+          container.add(bg);
+          const topBorder = createRect({ x: 0, y: 0, width: cellWidth, height: 1, fill: '#e5e7eb' });
+          container.add(topBorder);
+          if (row < 0 || !table) return undefined;
+          // 在第一个数据列（colIdx 2，col 0=行号，col 1=复选框）居中渲染文字
+          if (colIdx === 2) {
+            const text = createText({
+              x: cellWidth / 2,
+              y: cellHeight / 2,
+              text: '+ 添加记录',
+              fontSize: 13,
+              fill: '#6366f1',
+              fontWeight: 'bold',
+              textBaseline: 'middle',
+              textAlign: 'center',
+            });
+            container.add(text);
+          }
+          return { rootContainer: container, renderDefault: false };
+        }
+        if (origCustomLayout) return origCustomLayout(args);
+        return { renderDefault: true };
+      };
+    });
+  }
+
+  return config;
 };
 
 // 处理悬浮操作图标点击 - 打开记录详情
