@@ -1968,6 +1968,16 @@ const buildTableConfig = (): any => {
             });
             container.add(bg);
 
+            // 顶部边框线 - 与数据行底部边框衔接，消除断裂感
+            const topBorder = createRect({
+              x: 0,
+              y: 0,
+              width: cellWidth,
+              height: 1,
+              fill: '#e5e7eb',
+            });
+            container.add(topBorder);
+
             // 虚线边框（左侧）
             const leftDash = createRect({
               x: 0,
@@ -2028,6 +2038,15 @@ const buildTableConfig = (): any => {
             fill: '#f9fafb',
           });
           emptyContainer.add(emptyBg);
+          // 顶部边框线 - 与数据行衔接
+          const emptyTopBorder = createRect({
+            x: 0,
+            y: 0,
+            width: cellWidth,
+            height: 1,
+            fill: '#e5e7eb',
+          });
+          emptyContainer.add(emptyTopBorder);
           return { rootContainer: emptyContainer, renderDefault: false };
         }
 
@@ -2248,7 +2267,20 @@ const buildTableConfig = (): any => {
       title: '#',
       width: 'auto',
       cellType: 'checkbox',
-      headerType: 'checkbox'
+      headerType: 'checkbox',
+      // 自定义渲染：新增行不显示复选框和行号
+      customRender: (args: any) => {
+        if (args.record && args.record._rowType === 'addButton') {
+          return '';
+        }
+        return undefined;
+      },
+      formatMethod: (value: any, data: any) => {
+        if (data && data._rowType === 'addButton') {
+          return '';
+        }
+        return value;
+      },
     },
     allowCopy: true,
     editCellTrigger: 'doubleclick',
@@ -2388,6 +2420,8 @@ const bindTableEvents = () => {
     } else {
       // 行复选框（单个切换）
       const record = tableInstance.getCellOriginRecord(col, row);
+      // 跳过新增行的复选框操作（新增行不显示复选框，但阻止可能的误触）
+      if (record && record._rowType === 'addButton') return;
       if (record && record._recordId) {
         const id = record._recordId;
         if (checked) {
