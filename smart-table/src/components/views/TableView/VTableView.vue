@@ -1475,6 +1475,7 @@ const buildTableConfig = (): any => {
     return {
       field: field.id,
       title: field.name,
+      description: field.description,
       width: columnWidths.value[field.id] || 150,
       minWidth: 60,
       sort: true,
@@ -2157,6 +2158,9 @@ const buildTableConfig = (): any => {
     autoFillHeight: false,
     defaultRowHeight: 36,
     autoRowHeight: false,
+    tooltip: {
+      isShowOverflowTextTooltip: true
+    },
     rowSeriesNumber: {
       title: '#',
       width: 'auto',
