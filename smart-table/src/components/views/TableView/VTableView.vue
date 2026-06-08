@@ -2859,16 +2859,21 @@ const bindTableEvents = () => {
     const newValue = args.changedValue ?? args.currentValue;
     const originalRecord = record._originalRecord;
 
-    // 字段值类型转换：VTable 内置编辑对日期字段返回时间戳，需转为日期字符串
+    // 字段值类型转换：VTable 内置编辑对日期/日期时间字段返回时间戳，需转为字符串格式
     const targetField = orderedVisibleFields.value[col - 1] ?? null;
     let finalValue = newValue;
-    if (targetField?.type === FieldType.DATE && typeof finalValue === 'number') {
-      // 时间戳 → YYYY-MM-DD 日期字符串，确保与服务端格式一致
-      const date = new Date(finalValue);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      finalValue = `${year}-${month}-${day}`;
+    if (targetField?.type && typeof finalValue === 'number') {
+      if (targetField.type === FieldType.DATE) {
+        // 时间戳 → YYYY-MM-DD 日期字符串，确保与服务端格式一致
+        const date = new Date(finalValue);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        finalValue = `${year}-${month}-${day}`;
+      } else if (targetField.type === FieldType.DATE_TIME) {
+        // 时间戳 → UTC ISO 字符串 (2026-06-19T16:02:00.000Z)
+        finalValue = new Date(finalValue).toISOString();
+      }
     }
 
     // ==================== 字段值校验 ====================
