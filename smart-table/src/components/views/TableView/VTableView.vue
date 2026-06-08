@@ -8,6 +8,7 @@ import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useAuthStore } from "@/stores/authStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import LoadingProgress from "@/components/common/LoadingProgress.vue";
+import { SmartTableDataSource } from "@/services/SmartTableDataSource";
 import type {
   DataRecordUpdatedBroadcast,
   DataRecordCreatedBroadcast,
@@ -76,6 +77,7 @@ const userCacheStore = useUserCacheStore();
 
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
+let smartDataSource: SmartTableDataSource | null = null;
 
 // 附件管理器状态
 const attachmentManagerVisible = ref(false);
@@ -1101,6 +1103,120 @@ const currentSorts = computed(() => viewStore.currentSorts);
 // 保持原始列顺序不变
 const orderedVisibleFields = computed(() => visibleFields.value);
 
+// ==================== 记录转换工具函数 ====================
+// 将原始 RecordEntity 转换为 VTable 需要的行数据格式
+// 从 buildTableConfig 中提取，供流式加载增量更新复用
+const transformRecords = (rawRecords: RecordEntity[]): any[] => {
+  const rows: any[] = [];
+  const formulaFields = orderedVisibleFields.value.filter(f => f.type === FieldType.FORMULA);
+  let formulaEngine: FormulaEngine | null = null;
+  if (formulaFields.length > 0) {
+    formulaEngine = new FormulaEngine(fields.value);
+  }
+
+  for (const record of rawRecords) {
+    const row: any = {
+      _recordId: record?.id || '',
+      _originalRecord: record,
+    };
+    orderedVisibleFields.value.forEach(field => {
+      if (!field?.id || !record?.values) return;
+      const rawVal = record.values[field.id];
+      
+      switch (field.type) {
+        case FieldType.SINGLE_SELECT: {
+          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+          const selId = typeof rawVal === 'object' && rawVal !== null ? String((rawVal as any).id || '') : String(rawVal || '');
+          const found = opts.find(o => o.id === selId || o.name === selId);
+          row[field.id] = found?.name || selId;
+          break;
+        }
+        case FieldType.MULTI_SELECT: {
+          let items: any[] = [];
+          if (Array.isArray(rawVal)) items = rawVal;
+          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) items = p; } catch {}
+          if (items.length === 0) { row[field.id] = ''; break; }
+          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
+          row[field.id] = items.map(v => {
+            const vid = typeof v === 'object' ? String((v as any).id || '') : String(v);
+            const vname = typeof v === 'object' ? String((v as any).name || '') : '';
+            const of = opts.find(o => o.id === vid || o.name === vid);
+            return vname || of?.name || vid;
+          }).join(', ');
+          break;
+        }
+        case FieldType.MEMBER: {
+          let mems: any[] = [];
+          if (Array.isArray(rawVal)) mems = rawVal;
+          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) mems = p; } catch {}
+          else if (typeof rawVal === 'object' && rawVal !== null) mems = [rawVal];
+          const resolvedMembers = mems.map((m) => {
+            let id = '';
+            let name: string | undefined;
+            if (typeof m === 'string') { id = m; }
+            else if (typeof m === 'object' && m !== null) {
+              id = String(m.user_id || m.id || '');
+              name = m.name || undefined;
+            } else { id = String(m); }
+            if (!name) {
+              const cached = userCacheStore.getCachedUser(id);
+              name = cached?.name || id;
+            }
+            return { id, name: name || id };
+          });
+          row[field.id] = JSON.stringify(resolvedMembers);
+          break;
+        }
+        case FieldType.ATTACHMENT: {
+          if (!rawVal) { row[field.id] = ''; break; }
+          if (Array.isArray(rawVal)) { row[field.id] = rawVal; break; }
+          if (typeof rawVal === 'object' && rawVal !== null) {
+            if ((rawVal as any).url) { row[field.id] = [rawVal]; break; }
+            const arr = Object.values(rawVal);
+            if (Array.isArray(arr)) { row[field.id] = arr; break; }
+          }
+          if (typeof rawVal === 'string') {
+            try { const p = JSON.parse(rawVal); if (Array.isArray(p)) { row[field.id] = p; break; } } catch {}
+            row[field.id] = rawVal; break;
+          }
+          row[field.id] = rawVal;
+          break;
+        }
+        default:
+          row[field.id] = rawVal;
+      }
+    });
+
+    // 公式字段：逐条计算
+    if (formulaEngine && formulaFields.length > 0) {
+      formulaFields.forEach(field => {
+        const formula = field.options?.formula as string;
+        if (!formula) { row[field.id] = ''; return; }
+        try {
+          const result = formulaEngine!.calculate(record, formula);
+          if (result === '#ERROR') {
+            row[field.id] = '计算错误';
+          } else if (typeof result === 'number') {
+            const precision = (field.options?.precision as number) ?? 2;
+            row[field.id] = result.toLocaleString('zh-CN', {
+              minimumFractionDigits: precision,
+              maximumFractionDigits: precision,
+            });
+          } else {
+            row[field.id] = String(result);
+          }
+        } catch {
+          row[field.id] = '计算错误';
+        }
+      });
+    }
+
+    rows.push(row);
+  }
+
+  return rows;
+};
+
 // 生成五角星 SVG path 数据
 const getStarPath = (cx: number, cy: number, outerR: number, points: number, innerRatio: number): string => {
   const innerR = outerR * innerRatio;
@@ -1934,127 +2050,8 @@ const buildTableConfig = (): any => {
     };
   });
 
-  // 转换 records 为 VTable 需要的格式 - 预处理字段值
-  const tableRecords = sortedRecords.value.map((record) => {
-    const row: any = {
-      _recordId: record?.id || '',
-      _originalRecord: record,
-    };
-    orderedVisibleFields.value.forEach(field => {
-      if (!field?.id || !record?.values) return;
-      const rawVal = record.values[field.id];
-      
-      switch (field.type) {
-        case FieldType.SINGLE_SELECT: {
-          // 将 ID 映射为选项名称
-          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
-          const selId = typeof rawVal === 'object' && rawVal !== null ? String((rawVal as any).id || '') : String(rawVal || '');
-          const found = opts.find(o => o.id === selId || o.name === selId);
-          row[field.id] = found?.name || selId;
-          break;
-        }
-        case FieldType.MULTI_SELECT: {
-          // 将 ID 数组映射为逗号分隔的名称
-          let items: any[] = [];
-          if (Array.isArray(rawVal)) items = rawVal;
-          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) items = p; } catch {}
-          if (items.length === 0) { row[field.id] = ''; break; }
-          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-          row[field.id] = items.map(v => {
-            const vid = typeof v === 'object' ? String((v as any).id || '') : String(v);
-            const vname = typeof v === 'object' ? String((v as any).name || '') : '';
-            const of = opts.find(o => o.id === vid || o.name === vid);
-            return vname || of?.name || vid;
-          }).join(', ');
-          break;
-        }
-        case FieldType.MEMBER: {
-  // 将成员 ID/对象解析为结构化成员列表，尝试从缓存解析名称
-  let mems: any[] = [];
-  if (Array.isArray(rawVal)) mems = rawVal;
-  else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) mems = p; } catch {}
-  else if (typeof rawVal === 'object' && rawVal !== null) mems = [rawVal];
-
-  const resolvedMembers = mems.map((m) => {
-    let id = '';
-    let name: string | undefined;
-
-    if (typeof m === 'string') {
-      id = m;
-    } else if (typeof m === 'object' && m !== null) {
-      id = String(m.user_id || m.id || '');
-      name = m.name || undefined;
-    } else {
-      id = String(m);
-    }
-
-    if (!name) {
-      const cached = userCacheStore.getCachedUser(id);
-      name = cached?.name || id;
-    }
-
-    return { id, name: name || id };
-  });
-
-  row[field.id] = JSON.stringify(resolvedMembers);
-  break;
-}
-        case FieldType.ATTACHMENT: {
-          // 保留原始结构化数据，customLayout 中处理渲染
-          if (!rawVal) { row[field.id] = ''; break; }
-          if (Array.isArray(rawVal)) { row[field.id] = rawVal; break; }
-          if (typeof rawVal === 'object' && rawVal !== null) {
-            if ((rawVal as any).url) { row[field.id] = [rawVal]; break; }
-            const arr = Object.values(rawVal);
-            if (Array.isArray(arr)) { row[field.id] = arr; break; }
-          }
-          if (typeof rawVal === 'string') {
-            try { const p = JSON.parse(rawVal); if (Array.isArray(p)) { row[field.id] = p; break; } } catch {}
-            row[field.id] = rawVal; break;
-          }
-          row[field.id] = rawVal;
-          break;
-        }
-        default:
-          row[field.id] = rawVal;
-      }
-    });
-
-    return row;
-  });
-
-  // 公式字段：在 records 数组外创建一次 FormulaEngine，对所有记录计算并覆写值
-  const formulaFields = orderedVisibleFields.value.filter(f => f.type === FieldType.FORMULA);
-  if (formulaFields.length > 0) {
-    const engine = new FormulaEngine(fields.value);
-    tableRecords.forEach(row => {
-      const record = row._originalRecord;
-      if (!record) return;
-      formulaFields.forEach(field => {
-        const formula = field.options?.formula as string;
-        if (!formula) {
-          row[field.id] = '';
-          return;
-        }
-        try {
-          const result = engine.calculate(record, formula);
-          if (result === '#ERROR') {
-            row[field.id] = '计算错误';
-          } else if (typeof result === 'number') {
-            const precision = (field.options?.precision as number) ?? 2;
-            row[field.id] = result.toLocaleString('zh-CN', {
-              minimumFractionDigits: precision,
-              maximumFractionDigits: precision,
-            });
-          } else {
-            row[field.id] = String(result);
-          }
-        } catch (e) {
-          row[field.id] = '计算错误';
-        }
-      });
-    });
-  }
+  // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
+  let tableRecords = transformRecords(sortedRecords.value);
 
   // 分组末尾添加按钮行：为每个分组注入一条虚拟「添加记录」行
   if (props.groupBy && props.groupBy.length > 0 && tableRecords.length > 0) {
@@ -2126,9 +2123,31 @@ const buildTableConfig = (): any => {
 
   const allowFrozenColCount = visibleFields.value.length + 1;
 
+  // 数据源模式选择：
+  // - 非分组：使用 CachedDataSource 懒渲染，VTable 仅处理可见行
+  // - 分组模式：必须使用 records 模式，VTable 的 groupBy/rowSeriesNumber 需要遍历全部记录
+  const isGrouped = props.groupBy && props.groupBy.length > 0;
+
+  if (!isGrouped) {
+    // 非分组：创建 CachedDataSource
+    if (!smartDataSource || smartDataSource.totalCount !== tableRecords.length) {
+      smartDataSource = new SmartTableDataSource({
+        totalCount: tableRecords.length,
+        batchSize: 100,
+        prefetchCount: 1,
+      });
+    } else {
+      smartDataSource.clearCache();
+    }
+    smartDataSource.updateMemoryCache(tableRecords, 0);
+    smartDataSource.markFullyLoaded();
+  }
+
   const config = {
     columns,
-    records: tableRecords,
+    ...(isGrouped
+      ? { records: tableRecords }
+      : { dataSource: smartDataSource!.dataSource }),
     frozenColCount,
     showFrozenIcon: true,
     allowFrozenColCount,
@@ -2974,7 +2993,25 @@ const cleanupRealtimeListeners = () => {
   realtimeHandlers.length = 0;
 };
 
+// 监听 records / fields 变化触发表格更新
+// 流式加载期间：仅增量更新 dataSource 缓存，避免反复重建 VTable
+// 非流式：正常全量重建
 watch([() => tableStore.records, () => tableStore.fields], () => {
+  if (tableStore.streamingState.isLoading && smartDataSource) {
+    // 流式加载进行中：增量更新缓存
+    const prevCount = smartDataSource.totalCount;
+    const rawRecords = sortedRecords.value;
+    if (rawRecords.length > prevCount) {
+      const newRaw = rawRecords.slice(prevCount);
+      const newRows = transformRecords(newRaw);
+      smartDataSource.updateMemoryCache(newRows, prevCount);
+      smartDataSource.updateTotalCount(rawRecords.length);
+      console.log(
+        `[VTableView] 流式增量更新: ${newRows.length} 条, 累计 ${rawRecords.length}/${tableStore.streamingState.totalCount}`
+      );
+    }
+    return;
+  }
   updateTable();
 }, { deep: true });
 
@@ -2989,6 +3026,16 @@ watch(selectedRows, () => {
 // 用户缓存更新时刷新表格（成员名称异步加载完成后重渲染）
 watch(() => userCacheStore.cacheStats.size, () => {
   updateTable();
+});
+
+// 监听流式加载完成：执行一次全量重建确保 VTable 数据完整
+watch(() => tableStore.streamingState.isLoading, (wasLoading, isLoading) => {
+  if (wasLoading && !isLoading && smartDataSource) {
+    // 流式加载完成 → 做一次全量重建
+    smartDataSource.markFullyLoaded();
+    smartDataSource = null; // 重置以便 rebuild 创建新的 dataSource
+    updateTable();
+  }
 });
 
 // 处理文档点击 - 点击表格外部时隐藏悬浮图标
