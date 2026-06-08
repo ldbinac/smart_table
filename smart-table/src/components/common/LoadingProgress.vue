@@ -8,6 +8,9 @@
         <el-icon><Loading /></el-icon>
       </span>
       <span>加载中 {{ loadedCount }}/{{ totalCount }} 条记录</span>
+      <el-button size="small" text type="info" class="cancel-btn" @click="$emit('cancel')">
+        取消
+      </el-button>
     </div>
   </div>
 </template>
@@ -24,10 +27,9 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const progress = computed(() => {
-  if (props.totalCount === 0) return 0;
-  return Math.min((props.loadedCount / props.totalCount) * 100, 100);
-});
+defineEmits<{
+  cancel: [];
+}>();
 </script>
 
 <style lang="scss" scoped>
@@ -70,6 +72,11 @@ const progress = computed(() => {
 .loading-icon {
   display: inline-flex;
   animation: spin 1s linear infinite;
+}
+
+.cancel-btn {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 @keyframes spin {

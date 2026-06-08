@@ -33,12 +33,36 @@ export interface StreamingLoadState {
 }
 
 export interface StreamingLoadCallbacks {
-  onProgress?: (state: StreamingLoadState) => void;
+  onProgress?: (state: StreamingLoadState, newRecords?: RecordEntity[]) => void;
   onComplete?: (state: StreamingLoadState) => void;
   onError?: (error: string) => void;
 }
 
 export class RecordService {
+  // 流式加载取消令牌 Map<tableId, boolean>
+  private static _cancelTokens = new Map<string, boolean>();
+
+  /**
+   * 取消指定表格的流式加载
+   */
+  cancelStreamingLoad(tableId: string): void {
+    RecordService._cancelTokens.set(tableId, true);
+  }
+
+  /**
+   * 检查指定表格的流式加载是否被取消
+   */
+  private static isCancelled(tableId: string): boolean {
+    return RecordService._cancelTokens.get(tableId) === true;
+  }
+
+  /**
+   * 清除取消令牌
+   */
+  private static clearCancelToken(tableId: string): void {
+    RecordService._cancelTokens.delete(tableId);
+  }
+
   /**
    * 应用字段的默认值到记录值
    * @param tableId 表格 ID
@@ -281,6 +305,16 @@ export class RecordService {
         // 检查是否被中断
         if (!state.isLoading) {
           console.log(`[recordService] 流式加载被中断`);
+          // 清除取消令牌
+          RecordService.clearCancelToken(tableId);
+          return;
+        }
+        // 检查取消令牌
+        if (RecordService.isCancelled(tableId)) {
+          state.isLoading = false;
+          console.log(`[recordService] 流式加载被用户取消 (tableId: ${tableId})`);
+          RecordService.clearCancelToken(tableId);
+          callbacks?.onProgress?.(state);
           return;
         }
 
@@ -314,10 +348,21 @@ export class RecordService {
         state.currentPage = page;
         state.loadedCount += response!.items.length;
 
+        // 转换为 RecordEntity（含反序列化），避免 onProgress 中走 IndexedDB 全量读
+        const newRecords: RecordEntity[] = response!.items.map((item: any) => ({
+          id: item.id,
+          tableId,
+          values: deserializeRecordValues(item.values as Record<string, CellValue>),
+          createdAt: new Date(item.created_at).getTime(),
+          updatedAt: new Date(item.updated_at).getTime(),
+          createdBy: item.created_by,
+          updatedBy: item.updated_by,
+        }));
+
         console.log(`[recordService] 第 ${page} 页加载完成，累计: ${state.loadedCount}/${state.totalCount}`);
 
-        // 通知进度
-        callbacks?.onProgress?.({ ...state });
+        // 通知进度（传递新增记录，避免 IndexedDB 全量读取）
+        callbacks?.onProgress?.({ ...state }, newRecords);
 
         // 每页之间添加小延迟，避免占用过多带宽
         if (page < state.totalPages) {

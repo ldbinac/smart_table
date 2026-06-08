@@ -3013,6 +3013,11 @@ const cleanupRealtimeListeners = () => {
   realtimeHandlers.length = 0;
 };
 
+/** 取消流式数据加载 */
+const handleCancelLoading = () => {
+  tableStore.cancelLoading();
+};
+
 // 监听 records / fields 变化触发表格更新
 // 流式加载期间：仅增量更新 dataSource 缓存，避免反复重建 VTable
 // 非流式：正常全量重建
@@ -3431,7 +3436,8 @@ watch(
     <LoadingProgress
       :visible="tableStore.streamingState.isLoading"
       :loaded-count="tableStore.streamingState.loadedCount"
-      :total-count="tableStore.streamingState.totalCount" />
+      :total-count="tableStore.streamingState.totalCount"
+      @cancel="handleCancelLoading" />
   </div>
 </template>
 
