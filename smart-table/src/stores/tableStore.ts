@@ -87,7 +87,7 @@ export const useTableStore = defineStore("table", () => {
             refreshRecords(tableId);
           },
         },
-        50,
+        100,
       );
 
       records.value = initialRecords;

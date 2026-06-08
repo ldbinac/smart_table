@@ -209,7 +209,7 @@ export class RecordService {
   async streamLoadRecords(
     tableId: string,
     callbacks?: StreamingLoadCallbacks,
-    pageSize: number = 50,
+    pageSize: number = 100,
   ): Promise<{ initialRecords: RecordEntity[]; loadPromise: Promise<void> }> {
     const state: StreamingLoadState = {
       isLoading: true,

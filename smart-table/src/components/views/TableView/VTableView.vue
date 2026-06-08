@@ -7,6 +7,7 @@ import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useAuthStore } from "@/stores/authStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
+import LoadingProgress from "@/components/common/LoadingProgress.vue";
 import type {
   DataRecordUpdatedBroadcast,
   DataRecordCreatedBroadcast,
@@ -3358,6 +3359,12 @@ watch(
         <el-button size="small" type="primary" @click="confirmMemberUpdate">确定</el-button>
       </div>
     </div>
+    
+    <!-- 加载进度提示 -->
+    <LoadingProgress
+      :visible="tableStore.streamingState.isLoading"
+      :loaded-count="tableStore.streamingState.loadedCount"
+      :total-count="tableStore.streamingState.totalCount" />
   </div>
 </template>
 
