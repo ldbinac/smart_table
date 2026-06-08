@@ -2236,7 +2236,7 @@ const buildTableConfig = (): any => {
           container.add(topBorder);
           if (row < 0 || !table) return undefined;
           // 在第一个数据列（colIdx 2，col 0=行号，col 1=复选框）居中渲染文字
-          if (colIdx === 2) {
+          if (colIdx === 2 || colIdx % 5 === 0) {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
