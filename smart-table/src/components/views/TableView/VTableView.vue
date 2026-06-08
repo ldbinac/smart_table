@@ -2859,10 +2859,21 @@ const bindTableEvents = () => {
     const newValue = args.changedValue ?? args.currentValue;
     const originalRecord = record._originalRecord;
 
-    // ==================== 字段值校验 ====================
+    // 字段值类型转换：VTable 内置编辑对日期字段返回时间戳，需转为日期字符串
     const targetField = orderedVisibleFields.value[col - 1] ?? null;
+    let finalValue = newValue;
+    if (targetField?.type === FieldType.DATE && typeof finalValue === 'number') {
+      // 时间戳 → YYYY-MM-DD 日期字符串，确保与服务端格式一致
+      const date = new Date(finalValue);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      finalValue = `${year}-${month}-${day}`;
+    }
+
+    // ==================== 字段值校验 ====================
     if (targetField) {
-      const validation = validateCellValue(newValue, targetField);
+      const validation = validateCellValue(finalValue, targetField);
       if (!validation.valid) {
         // 校验失败：标记红色高亮 + 警告提示，不执行保存
         markCellError(col, row, fieldId, validation.message!);
@@ -2895,7 +2906,7 @@ const bindTableEvents = () => {
       
       const values = {
         ...originalRecord.values,
-        [fieldId]: newValue,
+        [fieldId]: finalValue,
       };
       
       await recordService.updateRecord(recordId, {
