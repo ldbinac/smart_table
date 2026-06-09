@@ -1217,6 +1217,54 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
   return rows;
 };
 
+// 为分组模式构建记录（在每个分组末尾插入虚拟「添加记录」行）
+const buildGroupedRecords = (tableRecords: any[]): any[] => {
+  if (!props.groupBy || props.groupBy.length === 0) return tableRecords;
+
+  const groupToRecords = new Map<string, any[]>();
+  for (const row of tableRecords) {
+    const groupKey = props.groupBy.map(fieldId => {
+      const val = row[fieldId];
+      return val !== null && val !== undefined ? String(val) : '__empty__';
+    }).join('||');
+    if (!groupToRecords.has(groupKey)) {
+      groupToRecords.set(groupKey, []);
+    }
+    groupToRecords.get(groupKey)!.push(row);
+  }
+
+  const rebuiltRecords: any[] = [];
+  for (const [groupKey, records] of groupToRecords) {
+    rebuiltRecords.push(...records);
+
+    const groupValues: Record<string, any> = {};
+    props.groupBy.forEach(fieldId => {
+      groupValues[fieldId] = records[0][fieldId] ?? null;
+    });
+
+    const addButtonRecord: any = {
+      _recordId: '__add_button__',
+      _originalRecord: null,
+      _rowType: 'addButton',
+      _groupValues: { ...groupValues },
+    };
+
+    for (const fieldId of props.groupBy) {
+      addButtonRecord[fieldId] = groupValues[fieldId];
+    }
+
+    orderedVisibleFields.value.forEach(field => {
+      if (!props.groupBy!.includes(field.id)) {
+        addButtonRecord[field.id] = '';
+      }
+    });
+
+    rebuiltRecords.push(addButtonRecord);
+  }
+
+  return rebuiltRecords;
+};
+
 // 生成五角星 SVG path 数据
 const getStarPath = (cx: number, cy: number, outerR: number, points: number, innerRatio: number): string => {
   const innerR = outerR * innerRatio;
@@ -2054,57 +2102,9 @@ const buildTableConfig = (): any => {
   // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
   let tableRecords = transformRecords(sortedRecords.value);
 
-  // 分组末尾添加按钮行：为每个分组注入一条虚拟「添加记录」行
+  // 分组末尾添加按钮行
   if (props.groupBy && props.groupBy.length > 0 && tableRecords.length > 0) {
-    // 按分组字段值对记录重新分组，确保虚拟行在每个分组的末尾
-    const groupToRecords = new Map<string, any[]>();
-    for (const row of tableRecords) {
-      const groupKey = props.groupBy.map(fieldId => {
-        const val = row[fieldId];
-        return val !== null && val !== undefined ? String(val) : '__empty__';
-      }).join('||');
-      if (!groupToRecords.has(groupKey)) {
-        groupToRecords.set(groupKey, []);
-      }
-      groupToRecords.get(groupKey)!.push(row);
-    }
-
-    // 重建 tableRecords，在每个分组末尾插入虚拟行
-    const rebuiltRecords: any[] = [];
-    for (const [groupKey, records] of groupToRecords) {
-      rebuiltRecords.push(...records);
-
-      // 为当前分组创建虚拟添加按钮行
-      const groupValues: Record<string, any> = {};
-      props.groupBy.forEach(fieldId => {
-        groupValues[fieldId] = records[0][fieldId] ?? null;
-      });
-
-      const addButtonRecord: any = {
-        _recordId: '__add_button__',
-        _originalRecord: null,
-        _rowType: 'addButton',
-        _groupValues: { ...groupValues },
-      };
-
-      // 设置分组字段值，以便 VTable 正确归组
-      for (const fieldId of props.groupBy) {
-        addButtonRecord[fieldId] = groupValues[fieldId];
-      }
-
-      // 为其他可见字段设置空值
-      orderedVisibleFields.value.forEach(field => {
-        if (!props.groupBy!.includes(field.id)) {
-          addButtonRecord[field.id] = '';
-        }
-      });
-
-      rebuiltRecords.push(addButtonRecord);
-    }
-
-    // 将重建后的记录写回 tableRecords 数组
-    tableRecords.length = 0;
-    tableRecords.push(...rebuiltRecords);
+    tableRecords = buildGroupedRecords(tableRecords);
   }
 
   // 计算冻结列数
@@ -2134,8 +2134,8 @@ const buildTableConfig = (): any => {
     if (!smartDataSource || smartDataSource.totalCount !== tableRecords.length) {
       smartDataSource = new SmartTableDataSource({
         totalCount: tableRecords.length,
-        batchSize: 100,
-        prefetchCount: 1,
+        batchSize: 200,
+        prefetchCount: 3,
       });
     } else {
       smartDataSource.clearCache();
@@ -2974,6 +2974,56 @@ const updateTable = () => {
   }
 };
 
+// 增量更新表格数据（仅数据变更，列结构不变时使用）
+// 避免销毁重建 VTable，直接更新 CachedDataSource 缓存后轻量重绘
+let isUpdatingData = false;
+let pendingDataUpdate = false;
+const updateTableData = () => {
+  if (!tableInstance || !tableContainerRef.value) return;
+  if (isUpdatingData) {
+    pendingDataUpdate = true;
+    return;
+  }
+
+  const isGrouped = props.groupBy && props.groupBy.length > 0;
+  isUpdatingData = true;
+  pendingDataUpdate = false;
+
+  try {
+    if (isGrouped) {
+      // 分组模式使用 records 全量数据，回退到 updateTable 逻辑
+      // 但通过 updateOption 尝试增量更新（如果 VTable 支持）
+      const newRows = transformRecords(sortedRecords.value);
+      if (typeof (tableInstance as any).updateOption === 'function') {
+        // 构造仅包含更新的最小配置
+        const rebuiltRecords = buildGroupedRecords(newRows);
+        (tableInstance as any).updateOption({ records: rebuiltRecords });
+      } else {
+        updateTable();
+      }
+    } else if (smartDataSource) {
+      // 非分组 CachedDataSource 模式：更新内存缓存 + 轻量重绘
+      const newRows = transformRecords(sortedRecords.value);
+      smartDataSource.clearCache();
+      smartDataSource.updateMemoryCache(newRows, 0);
+      smartDataSource.markFullyLoaded();
+      (tableInstance as any).renderWithRecreateCells();
+    } else {
+      // 无 dataSource，回退全量重建
+      updateTable();
+    }
+  } catch (error) {
+    console.error('增量数据更新失败:', error);
+    // 回退到全量重建
+    updateTable();
+  } finally {
+    isUpdatingData = false;
+    if (pendingDataUpdate) {
+      updateTableData();
+    }
+  }
+};
+
 // 实时协作事件监听
 const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
 
@@ -3018,12 +3068,12 @@ const handleCancelLoading = () => {
   tableStore.cancelLoading();
 };
 
-// 监听 records / fields 变化触发表格更新
+// 监听 records 变化 → 增量数据更新
 // 流式加载期间：仅增量更新 dataSource 缓存，避免反复重建 VTable
-// 非流式：正常全量重建
-watch([() => tableStore.records, () => tableStore.fields], () => {
+// 非流式：通过 updateTableData 增量更新（不销毁重建 VTable）
+watch(() => tableStore.records, () => {
   if (tableStore.streamingState.isLoading && smartDataSource) {
-    // 流式加载进行中：增量更新缓存
+    // 流式加载进行中：增量更新缓存（只加载新增部分）
     const prevCount = smartDataSource.totalCount;
     const rawRecords = sortedRecords.value;
     if (rawRecords.length > prevCount) {
@@ -3037,6 +3087,16 @@ watch([() => tableStore.records, () => tableStore.fields], () => {
     }
     return;
   }
+  // 流式完成后：废弃旧的 smartDataSource（CachedDataSource.length 构造时冻结），
+  // 强制 updateTableData → updateTable → 以正确 totalCount 重建
+  if (smartDataSource && !tableStore.streamingState.isLoading) {
+    smartDataSource = null;
+  }
+  updateTableData();
+}, { deep: true });
+
+// 监听 fields 变化 → 列结构变更，需重建表格
+watch(() => tableStore.fields, () => {
   updateTable();
 }, { deep: true });
 
@@ -3050,16 +3110,16 @@ watch(selectedRows, () => {
 
 // 用户缓存更新时刷新表格（成员名称异步加载完成后重渲染）
 watch(() => userCacheStore.cacheStats.size, () => {
-  updateTable();
+  updateTableData();
 });
 
-// 监听流式加载完成：执行一次全量重建确保 VTable 数据完整
+// 监听流式加载完成：标记 fullyLoaded，交由 records watch 完成重建
 watch(() => tableStore.streamingState.isLoading, (wasLoading, isLoading) => {
   if (wasLoading && !isLoading && smartDataSource) {
-    // 流式加载完成 → 做一次全量重建
     smartDataSource.markFullyLoaded();
-    smartDataSource = null; // 重置以便 rebuild 创建新的 dataSource
-    updateTable();
+    console.log(
+      `[VTableView] 流式加载完成，当前 sortedRecords: ${sortedRecords.value.length} 条，smartDataSource.totalCount: ${smartDataSource.totalCount}`
+    );
   }
 });
 

@@ -290,7 +290,9 @@ export class RecordService {
   }
 
   /**
-   * 后台加载剩余页面
+   * 后台加载剩余页面（并行限流 + 实时进度上报）
+   * - 并发加载，页完成后立即按序处理并上报进度
+   * - 所有页面处理完成后统一批量写入 IndexedDB
    */
   private async loadRemainingPages(
     tableId: string,
@@ -299,75 +301,160 @@ export class RecordService {
     callbacks?: StreamingLoadCallbacks,
   ): Promise<void> {
     const MAX_RETRIES = 3;
+    const MAX_CONCURRENT = 3;
+    const totalPages = state.totalPages;
 
-    try {
-      for (let page = 2; page <= state.totalPages; page++) {
-        // 检查是否被中断
-        if (!state.isLoading) {
-          console.log(`[recordService] 流式加载被中断`);
-          // 清除取消令牌
-          RecordService.clearCancelToken(tableId);
-          return;
+    // 构建待加载页码队列（从第 2 页开始）
+    const pageQueue: number[] = [];
+    for (let page = 2; page <= totalPages; page++) {
+      pageQueue.push(page);
+    }
+
+    // 已获取但尚未按序处理的页缓存
+    const fetchedPages = new Map<number, RecordEntity[]>();
+    let nextPageToProcess = 2;  // 下一个应处理的页码（保证顺序）
+    let activeFetches = 0;      // 正在进行的请求数
+    let fetchError: Error | null = null;
+
+    // 累积已按序处理的所有记录，用于最后统一写入 IndexedDB
+    const processedRecords: RecordEntity[] = [];
+
+    // 完成信号
+    let resolveDone: (() => void) | null = null;
+    const donePromise = new Promise<void>((resolve) => { resolveDone = resolve; });
+
+    // 取页函数：单页请求 + 重试
+    const fetchPage = async (page: number): Promise<RecordEntity[]> => {
+      if (!state.isLoading || RecordService.isCancelled(tableId)) {
+        return [];
+      }
+
+      let response;
+      let retryCount = 0;
+      while (retryCount < MAX_RETRIES) {
+        try {
+          response = await recordApiService.getRecords(tableId, {
+            page,
+            per_page: pageSize,
+          });
+          break;
+        } catch (error) {
+          retryCount++;
+          if (retryCount >= MAX_RETRIES) {
+            throw error;
+          }
+          const delay = 1000 * retryCount;
+          console.warn(
+            `[recordService] 第 ${page} 页加载失败，${delay}ms 后重试 (${retryCount}/${MAX_RETRIES})`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
-        // 检查取消令牌
-        if (RecordService.isCancelled(tableId)) {
-          state.isLoading = false;
-          console.log(`[recordService] 流式加载被用户取消 (tableId: ${tableId})`);
-          RecordService.clearCancelToken(tableId);
-          callbacks?.onProgress?.(state);
-          return;
-        }
+      }
 
-        console.log(`[recordService] 加载第 ${page}/${state.totalPages} 页`);
+      return response!.items.map((item: any) => ({
+        id: item.id,
+        tableId,
+        values: deserializeRecordValues(item.values as Record<string, CellValue>),
+        createdAt: new Date(item.created_at).getTime(),
+        updatedAt: new Date(item.updated_at).getTime(),
+        createdBy: item.created_by,
+        updatedBy: item.updated_by,
+      }));
+    };
 
-        // 带重试的API调用
-        let response;
-        let retryCount = 0;
-        while (retryCount < MAX_RETRIES) {
-          try {
-            response = await recordApiService.getRecords(tableId, {
-              page,
-              per_page: pageSize,
-            });
-            break;
-          } catch (error) {
-            retryCount++;
-            if (retryCount >= MAX_RETRIES) {
-              throw error;
-            }
-            const delay = 1000 * retryCount;
-            console.warn(`[recordService] 第 ${page} 页加载失败，${delay}ms 后重试 (${retryCount}/${MAX_RETRIES})`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+    // 处理可顺序处理的已就绪页
+    const processReadyPages = (): void => {
+      while (fetchedPages.has(nextPageToProcess)) {
+        const records = fetchedPages.get(nextPageToProcess)!;
+        fetchedPages.delete(nextPageToProcess);
+
+        state.currentPage = nextPageToProcess;
+        state.loadedCount += records.length;
+
+        // 累积到 processedRecords，用于最后统一写入 IndexedDB
+        processedRecords.push(...records);
+
+        console.log(
+          `[recordService] 第 ${nextPageToProcess}/${totalPages} 页加载完成，累计: ${state.loadedCount}/${state.totalCount}`
+        );
+
+        // 实时上报进度
+        callbacks?.onProgress?.({ ...state }, records);
+
+        nextPageToProcess++;
+      }
+    };
+
+    // 启动一个取页任务
+    const startNextFetch = (): void => {
+      if (pageQueue.length === 0 || activeFetches >= MAX_CONCURRENT || !state.isLoading || fetchError) {
+        return;
+      }
+
+      const page = pageQueue.shift()!;
+      activeFetches++;
+
+      (async () => {
+        try {
+          const records = await fetchPage(page);
+
+          if (records.length > 0) {
+            // 存入页缓存并尝试按序处理
+            fetchedPages.set(page, records);
+            processReadyPages();
+          }
+        } catch (error) {
+          fetchError = error instanceof Error ? error : new Error(String(error));
+          console.error(`[recordService] 第 ${page} 页加载失败:`, error);
+        } finally {
+          activeFetches--;
+          // 当前页处理完成后，启动后续请求
+          startNextFetch();
+
+          // 检查是否全部完成
+          if (
+            activeFetches === 0 &&
+            pageQueue.length === 0 &&
+            nextPageToProcess > totalPages
+          ) {
+            resolveDone?.();
           }
         }
+      })();
+    };
 
-        // 保存到 IndexedDB
-        await this.saveRecordsToLocal(tableId, response!.items);
+    try {
+      // 启动初始并发批
+      for (let i = 0; i < MAX_CONCURRENT; i++) {
+        startNextFetch();
+      }
 
-        // 更新状态
-        state.currentPage = page;
-        state.loadedCount += response!.items.length;
+      // 等待完成或失败
+      await donePromise;
 
-        // 转换为 RecordEntity（含反序列化），避免 onProgress 中走 IndexedDB 全量读
-        const newRecords: RecordEntity[] = response!.items.map((item: any) => ({
-          id: item.id,
-          tableId,
-          values: deserializeRecordValues(item.values as Record<string, CellValue>),
-          createdAt: new Date(item.created_at).getTime(),
-          updatedAt: new Date(item.updated_at).getTime(),
-          createdBy: item.created_by,
-          updatedBy: item.updated_by,
-        }));
-
-        console.log(`[recordService] 第 ${page} 页加载完成，累计: ${state.loadedCount}/${state.totalCount}`);
-
-        // 通知进度（传递新增记录，避免 IndexedDB 全量读取）
-        callbacks?.onProgress?.({ ...state }, newRecords);
-
-        // 每页之间添加小延迟，避免占用过多带宽
-        if (page < state.totalPages) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+      // 处理取消请求
+      if (!state.isLoading || RecordService.isCancelled(tableId)) {
+        state.isLoading = false;
+        if (RecordService.isCancelled(tableId)) {
+          RecordService.clearCancelToken(tableId);
+          console.log(`[recordService] 流式加载被用户取消 (tableId: ${tableId})`);
         }
+        // 通知已有进度
+        callbacks?.onProgress?.({ ...state });
+        return;
+      }
+
+      if (fetchError) {
+        state.isLoading = false;
+        state.error = fetchError.message;
+        callbacks?.onProgress?.({ ...state });
+        callbacks?.onError?.(state.error);
+        throw fetchError;
+      }
+
+      // 统一批量写入 IndexedDB（避免逐页事务开销）
+      if (processedRecords.length > 0) {
+        await this.batchSaveRecordsToLocal(tableId, processedRecords);
       }
 
       state.isLoading = false;
@@ -377,11 +464,40 @@ export class RecordService {
       state.isLoading = false;
       state.error = error instanceof Error ? error.message : '加载失败';
       console.error(`[recordService] 流式加载失败:`, error);
-      callbacks?.onError?.(state.error);
-      // 即使出错也通知一次进度，让UI显示已成功加载的数据
+      if (!fetchError) {
+        // 还没报过错，才触发 onError
+        callbacks?.onError?.(state.error);
+      }
       callbacks?.onProgress?.({ ...state });
       throw error;
     }
+  }
+
+  /**
+   * 批量写入记录到 IndexedDB
+   */
+  private async batchSaveRecordsToLocal(
+    tableId: string,
+    records: RecordEntity[],
+  ): Promise<void> {
+    if (records.length === 0) return;
+
+    await db.transaction("rw", db.records, async () => {
+      for (const record of records) {
+        const localRecord = {
+          id: record.id,
+          tableId: record.tableId,
+          values: record.values as Record<string, CellValue>,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          createdBy: record.createdBy,
+          updatedBy: record.updatedBy,
+        };
+        await db.records.put(localRecord);
+      }
+    });
+
+    console.log(`[recordService] 批量写入 ${records.length} 条记录到本地`);
   }
 
   /**
