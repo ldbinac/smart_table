@@ -2991,16 +2991,9 @@ const updateTableData = () => {
 
   try {
     if (isGrouped) {
-      // 分组模式使用 records 全量数据，回退到 updateTable 逻辑
-      // 但通过 updateOption 尝试增量更新（如果 VTable 支持）
-      const newRows = transformRecords(sortedRecords.value);
-      if (typeof (tableInstance as any).updateOption === 'function') {
-        // 构造仅包含更新的最小配置
-        const rebuiltRecords = buildGroupedRecords(newRows);
-        (tableInstance as any).updateOption({ records: rebuiltRecords });
-      } else {
-        updateTable();
-      }
+      // 分组模式：updateOption({ records }) 无法正确重新初始化 groupBy 分组逻辑，
+      // 导致全量数据加载后表格空白。必须全量重建以确保 groupBy 与 records 一同初始化。
+      updateTable();
     } else if (smartDataSource) {
       // 非分组 CachedDataSource 模式：更新内存缓存 + 轻量重绘
       const newRows = transformRecords(sortedRecords.value);
