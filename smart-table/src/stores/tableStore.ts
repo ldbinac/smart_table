@@ -75,7 +75,7 @@ export const useTableStore = defineStore("table", () => {
       fields.value = await fieldService.getFieldsByTable(tableId);
       views.value = await viewService.getViewsByTable(tableId, true);
 
-      // 使用流式加载记录
+      // 使用流式加载记录（pageSize 与 SmartTableDataSource.batchSize 保持一致）
       const { initialRecords, loadPromise } = await recordService.streamLoadRecords(
         tableId,
         {
@@ -103,7 +103,7 @@ export const useTableStore = defineStore("table", () => {
             refreshRecords(tableId);
           },
         },
-        100,
+        200,
       );
 
       records.value = initialRecords;
