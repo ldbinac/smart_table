@@ -90,8 +90,8 @@ def get_records(table_id) -> tuple:
     search = request.args.get('search', '')
     
     # 限制每页数量
-    if per_page > 100:
-        per_page = 100
+    if per_page > 500:
+        per_page = 500
     
     try:
         if search:
@@ -1271,8 +1271,8 @@ def search_linkable_records(table_id) -> tuple:
     per_page = request.args.get('per_page', 20, type=int)
     
     # 限制每页数量
-    if per_page > 100:
-        per_page = 100
+    if per_page > 500:
+        per_page = 500
     
     # 解析排除的 ID 列表
     exclude_ids = [id.strip() for id in exclude_ids_str.split(',') if id.strip()]
