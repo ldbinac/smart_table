@@ -2248,6 +2248,8 @@ const buildTableConfig = (): any => {
     allowCopy: true,
     editCellTrigger: 'doubleclick',
     keyboardOptions: {
+      copySelected: true,
+      pasteValueToCell: true,
       editCellOnEnter: true,
       moveFocusCellOnTab: true,
       moveEditCellOnArrowKeys: true,
@@ -2951,6 +2953,14 @@ const bindTableEvents = () => {
     } catch (error) {
       console.error('编辑保存失败:', error);
       ElMessage.error('编辑保存失败');
+    }
+  });
+
+  // 复制事件 - 使用 VTable 原生复制功能，仅提供操作反馈
+  tableInstanceAny.on('copy_data', (args: any) => {
+    const copyCount = args?.copyData?.length ?? 0;
+    if (copyCount > 0) {
+      ElMessage.success(`已复制 ${copyCount} 个单元格`);
     }
   });
 };
