@@ -1,7 +1,7 @@
 <template>
   <div v-if="visible" class="loading-progress">
     <div class="progress-bar-container">
-      <div class="progress-bar" :style="{ width: `${progress}%` }"></div>
+      <div class="progress-bar" :style="{ width: `${displayProgress}%` }"></div>
     </div>
     <div class="progress-text">
       <span class="loading-icon">
@@ -23,6 +23,7 @@ interface Props {
   loadedCount: number;
   totalCount: number;
   visible: boolean;
+  progress?: number;
 }
 
 const props = defineProps<Props>();
@@ -30,6 +31,12 @@ const props = defineProps<Props>();
 defineEmits<{
   cancel: [];
 }>();
+
+const displayProgress = computed(() => {
+  if (props.progress !== undefined) return props.progress;
+  if (props.totalCount > 0) return Math.round((props.loadedCount / props.totalCount) * 100);
+  return 0;
+});
 </script>
 
 <style lang="scss" scoped>

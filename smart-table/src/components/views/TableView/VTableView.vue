@@ -31,7 +31,7 @@ import { ListTable, themes, register as registerVTable } from "@visactor/vtable"
 import { createGroup, createText, createRect, createCircle, createPath, createImage } from '@visactor/vtable/es/vrender';
 // 导入 VTable 编辑器
 import { InputEditor, DateInputEditor, ListEditor } from '@visactor/vtable-editors';
-import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors/es/types';
+import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
@@ -44,6 +44,56 @@ import AttachmentManager from "@/components/fields/AttachmentManager.vue";
 import LinkRecordSelector from "@/components/fields/LinkField/LinkRecordSelector.vue";
 // 导入成员选择器
 import MemberSelect from "@/components/common/MemberSelect.vue";
+
+// 模块级辅助函数（vue-tsc -b 模式下 script setup 内的函数声明不可见时需要）
+function extractMemberIds(value: any): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [];
+    if (typeof value[0] === 'string') return value.filter(Boolean);
+    return value.map((m: any) => String(m.id || m.name || '')).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((m: any) => String(m.id || m.name || m)).filter(Boolean);
+      }
+    } catch {}
+    return value ? [value] : [];
+  }
+  if (typeof value === 'object' && value !== null) {
+    return [String((value as any).id || (value as any).name || '')].filter(Boolean);
+  }
+  return [];
+}
+
+function recalcFloatingPanelPosition(
+  col: number, row: number, panelWidth: number, panelHeight: number
+): { x: number; y: number } | null {
+  const cellRect = (tableInstance as any)?.getCellRect(col, row);
+  const containerRect = tableContainerRef.value?.getBoundingClientRect();
+  if (!cellRect || !containerRect) return null;
+
+  const scrollLeft = (tableInstance as any).scrollLeft || 0;
+  const scrollTop = (tableInstance as any).scrollTop || 0;
+  const frozenColCount = (tableInstance as any).frozenColCount || 1;
+  const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
+
+  let panelX = containerRect.left + adjustedLeft + cellRect.width;
+  let panelY = containerRect.top + cellRect.bottom - scrollTop;
+
+  if (panelX + panelWidth > window.innerWidth - 16) {
+    panelX = containerRect.left + adjustedLeft - panelWidth;
+  }
+  if (panelY + panelHeight > window.innerHeight - 16) {
+    panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
+  }
+  if (panelX < 8) panelX = 8;
+  if (panelY < 8) panelY = 8;
+
+  return { x: panelX, y: panelY };
+}
 
 interface Props {
   tableId?: string;
@@ -140,8 +190,6 @@ function validateCellValue(
     return { valid: true };
   }
 
-  const strValue = String(value);
-
   switch (field.type) {
     case FieldType.NUMBER:
       if (isNaN(Number(value))) {
@@ -226,12 +274,6 @@ function clearCellError(col: number, row: number) {
   }
 }
 
-// 清除所有单元格校验错误标记
-function clearAllCellErrors() {
-  cellErrors.value = [];
-  // 不需要逐个清除，刷新表格时会重新渲染
-}
-
 // 注册 VTable 编辑器
 const inputEditor = new InputEditor();
 const dateEditor = new DateInputEditor();
@@ -280,14 +322,14 @@ class DateOnlyEditor extends InputEditor {
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, '0');
       const d = String(date.getDate()).padStart(2, '0');
-      this.element.value = `${y}-${m}-${d}`;
+      if (this.element) this.element.value = `${y}-${m}-${d}`;
     } else {
-      this.element.value = '';
+      if (this.element) this.element.value = '';
     }
   }
   getValue() {
     const val = this.element?.value;
-    return val ? new Date(val).getTime() : null;
+    return (val ? new Date(val).getTime() : null) as any;
   }
 }
 
@@ -335,14 +377,14 @@ class DateTimeEditor extends InputEditor {
       const d = String(date.getDate()).padStart(2, '0');
       const h = String(date.getHours()).padStart(2, '0');
       const min = String(date.getMinutes()).padStart(2, '0');
-      this.element.value = `${y}-${m}-${d}T${h}:${min}`;
+      if (this.element) this.element.value = `${y}-${m}-${d}T${h}:${min}`;
     } else {
-      this.element.value = '';
+      if (this.element) this.element.value = '';
     }
   }
   getValue() {
     const val = this.element?.value;
-    return val ? new Date(val).getTime() : null;
+    return (val ? new Date(val).getTime() : null) as any;
   }
 }
 
@@ -1257,7 +1299,7 @@ const buildGroupedRecords = (tableRecords: any[]): any[] => {
   }
 
   const rebuiltRecords: any[] = [];
-  for (const [groupKey, records] of groupToRecords) {
+  for (const [, records] of groupToRecords) {
     rebuiltRecords.push(...records);
 
     const groupValues: Record<string, any> = {};
@@ -2158,7 +2200,6 @@ const buildTableConfig = (): any => {
       smartDataSource = new SmartTableDataSource({
         totalCount: tableRecords.length,
         batchSize: 200,
-        prefetchCount: 3,
         maxCachedBatches: 50,  // 50×200=10,000条，LRU 阈值（超过后驱逐最久未访问批次）
       });
     } else {
@@ -2646,31 +2687,6 @@ const bindTableEvents = () => {
     }
   });
 
-  // 从成员字段值中提取成员 ID 列表（兼容多种存储格式）
-  function extractMemberIds(value: any): string[] {
-    if (!value) return [];
-    if (Array.isArray(value)) {
-      if (value.length === 0) return [];
-      // 如果第一项是字符串，直接作为 ID 返回
-      if (typeof value[0] === 'string') return value.filter(Boolean);
-      // 对象数组，提取 id 字段
-      return value.map((m: any) => String(m.id || m.name || '')).filter(Boolean);
-    }
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) {
-          return parsed.map((m: any) => String(m.id || m.name || m)).filter(Boolean);
-        }
-      } catch {}
-      return value ? [value] : [];
-    }
-    if (typeof value === 'object' && value !== null) {
-      return [String((value as any).id || (value as any).name || '')].filter(Boolean);
-    }
-    return [];
-  }
-
   // 单元格双击
   tableInstanceAny.on('dblclick_cell', (args: any) => {
     const colIndex = args.col;
@@ -2824,35 +2840,8 @@ const bindTableEvents = () => {
     }
   });
 
-  // 重算弹窗位置（附件/成员通用）
-  function recalcFloatingPanelPosition(col: number, row: number, panelWidth: number, panelHeight: number): { x: number; y: number } | null {
-    const cellRect = (tableInstance as any)?.getCellRect(col, row);
-    const containerRect = tableContainerRef.value?.getBoundingClientRect();
-    if (!cellRect || !containerRect) return null;
-
-    const scrollLeft = (tableInstance as any).scrollLeft || 0;
-    const scrollTop = (tableInstance as any).scrollTop || 0;
-    const frozenColCount = (tableInstance as any).frozenColCount || 1;
-    const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
-
-    let panelX = containerRect.left + adjustedLeft + cellRect.width;
-    let panelY = containerRect.top + cellRect.bottom - scrollTop;
-
-    // 视口边界检测
-    if (panelX + panelWidth > window.innerWidth - 16) {
-      panelX = containerRect.left + adjustedLeft - panelWidth;
-    }
-    if (panelY + panelHeight > window.innerHeight - 16) {
-      panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
-    }
-    if (panelX < 8) panelX = 8;
-    if (panelY < 8) panelY = 8;
-
-    return { x: panelX, y: panelY };
-  }
-
   // 表格滚动事件 - 实时更新附件/成员浮窗位置
-  tableInstanceAny.on('scroll', (args: any) => {
+  tableInstanceAny.on('scroll', (_args: any) => {
     // 更新附件浮窗
     if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
       const { col, row } = lastAttachmentCellCoords.value;

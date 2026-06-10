@@ -446,9 +446,9 @@ export class RecordService {
 
       if (fetchError) {
         state.isLoading = false;
-        state.error = fetchError.message;
+        state.error = (fetchError as Error).message ?? '加载失败';
         callbacks?.onProgress?.({ ...state });
-        callbacks?.onError?.(state.error);
+        callbacks?.onError?.(state.error ?? '加载失败');
         throw fetchError;
       }
 
@@ -477,7 +477,7 @@ export class RecordService {
    * 批量写入记录到 IndexedDB
    */
   private async batchSaveRecordsToLocal(
-    tableId: string,
+    _tableId: string,
     records: RecordEntity[],
   ): Promise<void> {
     if (records.length === 0) return;
