@@ -1106,7 +1106,18 @@ const orderedVisibleFields = computed(() => visibleFields.value);
 // ==================== 记录转换工具函数 ====================
 // 将原始 RecordEntity 转换为 VTable 需要的行数据格式
 // 从 buildTableConfig 中提取，供流式加载增量更新复用
+// 转换记录缓存：避免流式完成后全量重转换
+// key: recordId, value: 转换后的行对象
+const transformedCache = new Map<string, any>();
+
 const transformRecords = (rawRecords: RecordEntity[]): any[] => {
+  // 快速路径：所有记录已在缓存中，直接按原序返回
+  if (rawRecords.length > 0 && rawRecords.every(r => r?.id && transformedCache.has(r.id))) {
+    return rawRecords
+      .map(r => transformedCache.get(r.id))
+      .filter(Boolean) as any[];
+  }
+
   const rows: any[] = [];
   const formulaFields = orderedVisibleFields.value.filter(f => f.type === FieldType.FORMULA);
   let formulaEngine: FormulaEngine | null = null;
@@ -1214,7 +1225,19 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
     rows.push(row);
   }
 
+  // 更新缓存（仅全量处理路径，增量路径已在快速路径命中）
+  for (const row of rows) {
+    if (row._recordId) {
+      transformedCache.set(row._recordId, row);
+    }
+  }
+
   return rows;
+};
+
+/** 清除转换缓存（用户缓存变更、公式变更等场景需强制重转换） */
+const clearTransformCache = (): void => {
+  transformedCache.clear();
 };
 
 // 为分组模式构建记录（在每个分组末尾插入虚拟「添加记录」行）
@@ -2136,6 +2159,7 @@ const buildTableConfig = (): any => {
         totalCount: tableRecords.length,
         batchSize: 200,
         prefetchCount: 3,
+        maxCachedBatches: 50,  // 50×200=10,000条，LRU 阈值（超过后驱逐最久未访问批次）
       });
     } else {
       smartDataSource.clearCache();
@@ -3103,6 +3127,8 @@ watch(selectedRows, () => {
 
 // 用户缓存更新时刷新表格（成员名称异步加载完成后重渲染）
 watch(() => userCacheStore.cacheStats.size, () => {
+  // 成员名称变更需清除转换缓存，强制重算 MEMBER 字段
+  clearTransformCache();
   updateTableData();
 });
 
