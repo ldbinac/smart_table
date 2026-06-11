@@ -3145,7 +3145,18 @@ const bindTableEvents = () => {
         return;
       }
     }
-    
+
+    // ==================== 无改动检查 ====================
+    const originalValue = originalRecord.values[fieldId];
+    const normalizeValue = (v: unknown): string | null => {
+      if (v == null || v === '') return null;
+      return String(v);
+    };
+    if (normalizeValue(finalValue) === normalizeValue(originalValue)) {
+      // 值无实际变化，不触发保存
+      return;
+    }
+
     try {
       if (!tableId) return;
       
