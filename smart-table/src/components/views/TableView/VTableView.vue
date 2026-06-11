@@ -1468,7 +1468,6 @@ class MemberEditor implements IEditor {
       try {
         const response = await userApi.searchUsers({
           query: query.trim(),
-          base_id: this.editorConfig.baseId,
           per_page: 20,
         });
         this.searchResults = response.users.map((u: any) => ({
