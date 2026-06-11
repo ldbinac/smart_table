@@ -215,12 +215,12 @@ const customerManagementTemplate: TableTemplate = {
         { id: 'cust-view-3', name: '客户画廊', type: 'gallery', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 }
       ],
       records: [
-        { id: 'cust-rec-1', values: { 'cust-name': '科技公司A', 'cust-contact': '张经理', 'cust-phone': '13800138001', 'cust-email': 'zhang@example.com', 'cust-website': 'https://company-a.com', 'cust-stage': '跟进中', 'cust-source': '线上广告', 'cust-value': 50000, 'cust-rating': 4 } },
-        { id: 'cust-rec-2', values: { 'cust-name': '贸易公司B', 'cust-contact': '李总', 'cust-phone': '13900139002', 'cust-email': 'li@example.com', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 120000, 'cust-rating': 5 } },
+        { id: 'cust-rec-1', values: { 'cust-name': '科技公司A', 'cust-contact': '张经理', 'cust-phone': '13800138001', 'cust-email': 'ldengbin@126.com', 'cust-website': 'https://github.com/ldbinac/smart_table', 'cust-stage': '跟进中', 'cust-source': '线上广告', 'cust-value': 50000, 'cust-rating': 4 } },
+        { id: 'cust-rec-2', values: { 'cust-name': '贸易公司B', 'cust-contact': '李总', 'cust-phone': '13900139002', 'cust-email': 'binac@live.cn', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 120000, 'cust-rating': 5 } },
         { id: 'cust-rec-3', values: { 'cust-name': '咨询机构C', 'cust-contact': '王总监', 'cust-phone': '13700137003', 'cust-stage': '意向客户', 'cust-source': '展会', 'cust-value': 80000, 'cust-rating': 3 } },
-        { id: 'cust-rec-4', values: { 'cust-name': '制造企业D', 'cust-contact': '赵经理', 'cust-phone': '13600136004', 'cust-email': 'zhao@example.com', 'cust-website': 'https://factory-d.com', 'cust-stage': '潜在客户', 'cust-source': '自然搜索', 'cust-value': 200000, 'cust-rating': 4 } },
+        { id: 'cust-rec-4', values: { 'cust-name': '制造企业D', 'cust-contact': '赵经理', 'cust-phone': '13600136004', 'cust-email': 'ldengbin@126.com', 'cust-website': 'https://gitee.com/binac/smart_table', 'cust-stage': '潜在客户', 'cust-source': '自然搜索', 'cust-value': 200000, 'cust-rating': 4 } },
         { id: 'cust-rec-5', values: { 'cust-name': '零售连锁E', 'cust-contact': '陈店长', 'cust-phone': '13500135005', 'cust-stage': '流失客户', 'cust-source': '电话营销', 'cust-value': 30000, 'cust-rating': 2 } },
-        { id: 'cust-rec-6', values: { 'cust-name': '金融公司F', 'cust-contact': '刘总监', 'cust-phone': '13300133006', 'cust-email': 'liu@example.com', 'cust-website': 'https://finance-f.com', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 500000, 'cust-rating': 5 } }
+        { id: 'cust-rec-6', values: { 'cust-name': '金融公司F', 'cust-contact': '刘总监', 'cust-phone': '13300133006', 'cust-email': 'binac@live.cn', 'cust-website': 'https://www.zhihu.com/people/lu-dong-bin-19', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 500000, 'cust-rating': 5 } }
       ]
     }
   ]
@@ -469,10 +469,10 @@ const surveyFeedbackTemplate: TableTemplate = {
         { id: 'sur-view-4', name: '反馈画廊', type: 'gallery', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
       ],
       records: [
-        { id: 'sur-rec-1', values: { 'sur-satisfaction': 4, 'sur-category': '功能建议', 'sur-content': '希望能添加导出功能', 'sur-status': '处理中', 'sur-need-follow': false, 'sur-contact': 'user1@example.com' } },
+        { id: 'sur-rec-1', values: { 'sur-satisfaction': 4, 'sur-category': '功能建议', 'sur-content': '希望能添加导出功能', 'sur-status': '处理中', 'sur-need-follow': false, 'sur-contact': 'binac@live.cn' } },
         { id: 'sur-rec-2', values: { 'sur-satisfaction': 5, 'sur-category': '其他', 'sur-content': '产品很好用！', 'sur-status': '已关闭', 'sur-need-follow': false } },
         { id: 'sur-rec-3', values: { 'sur-satisfaction': 2, 'sur-category': 'Bug报告', 'sur-content': '保存时偶尔会报错', 'sur-status': '待处理', 'sur-need-follow': true, 'sur-contact': '13800138001' } },
-        { id: 'sur-rec-4', values: { 'sur-satisfaction': 3, 'sur-category': '使用问题', 'sur-content': '不知道如何创建视图', 'sur-status': '已解决', 'sur-need-follow': false, 'sur-contact': 'user2@example.com' } },
+        { id: 'sur-rec-4', values: { 'sur-satisfaction': 3, 'sur-category': '使用问题', 'sur-content': '不知道如何创建视图', 'sur-status': '已解决', 'sur-need-follow': false, 'sur-contact': 'ldengbin@126.cn' } },
         { id: 'sur-rec-5', values: { 'sur-satisfaction': 5, 'sur-category': '功能建议', 'sur-content': '建议增加暗黑模式', 'sur-status': '处理中', 'sur-need-follow': false } },
         { id: 'sur-rec-6', values: { 'sur-satisfaction': 1, 'sur-category': 'Bug报告', 'sur-content': '登录后页面空白', 'sur-status': '处理中', 'sur-need-follow': true, 'sur-contact': '13900139002' } }
       ]
@@ -513,11 +513,11 @@ const contactListTemplate: TableTemplate = {
         { id: 'con-view-4', name: '生日日历', type: 'calendar', config: { dateFieldId: 'con-birthday' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
       ],
       records: [
-        { id: 'con-rec-1', values: { 'con-name': '张三', 'con-phone': '13800138001', 'con-email': 'zhangsan@example.com', 'con-company': '科技公司', 'con-position': '产品经理', 'con-group': '同事', 'con-favorite': true } },
+        { id: 'con-rec-1', values: { 'con-name': '张三', 'con-phone': '13800138001', 'con-email': 'ldengbin@126.com', 'con-company': '科技公司', 'con-position': '产品经理', 'con-group': '同事', 'con-favorite': true } },
         { id: 'con-rec-2', values: { 'con-name': '李四', 'con-phone': '13900139002', 'con-group': '朋友', 'con-birthday': Date.now() - 30 * 365 * 24 * 60 * 60 * 1000, 'con-favorite': false } },
-        { id: 'con-rec-3', values: { 'con-name': '王五', 'con-phone': '13700137003', 'con-email': 'wangwu@example.com', 'con-company': '贸易公司', 'con-position': '销售总监', 'con-group': '客户', 'con-favorite': true } },
+        { id: 'con-rec-3', values: { 'con-name': '王五', 'con-phone': '13700137003', 'con-email': 'binac@live.cn', 'con-company': '贸易公司', 'con-position': '销售总监', 'con-group': '客户', 'con-favorite': true } },
         { id: 'con-rec-4', values: { 'con-name': '赵六', 'con-phone': '13600136004', 'con-group': '家人', 'con-birthday': Date.now() - 25 * 365 * 24 * 60 * 60 * 1000, 'con-favorite': true } },
-        { id: 'con-rec-5', values: { 'con-name': '钱七', 'con-phone': '13500135005', 'con-email': 'qianqi@example.com', 'con-company': '咨询公司', 'con-position': '顾问', 'con-group': '其他', 'con-favorite': false } },
+        { id: 'con-rec-5', values: { 'con-name': '钱七', 'con-phone': '13500135005', 'con-email': 'ldengbin@126.cn', 'con-company': '咨询公司', 'con-position': '顾问', 'con-group': '其他', 'con-favorite': false } },
         { id: 'con-rec-6', values: { 'con-name': '孙八', 'con-phone': '13300133006', 'con-company': '金融机构', 'con-position': '分析师', 'con-group': '同事', 'con-favorite': false } }
       ]
     }
@@ -648,7 +648,7 @@ const recruitmentTemplate: TableTemplate = {
         { id: 'rec-view-3', name: '面试日历', type: 'calendar', config: { dateFieldId: 'rec-interview-date' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
       ],
       records: [
-        { id: 'rec-rec-1', values: { 'rec-name': '张小明', 'rec-position': '前端开发', 'rec-stage': '复试', 'rec-phone': '13800138001', 'rec-email': 'zhangxm@example.com', 'rec-source': 'BOSS直聘', 'rec-experience': 3, 'rec-expected-salary': 18000, 'rec-rating': 4 } },
+        { id: 'rec-rec-1', values: { 'rec-name': '张小明', 'rec-position': '前端开发', 'rec-stage': '复试', 'rec-phone': '13800138001', 'rec-email': 'ldengbin@126.cn', 'rec-source': 'BOSS直聘', 'rec-experience': 3, 'rec-expected-salary': 18000, 'rec-rating': 4 } },
         { id: 'rec-rec-2', values: { 'rec-name': '李小红', 'rec-position': '产品经理', 'rec-stage': '已录用', 'rec-phone': '13900139002', 'rec-source': '内推', 'rec-experience': 5, 'rec-expected-salary': 25000, 'rec-rating': 5 } },
         { id: 'rec-rec-3', values: { 'rec-name': '王小华', 'rec-position': 'UI设计师', 'rec-stage': '初试', 'rec-phone': '13700137003', 'rec-source': '前程无忧', 'rec-experience': 2, 'rec-expected-salary': 12000, 'rec-rating': 3 } },
         { id: 'rec-rec-4', values: { 'rec-name': '赵小龙', 'rec-position': '后端开发', 'rec-stage': '已淘汰', 'rec-phone': '13600136004', 'rec-source': '智联招聘', 'rec-experience': 1, 'rec-rating': 2, 'rec-feedback': '技术能力不足' } },
@@ -763,7 +763,7 @@ const generateTestRecords = (): TemplateRecord[] => {
     return arr.slice(0, count);
   };
 
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 100; i++) {
     const batch = Math.floor(i / 100); // 0=正常 1=空值 2=边界 3=特殊字符 4=格式验证
     const idx = i % 100; // 批次内序号
     const values: Record<string, CellValue> = {};
@@ -984,15 +984,15 @@ const generateTestRecords = (): TemplateRecord[] => {
     }
 
     // ——— 邮箱 ———
-    const emails = ['test@example.com', 'user@test.cn', 'admin@company.org', 'support@mail.com', 'dev@team.io'];
+    const emails = ['ldengbin@126.com', 'binac@live.cn'];
     if (batch === 0) {
       values['test-email'] = pickOne(emails, i);
     } else if (batch === 1 && idx % 6 === 0) {
       values['test-email'] = null;
     } else if (batch === 2 && idx % 10 === 0) {
-      values['test-email'] = 'a@b.c';
+      values['test-email'] = 'ldengbin@126.com';
     } else if (batch === 3 && idx % 5 === 0) {
-      values['test-email'] = 'special+tag@example.com';
+      values['test-email'] = 'binac@live.cn';
     } else if (batch === 4 && idx % 3 === 0) {
       values['test-email'] = 'not-an-email';
     } else {
@@ -1000,17 +1000,17 @@ const generateTestRecords = (): TemplateRecord[] => {
     }
 
     // ——— URL ———
-    const urlList = ['https://example.com', 'https://test.cn/page?id=1', 'https://docs.test.io/api', 'https://app.example.com/dashboard', 'https://blog.test.tech/posts/1'];
+    const urlList = ['https://github.com/ldbinac/smart_table', 'https://gitee.com/binac/smart_table', 'https://www.zhihu.com/people/lu-dong-bin-19', 'https://blog.csdn.net/q283595518', 'https://juejin.cn/user/2330620381633991', 'https://mp.weixin.qq.com/s/KtvkNesxYRWPHwMqw7BW3w'];
     if (batch === 0) {
       values['test-url'] = pickOne(urlList, i);
     } else if (batch === 1 && idx % 6 === 0) {
       values['test-url'] = null;
     } else if (batch === 2 && idx % 11 === 0) {
-      values['test-url'] = 'http://localhost:8080/path?q=search&page=1#section';
+      values['test-url'] = 'https://github.com/ldbinac/smart_table';
     } else if (batch === 3 && idx % 7 === 0) {
-      values['test-url'] = 'https://中文.网址/路径';
+      values['test-url'] = 'https://gitee.com/binac/smart_table';
     } else if (batch === 4 && idx % 4 === 0) {
-      values['test-url'] = 'not-a-valid-url';
+      values['test-url'] = 'https://mp.weixin.qq.com/s/KtvkNesxYRWPHwMqw7BW3w';
     } else {
       values['test-url'] = pickOne(urlList, i + 1);
     }
