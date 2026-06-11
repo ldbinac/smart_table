@@ -2485,6 +2485,14 @@ const buildTableConfig = (): any => {
           padding: [0, 8],
         }
       } : {}),
+      // 自动编号字段使用偏灰的蓝色，与邮箱链接颜色类似，便于区分
+      ...(field.type === FieldType.AUTO_NUMBER ? {
+        style: {
+          color: '#409eff',
+          fontFamily: '"SF Mono", Monaco, monospace',
+          fontWeight: 'bold',
+        }
+      } : {}),
     };
   });
 
