@@ -1255,6 +1255,9 @@ const expandedRecord = ref<RecordEntity | null>(null);
 const selectedCell = ref<{col: number, row: number, record: any, x: number, y: number} | null>(null);
 const actionIconVisible = ref(false);
 
+// URL 字段点击导航定时器（延时区分单击和双击）
+let urlClickTimer: ReturnType<typeof setTimeout> | null = null;
+
 // Drawer 抽屉大小（响应式）
 const drawerSize = computed(() => {
   const width = window.innerWidth;
@@ -1864,8 +1867,13 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       };
       break;
     case FieldType.URL:
+      config.cellType = 'link';
+      config.editor = 'input';
+      config.linkJump = false; // 禁用 VTable 自动跳转，由 click_cell 延时导航控制
+      break;
     case FieldType.EMAIL:
       config.cellType = 'link';
+      config.editor = 'input';
       break;
     case FieldType.DATE:
       config.cellType = 'text';
@@ -3174,11 +3182,32 @@ const bindTableEvents = () => {
         console.log('================================================');
         // ElMessage.success('已输出行数据到浏览器控制台');
       }
+
+      // URL 字段延时导航：单击等待 250ms 后跳转，双击时在 dblclick_cell 中取消
+      if (args.col > 0) {
+        const field = orderedVisibleFields.value[args.col - 1];
+        if (field?.type === FieldType.URL) {
+          const fieldValue = cellRecord?._originalRecord?.values?.[field.id] ?? cellRecord?.[field.id];
+          if (fieldValue && typeof fieldValue === 'string' && fieldValue.trim()) {
+            if (urlClickTimer) clearTimeout(urlClickTimer);
+            urlClickTimer = setTimeout(() => {
+              window.open(fieldValue, '_blank');
+              urlClickTimer = null;
+            }, 250);
+          }
+        }
+      }
     }
   });
 
   // 单元格双击
   tableInstanceAny.on('dblclick_cell', (args: any) => {
+    // 取消 URL 字段的延时导航（双击时不跳转，进入编辑模式）
+    if (urlClickTimer) {
+      clearTimeout(urlClickTimer);
+      urlClickTimer = null;
+    }
+
     const colIndex = args.col;
     const rowIndex = args.row;
 
