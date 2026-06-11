@@ -30,7 +30,7 @@ import { ListTable, themes, register as registerVTable } from "@visactor/vtable"
 // 导入 VRender 图形工厂函数（用于 customLayout）
 import { createGroup, createText, createRect, createCircle, createPath, createImage } from '@visactor/vtable/es/vrender';
 // 导入 VTable 编辑器
-import { InputEditor, DateInputEditor, ListEditor } from '@visactor/vtable-editors';
+import { InputEditor, DateInputEditor } from '@visactor/vtable-editors';
 import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
@@ -525,6 +525,188 @@ class MultiSelectEditor implements IEditor {
 }
 
 registerVTable.editor('multi-select', new MultiSelectEditor({ values: [] }));
+
+// SingleSelectEditor - 单选编辑器（选择列表，支持清空已选内容）
+// 每个选项以彩色标签样式渲染，与单元格内的显示风格一致
+class SingleSelectEditor implements IEditor {
+  editorType = 'SingleSelect';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  editorConfig: { options: Array<{id: string, name: string, color?: string}> };
+  successCallback?: () => void;
+  selectedValue: string | null = null;
+
+  constructor(editorConfig: { options: Array<{id: string, name: string, color?: string}> }) {
+    this.editorConfig = editorConfig;
+  }
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    this.selectedValue = String(value ?? '') || null;
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+  }
+
+  createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      position: absolute;
+      background: #ffffff;
+      border: 1px solid #d9d9d9;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      z-index: 999999;
+      max-height: 260px;
+      overflow-y: auto;
+      min-width: 160px;
+      padding: 6px 0;
+      box-sizing: border-box;
+    `;
+
+    const { options } = this.editorConfig;
+
+    // 清空选项（置顶显示）
+    wrapper.appendChild(this.createClearItem());
+
+    // 选项列表：每个选项按彩色标签样式渲染
+    if (options && options.length > 0) {
+      options.forEach(opt => wrapper.appendChild(this.createOptionItem(opt)));
+    } else {
+      const emptyHint = document.createElement('div');
+      emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
+      emptyHint.textContent = '无可用选项';
+      wrapper.appendChild(emptyHint);
+    }
+
+    // 点击外部退出编辑
+    const outsideHandler = (e: MouseEvent) => {
+      if (wrapper && !wrapper.contains(e.target as Node)) {
+        document.removeEventListener('mousedown', outsideHandler, true);
+        setTimeout(() => this.successCallback?.(), 0);
+      }
+    };
+    setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
+
+    this.element = wrapper;
+    this.container?.appendChild(wrapper);
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+
+    const dropdownHeight = this.element.offsetHeight || 260;
+    const cellBottom = rect.top + (rect.height || 40);
+    // offsetParent 是 VTable 容器（position: relative），其 clientHeight 为可见高度
+    const offsetParent = this.element.offsetParent as HTMLElement | null;
+    const containerHeight = offsetParent?.clientHeight || window.innerHeight;
+
+    let top: number;
+    // 如果单元格下方剩余空间不足以容纳下拉列表 → 向上弹出
+    if (cellBottom + 4 + dropdownHeight > containerHeight) {
+      top = Math.max(0, rect.top - dropdownHeight - 2);
+    } else {
+      top = rect.top - 1;
+    }
+
+    const left = rect.left - 1;
+    const width = Math.max(rect.width + 2, 160);
+    this.element.style.top = `${top}px`;
+    this.element.style.left = `${left}px`;
+    this.element.style.width = `${width}px`;
+  }
+
+  private createClearItem(): HTMLElement {
+    const item = document.createElement('div');
+    item.style.cssText = `
+      display: flex;
+      align-items: center;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #999;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 4px;
+      transition: background-color 0.15s;
+    `;
+    item.addEventListener('mouseenter', () => { item.style.backgroundColor = '#fafafa'; });
+    item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
+    item.addEventListener('click', () => {
+      this.selectedValue = null;
+      this.successCallback?.();
+    });
+
+    const icon = document.createElement('span');
+    icon.textContent = '✕';
+    icon.style.cssText = 'margin-right: 8px; font-size: 12px; color: #bbb;';
+    item.appendChild(icon);
+    item.appendChild(document.createTextNode('清空'));
+    return item;
+  }
+
+  private createOptionItem(opt: {id: string, name: string, color?: string}): HTMLElement {
+    const color = opt.color || '#6B7280';
+    const isSelected = this.selectedValue === opt.name;
+
+    const item = document.createElement('div');
+    item.style.cssText = `
+      display: flex;
+      align-items: center;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background-color 0.15s;
+    `;
+    item.addEventListener('mouseenter', () => { item.style.backgroundColor = '#e5f7fa'; });
+    item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
+    item.addEventListener('click', () => {
+      this.selectedValue = opt.name;
+      this.successCallback?.();
+    });
+
+    // 彩色标签样式，与单元格 customLayout 一致
+    const tag = document.createElement('span');
+    tag.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      background-color: ${color};
+      color: white;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: nowrap;
+      user-select: none;
+    `;
+
+    // 已选中项显示 ✓ 标记
+    if (isSelected) {
+      const check = document.createElement('span');
+      check.textContent = '✓ ';
+      check.style.cssText = 'font-size: 11px; margin-right: 1px;';
+      tag.appendChild(check);
+    }
+
+    tag.appendChild(document.createTextNode(opt.name));
+    item.appendChild(tag);
+    return item;
+  }
+
+  getValue() {
+    return this.selectedValue;
+  }
+
+  onEnd() {
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    return this.element?.contains(target) ?? false;
+  }
+}
 
 // TextAreaEditor - 多行文本编辑器
 class TextAreaEditor extends InputEditor {
@@ -1545,10 +1727,10 @@ const buildTableConfig = (): any => {
     const sortInfo = currentSorts.value.find(s => s.fieldId === field.id);
     const cellTypeConfig = getCellTypeConfig(field);
     
-    // 为 single_select 字段创建带选项的 ListEditor
+    // 为 single_select 字段创建带选项的 SingleSelectEditor（支持选择或清空，选项以彩色标签显示）
     if (field.type === FieldType.SINGLE_SELECT) {
-      const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-      cellTypeConfig.editor = new ListEditor({ values: options.map(o => o.name) });
+      const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+      cellTypeConfig.editor = new SingleSelectEditor({ options });
     }
     
     // 为 multi_select 字段创建带选项的 MultiSelectEditor
