@@ -871,6 +871,152 @@ class TextAreaEditor implements IEditor {
   }
 }
 
+// RichTextEditor - 富文本编辑器（浮窗弹出，集成 @opentiny/fluent-editor）
+class RichTextEditor implements IEditor {
+  editorType = 'RichText';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  editor: any = null;
+  value: string = '';
+  /** 用户是否有过操作（输入文本 / 格式变更），区分用户操作与 Quill API 加载 */
+  dirty: boolean = false;
+  successCallback?: () => void;
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    this.value = String(value ?? '') || '';
+    this.dirty = false;
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+    this.initEditorAsync();
+  }
+
+  createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      position: absolute;
+      z-index: 99999;
+      background: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+      padding: 0;
+      box-sizing: border-box;
+      overflow: hidden;
+    `;
+
+    const editorContainer = document.createElement('div');
+    editorContainer.style.cssText = `
+      min-height: 180px;
+    `;
+    editorContainer.className = 'rich-text-editor-container';
+    wrapper.appendChild(editorContainer);
+
+    this.element = wrapper;
+    this.container?.appendChild(wrapper);
+  }
+
+  async initEditorAsync() {
+    try {
+      const { default: FluentEditor } = await import('@opentiny/fluent-editor');
+
+      const editorContainer = this.element?.querySelector('.rich-text-editor-container');
+      if (!editorContainer) return;
+
+      this.editor = new FluentEditor(editorContainer, {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            ['clean'],
+          ],
+        },
+      });
+
+      // 加载已有内容（HTML → Delta）
+      if (this.value) {
+        const delta = this.editor.clipboard.convert({ html: this.value });
+        this.editor.setContents(delta);
+      }
+
+      // 监听用户操作：source === 'user' 表示用户主动编辑（输入文本、加粗、列表等）
+      // 设置 dirty 标记以在 getValue() 时区分"有改动"和"无改动"
+      this.editor.on('text-change', (_delta: any, _oldDelta: any, source: string) => {
+        if (source === 'user') {
+          this.dirty = true;
+        }
+      });
+
+      // 阻止 Enter 冒泡到 VTable，确保纯 Enter 只换行不退出编辑
+      // 使用捕获阶段拦截，在 VTable 处理之前截断
+      (this.editor.root as HTMLElement).addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+          e.stopPropagation();
+        }
+      }, true);
+    } catch (e) {
+      console.error('[RichTextEditor] 初始化失败:', e);
+    }
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+
+    const popupHeight = 280;
+    const cellBottom = rect.top + (rect.height || 40);
+    const offsetParent = this.element.offsetParent as HTMLElement | null;
+    const containerHeight = offsetParent?.clientHeight || window.innerHeight;
+
+    let top: number;
+    if (cellBottom + 4 + popupHeight > containerHeight) {
+      top = Math.max(0, rect.top - popupHeight - 2);
+    } else {
+      top = rect.top - 1;
+    }
+
+    const left = rect.left - 1;
+    const width = Math.max(rect.width + 2, 420);
+    this.element.style.top = `${top}px`;
+    this.element.style.left = `${left}px`;
+    this.element.style.width = `${width}px`;
+    this.element.style.height = `${popupHeight}px`;
+  }
+
+  getValue() {
+    if (this.editor) {
+      const html = (this.editor.root as HTMLElement).innerHTML;
+      // Quill 空内容为 <p><br></p>，视为空
+      if (html === '<p><br></p>' || html === '<br>') {
+        return '';
+      }
+
+      // 用户无任何操作（输入文本/格式变更）→ 返回原始值，不触发保存
+      if (!this.dirty) {
+        return this.value;
+      }
+
+      // 用户有操作 → 返回编辑器的实际 HTML（含文本变更和格式变更如加粗/列表等）
+      return html;
+    }
+    return this.value;
+  }
+
+  onEnd() {
+    this.editor = null;
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    // 包含编辑器内部所有子元素（工具栏、编辑区域等）
+    return this.element?.contains(target) ?? false;
+  }
+}
+
 // RatingEditor - 评分编辑器（星星选择）
 class RatingEditor implements IEditor {
   editorType = 'Rating';
@@ -1706,6 +1852,17 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
         textAlign: 'center'
       };
       break;
+    case FieldType.RICH_TEXT:
+      config.cellType = 'text';
+      config.fieldFormat = (record: any) => {
+        const value = record?.[field.id];
+        if (value == null || value === '') return '';
+        // 过滤 HTML 标签，仅保留纯文本
+        const tmp = document.createElement('div');
+        tmp.innerHTML = String(value);
+        return tmp.textContent || tmp.innerText || '';
+      };
+      break;
     case FieldType.URL:
     case FieldType.EMAIL:
       config.cellType = 'link';
@@ -1886,6 +2043,11 @@ const buildTableConfig = (): any => {
     // 为 LONG_TEXT 分配 TextAreaEditor（浮窗多行编辑器）
     if (field.type === FieldType.LONG_TEXT) {
       cellTypeConfig.editor = new TextAreaEditor();
+    }
+
+    // 为 RICH_TEXT 分配 RichTextEditor（浮窗富文本编辑器，集成 @opentiny/fluent-editor）
+    if (field.type === FieldType.RICH_TEXT) {
+      cellTypeConfig.editor = new RichTextEditor();
     }
 
     // 为 PROGRESS 分配 InputEditor（整数输入 0-100）
