@@ -2661,6 +2661,7 @@ const buildTableConfig = (): any => {
   });
 
   // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
+  clearTransformCache(); // 确保全量重建时使用最新记录数据，不返回缓存中的旧行
   let tableRecords = transformRecords(sortedRecords.value);
 
   // 分组末尾添加按钮行
@@ -3553,6 +3554,7 @@ const updateTableData = () => {
       updateTable();
     } else if (smartDataSource) {
       // 非分组 CachedDataSource 模式：更新内存缓存 + 轻量重绘
+      clearTransformCache(); // 清除转换缓存，确保 transformRecords 不会从缓存返回旧行
       const newRows = transformRecords(sortedRecords.value);
       smartDataSource.clearCache();
       smartDataSource.updateMemoryCache(newRows, 0);
