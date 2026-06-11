@@ -1290,8 +1290,8 @@ const contextMenuItems = computed(() => {
     // }});
     
     if (!props.readonly) {
-      items.push({ id: "edit", label: "编辑", icon: "edit", action: () => handleEditRecord() });
-      items.push({ id: "duplicate", label: "复制记录", icon: "copy", action: () => handleDuplicateRecord() });
+      items.push({ id: "edit", label: "编辑当前记录", icon: "edit", action: () => handleEditRecord() });
+      items.push({ id: "duplicate", label: "复制当前记录", icon: "copy", action: () => handleDuplicateRecord() });
       items.push({ divider: true, id: "divider1", label: "" });
 
       // 始终显示"删除当前记录"
