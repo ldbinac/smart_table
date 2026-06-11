@@ -747,22 +747,127 @@ class SingleSelectEditor implements IEditor {
   }
 }
 
-// TextAreaEditor - 多行文本编辑器
-class TextAreaEditor extends InputEditor {
+// TextAreaEditor - 多行文本编辑器（浮窗 textarea，5行高，可拖动调整大小）
+class TextAreaEditor implements IEditor {
   editorType = 'TextArea';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  value: string = '';
+  successCallback?: () => void;
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    this.value = String(value ?? '') || '';
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+  }
+
   createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      position: absolute;
+      z-index: 99999;
+      background: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+      padding: 10px;
+      box-sizing: border-box;
+      min-width: 260px;
+      min-height: 120px;
+    `;
+
     const textarea = document.createElement('textarea');
-    textarea.style.width = '100%';
-    textarea.style.height = '100%';
-    textarea.style.border = '2px solid #4A90E2';
-    textarea.style.outline = 'none';
-    textarea.style.resize = 'none';
-    textarea.style.padding = '4px';
-    textarea.style.fontSize = '14px';
-    textarea.style.boxSizing = 'border-box';
-    textarea.style.backgroundColor = '#FFFFFF';
-    this.element = textarea as unknown as HTMLInputElement;
-    this.container.appendChild(textarea);
+    textarea.value = this.value;
+    textarea.rows = 5;
+    textarea.style.cssText = `
+      width: 100%;
+      height: 100%;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: both;
+      box-sizing: border-box;
+      outline: none;
+      font-family: inherit;
+    `;
+
+    // 聚焦/失焦边框色
+    textarea.addEventListener('focus', () => { textarea.style.borderColor = '#4A90E2'; });
+    textarea.addEventListener('blur', () => { textarea.style.borderColor = '#d9d9d9'; });
+
+    // 实时同步输入内容到 this.value，确保 VTable 调用 getValue() 时能拿到最新值
+    textarea.addEventListener('input', () => {
+      this.value = textarea.value;
+    });
+
+    // 键盘事件：
+    //   - Ctrl+Enter / Cmd+Enter → 保存并退出编辑
+    //   - 纯 Enter → 阻止冒泡，防止 VTable 拦截，让 textarea 正常换行
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl+Enter → 保存退出
+          e.preventDefault();
+          this.value = textarea.value;
+          this.successCallback?.();
+        } else {
+          // 纯 Enter → 阻止 VTable 拦截，让 textarea 插入换行
+          e.stopPropagation();
+        }
+      }
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+      }
+    });
+
+    wrapper.appendChild(textarea);
+    this.element = wrapper;
+    this.container?.appendChild(wrapper);
+
+    // 自动聚焦
+    setTimeout(() => textarea.focus(), 0);
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+
+    const popupHeight = 170;
+    const cellBottom = rect.top + (rect.height || 40);
+    const offsetParent = this.element.offsetParent as HTMLElement | null;
+    const containerHeight = offsetParent?.clientHeight || window.innerHeight;
+
+    let top: number;
+    if (cellBottom + 4 + popupHeight > containerHeight) {
+      top = Math.max(0, rect.top - popupHeight - 2);
+    } else {
+      top = rect.top - 1;
+    }
+
+    const left = rect.left - 1;
+    const width = Math.max(rect.width + 2, 300);
+    this.element.style.top = `${top}px`;
+    this.element.style.left = `${left}px`;
+    this.element.style.width = `${width}px`;
+    this.element.style.height = `${popupHeight}px`;
+  }
+
+  getValue() {
+    return this.value;
+  }
+
+  onEnd() {
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    return this.element?.contains(target) ?? false;
   }
 }
 
@@ -1778,8 +1883,8 @@ const buildTableConfig = (): any => {
       cellTypeConfig.editor = new MultiSelectEditor({ options });
     }
 
-    // 为 LONG_TEXT/RICH_TEXT 分配 TextAreaEditor
-    if (field.type === FieldType.LONG_TEXT || field.type === FieldType.RICH_TEXT) {
+    // 为 LONG_TEXT 分配 TextAreaEditor（浮窗多行编辑器）
+    if (field.type === FieldType.LONG_TEXT) {
       cellTypeConfig.editor = new TextAreaEditor();
     }
 
