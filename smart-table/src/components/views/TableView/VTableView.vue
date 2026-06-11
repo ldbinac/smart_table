@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Close } from '@element-plus/icons-vue';
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useAuthStore } from "@/stores/authStore";
+import { userApi } from "@/api/user";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import LoadingProgress from "@/components/common/LoadingProgress.vue";
 import { SmartTableDataSource } from "@/services/SmartTableDataSource";
@@ -42,9 +42,6 @@ import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AttachmentManager from "@/components/fields/AttachmentManager.vue";
 // 导入关联记录选择器
 import LinkRecordSelector from "@/components/fields/LinkField/LinkRecordSelector.vue";
-// 导入成员选择器
-import MemberSelect from "@/components/common/MemberSelect.vue";
-
 // 模块级辅助函数（vue-tsc -b 模式下 script setup 内的函数声明不可见时需要）
 function extractMemberIds(value: any): string[] {
   if (!value) return [];
@@ -72,22 +69,26 @@ function recalcFloatingPanelPosition(
   col: number, row: number, panelWidth: number, panelHeight: number
 ): { x: number; y: number } | null {
   const cellRect = (tableInstance as any)?.getCellRect(col, row);
-  const containerRect = tableContainerRef.value?.getBoundingClientRect();
-  if (!cellRect || !containerRect) return null;
+  const canvas = (tableInstance as any)?.canvas;
+  const canvasRect = canvas?.getBoundingClientRect();
+  if (!cellRect || !canvasRect) return null;
 
-  const scrollLeft = (tableInstance as any).scrollLeft || 0;
-  const scrollTop = (tableInstance as any).scrollTop || 0;
-  const frozenColCount = (tableInstance as any).frozenColCount || 1;
-  const adjustedLeft = col < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
+  // VTable 的 getCellRect 返回表格内绝对坐标，需加上 canvas 视口位置和 tableX/tableY 偏移
+  const tableX = (tableInstance as any).tableX || 0;
+  const tableY = (tableInstance as any).tableY || 0;
+  const cellLeft = canvasRect.left + tableX + cellRect.left;
+  const cellTop = canvasRect.top + tableY + cellRect.top;
+  const cellRight = cellLeft + cellRect.width;
+  const cellBottom = cellTop + cellRect.height;
 
-  let panelX = containerRect.left + adjustedLeft + cellRect.width;
-  let panelY = containerRect.top + cellRect.bottom - scrollTop;
+  let panelX = cellRight;
+  let panelY = cellBottom;
 
   if (panelX + panelWidth > window.innerWidth - 16) {
-    panelX = containerRect.left + adjustedLeft - panelWidth;
+    panelX = cellLeft - panelWidth;
   }
   if (panelY + panelHeight > window.innerHeight - 16) {
-    panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
+    panelY = cellTop - panelHeight;
   }
   if (panelX < 8) panelX = 8;
   if (panelY < 8) panelY = 8;
@@ -148,16 +149,6 @@ const linkSelectorFieldId = ref('');
 const linkSelectorRecordId = ref('');
 const linkSelectorAllowMultiple = ref(true);
 const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string }[]>([]);
-
-// ==================== 成员选择器浮动面板状态 ====================
-const memberSelectorVisible = ref(false);
-const memberSelectorPosition = ref({ x: 0, y: 0 });
-const memberSelectorField = ref<FieldEntity | null>(null);
-const memberSelectorRecordId = ref<string>('');
-const memberSelectorInitialValue = ref<any>(null);
-const lastMemberCellCoords = ref<{ col: number; row: number } | null>(null);
-const memberSelectorAllowMultiple = ref(true);
-const memberSelectorEditingValue = ref<string[]>([]);
 
 // ==================== 关联字段数据缓存 ====================
 // 键: `${recordId}:${fieldId}`, 值: display_value 数组
@@ -1093,37 +1084,86 @@ class RatingEditor implements IEditor {
   }
 }
 
-// MemberEditor - 成员选择编辑器（多选 checkbox 列表）
+// MemberEditor - 成员选择编辑器（带搜索、已选标签、选择即保存）
+interface MemberInfo {
+  id: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+}
+
 class MemberEditor implements IEditor {
   editorType = 'Member';
   container?: HTMLElement;
   element?: HTMLElement;
-  editorConfig: { members: Array<{id: string, name: string}> };
+  editorConfig: {
+    allowMultiple?: boolean;
+    baseId?: string;
+    userCacheStore?: any;
+  };
   successCallback?: () => void;
-  selectedMembers: Array<{id: string, name: string}> = [];
+  selectedIds: string[] = [];
+  selectedMembers: MemberInfo[] = [];
+  outsideHandler?: (e: MouseEvent) => void;
+  searchTimer?: ReturnType<typeof setTimeout>;
+  searchQuery = '';
+  searchResults: MemberInfo[] = [];
+  isLoading = false;
 
-  constructor(editorConfig: { members: Array<{id: string, name: string}> }) {
+  // DOM 引用
+  selectedTagsEl?: HTMLElement;
+  searchInputEl?: HTMLInputElement;
+  resultsListEl?: HTMLElement;
+
+  constructor(editorConfig: {
+    allowMultiple?: boolean;
+    baseId?: string;
+    userCacheStore?: any;
+  }) {
     this.editorConfig = editorConfig;
   }
 
   onStart({ container, value, referencePosition, endEdit }: EditContext) {
     this.container = container;
     this.successCallback = endEdit;
-    // 解析当前值
-    if (value) {
-      try {
-        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-        if (Array.isArray(parsed)) {
-          this.selectedMembers = parsed;
-        }
-      } catch {
-        this.selectedMembers = [];
-      }
-    } else {
-      this.selectedMembers = [];
+    this.selectedIds = this.extractMemberIds(value);
+    this.loadSelectedMembers().then(() => {
+      this.createElement();
+      if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+      // 聚焦搜索框
+      setTimeout(() => this.searchInputEl?.focus(), 50);
+    });
+  }
+
+  extractMemberIds(value: unknown): string[] {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.map(v => typeof v === 'string' ? v : (v as any)?.id || '').filter(Boolean);
     }
-    this.createElement();
-    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+    if (typeof value === 'string') {
+      try { const p = JSON.parse(value); if (Array.isArray(p)) return p.map((v: any) => typeof v === 'string' ? v : v?.id || '').filter(Boolean); } catch {}
+      return value ? [value] : [];
+    }
+    return [];
+  }
+
+  async loadSelectedMembers() {
+    const { userCacheStore } = this.editorConfig;
+    if (!userCacheStore || this.selectedIds.length === 0) {
+      this.selectedMembers = [];
+      return;
+    }
+    try {
+      const users = await userCacheStore.fetchUsers(this.selectedIds);
+      this.selectedMembers = users.map((u: any) => ({
+        id: u.id,
+        name: u.name || u.nickname || '未知',
+        email: u.email,
+        avatar: u.avatar,
+      }));
+    } catch {
+      this.selectedMembers = this.selectedIds.map(id => ({ id, name: '未知成员' }));
+    }
   }
 
   createElement() {
@@ -1131,92 +1171,396 @@ class MemberEditor implements IEditor {
     wrapper.style.cssText = `
       position: absolute;
       background: #ffffff;
-      border: 1px solid #d9d9d9;
-      border-radius: 4px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      border: 1px solid #dcdfe6;
+      border-radius: 6px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
       z-index: 1000;
-      max-height: 220px;
-      overflow-y: auto;
-      min-width: 160px;
-      padding: 4px 0;
+      width: 320px;
+      max-height: 360px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
     `;
 
-    const { members } = this.editorConfig;
-    if (members && members.length > 0) {
-      members.forEach(member => {
-        const label = document.createElement('label');
-        label.style.cssText = `
-          display: flex;
-          align-items: center;
-          padding: 6px 12px;
-          cursor: pointer;
-          font-size: 13px;
-          color: #333;
-          transition: background-color 0.15s;
-        `;
-        label.addEventListener('mouseenter', () => { label.style.backgroundColor = '#f0f5ff'; });
-        label.addEventListener('mouseleave', () => { label.style.backgroundColor = ''; });
+    // ===== 已选成员标签区域 =====
+    const tagsArea = document.createElement('div');
+    tagsArea.style.cssText = `
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 6px; padding: 10px 12px; border-bottom: 1px solid #ebeef5;
+      min-height: 40px; max-height: 90px; overflow-y: auto;
+    `;
+    this.selectedTagsEl = tagsArea;
+    this.renderSelectedTags();
+    wrapper.appendChild(tagsArea);
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = member.id;
-        checkbox.checked = this.selectedMembers.some(m => m.id === member.id);
-        checkbox.style.cssText = 'margin-right: 8px; cursor: pointer; accent-color: #409eff;';
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            if (!this.selectedMembers.some(m => m.id === member.id)) {
-              this.selectedMembers.push({ id: member.id, name: member.name });
-            }
-          } else {
-            this.selectedMembers = this.selectedMembers.filter(m => m.id !== member.id);
-          }
-        });
+    // ===== 搜索输入框 =====
+    const searchBox = document.createElement('div');
+    searchBox.style.cssText = 'padding: 8px 12px; border-bottom: 1px solid #ebeef5;';
 
-        label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(member.name));
-        wrapper.appendChild(label);
-      });
-    } else {
-      const emptyHint = document.createElement('div');
-      emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
-      emptyHint.textContent = '无可用成员';
-      wrapper.appendChild(emptyHint);
-    }
-
-    // Enter 键确认
-    const keydownHandler = (e: KeyboardEvent) => {
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = '输入姓名或邮箱搜索';
+    searchInput.style.cssText = `
+      width: 100%; height: 32px; padding: 0 10px;
+      border: 1px solid #dcdfe6; border-radius: 4px;
+      font-size: 13px; outline: none; box-sizing: border-box;
+    `;
+    searchInput.addEventListener('focus', () => { searchInput.style.borderColor = '#409eff'; });
+    searchInput.addEventListener('blur', () => { searchInput.style.borderColor = '#dcdfe6'; });
+    searchInput.addEventListener('input', (e) => {
+      const query = (e.target as HTMLInputElement).value;
+      this.handleSearch(query);
+    });
+    searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        document.removeEventListener('keydown', keydownHandler);
+        e.stopPropagation();
+        if (!this.editorConfig.allowMultiple) {
+          // 单选模式下 Enter 不保存（由点击触发）
+        } else {
+          // 多选模式下 Enter 保存并关闭
+          this.successCallback?.();
+        }
+      } else if (e.key === 'Escape') {
         this.successCallback?.();
       }
-    };
-    wrapper.addEventListener('keydown', keydownHandler);
+    });
+    this.searchInputEl = searchInput;
+    searchBox.appendChild(searchInput);
+    wrapper.appendChild(searchBox);
 
-    // 点击外部退出
-    const outsideHandler = (e: MouseEvent) => {
+    // ===== 搜索结果列表 =====
+    const resultsList = document.createElement('div');
+    resultsList.style.cssText = `
+      flex: 1; overflow-y: auto; min-height: 60px; padding: 4px 0;
+    `;
+    this.resultsListEl = resultsList;
+    this.renderResults();
+    wrapper.appendChild(resultsList);
+
+    // ===== 底部提示（多选模式） =====
+    if (this.editorConfig.allowMultiple) {
+      const tip = document.createElement('div');
+      tip.style.cssText = `
+        padding: 6px 12px; font-size: 11px; color: #909399;
+        text-align: center; border-top: 1px solid #ebeef5;
+      `;
+      tip.textContent = '点击外部或按 Enter 完成选择';
+      wrapper.appendChild(tip);
+    }
+
+    // 点击外部保存
+    this.outsideHandler = (e: MouseEvent) => {
       if (wrapper && !wrapper.contains(e.target as Node)) {
-        document.removeEventListener('mousedown', outsideHandler, true);
+        document.removeEventListener('mousedown', this.outsideHandler!, true);
         setTimeout(() => this.successCallback?.(), 0);
       }
     };
-    setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
+    setTimeout(() => document.addEventListener('mousedown', this.outsideHandler, true), 0);
 
     this.element = wrapper;
     this.container?.appendChild(wrapper);
   }
 
+  // 渲染已选成员标签
+  renderSelectedTags() {
+    if (!this.selectedTagsEl) return;
+    this.selectedTagsEl.innerHTML = '';
+
+    if (this.selectedMembers.length === 0) {
+      const placeholder = document.createElement('span');
+      placeholder.style.cssText = 'color: #c0c4cc; font-size: 13px;';
+      placeholder.textContent = '未选择成员';
+      this.selectedTagsEl.appendChild(placeholder);
+      return;
+    }
+
+    this.selectedMembers.forEach(member => {
+      const tag = document.createElement('div');
+      tag.style.cssText = `
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 8px; background: #f5f7fa;
+        border-radius: 4px; font-size: 12px;
+        color: #303133; user-select: none;
+      `;
+
+      // 头像
+      const avatar = document.createElement('div');
+      const color = this.getAvatarColor(member.name);
+      avatar.style.cssText = `
+        width: 18px; height: 18px; border-radius: 50%;
+        background-color: ${member.avatar ? 'transparent' : color};
+        color: #fff; font-size: 9px; font-weight: 500;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; overflow: hidden;
+      `;
+      if (member.avatar) {
+        const img = document.createElement('img');
+        img.src = member.avatar;
+        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+        avatar.appendChild(img);
+      } else {
+        avatar.textContent = (member.name || '?').charAt(0).toUpperCase();
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = member.name;
+      nameSpan.style.cssText = 'max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
+      // 删除按钮
+      const removeBtn = document.createElement('span');
+      removeBtn.textContent = '×';
+      removeBtn.style.cssText = `
+        cursor: pointer; color: #909399; font-size: 14px;
+        line-height: 1; padding: 0 2px; margin-left: 2px;
+      `;
+      removeBtn.addEventListener('mouseenter', () => { removeBtn.style.color = '#f56c6c'; });
+      removeBtn.addEventListener('mouseleave', () => { removeBtn.style.color = '#909399'; });
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeMember(member.id);
+      });
+
+      tag.appendChild(avatar);
+      tag.appendChild(nameSpan);
+      tag.appendChild(removeBtn);
+      this.selectedTagsEl!.appendChild(tag);
+    });
+  }
+
+  // 渲染搜索结果
+  renderResults() {
+    if (!this.resultsListEl) return;
+    this.resultsListEl.innerHTML = '';
+
+    if (this.isLoading) {
+      const loadingEl = document.createElement('div');
+      loadingEl.style.cssText = `
+        display: flex; align-items: center; justify-content: center;
+        gap: 8px; padding: 24px; color: #909399; font-size: 13px;
+      `;
+      loadingEl.textContent = '搜索中...';
+      this.resultsListEl.appendChild(loadingEl);
+      return;
+    }
+
+    if (!this.searchQuery.trim()) {
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = `
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 8px; padding: 32px 16px;
+        color: #909399; font-size: 13px;
+      `;
+      emptyEl.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <span>请输入关键词搜索</span>
+      `;
+      this.resultsListEl.appendChild(emptyEl);
+      return;
+    }
+
+    if (this.searchResults.length === 0) {
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = `
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 8px; padding: 32px 16px;
+        color: #909399; font-size: 13px;
+      `;
+      emptyEl.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <span>未找到匹配的成员</span>
+      `;
+      this.resultsListEl.appendChild(emptyEl);
+      return;
+    }
+
+    this.searchResults.forEach(member => {
+      const isSelected = this.selectedIds.includes(member.id);
+      const row = document.createElement('div');
+      row.style.cssText = `
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; cursor: pointer;
+        transition: background-color 0.15s;
+        ${isSelected ? 'background-color: rgba(64,158,255,0.08);' : ''}
+      `;
+
+      // 头像
+      const avatar = document.createElement('div');
+      const color = this.getAvatarColor(member.name);
+      avatar.style.cssText = `
+        width: 28px; height: 28px; border-radius: 50%;
+        background-color: ${member.avatar ? 'transparent' : color};
+        color: #fff; font-size: 11px; font-weight: 600;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; overflow: hidden;
+      `;
+      if (member.avatar) {
+        const img = document.createElement('img');
+        img.src = member.avatar;
+        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+        avatar.appendChild(img);
+      } else {
+        avatar.textContent = this.getInitials(member.name);
+      }
+
+      // 信息区域
+      const info = document.createElement('div');
+      info.style.cssText = 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.textContent = member.name;
+      nameDiv.style.cssText = 'font-size: 13px; color: #303133; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
+      const emailDiv = document.createElement('div');
+      emailDiv.textContent = member.email || '';
+      emailDiv.style.cssText = 'font-size: 11px; color: #909399; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
+      info.appendChild(nameDiv);
+      if (member.email) info.appendChild(emailDiv);
+
+      // 勾选标记
+      const checkMark = document.createElement('span');
+      checkMark.textContent = '✓';
+      checkMark.style.cssText = `
+        color: #409eff; font-size: 16px; font-weight: bold;
+        width: 20px; text-align: center; flex-shrink: 0;
+        opacity: ${isSelected ? '1' : '0'}; transition: opacity 0.15s;
+      `;
+
+      row.appendChild(avatar);
+      row.appendChild(info);
+      row.appendChild(checkMark);
+
+      row.addEventListener('mouseenter', () => { if (!isSelected) row.style.backgroundColor = '#f5f7fa'; });
+      row.addEventListener('mouseleave', () => { if (!isSelected) row.style.backgroundColor = ''; });
+
+      row.addEventListener('click', () => {
+        this.toggleMember(member);
+      });
+
+      this.resultsListEl!.appendChild(row);
+    });
+  }
+
+  // 搜索处理（防抖 300ms）
+  handleSearch(query: string) {
+    this.searchQuery = query;
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+
+    if (!query.trim()) {
+      this.searchResults = [];
+      this.isLoading = false;
+      this.renderResults();
+      return;
+    }
+
+    this.isLoading = true;
+    this.renderResults();
+
+    this.searchTimer = setTimeout(async () => {
+      try {
+        const response = await userApi.searchUsers({
+          query: query.trim(),
+          base_id: this.editorConfig.baseId,
+          per_page: 20,
+        });
+        this.searchResults = response.users.map((u: any) => ({
+          id: u.id,
+          name: u.name || u.nickname || '未知',
+          email: u.email,
+          avatar: u.avatar,
+        }));
+      } catch (error) {
+        console.error('[MemberEditor] 搜索用户失败:', error);
+        this.searchResults = [];
+      } finally {
+        this.isLoading = false;
+        this.renderResults();
+      }
+    }, 300);
+  }
+
+  // 选择/取消选择成员
+  toggleMember(member: MemberInfo) {
+    const { allowMultiple = false } = this.editorConfig;
+
+    if (allowMultiple) {
+      // 多选：切换选择状态
+      if (this.selectedIds.includes(member.id)) {
+        this.selectedIds = this.selectedIds.filter(id => id !== member.id);
+        this.selectedMembers = this.selectedMembers.filter(m => m.id !== member.id);
+      } else {
+        this.selectedIds.push(member.id);
+        this.selectedMembers.push(member);
+      }
+      this.renderSelectedTags();
+      this.renderResults();
+    } else {
+      // 单选：直接选中并保存
+      this.selectedIds = [member.id];
+      this.selectedMembers = [member];
+      this.successCallback?.();
+    }
+  }
+
+  // 移除已选成员（通过标签上的 x 按钮）
+  removeMember(memberId: string) {
+    this.selectedIds = this.selectedIds.filter(id => id !== memberId);
+    this.selectedMembers = this.selectedMembers.filter(m => m.id !== memberId);
+    this.renderSelectedTags();
+    this.renderResults();
+  }
+
+  getAvatarColor(name: string): string {
+    const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#8e44ad', '#16a085', '#d35400'];
+    let hash = 0;
+    for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  getInitials(name: string): string {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
   adjustPosition(rect: RectProps) {
     if (!this.element) return;
-    this.element.style.top = `${rect.top - 1}px`;
+
+    const popupHeight = this.element.offsetHeight || 300;
+    const cellBottom = rect.top + (rect.height || 40);
+    const offsetParent = this.element.offsetParent as HTMLElement | null;
+    const containerHeight = offsetParent?.clientHeight || window.innerHeight;
+
+    let top: number;
+    // 如果单元格下方剩余空间不足以容纳浮窗 → 向上弹出
+    if (cellBottom + 4 + popupHeight > containerHeight) {
+      top = Math.max(0, rect.top - popupHeight - 2);
+    } else {
+      top = rect.top - 1;
+    }
+
+    this.element.style.top = `${top}px`;
     this.element.style.left = `${rect.left - 1}px`;
-    this.element.style.width = `${Math.max(rect.width + 2, 160)}px`;
+    this.element.style.width = '320px';
   }
 
   getValue() {
-    return JSON.stringify(this.selectedMembers);
+    return this.selectedIds;
   }
 
   onEnd() {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    if (this.outsideHandler) {
+      document.removeEventListener('mousedown', this.outsideHandler, true);
+      this.outsideHandler = undefined;
+    }
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
     }
@@ -2068,11 +2412,11 @@ const buildTableConfig = (): any => {
       cellTypeConfig.editor = new RatingEditor();
     }
 
-    // 为 MEMBER 分配 MemberEditor（从 userCacheStore 获取成员列表）
+    // 为 MEMBER 分配 MemberEditor（带搜索、已选标签、选择即保存）
     if (field.type === FieldType.MEMBER) {
-      const cachedUsers = Array.from(userCacheStore.userCache.values());
-      const members = cachedUsers.map(u => ({ id: u.id, name: u.name }));
-      cellTypeConfig.editor = new MemberEditor({ members });
+      const allowMultiple = (field.options as any)?.allowMultiple !== false;
+      const baseId = tableStore.currentTable?.baseId;
+      cellTypeConfig.editor = new MemberEditor({ allowMultiple, baseId, userCacheStore });
     }
 
     // 附件类型字段不需要编辑器，由自定义双击浮窗 AttachmentManager 处理
@@ -3312,67 +3656,20 @@ const bindTableEvents = () => {
         linkSelectorVisible.value = true;
         return;
       }
-      // 成员字段：打开成员选择器浮动面板
-      if (field.type === FieldType.MEMBER) {
-        const cellRect = (tableInstance as any)?.getCellRect(colIndex, rowIndex);
-        const containerRect = tableContainerRef.value?.getBoundingClientRect();
-        if (cellRect && containerRect) {
-          const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
-          if (!cellRecord) return;
-
-          const scrollLeft = (tableInstance as any).scrollLeft || 0;
-          const scrollTop = (tableInstance as any).scrollTop || 0;
-          const frozenColCount = (tableInstance as any).frozenColCount || 1;
-          const adjustedLeft = colIndex < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
-
-          // 基准位置：单元格右下角
-          let panelX = containerRect.left + adjustedLeft + cellRect.width;
-          let panelY = containerRect.top + cellRect.bottom - scrollTop;
-
-          // 视口边界检测
-          const panelWidth = 360;
-          const panelHeight = 420;
-          if (panelX + panelWidth > window.innerWidth - 16) {
-            panelX = containerRect.left + adjustedLeft - panelWidth;
-          }
-          if (panelY + panelHeight > window.innerHeight - 16) {
-            panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
-          }
-          if (panelX < 8) panelX = 8;
-          if (panelY < 8) panelY = 8;
-
-          memberSelectorPosition.value = { x: panelX, y: panelY };
-          memberSelectorField.value = field;
-          memberSelectorRecordId.value = cellRecord._recordId || cellRecord._originalRecord?.id || '';
-          memberSelectorInitialValue.value = cellRecord[field.id] ?? cellRecord._originalRecord?.values?.[field.id] ?? null;
-          memberSelectorAllowMultiple.value = field.options?.allowMultiple !== false;
-          // 初始化编辑值：从当前值中提取成员 ID 列表
-          memberSelectorEditingValue.value = extractMemberIds(memberSelectorInitialValue.value);
-          memberSelectorVisible.value = true;
-          lastMemberCellCoords.value = { col: colIndex, row: rowIndex };
-          return;
-        }
-      }
     }
-    // 非附件/关联/成员字段，保持原有行为
+    // 非附件/关联字段，保持原有行为
     if (args.record && args.record._originalRecord) {
       handleExpandRecord(args.record._originalRecord);
     }
   });
 
-  // 表格滚动事件 - 实时更新附件/成员浮窗位置
+  // 表格滚动事件 - 实时更新附件浮窗位置
   tableInstanceAny.on('scroll', (_args: any) => {
     // 更新附件浮窗
     if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
       const { col, row } = lastAttachmentCellCoords.value;
       const pos = recalcFloatingPanelPosition(col, row, 380, 480);
       if (pos) attachmentManagerPosition.value = pos;
-    }
-    // 更新成员选择器浮窗
-    if (memberSelectorVisible.value && lastMemberCellCoords.value) {
-      const { col, row } = lastMemberCellCoords.value;
-      const pos = recalcFloatingPanelPosition(col, row, 360, 420);
-      if (pos) memberSelectorPosition.value = pos;
     }
   });
 
@@ -3727,19 +4024,13 @@ function closeAttachmentManager() {
   lastAttachmentCellCoords.value = null;
 }
 
-// 窗口 resize 事件 - 重新定位所有浮窗
+// 窗口 resize 事件 - 重新定位附件浮窗
 function handleFloatingPanelWindowResize() {
   // 更新附件浮窗
   if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
     const { col, row } = lastAttachmentCellCoords.value;
     const pos = recalcFloatingPanelPosition(col, row, 380, 480);
     if (pos) attachmentManagerPosition.value = pos;
-  }
-  // 更新成员选择器浮窗
-  if (memberSelectorVisible.value && lastMemberCellCoords.value) {
-    const { col, row } = lastMemberCellCoords.value;
-    const pos = recalcFloatingPanelPosition(col, row, 360, 420);
-    if (pos) memberSelectorPosition.value = pos;
   }
 }
 
@@ -3760,38 +4051,6 @@ async function handleAttachmentUpdate(value: any) {
     console.error('附件保存失败:', error);
     ElMessage.error('附件保存失败');
   }
-}
-
-// ==================== 成员选择器：关闭、确认 ====================
-function closeMemberSelector() {
-  memberSelectorVisible.value = false;
-  memberSelectorField.value = null;
-  memberSelectorRecordId.value = '';
-  memberSelectorInitialValue.value = null;
-  memberSelectorEditingValue.value = [];
-  lastMemberCellCoords.value = null;
-}
-
-// 成员选择器：保存
-async function handleMemberUpdate(value: any) {
-  memberSelectorEditingValue.value = extractMemberIds(value);
-}
-
-// 成员选择器：确认保存到数据库
-async function confirmMemberUpdate() {
-  if (!memberSelectorRecordId.value || !memberSelectorField.value || !props.tableId) return;
-  const fieldId = memberSelectorField.value.id;
-  const newValue = memberSelectorEditingValue.value;
-  try {
-    await recordService.updateRecord(memberSelectorRecordId.value, {
-      values: { [fieldId]: newValue } as Record<string, CellValue>,
-    });
-    await tableStore.refreshRecords(props.tableId);
-  } catch (error) {
-    console.error('成员字段保存失败:', error);
-    ElMessage.error('成员字段保存失败');
-  }
-  closeMemberSelector();
 }
 
 // ==================== 关联字段数据加载 ====================
@@ -4019,33 +4278,6 @@ watch(
       @cancel="handleLinkSelectorCancel"
     />
 
-    <!-- 成员选择器浮动面板 -->
-    <div
-      v-if="memberSelectorVisible && memberSelectorField"
-      class="member-selector-panel"
-      :style="{
-        left: memberSelectorPosition.x + 'px',
-        top: memberSelectorPosition.y + 'px',
-      }"
-      @click.stop
-    >
-      <div class="member-selector-header">
-        <span>{{ memberSelectorField.name }}</span>
-        <el-icon class="close-btn" @click="closeMemberSelector">
-          <Close />
-        </el-icon>
-      </div>
-      <MemberSelect
-        v-model="memberSelectorEditingValue"
-        :allow-multiple="memberSelectorAllowMultiple"
-        @update:model-value="handleMemberUpdate"
-      />
-      <div class="member-selector-footer">
-        <el-button size="small" @click="closeMemberSelector">取消</el-button>
-        <el-button size="small" type="primary" @click="confirmMemberUpdate">确定</el-button>
-      </div>
-    </div>
-    
     <!-- 加载进度提示 -->
     <LoadingProgress
       :visible="tableStore.streamingState.isLoading"
@@ -4107,49 +4339,4 @@ watch(
   }
 }
 
-// 成员选择器浮动面板
-.member-selector-panel {
-  position: fixed;
-  z-index: 1001;
-  width: 320px;
-  background-color: #fff;
-  border: 1px solid #dcdfe6;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-
-  .member-selector-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    border-bottom: 1px solid #ebeef5;
-    font-size: 13px;
-    font-weight: 500;
-    color: #303133;
-
-    .close-btn {
-      cursor: pointer;
-      color: #909399;
-      font-size: 14px;
-
-      &:hover {
-        color: #303133;
-      }
-    }
-  }
-
-  .member-selector-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 8px 12px;
-    border-top: 1px solid #ebeef5;
-  }
-
-  // MemberSelect 组件在面板内的间距
-  .member-select {
-    padding: 8px 12px;
-  }
-}
 </style>
