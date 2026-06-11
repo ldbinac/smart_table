@@ -396,11 +396,11 @@ class MultiSelectEditor implements IEditor {
   editorType = 'MultiSelect';
   container?: HTMLElement;
   element?: HTMLElement;
-  editorConfig: { values: string[] };
+  editorConfig: { options: Array<{id: string, name: string, color?: string}> };
   successCallback?: () => void;
   selectedValues: string[] = [];
 
-  constructor(editorConfig: { values: string[] }) {
+  constructor(editorConfig: { options: Array<{id: string, name: string, color?: string}> }) {
     this.editorConfig = editorConfig;
   }
 
@@ -425,48 +425,19 @@ class MultiSelectEditor implements IEditor {
       position: absolute;
       background: #ffffff;
       border: 1px solid #d9d9d9;
-      border-radius: 4px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-      z-index: 1000;
-      max-height: 220px;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      z-index: 99999;
+      max-height: 260px;
       overflow-y: auto;
       min-width: 160px;
-      padding: 4px 0;
+      padding: 6px 0;
+      box-sizing: border-box;
     `;
 
-    const { values } = this.editorConfig;
-    if (values && values.length > 0) {
-      values.forEach(opt => {
-        const label = document.createElement('label');
-        label.style.cssText = `
-          display: flex;
-          align-items: center;
-          padding: 6px 12px;
-          cursor: pointer;
-          font-size: 13px;
-          color: #333;
-          transition: background-color 0.15s;
-        `;
-        label.addEventListener('mouseenter', () => { label.style.backgroundColor = '#f0f5ff'; });
-        label.addEventListener('mouseleave', () => { label.style.backgroundColor = ''; });
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = opt;
-        checkbox.checked = this.selectedValues.includes(opt);
-        checkbox.style.cssText = 'margin-right: 8px; cursor: pointer; accent-color: #409eff;';
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            if (!this.selectedValues.includes(opt)) this.selectedValues.push(opt);
-          } else {
-            this.selectedValues = this.selectedValues.filter(v => v !== opt);
-          }
-        });
-
-        label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(opt));
-        wrapper.appendChild(label);
-      });
+    const { options } = this.editorConfig;
+    if (options && options.length > 0) {
+      options.forEach(opt => wrapper.appendChild(this.createOptionItem(opt)));
     } else {
       const emptyHint = document.createElement('div');
       emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
@@ -487,20 +458,84 @@ class MultiSelectEditor implements IEditor {
     const outsideHandler = (e: MouseEvent) => {
       if (wrapper && !wrapper.contains(e.target as Node)) {
         document.removeEventListener('mousedown', outsideHandler, true);
-        // 延时确保 checkbox 点击事件已处理
         setTimeout(() => this.successCallback?.(), 0);
       }
     };
-    // 使用捕获阶段以在冒泡前拦截
     setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
 
     this.element = wrapper;
     this.container?.appendChild(wrapper);
   }
 
+  private createOptionItem(opt: {id: string, name: string, color?: string}): HTMLElement {
+    const color = opt.color || '#6B7280';
+    const isChecked = this.selectedValues.includes(opt.name);
+
+    const item = document.createElement('label');
+    item.style.cssText = `
+      display: flex;
+      align-items: center;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background-color 0.15s;
+    `;
+    item.addEventListener('mouseenter', () => { item.style.backgroundColor = '#f5f7fa'; });
+    item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = opt.name;
+    checkbox.checked = isChecked;
+    checkbox.style.cssText = 'margin-right: 10px; cursor: pointer; accent-color: #409eff; flex-shrink: 0;';
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) {
+        if (!this.selectedValues.includes(opt.name)) this.selectedValues.push(opt.name);
+      } else {
+        this.selectedValues = this.selectedValues.filter(v => v !== opt.name);
+      }
+    });
+
+    // 彩色标签样式，与单元格 customLayout 一致
+    const tag = document.createElement('span');
+    tag.textContent = opt.name;
+    tag.title = opt.name; // 长文本截断时显示完整内容
+    tag.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      background-color: ${color};
+      color: white;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: nowrap;
+      user-select: none;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    `;
+
+    item.appendChild(checkbox);
+    item.appendChild(tag);
+    return item;
+  }
+
   adjustPosition(rect: RectProps) {
     if (!this.element) return;
-    const top = rect.top - 1;
+
+    const dropdownHeight = this.element.offsetHeight || 260;
+    const cellBottom = rect.top + (rect.height || 40);
+    const offsetParent = this.element.offsetParent as HTMLElement | null;
+    const containerHeight = offsetParent?.clientHeight || window.innerHeight;
+
+    let top: number;
+    if (cellBottom + 4 + dropdownHeight > containerHeight) {
+      top = Math.max(0, rect.top - dropdownHeight - 2);
+    } else {
+      top = rect.top - 1;
+    }
+
     const left = rect.left - 1;
     const width = Math.max(rect.width + 2, 160);
     this.element.style.top = `${top}px`;
@@ -509,7 +544,7 @@ class MultiSelectEditor implements IEditor {
   }
 
   getValue() {
-    return JSON.stringify(this.selectedValues);
+    return this.selectedValues.length > 0 ? JSON.stringify(this.selectedValues) : null;
   }
 
   onEnd() {
@@ -524,7 +559,7 @@ class MultiSelectEditor implements IEditor {
   }
 }
 
-registerVTable.editor('multi-select', new MultiSelectEditor({ values: [] }));
+registerVTable.editor('multi-select', new MultiSelectEditor({ options: [] }));
 
 // SingleSelectEditor - 单选编辑器（选择列表，支持清空已选内容）
 // 每个选项以彩色标签样式渲染，与单元格内的显示风格一致
@@ -666,6 +701,7 @@ class SingleSelectEditor implements IEditor {
 
     // 彩色标签样式，与单元格 customLayout 一致
     const tag = document.createElement('span');
+    tag.title = opt.name; // 长文本截断时显示完整内容
     tag.style.cssText = `
       display: inline-flex;
       align-items: center;
@@ -677,6 +713,9 @@ class SingleSelectEditor implements IEditor {
       line-height: 1.6;
       white-space: nowrap;
       user-select: none;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     `;
 
     // 已选中项显示 ✓ 标记
@@ -1733,10 +1772,10 @@ const buildTableConfig = (): any => {
       cellTypeConfig.editor = new SingleSelectEditor({ options });
     }
     
-    // 为 multi_select 字段创建带选项的 MultiSelectEditor
+    // 为 multi_select 字段创建带选项的 MultiSelectEditor（选项以彩色标签显示）
     if (field.type === FieldType.MULTI_SELECT) {
-      const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string}>;
-      cellTypeConfig.editor = new MultiSelectEditor({ values: options.map(o => o.name) });
+      const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+      cellTypeConfig.editor = new MultiSelectEditor({ options });
     }
 
     // 为 LONG_TEXT/RICH_TEXT 分配 TextAreaEditor
