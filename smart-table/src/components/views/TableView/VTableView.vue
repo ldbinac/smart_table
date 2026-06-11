@@ -1102,6 +1102,7 @@ class MemberEditor implements IEditor {
     userCacheStore?: any;
   };
   successCallback?: () => void;
+  value?: unknown; // 原始值引用，用于 getValue() 中比较是否变化
   selectedIds: string[] = [];
   selectedMembers: MemberInfo[] = [];
   outsideHandler?: (e: MouseEvent) => void;
@@ -1126,6 +1127,7 @@ class MemberEditor implements IEditor {
   onStart({ container, value, referencePosition, endEdit }: EditContext) {
     this.container = container;
     this.successCallback = endEdit;
+    this.value = value; // 保存原始值引用，供 getValue() 比较
     this.selectedIds = this.extractMemberIds(value);
     this.loadSelectedMembers().then(() => {
       this.createElement();
@@ -1488,7 +1490,17 @@ class MemberEditor implements IEditor {
 
   // 选择/取消选择成员
   toggleMember(member: MemberInfo) {
-    const { allowMultiple = false } = this.editorConfig;
+    const { allowMultiple = false, userCacheStore } = this.editorConfig;
+
+    // 缓存成员信息到 userCacheStore，确保保存后 transformRecords 能解析到名称
+    if (userCacheStore && member.name) {
+      userCacheStore.cacheUser({
+        id: member.id,
+        name: member.name,
+        email: member.email || '',
+        avatar: member.avatar,
+      });
+    }
 
     if (allowMultiple) {
       // 多选：切换选择状态
@@ -1551,6 +1563,31 @@ class MemberEditor implements IEditor {
   }
 
   getValue() {
+    const original = this.value;
+
+    // 提取原始值中的成员 ID 列表（支持字符串 JSON、数组、null 等多种格式）
+    let originalIds: string[] = [];
+    if (typeof original === 'string' && original) {
+      try {
+        const parsed = JSON.parse(original);
+        if (Array.isArray(parsed)) {
+          originalIds = parsed.map((m: any) => typeof m === 'string' ? m : m?.id || '').filter(Boolean);
+        }
+      } catch {
+        // 不是 JSON，视为单个 ID
+        originalIds = [original];
+      }
+    } else if (Array.isArray(original)) {
+      originalIds = original.map((v: any) => typeof v === 'string' ? v : v?.id || '').filter(Boolean);
+    }
+
+    // 如果成员 ID 列表完全一致，返回原始值引用
+    // 这样 VTable 的 === 比较会认为值无变化，不会用 ID 数组覆盖单元格显示
+    if (originalIds.length === this.selectedIds.length &&
+        originalIds.every((id, i) => id === this.selectedIds[i])) {
+      return original;
+    }
+
     return this.selectedIds;
   }
 
@@ -3916,6 +3953,47 @@ const handleCancelLoading = () => {
   tableStore.cancelLoading();
 };
 
+/** 预加载所有成员字段的用户信息 */
+async function preloadMemberUsers() {
+  const allRecords = tableStore.records;
+  const allFields = tableStore.fields;
+  if (!allRecords.length || !allFields.length) return;
+
+  const memberFields = allFields.filter(f => f.type === FieldType.MEMBER);
+  if (memberFields.length === 0) return;
+
+  const memberIds = new Set<string>();
+  allRecords.forEach(record => {
+    memberFields.forEach(field => {
+      const rawVal = record.values[field.id];
+      if (!rawVal) return;
+      let mems: any[] = [];
+      if (Array.isArray(rawVal)) mems = rawVal;
+      else if (typeof rawVal === 'string') {
+        try { const p = JSON.parse(rawVal); if (Array.isArray(p)) mems = p; } catch {}
+      } else if (typeof rawVal === 'object' && rawVal !== null) {
+        mems = [rawVal];
+      }
+      mems.forEach((m: any) => {
+        const id = typeof m === 'string' ? m : String(m?.id || m?.user_id || '');
+        if (id && id !== 'current_user') memberIds.add(id);
+      });
+    });
+  });
+
+  if (memberIds.size === 0) return;
+
+  try {
+    await userCacheStore.fetchUsers(Array.from(memberIds));
+    // fetchUsers 完成后，手动清除转换缓存并刷新表格
+    //（userCacheStore.cacheStats.size 可能不响应式，无法自动触发 watch）
+    clearTransformCache();
+    updateTableData();
+  } catch (error) {
+    console.error('[VTableView] 预加载成员信息失败:', error);
+  }
+}
+
 // 监听 records 变化 → 增量数据更新
 // 流式加载期间：仅增量更新 dataSource 缓存，避免反复重建 VTable
 // 非流式：通过 updateTableData 增量更新（不销毁重建 VTable）
@@ -3940,6 +4018,8 @@ watch(() => tableStore.records, () => {
   if (smartDataSource && !tableStore.streamingState.isLoading) {
     smartDataSource = null;
   }
+  // 预加载成员字段的用户信息（后台执行，完成后自动刷新表格）
+  preloadMemberUsers();
   updateTableData();
 }, { deep: true });
 
@@ -3987,6 +4067,8 @@ onMounted(() => {
   setupRealtimeListeners();
   document.addEventListener('click', handleDocumentClick);
   window.addEventListener('resize', handleFloatingPanelWindowResize);
+  // 初始加载时预加载成员字段的用户信息
+  preloadMemberUsers();
 });
 
 onBeforeUnmount(() => {
