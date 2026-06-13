@@ -1,13 +1,16 @@
 <template>
   <div v-if="visible" class="loading-progress">
     <div class="progress-bar-container">
-      <div class="progress-bar" :style="{ width: `${progress}%` }"></div>
+      <div class="progress-bar" :style="{ width: `${displayProgress}%` }"></div>
     </div>
     <div class="progress-text">
       <span class="loading-icon">
         <el-icon><Loading /></el-icon>
       </span>
       <span>加载中 {{ loadedCount }}/{{ totalCount }} 条记录</span>
+      <el-button size="small" text type="info" class="cancel-btn" @click="$emit('cancel')">
+        取消
+      </el-button>
     </div>
   </div>
 </template>
@@ -20,13 +23,19 @@ interface Props {
   loadedCount: number;
   totalCount: number;
   visible: boolean;
+  progress?: number;
 }
 
 const props = defineProps<Props>();
 
-const progress = computed(() => {
-  if (props.totalCount === 0) return 0;
-  return Math.min((props.loadedCount / props.totalCount) * 100, 100);
+defineEmits<{
+  cancel: [];
+}>();
+
+const displayProgress = computed(() => {
+  if (props.progress !== undefined) return props.progress;
+  if (props.totalCount > 0) return Math.round((props.loadedCount / props.totalCount) * 100);
+  return 0;
 });
 </script>
 
@@ -70,6 +79,11 @@ const progress = computed(() => {
 .loading-icon {
   display: inline-flex;
   animation: spin 1s linear infinite;
+}
+
+.cancel-btn {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 @keyframes spin {

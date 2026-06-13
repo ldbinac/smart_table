@@ -148,8 +148,6 @@ def authenticate(fn: Callable) -> Callable:
             g.current_user_id = user_id
             g.user_id = user_id  # 兼容性别名
 
-            return fn(*args, **kwargs)
-
         except Exception as e:
             from flask import current_app
             error_type = type(e).__name__
@@ -167,6 +165,10 @@ def authenticate(fn: Callable) -> Callable:
             else:
                 current_app.logger.error(f'[JWT] JWT 验证失败 [{error_type}]：{error_msg}', exc_info=True)
                 return unauthorized_response('无效的认证令牌')
+
+        # 视图函数在 try/except 块之外执行，
+        # 避免视图函数中的非 JWT 相关异常被错误地当作 401 返回
+        return fn(*args, **kwargs)
 
     return wrapper
 

@@ -674,7 +674,7 @@ defineExpose({
                 :model-value="(formValues[field.id] as string) || null"
                 :placeholder="`请输入${field.name}`"
                 :readonly="readonly"
-                :max-length="(field.options?.maxLength as number | undefined)"
+                :max-length="(field.options?.maxLength as number) || undefined"
                 class="form-rich-text"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>

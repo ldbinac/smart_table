@@ -167,6 +167,9 @@ export function useRealtimeCollaboration(baseId: string) {
     const client = await createSocketClient(REALTIME_BASE_URL, token)
     socketClient.value = client
 
+    // 注册 socket client 到共享锁服务
+    collaborationStore.registerLockClient(client)
+
     setupEventListeners()
 
     await client.connect()
@@ -502,6 +505,7 @@ export function useRealtimeCollaboration(baseId: string) {
       socketClient.value.disconnect()
       socketClient.value = null
     }
+    collaborationStore.clearLockClient()
     collaborationStore.setConnectionStatus('disconnected')
     collaborationStore.onlineUsers.clear()
     collaborationStore.lockedCells.clear()

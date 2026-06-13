@@ -279,18 +279,43 @@ const initSelectedRecords = () => {
   }
 };
 
-const refreshSelectedFromLoadedRecords = () => {
-  if (selectedRecords.value.length === 0 || records.value.length === 0) return;
+const refreshSelectedFromLoadedRecords = async () => {
+  if (selectedRecords.value.length === 0) return;
 
   const loadedRecordMap = new Map<string, { id: string; values: Record<string, unknown> }>();
   for (const r of records.value) {
     loadedRecordMap.set(r.id, r);
   }
 
+  // 检查哪些已选记录不在已加载列表中（因为 exclude_ids 排除）
+  const missingIds: string[] = [];
   for (const sr of selectedRecords.value) {
     const loaded = loadedRecordMap.get(sr.id);
     if (loaded) {
       sr.values = { ...sr.values, ...loaded.values };
+    } else {
+      missingIds.push(sr.id);
+    }
+  }
+
+  // 对因 exclude_ids 而缺失的已选记录，单独获取显示值
+  if (missingIds.length > 0 && props.targetTableId && props.displayFieldId) {
+    try {
+      const result = await linkApiService.searchLinkableRecords(
+        props.targetTableId,
+        { page: 1, per_page: Math.min(missingIds.length, 200) }
+        // 不使用 exclude_ids，以确保这些记录被返回
+      );
+      for (const sr of selectedRecords.value) {
+        if (missingIds.includes(sr.id)) {
+          const loaded = result.items.find(r => r.id === sr.id);
+          if (loaded) {
+            sr.values = { ...sr.values, ...loaded.values };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[LinkRecordSelector] 加载缺失的已选记录显示值失败:', error);
     }
   }
 };
@@ -427,7 +452,7 @@ watch(
         loadTargetTableName(),
       ]);
       await preloadLinkFieldDisplayMaps();
-      refreshSelectedFromLoadedRecords();
+      await refreshSelectedFromLoadedRecords();
       console.log('[LinkRecordSelector] after refresh, selectedRecords:', selectedRecords.value.length);
     }
   },
@@ -577,13 +602,16 @@ const handleCancel = () => {
   emit("cancel");
 };
 
-onMounted(() => {
+onMounted(async () => {
   if (props.visible) {
     initSelectedRecords();
-    loadDisplayFields();
-    loadRecords();
-    loadTargetTableName();
-    preloadLinkFieldDisplayMaps();
+    await Promise.all([
+      loadDisplayFields(),
+      loadRecords(),
+      loadTargetTableName(),
+    ]);
+    await preloadLinkFieldDisplayMaps();
+    await refreshSelectedFromLoadedRecords();
   }
 });
 </script>
