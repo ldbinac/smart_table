@@ -1926,7 +1926,7 @@ const handleDocumentExportPdf = async () => {
                     导出
                   </el-button>
                 </el-button-group>
-                <el-button-group>
+                <!-- <el-button-group>
                   <el-button
                     size="default"
                     :type="useVTable ? 'success' : 'default'"
@@ -1934,7 +1934,7 @@ const handleDocumentExportPdf = async () => {
                     <el-icon><Setting /></el-icon>
                     {{ useVTable ? '原生表格' : 'VTable' }}
                   </el-button>
-                </el-button-group>
+                </el-button-group> -->
               </template>
 
               <!-- 表单视图：显示配置和分享按钮 -->
