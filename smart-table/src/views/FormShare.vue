@@ -624,6 +624,27 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 :placeholder="`请输入${field.name}`"
                 :maxlength="(field.config?.maxLength as number | undefined)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
+              <!-- 邮箱 -->
+              <el-input
+                v-else-if="getFieldType(field) === FieldType.EMAIL"
+                :model-value="String(formValues[field.id] || '')"
+                placeholder="请输入邮箱地址"
+                type="email"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+              <!-- 电话 -->
+              <el-input
+                v-else-if="getFieldType(field) === FieldType.PHONE"
+                :model-value="String(formValues[field.id] || '')"
+                placeholder="请输入手机号码"
+                type="tel"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
+              <!-- 链接 -->
+              <el-input
+                v-else-if="getFieldType(field) === FieldType.URL"
+                :model-value="String(formValues[field.id] || '')"
+                placeholder="请输入链接地址"
+                type="url"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 多行文本 -->
               <div
                 v-else-if="getFieldType(field) === FieldType.LONG_TEXT"
