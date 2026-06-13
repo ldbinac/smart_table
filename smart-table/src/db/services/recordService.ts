@@ -9,6 +9,7 @@ import {
   deserializeRecordValues,
 } from "../../utils/recordValueSerializer";
 import { fieldService } from "./fieldService";
+import { FieldType } from "../../types/fields";
 
 export interface CreateRecordData {
   id?: string;
@@ -80,7 +81,19 @@ export class RecordService {
     const valuesWithDefaults = { ...initialValues };
     for (const field of fields) {
       if (field.defaultValue !== undefined && !(field.id in valuesWithDefaults)) {
-        valuesWithDefaults[field.id] = field.defaultValue;
+        // 日期/日期时间字段的动态默认值 'now'：解析为当前 UTC 日期/日期时间字符串
+        if (
+          (field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) &&
+          field.defaultValue === 'now'
+        ) {
+          if (field.type === FieldType.DATE_TIME) {
+            valuesWithDefaults[field.id] = new Date().toISOString();
+          } else {
+            valuesWithDefaults[field.id] = new Date().toISOString().split('T')[0];
+          }
+        } else {
+          valuesWithDefaults[field.id] = field.defaultValue;
+        }
       }
     }
     
