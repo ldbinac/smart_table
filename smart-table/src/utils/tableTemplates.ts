@@ -1144,14 +1144,14 @@ const fullFieldTypeTestTemplate: TableTemplate = {
           filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [],
           rowHeight: 'medium', isDefault: true, order: 0,
         },
-        {
-          id: 'test-view-2', name: '核心字段视图', type: 'table',
-          config: {},
-          filters: [], sorts: [], groupBys: [],
-          hiddenFields: ['test-longtext', 'test-richtext', 'test-percent', 'test-duration', 'test-datetime', 'test-checkbox', 'test-member', 'test-collaborator', 'test-attachment', 'test-barcode', 'test-button'],
-          frozenFields: ['test-text'],
-          rowHeight: 'medium', isDefault: false, order: 1,
-        },
+        // {
+        //   id: 'test-view-2', name: '核心字段视图', type: 'table',
+        //   config: {},
+        //   filters: [], sorts: [], groupBys: [],
+        //   hiddenFields: ['test-longtext', 'test-richtext', 'test-percent', 'test-duration', 'test-datetime', 'test-checkbox', 'test-member', 'test-collaborator', 'test-attachment', 'test-barcode', 'test-button'],
+        //   frozenFields: ['test-text'],
+        //   rowHeight: 'medium', isDefault: false, order: 1,
+        // },
         {
           id: 'test-view-3', name: '按类型分组', type: 'kanban',
           config: { groupFieldId: 'test-singleselect' },
