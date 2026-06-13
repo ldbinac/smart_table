@@ -1788,6 +1788,7 @@ const handleDocumentExportPdf = async () => {
       @delete-dashboard="handleDeleteDashboard"
       @toggle-star-dashboard="handleToggleStarDashboard"
       @reorder-dashboards="handleReorderDashboards"
+      @reorder-tables="handleTableDragEnd"
       @rename-document="handleRenameDocument"
       @delete-document="handleDeleteDocument"
       @toggle-pin-document="handleTogglePinDocument"
