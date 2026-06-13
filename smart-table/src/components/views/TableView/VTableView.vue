@@ -1592,6 +1592,7 @@ registerVTable.editor('rating', new RatingEditor());
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
 const columnWidths = ref<Record<string, number>>({});
+const deleteLoading = ref(false);
 
 // 右键菜单相关
 const contextMenuVisible = ref(false);
@@ -1920,11 +1921,16 @@ const handleDeleteSelectedRecords = async () => {
         confirmButtonClass: "el-button--danger",
       },
     );
-    await tableStore.batchDeleteRecords(ids);
-    emit("record-delete", ids);
-    selectedRows.value = selectedRows.value.filter(id => !ids.includes(id));
-    checkboxSelectedRows.value = [];
-    ElMessage.success(`成功删除 ${count} 条记录`);
+    deleteLoading.value = true;
+    try {
+      await tableStore.batchDeleteRecords(ids);
+      emit("record-delete", ids);
+      selectedRows.value = selectedRows.value.filter(id => !ids.includes(id));
+      checkboxSelectedRows.value = [];
+      ElMessage.success(`成功删除 ${count} 条记录`);
+    } finally {
+      deleteLoading.value = false;
+    }
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除记录失败:", error);
@@ -4454,6 +4460,12 @@ watch(
       :loaded-count="tableStore.streamingState.loadedCount"
       :total-count="tableStore.streamingState.totalCount"
       @cancel="handleCancelLoading" />
+
+    <!-- 批量删除加载遮罩 -->
+    <LoadingOverlay
+      :visible="deleteLoading"
+      :record-count="checkboxSelectedRows.length"
+      action-text="删除" />
   </div>
 </template>
 
