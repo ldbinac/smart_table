@@ -193,13 +193,13 @@ export class RecordService {
         }
       });
 
-      // 从本地 IndexedDB 返回
-      return db.records.where("tableId").equals(tableId).toArray();
+      // 从本地 IndexedDB 返回（按创建时间排序，保持插入顺序）
+      return db.records.where("tableId").equals(tableId).sortBy("createdAt");
     } catch (error) {
       console.error("[recordService] getRecordsByTable failed:", error);
       // 如果 API 调用失败，从本地缓存读取
       console.log(`[recordService] 从本地缓存读取表 ${tableId} 的记录...`);
-      const records = await db.records.where("tableId").equals(tableId).toArray();
+      const records = await db.records.where("tableId").equals(tableId).sortBy("createdAt");
       console.log(`[recordService] 从本地缓存读取到 ${records.length} 条记录`);
       return records;
     }
@@ -529,7 +529,7 @@ export class RecordService {
    * 从本地 IndexedDB 获取记录（带反序列化）
    */
   async getLocalRecordsByTable(tableId: string): Promise<RecordEntity[]> {
-    const records = await db.records.where("tableId").equals(tableId).toArray();
+    const records = await db.records.where("tableId").equals(tableId).sortBy("createdAt");
     return records.map((record) => ({
       ...record,
       values: deserializeRecordValues(record.values),
