@@ -1840,6 +1840,39 @@ const handleEditRecord = () => {
   contextMenuVisible.value = false;
 };
 
+// 在表格末尾添加一条新记录（非分组模式「+ 添加记录」按钮点击逻辑）
+// 实现策略：
+// - 通过 API 创建记录后，直接追加到 store，由 watcher 统一触发 updateTableData 完成渲染
+// - 这样避免了直接操作 CachedDataSource.length 导致的兼容性问题（CachedDataSource 的 length
+//   在构造后不可变，appendRecords 的 Object.defineProperty 无法可靠同步），
+//   同时 watcher 路径已确保 addButton 行始终追加在数据末尾（见 updateTableData）
+let isAddingRecord = false;
+
+const handleAddNewRecord = async () => {
+  if (!props.tableId || isAddingRecord) return;
+  isAddingRecord = true;
+  try {
+    const newRecord = await recordService.createRecord({
+      tableId: props.tableId,
+      values: {},
+    });
+    if (!newRecord) return;
+
+    // 追加到 store，触发 watcher → updateTableData → 数据刷新（含 addButton 行）
+    if (Array.isArray(tableStore.records)) {
+      tableStore.records = [...tableStore.records, newRecord];
+    }
+
+    emit('record-create');
+    ElMessage.success('已添加新记录');
+  } catch (error) {
+    console.error('[VTableView] 添加记录失败:', error);
+    ElMessage.error('添加记录失败');
+  } finally {
+    isAddingRecord = false;
+  }
+};
+
 // 处理复制记录
 const handleDuplicateRecord = async () => {
   if (!contextMenuRecord.value) return;
@@ -1848,8 +1881,11 @@ const handleDuplicateRecord = async () => {
       tableId: contextMenuRecord.value.tableId,
       values: { ...contextMenuRecord.value.values },
     });
-    if (newRecord && tableStore.currentTable) {
-      await tableStore.refreshRecords(tableStore.currentTable.id);
+    if (newRecord) {
+      // 直接追加到 store 本地缓存，避免全量 API 重拉
+      if (Array.isArray(tableStore.records)) {
+        tableStore.records = [...tableStore.records, newRecord];
+      }
       ElMessage.success("复制记录成功");
     }
   } catch (error) {
@@ -1940,7 +1976,7 @@ const handleRecordSave = async (
   }
 };
 
-const records = computed(() => props.records || tableStore.records);
+const records = computed(() => tableStore.records);
 
 // 排序后的记录
 const sortedRecords = computed(() => {
@@ -3052,6 +3088,20 @@ const buildTableConfig = (): any => {
   clearTransformCache(); // 确保全量重建时使用最新记录数据，不返回缓存中的旧行
   let tableRecords = transformRecords(sortedRecords.value);
 
+  // 非分组模式下在表格末尾追加「+ 添加记录」虚拟行
+  // 当表格只读时，不追加按钮行
+  if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly) {
+    const addButtonRecord: any = {
+      _recordId: '__add_button__',
+      _originalRecord: null,
+      _rowType: 'addButton',
+    };
+    orderedVisibleFields.value.forEach(field => {
+      addButtonRecord[field.id] = '';
+    });
+    tableRecords.push(addButtonRecord);
+  }
+
   // 分组末尾添加按钮行
   if (props.groupBy && props.groupBy.length > 0 && tableRecords.length > 0) {
     tableRecords = buildGroupedRecords(tableRecords);
@@ -3081,6 +3131,7 @@ const buildTableConfig = (): any => {
 
   if (!isGrouped) {
     // 非分组：创建 CachedDataSource
+    
     if (!smartDataSource || smartDataSource.totalCount !== tableRecords.length) {
       smartDataSource = new SmartTableDataSource({
         totalCount: tableRecords.length,
@@ -3212,7 +3263,45 @@ const buildTableConfig = (): any => {
           container.add(topBorder);
           if (row < 0 || !table) return undefined;
           // 在第一个数据列（colIdx 2，col 0=行号，col 1=复选框）居中渲染文字
-          if (colIdx === 2 || colIdx % 5 === 0) {
+          if (colIdx === 1 || colIdx % 5 === 0) {
+            const text = createText({
+              x: cellWidth / 2,
+              y: cellHeight / 2,
+              text: '+ 添加记录',
+              fontSize: 13,
+              fill: '#6366f1',
+              fontWeight: 'bold',
+              textBaseline: 'middle',
+              textAlign: 'center',
+            });
+            container.add(text);
+          }
+          return { rootContainer: container, renderDefault: false };
+        }
+        if (origCustomLayout) return origCustomLayout(args);
+        return { renderDefault: true };
+      };
+    });
+  }
+
+  // 非分组模式下为所有数据列添加 addButton 行处理
+  if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly) {
+    columns.forEach((col: any) => {
+      const origCustomLayout = col.customLayout;
+      col.customLayout = (args: any) => {
+        const { table, row, col: colIdx, rect } = args;
+        if (!table) return { renderDefault: true };
+        const record = table.getCellOriginRecord(colIdx, row);
+        if (record && record._rowType === 'addButton') {
+          const cellHeight = rect?.height || table.getCellRect(colIdx, row).height || 36;
+          const cellWidth = rect?.width || table.getCellRect(colIdx, row).width || 150;
+          const container = createGroup({ width: cellWidth, height: cellHeight });
+          const bg = createRect({ x: 0, y: 0, width: cellWidth, height: cellHeight, fill: '#f9fafb' });
+          container.add(bg);
+          const topBorder = createRect({ x: 0, y: 0, width: cellWidth, height: 1, fill: '#e5e7eb' });
+          container.add(topBorder);
+          // col 0=rowSeriesNumber，col 1=第一数据列
+          if (colIdx === 1 || colIdx % 5 === 0) {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
@@ -3239,9 +3328,6 @@ const buildTableConfig = (): any => {
 // 处理悬浮操作图标点击 - 打开记录详情
 const handleActionIconClick = () => {
   if (selectedCell.value && selectedCell.value.record._originalRecord) {
-    console.log('================================================');
-    console.log('点击操作图标，打开记录详情:', selectedCell.value.record._originalRecord);
-    console.log('================================================');
     handleExpandRecord(selectedCell.value.record._originalRecord);
   }
   actionIconVisible.value = false;
@@ -3527,8 +3613,13 @@ const bindTableEvents = () => {
     // 检测是否为虚拟添加按钮行点击
     const clickedRecord = args.originData || args.record;
     if (clickedRecord && clickedRecord._rowType === 'addButton') {
-      const groupValues = clickedRecord._groupValues || {};
-      emit('group-add-record', groupValues);
+      if (clickedRecord._groupValues) {
+        // 分组模式：通过事件触发添加，父组件处理分组字段值
+        emit('group-add-record', clickedRecord._groupValues);
+      } else {
+        // 非分组模式：直接创建新记录
+        handleAddNewRecord();
+      }
       return;
     }
 
@@ -3566,9 +3657,7 @@ const bindTableEvents = () => {
       }
 
       if (cellRecord && cellRecord._originalRecord) {
-        console.log('================================================');
-        console.log('点击单元格，所在行完整数据:', cellRecord._originalRecord);
-        console.log('================================================');
+        
         // ElMessage.success('已输出行数据到浏览器控制台');
       }
 
@@ -3897,6 +3986,20 @@ const updateTableData = () => {
       // 非分组 CachedDataSource 模式：更新内存缓存 + 轻量重绘
       clearTransformCache(); // 清除转换缓存，确保 transformRecords 不会从缓存返回旧行
       const newRows = transformRecords(sortedRecords.value);
+
+      // 非分组模式下追加「+ 添加记录」虚拟行，与 buildTableConfig 中的逻辑保持一致
+      // 若不追加，watcher 触发 updateTableData 时会用纯记录数据覆盖 smartDataSource 缓存，
+      // 导致表格中的 addButton 行消失（这是刷新后按钮闪烁消失的根因）
+      if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly) {
+        const addButtonRecord: any = {
+          _recordId: '__add_button__',
+          _originalRecord: null,
+          _rowType: 'addButton',
+        };
+        orderedVisibleFields.value.forEach(f => { addButtonRecord[f.id] = ''; });
+        newRows.push(addButtonRecord);
+      }
+
       smartDataSource.clearCache();
       smartDataSource.updateMemoryCache(newRows, 0);
       smartDataSource.markFullyLoaded();
@@ -3904,6 +4007,9 @@ const updateTableData = () => {
     } else {
       // 无 dataSource，回退全量重建
       updateTable();
+      // 全量重建已包含最新数据（含 addButton 行），
+      // 清除重建期间可能累积的 pendingDataUpdate，避免 finally 中重入导致二次覆盖
+      pendingDataUpdate = false;
     }
   } catch (error) {
     console.error('增量数据更新失败:', error);
@@ -3993,10 +4099,11 @@ async function preloadMemberUsers() {
 
   try {
     await userCacheStore.fetchUsers(Array.from(memberIds));
-    // fetchUsers 完成后，手动清除转换缓存并刷新表格
-    //（userCacheStore.cacheStats.size 可能不响应式，无法自动触发 watch）
+    // fetchUsers 完成后，手动清除转换缓存
+    // 注意：不在此处调用 updateTableData()，避免与 watcher 末尾的 updateTableData() 构成二次调用。
+    // watcher 的调用顺序是：preloadMemberUsers (async yields) → updateTableData (重建) → fetchUsers resolves
+    // → preloadMemberUsers 恢复 → 这里再调用 updateTableData 会导致 smartDataSource 路径 clearCache 覆盖正确数据。
     clearTransformCache();
-    updateTableData();
   } catch (error) {
     console.error('[VTableView] 预加载成员信息失败:', error);
   }
@@ -4015,9 +4122,6 @@ watch(() => tableStore.records, () => {
       const newRows = transformRecords(newRaw);
       smartDataSource.updateMemoryCache(newRows, prevCount);
       smartDataSource.updateTotalCount(rawRecords.length);
-      console.log(
-        `[VTableView] 流式增量更新: ${newRows.length} 条, 累计 ${rawRecords.length}/${tableStore.streamingState.totalCount}`
-      );
     }
     return;
   }
@@ -4027,6 +4131,7 @@ watch(() => tableStore.records, () => {
     smartDataSource = null;
   }
   // 预加载成员字段的用户信息（后台执行，完成后自动刷新表格）
+  clearTransformCache();
   preloadMemberUsers();
   updateTableData();
 }, { deep: true });
@@ -4055,9 +4160,7 @@ watch(() => userCacheStore.cacheStats.size, () => {
 watch(() => tableStore.streamingState.isLoading, (wasLoading, isLoading) => {
   if (wasLoading && !isLoading && smartDataSource) {
     smartDataSource.markFullyLoaded();
-    console.log(
-      `[VTableView] 流式加载完成，当前 sortedRecords: ${sortedRecords.value.length} 条，smartDataSource.totalCount: ${smartDataSource.totalCount}`
-    );
+    
   }
 });
 
@@ -4427,5 +4530,7 @@ watch(
     transform: translate(-50%, -50%) scale(1);
   }
 }
+
+</style>
 
 </style>

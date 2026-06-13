@@ -177,6 +177,32 @@ export class SmartTableDataSource {
   }
 
   /**
+   * 追加记录到数据源末尾并同步 VTable CachedDataSource 的长度
+   *
+   * 与 updateTotalCount 的区别：
+   * - updateTotalCount 仅更新内部计数（用于流式加载追踪），不通知 VTable
+   * - appendRecords 同时更新内部计数和 CachedDataSource.length，
+   *   使 VTable 感知到数据行数变化（如添加新记录行场景），
+   *   后续调用 renderWithRecreateCells 即可正确渲染追加的行
+   *
+   * 这是修复「添加记录后 addButton 行消失」问题的关键：
+   * CachedDataSource 的 length 在构造函数中固定为初始 totalCount，
+   * 追加记录时若不同步更新 length，VTable 不会渲染超出原始长度的行。
+   */
+  appendRecords(records: DataSourceRecord[]): void {
+    const startIndex = this._totalCount;
+    this.updateMemoryCache(records, startIndex);
+    this._totalCount += records.length;
+    // 同步 VTable CachedDataSource 的 length，使其感知到行数变化
+    if (this.cachedDataSource) {
+      Object.defineProperty(this.cachedDataSource, 'length', {
+        get: () => this._totalCount,
+        configurable: true,
+      });
+    }
+  }
+
+  /**
    * 清除所有缓存
    */
   clearCache(): void {
