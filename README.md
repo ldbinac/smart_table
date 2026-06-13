@@ -223,6 +223,8 @@
 
 使用官方docker镜像启动：
 
+> 若是ARM架构，请使用对应版本镜像：`ygbinac/smarttable:1.4.1-arm64`
+
 ```bash
 docker run -d \
   --name smarttable \
@@ -1035,6 +1037,8 @@ environment:
 ## 🐳 Docker 部署
 
 ### 快速部署（官方镜像一键启动）
+
+> 若是ARM架构，请使用对应版本镜像：`ygbinac/smarttable:1.4.1-arm64`
 
 直接启动：
 
