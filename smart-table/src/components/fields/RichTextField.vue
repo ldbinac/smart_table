@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { sanitizeHtml } from "@/utils/helpers";
 
 interface Props {
@@ -25,8 +25,6 @@ const editorInstance = ref<any>(null);
 const isLoading = ref(true);
 const loadError = ref(false);
 const currentPlainTextLength = ref(0);
-// 防止 emit → watch → setContents 循环的标志位
-let isInternalChange = false;
 
 // 只读模式：净化HTML用于安全渲染
 const sanitizedHtml = computed(() => {
@@ -56,13 +54,7 @@ function emitValue() {
   if (!editorInstance.value) return;
   const html = editorInstance.value.root.innerHTML;
   updatePlainTextLength();
-  isInternalChange = true;
   emit("update:modelValue", normalizeHtml(html));
-  // 使用 setTimeout 确保在 Vue 所有 watch/effect 执行完毕后才重置标志位
-  // 防止 emit → 父组件更新 → watch(modelValue) → setContents 的循环破坏选区
-  setTimeout(() => {
-    isInternalChange = false;
-  }, 0);
 }
 
 async function initEditor() {

@@ -42,28 +42,6 @@ import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AttachmentManager from "@/components/fields/AttachmentManager.vue";
 // 导入关联记录选择器
 import LinkRecordSelector from "@/components/fields/LinkField/LinkRecordSelector.vue";
-// 模块级辅助函数（vue-tsc -b 模式下 script setup 内的函数声明不可见时需要）
-function extractMemberIds(value: any): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    if (value.length === 0) return [];
-    if (typeof value[0] === 'string') return value.filter(Boolean);
-    return value.map((m: any) => String(m.id || m.name || '')).filter(Boolean);
-  }
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        return parsed.map((m: any) => String(m.id || m.name || m)).filter(Boolean);
-      }
-    } catch {}
-    return value ? [value] : [];
-  }
-  if (typeof value === 'object' && value !== null) {
-    return [String((value as any).id || (value as any).name || '')].filter(Boolean);
-  }
-  return [];
-}
 
 function recalcFloatingPanelPosition(
   col: number, row: number, panelWidth: number, panelHeight: number
@@ -915,7 +893,7 @@ class RichTextEditor implements IEditor {
       const editorContainer = this.element?.querySelector('.rich-text-editor-container');
       if (!editorContainer) return;
 
-      this.editor = new FluentEditor(editorContainer, {
+      this.editor = new FluentEditor(editorContainer as unknown as HTMLElement, {
         theme: 'snow',
         modules: {
           toolbar: [
@@ -1259,7 +1237,7 @@ class MemberEditor implements IEditor {
         setTimeout(() => this.successCallback?.(), 0);
       }
     };
-    setTimeout(() => document.addEventListener('mousedown', this.outsideHandler, true), 0);
+    setTimeout(() => document.addEventListener('mousedown', this.outsideHandler!, true), 0);
 
     this.element = wrapper;
     this.container?.appendChild(wrapper);
