@@ -416,7 +416,20 @@ export function convertImportData(
       const value = rowData[mapping.sourceColumn];
       // 查找字段定义以支持单选/多选选项映射
       const field = fields?.find((f) => f.id === mapping.targetFieldId);
-      result[mapping.targetFieldId] = convertValue(value, mapping.targetFieldType, field);
+      const convertedValue = convertValue(value, mapping.targetFieldType, field);
+
+      // 日期/日期时间字段：若 Excel 单元格为空（转换后为 null），
+      // 则不包含该字段，让后端自动应用字段配置的默认值。
+      // 若 Excel 中有有效值，则优先使用该值，不会被默认值覆盖。
+      if (
+        convertedValue === null &&
+        (mapping.targetFieldType === FieldType.DATE || mapping.targetFieldType === FieldType.DATE_TIME)
+      ) {
+        // 跳过，让后端应用字段默认值
+        return;
+      }
+
+      result[mapping.targetFieldId] = convertedValue;
     }
   });
 
