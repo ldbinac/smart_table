@@ -3088,7 +3088,7 @@ const buildTableConfig = (): any => {
       smartDataSource = new SmartTableDataSource({
         totalCount: tableRecords.length,
         batchSize: 200,
-        maxCachedBatches: 50,  // 50×200=10,000条，LRU 阈值（超过后驱逐最久未访问批次）
+        maxCachedBatches: 80,  // 80×200=16,000条；覆盖 10,000 条 + addButton 虚拟行（共 51 批次），避免 LRU 立即驱逐首批写入批次
       });
     } else {
       smartDataSource.clearCache();

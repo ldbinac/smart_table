@@ -1138,12 +1138,12 @@ const fullFieldTypeTestTemplate: TableTemplate = {
         //{ id: 'test-button', name: '按钮', type: 'button', isPrimary: false, isRequired: false, isVisible: true, order: 22 },
       ],
       views: [
-        {
-          id: 'test-view-1', name: '完整字段视图', type: 'table',
-          config: {},
-          filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [],
-          rowHeight: 'medium', isDefault: true, order: 0,
-        },
+        // {
+        //   id: 'test-view-1', name: '完整字段视图', type: 'table',
+        //   config: {},
+        //   filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [],
+        //   rowHeight: 'medium', isDefault: true, order: 0,
+        // },
         // {
         //   id: 'test-view-2', name: '核心字段视图', type: 'table',
         //   config: {},
