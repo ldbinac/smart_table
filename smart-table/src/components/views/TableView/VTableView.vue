@@ -1077,7 +1077,6 @@ class MemberEditor implements IEditor {
   editorConfig: {
     allowMultiple?: boolean;
     baseId?: string;
-    userCacheStore?: any;
   };
   successCallback?: () => void;
   value?: unknown; // 原始值引用，用于 getValue() 中比较是否变化
@@ -1097,7 +1096,6 @@ class MemberEditor implements IEditor {
   constructor(editorConfig: {
     allowMultiple?: boolean;
     baseId?: string;
-    userCacheStore?: any;
   }) {
     this.editorConfig = editorConfig;
   }
@@ -1128,7 +1126,6 @@ class MemberEditor implements IEditor {
   }
 
   async loadSelectedMembers() {
-    const { userCacheStore } = this.editorConfig;
     if (!userCacheStore || this.selectedIds.length === 0) {
       this.selectedMembers = [];
       return;
@@ -1468,7 +1465,7 @@ class MemberEditor implements IEditor {
 
   // 选择/取消选择成员
   toggleMember(member: MemberInfo) {
-    const { allowMultiple = false, userCacheStore } = this.editorConfig;
+    const { allowMultiple = false } = this.editorConfig;
 
     // 缓存成员信息到 userCacheStore，确保保存后 transformRecords 能解析到名称
     if (userCacheStore && member.name) {
@@ -2440,7 +2437,7 @@ const buildTableConfig = (): any => {
     if (field.type === FieldType.MEMBER) {
       const allowMultiple = (field.options as any)?.allowMultiple !== false;
       const baseId = tableStore.currentTable?.baseId;
-      cellTypeConfig.editor = new MemberEditor({ allowMultiple, baseId, userCacheStore });
+      cellTypeConfig.editor = new MemberEditor({ allowMultiple, baseId });
     }
 
     // 附件类型字段不需要编辑器，由自定义双击浮窗 AttachmentManager 处理
