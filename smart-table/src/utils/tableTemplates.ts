@@ -1102,7 +1102,7 @@ const generateTestRecords = (): TemplateRecord[] => {
 const fullFieldTypeTestTemplate: TableTemplate = {
   id: 'full-field-type-test',
   name: '全字段类型测试',
-  description: '系统覆盖所有可创建字段类型（22种），含500条边界值测试记录，用于验证字段解析准确性和数据处理正确性',
+  description: '系统覆盖所有可创建字段类型（22种），含100条边界值测试记录，用于验证字段解析准确性和数据处理正确性',
   icon: '🧪',
   color: '#6366F1',
   category: '全字段测试',
