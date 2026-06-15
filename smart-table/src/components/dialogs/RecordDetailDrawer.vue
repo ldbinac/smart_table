@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, nextTick } from "vue";
 import {
   ElDrawer,
   ElButton,
@@ -30,7 +30,6 @@ import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
-import RichTextField from "@/components/fields/RichTextField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { formatDateTime, formatDate, toConfiguredTimezone } from "@/utils/timezone";
@@ -55,6 +54,113 @@ const emit = defineEmits<{
   "update:visible": [value: boolean];
   save: [recordId: string, values: Record<string, unknown>];
 }>();
+
+// FluentEditor 实例管理（用于富文本字段直接集成）
+const richEditorContainers = new Map<string, HTMLDivElement>();
+const richEditorInstances = new Map<string, any>();
+
+function setRichEditorRef(fieldId: string) {
+  return (el: any) => {
+    if (el) {
+      richEditorContainers.set(fieldId, el);
+    } else {
+      richEditorContainers.delete(fieldId);
+    }
+  };
+}
+
+async function initRichEditors() {
+  const richFields = visibleFields.value.filter(
+    (f) => f.type === FieldType.RICH_TEXT,
+  );
+  if (richFields.length === 0) return;
+
+  const [{ default: FluentEditor }] = await Promise.all([
+    import("@opentiny/fluent-editor"),
+    import("@opentiny/fluent-editor/style.css"),
+  ]);
+
+  for (const field of richFields) {
+    const container = richEditorContainers.get(field.id);
+    if (!container || container.querySelector(".ql-editor")) continue;
+
+    const editor = new FluentEditor(container, {
+      theme: "snow",
+      placeholder: `请输入${field.name}`,
+      modules: {
+        toolbar: [
+          ["bold", "italic", "underline", "strike"],
+          [{ header: [1, 2, 3, false] }],
+          [{ list: "ordered" }, { list: "bullet" }],
+          [{ align: [] }],
+          ["link", "image"],
+          ["clean"],
+        ],
+      },
+    });
+
+    // 设置初始内容：先清除浏览器 native selection，避免 setContents 触发 MutationObserver 时
+    // 因 native selection 指向旧 DOM 节点导致 normalizedToRange 崩溃
+    const content = formData.value[field.id];
+    if (content && typeof content === "string") {
+      const delta = editor.clipboard.convert({ html: content });
+      window.getSelection()?.removeAllRanges();
+      editor.setContents(delta, "silent");
+    }
+
+    // 监听用户编辑，同步到 formData
+    editor.on("text-change", () => {
+      const html = editor.root.innerHTML;
+      handleValueChange(
+        field.id,
+        normalizeRichHtml(html),
+      );
+    });
+
+    richEditorInstances.set(field.id, editor);
+  }
+}
+
+function destroyRichEditors() {
+  for (const [, editor] of richEditorInstances) {
+    try {
+      editor.off("text-change");
+    } catch {
+      /* ignore */
+    }
+  }
+  richEditorInstances.clear();
+  richEditorContainers.clear();
+}
+
+// 富文本空内容判断
+function normalizeRichHtml(html: string): string | null {
+  if (
+    !html ||
+    html === "<p><br></p>" ||
+    html === "<br>" ||
+    html === "<div><br></div>"
+  ) {
+    return null;
+  }
+  return html;
+}
+
+// 监听抽屉可见性，初始化/销毁富文本编辑器
+watch(
+  () => props.visible,
+  async (visible) => {
+    if (visible) {
+      await nextTick();
+      setTimeout(() => {
+        initRichEditors();
+      }, 300);
+    } else {
+      destroyRichEditors();
+    }
+  },
+  { immediate: true },
+);
 
 const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
@@ -580,13 +686,9 @@ const drawerTitle = computed(() => {
 
           <!-- 富文本 -->
           <template v-else-if="field.type === FieldType.RICH_TEXT">
-            <RichTextField
-              :model-value="(formData[field.id] as string) || null"
-              @update:model-value="(val) => handleValueChange(field.id, val)"
-              :placeholder="`请输入${field.name}`"
-              :readonly="readonly"
-              :max-length="(field.options?.maxLength as number) || undefined"
-              class="field-input" />
+            <div
+              :ref="setRichEditorRef(field.id)"
+              class="rich-editor-wrapper" />
           </template>
 
           <!-- 数字类型 -->
@@ -784,6 +886,17 @@ const drawerTitle = computed(() => {
             <div class="auto-number-display">
               <span class="auto-number-value">{{ formData[field.id] || '-' }}</span>
             </div>
+          </template>
+
+          <!-- 默认文本类型（URL、EMAIL、PHONE 等） -->
+          <template v-else>
+            <el-input
+              :model-value="String(formData[field.id] || '')"
+              @update:model-value="(val) => handleValueChange(field.id, val)"
+              :placeholder="`请输入${field.name}`"
+              :disabled="readonly"
+              :maxlength="(field.options?.maxLength as number) || undefined"
+              class="field-input" />
           </template>
         </div>
       </el-form>
@@ -1008,6 +1121,34 @@ const drawerTitle = computed(() => {
 
   :deep(.el-textarea__inner) {
     padding-bottom: 28px;
+  }
+}
+
+// 富文本编辑器样式
+.rich-editor-wrapper {
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  background-color: white;
+  overflow: hidden;
+  transition: all 0.2s;
+
+  :deep(.ql-toolbar) {
+    border: none;
+    border-bottom: 1px solid $border-color;
+    background-color: #f5f7fa;
+    border-radius: $border-radius-md $border-radius-md 0 0;
+    padding: $spacing-sm;
+  }
+
+  :deep(.ql-container) {
+    border: none;
+    font-size: 14px;
+  }
+
+  :deep(.ql-editor) {
+    min-height: 120px;
+    max-height: 300px;
+    line-height: 1.6;
   }
 }
 </style>

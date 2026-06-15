@@ -1253,7 +1253,8 @@ class FormulaService:
         cls,
         table_id: str,
         values: Dict[str, Any],
-        user_id: str = None
+        user_id: str = None,
+        formula_fields: List[Field] = None
     ) -> Dict[str, Any]:
         """
         计算记录中所有公式的值（任务 30.1）
@@ -1264,20 +1265,22 @@ class FormulaService:
             table_id: 表格 ID
             values: 记录的原始字段值字典 {field_name_or_id: value}
             user_id: 操作用户 ID（可选，用于审计）
+            formula_fields: 可选的预查询公式字段列表，避免重复数据库查询
             
         Returns:
             公式字段计算结果字典 {field_name: computed_value}
         """
-        from app.models.table import Table
-        
-        table = Table.query.get(table_id)
-        if not table:
-            raise FormulaError(f"表格不存在: {table_id}")
-        
-        formula_fields = Field.query.filter_by(
-            table_id=table_id,
-            type='formula'
-        ).all()
+        if formula_fields is None:
+            from app.models.table import Table
+            
+            table = Table.query.get(table_id)
+            if not table:
+                raise FormulaError(f"表格不存在: {table_id}")
+            
+            formula_fields = Field.query.filter_by(
+                table_id=table_id,
+                type='formula'
+            ).all()
         
         if not formula_fields:
             return {}

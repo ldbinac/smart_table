@@ -457,6 +457,12 @@ function handleCreateFromTemplate() {
   currentNav.value = "templates";
 }
 
+function handleCreateFromCopy() {
+  closeCreateChoiceDialog();
+  currentNav.value = "all";
+  activeTab.value = "all";
+}
+
 function openCreateDialog() {
   createDialogVisible.value = true;
   createForm.name = "";
@@ -1721,6 +1727,7 @@ async function handleCopyBase(base: Base, event: Event) {
       v-model="createChoiceDialogVisible"
       title="创建多维表格"
       width="560px"
+      append-to-body
       :close-on-click-modal="false"
       class="create-choice-dialog"
       align-center>
@@ -1742,6 +1749,16 @@ async function handleCopyBase(base: Base, event: Event) {
           <div class="choice-info">
             <h3 class="choice-title">从模板创建</h3>
             <p class="choice-desc">选择系统提供的预置模板快速开始</p>
+          </div>
+          <el-icon class="choice-arrow"><ArrowRight /></el-icon>
+        </div>
+        <div class="choice-option" @click="handleCreateFromCopy">
+          <div class="choice-icon copy-icon">
+            <el-icon :size="32"><CopyDocument /></el-icon>
+          </div>
+          <div class="choice-info">
+            <h3 class="choice-title">复制已有多维表</h3>
+            <p class="choice-desc">从已有的多维表格中复制一个完整副本</p>
           </div>
           <el-icon class="choice-arrow"><ArrowRight /></el-icon>
         </div>
@@ -1773,6 +1790,7 @@ import {
   Loading,
   Document,
   ArrowRight,
+  CopyDocument,
 } from "@element-plus/icons-vue";
 
 export default {
@@ -2964,6 +2982,11 @@ $star-color: #f59e0b;
 
   &.template-icon {
     background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+    color: white;
+  }
+
+  &.copy-icon {
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
     color: white;
   }
 }

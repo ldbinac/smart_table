@@ -1,4 +1,4 @@
-﻿import type { FieldTypeValue, CellValue, ViewTypeValue, ViewConfig, FieldOptions } from '../types';
+import type { FieldTypeValue, CellValue, ViewTypeValue, ViewConfig, FieldOptions } from '../types';
 
 export interface TemplateField {
   id: string;
@@ -215,12 +215,12 @@ const customerManagementTemplate: TableTemplate = {
         { id: 'cust-view-3', name: '客户画廊', type: 'gallery', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 1 }
       ],
       records: [
-        { id: 'cust-rec-1', values: { 'cust-name': '科技公司A', 'cust-contact': '张经理', 'cust-phone': '13800138001', 'cust-email': 'zhang@example.com', 'cust-website': 'https://company-a.com', 'cust-stage': '跟进中', 'cust-source': '线上广告', 'cust-value': 50000, 'cust-rating': 4 } },
-        { id: 'cust-rec-2', values: { 'cust-name': '贸易公司B', 'cust-contact': '李总', 'cust-phone': '13900139002', 'cust-email': 'li@example.com', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 120000, 'cust-rating': 5 } },
+        { id: 'cust-rec-1', values: { 'cust-name': '科技公司A', 'cust-contact': '张经理', 'cust-phone': '13800138001', 'cust-email': 'ldengbin@126.com', 'cust-website': 'https://github.com/ldbinac/smart_table', 'cust-stage': '跟进中', 'cust-source': '线上广告', 'cust-value': 50000, 'cust-rating': 4 } },
+        { id: 'cust-rec-2', values: { 'cust-name': '贸易公司B', 'cust-contact': '李总', 'cust-phone': '13900139002', 'cust-email': 'binac@live.cn', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 120000, 'cust-rating': 5 } },
         { id: 'cust-rec-3', values: { 'cust-name': '咨询机构C', 'cust-contact': '王总监', 'cust-phone': '13700137003', 'cust-stage': '意向客户', 'cust-source': '展会', 'cust-value': 80000, 'cust-rating': 3 } },
-        { id: 'cust-rec-4', values: { 'cust-name': '制造企业D', 'cust-contact': '赵经理', 'cust-phone': '13600136004', 'cust-email': 'zhao@example.com', 'cust-website': 'https://factory-d.com', 'cust-stage': '潜在客户', 'cust-source': '自然搜索', 'cust-value': 200000, 'cust-rating': 4 } },
+        { id: 'cust-rec-4', values: { 'cust-name': '制造企业D', 'cust-contact': '赵经理', 'cust-phone': '13600136004', 'cust-email': 'ldengbin@126.com', 'cust-website': 'https://gitee.com/binac/smart_table', 'cust-stage': '潜在客户', 'cust-source': '自然搜索', 'cust-value': 200000, 'cust-rating': 4 } },
         { id: 'cust-rec-5', values: { 'cust-name': '零售连锁E', 'cust-contact': '陈店长', 'cust-phone': '13500135005', 'cust-stage': '流失客户', 'cust-source': '电话营销', 'cust-value': 30000, 'cust-rating': 2 } },
-        { id: 'cust-rec-6', values: { 'cust-name': '金融公司F', 'cust-contact': '刘总监', 'cust-phone': '13300133006', 'cust-email': 'liu@example.com', 'cust-website': 'https://finance-f.com', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 500000, 'cust-rating': 5 } }
+        { id: 'cust-rec-6', values: { 'cust-name': '金融公司F', 'cust-contact': '刘总监', 'cust-phone': '13300133006', 'cust-email': 'binac@live.cn', 'cust-website': 'https://www.zhihu.com/people/lu-dong-bin-19', 'cust-stage': '成交客户', 'cust-source': '朋友推荐', 'cust-value': 500000, 'cust-rating': 5 } }
       ]
     }
   ]
@@ -469,10 +469,10 @@ const surveyFeedbackTemplate: TableTemplate = {
         { id: 'sur-view-4', name: '反馈画廊', type: 'gallery', config: {}, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
       ],
       records: [
-        { id: 'sur-rec-1', values: { 'sur-satisfaction': 4, 'sur-category': '功能建议', 'sur-content': '希望能添加导出功能', 'sur-status': '处理中', 'sur-need-follow': false, 'sur-contact': 'user1@example.com' } },
+        { id: 'sur-rec-1', values: { 'sur-satisfaction': 4, 'sur-category': '功能建议', 'sur-content': '希望能添加导出功能', 'sur-status': '处理中', 'sur-need-follow': false, 'sur-contact': 'binac@live.cn' } },
         { id: 'sur-rec-2', values: { 'sur-satisfaction': 5, 'sur-category': '其他', 'sur-content': '产品很好用！', 'sur-status': '已关闭', 'sur-need-follow': false } },
         { id: 'sur-rec-3', values: { 'sur-satisfaction': 2, 'sur-category': 'Bug报告', 'sur-content': '保存时偶尔会报错', 'sur-status': '待处理', 'sur-need-follow': true, 'sur-contact': '13800138001' } },
-        { id: 'sur-rec-4', values: { 'sur-satisfaction': 3, 'sur-category': '使用问题', 'sur-content': '不知道如何创建视图', 'sur-status': '已解决', 'sur-need-follow': false, 'sur-contact': 'user2@example.com' } },
+        { id: 'sur-rec-4', values: { 'sur-satisfaction': 3, 'sur-category': '使用问题', 'sur-content': '不知道如何创建视图', 'sur-status': '已解决', 'sur-need-follow': false, 'sur-contact': 'ldengbin@126.cn' } },
         { id: 'sur-rec-5', values: { 'sur-satisfaction': 5, 'sur-category': '功能建议', 'sur-content': '建议增加暗黑模式', 'sur-status': '处理中', 'sur-need-follow': false } },
         { id: 'sur-rec-6', values: { 'sur-satisfaction': 1, 'sur-category': 'Bug报告', 'sur-content': '登录后页面空白', 'sur-status': '处理中', 'sur-need-follow': true, 'sur-contact': '13900139002' } }
       ]
@@ -513,11 +513,11 @@ const contactListTemplate: TableTemplate = {
         { id: 'con-view-4', name: '生日日历', type: 'calendar', config: { dateFieldId: 'con-birthday' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
       ],
       records: [
-        { id: 'con-rec-1', values: { 'con-name': '张三', 'con-phone': '13800138001', 'con-email': 'zhangsan@example.com', 'con-company': '科技公司', 'con-position': '产品经理', 'con-group': '同事', 'con-favorite': true } },
+        { id: 'con-rec-1', values: { 'con-name': '张三', 'con-phone': '13800138001', 'con-email': 'ldengbin@126.com', 'con-company': '科技公司', 'con-position': '产品经理', 'con-group': '同事', 'con-favorite': true } },
         { id: 'con-rec-2', values: { 'con-name': '李四', 'con-phone': '13900139002', 'con-group': '朋友', 'con-birthday': Date.now() - 30 * 365 * 24 * 60 * 60 * 1000, 'con-favorite': false } },
-        { id: 'con-rec-3', values: { 'con-name': '王五', 'con-phone': '13700137003', 'con-email': 'wangwu@example.com', 'con-company': '贸易公司', 'con-position': '销售总监', 'con-group': '客户', 'con-favorite': true } },
+        { id: 'con-rec-3', values: { 'con-name': '王五', 'con-phone': '13700137003', 'con-email': 'binac@live.cn', 'con-company': '贸易公司', 'con-position': '销售总监', 'con-group': '客户', 'con-favorite': true } },
         { id: 'con-rec-4', values: { 'con-name': '赵六', 'con-phone': '13600136004', 'con-group': '家人', 'con-birthday': Date.now() - 25 * 365 * 24 * 60 * 60 * 1000, 'con-favorite': true } },
-        { id: 'con-rec-5', values: { 'con-name': '钱七', 'con-phone': '13500135005', 'con-email': 'qianqi@example.com', 'con-company': '咨询公司', 'con-position': '顾问', 'con-group': '其他', 'con-favorite': false } },
+        { id: 'con-rec-5', values: { 'con-name': '钱七', 'con-phone': '13500135005', 'con-email': 'ldengbin@126.cn', 'con-company': '咨询公司', 'con-position': '顾问', 'con-group': '其他', 'con-favorite': false } },
         { id: 'con-rec-6', values: { 'con-name': '孙八', 'con-phone': '13300133006', 'con-company': '金融机构', 'con-position': '分析师', 'con-group': '同事', 'con-favorite': false } }
       ]
     }
@@ -648,7 +648,7 @@ const recruitmentTemplate: TableTemplate = {
         { id: 'rec-view-3', name: '面试日历', type: 'calendar', config: { dateFieldId: 'rec-interview-date' }, filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [], rowHeight: 'medium', isDefault: false, order: 2 }
       ],
       records: [
-        { id: 'rec-rec-1', values: { 'rec-name': '张小明', 'rec-position': '前端开发', 'rec-stage': '复试', 'rec-phone': '13800138001', 'rec-email': 'zhangxm@example.com', 'rec-source': 'BOSS直聘', 'rec-experience': 3, 'rec-expected-salary': 18000, 'rec-rating': 4 } },
+        { id: 'rec-rec-1', values: { 'rec-name': '张小明', 'rec-position': '前端开发', 'rec-stage': '复试', 'rec-phone': '13800138001', 'rec-email': 'ldengbin@126.cn', 'rec-source': 'BOSS直聘', 'rec-experience': 3, 'rec-expected-salary': 18000, 'rec-rating': 4 } },
         { id: 'rec-rec-2', values: { 'rec-name': '李小红', 'rec-position': '产品经理', 'rec-stage': '已录用', 'rec-phone': '13900139002', 'rec-source': '内推', 'rec-experience': 5, 'rec-expected-salary': 25000, 'rec-rating': 5 } },
         { id: 'rec-rec-3', values: { 'rec-name': '王小华', 'rec-position': 'UI设计师', 'rec-stage': '初试', 'rec-phone': '13700137003', 'rec-source': '前程无忧', 'rec-experience': 2, 'rec-expected-salary': 12000, 'rec-rating': 3 } },
         { id: 'rec-rec-4', values: { 'rec-name': '赵小龙', 'rec-position': '后端开发', 'rec-stage': '已淘汰', 'rec-phone': '13600136004', 'rec-source': '智联招聘', 'rec-experience': 1, 'rec-rating': 2, 'rec-feedback': '技术能力不足' } },
@@ -751,7 +751,430 @@ const bugTrackingTemplate: TableTemplate = {
   ]
 };
 
-// ==================== 16. OKR目标管理模板 ====================
+// ==================== 记录生成器（用于生成测试记录） ====================
+const generateTestRecords = (): TemplateRecord[] => {
+  const records: TemplateRecord[] = [];
+  const singleSelectOptions = ['类型A', '类型B', '类型C', '类型D', '类型E'];
+  const multiSelectOptions = ['标签1', '标签2', '标签3', '标签4', '标签5', '标签6'];
+
+  const pickOne = <T>(arr: T[], i: number): T => arr[i % arr.length];
+  const pickSome = <T>(arr: T[], i: number): T[] => {
+    const count = i % 4;
+    return arr.slice(0, count);
+  };
+
+  for (let i = 0; i < 100; i++) {
+    const batch = Math.floor(i / 100); // 0=正常 1=空值 2=边界 3=特殊字符 4=格式验证
+    const idx = i % 100; // 批次内序号
+    const values: Record<string, CellValue> = {};
+
+    // ——— 单行文本 ———
+    if (batch === 0) {
+      values['test-text'] = `测试记录 #${i + 1}`;
+    } else if (batch === 1 && idx % 7 === 0) {
+      values['test-text'] = null;
+    } else if (batch === 2 && idx % 9 === 0) {
+      values['test-text'] = 'A'.repeat(500);
+    } else if (batch === 3 && idx % 5 === 0) {
+      values['test-text'] = '<script>alert("xss")</script>' + (i + 1);
+    } else if (batch === 4 && idx % 8 === 0) {
+      values['test-text'] = '  ';
+    } else {
+      values['test-text'] = `测试记录 #${i + 1}`;
+    }
+
+    // ——— 多行文本 ———
+    if (batch === 0) {
+      values['test-longtext'] = `这是第 ${i + 1} 条记录的多行文本内容。\n包含换行符的第二行。\n第三行结束。`;
+    } else if (batch === 1 && idx % 5 === 0) {
+      values['test-longtext'] = null;
+    } else if (batch === 2 && idx % 11 === 0) {
+      values['test-longtext'] = '长文本 '.repeat(200).trim();
+    } else if (batch === 3 && idx % 7 === 0) {
+      values['test-longtext'] = '特殊字符: \n\t\r\0\\\'"`汉字日本語한국어🚀🎉';
+    } else if (batch === 4 && idx % 9 === 0) {
+      values['test-longtext'] = '\n\n\n\n';
+    } else {
+      values['test-longtext'] = `记录 ${i + 1} 的说明内容。`;
+    }
+
+    // ——— 富文本 ———
+    if (batch === 0) {
+      values['test-richtext'] = `<p><b>记录 ${i + 1}</b>：这是富文本内容。</p>`;
+    } else if (batch === 1 && idx % 6 === 0) {
+      values['test-richtext'] = null;
+    } else if (batch === 2 && idx % 8 === 0) {
+      values['test-richtext'] = '<div style="font-size:999px">超大字体</div>';
+    } else if (batch === 3 && idx % 4 === 0) {
+      values['test-richtext'] = '<ul><li>列表项1</li><li>列表项2</li></ul><script>evil()</script>';
+    } else if (batch === 4 && idx % 7 === 0) {
+      values['test-richtext'] = '<p>🔬🧪🧫🧬🔭📡💻</p>';
+    } else {
+      values['test-richtext'] = `<p>普通富文本段落 #${i + 1}</p>`;
+    }
+
+    // ——— 数字 ———
+    if (batch === 0) {
+      values['test-number'] = i + 1;
+    } else if (batch === 1 && idx % 8 === 0) {
+      values['test-number'] = null;
+    } else if (batch === 2 && idx % 5 === 0) {
+      values['test-number'] = 999999999;
+    } else if (batch === 2 && idx % 5 === 1) {
+      values['test-number'] = -999999999;
+    } else if (batch === 2 && idx % 5 === 2) {
+      values['test-number'] = 0;
+    } else if (batch === 3 && idx % 7 === 0) {
+      values['test-number'] = 3.14159265358979;
+    } else if (batch === 4 && idx % 6 === 0) {
+      values['test-number'] = 1e-10;
+    } else {
+      values['test-number'] = (i + 1) * 10;
+    }
+
+    // ——— 货币 ———
+    // if (batch === 0) {
+    //   values['test-currency'] = (i + 1) * 100;
+    // } else if (batch === 1 && idx % 5 === 0) {
+    //   values['test-currency'] = null;
+    // } else if (batch === 2 && idx % 11 === 0) {
+    //   values['test-currency'] = 0.01;
+    // } else if (batch === 3 && idx % 9 === 0) {
+    //   values['test-currency'] = 99999999.99;
+    // } else if (batch === 4 && idx % 7 === 0) {
+    //   values['test-currency'] = -500;
+    // } else {
+    //   values['test-currency'] = (i + 1) * 50;
+    // }
+
+    // ——— 百分比 ———
+    if (batch === 0) {
+      values['test-percent'] = (i % 101);
+    } else if (batch === 1 && idx % 6 === 0) {
+      values['test-percent'] = null;
+    } else if (batch === 2 && idx % 10 === 0) {
+      values['test-percent'] = 0;
+    } else if (batch === 2 && idx % 10 === 1) {
+      values['test-percent'] = 100;
+    } else if (batch === 2 && idx % 10 === 2) {
+      values['test-percent'] = 200;
+    } else if (batch === 3 && idx % 8 === 0) {
+      values['test-percent'] = 33.33;
+    } else {
+      values['test-percent'] = (i * 7) % 101;
+    }
+
+    // ——— 评分 ———
+    if (batch === 0) {
+      values['test-rating'] = (i % 5) + 1;
+    } else if (batch === 1 && idx % 4 === 0) {
+      values['test-rating'] = null;
+    } else if (batch === 2 && idx % 12 === 0) {
+      values['test-rating'] = 0;
+    } else if (batch === 3 && idx % 10 === 0) {
+      values['test-rating'] = 5;
+    } else {
+      values['test-rating'] = (i * 3) % 5 + 1;
+    }
+
+    // ——— 时长 ———
+    if (batch === 0) {
+      values['test-duration'] = 30 + (i % 10) * 15;
+    } else if (batch === 1 && idx % 7 === 0) {
+      values['test-duration'] = null;
+    } else if (batch === 2 && idx % 9 === 0) {
+      values['test-duration'] = 1440;
+    } else if (batch === 2 && idx % 9 === 1) {
+      values['test-duration'] = 1;
+    } else if (batch === 3 && idx % 6 === 0) {
+      values['test-duration'] = 10080;
+    } else {
+      values['test-duration'] = 60 + (i % 8) * 30;
+    }
+
+    // ——— 日期 ———
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    if (batch === 0) {
+      values['test-date'] = now + (i - 250) * dayMs;
+    } else if (batch === 1 && idx % 5 === 0) {
+      values['test-date'] = null;
+    } else if (batch === 2 && idx % 7 === 0) {
+      // 闰年 2024-02-29
+      values['test-date'] = new Date(2024, 1, 29).getTime();
+    } else if (batch === 2 && idx % 7 === 1) {
+      // 纪元前近似
+      values['test-date'] = new Date(1, 0, 1).getTime();
+    } else if (batch === 3 && idx % 9 === 0) {
+      // 未来 10 年
+      values['test-date'] = now + 3650 * dayMs;
+    } else if (batch === 4 && idx % 6 === 0) {
+      // 月末日 2025-01-31
+      values['test-date'] = new Date(2025, 0, 31).getTime();
+    } else {
+      values['test-date'] = now + (i - 250) * dayMs;
+    }
+
+    // ——— 日期时间 ———
+    if (batch === 0) {
+      values['test-datetime'] = now + i * 3600000;
+    } else if (batch === 1 && idx % 5 === 0) {
+      values['test-datetime'] = null;
+    } else if (batch === 2 && idx % 8 === 0) {
+      values['test-datetime'] = new Date(1970, 0, 1).getTime();
+    } else if (batch === 3 && idx % 7 === 0) {
+      values['test-datetime'] = new Date(2099, 11, 31, 23, 59, 59).getTime();
+    } else if (batch === 4 && idx % 9 === 0) {
+      values['test-datetime'] = now + 500 * dayMs;
+    } else {
+      values['test-datetime'] = now + i * 7200000;
+    }
+
+    // ——— 单选 ———
+    if (batch === 0) {
+      values['test-singleselect'] = pickOne(singleSelectOptions, i);
+    } else if (batch === 1 && idx % 4 === 0) {
+      values['test-singleselect'] = null;
+    } else if (batch === 2 && idx % 13 === 0) {
+      values['test-singleselect'] = '未知选项';
+    } else {
+      values['test-singleselect'] = pickOne(singleSelectOptions, i + 3);
+    }
+
+    // ——— 多选 ———
+    if (batch === 0) {
+      const selected = pickSome(multiSelectOptions, i);
+      values['test-multiselect'] = selected.length > 0 ? selected : null;
+    } else if (batch === 1 && idx % 3 === 0) {
+      values['test-multiselect'] = null;
+    } else if (batch === 2 && idx % 11 === 0) {
+      values['test-multiselect'] = [...multiSelectOptions];
+    } else if (batch === 3 && idx % 6 === 0) {
+      values['test-multiselect'] = ['未知标签'];
+    } else {
+      const selected = pickSome(multiSelectOptions, i + 2);
+      values['test-multiselect'] = selected.length > 0 ? selected : null;
+    }
+
+    // ——— 复选框 ———
+    if (batch === 0) {
+      values['test-checkbox'] = i % 2 === 0;
+    } else if (batch === 1 && idx % 4 === 0) {
+      values['test-checkbox'] = null;
+    } else if (batch === 2 && idx % 7 === 0) {
+      values['test-checkbox'] = true;
+    } else {
+      values['test-checkbox'] = i % 3 === 0;
+    }
+
+    // ——— 电话 ———
+    const phones = ['13800138001', '010-88886666', '15912345678', '021-12345678', '400-800-8888'];
+    if (batch === 0) {
+      values['test-phone'] = pickOne(phones, i);
+    } else if (batch === 1 && idx % 6 === 0) {
+      values['test-phone'] = null;
+    } else if (batch === 2 && idx % 9 === 0) {
+      values['test-phone'] = '000-0000-0000';
+    } else if (batch === 3 && idx % 5 === 0) {
+      values['test-phone'] = 'invalid-phone';
+    } else if (batch === 4 && idx % 4 === 0) {
+      values['test-phone'] = '12345';
+    } else {
+      values['test-phone'] = pickOne(phones, i + 2);
+    }
+
+    // ——— 邮箱 ———
+    const emails = ['ldengbin@126.com', 'binac@live.cn'];
+    if (batch === 0) {
+      values['test-email'] = pickOne(emails, i);
+    } else if (batch === 1 && idx % 6 === 0) {
+      values['test-email'] = null;
+    } else if (batch === 2 && idx % 10 === 0) {
+      values['test-email'] = 'ldengbin@126.com';
+    } else if (batch === 3 && idx % 5 === 0) {
+      values['test-email'] = 'binac@live.cn';
+    } else if (batch === 4 && idx % 3 === 0) {
+      values['test-email'] = 'not-an-email';
+    } else {
+      values['test-email'] = pickOne(emails, i + 3);
+    }
+
+    // ——— URL ———
+    const urlList = ['https://github.com/ldbinac/smart_table', 'https://gitee.com/binac/smart_table', 'https://www.zhihu.com/people/lu-dong-bin-19', 'https://blog.csdn.net/q283595518', 'https://juejin.cn/user/2330620381633991', 'https://mp.weixin.qq.com/s/KtvkNesxYRWPHwMqw7BW3w'];
+    if (batch === 0) {
+      values['test-url'] = pickOne(urlList, i);
+    } else if (batch === 1 && idx % 6 === 0) {
+      values['test-url'] = null;
+    } else if (batch === 2 && idx % 11 === 0) {
+      values['test-url'] = 'https://github.com/ldbinac/smart_table';
+    } else if (batch === 3 && idx % 7 === 0) {
+      values['test-url'] = 'https://gitee.com/binac/smart_table';
+    } else if (batch === 4 && idx % 4 === 0) {
+      values['test-url'] = 'https://mp.weixin.qq.com/s/KtvkNesxYRWPHwMqw7BW3w';
+    } else {
+      values['test-url'] = pickOne(urlList, i + 1);
+    }
+
+    // ——— 进度 ———
+    // if (batch === 0) {
+    //   values['test-progress'] = i % 101;
+    // } else if (batch === 1 && idx % 5 === 0) {
+    //   values['test-progress'] = null;
+    // } else if (batch === 2 && idx % 8 === 0) {
+    //   values['test-progress'] = 0;
+    // } else if (batch === 2 && idx % 8 === 1) {
+    //   values['test-progress'] = 100;
+    // } else if (batch === 3 && idx % 9 === 0) {
+    //   values['test-progress'] = 50;
+    // } else {
+    //   values['test-progress'] = (i * 17) % 101;
+    // }
+
+    // ——— 成员 ———
+    if (batch === 0) {
+      values['test-member'] = 'user_' + ((i % 5) + 1);
+    } else if (batch === 1 && idx % 5 === 0) {
+      values['test-member'] = null;
+    } else {
+      values['test-member'] = 'user_' + ((i % 3) + 1);
+    }
+
+    // ——— 协作者 ———
+    if (batch === 0) {
+      values['test-collaborator'] = [`user_${(i % 3) + 1}`, `user_${(i % 3) + 2}`];
+    } else if (batch === 1 && idx % 4 === 0) {
+      values['test-collaborator'] = null;
+    } else if (batch === 2 && idx % 9 === 0) {
+      values['test-collaborator'] = [`user_1`, `user_2`, `user_3`, `user_4`, `user_5`];
+    } else {
+      values['test-collaborator'] = [`user_${(i % 2) + 1}`];
+    }
+
+    // ——— 附件 ———
+    const attachments = ['report.pdf', 'image.jpg', 'data.xlsx', 'presentation.pptx', 'readme.md'];
+    if (batch === 0) {
+      values['test-attachment'] = pickOne(attachments, i);
+    } else if (batch === 1 && idx % 5 === 0) {
+      values['test-attachment'] = null;
+    } else if (batch === 2 && idx % 10 === 0) {
+      values['test-attachment'] = 'filename_with_very_long_name_that_exceeds_typical_limits_abcdefghijklmnopqrstuvwxyz_1234567890_final_version_v2_final.docx';
+    } else if (batch === 3 && idx % 6 === 0) {
+      values['test-attachment'] = '中文文件名_测试_文档.pdf';
+    } else {
+      values['test-attachment'] = pickOne(attachments, i + 2);
+    }
+
+    // ——— 条形码 ———
+    // const barcodes = ['9781234567897', '6901234567890', 'ABC123DEF456', '1234567890123', 'TEST-CODE-001'];
+    // if (batch === 0) {
+    //   values['test-barcode'] = pickOne(barcodes, i);
+    // } else if (batch === 1 && idx % 6 === 0) {
+    //   values['test-barcode'] = null;
+    // } else if (batch === 2 && idx % 8 === 0) {
+    //   values['test-barcode'] = '0'.repeat(50);
+    // } else if (batch === 3 && idx % 5 === 0) {
+    //   values['test-barcode'] = '!@#$%^&*()';
+    // } else {
+    //   values['test-barcode'] = pickOne(barcodes, i + 1);
+    // }
+
+    // ——— 按钮 ———
+    // if (batch === 0) {
+    //   values['test-button'] = `操作_${(i % 4) + 1}`;
+    // } else if (batch === 1 && idx % 7 === 0) {
+    //   values['test-button'] = null;
+    // } else if (batch === 2 && idx % 10 === 0) {
+    //   values['test-button'] = '点击执行';
+    // } else {
+    //   values['test-button'] = `按钮_${(i % 3) + 1}`;
+    // }
+
+    records.push({
+      id: `test-rec-${i}`,
+      values,
+    });
+  }
+
+  return records;
+};
+
+// ==================== 17. 全字段类型测试模板 ====================
+const fullFieldTypeTestTemplate: TableTemplate = {
+  id: 'full-field-type-test',
+  name: '全字段类型测试',
+  description: '系统覆盖所有可创建字段类型（22种），含100条边界值测试记录，用于验证字段解析准确性和数据处理正确性',
+  icon: '🧪',
+  color: '#6366F1',
+  category: '全字段测试',
+  tables: [
+    {
+      id: 'test-table',
+      name: '字段类型验证表',
+      description: '包含所有用户可创建字段类型的综合验证表，每条记录覆盖各字段的不同数据形态',
+      order: 0,
+      fields: [
+        { id: 'test-id', name: '记录编号', type: 'auto_number', options: { prefix: 'T-', startNumber: 1 }, isPrimary: true, isRequired: true, isVisible: true, order: 0 },
+        { id: 'test-text', name: '单行文本', type: 'single_line_text', isPrimary: false, isRequired: false, isVisible: true, order: 1 },
+        { id: 'test-longtext', name: '多行文本', type: 'long_text', isPrimary: false, isRequired: false, isVisible: true, order: 2 },
+        { id: 'test-richtext', name: '富文本', type: 'rich_text', isPrimary: false, isRequired: false, isVisible: true, order: 3 },
+        { id: 'test-number', name: '数字', type: 'number', isPrimary: false, isRequired: false, isVisible: true, order: 4 },
+       // { id: 'test-currency', name: '货币', type: 'currency', options: { format: 'currency', currencySymbol: '¥' }, isPrimary: false, isRequired: false, isVisible: true, order: 5 },
+        { id: 'test-percent', name: '百分比', type: 'percent', isPrimary: false, isRequired: false, isVisible: true, order: 6 },
+        { id: 'test-rating', name: '评分', type: 'rating', options: { maxRating: 5 }, isPrimary: false, isRequired: false, isVisible: true, order: 7 },
+        { id: 'test-duration', name: '时长', type: 'duration', isPrimary: false, isRequired: false, isVisible: true, order: 8 },
+        { id: 'test-date', name: '日期', type: 'date', isPrimary: false, isRequired: false, isVisible: true, order: 9 },
+        { id: 'test-datetime', name: '日期时间', type: 'date_time', options: { includeTime: true }, isPrimary: false, isRequired: false, isVisible: true, order: 10 },
+        { id: 'test-singleselect', name: '单选', type: 'single_select', options: { choices: selectOptions(['类型A', '类型B', '类型C', '类型D', '类型E']) }, isPrimary: false, isRequired: false, isVisible: true, order: 11 },
+        { id: 'test-multiselect', name: '多选', type: 'multi_select', options: { choices: selectOptions(['标签1', '标签2', '标签3', '标签4', '标签5', '标签6']) }, isPrimary: false, isRequired: false, isVisible: true, order: 12 },
+        { id: 'test-checkbox', name: '复选框', type: 'checkbox', isPrimary: false, isRequired: false, isVisible: true, order: 13 },
+        { id: 'test-phone', name: '电话', type: 'phone', isPrimary: false, isRequired: false, isVisible: true, order: 14 },
+        { id: 'test-email', name: '邮箱', type: 'email', isPrimary: false, isRequired: false, isVisible: true, order: 15 },
+        { id: 'test-url', name: '链接', type: 'url', isPrimary: false, isRequired: false, isVisible: true, order: 16 },
+        //{ id: 'test-progress', name: '进度', type: 'progress', options: { showPercent: true }, isPrimary: false, isRequired: false, isVisible: true, order: 17 },
+        { id: 'test-member', name: '成员', type: 'member', isPrimary: false, isRequired: false, isVisible: true, order: 18 },
+        { id: 'test-collaborator', name: '协作者', type: 'collaborator', options: { multiple: true }, isPrimary: false, isRequired: false, isVisible: true, order: 19 },
+        { id: 'test-attachment', name: '附件', type: 'attachment', isPrimary: false, isRequired: false, isVisible: true, order: 20 },
+        //{ id: 'test-barcode', name: '条形码', type: 'barcode', isPrimary: false, isRequired: false, isVisible: true, order: 21 },
+        //{ id: 'test-button', name: '按钮', type: 'button', isPrimary: false, isRequired: false, isVisible: true, order: 22 },
+      ],
+      views: [
+        // {
+        //   id: 'test-view-1', name: '完整字段视图', type: 'table',
+        //   config: {},
+        //   filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [],
+        //   rowHeight: 'medium', isDefault: true, order: 0,
+        // },
+        // {
+        //   id: 'test-view-2', name: '核心字段视图', type: 'table',
+        //   config: {},
+        //   filters: [], sorts: [], groupBys: [],
+        //   hiddenFields: ['test-longtext', 'test-richtext', 'test-percent', 'test-duration', 'test-datetime', 'test-checkbox', 'test-member', 'test-collaborator', 'test-attachment', 'test-barcode', 'test-button'],
+        //   frozenFields: ['test-text'],
+        //   rowHeight: 'medium', isDefault: false, order: 1,
+        // },
+        {
+          id: 'test-view-3', name: '按类型分组', type: 'kanban',
+          config: { groupFieldId: 'test-singleselect' },
+          filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [],
+          rowHeight: 'medium', isDefault: false, order: 2,
+        },
+        {
+          id: 'test-view-4', name: '日历视图', type: 'calendar',
+          config: { dateFieldId: 'test-date' },
+          filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [],
+          rowHeight: 'medium', isDefault: false, order: 3,
+        },
+        {
+          id: 'test-view-5', name: '画廊视图', type: 'gallery',
+          config: {},
+          filters: [], sorts: [], groupBys: [], hiddenFields: [], frozenFields: [],
+          rowHeight: 'medium', isDefault: false, order: 4,
+        },
+      ],
+      records: generateTestRecords(),
+    }
+  ]
+};
 const okrTemplate: TableTemplate = {
   id: 'okr-management',
   name: 'OKR目标',
@@ -835,7 +1258,8 @@ export const tableTemplates: TableTemplate[] = [
   recruitmentTemplate,
   assetManagementTemplate,
   bugTrackingTemplate,
-  okrTemplate
+  okrTemplate,
+  fullFieldTypeTestTemplate
 ];
 
 // 类型已在文件顶部导出，无需重复导出

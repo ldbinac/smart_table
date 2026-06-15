@@ -36,8 +36,8 @@ cors = CORS()
 # CSRF 保护扩展
 csrf = CSRFProtect()
 
-# WebSocket 扩展（使用 threading 模式，兼容 PyInstaller 打包环境）
-socketio = SocketIO(async_mode='threading')
+# WebSocket 扩展（延迟配置 async_mode，避免与 init_app 双重指定导致 PyInstaller 环境初始化失败）
+socketio = SocketIO()
 
 # Redis 客户端（全局连接池）
 redis_client = None
@@ -94,13 +94,19 @@ def init_extensions(app):
     })
     
     if app.config.get('REALTIME_ENABLED', False):
+        # 预先导入 engineio 异步驱动，确保 PyInstaller 冻结环境中模块可用
+        try:
+            import engineio.async_drivers.threading  # noqa: F401
+        except ImportError:
+            app.logger.warning('[Extensions] engineio.async_drivers.threading not importable, SocketIO may fail')
+
         socketio_kwargs = {
             'async_mode': 'threading',
-            'cors_allowed_origins': app.config.get('CORS_ORIGINS', ['http://localhost:3000']),
+            'cors_allowed_origins': app.config.get('CORS_ORIGINS', ['http://localhost:3000', 'http://localhost:5000']),
             'ping_timeout': app.config.get('SOCKETIO_PING_TIMEOUT', 60),
             'ping_interval': app.config.get('SOCKETIO_PING_INTERVAL', 25),
         }
-        
+
         # 在打包环境中，避免使用 message_queue（可能导致初始化失败）
         # 单进程模式下不需要消息队列
         is_packaged = getattr(sys, 'frozen', False)
@@ -108,13 +114,20 @@ def init_extensions(app):
             message_queue = app.config.get('SOCKETIO_MESSAGE_QUEUE')
             if message_queue:
                 socketio_kwargs['message_queue'] = message_queue
-        
+
         try:
             socketio.init_app(app, **socketio_kwargs)
             app.logger.info(f'[Extensions] ✓ SocketIO initialized successfully (mode: threading, packaged: {is_packaged})')
         except Exception as e:
             app.logger.error(f'[Extensions] ⚠️ SocketIO initialization failed: {e}')
-            app.logger.error('[Extensions]   This usually happens in PyInstaller environment with message_queue')
+            app.logger.error(f'[Extensions]   Error type: {type(e).__name__}')
+            # 诊断：检测具体哪个驱动模块不可用
+            for driver in ['threading', 'eventlet']:
+                try:
+                    __import__(f'engineio.async_drivers.{driver}')
+                    app.logger.info(f'[Extensions]   engineio.async_drivers.{driver}: OK')
+                except ImportError as ie:
+                    app.logger.error(f'[Extensions]   engineio.async_drivers.{driver}: IMPORT FAILED - {ie}')
             app.logger.error('[Extensions]   Real-time collaboration will be disabled')
             app.config['REALTIME_ENABLED'] = False
     

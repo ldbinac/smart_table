@@ -42,7 +42,11 @@ export const reorderTables = async (
   baseId: string,
   tableOrders: Array<{ id: string; order: number }>
 ): Promise<Table[]> => {
-  return apiClient.put<Table[]>(`/bases/${baseId}/tables/reorder`, { table_orders: tableOrders });
+  const orders = tableOrders.map(item => ({
+    table_id: item.id,
+    order: item.order
+  }));
+  return apiClient.post<Table[]>(`/bases/${baseId}/tables/reorder`, { orders });
 };
 
 export const tableApiService = {

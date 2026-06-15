@@ -222,6 +222,15 @@ export class FormulaEngine {
     const num = Number(value);
     if (!isNaN(num)) return num;
 
+    // 尝试将表达式作为算术运算求值（如 "10+11" → 21）
+    // 确保函数参数中的算术表达式能被正确计算
+    try {
+      const evalResult = this.evaluateArithmetic(value);
+      if (typeof evalResult === 'number') return evalResult;
+    } catch {
+      // 求值失败，当作普通字符串返回
+    }
+
     return value;
   }
 

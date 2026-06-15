@@ -13,7 +13,7 @@ import {
   Plus,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
-import { TableView } from "@/components/views/TableView";
+import { TableView, VTableView } from "@/components/views/TableView";
 import KanbanView from "@/components/views/KanbanView/KanbanView.vue";
 import CalendarView from "@/components/views/CalendarView/CalendarView.vue";
 import GanttView from "@/components/views/GanttView/GanttView.vue";
@@ -106,6 +106,9 @@ const visibleFields = computed(() => {
 
 // 创建数据表对话框显示状态
 const createTableDialogVisible = ref(false);
+
+// VTable 临时测试开关
+const useVTable = ref(true);
 
 // 数据表管理对话框显示状态
 const showTableManager = ref(false);
@@ -719,6 +722,20 @@ const handleAddRecordFromGroup = (groupInfo: {
   // 保存初始值和分组信息
   addRecordInitialValues.value = initialValues;
   addRecordGroupInfo.value = groupInfo;
+  addRecordDialogVisible.value = true;
+};
+
+// 处理 VTable 分组视图的添加记录
+const handleVTableGroupAddRecord = (groupFieldValues: Record<string, any>) => {
+  if (!tableStore.currentTable) {
+    ElMessage.warning("请先选择一个数据表");
+    return;
+  }
+
+  // 构建初始值，直接使用分组字段值作为初始值
+  const initialValues: Record<string, unknown> = { ...groupFieldValues };
+  addRecordInitialValues.value = initialValues;
+  addRecordGroupInfo.value = { groupLevels: [] };
   addRecordDialogVisible.value = true;
 };
 
@@ -1771,6 +1788,7 @@ const handleDocumentExportPdf = async () => {
       @delete-dashboard="handleDeleteDashboard"
       @toggle-star-dashboard="handleToggleStarDashboard"
       @reorder-dashboards="handleReorderDashboards"
+      @reorder-tables="handleTableDragEnd"
       @rename-document="handleRenameDocument"
       @delete-document="handleDeleteDocument"
       @toggle-pin-document="handleTogglePinDocument"
@@ -1909,6 +1927,15 @@ const handleDocumentExportPdf = async () => {
                     导出
                   </el-button>
                 </el-button-group>
+                <!-- <el-button-group>
+                  <el-button
+                    size="default"
+                    :type="useVTable ? 'success' : 'default'"
+                    @click="useVTable = !useVTable">
+                    <el-icon><Setting /></el-icon>
+                    {{ useVTable ? '原生表格' : 'VTable' }}
+                  </el-button>
+                </el-button-group> -->
               </template>
 
               <!-- 表单视图：显示配置和分享按钮 -->
@@ -1934,9 +1961,9 @@ const handleDocumentExportPdf = async () => {
           </header>
 
           <div class="table-content">
-            <!-- 表格视图 - 分组模式 -->
+            <!-- 表格视图 - 分组模式（仅原生表格使用，VTable 自带分组） -->
             <GroupedTableView
-              v-if="isTableView && hasGroupConfig"
+              v-if="isTableView && hasGroupConfig && !useVTable"
               :fields="visibleFields"
               :records="filteredRecords as any[]"
               :group-by="currentGroupBys"
@@ -1956,7 +1983,7 @@ const handleDocumentExportPdf = async () => {
 
             <!-- 表格视图 - 普通模式 -->
             <TableView
-              v-else-if="isTableView"
+              v-else-if="isTableView && !useVTable"
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"
               :records="filteredRecords"
@@ -1964,6 +1991,19 @@ const handleDocumentExportPdf = async () => {
               @record-select="handleRecordSelect"
               @records-select="handleRecordsSelect"
               @add-record="handleAddRecord" />
+
+            <!-- VTable 视图（支持 VTable 原生分组） -->
+            <VTableView
+              v-else-if="isTableView && useVTable"
+              :table-id="currentTableId"
+              :view-id="viewStore.currentView?.id || ''"
+              :records="filteredRecords"
+              :readonly="!canEdit"
+              :group-by="currentGroupBys"
+              @record-select="handleRecordSelect"
+              @records-select="handleRecordsSelect"
+              @add-record="handleAddRecord"
+              @group-add-record="handleVTableGroupAddRecord" />
 
             <!-- 看板视图 -->
             <KanbanView

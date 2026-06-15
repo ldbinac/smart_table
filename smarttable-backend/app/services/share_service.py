@@ -41,6 +41,9 @@ class ShareService:
         if expires_at is not None:
             try:
                 expires_at = int(expires_at)
+                # 前端可能发送毫秒级时间戳（JavaScript Date.now()），自动转换为秒
+                if expires_at > 10**11:
+                    expires_at = expires_at // 1000
                 # 验证过期时间不能是过去的时间
                 if expires_at < int(datetime.now(timezone.utc).timestamp()):
                     return {'success': False, 'error': '过期时间不能是过去的时间'}
@@ -99,6 +102,9 @@ class ShareService:
             if data['expires_at'] is not None:
                 try:
                     expires_at = int(data['expires_at'])
+                    # 前端可能发送毫秒级时间戳（JavaScript Date.now()），自动转换为秒
+                    if expires_at > 10**11:
+                        expires_at = expires_at // 1000
                     if expires_at < int(datetime.now(timezone.utc).timestamp()):
                         return {'success': False, 'error': '过期时间不能是过去的时间'}
                     share.expires_at = expires_at

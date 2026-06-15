@@ -889,7 +889,79 @@ class LinkService:
         except Exception as e:
             current_app.logger.error(f'[LinkService] 获取记录关联信息失败: {str(e)}')
             return {}
-    
+
+    @staticmethod
+    def batch_get_record_link_ids(record_ids: List[str]) -> Dict[str, Dict[str, List[str]]]:
+        """
+        批量获取多条记录的关联记录 ID 映射
+
+        相比逐个调用 get_record_links，此方法只返回关联记录 ID，
+        不查询显示值，且只需 2 条 SQL 即可完成所有记录的关联数据加载。
+
+        Args:
+            record_ids: 记录 ID 列表
+
+        Returns:
+            {record_id: {field_id: [linked_record_id, ...]}}
+            每个 field_id 对应的列表已去重
+        """
+        if not record_ids:
+            return {}
+
+        result: Dict[str, Dict[str, List[str]]] = {rid: {} for rid in record_ids}
+
+        try:
+            # 1. 查询所有 outgoing 关联
+            source_rows = db.session.execute(
+                select(LinkValue, LinkRelation).join(
+                    LinkRelation,
+                    LinkValue.link_relation_id == LinkRelation.id
+                ).where(
+                    LinkValue.source_record_id.in_(record_ids)
+                )
+            ).all()
+
+            for link_value, link_relation in source_rows:
+                record_id = str(link_value.source_record_id)
+                field_id = str(link_relation.source_field_id)
+                target_id = str(link_value.target_record_id)
+                if field_id not in result[record_id]:
+                    result[record_id][field_id] = []
+                result[record_id][field_id].append(target_id)
+
+            # 2. 查询所有 incoming 关联（仅双向关联）
+            target_rows = db.session.execute(
+                select(LinkValue, LinkRelation).join(
+                    LinkRelation,
+                    LinkValue.link_relation_id == LinkRelation.id
+                ).where(
+                    and_(
+                        LinkValue.target_record_id.in_(record_ids),
+                        LinkRelation.bidirectional == True
+                    )
+                )
+            ).all()
+
+            for link_value, link_relation in target_rows:
+                record_id = str(link_value.target_record_id)
+                if link_relation.target_field_id:
+                    field_id = str(link_relation.target_field_id)
+                    source_id = str(link_value.source_record_id)
+                    if field_id not in result[record_id]:
+                        result[record_id][field_id] = []
+                    result[record_id][field_id].append(source_id)
+
+            # 3. 对每个字段的 ID 列表去重
+            for rid in result:
+                for fid in result[rid]:
+                    result[rid][fid] = list(dict.fromkeys(result[rid][fid]))
+
+            return result
+
+        except Exception as e:
+            current_app.logger.error(f'[LinkService] batch_get_record_link_ids failed: {str(e)}')
+            return result
+
     @staticmethod
     def _get_link_display_value(target_record, field_id: str, _field_cache: dict = None) -> str:
         """

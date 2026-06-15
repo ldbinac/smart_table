@@ -6,6 +6,7 @@
     top="5vh"
     :close-on-click-modal="true"
     :close-on-press-escape="true"
+    append-to-body
     destroy-on-close
     class="template-preview-dialog"
     @close="handleClose"

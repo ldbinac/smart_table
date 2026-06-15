@@ -3,6 +3,7 @@
 """
 import uuid
 import traceback
+from typing import Dict, List
 from datetime import datetime, timezone
 from flask import Blueprint, request, g, current_app
 
@@ -25,7 +26,7 @@ from app.utils.decorators import jwt_required, role_required, query_rate_limit, 
 from app.extensions import db
 from app.models.record import Record
 from app.models.record_history import RecordHistory, HistoryAction
-from app.models.field import FieldType
+from app.models.field import Field, FieldType
 from app.models.base import MemberRole
 
 records_bp = Blueprint('records', __name__)
@@ -90,8 +91,8 @@ def get_records(table_id) -> tuple:
     search = request.args.get('search', '')
     
     # 限制每页数量
-    if per_page > 100:
-        per_page = 100
+    if per_page > 500:
+        per_page = 500
     
     try:
         if search:
@@ -113,32 +114,36 @@ def get_records(table_id) -> tuple:
         link_fields_link = FieldService.get_fields_by_type(table_id, 'link')
         link_fields = link_fields + link_fields_link
         
+        # 批量加载关联数据（仅需 2 条 SQL，替代逐条调用的 N+1 查询）
+        record_links_map: Dict[str, Dict[str, List[str]]] = {}
+        if link_fields and records:
+            record_ids_str = [str(r.id) for r in records]
+            record_links_map = LinkService.batch_get_record_link_ids(record_ids_str)
+        
+        # 预查询公式字段，避免每条记录重复查询数据库
+        formula_fields = Field.query.filter_by(table_id=table_id, type='formula').all()
+        
         # 序列化记录数据
         items = []
         for record in records:
             item = record.to_dict()
             
-            # 填充关联字段数据
+            # 填充关联字段数据（使用批量加载的缓存结果）
             if link_fields:
-                record_links = LinkService.get_record_links(str(record.id))
+                record_links = record_links_map.get(str(record.id), {})
                 for field in link_fields:
                     field_id = str(field.id)
                     if field_id in record_links:
-                        # 获取关联的记录ID列表 - 同时支持 outgoing 和 incoming 链接
-                        linked_ids = []
-                        for link in record_links[field_id]:
-                            if link.get('direction') == 'outgoing':
-                                linked_ids.append(link['target_record_id'])
-                            elif link.get('direction') == 'incoming':
-                                linked_ids.append(link['source_record_id'])
-                        # 去重处理，解决双向关联时同一记录同时出现在 outgoing 和 incoming 导致重复的问题
-                        linked_ids = list(dict.fromkeys(linked_ids))
-                        item['values'][field_id] = linked_ids
+                        # batch_get_record_link_ids 已返回去重后的 ID 列表
+                        item['values'][field_id] = record_links[field_id]
             
-            # 如果有公式字段，计算公式值
-            item['computed_values'] = FormulaService.compute_record_formulas(
-                table_id, record.values
-            )
+            # 计算公式值（传入预查询的 formula_fields，避免重复 DB 查询）
+            if formula_fields:
+                item['computed_values'] = FormulaService.compute_record_formulas(
+                    table_id, record.values, formula_fields=formula_fields
+                )
+            else:
+                item['computed_values'] = {}
             items.append(item)
         
         return paginated_response(items, total, page, per_page)
@@ -1271,8 +1276,8 @@ def search_linkable_records(table_id) -> tuple:
     per_page = request.args.get('per_page', 20, type=int)
     
     # 限制每页数量
-    if per_page > 100:
-        per_page = 100
+    if per_page > 500:
+        per_page = 500
     
     # 解析排除的 ID 列表
     exclude_ids = [id.strip() for id in exclude_ids_str.split(',') if id.strip()]

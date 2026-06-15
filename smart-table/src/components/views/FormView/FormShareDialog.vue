@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
 import { Share, Plus, CopyDocument } from "@element-plus/icons-vue";
 import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
-import { FieldType, type FieldTypeValue } from "@/types";
+import { FieldType, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
 import { formatDateTime } from "@/utils/timezone";
 
 const props = defineProps<{
@@ -444,7 +444,12 @@ function copyExistingShareUrl(share: FormShareConfig) {
               v-for="field in availableFields"
               :key="field.id"
               :label="field.id">
-              {{ field.name }}
+              <span class="field-checkbox-label">
+                <el-icon class="field-icon">
+                  <component :is="getFieldTypeIconComponent(field.type)" />
+                </el-icon>
+                {{ field.name }}
+              </span>
               <el-tag v-if="field.isRequired" size="small" type="danger" class="ml-2">
                 必填
               </el-tag>
@@ -620,6 +625,17 @@ function copyExistingShareUrl(share: FormShareConfig) {
   :deep(.el-checkbox) {
     margin-right: 0;
     min-width: 140px;
+  }
+
+  .field-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .field-icon {
+    font-size: 14px;
+    color: $text-secondary;
   }
 }
 

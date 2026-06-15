@@ -123,11 +123,17 @@ export const useUserCacheStore = defineStore('userCache', () => {
       return []
     }
     
-    // 过滤掉无效ID
-    const validIds = userIds.filter(id => {
-      const strId = String(id)
+    // 过滤掉无效ID，兼容 string 和 {id, name} 对象格式
+    let validIds = userIds.filter(id => {
+      const strId = typeof id === 'object' && id !== null ? String((id as any).id || '') : String(id)
       return strId && strId.trim() !== '' && strId !== '[]'
     })
+    
+    // 规范化：确保所有 ID 均为字符串（对象格式提取 .id 字段）
+    validIds = validIds.map(id => {
+      if (typeof id === 'object' && id !== null) return String((id as any).id || '')
+      return String(id)
+    }).filter(Boolean)
     
     if (validIds.length === 0) {
       console.log('[UserCache] 过滤后无有效用户ID，跳过查询')

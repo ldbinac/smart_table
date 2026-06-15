@@ -55,6 +55,15 @@ export const useTableStore = defineStore("table", () => {
   async function selectTable(tableId: string) {
     loading.value = true;
     error.value = null;
+    // 重置流式加载状态
+    streamingState.value = {
+      isLoading: false,
+      loadedCount: 0,
+      totalCount: 0,
+      currentPage: 0,
+      totalPages: 0,
+      error: null,
+    };
     try {
       const table = await tableService.getTable(tableId);
       if (!table) {
@@ -66,41 +75,69 @@ export const useTableStore = defineStore("table", () => {
       fields.value = await fieldService.getFieldsByTable(tableId);
       views.value = await viewService.getViewsByTable(tableId, true);
 
-      // 使用流式加载记录
+      // 使用流式加载记录（pageSize 与 SmartTableDataSource.batchSize 保持一致）
       const { initialRecords, loadPromise } = await recordService.streamLoadRecords(
         tableId,
         {
-          onProgress: (state) => {
+          onProgress: (state, newRecords) => {
             streamingState.value = { ...state };
-            // 每加载一页都刷新记录列表，让UI实时更新
-            refreshRecords(tableId);
+            // 内存累加：直接追加新增记录，避免 IndexedDB 全量读取
+            if (newRecords && newRecords.length > 0) {
+              records.value = [...records.value, ...newRecords];
+            }
           },
           onComplete: (state) => {
             streamingState.value = { ...state };
-            // 加载完成后刷新记录列表
+            // 加载完成后做一次全量刷新确保数据一致性
             refreshRecords(tableId);
           },
           onError: (err) => {
             console.error("[tableStore] 流式加载失败:", err);
-            error.value = err;
+            streamingState.value = {
+              ...streamingState.value,
+              isLoading: false,
+              error: typeof err === 'string' ? err : '加载失败',
+            };
+            error.value = typeof err === 'string' ? err : '加载失败';
             // 加载失败也刷新本地数据，展示已成功加载的部分
             refreshRecords(tableId);
           },
         },
-        50,
+        200,
       );
 
       records.value = initialRecords;
 
       // 后台加载不阻塞
       loadPromise.catch((err) => {
-        console.error("[tableStore] 后台加载失败:", err);
+        // 错误已在 onError 中处理，这里避免未捕获的 Promise rejection
+        if (!err) return;
+        console.warn("[tableStore] 后台加载异常:", err);
       });
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to select table";
+      streamingState.value = {
+        ...streamingState.value,
+        isLoading: false,
+        error: error.value,
+      };
     } finally {
       loading.value = false;
     }
+  }
+
+  /**
+   * 取消当前表格的流式加载
+   */
+  function cancelLoading() {
+    if (!currentTable.value) return;
+    const tableId = currentTable.value.id;
+    recordService.cancelStreamingLoad(tableId);
+    streamingState.value = {
+      ...streamingState.value,
+      isLoading: false,
+      error: '用户取消加载',
+    };
   }
 
   async function refreshRecords(tableId: string) {
@@ -578,6 +615,7 @@ export const useTableStore = defineStore("table", () => {
     loading,
     error,
     streamingState,
+    cancelLoading,
     loadTables,
     selectTable,
     refreshRecords,
