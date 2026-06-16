@@ -74,7 +74,7 @@ def init_extensions(app):
         redis_client.ping()
         app.logger.info('[Extensions] Redis client initialized successfully')
     except Exception as e:
-        app.logger.warning(f'[Extensions] Redis connection failed: {e}. Redis features will be unavailable.')
+        app.logger.error(f'[Extensions] Redis connection failed: {e}. Redis features will be unavailable.')
         redis_client = None
     
     # 初始化 CSRF 保护
