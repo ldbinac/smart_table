@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-SmartTable v1.2.3 跨平台自动化构建脚本
+SmartTable 跨平台自动化构建脚本
 支持自动生成 Windows EXE 文件属性信息
+版本号由 version.json 统一管理
 """
 
 import subprocess

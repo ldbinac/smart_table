@@ -2,8 +2,6 @@
 # 包含 PostgreSQL 数据库、Redis 缓存、MinIO 对象存储
 # 适用于生产环境的高可用部署
 
-version: '3.8'
-
 services:
   # PostgreSQL 数据库服务
   postgres:
