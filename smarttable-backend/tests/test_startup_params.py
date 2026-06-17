@@ -50,30 +50,6 @@ class TestStartupParams:
             args = parse_args(['--enable-realtime'])
             assert args.enable_realtime is True
 
-    def test_gunicorn_worker_class_realtime_enabled(self):
-        with patch.dict(os.environ, {'ENABLE_REALTIME': 'true'}):
-            import importlib
-            import gunicorn.conf
-            importlib.reload(gunicorn.conf)
-            from gunicorn.conf import worker_class
-            assert worker_class == 'eventlet'
-
-    def test_gunicorn_worker_class_realtime_disabled(self):
-        with patch.dict(os.environ, {'ENABLE_REALTIME': 'false'}):
-            import importlib
-            import gunicorn.conf
-            importlib.reload(gunicorn.conf)
-            from gunicorn.conf import worker_class
-            assert worker_class == 'gthread'
-
-    def test_gunicorn_workers_realtime_enabled(self):
-        with patch.dict(os.environ, {'ENABLE_REALTIME': 'true'}):
-            import importlib
-            import gunicorn.conf
-            importlib.reload(gunicorn.conf)
-            from gunicorn.conf import workers
-            assert workers == 1
-
     def test_realtime_status_endpoint_disabled(self):
         app = create_app('testing', enable_realtime=False)
         with app.test_client() as client:

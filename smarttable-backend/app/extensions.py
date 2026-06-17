@@ -94,22 +94,32 @@ def init_extensions(app):
     })
     
     if app.config.get('REALTIME_ENABLED', False):
-        # 预先导入 engineio 异步驱动，确保 PyInstaller 冻结环境中模块可用
-        try:
-            import engineio.async_drivers.threading  # noqa: F401
-        except ImportError:
-            app.logger.warning('[Extensions] engineio.async_drivers.threading not importable, SocketIO may fail')
+        is_packaged = getattr(sys, 'frozen', False)
+
+        # Docker 生产环境下使用 eventlet async 驱动
+        # PyInstaller 打包模式下使用 threading 驱动
+        if is_packaged:
+            async_mode = 'threading'
+            try:
+                import engineio.async_drivers.threading  # noqa: F401
+            except ImportError:
+                app.logger.warning('[Extensions] engineio.async_drivers.threading not importable, SocketIO may fail')
+        else:
+            async_mode = 'eventlet'
+            try:
+                import engineio.async_drivers.eventlet  # noqa: F401
+            except ImportError:
+                app.logger.warning('[Extensions] engineio.async_drivers.eventlet not importable, SocketIO may fail')
 
         socketio_kwargs = {
-            'async_mode': 'threading',
-            'cors_allowed_origins': app.config.get('CORS_ORIGINS', ['http://localhost:3000', 'http://localhost:5000']),
+            'async_mode': async_mode,
+            'cors_allowed_origins': '*',  # WebSocket 通过 JWT Token 认证，不需要 CORS 限制来源
             'ping_timeout': app.config.get('SOCKETIO_PING_TIMEOUT', 60),
             'ping_interval': app.config.get('SOCKETIO_PING_INTERVAL', 25),
         }
 
         # 在打包环境中，避免使用 message_queue（可能导致初始化失败）
         # 单进程模式下不需要消息队列
-        is_packaged = getattr(sys, 'frozen', False)
         if not is_packaged:
             message_queue = app.config.get('SOCKETIO_MESSAGE_QUEUE')
             if message_queue:
@@ -117,7 +127,7 @@ def init_extensions(app):
 
         try:
             socketio.init_app(app, **socketio_kwargs)
-            app.logger.info(f'[Extensions] ✓ SocketIO initialized successfully (mode: threading, packaged: {is_packaged})')
+            app.logger.info(f'[Extensions] ✓ SocketIO initialized successfully (packaged: {is_packaged})')
         except Exception as e:
             app.logger.error(f'[Extensions] ⚠️ SocketIO initialization failed: {e}')
             app.logger.error(f'[Extensions]   Error type: {type(e).__name__}')

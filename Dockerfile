@@ -1,7 +1,7 @@
 # ============================================
 # SmartTable 统一 Docker 镜像
 # 包含 前端(Vue.js) + 后端(Flask) + Redis 的完整生产环境镜像
-# 基于 Nginx + Gunicorn + Supervisor 进程管理
+# 基于 Nginx + Eventlet WSGI Server + Supervisor 进程管理
 # ============================================
 
 # ============================================
@@ -57,7 +57,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.11-slim
 
 LABEL maintainer="SmartTable Team" \
-      version="1.5.0" \
+      version="1.5.5" \
       description="SmartTable - 智能表格应用"
 
 # 设置环境变量
@@ -110,6 +110,7 @@ COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/redis/redis.conf /etc/redis/redis.conf
 
 # 复制容器入口脚本
+COPY docker/server_runner.py /app/docker/server_runner.py
 COPY docker/entrypoint.sh /entrypoint.sh
 
 # 设置权限

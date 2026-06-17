@@ -143,7 +143,13 @@ class Config:
     MAX_PAGE_SIZE = 100
     
     # CORS 配置
-    CORS_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5000', 'http://127.0.0.1:5000']
+    CORS_ORIGINS = [
+        'http://localhost', 'http://127.0.0.1',
+        'http://localhost:80', 'http://127.0.0.1:80',
+        'http://localhost:3000', 'http://127.0.0.1:3000',
+        'http://localhost:5000', 'http://127.0.0.1:5000',
+        'http://localhost:8080', 'http://127.0.0.1:8080',
+    ]
     
     # 日志配置
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
@@ -273,7 +279,7 @@ class ProductionConfig(Config):
         # CORS 配置：缺失时使用默认值（允许本地访问）
         cors_origins = app.config.get('CORS_ORIGINS', [])
         if not cors_origins or (isinstance(cors_origins, list) and len(cors_origins) == 1 and not cors_origins[0]):
-            default_cors = ['http://localhost:*', 'http://127.0.0.1:*']
+            default_cors = ['http://localhost', 'http://127.0.0.1', 'http://localhost:80', 'http://127.0.0.1:80']
             app.config['CORS_ORIGINS'] = default_cors
             print(f'[Config] ℹ️ CORS_ORIGINS 未设置，使用默认值: {default_cors}')
         
