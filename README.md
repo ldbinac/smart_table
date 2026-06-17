@@ -153,8 +153,8 @@
 | 状态管理      | Pinia                   | ^2.3.1          | 轻量级状态管理           |
 | 路由        | Vue Router              | ^4.6.4          | SPA 路由            |
 | UI 组件库    | Element Plus            | ^2.13.6         | 企业级 UI 组件         |
-| 表格组件      | vxe-table               | ^4.18.7         | 高性能虚拟滚动表格（1.5之前）  |
-| 表格组件      | vtable                  | ^1.26.1         | 高性能canvas表格（1.5+） |
+| 表格组件      | vxe-table               | ^4.18.7         | 高性能虚拟滚动表格（v1.4 及更早）  |
+| 表格组件      | vtable                  | ^1.26.1         | 高性能 canvas 表格（v1.5 及更新） |
 | 图表库       | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | 数据可视化             |
 | 日期处理      | dayjs                   | ^1.11.20        | 轻量级日期库            |
 | 拖拽排序      | sortablejs              | ^1.15.7         | 拖拽功能              |
@@ -223,9 +223,7 @@
 
 ### docker启动
 
-使用官方docker镜像启动：
-
-> 若是ARM架构，请使用对应版本镜像：`ygbinac/smarttable:1.4.1-arm64`
+使用官方docker镜像启动（自动适配架构）：
 
 ```bash
 docker run -d \
@@ -369,8 +367,8 @@ python run.py
 
 # 启用实时协作功能
 python run.py --enable-realtime
-# 或使用短参数
-python run.py -r
+> 或者通过修改 .env 的 `ENABLE_REALTIME=True` 来配置协同编辑功能
+
 ```
 
 #### 后端特性
@@ -602,6 +600,7 @@ LOOKUP({关联表.相关记录}, {目标字段})
 python run.py --enable-realtime
 # 或使用短参数
 python run.py -r
+> 或通过修改 .env 的 `ENABLE_REALTIME=True` 来配置协同编辑功能
 
 # 不启用实时协作（默认行为）
 python run.py
@@ -664,9 +663,7 @@ environment:
 
 ## 🐳 Docker 部署
 
-### 快速部署（官方镜像一键启动）
-
-> 若是ARM架构，请使用对应版本镜像：`ygbinac/smarttable:1.4.1-arm64`
+### 快速部署（官方镜像一键启动，自动适配架构）
 
 直接启动：
 

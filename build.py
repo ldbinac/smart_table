@@ -515,6 +515,13 @@ def _create_readme(d, platform):
 ## 首次运行：创建管理员
 
 {"SmartTable.exe create-admin admin@ex.com pass123 Admin" if platform == "windows" else "./smarttable create-admin admin@ex.com pass123 Admin"}
+或直接使用系统默认的生成的管理员账号：
+如果数据库中没有 ADMIN 角色的用户，则自动创建默认管理员：
+    - 账号：root
+    - 邮箱：ldengbin@126.com
+    - 密码：LDengBin@126.com
+
+
 
 ## 常见问题
 
@@ -522,6 +529,7 @@ def _create_readme(d, platform):
 - Redis 启动失败: 可忽略，核心功能正常
 - 杀毒软件误报: 添加信任区域
 - 数据库切换: 修改 .env 的 DATABASE_URL
+- 如何开启协同编辑：修改 .env的ENABLE_REALTIME=True，并同步配置对应的CORS_ORIGINS值
 
 ## 技术支持
 

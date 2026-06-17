@@ -124,6 +124,8 @@
 | **🔧 数据表手动排序失效** | 修复数据表手动排序失效的问题 |
 | **🔧 分组后列宽问题** | 修复分组模式下表格全量更新后列宽问题 |
 | **🔧 docker重启之后redis不启动问题** | 修复docker服务重启之后redis不启动的问题 |
+| **🔧 协同编辑问题** | 修复docker下和Windows启动包模式下协同编辑配置失效问题 |
+| **🔧 数据详情页面backspace按钮冲突问题** | 修复数据详情页面backspace按钮与表格编辑冲突的问题 |
 
 
 
@@ -133,7 +135,7 @@
 
 ### 🎉 SmartTable v1.5.0 Release Notes
 
-This is a **major version update**. Key highlights: **VTable — a brand new table rendering engine** replacing the old implementation with native grouping, context menus, record detail drawer, floating action icons; **Formula field** — arithmetic expression parsing and formula field support; **Complete field editor refactoring** — all field types have new editor components; along with deep performance optimizations, caching system improvements, and attachment management enhancements.
+This is a **major version update**. Key highlights: **VTable — a brand new table rendering engine** replacing the old implementation with native grouping, context menus, record detail drawer, floating action icons; **Formula field** — arithmetic expression parsing and formula field support; **Complete field editor refactoring** — all field types have new editor components; **Real-time collaborative editing** — multi-user online collaboration capability; along with deep performance optimizations, caching system improvements, and attachment management enhancements.
 
 ### ✨ New Features
 
@@ -235,13 +237,8 @@ The biggest change in this release — fully migrated to **@visactor/vtable** re
 | **🔧 Manual Sort Failure** | Fixed data table manual sort not working |
 | **🔧 Column Width After Grouping** | Fixed column width issues after full table update in group mode |
 | **🔧 Redis Not Starting After Reboot** | Fixed Redis not starting after Docker service restart |
-
-### 📦 Other Improvements
-
-- Updated sample data and test record generation logic
-- Added auto resource creation to batch test scripts
-- VTable migration planning documentation
-- Updated field type icons and SVGs
+| **🔧 Collaborative Edit Config** | Fixed collaborative editing configuration failure under Docker and Windows startup package modes |
+| **🔧 Backspace Button Conflict** | Fixed backspace button conflict between data detail page and table editing |
 
 ---
 
