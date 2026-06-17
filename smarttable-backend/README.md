@@ -25,7 +25,7 @@ SmartTable 是一个功能强大的多维表格管理系统，支持：
 - **实时通信**: Flask-SocketIO 5.3.6 + eventlet 0.33.3
 - **迁移**: Alembic
 - **部署**: Docker + Docker Compose
-- **WSGI**: Gunicorn
+- **WSGI**: Eventlet WSGI Server (生产环境) / Flask Dev Server (本地开发)
 
 ## 快速开始
 
@@ -77,63 +77,141 @@ python run.py --enable-realtime
 
 ```
 smarttable-backend/
-├── app/                    # 应用主目录
-│   ├── __init__.py        # 应用工厂
-│   ├── config.py          # 配置文件
-│   ├── extensions.py      # 扩展初始化
-│   ├── models/            # 数据模型
-│   │   ├── __init__.py
-│   │   ├── user.py        # 用户模型
-│   │   ├── base.py        # Base模型
-│   │   ├── table.py       # 表格模型
-│   │   ├── field.py       # 字段模型
-│   │   ├── record.py      # 记录模型
-│   │   ├── view.py        # 视图模型
-│   │   ├── dashboard.py   # 仪表盘模型
-│   │   ├── attachment.py  # 附件模型
-│   │   └── collaboration_session.py  # 协作会话模型
-│   ├── services/          # 业务逻辑层
-│   │   ├── auth_service.py
-│   │   ├── base_service.py
-│   │   ├── table_service.py
-│   │   ├── field_service.py
-│   │   ├── record_service.py
-│   │   ├── view_service.py
-│   │   ├── formula_service.py
-│   │   ├── dashboard_service.py
-│   │   ├── attachment_service.py
-│   │   ├── collaboration_service.py  # 协作服务（房间、在线状态、锁定、广播）
-│   │   └── import_export_service.py
-│   ├── routes/            # 路由层
-│   │   ├── auth.py        # 认证路由
-│   │   ├── bases.py       # Base路由
-│   │   ├── tables.py      # 表格路由
-│   │   ├── fields.py      # 字段路由
-│   │   ├── records.py     # 记录路由
-│   │   ├── views.py       # 视图路由
-│   │   ├── dashboards.py  # 仪表盘路由
-│   │   ├── attachments.py # 附件路由
-│   │   ├── realtime.py    # 实时协作状态路由
-│   │   └── import_export.py # 导入导出路由
-│   ├── utils/             # 工具模块
-│   │   ├── response.py    # 响应工具
-│   │   ├── decorators.py  # 装饰器
-│   │   └── validators.py  # 验证器
-│   └── errors/            # 错误处理
-│       └── handlers.py
-├── migrations/            # 数据库迁移
-├── tests/                 # 测试目录
-├── docker/                # Docker配置
-├── uploads/               # 上传文件目录
-├── logs/                  # 日志目录
-├── requirements.txt       # Python依赖
-├── run.py                # 应用入口
-├── gunicorn.conf.py      # Gunicorn配置
-├── Dockerfile            # Docker镜像
-├── docker-compose.yml    # Docker编排
-├── alembic.ini           # Alembic配置
-├── API文档.md            # API文档
-└── 部署指南.md           # 部署文档
+├── app/
+│   ├── __init__.py                 # 应用工厂
+│   ├── config.py                   # 配置文件
+│   ├── extensions.py               # 扩展初始化
+│   ├── db_types.py                 # 数据库类型定义
+│   ├── models/                     # 数据模型
+│   │   ├── user.py                 # 用户模型
+│   │   ├── base.py                 # Base 模型
+│   │   ├── table.py                # 表格模型
+│   │   ├── field.py                # 字段模型
+│   │   ├── record.py               # 记录模型
+│   │   ├── view.py                 # 视图模型
+│   │   ├── dashboard.py            # 仪表盘模型
+│   │   ├── dashboard_share.py      # 仪表盘分享模型
+│   │   ├── attachment.py           # 附件模型
+│   │   ├── base_share.py           # Base 分享模型
+│   │   ├── form_share.py           # 表单分享模型
+│   │   ├── form_submission.py      # 表单提交模型
+│   │   ├── link_relation.py        # 关联关系模型
+│   │   ├── collaboration_session.py # 协作会话模型
+│   │   ├── email_log.py            # 邮件日志模型
+│   │   ├── email_template.py       # 邮件模板模型
+│   │   ├── operation_history.py    # 操作历史模型
+│   │   ├── log.py                  # 日志模型
+│   │   └── config.py               # 配置模型
+│   ├── services/                   # 业务逻辑层
+│   │   ├── auth_service.py         # 认证服务
+│   │   ├── base_service.py         # Base 服务
+│   │   ├── table_service.py        # 表格服务
+│   │   ├── field_service.py        # 字段服务
+│   │   ├── record_service.py       # 记录服务
+│   │   ├── view_service.py         # 视图服务
+│   │   ├── formula_service.py      # 公式服务
+│   │   ├── dashboard_service.py    # 仪表盘服务
+│   │   ├── dashboard_share_service.py # 仪表盘分享服务
+│   │   ├── attachment_service.py   # 附件服务
+│   │   ├── collaboration_service.py # 协作服务
+│   │   ├── share_service.py        # 分享服务
+│   │   ├── form_share_service.py   # 表单分享服务
+│   │   ├── permission_service.py   # 权限服务
+│   │   ├── import_export_service.py # 导入导出服务
+│   │   ├── link_service.py        # 关联服务
+│   │   ├── admin_service.py       # 管理服务
+│   │   ├── email_sender_service.py # 邮件发送服务
+│   │   ├── email_config_service.py # 邮件配置服务
+│   │   ├── email_queue_service.py  # 邮件队列服务
+│   │   ├── email_retry_service.py  # 邮件重试服务
+│   │   └── email_template_service.py # 邮件模板服务
+│   ├── routes/                     # 路由层（RESTful API）
+│   │   ├── auth.py                 # 认证路由 (/api/auth/*)
+│   │   ├── auth_captcha.py         # 验证码路由 (/api/auth/captcha)
+│   │   ├── bases.py                # Base 路由 (/api/bases/*)
+│   │   ├── tables.py               # 表格路由 (/api/bases/{base_id}/tables/*)
+│   │   ├── fields.py               # 字段路由 (/api/fields/*)
+│   │   ├── records.py              # 记录路由 (/api/records/*)
+│   │   ├── views.py                # 视图路由 (/api/views/*)
+│   │   ├── dashboards.py           # 仪表盘路由 (/api/dashboards/*)
+│   │   ├── dashboards_share.py     # 仪表盘分享路由
+│   │   ├── attachments.py          # 附件路由 (/api/attachments/*)
+│   │   ├── shares.py               # 分享路由 (/api/shares/*)
+│   │   ├── form_shares.py          # 表单分享路由 (/api/form-shares/*)
+│   │   ├── import_export.py        # 导入导出路由 (/api/import-export/*)
+│   │   ├── email.py                # 邮件路由 (/api/email/*)
+│   │   ├── documents.py           # 文档路由 (/api/documents/*)
+│   │   ├── document_versions.py   # 文档版本路由
+│   │   ├── admin.py                # 管理路由 (/api/admin/*)
+│   │   ├── users.py                # 用户路由 (/api/users/*)
+│   │   ├── realtime.py             # 实时协作状态 API (/api/realtime/*)
+│   │   └── socketio_events.py      # Socket.IO 事件处理
+│   ├── schemas/                    # 数据验证模式
+│   │   ├── user_schema.py          # 用户验证
+│   │   ├── record_schema.py        # 记录验证
+│   │   └── admin_schema.py         # 管理验证
+│   ├── utils/                      # 工具模块
+│   │   ├── captcha.py              # 验证码生成
+│   │   ├── constants.py            # 常量定义
+│   │   ├── decorators.py           # 装饰器
+│   │   ├── exception_handler.py    # 异常处理
+│   │   ├── response.py             # 响应格式化
+│   │   ├── validators.py           # 验证器
+│   │   └── init_email_templates.py # 初始化邮件模板
+│   ├── errors/                     # 错误处理
+│   │   └── handlers.py             # 错误处理器
+│   ├── middleware/                  # 中间件
+│   │   └── security_headers.py     # 安全响应头
+│   └── data/                       # 数据文件
+│       └── default_email_templates.py # 默认邮件模板
+├── migrations/                     # 数据库迁移（Alembic）
+│   ├── versions/                   # 迁移版本
+│   │   ├── 20250403_0001_initial_migration.py
+│   │   ├── 20250405_0002_add_dashboard_is_default.py
+│   │   ├── 20250406_0002_add_admin_management_models.py
+│   │   ├── 20250406_0003_add_base_sharing.py
+│   │   ├── 20250409_0004_add_link_relations.py
+│   │   ├── 20250412_0005_add_form_share_tables.py
+│   │   ├── 20250414_0006_add_email_tables.py
+│   │   ├── 20250414_0007_add_user_email_verification.py
+│   │   └── 20250416_0008_add_collaboration_sessions.py
+│   ├── env.py                      # 迁移环境
+│   └── script.py.mako              # 迁移脚本模板
+├── tests/                          # 测试目录
+│   ├── conftest.py                 # 测试配置
+│   ├── test_auth.py                # 认证测试
+│   ├── test_base.py                # Base 测试
+│   ├── test_table.py               # 表格测试
+│   ├── test_field.py               # 字段测试
+│   ├── test_record.py              # 记录测试
+│   ├── test_view.py                # 视图测试
+│   ├── test_dashboard.py           # 仪表盘测试
+│   ├── test_attachment.py          # 附件测试
+│   ├── test_formula_service.py     # 公式服务测试
+│   ├── test_import_export.py       # 导入导出测试
+│   ├── test_auto_number.py         # 自动编号测试
+│   ├── test_member_sharing.py      # 成员分享测试
+│   ├── test_create_base.py         # 创建 Base 测试
+│   ├── test_realtime_enabled.py    # 实时协作测试（启用）
+│   ├── test_realtime_disabled.py   # 实时协作测试（禁用）
+│   ├── test_logout_all.py          # 登出测试
+│   ├── test_validators.py          # 验证器测试
+│   ├── test_startup_params.py      # 启动参数测试
+│   ├── test_email_integration.py   # 邮件集成测试
+│   └── test_email_services.py      # 邮件服务测试
+├── requirements.txt                # Python 依赖
+├── requirements-dev.txt            # 开发依赖
+├── requirements-minimal.txt        # 最小依赖
+├── run.py                          # 应用入口
+├── init_db.py                      # 数据库初始化
+├── init_link_tables.py             # 关联表初始化
+├── alembic.ini                     # Alembic 配置
+├── Dockerfile                      # Docker 镜像
+├── Dockerfile.dev                  # 开发镜像
+├── docker-compose.yml              # Docker 编排（SQLite）
+├── docker-compose.dev.yml          # Docker 编排（PostgreSQL）
+├── .env.example                    # 环境变量示例
+└── README.md
 ```
 
 ## API 文档
