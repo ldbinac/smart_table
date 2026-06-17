@@ -51,5 +51,6 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/api/health || exit 1
 
-# 启动命令
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "run:app"]
+# 启动命令（使用 Eventlet WSGI Server）
+# 注意：生产环境使用主 Dockerfile（含 Nginx + Supervisor），此文件用于独立后端部署
+CMD ["python", "-c", "import eventlet; eventlet.monkey_patch(); from run import app; eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 5000)), app)"]

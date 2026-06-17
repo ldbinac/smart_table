@@ -7,7 +7,7 @@ set -e
 # ============================================
 
 echo "============================================"
-echo "  SmartTable v1.4.1 容器启动中..."
+echo "  SmartTable v1.5.0 容器启动中..."
 echo "============================================"
 echo ""
 
@@ -22,11 +22,15 @@ echo "[1/4] 初始化运行环境..."
 
 # 创建必要的目录
 mkdir -p /app/uploads/attachments /app/uploads/thumbnails /app/logs /data/redis /app/data
-echo "  ✓ 目录结构已创建"
+echo "  + 目录结构已创建"
 
 # 设置权限
 chmod 755 /app/uploads
-echo "  ✓ 权限已设置"
+echo "  + 权限已设置"
+
+# 清理上次运行残留的 PID 文件和 Socket（防止容器重启后服务启动失败）
+rm -f /var/run/redis_6379.pid /var/run/supervisor.sock /var/run/supervisord.pid
+echo "  + 已清理残留的 PID 文件"
 
 # ============================================
 # 阶段 2: 数据库初始化
@@ -37,10 +41,10 @@ cd /app
 
 # 使用 init-db 命令创建数据库表
 python run.py init-db 2>&1 || {
-    echo "  ⚠️ 数据库初始化出现警告（首次运行正常）"
+    echo "  ! 数据库初始化出现警告（首次运行正常）"
 }
 
-echo "  ✓ 数据库初始化完成"
+echo "  + 数据库初始化完成"
 
 # ============================================
 # 阶段 3: 验证服务配置
@@ -48,16 +52,32 @@ echo "  ✓ 数据库初始化完成"
 echo ""
 echo "[3/4] 验证服务配置..."
 
+# 检查并修复 Redis 持久化文件（防止上次非正常关闭导致 RDB 损坏）
+RDB_FILE="/data/redis/dump.rdb"
+if [ -f "$RDB_FILE" ]; then
+    echo "  - 检测到 Redis 数据文件，验证完整性..."
+    if redis-check-rdb "$RDB_FILE" > /dev/null 2>&1; then
+        echo "  + Redis 数据文件完整"
+    else
+        echo "  ! Redis 数据文件损坏，尝试修复..."
+        # 先尝试用 redis-check-rdb 修复
+        if redis-check-rdb --fix "$RDB_FILE" > /dev/null 2>&1; then
+            echo "  + Redis 数据文件修复成功"
+        else
+            echo "  ! Redis 数据文件无法修复，将使用空数据启动"
+            mv "$RDB_FILE" "${RDB_FILE}.corrupted.$(date +%Y%m%d%H%M%S)"
+            echo "    （已备份损坏文件）"
+        fi
+    fi
+fi
+
 # 检查 Nginx 配置
-nginx -t 2>&1 | grep -q "syntax is ok" && echo "  ✓ Nginx 配置正确" || echo "  ⚠️ Nginx 配置警告"
+nginx -t 2>&1 | grep -q "syntax is ok" && echo "  + Nginx 配置正确" || echo "  ! Nginx 配置警告"
 
 # 检查 Redis 配置
-redis-server /etc/redis/redis.conf --test-memory 1 2>/dev/null && echo "  ✓ Redis 配置正确" || echo "  ✓ Redis 配置已就绪"
+redis-server /etc/redis/redis.conf --test-memory 1 2>/dev/null && echo "  + Redis 配置正确" || echo "  + Redis 配置已就绪"
 
-# 检查 Gunicorn 配置
-python -m gunicorn --version 2>/dev/null && echo "  ✓ Gunicorn 已就绪" || echo "  ⚠️ Gunicorn 检查失败"
-
-echo "  ✓ 服务配置验证完成"
+echo "  + 服务配置验证完成"
 
 # ============================================
 # 阶段 4: 启动所有服务
@@ -66,7 +86,7 @@ echo ""
 echo "[4/4] 启动服务..."
 echo "  - Redis      (端口: 6379)"
 echo "  - Nginx      (端口: 80)"
-echo "  - Gunicorn   (端口: 5000)"
+echo "  - App Server (端口: 5000, Eventlet WSGI)"
 echo ""
 echo "============================================"
 echo "  SmartTable 启动完成"

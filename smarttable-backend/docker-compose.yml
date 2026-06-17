@@ -1,8 +1,6 @@
 # SmartTable 完整部署配置
 # 包含 Flask 后端、PostgreSQL 数据库、Redis 缓存
 
-version: '3.8'
-
 services:
   # PostgreSQL 数据库服务
   postgres:

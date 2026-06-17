@@ -561,7 +561,18 @@ const handleKeyDown = async (event: KeyboardEvent) => {
       break;
 
     case "Delete":
-    case "Backspace":
+    case "Backspace": {
+      // 如果焦点在可编辑元素（输入框、文本域等）上，不触发删除操作
+      const target = event.target as HTMLElement;
+      const isEditable =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable ||
+        target.closest(".el-input") !== null ||
+        target.closest(".el-textarea") !== null;
+      if (isEditable) break;
+
       if (selectedRows.value.length > 0 && !props.readonly) {
         event.preventDefault();
         try {
@@ -592,6 +603,7 @@ const handleKeyDown = async (event: KeyboardEvent) => {
         }
       }
       break;
+    }
 
     case "a":
       if (event.ctrlKey || event.metaKey) {

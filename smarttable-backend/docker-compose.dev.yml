@@ -1,8 +1,6 @@
 # SmartTable 开发环境配置
 # 使用 Flask 内置服务器和热重载
 
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine

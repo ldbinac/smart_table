@@ -2,8 +2,6 @@
 # 内嵌 Redis + SQLite 数据库的简化版本，适合快速部署和测试
 # 单个容器包含：前端(Vue.js) + 后端(Flask) + Redis
 
-version: '3.8'
-
 services:
   # SmartTable 统一应用（包含前后端 + Redis）
   smarttable:

@@ -4,6 +4,244 @@
 
 ***
 
+# SmartTable v1.5.0 Release Notes
+
+**发布日期 / Release Date**: 2026-06-14
+
+**版本号 / Version**: v1.5.0
+
+**标签 / Tags**: `release`, `v1.5.0`, `latest`, `stable`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.5.0 更新说明
+
+本次是 **重大版本更新**。核心亮点：**VTable 全新表格渲染引擎** — 全面替代旧版表格实现，支持原生分组、右键菜单、记录详情抽屉、悬浮操作图标等丰富交互；**公式字段** — 新增算术表达式解析与公式字段支持；**字段编辑器全面重构** — 所有字段类型均获得全新编辑器组件；同时在大数据性能、缓存体系、附件管理等方面进行了深度优化。
+
+### ✨ 新增功能 (New Features)
+
+#### 🏗️ VTable 全新表格渲染引擎 ⭐
+
+这是本次更新最大的变化——**全面切换至 @visactor/vtable 渲染引擎**，替换原有表格实现。
+
+**核心交互升级**
+- **右键菜单**：单元格和表头右键菜单，支持排序、冻结、编辑等操作
+- **记录详情抽屉**：点击记录右侧打开详情抽屉，支持全部字段类型查看与编辑
+- **悬浮操作图标**：鼠标悬停记录行显示操作图标，常用操作更便捷
+- **列冻结优化**：支持自定义冻结列，冻结逻辑更灵活
+
+**原生分组支持**
+- 表格内原生分组渲染，替代原有分组实现
+- 分组内快速添加记录
+- 分组折叠/展开与统计
+
+**交互细节增强**
+- 单元格复制粘贴（支持反馈提示）
+- 单元格值校验与错误高亮
+- 列描述与溢出 Tooltip
+- 字段类型图标展示在表头
+- 启用 ARCO 主题，视觉统一
+
+
+#### 🧮 公式字段支持 ⭐
+
+- 新增算术表达式解析与公式字段支持
+- 可创建公式字段，引用其他字段值进行计算
+- 支持基本算术运算和函数调用
+
+
+#### 📝 富文本字段支持
+
+- 数据表字段级别新增富文本类型
+- 基于 Quill 编辑器的行内富文本编辑
+- 记录详情抽屉中动态初始化富文本编辑器
+
+#### 📎 附件字段管理
+
+- 新增完整的附件字段管理功能
+- 支持附件上传、预览、编辑
+- 附件浮窗实时位置同步
+- 多格式兼容与交互增强
+
+#### 🔢 URL 字段交互优化
+
+- 单击直接跳转链接
+- 双击进入编辑模式
+- 智能识别与安全校验
+
+#### 🏠 首页功能增强
+
+- 新增"从副本创建 Base"选项，快速复制已有多维表
+- 全字段类型测试模板与测试记录生成器
+
+### 🔧 字段编辑器全面重构
+
+所有字段类型编辑器均进行了重构或升级：
+
+| 字段类型 | 编辑器升级内容 |
+|---------|---------------|
+| **单选** | 新增自定义 SingleSelectEditor，替换旧实现 |
+| **多选** | 重构多选编辑器，优化样式与功能 |
+| **日期** | 自定义日期/日期时间编辑器，优化时区处理 |
+| **成员** | 重构成员字段编辑器，支持搜索与缓存加载 |
+| **评分** | 替换文本星星为矢量图形，新增完整样式 |
+| **进度条** | 新增完整样式与格式化配置 |
+| **复选框** | 替换为开关组件，支持状态持久化 |
+| **多行文本** | 重构编辑器实现 |
+| **自动编号** | 新增样式支持 |
+| **字段图标** | 统一字段图标实现，SVG 自定义颜色 |
+
+### ⚡ 性能优化 (Performance)
+
+- **记录转换缓存**：新增 record transform cache，避免重复转换
+- **数据源 LRU 缓存**：新增数据源 LRU 缓存，减少重复请求
+- **流式加载优化**：优化流式加载与表格渲染性能，调整 pageSize
+- **批量查询优化**：优化关联/公式字段的批量查询性能
+- **大数据支持**：新增异步懒加载数据源，支持大规模数据表(超过 15000 条记录)
+- **每页限制提升**：每页数量上限从 100 提升至 500
+- **加载进度展示**：提升默认分页加载大小并添加加载进度展示
+- **缓存批次优化**：调整缓存批次上限，取消按钮支持中断加载
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+| 问题 | 修复内容 |
+|------|----------|
+| **🔧 缓存清理** | 新增转换缓存清理逻辑 |
+| **🔧 无效保存** | 新增无改动检查，避免无效保存 |
+| **🔧 批量删除状态** | 添加批量删除状态管理 |
+| **🔧 模板预览弹窗** | 添加 append-to-body 属性修复弹窗挂载 |
+| **🔧 Excel 导入日期** | 处理 Excel 导入时空日期字段默认值 |
+| **🔧 排序请求格式** | 调整表格排序接口的请求格式与方法 |
+| **🔧 本地记录查询** | 按创建时间排序查询 IndexedDB 本地记录 |
+| **🔧 PG 时间戳兼容** | 兼容 PostgreSQL 模式下毫秒级时间戳 |
+| **🔧 成员搜索参数** | 移除用户搜索时多余的 base_id 参数 |
+| **🔧 编译问题** | 修复富文本和成员编辑器的编译问题 |
+| **🔧 代码结构整理** | 整理代码结构并修复部分细节问题 |
+| **🔧 开启协同失败问题** | 修复部分场景开启协同编辑失败的问题 |
+| **🔧 模板预览部分页面被覆盖问题** | 修复模板预览弹窗被其他元素覆盖的问题 |
+| **🔧 数据表手动排序失效** | 修复数据表手动排序失效的问题 |
+| **🔧 分组后列宽问题** | 修复分组模式下表格全量更新后列宽问题 |
+| **🔧 docker重启之后redis不启动问题** | 修复docker服务重启之后redis不启动的问题 |
+| **🔧 协同编辑问题** | 修复docker下和Windows启动包模式下协同编辑配置失效问题 |
+| **🔧 数据详情页面backspace按钮冲突问题** | 修复数据详情页面backspace按钮与表格编辑冲突的问题 |
+
+
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.5.0 Release Notes
+
+This is a **major version update**. Key highlights: **VTable — a brand new table rendering engine** replacing the old implementation with native grouping, context menus, record detail drawer, floating action icons; **Formula field** — arithmetic expression parsing and formula field support; **Complete field editor refactoring** — all field types have new editor components; **Real-time collaborative editing** — multi-user online collaboration capability; along with deep performance optimizations, caching system improvements, and attachment management enhancements.
+
+### ✨ New Features
+
+#### 🏗️ VTable — New Table Rendering Engine ⭐
+
+The biggest change in this release — fully migrated to **@visactor/vtable** rendering engine.
+
+**Core Interaction Upgrades**
+- **Context Menu**: Cell and header right-click menu with sort, freeze, edit operations
+- **Record Detail Drawer**: Click to open detail drawer supporting all field types
+- **Floating Action Icons**: Hover to show action icons for quick operations
+- **Column Freeze**: Customizable column freezing with flexible logic
+
+**Native Grouping Support**
+- Native group rendering within the table
+- Quick record addition within groups
+- Group collapse/expand and statistics
+
+**Interaction Enhancements**
+- Cell copy-paste with feedback tips
+- Cell value validation with error highlighting
+- Column descriptions with overflow tooltip
+- Field type icons in table headers
+- ARCO theme for unified visuals
+
+#### 🧮 Formula Field Support ⭐
+
+- Arithmetic expression parsing and formula field support
+- Create formula fields referencing other field values
+- Basic arithmetic operations and function calls
+
+#### 📝 Rich Text Field
+
+- New rich text type at data table field level
+- Quill-based inline rich text editing
+- Dynamic initialization in record detail drawer
+
+#### 📎 Attachment Field Management
+
+- Complete attachment field management
+- Upload, preview, and edit support
+- Real-time position sync for attachment float window
+- Multi-format compatibility and interaction enhancements
+
+#### 🔢 URL Field Interaction
+
+- Single-click to open link
+- Double-click to edit
+- Intelligent recognition with security validation
+
+#### 🏠 Home Page Enhancement
+
+- "Create from copy" option for quick Base duplication
+- Full field type test template and record generator
+
+### 🔧 Complete Field Editor Refactoring
+
+| Field Type | Editor Upgrade |
+|-----------|---------------|
+| **Single Select** | Custom SingleSelectEditor replacing old implementation |
+| **Multi Select** | Refactored with optimized styling and functionality |
+| **Date** | Custom date/datetime editors with timezone handling |
+| **Member** | Refactored with search and cache loading support |
+| **Rating** | Vector graphics replacing text stars |
+| **Progress** | Complete styling with formatting options |
+| **Checkbox** | Toggle component with state persistence |
+| **Multi-line Text** | Refactored editor implementation |
+| **Auto Number** | New style support |
+| **Field Icons** | Unified implementation with SVG custom colors |
+
+### ⚡ Performance Improvements
+
+- **Record Transform Cache**: Avoids redundant data transformations
+- **Data Source LRU Cache**: Reduces duplicate requests
+- **Streaming Load Optimization**: Optimized page size and rendering performance
+- **Batch Query Optimization**: Improved link/formula field query performance
+- **Large Data Support**: Async lazy load for large tables (over 15,000 records)
+- **Page Limit Increase**: Per-page limit raised from 100 to 500
+- **Loading Progress**: Enhanced default pagination with progress display
+- **Cache Batch Optimization**: Adjusted batch limits with cancel support
+
+### 🐛 Bug Fixes
+
+| Issue | Fix |
+|-------|-----|
+| **🔧 Cache Clear** | Added transform cache cleanup logic |
+| **🔧 Invalid Save** | Added no-change check to prevent invalid saves |
+| **🔧 Batch Delete State** | Added batch delete state management |
+| **🔧 Template Preview Dialog** | Fixed dialog mount with append-to-body |
+| **🔧 Excel Import Date** | Fixed default value for empty date fields during import |
+| **🔧 Sort Request Format** | Adjusted sort API request format and method |
+| **🔧 Local Record Query** | Sorted IndexedDB records by creation time |
+| **🔧 PG Timestamp** | Fixed millisecond timestamp compatibility for PostgreSQL |
+| **🔧 Member Search Param** | Removed redundant base_id parameter |
+| **🔧 Compilation Issues** | Fixed rich text and member editor compilation |
+| **🔧 Code Structure** | Organized code and fixed minor issues |
+| **🔧 Collaborative Edit Failure** | Fixed collaborative editing startup failure in certain scenarios |
+| **🔧 Template Preview Overlap** | Fixed template preview dialog being covered by other elements |
+| **🔧 Manual Sort Failure** | Fixed data table manual sort not working |
+| **🔧 Column Width After Grouping** | Fixed column width issues after full table update in group mode |
+| **🔧 Redis Not Starting After Reboot** | Fixed Redis not starting after Docker service restart |
+| **🔧 Collaborative Edit Config** | Fixed collaborative editing configuration failure under Docker and Windows startup package modes |
+| **🔧 Backspace Button Conflict** | Fixed backspace button conflict between data detail page and table editing |
+
+---
+
 # SmartTable v1.4.1 Release Notes
 
 **发布日期 / Release Date**: 2026-05-31

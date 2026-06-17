@@ -49,6 +49,7 @@
 | 视图类型      | 功能描述                   | 状态 |
 | --------- | ---------------------- | -- |
 | **表格视图**  | 经典表格展示，支持虚拟滚动、列冻结、字段筛选 | ✅  |
+| **分组视图**  | 按字段分组展示，支持多级分组统计和筛选    | ✅  |
 | **看板视图**  | 卡片式展示，支持拖拽排序和分组        | ✅  |
 | **日历视图**  | 时间维度展示，按日期分组显示         | ✅  |
 | **甘特图视图** | 项目进度时间线展示，支持任务依赖       | ✅  |
@@ -145,25 +146,26 @@
 
 ### 前端技术栈
 
-| 类别        | 技术                      | 版本              | 说明              |
-| --------- | ----------------------- | --------------- | --------------- |
-| 前端框架      | Vue 3                   | ^3.5.30         | Composition API |
-| 语言        | TypeScript              | \~5.9.3         | 类型安全            |
-| 状态管理      | Pinia                   | ^2.3.1          | 轻量级状态管理         |
-| 路由        | Vue Router              | ^4.6.4          | SPA 路由          |
-| UI 组件库    | Element Plus            | ^2.13.6         | 企业级 UI 组件       |
-| 表格组件      | vxe-table               | ^4.18.7         | 高性能虚拟滚动表格       |
-| 图表库       | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | 数据可视化           |
-| 日期处理      | dayjs                   | ^1.11.20        | 轻量级日期库          |
-| 拖拽排序      | sortablejs              | ^1.15.7         | 拖拽功能            |
-| HTTP 客户端  | axios                   | ^1.14.0         | HTTP 请求         |
-| 本地数据库     | Dexie                   | ^3.2.7          | IndexedDB 封装    |
-| WebSocket | socket.io-client        | ^4.8.3          | 实时通信            |
-| 工具库       | lodash-es, @vueuse/core | -               | 工具函数集           |
-| 富文本       | tinyeditor              | ^4.0.0          | 富文本编辑器          |
-| 电子表格      | xlsx                    | ^0.18.5         | Excel 解析生成      |
-| 构建工具      | Vite                    | ^8.0.1          | 极速构建工具          |
-| 测试框架      | Vitest                  | ^3.2.4          | 单元测试            |
+| 类别        | 技术                      | 版本              | 说明                |
+| --------- | ----------------------- | --------------- | ----------------- |
+| 前端框架      | Vue 3                   | ^3.5.30         | Composition API   |
+| 语言        | TypeScript              | \~5.9.3         | 类型安全              |
+| 状态管理      | Pinia                   | ^2.3.1          | 轻量级状态管理           |
+| 路由        | Vue Router              | ^4.6.4          | SPA 路由            |
+| UI 组件库    | Element Plus            | ^2.13.6         | 企业级 UI 组件         |
+| 表格组件      | vxe-table               | ^4.18.7         | 高性能虚拟滚动表格（v1.4 及更早）  |
+| 表格组件      | vtable                  | ^1.26.1         | 高性能 canvas 表格（v1.5 及更新） |
+| 图表库       | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | 数据可视化             |
+| 日期处理      | dayjs                   | ^1.11.20        | 轻量级日期库            |
+| 拖拽排序      | sortablejs              | ^1.15.7         | 拖拽功能              |
+| HTTP 客户端  | axios                   | ^1.14.0         | HTTP 请求           |
+| 本地数据库     | Dexie                   | ^3.2.7          | IndexedDB 封装      |
+| WebSocket | socket.io-client        | ^4.8.3          | 实时通信              |
+| 工具库       | lodash-es, @vueuse/core | -               | 工具函数集             |
+| 富文本       | tinyeditor              | ^4.0.0          | 富文本编辑器(1.4+)      |
+| 电子表格      | xlsx                    | ^0.18.5         | Excel 解析生成        |
+| 构建工具      | Vite                    | ^8.0.1          | 极速构建工具            |
+| 测试框架      | Vitest                  | ^3.2.4          | 单元测试              |
 
 ### 后端技术栈（可选）
 
@@ -186,16 +188,16 @@
 | 对象存储      | MinIO (可选)                 | -                     | 文件对象存储        |
 | 加密        | cryptography               | 42.0.5                | 加密算法          |
 | API 文档    | Flasgger                   | 0.9.7b2               | Swagger UI    |
-| WSGI 服务器  | Gunicorn                   | 21.2.0                | 生产服务器         |
+| WSGI 服务器  | Eventlet WSGI Server       | 0.36.1                | 生产服务器         |
 | 部署        | Docker, Nginx              | -                     | 容器化部署         |
 
 ### 数据存储方案
 
-| 模式        | 技术                 | 说明                           |
-| --------- | ------------------ | ---------------------------- |
-| *前端** | Dexie (IndexedDB)  | 数据存储在浏览器本地作为缓存 |
-| **后端**  | SQLite + Flask     | 默认使用 SQLite，轻量级无需额外安装数据库     |
-| **生产模式**  | PostgreSQL + Flask | 支持 PostgreSQL，适合多用户并发和生产环境   |
+| 模式       | 技术                 | 说明                         |
+| -------- | ------------------ | -------------------------- |
+| *前端*\*   | Dexie (IndexedDB)  | 数据存储在浏览器本地作为缓存             |
+| **后端**   | SQLite + Flask     | 默认使用 SQLite，轻量级无需额外安装数据库   |
+| **生产模式** | PostgreSQL + Flask | 支持 PostgreSQL，适合多用户并发和生产环境 |
 
 ## 🚀 快速开始
 
@@ -221,9 +223,7 @@
 
 ### docker启动
 
-使用官方docker镜像启动：
-
-> 若是ARM架构，请使用对应版本镜像：`ygbinac/smarttable:1.4.1-arm64`
+使用官方docker镜像启动（自动适配架构）：
 
 ```bash
 docker run -d \
@@ -235,7 +235,7 @@ docker run -d \
   ygbinac/smarttable:latest
 ```
 
-* 或者使用 docker compose ，只需创建以下 docker-compose.yml ：：
+- 或者使用 docker compose ，只需创建以下 docker-compose.yml ：：
 
 ```bash
 services:
@@ -256,14 +256,13 @@ volumes:
   smarttable_redis:
 ```
 
-
 ## 开发环境
 
 ### 环境要求
 
 - Node.js >= 18
 - npm >= 9
-- Python >= 3.9 （仅后端模式需要）
+- Python >= 3.11 （仅后端模式需要）
 
 ### 前端开发
 
@@ -368,8 +367,8 @@ python run.py
 
 # 启用实时协作功能
 python run.py --enable-realtime
-# 或使用短参数
-python run.py -r
+> 或者通过修改 .env 的 `ENABLE_REALTIME=True` 来配置协同编辑功能
+
 ```
 
 #### 后端特性
@@ -384,379 +383,6 @@ python run.py -r
 ✅ **邮件系统**: 可选的 SMTP 邮件发送功能\
 ✅ **对象存储**: 可选的 MinIO 文件存储\
 ✅ **安全防护**: XSS 防护、速率限制、安全响应头
-
-## 📁 项目结构
-
-### 前端项目结构
-
-```
-smart-table/
-├── src/
-│   ├── assets/                    # 静态资源
-│   │   └── styles/               # SCSS 样式文件（全局样式、变量、混入）
-│   ├── components/                # Vue 组件
-│   │   ├── common/               # 通用组件
-│   │   │   ├── AppHeader.vue     # 应用头部（导航、用户信息、协作状态）
-│   │   │   ├── AppSidebar.vue    # 应用侧边栏
-│   │   │   ├── Toast.vue         # 消息提示
-│   │   │   ├── Loading.vue       # 加载状态
-│   │   │   └── ...
-│   │   ├── collaboration/        # 协作组件
-│   │   │   ├── OnlineUsers.vue           # 在线用户列表
-│   │   │   ├── CellEditingIndicator.vue  # 单元格编辑指示器
-│   │   │   ├── ConflictDialog.vue        # 冲突解决对话框
-│   │   │   ├── ConnectionStatusBar.vue   # 连接状态栏
-│   │   │   └── CollaborationToast.vue    # 协作提示消息
-│   │   ├── dialogs/              # 对话框组件
-│   │   │   ├── FieldDialog.vue          # 字段配置对话框
-│   │   │   ├── FilterDialog.vue         # 筛选对话框
-│   │   │   ├── SortDialog.vue           # 排序对话框
-│   │   │   ├── GroupDialog.vue          # 分组对话框
-│   │   │   ├── ImportDialog.vue         # 导入对话框
-│   │   │   ├── ExportDialog.vue         # 导出对话框
-│   │   │   ├── RecordDetailDrawer.vue   # 记录详情抽屉
-│   │   │   ├── RecordHistoryDrawer.vue  # 变更历史抽屉
-│   │   │   ├── ExcelImportCreateDialog.vue  # Excel导入创建表
-│   │   │   └── ...
-│   │   ├── fields/               # 26 种字段类型组件
-│   │   │   ├── SingleLineTextField.vue   # 单行文本
-│   │   │   ├── LongTextField.vue         # 多行文本
-│   │   │   ├── RichTextField.vue         # 富文本
-│   │   │   ├── NumberField.vue           # 数字
-│   │   │   ├── DateField.vue             # 日期
-│   │   │   ├── DateTimeField.vue         # 日期时间 ⭐
-│   │   │   ├── SingleSelectField.vue     # 单选
-│   │   │   ├── MultiSelectField.vue      # 多选
-│   │   │   ├── CheckboxField.vue         # 复选框
-│   │   │   ├── MemberField.vue           # 成员
-│   │   │   ├── PhoneField.vue            # 电话
-│   │   │   ├── EmailField.vue            # 邮箱
-│   │   │   ├── URLField.vue              # URL链接
-│   │   │   ├── AttachmentField.vue       # 附件
-│   │   │   ├── FormulaField.vue          # 公式
-│   │   │   ├── LinkField.vue             # 关联
-│   │   │   ├── LookupField.vue           # 查找
-│   │   │   ├── CreatedByField.vue        # 创建人
-│   │   │   ├── CreatedTimeField.vue      # 创建时间
-│   │   │   ├── UpdatedByField.vue        # 更新人
-│   │   │   ├── UpdatedTimeField.vue      # 更新时间
-│   │   │   ├── AutoNumberField.vue       # 自动编号 ⭐
-│   │   │   ├── RatingField.vue           # 评分
-│   │   │   ├── ProgressField.vue         # 进度
-│   │   │   ├── FieldComponentFactory.vue # 字段工厂
-│   │   │   └── FieldConfigPanel.vue      # 字段配置面板
-│   │   ├── filters/              # 筛选功能组件
-│   │   │   ├── FilterPanel.vue           # 筛选面板
-│   │   │   ├── FilterCondition.vue       # 筛选条件
-│   │   │   └── FilterValueInput.vue      # 筛选值输入
-│   │   ├── groups/               # 分组功能组件
-│   │   │   ├── GroupPanel.vue            # 分组面板
-│   │   │   └── GroupedTableView.vue      # 分组表格视图
-│   │   ├── sorts/                # 排序功能组件
-│   │   │   └── SortPanel.vue            # 排序面板
-│   │   ├── views/                # 6 种视图组件
-│   │   │   ├── TableView/                # 表格视图
-│   │   │   │   ├── TableView.vue         # 主视图
-│   │   │   │   ├── TableHeader.vue       # 表头
-│   │   │   │   ├── TableRow.vue          # 行组件
-│   │   │   │   └── TableCell.vue         # 单元格
-│   │   │   ├── KanbanView/               # 看板视图
-│   │   │   │   ├── KanbanView.vue        # 主视图
-│   │   │   │   ├── KanbanColumn.vue      # 看板列
-│   │   │   │   └── KanbanCard.vue        # 看板卡片
-│   │   │   ├── CalendarView/             # 日历视图
-│   │   │   ├── GanttView/                # 甘特图视图
-│   │   │   ├── FormView/                 # 表单视图
-│   │   │   │   ├── FormView.vue          # 主视图
-│   │   │   │   ├── FormViewConfig.vue    # 表单配置
-│   │   │   │   └── FormShareDialog.vue   # 表单分享
-│   │   │   ├── GalleryView/              # 画廊视图
-│   │   │   └── ViewSwitcher.vue          # 视图切换器
-│   │   ├── dashboard/            # 仪表盘组件
-│   │   │   ├── KpiWidget.vue             # KPI卡片
-│   │   │   ├── ClockWidget.vue           # 时钟组件
-│   │   │   ├── DateWidget.vue            # 日期组件
-│   │   │   ├── RealtimeChartWidget.vue   # 实时图表
-│   │   │   ├── MarqueeWidget.vue         # 跑马灯
-│   │   │   └── index.ts
-│   │   ├── documents/            # 文档管理组件（v1.4.0 新增）
-│   │   │   ├── DocumentEditor.vue      # 文档编辑器
-│   │   │   ├── DocumentHistory.vue     # 版本历史
-│   │   │   └── DocumentList.vue        # 文档列表
-│   │   ├── auth/                 # 认证组件
-│   │   │   ├── LoginForm.vue             # 登录表单
-│   │   │   └── RegisterForm.vue          # 注册表单
-│   │   └── base/                 # Base 组件
-│   │       ├── MemberList.vue            # 成员列表
-│   │       └── AddMemberDialog.vue       # 添加成员对话框
-│   ├── composables/                # 组合式函数
-│   │   ├── useEntityOperations.ts        # 实体操作（CRUD）
-│   │   └── useRealtimeCollaboration.ts   # 实时协作
-│   ├── db/                         # 数据库层（IndexedDB）
-│   │   ├── services/               # 数据服务
-│   │   │   ├── baseService.ts             # Base 服务
-│   │   │   ├── tableService.ts            # 表格服务
-│   │   │   ├── fieldService.ts            # 字段服务
-│   │   │   ├── recordService.ts           # 记录服务
-│   │   │   ├── viewService.ts             # 视图服务
-│   │   │   ├── dashboardService.ts        # 仪表盘服务
-│   │   │   ├── attachmentService.ts       # 附件服务
-│   │   │   ├── templateService.ts         # 模板服务
-│   │   │   └── dashboardShareService.ts   # 仪表盘分享服务
-│   │   ├── schema.ts               # Dexie 数据库定义
-│   │   └── __tests__/              # 测试文件
-│   ├── layouts/                    # 布局组件
-│   │   ├── MainLayout.vue          # 主布局
-│   │   └── BlankLayout.vue         # 空白布局
-│   ├── router/                     # Vue Router 配置
-│   │   ├── index.ts                # 路由定义
-│   │   └── guards.ts               # 路由守卫
-│   ├── services/api/               # API 服务层
-│   │   ├── authService.ts          # 认证 API
-│   │   ├── authApiService.ts       # 认证 API 服务
-│   │   ├── baseApiService.ts       # Base API
-│   │   ├── tableApiService.ts      # 表格 API
-│   │   ├── fieldApiService.ts      # 字段 API
-│   │   ├── recordApiService.ts     # 记录 API
-│   │   ├── viewApiService.ts       # 视图 API
-│   │   ├── dashboardApiService.ts  # 仪表盘 API
-│   │   ├── attachmentApiService.ts # 附件 API
-│   │   ├── shareApiService.ts      # 分享 API
-│   │   ├── importExportApiService.ts # 导入导出 API
-│   │   ├── adminApiService.ts      # 管理 API
-│   │   ├── emailApiService.ts      # 邮件 API
-│   │   └── linkApiService.ts       # 关联 API
-│   ├── services/realtime/          # 实时协作服务层
-│   │   ├── socketClient.ts         # Socket.IO 客户端
-│   │   ├── eventTypes.ts           # 事件类型定义
-│   │   └── eventEmitter.ts         # 事件总线
-│   ├── stores/                     # Pinia 状态管理
-│   │   ├── authStore.ts            # 认证状态
-│   │   ├── auth/authStore.ts       # 认证状态（新版）
-│   │   ├── baseStore.ts            # Base 状态
-│   │   ├── tableStore.ts           # 表格状态
-│   │   ├── viewStore.ts            # 视图状态
-│   │   ├── collaborationStore.ts   # 协作状态
-│   │   ├── adminStore.ts           # 管理状态
-│   │   ├── settingsStore.ts        # 设置状态
-│   │   ├── loadingStore.ts         # 加载状态
-│   │   ├── userCacheStore.ts       # 用户缓存
-│   │   ├── keyboardShortcuts.ts    # 快捷键配置
-│   │   └── theme.ts                # 主题配置
-│   ├── types/                      # TypeScript 类型定义
-│   │   ├── fields.ts               # 字段类型定义
-│   │   ├── views.ts                # 视图类型定义
-│   │   ├── filters.ts              # 筛选类型定义
-│   │   ├── attachment.ts           # 附件类型定义
-│   │   └── link.ts                 # 关联类型定义
-│   ├── utils/                      # 工具函数
-│   │   ├── formula/                # 公式引擎
-│   │   │   ├── engine.ts           # 公式解析引擎
-│   │   │   ├── functions.ts        # 43 个内置函数
-│   │   │   └── index.ts
-│   │   ├── export/                 # 导出功能
-│   │   ├── attachment/             # 附件工具
-│   │   │   ├── validators.ts       # 验证器
-│   │   │   ├── thumbnail.ts        # 缩略图生成
-│   │   │   └── errors.ts           # 错误处理
-│   │   ├── filter.ts               # 筛选逻辑
-│   │   ├── sort.ts                 # 排序逻辑
-│   │   ├── group.ts                # 分组逻辑
-│   │   ├── validation.ts           # 数据验证
-│   │   ├── importExport.ts         # 导入导出逻辑
-│   │   ├── cache.ts                # 缓存工具
-│   │   ├── debounce.ts             # 防抖函数
-│   │   ├── helpers.ts              # 通用辅助函数
-│   │   ├── history.ts              # 历史记录
-│   │   ├── id.ts                   # ID 生成
-│   │   ├── logger.ts               # 日志工具
-│   │   ├── message.ts              # 消息工具
-│   │   ├── performance.ts          # 性能优化
-│   │   ├── sanitize.ts             # HTML 消毒
-│   │   ├── tableTemplates.ts       # 表格模板
-│   │   ├── templateGenerator.ts    # 模板生成器
-│   │   ├── recordValueSerializer.ts # 记录值序列化
-│   │   ├── viewConfigSerializer.ts # 视图配置序列化
-│   │   ├── dashboardDataProcessor.ts # 仪表盘数据处理
-│   │   ├── dashboardLayoutEngine.ts  # 仪表盘布局引擎
-│   │   └── dashboardWidgetRegistry.ts # 仪表盘组件注册
-│   ├── views/                      # 页面视图
-│   │   ├── Home.vue                # 首页
-│   │   ├── Base.vue                 # Base 主页面
-│   │   ├── Dashboard.vue            # 仪表盘页面
-│   │   ├── DashboardShare.vue       # 仪表盘分享页
-│   │   ├── FormShare.vue            # 表单分享页
-│   │   ├── BaseShare.vue            # Base 分享页
-│   │   ├── Settings.vue             # 设置页面
-│   │   ├── auth/                   # 认证页面
-│   │   │   ├── Login.vue           # 登录
-│   │   │   ├── Register.vue        # 注册
-│   │   │   ├── ForgotPassword.vue  # 忘记密码
-│   │   │   ├── ResetPassword.vue   # 重置密码
-│   │   │   └── VerifyEmail.vue     # 邮箱验证
-│   │   ├── admin/                  # 管理后台
-│   │   │   ├── UserManagement.vue  # 用户管理
-│   │   │   ├── SystemSettings.vue  # 系统设置
-│   │   │   ├── EmailTemplates.vue  # 邮件模板
-│   │   │   ├── EmailLogs.vue       # 邮件日志
-│   │   │   ├── EmailStats.vue      # 邮件统计
-│   │   │   └── OperationLogs.vue   # 操作日志
-│   │   └── base/                   # Base 相关
-│   │       └── MemberManagement.vue # 成员管理
-│   ├── App.vue                     # 根组件
-│   ├── main.ts                     # 入口文件
-│   ├── style.css                   # 全局样式
-│   ├── auto-imports.d.ts           # 自动导入类型
-│   └── components.d.ts             # 组件类型
-├── tests/                          # 测试目录
-├── package.json
-├── vite.config.ts                  # Vite 配置
-├── tsconfig.json                   # TypeScript 配置
-├── vitest.config.ts                # Vitest 配置
-└── README.md
-```
-
-### 后端项目结构
-
-```
-smarttable-backend/
-├── app/
-│   ├── __init__.py                 # 应用工厂
-│   ├── config.py                   # 配置文件
-│   ├── extensions.py               # 扩展初始化
-│   ├── db_types.py                 # 数据库类型定义
-│   ├── models/                     # 数据模型
-│   │   ├── user.py                 # 用户模型
-│   │   ├── base.py                 # Base 模型
-│   │   ├── table.py                # 表格模型
-│   │   ├── field.py                # 字段模型
-│   │   ├── record.py               # 记录模型
-│   │   ├── view.py                 # 视图模型
-│   │   ├── dashboard.py            # 仪表盘模型
-│   │   ├── dashboard_share.py      # 仪表盘分享模型
-│   │   ├── attachment.py           # 附件模型
-│   │   ├── base_share.py           # Base 分享模型
-│   │   ├── form_share.py           # 表单分享模型
-│   │   ├── form_submission.py      # 表单提交模型
-│   │   ├── link_relation.py        # 关联关系模型
-│   │   ├── collaboration_session.py # 协作会话模型
-│   │   ├── email_log.py            # 邮件日志模型
-│   │   ├── email_template.py       # 邮件模板模型
-│   │   ├── operation_history.py    # 操作历史模型
-│   │   ├── log.py                  # 日志模型
-│   │   └── config.py               # 配置模型
-│   ├── services/                   # 业务逻辑层
-│   │   ├── auth_service.py         # 认证服务
-│   │   ├── base_service.py         # Base 服务
-│   │   ├── table_service.py        # 表格服务
-│   │   ├── field_service.py        # 字段服务
-│   │   ├── record_service.py       # 记录服务
-│   │   ├── view_service.py         # 视图服务
-│   │   ├── formula_service.py      # 公式服务
-│   │   ├── dashboard_service.py    # 仪表盘服务
-│   │   ├── dashboard_share_service.py # 仪表盘分享服务
-│   │   ├── attachment_service.py   # 附件服务
-│   │   ├── collaboration_service.py # 协作服务
-│   │   ├── share_service.py        # 分享服务
-│   │   ├── form_share_service.py   # 表单分享服务
-│   │   ├── permission_service.py   # 权限服务
-│   │   ├── import_export_service.py # 导入导出服务
-│   │   ├── link_service.py        # 关联服务
-│   │   ├── admin_service.py       # 管理服务
-│   │   ├── email_sender_service.py # 邮件发送服务
-│   │   ├── email_config_service.py # 邮件配置服务
-│   │   ├── email_queue_service.py  # 邮件队列服务
-│   │   ├── email_retry_service.py  # 邮件重试服务
-│   │   └── email_template_service.py # 邮件模板服务
-│   ├── routes/                     # 路由层（RESTful API）
-│   │   ├── auth.py                 # 认证路由 (/api/auth/*)
-│   │   ├── auth_captcha.py         # 验证码路由 (/api/auth/captcha)
-│   │   ├── bases.py                # Base 路由 (/api/bases/*)
-│   │   ├── tables.py               # 表格路由 (/api/bases/{base_id}/tables/*)
-│   │   ├── fields.py               # 字段路由 (/api/fields/*)
-│   │   ├── records.py              # 记录路由 (/api/records/*)
-│   │   ├── views.py                # 视图路由 (/api/views/*)
-│   │   ├── dashboards.py           # 仪表盘路由 (/api/dashboards/*)
-│   │   ├── dashboards_share.py     # 仪表盘分享路由
-│   │   ├── attachments.py          # 附件路由 (/api/attachments/*)
-│   │   ├── shares.py               # 分享路由 (/api/shares/*)
-│   │   ├── form_shares.py          # 表单分享路由 (/api/form-shares/*)
-│   │   ├── import_export.py        # 导入导出路由 (/api/import-export/*)
-│   │   ├── email.py                # 邮件路由 (/api/email/*)
-│   │   ├── documents.py           # 文档路由 (/api/documents/*)
-│   │   ├── document_versions.py   # 文档版本路由
-│   │   ├── admin.py                # 管理路由 (/api/admin/*)
-│   │   ├── users.py                # 用户路由 (/api/users/*)
-│   │   ├── realtime.py             # 实时协作状态 API (/api/realtime/*)
-│   │   └── socketio_events.py      # Socket.IO 事件处理
-│   ├── schemas/                    # 数据验证模式
-│   │   ├── user_schema.py          # 用户验证
-│   │   ├── record_schema.py        # 记录验证
-│   │   └── admin_schema.py         # 管理验证
-│   ├── utils/                      # 工具模块
-│   │   ├── captcha.py              # 验证码生成
-│   │   ├── constants.py            # 常量定义
-│   │   ├── decorators.py           # 装饰器
-│   │   ├── exception_handler.py    # 异常处理
-│   │   ├── response.py             # 响应格式化
-│   │   ├── validators.py           # 验证器
-│   │   └── init_email_templates.py # 初始化邮件模板
-│   ├── errors/                     # 错误处理
-│   │   └── handlers.py             # 错误处理器
-│   ├── middleware/                  # 中间件
-│   │   └── security_headers.py     # 安全响应头
-│   └── data/                       # 数据文件
-│       └── default_email_templates.py # 默认邮件模板
-├── migrations/                     # 数据库迁移（Alembic）
-│   ├── versions/                   # 迁移版本
-│   │   ├── 20250403_0001_initial_migration.py
-│   │   ├── 20250405_0002_add_dashboard_is_default.py
-│   │   ├── 20250406_0002_add_admin_management_models.py
-│   │   ├── 20250406_0003_add_base_sharing.py
-│   │   ├── 20250409_0004_add_link_relations.py
-│   │   ├── 20250412_0005_add_form_share_tables.py
-│   │   ├── 20250414_0006_add_email_tables.py
-│   │   ├── 20250414_0007_add_user_email_verification.py
-│   │   └── 20250416_0008_add_collaboration_sessions.py
-│   ├── env.py                      # 迁移环境
-│   └── script.py.mako              # 迁移脚本模板
-├── tests/                          # 测试目录
-│   ├── conftest.py                 # 测试配置
-│   ├── test_auth.py                # 认证测试
-│   ├── test_base.py                # Base 测试
-│   ├── test_table.py               # 表格测试
-│   ├── test_field.py               # 字段测试
-│   ├── test_record.py              # 记录测试
-│   ├── test_view.py                # 视图测试
-│   ├── test_dashboard.py           # 仪表盘测试
-│   ├── test_attachment.py          # 附件测试
-│   ├── test_formula_service.py     # 公式服务测试
-│   ├── test_import_export.py       # 导入导出测试
-│   ├── test_auto_number.py         # 自动编号测试
-│   ├── test_member_sharing.py      # 成员分享测试
-│   ├── test_create_base.py         # 创建 Base 测试
-│   ├── test_realtime_enabled.py    # 实时协作测试（启用）
-│   ├── test_realtime_disabled.py   # 实时协作测试（禁用）
-│   ├── test_logout_all.py          # 登出测试
-│   ├── test_validators.py          # 验证器测试
-│   ├── test_startup_params.py      # 启动参数测试
-│   ├── test_email_integration.py   # 邮件集成测试
-│   └── test_email_services.py      # 邮件服务测试
-├── requirements.txt                # Python 依赖
-├── requirements-dev.txt            # 开发依赖
-├── requirements-minimal.txt        # 最小依赖
-├── run.py                          # 应用入口
-├── init_db.py                      # 数据库初始化
-├── init_link_tables.py             # 关联表初始化
-├── gunicorn.conf.py                # Gunicorn 配置
-├── alembic.ini                     # Alembic 配置
-├── Dockerfile                      # Docker 镜像
-├── Dockerfile.dev                  # 开发镜像
-├── docker-compose.yml              # Docker 编排（SQLite）
-├── docker-compose.dev.yml          # Docker 编排（PostgreSQL）
-├── .env.example                    # 环境变量示例
-└── README.md
-```
 
 ## 🗄️ 数据模型
 
@@ -974,6 +600,7 @@ LOOKUP({关联表.相关记录}, {目标字段})
 python run.py --enable-realtime
 # 或使用短参数
 python run.py -r
+> 或通过修改 .env 的 `ENABLE_REALTIME=True` 来配置协同编辑功能
 
 # 不启用实时协作（默认行为）
 python run.py
@@ -1036,9 +663,7 @@ environment:
 
 ## 🐳 Docker 部署
 
-### 快速部署（官方镜像一键启动）
-
-> 若是ARM架构，请使用对应版本镜像：`ygbinac/smarttable:1.4.1-arm64`
+### 快速部署（官方镜像一键启动，自动适配架构）
 
 直接启动：
 
@@ -1052,7 +677,8 @@ docker run -d \
   ygbinac/smarttable:latest
 ```
 
-* 或者使用 docker compose ，只需创建以下 docker-compose.yml ：：
+- 或者使用 docker compose ，只需创建以下 docker-compose.yml ：：
+
 ```bash
 services:
   smarttable:
@@ -1191,30 +817,6 @@ smart-table-spec/
 
 本项目采用 [MIT License](LICENSE) 开源协议。
 
-```
-MIT License
-
-Copyright (c) 2026 Smart Table Contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 ***
 
 ## 🙏 致谢
@@ -1227,6 +829,8 @@ SOFTWARE.
 - Element Plus 团队提供完善的 UI 组件库
 - Flask 社区提供灵活的后端框架
 - TinyEditor 团队提供功能强大的文本编辑器组件
+- Vxe-Table 团队提供高性能的虚拟滚动表格组件
+- Vtable 团队提供高性能的 canvas 表格组件
 - 所有 Issue 提交者和 Pull Request 贡献者
 
 ***
