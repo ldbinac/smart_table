@@ -3212,19 +3212,18 @@ const buildTableConfig = (): any => {
           container.add(topBorder);
           if (row < 0 || !table) return undefined;
           // 在第一个数据列（colIdx 2，col 0=行号，col 1=复选框）居中渲染文字
-          // if (colIdx === 1 || colIdx % 5 === 0) {
+          if (colIdx % 2 === 1) {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
               text: '+ 添加记录',
               fontSize: 13,
               fill: '#c0c0c0',
-              fontWeight: '500',
               textBaseline: 'middle',
               textAlign: 'center',
             });
             container.add(text);
-          // }
+          }
           return { rootContainer: container, renderDefault: false };
         }
         if (origCustomLayout) return origCustomLayout(args);
@@ -3250,19 +3249,18 @@ const buildTableConfig = (): any => {
           const topBorder = createRect({ x: 0, y: 0, width: cellWidth, height: 1, fill: '#e5e7eb' });
           container.add(topBorder);
           // col 0=rowSeriesNumber，col 1=第一数据列
-          // if (colIdx === 1 || colIdx % 5 === 0) {
+          if (colIdx % 2 === 1) {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
               text: '+ 添加记录',
               fontSize: 13,
               fill: '#c0c0c0',
-              fontWeight: 'bold',
               textBaseline: 'middle',
               textAlign: 'center',
             });
             container.add(text);
-          // }
+          }
           return { rootContainer: container, renderDefault: false };
         }
         if (origCustomLayout) return origCustomLayout(args);
