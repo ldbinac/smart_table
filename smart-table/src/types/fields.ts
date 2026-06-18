@@ -51,6 +51,22 @@ export type AggregationType =
   | "max"
   | "count";
 
+/**
+ * 字段类型配置项
+ */
+export interface FieldTypeConfig {
+  /** 字段类型值 */
+  value: FieldTypeValue;
+  /** 字段类型标签 */
+  label: string;
+  /** 字段类型图标组件 */
+  icon: Component;
+  /** 是否为特殊字段类型（需要额外配置或特殊处理） */
+  isSpecial?: boolean;
+  /** 特殊字段类型的提示文本 */
+  specialHint?: string;
+}
+
 export interface FieldOptions {
   // 通用选项
   maxLength?: number;
@@ -203,39 +219,83 @@ export function getFieldTypeLabel(type: string): string {
 }
 
 /**
- * 获取可用于导入/创建的字段类型选项列表
- * 排除系统生成的字段类型（如创建人、创建时间、修改人、修改时间、自动编号等）
+ * 获取特殊字段类型的提示文本
+ * @param type 字段类型
+ * @returns 提示文本
  */
-export function getImportableFieldTypeOptions(): { value: string; label: string }[] {
-  const importableTypes = [
+function getSpecialFieldHint(type: FieldTypeValue): string {
+  const hints: Partial<Record<FieldTypeValue, string>> = {
+    [FieldType.FORMULA]: "需配置公式",
+    [FieldType.LINK]: "需配置关联",
+    [FieldType.LOOKUP]: "需配置查找",
+  };
+  return hints[type] || "";
+}
+
+/**
+ * 获取用户可创建的字段类型配置列表
+ * @param options 配置选项
+ * @returns 字段类型配置数组
+ */
+export function getUserCreatableFieldTypeOptions(options?: {
+  /** 是否包含特殊字段类型（公式、关联、查找等） */
+  includeSpecial?: boolean;
+  /** 是否标记特殊字段类型 */
+  markSpecial?: boolean;
+}): FieldTypeConfig[] {
+  const { includeSpecial = true, markSpecial = false } = options || {};
+
+  const normalTypes: FieldTypeValue[] = [
     FieldType.SINGLE_LINE_TEXT,
     FieldType.LONG_TEXT,
     FieldType.RICH_TEXT,
     FieldType.NUMBER,
-    FieldType.CURRENCY,
-    FieldType.PERCENT,
-    FieldType.RATING,
     FieldType.DATE,
     FieldType.DATE_TIME,
-    FieldType.DURATION,
     FieldType.SINGLE_SELECT,
     FieldType.MULTI_SELECT,
     FieldType.CHECKBOX,
     FieldType.ATTACHMENT,
     FieldType.MEMBER,
-    FieldType.COLLABORATOR,
+    FieldType.RATING,
+    FieldType.PROGRESS,
     FieldType.PHONE,
     FieldType.EMAIL,
     FieldType.URL,
-    FieldType.BARCODE,
-    FieldType.BUTTON,
-    FieldType.PROGRESS,
+    FieldType.AUTO_NUMBER,
   ];
 
-  return importableTypes.map((type) => ({
-    value: type,
-    label: getFieldTypeLabel(type),
-  }));
+  const specialTypes: FieldTypeValue[] = [
+    FieldType.FORMULA,
+    FieldType.LINK,
+    FieldType.LOOKUP,
+  ];
+
+  const allTypes = includeSpecial
+    ? [...normalTypes, ...specialTypes]
+    : normalTypes;
+
+  return allTypes.map((type) => {
+    const isSpecial = specialTypes.includes(type);
+    return {
+      value: type,
+      label: getFieldTypeLabel(type),
+      icon: getFieldTypeIconComponent(type),
+      isSpecial: markSpecial && isSpecial,
+      specialHint: isSpecial && markSpecial ? getSpecialFieldHint(type) : undefined,
+    };
+  });
+}
+
+/**
+ * 获取可用于导入/创建的字段类型选项列表
+ * @deprecated 请使用 getUserCreatableFieldTypeOptions() 替代
+ */
+export function getImportableFieldTypeOptions(): { value: string; label: string }[] {
+  return getUserCreatableFieldTypeOptions({
+    includeSpecial: false,
+    markSpecial: false,
+  }).map(({ value, label }) => ({ value, label }));
 }
 
 // export function getFieldTypeIcon(type: string): string {

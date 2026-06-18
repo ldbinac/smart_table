@@ -25,6 +25,7 @@ import {
   FieldType,
   getFieldTypeLabel,
   getFieldTypeIconComponent,
+  getUserCreatableFieldTypeOptions,
   type FieldTypeValue,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
@@ -101,31 +102,11 @@ const newField = ref<{
   maxLength: undefined,
 });
 
-// 用户可创建的字段类型（包括自动编号）
-const userCreatableTypes = [
-  FieldType.SINGLE_LINE_TEXT,
-  FieldType.LONG_TEXT,
-  FieldType.RICH_TEXT,
-  FieldType.NUMBER,
-  FieldType.DATE,
-  FieldType.DATE_TIME,
-  FieldType.SINGLE_SELECT,
-  FieldType.MULTI_SELECT,
-  FieldType.CHECKBOX,
-  FieldType.ATTACHMENT,
-  FieldType.MEMBER,
-  FieldType.RATING,
-  FieldType.PROGRESS,
-  FieldType.PHONE,
-  FieldType.EMAIL,
-  FieldType.URL,
-  FieldType.FORMULA,
-  FieldType.LINK,
-  FieldType.LOOKUP,
-  FieldType.AUTO_NUMBER,
-];
-// 用户可选择的字段类型列表
-const fieldTypes = userCreatableTypes;
+// 用户可创建的字段类型配置列表
+const fieldTypeConfigs = getUserCreatableFieldTypeOptions({
+  includeSpecial: true,
+  markSpecial: false,
+});
 
 const selectOptions = ref<{ id: string; name: string; color: string }[]>([]);
 const newOptionName = ref("");
@@ -1266,17 +1247,17 @@ async function toggleFieldVisibility(
             style="width: 100%"
             @change="onTypeChange">
             <ElOption
-              v-for="type in fieldTypes"
-              :key="type"
-              :label="getFieldTypeLabel(type)"
-              :value="type">
+              v-for="config in fieldTypeConfigs"
+              :key="config.value"
+              :label="config.label"
+              :value="config.value">
               <span class="type-option">
                 <span class="type-icon">
                   <el-icon>
-                    <component :is="getFieldTypeIconComponent(type)" />
+                    <component :is="config.icon" />
                   </el-icon>
                 </span>
-                <span>{{ getFieldTypeLabel(type) }}</span>
+                <span>{{ config.label }}</span>
               </span>
             </ElOption>
           </ElSelect>
