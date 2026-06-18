@@ -360,10 +360,13 @@ export const useTableStore = defineStore("table", () => {
       await recordService.updateRecord(id, { values: editableValues });
       const index = records.value.findIndex((r) => r.id === id);
       if (index !== -1) {
-        // 使用反序列化后的值更新本地缓存
+        // 合并更新值，保留未修改的字段
         records.value[index] = {
           ...records.value[index],
-          values: deserializeRecordValues(editableValues),
+          values: {
+            ...records.value[index].values,
+            ...deserializeRecordValues(editableValues),
+          },
           updatedAt: Date.now(),
         };
       }

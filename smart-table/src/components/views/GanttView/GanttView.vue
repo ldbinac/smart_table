@@ -50,6 +50,7 @@ const timelineRef = ref<HTMLElement | null>(null);
 const ganttContentRef = ref<HTMLElement | null>(null);
 const headerRightWrapperRef = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
+const hasMoved = ref(false);
 const dragTask = ref<GanttTask | null>(null);
 const dragType = ref<"move" | "resize-left" | "resize-right">("move");
 const dragStartX = ref(0);
@@ -334,6 +335,7 @@ function handleMouseDown(
 function handleMouseMove(event: MouseEvent) {
   if (!isDragging.value || !dragTask.value) return;
 
+  hasMoved.value = true;
   const deltaX = event.clientX - dragStartX.value;
   const dayDelta = Math.round(deltaX / cellWidth.value);
 
@@ -365,19 +367,30 @@ function handleMouseMove(event: MouseEvent) {
 }
 
 function handleMouseUp() {
-  if (isDragging.value && dragTask.value) {
+  if (isDragging.value && dragTask.value && hasMoved.value) {
     const updates: Record<string, unknown> = {};
 
+    // 格式化日期值：DATE 类型存 YYYY-MM-DD，DATE_TIME 类型存 ISO 字符串
+    const formatDateValue = (date: Date, fieldId: string): string => {
+      const field = props.fields.find((f) => f.id === fieldId);
+      if (field?.type === FieldType.DATE_TIME) {
+        return date.toISOString();
+      }
+      // DATE 类型只存日期部分
+      return date.toISOString().split("T")[0];
+    };
+
     if (startDateFieldId.value) {
-      updates[startDateFieldId.value] = dragTask.value.start.getTime();
+      updates[startDateFieldId.value] = formatDateValue(dragTask.value.start, startDateFieldId.value);
     }
     if (endDateFieldId.value) {
-      updates[endDateFieldId.value] = dragTask.value.end.getTime();
+      updates[endDateFieldId.value] = formatDateValue(dragTask.value.end, endDateFieldId.value);
     }
 
     emit("updateRecord", dragTask.value.id, updates);
   }
 
+  hasMoved.value = false;
   isDragging.value = false;
   dragTask.value = null;
 
