@@ -1957,7 +1957,7 @@ const handleRecordSave = async (
   }
 };
 
-const records = computed(() => tableStore.records);
+const records = computed(() => props.records || tableStore.records);
 
 // 排序后的记录
 const sortedRecords = computed(() => {
