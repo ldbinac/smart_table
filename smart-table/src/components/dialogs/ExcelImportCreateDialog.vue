@@ -11,7 +11,7 @@ import {
   InfoFilled,
 } from "@element-plus/icons-vue";
 import { importExportApiService } from "@/services/api/importExportApiService";
-import { getImportableFieldTypeOptions } from "@/types/fields";
+import { getUserCreatableFieldTypeOptions } from "@/types/fields";
 
 interface ExcelColumn {
   name: string;
@@ -88,7 +88,10 @@ const analysisResult = ref<{
 } | null>(null);
 
 // 字段类型选项（从中央模块获取，确保一致性）
-const fieldTypeOptions = getImportableFieldTypeOptions();
+const fieldTypeOptions = getUserCreatableFieldTypeOptions({
+  includeSpecial: true,
+  markSpecial: true,
+});
 
 // 创建步骤配置
 const createSteps = [
@@ -593,7 +596,22 @@ watch(() => props.visible, () => {
                   :key="opt.value"
                   :label="opt.label"
                   :value="opt.value"
-                />
+                  :disabled="opt.isSpecial"
+                >
+                  <span class="type-option">
+                    <span class="type-icon">
+                      <el-icon>
+                        <component :is="opt.icon" />
+                      </el-icon>
+                    </span>
+                    <span :class="{ 'special-type': opt.isSpecial }">
+                      {{ opt.label }}
+                    </span>
+                    <span v-if="opt.specialHint" class="special-hint">
+                      ({{ opt.specialHint }})
+                    </span>
+                  </span>
+                </el-option>
               </el-select>
             </template>
           </el-table-column>
@@ -880,6 +898,28 @@ watch(() => props.visible, () => {
     white-space: nowrap;
     color: $text-secondary;
     font-size: $font-size-sm;
+  }
+}
+
+.type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .type-icon {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+  }
+
+  .special-type {
+    color: $text-secondary;
+  }
+
+  .special-hint {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    margin-left: 4px;
   }
 }
 
