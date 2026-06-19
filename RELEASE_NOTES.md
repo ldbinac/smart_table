@@ -4,6 +4,74 @@
 
 ***
 
+# SmartTable v1.5.1 Release Notes
+
+**发布日期 / Release Date**: 2026-06-19
+
+**版本号 / Version**: v1.5.1
+
+**标签 / Tags**: `release`, `v1.5.1`, `latest`, `stable`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.5.1 更新说明
+
+本次更新主要聚焦于**问题修复**及部分功能优化,进一步提升了系统的稳定性和用户体验。
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+* 🔧 甘特图编辑记录数据不全问题
+**问题描述**: 在甘特图视图中编辑记录时,部分字段数据丢失或未正确保存。
+**影响范围**: 甘特图视图、记录编辑、数据同步
+
+* 🔧 表格视图筛选条件失效问题
+**问题描述**: 在某些场景下,表格视图的筛选条件不生效或被忽略。
+**影响范围**: 表格视图、数据筛选、视图切换
+
+### 🔧 功能优化与改进 (Improvements)
+
+* 📝 字段类型选择逻辑重构 ⭐ 统一字段类型选择逻辑,提升代码可维护性。
+* 🎨 表格视图添加记录按钮显示优化
+
+### 🔄 升级建议
+
+- ✅ **推荐升级** - 修复了甘特图编辑和筛选条件的关键问题
+- ✅ **向后兼容** - 无破坏性变更,可平滑升级
+- ✅ **无需数据迁移** - 本次更新不涉及数据库结构变更
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.5.1 Release Notes
+
+This update focuses on **bug fixes** and some feature optimizations, further improving system stability and user experience.
+
+### 🐛 Bug Fixes
+
+* 🔧 Gantt Chart Record Editing Data Incomplete Issue
+**Issue Description**: When editing records in Gantt view, some field data was lost or not saved correctly.
+**Impact Scope**: Gantt view, record editing, data synchronization
+
+* 🔧 Table View Filter Condition Ineffective Issue
+**Issue Description**: In some scenarios, table view filter conditions were not effective or ignored.
+**Impact Scope**: Table view, data filtering, view switching
+
+### 🔧 Improvements
+
+* 📝 Field Type Selection Logic Refactoring ⭐ Unified field type selection logic to improve code maintainability.
+* 🎨 Table View Add Record Button Display Optimization
+
+### 🔄 Upgrade Recommendations
+
+- ✅ **Recommended Upgrade** - Fixed critical issues with Gantt editing and filter conditions
+- ✅ **Backward Compatible** - No breaking changes, smooth upgrade possible
+- ✅ **No Data Migration Required** - This update does not involve database structure changes
+
+***
+
 # SmartTable v1.5.0 Release Notes
 
 **发布日期 / Release Date**: 2026-06-14
