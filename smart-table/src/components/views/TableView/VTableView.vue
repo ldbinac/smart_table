@@ -2192,7 +2192,9 @@ const buildGroupedRecords = (tableRecords: any[]): any[] => {
 
     orderedVisibleFields.value.forEach(field => {
       if (!props.groupBy!.includes(field.id)) {
-        addButtonRecord[field.id] = '';
+        // 为每个字段设置唯一值，避免与上面空行合并
+        const uniqueMarker = `__add_button_${Date.now()}_${field.id}__`;
+        addButtonRecord[field.id] = uniqueMarker;
       }
     });
 
@@ -3049,8 +3051,11 @@ const buildTableConfig = (): any => {
       _originalRecord: null,
       _rowType: 'addButton',
     };
+    // 为每个字段设置唯一值，避免与上面空行合并
+    // 使用时间戳确保每次都是唯一的值
+    const uniqueMarker = `__add_button_${Date.now()}__`;
     orderedVisibleFields.value.forEach(field => {
-      addButtonRecord[field.id] = '';
+      addButtonRecord[field.id] = uniqueMarker;
     });
     tableRecords.push(addButtonRecord);
   }
