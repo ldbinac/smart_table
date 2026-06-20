@@ -513,7 +513,7 @@ class MultiSelectEditor implements IEditor {
   }
 
   getValue() {
-    return this.selectedValues.length > 0 ? JSON.stringify(this.selectedValues) : null;
+    return this.selectedValues.length > 0 ? JSON.stringify(this.selectedValues) : '';
   }
 
   onEnd() {
@@ -701,7 +701,7 @@ class SingleSelectEditor implements IEditor {
   }
 
   getValue() {
-    return this.selectedValue;
+    return this.selectedValue ?? '';
   }
 
   onEnd() {
