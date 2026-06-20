@@ -272,7 +272,8 @@ onMounted(() => {
   <header class="app-header">
     <div class="header-left">
       <div class="logo" @click="handleLogoClick">
-        <svg
+        <img src="/favicon.ico" alt="Smart Table" class="logo-icon" />
+        <!-- <svg
           class="logo-icon"
           viewBox="0 0 24 24"
           fill="none"
@@ -302,7 +303,7 @@ onMounted(() => {
             rx="1"
             fill="#3370FF"
             opacity="0.4" />
-        </svg>
+        </svg> -->
         <div class="logo-info">
           <el-tooltip
             :content="leftTitle"
