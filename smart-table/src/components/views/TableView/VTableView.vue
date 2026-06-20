@@ -2478,6 +2478,10 @@ const buildTableConfig = (): any => {
           fontWeight: 'bold',
         }
       } : {}),
+      // 单元格合并配置：当字段的 options.mergeCell 为 true 时启用
+      ...(field.options?.mergeCell ? {
+        mergeCell: true
+      } : {}),
     };
   });
 

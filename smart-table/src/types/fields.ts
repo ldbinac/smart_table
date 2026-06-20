@@ -168,6 +168,10 @@ export interface FieldOptions {
     email: string;
     avatar?: string;
   };
+
+  // ==================== 单元格合并选项 ====================
+  /** 是否启用单元格合并（将内容相同的相邻单元格自动合并） */
+  mergeCell?: boolean;
 }
 
 export type CellValue =
