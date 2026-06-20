@@ -1853,15 +1853,12 @@ const handleAddNewRecord = async () => {
 const handleDuplicateRecord = async () => {
   if (!contextMenuRecord.value) return;
   try {
-    const newRecord = await recordService.createRecord({
+    // 使用 tableStore.createRecord 创建记录（与删除逻辑保持一致）
+    const newRecord = await tableStore.createRecord({
       tableId: contextMenuRecord.value.tableId,
       values: { ...contextMenuRecord.value.values },
     });
     if (newRecord) {
-      // 直接追加到 store 本地缓存，避免全量 API 重拉
-      if (Array.isArray(tableStore.records)) {
-        tableStore.records = [...tableStore.records, newRecord];
-      }
       ElMessage.success("复制记录成功");
     }
   } catch (error) {
