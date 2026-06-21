@@ -3122,18 +3122,17 @@ const buildTableConfig = (): any => {
       width: 'auto',
       cellType: 'checkbox',
       headerType: 'checkbox',
-      // 自定义渲染：新增行不显示复选框和行号
-      customRender: (args: any) => {
-        if (args.record && args.record._rowType === 'addButton') {
-          return '';
+      format:  (col, row, table) => {
+        if (row === table.dataSource._sourceLength){
+          return '+';
         }
-        return undefined;
+        return row;
       },
-      formatMethod: (value: any, data: any) => {
-        if (data && data._rowType === 'addButton') {
-          return '';
-        }
-        return value;
+      // 禁用新增行的复选框（虽然显示但不可点击）
+      disable: (args: any) => {
+        const { row, table } = args;
+        // 新增行禁用复选框
+        return row === table.dataSource._sourceLength;
       },
     },
     allowCopy: true,
