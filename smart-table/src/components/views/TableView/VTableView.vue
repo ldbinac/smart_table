@@ -1787,6 +1787,14 @@ const handleHideColumn = async () => {
   if (!currentView.value || !contextMenuColumn.value) return;
 
   const field = contextMenuColumn.value;
+
+  // 索引列（主键字段）不允许隐藏
+  if (field.isPrimary === true) {
+    ElMessage.warning('索引列，用来标识每条记录。不能被删除、移动或隐藏。');
+    contextMenuVisible.value = false;
+    return;
+  }
+
   const currentHidden = currentView.value.hiddenFields;
   const newHidden = [...currentHidden, field.id];
 

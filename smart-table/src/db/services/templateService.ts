@@ -502,6 +502,10 @@ export class TemplateService {
         options: backendOptions as unknown as Record<string, unknown>,
         is_primary: templateField.isPrimary,
         is_required: templateField.isRequired,
+        // 索引列（主键字段）设置默认描述
+        description: templateField.isPrimary
+          ? (templateField.description || '索引列：用来标识每条记录。不能被删除、移动或隐藏。')
+          : templateField.description,
       });
 
       // 🎯 关键修复：使用后端返回的真实选项ID更新映射！
