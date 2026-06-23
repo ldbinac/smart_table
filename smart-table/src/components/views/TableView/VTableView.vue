@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -1842,7 +1842,7 @@ const handleAddNewRecord = async () => {
     });
     if (!newRecord) return;
 
-    // 追加到 store，触发 watcher → updateTableData → 数据刷新（含 addButton 行）
+    // 追加到 store，触发 records watcher 统一处理表格更新
     if (Array.isArray(tableStore.records)) {
       tableStore.records = [...tableStore.records, newRecord];
     }
@@ -4069,31 +4069,54 @@ async function preloadMemberUsers() {
   }
 }
 
-// 监听 records 变化 → 增量数据更新
-// 流式加载期间：仅增量更新 dataSource 缓存，避免反复重建 VTable
-// 非流式：通过 updateTableData 增量更新（不销毁重建 VTable）
-watch(() => tableStore.records, () => {
-  if (tableStore.streamingState.isLoading && smartDataSource) {
-    // 流式加载进行中：增量更新缓存（只加载新增部分）
-    const prevCount = smartDataSource.totalCount;
-    const rawRecords = sortedRecords.value;
-    if (rawRecords.length > prevCount) {
-      const newRaw = rawRecords.slice(prevCount);
-      const newRows = transformRecords(newRaw);
-      smartDataSource.updateMemoryCache(newRows, prevCount);
-      smartDataSource.updateTotalCount(rawRecords.length);
-    }
+// 监听 records 变化 → 统一数据更新入口
+// 覆盖所有场景：handleAddNewRecord / handleDuplicateRecord / realtime broadcast / 外部操作
+watch(() => tableStore.records, async () => {
+  if (!tableInstance) return;
+
+  // 等待 Vue 响应式链路传播完毕：
+  // tableStore.records → 父组件 filteredRecords → props.records → sortedRecords
+  // 不等 nextTick 的话，sortedRecords.value 可能还是旧值，导致行数判断错误
+  await nextTick();
+
+  clearTransformCache();
+
+  if (!smartDataSource) {
+    // 无缓存数据源：走全量重建（首次加载或上一次已销毁）
+    preloadMemberUsers();
+    updateTableData();
     return;
   }
-  // 流式完成后：废弃旧的 smartDataSource（CachedDataSource.length 构造时冻结），
-  // 强制 updateTableData → updateTable → 以正确 totalCount 重建
-  if (smartDataSource && !tableStore.streamingState.isLoading) {
-    smartDataSource = null;
+
+  const prevTotal = smartDataSource.totalCount;
+  // 当前应有的总行数 = 真实记录数 + (非分组非只读时 +1 的 addButton 行)
+  const currentRecordCount = sortedRecords.value.length;
+  const hasAddButton = (!props.groupBy || props.groupBy.length === 0) && !props.readonly;
+  const expectedTotal = hasAddButton ? currentRecordCount + 1 : currentRecordCount;
+
+  if (expectedTotal !== prevTotal) {
+    // 行数变化（新增/删除记录）：CachedDataSource.length 在构造时固定，
+    // 增量更新无法让 VTable 感知行数变化，必须全量重建
+    const isAdding = expectedTotal > prevTotal; // 记录是否为新增操作
+
+    updateTable();
+
+    // 新增记录后自动滚动到最后一行真实记录，方便用户立即编辑
+    if (isAdding && tableInstance && hasAddButton && currentRecordCount > 0) {
+      // 等待 VTable DOM 渲染完成后再滚动
+      await nextTick();
+      // 新增的真实记录在倒数第二行（最后一行是 addButton 虚拟行）
+      try {
+        (tableInstance as any).scrollToRow(currentRecordCount - 1);
+      } catch (_e) {
+        // 滚动失败不影响主流程，静默忽略
+      }
+    }
+  } else {
+    // 行数不变（编辑单元格、成员名称加载等）：增量更新缓存并重绘
+    preloadMemberUsers();
+    updateTableData();
   }
-  // 预加载成员字段的用户信息（后台执行，完成后自动刷新表格）
-  clearTransformCache();
-  preloadMemberUsers();
-  updateTableData();
 }, { deep: true });
 
 // 监听 fields 变化 → 列结构变更，需重建表格
