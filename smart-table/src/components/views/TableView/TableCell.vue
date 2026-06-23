@@ -22,11 +22,14 @@ interface Props {
   readonly?: boolean;
   selected?: boolean;
   fields?: FieldEntity[]; // 所有字段，用于公式计算
+  // 字段权限是否可编辑（基于 canEditField 判断，默认 true 保持向后兼容）
+  canEdit?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   selected: false,
+  canEdit: true,
 });
 
 const emit = defineEmits<{
@@ -283,6 +286,9 @@ const calculateFormula = (): string => {
 const fieldType = computed(() => props.field.type);
 
 const isEditable = computed(() => {
+  // 字段权限为只读时不可编辑（canEdit 由父组件基于 canEditField 传入）
+  if (props.canEdit === false) return false;
+
   // 主键字段不可编辑
   if (props.field.isPrimary) return false;
 
@@ -460,6 +466,10 @@ const handleDoubleClick = () => {
   // 附件字段双击时打开详情对话框
   if (fieldType.value === "attachment") {
     emit("open-detail");
+    return;
+  }
+  // 字段权限为只读时，禁止双击进入编辑模式（canEdit 由父组件基于 canEditField 传入）
+  if (!isEditable.value) {
     return;
   }
   startEdit();

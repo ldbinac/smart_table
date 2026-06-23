@@ -9,12 +9,13 @@ from flask import Blueprint, request, g, current_app
 
 from sqlalchemy import insert
 
-from app.services.record_service import RecordService, _format_date_value
+from app.services.record_service import RecordService, _format_date_value, SYSTEM_FIELD_TYPES
 from app.services.table_service import TableService
 from app.services.formula_service import FormulaService
 from app.services.link_service import LinkService
 from app.services.field_service import FieldService
 from app.services.permission_service import PermissionService
+from app.services.field_permission_service import FieldPermissionService
 from app.schemas.record_schema import (
     record_create_schema,
     record_update_schema,
@@ -122,11 +123,19 @@ def get_records(table_id) -> tuple:
         
         # 预查询公式字段，避免每条记录重复查询数据库
         formula_fields = Field.query.filter_by(table_id=table_id, type='formula').all()
-        
+
+        # 批量获取当前用户的字段权限（用于字段值过滤，无用户上下文时跳过保持向后兼容）
+        user_id = g.current_user_id
+        field_permissions = None
+        if user_id:
+            field_permissions = FieldPermissionService.get_table_field_permissions(
+                str(table_id), str(user_id)
+            )
+
         # 序列化记录数据
         items = []
         for record in records:
-            item = record.to_dict()
+            item = record.to_dict(field_permissions=field_permissions)
             
             # 填充关联字段数据（使用批量加载的缓存结果）
             if link_fields:
@@ -213,13 +222,21 @@ def create_record(table_id) -> tuple:
             values=json_data['values'],
             created_by=g.current_user_id
         )
-        
-        result = record.to_dict()
+
+        # 批量获取当前用户的字段权限（用于响应字段值过滤，无用户上下文时跳过）
+        user_id = g.current_user_id
+        field_permissions = None
+        if user_id:
+            field_permissions = FieldPermissionService.get_table_field_permissions(
+                str(table_id), str(user_id)
+            )
+
+        result = record.to_dict(field_permissions=field_permissions)
         # 计算公式值
         result['computed_values'] = FormulaService.compute_record_formulas(
             table_id, record.values
         )
-        
+
         return success_response(result, '记录创建成功', 201)
     
     except Exception as e:
@@ -306,6 +323,19 @@ def batch_create_records(table_id) -> tuple:
         changer_id = _to_uuid(g.current_user_id) if g.current_user_id else None
         tbl_id = _to_uuid(table_id)
 
+        # 批量获取当前用户的字段权限（用于写权限过滤，无用户上下文时跳过保持向后兼容）
+        user_id = g.current_user_id
+        field_permissions = None
+        if user_id:
+            field_permissions = FieldPermissionService.get_table_field_permissions(
+                str(table_id), str(user_id)
+            )
+
+        # 系统字段 ID 集合（AUTO_NUMBER/CREATED_BY/LAST_MODIFIED_BY 不参与权限过滤）
+        system_field_ids = {
+            str(f.id) for f in fields if f.type in SYSTEM_FIELD_TYPES
+        }
+
         # ---------- 组装批量数据 ----------
         records_dicts = []
         history_dicts = []
@@ -314,6 +344,24 @@ def batch_create_records(table_id) -> tuple:
         for record_data in records_data:
             raw_values = record_data.get('values', {})
             final_values = dict(raw_values) if raw_values else {}
+
+            # 字段写权限过滤：过滤掉用户无写权限的字段值（系统字段豁免）
+            if field_permissions:
+                # 分离系统字段值和普通字段值
+                system_values = {k: v for k, v in final_values.items() if k in system_field_ids}
+                user_values = {k: v for k, v in final_values.items() if k not in system_field_ids}
+                # 过滤用户字段值（仅保留 write 权限字段）
+                filtered_user_values = FieldPermissionService.filter_writable_values(
+                    user_values, field_permissions
+                )
+                # 记录被过滤的字段
+                filtered_keys = set(user_values.keys()) - set(filtered_user_values.keys())
+                if filtered_keys:
+                    current_app.logger.warning(
+                        f'[batch_create_records] 字段无写权限已过滤. '
+                        f'Table: {table_id}, User: {user_id}, Fields: {filtered_keys}'
+                    )
+                final_values = {**system_values, **filtered_user_values}
 
             # 格式化日期字段值
             for field_id, value in list(final_values.items()):
@@ -452,12 +500,20 @@ def get_record(record_id) -> tuple:
         return error_response('无权访问该记录', 403)
     
     try:
-        result = record.to_dict()
+        # 批量获取当前用户的字段权限（用于字段值过滤，无用户上下文时跳过保持向后兼容）
+        user_id = g.current_user_id
+        field_permissions = None
+        if user_id:
+            field_permissions = FieldPermissionService.get_table_field_permissions(
+                str(record.table_id), str(user_id)
+            )
+
+        result = record.to_dict(field_permissions=field_permissions)
         # 计算公式值
         result['computed_values'] = FormulaService.compute_record_formulas(
             record.table_id, record.values
         )
-        
+
         return success_response(result)
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
@@ -530,13 +586,21 @@ def update_record(record_id) -> tuple:
             values=json_data['values'],
             updated_by=g.current_user_id
         )
-        
-        result = record.to_dict()
+
+        # 批量获取当前用户的字段权限（用于响应字段值过滤，无用户上下文时跳过）
+        user_id = g.current_user_id
+        field_permissions = None
+        if user_id:
+            field_permissions = FieldPermissionService.get_table_field_permissions(
+                str(record.table_id), str(user_id)
+            )
+
+        result = record.to_dict(field_permissions=field_permissions)
         # 计算公式值
         result['computed_values'] = FormulaService.compute_record_formulas(
             record.table_id, record.values
         )
-        
+
         return success_response(result, '记录更新成功')
     
     except Exception as e:
@@ -612,15 +676,45 @@ def batch_update_records() -> tuple:
                 base_ids_checked.add(str(table.base_id))
     
     try:
+        # 批量获取当前用户的字段权限（用于写权限过滤，无用户上下文时跳过保持向后兼容）
+        # 从第一条有效记录获取 table_id，批量获取字段权限
+        user_id = g.current_user_id
+        field_permissions = None
+        sample_table_id = None
+        if user_id and record_ids:
+            for rid in record_ids:
+                sample_record = RecordService.get_record_by_id(rid)
+                if sample_record:
+                    sample_table_id = str(sample_record.table_id)
+                    break
+        if sample_table_id and user_id:
+            field_permissions = FieldPermissionService.get_table_field_permissions(
+                sample_table_id, str(user_id)
+            )
+
+        # 字段写权限过滤：过滤掉用户无写权限的字段值（仅在有权限数据时生效）
+        filtered_values = values
+        if field_permissions:
+            original_keys = set(values.keys())
+            filtered_values = FieldPermissionService.filter_writable_values(
+                values, field_permissions
+            )
+            filtered_keys = original_keys - set(filtered_values.keys())
+            if filtered_keys:
+                current_app.logger.warning(
+                    f'[batch_update_records] 字段无写权限已过滤. '
+                    f'User: {user_id}, Fields: {filtered_keys}'
+                )
+
         updated_count = 0
         failed_ids = []
-        
+
         for record_id in record_ids:
             record = RecordService.get_record_by_id(record_id)
             if record:
                 RecordService.update_record(
                     record=record,
-                    values=values,
+                    values=filtered_values,
                     updated_by=g.current_user_id
                 )
                 updated_count += 1

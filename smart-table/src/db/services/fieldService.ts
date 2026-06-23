@@ -4,6 +4,8 @@ import { generateId } from "../../utils/id";
 import type { CellValue, FieldOptions } from "../../types";
 import { fieldApiService } from "@/services/api/fieldApiService";
 import { normalizeFieldType, denormalizeFieldType } from "@/types/fields";
+import type { FieldPermissionConfig } from "@/types/fields";
+import type { FieldPermissionResponse } from "@/api/types";
 
 // 内存缓存：防止短时间内重复请求
 const fieldsCache = new Map<string, { data: FieldEntity[]; timestamp: number }>();
@@ -836,6 +838,58 @@ export class FieldService {
       emptyRecords,
       fillRate: Math.round(fillRate * 100) / 100,
     };
+  }
+
+  // ==================== 字段权限 (Field Permissions) 方法 ====================
+
+  /**
+   * 获取当前用户在表中所有字段的权限
+   * 返回运行时权限映射，无需缓存到 IndexedDB
+   * @param tableId 表ID
+   * @returns 字段ID到权限级别的映射
+   */
+  async getFieldPermissions(tableId: string): Promise<FieldPermissionResponse> {
+    try {
+      return await fieldApiService.getFieldPermissions(tableId);
+    } catch (error) {
+      console.error("[fieldService] getFieldPermissions failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新字段权限配置（仅 admin/owner 可调用）
+   * 调用专用权限接口，并同步更新本地 IndexedDB 和内存缓存
+   * @param fieldId 字段ID
+   * @param permissions 按角色配置的权限
+   */
+  async updateFieldPermissions(
+    fieldId: string,
+    permissions: FieldPermissionConfig
+  ): Promise<void> {
+    try {
+      // 调用专用权限接口
+      await fieldApiService.updateFieldPermissions(fieldId, permissions);
+
+      // 同步更新本地 IndexedDB 中的字段 options.permissions
+      const field = await this.getField(fieldId);
+      if (field) {
+        const updatedOptions: FieldOptions = {
+          ...(field.options as FieldOptions),
+          permissions,
+        };
+        await db.fields.update(fieldId, {
+          options: updatedOptions as Record<string, unknown>,
+          updatedAt: Date.now(),
+        });
+
+        // 清除该表的字段缓存，确保下次获取最新数据
+        this.invalidateCache(field.tableId);
+      }
+    } catch (error) {
+      console.error("[fieldService] updateFieldPermissions failed:", error);
+      throw error;
+    }
   }
 }
 

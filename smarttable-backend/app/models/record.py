@@ -139,13 +139,36 @@ class Record(db.Model):
                 errors.append(error)
         return len(errors) == 0, errors if errors else None
 
-    def to_dict(self, include_values: bool = True, include_meta: bool = True) -> dict:
+    def to_dict(self, include_values: bool = True, include_meta: bool = True,
+                user_id=None, field_permissions=None) -> dict:
+        """
+        序列化记录为字典
+
+        Args:
+            include_values: 是否包含字段值
+            include_meta: 是否包含元数据（创建者、更新时间等）
+            user_id: 当前用户 ID（可选，用于字段权限过滤）
+            field_permissions: 字段权限字典 {field_id: 'read'/'write'/'none'}（可选）
+                如果提供，将按权限过滤 values 中的字段（移除 none 权限字段）。
+                如果未提供但记录对象上附加了 _field_permissions 属性，则使用该属性。
+        """
         data = {
             'id': str(self.id),
             'table_id': str(self.table_id)
         }
         if include_values:
-            data['values'] = self.values or {}
+            values = dict(self.values) if self.values else {}
+            # 字段权限过滤：优先使用显式传入的 field_permissions
+            # 其次使用 service 层附加的 _field_permissions 属性
+            effective_permissions = field_permissions
+            if effective_permissions is None:
+                effective_permissions = getattr(self, '_field_permissions', None)
+            if effective_permissions is not None:
+                from app.services.field_permission_service import FieldPermissionService
+                values = FieldPermissionService.filter_values_by_permission(
+                    values, effective_permissions
+                )
+            data['values'] = values
             try:
                 data['primary_value'] = self.get_primary_value()
             except Exception:

@@ -33,6 +33,7 @@ import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { formatDateTime, formatDate, toConfiguredTimezone } from "@/utils/timezone";
+import { useMemberStore } from "@/stores/memberStore";
 
 interface GroupLevel {
   fieldId: string;
@@ -54,6 +55,9 @@ const emit = defineEmits<{
   "update:visible": [value: boolean];
   save: [recordId: string, values: Record<string, unknown>];
 }>();
+
+// 字段权限 store
+const memberStore = useMemberStore();
 
 // FluentEditor 实例管理（用于富文本字段直接集成）
 const richEditorContainers = new Map<string, HTMLDivElement>();
@@ -86,6 +90,7 @@ async function initRichEditors() {
 
     const editor = new FluentEditor(container, {
       theme: "snow",
+      readOnly: isReadonlyField(field),
       placeholder: `请输入${field.name}`,
       modules: {
         toolbar: [
@@ -311,9 +316,14 @@ const handleLinkFieldRemove = async (
   }
 };
 
-// 可见字段（用于显示）
+// 可见字段（用于显示）：在视图可见性基础上叠加字段权限过滤
 const visibleFields = computed(() => {
-  return props.fields.filter((f) => f.isVisible !== false);
+  return props.fields.filter((f) => {
+    // 视图配置：字段可见性
+    if (f.isVisible === false) return false;
+    // 字段权限：过滤掉 none 权限的字段
+    return memberStore.canReadField(f.id);
+  });
 });
 
 // 加载所有关联字段数据
@@ -446,8 +456,10 @@ const getFieldComponent = (field: FieldEntity): string => {
 };
 
 // 检查字段是否为只读字段（系统字段、公式字段等）
+// 优先级：系统字段只读 > 字段权限只读 > 视图配置
 function isReadonlyField(field: FieldEntity): boolean {
-  return (
+  // 系统字段、公式字段等保持只读
+  const isSystemReadonly =
     [
       FieldType.FORMULA,
       FieldType.LOOKUP,
@@ -456,8 +468,13 @@ function isReadonlyField(field: FieldEntity): boolean {
       FieldType.UPDATED_BY,
       FieldType.UPDATED_TIME,
       FieldType.AUTO_NUMBER,
-    ].includes(field.type as any) || field.isSystem
-  );
+    ].includes(field.type as any) || field.isSystem;
+  if (isSystemReadonly) return true;
+
+  // 字段权限为 read 时只读（无 write 权限）
+  if (!memberStore.canEditField(field.id)) return true;
+
+  return false;
 }
 
 // 检查字段是否已自动填充（分组字段）
@@ -648,7 +665,7 @@ const drawerTitle = computed(() => {
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               :maxlength="(field.options?.maxLength as number) || undefined"
               class="field-input" />
           </template>
@@ -660,7 +677,7 @@ const drawerTitle = computed(() => {
                 :model-value="String(formData[field.id] || '')"
                 @update:model-value="(val) => handleValueChange(field.id, val)"
                 :placeholder="`请输入${field.name}`"
-                :disabled="readonly"
+                :disabled="readonly || isReadonlyField(field)"
                 :maxlength="(field.options?.maxLength as number) || undefined"
                 type="textarea"
                 :rows="3"
@@ -697,7 +714,7 @@ const drawerTitle = computed(() => {
               :model-value="Number(formData[field.id] || 0)"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               class="field-input"
               style="width: 100%" />
           </template>
@@ -708,7 +725,7 @@ const drawerTitle = computed(() => {
               :model-value="formData[field.id] as string"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请选择${field.name}`"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               class="field-input"
               style="width: 100%">
               <el-option
@@ -732,7 +749,7 @@ const drawerTitle = computed(() => {
               :model-value="(formData[field.id] as string[]) || []"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请选择${field.name}`"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               multiple
               class="field-input"
               style="width: 100%">
@@ -753,7 +770,7 @@ const drawerTitle = computed(() => {
 
           <!-- 日期类型 -->
           <template v-else-if="getFieldComponent(field) === 'date'">
-            <template v-if="readonly">
+            <template v-if="readonly || isReadonlyField(field)">
               <el-input
                 :model-value="
                   formData[field.id]
@@ -778,7 +795,7 @@ const drawerTitle = computed(() => {
                 :type="getDatePickerType(field)"
                 :placeholder="`请选择${field.name}`"
                 :format="getDateFormat(field)"
-                :disabled="readonly"
+                :disabled="readonly || isReadonlyField(field)"
                 class="field-input"
                 style="width: 100%" />
             </template>
@@ -788,7 +805,7 @@ const drawerTitle = computed(() => {
           <template v-else-if="getFieldComponent(field) === 'checkbox'">
             <el-switch
               :model-value="Boolean(formData[field.id])"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
@@ -798,7 +815,7 @@ const drawerTitle = computed(() => {
               <el-slider
                 :model-value="Number(formData[field.id] || 0)"
                 :max="100"
-                :disabled="readonly"
+                :disabled="readonly || isReadonlyField(field)"
                 :format-tooltip="(val: number) => `${val}%`"
                 @update:model-value="
                   (val) => handleValueChange(field.id, val)
@@ -812,7 +829,7 @@ const drawerTitle = computed(() => {
             <el-rate
               :model-value="Number(formData[field.id] || 0)"
               :max="getMaxRating(field)"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
@@ -843,7 +860,7 @@ const drawerTitle = computed(() => {
               :model-value="formData[field.id] as CellValue"
               :field="field"
               :record-id="record.id"
-              :readonly="readonly"
+              :readonly="readonly || isReadonlyField(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               @upload="(files) => handleAttachmentUpload(field.id, files)"
               @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
@@ -856,7 +873,7 @@ const drawerTitle = computed(() => {
               :model-value="(formData[field.id] as string | null)"
               :placeholder="`请选择${field.name}`"
               :allow-multiple="false"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
@@ -870,7 +887,7 @@ const drawerTitle = computed(() => {
               :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
               :relationship-type="getLinkFieldConfig(field)?.relationshipType"
               :is-editing="editingLinkField === field.id"
-              :readonly="readonly"
+              :readonly="readonly || isReadonlyField(field)"
               :record-id="record?.id || ''"
               :field-id="field.id"
               @edit-start="handleLinkFieldEdit(field.id)"
@@ -894,7 +911,7 @@ const drawerTitle = computed(() => {
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="`请输入${field.name}`"
-              :disabled="readonly"
+              :disabled="readonly || isReadonlyField(field)"
               :maxlength="(field.options?.maxLength as number) || undefined"
               class="field-input" />
           </template>

@@ -339,6 +339,71 @@
 
 ---
 
+## 字段权限 API
+
+### 获取表字段权限
+
+- **接口**: `GET /api/v1/tables/{table_id}/field-permissions`
+- **认证**: 需要 JWT Token
+- **权限**: 需要该 Base 的 VIEWER 或更高角色
+- **响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "获取字段权限成功",
+  "data": {
+    "550e8400-e29b-41d4-a716-446655440000": "write",
+    "550e8400-e29b-41d4-a716-446655440001": "read",
+    "550e8400-e29b-41d4-a716-446655440002": "none"
+  }
+}
+```
+
+- **说明**: 返回当前用户在该表中每个字段的权限。值为 `read`(只读)、`write`(可读写) 或 `none`(隐藏)。
+
+### 配置字段权限
+
+- **接口**: `PUT /api/v1/fields/{field_id}/permissions`
+- **认证**: 需要 JWT Token
+- **权限**: 需要该 Base 的 ADMIN 或 OWNER 角色
+- **请求体**:
+
+```json
+{
+  "permissions": {
+    "editor": "read",
+    "commenter": "none",
+    "viewer": "none"
+  }
+}
+```
+
+- **响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "字段权限更新成功",
+  "data": {
+    "permissions": {
+      "editor": "read",
+      "commenter": "none",
+      "viewer": "none"
+    }
+  }
+}
+```
+
+- **参数说明**:
+  - permissions: 权限配置对象
+    - editor: 编辑者权限（可选值: read/write/none）
+    - commenter: 评论者权限（可选值: read/write/none）
+    - viewer: 查看者权限（可选值: read/write/none）
+- **注意**: owner 和 admin 角色的权限不可被限制，始终为 write。
+
+---
+
 ## 记录管理模块
 
 ### 创建记录

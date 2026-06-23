@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useMemberStore } from "@/stores/memberStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import type {
   DataRecordUpdatedBroadcast,
@@ -52,6 +53,7 @@ const emit = defineEmits<{
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
+const memberStore = useMemberStore();
 
 const selectedRows = ref<string[]>([]);
 const hoveredRowId = ref<string | null>(null);
@@ -103,6 +105,8 @@ const visibleFields = computed(() => {
       (field) => !currentView.value!.hiddenFields.includes(field.id),
     );
   }
+  // 最后叠加字段权限过滤：权限为 none 的字段不显示
+  result = result.filter((field) => memberStore.canReadField(field.id));
   return result;
 });
 
@@ -837,6 +841,7 @@ defineExpose({
               :field="field"
               :sort-direction="getFieldSortDirection(field.id)"
               :is-frozen="isFieldFrozen(field.id)"
+              :is-read-only="!memberStore.canEditField(field.id)"
               @sort="(dir) => handleSort(field.id, dir)"
               @resize="(w) => handleColumnResize(field.id, w)"
               @contextmenu="(e) => handleHeaderContextMenu(field, e)" />
@@ -901,6 +906,7 @@ defineExpose({
               :field="field"
               :fields="fields"
               :readonly="readonly"
+              :can-edit="memberStore.canEditField(field.id)"
               :selected="
                 editingCell?.recordId === record.id &&
                 editingCell?.fieldId === field.id

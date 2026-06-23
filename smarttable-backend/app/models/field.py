@@ -46,6 +46,24 @@ class FieldType(PyEnum):
     BUTTON = 'button'
 
 
+# 字段权限常量
+FIELD_PERMISSION_READ = 'read'
+FIELD_PERMISSION_WRITE = 'write'
+FIELD_PERMISSION_NONE = 'none'
+
+# 默认字段权限映射（按角色）
+DEFAULT_FIELD_PERMISSIONS = {
+    'owner': 'write',      # 不可限制
+    'admin': 'write',      # 不可限制
+    'editor': 'write',
+    'commenter': 'read',
+    'viewer': 'read',
+}
+
+# 不可被限制的角色（始终拥有 write 权限）
+UNRESTRICTABLE_ROLES = {'owner', 'admin'}
+
+
 class Field(db.Model):
     """
     字段模型
@@ -281,6 +299,59 @@ class Field(db.Model):
 
         return True, None
 
+    def get_permissions(self) -> Dict[str, str]:
+        """获取字段权限配置。
+
+        返回格式: {'editor': 'read', 'commenter': 'none', 'viewer': 'none'}
+        未配置时返回空字典。
+        """
+        config = self.config or {}
+        return config.get('permissions', {})
+
+    def set_permissions(self, permissions: Dict[str, str]) -> None:
+        """设置字段权限配置。
+
+        会自动过滤掉 owner/admin 的配置项（这两个角色不可被限制）。
+        会自动过滤掉无效的权限值。
+        """
+        if not isinstance(permissions, dict):
+            return
+
+        valid_permissions = {}
+        valid_values = {FIELD_PERMISSION_READ, FIELD_PERMISSION_WRITE, FIELD_PERMISSION_NONE}
+
+        for role, perm in permissions.items():
+            # 跳过不可限制的角色
+            if role in UNRESTRICTABLE_ROLES:
+                continue
+            # 跳过无效权限值
+            if perm not in valid_values:
+                continue
+            valid_permissions[role] = perm
+
+        if not isinstance(self.config, dict):
+            self.config = {}
+        self.config['permissions'] = valid_permissions
+        # 更新 config 的 updatedAt 时间戳（如果存在此机制）
+        if 'updatedAt' in self.config:
+            from datetime import datetime, timezone
+            self.config['updatedAt'] = datetime.now(timezone.utc).isoformat()
+
+    def get_effective_permission(self, role: str) -> str:
+        """获取指定角色在此字段上的有效权限。
+
+        优先使用显式配置，未配置则使用默认值。
+        owner/admin 始终返回 'write'。
+        """
+        if role in UNRESTRICTABLE_ROLES:
+            return FIELD_PERMISSION_WRITE
+
+        permissions = self.get_permissions()
+        if role in permissions:
+            return permissions[role]
+
+        return DEFAULT_FIELD_PERMISSIONS.get(role, FIELD_PERMISSION_READ)
+
     def to_dict(self) -> dict:
         result = {
             'id': str(self.id),
@@ -300,7 +371,11 @@ class Field(db.Model):
         # 将 config 中的 defaultValue 提取到顶层，方便前端使用
         if self.config and isinstance(self.config, dict) and 'defaultValue' in self.config:
             result['defaultValue'] = self.config['defaultValue']
-        
+
+        # 将 config 中的 permissions 提取到顶层，方便前端使用
+        if self.config and isinstance(self.config, dict) and 'permissions' in self.config:
+            result['permissions'] = self.config['permissions']
+
         return result
 
     def get_auto_number_config(self) -> dict:

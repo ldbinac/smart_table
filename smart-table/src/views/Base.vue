@@ -101,6 +101,8 @@ const visibleFields = computed(() => {
       (field) => !viewStore.currentView!.hiddenFields.includes(field.id),
     );
   }
+  // 字段权限过滤：权限为 none 的字段不显示（乐观默认：缓存未命中返回 write，不会误隐藏）
+  result = result.filter((field) => memberStore.canReadField(field.id));
   return result;
 });
 
@@ -440,6 +442,11 @@ onMounted(async () => {
         }
       }
       
+      // 加载当前表的字段权限（在表数据加载完成后）
+      if (currentTableId.value) {
+        await memberStore.loadFieldPermissions(currentTableId.value);
+      }
+
       // 初始化拖拽排序
       initSortable();
     } finally {
@@ -458,6 +465,8 @@ onMounted(async () => {
 onUnmounted(() => {
   tableStore.cleanupRealtimeListeners();
   viewStore.cleanupRealtimeListeners();
+  // 组件卸载时清空字段权限缓存
+  memberStore.clearFieldPermissions();
   window.removeEventListener("open-base-share", handleOpenBaseShare);
   window.removeEventListener(
     "open-member-management",
@@ -488,6 +497,8 @@ watch(
       return;
     }
     try {
+      // 切换 Base 时清空字段权限缓存
+      memberStore.clearFieldPermissions();
       await baseStore.fetchBase(newId as string);
       await tableStore.loadTables(newId as string);
       await documentStore.fetchDocuments(newId as string);
@@ -572,6 +583,22 @@ watch(
       tableStore.loading = false;
     }
   },
+);
+
+// 监听当前表 ID 变化，重新加载字段权限
+watch(
+  () => currentTableId.value,
+  async (newTableId, oldTableId) => {
+    if (newTableId === oldTableId) {
+      return;
+    }
+    // 切换表时先清空字段权限缓存
+    memberStore.clearFieldPermissions();
+    if (newTableId) {
+      await memberStore.loadFieldPermissions(newTableId);
+    }
+  },
+  { immediate: false },
 );
 
 // 初始化拖拽排序
@@ -1452,13 +1479,17 @@ function handleFieldCreated(field: any) {
 }
 
 // 处理字段更新
-function handleFieldUpdated(field: any) {
+async function handleFieldUpdated(field: any) {
   const index = tableStore.fields.findIndex((f) => f.id === field.id);
   if (index !== -1) {
     // 使用 Object.assign 保留响应式，并触发更新
     Object.assign(tableStore.fields[index], field);
   }
   ElMessage.success(`字段 "${field.name}" 更新成功`);
+  // 字段配置保存后刷新字段权限缓存
+  if (currentTableId.value) {
+    await memberStore.loadFieldPermissions(currentTableId.value);
+  }
 }
 
 // 处理字段删除

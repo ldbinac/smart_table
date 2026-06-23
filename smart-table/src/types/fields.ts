@@ -67,6 +67,39 @@ export interface FieldTypeConfig {
   specialHint?: string;
 }
 
+/**
+ * 字段权限类型
+ * - read: 可读（可查看字段值，不可编辑）
+ * - write: 可写（可查看字段值，可编辑）
+ * - none: 隐藏（字段不出现在查询结果中）
+ */
+export type FieldPermission = 'read' | 'write' | 'none';
+
+/**
+ * 字段权限配置（按角色）
+ * 仅包含可被限制的角色：editor/commenter/viewer
+ * owner/admin 始终拥有 write 权限，不可被限制
+ */
+export interface FieldPermissionConfig {
+  editor?: FieldPermission;
+  commenter?: FieldPermission;
+  viewer?: FieldPermission;
+}
+
+/**
+ * 字段权限默认值映射
+ */
+export const DEFAULT_FIELD_PERMISSIONS: FieldPermissionConfig = {
+  editor: 'write',
+  commenter: 'read',
+  viewer: 'read',
+};
+
+/**
+ * 不可被限制的角色
+ */
+export const UNRESTRICTABLE_ROLES = ['owner', 'admin'] as const;
+
 export interface FieldOptions {
   // 通用选项
   maxLength?: number;
@@ -172,6 +205,14 @@ export interface FieldOptions {
   // ==================== 单元格合并选项 ====================
   /** 是否启用单元格合并（将内容相同的相邻单元格自动合并） */
   mergeCell?: boolean;
+
+  // ==================== 字段权限选项 ====================
+  /**
+   * 字段权限配置
+   * 按角色配置字段的访问权限
+   * 未配置的角色使用默认值（editor=write, commenter/viewer=read）
+   */
+  permissions?: FieldPermissionConfig;
 }
 
 export type CellValue =

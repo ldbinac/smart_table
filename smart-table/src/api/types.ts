@@ -362,3 +362,21 @@ export interface FormulaInfo {
   desc: string
   category: string
 }
+
+/**
+ * 字段权限响应
+ */
+export interface FieldPermissionResponse {
+  [fieldId: string]: 'read' | 'write' | 'none'
+}
+
+/**
+ * 字段权限配置请求
+ */
+export interface FieldPermissionUpdateRequest {
+  permissions: {
+    editor?: 'read' | 'write' | 'none'
+    commenter?: 'read' | 'write' | 'none'
+    viewer?: 'read' | 'write' | 'none'
+  }
+}

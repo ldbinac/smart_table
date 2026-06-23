@@ -20,7 +20,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from functools import lru_cache
 
 from app.extensions import db, cache
-from app.models.field import Field
+from app.models.field import (
+    Field,
+    FIELD_PERMISSION_READ,
+    FIELD_PERMISSION_NONE,
+)
 
 
 class FormulaError(Exception):
@@ -1207,7 +1211,9 @@ class FormulaService:
         cls,
         formula: str,
         context: Dict[str, Any],
-        use_cache: bool = True
+        use_cache: bool = True,
+        table_id: str = None,
+        user_id: str = None
     ) -> Any:
         """
         计算单个公式表达式（任务 29.1）
@@ -1216,13 +1222,26 @@ class FormulaService:
             formula: 公式字符串，如 "{price} * {quantity}"
             context: 字段上下文，如 {"price": 100, "quantity": 5}
             use_cache: 是否使用缓存
+            table_id: 表格 ID（可选，用于字段权限检查）
+            user_id: 用户 ID（可选，用于字段权限检查；未提供时尝试从 Flask g 获取）
             
         Returns:
-            计算结果
+            计算结果；若公式引用了用户不可读的字段则返回 None
             
         Raises:
             FormulaError: 公式语法或执行错误
         """
+        # 字段权限检查：若存在用户上下文，校验公式引用的字段是否可读
+        # 引用字段不可读时返回 None，避免泄露字段存在性
+        current_user_id = cls._get_current_user_id(user_id)
+        if current_user_id and table_id:
+            try:
+                if not cls._check_formula_permissions(formula, table_id, current_user_id):
+                    return None
+            except Exception:
+                # 权限检查异常时不阻断计算，保证向后兼容
+                pass
+
         if not formula or not formula.strip():
             return None
         
@@ -1295,7 +1314,12 @@ class FormulaService:
                 continue
             
             try:
-                result = cls.evaluate_formula(formula_expr, values)
+                result = cls.evaluate_formula(
+                    formula_expr,
+                    values,
+                    table_id=table_id,
+                    user_id=user_id
+                )
                 results[field.name] = result
                 
                 if field.config is None:
@@ -1391,7 +1415,8 @@ class FormulaService:
                         result = cls.evaluate_formula(
                             formula_expr,
                             values,
-                            use_cache=False
+                            use_cache=False,
+                            table_id=table_id
                         )
                         
                         if record.values is None:
@@ -1577,7 +1602,117 @@ class FormulaService:
             result.extend(funcs)
         
         return result
-    
+
+    # ==================== 字段权限相关辅助方法 ====================
+
+    @staticmethod
+    def _get_current_user_id(user_id: str = None) -> Optional[str]:
+        """获取当前用户 ID
+
+        优先使用显式传入的 user_id，其次尝试从 Flask g 对象获取。
+        无 Flask 上下文时返回 None，保证向后兼容。
+
+        Args:
+            user_id: 显式传入的用户 ID
+
+        Returns:
+            用户 ID 字符串，无上下文时返回 None
+        """
+        if user_id is not None:
+            return str(user_id)
+
+        try:
+            from flask import g
+            if hasattr(g, 'current_user_id'):
+                return str(g.current_user_id)
+        except (RuntimeError, AttributeError):
+            # 无 Flask 应用上下文
+            pass
+        return None
+
+    @classmethod
+    def _get_referenced_field_ids(cls, formula: str, table_id: str) -> List[str]:
+        """解析公式中引用的字段 ID
+
+        公式中的 {field_name} 或 {field_id} 引用会被解析为字段 ID。
+        同时支持按字段名和字段 ID 引用两种形式。
+
+        Args:
+            formula: 公式字符串
+            table_id: 表格 ID
+
+        Returns:
+            引用的字段 ID 列表（去重）
+        """
+        if not formula or not formula.strip():
+            return []
+
+        # 复用现有的依赖解析逻辑
+        references = cls.get_formula_dependencies(formula)
+        if not references:
+            return []
+
+        # 查询表格所有字段，建立 name->id 和 id->id 的映射
+        fields = Field.query.filter_by(table_id=table_id).all()
+        name_to_id = {f.name: str(f.id) for f in fields}
+        id_to_id = {str(f.id): str(f.id) for f in fields}
+
+        referenced_field_ids = []
+        seen = set()
+        for ref in references:
+            field_id = None
+            # 先尝试作为 field_id 匹配
+            if ref in id_to_id:
+                field_id = id_to_id[ref]
+            # 再尝试作为 field_name 匹配
+            elif ref in name_to_id:
+                field_id = name_to_id[ref]
+
+            if field_id and field_id not in seen:
+                seen.add(field_id)
+                referenced_field_ids.append(field_id)
+
+        return referenced_field_ids
+
+    @classmethod
+    def _check_formula_permissions(
+        cls,
+        formula: str,
+        table_id: str,
+        user_id: str
+    ) -> bool:
+        """检查公式引用的字段是否对用户可读
+
+        批量获取字段权限，避免逐字段查询。
+        任一引用字段权限为 'none' 即视为不可读。
+
+        Args:
+            formula: 公式字符串
+            table_id: 表格 ID
+            user_id: 用户 ID
+
+        Returns:
+            True 如果所有引用字段都可读（read/write），False 如果有不可读字段
+        """
+        from app.services.field_permission_service import FieldPermissionService
+
+        referenced_field_ids = cls._get_referenced_field_ids(formula, table_id)
+        if not referenced_field_ids:
+            return True
+
+        # 批量获取字段权限，避免 N+1 查询
+        field_permissions = FieldPermissionService.get_table_field_permissions(
+            str(table_id), str(user_id)
+        )
+
+        # 检查是否有引用字段对用户不可读
+        for field_id in referenced_field_ids:
+            perm = field_permissions.get(field_id, FIELD_PERMISSION_READ)
+            if perm == FIELD_PERMISSION_NONE:
+                return False
+
+        return True
+
     @staticmethod
     def _build_cache_key(formula: str, context: Dict[str, Any]) -> str:
         """构建缓存键"""

@@ -6,6 +6,7 @@ import uuid
 import re
 from datetime import datetime, timezone
 
+from flask import current_app, g
 from sqlalchemy import cast, or_
 from sqlalchemy.types import String
 
@@ -22,6 +23,27 @@ import logging
 
 
 log = logging.getLogger(__name__)
+
+
+# 系统字段类型集合：这些字段不参与字段权限过滤，由系统自动维护
+SYSTEM_FIELD_TYPES = {
+    FieldType.AUTO_NUMBER.value,
+    FieldType.CREATED_BY.value,
+    FieldType.LAST_MODIFIED_BY.value,
+}
+
+
+def _get_current_user_id():
+    """安全获取当前登录用户 ID。
+
+    在无 Flask 应用上下文或 g.current_user_id 未设置时返回 None，
+    避免在单元测试等无上下文环境中抛异常。
+    """
+    try:
+        return getattr(g, 'current_user_id', None)
+    except RuntimeError:
+        # 无应用上下文
+        return None
 
 
 def _escape_like_pattern(pattern: str) -> str:
@@ -181,16 +203,72 @@ class RecordService:
         return max(max_number + 1, start_number)
 
     @staticmethod
+    def _filter_writable_values_by_permission(
+        table_id: str, fields: list, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """根据当前用户字段权限过滤可写的字段值。
+
+        用于创建/更新记录时过滤掉用户无写权限的字段值。
+        系统字段（AUTO_NUMBER/CREATED_BY/LAST_MODIFIED_BY）不参与权限过滤。
+        如果当前无用户上下文，返回原值不做过滤（向后兼容）。
+
+        Args:
+            table_id: 表格 ID
+            fields: 表格所有字段列表
+            values: 待过滤的字段值字典
+
+        Returns:
+            过滤后的字段值字典
+        """
+        current_user_id = _get_current_user_id()
+        if not current_user_id:
+            return values
+
+        from app.services.field_permission_service import FieldPermissionService
+
+        field_permissions = FieldPermissionService.get_table_field_permissions(
+            str(table_id), str(current_user_id)
+        )
+
+        # 获取系统字段 ID 集合（系统字段不参与权限过滤）
+        system_field_ids = {
+            str(f.id) for f in fields if f.type in SYSTEM_FIELD_TYPES
+        }
+
+        # 分离系统字段值和普通字段值
+        system_values = {k: v for k, v in values.items() if k in system_field_ids}
+        user_values = {k: v for k, v in values.items() if k not in system_field_ids}
+
+        # 过滤用户字段值（仅保留 write 权限字段）
+        filtered_user_values = FieldPermissionService.filter_writable_values(
+            user_values, field_permissions
+        )
+
+        # 记录被过滤的字段
+        filtered_keys = set(user_values.keys()) - set(filtered_user_values.keys())
+        if filtered_keys:
+            current_app.logger.warning(
+                f'[RecordService] 字段无写权限已过滤. '
+                f'Table: {table_id}, User: {current_user_id}, Fields: {filtered_keys}'
+            )
+
+        # 合并系统字段值和过滤后的用户字段值
+        return {**system_values, **filtered_user_values}
+
+    @staticmethod
     def get_table_records(table_id: str, page: int = 1,
                          per_page: int = 20) -> tuple:
         """
         获取表格下的记录列表
-        
+
+        会自动获取当前用户的字段权限并附加到记录对象上，
+        供后续 to_dict 调用时按权限过滤字段值。
+
         Args:
             table_id: 表格 ID
             page: 页码
             per_page: 每页数量
-            
+
         Returns:
             (记录列表, 总数量)
         """
@@ -199,7 +277,18 @@ class RecordService:
         records = query.order_by(Record.created_at.desc(), Record.id.desc()).offset(
             (page - 1) * per_page
         ).limit(per_page).all()
-        
+
+        # 获取当前用户字段权限并附加到记录对象上（供 to_dict 使用）
+        # 无用户上下文时不附加，保持向后兼容
+        current_user_id = _get_current_user_id()
+        if current_user_id and records:
+            from app.services.field_permission_service import FieldPermissionService
+            field_permissions = FieldPermissionService.get_table_field_permissions(
+                str(table_id), str(current_user_id)
+            )
+            for record in records:
+                record._field_permissions = field_permissions
+
         return records, total
     
     @staticmethod
@@ -221,7 +310,14 @@ class RecordService:
         
         # 获取所有字段并应用默认值
         fields = FieldService.get_all_fields(table_id)
-        
+
+        # 字段权限过滤：过滤掉用户无写权限的字段值（系统字段豁免）
+        # 无用户上下文时不做过滤，保持向后兼容
+        if values:
+            values = RecordService._filter_writable_values_by_permission(
+                table_id, fields, values
+            )
+
         # 从提供的 values 开始
         final_values = dict(values) if values else {}
 
@@ -375,6 +471,12 @@ class RecordService:
                     f'[RecordService] Attempt to modify auto_number fields blocked. '
                     f'Record: {record.id}, Fields: {auto_number_field_ids & set(values.keys())}'
                 )
+
+            # 字段权限过滤：过滤掉用户无写权限的字段值（系统字段豁免）
+            # 无用户上下文时不做过滤，保持向后兼容
+            filtered_values = RecordService._filter_writable_values_by_permission(
+                str(record.table_id), fields, filtered_values
+            )
 
             # 处理日期字段值：根据字段类型格式化
             formatted_values = {}

@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useMemberStore } from "@/stores/memberStore";
 import { useAuthStore } from "@/stores/authStore";
 import { userApi } from "@/api/user";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
@@ -103,6 +104,7 @@ const tableStore = useTableStore();
 const viewStore = useViewStore();
 const collabStore = useCollaborationStore();
 const userCacheStore = useUserCacheStore();
+const memberStore = useMemberStore();
 
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
@@ -1997,6 +1999,8 @@ const visibleFields = computed(() => {
       (field) => !currentView.value!.hiddenFields.includes(field.id),
     );
   }
+  // 叠加字段权限过滤：权限为 none 的字段不显示
+  result = result.filter((field) => memberStore.canReadField(field.id));
   return result;
 });
 
@@ -3375,6 +3379,13 @@ const bindTableEvents = () => {
         const fieldId = orderedVisibleFields.value[col - 1]?.id;
         if (!fieldId) return;
 
+        // 字段权限检查：无写权限时回退状态并提示
+        if (!memberStore.canEditField(fieldId)) {
+          const tableId = tableStore.currentTable?.id;
+          if (tableId) await tableStore.refreshRecords(tableId);
+          return;
+        }
+
         const originalRecord = record._originalRecord;
 
         // 协同编辑：检查锁状态
@@ -3446,6 +3457,11 @@ const bindTableEvents = () => {
 
     const fieldId = orderedVisibleFields.value[col - 1]?.id;
     if (!fieldId) return;
+
+    // 字段权限检查：无写权限时阻止编辑
+    if (!memberStore.canEditField(fieldId)) {
+      return false;
+    }
 
     const authStore = useAuthStore();
     const currentUserId = authStore.user?.id;
@@ -3774,7 +3790,14 @@ const bindTableEvents = () => {
     const recordId = record._recordId;
     const fieldId = orderedVisibleFields.value[col - 1]?.id;
     if (!fieldId) return;
-    
+
+    // 字段权限防御性检查：无写权限时放弃保存（权限可能在编辑过程中变化）
+    if (!memberStore.canEditField(fieldId)) {
+      const tableId = tableStore.currentTable?.id;
+      if (tableId) await tableStore.refreshRecords(tableId);
+      return;
+    }
+
     const newValue = args.changedValue ?? args.currentValue;
     const originalRecord = record._originalRecord;
 

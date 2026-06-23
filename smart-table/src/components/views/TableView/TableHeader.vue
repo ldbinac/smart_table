@@ -9,12 +9,15 @@ interface Props {
   sortDirection?: "asc" | "desc" | null;
   isFrozen?: boolean;
   resizable?: boolean;
+  // 字段权限是否为只读（基于 canEditField 判断）
+  isReadOnly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   sortDirection: null,
   isFrozen: false,
   resizable: true,
+  isReadOnly: false,
 });
 
 const emit = defineEmits<{
@@ -89,6 +92,9 @@ const handleContextMenu = (event: MouseEvent) => {
         </el-icon>
       </span>
       <span class="field-name">{{ field.name }}</span>
+      <el-tooltip v-if="isReadOnly" content="只读字段" placement="top">
+        <el-icon class="readonly-icon"><Lock /></el-icon>
+      </el-tooltip>
       <span v-if="sortDirection" class="sort-indicator">
         <el-icon v-if="sortDirection === 'asc'">
           <Sort />
@@ -191,6 +197,14 @@ const handleContextMenu = (event: MouseEvent) => {
 .field-name {
   @include text-ellipsis;
   flex: 1;
+}
+
+.readonly-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: $gray-400;
+  font-size: 14px;
 }
 
 .sort-indicator {

@@ -2,7 +2,8 @@
  * Field API 服务
  */
 import { apiClient } from '@/api/client';
-import type { Field, FieldType } from '@/api/types';
+import type { Field, FieldType, FieldPermissionResponse, FieldPermissionUpdateRequest } from '@/api/types';
+import type { FieldPermissionConfig } from '@/types/fields';
 
 export const getFields = async (tableId: string): Promise<Field[]> => {
   return apiClient.get<Field[]>(`/tables/${tableId}/fields`);
@@ -42,6 +43,28 @@ export const getFieldTypes = async (): Promise<Array<{
   return apiClient.get<Array<{ type: FieldType; name: string; description: string }>>('/fields/types');
 };
 
+/**
+ * 获取当前用户在表中所有字段的权限
+ * GET /tables/${tableId}/field-permissions
+ */
+export const getFieldPermissions = async (tableId: string): Promise<FieldPermissionResponse> => {
+  return apiClient.get<FieldPermissionResponse>(`/tables/${tableId}/field-permissions`);
+};
+
+/**
+ * 更新字段权限配置（仅 admin/owner 可调用）
+ * PUT /fields/${fieldId}/permissions
+ */
+export const updateFieldPermissions = async (
+  fieldId: string,
+  permissions: FieldPermissionConfig
+): Promise<{ permissions: FieldPermissionConfig }> => {
+  return apiClient.put<{ permissions: FieldPermissionConfig }>(
+    `/fields/${fieldId}/permissions`,
+    { permissions } as FieldPermissionUpdateRequest
+  );
+};
+
 export const fieldApiService = {
   getFields,
   getField,
@@ -49,7 +72,9 @@ export const fieldApiService = {
   updateField,
   deleteField,
   reorderFields,
-  getFieldTypes
+  getFieldTypes,
+  getFieldPermissions,
+  updateFieldPermissions
 };
 
 export default fieldApiService;

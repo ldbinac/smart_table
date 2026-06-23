@@ -5,11 +5,15 @@
 import traceback
 from flask import Blueprint, request, g, current_app
 
+from app.extensions import db
 from app.services.field_service import FieldService
 from app.services.table_service import TableService
 from app.services.link_service import LinkService
+from app.services.base_service import BaseService
+from app.services.field_permission_service import FieldPermissionService
 from app.models.base import MemberRole
-from app.models.field import FieldType
+from app.models.field import Field, FieldType
+from app.models.table import Table
 from app.utils.decorators import authenticate, jwt_required
 from app.utils.response import (
     success_response, error_response, not_found_response, forbidden_response
@@ -47,9 +51,21 @@ def get_fields(table_id) -> tuple:
         return forbidden_response('您没有权限访问此表格')
     
     fields = FieldService.get_all_fields(str(table_id))
-    
+
+    # 批量获取当前用户对各字段的权限（避免逐字段查询，无用户上下文时跳过）
+    field_permissions = {}
+    if user_id:
+        field_permissions = FieldPermissionService.get_table_field_permissions(
+            str(table_id), str(user_id)
+        )
+
     # 转换为字典列表
-    fields_data = [field.to_dict() for field in fields]
+    fields_data = []
+    for field in fields:
+        field_dict = field.to_dict()
+        # 附加当前用户对该字段的权限（'read'/'write'/'none'）
+        field_dict['field_permission'] = field_permissions.get(str(field.id), 'read')
+        fields_data.append(field_dict)
     
     return success_response(
         data=fields_data,
@@ -170,9 +186,16 @@ def get_field(field_id) -> tuple:
     field = FieldService.get_field(str(field_id))
     if not field:
         return not_found_response('字段')
-    
+
+    field_dict = field.to_dict()
+    # 附加当前用户对该字段的权限（'read'/'write'/'none'）
+    if user_id:
+        field_dict['field_permission'] = FieldPermissionService.get_field_permission(
+            str(field_id), str(user_id)
+        )
+
     return success_response(
-        data=field.to_dict(),
+        data=field_dict,
         message='获取字段成功'
     )
 
@@ -219,6 +242,19 @@ def update_field(field_id) -> tuple:
             defaultValue:
               type: object
               description: 字段默认值（可选）
+            permissions:
+              type: object
+              description: 字段权限配置（可选，仅 admin/owner 可用）
+              properties:
+                editor:
+                  type: string
+                  enum: ['read', 'write', 'none']
+                commenter:
+                  type: string
+                  enum: ['read', 'write', 'none']
+                viewer:
+                  type: string
+                  enum: ['read', 'write', 'none']
     responses:
       200:
         description: 更新后的字段详情
@@ -230,28 +266,58 @@ def update_field(field_id) -> tuple:
         description: 字段不存在
     """
     user_id = g.current_user_id
-    
+
     # 检查权限（需要 EDITOR 或更高权限）
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
         return forbidden_response('您没有权限修改此字段')
-    
+
     data = request.get_json() or {}
-    
+
+    # 提取 permissions 配置（单独处理，不传给 FieldService.update_field）
+    permissions_config = data.pop('permissions', None)
+
     # 验证名称长度
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
             return error_response('字段名称不能超过100个字符', code=400)
         data['name'] = name
-    
+
     # 更新字段
     result = FieldService.update_field(str(field_id), data, user_id)
-    
+
     if not result['success']:
         return error_response(result['error'], code=400)
-    
+
+    # 如果请求体包含 permissions，更新字段权限配置
+    if permissions_config is not None:
+        field = Field.query.get(str(field_id))
+        if field:
+            field.set_permissions(permissions_config)
+            db.session.commit()
+            # 重新获取以包含权限配置
+            updated_field = FieldService.get_field(str(field_id))
+            if updated_field:
+                field_dict = updated_field.to_dict()
+                # 附加当前用户对该字段的权限
+                if user_id:
+                    field_dict['field_permission'] = FieldPermissionService.get_field_permission(
+                        str(field_id), str(user_id)
+                    )
+                return success_response(
+                    data=field_dict,
+                    message='字段更新成功'
+                )
+
+    field_dict = result['field']
+    # 附加当前用户对该字段的权限（'read'/'write'/'none'）
+    if user_id:
+        field_dict['field_permission'] = FieldPermissionService.get_field_permission(
+            str(field_id), str(user_id)
+        )
+
     return success_response(
-        data=result['field'],
+        data=field_dict,
         message='字段更新成功'
     )
 
@@ -831,3 +897,132 @@ def get_table_link_relations(table_id) -> tuple:
         current_app.logger.error(f'[{request_id}] 获取关联关系列表失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response('获取关联关系列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+
+
+# ==================== 字段权限配置 API ====================
+
+@fields_bp.route('/fields/<uuid:field_id>/permissions', methods=['PUT'])
+@jwt_required
+def update_field_permissions(field_id) -> tuple:
+    """
+    更新字段权限配置
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    description: 仅 admin/owner 可调用，用于配置 editor/commenter/viewer 的字段权限
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - permissions
+          properties:
+            permissions:
+              type: object
+              description: 权限配置字典
+              properties:
+                editor:
+                  type: string
+                  enum: ['read', 'write', 'none']
+                commenter:
+                  type: string
+                  enum: ['read', 'write', 'none']
+                viewer:
+                  type: string
+                  enum: ['read', 'write', 'none']
+    responses:
+      200:
+        description: 权限更新成功
+      400:
+        description: 请求参数无效
+      403:
+        description: 需要管理员权限
+      404:
+        description: 字段不存在
+    """
+    user_id = g.current_user_id
+
+    # 检查字段是否存在
+    field = Field.query.get(str(field_id))
+    if not field:
+        return error_response('字段不存在', 404)
+
+    # 检查权限（需要 admin/owner）
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
+        return forbidden_response('需要管理员权限')
+
+    # 获取请求体
+    data = request.get_json()
+    if not data or 'permissions' not in data:
+        return error_response('请求体必须包含 permissions 字段', 400)
+
+    permissions = data['permissions']
+    if not isinstance(permissions, dict):
+        return error_response('permissions 必须是字典', 400)
+
+    # 验证权限值
+    valid_permissions = {'read', 'write', 'none'}
+    for role, perm in permissions.items():
+        if role not in {'editor', 'commenter', 'viewer'}:
+            return error_response(f'无效的角色: {role}，仅支持 editor/commenter/viewer', 400)
+        if perm not in valid_permissions:
+            return error_response(f'无效的权限值: {perm}，仅支持 read/write/none', 400)
+
+    # 更新字段权限
+    field.set_permissions(permissions)
+    db.session.commit()
+
+    # 返回更新后的字段配置
+    return success_response({
+        'permissions': field.get_permissions()
+    }, '字段权限更新成功')
+
+
+@fields_bp.route('/tables/<uuid:table_id>/field-permissions', methods=['GET'])
+@jwt_required
+def get_table_field_permissions(table_id) -> tuple:
+    """
+    获取当前用户在表中所有字段的权限
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 表格 ID
+    responses:
+      200:
+        description: 字段权限字典 {field_id: 'read'/'write'/'none'}
+      403:
+        description: 无权限访问此表
+      404:
+        description: 表不存在
+    """
+    user_id = g.current_user_id
+
+    # 检查表是否存在
+    table = Table.query.get(str(table_id))
+    if not table:
+        return error_response('表不存在', 404)
+
+    # 检查 Base 级 VIEWER 权限
+    if not BaseService.check_permission(str(table.base_id), user_id, MemberRole.VIEWER):
+        return forbidden_response('您没有权限访问此表')
+
+    # 获取字段权限
+    permissions = FieldPermissionService.get_table_field_permissions(str(table_id), str(user_id))
+
+    return success_response(permissions, '获取字段权限成功')

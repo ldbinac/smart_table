@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from "vue";
+import { ref, reactive, watch, nextTick, computed } from "vue";
 import {
   ElDialog,
   ElButton,
@@ -21,12 +21,16 @@ import {
 import { fieldService } from "@/db/services/fieldService";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
+import { useMemberStore } from "@/stores/memberStore";
 import {
   FieldType,
   getFieldTypeLabel,
   getFieldTypeIconComponent,
   getUserCreatableFieldTypeOptions,
+  DEFAULT_FIELD_PERMISSIONS,
   type FieldTypeValue,
+  type FieldPermission,
+  type FieldPermissionConfig,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
@@ -38,6 +42,7 @@ import MemberSelect from "@/components/common/MemberSelect.vue";
 
 const viewStore = useViewStore();
 const tableStore = useTableStore();
+const memberStore = useMemberStore();
 
 const props = defineProps<{
   visible: boolean;
@@ -60,8 +65,33 @@ const activeTab = ref<"list" | "create" | "edit">("list");
 const editingField = ref<FieldEntity | null>(null);
 const fieldListRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
+// 是否为编辑模式
+const isEditMode = computed(() => activeTab.value === "edit");
 
-// 按 order 排序后的字段列表
+// 字段权限配置（编辑时使用）
+const fieldPermissions = reactive<FieldPermissionConfig>({
+  editor: "write",
+  commenter: "read",
+  viewer: "read",
+});
+
+// 是否可管理字段权限（仅 admin/owner）
+const canManageFieldPermissions = computed(() => memberStore.canManage);
+
+// 权限选项
+const permissionOptions = [
+  { label: "可读写", value: "write" as FieldPermission },
+  { label: "只读", value: "read" as FieldPermission },
+  { label: "隐藏", value: "none" as FieldPermission },
+];
+
+// 角色标签映射
+const roleLabels: Record<string, string> = {
+  editor: "编辑者",
+  commenter: "评论者",
+  viewer: "查看者",
+};
+
 const sortedFields = computed(() => {
   return [...props.fields].sort((a, b) => a.order - b.order);
 });
@@ -485,6 +515,12 @@ function openEditField(field: FieldEntity) {
     memberConfig.value.defaultType = 'none';
     memberConfig.value.defaultUser = null;
   }
+
+  // 加载现有字段权限配置（未配置的角色使用默认值）
+  const existingPermissions = (field.options?.permissions as FieldPermissionConfig | undefined);
+  fieldPermissions.editor = existingPermissions?.editor ?? DEFAULT_FIELD_PERMISSIONS.editor!;
+  fieldPermissions.commenter = existingPermissions?.commenter ?? DEFAULT_FIELD_PERMISSIONS.commenter!;
+  fieldPermissions.viewer = existingPermissions?.viewer ?? DEFAULT_FIELD_PERMISSIONS.viewer!;
 }
 
 function backToList() {
@@ -838,6 +874,21 @@ async function updateField() {
       } catch (linkError) {
         console.error("更新关联关系失败:", linkError);
         // 关联关系更新失败不影响字段更新
+      }
+    }
+
+    // 保存字段权限配置（仅 admin/owner 可调用）
+    if (canManageFieldPermissions.value) {
+      try {
+        await fieldService.updateFieldPermissions(
+          editingField.value.id,
+          { ...fieldPermissions },
+        );
+        // 刷新 memberStore 的字段权限缓存
+        await memberStore.loadFieldPermissions(props.tableId);
+      } catch (permError) {
+        console.error("更新字段权限失败:", permError);
+        // 权限更新失败不影响字段更新
       }
     }
 
@@ -1874,6 +1925,32 @@ async function toggleFieldVisibility(
           </ElTag>
           <div class="field-hint">设置字段的默认值，创建记录时会自动填充</div>
         </ElFormItem>
+
+        <!-- 字段权限配置区域（仅 admin/owner 可见，仅编辑模式） -->
+        <div v-if="canManageFieldPermissions && isEditMode" class="field-permissions-section">
+          <el-divider content-position="left">字段权限</el-divider>
+          <el-alert
+            title="为不同角色配置此字段的访问权限"
+            type="info"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 16px;"
+          />
+          <div class="permission-roles">
+            <div v-for="role in ['editor', 'commenter', 'viewer']" :key="role" class="permission-role-item">
+              <span class="role-label">{{ roleLabels[role] }}</span>
+              <el-select v-model="fieldPermissions[role]" :disabled="!canManageFieldPermissions">
+                <el-option
+                  v-for="opt in permissionOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+            </div>
+          </div>
+        </div>
+
       </ElForm>
 
       <div class="form-actions">
@@ -2220,6 +2297,31 @@ async function toggleFieldVisibility(
 
     .inverse-field-tag {
       width: fit-content;
+    }
+  }
+}
+
+.field-permissions-section {
+  margin-top: 16px;
+
+  .permission-roles {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .permission-role-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .role-label {
+      font-weight: 500;
+      min-width: 80px;
+    }
+
+    .el-select {
+      width: 160px;
     }
   }
 }
