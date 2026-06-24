@@ -18,6 +18,7 @@
     "@types/dompurify": "^3.0.5",
     "@visactor/vtable": "^1.26.1",
     "@visactor/vtable-plugins": "^1.26.1",
+    "@visactor/vtable-search": "^1.26.2",
     "@vueuse/core": "^14.2.1",
     "axios": "^1.14.0",
     "dayjs": "^1.11.20",

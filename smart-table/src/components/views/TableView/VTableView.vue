@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -32,6 +32,10 @@ import { createGroup, createText, createRect, createCircle, createPath, createIm
 // 导入 VTable 编辑器
 import { InputEditor, DateInputEditor } from '@visactor/vtable-editors';
 import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors';
+// 导入 VTable 搜索组件
+import { SearchComponent } from '@visactor/vtable-search';
+// 导入 Element Plus 图标
+import { Search } from '@element-plus/icons-vue';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
@@ -127,6 +131,13 @@ const linkSelectorFieldId = ref('');
 const linkSelectorRecordId = ref('');
 const linkSelectorAllowMultiple = ref(true);
 const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string }[]>([]);
+
+// ==================== 搜索功能状态 ====================
+const searchVisible = ref(false);
+const searchComponent = shallowRef<SearchComponent | null>(null);
+const searchInput = ref('');
+const searchResultIndex = ref(0);
+const searchTotalCount = ref(0);
 
 // ==================== 关联字段数据缓存 ====================
 // 键: `${recordId}:${fieldId}`, 值: display_value 数组
@@ -4257,6 +4268,7 @@ onBeforeUnmount(() => {
 
 defineExpose({
   selectedRows,
+  openSearch,
   refresh: () => {
     updateTable();
   },
@@ -4413,6 +4425,66 @@ function handleLinkSelectorCancel() {
   linkSelectorVisible.value = false;
 }
 
+// ==================== 搜索功能方法 ====================
+// 打开搜索弹窗（供父组件调用）
+function openSearch() {
+  if (!tableInstance) return;
+
+  // 初始化 SearchComponent（仅首次）
+  if (!searchComponent.value) {
+    searchComponent.value = new SearchComponent({
+      table: tableInstance,
+      autoJump: true,
+    });
+  }
+
+  searchVisible.value = true;
+
+  // 自动聚焦输入框（需在 nextTick 后）
+  nextTick(() => {
+    const inputEl = document.querySelector('.vtable-search-input input') as HTMLInputElement;
+    inputEl?.focus();
+  });
+}
+
+// 执行搜索
+function handleSearch() {
+  if (!searchComponent.value || !searchInput.value.trim()) {
+    searchResultIndex.value = 0;
+    searchTotalCount.value = 0;
+    return;
+  }
+
+  const result = searchComponent.value.search(searchInput.value.trim());
+  searchResultIndex.value = result.index + 1; // 显示为 1-based
+  searchTotalCount.value = result.results.length;
+}
+
+// 下一个结果
+function handleSearchNext() {
+  if (!searchComponent.value) return;
+  const result = searchComponent.value.next();
+  searchResultIndex.value = result.index + 1;
+}
+
+// 上一个结果
+function handleSearchPrev() {
+  if (!searchComponent.value) return;
+  const result = searchComponent.value.prev();
+  searchResultIndex.value = result.index + 1;
+}
+
+// 关闭搜索
+function closeSearch() {
+  searchVisible.value = false;
+  if (searchComponent.value) {
+    searchComponent.value.clear();
+  }
+  searchInput.value = '';
+  searchResultIndex.value = 0;
+  searchTotalCount.value = 0;
+}
+
 // 监听记录变化，重新加载关联数据
 watch(
   () => [records.value, orderedVisibleFields.value],
@@ -4538,6 +4610,54 @@ watch(
       :visible="deleteLoading"
       :record-count="checkboxSelectedRows.length"
       action-text="删除" />
+
+    <!-- 全局搜索弹窗 -->
+    <el-dialog
+      v-model="searchVisible"
+      title="表格内容全局搜索"
+      width="360px"
+      :modal="false"
+      :close-on-click-modal="false"
+      draggable
+      @close="closeSearch"
+      class="vtable-search-dialog"
+    >
+      <div class="search-content">
+        <el-input
+          v-model="searchInput"
+          placeholder="输入搜索内容..."
+          class="vtable-search-input"
+          @input="handleSearch"
+          clearable
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+
+        <div class="search-result-info" v-if="searchTotalCount > 0">
+          <span>{{ searchResultIndex }} / {{ searchTotalCount }}</span>
+        </div>
+        <div class="search-result-info" v-else-if="searchInput">
+          <span>无结果</span>
+        </div>
+
+        <div class="search-actions">
+          <el-button
+            size="small"
+            :disabled="searchResultIndex <= 1"
+            @click="handleSearchPrev">
+            上一个
+          </el-button>
+          <el-button
+            size="small"
+            :disabled="searchResultIndex >= searchTotalCount || searchTotalCount === 0"
+            @click="handleSearchNext">
+            下一个
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -4593,4 +4713,56 @@ watch(
   }
 }
 
+// ==================== 搜索弹窗样式 ====================
+.vtable-search-dialog {
+  .search-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .vtable-search-input {
+    width: 100%;
+  }
+
+  .search-result-info {
+    text-align: center;
+    color: #606266;
+    font-size: 13px;
+    padding: 4px 0;
+  }
+
+  .search-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+}
+
+</style>
+
+<!-- 搜索弹窗全局样式（el-dialog teleport 到 body，需要非 scoped 样式） -->
+<style lang="scss">
+// .vtable-search-dialog 就是 .el-dialog 本身（custom-class 直接添加到 el-dialog）
+.vtable-search-dialog.el-dialog {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.vtable-search-dialog .el-dialog__header {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(235, 238, 245, 0.8);
+  cursor: move;
+  background-color: transparent;
+}
+
+.vtable-search-dialog .el-dialog__body {
+  padding: 14px;
+  background-color: transparent;
+}
+
+.vtable-search-dialog .el-dialog__headerbtn {
+  top: 10px;
+}
 </style>
