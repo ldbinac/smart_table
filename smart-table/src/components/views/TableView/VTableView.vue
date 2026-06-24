@@ -2002,30 +2002,59 @@ const sortedRecords = computed(() => {
 });
 
 /**
+ * 数值型字段类型集合 —— 这些字段应按数值大小排序而非文本字典序
+ */
+const NUMERIC_FIELD_TYPES = new Set([
+  FieldType.NUMBER,
+  FieldType.PROGRESS,
+  FieldType.PERCENT,
+  FieldType.RATING,
+  FieldType.CURRENCY,
+  // FieldType.AUTO_NUMBER,
+  FieldType.DURATION,
+]);
+
+/**
  * 创建 VTable 列级自定义排序比较函数
  *
  * VTable 内置排序引擎对数据源（含 addButton 虚拟行）执行排序时，
- * 通过此函数确保 addButton 行始终排在末尾，不参与正常排序。
+ * 通过此函数确保：
+ * 1. addButton 行始终排在末尾（值以 '__add_button_' 前缀标记）
+ * 2. 数值型字段（number/progress/rating/currency 等）按数值大小排序
+ * 3. 其他字段按文本字典序排序
  *
- * 原理：addButton 行的每个字段值以 '__add_button_' 为前缀标记，
- * 比较函数检测到该前缀时将该值视为"最大"，使其始终排到末尾。
- *
+ * @param fieldType 字段类型，用于决定数值/文本比较策略
  * 函数签名与 VTable defaultOrderFn 一致：(v1, v2, order) => -1 | 0 | 1
  */
 const ADD_BUTTON_PREFIX = '__add_button_';
-const createSortComparator = (): ((v1: any, v2: any, order: string) => number) => {
+const createSortComparator = (fieldType: string): ((v1: any, v2: any, order: string) => number) => {
+  const isNumeric = NUMERIC_FIELD_TYPES.has(fieldType);
+
   return (v1: any, v2: any, order: string): number => {
+    // addButton 虚拟行检测 —— 始终排到末尾
     const v1IsAdd = typeof v1 === 'string' && v1.startsWith(ADD_BUTTON_PREFIX);
     const v2IsAdd = typeof v2 === 'string' && v2.startsWith(ADD_BUTTON_PREFIX);
-
-    // 两行都是 addButton → 保持原序
     if (v1IsAdd && v2IsAdd) return 0;
-    // v1 是 addButton → 排到后面
     if (v1IsAdd) return 1;
-    // v2 是 addButton → 排到前面（即 v2 到后面）
     if (v2IsAdd) return -1;
 
-    // 正常值使用 VTable 默认排序逻辑
+    // 根据字段类型选择比较策略
+    if (isNumeric) {
+      // 数值型字段：尝试解析为数字后比较，避免 "10" < "2" 的文本排序问题
+      // null/undefined/空字符串视为 0（与 UI 显示一致：空进度显示为 0%）
+      const n1 = v1 == null || v1 === '' ? 0 : Number(v1);
+      const n2 = v2 == null || v2 === '' ? 0 : Number(v2);
+      // 仍为 NaN（如纯文本 "abc"）则视为无效值，排到末尾
+      if (isNaN(n1) && isNaN(n2)) return 0;
+      if (isNaN(n1)) return 1;
+      if (isNaN(n2)) return -1;
+      if (order === 'desc') {
+        return n1 === n2 ? 0 : n1 < n2 ? 1 : -1;
+      }
+      return n1 === n2 ? 0 : n1 > n2 ? 1 : -1;
+    }
+
+    // 文本型字段：使用默认排序逻辑（与 sortedRecords 应用层保持一致）
     if (order === 'desc') {
       return v1 === v2 ? 0 : v1 < v2 ? 1 : -1;
     }
@@ -2499,9 +2528,9 @@ const buildTableConfig = (): any => {
       description: field.description,
       width: columnWidths.value[field.id] || 150,
       minWidth: 60,
-      // 使用自定义排序比较函数：VTable 内置排序引擎执行时，
-      // addButton 虚拟行（值以 __add_button_ 前缀标记）始终排到末尾
-      sort: createSortComparator(),
+      // 使用自定义排序比较函数：根据字段类型选择数值/文本比较策略，
+      // 同时确保 addButton 虚拟行（值以 __add_button_ 前缀标记）始终排到末尾
+      sort: createSortComparator(field.type),
       sortState: sortInfo ? (sortInfo.direction === 'asc' ? 'asc' : 'desc') : 'normal',
       headerIcon: [{
         type: 'svg',
