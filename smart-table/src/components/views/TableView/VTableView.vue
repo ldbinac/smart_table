@@ -1733,21 +1733,29 @@ const contextMenuItems = computed(() => {
   return items;
 });
 
-// 处理排序
+// 处理排序（右键菜单触发）
+// 与 sortClick 一致：同步应用层状态 + 让 VTable 内置排序通过自定义比较函数执行
 const handleSort = async (direction: 'asc' | 'desc' | null) => {
   if (!currentView.value || !contextMenuColumn.value) return;
 
   const field = contextMenuColumn.value;
-  let newSorts: any[] = [];
-  
+  const newSorts = direction ? [{ fieldId: field.id, direction }] : [];
+
   if (direction) {
-    newSorts = [{ fieldId: field.id, direction }];
     ElMessage.success(`已按 ${field.name} ${direction === 'asc' ? '升序' : '降序'}排列`);
   } else {
     ElMessage.success(`已取消 ${field.name} 的排序`);
   }
 
+  // 同步应用层排序状态
   await viewStore.updateSorts(currentView.value.id, newSorts);
+
+  // 通知 VTable 执行内置排序（使用自定义比较函数，addButton 行自动保持在末尾）
+  if (tableInstance) {
+    const vTableSortState = direction ? { field: field.id, order: direction } : null;
+    (tableInstance as any).updateSortState(vTableSortState); // 默认 executeSort=true
+  }
+
   contextMenuVisible.value = false;
 };
 
@@ -1992,6 +2000,38 @@ const sortedRecords = computed(() => {
     return 0;
   });
 });
+
+/**
+ * 创建 VTable 列级自定义排序比较函数
+ *
+ * VTable 内置排序引擎对数据源（含 addButton 虚拟行）执行排序时，
+ * 通过此函数确保 addButton 行始终排在末尾，不参与正常排序。
+ *
+ * 原理：addButton 行的每个字段值以 '__add_button_' 为前缀标记，
+ * 比较函数检测到该前缀时将该值视为"最大"，使其始终排到末尾。
+ *
+ * 函数签名与 VTable defaultOrderFn 一致：(v1, v2, order) => -1 | 0 | 1
+ */
+const ADD_BUTTON_PREFIX = '__add_button_';
+const createSortComparator = (): ((v1: any, v2: any, order: string) => number) => {
+  return (v1: any, v2: any, order: string): number => {
+    const v1IsAdd = typeof v1 === 'string' && v1.startsWith(ADD_BUTTON_PREFIX);
+    const v2IsAdd = typeof v2 === 'string' && v2.startsWith(ADD_BUTTON_PREFIX);
+
+    // 两行都是 addButton → 保持原序
+    if (v1IsAdd && v2IsAdd) return 0;
+    // v1 是 addButton → 排到后面
+    if (v1IsAdd) return 1;
+    // v2 是 addButton → 排到前面（即 v2 到后面）
+    if (v2IsAdd) return -1;
+
+    // 正常值使用 VTable 默认排序逻辑
+    if (order === 'desc') {
+      return v1 === v2 ? 0 : v1 < v2 ? 1 : -1;
+    }
+    return v1 === v2 ? 0 : v1 > v2 ? 1 : -1;
+  };
+};
 const fields = computed(() => tableStore.fields);
 const currentView = computed(() => viewStore.currentView);
 
@@ -2459,7 +2499,9 @@ const buildTableConfig = (): any => {
       description: field.description,
       width: columnWidths.value[field.id] || 150,
       minWidth: 60,
-      sort: true,
+      // 使用自定义排序比较函数：VTable 内置排序引擎执行时，
+      // addButton 虚拟行（值以 __add_button_ 前缀标记）始终排到末尾
+      sort: createSortComparator(),
       sortState: sortInfo ? (sortInfo.direction === 'asc' ? 'asc' : 'desc') : 'normal',
       headerIcon: [{
         type: 'svg',
@@ -3495,16 +3537,17 @@ const bindTableEvents = () => {
     }
   });
 
-  // 排序
+  // 排序点击 —— 同步应用层排序状态，VTable 内置排序引擎通过自定义比较函数
+  // (createSortComparator) 自动将 addButton 虚拟行保持在末尾
   tableInstanceAny.on('sortClick', async (args: any) => {
     if (!currentView.value || !args.col) return;
-    
+
     const colIndex = args.col;
     if (colIndex <= 0) return;
-    
+
     const field = visibleFields.value[colIndex - 1];
     if (!field) return;
-    
+
     const currentSort = currentSorts.value.find(s => s.fieldId === field.id);
     let newDirection: 'asc' | 'desc' | null = 'asc';
     if (currentSort) {
@@ -3514,16 +3557,17 @@ const bindTableEvents = () => {
         newDirection = null;
       }
     }
-    
-    let newSorts: any[] = [];
+
+    // 同步应用层排序状态（sortedRecords computed 依赖此状态）
+    const newSorts = newDirection ? [{ fieldId: field.id, direction: newDirection }] : [];
     if (newDirection) {
-      newSorts = [{ fieldId: field.id, direction: newDirection }];
       ElMessage.success(`已按 ${field.name} ${newDirection === 'asc' ? '升序' : '降序'}排列`);
     } else {
       ElMessage.success(`已取消 ${field.name} 的排序`);
     }
-    
     await viewStore.updateSorts(currentView.value.id, newSorts);
+    // 不返回 false → VTable 内置排序正常执行，
+    // 自定义比较函数确保 addButton 行始终在末尾
   });
 
   // 右键菜单 - 统一处理表头和单元格（VTable 的 contextmenu_cell 对所有单元格触发，包括表头）
