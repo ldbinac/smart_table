@@ -2,7 +2,7 @@
 模型模块初始化，导出所有模型类供外部使用
 """
 from app.models.user import User, TokenBlocklist
-from app.models.base import Base, BaseMember
+from app.models.base import Base, BaseMember, MemberRole
 from app.models.base_share import BaseShare, SharePermission
 from app.models.table import Table
 from app.models.field import Field
@@ -22,12 +22,36 @@ from app.models.email_log import EmailLog, EmailStatus
 from app.models.collaboration_session import CollaborationSession
 from app.models.document import Document
 from app.models.document_version import DocumentVersion
+from app.models.workflow import (
+    Workflow,
+    WorkflowVersion,
+    WorkflowNode,
+    WorkflowTrigger,
+    WorkflowStatus,
+    WorkflowNodeType,
+    WorkflowTriggerType
+)
+from app.models.workflow_instance import (
+    WorkflowInstance,
+    WorkflowTask,
+    WorkflowExecutionLog,
+    WorkflowInstanceStatus,
+    WorkflowTaskStatus
+)
+from app.models.webhook import (
+    WebhookConfig,
+    WebhookDeliveryLog,
+    WebhookMethod,
+    WebhookDeliveryStatus
+)
+from app.models.workflow_template import WorkflowTemplate
 
 __all__ = [
     'User',
     'TokenBlocklist',
     'Base',
     'BaseMember',
+    'MemberRole',
     'BaseShare',
     'SharePermission',
     'Table',
@@ -55,5 +79,22 @@ __all__ = [
     'EmailStatus',
     'CollaborationSession',
     'Document',
-    'DocumentVersion'
+    'DocumentVersion',
+    'Workflow',
+    'WorkflowVersion',
+    'WorkflowNode',
+    'WorkflowTrigger',
+    'WorkflowStatus',
+    'WorkflowNodeType',
+    'WorkflowTriggerType',
+    'WorkflowInstance',
+    'WorkflowTask',
+    'WorkflowExecutionLog',
+    'WorkflowInstanceStatus',
+    'WorkflowTaskStatus',
+    'WebhookConfig',
+    'WebhookDeliveryLog',
+    'WebhookMethod',
+    'WebhookDeliveryStatus',
+    'WorkflowTemplate'
 ]

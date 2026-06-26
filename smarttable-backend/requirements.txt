@@ -45,5 +45,8 @@ cryptography==42.0.5
 # API 文档生成
 flasgger==0.9.7b2
 
+# HTTP 请求
+requests==2.31.0
+
 # PDF 导出
 WeasyPrint==53.3

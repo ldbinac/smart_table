@@ -16,6 +16,7 @@ from app.models.record_history import RecordHistory, HistoryAction
 from app.models.table import Table
 from app.services.field_service import FieldService
 from app.services.link_service import LinkService
+from app.services.workflow_event_bus import workflow_event_bus
 from app.errors.handlers import ConflictError
 
 import logging
@@ -298,6 +299,17 @@ class RecordService:
         db.session.commit()
 
         try:
+            workflow_event_bus.publish(
+                event_type='record_created',
+                table_id=str(table_id),
+                record_id=str(record.id),
+                actor_id=str(created_by) if created_by else None
+            )
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f'[RecordService] workflow_event_bus publish (create) error: {e}')
+
+        try:
             from app.services.collaboration_service import CollaborationService
             table = Table.query.get(table_id)
             if table:
@@ -431,6 +443,26 @@ class RecordService:
         db.session.flush()
         db.session.commit()
 
+        if changes:
+            try:
+                change_dict = {
+                    change['field_id']: {
+                        'old_value': change['old_value'],
+                        'new_value': change['new_value']
+                    }
+                    for change in changes
+                }
+                workflow_event_bus.publish(
+                    event_type='record_updated',
+                    table_id=str(record.table_id),
+                    record_id=str(record.id),
+                    changes=change_dict,
+                    actor_id=str(updated_by) if updated_by else None
+                )
+            except Exception as e:
+                from flask import current_app
+                current_app.logger.error(f'[RecordService] workflow_event_bus publish (update) error: {e}')
+
         try:
             from app.services.collaboration_service import CollaborationService
             table = Table.query.get(str(record.table_id))
@@ -492,6 +524,18 @@ class RecordService:
 
             db.session.delete(record)
             db.session.commit()
+
+            try:
+                workflow_event_bus.publish(
+                    event_type='record_deleted',
+                    table_id=saved_table_id,
+                    record_id=saved_record_id,
+                    actor_id=str(deleted_by) if deleted_by else None,
+                    metadata={'snapshot': snapshot}
+                )
+            except Exception as e:
+                from flask import current_app
+                current_app.logger.error(f'[RecordService] workflow_event_bus publish (delete) error: {e}')
 
             try:
                 from app.services.collaboration_service import CollaborationService

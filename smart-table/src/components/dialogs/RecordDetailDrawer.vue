@@ -14,8 +14,17 @@ import {
   ElRate,
   ElSlider,
   ElIcon,
+  ElDialog,
+  ElRadioGroup,
+  ElRadio,
+  ElBadge,
 } from "element-plus";
-import { Clock } from "@element-plus/icons-vue";
+import { Clock, Connection, CircleCheck } from "@element-plus/icons-vue";
+import { useWorkflowStore } from "@/stores";
+import { useMemberStore } from "@/stores/memberStore";
+import { useBaseStore } from "@/stores/baseStore";
+import { workflowApiService } from "@/services/api/workflowApiService";
+import type { Workflow, WorkflowTask } from "@/types/workflow";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
 import dayjs from "dayjs";
@@ -166,6 +175,20 @@ const formData = ref<Record<string, unknown>>({});
 const isSaving = ref(false);
 const historyVisible = ref(false);
 
+// 工作流相关状态
+const workflowStore = useWorkflowStore();
+const memberStore = useMemberStore();
+const baseStore = useBaseStore();
+const triggerDialogVisible = ref(false);
+const triggerableWorkflows = ref<Workflow[]>([]);
+const selectedWorkflowId = ref<string>("");
+const triggerLoading = ref(false);
+
+// 审批历史相关状态
+const approvalHistoryVisible = ref(false);
+const approvalHistoryTasks = ref<WorkflowTask[]>([]);
+const approvalHistoryLoading = ref(false);
+
 // 关联字段相关状态
 const linkFieldRecords = ref<Map<string, LinkedRecord[]>>(new Map());
 const linkFieldLoading = ref<Set<string>>(new Set());
@@ -174,6 +197,76 @@ const editingLinkField = ref<string | null>(null);
 // 显示变更历史
 const showHistory = () => {
   historyVisible.value = true;
+};
+
+// 当前用户是否有编辑权限
+const canTriggerWorkflow = computed(() => {
+  return memberStore.canEdit && !props.readonly;
+});
+
+// 打开触发工作流对话框
+const openTriggerDialog = async () => {
+  if (!props.record) return;
+  const baseId = baseStore.currentBase?.id;
+  if (!baseId) {
+    ElMessage.warning("无法获取当前 Base 信息");
+    return;
+  }
+  triggerDialogVisible.value = true;
+  selectedWorkflowId.value = "";
+  triggerLoading.value = true;
+  try {
+    const workflows = await workflowStore.loadWorkflows(baseId);
+    // 可手动触发的工作流：状态为 active 且关联当前记录所在数据表或 Base 级
+    triggerableWorkflows.value = workflows.filter(
+      (w) =>
+        w.status === "active" &&
+        (!w.table_id || w.table_id === props.record?.tableId)
+    );
+    if (triggerableWorkflows.value.length > 0) {
+      selectedWorkflowId.value = triggerableWorkflows.value[0].id;
+    }
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 加载工作流失败:", error);
+  } finally {
+    triggerLoading.value = false;
+  }
+};
+
+// 触发选定工作流
+const handleTriggerWorkflow = async () => {
+  if (!props.record || !selectedWorkflowId.value) return;
+  triggerLoading.value = true;
+  try {
+    await workflowStore.triggerWorkflow(
+      props.record.tableId,
+      props.record.id,
+      selectedWorkflowId.value
+    );
+    triggerDialogVisible.value = false;
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 触发工作流失败:", error);
+  } finally {
+    triggerLoading.value = false;
+  }
+};
+
+// 显示审批历史
+const showApprovalHistory = async () => {
+  if (!props.record?.id) return;
+  approvalHistoryVisible.value = true;
+  approvalHistoryLoading.value = true;
+  try {
+    const tasks = await workflowApiService.getRecordApprovalHistory(
+      props.record.id
+    );
+    approvalHistoryTasks.value = tasks;
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 加载审批历史失败:", error);
+    ElMessage.error("加载审批历史失败");
+  } finally {
+    approvalHistoryLoading.value = false;
+  }
 };
 
 const getLinkFieldConfig = (field: FieldEntity) => {
@@ -904,12 +997,26 @@ const drawerTitle = computed(() => {
 
     <template #footer>
       <div class="drawer-footer">
-        <el-button
-          v-if="record?.id"
-          :icon="Clock"
-          circle
-          title="变更历史"
-          @click="showHistory" />
+        <div class="footer-left">
+          <el-button
+            v-if="record?.id"
+            :icon="Clock"
+            circle
+            title="变更历史"
+            @click="showHistory" />
+          <el-button
+            v-if="record?.id && canTriggerWorkflow"
+            :icon="Connection"
+            circle
+            title="触发工作流"
+            @click="openTriggerDialog" />
+          <el-button
+            v-if="record?.id"
+            :icon="CircleCheck"
+            circle
+            title="审批历史"
+            @click="showApprovalHistory" />
+        </div>
         <div class="footer-right">
           <el-button @click="closeDrawer">关闭</el-button>
           <el-button
@@ -929,6 +1036,78 @@ const drawerTitle = computed(() => {
     v-model="historyVisible"
     :record-id="record?.id"
     :fields="(fields as any)" />
+
+  <!-- 触发工作流对话框 -->
+  <ElDialog
+    v-model="triggerDialogVisible"
+    title="触发工作流"
+    width="400px"
+    :close-on-click-modal="false">
+    <div v-loading="triggerLoading">
+      <p v-if="triggerableWorkflows.length === 0" class="workflow-empty">
+        没有可手动触发的工作流
+      </p>
+      <ElRadioGroup v-else v-model="selectedWorkflowId" class="workflow-radio-group">
+        <ElRadio
+          v-for="workflow in triggerableWorkflows"
+          :key="workflow.id"
+          :label="workflow.id"
+          :value="workflow.id">
+          {{ workflow.name }}
+        </ElRadio>
+      </ElRadioGroup>
+    </div>
+    <template #footer>
+      <el-button @click="triggerDialogVisible = false">取消</el-button>
+      <el-button
+        type="primary"
+        :disabled="!selectedWorkflowId"
+        :loading="triggerLoading"
+        @click="handleTriggerWorkflow">
+        触发
+      </el-button>
+    </template>
+  </ElDialog>
+
+  <!-- 审批历史抽屉 -->
+  <ElDrawer
+    v-model="approvalHistoryVisible"
+    title="审批历史"
+    direction="rtl"
+    size="400px"
+    :destroy-on-close="true">
+    <div v-loading="approvalHistoryLoading" class="approval-history-content">
+      <div
+        v-if="approvalHistoryTasks.length === 0"
+        class="approval-history-empty">
+        暂无审批记录
+      </div>
+      <div
+        v-for="task in approvalHistoryTasks"
+        :key="task.id"
+        class="approval-history-item">
+        <div class="approval-history-status">
+          <ElBadge
+            :type="
+              task.status === 'approved'
+                ? 'success'
+                : task.status === 'rejected'
+                  ? 'danger'
+                  : 'info'
+            "
+            :value="task.status" />
+        </div>
+        <div class="approval-history-meta">
+          <span v-if="task.comment" class="approval-history-comment">
+            {{ task.comment }}
+          </span>
+          <span v-if="task.acted_at" class="approval-history-time">
+            {{ formatDateTime(task.acted_at) }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </ElDrawer>
 </template>
 
 <style lang="scss" scoped>
@@ -1066,9 +1245,57 @@ const drawerTitle = computed(() => {
   align-items: center;
   gap: 12px;
 
+  .footer-left {
+    display: flex;
+    gap: 12px;
+  }
+
   .footer-right {
     display: flex;
     gap: 12px;
+  }
+}
+
+.workflow-empty {
+  text-align: center;
+  color: $text-secondary;
+  padding: 16px 0;
+}
+
+.workflow-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.approval-history-content {
+  padding: 8px;
+}
+
+.approval-history-empty {
+  text-align: center;
+  color: $text-secondary;
+  padding: 24px 0;
+}
+
+.approval-history-item {
+  padding: 12px;
+  border-bottom: 1px solid $border-color;
+
+  .approval-history-status {
+    margin-bottom: 8px;
+  }
+
+  .approval-history-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+  }
+
+  .approval-history-comment {
+    color: $text-primary;
   }
 }
 

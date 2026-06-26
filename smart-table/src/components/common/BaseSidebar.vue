@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { useRoute } from "vue-router";
-import { useBaseStore } from "@/stores";
+import { useRoute, useRouter } from "vue-router";
+import { useBaseStore, useWorkflowStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import type { Dashboard, TableEntity, DocumentEntity } from "@/db/schema";
@@ -18,6 +18,8 @@ import {
   Plus,
   Setting,
   Upload,
+  Connection,
+  CircleCheck,
 } from "@element-plus/icons-vue";
 import Sortable from "sortablejs";
 
@@ -82,15 +84,20 @@ const emit = defineEmits<{
 }>();
 
 const route = useRoute();
+const router = useRouter();
 const baseStore = useBaseStore();
 const tableStore = useTableStore();
+const workflowStore = useWorkflowStore();
 
 // 判断当前视图类型
 const isTableView = computed(() => route.path.includes('/table/'));
 const isDocumentView = computed(() => route.path.includes('/documents/'));
 const isDashboardView = computed(() => route.path.includes('/dashboard/'));
-const isDefaultView = computed(() => 
-  !isTableView.value && !isDocumentView.value && !isDashboardView.value
+const isWorkflowView = computed(() => route.path.includes('/workflows'));
+const isApprovalView = computed(() => route.path.includes('/approvals'));
+const isDefaultView = computed(() =>
+  !isTableView.value && !isDocumentView.value && !isDashboardView.value &&
+  !isWorkflowView.value && !isApprovalView.value
 );
 
 // 侧边栏展开/收缩状态
@@ -217,6 +224,16 @@ const loadDocuments = async () => {
   documents.value = documentStore.documents as DocumentEntity[];
 };
 
+// 加载审批任务数量
+const loadWorkflowApprovals = async () => {
+  if (!baseStore.currentBase) return;
+  try {
+    await workflowStore.loadApprovals(baseStore.currentBase.id);
+  } catch {
+    // 失败时保持静默，不影响侧边栏其他功能
+  }
+};
+
 // 处理点击数据表
 const handleTableClick = (tableId: string) => {
   emit("select-table", tableId);
@@ -333,6 +350,18 @@ const handleTogglePinDocument = (doc: DocumentEntity) => {
   emit("toggle-pin-document", doc);
 };
 
+// 处理点击工作流导航
+const handleWorkflowClick = () => {
+  if (!baseStore.currentBase) return;
+  router.push(`/base/${baseStore.currentBase.id}/workflows`);
+};
+
+// 处理点击审批导航
+const handleApprovalClick = () => {
+  if (!baseStore.currentBase) return;
+  router.push(`/base/${baseStore.currentBase.id}/approvals`);
+};
+
 // 初始化仪表盘拖拽排序
 const initDashboardSortable = () => {
   if (!dashboardListRef.value) return;
@@ -375,12 +404,14 @@ watch(
   () => {
     loadDashboards();
     loadDocuments();
+    loadWorkflowApprovals();
   },
 );
 
 onMounted(() => {
   loadDashboards();
   loadDocuments();
+  loadWorkflowApprovals();
   // 延迟初始化拖拽，确保DOM已渲染
   setTimeout(() => {
     initDashboardSortable();
@@ -425,6 +456,71 @@ defineExpose({
       class="search-empty">
       没有找到匹配的内容
     </div>
+
+    <!-- 自动化导航 -->
+    <div v-if="!searchKeyword" class="automation-section">
+      <div v-show="!isCollapsed" class="section-title">
+        <span class="title-text">自动化</span>
+      </div>
+      <div class="automation-list">
+        <!-- 收缩状态下的工作流项 -->
+        <el-tooltip
+          v-if="isCollapsed"
+          content="工作流"
+          placement="right"
+          :show-after="300">
+          <div
+            class="workflow-item"
+            :class="{ active: isWorkflowView }"
+            @click="handleWorkflowClick">
+            <el-icon class="workflow-icon"><Connection /></el-icon>
+          </div>
+        </el-tooltip>
+        <!-- 展开状态下的工作流项 -->
+        <div
+          v-else
+          class="workflow-item"
+          :class="{ active: isWorkflowView }"
+          @click="handleWorkflowClick">
+          <el-icon class="workflow-icon"><Connection /></el-icon>
+          <span class="workflow-name">工作流</span>
+        </div>
+
+        <!-- 收缩状态下的审批项 -->
+        <el-tooltip
+          v-if="isCollapsed"
+          content="审批"
+          placement="right"
+          :show-after="300">
+          <div
+            class="approval-item"
+            :class="{ active: isApprovalView }"
+            @click="handleApprovalClick">
+            <el-icon class="approval-icon"><CircleCheck /></el-icon>
+          </div>
+        </el-tooltip>
+        <!-- 展开状态下的审批项 -->
+        <div
+          v-else
+          class="approval-item"
+          :class="{ active: isApprovalView }"
+          @click="handleApprovalClick">
+          <el-icon class="approval-icon"><CircleCheck /></el-icon>
+          <span class="approval-name">
+            <el-badge
+              :value="workflowStore.pendingApprovalCount"
+              :hidden="workflowStore.pendingApprovalCount === 0">
+              审批
+            </el-badge>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分隔线 -->
+    <div
+      v-if="!searchKeyword && filteredDashboards.length > 0"
+      class="section-divider"></div>
 
     <!-- 仪表盘列表 -->
     <div
@@ -775,13 +871,16 @@ defineExpose({
 
     .table-list,
     .dashboard-list,
-    .document-list {
+    .document-list,
+    .automation-list {
       padding: $spacing-sm 0;
     }
 
     .table-item,
     .dashboard-item,
-    .document-item {
+    .document-item,
+    .workflow-item,
+    .approval-item {
       justify-content: center;
       padding: $spacing-md $spacing-sm;
       gap: 0;
@@ -790,6 +889,8 @@ defineExpose({
       .table-name,
       .dashboard-name,
       .document-name,
+      .workflow-name,
+      .approval-name,
       .star-icon,
       .pin-icon,
       .more-icon {
@@ -798,7 +899,9 @@ defineExpose({
 
       .table-icon,
       .dashboard-icon,
-      .document-icon {
+      .document-icon,
+      .workflow-icon,
+      .approval-icon {
         margin: 0;
       }
     }
@@ -904,7 +1007,8 @@ defineExpose({
 
 .dashboard-section,
 .table-section,
-.document-section {
+.document-section,
+.automation-section {
   display: flex;
   flex-direction: column;
 }
@@ -964,7 +1068,8 @@ defineExpose({
 
 .dashboard-list,
 .table-list,
-.document-list {
+.document-list,
+.automation-list {
   overflow-y: auto;
   padding: $spacing-sm 0;
   max-height: 300px; // 限制最大高度，避免过度扩张
@@ -972,7 +1077,9 @@ defineExpose({
 
 .dashboard-item,
 .table-item,
-.document-item {
+.document-item,
+.workflow-item,
+.approval-item {
   display: flex;
   align-items: center;
   padding: $spacing-sm $spacing-lg;
@@ -1017,17 +1124,21 @@ defineExpose({
     }
 
     .table-icon,
-  .dashboard-icon,
-  .document-icon {
-    color: $primary-color;
-  }
+    .dashboard-icon,
+    .document-icon,
+    .workflow-icon,
+    .approval-icon {
+      color: $primary-color;
+    }
 
-  .table-name,
-  .dashboard-name,
-  .document-name {
-    color: $primary-color;
-    font-weight: 500;
-  }
+    .table-name,
+    .dashboard-name,
+    .document-name,
+    .workflow-name,
+    .approval-name {
+      color: $primary-color;
+      font-weight: 500;
+    }
   }
 
   // 拖拽排序时的视觉反馈
@@ -1062,14 +1173,18 @@ defineExpose({
 
 .table-icon,
 .dashboard-icon,
-.document-icon {
+.document-icon,
+.workflow-icon,
+.approval-icon {
   color: $text-secondary;
   flex-shrink: 0;
 }
 
 .table-name,
 .dashboard-name,
-.document-name {
+.document-name,
+.workflow-name,
+.approval-name {
   flex: 1;
   font-size: $font-size-sm;
   color: $text-primary;

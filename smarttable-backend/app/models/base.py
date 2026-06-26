@@ -13,6 +13,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.extensions import db
 
 
+def _enum_values(enum_class: type[PyEnum]) -> list[str]:
+    """返回枚举成员的值列表，用于 SQLAlchemy Enum 数据库存储"""
+    return [e.value for e in enum_class]
+
+
 class MemberRole(PyEnum):
     """成员角色枚举"""
     OWNER = 'owner'
@@ -201,7 +206,7 @@ class BaseMember(db.Model):
         nullable=False
     )
     role: Mapped[MemberRole] = mapped_column(
-        Enum(MemberRole),
+        Enum(MemberRole, values_callable=_enum_values),
         default=MemberRole.EDITOR,
         nullable=False
     )

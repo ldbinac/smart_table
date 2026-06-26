@@ -10,3 +10,4 @@ export { useSettingsStore } from "./settingsStore";
 export { useMemberStore } from "./memberStore";
 export { useShareStore } from "./shareStore";
 export { useDocumentStore } from "./documentStore";
+export { useWorkflowStore } from "./workflowStore";

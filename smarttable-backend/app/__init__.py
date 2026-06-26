@@ -27,10 +27,16 @@ from app.routes.realtime import realtime_bp
 from app.routes.users import users_bp
 from app.routes.documents import documents_bp
 from app.routes.document_versions import document_versions_bp
+from app.routes.approvals import approvals_bp
+from app.routes.webhooks import webhooks_bp
+from app.routes.workflow_templates import workflow_templates_bp
+from app.routes.workflows import workflows_bp
 
 # 服务导入
 from app.services.email_queue_service import init_email_queue
+from app.services.webhook_service import WebhookService
 from app.utils.init_email_templates import init_default_email_templates
+from app.services.workflow_template_service import init_default_templates as init_default_workflow_templates
 from app.static_serving import configure_static_serving
 from app.errors.handlers import register_handlers
 from app.models import (
@@ -101,6 +107,9 @@ def create_app(config_name='default', enable_realtime=False):
 
                 # 初始化默认邮件模板
                 init_default_email_templates()
+
+                # 初始化系统工作流模板
+                init_default_workflow_templates()
             except Exception as e:
                 print(f"创建数据库表失败：{e}")
     else:
@@ -108,6 +117,9 @@ def create_app(config_name='default', enable_realtime=False):
         with app.app_context():
             try:
                 init_default_email_templates()
+
+                # 初始化系统工作流模板
+                init_default_workflow_templates()
             except Exception as e:
                 print(f"初始化邮件模板失败：{e}")
 
@@ -170,11 +182,12 @@ def register_lifecycle_hooks(app):
         if not _first_request_initialized:
             _first_request_initialized = True
             init_email_queue(app)
+            WebhookService.start_retry_scheduler(app)
 
     @app.teardown_appcontext
     def shutdown_services(exception=None):
         """应用上下文销毁时关闭服务"""
-        pass  # 邮件队列服务在应用退出时统一关闭
+        WebhookService.stop_retry_scheduler()
 
 
 def register_blueprints(app):
@@ -240,6 +253,18 @@ def register_blueprints(app):
 
     # 注册文档版本历史蓝图
     app.register_blueprint(document_versions_bp, url_prefix='/api')
+
+    # 注册审批蓝图 (路由中已包含完整路径)
+    app.register_blueprint(approvals_bp, url_prefix='/api')
+
+    # 注册 Webhook 蓝图
+    app.register_blueprint(webhooks_bp, url_prefix='/api')
+
+    # 注册工作流模板蓝图
+    app.register_blueprint(workflow_templates_bp, url_prefix='/api/workflow-templates')
+
+    # 注册工作流蓝图（路由中已包含完整路径）
+    app.register_blueprint(workflows_bp, url_prefix='/api')
 
 
 def register_error_handlers(app):
@@ -521,6 +546,53 @@ def register_api_docs(app):
                 "prefix": "/api",
                 "routes": [
                     {"method": "GET", "path": "/realtime/status", "description": "获取实时协作状态"}
+                ]
+            },
+            "审批模块 (Approvals)": {
+                "prefix": "/api",
+                "routes": [
+                    {"method": "GET", "path": "/bases/<base_id>/approvals", "description": "获取我的待审批/已审批列表"},
+                    {"method": "GET", "path": "/approvals/<task_id>", "description": "获取审批任务详情"},
+                    {"method": "POST", "path": "/approvals/<task_id>/approve", "description": "同意审批"},
+                    {"method": "POST", "path": "/approvals/<task_id>/reject", "description": "驳回审批"},
+                    {"method": "POST", "path": "/approvals/<task_id>/transfer", "description": "转办审批"},
+                    {"method": "GET", "path": "/records/<record_id>/approval-history", "description": "获取记录审批历史"}
+                ]
+            },
+            "Webhook 模块 (Webhooks)": {
+                "prefix": "/api",
+                "routes": [
+                    {"method": "GET", "path": "/bases/<base_id>/webhooks", "description": "获取 Webhook 配置列表"},
+                    {"method": "POST", "path": "/bases/<base_id>/webhooks", "description": "创建 Webhook 配置"},
+                    {"method": "GET", "path": "/webhooks/<webhook_id>", "description": "获取 Webhook 配置详情"},
+                    {"method": "PUT", "path": "/webhooks/<webhook_id>", "description": "更新 Webhook 配置"},
+                    {"method": "DELETE", "path": "/webhooks/<webhook_id>", "description": "删除 Webhook 配置"},
+                    {"method": "POST", "path": "/webhooks/<webhook_id>/test", "description": "测试发送 Webhook"},
+                    {"method": "GET", "path": "/webhooks/<webhook_id>/deliveries", "description": "获取 Webhook 投递日志"}
+                ]
+            },
+            "工作流模板模块 (Workflow Templates)": {
+                "prefix": "/api/workflow-templates",
+                "routes": [
+                    {"method": "GET", "path": "/", "description": "获取工作流模板列表"},
+                    {"method": "POST", "path": "/", "description": "将工作流保存为模板"},
+                    {"method": "POST", "path": "/<template_id>/instantiate", "description": "从模板创建工作流"}
+                ]
+            },
+            "工作流模块 (Workflows)": {
+                "prefix": "/api",
+                "routes": [
+                    {"method": "GET", "path": "/bases/<base_id>/workflows", "description": "获取基础数据下工作流列表"},
+                    {"method": "POST", "path": "/bases/<base_id>/workflows", "description": "创建工作流"},
+                    {"method": "GET", "path": "/workflows/<workflow_id>", "description": "获取工作流详情"},
+                    {"method": "PUT", "path": "/workflows/<workflow_id>", "description": "更新工作流"},
+                    {"method": "DELETE", "path": "/workflows/<workflow_id>", "description": "删除工作流"},
+                    {"method": "POST", "path": "/workflows/<workflow_id>/publish", "description": "发布工作流"},
+                    {"method": "POST", "path": "/workflows/<workflow_id>/pause", "description": "暂停工作流"},
+                    {"method": "POST", "path": "/workflows/<workflow_id>/resume", "description": "恢复工作流"},
+                    {"method": "GET", "path": "/workflows/<workflow_id>/instances", "description": "获取工作流实例列表"},
+                    {"method": "GET", "path": "/workflows/<workflow_id>/instances/<instance_id>", "description": "获取工作流实例详情"},
+                    {"method": "POST", "path": "/tables/<table_id>/records/<record_id>/trigger", "description": "手动触发工作流"}
                 ]
             }
         },
@@ -862,6 +934,9 @@ def init_swagger(app):
         {"name": "Views", "description": "视图管理接口"},
         {"name": "Dashboards", "description": "仪表盘管理接口"},
         {"name": "Dashboards Share", "description": "仪表盘分享接口"},
+        {"name": "Workflows", "description": "工作流管理接口"},
+        {"name": "Workflow Templates", "description": "工作流模板接口"},
+        {"name": "Approvals", "description": "工作流审批任务接口"},
         {"name": "Attachments", "description": "附件上传下载接口"},
         {"name": "Import/Export", "description": "数据导入导出接口"},
         {"name": "Shares", "description": "基础数据分享接口"},
