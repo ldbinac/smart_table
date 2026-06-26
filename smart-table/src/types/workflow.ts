@@ -61,6 +61,7 @@ export interface WorkflowVersion {
   version_number: number;
   config_snapshot: Record<string, unknown>;
   created_by?: string | null;
+  created_by_name?: string | null;
   created_at: string;
 }
 
