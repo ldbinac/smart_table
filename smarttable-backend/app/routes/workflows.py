@@ -27,6 +27,7 @@ from app.utils.response import (
     error_response,
     not_found_response,
     forbidden_response,
+    bad_request_response,
     paginated_response,
 )
 
@@ -789,6 +790,90 @@ def resume_workflow(workflow_id) -> tuple:
     return success_response(
         data=result,
         message='工作流已恢复'
+    )
+
+
+@workflows_bp.route('/workflows/<uuid:workflow_id>/clone', methods=['POST'])
+@jwt_required
+def clone_workflow(workflow_id) -> tuple:
+    """
+    基于现有工作流创建副本（草稿状态）
+    ---
+    tags:
+      - Workflows
+    security:
+      - Bearer: []
+    parameters:
+      - name: workflow_id
+        in: path
+        type: string
+        required: true
+        description: 工作流 ID
+    responses:
+      201:
+        description: 克隆成功
+      403:
+        description: 无权限
+      404:
+        description: 工作流不存在
+    """
+    user_id = g.current_user_id
+
+    workflow, error = _get_workflow_or_404(workflow_id)
+    if error:
+        return error
+
+    if not _check_base_edit_permission(str(workflow.base_id), user_id):
+        return forbidden_response('您没有权限克隆此工作流')
+
+    cloned = WorkflowService.clone_workflow(workflow_id, user_id=user_id)
+    if cloned is None:
+        return error_response('克隆工作流失败', code=400)
+
+    return success_response(
+        data=cloned.to_dict(),
+        message='工作流克隆成功',
+        code=201
+    )
+
+
+@workflows_bp.route('/workflows/<uuid:workflow_id>/versions', methods=['GET'])
+@jwt_required
+def get_workflow_versions(workflow_id) -> tuple:
+    """
+    获取工作流历史版本列表
+    ---
+    tags:
+      - Workflows
+    security:
+      - Bearer: []
+    parameters:
+      - name: workflow_id
+        in: path
+        type: string
+        required: true
+        description: 工作流 ID
+    responses:
+      200:
+        description: 版本列表
+      403:
+        description: 无权限
+      404:
+        description: 工作流不存在
+    """
+    user_id = g.current_user_id
+
+    workflow, error = _get_workflow_or_404(workflow_id)
+    if error:
+        return error
+
+    if not _check_base_view_permission(str(workflow.base_id), user_id):
+        return forbidden_response('您没有权限访问此工作流')
+
+    versions = WorkflowService.list_workflow_versions(workflow_id)
+    return success_response(
+        data=[v.to_dict() for v in versions],
+        message='获取版本列表成功'
     )
 
 

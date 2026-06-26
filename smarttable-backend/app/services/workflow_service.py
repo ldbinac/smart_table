@@ -344,6 +344,92 @@ class WorkflowService:
         return True
 
     @classmethod
+    def clone_workflow(cls, workflow_id: Any, user_id: Any = None) -> Optional[Workflow]:
+        """
+        基于现有工作流创建副本（草稿状态）
+
+        Args:
+            workflow_id: 源工作流 ID
+            user_id: 操作者 ID（用于权限校验）
+
+        Returns:
+            新创建的草稿工作流对象
+        """
+        workflow = Workflow.query.filter_by(
+            id=cls._to_uuid(workflow_id),
+            is_deleted=False
+        ).first()
+
+        if not workflow:
+            return None
+
+        if user_id:
+            if not PermissionService.check_permission(
+                base_id=str(workflow.base_id),
+                user_id=str(user_id),
+                min_role=MemberRole.EDITOR
+            ):
+                raise PermissionError('权限不足，需要 EDITOR 或以上角色')
+
+        cloned = Workflow(
+            base_id=workflow.base_id,
+            table_id=workflow.table_id,
+            name=f'{workflow.name}-副本',
+            description=workflow.description,
+            status=WorkflowStatus.DRAFT,
+            created_by=cls._to_uuid(user_id)
+        )
+        db.session.add(cloned)
+        db.session.flush()
+
+        for node in workflow.nodes.order_by(WorkflowNode.order).all():
+            new_node = WorkflowNode(
+                workflow_id=cloned.id,
+                node_type=node.node_type,
+                name=node.name,
+                config=node.config,
+                order=node.order,
+                next_nodes=node.next_nodes
+            )
+            db.session.add(new_node)
+
+        for trigger in workflow.triggers.all():
+            new_trigger = WorkflowTrigger(
+                workflow_id=cloned.id,
+                trigger_type=trigger.trigger_type,
+                filter_config=trigger.filter_config,
+                field_ids=trigger.field_ids
+            )
+            db.session.add(new_trigger)
+
+        db.session.commit()
+        log.info(f'[WorkflowService] 工作流已克隆: {workflow.id} -> {cloned.id}')
+        return cloned
+
+    @classmethod
+    def list_workflow_versions(cls, workflow_id: Any) -> List[WorkflowVersion]:
+        """
+        获取工作流的所有历史版本
+
+        Args:
+            workflow_id: 工作流 ID
+
+        Returns:
+            WorkflowVersion 列表（按版本号降序）
+        """
+        workflow = Workflow.query.filter_by(
+            id=cls._to_uuid(workflow_id),
+            is_deleted=False
+        ).first()
+
+        if not workflow:
+            return []
+
+        return WorkflowVersion.query.filter_by(
+            workflow_id=workflow.id
+        ).order_by(WorkflowVersion.version_number.desc()).all()
+
+    @classmethod
     def list_workflows(
         cls,
         table_id: Any = None,

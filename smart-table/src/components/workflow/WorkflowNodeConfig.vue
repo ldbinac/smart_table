@@ -24,6 +24,7 @@ interface Props {
   fields: FieldEntity[];
   tables?: TableEntity[];
   webhooks?: WebhookConfig[];
+  readonly?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -375,7 +376,7 @@ const nodeTypeLabel = computed(() => {
     <template v-if="localNode.node_type === 'approval'">
       <el-form label-position="top" class="config-form">
         <el-form-item label="审批人选择方式">
-          <el-radio-group v-model="assigneeType">
+          <el-radio-group v-model="assigneeType" :disabled="readonly">
             <el-radio label="fixed">固定用户</el-radio>
             <el-radio label="field">字段指定</el-radio>
             <el-radio label="role">角色</el-radio>
@@ -387,14 +388,15 @@ const nodeTypeLabel = computed(() => {
             v-model="assigneeValue"
             multiple
             placeholder="选择用户"
-            class="full-width">
+            class="full-width"
+            :disabled="readonly">
             <el-option label="当前用户" value="current_user" />
             <el-option label="管理员" value="admin" />
           </el-select>
         </el-form-item>
 
         <el-form-item v-else-if="assigneeType === 'field'" label="成员字段">
-          <el-select v-model="assigneeValue" placeholder="选择字段" class="full-width">
+          <el-select v-model="assigneeValue" placeholder="选择字段" class="full-width" :disabled="readonly">
             <el-option
               v-for="field in memberFieldOptions"
               :key="field.id"
@@ -404,14 +406,14 @@ const nodeTypeLabel = computed(() => {
         </el-form-item>
 
         <el-form-item v-else label="角色">
-          <el-select v-model="assigneeValue" placeholder="选择角色" class="full-width">
+          <el-select v-model="assigneeValue" placeholder="选择角色" class="full-width" :disabled="readonly">
             <el-option label="管理员" value="admin" />
             <el-option label="部门负责人" value="manager" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="审批模式">
-          <el-select v-model="approvalMode" class="full-width">
+          <el-select v-model="approvalMode" class="full-width" :disabled="readonly">
             <el-option
               v-for="mode in approvalModes"
               :key="mode.value"
@@ -421,11 +423,11 @@ const nodeTypeLabel = computed(() => {
         </el-form-item>
 
         <el-form-item label="超时时间（分钟）">
-          <el-input-number v-model="timeoutMinutes" :min="0" :controls="false" class="full-width" />
+          <el-input-number v-model="timeoutMinutes" :min="0" :controls="false" class="full-width" :disabled="readonly" />
         </el-form-item>
 
         <el-form-item v-if="timeoutMinutes && timeoutMinutes > 0" label="超时动作">
-          <el-select v-model="timeoutAction" class="full-width">
+          <el-select v-model="timeoutAction" class="full-width" :disabled="readonly">
             <el-option
               v-for="action in timeoutActions"
               :key="action.value"
@@ -447,6 +449,7 @@ const nodeTypeLabel = computed(() => {
             :model-value="condition.field_id"
             placeholder="选择字段"
             class="field-select"
+            :disabled="readonly"
             @change="(val) => onConditionFieldChange(index, val as string)">
             <el-option
               v-for="field in fields"
@@ -459,6 +462,7 @@ const nodeTypeLabel = computed(() => {
             :model-value="condition.operator"
             placeholder="操作符"
             class="operator-select"
+            :disabled="readonly"
             @change="(val) => onConditionOperatorChange(index, val as FilterOperatorValue)">
             <el-option
               v-for="op in getOperatorOptions(getFieldById(condition.field_id)?.type ?? '')"
@@ -472,11 +476,13 @@ const nodeTypeLabel = computed(() => {
             :model-value="String(condition.value ?? '')"
             placeholder="值"
             class="value-input"
+            :disabled="readonly"
             @update:model-value="(val) => onConditionValueChange(index, val)" />
 
           <span v-else class="value-placeholder">无需值</span>
 
           <el-button
+            v-if="!readonly"
             type="danger"
             :icon="Delete"
             circle
@@ -484,7 +490,7 @@ const nodeTypeLabel = computed(() => {
             @click="removeCondition(index)" />
         </div>
 
-        <el-button type="primary" :icon="Plus" text @click="addCondition">
+        <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addCondition">
           添加条件
         </el-button>
       </div>
@@ -516,6 +522,7 @@ const nodeTypeLabel = computed(() => {
             :model-value="mapping.field_id"
             placeholder="目标字段"
             class="field-select"
+            :disabled="readonly"
             @change="(val) => updateMappingFieldId(index, val as string)">
             <el-option
               v-for="field in fields"
@@ -528,9 +535,11 @@ const nodeTypeLabel = computed(() => {
             :model-value="mapping.value_template"
             placeholder="新值（支持 {{trigger.record.field_id}}）"
             class="template-input"
+            :disabled="readonly"
             @update:model-value="(val) => updateMappingTemplate(index, val)" />
 
           <el-button
+            v-if="!readonly"
             type="danger"
             :icon="Delete"
             circle
@@ -538,7 +547,7 @@ const nodeTypeLabel = computed(() => {
             @click="removeUpdateMapping(index)" />
         </div>
 
-        <el-button type="primary" :icon="Plus" text @click="addUpdateMapping">
+        <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addUpdateMapping">
           添加字段更新
         </el-button>
       </div>
@@ -548,7 +557,7 @@ const nodeTypeLabel = computed(() => {
     <template v-else-if="localNode.node_type === 'create_record'">
       <el-form label-position="top" class="config-form">
         <el-form-item label="目标表格">
-          <el-select v-model="createRecordTargetTableId" placeholder="选择目标表格" class="full-width">
+          <el-select v-model="createRecordTargetTableId" placeholder="选择目标表格" class="full-width" :disabled="readonly">
             <el-option
               v-for="table in availableTables"
               :key="table.id"
@@ -567,6 +576,7 @@ const nodeTypeLabel = computed(() => {
             :model-value="mapping.target_field_id"
             placeholder="目标字段"
             class="field-select"
+            :disabled="readonly"
             @change="(val) => updateCreateMapping(index, { target_field_id: val as string })">
             <el-option
               v-for="field in targetTableFields"
@@ -580,6 +590,7 @@ const nodeTypeLabel = computed(() => {
             placeholder="源字段（可选）"
             clearable
             class="field-select"
+            :disabled="readonly"
             @change="(val) => updateCreateMapping(index, { source_field_id: val as string | undefined })">
             <el-option
               v-for="field in fields"
@@ -592,9 +603,11 @@ const nodeTypeLabel = computed(() => {
             :model-value="mapping.value_template"
             placeholder="或填写模板值"
             class="template-input"
+            :disabled="readonly"
             @update:model-value="(val) => updateCreateMapping(index, { value_template: val })" />
 
           <el-button
+            v-if="!readonly"
             type="danger"
             :icon="Delete"
             circle
@@ -602,7 +615,7 @@ const nodeTypeLabel = computed(() => {
             @click="removeCreateMapping(index)" />
         </div>
 
-        <el-button type="primary" :icon="Plus" text @click="addCreateMapping">
+        <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addCreateMapping">
           添加字段映射
         </el-button>
       </div>
@@ -612,7 +625,7 @@ const nodeTypeLabel = computed(() => {
     <template v-else-if="localNode.node_type === 'send_email'">
       <el-form label-position="top" class="config-form">
         <el-form-item label="收件人来源">
-          <el-radio-group v-model="emailRecipientType">
+          <el-radio-group v-model="emailRecipientType" :disabled="readonly">
             <el-radio label="field">字段</el-radio>
             <el-radio label="fixed">固定邮箱</el-radio>
           </el-radio-group>
@@ -623,7 +636,8 @@ const nodeTypeLabel = computed(() => {
             v-model="emailRecipientValue"
             multiple
             placeholder="选择字段"
-            class="full-width">
+            class="full-width"
+            :disabled="readonly">
             <el-option
               v-for="field in emailFields"
               :key="field.id"
@@ -640,11 +654,12 @@ const nodeTypeLabel = computed(() => {
             allow-create
             default-first-option
             placeholder="输入邮箱地址"
-            class="full-width" />
+            class="full-width"
+            :disabled="readonly" />
         </el-form-item>
 
         <el-form-item label="邮件模板">
-          <el-select v-model="emailTemplateId" placeholder="选择模板" class="full-width">
+          <el-select v-model="emailTemplateId" placeholder="选择模板" class="full-width" :disabled="readonly">
             <el-option
               v-for="template in emailTemplates"
               :key="template.id"
@@ -659,14 +674,14 @@ const nodeTypeLabel = computed(() => {
     <template v-else-if="localNode.node_type === 'webhook'">
       <el-form label-position="top" class="config-form">
         <el-form-item label="Webhook 来源">
-          <el-radio-group v-model="webhookMode">
+          <el-radio-group v-model="webhookMode" :disabled="readonly">
             <el-radio label="existing">选择已配置</el-radio>
             <el-radio label="inline">内联新建</el-radio>
           </el-radio-group>
         </el-form-item>
 
         <el-form-item v-if="webhookMode === 'existing'" label="选择 Webhook">
-          <el-select v-model="selectedWebhookId" placeholder="选择 Webhook" class="full-width">
+          <el-select v-model="selectedWebhookId" placeholder="选择 Webhook" class="full-width" :disabled="readonly">
             <el-option
               v-for="webhook in availableWebhooks"
               :key="webhook.id"
@@ -677,15 +692,15 @@ const nodeTypeLabel = computed(() => {
 
         <template v-else>
           <el-form-item label="名称">
-            <el-input v-model="inlineWebhook.name" placeholder="Webhook 名称" />
+            <el-input v-model="inlineWebhook.name" placeholder="Webhook 名称" :disabled="readonly" />
           </el-form-item>
 
           <el-form-item label="请求地址">
-            <el-input v-model="inlineWebhook.url" placeholder="https://example.com/webhook" />
+            <el-input v-model="inlineWebhook.url" placeholder="https://example.com/webhook" :disabled="readonly" />
           </el-form-item>
 
           <el-form-item label="请求方法">
-            <el-select v-model="inlineWebhook.method" class="full-width">
+            <el-select v-model="inlineWebhook.method" class="full-width" :disabled="readonly">
               <el-option
                 v-for="method in webhookMethods"
                 :key="method.value"
@@ -705,9 +720,10 @@ const nodeTypeLabel = computed(() => {
                   :model-value="inlineWebhook.headers[key]"
                   placeholder="值"
                   class="header-value"
+                  :disabled="readonly"
                   @update:model-value="(val) => updateInlineHeader(key, val)" />
               </div>
-              <div class="header-row">
+              <div v-if="!readonly" class="header-row">
                 <el-input
                   placeholder="新 Header 键"
                   class="header-key"
@@ -724,7 +740,8 @@ const nodeTypeLabel = computed(() => {
               v-model="inlineWebhook.body_template"
               type="textarea"
               :rows="4"
-              placeholder="JSON 模板，支持 {{trigger.record.field_id}}" />
+              placeholder="JSON 模板，支持 {{trigger.record.field_id}}"
+              :disabled="readonly" />
           </el-form-item>
         </template>
       </el-form>

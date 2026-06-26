@@ -14,6 +14,7 @@ import type {
   WorkflowNode,
   WorkflowTrigger,
   WebhookConfig,
+  WorkflowNodeType,
 } from "@/types/workflow";
 import {
   CircleCheck,
@@ -25,6 +26,8 @@ import {
   Delete,
   Rank,
   CircleClose,
+  Timer,
+  CopyDocument,
 } from "@element-plus/icons-vue";
 import WorkflowNodeConfig from "./WorkflowNodeConfig.vue";
 import WorkflowTriggerConfig from "./WorkflowTriggerConfig.vue";
@@ -45,6 +48,8 @@ const emit = defineEmits<{
   (e: "update:trigger", trigger: WorkflowTrigger): void;
   (e: "save"): void;
   (e: "publish"): void;
+  (e: "clone"): void;
+  (e: "viewVersions"): void;
 }>();
 
 const localNodes = ref<WorkflowNode[]>([]);
@@ -104,6 +109,9 @@ watch(
   { deep: true },
 );
 
+const isDraft = computed(() => props.workflow.status === "draft");
+const readonly = computed(() => props.workflow.status !== "draft");
+
 function cloneConfig(config: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(config));
 }
@@ -141,7 +149,7 @@ function getNodeLabel(nodeType: string) {
   return item?.label ?? nodeType;
 }
 
-function addNode(type: string) {
+function addNode(type: WorkflowNodeType) {
   const newNode: WorkflowNode = {
     id: generateId(),
     workflow_id: props.workflow.id,
@@ -186,6 +194,7 @@ function initSortable() {
   sortableInstance = new Sortable(nodeListRef.value, {
     animation: 200,
     handle: ".drag-handle",
+    disabled: readonly.value,
     onEnd: (event) => {
       if (event.oldIndex === undefined || event.newIndex === undefined) return;
       if (event.oldIndex === event.newIndex) return;
@@ -214,6 +223,13 @@ watch(
   },
 );
 
+watch(
+  readonly,
+  () => {
+    nextTick(() => initSortable());
+  },
+);
+
 function handleSave() {
   emit("save");
 }
@@ -222,7 +238,13 @@ function handlePublish() {
   emit("publish");
 }
 
-const isDraft = computed(() => props.workflow.status === "draft");
+function handleClone() {
+  emit("clone");
+}
+
+function handleViewVersions() {
+  emit("viewVersions");
+}
 </script>
 
 <template>
@@ -235,6 +257,7 @@ const isDraft = computed(() => props.workflow.status === "draft");
           <WorkflowTriggerConfig
             :trigger="localTrigger"
             :fields="fields"
+            :readonly="readonly"
             @update:trigger="updateTrigger" />
         </div>
 
@@ -251,7 +274,7 @@ const isDraft = computed(() => props.workflow.status === "draft");
               class="node-item"
               :class="{ active: selectedNodeId === node.id }"
               @click="selectNode(node.id)">
-              <el-icon class="drag-handle"><Rank /></el-icon>
+              <el-icon v-show="!readonly" class="drag-handle"><Rank /></el-icon>
               <el-icon class="node-icon"><component :is="getNodeIcon(node.node_type)" /></el-icon>
               <div class="node-info">
                 <div class="node-name">{{ node.name }}</div>
@@ -259,6 +282,7 @@ const isDraft = computed(() => props.workflow.status === "draft");
               </div>
               <div class="node-order">#{{ node.order + 1 }}</div>
               <el-button
+                v-if="!readonly"
                 type="danger"
                 :icon="Delete"
                 link
@@ -268,7 +292,7 @@ const isDraft = computed(() => props.workflow.status === "draft");
             </div>
           </div>
 
-          <div class="add-node-menu">
+          <div v-if="!readonly" class="add-node-menu">
             <el-dropdown placement="bottom-start" trigger="click">
               <el-button type="primary" :icon="Plus" class="add-node-btn">
                 添加节点
@@ -299,6 +323,7 @@ const isDraft = computed(() => props.workflow.status === "draft");
             :fields="fields"
             :tables="tables"
             :webhooks="webhooks"
+            :readonly="readonly"
             @update:node="updateNode" />
           <el-empty v-else description="请选择或添加一个节点" />
         </div>
@@ -315,12 +340,22 @@ const isDraft = computed(() => props.workflow.status === "draft");
       </div>
 
       <div class="footer-actions">
-        <el-button :icon="CircleClose" @click="$emit('save')">
-          保存
-        </el-button>
-        <el-button type="primary" :icon="CircleCheck" @click="handlePublish">
-          发布
-        </el-button>
+        <template v-if="isDraft">
+          <el-button :icon="CircleClose" @click="handleSave">
+            保存
+          </el-button>
+          <el-button type="primary" :icon="CircleCheck" @click="handlePublish">
+            发布
+          </el-button>
+        </template>
+        <template v-else>
+          <el-button :icon="Timer" @click="handleViewVersions">
+            查看版本历史
+          </el-button>
+          <el-button type="primary" :icon="CopyDocument" @click="handleClone">
+            基于此流程创建新版本
+          </el-button>
+        </template>
       </div>
     </div>
   </div>

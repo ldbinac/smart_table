@@ -14,6 +14,7 @@ import { Delete, Plus } from "@element-plus/icons-vue";
 interface Props {
   trigger: WorkflowTrigger;
   fields: FieldEntity[];
+  readonly?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -176,7 +177,7 @@ function onFilterValueChange(index: number, value: unknown) {
   <div class="workflow-trigger-config">
     <el-form label-position="top" class="config-form">
       <el-form-item label="触发类型">
-        <el-select v-model="triggerType" class="full-width">
+        <el-select v-model="triggerType" class="full-width" :disabled="readonly">
           <el-option
             v-for="type in triggerTypes"
             :key="type.value"
@@ -190,7 +191,8 @@ function onFilterValueChange(index: number, value: unknown) {
           v-model="selectedFieldIds"
           multiple
           placeholder="选择监听的字段"
-          class="full-width">
+          class="full-width"
+          :disabled="readonly">
           <el-option
             v-for="field in fields"
             :key="field.id"
@@ -204,7 +206,7 @@ function onFilterValueChange(index: number, value: unknown) {
       <div class="filter-section">
         <div class="filter-header">
           <span class="filter-title">触发过滤条件</span>
-          <el-radio-group v-model="filterConjunction" size="small">
+          <el-radio-group v-model="filterConjunction" size="small" :disabled="readonly">
             <el-radio-button label="and">全部满足</el-radio-button>
             <el-radio-button label="or">任一满足</el-radio-button>
           </el-radio-group>
@@ -219,6 +221,7 @@ function onFilterValueChange(index: number, value: unknown) {
               :model-value="condition.field_id"
               placeholder="选择字段"
               class="field-select"
+              :disabled="readonly"
               @change="(val) => onFilterFieldChange(index, val as string)">
               <el-option
                 v-for="field in fields"
@@ -231,6 +234,7 @@ function onFilterValueChange(index: number, value: unknown) {
               :model-value="condition.operator"
               placeholder="操作符"
               class="operator-select"
+              :disabled="readonly"
               @change="(val) => onFilterOperatorChange(index, val as FilterOperatorValue)">
               <el-option
                 v-for="op in getOperatorOptions(getFieldById(condition.field_id)?.type ?? '')"
@@ -244,11 +248,13 @@ function onFilterValueChange(index: number, value: unknown) {
               :model-value="String(condition.value ?? '')"
               placeholder="值"
               class="value-input"
+              :disabled="readonly"
               @update:model-value="(val) => onFilterValueChange(index, val)" />
 
             <span v-else class="value-placeholder">无需值</span>
 
             <el-button
+              v-if="!readonly"
               type="danger"
               :icon="Delete"
               circle
@@ -256,7 +262,7 @@ function onFilterValueChange(index: number, value: unknown) {
               @click="removeFilterCondition(index)" />
           </div>
 
-          <el-button type="primary" :icon="Plus" text @click="addFilterCondition">
+          <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addFilterCondition">
             添加过滤条件
           </el-button>
         </div>

@@ -10,6 +10,7 @@ import type {
   WebhookConfig,
   WebhookDeliveryLog,
   WorkflowTemplate,
+  WorkflowVersion,
 } from '@/types';
 import type { PaginatedData } from '@/api/types';
 
@@ -72,6 +73,16 @@ export const pauseWorkflow = async (workflowId: string): Promise<void> => {
 
 export const resumeWorkflow = async (workflowId: string): Promise<void> => {
   await apiClient.post<void>(`/workflows/${workflowId}/resume`);
+};
+
+export const cloneWorkflow = async (workflowId: string): Promise<Workflow> => {
+  return apiClient.post<Workflow>(`/workflows/${workflowId}/clone`);
+};
+
+export const listWorkflowVersions = async (
+  workflowId: string,
+): Promise<WorkflowVersion[]> => {
+  return apiClient.get<WorkflowVersion[]>(`/workflows/${workflowId}/versions`);
 };
 
 // ==================== 执行实例 ====================
@@ -240,6 +251,8 @@ export const workflowApiService = {
   publishWorkflow,
   pauseWorkflow,
   resumeWorkflow,
+  cloneWorkflow,
+  listWorkflowVersions,
   listInstances,
   getInstance,
   triggerWorkflow,

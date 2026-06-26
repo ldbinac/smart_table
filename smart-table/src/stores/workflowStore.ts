@@ -12,6 +12,7 @@ import type {
   WorkflowTask,
   WebhookConfig,
   WorkflowTemplate,
+  WorkflowVersion,
 } from "@/types/workflow";
 
 export const useWorkflowStore = defineStore("workflow", () => {
@@ -24,6 +25,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
   const approvalHistory = ref<WorkflowTask[]>([]);
   const webhooks = ref<WebhookConfig[]>([]);
   const templates = ref<WorkflowTemplate[]>([]);
+  const versions = ref<WorkflowVersion[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -209,6 +211,38 @@ export const useWorkflowStore = defineStore("workflow", () => {
       ElMessage.success("工作流已恢复");
     } catch (e: unknown) {
       handleError("resumeWorkflow", e);
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cloneWorkflow(workflowId: string): Promise<Workflow> {
+    setLoading(true);
+    clearError();
+    try {
+      const cloned = await workflowApiService.cloneWorkflow(workflowId);
+      workflows.value.push(cloned);
+      currentWorkflow.value = cloned;
+      ElMessage.success("工作流克隆成功");
+      return cloned;
+    } catch (e: unknown) {
+      handleError("cloneWorkflow", e);
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadWorkflowVersions(workflowId: string): Promise<WorkflowVersion[]> {
+    setLoading(true);
+    clearError();
+    try {
+      const data = await workflowApiService.listWorkflowVersions(workflowId);
+      versions.value = data;
+      return data;
+    } catch (e: unknown) {
+      handleError("loadWorkflowVersions", e);
       throw e;
     } finally {
       setLoading(false);
@@ -527,6 +561,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     approvalHistory.value = [];
     webhooks.value = [];
     templates.value = [];
+    versions.value = [];
     loading.value = false;
     error.value = null;
   }
@@ -541,6 +576,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     approvalHistory,
     webhooks,
     templates,
+    versions,
     loading,
     error,
     // getters
@@ -556,6 +592,8 @@ export const useWorkflowStore = defineStore("workflow", () => {
     publishWorkflow,
     pauseWorkflow,
     resumeWorkflow,
+    cloneWorkflow,
+    loadWorkflowVersions,
     loadInstances,
     loadInstance,
     triggerWorkflow,

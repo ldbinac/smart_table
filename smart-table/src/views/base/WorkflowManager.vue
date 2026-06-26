@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
 import { useRoute } from "vue-router";
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
+import { ElMessage, type FormInstance, type FormRules } from "element-plus";
 import {
   Plus,
   Collection,
@@ -343,6 +343,33 @@ async function handlePublishFromDesigner() {
   await workflowStore.publishWorkflow(currentWorkflow.value.id);
 }
 
+async function handleCloneWorkflow() {
+  if (!currentWorkflow.value) return;
+  try {
+    await workflowStore.cloneWorkflow(currentWorkflow.value.id);
+    await workflowStore.loadWorkflows(baseId);
+    activeTab.value = "editor";
+  } catch (error: unknown) {
+    console.error("克隆工作流失败:", error);
+  }
+}
+
+const versionDialogVisible = ref(false);
+const versionLoading = ref(false);
+
+async function handleViewVersions() {
+  if (!currentWorkflow.value) return;
+  versionDialogVisible.value = true;
+  versionLoading.value = true;
+  try {
+    await workflowStore.loadWorkflowVersions(currentWorkflow.value.id);
+  } catch (error: unknown) {
+    console.error("加载版本历史失败:", error);
+  } finally {
+    versionLoading.value = false;
+  }
+}
+
 async function handleInstanceChange(instanceId: string) {
   selectedInstanceId.value = instanceId;
   if (currentWorkflow.value && instanceId) {
@@ -437,7 +464,9 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
               @update:nodes="nodes = $event"
               @update:trigger="trigger = $event"
               @save="handleSaveWorkflow(nodes, designerTrigger)"
-              @publish="handlePublishFromDesigner" />
+              @publish="handlePublishFromDesigner"
+              @clone="handleCloneWorkflow"
+              @view-versions="handleViewVersions" />
           </div>
 
           <div v-show="activeTab === 'history'" class="tab-panel history-panel">
@@ -609,6 +638,61 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
       <template #footer>
         <el-button @click="editDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleUpdateWorkflowInfo">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 版本历史弹窗 -->
+    <el-dialog
+      v-model="versionDialogVisible"
+      title="版本历史"
+      width="680px"
+      destroy-on-close>
+      <el-table
+        v-loading="versionLoading"
+        :data="workflowStore.versions"
+        row-key="id"
+        style="width: 100%">
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div class="version-snapshot">
+              <div class="snapshot-section">
+                <div class="snapshot-label">节点快照：</div>
+                <div class="snapshot-nodes">
+                  <el-tag
+                    v-for="(node, index) in row.config_snapshot?.nodes || []"
+                    :key="index"
+                    size="small"
+                    class="snapshot-node-tag">
+                    {{ node.name || '未命名节点' }}
+                  </el-tag>
+                  <span
+                    v-if="!(row.config_snapshot?.nodes || []).length"
+                    class="snapshot-empty">
+                    无节点信息
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="版本号" width="100">
+          <template #default="{ row }">
+            <el-tag type="primary" size="small">v{{ row.version_number }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" min-width="180">
+          <template #default="{ row }">
+            {{ new Date(row.created_at).toLocaleString() }}
+          </template>
+        </el-table-column>
+        <el-table-column label="创建者" min-width="140">
+          <template #default="{ row }">
+            {{ row.created_by || '-' }}
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="versionDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 
@@ -786,5 +870,38 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
   font-size: 12px;
   color: $text-disabled;
   text-align: right;
+}
+
+.version-snapshot {
+  padding: $spacing-sm $spacing-md;
+  background-color: $bg-color;
+  border-radius: $border-radius-md;
+}
+
+.snapshot-section {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.snapshot-label {
+  font-size: $font-size-sm;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.snapshot-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+}
+
+.snapshot-node-tag {
+  margin-right: 4px;
+}
+
+.snapshot-empty {
+  font-size: $font-size-sm;
+  color: $text-disabled;
 }
 </style>
