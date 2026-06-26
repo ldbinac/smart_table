@@ -672,8 +672,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                     v-for="(node, index) in getVersionNodes(row)"
                     :key="node.id || index"
                     :title="`${node.name || '未命名节点'} (#${node.order + 1 || index + 1})`">
-                    <component
-                      :is="WorkflowVersionNodeSnapshot"
+                    <WorkflowVersionNodeSnapshot
                       :node="node"
                       :fields="fields"
                       :tables="tables"
