@@ -723,8 +723,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
 }
 
 .workflow-sidebar {
-  width: 360px;
-  min-width: 320px;
+  flex-shrink: 0;
   height: 100%;
   border-right: 1px solid $border-color;
   background-color: white;
