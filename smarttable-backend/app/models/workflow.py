@@ -8,9 +8,9 @@ from enum import Enum as PyEnum
 from typing import Optional, Dict, Any, List
 
 from sqlalchemy import String, Text, DateTime, ForeignKey, Integer, Boolean, JSON, Enum, Index
-from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.db_types import CompatUUID as UUID
 from app.extensions import db
 
 
