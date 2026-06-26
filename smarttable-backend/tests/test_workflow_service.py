@@ -2,6 +2,8 @@
 WorkflowService 单元测试
 测试工作流 CRUD、状态管理与触发匹配能力。
 """
+import uuid
+
 import pytest
 from datetime import datetime, timezone
 
@@ -22,7 +24,7 @@ from app.models import (
     BaseMember,
     MemberRole,
 )
-from app.models.workflow import WorkflowNode, WorkflowTrigger
+from app.models.workflow import WorkflowNode, WorkflowTrigger, WorkflowVersion
 from app.services.workflow_service import WorkflowService
 
 
@@ -448,49 +450,45 @@ class TestWorkflowPermission:
             )
 
 
-def test_workflow_version_to_dict_includes_creator_name(ctx, owner, base, table):
-    from app.models.workflow import WorkflowVersion
-    import uuid
+class TestWorkflowVersion:
+    """测试 WorkflowVersion 模型"""
 
-    workflow = Workflow(
-        id=uuid.uuid4(),
-        base_id=base.id,
-        table_id=table.id,
-        name='测试工作流',
-        status=WorkflowStatus.ACTIVE,
-        current_version=1,
-        created_by=owner.id
-    )
-    version = WorkflowVersion(
-        id=uuid.uuid4(),
-        workflow_id=workflow.id,
-        version_number=1,
-        config_snapshot={'nodes': [], 'triggers': []},
-        created_by=owner.id,
-        created_at=datetime.now(timezone.utc)
-    )
-    version.creator = owner
+    def test_to_dict_includes_creator_name(self, ctx, owner, base, table):
+        workflow = Workflow(
+            id=uuid.uuid4(),
+            base_id=base.id,
+            table_id=table.id,
+            name='测试工作流',
+            status=WorkflowStatus.ACTIVE,
+            current_version=1,
+            created_by=owner.id
+        )
+        version = WorkflowVersion(
+            id=uuid.uuid4(),
+            workflow_id=workflow.id,
+            version_number=1,
+            config_snapshot={'nodes': [], 'triggers': []},
+            created_by=owner.id,
+            created_at=datetime.now(timezone.utc)
+        )
+        version.creator = owner
 
-    data = version.to_dict()
+        data = version.to_dict()
 
-    assert data['created_by'] == str(owner.id)
-    assert data['created_by_name'] == owner.name
+        assert data['created_by'] == str(owner.id)
+        assert data['created_by_name'] == owner.name
 
+    def test_to_dict_without_creator(self, ctx):
+        version = WorkflowVersion(
+            id=uuid.uuid4(),
+            workflow_id=uuid.uuid4(),
+            version_number=1,
+            config_snapshot={'nodes': [], 'triggers': []},
+            created_by=None,
+            created_at=datetime.now(timezone.utc)
+        )
 
-def test_workflow_version_to_dict_without_creator(ctx):
-    from app.models.workflow import WorkflowVersion
-    import uuid
+        data = version.to_dict()
 
-    version = WorkflowVersion(
-        id=uuid.uuid4(),
-        workflow_id=uuid.uuid4(),
-        version_number=1,
-        config_snapshot={'nodes': [], 'triggers': []},
-        created_by=None,
-        created_at=datetime.now(timezone.utc)
-    )
-
-    data = version.to_dict()
-
-    assert data['created_by'] is None
-    assert data['created_by_name'] is None
+        assert data['created_by'] is None
+        assert data['created_by_name'] is None
