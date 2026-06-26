@@ -13,6 +13,8 @@ import {
   RefreshRight,
   Connection,
   Switch,
+  Fold,
+  Expand,
 } from "@element-plus/icons-vue";
 
 interface Props {
@@ -36,6 +38,11 @@ const emit = defineEmits<{
 }>();
 
 const workflowStore = useWorkflowStore();
+
+const isCollapsed = ref(false);
+function toggleCollapse() {
+  isCollapsed.value = !isCollapsed.value;
+}
 
 const statusFilter = ref<WorkflowStatus | "all">("all");
 const relationDialogVisible = ref(false);
@@ -191,14 +198,22 @@ function handleSwitchTable() {
 </script>
 
 <template>
-  <div class="workflow-list-panel">
+  <div class="workflow-list-panel" :class="{ collapsed: isCollapsed }">
     <div class="header-actions">
       <el-button :icon="Connection" @click="openRelationDialog">
-        关联关系
+        <span class="btn-text">关联关系</span>
       </el-button>
       <el-button type="primary" :icon="Plus" @click="handleCreate">
-        新建工作流
+        <span class="btn-text">新建工作流</span>
       </el-button>
+      <el-button
+        class="collapse-btn"
+        text
+        circle
+        size="small"
+        :icon="isCollapsed ? Expand : Fold"
+        :title="isCollapsed ? '展开' : '收缩'"
+        @click="toggleCollapse" />
     </div>
     <div class="panel-header">
       <div class="filter-tabs">
