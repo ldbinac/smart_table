@@ -466,7 +466,8 @@ def test_workflow_version_to_dict_includes_creator_name(ctx, owner, base, table)
         workflow_id=workflow.id,
         version_number=1,
         config_snapshot={'nodes': [], 'triggers': []},
-        created_by=owner.id
+        created_by=owner.id,
+        created_at=datetime.now(timezone.utc)
     )
     version.creator = owner
 
@@ -485,7 +486,8 @@ def test_workflow_version_to_dict_without_creator(ctx):
         workflow_id=uuid.uuid4(),
         version_number=1,
         config_snapshot={'nodes': [], 'triggers': []},
-        created_by=None
+        created_by=None,
+        created_at=datetime.now(timezone.utc)
     )
 
     data = version.to_dict()
