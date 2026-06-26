@@ -472,6 +472,7 @@ function handleSwitchTable() {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   width: 360px;
   transition: width 0.3s ease;
   overflow: hidden;
@@ -497,10 +498,11 @@ function handleSwitchTable() {
 
 .workflow-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: $spacing-md;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: 1fr;
   gap: $spacing-md;
   align-content: start;
 
@@ -509,6 +511,15 @@ function handleSwitchTable() {
     display: flex;
     flex-direction: column;
     gap: $spacing-sm;
+  }
+}
+
+.workflow-search {
+  padding: $spacing-sm $spacing-md;
+  border-bottom: 1px solid $border-color;
+
+  .collapsed & {
+    display: none;
   }
 }
 
