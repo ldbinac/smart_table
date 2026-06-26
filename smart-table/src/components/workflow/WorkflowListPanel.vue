@@ -527,6 +527,9 @@ function handleSwitchTable() {
   cursor: pointer;
   transition: all 0.2s ease;
   border: 2px solid #2a2a2a24;
+  // 覆盖 el-card 默认的 overflow: hidden，避免在 grid 布局中被当作滚动容器
+  // 导致行高被压缩为 min-content，从而使卡片内部出现滚动条
+  overflow: visible;
 
   &:hover {
     border-color: $primary-hover;
@@ -548,11 +551,15 @@ function handleSwitchTable() {
 
   :deep(.el-card__body) {
     padding: $spacing-md;
+    overflow: visible;
+    flex-grow: 0;
   }
 
   .collapsed & {
     :deep(.el-card__body) {
       padding: $spacing-sm;
+      overflow: visible;
+      flex-grow: 0;
     }
 
     .card-header {

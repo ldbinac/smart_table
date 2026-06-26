@@ -39,7 +39,7 @@ export const authGuard = async (
     next()
     return
   }
-  
+
   const isAuthenticated = await authStore.checkAuth()
   
   if (isAuthenticated) {
