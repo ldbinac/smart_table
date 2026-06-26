@@ -182,6 +182,7 @@ declare module 'vue' {
     WorkflowNodeConfig: typeof import('./components/workflow/WorkflowNodeConfig.vue')['default']
     WorkflowTemplateGallery: typeof import('./components/workflow/WorkflowTemplateGallery.vue')['default']
     WorkflowTriggerConfig: typeof import('./components/workflow/WorkflowTriggerConfig.vue')['default']
+    WorkflowVersionNodeSnapshot: typeof import('./components/workflow/WorkflowVersionNodeSnapshot.vue')['default']
   }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']
