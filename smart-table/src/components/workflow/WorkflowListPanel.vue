@@ -15,6 +15,7 @@ import {
   Switch,
   Fold,
   Expand,
+  Search,
 } from "@element-plus/icons-vue";
 
 interface Props {
@@ -45,6 +46,7 @@ function toggleCollapse() {
 }
 
 const statusFilter = ref<WorkflowStatus | "all">("all");
+const searchKeyword = ref("");
 const relationDialogVisible = ref(false);
 const switchTableDialogVisible = ref(false);
 const switchTableWorkflow = ref<Workflow | null>(null);
@@ -94,6 +96,16 @@ const isLoading = computed(() => props.loading ?? workflowStore.loading);
 const filteredWorkflows = computed(() => {
   if (statusFilter.value === "all") return workflows.value;
   return workflows.value.filter((w) => w.status === statusFilter.value);
+});
+
+const searchFilteredWorkflows = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase();
+  if (!keyword) return filteredWorkflows.value;
+  return filteredWorkflows.value.filter(
+    (w) =>
+      w.name.toLowerCase().includes(keyword) ||
+      (w.description ?? "").toLowerCase().includes(keyword),
+  );
 });
 
 async function loadWorkflows() {
@@ -228,9 +240,18 @@ function handleSwitchTable() {
       </div>
     </div>
 
+    <div class="workflow-search">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="搜索工作流名称或描述"
+        :prefix-icon="Search"
+        clearable
+        size="small" />
+    </div>
+
     <div v-loading="isLoading" class="workflow-list">
       <el-card
-        v-for="workflow in filteredWorkflows"
+        v-for="workflow in searchFilteredWorkflows"
         :key="workflow.id"
         class="workflow-card"
         :class="{ 'is-active': workflow.id === currentWorkflowId }"
@@ -330,8 +351,8 @@ function handleSwitchTable() {
       </el-card>
 
       <el-empty
-        v-if="filteredWorkflows.length === 0 && !isLoading"
-        description="暂无工作流" />
+        v-if="searchFilteredWorkflows.length === 0 && !isLoading"
+        description="没有找到匹配的工作流" />
     </div>
 
     <!-- 关联关系可视化弹窗 -->
