@@ -19,6 +19,7 @@ import WorkflowExecutionLogPanel from "@/components/workflow/WorkflowExecutionLo
 import WebhookConfigPanel from "@/components/workflow/WebhookConfigPanel.vue";
 import WebhookDeliveryList from "@/components/workflow/WebhookDeliveryList.vue";
 import WorkflowTemplateGallery from "@/components/workflow/WorkflowTemplateGallery.vue";
+import WorkflowVersionNodeSnapshot from "@/components/workflow/WorkflowVersionNodeSnapshot.vue";
 import type {
   Workflow,
   WorkflowNode,
@@ -26,6 +27,7 @@ import type {
   WorkflowInstance,
   WorkflowExecutionLog,
   WebhookConfig,
+  WorkflowVersion,
 } from "@/types/workflow";
 import type { FieldEntity } from "@/db/schema";
 
@@ -394,6 +396,10 @@ function handleWebhookSaved(webhook: WebhookConfig) {
 function getWebhookStatusType(isActive: boolean): "success" | "info" {
   return isActive ? "success" : "info";
 }
+
+function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
+  return (version.config_snapshot.nodes as WorkflowNode[]) ?? [];
+}
 </script>
 
 <template>
@@ -656,21 +662,24 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
           <template #default="{ row }">
             <div class="version-snapshot">
               <div class="snapshot-section">
-                <div class="snapshot-label">节点快照：</div>
-                <div class="snapshot-nodes">
-                  <el-tag
-                    v-for="(node, index) in row.config_snapshot?.nodes || []"
-                    :key="index"
-                    size="small"
-                    class="snapshot-node-tag">
-                    {{ node.name || '未命名节点' }}
-                  </el-tag>
-                  <span
-                    v-if="!(row.config_snapshot?.nodes || []).length"
-                    class="snapshot-empty">
-                    无节点信息
-                  </span>
-                </div>
+                <div class="snapshot-label">节点列表：</div>
+                <el-empty
+                  v-if="!(row.config_snapshot?.nodes || []).length"
+                  description="无节点信息"
+                  :image-size="60" />
+                <el-collapse v-else>
+                  <el-collapse-item
+                    v-for="(node, index) in getVersionNodes(row)"
+                    :key="node.id || index"
+                    :title="`${node.name || '未命名节点'} (#${node.order + 1 || index + 1})`">
+                    <component
+                      :is="WorkflowVersionNodeSnapshot"
+                      :node="node"
+                      :fields="fields"
+                      :tables="tables"
+                      :webhooks="workflowStore.webhooks" />
+                  </el-collapse-item>
+                </el-collapse>
               </div>
             </div>
           </template>
@@ -687,7 +696,7 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
         </el-table-column>
         <el-table-column label="创建者" min-width="140">
           <template #default="{ row }">
-            {{ row.created_by || '-' }}
+            {{ row.created_by_name || row.created_by || '-' }}
           </template>
         </el-table-column>
       </el-table>
@@ -881,27 +890,12 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
 .snapshot-section {
   display: flex;
   flex-direction: column;
-  gap: $spacing-xs;
+  gap: $spacing-sm;
 }
 
 .snapshot-label {
   font-size: $font-size-sm;
   font-weight: 500;
   color: $text-secondary;
-}
-
-.snapshot-nodes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $spacing-xs;
-}
-
-.snapshot-node-tag {
-  margin-right: 4px;
-}
-
-.snapshot-empty {
-  font-size: $font-size-sm;
-  color: $text-disabled;
 }
 </style>
