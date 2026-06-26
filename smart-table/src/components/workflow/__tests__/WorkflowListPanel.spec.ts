@@ -195,4 +195,14 @@ describe('WorkflowListPanel', () => {
     await input.setValue('')
     expect(wrapper.findAll('.workflow-card').length).toBe(2)
   })
+
+  it('keeps search input in DOM when collapsed', async () => {
+    const wrapper = mountPanel()
+
+    await wrapper.find('.collapse-btn').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.workflow-list-panel').classes()).toContain('collapsed')
+    expect(wrapper.find('.workflow-search').exists()).toBe(true)
+  })
 })
