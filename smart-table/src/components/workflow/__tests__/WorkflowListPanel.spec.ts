@@ -26,12 +26,11 @@ const mockWorkflow: Workflow = {
   status: 'draft',
   current_version: 1,
   table_id: null,
+  is_deleted: false,
   created_by: 'u1',
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
-  trigger_config: {},
-  nodes_config: []
-} as any
+}
 
 const globalComponents = {
   ElButton,
@@ -91,7 +90,7 @@ describe('WorkflowListPanel', () => {
     expect(panel.classes()).not.toContain('collapsed')
   })
 
-  it('hides filter tabs and description in collapsed state', async () => {
+  it('keeps filter tabs and description in DOM when collapsed', async () => {
     const wrapper = mountPanel()
 
     await wrapper.find('.collapse-btn').trigger('click')
@@ -99,8 +98,9 @@ describe('WorkflowListPanel', () => {
 
     const panel = wrapper.find('.workflow-list-panel')
     expect(panel.classes()).toContain('collapsed')
-    expect(panel.find('.filter-tabs').exists()).toBe(true)
-    expect(panel.find('.workflow-description').exists()).toBe(true)
+    // 在 jsdom 中 scoped CSS 的可见性由 CSS 负责控制，这里只验证元素仍保留在 DOM 中
+    expect(wrapper.find('.filter-tabs').exists()).toBe(true)
+    expect(wrapper.find('.workflow-description').exists()).toBe(true)
   })
 
   it('changes collapse button title based on state', async () => {
