@@ -451,6 +451,13 @@ function handleSwitchTable() {
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 360px;
+  transition: width 0.3s ease;
+  overflow: hidden;
+
+  &.collapsed {
+    width: 72px;
+  }
 }
 
 .panel-header {
@@ -461,6 +468,12 @@ function handleSwitchTable() {
   border-bottom: 1px solid $border-color;
 }
 
+.filter-tabs {
+  .collapsed & {
+    display: none;
+  }
+}
+
 .workflow-list {
   flex: 1;
   overflow-y: auto;
@@ -469,6 +482,13 @@ function handleSwitchTable() {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: $spacing-md;
   align-content: start;
+
+  .collapsed & {
+    padding: $spacing-sm;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
 }
 
 .workflow-card {
@@ -496,6 +516,46 @@ function handleSwitchTable() {
 
   :deep(.el-card__body) {
     padding: $spacing-md;
+  }
+
+  .collapsed & {
+    :deep(.el-card__body) {
+      padding: $spacing-sm;
+    }
+
+    .card-header {
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 0;
+    }
+
+    .workflow-info {
+      flex-direction: column;
+      align-items: center;
+      gap: $spacing-xs;
+    }
+
+    .workflow-name {
+      font-size: $font-size-sm;
+      text-align: center;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .workflow-version,
+    .workflow-table-link,
+    .workflow-description,
+    .workflow-meta,
+    .card-actions {
+      display: none;
+    }
+
+    .el-tag {
+      transform: scale(0.85);
+    }
   }
 }
 
@@ -633,5 +693,31 @@ function handleSwitchTable() {
   gap: $spacing-sm;
   margin-top: $spacing-md;
   margin-left: $spacing-lg;
+
+  .btn-text {
+    transition: opacity 0.2s ease;
+  }
+
+  .collapse-btn {
+    margin-left: auto;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: var(--el-fill-color-light);
+    }
+  }
+
+  .collapsed & {
+    margin-left: $spacing-sm;
+    margin-right: $spacing-sm;
+
+    .btn-text {
+      display: none;
+    }
+
+    .el-button:not(.collapse-btn) {
+      padding: 0 8px;
+    }
+  }
 }
 </style>
