@@ -664,7 +664,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
               <div class="snapshot-section">
                 <div class="snapshot-label">节点列表：</div>
                 <el-empty
-                  v-if="!(row.config_snapshot?.nodes || []).length"
+                  v-if="getVersionNodes(row).length === 0"
                   description="无节点信息"
                   :image-size="60" />
                 <el-collapse v-else>
