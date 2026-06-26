@@ -3,9 +3,9 @@ WorkflowService 单元测试
 测试工作流 CRUD、状态管理与触发匹配能力。
 """
 import uuid
+from datetime import datetime, timezone
 
 import pytest
-from datetime import datetime, timezone
 
 from app import create_app
 from app.extensions import db
@@ -454,6 +454,7 @@ class TestWorkflowVersion:
     """测试 WorkflowVersion 模型"""
 
     def test_to_dict_includes_creator_name(self, ctx, owner, base, table):
+        """测试 WorkflowVersion.to_dict 包含创建者名称"""
         workflow = Workflow(
             id=uuid.uuid4(),
             base_id=base.id,
@@ -479,6 +480,7 @@ class TestWorkflowVersion:
         assert data['created_by_name'] == owner.name
 
     def test_to_dict_without_creator(self, ctx):
+        """测试 WorkflowVersion.to_dict 在无创建者时返回 None"""
         version = WorkflowVersion(
             id=uuid.uuid4(),
             workflow_id=uuid.uuid4(),
