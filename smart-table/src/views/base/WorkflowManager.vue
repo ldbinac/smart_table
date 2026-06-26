@@ -398,7 +398,8 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
 }
 
 function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
-  return (version.config_snapshot.nodes as WorkflowNode[]) ?? [];
+  const nodes = version.config_snapshot?.nodes;
+  return Array.isArray(nodes) ? (nodes as WorkflowNode[]) : [];
 }
 </script>
 
