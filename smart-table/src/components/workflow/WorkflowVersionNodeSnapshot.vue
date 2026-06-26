@@ -136,8 +136,8 @@ const configEntries = computed(() => {
     </div>
     <div class="snapshot-body">
       <div
-        v-for="entry in configEntries"
-        :key="entry.label"
+        v-for="(entry, index) in configEntries"
+        :key="`${entry.label}-${index}`"
         class="snapshot-row">
         <span class="row-label">{{ entry.label }}：</span>
         <span class="row-value">{{ entry.value }}</span>
