@@ -200,10 +200,10 @@ function handleSwitchTable() {
 <template>
   <div class="workflow-list-panel" :class="{ collapsed: isCollapsed }">
     <div class="header-actions">
-      <el-button :icon="Connection" @click="openRelationDialog">
+      <el-button class="action-btn" :icon="Connection" @click="openRelationDialog">
         <span class="btn-text">关联关系</span>
       </el-button>
-      <el-button type="primary" :icon="Plus" @click="handleCreate">
+      <el-button class="action-btn" type="primary" :icon="Plus" @click="handleCreate">
         <span class="btn-text">新建工作流</span>
       </el-button>
       <el-button
@@ -540,6 +540,7 @@ function handleSwitchTable() {
       text-align: center;
       display: -webkit-box;
       -webkit-line-clamp: 2;
+      /* autoprefixer: ignore next */
       -webkit-box-orient: vertical;
       overflow: hidden;
       width: 100%;
@@ -711,12 +712,17 @@ function handleSwitchTable() {
     margin-left: $spacing-sm;
     margin-right: $spacing-sm;
 
+    .action-btn {
+      display: none;
+    }
+
     .btn-text {
       display: none;
     }
 
-    .el-button:not(.collapse-btn) {
-      padding: 0 8px;
+    .collapse-btn {
+      margin-left: 0;
+      width: 100%;
     }
   }
 }
