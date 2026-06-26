@@ -690,7 +690,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
         </el-table-column>
         <el-table-column label="创建时间" min-width="180">
           <template #default="{ row }">
-            {{ new Date(row.created_at).toLocaleString() }}
+            {{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}
           </template>
         </el-table-column>
         <el-table-column label="创建者" min-width="140">
