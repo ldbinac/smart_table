@@ -259,6 +259,7 @@ class WorkflowVersion(db.Model):
             'version_number': self.version_number,
             'config_snapshot': self.config_snapshot or {},
             'created_by': str(self.created_by) if self.created_by else None,
+            'created_by_name': self.creator.name if self.creator else None,
             'created_at': self.created_at.isoformat()
         }
 
