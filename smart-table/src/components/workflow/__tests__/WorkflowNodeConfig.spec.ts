@@ -59,6 +59,8 @@ describe('WorkflowNodeConfig', () => {
   const mockFields = [
     { id: 'field-1', name: '标题', type: 'single_line_text' },
     { id: 'field-2', name: '状态', type: 'single_select' },
+    { id: 'field-3', name: '完成度', type: 'progress' },
+    { id: 'field-4', name: '是否通过', type: 'checkbox' },
   ];
 
   function mountConfig(overrideProps: any = {}) {
@@ -78,7 +80,7 @@ describe('WorkflowNodeConfig', () => {
             emits: ['click'],
           },
           'el-input': {
-            template: '<input class="el-input name-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @blur="$emit(\'blur\')" @keydown="$emit(\'keydown\', $event)" />',
+            template: '<input class="el-input" :class="$props.class" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @blur="$emit(\'blur\')" @keydown="$emit(\'keydown\', $event)" />',
             props: ['modelValue', 'size', 'class'],
             emits: ['update:modelValue', 'blur', 'keydown'],
           },
@@ -88,7 +90,7 @@ describe('WorkflowNodeConfig', () => {
           'el-radio': { template: '<label class="el-radio"><slot /></label>' },
           'el-select': { template: '<select class="el-select"><slot /></select>' },
           'el-option': { template: '<option class="el-option"><slot /></option>' },
-          'el-input-number': { template: '<input class="el-input-number" /><slot /></div>' },
+          'el-input-number': { template: '<div class="el-input-number"><input /><slot /></div>' },
           'el-date-picker': { template: '<input class="el-date-picker" />' },
           'el-switch': { template: '<button class="el-switch" @click="$emit(\'update:modelValue\', !modelValue)"><slot /></button>', props: ['modelValue'], emits: ['update:modelValue'] },
           'el-rate': { template: '<div class="el-rate"><slot /></div>' },
@@ -178,5 +180,117 @@ describe('WorkflowNodeConfig', () => {
     await nextTick();
 
     expect(wrapper.find('.node-name').text()).toBe('审批节点 1');
+  });
+
+  it('更新记录节点的静态值字段应直接显示 FieldValueInput 且隐藏值模板输入', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'update_record',
+        config: {
+          updates: [{ field_id: 'field-2', value_template: '' }],
+        },
+      },
+    });
+    await nextTick();
+
+    expect(wrapper.find('.template-input').exists()).toBe(false);
+    expect(wrapper.find('.field-value-input').exists()).toBe(true);
+    expect(wrapper.find('.el-switch').exists()).toBe(false);
+  });
+
+  it('更新记录节点的非静态值字段默认启用静态值模式', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'update_record',
+        config: {
+          updates: [{ field_id: 'field-1', value_template: '' }],
+        },
+      },
+    });
+    await nextTick();
+
+    expect(wrapper.find('.template-input').exists()).toBe(false);
+    expect(wrapper.findAll('.el-switch').length).toBe(1);
+    expect(wrapper.find('.field-value-input').exists()).toBe(true);
+  });
+
+  it('更新记录节点开启表达式开关后显示表达式输入', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'update_record',
+        config: {
+          updates: [{ field_id: 'field-1', value_template: '' }],
+        },
+      },
+    });
+    await nextTick();
+
+    const switchEl = wrapper.find('.el-switch');
+    expect(switchEl.exists()).toBe(true);
+
+    await switchEl.trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.template-input').exists()).toBe(true);
+    expect(wrapper.find('.field-value-input').exists()).toBe(false);
+  });
+
+  it('创建记录节点的静态值字段应直接显示 FieldValueInput 且隐藏值模板输入', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'create_record',
+        config: {
+          field_mappings: [{ target_field_id: 'field-3', source_field_id: '', value_template: '' }],
+        },
+      },
+    });
+    await nextTick();
+
+    expect(wrapper.find('.template-input').exists()).toBe(false);
+    expect(wrapper.find('.field-value-input').exists()).toBe(true);
+    expect(wrapper.find('.el-switch').exists()).toBe(false);
+  });
+
+  it('创建记录节点的非静态值字段默认启用静态值模式', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'create_record',
+        config: {
+          field_mappings: [{ target_field_id: 'field-1', source_field_id: '', value_template: '' }],
+        },
+      },
+    });
+    await nextTick();
+
+    expect(wrapper.find('.template-input').exists()).toBe(false);
+    expect(wrapper.findAll('.el-switch').length).toBe(1);
+    expect(wrapper.find('.field-value-input').exists()).toBe(true);
+  });
+
+  it('创建记录节点开启表达式开关后显示表达式输入', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'create_record',
+        config: {
+          field_mappings: [{ target_field_id: 'field-1', source_field_id: '', value_template: '' }],
+        },
+      },
+    });
+    await nextTick();
+
+    const switchEl = wrapper.find('.el-switch');
+    expect(switchEl.exists()).toBe(true);
+
+    await switchEl.trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.template-input').exists()).toBe(true);
+    expect(wrapper.find('.field-value-input').exists()).toBe(false);
   });
 });

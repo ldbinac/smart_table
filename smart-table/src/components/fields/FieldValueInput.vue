@@ -8,6 +8,7 @@ import {
   ElDatePicker,
   ElSwitch,
   ElRate,
+  ElSlider,
 } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types/fields";
@@ -83,7 +84,13 @@ function getSingleSelectValue() {
 }
 
 function getMultiSelectValue() {
-  return Array.isArray(props.modelValue) ? (props.modelValue as string[]) : [];
+  if (Array.isArray(props.modelValue)) {
+    return props.modelValue as string[];
+  }
+  if (typeof props.modelValue === "string" && props.modelValue) {
+    return props.modelValue.split(",");
+  }
+  return [];
 }
 
 function getDateValue() {
@@ -93,10 +100,14 @@ function getDateValue() {
 }
 
 function getCheckboxValue() {
-  return Boolean(props.modelValue);
+  return props.modelValue === true || props.modelValue === "true";
 }
 
 function getRatingValue() {
+  return Number(props.modelValue) || 0;
+}
+
+function getProgressValue() {
   return Number(props.modelValue) || 0;
 }
 
@@ -124,6 +135,8 @@ function getComponentType() {
       return "checkbox";
     case FieldType.RATING:
       return "rating";
+    case FieldType.PROGRESS:
+      return "progress";
     default:
       return "text";
   }
@@ -245,6 +258,17 @@ function getComponentType() {
       <ElRate
         :model-value="getRatingValue()"
         :max="(field.options?.maxRating as number) ?? 5"
+        :disabled="disabled"
+        class="input-control"
+        @update:model-value="update" />
+    </template>
+
+    <!-- 进度 -->
+    <template v-else-if="getComponentType() === 'progress'">
+      <ElSlider
+        :model-value="getProgressValue()"
+        :min="(field.options?.min as number) ?? 0"
+        :max="(field.options?.max as number) ?? 100"
         :disabled="disabled"
         class="input-control"
         @update:model-value="update" />

@@ -14,6 +14,8 @@ import {
   OPERATOR_LABELS,
   operatorRequiresValue,
 } from "@/utils/filter";
+import { FieldType } from "@/types/fields";
+import type { FieldTypeValue } from "@/types/fields";
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import {
   Delete,
@@ -197,6 +199,18 @@ function getFieldById(fieldId: string) {
   return props.fields.find((f) => f.id === fieldId);
 }
 
+const STATIC_ONLY_FIELD_TYPES: FieldTypeValue[] = [
+  FieldType.SINGLE_SELECT,
+  FieldType.MULTI_SELECT,
+  FieldType.RATING,
+  FieldType.PROGRESS,
+  FieldType.CHECKBOX,
+];
+
+function isStaticOnlyFieldType(fieldType: string): boolean {
+  return STATIC_ONLY_FIELD_TYPES.includes(fieldType as FieldTypeValue);
+}
+
 function getOperatorOptions(fieldType: string) {
   return getOperatorsForFieldType(fieldType).map((op) => ({
     value: op,
@@ -238,6 +252,10 @@ function renderConditionValue(condition: ConditionItem): string {
   return String(condition.value);
 }
 
+function isExpressionTemplate(value: string | undefined): boolean {
+  return typeof value === "string" && value.includes("{{") && value.includes("}}");
+}
+
 // ==================== 更新记录节点配置 ====================
 
 interface FieldUpdateMapping {
@@ -263,16 +281,38 @@ function removeUpdateMapping(index: number) {
   updateMappings.value = list;
 }
 
+const useExpressionForUpdate = ref<Record<number, boolean>>({});
+
+function initUpdateModeState() {
+  updateMappings.value.forEach((mapping, index) => {
+    if (useExpressionForUpdate.value[index] === undefined) {
+      useExpressionForUpdate.value[index] = isExpressionTemplate(mapping.value_template);
+    }
+  });
+}
+
+watch(updateMappings, initUpdateModeState, { immediate: true });
+
 function updateMappingFieldId(index: number, fieldId: string) {
   const list = [...updateMappings.value];
-  list[index] = { ...list[index], field_id: fieldId };
+  list[index] = { field_id: fieldId, value_template: "" };
   updateMappings.value = list;
+  useExpressionForUpdate.value[index] = false;
 }
 
 function updateMappingTemplate(index: number, template: string) {
   const list = [...updateMappings.value];
   list[index] = { ...list[index], value_template: template };
   updateMappings.value = list;
+}
+
+function onUpdateStaticValueChange(index: number, value: unknown) {
+  const stringValue = value === null || value === undefined ? "" : String(value);
+  updateMappingTemplate(index, stringValue);
+}
+
+function toggleExpressionForUpdate(index: number, value: boolean) {
+  useExpressionForUpdate.value[index] = value;
 }
 
 // ==================== 创建记录节点配置 ====================
@@ -306,14 +346,47 @@ function removeCreateMapping(index: number) {
   createRecordMappings.value = list;
 }
 
+const useExpressionForCreate = ref<Record<number, boolean>>({});
+
+function initCreateModeState() {
+  createRecordMappings.value.forEach((mapping, index) => {
+    if (useExpressionForCreate.value[index] === undefined) {
+      useExpressionForCreate.value[index] = isExpressionTemplate(mapping.value_template);
+    }
+  });
+}
+
+watch(createRecordMappings, initCreateModeState, { immediate: true });
+
 function updateCreateMapping(index: number, patch: Partial<FieldMapping>) {
   const list = [...createRecordMappings.value];
-  list[index] = { ...list[index], ...patch };
+  const shouldClearValue = "target_field_id" in patch;
+  list[index] = {
+    ...list[index],
+    ...patch,
+    ...(shouldClearValue ? { value_template: "" } : {}),
+  };
   createRecordMappings.value = list;
+  if (shouldClearValue) {
+    useExpressionForCreate.value[index] = false;
+  }
+}
+
+function updateCreateValueTemplate(index: number, template: string) {
+  updateCreateMapping(index, { value_template: template });
+}
+
+function onCreateStaticValueChange(index: number, value: unknown) {
+  const stringValue = value === null || value === undefined ? "" : String(value);
+  updateCreateValueTemplate(index, stringValue);
+}
+
+function toggleExpressionForCreate(index: number, value: boolean) {
+  useExpressionForCreate.value[index] = value;
 }
 
 const targetTableFields = computed(() => {
-  // 当前仅展示源表字段；目标表字段在真实场景中需额外加载
+  // 当前仅展示源表字段；真实场景中需额外加载目标表字段
   return props.fields;
 });
 
@@ -579,7 +652,7 @@ const nodeTypeLabel = computed(() => {
         <div
           v-for="(mapping, index) in updateMappings"
           :key="index"
-          class="mapping-row">
+          class="mapping-row update-record-mapping-row">
           <el-select
             :model-value="mapping.field_id"
             placeholder="目标字段"
@@ -593,12 +666,49 @@ const nodeTypeLabel = computed(() => {
               :value="field.id" />
           </el-select>
 
-          <el-input
-            :model-value="mapping.value_template"
-            placeholder="新值（支持 {{trigger.record.field_id}}）"
-            class="template-input"
-            :disabled="readonly"
-            @update:model-value="(val) => updateMappingTemplate(index, val)" />
+          <div class="template-input-column">
+            <template v-if="!isStaticOnlyFieldType(getFieldById(mapping.field_id)?.type ?? '')">
+              <div class="mode-switch-row">
+                <el-switch
+                  :model-value="useExpressionForUpdate[index]"
+                  :disabled="readonly || !mapping.field_id"
+                  size="small"
+                  active-text="使用表达式"
+                  inactive-text="使用静态值"
+                  @update:model-value="(val) => toggleExpressionForUpdate(index, val as boolean)" />
+              </div>
+
+              <el-input
+                v-if="useExpressionForUpdate[index]"
+                :model-value="mapping.value_template"
+                placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
+                class="template-input"
+                :disabled="readonly"
+                @update:model-value="(val) => updateMappingTemplate(index, val)" />
+
+              <FieldValueInput
+                v-if="!useExpressionForUpdate[index] && mapping.field_id"
+                :key="`update-static-${index}`"
+                :field="getFieldById(mapping.field_id)!"
+                :model-value="mapping.value_template"
+                placeholder="输入静态值"
+                class="static-value-input"
+                :disabled="readonly"
+                @update:model-value="(val) => onUpdateStaticValueChange(index, val)" />
+            </template>
+
+            <template v-else>
+              <FieldValueInput
+                v-if="mapping.field_id"
+                :key="`update-static-${index}`"
+                :field="getFieldById(mapping.field_id)!"
+                :model-value="mapping.value_template"
+                placeholder="输入静态值"
+                class="static-value-input"
+                :disabled="readonly"
+                @update:model-value="(val) => onUpdateStaticValueChange(index, val)" />
+            </template>
+          </div>
 
           <el-button
             v-if="!readonly"
@@ -606,6 +716,7 @@ const nodeTypeLabel = computed(() => {
             :icon="Delete"
             circle
             size="small"
+            class="delete-btn"
             @click="removeUpdateMapping(index)" />
         </div>
 
@@ -633,40 +744,79 @@ const nodeTypeLabel = computed(() => {
         <div
           v-for="(mapping, index) in createRecordMappings"
           :key="index"
-          class="mapping-row">
-          <el-select
-            :model-value="mapping.target_field_id"
-            placeholder="目标字段"
-            class="field-select"
-            :disabled="readonly"
-            @change="(val) => updateCreateMapping(index, { target_field_id: val as string })">
-            <el-option
-              v-for="field in targetTableFields"
-              :key="field.id"
-              :label="field.name"
-              :value="field.id" />
-          </el-select>
+          class="mapping-row create-record-mapping-row">
+          <div class="field-select-group">
+            <el-select
+              :model-value="mapping.target_field_id"
+              placeholder="目标字段"
+              class="field-select"
+              :disabled="readonly"
+              @change="(val) => updateCreateMapping(index, { target_field_id: val as string })">
+              <el-option
+                v-for="field in targetTableFields"
+                :key="field.id"
+                :label="field.name"
+                :value="field.id" />
+            </el-select>
 
-          <el-select
-            :model-value="mapping.source_field_id"
-            placeholder="源字段（可选）"
-            clearable
-            class="field-select"
-            :disabled="readonly"
-            @change="(val) => updateCreateMapping(index, { source_field_id: val as string | undefined })">
-            <el-option
-              v-for="field in fields"
-              :key="field.id"
-              :label="field.name"
-              :value="field.id" />
-          </el-select>
+            <el-select
+              :model-value="mapping.source_field_id"
+              placeholder="源字段（可选）"
+              clearable
+              class="field-select"
+              :disabled="readonly"
+              @change="(val) => updateCreateMapping(index, { source_field_id: val as string | undefined })">
+              <el-option
+                v-for="field in fields"
+                :key="field.id"
+                :label="field.name"
+                :value="field.id" />
+            </el-select>
+          </div>
 
-          <el-input
-            :model-value="mapping.value_template"
-            placeholder="或填写模板值"
-            class="template-input"
-            :disabled="readonly"
-            @update:model-value="(val) => updateCreateMapping(index, { value_template: val })" />
+          <div class="template-input-column">
+            <template v-if="!isStaticOnlyFieldType(getFieldById(mapping.target_field_id)?.type ?? '')">
+              <div class="mode-switch-row">
+                <el-switch
+                  :model-value="useExpressionForCreate[index]"
+                  :disabled="readonly || !mapping.target_field_id"
+                  size="small"
+                  active-text="使用表达式"
+                  inactive-text="使用静态值"
+                  @update:model-value="(val) => toggleExpressionForCreate(index, val as boolean)" />
+              </div>
+
+              <el-input
+                v-if="useExpressionForCreate[index]"
+                :model-value="mapping.value_template"
+                placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
+                class="template-input"
+                :disabled="readonly"
+                @update:model-value="(val) => updateCreateValueTemplate(index, val)" />
+
+              <FieldValueInput
+                v-if="!useExpressionForCreate[index] && mapping.target_field_id"
+                :key="`create-static-${index}`"
+                :field="getFieldById(mapping.target_field_id)!"
+                :model-value="mapping.value_template"
+                placeholder="输入静态值"
+                class="static-value-input"
+                :disabled="readonly"
+                @update:model-value="(val) => onCreateStaticValueChange(index, val)" />
+            </template>
+
+            <template v-else>
+              <FieldValueInput
+                v-if="mapping.target_field_id"
+                :key="`create-static-${index}`"
+                :field="getFieldById(mapping.target_field_id)!"
+                :model-value="mapping.value_template"
+                placeholder="输入静态值"
+                class="static-value-input"
+                :disabled="readonly"
+                @update:model-value="(val) => onCreateStaticValueChange(index, val)" />
+            </template>
+          </div>
 
           <el-button
             v-if="!readonly"
@@ -674,6 +824,7 @@ const nodeTypeLabel = computed(() => {
             :icon="Delete"
             circle
             size="small"
+            class="delete-btn"
             @click="removeCreateMapping(index)" />
         </div>
 
@@ -873,11 +1024,16 @@ const nodeTypeLabel = computed(() => {
 .condition-row,
 .mapping-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: $spacing-sm;
   padding: $spacing-sm;
   background-color: $bg-color;
   border-radius: $border-radius-md;
+}
+
+.delete-btn {
+  margin-top: 6px;
+  flex-shrink: 0;
 }
 
 .condition-row {
@@ -898,6 +1054,63 @@ const nodeTypeLabel = computed(() => {
 .value-input,
 .template-input {
   flex: 1;
+}
+
+.template-input-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  min-width: 0;
+}
+
+.mode-switch-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-xs 0;
+}
+
+.update-record-mapping-row {
+  .field-select {
+    flex: 0 0 40%;
+    min-width: 0;
+  }
+
+  .template-input-column {
+    flex: 0 0 60%;
+    min-width: 0;
+  }
+}
+
+.create-record-mapping-row {
+  .field-select-group {
+    flex: 0 0 50%;
+    display: flex;
+    gap: $spacing-sm;
+    min-width: 0;
+
+    .field-select {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  .template-input-column {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.static-value-row {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  padding-left: $spacing-sm;
+}
+
+.static-value-input {
+  width: 100%;
 }
 
 .value-placeholder {
