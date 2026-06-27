@@ -17,6 +17,7 @@ import {
 import {
   Delete,
   Plus,
+  EditPen,
 } from "@element-plus/icons-vue";
 
 interface Props {
@@ -60,6 +61,46 @@ watch(
 
 function cloneConfig(config: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(config));
+}
+
+// ==================== 节点名称编辑 ====================
+
+const isEditingName = ref(false);
+const editingName = ref("");
+const nameInputRef = ref<any>(null);
+
+function startEditName() {
+  if (props.readonly) return;
+  editingName.value = localNode.value.name;
+  isEditingName.value = true;
+  nextTick(() => {
+    const inputEl = nameInputRef.value?.$el?.querySelector?.('input') ?? nameInputRef.value;
+    if (inputEl && typeof inputEl.focus === 'function') {
+      inputEl.focus();
+    }
+  });
+}
+
+function saveName() {
+  const trimmed = editingName.value.trim();
+  if (trimmed) {
+    localNode.value = { ...localNode.value, name: trimmed };
+  }
+  isEditingName.value = false;
+}
+
+function cancelEditName() {
+  isEditingName.value = false;
+}
+
+function handleNameKeydown(event: Event | KeyboardEvent) {
+  if (event instanceof KeyboardEvent) {
+    if (event.key === "Enter") {
+      saveName();
+    } else if (event.key === "Escape") {
+      cancelEditName();
+    }
+  }
 }
 
 function configValue<T>(key: string, defaultValue: T): T {
@@ -369,7 +410,26 @@ const nodeTypeLabel = computed(() => {
   <div class="workflow-node-config">
     <div class="config-header">
       <span class="node-type-tag">{{ nodeTypeLabel }}</span>
-      <span class="node-name">{{ localNode.name }}</span>
+      <template v-if="isEditingName">
+        <el-input
+          ref="nameInputRef"
+          v-model="editingName"
+          size="small"
+          class="name-input"
+          @blur="saveName"
+          @keydown="handleNameKeydown" />
+      </template>
+      <template v-else>
+        <span class="node-name">{{ localNode.name }}</span>
+        <el-button
+          v-if="!readonly"
+          type="primary"
+          :icon="EditPen"
+          link
+          size="small"
+          class="edit-name-btn"
+          @click="startEditName" />
+      </template>
     </div>
 
     <!-- 审批节点 -->
@@ -779,6 +839,16 @@ const nodeTypeLabel = computed(() => {
 .node-name {
   font-weight: 600;
   color: $text-primary;
+}
+
+.name-input {
+  flex: 1;
+  min-width: 120px;
+  max-width: 300px;
+}
+
+.edit-name-btn {
+  margin-left: $spacing-xs;
 }
 
 .config-form {

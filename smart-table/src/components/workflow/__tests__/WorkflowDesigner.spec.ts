@@ -50,6 +50,8 @@ vi.mock('@element-plus/icons-vue', () => ({
   Delete: { template: '<span class="icon-delete" />' },
   Rank: { template: '<span class="icon-rank" />' },
   CircleClose: { template: '<span class="icon-circle-close" />' },
+  Timer: { template: '<span class="icon-timer" />' },
+  CopyDocument: { template: '<span class="icon-copy-document" />' },
 }));
 
 describe('WorkflowDesigner', () => {
@@ -216,7 +218,7 @@ describe('WorkflowDesigner', () => {
     expect(wrapper.find('.el-empty').exists()).toBe(true);
   });
 
-  it('子组件更新节点应该触发 update:nodes 事件', async () => {
+  it('子组件更新节点应该触发 update:nodes 事件并同步左侧列表名称', async () => {
     const wrapper = mountDesigner();
     await nextTick();
     const nodeConfig = wrapper.findComponent({ name: 'WorkflowNodeConfig' });
@@ -228,6 +230,10 @@ describe('WorkflowDesigner', () => {
     expect(emitted).toBeTruthy();
     const lastNodes = emitted[emitted.length - 1][0] as any[];
     expect(lastNodes[0].name).toBe('更新后的节点');
+
+    // 验证左侧列表 DOM 同步更新
+    const nodeItems = wrapper.findAll('.node-item');
+    expect(nodeItems[0].find('.node-name').text()).toBe('更新后的节点');
   });
 
   it('触发器更新应该触发 update:trigger 事件', async () => {

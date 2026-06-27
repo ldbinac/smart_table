@@ -292,8 +292,7 @@ function handleSwitchTable() {
         </div>
 
         <div class="workflow-meta">
-          <span>创建于 {{ formatDate(workflow.created_at) }}</span>
-          <span>更新于 {{ formatDate(workflow.updated_at) }}</span>
+          <span>创建于 {{ formatDate(workflow.created_at) }} &nbsp; &nbsp;更新于 {{ formatDate(workflow.updated_at) }}</span>
         </div>
 
         <div class="card-actions">
@@ -647,10 +646,10 @@ function handleSwitchTable() {
 }
 
 .workflow-meta {
-  display: flex;
+  // display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: $text-disabled;
   margin-bottom: $spacing-sm;
 }
