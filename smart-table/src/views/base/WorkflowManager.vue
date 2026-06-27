@@ -501,7 +501,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                   <el-table-column prop="name" label="名称" min-width="140" />
                   <el-table-column prop="method" label="方法" width="80" />
                   <el-table-column prop="url" label="URL" min-width="200" show-overflow-tooltip />
-                  <el-table-column label="状态" width="80">
+                  <el-table-column label="状态" width="80" fixed="right">
                     <template #default="{ row }">
                       <el-tag :type="getWebhookStatusType(row.is_active)" size="small">
                         {{ row.is_active ? "启用" : "禁用" }}
