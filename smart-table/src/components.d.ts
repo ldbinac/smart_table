@@ -105,6 +105,7 @@ declare module 'vue' {
     FieldComponentFactory: typeof import('./components/fields/FieldComponentFactory.vue')['default']
     FieldConfigPanel: typeof import('./components/fields/FieldConfigPanel.vue')['default']
     FieldDialog: typeof import('./components/dialogs/FieldDialog.vue')['default']
+    FieldValueInput: typeof import('./components/fields/FieldValueInput.vue')['default']
     FilterCondition: typeof import('./components/filters/FilterCondition.vue')['default']
     FilterDialog: typeof import('./components/dialogs/FilterDialog.vue')['default']
     FilterPanel: typeof import('./components/filters/FilterPanel.vue')['default']

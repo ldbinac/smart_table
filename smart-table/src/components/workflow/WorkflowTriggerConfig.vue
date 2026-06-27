@@ -9,6 +9,7 @@ import {
   OPERATOR_LABELS,
   operatorRequiresValue,
 } from "@/utils/filter";
+import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import { Delete, Plus } from "@element-plus/icons-vue";
 
 interface Props {
@@ -244,9 +245,10 @@ function onFilterValueChange(index: number, value: unknown) {
             </el-select>
 
             <div class="value-cell">
-              <el-input
+              <FieldValueInput
                 v-if="operatorRequiresValue(condition.operator)"
-                :model-value="String(condition.value ?? '')"
+                :field="getFieldById(condition.field_id)!"
+                :model-value="condition.value"
                 placeholder="值"
                 class="value-input"
                 :disabled="readonly"

@@ -262,9 +262,29 @@ function handleViewVersions() {
         </div>
 
         <div class="section nodes-section">
-          <div class="section-title">
-            节点列表
-            <span class="node-count">（{{ localNodes.length }}）</span>
+          <div class="section-title section-title-with-action">
+            <span>
+              节点列表
+              <span class="node-count">（{{ localNodes.length }}）</span>
+            </span>
+            <div v-if="!readonly" class="add-node-menu">
+              <el-dropdown placement="bottom-start" trigger="click">
+                <el-button type="primary" :icon="Plus" class="add-node-btn" size="small">
+                  添加节点
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-for="item in nodeTypeMenu"
+                      :key="item.type"
+                      @click="addNode(item.type)">
+                      <el-icon><component :is="item.icon" /></el-icon>
+                      <span>{{ item.label }}</span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </div>
 
           <div ref="nodeListRef" class="node-list">
@@ -290,25 +310,6 @@ function handleViewVersions() {
                 class="delete-btn"
                 @click.stop="removeNode(node.id)" />
             </div>
-          </div>
-
-          <div v-if="!readonly" class="add-node-menu">
-            <el-dropdown placement="bottom-start" trigger="click">
-              <el-button type="primary" :icon="Plus" class="add-node-btn">
-                添加节点
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="item in nodeTypeMenu"
-                    :key="item.type"
-                    @click="addNode(item.type)">
-                    <el-icon><component :is="item.icon" /></el-icon>
-                    <span>{{ item.label }}</span>
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
           </div>
         </div>
       </div>
@@ -495,13 +496,17 @@ function handleViewVersions() {
   }
 }
 
-.add-node-menu {
-  padding: $spacing-sm;
-  border-top: 1px solid $border-color;
+.section-title-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
 }
 
-.add-node-btn {
-  width: 100%;
+.add-node-menu {
+  .add-node-btn {
+    min-width: 80px;
+  }
 }
 
 .config-panel {

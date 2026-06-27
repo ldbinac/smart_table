@@ -14,6 +14,7 @@ import {
   OPERATOR_LABELS,
   operatorRequiresValue,
 } from "@/utils/filter";
+import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import {
   Delete,
   Plus,
@@ -531,9 +532,10 @@ const nodeTypeLabel = computed(() => {
               :value="op.value" />
           </el-select>
 
-          <el-input
+          <FieldValueInput
             v-if="operatorRequiresValue(condition.operator)"
-            :model-value="String(condition.value ?? '')"
+            :field="getFieldById(condition.field_id)!"
+            :model-value="condition.value"
             placeholder="值"
             class="value-input"
             :disabled="readonly"
