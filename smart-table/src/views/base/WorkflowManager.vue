@@ -190,10 +190,11 @@ async function loadWorkflowDetail(workflow: Workflow) {
 
 async function loadExecutionLogs(workflowId: string, instanceId: string) {
   try {
-    const data = await apiClient.get<WorkflowExecutionLog[]>(
-      `/workflows/${workflowId}/instances/${instanceId}/logs`,
-    );
-    executionLogs.value = data;
+    const data = await apiClient.get<{
+      instance: WorkflowInstance;
+      execution_logs: WorkflowExecutionLog[];
+    }>(`/workflows/${workflowId}/instances/${instanceId}`);
+    executionLogs.value = data.execution_logs;
   } catch (error) {
     console.error("加载执行日志失败:", error);
     executionLogs.value = [];

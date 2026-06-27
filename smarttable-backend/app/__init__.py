@@ -37,6 +37,7 @@ from app.services.email_queue_service import init_email_queue
 from app.services.webhook_service import WebhookService
 from app.utils.init_email_templates import init_default_email_templates
 from app.services.workflow_template_service import init_default_templates as init_default_workflow_templates
+from app.services.workflow_execution_engine import init_workflow_execution_engine
 from app.static_serving import configure_static_serving
 from app.errors.handlers import register_handlers
 from app.models import (
@@ -76,6 +77,9 @@ def create_app(config_name='default', enable_realtime=False):
     
     # 初始化扩展
     init_extensions(app)
+
+    # 初始化工作流执行引擎，确保后台事件处理在 Flask 应用上下文中运行
+    init_workflow_execution_engine(app)
 
     # 条件初始化 SocketIO 事件处理器
     if app.config.get('REALTIME_ENABLED', False):

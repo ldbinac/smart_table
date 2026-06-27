@@ -499,5 +499,6 @@ workflow_execution_engine = WorkflowExecutionEngine()
 def init_workflow_execution_engine(app: Any) -> WorkflowExecutionEngine:
     """使用指定 Flask 应用初始化执行引擎"""
     global workflow_execution_engine
+    workflow_event_bus.unsubscribe(workflow_execution_engine._event_handler)
     workflow_execution_engine = WorkflowExecutionEngine(app)
     return workflow_execution_engine
