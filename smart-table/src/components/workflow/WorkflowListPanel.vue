@@ -13,9 +13,10 @@ import {
   RefreshRight,
   Connection,
   Switch,
-  Fold,
-  Expand,
   Search,
+  DArrowRight,
+  DArrowLeft,
+  ArrowLeftBold,
 } from "@element-plus/icons-vue";
 
 interface Props {
@@ -36,6 +37,7 @@ const emit = defineEmits<{
   (e: "pause", workflow: Workflow): void;
   (e: "resume", workflow: Workflow): void;
   (e: "updateTable", workflow: Workflow, tableId: string): void;
+  (e: "back"): void;
 }>();
 
 const workflowStore = useWorkflowStore();
@@ -212,19 +214,22 @@ function handleSwitchTable() {
 <template>
   <div class="workflow-list-panel" :class="{ collapsed: isCollapsed }">
     <div class="header-actions">
-      <el-button class="action-btn" :icon="Connection" @click="openRelationDialog">
-        <span class="btn-text">关联关系</span>
+      <el-button title="返回多维表" type="info" plain class="action-btn back-btn" :icon="ArrowLeftBold" @click="emit('back')">
+        <span class="btn-text">返回</span>
       </el-button>
-      <el-button class="action-btn" type="primary" :icon="Plus" @click="handleCreate">
-        <span class="btn-text">新建工作流</span>
+      <el-button title="工作流与数据表关联关系" type="success" plain class="action-btn" :icon="Connection" @click="openRelationDialog">
+        <span class="btn-text">关系</span>
+      </el-button>
+      <el-button title="新建工作流" type="primary" class="action-btn" :icon="Plus" @click="handleCreate">
+        <span class="btn-text">新建</span>
       </el-button>
       <el-button
-        class="collapse-btn"
+        class="collapse-btn" style="margin-right: 12px;"
         text
         circle
         size="small"
-        :icon="isCollapsed ? Expand : Fold"
-        :title="isCollapsed ? '展开' : '收缩'"
+        :icon="isCollapsed ? DArrowRight : DArrowLeft"
+        :title="isCollapsed ? '展开' : '收起'"
         @click="toggleCollapse" />
     </div>
     <div class="panel-header">
@@ -731,10 +736,14 @@ function handleSwitchTable() {
   align-items: center;
   gap: $spacing-sm;
   margin-top: $spacing-md;
-  margin-left: $spacing-lg;
+  margin-left: $spacing-sm;
 
   .btn-text {
     transition: opacity 0.2s ease;
+  }
+
+  .back-btn {
+    margin-right: auto;
   }
 
   .collapse-btn {
@@ -744,6 +753,7 @@ function handleSwitchTable() {
     &:hover {
       background-color: var(--el-fill-color-light);
     }
+
   }
 
   .collapsed & {

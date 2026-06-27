@@ -7,6 +7,7 @@ import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useTableStore } from "@/stores/tableStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useMemberStore } from "@/stores/memberStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import { ElMessageBox } from "element-plus";
 import {
@@ -32,6 +33,7 @@ const collaborationStore = useCollaborationStore();
 const tableStore = useTableStore();
 const documentStore = useDocumentStore();
 const memberStore = useMemberStore();
+const workflowStore = useWorkflowStore();
 
 // 用户菜单控制
 const userMenuVisible = ref(false);
@@ -157,8 +159,16 @@ const isBasePage = computed(() => {
   return route.path.startsWith("/base/");
 });
 
+// 判断是否在工作流页面（/base/:id/workflows）
+const isWorkflowPage = computed(() => {
+  return /^\/base\/[^/]+\/workflows/.test(route.path);
+});
+
 // 左侧显示的标题：Base（多维表根）名称或默认标题
 const leftTitle = computed(() => {
+  if (isWorkflowPage.value) {
+    return "工作流配置";
+  }
   if (currentBase.value) {
     return currentBase.value.name;
   }
@@ -167,6 +177,11 @@ const leftTitle = computed(() => {
 
 // 左侧显示的描述：Base（多维表根）描述信息
 const leftDescription = computed(() => {
+  if (isWorkflowPage.value) {
+    return currentBase.value
+      ? `多维表"${currentBase.value.name}"的工作流配置`
+      : "";
+  }
   if (currentBase.value && currentBase.value.description) {
     return currentBase.value.description;
   }
@@ -175,6 +190,18 @@ const leftDescription = computed(() => {
 
 // 中间显示的信息
 const centerInfo = computed(() => {
+  if (isWorkflowPage.value) {
+    if (workflowStore.currentWorkflow) {
+      return {
+        name: workflowStore.currentWorkflow.name,
+        description: workflowStore.currentWorkflow.description || "",
+      };
+    }
+    return {
+      name: "请选择具体工作流",
+      description: "",
+    };
+  }
   if (isDashboardPage.value && currentDashboard.value) {
     return {
       name: currentDashboard.value.name,

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, type FormInstance, type FormRules } from "element-plus";
 import {
-  Plus,
   Collection,
   EditPen,
   Timer,
@@ -32,6 +31,7 @@ import type {
 import type { FieldEntity } from "@/db/schema";
 
 const route = useRoute();
+const router = useRouter();
 const baseId = route.params.id as string;
 
 const workflowStore = useWorkflowStore();
@@ -54,28 +54,6 @@ const selectedInstanceId = ref<string>("");
 const executionLogs = ref<WorkflowExecutionLog[]>([]);
 const selectedWebhookId = ref<string>("");
 const detailLoading = ref(false);
-
-// 新建工作流弹窗
-const createDialogVisible = ref(false);
-const createFormRef = ref<FormInstance>();
-const createForm = ref({
-  name: "",
-  description: "",
-  table_id: "",
-});
-const createFormRules: FormRules = {
-  name: [
-    { required: true, message: "请输入工作流名称", trigger: "blur" },
-    { max: 200, message: "名称不能超过 200 个字符", trigger: "blur" },
-  ],
-  table_id: [
-    { required: true, message: "请选择关联数据表", trigger: "change" },
-  ],
-  description: [
-    { max: 500, message: "描述不能超过 500 个字符", trigger: "blur" },
-  ],
-};
-const descCharCount = computed(() => createForm.value.description.length);
 
 // 编辑工作流弹窗
 const editDialogVisible = ref(false);
@@ -271,31 +249,35 @@ async function handleResumeWorkflow(workflow: Workflow) {
 }
 
 function openCreateDialog() {
-  createForm.value = {
+  // 左侧列表的新建按钮通过此函数打开编辑弹窗，复用编辑表单作为新建
+  editForm.value = {
+    id: "",
     name: "",
     description: "",
-    table_id: tables.value[0]?.id || "",
   };
-  createDialogVisible.value = true;
+  editDialogVisible.value = true;
 }
 
 async function handleCreateWorkflow() {
-  if (!createFormRef.value) return;
-  await createFormRef.value.validate(async (valid) => {
+  if (!editFormRef.value) return;
+  await editFormRef.value.validate(async (valid) => {
     if (!valid) return;
     try {
       const created = await workflowStore.createWorkflow(baseId, {
-        name: createForm.value.name.trim(),
-        description: createForm.value.description.trim(),
-        table_id: createForm.value.table_id,
+        name: editForm.value.name.trim(),
+        description: editForm.value.description.trim(),
       });
-      createDialogVisible.value = false;
+      editDialogVisible.value = false;
       await workflowStore.loadWorkflows(baseId);
       workflowStore.currentWorkflow = created;
     } catch (error: unknown) {
       console.error("新建工作流失败:", error);
     }
   });
+}
+
+function handleBackToBase() {
+  router.push(`/base/${baseId}`);
 }
 
 async function handleUpdateTable(workflow: Workflow, tableId: string) {
@@ -414,6 +396,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
         :tables="tables"
         @create="openCreateDialog"
         @select="handleSelectWorkflow"
+        @back="handleBackToBase"
         @edit="handleEditWorkflow"
         @delete="handleDeleteWorkflow"
         @publish="handlePublishWorkflow"
@@ -442,9 +425,6 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
         </div>
 
         <div class="header-actions">
-          <el-button :icon="Plus" type="primary" @click="handleCreateWorkflow">
-            新建工作流
-          </el-button>
           <el-button :icon="Collection" @click="handleOpenGallery">
             模板库
           </el-button>
@@ -551,67 +531,10 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
       </div>
     </div>
 
-    <!-- 新建工作流弹窗 -->
-    <el-dialog
-      v-model="createDialogVisible"
-      title="新建工作流"
-      width="520px"
-      destroy-on-close>
-      <el-form
-        ref="createFormRef"
-        :model="createForm"
-        :rules="createFormRules"
-        label-position="top">
-        <el-form-item label="工作流名称" prop="name">
-          <el-input
-            v-model="createForm.name"
-            placeholder="请输入工作流名称"
-            maxlength="200"
-            show-word-limit
-            clearable />
-        </el-form-item>
-
-        <el-form-item label="关联数据表" prop="table_id">
-          <el-select
-            v-model="createForm.table_id"
-            placeholder="请选择关联的数据表"
-            style="width: 100%"
-            clearable>
-            <el-option
-              v-for="table in tables"
-              :key="table.id"
-              :label="table.name"
-              :value="table.id" />
-          </el-select>
-          <div class="form-help-text">
-            工作流将基于所选数据表的数据变化触发执行，创建后不可修改（如需变更请先删除重建）。
-          </div>
-        </el-form-item>
-
-        <el-form-item label="工作流描述" prop="description">
-          <el-input
-            v-model="createForm.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请描述工作流的用途、功能和注意事项（可选）"
-            maxlength="500"
-            show-word-limit
-            resize="none" />
-          <div class="form-char-count">
-            {{ descCharCount }} / 500
-          </div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateWorkflow">创建</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 编辑工作流弹窗 -->
+    <!-- 编辑/新建工作流弹窗 -->
     <el-dialog
       v-model="editDialogVisible"
-      title="编辑工作流"
+      :title="editForm.id ? '编辑工作流' : '新建工作流'"
       width="520px"
       destroy-on-close>
       <el-form
@@ -644,7 +567,9 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
       </el-form>
       <template #footer>
         <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleUpdateWorkflowInfo">保存</el-button>
+        <el-button type="primary" @click="editForm.id ? handleUpdateWorkflowInfo() : handleCreateWorkflow()">
+          {{ editForm.id ? '保存' : '创建' }}
+        </el-button>
       </template>
     </el-dialog>
 
