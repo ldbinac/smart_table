@@ -464,6 +464,32 @@ class WebhookService:
 
         return WebhookService.deliver(webhook_config, instance=None, event_data=sample_event_data)
 
+    @staticmethod
+    def redeliver(delivery_log: 'WebhookDeliveryLog') -> Dict[str, Any]:
+        """
+        基于已有投递记录重新投递
+
+        Args:
+            delivery_log: 历史投递日志记录
+
+        Returns:
+            新的投递结果字典
+        """
+        webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id)
+        if not webhook_config:
+            raise ValueError(f'Webhook 配置不存在: {delivery_log.webhook_config_id}')
+
+        instance = None
+        if delivery_log.instance_id:
+            from app.models.workflow_instance import WorkflowInstance
+            instance = WorkflowInstance.query.get(delivery_log.instance_id)
+
+        event_data = {}
+        if instance is not None:
+            event_data = (instance.context or {}).get('trigger_event', {})
+
+        return WebhookService.deliver(webhook_config, instance, event_data)
+
     @classmethod
     def start_retry_scheduler(cls, app: Any) -> None:
         """启动后台重试扫描线程"""
@@ -492,7 +518,7 @@ class WebhookService:
             if thread is not None and thread.is_alive():
                 thread.join(timeout=5)
                 cls._retry_thread = None
-        log.info('[WebhookService] 重试调度线程已停止')
+                log.info('[WebhookService] 重试调度线程已停止')
 
     @classmethod
     def _retry_loop(cls, app: Any) -> None:

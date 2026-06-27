@@ -24,6 +24,7 @@ from app.models import (
     WorkflowExecutionLog,
 )
 from app.models.workflow import WorkflowNode, WorkflowTrigger
+from app.models.webhook import WebhookConfig
 from app.services.workflow_execution_engine import WorkflowExecutionEngine
 from app.services.workflow_event_bus import WorkflowEvent
 from app.services.workflow_service import WorkflowService
@@ -449,3 +450,401 @@ class TestFailureIsolation:
         logs = WorkflowExecutionLog.query.filter_by(instance_id=instance.id).all()
         assert len(logs) == 1
         assert logs[0].status == 'error'
+
+
+class TestRunInstanceWithInstanceId:
+    """测试 _run_instance 通过 instance_id 重新查询实例"""
+
+    def test_run_instance_with_string_id(self, ctx, base, table, owner, engine):
+        """测试 _run_instance 接收字符串 instance_id 能正常执行"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='instance_id 测试',
+            created_by=owner.id,
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0}
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        # 通过字符串 ID 调用 _run_instance
+        engine._run_instance(str(instance.id))
+
+        db.session.refresh(instance)
+        assert instance.status == WorkflowInstanceStatus.COMPLETED
+
+        # 应产生执行日志
+        logs = WorkflowExecutionLog.query.filter_by(instance_id=instance.id).all()
+        assert len(logs) >= 1
+        assert logs[0].status == 'success'
+
+    def test_run_instance_with_uuid_object(self, ctx, base, table, owner, engine):
+        """测试 _run_instance 接收 UUID 对象也能正常执行"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='UUID 对象测试',
+            created_by=owner.id,
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0}
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._run_instance(instance.id)
+
+        db.session.refresh(instance)
+        assert instance.status == WorkflowInstanceStatus.COMPLETED
+
+    def test_run_instance_not_found(self, ctx, engine):
+        """测试传入不存在的 instance_id 不会抛异常"""
+        # 应静默返回，不抛异常
+        engine._run_instance(str(uuid.uuid4()))
+
+
+class TestRunInstanceMissingTriggerNode:
+    """测试缺少触发节点时的回退逻辑"""
+
+    def test_run_instance_no_nodes_creates_error_log(
+        self, ctx, base, table, owner, engine
+    ):
+        """测试工作流完全无节点时创建 error 执行日志"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='无节点测试',
+            created_by=owner.id,
+            nodes_config=[]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._run_instance(str(instance.id))
+
+        db.session.refresh(instance)
+        assert instance.status == WorkflowInstanceStatus.ERROR
+
+        # 应记录 error 执行日志
+        logs = WorkflowExecutionLog.query.filter_by(instance_id=instance.id).all()
+        assert len(logs) == 1
+        assert logs[0].status == 'error'
+        assert logs[0].error_message == '未找到触发节点'
+        assert logs[0].node_type == 'trigger'
+
+    def test_run_instance_fallback_to_first_node(
+        self, ctx, base, table, owner, engine
+    ):
+        """测试无 TRIGGER 节点时回退到首节点执行"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='回退首节点测试',
+            created_by=owner.id,
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0}
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._run_instance(str(instance.id))
+
+        db.session.refresh(instance)
+        # trigger 节点为 no-op，应正常完成
+        assert instance.status == WorkflowInstanceStatus.COMPLETED
+
+        logs = WorkflowExecutionLog.query.filter_by(instance_id=instance.id).all()
+        assert len(logs) >= 1
+        assert logs[0].status == 'success'
+
+
+class TestExecuteWebhookNodeErrors:
+    """测试 Webhook 节点错误信息增强"""
+
+    def test_execute_webhook_node_missing_config_id(self, ctx, base, table, owner, engine):
+        """测试缺少 webhook_config_id 时异常信息包含上下文"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='webhook 缺失 config_id 测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'webhook',
+                    'name': 'Webhook 节点',
+                    'config': {},
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        webhook_node = workflow.nodes.first()
+        with pytest.raises(ValueError, match='缺少 Webhook 配置 ID'):
+            engine._execute_webhook_node(instance, webhook_node)
+
+    def test_execute_webhook_node_config_not_exist(self, ctx, base, table, owner, engine):
+        """测试 WebhookConfig 不存在时异常信息包含上下文"""
+        non_existent_id = str(uuid.uuid4())
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='webhook 配置不存在测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'webhook',
+                    'name': 'Webhook 节点',
+                    'config': {'webhook_config_id': non_existent_id},
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        webhook_node = workflow.nodes.first()
+        with pytest.raises(ValueError, match='Webhook 配置不存在'):
+            engine._execute_webhook_node(instance, webhook_node)
+
+    def test_execute_webhook_node_error_logged_in_execution_log(
+        self, ctx, base, table, owner, engine
+    ):
+        """测试 Webhook 节点错误被 execute_node 捕获并记录到执行日志"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='webhook 错误日志测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'webhook',
+                    'name': 'Webhook 节点',
+                    'config': {},
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        webhook_node = workflow.nodes.first()
+        with pytest.raises(ValueError):
+            engine.execute_node(instance, webhook_node)
+
+        # 应产生 error 执行日志
+        logs = WorkflowExecutionLog.query.filter_by(instance_id=instance.id).all()
+        assert len(logs) == 1
+        assert logs[0].status == 'error'
+        assert '缺少 Webhook 配置 ID' in logs[0].error_message
+
+
+class TestExecuteWebhookNodeFieldNames:
+    """测试 Webhook 节点字段名兼容与内联模式"""
+
+    def test_execute_webhook_node_reads_webhook_id_field(self, ctx, base, table, owner, engine):
+        """测试前端字段名 webhook_id 能被正确读取"""
+        # 创建真实的 WebhookConfig
+        webhook_config = WebhookConfig(
+            base_id=base.id,
+            name='测试 Webhook',
+            url='https://example.com/hook',
+            method='POST',
+            headers={},
+            body_template='',
+            is_active=True
+        )
+        db.session.add(webhook_config)
+        db.session.commit()
+
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='webhook_id 字段测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'webhook',
+                    'name': 'Webhook 节点',
+                    'config': {'webhook_id': str(webhook_config.id)},
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        webhook_node = workflow.nodes.first()
+
+        # 模拟 deliver 避免真实 HTTP 调用
+        with patch('app.services.workflow_execution_engine.WebhookService.deliver') as mock_deliver:
+            mock_deliver.return_value = {'status': 'success'}
+            result = engine._execute_webhook_node(instance, webhook_node)
+
+        assert result['status'] == 'success'
+        mock_deliver.assert_called_once()
+        # 传递给 deliver 的应该是查到的 webhook_config
+        delivered_config = mock_deliver.call_args[0][0]
+        assert delivered_config.id == webhook_config.id
+
+    def test_execute_webhook_node_inline_mode_creates_config(
+        self, ctx, base, table, owner, engine
+    ):
+        """测试内联模式自动创建 WebhookConfig"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='webhook 内联模式测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'webhook',
+                    'name': 'Webhook 节点',
+                    'config': {
+                        'webhook_mode': 'inline',
+                        'inline_webhook': {
+                            'name': '内联 Hook',
+                            'url': 'https://inline.example.com/hook',
+                            'method': 'POST',
+                            'headers': {'X-Test': '1'},
+                            'body_template': '{"k":"v"}'
+                        }
+                    },
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        webhook_node = workflow.nodes.first()
+
+        with patch('app.services.workflow_execution_engine.WebhookService.deliver') as mock_deliver:
+            mock_deliver.return_value = {'status': 'success'}
+            result = engine._execute_webhook_node(instance, webhook_node)
+
+        assert result['status'] == 'success'
+        mock_deliver.assert_called_once()
+
+        # 应自动创建 WebhookConfig
+        delivered_config = mock_deliver.call_args[0][0]
+        assert delivered_config.url == 'https://inline.example.com/hook'
+        assert delivered_config.method.value == 'POST'
+        assert delivered_config.headers == {'X-Test': '1'}
+
+    def test_execute_webhook_node_missing_both_id_and_inline(self, ctx, base, table, owner, engine):
+        """测试既无 webhook_id 也无内联配置时报错"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='webhook 缺失配置测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'webhook',
+                    'name': 'Webhook 节点',
+                    'config': {},
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        webhook_node = workflow.nodes.first()
+        with pytest.raises(ValueError, match='缺少 Webhook 配置 ID 或内联配置'):
+            engine._execute_webhook_node(instance, webhook_node)

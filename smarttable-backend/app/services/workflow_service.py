@@ -177,12 +177,24 @@ class WorkflowService:
             db.session.add(trigger)
 
         if nodes_config:
+            # 前端动作类型转换为 ACTION 节点
+            action_type_map = {
+                'update_record': 'update_record',
+                'create_record': 'create_record',
+                'send_email': 'send_email',
+                'trigger_webhook': 'trigger_webhook',
+            }
             for index, node_data in enumerate(nodes_config):
+                node_type = node_data.get('node_type', 'action')
+                node_config = dict(node_data.get('config', {}))
+                if node_type in action_type_map:
+                    node_config['action_type'] = action_type_map[node_type]
+                    node_type = 'action'
                 node = WorkflowNode(
                     workflow_id=workflow.id,
-                    node_type=WorkflowNodeType(node_data.get('node_type', 'action')),
+                    node_type=WorkflowNodeType(node_type),
                     name=node_data.get('name', f'节点 {index + 1}'),
-                    config=node_data.get('config', {}),
+                    config=node_config,
                     order=node_data.get('order', index),
                     next_nodes=node_data.get('next_nodes', [])
                 )

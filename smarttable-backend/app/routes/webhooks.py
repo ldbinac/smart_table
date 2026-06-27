@@ -482,3 +482,45 @@ def get_webhook_deliveries(webhook_id):
         per_page=per_page,
         message='获取投递日志成功'
     )
+
+
+@webhooks_bp.route('/webhooks/deliveries/<uuid:delivery_id>/redeliver', methods=['POST'])
+@jwt_required
+def redeliver_webhook(delivery_id):
+    """
+    重新投递 Webhook
+    ---
+    tags:
+      - Webhooks
+    security:
+      - Bearer: []
+    parameters:
+      - name: delivery_id
+        in: path
+        type: string
+        required: true
+        description: 投递记录 ID
+    responses:
+      200:
+        description: 重新投递成功
+      403:
+        description: 无权限
+      404:
+        description: 投递记录或 Webhook 配置不存在
+    """
+    delivery_log = WebhookDeliveryLog.query.get(delivery_id)
+    if not delivery_log:
+        return not_found_response('投递记录')
+
+    webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id)
+    if not webhook_config:
+        return not_found_response('Webhook 配置')
+
+    if not _check_base_permission(webhook_config.base_id, MemberRole.EDITOR):
+        return forbidden_response('您没有权限重新投递此 Webhook')
+
+    try:
+        result = WebhookService.redeliver(delivery_log)
+        return success_response(data=result, message='重新投递成功')
+    except Exception as e:
+        return error_response(f'重新投递失败: {e}', code=500)

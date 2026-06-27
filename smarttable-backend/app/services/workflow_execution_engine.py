@@ -111,7 +111,7 @@ class WorkflowExecutionEngine:
                 for workflow in workflows:
                     instance = self.start_instance(workflow, event)
                     if instance:
-                        self.executor.submit(self._run_instance, instance)
+                        self.executor.submit(self._run_instance, str(instance.id))
         except Exception as e:
             log.exception(f'[WorkflowExecutionEngine] 事件处理失败: {e}')
         finally:
@@ -163,16 +163,32 @@ class WorkflowExecutionEngine:
         log.info(f'[WorkflowExecutionEngine] 实例已启动: {instance.id} (workflow={workflow.id})')
         return instance
 
-    def _run_instance(self, instance: WorkflowInstance) -> None:
-        """在线程池中运行实例"""
+    def _run_instance(self, instance_id) -> None:
+        """在线程池中运行实例
+
+        通过 instance_id 重新查询实例对象，避免跨线程会话导致的 detached 对象问题。
+        """
         with self._app_context():
             try:
+                instance_uuid = self._to_uuid(instance_id) if isinstance(instance_id, str) else instance_id
+                instance = WorkflowInstance.query.get(instance_uuid)
+                if not instance:
+                    log.error(f'[WorkflowExecutionEngine] 实例不存在: {instance_id}')
+                    return
+
                 trigger_node = WorkflowNode.query.filter_by(
                     workflow_id=instance.workflow_id,
                     node_type=WorkflowNodeType.TRIGGER
                 ).order_by(WorkflowNode.order).first()
 
                 if not trigger_node:
+                    # 前端设计器不创建 TRIGGER 类型节点，回退到首节点作为入口
+                    trigger_node = WorkflowNode.query.filter_by(
+                        workflow_id=instance.workflow_id
+                    ).order_by(WorkflowNode.order).first()
+
+                if not trigger_node:
+                    self._record_missing_trigger_node(instance)
                     self._complete_instance(instance, WorkflowInstanceStatus.ERROR, '未找到触发节点')
                     return
 
@@ -181,8 +197,27 @@ class WorkflowExecutionEngine:
                 if instance.status == WorkflowInstanceStatus.RUNNING:
                     self._complete_instance(instance, WorkflowInstanceStatus.COMPLETED)
             except Exception as e:
-                log.exception(f'[WorkflowExecutionEngine] 实例执行失败: {instance.id}')
-                self._complete_instance(instance, WorkflowInstanceStatus.ERROR, str(e))
+                log.exception(f'[WorkflowExecutionEngine] 实例执行失败: {instance_id}')
+                instance_uuid = self._to_uuid(instance_id) if isinstance(instance_id, str) else instance_id
+                instance = WorkflowInstance.query.get(instance_uuid)
+                if instance:
+                    self._complete_instance(instance, WorkflowInstanceStatus.ERROR, str(e))
+
+    def _record_missing_trigger_node(self, instance: WorkflowInstance) -> None:
+        """触发节点缺失时记录 error 执行日志，便于前端展示"""
+        execution_log = WorkflowExecutionLog(
+            instance_id=instance.id,
+            node_id=None,
+            node_type='trigger',
+            status='error',
+            input_context=instance.context or {},
+            output_result={},
+            error_message='未找到触发节点',
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc)
+        )
+        db.session.add(execution_log)
+        db.session.commit()
 
     def _execute_chain(self, instance: WorkflowInstance, node: WorkflowNode) -> None:
         """递归执行节点链，支持循环检测"""
@@ -289,16 +324,21 @@ class WorkflowExecutionEngine:
         if node_type == WorkflowNodeType.WEBHOOK.value:
             return self._execute_webhook_node(instance, node)
 
+        # 兼容前端直接使用动作类型作为 node_type 的情况
+        action_type = node_type
         if node_type == WorkflowNodeType.ACTION.value:
             action_type = (node.config or {}).get('action_type')
-            if action_type == 'update_record':
-                return self._execute_update_record(instance, node)
-            if action_type == 'create_record':
-                return self._execute_create_record(instance, node)
-            if action_type == 'send_email':
-                return self._execute_send_email(instance, node)
-            if action_type == 'trigger_webhook':
-                return self._execute_webhook_node(instance, node)
+
+        if action_type == 'update_record':
+            return self._execute_update_record(instance, node)
+        if action_type == 'create_record':
+            return self._execute_create_record(instance, node)
+        if action_type == 'send_email':
+            return self._execute_send_email(instance, node)
+        if action_type == 'trigger_webhook':
+            return self._execute_webhook_node(instance, node)
+
+        if node_type == WorkflowNodeType.ACTION.value:
             raise ValueError(f'未知动作类型: {action_type}')
 
         raise ValueError(f'未知节点类型: {node_type}')
@@ -386,13 +426,33 @@ class WorkflowExecutionEngine:
     def _execute_webhook_node(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行 Webhook 节点"""
         config = node.config or {}
-        webhook_config_id = config.get('webhook_config_id')
-        if not webhook_config_id:
-            raise ValueError('缺少 Webhook 配置 ID')
+        # 兼容前端字段名 webhook_id 和历史字段名 webhook_config_id
+        webhook_config_id = config.get('webhook_id') or config.get('webhook_config_id')
 
-        webhook_config = WebhookConfig.query.get(self._to_uuid(webhook_config_id))
-        if not webhook_config:
-            raise ValueError(f'Webhook 配置不存在: {webhook_config_id}')
+        if webhook_config_id:
+            webhook_config = WebhookConfig.query.get(self._to_uuid(webhook_config_id))
+            if not webhook_config:
+                raise ValueError(
+                    f'Webhook 配置不存在: {webhook_config_id}（节点: {node.id}, 工作流实例: {instance.id}）'
+                )
+        else:
+            # 内联模式：从节点配置创建临时 WebhookConfig
+            inline_webhook = config.get('inline_webhook')
+            if not inline_webhook or not inline_webhook.get('url'):
+                raise ValueError(
+                    f'缺少 Webhook 配置 ID 或内联配置（节点: {node.id}, 工作流实例: {instance.id}）'
+                )
+            webhook_config = WebhookConfig(
+                base_id=instance.workflow.base_id if instance.workflow else None,
+                name=inline_webhook.get('name', '内联 Webhook'),
+                url=inline_webhook['url'],
+                method=inline_webhook.get('method', 'POST'),
+                headers=inline_webhook.get('headers', {}),
+                body_template=inline_webhook.get('body_template', ''),
+                is_active=True
+            )
+            db.session.add(webhook_config)
+            db.session.commit()
 
         event_data = (instance.context or {}).get('trigger_event', {})
         return WebhookService.deliver(webhook_config, instance, event_data)

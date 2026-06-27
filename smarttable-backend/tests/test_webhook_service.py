@@ -247,3 +247,94 @@ class TestRenderTemplate:
         """测试嵌套路径解析"""
         context = {'data': {'items': [{'name': 'first'}]}}
         assert WebhookService._resolve_path('data.items.0.name', context) == 'first'
+
+
+class TestRedeliver:
+    """测试重新投递"""
+
+    @patch('app.services.webhook_service.requests.request')
+    def test_redeliver_success(self, mock_request, webhook_config):
+        """测试基于已有投递记录重新投递成功"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = 'OK'
+        mock_request.return_value = mock_response
+
+        # 先创建一条历史投递记录
+        event_data = {'event_type': 'record_created', 'record': {'name': 'Test'}}
+        first_result = WebhookService.deliver(webhook_config, None, event_data)
+        assert first_result['success'] is True
+
+        original_log = WebhookDeliveryLog.query.first()
+        assert original_log is not None
+
+        # 调用 redeliver
+        result = WebhookService.redeliver(original_log)
+        assert result['success'] is True
+        assert result['status'] == 'success'
+
+        # 应产生新的投递记录
+        logs = WebhookDeliveryLog.query.all()
+        assert len(logs) == 2
+
+    def test_redeliver_webhook_config_not_found(self, webhook_config):
+        """测试 Webhook 配置被删除后 redeliver 抛异常"""
+        event_data = {'event_type': 'record_created'}
+        WebhookService.deliver(webhook_config, None, event_data)
+
+        original_log = WebhookDeliveryLog.query.first()
+
+        # 删除 Webhook 配置
+        db.session.delete(webhook_config)
+        db.session.commit()
+
+        with pytest.raises(ValueError, match='Webhook 配置不存在'):
+            WebhookService.redeliver(original_log)
+
+    @patch('app.services.webhook_service.requests.request')
+    def test_redeliver_with_instance(self, mock_request, webhook_config, ctx, base, owner):
+        """测试基于带 instance 的投递记录重新投递"""
+        from app.models.workflow_instance import WorkflowInstance, WorkflowInstanceStatus
+        from app.models.workflow import Workflow, WorkflowStatus
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = 'OK'
+        mock_request.return_value = mock_response
+
+        # 创建工作流和实例
+        workflow = Workflow(
+            base_id=base.id,
+            name='测试工作流',
+            status=WorkflowStatus.ACTIVE,
+            current_version=1,
+            created_by=owner.id
+        )
+        db.session.add(workflow)
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={'trigger_event': {'event_type': 'record_created', 'record': {'name': 'Test'}}}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        # 创建带 instance 的投递记录
+        first_result = WebhookService.deliver(webhook_config, instance, {'event_type': 'record_created'})
+        assert first_result['success'] is True
+
+        original_log = WebhookDeliveryLog.query.filter_by(instance_id=instance.id).first()
+        assert original_log is not None
+        assert original_log.instance_id == instance.id
+
+        # 调用 redeliver
+        result = WebhookService.redeliver(original_log)
+        assert result['success'] is True
+
+        # 应产生新的投递记录且关联同一 instance
+        logs = WebhookDeliveryLog.query.filter_by(instance_id=instance.id).all()
+        assert len(logs) == 2

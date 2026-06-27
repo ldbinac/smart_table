@@ -187,11 +187,9 @@ def register_lifecycle_hooks(app):
             _first_request_initialized = True
             init_email_queue(app)
             WebhookService.start_retry_scheduler(app)
-
-    @app.teardown_appcontext
-    def shutdown_services(exception=None):
-        """应用上下文销毁时关闭服务"""
-        WebhookService.stop_retry_scheduler()
+            # 应用退出时才停止重试调度线程，避免每次请求 teardown 误停
+            import atexit
+            atexit.register(WebhookService.stop_retry_scheduler)
 
 
 def register_blueprints(app):

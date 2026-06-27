@@ -405,15 +405,31 @@ def update_workflow_nodes(workflow_id) -> tuple:
     data = request.get_json() or {}
     nodes = data.get('nodes', [])
 
+    # 前端使用的动作类型（update_record/create_record/send_email）非合法枚举值，
+    # 需转换为 ACTION 节点 + config.action_type
+    ACTION_TYPE_MAP = {
+        'update_record': 'update_record',
+        'create_record': 'create_record',
+        'send_email': 'send_email',
+        'trigger_webhook': 'trigger_webhook',
+    }
+
     WorkflowNode.query.filter_by(workflow_id=workflow.id).delete()
     if nodes:
         for index, node_data in enumerate(nodes):
             node_type = node_data.get('node_type', 'action')
+            node_config = dict(node_data.get('config', {}))
+
+            # 转换前端动作类型为 ACTION 节点
+            if node_type in ACTION_TYPE_MAP:
+                node_config['action_type'] = ACTION_TYPE_MAP[node_type]
+                node_type = 'action'
+
             node = WorkflowNode(
                 workflow_id=workflow.id,
                 node_type=WorkflowNodeType(node_type),
                 name=node_data.get('name', f'节点 {index + 1}'),
-                config=node_data.get('config', {}),
+                config=node_config,
                 order=node_data.get('order', index),
                 next_nodes=node_data.get('next_nodes', [])
             )
@@ -1118,7 +1134,7 @@ def trigger_record_workflow(table_id, record_id) -> tuple:
 
     workflow_execution_engine.executor.submit(
         workflow_execution_engine._run_instance,
-        instance
+        str(instance.id)
     )
 
     return success_response(
