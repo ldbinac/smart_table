@@ -12,6 +12,7 @@ import { useWorkflowStore } from "@/stores/workflowStore";
 import { useTableStore } from "@/stores/tableStore";
 import { apiClient } from "@/api/client";
 import { fieldService } from "@/db/services/fieldService";
+import { formatDateTime } from "@/utils/timezone";
 import WorkflowListPanel from "@/components/workflow/WorkflowListPanel.vue";
 import WorkflowDesigner from "@/components/workflow/WorkflowDesigner.vue";
 import WorkflowExecutionLogPanel from "@/components/workflow/WorkflowExecutionLog.vue";
@@ -617,7 +618,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
         </el-table-column>
         <el-table-column label="创建时间" min-width="180">
           <template #default="{ row }">
-            {{ row.created_at ? new Date(row.created_at).toLocaleString() : '-' }}
+            {{ row.created_at ? formatDateTime(row.created_at) : '-' }}
           </template>
         </el-table-column>
         <el-table-column label="创建者" min-width="140">

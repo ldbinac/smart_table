@@ -5,6 +5,7 @@ import { Collection, CopyDocument } from "@element-plus/icons-vue";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import type { Workflow, WorkflowTemplate } from "@/types/workflow";
 import type { TableEntity } from "@/db/schema";
+import { formatDateTime } from "@/utils/timezone";
 
 interface Props {
   visible: boolean;
@@ -112,7 +113,7 @@ async function handleUseTemplate(template: WorkflowTemplate) {
 }
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleString("zh-CN");
+  return formatDateTime(date);
 }
 </script>
 

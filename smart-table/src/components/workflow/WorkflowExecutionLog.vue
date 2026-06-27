@@ -5,6 +5,7 @@ import type {
   WorkflowExecutionLog,
   WorkflowNodeType,
 } from "@/types/workflow";
+import { formatDateTime } from "@/utils/timezone";
 import {
   CircleCheck,
   CircleClose,
@@ -66,7 +67,7 @@ function getStatusIcon(status: string) {
 
 function formatTime(time: string | null | undefined): string {
   if (!time) return "-";
-  return new Date(time).toLocaleString("zh-CN");
+  return formatDateTime(time);
 }
 
 function formatDuration(

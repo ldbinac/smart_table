@@ -4,6 +4,7 @@ import { useWorkflowStore } from "@/stores/workflowStore";
 import type { Workflow, WorkflowStatus } from "@/types/workflow";
 import type { TableEntity } from "@/db/schema";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { formatDateTime } from "@/utils/timezone";
 import {
   Plus,
   Edit,
@@ -148,7 +149,7 @@ function getStatusLabel(status: WorkflowStatus) {
 }
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleString("zh-CN");
+  return formatDateTime(date);
 }
 
 async function handleDelete(workflow: Workflow) {
