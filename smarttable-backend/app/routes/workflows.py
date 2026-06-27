@@ -507,7 +507,7 @@ def update_workflow_trigger(workflow_id) -> tuple:
         trigger = WorkflowTrigger(
             workflow_id=workflow.id,
             trigger_type=WorkflowTriggerType(trigger_type) if trigger_type else WorkflowTriggerType.RECORD_CREATED,
-            filter_config=data.get('filter_config', {}),
+            filter_config=WorkflowService._clean_filter_config(data.get('filter_config', {})),
             field_ids=data.get('field_ids', [])
         )
         db.session.add(trigger)

@@ -45,6 +45,9 @@ class WorkflowService:
         if operator == 'eq':
             return actual == expected
 
+        if operator == 'ne':
+            return actual != expected
+
         if operator == 'contains':
             if actual is None:
                 return False
@@ -56,13 +59,30 @@ class WorkflowService:
                 return expected in actual
             return str(expected) in str(actual)
 
-        if operator in ('gt', 'lt'):
+        if operator == 'not_contains':
+            if actual is None:
+                return True
+            if isinstance(actual, str):
+                return str(expected) not in actual
+            if isinstance(actual, (list, tuple, set)):
+                return expected not in actual
+            if isinstance(actual, dict):
+                return expected not in actual
+            return str(expected) not in str(actual)
+
+        if operator in ('gt', 'lt', 'gte', 'lte'):
             try:
                 actual_num = float(actual)
                 expected_num = float(expected)
             except (TypeError, ValueError):
                 return False
-            return actual_num > expected_num if operator == 'gt' else actual_num < expected_num
+            if operator == 'gt':
+                return actual_num > expected_num
+            if operator == 'lt':
+                return actual_num < expected_num
+            if operator == 'gte':
+                return actual_num >= expected_num
+            return actual_num <= expected_num
 
         if operator == 'regex':
             if actual is None:
@@ -71,6 +91,48 @@ class WorkflowService:
                 return re.search(str(expected), str(actual)) is not None
             except re.error:
                 return False
+
+        if operator == 'startswith':
+            if actual is None:
+                return False
+            return str(actual).startswith(str(expected))
+
+        if operator == 'endswith':
+            if actual is None:
+                return False
+            return str(actual).endswith(str(expected))
+
+        if operator == 'in':
+            if expected is None:
+                return False
+            if isinstance(expected, (list, tuple, set)):
+                return actual in expected
+            return False
+
+        if operator == 'not_in':
+            if expected is None:
+                return False
+            if isinstance(expected, (list, tuple, set)):
+                return actual not in expected
+            return False
+
+        if operator == 'is_empty':
+            if actual is None:
+                return True
+            if isinstance(actual, str):
+                return actual.strip() == ''
+            if isinstance(actual, (list, tuple, set, dict)):
+                return len(actual) == 0
+            return False
+
+        if operator == 'is_not_empty':
+            if actual is None:
+                return False
+            if isinstance(actual, str):
+                return actual.strip() != ''
+            if isinstance(actual, (list, tuple, set, dict)):
+                return len(actual) > 0
+            return True
 
         return False
 
@@ -109,6 +171,16 @@ class WorkflowService:
             actual = changes[field_id].get('new_value')
 
         return cls._eval_operator(actual, operator, expected)
+
+    @staticmethod
+    def _clean_filter_config(filter_config: Any) -> Dict[str, Any]:
+        """清理空条件结构：conditions 为空数组时返回空 dict"""
+        if not isinstance(filter_config, dict):
+            return {}
+        conditions = filter_config.get('conditions')
+        if isinstance(conditions, list) and len(conditions) == 0:
+            return {}
+        return filter_config
 
     @staticmethod
     def _build_version_snapshot(workflow: Workflow) -> Dict[str, Any]:
@@ -171,7 +243,7 @@ class WorkflowService:
             trigger = WorkflowTrigger(
                 workflow_id=workflow.id,
                 trigger_type=WorkflowTriggerType(trigger_type) if trigger_type else WorkflowTriggerType.RECORD_CREATED,
-                filter_config=trigger_config.get('filter_config', {}),
+                filter_config=cls._clean_filter_config(trigger_config.get('filter_config', {})),
                 field_ids=trigger_config.get('field_ids', [])
             )
             db.session.add(trigger)

@@ -494,3 +494,148 @@ class TestWorkflowVersion:
 
         assert data['created_by'] is None
         assert data['created_by_name'] is None
+
+
+class TestEvalOperator:
+    """测试操作符评估"""
+
+    def test_is_not_empty_with_value(self):
+        """测试 is_not_empty：有值时返回 True"""
+        assert WorkflowService._eval_operator('hello', 'is_not_empty', None) is True
+
+    def test_is_not_empty_with_empty_string(self):
+        """测试 is_not_empty：空字符串返回 False"""
+        assert WorkflowService._eval_operator('', 'is_not_empty', None) is False
+
+    def test_is_not_empty_with_none(self):
+        """测试 is_not_empty：None 返回 False"""
+        assert WorkflowService._eval_operator(None, 'is_not_empty', None) is False
+
+    def test_is_empty_with_none(self):
+        """测试 is_empty：None 返回 True"""
+        assert WorkflowService._eval_operator(None, 'is_empty', None) is True
+
+    def test_is_empty_with_empty_string(self):
+        """测试 is_empty：空字符串返回 True"""
+        assert WorkflowService._eval_operator('', 'is_empty', None) is True
+
+    def test_is_empty_with_value(self):
+        """测试 is_empty：有值返回 False"""
+        assert WorkflowService._eval_operator('hello', 'is_empty', None) is False
+
+    def test_ne_operator(self):
+        """测试 ne 不等于操作符"""
+        assert WorkflowService._eval_operator('a', 'ne', 'b') is True
+        assert WorkflowService._eval_operator('a', 'ne', 'a') is False
+
+    def test_gte_lte_operators(self):
+        """测试 gte/lte 操作符"""
+        assert WorkflowService._eval_operator(5, 'gte', 5) is True
+        assert WorkflowService._eval_operator(5, 'gte', 6) is False
+        assert WorkflowService._eval_operator(5, 'lte', 5) is True
+        assert WorkflowService._eval_operator(5, 'lte', 4) is False
+
+    def test_startswith_endswith(self):
+        """测试 startswith/endswith 操作符"""
+        assert WorkflowService._eval_operator('hello world', 'startswith', 'hello') is True
+        assert WorkflowService._eval_operator('hello world', 'endswith', 'world') is True
+        assert WorkflowService._eval_operator('hello world', 'startswith', 'world') is False
+
+    def test_in_not_in_operators(self):
+        """测试 in/not_in 操作符"""
+        assert WorkflowService._eval_operator('a', 'in', ['a', 'b']) is True
+        assert WorkflowService._eval_operator('c', 'in', ['a', 'b']) is False
+        assert WorkflowService._eval_operator('c', 'not_in', ['a', 'b']) is True
+
+    def test_match_triggers_with_is_not_empty_filter(self, ctx, base, table, owner, field):
+        """测试 is_not_empty 触发条件实际匹配"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='is_not_empty 触发',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_created',
+                'filter_config': {
+                    'operator': 'and',
+                    'conditions': [
+                        {
+                            'field_id': str(field.id),
+                            'operator': 'is_not_empty'
+                        }
+                    ]
+                }
+            }
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        record_with_value = Record(
+            table_id=table.id,
+            values={str(field.id): '有值'},
+            created_by=owner.id
+        )
+        record_empty = Record(
+            table_id=table.id,
+            values={str(field.id): ''},
+            created_by=owner.id
+        )
+        db.session.add_all([record_with_value, record_empty])
+        db.session.commit()
+
+        # 有值时应触发
+        matched = WorkflowService.match_triggers(
+            table_id=table.id,
+            event_type='record_created',
+            record=record_with_value
+        )
+        assert len(matched) == 1
+        assert matched[0].id == workflow.id
+
+        # 空值时不应触发
+        not_matched = WorkflowService.match_triggers(
+            table_id=table.id,
+            event_type='record_created',
+            record=record_empty
+        )
+        assert len(not_matched) == 0
+
+
+class TestCleanFilterConfig:
+    """测试空条件清理"""
+
+    def test_clean_empty_conditions(self):
+        """测试空 conditions 数组被清理为空 dict"""
+        result = WorkflowService._clean_filter_config({'operator': 'and', 'conditions': []})
+        assert result == {}
+
+    def test_clean_non_empty_conditions(self):
+        """测试非空 conditions 不被清理"""
+        config = {'operator': 'and', 'conditions': [{'field_id': 'f1', 'operator': 'eq', 'value': 'v1'}]}
+        result = WorkflowService._clean_filter_config(config)
+        assert result == config
+
+    def test_clean_empty_dict(self):
+        """测试空 dict 保持不变"""
+        result = WorkflowService._clean_filter_config({})
+        assert result == {}
+
+    def test_clean_none(self):
+        """测试 None 返回空 dict"""
+        result = WorkflowService._clean_filter_config(None)
+        assert result == {}
+
+    def test_create_workflow_cleans_empty_conditions(self, ctx, base, table, owner):
+        """测试创建工作流时清理空条件"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='空条件测试',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_created',
+                'filter_config': {'operator': 'and', 'conditions': []}
+            }
+        )
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+        assert trigger.filter_config == {}

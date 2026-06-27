@@ -454,7 +454,12 @@ class WorkflowExecutionEngine:
             db.session.add(webhook_config)
             db.session.commit()
 
-        event_data = (instance.context or {}).get('trigger_event', {})
+        # 构建包含 record 的 event_data，确保 {{record}} 模板变量能获取到数据
+        render_context = self._build_render_context(instance)
+        event_data = dict(render_context.get('trigger', {}))
+        event_data['record'] = render_context.get('record', {})
+        event_data['workflow'] = render_context.get('workflow', {})
+        event_data['instance'] = render_context.get('instance', {})
         return WebhookService.deliver(webhook_config, instance, event_data)
 
     def _build_render_context(self, instance: WorkflowInstance) -> Dict[str, Any]:

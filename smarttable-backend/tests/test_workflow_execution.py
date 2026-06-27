@@ -848,3 +848,83 @@ class TestExecuteWebhookNodeFieldNames:
         webhook_node = workflow.nodes.first()
         with pytest.raises(ValueError, match='缺少 Webhook 配置 ID 或内联配置'):
             engine._execute_webhook_node(instance, webhook_node)
+
+
+class TestExecuteWebhookRecordTemplate:
+    """测试 Webhook {{record}} 模板参数数据获取"""
+
+    def test_webhook_template_record_gets_actual_data(self, ctx, base, table, owner, engine):
+        """测试 {{record}} 能获取到实际记录数据"""
+        from app.models.field import FieldType
+        field = Field(
+            table_id=table.id,
+            name='客户名',
+            type=FieldType.SINGLE_LINE_TEXT.value,
+            order=0
+        )
+        db.session.add(field)
+        db.session.commit()
+
+        record = Record(
+            table_id=table.id,
+            values={str(field.id): '张三'},
+            created_by=owner.id
+        )
+        db.session.add(record)
+        db.session.commit()
+
+        webhook_config = WebhookConfig(
+            base_id=base.id,
+            name='测试 Webhook',
+            url='https://example.com/hook',
+            method='POST',
+            headers={},
+            body_template='{"record_data": {{record}} }',
+            is_active=True
+        )
+        db.session.add(webhook_config)
+        db.session.commit()
+
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='webhook record 模板测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'webhook',
+                    'name': 'Webhook 节点',
+                    'config': {'webhook_id': str(webhook_config.id)},
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+            context={'trigger_event': {'record_id': str(record.id)}}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        webhook_node = workflow.nodes.first()
+
+        captured_payload = {}
+
+        def fake_deliver(config, inst, event_data):
+            from app.services.webhook_service import WebhookService as WS
+            context = WS._build_render_context(inst, event_data)
+            captured_payload['body'] = WS._render_template(config.body_template, context)
+            return {'status': 'success'}
+
+        with patch('app.services.workflow_execution_engine.WebhookService.deliver', side_effect=fake_deliver):
+            engine._execute_webhook_node(instance, webhook_node)
+
+        # {{record}} 应渲染为实际记录数据，而非空对象
+        assert "张三" in captured_payload['body']
+        assert str(field.id) in captured_payload['body']
