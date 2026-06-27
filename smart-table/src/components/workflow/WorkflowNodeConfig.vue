@@ -878,6 +878,16 @@ const nodeTypeLabel = computed(() => {
   border-radius: $border-radius-md;
 }
 
+.condition-row {
+  .field-select,
+  .operator-select,
+  .value-input,
+  .value-placeholder {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 .field-select,
 .operator-select {
   min-width: 120px;

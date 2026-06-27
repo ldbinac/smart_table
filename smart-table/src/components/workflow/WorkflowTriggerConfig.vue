@@ -243,23 +243,25 @@ function onFilterValueChange(index: number, value: unknown) {
                 :value="op.value" />
             </el-select>
 
-            <el-input
-              v-if="operatorRequiresValue(condition.operator)"
-              :model-value="String(condition.value ?? '')"
-              placeholder="值"
-              class="value-input"
-              :disabled="readonly"
-              @update:model-value="(val) => onFilterValueChange(index, val)" />
+            <div class="value-cell">
+              <el-input
+                v-if="operatorRequiresValue(condition.operator)"
+                :model-value="String(condition.value ?? '')"
+                placeholder="值"
+                class="value-input"
+                :disabled="readonly"
+                @update:model-value="(val) => onFilterValueChange(index, val)" />
 
-            <span v-else class="value-placeholder">无需值</span>
+              <span v-else class="value-placeholder">无需值</span>
 
-            <el-button
-              v-if="!readonly"
-              type="danger"
-              :icon="Delete"
-              circle
-              size="small"
-              @click="removeFilterCondition(index)" />
+              <el-button
+                v-if="!readonly"
+                type="danger"
+                :icon="Delete"
+                circle
+                size="small"
+                @click="removeFilterCondition(index)" />
+            </div>
           </div>
 
           <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addFilterCondition">
@@ -311,6 +313,7 @@ function onFilterValueChange(index: number, value: unknown) {
 
 .condition-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: $spacing-sm;
   padding: $spacing-sm;
@@ -320,15 +323,24 @@ function onFilterValueChange(index: number, value: unknown) {
 
 .field-select,
 .operator-select {
-  min-width: 120px;
+  flex: 1;
+  min-width: 100px;
 }
 
-.value-input {
+.value-cell {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  width: 100%;
+  flex-basis: 100%;
+}
+
+.value-input,
+.value-placeholder {
   flex: 1;
 }
 
 .value-placeholder {
-  flex: 1;
   color: $text-secondary;
   font-size: $font-size-sm;
 }
