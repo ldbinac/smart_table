@@ -232,6 +232,14 @@ function handleSwitchTable() {
         :title="isCollapsed ? '展开' : '收起'"
         @click="toggleCollapse" />
     </div>
+    <div class="workflow-search">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="搜索工作流名称或描述"
+        :prefix-icon="Search"
+        clearable
+        size="small" />
+    </div>
     <div class="panel-header">
       <div class="filter-tabs">
         <el-radio-group v-model="statusFilter" size="small">
@@ -243,15 +251,6 @@ function handleSwitchTable() {
           </el-radio-button>
         </el-radio-group>
       </div>
-    </div>
-
-    <div class="workflow-search">
-      <el-input
-        v-model="searchKeyword"
-        placeholder="搜索工作流名称或描述"
-        :prefix-icon="Search"
-        clearable
-        size="small" />
     </div>
 
     <div v-loading="isLoading" class="workflow-list">
@@ -490,7 +489,7 @@ function handleSwitchTable() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-md;
+  padding: 0 $spacing-sm $spacing-md $spacing-md;
   border-bottom: 1px solid $border-color;
 }
 
@@ -519,8 +518,9 @@ function handleSwitchTable() {
 }
 
 .workflow-search {
+  margin-top: $spacing-sm;
   padding: $spacing-sm $spacing-md;
-  border-bottom: 1px solid $border-color;
+  border-top: 1px solid $border-color;
 
   .collapsed & {
     display: none;
