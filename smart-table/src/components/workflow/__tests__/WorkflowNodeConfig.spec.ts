@@ -4,6 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
+import { fieldService } from '@/db/services/fieldService';
+import type { FieldEntity } from '@/db/schema';
 import WorkflowNodeConfig from '../WorkflowNodeConfig.vue';
 
 // Mock Element Plus 图标
@@ -41,6 +43,13 @@ vi.mock('@/utils/filter', () => ({
   operatorRequiresValue: vi.fn(() => true),
 }));
 
+// Mock fieldService
+vi.mock('@/db/services/fieldService', () => ({
+  fieldService: {
+    getFieldsByTable: vi.fn(() => Promise.resolve([])),
+  },
+}));
+
 describe('WorkflowNodeConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,6 +70,17 @@ describe('WorkflowNodeConfig', () => {
     { id: 'field-2', name: '状态', type: 'single_select' },
     { id: 'field-3', name: '完成度', type: 'progress' },
     { id: 'field-4', name: '是否通过', type: 'checkbox' },
+  ];
+
+  const mockTargetFields = [
+    { id: 'target-1', name: '目标标题', type: 'single_line_text' },
+    { id: 'target-2', name: '目标状态', type: 'single_select' },
+    { id: 'target-3', name: '目标完成度', type: 'progress' },
+  ] as FieldEntity[];
+
+  const mockTables = [
+    { id: 'table-1', name: '源表' },
+    { id: 'table-2', name: '目标表' },
   ];
 
   function mountConfig(overrideProps: any = {}) {
@@ -88,7 +108,7 @@ describe('WorkflowNodeConfig', () => {
           'el-form-item': { template: '<div class="el-form-item"><slot /></div>' },
           'el-radio-group': { template: '<div class="el-radio-group"><slot /></div>' },
           'el-radio': { template: '<label class="el-radio"><slot /></label>' },
-          'el-select': { template: '<select class="el-select"><slot /></select>' },
+          'el-select': { template: '<select class="el-select" :class="$props.class" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value); $emit(\'change\', $event.target.value)"><slot /></select>', props: ['class', 'modelValue'], emits: ['update:modelValue', 'change'] },
           'el-option': { template: '<option class="el-option"><slot /></option>' },
           'el-input-number': { template: '<div class="el-input-number"><input /><slot /></div>' },
           'el-date-picker': { template: '<input class="el-date-picker" />' },
@@ -239,14 +259,17 @@ describe('WorkflowNodeConfig', () => {
   });
 
   it('创建记录节点的静态值字段应直接显示 FieldValueInput 且隐藏值模板输入', async () => {
+    vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
     const wrapper = mountConfig({
       node: {
         ...mockNode,
         node_type: 'create_record',
         config: {
-          field_mappings: [{ target_field_id: 'field-3', source_field_id: '', value_template: '' }],
+          target_table_id: 'table-2',
+          field_mappings: [{ target_field_id: 'target-3', source_field_id: '', value_template: '' }],
         },
       },
+      tables: mockTables,
     });
     await nextTick();
 
@@ -256,14 +279,17 @@ describe('WorkflowNodeConfig', () => {
   });
 
   it('创建记录节点的非静态值字段默认启用静态值模式', async () => {
+    vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
     const wrapper = mountConfig({
       node: {
         ...mockNode,
         node_type: 'create_record',
         config: {
-          field_mappings: [{ target_field_id: 'field-1', source_field_id: '', value_template: '' }],
+          target_table_id: 'table-2',
+          field_mappings: [{ target_field_id: 'target-1', source_field_id: '', value_template: '' }],
         },
       },
+      tables: mockTables,
     });
     await nextTick();
 
@@ -273,14 +299,17 @@ describe('WorkflowNodeConfig', () => {
   });
 
   it('创建记录节点开启表达式开关后显示表达式输入', async () => {
+    vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
     const wrapper = mountConfig({
       node: {
         ...mockNode,
         node_type: 'create_record',
         config: {
-          field_mappings: [{ target_field_id: 'field-1', source_field_id: '', value_template: '' }],
+          target_table_id: 'table-2',
+          field_mappings: [{ target_field_id: 'target-1', source_field_id: '', value_template: '' }],
         },
       },
+      tables: mockTables,
     });
     await nextTick();
 
@@ -292,5 +321,86 @@ describe('WorkflowNodeConfig', () => {
 
     expect(wrapper.find('.template-input').exists()).toBe(true);
     expect(wrapper.find('.field-value-input').exists()).toBe(false);
+  });
+
+  it('创建记录节点目标字段下拉从目标表加载字段', async () => {
+    vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'create_record',
+        config: {
+          target_table_id: 'table-2',
+          field_mappings: [{ target_field_id: '', source_field_id: '', value_template: '' }],
+        },
+      },
+      tables: mockTables,
+    });
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fieldService.getFieldsByTable).toHaveBeenCalledWith('table-2');
+    const fieldSelects = wrapper.findAll('.field-select');
+    const targetSelect = fieldSelects[0];
+    expect(targetSelect.findAll('.el-option').length).toBe(mockTargetFields.length);
+  });
+
+  it('创建记录节点切换目标表后清空字段映射', async () => {
+    vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'create_record',
+        config: {
+          target_table_id: 'table-2',
+          field_mappings: [{ target_field_id: 'target-1', source_field_id: '', value_template: '' }],
+        },
+      },
+      tables: mockTables,
+    });
+    await nextTick();
+
+    const targetTableSelect = wrapper.find('.full-width');
+    await targetTableSelect.setValue('table-1');
+    await targetTableSelect.trigger('change');
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const emitted = wrapper.emitted('update:node') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNode = emitted[emitted.length - 1][0];
+    expect(lastNode.config.target_table_id).toBe('table-1');
+    expect(lastNode.config.field_mappings).toEqual([]);
+  });
+
+  it('创建记录节点选择源字段后自动填充表达式', async () => {
+    vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'create_record',
+        config: {
+          target_table_id: 'table-2',
+          field_mappings: [{ target_field_id: 'target-1', source_field_id: '', value_template: '' }],
+        },
+      },
+      tables: mockTables,
+    });
+    await nextTick();
+
+    const fieldSelects = wrapper.findAll('.field-select');
+    const sourceSelect = fieldSelects[1];
+    await sourceSelect.setValue('field-1');
+    await sourceSelect.trigger('change');
+    await nextTick();
+
+    expect(wrapper.find('.template-input').exists()).toBe(true);
+    expect(wrapper.find('.field-value-input').exists()).toBe(false);
+
+    const emitted = wrapper.emitted('update:node') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNode = emitted[emitted.length - 1][0];
+    expect(lastNode.config.field_mappings[0].source_field_id).toBe('field-1');
+    expect(lastNode.config.field_mappings[0].value_template).toBe('{{trigger.record.field-1}}');
   });
 });

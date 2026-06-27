@@ -16,6 +16,7 @@ import {
 } from "@/utils/filter";
 import { FieldType } from "@/types/fields";
 import type { FieldTypeValue } from "@/types/fields";
+import { fieldService } from "@/db/services/fieldService";
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import {
   Delete,
@@ -197,6 +198,10 @@ function removeCondition(index: number) {
 
 function getFieldById(fieldId: string) {
   return props.fields.find((f) => f.id === fieldId);
+}
+
+function getTargetFieldById(fieldId: string) {
+  return targetTableFields.value.find((f) => f.id === fieldId);
 }
 
 const STATIC_ONLY_FIELD_TYPES: FieldTypeValue[] = [
@@ -385,10 +390,42 @@ function toggleExpressionForCreate(index: number, value: boolean) {
   useExpressionForCreate.value[index] = value;
 }
 
-const targetTableFields = computed(() => {
-  // 当前仅展示源表字段；真实场景中需额外加载目标表字段
-  return props.fields;
-});
+function onCreateSourceFieldChange(index: number, sourceFieldId: string | undefined) {
+  updateCreateMapping(index, { source_field_id: sourceFieldId });
+  if (sourceFieldId) {
+    useExpressionForCreate.value[index] = true;
+    updateCreateValueTemplate(index, `{{trigger.record.${sourceFieldId}}}`);
+  }
+}
+
+const targetFields = ref<FieldEntity[]>([]);
+const isLoadingTargetFields = ref(false);
+
+async function loadTargetFields(tableId: string) {
+  if (!tableId) {
+    targetFields.value = [];
+    return;
+  }
+  isLoadingTargetFields.value = true;
+  try {
+    targetFields.value = await fieldService.getFieldsByTable(tableId);
+  } finally {
+    isLoadingTargetFields.value = false;
+  }
+}
+
+watch(
+  createRecordTargetTableId,
+  (newTableId, oldTableId) => {
+    loadTargetFields(newTableId);
+    if (oldTableId !== undefined && oldTableId !== newTableId) {
+      createRecordMappings.value = [];
+    }
+  },
+  { immediate: true },
+);
+
+const targetTableFields = computed(() => targetFields.value);
 
 // ==================== 发送邮件节点配置 ====================
 
@@ -751,6 +788,7 @@ const nodeTypeLabel = computed(() => {
               placeholder="目标字段"
               class="field-select"
               :disabled="readonly"
+              :loading="isLoadingTargetFields"
               @change="(val) => updateCreateMapping(index, { target_field_id: val as string })">
               <el-option
                 v-for="field in targetTableFields"
@@ -765,7 +803,7 @@ const nodeTypeLabel = computed(() => {
               clearable
               class="field-select"
               :disabled="readonly"
-              @change="(val) => updateCreateMapping(index, { source_field_id: val as string | undefined })">
+              @change="(val) => onCreateSourceFieldChange(index, val as string | undefined)">
               <el-option
                 v-for="field in fields"
                 :key="field.id"
@@ -775,7 +813,7 @@ const nodeTypeLabel = computed(() => {
           </div>
 
           <div class="template-input-column">
-            <template v-if="!isStaticOnlyFieldType(getFieldById(mapping.target_field_id)?.type ?? '')">
+            <template v-if="!isStaticOnlyFieldType(getTargetFieldById(mapping.target_field_id)?.type ?? '')">
               <div class="mode-switch-row">
                 <el-switch
                   :model-value="useExpressionForCreate[index]"
@@ -797,7 +835,7 @@ const nodeTypeLabel = computed(() => {
               <FieldValueInput
                 v-if="!useExpressionForCreate[index] && mapping.target_field_id"
                 :key="`create-static-${index}`"
-                :field="getFieldById(mapping.target_field_id)!"
+                :field="getTargetFieldById(mapping.target_field_id)!"
                 :model-value="mapping.value_template"
                 placeholder="输入静态值"
                 class="static-value-input"
@@ -809,7 +847,7 @@ const nodeTypeLabel = computed(() => {
               <FieldValueInput
                 v-if="mapping.target_field_id"
                 :key="`create-static-${index}`"
-                :field="getFieldById(mapping.target_field_id)!"
+                :field="getTargetFieldById(mapping.target_field_id)!"
                 :model-value="mapping.value_template"
                 placeholder="输入静态值"
                 class="static-value-input"
