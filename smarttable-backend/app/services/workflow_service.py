@@ -2,11 +2,13 @@
 工作流核心服务模块
 
 提供工作流的 CRUD、状态管理、版本发布与触发匹配能力。
+
+过滤条件操作符直接使用前端 FilterOperator 字符串（驼峰命名），
+不进行前后端转换，前后端字符逻辑完全一致。
 """
 import logging
-import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from app.extensions import db
@@ -27,6 +29,83 @@ from app.services.permission_service import PermissionService
 log = logging.getLogger(__name__)
 
 
+def _parse_datetime(value: Any) -> Optional[datetime]:
+    """将任意值解析为 datetime 对象（含时区信息），失败返回 None"""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+    try:
+        text = str(value).strip()
+    except Exception:
+        return None
+    if not text:
+        return None
+    # ISO 8601（含时区）
+    try:
+        return datetime.fromisoformat(text.replace('Z', '+00:00'))
+    except ValueError:
+        pass
+    # 常见格式
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y/%m/%d %H:%M:%S', '%Y/%m/%d'):
+        try:
+            parsed = datetime.strptime(text, fmt)
+            return parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _resolve_date_range(range_key: str) -> tuple:
+    """根据前端 isWithin 的 range key 解析 [start, end) 时间范围（UTC）"""
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_ms = 24 * 60 * 60
+    week_ms = 7 * day_ms
+
+    if range_key == 'today':
+        return today_start, today_start + timedelta(seconds=day_ms)
+    if range_key == 'yesterday':
+        return today_start - timedelta(seconds=day_ms), today_start
+    if range_key == 'tomorrow':
+        return today_start + timedelta(seconds=day_ms), today_start + timedelta(seconds=2 * day_ms)
+    if range_key == 'thisWeek':
+        day_of_week = today_start.weekday()  # Monday=0
+        week_start = today_start - timedelta(days=day_of_week)
+        return week_start, week_start + timedelta(seconds=week_ms)
+    if range_key == 'lastWeek':
+        day_of_week = today_start.weekday()
+        this_week_start = today_start - timedelta(days=day_of_week)
+        return this_week_start - timedelta(seconds=week_ms), this_week_start
+    if range_key == 'nextWeek':
+        day_of_week = today_start.weekday()
+        this_week_start = today_start - timedelta(days=day_of_week)
+        return this_week_start + timedelta(seconds=week_ms), this_week_start + timedelta(seconds=2 * week_ms)
+    if range_key == 'thisMonth':
+        month_start = today_start.replace(day=1)
+        next_month_start = (month_start + timedelta(days=32)).replace(day=1)
+        return month_start, next_month_start
+    if range_key == 'lastMonth':
+        month_start = today_start.replace(day=1) - timedelta(days=1)
+        month_start = month_start.replace(day=1)
+        this_month_start = today_start.replace(day=1)
+        return month_start, this_month_start
+    if range_key == 'thisYear':
+        year_start = today_start.replace(month=1, day=1)
+        next_year_start = year_start.replace(year=year_start.year + 1)
+        return year_start, next_year_start
+    if range_key == 'lastYear':
+        year_start = today_start.replace(month=1, day=1) - timedelta(days=1)
+        year_start = year_start.replace(month=1, day=1)
+        this_year_start = today_start.replace(month=1, day=1)
+        return year_start, this_year_start
+    return None, None
+
+
 class WorkflowService:
     """工作流核心服务"""
 
@@ -39,13 +118,16 @@ class WorkflowService:
             return value
         return uuid.UUID(str(value))
 
+    # 前端 FilterOperator 常量到后端操作符的映射
+    # 已删除：后端直接使用前端字符（驼峰命名），不再做转换
+
     @staticmethod
     def _eval_operator(actual: Any, operator: str, expected: Any) -> bool:
-        """评估单个过滤条件"""
-        if operator == 'eq':
+        """评估单个过滤条件（操作符直接使用前端 FilterOperator 字符串）"""
+        if operator == 'equals':
             return actual == expected
 
-        if operator == 'ne':
+        if operator == 'notEquals':
             return actual != expected
 
         if operator == 'contains':
@@ -59,7 +141,7 @@ class WorkflowService:
                 return expected in actual
             return str(expected) in str(actual)
 
-        if operator == 'not_contains':
+        if operator == 'notContains':
             if actual is None:
                 return True
             if isinstance(actual, str):
@@ -70,53 +152,45 @@ class WorkflowService:
                 return expected not in actual
             return str(expected) not in str(actual)
 
-        if operator in ('gt', 'lt', 'gte', 'lte'):
+        if operator in ('greaterThan', 'lessThan', 'greaterThanOrEqual', 'lessThanOrEqual'):
             try:
                 actual_num = float(actual)
                 expected_num = float(expected)
             except (TypeError, ValueError):
                 return False
-            if operator == 'gt':
+            if operator == 'greaterThan':
                 return actual_num > expected_num
-            if operator == 'lt':
+            if operator == 'lessThan':
                 return actual_num < expected_num
-            if operator == 'gte':
+            if operator == 'greaterThanOrEqual':
                 return actual_num >= expected_num
             return actual_num <= expected_num
 
-        if operator == 'regex':
-            if actual is None:
-                return False
-            try:
-                return re.search(str(expected), str(actual)) is not None
-            except re.error:
-                return False
-
-        if operator == 'startswith':
+        if operator == 'startsWith':
             if actual is None:
                 return False
             return str(actual).startswith(str(expected))
 
-        if operator == 'endswith':
+        if operator == 'endsWith':
             if actual is None:
                 return False
             return str(actual).endswith(str(expected))
 
-        if operator == 'in':
+        if operator == 'isAnyOf':
             if expected is None:
                 return False
             if isinstance(expected, (list, tuple, set)):
                 return actual in expected
             return False
 
-        if operator == 'not_in':
+        if operator == 'isNoneOf':
             if expected is None:
                 return False
             if isinstance(expected, (list, tuple, set)):
                 return actual not in expected
             return False
 
-        if operator == 'is_empty':
+        if operator == 'isEmpty':
             if actual is None:
                 return True
             if isinstance(actual, str):
@@ -125,7 +199,7 @@ class WorkflowService:
                 return len(actual) == 0
             return False
 
-        if operator == 'is_not_empty':
+        if operator == 'isNotEmpty':
             if actual is None:
                 return False
             if isinstance(actual, str):
@@ -133,6 +207,28 @@ class WorkflowService:
             if isinstance(actual, (list, tuple, set, dict)):
                 return len(actual) > 0
             return True
+
+        if operator in ('isBefore', 'isAfter', 'isOnOrBefore', 'isOnOrAfter'):
+            actual_dt = _parse_datetime(actual)
+            expected_dt = _parse_datetime(expected)
+            if actual_dt is None or expected_dt is None:
+                return False
+            if operator == 'isBefore':
+                return actual_dt < expected_dt
+            if operator == 'isAfter':
+                return actual_dt > expected_dt
+            if operator == 'isOnOrBefore':
+                return actual_dt <= expected_dt
+            return actual_dt >= expected_dt
+
+        if operator == 'isWithin':
+            actual_dt = _parse_datetime(actual)
+            if actual_dt is None:
+                return False
+            range_start, range_end = _resolve_date_range(str(expected))
+            if range_start is None or range_end is None:
+                return False
+            return range_start <= actual_dt < range_end
 
         return False
 
@@ -143,15 +239,15 @@ class WorkflowService:
         record_values: Dict[str, Any],
         changes: Optional[Dict[str, Any]]
     ) -> bool:
-        """递归评估过滤条件（支持 AND/OR 组合）"""
+        """递归评估过滤条件（支持 AND/OR 组合，group 字段为 conjunction）"""
         if not isinstance(condition, dict):
             return False
 
-        operator = condition.get('operator')
-
-        if operator in ('and', 'or'):
+        # group 结构通过 conjunction 字段判断（与前端一致）
+        conjunction = condition.get('conjunction')
+        if conjunction in ('and', 'or'):
             sub_conditions = condition.get('conditions', [])
-            if operator == 'and':
+            if conjunction == 'and':
                 return all(
                     cls._evaluate_filter_condition(c, record_values, changes)
                     for c in sub_conditions
@@ -161,6 +257,8 @@ class WorkflowService:
                 for c in sub_conditions
             )
 
+        # 叶子条件：直接读取 operator 字段（无需转换）
+        operator = condition.get('operator')
         field_id = condition.get('field_id')
         expected = condition.get('value')
 
@@ -360,7 +458,7 @@ class WorkflowService:
                 trigger = WorkflowTrigger(
                     workflow_id=workflow.id,
                     trigger_type=WorkflowTriggerType(trigger_type) if trigger_type else WorkflowTriggerType.RECORD_CREATED,
-                    filter_config=trigger_config.get('filter_config', {}),
+                    filter_config=cls._clean_filter_config(trigger_config.get('filter_config', {})),
                     field_ids=trigger_config.get('field_ids', [])
                 )
                 db.session.add(trigger)
@@ -370,11 +468,18 @@ class WorkflowService:
             nodes_config = kwargs['nodes_config']
             if nodes_config:
                 for index, node_data in enumerate(nodes_config):
+                    node_type_str = node_data.get('node_type', 'action')
+                    config = dict(node_data.get('config', {}))
+                    # 前端动作类型转换为 ACTION 节点
+                    action_node_types = {'update_record', 'create_record', 'send_email', 'trigger_webhook'}
+                    if node_type_str in action_node_types:
+                        config['action_type'] = node_type_str
+                        node_type_str = 'action'
                     node = WorkflowNode(
                         workflow_id=workflow.id,
-                        node_type=WorkflowNodeType(node_data.get('node_type', 'action')),
+                        node_type=WorkflowNodeType(node_type_str),
                         name=node_data.get('name', f'节点 {index + 1}'),
-                        config=node_data.get('config', {}),
+                        config=config,
                         order=node_data.get('order', index),
                         next_nodes=node_data.get('next_nodes', [])
                     )
@@ -682,6 +787,14 @@ class WorkflowService:
         seen_workflow_ids = set()
 
         for trigger in triggers:
+            # record_updated / field_changed 类型需检查变更字段是否在监听列表中
+            if trigger_type in (WorkflowTriggerType.RECORD_UPDATED, WorkflowTriggerType.FIELD_CHANGED):
+                field_ids = trigger.field_ids or []
+                if field_ids:
+                    changed_field_ids = set(changes.keys()) if changes else set()
+                    if not changed_field_ids.intersection(set(field_ids)):
+                        continue
+
             filter_config = trigger.filter_config or {}
             if not filter_config:
                 matched = True

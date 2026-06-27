@@ -522,17 +522,24 @@ class WorkflowExecutionEngine:
 
     @staticmethod
     def evaluate_condition(condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
-        """评估条件表达式（支持 eq / contains / gt / lt / regex 及 AND/OR 组合）"""
+        """评估条件表达式（操作符直接使用前端 FilterOperator 字符串）
+
+        支持前端 19 个操作符 + AND/OR 组合（group 通过 conjunction 字段判断，
+        与 _evaluate_filter_condition 保持一致）。
+        """
         if not isinstance(condition, dict):
             return False
 
-        operator = condition.get('operator')
-        if operator in ('and', 'or'):
+        # group 结构通过 conjunction 字段判断（与前端、与 _evaluate_filter_condition 一致）
+        conjunction = condition.get('conjunction')
+        if conjunction in ('and', 'or'):
             sub_conditions = condition.get('conditions', [])
-            if operator == 'and':
+            if conjunction == 'and':
                 return all(WorkflowExecutionEngine.evaluate_condition(c, context) for c in sub_conditions)
             return any(WorkflowExecutionEngine.evaluate_condition(c, context) for c in sub_conditions)
 
+        # 叶子条件：直接读取 operator 字段（前端驼峰命名，无需转换）
+        operator = condition.get('operator')
         field_id = condition.get('field_id')
         expected = condition.get('value')
         actual = context.get(field_id)

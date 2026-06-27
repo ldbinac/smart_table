@@ -202,7 +202,7 @@ class TestExecuteConditionNode:
                     'name': '条件',
                     'config': {
                         'condition': {
-                            'operator': 'eq',
+                            'operator': 'equals',
                             'field_id': 'status',
                             'value': 'active'
                         },
@@ -243,7 +243,7 @@ class TestExecuteConditionNode:
                     'name': '条件',
                     'config': {
                         'condition': {
-                            'operator': 'eq',
+                            'operator': 'equals',
                             'field_id': 'status',
                             'value': 'active'
                         },
