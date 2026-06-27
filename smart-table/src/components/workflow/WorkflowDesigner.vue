@@ -342,12 +342,12 @@ function handleViewVersions() {
 
       <div class="footer-actions">
         <template v-if="isDraft">
-          <el-button :icon="CircleClose" @click="handleSave">
+          <el-button :icon="CircleCheck" type="primary" @click="handleSave">
             保存
           </el-button>
-          <el-button type="primary" :icon="CircleCheck" @click="handlePublish">
+          <!-- <el-button type="primary" :icon="CircleCheck" @click="handlePublish">
             发布
-          </el-button>
+          </el-button> -->
         </template>
         <template v-else>
           <el-button :icon="Timer" @click="handleViewVersions">
