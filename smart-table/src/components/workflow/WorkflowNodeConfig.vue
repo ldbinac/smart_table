@@ -650,7 +650,7 @@ const nodeTypeLabel = computed(() => {
           </el-select>
 
           <FieldValueInput
-            v-if="operatorRequiresValue(condition.operator)"
+            v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
             :field="getFieldById(condition.field_id)!"
             :model-value="condition.value"
             placeholder="值"
@@ -731,7 +731,7 @@ const nodeTypeLabel = computed(() => {
                 @update:model-value="(val) => updateMappingTemplate(index, val)" />
 
               <FieldValueInput
-                v-if="!useExpressionForUpdate[index] && mapping.field_id"
+                v-if="!useExpressionForUpdate[index] && mapping.field_id && getFieldById(mapping.field_id)"
                 :key="`update-static-${index}`"
                 :field="getFieldById(mapping.field_id)!"
                 :model-value="mapping.value_template"
@@ -743,7 +743,7 @@ const nodeTypeLabel = computed(() => {
 
             <template v-else>
               <FieldValueInput
-                v-if="mapping.field_id"
+                v-if="mapping.field_id && getFieldById(mapping.field_id)"
                 :key="`update-static-${index}`"
                 :field="getFieldById(mapping.field_id)!"
                 :model-value="mapping.value_template"
@@ -840,7 +840,7 @@ const nodeTypeLabel = computed(() => {
                 @update:model-value="(val) => updateCreateValueTemplate(index, val)" />
 
               <FieldValueInput
-                v-if="!useExpressionForCreate[index] && mapping.target_field_id"
+                v-if="!useExpressionForCreate[index] && mapping.target_field_id && getTargetFieldById(mapping.target_field_id)"
                 :key="`create-static-${index}`"
                 :field="getTargetFieldById(mapping.target_field_id)!"
                 :model-value="mapping.value_template"
@@ -852,7 +852,7 @@ const nodeTypeLabel = computed(() => {
 
             <template v-else>
               <FieldValueInput
-                v-if="mapping.target_field_id"
+                v-if="mapping.target_field_id && getTargetFieldById(mapping.target_field_id)"
                 :key="`create-static-${index}`"
                 :field="getTargetFieldById(mapping.target_field_id)!"
                 :model-value="mapping.value_template"

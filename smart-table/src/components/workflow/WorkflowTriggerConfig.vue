@@ -252,7 +252,7 @@ function onFilterValueChange(index: number, value: unknown) {
 
             <div class="value-cell">
               <FieldValueInput
-                v-if="operatorRequiresValue(condition.operator)"
+                v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
                 :field="getFieldById(condition.field_id)!"
                 :model-value="condition.value"
                 placeholder="值"
