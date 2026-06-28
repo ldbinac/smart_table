@@ -19,6 +19,8 @@ import {
   Lock,
   Loading,
   Warning,
+  Connection,
+  CircleCheck,
 } from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
 import { debounce } from "@/utils/debounce";
@@ -159,10 +161,24 @@ const isBasePage = computed(() => {
   return route.path.startsWith("/base/");
 });
 
-// 判断是否在工作流页面（/base/:id/workflows）
+// 自动化导航
 const isWorkflowPage = computed(() => {
   return /^\/base\/[^/]+\/workflows/.test(route.path);
 });
+
+const isApprovalPage = computed(() => {
+  return /^\/base\/[^/]+\/approvals/.test(route.path);
+});
+
+const handleWorkflowClick = () => {
+  if (!currentBase.value) return;
+  router.push(`/base/${currentBase.value.id}/workflows`);
+};
+
+const handleApprovalClick = () => {
+  if (!currentBase.value) return;
+  router.push(`/base/${currentBase.value.id}/approvals`);
+};
 
 // 左侧显示的标题：Base（多维表根）名称或默认标题
 const leftTitle = computed(() => {
@@ -414,6 +430,36 @@ onMounted(() => {
           <ConnectionStatusBar />
           <OnlineUsers />
         </div>
+        <el-divider direction="vertical" class="header-divider" />
+      </template>
+
+      <!-- Base页面的自动化下拉菜单 -->
+      <template v-if="isBasePage && currentBase">
+        <el-dropdown trigger="click" @command="(cmd: string) => {
+          if (cmd === 'workflow') handleWorkflowClick();
+          else if (cmd === 'approval') handleApprovalClick();
+        }">
+          <el-button type="primary" plain circle title="自动化">
+            <el-icon><Connection /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="workflow" :class="{ 'is-active': isWorkflowPage }">
+                <el-icon><Connection /></el-icon>
+                工作流
+              </el-dropdown-item>
+              <el-dropdown-item command="approval" :class="{ 'is-active': isApprovalPage }">
+                <el-icon><CircleCheck /></el-icon>
+                <el-badge
+                  :value="workflowStore.pendingApprovalCount"
+                  :hidden="workflowStore.pendingApprovalCount === 0"
+                  class="approval-badge">
+                  审批
+                </el-badge>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
         <el-divider direction="vertical" class="header-divider" />
       </template>
 
@@ -728,6 +774,16 @@ onMounted(() => {
     @include text-ellipsis;
     max-width: 240px;
   }
+}
+
+// 自动化下拉菜单高亮
+:deep(.is-active) {
+  color: $primary-color;
+  font-weight: 500;
+}
+
+.approval-badge {
+  line-height: inherit;
 }
 
 // 首页搜索框样式
