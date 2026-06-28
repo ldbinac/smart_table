@@ -103,7 +103,7 @@ const designerTrigger = computed<WorkflowTrigger>(() => {
     trigger.value ?? {
       id: "",
       workflow_id: currentWorkflow.value?.id || "",
-      trigger_type: "manual",
+      trigger_type: "",
       filter_config: {},
       field_ids: [],
     }
