@@ -276,7 +276,7 @@ class TestExecuteUpdateRecord:
     """测试更新记录动作节点"""
 
     def test_execute_update_record(self, ctx, base, table, owner, field, record, engine):
-        """测试更新记录动作会修改记录字段值"""
+        """测试更新记录动作会修改记录字段值（前端 updates 数组格式）"""
         workflow = WorkflowService.create_workflow(
             base_id=base.id,
             table_id=table.id,
@@ -288,9 +288,9 @@ class TestExecuteUpdateRecord:
                     'name': '更新状态',
                     'config': {
                         'action_type': 'update_record',
-                        'values': {
-                            str(field.id): '已更新'
-                        }
+                        'updates': [
+                            {'field_id': str(field.id), 'value_template': '已更新'}
+                        ]
                     },
                     'order': 0
                 }
@@ -314,6 +314,257 @@ class TestExecuteUpdateRecord:
         assert 'record_id' in result
         db.session.refresh(record)
         assert record.values[str(field.id)] == '已更新'
+
+    def test_execute_update_record_with_template(self, ctx, base, table, owner, field, record, engine):
+        """测试更新记录动作支持模板变量渲染"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='更新记录模板测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'action',
+                    'name': '更新状态',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [
+                            {'field_id': str(field.id), 'value_template': '{{trigger.record.status}}'}
+                        ]
+                    },
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+            context={'record': {'status': '已完成'}}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        action_node = workflow.nodes.first()
+        result = engine.execute_node(instance, action_node)
+
+        assert 'record_id' in result
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '已完成'
+
+    def test_execute_update_record_skips_empty_field_id(self, ctx, base, table, owner, field, record, engine):
+        """测试更新记录跳过空 field_id 的映射项"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='更新记录空字段测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'action',
+                    'name': '更新状态',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [
+                            {'field_id': '', 'value_template': '应被跳过'},
+                            {'field_id': str(field.id), 'value_template': '有效值'}
+                        ]
+                    },
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        action_node = workflow.nodes.first()
+        result = engine.execute_node(instance, action_node)
+
+        assert 'record_id' in result
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '有效值'
+
+
+class TestExecuteCreateRecord:
+    """测试创建记录动作节点"""
+
+    def test_execute_create_record(self, ctx, base, table, owner, field, engine):
+        """测试创建记录动作会在目标表格创建新记录（前端 field_mappings 格式）"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='创建记录测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'action',
+                    'name': '创建记录',
+                    'config': {
+                        'action_type': 'create_record',
+                        'target_table_id': str(table.id),
+                        'field_mappings': [
+                            {'target_field_id': str(field.id), 'value_template': '新记录值'}
+                        ]
+                    },
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        action_node = workflow.nodes.first()
+        result = engine.execute_node(instance, action_node)
+
+        assert 'record_id' in result
+        # 验证新记录已创建
+        new_record = Record.query.get(result['record_id'])
+        assert new_record is not None
+        assert new_record.values[str(field.id)] == '新记录值'
+
+    def test_execute_create_record_with_template(self, ctx, base, table, owner, field, engine):
+        """测试创建记录支持模板变量渲染"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='创建记录模板测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'action',
+                    'name': '创建记录',
+                    'config': {
+                        'action_type': 'create_record',
+                        'target_table_id': str(table.id),
+                        'field_mappings': [
+                            {'target_field_id': str(field.id), 'value_template': '{{trigger.record.name}}'}
+                        ]
+                    },
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={'record': {'name': '来自触发器的值'}}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        action_node = workflow.nodes.first()
+        result = engine.execute_node(instance, action_node)
+
+        assert 'record_id' in result
+        new_record = Record.query.get(result['record_id'])
+        assert new_record is not None
+        assert new_record.values[str(field.id)] == '来自触发器的值'
+
+    def test_execute_create_record_missing_table_id(self, ctx, base, table, owner, field, engine):
+        """测试创建记录缺少目标表格 ID 时抛出异常"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='创建记录缺少表格测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'action',
+                    'name': '创建记录',
+                    'config': {
+                        'action_type': 'create_record',
+                        'field_mappings': [
+                            {'target_field_id': str(field.id), 'value_template': '值'}
+                        ]
+                    },
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        action_node = workflow.nodes.first()
+        with pytest.raises(ValueError, match='缺少目标表格 ID'):
+            engine.execute_node(instance, action_node)
+
+    def test_execute_create_record_skips_empty_target_field(self, ctx, base, table, owner, field, engine):
+        """测试创建记录跳过空 target_field_id 的映射项"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='创建记录空字段测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'action',
+                    'name': '创建记录',
+                    'config': {
+                        'action_type': 'create_record',
+                        'target_table_id': str(table.id),
+                        'field_mappings': [
+                            {'target_field_id': '', 'value_template': '应被跳过'},
+                            {'target_field_id': str(field.id), 'value_template': '有效值'}
+                        ]
+                    },
+                    'order': 0
+                }
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={}
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        action_node = workflow.nodes.first()
+        result = engine.execute_node(instance, action_node)
+
+        assert 'record_id' in result
+        new_record = Record.query.get(result['record_id'])
+        assert new_record is not None
+        assert new_record.values[str(field.id)] == '有效值'
 
 
 class TestRenderTemplate:

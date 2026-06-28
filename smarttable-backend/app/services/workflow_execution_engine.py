@@ -354,12 +354,16 @@ class WorkflowExecutionEngine:
         if not record:
             raise ValueError(f'记录不存在: {record_id}')
 
-        values = config.get('values', {})
+        # 前端存储为 updates 数组，需转为字段ID→值的字典
+        updates = config.get('updates', [])
         context = self._build_render_context(instance)
-        rendered_values = {
-            k: self.render_template(v, context)
-            for k, v in values.items()
-        }
+        rendered_values = {}
+        for mapping in updates:
+            field_id = mapping.get('field_id')
+            if not field_id:
+                continue
+            value_template = mapping.get('value_template', '')
+            rendered_values[field_id] = self.render_template(value_template, context)
 
         RecordService.update_record(record, rendered_values, updated_by=self.SYSTEM_USER_ID)
         return {'record_id': str(record.id)}
@@ -367,16 +371,20 @@ class WorkflowExecutionEngine:
     def _execute_create_record(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行创建记录动作"""
         config = node.config or {}
-        table_id = config.get('table_id')
+        table_id = config.get('target_table_id')
         if not table_id:
             raise ValueError('缺少目标表格 ID')
 
-        values = config.get('values', {})
+        # 前端存储为 field_mappings 数组，需转为字段ID→值的字典
+        field_mappings = config.get('field_mappings', [])
         context = self._build_render_context(instance)
-        rendered_values = {
-            k: self.render_template(v, context)
-            for k, v in values.items()
-        }
+        rendered_values = {}
+        for mapping in field_mappings:
+            target_field_id = mapping.get('target_field_id')
+            if not target_field_id:
+                continue
+            value_template = mapping.get('value_template', '')
+            rendered_values[target_field_id] = self.render_template(value_template, context)
 
         record = RecordService.create_record(
             str(table_id),
