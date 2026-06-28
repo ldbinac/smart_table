@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, watch, onMounted } from "vue";
 import { ElMessage } from "element-plus";
+import { Refresh } from "@element-plus/icons-vue";
 import { apiClient } from "@/api/client";
 import type { PaginatedData } from "@/api/types";
 import { formatDateTime } from "@/utils/timezone";
@@ -111,6 +112,8 @@ watch(
 onMounted(() => {
   fetchDeliveries();
 });
+
+defineExpose({ fetchDeliveries });
 </script>
 
 <template>

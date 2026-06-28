@@ -7,6 +7,7 @@ import {
   EditPen,
   Timer,
   Link,
+  Refresh,
 } from "@element-plus/icons-vue";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useTableStore } from "@/stores/tableStore";
@@ -60,6 +61,7 @@ const detailLoading = ref(false);
 // 编辑工作流弹窗
 const editDialogVisible = ref(false);
 const editFormRef = ref<FormInstance>();
+const deliveryListRef = ref<any>(null);
 const editForm = ref({
   id: "",
   name: "",
@@ -214,6 +216,18 @@ async function loadExecutionLogs(workflowId: string, instanceId: string) {
   }
 }
 
+async function refreshInstances() {
+  if (!currentWorkflow.value) return;
+  try {
+    instances.value = await workflowStore.loadInstances(currentWorkflow.value.id);
+    if (selectedInstanceId.value) {
+      await loadExecutionLogs(currentWorkflow.value.id, selectedInstanceId.value);
+    }
+  } catch (error) {
+    console.error("刷新执行实例失败:", error);
+  }
+}
+
 function handleSelectWorkflow(workflow: Workflow) {
   workflowStore.currentWorkflow = workflow;
 }
@@ -338,6 +352,15 @@ async function handleSaveWorkflow(
       await apiClient.post(`/workflows/${currentWorkflow.value.id}/snapshot`);
     }
 
+    // 刷新左侧列表和当前工作流详情（版本号等字段可能已变更）
+    const workflowId = currentWorkflow.value.id;
+    await workflowStore.loadWorkflows(baseId);
+    // 从刷新后的列表中找到当前工作流并重新加载详情
+    const refreshed = workflowStore.workflows.find((w: Workflow) => w.id === workflowId);
+    if (refreshed) {
+      await loadWorkflowDetail(refreshed);
+    }
+
     ElMessage.success("工作流保存成功");
   } catch (error) {
     console.error("保存工作流失败:", error);
@@ -410,6 +433,10 @@ function handleWebhookSaved(webhook: WebhookConfig) {
     workflowStore.webhooks.push(webhook);
   }
   selectedWebhookId.value = webhook.id;
+}
+
+function refreshDeliveryList() {
+  deliveryListRef.value?.fetchDeliveries();
 }
 
 function getWebhookStatusType(isActive: boolean): "success" | "info" {
@@ -510,6 +537,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                   :label="`#${instance.id.slice(0, 8)} - ${instance.status}`"
                   :value="instance.id" />
               </el-select>
+              <el-button :icon="Refresh" text type="primary" @click="refreshInstances">刷新</el-button>
             </div>
 
             <div class="log-container">
@@ -561,8 +589,11 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                 <div
                   v-if="selectedWebhook"
                   class="webhook-deliveries">
-                  <div class="section-title">投递记录</div>
-                  <WebhookDeliveryList :webhook-id="selectedWebhook.id" />
+                  <div class="section-title" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span>投递记录</span>
+                    <el-button :icon="Refresh" text size="small" type="primary" @click="refreshDeliveryList">刷新</el-button>
+                  </div>
+                  <WebhookDeliveryList ref="deliveryListRef" :webhook-id="selectedWebhook.id" />
                 </div>
               </div>
             </div>
@@ -816,7 +847,8 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: $spacing-md;
+  padding-bottom: $spacing-md;
+  border-bottom: 1px solid $border-color;
 }
 
 .list-title {
@@ -847,6 +879,8 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
 .section-title {
   font-weight: 600;
   color: $text-primary;
+  padding-bottom: $spacing-sm;
+  border-bottom: 1px solid $border-color;
 }
 
 .form-help-text {

@@ -228,14 +228,14 @@ const handleTest = async () => {
       </el-form-item>
 
       <el-form-item label="签名密钥">
-        <el-input
+        <el-input disabled
           v-model="form.secret"
           type="password"
           show-password
           placeholder="留空表示不启用签名验证"
         >
           <template #append>
-            <el-button @click="generateSecret">自动生成</el-button>
+            <el-button disabled @click="generateSecret">自动生成</el-button>
           </template>
         </el-input>
       </el-form-item>
