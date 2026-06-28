@@ -759,24 +759,26 @@ class WorkflowService:
         if workflow.status != WorkflowStatus.PAUSED:
             raise ValueError('仅暂停状态的工作流可保存版本快照')
 
-        # 构建当前配置快照
-        current_snapshot = cls._build_version_snapshot(workflow)
+        # 构建当前配置快照（仅对比业务字段，排除 id/workflow_id 等非实质字段）
+        current_content = cls._build_content_fingerprint(workflow)
 
-        # 获取最新版本快照进行对比
+        # 获取最新版本快照，提取业务字段进行对比
         latest_version = WorkflowVersion.query.filter_by(
             workflow_id=workflow.id
         ).order_by(WorkflowVersion.version_number.desc()).first()
 
-        if latest_version and latest_version.config_snapshot == current_snapshot:
-            log.info(f'[WorkflowService] 工作流 {workflow.id} 内容无变更，跳过版本快照创建')
-            return None
+        if latest_version:
+            latest_content = cls._extract_content_from_snapshot(latest_version.config_snapshot)
+            if latest_content == current_content:
+                log.info(f'[WorkflowService] 工作流 {workflow.id} 内容无变更，跳过版本快照创建')
+                return None
 
         # 存在变更，创建新版本
         workflow.current_version += 1
         version = WorkflowVersion(
             workflow_id=workflow.id,
             version_number=workflow.current_version,
-            config_snapshot=current_snapshot,
+            config_snapshot=cls._build_version_snapshot(workflow),
             created_by=cls._to_uuid(created_by)
         )
         db.session.add(version)
@@ -787,6 +789,69 @@ class WorkflowService:
             f'#{workflow.current_version} (暂停状态修改)'
         )
         return version
+
+    @staticmethod
+    def _build_content_fingerprint(workflow: Workflow) -> Dict[str, Any]:
+        """构建仅包含业务字段的指纹，用于变更对比（排除 id/workflow_id 等每次保存都会变化的字段）"""
+        from app.models.workflow import _ACTION_TYPE_TO_FRONTEND, WorkflowNodeType
+        nodes = workflow.nodes.order_by(WorkflowNode.order).all()
+        triggers = workflow.triggers.all()
+        fingerprint_nodes = []
+        for node in nodes:
+            node_type_value = node.node_type.value if isinstance(node.node_type, WorkflowNodeType) else node.node_type
+            # 与 to_dict() 保持一致：将 action 节点转换为前端细粒度 node_type
+            if node_type_value == WorkflowNodeType.ACTION.value:
+                action_type = (node.config or {}).get('action_type')
+                if action_type in _ACTION_TYPE_TO_FRONTEND:
+                    node_type_value = _ACTION_TYPE_TO_FRONTEND[action_type]
+            fingerprint_nodes.append({
+                'node_type': node_type_value,
+                'name': node.name,
+                'config': node.config or {},
+                'order': node.order,
+                'next_nodes': node.next_nodes or []
+            })
+        return {
+            'name': workflow.name,
+            'description': workflow.description,
+            'nodes': fingerprint_nodes,
+            'triggers': [
+                {
+                    'trigger_type': trigger.trigger_type.value if isinstance(trigger.trigger_type, WorkflowTriggerType) else trigger.trigger_type,
+                    'filter_config': trigger.filter_config or {},
+                    'field_ids': trigger.field_ids or []
+                }
+                for trigger in triggers
+            ]
+        }
+
+    @staticmethod
+    def _extract_content_from_snapshot(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+        """从快照中提取业务字段指纹（与 _build_content_fingerprint 保持同构）"""
+        nodes = snapshot.get('nodes', [])
+        triggers = snapshot.get('triggers', [])
+        return {
+            'name': snapshot.get('name', ''),
+            'description': snapshot.get('description'),
+            'nodes': [
+                {
+                    'node_type': n.get('node_type'),
+                    'name': n.get('name'),
+                    'config': n.get('config', {}),
+                    'order': n.get('order'),
+                    'next_nodes': n.get('next_nodes', [])
+                }
+                for n in nodes
+            ],
+            'triggers': [
+                {
+                    'trigger_type': t.get('trigger_type'),
+                    'filter_config': t.get('filter_config', {}),
+                    'field_ids': t.get('field_ids', [])
+                }
+                for t in triggers
+            ]
+        }
 
     @classmethod
     def pause_workflow(cls, workflow_id: Any, user_id: Any = None) -> Optional[Workflow]:

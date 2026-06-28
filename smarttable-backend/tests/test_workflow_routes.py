@@ -717,7 +717,7 @@ class TestWorkflowRoutes:
             headers=auth_headers
         )
 
-        # 修改并保存快照（v2）
+        # 修改节点（增加新节点，产生实质变更）并保存快照（v2）
         client.put(
             f'/api/workflows/{created_workflow.id}/nodes',
             json={
@@ -727,6 +727,16 @@ class TestWorkflowRoutes:
                         'name': '记录创建',
                         'config': {},
                         'order': 0,
+                        'next_nodes': []
+                    },
+                    {
+                        'node_type': 'update_record',
+                        'name': '更新记录',
+                        'config': {
+                            'action_type': 'update_record',
+                            'updates': []
+                        },
+                        'order': 1,
                         'next_nodes': []
                     }
                 ]
