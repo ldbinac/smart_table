@@ -239,20 +239,24 @@ class WorkflowService:
         record_values: Dict[str, Any],
         changes: Optional[Dict[str, Any]]
     ) -> bool:
-        """递归评估过滤条件（支持 AND/OR 组合，group 字段为 conjunction）"""
+        """递归评估过滤条件（支持 AND/OR 组合）
+
+        group 结构通过 conditions 数组判断（与前端一致）；
+        conjunction 缺失时默认 'and'（前端 filterConjunction 未被用户修改时不会显式写入该字段）。
+        """
         if not isinstance(condition, dict):
             return False
 
-        # group 结构通过 conjunction 字段判断（与前端一致）
-        conjunction = condition.get('conjunction')
-        if conjunction in ('and', 'or'):
-            sub_conditions = condition.get('conditions', [])
-            if conjunction == 'and':
-                return all(
+        # group 结构通过 conditions 数组判断（conjunction 默认 'and'，与前端一致）
+        sub_conditions = condition.get('conditions')
+        if isinstance(sub_conditions, list):
+            conjunction = condition.get('conjunction', 'and')
+            if conjunction == 'or':
+                return any(
                     cls._evaluate_filter_condition(c, record_values, changes)
                     for c in sub_conditions
                 )
-            return any(
+            return all(
                 cls._evaluate_filter_condition(c, record_values, changes)
                 for c in sub_conditions
             )

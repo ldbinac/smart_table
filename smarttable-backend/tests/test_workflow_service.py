@@ -791,6 +791,37 @@ class TestEvalOperator:
         condition_eq = {'field_id': 'f1', 'operator': 'equals', 'value': 'hello'}
         assert WorkflowService._evaluate_filter_condition(condition_eq, {'f1': 'hello'}, None) is True
 
+    def test_evaluate_filter_condition_without_conjunction_field(self):
+        """测试 filter_config 缺失 conjunction 字段时仍按 'and' 求值
+
+        前端 filterConjunction 在用户未修改 radio 时不会显式写入 conjunction 字段，
+        导致存储的 filter_config 形如 {'conditions': [...]} 而无 conjunction。
+        后端应默认按 'and' 处理，而非误判为叶子条件。
+        """
+        # 无 conjunction 字段，只有 conditions 数组 —— 应识别为 group，默认 'and'
+        condition_no_conj = {
+            'conditions': [
+                {'field_id': 'f1', 'operator': 'isNotEmpty'}
+            ]
+        }
+        record_values = {'f1': '有值'}
+        assert WorkflowService._evaluate_filter_condition(condition_no_conj, record_values, None) is True
+
+        # 值为空时 isNotEmpty 应返回 False
+        assert WorkflowService._evaluate_filter_condition(condition_no_conj, {'f1': ''}, None) is False
+
+        # 多条件无 conjunction，默认 'and' 求值
+        condition_multi = {
+            'conditions': [
+                {'field_id': 'f1', 'operator': 'isNotEmpty'},
+                {'field_id': 'f2', 'operator': 'equals', 'value': 'hello'}
+            ]
+        }
+        # 两个条件都满足
+        assert WorkflowService._evaluate_filter_condition(condition_multi, {'f1': '值', 'f2': 'hello'}, None) is True
+        # 第二个条件不满足（and 语义）
+        assert WorkflowService._evaluate_filter_condition(condition_multi, {'f1': '值', 'f2': 'world'}, None) is False
+
 
 class TestCleanFilterConfig:
     """测试空条件清理"""

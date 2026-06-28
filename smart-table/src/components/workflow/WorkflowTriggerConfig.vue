@@ -115,6 +115,12 @@ const filterConjunction = computed<"and" | "or">({
 });
 
 function addFilterCondition() {
+  const config = ensureFilterConfig();
+  // 确保 conjunction 字段被显式设置（前端默认 "and"，
+  // 避免后端收到缺失 conjunction 的 filter_config）
+  if (!config.conjunction) {
+    config.conjunction = "and";
+  }
   const firstField = props.fields[0];
   const defaultOperator = firstField
     ? getOperatorsForFieldType(firstField.type)[0] ?? FilterOperator.EQUALS

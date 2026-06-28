@@ -524,19 +524,19 @@ class WorkflowExecutionEngine:
     def evaluate_condition(condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
         """评估条件表达式（操作符直接使用前端 FilterOperator 字符串）
 
-        支持前端 19 个操作符 + AND/OR 组合（group 通过 conjunction 字段判断，
-        与 _evaluate_filter_condition 保持一致）。
+        支持前端 19 个操作符 + AND/OR 组合（group 通过 conditions 数组判断，
+        conjunction 缺失时默认 'and'，与 _evaluate_filter_condition 保持一致）。
         """
         if not isinstance(condition, dict):
             return False
 
-        # group 结构通过 conjunction 字段判断（与前端、与 _evaluate_filter_condition 一致）
-        conjunction = condition.get('conjunction')
-        if conjunction in ('and', 'or'):
-            sub_conditions = condition.get('conditions', [])
-            if conjunction == 'and':
-                return all(WorkflowExecutionEngine.evaluate_condition(c, context) for c in sub_conditions)
-            return any(WorkflowExecutionEngine.evaluate_condition(c, context) for c in sub_conditions)
+        # group 结构通过 conditions 数组判断（conjunction 默认 'and'）
+        sub_conditions = condition.get('conditions')
+        if isinstance(sub_conditions, list):
+            conjunction = condition.get('conjunction', 'and')
+            if conjunction == 'or':
+                return any(WorkflowExecutionEngine.evaluate_condition(c, context) for c in sub_conditions)
+            return all(WorkflowExecutionEngine.evaluate_condition(c, context) for c in sub_conditions)
 
         # 叶子条件：直接读取 operator 字段（前端驼峰命名，无需转换）
         operator = condition.get('operator')
