@@ -443,10 +443,10 @@ class WorkflowService:
             ):
                 raise PermissionError('权限不足，需要 EDITOR 或以上角色')
 
-        # 结构变更（节点/触发器）仅草稿状态可编辑
+        # 结构变更（节点/触发器）仅草稿和暂停状态可编辑
         has_structure_changes = 'trigger_config' in kwargs or 'nodes_config' in kwargs
-        if has_structure_changes and workflow.status != WorkflowStatus.DRAFT:
-            log.warning(f'[WorkflowService] 仅草稿状态可编辑节点与触发器: {workflow_id}')
+        if has_structure_changes and workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
+            log.warning(f'[WorkflowService] 仅草稿或暂停状态可编辑节点与触发器: {workflow_id}')
             return None
 
         allowed_fields = {'name', 'description', 'table_id'}
@@ -672,6 +672,9 @@ class WorkflowService:
 
         Returns:
             发布后的工作流对象
+
+        Raises:
+            ValueError: 状态不允许发布或配置验证失败
         """
         workflow = Workflow.query.filter_by(
             id=cls._to_uuid(workflow_id),
@@ -687,6 +690,14 @@ class WorkflowService:
             min_role=MemberRole.EDITOR
         )
 
+        # 状态校验：仅草稿和暂停状态可发布
+        if workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
+            raise ValueError(f'仅草稿或暂停状态可发布，当前状态: {workflow.status.value}')
+
+        # 配置完整性验证
+        cls._validate_workflow_config(workflow)
+
+        previous_status = workflow.status.value
         workflow.current_version += 1
 
         version = WorkflowVersion(
@@ -701,8 +712,81 @@ class WorkflowService:
         db.session.add(version)
         db.session.commit()
 
-        log.info(f'[WorkflowService] 工作流已发布: {workflow.id} #{workflow.current_version}')
+        log.info(
+            f'[WorkflowService] 工作流已发布: {workflow.id} #{workflow.current_version} '
+            f'(从 {previous_status} 状态发布)'
+        )
         return workflow
+
+    @classmethod
+    def _validate_workflow_config(cls, workflow: Workflow) -> None:
+        """验证工作流配置完整性，不通过时抛出 ValueError"""
+        if not workflow.table_id:
+            raise ValueError('工作流必须关联数据表格')
+
+        trigger = workflow.triggers.first()
+        if not trigger:
+            raise ValueError('工作流必须配置触发器')
+
+        nodes = workflow.nodes.all()
+        if not nodes:
+            raise ValueError('工作流至少需要一个节点')
+
+    @classmethod
+    def save_version_snapshot(cls, workflow_id: Any, created_by: Any) -> Optional[WorkflowVersion]:
+        """
+        为暂停状态的工作流保存版本快照。
+        仅当当前配置与最新版本快照存在差异时才创建新版本。
+
+        Args:
+            workflow_id: 工作流 ID
+            created_by: 操作者 ID
+
+        Returns:
+            新创建的 WorkflowVersion，若无变更则返回 None
+
+        Raises:
+            ValueError: 工作流不存在或非暂停状态
+        """
+        workflow = Workflow.query.filter_by(
+            id=cls._to_uuid(workflow_id),
+            is_deleted=False
+        ).first()
+
+        if not workflow:
+            raise ValueError('工作流不存在')
+
+        if workflow.status != WorkflowStatus.PAUSED:
+            raise ValueError('仅暂停状态的工作流可保存版本快照')
+
+        # 构建当前配置快照
+        current_snapshot = cls._build_version_snapshot(workflow)
+
+        # 获取最新版本快照进行对比
+        latest_version = WorkflowVersion.query.filter_by(
+            workflow_id=workflow.id
+        ).order_by(WorkflowVersion.version_number.desc()).first()
+
+        if latest_version and latest_version.config_snapshot == current_snapshot:
+            log.info(f'[WorkflowService] 工作流 {workflow.id} 内容无变更，跳过版本快照创建')
+            return None
+
+        # 存在变更，创建新版本
+        workflow.current_version += 1
+        version = WorkflowVersion(
+            workflow_id=workflow.id,
+            version_number=workflow.current_version,
+            config_snapshot=current_snapshot,
+            created_by=cls._to_uuid(created_by)
+        )
+        db.session.add(version)
+        db.session.commit()
+
+        log.info(
+            f'[WorkflowService] 工作流 {workflow.id} 版本快照已保存: '
+            f'#{workflow.current_version} (暂停状态修改)'
+        )
+        return version
 
     @classmethod
     def pause_workflow(cls, workflow_id: Any, user_id: Any = None) -> Optional[Workflow]:

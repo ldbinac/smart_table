@@ -79,6 +79,10 @@ export const cloneWorkflow = async (workflowId: string): Promise<Workflow> => {
   return apiClient.post<Workflow>(`/workflows/${workflowId}/clone`);
 };
 
+export const snapshotWorkflow = async (workflowId: string): Promise<void> => {
+  await apiClient.post<void>(`/workflows/${workflowId}/snapshot`);
+};
+
 export const listWorkflowVersions = async (
   workflowId: string,
 ): Promise<WorkflowVersion[]> => {

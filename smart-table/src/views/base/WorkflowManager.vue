@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ElMessage, type FormInstance, type FormRules } from "element-plus";
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
 import {
   Collection,
   EditPen,
@@ -332,6 +332,12 @@ async function handleSaveWorkflow(
         ...updatedTrigger,
       }),
     ]);
+
+    // 暂停状态保存后，创建版本快照（后端会自动检测是否有变更）
+    if (currentWorkflow.value.status === "paused") {
+      await apiClient.post(`/workflows/${currentWorkflow.value.id}/snapshot`);
+    }
+
     ElMessage.success("工作流保存成功");
   } catch (error) {
     console.error("保存工作流失败:", error);
@@ -341,17 +347,31 @@ async function handleSaveWorkflow(
 
 async function handlePublishFromDesigner() {
   if (!currentWorkflow.value) return;
+  // 先保存当前编辑的节点和触发器
+  await handleSaveWorkflow(nodes.value, designerTrigger.value);
+  // 再发布
   await workflowStore.publishWorkflow(currentWorkflow.value.id);
 }
 
 async function handleCloneWorkflow() {
   if (!currentWorkflow.value) return;
   try {
+    await ElMessageBox.confirm(
+      `将基于当前工作流「${currentWorkflow.value.name}」创建一个新的草稿副本，当前工作流不会受到任何影响。是否继续？`,
+      '创建新版本',
+      {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'info',
+      }
+    );
     await workflowStore.cloneWorkflow(currentWorkflow.value.id);
     await workflowStore.loadWorkflows(baseId);
     activeTab.value = "editor";
   } catch (error: unknown) {
-    console.error("克隆工作流失败:", error);
+    if (error !== 'cancel') {
+      console.error("克隆工作流失败:", error);
+    }
   }
 }
 

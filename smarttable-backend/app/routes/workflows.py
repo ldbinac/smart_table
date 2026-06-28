@@ -402,8 +402,8 @@ def update_workflow_nodes(workflow_id) -> tuple:
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
         return forbidden_response('您没有权限修改此工作流')
 
-    if workflow.status != WorkflowStatus.DRAFT:
-        return bad_request_response('仅草稿状态可编辑节点')
+    if workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
+        return bad_request_response('仅草稿或暂停状态可编辑节点')
 
     data = request.get_json() or {}
     nodes = data.get('nodes', [])
@@ -499,8 +499,8 @@ def update_workflow_trigger(workflow_id) -> tuple:
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
         return forbidden_response('您没有权限修改此工作流')
 
-    if workflow.status != WorkflowStatus.DRAFT:
-        return bad_request_response('仅草稿状态可编辑触发器')
+    if workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
+        return bad_request_response('仅草稿或暂停状态可编辑触发器')
 
     data = request.get_json() or {}
 
@@ -713,7 +713,11 @@ def publish_workflow(workflow_id) -> tuple:
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
         return forbidden_response('您没有权限发布此工作流')
 
-    published = WorkflowService.publish_workflow(workflow_id, created_by=user_id)
+    try:
+        published = WorkflowService.publish_workflow(workflow_id, created_by=user_id)
+    except ValueError as e:
+        return bad_request_response(str(e))
+
     if published is None:
         return error_response('发布工作流失败', code=400)
 
@@ -721,6 +725,53 @@ def publish_workflow(workflow_id) -> tuple:
     return success_response(
         data=result,
         message='工作流发布成功'
+    )
+
+
+@workflows_bp.route('/workflows/<uuid:workflow_id>/snapshot', methods=['POST'])
+@jwt_required
+def save_workflow_snapshot(workflow_id) -> tuple:
+    """
+    为暂停状态的工作流保存版本快照
+    ---
+    tags:
+      - Workflows
+    security:
+      - Bearer: []
+    parameters:
+      - name: workflow_id
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: 版本快照保存成功（或无变更跳过）
+      400:
+        description: 工作流不存在或非暂停状态
+    """
+    user_id = g.current_user_id
+
+    workflow, error = _get_workflow_or_404(workflow_id)
+    if error:
+        return error
+
+    if not _check_base_edit_permission(str(workflow.base_id), user_id):
+        return forbidden_response('您没有权限修改此工作流')
+
+    try:
+        version = WorkflowService.save_version_snapshot(workflow_id, created_by=user_id)
+    except ValueError as e:
+        return bad_request_response(str(e))
+
+    if version is None:
+        return success_response(
+            data=None,
+            message='内容无变更，跳过版本快照创建'
+        )
+
+    return success_response(
+        data=version.to_dict(),
+        message=f'版本快照已保存: v{version.version_number}'
     )
 
 

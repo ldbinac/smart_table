@@ -109,7 +109,9 @@ watch(
 );
 
 const isDraft = computed(() => props.workflow.status === "draft");
-const readonly = computed(() => props.workflow.status !== "draft");
+const isPaused = computed(() => props.workflow.status === "paused");
+const isFreshDraft = computed(() => isDraft.value && (props.workflow.current_version ?? 0) === 0);
+const readonly = computed(() => !["draft", "paused"].includes(props.workflow.status));
 
 function cloneConfig(config: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(config));
@@ -233,6 +235,10 @@ function handleSave() {
   emit("save");
 }
 
+function handlePublish() {
+  emit("publish");
+}
+
 function handleClone() {
   emit("clone");
 }
@@ -338,21 +344,21 @@ function handleViewVersions() {
       </div>
 
       <div class="footer-actions">
-        <template v-if="isDraft">
-          <el-button :icon="CircleCheck" type="primary" @click="handleSave">
-            保存
+        <template v-if="!isFreshDraft">
+          <el-button title="基于当前流程创建新版本" type="success" plain :icon="CopyDocument" @click="handleClone">
+            复制创建新版本
           </el-button>
-          <!-- <el-button type="primary" :icon="CircleCheck" @click="handlePublish">
-            发布
-          </el-button> -->
-        </template>
-        <template v-else>
           <el-button :icon="Timer" @click="handleViewVersions">
             查看版本历史
           </el-button>
-          <el-button type="primary" :icon="CopyDocument" @click="handleClone">
-            基于此流程创建新版本
+        </template>
+        <template v-if="isDraft || isPaused">
+          <el-button :icon="CircleCheck" type="primary" @click="handleSave">
+            保存
           </el-button>
+          <!-- <el-button v-if="isPaused" type="success" :icon="CircleCheck" @click="handlePublish">
+            发布
+          </el-button> -->
         </template>
       </div>
     </div>

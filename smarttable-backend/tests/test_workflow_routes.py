@@ -418,6 +418,337 @@ class TestWorkflowRoutes:
         assert data['success'] is True
         assert data['meta']['pagination']['total'] == 1
 
+    def test_edit_nodes_when_paused(self, client, auth_headers, created_workflow):
+        """测试暂停状态下可以编辑节点"""
+        # 先发布
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        # 暂停
+        client.post(
+            f'/api/workflows/{created_workflow.id}/pause',
+            headers=auth_headers
+        )
+
+        # 暂停状态下编辑节点
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    },
+                    {
+                        'node_type': 'update_record',
+                        'name': '更新记录',
+                        'config': {
+                            'action_type': 'update_record',
+                            'updates': []
+                        },
+                        'order': 1,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert len(data['data']) == 2
+
+    def test_edit_trigger_when_paused(self, client, auth_headers, created_workflow):
+        """测试暂停状态下可以编辑触发器"""
+        # 先发布
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        # 暂停
+        client.post(
+            f'/api/workflows/{created_workflow.id}/pause',
+            headers=auth_headers
+        )
+
+        # 暂停状态下编辑触发器
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/trigger',
+            json={
+                'trigger_type': 'record_updated',
+                'filter_config': {}
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+    def test_cannot_edit_nodes_when_active(self, client, auth_headers, created_workflow):
+        """测试已发布(active)状态不能编辑节点"""
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert '暂停' in data.get('message', '') or '草稿' in data.get('message', '')
+
+    def test_publish_from_paused_state(self, client, auth_headers, created_workflow):
+        """测试从暂停状态发布工作流"""
+        # 先发布
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        assert created_workflow.current_version == 1
+
+        # 暂停
+        client.post(
+            f'/api/workflows/{created_workflow.id}/pause',
+            headers=auth_headers
+        )
+
+        # 编辑节点
+        client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+
+        # 再次发布
+        response = client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['data']['workflow']['status'] == 'active'
+        # 版本号递增
+        assert data['data']['workflow']['current_version'] == 2
+
+    def test_publish_validates_missing_trigger(self, client, auth_headers, test_base, workflow_table):
+        """测试发布时验证缺少触发器"""
+        # 创建无触发器的工作流
+        workflow = WorkflowService.create_workflow(
+            base_id=test_base.id,
+            table_id=workflow_table.id,
+            name='无触发器工作流',
+            created_by=test_base.owner_id,
+            trigger_config=None,
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+        # 手动删除触发器
+        WorkflowTrigger.query.filter_by(workflow_id=workflow.id).delete()
+        db.session.commit()
+
+        response = client.post(
+            f'/api/workflows/{workflow.id}/publish',
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert '触发器' in data.get('message', '')
+
+    def test_publish_validates_missing_nodes(self, client, auth_headers, test_base, workflow_table):
+        """测试发布时验证缺少节点"""
+        workflow = WorkflowService.create_workflow(
+            base_id=test_base.id,
+            table_id=workflow_table.id,
+            name='无节点工作流',
+            created_by=test_base.owner_id,
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+            nodes_config=None
+        )
+        # 手动删除节点
+        WorkflowNode.query.filter_by(workflow_id=workflow.id).delete()
+        db.session.commit()
+
+        response = client.post(
+            f'/api/workflows/{workflow.id}/publish',
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert '节点' in data.get('message', '')
+
+    def test_snapshot_creates_version_when_paused_with_changes(self, client, auth_headers, created_workflow):
+        """测试暂停状态修改后保存快照会创建新版本"""
+        # 先发布（v1）
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        assert created_workflow.current_version == 1
+
+        # 暂停
+        client.post(
+            f'/api/workflows/{created_workflow.id}/pause',
+            headers=auth_headers
+        )
+
+        # 修改节点
+        client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    },
+                    {
+                        'node_type': 'update_record',
+                        'name': '更新记录',
+                        'config': {
+                            'action_type': 'update_record',
+                            'updates': []
+                        },
+                        'order': 1,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+
+        # 保存快照
+        response = client.post(
+            f'/api/workflows/{created_workflow.id}/snapshot',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['data']['version_number'] == 2
+
+    def test_snapshot_skips_when_no_changes(self, client, auth_headers, created_workflow):
+        """测试暂停状态无变更时保存快照不会创建新版本"""
+        # 先发布（v1）
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+
+        # 暂停（未做任何修改）
+        client.post(
+            f'/api/workflows/{created_workflow.id}/pause',
+            headers=auth_headers
+        )
+
+        # 保存快照（应无变更）
+        response = client.post(
+            f'/api/workflows/{created_workflow.id}/snapshot',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['data'] is None  # 无变更时返回 None
+        # 版本号不变
+        db.session.refresh(created_workflow)
+        assert created_workflow.current_version == 1
+
+    def test_snapshot_rejected_for_draft(self, client, auth_headers, created_workflow):
+        """测试草稿状态不允许保存版本快照"""
+        response = client.post(
+            f'/api/workflows/{created_workflow.id}/snapshot',
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    def test_snapshot_rejected_for_active(self, client, auth_headers, created_workflow):
+        """测试已发布状态不允许保存版本快照"""
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        response = client.post(
+            f'/api/workflows/{created_workflow.id}/snapshot',
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    def test_snapshot_then_publish_version_consistency(self, client, auth_headers, created_workflow):
+        """测试暂停状态保存快照后再发布，版本号连续递增"""
+        # 先发布（v1）
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+
+        # 暂停
+        client.post(
+            f'/api/workflows/{created_workflow.id}/pause',
+            headers=auth_headers
+        )
+
+        # 修改并保存快照（v2）
+        client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        snapshot_response = client.post(
+            f'/api/workflows/{created_workflow.id}/snapshot',
+            headers=auth_headers
+        )
+        assert snapshot_response.get_json()['data']['version_number'] == 2
+
+        # 再发布（v3）
+        publish_response = client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        assert publish_response.status_code == 200
+        publish_data = publish_response.get_json()
+        assert publish_data['data']['workflow']['current_version'] == 3
+        assert publish_data['data']['workflow']['status'] == 'active'
+
 
 class TestApprovalRoutes:
     """测试审批路由"""

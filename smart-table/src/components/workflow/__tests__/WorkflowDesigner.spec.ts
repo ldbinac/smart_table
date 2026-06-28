@@ -261,7 +261,9 @@ describe('WorkflowDesigner', () => {
   });
 
   it('点击发布按钮应该触发 publish 事件', async () => {
-    const wrapper = mountDesigner();
+    const wrapper = mountDesigner({
+      workflow: { ...mockWorkflow, status: 'paused' as const },
+    });
     await nextTick();
     const publishButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
       btn.text().includes('发布')
