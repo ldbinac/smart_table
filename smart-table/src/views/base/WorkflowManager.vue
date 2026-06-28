@@ -63,16 +63,27 @@ const editForm = ref({
   id: "",
   name: "",
   description: "",
+  table_id: "",
 });
-const editFormRules: FormRules = {
-  name: [
-    { required: true, message: "请输入工作流名称", trigger: "blur" },
-    { max: 200, message: "名称不能超过 200 个字符", trigger: "blur" },
-  ],
-  description: [
-    { max: 500, message: "描述不能超过 500 个字符", trigger: "blur" },
-  ],
-};
+const editFormRules = computed<FormRules>(() => {
+  const rules: FormRules = {
+    name: [
+      { required: true, message: "请输入工作流名称", trigger: "blur" },
+      { max: 200, message: "名称不能超过 200 个字符", trigger: "blur" },
+    ],
+    description: [
+      { max: 500, message: "描述不能超过 500 个字符", trigger: "blur" },
+    ],
+  };
+
+  if (!editForm.value.id) {
+    rules.table_id = [
+      { required: true, message: "请选择关联数据表", trigger: "change" },
+    ];
+  }
+
+  return rules;
+});
 const editDescCharCount = computed(() => editForm.value.description.length);
 
 const selectedInstance = computed(() =>
@@ -211,6 +222,7 @@ function handleEditWorkflow(workflow: Workflow) {
     id: workflow.id,
     name: workflow.name,
     description: workflow.description || "",
+    table_id: workflow.table_id || "",
   };
   editDialogVisible.value = true;
 }
@@ -256,6 +268,7 @@ function openCreateDialog() {
     id: "",
     name: "",
     description: "",
+    table_id: "",
   };
   editDialogVisible.value = true;
 }
@@ -268,6 +281,7 @@ async function handleCreateWorkflow() {
       const created = await workflowStore.createWorkflow(baseId, {
         name: editForm.value.name.trim(),
         description: editForm.value.description.trim(),
+        table_id: editForm.value.table_id,
       });
       editDialogVisible.value = false;
       await workflowStore.loadWorkflows(baseId);
@@ -551,6 +565,24 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
             maxlength="200"
             show-word-limit
             clearable />
+        </el-form-item>
+
+        <el-form-item label="关联数据表" prop="table_id">
+          <el-select
+            v-model="editForm.table_id"
+            placeholder="请选择数据表"
+            style="width: 100%"
+            clearable
+            data-testid="workflow-table-select">
+            <el-option
+              v-for="table in tables"
+              :key="table.id"
+              :label="table.name"
+              :value="table.id" />
+          </el-select>
+          <div v-if="tables.length === 0" class="form-help-text">
+            当前基础数据下暂无数据表，请先创建数据表
+          </div>
         </el-form-item>
 
         <el-form-item label="工作流描述" prop="description">

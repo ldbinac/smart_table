@@ -147,6 +147,7 @@ def create_base_workflow(base_id) -> tuple:
           type: object
           required:
             - name
+            - table_id
           properties:
             name:
               type: string
@@ -188,10 +189,12 @@ def create_base_workflow(base_id) -> tuple:
         return error_response('工作流名称不能超过200个字符', code=400)
 
     table_id = data.get('table_id')
-    if table_id:
-        table = TableService.get_table_by_id(str(table_id))
-        if not table or str(table.base_id) != base_id_str:
-            return error_response('关联表格不存在或不属于当前基础数据', code=400)
+    if not table_id:
+        return error_response('请选择关联数据表', code=400)
+
+    table = TableService.get_table_by_id(str(table_id))
+    if not table or str(table.base_id) != base_id_str:
+        return error_response('关联表格不存在或不属于当前基础数据', code=400)
 
     trigger_config = data.get('trigger_config')
     nodes_config = data.get('nodes_config')

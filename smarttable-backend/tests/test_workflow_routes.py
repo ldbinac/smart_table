@@ -147,6 +147,18 @@ class TestWorkflowRoutes:
         assert data['success'] is True
         assert data['data']['name'] == '新建工作流'
 
+    def test_create_workflow_requires_table_id(self, client, auth_headers, test_base):
+        """测试创建工作流时必须提供 table_id"""
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={'name': '无表工作流'},
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data['success'] is False
+        assert '请选择关联数据表' in data['message']
+
     def test_viewer_cannot_create_workflow(
         self, client, viewer_auth_headers, test_base, workflow_table, viewer_member
     ):
