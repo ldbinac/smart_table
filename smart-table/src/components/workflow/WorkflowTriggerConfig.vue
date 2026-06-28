@@ -50,8 +50,8 @@ watch(
 const triggerTypes: { value: TriggerType; label: string }[] = [
   { value: "record_created", label: "记录创建时" },
   { value: "record_updated", label: "记录更新时" },
-  { value: "field_changed", label: "字段变更时" },
-  { value: "manual", label: "手动触发" },
+  { value: "field_changed", label: "字段变更时（暂不支持）" },
+  { value: "manual", label: "手动触发（暂不支持）" },
 ];
 
 const triggerType = computed({

@@ -1007,13 +1007,13 @@ const drawerTitle = computed(() => {
           <el-button
             v-if="record?.id && canTriggerWorkflow"
             :icon="Connection"
-            circle
+            circle disabled
             title="触发工作流"
             @click="openTriggerDialog" />
           <el-button
             v-if="record?.id"
             :icon="CircleCheck"
-            circle
+            circle disabled
             title="审批历史"
             @click="showApprovalHistory" />
         </div>
