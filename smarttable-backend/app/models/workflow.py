@@ -267,6 +267,15 @@ class WorkflowVersion(db.Model):
         return f'<WorkflowVersion {self.workflow_id} #{self.version_number}>'
 
 
+# 动作类型反向映射：后端 action + config.action_type -> 前端细粒度 node_type
+_ACTION_TYPE_TO_FRONTEND = {
+    'update_record': 'update_record',
+    'create_record': 'create_record',
+    'send_email': 'send_email',
+    'trigger_webhook': 'webhook',
+}
+
+
 class WorkflowNode(db.Model):
     """
     工作流节点模型
@@ -329,12 +338,19 @@ class WorkflowNode(db.Model):
     )
 
     def to_dict(self) -> dict:
+        node_type_value = self.node_type.value if isinstance(self.node_type, WorkflowNodeType) else self.node_type
+        config = self.config or {}
+        # 将动作节点反转为前端细粒度 node_type
+        if node_type_value == WorkflowNodeType.ACTION.value:
+            action_type = config.get('action_type')
+            if action_type in _ACTION_TYPE_TO_FRONTEND:
+                node_type_value = _ACTION_TYPE_TO_FRONTEND[action_type]
         return {
             'id': str(self.id),
             'workflow_id': str(self.workflow_id),
-            'node_type': self.node_type.value if isinstance(self.node_type, WorkflowNodeType) else self.node_type,
+            'node_type': node_type_value,
             'name': self.name,
-            'config': self.config or {},
+            'config': config,
             'order': self.order,
             'next_nodes': self.next_nodes or []
         }

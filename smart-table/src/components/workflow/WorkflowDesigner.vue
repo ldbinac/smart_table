@@ -25,7 +25,6 @@ import {
   Link,
   Delete,
   Rank,
-  CircleClose,
   Timer,
   CopyDocument,
 } from "@element-plus/icons-vue";
@@ -232,10 +231,6 @@ watch(
 
 function handleSave() {
   emit("save");
-}
-
-function handlePublish() {
-  emit("publish");
 }
 
 function handleClone() {

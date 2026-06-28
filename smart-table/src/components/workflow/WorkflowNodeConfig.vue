@@ -17,6 +17,7 @@ import {
 import { FieldType } from "@/types/fields";
 import type { FieldTypeValue } from "@/types/fields";
 import { fieldService } from "@/db/services/fieldService";
+import { normalizeWorkflowNode } from "@/utils/workflow";
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import {
   Delete,
@@ -39,14 +40,20 @@ const emit = defineEmits<{
 
 // ==================== 通用配置辅助 ====================
 
-const localNode = ref<WorkflowNode>({ ...props.node, config: cloneConfig(props.node.config) });
+const localNode = ref<WorkflowNode>({
+  ...normalizeWorkflowNode(props.node),
+  config: cloneConfig(props.node.config),
+});
 let isUpdatingFromParent = false;
 
 watch(
   () => props.node,
   (newNode) => {
     isUpdatingFromParent = true;
-    localNode.value = { ...newNode, config: cloneConfig(newNode.config) };
+    localNode.value = {
+      ...normalizeWorkflowNode(newNode),
+      config: cloneConfig(newNode.config),
+    };
     nextTick(() => {
       isUpdatingFromParent = false;
     });
@@ -1000,7 +1007,7 @@ const nodeTypeLabel = computed(() => {
 
     <!-- 未知类型 -->
     <template v-else>
-      <el-empty description="暂不支持该节点类型配置" />
+      <el-empty :description="`暂不支持该节点类型配置：${localNode.node_type || '未知类型'}`" />
     </template>
   </div>
 </template>

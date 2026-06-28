@@ -13,6 +13,7 @@ import { useTableStore } from "@/stores/tableStore";
 import { apiClient } from "@/api/client";
 import { fieldService } from "@/db/services/fieldService";
 import { formatDateTime } from "@/utils/timezone";
+import { normalizeWorkflowNodes } from "@/utils/workflow";
 import WorkflowListPanel from "@/components/workflow/WorkflowListPanel.vue";
 import WorkflowDesigner from "@/components/workflow/WorkflowDesigner.vue";
 import WorkflowExecutionLogPanel from "@/components/workflow/WorkflowExecutionLog.vue";
@@ -164,7 +165,7 @@ async function loadWorkflowDetail(workflow: Workflow) {
       apiClient.get<WorkflowNode[]>(`/workflows/${workflow.id}/nodes`),
       apiClient.get<WorkflowTrigger>(`/workflows/${workflow.id}/trigger`),
     ]);
-    nodes.value = nodesData;
+    nodes.value = normalizeWorkflowNodes(nodesData);
     trigger.value = triggerData;
   } catch (error) {
     console.error("加载工作流详情失败:", error);
@@ -397,7 +398,10 @@ function getWebhookStatusType(isActive: boolean): "success" | "info" {
 
 function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
   const nodes = version.config_snapshot?.nodes;
-  return Array.isArray(nodes) ? (nodes as WorkflowNode[]) : [];
+  if (!Array.isArray(nodes)) {
+    return [];
+  }
+  return normalizeWorkflowNodes(nodes as WorkflowNode[]);
 }
 </script>
 

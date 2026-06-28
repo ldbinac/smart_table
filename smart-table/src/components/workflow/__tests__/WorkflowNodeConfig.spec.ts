@@ -403,4 +403,97 @@ describe('WorkflowNodeConfig', () => {
     expect(lastNode.config.field_mappings[0].source_field_id).toBe('field-1');
     expect(lastNode.config.field_mappings[0].value_template).toBe('{{trigger.record.field-1}}');
   });
+
+  describe('兜底规范化：node_type 为 action 时根据 config.action_type 渲染', () => {
+    it('action + create_record 应渲染创建记录配置面板', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'action',
+          config: {
+            action_type: 'create_record',
+            target_table_id: 'table-2',
+            field_mappings: [{ target_field_id: 'target-1', source_field_id: '', value_template: '' }],
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.find('.create-record-mapping-row').exists()).toBe(true);
+      expect(wrapper.find('.full-width').exists()).toBe(true);
+    });
+
+    it('action + update_record 应渲染更新记录配置面板', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'action',
+          config: {
+            action_type: 'update_record',
+            updates: [{ field_id: 'field-1', value_template: '' }],
+          },
+        },
+      });
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.find('.update-record-mapping-row').exists()).toBe(true);
+    });
+
+    it('action + send_email 应渲染发送邮件配置面板', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'action',
+          config: {
+            action_type: 'send_email',
+            recipient_type: 'field',
+          },
+        },
+      });
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.text()).toContain('字段');
+      expect(wrapper.text()).toContain('固定邮箱');
+    });
+
+    it('action + trigger_webhook 应渲染 Webhook 配置面板', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'action',
+          config: {
+            action_type: 'trigger_webhook',
+            webhook_mode: 'inline',
+          },
+        },
+      });
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.text()).toContain('选择已配置');
+      expect(wrapper.text()).toContain('内联新建');
+    });
+
+    it('action + 未知 action_type 应显示友好错误提示', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'action',
+          config: {
+            action_type: 'unknown_action',
+          },
+        },
+      });
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(true);
+      expect((wrapper.vm as any).localNode.node_type).toBe('action');
+    });
+  });
 });

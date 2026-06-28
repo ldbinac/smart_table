@@ -24,7 +24,7 @@ from app.models import (
     WebhookConfig,
     WebhookMethod,
 )
-from app.models.workflow import WorkflowNode, WorkflowTrigger
+from app.models.workflow import WorkflowNode, WorkflowTrigger, WorkflowVersion
 from app.services.workflow_service import WorkflowService
 from app.services.approval_service import ApprovalService
 
@@ -158,6 +158,174 @@ class TestWorkflowRoutes:
         data = response.get_json()
         assert data['success'] is False
         assert '请选择关联数据表' in data['message']
+
+    def test_update_nodes_returns_action_subtype_as_node_type(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试保存 create_record/update_record/send_email 节点后，查询返回细粒度 node_type"""
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    },
+                    {
+                        'node_type': 'create_record',
+                        'name': '创建记录',
+                        'config': {'target_table_id': 'table-1'},
+                        'order': 1,
+                        'next_nodes': []
+                    },
+                    {
+                        'node_type': 'update_record',
+                        'name': '更新记录',
+                        'config': {},
+                        'order': 2,
+                        'next_nodes': []
+                    },
+                    {
+                        'node_type': 'send_email',
+                        'name': '发送邮件',
+                        'config': {},
+                        'order': 3,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        returned_types = {node['name']: node['node_type'] for node in data['data']}
+        assert returned_types['创建记录'] == 'create_record'
+        assert returned_types['更新记录'] == 'update_record'
+        assert returned_types['发送邮件'] == 'send_email'
+
+        # 再次 GET 确认 to_dict() 也返回细粒度类型
+        get_response = client.get(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            headers=auth_headers
+        )
+        assert get_response.status_code == 200
+        get_data = get_response.get_json()
+        returned_types = {node['name']: node['node_type'] for node in get_data['data']}
+        assert returned_types['创建记录'] == 'create_record'
+        assert returned_types['更新记录'] == 'update_record'
+        assert returned_types['发送邮件'] == 'send_email'
+
+    def test_publish_workflow_snapshot_preserves_create_record_node_type(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试发布后版本快照保留 create_record 细粒度类型与完整配置"""
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    },
+                    {
+                        'node_type': 'create_record',
+                        'name': '创建记录',
+                        'config': {
+                            'target_table_id': 'table-1',
+                            'field_mappings': [
+                                {
+                                    'target_field_id': 'target-1',
+                                    'source_field_id': 'source-1',
+                                    'value_template': '{{trigger.record.source-1}}'
+                                }
+                            ]
+                        },
+                        'order': 1,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        publish_response = client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+        assert publish_response.status_code == 200
+
+        versions_response = client.get(
+            f'/api/workflows/{created_workflow.id}/versions',
+            headers=auth_headers
+        )
+        assert versions_response.status_code == 200
+        versions_data = versions_response.get_json()
+        assert versions_data['success'] is True
+        assert len(versions_data['data']) == 1
+
+        snapshot = versions_data['data'][0]['config_snapshot']
+        nodes = snapshot['nodes']
+        assert len(nodes) == 2
+        create_node = [n for n in nodes if n['name'] == '创建记录'][0]
+        assert create_node['node_type'] == 'create_record'
+        assert create_node['config']['target_table_id'] == 'table-1'
+        assert create_node['config']['field_mappings'][0]['target_field_id'] == 'target-1'
+        assert create_node['config']['field_mappings'][0]['value_template'] == '{{trigger.record.source-1}}'
+
+    def test_version_snapshot_with_legacy_action_subtype_can_be_loaded(
+        self, client, auth_headers, created_workflow, test_user
+    ):
+        """测试历史版本快照中以 action + action_type 存储的节点可被正确识别"""
+        # 直接写入一个旧格式版本快照
+        version = WorkflowVersion(
+            workflow_id=created_workflow.id,
+            version_number=created_workflow.current_version + 1,
+            config_snapshot={
+                'name': created_workflow.name,
+                'nodes': [
+                    {
+                        'id': 'legacy-node-1',
+                        'workflow_id': str(created_workflow.id),
+                        'node_type': 'action',
+                        'name': '旧版创建记录',
+                        'config': {
+                            'action_type': 'create_record',
+                            'target_table_id': 'legacy-table',
+                            'field_mappings': []
+                        },
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ],
+                'triggers': []
+            },
+            created_by=test_user.id
+        )
+        db.session.add(version)
+        created_workflow.current_version += 1
+        db.session.commit()
+
+        versions_response = client.get(
+            f'/api/workflows/{created_workflow.id}/versions',
+            headers=auth_headers
+        )
+        assert versions_response.status_code == 200
+        versions_data = versions_response.get_json()
+        snapshot = versions_data['data'][0]['config_snapshot']
+        legacy_node = [n for n in snapshot['nodes'] if n['name'] == '旧版创建记录'][0]
+        # 后端快照直接返回原始数据，不经过 to_dict()，因此仍为 action；
+        # 前端 getVersionNodes 会使用 normalizeWorkflowNodes 处理，这里仅校验快照完整保留
+        assert legacy_node['node_type'] == 'action'
+        assert legacy_node['config']['action_type'] == 'create_record'
+        assert legacy_node['config']['target_table_id'] == 'legacy-table'
 
     def test_viewer_cannot_create_workflow(
         self, client, viewer_auth_headers, test_base, workflow_table, viewer_member
