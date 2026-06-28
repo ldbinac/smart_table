@@ -221,7 +221,7 @@ function handleSwitchTable() {
       <el-button title="工作流与数据表关联关系" type="success" plain class="action-btn" :icon="Connection" @click="openRelationDialog">
         <span class="btn-text">关系</span>
       </el-button>
-      <el-button title="新建工作流" type="primary" class="action-btn" :icon="Plus" @click="handleCreate">
+      <el-button title="新建工作流" type="primary" plain class="action-btn" :icon="Plus" @click="handleCreate">
         <span class="btn-text">新建</span>
       </el-button>
       <el-button
@@ -480,6 +480,7 @@ function handleSwitchTable() {
   width: 360px;
   transition: width 0.3s ease;
   overflow: hidden;
+  background: linear-gradient(180deg, $gray-100 0%, $gray-200 100%);
 
   &.collapsed {
     width: 72px;
@@ -519,7 +520,6 @@ function handleSwitchTable() {
 }
 
 .workflow-search {
-  margin-top: $spacing-sm;
   padding: $spacing-sm $spacing-md;
   border-top: 1px solid $border-color;
 
@@ -736,8 +736,9 @@ function handleSwitchTable() {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
-  margin-top: $spacing-md;
-  margin-left: $spacing-sm;
+  padding: $spacing-md $spacing-sm;
+  margin: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
 
   .btn-text {
     transition: opacity 0.2s ease;
@@ -758,8 +759,7 @@ function handleSwitchTable() {
   }
 
   .collapsed & {
-    margin-left: $spacing-sm;
-    margin-right: $spacing-sm;
+    padding: $spacing-md $spacing-sm;
 
     .action-btn {
       display: none;

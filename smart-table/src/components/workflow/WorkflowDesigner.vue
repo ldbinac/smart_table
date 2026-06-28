@@ -254,11 +254,13 @@ function handleViewVersions() {
       <div class="designer-left">
         <div class="section trigger-section">
           <div class="section-title">触发器配置</div>
-          <WorkflowTriggerConfig
-            :trigger="localTrigger"
-            :fields="fields"
-            :readonly="readonly"
-            @update:trigger="updateTrigger" />
+          <div class="trigger-content">
+            <WorkflowTriggerConfig
+              :trigger="localTrigger"
+              :fields="fields"
+              :readonly="readonly"
+              @update:trigger="updateTrigger" />
+          </div>
         </div>
 
         <div class="section nodes-section">
@@ -403,8 +405,14 @@ function handleViewVersions() {
 .trigger-section {
   flex: 0 0 auto;
   max-height: 45%;
-  overflow-y: auto;
+  overflow: hidden;
   border-bottom: 1px solid $border-color;
+}
+
+.trigger-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .nodes-section {
@@ -420,6 +428,7 @@ function handleViewVersions() {
   font-weight: 600;
   color: $text-primary;
   border-bottom: 1px solid $border-color;
+  background-color: #f2f4f5;
 }
 
 .node-count {
@@ -444,7 +453,7 @@ function handleViewVersions() {
   border-radius: $border-radius-md;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid transparent;
+  border: 1px solid $border-color;
 
   &:hover {
     background-color: rgba($primary-color, 0.04);

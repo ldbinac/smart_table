@@ -1116,7 +1116,7 @@ const nodeTypeLabel = computed(() => {
   }
 
   .template-input-column {
-    flex: 0 0 60%;
+    flex: 0 0 50%;
     min-width: 0;
   }
 }
