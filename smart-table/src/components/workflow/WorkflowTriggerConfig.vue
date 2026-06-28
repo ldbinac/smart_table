@@ -70,6 +70,12 @@ const showFieldIdsSelector = computed(
     localTrigger.value.trigger_type === "field_changed",
 );
 
+const fieldIdsEmpty = computed(
+  () =>
+    showFieldIdsSelector.value &&
+    (localTrigger.value.field_ids ?? []).length === 0,
+);
+
 const selectedFieldIds = computed({
   get: () => localTrigger.value.field_ids ?? [],
   set: (value) => {
@@ -178,6 +184,12 @@ function onFilterValueChange(index: number, value: unknown) {
   list[index] = { ...list[index], value };
   filterConditions.value = list;
 }
+
+function validateFieldIds(): boolean {
+  return !fieldIdsEmpty.value;
+}
+
+defineExpose({ validateFieldIds });
 </script>
 
 <template>
@@ -193,12 +205,13 @@ function onFilterValueChange(index: number, value: unknown) {
         </el-select>
       </el-form-item>
 
-      <el-form-item v-if="showFieldIdsSelector" label="监听字段">
+      <el-form-item v-if="showFieldIdsSelector" label="监听字段" :error="fieldIdsEmpty ? '请选择监听字段' : ''">
         <el-select
           v-model="selectedFieldIds"
           multiple
           placeholder="选择监听的字段"
           class="full-width"
+          :class="{ 'field-ids-error': fieldIdsEmpty }"
           :disabled="readonly">
           <el-option
             v-for="field in fields"
@@ -294,6 +307,12 @@ function onFilterValueChange(index: number, value: unknown) {
 
 .full-width {
   width: 100%;
+}
+
+.field-ids-error {
+  :deep(.el-select__wrapper) {
+    box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+  }
 }
 
 .filter-section {

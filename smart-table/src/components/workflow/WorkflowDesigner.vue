@@ -8,6 +8,7 @@ import {
   watch,
 } from "vue";
 import Sortable from "sortablejs";
+import { ElMessageBox } from "element-plus";
 import type { FieldEntity, TableEntity } from "@/db/schema";
 import type {
   Workflow,
@@ -55,6 +56,7 @@ const localNodes = ref<WorkflowNode[]>([]);
 const localTrigger = ref<WorkflowTrigger>({ ...props.trigger });
 const selectedNodeId = ref<string | null>(null);
 const nodeListRef = ref<HTMLElement | null>(null);
+const triggerConfigRef = ref<InstanceType<typeof WorkflowTriggerConfig> | null>(null);
 let sortableInstance: Sortable | null = null;
 let isUpdatingNodesFromParent = false;
 let isUpdatingTriggerFromParent = false;
@@ -231,13 +233,28 @@ watch(
   },
 );
 
-function handleSave() {
+async function handleSave() {
+  if (triggerConfigRef.value?.validateFieldIds?.() === false) {
+    try {
+      await ElMessageBox.confirm(
+        '当前触发器类型要求配置"监听字段"，未配置监听字段可能导致触发器无法正常工作。是否仍要保存？',
+        '监听字段未配置',
+        {
+          cancelButtonText: '去配置',
+          confirmButtonText: '仍然保存',
+          type: 'warning',
+        }
+      );
+    } catch {
+      return;
+    }
+  }
   emit("save");
 }
 
-function handlePublish() {
-  emit("publish");
-}
+// function handlePublish() {
+//   emit("publish");
+// }
 
 function handleClone() {
   emit("clone");
@@ -257,6 +274,7 @@ function handleViewVersions() {
           <div class="section-title">触发器配置</div>
           <div class="trigger-content">
             <WorkflowTriggerConfig
+              ref="triggerConfigRef"
               :trigger="localTrigger"
               :fields="fields"
               :readonly="readonly"
