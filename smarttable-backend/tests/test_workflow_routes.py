@@ -350,7 +350,7 @@ class TestWorkflowRoutes:
         )
         assert response.status_code == 200
         data = response.get_json()
-        assert data['data']['workflow']['name'] == '已更新名称'
+        assert data['data']['name'] == '已更新名称'
 
     def test_update_workflow_name_and_description_in_any_status(
         self, client, auth_headers, created_workflow
@@ -368,8 +368,8 @@ class TestWorkflowRoutes:
         )
         assert response.status_code == 200
         data = response.get_json()
-        assert data['data']['workflow']['name'] == '已发布新名称'
-        assert data['data']['workflow']['description'] == '已发布新描述'
+        assert data['data']['name'] == '已发布新名称'
+        assert data['data']['description'] == '已发布新描述'
 
     def test_update_workflow_table_id_rejected_when_active(
         self, client, auth_headers, created_workflow, workflow_table
@@ -885,10 +885,14 @@ class TestSpecifiedTimeWorkflowRoutes:
         data = response.get_json()
         assert data['success'] is True
 
-        triggers = data['data']['triggers']
-        assert len(triggers) == 1
-        assert triggers[0]['trigger_type'] == 'specified_time'
-        assert triggers[0]['filter_config']['schedule'] == schedule
+        trigger_response = client.get(
+            f'/api/workflows/{workflow_id}/trigger',
+            headers=auth_headers
+        )
+        assert trigger_response.status_code == 200
+        trigger_data = trigger_response.get_json()
+        assert trigger_data['data']['trigger_type'] == 'specified_time'
+        assert trigger_data['data']['filter_config']['schedule'] == schedule
 
     def test_publish_specified_time_workflow(
         self, client, auth_headers, test_base, workflow_table

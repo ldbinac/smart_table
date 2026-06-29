@@ -641,7 +641,7 @@ def update_workflow(workflow_id) -> tuple:
 
     result = WorkflowService.get_workflow(updated.id)
     return success_response(
-        data=result,
+        data=result['workflow'],
         message='工作流更新成功'
     )
 
