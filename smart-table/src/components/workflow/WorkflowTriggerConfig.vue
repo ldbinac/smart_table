@@ -403,7 +403,7 @@ defineExpose({ validateFieldIds });
 
         <div class="schedule-form">
           <div class="schedule-row">
-            <el-form-item class="schedule-start-date" label="触发日期">
+            <el-form-item class="schedule-start-date half-width" label="触发日期">
               <el-date-picker
                 :model-value="scheduleConfig.start_date"
                 value-format="YYYY-MM-DD"
@@ -413,13 +413,13 @@ defineExpose({ validateFieldIds });
                 @update:model-value="(val: string) => updateScheduleField('start_date', val)" />
             </el-form-item>
 
-            <el-form-item class="schedule-start-time" label="触发时间">
+            <el-form-item class="schedule-start-time half-width" label="触发时间">
               <el-time-picker
                 :model-value="scheduleConfig.start_time"
                 value-format="HH:mm"
                 format="HH:mm"
                 placeholder="选择时间"
-                class="half-width"
+                class="full-width"
                 :disabled="readonly"
                 @update:model-value="(val: string) => updateScheduleField('start_time', val)" />
             </el-form-item>
@@ -502,7 +502,7 @@ defineExpose({ validateFieldIds });
   width: 100%;
 }
 .half-width {
-  width: 50%;
+  width: 48%;
 }
 
 .field-ids-error {
@@ -605,7 +605,7 @@ defineExpose({ validateFieldIds });
   }
 
   .schedule-custom-unit {
-    width: 120px;
+    width: 80px;
   }
 }
 
