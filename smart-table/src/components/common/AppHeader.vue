@@ -463,8 +463,8 @@ onMounted(() => {
         <el-divider direction="vertical" class="header-divider" />
       </template>
 
-      <!-- Base页面的分享和成员按钮 -->
-      <template v-if="isBasePage && currentBase && canManage">
+      <!-- Base页面的分享和成员按钮（工作流和审批中心页面不显示） -->
+      <template v-if="isBasePage && currentBase && canManage && !isWorkflowPage && !isApprovalPage">
         <el-tooltip
           class="box-item"
           effect="dark"

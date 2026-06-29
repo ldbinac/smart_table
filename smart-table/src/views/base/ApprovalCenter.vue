@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
+import { ArrowLeft } from "@element-plus/icons-vue";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { tableService } from "@/db/services/tableService";
@@ -15,8 +16,13 @@ import type { TableEntity } from "@/db/schema";
 type StatusFilter = TaskStatus | "all";
 
 const route = useRoute();
+const router = useRouter();
 const workflowStore = useWorkflowStore();
 const userCacheStore = useUserCacheStore();
+
+const handleBack = () => {
+  router.go(-1);
+};
 
 const baseId = computed(() => route.params.id as string);
 
@@ -181,6 +187,12 @@ onMounted(() => {
 <template>
   <div class="approval-center-page">
     <div class="page-header">
+      <el-button
+        class="back-button"
+        :icon="ArrowLeft"
+        @click="handleBack">
+        返回
+      </el-button>
       <h1 class="page-title">审批中心</h1>
     </div>
 
@@ -310,7 +322,14 @@ onMounted(() => {
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 24px;
+
+  .back-button {
+    padding: 8px 16px;
+  }
 
   .page-title {
     margin: 0;
