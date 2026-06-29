@@ -42,6 +42,7 @@ class WorkflowTriggerType(PyEnum):
     RECORD_UPDATED = 'record_updated'
     FIELD_CHANGED = 'field_changed'
     MANUAL = 'manual'
+    SPECIFIED_TIME = 'specified_time'
 
 
 class Workflow(db.Model):

@@ -91,22 +91,26 @@ class WorkflowExecutionEngine:
             return
         if event.metadata and event.metadata.get('workflow_source'):
             return
-        if event.event_type not in ('record_created', 'record_updated', 'field_changed'):
+        if event.event_type not in ('record_created', 'record_updated', 'field_changed', 'specified_time'):
             return
 
         record_id = event.record_id
-        if record_id and not self._acquire_record_lock(record_id):
+        is_recordless = event.event_type == 'specified_time' or record_id is None
+
+        if not is_recordless and record_id and not self._acquire_record_lock(record_id):
             log.warning(f'[WorkflowExecutionEngine] 未获取到记录锁，跳过: {record_id}')
             return
 
         try:
             with self._app_context():
                 record = RecordService.get_record_by_id(record_id) if record_id else None
+                workflow_id = (event.metadata or {}).get('workflow_id')
                 workflows = WorkflowService.match_triggers(
                     event.table_id,
                     event.event_type,
                     record,
-                    changes=event.changes
+                    changes=event.changes,
+                    workflow_id=workflow_id
                 )
                 for workflow in workflows:
                     instance = self.start_instance(workflow, event)

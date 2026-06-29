@@ -191,6 +191,12 @@ def register_lifecycle_hooks(app):
             import atexit
             atexit.register(WebhookService.stop_retry_scheduler)
 
+            # 启动工作流定时调度器并加载所有 active 的指定时间任务
+            from app.services.workflow_scheduler_service import start_scheduler, stop_scheduler, reschedule_all
+            start_scheduler(app)
+            reschedule_all(app)
+            atexit.register(stop_scheduler)
+
 
 def register_blueprints(app):
     """

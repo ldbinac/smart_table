@@ -17,7 +17,31 @@ export type TriggerType =
   | 'record_created'
   | 'record_updated'
   | 'field_changed'
-  | 'manual';
+  | 'manual'
+  | 'specified_time';
+
+export type ScheduleRepeatType =
+  | 'no_repeat'
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'yearly'
+  | 'weekdays'
+  | 'custom';
+
+export type ScheduleCustomUnit = 'day' | 'week' | 'month' | 'year';
+
+export type ScheduleEndType = 'never' | 'end_date';
+
+export interface ScheduleConfig {
+  start_date: string;
+  start_time: string;
+  repeat_type: ScheduleRepeatType;
+  custom_interval: number;
+  custom_unit: ScheduleCustomUnit;
+  end_type: ScheduleEndType;
+  end_date?: string;
+}
 
 export type ApprovalMode = 'any' | 'all' | 'serial';
 

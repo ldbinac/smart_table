@@ -10,6 +10,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from app.extensions import db
 from app.models.base import MemberRole
@@ -276,11 +277,11 @@ class WorkflowService:
 
     @staticmethod
     def _clean_filter_config(filter_config: Any) -> Dict[str, Any]:
-        """清理空条件结构：conditions 为空数组时返回空 dict"""
+        """清理空条件结构：conditions 为空数组时返回空 dict，但保留定时器 schedule 配置"""
         if not isinstance(filter_config, dict):
             return {}
         conditions = filter_config.get('conditions')
-        if isinstance(conditions, list) and len(conditions) == 0:
+        if isinstance(conditions, list) and len(conditions) == 0 and 'schedule' not in filter_config:
             return {}
         return filter_config
 
@@ -443,10 +444,9 @@ class WorkflowService:
             ):
                 raise PermissionError('权限不足，需要 EDITOR 或以上角色')
 
-        # 结构变更（节点/触发器）仅草稿和暂停状态可编辑
-        has_structure_changes = 'trigger_config' in kwargs or 'nodes_config' in kwargs
-        if has_structure_changes and workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
-            log.warning(f'[WorkflowService] 仅草稿或暂停状态可编辑节点与触发器: {workflow_id}')
+        # 仅草稿状态可编辑
+        if workflow.status != WorkflowStatus.DRAFT:
+            log.warning(f'[WorkflowService] 仅草稿状态可编辑: {workflow_id}')
             return None
 
         allowed_fields = {'name', 'description', 'table_id'}
@@ -466,6 +466,11 @@ class WorkflowService:
                     field_ids=trigger_config.get('field_ids', [])
                 )
                 db.session.add(trigger)
+                if trigger.trigger_type == WorkflowTriggerType.SPECIFIED_TIME:
+                    schedule = trigger.filter_config.get('schedule')
+                    if not schedule:
+                        raise ValueError('specified_time 触发器必须配置 schedule')
+                    cls._validate_schedule_config(schedule)
 
         if 'nodes_config' in kwargs:
             WorkflowNode.query.filter_by(workflow_id=workflow.id).delete()
@@ -533,6 +538,10 @@ class WorkflowService:
             instance.completed_at = datetime.now(timezone.utc)
 
         db.session.commit()
+
+        # 删除工作流后移除对应调度任务
+        workflow_scheduler_service.unschedule_workflow(workflow.id)
+
         log.info(f'[WorkflowService] 工作流已软删除: {workflow_id}')
         return True
 
@@ -712,11 +721,79 @@ class WorkflowService:
         db.session.add(version)
         db.session.commit()
 
+        # 发布成功后，若触发类型为 specified_time 则注册定时任务
+        trigger = workflow.triggers.first()
+        if trigger and trigger.trigger_type == WorkflowTriggerType.SPECIFIED_TIME:
+            workflow_scheduler_service.schedule_workflow(workflow.id)
+
         log.info(
             f'[WorkflowService] 工作流已发布: {workflow.id} #{workflow.current_version} '
             f'(从 {previous_status} 状态发布)'
         )
         return workflow
+
+    @staticmethod
+    def _validate_schedule_config(schedule: Dict[str, Any]) -> datetime:
+        """校验定时器配置完整性与时间合法性，返回带时区的 start_datetime"""
+        if not isinstance(schedule, dict):
+            raise ValueError('定时器配置必须是一个对象')
+
+        required_fields = ['start_date', 'start_time', 'repeat_type', 'end_type']
+        for field in required_fields:
+            if field not in schedule or schedule[field] is None or schedule[field] == '':
+                raise ValueError(f'定时器配置缺少必填字段: {field}')
+
+        valid_repeat_types = {'no_repeat', 'daily', 'weekly', 'monthly', 'yearly', 'weekdays', 'custom'}
+        repeat_type = schedule['repeat_type']
+        if repeat_type not in valid_repeat_types:
+            raise ValueError(f'repeat_type 不合法: {repeat_type}')
+
+        if repeat_type == 'custom':
+            custom_interval = schedule.get('custom_interval')
+            if not isinstance(custom_interval, int) or isinstance(custom_interval, bool) or custom_interval <= 0:
+                raise ValueError('custom_interval 必须为正整数')
+            custom_unit = schedule.get('custom_unit')
+            if custom_unit not in {'day', 'week', 'month', 'year'}:
+                raise ValueError('custom_unit 必须是 day/week/month/year 之一')
+
+        end_type = schedule['end_type']
+        if end_type not in {'never', 'end_date'}:
+            raise ValueError(f'end_type 不合法: {end_type}')
+
+        timezone_name = schedule.get('timezone', 'UTC')
+        try:
+            tz = ZoneInfo(str(timezone_name))
+        except Exception as e:
+            raise ValueError(f'时区无效: {timezone_name}') from e
+
+        start_date = schedule['start_date']
+        start_time = schedule['start_time']
+        try:
+            start_dt = datetime.strptime(f'{start_date} {start_time}', '%Y-%m-%d %H:%M')
+        except ValueError:
+            try:
+                start_dt = datetime.strptime(f'{start_date} {start_time}', '%Y-%m-%dT%H:%M')
+            except ValueError as e:
+                raise ValueError(f'start_date/start_time 格式不正确: {start_date} {start_time}') from e
+
+        start_dt = start_dt.replace(tzinfo=tz)
+
+        if end_type == 'end_date':
+            end_date = schedule.get('end_date')
+            if not end_date:
+                raise ValueError('end_type 为 end_date 时 end_date 必填')
+            try:
+                end_dt = datetime.strptime(str(end_date), '%Y-%m-%d').replace(tzinfo=tz)
+            except ValueError as e:
+                raise ValueError(f'end_date 格式不正确: {end_date}') from e
+            if end_dt < start_dt:
+                raise ValueError('end_date 不能早于 start_date')
+
+        if repeat_type == 'no_repeat':
+            if start_dt <= datetime.now(timezone.utc):
+                raise ValueError('no_repeat 模式下开始时间必须在当前 UTC 时间之后')
+
+        return start_dt
 
     @classmethod
     def _validate_workflow_config(cls, workflow: Workflow) -> None:
@@ -725,12 +802,11 @@ class WorkflowService:
             raise ValueError('工作流必须关联数据表格')
 
         trigger = workflow.triggers.first()
-        if not trigger:
-            raise ValueError('工作流必须配置触发器')
-
-        nodes = workflow.nodes.all()
-        if not nodes:
-            raise ValueError('工作流至少需要一个节点')
+        if trigger and trigger.trigger_type == WorkflowTriggerType.SPECIFIED_TIME:
+            schedule = (trigger.filter_config or {}).get('schedule')
+            if not schedule:
+                raise ValueError('specified_time 触发器必须配置 schedule')
+            cls._validate_schedule_config(schedule)
 
     @classmethod
     def save_version_snapshot(cls, workflow_id: Any, created_by: Any) -> Optional[WorkflowVersion]:
@@ -893,6 +969,13 @@ class WorkflowService:
 
         workflow.status = status
         db.session.commit()
+
+        # 状态变更同步调度：active 注册任务，paused/archived 移除任务
+        if status == WorkflowStatus.ACTIVE:
+            workflow_scheduler_service.schedule_workflow(workflow.id)
+        elif status in (WorkflowStatus.PAUSED, WorkflowStatus.ARCHIVED):
+            workflow_scheduler_service.unschedule_workflow(workflow.id)
+
         log.info(f'[WorkflowService] 工作流状态已更新: {workflow.id} -> {status.value}')
         return workflow
 
@@ -902,16 +985,18 @@ class WorkflowService:
         table_id: Any,
         event_type: str,
         record: Any,
-        changes: Optional[Dict[str, Any]] = None
+        changes: Optional[Dict[str, Any]] = None,
+        workflow_id: Optional[Any] = None
     ) -> List[Workflow]:
         """
         返回匹配该事件的所有 active 工作流列表
 
         Args:
             table_id: 表格 ID
-            event_type: 事件类型（record_created / record_updated / field_changed）
+            event_type: 事件类型（record_created / record_updated / field_changed / specified_time）
             record: 触发记录对象或字典
             changes: 变更内容
+            workflow_id: 可选，按工作流 ID 精确匹配（用于 specified_time 等无记录触发）
 
         Returns:
             匹配的工作流对象列表
@@ -922,12 +1007,15 @@ class WorkflowService:
             log.warning(f'[WorkflowService] 未知事件类型: {event_type}')
             return []
 
-        triggers = WorkflowTrigger.query.join(Workflow).filter(
+        query = WorkflowTrigger.query.join(Workflow).filter(
             Workflow.table_id == cls._to_uuid(table_id),
             Workflow.status == WorkflowStatus.ACTIVE,
             Workflow.is_deleted == False,
             WorkflowTrigger.trigger_type == trigger_type
-        ).all()
+        )
+        if workflow_id is not None:
+            query = query.filter(Workflow.id == cls._to_uuid(workflow_id))
+        triggers = query.all()
 
         record_values = {}
         if record is not None:
@@ -948,14 +1036,22 @@ class WorkflowService:
                     if not changed_field_ids.intersection(set(field_ids)):
                         continue
 
-            filter_config = trigger.filter_config or {}
-            if not filter_config:
+            # specified_time 不依赖记录过滤条件，按 trigger/workflow 命中即匹配
+            if trigger_type == WorkflowTriggerType.SPECIFIED_TIME:
                 matched = True
             else:
-                matched = cls._evaluate_filter_condition(filter_config, record_values, changes)
+                filter_config = trigger.filter_config or {}
+                if not filter_config:
+                    matched = True
+                else:
+                    matched = cls._evaluate_filter_condition(filter_config, record_values, changes)
 
             if matched and trigger.workflow_id not in seen_workflow_ids:
                 seen_workflow_ids.add(trigger.workflow_id)
                 matched_workflows.append(trigger.workflow)
 
         return matched_workflows
+
+
+# 在模块末尾导入调度服务，避免与 workflow_execution_engine/workflow_scheduler_service 的循环导入
+import app.services.workflow_scheduler_service as workflow_scheduler_service  # noqa: E402

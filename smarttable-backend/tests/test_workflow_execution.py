@@ -2,7 +2,9 @@
 WorkflowExecutionEngine 单元测试
 测试实例启动、节点执行、循环防护与失败隔离。
 """
+import time
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -100,7 +102,9 @@ def record(ctx, table, field, owner):
 @pytest.fixture(scope='function')
 def engine(ctx, exec_app):
     """创建使用当前应用的执行引擎"""
-    return WorkflowExecutionEngine(exec_app)
+    engine = WorkflowExecutionEngine(exec_app)
+    yield engine
+    engine.executor.shutdown(wait=True)
 
 
 class TestStartInstance:
@@ -112,7 +116,11 @@ class TestStartInstance:
             base_id=base.id,
             table_id=table.id,
             name='启动测试',
-            created_by=owner.id
+            created_by=owner.id,
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -135,7 +143,11 @@ class TestStartInstance:
             base_id=base.id,
             table_id=table.id,
             name='深度测试',
-            created_by=owner.id
+            created_by=owner.id,
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
         )
 
         event = WorkflowEvent(
@@ -161,8 +173,9 @@ class TestExecuteTriggerNode:
             name='触发节点测试',
             created_by=owner.id,
             nodes_config=[
-                {'node_type': 'trigger', 'name': '触发', 'order': 0}
-            ]
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -204,14 +217,15 @@ class TestExecuteConditionNode:
                         'condition': {
                             'operator': 'equals',
                             'field_id': 'status',
-                            'value': 'active'
+                            'value': 'active',
                         },
                         'true_next_nodes': [],
-                        'false_next_nodes': []
+                        'false_next_nodes': [],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -245,14 +259,15 @@ class TestExecuteConditionNode:
                         'condition': {
                             'operator': 'equals',
                             'field_id': 'status',
-                            'value': 'active'
+                            'value': 'active',
                         },
                         'true_next_nodes': [],
-                        'false_next_nodes': []
+                        'false_next_nodes': [],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -289,12 +304,13 @@ class TestExecuteUpdateRecord:
                     'config': {
                         'action_type': 'update_record',
                         'updates': [
-                            {'field_id': str(field.id), 'value_template': '已更新'}
-                        ]
+                            {'field_id': str(field.id), 'value_template': '已更新'},
+                        ],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -329,12 +345,13 @@ class TestExecuteUpdateRecord:
                     'config': {
                         'action_type': 'update_record',
                         'updates': [
-                            {'field_id': str(field.id), 'value_template': '{{trigger.record.status}}'}
-                        ]
+                            {'field_id': str(field.id), 'value_template': '{{trigger.record.status}}'},
+                        ],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -371,12 +388,13 @@ class TestExecuteUpdateRecord:
                         'action_type': 'update_record',
                         'updates': [
                             {'field_id': '', 'value_template': '应被跳过'},
-                            {'field_id': str(field.id), 'value_template': '有效值'}
-                        ]
+                            {'field_id': str(field.id), 'value_template': '有效值'},
+                        ],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -416,12 +434,13 @@ class TestExecuteCreateRecord:
                         'action_type': 'create_record',
                         'target_table_id': str(table.id),
                         'field_mappings': [
-                            {'target_field_id': str(field.id), 'value_template': '新记录值'}
-                        ]
+                            {'target_field_id': str(field.id), 'value_template': '新记录值'},
+                        ],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -459,12 +478,13 @@ class TestExecuteCreateRecord:
                         'action_type': 'create_record',
                         'target_table_id': str(table.id),
                         'field_mappings': [
-                            {'target_field_id': str(field.id), 'value_template': '{{trigger.record.name}}'}
-                        ]
+                            {'target_field_id': str(field.id), 'value_template': '{{trigger.record.name}}'},
+                        ],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -500,12 +520,13 @@ class TestExecuteCreateRecord:
                     'config': {
                         'action_type': 'create_record',
                         'field_mappings': [
-                            {'target_field_id': str(field.id), 'value_template': '值'}
-                        ]
+                            {'target_field_id': str(field.id), 'value_template': '值'},
+                        ],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -539,12 +560,13 @@ class TestExecuteCreateRecord:
                         'target_table_id': str(table.id),
                         'field_mappings': [
                             {'target_field_id': '', 'value_template': '应被跳过'},
-                            {'target_field_id': str(field.id), 'value_template': '有效值'}
-                        ]
+                            {'target_field_id': str(field.id), 'value_template': '有效值'},
+                        ],
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -602,9 +624,10 @@ class TestLoopProtection:
                     'node_type': 'trigger',
                     'name': '触发',
                     'order': 0,
-                    'next_nodes': []
-                }
-            ]
+                    'next_nodes': [],
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -640,12 +663,13 @@ class TestFailureIsolation:
                     'name': '错误动作',
                     'config': {
                         'action_type': 'unknown_action',
-                        'continue_on_error': True
+                        'continue_on_error': True,
                     },
                     'order': 0,
-                    'max_retries': 0
-                }
-            ]
+                    'max_retries': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -676,12 +700,13 @@ class TestFailureIsolation:
                     'node_type': 'action',
                     'name': '总是失败',
                     'config': {
-                        'action_type': 'unknown_action'
+                        'action_type': 'unknown_action',
                     },
                     'order': 0,
-                    'max_retries': 2
-                }
-            ]
+                    'max_retries': 2,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -714,8 +739,9 @@ class TestRunInstanceWithInstanceId:
             name='instance_id 测试',
             created_by=owner.id,
             nodes_config=[
-                {'node_type': 'trigger', 'name': '触发', 'order': 0}
-            ]
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -748,8 +774,9 @@ class TestRunInstanceWithInstanceId:
             name='UUID 对象测试',
             created_by=owner.id,
             nodes_config=[
-                {'node_type': 'trigger', 'name': '触发', 'order': 0}
-            ]
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -786,9 +813,13 @@ class TestRunInstanceMissingTriggerNode:
             table_id=table.id,
             name='无节点测试',
             created_by=owner.id,
-            nodes_config=[]
+            nodes_config=[],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
-        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+        # 直接激活工作流并设置版本，绕过发布校验（该测试专门验证无节点场景）
+        workflow.status = WorkflowStatus.ACTIVE
+        workflow.current_version = 1
+        db.session.commit()
 
         instance = WorkflowInstance(
             workflow_id=workflow.id,
@@ -822,8 +853,9 @@ class TestRunInstanceMissingTriggerNode:
             name='回退首节点测试',
             created_by=owner.id,
             nodes_config=[
-                {'node_type': 'trigger', 'name': '触发', 'order': 0}
-            ]
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -863,9 +895,10 @@ class TestExecuteWebhookNodeErrors:
                     'node_type': 'webhook',
                     'name': 'Webhook 节点',
                     'config': {},
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -896,9 +929,10 @@ class TestExecuteWebhookNodeErrors:
                     'node_type': 'webhook',
                     'name': 'Webhook 节点',
                     'config': {'webhook_config_id': non_existent_id},
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -930,9 +964,10 @@ class TestExecuteWebhookNodeErrors:
                     'node_type': 'webhook',
                     'name': 'Webhook 节点',
                     'config': {},
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -985,9 +1020,10 @@ class TestExecuteWebhookNodeFieldNames:
                     'node_type': 'webhook',
                     'name': 'Webhook 节点',
                     'config': {'webhook_id': str(webhook_config.id)},
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -1034,12 +1070,13 @@ class TestExecuteWebhookNodeFieldNames:
                             'url': 'https://inline.example.com/hook',
                             'method': 'POST',
                             'headers': {'X-Test': '1'},
-                            'body_template': '{"k":"v"}'
-                        }
+                            'body_template': '{"k":"v"}',
+                        },
                     },
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -1080,9 +1117,10 @@ class TestExecuteWebhookNodeFieldNames:
                     'node_type': 'webhook',
                     'name': 'Webhook 节点',
                     'config': {},
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -1146,9 +1184,10 @@ class TestExecuteWebhookRecordTemplate:
                     'node_type': 'webhook',
                     'name': 'Webhook 节点',
                     'config': {'webhook_id': str(webhook_config.id)},
-                    'order': 0
-                }
-            ]
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
         )
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
 
@@ -1179,3 +1218,183 @@ class TestExecuteWebhookRecordTemplate:
         # {{record}} 应渲染为实际记录数据，而非空对象
         assert "张三" in captured_payload['body']
         assert str(field.id) in captured_payload['body']
+
+
+class TestSpecifiedTimeTrigger:
+    """测试指定时间（无记录）触发"""
+
+    @staticmethod
+    def _future_schedule():
+        """构造一个未来的合法定时配置"""
+        future = datetime.now(timezone.utc) + timedelta(days=1)
+        return {
+            'start_date': future.strftime('%Y-%m-%d'),
+            'start_time': future.strftime('%H:%M'),
+            'repeat_type': 'no_repeat',
+            'end_type': 'never',
+        }
+
+    def test_start_instance_with_specified_time_no_record(
+        self, ctx, base, table, owner, engine
+    ):
+        """start_instance 应支持 record_id 为 None 的 specified_time 事件"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时启动测试',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()},
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        event = WorkflowEvent(
+            event_type='specified_time',
+            table_id=str(table.id),
+            record_id=None,
+            actor_id=None,
+            metadata={'workflow_id': str(workflow.id)},
+        )
+
+        instance = engine.start_instance(workflow, event)
+
+        assert instance is not None
+        assert instance.trigger_type == 'specified_time'
+        assert instance.trigger_record_id is None
+        assert instance.context['trigger_event']['event_type'] == 'specified_time'
+        assert instance.context['trigger_event']['record_id'] is None
+
+    def test_on_workflow_event_specified_time_creates_instance(
+        self, ctx, base, table, owner, engine
+    ):
+        """_on_workflow_event 应处理 specified_time 事件并创建实例"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时事件测试',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()},
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        event = WorkflowEvent(
+            event_type='specified_time',
+            table_id=str(table.id),
+            record_id=None,
+            actor_id=None,
+            metadata={'workflow_id': str(workflow.id)},
+        )
+
+        engine._on_workflow_event(event)
+
+        instance = WorkflowInstance.query.filter_by(workflow_id=workflow.id).first()
+        assert instance is not None
+        assert instance.trigger_type == 'specified_time'
+        assert instance.trigger_record_id is None
+
+    def test_on_workflow_event_specified_time_skips_record_lock_and_lookup(
+        self, ctx, base, table, owner, engine
+    ):
+        """specified_time 事件不应获取记录锁，也不应查询记录"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时无记录锁测试',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()},
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        event = WorkflowEvent(
+            event_type='specified_time',
+            table_id=str(table.id),
+            record_id=None,
+            actor_id=None,
+            metadata={'workflow_id': str(workflow.id)},
+        )
+
+        with patch.object(engine, '_acquire_record_lock') as mock_lock, \
+             patch('app.services.workflow_execution_engine.RecordService.get_record_by_id') as mock_get_record:
+            engine._on_workflow_event(event)
+            mock_lock.assert_not_called()
+            mock_get_record.assert_not_called()
+
+    def test_match_triggers_specified_time_by_workflow_id(
+        self, ctx, base, table, owner
+    ):
+        """match_triggers 应支持 specified_time 并按 workflow_id 精确匹配"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时匹配测试',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()},
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        matched = WorkflowService.match_triggers(
+            str(table.id),
+            'specified_time',
+            None,
+            workflow_id=str(workflow.id),
+        )
+
+        assert len(matched) == 1
+        assert matched[0].id == workflow.id
+
+    def test_run_instance_specified_time_completes_without_record(
+        self, ctx, base, table, owner, engine
+    ):
+        """specified_time 实例应能正常执行完成，无需记录"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时执行测试',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()},
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0},
+            ],
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        event = WorkflowEvent(
+            event_type='specified_time',
+            table_id=str(table.id),
+            record_id=None,
+            actor_id=None,
+            metadata={'workflow_id': str(workflow.id)},
+        )
+        instance = engine.start_instance(workflow, event)
+        assert instance is not None
+
+        engine._run_instance(str(instance.id))
+
+        db.session.refresh(instance)
+        assert instance.status == WorkflowInstanceStatus.COMPLETED

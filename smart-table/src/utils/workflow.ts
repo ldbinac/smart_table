@@ -1,4 +1,5 @@
-import type { WorkflowNode } from "@/types/workflow";
+import type { WorkflowNode, ScheduleConfig } from "@/types/workflow";
+import dayjs from "dayjs";
 
 /**
  * 动作类型反向映射：后端 action + config.action_type -> 前端细粒度 node_type
@@ -33,4 +34,26 @@ export function normalizeWorkflowNode(node: WorkflowNode): WorkflowNode {
 
 export function normalizeWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
   return nodes.map(normalizeWorkflowNode);
+}
+
+/**
+ * 判断触发类型是否为“指定时间”触发器。
+ */
+export function isSpecifiedTimeTrigger(trigger_type: string): boolean {
+  return trigger_type === "specified_time";
+}
+
+/**
+ * 创建一个默认的定时器配置对象。
+ * 默认：当前日期、00:00、不重复、自定义间隔 1 天、无截止日期。
+ */
+export function createDefaultScheduleConfig(): ScheduleConfig {
+  return {
+    start_date: dayjs().format("YYYY-MM-DD"),
+    start_time: "00:00",
+    repeat_type: "no_repeat",
+    custom_interval: 1,
+    custom_unit: "day",
+    end_type: "never",
+  };
 }

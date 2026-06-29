@@ -557,8 +557,8 @@ class TestWorkflowRoutes:
         # 版本号递增
         assert data['data']['workflow']['current_version'] == 2
 
-    def test_publish_validates_missing_trigger(self, client, auth_headers, test_base, workflow_table):
-        """测试发布时验证缺少触发器"""
+    def test_publish_allows_missing_trigger(self, client, auth_headers, test_base, workflow_table):
+        """测试发布时允许缺少触发器"""
         # 创建无触发器的工作流
         workflow = WorkflowService.create_workflow(
             base_id=test_base.id,
@@ -578,12 +578,12 @@ class TestWorkflowRoutes:
             f'/api/workflows/{workflow.id}/publish',
             headers=auth_headers
         )
-        assert response.status_code == 400
+        assert response.status_code == 200
         data = response.get_json()
-        assert '触发器' in data.get('message', '')
+        assert data['data']['workflow']['status'] == 'active'
 
-    def test_publish_validates_missing_nodes(self, client, auth_headers, test_base, workflow_table):
-        """测试发布时验证缺少节点"""
+    def test_publish_allows_missing_nodes(self, client, auth_headers, test_base, workflow_table):
+        """测试发布时允许缺少节点"""
         workflow = WorkflowService.create_workflow(
             base_id=test_base.id,
             table_id=workflow_table.id,
@@ -600,9 +600,9 @@ class TestWorkflowRoutes:
             f'/api/workflows/{workflow.id}/publish',
             headers=auth_headers
         )
-        assert response.status_code == 400
+        assert response.status_code == 200
         data = response.get_json()
-        assert '节点' in data.get('message', '')
+        assert data['data']['workflow']['status'] == 'active'
 
     def test_snapshot_creates_version_when_paused_with_changes(self, client, auth_headers, created_workflow):
         """测试暂停状态修改后保存快照会创建新版本"""
@@ -758,6 +758,174 @@ class TestWorkflowRoutes:
         publish_data = publish_response.get_json()
         assert publish_data['data']['workflow']['current_version'] == 3
         assert publish_data['data']['workflow']['status'] == 'active'
+
+
+class TestSpecifiedTimeWorkflowRoutes:
+    """测试 specified_time 触发器工作流路由"""
+
+    def _future_schedule(self, repeat_type='no_repeat'):
+        """构造一个未来的合法定时配置"""
+        future = datetime.now(timezone.utc) + timedelta(days=1)
+        schedule = {
+            'start_date': future.strftime('%Y-%m-%d'),
+            'start_time': future.strftime('%H:%M'),
+            'repeat_type': repeat_type,
+            'end_type': 'never',
+        }
+        if repeat_type == 'custom':
+            schedule['custom_interval'] = 1
+            schedule['custom_unit'] = 'day'
+        return schedule
+
+    def test_create_workflow_with_specified_time_trigger(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """通过 API 创建 specified_time 触发器工作流"""
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '定时触发工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'specified_time',
+                    'filter_config': {'schedule': self._future_schedule()}
+                },
+                'nodes_config': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '定时触发',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['data']['name'] == '定时触发工作流'
+
+        trigger_response = client.get(
+            f"/api/workflows/{data['data']['id']}/trigger",
+            headers=auth_headers
+        )
+        assert trigger_response.status_code == 200
+        trigger_data = trigger_response.get_json()
+        assert trigger_data['data']['trigger_type'] == 'specified_time'
+        assert trigger_data['data']['filter_config']['schedule'] is not None
+
+    def test_update_workflow_specified_time_trigger(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """通过 PUT 更新触发器为 specified_time 并附带 schedule"""
+        create_response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '待更新定时工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'record_created',
+                    'filter_config': {}
+                }
+            },
+            headers=auth_headers
+        )
+        assert create_response.status_code == 201
+        workflow_id = create_response.get_json()['data']['id']
+
+        schedule = self._future_schedule(repeat_type='weekly')
+        response = client.put(
+            f'/api/workflows/{workflow_id}',
+            json={
+                'trigger_config': {
+                    'trigger_type': 'specified_time',
+                    'filter_config': {'schedule': schedule}
+                }
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        triggers = data['data']['triggers']
+        assert len(triggers) == 1
+        assert triggers[0]['trigger_type'] == 'specified_time'
+        assert triggers[0]['filter_config']['schedule'] == schedule
+
+    def test_publish_specified_time_workflow(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """发布 specified_time 工作流后状态变为 active"""
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '待发布定时工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'specified_time',
+                    'filter_config': {'schedule': self._future_schedule()}
+                },
+                'nodes_config': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '定时触发',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        workflow_id = response.get_json()['data']['id']
+
+        publish_response = client.post(
+            f'/api/workflows/{workflow_id}/publish',
+            headers=auth_headers
+        )
+        assert publish_response.status_code == 200
+        publish_data = publish_response.get_json()
+        assert publish_data['data']['workflow']['status'] == 'active'
+
+    def test_publish_specified_time_requires_schedule(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """specified_time 触发器缺少 schedule 时发布应返回 400"""
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '缺少 schedule 的定时工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'specified_time',
+                    'filter_config': {}
+                },
+                'nodes_config': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '定时触发',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        workflow_id = response.get_json()['data']['id']
+
+        publish_response = client.post(
+            f'/api/workflows/{workflow_id}/publish',
+            headers=auth_headers
+        )
+        assert publish_response.status_code == 400
+        data = publish_response.get_json()
+        assert 'schedule' in data.get('message', '').lower() or 'schedule' in data.get('message', '')
 
 
 class TestApprovalRoutes:

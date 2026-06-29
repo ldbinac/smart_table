@@ -1,8 +1,10 @@
-import { describe, it, expect } from "vitest";
-import type { WorkflowNode } from "@/types/workflow";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { WorkflowNode, TriggerType, ScheduleConfig } from "@/types/workflow";
 import {
   normalizeWorkflowNode,
   normalizeWorkflowNodes,
+  isSpecifiedTimeTrigger,
+  createDefaultScheduleConfig,
 } from "@/utils/workflow";
 
 function makeNode(
@@ -75,6 +77,50 @@ describe("workflow utils", () => {
       expect(result[0].node_type).toBe("create_record");
       expect(result[1].node_type).toBe("update_record");
       expect(result[2].node_type).toBe("approval");
+    });
+  });
+
+  describe("isSpecifiedTimeTrigger", () => {
+    it("对 specified_time 返回 true", () => {
+      expect(isSpecifiedTimeTrigger("specified_time")).toBe(true);
+    });
+
+    it("对其他 TriggerType 返回 false", () => {
+      const otherTypes: TriggerType[] = [
+        "record_created",
+        "record_updated",
+        "field_changed",
+        "manual",
+      ];
+      otherTypes.forEach((type) => {
+        expect(isSpecifiedTimeTrigger(type)).toBe(false);
+      });
+    });
+
+    it("对非预期字符串返回 false", () => {
+      expect(isSpecifiedTimeTrigger("unknown_type")).toBe(false);
+    });
+  });
+
+  describe("createDefaultScheduleConfig", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-29T12:00:00"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("返回以当前日期和 00:00 为默认值的 no_repeat 定时配置", () => {
+      const config: ScheduleConfig = createDefaultScheduleConfig();
+      expect(config.start_date).toBe("2026-06-29");
+      expect(config.start_time).toBe("00:00");
+      expect(config.repeat_type).toBe("no_repeat");
+      expect(config.custom_interval).toBe(1);
+      expect(config.custom_unit).toBe("day");
+      expect(config.end_type).toBe("never");
+      expect(config.end_date).toBeUndefined();
     });
   });
 });

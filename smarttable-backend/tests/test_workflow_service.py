@@ -3,7 +3,8 @@ WorkflowService 单元测试
 测试工作流 CRUD、状态管理与触发匹配能力。
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
@@ -821,6 +822,434 @@ class TestEvalOperator:
         assert WorkflowService._evaluate_filter_condition(condition_multi, {'f1': '值', 'f2': 'hello'}, None) is True
         # 第二个条件不满足（and 语义）
         assert WorkflowService._evaluate_filter_condition(condition_multi, {'f1': '值', 'f2': 'world'}, None) is False
+
+
+class TestSpecifiedTimeTrigger:
+    """测试指定时间触发类型"""
+
+    def test_specified_time_trigger_type_exists(self):
+        """测试 WorkflowTriggerType 包含 specified_time"""
+        assert WorkflowTriggerType.SPECIFIED_TIME.value == 'specified_time'
+
+    def test_create_workflow_with_specified_time_trigger(self, ctx, base, table, owner):
+        """测试可以使用 specified_time 触发类型创建工作流"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时触发工作流',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {
+                    'schedule': {
+                        'start_date': '2026-06-28',
+                        'start_time': '23:55',
+                        'repeat_type': 'custom',
+                        'custom_interval': 1,
+                        'custom_unit': 'day',
+                        'end_type': 'end_date',
+                        'end_date': '2028-06-27'
+                    }
+                }
+            }
+        )
+
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+        assert trigger.trigger_type == WorkflowTriggerType.SPECIFIED_TIME
+        assert trigger.filter_config['schedule']['repeat_type'] == 'custom'
+
+    def test_validate_schedule_config_missing_required_fields(self):
+        """测试必填字段缺失时抛出 ValueError"""
+        valid_schedule = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'no_repeat',
+            'end_type': 'never'
+        }
+        required_fields = ['start_date', 'start_time', 'repeat_type', 'end_type']
+        for field in required_fields:
+            invalid = {k: v for k, v in valid_schedule.items() if k != field}
+            with pytest.raises(ValueError) as exc:
+                WorkflowService._validate_schedule_config(invalid)
+            assert field in str(exc.value)
+
+    def test_validate_schedule_config_invalid_repeat_type(self):
+        """测试 repeat_type 不在合法集合时报错"""
+        schedule = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'hourly',
+            'end_type': 'never'
+        }
+        with pytest.raises(ValueError) as exc:
+            WorkflowService._validate_schedule_config(schedule)
+        assert 'repeat_type' in str(exc.value) or '重复类型' in str(exc.value)
+
+    def test_validate_schedule_config_custom_requires_positive_interval(self):
+        """测试 custom 重复模式要求正整数 interval"""
+        base = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'custom',
+            'custom_unit': 'day',
+            'end_type': 'never'
+        }
+        for interval in [0, -1, 'one', None]:
+            schedule = {**base, 'custom_interval': interval}
+            with pytest.raises(ValueError) as exc:
+                WorkflowService._validate_schedule_config(schedule)
+            assert 'custom_interval' in str(exc.value) or '间隔' in str(exc.value)
+
+    def test_validate_schedule_config_custom_requires_valid_unit(self):
+        """测试 custom 重复模式要求合法 unit"""
+        base = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'custom',
+            'custom_interval': 1,
+            'end_type': 'never'
+        }
+        for unit in ['hour', 'minute', None, '']:
+            schedule = {**base, 'custom_unit': unit}
+            with pytest.raises(ValueError) as exc:
+                WorkflowService._validate_schedule_config(schedule)
+            assert 'custom_unit' in str(exc.value) or '单位' in str(exc.value)
+
+    def test_validate_schedule_config_end_date_required_when_end_date_mode(self):
+        """测试 end_type=end_date 时 end_date 必填"""
+        schedule = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'daily',
+            'end_type': 'end_date'
+        }
+        with pytest.raises(ValueError) as exc:
+            WorkflowService._validate_schedule_config(schedule)
+            assert 'end_date' in str(exc.value)
+
+    def test_validate_schedule_config_end_date_not_earlier_than_start(self):
+        """测试截止日期不能早于开始日期"""
+        schedule = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'daily',
+            'end_type': 'end_date',
+            'end_date': '2026-06-27'
+        }
+        with pytest.raises(ValueError) as exc:
+            WorkflowService._validate_schedule_config(schedule)
+        assert 'end_date' in str(exc.value) or '早于' in str(exc.value) or '不能' in str(exc.value)
+
+    def test_validate_schedule_config_returns_timezone_aware_start_datetime(self):
+        """测试返回带时区的 start_datetime"""
+        schedule = {
+            'start_date': '2028-06-27',
+            'start_time': '23:55',
+            'repeat_type': 'no_repeat',
+            'end_type': 'never',
+            'timezone': 'Asia/Shanghai'
+        }
+        start_dt = WorkflowService._validate_schedule_config(schedule)
+        assert start_dt.tzinfo is not None
+        assert start_dt.year == 2028
+        assert start_dt.month == 6
+        assert start_dt.day == 27
+        assert start_dt.hour == 23
+        assert start_dt.minute == 55
+
+    def test_validate_schedule_config_no_repeat_must_be_future(self):
+        """测试 no_repeat 模式下开始时间必须在当前 UTC 时间之后"""
+        now = datetime.now(timezone.utc)
+        past = now - timedelta(days=1)
+        schedule = {
+            'start_date': past.strftime('%Y-%m-%d'),
+            'start_time': past.strftime('%H:%M'),
+            'repeat_type': 'no_repeat',
+            'end_type': 'never'
+        }
+        with pytest.raises(ValueError) as exc:
+            WorkflowService._validate_schedule_config(schedule)
+        assert '当前' in str(exc.value) or '之后' in str(exc.value) or '开始时间' in str(exc.value)
+
+    def test_validate_workflow_config_validates_specified_time_schedule(self, ctx, base, table, owner):
+        """测试发布 specified_time 工作流时校验 schedule"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时发布校验',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {
+                    'schedule': {
+                        'start_date': '2028-06-27',
+                        'start_time': '23:55',
+                        'repeat_type': 'no_repeat',
+                        'end_type': 'never'
+                    }
+                }
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+
+        # 合法的 schedule 应能发布
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+        assert workflow.status == WorkflowStatus.ACTIVE
+
+    def test_validate_workflow_config_rejects_invalid_specified_time_schedule(self, ctx, base, table, owner):
+        """测试发布时非法 schedule 阻止发布"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时发布校验失败',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {
+                    'schedule': {
+                        'start_date': '2026-06-28',
+                        'start_time': '23:55',
+                        'repeat_type': 'invalid_type',
+                        'end_type': 'never'
+                    }
+                }
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+
+        with pytest.raises(ValueError):
+            WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+    def test_create_workflow_preserves_schedule_config(self, ctx, base, table, owner):
+        """测试 create_workflow 保存 specified_time 时不会误清理 schedule"""
+        schedule = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'weekly',
+            'end_type': 'end_date',
+            'end_date': '2028-06-27'
+        }
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时配置保留',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': schedule}
+            }
+        )
+        trigger = workflow.triggers.first()
+        assert trigger.filter_config.get('schedule') == schedule
+
+    def test_update_workflow_preserves_schedule_config(self, ctx, base, table, owner):
+        """测试 update_workflow 保存 specified_time 时不会误清理 schedule"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时配置保留更新',
+            created_by=owner.id
+        )
+        schedule = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'monthly',
+            'end_type': 'never'
+        }
+        WorkflowService.update_workflow(
+            workflow_id=workflow.id,
+            user_id=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': schedule}
+            }
+        )
+        trigger = workflow.triggers.first()
+        assert trigger.filter_config.get('schedule') == schedule
+
+    def test_update_workflow_rejects_invalid_specified_time_schedule(self, ctx, base, table, owner):
+        """测试 update_workflow 更新为 specified_time 时非法 schedule 应阻止更新"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时配置非法更新',
+            created_by=owner.id
+        )
+        invalid_schedule = {
+            'start_date': '2026-06-28',
+            'start_time': '23:55',
+            'repeat_type': 'invalid_type',
+            'end_type': 'never'
+        }
+        with pytest.raises(ValueError):
+            WorkflowService.update_workflow(
+                workflow_id=workflow.id,
+                user_id=owner.id,
+                trigger_config={
+                    'trigger_type': 'specified_time',
+                    'filter_config': {'schedule': invalid_schedule}
+                }
+            )
+
+
+class TestWorkflowStatusSchedulerSync:
+    """测试工作流状态变更与调度器同步"""
+
+    def _future_schedule(self, repeat_type='no_repeat'):
+        """构造一个未来的合法定时配置"""
+        future = datetime.now(timezone.utc) + timedelta(days=1)
+        schedule = {
+            'start_date': future.strftime('%Y-%m-%d'),
+            'start_time': future.strftime('%H:%M'),
+            'repeat_type': repeat_type,
+            'end_type': 'never',
+        }
+        if repeat_type == 'custom':
+            schedule['custom_interval'] = 1
+            schedule['custom_unit'] = 'day'
+        return schedule
+
+    def test_publish_specified_time_schedules_workflow(self, ctx, base, table, owner):
+        """发布 specified_time 工作流后应注册调度任务"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='定时发布调度',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()}
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+
+        with patch('app.services.workflow_service.workflow_scheduler_service') as mock_scheduler:
+            published = WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        assert published.status == WorkflowStatus.ACTIVE
+        mock_scheduler.schedule_workflow.assert_called_once_with(workflow.id)
+
+    def test_publish_non_specified_time_does_not_schedule(self, ctx, base, table, owner):
+        """发布非 specified_time 工作流后不应注册调度任务"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='事件发布不调度',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_created',
+                'filter_config': {}
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+
+        with patch('app.services.workflow_service.workflow_scheduler_service') as mock_scheduler:
+            published = WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        assert published.status == WorkflowStatus.ACTIVE
+        mock_scheduler.schedule_workflow.assert_not_called()
+
+    def test_pause_workflow_unschedules(self, ctx, base, table, owner):
+        """暂停工作流后应移除调度任务"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='暂停移除调度',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()}
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        with patch('app.services.workflow_service.workflow_scheduler_service') as mock_scheduler:
+            paused = WorkflowService.pause_workflow(workflow.id, user_id=owner.id)
+
+        assert paused.status == WorkflowStatus.PAUSED
+        mock_scheduler.unschedule_workflow.assert_called_once_with(workflow.id)
+
+    def test_resume_workflow_schedules(self, ctx, base, table, owner):
+        """恢复工作流后应重新注册调度任务"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='恢复重新调度',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()}
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+        WorkflowService.pause_workflow(workflow.id, user_id=owner.id)
+
+        with patch('app.services.workflow_service.workflow_scheduler_service') as mock_scheduler:
+            resumed = WorkflowService.resume_workflow(workflow.id, user_id=owner.id)
+
+        assert resumed.status == WorkflowStatus.ACTIVE
+        mock_scheduler.schedule_workflow.assert_called_once_with(workflow.id)
+
+    def test_archive_workflow_unschedules(self, ctx, base, table, owner):
+        """归档工作流后应移除调度任务"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='归档移除调度',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()}
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        with patch('app.services.workflow_service.workflow_scheduler_service') as mock_scheduler:
+            archived = WorkflowService.archive_workflow(workflow.id, user_id=owner.id)
+
+        assert archived.status == WorkflowStatus.ARCHIVED
+        mock_scheduler.unschedule_workflow.assert_called_once_with(workflow.id)
+
+    def test_delete_workflow_unschedules(self, ctx, base, table, owner):
+        """删除工作流后应移除调度任务"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='删除移除调度',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'specified_time',
+                'filter_config': {'schedule': self._future_schedule()}
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        with patch('app.services.workflow_service.workflow_scheduler_service') as mock_scheduler:
+            deleted = WorkflowService.delete_workflow(workflow.id, user_id=owner.id)
+
+        assert deleted is True
+        mock_scheduler.unschedule_workflow.assert_called_once_with(workflow.id)
 
 
 class TestCleanFilterConfig:

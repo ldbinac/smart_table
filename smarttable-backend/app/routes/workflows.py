@@ -632,8 +632,9 @@ def update_workflow(workflow_id) -> tuple:
     if updated is None:
         return error_response('更新失败', code=400)
 
+    result = WorkflowService.get_workflow(updated.id)
     return success_response(
-        data=updated.to_dict(),
+        data=result,
         message='工作流更新成功'
     )
 

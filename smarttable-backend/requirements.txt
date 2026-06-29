@@ -24,6 +24,9 @@ redis==5.0.1
 Flask-SocketIO==5.3.6
 eventlet==0.36.1
 
+# 工作流定时调度
+APScheduler==3.10.4
+
 # 数据序列化
 marshmallow==3.20.1
 marshmallow-sqlalchemy==0.29.0
