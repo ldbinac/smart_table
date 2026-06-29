@@ -245,7 +245,6 @@ describe('WorkflowTriggerConfig', () => {
       expect(wrapper.find('.schedule-start-date').exists()).toBe(true);
       expect(wrapper.find('.schedule-start-time').exists()).toBe(true);
       expect(wrapper.find('.schedule-repeat-type').exists()).toBe(true);
-      expect(wrapper.find('.schedule-end-type').exists()).toBe(true);
     });
 
     it('从事件类型切换到 specified_time 时清空 field_ids、conditions 并初始化 schedule', async () => {
@@ -371,7 +370,7 @@ describe('WorkflowTriggerConfig', () => {
             schedule: {
               start_date: '2026-06-28',
               start_time: '23:55',
-              repeat_type: 'no_repeat',
+              repeat_type: 'daily',
               custom_interval: 1,
               custom_unit: 'day',
               end_type: 'end_date',
@@ -385,6 +384,84 @@ describe('WorkflowTriggerConfig', () => {
       expect(wrapper.find('.schedule-end-date').exists()).toBe(true);
       const endDateInput = wrapper.find('.schedule-end-date .el-date-picker');
       expect((endDateInput.element as HTMLInputElement).value).toBe('2028-06-27');
+    });
+
+    it('不重复模式下隐藏截止日期配置区域', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'specified_time',
+          filter_config: {
+            schedule: {
+              start_date: '2026-06-28',
+              start_time: '23:55',
+              repeat_type: 'no_repeat',
+              custom_interval: 1,
+              custom_unit: 'day',
+              end_type: 'never',
+            },
+          },
+        },
+      });
+      await flushPromises();
+
+      expect(wrapper.find('.schedule-end-type').exists()).toBe(false);
+      expect(wrapper.find('.schedule-end-date').exists()).toBe(false);
+    });
+
+    it('非不重复模式下显示截止日期配置区域', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'specified_time',
+          filter_config: {
+            schedule: {
+              start_date: '2026-06-28',
+              start_time: '23:55',
+              repeat_type: 'daily',
+              custom_interval: 1,
+              custom_unit: 'day',
+              end_type: 'never',
+            },
+          },
+        },
+      });
+      await flushPromises();
+
+      expect(wrapper.find('.schedule-end-type').exists()).toBe(true);
+    });
+
+    it('切换到不重复模式时自动清空截止日期数据', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'specified_time',
+          filter_config: {
+            schedule: {
+              start_date: '2026-06-28',
+              start_time: '23:55',
+              repeat_type: 'daily',
+              custom_interval: 1,
+              custom_unit: 'day',
+              end_type: 'end_date',
+              end_date: '2028-06-27',
+            },
+          },
+        },
+      });
+      await flushPromises();
+
+      const repeatSelect = wrapper.find('.schedule-repeat-type .el-select');
+      await repeatSelect.setValue('no_repeat');
+      await repeatSelect.trigger('change');
+      await flushPromises();
+
+      const emitted = wrapper.emitted('update:trigger') as any[][];
+      expect(emitted).toBeTruthy();
+      const lastTrigger = emitted[emitted.length - 1][0];
+      expect(lastTrigger.filter_config.schedule.repeat_type).toBe('no_repeat');
+      expect(lastTrigger.filter_config.schedule.end_type).toBe('never');
+      expect(lastTrigger.filter_config.schedule.end_date).toBeUndefined();
     });
 
     it('readonly 状态下定时器字段应被禁用', async () => {

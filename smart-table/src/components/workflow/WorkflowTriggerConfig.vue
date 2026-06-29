@@ -250,12 +250,34 @@ const scheduleConfig = computed<ScheduleConfig>({
   },
 });
 
+const rawScheduleConfig = computed<ScheduleConfig | undefined>(() => {
+  const config = ensureFilterConfig();
+  return config.schedule as ScheduleConfig | undefined;
+});
+
 const showCustomRepeat = computed(
   () => scheduleConfig.value.repeat_type === "custom",
 );
 
+const showEndDateSection = computed(
+  () => rawScheduleConfig.value?.repeat_type !== "no_repeat",
+);
+
 const showEndDate = computed(
-  () => scheduleConfig.value.end_type === "end_date",
+  () => rawScheduleConfig.value?.end_type === "end_date",
+);
+
+watch(
+  () => rawScheduleConfig.value?.repeat_type,
+  (newType, oldType) => {
+    if (newType === "no_repeat" && oldType && oldType !== "no_repeat") {
+      scheduleConfig.value = {
+        ...scheduleConfig.value,
+        end_type: "never",
+        end_date: undefined,
+      };
+    }
+  },
 );
 
 function updateScheduleField<K extends keyof ScheduleConfig>(
@@ -397,7 +419,7 @@ defineExpose({ validateFieldIds });
                 value-format="HH:mm"
                 format="HH:mm"
                 placeholder="选择时间"
-                class="full-width"
+                class="half-width"
                 :disabled="readonly"
                 @update:model-value="(val: string) => updateScheduleField('start_time', val)" />
             </el-form-item>
@@ -438,25 +460,27 @@ defineExpose({ validateFieldIds });
             <span class="custom-repeat-label">重复一次</span>
           </div>
 
-          <el-form-item class="schedule-end-type" label="截止日期">
-            <el-radio-group
-              :model-value="scheduleConfig.end_type"
-              :disabled="readonly"
-              @update:model-value="(val: string | number | boolean | undefined) => updateScheduleField('end_type', val as ScheduleEndType)">
-              <el-radio value="never">永不结束</el-radio>
-              <el-radio value="end_date">指定日期</el-radio>
-            </el-radio-group>
-          </el-form-item>
+          <template v-if="showEndDateSection">
+            <el-form-item class="schedule-end-type" label="截止日期">
+              <el-radio-group
+                :model-value="scheduleConfig.end_type"
+                :disabled="readonly"
+                @update:model-value="(val: string | number | boolean | undefined) => updateScheduleField('end_type', val as ScheduleEndType)">
+                <el-radio value="never">永不结束</el-radio>
+                <el-radio value="end_date">指定日期</el-radio>
+              </el-radio-group>
+            </el-form-item>
 
-          <el-form-item v-if="showEndDate" class="schedule-end-date" label="结束日期">
-            <el-date-picker
-              :model-value="scheduleConfig.end_date"
-              value-format="YYYY-MM-DD"
-              placeholder="选择结束日期"
-              class="full-width"
-              :disabled="readonly"
-              @update:model-value="(val: string) => updateScheduleField('end_date', val)" />
-          </el-form-item>
+            <el-form-item v-if="showEndDate" class="schedule-end-date" label="结束日期">
+              <el-date-picker
+                :model-value="scheduleConfig.end_date"
+                value-format="YYYY-MM-DD"
+                placeholder="选择结束日期"
+                class="full-width"
+                :disabled="readonly"
+                @update:model-value="(val: string) => updateScheduleField('end_date', val)" />
+            </el-form-item>
+          </template>
         </div>
       </div>
     </el-form>
@@ -476,6 +500,9 @@ defineExpose({ validateFieldIds });
 
 .full-width {
   width: 100%;
+}
+.half-width {
+  width: 50%;
 }
 
 .field-ids-error {
