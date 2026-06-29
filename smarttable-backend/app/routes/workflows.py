@@ -531,7 +531,7 @@ def update_workflow_trigger(workflow_id) -> tuple:
 @jwt_required
 def update_workflow(workflow_id) -> tuple:
     """
-    更新工作流（仅 draft 状态可编辑）
+    更新工作流（名称/描述任意状态可编辑，数据表/节点/触发器仅 draft 可编辑）
     ---
     tags:
       - Workflows
@@ -554,19 +554,22 @@ def update_workflow(workflow_id) -> tuple:
             description:
               type: string
               description: 工作流描述
+            table_id:
+              type: string
+              description: 关联数据表 ID（仅 draft 可变更）
             trigger_config:
               type: object
-              description: 触发器配置
+              description: 触发器配置（仅 draft 可编辑）
             nodes_config:
               type: array
-              description: 节点配置列表
+              description: 节点配置列表（仅 draft 可编辑）
               items:
                 type: object
     responses:
       200:
         description: 更新后的工作流详情
       400:
-        description: 参数错误或非 draft 状态
+        description: 参数错误或尝试在非 draft 状态变更数据表/节点/触发器
       403:
         description: 无权限
       404:
@@ -617,6 +620,10 @@ def update_workflow(workflow_id) -> tuple:
             if node_type and node_type not in [t.value for t in WorkflowNodeType]:
                 return error_response(f'第 {idx + 1} 个节点类型不合法', code=400)
         kwargs['nodes_config'] = nodes_config
+
+    # 关联数据表仅草稿状态可变更
+    if 'table_id' in kwargs and workflow.status != WorkflowStatus.DRAFT:
+        return error_response('仅 draft 状态的工作流可变更关联数据表', code=400)
 
     # 结构变更（节点/触发器）仅草稿状态可编辑
     has_structure_changes = 'trigger_config' in kwargs or 'nodes_config' in kwargs

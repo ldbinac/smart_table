@@ -444,15 +444,24 @@ class WorkflowService:
             ):
                 raise PermissionError('权限不足，需要 EDITOR 或以上角色')
 
-        # 仅草稿状态可编辑
-        if workflow.status != WorkflowStatus.DRAFT:
-            log.warning(f'[WorkflowService] 仅草稿状态可编辑: {workflow_id}')
-            return None
-
-        allowed_fields = {'name', 'description', 'table_id'}
-        for field_name in allowed_fields:
+        # 名称和描述：任何状态均可编辑
+        for field_name in ('name', 'description'):
             if field_name in kwargs:
                 setattr(workflow, field_name, kwargs[field_name])
+
+        # 关联数据表：仅草稿状态可编辑
+        if 'table_id' in kwargs:
+            if workflow.status != WorkflowStatus.DRAFT:
+                log.warning(f'[WorkflowService] 仅草稿状态可变更数据表: {workflow_id}')
+                return None
+            setattr(workflow, 'table_id', kwargs['table_id'])
+
+        # 节点和触发器配置：仅草稿状态可编辑
+        has_structure_changes = 'trigger_config' in kwargs or 'nodes_config' in kwargs
+        if has_structure_changes:
+            if workflow.status != WorkflowStatus.DRAFT:
+                log.warning(f'[WorkflowService] 仅草稿状态可编辑节点和触发器: {workflow_id}')
+                return None
 
         if 'trigger_config' in kwargs:
             WorkflowTrigger.query.filter_by(workflow_id=workflow.id).delete()

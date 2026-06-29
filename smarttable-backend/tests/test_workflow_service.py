@@ -164,8 +164,8 @@ class TestWorkflowCRUD:
         assert result['workflow']['id'] == str(workflow.id)
         assert result['workflow']['name'] == '获取测试'
 
-    def test_update_workflow_only_draft(self, ctx, base, table, owner):
-        """测试仅草稿状态可编辑"""
+    def test_update_workflow_name_and_description_in_any_status(self, ctx, base, table, owner):
+        """测试名称和描述在任意状态下均可编辑"""
         workflow = WorkflowService.create_workflow(
             base_id=base.id,
             table_id=table.id,
@@ -176,16 +176,52 @@ class TestWorkflowCRUD:
         updated = WorkflowService.update_workflow(
             workflow_id=workflow.id,
             user_id=owner.id,
-            name='新名称'
+            name='草稿新名称',
+            description='草稿描述'
         )
         assert updated is not None
-        assert updated.name == '新名称'
+        assert updated.name == '草稿新名称'
+        assert updated.description == '草稿描述'
 
         WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
         updated_after_publish = WorkflowService.update_workflow(
             workflow_id=workflow.id,
             user_id=owner.id,
-            name='再改名'
+            name='发布后名称',
+            description='发布后描述'
+        )
+        assert updated_after_publish is not None
+        assert updated_after_publish.name == '发布后名称'
+        assert updated_after_publish.description == '发布后描述'
+
+    def test_update_workflow_table_id_only_in_draft(self, ctx, base, table, owner):
+        """测试关联数据表仅草稿状态可变更"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='原名称',
+            created_by=owner.id
+        )
+
+        another_table = Table(base_id=base.id, name='另一个表', order=1)
+        db.session.add(another_table)
+        db.session.commit()
+
+        # 草稿状态可以变更数据表
+        updated = WorkflowService.update_workflow(
+            workflow_id=workflow.id,
+            user_id=owner.id,
+            table_id=another_table.id
+        )
+        assert updated is not None
+        assert updated.table_id == another_table.id
+
+        # 发布后不可变更数据表
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+        updated_after_publish = WorkflowService.update_workflow(
+            workflow_id=workflow.id,
+            user_id=owner.id,
+            table_id=table.id
         )
         assert updated_after_publish is None
 

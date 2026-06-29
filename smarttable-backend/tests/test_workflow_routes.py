@@ -352,6 +352,41 @@ class TestWorkflowRoutes:
         data = response.get_json()
         assert data['data']['workflow']['name'] == '已更新名称'
 
+    def test_update_workflow_name_and_description_in_any_status(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试已发布状态下仍可编辑名称和描述"""
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}',
+            json={'name': '已发布新名称', 'description': '已发布新描述'},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['data']['workflow']['name'] == '已发布新名称'
+        assert data['data']['workflow']['description'] == '已发布新描述'
+
+    def test_update_workflow_table_id_rejected_when_active(
+        self, client, auth_headers, created_workflow, workflow_table
+    ):
+        """测试已发布状态下变更关联数据表返回 400"""
+        client.post(
+            f'/api/workflows/{created_workflow.id}/publish',
+            headers=auth_headers
+        )
+
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}',
+            json={'table_id': str(workflow_table.id)},
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
     def test_publish_workflow(self, client, auth_headers, created_workflow):
         """测试发布工作流"""
         response = client.post(

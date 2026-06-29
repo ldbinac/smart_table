@@ -628,6 +628,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
             placeholder="请选择数据表"
             style="width: 100%"
             clearable
+            :disabled="!!editForm.id"
             data-testid="workflow-table-select">
             <el-option
               v-for="table in tables"
