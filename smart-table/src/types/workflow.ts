@@ -41,6 +41,7 @@ export interface ScheduleConfig {
   custom_unit: ScheduleCustomUnit;
   end_type: ScheduleEndType;
   end_date?: string;
+  timezone?: string;
 }
 
 export type ApprovalMode = 'any' | 'all' | 'serial';

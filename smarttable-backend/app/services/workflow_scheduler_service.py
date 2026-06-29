@@ -15,6 +15,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 log = logging.getLogger(__name__)
 
+
+def _default_timezone():
+    """获取系统本地时区；未指定时区时用于解释 schedule 的日期时间"""
+    return datetime.now().astimezone().tzinfo
+
 # 全局调度器与 Flask 应用引用
 scheduler: BackgroundScheduler | None = None
 _app = None
@@ -60,7 +65,9 @@ def _build_trigger(schedule: dict, start_dt: datetime):
 
     end_date = None
     if schedule.get('end_type') == 'end_date' and schedule.get('end_date'):
-        tz = start_dt.tzinfo or ZoneInfo(str(schedule.get('timezone', 'UTC')))
+        tz = start_dt.tzinfo or (
+            ZoneInfo(str(schedule['timezone'])) if schedule.get('timezone') else _default_timezone()
+        )
         end_date = datetime.strptime(str(schedule['end_date']), '%Y-%m-%d').replace(
             hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz
         )

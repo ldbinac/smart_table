@@ -55,5 +55,6 @@ export function createDefaultScheduleConfig(): ScheduleConfig {
     custom_interval: 1,
     custom_unit: "day",
     end_type: "never",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
 }

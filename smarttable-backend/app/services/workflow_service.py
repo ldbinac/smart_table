@@ -760,11 +760,15 @@ class WorkflowService:
         if end_type not in {'never', 'end_date'}:
             raise ValueError(f'end_type 不合法: {end_type}')
 
-        timezone_name = schedule.get('timezone', 'UTC')
-        try:
-            tz = ZoneInfo(str(timezone_name))
-        except Exception as e:
-            raise ValueError(f'时区无效: {timezone_name}') from e
+        timezone_name = schedule.get('timezone')
+        if timezone_name:
+            try:
+                tz = ZoneInfo(str(timezone_name))
+            except Exception as e:
+                raise ValueError(f'时区无效: {timezone_name}') from e
+        else:
+            # 未指定时区时，使用服务器本地时区解释用户配置的日期时间
+            tz = datetime.now().astimezone().tzinfo
 
         start_date = schedule['start_date']
         start_time = schedule['start_time']
