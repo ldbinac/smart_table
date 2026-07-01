@@ -80,6 +80,19 @@ export interface LoginResponse {
     access_token: string
     refresh_token: string
   }
+  requires_gitee_star_check?: boolean
+  user_id?: string
+}
+
+export interface DemoConfig {
+  is_demo_environment: boolean
+  gitee_repo_url: string
+  gitee_repo_owner: string
+  gitee_repo_name: string
+}
+
+export interface GiteeAuthorizeResponse {
+  authorize_url: string
 }
 
 export interface TokenPair {
