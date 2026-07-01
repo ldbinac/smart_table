@@ -60,7 +60,11 @@ onMounted(async () => {
 })
 
 const goToLogin = () => {
-  router.push('/login')
+  try {
+    router.push('/login')
+  } catch (e) {
+    error.value = '页面跳转失败，请稍后重试'
+  }
 }
 </script>
 
