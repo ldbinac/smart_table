@@ -21,7 +21,7 @@ def test_get_repo_url():
 def test_generate_authorize_url_creates_state_and_url():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
          patch('app.services.gitee_service.secrets.token_urlsafe', return_value='fixed_state_123'), \
-         patch('app.services.gitee_service.redis_client') as mock_redis:
+         patch('app.extensions.redis_client') as mock_redis:
         mock_app.config = {
             'GITEE_CLIENT_ID': 'client_id_abc',
             'GITEE_REDIRECT_URI': 'http://localhost/callback',
@@ -43,35 +43,35 @@ def test_generate_authorize_url_creates_state_and_url():
 
 def test_generate_authorize_url_raises_when_redis_unavailable():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
-         patch('app.services.gitee_service.redis_client', None):
+         patch('app.extensions.redis_client', None):
         mock_app.config = {}
         with pytest.raises(RuntimeError, match='Redis 不可用'):
             GiteeService.generate_authorize_url('user_1', 'user@example.com')
 
 
 def test_get_state_data_returns_payload_when_hit():
-    with patch('app.services.gitee_service.redis_client') as mock_redis:
+    with patch('app.extensions.redis_client') as mock_redis:
         mock_redis.get.return_value = json.dumps({'user_id': 'user_1', 'email': 'a@b.com'})
         result = GiteeService.get_state_data('state_123')
         assert result == {'user_id': 'user_1', 'email': 'a@b.com'}
 
 
 def test_get_state_data_returns_none_when_miss():
-    with patch('app.services.gitee_service.redis_client') as mock_redis:
+    with patch('app.extensions.redis_client') as mock_redis:
         mock_redis.get.return_value = None
         result = GiteeService.get_state_data('state_123')
         assert result is None
 
 
 def test_get_state_data_returns_none_on_exception():
-    with patch('app.services.gitee_service.redis_client') as mock_redis:
+    with patch('app.extensions.redis_client') as mock_redis:
         mock_redis.get.side_effect = Exception('redis error')
         result = GiteeService.get_state_data('state_123')
         assert result is None
 
 
 def test_clear_state_deletes_key():
-    with patch('app.services.gitee_service.redis_client') as mock_redis:
+    with patch('app.extensions.redis_client') as mock_redis:
         GiteeService.clear_state('state_123')
         mock_redis.delete.assert_called_once_with('demo:gitee_star_state:state_123')
 

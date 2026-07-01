@@ -11,9 +11,13 @@ from urllib.parse import urlencode
 import requests
 from flask import current_app
 
-from app.extensions import redis_client
-
 logger = logging.getLogger(__name__)
+
+
+def _get_redis_client():
+    """动态获取 Redis 客户端，避免 Flask 重载器导致的模块级快照问题"""
+    from app.extensions import redis_client
+    return redis_client
 
 # Gitee 基础 URL 与接口路径
 GITEE_BASE_URL = 'https://gitee.com'
@@ -55,6 +59,7 @@ class GiteeService:
         cache_key = f'demo:gitee_star_state:{state}'
         payload = {'user_id': user_id, 'email': email}
 
+        redis_client = _get_redis_client()
         if redis_client:
             try:
                 redis_client.setex(cache_key, GiteeService.STATE_TTL_SECONDS, json.dumps(payload))
@@ -78,6 +83,7 @@ class GiteeService:
     @staticmethod
     def get_state_data(state: str) -> Optional[Dict[str, str]]:
         """读取并验证 state"""
+        redis_client = _get_redis_client()
         if not redis_client:
             return None
         try:
@@ -93,6 +99,7 @@ class GiteeService:
     @staticmethod
     def clear_state(state: str) -> None:
         """清除 state 缓存"""
+        redis_client = _get_redis_client()
         if redis_client:
             try:
                 redis_client.delete(f'demo:gitee_star_state:{state}')
