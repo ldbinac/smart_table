@@ -31,6 +31,7 @@ from app.routes.approvals import approvals_bp
 from app.routes.webhooks import webhooks_bp
 from app.routes.workflow_templates import workflow_templates_bp
 from app.routes.workflows import workflows_bp
+from app.routes.config import config_bp
 
 # 服务导入
 from app.services.email_queue_service import init_email_queue
@@ -273,6 +274,9 @@ def register_blueprints(app):
 
     # 注册工作流蓝图（路由中已包含完整路径）
     app.register_blueprint(workflows_bp, url_prefix='/api')
+
+    # 注册公开配置蓝图
+    app.register_blueprint(config_bp, url_prefix='/api/config')
 
 
 def register_error_handlers(app):
