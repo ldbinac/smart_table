@@ -103,6 +103,28 @@ export const useAuthStore = defineStore('auth', () => {
       isLoading.value = false
     }
   }
+
+  /**
+   * 完成登录（供普通登录和 Gitee 回调复用）
+   */
+  const completeLogin = async (response: LoginResponse, remember: boolean = true): Promise<boolean> => {
+    try {
+      setToken(response.tokens.access_token, remember)
+      setRefreshToken(response.tokens.refresh_token, remember)
+      setRememberMe(remember)
+
+      user.value = response.user
+      isAuthenticated.value = true
+      setUserCache(response.user)
+
+      message.success('登录成功')
+      return true
+    } catch (error) {
+      console.error('[authStore] 完成登录失败:', error)
+      message.error('登录状态保存失败')
+      return false
+    }
+  }
   
   /**
    * 用户注册
