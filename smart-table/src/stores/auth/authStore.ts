@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { User, LoginRequest, RegisterRequest } from '@/api/types'
+import type { User, LoginResponse, LoginRequest, RegisterRequest } from '@/api/types'
 import { authService } from '@/services/api/authService'
 import {
   setToken,
@@ -81,22 +81,9 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true
     try {
       const response = await authService.login(credentials)
-
-      // 存储 Token - 注意后端返回的是 tokens 对象
-      // 默认使用 localStorage，这样多标签页可以共享 token
-      setToken(response.tokens.access_token, remember)
-      setRefreshToken(response.tokens.refresh_token, remember)
-      setRememberMe(remember)
-
-      // 更新状态
-      user.value = response.user
-      isAuthenticated.value = true
-      // 登录后更新用户缓存
-      setUserCache(response.user)
-
-      message.success('登录成功')
-      return true
+      return await completeLogin(response, remember)
     } catch (error) {
+      console.error('登录失败:', error)
       message.error('登录失败，请检查邮箱和密码')
       return false
     } finally {
@@ -300,6 +287,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     // 方法
     login,
+    completeLogin,
     register,
     logout,
     fetchCurrentUser,
