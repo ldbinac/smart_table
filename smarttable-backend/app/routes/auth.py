@@ -19,6 +19,7 @@ from app.models.user import User, TokenBlocklist
 from app.services.auth_service import AuthService
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
+from app.services.gitee_service import GiteeService
 from app.services.security_config_service import SecurityConfigService
 from app.schemas.user_schema import (
     user_registration_schema,
@@ -595,19 +596,25 @@ def gitee_star_authorize() -> tuple:
       404:
         description: 用户不存在
     """
+    if not current_app.config.get('IS_DEMO_ENVIRONMENT', False):
+        return error_response('演示环境未启用', code=403, error='demo_disabled')
+
     data = request.get_json() or {}
     user_id = data.get('user_id')
 
     if not user_id:
+        logger.warning(f"Gitee 授权请求缺少用户标识 - IP: {request.remote_addr}")
         return error_response('缺少用户标识', code=400, error='missing_user_id')
 
     user = AuthService.get_current_user(user_id)
     if not user:
+        logger.warning(f"Gitee 授权请求用户不存在 - IP: {request.remote_addr}, UserID: {user_id}")
         return not_found_response('用户')
 
     try:
         authorize_url = GiteeService.generate_authorize_url(str(user.id), user.email)
     except RuntimeError as e:
+        logger.error(f"生成 Gitee 授权地址失败 - UserID: {user.id}, Error: {str(e)}")
         return error_response(str(e), code=500, error='gitee_authorize_failed')
 
     return success_response(
@@ -650,31 +657,40 @@ def gitee_star_callback() -> tuple:
       500:
         description: star 检测失败（严格模式）
     """
+    if not current_app.config.get('IS_DEMO_ENVIRONMENT', False):
+        return error_response('演示环境未启用', code=403, error='demo_disabled')
+
     data = request.get_json() or {}
     code = data.get('code')
     state = data.get('state')
 
     if not code or not state:
+        logger.warning(f"Gitee 回调缺少必要参数 - IP: {request.remote_addr}")
         return error_response('缺少必要参数', code=400, error='missing_params')
 
     state_data = GiteeService.get_state_data(state)
     if not state_data:
+        logger.warning(f"Gitee 回调 state 无效或已过期 - IP: {request.remote_addr}, State: {state}")
         return error_response('授权状态已过期或无效', code=400, error='invalid_oauth_state')
 
     GiteeService.clear_state(state)
 
     access_token, error = GiteeService.exchange_access_token(code)
     if error:
+        logger.warning(f"Gitee 授权码换取 access_token 失败 - IP: {request.remote_addr}, Error: {error}")
         return error_response('Gitee 授权失败，请重试', code=400, error=error)
 
     is_starred, error = GiteeService.check_starred(access_token)
     if error:
         if error == 'gitee_repo_not_starred':
+            logger.warning(f"Gitee star 校验未通过，用户未 star - IP: {request.remote_addr}")
             return error_response('请先 star 本项目后再访问', code=403, error=error)
+        logger.error(f"Gitee star 检测失败 - IP: {request.remote_addr}, Error: {error}")
         return error_response('star 检测失败，请稍后重试', code=500, error=error)
 
     user = AuthService.get_current_user(state_data.get('user_id'))
     if not user:
+        logger.warning(f"Gitee star 回调用户不存在 - IP: {request.remote_addr}, UserID: {state_data.get('user_id')}")
         return not_found_response('用户')
 
     AuthService.update_last_login(str(user.id))
