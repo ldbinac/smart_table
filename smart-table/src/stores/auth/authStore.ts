@@ -109,6 +109,11 @@ export const useAuthStore = defineStore('auth', () => {
    */
   const completeLogin = async (response: LoginResponse, remember: boolean = true): Promise<boolean> => {
     try {
+      if (!response.tokens?.access_token || !response.tokens?.refresh_token || !response.user) {
+        message.error('登录响应数据不完整')
+        return false
+      }
+
       setToken(response.tokens.access_token, remember)
       setRefreshToken(response.tokens.refresh_token, remember)
       setRememberMe(remember)
