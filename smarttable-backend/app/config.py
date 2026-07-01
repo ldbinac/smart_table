@@ -177,6 +177,15 @@ class Config:
     ERROR_LOG_STACK_TRACE = True
     ERROR_REQUEST_ID_HEADER = 'X-Request-ID'
 
+    # 演示环境与 Gitee Star 校验配置
+    IS_DEMO_ENVIRONMENT = os.environ.get('IS_DEMO_ENVIRONMENT', 'false').lower() == 'true'
+    GITEE_CLIENT_ID = os.environ.get('GITEE_CLIENT_ID', '')
+    GITEE_CLIENT_SECRET = os.environ.get('GITEE_CLIENT_SECRET', '')
+    GITEE_REDIRECT_URI = os.environ.get('GITEE_REDIRECT_URI', '')
+    GITEE_REPO_OWNER = os.environ.get('GITEE_REPO_OWNER', 'binac')
+    GITEE_REPO_NAME = os.environ.get('GITEE_REPO_NAME', 'smart_table')
+    GITEE_STAR_CHECK_STRICT_MODE = os.environ.get('GITEE_STAR_CHECK_STRICT_MODE', 'false').lower() == 'true'
+
 
 class DevelopmentConfig(Config):
     """开发环境配置"""
