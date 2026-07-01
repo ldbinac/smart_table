@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 import traceback
 
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, current_app
 from flask_jwt_extended import (
     jwt_required as flask_jwt_required,
     get_jwt_identity,
@@ -242,7 +242,18 @@ def login() -> tuple:
     if error:
         record_login_attempt(success=False)
         return error_response(error, code=401, error='authentication_failed')
-    
+
+    # 演示环境：账号密码校验通过后不直接发放令牌，等待 Gitee star 校验
+    if current_app.config.get('IS_DEMO_ENVIRONMENT', False):
+        logger.info(f"演示环境登录校验通过，等待 Gitee star 检测 - IP: {client_ip}, UserID: {user.id}, Email: {email}")
+        return success_response(
+            data={
+                'requires_gitee_star_check': True,
+                'user_id': str(user.id)
+            },
+            message='需要检测 Gitee star 状态'
+        )
+
     # 更新最后登录时间
     AuthService.update_last_login(str(user.id))
     
@@ -553,6 +564,130 @@ def change_password() -> tuple:
     
     return success_response(
         message='密码修改成功，请使用新密码重新登录'
+    )
+
+
+@auth_bp.route('/gitee-star/authorize', methods=['POST'])
+@rate_limit(max_attempts=5, window=900)
+def gitee_star_authorize() -> tuple:
+    """
+    生成 Gitee OAuth 授权地址
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+          properties:
+            user_id:
+              type: string
+              description: 临时登录用户 ID
+    responses:
+      200:
+        description: 返回授权地址
+      400:
+        description: 参数错误
+      404:
+        description: 用户不存在
+    """
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return error_response('缺少用户标识', code=400, error='missing_user_id')
+
+    user = AuthService.get_current_user(user_id)
+    if not user:
+        return not_found_response('用户')
+
+    try:
+        authorize_url = GiteeService.generate_authorize_url(str(user.id), user.email)
+    except RuntimeError as e:
+        return error_response(str(e), code=500, error='gitee_authorize_failed')
+
+    return success_response(
+        data={'authorize_url': authorize_url},
+        message='授权地址生成成功'
+    )
+
+
+@auth_bp.route('/gitee-star-callback', methods=['POST'])
+@rate_limit(max_attempts=5, window=900)
+def gitee_star_callback() -> tuple:
+    """
+    Gitee OAuth 回调处理
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - code
+            - state
+          properties:
+            code:
+              type: string
+              description: Gitee 授权码
+            state:
+              type: string
+              description: 随机状态码
+    responses:
+      200:
+        description: 已 star，返回用户信息和令牌
+      400:
+        description: 参数错误或 state 无效
+      403:
+        description: 未 star
+      500:
+        description: star 检测失败（严格模式）
+    """
+    data = request.get_json() or {}
+    code = data.get('code')
+    state = data.get('state')
+
+    if not code or not state:
+        return error_response('缺少必要参数', code=400, error='missing_params')
+
+    state_data = GiteeService.get_state_data(state)
+    if not state_data:
+        return error_response('授权状态已过期或无效', code=400, error='invalid_oauth_state')
+
+    GiteeService.clear_state(state)
+
+    access_token, error = GiteeService.exchange_access_token(code)
+    if error:
+        return error_response('Gitee 授权失败，请重试', code=400, error=error)
+
+    is_starred, error = GiteeService.check_starred(access_token)
+    if error:
+        if error == 'gitee_repo_not_starred':
+            return error_response('请先 star 本项目后再访问', code=403, error=error)
+        return error_response('star 检测失败，请稍后重试', code=500, error=error)
+
+    user = AuthService.get_current_user(state_data.get('user_id'))
+    if not user:
+        return not_found_response('用户')
+
+    AuthService.update_last_login(str(user.id))
+    tokens = AuthService.generate_tokens(str(user.id))
+
+    logger.info(f"Gitee star 校验通过，用户登录成功 - UserID: {user.id}, Email: {user.email}")
+
+    return success_response(
+        data={
+            'user': user.to_dict(include_email=True),
+            'tokens': tokens
+        },
+        message='登录成功'
     )
 
 
