@@ -1,6 +1,6 @@
 <template>
-  <div class="gitee-callback-page">
-    <div class="callback-box">
+  <AuthLayout title="Gitee 授权回调">
+    <div class="callback-content">
       <el-icon v-if="loading" class="is-loading" :size="48"><Loading /></el-icon>
       <p v-if="loading">正在处理 Gitee 授权...</p>
       <template v-else>
@@ -11,7 +11,7 @@
         </el-button>
       </template>
     </div>
-  </div>
+  </AuthLayout>
 </template>
 
 <script setup lang="ts">
@@ -20,6 +20,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Loading } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth/authStore'
 import { authService } from '@/services/api/authService'
+import AuthLayout from './AuthLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,13 +43,17 @@ onMounted(async () => {
     const response = await authService.verifyGiteeStarCallback(code, state)
     const success = await authStore.completeLogin(response, true)
     if (success) {
-      const redirect = route.query.redirect as string
-      await router.push(redirect || '/')
+      try {
+        const redirect = route.query.redirect as string
+        await router.push(redirect || '/')
+      } catch (e) {
+        error.value = '页面跳转失败，请手动返回首页'
+      }
     } else {
       error.value = '登录状态保存失败，请重新登录'
     }
-  } catch (err: any) {
-    error.value = err?.message || 'Gitee 授权处理失败，请重新登录'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Gitee 授权处理失败，请重新登录'
   } finally {
     loading.value = false
   }
@@ -60,22 +65,9 @@ const goToLogin = () => {
 </script>
 
 <style scoped lang="scss">
-.gitee-callback-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
-}
-
-.callback-box {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 48px;
+.callback-content {
   text-align: center;
-  min-width: 320px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  padding: 12px 0;
 }
 
 .error-text {
