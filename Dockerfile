@@ -113,8 +113,9 @@ COPY docker/redis/redis.conf /etc/redis/redis.conf
 COPY docker/server_runner.py /app/docker/server_runner.py
 COPY docker/entrypoint.sh /entrypoint.sh
 
-# 设置权限
-RUN chmod +x /entrypoint.sh && \
+# 修复 Windows CRLF 换行符问题，并设置权限
+RUN sed -i 's/\r$//' /entrypoint.sh /etc/nginx/nginx.conf /etc/supervisor/conf.d/supervisord.conf /etc/redis/redis.conf && \
+    chmod +x /entrypoint.sh && \
     chown -R www-data:www-data /app/static /app/uploads && \
     chmod -R 755 /app/uploads
 
