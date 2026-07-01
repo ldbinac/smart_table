@@ -15,6 +15,19 @@
         <div class="auth-box" :class="boxClass">
           <h2 class="box-title">{{ title }}</h2>
 
+          <div v-if="demoConfig?.is_demo_environment" class="demo-star-tip">
+            <el-icon><Star /></el-icon>
+            <span>
+              Tip：请先 star 本项目后再访问：
+              <a
+                :href="demoConfig.gitee_repo_url"
+                target="_blank"
+                rel="noopener noreferrer">
+                点击 star 和关注
+              </a>
+            </span>
+          </div>
+
           <slot />
 
           <div v-if="footerHint" class="auth-footer">
@@ -84,6 +97,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { Star } from '@element-plus/icons-vue'
+import type { DemoConfig } from '@/api/types'
 
 defineProps<{
   title: string;
@@ -91,6 +106,7 @@ defineProps<{
   footerLinkText?: string;
   footerLinkTo?: string;
   boxClass?: string;
+  demoConfig?: DemoConfig | null;
 }>();
 
 const showWechatQR = ref(false);
@@ -344,6 +360,35 @@ const showWechatQR = ref(false);
     .box-title {
       font-size: 24px;
       margin-bottom: 24px;
+    }
+  }
+}
+
+.demo-star-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border: 1px solid #fdba74;
+  border-radius: 12px;
+  color: #9a3412;
+  font-size: 14px;
+  line-height: 1.5;
+
+  .el-icon {
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  a {
+    color: #ea580c;
+    font-weight: 600;
+    text-decoration: underline;
+
+    &:hover {
+      color: #c2410c;
     }
   }
 }
