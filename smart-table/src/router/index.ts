@@ -47,6 +47,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/gitee-callback",
+    name: "GiteeCallback",
+    component: () => import("@/views/auth/GiteeCallback.vue"),
+    meta: {
+      title: "Gitee 授权回调",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
     path: "/reset-password",
     name: "ResetPassword",
     component: () => import("@/views/auth/ResetPassword.vue"),
