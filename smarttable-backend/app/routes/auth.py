@@ -244,15 +244,15 @@ def login() -> tuple:
         record_login_attempt(success=False)
         return error_response(error, code=401, error='authentication_failed')
 
-    # 演示环境：账号密码校验通过后不直接发放令牌，等待 Gitee star 校验
+    # 演示环境：账号密码校验通过后不直接发放令牌，等待 Gitee watch 校验
     if current_app.config.get('IS_DEMO_ENVIRONMENT', False):
-        logger.info(f"演示环境登录校验通过，等待 Gitee star 检测 - IP: {client_ip}, UserID: {user.id}, Email: {email}")
+        logger.info(f"演示环境登录校验通过，等待 Gitee watch 检测 - IP: {client_ip}, UserID: {user.id}, Email: {email}")
         return success_response(
             data={
                 'requires_gitee_star_check': True,
                 'user_id': str(user.id)
             },
-            message='需要检测 Gitee star 状态'
+            message='需要检测 Gitee watch 状态'
         )
 
     # 更新最后登录时间
@@ -680,23 +680,23 @@ def gitee_star_callback() -> tuple:
         logger.warning(f"Gitee 授权码换取 access_token 失败 - IP: {request.remote_addr}, Error: {error}")
         return error_response('Gitee 授权失败，请重试', code=400, error=error)
 
-    is_starred, error = GiteeService.check_starred(access_token)
+    is_watched, error = GiteeService.check_watched(access_token)
     if error:
-        if error == 'gitee_repo_not_starred':
-            logger.warning(f"Gitee star 校验未通过，用户未 star - IP: {request.remote_addr}")
-            return error_response('请先 star 本项目后再访问', code=403, error=error)
-        logger.error(f"Gitee star 检测失败 - IP: {request.remote_addr}, Error: {error}")
-        return error_response('star 检测失败，请稍后重试', code=500, error=error)
+        if error == 'gitee_repo_not_watched':
+            logger.warning(f"Gitee watch 校验未通过，用户未 watch - IP: {request.remote_addr}")
+            return error_response('请先 watch 本项目后再访问', code=403, error=error)
+        logger.error(f"Gitee watch 检测失败 - IP: {request.remote_addr}, Error: {error}")
+        return error_response('watch 检测失败，请稍后重试', code=500, error=error)
 
     user = AuthService.get_current_user(state_data.get('user_id'))
     if not user:
-        logger.warning(f"Gitee star 回调用户不存在 - IP: {request.remote_addr}, UserID: {state_data.get('user_id')}")
+        logger.warning(f"Gitee watch 回调用户不存在 - IP: {request.remote_addr}, UserID: {state_data.get('user_id')}")
         return not_found_response('用户')
 
     AuthService.update_last_login(str(user.id))
     tokens = AuthService.generate_tokens(str(user.id))
 
-    logger.info(f"Gitee star 校验通过，用户登录成功 - UserID: {user.id}, Email: {user.email}")
+    logger.info(f"Gitee watch 校验通过，用户登录成功 - UserID: {user.id}, Email: {user.email}")
 
     return success_response(
         data={

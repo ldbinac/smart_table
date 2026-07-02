@@ -47,7 +47,7 @@ const handleLogin = async (data: LoginRequest) => {
     if (response.requires_gitee_star_check && response.user_id) {
       try {
         await ElMessageBox.confirm(
-          '访问本系统需检测是否 star 本项目，是否继续？',
+          '访问本系统需检测是否 watch 本项目，是否继续？',
           '提示',
           {
             confirmButtonText: '继续',

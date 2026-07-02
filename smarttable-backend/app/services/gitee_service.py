@@ -1,6 +1,6 @@
 """
-Gitee OAuth 与 Star 检查服务
-处理演示环境下 Gitee 授权、state 缓存及 star 状态检测
+Gitee OAuth 与 Watch 检查服务
+处理演示环境下 Gitee 授权、state 缓存及 watch 状态检测
 """
 import json
 import logging
@@ -23,7 +23,7 @@ def _get_redis_client():
 GITEE_BASE_URL = 'https://gitee.com'
 GITEE_OAUTH_AUTHORIZE_PATH = '/oauth/authorize'
 GITEE_OAUTH_TOKEN_PATH = '/oauth/token'
-GITEE_STARRED_API_PATH = '/api/v5/user/starred'
+GITEE_WATCHED_API_PATH = '/api/v5/user/subscriptions'
 
 # 默认目标仓库
 DEFAULT_REPO_OWNER = 'binac'
@@ -36,7 +36,7 @@ HTTP_NOT_FOUND = 404
 
 
 class GiteeService:
-    """Gitee OAuth 与 Star 校验服务"""
+    """Gitee OAuth 与 Watch 校验服务"""
 
     STATE_TTL_SECONDS = 600  # state 有效期 10 分钟
 
@@ -144,34 +144,34 @@ class GiteeService:
             return None, 'gitee_oauth_failed'
 
     @staticmethod
-    def check_starred(access_token: str) -> Tuple[bool, Optional[str]]:
-        """检测当前授权用户是否已 star 目标仓库"""
+    def check_watched(access_token: str) -> Tuple[bool, Optional[str]]:
+        """检测当前授权用户是否已 watch 目标仓库"""
         owner = current_app.config.get('GITEE_REPO_OWNER', DEFAULT_REPO_OWNER)
         repo = current_app.config.get('GITEE_REPO_NAME', DEFAULT_REPO_NAME)
         strict_mode = bool(current_app.config.get('GITEE_STAR_CHECK_STRICT_MODE', False))
 
         try:
             resp = requests.get(
-                f'{GITEE_BASE_URL}{GITEE_STARRED_API_PATH}/{owner}/{repo}',
+                f'{GITEE_BASE_URL}{GITEE_WATCHED_API_PATH}/{owner}/{repo}',
                 params={'access_token': access_token},
                 timeout=30,
             )
             if resp.status_code == HTTP_NO_CONTENT:
                 return True, None
             if resp.status_code == HTTP_NOT_FOUND:
-                return False, 'gitee_repo_not_starred'
+                return False, 'gitee_repo_not_watched'
 
-            logger.warning(f'Gitee star 检测失败: status={resp.status_code}, body={resp.text}')
+            logger.warning(f'Gitee watch 检测失败: status={resp.status_code}, body={resp.text}')
             if strict_mode:
-                return False, 'gitee_star_check_failed'
+                return False, 'gitee_watch_check_failed'
             return True, None
         except requests.RequestException as e:
-            logger.error(f'Gitee star 检测请求异常: {e}')
+            logger.error(f'Gitee watch 检测请求异常: {e}')
             if strict_mode:
-                return False, 'gitee_star_check_failed'
+                return False, 'gitee_watch_check_failed'
             return True, None
         except Exception as e:
-            logger.error(f'Gitee star 检测发生未预期异常: {e}')
+            logger.error(f'Gitee watch 检测发生未预期异常: {e}')
             if strict_mode:
-                return False, 'gitee_star_check_failed'
+                return False, 'gitee_watch_check_failed'
             return True, None

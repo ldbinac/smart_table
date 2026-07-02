@@ -18,12 +18,12 @@
           <div v-if="demoConfig?.is_demo_environment" class="demo-star-tip">
             <el-icon><Star /></el-icon>
             <span>
-              Tip：请先 star 本项目后再访问：
+              Tip：请先 watch 本项目后再访问：
               <a
                 :href="demoConfig.gitee_repo_url"
                 target="_blank"
                 rel="noopener noreferrer">
-                点击 star 和关注
+                点击 watch 和关注
               </a>
             </span>
           </div>

@@ -141,7 +141,7 @@ def test_exchange_access_token_failure_on_request_exception():
         assert error == 'gitee_oauth_failed'
 
 
-def test_check_starred_returns_true_on_204():
+def test_check_watched_returns_true_on_204():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
          patch('app.services.gitee_service.requests.get') as mock_get:
         mock_app.config = {
@@ -150,12 +150,12 @@ def test_check_starred_returns_true_on_204():
             'GITEE_STAR_CHECK_STRICT_MODE': False
         }
         mock_get.return_value = MagicMock(status_code=204)
-        starred, error = GiteeService.check_starred('fake_token')
-        assert starred is True
+        watched, error = GiteeService.check_watched('fake_token')
+        assert watched is True
         assert error is None
 
 
-def test_check_starred_returns_false_on_404():
+def test_check_watched_returns_false_on_404():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
          patch('app.services.gitee_service.requests.get') as mock_get:
         mock_app.config = {
@@ -164,12 +164,12 @@ def test_check_starred_returns_false_on_404():
             'GITEE_STAR_CHECK_STRICT_MODE': False
         }
         mock_get.return_value = MagicMock(status_code=404)
-        starred, error = GiteeService.check_starred('fake_token')
-        assert starred is False
-        assert error == 'gitee_repo_not_starred'
+        watched, error = GiteeService.check_watched('fake_token')
+        assert watched is False
+        assert error == 'gitee_repo_not_watched'
 
 
-def test_check_starred_strict_mode_500_returns_failure():
+def test_check_watched_strict_mode_500_returns_failure():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
          patch('app.services.gitee_service.requests.get') as mock_get:
         mock_app.config = {
@@ -178,12 +178,12 @@ def test_check_starred_strict_mode_500_returns_failure():
             'GITEE_STAR_CHECK_STRICT_MODE': True
         }
         mock_get.return_value = MagicMock(status_code=500)
-        starred, error = GiteeService.check_starred('fake_token')
-        assert starred is False
-        assert error == 'gitee_star_check_failed'
+        watched, error = GiteeService.check_watched('fake_token')
+        assert watched is False
+        assert error == 'gitee_watch_check_failed'
 
 
-def test_check_starred_non_strict_mode_500_returns_success():
+def test_check_watched_non_strict_mode_500_returns_success():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
          patch('app.services.gitee_service.requests.get') as mock_get:
         mock_app.config = {
@@ -192,12 +192,12 @@ def test_check_starred_non_strict_mode_500_returns_success():
             'GITEE_STAR_CHECK_STRICT_MODE': False
         }
         mock_get.return_value = MagicMock(status_code=500)
-        starred, error = GiteeService.check_starred('fake_token')
-        assert starred is True
+        watched, error = GiteeService.check_watched('fake_token')
+        assert watched is True
         assert error is None
 
 
-def test_check_starred_request_exception_strict_mode():
+def test_check_watched_request_exception_strict_mode():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
          patch('app.services.gitee_service.requests.get', side_effect=requests.RequestException('timeout')):
         mock_app.config = {
@@ -205,12 +205,12 @@ def test_check_starred_request_exception_strict_mode():
             'GITEE_REPO_NAME': 'smart_table',
             'GITEE_STAR_CHECK_STRICT_MODE': True
         }
-        starred, error = GiteeService.check_starred('fake_token')
-        assert starred is False
-        assert error == 'gitee_star_check_failed'
+        watched, error = GiteeService.check_watched('fake_token')
+        assert watched is False
+        assert error == 'gitee_watch_check_failed'
 
 
-def test_check_starred_request_exception_non_strict_mode():
+def test_check_watched_request_exception_non_strict_mode():
     with patch('app.services.gitee_service.current_app', new=MagicMock()) as mock_app, \
          patch('app.services.gitee_service.requests.get', side_effect=requests.RequestException('timeout')):
         mock_app.config = {
@@ -218,6 +218,6 @@ def test_check_starred_request_exception_non_strict_mode():
             'GITEE_REPO_NAME': 'smart_table',
             'GITEE_STAR_CHECK_STRICT_MODE': False
         }
-        starred, error = GiteeService.check_starred('fake_token')
-        assert starred is True
+        watched, error = GiteeService.check_watched('fake_token')
+        assert watched is True
         assert error is None
