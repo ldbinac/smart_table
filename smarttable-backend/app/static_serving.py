@@ -84,46 +84,8 @@ def configure_static_serving(app):
     if not dist_path:
         print('[Static Serving] ⚠️ Warning: Frontend dist directory not found!')
         print('[Static Serving]   Please run "npm run build" in smart-table/ first.')
-
-        # 注册一个友好的 503 页面
-        @app.route('/')
-        @app.route('/<path:path>', endpoint='frontend_not_built')
-        def frontend_not_built():
-            return '''
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>SmartTable - Frontend Not Built</title>
-                <style>
-                    body { 
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                        display: flex; justify-content: center; align-items: center;
-                        min-height: 100vh; margin: 0; background: #f5f5f5;
-                        color: #333;
-                    }
-                    .container { 
-                        max-width: 600px; padding: 40px; background: white;
-                        border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    }
-                    h1 { color: #e74c3c; margin-bottom: 20px; }
-                    code { 
-                        background: #f4f4f4; padding: 2px 6px; border-radius: 3px;
-                        font-size: 14px;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>⚠️ Frontend Not Built</h1>
-                    <p>The frontend application has not been built yet.</p>
-                    <p>To fix this, run the following command:</p>
-                    <pre><code>cd smart-table && npm install && npm run build</code></pre>
-                    <p>Then restart the server.</p>
-                </div>
-            </body>
-            </html>
-            ''', 503
-        
+        # 开发模式下前端由 Vite dev server 提供，此处不注册 catch-all 路由，
+        # 避免捕获 /api/* 请求导致 API 无法正常响应。
         return False
 
     print(f'[Static Serving] ✓ Frontend dist path: {dist_path}')
@@ -133,9 +95,10 @@ def configure_static_serving(app):
     def serve_frontend(path):
         """处理所有非 API 请求，返回前端静态资源"""
 
-        # API 请求由其他路由处理，不拦截
+        # API 请求由其他路由处理；若因路由顺序问题被匹配到，直接 404，
+        # 避免 return None 导致 Flask 抛出 TypeError。
         if path.startswith('api/'):
-            return None
+            abort(404)
 
         # ===== 上传文件请求：直接服务（避免返回 None 导致 TypeError）=====
         if path.startswith('uploads/'):
