@@ -30,8 +30,10 @@ const loading = ref(true)
 const error = ref('')
 
 onMounted(async () => {
-  const code = route.query.code as string
-  const state = route.query.state as string
+  // Gitee 会把授权参数追加到 URL 的 search 部分（hash 模式路由下不会进入 route.query）
+  const searchParams = new URLSearchParams(window.location.search)
+  const code = (route.query.code as string) || searchParams.get('code') || ''
+  const state = (route.query.state as string) || searchParams.get('state') || ''
 
   if (!code || !state) {
     error.value = '授权参数不完整，请重新登录'
@@ -44,8 +46,9 @@ onMounted(async () => {
     const success = await authStore.completeLogin(response, true)
     if (success) {
       try {
-        const redirect = route.query.redirect as string
-        await router.push(redirect || '/')
+        const searchParams = new URLSearchParams(window.location.search)
+        const redirect = (route.query.redirect as string) || searchParams.get('redirect') || '/'
+        await router.push(redirect)
       } catch (e) {
         error.value = '页面跳转失败，请手动返回首页'
       }
