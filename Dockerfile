@@ -83,6 +83,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     redis-server \
     ca-certificates \
     gettext-base \
+    fonts-liberation \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
