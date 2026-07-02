@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, watch, onMounted } from "vue";
 import { ElMessage } from "element-plus";
-import { Refresh } from "@element-plus/icons-vue";
+
 import { apiClient } from "@/api/client";
 import type { PaginatedData } from "@/api/types";
 import { formatDateTime } from "@/utils/timezone";
@@ -83,8 +83,10 @@ const formatDate = (date: string | null | undefined) => {
   return formatDateTime(date, "YYYY-MM-DD HH:mm:ss");
 };
 
-const getStatusType = (status: WebhookDeliveryStatus) => {
-  const typeMap: Record<WebhookDeliveryStatus, string> = {
+type TagType = "primary" | "success" | "warning" | "info" | "danger";
+
+const getStatusType = (status: WebhookDeliveryStatus): TagType => {
+  const typeMap: Record<WebhookDeliveryStatus, TagType> = {
     pending: "info",
     success: "success",
     failed: "danger",

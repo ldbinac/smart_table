@@ -32,7 +32,7 @@
 
           <div v-if="footerHint" class="auth-footer">
             <span>{{ footerHint }}</span>
-            <el-link type="primary" @click="$router.push(footerLinkTo)">
+            <el-link type="primary" @click="$router.push(footerLinkTo || '/')">
               {{ footerLinkText }}
             </el-link>
           </div>

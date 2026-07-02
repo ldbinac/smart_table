@@ -2015,7 +2015,7 @@ const sortedRecords = computed(() => {
 /**
  * 数值型字段类型集合 —— 这些字段应按数值大小排序而非文本字典序
  */
-const NUMERIC_FIELD_TYPES = new Set([
+const NUMERIC_FIELD_TYPES = new Set<string>([
   FieldType.NUMBER,
   FieldType.PROGRESS,
   FieldType.PERCENT,
@@ -3212,7 +3212,7 @@ const buildTableConfig = (): any => {
       width: 'auto',
       cellType: 'checkbox',
       headerType: 'checkbox',
-      format:  (col, row, table) => {
+      format: (_col: any, row: any, table: any) => {
         if (row === table.dataSource._sourceLength){
           return '+';
         }
@@ -4433,7 +4433,7 @@ function openSearch() {
   // 初始化 SearchComponent（仅首次）
   if (!searchComponent.value) {
     searchComponent.value = new SearchComponent({
-      table: tableInstance,
+      table: tableInstance as any,
       autoJump: true,
     });
   }

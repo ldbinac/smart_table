@@ -448,7 +448,7 @@ onMounted(() => {
                 <el-icon><Connection /></el-icon>
                 工作流
               </el-dropdown-item>
-              <el-dropdown-item command="approval" :class="{ 'is-active': isApprovalPage }">
+              <!-- <el-dropdown-item command="approval" :class="{ 'is-active': isApprovalPage }">
                 <el-icon><CircleCheck /></el-icon>
                 <el-badge
                   :value="workflowStore.pendingApprovalCount"
@@ -456,7 +456,7 @@ onMounted(() => {
                   class="approval-badge">
                   审批
                 </el-badge>
-              </el-dropdown-item>
+              </el-dropdown-item> -->
             </el-dropdown-menu>
           </template>
         </el-dropdown>

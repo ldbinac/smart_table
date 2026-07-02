@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from "vue";
 import { Delete, Plus } from "@element-plus/icons-vue";
-import { ElMessage, type FormInstance, type FormRules } from "element-plus";
+import { type FormInstance, type FormRules } from "element-plus";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import type { WebhookConfig, WebhookMethod } from "@/types/workflow";
 

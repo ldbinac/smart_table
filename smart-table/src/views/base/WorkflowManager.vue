@@ -26,6 +26,7 @@ import type {
   Workflow,
   WorkflowNode,
   WorkflowTrigger,
+  TriggerType,
   WorkflowInstance,
   WorkflowExecutionLog,
   WebhookConfig,
@@ -103,7 +104,7 @@ const designerTrigger = computed<WorkflowTrigger>(() => {
     trigger.value ?? {
       id: "",
       workflow_id: currentWorkflow.value?.id || "",
-      trigger_type: "",
+      trigger_type: "" as TriggerType,
       filter_config: {},
       field_ids: [],
     }
