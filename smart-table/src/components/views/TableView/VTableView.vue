@@ -18,6 +18,7 @@ import type {
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { recordService } from "@/db/services";
 import { FieldType, fieldTypeSvgContentMap } from "@/types/fields";
+import type { FieldTypeValue } from "@/types/fields";
 import type { CellValue } from "@/types";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
@@ -2083,7 +2084,7 @@ const sortedRecords = computed(() => {
 /**
  * 数值型字段类型集合 —— 这些字段应按数值大小排序而非文本字典序
  */
-const NUMERIC_FIELD_TYPES = new Set([
+const NUMERIC_FIELD_TYPES: Set<FieldTypeValue> = new Set([
   FieldType.NUMBER,
   FieldType.PROGRESS,
   FieldType.PERCENT,
@@ -2106,8 +2107,8 @@ const NUMERIC_FIELD_TYPES = new Set([
  * 函数签名与 VTable defaultOrderFn 一致：(v1, v2, order) => -1 | 0 | 1
  */
 const ADD_BUTTON_PREFIX = '__add_button_';
-const createSortComparator = (fieldType: string): ((v1: any, v2: any, order: string) => number) => {
-  const isNumeric = NUMERIC_FIELD_TYPES.has(fieldType);
+const createSortComparator = (fieldType: FieldTypeValue | string): ((v1: any, v2: any, order: string) => number) => {
+  const isNumeric = NUMERIC_FIELD_TYPES.has(fieldType as FieldTypeValue);
 
   return (v1: any, v2: any, order: string): number => {
     // addButton 虚拟行检测 —— 始终排到末尾
@@ -3280,7 +3281,7 @@ const buildTableConfig = (): any => {
       width: 'auto',
       cellType: 'checkbox',
       headerType: 'checkbox',
-      format:  (col, row, table) => {
+      format: (_col: number, row: number, table: any) => {
         if (row === table.dataSource._sourceLength){
           return '+';
         }
