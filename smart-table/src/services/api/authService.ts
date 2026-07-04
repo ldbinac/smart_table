@@ -9,7 +9,8 @@ import type {
   LoginResponse,
   RegisterRequest,
   User,
-  TokenPair
+  TokenPair,
+  GiteeAuthorizeResponse
 } from '@/api/types';
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
@@ -47,6 +48,16 @@ export const updateProfile = async (data: Partial<User>): Promise<User> => {
   return apiClient.put<User>('/auth/profile', data);
 };
 
+export const getGiteeStarAuthorizeUrl = async (userId: string): Promise<GiteeAuthorizeResponse> => {
+  return apiClient.post<GiteeAuthorizeResponse>('/auth/gitee-star/authorize', {
+    user_id: userId,
+  });
+};
+
+export const verifyGiteeStarCallback = async (code: string, state: string): Promise<LoginResponse> => {
+  return apiClient.post<LoginResponse>('/auth/gitee-star-callback', { code, state });
+};
+
 export const authService = {
   login,
   register,
@@ -55,7 +66,9 @@ export const authService = {
   refreshToken,
   getCurrentUser,
   changePassword,
-  updateProfile
+  updateProfile,
+  getGiteeStarAuthorizeUrl,
+  verifyGiteeStarCallback
 };
 
 export default authService;

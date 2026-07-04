@@ -7,6 +7,7 @@ import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useTableStore } from "@/stores/tableStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useMemberStore } from "@/stores/memberStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { dashboardService } from "@/db/services/dashboardService";
 import { ElMessageBox } from "element-plus";
 import {
@@ -18,6 +19,7 @@ import {
   Lock,
   Loading,
   Warning,
+  Connection,
 } from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
 import { debounce } from "@/utils/debounce";
@@ -32,6 +34,7 @@ const collaborationStore = useCollaborationStore();
 const tableStore = useTableStore();
 const documentStore = useDocumentStore();
 const memberStore = useMemberStore();
+const workflowStore = useWorkflowStore();
 
 // 用户菜单控制
 const userMenuVisible = ref(false);
@@ -157,8 +160,30 @@ const isBasePage = computed(() => {
   return route.path.startsWith("/base/");
 });
 
+// 自动化导航
+const isWorkflowPage = computed(() => {
+  return /^\/base\/[^/]+\/workflows/.test(route.path);
+});
+
+const isApprovalPage = computed(() => {
+  return /^\/base\/[^/]+\/approvals/.test(route.path);
+});
+
+const handleWorkflowClick = () => {
+  if (!currentBase.value) return;
+  router.push(`/base/${currentBase.value.id}/workflows`);
+};
+
+const handleApprovalClick = () => {
+  if (!currentBase.value) return;
+  router.push(`/base/${currentBase.value.id}/approvals`);
+};
+
 // 左侧显示的标题：Base（多维表根）名称或默认标题
 const leftTitle = computed(() => {
+  if (isWorkflowPage.value) {
+    return "工作流配置";
+  }
   if (currentBase.value) {
     return currentBase.value.name;
   }
@@ -167,6 +192,11 @@ const leftTitle = computed(() => {
 
 // 左侧显示的描述：Base（多维表根）描述信息
 const leftDescription = computed(() => {
+  if (isWorkflowPage.value) {
+    return currentBase.value
+      ? `多维表"${currentBase.value.name}"的工作流配置`
+      : "";
+  }
   if (currentBase.value && currentBase.value.description) {
     return currentBase.value.description;
   }
@@ -175,6 +205,18 @@ const leftDescription = computed(() => {
 
 // 中间显示的信息
 const centerInfo = computed(() => {
+  if (isWorkflowPage.value) {
+    if (workflowStore.currentWorkflow) {
+      return {
+        name: workflowStore.currentWorkflow.name,
+        description: workflowStore.currentWorkflow.description || "",
+      };
+    }
+    return {
+      name: "请选择具体工作流",
+      description: "",
+    };
+  }
   if (isDashboardPage.value && currentDashboard.value) {
     return {
       name: currentDashboard.value.name,
@@ -390,8 +432,38 @@ onMounted(() => {
         <el-divider direction="vertical" class="header-divider" />
       </template>
 
-      <!-- Base页面的分享和成员按钮 -->
-      <template v-if="isBasePage && currentBase && canManage">
+      <!-- Base页面的自动化下拉菜单 -->
+      <template v-if="isBasePage && currentBase">
+        <el-dropdown trigger="click" @command="(cmd: string) => {
+          if (cmd === 'workflow') handleWorkflowClick();
+          else if (cmd === 'approval') handleApprovalClick();
+        }">
+          <el-button type="primary" plain circle title="自动化">
+            <el-icon><Connection /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="workflow" :class="{ 'is-active': isWorkflowPage }">
+                <el-icon><Connection /></el-icon>
+                工作流
+              </el-dropdown-item>
+              <!-- <el-dropdown-item command="approval" :class="{ 'is-active': isApprovalPage }">
+                <el-icon><CircleCheck /></el-icon>
+                <el-badge
+                  :value="workflowStore.pendingApprovalCount"
+                  :hidden="workflowStore.pendingApprovalCount === 0"
+                  class="approval-badge">
+                  审批
+                </el-badge>
+              </el-dropdown-item> -->
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-divider direction="vertical" class="header-divider" />
+      </template>
+
+      <!-- Base页面的分享和成员按钮（工作流和审批中心页面不显示） -->
+      <template v-if="isBasePage && currentBase && canManage && !isWorkflowPage && !isApprovalPage">
         <el-tooltip
           class="box-item"
           effect="dark"
@@ -701,6 +773,16 @@ onMounted(() => {
     @include text-ellipsis;
     max-width: 240px;
   }
+}
+
+// 自动化下拉菜单高亮
+:deep(.is-active) {
+  color: $primary-color;
+  font-weight: 500;
+}
+
+.approval-badge {
+  line-height: inherit;
 }
 
 // 首页搜索框样式

@@ -30,7 +30,7 @@ export const authGuard = async (
       // 检查失败时，默认允许访问，由后端进行最终验证
     }
   }
-  
+
   if (whiteList.includes(to.path) || to.meta.public) {
     if (authStore.isAuthenticated) {
       next('/')
@@ -39,7 +39,7 @@ export const authGuard = async (
     next()
     return
   }
-  
+
   const isAuthenticated = await authStore.checkAuth()
   
   if (isAuthenticated) {
