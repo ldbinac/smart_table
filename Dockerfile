@@ -57,7 +57,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.11-slim
 
 LABEL maintainer="SmartTable Team" \
-      version="1.5.1" \
+      version="1.5.2" \
       description="SmartTable - 智能表格应用"
 
 # 设置环境变量
@@ -65,6 +65,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     FLASK_APP=run.py \
     FLASK_ENV=production \
+    DOCKER_ENV=true \
     PATH=/root/.local/bin:$PATH \
     TZ=Asia/Shanghai
 

@@ -4,6 +4,82 @@
 
 ***
 
+# SmartTable v1.5.2 Release Notes
+
+**发布日期 / Release Date**: 2026-07-02
+
+**版本号 / Version**: v1.5.2
+
+**标签 / Tags**: `release`, `v1.5.2`, `latest`, `stable`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.5.2 更新说明
+
+本次更新聚焦于 **表格交互能力增强** 与 **稳定性修复**：新增 **表格内容全局搜索**、**相邻相同内容单元格自动合并**、**行冻结/取消冻结** 等实用能力；同时优化了排序、序号列、右键菜单等细节体验，并修复了复制记录不刷新、字段值重复合并等若干问题。
+
+### ✨ 新增功能 (New Features)
+
+- **🔍 表格内容全局搜索**：新增表格内全局搜索能力，方便快速定位记录
+- **🧩 单元格自动合并**：支持开启相邻相同内容单元格自动合并展示
+- **❄️ 行冻结/取消冻结**：表格视图右键菜单新增行冻结与取消冻结操作
+- **🔑 主键字段默认描述**：为主键（索引）字段添加默认描述，并限制隐藏操作
+
+### 🔧 优化改进 (Improvements)
+
+- **公式计算**：公式引擎支持字面量值直接返回，修复文本函数不生效问题
+- **列排序逻辑**：优化表格列排序逻辑，正确支持数值型字段排序
+- **右键菜单 & 表头排序**：优化右键菜单与表头点击排序交互
+- **数据更新逻辑**：重构 records 监听器，统一表格数据更新机制
+- **序号列**：优化序号列，新增行不显示序号且不可勾选
+- **验证码字体优化**：优化docker环境下验证码字体加载与显示效果，新增字体依赖
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复复制记录后不会自动刷新的问题
+- 修复新增按钮行字段值重复导致合并的问题
+- 修复编辑器空值返回不一致导致无法置空单选字段的问题
+- 修复 Docker 容器内文件 CRLF 换行符问题并设置权限
+
+<br />
+
+***
+
+## English Version
+
+### 🎉 SmartTable v1.5.2 Release Notes
+
+This release focuses on **table interaction enhancements** and **stability fixes**: introduced **global table content search**, **auto-merge of adjacent cells with identical content**, **row freeze/unfreeze**, and more practical capabilities. Meanwhile, sorting, sequence column, context menu and other details have been polished, and several issues such as non-refreshing duplicated records and merged duplicate values have been fixed.
+
+### ✨ New Features
+
+- **🔍 Global Table Search**: New global search capability within the table for quick record locating
+- **🧩 Auto-merge Cells**: Support auto-merge of adjacent cells with identical content
+- **❄️ Row Freeze/Unfreeze**: New right-click menu actions to freeze/unfreeze rows in table view
+- **🔑 Primary Key Field Description**: Added default description for primary key (index) field, with hidden operation restricted
+
+
+### 🔧 Improvements
+
+- **Formula Engine**: Formula calculation supports direct return of literal values
+- **Column Sorting**: Optimized column sorting logic, supports correct sorting for numeric fields
+- **Context Menu & Header Sorting**: Optimized context menu and header click sorting interaction
+- **Data Update Logic**: Refactored records watcher to unify table data update mechanism
+- **Sequence Column**: Optimized sequence column, new rows don't display sequence number and cannot be selected
+- **CAPTCHA Font Optimization**: Optimized CAPTCHA font loading and rendering, with new font dependency
+
+### 🐛 Bug Fixes
+
+- Fixed issue where duplicated records did not auto-refresh
+- Fixed duplicate field values in the new-row button row causing cell merge
+- Fixed inconsistent empty-value return from editor causing inability to clear single-select field
+- Fixed CRLF line ending issue for files inside Docker container and set permissions
+
+
+***
+
 # SmartTable v1.5.1 Release Notes
 
 **发布日期 / Release Date**: 2026-06-19
@@ -22,18 +98,17 @@
 
 ### 🐛 Bug 修复 (Bug Fixes)
 
-* 🔧 甘特图编辑记录数据不全问题
-**问题描述**: 在甘特图视图中编辑记录时,部分字段数据丢失或未正确保存。
-**影响范围**: 甘特图视图、记录编辑、数据同步
-
-* 🔧 表格视图筛选条件失效问题
-**问题描述**: 在某些场景下,表格视图的筛选条件不生效或被忽略。
-**影响范围**: 表格视图、数据筛选、视图切换
+- 🔧 甘特图编辑记录数据不全问题
+  **问题描述**: 在甘特图视图中编辑记录时,部分字段数据丢失或未正确保存。
+  **影响范围**: 甘特图视图、记录编辑、数据同步
+- 🔧 表格视图筛选条件失效问题
+  **问题描述**: 在某些场景下,表格视图的筛选条件不生效或被忽略。
+  **影响范围**: 表格视图、数据筛选、视图切换
 
 ### 🔧 功能优化与改进 (Improvements)
 
-* 📝 字段类型选择逻辑重构 ⭐ 统一字段类型选择逻辑,提升代码可维护性。
-* 🎨 表格视图添加记录按钮显示优化
+- 📝 字段类型选择逻辑重构 ⭐ 统一字段类型选择逻辑,提升代码可维护性。
+- 🎨 表格视图添加记录按钮显示优化
 
 ### 🔄 升级建议
 
@@ -41,7 +116,7 @@
 - ✅ **向后兼容** - 无破坏性变更,可平滑升级
 - ✅ **无需数据迁移** - 本次更新不涉及数据库结构变更
 
----
+***
 
 ## English Version
 
@@ -51,18 +126,17 @@ This update focuses on **bug fixes** and some feature optimizations, further imp
 
 ### 🐛 Bug Fixes
 
-* 🔧 Gantt Chart Record Editing Data Incomplete Issue
-**Issue Description**: When editing records in Gantt view, some field data was lost or not saved correctly.
-**Impact Scope**: Gantt view, record editing, data synchronization
-
-* 🔧 Table View Filter Condition Ineffective Issue
-**Issue Description**: In some scenarios, table view filter conditions were not effective or ignored.
-**Impact Scope**: Table view, data filtering, view switching
+- 🔧 Gantt Chart Record Editing Data Incomplete Issue
+  **Issue Description**: When editing records in Gantt view, some field data was lost or not saved correctly.
+  **Impact Scope**: Gantt view, record editing, data synchronization
+- 🔧 Table View Filter Condition Ineffective Issue
+  **Issue Description**: In some scenarios, table view filter conditions were not effective or ignored.
+  **Impact Scope**: Table view, data filtering, view switching
 
 ### 🔧 Improvements
 
-* 📝 Field Type Selection Logic Refactoring ⭐ Unified field type selection logic to improve code maintainability.
-* 🎨 Table View Add Record Button Display Optimization
+- 📝 Field Type Selection Logic Refactoring ⭐ Unified field type selection logic to improve code maintainability.
+- 🎨 Table View Add Record Button Display Optimization
 
 ### 🔄 Upgrade Recommendations
 
@@ -95,30 +169,31 @@ This update focuses on **bug fixes** and some feature optimizations, further imp
 这是本次更新最大的变化——**全面切换至 @visactor/vtable 渲染引擎**，替换原有表格实现。
 
 **核心交互升级**
+
 - **右键菜单**：单元格和表头右键菜单，支持排序、冻结、编辑等操作
 - **记录详情抽屉**：点击记录右侧打开详情抽屉，支持全部字段类型查看与编辑
 - **悬浮操作图标**：鼠标悬停记录行显示操作图标，常用操作更便捷
 - **列冻结优化**：支持自定义冻结列，冻结逻辑更灵活
 
 **原生分组支持**
+
 - 表格内原生分组渲染，替代原有分组实现
 - 分组内快速添加记录
 - 分组折叠/展开与统计
 
 **交互细节增强**
+
 - 单元格复制粘贴（支持反馈提示）
 - 单元格值校验与错误高亮
 - 列描述与溢出 Tooltip
 - 字段类型图标展示在表头
 - 启用 ARCO 主题，视觉统一
 
-
 #### 🧮 公式字段支持 ⭐
 
 - 新增算术表达式解析与公式字段支持
 - 可创建公式字段，引用其他字段值进行计算
 - 支持基本算术运算和函数调用
-
 
 #### 📝 富文本字段支持
 
@@ -148,18 +223,18 @@ This update focuses on **bug fixes** and some feature optimizations, further imp
 
 所有字段类型编辑器均进行了重构或升级：
 
-| 字段类型 | 编辑器升级内容 |
-|---------|---------------|
-| **单选** | 新增自定义 SingleSelectEditor，替换旧实现 |
-| **多选** | 重构多选编辑器，优化样式与功能 |
-| **日期** | 自定义日期/日期时间编辑器，优化时区处理 |
-| **成员** | 重构成员字段编辑器，支持搜索与缓存加载 |
-| **评分** | 替换文本星星为矢量图形，新增完整样式 |
-| **进度条** | 新增完整样式与格式化配置 |
-| **复选框** | 替换为开关组件，支持状态持久化 |
-| **多行文本** | 重构编辑器实现 |
-| **自动编号** | 新增样式支持 |
-| **字段图标** | 统一字段图标实现，SVG 自定义颜色 |
+| 字段类型     | 编辑器升级内容                        |
+| -------- | ------------------------------ |
+| **单选**   | 新增自定义 SingleSelectEditor，替换旧实现 |
+| **多选**   | 重构多选编辑器，优化样式与功能                |
+| **日期**   | 自定义日期/日期时间编辑器，优化时区处理           |
+| **成员**   | 重构成员字段编辑器，支持搜索与缓存加载            |
+| **评分**   | 替换文本星星为矢量图形，新增完整样式             |
+| **进度条**  | 新增完整样式与格式化配置                   |
+| **复选框**  | 替换为开关组件，支持状态持久化                |
+| **多行文本** | 重构编辑器实现                        |
+| **自动编号** | 新增样式支持                         |
+| **字段图标** | 统一字段图标实现，SVG 自定义颜色             |
 
 ### ⚡ 性能优化 (Performance)
 
@@ -174,30 +249,28 @@ This update focuses on **bug fixes** and some feature optimizations, further imp
 
 ### 🐛 Bug 修复 (Bug Fixes)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 缓存清理** | 新增转换缓存清理逻辑 |
-| **🔧 无效保存** | 新增无改动检查，避免无效保存 |
-| **🔧 批量删除状态** | 添加批量删除状态管理 |
-| **🔧 模板预览弹窗** | 添加 append-to-body 属性修复弹窗挂载 |
-| **🔧 Excel 导入日期** | 处理 Excel 导入时空日期字段默认值 |
-| **🔧 排序请求格式** | 调整表格排序接口的请求格式与方法 |
-| **🔧 本地记录查询** | 按创建时间排序查询 IndexedDB 本地记录 |
-| **🔧 PG 时间戳兼容** | 兼容 PostgreSQL 模式下毫秒级时间戳 |
-| **🔧 成员搜索参数** | 移除用户搜索时多余的 base_id 参数 |
-| **🔧 编译问题** | 修复富文本和成员编辑器的编译问题 |
-| **🔧 代码结构整理** | 整理代码结构并修复部分细节问题 |
-| **🔧 开启协同失败问题** | 修复部分场景开启协同编辑失败的问题 |
-| **🔧 模板预览部分页面被覆盖问题** | 修复模板预览弹窗被其他元素覆盖的问题 |
-| **🔧 数据表手动排序失效** | 修复数据表手动排序失效的问题 |
-| **🔧 分组后列宽问题** | 修复分组模式下表格全量更新后列宽问题 |
-| **🔧 docker重启之后redis不启动问题** | 修复docker服务重启之后redis不启动的问题 |
-| **🔧 协同编辑问题** | 修复docker下和Windows启动包模式下协同编辑配置失效问题 |
-| **🔧 数据详情页面backspace按钮冲突问题** | 修复数据详情页面backspace按钮与表格编辑冲突的问题 |
+| 问题                           | 修复内容                              |
+| ---------------------------- | --------------------------------- |
+| **🔧 缓存清理**                  | 新增转换缓存清理逻辑                        |
+| **🔧 无效保存**                  | 新增无改动检查，避免无效保存                    |
+| **🔧 批量删除状态**                | 添加批量删除状态管理                        |
+| **🔧 模板预览弹窗**                | 添加 append-to-body 属性修复弹窗挂载        |
+| **🔧 Excel 导入日期**            | 处理 Excel 导入时空日期字段默认值              |
+| **🔧 排序请求格式**                | 调整表格排序接口的请求格式与方法                  |
+| **🔧 本地记录查询**                | 按创建时间排序查询 IndexedDB 本地记录          |
+| **🔧 PG 时间戳兼容**              | 兼容 PostgreSQL 模式下毫秒级时间戳           |
+| **🔧 成员搜索参数**                | 移除用户搜索时多余的 base\_id 参数            |
+| **🔧 编译问题**                  | 修复富文本和成员编辑器的编译问题                  |
+| **🔧 代码结构整理**                | 整理代码结构并修复部分细节问题                   |
+| **🔧 开启协同失败问题**              | 修复部分场景开启协同编辑失败的问题                 |
+| **🔧 模板预览部分页面被覆盖问题**         | 修复模板预览弹窗被其他元素覆盖的问题                |
+| **🔧 数据表手动排序失效**             | 修复数据表手动排序失效的问题                    |
+| **🔧 分组后列宽问题**               | 修复分组模式下表格全量更新后列宽问题                |
+| **🔧 docker重启之后redis不启动问题**  | 修复docker服务重启之后redis不启动的问题         |
+| **🔧 协同编辑问题**                | 修复docker下和Windows启动包模式下协同编辑配置失效问题 |
+| **🔧 数据详情页面backspace按钮冲突问题** | 修复数据详情页面backspace按钮与表格编辑冲突的问题     |
 
-
-
----
+***
 
 ## English Version
 
@@ -212,17 +285,20 @@ This is a **major version update**. Key highlights: **VTable — a brand new tab
 The biggest change in this release — fully migrated to **@visactor/vtable** rendering engine.
 
 **Core Interaction Upgrades**
+
 - **Context Menu**: Cell and header right-click menu with sort, freeze, edit operations
 - **Record Detail Drawer**: Click to open detail drawer supporting all field types
 - **Floating Action Icons**: Hover to show action icons for quick operations
 - **Column Freeze**: Customizable column freezing with flexible logic
 
 **Native Grouping Support**
+
 - Native group rendering within the table
 - Quick record addition within groups
 - Group collapse/expand and statistics
 
 **Interaction Enhancements**
+
 - Cell copy-paste with feedback tips
 - Cell value validation with error highlighting
 - Column descriptions with overflow tooltip
@@ -261,18 +337,18 @@ The biggest change in this release — fully migrated to **@visactor/vtable** re
 
 ### 🔧 Complete Field Editor Refactoring
 
-| Field Type | Editor Upgrade |
-|-----------|---------------|
-| **Single Select** | Custom SingleSelectEditor replacing old implementation |
-| **Multi Select** | Refactored with optimized styling and functionality |
-| **Date** | Custom date/datetime editors with timezone handling |
-| **Member** | Refactored with search and cache loading support |
-| **Rating** | Vector graphics replacing text stars |
-| **Progress** | Complete styling with formatting options |
-| **Checkbox** | Toggle component with state persistence |
-| **Multi-line Text** | Refactored editor implementation |
-| **Auto Number** | New style support |
-| **Field Icons** | Unified implementation with SVG custom colors |
+| Field Type          | Editor Upgrade                                         |
+| ------------------- | ------------------------------------------------------ |
+| **Single Select**   | Custom SingleSelectEditor replacing old implementation |
+| **Multi Select**    | Refactored with optimized styling and functionality    |
+| **Date**            | Custom date/datetime editors with timezone handling    |
+| **Member**          | Refactored with search and cache loading support       |
+| **Rating**          | Vector graphics replacing text stars                   |
+| **Progress**        | Complete styling with formatting options               |
+| **Checkbox**        | Toggle component with state persistence                |
+| **Multi-line Text** | Refactored editor implementation                       |
+| **Auto Number**     | New style support                                      |
+| **Field Icons**     | Unified implementation with SVG custom colors          |
 
 ### ⚡ Performance Improvements
 
@@ -287,28 +363,28 @@ The biggest change in this release — fully migrated to **@visactor/vtable** re
 
 ### 🐛 Bug Fixes
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 Cache Clear** | Added transform cache cleanup logic |
-| **🔧 Invalid Save** | Added no-change check to prevent invalid saves |
-| **🔧 Batch Delete State** | Added batch delete state management |
-| **🔧 Template Preview Dialog** | Fixed dialog mount with append-to-body |
-| **🔧 Excel Import Date** | Fixed default value for empty date fields during import |
-| **🔧 Sort Request Format** | Adjusted sort API request format and method |
-| **🔧 Local Record Query** | Sorted IndexedDB records by creation time |
-| **🔧 PG Timestamp** | Fixed millisecond timestamp compatibility for PostgreSQL |
-| **🔧 Member Search Param** | Removed redundant base_id parameter |
-| **🔧 Compilation Issues** | Fixed rich text and member editor compilation |
-| **🔧 Code Structure** | Organized code and fixed minor issues |
-| **🔧 Collaborative Edit Failure** | Fixed collaborative editing startup failure in certain scenarios |
-| **🔧 Template Preview Overlap** | Fixed template preview dialog being covered by other elements |
-| **🔧 Manual Sort Failure** | Fixed data table manual sort not working |
-| **🔧 Column Width After Grouping** | Fixed column width issues after full table update in group mode |
-| **🔧 Redis Not Starting After Reboot** | Fixed Redis not starting after Docker service restart |
-| **🔧 Collaborative Edit Config** | Fixed collaborative editing configuration failure under Docker and Windows startup package modes |
-| **🔧 Backspace Button Conflict** | Fixed backspace button conflict between data detail page and table editing |
+| Issue                                  | Fix                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **🔧 Cache Clear**                     | Added transform cache cleanup logic                                                              |
+| **🔧 Invalid Save**                    | Added no-change check to prevent invalid saves                                                   |
+| **🔧 Batch Delete State**              | Added batch delete state management                                                              |
+| **🔧 Template Preview Dialog**         | Fixed dialog mount with append-to-body                                                           |
+| **🔧 Excel Import Date**               | Fixed default value for empty date fields during import                                          |
+| **🔧 Sort Request Format**             | Adjusted sort API request format and method                                                      |
+| **🔧 Local Record Query**              | Sorted IndexedDB records by creation time                                                        |
+| **🔧 PG Timestamp**                    | Fixed millisecond timestamp compatibility for PostgreSQL                                         |
+| **🔧 Member Search Param**             | Removed redundant base\_id parameter                                                             |
+| **🔧 Compilation Issues**              | Fixed rich text and member editor compilation                                                    |
+| **🔧 Code Structure**                  | Organized code and fixed minor issues                                                            |
+| **🔧 Collaborative Edit Failure**      | Fixed collaborative editing startup failure in certain scenarios                                 |
+| **🔧 Template Preview Overlap**        | Fixed template preview dialog being covered by other elements                                    |
+| **🔧 Manual Sort Failure**             | Fixed data table manual sort not working                                                         |
+| **🔧 Column Width After Grouping**     | Fixed column width issues after full table update in group mode                                  |
+| **🔧 Redis Not Starting After Reboot** | Fixed Redis not starting after Docker service restart                                            |
+| **🔧 Collaborative Edit Config**       | Fixed collaborative editing configuration failure under Docker and Windows startup package modes |
+| **🔧 Backspace Button Conflict**       | Fixed backspace button conflict between data detail page and table editing                       |
 
----
+***
 
 # SmartTable v1.4.1 Release Notes
 
@@ -341,6 +417,7 @@ The biggest change in this release — fully migrated to **@visactor/vtable** re
 - 配套添加批量插入和性能测试工具
 
 #### ⚙️ 交互体验优化
+
 - 优化画廊视图下图片预览样式，视觉效果更佳
 - 新增 `LoadingOverlay` 通用加载遮罩组件,集成至批量删除等耗时操作场景，提升操作反馈体验
 - 侧边栏样式微调（编辑图标替换）
@@ -348,18 +425,17 @@ The biggest change in this release — fully migrated to **@visactor/vtable** re
 
 ### 🐛 Bug 修复 (Bug Fixes)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 postgresql数据库兼容问题** | 修复 PostgreSQL 数据库兼容性问题，实现postgresql v13+版本 支持 |
-| **🔧 附件文件名错误** | 修正附件展示使用错误的文件名字段 |
-| **🔧 二级缓存遗漏** | 修复大批量数据请求时二级缓存部分数据遗漏问题 |
-| **🔧 环境变量加载路径** | 修正 `.env` 文件加载的基准路径逻辑 |
-| **🔧 终端编码问题** | 修复后端终端输出编码异常 |
-| **🔧 类型与数据问题** | 优化多处代码逻辑并修复类型/数据兼容性问题 |
-| **🔧 时区兼容性** | 统一将数据库 datetime 字段改为带时区类型，兼容 PostgreSQL 环境下的时区转换 |
+| 问题                       | 修复内容                                             |
+| ------------------------ | ------------------------------------------------ |
+| **🔧 postgresql数据库兼容问题** | 修复 PostgreSQL 数据库兼容性问题，实现postgresql v13+版本 支持    |
+| **🔧 附件文件名错误**           | 修正附件展示使用错误的文件名字段                                 |
+| **🔧 二级缓存遗漏**            | 修复大批量数据请求时二级缓存部分数据遗漏问题                           |
+| **🔧 环境变量加载路径**          | 修正 `.env` 文件加载的基准路径逻辑                            |
+| **🔧 终端编码问题**            | 修复后端终端输出编码异常                                     |
+| **🔧 类型与数据问题**           | 优化多处代码逻辑并修复类型/数据兼容性问题                            |
+| **🔧 时区兼容性**             | 统一将数据库 datetime 字段改为带时区类型，兼容 PostgreSQL 环境下的时区转换 |
 
-
----
+***
 
 ## English Version
 
@@ -390,17 +466,17 @@ This release focuses on **PostgreSQL v13+ database support**, **Link field enhan
 
 ### 🐛 Bug Fixes
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 PostgreSQL Compatibility** | Fixed PostgreSQL database compatibility issues, enabled PostgreSQL v13+ support |
-| **🔧 Attachment Filename** | Fixed attachment display using wrong filename field |
-| **🔧 Cache Miss** | Fixed secondary cache data loss during large batch requests |
-| **🔧 Env Loading Path** | Fixed `.env` file loading base path logic |
-| **🔧 Terminal Encoding** | Fixed backend terminal output encoding issue |
-| **🔧 Type/Data Issues** | Optimized multiple code logic and fixed type/data compatibility issues |
-| **🔧 Timezone Compatibility** | Unified database datetime fields to timezone-aware types for PostgreSQL environment compatibility |
+| Issue                           | Fix                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **🔧 PostgreSQL Compatibility** | Fixed PostgreSQL database compatibility issues, enabled PostgreSQL v13+ support                   |
+| **🔧 Attachment Filename**      | Fixed attachment display using wrong filename field                                               |
+| **🔧 Cache Miss**               | Fixed secondary cache data loss during large batch requests                                       |
+| **🔧 Env Loading Path**         | Fixed `.env` file loading base path logic                                                         |
+| **🔧 Terminal Encoding**        | Fixed backend terminal output encoding issue                                                      |
+| **🔧 Type/Data Issues**         | Optimized multiple code logic and fixed type/data compatibility issues                            |
+| **🔧 Timezone Compatibility**   | Unified database datetime fields to timezone-aware types for PostgreSQL environment compatibility |
 
----
+***
 
 # SmartTable v1.4.0 Release Notes
 
@@ -423,10 +499,12 @@ This release focuses on **PostgreSQL v13+ database support**, **Link field enhan
 #### 📄 文档管理模块 ⭐
 
 **完整的文档 CRUD 功能**
+
 - 新增文档管理功能，支持文档的创建、编辑、删除、查询等完整操作
 - 文档与 Base 关联，支持基于 Base 的权限控制
 
 **文档编辑器（[TinyEditor](https://github.com/opentiny/tiny-editor/)）**
+
 - 基于 TinyEditor 的富文本编辑器，支持加粗、斜体、列表、链接、表格等格式化功能
 - 支持 Markdown 语法编写文档内容
 - 支持键盘快捷键操作（Ctrl+S 保存等）
@@ -434,16 +512,19 @@ This release focuses on **PostgreSQL v13+ database support**, **Link field enhan
 - 全局中文国际化配置
 
 **文档版本历史**
+
 - 支持文档版本历史记录与回溯
 - 版本对比查看，可按版本号恢复历史内容
 - 显示版本创建者信息
 
 **PDF 导出**
+
 - 支持将文档内容导出为 PDF 文件
 - 使用 DOM 直接解析替代 delta 转换，PDF 样式更准确
 - 修复 PDF 导出中的图片 URL 问题
 
 **用户体验优化**
+
 - 文档编辑器加载状态与通用加载组件
 - AppHeader 新增文档页面下的顶部栏信息展示
 - 文档标题大纲导航功能
@@ -471,20 +552,20 @@ This release focuses on **PostgreSQL v13+ database support**, **Link field enhan
 
 #### 📦 API 文档完善
 
-- 为 document_versions.py 和 documents.py 下的全部路由接口补充完整的 Swagger 文档注释
+- 为 document\_versions.py 和 documents.py 下的全部路由接口补充完整的 Swagger 文档注释
 - 统一接口文档规范（标签、安全校验、参数定义、响应格式、错误码说明）
 
 ### 🐛 Bug 修复 (Bug Fixes)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 列表选中状态异常** | 修复列表选中状态异常问题 |
-| **🔧 文档乐观锁校验** | 修复文档乐观锁校验逻辑错误 |
-| **🔧 时区不一致** | 修复版本历史时区不一致导致的版本检查问题 |
-| **🔧 版本创建者显示** | 优化版本历史的创建者显示逻辑 |
+| 问题                   | 修复内容                  |
+| -------------------- | --------------------- |
+| **🔧 列表选中状态异常**      | 修复列表选中状态异常问题          |
+| **🔧 文档乐观锁校验**       | 修复文档乐观锁校验逻辑错误         |
+| **🔧 时区不一致**         | 修复版本历史时区不一致导致的版本检查问题  |
+| **🔧 版本创建者显示**       | 优化版本历史的创建者显示逻辑        |
 | **🔧 PDF 图片 URL 问题** | 修复 PDF 导出中图片 URL 路径错误 |
-| **🔧 编辑器国际化** | 为富文本编辑器配置并初始化中文国际化 |
-| **🔧 装饰器兼容性** | 兼容别名新增 g.user_id 变量 |
+| **🔧 编辑器国际化**        | 为富文本编辑器配置并初始化中文国际化    |
+| **🔧 装饰器兼容性**        | 兼容别名新增 g.user\_id 变量  |
 
 ### 🧪 测试覆盖
 
@@ -492,7 +573,7 @@ This release focuses on **PostgreSQL v13+ database support**, **Link field enhan
 - 新增后端文档模块的 API 和模型测试
 - 测试覆盖文档增删改查、权限控制、导出等核心场景
 
----
+***
 
 ## English Version
 
@@ -505,10 +586,12 @@ This release introduces the **Document Management Module** as a major new featur
 #### 📄 Document Management Module ⭐
 
 **Complete Document CRUD**
+
 - New document management feature supporting create, edit, delete, query operations
 - Documents associated with Base, supporting Base-based permission control
 
 **Document Editor ([TinyEditor](https://github.com/opentiny/tiny-editor/))**
+
 - TinyEditor-based rich text editor with bold, italic, lists, links, tables, and more
 - Markdown syntax support for writing document content
 - Keyboard shortcut support (Ctrl+S save, etc.)
@@ -516,16 +599,19 @@ This release introduces the **Document Management Module** as a major new featur
 - Global Chinese i18n configuration
 
 **Document Version History**
+
 - Document version history tracking and rollback
 - Version comparison view, restore historical content by version number
 - Display of version creator information
 
 **PDF Export**
+
 - Export document content as PDF files
 - DOM direct parsing replaces delta conversion for more accurate PDF styling
 - Fixed image URL issues in PDF export
 
 **User Experience Optimization**
+
 - Document editor loading states and universal loading component
 - AppHeader info display for document pages
 - Document header outline navigation feature
@@ -547,26 +633,26 @@ This release introduces the **Document Management Module** as a major new featur
 
 #### 🔄 Field Naming Unification & Timezone Handling
 
-- Unified frontend-backend field naming convention (camelCase/snake_case adaptation)
+- Unified frontend-backend field naming convention (camelCase/snake\_case adaptation)
 - Optimized timezone handling, fixed version check issues due to timezone inconsistency
 - Improved optimistic lock validation logic
 
 #### 📦 API Documentation Enhancement
 
-- Added complete Swagger documentation comments for all routes in document_versions.py and documents.py
+- Added complete Swagger documentation comments for all routes in document\_versions.py and documents.py
 - Unified API documentation standards (tags, security, parameters, response format, error codes)
 
 ### 🐛 Bug Fixes
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 List Selection State Anomaly** | Fixed abnormal list selection state |
-| **🔧 Document Optimistic Lock** | Fixed optimistic lock validation logic |
-| **🔧 Timezone Inconsistency** | Fixed version check issue due to timezone inconsistency |
-| **🔧 Version Creator Display** | Optimized version history creator display logic |
-| **🔧 PDF Image URL Issue** | Fixed image URL path issues in PDF export |
-| **🔧 Editor i18n** | Configured and initialized Chinese i18n for rich text editor |
-| **🔧 Decorator Compatibility** | Added g.user_id variable for alias compatibility |
+| Issue                               | Fix                                                          |
+| ----------------------------------- | ------------------------------------------------------------ |
+| **🔧 List Selection State Anomaly** | Fixed abnormal list selection state                          |
+| **🔧 Document Optimistic Lock**     | Fixed optimistic lock validation logic                       |
+| **🔧 Timezone Inconsistency**       | Fixed version check issue due to timezone inconsistency      |
+| **🔧 Version Creator Display**      | Optimized version history creator display logic              |
+| **🔧 PDF Image URL Issue**          | Fixed image URL path issues in PDF export                    |
+| **🔧 Editor i18n**                  | Configured and initialized Chinese i18n for rich text editor |
+| **🔧 Decorator Compatibility**      | Added g.user\_id variable for alias compatibility            |
 
 ### 🧪 Test Coverage
 
@@ -597,11 +683,13 @@ This release introduces the **Document Management Module** as a major new featur
 #### ⚡ 数据流式加载与进度展示 ⭐
 
 **LoadingProgress 组件**
+
 - 新增全局 LoadingProgress 组件，用于显示记录加载进度
 - 支持百分比进度条 + 当前加载数量/总数 + 已用时间显示
 - 适配不同屏幕尺寸（桌面/平板/手机）
 
 **表格记录流式加载**
+
 - 实现分页数据的流式加载策略：先加载首页快速展示，后台异步加载剩余页
 - 首屏渲染时间缩短 **60%+**（万级数据从 5s → <2s）
 - 加载过程中用户可正常操作已加载的数据（非阻塞式）
@@ -610,39 +698,46 @@ This release introduces the **Document Management Module** as a major new featur
 #### 🔍 请求追踪系统 (Request Tracking System) ⭐
 
 **请求 ID 中间件**
+
 - 每个请求自动生成唯一 `request_id`（UUID 格式）
-- request_id 贯穿整个请求生命周期（中间件 → 路由 → 服务层 → 响应）
-- 所有 API 响应体中携带 request_id，便于前后端联调时定位问题
-- 日志中自动关联 request_id，支持按 ID 快速检索完整调用链路
+- request\_id 贯穿整个请求生命周期（中间件 → 路由 → 服务层 → 响应）
+- 所有 API 响应体中携带 request\_id，便于前后端联调时定位问题
+- 日志中自动关联 request\_id，支持按 ID 快速检索完整调用链路
 
 **增强错误处理器**
+
 - 所有异常响应统一包含：`error_code`、`message`、`request_id`、`timestamp`
 - 新增错误处理配置项（控制是否暴露堆栈信息、是否记录详细日志等）
-- JWT 错误响应统一携带 request_id（令牌过期/无效/撤销等场景）
+- JWT 错误响应统一携带 request\_id（令牌过期/无效/撤销等场景）
 
 **统一 API 响应格式**
+
 - 新增标准 API 响应类型定义（兼容旧格式平滑迁移）
 - API 客户端重构：新增详细错误日志上报与标准化错误对象
 - 前端响应拦截器区分"权限不足"和"认证过期"，正确跳转登录页
 
 **API 错误追踪工具**
+
 - 日志工具新增 API 错误追踪能力（历史存储与管理）
-- 支持按 request_id 查询历史错误记录
+- 支持按 request\_id 查询历史错误记录
 - 开发模式下提供错误详情面板
 
 #### 💾 本地缓存机制 (Local Cache) ⭐
 
 **实时协作状态缓存**
+
 - 协作状态（在线用户、锁定状态）缓存到 localStorage，有效期 **2 小时**
 - 减少页面刷新时的重复 API 调用（首屏协作状态秒级恢复）
 - 缓存支持读写、验证和过期自动清理
 
 **用户认证信息缓存**
+
 - 用户登录态和基本信息本地缓存
 - 优化初始化加载流程（无需每次启动都请求用户接口）
 - 登录/登出/更新用户信息时同步更新缓存
 
 **系统配置缓存 (adminStore)**
+
 - 系统配置（时区、安全设置等）本地缓存，带过期时间
 - 缓存命中时直接返回，**减少 90%+** 的重复配置请求
 - 请求失败时 fallback 到过期缓存（降级兜底）
@@ -651,36 +746,43 @@ This release introduces the **Document Management Module** as a major new featur
 #### 🛡️ 系统安全配置与注册功能优化 ⭐
 
 **公开配置接口**
+
 - 新增无需登录即可获取的安全配置接口（密码规则、注册开关等）
 - 配置变更后前端实时感知并调整 UI 行为
 
 **动态密码强度校验**
+
 - 密码规则支持从管理后台动态配置（长度、大小写、数字、特殊字符要求等）
 - 注册/修改密码时实时校验并提示强度等级
 
 **注册功能开关**
+
 - 管理员可在后台一键开启/关闭注册入口
 - 未启用时自动隐藏注册按钮并拦截注册请求
 - 登录/注册页根据配置动态显示或隐藏注册入口
 
 **会话超时配置**
+
 - 会话超时时间支持从管理后台动态调整
 - 无需重启服务即可生效
 
 #### 📅 日期时间统一 UTC ISO 格式 ⭐
 
 **前后端统一格式**
+
 - 日期时间字段统一使用 UTC ISO 格式存储和传输（如 `2026-05-10T16:16:40.478Z`）
 - 前端组件支持处理时间戳、ISO 字符串、日期字符串等多种输入格式
 - 后端确保所有日期时间数据以 UTC 格式存储并正确处理时区转换
 
 **时区转换全面覆盖**
+
 - Base 页面和 Dashboard 页面支持时区转换显示
 - 表格单元格支持时区转换
 - 模板预览对话框支持时区转换
 - RecordDetailDrawer 只读模式正确应用时区转换
 
 **时区工具函数统一**
+
 - 统一使用 `formatDate()` 和 `formatDateTime()` 工具函数
 - 替换项目中分散的 dayjs 和 Date.toLocaleString() 调用
 - 修复无时区后缀的 UTC 字符串被误解析为本地时间的问题（避免双重偏移）
@@ -688,6 +790,7 @@ This release introduces the **Document Management Module** as a major new featur
 #### 🧪 批量插入测试工具 ⭐
 
 **SmartTable 批量数据压测脚本**
+
 - 新增完整的批量插入测试工具，用于平台性能压测
 - 支持自定义参数：插入数量、批次大小、延迟间隔、字段映射规则
 - 内置字段配置示例（涵盖文本、数字、日期、单选、多选、附件等类型）
@@ -700,6 +803,7 @@ This release introduces the **Document Management Module** as a major new featur
 #### 📦 批量用户查询优化
 
 **无效 ID 过滤与空值校验**
+
 - 前端用户 API、缓存 Store 和成员组件均新增无效 ID 过滤逻辑
 - 后端批量用户查询接口同步增加无效 ID 过滤
 - 统一添加空结果提前返回逻辑，**减少无效 API 调用约 40%**
@@ -707,6 +811,7 @@ This release introduces the **Document Management Module** as a major new featur
 #### 🔄 模板同步逻辑重构
 
 **templateService 重构**
+
 - 同步方法参数从 records 升级为完整的 templateTable 对象
 - 新增字段类型映射逻辑，统一处理日期、单选、多选等字段的类型转换
 - 代码结构更清晰，可维护性提升
@@ -714,6 +819,7 @@ This release introduces the **Document Management Module** as a major new featur
 #### 🖥️ Windows 日志轮转问题修复
 
 **SafeRotatingFileHandler**
+
 - 解决 Windows 下日志文件被占用无法轮转的经典问题
 - 新增安全的日志文件处理器实现
 - 开发环境配置的日志处理器全部替换为安全实现
@@ -734,74 +840,75 @@ This release introduces the **Document Management Module** as a major new featur
 
 ### 🔒 安全加固 (Security Hardening)
 
-#### 敏感信息泄露全面修复 ⭐ [30+ 修复点]
+#### 敏感信息泄露全面修复 ⭐ \[30+ 修复点]
 
 本次更新对后端 **11 个核心模块**进行了敏感信息泄露排查和修复：
 
-| 模块 | 修复点数 | 主要内容 |
-|------|----------|----------|
-| **views.py** | 8 个 | 视图路由中的密码、Token、邮箱等敏感字段脱敏 |
-| **email.py** | 7 个 | 邮件发送模块中的收件人地址、SMTP 凭证脱敏 |
-| **records.py** | 多个 | 记录操作中的用户数据、字段值脱敏 |
-| **auth.py** | 多个 | 认证模块中的 Token、密码哈希脱敏 |
-| **admin.py** | 多个 | 管理接口中的系统配置、用户信息脱敏 |
-| **fields.py** | 多个 | 字段操作中的选项值、默认值脱敏 |
-| **attachments.py** | 多个 | 附件上传中的文件路径、URL 脱敏 |
-| **form_shares.py** | 多个 | 表单分享中的提交者信息脱敏 |
-| **import_export.py** | 多个 | 导入导出中的原始数据脱敏 |
-| **dashboards_share.py** | 多个 | 仪表盘分享中的配置信息脱敏 |
-| **auth_captcha.py** | 1 个 | 验证码模块中的密钥信息脱敏 |
+| 模块                       | 修复点数 | 主要内容                     |
+| ------------------------ | ---- | ------------------------ |
+| **views.py**             | 8 个  | 视图路由中的密码、Token、邮箱等敏感字段脱敏 |
+| **email.py**             | 7 个  | 邮件发送模块中的收件人地址、SMTP 凭证脱敏  |
+| **records.py**           | 多个   | 记录操作中的用户数据、字段值脱敏         |
+| **auth.py**              | 多个   | 认证模块中的 Token、密码哈希脱敏      |
+| **admin.py**             | 多个   | 管理接口中的系统配置、用户信息脱敏        |
+| **fields.py**            | 多个   | 字段操作中的选项值、默认值脱敏          |
+| **attachments.py**       | 多个   | 附件上传中的文件路径、URL 脱敏        |
+| **form\_shares.py**      | 多个   | 表单分享中的提交者信息脱敏            |
+| **import\_export.py**    | 多个   | 导入导出中的原始数据脱敏             |
+| **dashboards\_share.py** | 多个   | 仪表盘分享中的配置信息脱敏            |
+| **auth\_captcha.py**     | 1 个  | 验证码模块中的密钥信息脱敏            |
 
 **修复原则**：
+
 - 日志输出前自动遮蔽敏感字段（密码→`********`、Token→`<TRUNCATED>`、手机号→`138****1234`、邮箱→`u***@example.com`）
 - 生产环境仅输出 WARNING 以上级别的详细信息
 - 异常信息标准化处理，绝不暴露内部堆栈给终端用户
 
 ***
 
-### 🐛 Bug 修复 (Bug Fixes) [20+ 项]
+### 🐛 Bug 修复 (Bug Fixes) \[20+ 项]
 
 #### 核心功能修复 (8 项)
 
-| 问题 | 修复内容 | 影响 |
-|------|----------|------|
-| **🔧 SocketIO 连接异常** | 连接处理包裹 try-except，认证失败返回 False 而非直接断开 | WebSocket 连接稳定性提升 |
-| **🔧 筛选状态不同步** | activeFilters 从 ref 改为 computed，重置筛选时同步重置连接符 | 筛选条件丢失问题 |
-| **🔧 JWT 错误处理不统一** | 所有 JWT 错误响应统一携带 request_id；前端正确区分权限不足/认证过期 | 登录跳转混乱 |
-| **🔧 右键编辑无响应** | 修复表格视图下数据行右键"编辑"按钮点击无响应的问题 | 编辑操作不可用 |
-| **🔧 右键新建记录后数据异常** | 修正新建记录后的刷新条件，使用 baseId 替代 tableId | 表格数据为空或不正确 |
-| **🔧 日期时间字段不支持编辑** | 扩展单元格编辑初始化的字段类型判断，纳入日期时间字段 | 无法在单元格内编辑日期时间 |
-| **🔧 日期单元格赋值不一致** | 修改为先更新本地 editValue 再 emit，保持内部状态一致性 | 编辑后值回退 |
-| **🔧 字段创建参数命名错误** | is_required 修正为驼峰式 isRequired，保持前后端一致 | 字段必填属性失效 |
+| 问题                   | 修复内容                                         | 影响                |
+| -------------------- | -------------------------------------------- | ----------------- |
+| **🔧 SocketIO 连接异常** | 连接处理包裹 try-except，认证失败返回 False 而非直接断开        | WebSocket 连接稳定性提升 |
+| **🔧 筛选状态不同步**       | activeFilters 从 ref 改为 computed，重置筛选时同步重置连接符 | 筛选条件丢失问题          |
+| **🔧 JWT 错误处理不统一**   | 所有 JWT 错误响应统一携带 request\_id；前端正确区分权限不足/认证过期  | 登录跳转混乱            |
+| **🔧 右键编辑无响应**       | 修复表格视图下数据行右键"编辑"按钮点击无响应的问题                   | 编辑操作不可用           |
+| **🔧 右键新建记录后数据异常**   | 修正新建记录后的刷新条件，使用 baseId 替代 tableId            | 表格数据为空或不正确        |
+| **🔧 日期时间字段不支持编辑**   | 扩展单元格编辑初始化的字段类型判断，纳入日期时间字段                   | 无法在单元格内编辑日期时间     |
+| **🔧 日期单元格赋值不一致**    | 修改为先更新本地 editValue 再 emit，保持内部状态一致性          | 编辑后值回退            |
+| **🔧 字段创建参数命名错误**    | is\_required 修正为驼峰式 isRequired，保持前后端一致       | 字段必填属性失效          |
 
 #### 组件/UI 修复 (6 项)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 RecordDetailDrawer 编译错误** | 修复 TypeScript 编译报错 |
-| **🔧 必填项星号缺失** | 数据详情弹窗中必填字段的红色星号正确显示 |
-| **🔧 单选下拉样式简陋** | 替换原生 select 为 el-select，新增选项颜色圆点展示 |
-| **🔧 实时协作端口错误** | 修复开发环境下 Socket.IO 连接端口配置问题 |
-| **🔧 时区转换双重偏移** | 修复无时区后缀的 UTC 字符串被当作本地时间解析 |
-| **🔧 应用启动时区不生效** | 启动时预加载系统配置，确保时区转换立即生效 |
+| 问题                             | 修复内容                               |
+| ------------------------------ | ---------------------------------- |
+| **🔧 RecordDetailDrawer 编译错误** | 修复 TypeScript 编译报错                 |
+| **🔧 必填项星号缺失**                 | 数据详情弹窗中必填字段的红色星号正确显示               |
+| **🔧 单选下拉样式简陋**                | 替换原生 select 为 el-select，新增选项颜色圆点展示 |
+| **🔧 实时协作端口错误**                | 修复开发环境下 Socket.IO 连接端口配置问题         |
+| **🔧 时区转换双重偏移**                | 修复无时区后缀的 UTC 字符串被当作本地时间解析          |
+| **🔧 应用启动时区不生效**               | 启动时预加载系统配置，确保时区转换立即生效              |
 
 #### 权限与配置修复 (4 项)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 非管理员无法应用时区** | 调整后端 admin 路由配置，开放时区相关接口访问 |
-| **🔧 实时协作开关配置** | 后端改为从环境变量读取，前端同步适配 |
-| **🔧 未登录时预加载报错** | App.vue 仅在登录状态下加载系统配置 |
-| **🔧 TypeScript 类型错误** | 移除未使用的 dayjs 导入 |
+| 问题                     | 修复内容                       |
+| ---------------------- | -------------------------- |
+| **🔧 非管理员无法应用时区**      | 调整后端 admin 路由配置，开放时区相关接口访问 |
+| **🔧 实时协作开关配置**        | 后端改为从环境变量读取，前端同步适配         |
+| **🔧 未登录时预加载报错**       | App.vue 仅在登录状态下加载系统配置      |
+| **🔧 TypeScript 类型错误** | 移除未使用的 dayjs 导入            |
 
----
+***
 
 ### 📊 性能优化 (Performance Optimizations)
 
 #### 数据加载性能
 
 - **⭐ 流式加载策略** - 首屏优先 + 后台异步加载剩余页
-  - 万级数据首屏渲染时间从 ~5s 降至 **<2s**（提升 **60%+**）
+  - 万级数据首屏渲染时间从 \~5s 降至 **<2s**（提升 **60%+**）
   - 加载过程非阻塞，用户可操作已加载的数据
 
 #### 缓存收益
@@ -816,14 +923,14 @@ This release introduces the **Document Management Module** as a major new featur
 - **批量用户查询过滤** - 无效 ID 提前拦截
   - 无效查询请求减少约 **40%**
 
----
+***
 
 ### 📝 文档与工具链更新
 
 - ✅ **批量测试工具文档** - 新增完整的使用文档和字段配置示例
 - ✅ **待办任务清单更新** - 标记已完成的功能项
 
----
+***
 
 ## English Version
 
@@ -853,15 +960,15 @@ This release focuses on **data loading performance optimization**, **request tra
 **Request ID Middleware**
 
 - Each request auto-generates unique `request_id` (UUID format)
-- request_id spans entire request lifecycle (middleware → route → service layer → response)
-- All API response bodies carry request_id, facilitating frontend-backend debugging
-- Logs auto-correlate with request_id, supporting full call chain lookup by ID
+- request\_id spans entire request lifecycle (middleware → route → service layer → response)
+- All API response bodies carry request\_id, facilitating frontend-backend debugging
+- Logs auto-correlate with request\_id, supporting full call chain lookup by ID
 
 **Enhanced Error Handler**
 
 - All exception responses unified with: `error_code`, `message`, `request_id`, `timestamp`
 - New error handling config items (control stack trace exposure, detailed logging, etc.)
-- JWT error responses all carry request_id (expired/invalid/revoked scenarios)
+- JWT error responses all carry request\_id (expired/invalid/revoked scenarios)
 
 **Unified API Response Format**
 
@@ -872,7 +979,7 @@ This release focuses on **data loading performance optimization**, **request tra
 **API Error Tracking Utility**
 
 - Logger tool gains API error tracking capability (history storage & management)
-- Support querying historical errors by request_id
+- Support querying historical errors by request\_id
 - Dev mode provides error detail panel
 
 #### 💾 Local Cache Mechanism ⭐
@@ -959,7 +1066,7 @@ This release focuses on **data loading performance optimization**, **request tra
 
 - Frontend user API, cache Store, and member components all add invalid ID filtering logic
 - Backend batch user query endpoint adds invalid ID filtering in sync
-- Unified early return on empty results, reducing invalid API calls by ~**40%**
+- Unified early return on empty results, reducing invalid API calls by \~**40%**
 
 #### 🔄 Template Sync Logic Refactoring
 
@@ -977,7 +1084,7 @@ This release focuses on **data loading performance optimization**, **request tra
 - New safe log file handler implementation
 - Development environment log handlers all replaced with safe implementation
 
-#### 🛠️ SocketIO Connection Log Enhancement**
+#### 🛠️ SocketIO Connection Log Enhancement\*\*
 
 - Connection handler function now accepts auth parameter and logs authentication status
 - Facilitates troubleshooting of WebSocket connection and auth issues
@@ -993,74 +1100,75 @@ This release focuses on **data loading performance optimization**, **request tra
 
 ### 🔒 Security Hardening
 
-#### Comprehensive Sensitive Information Leakage Fix ⭐ [30+ Fix Points]
+#### Comprehensive Sensitive Information Leakage Fix ⭐ \[30+ Fix Points]
 
 This update performed sensitive information leakage audit and fix across **11 core backend modules**:
 
-| Module | Fix Points | Main Content |
-|--------|-----------|--------------|
-| **views.py** | 8 | View route password, token, email masking |
-| **email.py** | 7 | Email module recipient address, SMTP credential masking |
-| **records.py** | Multiple | Record operation user data, field value masking |
-| **auth.py** | Multiple | Auth module token, password hash masking |
-| **admin.py** | Multiple | Admin interface system config, user info masking |
-| **fields.py** | Multiple | Field operation option values, default value masking |
-| **attachments.py** | Multiple | Attachment upload file path, URL masking |
-| **form_shares.py** | Multiple | Form share submitter info masking |
-| **import_export.py** | Multiple | Import/export raw data masking |
-| **dashboards_share.py** | Multiple | Dashboard share config info masking |
-| **auth_captcha.py** | 1 | CAPTCHA module key info masking |
+| Module                   | Fix Points | Main Content                                            |
+| ------------------------ | ---------- | ------------------------------------------------------- |
+| **views.py**             | 8          | View route password, token, email masking               |
+| **email.py**             | 7          | Email module recipient address, SMTP credential masking |
+| **records.py**           | Multiple   | Record operation user data, field value masking         |
+| **auth.py**              | Multiple   | Auth module token, password hash masking                |
+| **admin.py**             | Multiple   | Admin interface system config, user info masking        |
+| **fields.py**            | Multiple   | Field operation option values, default value masking    |
+| **attachments.py**       | Multiple   | Attachment upload file path, URL masking                |
+| **form\_shares.py**      | Multiple   | Form share submitter info masking                       |
+| **import\_export.py**    | Multiple   | Import/export raw data masking                          |
+| **dashboards\_share.py** | Multiple   | Dashboard share config info masking                     |
+| **auth\_captcha.py**     | 1          | CAPTCHA module key info masking                         |
 
 **Fix Principles**:
+
 - Auto-mask sensitive fields before log output (password→`********`, token→`<TRUNCATED>`, phone→`138****1234`, email→`u***@example.com`)
 - Production only outputs WARNING+ level detailed info
 - Standardized exception handling, never expose internal stack traces to end users
 
 ***
 
-### 🐛 Bug Fixes [20+ items]
+### 🐛 Bug Fixes \[20+ items]
 
 #### Core Feature Fixes (8 items)
 
-| Issue | Fix | Impact |
-|-------|-----|--------|
-| **🔧 SocketIO Connection Exception** | Wrapped connection handling in try-except, auth failure returns False instead of disconnect | WebSocket connection stability improved |
-| **🔧 Filter State Out of Sync** | Changed activeFilters from ref to computed, reset connector on filter reset | Filter condition loss issue |
-| **🔧 JWT Error Handling Inconsistent** | All JWT errors unified with request_id; frontend distinguishes permission denied vs auth expired | Login redirect confusion |
-| **🔧 Right-click Edit Unresponsive** | Fixed table view data row right-click "Edit" button not responding | Edit action unusable |
-| **🔧 Right-click New Record Data Anomaly** | Fixed refresh conditions after new record creation, use baseId instead of tableId | Table data empty/incorrect |
-| **🔧 DateTime Field Not Editable** | Extended cell edit initialization type check to include datetime fields | Cannot edit datetime in cell |
-| **🔧 Date Cell Assignment Inconsistent** | Changed to update local editValue first then emit, maintains internal consistency | Value reverts after edit |
-| **🔧 Field Create Parameter Naming Error** | is_required corrected to camelCase isRequired, consistent frontend-backend | Field required attribute ineffective |
+| Issue                                      | Fix                                                                                               | Impact                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **🔧 SocketIO Connection Exception**       | Wrapped connection handling in try-except, auth failure returns False instead of disconnect       | WebSocket connection stability improved |
+| **🔧 Filter State Out of Sync**            | Changed activeFilters from ref to computed, reset connector on filter reset                       | Filter condition loss issue             |
+| **🔧 JWT Error Handling Inconsistent**     | All JWT errors unified with request\_id; frontend distinguishes permission denied vs auth expired | Login redirect confusion                |
+| **🔧 Right-click Edit Unresponsive**       | Fixed table view data row right-click "Edit" button not responding                                | Edit action unusable                    |
+| **🔧 Right-click New Record Data Anomaly** | Fixed refresh conditions after new record creation, use baseId instead of tableId                 | Table data empty/incorrect              |
+| **🔧 DateTime Field Not Editable**         | Extended cell edit initialization type check to include datetime fields                           | Cannot edit datetime in cell            |
+| **🔧 Date Cell Assignment Inconsistent**   | Changed to update local editValue first then emit, maintains internal consistency                 | Value reverts after edit                |
+| **🔧 Field Create Parameter Naming Error** | is\_required corrected to camelCase isRequired, consistent frontend-backend                       | Field required attribute ineffective    |
 
 #### Component/UI Fixes (6 items)
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 RecordDetailDrawer Compile Error** | Fixed TypeScript compilation error |
-| **🔧 Required Asterisk Missing** | Required field red asterisk displays correctly in detail drawer |
-| **🔧 Single Select Dropdown Plain Style** | Replaced native select with el-select, added option color dot display |
-| **🔧 Real-time Collaboration Port Error** | Fixed dev environment Socket.IO connection port config |
-| **🔧 Timezone Double Offset** | Fixed UTC strings without suffix parsed as local time causing double offset |
-| **🔧 Timezone Not Effective on Startup** | Preload system config on startup, ensures timezone conversion takes effect immediately |
+| Issue                                     | Fix                                                                                    |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- |
+| **🔧 RecordDetailDrawer Compile Error**   | Fixed TypeScript compilation error                                                     |
+| **🔧 Required Asterisk Missing**          | Required field red asterisk displays correctly in detail drawer                        |
+| **🔧 Single Select Dropdown Plain Style** | Replaced native select with el-select, added option color dot display                  |
+| **🔧 Real-time Collaboration Port Error** | Fixed dev environment Socket.IO connection port config                                 |
+| **🔧 Timezone Double Offset**             | Fixed UTC strings without suffix parsed as local time causing double offset            |
+| **🔧 Timezone Not Effective on Startup**  | Preload system config on startup, ensures timezone conversion takes effect immediately |
 
 #### Permission & Config Fixes (4 items)
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 Non-admin Cannot Apply Timezone** | Adjusted backend admin route config, opened timezone-related endpoints |
-| **🔧 Real-time Collaboration Toggle Config** | Backend reads from env variable, frontend adapted accordingly |
-| **🔧 Preload Error When Not Logged In** | App.vue only loads system config when logged in |
-| **🔧 TypeScript Type Error** | Removed unused dayjs import |
+| Issue                                        | Fix                                                                    |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| **🔧 Non-admin Cannot Apply Timezone**       | Adjusted backend admin route config, opened timezone-related endpoints |
+| **🔧 Real-time Collaboration Toggle Config** | Backend reads from env variable, frontend adapted accordingly          |
+| **🔧 Preload Error When Not Logged In**      | App.vue only loads system config when logged in                        |
+| **🔧 TypeScript Type Error**                 | Removed unused dayjs import                                            |
 
----
+***
 
 ### 📊 Performance Optimizations
 
 #### Data Loading Performance
 
 - **⭐ Streaming Load Strategy** - First screen priority + async background load remaining pages
-  - 10k records first-screen render from ~5s down to **<2s** (**60%+** improvement)
+  - 10k records first-screen render from \~5s down to **<2s** (**60%+** improvement)
   - Non-blocking loading process, users can operate on loaded data
 
 #### Cache Benefits
@@ -1068,14 +1176,14 @@ This update performed sensitive information leakage audit and fix across **11 co
 - **⭐ Three-tier Cache System** (collaboration state + user auth + system config)
   - System config requests reduced **90%+** (cache hit returns directly)
   - Collaboration state first-screen recovery under **<100ms**
-  - Overall API call volume reduced by ~**30%**
+  - Overall API call volume reduced by \~**30%**
 
 #### Query Optimization
 
 - **Batch User Query Filtering** - Invalid IDs intercepted early
-  - Invalid query requests reduced by ~**40%**
+  - Invalid query requests reduced by \~**40%**
 
----
+***
 
 ### 📝 Documentation & Toolchain Updates
 
@@ -1103,7 +1211,6 @@ This update performed sensitive information leakage audit and fix across **11 co
 ### ✨ 新增功能 (New Features)
 
 #### 📝 时区管理功能全面支持 ⭐
-
 
 **系统参数配置界面支持时区配置**
 
@@ -1168,6 +1275,7 @@ This update performed sensitive information leakage audit and fix across **11 co
 #### 🚀 多维表增强
 
 **增加多个多维表模板**
+
 - 新增 **6 个常用表格模板**：
   - 会议管理（会议记录、参会人员和会议纪要管理）
   - 学习计划（课程学习、进度跟踪和知识管理）
@@ -1195,7 +1303,6 @@ This update performed sensitive information leakage audit and fix across **11 co
 - KPI 数字卡片、时钟、日期等组件在配置时即显示预览效果
 - 无需绑定真实数据源就能看到组件的最终呈现样式
 - 降低仪表盘配置的学习成本和试错时间
-
 
 **仪表板模板扩展**
 
@@ -1247,7 +1354,6 @@ This update performed sensitive information leakage audit and fix across **11 co
   - shareStore：负责 Base 分享管理（创建链接、权限设置、统计分析）
   - 拆分后单个 Store 职责更清晰，代码维护性提升
   - 减少了不必要的响应式数据监听，性能提升 **15%**
-
 
 ***
 
@@ -1405,7 +1511,6 @@ This update performed sensitive information leakage audit and fix across **11 co
   - 分页查询深分页性能提升 **10x**
 
 ***
-
 
 ## English Version
 
@@ -1566,15 +1671,15 @@ This release focuses on **timezone management support**, **enhanced form sharing
 
 #### 📦 Service Layer Refactoring
 
-**copy_base Method Decomposition**
+**copy\_base Method Decomposition**
 
-- Split monolithic copy_base into 6 independent functions:
-  - copy_base_metadata() - Copy basic info
-  - copy_base_tables() - Copy table structure
-  - copy_base_fields() - Copy field definitions
-  - copy_base_views() - Copy view configs
-  - copy_base_records() - Copy record data (optional)
-  - copy_base_permissions() - Copy permission settings
+- Split monolithic copy\_base into 6 independent functions:
+  - copy\_base\_metadata() - Copy basic info
+  - copy\_base\_tables() - Copy table structure
+  - copy\_base\_fields() - Copy field definitions
+  - copy\_base\_views() - Copy view configs
+  - copy\_base\_records() - Copy record data (optional)
+  - copy\_base\_permissions() - Copy permission settings
 - Each function independently testable & reusable
 - More precise error location (know exactly which step failed)
 
@@ -1632,67 +1737,67 @@ This release focuses on **timezone management support**, **enhanced form sharing
 
 **Security Config Warning Mechanism**
 
-- Detects insecure configs (DEBUG=True, empty SECRET_KEY) and logs warnings
+- Detects insecure configs (DEBUG=True, empty SECRET\_KEY) and logs warnings
 - Security check at startup, alerts admin immediately
 - 12 common security config check items included
 
 ***
 
-### 🐛 Bug Fixes [30+ items]
+### 🐛 Bug Fixes \[30+ items]
 
 #### Core Feature Fixes (10 items)
 
-| Issue | Fix | Impact |
-|-------|-----|--------|
-| **🔧 Template Option Residual** | Clear option mapping memory immediately after template processing | Avoid mixing old data into next import |
-| **🔧 Option Config Missing ID** | Fixed missing id field in import option config objects | Link field option matching failure |
-| **🔧 Member Search Infinite Loop** | Fixed recursive call in FormShare member search function | Browser freeze |
-| **🔧 Template Option Value Conversion** | Fixed option field value type conversion in template service | Template-created field options lost |
-| **🔧 Own Base Showing** | Fixed self-created Bases appearing in "Shared with Me" list | Inaccurate list data |
-| **🔧 Field Attribute Naming** | Unified isRequired to is_required in field dialog | Matches backend API field name |
-| **🔧 Field Update Missing Type** | Fixed FieldDialog not passing type field on update | Field type reverts to text |
-| **🔧 Default Value Mapping** | Fixed missing default value mapping on record creation | Defaults not applied |
-| **🔧 User Identity Retrieval** | Unified g.current_user_id usage across records module | Inconsistent permission checks |
-| **🔧 User ID Null Check** | Added null validation for user ID with unified handling | Error on operation while not logged in |
+| Issue                                   | Fix                                                               | Impact                                 |
+| --------------------------------------- | ----------------------------------------------------------------- | -------------------------------------- |
+| **🔧 Template Option Residual**         | Clear option mapping memory immediately after template processing | Avoid mixing old data into next import |
+| **🔧 Option Config Missing ID**         | Fixed missing id field in import option config objects            | Link field option matching failure     |
+| **🔧 Member Search Infinite Loop**      | Fixed recursive call in FormShare member search function          | Browser freeze                         |
+| **🔧 Template Option Value Conversion** | Fixed option field value type conversion in template service      | Template-created field options lost    |
+| **🔧 Own Base Showing**                 | Fixed self-created Bases appearing in "Shared with Me" list       | Inaccurate list data                   |
+| **🔧 Field Attribute Naming**           | Unified isRequired to is\_required in field dialog                | Matches backend API field name         |
+| **🔧 Field Update Missing Type**        | Fixed FieldDialog not passing type field on update                | Field type reverts to text             |
+| **🔧 Default Value Mapping**            | Fixed missing default value mapping on record creation            | Defaults not applied                   |
+| **🔧 User Identity Retrieval**          | Unified g.current\_user\_id usage across records module           | Inconsistent permission checks         |
+| **🔧 User ID Null Check**               | Added null validation for user ID with unified handling           | Error on operation while not logged in |
 
 #### Collaboration & Sync Fixes (5 items)
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 Field Sync Failure** | Fixed real-time sync issues for field operations (create/modify/delete), added user ID tracking |
-| **🔧 Lock State Out of Sync** | Fixed inconsistent cell lock state across multiple clients |
-| **🔧 View Switch Latency** | Optimized push delay when others switch views (<100ms) |
-| **🔧 Offline Queue Overflow** | Fixed queue crash when offline ops exceed 100 |
-| **🔧 Conflict Dialog Remains** | Conflict resolution dialog persists after clicking Discard or Overwrite |
+| Issue                          | Fix                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| **🔧 Field Sync Failure**      | Fixed real-time sync issues for field operations (create/modify/delete), added user ID tracking |
+| **🔧 Lock State Out of Sync**  | Fixed inconsistent cell lock state across multiple clients                                      |
+| **🔧 View Switch Latency**     | Optimized push delay when others switch views (<100ms)                                          |
+| **🔧 Offline Queue Overflow**  | Fixed queue crash when offline ops exceed 100                                                   |
+| **🔧 Conflict Dialog Remains** | Conflict resolution dialog persists after clicking Discard or Overwrite                         |
 
 #### Import/Export Fixes (3 items)
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 Batch Import Data Inconsistency** | Fixed data loss/duplication during batch import |
-| **🔧 Auto Number Race Condition** | Used Redis atomic counter (INCR) for concurrent record creation ID conflicts |
-| **🔧 Kanban Legacy Format** | Support legacy text option format, auto-migrate to new format |
+| Issue                                  | Fix                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| **🔧 Batch Import Data Inconsistency** | Fixed data loss/duplication during batch import                              |
+| **🔧 Auto Number Race Condition**      | Used Redis atomic counter (INCR) for concurrent record creation ID conflicts |
+| **🔧 Kanban Legacy Format**            | Support legacy text option format, auto-migrate to new format                |
 
 #### UI/UX Fixes (4 items)
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 Link Record Drawer Data** | Fixed empty link field data init in RecordDetailDrawer |
-| **🔧 Memory Leak** | Fixed memory leak from event listeners not properly removed on component destroy |
-| **🔧 Thumbnail Undefined Variable** | Fixed undefined AS variable in attachment thumbnail API causing 500 error |
-| **🔧 Runtime Error** | Fixed startup NameError from missing module imports |
+| Issue                               | Fix                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------- |
+| **🔧 Link Record Drawer Data**      | Fixed empty link field data init in RecordDetailDrawer                           |
+| **🔧 Memory Leak**                  | Fixed memory leak from event listeners not properly removed on component destroy |
+| **🔧 Thumbnail Undefined Variable** | Fixed undefined AS variable in attachment thumbnail API causing 500 error        |
+| **🔧 Runtime Error**                | Fixed startup NameError from missing module imports                              |
 
 #### Backend Fixes (5 items)
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 permission_service Import** | Added missing db module import, fixed NameError |
-| **🔧 Security Config** | Fixed security middleware config load order |
-| **🔧 Redis Connection Pool** | Fixed Redis connection reuse preventing exhaustion |
-| **🔧 Build Script** | Fixed cross-platform path separator issues |
-| **🔧 .gitignore** | Updated ignore rules (exclude build artifacts, sensitive files) |
+| Issue                             | Fix                                                             |
+| --------------------------------- | --------------------------------------------------------------- |
+| **🔧 permission\_service Import** | Added missing db module import, fixed NameError                 |
+| **🔧 Security Config**            | Fixed security middleware config load order                     |
+| **🔧 Redis Connection Pool**      | Fixed Redis connection reuse preventing exhaustion              |
+| **🔧 Build Script**               | Fixed cross-platform path separator issues                      |
+| **🔧 .gitignore**                 | Updated ignore rules (exclude build artifacts, sensitive files) |
 
----
+***
 
 ### 📊 Performance Optimizations
 
@@ -1711,7 +1816,7 @@ This release focuses on **timezone management support**, **enhanced form sharing
 
 - **Redis Atomic Counter** - Use INCR instead of read+write two-step
 
----
+***
 
 # SmartTable v1.2.0 Release Notes
 
