@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { FormulaEngine, formulaEngine } from "../engine";
 import {
   formulaFunctions,
@@ -142,6 +142,42 @@ describe("Formula Engine", () => {
     it("should calculate multiplication", () => {
       const result = engine.calculate(record, "{Price} * {Quantity}");
       expect(result).toBe(500);
+    });
+
+    it("should concatenate field values with CONCAT", () => {
+      const result = engine.calculate(record, 'CONCAT({Name}, " - Price: ", {Price})');
+      expect(result).toBe("Test Product - Price: 100");
+    });
+
+    it("should concatenate Chinese field values", () => {
+      const chineseRecord: RecordEntity = {
+        id: "rec2",
+        tableId: "table1",
+        values: {
+          price: 100,
+          quantity: 5,
+          name: "张三",
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const result = engine.calculate(chineseRecord, 'CONCAT({Name}, " - 价格: ", {Price})');
+      expect(result).toBe("张三 - 价格: 100");
+    });
+
+    it("should handle CONCAT with special characters in field values", () => {
+      const recordWithSpecialChars: RecordEntity = {
+        id: "rec3",
+        tableId: "table1",
+        values: {
+          price: 100,
+          name: 'He said "hi"',
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const result = engine.calculate(recordWithSpecialChars, 'CONCAT({Name}, " - Price: ", {Price})');
+      expect(result).toBe('He said "hi" - Price: 100');
     });
 
     it("should calculate addition", () => {
@@ -393,6 +429,14 @@ describe("Formula Functions", () => {
 
     it("should concatenate with numbers", () => {
       expect(formulaFunctions.CONCAT("Price: ", 100)).toBe("Price: 100");
+    });
+
+    it("should concatenate Chinese text", () => {
+      expect(formulaFunctions.CONCAT("张", "三")).toBe("张三");
+    });
+
+    it("should concatenate mixed Chinese and English", () => {
+      expect(formulaFunctions.CONCAT("Hello", " ", "世界")).toBe("Hello 世界");
     });
 
     it("should get left characters", () => {

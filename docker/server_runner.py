@@ -12,6 +12,8 @@ eventlet 原生支持 HTTP + WebSocket 混合流量。
 import eventlet
 # monkey_patch 必须在导入应用之前执行，确保所有标准库模块被正确替换
 eventlet.monkey_patch()
+# 显式导入 eventlet.wsgi，monkey_patch 不会自动加载此子模块
+import eventlet.wsgi
 
 import os
 import sys

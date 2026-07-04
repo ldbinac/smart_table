@@ -516,10 +516,7 @@ def _create_readme(d, platform):
 
 {"SmartTable.exe create-admin admin@ex.com pass123 Admin" if platform == "windows" else "./smarttable create-admin admin@ex.com pass123 Admin"}
 或直接使用系统默认的生成的管理员账号：
-如果数据库中没有 ADMIN 角色的用户，则自动创建默认管理员：
-    - 账号：root
-    - 邮箱：ldengbin@126.com
-    - 密码：LDengBin@126.com
+自动创建的默认管理员账号请关注微信公众号后回复“SmartTable”关键词获取
 
 
 

@@ -50,7 +50,7 @@ auth_bp.strict_slashes = False
 
 
 @auth_bp.route('/register', methods=['POST'])
-@rate_limit(max_attempts=3, window=3600)
+@rate_limit(max_attempts=10, window=3600)  # 1小时内最多10次注册尝试
 def register() -> tuple:
     """
     用户注册

@@ -18,6 +18,7 @@ import type {
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { recordService } from "@/db/services";
 import { FieldType, fieldTypeSvgContentMap } from "@/types/fields";
+import type { FieldTypeValue } from "@/types/fields";
 import type { CellValue } from "@/types";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
@@ -1600,6 +1601,7 @@ registerVTable.editor('rating', new RatingEditor());
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
 const columnWidths = ref<Record<string, number>>({});
+const frozenDataRowCount = ref<number>(0); // 冻结数据行数（用于响应式更新右键菜单状态）
 const deleteLoading = ref(false);
 
 // 右键菜单相关
@@ -1609,6 +1611,7 @@ const contextMenuY = ref(0);
 const contextMenuColumn = ref<FieldEntity | null>(null);
 const contextMenuTarget = ref<"row" | "header" | "cell">("cell");
 const contextMenuRecord = ref<RecordEntity | null>(null);
+const contextMenuRow = ref<number>(-1); // 右键点击的行号（VTable 内部行索引）
 
 // 字段属性对话框相关
 const fieldDialogVisible = ref(false);
@@ -1658,7 +1661,39 @@ const contextMenuItems = computed(() => {
     //     handleExpandRecord(contextMenuRecord.value);
     //   }
     // }});
-    
+
+    // 冻结行功能 - 使用响应式变量 frozenDataRowCount 确保菜单状态实时更新
+    const tableInstanceAny = tableInstance as any;
+    const headerRowCount = tableInstanceAny?.headerRowCount ?? 1;
+    // 使用响应式变量进行判断（Vue computed 会自动追踪变化）
+    const frozenDataRows = frozenDataRowCount.value;
+    // 当前数据行索引（从 0 开始）
+    const currentDataRow = contextMenuRow.value - headerRowCount;
+    // 当前行是否在冻结区（使用响应式变量判断）
+    const isFrozen = frozenDataRows > 0 && currentDataRow >= 0 && currentDataRow < frozenDataRows;
+
+    // 根据状态显示不同的菜单项
+    if (isFrozen) {
+      // 当前行在冻结区 → 显示取消冻结
+      items.push({
+        id: 'unfreeze-row',
+        label: '取消冻结行',
+        icon: 'freeze',
+        action: () => handleFreezeRow(true),
+      });
+    } else {
+      // 当前行不在冻结区 → 显示冻结到此行
+      const freezeCount = currentDataRow + 1;
+      items.push({
+        id: 'freeze-row',
+        label: `冻结到此行（前 ${freezeCount} 行）`,
+        icon: 'freeze',
+        action: () => handleFreezeRow(false, freezeCount),
+      });
+    }
+
+    items.push({ divider: true, id: "divider-freeze", label: "" });
+
     if (!props.readonly) {
       items.push({ id: "edit", label: "编辑当前记录", icon: "edit", action: () => handleEditRecord() });
       items.push({ id: "duplicate", label: "复制当前记录", icon: "copy", action: () => handleDuplicateRecord() });
@@ -1798,6 +1833,40 @@ const handleFreeze = async (freeze: boolean) => {
   }
 
   await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
+  contextMenuVisible.value = false;
+};
+
+// 处理冻结行（数据行冻结）
+const handleFreezeRow = (isFrozen: boolean, freezeCount?: number) => {
+  if (!tableInstance) return;
+
+  const tableInstanceAny = tableInstance as any;
+  const headerRowCount = tableInstanceAny.headerRowCount ?? 1;
+
+  // 计算新的冻结行数
+  let newFrozenRowCount: number;
+  if (isFrozen) {
+    // 取消冻结行：只保留表头冻结
+    newFrozenRowCount = headerRowCount;
+    // 更新响应式变量（取消冻结，数据行冻结数变为 0）
+    frozenDataRowCount.value = 0;
+    ElMessage.success('已取消冻结行');
+  } else {
+    // 冻结行：表头行数 + 数据行数
+    newFrozenRowCount = headerRowCount + (freezeCount ?? 1);
+    // 更新响应式变量（冻结指定数据行数）
+    frozenDataRowCount.value = freezeCount ?? 1;
+    ElMessage.success(`已冻结前 ${freezeCount ?? 1} 行`);
+  }
+
+  // 同时更新配置和内部状态，确保状态一致性
+  tableInstanceAny.frozenRowCount = newFrozenRowCount;
+  if (tableInstanceAny.internalProps) {
+    tableInstanceAny.internalProps.frozenRowCount = newFrozenRowCount;
+  }
+
+  // 刷新表格渲染
+  tableInstanceAny.renderWithRecreateCells();
   contextMenuVisible.value = false;
 };
 
@@ -2015,7 +2084,7 @@ const sortedRecords = computed(() => {
 /**
  * 数值型字段类型集合 —— 这些字段应按数值大小排序而非文本字典序
  */
-const NUMERIC_FIELD_TYPES = new Set([
+const NUMERIC_FIELD_TYPES: Set<FieldTypeValue> = new Set([
   FieldType.NUMBER,
   FieldType.PROGRESS,
   FieldType.PERCENT,
@@ -2038,8 +2107,8 @@ const NUMERIC_FIELD_TYPES = new Set([
  * 函数签名与 VTable defaultOrderFn 一致：(v1, v2, order) => -1 | 0 | 1
  */
 const ADD_BUTTON_PREFIX = '__add_button_';
-const createSortComparator = (fieldType: string): ((v1: any, v2: any, order: string) => number) => {
-  const isNumeric = NUMERIC_FIELD_TYPES.has(fieldType);
+const createSortComparator = (fieldType: FieldTypeValue | string): ((v1: any, v2: any, order: string) => number) => {
+  const isNumeric = NUMERIC_FIELD_TYPES.has(fieldType as FieldTypeValue);
 
   return (v1: any, v2: any, order: string): number => {
     // addButton 虚拟行检测 —— 始终排到末尾
@@ -3212,7 +3281,7 @@ const buildTableConfig = (): any => {
       width: 'auto',
       cellType: 'checkbox',
       headerType: 'checkbox',
-      format:  (col, row, table) => {
+      format: (_col: number, row: number, table: any) => {
         if (row === table.dataSource._sourceLength){
           return '+';
         }
@@ -3648,6 +3717,11 @@ const bindTableEvents = () => {
       contextMenuColumn.value = null;
       contextMenuTarget.value = "row";
       contextMenuRecord.value = record._originalRecord;
+      contextMenuRow.value = row; // 保存行号
+      // 同步更新冻结行数响应式变量（确保右键菜单状态正确）
+      const headerRowCount = tableInstanceAny?.headerRowCount ?? 1;
+      const internalFrozenCount = tableInstanceAny?.internalProps?.frozenRowCount ?? tableInstanceAny?.frozenRowCount ?? headerRowCount;
+      frozenDataRowCount.value = Math.max(0, internalFrozenCount - headerRowCount);
       contextMenuVisible.value = true;
     }
   });

@@ -46,17 +46,17 @@ class CaptchaService:
         return ''.join(random.choices(chars, k=length))
     
     @staticmethod
-    def _get_font(size: int = 24):
+    def _get_font(size: int = 28):
         """获取字体"""
         if not PIL_AVAILABLE:
             return None
             
-        # 尝试多种字体
+        # 尝试多种字体，优先使用 Docker 中安装的字体
         font_paths = [
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "arial.ttf",
             "Arial.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             "/System/Library/Fonts/Helvetica.ttc",
             "C:\\Windows\\Fonts\\arial.ttf",
         ]
@@ -67,8 +67,13 @@ class CaptchaService:
             except:
                 continue
         
-        # 使用默认字体
-        return ImageFont.load_default()
+        # 使用默认字体（默认字体较小，使用更大的字号来补偿）
+        try:
+            default_font = ImageFont.load_default()
+            # 尝试通过放大默认字体来增大显示
+            return default_font.font_variant(size=size)
+        except:
+            return ImageFont.load_default()
     
     @staticmethod
     def create_captcha_image(code: str, width: int = 120, height: int = 40) -> bytes:
@@ -106,15 +111,24 @@ class CaptchaService:
                 y2 = random.randint(0, height)
                 draw.line([(x1, y1), (x2, y2)], fill=(random.randint(150, 200), random.randint(150, 200), random.randint(150, 200)), width=1)
             
-            # 获取字体
-            font = CaptchaService._get_font(24)
+            # 根据图片高度计算合适的字体大小，留出上下边距
+            font_size = max(20, int(height * 0.6))
+            font = CaptchaService._get_font(font_size)
             
-            # 计算文字位置
+            # 计算文字位置，使字符在图片中居中分布
             char_width = width // len(code)
             for i, char in enumerate(code):
-                # 随机偏移
-                x = i * char_width + random.randint(5, 15)
-                y = random.randint(5, 10)
+                # 获取字符尺寸以居中绘制
+                bbox = draw.textbbox((0, 0), char, font=font)
+                char_w = bbox[2] - bbox[0]
+                char_h = bbox[3] - bbox[1]
+                
+                # 在单元格内居中，并添加小幅随机偏移
+                base_x = i * char_width + (char_width - char_w) // 2
+                base_y = (height - char_h) // 2
+                x = max(2, base_x + random.randint(-3, 3))
+                y = max(2, base_y + random.randint(-3, 3))
+                
                 # 随机颜色
                 color = (random.randint(0, 100), random.randint(0, 100), random.randint(0, 100))
                 draw.text((x, y), char, font=font, fill=color)
@@ -170,12 +184,13 @@ class CaptchaService:
             svg_parts.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{color}" stroke-width="1"/>')
         
         # 添加文字
+        font_size = max(20, int(height * 0.6))
         for i, char in enumerate(code):
             x = i * char_width + char_width // 2
-            y = height // 2 + 8
+            y = height // 2 + font_size // 3
             color = random_color()
             rotation = random.randint(-15, 15)
-            svg_parts.append(f'<text x="{x}" y="{y}" fill="{color}" font-size="20" font-family="Arial" text-anchor="middle" transform="rotate({rotation},{x},{y})">{char}</text>')
+            svg_parts.append(f'<text x="{x}" y="{y}" fill="{color}" font-size="{font_size}" font-family="Arial, Liberation Sans, DejaVu Sans, sans-serif" text-anchor="middle" transform="rotate({rotation},{x},{y})">{char}</text>')
         
         svg_parts.append('</svg>')
         

@@ -65,6 +65,8 @@ def parse_args():
 
     subparsers.add_parser('init-db', help='Initialize database tables')
 
+    subparsers.add_parser('ensure-admin', help='Ensure default admin exists (auto-create if missing)')
+
     create_admin_parser = subparsers.add_parser('create-admin', help='Create admin user')
     create_admin_parser.add_argument('email', help='Admin email')
     create_admin_parser.add_argument('password', help='Admin password')
@@ -214,9 +216,12 @@ def ensure_default_admin_exists():
             print('█' + '  ✅ 默认管理员账号已自动创建'.center(52) + '█')
             print('█' + ' '*58 + '█')
             print('█'*60)
-            print(f'█  账号 (Account):  {default_admin_name:<34} █')
-            print(f'█  邮箱 (Email):    {default_admin_email:<34} █')
-            print(f'█  密码 (Password): {default_admin_password:<34} █')
+            print('█'*2)
+            print('█  自动创建的默认管理员账号请关注微信公众号后回复“SmartTable”关键词获取账号密码信息')
+            # print(f'█  账号 (Account):  {default_admin_name:<34} █')
+            # print(f'█  邮箱 (Email):    {default_admin_email:<34} █')
+            # print(f'█  密码 (Password): {default_admin_password:<34} █')
+            print('█'*2)
             print('█'*60)
             print('█  ⚠️  请登录后立即修改默认密码！'.center(56) + '█')
             print('█'*60 + '\n')
@@ -279,6 +284,9 @@ print(f'[Init] Data directory: {os.path.abspath(data_dir)}')
 if __name__ == '__main__':
     if args.command == 'init-db':
         init_db()
+        sys.exit(0)
+    elif args.command == 'ensure-admin':
+        ensure_default_admin_exists()
         sys.exit(0)
     elif args.command == 'create-admin':
         create_admin(args.email, args.password, args.name)
