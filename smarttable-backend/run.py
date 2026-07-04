@@ -65,6 +65,8 @@ def parse_args():
 
     subparsers.add_parser('init-db', help='Initialize database tables')
 
+    subparsers.add_parser('ensure-admin', help='Ensure default admin exists (auto-create if missing)')
+
     create_admin_parser = subparsers.add_parser('create-admin', help='Create admin user')
     create_admin_parser.add_argument('email', help='Admin email')
     create_admin_parser.add_argument('password', help='Admin password')
@@ -282,6 +284,9 @@ print(f'[Init] Data directory: {os.path.abspath(data_dir)}')
 if __name__ == '__main__':
     if args.command == 'init-db':
         init_db()
+        sys.exit(0)
+    elif args.command == 'ensure-admin':
+        ensure_default_admin_exists()
         sys.exit(0)
     elif args.command == 'create-admin':
         create_admin(args.email, args.password, args.name)
