@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch, computed, shallowRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
@@ -11,6 +11,7 @@ import {
   Upload,
   Document,
   Plus,
+  Search,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView, VTableView } from "@/components/views/TableView";
@@ -65,6 +66,9 @@ const memberStore = useMemberStore();
 const collaborationStore = useCollaborationStore();
 const userCacheStore = useUserCacheStore();
 const documentStore = useDocumentStore();
+
+// VTableView 组件引用（用于调用搜索功能）
+const vtableViewRef = shallowRef<{ openSearch: () => void } | null>(null);
 
 const baseId = route.params.id as string;
 const realtimeCollab = baseId ? useRealtimeCollaboration(baseId) : null;
@@ -1867,6 +1871,15 @@ const handleDocumentExportPdf = async () => {
               <!-- 表格视图：显示所有常规操作按钮 -->
               <template v-if="isTableView">
                 <el-button-group>
+                  <!-- 搜索按钮（仅 VTable 模式显示） -->
+                  <el-button
+                    v-if="useVTable"
+                    size="default"
+                    title="表格全局搜索"
+                    @click="vtableViewRef?.openSearch()">
+                    <el-icon><Search /></el-icon>
+                  </el-button>
+                  <!-- 筛选按钮 -->
                   <el-button
                     size="default"
                     :type="activeFilters.length > 0 ? 'primary' : 'default'"
@@ -1994,6 +2007,7 @@ const handleDocumentExportPdf = async () => {
 
             <!-- VTable 视图（支持 VTable 原生分组） -->
             <VTableView
+              ref="vtableViewRef"
               v-else-if="isTableView && useVTable"
               :table-id="currentTableId"
               :view-id="viewStore.currentView?.id || ''"

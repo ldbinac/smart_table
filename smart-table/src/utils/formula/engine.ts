@@ -66,11 +66,37 @@ export class FormulaEngine {
     expression = this.evaluateExpression(expression);
 
     try {
+      const resolvedValue = this.tryResolveFullyEvaluatedValue(expression);
+      if (resolvedValue !== undefined) {
+        return this.normalizeResult(resolvedValue);
+      }
       const result = this.safeEval(expression);
       return this.normalizeResult(result);
     } catch {
       return "#ERROR";
     }
+  }
+
+  private tryResolveFullyEvaluatedValue(expression: string): unknown | undefined {
+    const trimmed = expression.trim();
+    
+    if (trimmed === "null") return null;
+    if (trimmed === "true") return true;
+    if (trimmed === "false") return false;
+    
+    const num = Number(trimmed);
+    if (!isNaN(num) && trimmed !== "") return num;
+    
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return trimmed.slice(1, -1);
+      }
+    }
+    
+    return undefined;
   }
 
   private replaceFieldRefs(expression: string, record: RecordEntity): string {
@@ -212,10 +238,15 @@ export class FormulaEngine {
     if (value === "true") return true;
     if (value === "false") return false;
 
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    if (value.startsWith('"') && value.endsWith('"')) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value.slice(1, -1);
+      }
+    }
+    
+    if (value.startsWith("'") && value.endsWith("'")) {
       return value.slice(1, -1);
     }
 
@@ -239,6 +270,14 @@ export class FormulaEngine {
   }
 
   private safeEval(expression: string): unknown {
+    const trimmed = expression.trim();
+    
+    // 如果表达式是一个纯字符串（被引号包裹），直接返回字符串内容
+    const stringMatch = trimmed.match(/^["'](.+)["']$/);
+    if (stringMatch) {
+      return stringMatch[1];
+    }
+
     // 只允许数字、运算符、括号和常见数学符号
     const sanitized = expression.replace(
       /[^0-9+\-*/().,%<>=!&|?:'" \t\n]/g,

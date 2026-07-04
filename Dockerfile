@@ -57,7 +57,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.11-slim
 
 LABEL maintainer="SmartTable Team" \
-      version="1.5.1" \
+      version="1.5.2" \
       description="SmartTable - 智能表格应用"
 
 # 设置环境变量
@@ -65,6 +65,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     FLASK_APP=run.py \
     FLASK_ENV=production \
+    DOCKER_ENV=true \
     PATH=/root/.local/bin:$PATH \
     TZ=Asia/Shanghai
 
@@ -83,6 +84,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     redis-server \
     ca-certificates \
     gettext-base \
+    fonts-liberation \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
@@ -113,8 +116,9 @@ COPY docker/redis/redis.conf /etc/redis/redis.conf
 COPY docker/server_runner.py /app/docker/server_runner.py
 COPY docker/entrypoint.sh /entrypoint.sh
 
-# 设置权限
-RUN chmod +x /entrypoint.sh && \
+# 修复 Windows CRLF 换行符问题，并设置权限
+RUN sed -i 's/\r$//' /entrypoint.sh /etc/nginx/nginx.conf /etc/supervisor/conf.d/supervisord.conf /etc/redis/redis.conf && \
+    chmod +x /entrypoint.sh && \
     chown -R www-data:www-data /app/static /app/uploads && \
     chmod -R 755 /app/uploads
 

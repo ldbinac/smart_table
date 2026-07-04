@@ -13,6 +13,7 @@ from flask_wtf.csrf import CSRFProtect
 from flask import request, g, current_app
 import redis
 import sys
+import os
 
 
 # 数据库扩展
@@ -95,21 +96,27 @@ def init_extensions(app):
     
     if app.config.get('REALTIME_ENABLED', False):
         is_packaged = getattr(sys, 'frozen', False)
+        is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
 
-        # Docker 生产环境下使用 eventlet async 驱动
-        # PyInstaller 打包模式下使用 threading 驱动
-        if is_packaged:
-            async_mode = 'threading'
-            try:
-                import engineio.async_drivers.threading  # noqa: F401
-            except ImportError:
-                app.logger.warning('[Extensions] engineio.async_drivers.threading not importable, SocketIO may fail')
-        else:
+        # Docker 生产环境：使用 eventlet（需要在启动前调用 eventlet.monkey_patch()）
+        # PyInstaller 打包模式：使用 threading（不需要 monkey_patch）
+        # 开发环境：使用 threading（更稳定，不影响 Redis 连接）
+        if is_docker:
             async_mode = 'eventlet'
             try:
                 import engineio.async_drivers.eventlet  # noqa: F401
+                app.logger.info('[Extensions] Using eventlet async mode for Docker environment')
             except ImportError:
-                app.logger.warning('[Extensions] engineio.async_drivers.eventlet not importable, SocketIO may fail')
+                app.logger.warning('[Extensions] engineio.async_drivers.eventlet not importable, falling back to threading')
+                async_mode = 'threading'
+        else:
+            # 开发环境和打包环境统一使用 threading 模式
+            async_mode = 'threading'
+            try:
+                import engineio.async_drivers.threading  # noqa: F401
+                app.logger.info('[Extensions] Using threading async mode for development/packaged environment')
+            except ImportError:
+                app.logger.warning('[Extensions] engineio.async_drivers.threading not importable, SocketIO may fail')
 
         socketio_kwargs = {
             'async_mode': async_mode,
@@ -118,16 +125,16 @@ def init_extensions(app):
             'ping_interval': app.config.get('SOCKETIO_PING_INTERVAL', 25),
         }
 
-        # 在打包环境中，避免使用 message_queue（可能导致初始化失败）
-        # 单进程模式下不需要消息队列
-        if not is_packaged:
+        # 在打包环境和开发环境中，避免使用 message_queue（可能导致初始化失败）
+        # 单进程模式下不需要消息队列，只有 Docker 多进程部署才需要
+        if is_docker:
             message_queue = app.config.get('SOCKETIO_MESSAGE_QUEUE')
             if message_queue:
                 socketio_kwargs['message_queue'] = message_queue
 
         try:
             socketio.init_app(app, **socketio_kwargs)
-            app.logger.info(f'[Extensions] ✓ SocketIO initialized successfully (packaged: {is_packaged})')
+            app.logger.info(f'[Extensions] ✓ SocketIO initialized successfully (async_mode: {async_mode})')
         except Exception as e:
             app.logger.error(f'[Extensions] ⚠️ SocketIO initialization failed: {e}')
             app.logger.error(f'[Extensions]   Error type: {type(e).__name__}')

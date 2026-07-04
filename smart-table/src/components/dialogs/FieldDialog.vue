@@ -85,6 +85,8 @@ const newField = ref<{
   };
   // 文本字段配置
   maxLength?: number;
+  // 单元格合并配置
+  mergeCell: boolean;
 }>({
   name: "",
   type: FieldType.SINGLE_LINE_TEXT,
@@ -100,6 +102,7 @@ const newField = ref<{
     bidirectional: false,
   },
   maxLength: undefined,
+  mergeCell: false,
 });
 
 // 用户可创建的字段类型配置列表
@@ -341,6 +344,7 @@ function openCreateField() {
       bidirectional: false,
     },
     maxLength: undefined,
+    mergeCell: false,
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -398,6 +402,7 @@ function openEditField(field: FieldEntity) {
       bidirectional: (field.config?.bidirectional as boolean) ?? false,
     },
     maxLength: (field.options?.maxLength as number) ?? undefined,
+    mergeCell: Boolean(field.options?.mergeCell),
   };
 
   // 如果是关联字段，加载目标表字段
@@ -500,6 +505,7 @@ function backToList() {
       bidirectional: false,
     },
     maxLength: undefined,
+    mergeCell: false,
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -640,6 +646,11 @@ async function createField() {
         delete options.memberDefaultUser;
         options.defaultValue = [];
       }
+    }
+
+    // 单元格合并配置
+    if (newField.value.mergeCell) {
+      options.mergeCell = true;
     }
 
     let field;
@@ -788,6 +799,13 @@ async function updateField() {
         delete options.memberDefaultUser;
         options.defaultValue = [];
       }
+    }
+
+    // 单元格合并配置
+    if (newField.value.mergeCell) {
+      options.mergeCell = true;
+    } else {
+      delete options.mergeCell;
     }
 
     // 构建更新数据
@@ -1046,12 +1064,12 @@ function isFieldHiddenInView(fieldId: string): boolean {
   // 使用 viewStore 获取最新的 hiddenFields，确保状态同步
   const hiddenFields = viewStore.currentView?.hiddenFields || [];
   const result = hiddenFields.includes(fieldId);
-  console.log(
-    `[FieldDialog] isFieldHiddenInView(${fieldId}):`,
-    result,
-    "hiddenFields:",
-    hiddenFields,
-  );
+  // console.log(
+  //   `[FieldDialog] isFieldHiddenInView(${fieldId}):`,
+  //   result,
+  //   "hiddenFields:",
+  //   hiddenFields,
+  // );
   return result;
 }
 
@@ -1060,14 +1078,14 @@ function getFieldActualVisibility(field: FieldEntity): boolean {
   const isGloballyVisible = field.isVisible !== false;
   const isHiddenInView = isFieldHiddenInView(field.id);
   const result = isGloballyVisible && !isHiddenInView;
-  console.log(
-    `[FieldDialog] getFieldActualVisibility(${field.name}):`,
-    result,
-    "isGloballyVisible:",
-    isGloballyVisible,
-    "isHiddenInView:",
-    isHiddenInView,
-  );
+  // console.log(
+  //   `[FieldDialog] getFieldActualVisibility(${field.name}):`,
+  //   result,
+  //   "isGloballyVisible:",
+  //   isGloballyVisible,
+  //   "isHiddenInView:",
+  //   isHiddenInView,
+  // );
   return result;
 }
 
@@ -1080,41 +1098,41 @@ async function toggleFieldVisibility(
     return;
   }
 
-  console.log(
-    `[FieldDialog] toggleFieldVisibility called for ${field.name}, newVisibility:`,
-    newVisibility,
-  );
-  console.log(`[FieldDialog] current field state:`, {
-    isVisible: field.isVisible,
-    hiddenFields: viewStore.currentView?.hiddenFields,
-  });
+  // console.log(
+  //   `[FieldDialog] toggleFieldVisibility called for ${field.name}, newVisibility:`,
+  //   newVisibility,
+  // );
+  // console.log(`[FieldDialog] current field state:`, {
+  //   isVisible: field.isVisible,
+  //   hiddenFields: viewStore.currentView?.hiddenFields,
+  // });
 
   try {
     const currentVisibility = getFieldActualVisibility(field);
     const isHiddenInView = isFieldHiddenInView(field.id);
     const isGloballyVisible = field.isVisible !== false;
 
-    console.log(
-      `[FieldDialog] currentVisibility:`,
-      currentVisibility,
-      "isHiddenInView:",
-      isHiddenInView,
-      "isGloballyVisible:",
-      isGloballyVisible,
-    );
+    // console.log(
+    //   `[FieldDialog] currentVisibility:`,
+    //   currentVisibility,
+    //   "isHiddenInView:",
+    //   isHiddenInView,
+    //   "isGloballyVisible:",
+    //   isGloballyVisible,
+    // );
 
     if (!currentVisibility && newVisibility) {
       if (isHiddenInView) {
-        console.log(
-          `[FieldDialog] Emitting field-visibility-changed: ${field.id}, true`,
-        );
+        // console.log(
+        //   `[FieldDialog] Emitting field-visibility-changed: ${field.id}, true`,
+        // );
         emit("field-visibility-changed", field.id, true);
         ElMessage.success(`字段 "${field.name}" 已显示`);
         return;
       } else if (!isGloballyVisible) {
-        console.log(
-          `[FieldDialog] Updating global visibility: ${field.id}, true`,
-        );
+        // console.log(
+        //   `[FieldDialog] Updating global visibility: ${field.id}, true`,
+        // );
         await fieldService.updateFieldVisibility(field.id, true);
         emit("field-updated", { ...field, isVisible: true });
         ElMessage.success(`字段 "${field.name}" 已显示`);
@@ -1123,15 +1141,15 @@ async function toggleFieldVisibility(
     }
 
     if (currentVisibility && !newVisibility) {
-      console.log(
-        `[FieldDialog] Emitting field-visibility-changed: ${field.id}, false`,
-      );
+      // console.log(
+      //   `[FieldDialog] Emitting field-visibility-changed: ${field.id}, false`,
+      // );
       emit("field-visibility-changed", field.id, false);
       ElMessage.success(`字段 "${field.name}" 已隐藏`);
       return;
     }
 
-    console.log(`[FieldDialog] No state change needed`);
+    // console.log(`[FieldDialog] No state change needed`);
     ElMessage.info(`字段 "${field.name}" 状态未改变`);
   } catch (error) {
     console.error(`[FieldDialog] Error in toggleFieldVisibility:`, error);
@@ -1670,6 +1688,11 @@ async function toggleFieldVisibility(
 
         <ElFormItem label="必填">
           <ElSwitch v-model="newField.isRequired" />
+        </ElFormItem>
+
+        <ElFormItem label="合并单元格">
+          <ElSwitch v-model="newField.mergeCell" />
+          <div class="field-hint">&nbsp;将内容相同的单元格进行自动合并</div>
         </ElFormItem>
 
         <ElFormItem label="字段描述">

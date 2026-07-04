@@ -96,6 +96,7 @@ class TableService:
                 type=FieldType.SINGLE_LINE_TEXT.value,
                 order=0,
                 is_primary=True,
+                description='索引字段：用来标识每条记录。不能被删除、移动或隐藏。',
                 is_required=True
             )
             db.session.add(primary_field)

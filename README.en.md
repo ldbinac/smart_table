@@ -1,3 +1,5 @@
+![Smart Table](./smart-table/public/SmartTable.png)
+
 # Smart Table
 
 [中文](README.md) | English

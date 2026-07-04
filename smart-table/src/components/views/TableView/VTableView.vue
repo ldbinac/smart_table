@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -18,6 +18,7 @@ import type {
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { recordService } from "@/db/services";
 import { FieldType, fieldTypeSvgContentMap } from "@/types/fields";
+import type { FieldTypeValue } from "@/types/fields";
 import type { CellValue } from "@/types";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
@@ -32,6 +33,10 @@ import { createGroup, createText, createRect, createCircle, createPath, createIm
 // 导入 VTable 编辑器
 import { InputEditor, DateInputEditor } from '@visactor/vtable-editors';
 import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors';
+// 导入 VTable 搜索组件
+import { SearchComponent } from '@visactor/vtable-search';
+// 导入 Element Plus 图标
+import { Search } from '@element-plus/icons-vue';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
@@ -127,6 +132,13 @@ const linkSelectorFieldId = ref('');
 const linkSelectorRecordId = ref('');
 const linkSelectorAllowMultiple = ref(true);
 const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string }[]>([]);
+
+// ==================== 搜索功能状态 ====================
+const searchVisible = ref(false);
+const searchComponent = shallowRef<SearchComponent | null>(null);
+const searchInput = ref('');
+const searchResultIndex = ref(0);
+const searchTotalCount = ref(0);
 
 // ==================== 关联字段数据缓存 ====================
 // 键: `${recordId}:${fieldId}`, 值: display_value 数组
@@ -513,7 +525,7 @@ class MultiSelectEditor implements IEditor {
   }
 
   getValue() {
-    return this.selectedValues.length > 0 ? JSON.stringify(this.selectedValues) : null;
+    return this.selectedValues.length > 0 ? JSON.stringify(this.selectedValues) : '';
   }
 
   onEnd() {
@@ -701,7 +713,7 @@ class SingleSelectEditor implements IEditor {
   }
 
   getValue() {
-    return this.selectedValue;
+    return this.selectedValue ?? '';
   }
 
   onEnd() {
@@ -1589,6 +1601,7 @@ registerVTable.editor('rating', new RatingEditor());
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
 const columnWidths = ref<Record<string, number>>({});
+const frozenDataRowCount = ref<number>(0); // 冻结数据行数（用于响应式更新右键菜单状态）
 const deleteLoading = ref(false);
 
 // 右键菜单相关
@@ -1598,6 +1611,7 @@ const contextMenuY = ref(0);
 const contextMenuColumn = ref<FieldEntity | null>(null);
 const contextMenuTarget = ref<"row" | "header" | "cell">("cell");
 const contextMenuRecord = ref<RecordEntity | null>(null);
+const contextMenuRow = ref<number>(-1); // 右键点击的行号（VTable 内部行索引）
 
 // 字段属性对话框相关
 const fieldDialogVisible = ref(false);
@@ -1647,7 +1661,39 @@ const contextMenuItems = computed(() => {
     //     handleExpandRecord(contextMenuRecord.value);
     //   }
     // }});
-    
+
+    // 冻结行功能 - 使用响应式变量 frozenDataRowCount 确保菜单状态实时更新
+    const tableInstanceAny = tableInstance as any;
+    const headerRowCount = tableInstanceAny?.headerRowCount ?? 1;
+    // 使用响应式变量进行判断（Vue computed 会自动追踪变化）
+    const frozenDataRows = frozenDataRowCount.value;
+    // 当前数据行索引（从 0 开始）
+    const currentDataRow = contextMenuRow.value - headerRowCount;
+    // 当前行是否在冻结区（使用响应式变量判断）
+    const isFrozen = frozenDataRows > 0 && currentDataRow >= 0 && currentDataRow < frozenDataRows;
+
+    // 根据状态显示不同的菜单项
+    if (isFrozen) {
+      // 当前行在冻结区 → 显示取消冻结
+      items.push({
+        id: 'unfreeze-row',
+        label: '取消冻结行',
+        icon: 'freeze',
+        action: () => handleFreezeRow(true),
+      });
+    } else {
+      // 当前行不在冻结区 → 显示冻结到此行
+      const freezeCount = currentDataRow + 1;
+      items.push({
+        id: 'freeze-row',
+        label: `冻结到此行（前 ${freezeCount} 行）`,
+        icon: 'freeze',
+        action: () => handleFreezeRow(false, freezeCount),
+      });
+    }
+
+    items.push({ divider: true, id: "divider-freeze", label: "" });
+
     if (!props.readonly) {
       items.push({ id: "edit", label: "编辑当前记录", icon: "edit", action: () => handleEditRecord() });
       items.push({ id: "duplicate", label: "复制当前记录", icon: "copy", action: () => handleDuplicateRecord() });
@@ -1733,21 +1779,29 @@ const contextMenuItems = computed(() => {
   return items;
 });
 
-// 处理排序
+// 处理排序（右键菜单触发）
+// 与 sortClick 一致：同步应用层状态 + 让 VTable 内置排序通过自定义比较函数执行
 const handleSort = async (direction: 'asc' | 'desc' | null) => {
   if (!currentView.value || !contextMenuColumn.value) return;
 
   const field = contextMenuColumn.value;
-  let newSorts: any[] = [];
-  
+  const newSorts = direction ? [{ fieldId: field.id, direction }] : [];
+
   if (direction) {
-    newSorts = [{ fieldId: field.id, direction }];
     ElMessage.success(`已按 ${field.name} ${direction === 'asc' ? '升序' : '降序'}排列`);
   } else {
     ElMessage.success(`已取消 ${field.name} 的排序`);
   }
 
+  // 同步应用层排序状态
   await viewStore.updateSorts(currentView.value.id, newSorts);
+
+  // 通知 VTable 执行内置排序（使用自定义比较函数，addButton 行自动保持在末尾）
+  if (tableInstance) {
+    const vTableSortState = direction ? { field: field.id, order: direction } : null;
+    (tableInstance as any).updateSortState(vTableSortState); // 默认 executeSort=true
+  }
+
   contextMenuVisible.value = false;
 };
 
@@ -1782,11 +1836,53 @@ const handleFreeze = async (freeze: boolean) => {
   contextMenuVisible.value = false;
 };
 
+// 处理冻结行（数据行冻结）
+const handleFreezeRow = (isFrozen: boolean, freezeCount?: number) => {
+  if (!tableInstance) return;
+
+  const tableInstanceAny = tableInstance as any;
+  const headerRowCount = tableInstanceAny.headerRowCount ?? 1;
+
+  // 计算新的冻结行数
+  let newFrozenRowCount: number;
+  if (isFrozen) {
+    // 取消冻结行：只保留表头冻结
+    newFrozenRowCount = headerRowCount;
+    // 更新响应式变量（取消冻结，数据行冻结数变为 0）
+    frozenDataRowCount.value = 0;
+    ElMessage.success('已取消冻结行');
+  } else {
+    // 冻结行：表头行数 + 数据行数
+    newFrozenRowCount = headerRowCount + (freezeCount ?? 1);
+    // 更新响应式变量（冻结指定数据行数）
+    frozenDataRowCount.value = freezeCount ?? 1;
+    ElMessage.success(`已冻结前 ${freezeCount ?? 1} 行`);
+  }
+
+  // 同时更新配置和内部状态，确保状态一致性
+  tableInstanceAny.frozenRowCount = newFrozenRowCount;
+  if (tableInstanceAny.internalProps) {
+    tableInstanceAny.internalProps.frozenRowCount = newFrozenRowCount;
+  }
+
+  // 刷新表格渲染
+  tableInstanceAny.renderWithRecreateCells();
+  contextMenuVisible.value = false;
+};
+
 // 处理隐藏列
 const handleHideColumn = async () => {
   if (!currentView.value || !contextMenuColumn.value) return;
 
   const field = contextMenuColumn.value;
+
+  // 索引列（主键字段）不允许隐藏
+  if (field.isPrimary === true) {
+    ElMessage.warning('索引列，用来标识每条记录。不能被删除、移动或隐藏。');
+    contextMenuVisible.value = false;
+    return;
+  }
+
   const currentHidden = currentView.value.hiddenFields;
   const newHidden = [...currentHidden, field.id];
 
@@ -1834,7 +1930,7 @@ const handleAddNewRecord = async () => {
     });
     if (!newRecord) return;
 
-    // 追加到 store，触发 watcher → updateTableData → 数据刷新（含 addButton 行）
+    // 追加到 store，触发 records watcher 统一处理表格更新
     if (Array.isArray(tableStore.records)) {
       tableStore.records = [...tableStore.records, newRecord];
     }
@@ -1853,15 +1949,12 @@ const handleAddNewRecord = async () => {
 const handleDuplicateRecord = async () => {
   if (!contextMenuRecord.value) return;
   try {
-    const newRecord = await recordService.createRecord({
+    // 使用 tableStore.createRecord 创建记录（与删除逻辑保持一致）
+    const newRecord = await tableStore.createRecord({
       tableId: contextMenuRecord.value.tableId,
       values: { ...contextMenuRecord.value.values },
     });
     if (newRecord) {
-      // 直接追加到 store 本地缓存，避免全量 API 重拉
-      if (Array.isArray(tableStore.records)) {
-        tableStore.records = [...tableStore.records, newRecord];
-      }
       ElMessage.success("复制记录成功");
     }
   } catch (error) {
@@ -1987,6 +2080,67 @@ const sortedRecords = computed(() => {
     return 0;
   });
 });
+
+/**
+ * 数值型字段类型集合 —— 这些字段应按数值大小排序而非文本字典序
+ */
+const NUMERIC_FIELD_TYPES: Set<FieldTypeValue> = new Set([
+  FieldType.NUMBER,
+  FieldType.PROGRESS,
+  FieldType.PERCENT,
+  FieldType.RATING,
+  FieldType.CURRENCY,
+  // FieldType.AUTO_NUMBER,
+  FieldType.DURATION,
+]);
+
+/**
+ * 创建 VTable 列级自定义排序比较函数
+ *
+ * VTable 内置排序引擎对数据源（含 addButton 虚拟行）执行排序时，
+ * 通过此函数确保：
+ * 1. addButton 行始终排在末尾（值以 '__add_button_' 前缀标记）
+ * 2. 数值型字段（number/progress/rating/currency 等）按数值大小排序
+ * 3. 其他字段按文本字典序排序
+ *
+ * @param fieldType 字段类型，用于决定数值/文本比较策略
+ * 函数签名与 VTable defaultOrderFn 一致：(v1, v2, order) => -1 | 0 | 1
+ */
+const ADD_BUTTON_PREFIX = '__add_button_';
+const createSortComparator = (fieldType: FieldTypeValue | string): ((v1: any, v2: any, order: string) => number) => {
+  const isNumeric = NUMERIC_FIELD_TYPES.has(fieldType as FieldTypeValue);
+
+  return (v1: any, v2: any, order: string): number => {
+    // addButton 虚拟行检测 —— 始终排到末尾
+    const v1IsAdd = typeof v1 === 'string' && v1.startsWith(ADD_BUTTON_PREFIX);
+    const v2IsAdd = typeof v2 === 'string' && v2.startsWith(ADD_BUTTON_PREFIX);
+    if (v1IsAdd && v2IsAdd) return 0;
+    if (v1IsAdd) return 1;
+    if (v2IsAdd) return -1;
+
+    // 根据字段类型选择比较策略
+    if (isNumeric) {
+      // 数值型字段：尝试解析为数字后比较，避免 "10" < "2" 的文本排序问题
+      // null/undefined/空字符串视为 0（与 UI 显示一致：空进度显示为 0%）
+      const n1 = v1 == null || v1 === '' ? 0 : Number(v1);
+      const n2 = v2 == null || v2 === '' ? 0 : Number(v2);
+      // 仍为 NaN（如纯文本 "abc"）则视为无效值，排到末尾
+      if (isNaN(n1) && isNaN(n2)) return 0;
+      if (isNaN(n1)) return 1;
+      if (isNaN(n2)) return -1;
+      if (order === 'desc') {
+        return n1 === n2 ? 0 : n1 < n2 ? 1 : -1;
+      }
+      return n1 === n2 ? 0 : n1 > n2 ? 1 : -1;
+    }
+
+    // 文本型字段：使用默认排序逻辑（与 sortedRecords 应用层保持一致）
+    if (order === 'desc') {
+      return v1 === v2 ? 0 : v1 < v2 ? 1 : -1;
+    }
+    return v1 === v2 ? 0 : v1 > v2 ? 1 : -1;
+  };
+};
 const fields = computed(() => tableStore.fields);
 const currentView = computed(() => viewStore.currentView);
 
@@ -2192,7 +2346,9 @@ const buildGroupedRecords = (tableRecords: any[]): any[] => {
 
     orderedVisibleFields.value.forEach(field => {
       if (!props.groupBy!.includes(field.id)) {
-        addButtonRecord[field.id] = '';
+        // 为每个字段设置唯一值，避免与上面空行合并
+        const uniqueMarker = `__add_button_${Date.now()}_${field.id}__`;
+        addButtonRecord[field.id] = uniqueMarker;
       }
     });
 
@@ -2452,7 +2608,9 @@ const buildTableConfig = (): any => {
       description: field.description,
       width: columnWidths.value[field.id] || 150,
       minWidth: 60,
-      sort: true,
+      // 使用自定义排序比较函数：根据字段类型选择数值/文本比较策略，
+      // 同时确保 addButton 虚拟行（值以 __add_button_ 前缀标记）始终排到末尾
+      sort: createSortComparator(field.type),
       sortState: sortInfo ? (sortInfo.direction === 'asc' ? 'asc' : 'desc') : 'normal',
       headerIcon: [{
         type: 'svg',
@@ -2477,6 +2635,10 @@ const buildTableConfig = (): any => {
           fontFamily: '"SF Mono", Monaco, monospace',
           fontWeight: 'bold',
         }
+      } : {}),
+      // 单元格合并配置：当字段的 options.mergeCell 为 true 时启用
+      ...(field.options?.mergeCell ? {
+        mergeCell: true
       } : {}),
     };
   });
@@ -3045,8 +3207,11 @@ const buildTableConfig = (): any => {
       _originalRecord: null,
       _rowType: 'addButton',
     };
+    // 为每个字段设置唯一值，避免与上面空行合并
+    // 使用时间戳确保每次都是唯一的值
+    const uniqueMarker = `__add_button_${Date.now()}__`;
     orderedVisibleFields.value.forEach(field => {
-      addButtonRecord[field.id] = '';
+      addButtonRecord[field.id] = uniqueMarker;
     });
     tableRecords.push(addButtonRecord);
   }
@@ -3116,18 +3281,17 @@ const buildTableConfig = (): any => {
       width: 'auto',
       cellType: 'checkbox',
       headerType: 'checkbox',
-      // 自定义渲染：新增行不显示复选框和行号
-      customRender: (args: any) => {
-        if (args.record && args.record._rowType === 'addButton') {
-          return '';
+      format: (_col: number, row: number, table: any) => {
+        if (row === table.dataSource._sourceLength){
+          return '+';
         }
-        return undefined;
+        return row;
       },
-      formatMethod: (value: any, data: any) => {
-        if (data && data._rowType === 'addButton') {
-          return '';
-        }
-        return value;
+      // 禁用新增行的复选框（虽然显示但不可点击）
+      disable: (args: any) => {
+        const { row, table } = args;
+        // 新增行禁用复选框
+        return row === table.dataSource._sourceLength;
       },
     },
     allowCopy: true,
@@ -3482,16 +3646,17 @@ const bindTableEvents = () => {
     }
   });
 
-  // 排序
+  // 排序点击 —— 同步应用层排序状态，VTable 内置排序引擎通过自定义比较函数
+  // (createSortComparator) 自动将 addButton 虚拟行保持在末尾
   tableInstanceAny.on('sortClick', async (args: any) => {
     if (!currentView.value || !args.col) return;
-    
+
     const colIndex = args.col;
     if (colIndex <= 0) return;
-    
+
     const field = visibleFields.value[colIndex - 1];
     if (!field) return;
-    
+
     const currentSort = currentSorts.value.find(s => s.fieldId === field.id);
     let newDirection: 'asc' | 'desc' | null = 'asc';
     if (currentSort) {
@@ -3501,16 +3666,17 @@ const bindTableEvents = () => {
         newDirection = null;
       }
     }
-    
-    let newSorts: any[] = [];
+
+    // 同步应用层排序状态（sortedRecords computed 依赖此状态）
+    const newSorts = newDirection ? [{ fieldId: field.id, direction: newDirection }] : [];
     if (newDirection) {
-      newSorts = [{ fieldId: field.id, direction: newDirection }];
       ElMessage.success(`已按 ${field.name} ${newDirection === 'asc' ? '升序' : '降序'}排列`);
     } else {
       ElMessage.success(`已取消 ${field.name} 的排序`);
     }
-    
     await viewStore.updateSorts(currentView.value.id, newSorts);
+    // 不返回 false → VTable 内置排序正常执行，
+    // 自定义比较函数确保 addButton 行始终在末尾
   });
 
   // 右键菜单 - 统一处理表头和单元格（VTable 的 contextmenu_cell 对所有单元格触发，包括表头）
@@ -3551,6 +3717,11 @@ const bindTableEvents = () => {
       contextMenuColumn.value = null;
       contextMenuTarget.value = "row";
       contextMenuRecord.value = record._originalRecord;
+      contextMenuRow.value = row; // 保存行号
+      // 同步更新冻结行数响应式变量（确保右键菜单状态正确）
+      const headerRowCount = tableInstanceAny?.headerRowCount ?? 1;
+      const internalFrozenCount = tableInstanceAny?.internalProps?.frozenRowCount ?? tableInstanceAny?.frozenRowCount ?? headerRowCount;
+      frozenDataRowCount.value = Math.max(0, internalFrozenCount - headerRowCount);
       contextMenuVisible.value = true;
     }
   });
@@ -4056,31 +4227,54 @@ async function preloadMemberUsers() {
   }
 }
 
-// 监听 records 变化 → 增量数据更新
-// 流式加载期间：仅增量更新 dataSource 缓存，避免反复重建 VTable
-// 非流式：通过 updateTableData 增量更新（不销毁重建 VTable）
-watch(() => tableStore.records, () => {
-  if (tableStore.streamingState.isLoading && smartDataSource) {
-    // 流式加载进行中：增量更新缓存（只加载新增部分）
-    const prevCount = smartDataSource.totalCount;
-    const rawRecords = sortedRecords.value;
-    if (rawRecords.length > prevCount) {
-      const newRaw = rawRecords.slice(prevCount);
-      const newRows = transformRecords(newRaw);
-      smartDataSource.updateMemoryCache(newRows, prevCount);
-      smartDataSource.updateTotalCount(rawRecords.length);
-    }
+// 监听 records 变化 → 统一数据更新入口
+// 覆盖所有场景：handleAddNewRecord / handleDuplicateRecord / realtime broadcast / 外部操作
+watch(() => tableStore.records, async () => {
+  if (!tableInstance) return;
+
+  // 等待 Vue 响应式链路传播完毕：
+  // tableStore.records → 父组件 filteredRecords → props.records → sortedRecords
+  // 不等 nextTick 的话，sortedRecords.value 可能还是旧值，导致行数判断错误
+  await nextTick();
+
+  clearTransformCache();
+
+  if (!smartDataSource) {
+    // 无缓存数据源：走全量重建（首次加载或上一次已销毁）
+    preloadMemberUsers();
+    updateTableData();
     return;
   }
-  // 流式完成后：废弃旧的 smartDataSource（CachedDataSource.length 构造时冻结），
-  // 强制 updateTableData → updateTable → 以正确 totalCount 重建
-  if (smartDataSource && !tableStore.streamingState.isLoading) {
-    smartDataSource = null;
+
+  const prevTotal = smartDataSource.totalCount;
+  // 当前应有的总行数 = 真实记录数 + (非分组非只读时 +1 的 addButton 行)
+  const currentRecordCount = sortedRecords.value.length;
+  const hasAddButton = (!props.groupBy || props.groupBy.length === 0) && !props.readonly;
+  const expectedTotal = hasAddButton ? currentRecordCount + 1 : currentRecordCount;
+
+  if (expectedTotal !== prevTotal) {
+    // 行数变化（新增/删除记录）：CachedDataSource.length 在构造时固定，
+    // 增量更新无法让 VTable 感知行数变化，必须全量重建
+    const isAdding = expectedTotal > prevTotal; // 记录是否为新增操作
+
+    updateTable();
+
+    // 新增记录后自动滚动到最后一行真实记录，方便用户立即编辑
+    if (isAdding && tableInstance && hasAddButton && currentRecordCount > 0) {
+      // 等待 VTable DOM 渲染完成后再滚动
+      await nextTick();
+      // 新增的真实记录在倒数第二行（最后一行是 addButton 虚拟行）
+      try {
+        (tableInstance as any).scrollToRow(currentRecordCount - 1);
+      } catch (_e) {
+        // 滚动失败不影响主流程，静默忽略
+      }
+    }
+  } else {
+    // 行数不变（编辑单元格、成员名称加载等）：增量更新缓存并重绘
+    preloadMemberUsers();
+    updateTableData();
   }
-  // 预加载成员字段的用户信息（后台执行，完成后自动刷新表格）
-  clearTransformCache();
-  preloadMemberUsers();
-  updateTableData();
 }, { deep: true });
 
 // 监听 fields 变化 → 列结构变更，需重建表格
@@ -4148,6 +4342,7 @@ onBeforeUnmount(() => {
 
 defineExpose({
   selectedRows,
+  openSearch,
   refresh: () => {
     updateTable();
   },
@@ -4304,6 +4499,66 @@ function handleLinkSelectorCancel() {
   linkSelectorVisible.value = false;
 }
 
+// ==================== 搜索功能方法 ====================
+// 打开搜索弹窗（供父组件调用）
+function openSearch() {
+  if (!tableInstance) return;
+
+  // 初始化 SearchComponent（仅首次）
+  if (!searchComponent.value) {
+    searchComponent.value = new SearchComponent({
+      table: tableInstance,
+      autoJump: true,
+    });
+  }
+
+  searchVisible.value = true;
+
+  // 自动聚焦输入框（需在 nextTick 后）
+  nextTick(() => {
+    const inputEl = document.querySelector('.vtable-search-input input') as HTMLInputElement;
+    inputEl?.focus();
+  });
+}
+
+// 执行搜索
+function handleSearch() {
+  if (!searchComponent.value || !searchInput.value.trim()) {
+    searchResultIndex.value = 0;
+    searchTotalCount.value = 0;
+    return;
+  }
+
+  const result = searchComponent.value.search(searchInput.value.trim());
+  searchResultIndex.value = result.index + 1; // 显示为 1-based
+  searchTotalCount.value = result.results.length;
+}
+
+// 下一个结果
+function handleSearchNext() {
+  if (!searchComponent.value) return;
+  const result = searchComponent.value.next();
+  searchResultIndex.value = result.index + 1;
+}
+
+// 上一个结果
+function handleSearchPrev() {
+  if (!searchComponent.value) return;
+  const result = searchComponent.value.prev();
+  searchResultIndex.value = result.index + 1;
+}
+
+// 关闭搜索
+function closeSearch() {
+  searchVisible.value = false;
+  if (searchComponent.value) {
+    searchComponent.value.clear();
+  }
+  searchInput.value = '';
+  searchResultIndex.value = 0;
+  searchTotalCount.value = 0;
+}
+
 // 监听记录变化，重新加载关联数据
 watch(
   () => [records.value, orderedVisibleFields.value],
@@ -4429,6 +4684,54 @@ watch(
       :visible="deleteLoading"
       :record-count="checkboxSelectedRows.length"
       action-text="删除" />
+
+    <!-- 全局搜索弹窗 -->
+    <el-dialog
+      v-model="searchVisible"
+      title="表格内容全局搜索"
+      width="360px"
+      :modal="false"
+      :close-on-click-modal="false"
+      draggable
+      @close="closeSearch"
+      class="vtable-search-dialog"
+    >
+      <div class="search-content">
+        <el-input
+          v-model="searchInput"
+          placeholder="输入搜索内容..."
+          class="vtable-search-input"
+          @input="handleSearch"
+          clearable
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+
+        <div class="search-result-info" v-if="searchTotalCount > 0">
+          <span>{{ searchResultIndex }} / {{ searchTotalCount }}</span>
+        </div>
+        <div class="search-result-info" v-else-if="searchInput">
+          <span>无结果</span>
+        </div>
+
+        <div class="search-actions">
+          <el-button
+            size="small"
+            :disabled="searchResultIndex <= 1"
+            @click="handleSearchPrev">
+            上一个
+          </el-button>
+          <el-button
+            size="small"
+            :disabled="searchResultIndex >= searchTotalCount || searchTotalCount === 0"
+            @click="handleSearchNext">
+            下一个
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -4484,4 +4787,56 @@ watch(
   }
 }
 
+// ==================== 搜索弹窗样式 ====================
+.vtable-search-dialog {
+  .search-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .vtable-search-input {
+    width: 100%;
+  }
+
+  .search-result-info {
+    text-align: center;
+    color: #606266;
+    font-size: 13px;
+    padding: 4px 0;
+  }
+
+  .search-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+}
+
+</style>
+
+<!-- 搜索弹窗全局样式（el-dialog teleport 到 body，需要非 scoped 样式） -->
+<style lang="scss">
+// .vtable-search-dialog 就是 .el-dialog 本身（custom-class 直接添加到 el-dialog）
+.vtable-search-dialog.el-dialog {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.vtable-search-dialog .el-dialog__header {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(235, 238, 245, 0.8);
+  cursor: move;
+  background-color: transparent;
+}
+
+.vtable-search-dialog .el-dialog__body {
+  padding: 14px;
+  background-color: transparent;
+}
+
+.vtable-search-dialog .el-dialog__headerbtn {
+  top: 10px;
+}
 </style>

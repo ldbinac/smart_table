@@ -31,3 +31,18 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 app.mount("#app");
+
+// 等待路由准备完成后隐藏加载状态
+router.isReady().then(() => {
+  // 延迟一小段时间让页面渲染完成
+  setTimeout(() => {
+    const loadingEl = document.getElementById("app-loading");
+    if (loadingEl) {
+      loadingEl.classList.add("fade-out");
+      // 动画完成后移除元素
+      setTimeout(() => {
+        loadingEl.remove();
+      }, 300);
+    }
+  }, 100);
+});

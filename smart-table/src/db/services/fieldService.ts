@@ -78,7 +78,10 @@ export class FieldService {
         isRequired: fieldData.is_required || false,
         isVisible: fieldData.is_visible ?? true,
         defaultValue: fieldData.defaultValue as any,
-        description: apiField.description,
+        // 索引列（主键字段）使用默认描述，其他字段保留原始值
+        description: (fieldData.is_primary && !apiField.description)
+          ? '索引列：用来标识每条记录。不能被删除、移动或隐藏。'
+          : apiField.description,
         order: apiField.order ?? 0,
         createdAt: new Date(apiField.created_at).getTime(),
         updatedAt: new Date(apiField.updated_at).getTime(),

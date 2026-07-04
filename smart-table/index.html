@@ -2,12 +2,106 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>smart-table</title>
+    <script>
+      var _hmt = _hmt || [];
+      (function() {
+        var hm = document.createElement("script");
+        hm.src = "https://hm.baidu.com/hm.js?d1384900bc409298b97a63fc4a39e995";
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(hm, s);
+      })();
+    </script>
+    <style>
+      /* 加载状态样式 */
+      #app-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+
+      #app-loading.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #app-loading-logo {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 24px;
+        /* 每轮 2 秒：滚动 3 圈 + 放大缩小 */
+        animation: logoSpinAndScale 2s ease-in-out infinite;
+      }
+
+      #app-loading-title {
+        font-size: 32px;
+        font-weight: 600;
+        color: #ffffff;
+        margin-bottom: 32px;
+        letter-spacing: 2px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      }
+
+      #app-loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #ffffff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Logo 动画：每轮 2 秒，滚动 2 圈 + 放大缩小 */
+      @keyframes logoSpinAndScale {
+        0% {
+          transform: rotate(0deg) scale(1);
+        }
+        /* 0-70% 时间用于滚动 2 圈（约 1.4 秒） */
+        70% {
+          transform: rotate(720deg) scale(1.1);
+        }
+        /* 70-100% 时间用于缩放回到原大小（约 0.6 秒） */
+        100% {
+          transform: rotate(720deg) scale(1);
+        }
+      }
+    </style>
   </head>
   <body>
+    <!-- 加载状态容器 -->
+    <div id="app-loading">
+      <img id="app-loading-logo" src="/SmartTable.png" alt="SmartTable Logo" />
+      <div id="app-loading-title">SmartTable</div>
+      <div id="app-loading-spinner"></div>
+    </div>
+
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
+  <script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?d1384900bc409298b97a63fc4a39e995";
+  var s = document.getElementsByTagName("script")[0];
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
 </html>

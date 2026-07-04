@@ -1,11 +1,11 @@
 {
-  "version": "1.5.1",
+  "version": "1.5.2",
   "product_name": "SmartTable",
   "company_name": "ldengbin@126.com",
   "copyright": "Copyright © {year} by ldengbin@126.com. All rights reserved.",
   "description": {
-    "zh_CN": "智能多维表格应用-by ldengbin@126.com ",
-    "en_US": "Intelligent Multi-Dimensional Spreadsheet by ldengbin@126.com"
+    "zh_CN": "智能多维表格应用-by ldengbin@126.com GitHub地址：https://github.com/ldbinac/smart_table",
+    "en_US": "Intelligent Multi-Dimensional Spreadsheet by ldengbin@126.com GitHub: https://github.com/ldbinac/smart_table"
   },
   "metadata": {
     "internal_name": "smarttable",
