@@ -423,8 +423,8 @@ onMounted(() => {
     </div>
 
     <div class="header-right">
-      <!-- 协作状态栏和在线用户 -->
-      <template v-if="collaborationStore.isRealtimeAvailable">
+      <!-- 协作状态栏和在线用户（工作流配置界面无需显示） -->
+      <template v-if="collaborationStore.isRealtimeAvailable && !isWorkflowPage">
         <div class="collaboration-widgets">
           <ConnectionStatusBar />
           <OnlineUsers />
