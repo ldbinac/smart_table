@@ -495,7 +495,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
           </el-radio-group>
         </div>
 
-        <div class="header-actions">
+        <div class="header-actions" style="display: none;">
           <el-button :icon="Collection" @click="handleOpenGallery">
             模板库
           </el-button>
