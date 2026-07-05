@@ -170,7 +170,7 @@ const nodeTypeMenu = [
   { type: "create_record" as const, label: "创建记录", icon: Plus },
   // { type: "send_email" as const, label: "发送邮件（暂不支持）", icon: Message },
   { type: "webhook" as const, label: "Webhook", icon: Link },
-  { type: "condition" as const, label: "条件节点（test）", icon: Share },
+  { type: "condition" as const, label: "条件节点", icon: Share },
 ];
 
 const nodeIconMap: Record<string, typeof CircleCheck> = {

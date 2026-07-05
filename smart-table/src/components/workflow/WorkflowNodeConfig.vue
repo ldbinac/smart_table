@@ -177,10 +177,32 @@ interface ConditionItem {
   value: unknown;
 }
 
+type ConjunctionValue = "and" | "or";
+
+const CONJUNCTION_OPTIONS: { value: ConjunctionValue; label: string }[] = [
+  { value: "and", label: "满足全部条件" },
+  { value: "or", label: "满足任一条件" },
+];
+
 const conditions = computed<ConditionItem[]>({
   get: () => configValue<ConditionItem[]>("conditions", []),
   set: (value) => setConfigValue("conditions", value),
 });
+
+const conjunction = computed<ConjunctionValue>({
+  get: () => configValue<ConjunctionValue>("conjunction", "and"),
+  set: (value) => setConfigValue("conjunction", value),
+});
+
+function getConjunctionLabel(value: ConjunctionValue) {
+  return CONJUNCTION_OPTIONS.find((opt) => opt.value === value)?.label ?? value;
+}
+
+function onConjunctionChange(value: string | number | boolean | undefined) {
+  if (value === "and" || value === "or") {
+    conjunction.value = value;
+  }
+}
 
 function addCondition() {
   const firstField = props.fields[0];
@@ -626,6 +648,25 @@ const nodeTypeLabel = computed(() => {
 
     <!-- 条件节点 -->
     <template v-else-if="localNode.node_type === 'condition'">
+      <div class="condition-conjunction">
+        <span class="conjunction-label">条件关系</span>
+        <template v-if="readonly">
+          <span class="conjunction-value">{{ getConjunctionLabel(conjunction) }}</span>
+        </template>
+        <el-radio-group
+          v-else
+          :model-value="conjunction"
+          size="small"
+          @change="onConjunctionChange">
+          <el-radio
+            v-for="opt in CONJUNCTION_OPTIONS"
+            :key="opt.value"
+            :label="opt.value">
+            {{ opt.label }}
+          </el-radio>
+        </el-radio-group>
+      </div>
+
       <div class="conditions-list">
         <div
           v-for="(condition, index) in conditions"
@@ -686,6 +727,9 @@ const nodeTypeLabel = computed(() => {
 
       <div class="summary">
         <div class="summary-title">条件摘要</div>
+        <div v-if="conditions.length > 1" class="summary-conjunction">
+          关系：{{ getConjunctionLabel(conjunction) }}
+        </div>
         <div
           v-for="(condition, index) in conditions"
           :key="`summary-${index}`"
@@ -1109,6 +1153,25 @@ const nodeTypeLabel = computed(() => {
   width: 100%;
 }
 
+.condition-conjunction {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm;
+  background-color: $bg-color;
+  border-radius: $border-radius-md;
+
+  .conjunction-label {
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    flex-shrink: 0;
+  }
+
+  .conjunction-value {
+    font-weight: 500;
+  }
+}
+
 .conditions-list,
 .mapping-list {
   display: flex;
@@ -1272,6 +1335,12 @@ const nodeTypeLabel = computed(() => {
   font-size: $font-size-sm;
   color: $text-secondary;
   padding: $spacing-xs 0;
+}
+
+.summary-conjunction {
+  font-size: $font-size-sm;
+  color: $text-primary;
+  margin-bottom: $spacing-xs;
 }
 
 .headers-list {

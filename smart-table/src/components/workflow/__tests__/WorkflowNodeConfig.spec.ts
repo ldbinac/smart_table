@@ -634,4 +634,48 @@ describe('WorkflowNodeConfig', () => {
       expect((wrapper.vm as any).localNode.node_type).toBe('action');
     });
   });
+
+  it('条件节点默认使用 and 关系，可切换为 or', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'condition',
+        config: {
+          conditions: [{ field_id: 'field-1', operator: 'equals', value: 'a' }],
+        },
+      },
+    });
+    await nextTick();
+
+    expect((wrapper.vm as any).conjunction).toBe('and');
+    expect(wrapper.find('.condition-conjunction').exists()).toBe(true);
+
+    (wrapper.vm as any).onConjunctionChange('or');
+    await nextTick();
+
+    expect((wrapper.vm as any).localNode.config.conjunction).toBe('or');
+    expect((wrapper.vm as any).conjunction).toBe('or');
+    expect(wrapper.emitted('update:node')).toBeTruthy();
+  });
+
+  it('只读条件节点显示条件关系文案', async () => {
+    const wrapper = mountConfig({
+      node: {
+        ...mockNode,
+        node_type: 'condition',
+        config: {
+          conjunction: 'or',
+          conditions: [
+            { field_id: 'field-1', operator: 'equals', value: 'a' },
+            { field_id: 'field-2', operator: 'equals', value: 'b' },
+          ],
+        },
+      },
+      readonly: true,
+    });
+    await nextTick();
+
+    expect(wrapper.text()).toContain('满足任一条件');
+    expect(wrapper.text()).toContain('关系：满足任一条件');
+  });
 });
