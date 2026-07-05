@@ -37,6 +37,23 @@ export function normalizeWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
 }
 
 /**
+ * 按 order 自动重建节点执行链：每个节点默认指向下一个节点。
+ * 用于保存前兜底，确保线性节点列表能按顺序执行。
+ */
+export function rebuildWorkflowNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
+  const sorted = [...nodes].sort((a, b) => a.order - b.order);
+  const nextMap = new Map<string, string[]>();
+  sorted.forEach((node, index) => {
+    const nextNode = sorted[index + 1];
+    nextMap.set(node.id, nextNode ? [nextNode.id] : []);
+  });
+  return nodes.map((node) => ({
+    ...node,
+    next_nodes: nextMap.get(node.id) ?? [],
+  }));
+}
+
+/**
  * 判断触发类型是否为“指定时间”触发器。
  */
 export function isSpecifiedTimeTrigger(trigger_type: string): boolean {

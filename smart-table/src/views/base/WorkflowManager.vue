@@ -14,7 +14,7 @@ import { useTableStore } from "@/stores/tableStore";
 import { apiClient } from "@/api/client";
 import { fieldService } from "@/db/services/fieldService";
 import { formatDateTime } from "@/utils/timezone";
-import { normalizeWorkflowNodes } from "@/utils/workflow";
+import { normalizeWorkflowNodes, rebuildWorkflowNodeChain } from "@/utils/workflow";
 import WorkflowListPanel from "@/components/workflow/WorkflowListPanel.vue";
 import WorkflowDesigner from "@/components/workflow/WorkflowDesigner.vue";
 import WorkflowExecutionLogPanel from "@/components/workflow/WorkflowExecutionLog.vue";
@@ -338,10 +338,13 @@ async function handleSaveWorkflow(
 ) {
   if (!currentWorkflow.value) return;
 
+  // 保存前按 order 重建 next_nodes，确保多节点按顺序执行
+  const nodesToSave = rebuildWorkflowNodeChain(updatedNodes);
+
   try {
     await Promise.all([
       apiClient.put(`/workflows/${currentWorkflow.value.id}/nodes`, {
-        nodes: updatedNodes,
+        nodes: nodesToSave,
       }),
       apiClient.put(`/workflows/${currentWorkflow.value.id}/trigger`, {
         ...updatedTrigger,

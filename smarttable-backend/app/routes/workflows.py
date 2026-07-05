@@ -418,7 +418,14 @@ def update_workflow_nodes(workflow_id) -> tuple:
     }
 
     WorkflowNode.query.filter_by(workflow_id=workflow.id).delete()
+
+    # 前端传入的节点 id 是字符串（如 node_xxx），而数据库使用 UUID，
+    # 因此需要建立映射并在保存 next_nodes 时替换为后端生成的 UUID。
+    frontend_to_backend_id: dict[str, Any] = {}
+    created_nodes: list[WorkflowNode] = []
+
     if nodes:
+        # 第一轮：创建节点并建立 id 映射
         for index, node_data in enumerate(nodes):
             node_type = node_data.get('node_type', 'action')
             node_config = dict(node_data.get('config', {}))
@@ -434,9 +441,23 @@ def update_workflow_nodes(workflow_id) -> tuple:
                 name=node_data.get('name', f'节点 {index + 1}'),
                 config=node_config,
                 order=node_data.get('order', index),
-                next_nodes=node_data.get('next_nodes', [])
+                next_nodes=[]
             )
             db.session.add(node)
+            db.session.flush()
+            created_nodes.append(node)
+            frontend_id = node_data.get('id')
+            if frontend_id:
+                frontend_to_backend_id[str(frontend_id)] = node.id
+
+        # 第二轮：根据映射把 next_nodes 里的前端 id 替换为后端 UUID
+        for node_data, node in zip(nodes, created_nodes):
+            next_nodes = node_data.get('next_nodes', [])
+            node.next_nodes = [
+                str(frontend_to_backend_id[str(nid)])
+                for nid in next_nodes
+                if str(nid) in frontend_to_backend_id
+            ]
 
     db.session.commit()
 

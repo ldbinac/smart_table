@@ -219,6 +219,48 @@ class TestWorkflowRoutes:
         assert returned_types['更新记录'] == 'update_record'
         assert returned_types['发送邮件'] == 'send_email'
 
+    def test_update_nodes_maps_frontend_next_nodes_to_backend_ids(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试保存时把前端字符串 id 的 next_nodes 映射为后端 UUID"""
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'id': 'node_frontend_1',
+                        'node_type': 'create_record',
+                        'name': '创建记录',
+                        'config': {'target_table_id': 'table-1'},
+                        'order': 0,
+                        'next_nodes': ['node_frontend_2']
+                    },
+                    {
+                        'id': 'node_frontend_2',
+                        'node_type': 'update_record',
+                        'name': '更新记录',
+                        'config': {},
+                        'order': 1,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        nodes = data['data']
+        assert len(nodes) == 2
+        node_by_name = {node['name']: node for node in nodes}
+        first = node_by_name['创建记录']
+        second = node_by_name['更新记录']
+
+        # 第一个节点的 next_nodes 应指向第二个节点的后端 UUID
+        assert first['next_nodes'] == [second['id']]
+        assert second['next_nodes'] == []
+
     def test_publish_workflow_snapshot_preserves_create_record_node_type(
         self, client, auth_headers, created_workflow
     ):

@@ -178,7 +178,7 @@ describe('WorkflowDesigner', () => {
     await nextTick();
     const dropdownItems = wrapper.findAll('.el-dropdown-item');
     expect(dropdownItems.length).toBeGreaterThan(0);
-    // 第一个菜单项是审批节点
+    // 第一个菜单项是更新记录节点
     await dropdownItems[0].trigger('click');
     await nextTick();
 
@@ -186,8 +186,12 @@ describe('WorkflowDesigner', () => {
     expect(emitted).toBeTruthy();
     const lastNodes = emitted[emitted.length - 1][0] as any[];
     expect(lastNodes.length).toBe(3);
-    expect(lastNodes[2].node_type).toBe('approval');
-    expect(lastNodes[2].name).toContain('审批节点');
+    expect(lastNodes[2].node_type).toBe('update_record');
+    expect(lastNodes[2].name).toContain('更新记录');
+    // 验证自动维护 next_nodes 执行链
+    expect(lastNodes[0].next_nodes).toEqual([lastNodes[1].id]);
+    expect(lastNodes[1].next_nodes).toEqual([lastNodes[2].id]);
+    expect(lastNodes[2].next_nodes).toEqual([]);
   });
 
   it('点击删除按钮应该移除节点', async () => {
@@ -260,17 +264,17 @@ describe('WorkflowDesigner', () => {
     expect(wrapper.emitted('save')).toBeTruthy();
   });
 
-  it('点击发布按钮应该触发 publish 事件', async () => {
+  it('暂停状态显示保存按钮并触发 save 事件', async () => {
     const wrapper = mountDesigner({
       workflow: { ...mockWorkflow, status: 'paused' as const },
     });
     await nextTick();
-    const publishButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
-      btn.text().includes('发布')
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
     );
-    expect(publishButton).toBeTruthy();
-    await publishButton!.trigger('click');
-    expect(wrapper.emitted('publish')).toBeTruthy();
+    expect(saveButton).toBeTruthy();
+    await saveButton!.trigger('click');
+    expect(wrapper.emitted('save')).toBeTruthy();
   });
 
   it('应该根据工作流状态显示草稿标签', () => {

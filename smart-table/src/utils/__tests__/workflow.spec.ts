@@ -3,6 +3,7 @@ import type { WorkflowNode, TriggerType, ScheduleConfig } from "@/types/workflow
 import {
   normalizeWorkflowNode,
   normalizeWorkflowNodes,
+  rebuildWorkflowNodeChain,
   isSpecifiedTimeTrigger,
   createDefaultScheduleConfig,
 } from "@/utils/workflow";
@@ -77,6 +78,43 @@ describe("workflow utils", () => {
       expect(result[0].node_type).toBe("create_record");
       expect(result[1].node_type).toBe("update_record");
       expect(result[2].node_type).toBe("approval");
+    });
+  });
+
+  describe("rebuildWorkflowNodeChain", () => {
+    it("按 order 把每个节点指向下一个节点", () => {
+      const nodes: WorkflowNode[] = [
+        { ...makeNode("update_record"), id: "n1", order: 0 },
+        { ...makeNode("create_record"), id: "n2", order: 1 },
+        { ...makeNode("webhook"), id: "n3", order: 2 },
+      ];
+      const result = rebuildWorkflowNodeChain(nodes);
+      expect(result[0].next_nodes).toEqual(["n2"]);
+      expect(result[1].next_nodes).toEqual(["n3"]);
+      expect(result[2].next_nodes).toEqual([]);
+    });
+
+    it("对乱序输入仍能按 order 正确链接", () => {
+      const nodes: WorkflowNode[] = [
+        { ...makeNode("update_record"), id: "n2", order: 1 },
+        { ...makeNode("webhook"), id: "n3", order: 2 },
+        { ...makeNode("create_record"), id: "n1", order: 0 },
+      ];
+      const result = rebuildWorkflowNodeChain(nodes);
+      const byOrder = [...result].sort((a, b) => a.order - b.order);
+      expect(byOrder[0].next_nodes).toEqual(["n2"]);
+      expect(byOrder[1].next_nodes).toEqual(["n3"]);
+      expect(byOrder[2].next_nodes).toEqual([]);
+    });
+
+    it("单节点时 next_nodes 为空", () => {
+      const nodes: WorkflowNode[] = [{ ...makeNode("update_record"), id: "n1", order: 0 }];
+      const result = rebuildWorkflowNodeChain(nodes);
+      expect(result[0].next_nodes).toEqual([]);
+    });
+
+    it("空节点列表返回空数组", () => {
+      expect(rebuildWorkflowNodeChain([])).toEqual([]);
     });
   });
 

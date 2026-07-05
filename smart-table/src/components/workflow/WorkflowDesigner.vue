@@ -69,7 +69,9 @@ watch(
   () => props.nodes,
   (newNodes) => {
     isUpdatingNodesFromParent = true;
-    localNodes.value = newNodes.map((n) => ({ ...n, config: cloneConfig(n.config) }));
+    localNodes.value = rebuildNodeChain(
+      newNodes.map((n) => ({ ...n, config: cloneConfig(n.config) })),
+    );
     if (!selectedNodeId.value && newNodes.length > 0) {
       selectedNodeId.value = newNodes[0].id;
     }
@@ -123,6 +125,20 @@ function generateId(): string {
   return `node_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// 根据 order 自动重建节点执行链：每个节点默认指向下一个节点
+function rebuildNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
+  const sorted = [...nodes].sort((a, b) => a.order - b.order);
+  const nextMap = new Map<string, string[]>();
+  sorted.forEach((node, index) => {
+    const nextNode = sorted[index + 1];
+    nextMap.set(node.id, nextNode ? [nextNode.id] : []);
+  });
+  return nodes.map((node) => ({
+    ...node,
+    next_nodes: nextMap.get(node.id) ?? [],
+  }));
+}
+
 const nodeTypeMenu = [
   // { type: "approval" as const, label: "审批节点（暂不支持）", icon: CircleCheck },
   // { type: "condition" as const, label: "条件节点（暂不支持）", icon: Share },
@@ -162,12 +178,12 @@ function addNode(type: WorkflowNodeType) {
     order: localNodes.value.length,
     next_nodes: [],
   };
-  localNodes.value = [...localNodes.value, newNode];
+  localNodes.value = rebuildNodeChain([...localNodes.value, newNode]);
   selectedNodeId.value = newNode.id;
 }
 
 function removeNode(nodeId: string) {
-  localNodes.value = localNodes.value.filter((n) => n.id !== nodeId);
+  localNodes.value = rebuildNodeChain(localNodes.value.filter((n) => n.id !== nodeId));
   if (selectedNodeId.value === nodeId) {
     selectedNodeId.value = localNodes.value[0]?.id ?? null;
   }
@@ -205,7 +221,7 @@ function initSortable() {
       const list = [...localNodes.value];
       const [moved] = list.splice(event.oldIndex, 1);
       list.splice(event.newIndex, 0, moved);
-      localNodes.value = list.map((node, index) => ({ ...node, order: index }));
+      localNodes.value = rebuildNodeChain(list.map((node, index) => ({ ...node, order: index })));
     },
   });
 }
