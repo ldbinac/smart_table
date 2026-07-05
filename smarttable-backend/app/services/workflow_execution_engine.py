@@ -422,16 +422,22 @@ class WorkflowExecutionEngine:
         return {'task_id': task_id}
 
     def _execute_condition_node(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
-        """执行条件分支节点"""
-        config = node.config or {}
-        condition = config.get('condition', {})
-        context = self._build_render_context(instance)
-        result = self.evaluate_condition(condition, context)
+        """执行条件分支节点
 
-        if result:
-            next_nodes = config.get('true_next_nodes', node.next_nodes)
-        else:
-            next_nodes = config.get('false_next_nodes', [])
+        前端以 `conditions` 数组（可选 `conjunction`）存储条件，与触发器过滤结构一致。
+        条件成立时沿节点执行链 `node.next_nodes` 继续执行，不成立则终止该分支。
+        """
+        config = node.config or {}
+        context = self._build_render_context(instance)
+
+        conditions = config.get('conditions', [])
+        condition_config: Dict[str, Any] = {
+            'conditions': conditions,
+            'conjunction': config.get('conjunction', 'and'),
+        }
+
+        result = self.evaluate_condition(condition_config, context)
+        next_nodes = node.next_nodes if result else []
 
         return {'result': result, 'next_nodes': next_nodes}
 

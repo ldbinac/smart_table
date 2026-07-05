@@ -166,11 +166,11 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
 
 const nodeTypeMenu = [
   // { type: "approval" as const, label: "审批节点（暂不支持）", icon: CircleCheck },
-  // { type: "condition" as const, label: "条件节点（暂不支持）", icon: Share },
   { type: "update_record" as const, label: "更新记录", icon: EditPen },
   { type: "create_record" as const, label: "创建记录", icon: Plus },
   // { type: "send_email" as const, label: "发送邮件（暂不支持）", icon: Message },
   { type: "webhook" as const, label: "Webhook", icon: Link },
+  { type: "condition" as const, label: "条件节点（test）", icon: Share },
 ];
 
 const nodeIconMap: Record<string, typeof CircleCheck> = {

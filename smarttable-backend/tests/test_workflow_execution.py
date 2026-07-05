@@ -203,7 +203,7 @@ class TestExecuteConditionNode:
     """测试条件分支节点"""
 
     def test_condition_node_true_branch(self, ctx, base, table, owner, engine):
-        """测试条件为真时走 true 分支"""
+        """测试条件为真时返回 True"""
         workflow = WorkflowService.create_workflow(
             base_id=base.id,
             table_id=table.id,
@@ -214,13 +214,13 @@ class TestExecuteConditionNode:
                     'node_type': 'condition',
                     'name': '条件',
                     'config': {
-                        'condition': {
-                            'operator': 'equals',
-                            'field_id': 'status',
-                            'value': 'active',
-                        },
-                        'true_next_nodes': [],
-                        'false_next_nodes': [],
+                        'conditions': [
+                            {
+                                'operator': 'equals',
+                                'field_id': 'status',
+                                'value': 'active',
+                            }
+                        ]
                     },
                     'order': 0,
                 },
@@ -245,7 +245,7 @@ class TestExecuteConditionNode:
         assert result['result'] is True
 
     def test_condition_node_false_branch(self, ctx, base, table, owner, engine):
-        """测试条件为假时走 false 分支"""
+        """测试条件为假时返回 False"""
         workflow = WorkflowService.create_workflow(
             base_id=base.id,
             table_id=table.id,
@@ -256,13 +256,13 @@ class TestExecuteConditionNode:
                     'node_type': 'condition',
                     'name': '条件',
                     'config': {
-                        'condition': {
-                            'operator': 'equals',
-                            'field_id': 'status',
-                            'value': 'active',
-                        },
-                        'true_next_nodes': [],
-                        'false_next_nodes': [],
+                        'conditions': [
+                            {
+                                'operator': 'equals',
+                                'field_id': 'status',
+                                'value': 'active',
+                            }
+                        ]
                     },
                     'order': 0,
                 },
@@ -285,6 +285,126 @@ class TestExecuteConditionNode:
         result = engine.execute_node(instance, condition_node)
 
         assert result['result'] is False
+
+    def test_condition_node_true_executes_next_node(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """测试条件为真时沿 next_nodes 执行后续节点"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='条件后续执行测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'conditions': [
+                            {
+                                'operator': 'equals',
+                                'field_id': str(field.id),
+                                'value': '初始值',
+                            }
+                        ]
+                    },
+                    'order': 0,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [
+                            {'field_id': str(field.id), 'value_template': '已更新'}
+                        ],
+                    },
+                    'order': 1,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
+        condition_node, action_node = nodes[0], nodes[1]
+        condition_node.next_nodes = [str(action_node.id)]
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._execute_chain(instance, condition_node)
+
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '已更新'
+
+    def test_condition_node_false_stops_chain(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """测试条件为假时不执行后续节点"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='条件终止测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'conditions': [
+                            {
+                                'operator': 'equals',
+                                'field_id': str(field.id),
+                                'value': '不匹配',
+                            }
+                        ]
+                    },
+                    'order': 0,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [
+                            {'field_id': str(field.id), 'value_template': '已更新'}
+                        ],
+                    },
+                    'order': 1,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
+        condition_node, action_node = nodes[0], nodes[1]
+        condition_node.next_nodes = [str(action_node.id)]
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._execute_chain(instance, condition_node)
+
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '初始值'
 
 
 class TestExecuteUpdateRecord:
