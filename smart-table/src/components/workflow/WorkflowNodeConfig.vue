@@ -340,6 +340,13 @@ const createRecordTargetTableId = computed({
   set: (value) => setConfigValue("target_table_id", value),
 });
 
+function onCreateRecordTargetTableChange(tableId: string) {
+  createRecordTargetTableId.value = tableId;
+  createRecordMappings.value = [];
+  // 清空表达式模式缓存，避免索引错位
+  useExpressionForCreate.value = {};
+}
+
 const createRecordMappings = computed<FieldMapping[]>({
   get: () => configValue<FieldMapping[]>("field_mappings", []),
   set: (value) => setConfigValue("field_mappings", value),
@@ -423,11 +430,10 @@ async function loadTargetFields(tableId: string) {
 
 watch(
   createRecordTargetTableId,
-  (newTableId, oldTableId) => {
+  (newTableId) => {
+    // 仅负责加载目标表字段；清空字段映射由用户主动切换目标表触发 @change 处理，
+    // 避免 props 更新（如切换节点）时误清空已有映射。
     loadTargetFields(newTableId);
-    if (oldTableId !== undefined && oldTableId !== newTableId) {
-      createRecordMappings.value = [];
-    }
   },
   { immediate: true },
 );
@@ -776,7 +782,12 @@ const nodeTypeLabel = computed(() => {
     <template v-else-if="localNode.node_type === 'create_record'">
       <el-form label-position="top" class="config-form">
         <el-form-item label="目标表格">
-          <el-select v-model="createRecordTargetTableId" placeholder="选择目标表格" class="full-width" :disabled="readonly">
+          <el-select
+            v-model="createRecordTargetTableId"
+            placeholder="选择目标表格"
+            class="full-width"
+            :disabled="readonly"
+            @change="onCreateRecordTargetTableChange">
             <el-option
               v-for="table in availableTables"
               :key="table.id"
@@ -786,7 +797,8 @@ const nodeTypeLabel = computed(() => {
         </el-form-item>
       </el-form>
 
-      <div class="mapping-list">
+      <!-- 编辑模式：保留原有表单 -->
+      <div v-if="!readonly" class="mapping-list">
         <div
           v-for="(mapping, index) in createRecordMappings"
           :key="index"
@@ -878,6 +890,29 @@ const nodeTypeLabel = computed(() => {
         <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addCreateMapping">
           添加字段映射
         </el-button>
+      </div>
+
+      <!-- 只读模式：展示字段映射摘要 -->
+      <div v-else class="readonly-mapping-summary">
+        <div class="summary-title">字段映射</div>
+        <el-empty v-if="createRecordMappings.length === 0" description="暂无字段映射" :image-size="60" />
+        <div
+          v-for="(mapping, index) in createRecordMappings"
+          :key="index"
+          class="summary-row">
+          <div class="summary-field">
+            <span class="summary-label">目标字段</span>
+            <span class="summary-value">{{ (getTargetFieldById(mapping.target_field_id)?.name ?? mapping.target_field_id) || '-' }}</span>
+          </div>
+          <div class="summary-field">
+            <span class="summary-label">源字段</span>
+            <span class="summary-value">{{ (getFieldById(mapping.source_field_id ?? '')?.name ?? mapping.source_field_id) || '-' }}</span>
+          </div>
+          <div class="summary-field summary-wide">
+            <span class="summary-label">取值</span>
+            <span class="summary-value">{{ mapping.value_template || '-' }}</span>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -1159,6 +1194,50 @@ const nodeTypeLabel = computed(() => {
   .template-input-column {
     flex: 1;
     min-width: 0;
+  }
+}
+
+.readonly-mapping-summary {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  .summary-title {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    margin-bottom: $spacing-xs;
+  }
+
+  .summary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-md;
+    padding: $spacing-sm;
+    background-color: $bg-color;
+    border-radius: $border-radius-md;
+  }
+
+  .summary-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 120px;
+
+    &.summary-wide {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+  }
+
+  .summary-label {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+  }
+
+  .summary-value {
+    font-size: $font-size-sm;
+    color: $text-primary;
+    word-break: break-all;
   }
 }
 

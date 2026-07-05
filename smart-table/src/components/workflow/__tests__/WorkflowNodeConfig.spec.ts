@@ -550,6 +550,74 @@ describe('WorkflowNodeConfig', () => {
       expect(radioGroup.classes('is-disabled')).toBe(true);
     });
 
+    it('只读模式下 create_record 节点应展示完整字段映射摘要', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'create_record',
+          config: {
+            target_table_id: 'table-2',
+            field_mappings: [
+              { target_field_id: 'target-1', source_field_id: 'field-1', value_template: '{{trigger.record.field-1}}' },
+              { target_field_id: 'target-2', source_field_id: '', value_template: '静态值' },
+            ],
+          },
+        },
+        tables: mockTables,
+        readonly: true,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      expect(wrapper.find('.readonly-mapping-summary').exists()).toBe(true);
+      expect(wrapper.find('.mapping-list').exists()).toBe(false);
+      expect(wrapper.text()).toContain('字段映射');
+      expect(wrapper.text()).toContain('目标字段');
+      expect(wrapper.text()).toContain('源字段');
+      expect(wrapper.text()).toContain('目标标题');
+      expect(wrapper.text()).toContain('{{trigger.record.field-1}}');
+    });
+
+    it('切换 create_record 节点时不应清空目标字段映射', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'create_record',
+          config: {
+            target_table_id: 'table-1',
+            field_mappings: [{ target_field_id: 'target-1', source_field_id: 'field-1', value_template: '{{trigger.record.field-1}}' }],
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      await wrapper.setProps({
+        node: {
+          ...mockNode,
+          node_type: 'create_record',
+          config: {
+            target_table_id: 'table-2',
+            field_mappings: [{ target_field_id: 'target-3', source_field_id: 'field-2', value_template: '静态值' }],
+          },
+        },
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      // 切换节点属于 props 更新，不应清空映射；编辑模式下静态值不直接渲染在 DOM 中，
+      // 因此直接校验组件内部状态而非文本。
+      expect((wrapper.vm as any).localNode.config.field_mappings).toEqual([
+        { target_field_id: 'target-3', source_field_id: 'field-2', value_template: '静态值' },
+      ]);
+      expect(wrapper.emitted('update:node')).toBeFalsy();
+    });
+
     it('action + 未知 action_type 应显示友好错误提示', async () => {
       const wrapper = mountConfig({
         node: {
