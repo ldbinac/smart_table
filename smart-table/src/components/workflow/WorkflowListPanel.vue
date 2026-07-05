@@ -221,7 +221,7 @@ function handleSwitchTable() {
       <el-button title="工作流与数据表关联关系" type="success" plain class="action-btn" :icon="Connection" @click="openRelationDialog">
         <span class="btn-text">关系</span>
       </el-button>
-      <el-button title="新建工作流" type="primary" plain class="action-btn" :icon="Plus" @click="handleCreate">
+      <el-button title="新建工作流" type="primary" class="action-btn" :icon="Plus" @click="handleCreate">
         <span class="btn-text">新建</span>
       </el-button>
       <el-button
