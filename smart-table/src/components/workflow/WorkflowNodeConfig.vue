@@ -950,15 +950,27 @@ const nodeTypeLabel = computed(() => {
 
         <template v-else>
           <el-form-item label="名称">
-            <el-input v-model="inlineWebhook.name" placeholder="Webhook 名称" :disabled="readonly" />
+            <el-input
+              :model-value="inlineWebhook.name"
+              placeholder="Webhook 名称"
+              :disabled="readonly"
+              @update:model-value="(val) => updateInlineWebhook({ name: val })" />
           </el-form-item>
 
           <el-form-item label="请求地址">
-            <el-input v-model="inlineWebhook.url" placeholder="https://example.com/webhook" :disabled="readonly" />
+            <el-input
+              :model-value="inlineWebhook.url"
+              placeholder="https://example.com/webhook"
+              :disabled="readonly"
+              @update:model-value="(val) => updateInlineWebhook({ url: val })" />
           </el-form-item>
 
           <el-form-item label="请求方法">
-            <el-select v-model="inlineWebhook.method" class="full-width" :disabled="readonly">
+            <el-select
+              :model-value="inlineWebhook.method"
+              class="full-width"
+              :disabled="readonly"
+              @update:model-value="(val) => updateInlineWebhook({ method: val as WebhookMethod })">
               <el-option
                 v-for="method in webhookMethods"
                 :key="method.value"
@@ -995,11 +1007,12 @@ const nodeTypeLabel = computed(() => {
 
           <el-form-item label="Body 模板">
             <el-input
-              v-model="inlineWebhook.body_template"
+              :model-value="inlineWebhook.body_template"
               type="textarea"
               :rows="4"
               placeholder="JSON 模板，支持 {{trigger.record.field_id}}"
-              :disabled="readonly" />
+              :disabled="readonly"
+              @update:model-value="(val) => updateInlineWebhook({ body_template: val })" />
           </el-form-item>
         </template>
       </el-form>

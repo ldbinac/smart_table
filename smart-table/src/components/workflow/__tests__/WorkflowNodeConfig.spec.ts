@@ -480,6 +480,40 @@ describe('WorkflowNodeConfig', () => {
       expect(wrapper.text()).toContain('内联新建');
     });
 
+    it('Webhook 内联新建输入应触发 update:node 更新配置', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'inline',
+            inline_webhook: {
+              name: '',
+              url: '',
+              method: 'POST',
+              headers: {},
+              body_template: '',
+            },
+          },
+        },
+      });
+      await nextTick();
+
+      const inputs = wrapper.findAll('.el-input');
+      // 0: name input, 1: url input, 2: body_template textarea, 3: new header key input
+      expect(inputs.length).toBeGreaterThanOrEqual(2);
+
+      await inputs[0].setValue('测试 Webhook');
+      await inputs[1].setValue('https://example.com/hook');
+      await nextTick();
+
+      const emitted = wrapper.emitted('update:node') as any[][];
+      expect(emitted).toBeTruthy();
+      const lastNode = emitted[emitted.length - 1][0];
+      expect(lastNode.config.inline_webhook.name).toBe('测试 Webhook');
+      expect(lastNode.config.inline_webhook.url).toBe('https://example.com/hook');
+    });
+
     it('action + 未知 action_type 应显示友好错误提示', async () => {
       const wrapper = mountConfig({
         node: {
