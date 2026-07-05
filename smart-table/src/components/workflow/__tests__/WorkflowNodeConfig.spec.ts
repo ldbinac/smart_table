@@ -106,7 +106,7 @@ describe('WorkflowNodeConfig', () => {
           },
           'el-form': { template: '<form class="el-form"><slot /></form>' },
           'el-form-item': { template: '<div class="el-form-item"><slot /></div>' },
-          'el-radio-group': { template: '<div class="el-radio-group"><slot /></div>' },
+          'el-radio-group': { template: '<div class="el-radio-group" :class="{ &quot;is-disabled&quot;: disabled }"><slot /></div>', props: ['disabled', 'modelValue'], emits: ['update:modelValue'] },
           'el-radio': { template: '<label class="el-radio"><slot /></label>' },
           'el-select': { template: '<select class="el-select" :class="$props.class" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value); $emit(\'change\', $event.target.value)"><slot /></select>', props: ['class', 'modelValue'], emits: ['update:modelValue', 'change'] },
           'el-option': { template: '<option class="el-option"><slot /></option>' },
@@ -512,6 +512,42 @@ describe('WorkflowNodeConfig', () => {
       const lastNode = emitted[emitted.length - 1][0];
       expect(lastNode.config.inline_webhook.name).toBe('测试 Webhook');
       expect(lastNode.config.inline_webhook.url).toBe('https://example.com/hook');
+    });
+
+    it('新建 Webhook 节点时 Webhook 来源可切换', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          id: 'node_temp_123',
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+          },
+        },
+      });
+      await nextTick();
+
+      const radioGroup = wrapper.findComponent('.webhook-source-radio');
+      expect(radioGroup.exists()).toBe(true);
+      expect(radioGroup.classes('is-disabled')).toBe(false);
+    });
+
+    it('编辑已保存 Webhook 节点时 Webhook 来源禁用', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          id: '550e8400-e29b-41d4-a716-446655440000',
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+          },
+        },
+      });
+      await nextTick();
+
+      const radioGroup = wrapper.findComponent('.webhook-source-radio');
+      expect(radioGroup.exists()).toBe(true);
+      expect(radioGroup.classes('is-disabled')).toBe(true);
     });
 
     it('action + 未知 action_type 应显示友好错误提示', async () => {

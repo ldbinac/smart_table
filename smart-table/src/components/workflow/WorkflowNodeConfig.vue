@@ -469,6 +469,8 @@ const webhookMethods: { value: WebhookMethod; label: string }[] = [
   { value: "PUT", label: "PUT" },
 ];
 
+const isNewWebhookNode = computed(() => (props.node.id ?? "").startsWith("node_"));
+
 const webhookMode = computed({
   get: () => configValue<"existing" | "inline">("webhook_mode", "existing"),
   set: (value) => setConfigValue("webhook_mode", value),
@@ -932,7 +934,7 @@ const nodeTypeLabel = computed(() => {
     <template v-else-if="localNode.node_type === 'webhook'">
       <el-form label-position="top" class="config-form">
         <el-form-item label="Webhook 来源">
-          <el-radio-group v-model="webhookMode" :disabled="readonly">
+          <el-radio-group v-model="webhookMode" class="webhook-source-radio" :disabled="readonly || !isNewWebhookNode">
             <el-radio label="existing">选择已配置</el-radio>
             <el-radio label="inline">内联新建</el-radio>
           </el-radio-group>
@@ -1010,7 +1012,7 @@ const nodeTypeLabel = computed(() => {
               :model-value="inlineWebhook.body_template"
               type="textarea"
               :rows="4"
-              placeholder="JSON 模板，支持 {{trigger.record.field_id}}"
+              placeholder="JSON 模板（注意对应webhook接口配置要求），支持通过 {{record}}、{{record.field_id}} 获取对应的数据"
               :disabled="readonly"
               @update:model-value="(val) => updateInlineWebhook({ body_template: val })" />
           </el-form-item>
