@@ -677,6 +677,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
         v-loading="versionLoading"
         :data="workflowStore.versions"
         row-key="id"
+        height="60vh"
         style="width: 100%">
         <el-table-column type="expand">
           <template #default="{ row }">
