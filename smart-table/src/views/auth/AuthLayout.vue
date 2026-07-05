@@ -197,11 +197,7 @@ const showWechatQR = ref(false);
   justify-content: center;
   position: relative;
   padding: 40px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.22) 0%,
-    rgba(255, 255, 255, 0.12) 100%
-  );
+  background-color: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(24px);
   border-left: 1px solid rgba(255, 255, 255, 0.25);
 }
