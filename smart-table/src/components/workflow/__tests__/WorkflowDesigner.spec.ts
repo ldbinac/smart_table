@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { nextTick } from 'vue';
+import { ElMessageBox } from 'element-plus';
 import WorkflowDesigner from '../WorkflowDesigner.vue';
 
 // Mock Sortablejs
@@ -39,6 +40,15 @@ vi.mock('../WorkflowTriggerConfig.vue', () => ({
   },
 }));
 
+// Mock vue-router
+vi.mock('vue-router', () => ({
+  onBeforeRouteLeave: vi.fn((guard) => {
+    (globalThis as any).__testRouteGuard = guard;
+  }),
+  useRoute: () => ({}),
+  useRouter: () => ({}),
+}));
+
 // Mock Element Plus 图标
 vi.mock('@element-plus/icons-vue', () => ({
   CircleCheck: { template: '<span class="icon-circle-check" />' },
@@ -55,6 +65,8 @@ vi.mock('@element-plus/icons-vue', () => ({
 }));
 
 describe('WorkflowDesigner', () => {
+  const mockNext = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
     sortableConstructorCallCount = 0;
@@ -311,5 +323,190 @@ describe('WorkflowDesigner', () => {
     await wrapper.setProps({ nodes: mockNodes });
     await flushPromises();
     expect(sortableConstructorCallCount).toBeGreaterThan(callCount);
+  });
+
+  it('create_record 节点未配置字段映射时保存应弹窗并阻止 save 事件', async () => {
+    const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
+    const wrapper = mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'create_record' as const,
+          name: '创建记录 1',
+          config: { target_table_id: 'table-1', field_mappings: [] },
+          order: 0,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
+    );
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(alertMock).toHaveBeenCalled();
+    expect(wrapper.emitted('save')).toBeFalsy();
+    alertMock.mockRestore();
+  });
+
+  it('update_record 节点未配置字段映射时保存应弹窗并阻止 save 事件', async () => {
+    const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
+    const wrapper = mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'update_record' as const,
+          name: '更新记录 1',
+          config: { updates: [] },
+          order: 0,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
+    );
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(alertMock).toHaveBeenCalled();
+    expect(wrapper.emitted('save')).toBeFalsy();
+    alertMock.mockRestore();
+  });
+
+  it('多个节点未配置映射时弹窗内容应列出所有节点名称', async () => {
+    const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
+    const wrapper = mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'create_record' as const,
+          name: '创建记录 1',
+          config: { target_table_id: 'table-1', field_mappings: [] },
+          order: 0,
+          next_nodes: [],
+        },
+        {
+          id: 'node-2',
+          workflow_id: 'wf-1',
+          node_type: 'update_record' as const,
+          name: '更新记录 2',
+          config: { updates: [] },
+          order: 1,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
+    );
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    const [message] = alertMock.mock.calls[0];
+    expect(String(message)).toContain('创建记录 1');
+    expect(String(message)).toContain('更新记录 2');
+    alertMock.mockRestore();
+  });
+
+  it('create_record 与 update_record 均配置映射时保存正常触发 save 事件', async () => {
+    const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
+    const wrapper = mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'create_record' as const,
+          name: '创建记录 1',
+          config: {
+            target_table_id: 'table-1',
+            field_mappings: [{ target_field_id: 'field-1', source_field_id: '', value_template: '' }],
+          },
+          order: 0,
+          next_nodes: [],
+        },
+        {
+          id: 'node-2',
+          workflow_id: 'wf-1',
+          node_type: 'update_record' as const,
+          name: '更新记录 2',
+          config: {
+            updates: [{ field_id: 'field-1', value_template: '' }],
+          },
+          order: 1,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
+    );
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(alertMock).not.toHaveBeenCalled();
+    expect(wrapper.emitted('save')).toBeTruthy();
+    alertMock.mockRestore();
+  });
+
+  it('存在未配置映射节点时路由离开应弹出确认', async () => {
+    const confirmMock = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as any);
+    mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'create_record' as const,
+          name: '创建记录 1',
+          config: { target_table_id: 'table-1', field_mappings: [] },
+          order: 0,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const guard = (globalThis as any).__testRouteGuard;
+    expect(guard).toBeDefined();
+    guard({}, {}, mockNext);
+
+    expect(confirmMock).toHaveBeenCalled();
+    confirmMock.mockRestore();
+  });
+
+  it('存在未配置映射节点时 beforeunload 事件应阻止默认行为', async () => {
+    mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'create_record' as const,
+          name: '创建记录 1',
+          config: { target_table_id: 'table-1', field_mappings: [] },
+          order: 0,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const event = new Event('beforeunload', { cancelable: true });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+    window.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    preventDefaultSpy.mockRestore();
   });
 });

@@ -9,6 +9,7 @@ import {
 } from "vue";
 import Sortable from "sortablejs";
 import { ElMessageBox } from "element-plus";
+import { onBeforeRouteLeave } from "vue-router";
 import type { FieldEntity, TableEntity } from "@/db/schema";
 import type {
   Workflow,
@@ -116,6 +117,7 @@ const isDraft = computed(() => props.workflow.status === "draft");
 const isPaused = computed(() => props.workflow.status === "paused");
 const isFreshDraft = computed(() => isDraft.value && (props.workflow.current_version ?? 0) === 0);
 const readonly = computed(() => !["draft", "paused"].includes(props.workflow.status));
+const hasInvalidMappingNodes = computed(() => !validateNodeMappings(localNodes.value).valid);
 
 function cloneConfig(config: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(config));
@@ -137,6 +139,29 @@ function rebuildNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
     ...node,
     next_nodes: nextMap.get(node.id) ?? [],
   }));
+}
+
+interface MappingValidationResult {
+  valid: boolean;
+  invalidNodeNames: string[];
+}
+
+function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
+  const invalidNodeNames: string[] = [];
+  nodes.forEach((node) => {
+    if (node.node_type === 'create_record') {
+      const mappings = (node.config?.field_mappings ?? []) as unknown[];
+      if (!mappings.length) {
+        invalidNodeNames.push(node.name);
+      }
+    } else if (node.node_type === 'update_record') {
+      const updates = (node.config?.updates ?? []) as unknown[];
+      if (!updates.length) {
+        invalidNodeNames.push(node.name);
+      }
+    }
+  });
+  return { valid: invalidNodeNames.length === 0, invalidNodeNames };
 }
 
 const nodeTypeMenu = [
@@ -228,11 +253,13 @@ function initSortable() {
 
 onMounted(() => {
   nextTick(() => initSortable());
+  window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
 onUnmounted(() => {
   sortableInstance?.destroy();
   sortableInstance = null;
+  window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 
 watch(
@@ -265,6 +292,20 @@ async function handleSave() {
       return;
     }
   }
+
+  const mappingValidation = validateNodeMappings(localNodes.value);
+  if (!mappingValidation.valid) {
+    const nodeList = mappingValidation.invalidNodeNames
+      .map((name) => `· ${name}`)
+      .join('\n');
+    await ElMessageBox.alert(
+      `以下节点未配置字段映射，请先配置后再保存：\n${nodeList}`,
+      '字段映射未配置',
+      { confirmButtonText: '去配置' }
+    );
+    return;
+  }
+
   emit("save");
 }
 
@@ -279,6 +320,31 @@ function handleClone() {
 function handleViewVersions() {
   emit("viewVersions");
 }
+
+const LEAVE_CONFIRM_MESSAGE =
+  '当前工作流存在未配置字段映射的节点，离开将丢失未保存的修改，是否继续？';
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (hasInvalidMappingNodes.value) {
+    event.preventDefault();
+    event.returnValue = LEAVE_CONFIRM_MESSAGE;
+    return LEAVE_CONFIRM_MESSAGE;
+  }
+}
+
+onBeforeRouteLeave((_, __, next) => {
+  if (hasInvalidMappingNodes.value) {
+    ElMessageBox.confirm(LEAVE_CONFIRM_MESSAGE, '确认离开', {
+      confirmButtonText: '继续离开',
+      cancelButtonText: '去配置',
+      type: 'warning',
+    })
+      .then(() => next())
+      .catch(() => next(false));
+    return;
+  }
+  next();
+});
 </script>
 
 <template>
