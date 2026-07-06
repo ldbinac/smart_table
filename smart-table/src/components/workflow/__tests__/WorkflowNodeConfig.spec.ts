@@ -635,47 +635,106 @@ describe('WorkflowNodeConfig', () => {
     });
   });
 
-  it('条件节点默认使用 and 关系，可切换为 or', async () => {
-    const wrapper = mountConfig({
-      node: {
-        ...mockNode,
-        node_type: 'condition',
-        config: {
-          conditions: [{ field_id: 'field-1', operator: 'equals', value: 'a' }],
+  describe('条件节点多分支', () => {
+    function mountCondition(config: Record<string, unknown> = {}) {
+      return mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'condition',
+          config,
         },
-      },
+      });
+    }
+
+    it('旧单条件组配置自动迁移为单分支', async () => {
+      const wrapper = mountCondition({
+        conditions: [{ field_id: 'field-1', operator: 'equals', value: 'a' }],
+        conjunction: 'or',
+      });
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(1);
+      expect(branches[0].name).toBe('满足条件');
+      expect(branches[0].conjunction).toBe('or');
+      expect(branches[0].conditions.length).toBe(1);
     });
-    await nextTick();
 
-    expect((wrapper.vm as any).conjunction).toBe('and');
-    expect(wrapper.find('.condition-conjunction').exists()).toBe(true);
+    it('已包含 branches 的配置直接保留', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: '分支 A', conditions: [], conjunction: 'and' },
+          { id: 'b2', name: '分支 B', conditions: [], conjunction: 'or' },
+        ],
+      });
+      await nextTick();
 
-    (wrapper.vm as any).onConjunctionChange('or');
-    await nextTick();
-
-    expect((wrapper.vm as any).localNode.config.conjunction).toBe('or');
-    expect((wrapper.vm as any).conjunction).toBe('or');
-    expect(wrapper.emitted('update:node')).toBeTruthy();
-  });
-
-  it('只读条件节点显示条件关系文案', async () => {
-    const wrapper = mountConfig({
-      node: {
-        ...mockNode,
-        node_type: 'condition',
-        config: {
-          conjunction: 'or',
-          conditions: [
-            { field_id: 'field-1', operator: 'equals', value: 'a' },
-            { field_id: 'field-2', operator: 'equals', value: 'b' },
-          ],
-        },
-      },
-      readonly: true,
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(2);
+      expect(branches[0].name).toBe('分支 A');
+      expect(branches[1].name).toBe('分支 B');
     });
-    await nextTick();
 
-    expect(wrapper.text()).toContain('满足任一条件');
-    expect(wrapper.text()).toContain('关系：满足任一条件');
+    it('点击添加分支会增加新分支并切换到新标签', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
+
+      const addBtn = wrapper.find('.branch-tabs .el-button');
+      await addBtn.trigger('click');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(2);
+      expect(branches[1].name).toBe('分支 2');
+      expect((wrapper.vm as any).activeBranchId).toBe(branches[1].id);
+    });
+
+    it('编辑分支名称会更新对应分支', async () => {
+      const wrapper = mountCondition({
+        branches: [{ id: 'b1', name: '原名称', conditions: [], conjunction: 'and' }],
+      });
+      await nextTick();
+
+      const input = wrapper.find('.branch-name-input');
+      await input.setValue('新名称');
+      await input.trigger('input');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches[0].name).toBe('新名称');
+    });
+
+    it('删除条件会更新对应分支的条件列表', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          {
+            id: 'b1',
+            name: '分支',
+            conditions: [{ field_id: 'field-1', operator: 'equals', value: 'a' }],
+            conjunction: 'and',
+          },
+        ],
+      });
+      await nextTick();
+
+      const deleteBtn = wrapper.find('.condition-row .el-button');
+      await deleteBtn.trigger('click');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches[0].conditions.length).toBe(0);
+    });
+
+    it('只读模式下不显示添加/删除分支按钮', async () => {
+      const wrapper = mountCondition({
+        branches: [{ id: 'b1', name: '分支', conditions: [], conjunction: 'and' }],
+      });
+      await nextTick();
+      await wrapper.setProps({ readonly: true });
+      await nextTick();
+
+      expect(wrapper.find('.branch-tabs .el-button').exists()).toBe(false);
+      expect(wrapper.find('.condition-row .el-button').exists()).toBe(false);
+    });
   });
 });
