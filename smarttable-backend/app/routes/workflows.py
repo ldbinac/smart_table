@@ -441,7 +441,8 @@ def update_workflow_nodes(workflow_id) -> tuple:
                 name=node_data.get('name', f'节点 {index + 1}'),
                 config=node_config,
                 order=node_data.get('order', index),
-                next_nodes=[]
+                next_nodes=[],
+                ui_layout=node_data.get('ui_layout', {})
             )
             db.session.add(node)
             db.session.flush()

@@ -1327,3 +1327,126 @@ class TestCleanFilterConfig:
         trigger = workflow.triggers.first()
         assert trigger is not None
         assert trigger.filter_config == {}
+
+
+class TestWorkflowNodeUILayout:
+    """测试工作流节点 UI 布局字段"""
+
+    def test_create_workflow_persists_ui_layout(self, ctx, base, table, owner):
+        """测试 create_workflow 保存节点 ui_layout"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='UI 布局测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'trigger',
+                    'name': '触发',
+                    'config': {},
+                    'order': 0,
+                    'next_nodes': [],
+                    'ui_layout': {'x': 100, 'y': 200}
+                }
+            ]
+        )
+        node = workflow.nodes.first()
+        assert node is not None
+        assert node.ui_layout == {'x': 100, 'y': 200}
+        assert node.to_dict()['ui_layout'] == {'x': 100, 'y': 200}
+
+    def test_update_workflow_persists_ui_layout(self, ctx, base, table, owner):
+        """测试 update_workflow 保存节点 ui_layout"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='UI 布局更新测试',
+            created_by=owner.id
+        )
+        WorkflowService.update_workflow(
+            workflow_id=workflow.id,
+            user_id=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'action',
+                    'name': '更新记录',
+                    'config': {'action_type': 'update_record'},
+                    'order': 0,
+                    'next_nodes': [],
+                    'ui_layout': {'x': 50, 'y': 80}
+                }
+            ]
+        )
+        node = WorkflowNode.query.filter_by(workflow_id=workflow.id).first()
+        assert node is not None
+        assert node.ui_layout == {'x': 50, 'y': 80}
+
+    def test_ui_layout_default_to_empty_dict(self, ctx, base, table, owner):
+        """测试未提供 ui_layout 时默认返回空对象"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='默认布局测试',
+            created_by=owner.id,
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'order': 0}
+            ]
+        )
+        node = workflow.nodes.first()
+        assert node.to_dict()['ui_layout'] == {}
+
+    def test_ui_layout_excluded_from_content_fingerprint(self, ctx, base, table, owner):
+        """测试 ui_layout 不参与版本内容指纹"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='指纹排除测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'trigger',
+                    'name': '触发',
+                    'order': 0,
+                    'ui_layout': {'x': 0, 'y': 0}
+                }
+            ]
+        )
+        fingerprint_before = WorkflowService._build_content_fingerprint(workflow)
+
+        # 仅修改 ui_layout
+        WorkflowService.update_workflow(
+            workflow_id=workflow.id,
+            user_id=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'trigger',
+                    'name': '触发',
+                    'order': 0,
+                    'ui_layout': {'x': 999, 'y': 999}
+                }
+            ]
+        )
+        fingerprint_after = WorkflowService._build_content_fingerprint(workflow)
+        assert fingerprint_before == fingerprint_after
+        assert 'ui_layout' not in fingerprint_before['nodes'][0]
+        assert 'ui_layout' not in fingerprint_after['nodes'][0]
+
+    def test_extract_content_from_snapshot_excludes_ui_layout(self, ctx):
+        """测试从快照提取业务字段时排除 ui_layout"""
+        snapshot = {
+            'name': '快照',
+            'nodes': [
+                {
+                    'node_type': 'trigger',
+                    'name': '触发',
+                    'config': {},
+                    'order': 0,
+                    'next_nodes': [],
+                    'ui_layout': {'x': 1, 'y': 2}
+                }
+            ],
+            'triggers': []
+        }
+        content = WorkflowService._extract_content_from_snapshot(snapshot)
+        assert 'ui_layout' not in content['nodes'][0]
+        assert content['nodes'][0]['node_type'] == 'trigger'

@@ -371,7 +371,8 @@ class WorkflowService:
                     name=node_data.get('name', f'节点 {index + 1}'),
                     config=node_config,
                     order=node_data.get('order', index),
-                    next_nodes=node_data.get('next_nodes', [])
+                    next_nodes=node_data.get('next_nodes', []),
+                    ui_layout=node_data.get('ui_layout', {})
                 )
                 db.session.add(node)
 
@@ -499,7 +500,8 @@ class WorkflowService:
                         name=node_data.get('name', f'节点 {index + 1}'),
                         config=config,
                         order=node_data.get('order', index),
-                        next_nodes=node_data.get('next_nodes', [])
+                        next_nodes=node_data.get('next_nodes', []),
+                        ui_layout=node_data.get('ui_layout', {})
                     )
                     db.session.add(node)
 
@@ -600,7 +602,8 @@ class WorkflowService:
                 name=node.name,
                 config=node.config,
                 order=node.order,
-                next_nodes=node.next_nodes
+                next_nodes=node.next_nodes,
+                ui_layout=node.ui_layout
             )
             db.session.add(new_node)
 
@@ -899,6 +902,7 @@ class WorkflowService:
                 'config': node.config or {},
                 'order': node.order,
                 'next_nodes': node.next_nodes or []
+                # ui_layout 为纯展示字段，不参与版本指纹
             })
         return {
             'name': workflow.name,
@@ -929,6 +933,7 @@ class WorkflowService:
                     'config': n.get('config', {}),
                     'order': n.get('order'),
                     'next_nodes': n.get('next_nodes', [])
+                    # ui_layout 为纯展示字段，不参与版本指纹
                 }
                 for n in nodes
             ],

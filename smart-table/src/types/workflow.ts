@@ -98,6 +98,7 @@ export interface WorkflowNode {
   config: Record<string, unknown>;
   order: number;
   next_nodes: string[];
+  ui_layout?: { x: number; y: number };
 }
 
 export interface WorkflowTrigger {

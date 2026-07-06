@@ -261,6 +261,39 @@ class TestWorkflowRoutes:
         assert first['next_nodes'] == [second['id']]
         assert second['next_nodes'] == []
 
+    def test_update_nodes_persists_ui_layout(self, client, auth_headers, created_workflow):
+        """测试 PUT /nodes 保存并返回 ui_layout"""
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': [],
+                        'ui_layout': {'x': 120, 'y': 240}
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert len(data['data']) == 1
+        assert data['data'][0]['ui_layout'] == {'x': 120, 'y': 240}
+
+        # GET /nodes 同样返回 ui_layout
+        get_response = client.get(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            headers=auth_headers
+        )
+        assert get_response.status_code == 200
+        get_data = get_response.get_json()
+        assert get_data['data'][0]['ui_layout'] == {'x': 120, 'y': 240}
+
     def test_publish_workflow_snapshot_preserves_create_record_node_type(
         self, client, auth_headers, created_workflow
     ):
