@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { Handle, Position } from "@vue-flow/core";
 import {
   CircleCheck,
   Share,
@@ -9,7 +10,8 @@ import {
   Link,
   Delete,
 } from "@element-plus/icons-vue";
-import type { WorkflowNode } from "@/types/workflow";
+import type { WorkflowNode, ConditionBranch } from "@/types/workflow";
+import { getConditionBranches } from "@/utils/conditionBranch";
 
 interface NodeTypeOption {
   type: string;
@@ -58,7 +60,24 @@ const isSelected = computed(() => props.data.selected ?? props.selected ?? false
 const isCondition = computed(() => node.value.node_type === "condition");
 const isReadonly = computed(() => props.data.readonly ?? false);
 
+const branches = computed<ConditionBranch[]>(() =>
+  isCondition.value ? getConditionBranches(node.value.config) : [],
+);
+
 const nodeIcon = computed(() => iconMap[node.value.node_type] ?? CircleCheck);
+
+function getBranchHandleStyle(index: number, total: number) {
+  const step = total > 1 ? 48 / (total - 1) : 0;
+  const top = total > 1 ? 16 + index * step : 50;
+  return {
+    top: `${top}px`,
+    right: "-6px",
+    width: "10px",
+    height: "10px",
+    background: "#2d7cfc",
+    border: "2px solid #fff",
+  };
+}
 
 const nodeTypeLabel = computed(() => {
   const option = nodeTypeOptions.find((item) => item.type === node.value.node_type);
@@ -135,6 +154,16 @@ function handleDelete() {
         <span class="node-type-label">{{ nodeTypeLabel }}</span>
         <el-icon v-if="isCondition" class="condition-branch-icon"><Share /></el-icon>
       </div>
+
+      <Handle
+        v-for="(branch, index) in branches"
+        :key="branch.id"
+        type="source"
+        :position="Position.Right"
+        :id="branch.id"
+        :connectable="!isReadonly"
+        :style="getBranchHandleStyle(index, branches.length)"
+      />
     </div>
 
     <div
@@ -215,6 +244,7 @@ function handleDelete() {
 }
 
 .workflow-node-card {
+  position: relative;
   width: 160px;
   padding: $spacing-sm;
   background-color: white;

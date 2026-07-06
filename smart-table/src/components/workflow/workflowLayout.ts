@@ -1,8 +1,10 @@
 import type { WorkflowNode } from "@/types/workflow";
+import { getConditionBranches } from "@/utils/conditionBranch";
 
 const VERTICAL_SPACING = 120;
-const BRANCH_OFFSET_X = 200;
-const BRANCH_START_Y_OFFSET = 80;
+const BRANCH_OFFSET_X = 240;
+const BRANCH_START_Y_OFFSET = 60;
+const BRANCH_STEP_Y = 100;
 const CENTER_RETURN_STEP = 50;
 
 export function hasValidLayout(node: WorkflowNode): boolean {
@@ -22,17 +24,25 @@ export function hasValidLayout(node: WorkflowNode): boolean {
  * 规则：
  * - 已有有效 `ui_layout` 的节点保持原样。
  * - 节点按 `order` 升序排列。
- * - 普通节点垂直单列排列，x=0，y=order*VERTICAL_SPACING。
- * - 条件节点的“满足条件”分支节点（即其 `next_nodes` 指向的节点）向右偏移展示。
+ * - 普通节点垂直单列排列，x=0。
+ * - 条件节点的每个分支目标节点在右侧垂直分布，避免重叠。
  * - 分支结束后，后续节点逐步向中心靠拢，最终回到 x=0 的主列。
  */
 export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
-  // 收集所有条件节点的分支目标 ID（MVP 阶段仅处理“满足条件”分支）
-  const branchTargetIds = new Set<string>();
+  // 收集每个条件节点的分支目标 ID，按顺序分配 Y 偏移
+  const branchTargets = new Map<string, { conditionY: number; index: number }>();
   nodes.forEach((node) => {
-    if (node.node_type === "condition" && Array.isArray(node.next_nodes)) {
-      node.next_nodes.forEach((id) => branchTargetIds.add(id));
-    }
+    if (node.node_type !== "condition") return;
+    const conditionY = hasValidLayout(node)
+      ? node.ui_layout!.y
+      : undefined;
+    getConditionBranches(node.config).forEach((branch, index) => {
+      if (!branch.target_node_id) return;
+      branchTargets.set(branch.target_node_id, {
+        conditionY: conditionY ?? 0,
+        index,
+      });
+    });
   });
 
   const sorted = [...nodes].sort((a, b) => a.order - b.order);
@@ -58,10 +68,11 @@ export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
       lastConditionY = y;
       cursorY = y + VERTICAL_SPACING;
       branchReturnX = null;
-    } else if (branchTargetIds.has(node.id)) {
+    } else if (branchTargets.has(node.id)) {
+      const target = branchTargets.get(node.id)!;
       x = BRANCH_OFFSET_X;
-      y = lastConditionY + BRANCH_START_Y_OFFSET;
-      cursorY = y + VERTICAL_SPACING;
+      y = target.conditionY + BRANCH_START_Y_OFFSET + target.index * BRANCH_STEP_Y;
+      cursorY = Math.max(cursorY, y + VERTICAL_SPACING);
       branchReturnX = BRANCH_OFFSET_X;
     } else {
       if (branchReturnX !== null && branchReturnX > 0) {

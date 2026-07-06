@@ -421,25 +421,54 @@ class WorkflowExecutionEngine:
         )
         return {'task_id': task_id}
 
+    @staticmethod
+    def _normalize_condition_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """将条件节点配置归一化为多分支结构。
+
+        旧配置使用 {conditions, conjunction} 表示单一条件组，自动迁移为单分支。
+        新配置使用 {branches: [{id, name, conditions, conjunction, target_node_id}]}。
+        """
+        config = config or {}
+        branches = config.get('branches')
+        if isinstance(branches, list) and branches:
+            return {'branches': branches}
+
+        old_conditions = config.get('conditions', [])
+        old_conjunction = config.get('conjunction', 'and')
+        return {
+            'branches': [
+                {
+                    'id': f'branch_{uuid.uuid4().hex[:8]}',
+                    'name': '满足条件',
+                    'conditions': old_conditions,
+                    'conjunction': old_conjunction,
+                    'target_node_id': None,
+                }
+            ]
+        }
+
     def _execute_condition_node(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行条件分支节点
 
-        前端以 `conditions` 数组（可选 `conjunction`）存储条件，与触发器过滤结构一致。
-        条件成立时沿节点执行链 `node.next_nodes` 继续执行，不成立则终止该分支。
+        支持多条件组分支（if/else-if 语义）。按 branches 数组顺序评估，首个满足条件的
+        分支的 target_node_id 作为后续节点；全部不满足则终止该分支。
         """
         config = node.config or {}
         context = self._build_render_context(instance)
+        normalized = self._normalize_condition_config(config)
+        branches = normalized.get('branches', [])
 
-        conditions = config.get('conditions', [])
-        condition_config: Dict[str, Any] = {
-            'conditions': conditions,
-            'conjunction': config.get('conjunction', 'and'),
-        }
+        for branch in branches:
+            conditions = branch.get('conditions', [])
+            condition_config: Dict[str, Any] = {
+                'conditions': conditions,
+                'conjunction': branch.get('conjunction', 'and'),
+            }
+            if self.evaluate_condition(condition_config, context):
+                target_node_id = branch.get('target_node_id')
+                return {'result': True, 'next_nodes': [target_node_id] if target_node_id else []}
 
-        result = self.evaluate_condition(condition_config, context)
-        next_nodes = node.next_nodes if result else []
-
-        return {'result': result, 'next_nodes': next_nodes}
+        return {'result': False, 'next_nodes': []}
 
     def _execute_webhook_node(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行 Webhook 节点"""

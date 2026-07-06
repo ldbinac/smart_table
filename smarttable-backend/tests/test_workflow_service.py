@@ -280,6 +280,70 @@ class TestWorkflowCRUD:
         assert len(active_list) == 1
         assert active_list[0].status == WorkflowStatus.ACTIVE
 
+    def test_create_workflow_normalizes_condition_branches(self, ctx, base, table, owner):
+        """测试创建工作流时条件节点 branches 配置被归一化保存"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='条件分支保存测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'branches': [
+                            {
+                                'id': 'b1',
+                                'name': '分支一',
+                                'conditions': [{'field_id': 'f1', 'operator': 'equals', 'value': 'a'}],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                            }
+                        ]
+                    },
+                    'order': 0,
+                }
+            ],
+        )
+
+        node = workflow.nodes.first()
+        assert node.node_type == WorkflowNodeType.CONDITION
+        assert 'branches' in node.config
+        assert len(node.config['branches']) == 1
+        assert node.config['branches'][0]['name'] == '分支一'
+
+    def test_update_workflow_migrates_legacy_condition_config(self, ctx, base, table, owner):
+        """测试更新工作流时旧条件配置自动迁移为 branches"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='旧条件迁移',
+            created_by=owner.id,
+        )
+
+        WorkflowService.update_workflow(
+            workflow_id=workflow.id,
+            user_id=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'conditions': [{'field_id': 'f1', 'operator': 'equals', 'value': 'a'}],
+                        'conjunction': 'or',
+                    },
+                    'order': 0,
+                }
+            ],
+        )
+
+        node = workflow.nodes.first()
+        assert 'branches' in node.config
+        assert len(node.config['branches']) == 1
+        assert node.config['branches'][0]['conjunction'] == 'or'
+        assert node.config['branches'][0]['name'] == '满足条件'
+
 
 class TestWorkflowStatus:
     """测试工作流状态管理"""

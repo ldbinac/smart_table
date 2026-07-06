@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from "@vue-flow/core";
-import { Plus } from "@element-plus/icons-vue";
+import { Plus, Delete } from "@element-plus/icons-vue";
 import type { EdgeProps } from "@vue-flow/core";
 
 interface EdgeData {
   readonly?: boolean;
   sourceNodeType?: string;
+  branchId?: string;
+  branchName?: string;
 }
 
 const props = defineProps<EdgeProps<EdgeData>>();
@@ -14,6 +16,10 @@ const emit = defineEmits<{
   (
     e: "edge-insert",
     payload: { sourceId: string; targetId: string; nodeType: string },
+  ): void;
+  (
+    e: "edge-delete",
+    payload: { sourceId: string; targetId: string; branchId?: string },
   ): void;
 }>();
 
@@ -30,6 +36,8 @@ const nodeTypeMenu = [
 const isConditionSource = computed(
   () => props.data?.sourceNodeType === "condition",
 );
+
+const branchName = computed(() => props.data?.branchName ?? "满足条件");
 
 const sourceLabelPosition = computed(() => {
   const [, labelX, labelY] = path.value;
@@ -48,6 +56,14 @@ function handleSelect(nodeType: string) {
     nodeType,
   });
 }
+
+function handleDelete() {
+  emit("edge-delete", {
+    sourceId: props.source,
+    targetId: props.target,
+    branchId: props.data?.branchId,
+  });
+}
 </script>
 
 <template>
@@ -55,7 +71,7 @@ function handleSelect(nodeType: string) {
 
   <EdgeLabelRenderer>
     <div
-      v-if="!data?.readonly"
+      v-if="!data?.readonly && !isConditionSource"
       class="edge-add-button-wrapper nodrag nopan"
       :style="{
         position: 'absolute',
@@ -80,6 +96,20 @@ function handleSelect(nodeType: string) {
     </div>
 
     <div
+      v-if="!data?.readonly && isConditionSource"
+      class="edge-delete-button-wrapper nodrag nopan"
+      :style="{
+        position: 'absolute',
+        transform: `translate(-50%, -50%) translate(${path[1]}px, ${path[2]}px)`,
+        pointerEvents: 'all',
+      }"
+    >
+      <button class="edge-delete-button" title="删除连线" @click="handleDelete">
+        <Delete />
+      </button>
+    </div>
+
+    <div
       v-if="isConditionSource"
       class="edge-source-label nodrag nopan"
       :style="{
@@ -88,7 +118,7 @@ function handleSelect(nodeType: string) {
         pointerEvents: 'none',
       }"
     >
-      满足条件
+      {{ branchName }}
     </div>
   </EdgeLabelRenderer>
 </template>
@@ -147,6 +177,36 @@ function handleSelect(nodeType: string) {
 
   &:hover {
     background-color: rgba($primary-color, 0.08);
+  }
+}
+
+.edge-delete-button-wrapper {
+  z-index: 10;
+}
+
+.edge-delete-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: white;
+  cursor: pointer;
+  background-color: $error-color;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.2s, transform 0.2s;
+
+  &:hover {
+    background-color: rgba($error-color, 0.85);
+    transform: scale(1.1);
+  }
+
+  svg {
+    width: 12px;
+    height: 12px;
   }
 }
 

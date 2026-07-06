@@ -35,6 +35,10 @@ import WorkflowTriggerConfig from "./WorkflowTriggerConfig.vue";
 import WorkflowCanvas from "./WorkflowCanvas.vue";
 import WorkflowCanvasToolbar from "./WorkflowCanvasToolbar.vue";
 import { layoutWorkflowNodes, hasValidLayout } from "./workflowLayout";
+import {
+  getConditionBranches,
+  setConditionBranchTarget,
+} from "@/utils/conditionBranch";
 
 interface Props {
   workflow: Workflow;
@@ -172,13 +176,21 @@ function generateId(): string {
   return `node_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// 根据 order 自动重建节点执行链：每个节点默认指向下一个节点
+// 根据 order 自动重建节点执行链：普通节点默认指向下一个节点；
+// 条件节点的 next_nodes 由其 branches 中的 target_node_id 决定。
 function rebuildNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
   const sorted = [...nodes].sort((a, b) => a.order - b.order);
   const nextMap = new Map<string, string[]>();
   sorted.forEach((node, index) => {
-    const nextNode = sorted[index + 1];
-    nextMap.set(node.id, nextNode ? [nextNode.id] : []);
+    if (node.node_type === "condition") {
+      const nextIds = getConditionBranches(node.config)
+        .map((b) => b.target_node_id)
+        .filter((id): id is string => !!id);
+      nextMap.set(node.id, nextIds);
+    } else {
+      const nextNode = sorted[index + 1];
+      nextMap.set(node.id, nextNode ? [nextNode.id] : []);
+    }
   });
   return nodes.map((node) => ({
     ...node,
@@ -202,6 +214,11 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
     } else if (node.node_type === 'update_record') {
       const updates = (node.config?.updates ?? []) as unknown[];
       if (!updates.length) {
+        invalidNodeNames.push(node.name);
+      }
+    } else if (node.node_type === 'condition') {
+      const branches = getConditionBranches(node.config);
+      if (branches.length === 0 || branches.some((b) => b.conditions.length === 0)) {
         invalidNodeNames.push(node.name);
       }
     }
@@ -253,7 +270,25 @@ function addNode(type: WorkflowNodeType) {
 }
 
 function removeNode(nodeId: string) {
-  localNodes.value = rebuildNodeChain(localNodes.value.filter((n) => n.id !== nodeId));
+  const filtered = localNodes.value.filter((n) => n.id !== nodeId);
+  const cleared = filtered.map((node) => {
+    if (node.node_type !== "condition") return node;
+    const branches = getConditionBranches(node.config);
+    const hasTarget = branches.some((b) => b.target_node_id === nodeId);
+    if (!hasTarget) return node;
+    let updatedConfig = { ...node.config, branches };
+    branches.forEach((branch) => {
+      if (branch.target_node_id === nodeId) {
+        updatedConfig = setConditionBranchTarget(
+          updatedConfig as { branches: typeof branches },
+          branch.id,
+          undefined,
+        );
+      }
+    });
+    return { ...node, config: updatedConfig };
+  });
+  localNodes.value = rebuildNodeChain(cleared);
   if (selectedNodeId.value === nodeId) {
     selectedNodeId.value = localNodes.value[0]?.id ?? null;
   }
@@ -292,6 +327,28 @@ function handleCanvasEdgeInsert(payload: {
   nodeType: string;
 }) {
   insertNodeBetween(payload.sourceId, payload.targetId, payload.nodeType);
+}
+
+function handleCanvasEdgeDelete(payload: {
+  sourceId: string;
+  targetId: string;
+  branchId?: string;
+}) {
+  const sourceNode = localNodes.value.find((n) => n.id === payload.sourceId);
+  if (!sourceNode || sourceNode.node_type !== "condition" || !payload.branchId) return;
+
+  const config = setConditionBranchTarget(
+    { branches: getConditionBranches(sourceNode.config) },
+    payload.branchId,
+    undefined,
+  );
+  const branches = getConditionBranches(config);
+  const updatedNode: WorkflowNode = {
+    ...sourceNode,
+    config: { ...sourceNode.config, branches },
+    next_nodes: branches.map((b) => b.target_node_id).filter((id): id is string => !!id),
+  };
+  updateNode(updatedNode);
 }
 
 function handleCanvasAddNode(payload: {
@@ -642,6 +699,7 @@ onBeforeRouteLeave((_, __, next) => {
               @update:nodes="handleCanvasUpdateNodes"
               @select-node="handleCanvasSelectNode"
               @edge-insert="handleCanvasEdgeInsert"
+              @edge-delete="handleCanvasEdgeDelete"
               @add-node="handleCanvasAddNode"
               @delete-node="handleCanvasDeleteNode" />
             <WorkflowCanvasToolbar

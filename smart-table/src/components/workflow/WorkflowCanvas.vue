@@ -9,8 +9,13 @@ import type {
   Edge as FlowEdge,
   NodeMouseEvent,
   NodeDragEvent,
+  Connection,
 } from "@vue-flow/core";
 import type { WorkflowNode } from "@/types/workflow";
+import {
+  getConditionBranches,
+  setConditionBranchTarget,
+} from "@/utils/conditionBranch";
 import WorkflowNodeCard from "./WorkflowNodeCard.vue";
 import WorkflowEdgeWithAddButton from "./WorkflowEdgeWithAddButton.vue";
 import "@vue-flow/core/dist/style.css";
@@ -42,6 +47,7 @@ const emit = defineEmits<{
     payload: { position: "before" | "after" | "first"; nodeType: string; targetId?: string },
   ): void;
   (e: "delete-node", nodeId: string): void;
+  (e: "edge-delete", payload: { sourceId: string; targetId: string; branchId?: string }): void;
 }>();
 
 const vueFlowRef = ref<InstanceType<typeof VueFlow> | null>(null);
@@ -56,6 +62,7 @@ const flowNodes = computed<FlowNode[]>(() =>
     data: { node, readonly: props.readonly },
     selectable: !props.readonly,
     draggable: !props.readonly,
+    connectable: node.node_type === "condition" ? !props.readonly : false,
     class: {
       "workflow-node": true,
       selected: node.id === props.selectedNodeId,
@@ -66,20 +73,40 @@ const flowNodes = computed<FlowNode[]>(() =>
 const flowEdges = computed<FlowEdge[]>(() => {
   const edges: FlowEdge[] = [];
   props.nodes.forEach((node) => {
-    node.next_nodes.forEach((targetId) => {
-      edges.push({
-        id: `e-${node.id}-${targetId}`,
-        source: node.id,
-        target: targetId,
-        type: "workflow",
-        label: node.node_type === "condition" ? "满足条件" : undefined,
-        markerEnd: "arrowclosed",
-        data: {
-          readonly: props.readonly,
-          sourceNodeType: node.node_type,
-        },
+    if (node.node_type === "condition") {
+      getConditionBranches(node.config).forEach((branch) => {
+        if (!branch.target_node_id) return;
+        edges.push({
+          id: `e-${node.id}-${branch.target_node_id}-${branch.id}`,
+          source: node.id,
+          target: branch.target_node_id,
+          sourceHandle: branch.id,
+          type: "workflow",
+          label: branch.name,
+          markerEnd: "arrowclosed",
+          data: {
+            readonly: props.readonly,
+            sourceNodeType: node.node_type,
+            branchId: branch.id,
+            branchName: branch.name,
+          },
+        });
       });
-    });
+    } else {
+      node.next_nodes.forEach((targetId) => {
+        edges.push({
+          id: `e-${node.id}-${targetId}`,
+          source: node.id,
+          target: targetId,
+          type: "workflow",
+          markerEnd: "arrowclosed",
+          data: {
+            readonly: props.readonly,
+            sourceNodeType: node.node_type,
+          },
+        });
+      });
+    }
   });
   return edges;
 });
@@ -109,6 +136,55 @@ function handleEdgeInsert(payload: {
   nodeType: string;
 }) {
   emit("edge-insert", payload);
+}
+
+function handleConnect(connection: Connection) {
+  const sourceNode = props.nodes.find((n) => n.id === connection.source);
+  if (!sourceNode || sourceNode.node_type !== "condition") return;
+
+  const branchId = connection.sourceHandle;
+  if (!branchId || !connection.target) return;
+
+  const updatedNodes = props.nodes.map((node) => {
+    if (node.id !== sourceNode.id) return node;
+    const config = setConditionBranchTarget(
+      { branches: getConditionBranches(node.config) },
+      branchId,
+      connection.target,
+    );
+    return {
+      ...node,
+      config: { ...node.config, branches: config.branches },
+      next_nodes: Array.from(
+        new Set([
+          ...node.next_nodes,
+          connection.target,
+        ]),
+      ),
+    };
+  });
+  emit("update:nodes", updatedNodes);
+}
+
+function handleEdgeDelete(payload: { sourceId: string; targetId: string; branchId?: string }) {
+  const sourceNode = props.nodes.find((n) => n.id === payload.sourceId);
+  if (!sourceNode || sourceNode.node_type !== "condition" || !payload.branchId) return;
+
+  const updatedNodes = props.nodes.map((node) => {
+    if (node.id !== sourceNode.id) return node;
+    const config = setConditionBranchTarget(
+      { branches: getConditionBranches(node.config) },
+      payload.branchId,
+      undefined,
+    );
+    const branches = getConditionBranches(config);
+    return {
+      ...node,
+      config: { ...node.config, branches },
+      next_nodes: branches.map((b) => b.target_node_id).filter((id): id is string => !!id),
+    };
+  });
+  emit("update:nodes", updatedNodes);
 }
 
 function handleAddBefore(nodeId: string, nodeType: string) {
@@ -160,7 +236,7 @@ defineExpose({
       :nodes="flowNodes"
       :edges="flowEdges"
       :nodes-draggable="!readonly"
-      :nodes-connectable="false"
+      :nodes-connectable="(node: any) => !!node.connectable"
       :elements-selectable="!readonly"
       :select-nodes-on-drag="false"
       :pan-on-drag="true"
@@ -170,6 +246,7 @@ defineExpose({
       fit-view-on-init
       @node-click="handleNodeClick"
       @node-drag-stop="handleNodeDragStop"
+      @connect="handleConnect"
     >
       <template #node-workflow="nodeProps">
         <WorkflowNodeCard
@@ -183,6 +260,7 @@ defineExpose({
         <WorkflowEdgeWithAddButton
           v-bind="edgeProps"
           @edge-insert="handleEdgeInsert"
+          @edge-delete="handleEdgeDelete"
         />
       </template>
       <Background />

@@ -286,6 +286,55 @@ class WorkflowService:
         return filter_config
 
     @staticmethod
+    def _normalize_condition_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """将条件节点配置归一化为多分支结构。
+
+        旧配置 {conditions, conjunction} 自动迁移为单分支；
+        新配置 {branches: [...]} 直接返回，并为缺少 id 的分支补全 id。
+        """
+        if not isinstance(config, dict):
+            config = {}
+        branches = config.get('branches')
+        if isinstance(branches, list):
+            normalized_branches = []
+            for branch in branches:
+                if not isinstance(branch, dict):
+                    continue
+                normalized_branches.append({
+                    'id': branch.get('id') or f'branch_{uuid.uuid4().hex[:8]}',
+                    'name': branch.get('name', '满足条件'),
+                    'conditions': branch.get('conditions', []),
+                    'conjunction': branch.get('conjunction', 'and'),
+                    'target_node_id': branch.get('target_node_id'),
+                })
+            if normalized_branches:
+                return {**config, 'branches': normalized_branches}
+
+        old_conditions = config.get('conditions', [])
+        old_conjunction = config.get('conjunction', 'and')
+        return {
+            'branches': [
+                {
+                    'id': f'branch_{uuid.uuid4().hex[:8]}',
+                    'name': '满足条件',
+                    'conditions': old_conditions,
+                    'conjunction': old_conjunction,
+                    'target_node_id': None,
+                }
+            ]
+        }
+
+    @staticmethod
+    def _clean_condition_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """清理条件节点配置：branches 为空数组时返回空 dict"""
+        if not isinstance(config, dict):
+            return {}
+        branches = config.get('branches')
+        if isinstance(branches, list) and len(branches) == 0:
+            return {}
+        return config
+
+    @staticmethod
     def _build_version_snapshot(workflow: Workflow) -> Dict[str, Any]:
         """为工作流构建版本快照"""
         return {
@@ -365,6 +414,9 @@ class WorkflowService:
                 if node_type in action_type_map:
                     node_config['action_type'] = action_type_map[node_type]
                     node_type = 'action'
+                if node_type == 'condition':
+                    node_config = cls._normalize_condition_config(node_config)
+                    node_config = cls._clean_condition_config(node_config)
                 node = WorkflowNode(
                     workflow_id=workflow.id,
                     node_type=WorkflowNodeType(node_type),
@@ -494,6 +546,9 @@ class WorkflowService:
                     if node_type_str in action_node_types:
                         config['action_type'] = node_type_str
                         node_type_str = 'action'
+                    if node_type_str == 'condition':
+                        config = cls._normalize_condition_config(config)
+                        config = cls._clean_condition_config(config)
                     node = WorkflowNode(
                         workflow_id=workflow.id,
                         node_type=WorkflowNodeType(node_type_str),

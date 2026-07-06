@@ -143,9 +143,9 @@ describe('WorkflowDesigner', () => {
     {
       id: 'node-2',
       workflow_id: 'wf-1',
-      node_type: 'condition' as const,
-      name: '条件节点 1',
-      config: {},
+      node_type: 'update_record' as const,
+      name: '更新记录 1',
+      config: { updates: [{ field_id: 'field-1', value_template: '' }] },
       order: 1,
       next_nodes: [],
     },
@@ -202,7 +202,7 @@ describe('WorkflowDesigner', () => {
     const nodeItems = wrapper.findAll('.node-item');
     expect(nodeItems.length).toBe(2);
     expect(nodeItems[0].find('.node-name').text()).toBe('审批节点 1');
-    expect(nodeItems[1].find('.node-name').text()).toBe('条件节点 1');
+    expect(nodeItems[1].find('.node-name').text()).toBe('更新记录 1');
   });
 
   it('应该默认选中第一个节点', async () => {
@@ -825,5 +825,67 @@ describe('WorkflowDesigner', () => {
     expect(left.attributes('style')).toContain('flex: 0 0 500px');
 
     document.dispatchEvent(new MouseEvent('mouseup'));
+  });
+
+  it('删除被条件节点指向的节点会清空对应分支目标', async () => {
+    const nodes: any[] = [
+      {
+        id: 'n1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件',
+        config: {
+          branches: [
+            { id: 'b1', name: 'B1', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and', target_node_id: 'n2' },
+          ],
+        },
+        order: 0,
+        next_nodes: ['n2'],
+      },
+      {
+        id: 'n2',
+        workflow_id: 'wf-1',
+        node_type: 'update_record',
+        name: '更新',
+        config: { updates: [{ field_id: 'f1', value_template: '' }] },
+        order: 1,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await nextTick();
+
+    const deleteBtn = wrapper.find('.node-item[data-node-id="n2"] .delete-btn');
+    await deleteBtn.trigger('click');
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    const conditionNode = lastNodes.find((n) => n.id === 'n1');
+    expect(conditionNode.config.branches[0].target_node_id).toBeUndefined();
+    expect(conditionNode.next_nodes).toEqual([]);
+  });
+
+  it('条件节点存在空条件分支时保存被阻止', async () => {
+    const nodes: any[] = [
+      {
+        id: 'n1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件',
+        config: {
+          branches: [
+            { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
+          ],
+        },
+        order: 0,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await nextTick();
+
+    expect((wrapper.vm as any).hasInvalidMappingNodes).toBe(true);
   });
 });

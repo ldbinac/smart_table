@@ -6,6 +6,9 @@ import type {
   WebhookConfig,
   ApprovalMode,
   WebhookMethod,
+  ConditionBranch,
+  ConditionItem,
+  ConditionNodeConfig,
 } from "@/types/workflow";
 import { FilterOperator } from "@/types/filters";
 import type { FilterOperatorValue } from "@/types/filters";
@@ -18,11 +21,18 @@ import { FieldType } from "@/types/fields";
 import type { FieldTypeValue } from "@/types/fields";
 import { fieldService } from "@/db/services/fieldService";
 import { normalizeWorkflowNode } from "@/utils/workflow";
+import {
+  normalizeConditionConfig,
+  addConditionBranch,
+  removeConditionBranch,
+  updateConditionBranch,
+} from "@/utils/conditionBranch";
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import {
   Delete,
   Plus,
   EditPen,
+  Close,
 } from "@element-plus/icons-vue";
 
 interface Props {
@@ -40,20 +50,31 @@ const emit = defineEmits<{
 
 // ==================== 通用配置辅助 ====================
 
-const localNode = ref<WorkflowNode>({
-  ...normalizeWorkflowNode(props.node),
-  config: cloneConfig(props.node.config),
-});
+function migrateConditionConfig(config: Record<string, unknown>): Record<string, unknown> {
+  const normalized = normalizeConditionConfig(config);
+  const migrated: Record<string, unknown> = { ...config, branches: normalized.branches };
+  delete migrated.conditions;
+  delete migrated.conjunction;
+  return migrated;
+}
+
+function buildLocalNode(node: WorkflowNode): WorkflowNode {
+  const normalized = normalizeWorkflowNode(node);
+  const config = cloneConfig(normalized.config);
+  if (normalized.node_type === "condition") {
+    return { ...normalized, config: migrateConditionConfig(config) };
+  }
+  return { ...normalized, config };
+}
+
+const localNode = ref<WorkflowNode>(buildLocalNode(props.node));
 let isUpdatingFromParent = false;
 
 watch(
   () => props.node,
   (newNode) => {
     isUpdatingFromParent = true;
-    localNode.value = {
-      ...normalizeWorkflowNode(newNode),
-      config: cloneConfig(newNode.config),
-    };
+    localNode.value = buildLocalNode(newNode);
     nextTick(() => {
       isUpdatingFromParent = false;
     });
@@ -171,12 +192,6 @@ const memberFieldOptions = computed(() =>
 
 // ==================== 条件节点配置 ====================
 
-interface ConditionItem {
-  field_id: string;
-  operator: FilterOperatorValue;
-  value: unknown;
-}
-
 type ConjunctionValue = "and" | "or";
 
 const CONJUNCTION_OPTIONS: { value: ConjunctionValue; label: string }[] = [
@@ -184,45 +199,82 @@ const CONJUNCTION_OPTIONS: { value: ConjunctionValue; label: string }[] = [
   { value: "or", label: "满足任一条件" },
 ];
 
-const conditions = computed<ConditionItem[]>({
-  get: () => configValue<ConditionItem[]>("conditions", []),
-  set: (value) => setConfigValue("conditions", value),
+const conditionConfig = computed<ConditionNodeConfig>({
+  get: () => normalizeConditionConfig(localNode.value.config),
+  set: (value) => {
+    localNode.value.config = { ...localNode.value.config, branches: value.branches };
+  },
 });
 
-const conjunction = computed<ConjunctionValue>({
-  get: () => configValue<ConjunctionValue>("conjunction", "and"),
-  set: (value) => setConfigValue("conjunction", value),
-});
+const branches = computed(() => conditionConfig.value.branches);
+const activeBranchId = ref<string | null>(null);
+
+function ensureActiveBranch() {
+  const list = branches.value;
+  if (!activeBranchId.value || !list.some((b) => b.id === activeBranchId.value)) {
+    activeBranchId.value = list[0]?.id ?? null;
+  }
+}
+
+watch(branches, ensureActiveBranch, { immediate: true });
+
+const activeBranch = computed<ConditionBranch | undefined>(
+  () => branches.value.find((b) => b.id === activeBranchId.value),
+);
 
 function getConjunctionLabel(value: ConjunctionValue) {
   return CONJUNCTION_OPTIONS.find((opt) => opt.value === value)?.label ?? value;
 }
 
-function onConjunctionChange(value: string | number | boolean | undefined) {
-  if (value === "and" || value === "or") {
-    conjunction.value = value;
-  }
+function addBranch() {
+  const { config, branch } = addConditionBranch(conditionConfig.value);
+  conditionConfig.value = config;
+  activeBranchId.value = branch.id;
 }
 
-function addCondition() {
+function removeBranch(branchId: string) {
+  if (branches.value.length <= 1) return;
+  conditionConfig.value = removeConditionBranch(conditionConfig.value, branchId);
+}
+
+function updateBranchName(branchId: string, name: string) {
+  conditionConfig.value = updateConditionBranch(conditionConfig.value, branchId, (branch) => ({
+    ...branch,
+    name: name.trim() || branch.name,
+  }));
+}
+
+function updateBranchConjunction(branchId: string, value: ConjunctionValue) {
+  conditionConfig.value = updateConditionBranch(conditionConfig.value, branchId, (branch) => ({
+    ...branch,
+    conjunction: value,
+  }));
+}
+
+function addCondition(branchId: string) {
   const firstField = props.fields[0];
   const defaultOperator = firstField
     ? getOperatorsForFieldType(firstField.type)[0] ?? FilterOperator.EQUALS
     : FilterOperator.EQUALS;
-  conditions.value = [
-    ...conditions.value,
-    {
-      field_id: firstField?.id ?? "",
-      operator: defaultOperator,
-      value: undefined,
-    },
-  ];
+  conditionConfig.value = updateConditionBranch(conditionConfig.value, branchId, (branch) => ({
+    ...branch,
+    conditions: [
+      ...branch.conditions,
+      {
+        field_id: firstField?.id ?? "",
+        operator: defaultOperator,
+        value: undefined,
+      },
+    ],
+  }));
 }
 
-function removeCondition(index: number) {
-  const list = [...conditions.value];
-  list.splice(index, 1);
-  conditions.value = list;
+function removeCondition(branchId: string, index: number) {
+  conditionConfig.value = updateConditionBranch(conditionConfig.value, branchId, (branch) => {
+    const conditions = [...branch.conditions];
+    conditions.splice(index, 1);
+    return { ...branch, conditions };
+  });
 }
 
 function getFieldById(fieldId: string) {
@@ -252,31 +304,41 @@ function getOperatorOptions(fieldType: string) {
   }));
 }
 
-function onConditionFieldChange(index: number, fieldId: string) {
-  const list = [...conditions.value];
+function onConditionFieldChange(branchId: string, index: number, fieldId: string) {
   const field = getFieldById(fieldId);
   const operators = field ? getOperatorsForFieldType(field.type) : [];
-  list[index] = {
-    field_id: fieldId,
-    operator: operators[0] ?? FilterOperator.EQUALS,
-    value: undefined,
-  };
-  conditions.value = list;
+  conditionConfig.value = updateConditionBranch(conditionConfig.value, branchId, (branch) => {
+    const conditions = [...branch.conditions];
+    conditions[index] = {
+      field_id: fieldId,
+      operator: operators[0] ?? FilterOperator.EQUALS,
+      value: undefined,
+    };
+    return { ...branch, conditions };
+  });
 }
 
-function onConditionOperatorChange(index: number, operator: FilterOperatorValue) {
-  const list = [...conditions.value];
-  list[index] = { ...list[index], operator };
-  if (!operatorRequiresValue(operator)) {
-    list[index].value = undefined;
-  }
-  conditions.value = list;
+function onConditionOperatorChange(
+  branchId: string,
+  index: number,
+  operator: FilterOperatorValue,
+) {
+  conditionConfig.value = updateConditionBranch(conditionConfig.value, branchId, (branch) => {
+    const conditions = [...branch.conditions];
+    conditions[index] = { ...conditions[index], operator };
+    if (!operatorRequiresValue(operator)) {
+      conditions[index].value = undefined;
+    }
+    return { ...branch, conditions };
+  });
 }
 
-function onConditionValueChange(index: number, value: unknown) {
-  const list = [...conditions.value];
-  list[index] = { ...list[index], value };
-  conditions.value = list;
+function onConditionValueChange(branchId: string, index: number, value: unknown) {
+  conditionConfig.value = updateConditionBranch(conditionConfig.value, branchId, (branch) => {
+    const conditions = [...branch.conditions];
+    conditions[index] = { ...conditions[index], value };
+    return { ...branch, conditions };
+  });
 }
 
 function renderConditionValue(condition: ConditionItem): string {
@@ -648,97 +710,157 @@ const nodeTypeLabel = computed(() => {
 
     <!-- 条件节点 -->
     <template v-else-if="localNode.node_type === 'condition'">
-      <div class="condition-conjunction">
-        <span class="conjunction-label">条件关系</span>
-        <template v-if="readonly">
-          <span class="conjunction-value">{{ getConjunctionLabel(conjunction) }}</span>
-        </template>
-        <el-radio-group
-          v-else
-          :model-value="conjunction"
-          size="small"
-          @change="onConjunctionChange">
-          <el-radio
-            v-for="opt in CONJUNCTION_OPTIONS"
-            :key="opt.value"
-            :label="opt.value">
-            {{ opt.label }}
-          </el-radio>
-        </el-radio-group>
-      </div>
+      <div class="condition-branches">
+        <div class="branches-header">
+          <span class="branches-title">条件分支</span>
+          <span class="branches-hint">在画布上拖拽分支连线到目标节点</span>
+        </div>
 
-      <div class="conditions-list">
-        <div
-          v-for="(condition, index) in conditions"
-          :key="index"
-          class="condition-row">
-          <el-select
-            :model-value="condition.field_id"
-            placeholder="选择字段"
-            class="field-select"
-            :disabled="readonly"
-            @change="(val) => onConditionFieldChange(index, val as string)">
-            <el-option
-              v-for="field in fields"
-              :key="field.id"
-              :label="field.name"
-              :value="field.id" />
-          </el-select>
-
-          <el-select
-            :model-value="condition.operator"
-            placeholder="操作符"
-            class="operator-select"
-            :disabled="readonly"
-            @change="(val) => onConditionOperatorChange(index, val as FilterOperatorValue)">
-            <el-option
-              v-for="op in getOperatorOptions(getFieldById(condition.field_id)?.type ?? '')"
-              :key="op.value"
-              :label="op.label"
-              :value="op.value" />
-          </el-select>
-
-          <FieldValueInput
-            v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
-            :field="getFieldById(condition.field_id)!"
-            :model-value="condition.value"
-            placeholder="值"
-            class="value-input"
-            :disabled="readonly"
-            @update:model-value="(val) => onConditionValueChange(index, val)" />
-
-          <span v-else class="value-placeholder">无需值</span>
-
+        <div class="branch-tabs">
+          <div
+            v-for="branch in branches"
+            :key="branch.id"
+            class="branch-tab"
+            :class="{ active: branch.id === activeBranchId }"
+            @click="activeBranchId = branch.id">
+            <span class="branch-tab-name">{{ branch.name }}</span>
+            <el-icon
+              v-if="!readonly && branches.length > 1"
+              class="branch-tab-close"
+              @click.stop="removeBranch(branch.id)">
+              <Close />
+            </el-icon>
+          </div>
           <el-button
             v-if="!readonly"
-            type="danger"
-            :icon="Delete"
-            circle
+            type="primary"
+            :icon="Plus"
+            text
             size="small"
-            @click="removeCondition(index)" />
+            @click="addBranch">
+            添加分支
+          </el-button>
         </div>
 
-        <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addCondition">
-          添加条件
-        </el-button>
-      </div>
+        <div v-if="activeBranch" class="branch-panel">
+          <div class="branch-name-row">
+            <span class="branch-name-label">分支名称</span>
+            <el-input
+              :model-value="activeBranch.name"
+              :disabled="readonly"
+              size="small"
+              placeholder="分支名称"
+              class="branch-name-input"
+              @update:model-value="(val) => updateBranchName(activeBranch.id, val as string)" />
+          </div>
 
-      <el-divider />
+          <div class="branch-target-row">
+            <span class="branch-target-label">连线状态</span>
+            <el-tag
+              :type="activeBranch.target_node_id ? 'success' : 'info'"
+              size="small">
+              {{ activeBranch.target_node_id ? "已连线" : "未连线" }}
+            </el-tag>
+          </div>
 
-      <div class="summary">
-        <div class="summary-title">条件摘要</div>
-        <div v-if="conditions.length > 1" class="summary-conjunction">
-          关系：{{ getConjunctionLabel(conjunction) }}
+          <div class="condition-conjunction">
+            <span class="conjunction-label">条件关系</span>
+            <template v-if="readonly">
+              <span class="conjunction-value">{{ getConjunctionLabel(activeBranch.conjunction) }}</span>
+            </template>
+            <el-radio-group
+              v-else
+              :model-value="activeBranch.conjunction"
+              size="small"
+              @change="(val) => updateBranchConjunction(activeBranch.id, val as ConjunctionValue)">
+              <el-radio
+                v-for="opt in CONJUNCTION_OPTIONS"
+                :key="opt.value"
+                :label="opt.value">
+                {{ opt.label }}
+              </el-radio>
+            </el-radio-group>
+          </div>
+
+          <div class="conditions-list">
+            <div
+              v-for="(condition, index) in activeBranch.conditions"
+              :key="index"
+              class="condition-row">
+              <el-select
+                :model-value="condition.field_id"
+                placeholder="选择字段"
+                class="field-select"
+                :disabled="readonly"
+                @change="(val) => onConditionFieldChange(activeBranch.id, index, val as string)">
+                <el-option
+                  v-for="field in fields"
+                  :key="field.id"
+                  :label="field.name"
+                  :value="field.id" />
+              </el-select>
+
+              <el-select
+                :model-value="condition.operator"
+                placeholder="操作符"
+                class="operator-select"
+                :disabled="readonly"
+                @change="(val) => onConditionOperatorChange(activeBranch.id, index, val as FilterOperatorValue)">
+                <el-option
+                  v-for="op in getOperatorOptions(getFieldById(condition.field_id)?.type ?? '')"
+                  :key="op.value"
+                  :label="op.label"
+                  :value="op.value" />
+              </el-select>
+
+              <FieldValueInput
+                v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
+                :field="getFieldById(condition.field_id)!"
+                :model-value="condition.value"
+                placeholder="值"
+                class="value-input"
+                :disabled="readonly"
+                @update:model-value="(val) => onConditionValueChange(activeBranch.id, index, val)" />
+
+              <span v-else class="value-placeholder">无需值</span>
+
+              <el-button
+                v-if="!readonly"
+                type="danger"
+                :icon="Delete"
+                circle
+                size="small"
+                @click="removeCondition(activeBranch.id, index)" />
+            </div>
+
+            <el-button
+              v-if="!readonly"
+              type="primary"
+              :icon="Plus"
+              text
+              @click="addCondition(activeBranch.id)">
+              添加条件
+            </el-button>
+          </div>
+
+          <el-divider />
+
+          <div class="summary">
+            <div class="summary-title">条件摘要</div>
+            <div v-if="activeBranch.conditions.length > 1" class="summary-conjunction">
+              关系：{{ getConjunctionLabel(activeBranch.conjunction) }}
+            </div>
+            <div
+              v-for="(condition, index) in activeBranch.conditions"
+              :key="`summary-${index}`"
+              class="summary-item">
+              {{ getFieldById(condition.field_id)?.name ?? "未选择字段" }}
+              {{ OPERATOR_LABELS[condition.operator] ?? condition.operator }}
+              {{ renderConditionValue(condition) }}
+            </div>
+            <el-empty v-if="activeBranch.conditions.length === 0" description="暂无条件" :image-size="60" />
+          </div>
         </div>
-        <div
-          v-for="(condition, index) in conditions"
-          :key="`summary-${index}`"
-          class="summary-item">
-          {{ getFieldById(condition.field_id)?.name ?? "未选择字段" }}
-          {{ OPERATOR_LABELS[condition.operator] ?? condition.operator }}
-          {{ renderConditionValue(condition) }}
-        </div>
-        <el-empty v-if="conditions.length === 0" description="暂无条件" :image-size="60" />
       </div>
     </template>
 
@@ -1358,5 +1480,91 @@ const nodeTypeLabel = computed(() => {
 .header-key,
 .header-value {
   flex: 1;
+}
+
+.condition-branches {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.branches-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .branches-title {
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  .branches-hint {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+  }
+}
+
+.branch-tabs {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  flex-wrap: wrap;
+}
+
+.branch-tab {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+  background-color: $bg-color;
+  border-radius: $border-radius-sm;
+  cursor: pointer;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  transition: all 0.2s;
+
+  &.active {
+    background-color: rgba($primary-color, 0.1);
+    color: $primary-color;
+  }
+
+  .branch-tab-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .branch-tab-close {
+    font-size: 12px;
+
+    &:hover {
+      color: $error-color;
+    }
+  }
+}
+
+.branch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.branch-name-row,
+.branch-target-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .branch-name-label,
+  .branch-target-label {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    flex-shrink: 0;
+  }
+
+  .branch-name-input {
+    flex: 1;
+  }
 }
 </style>
