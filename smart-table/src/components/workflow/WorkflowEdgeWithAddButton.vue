@@ -132,31 +132,31 @@ function handleDelete() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   color: white;
   cursor: pointer;
   background-color: $primary-color;
   border: none;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   transition: background-color 0.2s, transform 0.2s;
 
   &:hover {
     background-color: rgba($primary-color, 0.85);
-    transform: scale(1.1);
+    transform: scale(1.15);
   }
 
   svg {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
   }
 }
 
 .edge-add-menu {
   position: absolute;
-  top: 28px;
+  top: 22px;
   left: 50%;
   min-width: 120px;
   padding: 4px 0;
@@ -188,25 +188,25 @@ function handleDelete() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   color: white;
   cursor: pointer;
   background-color: $error-color;
   border: none;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   transition: background-color 0.2s, transform 0.2s;
 
   &:hover {
     background-color: rgba($error-color, 0.85);
-    transform: scale(1.1);
+    transform: scale(1.15);
   }
 
   svg {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
   }
 }
 
@@ -217,5 +217,9 @@ function handleDelete() {
   background-color: white;
   border: 1px solid $border-color;
   border-radius: $border-radius-sm;
+}
+
+:deep(.vue-flow__edge-path) {
+  stroke-width: 2.5px;
 }
 </style>
