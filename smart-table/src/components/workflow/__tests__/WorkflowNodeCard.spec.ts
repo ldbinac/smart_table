@@ -38,6 +38,10 @@ function mountCard(overrideProps: Record<string, any> = {}) {
         'el-dropdown-item': {
           template: '<div class="el-dropdown-item"><slot /></div>',
         },
+        Handle: {
+          name: 'Handle',
+          template: '<div class="vue-flow__handle"><slot /></div>',
+        },
       },
     },
   });
@@ -188,5 +192,28 @@ describe('WorkflowNodeCard', () => {
     await wrapper.find('.node-delete-btn').trigger('click');
 
     expect(wrapper.emitted('delete-node')).toBeTruthy();
+  });
+
+  it('条件节点渲染与分支数量一致的 source handle', () => {
+    const wrapper = mountCard({
+      node: {
+        ...mockNode,
+        node_type: 'condition',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [], conjunction: 'and' },
+            { id: 'b2', name: '分支 B', conditions: [], conjunction: 'and' },
+          ],
+        },
+      },
+    });
+
+    const handles = wrapper.findAll('.vue-flow__handle');
+    expect(handles.length).toBe(2);
+  });
+
+  it('非条件节点不渲染 source handle', () => {
+    const wrapper = mountCard();
+    expect(wrapper.findAll('.vue-flow__handle').length).toBe(0);
   });
 });
