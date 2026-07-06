@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import type { WorkflowNode } from '@/types/workflow'
 // @ts-expect-error 该成员由 vi.mock 工厂注入，仅用于测试
 import { __testMocks as flowMocks } from '@vue-flow/core'
@@ -108,7 +109,12 @@ const mockNodes: WorkflowNode[] = [
     workflow_id: 'wf-1',
     node_type: 'condition',
     name: '条件节点',
-    config: {},
+    config: {
+      branches: [
+        { id: 'b1', name: '满足条件', conditions: [], conjunction: 'and', target_node_id: 'node-3' },
+        { id: 'b2', name: '其他分支', conditions: [], conjunction: 'and' },
+      ],
+    },
     order: 1,
     next_nodes: ['node-3'],
   },
@@ -285,5 +291,60 @@ describe('WorkflowCanvas', () => {
     expect(wrapper.emitted('add-node')![0]).toEqual([
       { position: 'first', nodeType: 'update_record' },
     ])
+  })
+
+  it('条件节点未连线的分支不生成边', () => {
+    const wrapper = mountCanvas()
+    const vueFlow = wrapper.findComponent({ name: 'VueFlow' })
+    const edges = vueFlow.props('edges') as any[]
+    const branchEdges = edges.filter((e) => e.source === 'node-2')
+    expect(branchEdges.length).toBe(1)
+    expect(branchEdges[0].sourceHandle).toBe('b1')
+  })
+
+  it('条件节点出边标签显示分支名称', () => {
+    const wrapper = mountCanvas()
+    const edgeStubs = wrapper.findAll('.vue-flow-edge-stub')
+    const conditionEdge = edgeStubs.find((e) => e.attributes('data-edge-id')?.startsWith('e-node-2-'))
+    expect(conditionEdge?.text()).toBe('满足条件')
+  })
+
+  it('从条件节点 handle 连线会更新对应分支目标', async () => {
+    const wrapper = mountCanvas()
+    const vueFlow = wrapper.findComponent({ name: 'VueFlow' })
+
+    await vueFlow.vm.$emit('connect', {
+      source: 'node-2',
+      sourceHandle: 'b2',
+      target: 'node-3',
+    })
+
+    const emitted = wrapper.emitted('update:nodes') as any[][]
+    expect(emitted).toBeTruthy()
+    const updatedNodes = emitted[emitted.length - 1][0] as WorkflowNode[]
+    const conditionNode = updatedNodes.find((n) => n.id === 'node-2')!
+    const branches = (conditionNode.config as any).branches
+    const branchB = branches.find((b: any) => b.id === 'b2')
+    expect(branchB.target_node_id).toBe('node-3')
+  })
+
+  it('删除条件边会清除对应分支目标', async () => {
+    const wrapper = mountCanvas()
+
+    ;(wrapper.vm as any).handleEdgeDelete({
+      sourceId: 'node-2',
+      targetId: 'node-3',
+      branchId: 'b1',
+    })
+    await nextTick()
+
+    const emitted = wrapper.emitted('update:nodes') as any[][]
+    expect(emitted).toBeTruthy()
+    const updatedNodes = emitted[emitted.length - 1][0] as WorkflowNode[]
+    const conditionNode = updatedNodes.find((n) => n.id === 'node-2')!
+    const branches = (conditionNode.config as any).branches
+    const branchA = branches.find((b: any) => b.id === 'b1')
+    expect(branchA.target_node_id).toBeUndefined()
+    expect(conditionNode.next_nodes).toEqual([])
   })
 })
