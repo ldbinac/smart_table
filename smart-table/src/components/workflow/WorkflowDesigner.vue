@@ -667,6 +667,7 @@ onBeforeRouteLeave((_, __, next) => {
                 v-for="node in localNodes"
                 :key="node.id"
                 class="node-item"
+                :data-node-id="node.id"
                 :class="{ active: selectedNodeId === node.id }"
                 @click="selectNode(node.id)">
                 <el-icon v-show="!readonly" class="drag-handle"><Rank /></el-icon>
