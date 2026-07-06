@@ -30,6 +30,7 @@ vi.mock('@vue-flow/core', async () => {
 
 vi.mock('@element-plus/icons-vue', () => ({
   Plus: { name: 'Plus', template: '<span class="icon-plus" />' },
+  Delete: { name: 'Delete', template: '<span class="icon-delete" />' },
 }))
 
 const defaultProps: Record<string, any> = {
@@ -118,5 +119,26 @@ describe('WorkflowEdgeWithAddButton', () => {
   it('源节点不是条件节点时不应该显示"满足条件"标签', () => {
     const wrapper = mountEdge({ data: { sourceNodeType: 'update_record' } })
     expect(wrapper.find('.edge-source-label').exists()).toBe(false)
+  })
+
+  it('源节点为条件节点时显示删除按钮而非添加按钮', () => {
+    const wrapper = mountEdge({ data: { sourceNodeType: 'condition', branchId: 'b1', branchName: 'VIP' } })
+    expect(wrapper.find('.edge-add-button').exists()).toBe(false)
+    expect(wrapper.find('.edge-delete-button').exists()).toBe(true)
+  })
+
+  it('点击条件边删除按钮触发 edge-delete 事件', async () => {
+    const wrapper = mountEdge({ data: { sourceNodeType: 'condition', branchId: 'b1', branchName: 'VIP' } })
+    await wrapper.find('.edge-delete-button').trigger('click')
+
+    expect(wrapper.emitted('edge-delete')).toBeTruthy()
+    expect(wrapper.emitted('edge-delete')![0]).toEqual([
+      { sourceId: 'node-1', targetId: 'node-2', branchId: 'b1' },
+    ])
+  })
+
+  it('源节点为条件节点时显示指定分支名称', () => {
+    const wrapper = mountEdge({ data: { sourceNodeType: 'condition', branchName: 'VIP 客户' } })
+    expect(wrapper.find('.edge-source-label').text()).toBe('VIP 客户')
   })
 })
