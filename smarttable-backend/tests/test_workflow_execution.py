@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 import pytest
+from sqlalchemy.orm.attributes import flag_modified
 
 from app import create_app
 from app.extensions import db
@@ -329,6 +330,8 @@ class TestExecuteConditionNode:
         nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
         condition_node, action_node = nodes[0], nodes[1]
         condition_node.next_nodes = [str(action_node.id)]
+        condition_node.config['branches'][0]['target_node_id'] = str(action_node.id)
+        flag_modified(condition_node, 'config')
         db.session.commit()
 
         instance = WorkflowInstance(
@@ -346,9 +349,7 @@ class TestExecuteConditionNode:
         db.session.refresh(record)
         assert record.values[str(field.id)] == '已更新'
 
-    def test_condition_node_false_stops_chain(
-        self, ctx, base, table, owner, field, record, engine
-    ):
+    def test_condition_node_false_stops_chain(self, ctx, base, table, owner, field, record, engine):
         """测试条件为假时不执行后续节点"""
         workflow = WorkflowService.create_workflow(
             base_id=base.id,
@@ -405,6 +406,147 @@ class TestExecuteConditionNode:
 
         db.session.refresh(record)
         assert record.values[str(field.id)] == '初始值'
+
+    def test_condition_node_multiple_branches_first_match(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """测试多分支按顺序匹配，仅执行首个匹配分支"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='多分支条件测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'branches': [
+                            {
+                                'id': 'b_high',
+                                'name': '高',
+                                'conditions': [
+                                    {'operator': 'equals', 'field_id': str(field.id), 'value': '高'}
+                                ],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                            },
+                            {
+                                'id': 'b_medium',
+                                'name': '中',
+                                'conditions': [
+                                    {'operator': 'equals', 'field_id': str(field.id), 'value': '中'}
+                                ],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                            },
+                        ]
+                    },
+                    'order': 0,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新为高',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新为高'}],
+                    },
+                    'order': 1,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新为中',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新为中'}],
+                    },
+                    'order': 2,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
+        condition_node, high_node, medium_node = nodes[0], nodes[1], nodes[2]
+        condition_node.config['branches'][0]['target_node_id'] = str(high_node.id)
+        condition_node.config['branches'][1]['target_node_id'] = str(medium_node.id)
+        flag_modified(condition_node, 'config')
+        db.session.commit()
+
+        record.values = {str(field.id): '中'}
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._execute_chain(instance, condition_node)
+
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '已更新为中'
+
+    def test_condition_node_legacy_config_migration(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """测试旧单条件组配置自动迁移并执行"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='旧条件配置迁移测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'conditions': [
+                            {'operator': 'equals', 'field_id': str(field.id), 'value': '初始值'}
+                        ],
+                        'conjunction': 'and',
+                    },
+                    'order': 0,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新'}],
+                    },
+                    'order': 1,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
+        condition_node, action_node = nodes[0], nodes[1]
+        condition_node.config['branches'][0]['target_node_id'] = str(action_node.id)
+        flag_modified(condition_node, 'config')
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._execute_chain(instance, condition_node)
+
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '已更新'
 
 
 class TestExecuteUpdateRecord:
