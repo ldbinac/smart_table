@@ -194,7 +194,7 @@ describe('WorkflowNodeCard', () => {
     expect(wrapper.emitted('delete-node')).toBeTruthy();
   });
 
-  it('条件节点渲染与分支数量一致的 source handle', () => {
+  it('条件节点渲染 target handle 和与分支数量一致的 source handle', () => {
     const wrapper = mountCard({
       node: {
         ...mockNode,
@@ -209,11 +209,33 @@ describe('WorkflowNodeCard', () => {
     });
 
     const handles = wrapper.findAll('.vue-flow__handle');
-    expect(handles.length).toBe(2);
+    // 1 个 target handle（顶部） + 2 个分支 source handle（右侧）
+    expect(handles.length).toBe(3);
+    expect(wrapper.find('.node-handle-target').exists()).toBe(true);
   });
 
-  it('非条件节点不渲染 source handle', () => {
+  it('非条件节点渲染 target handle 和默认 source handle', () => {
     const wrapper = mountCard();
-    expect(wrapper.findAll('.vue-flow__handle').length).toBe(0);
+    const handles = wrapper.findAll('.vue-flow__handle');
+    // 1 个 target handle（顶部） + 1 个默认 source handle（底部）
+    expect(handles.length).toBe(2);
+    expect(wrapper.find('.node-handle-target').exists()).toBe(true);
+    expect(wrapper.find('.node-handle-source').exists()).toBe(true);
+  });
+
+  it('条件节点不渲染默认 source handle', () => {
+    const wrapper = mountCard({
+      node: {
+        ...mockNode,
+        node_type: 'condition',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [], conjunction: 'and' },
+          ],
+        },
+      },
+    });
+    // 条件节点只有 target handle + 分支 source handle，没有默认 source handle
+    expect(wrapper.find('.node-handle-source').exists()).toBe(false);
   });
 });

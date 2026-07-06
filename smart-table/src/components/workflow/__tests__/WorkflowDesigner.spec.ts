@@ -714,6 +714,210 @@ describe('WorkflowDesigner', () => {
     expect(newNode!.next_nodes).toContain('node-2');
   });
 
+  it('在条件节点后面添加节点时自动分配到可用分支', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and' },
+          ],
+        },
+        order: 0,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'update_record', targetId: 'cond-1' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(2);
+
+    const conditionNode = lastNodes.find((n) => n.id === 'cond-1');
+    const newNode = lastNodes.find((n) => n.node_type === 'update_record');
+    expect(newNode).toBeTruthy();
+
+    // 第一个分支应自动指向新节点
+    expect(conditionNode.config.branches[0].target_node_id).toBe(newNode!.id);
+    expect(conditionNode.config.branches[1].target_node_id).toBeUndefined();
+    expect(conditionNode.next_nodes).toContain(newNode!.id);
+  });
+
+  it('为条件节点添加多个分支目标时保持独立并行关系', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and' },
+          ],
+        },
+        order: 0,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+
+    // 添加第一个分支目标
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'update_record', targetId: 'cond-1' });
+    await nextTick();
+
+    // 添加第二个分支目标
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'create_record', targetId: 'cond-1' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(3);
+
+    const conditionNode = lastNodes.find((n) => n.id === 'cond-1');
+    const branchNodes = lastNodes.filter((n) => n.id !== 'cond-1');
+    expect(branchNodes.length).toBe(2);
+
+    // 两个分支分别指向不同的目标节点（不依赖节点顺序）
+    const branch0Target = conditionNode.config.branches[0].target_node_id;
+    const branch1Target = conditionNode.config.branches[1].target_node_id;
+    expect(branch0Target).toBeTruthy();
+    expect(branch1Target).toBeTruthy();
+    expect(branch0Target).not.toBe(branch1Target);
+    expect(branchNodes.map((n: any) => n.id)).toEqual(
+      expect.arrayContaining([branch0Target, branch1Target]),
+    );
+    expect(conditionNode.next_nodes).toEqual(
+      expect.arrayContaining([branch0Target, branch1Target]),
+    );
+
+    // 两个分支目标节点应保持独立，不互相串联
+    branchNodes.forEach((branchNode: any) => {
+      expect(branchNode.next_nodes).toEqual([]);
+      branchNodes.forEach((other: any) => {
+        if (other.id !== branchNode.id) {
+          expect(branchNode.next_nodes).not.toContain(other.id);
+        }
+      });
+    });
+  });
+
+  it('条件分支目标节点不被 rebuildNodeChain 串联', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and', target_node_id: 'branch-a' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and', target_node_id: 'branch-b' },
+          ],
+        },
+        order: 0,
+        next_nodes: ['branch-a', 'branch-b'],
+      },
+      {
+        id: 'branch-a',
+        workflow_id: 'wf-1',
+        node_type: 'update_record',
+        name: '分支 A 目标',
+        config: { updates: [{ field_id: 'f1', value_template: '' }] },
+        order: 1,
+        next_nodes: [],
+      },
+      {
+        id: 'branch-b',
+        workflow_id: 'wf-1',
+        node_type: 'create_record',
+        name: '分支 B 目标',
+        config: { target_table_id: 't1', field_mappings: [{ target_field_id: 'f1', source_field_id: '', value_template: '' }] },
+        order: 2,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    const canvasNodes = canvas.props('nodes') as any[];
+
+    const branchA = canvasNodes.find((n) => n.id === 'branch-a');
+    const branchB = canvasNodes.find((n) => n.id === 'branch-b');
+
+    // 分支目标节点不应被互相串联
+    expect(branchA.next_nodes).not.toContain('branch-b');
+    expect(branchB.next_nodes).not.toContain('branch-a');
+  });
+
+  it('在分支目标节点后面添加新节点时自动建立连接', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and', target_node_id: 'branch-a' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and', target_node_id: 'branch-b' },
+          ],
+        },
+        order: 0,
+        next_nodes: ['branch-a', 'branch-b'],
+      },
+      {
+        id: 'branch-a',
+        workflow_id: 'wf-1',
+        node_type: 'update_record',
+        name: '分支 A 目标',
+        config: { updates: [{ field_id: 'f1', value_template: '' }] },
+        order: 1,
+        next_nodes: [],
+      },
+      {
+        id: 'branch-b',
+        workflow_id: 'wf-1',
+        node_type: 'create_record',
+        name: '分支 B 目标',
+        config: { target_table_id: 't1', field_mappings: [{ target_field_id: 'f1', source_field_id: '', value_template: '' }] },
+        order: 2,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+
+    // 在 branch-a 后面添加新节点
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'approval', targetId: 'branch-a' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+
+    const branchA = lastNodes.find((n) => n.id === 'branch-a');
+    const newNode = lastNodes.find((n) => n.node_type === 'approval');
+
+    // branch-a 应自动连接到新节点
+    expect(branchA.next_nodes).toContain(newNode.id);
+    // 新节点不应连接到 branch-b（并行分支保持独立）
+    expect(newNode.next_nodes).not.toContain('branch-b');
+  });
+
   it('从画布删除节点应更新节点列表', async () => {
     const wrapper = mountDesigner();
     await switchToCanvas(wrapper);

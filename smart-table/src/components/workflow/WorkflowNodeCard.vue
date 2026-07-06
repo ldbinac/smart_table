@@ -67,7 +67,8 @@ const branches = computed<ConditionBranch[]>(() =>
 const nodeIcon = computed(() => iconMap[node.value.node_type] ?? CircleCheck);
 
 function getBranchHandleStyle(index: number, total: number) {
-  const step = total > 1 ? 48 / (total - 1) : 0;
+  const handleRange = 40;
+  const step = total > 1 ? handleRange / (total - 1) : 0;
   const top = total > 1 ? 16 + index * step : 50;
   return {
     top: `${top}px`,
@@ -155,6 +156,19 @@ function handleDelete() {
         <el-icon v-if="isCondition" class="condition-branch-icon"><Share /></el-icon>
       </div>
 
+      <Handle
+        type="target"
+        :position="Position.Top"
+        :connectable="!isReadonly"
+        class="node-handle-target"
+      />
+      <Handle
+        v-if="!isCondition"
+        type="source"
+        :position="Position.Bottom"
+        :connectable="false"
+        class="node-handle-source"
+      />
       <Handle
         v-for="(branch, index) in branches"
         :key="branch.id"

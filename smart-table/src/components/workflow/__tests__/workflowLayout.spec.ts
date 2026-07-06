@@ -78,9 +78,41 @@ describe('layoutWorkflowNodes', () => {
 
     expect(byId.n1).toEqual({ x: 0, y: 0 })
     expect(byId.n2).toEqual({ x: 0, y: 120 })
-    expect(byId.n3).toEqual({ x: 240, y: 60 })
-    expect(byId.n4).toEqual({ x: 190, y: 240 })
-    expect(byId.n5).toEqual({ x: 140, y: 360 })
+    expect(byId.n3).toEqual({ x: 280, y: 200 })
+    expect(byId.n4).toEqual({ x: 230, y: 320 })
+    expect(byId.n5).toEqual({ x: 180, y: 440 })
+  })
+
+  it('多分支目标节点垂直间距充足且不重叠', () => {
+    const nodes: WorkflowNode[] = [
+      makeNode('n1', 'trigger', 0),
+      {
+        ...makeNode('n2', 'condition', 1, ['n3', 'n4', 'n5']),
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [], conjunction: 'and', target_node_id: 'n3' },
+            { id: 'b2', name: '分支 B', conditions: [], conjunction: 'and', target_node_id: 'n4' },
+            { id: 'b3', name: '分支 C', conditions: [], conjunction: 'and', target_node_id: 'n5' },
+          ],
+        },
+      },
+      makeNode('n3', 'approval', 2),
+      makeNode('n4', 'update_record', 3),
+      makeNode('n5', 'webhook', 4),
+    ]
+
+    const result = layoutWorkflowNodes(nodes)
+    const byId = Object.fromEntries(result.map((n) => [n.id, n.ui_layout]))
+
+    // 三个分支目标应垂直排列，间距 >= 150
+    const y3 = byId.n3!.y
+    const y4 = byId.n4!.y
+    const y5 = byId.n5!.y
+    expect(y4 - y3).toBeGreaterThanOrEqual(150)
+    expect(y5 - y4).toBeGreaterThanOrEqual(150)
+    // 所有分支目标水平位置一致
+    expect(byId.n3!.x).toBe(byId.n4!.x)
+    expect(byId.n4!.x).toBe(byId.n5!.x)
   })
 
   it('返回新数组，不修改原始节点对象', () => {

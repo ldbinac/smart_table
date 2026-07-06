@@ -328,6 +328,31 @@ describe('WorkflowCanvas', () => {
     expect(branchB.target_node_id).toBe('node-3')
   })
 
+  it('手动连线后 next_nodes 从 branches 重建，不残留旧目标', async () => {
+    const wrapper = mountCanvas()
+    const vueFlow = wrapper.findComponent({ name: 'VueFlow' })
+
+    // b1 原本指向 node-3，现在改指向 node-1
+    await vueFlow.vm.$emit('connect', {
+      source: 'node-2',
+      sourceHandle: 'b1',
+      target: 'node-1',
+    })
+
+    const emitted = wrapper.emitted('update:nodes') as any[][]
+    expect(emitted).toBeTruthy()
+    const updatedNodes = emitted[emitted.length - 1][0] as WorkflowNode[]
+    const conditionNode = updatedNodes.find((n) => n.id === 'node-2')!
+
+    // next_nodes 应只包含当前分支目标，node-3 已被替换为 node-1
+    expect(conditionNode.next_nodes).toContain('node-1')
+    expect(conditionNode.next_nodes).not.toContain('node-3')
+    // 不应有重复
+    expect(conditionNode.next_nodes.length).toBe(
+      new Set(conditionNode.next_nodes).size,
+    )
+  })
+
   it('删除条件边会清除对应分支目标', async () => {
     const wrapper = mountCanvas()
 

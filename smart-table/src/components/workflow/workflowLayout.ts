@@ -2,9 +2,9 @@ import type { WorkflowNode } from "@/types/workflow";
 import { getConditionBranches } from "@/utils/conditionBranch";
 
 const VERTICAL_SPACING = 120;
-const BRANCH_OFFSET_X = 240;
-const BRANCH_START_Y_OFFSET = 60;
-const BRANCH_STEP_Y = 100;
+const BRANCH_OFFSET_X = 280;
+const BRANCH_START_Y_OFFSET = 80;
+const BRANCH_STEP_Y = 150;
 const CENTER_RETURN_STEP = 50;
 
 export function hasValidLayout(node: WorkflowNode): boolean {
@@ -56,6 +56,9 @@ export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
     if (hasValidLayout(node)) {
       result.push(node);
       cursorY = Math.max(cursorY, node.ui_layout!.y + VERTICAL_SPACING);
+      if (node.node_type === "condition") {
+        lastConditionY = node.ui_layout!.y;
+      }
       continue;
     }
 
@@ -71,7 +74,7 @@ export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
     } else if (branchTargets.has(node.id)) {
       const target = branchTargets.get(node.id)!;
       x = BRANCH_OFFSET_X;
-      y = target.conditionY + BRANCH_START_Y_OFFSET + target.index * BRANCH_STEP_Y;
+      y = lastConditionY + BRANCH_START_Y_OFFSET + target.index * BRANCH_STEP_Y;
       cursorY = Math.max(cursorY, y + VERTICAL_SPACING);
       branchReturnX = BRANCH_OFFSET_X;
     } else {

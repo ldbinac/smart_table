@@ -152,15 +152,13 @@ function handleConnect(connection: Connection) {
       branchId,
       connection.target,
     );
+    const branches = getConditionBranches(config);
     return {
       ...node,
-      config: { ...node.config, branches: config.branches },
-      next_nodes: Array.from(
-        new Set([
-          ...node.next_nodes,
-          connection.target,
-        ]),
-      ),
+      config: { ...node.config, branches },
+      next_nodes: branches
+        .map((b) => b.target_node_id)
+        .filter((id): id is string => !!id),
     };
   });
   emit("update:nodes", updatedNodes);
