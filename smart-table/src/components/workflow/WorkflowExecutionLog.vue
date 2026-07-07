@@ -129,6 +129,11 @@ function formatContext(context: Record<string, unknown> | null | undefined): str
                 <component :is="getStatusIcon(log.status)" />
               </el-icon>
               <span class="node-type">{{ getNodeTypeLabel(log.node_type) }}</span>
+              <span
+                v-if="log.node_name"
+                class="node-name"
+                :title="log.node_name"
+              >{{ log.node_name }}</span>
               <el-tag size="small" :type="getStatusType(log.status)">
                 {{ log.status }}
               </el-tag>
@@ -220,6 +225,15 @@ function formatContext(context: Record<string, unknown> | null | undefined): str
 .node-type {
   font-weight: 600;
   color: $text-primary;
+}
+
+.node-name {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: $font-size-sm;
+  color: $text-secondary;
 }
 
 .log-time {

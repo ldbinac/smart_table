@@ -24,7 +24,7 @@ from app.models import (
     WebhookConfig,
     WebhookMethod,
 )
-from app.models.workflow import WorkflowNode, WorkflowTrigger, WorkflowVersion
+from app.models.workflow import WorkflowNode, WorkflowNodeType, WorkflowTrigger, WorkflowVersion
 from app.services.workflow_service import WorkflowService
 from app.services.approval_service import ApprovalService
 
@@ -602,6 +602,120 @@ class TestWorkflowRoutes:
         data = response.get_json()
         assert data['success'] is True
         assert data['meta']['pagination']['total'] == 1
+
+    def test_get_workflow_instance_returns_node_name_in_logs(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试实例详情接口的 execution_logs 包含 node_name 字段"""
+        from app.models.workflow_instance import WorkflowExecutionLog
+
+        # 添加一个动作节点，使其有名称
+        node = WorkflowNode(
+            workflow_id=created_workflow.id,
+            node_type=WorkflowNodeType.ACTION,
+            name='通知用户',
+            config={'action_type': 'send_email'},
+            order=1
+        )
+        db.session.add(node)
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=created_workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.COMPLETED
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        # 关联节点的日志
+        log_with_node = WorkflowExecutionLog(
+            instance_id=instance.id,
+            node_id=node.id,
+            node_type='action',
+            status='completed',
+            input_context={},
+            output_result={}
+        )
+        # node_id 为空的日志（如系统触发器）
+        log_without_node = WorkflowExecutionLog(
+            instance_id=instance.id,
+            node_id=None,
+            node_type='trigger',
+            status='completed',
+            input_context={},
+            output_result={}
+        )
+        db.session.add_all([log_with_node, log_without_node])
+        db.session.commit()
+
+        response = client.get(
+            f'/api/workflows/{created_workflow.id}/instances/{instance.id}',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        logs = data['data']['execution_logs']
+        assert len(logs) == 2
+
+        log_by_type = {log['node_type']: log for log in logs}
+        # 关联节点时返回节点名称
+        assert log_by_type['action']['node_name'] == '通知用户'
+        # node_id 为空时 node_name 为 None
+        assert log_by_type['trigger']['node_name'] is None
+
+    def test_get_workflow_instance_node_name_null_when_node_deleted(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试节点被删除后（外键 SET NULL），execution_log 的 node_name 返回 None"""
+        from app.models.workflow_instance import WorkflowExecutionLog
+
+        node = WorkflowNode(
+            workflow_id=created_workflow.id,
+            node_type=WorkflowNodeType.ACTION,
+            name='待删除节点',
+            config={'action_type': 'update_record'},
+            order=1
+        )
+        db.session.add(node)
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=created_workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.COMPLETED
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        log = WorkflowExecutionLog(
+            instance_id=instance.id,
+            node_id=node.id,
+            node_type='action',
+            status='completed',
+            input_context={},
+            output_result={}
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        # 删除节点，外键 ondelete='SET NULL' 使 log.node_id 变为 NULL
+        db.session.delete(node)
+        db.session.commit()
+
+        response = client.get(
+            f'/api/workflows/{created_workflow.id}/instances/{instance.id}',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        logs = data['data']['execution_logs']
+        assert len(logs) == 1
+        assert logs[0]['node_name'] is None
 
     def test_edit_nodes_when_paused(self, client, auth_headers, created_workflow):
         """测试暂停状态下可以编辑节点"""

@@ -154,6 +154,7 @@ export interface WorkflowExecutionLog {
   id: string;
   instance_id: string;
   node_id?: string | null;
+  node_name?: string | null;
   node_type: WorkflowNodeType;
   status: string;
   input_context: Record<string, unknown>;
