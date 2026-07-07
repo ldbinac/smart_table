@@ -736,5 +736,99 @@ describe('WorkflowNodeConfig', () => {
       expect(wrapper.find('.branch-tabs .el-button').exists()).toBe(false);
       expect(wrapper.find('.condition-row .el-button').exists()).toBe(false);
     });
+
+    it('条件摘要中单选字段值显示为选项名称（id）', async () => {
+      const fields = [
+        {
+          id: 'field-status',
+          name: '状态',
+          type: 'single_select',
+          options: {
+            options: [
+              { id: 'opt-1', name: '待办', color: '#fff' },
+              { id: 'opt-2', name: '进行中', color: '#fff' },
+            ],
+          },
+        },
+      ];
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'condition',
+          config: {
+            branches: [
+              {
+                id: 'b1',
+                name: '分支',
+                conditions: [{ field_id: 'field-status', operator: 'equals', value: 'opt-2' }],
+                conjunction: 'and',
+              },
+            ],
+          },
+        },
+        fields,
+      });
+      await nextTick();
+
+      const summaryItem = wrapper.find('.summary-item');
+      expect(summaryItem.text()).toContain('进行中 (opt-2)');
+    });
+
+    it('条件摘要中多选字段值显示为多个选项名称（id）', async () => {
+      const fields = [
+        {
+          id: 'field-tags',
+          name: '标签',
+          type: 'multi_select',
+          options: {
+            options: [
+              { id: 'tag-a', name: '重要', color: '#fff' },
+              { id: 'tag-b', name: '紧急', color: '#fff' },
+            ],
+          },
+        },
+      ];
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'condition',
+          config: {
+            branches: [
+              {
+                id: 'b1',
+                name: '分支',
+                conditions: [
+                  { field_id: 'field-tags', operator: 'contains_any', value: ['tag-a', 'tag-b'] },
+                ],
+                conjunction: 'and',
+              },
+            ],
+          },
+        },
+        fields,
+      });
+      await nextTick();
+
+      const summaryItem = wrapper.find('.summary-item');
+      expect(summaryItem.text()).toContain('重要 (tag-a), 紧急 (tag-b)');
+    });
+
+    it('条件摘要中普通文本字段保持原值显示', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          {
+            id: 'b1',
+            name: '分支',
+            conditions: [{ field_id: 'field-1', operator: 'equals', value: 'hello' }],
+            conjunction: 'and',
+          },
+        ],
+      });
+      await nextTick();
+
+      const summaryItem = wrapper.find('.summary-item');
+      expect(summaryItem.text()).toContain('hello');
+      expect(summaryItem.text()).not.toContain('(');
+    });
   });
 });

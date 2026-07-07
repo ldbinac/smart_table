@@ -344,6 +344,24 @@ function onConditionValueChange(branchId: string, index: number, value: unknown)
 function renderConditionValue(condition: ConditionItem): string {
   if (!operatorRequiresValue(condition.operator)) return "";
   if (condition.value === undefined || condition.value === null) return "空";
+
+  const field = getFieldById(condition.field_id);
+  const fieldType = field?.type;
+  const isSelectLike =
+    fieldType === FieldType.SINGLE_SELECT || fieldType === FieldType.MULTI_SELECT;
+  const options = field?.options?.options ?? field?.options?.choices;
+
+  if (isSelectLike && options && options.length > 0) {
+    const values = Array.isArray(condition.value) ? condition.value : [condition.value];
+    const labels = values
+      .map((val) => {
+        const option = options.find((opt) => opt.id === val);
+        return option ? `${option.name} (${option.id})` : String(val);
+      })
+      .filter(Boolean);
+    return labels.length > 0 ? labels.join(", ") : String(condition.value);
+  }
+
   if (Array.isArray(condition.value)) return condition.value.join(", ");
   return String(condition.value);
 }
