@@ -451,7 +451,7 @@ def update_workflow_nodes(workflow_id) -> tuple:
             if frontend_id:
                 frontend_to_backend_id[str(frontend_id)] = node.id
 
-        # 第二轮：根据映射把 next_nodes 里的前端 id 替换为后端 UUID
+        # 第二轮：根据映射把 next_nodes 和条件分支 target_node_id 里的前端 id 替换为后端 UUID
         for node_data, node in zip(nodes, created_nodes):
             next_nodes = node_data.get('next_nodes', [])
             node.next_nodes = [
@@ -459,6 +459,20 @@ def update_workflow_nodes(workflow_id) -> tuple:
                 for nid in next_nodes
                 if str(nid) in frontend_to_backend_id
             ]
+
+            # 同步更新条件分支中的 target_node_id
+            node_config = dict(node_data.get('config', {}))
+            branches = node_config.get('branches', [])
+            if branches:
+                updated_branches = []
+                for branch in branches:
+                    updated_branch = dict(branch)
+                    target_id = updated_branch.get('target_node_id')
+                    if target_id and str(target_id) in frontend_to_backend_id:
+                        updated_branch['target_node_id'] = str(frontend_to_backend_id[str(target_id)])
+                    updated_branches.append(updated_branch)
+                node_config['branches'] = updated_branches
+                node.config = node_config
 
     db.session.commit()
 

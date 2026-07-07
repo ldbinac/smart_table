@@ -261,6 +261,81 @@ class TestWorkflowRoutes:
         assert first['next_nodes'] == [second['id']]
         assert second['next_nodes'] == []
 
+    def test_update_nodes_maps_condition_branch_targets_to_backend_ids(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试保存条件节点时把 branches 中的前端 target_node_id 映射为后端 UUID"""
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'id': 'node_frontend_condition',
+                        'node_type': 'condition',
+                        'name': '条件节点',
+                        'config': {
+                            'branches': [
+                                {
+                                    'id': 'branch_1',
+                                    'name': '分支 1',
+                                    'conditions': [],
+                                    'conjunction': 'and',
+                                    'target_node_id': 'node_frontend_a'
+                                },
+                                {
+                                    'id': 'branch_2',
+                                    'name': '分支 2',
+                                    'conditions': [],
+                                    'conjunction': 'and',
+                                    'target_node_id': 'node_frontend_b'
+                                }
+                            ]
+                        },
+                        'order': 0,
+                        'next_nodes': ['node_frontend_a', 'node_frontend_b']
+                    },
+                    {
+                        'id': 'node_frontend_a',
+                        'node_type': 'webhook',
+                        'name': 'Webhook A',
+                        'config': {'webhook_id': 'webhook-1'},
+                        'order': 1,
+                        'next_nodes': []
+                    },
+                    {
+                        'id': 'node_frontend_b',
+                        'node_type': 'webhook',
+                        'name': 'Webhook B',
+                        'config': {'webhook_id': 'webhook-2'},
+                        'order': 2,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        nodes = data['data']
+        assert len(nodes) == 3
+        node_by_name = {node['name']: node for node in nodes}
+        condition = node_by_name['条件节点']
+        webhook_a = node_by_name['Webhook A']
+        webhook_b = node_by_name['Webhook B']
+
+        branches = condition['config']['branches']
+        assert len(branches) == 2
+        branch_targets = {branch['id']: branch['target_node_id'] for branch in branches}
+
+        # branches 中的 target_node_id 应替换为后端 UUID
+        assert branch_targets['branch_1'] == webhook_a['id']
+        assert branch_targets['branch_2'] == webhook_b['id']
+
+        # next_nodes 同样保持同步
+        assert set(condition['next_nodes']) == {webhook_a['id'], webhook_b['id']}
+
     def test_update_nodes_persists_ui_layout(self, client, auth_headers, created_workflow):
         """测试 PUT /nodes 保存并返回 ui_layout"""
         response = client.put(

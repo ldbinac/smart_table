@@ -23,6 +23,30 @@ function makeNode(
   };
 }
 
+function makeConditionNode(
+  id: string,
+  order: number,
+  targetNodeIds: (string | undefined)[]
+): WorkflowNode {
+  return {
+    id,
+    workflow_id: "wf-1",
+    node_type: "condition",
+    name: "条件节点",
+    config: {
+      branches: targetNodeIds.map((targetId, index) => ({
+        id: `b${index + 1}`,
+        name: `分支 ${index + 1}`,
+        conditions: [{ field_id: "f1", operator: "equals", value: `v${index + 1}` }],
+        conjunction: "and",
+        target_node_id: targetId,
+      })),
+    },
+    order,
+    next_nodes: targetNodeIds.filter((id): id is string => !!id),
+  };
+}
+
 describe("workflow utils", () => {
   describe("normalizeWorkflowNode", () => {
     it("将 action + create_record 转换为 create_record", () => {
@@ -115,6 +139,53 @@ describe("workflow utils", () => {
 
     it("空节点列表返回空数组", () => {
       expect(rebuildWorkflowNodeChain([])).toEqual([]);
+    });
+
+    it("条件节点的 next_nodes 由 branches 的 target_node_id 决定", () => {
+      const nodes: WorkflowNode[] = [
+        makeConditionNode("cond", 0, ["n1", "n2"]),
+        { ...makeNode("webhook"), id: "n1", order: 1 },
+        { ...makeNode("webhook"), id: "n2", order: 2 },
+      ];
+      const result = rebuildWorkflowNodeChain(nodes);
+      const conditionNode = result.find((n) => n.id === "cond")!;
+      expect(conditionNode.next_nodes).toEqual(["n1", "n2"]);
+    });
+
+    it("条件分支目标节点不会被自动串联", () => {
+      const nodes: WorkflowNode[] = [
+        makeConditionNode("cond", 0, ["branch-a", "branch-b"]),
+        { ...makeNode("update_record"), id: "branch-a", order: 1 },
+        { ...makeNode("create_record"), id: "branch-b", order: 2 },
+      ];
+      const result = rebuildWorkflowNodeChain(nodes);
+      const branchA = result.find((n) => n.id === "branch-a")!;
+      const branchB = result.find((n) => n.id === "branch-b")!;
+      expect(branchA.next_nodes).toEqual([]);
+      expect(branchB.next_nodes).toEqual([]);
+    });
+
+    it("分支目标节点可链接到后续非分支目标节点", () => {
+      const nodes: WorkflowNode[] = [
+        makeConditionNode("cond", 0, ["branch"]),
+        { ...makeNode("update_record"), id: "branch", order: 1 },
+        { ...makeNode("webhook"), id: "merge", order: 2 },
+      ];
+      const result = rebuildWorkflowNodeChain(nodes);
+      const branch = result.find((n) => n.id === "branch")!;
+      const merge = result.find((n) => n.id === "merge")!;
+      expect(branch.next_nodes).toEqual(["merge"]);
+      expect(merge.next_nodes).toEqual([]);
+    });
+
+    it("条件节点未设置 target 的分支不会出现在 next_nodes 中", () => {
+      const nodes: WorkflowNode[] = [
+        makeConditionNode("cond", 0, ["n1", undefined]),
+        { ...makeNode("webhook"), id: "n1", order: 1 },
+      ];
+      const result = rebuildWorkflowNodeChain(nodes);
+      const conditionNode = result.find((n) => n.id === "cond")!;
+      expect(conditionNode.next_nodes).toEqual(["n1"]);
     });
   });
 

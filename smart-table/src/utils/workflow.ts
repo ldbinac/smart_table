@@ -1,4 +1,5 @@
 import type { WorkflowNode, ScheduleConfig } from "@/types/workflow";
+import { getConditionBranches } from "@/utils/conditionBranch";
 import dayjs from "dayjs";
 
 /**
@@ -37,15 +38,36 @@ export function normalizeWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
 }
 
 /**
- * 按 order 自动重建节点执行链：每个节点默认指向下一个节点。
- * 用于保存前兜底，确保线性节点列表能按顺序执行。
+ * 按 order 自动重建节点执行链：
+ * - 条件节点的 next_nodes 由其 branches 中的 target_node_id 决定；
+ * - 普通节点默认指向下一个节点；
+ * - 分支目标节点可链接到下一个非分支目标节点（合并点或后续节点），
+ *   但不会自动链接到任何分支目标节点，以保持并行分支独立。
  */
 export function rebuildWorkflowNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
   const sorted = [...nodes].sort((a, b) => a.order - b.order);
+  const branchTargetIds = new Set<string>();
+  sorted.forEach((node) => {
+    if (node.node_type !== "condition") return;
+    getConditionBranches(node.config).forEach((branch) => {
+      if (branch.target_node_id) branchTargetIds.add(branch.target_node_id);
+    });
+  });
   const nextMap = new Map<string, string[]>();
   sorted.forEach((node, index) => {
-    const nextNode = sorted[index + 1];
-    nextMap.set(node.id, nextNode ? [nextNode.id] : []);
+    if (node.node_type === "condition") {
+      const nextIds = getConditionBranches(node.config)
+        .map((b) => b.target_node_id)
+        .filter((id): id is string => !!id);
+      nextMap.set(node.id, nextIds);
+    } else {
+      const nextNode = sorted[index + 1];
+      if (!nextNode || branchTargetIds.has(nextNode.id)) {
+        nextMap.set(node.id, []);
+      } else {
+        nextMap.set(node.id, [nextNode.id]);
+      }
+    }
   });
   return nodes.map((node) => ({
     ...node,
