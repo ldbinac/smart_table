@@ -345,6 +345,161 @@ class TestWorkflowCRUD:
         assert node.config['branches'][0]['name'] == '满足条件'
 
 
+class TestWorkflowClone:
+    """测试工作流克隆"""
+
+    def test_clone_remaps_node_id_references(self, ctx, base, table, owner):
+        """克隆工作流时 next_nodes 和 branches.target_node_id 必须映射到新节点 ID
+
+        复现 bug：clone_workflow 原样复制 config 和 next_nodes，但新节点获得新 UUID，
+        导致引用指向源工作流的旧节点 ID，画布无法绘制连线。
+        """
+        # 1. 手动构建源工作流（带条件分支节点和目标节点）
+        source_wf = Workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='源工作流',
+            status=WorkflowStatus.ACTIVE,
+            current_version=1,
+            created_by=owner.id,
+        )
+        db.session.add(source_wf)
+        db.session.flush()
+
+        trigger = WorkflowNode(
+            workflow_id=source_wf.id,
+            node_type=WorkflowNodeType.TRIGGER,
+            name='触发',
+            config={},
+            order=0,
+            next_nodes=[],
+        )
+        condition = WorkflowNode(
+            workflow_id=source_wf.id,
+            node_type=WorkflowNodeType.CONDITION,
+            name='条件',
+            config={'branches': []},
+            order=1,
+            next_nodes=[],
+        )
+        action_a = WorkflowNode(
+            workflow_id=source_wf.id,
+            node_type=WorkflowNodeType.ACTION,
+            name='动作 A',
+            config={'action_type': 'create_record'},
+            order=2,
+            next_nodes=[],
+        )
+        action_b = WorkflowNode(
+            workflow_id=source_wf.id,
+            node_type=WorkflowNodeType.ACTION,
+            name='动作 B',
+            config={'action_type': 'create_record'},
+            order=3,
+            next_nodes=[],
+        )
+        db.session.add_all([trigger, condition, action_a, action_b])
+        db.session.flush()
+
+        # 设置连接关系：trigger -> condition -> [action_a, action_b]
+        trigger.next_nodes = [str(condition.id)]
+        condition.config = {
+            'branches': [
+                {
+                    'id': 'b1',
+                    'name': '分支 1',
+                    'conditions': [{'field_id': 'f1', 'operator': 'equals', 'value': 'a'}],
+                    'conjunction': 'and',
+                    'target_node_id': str(action_a.id),
+                },
+                {
+                    'id': 'b2',
+                    'name': '分支 2',
+                    'conditions': [{'field_id': 'f1', 'operator': 'equals', 'value': 'b'}],
+                    'conjunction': 'and',
+                    'target_node_id': str(action_b.id),
+                },
+            ]
+        }
+        condition.next_nodes = [str(action_a.id), str(action_b.id)]
+        db.session.commit()
+
+        # 2. 克隆工作流
+        cloned_wf = WorkflowService.clone_workflow(source_wf.id, user_id=owner.id)
+        assert cloned_wf is not None
+
+        # 3. 收集克隆后节点
+        cloned_nodes = {n.name: n for n in cloned_wf.nodes.order_by(WorkflowNode.order).all()}
+        source_nodes = {n.name: n for n in source_wf.nodes.order_by(WorkflowNode.order).all()}
+
+        # 4. 验证节点 ID 不同（克隆应生成新 UUID）
+        for name in ['触发', '条件', '动作 A', '动作 B']:
+            assert source_nodes[name].id != cloned_nodes[name].id, \
+                f'{name} 节点 ID 应不同'
+
+        cloned_trigger = cloned_nodes['触发']
+        cloned_condition = cloned_nodes['条件']
+        cloned_action_a = cloned_nodes['动作 A']
+        cloned_action_b = cloned_nodes['动作 B']
+
+        # 5. 核心断言：next_nodes 应指向克隆后的节点 ID（而非源工作流的旧 ID）
+        assert cloned_trigger.next_nodes == [str(cloned_condition.id)], \
+            f"触发节点 next_nodes 应指向克隆的条件节点，实际: {cloned_trigger.next_nodes}"
+
+        assert set(cloned_condition.next_nodes) == {
+            str(cloned_action_a.id), str(cloned_action_b.id)
+        }, f"条件节点 next_nodes 应指向克隆的动作节点，实际: {cloned_condition.next_nodes}"
+
+        # 6. 核心断言：branches.target_node_id 应指向克隆后的节点 ID
+        cloned_branches = cloned_condition.config['branches']
+        assert cloned_branches[0]['target_node_id'] == str(cloned_action_a.id), \
+            f"分支 1 target_node_id 应指向克隆的动作 A，实际: {cloned_branches[0]['target_node_id']}"
+        assert cloned_branches[1]['target_node_id'] == str(cloned_action_b.id), \
+            f"分支 2 target_node_id 应指向克隆的动作 B，实际: {cloned_branches[1]['target_node_id']}"
+
+        # 7. 确保源工作流的引用未被破坏
+        assert source_nodes['触发'].next_nodes == [str(source_nodes['条件'].id)]
+        assert source_nodes['条件'].config['branches'][0]['target_node_id'] == str(source_nodes['动作 A'].id)
+
+    def test_clone_preserves_basic_fields(self, ctx, base, table, owner):
+        """克隆应保留节点类型、名称、order、config 中的非 ID 字段"""
+        source_wf = Workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='源',
+            status=WorkflowStatus.DRAFT,
+            current_version=0,
+            created_by=owner.id,
+        )
+        db.session.add(source_wf)
+        db.session.flush()
+
+        # 创建一个 webhook 节点（config 含 webhook_id，不应被重映射）
+        webhook_node = WorkflowNode(
+            workflow_id=source_wf.id,
+            node_type=WorkflowNodeType.WEBHOOK,
+            name='通知',
+            config={
+                'webhook_mode': 'existing',
+                'webhook_id': 'wh-fixed-id-123',
+            },
+            order=0,
+            next_nodes=[],
+        )
+        db.session.add(webhook_node)
+        db.session.commit()
+
+        cloned_wf = WorkflowService.clone_workflow(source_wf.id, user_id=owner.id)
+        cloned_node = cloned_wf.nodes.first()
+
+        assert cloned_node.name == '通知'
+        assert cloned_node.node_type == WorkflowNodeType.WEBHOOK
+        assert cloned_node.order == 0
+        # webhook_id 是外部资源 ID，不应被重映射
+        assert cloned_node.config['webhook_id'] == 'wh-fixed-id-123'
+        assert cloned_node.config['webhook_mode'] == 'existing'
+
+
 class TestWorkflowStatus:
     """测试工作流状态管理"""
 
