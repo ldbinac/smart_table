@@ -6,6 +6,7 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { ElMessage } from "element-plus";
 import { workflowApiService } from "@/services/api/workflowApiService";
+import type { WebhookReferencesResult } from "@/services/api/workflowApiService";
 import type {
   Workflow,
   WorkflowInstance,
@@ -479,6 +480,17 @@ export const useWorkflowStore = defineStore("workflow", () => {
     }
   }
 
+  async function checkWebhookReferences(
+    webhookId: string,
+  ): Promise<WebhookReferencesResult> {
+    try {
+      return await workflowApiService.getWebhookReferences(webhookId);
+    } catch (e: unknown) {
+      handleError("checkWebhookReferences", e);
+      return { references: [], count: 0 };
+    }
+  }
+
   async function testWebhook(webhookId: string): Promise<object> {
     setLoading(true);
     clearError();
@@ -605,6 +617,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     createWebhook,
     updateWebhook,
     deleteWebhook,
+    checkWebhookReferences,
     testWebhook,
     loadTemplates,
     saveAsTemplate,

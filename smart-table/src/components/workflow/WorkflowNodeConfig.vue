@@ -148,7 +148,13 @@ function setConfigValue(key: string, value: unknown) {
 }
 
 const availableTables = computed(() => props.tables ?? []);
-const availableWebhooks = computed(() => props.webhooks ?? []);
+const availableWebhooks = computed(() => {
+  const all = props.webhooks ?? [];
+  const currentId = configValue<string | undefined>("webhook_id", undefined);
+  return all.filter(
+    (w) => w.is_active || (currentId !== undefined && w.id === currentId),
+  );
+});
 
 // ==================== 审批节点配置 ====================
 

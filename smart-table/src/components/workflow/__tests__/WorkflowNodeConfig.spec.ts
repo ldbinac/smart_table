@@ -566,6 +566,72 @@ describe('WorkflowNodeConfig', () => {
       expect(radioGroup.classes('is-disabled')).toBe(true);
     });
 
+    it('availableWebhooks 应过滤掉 is_active=false 的 Webhook', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+          },
+        },
+        webhooks: [
+          { id: 'wh-1', name: '启用 WH', is_active: true },
+          { id: 'wh-2', name: '禁用 WH', is_active: false },
+        ] as any,
+      });
+      await nextTick();
+
+      const availableWebhooks = (wrapper.vm as any).availableWebhooks;
+      expect(availableWebhooks.length).toBe(1);
+      expect(availableWebhooks[0].id).toBe('wh-1');
+    });
+
+    it('已选中但被禁用的 Webhook 仍保留在可选项中', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+            webhook_id: 'wh-2',
+          },
+        },
+        webhooks: [
+          { id: 'wh-1', name: '启用 WH', is_active: true },
+          { id: 'wh-2', name: '禁用 WH', is_active: false },
+        ] as any,
+      });
+      await nextTick();
+
+      const availableWebhooks = (wrapper.vm as any).availableWebhooks;
+      // 启用的 + 当前选中的（即使禁用）
+      expect(availableWebhooks.length).toBe(2);
+      expect(availableWebhooks.map((w: any) => w.id)).toContain('wh-2');
+    });
+
+    it('无 webhook_id 时仅返回启用的 Webhook', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+          },
+        },
+        webhooks: [
+          { id: 'wh-1', name: '启用 WH 1', is_active: true },
+          { id: 'wh-2', name: '启用 WH 2', is_active: true },
+          { id: 'wh-3', name: '禁用 WH', is_active: false },
+        ] as any,
+      });
+      await nextTick();
+
+      const availableWebhooks = (wrapper.vm as any).availableWebhooks;
+      expect(availableWebhooks.length).toBe(2);
+      expect(availableWebhooks.every((w: any) => w.is_active === true)).toBe(true);
+    });
+
     it('只读模式下 create_record 节点应展示完整字段映射摘要', async () => {
       vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
       const wrapper = mountConfig({
