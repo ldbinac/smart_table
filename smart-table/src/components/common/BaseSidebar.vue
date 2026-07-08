@@ -89,7 +89,7 @@ const tableStore = useTableStore();
 const isTableView = computed(() => route.path.includes('/table/'));
 const isDocumentView = computed(() => route.path.includes('/documents/'));
 const isDashboardView = computed(() => route.path.includes('/dashboard/'));
-const isDefaultView = computed(() => 
+const isDefaultView = computed(() =>
   !isTableView.value && !isDocumentView.value && !isDashboardView.value
 );
 
@@ -425,6 +425,11 @@ defineExpose({
       class="search-empty">
       没有找到匹配的内容
     </div>
+
+    <!-- 分隔线 -->
+    <div
+      v-if="!searchKeyword && filteredDashboards.length > 0"
+      class="section-divider"></div>
 
     <!-- 仪表盘列表 -->
     <div
@@ -1017,17 +1022,17 @@ defineExpose({
     }
 
     .table-icon,
-  .dashboard-icon,
-  .document-icon {
-    color: $primary-color;
-  }
+    .dashboard-icon,
+    .document-icon {
+      color: $primary-color;
+    }
 
-  .table-name,
-  .dashboard-name,
-  .document-name {
-    color: $primary-color;
-    font-weight: 500;
-  }
+    .table-name,
+    .dashboard-name,
+    .document-name {
+      color: $primary-color;
+      font-weight: 500;
+    }
   }
 
   // 拖拽排序时的视觉反馈

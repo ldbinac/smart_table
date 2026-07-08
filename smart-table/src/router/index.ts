@@ -47,6 +47,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/gitee-callback",
+    name: "GiteeCallback",
+    component: () => import("@/views/auth/GiteeCallback.vue"),
+    meta: {
+      title: "Gitee 授权回调",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
     path: "/reset-password",
     name: "ResetPassword",
     component: () => import("@/views/auth/ResetPassword.vue"),
@@ -102,6 +112,24 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/Base.vue"),
     meta: {
       title: "文档",
+    },
+  },
+  {
+    path: "/base/:id/workflows",
+    name: "BaseWorkflows",
+    component: () => import("@/views/base/WorkflowManager.vue"),
+    meta: {
+      title: "工作流",
+      requiresAuth: true,
+    },
+  },
+  {
+    path: "/base/:id/approvals",
+    name: "BaseApprovals",
+    component: () => import("@/views/base/ApprovalCenter.vue"),
+    meta: {
+      title: "审批中心",
+      requiresAuth: true,
     },
   },
   {

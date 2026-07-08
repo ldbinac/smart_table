@@ -48,6 +48,9 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
+
+# Git worktrees
+.worktrees/
 .cache
 nosetests.xml
 coverage.xml

@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { User, LoginRequest, RegisterRequest } from '@/api/types'
+import type { User, LoginResponse, LoginRequest, RegisterRequest } from '@/api/types'
 import { authService } from '@/services/api/authService'
 import {
   setToken,
@@ -81,26 +81,40 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true
     try {
       const response = await authService.login(credentials)
+      return await completeLogin(response, remember)
+    } catch (error) {
+      console.error('登录失败:', error)
+      message.error('登录失败，请检查邮箱和密码')
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
 
-      // 存储 Token - 注意后端返回的是 tokens 对象
-      // 默认使用 localStorage，这样多标签页可以共享 token
+  /**
+   * 完成登录（供普通登录和 Gitee 回调复用）
+   */
+  const completeLogin = async (response: LoginResponse, remember: boolean = true): Promise<boolean> => {
+    try {
+      if (!response.tokens?.access_token || !response.tokens?.refresh_token || !response.user) {
+        message.error('登录响应数据不完整')
+        return false
+      }
+
       setToken(response.tokens.access_token, remember)
       setRefreshToken(response.tokens.refresh_token, remember)
       setRememberMe(remember)
 
-      // 更新状态
       user.value = response.user
       isAuthenticated.value = true
-      // 登录后更新用户缓存
       setUserCache(response.user)
 
       message.success('登录成功')
       return true
     } catch (error) {
-      message.error('登录失败，请检查邮箱和密码')
+      console.error('[authStore] 完成登录失败:', error)
+      message.error('登录状态保存失败')
       return false
-    } finally {
-      isLoading.value = false
     }
   }
   
@@ -273,6 +287,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     // 方法
     login,
+    completeLogin,
     register,
     logout,
     fetchCurrentUser,

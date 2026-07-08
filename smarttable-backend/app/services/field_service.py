@@ -16,6 +16,7 @@ from app.models.field import Field, FieldType
 from app.models.table import Table
 from app.models.base import MemberRole
 from app.services.base_service import BaseService
+from app.services.workflow_event_bus import workflow_event_bus
 import logging
 
 
@@ -296,6 +297,17 @@ class FieldService:
         
         try:
             db.session.commit()
+
+            try:
+                workflow_event_bus.publish(
+                    event_type='field_changed',
+                    table_id=str(field.table_id),
+                    actor_id=str(user_id) if user_id else None,
+                    changes=data,
+                    metadata={'field_id': field_id, 'field': field.to_dict()}
+                )
+            except Exception as e:
+                logger.error(f'[FieldService] workflow_event_bus publish (update) error: {e}')
 
             try:
                 from app.services.collaboration_service import CollaborationService

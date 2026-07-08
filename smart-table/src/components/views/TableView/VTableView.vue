@@ -4507,7 +4507,7 @@ function openSearch() {
   // 初始化 SearchComponent（仅首次）
   if (!searchComponent.value) {
     searchComponent.value = new SearchComponent({
-      table: tableInstance,
+      table: tableInstance as any,
       autoJump: true,
     });
   }

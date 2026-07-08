@@ -176,10 +176,10 @@ def unauthorized_response(message: str = '未授权访问') -> Response:
 def forbidden_response(message: str = '权限不足') -> Response:
     """
     禁止访问响应
-    
+
     Args:
         message: 错误消息
-        
+
     Returns:
         Flask Response 对象
     """
@@ -187,4 +187,21 @@ def forbidden_response(message: str = '权限不足') -> Response:
         message=message,
         code=403,
         error='forbidden'
+    )
+
+
+def bad_request_response(message: str = '请求参数错误') -> Response:
+    """
+    错误请求响应
+
+    Args:
+        message: 错误消息
+
+    Returns:
+        Flask Response 对象
+    """
+    return error_response(
+        message=message,
+        code=400,
+        error='bad_request'
     )

@@ -70,6 +70,28 @@
 - **数据导入** - 支持 Excel、CSV、JSON 格式，支持多 Sheet，可导入创建新表
 - **数据导出** - 支持 Excel、CSV、JSON 格式，自定义导出字段
 
+#### 🔄 工作流自动化引擎（v1.6.0 新增）
+
+- **触发器系统**
+  - **指定时间触发** - 支持一次性触发和重复触发（每日/每周/每月/每年/自定义），支持截止日期配置
+  - **记录创建触发** - 新记录创建时自动触发，支持过滤条件（AND/OR 多条件组合）
+  - **记录更新触发** - 记录更新时自动触发，支持监听指定字段，支持过滤条件
+- **节点系统**
+  - **创建记录节点** - 自动在目标表创建记录，支持字段值映射（静态值/引用表达式）
+  - **更新记录节点** - 自动更新源记录字段值，支持静态值和表达式
+  - **Webhook 节点** - 调用外部 HTTP 接口，支持选择已有配置或内联配置
+  - **条件节点** - 根据条件走不同分支，支持 AND/OR 条件组合
+  - **节点排序** - 支持手工调整节点执行顺序（拖拽排序）
+- **版本管理** - 工作流版本快照，版本历史查看与回溯
+- **管理功能** - 工作流创建、编辑、删除、暂停、继续，与数据表绑定关系管理
+
+#### 🪝 Webhook 投递管理（v1.6.0 新增）
+
+- **Webhook 配置** - 支持名称、URL、HTTP 方法、请求头、请求体模板配置
+- **重试策略** - 支持最大重试次数、重试间隔等配置
+- **测试功能** - 支持测试 Webhook 配置是否有效
+- **投递记录** - 查看投递记录列表、详情（请求参数、响应状态码、响应体等）
+
 #### 协作与分享
 
 - **Base 分享** - 多维表级别分享，支持链接分享和权限控制
@@ -401,13 +423,15 @@ Base (多维表格)
   ├── has many Dashboard (仪表盘)
   ├── has many BaseShare (分享链接)
   ├── has many BaseMember (成员)
-  └── has many CollaborationSession (协作会话)
+  ├── has many CollaborationSession (协作会话)
+  └── has many Workflow (工作流) （v1.6.0 新增）
 
 Table (数据表)
   ├── has many Field (字段)
   ├── has many Record (记录)
   ├── has many View (视图)
   ├── has many LinkRelation (关联关系)
+  ├── has many Workflow (关联工作流) （v1.6.0 新增）
   └── belongs to Base
 
 Field (字段)
@@ -422,6 +446,15 @@ Record (记录)
 View (视图)
   ├── has filter/sort/group configs
   └── belongs to Table
+
+Workflow (工作流) （v1.6.0 新增）
+  ├── has many WorkflowVersion (版本快照)
+  ├── has many WebhookConfig (Webhook配置)
+  └── belongs to Base/Table
+
+WebhookConfig (Webhook配置) （v1.6.0 新增）
+  ├── has many WebhookDelivery (投递记录)
+  └── belongs to Workflow
 ```
 
 ### 主要模型说明
@@ -481,6 +514,31 @@ View (视图)
 - 实时协作会话追踪
 - 记录用户加入/离开、活跃状态
 - 仅在启用实时协作功能时使用
+
+#### Workflow（工作流）（v1.6.0 新增）
+
+- 工作流自动化引擎核心实体
+- 绑定到 Base 或具体 Table
+- 包含触发器配置和节点执行链
+- 支持暂停、继续、编辑、版本管理
+
+#### WorkflowVersion（工作流版本）（v1.6.0 新增）
+
+- 工作流版本历史快照
+- 记录每次保存的配置和创建者
+- 支持版本回溯和配置对比
+
+#### WebhookConfig（Webhook 配置）（v1.6.0 新增）
+
+- Webhook 投递配置
+- 支持 URL、HTTP 方法、请求头、请求体模板
+- 支持重试策略配置
+
+#### WebhookDelivery（Webhook 投递）（v1.6.0 新增）
+
+- Webhook 投递记录
+- 记录请求参数、响应状态、响应内容
+- 支持投递状态追踪
 
 ## 🔢 公式引擎
 
