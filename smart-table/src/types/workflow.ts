@@ -58,6 +58,7 @@ export interface ConditionBranch {
   conditions: ConditionItem[];
   conjunction: 'and' | 'or';
   target_node_id?: string;
+  is_default?: boolean;
 }
 
 export interface ConditionNodeConfig {

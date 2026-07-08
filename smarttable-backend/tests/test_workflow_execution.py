@@ -548,6 +548,257 @@ class TestExecuteConditionNode:
         db.session.refresh(record)
         assert record.values[str(field.id)] == '已更新'
 
+    def test_condition_node_default_branch_executes_when_no_match(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """所有条件分支不满足时执行默认分支"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='默认分支兜底测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'branches': [
+                            {
+                                'id': 'b_high',
+                                'name': '高',
+                                'conditions': [
+                                    {'operator': 'equals', 'field_id': str(field.id), 'value': '高'}
+                                ],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                            },
+                            {
+                                'id': 'b_medium',
+                                'name': '中',
+                                'conditions': [
+                                    {'operator': 'equals', 'field_id': str(field.id), 'value': '中'}
+                                ],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                            },
+                            {
+                                'id': 'b_default',
+                                'name': '默认分支',
+                                'conditions': [],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                                'is_default': True,
+                            },
+                        ]
+                    },
+                    'order': 0,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新为高',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新为高'}],
+                    },
+                    'order': 1,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新为中',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新为中'}],
+                    },
+                    'order': 2,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新为默认',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新为默认'}],
+                    },
+                    'order': 3,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
+        condition_node, high_node, medium_node, default_node = nodes[0], nodes[1], nodes[2], nodes[3]
+        condition_node.config['branches'][0]['target_node_id'] = str(high_node.id)
+        condition_node.config['branches'][1]['target_node_id'] = str(medium_node.id)
+        condition_node.config['branches'][2]['target_node_id'] = str(default_node.id)
+        flag_modified(condition_node, 'config')
+        db.session.commit()
+
+        # 记录值不匹配任何条件分支
+        record.values = {str(field.id): '低'}
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._execute_chain(instance, condition_node)
+
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '已更新为默认'
+
+    def test_condition_node_default_branch_skipped_when_condition_matches(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """条件分支匹配时不执行默认分支"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='默认分支跳过测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'branches': [
+                            {
+                                'id': 'b_high',
+                                'name': '高',
+                                'conditions': [
+                                    {'operator': 'equals', 'field_id': str(field.id), 'value': '高'}
+                                ],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                            },
+                            {
+                                'id': 'b_default',
+                                'name': '默认分支',
+                                'conditions': [],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                                'is_default': True,
+                            },
+                        ]
+                    },
+                    'order': 0,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新为高',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新为高'}],
+                    },
+                    'order': 1,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '更新为默认',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新为默认'}],
+                    },
+                    'order': 2,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
+        condition_node, high_node, default_node = nodes[0], nodes[1], nodes[2]
+        condition_node.config['branches'][0]['target_node_id'] = str(high_node.id)
+        condition_node.config['branches'][1]['target_node_id'] = str(default_node.id)
+        flag_modified(condition_node, 'config')
+        db.session.commit()
+
+        # 记录值匹配第一个条件分支
+        record.values = {str(field.id): '高'}
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        engine._execute_chain(instance, condition_node)
+
+        db.session.refresh(record)
+        assert record.values[str(field.id)] == '已更新为高'
+
+    def test_condition_node_default_branch_without_target_stops(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """默认分支未连线时返回空 next_nodes 终止分支"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='默认分支无连线测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'condition',
+                    'name': '条件',
+                    'config': {
+                        'branches': [
+                            {
+                                'id': 'b_high',
+                                'name': '高',
+                                'conditions': [
+                                    {'operator': 'equals', 'field_id': str(field.id), 'value': '高'}
+                                ],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                            },
+                            {
+                                'id': 'b_default',
+                                'name': '默认分支',
+                                'conditions': [],
+                                'conjunction': 'and',
+                                'target_node_id': None,
+                                'is_default': True,
+                            },
+                        ]
+                    },
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        condition_node = workflow.nodes.first()
+
+        # 记录值不匹配任何条件分支，默认分支也无 target_node_id
+        record.values = {str(field.id): '低'}
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        result = engine.execute_node(instance, condition_node)
+
+        assert result['result'] is True
+        assert result['next_nodes'] == []
+
 
 class TestExecuteUpdateRecord:
     """测试更新记录动作节点"""

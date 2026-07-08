@@ -34,6 +34,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   Share: { template: '<span class="icon-share" />' },
   Search: { template: '<span class="icon-search" />' },
   Timer: { template: '<span class="icon-timer" />' },
+  InfoFilled: { template: '<span class="icon-info-filled" />' },
 }));
 
 // Mock 工具函数
@@ -117,6 +118,21 @@ describe('WorkflowNodeConfig', () => {
           'el-divider': { template: '<hr class="el-divider" />' },
           'el-empty': { template: '<div class="el-empty"><slot /></div>' },
           'el-icon': { template: '<i class="el-icon"><slot /></i>' },
+          'el-dropdown': {
+            template: '<div class="el-dropdown"><slot /><slot name="dropdown" /></div>',
+            emits: ['command'],
+          },
+          'el-dropdown-menu': { template: '<div class="el-dropdown-menu"><slot /></div>' },
+          'el-dropdown-item': {
+            template: '<div class="el-dropdown-item" :class="{ \'is-disabled\': disabled }" @click="$emit(\'command\', command)"><slot /></div>',
+            props: ['command', 'disabled'],
+            emits: ['command'],
+          },
+          'el-tag': { template: '<span class="el-tag"><slot /></span>' },
+          'el-alert': {
+            template: '<div class="el-alert">{{ title }} {{ description }}</div>',
+            props: ['title', 'description', 'type', 'closable'],
+          },
           'FieldValueInput': { template: '<input class="field-value-input" />' },
         },
       },
@@ -675,17 +691,27 @@ describe('WorkflowNodeConfig', () => {
       expect(branches[1].name).toBe('分支 B');
     });
 
-    it('点击添加分支会增加新分支并切换到新标签', async () => {
+    it('添加分支下拉菜单包含条件分支和默认分支选项', async () => {
       const wrapper = mountCondition();
       await nextTick();
 
-      const addBtn = wrapper.find('.branch-tabs .el-button');
-      await addBtn.trigger('click');
+      const items = wrapper.findAll('.el-dropdown-item');
+      expect(items.length).toBe(2);
+      expect(items[0].text()).toContain('条件分支');
+      expect(items[1].text()).toContain('默认分支');
+    });
+
+    it('通过 command 添加条件分支并切换到新标签', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
+
+      (wrapper.vm as any).handleAddBranchCommand('condition');
       await nextTick();
 
       const branches = (wrapper.vm as any).branches;
       expect(branches.length).toBe(2);
       expect(branches[1].name).toBe('分支 2');
+      expect(branches[1].is_default).toBeFalsy();
       expect((wrapper.vm as any).activeBranchId).toBe(branches[1].id);
     });
 
@@ -829,6 +855,103 @@ describe('WorkflowNodeConfig', () => {
       const summaryItem = wrapper.find('.summary-item');
       expect(summaryItem.text()).toContain('hello');
       expect(summaryItem.text()).not.toContain('(');
+    });
+
+    // ==================== 默认分支测试 ====================
+
+    it('通过 command 添加默认分支并切换到新标签', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
+
+      (wrapper.vm as any).handleAddBranchCommand('default');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(2);
+      expect(branches[1].is_default).toBe(true);
+      expect(branches[1].name).toBe('默认分支');
+      expect((wrapper.vm as any).activeBranchId).toBe(branches[1].id);
+    });
+
+    it('已存在默认分支时默认分支菜单项被禁用', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
+          { id: 'b-default', name: '默认', conditions: [], conjunction: 'and', is_default: true },
+        ],
+      });
+      await nextTick();
+
+      const items = wrapper.findAll('.el-dropdown-item');
+      expect(items[1].classes()).toContain('is-disabled');
+    });
+
+    it('默认分支标签页显示"默认"标签', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: '条件分支', conditions: [], conjunction: 'and' },
+          { id: 'b-default', name: '默认分支', conditions: [], conjunction: 'and', is_default: true },
+        ],
+      });
+      await nextTick();
+
+      // 选中默认分支
+      (wrapper.vm as any).activeBranchId = 'b-default';
+      await nextTick();
+
+      const defaultTab = wrapper.findAll('.branch-tab').find((tab) =>
+        tab.classes().includes('is-default'),
+      );
+      expect(defaultTab).toBeTruthy();
+      expect(defaultTab!.find('.el-tag').text()).toContain('默认');
+    });
+
+    it('默认分支面板显示提示信息且不显示条件配置区域', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: '条件分支', conditions: [], conjunction: 'and' },
+          { id: 'b-default', name: '默认分支', conditions: [], conjunction: 'and', is_default: true },
+        ],
+      });
+      await nextTick();
+
+      // 选中默认分支
+      (wrapper.vm as any).activeBranchId = 'b-default';
+      await nextTick();
+
+      expect(wrapper.find('.el-alert').exists()).toBe(true);
+      expect(wrapper.find('.el-alert').text()).toContain('默认分支无需配置条件');
+      expect(wrapper.find('.conditions-list').exists()).toBe(false);
+      expect(wrapper.find('.condition-conjunction').exists()).toBe(false);
+    });
+
+    it('默认分支始终位于分支数组末尾', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
+
+      // 先添加默认分支
+      (wrapper.vm as any).handleAddBranchCommand('default');
+      await nextTick();
+
+      // 再添加条件分支
+      (wrapper.vm as any).handleAddBranchCommand('condition');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(3);
+      // 最后一个应该是默认分支
+      expect(branches[branches.length - 1].is_default).toBe(true);
+    });
+
+    it('只读模式下不显示添加分支下拉菜单', async () => {
+      const wrapper = mountCondition({
+        branches: [{ id: 'b1', name: '分支', conditions: [], conjunction: 'and' }],
+      });
+      await nextTick();
+      await wrapper.setProps({ readonly: true });
+      await nextTick();
+
+      expect(wrapper.find('.el-dropdown').exists()).toBe(false);
     });
   });
 });

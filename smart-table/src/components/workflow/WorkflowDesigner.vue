@@ -231,8 +231,17 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
       }
     } else if (node.node_type === 'condition') {
       const branches = getConditionBranches(node.config);
-      if (branches.length === 0 || branches.some((b) => b.conditions.length === 0)) {
+      if (branches.length === 0) {
         invalidNodeNames.push(node.name);
+      } else {
+        const hasInvalid = branches.some((b) =>
+          b.is_default
+            ? !b.target_node_id
+            : b.conditions.length === 0
+        );
+        if (hasInvalid) {
+          invalidNodeNames.push(node.name);
+        }
       }
     }
   });

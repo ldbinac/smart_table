@@ -450,15 +450,20 @@ class WorkflowExecutionEngine:
     def _execute_condition_node(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行条件分支节点
 
-        支持多条件组分支（if/else-if 语义）。按 branches 数组顺序评估，首个满足条件的
-        分支的 target_node_id 作为后续节点；全部不满足则终止该分支。
+        支持多条件组分支（if/else-if 语义）与默认分支（else 语义）。
+        按 branches 数组顺序评估非默认分支，首个满足条件的分支的 target_node_id 作为后续节点；
+        全部不满足时执行默认分支；无默认分支则终止该分支。
         """
         config = node.config or {}
         context = self._build_render_context(instance)
         normalized = self._normalize_condition_config(config)
         branches = normalized.get('branches', [])
 
+        default_branch = None
         for branch in branches:
+            if branch.get('is_default'):
+                default_branch = branch
+                continue
             conditions = branch.get('conditions', [])
             condition_config: Dict[str, Any] = {
                 'conditions': conditions,
@@ -467,6 +472,10 @@ class WorkflowExecutionEngine:
             if self.evaluate_condition(condition_config, context):
                 target_node_id = branch.get('target_node_id')
                 return {'result': True, 'next_nodes': [target_node_id] if target_node_id else []}
+
+        if default_branch:
+            target_node_id = default_branch.get('target_node_id')
+            return {'result': True, 'next_nodes': [target_node_id] if target_node_id else []}
 
         return {'result': False, 'next_nodes': []}
 

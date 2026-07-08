@@ -24,6 +24,8 @@ import { normalizeWorkflowNode } from "@/utils/workflow";
 import {
   normalizeConditionConfig,
   addConditionBranch,
+  addDefaultBranch,
+  hasDefaultBranch as checkDefaultBranch,
   removeConditionBranch,
   updateConditionBranch,
 } from "@/utils/conditionBranch";
@@ -33,6 +35,7 @@ import {
   Plus,
   EditPen,
   Close,
+  InfoFilled,
 } from "@element-plus/icons-vue";
 
 interface Props {
@@ -231,6 +234,19 @@ function addBranch() {
   conditionConfig.value = config;
   activeBranchId.value = branch.id;
 }
+
+function addDefault() {
+  const { config, branch } = addDefaultBranch(conditionConfig.value);
+  conditionConfig.value = config;
+  activeBranchId.value = branch.id;
+}
+
+function handleAddBranchCommand(command: string | number) {
+  if (command === "condition") addBranch();
+  else if (command === "default") addDefault();
+}
+
+const hasDefaultBranch = computed(() => checkDefaultBranch(conditionConfig.value));
 
 function removeBranch(branchId: string) {
   if (branches.value.length <= 1) return;
@@ -731,7 +747,7 @@ const nodeTypeLabel = computed(() => {
       <div class="condition-branches">
         <div class="branches-header">
           <span class="branches-title">条件分支</span>
-          <span class="branches-hint">在画布上拖拽分支连线到目标节点</span>
+          <span class="branches-hint"><el-icon><InfoFilled /></el-icon>&nbsp;在画布上拖拽分支连线到目标节点</span>
         </div>
 
         <div class="branch-tabs">
@@ -739,9 +755,10 @@ const nodeTypeLabel = computed(() => {
             v-for="branch in branches"
             :key="branch.id"
             class="branch-tab"
-            :class="{ active: branch.id === activeBranchId }"
+            :class="{ active: branch.id === activeBranchId, 'is-default': branch.is_default }"
             @click="activeBranchId = branch.id">
             <span class="branch-tab-name">{{ branch.name }}</span>
+            <el-tag v-if="branch.is_default" size="small" type="warning" class="branch-tab-default">默认</el-tag>
             <el-icon
               v-if="!readonly && branches.length > 1"
               class="branch-tab-close"
@@ -749,15 +766,20 @@ const nodeTypeLabel = computed(() => {
               <Close />
             </el-icon>
           </div>
-          <el-button
+          <el-dropdown
             v-if="!readonly"
-            type="primary"
-            :icon="Plus"
-            text
-            size="small"
-            @click="addBranch">
-            添加分支
-          </el-button>
+            trigger="click"
+            @command="handleAddBranchCommand">
+            <el-button type="primary" :icon="Plus" text size="small">
+              添加分支
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="condition">条件分支</el-dropdown-item>
+                <el-dropdown-item command="default" :disabled="hasDefaultBranch">默认分支</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
 
         <div v-if="activeBranch" class="branch-panel">
@@ -781,103 +803,112 @@ const nodeTypeLabel = computed(() => {
             </el-tag>
           </div>
 
-          <div class="condition-conjunction">
-            <span class="conjunction-label">条件关系</span>
-            <template v-if="readonly">
-              <span class="conjunction-value">{{ getConjunctionLabel(activeBranch.conjunction) }}</span>
-            </template>
-            <el-radio-group
-              v-else
-              :model-value="activeBranch.conjunction"
-              size="small"
-              @change="(val) => updateBranchConjunction(activeBranch.id, val as ConjunctionValue)">
-              <el-radio
-                v-for="opt in CONJUNCTION_OPTIONS"
-                :key="opt.value"
-                :label="opt.value">
-                {{ opt.label }}
-              </el-radio>
-            </el-radio-group>
-          </div>
+          <template v-if="!activeBranch.is_default">
+            <div class="condition-conjunction">
+              <span class="conjunction-label">条件关系</span>
+              <template v-if="readonly">
+                <span class="conjunction-value">{{ getConjunctionLabel(activeBranch.conjunction) }}</span>
+              </template>
+              <el-radio-group
+                v-else
+                :model-value="activeBranch.conjunction"
+                size="small"
+                @change="(val) => updateBranchConjunction(activeBranch.id, val as ConjunctionValue)">
+                <el-radio
+                  v-for="opt in CONJUNCTION_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.value">
+                  {{ opt.label }}
+                </el-radio>
+              </el-radio-group>
+            </div>
 
-          <div class="conditions-list">
-            <div
-              v-for="(condition, index) in activeBranch.conditions"
-              :key="index"
-              class="condition-row">
-              <el-select
-                :model-value="condition.field_id"
-                placeholder="选择字段"
-                class="field-select"
-                :disabled="readonly"
-                @change="(val) => onConditionFieldChange(activeBranch.id, index, val as string)">
-                <el-option
-                  v-for="field in fields"
-                  :key="field.id"
-                  :label="field.name"
-                  :value="field.id" />
-              </el-select>
+            <div class="conditions-list">
+              <div
+                v-for="(condition, index) in activeBranch.conditions"
+                :key="index"
+                class="condition-row">
+                <el-select
+                  :model-value="condition.field_id"
+                  placeholder="选择字段"
+                  class="field-select"
+                  :disabled="readonly"
+                  @change="(val) => onConditionFieldChange(activeBranch.id, index, val as string)">
+                  <el-option
+                    v-for="field in fields"
+                    :key="field.id"
+                    :label="field.name"
+                    :value="field.id" />
+                </el-select>
 
-              <el-select
-                :model-value="condition.operator"
-                placeholder="操作符"
-                class="operator-select"
-                :disabled="readonly"
-                @change="(val) => onConditionOperatorChange(activeBranch.id, index, val as FilterOperatorValue)">
-                <el-option
-                  v-for="op in getOperatorOptions(getFieldById(condition.field_id)?.type ?? '')"
-                  :key="op.value"
-                  :label="op.label"
-                  :value="op.value" />
-              </el-select>
+                <el-select
+                  :model-value="condition.operator"
+                  placeholder="操作符"
+                  class="operator-select"
+                  :disabled="readonly"
+                  @change="(val) => onConditionOperatorChange(activeBranch.id, index, val as FilterOperatorValue)">
+                  <el-option
+                    v-for="op in getOperatorOptions(getFieldById(condition.field_id)?.type ?? '')"
+                    :key="op.value"
+                    :label="op.label"
+                    :value="op.value" />
+                </el-select>
 
-              <FieldValueInput
-                v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
-                :field="getFieldById(condition.field_id)!"
-                :model-value="condition.value"
-                placeholder="值"
-                class="value-input"
-                :disabled="readonly"
-                @update:model-value="(val) => onConditionValueChange(activeBranch.id, index, val)" />
+                <FieldValueInput
+                  v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
+                  :field="getFieldById(condition.field_id)!"
+                  :model-value="condition.value"
+                  placeholder="值"
+                  class="value-input"
+                  :disabled="readonly"
+                  @update:model-value="(val) => onConditionValueChange(activeBranch.id, index, val)" />
 
-              <span v-else class="value-placeholder">无需值</span>
+                <span v-else class="value-placeholder">无需值</span>
+
+                <el-button
+                  v-if="!readonly"
+                  type="danger"
+                  :icon="Delete"
+                  circle
+                  size="small"
+                  @click="removeCondition(activeBranch.id, index)" />
+              </div>
 
               <el-button
                 v-if="!readonly"
-                type="danger"
-                :icon="Delete"
-                circle
-                size="small"
-                @click="removeCondition(activeBranch.id, index)" />
+                type="primary"
+                :icon="Plus"
+                text
+                @click="addCondition(activeBranch.id)">
+                添加条件
+              </el-button>
             </div>
 
-            <el-button
-              v-if="!readonly"
-              type="primary"
-              :icon="Plus"
-              text
-              @click="addCondition(activeBranch.id)">
-              添加条件
-            </el-button>
-          </div>
+            <el-divider />
 
-          <el-divider />
+            <div class="summary">
+              <div class="summary-title">条件摘要</div>
+              <div v-if="activeBranch.conditions.length > 1" class="summary-conjunction">
+                关系：{{ getConjunctionLabel(activeBranch.conjunction) }}
+              </div>
+              <div
+                v-for="(condition, index) in activeBranch.conditions"
+                :key="`summary-${index}`"
+                class="summary-item">
+                {{ getFieldById(condition.field_id)?.name ?? "未选择字段" }}
+                {{ OPERATOR_LABELS[condition.operator] ?? condition.operator }}
+                {{ renderConditionValue(condition) }}
+              </div>
+              <el-empty v-if="activeBranch.conditions.length === 0" description="暂无条件" :image-size="60" />
+            </div>
+          </template>
 
-          <div class="summary">
-            <div class="summary-title">条件摘要</div>
-            <div v-if="activeBranch.conditions.length > 1" class="summary-conjunction">
-              关系：{{ getConjunctionLabel(activeBranch.conjunction) }}
-            </div>
-            <div
-              v-for="(condition, index) in activeBranch.conditions"
-              :key="`summary-${index}`"
-              class="summary-item">
-              {{ getFieldById(condition.field_id)?.name ?? "未选择字段" }}
-              {{ OPERATOR_LABELS[condition.operator] ?? condition.operator }}
-              {{ renderConditionValue(condition) }}
-            </div>
-            <el-empty v-if="activeBranch.conditions.length === 0" description="暂无条件" :image-size="60" />
-          </div>
+          <el-alert
+            v-else
+            type="info"
+            :closable="false"
+            title="默认分支无需配置条件"
+            description="当所有条件分支都不满足时，将执行此分支" />
         </div>
       </div>
     </template>
@@ -1546,11 +1577,21 @@ const nodeTypeLabel = computed(() => {
     color: $primary-color;
   }
 
+  &.is-default {
+    border: 1px dashed $warning-color;
+  }
+
   .branch-tab-name {
     max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .branch-tab-default {
+    margin-left: 0;
+    transform: scale(0.85);
+    transform-origin: center;
   }
 
   .branch-tab-close {
