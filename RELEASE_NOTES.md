@@ -4,6 +4,174 @@
 
 ***
 
+# SmartTable v1.6.0 Release Notes
+
+**发布日期 / Release Date**: 2026-07-05
+
+**版本号 / Version**: v1.6.0
+
+**标签 / Tags**: `release`, `v1.6.0`, `latest`, `stable`, `workflow`, `automation`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.0 更新说明
+
+本次更新是 SmartTable 历史上又一次重大版本升级，正式引入 **完整的工作流自动化引擎**与**Webhook 投递管理系统**。工作流引擎支持多种触发器（定时/记录创建/记录更新）、条件分支、创建记录等节点类型，并配套版本快照、关联数据表、节点编辑等完整管理能力。
+
+### ✨ 新增功能 (New Features)
+
+#### 🔄 工作流自动化引擎 (Workflow Engine) ⭐⭐⭐
+
+**核心引擎与架构**
+- 实现完整的工作流与 Webhook 功能模块（端到端架构落地）
+- 实现工作流与数据表的绑定关系
+- 支持工作流的创建、编辑、删除、暂停、继续、版本快照等操作
+- 自动构建工作流节点执行链与节点执行顺序
+- 实现工作流版本快照
+- 支持查看全局数据表与工作流的绑定关系
+- 统一工作流节点类型规范化处理
+
+**触发器系统 (Trigger System)**
+- ⭐ 新增**指定时间定时触发**工作流能力
+  - 指定时间触发器使用本地时区解释触发时间
+  - 支持不重复一次触发与多种类型（每日/每周/每月/每年/自定义）重复触发机制
+  - 支持指定时间触发器的截止日期配置，避免重复触发
+- ⭐ 支持**记录创建**触发器
+  - 触发过滤条件，支持全局触发（不配置过滤条件）
+  - 触发过滤条件，支持与（全部满足）与或（任意满足）的指定多条件触发模式
+- ⭐ 支持**记录更新**触发器
+  - 支持全局触发（不配置监听字段）
+  - 支持监听指定字段更新触发（配置监听字段）
+  - 触发过滤条件，支持全局触发（不配置过滤条件）
+  - 触发过滤条件，支持与（全部满足）与或（任意满足）的指定多条件触发模式
+
+**节点系统 (Node System)**
+- ⭐ 支持**多种节点**类型（创建记录、更新记录、webhook、条件分支）的创建、编辑、删除等操作
+- ⭐ **创建记录节点 (Create Record Node)** 
+  - 支持对目标表记录的创建
+  - 支持目标表字段值输入的映射配置，支持录入静态值或基于源表字段值的引用表达式
+- ⭐ **更新记录节点 (Update Record Node)** 
+  - 支持源表字段值输入的配置，支持录入静态值或使用表达式
+- ⭐ **Webhook 节点 (Webhook Node)** 
+  - 支持选择系统已配置的Webhook
+  - 支持内联配置新的 Webhook 
+- ⭐ **条件节点 (Condition Node)** 
+  - 过滤条件，支持与（全部满足）与或（任意满足）的指定多条件触发模式
+  - 支持实时显示配置的条件摘要信息
+- ⭐ 支持手工调整节点执行顺序（拖拽排序）
+
+
+**列表与界面 (List & UI)**
+- ⭐ 工作流列表面板新增**折叠/展开**功能（侧边栏宽度自适应）
+- ⭐ 新增**搜索框**，支持按名称或描述过滤工作流
+
+
+**版本管理 (Version Management)**
+- ⭐ **版本历史**功能，支持查看工作流历史版本
+- 版本历史弹窗支持查看版本号、创建时间、创建者名称、节点配置摘要信息等
+
+**顶部导航**
+- ⭐ 多维表Base页面新增顶部导航**自动化菜单**，统一工作流配置入口
+
+
+#### 🪝 Webhook 投递管理 (Webhook Delivery) 系统⭐
+
+- ⭐ **Webhook 配置**功能，支持新增、编辑 Webhook 配置
+  - 支持 Webhook 名称、URL、HTTP 方法、请求头、请求体模板等配置
+  - 支持 Webhook 重试策略（最大重试次数、重试间隔等）配置
+  - 支持 Webhook 启用状态（开启/禁用）配置
+- ⭐ 支持测试**Webhook 配置**功能，支持测试 Webhook 配置是否有效
+- ⭐ **Webhook 投递记录**功能
+  - 支持查看 Webhook 投递记录列表
+  - 支持查看 Webhook 投递记录详情（包含请求参数、响应状态码、响应体等）
+  - 支持刷新 Webhook 投递记录
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.0 Release Notes
+
+This release marks another major version upgrade in SmartTable's history, officially introducing a **complete workflow automation engine** and **Webhook delivery management system**. The workflow engine supports multiple trigger types (scheduled/record creation/record update), condition branching, create-record and other node types, with full management capabilities including version snapshots, data table associations, and node editing.
+
+### ✨ New Features
+
+#### 🔄 Workflow Automation Engine ⭐⭐⭐
+
+**Core Engine & Architecture**
+
+- Implemented complete workflow and Webhook functional modules (end-to-end architecture)
+- Implemented binding relationship between workflows and data tables
+- Supported workflow operations: create, edit, delete, pause, resume, version snapshot, etc.
+- Auto-build workflow node execution chain and node execution order
+- Implemented workflow version snapshots
+- Supported viewing global binding relationship between data tables and workflows
+- Unified workflow node type normalization
+
+**Trigger System**
+
+- ⭐ New **scheduled time trigger** capability for workflows
+  - Scheduled time trigger uses local timezone for trigger time interpretation
+  - Supports one-time non-repeating trigger and multiple repeating types (daily/weekly/monthly/yearly/custom)
+  - Supports deadline configuration for scheduled time triggers to avoid repeated triggering
+- ⭐ Supports **record creation** trigger
+  - Trigger filter conditions support global triggering (no filter conditions configured)
+  - Trigger filter conditions support AND (all match) and OR (any match) multi-condition triggering modes
+- ⭐ Supports **record update** trigger
+  - Supports global triggering (no listened fields configured)
+  - Supports listening to specified field updates for triggering (configure listened fields)
+  - Trigger filter conditions support global triggering (no filter conditions configured)
+  - Trigger filter conditions support AND (all match) and OR (any match) multi-condition triggering modes
+
+**Node System**
+
+- ⭐ Supports **multiple node** types (create record, update record, webhook, condition branch) with create, edit, delete operations
+- ⭐ **Create Record Node**
+  - Supports creating records in target table
+  - Supports field value input mapping configuration for target table, supports static values or reference expressions based on source table field values
+- ⭐ **Update Record Node**
+  - Supports source table field value input configuration, supports static values or expressions
+- ⭐ **Webhook Node**
+  - Supports selecting system-configured Webhooks
+  - Supports inline configuration of new Webhooks
+- ⭐ **Condition Node**
+  - Filter conditions support AND (all match) and OR (any match) multi-condition triggering modes
+  - Supports real-time display of configured condition summary information
+- ⭐ Supports manual adjustment of node execution order (drag-and-drop sorting)
+
+
+**List & UI**
+
+- ⭐ Workflow list panel with **collapse/expand** functionality (adaptive sidebar width)
+- ⭐ New **search box** for filtering workflows by name or description
+
+
+**Version Management**
+
+- ⭐ **Version history** feature, supports viewing workflow historical versions
+- Version history dialog supports viewing version number, creation time, creator name, node configuration summary information, etc.
+
+**Top Navigation**
+
+- ⭐ New top navigation **automation menu** on Base page, unified workflow configuration entry
+
+
+#### 🪝 Webhook Delivery Management System ⭐
+
+- ⭐ **Webhook configuration** feature, supports adding and editing Webhook configurations
+  - Supports Webhook name, URL, HTTP method, headers, request body template configurations
+  - Supports Webhook retry strategy (max retry count, retry interval, etc.) configuration
+  - Supports Webhook enable state (enable/disable) configuration
+- ⭐ Supports testing **Webhook configuration** functionality, supports testing whether Webhook configuration is valid
+- ⭐ **Webhook delivery records** feature
+  - Supports viewing Webhook delivery record list
+  - Supports viewing Webhook delivery record details (including request parameters, response status code, response body, etc.)
+  - Supports refreshing Webhook delivery records
+
+---
+
 # SmartTable v1.5.2 Release Notes
 
 **发布日期 / Release Date**: 2026-07-02

@@ -69,6 +69,28 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Data Import** - Support Excel, CSV, JSON formats with multi-sheet, can import to create new tables
 - **Data Export** - Support Excel, CSV, JSON formats with custom field selection
 
+#### 🔄 Workflow Automation Engine (New in v1.6.0)
+
+- **Trigger System**
+  - **Scheduled Time Trigger** - One-time and recurring triggers (daily/weekly/monthly/yearly/custom), deadline configuration supported
+  - **Record Creation Trigger** - Auto-trigger on new record creation, supports filter conditions (AND/OR multi-condition combination)
+  - **Record Update Trigger** - Auto-trigger on record update, supports listening to specified fields, supports filter conditions
+- **Node System**
+  - **Create Record Node** - Auto-create records in target table, supports field value mapping (static value/reference expression)
+  - **Update Record Node** - Auto-update source record field values, supports static values and expressions
+  - **Webhook Node** - Call external HTTP endpoints, supports selecting existing config or inline config
+  - **Condition Node** - Branch based on conditions, supports AND/OR condition combination
+  - **Node Sorting** - Manual adjustment of node execution order (drag-and-drop sorting)
+- **Version Management** - Workflow version snapshots, version history viewing and rollback
+- **Management Features** - Workflow create, edit, delete, pause, resume, binding relationship with data tables
+
+#### 🪝 Webhook Delivery Management (New in v1.6.0)
+
+- **Webhook Configuration** - Supports name, URL, HTTP method, headers, request body template
+- **Retry Strategy** - Supports max retry count, retry interval configuration
+- **Test Feature** - Test whether Webhook configuration is valid
+- **Delivery Records** - View delivery record list, details (request params, response status code, response body, etc.)
+
 #### Collaboration & Sharing
 
 - **Base Sharing** - Base-level sharing with link sharing and permission control
@@ -402,13 +424,15 @@ Base (Multi-dimensional Table)
   ├── has many Dashboard (Dashboards)
   ├── has many BaseShare (Share Links)
   ├── has many BaseMember (Members)
-  └── has many CollaborationSession (Collaboration Sessions)
+  ├── has many CollaborationSession (Collaboration Sessions)
+  └── has many Workflow (Workflows) (New in v1.6.0)
 
 Table (Data Table)
   ├── has many Field (Fields)
   ├── has many Record (Records)
   ├── has many View (Views)
   ├── has many LinkRelation (Link Relations)
+  ├── has many Workflow (Associated Workflows) (New in v1.6.0)
   └── belongs to Base
 
 Field (Field)
@@ -423,6 +447,15 @@ Record (Record)
 View (View)
   ├── has filter/sort/group configs
   └── belongs to Table
+
+Workflow (Workflow) (New in v1.6.0)
+  ├── has many WorkflowVersion (Version Snapshots)
+  ├── has many WebhookConfig (Webhook Configs)
+  └── belongs to Base/Table
+
+WebhookConfig (Webhook Config) (New in v1.6.0)
+  ├── has many WebhookDelivery (Delivery Records)
+  └── belongs to Workflow
 ```
 
 ### Main Model Descriptions
@@ -482,6 +515,31 @@ View (View)
 - Real-time collaboration session tracking
 - Records user join/leave and active status
 - Only used when real-time collaboration is enabled
+
+#### Workflow (New in v1.6.0)
+
+- Workflow automation engine core entity
+- Binds to Base or specific Table
+- Contains trigger config and node execution chain
+- Supports pause, resume, edit, version management
+
+#### WorkflowVersion (New in v1.6.0)
+
+- Workflow version history snapshot
+- Records saved config and creator per version
+- Supports version rollback and config comparison
+
+#### WebhookConfig (New in v1.6.0)
+
+- Webhook delivery configuration
+- Supports URL, HTTP method, headers, request body template
+- Supports retry strategy configuration
+
+#### WebhookDelivery (New in v1.6.0)
+
+- Webhook delivery records
+- Records request params, response status, response content
+- Supports delivery status tracking
 
 ## 🔢 Formula Engine
 
