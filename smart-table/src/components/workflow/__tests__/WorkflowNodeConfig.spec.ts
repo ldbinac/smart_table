@@ -34,6 +34,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   Share: { template: '<span class="icon-share" />' },
   Search: { template: '<span class="icon-search" />' },
   Timer: { template: '<span class="icon-timer" />' },
+  InfoFilled: { template: '<span class="icon-info-filled" />' },
 }));
 
 // Mock 工具函数
@@ -117,6 +118,21 @@ describe('WorkflowNodeConfig', () => {
           'el-divider': { template: '<hr class="el-divider" />' },
           'el-empty': { template: '<div class="el-empty"><slot /></div>' },
           'el-icon': { template: '<i class="el-icon"><slot /></i>' },
+          'el-dropdown': {
+            template: '<div class="el-dropdown"><slot /><slot name="dropdown" /></div>',
+            emits: ['command'],
+          },
+          'el-dropdown-menu': { template: '<div class="el-dropdown-menu"><slot /></div>' },
+          'el-dropdown-item': {
+            template: '<div class="el-dropdown-item" :class="{ \'is-disabled\': disabled }" @click="$emit(\'command\', command)"><slot /></div>',
+            props: ['command', 'disabled'],
+            emits: ['command'],
+          },
+          'el-tag': { template: '<span class="el-tag"><slot /></span>' },
+          'el-alert': {
+            template: '<div class="el-alert">{{ title }} {{ description }}</div>',
+            props: ['title', 'description', 'type', 'closable'],
+          },
           'FieldValueInput': { template: '<input class="field-value-input" />' },
         },
       },
@@ -550,6 +566,72 @@ describe('WorkflowNodeConfig', () => {
       expect(radioGroup.classes('is-disabled')).toBe(true);
     });
 
+    it('availableWebhooks 应过滤掉 is_active=false 的 Webhook', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+          },
+        },
+        webhooks: [
+          { id: 'wh-1', name: '启用 WH', is_active: true },
+          { id: 'wh-2', name: '禁用 WH', is_active: false },
+        ] as any,
+      });
+      await nextTick();
+
+      const availableWebhooks = (wrapper.vm as any).availableWebhooks;
+      expect(availableWebhooks.length).toBe(1);
+      expect(availableWebhooks[0].id).toBe('wh-1');
+    });
+
+    it('已选中但被禁用的 Webhook 仍保留在可选项中', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+            webhook_id: 'wh-2',
+          },
+        },
+        webhooks: [
+          { id: 'wh-1', name: '启用 WH', is_active: true },
+          { id: 'wh-2', name: '禁用 WH', is_active: false },
+        ] as any,
+      });
+      await nextTick();
+
+      const availableWebhooks = (wrapper.vm as any).availableWebhooks;
+      // 启用的 + 当前选中的（即使禁用）
+      expect(availableWebhooks.length).toBe(2);
+      expect(availableWebhooks.map((w: any) => w.id)).toContain('wh-2');
+    });
+
+    it('无 webhook_id 时仅返回启用的 Webhook', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'webhook',
+          config: {
+            webhook_mode: 'existing',
+          },
+        },
+        webhooks: [
+          { id: 'wh-1', name: '启用 WH 1', is_active: true },
+          { id: 'wh-2', name: '启用 WH 2', is_active: true },
+          { id: 'wh-3', name: '禁用 WH', is_active: false },
+        ] as any,
+      });
+      await nextTick();
+
+      const availableWebhooks = (wrapper.vm as any).availableWebhooks;
+      expect(availableWebhooks.length).toBe(2);
+      expect(availableWebhooks.every((w: any) => w.is_active === true)).toBe(true);
+    });
+
     it('只读模式下 create_record 节点应展示完整字段映射摘要', async () => {
       vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
       const wrapper = mountConfig({
@@ -635,47 +717,307 @@ describe('WorkflowNodeConfig', () => {
     });
   });
 
-  it('条件节点默认使用 and 关系，可切换为 or', async () => {
-    const wrapper = mountConfig({
-      node: {
-        ...mockNode,
-        node_type: 'condition',
-        config: {
-          conditions: [{ field_id: 'field-1', operator: 'equals', value: 'a' }],
+  describe('条件节点多分支', () => {
+    function mountCondition(config: Record<string, unknown> = {}) {
+      return mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'condition',
+          config,
         },
-      },
+      });
+    }
+
+    it('旧单条件组配置自动迁移为单分支', async () => {
+      const wrapper = mountCondition({
+        conditions: [{ field_id: 'field-1', operator: 'equals', value: 'a' }],
+        conjunction: 'or',
+      });
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(1);
+      expect(branches[0].name).toBe('满足条件');
+      expect(branches[0].conjunction).toBe('or');
+      expect(branches[0].conditions.length).toBe(1);
     });
-    await nextTick();
 
-    expect((wrapper.vm as any).conjunction).toBe('and');
-    expect(wrapper.find('.condition-conjunction').exists()).toBe(true);
+    it('已包含 branches 的配置直接保留', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: '分支 A', conditions: [], conjunction: 'and' },
+          { id: 'b2', name: '分支 B', conditions: [], conjunction: 'or' },
+        ],
+      });
+      await nextTick();
 
-    (wrapper.vm as any).onConjunctionChange('or');
-    await nextTick();
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(2);
+      expect(branches[0].name).toBe('分支 A');
+      expect(branches[1].name).toBe('分支 B');
+    });
 
-    expect((wrapper.vm as any).localNode.config.conjunction).toBe('or');
-    expect((wrapper.vm as any).conjunction).toBe('or');
-    expect(wrapper.emitted('update:node')).toBeTruthy();
-  });
+    it('添加分支下拉菜单包含条件分支和默认分支选项', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
 
-  it('只读条件节点显示条件关系文案', async () => {
-    const wrapper = mountConfig({
-      node: {
-        ...mockNode,
-        node_type: 'condition',
-        config: {
-          conjunction: 'or',
-          conditions: [
-            { field_id: 'field-1', operator: 'equals', value: 'a' },
-            { field_id: 'field-2', operator: 'equals', value: 'b' },
-          ],
+      const items = wrapper.findAll('.el-dropdown-item');
+      expect(items.length).toBe(2);
+      expect(items[0].text()).toContain('条件分支');
+      expect(items[1].text()).toContain('默认分支');
+    });
+
+    it('通过 command 添加条件分支并切换到新标签', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
+
+      (wrapper.vm as any).handleAddBranchCommand('condition');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(2);
+      expect(branches[1].name).toBe('分支 2');
+      expect(branches[1].is_default).toBeFalsy();
+      expect((wrapper.vm as any).activeBranchId).toBe(branches[1].id);
+    });
+
+    it('编辑分支名称会更新对应分支', async () => {
+      const wrapper = mountCondition({
+        branches: [{ id: 'b1', name: '原名称', conditions: [], conjunction: 'and' }],
+      });
+      await nextTick();
+
+      const input = wrapper.find('.branch-name-input');
+      await input.setValue('新名称');
+      await input.trigger('input');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches[0].name).toBe('新名称');
+    });
+
+    it('删除条件会更新对应分支的条件列表', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          {
+            id: 'b1',
+            name: '分支',
+            conditions: [{ field_id: 'field-1', operator: 'equals', value: 'a' }],
+            conjunction: 'and',
+          },
+        ],
+      });
+      await nextTick();
+
+      const deleteBtn = wrapper.find('.condition-row .el-button');
+      await deleteBtn.trigger('click');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches[0].conditions.length).toBe(0);
+    });
+
+    it('只读模式下不显示添加/删除分支按钮', async () => {
+      const wrapper = mountCondition({
+        branches: [{ id: 'b1', name: '分支', conditions: [], conjunction: 'and' }],
+      });
+      await nextTick();
+      await wrapper.setProps({ readonly: true });
+      await nextTick();
+
+      expect(wrapper.find('.branch-tabs .el-button').exists()).toBe(false);
+      expect(wrapper.find('.condition-row .el-button').exists()).toBe(false);
+    });
+
+    it('条件摘要中单选字段值显示为选项名称（id）', async () => {
+      const fields = [
+        {
+          id: 'field-status',
+          name: '状态',
+          type: 'single_select',
+          options: {
+            options: [
+              { id: 'opt-1', name: '待办', color: '#fff' },
+              { id: 'opt-2', name: '进行中', color: '#fff' },
+            ],
+          },
         },
-      },
-      readonly: true,
-    });
-    await nextTick();
+      ];
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'condition',
+          config: {
+            branches: [
+              {
+                id: 'b1',
+                name: '分支',
+                conditions: [{ field_id: 'field-status', operator: 'equals', value: 'opt-2' }],
+                conjunction: 'and',
+              },
+            ],
+          },
+        },
+        fields,
+      });
+      await nextTick();
 
-    expect(wrapper.text()).toContain('满足任一条件');
-    expect(wrapper.text()).toContain('关系：满足任一条件');
+      const summaryItem = wrapper.find('.summary-item');
+      expect(summaryItem.text()).toContain('进行中 (opt-2)');
+    });
+
+    it('条件摘要中多选字段值显示为多个选项名称（id）', async () => {
+      const fields = [
+        {
+          id: 'field-tags',
+          name: '标签',
+          type: 'multi_select',
+          options: {
+            options: [
+              { id: 'tag-a', name: '重要', color: '#fff' },
+              { id: 'tag-b', name: '紧急', color: '#fff' },
+            ],
+          },
+        },
+      ];
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'condition',
+          config: {
+            branches: [
+              {
+                id: 'b1',
+                name: '分支',
+                conditions: [
+                  { field_id: 'field-tags', operator: 'contains_any', value: ['tag-a', 'tag-b'] },
+                ],
+                conjunction: 'and',
+              },
+            ],
+          },
+        },
+        fields,
+      });
+      await nextTick();
+
+      const summaryItem = wrapper.find('.summary-item');
+      expect(summaryItem.text()).toContain('重要 (tag-a), 紧急 (tag-b)');
+    });
+
+    it('条件摘要中普通文本字段保持原值显示', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          {
+            id: 'b1',
+            name: '分支',
+            conditions: [{ field_id: 'field-1', operator: 'equals', value: 'hello' }],
+            conjunction: 'and',
+          },
+        ],
+      });
+      await nextTick();
+
+      const summaryItem = wrapper.find('.summary-item');
+      expect(summaryItem.text()).toContain('hello');
+      expect(summaryItem.text()).not.toContain('(');
+    });
+
+    // ==================== 默认分支测试 ====================
+
+    it('通过 command 添加默认分支并切换到新标签', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
+
+      (wrapper.vm as any).handleAddBranchCommand('default');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(2);
+      expect(branches[1].is_default).toBe(true);
+      expect(branches[1].name).toBe('默认分支');
+      expect((wrapper.vm as any).activeBranchId).toBe(branches[1].id);
+    });
+
+    it('已存在默认分支时默认分支菜单项被禁用', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
+          { id: 'b-default', name: '默认', conditions: [], conjunction: 'and', is_default: true },
+        ],
+      });
+      await nextTick();
+
+      const items = wrapper.findAll('.el-dropdown-item');
+      expect(items[1].classes()).toContain('is-disabled');
+    });
+
+    it('默认分支标签页显示"默认"标签', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: '条件分支', conditions: [], conjunction: 'and' },
+          { id: 'b-default', name: '默认分支', conditions: [], conjunction: 'and', is_default: true },
+        ],
+      });
+      await nextTick();
+
+      // 选中默认分支
+      (wrapper.vm as any).activeBranchId = 'b-default';
+      await nextTick();
+
+      const defaultTab = wrapper.findAll('.branch-tab').find((tab) =>
+        tab.classes().includes('is-default'),
+      );
+      expect(defaultTab).toBeTruthy();
+      expect(defaultTab!.find('.el-tag').text()).toContain('默认');
+    });
+
+    it('默认分支面板显示提示信息且不显示条件配置区域', async () => {
+      const wrapper = mountCondition({
+        branches: [
+          { id: 'b1', name: '条件分支', conditions: [], conjunction: 'and' },
+          { id: 'b-default', name: '默认分支', conditions: [], conjunction: 'and', is_default: true },
+        ],
+      });
+      await nextTick();
+
+      // 选中默认分支
+      (wrapper.vm as any).activeBranchId = 'b-default';
+      await nextTick();
+
+      expect(wrapper.find('.el-alert').exists()).toBe(true);
+      expect(wrapper.find('.el-alert').text()).toContain('默认分支无需配置条件');
+      expect(wrapper.find('.conditions-list').exists()).toBe(false);
+      expect(wrapper.find('.condition-conjunction').exists()).toBe(false);
+    });
+
+    it('默认分支始终位于分支数组末尾', async () => {
+      const wrapper = mountCondition();
+      await nextTick();
+
+      // 先添加默认分支
+      (wrapper.vm as any).handleAddBranchCommand('default');
+      await nextTick();
+
+      // 再添加条件分支
+      (wrapper.vm as any).handleAddBranchCommand('condition');
+      await nextTick();
+
+      const branches = (wrapper.vm as any).branches;
+      expect(branches.length).toBe(3);
+      // 最后一个应该是默认分支
+      expect(branches[branches.length - 1].is_default).toBe(true);
+    });
+
+    it('只读模式下不显示添加分支下拉菜单', async () => {
+      const wrapper = mountCondition({
+        branches: [{ id: 'b1', name: '分支', conditions: [], conjunction: 'and' }],
+      });
+      await nextTick();
+      await wrapper.setProps({ readonly: true });
+      await nextTick();
+
+      expect(wrapper.find('.el-dropdown').exists()).toBe(false);
+    });
   });
 });

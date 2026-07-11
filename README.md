@@ -46,7 +46,7 @@
 | **其他**   | 评分          | 星级评分组件                  | ✅  |
 | **其他**   | 进度          | 进度条/百分比显示               | ✅  |
 
-### 🎨 支持的视图类型（6 种）
+### 🎨 支持的视图类型（7 种）
 
 | 视图类型      | 功能描述                   | 状态 |
 | --------- | ---------------------- | -- |
@@ -156,40 +156,42 @@
 
 ## 📸 功能预览
 
-| 功能   | 预览图                                     | 功能    | 预览图                                    |
-| ---- | --------------------------------------- | ----- | -------------------------------------- |
-| 登录   | ![](./doc/img/login.png)                | 注册    | ![](./doc/img/register.png)            |
-| 首页   | ![首页](./doc/img/home.jpeg)              | 全部首页  | ![首页2](./doc/img/home-all.jpeg)        |
-| 表格视图 | ![表格视图](./doc/img/TableView.jpeg)       | 分组表格  | ![分组表格](./doc/img/TableViewGroup.jpeg) |
-| 表格字段 | ![表格字段](./doc/img/TableViewFields.jpeg) | 看板视图  | ![看板视图](./doc/img/KanbanView.jpeg)     |
-| 日历视图 | ![日历视图](./doc/img/CalendarView.jpeg)    | 甘特图视图 | ![甘特图视图](./doc/img/GanttView.jpeg)     |
-| 表单视图 | ![表单视图](./doc/img/FormView.jpeg)        | 仪表盘   | ![仪表盘](./doc/img/Dashboard.jpeg)       |
-| 分享功能 | ![分享](./doc/img/sharing.png)            | 文档管理  | ![文档管理](./doc/img/Document.png)        |
+| 功能      | 预览图                                     | 功能     | 预览图                                    |
+| ------- | --------------------------------------- | ------ | -------------------------------------- |
+| 登录      | ![](./doc/img/login.png)                | 注册     | ![](./doc/img/register.png)            |
+| 首页      | ![首页](./doc/img/home.jpeg)              | 全部首页   | ![首页2](./doc/img/home-all.jpeg)        |
+| 表格视图    | ![表格视图](./doc/img/TableView.jpeg)       | 分组表格   | ![分组表格](./doc/img/TableViewGroup.jpeg) |
+| 表格字段    | ![表格字段](./doc/img/TableViewFields.jpeg) | 看板视图   | ![看板视图](./doc/img/KanbanView.jpeg)     |
+| 日历视图    | ![日历视图](./doc/img/CalendarView.jpeg)    | 甘特图视图  | ![甘特图视图](./doc/img/GanttView.jpeg)     |
+| 表单视图    | ![表单视图](./doc/img/FormView.jpeg)        | 仪表盘    | ![仪表盘](./doc/img/Dashboard.jpeg)       |
+| 分享功能    | ![分享](./doc/img/sharing.png)            | 文档管理   | ![文档管理](./doc/img/Document.png)        |
+| 自动化工作流  | ![自动化工作流](./doc/img/Workflow.jpeg)      | 工作流实例  | ![工作流实例](./doc/img/Workflow2.jpeg)     |
+| Webhook | ![Webhook](./doc/img/WebHook.jpeg)      | <br /> | <br />                                 |
 
 ## 🛠️ 技术栈
 
 ### 前端技术栈
 
-| 类别        | 技术                      | 版本              | 说明                |
-| --------- | ----------------------- | --------------- | ----------------- |
-| 前端框架      | Vue 3                   | ^3.5.30         | Composition API   |
-| 语言        | TypeScript              | \~5.9.3         | 类型安全              |
-| 状态管理      | Pinia                   | ^2.3.1          | 轻量级状态管理           |
-| 路由        | Vue Router              | ^4.6.4          | SPA 路由            |
-| UI 组件库    | Element Plus            | ^2.13.6         | 企业级 UI 组件         |
-| 表格组件      | vxe-table               | ^4.18.7         | 高性能虚拟滚动表格（v1.4 及更早）  |
-| 表格组件      | vtable                  | ^1.26.1         | 高性能 canvas 表格（v1.5 及更新） |
-| 图表库       | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | 数据可视化             |
-| 日期处理      | dayjs                   | ^1.11.20        | 轻量级日期库            |
-| 拖拽排序      | sortablejs              | ^1.15.7         | 拖拽功能              |
-| HTTP 客户端  | axios                   | ^1.14.0         | HTTP 请求           |
-| 本地数据库     | Dexie                   | ^3.2.7          | IndexedDB 封装      |
-| WebSocket | socket.io-client        | ^4.8.3          | 实时通信              |
-| 工具库       | lodash-es, @vueuse/core | -               | 工具函数集             |
-| 富文本       | tinyeditor              | ^4.0.0          | 富文本编辑器(1.4+)      |
-| 电子表格      | xlsx                    | ^0.18.5         | Excel 解析生成        |
-| 构建工具      | Vite                    | ^8.0.1          | 极速构建工具            |
-| 测试框架      | Vitest                  | ^3.2.4          | 单元测试              |
+| 类别        | 技术                      | 版本              | 说明                      |
+| --------- | ----------------------- | --------------- | ----------------------- |
+| 前端框架      | Vue 3                   | ^3.5.30         | Composition API         |
+| 语言        | TypeScript              | \~5.9.3         | 类型安全                    |
+| 状态管理      | Pinia                   | ^2.3.1          | 轻量级状态管理                 |
+| 路由        | Vue Router              | ^4.6.4          | SPA 路由                  |
+| UI 组件库    | Element Plus            | ^2.13.6         | 企业级 UI 组件               |
+| 表格组件      | vxe-table               | ^4.18.7         | 高性能虚拟滚动表格（v1.4 及更早）     |
+| 表格组件      | vtable                  | ^1.26.3         | 高性能 canvas 表格（v1.5 及更新） |
+| 图表库       | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | 数据可视化                   |
+| 日期处理      | dayjs                   | ^1.11.20        | 轻量级日期库                  |
+| 拖拽排序      | sortablejs              | ^1.15.7         | 拖拽功能                    |
+| HTTP 客户端  | axios                   | ^1.14.0         | HTTP 请求                 |
+| 本地数据库     | Dexie                   | ^3.2.7          | IndexedDB 封装            |
+| WebSocket | socket.io-client        | ^4.8.3          | 实时通信                    |
+| 工具库       | lodash-es, @vueuse/core | -               | 工具函数集                   |
+| 富文本       | tinyeditor              | ^4.0.0          | 富文本编辑器(1.4+)            |
+| 电子表格      | xlsx                    | ^0.18.5         | Excel 解析生成              |
+| 构建工具      | Vite                    | ^8.0.1          | 极速构建工具                  |
+| 测试框架      | Vitest                  | ^3.2.4          | 单元测试                    |
 
 ### 后端技术栈（可选）
 
@@ -229,6 +231,8 @@
 
 下载最新release版本下的一键启动包，解压之后一键启动：
 
+> 默认账号邮箱和默认密码获取方式：关注官方微信公众号，恢私信回复：'SmartTable'，即可获取。
+
 ```bash
 # Windows PowerShell
 .\start.bat
@@ -243,11 +247,14 @@
 >
 > **无需安装任何依赖，无需手工创建账号。**
 >
-> 启动后会自动打开浏览器，然后试用控制台打印的账号邮箱和密码登录即可试用。
+> 启动后会自动打开浏览器，然后使用默认的账号邮箱和密码登录即可试用。
+> 默认账号邮箱和默认密码获取方式：关注官方微信公众号，恢私信回复：'SmartTable'，即可获取。
 
 ### docker启动
 
 使用官方docker镜像启动（自动适配架构）：
+
+> 默认账号邮箱和默认密码获取方式：关注官方微信公众号，恢私信回复：'SmartTable'，即可获取。
 
 ```bash
 docker run -d \
@@ -330,7 +337,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-### 后端服务（可选）
+### 后端服务
 
 #### 使用 Docker Compose（推荐）
 
@@ -355,8 +362,7 @@ docker-compose exec backend flask db upgrade
 docker-compose logs -f backend
 
 # 访问 API 文档
-# http://localhost:5000/api/docs  (Swagger UI)
-# http://localhost:5000/api/apidoc  (ReDoc)
+# http://localhost:5000/apidocs  (Swagger UI)
 ```
 
 #### 本地开发
@@ -657,10 +663,12 @@ LOOKUP({关联表.相关记录}, {目标字段})
 
 ```bash
 # 启用实时协作
-python run.py --enable-realtime
-# 或使用短参数
-python run.py -r
-> 或通过修改 .env 的 `ENABLE_REALTIME=True` 来配置协同编辑功能
+通过修改 .env 的 `ENABLE_REALTIME=True` 来配置协同编辑功能
+
+# python run.py --enable-realtime
+# # 或使用短参数
+# python run.py -r
+# 
 
 # 不启用实时协作（默认行为）
 python run.py

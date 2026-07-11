@@ -26,6 +26,15 @@ class MemberRole(PyEnum):
     COMMENTER = 'commenter'
     VIEWER = 'viewer'
 
+    @classmethod
+    def _missing_(cls, value):
+        """兼容旧数据中的大写角色值"""
+        value_str = str(value).lower()
+        for member in cls:
+            if member.value == value_str:
+                return member
+        return None
+
 
 class Base(db.Model):
     """

@@ -46,16 +46,17 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 | **Others**          | Rating           | Star rating component                                               | ✅      |
 | **Others**          | Progress         | Progress bar/percentage display                                     | ✅      |
 
-### 🎨 Supported View Types (6 Types)
+### 🎨 Supported View Types (7 Types)
 
-| View Type         | Description                                                            | Status |
-| ----------------- | ---------------------------------------------------------------------- | ------ |
-| **Table View**    | Classic table display with virtual scroll, column freeze, field filter | ✅      |
-| **Kanban View**   | Card-based display with drag-sort and grouping                         | ✅      |
-| **Calendar View** | Time-based display grouped by date                                     | ✅      |
-| **Gantt View**    | Project timeline display with task dependencies                        | ✅      |
-| **Form View**     | Data collection form with public sharing and customization             | ✅      |
-| **Gallery View**  | Image card grid display for media content                              | ✅      |
+| View Type            | Description                                                            | Status |
+| -------------------- | ---------------------------------------------------------------------- | ------ |
+| **Table View**       | Classic table display with virtual scroll, column freeze, field filter | ✅     |
+| **Grouped View**     | Group by field display with multi-level grouping and filtering         | ✅     |
+| **Kanban View**      | Card-based display with drag-sort and grouping                         | ✅     |
+| **Calendar View**    | Time-based display grouped by date                                     | ✅     |
+| **Gantt View**       | Project timeline display with task dependencies                        | ✅     |
+| **Form View**        | Data collection form with public sharing and customization             | ✅     |
+| **Gallery View**     | Image card grid display for media content                              | ✅     |
 
 ### 🚀 Advanced Features
 
@@ -155,39 +156,42 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 
 ## 📸 Feature Preview
 
-| Feature       | Preview                                         | Feature       | Preview                                         |
-| ------------- | ----------------------------------------------- | ------------- | ----------------------------------------------- |
-| Login         | ![](./doc/img/login.png)                        | Register      | ![](./doc/img/register.png)                     |
-| Home          | ![Home](./doc/img/home.jpeg)                    | All Home      | ![Home2](./doc/img/home-all.jpeg)               |
-| Table View    | ![Table View](./doc/img/TableView.jpeg)         | Grouped Table | ![Grouped Table](./doc/img/TableViewGroup.jpeg) |
-| Table Fields  | ![Table Fields](./doc/img/TableViewFields.jpeg) | Kanban View   | ![Kanban View](./doc/img/KanbanView.jpeg)       |
-| Calendar View | ![Calendar View](./doc/img/CalendarView.jpeg)   | Gantt View    | ![Gantt View](./doc/img/GanttView.jpeg)         |
-| Form View     | ![Form View](./doc/img/FormView.jpeg)           | Dashboard     | ![Dashboard](./doc/img/Dashboard.jpeg)          |
-| Sharing       | ![Sharing](./doc/img/sharing.png)               | Document Management     | ![Document Management](./doc/img/Document.png)               |
+| Feature            | Preview                                           | Feature            | Preview                                         |
+| ------------------ | ------------------------------------------------- | ------------------ | ----------------------------------------------- |
+| Login              | ![](./doc/img/login.png)                          | Register           | ![](./doc/img/register.png)                     |
+| Home               | ![Home](./doc/img/home.jpeg)                      | All Home           | ![Home2](./doc/img/home-all.jpeg)               |
+| Table View         | ![Table View](./doc/img/TableView.jpeg)           | Grouped Table      | ![Grouped Table](./doc/img/TableViewGroup.jpeg) |
+| Table Fields       | ![Table Fields](./doc/img/TableViewFields.jpeg)   | Kanban View        | ![Kanban View](./doc/img/KanbanView.jpeg)       |
+| Calendar View      | ![Calendar View](./doc/img/CalendarView.jpeg)     | Gantt View         | ![Gantt View](./doc/img/GanttView.jpeg)         |
+| Form View          | ![Form View](./doc/img/FormView.jpeg)             | Dashboard          | ![Dashboard](./doc/img/Dashboard.jpeg)          |
+| Sharing            | ![Sharing](./doc/img/sharing.png)                 | Document Management| ![Document Management](./doc/img/Document.png)  |
+| Workflow Automation| ![Workflow Automation](./doc/img/Workflow.jpeg)   | Workflow Instance  | ![Workflow Instance](./doc/img/Workflow2.jpeg)  |
+| Webhook            | ![Webhook](./doc/img/WebHook.jpeg)                | <br />             | <br />                                          |
 
 ## 🛠️ Tech Stack
 
 ### Frontend Tech Stack
 
-| Category             | Technology              | Version         | Description                           |
-| -------------------- | ----------------------- | --------------- | ------------------------------------- |
-| Frontend Framework   | Vue 3                   | ^3.5.30         | Composition API                       |
-| Language             | TypeScript              | \~5.9.3         | Type safety                           |
-| State Management     | Pinia                   | ^2.3.1          | Lightweight state management          |
-| Router               | Vue Router              | ^4.6.4          | SPA routing                           |
-| UI Component Library | Element Plus            | ^2.13.6         | Enterprise UI components              |
-| Table Component      | vxe-table               | ^4.18.7         | High-performance virtual scroll table |
-| Charts               | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | Data visualization                    |
-| Date Processing      | dayjs                   | ^1.11.20        | Lightweight date library              |
-| Drag Sorting         | sortablejs              | ^1.15.7         | Drag functionality                    |
-| HTTP Client          | axios                   | ^1.14.0         | HTTP requests                         |
-| Local Database       | Dexie                   | ^3.2.7          | IndexedDB wrapper                     |
-| WebSocket            | socket.io-client        | ^4.8.3          | Real-time communication               |
-| Utilities            | lodash-es, @vueuse/core | -               | Utility function sets                 |
-| Rich Text            | tinyeditor              | ^4.0.0          | Rich text editor                      |
-| Spreadsheet          | xlsx                    | ^0.18.5         | Excel parsing/generation              |
-| Build Tool           | Vite                    | ^8.0.1          | Ultra-fast build tool                 |
-| Testing              | Vitest                  | ^3.2.4          | Unit testing                          |
+| Category             | Technology              | Version         | Description                                        |
+| -------------------- | ----------------------- | --------------- | -------------------------------------------------- |
+| Frontend Framework   | Vue 3                   | ^3.5.30         | Composition API                                    |
+| Language             | TypeScript              | \~5.9.3         | Type safety                                        |
+| State Management     | Pinia                   | ^2.3.1          | Lightweight state management                       |
+| Router               | Vue Router              | ^4.6.4          | SPA routing                                        |
+| UI Component Library | Element Plus            | ^2.13.6         | Enterprise UI components                           |
+| Table Component      | vxe-table               | ^4.18.7         | High-performance virtual scroll table (v1.4 and earlier) |
+| Table Component      | vtable                  | ^1.26.3         | High-performance canvas table (v1.5 and later)    |
+| Charts               | echarts + vue-echarts   | ^5.6.0 / ^6.7.3 | Data visualization                                 |
+| Date Processing      | dayjs                   | ^1.11.20        | Lightweight date library                           |
+| Drag Sorting         | sortablejs              | ^1.15.7         | Drag functionality                                 |
+| HTTP Client          | axios                   | ^1.14.0         | HTTP requests                                      |
+| Local Database       | Dexie                   | ^3.2.7          | IndexedDB wrapper                                  |
+| WebSocket            | socket.io-client        | ^4.8.3          | Real-time communication                            |
+| Utilities            | lodash-es, @vueuse/core | -               | Utility function sets                              |
+| Rich Text            | tinyeditor              | ^4.0.0          | Rich text editor                                   |
+| Spreadsheet          | xlsx                    | ^0.18.5         | Excel parsing/generation                           |
+| Build Tool           | Vite                    | ^8.0.1          | Ultra-fast build tool                              |
+| Testing              | Vitest                  | ^3.2.4          | Unit testing                                       |
 
 ### Backend Tech Stack (Optional)
 
@@ -210,7 +214,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 | Object Storage      | MinIO (Optional)                 | -                     | File object storage           |
 | Encryption          | cryptography                     | 42.0.5                | Encryption algorithms         |
 | API Documentation   | Flasgger                         | 0.9.7b2               | Swagger UI                    |
-| WSGI Server         | Gunicorn                         | 21.2.0                | Production server             |
+| WSGI Server         | Eventlet WSGI Server             | 0.36.1                | Production server             |
 | Deployment          | Docker, Nginx                    | -                     | Containerized deployment      |
 
 ### Data Storage Options
@@ -227,6 +231,8 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 
 Download the latest release package, extract it and start with one click:
 
+> To get the default account email and password: Follow the official WeChat official account and reply with 'SmartTable' in private message.
+
 ```bash
 # Windows PowerShell
 .\start.bat
@@ -241,11 +247,12 @@ Download the latest release package, extract it and start with one click:
 >
 > **No need to install any dependencies, no need to manually create an account.**
 >
-> After startup, the browser will open automatically, then log in with the account email and password printed in the console to try it out.
+> After startup, the browser will open automatically, then log in with the default account email and password to try it out.
+> To get the default account email and password: Follow the official WeChat official account and reply with 'SmartTable' in private message.
 
 ### Docker Start
 
-> For ARM architectures, please use the corresponding version image：`ygbinac/smarttable:1.4.1-arm64`
+> To get the default account email and password: Follow the official WeChat official account and reply with 'SmartTable' in private message.
 
 Start with the official Docker image:
 
@@ -287,7 +294,7 @@ volumes:
 
 - Node.js >= 18
 - npm >= 9
-- Python >= 3.9 (Only for backend mode)
+- Python >= 3.11 (Only for backend mode)
 
 ### Frontend Development
 
@@ -356,8 +363,7 @@ docker-compose exec backend flask db upgrade
 docker-compose logs -f backend
 
 # Access API documentation
-# http://localhost:5000/api/docs  (Swagger UI)
-# http://localhost:5000/api/apidoc  (ReDoc)
+# http://localhost:5000/apidocs  (Swagger UI)
 ```
 
 #### Local Development
@@ -659,8 +665,12 @@ Real-time collaboration is based on WebSocket (Socket.IO), supporting multiple u
 ```bash
 # Enable real-time collaboration
 python run.py --enable-realtime
-# Or use short flag
-python run.py -r
+> Or configure real-time collaboration via .env `ENABLE_REALTIME=True`
+
+# python run.py --enable-realtime
+# # Or use short flag
+# python run.py -r
+# 
 
 # Disable real-time collaboration (default behavior)
 python run.py
@@ -914,6 +924,8 @@ Special thanks to:
 - Element Plus team for the comprehensive UI component library
 - Flask community for the flexible backend framework
 - TinyEditor team for the powerful text editor component
+- Vxe-Table team for the high-performance virtual scroll table component
+- Vtable team for the high-performance canvas table component
 - All Issue submitters and PR contributors
 
 ***

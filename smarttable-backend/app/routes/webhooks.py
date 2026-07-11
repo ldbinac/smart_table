@@ -34,6 +34,54 @@ def _check_base_permission(base_id, min_role=MemberRole.VIEWER):
     )
 
 
+def _get_webhook_references(webhook_id):
+    """查询 Webhook 在未删除工作流中的引用关系
+
+    扫描所有未软删除工作流的 WEBHOOK 类型节点，匹配 config.webhook_id
+    或 config.webhook_config_id 等于目标 webhook_id 的节点。
+
+    Returns:
+        list: 引用信息列表，结构为
+        [{"workflow_id", "workflow_name", "workflow_status", "node_id", "node_name"}]
+    """
+    from app.models.workflow import (
+        Workflow, WorkflowNode, WorkflowNodeType, WorkflowStatus
+    )
+
+    references = []
+    nodes = (
+        WorkflowNode.query
+        .join(Workflow, WorkflowNode.workflow_id == Workflow.id)
+        .filter(
+            Workflow.is_deleted == False,  # noqa: E712
+            WorkflowNode.node_type == WorkflowNodeType.WEBHOOK,
+        )
+        .all()
+    )
+
+    target_id_str = str(webhook_id)
+    for node in nodes:
+        config = node.config or {}
+        ref_id = config.get('webhook_id') or config.get('webhook_config_id')
+        if ref_id is None:
+            continue
+        if str(ref_id) == target_id_str:
+            workflow = node.workflow
+            status_value = (
+                workflow.status.value
+                if isinstance(workflow.status, WorkflowStatus)
+                else workflow.status
+            )
+            references.append({
+                'workflow_id': str(workflow.id),
+                'workflow_name': workflow.name,
+                'workflow_status': status_value,
+                'node_id': str(node.id),
+                'node_name': node.name,
+            })
+    return references
+
+
 def _normalize_method(method):
     """将请求方法字符串转换为 WebhookMethod 枚举"""
     if isinstance(method, WebhookMethod):
@@ -339,6 +387,42 @@ def update_webhook(webhook_id):
     )
 
 
+@webhooks_bp.route('/webhooks/<uuid:webhook_id>/references', methods=['GET'])
+@jwt_required
+def get_webhook_references(webhook_id):
+    """
+    查询 Webhook 在工作流中的引用关系
+    ---
+    tags:
+      - Webhooks
+    security:
+      - Bearer: []
+    parameters:
+      - name: webhook_id
+        in: path
+        type: string
+        required: true
+        description: Webhook 配置 ID
+    responses:
+      200:
+        description: 引用信息列表
+      404:
+        description: Webhook 配置不存在
+    """
+    webhook = _get_webhook_or_404(webhook_id)
+    if not webhook:
+        return not_found_response('Webhook 配置')
+
+    if not _check_base_permission(webhook.base_id, MemberRole.VIEWER):
+        return forbidden_response('您没有权限查看此 Webhook 的引用信息')
+
+    references = _get_webhook_references(webhook_id)
+    return success_response(
+        data={'references': references, 'count': len(references)},
+        message='获取 Webhook 引用信息成功'
+    )
+
+
 @webhooks_bp.route('/webhooks/<uuid:webhook_id>', methods=['DELETE'])
 @jwt_required
 def delete_webhook(webhook_id):
@@ -358,6 +442,8 @@ def delete_webhook(webhook_id):
     responses:
       200:
         description: 删除成功
+      409:
+        description: Webhook 已被引用，无法删除
     """
     webhook = _get_webhook_or_404(webhook_id)
     if not webhook:
@@ -365,6 +451,20 @@ def delete_webhook(webhook_id):
 
     if not _check_base_permission(webhook.base_id, MemberRole.EDITOR):
         return forbidden_response('您没有权限删除此 Webhook')
+
+    # 引用校验：被工作流引用时阻止删除
+    references = _get_webhook_references(webhook_id)
+    if references:
+        return error_response(
+            message=f'该 Webhook 已被 {len(references)} 个工作流节点引用，无法删除，请先解除引用',
+            code=409,
+            error='webhook_in_use',
+            details=[{
+                'workflow_id': ref['workflow_id'],
+                'workflow_name': ref['workflow_name'],
+                'node_name': ref['node_name'],
+            } for ref in references]
+        )
 
     from app.extensions import db
     db.session.delete(webhook)

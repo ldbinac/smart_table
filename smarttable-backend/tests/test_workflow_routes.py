@@ -24,7 +24,7 @@ from app.models import (
     WebhookConfig,
     WebhookMethod,
 )
-from app.models.workflow import WorkflowNode, WorkflowTrigger, WorkflowVersion
+from app.models.workflow import WorkflowNode, WorkflowNodeType, WorkflowTrigger, WorkflowVersion
 from app.services.workflow_service import WorkflowService
 from app.services.approval_service import ApprovalService
 
@@ -261,6 +261,114 @@ class TestWorkflowRoutes:
         assert first['next_nodes'] == [second['id']]
         assert second['next_nodes'] == []
 
+    def test_update_nodes_maps_condition_branch_targets_to_backend_ids(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试保存条件节点时把 branches 中的前端 target_node_id 映射为后端 UUID"""
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'id': 'node_frontend_condition',
+                        'node_type': 'condition',
+                        'name': '条件节点',
+                        'config': {
+                            'branches': [
+                                {
+                                    'id': 'branch_1',
+                                    'name': '分支 1',
+                                    'conditions': [],
+                                    'conjunction': 'and',
+                                    'target_node_id': 'node_frontend_a'
+                                },
+                                {
+                                    'id': 'branch_2',
+                                    'name': '分支 2',
+                                    'conditions': [],
+                                    'conjunction': 'and',
+                                    'target_node_id': 'node_frontend_b'
+                                }
+                            ]
+                        },
+                        'order': 0,
+                        'next_nodes': ['node_frontend_a', 'node_frontend_b']
+                    },
+                    {
+                        'id': 'node_frontend_a',
+                        'node_type': 'webhook',
+                        'name': 'Webhook A',
+                        'config': {'webhook_id': 'webhook-1'},
+                        'order': 1,
+                        'next_nodes': []
+                    },
+                    {
+                        'id': 'node_frontend_b',
+                        'node_type': 'webhook',
+                        'name': 'Webhook B',
+                        'config': {'webhook_id': 'webhook-2'},
+                        'order': 2,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        nodes = data['data']
+        assert len(nodes) == 3
+        node_by_name = {node['name']: node for node in nodes}
+        condition = node_by_name['条件节点']
+        webhook_a = node_by_name['Webhook A']
+        webhook_b = node_by_name['Webhook B']
+
+        branches = condition['config']['branches']
+        assert len(branches) == 2
+        branch_targets = {branch['id']: branch['target_node_id'] for branch in branches}
+
+        # branches 中的 target_node_id 应替换为后端 UUID
+        assert branch_targets['branch_1'] == webhook_a['id']
+        assert branch_targets['branch_2'] == webhook_b['id']
+
+        # next_nodes 同样保持同步
+        assert set(condition['next_nodes']) == {webhook_a['id'], webhook_b['id']}
+
+    def test_update_nodes_persists_ui_layout(self, client, auth_headers, created_workflow):
+        """测试 PUT /nodes 保存并返回 ui_layout"""
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            json={
+                'nodes': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '记录创建',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': [],
+                        'ui_layout': {'x': 120, 'y': 240}
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert len(data['data']) == 1
+        assert data['data'][0]['ui_layout'] == {'x': 120, 'y': 240}
+
+        # GET /nodes 同样返回 ui_layout
+        get_response = client.get(
+            f'/api/workflows/{created_workflow.id}/nodes',
+            headers=auth_headers
+        )
+        assert get_response.status_code == 200
+        get_data = get_response.get_json()
+        assert get_data['data'][0]['ui_layout'] == {'x': 120, 'y': 240}
+
     def test_publish_workflow_snapshot_preserves_create_record_node_type(
         self, client, auth_headers, created_workflow
     ):
@@ -494,6 +602,120 @@ class TestWorkflowRoutes:
         data = response.get_json()
         assert data['success'] is True
         assert data['meta']['pagination']['total'] == 1
+
+    def test_get_workflow_instance_returns_node_name_in_logs(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试实例详情接口的 execution_logs 包含 node_name 字段"""
+        from app.models.workflow_instance import WorkflowExecutionLog
+
+        # 添加一个动作节点，使其有名称
+        node = WorkflowNode(
+            workflow_id=created_workflow.id,
+            node_type=WorkflowNodeType.ACTION,
+            name='通知用户',
+            config={'action_type': 'send_email'},
+            order=1
+        )
+        db.session.add(node)
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=created_workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.COMPLETED
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        # 关联节点的日志
+        log_with_node = WorkflowExecutionLog(
+            instance_id=instance.id,
+            node_id=node.id,
+            node_type='action',
+            status='completed',
+            input_context={},
+            output_result={}
+        )
+        # node_id 为空的日志（如系统触发器）
+        log_without_node = WorkflowExecutionLog(
+            instance_id=instance.id,
+            node_id=None,
+            node_type='trigger',
+            status='completed',
+            input_context={},
+            output_result={}
+        )
+        db.session.add_all([log_with_node, log_without_node])
+        db.session.commit()
+
+        response = client.get(
+            f'/api/workflows/{created_workflow.id}/instances/{instance.id}',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        logs = data['data']['execution_logs']
+        assert len(logs) == 2
+
+        log_by_type = {log['node_type']: log for log in logs}
+        # 关联节点时返回节点名称
+        assert log_by_type['action']['node_name'] == '通知用户'
+        # node_id 为空时 node_name 为 None
+        assert log_by_type['trigger']['node_name'] is None
+
+    def test_get_workflow_instance_node_name_null_when_node_deleted(
+        self, client, auth_headers, created_workflow
+    ):
+        """测试节点被删除后（外键 SET NULL），execution_log 的 node_name 返回 None"""
+        from app.models.workflow_instance import WorkflowExecutionLog
+
+        node = WorkflowNode(
+            workflow_id=created_workflow.id,
+            node_type=WorkflowNodeType.ACTION,
+            name='待删除节点',
+            config={'action_type': 'update_record'},
+            order=1
+        )
+        db.session.add(node)
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=created_workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.COMPLETED
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        log = WorkflowExecutionLog(
+            instance_id=instance.id,
+            node_id=node.id,
+            node_type='action',
+            status='completed',
+            input_context={},
+            output_result={}
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        # 删除节点，外键 ondelete='SET NULL' 使 log.node_id 变为 NULL
+        db.session.delete(node)
+        db.session.commit()
+
+        response = client.get(
+            f'/api/workflows/{created_workflow.id}/instances/{instance.id}',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        logs = data['data']['execution_logs']
+        assert len(logs) == 1
+        assert logs[0]['node_name'] is None
 
     def test_edit_nodes_when_paused(self, client, auth_headers, created_workflow):
         """测试暂停状态下可以编辑节点"""

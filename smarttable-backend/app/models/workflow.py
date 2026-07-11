@@ -331,6 +331,11 @@ class WorkflowNode(db.Model):
         default=list,
         nullable=False
     )
+    ui_layout: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON,
+        default=dict,
+        nullable=True
+    )
 
     workflow = relationship(
         'Workflow',
@@ -353,7 +358,8 @@ class WorkflowNode(db.Model):
             'name': self.name,
             'config': config,
             'order': self.order,
-            'next_nodes': self.next_nodes or []
+            'next_nodes': self.next_nodes or [],
+            'ui_layout': self.ui_layout or {}
         }
 
     def __repr__(self) -> str:

@@ -6,11 +6,14 @@
 过滤条件操作符直接使用前端 FilterOperator 字符串（驼峰命名），
 不进行前后端转换，前后端字符逻辑完全一致。
 """
+import copy
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
+
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.extensions import db
 from app.models.base import MemberRole
@@ -286,6 +289,55 @@ class WorkflowService:
         return filter_config
 
     @staticmethod
+    def _normalize_condition_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """将条件节点配置归一化为多分支结构。
+
+        旧配置 {conditions, conjunction} 自动迁移为单分支；
+        新配置 {branches: [...]} 直接返回，并为缺少 id 的分支补全 id。
+        """
+        if not isinstance(config, dict):
+            config = {}
+        branches = config.get('branches')
+        if isinstance(branches, list):
+            normalized_branches = []
+            for branch in branches:
+                if not isinstance(branch, dict):
+                    continue
+                normalized_branches.append({
+                    'id': branch.get('id') or f'branch_{uuid.uuid4().hex[:8]}',
+                    'name': branch.get('name', '满足条件'),
+                    'conditions': branch.get('conditions', []),
+                    'conjunction': branch.get('conjunction', 'and'),
+                    'target_node_id': branch.get('target_node_id'),
+                })
+            if normalized_branches:
+                return {**config, 'branches': normalized_branches}
+
+        old_conditions = config.get('conditions', [])
+        old_conjunction = config.get('conjunction', 'and')
+        return {
+            'branches': [
+                {
+                    'id': f'branch_{uuid.uuid4().hex[:8]}',
+                    'name': '满足条件',
+                    'conditions': old_conditions,
+                    'conjunction': old_conjunction,
+                    'target_node_id': None,
+                }
+            ]
+        }
+
+    @staticmethod
+    def _clean_condition_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """清理条件节点配置：branches 为空数组时返回空 dict"""
+        if not isinstance(config, dict):
+            return {}
+        branches = config.get('branches')
+        if isinstance(branches, list) and len(branches) == 0:
+            return {}
+        return config
+
+    @staticmethod
     def _build_version_snapshot(workflow: Workflow) -> Dict[str, Any]:
         """为工作流构建版本快照"""
         return {
@@ -365,13 +417,17 @@ class WorkflowService:
                 if node_type in action_type_map:
                     node_config['action_type'] = action_type_map[node_type]
                     node_type = 'action'
+                if node_type == 'condition':
+                    node_config = cls._normalize_condition_config(node_config)
+                    node_config = cls._clean_condition_config(node_config)
                 node = WorkflowNode(
                     workflow_id=workflow.id,
                     node_type=WorkflowNodeType(node_type),
                     name=node_data.get('name', f'节点 {index + 1}'),
                     config=node_config,
                     order=node_data.get('order', index),
-                    next_nodes=node_data.get('next_nodes', [])
+                    next_nodes=node_data.get('next_nodes', []),
+                    ui_layout=node_data.get('ui_layout', {})
                 )
                 db.session.add(node)
 
@@ -493,13 +549,17 @@ class WorkflowService:
                     if node_type_str in action_node_types:
                         config['action_type'] = node_type_str
                         node_type_str = 'action'
+                    if node_type_str == 'condition':
+                        config = cls._normalize_condition_config(config)
+                        config = cls._clean_condition_config(config)
                     node = WorkflowNode(
                         workflow_id=workflow.id,
                         node_type=WorkflowNodeType(node_type_str),
                         name=node_data.get('name', f'节点 {index + 1}'),
                         config=config,
                         order=node_data.get('order', index),
-                        next_nodes=node_data.get('next_nodes', [])
+                        next_nodes=node_data.get('next_nodes', []),
+                        ui_layout=node_data.get('ui_layout', {})
                     )
                     db.session.add(node)
 
@@ -593,16 +653,54 @@ class WorkflowService:
         db.session.add(cloned)
         db.session.flush()
 
+        # 第一遍：创建所有节点（占位 next_nodes 与深拷贝 config），构建 old_id -> new_id 映射
+        # 新节点由模型默认 default=uuid.uuid4 在 flush 时获得新 UUID，
+        # 因此源工作流中的节点 ID 引用（next_nodes、branches.target_node_id）
+        # 必须基于映射重写，否则克隆后的引用会指向源工作流的旧节点 ID。
+        id_mapping: Dict[str, str] = {}
+        new_nodes_by_old_id: Dict[str, WorkflowNode] = {}
+
         for node in workflow.nodes.order_by(WorkflowNode.order).all():
+            new_config = copy.deepcopy(node.config) if node.config else {}
             new_node = WorkflowNode(
                 workflow_id=cloned.id,
                 node_type=node.node_type,
                 name=node.name,
-                config=node.config,
+                config=new_config,
                 order=node.order,
-                next_nodes=node.next_nodes
+                next_nodes=[],  # 占位，第二遍基于 id_mapping 重写
+                ui_layout=node.ui_layout
             )
             db.session.add(new_node)
+            new_nodes_by_old_id[str(node.id)] = new_node
+
+        db.session.flush()
+        for old_id_str, new_node in new_nodes_by_old_id.items():
+            id_mapping[old_id_str] = str(new_node.id)
+
+        # 第二遍：基于 id_mapping 重写 next_nodes 与条件节点 branches.target_node_id
+        # 仅重映射存在于映射中的引用，过滤失效引用；不重映射 webhook_id 等外部资源 ID
+        for node in workflow.nodes.order_by(WorkflowNode.order).all():
+            new_node = new_nodes_by_old_id[str(node.id)]
+
+            remapped_next = [
+                id_mapping[old_ref]
+                for old_ref in (node.next_nodes or [])
+                if old_ref in id_mapping
+            ]
+            new_node.next_nodes = remapped_next
+
+            if node.node_type == WorkflowNodeType.CONDITION and isinstance(new_node.config, dict):
+                branches = new_node.config.get('branches')
+                if isinstance(branches, list):
+                    for branch in branches:
+                        if not isinstance(branch, dict):
+                            continue
+                        old_target = branch.get('target_node_id')
+                        if old_target and old_target in id_mapping:
+                            branch['target_node_id'] = id_mapping[old_target]
+                    # 普通 JSON 列不跟踪就地变更，需显式标记以触发 UPDATE
+                    flag_modified(new_node, "config")
 
         for trigger in workflow.triggers.all():
             new_trigger = WorkflowTrigger(
@@ -899,6 +997,7 @@ class WorkflowService:
                 'config': node.config or {},
                 'order': node.order,
                 'next_nodes': node.next_nodes or []
+                # ui_layout 为纯展示字段，不参与版本指纹
             })
         return {
             'name': workflow.name,
@@ -929,6 +1028,7 @@ class WorkflowService:
                     'config': n.get('config', {}),
                     'order': n.get('order'),
                     'next_nodes': n.get('next_nodes', [])
+                    # ui_layout 为纯展示字段，不参与版本指纹
                 }
                 for n in nodes
             ],

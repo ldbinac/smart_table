@@ -4,6 +4,102 @@
 
 ***
 
+# SmartTable v1.6.1 Release Notes
+
+**发布日期 / Release Date**: 2026-07-11
+
+**版本号 / Version**: v1.6.1
+
+**标签 / Tags**: `release`, `v1.6.1`, `latest`, `stable`, `workflow`, `automation`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.1 更新说明
+
+本次更新是 v1.6.0 的增强版本，重点完善了工作流画布可视化编辑功能，实现了条件分支节点的可视化连线与自动布局，新增默认分支支持、Webhook 引用校验、执行日志节点名称展示等功能，并修复了工作流克隆时节点 ID 映射等问题。
+
+### ✨ 新增及功能优化
+
+#### 🔄 工作流画布可视化编辑 ⭐
+
+- ⭐ **实现工作流画布可视化编辑** - 支持在画布上直观编辑工作流节点和连线
+- ⭐ **条件分支可视化连线** - 重构条件节点连线与布局逻辑，支持多分支可视化展示
+- ⭐ **自动布局优化** - 条件分支节点自动布局，适配多分支场景
+
+#### 🔀 条件分支节点增强
+
+- ⭐ **默认分支功能** - 新增默认分支，当所有条件分支都不匹配时执行默认分支
+- ⭐ **字段值展示优化** - 优化条件组件的字段值展示逻辑
+
+#### 📊 执行日志增强
+
+- ⭐ **节点名称展示** - 执行日志中新增节点名称展示，便于追踪执行流程
+
+#### 🪝 Webhook 状态管理
+
+- ⭐ **Webhook 引用校验** - 新增 Webhook 引用校验功能，确保引用有效性
+- ⭐ **状态管理** - 新增 Webhook 状态管理能力
+
+
+***
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+| 问题 | 修复内容 |
+|------|----------|
+| **🔧 工作流克隆节点 ID 映射** | 修复工作流克隆时节点 ID 引用未映射的问题 |
+| **🔧 条件分支执行链生成** | 修复条件节点分支目标 ID 映射与执行链生成逻辑 |
+| **🔧 工作流测试失败** | 修复工作流测试失败问题 |
+
+***
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.1 Release Notes
+
+This release is an enhancement version of v1.6.0, focusing on improving the workflow canvas visual editing feature, implementing visual connections and auto-layout for condition branch nodes, adding default branch support, Webhook reference validation, node name display in execution logs, and fixing node ID mapping issues during workflow cloning.
+
+### ✨ New Features & Improvements
+
+#### 🔄 Workflow Canvas Visual Editing ⭐
+
+- ⭐ **Implemented workflow canvas visual editing** - Supports intuitive editing of workflow nodes and connections on canvas
+- ⭐ **Condition branch visual connections** - Refactored condition node connection and layout logic, supports multi-branch visual display
+- ⭐ **Auto-layout optimization** - Condition branch node auto-layout, adapts to multi-branch scenarios
+
+#### 🔀 Condition Branch Node Enhancement
+
+- ⭐ **Default branch feature** - Added default branch, executed when all condition branches don't match
+- ⭐ **Field value display optimization** - Optimized field value display logic in condition component
+
+#### 📊 Execution Log Enhancement
+
+- ⭐ **Node name display** - Added node name display in execution logs for easier execution flow tracking
+
+#### 🪝 Webhook Status Management
+
+- ⭐ **Webhook reference validation** - Added Webhook reference validation to ensure reference validity
+- ⭐ **Status management** - Added Webhook status management capability
+
+
+***
+
+### 🐛 Bug Fixes
+
+| Issue | Fix |
+|-------|-----|
+| **🔧 Workflow clone node ID mapping** | Fixed node ID reference not mapped during workflow cloning |
+| **🔧 Condition branch execution chain** | Fixed condition node branch target ID mapping and execution chain generation logic |
+| **🔧 Workflow test failure** | Fixed workflow test failure issue |
+
+***
+
+---
+
 # SmartTable v1.6.0 Release Notes
 
 **发布日期 / Release Date**: 2026-07-05

@@ -40,6 +40,39 @@ vi.mock('../WorkflowTriggerConfig.vue', () => ({
   },
 }));
 
+vi.mock('../WorkflowCanvas.vue', () => ({
+  default: {
+    name: 'WorkflowCanvas',
+    template: '<div class="workflow-canvas-stub"><slot /></div>',
+    props: ['nodes', 'readonly', 'selectedNodeId'],
+    emits: ['update:nodes', 'select-node', 'node-drag-stop', 'edge-insert', 'add-node', 'delete-node'],
+    setup(_props: any, { expose }: any) {
+      expose({
+        fitView: vi.fn(),
+        zoomIn: vi.fn(),
+        zoomOut: vi.fn(),
+      });
+      return {};
+    },
+  },
+}));
+
+vi.mock('../WorkflowCanvasToolbar.vue', () => ({
+  default: {
+    name: 'WorkflowCanvasToolbar',
+    template: `
+      <div class="workflow-canvas-toolbar-stub">
+        <button class="toolbar-zoom-in" @click="$emit('zoom-in')">+</button>
+        <button class="toolbar-zoom-out" @click="$emit('zoom-out')">-</button>
+        <button class="toolbar-fit-view" @click="$emit('fit-view')">fit</button>
+        <button class="toolbar-toggle-pan" @click="$emit('toggle-pan-mode')">pan</button>
+      </div>
+    `,
+    props: ['panMode'],
+    emits: ['zoom-in', 'zoom-out', 'fit-view', 'toggle-pan-mode'],
+  },
+}));
+
 // Mock vue-router
 vi.mock('vue-router', () => ({
   onBeforeRouteLeave: vi.fn((guard) => {
@@ -110,9 +143,9 @@ describe('WorkflowDesigner', () => {
     {
       id: 'node-2',
       workflow_id: 'wf-1',
-      node_type: 'condition' as const,
-      name: '条件节点 1',
-      config: {},
+      node_type: 'update_record' as const,
+      name: '更新记录 1',
+      config: { updates: [{ field_id: 'field-1', value_template: '' }] },
       order: 1,
       next_nodes: [],
     },
@@ -133,6 +166,9 @@ describe('WorkflowDesigner', () => {
         stubs: {
           'el-button': {
             template: '<button class="el-button"><slot /></button>',
+          },
+          'el-button-group': {
+            template: '<div class="el-button-group"><slot /></div>',
           },
           'el-icon': { template: '<i class="el-icon"><slot /></i>' },
           'el-tag': { template: '<span class="el-tag"><slot /></span>' },
@@ -166,7 +202,7 @@ describe('WorkflowDesigner', () => {
     const nodeItems = wrapper.findAll('.node-item');
     expect(nodeItems.length).toBe(2);
     expect(nodeItems[0].find('.node-name').text()).toBe('审批节点 1');
-    expect(nodeItems[1].find('.node-name').text()).toBe('条件节点 1');
+    expect(nodeItems[1].find('.node-name').text()).toBe('更新记录 1');
   });
 
   it('应该默认选中第一个节点', async () => {
@@ -508,5 +544,552 @@ describe('WorkflowDesigner', () => {
 
     expect(preventDefaultSpy).toHaveBeenCalled();
     preventDefaultSpy.mockRestore();
+  });
+
+  async function switchToCanvas(wrapper: ReturnType<typeof mountDesigner>) {
+    const canvasButton = wrapper.findAll('.el-button').find((btn) =>
+      btn.text().includes('画布')
+    );
+    expect(canvasButton).toBeTruthy();
+    await canvasButton!.trigger('click');
+    await nextTick();
+  }
+
+  it('默认视图为列表视图', () => {
+    const wrapper = mountDesigner();
+    expect(wrapper.find('.trigger-section').exists()).toBe(true);
+    expect(wrapper.find('.workflow-canvas-stub').exists()).toBe(false);
+  });
+
+  it('切换到画布视图应渲染画布', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    expect(wrapper.find('.workflow-canvas-stub').exists()).toBe(true);
+    expect(wrapper.find('.trigger-section').exists()).toBe(false);
+  });
+
+  it('画布中选中节点应更新右侧面板', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('select-node', 'node-2');
+    await nextTick();
+
+    const nodeConfig = wrapper.findComponent({ name: 'WorkflowNodeConfig' });
+    expect(nodeConfig.props('node').id).toBe('node-2');
+  });
+
+  it('切换视图时保留当前选中节点', async () => {
+    const wrapper = mountDesigner();
+    await nextTick();
+    const nodeItems = wrapper.findAll('.node-item');
+    await nodeItems[1].trigger('click');
+    await nextTick();
+    expect(nodeItems[1].classes()).toContain('active');
+
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    expect(canvas.props('selectedNodeId')).toBe('node-2');
+
+    const listButton = wrapper.findAll('.el-button').find((btn) =>
+      btn.text().includes('列表')
+    );
+    expect(listButton).toBeTruthy();
+    await listButton!.trigger('click');
+    await nextTick();
+    expect(wrapper.findAll('.node-item')[1].classes()).toContain('active');
+  });
+
+  it('缺少 ui_layout 的节点加载后自动布局', async () => {
+    const wrapper = mountDesigner({ nodes: mockNodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    const nodes = canvas.props('nodes') as any[];
+    expect(nodes.length).toBe(mockNodes.length);
+    expect(nodes.every((node) => node.ui_layout && typeof node.ui_layout.x === 'number')).toBe(true);
+  });
+
+  it('画布中拖拽节点应持久化 ui_layout', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    const updatedNodes = mockNodes.map((node) =>
+      node.id === 'node-1' ? { ...node, ui_layout: { x: 120, y: 200 } } : node
+    );
+    await canvas.vm.$emit('update:nodes', updatedNodes);
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    const node1 = lastNodes.find((node) => node.id === 'node-1');
+    expect(node1.ui_layout).toEqual({ x: 120, y: 200 });
+  });
+
+  it('通过画布边线按钮插入节点', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('edge-insert', { sourceId: 'node-1', targetId: 'node-2', nodeType: 'webhook' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(3);
+
+    const newNode = lastNodes.find((node) => node.node_type === 'webhook');
+    expect(newNode).toBeTruthy();
+
+    const sourceIndex = lastNodes.findIndex((node) => node.id === 'node-1');
+    const newIndex = lastNodes.findIndex((node) => node.id === newNode!.id);
+    const targetIndex = lastNodes.findIndex((node) => node.id === 'node-2');
+    expect(sourceIndex).toBeLessThan(newIndex);
+    expect(newIndex).toBeLessThan(targetIndex);
+
+    const sourceNode = lastNodes[sourceIndex];
+    expect(sourceNode.next_nodes).toContain(newNode!.id);
+    expect(newNode!.next_nodes).toContain('node-2');
+  });
+
+  it('在空白画布添加第一个节点', async () => {
+    const wrapper = mountDesigner({ nodes: [] });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('add-node', { position: 'first', nodeType: 'create_record' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(1);
+    expect(lastNodes[0].node_type).toBe('create_record');
+    expect(lastNodes[0].order).toBe(0);
+    expect(lastNodes[0].next_nodes).toEqual([]);
+
+    const nodeConfig = wrapper.findComponent({ name: 'WorkflowNodeConfig' });
+    expect(nodeConfig.props('node').id).toBe(lastNodes[0].id);
+  });
+
+  it('在已有节点前面添加节点', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('add-node', { position: 'before', nodeType: 'webhook', targetId: 'node-2' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(3);
+
+    const newNode = lastNodes.find((node) => node.node_type === 'webhook');
+    expect(newNode).toBeTruthy();
+
+    const newIndex = lastNodes.findIndex((node) => node.id === newNode!.id);
+    const targetIndex = lastNodes.findIndex((node) => node.id === 'node-2');
+    expect(newIndex).toBeLessThan(targetIndex);
+    expect(newNode!.next_nodes).toContain('node-2');
+  });
+
+  it('在已有节点后面添加节点', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'update_record', targetId: 'node-1' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(3);
+
+    const newNode = lastNodes.find((node) => node.node_type === 'update_record');
+    expect(newNode).toBeTruthy();
+
+    const targetIndex = lastNodes.findIndex((node) => node.id === 'node-1');
+    const newIndex = lastNodes.findIndex((node) => node.id === newNode!.id);
+    expect(targetIndex).toBeLessThan(newIndex);
+    expect(lastNodes[targetIndex].next_nodes).toContain(newNode!.id);
+    expect(newNode!.next_nodes).toContain('node-2');
+  });
+
+  it('在条件节点后面添加节点时自动分配到可用分支', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and' },
+          ],
+        },
+        order: 0,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'update_record', targetId: 'cond-1' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(2);
+
+    const conditionNode = lastNodes.find((n) => n.id === 'cond-1');
+    const newNode = lastNodes.find((n) => n.node_type === 'update_record');
+    expect(newNode).toBeTruthy();
+
+    // 第一个分支应自动指向新节点
+    expect(conditionNode.config.branches[0].target_node_id).toBe(newNode!.id);
+    expect(conditionNode.config.branches[1].target_node_id).toBeUndefined();
+    expect(conditionNode.next_nodes).toContain(newNode!.id);
+  });
+
+  it('为条件节点添加多个分支目标时保持独立并行关系', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and' },
+          ],
+        },
+        order: 0,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+
+    // 添加第一个分支目标
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'update_record', targetId: 'cond-1' });
+    await nextTick();
+
+    // 添加第二个分支目标
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'create_record', targetId: 'cond-1' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(3);
+
+    const conditionNode = lastNodes.find((n) => n.id === 'cond-1');
+    const branchNodes = lastNodes.filter((n) => n.id !== 'cond-1');
+    expect(branchNodes.length).toBe(2);
+
+    // 两个分支分别指向不同的目标节点（不依赖节点顺序）
+    const branch0Target = conditionNode.config.branches[0].target_node_id;
+    const branch1Target = conditionNode.config.branches[1].target_node_id;
+    expect(branch0Target).toBeTruthy();
+    expect(branch1Target).toBeTruthy();
+    expect(branch0Target).not.toBe(branch1Target);
+    expect(branchNodes.map((n: any) => n.id)).toEqual(
+      expect.arrayContaining([branch0Target, branch1Target]),
+    );
+    expect(conditionNode.next_nodes).toEqual(
+      expect.arrayContaining([branch0Target, branch1Target]),
+    );
+
+    // 两个分支目标节点应保持独立，不互相串联
+    branchNodes.forEach((branchNode: any) => {
+      expect(branchNode.next_nodes).toEqual([]);
+      branchNodes.forEach((other: any) => {
+        if (other.id !== branchNode.id) {
+          expect(branchNode.next_nodes).not.toContain(other.id);
+        }
+      });
+    });
+  });
+
+  it('条件分支目标节点不被 rebuildNodeChain 串联', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and', target_node_id: 'branch-a' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and', target_node_id: 'branch-b' },
+          ],
+        },
+        order: 0,
+        next_nodes: ['branch-a', 'branch-b'],
+      },
+      {
+        id: 'branch-a',
+        workflow_id: 'wf-1',
+        node_type: 'update_record',
+        name: '分支 A 目标',
+        config: { updates: [{ field_id: 'f1', value_template: '' }] },
+        order: 1,
+        next_nodes: [],
+      },
+      {
+        id: 'branch-b',
+        workflow_id: 'wf-1',
+        node_type: 'create_record',
+        name: '分支 B 目标',
+        config: { target_table_id: 't1', field_mappings: [{ target_field_id: 'f1', source_field_id: '', value_template: '' }] },
+        order: 2,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    const canvasNodes = canvas.props('nodes') as any[];
+
+    const branchA = canvasNodes.find((n) => n.id === 'branch-a');
+    const branchB = canvasNodes.find((n) => n.id === 'branch-b');
+
+    // 分支目标节点不应被互相串联
+    expect(branchA.next_nodes).not.toContain('branch-b');
+    expect(branchB.next_nodes).not.toContain('branch-a');
+  });
+
+  it('在分支目标节点后面添加新节点时自动建立连接', async () => {
+    const nodes: any[] = [
+      {
+        id: 'cond-1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件节点',
+        config: {
+          branches: [
+            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and', target_node_id: 'branch-a' },
+            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and', target_node_id: 'branch-b' },
+          ],
+        },
+        order: 0,
+        next_nodes: ['branch-a', 'branch-b'],
+      },
+      {
+        id: 'branch-a',
+        workflow_id: 'wf-1',
+        node_type: 'update_record',
+        name: '分支 A 目标',
+        config: { updates: [{ field_id: 'f1', value_template: '' }] },
+        order: 1,
+        next_nodes: [],
+      },
+      {
+        id: 'branch-b',
+        workflow_id: 'wf-1',
+        node_type: 'create_record',
+        name: '分支 B 目标',
+        config: { target_table_id: 't1', field_mappings: [{ target_field_id: 'f1', source_field_id: '', value_template: '' }] },
+        order: 2,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+
+    // 在 branch-a 后面添加新节点
+    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'approval', targetId: 'branch-a' });
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+
+    const branchA = lastNodes.find((n) => n.id === 'branch-a');
+    const newNode = lastNodes.find((n) => n.node_type === 'approval');
+
+    // branch-a 应自动连接到新节点
+    expect(branchA.next_nodes).toContain(newNode.id);
+    // 新节点不应连接到 branch-b（并行分支保持独立）
+    expect(newNode.next_nodes).not.toContain('branch-b');
+  });
+
+  it('从画布删除节点应更新节点列表', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    await canvas.vm.$emit('delete-node', 'node-1');
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    expect(lastNodes.length).toBe(1);
+    expect(lastNodes[0].id).toBe('node-2');
+  });
+
+  it('画布工具栏按钮应调用画布方法', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    const toolbar = wrapper.findComponent({ name: 'WorkflowCanvasToolbar' });
+
+    await toolbar.vm.$emit('zoom-in');
+    await toolbar.vm.$emit('zoom-out');
+    await toolbar.vm.$emit('fit-view');
+
+    expect(canvas.vm.zoomIn).toHaveBeenCalled();
+    expect(canvas.vm.zoomOut).toHaveBeenCalled();
+    expect(canvas.vm.fitView).toHaveBeenCalled();
+  });
+
+  it('画布抓手模式状态可切换', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const toolbar = wrapper.findComponent({ name: 'WorkflowCanvasToolbar' });
+    expect(toolbar.props('panMode')).toBe(false);
+
+    await toolbar.vm.$emit('toggle-pan-mode');
+    await nextTick();
+    expect(wrapper.findComponent({ name: 'WorkflowCanvasToolbar' }).props('panMode')).toBe(true);
+  });
+
+  it('已发布工作流在画布中应只读', async () => {
+    const wrapper = mountDesigner({
+      workflow: { ...mockWorkflow, status: 'active' as const },
+    });
+    await switchToCanvas(wrapper);
+    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
+    expect(canvas.props('readonly')).toBe(true);
+  });
+
+  it('列表视图和画布视图均显示可拖拽分隔条', () => {
+    const wrapper = mountDesigner();
+    expect(wrapper.find('.designer-splitter').exists()).toBe(true);
+
+    switchToCanvas(wrapper);
+    expect(wrapper.find('.designer-splitter').exists()).toBe(true);
+  });
+
+  it('画布视图下左右面板默认各占 50%', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const left = wrapper.find('.designer-left');
+    const right = wrapper.find('.designer-right');
+    expect(left.attributes('style')).toContain('flex: 0 0 50%');
+    expect(right.attributes('style')).toContain('flex: 0 0 50%');
+  });
+
+  it('mousedown 时分隔条添加 is-resizing 类，mouseup 后移除', async () => {
+    const wrapper = mountDesigner();
+    const splitter = wrapper.find('.designer-splitter');
+    await splitter.trigger('mousedown', { clientX: 100 });
+    expect(splitter.classes()).toContain('is-resizing');
+
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    await nextTick();
+    expect(wrapper.find('.designer-splitter').classes()).not.toContain('is-resizing');
+  });
+
+  it('拖拽分隔条可调整画布视图左右面板宽度', async () => {
+    const wrapper = mountDesigner();
+    await switchToCanvas(wrapper);
+    const layout = wrapper.find('.designer-layout').element;
+    Object.defineProperty(layout, 'clientWidth', { value: 1000, configurable: true });
+
+    const splitter = wrapper.find('.designer-splitter');
+    await splitter.trigger('mousedown', { clientX: 500 });
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 700 }));
+    await nextTick();
+
+    const left = wrapper.find('.designer-left');
+    expect(left.attributes('style')).toContain('flex: 0 0 70%');
+
+    const right = wrapper.find('.designer-right');
+    expect(right.attributes('style')).toContain('flex: 0 0 30%');
+
+    document.dispatchEvent(new MouseEvent('mouseup'));
+  });
+
+  it('拖拽分隔条可调整列表视图左侧面板宽度', async () => {
+    const wrapper = mountDesigner();
+    const layout = wrapper.find('.designer-layout').element;
+    Object.defineProperty(layout, 'clientWidth', { value: 1000, configurable: true });
+
+    const splitter = wrapper.find('.designer-splitter');
+    await splitter.trigger('mousedown', { clientX: 360 });
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 500 }));
+    await nextTick();
+
+    const left = wrapper.find('.designer-left');
+    expect(left.attributes('style')).toContain('flex: 0 0 500px');
+
+    document.dispatchEvent(new MouseEvent('mouseup'));
+  });
+
+  it('删除被条件节点指向的节点会清空对应分支目标', async () => {
+    const nodes: any[] = [
+      {
+        id: 'n1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件',
+        config: {
+          branches: [
+            { id: 'b1', name: 'B1', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and', target_node_id: 'n2' },
+          ],
+        },
+        order: 0,
+        next_nodes: ['n2'],
+      },
+      {
+        id: 'n2',
+        workflow_id: 'wf-1',
+        node_type: 'update_record',
+        name: '更新',
+        config: { updates: [{ field_id: 'f1', value_template: '' }] },
+        order: 1,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await nextTick();
+
+    const deleteBtn = wrapper.find('.node-item[data-node-id="n2"] .delete-btn');
+    await deleteBtn.trigger('click');
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    const conditionNode = lastNodes.find((n) => n.id === 'n1');
+    expect(conditionNode.config.branches[0].target_node_id).toBeUndefined();
+    expect(conditionNode.next_nodes).toEqual([]);
+  });
+
+  it('条件节点存在空条件分支时保存被阻止', async () => {
+    const nodes: any[] = [
+      {
+        id: 'n1',
+        workflow_id: 'wf-1',
+        node_type: 'condition',
+        name: '条件',
+        config: {
+          branches: [
+            { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
+          ],
+        },
+        order: 0,
+        next_nodes: [],
+      },
+    ];
+    const wrapper = mountDesigner({ nodes });
+    await nextTick();
+
+    expect((wrapper.vm as any).hasInvalidMappingNodes).toBe(true);
   });
 });

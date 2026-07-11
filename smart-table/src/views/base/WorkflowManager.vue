@@ -8,6 +8,7 @@ import {
   Timer,
   Link,
   Refresh,
+  Delete,
 } from "@element-plus/icons-vue";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useTableStore } from "@/stores/tableStore";
@@ -439,6 +440,65 @@ function handleWebhookSaved(webhook: WebhookConfig) {
   selectedWebhookId.value = webhook.id;
 }
 
+async function handleDeleteWebhook(row: WebhookConfig) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除 Webhook「${row.name}」吗？此操作不可恢复。`,
+      "删除确认",
+      {
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      },
+    );
+  } catch {
+    return;
+  }
+
+  try {
+    await workflowStore.deleteWebhook(row.id);
+    if (selectedWebhookId.value === row.id) {
+      selectedWebhookId.value = "";
+    }
+  } catch (error) {
+    console.error("删除 Webhook 失败:", error);
+  }
+}
+
+async function handleToggleWebhookActive(row: WebhookConfig, newVal: boolean) {
+  if (!newVal) {
+    const { references, count } =
+      await workflowStore.checkWebhookReferences(row.id);
+    if (count > 0) {
+      const refList = references
+        .map(
+          (r) =>
+            `• 工作流「${r.workflow_name}」（${r.workflow_status}）- 节点「${r.node_name}」`,
+        )
+        .join("\n");
+      try {
+        await ElMessageBox.confirm(
+          `该 Webhook 被 ${count} 个工作流节点引用：\n${refList}\n\n禁用后相关工作流将无法触发该 Webhook，是否继续？`,
+          "禁用确认",
+          {
+            confirmButtonText: "继续禁用",
+            cancelButtonText: "取消",
+            type: "warning",
+          },
+        );
+      } catch {
+        return;
+      }
+    }
+  }
+
+  try {
+    await workflowStore.updateWebhook(row.id, { is_active: newVal });
+  } catch (error) {
+    console.error("切换 Webhook 状态失败:", error);
+  }
+}
+
 function refreshDeliveryList() {
   deliveryListRef.value?.fetchDeliveries();
 }
@@ -573,11 +633,31 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                   <el-table-column prop="name" label="名称" min-width="140" />
                   <el-table-column prop="method" label="方法" width="80" />
                   <el-table-column prop="url" label="URL" min-width="200" show-overflow-tooltip />
-                  <el-table-column label="状态" width="80" fixed="right">
+                  <el-table-column label="状态" width="65" fixed="right">
                     <template #default="{ row }">
                       <el-tag :type="getWebhookStatusType(row.is_active)" size="small">
                         {{ row.is_active ? "启用" : "禁用" }}
                       </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" width="118" fixed="right">
+                    <template #default="{ row }">
+                      <el-tooltip
+                        :content="row.is_active ? '点击禁用' : '点击启用'"
+                        placement="top">
+                        <el-switch
+                          :model-value="row.is_active"
+                          size="small"
+                          @change="(val) => handleToggleWebhookActive(row, val as boolean)" />
+                      </el-tooltip>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        text
+                        :icon="Delete"
+                        @click.stop="handleDeleteWebhook(row)">
+                        删除
+                      </el-button>
                     </template>
                   </el-table-column>
                 </el-table>
