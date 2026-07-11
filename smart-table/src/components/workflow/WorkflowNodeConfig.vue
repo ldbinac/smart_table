@@ -371,13 +371,14 @@ function renderConditionValue(condition: ConditionItem): string {
   const fieldType = field?.type;
   const isSelectLike =
     fieldType === FieldType.SINGLE_SELECT || fieldType === FieldType.MULTI_SELECT;
-  const options = field?.options?.options ?? field?.options?.choices;
+  const rawOptions = field?.options?.options ?? field?.options?.choices;
+  const options = Array.isArray(rawOptions) ? (rawOptions as Array<{ id: string; name: string }>) : undefined;
 
   if (isSelectLike && options && options.length > 0) {
     const values = Array.isArray(condition.value) ? condition.value : [condition.value];
     const labels = values
       .map((val) => {
-        const option = options.find((opt) => opt.id === val);
+        const option = options.find((opt: { id: string; name: string }) => opt.id === val);
         return option ? `${option.name} (${option.id})` : String(val);
       })
       .filter(Boolean);
@@ -797,7 +798,7 @@ const nodeTypeLabel = computed(() => {
               size="small"
               placeholder="分支名称"
               class="branch-name-input"
-              @update:model-value="(val) => updateBranchName(activeBranch.id, val as string)" />
+              @update:model-value="(val) => updateBranchName((activeBranch as ConditionBranch).id, val as string)" />
           </div>
 
           <div class="branch-target-row">
@@ -819,7 +820,7 @@ const nodeTypeLabel = computed(() => {
                 v-else
                 :model-value="activeBranch.conjunction"
                 size="small"
-                @change="(val) => updateBranchConjunction(activeBranch.id, val as ConjunctionValue)">
+                @change="(val) => updateBranchConjunction((activeBranch as ConditionBranch).id, val as ConjunctionValue)">
                 <el-radio
                   v-for="opt in CONJUNCTION_OPTIONS"
                   :key="opt.value"
@@ -839,7 +840,7 @@ const nodeTypeLabel = computed(() => {
                   placeholder="选择字段"
                   class="field-select"
                   :disabled="readonly"
-                  @change="(val) => onConditionFieldChange(activeBranch.id, index, val as string)">
+                  @change="(val) => onConditionFieldChange((activeBranch as ConditionBranch).id, index, val as string)">
                   <el-option
                     v-for="field in fields"
                     :key="field.id"
@@ -852,7 +853,7 @@ const nodeTypeLabel = computed(() => {
                   placeholder="操作符"
                   class="operator-select"
                   :disabled="readonly"
-                  @change="(val) => onConditionOperatorChange(activeBranch.id, index, val as FilterOperatorValue)">
+                  @change="(val) => onConditionOperatorChange((activeBranch as ConditionBranch).id, index, val as FilterOperatorValue)">
                   <el-option
                     v-for="op in getOperatorOptions(getFieldById(condition.field_id)?.type ?? '')"
                     :key="op.value"
@@ -867,7 +868,7 @@ const nodeTypeLabel = computed(() => {
                   placeholder="值"
                   class="value-input"
                   :disabled="readonly"
-                  @update:model-value="(val) => onConditionValueChange(activeBranch.id, index, val)" />
+                  @update:model-value="(val) => onConditionValueChange((activeBranch as ConditionBranch).id, index, val)" />
 
                 <span v-else class="value-placeholder">无需值</span>
 

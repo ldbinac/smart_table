@@ -648,7 +648,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                         <el-switch
                           :model-value="row.is_active"
                           size="small"
-                          @change="(val: boolean) => handleToggleWebhookActive(row, val)" />
+                          @change="(val) => handleToggleWebhookActive(row, val as boolean)" />
                       </el-tooltip>
                       <el-button
                         type="danger"

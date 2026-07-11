@@ -172,7 +172,7 @@ function handleEdgeDelete(payload: { sourceId: string; targetId: string; branchI
     if (node.id !== sourceNode.id) return node;
     const config = setConditionBranchTarget(
       { branches: getConditionBranches(node.config) },
-      payload.branchId,
+      payload.branchId!,
       undefined,
     );
     const branches = getConditionBranches(config);
@@ -234,7 +234,7 @@ defineExpose({
       :nodes="flowNodes"
       :edges="flowEdges"
       :nodes-draggable="!readonly"
-      :nodes-connectable="(node: any) => !!node.connectable"
+      :nodes-connectable="!readonly"
       :elements-selectable="!readonly"
       :select-nodes-on-drag="false"
       :pan-on-drag="true"

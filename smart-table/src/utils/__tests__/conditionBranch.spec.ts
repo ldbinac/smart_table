@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeConditionConfig,
-  getConditionBranches,
   addConditionBranch,
   addDefaultBranch,
   createDefaultBranch,
@@ -13,6 +12,7 @@ import {
   setConditionBranchTarget,
   getConditionNextNodeIds,
 } from '../conditionBranch';
+import type { ConditionNodeConfig } from '@/types/workflow';
 
 describe('conditionBranch', () => {
   it('空配置迁移为默认单分支', () => {
@@ -164,10 +164,10 @@ describe('conditionBranch', () => {
   });
 
   it('addDefaultBranch 已存在默认分支时返回现有分支不变', () => {
-    const config = {
+    const config: ConditionNodeConfig = {
       branches: [
-        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
-        { id: 'b-default', name: '已有默认', conditions: [], conjunction: 'and', is_default: true },
+        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' as const },
+        { id: 'b-default', name: '已有默认', conditions: [], conjunction: 'and' as const, is_default: true },
       ],
     };
     const { config: next, branch } = addDefaultBranch(config);
@@ -177,10 +177,10 @@ describe('conditionBranch', () => {
   });
 
   it('addConditionBranch 在存在默认分支时将新条件分支插入默认分支之前', () => {
-    const config = {
+    const config: ConditionNodeConfig = {
       branches: [
-        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
-        { id: 'b-default', name: '默认', conditions: [], conjunction: 'and', is_default: true },
+        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' as const },
+        { id: 'b-default', name: '默认', conditions: [], conjunction: 'and' as const, is_default: true },
       ],
     };
     const { config: next } = addConditionBranch(config);
@@ -192,11 +192,11 @@ describe('conditionBranch', () => {
   });
 
   it('moveBranchToEnd 将指定分支移到末尾', () => {
-    const config = {
+    const config: ConditionNodeConfig = {
       branches: [
-        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
-        { id: 'b2', name: 'B2', conditions: [], conjunction: 'and' },
-        { id: 'b3', name: 'B3', conditions: [], conjunction: 'and' },
+        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' as const },
+        { id: 'b2', name: 'B2', conditions: [], conjunction: 'and' as const },
+        { id: 'b3', name: 'B3', conditions: [], conjunction: 'and' as const },
       ],
     };
     const next = moveBranchToEnd(config, 'b1');
@@ -205,10 +205,10 @@ describe('conditionBranch', () => {
   });
 
   it('moveBranchToEnd 指定分支已在末尾时不变化', () => {
-    const config = {
+    const config: ConditionNodeConfig = {
       branches: [
-        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
-        { id: 'b2', name: 'B2', conditions: [], conjunction: 'and' },
+        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' as const },
+        { id: 'b2', name: 'B2', conditions: [], conjunction: 'and' as const },
       ],
     };
     const next = moveBranchToEnd(config, 'b2');
@@ -216,11 +216,11 @@ describe('conditionBranch', () => {
   });
 
   it('removeConditionBranch 删除非默认分支后默认分支仍在末尾', () => {
-    const config = {
+    const config: ConditionNodeConfig = {
       branches: [
-        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' },
-        { id: 'b2', name: 'B2', conditions: [], conjunction: 'and' },
-        { id: 'b-default', name: '默认', conditions: [], conjunction: 'and', is_default: true },
+        { id: 'b1', name: 'B1', conditions: [], conjunction: 'and' as const },
+        { id: 'b2', name: 'B2', conditions: [], conjunction: 'and' as const },
+        { id: 'b-default', name: '默认', conditions: [], conjunction: 'and' as const, is_default: true },
       ],
     };
     const next = removeConditionBranch(config, 'b1');
