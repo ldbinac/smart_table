@@ -198,6 +198,27 @@ export const deleteWebhook = async (webhookId: string): Promise<void> => {
   await apiClient.delete<void>(`/webhooks/${webhookId}`);
 };
 
+export interface WebhookReference {
+  workflow_id: string;
+  workflow_name: string;
+  workflow_status: string;
+  node_id: string;
+  node_name: string;
+}
+
+export interface WebhookReferencesResult {
+  references: WebhookReference[];
+  count: number;
+}
+
+export const getWebhookReferences = async (
+  webhookId: string,
+): Promise<WebhookReferencesResult> => {
+  return apiClient.get<WebhookReferencesResult>(
+    `/webhooks/${webhookId}/references`,
+  );
+};
+
 export const testWebhook = async (webhookId: string): Promise<object> => {
   return apiClient.post<object>(`/webhooks/${webhookId}/test`);
 };
@@ -270,6 +291,7 @@ export const workflowApiService = {
   createWebhook,
   updateWebhook,
   deleteWebhook,
+  getWebhookReferences,
   testWebhook,
   listDeliveries,
   listTemplates,

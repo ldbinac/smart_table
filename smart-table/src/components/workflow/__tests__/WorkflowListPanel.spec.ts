@@ -138,7 +138,7 @@ describe('WorkflowListPanel', () => {
     const wrapper = mountPanel()
 
     const collapseBtn = wrapper.find('.collapse-btn')
-    expect(collapseBtn.attributes('title')).toBe('收缩')
+    expect(collapseBtn.attributes('title')).toBe('收起')
 
     await collapseBtn.trigger('click')
     await wrapper.vm.$nextTick()

@@ -330,6 +330,7 @@ class WorkflowExecutionLog(db.Model):
             'id': str(self.id),
             'instance_id': str(self.instance_id),
             'node_id': str(self.node_id) if self.node_id else None,
+            'node_name': self.node.name if self.node else None,
             'node_type': self.node_type,
             'status': self.status,
             'input_context': self.input_context or {},

@@ -46,6 +46,25 @@ export interface ScheduleConfig {
 
 export type ApprovalMode = 'any' | 'all' | 'serial';
 
+export interface ConditionItem {
+  field_id: string;
+  operator: import('@/types/filters').FilterOperatorValue;
+  value?: unknown;
+}
+
+export interface ConditionBranch {
+  id: string;
+  name: string;
+  conditions: ConditionItem[];
+  conjunction: 'and' | 'or';
+  target_node_id?: string;
+  is_default?: boolean;
+}
+
+export interface ConditionNodeConfig {
+  branches: ConditionBranch[];
+}
+
 export type WorkflowStatus = 'draft' | 'active' | 'paused' | 'archived';
 
 export type InstanceStatus =
@@ -98,6 +117,7 @@ export interface WorkflowNode {
   config: Record<string, unknown>;
   order: number;
   next_nodes: string[];
+  ui_layout?: { x: number; y: number };
 }
 
 export interface WorkflowTrigger {
@@ -135,6 +155,7 @@ export interface WorkflowExecutionLog {
   id: string;
   instance_id: string;
   node_id?: string | null;
+  node_name?: string | null;
   node_type: WorkflowNodeType;
   status: string;
   input_context: Record<string, unknown>;

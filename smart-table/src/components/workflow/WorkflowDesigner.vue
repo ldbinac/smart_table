@@ -32,6 +32,13 @@ import {
 } from "@element-plus/icons-vue";
 import WorkflowNodeConfig from "./WorkflowNodeConfig.vue";
 import WorkflowTriggerConfig from "./WorkflowTriggerConfig.vue";
+import WorkflowCanvas from "./WorkflowCanvas.vue";
+import WorkflowCanvasToolbar from "./WorkflowCanvasToolbar.vue";
+import { layoutWorkflowNodes, hasValidLayout } from "./workflowLayout";
+import {
+  getConditionBranches,
+  setConditionBranchTarget,
+} from "@/utils/conditionBranch";
 
 interface Props {
   workflow: Workflow;
@@ -56,11 +63,51 @@ const emit = defineEmits<{
 const localNodes = ref<WorkflowNode[]>([]);
 const localTrigger = ref<WorkflowTrigger>({ ...props.trigger });
 const selectedNodeId = ref<string | null>(null);
+const viewMode = ref<"list" | "canvas">("list");
+const canvasRef = ref<InstanceType<typeof WorkflowCanvas> | null>(null);
+const panMode = ref(false);
 const nodeListRef = ref<HTMLElement | null>(null);
 const triggerConfigRef = ref<InstanceType<typeof WorkflowTriggerConfig> | null>(null);
 let sortableInstance: Sortable | null = null;
 let isUpdatingNodesFromParent = false;
 let isUpdatingTriggerFromParent = false;
+
+const designerLayoutRef = ref<HTMLElement | null>(null);
+const isResizing = ref(false);
+const listModeLeftWidth = ref(360);
+const canvasModeLeftPercent = ref(50);
+let resizeCleanup: (() => void) | null = null;
+
+const LIST_MIN_WIDTH = 280;
+const LIST_MAX_WIDTH = 600;
+const CANVAS_MIN_PERCENT = 30;
+const CANVAS_MAX_PERCENT = 70;
+
+const leftPanelStyle = computed(() => {
+  if (viewMode.value === "canvas") {
+    return {
+      flex: `0 0 ${canvasModeLeftPercent.value}%`,
+      minWidth: `${CANVAS_MIN_PERCENT}%`,
+      maxWidth: `${CANVAS_MAX_PERCENT}%`,
+    };
+  }
+  return {
+    flex: `0 0 ${listModeLeftWidth.value}px`,
+    minWidth: `${LIST_MIN_WIDTH}px`,
+    maxWidth: `${LIST_MAX_WIDTH}px`,
+  };
+});
+
+const rightPanelStyle = computed(() => {
+  if (viewMode.value === "canvas") {
+    return {
+      flex: `0 0 ${100 - canvasModeLeftPercent.value}%`,
+    };
+  }
+  return {
+    flex: 1,
+  };
+});
 
 const selectedNode = computed(() =>
   localNodes.value.find((n) => n.id === selectedNodeId.value) ?? null,
@@ -70,9 +117,11 @@ watch(
   () => props.nodes,
   (newNodes) => {
     isUpdatingNodesFromParent = true;
-    localNodes.value = rebuildNodeChain(
+    const chain = rebuildNodeChain(
       newNodes.map((n) => ({ ...n, config: cloneConfig(n.config) })),
     );
+    const needsLayout = chain.some((node) => !hasValidLayout(node));
+    localNodes.value = needsLayout ? layoutWorkflowNodes(chain) : chain;
     if (!selectedNodeId.value && newNodes.length > 0) {
       selectedNodeId.value = newNodes[0].id;
     }
@@ -127,13 +176,34 @@ function generateId(): string {
   return `node_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// 根据 order 自动重建节点执行链：每个节点默认指向下一个节点
+// 根据 order 自动重建节点执行链：普通节点默认指向下一个节点；
+// 条件节点的 next_nodes 由其 branches 中的 target_node_id 决定；
+// 分支目标节点可链接到下一个非分支目标节点（合并点或后续节点），
+// 但不会自动链接到任何分支目标节点，以保持并行分支独立。
 function rebuildNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
   const sorted = [...nodes].sort((a, b) => a.order - b.order);
+  const branchTargetIds = new Set<string>();
+  sorted.forEach((node) => {
+    if (node.node_type !== "condition") return;
+    getConditionBranches(node.config).forEach((branch) => {
+      if (branch.target_node_id) branchTargetIds.add(branch.target_node_id);
+    });
+  });
   const nextMap = new Map<string, string[]>();
   sorted.forEach((node, index) => {
-    const nextNode = sorted[index + 1];
-    nextMap.set(node.id, nextNode ? [nextNode.id] : []);
+    if (node.node_type === "condition") {
+      const nextIds = getConditionBranches(node.config)
+        .map((b) => b.target_node_id)
+        .filter((id): id is string => !!id);
+      nextMap.set(node.id, nextIds);
+    } else {
+      const nextNode = sorted[index + 1];
+      if (!nextNode || branchTargetIds.has(nextNode.id)) {
+        nextMap.set(node.id, []);
+      } else {
+        nextMap.set(node.id, [nextNode.id]);
+      }
+    }
   });
   return nodes.map((node) => ({
     ...node,
@@ -158,6 +228,20 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
       const updates = (node.config?.updates ?? []) as unknown[];
       if (!updates.length) {
         invalidNodeNames.push(node.name);
+      }
+    } else if (node.node_type === 'condition') {
+      const branches = getConditionBranches(node.config);
+      if (branches.length === 0) {
+        invalidNodeNames.push(node.name);
+      } else {
+        const hasInvalid = branches.some((b) =>
+          b.is_default
+            ? !b.target_node_id
+            : b.conditions.length === 0
+        );
+        if (hasInvalid) {
+          invalidNodeNames.push(node.name);
+        }
       }
     }
   });
@@ -208,7 +292,25 @@ function addNode(type: WorkflowNodeType) {
 }
 
 function removeNode(nodeId: string) {
-  localNodes.value = rebuildNodeChain(localNodes.value.filter((n) => n.id !== nodeId));
+  const filtered = localNodes.value.filter((n) => n.id !== nodeId);
+  const cleared = filtered.map((node) => {
+    if (node.node_type !== "condition") return node;
+    const branches = getConditionBranches(node.config);
+    const hasTarget = branches.some((b) => b.target_node_id === nodeId);
+    if (!hasTarget) return node;
+    let updatedConfig = { ...node.config, branches };
+    branches.forEach((branch) => {
+      if (branch.target_node_id === nodeId) {
+        updatedConfig = setConditionBranchTarget(
+          updatedConfig as { branches: typeof branches },
+          branch.id,
+          undefined,
+        );
+      }
+    });
+    return { ...node, config: updatedConfig };
+  });
+  localNodes.value = rebuildNodeChain(cleared);
   if (selectedNodeId.value === nodeId) {
     selectedNodeId.value = localNodes.value[0]?.id ?? null;
   }
@@ -229,6 +331,195 @@ function updateNode(updatedNode: WorkflowNode) {
 
 function updateTrigger(updatedTrigger: WorkflowTrigger) {
   localTrigger.value = { ...updatedTrigger };
+}
+
+function handleCanvasUpdateNodes(nodes: WorkflowNode[]) {
+  localNodes.value = rebuildNodeChain(
+    nodes.map((node) => ({ ...node, config: cloneConfig(node.config) })),
+  );
+}
+
+function handleCanvasSelectNode(nodeId: string) {
+  selectedNodeId.value = nodeId;
+}
+
+function handleCanvasEdgeInsert(payload: {
+  sourceId: string;
+  targetId: string;
+  nodeType: string;
+}) {
+  insertNodeBetween(payload.sourceId, payload.targetId, payload.nodeType);
+}
+
+function handleCanvasEdgeDelete(payload: {
+  sourceId: string;
+  targetId: string;
+  branchId?: string;
+}) {
+  const sourceNode = localNodes.value.find((n) => n.id === payload.sourceId);
+  if (!sourceNode || sourceNode.node_type !== "condition" || !payload.branchId) return;
+
+  const config = setConditionBranchTarget(
+    { branches: getConditionBranches(sourceNode.config) },
+    payload.branchId,
+    undefined,
+  );
+  const branches = getConditionBranches(config);
+  const updatedNode: WorkflowNode = {
+    ...sourceNode,
+    config: { ...sourceNode.config, branches },
+    next_nodes: branches.map((b) => b.target_node_id).filter((id): id is string => !!id),
+  };
+  updateNode(updatedNode);
+}
+
+function handleCanvasAddNode(payload: {
+  position: "before" | "after" | "first";
+  nodeType: string;
+  targetId?: string;
+}) {
+  const { position, nodeType, targetId } = payload;
+  const type = nodeType as WorkflowNodeType;
+
+  if (position === "first") {
+    const newNode: WorkflowNode = {
+      id: generateId(),
+      workflow_id: props.workflow.id,
+      node_type: type,
+      name: `${getNodeLabel(nodeType)} ${localNodes.value.length + 1}`,
+      config: {},
+      order: -1,
+      next_nodes: [],
+    };
+    const sorted = [newNode, ...localNodes.value].sort((a, b) => a.order - b.order);
+    const reindexed = sorted.map((node, index) => ({ ...node, order: index }));
+    localNodes.value = rebuildNodeChain(reindexed);
+    selectedNodeId.value = newNode.id;
+    return;
+  }
+
+  const targetNode = localNodes.value.find((n) => n.id === targetId);
+  if (!targetNode) return;
+
+  const newNode: WorkflowNode = {
+    id: generateId(),
+    workflow_id: props.workflow.id,
+    node_type: type,
+    name: `${getNodeLabel(nodeType)} ${localNodes.value.length + 1}`,
+    config: {},
+    order: position === "before" ? targetNode.order - 0.5 : targetNode.order + 0.5,
+    next_nodes: [],
+  };
+
+  const list = [...localNodes.value, newNode];
+
+  if (position === "after" && targetNode.node_type === "condition") {
+    const branches = getConditionBranches(targetNode.config);
+    const availableBranch = branches.find((b) => !b.target_node_id);
+    if (availableBranch) {
+      const updatedConfig = setConditionBranchTarget(
+        { branches },
+        availableBranch.id,
+        newNode.id,
+      );
+      const targetIndex = list.findIndex((n) => n.id === targetNode.id);
+      list[targetIndex] = {
+        ...targetNode,
+        config: { ...targetNode.config, branches: updatedConfig.branches },
+      };
+    }
+  }
+
+  const sorted = [...list].sort((a, b) => a.order - b.order);
+  const reindexed = sorted.map((node, index) => ({ ...node, order: index }));
+  localNodes.value = rebuildNodeChain(reindexed);
+  selectedNodeId.value = newNode.id;
+}
+
+function handleCanvasDeleteNode(nodeId: string) {
+  removeNode(nodeId);
+}
+
+function insertNodeBetween(sourceId: string, targetId: string, nodeType: string) {
+  const sourceNode = localNodes.value.find((n) => n.id === sourceId);
+  if (!sourceNode) return;
+
+  const newNode: WorkflowNode = {
+    id: generateId(),
+    workflow_id: props.workflow.id,
+    node_type: nodeType as WorkflowNodeType,
+    name: `${getNodeLabel(nodeType)} ${localNodes.value.length + 1}`,
+    config: {},
+    order: sourceNode.order + 0.5,
+    next_nodes: [targetId],
+  };
+
+  const list = [...localNodes.value, newNode];
+  const sorted = [...list].sort((a, b) => a.order - b.order);
+  const reindexed = sorted.map((node, index) => ({ ...node, order: index }));
+  localNodes.value = rebuildNodeChain(reindexed);
+  selectedNodeId.value = newNode.id;
+}
+
+function handleCanvasZoomIn() {
+  canvasRef.value?.zoomIn();
+}
+
+function handleCanvasZoomOut() {
+  canvasRef.value?.zoomOut();
+}
+
+function handleCanvasFitView() {
+  canvasRef.value?.fitView();
+}
+
+function handleTogglePanMode() {
+  panMode.value = !panMode.value;
+}
+
+function startResize(event: MouseEvent) {
+  if (!designerLayoutRef.value) return;
+  isResizing.value = true;
+  const containerWidth = designerLayoutRef.value.clientWidth;
+  const startX = event.clientX;
+  const startValue = viewMode.value === "canvas" ? canvasModeLeftPercent.value : listModeLeftWidth.value;
+  const originalUserSelect = document.body.style.userSelect;
+  document.body.style.userSelect = "none";
+
+  function onMouseMove(moveEvent: MouseEvent) {
+    moveEvent.preventDefault();
+    const deltaX = moveEvent.clientX - startX;
+    if (viewMode.value === "canvas") {
+      const deltaPercent = (deltaX / containerWidth) * 100;
+      canvasModeLeftPercent.value = Math.max(
+        CANVAS_MIN_PERCENT,
+        Math.min(CANVAS_MAX_PERCENT, startValue + deltaPercent),
+      );
+    } else {
+      const newWidth = startValue + deltaX;
+      listModeLeftWidth.value = Math.max(
+        LIST_MIN_WIDTH,
+        Math.min(LIST_MAX_WIDTH, newWidth),
+      );
+    }
+  }
+
+  function onMouseUp() {
+    isResizing.value = false;
+    document.body.style.userSelect = originalUserSelect;
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    resizeCleanup = null;
+  }
+
+  resizeCleanup = () => {
+    document.body.style.userSelect = originalUserSelect;
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+  };
+
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
 }
 
 function initSortable() {
@@ -260,6 +551,8 @@ onUnmounted(() => {
   sortableInstance?.destroy();
   sortableInstance = null;
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  resizeCleanup?.();
+  resizeCleanup = null;
 });
 
 watch(
@@ -349,76 +642,125 @@ onBeforeRouteLeave((_, __, next) => {
 
 <template>
   <div v-loading="loading" class="workflow-designer" :class="{ 'is-loading': loading }">
-    <div class="designer-layout">
-      <!-- 左侧：触发器 + 节点列表 -->
-      <div class="designer-left">
-        <div class="section trigger-section">
-          <div class="section-title">触发器配置</div>
-          <div class="trigger-content">
-            <WorkflowTriggerConfig
-              ref="triggerConfigRef"
-              :trigger="localTrigger"
-              :fields="fields"
-              :readonly="readonly"
-              @update:trigger="updateTrigger" />
-          </div>
+    <div ref="designerLayoutRef" class="designer-layout">
+      <!-- 左侧：触发器 + 节点列表 / 画布 -->
+      <div class="designer-left" :style="leftPanelStyle">
+        <div class="left-panel-header">
+          <span class="left-panel-title">流程设计</span>
+          <el-button-group>
+            <el-button
+              size="small"
+              :type="viewMode === 'list' ? 'primary' : 'default'"
+              @click="viewMode = 'list'">
+              列表
+            </el-button>
+            <el-button
+              size="small"
+              :type="viewMode === 'canvas' ? 'primary' : 'default'"
+              @click="viewMode = 'canvas'">
+              画布
+            </el-button>
+          </el-button-group>
         </div>
 
-        <div class="section nodes-section">
-          <div class="section-title section-title-with-action">
-            <span>
-              节点列表
-              <span class="node-count">（{{ localNodes.length }}）</span>
-            </span>
-            <div v-if="!readonly" class="add-node-menu">
-              <el-dropdown placement="bottom-start" trigger="click">
-                <el-button type="primary" :icon="Plus" class="add-node-btn" size="small">
-                  添加节点
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-                      v-for="item in nodeTypeMenu"
-                      :key="item.type"
-                      @click="addNode(item.type)">
-                      <el-icon><component :is="item.icon" /></el-icon>
-                      <span>{{ item.label }}</span>
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+        <template v-if="viewMode === 'list'">
+          <div class="section trigger-section">
+            <div class="section-title">触发器配置</div>
+            <div class="trigger-content">
+              <WorkflowTriggerConfig
+                ref="triggerConfigRef"
+                :trigger="localTrigger"
+                :fields="fields"
+                :readonly="readonly"
+                @update:trigger="updateTrigger" />
             </div>
           </div>
 
-          <div ref="nodeListRef" class="node-list">
-            <div
-              v-for="node in localNodes"
-              :key="node.id"
-              class="node-item"
-              :class="{ active: selectedNodeId === node.id }"
-              @click="selectNode(node.id)">
-              <el-icon v-show="!readonly" class="drag-handle"><Rank /></el-icon>
-              <el-icon class="node-icon"><component :is="getNodeIcon(node.node_type)" /></el-icon>
-              <div class="node-info">
-                <div class="node-name">{{ node.name }}</div>
-                <div class="node-type">{{ getNodeLabel(node.node_type) }}</div>
+          <div class="section nodes-section">
+            <div class="section-title section-title-with-action">
+              <span>
+                节点列表
+                <span class="node-count">（{{ localNodes.length }}）</span>
+              </span>
+              <div v-if="!readonly" class="add-node-menu">
+                <el-dropdown placement="bottom-start" trigger="click">
+                  <el-button type="primary" :icon="Plus" class="add-node-btn" size="small">
+                    添加节点
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="item in nodeTypeMenu"
+                        :key="item.type"
+                        @click="addNode(item.type)">
+                        <el-icon><component :is="item.icon" /></el-icon>
+                        <span>{{ item.label }}</span>
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </div>
-              <div class="node-order">#{{ node.order + 1 }}</div>
-              <el-button
-                v-if="!readonly"
-                type="danger"
-                :icon="Delete"
-                link
-                size="small"
-                class="delete-btn"
-                @click.stop="removeNode(node.id)" />
+            </div>
+
+            <div ref="nodeListRef" class="node-list">
+              <div
+                v-for="node in localNodes"
+                :key="node.id"
+                class="node-item"
+                :data-node-id="node.id"
+                :class="{ active: selectedNodeId === node.id }"
+                @click="selectNode(node.id)">
+                <el-icon v-show="!readonly" class="drag-handle"><Rank /></el-icon>
+                <el-icon class="node-icon"><component :is="getNodeIcon(node.node_type)" /></el-icon>
+                <div class="node-info">
+                  <div class="node-name">{{ node.name }}</div>
+                  <div class="node-type">{{ getNodeLabel(node.node_type) }}</div>
+                </div>
+                <div class="node-order">#{{ node.order + 1 }}</div>
+                <el-button
+                  v-if="!readonly"
+                  type="danger"
+                  :icon="Delete"
+                  link
+                  size="small"
+                  class="delete-btn"
+                  @click.stop="removeNode(node.id)" />
+              </div>
             </div>
           </div>
-        </div>
+        </template>
+
+        <template v-else>
+          <div class="canvas-view">
+            <WorkflowCanvas
+              ref="canvasRef"
+              :nodes="localNodes"
+              :readonly="readonly"
+              :selected-node-id="selectedNodeId"
+              @update:nodes="handleCanvasUpdateNodes"
+              @select-node="handleCanvasSelectNode"
+              @edge-insert="handleCanvasEdgeInsert"
+              @edge-delete="handleCanvasEdgeDelete"
+              @add-node="handleCanvasAddNode"
+              @delete-node="handleCanvasDeleteNode" />
+            <WorkflowCanvasToolbar
+              :pan-mode="panMode"
+              @zoom-in="handleCanvasZoomIn"
+              @zoom-out="handleCanvasZoomOut"
+              @fit-view="handleCanvasFitView"
+              @toggle-pan-mode="handleTogglePanMode" />
+          </div>
+        </template>
       </div>
 
+      <div
+        class="designer-splitter"
+        :class="{ 'is-resizing': isResizing }"
+        title="拖动调整宽度"
+        @mousedown="startResize" />
+
       <!-- 右侧：节点配置 -->
-      <div class="designer-right">
+      <div class="designer-right" :style="rightPanelStyle">
         <div class="section-title">节点配置</div>
         <div class="config-panel">
           <WorkflowNodeConfig
@@ -480,8 +822,6 @@ onBeforeRouteLeave((_, __, next) => {
 }
 
 .designer-left {
-  width: 360px;
-  min-width: 320px;
   display: flex;
   flex-direction: column;
   border-right: 1px solid $border-color;
@@ -489,12 +829,48 @@ onBeforeRouteLeave((_, __, next) => {
   overflow: hidden;
 }
 
-.designer-right {
+.left-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  border-bottom: 1px solid $border-color;
+  background-color: #f2f4f5;
+  flex-shrink: 0;
+}
+
+.left-panel-title {
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.canvas-view {
   flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.designer-right {
   display: flex;
   flex-direction: column;
   background-color: white;
   overflow: hidden;
+}
+
+.designer-splitter {
+  width: 6px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+  z-index: 10;
+
+  &:hover,
+  &.is-resizing {
+    background-color: rgba($primary-color, 0.25);
+  }
 }
 
 .section {

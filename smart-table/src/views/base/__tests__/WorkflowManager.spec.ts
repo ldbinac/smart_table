@@ -37,8 +37,26 @@ vi.mock("@/utils/timezone", () => ({
   formatDateTime: vi.fn((date: string) => date),
 }));
 
+// Mock ElMessageBox 用于测试确认弹窗
+const { elMessageBoxConfirmMock } = vi.hoisted(() => ({
+  elMessageBoxConfirmMock: vi.fn(),
+}));
+vi.mock("element-plus", async () => {
+  const actual = await vi.importActual<typeof import("element-plus")>("element-plus");
+  return {
+    ...actual,
+    ElMessageBox: {
+      ...actual.ElMessageBox,
+      confirm: elMessageBoxConfirmMock,
+    },
+  };
+});
+
 const createWorkflowMock = vi.fn();
 const updateWorkflowMock = vi.fn();
+const deleteWebhookMock = vi.fn();
+const updateWebhookMock = vi.fn();
+const checkWebhookReferencesMock = vi.fn();
 
 vi.mock("@/stores/workflowStore", () => ({
   useWorkflowStore: () => ({
@@ -53,6 +71,9 @@ vi.mock("@/stores/workflowStore", () => ({
     loadInstances: vi.fn().mockResolvedValue([]),
     createWorkflow: createWorkflowMock,
     updateWorkflow: updateWorkflowMock,
+    deleteWebhook: deleteWebhookMock,
+    updateWebhook: updateWebhookMock,
+    checkWebhookReferences: checkWebhookReferencesMock,
   }),
 }));
 
@@ -128,6 +149,10 @@ describe("WorkflowManager create workflow dialog", () => {
     vi.clearAllMocks();
     createWorkflowMock.mockReset();
     updateWorkflowMock.mockReset();
+    deleteWebhookMock.mockReset();
+    updateWebhookMock.mockReset();
+    checkWebhookReferencesMock.mockReset();
+    elMessageBoxConfirmMock.mockReset();
   });
 
   it("shows table selector and requires it when creating workflow", async () => {
@@ -185,5 +210,154 @@ describe("WorkflowManager create workflow dialog", () => {
       description: "",
       table_id: "t1",
     });
+  });
+});
+
+describe("WorkflowManager webhook operations", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    createWorkflowMock.mockReset();
+    updateWorkflowMock.mockReset();
+    deleteWebhookMock.mockReset();
+    updateWebhookMock.mockReset();
+    checkWebhookReferencesMock.mockReset();
+    elMessageBoxConfirmMock.mockReset();
+  });
+
+  const mockWebhookRow = {
+    id: "wh-1",
+    name: "测试 Webhook",
+    is_active: true,
+  };
+
+  it("handleDeleteWebhook 确认后调用 deleteWebhook", async () => {
+    elMessageBoxConfirmMock.mockResolvedValue("confirm");
+    deleteWebhookMock.mockResolvedValue(undefined);
+
+    const wrapper = mountManager();
+    await flushPromises();
+
+    await (wrapper.vm as any).handleDeleteWebhook(mockWebhookRow);
+    await flushPromises();
+
+    expect(elMessageBoxConfirmMock).toHaveBeenCalledTimes(1);
+    expect(deleteWebhookMock).toHaveBeenCalledWith("wh-1");
+  });
+
+  it("handleDeleteWebhook 用户取消时不调用 deleteWebhook", async () => {
+    elMessageBoxConfirmMock.mockRejectedValue("cancel");
+
+    const wrapper = mountManager();
+    await flushPromises();
+
+    await (wrapper.vm as any).handleDeleteWebhook(mockWebhookRow);
+    await flushPromises();
+
+    expect(deleteWebhookMock).not.toHaveBeenCalled();
+  });
+
+  it("handleDeleteWebhook 被引用时（store 抛错）不修改 selectedWebhookId", async () => {
+    elMessageBoxConfirmMock.mockResolvedValue("confirm");
+    deleteWebhookMock.mockRejectedValue(new Error("webhook_in_use"));
+
+    const wrapper = mountManager();
+    await flushPromises();
+
+    // 模拟当前选中的 webhook
+    (wrapper.vm as any).selectedWebhookId = "wh-1";
+
+    await (wrapper.vm as any).handleDeleteWebhook(mockWebhookRow);
+    await flushPromises();
+
+    expect(deleteWebhookMock).toHaveBeenCalledWith("wh-1");
+    // 删除失败，selectedWebhookId 应保持不变
+    expect((wrapper.vm as any).selectedWebhookId).toBe("wh-1");
+  });
+
+  it("handleToggleWebhookActive 启用操作直接调用 updateWebhook 不做引用检查", async () => {
+    updateWebhookMock.mockResolvedValue({ ...mockWebhookRow, is_active: true });
+
+    const wrapper = mountManager();
+    await flushPromises();
+
+    await (wrapper.vm as any).handleToggleWebhookActive(mockWebhookRow, true);
+    await flushPromises();
+
+    expect(checkWebhookReferencesMock).not.toHaveBeenCalled();
+    expect(elMessageBoxConfirmMock).not.toHaveBeenCalled();
+    expect(updateWebhookMock).toHaveBeenCalledWith("wh-1", { is_active: true });
+  });
+
+  it("handleToggleWebhookActive 禁用无引用时直接调用 updateWebhook", async () => {
+    checkWebhookReferencesMock.mockResolvedValue({ references: [], count: 0 });
+    updateWebhookMock.mockResolvedValue({ ...mockWebhookRow, is_active: false });
+
+    const wrapper = mountManager();
+    await flushPromises();
+
+    await (wrapper.vm as any).handleToggleWebhookActive(mockWebhookRow, false);
+    await flushPromises();
+
+    expect(checkWebhookReferencesMock).toHaveBeenCalledWith("wh-1");
+    expect(elMessageBoxConfirmMock).not.toHaveBeenCalled();
+    expect(updateWebhookMock).toHaveBeenCalledWith("wh-1", { is_active: false });
+  });
+
+  it("handleToggleWebhookActive 禁用带引用时弹出二次确认", async () => {
+    checkWebhookReferencesMock.mockResolvedValue({
+      references: [
+        {
+          workflow_id: "wf-1",
+          workflow_name: "测试工作流",
+          workflow_status: "draft",
+          node_id: "node-1",
+          node_name: "Webhook 节点",
+        },
+      ],
+      count: 1,
+    });
+    elMessageBoxConfirmMock.mockResolvedValue("confirm");
+    updateWebhookMock.mockResolvedValue({ ...mockWebhookRow, is_active: false });
+
+    const wrapper = mountManager();
+    await flushPromises();
+
+    await (wrapper.vm as any).handleToggleWebhookActive(mockWebhookRow, false);
+    await flushPromises();
+
+    expect(checkWebhookReferencesMock).toHaveBeenCalledWith("wh-1");
+    expect(elMessageBoxConfirmMock).toHaveBeenCalledTimes(1);
+    // 确认消息应包含引用工作流名称
+    const confirmArg = elMessageBoxConfirmMock.mock.calls[0][0];
+    expect(confirmArg).toContain("测试工作流");
+    expect(confirmArg).toContain("1");
+    expect(updateWebhookMock).toHaveBeenCalledWith("wh-1", { is_active: false });
+  });
+
+  it("handleToggleWebhookActive 禁用带引用用户取消时不调用 updateWebhook", async () => {
+    checkWebhookReferencesMock.mockResolvedValue({
+      references: [
+        {
+          workflow_id: "wf-1",
+          workflow_name: "测试工作流",
+          workflow_status: "draft",
+          node_id: "node-1",
+          node_name: "Webhook 节点",
+        },
+      ],
+      count: 1,
+    });
+    elMessageBoxConfirmMock.mockRejectedValue("cancel");
+
+    const wrapper = mountManager();
+    await flushPromises();
+
+    await (wrapper.vm as any).handleToggleWebhookActive(mockWebhookRow, false);
+    await flushPromises();
+
+    expect(checkWebhookReferencesMock).toHaveBeenCalledWith("wh-1");
+    expect(elMessageBoxConfirmMock).toHaveBeenCalledTimes(1);
+    expect(updateWebhookMock).not.toHaveBeenCalled();
   });
 });
