@@ -849,52 +849,115 @@ def fn_weekday(args: List[Any]) -> Optional[int]:
 
 @FormulaEvaluator.register('DATEADD')
 def fn_dateadd(args: List[Any]) -> datetime:
-    """日期加法"""
-    start_date = args[0]
-    unit = str(args[1]).lower() if len(args) > 1 else 'days'
-    amount = int(args[2]) if len(args) > 2 else 0
-    
+    """日期加法
+
+    语法：DATEADD(date, amount, unit)
+    示例：DATEADD(TODAY(), 7, "D") 表示今天往后 7 天
+    """
+    start_date = _parse_date_value(args[0])
+    amount = int(args[1]) if len(args) > 1 else 0
+    raw_unit = str(args[2]).strip() if len(args) > 2 else 'days'
+    unit_lower = raw_unit.lower()
+
     if start_date is None:
         return None
-    
-    if isinstance(start_date, str):
-        try:
-            start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        except ValueError:
-            raise FormulaError("无效的日期格式")
-    
+
+    # 先按原始大小写匹配（M=月，m=分），再按小写匹配
     unit_map = {
+        # 月/分钟需区分大小写
+        'M': 'months',
+        'm': 'minutes',
+        # 小写通用别名
         'years': 'years',
+        'year': 'years',
+        'y': 'years',
         'months': 'months',
+        'month': 'months',
         'weeks': 'weeks',
+        'week': 'weeks',
+        'w': 'weeks',
         'days': 'days',
+        'day': 'days',
+        'd': 'days',
         'hours': 'hours',
+        'hour': 'hours',
+        'h': 'hours',
         'minutes': 'minutes',
-        'seconds': 'seconds'
+        'minute': 'minutes',
+        'seconds': 'seconds',
+        'second': 'seconds',
+        's': 'seconds'
     }
-    
-    kwargs = {unit_map.get(unit, 'days'): amount}
+
+    target_unit = unit_map.get(raw_unit) or unit_map.get(unit_lower, 'days')
+    kwargs = {target_unit: amount}
     from dateutil.relativedelta import relativedelta
     return start_date + relativedelta(**kwargs)
 
+def _parse_date_value(value: Any) -> Optional[datetime]:
+    """将字符串、毫秒时间戳或 datetime/date 解析为 datetime"""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except ValueError:
+            return None
+    if isinstance(value, (int, float)):
+        # 毫秒时间戳（前端及日期字段常用）
+        try:
+            return datetime.fromtimestamp(value / 1000)
+        except (ValueError, OSError, OverflowError):
+            return None
+    return None
+
+
 @FormulaEvaluator.register('DATEDIFF')
+@FormulaEvaluator.register('DATEDIF')
 def fn_datediff(args: List[Any]) -> int:
-    """日期差"""
-    start_date = args[0]
-    end_date = args[1]
-    unit = str(args[2]).lower() if len(args) > 2 else 'days'
-    
+    """日期差（DATEDIF / DATEDIFF）"""
+    start_date = _parse_date_value(args[0])
+    end_date = _parse_date_value(args[1])
+    raw_unit = str(args[2]).strip() if len(args) > 2 else 'days'
+    unit_lower = raw_unit.lower()
+
     if start_date is None or end_date is None:
         return None
-    
-    if isinstance(start_date, str):
-        start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-    if isinstance(end_date, str):
-        end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-    
+
     delta = end_date - start_date
-    
+
+    # 先按原始大小写匹配（M=月，m=分），再按小写匹配
     unit_map = {
+        'M': 'months',
+        'm': 'minutes',
+        'days': 'days',
+        'day': 'days',
+        'd': 'days',
+        'hours': 'hours',
+        'hour': 'hours',
+        'h': 'hours',
+        'minutes': 'minutes',
+        'minute': 'minutes',
+        'seconds': 'seconds',
+        'second': 'seconds',
+        's': 'seconds',
+        'weeks': 'weeks',
+        'week': 'weeks',
+        'w': 'weeks',
+        'months': 'months',
+        'month': 'months',
+        'years': 'years',
+        'year': 'years',
+        'y': 'years'
+    }
+
+    unit = unit_map.get(raw_unit) or unit_map.get(unit_lower, 'days')
+
+    result_map = {
         'days': delta.days,
         'hours': int(delta.total_seconds() / 3600),
         'minutes': int(delta.total_seconds() / 60),
@@ -903,8 +966,8 @@ def fn_datediff(args: List[Any]) -> int:
         'months': (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month),
         'years': end_date.year - start_date.year,
     }
-    
-    return unit_map.get(unit, delta.days)
+
+    return result_map.get(unit, delta.days)
 
 @FormulaEvaluator.register('DATETIME_FORMAT')
 def fn_datetime_format(args: List[Any]) -> str:
@@ -1538,11 +1601,12 @@ class FormulaService:
                 {'name': 'MINUTE', 'desc': '获取分钟', 'syntax': 'MINUTE(datetime)'},
                 {'name': 'SECOND', 'desc': '获取秒', 'syntax': 'SECOND(datetime)'},
                 {'name': 'WEEKDAY', 'desc': '获取星期几', 'syntax': 'WEEKDAY(date)'},
-                {'name': 'DATEADD', 'desc': '日期加法', 'syntax': 'DATEADD(date, unit, amount)'},
-                {'name': 'DATEDIFF', 'desc': '日期差', 'syntax': 'DATEDIFF(start, end, unit)'},
+                {'name': 'DATEADD', 'desc': '日期加法', 'syntax': 'DATEADD(date, amount, unit)'},
+                {'name': 'DATEDIF', 'desc': '日期差（DATEDIFF 别名）', 'syntax': 'DATEDIF(start, end, unit)'},
+                {'name': 'DATEDIFF', 'desc': '日期差（DATEDIF 别名）', 'syntax': 'DATEDIFF(start, end, unit)'},
                 {'name': 'DATETIME_FORMAT', 'desc': '格式化日期', 'syntax': 'DATETIME_FORMAT(date, format)'},
                 {'name': 'FROMUNIXTIME', 'desc': '时间戳转日期', 'syntax': 'FROMUNIXTIME(timestamp)'},
-                {'name': 'UNIXTIMESTAMP', 'desc': '日期转时间戳', 'syntax': 'UNIXTIMESTAMP(date)'},
+                {'name': 'UNIXTIMESTAMP', 'desc': '日期转时间戳', 'syntax': 'UNIXTIMESTAMP(date)'}
             ],
             '逻辑': [
                 {'name': 'IF', 'desc': '条件判断', 'syntax': 'IF(condition, true_value, false_value)'},

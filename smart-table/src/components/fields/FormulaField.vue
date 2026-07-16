@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import dayjs from "dayjs";
 import type { FieldOptions } from "@/types/fields";
 import { FormulaEngine } from "@/utils/formula/engine";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
+
+/** 判断数值是否为毫秒级日期时间戳（1990-2100 年范围内） */
+function isDateTimestamp(value: number): boolean {
+  return Number.isFinite(value) && value >= 631148400000 && value <= 4102444800000;
+}
 
 interface Props {
   modelValue: string | number | null;
@@ -68,6 +74,15 @@ const displayValue = computed(() => {
 
   // 数字格式化
   if (typeof value === "number") {
+    // 日期时间戳按日期格式显示，避免显示为 1,784,736,000,000.00
+    if (isDateTimestamp(value)) {
+      const d = dayjs(value);
+      // 没有时分秒时只显示日期，否则显示日期时间
+      return d.startOf("day").valueOf() === value
+        ? d.format("YYYY-MM-DD")
+        : d.format("YYYY-MM-DD HH:mm:ss");
+    }
+
     const precision = props.field?.options?.precision ?? 2;
     return value.toLocaleString("zh-CN", {
       minimumFractionDigits: precision,

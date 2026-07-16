@@ -534,6 +534,35 @@ describe("Formula Functions", () => {
       const expected = new Date("2024-01-06").getTime();
       expect(Math.abs(result - expected)).toBeLessThan(1000);
     });
+
+    it("should distinguish month (M) and minute (m) in DATEADD", () => {
+      const date = Date.UTC(2024, 0, 1);
+      const monthResult = formulaFunctions.DATEADD(date, 2, "M") as number;
+      const expectedMonth = Date.UTC(2024, 2, 1);
+      expect(Math.abs(monthResult - expectedMonth)).toBeLessThan(1000);
+
+      const minuteResult = formulaFunctions.DATEADD(date, 30, "m") as number;
+      const expectedMinute = Date.UTC(2024, 0, 1, 0, 30);
+      expect(Math.abs(minuteResult - expectedMinute)).toBeLessThan(1000);
+    });
+
+    it("should return weekday with 1=Monday", () => {
+      // 2024-03-15 is Friday
+      const timestamp = new Date("2024-03-15").getTime();
+      expect(formulaFunctions.WEEKDAY(timestamp)).toBe(5);
+    });
+
+    it("should format datetime with DATETIME_FORMAT", () => {
+      const timestamp = new Date("2024-03-15T08:30:00").getTime();
+      expect(formulaFunctions.DATETIME_FORMAT(timestamp, "YYYY-MM-DD")).toBe("2024-03-15");
+      expect(formulaFunctions.DATETIME_FORMAT(timestamp, "HH:mm")).toBe("08:30");
+    });
+
+    it("should convert between timestamp and date with FROMUNIXTIME/UNIXTIMESTAMP", () => {
+      const timestamp = new Date("2024-03-15T08:30:00").getTime();
+      expect(formulaFunctions.UNIXTIMESTAMP(timestamp)).toBe(timestamp);
+      expect(formulaFunctions.FROMUNIXTIME(timestamp)).toBe(timestamp);
+    });
   });
 
   describe("Logic Functions", () => {

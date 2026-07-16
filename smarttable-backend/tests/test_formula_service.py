@@ -379,6 +379,38 @@ class TestDateFunctions:
         assert '06' in result
         assert '15' in result
 
+    def test_dateadd(self):
+        """DATEADD 日期加法，签名应为 DATEADD(date, amount, unit)"""
+        # issue #31 场景：DATEADD(TODAY(), 7, "D") 应返回 7 天后的日期
+        result = self._eval('DATEADD(TODAY(), 7, "D")')
+        from datetime import date, timedelta, datetime
+        assert isinstance(result, (date, datetime))
+        expected = date.today() + timedelta(days=7)
+        assert result.year == expected.year
+        assert result.month == expected.month
+        assert result.day == expected.day
+
+        # 月份加法
+        result = self._eval('DATEADD("2025-06-15", 2, "M")')
+        assert result.month == 8
+        assert result.year == 2025
+
+    def test_datedif(self):
+        """DATEDIF/DATEDIFF 日期差，支持毫秒时间戳"""
+        # 字符串日期、天数差
+        assert self._eval('DATEDIF("2025-06-01", "2025-06-15", "D")') == 14
+        # DATEDIFF 别名
+        assert self._eval('DATEDIFF("2025-06-01", "2025-06-15", "D")') == 14
+        # 月份差，M/m 区分
+        assert self._eval('DATEDIF("2025-01-15", "2025-03-15", "M")') == 2
+        # 分钟差
+        assert self._eval('DATEDIF("2025-06-15T10:00:00", "2025-06-15T10:30:00", "m")') == 30
+        # 毫秒时间戳差
+        from datetime import datetime
+        ts1 = int(datetime(2025, 6, 1).timestamp() * 1000)
+        ts2 = int(datetime(2025, 6, 15).timestamp() * 1000)
+        assert self._eval(f'DATEDIF({ts1}, {ts2}, "D")') == 14
+
 
 class TestLogicFunctions:
     """逻辑函数测试"""
