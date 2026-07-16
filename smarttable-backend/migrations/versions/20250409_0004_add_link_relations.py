@@ -10,11 +10,11 @@
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from app.db_types import CompatUUID
 
 # 修订标识符
-revision = '004'
-down_revision = '20250406_0003_add_base_sharing'
+revision = '20250409_0004'
+down_revision = '20250406_0003'
 branch_labels = None
 depends_on = None
 
@@ -25,11 +25,11 @@ def upgrade() -> None:
     # 创建链接关系表
     op.create_table(
         'link_relations',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column('source_table_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('tables.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('target_table_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('tables.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('source_field_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('fields.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('target_field_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('fields.id', ondelete='CASCADE'), nullable=True, index=True),
+        sa.Column('id', CompatUUID(), primary_key=True, nullable=False),
+        sa.Column('source_table_id', CompatUUID(), sa.ForeignKey('tables.id', ondelete='CASCADE'), nullable=False, index=True),
+        sa.Column('target_table_id', CompatUUID(), sa.ForeignKey('tables.id', ondelete='CASCADE'), nullable=False, index=True),
+        sa.Column('source_field_id', CompatUUID(), sa.ForeignKey('fields.id', ondelete='CASCADE'), nullable=False, index=True),
+        sa.Column('target_field_id', CompatUUID(), sa.ForeignKey('fields.id', ondelete='CASCADE'), nullable=True, index=True),
         sa.Column('relationship_type', sa.String(20), nullable=False, default='one_to_many'),
         sa.Column('bidirectional', sa.Boolean(), nullable=False, default=False),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
@@ -39,10 +39,10 @@ def upgrade() -> None:
     # 创建链接值表
     op.create_table(
         'link_values',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column('link_relation_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('link_relations.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('source_record_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('records.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('target_record_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('records.id', ondelete='CASCADE'), nullable=False, index=True),
+        sa.Column('id', CompatUUID(), primary_key=True, nullable=False),
+        sa.Column('link_relation_id', CompatUUID(), sa.ForeignKey('link_relations.id', ondelete='CASCADE'), nullable=False, index=True),
+        sa.Column('source_record_id', CompatUUID(), sa.ForeignKey('records.id', ondelete='CASCADE'), nullable=False, index=True),
+        sa.Column('target_record_id', CompatUUID(), sa.ForeignKey('records.id', ondelete='CASCADE'), nullable=False, index=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False)
     )
     

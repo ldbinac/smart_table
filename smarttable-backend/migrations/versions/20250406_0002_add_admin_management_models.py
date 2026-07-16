@@ -11,11 +11,11 @@
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from app.db_types import CompatJSON, CompatUUID
 
 # 修订标识符
-revision = '002'
-down_revision = '001'
+revision = '20250406_0002'
+down_revision = '20250405_0002'
 branch_labels = None
 depends_on = None
 
@@ -26,11 +26,11 @@ def upgrade() -> None:
     # 创建操作日志表
     op.create_table(
         'operation_logs',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, default=sa.text('uuid_generate_v4()')),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True),
+        sa.Column('id', CompatUUID(), primary_key=True, default=sa.text('uuid_generate_v4()')),
+        sa.Column('user_id', CompatUUID(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True),
         sa.Column('action', sa.String(50), nullable=False, index=True),
         sa.Column('entity_type', sa.String(50), nullable=False, index=True),
-        sa.Column('entity_id', postgresql.UUID(as_uuid=True), nullable=True, index=True),
+        sa.Column('entity_id', CompatUUID(), nullable=True, index=True),
         sa.Column('old_value', sa.Text(), nullable=True),
         sa.Column('new_value', sa.Text(), nullable=True),
         sa.Column('ip_address', sa.String(45), nullable=False),
@@ -44,9 +44,9 @@ def upgrade() -> None:
     # 创建系统配置表
     op.create_table(
         'system_configs',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, default=sa.text('uuid_generate_v4()')),
+        sa.Column('id', CompatUUID(), primary_key=True, default=sa.text('uuid_generate_v4()')),
         sa.Column('config_key', sa.String(100), nullable=False, unique=True, index=True),
-        sa.Column('config_value', postgresql.JSONB(), nullable=False, default={}),
+        sa.Column('config_value', CompatJSON(), nullable=False, default={}),
         sa.Column('config_group', sa.String(50), nullable=False, index=True, default='basic'),
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),

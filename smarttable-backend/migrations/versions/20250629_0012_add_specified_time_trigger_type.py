@@ -14,8 +14,10 @@ depends_on = None
 
 
 def upgrade():
-    # PostgreSQL ENUM 类型新增值
-    op.execute("ALTER TYPE workflowtriggertype ADD VALUE 'specified_time'")
+    # PostgreSQL ENUM 类型新增值（SQLite 无原生 ENUM，跳过）
+    bind = op.get_bind()
+    if bind.dialect.name == 'postgresql':
+        op.execute("ALTER TYPE workflowtriggertype ADD VALUE 'specified_time'")
 
 
 def downgrade():
