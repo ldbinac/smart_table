@@ -38,6 +38,7 @@ import { linkApiService } from "@/services/api/linkApiService";
 import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.vue";
+import FormulaHelper from "@/components/fields/FormulaHelper.vue";
 
 const viewStore = useViewStore();
 const tableStore = useTableStore();
@@ -1178,6 +1179,35 @@ function insertFunction(funcName: string) {
   }
 }
 
+// 处理公式插入（从 FormulaHelper 组件）
+function handleFormulaInsert(formula: { name: string; syntax: string }) {
+  const formulaInput = document.querySelector(
+    '.formula-field textarea, [placeholder*="公式"]',
+  ) as HTMLTextAreaElement;
+  
+  // 插入语法示例（去掉参数说明，只保留函数名和括号）
+  const insertText = formula.syntax.replace(/\s+/g, ' ').trim();
+  
+  if (formulaInput) {
+    const start = formulaInput.selectionStart;
+    const end = formulaInput.selectionEnd;
+    const currentValue = newField.value.formula;
+    const newValue =
+      currentValue.substring(0, start) + insertText + currentValue.substring(end);
+    newField.value.formula = newValue;
+    nextTick(() => {
+      formulaInput.focus();
+      // 将光标移到插入文本末尾
+      formulaInput.setSelectionRange(
+        start + insertText.length,
+        start + insertText.length,
+      );
+    });
+  } else {
+    newField.value.formula += insertText;
+  }
+}
+
 // 插入字段引用到公式
 function insertFieldRef(fieldName: string) {
   const formulaInput = document.querySelector(
@@ -1485,61 +1515,8 @@ async function toggleFieldVisibility(
             <div class="field-hint">设置公式结果显示的小数位数，默认为 2</div>
           </ElFormItem>
 
-          <ElFormItem label="可用函数">
-            <div class="formula-functions">
-              <div class="function-category">
-                <div class="category-title">数学函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['SUM', 'AVG', 'MAX', 'MIN', 'ROUND']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-              <div class="function-category">
-                <div class="category-title">文本函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['CONCAT', 'LEFT', 'LEN', 'UPPER']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-              <div class="function-category">
-                <div class="category-title">日期函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['TODAY', 'NOW', 'DATEDIF']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-              <div class="function-category">
-                <div class="category-title">逻辑函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['IF', 'AND', 'OR']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-            </div>
+          <ElFormItem label="公式函数">
+            <FormulaHelper @insert="handleFormulaInsert" />
           </ElFormItem>
 
           <ElFormItem label="可用字段">

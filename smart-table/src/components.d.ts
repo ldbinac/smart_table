@@ -113,6 +113,7 @@ declare module 'vue' {
     FormShareDialog: typeof import('./components/views/FormView/FormShareDialog.vue')['default']
     FormShareMemberSelect: typeof import('./components/common/FormShareMemberSelect.vue')['default']
     FormulaField: typeof import('./components/fields/FormulaField.vue')['default']
+    FormulaHelper: typeof import('./components/fields/FormulaHelper.vue')['default']
     FormView: typeof import('./components/views/FormView/FormView.vue')['default']
     FormViewConfig: typeof import('./components/views/FormView/FormViewConfig.vue')['default']
     GalleryView: typeof import('./components/views/GalleryView/GalleryView.vue')['default']
