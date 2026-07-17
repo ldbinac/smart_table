@@ -1862,8 +1862,20 @@ async function toggleFieldVisibility(
             placeholder="请输入字段描述（可选）" />
         </ElFormItem>
 
-        <!-- 默认值配置 -->
-        <ElFormItem label="默认值">
+        <!-- 默认值配置：查找字段、公式字段、自动编号、系统字段等不需要默认值 -->
+        <ElFormItem
+          v-if="
+            newField.type !== FieldType.LOOKUP &&
+            newField.type !== FieldType.FORMULA &&
+            newField.type !== FieldType.AUTO_NUMBER &&
+            newField.type !== FieldType.CREATED_TIME &&
+            newField.type !== FieldType.UPDATED_TIME &&
+            newField.type !== FieldType.CREATED_BY &&
+            newField.type !== FieldType.LAST_MODIFIED_BY &&
+            newField.type !== FieldType.LINK &&
+            newField.type !== FieldType.ROLLUP
+          "
+          label="默认值">
           <!-- 单行文本 -->
           <ElInput
             v-if="newField.type === FieldType.SINGLE_LINE_TEXT"

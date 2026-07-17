@@ -463,11 +463,17 @@ class LookupService:
     ) -> Any:
         """
         根据 field_format 格式化值
+        
+        Args:
+            value: 要格式化的值
+            field_format_config: 格式配置对象 {type, precision, currencySymbol, dateFormat}
+            source_field: 源字段对象
         """
         if value is None:
             return None
 
-        field_format = field_format_config.get('fieldFormat')
+        # 从配置对象中提取 type 字段
+        field_format = field_format_config.get('type') if isinstance(field_format_config, dict) else field_format_config
 
         if field_format == LookupFieldFormat.NUMBER.value:
             if not _is_number(value):
@@ -538,12 +544,18 @@ class LookupService:
             conditions = config.get('filterConditions') or []
             conjunction = config.get('filterConjunction', 'and')
             aggregation_type = config.get('aggregationType', LookupAggregationType.ORIGINAL.value)
-            field_format_config = {
-                'fieldFormat': config.get('fieldFormat'),
-                'precision': config.get('precision'),
-                'currencySymbol': config.get('currencySymbol'),
-                'dateFormat': config.get('dateFormat'),
-            }
+            # fieldFormat 可能是对象 {type, precision, ...} 或字符串
+            ff = config.get('fieldFormat')
+            if isinstance(ff, dict):
+                field_format_config = ff
+            else:
+                # 兼容旧格式
+                field_format_config = {
+                    'type': ff,
+                    'precision': config.get('precision'),
+                    'currencySymbol': config.get('currencySymbol'),
+                    'dateFormat': config.get('dateFormat'),
+                }
 
             if not source_table_id or not target_field_id:
                 return None
