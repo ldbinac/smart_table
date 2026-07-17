@@ -23,20 +23,29 @@ interface Props {
   // 用于公式计算所需的上下文
   record?: RecordEntity;
   allFields?: FieldEntity[];
+  // 后端预计算值（优先使用）
+  computedValue?: string | number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: null,
   readonly: false,
   placeholder: "",
+  computedValue: null,
 });
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string | number | null): void;
 }>();
 
-// 计算结果
+// 计算结果（优先使用后端预计算值）
 const calculatedValue = computed(() => {
+  // 优先使用后端计算结果（computed_values）
+  if (props.computedValue !== null && props.computedValue !== undefined) {
+    return props.computedValue;
+  }
+
+  // 回退到前端计算
   if (!props.record || !props.allFields || !props.field?.options?.formula) {
     return props.modelValue;
   }

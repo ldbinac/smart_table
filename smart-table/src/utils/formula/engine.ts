@@ -1,6 +1,7 @@
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
 import { formulaFunctions } from "./functions";
+import dayjs from "dayjs";
 
 export interface FormulaError {
   message: string;
@@ -103,6 +104,7 @@ export class FormulaEngine {
     const regex = /\{([^}]+)\}/g;
     return expression.replace(regex, (_match, fieldName) => {
       const fieldId = this.fieldNameToId.get(fieldName.toLowerCase());
+      
       if (!fieldId) return "null";
 
       const field = this.fields.get(fieldId);
@@ -138,7 +140,16 @@ export class FormulaEngine {
       case FieldType.DATE:
       case FieldType.CREATED_TIME:
       case FieldType.UPDATED_TIME:
-        return String(Number(value) || 0);
+        // 日期字段值可能是：毫秒时间戳（数字）、ISO 字符串、或日期字符串
+        if (typeof value === "number") {
+          return String(value);
+        }
+        if (typeof value === "string") {
+          // 解析日期字符串为毫秒时间戳
+          const ts = dayjs(value).valueOf();
+          return String(ts);
+        }
+        return "0";
 
       default:
         return JSON.stringify(String(value));
@@ -493,6 +504,86 @@ export class FormulaEngine {
     }
 
     return `引用字段: ${fieldNames.join(", ")}`;
+  }
+
+  /**
+   * 推断公式的结果类型
+   * 用于决定显示格式（日期时间、日期、数字、文本等）
+   */
+  static inferResultType(formula: string): "datetime" | "date" | "number" | "text" {
+    if (!formula || typeof formula !== "string") return "text";
+
+    const upperFormula = formula.toUpperCase();
+
+    // 1. 返回日期时间类型的函数（带时分秒）
+    const datetimeFunctions = [
+      "NOW",           // 返回当前日期时间
+      "DATETIME",      // 构造日期时间
+    ];
+
+    // 2. 返回日期类型的函数（只有年月日）
+    const dateFunctions = [
+      "DATEADD",       // 日期加减
+      "DATE",          // 构造日期
+      "TODAY",         // 当前日期
+      "EDATE",         // 月份偏移
+      "EOMONTH",       // 月末日期
+      "WORKDAY",       // 工作日计算
+    ];
+
+    // 3. 返回整数类型的日期函数（提取日期部分）
+    const integerFunctions = [
+      "YEAR",          // 年份
+      "MONTH",         // 月份
+      "DAY",           // 日
+      "HOUR",          // 小时
+      "MINUTE",        // 分钟
+      "SECOND",        // 秒
+      "WEEKDAY",       // 星期几
+      "WEEKNUM",       // 周数
+      "QUARTER",       // 季度
+      "UNIXTIMESTAMP", // Unix 时间戳
+      "DATEDIF",       // 日期差
+      "DATEDIFF",      // 日期差（飞书风格）
+      "DAYS",          // 天数差
+      "NETWORKDAYS",   // 工作日数
+    ];
+
+    // 检查日期时间函数
+    for (const func of datetimeFunctions) {
+      const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
+      if (regex.test(upperFormula)) {
+        return "datetime";
+      }
+    }
+
+    // 检查日期函数
+    for (const func of dateFunctions) {
+      const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
+      if (regex.test(upperFormula)) {
+        return "date";
+      }
+    }
+
+    // 检查整数函数
+    for (const func of integerFunctions) {
+      const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
+      if (regex.test(upperFormula)) {
+        return "number";
+      }
+    }
+
+    // 纯数字运算（无文本操作）
+    const hasTextOp = /["']/.test(formula) || /\b(CONCATENATE|TEXT|LEFT|RIGHT|MID|LEN|TRIM|UPPER|LOWER|SUBSTITUTE)\s*\(/i.test(formula);
+
+    if (!hasTextOp) {
+      // 检查是否包含字段引用或数字运算符
+      if (/\{[^}]+\}/.test(formula) || /[\d+\-*/]/.test(formula)) {
+        return "number";
+      }
+    }
+
+    return "text";
   }
 }
 

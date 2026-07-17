@@ -490,7 +490,25 @@ const calculateFormulaValue = (
     const formulaEngine = new FormulaEngine(props.fields);
     const result = formulaEngine.calculate(record, formula);
 
-    return typeof result === "number" ? result.toString() : String(result);
+    if (typeof result === "number") {
+      // 根据公式类型决定格式化方式
+      const resultType = FormulaEngine.inferResultType(formula);
+      // 日期时间类型：YYYY-MM-DD HH:mm:ss
+      if (resultType === "datetime") {
+        return formatDateTime(result);
+      }
+      // 日期类型：YYYY-MM-DD
+      if (resultType === "date") {
+        return formatDate(result);
+      }
+      // 数字类型：带精度格式化
+      const precision = (field.options?.precision as number) ?? 2;
+      return result.toLocaleString("zh-CN", {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      });
+    }
+    return String(result);
   } catch (error) {
     console.error("Formula calculation error:", error);
     return "#ERROR";

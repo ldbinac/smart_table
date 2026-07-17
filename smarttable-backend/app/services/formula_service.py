@@ -1348,6 +1348,17 @@ class FormulaService:
         if not formula_fields:
             return {}
         
+        # 获取表格所有字段，用于构建字段名到值的映射
+        all_fields = Field.query.filter_by(table_id=table_id).all()
+        field_id_to_name = {str(f.id): f.name for f in all_fields}
+        
+        # 构建以字段名为 key 的上下文（公式引擎用字段名引用）
+        context_by_name = {}
+        for field_id, value in values.items():
+            field_name = field_id_to_name.get(str(field_id))
+            if field_name:
+                context_by_name[field_name] = value
+        
         results = {}
         
         for field in formula_fields:
@@ -1358,8 +1369,9 @@ class FormulaService:
                 continue
             
             try:
-                result = cls.evaluate_formula(formula_expr, values)
-                results[field.name] = result
+                result = cls.evaluate_formula(formula_expr, context_by_name)
+                # 序列化结果，确保 datetime 对象转为 ISO 字符串
+                results[field.name] = cls._serialize_result(result)
                 
                 if field.config is None:
                     field.config = {}

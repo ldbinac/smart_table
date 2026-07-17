@@ -665,7 +665,7 @@ async function createField() {
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
-      options.precision = newField.value.precision || 2;
+      options.precision = newField.value.precision ?? 0;
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -831,7 +831,7 @@ async function updateField() {
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
-      options.precision = newField.value.precision || 2;
+      options.precision = newField.value.precision ?? 0;
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -1509,10 +1509,10 @@ async function toggleFieldVisibility(
                 show-stops
                 style="width: 300px" />
               <span class="precision-value"
-                >{{ newField.precision || 2 }} 位</span
+                >{{ newField.precision }} 位</span
               >
             </div>
-            <div class="field-hint">设置公式结果显示的小数位数，默认为 2</div>
+            <div class="field-hint">设置公式结果显示的小数位数，默认为 0</div>
           </ElFormItem>
 
           <ElFormItem label="公式函数">
@@ -1822,7 +1822,20 @@ async function toggleFieldVisibility(
             @update:field="onLookupConfigUpdate" />
         </template>
 
-        <ElFormItem label="必填">
+        <!-- 必填选项：自动编号、公式、查找、关联等字段不需要必填选项 -->
+        <ElFormItem
+          v-if="
+            newField.type !== FieldType.AUTO_NUMBER &&
+            newField.type !== FieldType.FORMULA &&
+            newField.type !== FieldType.LOOKUP &&
+            newField.type !== FieldType.LINK &&
+            newField.type !== FieldType.CREATED_TIME &&
+            newField.type !== FieldType.UPDATED_TIME &&
+            newField.type !== FieldType.CREATED_BY &&
+            newField.type !== FieldType.LAST_MODIFIED_BY &&
+            newField.type !== FieldType.ROLLUP
+          "
+          label="必填">
           <ElSwitch v-model="newField.isRequired" />
         </ElFormItem>
 

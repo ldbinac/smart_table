@@ -22,7 +22,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
-import { formatDateTime } from "@/utils/timezone";
+import { formatDateTime, formatDate } from "@/utils/timezone";
 import {
   validateRequiredFields,
   getRequiredFieldErrorMessage,
@@ -182,8 +182,20 @@ const calculateFormulaValue = (
       return "计算错误";
     }
 
+    // 根据公式类型决定格式化方式
+    const resultType = FormulaEngine.inferResultType(formula);
+
     // 数字格式化
     if (typeof result === "number") {
+      // 日期时间类型：YYYY-MM-DD HH:mm:ss
+      if (resultType === "datetime") {
+        return formatDateTime(result);
+      }
+      // 日期类型：YYYY-MM-DD
+      if (resultType === "date") {
+        return formatDate(result);
+      }
+      // 数字类型：带精度格式化
       const precision = (field.options?.precision as number) ?? 2;
       return result.toLocaleString("zh-CN", {
         minimumFractionDigits: precision,

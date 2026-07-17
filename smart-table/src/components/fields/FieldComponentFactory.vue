@@ -42,6 +42,8 @@ interface Props {
   // 公式字段需要的上下文
   record?: RecordEntity;
   allFields?: FieldEntity[];
+  // 公式字段后端预计算值
+  computedValue?: string | number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -120,6 +122,7 @@ defineExpose({ focus });
         :placeholder="placeholder"
         :record="record"
         :all-fields="allFields"
+        :computed-value="computedValue"
         ref="fieldRef" />
     </template>
     <template v-else>
