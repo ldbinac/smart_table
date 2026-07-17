@@ -45,6 +45,7 @@ from app.models.webhook import (
     WebhookDeliveryStatus
 )
 from app.models.workflow_template import WorkflowTemplate
+from app.models.lookup import LookupFilterOperator, LookupAggregationType, LookupFieldFormat
 
 __all__ = [
     'User',
@@ -96,5 +97,8 @@ __all__ = [
     'WebhookDeliveryLog',
     'WebhookMethod',
     'WebhookDeliveryStatus',
-    'WorkflowTemplate'
+    'WorkflowTemplate',
+    'LookupFilterOperator',
+    'LookupAggregationType',
+    'LookupFieldFormat'
 ]

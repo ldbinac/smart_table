@@ -51,6 +51,67 @@ export type AggregationType =
   | "max"
   | "count";
 
+// ==================== 查找字段 (Lookup Field) 类型定义 ====================
+
+/** 查找字段过滤条件操作符 */
+export type LookupFilterOperator =
+  | "equal"
+  | "not_equal"
+  | "contains"
+  | "is_empty"
+  | "is_not_empty"
+  | "before"
+  | "after";
+
+/** 查找字段计算方式 */
+export type LookupAggregationType =
+  | "original"
+  | "distinct"
+  | "distinct_count"
+  | "sum"
+  | "count"
+  | "avg"
+  | "max"
+  | "min";
+
+/** 查找字段格式类型 */
+export type LookupFieldFormat = "number" | "date" | "currency";
+
+/** 查找字段过滤条件 */
+export interface LookupFilterCondition {
+  /** 源表字段 ID（被过滤的字段） */
+  fieldId: string;
+  /** 操作符 */
+  operator: LookupFilterOperator;
+  /** 值类型："field"（当前表字段）或 "custom"（自定义值） */
+  valueType: "field" | "custom";
+  /** 当 valueType 为 "field" 时的当前表字段 ID */
+  valueFieldId?: string;
+  /** 当 valueType 为 "custom" 时的自定义值 */
+  valueCustom?: string | number;
+}
+
+/** 查找字段配置 */
+export interface LookupFieldConfig {
+  /** 源数据表 ID */
+  sourceTableId: string;
+  /** 引用字段 ID（源表中的字段） */
+  targetFieldId: string;
+  /** 过滤条件列表（最多 5 个） */
+  filterConditions: LookupFilterCondition[];
+  /** 条件连接：and（满足全部）或 or（满足任一），默认 and */
+  filterConjunction: "and" | "or";
+  /** 计算方式，默认 original */
+  aggregationType: LookupAggregationType;
+  /** 字段格式配置 */
+  fieldFormat: {
+    type: LookupFieldFormat;
+    precision?: number;
+    currencySymbol?: string;
+    dateFormat?: string;
+  };
+}
+
 /**
  * 字段类型配置项
  */
@@ -151,11 +212,11 @@ export interface FieldOptions {
   inverseFieldId?: string;
 
   // ==================== 查找字段 (Lookup Field) 选项 ====================
-  /** 查找的目标字段 ID */
+  /** @deprecated 使用 LookupFieldConfig 替代 */
   lookupFieldId?: string;
-  /** 聚合类型 */
+  /** @deprecated 使用 LookupFieldConfig.aggregationType 替代 */
   aggregationType?: AggregationType;
-  /** 连接分隔符（用于 concat 聚合） */
+  /** @deprecated 使用 LookupFieldConfig.fieldFormat 替代 */
   separator?: string;
 
   // ==================== 成员字段 (Member Field) 选项 ====================
@@ -495,6 +556,51 @@ export function getAggregationTypeLabel(type: AggregationType): string {
     count: "计数",
   };
   return labels[type] || type;
+}
+
+/**
+ * 获取查找字段过滤操作符的标签
+ */
+export function getLookupFilterOperatorLabel(operator: LookupFilterOperator): string {
+  const labels: Record<LookupFilterOperator, string> = {
+    equal: "等于",
+    not_equal: "不等于",
+    contains: "包含",
+    is_empty: "为空",
+    is_not_empty: "不为空",
+    before: "早于",
+    after: "晚于",
+  };
+  return labels[operator] || operator;
+}
+
+/**
+ * 获取查找字段计算方式的标签
+ */
+export function getLookupAggregationTypeLabel(type: LookupAggregationType): string {
+  const labels: Record<LookupAggregationType, string> = {
+    original: "原值",
+    distinct: "去重",
+    distinct_count: "去重计数",
+    sum: "求和",
+    count: "计数",
+    avg: "平均值",
+    max: "最大值",
+    min: "最小值",
+  };
+  return labels[type] || type;
+}
+
+/**
+ * 获取查找字段格式的标签
+ */
+export function getLookupFieldFormatLabel(format: LookupFieldFormat): string {
+  const labels: Record<LookupFieldFormat, string> = {
+    number: "数字",
+    date: "日期",
+    currency: "货币",
+  };
+  return labels[format] || format;
 }
 
 /**

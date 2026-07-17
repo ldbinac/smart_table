@@ -122,12 +122,16 @@ def get_records(table_id) -> tuple:
         
         # 预查询公式字段，避免每条记录重复查询数据库
         formula_fields = Field.query.filter_by(table_id=table_id, type='formula').all()
-        
+
+        # 预查询查找字段
+        from app.services.lookup_service import LookupService
+        lookup_fields = Field.query.filter_by(table_id=table_id, type='lookup').all()
+
         # 序列化记录数据
         items = []
         for record in records:
             item = record.to_dict()
-            
+
             # 填充关联字段数据（使用批量加载的缓存结果）
             if link_fields:
                 record_links = record_links_map.get(str(record.id), {})
@@ -136,7 +140,7 @@ def get_records(table_id) -> tuple:
                     if field_id in record_links:
                         # batch_get_record_link_ids 已返回去重后的 ID 列表
                         item['values'][field_id] = record_links[field_id]
-            
+
             # 计算公式值（传入预查询的 formula_fields，避免重复 DB 查询）
             if formula_fields:
                 item['computed_values'] = FormulaService.compute_record_formulas(
@@ -144,6 +148,16 @@ def get_records(table_id) -> tuple:
                 )
             else:
                 item['computed_values'] = {}
+
+            # 填充查找字段实时计算值
+            if lookup_fields:
+                for lookup_field in lookup_fields:
+                    try:
+                        item['values'][str(lookup_field.id)] = LookupService.compute_lookup_value(record, lookup_field)
+                    except Exception as e:
+                        current_app.logger.error(f'[get_records] 计算查找字段失败: {e}')
+                        item['values'][str(lookup_field.id)] = None
+
             items.append(item)
         
         return paginated_response(items, total, page, per_page)
@@ -457,7 +471,17 @@ def get_record(record_id) -> tuple:
         result['computed_values'] = FormulaService.compute_record_formulas(
             record.table_id, record.values
         )
-        
+
+        # 填充查找字段实时计算值
+        from app.services.lookup_service import LookupService
+        lookup_fields = Field.query.filter_by(table_id=record.table_id, type='lookup').all()
+        for lookup_field in lookup_fields:
+            try:
+                result['values'][str(lookup_field.id)] = LookupService.compute_lookup_value(record, lookup_field)
+            except Exception as e:
+                current_app.logger.error(f'[get_record] 计算查找字段失败: {e}')
+                result['values'][str(lookup_field.id)] = None
+
         return success_response(result)
     except Exception as e:
         request_id = getattr(g, 'request_id', None)

@@ -32,6 +32,7 @@ from app.routes.webhooks import webhooks_bp
 from app.routes.workflow_templates import workflow_templates_bp
 from app.routes.workflows import workflows_bp
 from app.routes.config import config_bp
+from app.routes.lookup import lookup_bp
 
 # 服务导入
 from app.services.email_queue_service import init_email_queue
@@ -277,6 +278,9 @@ def register_blueprints(app):
 
     # 注册公开配置蓝图
     app.register_blueprint(config_bp, url_prefix='/api/config')
+
+    # 注册查找字段蓝图
+    app.register_blueprint(lookup_bp, url_prefix='/api')
 
 
 def register_error_handlers(app):

@@ -27,6 +27,7 @@ import {
   getFieldTypeIconComponent,
   getUserCreatableFieldTypeOptions,
   type FieldTypeValue,
+  type LookupFieldConfig,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
@@ -34,10 +35,18 @@ import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
 import { Rank, ArrowRight, Link } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
+import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
+import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.vue";
 
 const viewStore = useViewStore();
 const tableStore = useTableStore();
+
+// 用于预览的记录 ID（取当前表第一条记录）
+const previewRecordId = computed(() => {
+  const records = tableStore.records;
+  return records.length > 0 ? records[0].id : undefined;
+});
 
 const props = defineProps<{
   visible: boolean;
@@ -83,6 +92,11 @@ const newField = ref<{
     displayFieldId: string;
     bidirectional: boolean;
   };
+  // 查找字段配置
+  lookupConfig: {
+    name: string;
+    config: LookupFieldConfig;
+  };
   // 文本字段配置
   maxLength?: number;
   // 单元格合并配置
@@ -100,6 +114,22 @@ const newField = ref<{
     relationshipType: "one_to_many",
     displayFieldId: "",
     bidirectional: false,
+  },
+  lookupConfig: {
+    name: "",
+    config: {
+      sourceTableId: "",
+      targetFieldId: "",
+      filterConditions: [],
+      filterConjunction: "and",
+      aggregationType: "original",
+      fieldFormat: {
+        type: "number",
+        precision: 0,
+        currencySymbol: "¥",
+        dateFormat: "YYYY-MM-DD",
+      },
+    },
   },
   maxLength: undefined,
   mergeCell: false,
@@ -343,6 +373,22 @@ function openCreateField() {
       displayFieldId: "",
       bidirectional: false,
     },
+    lookupConfig: {
+      name: "",
+      config: {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
+    },
     maxLength: undefined,
     mergeCell: false,
   };
@@ -400,6 +446,23 @@ function openEditField(field: FieldEntity) {
         (field.config?.relationshipType as RelationshipType) ?? "one_to_many",
       displayFieldId: (field.config?.displayFieldId as string) ?? "",
       bidirectional: (field.config?.bidirectional as boolean) ?? false,
+    },
+    // 查找字段的配置保存在 config 中
+    lookupConfig: {
+      name: field.name,
+      config: (field.config as LookupFieldConfig) || {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
     },
     maxLength: (field.options?.maxLength as number) ?? undefined,
     mergeCell: Boolean(field.options?.mergeCell),
@@ -503,6 +566,22 @@ function backToList() {
       relationshipType: "one_to_many",
       displayFieldId: "",
       bidirectional: false,
+    },
+    lookupConfig: {
+      name: "",
+      config: {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
     },
     maxLength: undefined,
     mergeCell: false,
@@ -655,8 +734,21 @@ async function createField() {
 
     let field;
 
-    // 如果是关联字段，使用专门的关联字段创建接口
-    if (newField.value.type === FieldType.LINK) {
+    // 如果是查找字段，使用专门的查找字段创建接口
+    if (newField.value.type === FieldType.LOOKUP) {
+      try {
+        const result = await lookupApiService.createLookupField(props.tableId, {
+          name: newField.value.lookupConfig.name || newField.value.name.trim(),
+          description: newField.value.description,
+          config: newField.value.lookupConfig.config,
+        });
+        field = result as unknown as FieldEntity;
+      } catch (lookupError) {
+        console.error("创建查找字段失败:", lookupError);
+        throw lookupError;
+      }
+    } else if (newField.value.type === FieldType.LINK) {
+      // 如果是关联字段，使用专门的关联字段创建接口
       try {
         const result = await linkApiService.createLinkField({
           table_id: props.tableId,
@@ -822,22 +914,45 @@ async function updateField() {
       updateData.defaultValue = newField.value.defaultValue;
     }
 
-    const updatedField = await fieldService.updateField(editingField.value.id, updateData);
+    let updatedField: FieldEntity | undefined;
 
-    // 如果是关联字段，更新关联关系
-    if (newField.value.type === FieldType.LINK) {
+    // 如果是查找字段，使用专门的查找字段更新接口
+    if (newField.value.type === FieldType.LOOKUP) {
       try {
-        await linkApiService.updateLinkField(editingField.value.id, {
-          relationship_type: newField.value.linkConfig.relationshipType,
-          display_field_id:
-            newField.value.linkConfig.displayFieldId || undefined,
-          bidirectional: newField.value.linkConfig.bidirectional,
-          name: newField.value.name.trim(),
-          description: newField.value.description,
-        });
-      } catch (linkError) {
-        console.error("更新关联关系失败:", linkError);
-        // 关联关系更新失败不影响字段更新
+        updatedField = (await lookupApiService.updateLookupField(
+          editingField.value.id,
+          {
+            name: newField.value.lookupConfig.name || newField.value.name.trim(),
+            description: newField.value.description,
+            config: newField.value.lookupConfig.config,
+          },
+        )) as unknown as FieldEntity;
+      } catch (lookupError) {
+        console.error("更新查找字段失败:", lookupError);
+        throw lookupError;
+      }
+    } else {
+      // 非查找字段，使用普通字段更新接口
+      updatedField = await fieldService.updateField(
+        editingField.value.id,
+        updateData,
+      );
+
+      // 如果是关联字段，更新关联关系
+      if (newField.value.type === FieldType.LINK) {
+        try {
+          await linkApiService.updateLinkField(editingField.value.id, {
+            relationship_type: newField.value.linkConfig.relationshipType,
+            display_field_id:
+              newField.value.linkConfig.displayFieldId || undefined,
+            bidirectional: newField.value.linkConfig.bidirectional,
+            name: newField.value.name.trim(),
+            description: newField.value.description,
+          });
+        } catch (linkError) {
+          console.error("更新关联关系失败:", linkError);
+          // 关联关系更新失败不影响字段更新
+        }
       }
     }
 
@@ -930,6 +1045,35 @@ function onTypeChange() {
       bidirectional: false,
     };
     targetTableFields.value = [];
+  }
+  // 切换类型时重置查找字段配置
+  if (newField.value.type !== FieldType.LOOKUP) {
+    newField.value.lookupConfig = {
+      name: "",
+      config: {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
+    };
+  }
+}
+
+/** 查找字段配置面板更新回调 */
+function onLookupConfigUpdate(value: { name: string; config: LookupFieldConfig }) {
+  newField.value.lookupConfig.name = value.name;
+  newField.value.lookupConfig.config = value.config;
+  // 同步名称到 newField.name（如果用户在配置面板中修改了名称）
+  if (value.name) {
+    newField.value.name = value.name;
   }
 }
 
@@ -1684,6 +1828,21 @@ async function toggleFieldVisibility(
               </div>
             </div>
           </ElFormItem>
+        </template>
+
+        <!-- 查找字段配置 -->
+        <template v-if="newField.type === FieldType.LOOKUP">
+          <LookupFieldConfigPanel
+            :field="{
+              id: editingField?.id,
+              name: newField.lookupConfig.name || newField.name,
+              type: newField.type,
+              config: newField.lookupConfig.config,
+            }"
+            :table-id="tableId"
+            :current-table-fields="fields"
+            :record-id="previewRecordId"
+            @update:field="onLookupConfigUpdate" />
         </template>
 
         <ElFormItem label="必填">
