@@ -65,9 +65,11 @@ function getCurrentUserId(): string | null {
   return authStore.user?.id || null;
 }
 
-// 可见字段（用于显示）
+// 可见字段（用于显示，新增时不显示查找字段）
 const visibleFields = computed(() => {
-  return props.fields.filter((f) => f.isVisible !== false);
+  return props.fields.filter(
+    (f) => f.isVisible !== false && f.type !== FieldType.LOOKUP
+  );
 });
 
 // 初始化表单数据

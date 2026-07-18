@@ -551,6 +551,8 @@ const getFieldComponent = (field: FieldEntity): string => {
       return "auto_number";
     case FieldType.MEMBER:
       return "member";
+    case FieldType.LOOKUP:
+      return "lookup";
     default:
       return "text";
   }
@@ -997,6 +999,15 @@ const drawerTitle = computed(() => {
             <div class="auto-number-display">
               <span class="auto-number-value">{{ formData[field.id] || '-' }}</span>
             </div>
+          </template>
+
+          <!-- 查找字段类型（只读显示） -->
+          <template v-else-if="getFieldComponent(field) === 'lookup'">
+            <el-input
+              :model-value="String(formData[field.id] || '')"
+              disabled
+              :placeholder="field.name"
+              class="field-input" />
           </template>
 
           <!-- 默认文本类型（URL、EMAIL、PHONE 等） -->
