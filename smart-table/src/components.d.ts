@@ -15,8 +15,6 @@ declare module 'vue' {
     AddRecordDialog: typeof import('./components/dialogs/AddRecordDialog.vue')['default']
     AddRecordDrawer: typeof import('./components/dialogs/AddRecordDrawer.vue')['default']
     AppHeader: typeof import('./components/common/AppHeader.vue')['default']
-    ApprovalDetailDialog: typeof import('./components/workflow/ApprovalDetailDialog.vue')['default']
-    ApprovalHistoryDrawer: typeof import('./components/workflow/ApprovalHistoryDrawer.vue')['default']
     AppSidebar: typeof import('./components/common/AppSidebar.vue')['default']
     AttachmentField: typeof import('./components/fields/AttachmentField.vue')['default']
     AttachmentManager: typeof import('./components/fields/AttachmentManager.vue')['default']

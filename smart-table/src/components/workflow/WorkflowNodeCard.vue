@@ -22,7 +22,6 @@ interface NodeTypeOption {
 
 const nodeTypeOptions: NodeTypeOption[] = [
   { type: "trigger", label: "触发器", icon: CircleCheck },
-  { type: "approval", label: "审批节点", icon: CircleCheck },
   { type: "update_record", label: "更新记录", icon: EditPen },
   { type: "create_record", label: "创建记录", icon: Plus },
   { type: "find_records", label: "查找记录", icon: Search },
@@ -32,7 +31,6 @@ const nodeTypeOptions: NodeTypeOption[] = [
 ];
 
 const iconMap: Record<string, typeof CircleCheck> = {
-  approval: CircleCheck,
   condition: Share,
   update_record: EditPen,
   create_record: Plus,

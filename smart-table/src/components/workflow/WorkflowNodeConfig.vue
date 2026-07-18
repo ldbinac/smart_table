@@ -4,7 +4,6 @@ import type { FieldEntity, TableEntity } from "@/db/schema";
 import type {
   WorkflowNode,
   WebhookConfig,
-  ApprovalMode,
   WebhookMethod,
   ConditionBranch,
   ConditionItem,
@@ -158,49 +157,6 @@ const availableWebhooks = computed(() => {
     (w) => w.is_active || (currentId !== undefined && w.id === currentId),
   );
 });
-
-// ==================== 审批节点配置 ====================
-
-const approvalModes: { value: ApprovalMode; label: string }[] = [
-  { value: "any", label: "或签（任意一人通过即可）" },
-  { value: "all", label: "会签（所有人都需通过）" },
-  { value: "serial", label: "串行（按顺序审批）" },
-];
-
-const timeoutActions = [
-  { value: "approve", label: "自动通过" },
-  { value: "reject", label: "自动拒绝" },
-  { value: "remind", label: "发送提醒" },
-];
-
-const assigneeType = computed({
-  get: () => configValue<string>("assignee_type", "fixed"),
-  set: (value) => setConfigValue("assignee_type", value),
-});
-
-const assigneeValue = computed({
-  get: () => configValue<string | string[]>("assignee_value", []),
-  set: (value) => setConfigValue("assignee_value", value),
-});
-
-const approvalMode = computed({
-  get: () => configValue<ApprovalMode>("approval_mode", "any"),
-  set: (value) => setConfigValue("approval_mode", value),
-});
-
-const timeoutMinutes = computed({
-  get: () => configValue<number | undefined>("timeout_minutes", undefined),
-  set: (value) => setConfigValue("timeout_minutes", value),
-});
-
-const timeoutAction = computed({
-  get: () => configValue<string | undefined>("timeout_action", undefined),
-  set: (value) => setConfigValue("timeout_action", value),
-});
-
-const memberFieldOptions = computed(() =>
-  props.fields.filter((f) => f.type === "member" || f.type === "collaborator"),
-);
 
 // ==================== 条件节点配置 ====================
 
@@ -590,9 +546,8 @@ const emailFields = computed(() =>
 );
 
 const emailTemplates = [
-  { id: "template_1", name: "审批通知" },
-  { id: "template_2", name: "状态变更通知" },
-  { id: "template_3", name: "自定义模板" },
+  { id: "template_1", name: "状态变更通知" },
+  { id: "template_2", name: "自定义模板" },
 ];
 
 // ==================== 查找记录节点配置 ====================
@@ -755,7 +710,6 @@ function updateInlineHeader(key: string, value: string) {
 
 const nodeTypeLabel = computed(() => {
   const labels: Record<string, string> = {
-    approval: "审批节点",
     condition: "条件节点",
     update_record: "更新记录",
     create_record: "创建记录",
@@ -795,74 +749,8 @@ const nodeTypeLabel = computed(() => {
       </template>
     </div>
 
-    <!-- 审批节点 -->
-    <template v-if="localNode.node_type === 'approval'">
-      <el-form label-position="top" class="config-form">
-        <el-form-item label="审批人选择方式">
-          <el-radio-group v-model="assigneeType" :disabled="readonly">
-            <el-radio label="fixed">固定用户</el-radio>
-            <el-radio label="field">字段指定</el-radio>
-            <el-radio label="role">角色</el-radio>
-          </el-radio-group>
-        </el-form-item>
-
-        <el-form-item v-if="assigneeType === 'fixed'" label="审批人">
-          <el-select
-            v-model="assigneeValue"
-            multiple
-            placeholder="选择用户"
-            class="full-width"
-            :disabled="readonly">
-            <el-option label="当前用户" value="current_user" />
-            <el-option label="管理员" value="admin" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item v-else-if="assigneeType === 'field'" label="成员字段">
-          <el-select v-model="assigneeValue" placeholder="选择字段" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="field in memberFieldOptions"
-              :key="field.id"
-              :label="field.name"
-              :value="field.id" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item v-else label="角色">
-          <el-select v-model="assigneeValue" placeholder="选择角色" class="full-width" :disabled="readonly">
-            <el-option label="管理员" value="admin" />
-            <el-option label="部门负责人" value="manager" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="审批模式">
-          <el-select v-model="approvalMode" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="mode in approvalModes"
-              :key="mode.value"
-              :label="mode.label"
-              :value="mode.value" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="超时时间（分钟）">
-          <el-input-number v-model="timeoutMinutes" :min="0" :controls="false" class="full-width" :disabled="readonly" />
-        </el-form-item>
-
-        <el-form-item v-if="timeoutMinutes && timeoutMinutes > 0" label="超时动作">
-          <el-select v-model="timeoutAction" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="action in timeoutActions"
-              :key="action.value"
-              :label="action.label"
-              :value="action.value" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-    </template>
-
     <!-- 条件节点 -->
-    <template v-else-if="localNode.node_type === 'condition'">
+    <template v-if="localNode.node_type === 'condition'">
       <div class="condition-branches">
         <div class="branches-header">
           <span class="branches-title">条件分支</span>

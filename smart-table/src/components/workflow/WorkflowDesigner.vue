@@ -270,7 +270,6 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
 }
 
 const nodeTypeMenu = [
-  // { type: "approval" as const, label: "审批节点（暂不支持）", icon: CircleCheck },
   { type: "update_record" as const, label: "更新记录", icon: EditPen },
   { type: "create_record" as const, label: "创建记录", icon: Plus },
   { type: "find_records" as const, label: "查找记录", icon: Search },
@@ -280,7 +279,6 @@ const nodeTypeMenu = [
 ];
 
 const nodeIconMap: Record<string, typeof CircleCheck> = {
-  approval: CircleCheck,
   condition: Share,
   update_record: EditPen,
   create_record: Plus,

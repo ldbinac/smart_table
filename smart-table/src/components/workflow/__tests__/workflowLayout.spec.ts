@@ -28,7 +28,7 @@ describe('layoutWorkflowNodes', () => {
 
   it('为无布局数据的节点按 order 计算单列垂直布局', () => {
     const nodes: WorkflowNode[] = [
-      makeNode('n2', 'approval', 1),
+      makeNode('n2', 'send_email', 1),
       makeNode('n1', 'trigger', 0),
       makeNode('n3', 'update_record', 2),
     ]
@@ -45,7 +45,7 @@ describe('layoutWorkflowNodes', () => {
   it('保留已有 ui_layout 的节点，且不覆盖其坐标', () => {
     const nodes: WorkflowNode[] = [
       makeNode('n1', 'trigger', 0, [], { x: 42, y: 99 }),
-      makeNode('n2', 'approval', 1),
+      makeNode('n2', 'send_email', 1),
     ]
 
     const result = layoutWorkflowNodes(nodes)
@@ -68,7 +68,7 @@ describe('layoutWorkflowNodes', () => {
           ],
         },
       },
-      makeNode('n3', 'approval', 2),
+      makeNode('n3', 'send_email', 2),
       makeNode('n4', 'update_record', 3),
       makeNode('n5', 'webhook', 4),
     ]
@@ -96,7 +96,7 @@ describe('layoutWorkflowNodes', () => {
           ],
         },
       },
-      makeNode('n3', 'approval', 2),
+      makeNode('n3', 'send_email', 2),
       makeNode('n4', 'update_record', 3),
       makeNode('n5', 'webhook', 4),
     ]
@@ -127,7 +127,7 @@ describe('layoutWorkflowNodes', () => {
   it('混合有布局和无布局节点时仍能为无布局节点生成不重叠坐标', () => {
     const nodes: WorkflowNode[] = [
       makeNode('n1', 'trigger', 0, [], { x: 0, y: 0 }),
-      makeNode('n2', 'approval', 1),
+      makeNode('n2', 'send_email', 1),
       makeNode('n3', 'update_record', 2),
     ]
 

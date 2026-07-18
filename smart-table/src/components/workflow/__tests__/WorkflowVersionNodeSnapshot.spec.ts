@@ -4,29 +4,6 @@ import WorkflowVersionNodeSnapshot from '../WorkflowVersionNodeSnapshot.vue'
 import type { WorkflowNode } from '@/types/workflow'
 
 describe('WorkflowVersionNodeSnapshot', () => {
-  it('renders approval node summary', () => {
-    const node: WorkflowNode = {
-      id: 'n1',
-      workflow_id: 'w1',
-      node_type: 'approval',
-      name: '审批',
-      config: {
-        assignee_type: 'role',
-        assignee_value: 'manager',
-        approval_mode: 'any',
-        timeout_minutes: 30,
-        timeout_action: 'auto_approve'
-      },
-      order: 0,
-      next_nodes: []
-    }
-    const wrapper = mount(WorkflowVersionNodeSnapshot, { props: { node } })
-    expect(wrapper.text()).toContain('审批')
-    expect(wrapper.text()).toContain('审批方式')
-    expect(wrapper.text()).toContain('角色')
-    expect(wrapper.text()).toContain('任意一人通过')
-  })
-
   it('renders condition node summary', () => {
     const node: WorkflowNode = {
       id: 'n2',

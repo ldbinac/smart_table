@@ -59,8 +59,8 @@ describe('WorkflowNodeConfig', () => {
   const mockNode = {
     id: 'node-1',
     workflow_id: 'wf-1',
-    node_type: 'approval' as const,
-    name: '审批节点 1',
+    node_type: 'send_email' as const,
+    name: '发送邮件 1',
     config: {},
     order: 0,
     next_nodes: [],
@@ -143,7 +143,7 @@ describe('WorkflowNodeConfig', () => {
     const wrapper = mountConfig();
     const nameSpan = wrapper.find('.node-name');
     expect(nameSpan.exists()).toBe(true);
-    expect(nameSpan.text()).toBe('审批节点 1');
+    expect(nameSpan.text()).toBe('发送邮件 1');
   });
 
   it('草稿态下应该显示编辑按钮', () => {
@@ -176,15 +176,15 @@ describe('WorkflowNodeConfig', () => {
     await nextTick();
 
     const input = wrapper.find('.name-input');
-    await input.setValue('新审批节点');
+    await input.setValue('新发送邮件节点');
     await input.trigger('keydown', { key: 'Enter' });
     await nextTick();
 
     const emitted = wrapper.emitted('update:node') as any[][];
     expect(emitted).toBeTruthy();
     const lastNode = emitted[emitted.length - 1][0];
-    expect(lastNode.name).toBe('新审批节点');
-    expect(wrapper.find('.node-name').text()).toBe('新审批节点');
+    expect(lastNode.name).toBe('新发送邮件节点');
+    expect(wrapper.find('.node-name').text()).toBe('新发送邮件节点');
   });
 
   it('按 Esc 应该取消编辑并恢复原名', async () => {
@@ -198,7 +198,7 @@ describe('WorkflowNodeConfig', () => {
     await input.trigger('keydown', { key: 'Escape' });
     await nextTick();
 
-    expect(wrapper.find('.node-name').text()).toBe('审批节点 1');
+    expect(wrapper.find('.node-name').text()).toBe('发送邮件 1');
     // 取消编辑不应触发名称变更的事件（可能已有其他 config 变更事件，但名称应保持原值）
     // 由于 watch 机制，如果 config 没变，可能不会触发。这里主要验证 DOM 恢复
     expect(wrapper.find('.node-name').exists()).toBe(true);
@@ -215,7 +215,7 @@ describe('WorkflowNodeConfig', () => {
     await input.trigger('keydown', { key: 'Enter' });
     await nextTick();
 
-    expect(wrapper.find('.node-name').text()).toBe('审批节点 1');
+    expect(wrapper.find('.node-name').text()).toBe('发送邮件 1');
   });
 
   it('更新记录节点的静态值字段应直接显示 FieldValueInput 且隐藏值模板输入', async () => {

@@ -165,18 +165,9 @@ const isWorkflowPage = computed(() => {
   return /^\/base\/[^/]+\/workflows/.test(route.path);
 });
 
-const isApprovalPage = computed(() => {
-  return /^\/base\/[^/]+\/approvals/.test(route.path);
-});
-
 const handleWorkflowClick = () => {
   if (!currentBase.value) return;
   router.push(`/base/${currentBase.value.id}/workflows`);
-};
-
-const handleApprovalClick = () => {
-  if (!currentBase.value) return;
-  router.push(`/base/${currentBase.value.id}/approvals`);
 };
 
 // 左侧显示的标题：Base（多维表根）名称或默认标题
@@ -436,7 +427,6 @@ onMounted(() => {
       <template v-if="isBasePage && currentBase">
         <el-dropdown trigger="click" @command="(cmd: string) => {
           if (cmd === 'workflow') handleWorkflowClick();
-          else if (cmd === 'approval') handleApprovalClick();
         }">
           <el-button type="primary" plain circle title="自动化">
             <el-icon><Connection /></el-icon>
@@ -447,23 +437,14 @@ onMounted(() => {
                 <el-icon><Connection /></el-icon>
                 工作流
               </el-dropdown-item>
-              <!-- <el-dropdown-item command="approval" :class="{ 'is-active': isApprovalPage }">
-                <el-icon><CircleCheck /></el-icon>
-                <el-badge
-                  :value="workflowStore.pendingApprovalCount"
-                  :hidden="workflowStore.pendingApprovalCount === 0"
-                  class="approval-badge">
-                  审批
-                </el-badge>
-              </el-dropdown-item> -->
             </el-dropdown-menu>
           </template>
         </el-dropdown>
         <el-divider direction="vertical" class="header-divider" />
       </template>
 
-      <!-- Base页面的分享和成员按钮（工作流和审批中心页面不显示） -->
-      <template v-if="isBasePage && currentBase && canManage && !isWorkflowPage && !isApprovalPage">
+      <!-- Base页面的分享和成员按钮（工作流页面不显示） -->
+      <template v-if="isBasePage && currentBase && canManage && !isWorkflowPage">
         <el-tooltip
           class="box-item"
           effect="dark"
@@ -779,10 +760,6 @@ onMounted(() => {
 :deep(.is-active) {
   color: $primary-color;
   font-weight: 500;
-}
-
-.approval-badge {
-  line-height: inherit;
 }
 
 // 首页搜索框样式

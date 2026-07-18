@@ -34,12 +34,6 @@ describe('workflowApiService', () => {
     started_at: new Date().toISOString(),
   };
 
-  const mockTask = {
-    id: 'task-1',
-    instance_id: 'inst-1',
-    status: 'pending' as const,
-  };
-
   const mockWebhook = {
     id: 'wh-1',
     base_id: 'base-1',
@@ -138,49 +132,6 @@ describe('workflowApiService', () => {
     });
   });
 
-  describe('审批任务', () => {
-    it('应该获取审批列表', async () => {
-      (apiClient.get as any).mockResolvedValue([mockTask]);
-      const result = await workflowApiService.listApprovals('base-1', { status: 'pending' });
-      expect(apiClient.get).toHaveBeenCalledWith('/bases/base-1/approvals', { status: 'pending' });
-      expect(result).toEqual([mockTask]);
-    });
-
-    it('应该获取单个审批', async () => {
-      (apiClient.get as any).mockResolvedValue(mockTask);
-      const result = await workflowApiService.getApproval('task-1');
-      expect(apiClient.get).toHaveBeenCalledWith('/approvals/task-1');
-      expect(result).toEqual(mockTask);
-    });
-
-    it.each([
-      ['approveTask', '/approvals/task-1/approve', '同意', { comment: '同意' }],
-      ['rejectTask', '/approvals/task-1/reject', '拒绝', { comment: '拒绝' }],
-    ] as const)('%s 应该提交正确参数', async (method, url, comment, body) => {
-      (apiClient.post as any).mockResolvedValue(undefined);
-      await (workflowApiService as any)[method]('task-1', comment);
-      expect(apiClient.post).toHaveBeenCalledWith(url, body);
-    });
-
-    it('应该转交审批任务', async () => {
-      (apiClient.post as any).mockResolvedValue(undefined);
-      await workflowApiService.transferTask('task-1', 'user-2', '转交');
-      expect(apiClient.post).toHaveBeenCalledWith('/approvals/task-1/transfer', {
-        new_assignee_id: 'user-2',
-        comment: '转交',
-      });
-    });
-
-    it('应该获取记录审批历史', async () => {
-      (apiClient.get as any).mockResolvedValue({
-        data: [{ tasks: [mockTask] }],
-      });
-      const result = await workflowApiService.getRecordApprovalHistory('record-1');
-      expect(apiClient.get).toHaveBeenCalledWith('/records/record-1/approval-history');
-      expect(result).toEqual([mockTask]);
-    });
-  });
-
   describe('Webhook', () => {
     it('应该获取 Webhook 列表', async () => {
       (apiClient.get as any).mockResolvedValue([mockWebhook]);
@@ -242,8 +193,8 @@ describe('workflowApiService', () => {
         data: [mockTemplate],
         meta: { pagination: { items: [mockTemplate], total: 1 } },
       });
-      const result = await workflowApiService.listTemplates({ category: 'approval' });
-      expect(apiClient.get).toHaveBeenCalledWith('/workflow-templates', { category: 'approval' });
+      const result = await workflowApiService.listTemplates({ category: 'automation' });
+      expect(apiClient.get).toHaveBeenCalledWith('/workflow-templates', { category: 'automation' });
       expect(result).toEqual([mockTemplate]);
     });
 

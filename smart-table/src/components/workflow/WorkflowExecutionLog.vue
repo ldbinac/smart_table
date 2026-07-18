@@ -29,7 +29,6 @@ const sortedLogs = computed(() => {
 
 const nodeTypeLabels: Record<WorkflowNodeType | string, string> = {
   trigger: "触发器",
-  approval: "审批节点",
   action: "动作节点",
   condition: "条件节点",
   update_record: "更新记录",

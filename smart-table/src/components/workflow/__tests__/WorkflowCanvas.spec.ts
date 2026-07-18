@@ -97,8 +97,8 @@ const mockNodes: WorkflowNode[] = [
   {
     id: 'node-1',
     workflow_id: 'wf-1',
-    node_type: 'approval',
-    name: '审批节点',
+    node_type: 'send_email',
+    name: '发送邮件节点',
     config: {},
     order: 0,
     next_nodes: ['node-2'],
@@ -259,7 +259,7 @@ describe('WorkflowCanvas', () => {
     expect(edges[0].type).toBe('workflow')
     expect(edges[0].data).toEqual({
       readonly: false,
-      sourceNodeType: 'approval',
+      sourceNodeType: 'send_email',
     })
   })
 

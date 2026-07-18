@@ -77,9 +77,9 @@ describe("workflow utils", () => {
     });
 
     it("对非 action 节点原样返回", () => {
-      const node = makeNode("approval", { mode: "any" });
+      const node = makeNode("send_email", { recipient_type: "field" });
       const result = normalizeWorkflowNode(node);
-      expect(result.node_type).toBe("approval");
+      expect(result.node_type).toBe("send_email");
       expect(result.config).toEqual(node.config);
     });
 
@@ -101,12 +101,12 @@ describe("workflow utils", () => {
       const nodes = [
         makeNode("action", { action_type: "create_record" }),
         makeNode("action", { action_type: "update_record" }),
-        makeNode("approval"),
+        makeNode("send_email"),
       ];
       const result = normalizeWorkflowNodes(nodes);
       expect(result[0].node_type).toBe("create_record");
       expect(result[1].node_type).toBe("update_record");
-      expect(result[2].node_type).toBe("approval");
+      expect(result[2].node_type).toBe("send_email");
     });
   });
 

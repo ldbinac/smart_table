@@ -124,15 +124,6 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
-    path: "/base/:id/approvals",
-    name: "BaseApprovals",
-    component: () => import("@/views/base/ApprovalCenter.vue"),
-    meta: {
-      title: "审批中心",
-      requiresAuth: true,
-    },
-  },
-  {
     path: "/share/dashboard/:token",
     name: "DashboardShare",
     component: () => import("@/views/DashboardShare.vue"),

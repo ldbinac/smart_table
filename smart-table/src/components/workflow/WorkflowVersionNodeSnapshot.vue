@@ -21,7 +21,6 @@ interface Props {
 const props = defineProps<Props>()
 
 const nodeIconMap: Record<string, typeof CircleCheck> = {
-  approval: CircleCheck,
   condition: Share,
   update_record: EditPen,
   create_record: Plus,
@@ -30,7 +29,6 @@ const nodeIconMap: Record<string, typeof CircleCheck> = {
 }
 
 const nodeTypeLabels: Record<string, string> = {
-  approval: '审批节点',
   condition: '条件节点',
   update_record: '更新记录',
   create_record: '创建记录',
@@ -57,22 +55,7 @@ const configEntries = computed(() => {
   const { node_type, config } = props.node
   const entries: { label: string; value: string }[] = []
 
-  if (node_type === 'approval') {
-    const assigneeType = config.assignee_type as string || '未配置'
-    const assigneeTypeLabels: Record<string, string> = {
-      fixed: '固定用户',
-      field: '字段指定',
-      role: '角色',
-    }
-    entries.push({ label: '审批方式', value: assigneeTypeLabels[assigneeType] || assigneeType })
-    entries.push({ label: '审批值', value: String(config.assignee_value || '-') })
-    const modeLabels: Record<string, string> = { any: '任意一人通过', all: '全部通过', serial: '依次审批' }
-    entries.push({ label: '审批模式', value: modeLabels[String(config.approval_mode)] || String(config.approval_mode || '-') })
-    entries.push({ label: '超时时间', value: config.timeout_minutes ? `${config.timeout_minutes} 分钟` : '未配置' })
-    const actionLabels: Record<string, string> = { auto_approve: '自动通过', auto_reject: '自动拒绝', notify: '通知' }
-    entries.push({ label: '超时动作', value: actionLabels[String(config.timeout_action)] || String(config.timeout_action || '-') })
-  }
-  else if (node_type === 'condition') {
+  if (node_type === 'condition') {
     const conditions = (config.conditions as Array<{ field_id?: string; operator?: string; value?: unknown }>) || []
     conditions.forEach((c, index) => {
       entries.push({

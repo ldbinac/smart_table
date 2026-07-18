@@ -1,11 +1,10 @@
 /**
  * 工作流类型定义
- * 与后端 Workflow / Approval / Webhook / Template 模型保持一致
+ * 与后端 Workflow / Webhook / Template 模型保持一致
  */
 
 export type WorkflowNodeType =
   | 'trigger'
-  | 'approval'
   | 'action'
   | 'condition'
   | 'update_record'
@@ -45,8 +44,6 @@ export interface ScheduleConfig {
   timezone?: string;
 }
 
-export type ApprovalMode = 'any' | 'all' | 'serial';
-
 export interface ConditionItem {
   field_id: string;
   operator: import('@/types/filters').FilterOperatorValue;
@@ -74,13 +71,6 @@ export type InstanceStatus =
   | 'rejected'
   | 'cancelled'
   | 'error';
-
-export type TaskStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'transferred'
-  | 'expired';
 
 export type WebhookMethod = 'GET' | 'POST' | 'PUT';
 
@@ -139,17 +129,6 @@ export interface WorkflowInstance {
   context: Record<string, unknown>;
   started_at: string;
   completed_at?: string | null;
-}
-
-export interface WorkflowTask {
-  id: string;
-  instance_id: string;
-  node_id?: string | null;
-  assignee_id?: string | null;
-  status: TaskStatus;
-  comment?: string | null;
-  acted_at?: string | null;
-  transferred_from_id?: string | null;
 }
 
 export interface WorkflowExecutionLog {
