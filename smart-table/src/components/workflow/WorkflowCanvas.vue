@@ -204,6 +204,7 @@ function handleDeleteNode(nodeId: string) {
 const addableNodeTypes = [
   { type: "update_record", label: "更新记录" },
   { type: "create_record", label: "创建记录" },
+  { type: "find_records", label: "查找记录" },
   { type: "webhook", label: "Webhook" },
   { type: "condition", label: "条件节点" },
 ];

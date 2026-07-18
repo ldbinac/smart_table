@@ -11,7 +11,8 @@ export type WorkflowNodeType =
   | 'update_record'
   | 'create_record'
   | 'send_email'
-  | 'webhook';
+  | 'webhook'
+  | 'find_records';
 
 export type TriggerType =
   | 'record_created'

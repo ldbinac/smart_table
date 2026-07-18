@@ -71,6 +71,11 @@ describe("workflow utils", () => {
       expect(normalizeWorkflowNode(node).node_type).toBe("webhook");
     });
 
+    it("将 action + find_records 转换为 find_records", () => {
+      const node = makeNode("action", { action_type: "find_records" });
+      expect(normalizeWorkflowNode(node).node_type).toBe("find_records");
+    });
+
     it("对非 action 节点原样返回", () => {
       const node = makeNode("approval", { mode: "any" });
       const result = normalizeWorkflowNode(node);

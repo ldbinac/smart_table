@@ -415,6 +415,7 @@ def update_workflow_nodes(workflow_id) -> tuple:
         'create_record': 'create_record',
         'send_email': 'send_email',
         'trigger_webhook': 'trigger_webhook',
+        'find_records': 'find_records',
     }
 
     WorkflowNode.query.filter_by(workflow_id=workflow.id).delete()

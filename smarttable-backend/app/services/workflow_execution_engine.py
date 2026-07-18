@@ -15,6 +15,8 @@ from flask import current_app
 
 from app.extensions import db
 from app.models.webhook import WebhookConfig
+from app.models.record import Record
+from app.models.table import Table
 from app.models.workflow import Workflow, WorkflowNode, WorkflowNodeType
 from app.models.workflow_instance import (
     WorkflowInstance,
@@ -319,6 +321,9 @@ class WorkflowExecutionEngine:
         if node_type == WorkflowNodeType.TRIGGER.value:
             return {'status': 'success'}
 
+        if node_type == 'find_records':
+            return self._execute_find_records(instance, node)
+
         if node_type == WorkflowNodeType.APPROVAL.value:
             return ApprovalService.create_tasks(instance, node)
 
@@ -341,6 +346,9 @@ class WorkflowExecutionEngine:
             return self._execute_send_email(instance, node)
         if action_type == 'trigger_webhook':
             return self._execute_webhook_node(instance, node)
+
+        if action_type == 'find_records':
+            return self._execute_find_records(instance, node)
 
         if node_type == WorkflowNodeType.ACTION.value:
             raise ValueError(f'未知动作类型: {action_type}')
@@ -396,6 +404,71 @@ class WorkflowExecutionEngine:
             created_by=self.SYSTEM_USER_ID
         )
         return {'record_id': str(record.id)}
+
+    def _execute_find_records(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
+        """执行查找记录动作"""
+        config = node.config or {}
+
+        target_table_id = config.get('target_table_id')
+        if not target_table_id:
+            raise ValueError('缺少目标表格 ID')
+
+        table = Table.query.get(self._to_uuid(target_table_id))
+        if not table:
+            raise ValueError(f'目标表格不存在: {target_table_id}')
+
+        conditions = config.get('conditions', [])
+        conjunction = config.get('conjunction', 'and')
+        sort_field_id = config.get('sort_field_id')
+        sort_direction = config.get('sort_direction', 'asc')
+
+        limit = config.get('limit', 100)
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            limit = 100
+        limit = max(1, min(limit, 1000))
+
+        result_variable = config.get('result_variable', 'records') or 'records'
+        empty_result_action = config.get('empty_result_action', 'continue')
+
+        records = Record.query.filter_by(
+            table_id=self._to_uuid(target_table_id),
+            is_deleted=False
+        ).all()
+
+        matching_records = []
+        condition_config = {'conditions': conditions, 'conjunction': conjunction}
+        for record in records:
+            context = {field_id: record.values.get(field_id) for field_id in (record.values or {})}
+            if self.evaluate_condition(condition_config, context):
+                matching_records.append(record)
+
+        if sort_field_id:
+            reverse = sort_direction == 'desc'
+            matching_records.sort(
+                key=lambda r: (r.values or {}).get(sort_field_id),
+                reverse=reverse
+            )
+
+        matching_records = matching_records[:limit]
+
+        result = {
+            'count': len(matching_records),
+            'records': [r.to_dict() if hasattr(r, 'to_dict') else r.values for r in matching_records]
+        }
+
+        context = instance.context or {}
+        context[result_variable] = result
+        instance.context = context
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(instance, 'context')
+        db.session.commit()
+
+        if empty_result_action == 'stop':
+            return {'result': result, 'next_nodes': []}
+
+        return {'result': result, 'next_nodes': node.next_nodes or []}
 
     def _execute_send_email(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行发送邮件动作"""

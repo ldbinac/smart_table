@@ -23,6 +23,7 @@ import {
   Share,
   EditPen,
   Plus,
+  Search,
   Message,
   Link,
   Delete,
@@ -34,11 +35,15 @@ import WorkflowNodeConfig from "./WorkflowNodeConfig.vue";
 import WorkflowTriggerConfig from "./WorkflowTriggerConfig.vue";
 import WorkflowCanvas from "./WorkflowCanvas.vue";
 import WorkflowCanvasToolbar from "./WorkflowCanvasToolbar.vue";
-import { layoutWorkflowNodes, hasValidLayout } from "./workflowLayout";
+import {
+  layoutWorkflowNodes,
+  hasValidLayout,
+} from "./workflowLayout";
 import {
   getConditionBranches,
   setConditionBranchTarget,
 } from "@/utils/conditionBranch";
+import { isValidWorkflowVariableName } from "@/utils/workflow";
 
 interface Props {
   workflow: Workflow;
@@ -211,28 +216,33 @@ function rebuildNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
   }));
 }
 
+interface InvalidNodeInfo {
+  name: string;
+  reason: string;
+}
+
 interface MappingValidationResult {
   valid: boolean;
-  invalidNodeNames: string[];
+  invalidNodes: InvalidNodeInfo[];
 }
 
 function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
-  const invalidNodeNames: string[] = [];
+  const invalidNodes: InvalidNodeInfo[] = [];
   nodes.forEach((node) => {
     if (node.node_type === 'create_record') {
       const mappings = (node.config?.field_mappings ?? []) as unknown[];
       if (!mappings.length) {
-        invalidNodeNames.push(node.name);
+        invalidNodes.push({ name: node.name, reason: '字段映射未配置' });
       }
     } else if (node.node_type === 'update_record') {
       const updates = (node.config?.updates ?? []) as unknown[];
       if (!updates.length) {
-        invalidNodeNames.push(node.name);
+        invalidNodes.push({ name: node.name, reason: '字段映射未配置' });
       }
     } else if (node.node_type === 'condition') {
       const branches = getConditionBranches(node.config);
       if (branches.length === 0) {
-        invalidNodeNames.push(node.name);
+        invalidNodes.push({ name: node.name, reason: '分支配置不完整' });
       } else {
         const hasInvalid = branches.some((b) =>
           b.is_default
@@ -240,18 +250,30 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
             : b.conditions.length === 0
         );
         if (hasInvalid) {
-          invalidNodeNames.push(node.name);
+          invalidNodes.push({ name: node.name, reason: '分支配置不完整' });
         }
+      }
+    } else if (node.node_type === 'find_records') {
+      const config = node.config || {};
+      const targetTableId = config.target_table_id;
+      const resultVariable = config.result_variable;
+      if (!targetTableId) {
+        invalidNodes.push({ name: node.name, reason: '目标表格未选择' });
+      } else if (!resultVariable) {
+        invalidNodes.push({ name: node.name, reason: '结果变量名未配置' });
+      } else if (!isValidWorkflowVariableName(resultVariable as string)) {
+        invalidNodes.push({ name: node.name, reason: '结果变量名格式不正确' });
       }
     }
   });
-  return { valid: invalidNodeNames.length === 0, invalidNodeNames };
+  return { valid: invalidNodes.length === 0, invalidNodes };
 }
 
 const nodeTypeMenu = [
   // { type: "approval" as const, label: "审批节点（暂不支持）", icon: CircleCheck },
   { type: "update_record" as const, label: "更新记录", icon: EditPen },
   { type: "create_record" as const, label: "创建记录", icon: Plus },
+  { type: "find_records" as const, label: "查找记录", icon: Search },
   // { type: "send_email" as const, label: "发送邮件（暂不支持）", icon: Message },
   { type: "webhook" as const, label: "Webhook", icon: Link },
   { type: "condition" as const, label: "条件节点", icon: Share },
@@ -262,6 +284,7 @@ const nodeIconMap: Record<string, typeof CircleCheck> = {
   condition: Share,
   update_record: EditPen,
   create_record: Plus,
+  find_records: Search,
   send_email: Message,
   webhook: Link,
   action: EditPen,
@@ -277,13 +300,28 @@ function getNodeLabel(nodeType: string) {
   return item?.label ?? nodeType;
 }
 
+function getDefaultNodeConfig(type: WorkflowNodeType): Record<string, unknown> {
+  if (type === "find_records") {
+    return {
+      target_table_id: props.workflow.table_id ?? "",
+      result_variable: "records",
+      conditions: [],
+      sort_field_id: undefined,
+      sort_direction: "asc",
+      limit: 100,
+      empty_action: "continue",
+    };
+  }
+  return {};
+}
+
 function addNode(type: WorkflowNodeType) {
   const newNode: WorkflowNode = {
     id: generateId(),
     workflow_id: props.workflow.id,
     node_type: type,
     name: `${getNodeLabel(type)} ${localNodes.value.length + 1}`,
-    config: {},
+    config: getDefaultNodeConfig(type),
     order: localNodes.value.length,
     next_nodes: [],
   };
@@ -387,7 +425,7 @@ function handleCanvasAddNode(payload: {
       workflow_id: props.workflow.id,
       node_type: type,
       name: `${getNodeLabel(nodeType)} ${localNodes.value.length + 1}`,
-      config: {},
+      config: getDefaultNodeConfig(type),
       order: -1,
       next_nodes: [],
     };
@@ -406,7 +444,7 @@ function handleCanvasAddNode(payload: {
     workflow_id: props.workflow.id,
     node_type: type,
     name: `${getNodeLabel(nodeType)} ${localNodes.value.length + 1}`,
-    config: {},
+    config: getDefaultNodeConfig(type),
     order: position === "before" ? targetNode.order - 0.5 : targetNode.order + 0.5,
     next_nodes: [],
   };
@@ -449,7 +487,7 @@ function insertNodeBetween(sourceId: string, targetId: string, nodeType: string)
     workflow_id: props.workflow.id,
     node_type: nodeType as WorkflowNodeType,
     name: `${getNodeLabel(nodeType)} ${localNodes.value.length + 1}`,
-    config: {},
+    config: getDefaultNodeConfig(nodeType as WorkflowNodeType),
     order: sourceNode.order + 0.5,
     next_nodes: [targetId],
   };
@@ -588,12 +626,12 @@ async function handleSave() {
 
   const mappingValidation = validateNodeMappings(localNodes.value);
   if (!mappingValidation.valid) {
-    const nodeList = mappingValidation.invalidNodeNames
-      .map((name) => `· ${name}`)
+    const nodeList = mappingValidation.invalidNodes
+      .map((node) => `· ${node.name}：${node.reason}`)
       .join('\n');
     await ElMessageBox.alert(
-      `以下节点未配置字段映射，请先配置后再保存：\n${nodeList}`,
-      '字段映射未配置',
+      `以下节点配置不完整，请先配置后再保存：\n${nodeList}`,
+      '节点配置不完整',
       { confirmButtonText: '去配置' }
     );
     return;
@@ -615,7 +653,7 @@ function handleViewVersions() {
 }
 
 const LEAVE_CONFIRM_MESSAGE =
-  '当前工作流存在未配置字段映射的节点，离开将丢失未保存的修改，是否继续？';
+  '当前工作流存在配置不完整的节点，离开将丢失未保存的修改，是否继续？';
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
   if (hasInvalidMappingNodes.value) {

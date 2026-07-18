@@ -106,7 +106,7 @@ describe('WorkflowNodeConfig', () => {
             emits: ['update:modelValue', 'blur', 'keydown'],
           },
           'el-form': { template: '<form class="el-form"><slot /></form>' },
-          'el-form-item': { template: '<div class="el-form-item"><slot /></div>' },
+          'el-form-item': { template: '<div class="el-form-item"><label v-if="label" class="el-form-item__label">{{ label }}</label><slot /></div>', props: ['label'] },
           'el-radio-group': { template: '<div class="el-radio-group" :class="{ &quot;is-disabled&quot;: disabled }"><slot /></div>', props: ['disabled', 'modelValue'], emits: ['update:modelValue'] },
           'el-radio': { template: '<label class="el-radio"><slot /></label>' },
           'el-select': { template: '<select class="el-select" :class="$props.class" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value); $emit(\'change\', $event.target.value)"><slot /></select>', props: ['class', 'modelValue'], emits: ['update:modelValue', 'change'] },
@@ -714,6 +714,88 @@ describe('WorkflowNodeConfig', () => {
 
       expect(wrapper.find('.el-empty').exists()).toBe(true);
       expect((wrapper.vm as any).localNode.node_type).toBe('action');
+    });
+
+    it('action + find_records 应渲染查找记录配置面板', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'action',
+          config: {
+            action_type: 'find_records',
+            target_table_id: 'table-2',
+            conditions: [],
+            result_variable: 'records',
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.text()).toContain('查找记录');
+      expect(wrapper.text()).toContain('目标表格');
+      expect(wrapper.text()).toContain('过滤条件');
+      expect(wrapper.text()).toContain('排序字段');
+      expect(wrapper.text()).toContain('排序方向');
+      expect(wrapper.text()).toContain('返回条数上限');
+      expect(wrapper.text()).toContain('结果变量名');
+      expect(wrapper.text()).toContain('空结果处理');
+    });
+  });
+
+  describe('查找记录节点', () => {
+    it('node_type 为 find_records 时渲染完整配置面板', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'find_records',
+          config: {
+            target_table_id: 'table-2',
+            conditions: [],
+            result_variable: 'records',
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.text()).toContain('目标表格');
+      expect(wrapper.text()).toContain('过滤条件');
+      expect(wrapper.text()).toContain('排序字段');
+      expect(wrapper.text()).toContain('排序方向');
+      expect(wrapper.text()).toContain('返回条数上限');
+      expect(wrapper.text()).toContain('结果变量名');
+      expect(wrapper.text()).toContain('空结果处理');
+    });
+
+    it('非法变量名应显示错误提示', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'find_records',
+          config: {
+            target_table_id: 'table-2',
+            conditions: [],
+            result_variable: '123invalid',
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      expect(wrapper.find('.form-item-error').exists()).toBe(true);
+      expect(wrapper.find('.form-item-error').text()).toContain('变量名格式不正确');
     });
   });
 

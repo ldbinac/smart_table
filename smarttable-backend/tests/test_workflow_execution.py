@@ -929,6 +929,222 @@ class TestExecuteUpdateRecord:
         assert record.values[str(field.id)] == '有效值'
 
 
+class TestExecuteFindRecords:
+    """测试查找记录动作节点"""
+
+    def test_execute_find_records_returns_matching_records(
+        self, ctx, base, table, owner, field, engine
+    ):
+        """查询返回匹配记录，并将 count 和 records 写入上下文"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='查找记录测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'find_records',
+                    'name': '查找记录',
+                    'config': {
+                        'target_table_id': str(table.id),
+                        'conditions': [
+                            {
+                                'field_id': str(field.id),
+                                'operator': 'equals',
+                                'value': '匹配值',
+                            }
+                        ],
+                        'conjunction': 'and',
+                        'result_variable': 'found_records',
+                    },
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={},
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        matching_record = MagicMock()
+        matching_record.values = {str(field.id): '匹配值'}
+        matching_record.to_dict.return_value = {str(field.id): '匹配值'}
+        non_matching_record = MagicMock()
+        non_matching_record.values = {str(field.id): '不匹配'}
+        non_matching_record.to_dict.return_value = {str(field.id): '不匹配'}
+
+        with patch('app.services.workflow_execution_engine.Record.query') as mock_record_query:
+            mock_record_query.filter_by.return_value.all.return_value = [
+                matching_record,
+                non_matching_record,
+            ]
+            find_node = workflow.nodes.first()
+            result = engine.execute_node(instance, find_node)
+
+        assert result['result']['count'] == 1
+        assert len(result['result']['records']) == 1
+        db.session.refresh(instance)
+        assert instance.context['found_records']['count'] == 1
+        assert instance.context['found_records']['records'][0][str(field.id)] == '匹配值'
+
+    def test_execute_find_records_empty_continue_returns_next_nodes(
+        self, ctx, base, table, owner, field, engine
+    ):
+        """空结果且 empty_result_action='continue' 时返回下游 next_nodes"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='查找记录空结果继续测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'find_records',
+                    'name': '查找记录',
+                    'config': {
+                        'target_table_id': str(table.id),
+                        'conditions': [
+                            {
+                                'field_id': str(field.id),
+                                'operator': 'equals',
+                                'value': '不存在',
+                            }
+                        ],
+                        'conjunction': 'and',
+                        'result_variable': 'found_records',
+                        'empty_result_action': 'continue',
+                    },
+                    'order': 0,
+                },
+                {
+                    'node_type': 'update_record',
+                    'name': '后续更新',
+                    'config': {
+                        'action_type': 'update_record',
+                        'updates': [{'field_id': str(field.id), 'value_template': '已更新'}],
+                    },
+                    'order': 1,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        nodes = list(workflow.nodes.order_by(WorkflowNode.order).all())
+        find_node, next_node = nodes[0], nodes[1]
+        find_node.next_nodes = [str(next_node.id)]
+        db.session.commit()
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={},
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        result = engine.execute_node(instance, find_node)
+
+        assert result['result']['count'] == 0
+        assert result['next_nodes'] == [str(next_node.id)]
+
+    def test_execute_find_records_empty_stop_returns_empty_next_nodes(
+        self, ctx, base, table, owner, field, engine
+    ):
+        """空结果且 empty_result_action='stop' 时返回空 next_nodes"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='查找记录空结果停止测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'find_records',
+                    'name': '查找记录',
+                    'config': {
+                        'target_table_id': str(table.id),
+                        'conditions': [
+                            {
+                                'field_id': str(field.id),
+                                'operator': 'equals',
+                                'value': '不存在',
+                            }
+                        ],
+                        'conjunction': 'and',
+                        'result_variable': 'found_records',
+                        'empty_result_action': 'stop',
+                    },
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={},
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        find_node = workflow.nodes.first()
+        result = engine.execute_node(instance, find_node)
+
+        assert result['result']['count'] == 0
+        assert result['next_nodes'] == []
+
+    def test_execute_find_records_missing_target_table_raises(
+        self, ctx, base, table, owner, field, engine
+    ):
+        """缺少目标表格 ID 时抛出 ValueError"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='查找记录缺少表格测试',
+            created_by=owner.id,
+            nodes_config=[
+                {
+                    'node_type': 'find_records',
+                    'name': '查找记录',
+                    'config': {
+                        'conditions': [],
+                        'result_variable': 'found_records',
+                    },
+                    'order': 0,
+                },
+            ],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        instance = WorkflowInstance(
+            workflow_id=workflow.id,
+            version_number=1,
+            trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING,
+            context={},
+        )
+        db.session.add(instance)
+        db.session.commit()
+
+        find_node = workflow.nodes.first()
+        with pytest.raises(ValueError, match='缺少目标表格 ID'):
+            engine.execute_node(instance, find_node)
+
+
 class TestExecuteCreateRecord:
     """测试创建记录动作节点"""
 

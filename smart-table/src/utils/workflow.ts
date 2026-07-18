@@ -10,6 +10,7 @@ const ACTION_TYPE_TO_FRONTEND: Record<string, WorkflowNode["node_type"]> = {
   create_record: "create_record",
   send_email: "send_email",
   trigger_webhook: "webhook",
+  find_records: "find_records",
 };
 
 /**
@@ -80,6 +81,10 @@ export function rebuildWorkflowNodeChain(nodes: WorkflowNode[]): WorkflowNode[] 
  */
 export function isSpecifiedTimeTrigger(trigger_type: string): boolean {
   return trigger_type === "specified_time";
+}
+
+export function isValidWorkflowVariableName(name: string): boolean {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 }
 
 /**

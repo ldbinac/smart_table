@@ -29,6 +29,7 @@ const menuVisible = ref(false);
 const nodeTypeMenu = [
   { type: "update_record", label: "更新记录" },
   { type: "create_record", label: "创建记录" },
+  { type: "find_records", label: "查找记录" },
   { type: "webhook", label: "Webhook" },
   { type: "condition", label: "条件节点" },
 ];

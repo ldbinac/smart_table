@@ -274,6 +274,7 @@ _ACTION_TYPE_TO_FRONTEND = {
     'create_record': 'create_record',
     'send_email': 'send_email',
     'trigger_webhook': 'webhook',
+    'find_records': 'find_records',
 }
 
 

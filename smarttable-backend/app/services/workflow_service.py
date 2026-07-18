@@ -410,6 +410,7 @@ class WorkflowService:
                 'create_record': 'create_record',
                 'send_email': 'send_email',
                 'trigger_webhook': 'trigger_webhook',
+                'find_records': 'find_records',
             }
             for index, node_data in enumerate(nodes_config):
                 node_type = node_data.get('node_type', 'action')
@@ -545,7 +546,7 @@ class WorkflowService:
                     node_type_str = node_data.get('node_type', 'action')
                     config = dict(node_data.get('config', {}))
                     # 前端动作类型转换为 ACTION 节点
-                    action_node_types = {'update_record', 'create_record', 'send_email', 'trigger_webhook'}
+                    action_node_types = {'update_record', 'create_record', 'send_email', 'trigger_webhook', 'find_records'}
                     if node_type_str in action_node_types:
                         config['action_type'] = node_type_str
                         node_type_str = 'action'

@@ -162,7 +162,7 @@ class TestWorkflowRoutes:
     def test_update_nodes_returns_action_subtype_as_node_type(
         self, client, auth_headers, created_workflow
     ):
-        """测试保存 create_record/update_record/send_email 节点后，查询返回细粒度 node_type"""
+        """测试保存 create_record/update_record/send_email/find_records 节点后，查询返回细粒度 node_type"""
         response = client.put(
             f'/api/workflows/{created_workflow.id}/nodes',
             json={
@@ -194,6 +194,13 @@ class TestWorkflowRoutes:
                         'config': {},
                         'order': 3,
                         'next_nodes': []
+                    },
+                    {
+                        'node_type': 'find_records',
+                        'name': '查找记录',
+                        'config': {'target_table_id': 'table-1', 'result_variable': 'records'},
+                        'order': 4,
+                        'next_nodes': []
                     }
                 ]
             },
@@ -206,6 +213,7 @@ class TestWorkflowRoutes:
         assert returned_types['创建记录'] == 'create_record'
         assert returned_types['更新记录'] == 'update_record'
         assert returned_types['发送邮件'] == 'send_email'
+        assert returned_types['查找记录'] == 'find_records'
 
         # 再次 GET 确认 to_dict() 也返回细粒度类型
         get_response = client.get(
@@ -218,6 +226,7 @@ class TestWorkflowRoutes:
         assert returned_types['创建记录'] == 'create_record'
         assert returned_types['更新记录'] == 'update_record'
         assert returned_types['发送邮件'] == 'send_email'
+        assert returned_types['查找记录'] == 'find_records'
 
     def test_update_nodes_maps_frontend_next_nodes_to_backend_ids(
         self, client, auth_headers, created_workflow

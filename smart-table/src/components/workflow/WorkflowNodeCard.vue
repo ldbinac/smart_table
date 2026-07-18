@@ -6,6 +6,7 @@ import {
   Share,
   EditPen,
   Plus,
+  Search,
   Message,
   Link,
   Delete,
@@ -24,6 +25,7 @@ const nodeTypeOptions: NodeTypeOption[] = [
   { type: "approval", label: "审批节点", icon: CircleCheck },
   { type: "update_record", label: "更新记录", icon: EditPen },
   { type: "create_record", label: "创建记录", icon: Plus },
+  { type: "find_records", label: "查找记录", icon: Search },
   { type: "send_email", label: "发送邮件", icon: Message },
   { type: "webhook", label: "Webhook", icon: Link },
   { type: "condition", label: "条件节点", icon: Share },
@@ -34,6 +36,7 @@ const iconMap: Record<string, typeof CircleCheck> = {
   condition: Share,
   update_record: EditPen,
   create_record: Plus,
+  find_records: Search,
   send_email: Message,
   webhook: Link,
   action: EditPen,
@@ -88,6 +91,7 @@ const nodeTypeLabel = computed(() => {
 const addableNodeTypes: NodeTypeOption[] = [
   { type: "update_record", label: "更新记录", icon: EditPen },
   { type: "create_record", label: "创建记录", icon: Plus },
+  { type: "find_records", label: "查找记录", icon: Search },
   { type: "webhook", label: "Webhook", icon: Link },
   { type: "condition", label: "条件节点", icon: Share },
 ];

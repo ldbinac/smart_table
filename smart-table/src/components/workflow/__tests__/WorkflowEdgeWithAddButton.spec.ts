@@ -91,11 +91,12 @@ describe('WorkflowEdgeWithAddButton', () => {
     await wrapper.find('.edge-add-button').trigger('click')
 
     const menuItems = wrapper.findAll('.edge-add-menu-item')
-    expect(menuItems.length).toBe(4)
+    expect(menuItems.length).toBe(5)
     expect(menuItems[0].text()).toBe('更新记录')
     expect(menuItems[1].text()).toBe('创建记录')
-    expect(menuItems[2].text()).toBe('Webhook')
-    expect(menuItems[3].text()).toBe('条件节点')
+    expect(menuItems[2].text()).toBe('查找记录')
+    expect(menuItems[3].text()).toBe('Webhook')
+    expect(menuItems[4].text()).toBe('条件节点')
 
     await menuItems[1].trigger('click')
 
