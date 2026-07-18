@@ -32,7 +32,9 @@ export const authGuard = async (
   }
 
   if (whiteList.includes(to.path) || to.meta.public) {
-    if (authStore.isAuthenticated) {
+    // 分享页面等 public 路由允许任何人访问（无论是否已登录）
+    // 其他白名单页面（登录/注册）在已登录时重定向到首页
+    if (authStore.isAuthenticated && !to.meta.public) {
       next('/')
       return
     }

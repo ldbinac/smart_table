@@ -7,8 +7,14 @@ import secrets
 import string
 from datetime import datetime, timezone, timedelta
 
-from app.extensions import db
+from flask import current_app
+from app.extensions import db, cache
 from app.models.dashboard_share import DashboardShare, SharePermission
+
+
+# 密码尝试限制配置
+ACCESS_CODE_MAX_ATTEMPTS = 5       # 最大尝试次数
+ACCESS_CODE_LOCKOUT_SECONDS = 900   # 锁定时间（15 分钟）
 
 
 class DashboardShareService:
@@ -113,7 +119,8 @@ class DashboardShareService:
     @staticmethod
     def validate_share(
         token: str,
-        access_code: Optional[str] = None
+        access_code: Optional[str] = None,
+        client_ip: Optional[str] = None
     ) -> tuple[bool, Optional[DashboardShare], Optional[str]]:
         """
         验证分享链接是否有效
@@ -121,44 +128,82 @@ class DashboardShareService:
         参数:
             token: 分享令牌
             access_code: 访问密码
+            client_ip: 客户端 IP（用于密码尝试限制）
             
         返回:
-            (是否有效，分享对象，错误信息)
+            (是否有效，分享对象，错误码)
+            
+        错误码:
+            share_not_found - 分享不存在
+            share_deactivated - 分享已禁用
+            share_expired - 分享已过期
+            share_access_limit - 访问次数达上限
+            requires_access_code - 需要访问密码
+            access_code_locked - 密码尝试次数过多
+            access_code_invalid - 访问密码错误
         """
         share = DashboardShareService.get_share_by_token(token)
         
         if not share:
-            return False, None, '分享链接不存在'
+            return False, None, 'share_not_found'
         
         if not share.is_active:
-            return False, share, '分享链接已被禁用'
+            return False, share, 'share_deactivated'
         
         # 检查是否过期
         if share.expires_at and datetime.now(timezone.utc).timestamp() > share.expires_at:
-            return False, share, '分享链接已过期'
+            return False, share, 'share_expired'
         
         # 检查访问次数
         if share.max_access_count and share.current_access_count >= share.max_access_count:
-            return False, share, '分享链接访问次数已达上限'
+            return False, share, 'share_access_limit'
         
         # 验证访问密码
         if share.access_code:
             if access_code is None:
                 # 未提供访问密码，但分享需要密码
                 return False, share, 'requires_access_code'
+            
+            # 检查密码尝试限制
+            lockout_key = f"share_access_code_lockout:{token}:{client_ip or 'unknown'}"
+            attempts_key = f"share_access_code_attempts:{token}:{client_ip or 'unknown'}"
+            
+            if cache.get(lockout_key):
+                return False, share, 'access_code_locked'
+            
             # 使用时间安全比较防止时序攻击
             if not secrets.compare_digest(share.access_code, access_code):
-                return False, share, '访问密码错误'
+                # 增加失败计数
+                attempts = (cache.get(attempts_key) or 0) + 1
+                cache.set(attempts_key, attempts, timeout=ACCESS_CODE_LOCKOUT_SECONDS)
+                
+                if attempts >= ACCESS_CODE_MAX_ATTEMPTS:
+                    # 锁定并清除尝试计数
+                    cache.set(lockout_key, True, timeout=ACCESS_CODE_LOCKOUT_SECONDS)
+                    cache.delete(attempts_key)
+                    return False, share, 'access_code_locked'
+                
+                return False, share, 'access_code_invalid'
+            
+            # 密码正确，清除失败计数
+            cache.delete(attempts_key)
+            cache.delete(lockout_key)
         
         return True, share, None
     
     @staticmethod
-    def record_access(share_id: str) -> bool:
+    def record_access(
+        share_id: str,
+        client_ip: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> bool:
         """
         记录访问
         
         参数:
             share_id: 分享 ID
+            client_ip: 客户端 IP
+            user_agent: 客户端 User-Agent
             
         返回:
             是否成功
@@ -170,6 +215,13 @@ class DashboardShareService:
         share.current_access_count += 1
         share.last_accessed_at = datetime.now(timezone.utc)
         db.session.commit()
+        
+        # 记录访问日志
+        current_app.logger.info(
+            f'[ShareAccess] share_id={share_id} token={share.share_token[:8]}... '
+            f'ip={client_ip or "unknown"} ua={user_agent or "unknown"} '
+            f'total_access={share.current_access_count}'
+        )
         
         return True
     

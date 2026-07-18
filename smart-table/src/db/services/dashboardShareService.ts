@@ -220,9 +220,10 @@ export class DashboardShareService {
       console.log("[DashboardShare] Validating share:", token);
 
       // 调用后端 API 验证
+      // skipAuthRedirect: 防止 401/403/429 时拦截器跳转登录页，分享接口的错误由组件自行处理
       const response = await apiClient.post(`/shares/${token}/validate`, {
         accessCode,
-      }) as any;
+      }, { skipAuthRedirect: true } as any) as any;
 
       console.log("[DashboardShare] Full response:", response);
 
@@ -412,11 +413,13 @@ export class DashboardShareService {
       }
     } catch (error: any) {
       console.error("[DashboardShare] validateShare failed:", error);
+      // 优先使用后端返回的错误码，其次使用消息
+      const errorCode = error.response?.data?.error;
       const errorMsg =
         error.response?.data?.message || error.message || "验证失败";
       return {
         valid: false,
-        error: errorMsg,
+        error: errorCode || errorMsg,
       };
     }
   }
