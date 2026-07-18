@@ -128,8 +128,14 @@ def create_dashboard_share(dashboard_id) -> tuple:
             permission=data.get('permission', 'view')
         )
         
+        share_data = share.to_dict()
+
+        # 访问密码只在创建成功时返回一次
+        if share.access_code:
+            share_data['access_code'] = share.access_code
+
         return success_response(
-            data=share.to_dict(),
+            data=share_data,
             message='分享链接创建成功',
             code=201
         )
