@@ -31,7 +31,9 @@ class DashboardShareService:
         require_access_code: bool = False,
         expires_in_hours: Optional[int] = None,
         max_access_count: Optional[int] = None,
-        permission: str = 'view'
+        permission: str = 'view',
+        title: Optional[str] = None,
+        description: Optional[str] = None
     ) -> DashboardShare:
         """
         创建分享链接
@@ -43,6 +45,8 @@ class DashboardShareService:
             expires_in_hours: 过期时间（小时）
             max_access_count: 最大访问次数
             permission: 分享权限（view/edit）
+            title: 分享标题
+            description: 分享备注
             
         返回:
             创建的分享对象
@@ -62,6 +66,8 @@ class DashboardShareService:
         share = DashboardShare(
             dashboard_id=dashboard_id,
             share_token=share_token,
+            title=title,
+            description=description,
             access_code=access_code,
             expires_at=expires_at,
             max_access_count=max_access_count,
@@ -92,7 +98,7 @@ class DashboardShareService:
     @staticmethod
     def get_shares_by_dashboard(dashboard_id: str) -> List[DashboardShare]:
         """
-        获取仪表盘的所有分享链接
+        获取仪表盘的所有分享链接（含已停用的）
         
         参数:
             dashboard_id: 仪表盘 ID
@@ -101,8 +107,7 @@ class DashboardShareService:
             分享列表
         """
         return DashboardShare.query.filter_by(
-            dashboard_id=dashboard_id,
-            is_active=True
+            dashboard_id=dashboard_id
         ).order_by(DashboardShare.created_at.desc()).all()
     
     @staticmethod
@@ -136,9 +141,14 @@ class DashboardShareService:
         if share.max_access_count and share.current_access_count >= share.max_access_count:
             return False, share, '分享链接访问次数已达上限'
         
-        # 验证访问密码（使用时间安全比较防止时序攻击）
-        if share.access_code and not secrets.compare_digest(share.access_code, access_code or ''):
-            return False, share, '访问密码错误'
+        # 验证访问密码
+        if share.access_code:
+            if access_code is None:
+                # 未提供访问密码，但分享需要密码
+                return False, share, 'requires_access_code'
+            # 使用时间安全比较防止时序攻击
+            if not secrets.compare_digest(share.access_code, access_code):
+                return False, share, '访问密码错误'
         
         return True, share, None
     

@@ -46,6 +46,18 @@ class DashboardShare(db.Model):
         index=True
     )
     
+    # 分享标题
+    title: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True
+    )
+
+    # 分享备注
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True
+    )
+
     # 访问密码（可选）
     access_code: Mapped[Optional[str]] = mapped_column(
         String(10),
@@ -123,6 +135,8 @@ class DashboardShare(db.Model):
             'id': str(self.id),
             'dashboard_id': str(self.dashboard_id),
             'share_token': self.share_token,
+            'title': self.title,
+            'description': self.description,
             'has_access_code': self.access_code is not None,
             'expires_at': self.expires_at,
             'max_access_count': self.max_access_count,

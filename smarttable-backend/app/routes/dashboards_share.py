@@ -125,7 +125,9 @@ def create_dashboard_share(dashboard_id) -> tuple:
             require_access_code=data.get('requireAccessCode', False),
             expires_in_hours=data.get('expiresInHours'),
             max_access_count=data.get('maxAccessCount'),
-            permission=data.get('permission', 'view')
+            permission=data.get('permission', 'view'),
+            title=data.get('title'),
+            description=data.get('description')
         )
         
         share_data = share.to_dict()
@@ -280,6 +282,12 @@ def validate_dashboard_share(token) -> tuple:
     valid, share, error = DashboardShareService.validate_share(token, access_code)
     
     if not valid:
+        # 未提供访问密码但分享需要密码，返回分享信息让前端显示密码输入框
+        if error == 'requires_access_code' and share:
+            return success_response(
+                data={'share': share.to_dict(), 'requires_access_code': True},
+                message='需要访问密码'
+            )
         return error_response(error or '分享链接无效', 400)
     
     # 记录访问
