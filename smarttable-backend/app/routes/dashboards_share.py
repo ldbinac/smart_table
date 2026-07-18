@@ -8,6 +8,7 @@ from app.utils.response import success_response, error_response, not_found_respo
 from app.services.dashboard_share_service import DashboardShareService
 from app.services.base_service import BaseService
 from app.models.dashboard import Dashboard
+from app.models.dashboard_share import DashboardShare
 from app.models.base import MemberRole
 from app.models.table import Table
 from app.models.field import Field
