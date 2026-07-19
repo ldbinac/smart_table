@@ -25,6 +25,49 @@ email_bp = Blueprint('email', __name__)
 email_bp.strict_slashes = False
 
 
+@email_bp.route('/templates/list', methods=['GET'])
+@jwt_required
+def list_email_templates_for_workflow() -> tuple:
+    """
+    获取邮件模板列表（工作流配置用，非管理员可访问）
+    ---
+    tags:
+      - Email
+    security:
+      - Bearer: []
+    description: 获取邮件模板列表供工作流节点配置使用（登录用户即可访问）
+    responses:
+      200:
+        description: 返回邮件模板列表
+      401:
+        description: 未授权访问
+    """
+    try:
+        from app.services.email_template_service import EmailTemplateService
+        result = EmailTemplateService.get_all_templates()
+        if not result['success']:
+            return error_response(result.get('error', '获取模板列表失败'), code=500)
+
+        # 只返回工作流配置需要的字段
+        templates = [
+            {
+                'id': t['id'],
+                'name': t['name'],
+                'template_key': t['template_key']
+            }
+            for t in result.get('templates', [])
+        ]
+
+        return success_response(
+            data=templates,
+            message='获取邮件模板列表成功'
+        )
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取邮件模板列表失败：{str(e)}')
+        return error_response('获取邮件模板列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+
+
 @email_bp.route('/templates', methods=['GET'])
 @jwt_required
 @admin_required

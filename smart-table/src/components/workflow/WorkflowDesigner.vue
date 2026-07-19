@@ -19,13 +19,12 @@ import type {
   WorkflowNodeType,
 } from "@/types/workflow";
 import {
+  ADDABLE_NODE_TYPES,
+  NODE_TYPE_ICON_MAP,
+  getNodeLabel as _getNodeLabel,
+} from "@/utils/workflowNodeType";
+import {
   CircleCheck,
-  Share,
-  EditPen,
-  Plus,
-  Search,
-  Message,
-  Link,
   Delete,
   Rank,
   Timer,
@@ -269,33 +268,16 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
   return { valid: invalidNodes.length === 0, invalidNodes };
 }
 
-const nodeTypeMenu = [
-  { type: "update_record" as const, label: "更新记录", icon: EditPen },
-  { type: "create_record" as const, label: "创建记录", icon: Plus },
-  { type: "find_records" as const, label: "查找记录", icon: Search },
-  // { type: "send_email" as const, label: "发送邮件（暂不支持）", icon: Message },
-  { type: "webhook" as const, label: "Webhook", icon: Link },
-  { type: "condition" as const, label: "条件节点", icon: Share },
-];
+const nodeTypeMenu = ADDABLE_NODE_TYPES;
 
-const nodeIconMap: Record<string, typeof CircleCheck> = {
-  condition: Share,
-  update_record: EditPen,
-  create_record: Plus,
-  find_records: Search,
-  send_email: Message,
-  webhook: Link,
-  action: EditPen,
-  trigger: CircleCheck,
-};
+const nodeIconMap = NODE_TYPE_ICON_MAP;
 
 function getNodeIcon(nodeType: string) {
   return nodeIconMap[nodeType] ?? CircleCheck;
 }
 
 function getNodeLabel(nodeType: string) {
-  const item = nodeTypeMenu.find((m) => m.type === nodeType);
-  return item?.label ?? nodeType;
+  return _getNodeLabel(nodeType);
 }
 
 function getDefaultNodeConfig(type: WorkflowNodeType): Record<string, unknown> {

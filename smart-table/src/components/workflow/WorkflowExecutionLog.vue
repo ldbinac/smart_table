@@ -3,9 +3,9 @@ import { computed } from "vue";
 import type {
   WorkflowInstance,
   WorkflowExecutionLog,
-  WorkflowNodeType,
 } from "@/types/workflow";
 import { formatDateTime } from "@/utils/timezone";
+import { getNodeLabel } from "@/utils/workflowNodeType";
 import {
   CircleCheck,
   CircleClose,
@@ -27,19 +27,9 @@ const sortedLogs = computed(() => {
   );
 });
 
-const nodeTypeLabels: Record<WorkflowNodeType | string, string> = {
-  trigger: "触发器",
-  action: "动作节点",
-  condition: "条件节点",
-  update_record: "更新记录",
-  create_record: "创建记录",
-  send_email: "发送邮件",
-  webhook: "Webhook",
-};
-
-function getNodeTypeLabel(nodeType: WorkflowNodeType | string | null | undefined): string {
+function getNodeTypeLabel(nodeType: string | null | undefined): string {
   if (!nodeType) return "未知节点";
-  return nodeTypeLabels[nodeType] ?? nodeType;
+  return getNodeLabel(nodeType);
 }
 
 function getStatusType(

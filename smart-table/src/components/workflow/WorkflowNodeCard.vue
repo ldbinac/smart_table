@@ -1,45 +1,19 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import {
-  CircleCheck,
-  Share,
-  EditPen,
-  Plus,
-  Search,
-  Message,
-  Link,
-  Delete,
-} from "@element-plus/icons-vue";
+import { CircleCheck, Delete } from "@element-plus/icons-vue";
 import type { WorkflowNode, ConditionBranch } from "@/types/workflow";
 import { getConditionBranches } from "@/utils/conditionBranch";
+import {
+  ALL_NODE_TYPES,
+  ADDABLE_NODE_TYPES,
+  NODE_TYPE_ICON_MAP,
+  getNodeLabel,
+} from "@/utils/workflowNodeType";
 
-interface NodeTypeOption {
-  type: string;
-  label: string;
-  icon: typeof CircleCheck;
-}
+const nodeTypeOptions = ALL_NODE_TYPES;
 
-const nodeTypeOptions: NodeTypeOption[] = [
-  { type: "trigger", label: "触发器", icon: CircleCheck },
-  { type: "update_record", label: "更新记录", icon: EditPen },
-  { type: "create_record", label: "创建记录", icon: Plus },
-  { type: "find_records", label: "查找记录", icon: Search },
-  { type: "send_email", label: "发送邮件", icon: Message },
-  { type: "webhook", label: "Webhook", icon: Link },
-  { type: "condition", label: "条件节点", icon: Share },
-];
-
-const iconMap: Record<string, typeof CircleCheck> = {
-  condition: Share,
-  update_record: EditPen,
-  create_record: Plus,
-  find_records: Search,
-  send_email: Message,
-  webhook: Link,
-  action: EditPen,
-  trigger: CircleCheck,
-};
+const iconMap = NODE_TYPE_ICON_MAP;
 
 interface Props {
   id: string;
@@ -82,17 +56,10 @@ function getBranchHandleStyle(index: number, total: number) {
 }
 
 const nodeTypeLabel = computed(() => {
-  const option = nodeTypeOptions.find((item) => item.type === node.value.node_type);
-  return option?.label ?? node.value.node_type;
+  return getNodeLabel(node.value.node_type);
 });
 
-const addableNodeTypes: NodeTypeOption[] = [
-  { type: "update_record", label: "更新记录", icon: EditPen },
-  { type: "create_record", label: "创建记录", icon: Plus },
-  { type: "find_records", label: "查找记录", icon: Search },
-  { type: "webhook", label: "Webhook", icon: Link },
-  { type: "condition", label: "条件节点", icon: Share },
-];
+const addableNodeTypes = ADDABLE_NODE_TYPES;
 
 function handleAddBefore(type: string) {
   emit("add-before", type);

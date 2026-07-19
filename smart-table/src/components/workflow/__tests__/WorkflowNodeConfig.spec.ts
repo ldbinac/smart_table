@@ -51,6 +51,13 @@ vi.mock('@/db/services/fieldService', () => ({
   },
 }));
 
+// Mock api 模块（send_email 节点通过动态 import("@/utils/api") 加载邮件模板）
+vi.mock('@/utils/api', () => ({
+  default: {
+    get: vi.fn(() => Promise.resolve({ data: { data: [] } })),
+  },
+}));
+
 describe('WorkflowNodeConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -476,6 +483,59 @@ describe('WorkflowNodeConfig', () => {
       expect(wrapper.find('.el-empty').exists()).toBe(false);
       expect(wrapper.text()).toContain('字段');
       expect(wrapper.text()).toContain('固定邮箱');
+      // 验证 content_mode 单选组渲染（自定义内容/邮件模板）
+      expect(wrapper.text()).toContain('自定义内容');
+      expect(wrapper.text()).toContain('邮件模板');
+      // 默认 content_mode 为 custom，应显示主题和正文
+      expect(wrapper.text()).toContain('邮件主题');
+      expect(wrapper.text()).toContain('邮件正文');
+      // 验证收件人字段提示文本
+      expect(wrapper.text()).toContain('仅支持邮箱、成员、协作人类型字段');
+    });
+
+    it('send_email 自定义内容模式应渲染主题和正文输入框', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'send_email',
+          config: {
+            recipient_type: 'field',
+            content_mode: 'custom',
+          },
+        },
+      });
+      await nextTick();
+
+      // 验证邮件主题输入框渲染
+      expect(wrapper.text()).toContain('邮件主题');
+      // 验证邮件正文输入框渲染
+      expect(wrapper.text()).toContain('邮件正文');
+      // 自定义内容模式下不应显示模板选择下拉框（content_mode 单选组中的"邮件模板"标签仍可见，但模板 select 不渲染）
+      expect(wrapper.text()).not.toContain('选择模板');
+      // 验证模板提示文本包含 {{record.field_id}}
+      const hints = wrapper.findAll('.field-hint');
+      const hintTexts = hints.map((h) => h.text());
+      expect(hintTexts.some((t) => t.includes('record.field_id'))).toBe(true);
+    });
+
+    it('send_email 模板模式应渲染模板选择器', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'send_email',
+          config: {
+            recipient_type: 'field',
+            content_mode: 'template',
+          },
+        },
+      });
+      await nextTick();
+
+      // 模板模式下应显示邮件模板选择器
+      expect(wrapper.text()).toContain('邮件模板');
+      // 模板模式下不应显示邮件主题和正文输入框
+      expect(wrapper.text()).not.toContain('邮件主题');
+      expect(wrapper.text()).not.toContain('邮件正文');
     });
 
     it('action + trigger_webhook 应渲染 Webhook 配置面板', async () => {

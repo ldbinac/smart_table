@@ -1,7 +1,17 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import WorkflowVersionNodeSnapshot from '../WorkflowVersionNodeSnapshot.vue'
 import type { WorkflowNode } from '@/types/workflow'
+
+vi.mock('@element-plus/icons-vue', () => ({
+  CircleCheck: { template: '<span class="icon-circle-check" />' },
+  Share: { template: '<span class="icon-share" />' },
+  EditPen: { template: '<span class="icon-edit-pen" />' },
+  Plus: { template: '<span class="icon-plus" />' },
+  Message: { template: '<span class="icon-message" />' },
+  Link: { template: '<span class="icon-link" />' },
+  Search: { template: '<span class="icon-search" />' },
+}))
 
 describe('WorkflowVersionNodeSnapshot', () => {
   it('renders condition node summary', () => {
@@ -94,7 +104,9 @@ describe('WorkflowVersionNodeSnapshot', () => {
       config: {
         recipient_type: 'field',
         recipient_value: ['f1'],
-        email_template_id: 'tpl1'
+        content_mode: 'custom',
+        subject: '通知：{{record.f1}}',
+        body: '您好'
       },
       order: 4,
       next_nodes: []
@@ -107,7 +119,8 @@ describe('WorkflowVersionNodeSnapshot', () => {
     })
     expect(wrapper.text()).toContain('发送邮件')
     expect(wrapper.text()).toContain('字段')
-    expect(wrapper.text()).toContain('tpl1')
+    expect(wrapper.text()).toContain('自定义内容')
+    expect(wrapper.text()).toContain('通知')
   })
 
   it('renders webhook node summary', () => {

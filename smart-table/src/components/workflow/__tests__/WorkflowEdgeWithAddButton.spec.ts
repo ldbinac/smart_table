@@ -31,6 +31,12 @@ vi.mock('@vue-flow/core', async () => {
 vi.mock('@element-plus/icons-vue', () => ({
   Plus: { name: 'Plus', template: '<span class="icon-plus" />' },
   Delete: { name: 'Delete', template: '<span class="icon-delete" />' },
+  EditPen: { name: 'EditPen', template: '<span class="icon-edit-pen" />' },
+  Search: { name: 'Search', template: '<span class="icon-search" />' },
+  Message: { name: 'Message', template: '<span class="icon-message" />' },
+  Link: { name: 'Link', template: '<span class="icon-link" />' },
+  Share: { name: 'Share', template: '<span class="icon-share" />' },
+  CircleCheck: { name: 'CircleCheck', template: '<span class="icon-circle-check" />' },
 }))
 
 const defaultProps: Record<string, any> = {
@@ -91,12 +97,13 @@ describe('WorkflowEdgeWithAddButton', () => {
     await wrapper.find('.edge-add-button').trigger('click')
 
     const menuItems = wrapper.findAll('.edge-add-menu-item')
-    expect(menuItems.length).toBe(5)
+    expect(menuItems.length).toBe(6)
     expect(menuItems[0].text()).toBe('更新记录')
     expect(menuItems[1].text()).toBe('创建记录')
     expect(menuItems[2].text()).toBe('查找记录')
-    expect(menuItems[3].text()).toBe('Webhook')
-    expect(menuItems[4].text()).toBe('条件节点')
+    expect(menuItems[3].text()).toBe('发送邮件')
+    expect(menuItems[4].text()).toBe('Webhook')
+    expect(menuItems[5].text()).toBe('条件节点')
 
     await menuItems[1].trigger('click')
 

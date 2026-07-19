@@ -272,6 +272,25 @@ describe('WorkflowDesigner', () => {
     expect(newNode.config.empty_action).toBe('continue');
   });
 
+  it('添加节点菜单应包含发送邮件选项', async () => {
+    const wrapper = mountDesigner();
+    await nextTick();
+    const dropdownItems = wrapper.findAll('.el-dropdown-item');
+    const sendEmailItem = dropdownItems.find(
+      (item) => item.text().trim() === '发送邮件'
+    );
+    expect(sendEmailItem).toBeTruthy();
+    await sendEmailItem!.trigger('click');
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    const newNode = lastNodes[lastNodes.length - 1];
+    expect(newNode.node_type).toBe('send_email');
+    expect(newNode.name).toContain('发送邮件');
+  });
+
   it('find_records 节点使用默认配置时保存应通过', async () => {
     const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
     const workflowWithTable = {

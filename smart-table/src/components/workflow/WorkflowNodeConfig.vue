@@ -23,6 +23,7 @@ import {
   normalizeWorkflowNode,
   isValidWorkflowVariableName,
 } from "@/utils/workflow";
+import { getNodeLabel } from "@/utils/workflowNodeType";
 import {
   normalizeConditionConfig,
   addConditionBranch,
@@ -536,6 +537,21 @@ const emailRecipientValue = computed({
   set: (value) => setConfigValue("recipient_value", value),
 });
 
+const emailContentMode = computed({
+  get: () => configValue<"custom" | "template">("content_mode", "custom"),
+  set: (value) => setConfigValue("content_mode", value),
+});
+
+const emailSubject = computed({
+  get: () => configValue<string>("subject", ""),
+  set: (value) => setConfigValue("subject", value),
+});
+
+const emailBody = computed({
+  get: () => configValue<string>("body", ""),
+  set: (value) => setConfigValue("body", value),
+});
+
 const emailTemplateId = computed({
   get: () => configValue<string | undefined>("email_template_id", undefined),
   set: (value) => setConfigValue("email_template_id", value),
@@ -545,10 +561,25 @@ const emailFields = computed(() =>
   props.fields.filter((f) => f.type === "email" || f.type === "member" || f.type === "collaborator"),
 );
 
-const emailTemplates = [
-  { id: "template_1", name: "状态变更通知" },
-  { id: "template_2", name: "自定义模板" },
-];
+const emailTemplates = ref<Array<{ id: string; name: string; template_key: string }>>([]);
+
+async function loadEmailTemplates() {
+  try {
+    const { default: api } = await import("@/utils/api");
+    const data = await api.get<Array<{ id: string; name: string; template_key: string }>>("/admin/email/templates/list");
+    emailTemplates.value = Array.isArray(data) ? data : [];
+  } catch {
+    emailTemplates.value = [];
+  }
+}
+
+watch(
+  () => props.node.node_type,
+  (type) => {
+    if (type === "send_email") loadEmailTemplates();
+  },
+  { immediate: true },
+);
 
 // ==================== 查找记录节点配置 ====================
 
@@ -709,17 +740,7 @@ function updateInlineHeader(key: string, value: string) {
 // ==================== 渲染辅助 ====================
 
 const nodeTypeLabel = computed(() => {
-  const labels: Record<string, string> = {
-    condition: "条件节点",
-    update_record: "更新记录",
-    create_record: "创建记录",
-    send_email: "发送邮件",
-    webhook: "Webhook",
-    find_records: "查找记录",
-    action: "动作节点",
-    trigger: "触发器",
-  };
-  return labels[props.node.node_type] ?? props.node.node_type;
+  return getNodeLabel(props.node.node_type);
 });
 </script>
 
@@ -1161,6 +1182,7 @@ const nodeTypeLabel = computed(() => {
               :label="field.name"
               :value="field.id" />
           </el-select>
+          <div class="field-hint">仅支持邮箱、成员、协作人类型字段</div>
         </el-form-item>
 
         <el-form-item v-else label="固定邮箱">
@@ -1175,15 +1197,44 @@ const nodeTypeLabel = computed(() => {
             :disabled="readonly" />
         </el-form-item>
 
-        <el-form-item label="邮件模板">
-          <el-select v-model="emailTemplateId" placeholder="选择模板" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="template in emailTemplates"
-              :key="template.id"
-              :label="template.name"
-              :value="template.id" />
-          </el-select>
+        <el-form-item label="内容模式">
+          <el-radio-group v-model="emailContentMode" :disabled="readonly">
+            <el-radio label="custom">自定义内容</el-radio>
+            <el-radio label="template">邮件模板</el-radio>
+          </el-radio-group>
         </el-form-item>
+
+        <template v-if="emailContentMode === 'custom'">
+          <el-form-item label="邮件主题">
+            <el-input
+              v-model="emailSubject"
+              placeholder="请输入邮件主题"
+              :disabled="readonly" />
+            <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值</div>
+          </el-form-item>
+
+          <el-form-item label="邮件正文">
+            <el-input
+              v-model="emailBody"
+              type="textarea"
+              :rows="6"
+              placeholder="请输入邮件正文"
+              :disabled="readonly" />
+            <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值，{{trigger.event_type}} 引用触发事件</div>
+          </el-form-item>
+        </template>
+
+        <template v-else>
+          <el-form-item label="邮件模板">
+            <el-select v-model="emailTemplateId" placeholder="选择模板" class="full-width" :disabled="readonly">
+              <el-option
+                v-for="template in emailTemplates"
+                :key="template.id"
+                :label="template.name"
+                :value="template.template_key" />
+            </el-select>
+          </el-form-item>
+        </template>
       </el-form>
     </template>
 
@@ -1485,6 +1536,13 @@ const nodeTypeLabel = computed(() => {
 
 .full-width {
   width: 100%;
+}
+
+.field-hint {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 
 .condition-conjunction {

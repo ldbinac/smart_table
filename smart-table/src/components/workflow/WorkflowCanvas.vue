@@ -16,6 +16,7 @@ import {
   getConditionBranches,
   setConditionBranchTarget,
 } from "@/utils/conditionBranch";
+import { ADDABLE_NODE_TYPES } from "@/utils/workflowNodeType";
 import WorkflowNodeCard from "./WorkflowNodeCard.vue";
 import WorkflowEdgeWithAddButton from "./WorkflowEdgeWithAddButton.vue";
 import "@vue-flow/core/dist/style.css";
@@ -201,13 +202,7 @@ function handleDeleteNode(nodeId: string) {
   emit("delete-node", nodeId);
 }
 
-const addableNodeTypes = [
-  { type: "update_record", label: "更新记录" },
-  { type: "create_record", label: "创建记录" },
-  { type: "find_records", label: "查找记录" },
-  { type: "webhook", label: "Webhook" },
-  { type: "condition", label: "条件节点" },
-];
+const addableNodeTypes = ADDABLE_NODE_TYPES;
 
 function fitView() {
   vueFlowRef.value?.fitView();
@@ -281,6 +276,7 @@ defineExpose({
               :key="item.type"
               @click="handleAddFirstNode(item.type)"
             >
+              <el-icon><component :is="item.icon" /></el-icon>
               <span>{{ item.label }}</span>
             </el-dropdown-item>
           </el-dropdown-menu>
