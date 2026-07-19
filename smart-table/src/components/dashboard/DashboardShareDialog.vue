@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
-import { Share, Plus, CopyDocument, Link, Lock } from "@element-plus/icons-vue";
+import { Share, Plus, CopyDocument } from "@element-plus/icons-vue";
 import { dashboardShareService } from "@/db/services/dashboardShareService";
 import type { DashboardShare } from "@/db/schema";
-import { formatDateTime, formatDate } from "@/utils/timezone";
+import { formatDateTime } from "@/utils/timezone";
 
 const props = defineProps<{
   visible: boolean;
@@ -292,11 +292,7 @@ function goToCreateShare() {
   resetForm();
 }
 
-// 跳转到分享列表步骤
-function goToSharesList() {
-  currentStep.value = 0;
-  loadExistingShares();
-}
+
 </script>
 
 <template>

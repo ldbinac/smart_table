@@ -6,7 +6,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import LookupField from '../LookupField.vue';
 import type { FieldEntity } from '@/db/schema';
-import type { LookupFieldConfig } from '@/types/fields';
+import type { LookupFieldConfig, CellValue } from '@/types/fields';
 
 // mock fieldService，避免触发真实的 IndexedDB / API 调用
 vi.mock('@/db/services/fieldService', () => ({
@@ -38,7 +38,7 @@ describe('LookupField', () => {
         aggregationType: 'original',
         fieldFormat: { type: 'number' },
         ...configOverride,
-      } as LookupFieldConfig,
+      } as unknown as Record<string, unknown>,
       isPrimary: false,
       isSystem: false,
       isRequired: false,
@@ -52,7 +52,7 @@ describe('LookupField', () => {
   function mountLookup(modelValue: unknown, field: FieldEntity) {
     return mount(LookupField, {
       props: {
-        modelValue,
+        modelValue: modelValue as CellValue,
         field,
       },
     });

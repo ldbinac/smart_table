@@ -198,7 +198,7 @@ describe('LookupConditionEditor', () => {
     // 使用 CSS 选择器定位 stub 的根元素来获取组件实例
     const radioGroup = wrapper.findComponent('.el-radio-group');
     expect(radioGroup.exists()).toBe(true);
-    radioGroup.vm.$emit('update:modelValue', 'or');
+    (radioGroup as any).vm.$emit('update:modelValue', 'or');
     await wrapper.vm.$nextTick();
 
     const emitted = wrapper.emitted('update:conjunction');

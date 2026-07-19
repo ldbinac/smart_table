@@ -451,7 +451,7 @@ function openEditField(field: FieldEntity) {
     // 查找字段的配置保存在 config 中
     lookupConfig: {
       name: field.name,
-      config: (field.config as LookupFieldConfig) || {
+      config: (field.config as unknown as LookupFieldConfig) || {
         sourceTableId: "",
         targetFieldId: "",
         filterConditions: [],
@@ -1151,34 +1151,6 @@ const autoNumberPreview = computed(() => {
   return `${prefix}${datePart}${numberPart}${suffix}`;
 });
 
-// 插入函数到公式
-function insertFunction(funcName: string) {
-  const formulaInput = document.querySelector(
-    '.formula-field textarea, [placeholder*="公式"]',
-  ) as HTMLTextAreaElement;
-  if (formulaInput) {
-    const start = formulaInput.selectionStart;
-    const end = formulaInput.selectionEnd;
-    const currentValue = newField.value.formula;
-    const newValue =
-      currentValue.substring(0, start) +
-      funcName +
-      "()" +
-      currentValue.substring(end);
-    newField.value.formula = newValue;
-    // 将光标放在括号内
-    nextTick(() => {
-      formulaInput.focus();
-      formulaInput.setSelectionRange(
-        start + funcName.length + 1,
-        start + funcName.length + 1,
-      );
-    });
-  } else {
-    newField.value.formula += funcName + "()";
-  }
-}
-
 // 处理公式插入（从 FormulaHelper 组件）
 function handleFormulaInsert(formula: { name: string; syntax: string }) {
   const formulaInput = document.querySelector(
@@ -1832,8 +1804,7 @@ async function toggleFieldVisibility(
             newField.type !== FieldType.CREATED_TIME &&
             newField.type !== FieldType.UPDATED_TIME &&
             newField.type !== FieldType.CREATED_BY &&
-            newField.type !== FieldType.LAST_MODIFIED_BY &&
-            newField.type !== FieldType.ROLLUP
+            newField.type !== FieldType.LAST_MODIFIED_BY
           "
           label="必填">
           <ElSwitch v-model="newField.isRequired" />
@@ -1862,8 +1833,7 @@ async function toggleFieldVisibility(
             newField.type !== FieldType.UPDATED_TIME &&
             newField.type !== FieldType.CREATED_BY &&
             newField.type !== FieldType.LAST_MODIFIED_BY &&
-            newField.type !== FieldType.LINK &&
-            newField.type !== FieldType.ROLLUP
+            newField.type !== FieldType.LINK
           "
           label="默认值">
           <!-- 单行文本 -->

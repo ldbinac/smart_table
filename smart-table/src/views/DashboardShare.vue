@@ -205,7 +205,7 @@ async function loadTableDataFromLocal(tableId: string) {
 
   try {
     // 从 IndexedDB 读取
-    const { default: db } = await import("@/db/schema");
+    const { db } = await import("@/db/schema");
     const fields = await db.fields.where("tableId").equals(tableId).sortBy("order");
     const records = await db.records.where("tableId").equals(tableId).toArray();
     tableFieldsMap.value.set(tableId, fields);

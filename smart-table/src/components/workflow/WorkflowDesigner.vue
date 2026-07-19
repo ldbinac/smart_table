@@ -29,6 +29,7 @@ import {
   Rank,
   Timer,
   CopyDocument,
+  Plus,
 } from "@element-plus/icons-vue";
 import WorkflowNodeConfig from "./WorkflowNodeConfig.vue";
 import WorkflowTriggerConfig from "./WorkflowTriggerConfig.vue";
@@ -719,7 +720,7 @@ onBeforeRouteLeave((_, __, next) => {
                       <el-dropdown-item
                         v-for="item in nodeTypeMenu"
                         :key="item.type"
-                        @click="addNode(item.type)">
+                        @click="addNode(item.type as WorkflowNodeType)">
                         <el-icon><component :is="item.icon" /></el-icon>
                         <span>{{ item.label }}</span>
                       </el-dropdown-item>

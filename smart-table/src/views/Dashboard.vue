@@ -29,11 +29,11 @@ import {
 } from "@/utils/dashboardDataProcessor";
 import { DashboardLayoutEngine } from "@/utils/dashboardLayoutEngine";
 import { escapeHtml } from "@/utils/helpers";
-import { formatDateTime, formatDate } from "@/utils/timezone";
+import { formatDateTime } from "@/utils/timezone";
 // widgetRegistry 暂时未使用，但保留以备将来扩展
 // import { widgetRegistry } from "@/utils/dashboardWidgetRegistry";
 import { FieldType } from "@/types";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
 import DashboardPreviewDialog from "@/components/dashboard/DashboardPreviewDialog.vue";

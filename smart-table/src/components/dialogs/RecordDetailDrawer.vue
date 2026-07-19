@@ -17,13 +17,11 @@ import {
   ElDialog,
   ElRadioGroup,
   ElRadio,
-  ElBadge,
 } from "element-plus";
-import { Clock, Connection, CircleCheck } from "@element-plus/icons-vue";
+import { Clock, Connection } from "@element-plus/icons-vue";
 import { useWorkflowStore } from "@/stores";
 import { useMemberStore } from "@/stores/memberStore";
 import { useBaseStore } from "@/stores/baseStore";
-import { workflowApiService } from "@/services/api/workflowApiService";
 import type { Workflow } from "@/types/workflow";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";

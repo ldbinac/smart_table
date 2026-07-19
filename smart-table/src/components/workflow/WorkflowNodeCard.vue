@@ -5,13 +5,10 @@ import { CircleCheck, Delete } from "@element-plus/icons-vue";
 import type { WorkflowNode, ConditionBranch } from "@/types/workflow";
 import { getConditionBranches } from "@/utils/conditionBranch";
 import {
-  ALL_NODE_TYPES,
   ADDABLE_NODE_TYPES,
   NODE_TYPE_ICON_MAP,
   getNodeLabel,
 } from "@/utils/workflowNodeType";
-
-const nodeTypeOptions = ALL_NODE_TYPES;
 
 const iconMap = NODE_TYPE_ICON_MAP;
 
