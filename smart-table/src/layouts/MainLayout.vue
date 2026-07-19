@@ -9,9 +9,8 @@ const route = useRoute();
 const sidebarCollapsed = ref(false);
 
 const shouldShowSidebar = computed(() => {
-  const hiddenRoutes = ["/settings"];
-  // 完全匹配隐藏路由，或以 /base/ 开头的路由（Base 页面有自己的侧边栏）
-  return !hiddenRoutes.includes(route.path) && !route.path.startsWith("/base/");
+  // 以 /base/ 开头的路由由 Base 页面自身管理侧边栏，此处不重复渲染
+  return !route.path.startsWith("/base/");
 });
 
 const mainContentStyle = computed(() => {

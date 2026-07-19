@@ -46,13 +46,6 @@ describe('workflowStore', () => {
     started_at: new Date().toISOString(),
   };
 
-  const mockTask = {
-    id: 'task-1',
-    instance_id: 'inst-1',
-    status: 'pending' as const,
-    assignee_id: 'user-1',
-  };
-
   const mockWebhook = {
     id: 'wh-1',
     base_id: 'base-1',
@@ -79,13 +72,10 @@ describe('workflowStore', () => {
     expect(store.workflows).toEqual([]);
     expect(store.currentWorkflow).toBeNull();
     expect(store.instances).toEqual([]);
-    expect(store.pendingApprovals).toEqual([]);
-    expect(store.approvalHistory).toEqual([]);
     expect(store.webhooks).toEqual([]);
     expect(store.templates).toEqual([]);
     expect(store.loading).toBe(false);
     expect(store.error).toBeNull();
-    expect(store.pendingApprovalCount).toBe(0);
     expect(store.activeWorkflowCount).toBe(0);
   });
 
@@ -197,45 +187,6 @@ describe('workflowStore', () => {
     });
   });
 
-  describe('审批操作', () => {
-    it('应该加载审批列表并分类', async () => {
-      const store = useWorkflowStore();
-      const approvedTask = { ...mockTask, id: 'task-2', status: 'approved' as const };
-      (workflowApiService.listApprovals as any).mockResolvedValue([mockTask, approvedTask]);
-      const result = await store.loadApprovals('base-1');
-      expect(workflowApiService.listApprovals).toHaveBeenCalledWith('base-1', undefined);
-      expect(store.pendingApprovals).toEqual([mockTask]);
-      expect(store.approvalHistory).toEqual([approvedTask]);
-      expect(result).toEqual([mockTask, approvedTask]);
-    });
-
-    it.each([
-      ['approveTask', 'approved'],
-      ['rejectTask', 'rejected'],
-    ] as const)('%s 应该移动任务到历史记录', async (method, expectedStatus) => {
-      const store = useWorkflowStore();
-      store.pendingApprovals = [mockTask];
-      (workflowApiService[method] as any).mockResolvedValue(undefined);
-      await (store as any)[method]('task-1', '同意');
-      expect(workflowApiService[method]).toHaveBeenCalledWith('task-1', '同意');
-      expect(store.pendingApprovals).toEqual([]);
-      expect(store.approvalHistory[0].status).toBe(expectedStatus);
-      expect(store.approvalHistory[0].comment).toBe('同意');
-    });
-
-    it('应该转交审批任务', async () => {
-      const store = useWorkflowStore();
-      store.pendingApprovals = [mockTask];
-      (workflowApiService.transferTask as any).mockResolvedValue(undefined);
-      await store.transferTask('task-1', 'user-2', '转交');
-      expect(workflowApiService.transferTask).toHaveBeenCalledWith('task-1', 'user-2', '转交');
-      expect(store.pendingApprovals).toEqual([]);
-      expect(store.approvalHistory[0].status).toBe('transferred');
-      expect(store.approvalHistory[0].assignee_id).toBe('user-2');
-      expect(store.approvalHistory[0].transferred_from_id).toBe('user-1');
-    });
-  });
-
   describe('Webhook 操作', () => {
     it('应该加载 Webhook 列表', async () => {
       const store = useWorkflowStore();
@@ -289,8 +240,8 @@ describe('workflowStore', () => {
     it('应该加载模板列表', async () => {
       const store = useWorkflowStore();
       (workflowApiService.listTemplates as any).mockResolvedValue([mockTemplate]);
-      const result = await store.loadTemplates({ category: 'approval' });
-      expect(workflowApiService.listTemplates).toHaveBeenCalledWith({ category: 'approval' });
+      const result = await store.loadTemplates({ category: 'automation' });
+      expect(workflowApiService.listTemplates).toHaveBeenCalledWith({ category: 'automation' });
       expect(store.templates).toEqual([mockTemplate]);
       expect(result).toEqual([mockTemplate]);
     });
@@ -321,7 +272,6 @@ describe('workflowStore', () => {
     store.workflows = [mockWorkflow];
     store.currentWorkflow = mockWorkflow;
     store.instances = [mockInstance];
-    store.pendingApprovals = [mockTask];
     store.webhooks = [mockWebhook];
     store.templates = [mockTemplate];
     store.error = 'error';
@@ -329,8 +279,6 @@ describe('workflowStore', () => {
     expect(store.workflows).toEqual([]);
     expect(store.currentWorkflow).toBeNull();
     expect(store.instances).toEqual([]);
-    expect(store.pendingApprovals).toEqual([]);
-    expect(store.approvalHistory).toEqual([]);
     expect(store.webhooks).toEqual([]);
     expect(store.templates).toEqual([]);
     expect(store.loading).toBe(false);

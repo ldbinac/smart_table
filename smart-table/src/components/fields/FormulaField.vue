@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import dayjs from "dayjs";
 import type { FieldOptions } from "@/types/fields";
 import { FormulaEngine } from "@/utils/formula/engine";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
+
+/** 判断数值是否为毫秒级日期时间戳（1990-2100 年范围内） */
+function isDateTimestamp(value: number): boolean {
+  return Number.isFinite(value) && value >= 631148400000 && value <= 4102444800000;
+}
 
 interface Props {
   modelValue: string | number | null;
@@ -17,20 +23,29 @@ interface Props {
   // 用于公式计算所需的上下文
   record?: RecordEntity;
   allFields?: FieldEntity[];
+  // 后端预计算值（优先使用）
+  computedValue?: string | number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: null,
   readonly: false,
   placeholder: "",
+  computedValue: null,
 });
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string | number | null): void;
 }>();
 
-// 计算结果
+// 计算结果（优先使用后端预计算值）
 const calculatedValue = computed(() => {
+  // 优先使用后端计算结果（computed_values）
+  if (props.computedValue !== null && props.computedValue !== undefined) {
+    return props.computedValue;
+  }
+
+  // 回退到前端计算
   if (!props.record || !props.allFields || !props.field?.options?.formula) {
     return props.modelValue;
   }
@@ -68,6 +83,15 @@ const displayValue = computed(() => {
 
   // 数字格式化
   if (typeof value === "number") {
+    // 日期时间戳按日期格式显示，避免显示为 1,784,736,000,000.00
+    if (isDateTimestamp(value)) {
+      const d = dayjs(value);
+      // 没有时分秒时只显示日期，否则显示日期时间
+      return d.startOf("day").valueOf() === value
+        ? d.format("YYYY-MM-DD")
+        : d.format("YYYY-MM-DD HH:mm:ss");
+    }
+
     const precision = props.field?.options?.precision ?? 2;
     return value.toLocaleString("zh-CN", {
       minimumFractionDigits: precision,

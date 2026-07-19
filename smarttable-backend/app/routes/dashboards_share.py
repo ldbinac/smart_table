@@ -3,11 +3,12 @@
 """
 import traceback
 from flask import Blueprint, request, g, current_app
-from app.utils.decorators import jwt_required
+from app.utils.decorators import jwt_required, api_rate_limit, get_client_ip
 from app.utils.response import success_response, error_response, not_found_response, forbidden_response
 from app.services.dashboard_share_service import DashboardShareService
 from app.services.base_service import BaseService
 from app.models.dashboard import Dashboard
+from app.models.dashboard_share import DashboardShare
 from app.models.base import MemberRole
 from app.models.table import Table
 from app.models.field import Field
@@ -125,11 +126,19 @@ def create_dashboard_share(dashboard_id) -> tuple:
             require_access_code=data.get('requireAccessCode', False),
             expires_in_hours=data.get('expiresInHours'),
             max_access_count=data.get('maxAccessCount'),
-            permission=data.get('permission', 'view')
+            permission=data.get('permission', 'view'),
+            title=data.get('title'),
+            description=data.get('description')
         )
         
+        share_data = share.to_dict()
+
+        # 访问密码只在创建成功时返回一次
+        if share.access_code:
+            share_data['access_code'] = share.access_code
+
         return success_response(
-            data=share.to_dict(),
+            data=share_data,
             message='分享链接创建成功',
             code=201
         )
@@ -240,7 +249,19 @@ def deactivate_dashboard_share(share_id) -> tuple:
 
 # ==================== 公开访问接口（不需要登录） ====================
 
+# 错误码到 HTTP 响应的映射
+SHARE_ERROR_MAP = {
+    'share_not_found': ('无效的认证令牌', 401),
+    'share_deactivated': ('无效的认证令牌', 401),
+    'share_expired': ('无效的认证令牌', 401),
+    'share_access_limit': ('无效的认证令牌', 401),
+    'access_code_locked': ('密码尝试次数过多，请稍后再试', 429),
+    'access_code_invalid': ('访问密码错误', 400),
+}
+
+
 @dashboards_share_bp.route('/shares/<token>/validate', methods=['POST'])
+@api_rate_limit(max_requests=20, window=60, key_prefix='share_validate', by_user=False, by_ip=True)
 def validate_dashboard_share(token) -> tuple:
     """
     验证分享链接（公开接口，用于分享页面）
@@ -266,18 +287,34 @@ def validate_dashboard_share(token) -> tuple:
       200:
         description: 验证成功，返回分享信息和仪表盘数据
       400:
-        description: 分享链接无效或访问密码错误
+        description: 访问密码错误
+      401:
+        description: 无效的认证令牌
+      429:
+        description: 密码尝试次数过多
     """
     data = request.get_json() or {}
     access_code = data.get('accessCode')
+    client_ip = get_client_ip()
     
-    valid, share, error = DashboardShareService.validate_share(token, access_code)
+    valid, share, error = DashboardShareService.validate_share(token, access_code, client_ip)
     
     if not valid:
-        return error_response(error or '分享链接无效', 400)
+        # 未提供访问密码但分享需要密码，返回分享信息让前端显示密码输入框
+        if error == 'requires_access_code' and share:
+            return success_response(
+                data={'share': share.to_dict(), 'requires_access_code': True},
+                message='需要访问密码'
+            )
+        # 根据错误码映射为标准 HTTP 响应
+        if error in SHARE_ERROR_MAP:
+            message, status_code = SHARE_ERROR_MAP[error]
+            return error_response(message, status_code, error=error)
+        return error_response('无效的认证令牌', 401)
     
-    # 记录访问
-    DashboardShareService.record_access(str(share.id))
+    # 记录访问（含 IP 和 User-Agent）
+    user_agent = request.headers.get('User-Agent', '')[:200]
+    DashboardShareService.record_access(str(share.id), client_ip, user_agent)
     
     # 返回仪表盘信息（不包含敏感数据）
     dashboard_data = share.dashboard.to_dict(include_widgets=True)
@@ -314,6 +351,7 @@ def validate_dashboard_share(token) -> tuple:
 
 
 @dashboards_share_bp.route('/shares/<token>/dashboard', methods=['GET'])
+@api_rate_limit(max_requests=30, window=60, key_prefix='share_dashboard', by_user=False, by_ip=True)
 def get_shared_dashboard(token) -> tuple:
     """
     获取分享的仪表盘数据（公开接口，用于分享页面）
@@ -330,19 +368,17 @@ def get_shared_dashboard(token) -> tuple:
     responses:
       200:
         description: 仪表盘数据和组件信息
-      400:
-        description: 分享链接已过期
-      404:
-        description: 分享链接不存在或已失效
+      401:
+        description: 无效的认证令牌
     """
     share = DashboardShareService.get_share_by_token(token)
     
     if not share or not share.is_active:
-        return not_found_response('分享链接不存在或已失效')
+        return error_response('无效的认证令牌', 401, error='share_not_found')
     
     # 检查是否过期
     if share.expires_at and __import__('time').time() > share.expires_at:
-        return error_response('分享链接已过期', 400)
+        return error_response('无效的认证令牌', 401, error='share_expired')
     
     # 返回仪表盘数据
     dashboard_data = share.dashboard.to_dict(include_widgets=True)

@@ -152,48 +152,77 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
   },
   
   YEAR: (date: unknown) => {
-    const timestamp = Number(date)
-    if (isNaN(timestamp)) return '#ERROR'
-    return dayjs(timestamp).year()
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    return d.year()
   },
-  
+
   MONTH: (date: unknown) => {
-    const timestamp = Number(date)
-    if (isNaN(timestamp)) return '#ERROR'
-    return dayjs(timestamp).month() + 1
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    return d.month() + 1
   },
-  
+
   DAY: (date: unknown) => {
-    const timestamp = Number(date)
-    if (isNaN(timestamp)) return '#ERROR'
-    return dayjs(timestamp).date()
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    return d.date()
   },
-  
+
   HOUR: (date: unknown) => {
-    const timestamp = Number(date)
-    if (isNaN(timestamp)) return '#ERROR'
-    return dayjs(timestamp).hour()
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    return d.hour()
   },
-  
+
   MINUTE: (date: unknown) => {
-    const timestamp = Number(date)
-    if (isNaN(timestamp)) return '#ERROR'
-    return dayjs(timestamp).minute()
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    return d.minute()
   },
-  
+
   SECOND: (date: unknown) => {
-    const timestamp = Number(date)
-    if (isNaN(timestamp)) return '#ERROR'
-    return dayjs(timestamp).second()
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    return d.second()
   },
-  
+
+  WEEKDAY: (date: unknown) => {
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    // 1=周一, 7=周日，与后端保持一致
+    const day = d.day()
+    return day === 0 ? 7 : day
+  },
+
+  DATETIME_FORMAT: (date: unknown, format: unknown) => {
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    const fmt = String(format ?? 'YYYY-MM-DD HH:mm:ss')
+    return d.format(fmt)
+  },
+
+  FROMUNIXTIME: (timestamp: unknown) => {
+    const ts = Number(timestamp)
+    if (isNaN(ts)) return '#ERROR'
+    // 前端日期统一使用毫秒时间戳
+    return dayjs(ts).valueOf()
+  },
+
+  UNIXTIMESTAMP: (date: unknown) => {
+    const d = parseDateValue(date)
+    if (!d) return '#ERROR'
+    // 前端日期统一使用毫秒时间戳
+    return d.valueOf()
+  },
+
   DATEDIF: (startDate: unknown, endDate: unknown, unit: unknown) => {
-    const start = dayjs(Number(startDate))
-    const end = dayjs(Number(endDate))
+    const start = parseDateValue(startDate)
+    const end = parseDateValue(endDate)
+    if (!start || !end) return '#ERROR'
+
     const u = String(unit ?? 'D').toUpperCase()
-    
-    if (!start.isValid() || !end.isValid()) return '#ERROR'
-    
+
     switch (u) {
       case 'Y':
         return end.diff(start, 'year')
@@ -205,15 +234,63 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
         return '#ERROR'
     }
   },
-  
-  DATEADD: (date: unknown, amount: unknown, unit: unknown) => {
-    const d = dayjs(Number(date))
-    const amt = Number(amount)
+
+  // DATEDIFF 是 DATEDIF 的别名，保持与飞书兼容
+  DATEDIFF: (startDate: unknown, endDate: unknown, unit: unknown) => {
+    const start = parseDateValue(startDate)
+    const end = parseDateValue(endDate)
+    if (!start || !end) return '#ERROR'
+
     const u = String(unit ?? 'day').toLowerCase()
-    
-    if (!d.isValid() || isNaN(amt)) return '#ERROR'
-    
-    const result = d.add(amt, u as dayjs.ManipulateType)
+
+    switch (u) {
+      case 'y':
+      case 'year':
+        return end.diff(start, 'year')
+      case 'm':
+      case 'month':
+        return end.diff(start, 'month')
+      case 'd':
+      case 'day':
+        return end.diff(start, 'day')
+      default:
+        return '#ERROR'
+    }
+  },
+
+  DATEADD: (date: unknown, amount: unknown, unit: unknown) => {
+    const d = parseDateValue(date)
+    const amt = Number(amount)
+    const rawUnit = String(unit ?? 'day').trim()
+    // 区分大小写：M=月，m=分；其余按小写处理
+    const unitMap: Record<string, dayjs.ManipulateType> = {
+      'M': 'month',
+      'm': 'minute',
+      'year': 'year',
+      'years': 'year',
+      'y': 'year',
+      'month': 'month',
+      'months': 'month',
+      'week': 'week',
+      'weeks': 'week',
+      'w': 'week',
+      'day': 'day',
+      'days': 'day',
+      'd': 'day',
+      'hour': 'hour',
+      'hours': 'hour',
+      'h': 'hour',
+      'minute': 'minute',
+      'minutes': 'minute',
+      'second': 'second',
+      'seconds': 'second',
+      's': 'second'
+    }
+
+    if (!d || isNaN(amt)) return '#ERROR'
+
+    const u = unitMap[rawUnit] ?? unitMap[rawUnit.toLowerCase()] ?? 'day'
+    const result = d.add(amt, u)
     return result.valueOf()
   },
   
@@ -379,10 +456,51 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/**
+ * 解析日期值，支持多种格式：
+ * - 数字时间戳（毫秒）
+ * - 日期字符串（如 "2026-07-02"）
+ * - Date 对象
+ * - dayjs 对象
+ */
+function parseDateValue(value: unknown): dayjs.Dayjs | null {
+  if (value === null || value === undefined) return null
+
+  // 数字时间戳
+  if (typeof value === 'number') {
+    const d = dayjs(value)
+    return d.isValid() ? d : null
+  }
+
+  // 字符串：尝试用 dayjs 解析
+  if (typeof value === 'string') {
+    const d = dayjs(value)
+    return d.isValid() ? d : null
+  }
+
+  // Date 对象或 dayjs 对象
+  if (value instanceof Date) {
+    const d = dayjs(value)
+    return d.isValid() ? d : null
+  }
+
+  // 尝试作为 dayjs 对象处理
+  if (typeof value === 'object' && 'isValid' in value) {
+    try {
+      const d = value as dayjs.Dayjs
+      return d.isValid() ? d : null
+    } catch {
+      return null
+    }
+  }
+
+  return null
+}
+
 export const functionCategories = {
   math: ['SUM', 'AVG', 'MAX', 'MIN', 'ROUND', 'CEILING', 'FLOOR', 'ABS', 'MOD', 'POWER', 'SQRT'],
   text: ['CONCAT', 'LEFT', 'RIGHT', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'SUBSTITUTE', 'REPLACE', 'FIND'],
-  date: ['TODAY', 'NOW', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'DATEDIF', 'DATEADD'],
+  date: ['TODAY', 'NOW', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'WEEKDAY', 'DATETIME_FORMAT', 'FROMUNIXTIME', 'UNIXTIMESTAMP', 'DATEDIF', 'DATEDIFF', 'DATEADD'],
   logic: ['IF', 'AND', 'OR', 'NOT', 'IFERROR', 'IFS', 'SWITCH'],
   statistics: ['COUNT', 'COUNTA', 'COUNTIF', 'SUMIF', 'AVERAGEIF']
 }
@@ -417,7 +535,12 @@ export const functionDescriptions: Record<string, string> = {
   HOUR: '返回小时',
   MINUTE: '返回分钟',
   SECOND: '返回秒',
+  WEEKDAY: '返回星期几 (1=周一, 7=周日)',
+  DATETIME_FORMAT: '按指定格式显示日期时间',
+  FROMUNIXTIME: '时间戳转日期时间（毫秒）',
+  UNIXTIMESTAMP: '日期时间转时间戳（毫秒）',
   DATEDIF: '计算两个日期之间的差',
+  DATEDIFF: '计算两个日期之间的差（DATEDIF的别名）',
   DATEADD: '日期加减',
   IF: '条件判断',
   AND: '逻辑与',

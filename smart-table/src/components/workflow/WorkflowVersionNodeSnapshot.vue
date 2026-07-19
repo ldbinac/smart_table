@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import {
-  CircleCheck,
-  Share,
-  EditPen,
-  Plus,
-  Message,
-  Link,
-} from '@element-plus/icons-vue'
+import { CircleCheck } from '@element-plus/icons-vue'
 import type { FieldEntity, TableEntity } from '@/db/schema'
 import type { WorkflowNode, WebhookConfig } from '@/types/workflow'
+import { NODE_TYPE_ICON_MAP, NODE_TYPE_LABEL_MAP } from '@/utils/workflowNodeType'
 
 interface Props {
   node: WorkflowNode
@@ -20,23 +14,9 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const nodeIconMap: Record<string, typeof CircleCheck> = {
-  approval: CircleCheck,
-  condition: Share,
-  update_record: EditPen,
-  create_record: Plus,
-  send_email: Message,
-  webhook: Link,
-}
+const nodeIconMap = NODE_TYPE_ICON_MAP
 
-const nodeTypeLabels: Record<string, string> = {
-  approval: '审批节点',
-  condition: '条件节点',
-  update_record: '更新记录',
-  create_record: '创建记录',
-  send_email: '发送邮件',
-  webhook: 'Webhook',
-}
+const nodeTypeLabels = NODE_TYPE_LABEL_MAP
 
 function getFieldName(fieldId?: string): string {
   if (!fieldId) return '未选择字段'
@@ -57,22 +37,7 @@ const configEntries = computed(() => {
   const { node_type, config } = props.node
   const entries: { label: string; value: string }[] = []
 
-  if (node_type === 'approval') {
-    const assigneeType = config.assignee_type as string || '未配置'
-    const assigneeTypeLabels: Record<string, string> = {
-      fixed: '固定用户',
-      field: '字段指定',
-      role: '角色',
-    }
-    entries.push({ label: '审批方式', value: assigneeTypeLabels[assigneeType] || assigneeType })
-    entries.push({ label: '审批值', value: String(config.assignee_value || '-') })
-    const modeLabels: Record<string, string> = { any: '任意一人通过', all: '全部通过', serial: '依次审批' }
-    entries.push({ label: '审批模式', value: modeLabels[String(config.approval_mode)] || String(config.approval_mode || '-') })
-    entries.push({ label: '超时时间', value: config.timeout_minutes ? `${config.timeout_minutes} 分钟` : '未配置' })
-    const actionLabels: Record<string, string> = { auto_approve: '自动通过', auto_reject: '自动拒绝', notify: '通知' }
-    entries.push({ label: '超时动作', value: actionLabels[String(config.timeout_action)] || String(config.timeout_action || '-') })
-  }
-  else if (node_type === 'condition') {
+  if (node_type === 'condition') {
     const conditions = (config.conditions as Array<{ field_id?: string; operator?: string; value?: unknown }>) || []
     conditions.forEach((c, index) => {
       entries.push({
@@ -106,7 +71,15 @@ const configEntries = computed(() => {
     entries.push({ label: '收件人来源', value: recipientType === 'field' ? '字段' : '固定邮箱' })
     const recipientValue = (config.recipient_value as string[] | undefined) || []
     entries.push({ label: '收件人', value: recipientValue.join(', ') || '-' })
-    entries.push({ label: '邮件模板', value: config.email_template_id ? String(config.email_template_id) : '未选择' })
+    const contentMode = config.content_mode as string || 'custom'
+    entries.push({ label: '内容模式', value: contentMode === 'template' ? '邮件模板' : '自定义内容' })
+    if (contentMode === 'template') {
+      entries.push({ label: '邮件模板', value: config.email_template_id ? String(config.email_template_id) : '未选择' })
+    } else {
+      entries.push({ label: '邮件主题', value: (config.subject as string) || '-' })
+      const body = (config.body as string) || ''
+      entries.push({ label: '邮件正文', value: body.length > 80 ? body.substring(0, 80) + '...' : body || '-' })
+    }
   }
   else if (node_type === 'webhook') {
     const mode = config.webhook_mode as string || 'inline'

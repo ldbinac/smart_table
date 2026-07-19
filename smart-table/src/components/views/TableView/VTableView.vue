@@ -2273,14 +2273,28 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
         if (!formula) { row[field.id] = ''; return; }
         try {
           const result = formulaEngine!.calculate(record, formula);
+          
           if (result === '#ERROR') {
             row[field.id] = '计算错误';
           } else if (typeof result === 'number') {
-            const precision = (field.options?.precision as number) ?? 2;
-            row[field.id] = result.toLocaleString('zh-CN', {
-              minimumFractionDigits: precision,
-              maximumFractionDigits: precision,
-            });
+            // 根据公式类型决定格式化方式
+            const resultType = FormulaEngine.inferResultType(formula);
+            // 日期时间类型：YYYY-MM-DD HH:mm:ss
+            if (resultType === "datetime") {
+              row[field.id] = formatDateTime(result);
+            }
+            // 日期类型：YYYY-MM-DD
+            else if (resultType === "date") {
+              row[field.id] = formatDate(result);
+            }
+            // 数字类型：带精度格式化
+            else {
+              const precision = (field.options?.precision as number) ?? 2;
+              row[field.id] = result.toLocaleString('zh-CN', {
+                minimumFractionDigits: precision,
+                maximumFractionDigits: precision,
+              });
+            }
           } else {
             row[field.id] = String(result);
           }

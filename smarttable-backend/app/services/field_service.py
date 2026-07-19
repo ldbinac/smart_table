@@ -160,7 +160,15 @@ class FieldService:
             choices = options.get('choices', [])
             if not choices or not isinstance(choices, list):
                 return {'success': False, 'error': f'{field_type} 类型字段必须提供选项列表'}
-        
+
+        # 查找字段配置校验
+        if field_type == FieldType.LOOKUP.value:
+            from app.services.lookup_service import LookupService
+            config_data = data.get('config', {}) or {}
+            is_valid, error_msg = LookupService.validate_config(config_data, table_id)
+            if not is_valid:
+                return {'success': False, 'error': error_msg}
+
         # 验证默认值（如果提供）
         if 'defaultValue' in data or 'default_value' in data:
             default_value = data.get('defaultValue') or data.get('default_value')
@@ -292,7 +300,15 @@ class FieldService:
             choices = options.get('choices', [])
             if not choices or not isinstance(choices, list):
                 return {'success': False, 'error': f'{field.type} 类型字段必须提供选项列表'}
-        
+
+        # 查找字段配置校验
+        if field.type == FieldType.LOOKUP.value:
+            from app.services.lookup_service import LookupService
+            config_data = field.config or {}
+            is_valid, error_msg = LookupService.validate_config(config_data, str(field.table_id))
+            if not is_valid:
+                return {'success': False, 'error': error_msg}
+
         field.updated_at = datetime.now(timezone.utc)
         
         try:

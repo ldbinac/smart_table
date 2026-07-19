@@ -75,6 +75,17 @@ instance.interceptors.response.use(
       });
 
       if (code === 401) {
+        // 分享接口的 401 不跳转登录页（无效 token 是业务错误，不是认证失败）
+        const skipRedirect = (response.config as any)?.skipAuthRedirect;
+        if (skipRedirect) {
+          return Promise.reject(
+            Object.assign(new Error(errorData.message || "Unauthorized"), {
+              requestId,
+              code: 401,
+              response,
+            })
+          );
+        }
         // 清除 token 并跳转登录页
         clearToken();
         router.push("/login");
@@ -88,6 +99,17 @@ instance.interceptors.response.use(
       }
 
       if (code === 403) {
+        // 分享接口的 403 不跳转登录页
+        const skipRedirect = (response.config as any)?.skipAuthRedirect;
+        if (skipRedirect) {
+          return Promise.reject(
+            Object.assign(new Error(errorData.message || "Forbidden"), {
+              requestId,
+              code: 403,
+              response,
+            })
+          );
+        }
         // 检查是否是认证令牌相关的错误
         const isAuthError = 
           errorData.error?.toLowerCase().includes('token') ||
@@ -181,28 +203,43 @@ instance.interceptors.response.use(
         ElMessage.error(backendMessage || "请求参数错误");
         break;
       case 401:
-        // 清除 token 并跳转登录页
-        clearToken();
-        router.push("/login");
-        ElMessage.error(backendMessage || "登录已过期，请重新登录");
-        break;
-      case 403:
-        // 检查是否是认证令牌相关的错误
-        const isAuthErrorFor403 = 
-          data?.error?.toLowerCase().includes('token') ||
-          data?.error?.toLowerCase().includes('auth') ||
-          backendMessage?.toLowerCase().includes('token') ||
-          backendMessage?.toLowerCase().includes('认证') ||
-          backendMessage?.toLowerCase().includes('无效');
-        
-        if (isAuthErrorFor403) {
+        {
+          // 分享接口的 401 不跳转登录页
+          const skipRedirect = (error.config as any)?.skipAuthRedirect;
+          if (skipRedirect) {
+            // 不弹 ElMessage，由组件自行处理错误
+            break;
+          }
           // 清除 token 并跳转登录页
           clearToken();
           router.push("/login");
-          ElMessage.error(backendMessage || "认证令牌无效，请重新登录");
-        } else {
-          // 普通权限不足错误
-          ElMessage.error(backendMessage || "没有操作权限");
+          ElMessage.error(backendMessage || "登录已过期，请重新登录");
+        }
+        break;
+      case 403:
+        {
+          // 分享接口的 403 不跳转登录页
+          const skipRedirect = (error.config as any)?.skipAuthRedirect;
+          if (skipRedirect) {
+            break;
+          }
+          // 检查是否是认证令牌相关的错误
+          const isAuthErrorFor403 = 
+            data?.error?.toLowerCase().includes('token') ||
+            data?.error?.toLowerCase().includes('auth') ||
+            backendMessage?.toLowerCase().includes('token') ||
+            backendMessage?.toLowerCase().includes('认证') ||
+            backendMessage?.toLowerCase().includes('无效');
+          
+          if (isAuthErrorFor403) {
+            // 清除 token 并跳转登录页
+            clearToken();
+            router.push("/login");
+            ElMessage.error(backendMessage || "认证令牌无效，请重新登录");
+          } else {
+            // 普通权限不足错误
+            ElMessage.error(backendMessage || "没有操作权限");
+          }
         }
         break;
       case 404:
@@ -226,7 +263,12 @@ instance.interceptors.response.use(
         }
         break;
       case 429:
-        ElMessage.error(backendMessage || "请求过于频繁，请稍后再试");
+        {
+          const skipRedirect = (error.config as any)?.skipAuthRedirect;
+          if (!skipRedirect) {
+            ElMessage.error(backendMessage || "请求过于频繁，请稍后再试");
+          }
+        }
         break;
       case 500:
         ElMessage.error(backendMessage || "服务器内部错误");

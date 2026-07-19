@@ -17,14 +17,12 @@ import {
   ElDialog,
   ElRadioGroup,
   ElRadio,
-  ElBadge,
 } from "element-plus";
-import { Clock, Connection, CircleCheck } from "@element-plus/icons-vue";
+import { Clock, Connection } from "@element-plus/icons-vue";
 import { useWorkflowStore } from "@/stores";
 import { useMemberStore } from "@/stores/memberStore";
 import { useBaseStore } from "@/stores/baseStore";
-import { workflowApiService } from "@/services/api/workflowApiService";
-import type { Workflow, WorkflowTask } from "@/types/workflow";
+import type { Workflow } from "@/types/workflow";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
 import dayjs from "dayjs";
@@ -184,11 +182,6 @@ const triggerableWorkflows = ref<Workflow[]>([]);
 const selectedWorkflowId = ref<string>("");
 const triggerLoading = ref(false);
 
-// 审批历史相关状态
-const approvalHistoryVisible = ref(false);
-const approvalHistoryTasks = ref<WorkflowTask[]>([]);
-const approvalHistoryLoading = ref(false);
-
 // 关联字段相关状态
 const linkFieldRecords = ref<Map<string, LinkedRecord[]>>(new Map());
 const linkFieldLoading = ref<Set<string>>(new Set());
@@ -248,24 +241,6 @@ const handleTriggerWorkflow = async () => {
     console.error("[RecordDetailDrawer] 触发工作流失败:", error);
   } finally {
     triggerLoading.value = false;
-  }
-};
-
-// 显示审批历史
-const showApprovalHistory = async () => {
-  if (!props.record?.id) return;
-  approvalHistoryVisible.value = true;
-  approvalHistoryLoading.value = true;
-  try {
-    const tasks = await workflowApiService.getRecordApprovalHistory(
-      props.record.id
-    );
-    approvalHistoryTasks.value = tasks;
-  } catch (error) {
-    console.error("[RecordDetailDrawer] 加载审批历史失败:", error);
-    ElMessage.error("加载审批历史失败");
-  } finally {
-    approvalHistoryLoading.value = false;
   }
 };
 
@@ -490,7 +465,25 @@ const calculateFormulaValue = (
     const formulaEngine = new FormulaEngine(props.fields);
     const result = formulaEngine.calculate(record, formula);
 
-    return typeof result === "number" ? result.toString() : String(result);
+    if (typeof result === "number") {
+      // 根据公式类型决定格式化方式
+      const resultType = FormulaEngine.inferResultType(formula);
+      // 日期时间类型：YYYY-MM-DD HH:mm:ss
+      if (resultType === "datetime") {
+        return formatDateTime(result);
+      }
+      // 日期类型：YYYY-MM-DD
+      if (resultType === "date") {
+        return formatDate(result);
+      }
+      // 数字类型：带精度格式化
+      const precision = (field.options?.precision as number) ?? 2;
+      return result.toLocaleString("zh-CN", {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      });
+    }
+    return String(result);
   } catch (error) {
     console.error("Formula calculation error:", error);
     return "#ERROR";
@@ -533,6 +526,8 @@ const getFieldComponent = (field: FieldEntity): string => {
       return "auto_number";
     case FieldType.MEMBER:
       return "member";
+    case FieldType.LOOKUP:
+      return "lookup";
     default:
       return "text";
   }
@@ -981,6 +976,15 @@ const drawerTitle = computed(() => {
             </div>
           </template>
 
+          <!-- 查找字段类型（只读显示） -->
+          <template v-else-if="getFieldComponent(field) === 'lookup'">
+            <el-input
+              :model-value="String(formData[field.id] || '')"
+              disabled
+              :placeholder="field.name"
+              class="field-input" />
+          </template>
+
           <!-- 默认文本类型（URL、EMAIL、PHONE 等） -->
           <template v-else>
             <el-input
@@ -1011,13 +1015,6 @@ const drawerTitle = computed(() => {
             style="display: none;"
             title="触发工作流"
             @click="openTriggerDialog" />
-          <el-button
-            v-if="record?.id"
-            :icon="CircleCheck"
-            circle disabled
-            style="display: none;"
-            title="审批历史"
-            @click="showApprovalHistory" />
         </div>
         <div class="footer-right">
           <el-button @click="closeDrawer">关闭</el-button>
@@ -1070,46 +1067,6 @@ const drawerTitle = computed(() => {
       </el-button>
     </template>
   </ElDialog>
-
-  <!-- 审批历史抽屉 -->
-  <ElDrawer
-    v-model="approvalHistoryVisible"
-    title="审批历史"
-    direction="rtl"
-    size="400px"
-    :destroy-on-close="true">
-    <div v-loading="approvalHistoryLoading" class="approval-history-content">
-      <div
-        v-if="approvalHistoryTasks.length === 0"
-        class="approval-history-empty">
-        暂无审批记录
-      </div>
-      <div
-        v-for="task in approvalHistoryTasks"
-        :key="task.id"
-        class="approval-history-item">
-        <div class="approval-history-status">
-          <ElBadge
-            :type="
-              task.status === 'approved'
-                ? 'success'
-                : task.status === 'rejected'
-                  ? 'danger'
-                  : 'info'
-            "
-            :value="task.status" />
-        </div>
-        <div class="approval-history-meta">
-          <span v-if="task.comment" class="approval-history-comment">
-            {{ task.comment }}
-          </span>
-          <span v-if="task.acted_at" class="approval-history-time">
-            {{ formatDateTime(task.acted_at) }}
-          </span>
-        </div>
-      </div>
-    </div>
-  </ElDrawer>
 </template>
 
 <style lang="scss" scoped>
@@ -1268,37 +1225,6 @@ const drawerTitle = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.approval-history-content {
-  padding: 8px;
-}
-
-.approval-history-empty {
-  text-align: center;
-  color: $text-secondary;
-  padding: 24px 0;
-}
-
-.approval-history-item {
-  padding: 12px;
-  border-bottom: 1px solid $border-color;
-
-  .approval-history-status {
-    margin-bottom: 8px;
-  }
-
-  .approval-history-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: $font-size-sm;
-    color: $text-secondary;
-  }
-
-  .approval-history-comment {
-    color: $text-primary;
-  }
 }
 
 // 自动编号字段样式

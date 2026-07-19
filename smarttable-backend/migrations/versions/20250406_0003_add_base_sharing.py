@@ -9,13 +9,21 @@
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from sqlalchemy.engine.reflection import Inspector
+
 
 # 修订标识符
-revision = '003'
-down_revision = '002'
+revision = '20250406_0003'
+down_revision = '20250406_0002'
 branch_labels = None
 depends_on = None
+
+
+def _get_indexes(table_name):
+    """获取表上已存在的索引名称集合"""
+    bind = op.get_bind()
+    inspector = Inspector.from_engine(bind)
+    return {idx['name'] for idx in inspector.get_indexes(table_name)}
 
 
 def upgrade() -> None:
@@ -37,19 +45,27 @@ def upgrade() -> None:
         sa.Column('last_accessed_at', sa.DateTime(), nullable=True)
     )
     
-    # 创建索引
-    op.create_index('ix_base_shares_base_id', 'base_shares', ['base_id'])
-    op.create_index('ix_base_shares_share_token', 'base_shares', ['share_token'])
-    op.create_index('ix_base_shares_created_by', 'base_shares', ['created_by'])
+    # 创建索引（跳过由 index=True/unique=True 自动生成的重复索引）
+    existing_indexes = _get_indexes('base_shares')
+    if 'ix_base_shares_base_id' not in existing_indexes:
+        op.create_index('ix_base_shares_base_id', 'base_shares', ['base_id'])
+    if 'ix_base_shares_share_token' not in existing_indexes:
+        op.create_index('ix_base_shares_share_token', 'base_shares', ['share_token'])
+    if 'ix_base_shares_created_by' not in existing_indexes:
+        op.create_index('ix_base_shares_created_by', 'base_shares', ['created_by'])
 
 
 def downgrade() -> None:
     """回滚数据库模式 - 删除 Base 分享功能相关表"""
     
-    # 删除索引
-    op.drop_index('ix_base_shares_created_by', table_name='base_shares')
-    op.drop_index('ix_base_shares_share_token', table_name='base_shares')
-    op.drop_index('ix_base_shares_base_id', table_name='base_shares')
+    # 删除索引（仅当存在时）
+    existing_indexes = _get_indexes('base_shares')
+    if 'ix_base_shares_created_by' in existing_indexes:
+        op.drop_index('ix_base_shares_created_by', table_name='base_shares')
+    if 'ix_base_shares_share_token' in existing_indexes:
+        op.drop_index('ix_base_shares_share_token', table_name='base_shares')
+    if 'ix_base_shares_base_id' in existing_indexes:
+        op.drop_index('ix_base_shares_base_id', table_name='base_shares')
     
     # 删除表
     op.drop_table('base_shares')

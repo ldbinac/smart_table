@@ -54,7 +54,7 @@
 | 6 种视图模式 | 表格、看板、日历、甘特图、画廊、表单 |
 | 数据分组 | 最多 3 级分组，分组内独立编号 |
 | 筛选与排序 | 多条件组合筛选（AND/OR）、多字段排序，配置持久化 |
-| **公式引擎** | **43 个内置函数**，支持数学、文本、日期、逻辑、统计计算 |
+| **公式引擎** | **47 个内置函数**，支持数学、文本、日期、逻辑、统计计算 |
 | 数据导入/导出 | 支持 CSV、Excel、JSON 格式，支持 Excel 导入创建数据表 ⭐ |
 | 仪表盘 | 可视化数据展示，支持多种组件和**仪表盘模板** ⭐ |
 | 协作与分享 | 成员管理、链接分享、权限控制（Base/表单/仪表盘三种分享方式） |
@@ -358,13 +358,13 @@ npm run test:coverage # 生成测试覆盖率报告
 
 ### 4.10 公式引擎 ⭐
 
-支持 **43 个内置函数**：
+支持 **47 个内置函数**：
 
 - **数学函数(11个)**：SUM, AVG, MAX, MIN, ROUND, CEILING, FLOOR, ABS, MOD, POWER, SQRT
-- **文本函数(10个)**：CONCAT, LEFT, RIGHT, LEN, UPPER, LOWER, TRIM, SUBSTITUTE, REPLACE, FIND
-- **日期函数(10个)**：TODAY, NOW, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DATEDIF, DATEADD
-- **逻辑函数(7个)**：IF, AND, OR, NOT, IFERROR, IFS, SWITCH
-- **统计函数(5个)**：COUNT, COUNTA, COUNTIF, SUMIF, AVERAGEIF
+-- **文本函数(10个)**：CONCAT, LEFT, RIGHT, LEN, UPPER, LOWER, TRIM, SUBSTITUTE, REPLACE, FIND
+-- **日期函数(14个)**：TODAY, NOW, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, WEEKDAY, DATETIME_FORMAT, FROMUNIXTIME, UNIXTIMESTAMP, DATEDIF, DATEADD
+-- **逻辑函数(7个)**：IF, AND, OR, NOT, IFERROR, IFS, SWITCH
+-- **统计函数(5个)**：COUNT, COUNTA, COUNTIF, SUMIF, AVERAGEIF
 
 语法示例：`{单价} * {数量}`、`IF({成绩}>=90,"优秀",IF({成绩}>=60,"及格","不及格"))`
 
@@ -617,7 +617,7 @@ Owner(完全控制) > Admin(管理除删除外) > Editor(编辑) > Commenter(评
 
 ### 5.8 计算类型（1种）
 
-**公式**：只读计算字段，43函数，精度设置，详见[4.10](#410-公式引擎)
+**公式**：只读计算字段，47函数，精度设置，详见[4.10](#410-公式引擎)
 
 ### 5.9 关联类型（1种）
 
@@ -757,7 +757,7 @@ A: 会。持久化到数据库/IndexDB，切换视图/刷新不丢，每视图�
 A: 3级。每级独立展折，树形层级
 
 **Q7: 公式支持哪些函数？**
-A: 43个，详见[4.10](#410-公式引擎)。数学11+文本10+日期10+逻辑7+统计5
+A: 47个，详见[4.10](#410-公式引擎)。数学11+文本10+日期14+逻辑7+统计5
 
 **Q8: 附件限制？**
 A: MIME白名单、单文件≤10MB(可调≤100MB)、总数限制、0-100个、缩略图、服务端二次验证

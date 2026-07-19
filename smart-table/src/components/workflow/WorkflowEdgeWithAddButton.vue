@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from "@vue-flow/core";
 import { Plus, Delete } from "@element-plus/icons-vue";
 import type { EdgeProps } from "@vue-flow/core";
+import { ADDABLE_NODE_TYPES } from "@/utils/workflowNodeType";
 
 interface EdgeData {
   readonly?: boolean;
@@ -26,12 +27,7 @@ const emit = defineEmits<{
 const path = computed(() => getSmoothStepPath(props));
 const menuVisible = ref(false);
 
-const nodeTypeMenu = [
-  { type: "update_record", label: "更新记录" },
-  { type: "create_record", label: "创建记录" },
-  { type: "webhook", label: "Webhook" },
-  { type: "condition", label: "条件节点" },
-];
+const nodeTypeMenu = ADDABLE_NODE_TYPES;
 
 const isConditionSource = computed(
   () => props.data?.sourceNodeType === "condition",
@@ -90,7 +86,8 @@ function handleDelete() {
           class="edge-add-menu-item"
           @click="handleSelect(item.type)"
         >
-          {{ item.label }}
+          <el-icon><component :is="item.icon" /></el-icon>
+          <span>{{ item.label }}</span>
         </div>
       </div>
     </div>
@@ -168,12 +165,20 @@ function handleDelete() {
 }
 
 .edge-add-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 12px;
   font-size: $font-size-sm;
   color: $text-primary;
   cursor: pointer;
   white-space: nowrap;
   transition: background-color 0.2s;
+
+  .el-icon {
+    font-size: 16px;
+    color: $primary-color;
+  }
 
   &:hover {
     background-color: rgba($primary-color, 0.08);

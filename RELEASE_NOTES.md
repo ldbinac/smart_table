@@ -4,13 +4,112 @@
 
 ***
 
+# SmartTable v1.6.2 Release Notes
+
+**发布日期 / Release Date**: 2026-07-19
+
+**版本号 / Version**: v1.6.2
+
+**标签 / Tags**: `release`, `v1.6.2`, `latest`, `stable`, `lookup-field`, `formula-field`, `dashboard-sharing`, `workflow`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.2 更新说明
+
+本次更新聚焦数据关联与协作共享能力，实现了查找字段功能，进一步完善了公式字段的多类型计算与格式化能力，完善了仪表盘分享功能，同时在工作流引擎中扩展了发送邮件节点、记录时间触发器和查找记录节点。
+
+### ✨ 新增及功能优化
+
+#### 🔄 工作流引擎增强
+
+- **发送邮件节点** - 新增发送邮件节点支持，工作流可直接触发邮件通知
+- **记录时间触发器** - 新增「到达记录中的时间时」触发器类型，支持基于记录时间字段的定时触发
+- **查找记录节点** - 添加查找记录工作流节点功能，支持在工作流中查询关联数据
+- **节点类型管理重构** - 重构节点类型管理，为后续扩展更多节点类型奠定基础
+
+#### 🔍 查找字段全量实现 ⭐
+
+- ⭐ **全量实现查找字段（Lookup Field）** - 支持从关联记录中查找并引用目标字段值，实现跨表数据联动
+- **记录展示适配** - 记录抽屉和详情页完整支持查找字段显示，数据查看更连贯
+- **格式化逻辑优化** - 修复默认值显示和查找字段格式化逻辑，确保引用数据正确渲染
+
+#### 🧮 公式字段功能完善
+
+- **公式助手组件** - 新增公式助手组件并集成到字段配置对话框，降低公式编写门槛
+- **多类型格式化** - 完善公式字段功能，支持更多字段类型的计算结果格式化
+- **日期处理能力** - 新增日期处理相关功能并优化显示效果
+
+#### 📊 仪表盘分享功能
+
+- **完整分享流程** - 实现仪表盘分享功能完整流程，支持将仪表盘以链接形式分享给他人
+- **分享信息配置** - 新增仪表盘分享标题和备注功能，便于接收方理解分享内容
+- **安全策略优化** - 仅在创建分享时返回一次访问密码，避免密码在后续接口中重复暴露
+
+
+### 🐛 Bug 修复
+
+| 问题描述     | 修复内容                    |
+| -------- | ----------------------- |
+| 认证与侧边栏显示 | 修复认证 store 和侧边栏显示逻辑     |
+| 查找字段格式化  | 修复默认值显示和查找字段格式化逻辑       |
+| 仪表盘分享模型  | 导入缺失的 DashboardShare 模型 |
+| 日期函数显示格式  | 修复日期函数显示格式逻辑 |
+
+***
+
+## English Version
+
+### 🎉 SmartTable v1.6.2 Release Notes
+
+This update focuses on data association and collaborative sharing capabilities. It implements the Lookup Field feature, further improves formula field multi-type calculation and formatting, refines dashboard sharing functionality, and extends the workflow engine with email send nodes, record time triggers, and lookup record nodes.
+
+### ✨ New Features & Improvements
+
+#### 🔄 Workflow Engine Enhancements
+
+- **Send email node** - Added send email node support, allowing workflows to directly trigger email notifications
+- **Record time trigger** - Added "When record time is reached" trigger type, supporting time-based triggers based on record time fields
+- **Lookup record node** - Added lookup record workflow node for querying related data within workflows
+- **Node type management refactoring** - Refactored node type management to lay the foundation for future node type extensions
+
+#### 🔍 Lookup Field Fully Implemented ⭐
+
+- ⭐ **Full implementation of Lookup Field** - Supports looking up and referencing target field values from related records, enabling cross-table data linkage
+- **Record display adaptation** - Record drawers and detail pages fully support lookup field display for more coherent data viewing
+- **Formatting logic optimization** - Fixed default value display and lookup field formatting logic to ensure referenced data renders correctly
+
+#### 🧮 Formula Field Enhancements
+
+- **Formula helper component** - Added formula helper component integrated into the field configuration dialog, lowering the barrier to formula writing
+- **Multi-type formatting** - Improved formula field functionality with support for formatting calculation results of more field types
+- **Date processing capabilities** - Added date processing functions and optimized display effects
+
+#### 📊 Dashboard Sharing
+
+- **Complete sharing flow** - Implemented the complete dashboard sharing flow, allowing dashboards to be shared via links
+- **Sharing info configuration** - Added dashboard sharing title and remark fields to help recipients understand shared content
+- **Security policy optimization** - Access password is returned only once when creating a share, avoiding repeated exposure in subsequent APIs
+
+### 🐛 Bug Fixes
+
+| Issue                            | Fix                                                           |
+| -------------------------------- | ------------------------------------------------------------- |
+| Authentication & sidebar display | Fixed authentication store and sidebar display logic          |
+| Lookup field formatting          | Fixed default value display and lookup field formatting logic |
+| Dashboard sharing model          | Imported missing DashboardShare model                         |
+| Date function display format     | Fixed date function display format logic                      |
+
+***
+
 # SmartTable v1.6.1 Release Notes
 
 **发布日期 / Release Date**: 2026-07-11
 
 **版本号 / Version**: v1.6.1
 
-**标签 / Tags**: `release`, `v1.6.1`, `latest`, `stable`, `workflow`, `automation`
+**标签 / Tags**: `release`, `v1.6.1`, `stable`, `workflow`, `automation`
 
 ***
 
@@ -42,20 +141,19 @@
 - ⭐ **Webhook 引用校验** - 新增 Webhook 引用校验功能，确保引用有效性
 - ⭐ **状态管理** - 新增 Webhook 状态管理能力
 
-
 ***
 
 ### 🐛 Bug 修复 (Bug Fixes)
 
-| 问题 | 修复内容 |
-|------|----------|
-| **🔧 工作流克隆节点 ID 映射** | 修复工作流克隆时节点 ID 引用未映射的问题 |
-| **🔧 条件分支执行链生成** | 修复条件节点分支目标 ID 映射与执行链生成逻辑 |
-| **🔧 工作流测试失败** | 修复工作流测试失败问题 |
+| 问题                   | 修复内容                     |
+| -------------------- | ------------------------ |
+| **🔧 工作流克隆节点 ID 映射** | 修复工作流克隆时节点 ID 引用未映射的问题   |
+| **🔧 条件分支执行链生成**     | 修复条件节点分支目标 ID 映射与执行链生成逻辑 |
+| **🔧 工作流测试失败**       | 修复工作流测试失败问题              |
 
 ***
 
----
+***
 
 ## English Version
 
@@ -85,20 +183,19 @@ This release is an enhancement version of v1.6.0, focusing on improving the work
 - ⭐ **Webhook reference validation** - Added Webhook reference validation to ensure reference validity
 - ⭐ **Status management** - Added Webhook status management capability
 
-
 ***
 
 ### 🐛 Bug Fixes
 
-| Issue | Fix |
-|-------|-----|
-| **🔧 Workflow clone node ID mapping** | Fixed node ID reference not mapped during workflow cloning |
+| Issue                                   | Fix                                                                                |
+| --------------------------------------- | ---------------------------------------------------------------------------------- |
+| **🔧 Workflow clone node ID mapping**   | Fixed node ID reference not mapped during workflow cloning                         |
 | **🔧 Condition branch execution chain** | Fixed condition node branch target ID mapping and execution chain generation logic |
-| **🔧 Workflow test failure** | Fixed workflow test failure issue |
+| **🔧 Workflow test failure**            | Fixed workflow test failure issue                                                  |
 
 ***
 
----
+***
 
 # SmartTable v1.6.0 Release Notes
 
@@ -121,6 +218,7 @@ This release is an enhancement version of v1.6.0, focusing on improving the work
 #### 🔄 工作流自动化引擎 (Workflow Engine) ⭐⭐⭐
 
 **核心引擎与架构**
+
 - 实现完整的工作流与 Webhook 功能模块（端到端架构落地）
 - 实现工作流与数据表的绑定关系
 - 支持工作流的创建、编辑、删除、暂停、继续、版本快照等操作
@@ -130,6 +228,7 @@ This release is an enhancement version of v1.6.0, focusing on improving the work
 - 统一工作流节点类型规范化处理
 
 **触发器系统 (Trigger System)**
+
 - ⭐ 新增**指定时间定时触发**工作流能力
   - 指定时间触发器使用本地时区解释触发时间
   - 支持不重复一次触发与多种类型（每日/每周/每月/每年/自定义）重复触发机制
@@ -144,33 +243,34 @@ This release is an enhancement version of v1.6.0, focusing on improving the work
   - 触发过滤条件，支持与（全部满足）与或（任意满足）的指定多条件触发模式
 
 **节点系统 (Node System)**
+
 - ⭐ 支持**多种节点**类型（创建记录、更新记录、webhook、条件分支）的创建、编辑、删除等操作
-- ⭐ **创建记录节点 (Create Record Node)** 
+- ⭐ **创建记录节点 (Create Record Node)**
   - 支持对目标表记录的创建
   - 支持目标表字段值输入的映射配置，支持录入静态值或基于源表字段值的引用表达式
-- ⭐ **更新记录节点 (Update Record Node)** 
+- ⭐ **更新记录节点 (Update Record Node)**
   - 支持源表字段值输入的配置，支持录入静态值或使用表达式
-- ⭐ **Webhook 节点 (Webhook Node)** 
+- ⭐ **Webhook 节点 (Webhook Node)**
   - 支持选择系统已配置的Webhook
-  - 支持内联配置新的 Webhook 
-- ⭐ **条件节点 (Condition Node)** 
+  - 支持内联配置新的 Webhook
+- ⭐ **条件节点 (Condition Node)**
   - 过滤条件，支持与（全部满足）与或（任意满足）的指定多条件触发模式
   - 支持实时显示配置的条件摘要信息
 - ⭐ 支持手工调整节点执行顺序（拖拽排序）
 
-
 **列表与界面 (List & UI)**
+
 - ⭐ 工作流列表面板新增**折叠/展开**功能（侧边栏宽度自适应）
 - ⭐ 新增**搜索框**，支持按名称或描述过滤工作流
 
-
 **版本管理 (Version Management)**
+
 - ⭐ **版本历史**功能，支持查看工作流历史版本
 - 版本历史弹窗支持查看版本号、创建时间、创建者名称、节点配置摘要信息等
 
 **顶部导航**
-- ⭐ 多维表Base页面新增顶部导航**自动化菜单**，统一工作流配置入口
 
+- ⭐ 多维表Base页面新增顶部导航**自动化菜单**，统一工作流配置入口
 
 #### 🪝 Webhook 投递管理 (Webhook Delivery) 系统⭐
 
@@ -184,7 +284,7 @@ This release is an enhancement version of v1.6.0, focusing on improving the work
   - 支持查看 Webhook 投递记录详情（包含请求参数、响应状态码、响应体等）
   - 支持刷新 Webhook 投递记录
 
----
+***
 
 ## English Version
 
@@ -237,12 +337,10 @@ This release marks another major version upgrade in SmartTable's history, offici
   - Supports real-time display of configured condition summary information
 - ⭐ Supports manual adjustment of node execution order (drag-and-drop sorting)
 
-
 **List & UI**
 
 - ⭐ Workflow list panel with **collapse/expand** functionality (adaptive sidebar width)
 - ⭐ New **search box** for filtering workflows by name or description
-
 
 **Version Management**
 
@@ -252,7 +350,6 @@ This release marks another major version upgrade in SmartTable's history, offici
 **Top Navigation**
 
 - ⭐ New top navigation **automation menu** on Base page, unified workflow configuration entry
-
 
 #### 🪝 Webhook Delivery Management System ⭐
 
@@ -266,7 +363,7 @@ This release marks another major version upgrade in SmartTable's history, offici
   - Supports viewing Webhook delivery record details (including request parameters, response status code, response body, etc.)
   - Supports refreshing Webhook delivery records
 
----
+***
 
 # SmartTable v1.5.2 Release Notes
 
@@ -324,7 +421,6 @@ This release focuses on **table interaction enhancements** and **stability fixes
 - **❄️ Row Freeze/Unfreeze**: New right-click menu actions to freeze/unfreeze rows in table view
 - **🔑 Primary Key Field Description**: Added default description for primary key (index) field, with hidden operation restricted
 
-
 ### 🔧 Improvements
 
 - **Formula Engine**: Formula calculation supports direct return of literal values
@@ -340,7 +436,6 @@ This release focuses on **table interaction enhancements** and **stability fixes
 - Fixed duplicate field values in the new-row button row causing cell merge
 - Fixed inconsistent empty-value return from editor causing inability to clear single-select field
 - Fixed CRLF line ending issue for files inside Docker container and set permissions
-
 
 ***
 

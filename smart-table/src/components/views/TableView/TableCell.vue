@@ -251,12 +251,55 @@ const calculateFormula = (): string => {
   const formula = fieldOptions.value?.formula as string;
   if (!formula) return "";
 
+  // 优先使用后端预计算结果
+  const computedValues = (props.record as any).computed_values;
+  
+  if (computedValues && typeof computedValues === 'object') {
+    // computed_values 使用字段名作为 key
+    const fieldName = props.field.name;
+    const precomputed = computedValues[fieldName];
+    
+    if (precomputed !== null && precomputed !== undefined) {
+      // 如果后端返回的是 datetime 字符串，格式化显示
+      if (typeof precomputed === 'string') {
+        // 尝试解析为日期
+        const dateMatch = precomputed.match(/^\d{4}-\d{2}-\d{2}/);
+        if (dateMatch) {
+          return precomputed.split('T')[0]; // 只返回日期部分
+        }
+        return precomputed;
+      }
+      // 数字格式化
+      if (typeof precomputed === 'number') {
+        // 根据公式类型决定格式化方式
+        const resultType = FormulaEngine.inferResultType(formula);
+        // 日期时间类型：YYYY-MM-DD HH:mm:ss
+        if (resultType === "datetime") {
+          return formatDateTime(precomputed);
+        }
+        // 日期类型：YYYY-MM-DD
+        if (resultType === "date") {
+          return formatDate(precomputed);
+        }
+        // 数字类型：带精度格式化
+        const precision = fieldOptions.value?.precision ?? 2;
+        return precomputed.toLocaleString("zh-CN", {
+          minimumFractionDigits: precision,
+          maximumFractionDigits: precision,
+        });
+      }
+      return String(precomputed);
+    }
+  }
+
+  // 回退到前端计算
   try {
     // 获取所有字段（从父组件传入）
     const allFields = props.fields;
     if (!allFields || allFields.length === 0) {
       return "";
     }
+    
     const engine = new FormulaEngine(allFields);
     const result = engine.calculate(props.record, formula);
 
@@ -266,6 +309,17 @@ const calculateFormula = (): string => {
 
     // 数字格式化
     if (typeof result === "number") {
+      // 根据公式类型决定格式化方式
+      const resultType = FormulaEngine.inferResultType(formula);
+      // 日期时间类型：YYYY-MM-DD HH:mm:ss
+      if (resultType === "datetime") {
+        return formatDateTime(result);
+      }
+      // 日期类型：YYYY-MM-DD
+      if (resultType === "date") {
+        return formatDate(result);
+      }
+      // 数字类型：带精度格式化
       const precision = fieldOptions.value?.precision ?? 2;
       return result.toLocaleString("zh-CN", {
         minimumFractionDigits: precision,

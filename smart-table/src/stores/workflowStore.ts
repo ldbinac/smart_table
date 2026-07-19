@@ -1,6 +1,6 @@
 /**
  * 工作流状态管理
- * 管理工作流、审批任务、Webhook 与模板的交互状态
+ * 管理工作流、Webhook 与模板的交互状态
  */
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
@@ -10,7 +10,6 @@ import type { WebhookReferencesResult } from "@/services/api/workflowApiService"
 import type {
   Workflow,
   WorkflowInstance,
-  WorkflowTask,
   WebhookConfig,
   WorkflowTemplate,
   WorkflowVersion,
@@ -22,8 +21,6 @@ export const useWorkflowStore = defineStore("workflow", () => {
   const currentWorkflow = ref<Workflow | null>(null);
   const instances = ref<WorkflowInstance[]>([]);
   const currentInstance = ref<WorkflowInstance | null>(null);
-  const pendingApprovals = ref<WorkflowTask[]>([]);
-  const approvalHistory = ref<WorkflowTask[]>([]);
   const webhooks = ref<WebhookConfig[]>([]);
   const templates = ref<WorkflowTemplate[]>([]);
   const versions = ref<WorkflowVersion[]>([]);
@@ -31,8 +28,6 @@ export const useWorkflowStore = defineStore("workflow", () => {
   const error = ref<string | null>(null);
 
   // ==================== Getters ====================
-  const pendingApprovalCount = computed(() => pendingApprovals.value.length);
-
   const activeWorkflowCount = computed(
     () => workflows.value.filter((w) => w.status === "active").length
   );
@@ -304,110 +299,6 @@ export const useWorkflowStore = defineStore("workflow", () => {
     }
   }
 
-  // ==================== Approval Actions ====================
-  async function loadApprovals(
-    baseId: string,
-    params?: object
-  ): Promise<WorkflowTask[]> {
-    setLoading(true);
-    clearError();
-    try {
-      const data = await workflowApiService.listApprovals(baseId, params);
-      pendingApprovals.value = data.filter((task) => task.status === "pending");
-      approvalHistory.value = data.filter((task) => task.status !== "pending");
-      return data;
-    } catch (e: unknown) {
-      handleError("loadApprovals", e);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function approveTask(taskId: string, comment?: string): Promise<void> {
-    setLoading(true);
-    clearError();
-    try {
-      await workflowApiService.approveTask(taskId, comment);
-      const pendingIdx = pendingApprovals.value.findIndex((t) => t.id === taskId);
-      if (pendingIdx !== -1) {
-        const task = pendingApprovals.value[pendingIdx];
-        const updatedTask: WorkflowTask = {
-          ...task,
-          status: "approved",
-          comment: comment || task.comment,
-          acted_at: new Date().toISOString(),
-        };
-        pendingApprovals.value.splice(pendingIdx, 1);
-        approvalHistory.value.unshift(updatedTask);
-      }
-      ElMessage.success("审批已通过");
-    } catch (e: unknown) {
-      handleError("approveTask", e);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function rejectTask(taskId: string, comment?: string): Promise<void> {
-    setLoading(true);
-    clearError();
-    try {
-      await workflowApiService.rejectTask(taskId, comment);
-      const pendingIdx = pendingApprovals.value.findIndex((t) => t.id === taskId);
-      if (pendingIdx !== -1) {
-        const task = pendingApprovals.value[pendingIdx];
-        const updatedTask: WorkflowTask = {
-          ...task,
-          status: "rejected",
-          comment: comment || task.comment,
-          acted_at: new Date().toISOString(),
-        };
-        pendingApprovals.value.splice(pendingIdx, 1);
-        approvalHistory.value.unshift(updatedTask);
-      }
-      ElMessage.success("审批已拒绝");
-    } catch (e: unknown) {
-      handleError("rejectTask", e);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function transferTask(
-    taskId: string,
-    newAssigneeId: string,
-    comment?: string
-  ): Promise<void> {
-    setLoading(true);
-    clearError();
-    try {
-      await workflowApiService.transferTask(taskId, newAssigneeId, comment);
-      const pendingIdx = pendingApprovals.value.findIndex((t) => t.id === taskId);
-      if (pendingIdx !== -1) {
-        const task = pendingApprovals.value[pendingIdx];
-        const updatedTask: WorkflowTask = {
-          ...task,
-          status: "transferred",
-          comment: comment || task.comment,
-          assignee_id: newAssigneeId,
-          transferred_from_id: task.assignee_id,
-          acted_at: new Date().toISOString(),
-        };
-        pendingApprovals.value.splice(pendingIdx, 1);
-        approvalHistory.value.unshift(updatedTask);
-      }
-      ElMessage.success("审批已转交");
-    } catch (e: unknown) {
-      handleError("transferTask", e);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // ==================== Webhook Actions ====================
   async function loadWebhooks(baseId: string): Promise<WebhookConfig[]> {
     setLoading(true);
@@ -569,8 +460,6 @@ export const useWorkflowStore = defineStore("workflow", () => {
     currentWorkflow.value = null;
     instances.value = [];
     currentInstance.value = null;
-    pendingApprovals.value = [];
-    approvalHistory.value = [];
     webhooks.value = [];
     templates.value = [];
     versions.value = [];
@@ -584,15 +473,12 @@ export const useWorkflowStore = defineStore("workflow", () => {
     currentWorkflow,
     instances,
     currentInstance,
-    pendingApprovals,
-    approvalHistory,
     webhooks,
     templates,
     versions,
     loading,
     error,
     // getters
-    pendingApprovalCount,
     activeWorkflowCount,
     getWorkflowById,
     // actions
@@ -609,10 +495,6 @@ export const useWorkflowStore = defineStore("workflow", () => {
     loadInstances,
     loadInstance,
     triggerWorkflow,
-    loadApprovals,
-    approveTask,
-    rejectTask,
-    transferTask,
     loadWebhooks,
     createWebhook,
     updateWebhook,

@@ -1352,6 +1352,205 @@ class TestSpecifiedTimeTrigger:
             )
 
 
+class TestValidateRecordTimeConfig:
+    """record_time_reached 触发器配置校验测试"""
+
+    def test_missing_time_field_id(self, ctx, base, table, owner):
+        """time_field_id 缺失时应抛出 ValueError"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='缺少时间字段',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {},
+            },
+        )
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+
+        with pytest.raises(ValueError) as exc:
+            WorkflowService._validate_record_time_config(trigger, table.id)
+        assert '时间字段' in str(exc.value)
+
+    def test_non_date_field(self, ctx, base, table, owner, field):
+        """time_field_id 指向非日期字段时应抛出 ValueError"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='非日期字段',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {'time_field_id': str(field.id)},
+            },
+        )
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+
+        with pytest.raises(ValueError) as exc:
+            WorkflowService._validate_record_time_config(trigger, table.id)
+        assert '日期' in str(exc.value) or '类型' in str(exc.value)
+
+    def test_valid_date_field(self, ctx, base, table, owner):
+        """time_field_id 指向日期字段时应通过校验"""
+        date_field = Field(
+            table_id=table.id,
+            name='截止日期',
+            type=FieldType.DATE.value,
+            order=1,
+        )
+        db.session.add(date_field)
+        db.session.commit()
+
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='日期字段校验',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {'time_field_id': str(date_field.id)},
+            },
+        )
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+
+        # 不应抛出异常
+        WorkflowService._validate_record_time_config(trigger, table.id)
+
+    def test_valid_date_time_field(self, ctx, base, table, owner):
+        """time_field_id 指向日期时间字段时应通过校验"""
+        date_time_field = Field(
+            table_id=table.id,
+            name='截止时间',
+            type=FieldType.DATE_TIME.value,
+            order=1,
+        )
+        db.session.add(date_time_field)
+        db.session.commit()
+
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='日期时间字段校验',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {'time_field_id': str(date_time_field.id)},
+            },
+        )
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+
+        # 不应抛出异常
+        WorkflowService._validate_record_time_config(trigger, table.id)
+
+    def test_publish_record_time_reached_validates_config(self, ctx, base, table, owner):
+        """发布 record_time_reached 工作流时校验 time_field_id"""
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='发布校验',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {},
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+
+        with pytest.raises(ValueError):
+            WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+    def test_publish_record_time_reached_with_valid_field(self, ctx, base, table, owner):
+        """发布 record_time_reached 工作流时合法 time_field_id 应通过"""
+        date_field = Field(
+            table_id=table.id,
+            name='截止日期',
+            type=FieldType.DATE.value,
+            order=1,
+        )
+        db.session.add(date_field)
+        db.session.commit()
+
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='合法发布',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {'time_field_id': str(date_field.id)},
+            },
+            nodes_config=[
+                {'node_type': 'trigger', 'name': '触发', 'config': {}, 'order': 0}
+            ]
+        )
+
+        with patch('app.services.workflow_service.workflow_scheduler_service'):
+            published = WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+
+        assert published.status == WorkflowStatus.ACTIVE
+
+    def test_create_workflow_preserves_time_field_id(self, ctx, base, table, owner):
+        """测试 create_workflow 保存 record_time_reached 时保留 time_field_id"""
+        date_field = Field(
+            table_id=table.id,
+            name='截止时间',
+            type=FieldType.DATE_TIME.value,
+            order=1,
+        )
+        db.session.add(date_field)
+        db.session.commit()
+
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='时间字段保留',
+            created_by=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {'time_field_id': str(date_field.id)},
+            },
+        )
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+        assert trigger.filter_config.get('time_field_id') == str(date_field.id)
+
+    def test_update_workflow_preserves_time_field_id(self, ctx, base, table, owner):
+        """测试 update_workflow 保存 record_time_reached 时保留 time_field_id"""
+        date_field = Field(
+            table_id=table.id,
+            name='截止日期',
+            type=FieldType.DATE.value,
+            order=1,
+        )
+        db.session.add(date_field)
+        db.session.commit()
+
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id,
+            table_id=table.id,
+            name='时间字段保留更新',
+            created_by=owner.id,
+        )
+        WorkflowService.update_workflow(
+            workflow_id=workflow.id,
+            user_id=owner.id,
+            trigger_config={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {'time_field_id': str(date_field.id)},
+            },
+        )
+        trigger = workflow.triggers.first()
+        assert trigger is not None
+        assert trigger.filter_config.get('time_field_id') == str(date_field.id)
+
+
 class TestWorkflowStatusSchedulerSync:
     """测试工作流状态变更与调度器同步"""
 

@@ -27,6 +27,7 @@ import {
   getFieldTypeIconComponent,
   getUserCreatableFieldTypeOptions,
   type FieldTypeValue,
+  type LookupFieldConfig,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
@@ -34,10 +35,19 @@ import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
 import { Rank, ArrowRight, Link } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
+import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
+import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.vue";
+import FormulaHelper from "@/components/fields/FormulaHelper.vue";
 
 const viewStore = useViewStore();
 const tableStore = useTableStore();
+
+// 用于预览的记录 ID（取当前表第一条记录）
+const previewRecordId = computed(() => {
+  const records = tableStore.records;
+  return records.length > 0 ? records[0].id : undefined;
+});
 
 const props = defineProps<{
   visible: boolean;
@@ -83,6 +93,11 @@ const newField = ref<{
     displayFieldId: string;
     bidirectional: boolean;
   };
+  // 查找字段配置
+  lookupConfig: {
+    name: string;
+    config: LookupFieldConfig;
+  };
   // 文本字段配置
   maxLength?: number;
   // 单元格合并配置
@@ -100,6 +115,22 @@ const newField = ref<{
     relationshipType: "one_to_many",
     displayFieldId: "",
     bidirectional: false,
+  },
+  lookupConfig: {
+    name: "",
+    config: {
+      sourceTableId: "",
+      targetFieldId: "",
+      filterConditions: [],
+      filterConjunction: "and",
+      aggregationType: "original",
+      fieldFormat: {
+        type: "number",
+        precision: 0,
+        currencySymbol: "¥",
+        dateFormat: "YYYY-MM-DD",
+      },
+    },
   },
   maxLength: undefined,
   mergeCell: false,
@@ -343,6 +374,22 @@ function openCreateField() {
       displayFieldId: "",
       bidirectional: false,
     },
+    lookupConfig: {
+      name: "",
+      config: {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
+    },
     maxLength: undefined,
     mergeCell: false,
   };
@@ -400,6 +447,23 @@ function openEditField(field: FieldEntity) {
         (field.config?.relationshipType as RelationshipType) ?? "one_to_many",
       displayFieldId: (field.config?.displayFieldId as string) ?? "",
       bidirectional: (field.config?.bidirectional as boolean) ?? false,
+    },
+    // 查找字段的配置保存在 config 中
+    lookupConfig: {
+      name: field.name,
+      config: (field.config as unknown as LookupFieldConfig) || {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
     },
     maxLength: (field.options?.maxLength as number) ?? undefined,
     mergeCell: Boolean(field.options?.mergeCell),
@@ -504,6 +568,22 @@ function backToList() {
       displayFieldId: "",
       bidirectional: false,
     },
+    lookupConfig: {
+      name: "",
+      config: {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
+    },
     maxLength: undefined,
     mergeCell: false,
   };
@@ -585,7 +665,7 @@ async function createField() {
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
-      options.precision = newField.value.precision || 2;
+      options.precision = newField.value.precision ?? 0;
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -655,8 +735,21 @@ async function createField() {
 
     let field;
 
-    // 如果是关联字段，使用专门的关联字段创建接口
-    if (newField.value.type === FieldType.LINK) {
+    // 如果是查找字段，使用专门的查找字段创建接口
+    if (newField.value.type === FieldType.LOOKUP) {
+      try {
+        const result = await lookupApiService.createLookupField(props.tableId, {
+          name: newField.value.lookupConfig.name || newField.value.name.trim(),
+          description: newField.value.description,
+          config: newField.value.lookupConfig.config,
+        });
+        field = result as unknown as FieldEntity;
+      } catch (lookupError) {
+        console.error("创建查找字段失败:", lookupError);
+        throw lookupError;
+      }
+    } else if (newField.value.type === FieldType.LINK) {
+      // 如果是关联字段，使用专门的关联字段创建接口
       try {
         const result = await linkApiService.createLinkField({
           table_id: props.tableId,
@@ -738,7 +831,7 @@ async function updateField() {
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
-      options.precision = newField.value.precision || 2;
+      options.precision = newField.value.precision ?? 0;
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -822,22 +915,45 @@ async function updateField() {
       updateData.defaultValue = newField.value.defaultValue;
     }
 
-    const updatedField = await fieldService.updateField(editingField.value.id, updateData);
+    let updatedField: FieldEntity | undefined;
 
-    // 如果是关联字段，更新关联关系
-    if (newField.value.type === FieldType.LINK) {
+    // 如果是查找字段，使用专门的查找字段更新接口
+    if (newField.value.type === FieldType.LOOKUP) {
       try {
-        await linkApiService.updateLinkField(editingField.value.id, {
-          relationship_type: newField.value.linkConfig.relationshipType,
-          display_field_id:
-            newField.value.linkConfig.displayFieldId || undefined,
-          bidirectional: newField.value.linkConfig.bidirectional,
-          name: newField.value.name.trim(),
-          description: newField.value.description,
-        });
-      } catch (linkError) {
-        console.error("更新关联关系失败:", linkError);
-        // 关联关系更新失败不影响字段更新
+        updatedField = (await lookupApiService.updateLookupField(
+          editingField.value.id,
+          {
+            name: newField.value.lookupConfig.name || newField.value.name.trim(),
+            description: newField.value.description,
+            config: newField.value.lookupConfig.config,
+          },
+        )) as unknown as FieldEntity;
+      } catch (lookupError) {
+        console.error("更新查找字段失败:", lookupError);
+        throw lookupError;
+      }
+    } else {
+      // 非查找字段，使用普通字段更新接口
+      updatedField = await fieldService.updateField(
+        editingField.value.id,
+        updateData,
+      );
+
+      // 如果是关联字段，更新关联关系
+      if (newField.value.type === FieldType.LINK) {
+        try {
+          await linkApiService.updateLinkField(editingField.value.id, {
+            relationship_type: newField.value.linkConfig.relationshipType,
+            display_field_id:
+              newField.value.linkConfig.displayFieldId || undefined,
+            bidirectional: newField.value.linkConfig.bidirectional,
+            name: newField.value.name.trim(),
+            description: newField.value.description,
+          });
+        } catch (linkError) {
+          console.error("更新关联关系失败:", linkError);
+          // 关联关系更新失败不影响字段更新
+        }
       }
     }
 
@@ -931,6 +1047,35 @@ function onTypeChange() {
     };
     targetTableFields.value = [];
   }
+  // 切换类型时重置查找字段配置
+  if (newField.value.type !== FieldType.LOOKUP) {
+    newField.value.lookupConfig = {
+      name: "",
+      config: {
+        sourceTableId: "",
+        targetFieldId: "",
+        filterConditions: [],
+        filterConjunction: "and",
+        aggregationType: "original",
+        fieldFormat: {
+          type: "number",
+          precision: 0,
+          currencySymbol: "¥",
+          dateFormat: "YYYY-MM-DD",
+        },
+      },
+    };
+  }
+}
+
+/** 查找字段配置面板更新回调 */
+function onLookupConfigUpdate(value: { name: string; config: LookupFieldConfig }) {
+  newField.value.lookupConfig.name = value.name;
+  newField.value.lookupConfig.config = value.config;
+  // 同步名称到 newField.name（如果用户在配置面板中修改了名称）
+  if (value.name) {
+    newField.value.name = value.name;
+  }
 }
 
 const presetColors = [
@@ -1006,31 +1151,32 @@ const autoNumberPreview = computed(() => {
   return `${prefix}${datePart}${numberPart}${suffix}`;
 });
 
-// 插入函数到公式
-function insertFunction(funcName: string) {
+// 处理公式插入（从 FormulaHelper 组件）
+function handleFormulaInsert(formula: { name: string; syntax: string }) {
   const formulaInput = document.querySelector(
     '.formula-field textarea, [placeholder*="公式"]',
   ) as HTMLTextAreaElement;
+  
+  // 插入语法示例（去掉参数说明，只保留函数名和括号）
+  const insertText = formula.syntax.replace(/\s+/g, ' ').trim();
+  
   if (formulaInput) {
     const start = formulaInput.selectionStart;
     const end = formulaInput.selectionEnd;
     const currentValue = newField.value.formula;
     const newValue =
-      currentValue.substring(0, start) +
-      funcName +
-      "()" +
-      currentValue.substring(end);
+      currentValue.substring(0, start) + insertText + currentValue.substring(end);
     newField.value.formula = newValue;
-    // 将光标放在括号内
     nextTick(() => {
       formulaInput.focus();
+      // 将光标移到插入文本末尾
       formulaInput.setSelectionRange(
-        start + funcName.length + 1,
-        start + funcName.length + 1,
+        start + insertText.length,
+        start + insertText.length,
       );
     });
   } else {
-    newField.value.formula += funcName + "()";
+    newField.value.formula += insertText;
   }
 }
 
@@ -1335,67 +1481,14 @@ async function toggleFieldVisibility(
                 show-stops
                 style="width: 300px" />
               <span class="precision-value"
-                >{{ newField.precision || 2 }} 位</span
+                >{{ newField.precision }} 位</span
               >
             </div>
-            <div class="field-hint">设置公式结果显示的小数位数，默认为 2</div>
+            <div class="field-hint">设置公式结果显示的小数位数，默认为 0</div>
           </ElFormItem>
 
-          <ElFormItem label="可用函数">
-            <div class="formula-functions">
-              <div class="function-category">
-                <div class="category-title">数学函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['SUM', 'AVG', 'MAX', 'MIN', 'ROUND']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-              <div class="function-category">
-                <div class="category-title">文本函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['CONCAT', 'LEFT', 'LEN', 'UPPER']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-              <div class="function-category">
-                <div class="category-title">日期函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['TODAY', 'NOW', 'DATEDIF']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-              <div class="function-category">
-                <div class="category-title">逻辑函数</div>
-                <div class="function-list">
-                  <ElTag
-                    v-for="func in ['IF', 'AND', 'OR']"
-                    :key="func"
-                    size="small"
-                    class="function-tag"
-                    @click="insertFunction(func)">
-                    {{ func }}
-                  </ElTag>
-                </div>
-              </div>
-            </div>
+          <ElFormItem label="公式函数">
+            <FormulaHelper @insert="handleFormulaInsert" />
           </ElFormItem>
 
           <ElFormItem label="可用字段">
@@ -1686,7 +1779,34 @@ async function toggleFieldVisibility(
           </ElFormItem>
         </template>
 
-        <ElFormItem label="必填">
+        <!-- 查找字段配置 -->
+        <template v-if="newField.type === FieldType.LOOKUP">
+          <LookupFieldConfigPanel
+            :field="{
+              id: editingField?.id,
+              name: newField.lookupConfig.name || newField.name,
+              type: newField.type,
+              config: newField.lookupConfig.config,
+            }"
+            :table-id="tableId"
+            :current-table-fields="fields"
+            :record-id="previewRecordId"
+            @update:field="onLookupConfigUpdate" />
+        </template>
+
+        <!-- 必填选项：自动编号、公式、查找、关联等字段不需要必填选项 -->
+        <ElFormItem
+          v-if="
+            newField.type !== FieldType.AUTO_NUMBER &&
+            newField.type !== FieldType.FORMULA &&
+            newField.type !== FieldType.LOOKUP &&
+            newField.type !== FieldType.LINK &&
+            newField.type !== FieldType.CREATED_TIME &&
+            newField.type !== FieldType.UPDATED_TIME &&
+            newField.type !== FieldType.CREATED_BY &&
+            newField.type !== FieldType.LAST_MODIFIED_BY
+          "
+          label="必填">
           <ElSwitch v-model="newField.isRequired" />
         </ElFormItem>
 
@@ -1703,8 +1823,19 @@ async function toggleFieldVisibility(
             placeholder="请输入字段描述（可选）" />
         </ElFormItem>
 
-        <!-- 默认值配置 -->
-        <ElFormItem label="默认值">
+        <!-- 默认值配置：查找字段、公式字段、自动编号、系统字段等不需要默认值 -->
+        <ElFormItem
+          v-if="
+            newField.type !== FieldType.LOOKUP &&
+            newField.type !== FieldType.FORMULA &&
+            newField.type !== FieldType.AUTO_NUMBER &&
+            newField.type !== FieldType.CREATED_TIME &&
+            newField.type !== FieldType.UPDATED_TIME &&
+            newField.type !== FieldType.CREATED_BY &&
+            newField.type !== FieldType.LAST_MODIFIED_BY &&
+            newField.type !== FieldType.LINK
+          "
+          label="默认值">
           <!-- 单行文本 -->
           <ElInput
             v-if="newField.type === FieldType.SINGLE_LINE_TEXT"

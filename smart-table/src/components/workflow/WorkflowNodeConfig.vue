@@ -4,7 +4,6 @@ import type { FieldEntity, TableEntity } from "@/db/schema";
 import type {
   WorkflowNode,
   WebhookConfig,
-  ApprovalMode,
   WebhookMethod,
   ConditionBranch,
   ConditionItem,
@@ -20,7 +19,11 @@ import {
 import { FieldType } from "@/types/fields";
 import type { FieldTypeValue } from "@/types/fields";
 import { fieldService } from "@/db/services/fieldService";
-import { normalizeWorkflowNode } from "@/utils/workflow";
+import {
+  normalizeWorkflowNode,
+  isValidWorkflowVariableName,
+} from "@/utils/workflow";
+import { getNodeLabel } from "@/utils/workflowNodeType";
 import {
   normalizeConditionConfig,
   addConditionBranch,
@@ -155,49 +158,6 @@ const availableWebhooks = computed(() => {
     (w) => w.is_active || (currentId !== undefined && w.id === currentId),
   );
 });
-
-// ==================== 审批节点配置 ====================
-
-const approvalModes: { value: ApprovalMode; label: string }[] = [
-  { value: "any", label: "或签（任意一人通过即可）" },
-  { value: "all", label: "会签（所有人都需通过）" },
-  { value: "serial", label: "串行（按顺序审批）" },
-];
-
-const timeoutActions = [
-  { value: "approve", label: "自动通过" },
-  { value: "reject", label: "自动拒绝" },
-  { value: "remind", label: "发送提醒" },
-];
-
-const assigneeType = computed({
-  get: () => configValue<string>("assignee_type", "fixed"),
-  set: (value) => setConfigValue("assignee_type", value),
-});
-
-const assigneeValue = computed({
-  get: () => configValue<string | string[]>("assignee_value", []),
-  set: (value) => setConfigValue("assignee_value", value),
-});
-
-const approvalMode = computed({
-  get: () => configValue<ApprovalMode>("approval_mode", "any"),
-  set: (value) => setConfigValue("approval_mode", value),
-});
-
-const timeoutMinutes = computed({
-  get: () => configValue<number | undefined>("timeout_minutes", undefined),
-  set: (value) => setConfigValue("timeout_minutes", value),
-});
-
-const timeoutAction = computed({
-  get: () => configValue<string | undefined>("timeout_action", undefined),
-  set: (value) => setConfigValue("timeout_action", value),
-});
-
-const memberFieldOptions = computed(() =>
-  props.fields.filter((f) => f.type === "member" || f.type === "collaborator"),
-);
 
 // ==================== 条件节点配置 ====================
 
@@ -577,6 +537,21 @@ const emailRecipientValue = computed({
   set: (value) => setConfigValue("recipient_value", value),
 });
 
+const emailContentMode = computed({
+  get: () => configValue<"custom" | "template">("content_mode", "custom"),
+  set: (value) => setConfigValue("content_mode", value),
+});
+
+const emailSubject = computed({
+  get: () => configValue<string>("subject", ""),
+  set: (value) => setConfigValue("subject", value),
+});
+
+const emailBody = computed({
+  get: () => configValue<string>("body", ""),
+  set: (value) => setConfigValue("body", value),
+});
+
 const emailTemplateId = computed({
   get: () => configValue<string | undefined>("email_template_id", undefined),
   set: (value) => setConfigValue("email_template_id", value),
@@ -586,11 +561,133 @@ const emailFields = computed(() =>
   props.fields.filter((f) => f.type === "email" || f.type === "member" || f.type === "collaborator"),
 );
 
-const emailTemplates = [
-  { id: "template_1", name: "审批通知" },
-  { id: "template_2", name: "状态变更通知" },
-  { id: "template_3", name: "自定义模板" },
-];
+const emailTemplates = ref<Array<{ id: string; name: string; template_key: string }>>([]);
+
+async function loadEmailTemplates() {
+  try {
+    const { default: api } = await import("@/utils/api");
+    const data = await api.get<Array<{ id: string; name: string; template_key: string }>>("/admin/email/templates/list");
+    emailTemplates.value = Array.isArray(data) ? data : [];
+  } catch {
+    emailTemplates.value = [];
+  }
+}
+
+watch(
+  () => props.node.node_type,
+  (type) => {
+    if (type === "send_email") loadEmailTemplates();
+  },
+  { immediate: true },
+);
+
+// ==================== 查找记录节点配置 ====================
+
+const findRecordsTargetTableId = computed({
+  get: () => configValue<string>("target_table_id", (props.node as any).workflow?.table_id ?? ""),
+  set: (value) => setConfigValue("target_table_id", value),
+});
+
+function onFindRecordsTargetTableChange(tableId: string) {
+  findRecordsTargetTableId.value = tableId;
+  findRecordsConditions.value = [];
+  findRecordsSortFieldId.value = "";
+}
+
+const findRecordsSortFieldId = computed({
+  get: () => configValue<string>("sort_field_id", ""),
+  set: (value) => setConfigValue("sort_field_id", value),
+});
+
+const findRecordsSortDirection = computed<"asc" | "desc">({
+  get: () => configValue<"asc" | "desc">("sort_direction", "asc"),
+  set: (value) => setConfigValue("sort_direction", value),
+});
+
+const findRecordsLimit = computed({
+  get: () => configValue<number>("limit", 100),
+  set: (value) => setConfigValue("limit", Math.min(Math.max(value, 1), 1000)),
+});
+
+const findRecordsVariable = computed({
+  get: () => configValue<string>("result_variable", "records"),
+  set: (value) => setConfigValue("result_variable", value),
+});
+
+const findRecordsEmptyAction = computed<"continue" | "stop">({
+  get: () => configValue<"continue" | "stop">("empty_result_action", "continue"),
+  set: (value) => setConfigValue("empty_result_action", value),
+});
+
+const findRecordsConditions = computed<ConditionItem[]>({
+  get: () => configValue<ConditionItem[]>("conditions", []),
+  set: (value) => setConfigValue("conditions", value),
+});
+
+const findRecordsConjunction = computed<ConjunctionValue>({
+  get: () => configValue<ConjunctionValue>("conjunction", "and"),
+  set: (value) => setConfigValue("conjunction", value),
+});
+
+const isFindRecordsVariableValid = computed(() =>
+  isValidWorkflowVariableName(findRecordsVariable.value),
+);
+
+function addFindRecordsCondition() {
+  const firstField = targetTableFields.value[0];
+  const defaultOperator = firstField
+    ? getOperatorsForFieldType(firstField.type)[0] ?? FilterOperator.EQUALS
+    : FilterOperator.EQUALS;
+  findRecordsConditions.value = [
+    ...findRecordsConditions.value,
+    {
+      field_id: firstField?.id ?? "",
+      operator: defaultOperator,
+      value: undefined,
+    },
+  ];
+}
+
+function removeFindRecordsCondition(index: number) {
+  const list = [...findRecordsConditions.value];
+  list.splice(index, 1);
+  findRecordsConditions.value = list;
+}
+
+function onFindRecordsConditionFieldChange(index: number, fieldId: string) {
+  const field = getTargetFieldById(fieldId);
+  const operators = field ? getOperatorsForFieldType(field.type) : [];
+  const list = [...findRecordsConditions.value];
+  list[index] = {
+    field_id: fieldId,
+    operator: operators[0] ?? FilterOperator.EQUALS,
+    value: undefined,
+  };
+  findRecordsConditions.value = list;
+}
+
+function onFindRecordsConditionOperatorChange(index: number, operator: FilterOperatorValue) {
+  const list = [...findRecordsConditions.value];
+  list[index] = { ...list[index], operator };
+  if (!operatorRequiresValue(operator)) {
+    list[index].value = undefined;
+  }
+  findRecordsConditions.value = list;
+}
+
+function onFindRecordsConditionValueChange(index: number, value: unknown) {
+  const list = [...findRecordsConditions.value];
+  list[index] = { ...list[index], value };
+  findRecordsConditions.value = list;
+}
+
+watch(
+  findRecordsTargetTableId,
+  (newTableId) => {
+    loadTargetFields(newTableId);
+  },
+  { immediate: true },
+);
 
 // ==================== Webhook 节点配置 ====================
 
@@ -643,17 +740,7 @@ function updateInlineHeader(key: string, value: string) {
 // ==================== 渲染辅助 ====================
 
 const nodeTypeLabel = computed(() => {
-  const labels: Record<string, string> = {
-    approval: "审批节点",
-    condition: "条件节点",
-    update_record: "更新记录",
-    create_record: "创建记录",
-    send_email: "发送邮件",
-    webhook: "Webhook",
-    action: "动作节点",
-    trigger: "触发器",
-  };
-  return labels[props.node.node_type] ?? props.node.node_type;
+  return getNodeLabel(props.node.node_type);
 });
 </script>
 
@@ -683,74 +770,8 @@ const nodeTypeLabel = computed(() => {
       </template>
     </div>
 
-    <!-- 审批节点 -->
-    <template v-if="localNode.node_type === 'approval'">
-      <el-form label-position="top" class="config-form">
-        <el-form-item label="审批人选择方式">
-          <el-radio-group v-model="assigneeType" :disabled="readonly">
-            <el-radio label="fixed">固定用户</el-radio>
-            <el-radio label="field">字段指定</el-radio>
-            <el-radio label="role">角色</el-radio>
-          </el-radio-group>
-        </el-form-item>
-
-        <el-form-item v-if="assigneeType === 'fixed'" label="审批人">
-          <el-select
-            v-model="assigneeValue"
-            multiple
-            placeholder="选择用户"
-            class="full-width"
-            :disabled="readonly">
-            <el-option label="当前用户" value="current_user" />
-            <el-option label="管理员" value="admin" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item v-else-if="assigneeType === 'field'" label="成员字段">
-          <el-select v-model="assigneeValue" placeholder="选择字段" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="field in memberFieldOptions"
-              :key="field.id"
-              :label="field.name"
-              :value="field.id" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item v-else label="角色">
-          <el-select v-model="assigneeValue" placeholder="选择角色" class="full-width" :disabled="readonly">
-            <el-option label="管理员" value="admin" />
-            <el-option label="部门负责人" value="manager" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="审批模式">
-          <el-select v-model="approvalMode" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="mode in approvalModes"
-              :key="mode.value"
-              :label="mode.label"
-              :value="mode.value" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="超时时间（分钟）">
-          <el-input-number v-model="timeoutMinutes" :min="0" :controls="false" class="full-width" :disabled="readonly" />
-        </el-form-item>
-
-        <el-form-item v-if="timeoutMinutes && timeoutMinutes > 0" label="超时动作">
-          <el-select v-model="timeoutAction" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="action in timeoutActions"
-              :key="action.value"
-              :label="action.label"
-              :value="action.value" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-    </template>
-
     <!-- 条件节点 -->
-    <template v-else-if="localNode.node_type === 'condition'">
+    <template v-if="localNode.node_type === 'condition'">
       <div class="condition-branches">
         <div class="branches-header">
           <span class="branches-title">条件分支</span>
@@ -1161,6 +1182,7 @@ const nodeTypeLabel = computed(() => {
               :label="field.name"
               :value="field.id" />
           </el-select>
+          <div class="field-hint">仅支持邮箱、成员、协作人类型字段</div>
         </el-form-item>
 
         <el-form-item v-else label="固定邮箱">
@@ -1175,15 +1197,44 @@ const nodeTypeLabel = computed(() => {
             :disabled="readonly" />
         </el-form-item>
 
-        <el-form-item label="邮件模板">
-          <el-select v-model="emailTemplateId" placeholder="选择模板" class="full-width" :disabled="readonly">
-            <el-option
-              v-for="template in emailTemplates"
-              :key="template.id"
-              :label="template.name"
-              :value="template.id" />
-          </el-select>
+        <el-form-item label="内容模式">
+          <el-radio-group v-model="emailContentMode" :disabled="readonly">
+            <el-radio label="custom">自定义内容</el-radio>
+            <el-radio label="template">邮件模板</el-radio>
+          </el-radio-group>
         </el-form-item>
+
+        <template v-if="emailContentMode === 'custom'">
+          <el-form-item label="邮件主题">
+            <el-input
+              v-model="emailSubject"
+              placeholder="请输入邮件主题"
+              :disabled="readonly" />
+            <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值</div>
+          </el-form-item>
+
+          <el-form-item label="邮件正文">
+            <el-input
+              v-model="emailBody"
+              type="textarea"
+              :rows="6"
+              placeholder="请输入邮件正文"
+              :disabled="readonly" />
+            <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值，{{trigger.event_type}} 引用触发事件</div>
+          </el-form-item>
+        </template>
+
+        <template v-else>
+          <el-form-item label="邮件模板">
+            <el-select v-model="emailTemplateId" placeholder="选择模板" class="full-width" :disabled="readonly">
+              <el-option
+                v-for="template in emailTemplates"
+                :key="template.id"
+                :label="template.name"
+                :value="template.template_key" />
+            </el-select>
+          </el-form-item>
+        </template>
       </el-form>
     </template>
 
@@ -1277,6 +1328,162 @@ const nodeTypeLabel = computed(() => {
       </el-form>
     </template>
 
+    <!-- 查找记录节点 -->
+    <template v-else-if="localNode.node_type === 'find_records'">
+      <div class="section-title">查找记录</div>
+      <el-form label-position="top" class="config-form">
+        <el-form-item label="目标表格">
+          <el-select
+            v-model="findRecordsTargetTableId"
+            placeholder="选择目标表格"
+            class="full-width"
+            :disabled="readonly"
+            @change="onFindRecordsTargetTableChange">
+            <el-option
+              v-for="table in availableTables"
+              :key="table.id"
+              :label="table.name"
+              :value="table.id" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="过滤条件">
+          <div class="find-records-conditions">
+            <div class="condition-conjunction">
+              <span class="conjunction-label">条件关系</span>
+              <template v-if="readonly">
+                <span class="conjunction-value">{{ getConjunctionLabel(findRecordsConjunction) }}</span>
+              </template>
+              <el-radio-group
+                v-else
+                v-model="findRecordsConjunction"
+                size="small">
+                <el-radio
+                  v-for="opt in CONJUNCTION_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.value">
+                  {{ opt.label }}
+                </el-radio>
+              </el-radio-group>
+            </div>
+
+            <div class="conditions-list">
+              <div
+                v-for="(condition, index) in findRecordsConditions"
+                :key="index"
+                class="condition-row">
+                <el-select
+                  :model-value="condition.field_id"
+                  placeholder="选择字段"
+                  class="field-select"
+                  :disabled="readonly"
+                  @change="(val) => onFindRecordsConditionFieldChange(index, val as string)">
+                  <el-option
+                    v-for="field in targetTableFields"
+                    :key="field.id"
+                    :label="field.name"
+                    :value="field.id" />
+                </el-select>
+
+                <el-select
+                  :model-value="condition.operator"
+                  placeholder="操作符"
+                  class="operator-select"
+                  :disabled="readonly"
+                  @change="(val) => onFindRecordsConditionOperatorChange(index, val as FilterOperatorValue)">
+                  <el-option
+                    v-for="op in getOperatorOptions(getTargetFieldById(condition.field_id)?.type ?? '')"
+                    :key="op.value"
+                    :label="op.label"
+                    :value="op.value" />
+                </el-select>
+
+                <FieldValueInput
+                  v-if="operatorRequiresValue(condition.operator) && getTargetFieldById(condition.field_id)"
+                  :field="getTargetFieldById(condition.field_id)!"
+                  :model-value="condition.value"
+                  placeholder="值"
+                  class="value-input"
+                  :disabled="readonly"
+                  @update:model-value="(val) => onFindRecordsConditionValueChange(index, val)" />
+
+                <span v-else class="value-placeholder">无需值</span>
+
+                <el-button
+                  v-if="!readonly"
+                  type="danger"
+                  :icon="Delete"
+                  circle
+                  size="small"
+                  @click="removeFindRecordsCondition(index)" />
+              </div>
+
+              <el-button
+                v-if="!readonly"
+                type="primary"
+                :icon="Plus"
+                text
+                @click="addFindRecordsCondition">
+                添加条件
+              </el-button>
+            </div>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="排序字段">
+          <el-select
+            v-model="findRecordsSortFieldId"
+            placeholder="选择排序字段"
+            class="full-width"
+            :disabled="readonly">
+            <el-option
+              v-for="field in targetTableFields"
+              :key="field.id"
+              :label="field.name"
+              :value="field.id" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="排序方向">
+          <el-radio-group v-model="findRecordsSortDirection" :disabled="readonly">
+            <el-radio label="asc">升序</el-radio>
+            <el-radio label="desc">降序</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="返回条数上限">
+          <el-input-number
+            v-model="findRecordsLimit"
+            :min="1"
+            :max="1000"
+            :controls="false"
+            class="full-width"
+            :disabled="readonly" />
+        </el-form-item>
+
+        <el-form-item label="结果变量名">
+          <el-input
+            v-model="findRecordsVariable"
+            placeholder="records"
+            class="full-width"
+            :disabled="readonly" />
+          <div class="form-item-hint">
+            变量名只能包含字母、数字和下划线，且不能以数字开头。
+          </div>
+          <div v-if="!isFindRecordsVariableValid" class="form-item-error">
+            变量名格式不正确，请检查输入。
+          </div>
+        </el-form-item>
+
+        <el-form-item label="空结果处理">
+          <el-radio-group v-model="findRecordsEmptyAction" :disabled="readonly">
+            <el-radio label="continue">空结果继续执行</el-radio>
+            <el-radio label="stop">空结果终止分支</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+    </template>
+
     <!-- 未知类型 -->
     <template v-else>
       <el-empty :description="`暂不支持该节点类型配置：${localNode.node_type || '未知类型'}`" />
@@ -1329,6 +1536,13 @@ const nodeTypeLabel = computed(() => {
 
 .full-width {
   width: 100%;
+}
+
+.field-hint {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 
 .condition-conjunction {
@@ -1536,6 +1750,34 @@ const nodeTypeLabel = computed(() => {
 .header-key,
 .header-value {
   flex: 1;
+}
+
+.section-title {
+  font-weight: 600;
+  color: $text-primary;
+  margin-bottom: $spacing-md;
+}
+
+.form-item-hint {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  margin-top: $spacing-xs;
+  margin-left: $spacing-lg;
+  background-color: $bg-color;
+  border-radius: $border-radius-md;
+}
+
+.form-item-error {
+  font-size: $font-size-sm;
+  color: $error-color;
+  margin-top: $spacing-xs;
+}
+
+.find-records-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  width: 100%;
 }
 
 .condition-branches {

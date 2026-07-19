@@ -56,6 +56,7 @@ const triggerTypes: { value: TriggerType; label: string }[] = [
   { value: "record_created", label: "记录创建时" },
   { value: "record_updated", label: "记录更新时" },
   { value: "specified_time", label: "指定时间" },
+  { value: "record_time_reached", label: "到达记录中的时间时" },
   // { value: "field_changed", label: "字段变更时（暂不支持）" },
   // { value: "manual", label: "手动触发（暂不支持）" },
 ];
@@ -80,11 +81,51 @@ const triggerType = computed({
       delete config.schedule;
     }
 
+    // 切换到"到达记录中的时间时"时
+    if (value === "record_time_reached") {
+      const config = ensureFilterConfig();
+      delete config.schedule;
+      if (!config.time_field_id) {
+        config.time_field_id = "";
+      }
+    }
+
+    // 从"到达记录中的时间时"切换到其他类型时
+    if (prevType === "record_time_reached" && value !== "record_time_reached") {
+      const config = ensureFilterConfig();
+      delete config.time_field_id;
+    }
+
     if (value !== "record_updated" && value !== "field_changed") {
       localTrigger.value.field_ids = [];
     }
   },
 });
+
+const showTimeFieldSelector = computed(
+  () => localTrigger.value.trigger_type === "record_time_reached",
+);
+
+const dateFields = computed(() =>
+  props.fields.filter((f) => f.type === "date" || f.type === "date_time"),
+);
+
+const selectedTimeFieldId = computed({
+  get: () => {
+    const config = localTrigger.value.filter_config || {};
+    return (config.time_field_id as string) || "";
+  },
+  set: (value: string) => {
+    const config = ensureFilterConfig();
+    config.time_field_id = value;
+  },
+});
+
+const timeFieldEmpty = computed(
+  () =>
+    showTimeFieldSelector.value &&
+    !selectedTimeFieldId.value,
+);
 
 const showFieldIdsSelector = computed(
   () =>
@@ -294,7 +335,11 @@ function validateFieldIds(): boolean {
   return !fieldIdsEmpty.value;
 }
 
-defineExpose({ validateFieldIds });
+function validateTimeField(): boolean {
+  return !timeFieldEmpty.value;
+}
+
+defineExpose({ validateFieldIds, validateTimeField });
 </script>
 
 <template>
@@ -320,6 +365,21 @@ defineExpose({ validateFieldIds });
           :disabled="readonly">
           <el-option
             v-for="field in fields"
+            :key="field.id"
+            :label="field.name"
+            :value="field.id" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item v-if="showTimeFieldSelector" label="时间字段" :error="timeFieldEmpty ? '请选择时间字段' : ''">
+        <el-select
+          v-model="selectedTimeFieldId"
+          placeholder="选择日期/日期时间字段"
+          class="full-width time-field-select"
+          :class="{ 'field-ids-error': timeFieldEmpty }"
+          :disabled="readonly">
+          <el-option
+            v-for="field in dateFields"
             :key="field.id"
             :label="field.name"
             :value="field.id" />

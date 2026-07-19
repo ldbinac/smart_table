@@ -2,6 +2,10 @@
 import { computed } from "vue";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import FieldComponentFactory from "@/components/fields/FieldComponentFactory.vue";
+import { FieldType } from "@/types";
+import { FormulaEngine } from "@/utils/formula/engine";
+import { formatDate, formatDateTime } from "@/utils/timezone";
+import { useTableStore } from "@/stores/tableStore";
 
 interface Props {
   record: RecordEntity;
@@ -13,6 +17,10 @@ const emit = defineEmits<{
   (e: "edit"): void;
   (e: "delete"): void;
 }>();
+
+// 获取表格所有字段（包括隐藏字段，用于公式计算）
+const tableStore = useTableStore();
+const allFields = computed(() => tableStore.fields);
 
 const primaryField = computed(() => {
   return props.fields.find((f) => f.isPrimary) || props.fields[0];
@@ -31,6 +39,68 @@ const primaryValue = computed(() => {
   
   return value || "";
 });
+
+// 计算公式字段值
+const formulaValues = computed(() => {
+  const values: Record<string, string | number | null> = {};
+  const formulaFields = props.fields.filter(f => f.type === FieldType.FORMULA);
+  
+  if (formulaFields.length === 0) return values;
+  
+  // 使用所有字段（包括隐藏字段）构建公式引擎
+  const engine = new FormulaEngine(allFields.value);
+  
+  for (const field of formulaFields) {
+    const formula = field.options?.formula as string;
+    
+    if (!formula) {
+      values[field.id] = null;
+      continue;
+    }
+    
+    try {
+      const result = engine.calculate(props.record, formula);
+      
+      if (typeof result === "number") {
+        // 根据公式类型决定格式化方式
+        const resultType = FormulaEngine.inferResultType(formula);
+        // 日期时间类型：YYYY-MM-DD HH:mm:ss
+        if (resultType === "datetime") {
+          values[field.id] = formatDateTime(result);
+        }
+        // 日期类型：YYYY-MM-DD
+        else if (resultType === "date") {
+          values[field.id] = formatDate(result);
+        }
+        // 数字类型：带精度格式化
+        else {
+          const precision = (field.options?.precision as number) ?? 2;
+          values[field.id] = result.toLocaleString("zh-CN", {
+            minimumFractionDigits: precision,
+            maximumFractionDigits: precision,
+          });
+        }
+      } else if (result === "#ERROR") {
+        values[field.id] = "计算错误";
+      } else {
+        values[field.id] = result as string | null;
+      }
+    } catch (e) {
+      console.error('[KanbanCard] 公式计算错误:', e);
+      values[field.id] = "计算错误";
+    }
+  }
+  
+  return values;
+});
+
+// 获取字段显示值（优先使用公式计算值）
+const getFieldValue = (field: FieldEntity) => {
+  if (field.type === FieldType.FORMULA) {
+    return formulaValues.value[field.id] ?? null;
+  }
+  return props.record.values[field.id];
+};
 
 // 处理卡片点击（非操作区域）
 function handleCardClick(event: MouseEvent) {
@@ -80,11 +150,11 @@ function handleCardClick(event: MouseEvent) {
         <span class="field-label">{{ field.name }}</span>
         <div class="field-value">
           <FieldComponentFactory
-            :model-value="record.values[field.id]"
+            :model-value="getFieldValue(field)"
             :field="field"
             :readonly="true"
             :record="record"
-            :all-fields="fields" />
+            :all-fields="allFields" />
         </div>
       </div>
     </div>

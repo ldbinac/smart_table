@@ -35,7 +35,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 | **Contact Types**   | Email            | Email address input and validation                                  | ✅      |
 | **Contact Types**   | URL              | URL link with click-to-navigate                                     | ✅      |
 | **Media Types**     | Attachment       | File upload/download with image preview and thumbnails              | ✅      |
-| **Computed Types**  | Formula          | 43 built-in functions with field references and nested calculations | ✅      |
+| **Computed Types**  | Formula          | 47 built-in functions with field references and nested calculations | ✅      |
 | **Relation Types**  | Link             | Table relationships supporting one-to-one/one-to-many/many-to-many  | ✅      |
 | **Lookup Types**    | Lookup           | Cross-table queries with aggregation (sum/avg/count/etc.)           | ✅      |
 | **System Types**    | Created By       | Auto-record record creator                                          | ✅      |
@@ -65,7 +65,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Data Filtering** - Multi-condition combined filtering with AND/OR logic, 20+ operators
 - **Data Sorting** - Multi-field sorting with ascending/descending order, drag to adjust priority
 - **Data Grouping** - Group by field with multi-level grouping (up to 3 levels), group statistics
-- **Formula Engine** - **43 built-in functions** for math, text, date, logic, and statistics
+- **Formula Engine** - **47 built-in functions** for math, text, date, logic, and statistics
 - **Streaming Data Loading** - First-screen rendering in seconds for 10k+ records, async background loading of remaining pages, non-blocking operations
 - **Data Import** - Support Excel, CSV, JSON formats with multi-sheet, can import to create new tables
 - **Data Export** - Support Excel, CSV, JSON formats with custom field selection
@@ -574,7 +574,7 @@ SUMIF({Department}, "Sales", {Sales Amount})
 LOOKUP({Related Table.Related Records}, {Target Field})
 ```
 
-### Supported Functions (43 Total)
+### Supported Functions (47 Total)
 
 #### 📊 Math Functions (11)
 
@@ -607,20 +607,26 @@ LOOKUP({Related Table.Related Records}, {Target Field})
 | `REPLACE`    | Replace position | `REPLACE({Text}, 1, 3, "New")`     |
 | `FIND`       | Find position    | `FIND("Substring", {Text})`        |
 
-#### 📅 Date Functions (10)
+#### 📅 Date Functions (14)
 
-| Function  | Description       | Example                        |
-| --------- | ----------------- | ------------------------------ |
-| `TODAY`   | Today's date      | `TODAY()`                      |
-| `NOW`     | Current time      | `NOW()`                        |
-| `YEAR`    | Extract year      | `YEAR({Date})`                 |
-| `MONTH`   | Extract month     | `MONTH({Date})`                |
-| `DAY`     | Extract day       | `DAY({Date})`                  |
-| `HOUR`    | Extract hour      | `HOUR({Time})`                 |
-| `MINUTE`  | Extract minute    | `MINUTE({Time})`               |
-| `SECOND`  | Extract second    | `SECOND({Time})`               |
-| `DATEDIF` | Date difference   | `DATEDIF({Start}, {End}, "D")` |
-| `DATEADD` | Date add/subtract | `DATEADD({Date}, 7, "D")`      |
+| Function          | Description                        | Example                                         |
+| ----------------- | ---------------------------------- | ----------------------------------------------- |
+| `TODAY`           | Today's date                       | `TODAY()`                                       |
+| `NOW`             | Current time                       | `NOW()`                                         |
+| `YEAR`            | Extract year                       | `YEAR({Date})`                                  |
+| `MONTH`           | Extract month                      | `MONTH({Date})`                                 |
+| `DAY`             | Extract day                        | `DAY({Date})`                                   |
+| `HOUR`            | Extract hour                       | `HOUR({Time})`                                  |
+| `MINUTE`          | Extract minute                     | `MINUTE({Time})`                                |
+| `SECOND`          | Extract second                     | `SECOND({Time})`                                |
+| `WEEKDAY`         | Day of week (1=Monday, 7=Sunday)   | `WEEKDAY({Date})`                               |
+| `DATETIME_FORMAT` | Format datetime                    | `DATETIME_FORMAT({DateTime}, "YYYY-MM-DD")`      |
+| `FROMUNIXTIME`    | Timestamp to datetime (ms)         | `FROMUNIXTIME(1704067200000)`                   |
+| `UNIXTIMESTAMP`   | Datetime to timestamp (ms)         | `UNIXTIMESTAMP({DateTime})`                     |
+| `DATEDIF`         | Date difference (`DATEDIFF` alias) | `DATEDIF({Start}, {End}, "D")`                  |
+| `DATEADD`         | Date add/subtract, `DATEADD(date, amount, unit)` | `DATEADD({Date}, 7, "D")`                       |
+
+> **Note**: `DATEADD` signature is `DATEADD(date, amount, unit)`, e.g. `DATEADD(TODAY(), 7, "D")`. Unit is case-sensitive: `M` = month, `m` = minute; `D/d` = day, `H/h` = hour, `S/s` = second. `DATEDIF` and `DATEDIFF` are aliases.
 
 #### 🧠 Logic Functions (7)
 

@@ -415,6 +415,7 @@ def update_workflow_nodes(workflow_id) -> tuple:
         'create_record': 'create_record',
         'send_email': 'send_email',
         'trigger_webhook': 'trigger_webhook',
+        'find_records': 'find_records',
     }
 
     WorkflowNode.query.filter_by(workflow_id=workflow.id).delete()
@@ -1243,3 +1244,53 @@ def trigger_record_workflow(table_id, record_id) -> tuple:
         },
         message='工作流触发成功'
     )
+
+
+# ==================== 记录时间触发扫描器监控 ====================
+
+@workflows_bp.route('/admin/record-time-scanner/stats', methods=['GET'])
+@jwt_required
+def get_record_time_scanner_stats() -> tuple:
+    """
+    获取"到达记录中的时间"扫描器的运行统计
+    ---
+    tags:
+      - Workflows
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: 扫描器统计信息
+        schema:
+          properties:
+            last_scan_at:
+              type: string
+              description: 最近一次扫描时间（本地时区 ISO 格式）
+            last_scan_utc:
+              type: string
+              description: 最近一次扫描时间（UTC ISO 格式）
+            scanned_workflows:
+              type: integer
+              description: 最近一次扫描的工作流数量
+            triggered_instances:
+              type: integer
+              description: 最近一次扫描触发的实例数量
+            errors:
+              type: integer
+              description: 最近一次扫描的错误数
+            last_error:
+              type: string
+              description: 最近一次错误信息
+    """
+    from app.services.workflow_record_time_scanner import get_scan_stats, SCAN_INTERVAL_SECONDS
+    from app.services.workflow_scheduler_service import scheduler
+    from datetime import datetime, timezone
+
+    stats = get_scan_stats()
+    # 附加调度器状态
+    stats['scheduler_running'] = bool(scheduler and scheduler.running)
+    stats['scan_interval_seconds'] = SCAN_INTERVAL_SECONDS
+    stats['server_time_utc'] = datetime.now(timezone.utc).isoformat()
+    stats['server_time_local'] = datetime.now().astimezone().isoformat()
+
+    return success_response(data=stats)

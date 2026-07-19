@@ -512,14 +512,27 @@ describe("Formula Functions", () => {
       expect(formulaFunctions.YEAR(timestamp)).toBe(2024);
     });
 
+    it("should extract YEAR from date string", () => {
+      // 测试日期字符串解析
+      expect(formulaFunctions.YEAR("2024-03-15")).toBe(2024);
+    });
+
     it("should extract MONTH", () => {
       const timestamp = new Date("2024-03-15").getTime();
       expect(formulaFunctions.MONTH(timestamp)).toBe(3);
     });
 
+    it("should extract MONTH from date string", () => {
+      expect(formulaFunctions.MONTH("2024-03-15")).toBe(3);
+    });
+
     it("should extract DAY", () => {
       const timestamp = new Date("2024-03-15").getTime();
       expect(formulaFunctions.DAY(timestamp)).toBe(15);
+    });
+
+    it("should extract DAY from date string", () => {
+      expect(formulaFunctions.DAY("2024-03-15")).toBe(15);
     });
 
     it("should calculate DATEDIF in days", () => {
@@ -528,11 +541,76 @@ describe("Formula Functions", () => {
       expect(formulaFunctions.DATEDIF(date1, date2, "D")).toBe(9);
     });
 
+    it("should calculate DATEDIFF with timestamp", () => {
+      const date1 = new Date("2024-01-01").getTime();
+      const date2 = new Date("2024-01-10").getTime();
+      expect(formulaFunctions.DATEDIFF(date1, date2, "day")).toBe(9);
+    });
+
+    it("should calculate DATEDIFF with date strings", () => {
+      // 测试日期字符串解析（关键修复点）
+      expect(formulaFunctions.DATEDIFF("2024-01-01", "2024-01-10", "day")).toBe(9);
+      expect(formulaFunctions.DATEDIFF("2024-01-01", "2024-02-01", "month")).toBe(1);
+      expect(formulaFunctions.DATEDIFF("2024-01-01", "2025-01-01", "year")).toBe(1);
+    });
+
+    it("should calculate DATEDIFF with various unit formats", () => {
+      const date1 = new Date("2024-01-01").getTime();
+      const date2 = new Date("2024-01-10").getTime();
+      // 支持多种单位格式
+      expect(formulaFunctions.DATEDIFF(date1, date2, "d")).toBe(9);
+      expect(formulaFunctions.DATEDIFF(date1, date2, "day")).toBe(9);
+    });
+
     it("should add days with DATEADD", () => {
       const date = new Date("2024-01-01").getTime();
       const result = formulaFunctions.DATEADD(date, 5, "day") as number;
       const expected = new Date("2024-01-06").getTime();
       expect(Math.abs(result - expected)).toBeLessThan(1000);
+    });
+
+    it("should add days with DATEADD from date string", () => {
+      // 测试日期字符串解析
+      const result = formulaFunctions.DATEADD("2024-01-01", 5, "day") as number;
+      // 检查结果是否为有效时间戳
+      expect(typeof result).toBe("number");
+      expect(result).toBeGreaterThan(0);
+      // 验证加 5 天后与原始日期的时间差约为 5 天（允许时区偏差）
+      const result2 = formulaFunctions.DATEADD("2024-01-01", 0, "day") as number;
+      const diff = Math.abs(result - result2);
+      // 5 天 = 5 * 24 * 60 * 60 * 1000 = 432000000 毫秒
+      // 允许时区偏差，检查时间差接近 5 天
+      expect(diff).toBeGreaterThan(4 * 24 * 60 * 60 * 1000); // 大于 4 天
+      expect(diff).toBeLessThan(6 * 24 * 60 * 60 * 1000); // 小于 6 天
+    });
+
+    it("should distinguish month (M) and minute (m) in DATEADD", () => {
+      const date = Date.UTC(2024, 0, 1);
+      const monthResult = formulaFunctions.DATEADD(date, 2, "M") as number;
+      const expectedMonth = Date.UTC(2024, 2, 1);
+      expect(Math.abs(monthResult - expectedMonth)).toBeLessThan(1000);
+
+      const minuteResult = formulaFunctions.DATEADD(date, 30, "m") as number;
+      const expectedMinute = Date.UTC(2024, 0, 1, 0, 30);
+      expect(Math.abs(minuteResult - expectedMinute)).toBeLessThan(1000);
+    });
+
+    it("should return weekday with 1=Monday", () => {
+      // 2024-03-15 is Friday
+      const timestamp = new Date("2024-03-15").getTime();
+      expect(formulaFunctions.WEEKDAY(timestamp)).toBe(5);
+    });
+
+    it("should format datetime with DATETIME_FORMAT", () => {
+      const timestamp = new Date("2024-03-15T08:30:00").getTime();
+      expect(formulaFunctions.DATETIME_FORMAT(timestamp, "YYYY-MM-DD")).toBe("2024-03-15");
+      expect(formulaFunctions.DATETIME_FORMAT(timestamp, "HH:mm")).toBe("08:30");
+    });
+
+    it("should convert between timestamp and date with FROMUNIXTIME/UNIXTIMESTAMP", () => {
+      const timestamp = new Date("2024-03-15T08:30:00").getTime();
+      expect(formulaFunctions.UNIXTIMESTAMP(timestamp)).toBe(timestamp);
+      expect(formulaFunctions.FROMUNIXTIME(timestamp)).toBe(timestamp);
     });
   });
 

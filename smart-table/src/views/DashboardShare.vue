@@ -2,9 +2,6 @@
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import { dashboardShareService } from "@/db/services/dashboardShareService";
-import { dashboardService } from "@/db/services/dashboardService";
-import { recordService } from "@/db/services/recordService";
-import { fieldService } from "@/db/services/fieldService";
 import type { DashboardShare, Dashboard } from "@/db/schema";
 import type { WidgetConfig } from "@/db/services/dashboardService";
 import * as echarts from "echarts";
@@ -23,6 +20,7 @@ const route = useRoute();
 const isLoading = ref(true);
 const isValidating = ref(false);
 const errorMessage = ref("");
+const errorSubTitle = ref("");
 const shareInfo = ref<DashboardShare | null>(null);
 const dashboard = ref<Dashboard | null>(null);
 const widgets = ref<WidgetConfig[]>([]);
@@ -34,11 +32,72 @@ const chartContainers = ref<Map<string, HTMLElement>>(new Map());
 const layoutType = ref<"grid" | "free">("grid");
 const gridColumns = ref<12 | 24>(12);
 
+// 错误码到标准提示的映射
+const ERROR_MESSAGE_MAP: Record<string, { title: string; subTitle: string }> = {
+  share_not_found: {
+    title: "无效的认证令牌",
+    subTitle: "该分享链接不存在或已被删除",
+  },
+  share_deactivated: {
+    title: "无效的认证令牌",
+    subTitle: "该分享链接已被创建者禁用",
+  },
+  share_expired: {
+    title: "无效的认证令牌",
+    subTitle: "该分享链接已过期，请联系创建者重新分享",
+  },
+  share_access_limit: {
+    title: "无效的认证令牌",
+    subTitle: "该分享链接的访问次数已达上限",
+  },
+  access_code_locked: {
+    title: "密码尝试次数过多",
+    subTitle: "请等待 15 分钟后再试",
+  },
+  access_code_invalid: {
+    title: "访问密码错误",
+    subTitle: "请检查密码后重新输入",
+  },
+};
+
+// 根据错误信息匹配标准提示
+function mapErrorMessage(error: string): { title: string; subTitle: string } {
+  // 直接匹配错误码
+  if (ERROR_MESSAGE_MAP[error]) {
+    return ERROR_MESSAGE_MAP[error];
+  }
+  // 匹配后端返回的中文消息
+  if (error.includes("无效的认证令牌") || error === "无效的认证令牌") {
+    return {
+      title: "无效的认证令牌",
+      subTitle: "该分享链接可能已失效、被禁用或已过期",
+    };
+  }
+  if (error.includes("访问密码错误")) {
+    return {
+      title: "访问密码错误",
+      subTitle: "请检查密码后重新输入",
+    };
+  }
+  if (error.includes("密码尝试次数过多") || error.includes("稍后再试")) {
+    return {
+      title: "密码尝试次数过多",
+      subTitle: "请等待 15 分钟后再试",
+    };
+  }
+  // 默认
+  return {
+    title: error || "分享链接无效",
+    subTitle: "该分享链接可能已失效、被禁用或已过期",
+  };
+}
+
 // 验证分享链接
 async function validateShare() {
   const token = route.params.token as string;
   if (!token) {
-    errorMessage.value = "分享链接无效";
+    errorMessage.value = "无效的认证令牌";
+    errorSubTitle.value = "分享链接缺少必要的认证参数";
     isLoading.value = false;
     return;
   }
@@ -55,7 +114,9 @@ async function validateShare() {
       isLoading.value = false;
       return;
     }
-    errorMessage.value = result.error || "分享链接无效";
+    const mapped = mapErrorMessage(result.error || "");
+    errorMessage.value = mapped.title;
+    errorSubTitle.value = mapped.subTitle;
     isLoading.value = false;
     return;
   }
@@ -65,7 +126,7 @@ async function validateShare() {
   // 如果返回了 dashboard 数据，直接使用（跨浏览器场景）
   if (result.dashboard) {
     console.log(
-      "[DashboardShare] 使用后端返回的 dashboard 数据（跨浏览器场景）",
+      "[DashboardShare] 使用后端返回的 dashboard 数据（免登录访问）",
     );
     const dash = result.dashboard;
     dashboard.value = dash as unknown as Dashboard;
@@ -73,12 +134,48 @@ async function validateShare() {
     layoutType.value = (dash.layoutType as "grid" | "free") || "grid";
     gridColumns.value = (dash.gridColumns as 12 | 24) || 12;
 
-    // 加载所有相关表的数据（字段和记录）
-    const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
-    console.log("[DashboardShare] 需要加载的表 IDs:", tableIds);
+    // 直接使用 validate 端点返回的表数据，无需再发起认证 API 请求
+    if (result.tables && Array.isArray(result.tables)) {
+      console.log(
+        "[DashboardShare] 使用后端返回的",
+        result.tables.length,
+        "个表数据",
+      );
+      for (const table of result.tables) {
+        // 将后端字段数据转换为前端格式
+        const fields = (table.fields || []).map((f: any) => ({
+          id: f.id,
+          tableId: f.table_id,
+          name: f.name,
+          type: f.type,
+          options: f.options,
+          config: f.config,
+          isPrimary: f.is_primary || false,
+          order: f.order || 0,
+        }));
+        tableFieldsMap.value.set(table.id, fields);
 
-    for (const tableId of tableIds) {
-      await loadTableData(tableId);
+        // 将后端记录数据转换为前端格式
+        const records = (table.records || []).map((r: any) => ({
+          id: r.id,
+          tableId: r.table_id,
+          values: r.values || {},
+        }));
+        tableRecordsMap.value.set(table.id, records);
+
+        console.log(
+          `[DashboardShare] 表 ${table.name}: ${fields.length} 个字段, ${records.length} 条记录`,
+        );
+      }
+    } else {
+      // 如果 validate 没有返回 tables 数据（不应该发生），从 IndexedDB 读取
+      console.warn(
+        "[DashboardShare] validate 未返回 tables 数据，尝试从本地缓存读取",
+      );
+      const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
+      for (const tableId of tableIds) {
+        await loadTableDataFromLocal(tableId);
+      }
     }
 
     isLoading.value = false;
@@ -90,80 +187,31 @@ async function validateShare() {
     return;
   }
 
-  // 记录访问
-  await dashboardShareService.recordAccess(result.share!.id);
-
-  // 加载仪表盘数据（本地缓存场景）
-  await loadDashboard(result.share!.dashboardId);
-}
-
-// 加载仪表盘
-async function loadDashboard(dashboardId: string) {
-  try {
-    const dashboardData = await dashboardService.getDashboard(dashboardId);
-    if (!dashboardData) {
-      errorMessage.value = "仪表盘不存在或已被删除";
-      isLoading.value = false;
-      return;
-    }
-
-    dashboard.value = dashboardData;
-    widgets.value = (dashboardData.widgets || []) as WidgetConfig[];
-
-    // 设置布局配置
-    layoutType.value = dashboardData.layoutType || "grid";
-    gridColumns.value = (dashboardData.gridColumns as 12 | 24) || 12;
-
-    // 加载所有相关表的数据
-    const tableIds = [...new Set(widgets.value.map((w) => w.tableId))];
-    for (const tableId of tableIds) {
-      await loadTableData(tableId);
-    }
-
-    isLoading.value = false;
-
-    // 渲染组件
-    nextTick(() => {
-      widgets.value.forEach((widget) => renderWidget(widget));
-    });
-  } catch (error) {
-    console.error("加载仪表盘失败:", error);
-    errorMessage.value = "加载仪表盘失败";
-    isLoading.value = false;
-  }
+  // 如果 validate 没有返回 dashboard（不应该发生），显示错误
+  errorMessage.value = "加载数据失败";
+  errorSubTitle.value = "无法获取仪表盘数据，请稍后重试";
+  isLoading.value = false;
 }
 
 // 表数据缓存
 const tableFieldsMap = ref<Map<string, any[]>>(new Map());
 const tableRecordsMap = ref<Map<string, any[]>>(new Map());
 
-async function loadTableData(tableId: string) {
+// 仅从 IndexedDB 本地缓存读取表数据（不发起 API 请求，用于免登录访问的兜底）
+async function loadTableDataFromLocal(tableId: string) {
   if (tableFieldsMap.value.has(tableId) && tableRecordsMap.value.has(tableId)) {
-    console.log(`[DashboardShare] 表 ${tableId} 数据已加载，跳过`);
     return;
   }
 
   try {
-    console.log(`[DashboardShare] 开始加载表 ${tableId} 数据...`);
-
-    // 优先从本地读取字段数据
-    const fields = await fieldService.getFieldsByTable(tableId);
-    console.log(`[DashboardShare] 加载到 ${fields.length} 个字段`);
+    // 从 IndexedDB 读取
+    const { db } = await import("@/db/schema");
+    const fields = await db.fields.where("tableId").equals(tableId).sortBy("order");
+    const records = await db.records.where("tableId").equals(tableId).toArray();
     tableFieldsMap.value.set(tableId, fields);
-
-    // 尝试从本地读取记录数据
-    const records = await recordService.getRecordsByTable(tableId);
-    console.log(`[DashboardShare] 加载到 ${records.length} 条记录`);
     tableRecordsMap.value.set(tableId, records);
-
-    if (fields.length === 0 || records.length === 0) {
-      console.warn(
-        `[DashboardShare] 表 ${tableId} 数据为空！检查 IndexedDB 中是否有数据`,
-      );
-    }
   } catch (error) {
-    console.error(`加载表 ${tableId} 数据失败:`, error);
-    // 如果加载失败，使用空数据
+    console.error(`从本地缓存加载表 ${tableId} 数据失败:`, error);
     tableFieldsMap.value.set(tableId, []);
     tableRecordsMap.value.set(tableId, []);
   }
@@ -1117,7 +1165,7 @@ onUnmounted(() => {
       <el-result
         icon="error"
         :title="errorMessage"
-        sub-title="该分享链接可能已过期、被禁用或达到访问次数上限">
+        :sub-title="errorSubTitle">
         <template #extra>
           <el-button type="primary" @click="$router.push('/')">
             返回首页
@@ -1135,10 +1183,7 @@ onUnmounted(() => {
           <p v-if="dashboard?.description">{{ dashboard.description }}</p>
         </div>
         <div class="header-right">
-          <el-tag v-if="shareInfo?.permission === 'view'" type="info"
-            >仅查看</el-tag
-          >
-          <el-tag v-else type="warning">可编辑</el-tag>
+          <el-tag type="info">只读查看</el-tag>
         </div>
       </div>
 

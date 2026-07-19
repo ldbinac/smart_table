@@ -205,7 +205,10 @@ smarttable-backend/
 ├── run.py                          # 应用入口
 ├── init_db.py                      # 数据库初始化
 ├── init_link_tables.py             # 关联表初始化
-├── alembic.ini                     # Alembic 配置
+├── migrations/
+│   ├── alembic.ini                 # Alembic 配置
+│   ├── env.py                      # Alembic 环境脚本
+│   └── versions/                   # 迁移脚本
 ├── Dockerfile                      # Docker 镜像
 ├── Dockerfile.dev                  # 开发镜像
 ├── docker-compose.yml              # Docker 编排（SQLite）

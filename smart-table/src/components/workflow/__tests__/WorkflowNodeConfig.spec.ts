@@ -51,6 +51,13 @@ vi.mock('@/db/services/fieldService', () => ({
   },
 }));
 
+// Mock api 模块（send_email 节点通过动态 import("@/utils/api") 加载邮件模板）
+vi.mock('@/utils/api', () => ({
+  default: {
+    get: vi.fn(() => Promise.resolve({ data: { data: [] } })),
+  },
+}));
+
 describe('WorkflowNodeConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,8 +66,8 @@ describe('WorkflowNodeConfig', () => {
   const mockNode = {
     id: 'node-1',
     workflow_id: 'wf-1',
-    node_type: 'approval' as const,
-    name: '审批节点 1',
+    node_type: 'send_email' as const,
+    name: '发送邮件 1',
     config: {},
     order: 0,
     next_nodes: [],
@@ -106,7 +113,7 @@ describe('WorkflowNodeConfig', () => {
             emits: ['update:modelValue', 'blur', 'keydown'],
           },
           'el-form': { template: '<form class="el-form"><slot /></form>' },
-          'el-form-item': { template: '<div class="el-form-item"><slot /></div>' },
+          'el-form-item': { template: '<div class="el-form-item"><label v-if="label" class="el-form-item__label">{{ label }}</label><slot /></div>', props: ['label'] },
           'el-radio-group': { template: '<div class="el-radio-group" :class="{ &quot;is-disabled&quot;: disabled }"><slot /></div>', props: ['disabled', 'modelValue'], emits: ['update:modelValue'] },
           'el-radio': { template: '<label class="el-radio"><slot /></label>' },
           'el-select': { template: '<select class="el-select" :class="$props.class" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value); $emit(\'change\', $event.target.value)"><slot /></select>', props: ['class', 'modelValue'], emits: ['update:modelValue', 'change'] },
@@ -143,7 +150,7 @@ describe('WorkflowNodeConfig', () => {
     const wrapper = mountConfig();
     const nameSpan = wrapper.find('.node-name');
     expect(nameSpan.exists()).toBe(true);
-    expect(nameSpan.text()).toBe('审批节点 1');
+    expect(nameSpan.text()).toBe('发送邮件 1');
   });
 
   it('草稿态下应该显示编辑按钮', () => {
@@ -176,15 +183,15 @@ describe('WorkflowNodeConfig', () => {
     await nextTick();
 
     const input = wrapper.find('.name-input');
-    await input.setValue('新审批节点');
+    await input.setValue('新发送邮件节点');
     await input.trigger('keydown', { key: 'Enter' });
     await nextTick();
 
     const emitted = wrapper.emitted('update:node') as any[][];
     expect(emitted).toBeTruthy();
     const lastNode = emitted[emitted.length - 1][0];
-    expect(lastNode.name).toBe('新审批节点');
-    expect(wrapper.find('.node-name').text()).toBe('新审批节点');
+    expect(lastNode.name).toBe('新发送邮件节点');
+    expect(wrapper.find('.node-name').text()).toBe('新发送邮件节点');
   });
 
   it('按 Esc 应该取消编辑并恢复原名', async () => {
@@ -198,7 +205,7 @@ describe('WorkflowNodeConfig', () => {
     await input.trigger('keydown', { key: 'Escape' });
     await nextTick();
 
-    expect(wrapper.find('.node-name').text()).toBe('审批节点 1');
+    expect(wrapper.find('.node-name').text()).toBe('发送邮件 1');
     // 取消编辑不应触发名称变更的事件（可能已有其他 config 变更事件，但名称应保持原值）
     // 由于 watch 机制，如果 config 没变，可能不会触发。这里主要验证 DOM 恢复
     expect(wrapper.find('.node-name').exists()).toBe(true);
@@ -215,7 +222,7 @@ describe('WorkflowNodeConfig', () => {
     await input.trigger('keydown', { key: 'Enter' });
     await nextTick();
 
-    expect(wrapper.find('.node-name').text()).toBe('审批节点 1');
+    expect(wrapper.find('.node-name').text()).toBe('发送邮件 1');
   });
 
   it('更新记录节点的静态值字段应直接显示 FieldValueInput 且隐藏值模板输入', async () => {
@@ -476,6 +483,59 @@ describe('WorkflowNodeConfig', () => {
       expect(wrapper.find('.el-empty').exists()).toBe(false);
       expect(wrapper.text()).toContain('字段');
       expect(wrapper.text()).toContain('固定邮箱');
+      // 验证 content_mode 单选组渲染（自定义内容/邮件模板）
+      expect(wrapper.text()).toContain('自定义内容');
+      expect(wrapper.text()).toContain('邮件模板');
+      // 默认 content_mode 为 custom，应显示主题和正文
+      expect(wrapper.text()).toContain('邮件主题');
+      expect(wrapper.text()).toContain('邮件正文');
+      // 验证收件人字段提示文本
+      expect(wrapper.text()).toContain('仅支持邮箱、成员、协作人类型字段');
+    });
+
+    it('send_email 自定义内容模式应渲染主题和正文输入框', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'send_email',
+          config: {
+            recipient_type: 'field',
+            content_mode: 'custom',
+          },
+        },
+      });
+      await nextTick();
+
+      // 验证邮件主题输入框渲染
+      expect(wrapper.text()).toContain('邮件主题');
+      // 验证邮件正文输入框渲染
+      expect(wrapper.text()).toContain('邮件正文');
+      // 自定义内容模式下不应显示模板选择下拉框（content_mode 单选组中的"邮件模板"标签仍可见，但模板 select 不渲染）
+      expect(wrapper.text()).not.toContain('选择模板');
+      // 验证模板提示文本包含 {{record.field_id}}
+      const hints = wrapper.findAll('.field-hint');
+      const hintTexts = hints.map((h) => h.text());
+      expect(hintTexts.some((t) => t.includes('record.field_id'))).toBe(true);
+    });
+
+    it('send_email 模板模式应渲染模板选择器', async () => {
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'send_email',
+          config: {
+            recipient_type: 'field',
+            content_mode: 'template',
+          },
+        },
+      });
+      await nextTick();
+
+      // 模板模式下应显示邮件模板选择器
+      expect(wrapper.text()).toContain('邮件模板');
+      // 模板模式下不应显示邮件主题和正文输入框
+      expect(wrapper.text()).not.toContain('邮件主题');
+      expect(wrapper.text()).not.toContain('邮件正文');
     });
 
     it('action + trigger_webhook 应渲染 Webhook 配置面板', async () => {
@@ -714,6 +774,88 @@ describe('WorkflowNodeConfig', () => {
 
       expect(wrapper.find('.el-empty').exists()).toBe(true);
       expect((wrapper.vm as any).localNode.node_type).toBe('action');
+    });
+
+    it('action + find_records 应渲染查找记录配置面板', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'action',
+          config: {
+            action_type: 'find_records',
+            target_table_id: 'table-2',
+            conditions: [],
+            result_variable: 'records',
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.text()).toContain('查找记录');
+      expect(wrapper.text()).toContain('目标表格');
+      expect(wrapper.text()).toContain('过滤条件');
+      expect(wrapper.text()).toContain('排序字段');
+      expect(wrapper.text()).toContain('排序方向');
+      expect(wrapper.text()).toContain('返回条数上限');
+      expect(wrapper.text()).toContain('结果变量名');
+      expect(wrapper.text()).toContain('空结果处理');
+    });
+  });
+
+  describe('查找记录节点', () => {
+    it('node_type 为 find_records 时渲染完整配置面板', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'find_records',
+          config: {
+            target_table_id: 'table-2',
+            conditions: [],
+            result_variable: 'records',
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      expect(wrapper.find('.el-empty').exists()).toBe(false);
+      expect(wrapper.text()).toContain('目标表格');
+      expect(wrapper.text()).toContain('过滤条件');
+      expect(wrapper.text()).toContain('排序字段');
+      expect(wrapper.text()).toContain('排序方向');
+      expect(wrapper.text()).toContain('返回条数上限');
+      expect(wrapper.text()).toContain('结果变量名');
+      expect(wrapper.text()).toContain('空结果处理');
+    });
+
+    it('非法变量名应显示错误提示', async () => {
+      vi.mocked(fieldService.getFieldsByTable).mockResolvedValue(mockTargetFields);
+      const wrapper = mountConfig({
+        node: {
+          ...mockNode,
+          node_type: 'find_records',
+          config: {
+            target_table_id: 'table-2',
+            conditions: [],
+            result_variable: '123invalid',
+          },
+        },
+        tables: mockTables,
+      });
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
+
+      expect(wrapper.find('.form-item-error').exists()).toBe(true);
+      expect(wrapper.find('.form-item-error').text()).toContain('变量名格式不正确');
     });
   });
 

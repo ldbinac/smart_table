@@ -1,12 +1,11 @@
 /**
  * 工作流 API 服务
- * 封装工作流、审批、Webhook 与模板的 HTTP 调用
+ * 封装工作流、Webhook 与模板的 HTTP 调用
  */
 import { apiClient } from '@/api/client';
 import type {
   Workflow,
   WorkflowInstance,
-  WorkflowTask,
   WebhookConfig,
   WebhookDeliveryLog,
   WorkflowTemplate,
@@ -119,59 +118,6 @@ export const triggerWorkflow = async (
   await apiClient.post<void>(`/tables/${tableId}/records/${recordId}/trigger`, data);
 };
 
-// ==================== 审批 ====================
-
-export const listApprovals = async (
-  baseId: string,
-  params?: object,
-): Promise<WorkflowTask[]> => {
-  return apiClient.get<WorkflowTask[]>(
-    `/bases/${baseId}/approvals`,
-    params as Record<string, unknown>,
-  );
-};
-
-export const getApproval = async (taskId: string): Promise<WorkflowTask> => {
-  return apiClient.get<WorkflowTask>(`/approvals/${taskId}`);
-};
-
-export const approveTask = async (
-  taskId: string,
-  comment?: string,
-): Promise<void> => {
-  await apiClient.post<void>(`/approvals/${taskId}/approve`, { comment });
-};
-
-export const rejectTask = async (
-  taskId: string,
-  comment?: string,
-): Promise<void> => {
-  await apiClient.post<void>(`/approvals/${taskId}/reject`, { comment });
-};
-
-export const transferTask = async (
-  taskId: string,
-  newAssigneeId: string,
-  comment?: string,
-): Promise<void> => {
-  await apiClient.post<void>(`/approvals/${taskId}/transfer`, {
-    new_assignee_id: newAssigneeId,
-    comment,
-  });
-};
-
-export const getRecordApprovalHistory = async (
-  recordId: string,
-): Promise<WorkflowTask[]> => {
-  const response = await apiClient.get<
-    { data?: Array<{ tasks?: WorkflowTask[] }> } & PaginationMeta
-  >(`/records/${recordId}/approval-history`);
-
-  const res = response as { data?: Array<{ tasks?: WorkflowTask[] }> };
-  const groups = res.data || [];
-  return groups.flatMap((group) => group.tasks || []);
-};
-
 // ==================== Webhook ====================
 
 export const listWebhooks = async (
@@ -281,12 +227,6 @@ export const workflowApiService = {
   listInstances,
   getInstance,
   triggerWorkflow,
-  listApprovals,
-  getApproval,
-  approveTask,
-  rejectTask,
-  transferTask,
-  getRecordApprovalHistory,
   listWebhooks,
   createWebhook,
   updateWebhook,

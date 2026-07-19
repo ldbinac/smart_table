@@ -144,6 +144,8 @@ export interface DashboardShare {
   id: string;
   dashboardId: string;
   shareToken: string;
+  title?: string;
+  description?: string;
   accessCode?: string;
   expiresAt?: number;
   maxAccessCount?: number;

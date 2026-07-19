@@ -43,6 +43,7 @@ class WorkflowTriggerType(PyEnum):
     FIELD_CHANGED = 'field_changed'
     MANUAL = 'manual'
     SPECIFIED_TIME = 'specified_time'
+    RECORD_TIME_REACHED = 'record_time_reached'
 
 
 class Workflow(db.Model):
@@ -274,6 +275,7 @@ _ACTION_TYPE_TO_FRONTEND = {
     'create_record': 'create_record',
     'send_email': 'send_email',
     'trigger_webhook': 'webhook',
+    'find_records': 'find_records',
 }
 
 

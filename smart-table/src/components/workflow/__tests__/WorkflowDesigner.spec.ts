@@ -95,6 +95,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   CircleClose: { template: '<span class="icon-circle-close" />' },
   Timer: { template: '<span class="icon-timer" />' },
   CopyDocument: { template: '<span class="icon-copy-document" />' },
+  Search: { template: '<span class="icon-search" />' },
 }));
 
 describe('WorkflowDesigner', () => {
@@ -134,8 +135,8 @@ describe('WorkflowDesigner', () => {
     {
       id: 'node-1',
       workflow_id: 'wf-1',
-      node_type: 'approval' as const,
-      name: '审批节点 1',
+      node_type: 'send_email' as const,
+      name: '发送邮件 1',
       config: {},
       order: 0,
       next_nodes: [],
@@ -201,7 +202,7 @@ describe('WorkflowDesigner', () => {
     const wrapper = mountDesigner();
     const nodeItems = wrapper.findAll('.node-item');
     expect(nodeItems.length).toBe(2);
-    expect(nodeItems[0].find('.node-name').text()).toBe('审批节点 1');
+    expect(nodeItems[0].find('.node-name').text()).toBe('发送邮件 1');
     expect(nodeItems[1].find('.node-name').text()).toBe('更新记录 1');
   });
 
@@ -240,6 +241,80 @@ describe('WorkflowDesigner', () => {
     expect(lastNodes[0].next_nodes).toEqual([lastNodes[1].id]);
     expect(lastNodes[1].next_nodes).toEqual([lastNodes[2].id]);
     expect(lastNodes[2].next_nodes).toEqual([]);
+  });
+
+  it('添加 find_records 节点时应初始化默认配置', async () => {
+    const workflowWithTable = {
+      ...mockWorkflow,
+      table_id: 'default-table-id',
+    };
+    const wrapper = mountDesigner({ workflow: workflowWithTable });
+    await nextTick();
+    const dropdownItems = wrapper.findAll('.el-dropdown-item');
+    // 第三个菜单项是查找记录节点
+    const findRecordsItem = dropdownItems.find(
+      (item) => item.text().trim() === '查找记录'
+    );
+    expect(findRecordsItem).toBeTruthy();
+    await findRecordsItem!.trigger('click');
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    const newNode = lastNodes[lastNodes.length - 1];
+    expect(newNode.node_type).toBe('find_records');
+    expect(newNode.config.target_table_id).toBe('default-table-id');
+    expect(newNode.config.result_variable).toBe('records');
+    expect(newNode.config.conditions).toEqual([]);
+    expect(newNode.config.sort_direction).toBe('asc');
+    expect(newNode.config.limit).toBe(100);
+    expect(newNode.config.empty_action).toBe('continue');
+  });
+
+  it('添加节点菜单应包含发送邮件选项', async () => {
+    const wrapper = mountDesigner();
+    await nextTick();
+    const dropdownItems = wrapper.findAll('.el-dropdown-item');
+    const sendEmailItem = dropdownItems.find(
+      (item) => item.text().trim() === '发送邮件'
+    );
+    expect(sendEmailItem).toBeTruthy();
+    await sendEmailItem!.trigger('click');
+    await nextTick();
+
+    const emitted = wrapper.emitted('update:nodes') as any[][];
+    expect(emitted).toBeTruthy();
+    const lastNodes = emitted[emitted.length - 1][0] as any[];
+    const newNode = lastNodes[lastNodes.length - 1];
+    expect(newNode.node_type).toBe('send_email');
+    expect(newNode.name).toContain('发送邮件');
+  });
+
+  it('find_records 节点使用默认配置时保存应通过', async () => {
+    const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
+    const workflowWithTable = {
+      ...mockWorkflow,
+      table_id: 'default-table-id',
+    };
+    const wrapper = mountDesigner({ workflow: workflowWithTable });
+    await nextTick();
+    const dropdownItems = wrapper.findAll('.el-dropdown-item');
+    const findRecordsItem = dropdownItems.find(
+      (item) => item.text().trim() === '查找记录'
+    );
+    await findRecordsItem!.trigger('click');
+    await nextTick();
+
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
+    );
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(alertMock).not.toHaveBeenCalled();
+    expect(wrapper.emitted('save')).toBeTruthy();
+    alertMock.mockRestore();
   });
 
   it('点击删除按钮应该移除节点', async () => {
@@ -862,62 +937,6 @@ describe('WorkflowDesigner', () => {
     expect(branchB.next_nodes).not.toContain('branch-a');
   });
 
-  it('在分支目标节点后面添加新节点时自动建立连接', async () => {
-    const nodes: any[] = [
-      {
-        id: 'cond-1',
-        workflow_id: 'wf-1',
-        node_type: 'condition',
-        name: '条件节点',
-        config: {
-          branches: [
-            { id: 'b1', name: '分支 A', conditions: [{ field_id: 'f1', operator: 'equals', value: 'a' }], conjunction: 'and', target_node_id: 'branch-a' },
-            { id: 'b2', name: '分支 B', conditions: [{ field_id: 'f1', operator: 'equals', value: 'b' }], conjunction: 'and', target_node_id: 'branch-b' },
-          ],
-        },
-        order: 0,
-        next_nodes: ['branch-a', 'branch-b'],
-      },
-      {
-        id: 'branch-a',
-        workflow_id: 'wf-1',
-        node_type: 'update_record',
-        name: '分支 A 目标',
-        config: { updates: [{ field_id: 'f1', value_template: '' }] },
-        order: 1,
-        next_nodes: [],
-      },
-      {
-        id: 'branch-b',
-        workflow_id: 'wf-1',
-        node_type: 'create_record',
-        name: '分支 B 目标',
-        config: { target_table_id: 't1', field_mappings: [{ target_field_id: 'f1', source_field_id: '', value_template: '' }] },
-        order: 2,
-        next_nodes: [],
-      },
-    ];
-    const wrapper = mountDesigner({ nodes });
-    await switchToCanvas(wrapper);
-    const canvas = wrapper.findComponent({ name: 'WorkflowCanvas' });
-
-    // 在 branch-a 后面添加新节点
-    await canvas.vm.$emit('add-node', { position: 'after', nodeType: 'approval', targetId: 'branch-a' });
-    await nextTick();
-
-    const emitted = wrapper.emitted('update:nodes') as any[][];
-    expect(emitted).toBeTruthy();
-    const lastNodes = emitted[emitted.length - 1][0] as any[];
-
-    const branchA = lastNodes.find((n) => n.id === 'branch-a');
-    const newNode = lastNodes.find((n) => n.node_type === 'approval');
-
-    // branch-a 应自动连接到新节点
-    expect(branchA.next_nodes).toContain(newNode.id);
-    // 新节点不应连接到 branch-b（并行分支保持独立）
-    expect(newNode.next_nodes).not.toContain('branch-b');
-  });
-
   it('从画布删除节点应更新节点列表', async () => {
     const wrapper = mountDesigner();
     await switchToCanvas(wrapper);
@@ -1091,5 +1110,73 @@ describe('WorkflowDesigner', () => {
     await nextTick();
 
     expect((wrapper.vm as any).hasInvalidMappingNodes).toBe(true);
+  });
+
+  it('find_records 节点变量名非法时保存被阻止并提示具体原因', async () => {
+    const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
+    const wrapper = mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'find_records' as const,
+          name: '查找记录 1',
+          config: {
+            target_table_id: 'table-1',
+            result_variable: '123invalid',
+            conditions: [],
+          },
+          order: 0,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
+    );
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(alertMock).toHaveBeenCalled();
+    expect(alertMock.mock.calls[0][0]).toContain('结果变量名格式不正确');
+    expect(alertMock.mock.calls[0][1]).toBe('节点配置不完整');
+    expect(wrapper.emitted('save')).toBeFalsy();
+    alertMock.mockRestore();
+  });
+
+  it('find_records 节点目标表格未选择时保存被阻止并提示具体原因', async () => {
+    const alertMock = vi.spyOn(ElMessageBox, 'alert').mockResolvedValue(undefined as any);
+    const wrapper = mountDesigner({
+      nodes: [
+        {
+          id: 'node-1',
+          workflow_id: 'wf-1',
+          node_type: 'find_records' as const,
+          name: '查找记录 1',
+          config: {
+            target_table_id: '',
+            result_variable: 'records',
+            conditions: [],
+          },
+          order: 0,
+          next_nodes: [],
+        },
+      ],
+    });
+    await nextTick();
+
+    const saveButton = wrapper.findAll('.footer-actions .el-button').find((btn) =>
+      btn.text().includes('保存')
+    );
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(alertMock).toHaveBeenCalled();
+    expect(alertMock.mock.calls[0][0]).toContain('目标表格未选择');
+    expect(alertMock.mock.calls[0][1]).toBe('节点配置不完整');
+    expect(wrapper.emitted('save')).toBeFalsy();
+    alertMock.mockRestore();
   });
 });

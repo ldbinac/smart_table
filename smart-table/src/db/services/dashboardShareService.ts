@@ -8,6 +8,8 @@ export interface CreateShareData {
   maxAccessCount?: number;
   requireAccessCode?: boolean;
   permission?: "view" | "edit";
+  title?: string;
+  description?: string;
 }
 
 export interface ShareValidationResult {
@@ -50,17 +52,18 @@ export class DashboardShareService {
           expiresInHours: data.expiresInHours,
           maxAccessCount: data.maxAccessCount,
           permission: data.permission || "view",
+          title: data.title,
+          description: data.description,
         },
       ) as any;
 
       console.log("[DashboardShare] API response:", response);
 
-      // 适配后端响应格式
-      // 可能是 {success, message, data} 或直接返回数据对象
+      // apiClient.post() 已自动解包 {success, message, data} 格式，response 即为分享对象
       let apiShare: any;
-      if (response.data?.data) {
-        apiShare = response.data.data;
-      } else if (response.data) {
+      if (response && typeof response === 'object' && response.id) {
+        apiShare = response;
+      } else if (response?.data) {
         apiShare = response.data;
       } else {
         apiShare = response;
@@ -73,13 +76,16 @@ export class DashboardShareService {
       }
 
       // 转换为本地格式并保存到 IndexedDB
+      // 使用后端返回的 access_code（创建时返回一次）
       const share: DashboardShare = {
         id: apiShare.id,
         dashboardId: apiShare.dashboard_id,
         shareToken: apiShare.share_token,
-        accessCode: apiShare.has_access_code
+        title: apiShare.title,
+        description: apiShare.description,
+        accessCode: apiShare.access_code || (apiShare.has_access_code
           ? this.generateAccessCode()
-          : undefined,
+          : undefined),
         expiresAt: apiShare.expires_at ? apiShare.expires_at * 1000 : undefined,
         maxAccessCount: apiShare.max_access_count,
         currentAccessCount: apiShare.current_access_count,
@@ -140,11 +146,12 @@ export class DashboardShareService {
       );
 
       // 调用后端 API 获取分享列表
+      // apiClient.get() 已自动解包 {success, message, data} 格式，直接返回 data 字段
       const response = await apiClient.get(`/dashboards/${dashboardId}/shares`) as any;
       console.log("[DashboardShare] API response:", response);
 
-      // 适配后端响应格式 {success, message, data}
-      const apiShares = response.data?.data || response.data || [];
+      // response 已是分享数组，兼容可能的包装格式
+      const apiShares = Array.isArray(response) ? response : (response?.data || []);
       console.log("[DashboardShare] Extracted shares:", apiShares);
 
       if (!Array.isArray(apiShares)) {
@@ -162,6 +169,8 @@ export class DashboardShareService {
             id: apiShare.id,
             dashboardId: apiShare.dashboard_id,
             shareToken: apiShare.share_token,
+            title: apiShare.title,
+            description: apiShare.description,
             accessCode: apiShare.has_access_code
               ? this.generateAccessCode()
               : undefined,
@@ -211,30 +220,50 @@ export class DashboardShareService {
       console.log("[DashboardShare] Validating share:", token);
 
       // 调用后端 API 验证
+      // skipAuthRedirect: 防止 401/403/429 时拦截器跳转登录页，分享接口的错误由组件自行处理
       const response = await apiClient.post(`/shares/${token}/validate`, {
         accessCode,
-      }) as any;
+      }, { skipAuthRedirect: true } as any) as any;
 
       console.log("[DashboardShare] Full response:", response);
 
       // 适配多种响应格式
+      // apiClient.post() 已自动解包 {success, message, data}，response 即为内部数据
       let result: any;
 
-      // 情况 1: Axios 标准格式 {data: {success, message, data: {share, dashboard}}}
-      if (response.data?.data?.share && response.data?.data?.dashboard) {
-        result = response.data.data;
+      // 情况 0: 需要访问密码（未提供密码但分享需要密码）
+      if (response?.requires_access_code && response?.share) {
+        const share = response.share;
+        const localShare: DashboardShare = {
+          id: share.id,
+          dashboardId: share.dashboard_id,
+          shareToken: share.share_token,
+          title: share.title,
+          description: share.description,
+          accessCode: "required", // 标记需要密码，让前端显示密码输入框
+          expiresAt: share.expires_at ? share.expires_at * 1000 : undefined,
+          maxAccessCount: share.max_access_count,
+          currentAccessCount: share.current_access_count,
+          isActive: share.is_active,
+          permission: share.permission as "view" | "edit",
+          createdAt: new Date(share.created_at).getTime(),
+          createdBy: share.created_by,
+        };
+        await db.dashboardShares.put(localShare);
+        return { valid: false, share: localShare };
       }
-      // 情况 2: 直接返回数据 {data: {share, dashboard}}
+
+      // 情况 1: {share, dashboard} 直接在 response 中
+      if (response.share && response.dashboard) {
+        result = response;
+      }
+      // 情况 2: 嵌套在 data 中
       else if (response.data?.share && response.data?.dashboard) {
         result = response.data;
       }
-      // 情况 3: response 本身就是 {share, dashboard}
-      else if (response.share && response.dashboard) {
-        result = response;
-      }
-      // 情况 4: 其他格式
+      // 情况 3: 其他格式
       else {
-        result = response.data || response;
+        result = response;
       }
 
       console.log("[DashboardShare] Extracted result:", result);
@@ -384,11 +413,13 @@ export class DashboardShareService {
       }
     } catch (error: any) {
       console.error("[DashboardShare] validateShare failed:", error);
+      // 优先使用后端返回的错误码，其次使用消息
+      const errorCode = error.response?.data?.error;
       const errorMsg =
         error.response?.data?.message || error.message || "验证失败";
       return {
         valid: false,
-        error: errorMsg,
+        error: errorCode || errorMsg,
       };
     }
   }

@@ -10,8 +10,7 @@ import {
   type WidgetConfig,
 } from "@/db/services";
 import { dashboardApiService } from "@/services/api/dashboardApiService";
-import { dashboardShareService } from "@/db/services/dashboardShareService";
-import type { DashboardShare, DashboardTemplate } from "@/db/schema";
+import type { DashboardTemplate } from "@/db/schema";
 import { recordService } from "@/db/services/recordService";
 import { fieldService } from "@/db/services/fieldService";
 import { tableService } from "@/db/services/tableService";
@@ -30,14 +29,15 @@ import {
 } from "@/utils/dashboardDataProcessor";
 import { DashboardLayoutEngine } from "@/utils/dashboardLayoutEngine";
 import { escapeHtml } from "@/utils/helpers";
-import { formatDateTime, formatDate } from "@/utils/timezone";
+import { formatDateTime } from "@/utils/timezone";
 // widgetRegistry 暂时未使用，但保留以备将来扩展
 // import { widgetRegistry } from "@/utils/dashboardWidgetRegistry";
 import { FieldType } from "@/types";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
 import DashboardPreviewDialog from "@/components/dashboard/DashboardPreviewDialog.vue";
+import DashboardShareDialog from "@/components/dashboard/DashboardShareDialog.vue";
 import ExcelImportCreateDialog from "@/components/dialogs/ExcelImportCreateDialog.vue";
 import { useEntityOperations } from "@/composables/useEntityOperations";
 import { freshColors } from "@/utils/helpers";
@@ -119,16 +119,6 @@ const showTemplateDialog = ref(false);
 
 // 分享功能状态
 const showShareDialog = ref(false);
-const shareForm = ref({
-  expiresInHours: 168,
-  maxAccessCount: undefined as number | undefined,
-  requireAccessCode: false,
-  permission: "view" as "view" | "edit",
-});
-const currentShare = ref<DashboardShare | null>(null);
-const shareUrl = ref("");
-const isCreatingShare = ref(false);
-const existingShares = ref<DashboardShare[]>([]);
 
 // 组件类型定义 - 数据图表类
 const chartWidgetTypes = [
@@ -647,77 +637,10 @@ async function openShareDialog() {
   }
 
   showShareDialog.value = true;
-  currentShare.value = null;
-  shareUrl.value = "";
-
-  await loadExistingShares();
 }
 
-async function loadExistingShares() {
-  if (!currentDashboard.value) return;
-  existingShares.value = await dashboardShareService.getSharesByDashboard(
-    currentDashboard.value.id,
-  );
-}
-
-async function createShare() {
-  if (!currentDashboard.value) return;
-
-  isCreatingShare.value = true;
-  try {
-    const share = await dashboardShareService.createShare({
-      dashboardId: currentDashboard.value.id,
-      expiresInHours: shareForm.value.expiresInHours || undefined,
-      maxAccessCount: shareForm.value.maxAccessCount || undefined,
-      requireAccessCode: shareForm.value.requireAccessCode,
-      permission: shareForm.value.permission,
-    });
-
-    currentShare.value = share;
-    shareUrl.value = dashboardShareService.generateShareUrl(share.shareToken);
-
-    await loadExistingShares();
-
-    ElMessage.success("分享链接创建成功");
-  } catch (error) {
-    ElMessage.error("创建分享链接失败");
-  } finally {
-    isCreatingShare.value = false;
-  }
-}
-
-async function copyShareUrl() {
-  if (!shareUrl.value) return;
-
-  const success = await dashboardShareService.copyToClipboard(shareUrl.value);
-  if (success) {
-    ElMessage.success("链接已复制到剪贴板");
-  } else {
-    ElMessage.error("复制失败，请手动复制");
-  }
-}
-
-async function copyShareUrlByToken(token: string) {
-  const url = dashboardShareService.generateShareUrl(token);
-  const success = await dashboardShareService.copyToClipboard(url);
-  if (success) {
-    ElMessage.success("链接已复制到剪贴板");
-  } else {
-    ElMessage.error("复制失败，请手动复制");
-  }
-}
-
-async function copyAccessCode() {
-  if (!currentShare.value?.accessCode) return;
-
-  const success = await dashboardShareService.copyToClipboard(
-    currentShare.value.accessCode,
-  );
-  if (success) {
-    ElMessage.success("访问密码已复制到剪贴板");
-  } else {
-    ElMessage.error("复制失败，请手动复制");
-  }
+function onShareCreated() {
+  // 分享创建成功后的回调（如有需要可扩展）
 }
 
 // 预览功能
@@ -1052,66 +975,6 @@ const handleReorderDashboards = async (dashboardIds: string[]) => {
     ElMessage.error("排序失败");
   }
 };
-
-// @ts-expect-error - 保留但未使用的函数
-async function deactivateShare(share: DashboardShare) {
-  try {
-    await ElMessageBox.confirm(
-      "禁用后该分享链接将无法访问，是否继续？",
-      "确认禁用",
-      { type: "warning" },
-    );
-
-    await dashboardShareService.deactivateShare(share.id);
-    await loadExistingShares();
-
-    if (currentShare.value?.id === share.id) {
-      currentShare.value = null;
-      shareUrl.value = "";
-    }
-
-    ElMessage.success("分享链接已禁用");
-  } catch {
-    // 用户取消
-  }
-}
-
-async function deleteShare(share: DashboardShare) {
-  try {
-    await ElMessageBox.confirm(
-      "删除后该分享链接将永久失效，是否继续？",
-      "确认删除",
-      { type: "warning" },
-    );
-
-    await dashboardShareService.deleteShare(share.id);
-    await loadExistingShares();
-
-    if (currentShare.value?.id === share.id) {
-      currentShare.value = null;
-      shareUrl.value = "";
-    }
-
-    ElMessage.success("分享链接已删除");
-  } catch {
-    // 用户取消
-  }
-}
-
-function formatExpireTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = timestamp - now;
-
-  if (diff <= 0) return "已过期";
-
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) {
-    return `${days}天${hours % 24}小时`;
-  }
-  return `${hours}小时`;
-}
 
 async function loadTables() {
   if (!baseStore.currentBase) return;
@@ -3650,177 +3513,11 @@ onUnmounted(() => {
         @apply="applyTemplate" />
 
       <!-- 分享对话框 -->
-      <el-dialog
-        v-model="showShareDialog"
-        title="分享仪表盘"
-        width="600px"
-        destroy-on-close
-        class="share-dialog">
-        <div class="share-dialog-content">
-          <!-- 创建新分享 -->
-          <div class="share-create-section">
-            <h4>创建分享链接</h4>
-            <el-form label-position="top" size="small">
-              <el-form-item label="有效期">
-                <el-select
-                  v-model="shareForm.expiresInHours"
-                  style="width: 100%">
-                  <el-option :value="1" label="1小时" />
-                  <el-option :value="24" label="1天" />
-                  <el-option :value="168" label="7天" />
-                  <el-option :value="720" label="30天" />
-                  <el-option :value="0" label="永久有效" />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item label="访问次数限制">
-                <el-input-number
-                  v-model="shareForm.maxAccessCount"
-                  :min="0"
-                  :max="10000"
-                  :controls="true"
-                  style="width: 100%"
-                  placeholder="0表示无限制" />
-              </el-form-item>
-
-              <el-form-item label="访问密码">
-                <el-switch
-                  v-model="shareForm.requireAccessCode"
-                  active-text="需要密码"
-                  inactive-text="无需密码" />
-              </el-form-item>
-
-              <el-form-item label="权限">
-                <el-radio-group v-model="shareForm.permission">
-                  <el-radio label="view">仅查看</el-radio>
-                  <el-radio label="edit">可编辑</el-radio>
-                </el-radio-group>
-              </el-form-item>
-
-              <el-button
-                type="primary"
-                class="generate-btn"
-                :loading="isCreatingShare"
-                @click="createShare">
-                <el-icon><Link /></el-icon>
-                生成分享链接
-              </el-button>
-            </el-form>
-          </div>
-
-          <!-- 生成的分享链接 -->
-          <div v-if="currentShare && shareUrl" class="share-result-section">
-            <el-divider />
-            <h4>分享链接</h4>
-            <div class="share-link-box">
-              <el-input v-model="shareUrl" readonly class="share-link-input">
-                <template #append>
-                  <el-button @click="copyShareUrl" class="copy-btn">
-                    <el-icon><CopyDocument /></el-icon>
-                    复制
-                  </el-button>
-                </template>
-              </el-input>
-            </div>
-
-            <div v-if="currentShare.accessCode" class="share-access-code">
-              <span class="label">访问密码：</span>
-              <span class="code">{{ currentShare.accessCode }}</span>
-              <el-button
-                link
-                type="primary"
-                size="small"
-                @click="copyAccessCode">
-                <el-icon><CopyDocument /></el-icon>
-                复制密码
-              </el-button>
-            </div>
-
-            <div class="share-info">
-              <el-tag
-                v-if="currentShare.expiresAt"
-                size="small"
-                type="info"
-                effect="light">
-                有效期至：{{
-                  formatDateTime(currentShare.expiresAt)
-                }}
-              </el-tag>
-              <el-tag v-else size="small" type="info" effect="light"
-                >永久有效</el-tag
-              >
-              <el-tag
-                v-if="currentShare.maxAccessCount"
-                size="small"
-                type="warning"
-                effect="light">
-                限 {{ currentShare.maxAccessCount }} 次访问
-              </el-tag>
-            </div>
-          </div>
-
-          <!-- 已有的分享链接 -->
-          <div v-if="existingShares.length > 0" class="share-list-section">
-            <el-divider />
-            <h4>已有的分享链接</h4>
-            <el-table :data="existingShares" size="small" style="width: 100%">
-              <el-table-column label="创建时间" width="130">
-                <template #default="{ row }">
-                  {{ formatDate(row.createdAt) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="有效期" width="110">
-                <template #default="{ row }">
-                  <span v-if="row.expiresAt">{{
-                    formatExpireTime(row.expiresAt)
-                  }}</span>
-                  <span v-else>永久</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="访问次数" width="90">
-                <template #default="{ row }">
-                  {{ row.currentAccessCount }}
-                  <span v-if="row.maxAccessCount"
-                    >/ {{ row.maxAccessCount }}</span
-                  >
-                </template>
-              </el-table-column>
-              <el-table-column label="密码" width="70">
-                <template #default="{ row }">
-                  <el-tag
-                    v-if="row.accessCode"
-                    size="small"
-                    type="warning"
-                    effect="light"
-                    >有</el-tag
-                  >
-                  <el-tag v-else size="small" type="info" effect="light"
-                    >无</el-tag
-                  >
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="130">
-                <template #default="{ row }">
-                  <el-button
-                    link
-                    type="primary"
-                    size="small"
-                    @click="copyShareUrlByToken(row.shareToken)">
-                    复制
-                  </el-button>
-                  <el-button
-                    link
-                    type="danger"
-                    size="small"
-                    @click="deleteShare(row)">
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </div>
-      </el-dialog>
+      <DashboardShareDialog
+        v-model:visible="showShareDialog"
+        :dashboard-id="currentDashboard?.id || ''"
+        :dashboard-name="currentDashboard?.name || ''"
+        @created="onShareCreated" />
 
       <!-- 预览对话框 -->
       <DashboardPreviewDialog
@@ -3886,7 +3583,6 @@ import {
   Warning,
   Check,
   Share,
-  Link,
   Setting,
   Grid,
   View,
@@ -5000,135 +4696,6 @@ $gray-800: #1f2937;
   &:disabled {
     background: $gray-300;
     box-shadow: none;
-  }
-}
-
-// 分享对话框
-.share-dialog {
-  :deep(.el-dialog__header) {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid $gray-100;
-
-    .el-dialog__title {
-      font-size: 17px;
-      font-weight: 600;
-      color: $gray-800;
-    }
-  }
-
-  :deep(.el-dialog__body) {
-    padding: 20px 24px;
-  }
-}
-
-.share-dialog-content {
-  h4 {
-    font-size: 15px;
-    font-weight: 600;
-    color: $gray-800;
-    margin: 0 0 16px 0;
-  }
-
-  .share-create-section {
-    margin-bottom: 24px;
-
-    .generate-btn {
-      width: 100%;
-      height: 44px;
-      border-radius: 10px;
-      font-weight: 500;
-      background: linear-gradient(135deg, $primary 0%, #6366f1 100%);
-      border: none;
-      box-shadow: 0 4px 14px rgba($primary, 0.35);
-      transition: all 0.3s ease;
-
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba($primary, 0.45);
-      }
-
-      .el-icon {
-        margin-right: 6px;
-      }
-    }
-  }
-
-  .share-result-section {
-    margin-bottom: 24px;
-
-    .share-link-box {
-      margin-bottom: 16px;
-
-      .share-link-input {
-        :deep(.el-input__wrapper) {
-          border-radius: 10px 0 0 10px;
-          box-shadow: 0 0 0 1px $gray-200 inset;
-        }
-
-        :deep(.el-input__inner) {
-          font-family: monospace;
-          font-size: 13px;
-          color: $gray-700;
-        }
-
-        :deep(.el-input-group__append) {
-          border-radius: 0 10px 10px 0;
-          padding: 0;
-          background: white;
-          box-shadow: 0 0 0 1px $gray-200 inset;
-
-          .copy-btn {
-            border: none;
-            background: transparent;
-            color: $primary;
-            font-weight: 500;
-            padding: 0 16px;
-            height: 100%;
-
-            &:hover {
-              background: $primary-light;
-            }
-          }
-        }
-      }
-    }
-
-    .share-access-code {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding: 12px 16px;
-      background: $gray-50;
-      border-radius: 10px;
-      border: 1px solid $gray-200;
-
-      .label {
-        color: $gray-500;
-        font-size: 13px;
-      }
-
-      .code {
-        font-family: monospace;
-        font-size: 18px;
-        font-weight: 700;
-        color: $primary;
-        letter-spacing: 3px;
-        flex: 1;
-      }
-    }
-
-    .share-info {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-  }
-
-  .share-list-section {
-    h4 {
-      margin-bottom: 16px;
-    }
   }
 }
 

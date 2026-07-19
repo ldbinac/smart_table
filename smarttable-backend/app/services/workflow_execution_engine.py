@@ -15,6 +15,8 @@ from flask import current_app
 
 from app.extensions import db
 from app.models.webhook import WebhookConfig
+from app.models.record import Record
+from app.models.table import Table
 from app.models.workflow import Workflow, WorkflowNode, WorkflowNodeType
 from app.models.workflow_instance import (
     WorkflowInstance,
@@ -23,6 +25,7 @@ from app.models.workflow_instance import (
 )
 from app.services.approval_service import ApprovalService
 from app.services.email_queue_service import email_queue
+from app.services.email_sender_service import EmailSenderService
 from app.services.record_service import RecordService
 from app.services.webhook_service import WebhookService
 from app.services.workflow_event_bus import workflow_event_bus, WorkflowEvent
@@ -91,7 +94,7 @@ class WorkflowExecutionEngine:
             return
         if event.metadata and event.metadata.get('workflow_source'):
             return
-        if event.event_type not in ('record_created', 'record_updated', 'field_changed', 'specified_time'):
+        if event.event_type not in ('record_created', 'record_updated', 'field_changed', 'specified_time', 'record_time_reached'):
             return
 
         record_id = event.record_id
@@ -319,6 +322,9 @@ class WorkflowExecutionEngine:
         if node_type == WorkflowNodeType.TRIGGER.value:
             return {'status': 'success'}
 
+        if node_type == 'find_records':
+            return self._execute_find_records(instance, node)
+
         if node_type == WorkflowNodeType.APPROVAL.value:
             return ApprovalService.create_tasks(instance, node)
 
@@ -341,6 +347,9 @@ class WorkflowExecutionEngine:
             return self._execute_send_email(instance, node)
         if action_type == 'trigger_webhook':
             return self._execute_webhook_node(instance, node)
+
+        if action_type == 'find_records':
+            return self._execute_find_records(instance, node)
 
         if node_type == WorkflowNodeType.ACTION.value:
             raise ValueError(f'未知动作类型: {action_type}')
@@ -397,17 +406,188 @@ class WorkflowExecutionEngine:
         )
         return {'record_id': str(record.id)}
 
+    def _execute_find_records(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
+        """执行查找记录动作"""
+        config = node.config or {}
+
+        target_table_id = config.get('target_table_id')
+        if not target_table_id:
+            raise ValueError('缺少目标表格 ID')
+
+        table = Table.query.get(self._to_uuid(target_table_id))
+        if not table:
+            raise ValueError(f'目标表格不存在: {target_table_id}')
+
+        conditions = config.get('conditions', [])
+        conjunction = config.get('conjunction', 'and')
+        sort_field_id = config.get('sort_field_id')
+        sort_direction = config.get('sort_direction', 'asc')
+
+        limit = config.get('limit', 100)
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            limit = 100
+        limit = max(1, min(limit, 1000))
+
+        result_variable = config.get('result_variable', 'records') or 'records'
+        empty_result_action = config.get('empty_result_action', 'continue')
+
+        records = Record.query.filter_by(
+            table_id=self._to_uuid(target_table_id),
+            is_deleted=False
+        ).all()
+
+        matching_records = []
+        condition_config = {'conditions': conditions, 'conjunction': conjunction}
+        for record in records:
+            context = {field_id: record.values.get(field_id) for field_id in (record.values or {})}
+            if self.evaluate_condition(condition_config, context):
+                matching_records.append(record)
+
+        if sort_field_id:
+            reverse = sort_direction == 'desc'
+            matching_records.sort(
+                key=lambda r: (r.values or {}).get(sort_field_id),
+                reverse=reverse
+            )
+
+        matching_records = matching_records[:limit]
+
+        result = {
+            'count': len(matching_records),
+            'records': [r.to_dict() if hasattr(r, 'to_dict') else r.values for r in matching_records]
+        }
+
+        context = instance.context or {}
+        context[result_variable] = result
+        instance.context = context
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(instance, 'context')
+        db.session.commit()
+
+        if empty_result_action == 'stop':
+            return {'result': result, 'next_nodes': []}
+
+        return {'result': result, 'next_nodes': node.next_nodes or []}
+
+    def _resolve_email_recipients(self, config: Dict[str, Any], context: Dict[str, Any]) -> str:
+        """根据收件人配置解析邮箱地址列表
+
+        Args:
+            config: 节点配置字典
+            context: 模板渲染上下文（来自 _build_render_context）
+
+        Returns:
+            逗号分隔的邮箱地址字符串
+        """
+        recipient_type = config.get('recipient_type', 'fixed')
+        recipient_value = config.get('recipient_value', [])
+        emails: list = []
+
+        if recipient_type == 'field':
+            # 从记录字段值中提取邮箱
+            record = context.get('record', {})
+            field_ids = recipient_value if isinstance(recipient_value, list) else [recipient_value]
+            for field_id in field_ids:
+                field_value = record.get(field_id) if isinstance(record, dict) else None
+                if field_value is None:
+                    continue
+                emails.extend(self._extract_emails_from_field_value(field_value))
+        else:
+            # fixed 模式：直接使用配置值
+            if isinstance(recipient_value, str):
+                emails.append(recipient_value)
+            elif isinstance(recipient_value, list):
+                for item in recipient_value:
+                    if isinstance(item, str):
+                        emails.append(item)
+                    elif isinstance(item, dict) and item.get('email'):
+                        emails.append(item['email'])
+
+        return ','.join(filter(None, emails))
+
+    @staticmethod
+    def _extract_emails_from_field_value(value: Any) -> list:
+        """从字段值中提取邮箱地址列表
+
+        支持以下格式：
+        - 单个邮箱字符串
+        - 逗号分隔的邮箱字符串
+        - 邮箱字符串列表
+        - 包含 email 键的对象列表（成员/协作者字段）
+        - 成员用户ID（UUID格式），自动查询用户表获取邮箱
+        """
+        from app.models.user import User
+        from uuid import UUID
+
+        emails: list = []
+        if value is None:
+            return emails
+        if isinstance(value, str):
+            # 检查是否是UUID格式的成员ID
+            try:
+                uuid_value = UUID(value)
+                user = User.query.get(uuid_value)
+                if user and user.email:
+                    emails.append(user.email)
+                    return emails
+            except (ValueError, TypeError):
+                pass  # 不是UUID，继续作为邮箱处理
+
+            # 逗号分隔字符串
+            for part in value.split(','):
+                part = part.strip()
+                if part:
+                    emails.append(part)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, str):
+                    # 检查是否是UUID格式的成员ID
+                    try:
+                        uuid_value = UUID(item)
+                        user = User.query.get(uuid_value)
+                        if user and user.email:
+                            emails.append(user.email)
+                            continue
+                    except (ValueError, TypeError):
+                        pass  # 不是UUID，继续作为邮箱处理
+                    emails.append(item)
+                elif isinstance(item, dict) and item.get('email'):
+                    emails.append(item['email'])
+        return emails
+
     def _execute_send_email(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行发送邮件动作"""
+        from app.services.email_config_service import EmailConfigService
+        if not EmailConfigService.is_email_enabled():
+            raise ValueError('邮件服务未启用或配置不完整')
+
         config = node.config or {}
         context = self._build_render_context(instance)
+        content_mode = config.get('content_mode', 'custom')
 
-        to_email = self.render_template(config.get('to_email'), context)
-        to_name = self.render_template(config.get('to_name', ''), context)
+        to_email = self._resolve_email_recipients(config, context)
+
+        if content_mode == 'custom':
+            subject = self.render_template(config.get('subject', ''), context)
+            body = self.render_template(config.get('body', ''), context)
+
+            success, error = EmailSenderService.send_email_quick(
+                to_email=to_email,
+                subject=str(subject),
+                html_content=str(body),
+            )
+            if not success:
+                raise ValueError(f'邮件发送失败: {error}')
+            return {'status': 'sent', 'to_email': to_email}
+
+        # template 模式
         template_key = config.get('template_key')
         if not template_key:
             raise ValueError('缺少邮件模板 key')
 
+        to_name = self.render_template(config.get('to_name', ''), context)
         template_data = {
             k: self.render_template(v, context)
             for k, v in config.get('template_data', {}).items()
