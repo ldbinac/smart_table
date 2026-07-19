@@ -24,6 +24,7 @@ from app.models import (
     WebhookConfig,
     WebhookMethod,
 )
+from app.models.field import FieldType
 from app.models.workflow import WorkflowNode, WorkflowNodeType, WorkflowTrigger, WorkflowVersion
 from app.services.workflow_service import WorkflowService
 from app.services.approval_service import ApprovalService
@@ -1238,6 +1239,266 @@ class TestSpecifiedTimeWorkflowRoutes:
         assert publish_response.status_code == 400
         data = publish_response.get_json()
         assert 'schedule' in data.get('message', '').lower() or 'schedule' in data.get('message', '')
+
+
+class TestRecordTimeReachedWorkflowRoutes:
+    """测试 record_time_reached 触发器工作流路由"""
+
+    def test_create_workflow_with_record_time_reached_trigger(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """通过 API 创建 record_time_reached 触发器工作流"""
+        from app.models.field import FieldType
+
+        date_time_field = Field(
+            table_id=workflow_table.id,
+            name='截止时间',
+            type=FieldType.DATE_TIME.value,
+            order=1,
+        )
+        db.session.add(date_time_field)
+        db.session.commit()
+
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '到达记录时间工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'record_time_reached',
+                    'filter_config': {'time_field_id': str(date_time_field.id)}
+                },
+                'nodes_config': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '到达记录时间',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['data']['name'] == '到达记录时间工作流'
+
+        trigger_response = client.get(
+            f"/api/workflows/{data['data']['id']}/trigger",
+            headers=auth_headers
+        )
+        assert trigger_response.status_code == 200
+        trigger_data = trigger_response.get_json()
+        assert trigger_data['data']['trigger_type'] == 'record_time_reached'
+        assert trigger_data['data']['filter_config']['time_field_id'] == str(date_time_field.id)
+
+    def test_update_workflow_record_time_reached_trigger(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """通过 PUT 更新触发器为 record_time_reached"""
+        from app.models.field import FieldType
+
+        date_field = Field(
+            table_id=workflow_table.id,
+            name='截止日期',
+            type=FieldType.DATE.value,
+            order=1,
+        )
+        db.session.add(date_field)
+        db.session.commit()
+
+        create_response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '待更新到达时间工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'record_created',
+                    'filter_config': {}
+                }
+            },
+            headers=auth_headers
+        )
+        assert create_response.status_code == 201
+        workflow_id = create_response.get_json()['data']['id']
+
+        response = client.put(
+            f'/api/workflows/{workflow_id}',
+            json={
+                'trigger_config': {
+                    'trigger_type': 'record_time_reached',
+                    'filter_config': {'time_field_id': str(date_field.id)}
+                }
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        trigger_response = client.get(
+            f'/api/workflows/{workflow_id}/trigger',
+            headers=auth_headers
+        )
+        assert trigger_response.status_code == 200
+        trigger_data = trigger_response.get_json()
+        assert trigger_data['data']['trigger_type'] == 'record_time_reached'
+        assert trigger_data['data']['filter_config']['time_field_id'] == str(date_field.id)
+
+    def test_publish_record_time_reached_workflow(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """发布 record_time_reached 工作流后状态变为 active"""
+        from app.models.field import FieldType
+
+        date_time_field = Field(
+            table_id=workflow_table.id,
+            name='截止时间',
+            type=FieldType.DATE_TIME.value,
+            order=1,
+        )
+        db.session.add(date_time_field)
+        db.session.commit()
+
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '待发布到达时间工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'record_time_reached',
+                    'filter_config': {'time_field_id': str(date_time_field.id)}
+                },
+                'nodes_config': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '到达记录时间',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        workflow_id = response.get_json()['data']['id']
+
+        publish_response = client.post(
+            f'/api/workflows/{workflow_id}/publish',
+            headers=auth_headers
+        )
+        assert publish_response.status_code == 200
+        publish_data = publish_response.get_json()
+        assert publish_data['data']['workflow']['status'] == 'active'
+
+    def test_publish_record_time_reached_requires_time_field_id(
+        self, client, auth_headers, test_base, workflow_table
+    ):
+        """record_time_reached 触发器缺少 time_field_id 时发布应返回 400"""
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '缺少时间字段的到达时间工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'record_time_reached',
+                    'filter_config': {}
+                },
+                'nodes_config': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '到达记录时间',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        workflow_id = response.get_json()['data']['id']
+
+        publish_response = client.post(
+            f'/api/workflows/{workflow_id}/publish',
+            headers=auth_headers
+        )
+        assert publish_response.status_code == 400
+        data = publish_response.get_json()
+        assert '时间字段' in data.get('message', '') or 'time_field' in data.get('message', '').lower()
+
+    def test_publish_record_time_reached_requires_date_type_field(
+        self, client, auth_headers, test_base, workflow_table, workflow_field
+    ):
+        """record_time_reached 触发器指向非日期字段时发布应返回 400"""
+        response = client.post(
+            f'/api/bases/{test_base.id}/workflows',
+            json={
+                'name': '非日期字段的到达时间工作流',
+                'table_id': str(workflow_table.id),
+                'trigger_config': {
+                    'trigger_type': 'record_time_reached',
+                    'filter_config': {'time_field_id': str(workflow_field.id)}
+                },
+                'nodes_config': [
+                    {
+                        'node_type': 'trigger',
+                        'name': '到达记录时间',
+                        'config': {},
+                        'order': 0,
+                        'next_nodes': []
+                    }
+                ]
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+        workflow_id = response.get_json()['data']['id']
+
+        publish_response = client.post(
+            f'/api/workflows/{workflow_id}/publish',
+            headers=auth_headers
+        )
+        assert publish_response.status_code == 400
+
+    def test_update_trigger_to_record_time_reached(
+        self, client, auth_headers, created_workflow, workflow_table
+    ):
+        """通过 PUT /trigger 更新触发器为 record_time_reached"""
+        from app.models.field import FieldType
+
+        date_field = Field(
+            table_id=workflow_table.id,
+            name='截止日期',
+            type=FieldType.DATE.value,
+            order=1,
+        )
+        db.session.add(date_field)
+        db.session.commit()
+
+        response = client.put(
+            f'/api/workflows/{created_workflow.id}/trigger',
+            json={
+                'trigger_type': 'record_time_reached',
+                'filter_config': {'time_field_id': str(date_field.id)}
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+
+        trigger_response = client.get(
+            f'/api/workflows/{created_workflow.id}/trigger',
+            headers=auth_headers
+        )
+        assert trigger_response.status_code == 200
+        trigger_data = trigger_response.get_json()
+        assert trigger_data['data']['trigger_type'] == 'record_time_reached'
+        assert trigger_data['data']['filter_config']['time_field_id'] == str(date_field.id)
 
 
 class TestApprovalRoutes:

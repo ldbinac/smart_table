@@ -93,7 +93,7 @@ class WorkflowExecutionEngine:
             return
         if event.metadata and event.metadata.get('workflow_source'):
             return
-        if event.event_type not in ('record_created', 'record_updated', 'field_changed', 'specified_time'):
+        if event.event_type not in ('record_created', 'record_updated', 'field_changed', 'specified_time', 'record_time_reached'):
             return
 
         record_id = event.record_id

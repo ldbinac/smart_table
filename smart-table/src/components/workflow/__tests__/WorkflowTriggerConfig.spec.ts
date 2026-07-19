@@ -39,6 +39,8 @@ describe('WorkflowTriggerConfig', () => {
   const mockFields = [
     { id: 'field-1', name: '标题', type: 'single_line_text' },
     { id: 'field-2', name: '状态', type: 'single_select' },
+    { id: 'field-3', name: '截止日期', type: 'date' },
+    { id: 'field-4', name: '截止时间', type: 'date_time' },
   ];
 
   function mountTriggerConfig(overrideProps: any = {}) {
@@ -126,6 +128,7 @@ describe('WorkflowTriggerConfig', () => {
     const options = triggerTypeSelect!.findAll('.el-option');
     const values = options.map((o) => (o.element as HTMLOptionElement).value);
     expect(values).toContain('specified_time');
+    expect(values).toContain('record_time_reached');
   });
 
   it('有可用字段时添加过滤条件应该新增条件并触发 update:trigger 事件', async () => {
@@ -488,6 +491,130 @@ describe('WorkflowTriggerConfig', () => {
       expect(wrapper.find('.schedule-start-time .el-time-picker').attributes('disabled')).toBeDefined();
       const repeatSelect = wrapper.find('.schedule-repeat-type .el-select');
       expect(repeatSelect.attributes('disabled')).toBeDefined();
+    });
+  });
+
+  describe('到达记录中的时间时触发器', () => {
+    async function setTriggerType(wrapper: any, value: string) {
+      const triggerTypeSelect = wrapper.findAll('.el-select').find((s: any) =>
+        s.findAll('.el-option').some((o: any) => (o.element as HTMLOptionElement).value === 'record_created')
+      );
+      expect(triggerTypeSelect).toBeTruthy();
+      await triggerTypeSelect!.setValue(value);
+      await triggerTypeSelect!.trigger('change');
+      await flushPromises();
+      await nextTick();
+    }
+
+    it('选择 record_time_reached 后显示时间字段选择器和触发过滤条件区域', async () => {
+      const wrapper = mountTriggerConfig();
+      await flushPromises();
+
+      await setTriggerType(wrapper, 'record_time_reached');
+
+      // 时间字段选择器可见
+      expect(wrapper.find('.time-field-select').exists()).toBe(true);
+      // 触发过滤条件区域可见
+      expect(wrapper.find('.filter-section').exists()).toBe(true);
+      // 定时器配置区域隐藏
+      expect(wrapper.find('.schedule-section').exists()).toBe(false);
+    });
+
+    it('时间字段下拉仅包含日期和日期时间类型字段', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'record_time_reached',
+          filter_config: { time_field_id: '' },
+        },
+      });
+      await flushPromises();
+
+      const timeFieldSelect = wrapper.find('.time-field-select');
+      expect(timeFieldSelect.exists()).toBe(true);
+      const options = timeFieldSelect.findAll('.el-option');
+      const values = options.map((o: any) => (o.element as HTMLOptionElement).value);
+      // 仅包含日期和日期时间字段
+      expect(values).toContain('field-3');
+      expect(values).toContain('field-4');
+      expect(values).not.toContain('field-1');
+      expect(values).not.toContain('field-2');
+    });
+
+    it('切换到 record_time_reached 时清空 schedule 并初始化 time_field_id', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'specified_time',
+          filter_config: {
+            schedule: {
+              start_date: '2026-06-28',
+              start_time: '23:55',
+              repeat_type: 'no_repeat',
+              custom_interval: 1,
+              custom_unit: 'day',
+              end_type: 'never',
+            },
+          },
+        },
+      });
+      await flushPromises();
+
+      await setTriggerType(wrapper, 'record_time_reached');
+
+      const emitted = wrapper.emitted('update:trigger') as any[][];
+      expect(emitted).toBeTruthy();
+      const lastTrigger = emitted[emitted.length - 1][0];
+      expect(lastTrigger.trigger_type).toBe('record_time_reached');
+      expect(lastTrigger.filter_config.schedule).toBeUndefined();
+      expect(lastTrigger.filter_config.time_field_id).toBe('');
+    });
+
+    it('从 record_time_reached 切换回事件类型时清空 time_field_id', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'record_time_reached',
+          filter_config: { time_field_id: 'field-3' },
+        },
+      });
+      await flushPromises();
+
+      await setTriggerType(wrapper, 'record_created');
+
+      const emitted = wrapper.emitted('update:trigger') as any[][];
+      expect(emitted).toBeTruthy();
+      const lastTrigger = emitted[emitted.length - 1][0];
+      expect(lastTrigger.trigger_type).toBe('record_created');
+      expect(lastTrigger.filter_config.time_field_id).toBeUndefined();
+    });
+
+    it('未选择时间字段时 validateTimeField 返回 false 且显示错误', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'record_time_reached',
+          filter_config: { time_field_id: '' },
+        },
+      });
+      await flushPromises();
+
+      expect(wrapper.vm.validateTimeField()).toBe(false);
+      expect(wrapper.find('.field-ids-error').exists()).toBe(true);
+    });
+
+    it('已选择时间字段时 validateTimeField 返回 true', async () => {
+      const wrapper = mountTriggerConfig({
+        trigger: {
+          ...mockTrigger,
+          trigger_type: 'record_time_reached',
+          filter_config: { time_field_id: 'field-3' },
+        },
+      });
+      await flushPromises();
+
+      expect(wrapper.vm.validateTimeField()).toBe(true);
+      expect(wrapper.find('.field-ids-error').exists()).toBe(false);
     });
   });
 });

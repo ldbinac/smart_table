@@ -18,7 +18,8 @@ export type TriggerType =
   | 'record_updated'
   | 'field_changed'
   | 'manual'
-  | 'specified_time';
+  | 'specified_time'
+  | 'record_time_reached';
 
 export type ScheduleRepeatType =
   | 'no_repeat'

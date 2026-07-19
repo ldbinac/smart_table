@@ -199,6 +199,11 @@ def register_lifecycle_hooks(app):
             reschedule_all(app)
             atexit.register(stop_scheduler)
 
+            # 启动工作流记录时间扫描器
+            from app.services.workflow_record_time_scanner import start_scanner, stop_scanner as stop_record_time_scanner
+            start_scanner(app)
+            atexit.register(stop_record_time_scanner)
+
 
 def register_blueprints(app):
     """

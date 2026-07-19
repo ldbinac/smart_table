@@ -907,6 +907,23 @@ class WorkflowService:
 
         return start_dt
 
+    @staticmethod
+    def _validate_record_time_config(trigger: 'WorkflowTrigger', table_id) -> None:
+        """校验 record_time_reached 触发器配置：time_field_id 必须存在且为日期/日期时间类型字段"""
+        from app.models.field import Field, FieldType
+
+        filter_config = trigger.filter_config or {}
+        time_field_id = filter_config.get('time_field_id')
+        if not time_field_id:
+            raise ValueError('必须选择时间字段')
+
+        field = Field.query.filter_by(id=time_field_id, table_id=table_id).first()
+        if not field:
+            raise ValueError(f'时间字段不存在: {time_field_id}')
+        field_type = field.type.value if isinstance(field.type, FieldType) else field.type
+        if field_type not in (FieldType.DATE.value, FieldType.DATE_TIME.value):
+            raise ValueError(f'时间字段必须为日期或日期时间类型，当前类型: {field_type}')
+
     @classmethod
     def _validate_workflow_config(cls, workflow: Workflow) -> None:
         """验证工作流配置完整性，不通过时抛出 ValueError"""
@@ -919,6 +936,8 @@ class WorkflowService:
             if not schedule:
                 raise ValueError('specified_time 触发器必须配置 schedule')
             cls._validate_schedule_config(schedule)
+        elif trigger and trigger.trigger_type == WorkflowTriggerType.RECORD_TIME_REACHED:
+            cls._validate_record_time_config(trigger, workflow.table_id)
 
     @classmethod
     def save_version_snapshot(cls, workflow_id: Any, created_by: Any) -> Optional[WorkflowVersion]:

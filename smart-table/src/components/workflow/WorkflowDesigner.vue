@@ -622,6 +622,15 @@ async function handleSave() {
     }
   }
 
+  if (triggerConfigRef.value?.validateTimeField?.() === false) {
+    await ElMessageBox.alert(
+      '"到达记录中的时间时"触发类型必须选择时间字段，否则触发器无法正常工作。请先配置时间字段。',
+      '时间字段未配置',
+      { confirmButtonText: '去配置' }
+    );
+    return;
+  }
+
   const mappingValidation = validateNodeMappings(localNodes.value);
   if (!mappingValidation.valid) {
     const nodeList = mappingValidation.invalidNodes
