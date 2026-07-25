@@ -304,7 +304,7 @@ def sync_package_json():
 def check_prerequisites(skip_frontend=False):
     log('检查前置条件...', 'STEP')
     if not skip_frontend:
-        for cmd, name in [('node', 'Node.js'), ('npm', 'npm')]:
+        for cmd, name in [('node', 'Node.js'), ('pnpm', 'pnpm')]:
             try:
                 r = run_command([cmd, '--version'], capture=True)
                 log(f'{name}: {r.stdout.strip()}')
@@ -342,8 +342,8 @@ def clean_build_artifacts(skip_frontend=False):
 def build_frontend():
     log('='*60, 'STEP'); log('第 1 步：构建前端 (Vue + Vite)', 'STEP'); log('='*60, 'STEP')
     t = time.time()
-    run_command(['npm', 'install'], cwd=FRONTEND_DIR)
-    run_command(['npm', 'run', 'build'], cwd=FRONTEND_DIR)
+    run_command(['pnpm', 'install'], cwd=FRONTEND_DIR)
+    run_command(['pnpm', 'run', 'build'], cwd=FRONTEND_DIR)
     if not DIST_DIR.exists(): log('❌ 前端构建失败！', 'ERROR'); sys.exit(1)
     size = sum(f.stat().st_size for f in DIST_DIR.rglob('*') if f.is_file()) / (1024*1024)
     log(f'✅ 前端完成 ({time.time()-t:.1f}s, {size:.1f} MB)', 'SUCCESS')
