@@ -71,7 +71,39 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
     if (isNaN(num) || num < 0) return '#ERROR'
     return Math.sqrt(num)
   },
-  
+
+  LN: (value: unknown) => {
+    const num = Number(value)
+    if (isNaN(num) || num <= 0) return '#ERROR'
+    return Math.log(num)
+  },
+
+  LOG: (value: unknown, base: unknown = 10) => {
+    const num = Number(value)
+    const b = Number(base)
+    if (isNaN(num) || isNaN(b) || num <= 0 || b <= 0 || b === 1) return '#ERROR'
+    return Math.log(num) / Math.log(b)
+  },
+
+  EXP: (value: unknown) => {
+    const num = Number(value)
+    if (isNaN(num)) return '#ERROR'
+    return Math.exp(num)
+  },
+
+  PI: () => Math.PI,
+
+  E: () => Math.E,
+
+  RAND: () => Math.random(),
+
+  RANDBETWEEN: (min: unknown, max: unknown) => {
+    const lo = Math.ceil(Number(min))
+    const hi = Math.floor(Number(max))
+    if (isNaN(lo) || isNaN(hi)) return '#ERROR'
+    return Math.floor(Math.random() * (hi - lo + 1)) + lo
+  },
+
   CONCAT: (...args: unknown[]) => {
     return args.map(a => String(a ?? '')).join('')
   },
@@ -145,12 +177,50 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
     const find = String(findText ?? '')
     const within = String(withinText ?? '')
     const startPos = start !== undefined ? Number(start) - 1 : 0
-    
+
     if (isNaN(startPos)) return '#ERROR'
     const index = within.indexOf(find, startPos)
     return index === -1 ? 0 : index + 1
   },
-  
+
+  REPT: (text: unknown, count: unknown) => {
+    const str = String(text ?? '')
+    const n = Math.floor(Number(count))
+    if (isNaN(n)) return '#ERROR'
+    return str.repeat(n)
+  },
+
+  TEXT: (value: unknown, format: unknown) => {
+    const val = Number(value)
+    const fmt = String(format ?? '#')
+    if (isNaN(val)) return ''
+
+    const lowerFmt = fmt.toLowerCase()
+    if (lowerFmt === '0%') return `${Math.round(val * 100)}%`
+    if (lowerFmt === '0.00%') return `${(val * 100).toFixed(2)}%`
+
+    if (fmt.includes(',') && fmt.includes('.')) {
+      const decimals = fmt.split('.')[1].replace('%', '').length
+      return val.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    }
+    if (fmt.includes('.')) {
+      const decimals = fmt.split('.')[1].replace('%', '').length
+      return val.toFixed(decimals)
+    }
+    if (fmt.includes(',')) {
+      return val.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    }
+
+    return String(val)
+  },
+
+  VALUE: (text: unknown) => {
+    if (text === null || text === undefined) return null
+    const cleaned = String(text).replace(/,/g, '').replace(/\s/g, '')
+    const num = Number(cleaned)
+    return isNaN(num) ? '#ERROR' : num
+  },
+
   TODAY: () => {
     return dayjs().startOf('day').valueOf()
   },
@@ -325,7 +395,7 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
     }
     return value
   },
-  
+
   IFS: (...args: unknown[]) => {
     for (let i = 0; i < args.length; i += 2) {
       const condition = args[i]
@@ -336,7 +406,7 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
     }
     return '#ERROR'
   },
-  
+
   SWITCH: (expression: unknown, ...args: unknown[]) => {
     for (let i = 0; i < args.length - 1; i += 2) {
       if (expression === args[i]) {
@@ -348,76 +418,144 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
     }
     return '#ERROR'
   },
-  
+
+  XOR: (...args: unknown[]) => {
+    if (args.length < 2) return !toBoolean(args[0])
+    return args.reduce((acc, val) => acc !== toBoolean(val), false)
+  },
+
+  ISBLANK: (value: unknown) => {
+    return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)
+  },
+
+  ISERROR: (value: unknown) => {
+    return value === '#ERROR' || value instanceof Error
+  },
+
+  ISNUMBER: (value: unknown) => {
+    return typeof value === 'number' && !isNaN(value) && !isNaN(Number(value))
+  },
+
+  ISTEXT: (value: unknown) => {
+    return typeof value === 'string'
+  },
+
+  ISDATE: (value: unknown) => {
+    if (value instanceof Date) return true
+    if (typeof value === 'number') return !isNaN(value)
+    if (typeof value !== 'string') return false
+    return parseDateValue(value) !== null
+  },
+
+  BLANK: () => null,
+
+  NA: () => '#N/A',
+
+  ERROR: (message?: unknown) => {
+    return `#ERROR: ${message ?? ''}`
+  },
+
   COUNT: (...args: unknown[]) => {
     return flattenValues(args).filter(v => v !== null && v !== undefined && v !== '').length
   },
-  
+
   COUNTA: (...args: unknown[]) => {
     return flattenValues(args).length
   },
-  
+
   COUNTIF: (range: unknown, criteria: unknown) => {
     const values = Array.isArray(range) ? range : [range]
-    const crit = String(criteria ?? '')
-    
-    return values.filter(v => {
-      if (crit.startsWith('>=')) return Number(v) >= Number(crit.slice(2))
-      if (crit.startsWith('<=')) return Number(v) <= Number(crit.slice(2))
-      if (crit.startsWith('<>')) return String(v) !== crit.slice(2)
-      if (crit.startsWith('>')) return Number(v) > Number(crit.slice(1))
-      if (crit.startsWith('<')) return Number(v) < Number(crit.slice(1))
-      if (crit.startsWith('=')) return String(v) === crit.slice(1)
-      return String(v) === crit
-    }).length
+    return values.filter(v => matchesCriteria(v, criteria)).length
   },
-  
+
   SUMIF: (range: unknown, criteria: unknown, sumRange?: unknown) => {
     const values = Array.isArray(range) ? range : [range]
     const sumValues = sumRange ? (Array.isArray(sumRange) ? sumRange : [sumRange]) : values
-    const crit = String(criteria ?? '')
-    
+
     let sum = 0
     values.forEach((v, i) => {
-      let matches = false
-      if (crit.startsWith('>=')) matches = Number(v) >= Number(crit.slice(2))
-      else if (crit.startsWith('<=')) matches = Number(v) <= Number(crit.slice(2))
-      else if (crit.startsWith('<>')) matches = String(v) !== crit.slice(2)
-      else if (crit.startsWith('>')) matches = Number(v) > Number(crit.slice(1))
-      else if (crit.startsWith('<')) matches = Number(v) < Number(crit.slice(1))
-      else if (crit.startsWith('=')) matches = String(v) === crit.slice(1)
-      else matches = String(v) === crit
-      
-      if (matches) {
+      if (matchesCriteria(v, criteria)) {
         sum += Number(sumValues[i]) || 0
       }
     })
     return sum
   },
-  
+
   AVERAGEIF: (range: unknown, criteria: unknown, avgRange?: unknown) => {
     const values = Array.isArray(range) ? range : [range]
     const avgValues = avgRange ? (Array.isArray(avgRange) ? avgRange : [avgRange]) : values
-    const crit = String(criteria ?? '')
-    
+
     let sum = 0
     let count = 0
     values.forEach((v, i) => {
-      let matches = false
-      if (crit.startsWith('>=')) matches = Number(v) >= Number(crit.slice(2))
-      else if (crit.startsWith('<=')) matches = Number(v) <= Number(crit.slice(2))
-      else if (crit.startsWith('<>')) matches = String(v) !== crit.slice(2)
-      else if (crit.startsWith('>')) matches = Number(v) > Number(crit.slice(1))
-      else if (crit.startsWith('<')) matches = Number(v) < Number(crit.slice(1))
-      else if (crit.startsWith('=')) matches = String(v) === crit.slice(1)
-      else matches = String(v) === crit
-      
-      if (matches) {
+      if (matchesCriteria(v, criteria)) {
         sum += Number(avgValues[i]) || 0
         count++
       }
     })
     return count > 0 ? sum / count : 0
+  },
+
+  COUNTBLANK: (...args: unknown[]) => {
+    return flattenValues(args).filter(v => v === null || v === undefined || v === '').length
+  },
+
+  STDEV: (...args: unknown[]) => {
+    const numbers = flattenNumbers(args)
+    if (numbers.length < 2) return null
+    const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length
+    const variance = numbers.reduce((sum, n) => sum + Math.pow(n - mean, 2), 0) / (numbers.length - 1)
+    return Math.sqrt(variance)
+  },
+
+  VAR: (...args: unknown[]) => {
+    const numbers = flattenNumbers(args)
+    if (numbers.length < 2) return null
+    const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length
+    return numbers.reduce((sum, n) => sum + Math.pow(n - mean, 2), 0) / (numbers.length - 1)
+  },
+
+  MEDIAN: (...args: unknown[]) => {
+    const numbers = flattenNumbers(args).sort((a, b) => a - b)
+    if (numbers.length === 0) return null
+    const mid = Math.floor(numbers.length / 2)
+    return numbers.length % 2 === 1 ? numbers[mid] : (numbers[mid - 1] + numbers[mid]) / 2
+  },
+
+  MODE: (...args: unknown[]) => {
+    const numbers = flattenNumbers(args)
+    if (numbers.length === 0) return null
+    const counts = new Map<number, number>()
+    numbers.forEach(n => counts.set(n, (counts.get(n) || 0) + 1))
+    let maxCount = 0
+    let modes: number[] = []
+    counts.forEach((count, n) => {
+      if (count > maxCount) {
+        maxCount = count
+        modes = [n]
+      } else if (count === maxCount) {
+        modes.push(n)
+      }
+    })
+    return modes.length === 1 ? modes[0] : null
+  },
+
+  RANK: (value: unknown, ...others: unknown[]) => {
+    const num = Number(value)
+    if (isNaN(num)) return null
+    const all = flattenNumbers(others)
+    return all.filter(v => v < num).length + 1
+  },
+
+  UNIQUE: (...args: unknown[]) => {
+    const values = flattenValues(args)
+    const seen = new Set<string>()
+    return values.filter(v => {
+      const key = typeof v === 'object' ? JSON.stringify(v) : String(v)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   }
 }
 
@@ -464,6 +602,21 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+function isNumericValue(value: unknown): value is number {
+  return typeof value === 'number' && !isNaN(value) && !isNaN(Number(value))
+}
+
+function matchesCriteria(value: unknown, criteria: unknown): boolean {
+  const crit = String(criteria ?? '')
+  if (crit.startsWith('>=')) return isNumericValue(value as number) && (value as number) >= Number(crit.slice(2))
+  if (crit.startsWith('<=')) return isNumericValue(value as number) && (value as number) <= Number(crit.slice(2))
+  if (crit.startsWith('<>')) return String(value) !== crit.slice(2)
+  if (crit.startsWith('>')) return isNumericValue(value as number) && (value as number) > Number(crit.slice(1))
+  if (crit.startsWith('<')) return isNumericValue(value as number) && (value as number) < Number(crit.slice(1))
+  if (crit.startsWith('=')) return String(value) === crit.slice(1)
+  return String(value) === crit
+}
+
 /**
  * 解析日期值，支持多种格式：
  * - 数字时间戳（毫秒）
@@ -506,11 +659,11 @@ function parseDateValue(value: unknown): dayjs.Dayjs | null {
 }
 
 export const functionCategories = {
-  math: ['SUM', 'AVG', 'MAX', 'MIN', 'ROUND', 'CEILING', 'FLOOR', 'ABS', 'MOD', 'POWER', 'SQRT'],
-  text: ['CONCAT', 'LEFT', 'RIGHT', 'MID', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'SUBSTITUTE', 'REPLACE', 'FIND'],
+  math: ['SUM', 'AVG', 'MAX', 'MIN', 'ROUND', 'CEILING', 'FLOOR', 'ABS', 'MOD', 'POWER', 'SQRT', 'LN', 'LOG', 'EXP', 'PI', 'E', 'RAND', 'RANDBETWEEN'],
+  text: ['CONCAT', 'LEFT', 'RIGHT', 'MID', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'SUBSTITUTE', 'REPLACE', 'FIND', 'REPT', 'TEXT', 'VALUE'],
   date: ['TODAY', 'NOW', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'WEEKDAY', 'DATETIME_FORMAT', 'FROMUNIXTIME', 'UNIXTIMESTAMP', 'DATEDIF', 'DATEDIFF', 'DATEADD'],
-  logic: ['IF', 'AND', 'OR', 'NOT', 'IFERROR', 'IFS', 'SWITCH'],
-  statistics: ['COUNT', 'COUNTA', 'COUNTIF', 'SUMIF', 'AVERAGEIF']
+  logic: ['IF', 'AND', 'OR', 'NOT', 'IFERROR', 'IFS', 'SWITCH', 'XOR', 'ISBLANK', 'ISERROR', 'ISNUMBER', 'ISTEXT', 'ISDATE', 'BLANK', 'NA', 'ERROR'],
+  statistics: ['COUNT', 'COUNTA', 'COUNTBLANK', 'COUNTIF', 'SUMIF', 'AVERAGEIF', 'STDEV', 'VAR', 'MEDIAN', 'MODE', 'RANK', 'UNIQUE']
 }
 
 export const functionDescriptions: Record<string, string> = {
@@ -525,6 +678,13 @@ export const functionDescriptions: Record<string, string> = {
   MOD: '返回余数',
   POWER: '返回数的幂',
   SQRT: '返回平方根',
+  LN: '返回自然对数',
+  LOG: '返回指定底数的对数',
+  EXP: '返回 e 的指定次幂',
+  PI: '返回圆周率 π',
+  E: '返回自然常数 e',
+  RAND: '返回 [0,1) 之间的随机数',
+  RANDBETWEEN: '返回指定范围内的随机整数',
   CONCAT: '连接多个文本',
   LEFT: '返回文本左侧指定字符数',
   RIGHT: '返回文本右侧指定字符数',
@@ -536,6 +696,9 @@ export const functionDescriptions: Record<string, string> = {
   SUBSTITUTE: '替换文本',
   REPLACE: '替换指定位置的文本',
   FIND: '查找文本位置',
+  REPT: '重复文本指定次数',
+  TEXT: '将数字按格式转换为文本',
+  VALUE: '将文本转换为数字',
   TODAY: '返回今天的日期',
   NOW: '返回当前日期时间',
   YEAR: '返回年份',
@@ -558,9 +721,25 @@ export const functionDescriptions: Record<string, string> = {
   IFERROR: '错误处理',
   IFS: '多条件判断',
   SWITCH: '多值匹配',
+  XOR: '逻辑异或',
+  ISBLANK: '判断是否为空',
+  ISERROR: '判断是否为错误值',
+  ISNUMBER: '判断是否为数字',
+  ISTEXT: '判断是否为文本',
+  ISDATE: '判断是否为日期',
+  BLANK: '返回空值',
+  NA: '返回 N/A 错误',
+  ERROR: '返回自定义错误',
   COUNT: '计数',
   COUNTA: '计数非空值',
+  COUNTBLANK: '计数空值',
   COUNTIF: '条件计数',
   SUMIF: '条件求和',
-  AVERAGEIF: '条件平均值'
+  AVERAGEIF: '条件平均值',
+  STDEV: '返回标准差',
+  VAR: '返回方差',
+  MEDIAN: '返回中位数',
+  MODE: '返回众数',
+  RANK: '返回排名',
+  UNIQUE: '返回去重后的数组'
 }

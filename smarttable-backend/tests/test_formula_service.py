@@ -476,6 +476,12 @@ class TestLogicFunctions:
         assert self._eval('XOR(TRUE, FALSE)') is True
         assert self._eval('XOR(TRUE, TRUE)') is False
 
+    def test_iferror(self):
+        """IFERROR 错误处理"""
+        assert self._eval('IFERROR(1/0, 0)') == 0
+        assert self._eval('IFERROR(42, 0)') == 42
+        assert self._eval('IFERROR(SQRT(-1), "invalid")') == 'invalid'
+
 
 class TestStatFunctions:
     """统计函数测试"""
@@ -521,9 +527,25 @@ class TestStatFunctions:
         assert self._eval('RANK(1, 1, 2, 3, 4, 5)') == 1
     
     def test_unique(self):
-        """UNIQUE 去重"""
+        """去重"""
         result = self._eval('UNIQUE(1, 2, 2, 3, 3, 3)')
         assert set(result) == {1, 2, 3}
+
+    def test_countif(self):
+        """COUNTIF 条件计数"""
+        assert self._eval('COUNTIF(1, ">0")') == 1
+        assert self._eval('COUNTIF(1, "<=0")') == 0
+        assert self._eval('COUNTIF("done", "done")') == 1
+
+    def test_sumif(self):
+        """SUMIF 条件求和"""
+        assert self._eval('SUMIF(5, ">0", 10)') == 10
+        assert self._eval('SUMIF(5, "<=0", 10)') is None
+
+    def test_averageif(self):
+        """AVERAGEIF 条件平均值"""
+        assert self._eval('AVERAGEIF(5, ">0", 10)') == 10
+        assert self._eval('AVERAGEIF(5, "<=0", 10)') is None
 
 
 class TestFormulaServiceEntryPoints:

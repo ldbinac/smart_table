@@ -767,6 +767,48 @@ describe("Formula Engine Factory", () => {
   });
 });
 
+describe("Newly Added Functions", () => {
+  it("should support extended math functions", () => {
+    expect(typeof formulaFunctions.LN(1)).toBe("number");
+    expect(typeof formulaFunctions.LOG(100, 10)).toBe("number");
+    expect(typeof formulaFunctions.EXP(1)).toBe("number");
+    expect(formulaFunctions.PI()).toBe(Math.PI);
+    expect(formulaFunctions.E()).toBe(Math.E);
+    expect(typeof formulaFunctions.RAND()).toBe("number");
+    const randBetween = formulaFunctions.RANDBETWEEN(1, 10) as number;
+    expect(randBetween).toBeGreaterThanOrEqual(1);
+    expect(randBetween).toBeLessThanOrEqual(10);
+  });
+
+  it("should support extended text functions", () => {
+    expect(formulaFunctions.REPT("ab", 3)).toBe("ababab");
+    expect(formulaFunctions.TEXT(0.75, "0%")).toBe("75%");
+    expect(formulaFunctions.VALUE("123.45")).toBe(123.45);
+  });
+
+  it("should support extended logic functions", () => {
+    expect(formulaFunctions.XOR(true, false)).toBe(true);
+    expect(formulaFunctions.XOR(true, true)).toBe(false);
+    expect(formulaFunctions.ISBLANK("")).toBe(true);
+    expect(formulaFunctions.ISERROR("#ERROR")).toBe(true);
+    expect(formulaFunctions.ISNUMBER(42)).toBe(true);
+    expect(formulaFunctions.ISTEXT("hello")).toBe(true);
+    expect(formulaFunctions.ISDATE("2025-01-01")).toBe(true);
+    expect(formulaFunctions.BLANK()).toBeNull();
+    expect(formulaFunctions.NA()).toBe("#N/A");
+  });
+
+  it("should support extended statistical functions", () => {
+    expect(formulaFunctions.COUNTBLANK("", null, 1)).toBe(2);
+    expect(formulaFunctions.STDEV(2, 4, 4, 4, 5, 5, 7, 9)).toBeGreaterThan(0);
+    expect(formulaFunctions.VAR(2, 4, 4, 4, 5, 5, 7, 9)).toBeGreaterThan(0);
+    expect(formulaFunctions.MEDIAN(1, 3, 5)).toBe(3);
+    expect(formulaFunctions.MODE(1, 2, 2, 3, 3, 3)).toBe(3);
+    expect(formulaFunctions.RANK(3, 1, 2, 3, 4, 5)).toBe(3);
+    expect(formulaFunctions.UNIQUE(1, 2, 2, 3)).toEqual([1, 2, 3]);
+  });
+});
+
 describe("Edge Cases", () => {
   it("should handle empty field list", () => {
     const emptyEngine = new FormulaEngine([]);
