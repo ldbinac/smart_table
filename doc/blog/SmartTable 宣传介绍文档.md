@@ -406,7 +406,7 @@ WSGI 服务器   Gunicorn
 ### 环境要求
 
 - Node.js >= 18
-- npm >= 9
+- pnpm >= 9
 - Python >= 3.9（后端模式）
 - 现代浏览器（Chrome/Firefox/Safari/Edge）
 

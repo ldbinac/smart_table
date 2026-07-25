@@ -293,7 +293,7 @@ volumes:
 ### Requirements
 
 - Node.js >= 18
-- npm >= 9
+- pnpm >= 9
 - Python >= 3.11 (Only for backend mode)
 
 ### Frontend Development
