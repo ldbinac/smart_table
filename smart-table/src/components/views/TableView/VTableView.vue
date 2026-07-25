@@ -123,6 +123,11 @@ const attachmentManagerOriginalRecord = ref<any>(null);
 // 记录触发浮窗的单元格坐标，用于滚动实时同步位置
 const lastAttachmentCellCoords = ref<{ col: number; row: number } | null>(null);
 
+// 图片缩略图单击预览状态
+const attachmentImagePreviewVisible = ref(false);
+const attachmentImagePreviewUrl = ref('');
+const attachmentImagePreviewName = ref('');
+
 // ==================== 关联记录选择器状态 ====================
 const linkSelectorVisible = ref(false);
 const linkSelectorTargetTableId = ref('');
@@ -3261,6 +3266,18 @@ const buildTableConfig = (): any => {
                 height: itemSize,
                 image: fileUrl,
                 cornerRadius: 4,
+                cursor: 'pointer',
+                name: 'attachment-thumbnail',
+              });
+              // 单击缩略图直接预览完整图片，阻止事件冒泡到单元格
+              img.addEventListener('pointerdown', (e: any) => {
+                e.stopPropagation?.();
+              });
+              img.addEventListener('pointertap', (e: any) => {
+                e.stopPropagation?.();
+                attachmentImagePreviewUrl.value = fileUrl;
+                attachmentImagePreviewName.value = fileName;
+                attachmentImagePreviewVisible.value = true;
               });
               const itemGroup = createGroup({
                 width: itemSize + gap,
@@ -4846,6 +4863,24 @@ watch(
       @close="closeAttachmentManager"
     />
 
+    <!-- 图片缩略图单击预览对话框 -->
+    <el-dialog
+      v-model="attachmentImagePreviewVisible"
+      :title="attachmentImagePreviewName || '预览'"
+      width="90%"
+      top="5vh"
+      destroy-on-close
+      class="attachment-image-preview-dialog"
+    >
+      <div class="attachment-image-preview-content">
+        <img
+          :src="attachmentImagePreviewUrl"
+          class="attachment-image-preview-img"
+          :alt="attachmentImagePreviewName"
+        />
+      </div>
+    </el-dialog>
+
     <!-- 关联记录选择器 -->
     <LinkRecordSelector
       :visible="linkSelectorVisible"
@@ -4999,9 +5034,25 @@ watch(
   }
 }
 
+// ==================== 图片缩略图预览弹窗样式 ====================
+.attachment-image-preview-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  background-color: #1a1a1a;
+  padding: $spacing-lg;
+}
+
+.attachment-image-preview-img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
 </style>
 
-<!-- 搜索弹窗全局样式（el-dialog teleport 到 body，需要非 scoped 样式） -->
+<!-- 搜索弹窗与图片预览弹窗全局样式（el-dialog teleport 到 body，需要非 scoped 样式） -->
 <style lang="scss">
 // .vtable-search-dialog 就是 .el-dialog 本身（custom-class 直接添加到 el-dialog）
 .vtable-search-dialog.el-dialog {
@@ -5024,5 +5075,12 @@ watch(
 
 .vtable-search-dialog .el-dialog__headerbtn {
   top: 10px;
+}
+
+// 图片预览弹窗：内容区无内边距，让图片充满主体区域
+.attachment-image-preview-dialog.el-dialog {
+  .el-dialog__body {
+    padding: 0;
+  }
 }
 </style>
