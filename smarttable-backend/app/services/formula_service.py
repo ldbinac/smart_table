@@ -437,12 +437,24 @@ class FormulaEvaluator:
     def _eval_function(self, node: Dict[str, Any]) -> Any:
         """求值函数调用"""
         func_name = node['name'].upper()
-        
+
         if func_name not in self.FUNCTIONS:
             raise FormulaError(f"未知函数: {func_name}")
-        
+
+        # IFERROR 需要特殊处理：捕获第一个参数的求值错误
+        if func_name == 'IFERROR':
+            if len(node['arguments']) < 2:
+                raise FormulaError("IFERROR 需要两个参数")
+            try:
+                value = self.evaluate(node['arguments'][0])
+                if isinstance(value, Exception):
+                    return self.evaluate(node['arguments'][1])
+                return value
+            except Exception:
+                return self.evaluate(node['arguments'][1])
+
         args = [self.evaluate(arg) for arg in node['arguments']]
-        
+
         try:
             return self.FUNCTIONS[func_name](args)
         except Exception as e:
@@ -1175,6 +1187,92 @@ def fn_counta(args: List[Any]) -> int:
             count += 1
     return count
 
+
+def _match_criteria(value: Any, criteria: Any) -> bool:
+    """根据条件字符串判断值是否匹配（支持 >, <, >=, <=, <> 及等于）"""
+    if criteria is None:
+        return False
+    crit = str(criteria)
+    if crit.startswith('>='):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= float(crit[2:])
+    if crit.startswith('<='):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and value <= float(crit[2:])
+    if crit.startswith('<>'):
+        return str(value) != crit[2:]
+    if crit.startswith('>'):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and value > float(crit[1:])
+    if crit.startswith('<'):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and value < float(crit[1:])
+    if crit.startswith('='):
+        return str(value) == crit[1:]
+    return str(value) == crit
+
+
+@FormulaEvaluator.register('COUNTIF')
+def fn_countif(args: List[Any]) -> int:
+    """条件计数"""
+    if len(args) < 2:
+        raise FormulaError("COUNTIF 需要至少两个参数")
+    values = args[0] if isinstance(args[0], list) else [args[0]]
+    criteria = args[1]
+    return sum(1 for v in values if _match_criteria(v, criteria))
+
+
+@FormulaEvaluator.register('SUMIF')
+def fn_sumif(args: List[Any]) -> Optional[float]:
+    """条件求和"""
+    if len(args) < 2:
+        raise FormulaError("SUMIF 需要至少两个参数")
+    values = args[0] if isinstance(args[0], list) else [args[0]]
+    criteria = args[1]
+    sum_range = args[2] if len(args) > 2 else values
+    if not isinstance(sum_range, list):
+        sum_range = [sum_range]
+
+    total = 0.0
+    matched = False
+    for i, v in enumerate(values):
+        if _match_criteria(v, criteria):
+            matched = True
+            if i < len(sum_range):
+                sv = sum_range[i]
+                if isinstance(sv, (int, float)) and not isinstance(sv, bool):
+                    total += float(sv)
+    return total if matched else None
+
+
+@FormulaEvaluator.register('AVERAGEIF')
+def fn_averageif(args: List[Any]) -> Optional[float]:
+    """条件平均值"""
+    if len(args) < 2:
+        raise FormulaError("AVERAGEIF 需要至少两个参数")
+    values = args[0] if isinstance(args[0], list) else [args[0]]
+    criteria = args[1]
+    avg_range = args[2] if len(args) > 2 else values
+    if not isinstance(avg_range, list):
+        avg_range = [avg_range]
+
+    total = 0.0
+    count = 0
+    for i, v in enumerate(values):
+        if _match_criteria(v, criteria):
+            if i < len(avg_range):
+                av = avg_range[i]
+                if isinstance(av, (int, float)) and not isinstance(av, bool):
+                    total += float(av)
+                    count += 1
+    return total / count if count > 0 else None
+
+
+@FormulaEvaluator.register('IFERROR')
+def fn_iferror(args: List[Any]) -> Any:
+    """错误处理（实际错误捕获在 _eval_function 中处理）"""
+    if len(args) < 2:
+        raise FormulaError("IFERROR 需要两个参数")
+    # 正常执行到此说明第一个参数未抛出异常
+    return args[0]
+
+
 @FormulaEvaluator.register('COUNTBLANK')
 def fn_countblank(args: List[Any]) -> int:
     """计数（空值）"""
@@ -1628,17 +1726,23 @@ class FormulaService:
                 {'name': 'OR', 'desc': '逻辑或', 'syntax': 'OR(cond1, cond2, ...)'},
                 {'name': 'NOT', 'desc': '逻辑非', 'syntax': 'NOT(condition)'},
                 {'name': 'XOR', 'desc': '异或', 'syntax': 'XOR(cond1, cond2)'},
+                {'name': 'IFERROR', 'desc': '错误处理', 'syntax': 'IFERROR(value, value_if_error)'},
                 {'name': 'ISBLANK', 'desc': '判断是否为空', 'syntax': 'ISBLANK(value)'},
                 {'name': 'ISERROR', 'desc': '判断是否为错误', 'syntax': 'ISERROR(value)'},
                 {'name': 'ISNUMBER', 'desc': '判断是否为数字', 'syntax': 'ISNUMBER(value)'},
                 {'name': 'ISTEXT', 'desc': '判断是否为文本', 'syntax': 'ISTEXT(value)'},
                 {'name': 'ISDATE', 'desc': '判断是否为日期', 'syntax': 'ISDATE(value)'},
                 {'name': 'BLANK', 'desc': '返回空值', 'syntax': 'BLANK()'},
+                {'name': 'NA', 'desc': '返回 N/A 错误', 'syntax': 'NA()'},
+                {'name': 'ERROR', 'desc': '返回自定义错误', 'syntax': 'ERROR(message)'},
             ],
             '统计': [
                 {'name': 'COUNT', 'desc': '计数(数字)', 'syntax': 'COUNT(value1, value2, ...)'},
                 {'name': 'COUNTA', 'desc': '计数(非空)', 'syntax': 'COUNTA(value1, value2, ...)'},
                 {'name': 'COUNTBLANK', 'desc': '计数(空值)', 'syntax': 'COUNTBLANK(value1, value2, ...)'},
+                {'name': 'COUNTIF', 'desc': '条件计数', 'syntax': 'COUNTIF(range, criteria)'},
+                {'name': 'SUMIF', 'desc': '条件求和', 'syntax': 'SUMIF(range, criteria, [sum_range])'},
+                {'name': 'AVERAGEIF', 'desc': '条件平均值', 'syntax': 'AVERAGEIF(range, criteria, [avg_range])'},
                 {'name': 'STDEV', 'desc': '标准差', 'syntax': 'STDEV(value1, value2, ...)'},
                 {'name': 'VAR', 'desc': '方差', 'syntax': 'VAR(value1, value2, ...)'},
                 {'name': 'MEDIAN', 'desc': '中位数', 'syntax': 'MEDIAN(value1, value2, ...)'},
