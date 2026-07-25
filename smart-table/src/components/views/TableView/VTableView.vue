@@ -1929,6 +1929,53 @@ const handleFieldSettings = () => {
   contextMenuVisible.value = false;
 };
 
+// 处理字段创建
+const handleFieldCreated = (field: any) => {
+  if (!tableStore.fields.find((f) => f.id === field.id)) {
+    tableStore.fields.push(field);
+  }
+};
+
+// 处理字段更新
+const handleFieldUpdated = (field: any) => {
+  const index = tableStore.fields.findIndex((f) => f.id === field.id);
+  if (index !== -1) {
+    Object.assign(tableStore.fields[index], field);
+  }
+};
+
+// 处理字段删除
+const handleFieldDeleted = (fieldId: string) => {
+  const index = tableStore.fields.findIndex((f) => f.id === fieldId);
+  if (index !== -1) {
+    tableStore.fields.splice(index, 1);
+  }
+};
+
+// 处理字段重排序
+const handleFieldsReordered = (fieldIds: string[]) => {
+  const sortedFields = fieldIds
+    .map((id) => tableStore.fields.find((f) => f.id === id))
+    .filter((f): f is FieldEntity => f !== undefined);
+
+  sortedFields.forEach((field, index) => {
+    field.order = index;
+  });
+
+  tableStore.fields = sortedFields;
+};
+
+// 处理字段可见性变化（视图级隐藏/显示）
+const handleFieldVisibilityChanged = async (fieldId: string, isVisible: boolean) => {
+  if (!viewStore.currentView) return;
+
+  const newHiddenFields = isVisible
+    ? viewStore.currentView.hiddenFields.filter((id) => id !== fieldId)
+    : [...viewStore.currentView.hiddenFields, fieldId];
+
+  await viewStore.updateHiddenFields(viewStore.currentView.id, newHiddenFields);
+};
+
 // 处理放大按钮点击 - 打开记录详情
 const handleExpandRecord = (record: RecordEntity) => {
   expandedRecord.value = record;
@@ -4761,6 +4808,11 @@ watch(
       :edit-field-id="editingFieldId ?? undefined"
       :table-id="props.tableId"
       :fields="tableStore.fields"
+      @field-created="handleFieldCreated"
+      @field-updated="handleFieldUpdated"
+      @field-deleted="handleFieldDeleted"
+      @fields-reordered="handleFieldsReordered"
+      @field-visibility-changed="handleFieldVisibilityChanged"
     />
     
     <!-- 记录详情对话框 -->
