@@ -2030,7 +2030,8 @@ const handleDocumentExportPdf = async () => {
               @record-select="handleRecordSelect"
               @addRecord="handleAddRecord"
               @editRecord="handleEditRecordById"
-              @deleteRecord="handleDeleteRecord" />
+              @deleteRecord="handleDeleteRecord"
+              @updateRecord="handleSaveRecord" />
 
             <!-- 日历视图 -->
             <CalendarView
