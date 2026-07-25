@@ -250,16 +250,16 @@ def check_prerequisites():
         log(f'  ⚠ Node.js 未安装，将使用 Docker 多阶段构建前端', 'WARNING')
 
     if node_found:
-        log('  检查 npm...', 'INFO')
+        log('  检查 pnpm...', 'INFO')
         try:
-            result = run_command(['npm', '--version'], capture=True)
-            log(f'  ✓ npm: {result.stdout.strip()}', 'SUCCESS')
+            result = run_command(['pnpm', '--version'], capture=True)
+            log(f'  ✓ pnpm: {result.stdout.strip()}', 'SUCCESS')
             npm_found = True
         except:
-            log(f'  ⚠ npm 未安装（Node.js 已安装但缺少 npm）', 'WARNING')
+            log(f'  ⚠ pnpm 未安装（Node.js 已安装但缺少 pnpm）', 'WARNING')
             log(f'    前端构建将依赖于 Docker 多阶段构建', 'INFO')
     else:
-        log(f'  ⚠ npm 未安装（Node.js 不可用）', 'INFO')
+        log(f'  ⚠ pnpm 未安装（Node.js 不可用）', 'INFO')
 
     # 检查 Docker 镜像源配置
     log('  检查 Docker 镜像源...', 'INFO')
@@ -344,15 +344,15 @@ def build_frontend(skip_frontend=False):
     # 安装依赖
     log('  安装前端依赖...', 'INFO')
     try:
-        run_command(['npm', 'install'], cwd=FRONTEND_DIR)
+        run_command(['pnpm', 'install'], cwd=FRONTEND_DIR)
     except:
-        log('npm install 失败', 'ERROR')
+        log('pnpm install 失败', 'ERROR')
         return False
 
     # 构建前端
     log('  编译前端代码...', 'INFO')
     try:
-        run_command(['npm', 'run', 'build'], cwd=FRONTEND_DIR)
+        run_command(['pnpm', 'run', 'build'], cwd=FRONTEND_DIR)
     except:
         log('前端编译失败', 'ERROR')
         return False
