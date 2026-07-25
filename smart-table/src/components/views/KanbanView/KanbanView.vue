@@ -252,7 +252,7 @@ onBeforeUnmount(() => {
         @edit-record="handleEditRecord"
         @update-record="handleUpdateRecord"
         @delete-record="handleDeleteRecord"
-        @move-record="(recordId) => handleMoveRecord(recordId, group.id)" />
+        @move-record="handleMoveRecord" />
     </div>
   </div>
 </template>

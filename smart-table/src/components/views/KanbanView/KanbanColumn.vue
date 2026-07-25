@@ -27,7 +27,7 @@ const emit = defineEmits<{
   (e: "editRecord", recordId: string): void;
   (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
   (e: "deleteRecord", recordId: string): void;
-  (e: "moveRecord", recordId: string): void;
+  (e: "moveRecord", recordId: string, targetGroupId: string): void;
 }>();
 
 const columnRef = ref<HTMLElement | null>(null);
@@ -56,8 +56,9 @@ function initSortable() {
     dragClass: "kanban-card-drag",
     onEnd: (evt) => {
       const recordId = evt.item.dataset.recordId;
-      if (recordId && evt.from !== evt.to) {
-        emit("moveRecord", recordId);
+      const targetGroupId = (evt.to as HTMLElement).dataset.groupId;
+      if (recordId && targetGroupId && evt.from !== evt.to) {
+        emit("moveRecord", recordId, targetGroupId);
       }
     },
   });
@@ -111,7 +112,7 @@ defineExpose({
       </el-dropdown>
     </div>
 
-    <div ref="columnRef" class="column-cards">
+    <div ref="columnRef" class="column-cards" :data-group-id="group.id">
       <KanbanCard
         v-for="record in records"
         :key="record.id"
