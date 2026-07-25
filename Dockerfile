@@ -11,17 +11,21 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# 复制 package 文件（利用 Docker 缓存层）
-COPY smart-table/package.json smart-table/package-lock.json ./
+# 启用 corepack 以使用 pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# 安装全部依赖（包含 devDependencies，prepare 脚本需要 husky）
-RUN npm ci && npm cache clean --force
+# 复制 pnpm 相关文件（利用 Docker 缓存层）
+COPY smart-table/package.json smart-table/pnpm-lock.yaml smart-table/pnpm-workspace.yaml ./
+
+# 安装全部依赖（包含 devDependencies）
+RUN pnpm install --frozen-lockfile && pnpm store prune
 
 # 复制前端源代码
 COPY smart-table/ ./
 
-# 构建前端（跳过 vue-tsc 类型检查，使用 vite 直接编译）
-RUN npx vite build
+# 构建前端（跳过 prepare 钩子中的 husky，Docker 中不需要）
+ENV HUSKY=0
+RUN pnpm run build
 
 # ============================================
 # 阶段 2: 构建后端 Python 依赖
