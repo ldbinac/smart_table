@@ -439,7 +439,13 @@ class MultiSelectEditor implements IEditor {
     const outsideHandler = (e: MouseEvent) => {
       if (wrapper && !wrapper.contains(e.target as Node)) {
         document.removeEventListener('mousedown', outsideHandler, true);
-        setTimeout(() => this.successCallback?.(), 0);
+        setTimeout(() => {
+          try {
+            this.successCallback?.();
+          } catch (err) {
+            console.warn('Editor exit error:', err);
+          }
+        }, 0);
       }
     };
     setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
@@ -599,7 +605,13 @@ class SingleSelectEditor implements IEditor {
     const outsideHandler = (e: MouseEvent) => {
       if (wrapper && !wrapper.contains(e.target as Node)) {
         document.removeEventListener('mousedown', outsideHandler, true);
-        setTimeout(() => this.successCallback?.(), 0);
+        setTimeout(() => {
+          try {
+            this.successCallback?.();
+          } catch (err) {
+            console.warn('Editor exit error:', err);
+          }
+        }, 0);
       }
     };
     setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
@@ -649,7 +661,11 @@ class SingleSelectEditor implements IEditor {
     item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
     item.addEventListener('click', () => {
       this.selectedValue = null;
-      this.successCallback?.();
+      try {
+        this.successCallback?.();
+      } catch (err) {
+        console.warn('Editor exit error:', err);
+      }
     });
 
     const icon = document.createElement('span');
@@ -677,7 +693,11 @@ class SingleSelectEditor implements IEditor {
     item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
     item.addEventListener('click', () => {
       this.selectedValue = opt.name;
-      this.successCallback?.();
+      try {
+        this.successCallback?.();
+      } catch (err) {
+        console.warn('Editor exit error:', err);
+      }
     });
 
     // 彩色标签样式，与单元格 customLayout 一致
@@ -1931,6 +1951,10 @@ const handleEditRecord = () => {
 let isAddingRecord = false;
 let addRecordCooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
+// 防止 change_cell_value 事件重复处理
+let processingCellKey: string | null = null;
+let processingCellTimer: ReturnType<typeof setTimeout> | null = null;
+
 const handleAddNewRecord = async () => {
   if (!props.tableId || isAddingRecord) return;
   isAddingRecord = true;
@@ -1945,9 +1969,13 @@ const handleAddNewRecord = async () => {
     });
     if (!newRecord) return;
 
-    // 追加到 store，触发 records watcher 统一处理表格更新
-    if (Array.isArray(tableStore.records)) {
-      tableStore.records = [...tableStore.records, newRecord];
+    // 不再手动更新 tableStore.records，让实时协作监听器（onRecordCreated）处理
+    // 如果实时协作不可用，才手动添加
+    const collabStore = useCollaborationStore();
+    if (!collabStore.isRealtimeAvailable) {
+      if (Array.isArray(tableStore.records)) {
+        tableStore.records = [...tableStore.records, newRecord];
+      }
     }
 
     emit('record-create');
@@ -3963,11 +3991,23 @@ const bindTableEvents = () => {
   // 不含 record 字段，需要通过 getCellOriginRecord 查找记录
   tableInstanceAny.on('change_cell_value', async (args: any) => {
     if (!args || !tableInstance) return;
-    
+
     const { col, row } = args;
     // 跳过行号列
     if (col <= 0) return;
-    
+
+    // 防抖：同一单元格短时间内可能触发多次事件（编辑器退出时的 bug）
+    const cellKey = `${col}:${row}`;
+    if (processingCellKey === cellKey) return;
+    processingCellKey = cellKey;
+    if (processingCellTimer) {
+      clearTimeout(processingCellTimer);
+    }
+    processingCellTimer = setTimeout(() => {
+      processingCellKey = null;
+      processingCellTimer = null;
+    }, 500);
+
     const record = tableInstance.getCellOriginRecord(col, row);
     if (!record?._recordId || !record._originalRecord) return;
     
@@ -4038,19 +4078,22 @@ const bindTableEvents = () => {
 
     try {
       if (!tableId) return;
-      
+
       const values = {
         ...originalRecord.values,
         [fieldId]: finalValue,
       };
-      
+
       await recordService.updateRecord(recordId, {
         values: values as Record<string, CellValue>,
       });
-      
-      // 刷新表格数据
-      await tableStore.refreshRecords(tableId);
-      
+
+      // 不再手动刷新表格数据，让实时协作监听器（onRecordUpdated）处理
+      // 如果实时协作不可用，才手动刷新
+      if (!collabStore.isRealtimeAvailable) {
+        await tableStore.refreshRecords(tableId);
+      }
+
       // 协同编辑：保存成功后释放锁
       if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
         collabStore.releaseLock({
@@ -4059,7 +4102,7 @@ const bindTableEvents = () => {
           field_id: fieldId,
         });
       }
-      
+
       ElMessage.success('编辑保存成功');
     } catch (error) {
       console.error('编辑保存失败:', error);
