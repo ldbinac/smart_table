@@ -16,9 +16,8 @@ class DocumentVersionService:
     RETENTION_DAYS = 30  # 保留最近 30 天
 
     # 重大变更阈值
-    CONTENT_CHANGE_THRESHOLD = 100  # 内容变化超过 100 个字符
-    CONTENT_CHANGE_RATIO = 0.2  # 内容变化超过 20%
-    MIN_INTERVAL_MINUTES = 60  # 两次版本创建间隔至少 60 分钟
+    CONTENT_CHANGE_THRESHOLD = 100  # 与上一个版本内容差异超过 100 个字符
+    MIN_INTERVAL_MINUTES = 15  # 两次版本创建间隔至少 15 分钟
 
     def get_list_by_document(self, document_id: str) -> list[DocumentVersion]:
         """获取文档的版本列表"""
@@ -65,49 +64,39 @@ class DocumentVersionService:
 
         return version
 
-    def should_create_version(self, document_id: str, new_content: str,
-                               old_content: str = '', new_name: str = '',
-                               old_name: str = '') -> tuple[bool, str]:
+    def should_create_version(self, document_id: str, new_content: str) -> tuple[bool, str]:
         """
         判断是否应该创建新版本
 
+        判断基准为当前 new_content 与文档最新版本内容的差异，
+        仅当差异超过阈值或距离上一个版本超过 15 分钟时才创建新版本。
+
         返回: (是否应该创建, 变更摘要)
         """
-        # 名称变更
-        if new_name != old_name and old_name:
-            return True, f'文档名称从 "{old_name}" 改为 "{new_name}"'
+        latest = self.get_latest_version(document_id)
 
-        # 内容长度变化
-        old_len = len(old_content)
-        new_len = len(new_content)
-
-        if old_len == 0:
-            # 首次保存
+        # 没有历史版本时，创建第一个版本
+        if not latest:
             return True, '创建文档'
 
-        # 计算变化量
-        change_size = abs(new_len - old_len)
-        change_ratio = change_size / old_len if old_len > 0 else 1.0
+        latest_content = latest.content or ''
 
-        # 检查是否超过阈值
+        # 内容长度变化（与上一个版本比较）
+        old_len = len(latest_content)
+        new_len = len(new_content)
+        change_size = abs(new_len - old_len)
+
         if change_size >= self.CONTENT_CHANGE_THRESHOLD:
             return True, f'内容变化 {change_size} 个字符'
 
-        if change_ratio >= self.CONTENT_CHANGE_RATIO:
-            return True, f'内容变化 {change_ratio:.0%}'
-
         # 检查时间间隔
-        latest = self.get_latest_version(document_id)
-        if latest:
-            # 确保两个 datetime 都是 aware 的（带 timezone）
-            now = datetime.now(timezone.utc)
-            # 如果 latest.created_at 是 naive 的，添加 UTC timezone
-            latest_created = latest.created_at
-            if latest_created.tzinfo is None:
-                latest_created = latest_created.replace(tzinfo=timezone.utc)
-            time_diff = now - latest_created
-            if time_diff >= timedelta(minutes=self.MIN_INTERVAL_MINUTES):
-                return True, '定时自动保存'
+        now = datetime.now(timezone.utc)
+        latest_created = latest.created_at
+        if latest_created.tzinfo is None:
+            latest_created = latest_created.replace(tzinfo=timezone.utc)
+        time_diff = now - latest_created
+        if time_diff >= timedelta(minutes=self.MIN_INTERVAL_MINUTES):
+            return True, '定时自动保存'
 
         return False, ''
 

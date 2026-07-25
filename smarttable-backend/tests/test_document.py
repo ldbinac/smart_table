@@ -127,6 +127,31 @@ class TestDocumentAPI:
         assert data['code'] == 200
         assert data['data']['name'] == '更新后的文档名'
 
+    def test_update_document_content_does_not_always_create_version(self, client, auth_headers, test_base):
+        """测试小幅更新文档内容不会每次创建新版本"""
+        create_resp = client.post(
+            f'/api/bases/{test_base.id}/documents',
+            json={'name': '待更新文档', 'content': '{"ops":[{"insert":"initial\n"}]}'},
+            headers=auth_headers
+        )
+        doc_id = create_resp.get_json()['data']['id']
+
+        # 获取初始版本数量
+        versions_resp = client.get(f'/api/documents/{doc_id}/versions', headers=auth_headers)
+        initial_version_count = versions_resp.get_json()['data']['total']
+
+        # 小幅更新内容
+        response = client.put(
+            f'/api/documents/{doc_id}',
+            json={'content': '{"ops":[{"insert":"initial updated\n"}]}'},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        # 版本数量不应增加
+        versions_resp = client.get(f'/api/documents/{doc_id}/versions', headers=auth_headers)
+        assert versions_resp.get_json()['data']['total'] == initial_version_count
+
     def test_delete_document(self, client, auth_headers, test_base):
         """测试删除文档"""
         create_resp = client.post(

@@ -69,6 +69,8 @@ const documentStore = useDocumentStore();
 
 // VTableView 组件引用（用于调用搜索功能）
 const vtableViewRef = shallowRef<{ openSearch: () => void } | null>(null);
+// DocumentEditor 组件引用（用于检查未保存更改）
+const documentEditorRef = ref<{ hasUnsavedChanges: () => boolean } | null>(null);
 
 const baseId = route.params.id as string;
 const realtimeCollab = baseId ? useRealtimeCollaboration(baseId) : null;
@@ -613,7 +615,11 @@ const handleTableSelect = async (tableId: string) => {
   if (tableId === tableStore.currentTable?.id) {
     return;
   }
-  
+
+  // 如果有未保存更改，先提示用户
+  const canLeave = await confirmLeaveDocument();
+  if (!canLeave) return;
+
   // 清除其他选中状态
   documentStore.clearCurrentDocumentId();
   
@@ -645,7 +651,11 @@ const handleTableSelect = async (tableId: string) => {
 };
 
 // 处理点击仪表盘
-const handleDashboardClick = (dashboardId: string) => {
+const handleDashboardClick = async (dashboardId: string) => {
+  // 如果有未保存更改，先提示用户
+  const canLeave = await confirmLeaveDocument();
+  if (!canLeave) return;
+
   // 清除其他选中状态
   tableStore.currentTable = null;
   documentStore.clearCurrentDocumentId();
@@ -1634,17 +1644,51 @@ function handleShareChanged() {
 
 // ========== 文档功能 ==========
 
+// 检查当前文档是否有未保存更改，并提示用户
+const confirmLeaveDocument = async (): Promise<boolean> => {
+  if (!isDocumentView.value || !documentEditorRef.value?.hasUnsavedChanges()) {
+    return true;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      '当前文档有未保存的更改，是否保存后再离开？',
+      '未保存的更改',
+      {
+        confirmButtonText: '保存并离开',
+        cancelButtonText: '直接离开',
+        type: 'warning',
+        distinguishCancelAndClose: true,
+      }
+    );
+    // 用户点击“保存并离开”
+    await documentEditorRef.value?.save();
+    return true;
+  } catch (action: any) {
+    if (action === 'cancel') {
+      // 用户点击“直接离开”
+      return true;
+    }
+    // 用户点击关闭或 ESC，取消离开
+    return false;
+  }
+};
+
 // 处理选择文档
 const handleDocumentSelect = async (docId: string) => {
+  // 如果有未保存更改，先提示用户
+  const canLeave = await confirmLeaveDocument();
+  if (!canLeave) return;
+
   const baseId = route.params.id as string;
-  
+
   // 清除当前选中的表格，避免双重高亮
   tableStore.currentTable = null;
   tableStore.loading = false;
-  
+
   // 立即设置 loading 状态，让用户看到提示
   documentStore.loadingDocumentDetail = true;
-  
+
   try {
     // 直接跳转路由，让 watch 来处理加载文档详情
     router.push(`/base/${baseId}/documents/${docId}`);
@@ -1820,6 +1864,7 @@ const handleDocumentExportPdf = async () => {
           absolute />
         <DocumentEditor
           v-if="documentStore.currentDocument"
+          ref="documentEditorRef"
           :key="documentStore.currentDocument.id"
           :document="documentStore.currentDocument"
           :base-id="baseId"
