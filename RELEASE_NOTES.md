@@ -3288,8 +3288,8 @@ python run.py
 
 # 启动前端
 cd ../smart-table
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 详细安装文档请参考 [README.md](./README.md)
@@ -3387,8 +3387,8 @@ python run.py
 
 # Start frontend
 cd ../smart-table
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 For detailed installation instructions, please refer to [README.md](./README.md)

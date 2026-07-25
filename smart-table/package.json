@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "@opentiny/fluent-editor": "^4.0.0",
+    "@opentiny/fluent-editor": "^4.1.2",
     "@types/dompurify": "^3.0.5",
     "@visactor/vtable": "^1.26.3",
     "@visactor/vtable-plugins": "^1.26.3",

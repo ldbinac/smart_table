@@ -218,7 +218,7 @@ VITE_API_BASE_URL=http://localhost:5000/api
 ### 启动开发服务器
 ```bash
 cd smart-table
-npm run dev
+pnnpm run dev
 ```
 
 ### 访问页面

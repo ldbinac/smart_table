@@ -418,10 +418,10 @@ git clone https://github.com/ldbinac/smart_table.git
 cd smart_table/smart-table
 
 # 2. 安装依赖
-npm install
+pnpm install
 
 # 3. 启动开发服务器
-npm run dev
+pnpm run dev
 
 # 4. 访问浏览器
 # http://localhost:5173
@@ -434,14 +434,14 @@ npm run dev
 cd smart_table/smart-table
 
 # 安装依赖
-npm install
+pnpm install
 
 # 配置后端 API 地址
 cp .env.example .env
 # 编辑 .env 文件，设置 VITE_API_BASE_URL
 
 # 启动开发服务器
-npm run dev
+pnpm run dev
 ```
 
 **后端配置：**

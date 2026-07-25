@@ -302,13 +302,13 @@ volumes:
 
 ```bash
 cd smart-table
-npm install
+pnpm install
 ```
 
 #### Development Mode
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 Visit <http://localhost:5173>
@@ -316,26 +316,26 @@ Visit <http://localhost:5173>
 #### Build for Production
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 #### Preview Production Build
 
 ```bash
-npm run preview
+pnpm run preview
 ```
 
 #### Run Tests
 
 ```bash
 # Run all tests
-npm run test
+pnpm run test
 
 # Watch mode (for development)
-npm run test:watch
+pnpm run test:watch
 
 # Generate test coverage report
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 ### Backend Service (Optional)
@@ -887,7 +887,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) specifica
 
 - Frontend follows ESLint + Prettier configuration
 - Backend follows PEP 8 standards
-- Ensure all tests pass before committing: `npm run test` (frontend) / `pytest` (backend)
+- Ensure all tests pass before committing: `pnpm run test` (frontend) / `pytest` (backend)
 - Ensure TypeScript type checking passes: `vue-tsc --noEmit`
 
 ## 📄 License

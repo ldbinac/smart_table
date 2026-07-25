@@ -238,16 +238,16 @@ git clone https://github.com/ldbinac/smart_table.git
 cd smart_table/smart-table
 
 # 安装依赖
-npm install
+pnpm install
 
 # 启动开发服务器
-npm run dev
+pnpm run dev
 
 # 构建生产版本
-npm run build
+pnpm run build
 
 # 运行测试
-npm run test
+pnpm run test
 ```
 
 ### 浏览器支持
