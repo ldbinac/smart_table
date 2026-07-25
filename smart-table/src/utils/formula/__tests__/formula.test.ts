@@ -451,6 +451,21 @@ describe("Formula Functions", () => {
       expect(formulaFunctions.RIGHT("Hello", 2)).toBe("lo");
     });
 
+    it("should get middle characters with MID", () => {
+      expect(formulaFunctions.MID("Hello", 2, 2)).toBe("el");
+    });
+
+    it("should extract ID card year/month/day with MID", () => {
+      const idCard = "11010119900307888X";
+      expect(formulaFunctions.MID(idCard, 7, 4)).toBe("1990");
+      expect(formulaFunctions.MID(idCard, 11, 2)).toBe("03");
+      expect(formulaFunctions.MID(idCard, 13, 2)).toBe("07");
+    });
+
+    it("should handle MID exceeding string length", () => {
+      expect(formulaFunctions.MID("Hi", 2, 10)).toBe("i");
+    });
+
     it("should get text length", () => {
       expect(formulaFunctions.LEN("Hello")).toBe(5);
     });

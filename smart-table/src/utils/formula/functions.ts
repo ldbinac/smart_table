@@ -89,6 +89,14 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
     if (isNaN(len)) return '#ERROR'
     return str.substring(str.length - len)
   },
+
+  MID: (text: unknown, start: unknown, length: unknown) => {
+    const str = String(text ?? '')
+    const startPos = Number(start) - 1
+    const len = Number(length)
+    if (isNaN(startPos) || isNaN(len)) return '#ERROR'
+    return str.substring(startPos, startPos + len)
+  },
   
   LEN: (text: unknown) => {
     return String(text ?? '').length
@@ -499,7 +507,7 @@ function parseDateValue(value: unknown): dayjs.Dayjs | null {
 
 export const functionCategories = {
   math: ['SUM', 'AVG', 'MAX', 'MIN', 'ROUND', 'CEILING', 'FLOOR', 'ABS', 'MOD', 'POWER', 'SQRT'],
-  text: ['CONCAT', 'LEFT', 'RIGHT', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'SUBSTITUTE', 'REPLACE', 'FIND'],
+  text: ['CONCAT', 'LEFT', 'RIGHT', 'MID', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'SUBSTITUTE', 'REPLACE', 'FIND'],
   date: ['TODAY', 'NOW', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'WEEKDAY', 'DATETIME_FORMAT', 'FROMUNIXTIME', 'UNIXTIMESTAMP', 'DATEDIF', 'DATEDIFF', 'DATEADD'],
   logic: ['IF', 'AND', 'OR', 'NOT', 'IFERROR', 'IFS', 'SWITCH'],
   statistics: ['COUNT', 'COUNTA', 'COUNTIF', 'SUMIF', 'AVERAGEIF']
@@ -520,6 +528,7 @@ export const functionDescriptions: Record<string, string> = {
   CONCAT: '连接多个文本',
   LEFT: '返回文本左侧指定字符数',
   RIGHT: '返回文本右侧指定字符数',
+  MID: '从文本指定位置返回指定长度字符',
   LEN: '返回文本长度',
   UPPER: '转换为大写',
   LOWER: '转换为小写',
