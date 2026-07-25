@@ -4543,19 +4543,28 @@ function handleFloatingPanelWindowResize() {
 // 附件管理器：值变更保存
 async function handleAttachmentUpdate(value: any) {
   if (!attachmentManagerRecordId.value || !attachmentManagerField.value || !props.tableId) return;
+  const fieldId = attachmentManagerField.value.id;
+  const originalRecord = attachmentManagerOriginalRecord.value;
+  if (!originalRecord?.values) return;
+
+  const originalValue = originalRecord.values[fieldId];
   try {
-    const fieldId = attachmentManagerField.value.id;
-    const originalRecord = attachmentManagerOriginalRecord.value;
-    if (originalRecord?.values) {
-      const newValues = { ...originalRecord.values, [fieldId]: value };
-      await recordService.updateRecord(attachmentManagerRecordId.value, {
-        values: newValues as Record<string, CellValue>,
-      });
-      await tableStore.refreshRecords(props.tableId);
-    }
+    const newValues = { ...originalRecord.values, [fieldId]: value };
+    await recordService.updateRecord(attachmentManagerRecordId.value, {
+      values: newValues as Record<string, CellValue>,
+    });
+    // 更新本地原始记录快照，避免重复保存时使用旧值
+    attachmentManagerOriginalRecord.value = {
+      ...originalRecord,
+      values: newValues as Record<string, CellValue>,
+    };
+    await tableStore.refreshRecords(props.tableId);
+    ElMessage.success('附件保存成功');
   } catch (error) {
     console.error('附件保存失败:', error);
     ElMessage.error('附件保存失败');
+    // 恢复原始值，使 AttachmentManager 重新加载为删除前的状态
+    attachmentManagerInitialValue.value = originalValue;
   }
 }
 
