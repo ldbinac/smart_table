@@ -5,10 +5,6 @@ import {
   ElButton,
   ElDialog,
   ElForm,
-  ElFormItem,
-  ElInput,
-  ElSelect,
-  ElOption,
 } from "element-plus";
 import WorkflowManager from "../WorkflowManager.vue";
 
@@ -124,21 +120,23 @@ vi.mock("@/components/workflow/WorkflowVersionNodeSnapshot.vue", () => ({
   },
 }));
 
-const globalComponents = {
-  ElButton,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElSelect,
-  ElOption,
-};
-
 function mountManager() {
   return mount(WorkflowManager, {
     global: {
       plugins: [createPinia()],
-      components: globalComponents,
+      stubs: {
+        teleport: true,
+        // 避免 ElSelect 在测试环境中触发递归更新
+        ElSelect: {
+          template: '<select data-testid="workflow-table-select" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
+          props: ['modelValue'],
+          emits: ['update:modelValue'],
+        },
+        ElOption: {
+          template: '<option :value="value"><slot /></option>',
+          props: ['value', 'label'],
+        },
+      },
     },
   });
 }
@@ -187,15 +185,8 @@ describe("WorkflowManager create workflow dialog", () => {
     const nameInput = wrapper.find('input[placeholder="请输入工作流名称"]');
     await nameInput.setValue("新工作流");
 
-    const select = wrapper.findComponent(ElSelect);
-    await select.trigger("click");
-    await flushPromises();
-
-    const option = wrapper.findAllComponents(ElOption).find(
-      (opt) => opt.props("label") === "测试表 1"
-    );
-    expect(option).toBeDefined();
-    await option!.trigger("click");
+    const select = wrapper.find('[data-testid="workflow-table-select"]');
+    await select.setValue("t1");
     await flushPromises();
 
     const submitBtn = wrapper.findAllComponents(ElButton).find(

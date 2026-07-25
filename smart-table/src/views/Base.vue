@@ -70,7 +70,7 @@ const documentStore = useDocumentStore();
 // VTableView 组件引用（用于调用搜索功能）
 const vtableViewRef = shallowRef<{ openSearch: () => void } | null>(null);
 // DocumentEditor 组件引用（用于检查未保存更改）
-const documentEditorRef = ref<{ hasUnsavedChanges: () => boolean } | null>(null);
+const documentEditorRef = ref<{ hasUnsavedChanges: () => boolean; save: () => Promise<void> } | null>(null);
 
 const baseId = route.params.id as string;
 const realtimeCollab = baseId ? useRealtimeCollaboration(baseId) : null;
@@ -2390,11 +2390,11 @@ const handleDocumentExportPdf = async () => {
                 ">
                 打开
               </el-button>
-              <el-button link @click="openRenameTableDialog(row)"
+              <el-button link @click="openRenameTableDialog(row as TableEntity)"
                 >编辑</el-button
               >
-              <el-button link @click="duplicateTable(row)">复制</el-button>
-              <el-button link type="danger" @click="handleDeleteTable(row)"
+              <el-button link @click="duplicateTable(row as TableEntity)">复制</el-button>
+              <el-button link type="danger" @click="handleDeleteTable(row as TableEntity)"
                 >删除</el-button
               >
             </template>

@@ -346,8 +346,8 @@ function goToCreateShare() {
           </el-table-column>
           <el-table-column label="状态" width="90">
             <template #default="{ row }">
-              <el-tag :type="getStatusType(row)" size="small" effect="light">
-                {{ getStatusText(row) }}
+              <el-tag :type="getStatusType(row as DashboardShare)" size="small" effect="light">
+                {{ getStatusText(row as DashboardShare) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -391,11 +391,11 @@ function goToCreateShare() {
           <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <el-button
-                v-if="row.isActive && !isShareExpired(row)"
+                v-if="row.isActive && !isShareExpired(row as DashboardShare)"
                 link
                 type="primary"
                 size="small"
-                @click="copyExistingShareUrl(row)">
+                @click="copyExistingShareUrl(row as DashboardShare)">
                 复制链接
               </el-button>
               <el-button
@@ -403,7 +403,7 @@ function goToCreateShare() {
                 link
                 type="warning"
                 size="small"
-                @click="toggleShareStatus(row)">
+                @click="toggleShareStatus(row as DashboardShare)">
                 停用
               </el-button>
               <el-button

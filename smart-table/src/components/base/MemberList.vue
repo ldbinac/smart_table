@@ -40,7 +40,7 @@
             type="primary"
             link
             size="small"
-            @click="$emit('edit', row)"
+            @click="$emit('edit', row as BaseMember)"
           >
             编辑
           </el-button>
@@ -49,7 +49,7 @@
             type="danger"
             link
             size="small"
-            @click="$emit('remove', row)"
+            @click="$emit('remove', row as BaseMember)"
           >
             移除
           </el-button>

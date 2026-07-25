@@ -518,12 +518,17 @@ export class FormulaEngine {
     // 1. 返回日期时间类型的函数（带时分秒）
     const datetimeFunctions = [
       "NOW",           // 返回当前日期时间
+      "DATETIME",      // 构造日期时间
     ];
 
     // 2. 返回日期类型的函数（只有年月日）
     const dateFunctions = [
       "DATEADD",       // 日期加减
       "TODAY",         // 当前日期
+      "DATE",          // 构造日期
+      "EDATE",         // 指定月份偏移后的日期
+      "EOMONTH",       // 月末日期
+      "WORKDAY",       // 工作日日期
     ];
 
     // 3. 返回整数/数值类型的日期函数（提取日期部分或时间戳）

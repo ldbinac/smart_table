@@ -648,14 +648,14 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                         <el-switch
                           :model-value="row.is_active"
                           size="small"
-                          @change="(val) => handleToggleWebhookActive(row, val as boolean)" />
+                          @change="(val) => handleToggleWebhookActive(row as WebhookConfig, val as boolean)" />
                       </el-tooltip>
                       <el-button
                         type="danger"
                         size="small"
                         text
                         :icon="Delete"
-                        @click.stop="handleDeleteWebhook(row)">
+                        @click.stop="handleDeleteWebhook(row as WebhookConfig)">
                         删除
                       </el-button>
                     </template>
@@ -765,12 +765,12 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
               <div class="snapshot-section">
                 <div class="snapshot-label">节点列表：</div>
                 <el-empty
-                  v-if="getVersionNodes(row).length === 0"
+                  v-if="getVersionNodes(row as WorkflowVersion).length === 0"
                   description="无节点信息"
                   :image-size="60" />
                 <el-collapse v-else>
                   <el-collapse-item
-                    v-for="(node, index) in getVersionNodes(row)"
+                    v-for="(node, index) in getVersionNodes(row as WorkflowVersion)"
                     :key="node.id || index"
                     :title="`${node.name || '未命名节点'} (#${node.order + 1 || index + 1})`">
                     <WorkflowVersionNodeSnapshot

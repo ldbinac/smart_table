@@ -1,8 +1,9 @@
 /**
  * DocumentVersionHistory 组件测试
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
 import DocumentVersionHistory from '../DocumentVersionHistory.vue';
 
 // Mock TinyEditor
@@ -29,7 +30,28 @@ vi.mock('element-plus', async () => {
   };
 });
 
+// Mock documentVersionApiService
+vi.mock('@/services/api/documentVersionApiService', () => ({
+  documentVersionApiService: {
+    getList: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    restore: vi.fn().mockResolvedValue({ document: { id: 'doc-1' }, version: {} }),
+  },
+}));
+
 describe('DocumentVersionHistory', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  const mountWithPinia = (options: any = {}) => {
+    return mount(DocumentVersionHistory, {
+      global: {
+        plugins: [createPinia()],
+      },
+      ...options,
+    });
+  };
+
   const mockVersions = [
     {
       id: 'v1',
@@ -56,7 +78,7 @@ describe('DocumentVersionHistory', () => {
   ];
 
   it('renders without errors', () => {
-    const wrapper = mount(DocumentVersionHistory, {
+    const wrapper = mountWithPinia({
       props: {
         visible: true,
         documentId: 'doc-1',
@@ -70,7 +92,7 @@ describe('DocumentVersionHistory', () => {
   });
 
   it('emits close event', async () => {
-    const wrapper = mount(DocumentVersionHistory, {
+    const wrapper = mountWithPinia({
       props: {
         visible: true,
         documentId: 'doc-1',

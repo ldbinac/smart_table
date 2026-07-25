@@ -256,7 +256,6 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authService.refreshToken(refreshTokenValue)
       console.log('[authStore] 续期响应:', response)
       console.log('[authStore] 新token:', response.access_token)
-      console.log('[authStore] 新token有效期:', response.expires_in, '秒')
 
       const remember = getRememberMe()
       setToken(response.access_token, remember)

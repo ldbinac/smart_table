@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { getTokenRefreshService } from '../tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
-import { getToken, getRefreshToken, getTokenExpiry, isTokenExpired } from '@/utils/auth/token'
+import { getToken, getRefreshToken, getTokenExpiry, isTokenExpired, parseToken } from '@/utils/auth/token'
 
 // Mock dependencies
 vi.mock('@/stores/authStore', () => ({
@@ -17,6 +17,7 @@ vi.mock('@/utils/auth/token', () => ({
   getRefreshToken: vi.fn(),
   getTokenExpiry: vi.fn(),
   isTokenExpired: vi.fn(),
+  parseToken: vi.fn(),
   setToken: vi.fn(),
   setRefreshToken: vi.fn(),
   clearToken: vi.fn()
@@ -38,6 +39,9 @@ describe('TokenAutoRefreshService', () => {
     // 重置所有mock
     vi.clearAllMocks()
 
+    // 使用虚拟时间控制服务中的 5 秒启动延迟
+    vi.useFakeTimers()
+
     // 创建mock authStore
     mockAuthStore = {
       refreshAccessToken: vi.fn(),
@@ -53,6 +57,7 @@ describe('TokenAutoRefreshService', () => {
   afterEach(() => {
     // 清理服务
     service.destroy()
+    vi.useRealTimers()
   })
 
   describe('基本功能', () => {
@@ -78,8 +83,8 @@ describe('TokenAutoRefreshService', () => {
 
       service.start()
 
-      // 等待检查完成
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // 推进初始化延迟并等待异步检查完成
+      await vi.advanceTimersByTimeAsync(5000)
 
       expect(mockAuthStore.refreshAccessToken).not.toHaveBeenCalled()
 
@@ -92,7 +97,7 @@ describe('TokenAutoRefreshService', () => {
 
       service.start()
 
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await vi.advanceTimersByTimeAsync(5000)
 
       expect(mockAuthStore.refreshAccessToken).not.toHaveBeenCalled()
 
@@ -107,13 +112,13 @@ describe('TokenAutoRefreshService', () => {
       vi.mocked(isTokenExpired).mockReturnValue(false)
       vi.mocked(getTokenExpiry).mockReturnValue(expiryTime)
       vi.mocked(getRefreshToken).mockReturnValue('refresh-token')
+      vi.mocked(parseToken).mockReturnValue({ iat: now - 2400, exp: expiryTime })
 
       mockAuthStore.refreshAccessToken.mockResolvedValue(true)
 
       service.start()
 
-      // 等待检查完成
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await vi.advanceTimersByTimeAsync(5000)
 
       expect(mockAuthStore.refreshAccessToken).toHaveBeenCalled()
 
@@ -130,12 +135,13 @@ describe('TokenAutoRefreshService', () => {
       vi.mocked(isTokenExpired).mockReturnValue(false)
       vi.mocked(getTokenExpiry).mockReturnValue(expiryTime)
       vi.mocked(getRefreshToken).mockReturnValue('refresh-token')
+      vi.mocked(parseToken).mockReturnValue({ iat: now - 2500, exp: expiryTime })
 
       mockAuthStore.refreshAccessToken.mockResolvedValue(true)
 
       service.start()
 
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await vi.advanceTimersByTimeAsync(5000)
 
       expect(mockAuthStore.refreshAccessToken).toHaveBeenCalled()
 
@@ -152,7 +158,7 @@ describe('TokenAutoRefreshService', () => {
 
       service.start()
 
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await vi.advanceTimersByTimeAsync(5000)
 
       expect(mockAuthStore.refreshAccessToken).not.toHaveBeenCalled()
 
@@ -169,13 +175,14 @@ describe('TokenAutoRefreshService', () => {
       vi.mocked(isTokenExpired).mockReturnValue(false)
       vi.mocked(getTokenExpiry).mockReturnValue(expiryTime)
       vi.mocked(getRefreshToken).mockReturnValue('refresh-token')
+      vi.mocked(parseToken).mockReturnValue({ iat: now - 2400, exp: expiryTime })
 
       // 模拟续期失败
       mockAuthStore.refreshAccessToken.mockRejectedValue(new Error('Refresh failed'))
 
       service.start()
 
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await vi.advanceTimersByTimeAsync(5000)
 
       // 验证调用了续期
       expect(mockAuthStore.refreshAccessToken).toHaveBeenCalled()

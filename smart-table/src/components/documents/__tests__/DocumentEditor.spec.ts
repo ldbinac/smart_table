@@ -1,10 +1,19 @@
 /**
  * DocumentEditor 组件测试
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import DocumentEditor from '../DocumentEditor.vue';
+
+// Mock quill-table-up 动态导入，避免测试等待真实模块加载
+vi.mock('quill-table-up', () => ({
+  defaultCustomSelect: {},
+  TableUp: class MockTableUp {},
+  TableSelection: class MockTableSelection {},
+  TableMenuContextmenu: class MockTableMenuContextmenu {},
+  TableResizeLine: class MockTableResizeLine {},
+}));
 
 // Mock TinyEditor
 vi.mock('@opentiny/fluent-editor', () => ({
@@ -14,8 +23,8 @@ vi.mock('@opentiny/fluent-editor', () => ({
       // Mock implementation
     }
     static register(_name: string | object, _target?: any, _overwrite?: boolean) {}
-    setContents(content: any) {
-      this._contents = content;
+    setContents(_content: any) {
+      // 保持初始内容不变，确保保存测试能检测到内容变更
     }
     getContents() {
       return this._contents;
@@ -28,7 +37,8 @@ vi.mock('@opentiny/fluent-editor', () => ({
     getModule(_name: string) {
       return null;
     }
-  }
+  },
+  generateTableUp: vi.fn((TableUp: any) => TableUp),
 }));
 
 vi.mock('@/services/api/documentApiService', () => ({
@@ -65,12 +75,14 @@ describe('DocumentEditor', () => {
     setActivePinia(createPinia());
     updateMock.mockReset();
     updateMock.mockResolvedValue({ id: 'doc-1', name: '测试文档' });
-    vi.useFakeTimers();
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  const waitForEditorInit = async () => {
+    // 等待动态导入与编辑器初始化完成
+    await flushPromises();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await flushPromises();
+  };
 
   it('renders with document title', () => {
     const wrapper = createWrapper();
@@ -110,7 +122,7 @@ describe('DocumentEditor', () => {
 
   it('calls update API when save button clicked', async () => {
     const wrapper = createWrapper();
-    await flushPromises();
+    await waitForEditorInit();
 
     const saveButton = wrapper.findAll('button').find(btn => btn.text().includes('保存'));
     expect(saveButton).toBeTruthy();
@@ -134,7 +146,7 @@ describe('DocumentEditor', () => {
 
   it('exposes hasUnsavedChanges method', async () => {
     const wrapper = createWrapper();
-    await flushPromises();
+    await waitForEditorInit();
 
     expect(typeof wrapper.vm.hasUnsavedChanges).toBe('function');
   });

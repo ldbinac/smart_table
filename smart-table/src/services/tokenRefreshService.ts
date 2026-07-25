@@ -4,7 +4,7 @@
  */
 
 import { useAuthStore } from '@/stores/authStore'
-import { getToken, getRefreshToken, getTokenExpiry, isTokenExpired, parseToken } from '@/utils/auth/token'
+import { getToken, getTokenExpiry, isTokenExpired, parseToken } from '@/utils/auth/token'
 import { message } from '@/utils/message'
 import devLog from '@/utils/logger'
 

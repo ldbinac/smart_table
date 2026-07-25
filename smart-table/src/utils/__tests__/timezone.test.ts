@@ -32,16 +32,16 @@ describe("timezone", () => {
 
     it("当 timezone_mode 为 local 时返回配置的时区名称", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "local" },
-        timezone_name: { config_value: "Asia/Shanghai" },
+        timezone_mode: { value: "local" },
+        timezone_name: { value: "Asia/Shanghai" },
       };
       expect(getEffectiveTimezone()).toBe("Asia/Shanghai");
     });
 
     it("当 timezone_mode 为 utc 时返回 UTC", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "utc" },
-        timezone_name: { config_value: "Asia/Shanghai" },
+        timezone_mode: { value: "utc" },
+        timezone_name: { value: "Asia/Shanghai" },
       };
       expect(getEffectiveTimezone()).toBe("UTC");
     });
@@ -50,7 +50,7 @@ describe("timezone", () => {
   describe("formatDateTime", () => {
     it("UTC 模式下格式化 UTC 时间", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "utc" },
+        timezone_mode: { value: "utc" },
       };
       const result = formatDateTime("2024-06-15T08:30:00Z");
       expect(result).toBe("2024-06-15 08:30:00");
@@ -58,8 +58,8 @@ describe("timezone", () => {
 
     it("本地时区模式下将 UTC 转换为本地时区", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "local" },
-        timezone_name: { config_value: "Asia/Shanghai" },
+        timezone_mode: { value: "local" },
+        timezone_name: { value: "Asia/Shanghai" },
       };
       const result = formatDateTime("2024-06-15T08:30:00Z");
       expect(result).toBe("2024-06-15 16:30:00");
@@ -74,7 +74,7 @@ describe("timezone", () => {
 
     it("支持自定义格式", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "utc" },
+        timezone_mode: { value: "utc" },
       };
       const result = formatDateTime("2024-06-15T08:30:00Z", "YYYY-MM-DD");
       expect(result).toBe("2024-06-15");
@@ -82,7 +82,7 @@ describe("timezone", () => {
 
     it("支持时间戳数字输入", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "utc" },
+        timezone_mode: { value: "utc" },
       };
       const ts = new Date("2024-06-15T08:30:00Z").getTime();
       const result = formatDateTime(ts);
@@ -93,7 +93,7 @@ describe("timezone", () => {
   describe("formatDate", () => {
     it("使用日期格式", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "utc" },
+        timezone_mode: { value: "utc" },
       };
       const result = formatDate("2024-06-15T08:30:00Z");
       expect(result).toBe("2024-06-15");
@@ -103,8 +103,8 @@ describe("timezone", () => {
   describe("toConfiguredTimezone", () => {
     it("返回配置时区的 dayjs 对象", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "local" },
-        timezone_name: { config_value: "Asia/Shanghai" },
+        timezone_mode: { value: "local" },
+        timezone_name: { value: "Asia/Shanghai" },
       };
       const result = toConfiguredTimezone("2024-06-15T08:30:00Z");
       expect(result).not.toBeNull();
@@ -119,7 +119,7 @@ describe("timezone", () => {
 
     it("Date 对象输入正常处理", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "utc" },
+        timezone_mode: { value: "utc" },
       };
       const date = new Date("2024-06-15T08:30:00Z");
       const result = toConfiguredTimezone(date);
@@ -129,8 +129,8 @@ describe("timezone", () => {
 
     it("无时区后缀的 UTC 字符串按 UTC 解析", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "local" },
-        timezone_name: { config_value: "Asia/Shanghai" },
+        timezone_mode: { value: "local" },
+        timezone_name: { value: "Asia/Shanghai" },
       };
       // 后端返回的无 Z 后缀 UTC 时间
       const result = toConfiguredTimezone("2024-06-15 08:30:00");
@@ -140,8 +140,8 @@ describe("timezone", () => {
 
     it("带 Z 后缀的 ISO 字符串正常解析", () => {
       mockStore.systemConfigs = {
-        timezone_mode: { config_value: "local" },
-        timezone_name: { config_value: "Asia/Shanghai" },
+        timezone_mode: { value: "local" },
+        timezone_name: { value: "Asia/Shanghai" },
       };
       const result = toConfiguredTimezone("2024-06-15T08:30:00Z");
       expect(result).not.toBeNull();

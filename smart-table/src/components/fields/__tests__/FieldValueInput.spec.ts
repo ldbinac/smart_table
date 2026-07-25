@@ -18,6 +18,20 @@ describe('FieldValueInput', () => {
         modelValue,
         disabled: false,
       },
+      global: {
+        stubs: {
+          // 避免 ElSelect 在测试环境中触发递归更新
+          ElSelect: {
+            template: '<select class="el-select-stub" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+          },
+          ElOption: {
+            template: '<option :value="value"><slot /></option>',
+            props: ['value', 'label'],
+          },
+        },
+      },
     });
   }
 

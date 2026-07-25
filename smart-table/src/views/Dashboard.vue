@@ -3371,18 +3371,18 @@ onUnmounted(() => {
                   link
                   type="primary"
                   @click="
-                    selectDashboard(row);
+                    selectDashboard(row as Dashboard);
                     showDashboardManager = false;
                   ">
                   打开
                 </el-button>
-                <el-button link @click="duplicateDashboard(row)"
+                <el-button link @click="duplicateDashboard(row as Dashboard)"
                   >复制</el-button
                 >
                 <el-button
                   link
                   type="danger"
-                  @click="handleDeleteDashboard(row)"
+                  @click="handleDeleteDashboard(row as Dashboard)"
                   >删除</el-button
                 >
               </template>

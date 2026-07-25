@@ -26,9 +26,9 @@
           </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-              <el-button link type="primary" @click="handlePreview(row)">预览</el-button>
-              <el-button v-if="!row.is_default" link type="danger" @click="handleDelete(row)">删除</el-button>
+              <el-button link type="primary" @click="handleEdit(row as EmailTemplate)">编辑</el-button>
+              <el-button link type="primary" @click="handlePreview(row as EmailTemplate)">预览</el-button>
+              <el-button v-if="!row.is_default" link type="danger" @click="handleDelete(row as EmailTemplate)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>

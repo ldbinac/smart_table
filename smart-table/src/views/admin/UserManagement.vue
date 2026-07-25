@@ -93,7 +93,7 @@
                 link
                 type="primary"
                 size="small"
-                @click="handleEdit(row)">
+                @click="handleEdit(row as User)">
                 编辑
               </el-button>
               <el-button
@@ -101,7 +101,7 @@
                 link
                 type="warning"
                 size="small"
-                @click="handleSuspend(row)">
+                @click="handleSuspend(row as User)">
                 暂停
               </el-button>
               <el-button
@@ -109,21 +109,21 @@
                 link
                 type="success"
                 size="small"
-                @click="handleActivate(row)">
+                @click="handleActivate(row as User)">
                 激活
               </el-button>
               <el-button
                 link
                 type="warning"
                 size="small"
-                @click="handleResetPassword(row)">
+                @click="handleResetPassword(row as User)">
                 重置密码
               </el-button>
               <el-button
                 link
                 type="danger"
                 size="small"
-                @click="handleDelete(row)">
+                @click="handleDelete(row as User)">
                 删除
               </el-button>
             </template>
