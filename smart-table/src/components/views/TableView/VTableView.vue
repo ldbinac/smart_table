@@ -3875,6 +3875,11 @@ const bindTableEvents = () => {
 
   // 单元格点击 - 使用 VTable API 获取单元格位置
   tableInstanceAny.on('click_cell', (args: any) => {
+    // 点击图片缩略图时不触发单元格选择，预览由缩略图自身 pointertap 事件处理
+    if (args.target?.name === 'attachment-thumbnail') {
+      return;
+    }
+
     // 检测是否为虚拟添加按钮行点击
     const clickedRecord = args.originData || args.record;
     if (clickedRecord && clickedRecord._rowType === 'addButton') {
