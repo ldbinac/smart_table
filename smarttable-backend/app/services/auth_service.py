@@ -201,10 +201,16 @@ class AuthService:
         # 获取可配置的过期时间
         access_token_expires = AuthService.get_access_token_expires()
         
-        # 生成新的访问令牌
+        # 获取用户当前的token版本号
+        from app.extensions import cache
+        cache_key = f"user_token_version:{user_id}"
+        token_version = cache.get(cache_key) or 0
+        
+        # 生成新的访问令牌，包含正确的token_version
         access_token = create_access_token(
             identity=user_id,
-            expires_delta=timedelta(seconds=access_token_expires)
+            expires_delta=timedelta(seconds=access_token_expires),
+            additional_claims={'token_version': token_version}
         )
         
         return access_token, None

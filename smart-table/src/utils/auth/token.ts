@@ -80,14 +80,28 @@ export const parseToken = (token: string): Record<string, unknown> | null => {
 
 /**
  * 检查Token是否过期
+ * 注意：这里只检查是否真正过期，不提前判断
+ * TokenAutoRefreshService会负责在token快过期时主动续期
  */
 export const isTokenExpired = (token: string): boolean => {
   const payload = parseToken(token)
   if (!payload || !payload.exp) return true
   
-  // 提前5分钟认为过期
-  const expiresIn = (payload.exp as number) - AUTH_CONFIG.REFRESH_BEFORE_EXPIRY
-  return Date.now() >= expiresIn * 1000
+  // 只在真正过期时返回true
+  return Date.now() >= (payload.exp as number) * 1000
+}
+
+/**
+ * 检查Token是否即将过期（用于主动续期）
+ * @param token 要检查的token
+ * @param thresholdSeconds 提前多少秒认为即将过期（默认300秒，即5分钟）
+ */
+export const isTokenExpiring = (token: string, thresholdSeconds: number = 300): boolean => {
+  const payload = parseToken(token)
+  if (!payload || !payload.exp) return true
+  
+  // 提前指定时间认为即将过期
+  return Date.now() >= ((payload.exp as number) - thresholdSeconds) * 1000
 }
 
 /**

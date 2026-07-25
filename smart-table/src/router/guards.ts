@@ -14,6 +14,8 @@ export const authGuard = async (
   _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ): Promise<void> => {
+  console.log('[authGuard] 路由守卫触发,目标路径:', to.path)
+  
   const authStore = useAuthStore()
   
   // 如果是注册页，先检查是否启用了注册
@@ -32,9 +34,11 @@ export const authGuard = async (
   }
 
   if (whiteList.includes(to.path) || to.meta.public) {
+    console.log('[authGuard] 白名单路径,允许访问')
     // 分享页面等 public 路由允许任何人访问（无论是否已登录）
     // 其他白名单页面（登录/注册）在已登录时重定向到首页
     if (authStore.isAuthenticated && !to.meta.public) {
+      console.log('[authGuard] 已登录,重定向到首页')
       next('/')
       return
     }
@@ -42,11 +46,15 @@ export const authGuard = async (
     return
   }
 
+  console.log('[authGuard] 检查认证状态,当前状态:', authStore.isAuthenticated)
   const isAuthenticated = await authStore.checkAuth()
+  console.log('[authGuard] 认证检查结果:', isAuthenticated)
   
   if (isAuthenticated) {
+    console.log('[authGuard] 认证成功,允许访问')
     next()
   } else {
+    console.log('[authGuard] 认证失败,重定向到登录页')
     next({
       path: '/login',
       query: { redirect: to.fullPath }

@@ -3,6 +3,7 @@
  * 基于 axios 封装的 HTTP 请求客户端，统一处理请求/响应
  * 适配后端 {success, message, data} 统一响应格式
  * 增强版：支持 request_id 追踪和详细的错误日志
+ * 增强版：支持401错误自动续期重试机制
  */
 import axios, {
   type AxiosInstance,
@@ -14,9 +15,20 @@ import { ElMessage } from "element-plus";
 import router from "@/router";
 import { apiConfig } from "./config";
 import { getToken, clearToken } from "@/utils/auth/token";
+import { useAuthStore } from "@/stores/authStore";
 import devLog from "@/utils/logger";
 
 const { baseURL, timeout } = apiConfig;
+
+// 待重试的请求队列
+interface PendingRequest {
+  config: InternalAxiosRequestConfig;
+  resolve: (value: unknown) => void;
+  reject: (error: unknown) => void;
+}
+
+let pendingRequests: PendingRequest[] = [];
+let isRefreshing = false;
 
 const instance: AxiosInstance = axios.create({
   baseURL,
@@ -86,16 +98,76 @@ instance.interceptors.response.use(
             })
           );
         }
-        // 清除 token 并跳转登录页
-        clearToken();
-        router.push("/login");
-        ElMessage.error("登录已过期，请重新登录");
-        return Promise.reject(
-          Object.assign(new Error("Unauthorized"), { 
-            requestId,
-            code: 401 
+
+        // 如果正在续期,将请求加入队列等待重试
+        if (isRefreshing) {
+          devLog.debug('[API] 正在续期,将请求加入队列');
+          return new Promise((resolve, reject) => {
+            pendingRequests.push({
+              config: response.config,
+              resolve,
+              reject
+            });
+          });
+        }
+
+        // 尝试续期
+        isRefreshing = true;
+        const authStore = useAuthStore();
+
+        devLog.info('[API] Token已过期,触发续期');
+
+        return authStore.refreshAccessToken()
+          .then((success) => {
+            if (success) {
+              devLog.info('[API] Token续期成功,重试待处理的请求');
+              
+              // 重试所有待重试的请求（包括当前请求）
+              const retryPromises = pendingRequests.map(({ config, resolve, reject }) => {
+                // 清除旧的Authorization header，让拦截器重新添加新token
+                if (config.headers) {
+                  delete config.headers.Authorization;
+                }
+                
+                return instance.request(config)
+                  .then(resolve)
+                  .catch(reject);
+              });
+
+              // 清空队列
+              pendingRequests = [];
+              
+              // 返回所有重试请求的结果
+              return Promise.all(retryPromises);
+            } else {
+              devLog.error('[API] Token续期失败,跳转登录页');
+              // 续期失败,清除状态并跳转登录页
+              clearToken();
+              router.push("/login");
+              ElMessage.error("登录已过期，请重新登录");
+              // 拒绝所有待重试的请求
+              pendingRequests.forEach(({ reject }) => {
+                reject(new Error('Token refresh failed'));
+              });
+              pendingRequests = [];
+              return Promise.reject(new Error('Token refresh failed'));
+            }
           })
-        );
+          .catch((err) => {
+            devLog.error('[API] Token续期异常:', err);
+            clearToken();
+            router.push("/login");
+            ElMessage.error("登录已过期，请重新登录");
+            // 拒绝所有待重试的请求
+            pendingRequests.forEach(({ reject }) => {
+              reject(err);
+            });
+            pendingRequests = [];
+            return Promise.reject(err);
+          })
+          .finally(() => {
+            isRefreshing = false;
+          });
       }
 
       if (code === 403) {
@@ -210,10 +282,85 @@ instance.interceptors.response.use(
             // 不弹 ElMessage，由组件自行处理错误
             break;
           }
-          // 清除 token 并跳转登录页
-          clearToken();
-          router.push("/login");
-          ElMessage.error(backendMessage || "登录已过期，请重新登录");
+
+          // 如果正在续期,将请求加入队列等待重试
+          if (isRefreshing) {
+            devLog.debug('[API] 正在续期,将请求加入队列');
+            return new Promise((resolve, reject) => {
+              pendingRequests.push({
+                config: error.config!,
+                resolve,
+                reject
+              });
+            });
+          }
+
+          // 尝试续期
+          isRefreshing = true;
+          const authStore = useAuthStore();
+
+          devLog.info('[API] Token已过期,触发续期');
+
+          return authStore.refreshAccessToken()
+            .then((success) => {
+              if (success) {
+                devLog.info('[API] Token续期成功,重试待处理的请求');
+                devLog.info(`[API] 队列中有${pendingRequests.length}个请求需要重试`);
+
+                // 获取新token
+                const newToken = getToken();
+                devLog.info('[API] 新token:', newToken ? '已获取' : '获取失败');
+                
+                // 重试所有待重试的请求（包括当前请求）
+                const retryPromises = pendingRequests.map(({ config, resolve, reject }, index) => {
+                  devLog.debug(`[API] 重试第${index + 1}个请求:`, config.url);
+                  
+                  // 清除旧的Authorization header，让拦截器重新添加新token
+                  if (config.headers) {
+                    delete config.headers.Authorization;
+                    devLog.debug('[API] 已清除旧的Authorization header');
+                  }
+                  
+                  return instance.request(config)
+                    .then(resolve)
+                    .catch(reject);
+                });
+
+                // 清空队列
+                pendingRequests = [];
+                devLog.info('[API] 队列已清空');
+                
+                // 返回所有重试请求的结果
+                return Promise.all(retryPromises);
+              } else {
+                devLog.error('[API] Token续期失败,跳转登录页');
+                // 续期失败,清除状态并跳转登录页
+                clearToken();
+                router.push("/login");
+                ElMessage.error("登录已过期，请重新登录");
+                // 拒绝所有待重试的请求
+                pendingRequests.forEach(({ reject }) => {
+                  reject(new Error('Token refresh failed'));
+                });
+                pendingRequests = [];
+                return Promise.reject(new Error('Token refresh failed'));
+              }
+            })
+            .catch((err) => {
+              devLog.error('[API] Token续期异常:', err);
+              clearToken();
+              router.push("/login");
+              ElMessage.error("登录已过期，请重新登录");
+              // 拒绝所有待重试的请求
+              pendingRequests.forEach(({ reject }) => {
+                reject(err);
+              });
+              pendingRequests = [];
+              return Promise.reject(err);
+            })
+            .finally(() => {
+              isRefreshing = false;
+            });
         }
         break;
       case 403:
