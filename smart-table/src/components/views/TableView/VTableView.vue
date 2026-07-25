@@ -2578,6 +2578,27 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.style = {
         textAlign: 'right'
       };
+      config.fieldFormat = (record: any) => {
+        const value = record?.[field.id];
+        if (value === null || value === undefined || value === '') return '';
+        const num = Number(value);
+        if (Number.isNaN(num)) return String(value);
+
+        const options = field.options || {};
+        const precision = options.precision ?? 0;
+        const prefix = options.prefix || '';
+        const suffix = options.suffix || '';
+        const currencySymbol = options.currencySymbol || '';
+
+        let formatted = num.toFixed(precision);
+        if (field.type === FieldType.PERCENT) {
+          formatted = `${formatted}%`;
+        } else if (field.type === FieldType.CURRENCY && currencySymbol) {
+          formatted = `${currencySymbol}${formatted}`;
+        }
+
+        return `${prefix}${formatted}${suffix}`;
+      };
       break;
     case FieldType.PHONE:
     case FieldType.BARCODE:
