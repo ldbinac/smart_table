@@ -115,6 +115,67 @@ class TestField:
         assert data['code'] == 200
         assert len(data['data']) > 0
 
+    def test_update_field_type_converts_values(self, client, auth_headers, test_table, test_record):
+        """测试修改字段类型时自动转换已有记录值"""
+        # 创建数字字段并写入记录值
+        field_resp = client.post(f'/api/tables/{test_table.id}/fields',
+            json={'name': '数量', 'type': 'number'},
+            headers=auth_headers
+        )
+        assert field_resp.status_code == 201
+        field_data = field_resp.get_json()['data']
+        field_id = field_data['id']
+
+        record_resp = client.put(f'/api/records/{test_record.id}',
+            json={'values': {field_id: 42}},
+            headers=auth_headers
+        )
+        assert record_resp.status_code == 200
+
+        # 将字段类型从 number 改为 single_line_text
+        update_resp = client.put(f'/api/fields/{field_id}',
+            json={'type': 'single_line_text'},
+            headers=auth_headers
+        )
+        assert update_resp.status_code == 200
+        update_data = update_resp.get_json()
+        assert update_data['data']['type'] == 'single_line_text'
+
+        # 验证记录值已转换为字符串
+        get_resp = client.get(f'/api/records/{test_record.id}', headers=auth_headers)
+        assert get_resp.status_code == 200
+        values = get_resp.get_json()['data']['values']
+        assert values[field_id] == '42'
+
+    def test_update_field_single_to_multi_select(self, client, auth_headers, test_table, test_record):
+        """测试单选字段改为多选字段时值转换为数组"""
+        field_resp = client.post(f'/api/tables/{test_table.id}/fields',
+            json={
+                'name': '状态',
+                'type': 'single_select',
+                'options': {'choices': [{'value': 'done', 'color': 'green'}]}
+            },
+            headers=auth_headers
+        )
+        assert field_resp.status_code == 201
+        field_id = field_resp.get_json()['data']['id']
+
+        client.put(f'/api/records/{test_record.id}',
+            json={'values': {field_id: 'done'}},
+            headers=auth_headers
+        )
+
+        update_resp = client.put(f'/api/fields/{field_id}',
+            json={'type': 'multi_select'},
+            headers=auth_headers
+        )
+        assert update_resp.status_code == 200
+
+        get_resp = client.get(f'/api/records/{test_record.id}', headers=auth_headers)
+        assert get_resp.status_code == 200
+        values = get_resp.get_json()['data']['values']
+        assert values[field_id] == ['done']
+
     def test_create_auto_number_field(self, client, auth_headers, test_table):
         """测试创建自动编号字段"""
         response = client.post(f'/api/tables/{test_table.id}/fields',

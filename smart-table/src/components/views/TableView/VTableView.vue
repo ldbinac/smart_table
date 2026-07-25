@@ -1600,6 +1600,15 @@ registerVTable.editor('rating', new RatingEditor());
 
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
+
+// 合并行选择与复选框选择，作为右键菜单“删除选中记录”的计数/操作依据
+const selectedRecordIds = computed(() => {
+  const recordIdSet = new Set<string>();
+  selectedRows.value.forEach(id => { if (id) recordIdSet.add(id); });
+  checkboxSelectedRows.value.forEach(id => { if (id) recordIdSet.add(id); });
+  return Array.from(recordIdSet);
+});
+
 const columnWidths = ref<Record<string, number>>({});
 const frozenDataRowCount = ref<number>(0); // 冻结数据行数（用于响应式更新右键菜单状态）
 const deleteLoading = ref(false);
@@ -1708,11 +1717,12 @@ const contextMenuItems = computed(() => {
         action: () => handleDeleteRecord(),
       });
 
-      // 只要有勾选的记录，就显示"删除选中的x条记录"
-      if (checkboxSelectedRows.value.length >= 1) {
+      // 只要有选中的记录（行选择或复选框选择），就显示"删除选中的x条记录"
+      const selectedCount = selectedRecordIds.value.length;
+      if (selectedCount >= 1) {
         items.push({
           id: "delete-selected",
-          label: `删除选中的 ${checkboxSelectedRows.value.length} 条记录`,
+          label: `删除选中的 ${selectedCount} 条记录`,
           icon: "delete",
           danger: true,
           action: () => handleDeleteSelectedRecords(),
@@ -1919,10 +1929,15 @@ const handleEditRecord = () => {
 //   在构造后不可变，appendRecords 的 Object.defineProperty 无法可靠同步），
 //   同时 watcher 路径已确保 addButton 行始终追加在数据末尾（见 updateTableData）
 let isAddingRecord = false;
+let addRecordCooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
 const handleAddNewRecord = async () => {
   if (!props.tableId || isAddingRecord) return;
   isAddingRecord = true;
+  if (addRecordCooldownTimer) {
+    clearTimeout(addRecordCooldownTimer);
+    addRecordCooldownTimer = null;
+  }
   try {
     const newRecord = await recordService.createRecord({
       tableId: props.tableId,
@@ -1941,7 +1956,11 @@ const handleAddNewRecord = async () => {
     console.error('[VTableView] 添加记录失败:', error);
     ElMessage.error('添加记录失败');
   } finally {
-    isAddingRecord = false;
+    // 添加短暂冷却期，避免 VTable 事件重复触发导致一次点击添加多条记录
+    addRecordCooldownTimer = setTimeout(() => {
+      isAddingRecord = false;
+      addRecordCooldownTimer = null;
+    }, 300);
   }
 };
 
@@ -1995,9 +2014,9 @@ const handleDeleteRecord = async () => {
   contextMenuVisible.value = false;
 };
 
-// 处理删除选中的记录 - 仅删除通过复选框勾选的记录
+// 处理删除选中的记录 - 删除行选择或复选框勾选的记录
 const handleDeleteSelectedRecords = async () => {
-  const ids = [...checkboxSelectedRows.value];
+  const ids = [...selectedRecordIds.value];
   const count = ids.length;
   if (count === 0) return;
   try {
@@ -2016,7 +2035,7 @@ const handleDeleteSelectedRecords = async () => {
       await tableStore.batchDeleteRecords(ids);
       emit("record-delete", ids);
       selectedRows.value = selectedRows.value.filter(id => !ids.includes(id));
-      checkboxSelectedRows.value = [];
+      checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => !ids.includes(id));
       ElMessage.success(`成功删除 ${count} 条记录`);
     } finally {
       deleteLoading.value = false;
@@ -3309,13 +3328,14 @@ const buildTableConfig = (): any => {
       },
     },
     allowCopy: true,
-    editCellTrigger: 'doubleclick',
+    editCellTrigger: 'click',
     keyboardOptions: {
       copySelected: true,
       pasteValueToCell: true,
       editCellOnEnter: true,
       moveFocusCellOnTab: true,
       moveEditCellOnArrowKeys: true,
+      moveFocusCellOnEnter: true,
     },
     select: {
       mode: 'multiple',
@@ -4074,12 +4094,21 @@ const updateTable = () => {
   
   isUpdating = true;
   pendingUpdate = false;
-  
+
   try {
+    // 释放旧 VTable 实例，避免事件监听器泄漏导致重复触发
+    if (tableInstance) {
+      try {
+        (tableInstance as any).release();
+      } catch (_e) {
+        // 释放失败不影响重建
+      }
+      tableInstance = null;
+    }
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
     }
-    
+
     const config = buildTableConfig();
     tableInstance = new ListTable(tableContainerRef.value, config);
     bindTableEvents();
@@ -4251,6 +4280,15 @@ watch(() => tableStore.records, async () => {
   // 不等 nextTick 的话，sortedRecords.value 可能还是旧值，导致行数判断错误
   await nextTick();
 
+  // 清理已不存在的记录选中状态，避免删除/刷新后右键菜单计数错误
+  const validRecordIds = new Set(sortedRecords.value.map(r => r.id));
+  if (selectedRows.value.some(id => !validRecordIds.has(id))) {
+    selectedRows.value = selectedRows.value.filter(id => validRecordIds.has(id));
+  }
+  if (checkboxSelectedRows.value.some(id => !validRecordIds.has(id))) {
+    checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => validRecordIds.has(id));
+  }
+
   clearTransformCache();
 
   if (!smartDataSource) {
@@ -4346,7 +4384,16 @@ onBeforeUnmount(() => {
   cleanupRealtimeListeners();
   document.removeEventListener('click', handleDocumentClick);
   window.removeEventListener('resize', handleFloatingPanelWindowResize);
+  if (addRecordCooldownTimer) {
+    clearTimeout(addRecordCooldownTimer);
+    addRecordCooldownTimer = null;
+  }
   if (tableInstance) {
+    try {
+      (tableInstance as any).release();
+    } catch (_e) {
+      // 释放失败不影响卸载
+    }
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
     }

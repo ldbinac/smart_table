@@ -13,6 +13,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models.field import Field, FieldType
+from app.models.record import Record
 from app.models.table import Table
 from app.models.base import MemberRole
 from app.services.base_service import BaseService
@@ -281,7 +282,10 @@ class FieldService:
                 # 检查类型转换是否合法
                 if not FieldService._is_valid_type_conversion(field.type, new_type):
                     return {'success': False, 'error': f'不能将 {field.type} 转换为 {new_type}'}
+                old_type = field.type
                 field.type = new_type
+                # 转换已有记录中该字段的值，避免类型变更后出现类型转换错误
+                FieldService._convert_record_values(field, old_type, new_type)
 
         # 处理 config 更新 - 需要特殊处理以确保 SQLAlchemy 检测到变更
         if 'config' in data:
@@ -787,6 +791,85 @@ class FieldService:
             for ft in FieldType
         ]
     
+    @staticmethod
+    def _convert_value_for_type(value: Any, from_type: str, to_type: str) -> Any:
+        """
+        将字段值从旧类型转换为新类型
+        
+        Args:
+            value: 原值
+            from_type: 原类型
+            to_type: 目标类型
+            
+        Returns:
+            转换后的值
+        """
+        if value is None:
+            return None
+
+        # 文本类之间互转
+        if from_type == FieldType.SINGLE_LINE_TEXT.value and to_type in [
+            FieldType.LONG_TEXT.value, FieldType.RICH_TEXT.value,
+            FieldType.EMAIL.value, FieldType.PHONE.value, FieldType.URL.value
+        ]:
+            return value
+
+        # 数字转货币/百分比/评分/文本
+        if from_type == FieldType.NUMBER.value:
+            if to_type in [FieldType.CURRENCY.value, FieldType.PERCENT.value, FieldType.RATING.value]:
+                return value
+            if to_type == FieldType.SINGLE_LINE_TEXT.value:
+                return str(value)
+
+        # 日期转日期时间/文本
+        if from_type == FieldType.DATE.value:
+            if to_type == FieldType.DATE_TIME.value:
+                if isinstance(value, str) and 'T' not in value:
+                    return f"{value}T00:00:00Z"
+                return value
+            if to_type == FieldType.SINGLE_LINE_TEXT.value:
+                return str(value)
+
+        # 单选转多选/文本
+        if from_type == FieldType.SINGLE_SELECT.value:
+            if to_type == FieldType.MULTI_SELECT.value:
+                return [value] if value is not None else []
+            if to_type == FieldType.SINGLE_LINE_TEXT.value:
+                return str(value)
+
+        # 多选转单选/文本
+        if from_type == FieldType.MULTI_SELECT.value:
+            if to_type == FieldType.SINGLE_SELECT.value:
+                return value[0] if isinstance(value, list) and len(value) > 0 else None
+            if to_type == FieldType.SINGLE_LINE_TEXT.value:
+                return ', '.join(str(v) for v in value) if isinstance(value, list) else str(value)
+
+        return value
+
+    @staticmethod
+    def _convert_record_values(field: Field, from_type: str, to_type: str) -> None:
+        """
+        转换表格中已有记录该字段的值
+        
+        Args:
+            field: 字段对象
+            from_type: 原类型
+            to_type: 目标类型
+        """
+        from sqlalchemy.orm.attributes import flag_modified
+        field_id = str(field.id)
+        table_id = str(field.table_id)
+        records = Record.query.filter_by(table_id=table_id).all()
+        for record in records:
+            values = record.values or {}
+            if field_id not in values:
+                continue
+            old_value = values[field_id]
+            new_value = FieldService._convert_value_for_type(old_value, from_type, to_type)
+            if new_value != old_value:
+                values[field_id] = new_value
+                flag_modified(record, 'values')
+
     @staticmethod
     def _is_valid_type_conversion(from_type: str, to_type: str) -> bool:
         """
