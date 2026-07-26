@@ -42,13 +42,24 @@ vi.mock('@vue-flow/core', async () => {
           h(
             'div',
             { class: 'vue-flow-nodes' },
-            (props.nodes as any[]).map((node) =>
-              h('div', {
+            (props.nodes as any[]).map((node) => {
+              // 根据 node.type 选择对应插槽渲染（支持 workflow-loop 自定义节点）
+              const slotName = node.type === 'workflow-loop' ? 'node-workflow-loop' : 'node-workflow'
+              const slot = slots[slotName]
+              const nodeProps = { id: node.id, data: node.data }
+              if (slot) {
+                return h('div', {
+                  key: node.id,
+                  class: ['vue-flow-node-stub', 'vue-flow-node-slot', node.class],
+                  'data-node-id': node.id,
+                }, slot(nodeProps))
+              }
+              return h('div', {
                 key: node.id,
                 class: ['vue-flow-node-stub', node.class],
                 'data-node-id': node.id,
-              }, node.data?.node?.name ?? node.id),
-            ),
+              }, node.data?.node?.name ?? node.id)
+            }),
           ),
           h(
             'div',
@@ -65,8 +76,19 @@ vi.mock('@vue-flow/core', async () => {
     },
   })
 
+  // Handle 组件：渲染为占位 div
+  const Handle = defineComponent({
+    name: 'Handle',
+    props: ['type', 'position', 'connectable', 'class'],
+    render() {
+      return h('div', { class: ['handle-stub', `handle-${this.type}`] })
+    },
+  })
+
   return {
     VueFlow,
+    Handle,
+    Position: { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' },
     __testMocks: testMocks,
   }
 })
@@ -138,7 +160,8 @@ function mountCanvas(props: Record<string, any> = {}) {
     global: {
       stubs: {
         'el-button': {
-          template: '<button class="el-button"><slot /></button>',
+          template: '<button class="el-button" @click="$emit(\'click\')"><slot /></button>',
+          emits: ['click'],
         },
         'el-dropdown': {
           template: '<div class="el-dropdown"><slot /><slot name="dropdown" /></div>',
@@ -147,7 +170,14 @@ function mountCanvas(props: Record<string, any> = {}) {
           template: '<div class="el-dropdown-menu"><slot /></div>',
         },
         'el-dropdown-item': {
-          template: '<div class="el-dropdown-item"><slot /></div>',
+          template: '<div class="el-dropdown-item" @click="$emit(\'click\')"><slot /></div>',
+          emits: ['click'],
+        },
+        'el-icon': {
+          template: '<i class="el-icon"><slot /></i>',
+        },
+        'el-button-group': {
+          template: '<div class="el-button-group"><slot /></div>',
         },
       },
     },
@@ -371,5 +401,185 @@ describe('WorkflowCanvas', () => {
     const branchA = branches.find((b: any) => b.id === 'b1')
     expect(branchA.target_node_id).toBeUndefined()
     expect(conditionNode.next_nodes).toEqual([])
+  })
+
+  // ==================== 循环容器渲染测试 ====================
+
+  const loopMockNodes: WorkflowNode[] = [
+    {
+      id: 'loop-1',
+      workflow_id: 'wf-1',
+      node_type: 'loop',
+      name: '批量处理',
+      config: {
+        data_source: { type: 'find_records_all', node_id: 'find-1' },
+        max_iterations: 50,
+        error_handling: 'skip',
+        empty_result_action: 'skip',
+        loop_body_nodes: [
+          {
+            id: 'body-1',
+            workflow_id: 'wf-1',
+            node_type: 'update_record',
+            name: '更新状态',
+            config: {},
+            order: 0,
+            next_nodes: [],
+          },
+          {
+            id: 'body-2',
+            workflow_id: 'wf-1',
+            node_type: 'send_email',
+            name: '发送通知',
+            config: {},
+            order: 1,
+            next_nodes: [],
+          },
+        ],
+      },
+      order: 0,
+      next_nodes: [],
+      ui_layout: { x: 100, y: 200 },
+    },
+  ]
+
+  function mountLoopCanvas(props: Record<string, any> = {}) {
+    return mount(WorkflowCanvas, {
+      props: {
+        nodes: loopMockNodes,
+        ...props,
+      },
+      global: {
+        stubs: {
+          'el-button': {
+            template: '<button class="el-button" @click="$emit(\'click\')"><slot /></button>',
+            emits: ['click'],
+          },
+          'el-dropdown': {
+            template: '<div class="el-dropdown"><slot /><slot name="dropdown" /></div>',
+          },
+          'el-dropdown-menu': {
+            template: '<div class="el-dropdown-menu"><slot /></div>',
+          },
+          'el-dropdown-item': {
+            template: '<div class="el-dropdown-item" @click="$emit(\'click\')"><slot /></div>',
+            emits: ['click'],
+          },
+          'el-icon': {
+            template: '<i class="el-icon"><slot /></i>',
+          },
+          'el-button-group': {
+            template: '<div class="el-button-group"><slot /></div>',
+          },
+        },
+      },
+    })
+  }
+
+  it('循环节点应渲染为循环容器（workflow-loop-container）', () => {
+    const wrapper = mountLoopCanvas()
+    expect(wrapper.find('.workflow-loop-container').exists()).toBe(true)
+  })
+
+  it('循环容器应展示节点名称和数据源摘要', () => {
+    const wrapper = mountLoopCanvas()
+    expect(wrapper.find('.loop-container-name').text()).toBe('批量处理')
+    const summary = wrapper.find('.loop-container-summary').text()
+    expect(summary).toContain('依次处理每条数据')
+    expect(summary).toContain('查找记录 - 全部')
+    expect(summary).toContain('最多 50 次')
+  })
+
+  it('循环容器应渲染循环体子节点列表', () => {
+    const wrapper = mountLoopCanvas()
+    const children = wrapper.findAll('.loop-child-item')
+    expect(children.length).toBe(2)
+    expect(children[0].find('.loop-child-name').text()).toBe('更新状态')
+    expect(children[0].find('.loop-child-type').text()).toBe('更新记录')
+    expect(children[1].find('.loop-child-name').text()).toBe('发送通知')
+  })
+
+  it('循环体为空时应显示空状态提示', () => {
+    const emptyLoopNodes: WorkflowNode[] = [
+      {
+        ...loopMockNodes[0],
+        config: {
+          ...loopMockNodes[0].config,
+          loop_body_nodes: [],
+        },
+      },
+    ]
+    const wrapper = mountLoopCanvas({ nodes: emptyLoopNodes })
+    expect(wrapper.findAll('.loop-child-item').length).toBe(0)
+    expect(wrapper.find('.loop-body-empty').exists()).toBe(true)
+    expect(wrapper.find('.loop-body-empty').text()).toContain('暂无循环体节点')
+  })
+
+  it('循环容器应展示添加循环体节点下拉菜单', () => {
+    const wrapper = mountLoopCanvas()
+    const items = wrapper.findAll('.loop-container-add .el-dropdown-item')
+    expect(items.length).toBeGreaterThanOrEqual(5)
+    const labels = items.map((i) => i.text())
+    expect(labels).toContain('更新记录')
+    expect(labels).toContain('创建记录')
+    expect(labels).toContain('查找记录')
+    expect(labels).toContain('发送邮件')
+    expect(labels).toContain('循环')
+  })
+
+  it('点击循环体子节点应触发 select-node 事件', async () => {
+    const wrapper = mountLoopCanvas()
+    const child = wrapper.findAll('.loop-child-item')[0]
+    await child.trigger('click')
+    expect(wrapper.emitted('select-node')).toBeTruthy()
+    expect(wrapper.emitted('select-node')![0]).toEqual(['body-1'])
+  })
+
+  it('点击子节点删除按钮应触发 delete-node 事件', async () => {
+    const wrapper = mountLoopCanvas()
+    const deleteBtn = wrapper.findAll('.loop-child-delete')[0]
+    await deleteBtn.trigger('click')
+    expect(wrapper.emitted('delete-node')).toBeTruthy()
+    expect(wrapper.emitted('delete-node')![0]).toEqual(['body-1'])
+  })
+
+  it('点击循环容器删除按钮应触发 delete-node 事件', async () => {
+    const wrapper = mountLoopCanvas()
+    const deleteBtn = wrapper.find('.loop-container-delete')
+    await deleteBtn.trigger('click')
+    expect(wrapper.emitted('delete-node')).toBeTruthy()
+    expect(wrapper.emitted('delete-node')![0]).toEqual(['loop-1'])
+  })
+
+  it('从下拉添加循环体子节点应触发 add-node 事件', async () => {
+    const wrapper = mountLoopCanvas()
+    const items = wrapper.findAll('.loop-container-add .el-dropdown-item')
+    const createItem = items.find((i) => i.text().includes('创建记录'))
+    await createItem!.trigger('click')
+    expect(wrapper.emitted('add-node')).toBeTruthy()
+    const payload = wrapper.emitted('add-node')![0][0] as any
+    expect(payload.nodeType).toBe('create_record')
+    expect(payload.parentId).toBe('loop-1')
+    expect(payload.position).toBe('after')
+  })
+
+  it('只读模式下不显示删除和添加按钮', () => {
+    const wrapper = mountLoopCanvas({ readonly: true })
+    expect(wrapper.find('.loop-container-delete').exists()).toBe(false)
+    expect(wrapper.findAll('.loop-child-delete').length).toBe(0)
+    expect(wrapper.find('.loop-container-add').exists()).toBe(false)
+  })
+
+  it('选中循环容器时应添加 selected 样式', () => {
+    const wrapper = mountLoopCanvas({ selectedNodeId: 'loop-1' })
+    const container = wrapper.find('.workflow-loop-container')
+    expect(container.classes()).toContain('selected')
+  })
+
+  it('选中循环体子节点时子节点应添加 selected 样式', () => {
+    const wrapper = mountLoopCanvas({ selectedNodeId: 'body-1' })
+    const children = wrapper.findAll('.loop-child-item')
+    expect(children[0].classes()).toContain('selected')
+    expect(children[1].classes()).not.toContain('selected')
   })
 })

@@ -37,6 +37,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   Link: { name: 'Link', template: '<span class="icon-link" />' },
   Share: { name: 'Share', template: '<span class="icon-share" />' },
   CircleCheck: { name: 'CircleCheck', template: '<span class="icon-circle-check" />' },
+  Refresh: { name: 'Refresh', template: '<span class="icon-refresh" />' },
 }))
 
 const defaultProps: Record<string, any> = {
@@ -97,13 +98,14 @@ describe('WorkflowEdgeWithAddButton', () => {
     await wrapper.find('.edge-add-button').trigger('click')
 
     const menuItems = wrapper.findAll('.edge-add-menu-item')
-    expect(menuItems.length).toBe(6)
+    expect(menuItems.length).toBe(7)
     expect(menuItems[0].text()).toBe('更新记录')
     expect(menuItems[1].text()).toBe('创建记录')
     expect(menuItems[2].text()).toBe('查找记录')
     expect(menuItems[3].text()).toBe('发送邮件')
     expect(menuItems[4].text()).toBe('Webhook')
     expect(menuItems[5].text()).toBe('条件节点')
+    expect(menuItems[6].text()).toBe('循环')
 
     await menuItems[1].trigger('click')
 

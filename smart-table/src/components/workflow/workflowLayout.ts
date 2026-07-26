@@ -7,6 +7,11 @@ const BRANCH_START_Y_OFFSET = 80;
 const BRANCH_STEP_Y = 150;
 const CENTER_RETURN_STEP = 50;
 
+/** 循环容器基础高度（头部 + 内边距 + 底部添加按钮） */
+const LOOP_BASE_HEIGHT = 200;
+/** 循环体内每个子节点占用的高度（含间距） */
+const LOOP_CHILD_HEIGHT = 80;
+
 export function hasValidLayout(node: WorkflowNode): boolean {
   const layout = node.ui_layout;
   return (
@@ -19,6 +24,15 @@ export function hasValidLayout(node: WorkflowNode): boolean {
 }
 
 /**
+ * 计算 loop 节点占用的高度（含循环体子节点）。
+ */
+function getLoopNodeHeight(node: WorkflowNode): number {
+  if (node.node_type !== "loop") return VERTICAL_SPACING;
+  const bodyNodes = (node.config?.loop_body_nodes as WorkflowNode[] | undefined) ?? [];
+  return LOOP_BASE_HEIGHT + LOOP_CHILD_HEIGHT * bodyNodes.length;
+}
+
+/**
  * 为没有 `ui_layout` 的工作流节点计算自动布局坐标。
  *
  * 规则：
@@ -27,6 +41,7 @@ export function hasValidLayout(node: WorkflowNode): boolean {
  * - 普通节点垂直单列排列，x=0。
  * - 条件节点的每个分支目标节点在右侧垂直分布，避免重叠。
  * - 分支结束后，后续节点逐步向中心靠拢，最终回到 x=0 的主列。
+ * - loop 节点根据循环体子节点数量动态计算高度，并预留垂直空间。
  */
 export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
   // 收集每个条件节点的分支目标 ID，按顺序分配 Y 偏移
@@ -55,7 +70,9 @@ export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
   for (const node of sorted) {
     if (hasValidLayout(node)) {
       result.push(node);
-      cursorY = Math.max(cursorY, node.ui_layout!.y + VERTICAL_SPACING);
+      const nodeHeight =
+        node.node_type === "loop" ? getLoopNodeHeight(node) : VERTICAL_SPACING;
+      cursorY = Math.max(cursorY, node.ui_layout!.y + nodeHeight);
       if (node.node_type === "condition") {
         lastConditionY = node.ui_layout!.y;
       }
@@ -64,18 +81,27 @@ export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
 
     let x: number;
     let y: number;
+    let nodeHeight: number;
 
     if (node.node_type === "condition") {
       x = 0;
       y = cursorY;
       lastConditionY = y;
-      cursorY = y + VERTICAL_SPACING;
+      nodeHeight = VERTICAL_SPACING;
+      cursorY = y + nodeHeight;
+      branchReturnX = null;
+    } else if (node.node_type === "loop") {
+      x = 0;
+      y = cursorY;
+      nodeHeight = getLoopNodeHeight(node);
+      cursorY = y + nodeHeight;
       branchReturnX = null;
     } else if (branchTargets.has(node.id)) {
       const target = branchTargets.get(node.id)!;
       x = BRANCH_OFFSET_X;
       y = lastConditionY + BRANCH_START_Y_OFFSET + target.index * BRANCH_STEP_Y;
-      cursorY = Math.max(cursorY, y + VERTICAL_SPACING);
+      nodeHeight = VERTICAL_SPACING;
+      cursorY = Math.max(cursorY, y + nodeHeight);
       branchReturnX = BRANCH_OFFSET_X;
     } else {
       if (branchReturnX !== null && branchReturnX > 0) {
@@ -86,7 +112,8 @@ export function layoutWorkflowNodes(nodes: WorkflowNode[]): WorkflowNode[] {
         x = 0;
         y = cursorY;
       }
-      cursorY = y + VERTICAL_SPACING;
+      nodeHeight = VERTICAL_SPACING;
+      cursorY = y + nodeHeight;
     }
 
     result.push({

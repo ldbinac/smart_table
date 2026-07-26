@@ -26,8 +26,8 @@ vi.mock('../WorkflowNodeConfig.vue', () => ({
   default: {
     name: 'WorkflowNodeConfig',
     template: '<div class="workflow-node-config-mock"><slot /></div>',
-    props: ['node', 'fields', 'tables', 'webhooks'],
-    emits: ['update:node'],
+    props: ['node', 'fields', 'tables', 'webhooks', 'allNodes', 'readonly'],
+    emits: ['update:node', 'add-child-node', 'remove-child-node', 'select-child-node'],
   },
 }));
 
@@ -96,6 +96,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   Timer: { template: '<span class="icon-timer" />' },
   CopyDocument: { template: '<span class="icon-copy-document" />' },
   Search: { template: '<span class="icon-search" />' },
+  Refresh: { template: '<span class="icon-refresh" />' },
 }));
 
 describe('WorkflowDesigner', () => {

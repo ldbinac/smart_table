@@ -22,6 +22,8 @@ import {
   ADDABLE_NODE_TYPES,
   NODE_TYPE_ICON_MAP,
   getNodeLabel as _getNodeLabel,
+  MAX_LOOP_NODES_PER_WORKFLOW,
+  MAX_LOOP_NESTING_DEPTH,
 } from "@/utils/workflowNodeType";
 import {
   CircleCheck,
@@ -31,6 +33,7 @@ import {
   CopyDocument,
   Plus,
 } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
 import WorkflowNodeConfig from "./WorkflowNodeConfig.vue";
 import WorkflowTriggerConfig from "./WorkflowTriggerConfig.vue";
 import WorkflowCanvas from "./WorkflowCanvas.vue";
@@ -43,7 +46,16 @@ import {
   getConditionBranches,
   setConditionBranchTarget,
 } from "@/utils/conditionBranch";
-import { isValidWorkflowVariableName } from "@/utils/workflow";
+import {
+  isValidWorkflowVariableName,
+  rebuildWorkflowNodeChain,
+  createDefaultLoopNodeConfig,
+  countLoopNodes,
+  getMaxLoopNestingDepth,
+  findParentLoopNodeId,
+  getLoopBodyNodes,
+  setLoopBodyNodes,
+} from "@/utils/workflow";
 
 interface Props {
   workflow: Workflow;
@@ -114,15 +126,34 @@ const rightPanelStyle = computed(() => {
   };
 });
 
-const selectedNode = computed(() =>
-  localNodes.value.find((n) => n.id === selectedNodeId.value) ?? null,
-);
+const selectedNode = computed(() => {
+  const id = selectedNodeId.value;
+  if (!id) return null;
+  // 先在顶层节点中查找
+  const topMatch = localNodes.value.find((n) => n.id === id);
+  if (topMatch) return topMatch;
+  // 再递归在 loop 节点的 loop_body_nodes 中查找
+  return findNodeInLoopBodies(localNodes.value, id);
+});
+
+/** 递归在 loop 节点的循环体子节点中查找指定 ID 的节点 */
+function findNodeInLoopBodies(nodes: WorkflowNode[], id: string): WorkflowNode | null {
+  for (const node of nodes) {
+    if (node.node_type !== "loop") continue;
+    const bodyNodes = getLoopBodyNodes(node);
+    const match = bodyNodes.find((n) => n.id === id);
+    if (match) return match;
+    const nested = findNodeInLoopBodies(bodyNodes, id);
+    if (nested) return nested;
+  }
+  return null;
+}
 
 watch(
   () => props.nodes,
   (newNodes) => {
     isUpdatingNodesFromParent = true;
-    const chain = rebuildNodeChain(
+    const chain = rebuildWorkflowNodeChain(
       newNodes.map((n) => ({ ...n, config: cloneConfig(n.config) })),
     );
     const needsLayout = chain.some((node) => !hasValidLayout(node));
@@ -181,40 +212,8 @@ function generateId(): string {
   return `node_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// 根据 order 自动重建节点执行链：普通节点默认指向下一个节点；
-// 条件节点的 next_nodes 由其 branches 中的 target_node_id 决定；
-// 分支目标节点可链接到下一个非分支目标节点（合并点或后续节点），
-// 但不会自动链接到任何分支目标节点，以保持并行分支独立。
-function rebuildNodeChain(nodes: WorkflowNode[]): WorkflowNode[] {
-  const sorted = [...nodes].sort((a, b) => a.order - b.order);
-  const branchTargetIds = new Set<string>();
-  sorted.forEach((node) => {
-    if (node.node_type !== "condition") return;
-    getConditionBranches(node.config).forEach((branch) => {
-      if (branch.target_node_id) branchTargetIds.add(branch.target_node_id);
-    });
-  });
-  const nextMap = new Map<string, string[]>();
-  sorted.forEach((node, index) => {
-    if (node.node_type === "condition") {
-      const nextIds = getConditionBranches(node.config)
-        .map((b) => b.target_node_id)
-        .filter((id): id is string => !!id);
-      nextMap.set(node.id, nextIds);
-    } else {
-      const nextNode = sorted[index + 1];
-      if (!nextNode || branchTargetIds.has(nextNode.id)) {
-        nextMap.set(node.id, []);
-      } else {
-        nextMap.set(node.id, [nextNode.id]);
-      }
-    }
-  });
-  return nodes.map((node) => ({
-    ...node,
-    next_nodes: nextMap.get(node.id) ?? [],
-  }));
-}
+// 节点执行链重建统一使用 utils/workflow.ts 中的 rebuildWorkflowNodeChain，
+// 该函数会递归重建 loop 节点的循环体子链。
 
 interface InvalidNodeInfo {
   name: string;
@@ -293,10 +292,93 @@ function getDefaultNodeConfig(type: WorkflowNodeType): Record<string, unknown> {
       empty_action: "continue",
     };
   }
+  if (type === "loop") {
+    return createDefaultLoopNodeConfig();
+  }
   return {};
 }
 
-function addNode(type: WorkflowNodeType) {
+/**
+ * 判断指定节点 ID 是否位于某个 loop 容器内。
+ * 返回父 loop 节点，不在循环体内返回 null。
+ */
+function findLoopParentOf(nodeId: string): WorkflowNode | null {
+  const parentId = findParentLoopNodeId(localNodes.value, nodeId);
+  if (!parentId) return null;
+  return localNodes.value.find((n) => n.id === parentId) ?? null;
+}
+
+/**
+ * 更新指定 loop 父节点的循环体子节点列表，并触发节点链重建。
+ */
+function updateLoopBodyNodesOf(parentId: string, updater: (bodyNodes: WorkflowNode[]) => WorkflowNode[]) {
+  const parentIndex = localNodes.value.findIndex((n) => n.id === parentId);
+  if (parentIndex === -1) return;
+  const parent = localNodes.value[parentIndex];
+  if (parent.node_type !== "loop") return;
+  const newBodyNodes = updater(getLoopBodyNodes(parent));
+  const updatedParent = setLoopBodyNodes(parent, newBodyNodes);
+  const list = [...localNodes.value];
+  list[parentIndex] = { ...updatedParent, config: cloneConfig(updatedParent.config) };
+  localNodes.value = rebuildWorkflowNodeChain(list);
+}
+
+function addNode(type: WorkflowNodeType, parentId?: string) {
+  // 在 loop 容器内添加子节点
+  if (parentId) {
+    const parent = localNodes.value.find((n) => n.id === parentId);
+    if (!parent || parent.node_type !== "loop") return;
+
+    // 循环节点数量与嵌套深度校验
+    if (type === "loop") {
+      const currentCount = countLoopNodes(localNodes.value);
+      if (currentCount + 1 > MAX_LOOP_NODES_PER_WORKFLOW) {
+        ElMessage.warning("单个工作流最多 5 个循环节点");
+        return;
+      }
+      const simulatedParent: WorkflowNode = {
+        ...parent,
+        config: {
+          ...parent.config,
+          loop_body_nodes: [
+            ...getLoopBodyNodes(parent),
+            {
+              id: "__simulated__",
+              workflow_id: parent.workflow_id,
+              node_type: "loop",
+              name: "simulated",
+              config: { loop_body_nodes: [] },
+              order: getLoopBodyNodes(parent).length,
+              next_nodes: [],
+            },
+          ],
+        },
+      };
+      const simulatedAllNodes = localNodes.value.map((n) =>
+        n.id === parent.id ? simulatedParent : n,
+      );
+      const newDepth = getMaxLoopNestingDepth(simulatedAllNodes);
+      if (newDepth > MAX_LOOP_NESTING_DEPTH) {
+        ElMessage.warning("循环节点最多嵌套 3 层");
+        return;
+      }
+    }
+
+    const bodyNodes = getLoopBodyNodes(parent);
+    const newNode: WorkflowNode = {
+      id: generateId(),
+      workflow_id: props.workflow.id,
+      node_type: type,
+      name: `${getNodeLabel(type)} ${bodyNodes.length + 1}`,
+      config: getDefaultNodeConfig(type),
+      order: bodyNodes.length,
+      next_nodes: [],
+    };
+    updateLoopBodyNodesOf(parentId, (nodes) => [...nodes, newNode]);
+    selectedNodeId.value = newNode.id;
+    return;
+  }
+
   const newNode: WorkflowNode = {
     id: generateId(),
     workflow_id: props.workflow.id,
@@ -306,11 +388,24 @@ function addNode(type: WorkflowNodeType) {
     order: localNodes.value.length,
     next_nodes: [],
   };
-  localNodes.value = rebuildNodeChain([...localNodes.value, newNode]);
+  localNodes.value = rebuildWorkflowNodeChain([...localNodes.value, newNode]);
   selectedNodeId.value = newNode.id;
 }
 
 function removeNode(nodeId: string) {
+  // 若节点位于 loop 容器内，从父节点的 loop_body_nodes 中移除
+  const loopParent = findLoopParentOf(nodeId);
+  if (loopParent) {
+    updateLoopBodyNodesOf(loopParent.id, (bodyNodes) => {
+      const filtered = bodyNodes.filter((n) => n.id !== nodeId);
+      return filtered.map((node, index) => ({ ...node, order: index }));
+    });
+    if (selectedNodeId.value === nodeId) {
+      selectedNodeId.value = loopParent.id;
+    }
+    return;
+  }
+
   const filtered = localNodes.value.filter((n) => n.id !== nodeId);
   const cleared = filtered.map((node) => {
     if (node.node_type !== "condition") return node;
@@ -329,7 +424,7 @@ function removeNode(nodeId: string) {
     });
     return { ...node, config: updatedConfig };
   });
-  localNodes.value = rebuildNodeChain(cleared);
+  localNodes.value = rebuildWorkflowNodeChain(cleared);
   if (selectedNodeId.value === nodeId) {
     selectedNodeId.value = localNodes.value[0]?.id ?? null;
   }
@@ -340,6 +435,19 @@ function selectNode(nodeId: string) {
 }
 
 function updateNode(updatedNode: WorkflowNode) {
+  // 若节点位于 loop 容器内，更新父节点 loop_body_nodes 中对应的子节点
+  const loopParent = findLoopParentOf(updatedNode.id);
+  if (loopParent) {
+    updateLoopBodyNodesOf(loopParent.id, (bodyNodes) =>
+      bodyNodes.map((node) =>
+        node.id === updatedNode.id
+          ? { ...updatedNode, config: cloneConfig(updatedNode.config) }
+          : node,
+      ),
+    );
+    return;
+  }
+
   const index = localNodes.value.findIndex((n) => n.id === updatedNode.id);
   if (index !== -1) {
     const list = [...localNodes.value];
@@ -353,7 +461,7 @@ function updateTrigger(updatedTrigger: WorkflowTrigger) {
 }
 
 function handleCanvasUpdateNodes(nodes: WorkflowNode[]) {
-  localNodes.value = rebuildNodeChain(
+  localNodes.value = rebuildWorkflowNodeChain(
     nodes.map((node) => ({ ...node, config: cloneConfig(node.config) })),
   );
 }
@@ -396,9 +504,16 @@ function handleCanvasAddNode(payload: {
   position: "before" | "after" | "first";
   nodeType: string;
   targetId?: string;
+  parentId?: string;
 }) {
-  const { position, nodeType, targetId } = payload;
+  const { position, nodeType, targetId, parentId } = payload;
   const type = nodeType as WorkflowNodeType;
+
+  // loop 容器内添加子节点：直接走 addNode(parentId) 分支
+  if (parentId) {
+    addNode(type, parentId);
+    return;
+  }
 
   if (position === "first") {
     const newNode: WorkflowNode = {
@@ -412,7 +527,7 @@ function handleCanvasAddNode(payload: {
     };
     const sorted = [newNode, ...localNodes.value].sort((a, b) => a.order - b.order);
     const reindexed = sorted.map((node, index) => ({ ...node, order: index }));
-    localNodes.value = rebuildNodeChain(reindexed);
+    localNodes.value = rebuildWorkflowNodeChain(reindexed);
     selectedNodeId.value = newNode.id;
     return;
   }
@@ -451,7 +566,7 @@ function handleCanvasAddNode(payload: {
 
   const sorted = [...list].sort((a, b) => a.order - b.order);
   const reindexed = sorted.map((node, index) => ({ ...node, order: index }));
-  localNodes.value = rebuildNodeChain(reindexed);
+  localNodes.value = rebuildWorkflowNodeChain(reindexed);
   selectedNodeId.value = newNode.id;
 }
 
@@ -459,7 +574,50 @@ function handleCanvasDeleteNode(nodeId: string) {
   removeNode(nodeId);
 }
 
+/** WorkflowNodeConfig 触发：在 loop 容器内添加子节点 */
+function handleConfigAddChildNode(payload: { parentId: string; nodeType: WorkflowNodeType }) {
+  addNode(payload.nodeType, payload.parentId);
+}
+
+/** WorkflowNodeConfig 触发：删除 loop 容器内子节点 */
+function handleConfigRemoveChildNode(payload: { parentId: string; nodeId: string }) {
+  removeNode(payload.nodeId);
+}
+
+/** WorkflowNodeConfig 触发：选中 loop 容器内子节点，切换到该子节点配置 */
+function handleConfigSelectChildNode(nodeId: string) {
+  selectedNodeId.value = nodeId;
+}
+
 function insertNodeBetween(sourceId: string, targetId: string, nodeType: string) {
+  // 若 source 或 target 位于 loop 容器内，在父节点 loop_body_nodes 中插入
+  const sourceLoopParent = findLoopParentOf(sourceId);
+  const targetLoopParent = findLoopParentOf(targetId);
+  const loopParent = sourceLoopParent ?? targetLoopParent;
+
+  if (loopParent) {
+    const bodyNodes = getLoopBodyNodes(loopParent);
+    const sourceIndex = bodyNodes.findIndex((n) => n.id === sourceId);
+    const insertIndex =
+      sourceIndex !== -1 ? sourceIndex + 1 : bodyNodes.length;
+    const newNode: WorkflowNode = {
+      id: generateId(),
+      workflow_id: props.workflow.id,
+      node_type: nodeType as WorkflowNodeType,
+      name: `${getNodeLabel(nodeType)} ${bodyNodes.length + 1}`,
+      config: getDefaultNodeConfig(nodeType as WorkflowNodeType),
+      order: insertIndex,
+      next_nodes: [],
+    };
+    updateLoopBodyNodesOf(loopParent.id, (nodes) => {
+      const newNodes = [...nodes];
+      newNodes.splice(insertIndex, 0, newNode);
+      return newNodes.map((node, index) => ({ ...node, order: index }));
+    });
+    selectedNodeId.value = newNode.id;
+    return;
+  }
+
   const sourceNode = localNodes.value.find((n) => n.id === sourceId);
   if (!sourceNode) return;
 
@@ -476,7 +634,7 @@ function insertNodeBetween(sourceId: string, targetId: string, nodeType: string)
   const list = [...localNodes.value, newNode];
   const sorted = [...list].sort((a, b) => a.order - b.order);
   const reindexed = sorted.map((node, index) => ({ ...node, order: index }));
-  localNodes.value = rebuildNodeChain(reindexed);
+  localNodes.value = rebuildWorkflowNodeChain(reindexed);
   selectedNodeId.value = newNode.id;
 }
 
@@ -556,7 +714,7 @@ function initSortable() {
       const list = [...localNodes.value];
       const [moved] = list.splice(event.oldIndex, 1);
       list.splice(event.newIndex, 0, moved);
-      localNodes.value = rebuildNodeChain(list.map((node, index) => ({ ...node, order: index })));
+      localNodes.value = rebuildWorkflowNodeChain(list.map((node, index) => ({ ...node, order: index })));
     },
   });
 }
@@ -797,8 +955,12 @@ onBeforeRouteLeave((_, __, next) => {
             :fields="fields"
             :tables="tables"
             :webhooks="webhooks"
+            :all-nodes="localNodes"
             :readonly="readonly"
-            @update:node="updateNode" />
+            @update:node="updateNode"
+            @add-child-node="handleConfigAddChildNode"
+            @remove-child-node="handleConfigRemoveChildNode"
+            @select-child-node="handleConfigSelectChildNode" />
           <el-empty v-else description="请选择或添加一个节点" />
         </div>
       </div>

@@ -11,7 +11,43 @@ export type WorkflowNodeType =
   | 'create_record'
   | 'send_email'
   | 'webhook'
-  | 'find_records';
+  | 'find_records'
+  | 'loop';
+
+/** 循环节点数据源类型 */
+export type LoopDataSourceType =
+  | 'find_records_all'
+  | 'find_records_column'
+  | 'trigger_field'
+  | 'webhook_array';
+
+/** 循环节点数据源配置 */
+export interface LoopDataSource {
+  /** 数据源类型 */
+  type: LoopDataSourceType;
+  /** 前序节点 ID（find_records / webhook 节点） */
+  node_id?: string;
+  /** 字段 ID（find_records_column / trigger_field 时使用，仅限人员/群组/附件/关联字段） */
+  field_id?: string;
+  /** 触发器字段所属的 field_id（trigger_field 类型时使用） */
+  trigger_field_id?: string;
+}
+
+/** 循环节点配置 */
+export interface LoopNodeConfig {
+  /** 循环方式：仅支持 sequential（依次处理每条数据） */
+  loop_mode: 'sequential';
+  /** 数据源配置 */
+  data_source: LoopDataSource;
+  /** 最大循环次数（1-1000，默认 100） */
+  max_iterations: number;
+  /** 错误处理：skip（跳过当次继续）或 terminate（终止流程） */
+  error_handling: 'skip' | 'terminate';
+  /** 空结果处理：skip（跳过循环）或 error（报错） */
+  empty_result_action: 'skip' | 'error';
+  /** 循环体子节点列表（结构同主节点列表） */
+  loop_body_nodes: WorkflowNode[];
+}
 
 export type TriggerType =
   | 'record_created'

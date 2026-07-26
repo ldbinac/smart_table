@@ -8,6 +8,8 @@ import type {
   ConditionBranch,
   ConditionItem,
   ConditionNodeConfig,
+  LoopDataSource,
+  WorkflowNodeType,
 } from "@/types/workflow";
 import { FilterOperator } from "@/types/filters";
 import type { FilterOperatorValue } from "@/types/filters";
@@ -22,8 +24,19 @@ import { fieldService } from "@/db/services/fieldService";
 import {
   normalizeWorkflowNode,
   isValidWorkflowVariableName,
+  getAvailableLoopDataSources,
+  countLoopNodes,
+  getMaxLoopNestingDepth,
+  findParentLoopNodeId,
 } from "@/utils/workflow";
-import { getNodeLabel } from "@/utils/workflowNodeType";
+import {
+  getNodeLabel,
+  getNodeIcon,
+  LOOP_BODY_ALLOWED_NODE_TYPES,
+  MAX_LOOP_NODES_PER_WORKFLOW,
+  MAX_LOOP_NESTING_DEPTH,
+} from "@/utils/workflowNodeType";
+import { ElMessage } from "element-plus";
 import {
   normalizeConditionConfig,
   addConditionBranch,
@@ -33,6 +46,7 @@ import {
   updateConditionBranch,
 } from "@/utils/conditionBranch";
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
+import LoopVarInserter from "./LoopVarInserter.vue";
 import {
   Delete,
   Plus,
@@ -46,12 +60,20 @@ interface Props {
   fields: FieldEntity[];
   tables?: TableEntity[];
   webhooks?: WebhookConfig[];
+  /** 工作流全量节点列表（用于循环节点数据源选择） */
+  allNodes?: WorkflowNode[];
   readonly?: boolean;
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: "update:node", node: WorkflowNode): void;
+  /** 选中循环体子节点切换配置面板 */
+  (e: "select-child-node", nodeId: string): void;
+  /** 在 loop 容器内添加子节点 */
+  (e: "add-child-node", payload: { parentId: string; nodeType: WorkflowNodeType }): void;
+  /** 删除 loop 容器内子节点 */
+  (e: "remove-child-node", payload: { parentId: string; nodeId: string }): void;
 }>();
 
 // ==================== 通用配置辅助 ====================
@@ -737,6 +759,244 @@ function updateInlineHeader(key: string, value: string) {
   updateInlineWebhook({ headers });
 }
 
+// ==================== 循环节点配置 ====================
+
+const loopDataSource = computed<LoopDataSource>({
+  get: () =>
+    configValue<LoopDataSource>("data_source", { type: "find_records_all" }),
+  set: (value) => setConfigValue("data_source", value),
+});
+
+const loopMaxIterations = computed({
+  get: () => configValue<number>("max_iterations", 100),
+  set: (value) => setConfigValue("max_iterations", value),
+});
+
+const loopErrorHandling = computed<"skip" | "terminate">({
+  get: () => configValue<"skip" | "terminate">("error_handling", "skip"),
+  set: (value) => setConfigValue("error_handling", value),
+});
+
+const loopEmptyResultAction = computed<"skip" | "error">({
+  get: () => configValue<"skip" | "error">("empty_result_action", "skip"),
+  set: (value) => setConfigValue("empty_result_action", value),
+});
+
+const loopBodyNodes = computed<WorkflowNode[]>(() => {
+  if (localNode.value.node_type !== "loop") return [];
+  return (localNode.value.config?.loop_body_nodes as WorkflowNode[] | undefined) ?? [];
+});
+
+/** 循环数据源下拉选项 */
+const loopDataSourceOptions = computed(() => {
+  const allNodes = props.allNodes ?? [props.node];
+  return getAvailableLoopDataSources(allNodes, props.node.id, props.fields);
+});
+
+/** 将数据源对象序列化为可作 el-option value 的字符串 */
+function loopDataSourceKey(ds: LoopDataSource): string {
+  return `${ds.type}|${ds.node_id ?? ""}|${ds.field_id ?? ""}|${ds.trigger_field_id ?? ""}`;
+}
+
+const loopDataSourceValueKey = computed({
+  get: () => loopDataSourceKey(loopDataSource.value),
+  set: (key: string) => {
+    const opt = loopDataSourceOptions.value.find(
+      (o) => loopDataSourceKey(o.value) === key,
+    );
+    if (opt) {
+      loopDataSource.value = opt.value;
+    }
+  },
+});
+
+/** 循环体允许添加的节点类型 */
+const loopBodyAllowedTypes = LOOP_BODY_ALLOWED_NODE_TYPES;
+
+function getLoopBodyNodeIcon(type: string) {
+  return getNodeIcon(type);
+}
+
+function getLoopBodyNodeLabel(type: string) {
+  return getNodeLabel(type);
+}
+
+/** 选中循环体子节点，切换到该子节点配置面板 */
+function handleSelectLoopChild(nodeId: string) {
+  emit("select-child-node", nodeId);
+}
+
+/** 删除循环体子节点 */
+function handleRemoveLoopChild(nodeId: string) {
+  if (props.readonly) return;
+  emit("remove-child-node", { parentId: localNode.value.id, nodeId });
+}
+
+/**
+ * 添加循环体子节点：
+ * - loop 类型需校验数量与嵌套深度；
+ * - 通过 emit('add-child-node') 由父组件统一处理。
+ */
+function handleAddLoopChild(type: WorkflowNodeType) {
+  if (props.readonly) return;
+
+  if (type === "loop") {
+    const allNodes = props.allNodes ?? [props.node];
+    const currentCount = countLoopNodes(allNodes);
+    if (currentCount + 1 > MAX_LOOP_NODES_PER_WORKFLOW) {
+      ElMessage.warning("单个工作流最多 5 个循环节点");
+      return;
+    }
+    // 模拟添加后深度校验
+    const simulatedBodyNodes: WorkflowNode[] = [
+      ...loopBodyNodes.value,
+      {
+        id: "__simulated__",
+        workflow_id: localNode.value.workflow_id,
+        node_type: "loop",
+        name: "simulated",
+        config: { loop_body_nodes: [] },
+        order: loopBodyNodes.value.length,
+        next_nodes: [],
+      },
+    ];
+    const simulatedNode: WorkflowNode = {
+      ...localNode.value,
+      config: { ...localNode.value.config, loop_body_nodes: simulatedBodyNodes },
+    };
+    const simulatedAllNodes = (props.allNodes ?? [props.node]).map((n) =>
+      n.id === simulatedNode.id ? simulatedNode : n,
+    );
+    const newDepth = getMaxLoopNestingDepth(simulatedAllNodes);
+    if (newDepth > MAX_LOOP_NESTING_DEPTH) {
+      ElMessage.warning("循环嵌套深度不能超过 3 层");
+      return;
+    }
+  }
+
+  emit("add-child-node", { parentId: localNode.value.id, nodeType: type });
+}
+
+/** 循环方式摘要（用于画布/只读展示） */
+const loopDataSourceLabel = computed(() => {
+  const ds = loopDataSource.value;
+  const opt = loopDataSourceOptions.value.find(
+    (o) => loopDataSourceKey(o.value) === loopDataSourceKey(ds),
+  );
+  return opt?.label ?? ds.type;
+});
+
+// ==================== 循环变量插入 ====================
+
+/**
+ * 递归在节点树中查找指定 ID 的节点（含 loop_body_nodes 嵌套）。
+ * 用于定位循环体子节点的父 loop 容器节点（嵌套循环场景下父 loop 可能位于外层 loop_body_nodes 中）。
+ */
+function findNodeInTree(nodes: WorkflowNode[], id: string): WorkflowNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.node_type === "loop") {
+      const bodyNodes = (node.config?.loop_body_nodes as WorkflowNode[] | undefined) ?? [];
+      const found = findNodeInTree(bodyNodes, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** 当前节点的父 loop 容器节点 ID（不在循环体内返回 null） */
+const parentLoopNodeId = computed<string | null>(() => {
+  if (!props.node.id) return null;
+  const allNodes = props.allNodes ?? [props.node];
+  return findParentLoopNodeId(allNodes, props.node.id);
+});
+
+/** 当前节点是否位于 loop 容器内 */
+const isInLoopBody = computed(() => parentLoopNodeId.value !== null);
+
+/** 当前节点的父 loop 容器节点对象 */
+const parentLoopNode = computed<WorkflowNode | null>(() => {
+  const id = parentLoopNodeId.value;
+  if (!id) return null;
+  const allNodes = props.allNodes ?? [props.node];
+  return findNodeInTree(allNodes, id);
+});
+
+/** 父 loop 节点的数据源配置 */
+const parentLoopDataSource = computed<LoopDataSource | null>(() => {
+  const loopNode = parentLoopNode.value;
+  if (!loopNode) return null;
+  return (loopNode.config?.data_source as LoopDataSource | undefined) ?? null;
+});
+
+/**
+ * 数据源是否支持下钻字段：
+ * - find_records_all → 数据为记录字典，支持下钻字段
+ * - find_records_column / trigger_field → 数据为单值（人员/群组等），不支持下钻
+ * - webhook_array → 数据结构未知，不支持下钻
+ */
+const loopDataSourceSupportsFieldDrill = computed(
+  () => parentLoopDataSource.value?.type === "find_records_all",
+);
+
+/** 字段下钻可选项（仅 find_records_all 数据源时加载） */
+const loopFieldDrillFields = ref<FieldEntity[]>([]);
+const isLoadingLoopFieldDrillFields = ref(false);
+
+async function loadLoopFieldDrillFields() {
+  if (!loopDataSourceSupportsFieldDrill.value) {
+    loopFieldDrillFields.value = [];
+    return;
+  }
+  const ds = parentLoopDataSource.value;
+  if (!ds?.node_id) {
+    loopFieldDrillFields.value = [];
+    return;
+  }
+  const allNodes = props.allNodes ?? [props.node];
+  const findRecordsNode = allNodes.find((n) => n.id === ds.node_id);
+  const targetTableId = findRecordsNode?.config?.target_table_id as string | undefined;
+  if (!targetTableId) {
+    loopFieldDrillFields.value = [];
+    return;
+  }
+  isLoadingLoopFieldDrillFields.value = true;
+  try {
+    loopFieldDrillFields.value = await fieldService.getFieldsByTable(targetTableId);
+  } catch {
+    loopFieldDrillFields.value = [];
+  } finally {
+    isLoadingLoopFieldDrillFields.value = false;
+  }
+}
+
+watch(
+  [parentLoopDataSource, () => props.allNodes],
+  () => {
+    loadLoopFieldDrillFields();
+  },
+  { immediate: true },
+);
+
+/** 字段下钻选项（映射为 { id, name }） */
+const loopFieldDrillOptions = computed(() =>
+  loopFieldDrillFields.value.map((f) => ({ id: f.id, name: f.name })),
+);
+
+/** 循环变量是否可插入（仅循环体内 + 非只读 + 已知父 loop 数据源） */
+const canInsertLoopVar = computed(
+  () => isInLoopBody.value && !props.readonly && parentLoopDataSource.value !== null,
+);
+
+/**
+ * 将循环变量片段追加到模板字符串末尾，并触发 ElMessage 提示。
+ * 返回拼接后的新模板字符串，由调用方写入对应字段。
+ */
+function appendLoopVarSnippet(currentTemplate: string, snippet: string): string {
+  ElMessage.success("已插入循环变量");
+  return `${currentTemplate ?? ""}${snippet}`;
+}
+
 // ==================== 渲染辅助 ====================
 
 const nodeTypeLabel = computed(() => {
@@ -973,13 +1233,22 @@ const nodeTypeLabel = computed(() => {
                   @update:model-value="(val) => toggleExpressionForUpdate(index, val as boolean)" />
               </div>
 
-              <el-input
+              <div
                 v-if="useExpressionForUpdate[index]"
-                :model-value="mapping.value_template"
-                placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
-                class="template-input"
-                :disabled="readonly"
-                @update:model-value="(val) => updateMappingTemplate(index, val)" />
+                class="template-input-with-loop-var">
+                <el-input
+                  :model-value="mapping.value_template"
+                  placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
+                  class="template-input"
+                  :disabled="readonly"
+                  @update:model-value="(val) => updateMappingTemplate(index, val)" />
+                <LoopVarInserter
+                  v-if="canInsertLoopVar"
+                  :supports-field-drill="loopDataSourceSupportsFieldDrill"
+                  :field-options="loopFieldDrillOptions"
+                  :disabled="isLoadingLoopFieldDrillFields"
+                  @insert="(snippet) => updateMappingTemplate(index, appendLoopVarSnippet(mapping.value_template, snippet))" />
+              </div>
 
               <FieldValueInput
                 v-if="!useExpressionForUpdate[index] && mapping.field_id && getFieldById(mapping.field_id)"
@@ -1088,13 +1357,22 @@ const nodeTypeLabel = computed(() => {
                   @update:model-value="(val) => toggleExpressionForCreate(index, val as boolean)" />
               </div>
 
-              <el-input
+              <div
                 v-if="useExpressionForCreate[index]"
-                :model-value="mapping.value_template"
-                placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
-                class="template-input"
-                :disabled="readonly"
-                @update:model-value="(val) => updateCreateValueTemplate(index, val)" />
+                class="template-input-with-loop-var">
+                <el-input
+                  :model-value="mapping.value_template"
+                  placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
+                  class="template-input"
+                  :disabled="readonly"
+                  @update:model-value="(val) => updateCreateValueTemplate(index, val)" />
+                <LoopVarInserter
+                  v-if="canInsertLoopVar"
+                  :supports-field-drill="loopDataSourceSupportsFieldDrill"
+                  :field-options="loopFieldDrillOptions"
+                  :disabled="isLoadingLoopFieldDrillFields"
+                  @insert="(snippet) => updateCreateValueTemplate(index, appendLoopVarSnippet(mapping.value_template, snippet))" />
+              </div>
 
               <FieldValueInput
                 v-if="!useExpressionForCreate[index] && mapping.target_field_id && getTargetFieldById(mapping.target_field_id)"
@@ -1206,20 +1484,36 @@ const nodeTypeLabel = computed(() => {
 
         <template v-if="emailContentMode === 'custom'">
           <el-form-item label="邮件主题">
-            <el-input
-              v-model="emailSubject"
-              placeholder="请输入邮件主题"
-              :disabled="readonly" />
+            <div class="template-input-with-loop-var">
+              <el-input
+                v-model="emailSubject"
+                placeholder="请输入邮件主题"
+                :disabled="readonly" />
+              <LoopVarInserter
+                v-if="canInsertLoopVar"
+                :supports-field-drill="loopDataSourceSupportsFieldDrill"
+                :field-options="loopFieldDrillOptions"
+                :disabled="isLoadingLoopFieldDrillFields"
+                @insert="(snippet) => emailSubject = appendLoopVarSnippet(emailSubject, snippet)" />
+            </div>
             <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值</div>
           </el-form-item>
 
           <el-form-item label="邮件正文">
-            <el-input
-              v-model="emailBody"
-              type="textarea"
-              :rows="6"
-              placeholder="请输入邮件正文"
-              :disabled="readonly" />
+            <div class="template-input-with-loop-var">
+              <el-input
+                v-model="emailBody"
+                type="textarea"
+                :rows="6"
+                placeholder="请输入邮件正文"
+                :disabled="readonly" />
+              <LoopVarInserter
+                v-if="canInsertLoopVar"
+                :supports-field-drill="loopDataSourceSupportsFieldDrill"
+                :field-options="loopFieldDrillOptions"
+                :disabled="isLoadingLoopFieldDrillFields"
+                @insert="(snippet) => emailBody = appendLoopVarSnippet(emailBody, snippet)" />
+            </div>
             <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值，{{trigger.event_type}} 引用触发事件</div>
           </el-form-item>
         </template>
@@ -1316,13 +1610,21 @@ const nodeTypeLabel = computed(() => {
           </el-form-item>
 
           <el-form-item label="Body 模板">
-            <el-input
-              :model-value="inlineWebhook.body_template"
-              type="textarea"
-              :rows="4"
-              placeholder="JSON 模板（注意对应webhook接口配置要求），支持通过 {{record}}、{{record.field_id}} 获取对应的数据"
-              :disabled="readonly"
-              @update:model-value="(val) => updateInlineWebhook({ body_template: val })" />
+            <div class="template-input-with-loop-var">
+              <el-input
+                :model-value="inlineWebhook.body_template"
+                type="textarea"
+                :rows="4"
+                placeholder="JSON 模板（注意对应webhook接口配置要求），支持通过 {{record}}、{{record.field_id}} 获取对应的数据"
+                :disabled="readonly"
+                @update:model-value="(val) => updateInlineWebhook({ body_template: val })" />
+              <LoopVarInserter
+                v-if="canInsertLoopVar"
+                :supports-field-drill="loopDataSourceSupportsFieldDrill"
+                :field-options="loopFieldDrillOptions"
+                :disabled="isLoadingLoopFieldDrillFields"
+                @insert="(snippet) => updateInlineWebhook({ body_template: appendLoopVarSnippet(inlineWebhook.body_template ?? '', snippet) })" />
+            </div>
           </el-form-item>
         </template>
       </el-form>
@@ -1484,6 +1786,117 @@ const nodeTypeLabel = computed(() => {
       </el-form>
     </template>
 
+    <!-- 循环节点 -->
+    <template v-else-if="localNode.node_type === 'loop'">
+      <el-form label-position="top" class="config-form">
+        <el-form-item label="循环方式">
+          <el-select
+            :model-value="'sequential'"
+            disabled
+            class="full-width">
+            <el-option label="依次处理每条数据" value="sequential" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="数据源">
+          <el-select
+            v-model="loopDataSourceValueKey"
+            placeholder="选择数据源"
+            class="full-width"
+            :disabled="readonly">
+            <el-option
+              v-for="opt in loopDataSourceOptions"
+              :key="loopDataSourceKey(opt.value)"
+              :label="opt.label"
+              :value="loopDataSourceKey(opt.value)" />
+          </el-select>
+          <div v-if="loopDataSourceOptions.length === 0" class="field-hint">
+            暂无可用的前序数据源，请先在循环前添加"查找记录"或"Webhook"节点，或确保表格中存在人员/群组/附件/关联字段。
+          </div>
+        </el-form-item>
+
+        <el-form-item label="最大循环次数">
+          <el-input-number
+            v-model="loopMaxIterations"
+            :min="1"
+            :max="1000"
+            :controls="false"
+            class="full-width"
+            :disabled="readonly" />
+        </el-form-item>
+
+        <el-form-item label="错误处理方式">
+          <el-radio-group v-model="loopErrorHandling" :disabled="readonly">
+            <el-radio label="skip">跳过当次继续</el-radio>
+            <el-radio label="terminate">终止流程</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="空结果处理">
+          <el-radio-group v-model="loopEmptyResultAction" :disabled="readonly">
+            <el-radio label="skip">跳过循环</el-radio>
+            <el-radio label="error">报错</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+
+      <!-- 循环体子节点编辑区 -->
+      <div class="loop-body-section">
+        <div class="loop-body-header">
+          <span class="loop-body-title">循环体节点</span>
+          <span class="loop-body-count">（{{ loopBodyNodes.length }}）</span>
+        </div>
+
+        <div class="loop-body-list">
+          <div
+            v-for="child in loopBodyNodes"
+            :key="child.id"
+            class="loop-body-item"
+            @click="handleSelectLoopChild(child.id)">
+            <el-icon class="loop-body-icon">
+              <component :is="getLoopBodyNodeIcon(child.node_type)" />
+            </el-icon>
+            <div class="loop-body-info">
+              <div class="loop-body-name">{{ child.name }}</div>
+              <div class="loop-body-type">{{ getLoopBodyNodeLabel(child.node_type) }}</div>
+            </div>
+            <el-button
+              v-if="!readonly"
+              type="danger"
+              :icon="Delete"
+              link
+              size="small"
+              class="loop-body-delete-btn"
+              @click.stop="handleRemoveLoopChild(child.id)" />
+          </div>
+
+          <el-empty
+            v-if="loopBodyNodes.length === 0"
+            description="暂无循环体节点"
+            :image-size="60" />
+
+          <div v-if="!readonly" class="loop-body-add">
+            <el-dropdown placement="bottom-start" trigger="click">
+              <el-button type="primary" :icon="Plus" text size="small">
+                添加循环体节点
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-for="item in loopBodyAllowedTypes"
+                    :key="item.type"
+                    @click="handleAddLoopChild(item.type as WorkflowNodeType)">
+                    <el-icon><component :is="item.icon" /></el-icon>
+                    <span>{{ item.label }}</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- 未知类型 -->
     <template v-else>
       <el-empty :description="`暂不支持该节点类型配置：${localNode.node_type || '未知类型'}`" />
@@ -1612,6 +2025,17 @@ const nodeTypeLabel = computed(() => {
   flex-direction: column;
   gap: $spacing-xs;
   min-width: 0;
+}
+
+.template-input-with-loop-var {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  width: 100%;
+
+  .template-input {
+    width: 100%;
+  }
 }
 
 .mode-switch-row {
@@ -1874,5 +2298,87 @@ const nodeTypeLabel = computed(() => {
   .branch-name-input {
     flex: 1;
   }
+}
+
+.loop-body-section {
+  margin-top: $spacing-md;
+  border-top: 1px solid $border-color;
+  padding-top: $spacing-md;
+}
+
+.loop-body-header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  margin-bottom: $spacing-sm;
+
+  .loop-body-title {
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  .loop-body-count {
+    font-weight: normal;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+  }
+}
+
+.loop-body-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.loop-body-item {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm;
+  background-color: $bg-color;
+  border-radius: $border-radius-md;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid $border-color;
+
+  &:hover {
+    background-color: rgba($primary-color, 0.04);
+    border-color: rgba($primary-color, 0.4);
+  }
+}
+
+.loop-body-icon {
+  font-size: 18px;
+  color: $primary-color;
+  flex-shrink: 0;
+}
+
+.loop-body-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.loop-body-name {
+  font-weight: 500;
+  color: $text-primary;
+  font-size: $font-size-sm;
+}
+
+.loop-body-type {
+  font-size: 12px;
+  color: $text-secondary;
+}
+
+.loop-body-delete-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  .loop-body-item:hover & {
+    opacity: 1;
+  }
+}
+
+.loop-body-add {
+  margin-top: $spacing-xs;
 }
 </style>

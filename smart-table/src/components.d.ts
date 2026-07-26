@@ -136,6 +136,7 @@ declare module 'vue' {
     LookupConditionEditor: typeof import('./components/fields/LookupConditionEditor.vue')['default']
     LookupField: typeof import('./components/fields/LookupField.vue')['default']
     LookupFieldConfigPanel: typeof import('./components/fields/LookupFieldConfigPanel.vue')['default']
+    LoopVarInserter: typeof import('./components/workflow/LoopVarInserter.vue')['default']
     MarqueeWidget: typeof import('./components/dashboard/MarqueeWidget.vue')['default']
     MemberDisplay: typeof import('./components/common/MemberDisplay.vue')['default']
     MemberField: typeof import('./components/fields/MemberField.vue')['default']

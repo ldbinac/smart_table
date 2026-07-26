@@ -34,6 +34,7 @@ class WorkflowNodeType(PyEnum):
     ACTION = 'action'
     CONDITION = 'condition'
     WEBHOOK = 'webhook'
+    LOOP = 'loop'
 
 
 class WorkflowTriggerType(PyEnum):
