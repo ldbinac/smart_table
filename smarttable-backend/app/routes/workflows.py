@@ -408,9 +408,10 @@ def update_workflow_nodes(workflow_id) -> tuple:
     data = request.get_json() or {}
     nodes = data.get('nodes', [])
 
-    # 前端使用的动作类型（update_record/create_record/send_email）非合法枚举值，
-    # 需转换为 ACTION 节点 + config.action_type
-    ACTION_TYPE_MAP = {
+    # 前端使用的细粒度类型（find_records/send_email/update_record/create_record/trigger_webhook）
+    # 现在直接作为 WorkflowNodeType 枚举值存储，不再转换为 ACTION + config.action_type。
+    # 保留对旧 'action' 类型的兼容：若前端传入 'action'，仍按 config.action_type 反查细粒度类型。
+    _ACTION_TYPE_UPGRADE = {
         'update_record': 'update_record',
         'create_record': 'create_record',
         'send_email': 'send_email',
@@ -431,10 +432,11 @@ def update_workflow_nodes(workflow_id) -> tuple:
             node_type = node_data.get('node_type', 'action')
             node_config = dict(node_data.get('config', {}))
 
-            # 转换前端动作类型为 ACTION 节点
-            if node_type in ACTION_TYPE_MAP:
-                node_config['action_type'] = ACTION_TYPE_MAP[node_type]
-                node_type = 'action'
+            # 将旧的 'action' + config.action_type 升级为细粒度 node_type
+            if node_type == 'action':
+                action_type = node_config.get('action_type')
+                if action_type and action_type in _ACTION_TYPE_UPGRADE:
+                    node_type = _ACTION_TYPE_UPGRADE[action_type]
 
             node = WorkflowNode(
                 workflow_id=workflow.id,

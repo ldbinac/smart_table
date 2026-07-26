@@ -472,8 +472,10 @@ class WorkflowService:
             db.session.add(trigger)
 
         if nodes_config:
-            # 前端动作类型转换为 ACTION 节点
-            action_type_map = {
+            # 细粒度类型直接作为 WorkflowNodeType 枚举值存储，
+            # 不再转换为 ACTION + config.action_type。
+            # 保留对旧 'action' + config.action_type 的兼容升级。
+            _ACTION_TYPE_UPGRADE = {
                 'update_record': 'update_record',
                 'create_record': 'create_record',
                 'send_email': 'send_email',
@@ -489,11 +491,12 @@ class WorkflowService:
                 node_type = node_data.get('node_type', 'action')
                 node_config = dict(node_data.get('config', {}))
                 if node_type == 'loop':
-                    # loop 节点不走 action_type 转换，直接保存为 loop 类型并校验
                     cls._validate_loop_node(node_data)
-                elif node_type in action_type_map:
-                    node_config['action_type'] = action_type_map[node_type]
-                    node_type = 'action'
+                elif node_type == 'action':
+                    # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
+                    action_type = node_config.get('action_type')
+                    if action_type and action_type in _ACTION_TYPE_UPGRADE:
+                        node_type = _ACTION_TYPE_UPGRADE[action_type]
                 if node_type == 'condition':
                     node_config = cls._normalize_condition_config(node_config)
                     node_config = cls._clean_condition_config(node_config)
@@ -623,16 +626,23 @@ class WorkflowService:
                 if loop_count > 5:
                     raise ValueError('单个工作流最多 5 个循环节点')
 
+                _ACTION_TYPE_UPGRADE = {
+                    'update_record': 'update_record',
+                    'create_record': 'create_record',
+                    'send_email': 'send_email',
+                    'trigger_webhook': 'trigger_webhook',
+                    'find_records': 'find_records',
+                }
                 for index, node_data in enumerate(nodes_config):
                     node_type_str = node_data.get('node_type', 'action')
                     config = dict(node_data.get('config', {}))
                     if node_type_str == 'loop':
-                        # loop 节点不走 action_type 转换，直接保存为 loop 类型并校验
                         cls._validate_loop_node(node_data)
-                    elif node_type_str in {'update_record', 'create_record', 'send_email', 'trigger_webhook', 'find_records'}:
-                        # 前端动作类型转换为 ACTION 节点
-                        config['action_type'] = node_type_str
-                        node_type_str = 'action'
+                    elif node_type_str == 'action':
+                        # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
+                        action_type = config.get('action_type')
+                        if action_type and action_type in _ACTION_TYPE_UPGRADE:
+                            node_type_str = _ACTION_TYPE_UPGRADE[action_type]
                     if node_type_str == 'condition':
                         config = cls._normalize_condition_config(config)
                         config = cls._clean_condition_config(config)

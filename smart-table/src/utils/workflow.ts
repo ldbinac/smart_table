@@ -93,7 +93,8 @@ export function getAvailableLoopDataSources(
 }
 
 /**
- * 动作类型反向映射：后端 action + config.action_type -> 前端细粒度 node_type
+ * 动作类型反向映射：旧版后端 action + config.action_type -> 前端细粒度 node_type
+ * 仅用于向后兼容历史版本快照数据，新数据已直接使用细粒度 node_type。
  */
 const ACTION_TYPE_TO_FRONTEND: Record<string, WorkflowNode["node_type"]> = {
   update_record: "update_record",

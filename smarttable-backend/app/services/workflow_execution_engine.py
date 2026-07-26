@@ -34,6 +34,32 @@ from app.services.workflow_service import WorkflowService
 
 log = logging.getLogger(__name__)
 
+# 旧 action + action_type 向细粒度类型的映射（仅用于向后兼容）
+_ACTION_TYPE_UPGRADE = {
+    'update_record': 'update_record',
+    'create_record': 'create_record',
+    'send_email': 'send_email',
+    'trigger_webhook': 'trigger_webhook',
+    'find_records': 'find_records',
+}
+
+
+def _resolve_node_type_value(node) -> str:
+    """解析节点的 node_type 字符串值。
+
+    对于新细粒度类型直接返回；对于旧 'action' 类型，
+    按 config.action_type 升级为细粒度类型以便执行日志可读。
+    """
+    node_type = node.node_type
+    if isinstance(node_type, WorkflowNodeType):
+        node_type = node_type.value
+    node_type = str(node_type)
+    if node_type == 'action':
+        action_type = (node.config or {}).get('action_type')
+        if action_type and action_type in _ACTION_TYPE_UPGRADE:
+            return _ACTION_TYPE_UPGRADE[action_type]
+    return node_type
+
 
 class _LoopBodyNodeWrapper:
     """将 dict 形式的循环体子节点包装为类似 WorkflowNode 的对象，以复用 _dispatch_node 分发逻辑。
@@ -318,7 +344,7 @@ class WorkflowExecutionEngine:
         execution_log = WorkflowExecutionLog(
             instance_id=instance.id,
             node_id=node.id,
-            node_type=node.node_type.value if isinstance(node.node_type, WorkflowNodeType) else str(node.node_type),
+            node_type=_resolve_node_type_value(node),
             status='running',
             input_context=input_context
         )
@@ -363,8 +389,20 @@ class WorkflowExecutionEngine:
         if node_type == WorkflowNodeType.TRIGGER.value:
             return {'status': 'success'}
 
-        if node_type == 'find_records':
+        if node_type == WorkflowNodeType.FIND_RECORDS.value:
             return self._execute_find_records(instance, node)
+
+        if node_type == WorkflowNodeType.UPDATE_RECORD.value:
+            return self._execute_update_record(instance, node)
+
+        if node_type == WorkflowNodeType.CREATE_RECORD.value:
+            return self._execute_create_record(instance, node)
+
+        if node_type == WorkflowNodeType.SEND_EMAIL.value:
+            return self._execute_send_email(instance, node)
+
+        if node_type == WorkflowNodeType.TRIGGER_WEBHOOK.value:
+            return self._execute_webhook_node(instance, node)
 
         if node_type == WorkflowNodeType.APPROVAL.value:
             return ApprovalService.create_tasks(instance, node)
@@ -378,24 +416,19 @@ class WorkflowExecutionEngine:
         if node_type == WorkflowNodeType.LOOP.value:
             return self._execute_loop_node(instance, node)
 
-        # 兼容前端直接使用动作类型作为 node_type 的情况
-        action_type = node_type
+        # 兼容旧数据：node_type='action' + config.action_type
         if node_type == WorkflowNodeType.ACTION.value:
             action_type = (node.config or {}).get('action_type')
-
-        if action_type == 'update_record':
-            return self._execute_update_record(instance, node)
-        if action_type == 'create_record':
-            return self._execute_create_record(instance, node)
-        if action_type == 'send_email':
-            return self._execute_send_email(instance, node)
-        if action_type == 'trigger_webhook':
-            return self._execute_webhook_node(instance, node)
-
-        if action_type == 'find_records':
-            return self._execute_find_records(instance, node)
-
-        if node_type == WorkflowNodeType.ACTION.value:
+            if action_type == 'update_record':
+                return self._execute_update_record(instance, node)
+            if action_type == 'create_record':
+                return self._execute_create_record(instance, node)
+            if action_type == 'send_email':
+                return self._execute_send_email(instance, node)
+            if action_type == 'trigger_webhook':
+                return self._execute_webhook_node(instance, node)
+            if action_type == 'find_records':
+                return self._execute_find_records(instance, node)
             raise ValueError(f'未知动作类型: {action_type}')
 
         raise ValueError(f'未知节点类型: {node_type}')
