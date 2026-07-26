@@ -277,10 +277,21 @@ class WorkflowExecutionEngine:
         if next_nodes is None:
             next_nodes = node.next_nodes or []
 
+        if not next_nodes:
+            log.info(
+                f'[WorkflowExecutionEngine] 节点 {node.id} ({node.node_type}) '
+                f'next_nodes 为空，执行链结束'
+            )
+
         for next_node_id in next_nodes:
             next_node = WorkflowNode.query.get(self._to_uuid(next_node_id))
             if next_node:
                 self._execute_chain(instance, next_node)
+            else:
+                log.warning(
+                    f'[WorkflowExecutionEngine] next_node_id={next_node_id} '
+                    f'在数据库中未找到对应节点，跳过'
+                )
 
     def execute_node(
         self,
@@ -499,7 +510,7 @@ class WorkflowExecutionEngine:
         flag_modified(instance, 'context')
         db.session.commit()
 
-        if empty_result_action == 'stop':
+        if not matching_records and empty_result_action == 'stop':
             return {'result': result, 'next_nodes': []}
 
         return {'result': result, 'next_nodes': node.next_nodes or []}

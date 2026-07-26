@@ -270,7 +270,7 @@ describe('WorkflowDesigner', () => {
     expect(newNode.config.conditions).toEqual([]);
     expect(newNode.config.sort_direction).toBe('asc');
     expect(newNode.config.limit).toBe(100);
-    expect(newNode.config.empty_action).toBe('continue');
+    expect(newNode.config.empty_result_action).toBe('continue');
   });
 
   it('添加节点菜单应包含发送邮件选项', async () => {

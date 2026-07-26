@@ -289,7 +289,7 @@ function getDefaultNodeConfig(type: WorkflowNodeType): Record<string, unknown> {
       sort_field_id: undefined,
       sort_direction: "asc",
       limit: 100,
-      empty_action: "continue",
+      empty_result_action: "continue",
     };
   }
   if (type === "loop") {
