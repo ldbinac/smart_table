@@ -101,6 +101,7 @@ declare module 'vue' {
     EmptyState: typeof import('./components/common/EmptyState.vue')['default']
     ExcelImportCreateDialog: typeof import('./components/dialogs/ExcelImportCreateDialog.vue')['default']
     ExportDialog: typeof import('./components/dialogs/ExportDialog.vue')['default']
+    FeedbackDialog: typeof import('./components/common/FeedbackDialog.vue')['default']
     FieldComponentFactory: typeof import('./components/fields/FieldComponentFactory.vue')['default']
     FieldConfigPanel: typeof import('./components/fields/FieldConfigPanel.vue')['default']
     FieldDialog: typeof import('./components/dialogs/FieldDialog.vue')['default']
