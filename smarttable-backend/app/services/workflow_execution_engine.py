@@ -773,6 +773,10 @@ class WorkflowExecutionEngine:
         event_data['record'] = render_context.get('record', {})
         event_data['workflow'] = render_context.get('workflow', {})
         event_data['instance'] = render_context.get('instance', {})
+        # 传递循环上下文，确保 {{loop.current_data}} 等模板变量在循环体内可用
+        loop_context = render_context.get('loop')
+        if loop_context:
+            event_data['loop'] = loop_context
         return WebhookService.deliver(webhook_config, instance, event_data)
 
     def _resolve_loop_data_source(
@@ -806,13 +810,18 @@ class WorkflowExecutionEngine:
 
         if source_type == 'find_records_column':
             field_id = data_source_config.get('field_id')
+            node_id = data_source_config.get('node_id')
             if not field_id:
+                log.warning(
+                    f'[WorkflowExecutionEngine] find_records_column 数据源缺少 field_id，'
+                    f'node_id={node_id}，返回空数组'
+                )
                 return []
-            result_variable = self._resolve_find_records_variable(instance, data_source_config.get('node_id'))
+            result_variable = self._resolve_find_records_variable(instance, node_id)
             result = context.get(result_variable, {})
             records = result.get('records', []) if isinstance(result, dict) else []
             if not isinstance(records, list):
-                return []
+                records = []
 
             flattened: List[Any] = []
             seen_ids: set = set()
@@ -833,6 +842,15 @@ class WorkflowExecutionEngine:
                             flattened.append(item)
                 else:
                     flattened.append(value)
+
+            if not flattened:
+                log.warning(
+                    f'[WorkflowExecutionEngine] find_records_column 提取为空: '
+                    f'field_id={field_id}, node_id={node_id}, '
+                    f'records 数量={len(records)}, '
+                    f'提示: 如果需要遍历全部记录，请将 data_source.type 改为 find_records_all'
+                )
+
             return flattened
 
         if source_type == 'trigger_field':
@@ -883,9 +901,46 @@ class WorkflowExecutionEngine:
         empty_result_action = config.get('empty_result_action', 'skip')
         loop_body_nodes = config.get('loop_body_nodes', []) or []
 
+        log.info(
+            f'[WorkflowExecutionEngine] 循环节点 {node.id}: '
+            f'data_source={data_source_config}, '
+            f'loop_body_nodes 数量={len(loop_body_nodes)}, '
+            f'loop_body_nodes 类型={[type(n).__name__ for n in loop_body_nodes]}'
+        )
+
         data_array = self._resolve_loop_data_source(instance, data_source_config)
 
+        log.info(
+            f'[WorkflowExecutionEngine] 循环节点 {node.id}: '
+            f'data_array 长度={len(data_array)}, '
+            f'instance.context keys={list((instance.context or {}).keys())}'
+        )
+
         if not data_array:
+            # 记录诊断执行日志，便于前端排查循环未执行的原因
+            diagnostic_log = WorkflowExecutionLog(
+                instance_id=instance.id,
+                node_id=node.id,
+                node_type='loop',
+                status='success' if empty_result_action != 'error' else 'error',
+                input_context={
+                    'data_source': data_source_config,
+                    'array_length': 0,
+                    'loop_body_nodes_count': len(loop_body_nodes),
+                    'context_keys': list((instance.context or {}).keys()),
+                },
+                output_result={
+                    'total_iterations': 0,
+                    'success_count': 0,
+                    'failure_count': 0,
+                    'early_terminated': False,
+                    'skipped_reason': 'data_array_empty',
+                },
+                completed_at=datetime.now(timezone.utc)
+            )
+            db.session.add(diagnostic_log)
+            db.session.commit()
+
             if empty_result_action == 'error':
                 raise ValueError('循环数据源为空')
             # skip 模式：跳过循环，继续主链
@@ -907,6 +962,7 @@ class WorkflowExecutionEngine:
             input_context={
                 'data_source': data_source_config,
                 'array_length': len(data_array),
+                'loop_body_nodes_count': len(loop_body_nodes),
                 'max_iterations': max_iterations_int,
                 'total': total
             }

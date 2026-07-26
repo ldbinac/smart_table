@@ -454,28 +454,68 @@ def update_workflow_nodes(workflow_id) -> tuple:
             if frontend_id:
                 frontend_to_backend_id[str(frontend_id)] = node.id
 
-        # 第二轮：根据映射把 next_nodes 和条件分支 target_node_id 里的前端 id 替换为后端 UUID
+        def _remap_ids(obj, id_map):
+            """递归将对象中所有可映射的前端 id 替换为后端 UUID。
+
+            处理范围：
+            - next_nodes 列表中的节点 ID
+            - 条件分支 branches[].target_node_id
+            - 循环节点 config.data_source.node_id
+            - 循环节点 config.loop_body_nodes 中每个子节点的 id、next_nodes 及嵌套 config
+            """
+            if not isinstance(obj, dict):
+                return obj
+            result = dict(obj)
+
+            # next_nodes
+            next_nodes = result.get('next_nodes')
+            if isinstance(next_nodes, list):
+                result['next_nodes'] = [
+                    str(id_map[str(nid)]) for nid in next_nodes if str(nid) in id_map
+                ]
+
+            # 条件分支 target_node_id
+            branches = result.get('branches')
+            if isinstance(branches, list):
+                updated_branches = []
+                for branch in branches:
+                    updated_branch = dict(branch)
+                    target_id = updated_branch.get('target_node_id')
+                    if target_id and str(target_id) in id_map:
+                        updated_branch['target_node_id'] = str(id_map[str(target_id)])
+                    updated_branches.append(updated_branch)
+                result['branches'] = updated_branches
+
+            # 循环节点 data_source.node_id
+            data_source = result.get('data_source')
+            if isinstance(data_source, dict):
+                ds_node_id = data_source.get('node_id')
+                if ds_node_id and str(ds_node_id) in id_map:
+                    result['data_source'] = {
+                        **data_source,
+                        'node_id': str(id_map[str(ds_node_id)]),
+                    }
+
+            # 循环节点 loop_body_nodes（递归处理子节点）
+            loop_body_nodes = result.get('loop_body_nodes')
+            if isinstance(loop_body_nodes, list):
+                result['loop_body_nodes'] = [
+                    _remap_ids(body_node, id_map) for body_node in loop_body_nodes
+                ]
+
+            return result
+
+        # 第二轮：根据映射把 next_nodes、条件分支、data_source、loop_body_nodes
+        # 里的前端 id 替换为后端 UUID
         for node_data, node in zip(nodes, created_nodes):
+            node_config = _remap_ids(node_data.get('config', {}), frontend_to_backend_id)
             next_nodes = node_data.get('next_nodes', [])
             node.next_nodes = [
                 str(frontend_to_backend_id[str(nid)])
                 for nid in next_nodes
                 if str(nid) in frontend_to_backend_id
             ]
-
-            # 同步更新条件分支中的 target_node_id
-            node_config = dict(node_data.get('config', {}))
-            branches = node_config.get('branches', [])
-            if branches:
-                updated_branches = []
-                for branch in branches:
-                    updated_branch = dict(branch)
-                    target_id = updated_branch.get('target_node_id')
-                    if target_id and str(target_id) in frontend_to_backend_id:
-                        updated_branch['target_node_id'] = str(frontend_to_backend_id[str(target_id)])
-                    updated_branches.append(updated_branch)
-                node_config['branches'] = updated_branches
-                node.config = node_config
+            node.config = node_config
 
     db.session.commit()
 

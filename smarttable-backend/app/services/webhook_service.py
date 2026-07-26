@@ -208,7 +208,8 @@ class WebhookService:
         """
         构建 Webhook 请求体
 
-        优先使用 body_template，支持 {{event}}、{{record}}、{{workflow}}、{{instance}} 变量。
+        优先使用 body_template，支持 {{event}}、{{record}}、{{workflow}}、{{instance}}、{{loop}} 变量。
+        循环体内时 {{loop}} 包含 current_data、index、round、total。
         模板为空时使用默认 JSON payload。
         """
         context = WebhookService._build_render_context(instance, event_data)
@@ -223,6 +224,10 @@ class WebhookService:
             'workflow': context.get('workflow', {}),
             'instance': context.get('instance', {}),
         }
+        # 循环体内时包含循环上下文
+        loop_context = context.get('loop')
+        if loop_context:
+            default_payload['loop'] = loop_context
         return json.dumps(default_payload, ensure_ascii=False, default=str)
 
     @staticmethod
@@ -273,13 +278,17 @@ class WebhookService:
             workflow_dict = event_data.get('workflow', {}) if isinstance(event_data, dict) else {}
 
         record = event_data.get('record', {}) if isinstance(event_data, dict) else {}
+        loop_context = event_data.get('loop') if isinstance(event_data, dict) else None
 
-        return {
+        result = {
             'event': event_data,
             'record': record,
             'workflow': workflow_dict,
             'instance': instance_dict,
         }
+        if loop_context:
+            result['loop'] = loop_context
+        return result
 
     @staticmethod
     def _render_template(template: str, context: Dict[str, Any]) -> str:
