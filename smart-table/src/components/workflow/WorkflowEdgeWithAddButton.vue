@@ -33,6 +33,15 @@ const isConditionSource = computed(
   () => props.data?.sourceNodeType === "condition",
 );
 
+/**
+ * 是否在编辑模式下视觉隐藏连线中间的"+"号按钮。
+ * - true：编辑模式下不显示"+"号按钮（仅 UI 隐藏，菜单、事件等 功能逻辑完整保留，便于后续重新启用）
+ * - false：恢复编辑模式下显示"+"号按钮的原有逻辑
+ *
+ * 注意：非编辑模式（readonly）下原本就不显示，此开关仅影响编辑模式下的显示。
+ */
+const HIDE_ADD_BUTTON_IN_EDIT_MODE = true;
+
 const branchName = computed(() => props.data?.branchName ?? "满足条件");
 
 const sourceLabelPosition = computed(() => {
@@ -63,11 +72,11 @@ function handleDelete() {
 </script>
 
 <template>
-  <BaseEdge :path="path[0]" />
+  <BaseEdge :path="path[0]" :marker-end="markerEnd" :marker-start="markerStart" />
 
   <EdgeLabelRenderer>
     <div
-      v-if="!data?.readonly && !isConditionSource"
+      v-if="!data?.readonly && !isConditionSource && !HIDE_ADD_BUTTON_IN_EDIT_MODE"
       class="edge-add-button-wrapper nodrag nopan"
       :style="{
         position: 'absolute',
