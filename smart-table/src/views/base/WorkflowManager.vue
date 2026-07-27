@@ -608,7 +608,8 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
               <WorkflowExecutionLogPanel
                 v-if="selectedInstance"
                 :instance="selectedInstance"
-                :logs="executionLogs" />
+                :logs="executionLogs"
+                :workflow-id="currentWorkflow?.id || ''" />
               <el-empty v-else description="暂无执行实例" />
             </div>
           </div>

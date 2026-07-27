@@ -110,6 +110,15 @@ export const getInstance = async (
   );
 };
 
+export const getInstanceWebhookDeliveries = async (
+  workflowId: string,
+  instanceId: string,
+): Promise<WebhookDeliveryLog[]> => {
+  return apiClient.get<WebhookDeliveryLog[]>(
+    `/workflows/${workflowId}/instances/${instanceId}/webhook-deliveries`,
+  );
+};
+
 export const triggerWorkflow = async (
   tableId: string,
   recordId: string,

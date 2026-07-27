@@ -14,6 +14,7 @@ from app.models.workflow import (
     WorkflowNode,
 )
 from app.models.workflow_instance import WorkflowInstance
+from app.models.webhook import WebhookDeliveryLog
 from app.models.base import MemberRole
 from app.services.workflow_service import WorkflowService
 from app.services.permission_service import PermissionService
@@ -1161,6 +1162,63 @@ def get_workflow_instance(workflow_id, instance_id) -> tuple:
             'execution_logs': [log.to_dict() for log in execution_logs]
         },
         message='获取实例详情成功'
+    )
+
+
+@workflows_bp.route('/workflows/<uuid:workflow_id>/instances/<uuid:instance_id>/webhook-deliveries', methods=['GET'])
+@jwt_required
+def get_instance_webhook_deliveries(workflow_id, instance_id) -> tuple:
+    """
+    获取工作流实例的 Webhook 投递日志
+    ---
+    tags:
+      - Workflows
+    security:
+      - Bearer: []
+    parameters:
+      - name: workflow_id
+        in: path
+        type: string
+        required: true
+        description: 工作流 ID
+      - name: instance_id
+        in: path
+        type: string
+        required: true
+        description: 实例 ID
+    responses:
+      200:
+        description: Webhook 投递日志列表
+      403:
+        description: 无权限
+      404:
+        description: 工作流或实例不存在
+    """
+    user_id = g.current_user_id
+
+    workflow, error = _get_workflow_or_404(workflow_id)
+    if error:
+        return error
+
+    if not _check_base_view_permission(str(workflow.base_id), user_id):
+        return forbidden_response('您没有权限访问此工作流')
+
+    instance = WorkflowInstance.query.filter_by(
+        id=WorkflowService._to_uuid(instance_id),
+        workflow_id=workflow.id
+    ).first()
+
+    if not instance:
+        return not_found_response('实例')
+
+    # 查询该实例的所有 Webhook 投递日志（包括内联 webhook）
+    delivery_logs = WebhookDeliveryLog.query.filter_by(
+        instance_id=instance.id
+    ).order_by(WebhookDeliveryLog.created_at.desc()).all()
+
+    return success_response(
+        data=[log.to_dict() for log in delivery_logs],
+        message='获取 Webhook 投递日志成功'
     )
 
 
