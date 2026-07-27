@@ -24,7 +24,12 @@ export function getEffectiveTimezone(): string {
     return configuredName;
   }
 
-  // 默认及 utc 模式均返回 UTC
+  // 未配置时，使用浏览器本地时区
+  if (mode === undefined || mode === null) {
+    return dayjs.tz.guess();
+  }
+
+  // utc 模式返回 UTC
   return "UTC";
 }
 
