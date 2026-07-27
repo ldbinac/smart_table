@@ -277,9 +277,12 @@ class WorkflowExecutionLog(db.Model):
         ForeignKey('workflow_instances.id', ondelete='CASCADE'),
         nullable=False
     )
-    node_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey('workflow_nodes.id', ondelete='SET NULL'),
+    node_id: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True
+    )
+    node_name: Mapped[Optional[str]] = mapped_column(
+        String(200),
         nullable=True
     )
     node_type: Mapped[str] = mapped_column(
@@ -320,17 +323,12 @@ class WorkflowExecutionLog(db.Model):
         lazy='joined'
     )
 
-    node = relationship(
-        'WorkflowNode',
-        lazy='joined'
-    )
-
     def to_dict(self) -> dict:
         return {
             'id': str(self.id),
             'instance_id': str(self.instance_id),
             'node_id': str(self.node_id) if self.node_id else None,
-            'node_name': self.node.name if self.node else None,
+            'node_name': self.node_name,
             'node_type': self.node_type,
             'status': self.status,
             'input_context': self.input_context or {},

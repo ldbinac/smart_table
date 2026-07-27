@@ -67,13 +67,14 @@ class _LoopBodyNodeWrapper:
     循环体子节点存储为 dict（在 loop 节点的 config.loop_body_nodes 中），不是 ORM 对象。
     此包装类暴露 execute_node / _dispatch_node 所需的属性（id / node_type / config / next_nodes 等）。
 
-    id 设为 None 以避免 WorkflowExecutionLog.node_id 的外键约束冲突——
-    循环体子节点的 ID 不在 workflow_nodes 表中，强制写入会触发 ForeignKey 约束失败。
+    使用前端传递的节点 ID（node_dict['id']），若无则生成临时标识符。
+    node_id 字段已改为 String 类型，可存储任意字符串标识符。
     """
 
     def __init__(self, node_dict: Dict[str, Any]):
         self._dict = node_dict or {}
-        self.id = None
+        # 使用前端传递的节点 ID，若无则生成临时标识符
+        self.id = self._dict.get('id') or f"loop-body-{id(self)}"
         self.node_type = self._dict.get('node_type', 'action')
         self.config = self._dict.get('config', {}) or {}
         self.next_nodes = self._dict.get('next_nodes', []) or []
@@ -264,6 +265,7 @@ class WorkflowExecutionEngine:
         execution_log = WorkflowExecutionLog(
             instance_id=instance.id,
             node_id=None,
+            node_name=None,
             node_type='trigger',
             status='error',
             input_context=instance.context or {},
@@ -343,7 +345,8 @@ class WorkflowExecutionEngine:
 
         execution_log = WorkflowExecutionLog(
             instance_id=instance.id,
-            node_id=node.id,
+            node_id=str(node.id) if node.id else None,
+            node_name=node.name if hasattr(node, 'name') else None,
             node_type=_resolve_node_type_value(node),
             status='running',
             input_context=input_context
@@ -919,7 +922,8 @@ class WorkflowExecutionEngine:
             # 记录诊断执行日志，便于前端排查循环未执行的原因
             diagnostic_log = WorkflowExecutionLog(
                 instance_id=instance.id,
-                node_id=node.id,
+                node_id=str(node.id) if node.id else None,
+                node_name=node.name if hasattr(node, 'name') else None,
                 node_type='loop',
                 status='success' if empty_result_action != 'error' else 'error',
                 input_context={
@@ -955,7 +959,8 @@ class WorkflowExecutionEngine:
 
         execution_log = WorkflowExecutionLog(
             instance_id=instance.id,
-            node_id=node.id,
+            node_id=str(node.id) if node.id else None,
+            node_name=node.name if hasattr(node, 'name') else None,
             node_type='loop',
             status='running',
             input_context={
