@@ -11,7 +11,7 @@ import { templateService } from "@/db/services";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
-import { formatDateTime, formatDate } from "@/utils/timezone";
+import { formatDateTime, formatDate, formatRelativeTime } from "@/utils/timezone";
 
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
@@ -261,30 +261,6 @@ const paginatedAllBases = computed(() => {
 });
 
 // 日期格式化（相对时间）
-const formatRelativeDate = (timestamp: number | string): string => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  if (days === 0) {
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours === 0) {
-      const minutes = Math.floor(diff / (1000 * 60));
-      return minutes <= 0 ? "刚刚" : `${minutes}分钟前`;
-    }
-    return `${hours}小时前`;
-  } else if (days === 1) {
-    return "昨天";
-  } else if (days < 7) {
-    return `${days}天前`;
-  } else if (days < 30) {
-    return `${Math.floor(days / 7)}周前`;
-  } else {
-    return formatDate(timestamp);
-  }
-};
-
 // 我的收藏分页事件
 const handleStarredSizeChange = (size: number) => {
   starredPageSize.value = size;
@@ -1180,7 +1156,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatRelativeDate(base.updated_at) }}
+                          修改于 {{ formatRelativeTime(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
@@ -1285,7 +1261,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatRelativeDate(base.updated_at) }}
+                          修改于 {{ formatRelativeTime(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
@@ -1538,7 +1514,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatRelativeDate(base.updated_at) }}
+                          修改于 {{ formatRelativeTime(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>

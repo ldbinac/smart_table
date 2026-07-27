@@ -1,6 +1,8 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import relativeTime from "dayjs/plugin/relativeTime";
+import "dayjs/locale/zh-cn";
 import { useAdminStore } from "@/stores/adminStore";
 
 let pluginsInitialized = false;
@@ -9,6 +11,8 @@ export function initDayjsPlugins(): void {
   if (!pluginsInitialized) {
     dayjs.extend(utc);
     dayjs.extend(timezone);
+    dayjs.extend(relativeTime);
+    dayjs.locale("zh-cn");
     pluginsInitialized = true;
   }
 }
@@ -89,4 +93,14 @@ export function formatDate(
   format: string = "YYYY-MM-DD",
 ): string {
   return formatDateTime(value, format);
+}
+
+export function formatRelativeTime(
+  value: string | number | Date | null | undefined,
+): string {
+  const converted = toConfiguredTimezone(value);
+  if (!converted) {
+    return "-";
+  }
+  return converted.fromNow();
 }
