@@ -749,7 +749,8 @@ class WorkflowExecutionEngine:
                     f'Webhook 配置不存在: {webhook_config_id}（节点: {node.id}, 工作流实例: {instance.id}）'
                 )
         else:
-            # 内联模式：从节点配置创建临时 WebhookConfig
+            # 内联模式：从节点配置构建临时 WebhookConfig（不持久化到数据库，
+            # 避免循环体内重复执行时每次都创建新记录导致 webhook 列表膨胀）
             inline_webhook = config.get('inline_webhook')
             if not inline_webhook or not inline_webhook.get('url'):
                 raise ValueError(
@@ -764,8 +765,6 @@ class WorkflowExecutionEngine:
                 body_template=inline_webhook.get('body_template', ''),
                 is_active=True
             )
-            db.session.add(webhook_config)
-            db.session.commit()
 
         # 构建包含 record 的 event_data，确保 {{record}} 模板变量能获取到数据
         render_context = self._build_render_context(instance)

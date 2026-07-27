@@ -186,10 +186,10 @@ class WebhookDeliveryLog(db.Model):
         primary_key=True,
         default=uuid.uuid4
     )
-    webhook_config_id: Mapped[uuid.UUID] = mapped_column(
+    webhook_config_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey('webhook_configs.id', ondelete='CASCADE'),
-        nullable=False
+        nullable=True
     )
     instance_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
@@ -250,7 +250,7 @@ class WebhookDeliveryLog(db.Model):
     def to_dict(self) -> dict:
         return {
             'id': str(self.id),
-            'webhook_config_id': str(self.webhook_config_id),
+            'webhook_config_id': str(self.webhook_config_id) if self.webhook_config_id else None,
             'instance_id': str(self.instance_id) if self.instance_id else None,
             'payload': self.payload,
             'status': self.status.value if isinstance(self.status, WebhookDeliveryStatus) else self.status,
@@ -264,4 +264,4 @@ class WebhookDeliveryLog(db.Model):
         }
 
     def __repr__(self) -> str:
-        return f'<WebhookDeliveryLog {self.webhook_config_id} {self.status}>'
+        return f'<WebhookDeliveryLog {self.webhook_config_id or "inline"} {self.status}>'

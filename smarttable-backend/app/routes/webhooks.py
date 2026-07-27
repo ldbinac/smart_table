@@ -612,8 +612,10 @@ def redeliver_webhook(delivery_id):
     if not delivery_log:
         return not_found_response('投递记录')
 
-    webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id)
+    webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id) if delivery_log.webhook_config_id else None
     if not webhook_config:
+        if delivery_log.webhook_config_id is None:
+            return error_response('内联 Webhook 不支持重新投递', code=400)
         return not_found_response('Webhook 配置')
 
     if not _check_base_permission(webhook_config.base_id, MemberRole.EDITOR):

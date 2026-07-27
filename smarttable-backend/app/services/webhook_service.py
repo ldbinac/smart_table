@@ -77,8 +77,12 @@ class WebhookService:
         """
         event_data = event_data or {}
 
+        # 判断 webhook_config 是否已持久化：未持久化的内联 webhook 不在 session 中，
+        # 其 id 虽由 default=uuid.uuid4 生成但不在 webhook_configs 表中，
+        # 若直接写入 delivery_log 会触发外键约束违反
+        config_in_session = db.session.object_session(webhook_config) is not None
         delivery_log = WebhookDeliveryLog(
-            webhook_config_id=webhook_config.id,
+            webhook_config_id=webhook_config.id if config_in_session else None,
             instance_id=instance.id if instance else None,
             status=WebhookDeliveryStatus.PENDING,
             retry_count=0,
@@ -484,8 +488,10 @@ class WebhookService:
         Returns:
             新的投递结果字典
         """
-        webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id)
+        webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id) if delivery_log.webhook_config_id else None
         if not webhook_config:
+            if delivery_log.webhook_config_id is None:
+                raise ValueError('内联 Webhook 不支持重新投递（配置未持久化）')
             raise ValueError(f'Webhook 配置不存在: {delivery_log.webhook_config_id}')
 
         instance = None
