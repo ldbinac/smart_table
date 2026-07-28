@@ -27,7 +27,7 @@ export const GITEE_REPO_URL = "https://gitee.com/binac/smart_table";
 export const GITEE_ISSUES_NEW_URL = "https://gitee.com/binac/smart_table/issues/new";
 
 /** 反馈收件邮箱 */
-export const FEEDBACK_EMAIL = "smarttable.feedback@example.com";
+export const FEEDBACK_EMAIL = "ldengbin@126.com";
 
 /** 公众号二维码图片路径（public 目录下） */
 export const WECHAT_QR_PATH = "/wechat_official_account.png";
