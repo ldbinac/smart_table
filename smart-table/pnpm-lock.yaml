@@ -20,6 +20,9 @@ importers:
       '@visactor/vtable':
         specifier: ^1.26.3
         version: 1.26.5
+      '@visactor/vtable-editors':
+        specifier: ^1.26.5
+        version: 1.26.5
       '@visactor/vtable-plugins':
         specifier: ^1.26.3
         version: 1.26.5(@visactor/vtable@1.26.5)
@@ -38,9 +41,12 @@ importers:
       '@vueuse/core':
         specifier: ^14.2.1
         version: 14.3.0(vue@3.5.40(typescript@5.9.3))
+      '@vxe-ui/core':
+        specifier: ^4.4.18
+        version: 4.4.18(vue@3.5.40(typescript@5.9.3))
       axios:
         specifier: ^1.14.0
-        version: 1.18.1
+        version: 1.18.1(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
       dayjs:
         specifier: ^1.11.20
         version: 1.11.21
@@ -82,7 +88,7 @@ importers:
         version: 1.1.0(quill@2.0.3)
       socket.io-client:
         specifier: ^4.8.3
-        version: 4.8.3
+        version: 4.8.3(supports-color@7.2.0)
       sortablejs:
         specifier: ^1.15.7
         version: 1.15.7
@@ -98,6 +104,9 @@ importers:
       vxe-table:
         specifier: ^4.18.7
         version: 4.20.7
+      xe-utils:
+        specifier: ^4.0.11
+        version: 4.0.11
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
@@ -119,7 +128,7 @@ importers:
         version: 6.0.8(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.1)(sass@1.101.7))(vue@3.5.40(typescript@5.9.3))
       '@vitest/coverage-v8':
         specifier: ^3.2.4
-        version: 3.2.7(vitest@3.2.7)
+        version: 3.2.7(supports-color@7.2.0)(vitest@3.2.7)
       '@vitest/ui':
         specifier: ^3.2.4
         version: 3.2.7(vitest@3.2.7)
@@ -158,7 +167,7 @@ importers:
         version: 8.1.5(@types/node@24.13.3)(esbuild@0.28.1)(sass@1.101.7)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7)
+        version: 3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7)(supports-color@7.2.0)
       vue-tsc:
         specifier: ^3.2.5
         version: 3.3.8(typescript@5.9.3)
@@ -1193,6 +1202,11 @@ packages:
     peerDependencies:
       vue: ^3.5.0
 
+  '@vxe-ui/core@4.4.18':
+    resolution: {integrity: sha512-1w9eSWxUe5gIgkZB9QTTWiAcYd9fnnhWeyZNILIp7SwYA8s8962S6bNi2xYv4FFj5ipXrZjfIXdOUJzb3d3aYw==}
+    peerDependencies:
+      vue: ^3.2.0
+
   abbrev@1.0.3:
     resolution: {integrity: sha512-s07HMJf6O5iTLVDx9cH7c9VbOdrmzxE+AzWz9CPi94zVNBQQA3jIwIZKTrHQj4dGR1T/MdwMnVJzSpjaVEXtXw==}
 
@@ -1557,6 +1571,9 @@ packages:
   dexie@3.2.7:
     resolution: {integrity: sha512-2a+BXvVhY5op+smDRLxeBAivE7YcYaneXJ1la3HOkUfX9zKkE/AJ8CNgjiXbtXepFyFmJNGSbmjOwqbT749r/w==}
     engines: {node: '>=6.0'}
+
+  dom-zindex@1.0.7:
+    resolution: {integrity: sha512-cKU/h8v8IPBgdZOTPbPmq3Ib+Ac5C+kKoh9I4LbGR9BM3GwbmB16KYWKJcj5M2BavnA66EbgYzxYDLd1IytnlQ==}
 
   dompurify@2.5.9:
     resolution: {integrity: sha512-i6mvVmWN4xo9LrhCOZrDgSs9noW6nOahbrmzjRbPF36YPyj5Ue5lgok0MHDWkG7xzpWFO2OYttXdzM7rJxHvNA==}
@@ -3008,6 +3025,9 @@ packages:
       utf-8-validate:
         optional: true
 
+  xe-utils@4.0.11:
+    resolution: {integrity: sha512-r3v1o10AnHXKRZ5ikuAOQ+Mxw/hy1XWjFr2/Q9L+LEZYq/PRxmiZ6/J53DEH53XqklEXddsmx1vYjOaOACq8IQ==}
+
   xlsx@0.18.5:
     resolution: {integrity: sha512-dmg3LCjBPHZnQp5/F/+nnTa+miPJxUXB6vtk42YjBBKayDNagxGEeIdWApkYPOf3Z3pm3k62Knjzp7lMeTEtFQ==}
     engines: {node: '>=0.8'}
@@ -3738,22 +3758,22 @@ snapshots:
       vite: 8.1.5(@types/node@24.13.3)(esbuild@0.28.1)(sass@1.101.7)
       vue: 3.5.40(typescript@5.9.3)
 
-  '@vitest/coverage-v8@3.2.7(vitest@3.2.7)':
+  '@vitest/coverage-v8@3.2.7(supports-color@7.2.0)(vitest@3.2.7)':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 1.0.2
       ast-v8-to-istanbul: 0.3.12
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       istanbul-lib-coverage: 3.2.2
       istanbul-lib-report: 3.0.1
-      istanbul-lib-source-maps: 5.0.6
+      istanbul-lib-source-maps: 5.0.6(supports-color@7.2.0)
       istanbul-reports: 3.2.0
       magic-string: 0.30.17
       magicast: 0.3.5
       std-env: 3.9.0
       test-exclude: 7.0.2
       tinyrainbow: 2.0.0
-      vitest: 3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7)
+      vitest: 3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7)(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -3802,7 +3822,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.17
       tinyrainbow: 2.0.0
-      vitest: 3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7)
+      vitest: 3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7)(supports-color@7.2.0)
 
   '@vitest/utils@3.2.7':
     dependencies:
@@ -3957,6 +3977,12 @@ snapshots:
     dependencies:
       vue: 3.5.40(typescript@5.9.3)
 
+  '@vxe-ui/core@4.4.18(vue@3.5.40(typescript@5.9.3))':
+    dependencies:
+      dom-zindex: 1.0.7
+      vue: 3.5.40(typescript@5.9.3)
+      xe-utils: 4.0.11
+
   abbrev@1.0.3: {}
 
   abs-svg-path@0.1.1: {}
@@ -3965,9 +3991,9 @@ snapshots:
 
   adler-32@1.3.1: {}
 
-  agent-base@6.0.0:
+  agent-base@6.0.0(supports-color@7.2.0):
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -4024,11 +4050,11 @@ snapshots:
 
   atob@2.1.2: {}
 
-  axios@1.18.1:
+  axios@1.18.1(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.0(debug@4.4.3(supports-color@7.2.0))
       form-data: 4.0.6
-      https-proxy-agent: 5.0.1
+      https-proxy-agent: 5.0.1(supports-color@7.2.0)
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
@@ -4288,9 +4314,11 @@ snapshots:
 
   dayjs@1.11.21: {}
 
-  debug@4.4.3:
+  debug@4.4.3(supports-color@7.2.0):
     dependencies:
       ms: 2.1.3
+    optionalDependencies:
+      supports-color: 7.2.0
 
   decimal.js@10.6.0: {}
 
@@ -4322,6 +4350,8 @@ snapshots:
   detect-libc@2.1.2: {}
 
   dexie@3.2.7: {}
+
+  dom-zindex@1.0.7: {}
 
   dompurify@2.5.9:
     optional: true
@@ -4381,10 +4411,10 @@ snapshots:
     dependencies:
       once: 1.4.0
 
-  engine.io-client@6.6.6:
+  engine.io-client@6.6.6(supports-color@7.2.0):
     dependencies:
       '@socket.io/component-emitter': 3.1.2
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       engine.io-parser: 5.2.3
       ws: 8.21.1
       xmlhttprequest-ssl: 2.1.2
@@ -4507,7 +4537,9 @@ snapshots:
 
   flatted@3.4.3: {}
 
-  follow-redirects@1.16.0: {}
+  follow-redirects@1.16.0(debug@4.4.3(supports-color@7.2.0)):
+    optionalDependencies:
+      debug: 4.4.3(supports-color@7.2.0)
 
   foreground-child@3.1.0:
     dependencies:
@@ -4657,10 +4689,10 @@ snapshots:
       html2canvas: 1.4.1
       jspdf: 2.3.1
 
-  https-proxy-agent@5.0.1:
+  https-proxy-agent@5.0.1(supports-color@7.2.0):
     dependencies:
-      agent-base: 6.0.0
-      debug: 4.4.3
+      agent-base: 6.0.0(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -4728,10 +4760,10 @@ snapshots:
       make-dir: 4.0.0
       supports-color: 7.2.0
 
-  istanbul-lib-source-maps@5.0.6:
+  istanbul-lib-source-maps@5.0.6(supports-color@7.2.0):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       istanbul-lib-coverage: 3.2.2
     transitivePeerDependencies:
       - supports-color
@@ -5380,21 +5412,21 @@ snapshots:
 
   slice-source@0.4.1: {}
 
-  socket.io-client@4.8.3:
+  socket.io-client@4.8.3(supports-color@7.2.0):
     dependencies:
       '@socket.io/component-emitter': 3.1.2
-      debug: 4.4.3
-      engine.io-client: 6.6.6
-      socket.io-parser: 4.2.7
+      debug: 4.4.3(supports-color@7.2.0)
+      engine.io-client: 6.6.6(supports-color@7.2.0)
+      socket.io-parser: 4.2.7(supports-color@7.2.0)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
       - utf-8-validate
 
-  socket.io-parser@4.2.7:
+  socket.io-parser@4.2.7(supports-color@7.2.0):
     dependencies:
       '@socket.io/component-emitter': 3.1.2
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -5624,10 +5656,10 @@ snapshots:
 
   uuid@8.3.0: {}
 
-  vite-node@3.2.4(@types/node@24.13.3)(lightningcss@1.33.0)(sass@1.101.7):
+  vite-node@3.2.4(@types/node@24.13.3)(lightningcss@1.33.0)(sass@1.101.7)(supports-color@7.2.0):
     dependencies:
       cac: 6.7.14
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       es-module-lexer: 1.7.0
       pathe: 2.0.3
       vite: 7.3.6(@types/node@24.13.3)(lightningcss@1.33.0)(sass@1.101.7)
@@ -5672,7 +5704,7 @@ snapshots:
       fsevents: 2.3.3
       sass: 1.101.7
 
-  vitest@3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7):
+  vitest@3.2.7(@types/node@24.13.3)(@vitest/ui@3.2.7)(jsdom@29.1.1)(lightningcss@1.33.0)(sass@1.101.7)(supports-color@7.2.0):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
@@ -5683,7 +5715,7 @@ snapshots:
       '@vitest/spy': 3.2.7
       '@vitest/utils': 3.2.7
       chai: 5.2.0
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       expect-type: 1.4.0
       magic-string: 0.30.17
       pathe: 2.0.3
@@ -5695,7 +5727,7 @@ snapshots:
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
       vite: 7.3.6(@types/node@24.13.3)(lightningcss@1.33.0)(sass@1.101.7)
-      vite-node: 3.2.4(@types/node@24.13.3)(lightningcss@1.33.0)(sass@1.101.7)
+      vite-node: 3.2.4(@types/node@24.13.3)(lightningcss@1.33.0)(sass@1.101.7)(supports-color@7.2.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.13.3
@@ -5805,6 +5837,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.21.1: {}
+
+  xe-utils@4.0.11: {}
 
   xlsx@0.18.5:
     dependencies:
