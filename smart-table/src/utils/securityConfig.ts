@@ -237,8 +237,8 @@ export async function getSessionTimeoutMinutes(): Promise<number> {
   try {
     const configs = await getSecurityConfigs()
     const value = configs[SECURITY_CONFIG_KEYS.SESSION_TIMEOUT]
-    // 确保值在合理范围内（5分钟-24小时）
-    return Math.max(5, Math.min(1440, Number(value) || DEFAULT_SECURITY_CONFIGS[SECURITY_CONFIG_KEYS.SESSION_TIMEOUT]))
+    // 确保值在合理范围内（5分钟-7天）
+    return Math.max(5, Math.min(10080, Number(value) || DEFAULT_SECURITY_CONFIGS[SECURITY_CONFIG_KEYS.SESSION_TIMEOUT]))
   } catch {
     return DEFAULT_SECURITY_CONFIGS[SECURITY_CONFIG_KEYS.SESSION_TIMEOUT]
   }

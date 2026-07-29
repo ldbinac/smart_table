@@ -77,8 +77,8 @@ class SecurityConfigService:
             
             if config and config.config_value is not None:
                 value = int(config.config_value)
-                # 确保在合理范围内（5分钟 - 24小时）
-                if 5 <= value <= 1440:
+                # 确保在合理范围内（5分钟 - 7天）
+                if 5 <= value <= 10080:
                     return value
                 logger.warning(f"配置值 {value} 超出合理范围，使用默认值")
             

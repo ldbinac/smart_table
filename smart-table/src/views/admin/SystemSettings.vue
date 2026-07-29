@@ -91,7 +91,7 @@
               <el-input-number
                 v-model="securityConfigs.session_timeout"
                 :min="5"
-                :max="1440"
+                :max="10080"
                 :step="5"
               />
             </el-form-item>
