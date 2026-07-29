@@ -877,15 +877,6 @@ function handleAddLoopChild(type: WorkflowNodeType) {
   emit("add-child-node", { parentId: localNode.value.id, nodeType: type });
 }
 
-/** 循环方式摘要（用于画布/只读展示） */
-const loopDataSourceLabel = computed(() => {
-  const ds = loopDataSource.value;
-  const opt = loopDataSourceOptions.value.find(
-    (o) => loopDataSourceKey(o.value) === loopDataSourceKey(ds),
-  );
-  return opt?.label ?? ds.type;
-});
-
 // ==================== 循环变量插入 ====================
 
 /**
@@ -992,7 +983,8 @@ const canInsertLoopVar = computed(
  * 将循环变量片段追加到模板字符串末尾，并触发 ElMessage 提示。
  * 返回拼接后的新模板字符串，由调用方写入对应字段。
  */
-function appendLoopVarSnippet(currentTemplate: string, snippet: string): string {
+function appendLoopVarSnippet(currentTemplate: string, snippet: string | undefined): string {
+  if (!snippet) return currentTemplate ?? "";
   ElMessage.success("已插入循环变量");
   return `${currentTemplate ?? ""}${snippet}`;
 }
@@ -1371,7 +1363,7 @@ const nodeTypeLabel = computed(() => {
                   :supports-field-drill="loopDataSourceSupportsFieldDrill"
                   :field-options="loopFieldDrillOptions"
                   :disabled="isLoadingLoopFieldDrillFields"
-                  @insert="(snippet) => updateCreateValueTemplate(index, appendLoopVarSnippet(mapping.value_template, snippet))" />
+                  @insert="(snippet) => updateCreateValueTemplate(index, appendLoopVarSnippet(mapping.value_template ?? '', snippet))" />
               </div>
 
               <FieldValueInput

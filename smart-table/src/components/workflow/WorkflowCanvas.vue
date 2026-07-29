@@ -110,12 +110,12 @@ function getLoopBodyNodes(node: WorkflowNode): WorkflowNode[] {
 }
 
 /** 循环体子节点点击：选中该子节点 */
-function handleSelectLoopChild(parentId: string, childId: string) {
+function handleSelectLoopChild(_parentId: string, childId: string) {
   emit("select-node", childId);
 }
 
 /** 循环体子节点删除 */
-function handleDeleteLoopChild(parentId: string, childId: string) {
+function handleDeleteLoopChild(_parentId: string, childId: string) {
   emit("delete-node", childId);
 }
 

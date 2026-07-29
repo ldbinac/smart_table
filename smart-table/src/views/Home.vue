@@ -11,7 +11,7 @@ import { templateService } from "@/db/services";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
-import { formatDateTime, formatDate, formatRelativeTime } from "@/utils/timezone";
+import { formatDateTime, formatRelativeTime } from "@/utils/timezone";
 
 const baseStore = useBaseStore();
 const authStore = useAuthStore();

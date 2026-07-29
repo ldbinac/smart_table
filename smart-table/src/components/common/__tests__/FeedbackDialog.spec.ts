@@ -4,7 +4,6 @@ import { nextTick } from "vue";
 import FeedbackDialog from "../FeedbackDialog.vue";
 import {
   buildGitHubIssueUrl,
-  buildGiteeIssueUrl,
   buildMailtoLink,
   WECHAT_QR_PATH,
 } from "@/utils/feedback";

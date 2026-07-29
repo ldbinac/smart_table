@@ -3267,7 +3267,6 @@ const buildTableConfig = (): any => {
                 image: fileUrl,
                 cornerRadius: 4,
                 cursor: 'pointer',
-                name: 'attachment-thumbnail',
               });
               // 单击缩略图直接预览完整图片，阻止事件冒泡到单元格
               img.addEventListener('pointerdown', (e: any) => {
