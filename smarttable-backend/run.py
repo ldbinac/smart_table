@@ -65,6 +65,8 @@ def parse_args():
 
     subparsers.add_parser('init-db', help='Initialize database tables')
 
+    subparsers.add_parser('migrate', help='Run database migrations (upgrade to latest version)')
+
     subparsers.add_parser('ensure-admin', help='Ensure default admin exists (auto-create if missing)')
 
     create_admin_parser = subparsers.add_parser('create-admin', help='Create admin user')
@@ -139,6 +141,67 @@ def init_db():
         print('Creating database tables...')
         db.create_all()
         print('Database tables created successfully!')
+
+
+def run_migrations():
+    """
+    运行数据库迁移到最新版本
+
+    支持三种运行环境：
+    - 源码开发：migrations/ 位于 run.py 同级目录
+    - Docker 部署：migrations/ 位于 /app/migrations
+    - PyInstaller 打包：migrations/ 位于 sys._MEIPASS/migrations
+
+    兼容性处理：
+    - 全新数据库：直接执行全部迁移。
+    - 已有数据库但未记录 alembic_version（旧部署）：先标记到引入迁移前的
+      基线版本（baseline），再执行后续新增迁移，避免重复创建已存在的表。
+
+    基线版本说明：
+    - 20260718_0016 是项目首次引入 Alembic 迁移前的最后一个 schema 状态。
+    - 旧部署（无论 1.6.2 及更早版本）都被视为处于该基线状态，然后升级到
+      最新版本（当前为 20260727_163，即 1.6.3 升级脚本）。
+    """
+    from flask_migrate import upgrade, stamp
+    from sqlalchemy import inspect
+    from pathlib import Path
+
+    # 引入 Alembic 之前的最后一个 schema 版本（baseline）
+    # 该值必须等于当前 head 迁移脚本的 down_revision
+    BASELINE_REVISION = '20260718_0016'
+
+    is_packaged = getattr(sys, 'frozen', False)
+    if is_packaged:
+        migrations_dir = Path(sys._MEIPASS) / 'migrations'
+    else:
+        migrations_dir = Path(__file__).parent / 'migrations'
+
+    print(f'[Migrate] 迁移目录: {migrations_dir}')
+
+    if not migrations_dir.exists():
+        print('[Migrate] ⚠️ 未找到迁移目录，回退到 db.create_all()')
+        init_db()
+        return
+
+    with app.app_context():
+        try:
+            inspector = inspect(db.engine)
+            existing_tables = inspector.get_table_names()
+            has_alembic_version = 'alembic_version' in existing_tables
+
+            if not has_alembic_version:
+                if not existing_tables:
+                    print('[Migrate] 检测到全新数据库，执行全部迁移...')
+                else:
+                    print(f'[Migrate] 检测到旧数据库（无 alembic_version），先标记基线版本 {BASELINE_REVISION}...')
+                    stamp(directory=str(migrations_dir), revision=BASELINE_REVISION)
+                    print(f'[Migrate] ✅ 已标记当前版本为 {BASELINE_REVISION}')
+
+            upgrade(directory=str(migrations_dir))
+            print('[Migrate] ✅ 数据库迁移完成')
+        except Exception as e:
+            print(f'[Migrate] ❌ 数据库迁移失败: {e}')
+            raise
 
 
 def create_admin(email: str, password: str, name: str):
@@ -285,6 +348,9 @@ if __name__ == '__main__':
     if args.command == 'init-db':
         init_db()
         sys.exit(0)
+    elif args.command == 'migrate':
+        run_migrations()
+        sys.exit(0)
     elif args.command == 'ensure-admin':
         ensure_default_admin_exists()
         sys.exit(0)
@@ -319,13 +385,18 @@ if __name__ == '__main__':
         print(f'Frontend URL: http://localhost:3000 (Vite dev server)')
 
 
-    # ===== 初始化数据库表结构（确保所有表存在）=====
+    # ===== 自动运行数据库迁移（升级到最新版本）=====
     print('[Init] Checking database schema...')
     try:
-        init_db()
+        run_migrations()
     except Exception as e:
-        print(f'[Init] ⚠️ Database init warning: {e}')
-        print('[Init]   (If this is a fresh install, tables will be created on first use)')
+        print(f'[Init] ⚠️ Database migration warning: {e}')
+        print('[Init]   Falling back to db.create_all()...')
+        try:
+            init_db()
+        except Exception as init_e:
+            print(f'[Init] ⚠️ Database init warning: {init_e}')
+            print('[Init]   (If this is a fresh install, tables will be created on first use)')
 
     # 确保默认管理员账号存在（自动创建）
     ensure_default_admin_exists()

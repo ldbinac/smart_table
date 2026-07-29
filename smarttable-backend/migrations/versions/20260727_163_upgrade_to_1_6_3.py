@@ -92,7 +92,9 @@ def upgrade():
         column('node_type', sa.String)
     )
 
-    conn = bind.connect()
+    # SQLAlchemy 2.0: op.get_bind() 返回的是 Connection 对象，且 Alembic
+    # 已经在外层开启了事务，因此直接使用 bind 执行即可，无需再 begin()/close()
+    conn = bind
     result = conn.execute(
         sa.select(workflow_nodes.c.id, workflow_nodes.c.config)
           .where(workflow_nodes.c.node_type == 'loop')
@@ -119,8 +121,6 @@ def upgrade():
                       .values(config=config)
                 )
 
-    conn.close()
-
     # ==================== 4. webhook_delivery_logs.webhook_config_id 改为可空 ====================
     with op.batch_alter_table('webhook_delivery_logs', schema=None) as batch_op:
         batch_op.alter_column(
@@ -130,8 +130,12 @@ def upgrade():
         )
 
     # ==================== 5. workflow_execution_logs 表结构修改 ====================
+    # 注意：SQLite batch 模式下，alter_column 和 add_column 不能放在同一个
+    # batch_alter_table 块中，否则会出现 CircularDependencyError。
+    # 因此拆分为两个独立的 batch 操作。
+
+    # 5.1 修改 node_id 类型为 String(64)
     with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
-        # 修改 node_id 类型为 String(64)
         batch_op.alter_column(
             'node_id',
             existing_type=sa.UUID(as_uuid=True) if is_postgres else sa.String(36),
@@ -139,7 +143,8 @@ def upgrade():
             nullable=True,
         )
 
-        # 新增 node_name 字段
+    # 5.2 新增 node_name 字段
+    with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
         batch_op.add_column(
             sa.Column('node_name', sa.String(200), nullable=True)
         )
@@ -161,9 +166,14 @@ def downgrade():
     is_postgres = bind.dialect.name == 'postgresql'
 
     # ==================== 5. 恢复 workflow_execution_logs 表结构 ====================
+    # 同样拆分为两个独立的 batch 操作，避免 SQLite batch 模式循环依赖
+
+    # 5.1 删除 node_name 字段
     with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
         batch_op.drop_column('node_name')
 
+    # 5.2 恢复 node_id 类型
+    with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
         batch_op.alter_column(
             'node_id',
             existing_type=sa.String(64),

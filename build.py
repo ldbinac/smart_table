@@ -439,6 +439,17 @@ def prepare_release_package(platform):
     # README
     _create_readme(release_subdir, platform)
 
+    # 数据库迁移脚本（启动时自动升级需要）
+    migrations_src = BACKEND_DIR / 'migrations'
+    if migrations_src.exists():
+        migrations_dst = release_subdir / 'migrations'
+        if migrations_dst.exists():
+            shutil.rmtree(migrations_dst)
+        shutil.copytree(migrations_src, migrations_dst)
+        log(f'  Migrations: {migrations_src.relative_to(PROJECT_ROOT)}')
+    else:
+        log(f'  ⚠️ 未找到数据库迁移目录', 'WARNING')
+
     # 目录
     for d in ['data', 'uploads', 'logs']:
         (release_subdir / d).mkdir(exist_ok=True); (release_subdir / d / '.gitkeep').write_text('')
@@ -464,6 +475,12 @@ echo ============================================
 tasklist /FI "IMAGENAME eq redis-server.exe" 2>NUL | find /I /N "redis-server">NUL
 if "%ERRORLEVEL%"=="0" (echo [Redis] 已运行) else (start /B "" "%~dp0redis-server.exe" --port 6379 >nul 2>&1 & timeout /t 2 >nul)
 echo.
+echo [SmartTable] 检查并升级数据库...
+"%~dp0SmartTable.exe" migrate
+if %ERRORLEVEL% neq 0 (
+    echo [SmartTable] 数据库升级失败，继续启动（可能首次运行需要初始化）...
+)
+echo.
 echo [SmartTable] 启动中......
 echo 按 Ctrl+C 停止
 start /B "" "%~dp0SmartTable.exe"
@@ -485,6 +502,8 @@ cd "$(dirname "$0")"
 if ! pgrep -x redis-server >/dev/null; then
     ./redis-server --port 6379 --daemonize yes 2>/dev/null && echo "[Redis] ✓" || echo "[Redis] ⚠️"
 fi
+echo "[SmartTable] 检查并升级数据库..."
+./smarttable migrate || echo "[SmartTable] 数据库升级失败，继续启动（可能首次运行需要初始化）..."
 echo "启动中......"
 ./smarttable &
 PID=$!
@@ -519,6 +538,11 @@ def _create_readme(d, platform):
 自动创建的默认管理员账号请关注微信公众号后回复“SmartTable”关键词获取
 
 
+
+## 版本升级
+
+直接解压新版覆盖旧版即可，`start.bat` / `start.sh` 会在启动前自动检查并运行数据库迁移。
+升级前建议备份 `data/`、`uploads/`、`config/.env` 三个目录/文件。
 
 ## 常见问题
 

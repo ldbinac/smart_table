@@ -69,10 +69,6 @@ uploads/
 smart-table/dist/
 smart-table/build/
 
-# 后端迁移
-migrations/
-alembic.ini
-
 # 其他
 *.bak
 *.tmp
