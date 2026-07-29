@@ -556,6 +556,28 @@ describe("Formula Functions", () => {
       expect(formulaFunctions.DATEDIF(date1, date2, "D")).toBe(9);
     });
 
+    it("should calculate DATEDIF with various unit formats", () => {
+      const date1 = new Date("2024-01-01").getTime();
+      const date2 = new Date("2024-01-10").getTime();
+      // 支持多种单位格式
+      expect(formulaFunctions.DATEDIF(date1, date2, "d")).toBe(9);
+      expect(formulaFunctions.DATEDIF(date1, date2, "day")).toBe(9);
+      expect(formulaFunctions.DATEDIF(date1, date2, "days")).toBe(9);
+    });
+
+    it("should calculate DATEDIF with month and year units", () => {
+      const date1 = new Date("2024-01-01").getTime();
+      const date2 = new Date("2025-03-01").getTime();
+      // 月差
+      expect(formulaFunctions.DATEDIF(date1, date2, "M")).toBe(14);
+      expect(formulaFunctions.DATEDIF(date1, date2, "month")).toBe(14);
+      expect(formulaFunctions.DATEDIF(date1, date2, "months")).toBe(14);
+      // 年差
+      expect(formulaFunctions.DATEDIF(date1, date2, "Y")).toBe(1);
+      expect(formulaFunctions.DATEDIF(date1, date2, "year")).toBe(1);
+      expect(formulaFunctions.DATEDIF(date1, date2, "years")).toBe(1);
+    });
+
     it("should calculate DATEDIFF with timestamp", () => {
       const date1 = new Date("2024-01-01").getTime();
       const date2 = new Date("2024-01-10").getTime();

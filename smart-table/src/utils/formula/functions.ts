@@ -299,15 +299,27 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
     const end = parseDateValue(endDate)
     if (!start || !end) return '#ERROR'
 
-    const u = String(unit ?? 'D').toUpperCase()
+    const rawUnit = String(unit ?? 'D').trim()
+    const u = rawUnit.toLowerCase()
 
+    // 支持多种单位格式，与 DATEDIFF 保持一致
     switch (u) {
-      case 'Y':
+      case 'y':
+      case 'year':
+      case 'years':
         return end.diff(start, 'year')
-      case 'M':
+      case 'm':
+      case 'month':
+      case 'months':
         return end.diff(start, 'month')
-      case 'D':
+      case 'd':
+      case 'day':
+      case 'days':
         return end.diff(start, 'day')
+      case 'w':
+      case 'week':
+      case 'weeks':
+        return end.diff(start, 'day') / 7
       default:
         return '#ERROR'
     }
