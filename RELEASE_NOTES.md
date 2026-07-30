@@ -4,6 +4,125 @@
 
 ***
 
+# SmartTable v1.6.3 Release Notes
+
+**发布日期 / Release Date**: 2026-07-30
+
+**版本号 / Version**: v1.6.3
+
+**标签 / Tags**: `release`, `v1.6.3`, `latest`, `stable`, `workflow`, `formula-field`, `lookup-field`, `pnpm`, `token-refresh`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.3 更新说明
+
+本次更新聚焦 **工作流引擎能力扩展**、**公式与字段能力完善**、**前端构建体系升级** 以及 **稳定性修复**。新增工作流循环节点、循环体 Webhook、问题反馈入口、Token 自动续期体系；公式函数补充 ；前端构建全面迁移至 pnpm；并修复了看板拖拽、附件删除、字段编辑、表格交互等一批问题。
+
+### ✨ 新增及功能优化
+
+#### 🔄 工作流引擎增强
+
+- **循环节点**：新增循环节点类型及完整流程支持，可在流程内对集合逐项处理
+- **循环 Webhook**：新增循环节点 Webhook 支持并修复循环数据源
+- **Webhook 投递日志**：新增工作流实例 Webhook 投递日志查看功能
+- **Webhook 变量提示**：重构变量提示系统，添加带详情的悬停提示
+- **内联 Webhook 拦截**：支持内联 Webhook 的投递与重投递拦截
+- **画布连线优化**：优化画布连线，增加方向箭头
+- **节点类型重构**：重构工作流节点类型，使用细粒度枚举并兼容旧数据
+- **执行日志增强**：执行日志节点 ID 改为字符串类型并新增节点名字段
+
+#### 🧮 公式与字段增强
+
+- **公式函数统一**：统一前后端公式函数注册并补充缺失函数
+- **关联字段优化**：优化关联字段功能，修复缓存与显示问题
+- **数字格式化**：为数字类型字段添加格式化渲染能力
+
+#### 🛠️ 平台能力
+
+- **Token 自动续期**：实现完整的 Token 自动续期功能体系
+- **问题反馈**：新增问题反馈相关功能
+- **文档体验**：优化文档版本控制与编辑体验
+- **附件预览**：附件图片缩略图支持单击直接预览完整图片
+- **会话超时上限**：调整会话超时时间上限到 10080 分钟（不建议调整太大，存在安全隐患）
+
+#### 📦 工程与构建
+
+- **pnpm 迁移**：前端构建体系全面迁移至 pnpm（Docker、打包脚本、文档同步）
+- **数据库迁移**：重构数据库初始化流程，改用 Alembic 迁移，实现版本自动升级
+- **反馈邮箱**：更新反馈邮箱地址
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复看板拖拽时未使用目标分组 ID 的问题
+- 修复看板视图拖拽卡片后未同步更新分组字段
+- 修复编辑器回调异常导致新增一次增加 2 行的问题
+- 修复表格视图交互问题及字段类型转换与默认值
+- 修复字段编辑面板确认后字段管理面板异常
+- 修复附件字段删除弹窗遮挡及删除失效问题
+- 修复点击附件缩略图时触发单元格选择的问题
+- 修复流程节点空结果处理和空节点校验逻辑
+- 修复时区获取逻辑，支持读取浏览器本地时区
+- 修复内联 Webhook 的投递与重投递拦截问题
+
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.3 Release Notes
+
+This release focuses on **workflow engine capability expansion**, **formula & field enhancements**, **frontend build system upgrade**, and **stability fixes**. Added workflow loop nodes, loop body Webhook, issue feedback entry, complete Token auto-refresh system; unified frontend and backend formula function registration; migrated frontend build to pnpm; and fixed kanban drag, attachment deletion, field editor, table interaction and other issues.
+
+### ✨ New Features & Improvements
+
+#### 🔄 Workflow Engine
+
+- **Loop Node**: New loop node type with full process support, iterate collections inside workflow
+- **Loop Webhook**: Added loop node Webhook support and fixed loop data source
+- **Webhook Delivery Logs**: New workflow instance Webhook delivery log viewer
+- **Webhook Variable Hints**: Refactored variable hint system with detailed hover tooltips
+- **Inline Webhook Interception**: Support inline Webhook delivery and re-delivery interception
+- **Canvas Edges**: Optimized canvas edges with directional arrows
+- **Node Type Refactor**: Refactored workflow node types with fine-grained enums, backward-compatible with legacy data
+- **Execution Log Enhancements**: Execution log node ID changed to string type, added node name field
+
+#### 🧮 Formula & Fields
+
+- **Unified Formula Registration**: Unified frontend and backend formula function registration, added missing functions
+- **Lookup Field Optimization**: Optimized lookup field functionality, fixed cache and display issues
+- **Number Formatting**: Added formatting rendering for number type fields
+
+#### 🛠️ Platform Capabilities
+
+- **Token Auto-Refresh**: Implemented complete Token auto-refresh system
+- **Issue Feedback**: New issue feedback related functionality
+- **Document Experience**: Optimized document version control and editing experience
+- **Attachment Preview**: Attachment image thumbnails support single-click to preview full image
+- **Session Timeout Upper Limit**: Adjusted session timeout upper limit to 10080 minutes (7 days) — not recommended to raise too high due to security concerns
+
+#### 📦 Engineering & Build
+
+- **pnpm Migration**: Full migration of frontend build system to pnpm (Docker, packaging scripts, docs sync)
+- **Database Migration**: Refactored database initialization flow, switched to Alembic migrations, supports automatic version upgrade
+- **Feedback Email**: Updated feedback email address
+
+### 🐛 Bug Fixes
+
+- Fixed kanban drag not using target group ID
+- Fixed kanban view drag not synchronizing group field updates
+- Fixed editor callback anomaly causing 2 rows to be added per single add operation
+- Fixed table view interaction issues and field type conversion/defaults
+- Fixed field management panel anomalies after confirming field editor
+- Fixed attachment field delete dialog occlusion and deletion failure
+- Fixed clicking attachment thumbnail triggering cell selection
+- Fixed workflow node empty result handling and empty node validation logic
+- Fixed timezone acquisition logic, support reading browser local timezone
+- Fixed inline Webhook delivery and re-delivery interception
+
+***
+
 # SmartTable v1.6.2 Release Notes
 
 **发布日期 / Release Date**: 2026-07-19
