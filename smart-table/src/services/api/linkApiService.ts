@@ -2,6 +2,7 @@
  * 关联字段 API 服务
  */
 import { apiClient } from "@/api/client";
+import { normalizeFieldType } from "@/types/fields";
 import type { LinkRelation } from "@/types/link";
 
 // 简单的内存缓存
@@ -108,10 +109,17 @@ export interface SearchLinkableRecordsParams {
 export const createLinkField = async (
   data: CreateLinkFieldData
 ): Promise<{ field: Record<string, unknown>; link_relation: LinkRelation }> => {
-  return apiClient.post<{
+  const result = await apiClient.post<{
     field: Record<string, unknown>;
     link_relation: LinkRelation;
   }>("/fields/link", data);
+
+  // 将后端返回的字段类型转换为前端使用的类型
+  if (result.field && result.field.type) {
+    result.field.type = normalizeFieldType(result.field.type as string);
+  }
+
+  return result;
 };
 
 /**
@@ -121,10 +129,19 @@ export const updateLinkField = async (
   fieldId: string,
   data: UpdateLinkFieldData
 ): Promise<Record<string, unknown>> => {
-  return apiClient.put<Record<string, unknown>>(
+  const result = await apiClient.put<Record<string, unknown>>(
     `/fields/${fieldId}/link`,
     data
   );
+
+  // 将后端返回的字段类型转换为前端使用的类型
+  if (result && typeof result === "object" && "type" in result) {
+    (result as Record<string, unknown>).type = normalizeFieldType(
+      (result as Record<string, unknown>).type as string
+    );
+  }
+
+  return result;
 };
 
 /**

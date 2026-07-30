@@ -11,7 +11,9 @@ import type {
 } from "@/services/realtime/eventTypes";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
+import { db } from "@/db/schema";
 import { recordService } from "@/db/services";
+import { serializeRecordValues } from "@/utils/recordValueSerializer";
 import { linkApiService } from "@/services/api/linkApiService";
 import { FieldType } from "@/types/fields";
 import type { CellValue, SortConfig } from "@/types";
@@ -222,6 +224,28 @@ const handleCellUpdate = async (
       await linkApiService.updateRecordLink(record.id, fieldId, {
         target_record_ids: targetRecordIds,
       });
+
+      // 立即更新本地记录值，确保关联字段能及时渲染
+      const recordIndex = tableStore.records.findIndex(r => r.id === record.id);
+      if (recordIndex !== -1) {
+        const existingRecord = tableStore.records[recordIndex];
+        const updatedRecord: RecordEntity = {
+          ...existingRecord,
+          values: { ...existingRecord.values, [fieldId]: [...targetRecordIds] },
+          updatedAt: Date.now(),
+        };
+        tableStore.records[recordIndex] = updatedRecord;
+
+        try {
+          await db.records.update(record.id, {
+            values: serializeRecordValues(updatedRecord.values),
+            updatedAt: updatedRecord.updatedAt,
+          });
+        } catch (dbError) {
+          console.warn('[TableView] 更新本地 IndexedDB 关联字段值失败:', dbError);
+        }
+      }
+
       await tableStore.refreshRecords(record.tableId);
       editingCell.value = null;
       return;

@@ -4,6 +4,7 @@
 支持双向关联的自动同步
 使用 Redis 缓存优化性能
 """
+import json
 import uuid
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timezone
@@ -56,8 +57,99 @@ def _invalidate_field_links_cache(field_id: str) -> None:
     current_app.logger.debug(f"[LinkService] 清除缓存: {cache_key}")
 
 
+def _format_select_display_value(raw_value: Any, field: Field) -> str:
+    """
+    将单选/多选字段的原始值转换为可读的选项名称
+    
+    Args:
+        raw_value: 字段原始值（可能是 ID、ID 列表、JSON 字符串或对象）
+        field: 字段对象
+        
+    Returns:
+        可读的选项名称字符串
+    """
+    if not field or not field.options:
+        return str(raw_value) if raw_value is not None else ''
+    
+    options = field.options.get('choices') or field.options.get('options') or []
+    if not isinstance(options, list):
+        return str(raw_value) if raw_value is not None else ''
+    
+    # 构建 ID->名称 和 名称->名称 的映射
+    option_map: Dict[str, str] = {}
+    for opt in options:
+        if isinstance(opt, dict):
+            opt_id = str(opt.get('id', ''))
+            opt_name = str(opt.get('name', ''))
+            if opt_id:
+                option_map[opt_id] = opt_name or opt_id
+            if opt_name:
+                option_map[opt_name] = opt_name
+    
+    if field.type == FieldType.SINGLE_SELECT.value:
+        # 兼容对象格式 {id, name}
+        if isinstance(raw_value, dict):
+            raw_value = raw_value.get('name') or raw_value.get('id')
+        key = str(raw_value) if raw_value is not None else ''
+        return option_map.get(key, key)
+    
+    if field.type == FieldType.MULTI_SELECT.value:
+        ids: List[Any] = []
+        if isinstance(raw_value, list):
+            ids = raw_value
+        elif isinstance(raw_value, str):
+            try:
+                parsed = json.loads(raw_value)
+                if isinstance(parsed, list):
+                    ids = parsed
+            except Exception:
+                ids = [v.strip() for v in raw_value.split(',') if v.strip()]
+        
+        names: List[str] = []
+        for item in ids:
+            if isinstance(item, dict):
+                item_id = str(item.get('id', ''))
+                item_name = str(item.get('name', ''))
+                names.append(item_name or option_map.get(item_id, item_id))
+            else:
+                item_key = str(item)
+                names.append(option_map.get(item_key, item_key))
+        return ', '.join(names)
+    
+    return str(raw_value) if raw_value is not None else ''
+
+
 class LinkService:
     """关联字段服务类"""
+
+    @staticmethod
+    def invalidate_all_record_links_cache() -> None:
+        """清除所有记录关联数据的缓存（displayFieldId 等配置变更后使用）"""
+        try:
+            # 优先通过 Redis 扫描精确清除 link:record:*:links 键
+            from app.extensions import redis_client
+            if redis_client:
+                pattern = _get_record_links_cache_key('*')  # link:record:*:links
+                cursor = 0
+                deleted = 0
+                while True:
+                    cursor, keys = redis_client.scan(cursor, match=pattern, count=100)
+                    if keys:
+                        redis_client.delete(*keys)
+                        deleted += len(keys)
+                    if cursor == 0:
+                        break
+                current_app.logger.info(f'[LinkService] 已清除所有记录关联缓存，共 {deleted} 条')
+                return
+        except Exception as e:
+            current_app.logger.warning(f'[LinkService] Redis 清除关联缓存失败: {e}')
+
+        # 无 Redis 时回退：清除 Flask-Caching 中所有缓存
+        try:
+            cache.clear()
+            current_app.logger.info('[LinkService] 已清除 Flask-Caching 全部缓存')
+        except Exception as e:
+            current_app.logger.error(f'[LinkService] 清除关联缓存失败: {e}')
 
     @staticmethod
     def get_inverse_relationship_type(relationship_type: str) -> str:
@@ -991,15 +1083,50 @@ class LinkService:
                 if _field_cache is not None and field:
                     _field_cache[str(field_id)] = field
             
-            if field and field.config:
-                display_field_id = field.config.get('displayFieldId')
+            # 辅助函数：从 field 的 config 或 options 中获取 displayFieldId
+            def _get_display_field_id(f):
+                if not f:
+                    return None
+                for storage in (f.config, f.options):
+                    if storage and isinstance(storage, dict):
+                        display_field_id = storage.get('displayFieldId')
+                        if display_field_id:
+                            return display_field_id
+                        # 兼容下划线命名
+                        display_field_id = storage.get('display_field_id')
+                        if display_field_id:
+                            return display_field_id
+                return None
+
+            # 辅助函数：格式化显示值，对单选/多选字段转换为选项名称
+            def _format_display_value(display_field_id, display_value):
+                if display_value is None or display_value == '':
+                    return None
+                display_field = None
+                if _field_cache is not None:
+                    display_field = _field_cache.get(str(display_field_id))
+                if display_field is None:
+                    display_field = db.session.get(Field, display_field_id)
+                    if _field_cache is not None and display_field:
+                        _field_cache[str(display_field_id)] = display_field
+                if display_field and display_field.type in (FieldType.SINGLE_SELECT.value, FieldType.MULTI_SELECT.value):
+                    return _format_select_display_value(display_value, display_field)
+                return str(display_value)
+
+            if field:
+                display_field_id = _get_display_field_id(field)
                 if display_field_id:
                     display_value = target_record.values.get(str(display_field_id))
-                    if display_value is not None and display_value != '':
-                        return str(display_value)
-                
+                    formatted = _format_display_value(display_field_id, display_value)
+                    if formatted is not None:
+                        return formatted
+
                 # 尝试使用 inverseFieldId 对应的源字段的 displayFieldId
-                inverse_field_id = field.config.get('inverseFieldId')
+                inverse_field_id = None
+                if field.config and isinstance(field.config, dict):
+                    inverse_field_id = field.config.get('inverseFieldId') or field.config.get('inverse_field_id')
+                if not inverse_field_id and field.options and isinstance(field.options, dict):
+                    inverse_field_id = field.options.get('inverseFieldId') or field.options.get('inverse_field_id')
                 if inverse_field_id:
                     inverse_field = None
                     if _field_cache is not None:
@@ -1008,13 +1135,13 @@ class LinkService:
                         inverse_field = db.session.get(Field, inverse_field_id)
                         if _field_cache is not None and inverse_field:
                             _field_cache[str(inverse_field_id)] = inverse_field
-                    
-                    if inverse_field and inverse_field.config:
-                        display_field_id = inverse_field.config.get('displayFieldId')
-                        if display_field_id:
-                            display_value = target_record.values.get(str(display_field_id))
-                            if display_value is not None and display_value != '':
-                                return str(display_value)
+
+                    display_field_id = _get_display_field_id(inverse_field)
+                    if display_field_id:
+                        display_value = target_record.values.get(str(display_field_id))
+                        formatted = _format_display_value(display_field_id, display_value)
+                        if formatted is not None:
+                            return formatted
             
             # 尝试获取目标记录的第一个有意义的字段值
             if target_record.values:
@@ -1255,6 +1382,8 @@ class LinkService:
                 )
                 
                 source_table_name = source_table.name if source_table else '源表'
+                # 反向关联字段默认使用源表主字段作为显示字段，避免显示关联记录 ID
+                inverse_display_field_id = str(source_table.primary_field_id) if source_table.primary_field_id else None
                 inverse_field_data = {
                     'name': f"来自 {source_table_name} 的关联",
                     'type': FieldType.LINK_TO_RECORD.value,
@@ -1262,7 +1391,7 @@ class LinkService:
                     'config': {
                         'linkedTableId': table_id,
                         'relationshipType': inverse_relationship_type,
-                        'displayFieldId': None,
+                        'displayFieldId': inverse_display_field_id,
                         'bidirectional': True,
                         'inverseFieldId': field['id']
                     }

@@ -16,7 +16,9 @@ import type {
 } from "@/services/realtime/eventTypes";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
+import { db } from "@/db/schema";
 import { recordService } from "@/db/services";
+import { serializeRecordValues } from "@/utils/recordValueSerializer";
 import { FieldType, fieldTypeSvgContentMap } from "@/types/fields";
 import type { FieldTypeValue } from "@/types/fields";
 import type { CellValue } from "@/types";
@@ -1671,9 +1673,79 @@ const drawerSize = computed(() => {
   return "600px";
 });
 
-// 初始化列宽（可以从localStorage或其他地方恢复）
+// 获取列宽本地存储键（按表格+视图隔离，避免不同视图互相覆盖）
+const getColumnWidthsStorageKey = () => {
+  return `columnWidths_${props.tableId || 'default'}_${props.viewId || 'default'}`;
+};
+
+// 从 localStorage 恢复列宽
 const initColumnWidths = () => {
-  // 这里可以从localStorage恢复列宽，暂时留空
+  try {
+    const key = getColumnWidthsStorageKey();
+    const saved = localStorage.getItem(key);
+    console.log(`[VTableView] 恢复列宽 key=${key}, saved=${saved}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        // 只保留字段 ID -> number 的有效映射
+        const valid: Record<string, number> = {};
+        for (const [key, value] of Object.entries(parsed)) {
+          if (typeof value === 'number' && value > 0) {
+            valid[key] = value;
+          }
+        }
+        columnWidths.value = valid;
+        console.log('[VTableView] 已恢复列宽映射:', valid);
+      } else {
+        columnWidths.value = {};
+      }
+    } else {
+      columnWidths.value = {};
+    }
+  } catch (e) {
+    console.warn('[VTableView] 恢复列宽失败:', e);
+    columnWidths.value = {};
+  }
+};
+
+// 保存列宽到 localStorage
+const saveColumnWidths = () => {
+  try {
+    const key = getColumnWidthsStorageKey();
+    localStorage.setItem(
+      key,
+      JSON.stringify(columnWidths.value)
+    );
+    console.log(`[VTableView] 列宽已保存 key=${key}:`, columnWidths.value);
+  } catch (e) {
+    console.warn('[VTableView] 保存列宽失败:', e);
+  }
+};
+
+// 将已缓存的列宽应用到 VTable 实例
+const applyColumnWidths = () => {
+  if (!tableInstance) return;
+
+  const tableAny = tableInstance as any;
+  const widths = { ...columnWidths.value };
+  console.log('[VTableView] 开始应用列宽:', widths);
+  orderedVisibleFields.value.forEach((field, index) => {
+    const savedWidth = widths[field.id];
+    if (savedWidth && typeof savedWidth === 'number') {
+      const colIndex = index + 1; // 第 0 列为行号列
+      try {
+        const targetWidth = Math.max(60, savedWidth);
+        console.log(`[VTableView] 应用列宽 col=${colIndex}, field=${field.id}, width=${targetWidth}`);
+        tableAny.setColWidth(colIndex, targetWidth);
+        // 部分场景下 setColWidth 不会立即生效，通过 _setColWidth 再写入一次
+        if (typeof tableAny._setColWidth === 'function') {
+          tableAny._setColWidth(colIndex, targetWidth, true, true);
+        }
+      } catch (e) {
+        console.warn(`[VTableView] 应用列宽失败 col=${colIndex}:`, e);
+      }
+    }
+  });
 };
 
 // 构建右键菜单
@@ -1935,17 +2007,27 @@ const handleFieldSettings = () => {
 };
 
 // 处理字段创建
-const handleFieldCreated = (field: any) => {
+const handleFieldCreated = async (field: any) => {
   if (!tableStore.fields.find((f) => f.id === field.id)) {
     tableStore.fields.push(field);
+  }
+  // 清除关联缓存并刷新记录，确保新增字段立即生效
+  if (props.tableId) {
+    linkApiService.clearCache();
+    await tableStore.refreshRecords(props.tableId);
   }
 };
 
 // 处理字段更新
-const handleFieldUpdated = (field: any) => {
+const handleFieldUpdated = async (field: any) => {
   const index = tableStore.fields.findIndex((f) => f.id === field.id);
   if (index !== -1) {
     Object.assign(tableStore.fields[index], field);
+  }
+  // 清除关联缓存并刷新记录，确保字段更新后关联数据显示正确
+  if (props.tableId) {
+    linkApiService.clearCache();
+    await tableStore.refreshRecords(props.tableId);
   }
 };
 
@@ -3454,6 +3536,9 @@ const buildTableConfig = (): any => {
       enable: true,
       highlightMode: 'row',
     },
+    resize: {
+      columnResizeMode: 'all',
+    },
     containerFit: {
       width: true,
       height: true
@@ -3599,6 +3684,9 @@ const initTable = () => {
   tableInstance = new ListTable(tableContainerRef.value, config);
 
   bindTableEvents();
+
+  // 应用缓存的列宽
+  applyColumnWidths();
 };
 
 // 绑定表格事件
@@ -3606,6 +3694,15 @@ const bindTableEvents = () => {
   if (!tableInstance) return;
 
   const tableInstanceAny = tableInstance as any;
+
+  // 表格初始化完成后应用缓存列宽（确保渲染完成后再设置）
+  tableInstanceAny.on('initialized', () => {
+    console.log('[VTableView] initialized 事件触发，准备应用缓存列宽');
+    // 延迟到下一帧，确保 VTable 内部布局完成
+    nextTick(() => {
+      setTimeout(() => applyColumnWidths(), 0);
+    });
+  });
 
   // 选择单元格/行
   tableInstanceAny.on('selected', (args: any) => {
@@ -3781,13 +3878,28 @@ const bindTableEvents = () => {
     return true; // 允许编辑
   });
 
-  // 列宽调整
-  tableInstanceAny.on('columnResize', (args: any) => {
+  // 列宽调整结束：按列缓存宽度到 localStorage
+  tableInstanceAny.on('resize_column_end', (args: any) => {
+    console.log('[VTableView] resize_column_end 事件:', args);
     const colIndex = args.col;
     if (colIndex > 0) {
-      const field = visibleFields.value[colIndex - 1];
-      if (field) {
-        columnWidths.value[field.id] = Math.max(60, args.width);
+      const field = orderedVisibleFields.value[colIndex - 1];
+      if (!field) {
+        console.warn(`[VTableView] 列宽调整结束但找不到对应字段 col=${colIndex}`);
+        return;
+      }
+      // 优先使用事件返回的列宽数组，其次回读当前列宽
+      let newWidth: number | undefined = args.colWidths?.[colIndex];
+      if (newWidth === undefined || typeof newWidth !== 'number') {
+        newWidth = tableInstanceAny.getColWidth?.(colIndex);
+      }
+      if (typeof newWidth === 'number') {
+        const targetWidth = Math.max(60, newWidth);
+        columnWidths.value[field.id] = targetWidth;
+        console.log(`[VTableView] 保存列宽 field=${field.id}(${field.name}) col=${colIndex} width=${targetWidth}`);
+        saveColumnWidths();
+      } else {
+        console.warn(`[VTableView] 无法获取列宽 field=${field.id} col=${colIndex}`);
       }
     }
   });
@@ -4244,6 +4356,9 @@ const updateTable = () => {
     const config = buildTableConfig();
     tableInstance = new ListTable(tableContainerRef.value, config);
     bindTableEvents();
+
+    // 应用缓存的列宽
+    applyColumnWidths();
   } catch (error) {
     console.error('更新表格失败:', error);
   } finally {
@@ -4463,12 +4578,38 @@ watch(() => tableStore.records, async () => {
 
 // 监听 fields 变化 → 列结构变更，需重建表格
 watch(() => tableStore.fields, () => {
+  // 字段配置（含关联字段的 displayFieldId）可能变化，清空关联显示缓存
+  for (const key of Object.keys(linkDisplayCache)) {
+    delete linkDisplayCache[key];
+  }
+  for (const key of Object.keys(linkLoadingStates)) {
+    delete linkLoadingStates[key];
+  }
+  for (const key of Object.keys(linkErrorStates)) {
+    delete linkErrorStates[key];
+  }
   updateTable();
 }, { deep: true });
 
 watch(() => viewStore.currentView, () => {
   updateTable();
 }, { deep: true });
+
+// 表格切换时重新加载对应缓存列宽
+watch(() => props.tableId, (newTableId, oldTableId) => {
+  if (newTableId && newTableId !== oldTableId) {
+    initColumnWidths();
+    updateTable();
+  }
+});
+
+// 视图切换时重新加载对应缓存列宽
+watch(() => props.viewId, (newViewId, oldViewId) => {
+  if (newViewId && newViewId !== oldViewId) {
+    initColumnWidths();
+    updateTable();
+  }
+});
 
 watch(selectedRows, () => {
   // 选中行变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新
@@ -4677,18 +4818,46 @@ async function handleLinkSelectorConfirm(selectedIds: string[]) {
     return;
   }
 
+  const recordId = linkSelectorRecordId.value;
+  const fieldId = linkSelectorFieldId.value;
+
   try {
-    await linkApiService.updateRecordLink(linkSelectorRecordId.value, linkSelectorFieldId.value, {
+    await linkApiService.updateRecordLink(recordId, fieldId, {
       target_record_ids: selectedIds,
     });
 
+    // 立即更新本地记录值，确保单元格能及时渲染新选的关联记录
+    const recordIndex = tableStore.records.findIndex(r => r.id === recordId);
+    if (recordIndex !== -1) {
+      const existingRecord = tableStore.records[recordIndex];
+      const updatedRecord: RecordEntity = {
+        ...existingRecord,
+        values: { ...existingRecord.values, [fieldId]: [...selectedIds] },
+        updatedAt: Date.now(),
+      };
+      tableStore.records[recordIndex] = updatedRecord;
+
+      // 同步更新 IndexedDB，避免刷新后数据回退
+      try {
+        await db.records.update(recordId, {
+          values: serializeRecordValues(updatedRecord.values),
+          updatedAt: updatedRecord.updatedAt,
+        });
+      } catch (dbError) {
+        console.warn('[VTableView] 更新本地 IndexedDB 关联字段值失败:', dbError);
+      }
+    }
+
     // 刷新缓存和数据
-    const cacheKey = `${linkSelectorRecordId.value}:${linkSelectorFieldId.value}`;
+    const cacheKey = `${recordId}:${fieldId}`;
     delete linkDisplayCache[cacheKey];
     delete linkLoadingStates[cacheKey];
     delete linkErrorStates[cacheKey];
 
     await tableStore.refreshRecords(props.tableId);
+
+    // 显式重新加载关联显示数据，确保新选择的记录立即显示
+    await loadLinkDisplayData();
   } catch (error) {
     console.error('更新关联字段失败:', error);
     ElMessage.error('更新关联字段失败');

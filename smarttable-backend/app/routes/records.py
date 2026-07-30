@@ -988,7 +988,12 @@ def get_record_links(record_id) -> tuple:
                         existing = {
                             'field_id': field_id,
                             'field_name': field.name if field else '未知字段',
-                            'target_table_id': str(field.config.get('linkedTableId')) if field and field.config else None,
+                            'target_table_id': str(
+                                (field.config or {}).get('linkedTableId')
+                                or (field.config or {}).get('linked_table_id')
+                                or (field.options or {}).get('linkedTableId')
+                                or (field.options or {}).get('linked_table_id')
+                            ) if field else None,
                             'target_table_name': None,
                             'linked_records': []
                         }
