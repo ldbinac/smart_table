@@ -702,6 +702,14 @@ def update_link_field(field_id) -> tuple:
             result = FieldService.update_field(str(field_id), field_data, user_id)
             if not result['success']:
                 return error_response(result['error'], code=400)
+            # displayFieldId 变化后，清除关联记录显示值的缓存，避免旧缓存导致显示不一致
+            if 'display_field_id' in data:
+                try:
+                    # 清除 Flask-Caching 层缓存（兼容 Redis/SimpleCache）
+                    from app.services.link_service import LinkService
+                    LinkService.invalidate_all_record_links_cache()
+                except Exception as cache_error:
+                    current_app.logger.warning(f'[update_link_field] 清除关联缓存失败: {cache_error}')
         
         if 'relationship_type' in data:
             rel_result = LinkService.update_link_field_relationship(

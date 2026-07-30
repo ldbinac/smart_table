@@ -16,7 +16,9 @@ import type {
 } from "@/services/realtime/eventTypes";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
+import { db } from "@/db/schema";
 import { recordService } from "@/db/services";
+import { serializeRecordValues } from "@/utils/recordValueSerializer";
 import { FieldType, fieldTypeSvgContentMap } from "@/types/fields";
 import type { FieldTypeValue } from "@/types/fields";
 import type { CellValue } from "@/types";
@@ -122,6 +124,11 @@ const attachmentManagerInitialValue = ref<any>(null);
 const attachmentManagerOriginalRecord = ref<any>(null);
 // 记录触发浮窗的单元格坐标，用于滚动实时同步位置
 const lastAttachmentCellCoords = ref<{ col: number; row: number } | null>(null);
+
+// 图片缩略图单击预览状态
+const attachmentImagePreviewVisible = ref(false);
+const attachmentImagePreviewUrl = ref('');
+const attachmentImagePreviewName = ref('');
 
 // ==================== 关联记录选择器状态 ====================
 const linkSelectorVisible = ref(false);
@@ -439,7 +446,13 @@ class MultiSelectEditor implements IEditor {
     const outsideHandler = (e: MouseEvent) => {
       if (wrapper && !wrapper.contains(e.target as Node)) {
         document.removeEventListener('mousedown', outsideHandler, true);
-        setTimeout(() => this.successCallback?.(), 0);
+        setTimeout(() => {
+          try {
+            this.successCallback?.();
+          } catch (err) {
+            console.warn('Editor exit error:', err);
+          }
+        }, 0);
       }
     };
     setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
@@ -599,7 +612,13 @@ class SingleSelectEditor implements IEditor {
     const outsideHandler = (e: MouseEvent) => {
       if (wrapper && !wrapper.contains(e.target as Node)) {
         document.removeEventListener('mousedown', outsideHandler, true);
-        setTimeout(() => this.successCallback?.(), 0);
+        setTimeout(() => {
+          try {
+            this.successCallback?.();
+          } catch (err) {
+            console.warn('Editor exit error:', err);
+          }
+        }, 0);
       }
     };
     setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
@@ -649,7 +668,11 @@ class SingleSelectEditor implements IEditor {
     item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
     item.addEventListener('click', () => {
       this.selectedValue = null;
-      this.successCallback?.();
+      try {
+        this.successCallback?.();
+      } catch (err) {
+        console.warn('Editor exit error:', err);
+      }
     });
 
     const icon = document.createElement('span');
@@ -677,7 +700,11 @@ class SingleSelectEditor implements IEditor {
     item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
     item.addEventListener('click', () => {
       this.selectedValue = opt.name;
-      this.successCallback?.();
+      try {
+        this.successCallback?.();
+      } catch (err) {
+        console.warn('Editor exit error:', err);
+      }
     });
 
     // 彩色标签样式，与单元格 customLayout 一致
@@ -1600,6 +1627,15 @@ registerVTable.editor('rating', new RatingEditor());
 
 const selectedRows = ref<string[]>([]);
 const checkboxSelectedRows = ref<string[]>([]);
+
+// 合并行选择与复选框选择，作为右键菜单“删除选中记录”的计数/操作依据
+const selectedRecordIds = computed(() => {
+  const recordIdSet = new Set<string>();
+  selectedRows.value.forEach(id => { if (id) recordIdSet.add(id); });
+  checkboxSelectedRows.value.forEach(id => { if (id) recordIdSet.add(id); });
+  return Array.from(recordIdSet);
+});
+
 const columnWidths = ref<Record<string, number>>({});
 const frozenDataRowCount = ref<number>(0); // 冻结数据行数（用于响应式更新右键菜单状态）
 const deleteLoading = ref(false);
@@ -1637,9 +1673,79 @@ const drawerSize = computed(() => {
   return "600px";
 });
 
-// 初始化列宽（可以从localStorage或其他地方恢复）
+// 获取列宽本地存储键（按表格+视图隔离，避免不同视图互相覆盖）
+const getColumnWidthsStorageKey = () => {
+  return `columnWidths_${props.tableId || 'default'}_${props.viewId || 'default'}`;
+};
+
+// 从 localStorage 恢复列宽
 const initColumnWidths = () => {
-  // 这里可以从localStorage恢复列宽，暂时留空
+  try {
+    const key = getColumnWidthsStorageKey();
+    const saved = localStorage.getItem(key);
+    console.log(`[VTableView] 恢复列宽 key=${key}, saved=${saved}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        // 只保留字段 ID -> number 的有效映射
+        const valid: Record<string, number> = {};
+        for (const [key, value] of Object.entries(parsed)) {
+          if (typeof value === 'number' && value > 0) {
+            valid[key] = value;
+          }
+        }
+        columnWidths.value = valid;
+        console.log('[VTableView] 已恢复列宽映射:', valid);
+      } else {
+        columnWidths.value = {};
+      }
+    } else {
+      columnWidths.value = {};
+    }
+  } catch (e) {
+    console.warn('[VTableView] 恢复列宽失败:', e);
+    columnWidths.value = {};
+  }
+};
+
+// 保存列宽到 localStorage
+const saveColumnWidths = () => {
+  try {
+    const key = getColumnWidthsStorageKey();
+    localStorage.setItem(
+      key,
+      JSON.stringify(columnWidths.value)
+    );
+    console.log(`[VTableView] 列宽已保存 key=${key}:`, columnWidths.value);
+  } catch (e) {
+    console.warn('[VTableView] 保存列宽失败:', e);
+  }
+};
+
+// 将已缓存的列宽应用到 VTable 实例
+const applyColumnWidths = () => {
+  if (!tableInstance) return;
+
+  const tableAny = tableInstance as any;
+  const widths = { ...columnWidths.value };
+  console.log('[VTableView] 开始应用列宽:', widths);
+  orderedVisibleFields.value.forEach((field, index) => {
+    const savedWidth = widths[field.id];
+    if (savedWidth && typeof savedWidth === 'number') {
+      const colIndex = index + 1; // 第 0 列为行号列
+      try {
+        const targetWidth = Math.max(60, savedWidth);
+        console.log(`[VTableView] 应用列宽 col=${colIndex}, field=${field.id}, width=${targetWidth}`);
+        tableAny.setColWidth(colIndex, targetWidth);
+        // 部分场景下 setColWidth 不会立即生效，通过 _setColWidth 再写入一次
+        if (typeof tableAny._setColWidth === 'function') {
+          tableAny._setColWidth(colIndex, targetWidth, true, true);
+        }
+      } catch (e) {
+        console.warn(`[VTableView] 应用列宽失败 col=${colIndex}:`, e);
+      }
+    }
+  });
 };
 
 // 构建右键菜单
@@ -1708,11 +1814,12 @@ const contextMenuItems = computed(() => {
         action: () => handleDeleteRecord(),
       });
 
-      // 只要有勾选的记录，就显示"删除选中的x条记录"
-      if (checkboxSelectedRows.value.length >= 1) {
+      // 只要有选中的记录（行选择或复选框选择），就显示"删除选中的x条记录"
+      const selectedCount = selectedRecordIds.value.length;
+      if (selectedCount >= 1) {
         items.push({
           id: "delete-selected",
-          label: `删除选中的 ${checkboxSelectedRows.value.length} 条记录`,
+          label: `删除选中的 ${selectedCount} 条记录`,
           icon: "delete",
           danger: true,
           action: () => handleDeleteSelectedRecords(),
@@ -1899,6 +2006,63 @@ const handleFieldSettings = () => {
   contextMenuVisible.value = false;
 };
 
+// 处理字段创建
+const handleFieldCreated = async (field: any) => {
+  if (!tableStore.fields.find((f) => f.id === field.id)) {
+    tableStore.fields.push(field);
+  }
+  // 清除关联缓存并刷新记录，确保新增字段立即生效
+  if (props.tableId) {
+    linkApiService.clearCache();
+    await tableStore.refreshRecords(props.tableId);
+  }
+};
+
+// 处理字段更新
+const handleFieldUpdated = async (field: any) => {
+  const index = tableStore.fields.findIndex((f) => f.id === field.id);
+  if (index !== -1) {
+    Object.assign(tableStore.fields[index], field);
+  }
+  // 清除关联缓存并刷新记录，确保字段更新后关联数据显示正确
+  if (props.tableId) {
+    linkApiService.clearCache();
+    await tableStore.refreshRecords(props.tableId);
+  }
+};
+
+// 处理字段删除
+const handleFieldDeleted = (fieldId: string) => {
+  const index = tableStore.fields.findIndex((f) => f.id === fieldId);
+  if (index !== -1) {
+    tableStore.fields.splice(index, 1);
+  }
+};
+
+// 处理字段重排序
+const handleFieldsReordered = (fieldIds: string[]) => {
+  const sortedFields = fieldIds
+    .map((id) => tableStore.fields.find((f) => f.id === id))
+    .filter((f): f is FieldEntity => f !== undefined);
+
+  sortedFields.forEach((field, index) => {
+    field.order = index;
+  });
+
+  tableStore.fields = sortedFields;
+};
+
+// 处理字段可见性变化（视图级隐藏/显示）
+const handleFieldVisibilityChanged = async (fieldId: string, isVisible: boolean) => {
+  if (!viewStore.currentView) return;
+
+  const newHiddenFields = isVisible
+    ? viewStore.currentView.hiddenFields.filter((id) => id !== fieldId)
+    : [...viewStore.currentView.hiddenFields, fieldId];
+
+  await viewStore.updateHiddenFields(viewStore.currentView.id, newHiddenFields);
+};
+
 // 处理放大按钮点击 - 打开记录详情
 const handleExpandRecord = (record: RecordEntity) => {
   expandedRecord.value = record;
@@ -1919,10 +2083,19 @@ const handleEditRecord = () => {
 //   在构造后不可变，appendRecords 的 Object.defineProperty 无法可靠同步），
 //   同时 watcher 路径已确保 addButton 行始终追加在数据末尾（见 updateTableData）
 let isAddingRecord = false;
+let addRecordCooldownTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 防止 change_cell_value 事件重复处理
+let processingCellKey: string | null = null;
+let processingCellTimer: ReturnType<typeof setTimeout> | null = null;
 
 const handleAddNewRecord = async () => {
   if (!props.tableId || isAddingRecord) return;
   isAddingRecord = true;
+  if (addRecordCooldownTimer) {
+    clearTimeout(addRecordCooldownTimer);
+    addRecordCooldownTimer = null;
+  }
   try {
     const newRecord = await recordService.createRecord({
       tableId: props.tableId,
@@ -1930,9 +2103,13 @@ const handleAddNewRecord = async () => {
     });
     if (!newRecord) return;
 
-    // 追加到 store，触发 records watcher 统一处理表格更新
-    if (Array.isArray(tableStore.records)) {
-      tableStore.records = [...tableStore.records, newRecord];
+    // 不再手动更新 tableStore.records，让实时协作监听器（onRecordCreated）处理
+    // 如果实时协作不可用，才手动添加
+    const collabStore = useCollaborationStore();
+    if (!collabStore.isRealtimeAvailable) {
+      if (Array.isArray(tableStore.records)) {
+        tableStore.records = [...tableStore.records, newRecord];
+      }
     }
 
     emit('record-create');
@@ -1941,7 +2118,11 @@ const handleAddNewRecord = async () => {
     console.error('[VTableView] 添加记录失败:', error);
     ElMessage.error('添加记录失败');
   } finally {
-    isAddingRecord = false;
+    // 添加短暂冷却期，避免 VTable 事件重复触发导致一次点击添加多条记录
+    addRecordCooldownTimer = setTimeout(() => {
+      isAddingRecord = false;
+      addRecordCooldownTimer = null;
+    }, 300);
   }
 };
 
@@ -1995,9 +2176,9 @@ const handleDeleteRecord = async () => {
   contextMenuVisible.value = false;
 };
 
-// 处理删除选中的记录 - 仅删除通过复选框勾选的记录
+// 处理删除选中的记录 - 删除行选择或复选框勾选的记录
 const handleDeleteSelectedRecords = async () => {
-  const ids = [...checkboxSelectedRows.value];
+  const ids = [...selectedRecordIds.value];
   const count = ids.length;
   if (count === 0) return;
   try {
@@ -2016,7 +2197,7 @@ const handleDeleteSelectedRecords = async () => {
       await tableStore.batchDeleteRecords(ids);
       emit("record-delete", ids);
       selectedRows.value = selectedRows.value.filter(id => !ids.includes(id));
-      checkboxSelectedRows.value = [];
+      checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => !ids.includes(id));
       ElMessage.success(`成功删除 ${count} 条记录`);
     } finally {
       deleteLoading.value = false;
@@ -2530,6 +2711,27 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.editor = 'input';
       config.style = {
         textAlign: 'right'
+      };
+      config.fieldFormat = (record: any) => {
+        const value = record?.[field.id];
+        if (value === null || value === undefined || value === '') return '';
+        const num = Number(value);
+        if (Number.isNaN(num)) return String(value);
+
+        const options = field.options || {};
+        const precision = options.precision ?? 0;
+        const prefix = options.prefix || '';
+        const suffix = options.suffix || '';
+        const currencySymbol = options.currencySymbol || '';
+
+        let formatted = num.toFixed(precision);
+        if (field.type === FieldType.PERCENT) {
+          formatted = `${formatted}%`;
+        } else if (field.type === FieldType.CURRENCY && currencySymbol) {
+          formatted = `${currencySymbol}${formatted}`;
+        }
+
+        return `${prefix}${formatted}${suffix}`;
       };
       break;
     case FieldType.PHONE:
@@ -3146,6 +3348,17 @@ const buildTableConfig = (): any => {
                 height: itemSize,
                 image: fileUrl,
                 cornerRadius: 4,
+                cursor: 'pointer',
+              });
+              // 单击缩略图直接预览完整图片，阻止事件冒泡到单元格
+              img.addEventListener('pointerdown', (e: any) => {
+                e.stopPropagation?.();
+              });
+              img.addEventListener('pointertap', (e: any) => {
+                e.stopPropagation?.();
+                attachmentImagePreviewUrl.value = fileUrl;
+                attachmentImagePreviewName.value = fileName;
+                attachmentImagePreviewVisible.value = true;
               });
               const itemGroup = createGroup({
                 width: itemSize + gap,
@@ -3309,18 +3522,22 @@ const buildTableConfig = (): any => {
       },
     },
     allowCopy: true,
-    editCellTrigger: 'doubleclick',
+    editCellTrigger: 'click',
     keyboardOptions: {
       copySelected: true,
       pasteValueToCell: true,
       editCellOnEnter: true,
       moveFocusCellOnTab: true,
       moveEditCellOnArrowKeys: true,
+      moveFocusCellOnEnter: true,
     },
     select: {
       mode: 'multiple',
       enable: true,
       highlightMode: 'row',
+    },
+    resize: {
+      columnResizeMode: 'all',
     },
     containerFit: {
       width: true,
@@ -3467,6 +3684,9 @@ const initTable = () => {
   tableInstance = new ListTable(tableContainerRef.value, config);
 
   bindTableEvents();
+
+  // 应用缓存的列宽
+  applyColumnWidths();
 };
 
 // 绑定表格事件
@@ -3474,6 +3694,15 @@ const bindTableEvents = () => {
   if (!tableInstance) return;
 
   const tableInstanceAny = tableInstance as any;
+
+  // 表格初始化完成后应用缓存列宽（确保渲染完成后再设置）
+  tableInstanceAny.on('initialized', () => {
+    console.log('[VTableView] initialized 事件触发，准备应用缓存列宽');
+    // 延迟到下一帧，确保 VTable 内部布局完成
+    nextTick(() => {
+      setTimeout(() => applyColumnWidths(), 0);
+    });
+  });
 
   // 选择单元格/行
   tableInstanceAny.on('selected', (args: any) => {
@@ -3649,13 +3878,28 @@ const bindTableEvents = () => {
     return true; // 允许编辑
   });
 
-  // 列宽调整
-  tableInstanceAny.on('columnResize', (args: any) => {
+  // 列宽调整结束：按列缓存宽度到 localStorage
+  tableInstanceAny.on('resize_column_end', (args: any) => {
+    console.log('[VTableView] resize_column_end 事件:', args);
     const colIndex = args.col;
     if (colIndex > 0) {
-      const field = visibleFields.value[colIndex - 1];
-      if (field) {
-        columnWidths.value[field.id] = Math.max(60, args.width);
+      const field = orderedVisibleFields.value[colIndex - 1];
+      if (!field) {
+        console.warn(`[VTableView] 列宽调整结束但找不到对应字段 col=${colIndex}`);
+        return;
+      }
+      // 优先使用事件返回的列宽数组，其次回读当前列宽
+      let newWidth: number | undefined = args.colWidths?.[colIndex];
+      if (newWidth === undefined || typeof newWidth !== 'number') {
+        newWidth = tableInstanceAny.getColWidth?.(colIndex);
+      }
+      if (typeof newWidth === 'number') {
+        const targetWidth = Math.max(60, newWidth);
+        columnWidths.value[field.id] = targetWidth;
+        console.log(`[VTableView] 保存列宽 field=${field.id}(${field.name}) col=${colIndex} width=${targetWidth}`);
+        saveColumnWidths();
+      } else {
+        console.warn(`[VTableView] 无法获取列宽 field=${field.id} col=${colIndex}`);
       }
     }
   });
@@ -3742,6 +3986,11 @@ const bindTableEvents = () => {
 
   // 单元格点击 - 使用 VTable API 获取单元格位置
   tableInstanceAny.on('click_cell', (args: any) => {
+    // 点击图片缩略图时不触发单元格选择，预览由缩略图自身 pointertap 事件处理
+    if (args.target?.name === 'attachment-thumbnail') {
+      return;
+    }
+
     // 检测是否为虚拟添加按钮行点击
     const clickedRecord = args.originData || args.record;
     if (clickedRecord && clickedRecord._rowType === 'addButton') {
@@ -3943,11 +4192,23 @@ const bindTableEvents = () => {
   // 不含 record 字段，需要通过 getCellOriginRecord 查找记录
   tableInstanceAny.on('change_cell_value', async (args: any) => {
     if (!args || !tableInstance) return;
-    
+
     const { col, row } = args;
     // 跳过行号列
     if (col <= 0) return;
-    
+
+    // 防抖：同一单元格短时间内可能触发多次事件（编辑器退出时的 bug）
+    const cellKey = `${col}:${row}`;
+    if (processingCellKey === cellKey) return;
+    processingCellKey = cellKey;
+    if (processingCellTimer) {
+      clearTimeout(processingCellTimer);
+    }
+    processingCellTimer = setTimeout(() => {
+      processingCellKey = null;
+      processingCellTimer = null;
+    }, 500);
+
     const record = tableInstance.getCellOriginRecord(col, row);
     if (!record?._recordId || !record._originalRecord) return;
     
@@ -4018,19 +4279,22 @@ const bindTableEvents = () => {
 
     try {
       if (!tableId) return;
-      
+
       const values = {
         ...originalRecord.values,
         [fieldId]: finalValue,
       };
-      
+
       await recordService.updateRecord(recordId, {
         values: values as Record<string, CellValue>,
       });
-      
-      // 刷新表格数据
-      await tableStore.refreshRecords(tableId);
-      
+
+      // 不再手动刷新表格数据，让实时协作监听器（onRecordUpdated）处理
+      // 如果实时协作不可用，才手动刷新
+      if (!collabStore.isRealtimeAvailable) {
+        await tableStore.refreshRecords(tableId);
+      }
+
       // 协同编辑：保存成功后释放锁
       if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
         collabStore.releaseLock({
@@ -4039,7 +4303,7 @@ const bindTableEvents = () => {
           field_id: fieldId,
         });
       }
-      
+
       ElMessage.success('编辑保存成功');
     } catch (error) {
       console.error('编辑保存失败:', error);
@@ -4074,15 +4338,27 @@ const updateTable = () => {
   
   isUpdating = true;
   pendingUpdate = false;
-  
+
   try {
+    // 释放旧 VTable 实例，避免事件监听器泄漏导致重复触发
+    if (tableInstance) {
+      try {
+        (tableInstance as any).release();
+      } catch (_e) {
+        // 释放失败不影响重建
+      }
+      tableInstance = null;
+    }
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
     }
-    
+
     const config = buildTableConfig();
     tableInstance = new ListTable(tableContainerRef.value, config);
     bindTableEvents();
+
+    // 应用缓存的列宽
+    applyColumnWidths();
   } catch (error) {
     console.error('更新表格失败:', error);
   } finally {
@@ -4251,6 +4527,15 @@ watch(() => tableStore.records, async () => {
   // 不等 nextTick 的话，sortedRecords.value 可能还是旧值，导致行数判断错误
   await nextTick();
 
+  // 清理已不存在的记录选中状态，避免删除/刷新后右键菜单计数错误
+  const validRecordIds = new Set(sortedRecords.value.map(r => r.id));
+  if (selectedRows.value.some(id => !validRecordIds.has(id))) {
+    selectedRows.value = selectedRows.value.filter(id => validRecordIds.has(id));
+  }
+  if (checkboxSelectedRows.value.some(id => !validRecordIds.has(id))) {
+    checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => validRecordIds.has(id));
+  }
+
   clearTransformCache();
 
   if (!smartDataSource) {
@@ -4293,12 +4578,38 @@ watch(() => tableStore.records, async () => {
 
 // 监听 fields 变化 → 列结构变更，需重建表格
 watch(() => tableStore.fields, () => {
+  // 字段配置（含关联字段的 displayFieldId）可能变化，清空关联显示缓存
+  for (const key of Object.keys(linkDisplayCache)) {
+    delete linkDisplayCache[key];
+  }
+  for (const key of Object.keys(linkLoadingStates)) {
+    delete linkLoadingStates[key];
+  }
+  for (const key of Object.keys(linkErrorStates)) {
+    delete linkErrorStates[key];
+  }
   updateTable();
 }, { deep: true });
 
 watch(() => viewStore.currentView, () => {
   updateTable();
 }, { deep: true });
+
+// 表格切换时重新加载对应缓存列宽
+watch(() => props.tableId, (newTableId, oldTableId) => {
+  if (newTableId && newTableId !== oldTableId) {
+    initColumnWidths();
+    updateTable();
+  }
+});
+
+// 视图切换时重新加载对应缓存列宽
+watch(() => props.viewId, (newViewId, oldViewId) => {
+  if (newViewId && newViewId !== oldViewId) {
+    initColumnWidths();
+    updateTable();
+  }
+});
 
 watch(selectedRows, () => {
   // 选中行变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新
@@ -4346,7 +4657,16 @@ onBeforeUnmount(() => {
   cleanupRealtimeListeners();
   document.removeEventListener('click', handleDocumentClick);
   window.removeEventListener('resize', handleFloatingPanelWindowResize);
+  if (addRecordCooldownTimer) {
+    clearTimeout(addRecordCooldownTimer);
+    addRecordCooldownTimer = null;
+  }
   if (tableInstance) {
+    try {
+      (tableInstance as any).release();
+    } catch (_e) {
+      // 释放失败不影响卸载
+    }
     if (tableContainerRef.value) {
       tableContainerRef.value.innerHTML = '';
     }
@@ -4385,19 +4705,28 @@ function handleFloatingPanelWindowResize() {
 // 附件管理器：值变更保存
 async function handleAttachmentUpdate(value: any) {
   if (!attachmentManagerRecordId.value || !attachmentManagerField.value || !props.tableId) return;
+  const fieldId = attachmentManagerField.value.id;
+  const originalRecord = attachmentManagerOriginalRecord.value;
+  if (!originalRecord?.values) return;
+
+  const originalValue = originalRecord.values[fieldId];
   try {
-    const fieldId = attachmentManagerField.value.id;
-    const originalRecord = attachmentManagerOriginalRecord.value;
-    if (originalRecord?.values) {
-      const newValues = { ...originalRecord.values, [fieldId]: value };
-      await recordService.updateRecord(attachmentManagerRecordId.value, {
-        values: newValues as Record<string, CellValue>,
-      });
-      await tableStore.refreshRecords(props.tableId);
-    }
+    const newValues = { ...originalRecord.values, [fieldId]: value };
+    await recordService.updateRecord(attachmentManagerRecordId.value, {
+      values: newValues as Record<string, CellValue>,
+    });
+    // 更新本地原始记录快照，避免重复保存时使用旧值
+    attachmentManagerOriginalRecord.value = {
+      ...originalRecord,
+      values: newValues as Record<string, CellValue>,
+    };
+    await tableStore.refreshRecords(props.tableId);
+    ElMessage.success('附件保存成功');
   } catch (error) {
     console.error('附件保存失败:', error);
     ElMessage.error('附件保存失败');
+    // 恢复原始值，使 AttachmentManager 重新加载为删除前的状态
+    attachmentManagerInitialValue.value = originalValue;
   }
 }
 
@@ -4489,18 +4818,46 @@ async function handleLinkSelectorConfirm(selectedIds: string[]) {
     return;
   }
 
+  const recordId = linkSelectorRecordId.value;
+  const fieldId = linkSelectorFieldId.value;
+
   try {
-    await linkApiService.updateRecordLink(linkSelectorRecordId.value, linkSelectorFieldId.value, {
+    await linkApiService.updateRecordLink(recordId, fieldId, {
       target_record_ids: selectedIds,
     });
 
+    // 立即更新本地记录值，确保单元格能及时渲染新选的关联记录
+    const recordIndex = tableStore.records.findIndex(r => r.id === recordId);
+    if (recordIndex !== -1) {
+      const existingRecord = tableStore.records[recordIndex];
+      const updatedRecord: RecordEntity = {
+        ...existingRecord,
+        values: { ...existingRecord.values, [fieldId]: [...selectedIds] },
+        updatedAt: Date.now(),
+      };
+      tableStore.records[recordIndex] = updatedRecord;
+
+      // 同步更新 IndexedDB，避免刷新后数据回退
+      try {
+        await db.records.update(recordId, {
+          values: serializeRecordValues(updatedRecord.values),
+          updatedAt: updatedRecord.updatedAt,
+        });
+      } catch (dbError) {
+        console.warn('[VTableView] 更新本地 IndexedDB 关联字段值失败:', dbError);
+      }
+    }
+
     // 刷新缓存和数据
-    const cacheKey = `${linkSelectorRecordId.value}:${linkSelectorFieldId.value}`;
+    const cacheKey = `${recordId}:${fieldId}`;
     delete linkDisplayCache[cacheKey];
     delete linkLoadingStates[cacheKey];
     delete linkErrorStates[cacheKey];
 
     await tableStore.refreshRecords(props.tableId);
+
+    // 显式重新加载关联显示数据，确保新选择的记录立即显示
+    await loadLinkDisplayData();
   } catch (error) {
     console.error('更新关联字段失败:', error);
     ElMessage.error('更新关联字段失败');
@@ -4650,6 +5007,11 @@ watch(
       :edit-field-id="editingFieldId ?? undefined"
       :table-id="props.tableId"
       :fields="tableStore.fields"
+      @field-created="handleFieldCreated"
+      @field-updated="handleFieldUpdated"
+      @field-deleted="handleFieldDeleted"
+      @fields-reordered="handleFieldsReordered"
+      @field-visibility-changed="handleFieldVisibilityChanged"
     />
     
     <!-- 记录详情对话框 -->
@@ -4673,6 +5035,24 @@ watch(
       @update:model-value="handleAttachmentUpdate"
       @close="closeAttachmentManager"
     />
+
+    <!-- 图片缩略图单击预览对话框 -->
+    <el-dialog
+      v-model="attachmentImagePreviewVisible"
+      :title="attachmentImagePreviewName || '预览'"
+      width="90%"
+      top="5vh"
+      destroy-on-close
+      class="attachment-image-preview-dialog"
+    >
+      <div class="attachment-image-preview-content">
+        <img
+          :src="attachmentImagePreviewUrl"
+          class="attachment-image-preview-img"
+          :alt="attachmentImagePreviewName"
+        />
+      </div>
+    </el-dialog>
 
     <!-- 关联记录选择器 -->
     <LinkRecordSelector
@@ -4827,9 +5207,25 @@ watch(
   }
 }
 
+// ==================== 图片缩略图预览弹窗样式 ====================
+.attachment-image-preview-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  background-color: #1a1a1a;
+  padding: $spacing-lg;
+}
+
+.attachment-image-preview-img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
 </style>
 
-<!-- 搜索弹窗全局样式（el-dialog teleport 到 body，需要非 scoped 样式） -->
+<!-- 搜索弹窗与图片预览弹窗全局样式（el-dialog teleport 到 body，需要非 scoped 样式） -->
 <style lang="scss">
 // .vtable-search-dialog 就是 .el-dialog 本身（custom-class 直接添加到 el-dialog）
 .vtable-search-dialog.el-dialog {
@@ -4852,5 +5248,12 @@ watch(
 
 .vtable-search-dialog .el-dialog__headerbtn {
   top: 10px;
+}
+
+// 图片预览弹窗：内容区无内边距，让图片充满主体区域
+.attachment-image-preview-dialog.el-dialog {
+  .el-dialog__body {
+    padding: 0;
+  }
 }
 </style>

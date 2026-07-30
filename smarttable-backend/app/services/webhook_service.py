@@ -77,8 +77,12 @@ class WebhookService:
         """
         event_data = event_data or {}
 
+        # 判断 webhook_config 是否已持久化：未持久化的内联 webhook 不在 session 中，
+        # 其 id 虽由 default=uuid.uuid4 生成但不在 webhook_configs 表中，
+        # 若直接写入 delivery_log 会触发外键约束违反
+        config_in_session = db.session.object_session(webhook_config) is not None
         delivery_log = WebhookDeliveryLog(
-            webhook_config_id=webhook_config.id,
+            webhook_config_id=webhook_config.id if config_in_session else None,
             instance_id=instance.id if instance else None,
             status=WebhookDeliveryStatus.PENDING,
             retry_count=0,
@@ -208,7 +212,8 @@ class WebhookService:
         """
         构建 Webhook 请求体
 
-        优先使用 body_template，支持 {{event}}、{{record}}、{{workflow}}、{{instance}} 变量。
+        优先使用 body_template，支持 {{event}}、{{record}}、{{workflow}}、{{instance}}、{{loop}} 变量。
+        循环体内时 {{loop}} 包含 current_data、index、round、total。
         模板为空时使用默认 JSON payload。
         """
         context = WebhookService._build_render_context(instance, event_data)
@@ -223,6 +228,10 @@ class WebhookService:
             'workflow': context.get('workflow', {}),
             'instance': context.get('instance', {}),
         }
+        # 循环体内时包含循环上下文
+        loop_context = context.get('loop')
+        if loop_context:
+            default_payload['loop'] = loop_context
         return json.dumps(default_payload, ensure_ascii=False, default=str)
 
     @staticmethod
@@ -273,13 +282,17 @@ class WebhookService:
             workflow_dict = event_data.get('workflow', {}) if isinstance(event_data, dict) else {}
 
         record = event_data.get('record', {}) if isinstance(event_data, dict) else {}
+        loop_context = event_data.get('loop') if isinstance(event_data, dict) else None
 
-        return {
+        result = {
             'event': event_data,
             'record': record,
             'workflow': workflow_dict,
             'instance': instance_dict,
         }
+        if loop_context:
+            result['loop'] = loop_context
+        return result
 
     @staticmethod
     def _render_template(template: str, context: Dict[str, Any]) -> str:
@@ -475,8 +488,10 @@ class WebhookService:
         Returns:
             新的投递结果字典
         """
-        webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id)
+        webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id) if delivery_log.webhook_config_id else None
         if not webhook_config:
+            if delivery_log.webhook_config_id is None:
+                raise ValueError('内联 Webhook 不支持重新投递（配置未持久化）')
             raise ValueError(f'Webhook 配置不存在: {delivery_log.webhook_config_id}')
 
         instance = None

@@ -524,14 +524,14 @@ export class FormulaEngine {
     // 2. 返回日期类型的函数（只有年月日）
     const dateFunctions = [
       "DATEADD",       // 日期加减
-      "DATE",          // 构造日期
       "TODAY",         // 当前日期
-      "EDATE",         // 月份偏移
+      "DATE",          // 构造日期
+      "EDATE",         // 指定月份偏移后的日期
       "EOMONTH",       // 月末日期
-      "WORKDAY",       // 工作日计算
+      "WORKDAY",       // 工作日日期
     ];
 
-    // 3. 返回整数类型的日期函数（提取日期部分）
+    // 3. 返回整数/数值类型的日期函数（提取日期部分或时间戳）
     const integerFunctions = [
       "YEAR",          // 年份
       "MONTH",         // 月份
@@ -540,13 +540,10 @@ export class FormulaEngine {
       "MINUTE",        // 分钟
       "SECOND",        // 秒
       "WEEKDAY",       // 星期几
-      "WEEKNUM",       // 周数
-      "QUARTER",       // 季度
       "UNIXTIMESTAMP", // Unix 时间戳
+      "FROMUNIXTIME",  // 时间戳转日期时间（返回毫秒数）
       "DATEDIF",       // 日期差
-      "DATEDIFF",      // 日期差（飞书风格）
-      "DAYS",          // 天数差
-      "NETWORKDAYS",   // 工作日数
+      "DATEDIFF",      // 日期差（DATEDIF 别名）
     ];
 
     // 检查日期时间函数
@@ -574,7 +571,7 @@ export class FormulaEngine {
     }
 
     // 纯数字运算（无文本操作）
-    const hasTextOp = /["']/.test(formula) || /\b(CONCATENATE|TEXT|LEFT|RIGHT|MID|LEN|TRIM|UPPER|LOWER|SUBSTITUTE)\s*\(/i.test(formula);
+    const hasTextOp = /["']/.test(formula) || /\b(CONCAT|TEXT|LEFT|RIGHT|MID|LEN|TRIM|UPPER|LOWER|SUBSTITUTE|REPLACE|REPT)\s*\(/i.test(formula);
 
     if (!hasTextOp) {
       // 检查是否包含字段引用或数字运算符

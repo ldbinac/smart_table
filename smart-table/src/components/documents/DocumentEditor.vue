@@ -8,6 +8,11 @@
         placeholder="文档标题"
         @blur="handleSaveName"
       />
+      <div class="document-editor__save-status">
+        <span v-if="saveStatus === 'saved'" class="save-status saved">已保存</span>
+        <span v-else-if="saveStatus === 'saving'" class="save-status saving">保存中...</span>
+        <span v-else-if="saveStatus === 'unsaved'" class="save-status unsaved">有未保存的更改</span>
+      </div>
       <div class="document-editor__actions">
         <el-button @click="handleShowVersionHistory">
           <el-icon><Clock /></el-icon>
@@ -60,6 +65,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { Download, Clock, FullScreen, Crop, FolderChecked } from '@element-plus/icons-vue';
+import debounce from 'lodash-es/debounce';
 import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import MarkdownShortcuts from 'quill-markdown-shortcuts';
@@ -151,6 +157,9 @@ const editorRootRef = ref<HTMLElement>();
 const documentName = ref(props.document.name);
 const versionHistoryVisible = ref(false);
 const isFullscreen = ref(false);
+const saveStatus = ref<'saved' | 'saving' | 'unsaved'>('saved');
+const savedContent = ref(props.document.content);
+let isSaving = false;
 let editor: FluentEditor | null = null;
 let scrollContainer: HTMLElement | null = null;
 let scrollHandler: (() => void) | null = null;
@@ -438,8 +447,14 @@ onMounted(async () => {
     headerListModule.show();
   }
 
-  // 监听编辑器内容变化，实时更新标题列表
-  textChangeHandler = () => scheduleHeaderListUpdate();
+  // 监听编辑器内容变化，实时更新标题列表并触发自动保存
+  textChangeHandler = () => {
+    scheduleHeaderListUpdate();
+    if (hasUnsavedChanges()) {
+      saveStatus.value = 'unsaved';
+      debouncedAutoSave();
+    }
+  };
   editor.on('text-change', textChangeHandler);
 
   // 初始构建标题列表（延迟等待内容渲染完成）
@@ -467,6 +482,9 @@ onMounted(async () => {
 
   // ESC 退出全屏
   document.addEventListener('keydown', handleKeydown);
+
+  // 注册页面离开提示
+  window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
 onBeforeUnmount(() => {
@@ -491,6 +509,10 @@ onBeforeUnmount(() => {
   }
   // 清理键盘监听
   document.removeEventListener('keydown', handleKeydown);
+  // 清理页面离开提示
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  // 取消未执行的自动保存
+  debouncedAutoSave.cancel();
   // 退出全屏
   if (isFullscreen.value) {
     editorRootRef.value?.classList.remove('document-editor--fullscreen');
@@ -502,7 +524,13 @@ onBeforeUnmount(() => {
 watch(() => props.document, (newDoc, oldDoc) => {
   console.log('[DocumentEditor] props.document 变化:', newDoc.id, '旧值:', oldDoc?.id);
   documentName.value = newDoc.name;
-  
+
+  // 切换文档时重置保存状态
+  if (newDoc.id !== oldDoc?.id) {
+    savedContent.value = newDoc.content;
+    saveStatus.value = 'saved';
+  }
+
   // 只有在文档实际发生变化时才重新加载内容
   if (editor && newDoc.id !== oldDoc?.id) {
     // 等待 DOM 更新后再加载内容
@@ -518,21 +546,63 @@ const handleSaveName = async () => {
   }
 };
 
-const handleSave = async () => {
-  if (!editor) return;
+const doSave = async (showMessage = true) => {
+  if (!editor || isSaving) return;
+  const content = JSON.stringify(editor.getContents());
+  if (content === savedContent.value) {
+    saveStatus.value = 'saved';
+    return;
+  }
+
+  isSaving = true;
+  saveStatus.value = 'saving';
   try {
-    const content = JSON.stringify(editor.getContents());
     const updated = await documentApiService.update(props.document.id, {
       content,
       contentFormat: 'delta'
     });
+    savedContent.value = content;
+    saveStatus.value = 'saved';
     emit('save', updated);
-    ElMessage.success('保存成功');
+    if (showMessage) {
+      ElMessage.success('保存成功');
+    }
   } catch (error) {
     console.error('[DocumentEditor] 保存失败:', error);
+    saveStatus.value = 'unsaved';
     ElMessage.error('保存失败，请重试');
+  } finally {
+    isSaving = false;
   }
 };
+
+// 20 秒 debounce 自动保存
+const debouncedAutoSave = debounce(() => {
+  doSave(false);
+}, 20000);
+
+const handleSave = async () => {
+  debouncedAutoSave.cancel();
+  await doSave(true);
+};
+
+const hasUnsavedChanges = () => {
+  if (!editor) return false;
+  return JSON.stringify(editor.getContents()) !== savedContent.value;
+};
+
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+  if (hasUnsavedChanges()) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+};
+
+defineExpose({
+  hasUnsavedChanges,
+  save: handleSave
+});
 
 const handleExportPdf = () => {
   emit('export-pdf');
@@ -597,6 +667,26 @@ const handleVersionRestored = (version: DocumentVersion) => {
     border-bottom: 1px solid var(--el-border-color-light);
     background: var(--el-bg-color);
     flex-shrink: 0;
+  }
+
+  &__save-status {
+    margin-right: 12px;
+    font-size: 13px;
+    white-space: nowrap;
+
+    .save-status {
+      &.saved {
+        color: var(--el-text-color-secondary);
+      }
+
+      &.saving {
+        color: var(--el-color-primary);
+      }
+
+      &.unsaved {
+        color: var(--el-color-warning);
+      }
+    }
   }
 
   &__title {

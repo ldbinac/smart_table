@@ -141,7 +141,7 @@ Docker 镜像采用多阶段构建，共分为三个构建阶段，最终产物�
 │                                     │
 │ 层 1: 基础 Node.js 环境             │
 │ 层 2: package.json + lock 文件      │
-│ 层 3: npm ci 安装依赖               │
+│ 层 3: pnpm install 安装依赖         │
 │ 层 4: 前端源代码                    │
 │ 层 5: vite build 构建产物 (/dist)   │
 │ 产物: dist/ 目录                    │
@@ -249,19 +249,23 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# 先复制 package 文件，利用 Docker 缓存层加速
-COPY smart-table/package.json smart-table/package-lock.json ./
-RUN npm ci && npm cache clean --force
+# 启用 corepack 并使用 pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# 复制源代码并构建
+# 先复制 package 文件，利用 Docker 缓存层加速
+COPY smart-table/package.json smart-table/pnpm-lock.yaml smart-table/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile && pnpm store prune
+
+# 复制源代码并构建（Docker 中不需要 husky）
+ENV HUSKY=0
 COPY smart-table/ ./
-RUN npx vite build
+RUN pnpm run build
 ```
 
 - `FROM node:20-alpine AS frontend-builder` — 使用 Node.js 20 Alpine 镜像作为前端构建阶段，别名为 `frontend-builder`
 - `WORKDIR /app/frontend` — 设置工作目录
-- `COPY package.json` + `npm ci` — 先复制依赖配置文件安装依赖，利用 Docker 缓存机制：只要 `package.json` 不变，就复用缓存层的 `node_modules`
-- `COPY .` + `npx vite build` — 复制前端源码后直接使用 Vite 构建（跳过 vue-tsc 类型检查，避免类型错误阻断构建）
+- `COPY package.json` + `pnpm install --frozen-lockfile` — 先复制依赖配置文件安装依赖，利用 Docker 缓存机制：只要 `pnpm-lock.yaml` 不变，就复用缓存层的 `node_modules`
+- `COPY .` + `pnpm run build` — 复制前端源码后使用 pnpm 执行 Vite 构建（跳过 vue-tsc 类型检查，避免类型错误阻断构建）
 
 ```dockerfile
 # ============================================
@@ -553,8 +557,8 @@ python build_docker.py --check-only
   → 验证 Dockerfile 是否存在且格式正确
 
 步骤 3/4: 构建前端（如果跳过则使用已有产物）
-  → npm ci 安装依赖
-  → npx vite build 构建产物
+  → pnpm install 安装依赖
+  → pnpm run build 构建产物
 
 步骤 4/4: 构建 Docker 镜像
   → docker buildx build --load -t smarttable:latest .
@@ -569,8 +573,8 @@ python build_docker.py --check-only
 
 ```bash
 cd smart-table
-npm ci
-npx vite build
+pnpm install
+pnpm run build
 cd ..
 ```
 
@@ -616,7 +620,7 @@ docker stop smarttable-test
 
 | 问题 | 原因 | 解决方案 |
 |------|------|---------|
-| `npm ci` 失败 | 网络问题或 `package-lock.json` 不匹配 | 确保 `package-lock.json` 与 `package.json` 版本匹配，或使用 `npm install` 替代 |
+| `pnpm install` 失败 | 网络问题或 `pnpm-lock.yaml` 不匹配 | 确保 `pnpm-lock.yaml` 与 `package.json` 版本匹配，或运行 `pnpm install` 重新生成 |
 | `pip install` 超时 | 网络连接缓慢 | Dockerfile 已配置国内镜像源，若仍有问题可手动更换其他 PyPI 镜像 |
 | `apt-get update` 失败（403） | Debian 镜像源不可用 | Dockerfile 已配置清华镜像源，若 403 仍然存在，可切换到阿里云镜像 |
 | Docker 构建上下文太大 | `.dockerignore` 配置不当 | 检查 `node_modules`、`.git` 等大目录是否被正确排除 |

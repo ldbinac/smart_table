@@ -38,7 +38,7 @@ describe('WorkflowExecutionLog', () => {
   it('当 log 有 node_name 时紧邻 node-type 显示节点名称', () => {
     const log = makeLog({ node_name: '通知用户' })
     const wrapper = mount(WorkflowExecutionLog, {
-      props: { instance: baseInstance, logs: [log] },
+      props: { instance: baseInstance, logs: [log], workflowId: 'wf-1' },
     })
     const nodeType = wrapper.find('.node-type')
     const nodeName = wrapper.find('.node-name')
@@ -57,7 +57,7 @@ describe('WorkflowExecutionLog', () => {
   it('当 log.node_name 为空时不渲染 node-name span', () => {
     const log = makeLog({ node_name: null })
     const wrapper = mount(WorkflowExecutionLog, {
-      props: { instance: baseInstance, logs: [log] },
+      props: { instance: baseInstance, logs: [log], workflowId: 'wf-1' },
     })
     expect(wrapper.find('.node-name').exists()).toBe(false)
     expect(wrapper.find('.node-type').exists()).toBe(true)
@@ -69,7 +69,7 @@ describe('WorkflowExecutionLog', () => {
       makeLog({ id: 'log-2', node_name: '通知用户', node_type: 'webhook' }),
     ]
     const wrapper = mount(WorkflowExecutionLog, {
-      props: { instance: baseInstance, logs },
+      props: { instance: baseInstance, logs, workflowId: 'wf-1' },
     })
     const names = wrapper.findAll('.node-name').map((n) => n.text())
     expect(names).toEqual(['通知管理员', '通知用户'])
@@ -79,7 +79,7 @@ describe('WorkflowExecutionLog', () => {
     const longName = '这是一个非常非常非常长的节点名称用于测试省略号效果是否正常工作'
     const log = makeLog({ node_name: longName })
     const wrapper = mount(WorkflowExecutionLog, {
-      props: { instance: baseInstance, logs: [log] },
+      props: { instance: baseInstance, logs: [log], workflowId: 'wf-1' },
     })
     const nodeName = wrapper.find('.node-name')
     expect(nodeName.attributes('title')).toBe(longName)

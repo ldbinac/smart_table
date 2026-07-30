@@ -338,6 +338,74 @@ class WorkflowService:
         return config
 
     @staticmethod
+    def _validate_loop_node(node_config: Dict[str, Any], depth: int = 1) -> None:
+        """校验循环节点配置，depth 为当前嵌套深度（1=顶层）。
+
+        校验失败时抛出 ValueError，由调用方转为 400 响应。
+        """
+        if not isinstance(node_config, dict):
+            raise ValueError('循环节点配置必须是一个对象')
+
+        if depth > 3:
+            raise ValueError('循环嵌套深度不能超过 3 层')
+
+        config = node_config.get('config', {}) or {}
+
+        # 校验 loop_body_nodes 为非空 list
+        loop_body_nodes = config.get('loop_body_nodes')
+        if not isinstance(loop_body_nodes, list) or len(loop_body_nodes) == 0:
+            raise ValueError('循环节点必须包含非空的 loop_body_nodes')
+
+        # 校验循环体子节点不包含 condition
+        for child in loop_body_nodes:
+            if not isinstance(child, dict):
+                continue
+            if child.get('node_type') == 'condition':
+                raise ValueError('循环体不支持条件分支节点')
+
+        # 校验 max_iterations 为 1-1000 正整数
+        max_iterations = config.get('max_iterations', 100)
+        if (
+            not isinstance(max_iterations, int)
+            or isinstance(max_iterations, bool)
+            or max_iterations < 1
+            or max_iterations > 1000
+        ):
+            raise ValueError('max_iterations 必须为 1-1000 之间的正整数')
+
+        # 校验 error_handling
+        error_handling = config.get('error_handling', 'skip')
+        if error_handling not in ('skip', 'terminate'):
+            raise ValueError("error_handling 必须为 'skip' 或 'terminate'")
+
+        # 校验 empty_result_action
+        empty_result_action = config.get('empty_result_action', 'skip')
+        if empty_result_action not in ('skip', 'error'):
+            raise ValueError("empty_result_action 必须为 'skip' 或 'error'")
+
+        # 递归校验嵌套循环
+        for child in loop_body_nodes:
+            if not isinstance(child, dict):
+                continue
+            if child.get('node_type') == 'loop':
+                WorkflowService._validate_loop_node(child, depth + 1)
+
+    @staticmethod
+    def _count_loop_nodes(nodes_config: List[Dict[str, Any]]) -> int:
+        """递归统计 loop 节点总数（含嵌套循环体内的）"""
+        if not isinstance(nodes_config, list):
+            return 0
+        count = 0
+        for node in nodes_config:
+            if not isinstance(node, dict):
+                continue
+            if node.get('node_type') == 'loop':
+                count += 1
+                config = node.get('config', {}) or {}
+                count += WorkflowService._count_loop_nodes(config.get('loop_body_nodes', []))
+        return count
+
+    @staticmethod
     def _build_version_snapshot(workflow: Workflow) -> Dict[str, Any]:
         """为工作流构建版本快照"""
         return {
@@ -404,20 +472,31 @@ class WorkflowService:
             db.session.add(trigger)
 
         if nodes_config:
-            # 前端动作类型转换为 ACTION 节点
-            action_type_map = {
+            # 细粒度类型直接作为 WorkflowNodeType 枚举值存储，
+            # 不再转换为 ACTION + config.action_type。
+            # 保留对旧 'action' + config.action_type 的兼容升级。
+            _ACTION_TYPE_UPGRADE = {
                 'update_record': 'update_record',
                 'create_record': 'create_record',
                 'send_email': 'send_email',
                 'trigger_webhook': 'trigger_webhook',
                 'find_records': 'find_records',
             }
+            # 单个工作流最多 5 个循环节点（含嵌套循环体内的）
+            loop_count = cls._count_loop_nodes(nodes_config)
+            if loop_count > 5:
+                raise ValueError('单个工作流最多 5 个循环节点')
+
             for index, node_data in enumerate(nodes_config):
                 node_type = node_data.get('node_type', 'action')
                 node_config = dict(node_data.get('config', {}))
-                if node_type in action_type_map:
-                    node_config['action_type'] = action_type_map[node_type]
-                    node_type = 'action'
+                if node_type == 'loop':
+                    cls._validate_loop_node(node_data)
+                elif node_type == 'action':
+                    # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
+                    action_type = node_config.get('action_type')
+                    if action_type and action_type in _ACTION_TYPE_UPGRADE:
+                        node_type = _ACTION_TYPE_UPGRADE[action_type]
                 if node_type == 'condition':
                     node_config = cls._normalize_condition_config(node_config)
                     node_config = cls._clean_condition_config(node_config)
@@ -542,14 +621,28 @@ class WorkflowService:
             WorkflowNode.query.filter_by(workflow_id=workflow.id).delete()
             nodes_config = kwargs['nodes_config']
             if nodes_config:
+                # 单个工作流最多 5 个循环节点（含嵌套循环体内的）
+                loop_count = cls._count_loop_nodes(nodes_config)
+                if loop_count > 5:
+                    raise ValueError('单个工作流最多 5 个循环节点')
+
+                _ACTION_TYPE_UPGRADE = {
+                    'update_record': 'update_record',
+                    'create_record': 'create_record',
+                    'send_email': 'send_email',
+                    'trigger_webhook': 'trigger_webhook',
+                    'find_records': 'find_records',
+                }
                 for index, node_data in enumerate(nodes_config):
                     node_type_str = node_data.get('node_type', 'action')
                     config = dict(node_data.get('config', {}))
-                    # 前端动作类型转换为 ACTION 节点
-                    action_node_types = {'update_record', 'create_record', 'send_email', 'trigger_webhook', 'find_records'}
-                    if node_type_str in action_node_types:
-                        config['action_type'] = node_type_str
-                        node_type_str = 'action'
+                    if node_type_str == 'loop':
+                        cls._validate_loop_node(node_data)
+                    elif node_type_str == 'action':
+                        # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
+                        action_type = config.get('action_type')
+                        if action_type and action_type in _ACTION_TYPE_UPGRADE:
+                            node_type_str = _ACTION_TYPE_UPGRADE[action_type]
                     if node_type_str == 'condition':
                         config = cls._normalize_condition_config(config)
                         config = cls._clean_condition_config(config)

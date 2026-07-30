@@ -37,6 +37,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   Link: { name: 'Link', template: '<span class="icon-link" />' },
   Share: { name: 'Share', template: '<span class="icon-share" />' },
   CircleCheck: { name: 'CircleCheck', template: '<span class="icon-circle-check" />' },
+  Refresh: { name: 'Refresh', template: '<span class="icon-refresh" />' },
 }))
 
 const defaultProps: Record<string, any> = {
@@ -77,40 +78,13 @@ describe('WorkflowEdgeWithAddButton', () => {
     expect(wrapper.find('.base-edge-stub').exists()).toBe(true)
   })
 
-  it('应该在中点渲染"+"按钮', () => {
+  it('编辑模式下应该视觉隐藏"+"按钮（保留功能逻辑）', () => {
+    // 根据需求：编辑状态下对"+"号按钮进行视觉隐藏处理，仅隐藏 UI 显示，保留功能逻辑
+    // 功能逻辑（菜单、handleSelect、emit edge-insert 等）完整保留在组件源码中，
+    // 后续如需重新启用，将 WorkflowEdgeWithAddButton.vue 中的 HIDE_ADD_BUTTON_IN_EDIT_MODE 改为 false 即可
     const wrapper = mountEdge()
-    const button = wrapper.find('.edge-add-button')
-    expect(button.exists()).toBe(true)
-    expect(button.find('.icon-plus').exists()).toBe(true)
-  })
-
-  it('点击"+"按钮应该显示节点类型菜单', async () => {
-    const wrapper = mountEdge()
+    expect(wrapper.find('.edge-add-button').exists()).toBe(false)
     expect(wrapper.find('.edge-add-menu').exists()).toBe(false)
-
-    await wrapper.find('.edge-add-button').trigger('click')
-    expect(wrapper.find('.edge-add-menu').exists()).toBe(true)
-  })
-
-  it('选择菜单项时应该触发 edge-insert 事件', async () => {
-    const wrapper = mountEdge()
-    await wrapper.find('.edge-add-button').trigger('click')
-
-    const menuItems = wrapper.findAll('.edge-add-menu-item')
-    expect(menuItems.length).toBe(6)
-    expect(menuItems[0].text()).toBe('更新记录')
-    expect(menuItems[1].text()).toBe('创建记录')
-    expect(menuItems[2].text()).toBe('查找记录')
-    expect(menuItems[3].text()).toBe('发送邮件')
-    expect(menuItems[4].text()).toBe('Webhook')
-    expect(menuItems[5].text()).toBe('条件节点')
-
-    await menuItems[1].trigger('click')
-
-    expect(wrapper.emitted('edge-insert')).toBeTruthy()
-    expect(wrapper.emitted('edge-insert')![0]).toEqual([
-      { sourceId: 'node-1', targetId: 'node-2', nodeType: 'create_record' },
-    ])
   })
 
   it('只读模式下应该隐藏"+"按钮', () => {

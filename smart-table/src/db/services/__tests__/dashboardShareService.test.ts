@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { dashboardShareService } from "../dashboardShareService";
 import { apiClient } from "@/api/client";
 
-// 模拟数据库操作
-vi.mock("../schema", () => ({
+// 模拟数据库操作（服务内部从 ../schema 导入，这里使用别名确保拦截到同一模块）
+vi.mock("@/db/schema", () => ({
   db: {
     dashboardShares: {
       add: vi.fn().mockResolvedValue(undefined),

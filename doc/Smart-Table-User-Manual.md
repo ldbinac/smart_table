@@ -122,7 +122,7 @@
 ### 环境要求
 
 - Node.js >= 18
-- npm >= 9
+- pnpm >= 9
 - Python >= 3.9 （仅后端模式需要）
 
 ### 一键启动（推荐）
@@ -183,19 +183,19 @@ flask run --reload
 
 # 启动前端
 cd ../smart-table
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 #### 前端开发常用命令
 
 ```bash
-npm run dev        # 开发模式
-npm run build      # 构建生产版本
-npm run preview    # 预览构建结果
-npm run test       # 运行测试
-npm run test:watch # 监听模式运行测试
-npm run test:coverage # 生成测试覆盖率报告
+pnpm run dev        # 开发模式
+pnpm run build      # 构建生产版本
+pnpm run preview    # 预览构建结果
+pnpm run test       # 运行测试
+pnpm run test:watch # 监听模式运行测试
+pnpm run test:coverage # 生成测试覆盖率报告
 ```
 
 #### 后端特性说明

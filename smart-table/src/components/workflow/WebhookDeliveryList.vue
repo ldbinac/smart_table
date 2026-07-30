@@ -160,7 +160,7 @@ defineExpose({ fetchDeliveries });
             link
             type="primary"
             :loading="redeliveringId === row.id"
-            @click="handleRedeliver(row)"
+            @click="handleRedeliver(row as WebhookDeliveryLog)"
           >
             重新投递
           </el-button>

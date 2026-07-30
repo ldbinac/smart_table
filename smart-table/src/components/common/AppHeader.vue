@@ -20,11 +20,13 @@ import {
   Loading,
   Warning,
   Connection,
+  QuestionFilled,
 } from "@element-plus/icons-vue";
 import type { Dashboard } from "@/db/schema";
 import { debounce } from "@/utils/debounce";
 import ConnectionStatusBar from "@/components/collaboration/ConnectionStatusBar.vue";
 import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
+import FeedbackDialog from "@/components/common/FeedbackDialog.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -38,6 +40,9 @@ const workflowStore = useWorkflowStore();
 
 // 用户菜单控制
 const userMenuVisible = ref(false);
+
+// 反馈弹窗控制
+const feedbackDialogVisible = ref(false);
 
 // 处理退出登录
 const handleLogout = async () => {
@@ -472,6 +477,19 @@ onMounted(() => {
         <el-divider direction="vertical" class="header-divider" />
       </template>
       <!-- <div class="current-title">{{ currentTitle }}</div> -->
+      <el-tooltip
+        class="box-item"
+        effect="dark"
+        content="反馈问题"
+        placement="bottom">
+        <el-button
+          type="primary"
+          plain
+          circle
+          @click="feedbackDialogVisible = true">
+          <el-icon><QuestionFilled /></el-icon>
+        </el-button>
+      </el-tooltip>
       <el-dropdown
         v-model:visible="userMenuVisible"
         trigger="click"
@@ -506,6 +524,8 @@ onMounted(() => {
         </template>
       </el-dropdown>
     </div>
+
+    <FeedbackDialog v-model:visible="feedbackDialogVisible" />
   </header>
 </template>
 

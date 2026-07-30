@@ -31,9 +31,17 @@ class WorkflowNodeType(PyEnum):
     """工作流节点类型枚举"""
     TRIGGER = 'trigger'
     APPROVAL = 'approval'
-    ACTION = 'action'
     CONDITION = 'condition'
     WEBHOOK = 'webhook'
+    LOOP = 'loop'
+    # 细粒度动作类型（替代原 ACTION + config.action_type 间接层）
+    FIND_RECORDS = 'find_records'
+    SEND_EMAIL = 'send_email'
+    UPDATE_RECORD = 'update_record'
+    CREATE_RECORD = 'create_record'
+    TRIGGER_WEBHOOK = 'trigger_webhook'
+    # 保留 ACTION 用于向后兼容（历史数据迁移后可废弃）
+    ACTION = 'action'
 
 
 class WorkflowTriggerType(PyEnum):
@@ -270,6 +278,7 @@ class WorkflowVersion(db.Model):
 
 
 # 动作类型反向映射：后端 action + config.action_type -> 前端细粒度 node_type
+# 仅用于向后兼容旧数据（node_type='action' 的历史记录）
 _ACTION_TYPE_TO_FRONTEND = {
     'update_record': 'update_record',
     'create_record': 'create_record',

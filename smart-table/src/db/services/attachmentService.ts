@@ -313,14 +313,27 @@ export class AttachmentService {
 
   /**
    * 删除附件
+   * 先调用后端 API 删除服务器上的文件，再清理本地 IndexedDB 缓存
    */
   async deleteAttachment(attachmentId: string): Promise<void> {
-    const attachment = await this.getAttachment(attachmentId);
-    if (!attachment) {
-      throw createAttachmentNotFoundError(attachmentId);
+    // 先调用后端删除，确保服务端附件文件被真正移除
+    try {
+      await attachmentApiService.deleteAttachment(attachmentId);
+    } catch (apiError) {
+      // 如果后端返回 404，说明附件已不存在，视为成功
+      const error = apiError as any;
+      if (error?.code !== 404 && error?.response?.status !== 404) {
+        console.error('从后端删除附件失败:', attachmentId, apiError);
+        throw apiError;
+      }
     }
 
-    await db.attachments.delete(attachmentId);
+    // 再清理本地 IndexedDB 缓存（允许本地不存在）
+    try {
+      await db.attachments.delete(attachmentId);
+    } catch (localError) {
+      console.warn('删除本地附件缓存失败:', attachmentId, localError);
+    }
   }
 
   /**

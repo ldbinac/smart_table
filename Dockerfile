@@ -7,21 +7,27 @@
 # ============================================
 # 阶段 1: 构建前端
 # ============================================
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# 复制 package 文件（利用 Docker 缓存层）
-COPY smart-table/package.json smart-table/package-lock.json ./
+# 启用 corepack 以使用 pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# 安装全部依赖（包含 devDependencies，prepare 脚本需要 husky）
-RUN npm ci && npm cache clean --force
+# 复制 pnpm 相关文件（利用 Docker 缓存层）
+COPY smart-table/package.json smart-table/pnpm-lock.yaml smart-table/pnpm-workspace.yaml ./
+
+# 安装全部依赖（包含 devDependencies；开启 CI 模式避免 TTY 交互）
+ENV CI=true
+RUN pnpm install --frozen-lockfile && pnpm store prune
 
 # 复制前端源代码
 COPY smart-table/ ./
 
-# 构建前端（跳过 vue-tsc 类型检查，使用 vite 直接编译）
-RUN npx vite build
+# 构建前端（跳过 prepare 钩子中的 husky 与类型检查，Docker 中不需要）
+ENV HUSKY=0 \
+    CI=true
+RUN pnpm exec vite build
 
 # ============================================
 # 阶段 2: 构建后端 Python 依赖
@@ -57,7 +63,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.11-slim
 
 LABEL maintainer="SmartTable Team" \
-      version="1.6.2" \
+      version="1.6.3" \
       description="SmartTable - 智能表格应用"
 
 # 设置环境变量

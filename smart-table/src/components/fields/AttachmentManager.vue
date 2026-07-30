@@ -48,6 +48,8 @@ const uploadProgress = ref(0);
 const currentUploadFile = ref('');
 const previewVisible = ref(false);
 const previewFile = ref<AttachmentFile | null>(null);
+// 记录传入的 modelValue 是否为 ID 字符串数组，删除时保持相同格式回传
+const modelValueIsIdArray = ref(false);
 
 // 图片预览状态
 const imageScale = ref(1);
@@ -156,6 +158,9 @@ watch(
       items = [newVal];
     }
 
+    // 记录原始值是否为 ID 字符串数组
+    modelValueIsIdArray.value = items.length > 0 && items.every(item => typeof item === 'string');
+
     if (items.length > 0) {
       const processedFiles: AttachmentFile[] = [];
 
@@ -251,6 +256,14 @@ function formatUploadTime(timestamp: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
+// 根据原始值格式构造回传的 modelValue：ID 数组或完整对象数组
+function buildModelValue(): CellValue {
+  if (modelValueIsIdArray.value) {
+    return files.value.map(f => f.id);
+  }
+  return files.value;
+}
+
 // 处理上传
 async function handleUpload(uploadFile: UploadFile) {
   const file = uploadFile.raw;
@@ -284,7 +297,7 @@ async function handleUpload(uploadFile: UploadFile) {
     );
 
     files.value = [...files.value, ...uploadedFiles];
-    emit('update:modelValue', files.value);
+    emit('update:modelValue', buildModelValue());
 
     ElMessage.success(`文件 "${file.name}" 上传成功`);
   } catch (error) {
@@ -310,10 +323,11 @@ async function handleRemove(fileId: string) {
       type: 'warning'
     });
 
+    // 先调用后端删除附件文件，再清理本地缓存
     await attachmentService.deleteAttachment(fileId);
 
     files.value = files.value.filter(f => f.id !== fileId);
-    emit('update:modelValue', files.value);
+    emit('update:modelValue', buildModelValue());
 
     ElMessage.success('附件已删除');
   } catch (error) {
@@ -597,12 +611,12 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.3);
-  z-index: 9998;
+  z-index: 1998;
 }
 
 .attachment-manager-panel {
   position: fixed;
-  z-index: 9999;
+  z-index: 1999;
   max-width: 420px;
   width: 380px;
   max-height: 480px;

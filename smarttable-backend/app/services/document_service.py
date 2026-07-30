@@ -59,10 +59,6 @@ class DocumentService:
         if not doc:
             raise ValueError('Document not found')
 
-        # 记录旧值用于版本判断
-        old_name = doc.name
-        old_content = doc.content
-
         for key, value in kwargs.items():
             if hasattr(doc, key):
                 setattr(doc, key, value)
@@ -72,27 +68,23 @@ class DocumentService:
 
         db.session.commit()
 
-        # 检查是否需要创建新版本
-        new_name = kwargs.get('name', old_name)
-        new_content = kwargs.get('content', old_content)
-
-        should_version, change_summary = document_version_service.should_create_version(
-            document_id=doc_id,
-            new_content=new_content,
-            old_content=old_content,
-            new_name=new_name,
-            old_name=old_name
-        )
-
-        if should_version:
-            document_version_service.create_version(
+        # 仅当内容发生变化时才检查是否需要创建新版本
+        if 'content' in kwargs:
+            new_content = kwargs['content']
+            should_version, change_summary = document_version_service.should_create_version(
                 document_id=doc_id,
-                name=f'版本 {new_name}',
-                content=new_content,
-                content_format=doc.content_format,
-                user_id=user_id,
-                change_summary=change_summary
+                new_content=new_content
             )
+
+            if should_version:
+                document_version_service.create_version(
+                    document_id=doc_id,
+                    name=f'版本 {doc.name}',
+                    content=new_content,
+                    content_format=doc.content_format,
+                    user_id=user_id,
+                    change_summary=change_summary
+                )
 
         return doc
 

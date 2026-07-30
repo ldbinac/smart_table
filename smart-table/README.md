@@ -303,16 +303,16 @@ smart-table/
 
 ```bash
 # 安装依赖
-npm install
+pnpm install
 
 # 开发模式
-npm run dev
+pnpm run dev
 
 # 构建
-npm run build
+pnpm run build
 
 # 测试
-npm run test
+pnpm run test
 ```
 
 ## 贡献指南

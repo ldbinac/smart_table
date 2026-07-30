@@ -312,7 +312,7 @@ def refresh() -> tuple:
         data={
             'access_token': access_token,
             'token_type': 'Bearer',
-            'expires_in': AuthService.ACCESS_TOKEN_EXPIRES
+            'expires_in': AuthService.get_access_token_expires()
         },
         message='令牌刷新成功'
     )

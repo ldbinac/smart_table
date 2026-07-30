@@ -11,6 +11,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   Message: { template: '<span class="icon-message" />' },
   Link: { template: '<span class="icon-link" />' },
   Search: { template: '<span class="icon-search" />' },
+  Refresh: { template: '<span class="icon-refresh" />' },
 }))
 
 describe('WorkflowVersionNodeSnapshot', () => {

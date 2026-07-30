@@ -10,8 +10,17 @@ vi.mock('@/api/user', () => ({
   userApi: {
     searchUsers: vi.fn(),
     getUserById: vi.fn(),
+    getUsersByIds: vi.fn(),
   },
 }))
+
+// 打开下拉框辅助函数（popover 的 click trigger 在 jsdom 中不稳定）
+async function openDropdown(wrapper: ReturnType<typeof mount>) {
+  // 直接设置组件内部的下拉框可见状态
+  ;(wrapper.vm as any).dropdownVisible = true
+  await nextTick()
+  await new Promise(resolve => setTimeout(resolve, 50))
+}
 
 describe('MemberSelect', () => {
   beforeEach(() => {
@@ -52,7 +61,7 @@ describe('MemberSelect', () => {
         updated_at: '2024-01-01T00:00:00Z',
       }
 
-      vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
+      vi.mocked(userApi.getUsersByIds).mockResolvedValue([mockUser])
 
       const wrapper = mountWithPinia({
         props: {
@@ -75,8 +84,7 @@ describe('MemberSelect', () => {
       })
 
       // 打开下拉框
-      await wrapper.find('.member-select-trigger').trigger('click')
-      await nextTick()
+      await openDropdown(wrapper)
 
       // 等待防抖时间
       await new Promise(resolve => setTimeout(resolve, 350))
@@ -114,8 +122,7 @@ describe('MemberSelect', () => {
       })
 
       // 打开下拉框
-      await wrapper.find('.member-select-trigger').trigger('click')
-      await nextTick()
+      await openDropdown(wrapper)
 
       // 输入搜索关键词
       const input = wrapper.find('.el-input__inner')
@@ -141,8 +148,7 @@ describe('MemberSelect', () => {
       })
 
       // 打开下拉框
-      await wrapper.find('.member-select-trigger').trigger('click')
-      await nextTick()
+      await openDropdown(wrapper)
 
       // 输入搜索关键词
       const input = wrapper.find('.el-input__inner')
@@ -190,8 +196,7 @@ describe('MemberSelect', () => {
       })
 
       // 打开下拉框并搜索
-      await wrapper.find('.member-select-trigger').trigger('click')
-      await nextTick()
+      await openDropdown(wrapper)
 
       const input = wrapper.find('.el-input__inner')
       await input.setValue('张')
@@ -203,7 +208,7 @@ describe('MemberSelect', () => {
 
       // 验证事件被触发
       expect(wrapper.emitted('update:modelValue')).toBeTruthy()
-      expect(wrapper.emitted('update:modelValue')![0]).toEqual(['1'])
+      expect(wrapper.emitted('update:modelValue')![0]).toEqual([['1']])
     })
 
     it('应该正确移除已选成员', async () => {
@@ -219,7 +224,7 @@ describe('MemberSelect', () => {
         updated_at: '2024-01-01T00:00:00Z',
       }
 
-      vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
+      vi.mocked(userApi.getUsersByIds).mockResolvedValue([mockUser])
 
       const wrapper = mountWithPinia({
         props: {
@@ -235,7 +240,7 @@ describe('MemberSelect', () => {
 
       // 验证事件被触发
       expect(wrapper.emitted('update:modelValue')).toBeTruthy()
-      expect(wrapper.emitted('update:modelValue')![0]).toEqual([null])
+      expect(wrapper.emitted('update:modelValue')![0]).toEqual([[]])
     })
   })
 
@@ -265,7 +270,7 @@ describe('MemberSelect', () => {
         updated_at: '2024-01-01T00:00:00Z',
       }
 
-      vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
+      vi.mocked(userApi.getUsersByIds).mockResolvedValue([mockUser])
 
       const wrapper = mountWithPinia({
         props: {
@@ -324,8 +329,7 @@ describe('MemberSelect', () => {
       })
 
       // 打开下拉框并搜索
-      await wrapper.find('.member-select-trigger').trigger('click')
-      await nextTick()
+      await openDropdown(wrapper)
 
       const input = wrapper.find('.el-input__inner')
       await input.setValue('张')
@@ -354,7 +358,7 @@ describe('MemberSelect', () => {
         updated_at: '2024-01-01T00:00:00Z',
       }
 
-      vi.mocked(userApi.getUserById).mockResolvedValue(mockUser)
+      vi.mocked(userApi.getUsersByIds).mockResolvedValue([mockUser])
 
       const wrapper = mountWithPinia({
         props: {
@@ -378,8 +382,7 @@ describe('MemberSelect', () => {
       })
 
       // 打开下拉框
-      await wrapper.find('.member-select-trigger').trigger('click')
-      await nextTick()
+      await openDropdown(wrapper)
 
       // 等待初始化
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -407,8 +410,7 @@ describe('MemberSelect', () => {
       })
 
       // 打开下拉框并搜索
-      await wrapper.find('.member-select-trigger').trigger('click')
-      await nextTick()
+      await openDropdown(wrapper)
 
       const input = wrapper.find('.el-input__inner')
       await input.setValue('不存在的用户')

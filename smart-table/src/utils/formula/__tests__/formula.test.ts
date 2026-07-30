@@ -451,6 +451,21 @@ describe("Formula Functions", () => {
       expect(formulaFunctions.RIGHT("Hello", 2)).toBe("lo");
     });
 
+    it("should get middle characters with MID", () => {
+      expect(formulaFunctions.MID("Hello", 2, 2)).toBe("el");
+    });
+
+    it("should extract ID card year/month/day with MID", () => {
+      const idCard = "11010119900307888X";
+      expect(formulaFunctions.MID(idCard, 7, 4)).toBe("1990");
+      expect(formulaFunctions.MID(idCard, 11, 2)).toBe("03");
+      expect(formulaFunctions.MID(idCard, 13, 2)).toBe("07");
+    });
+
+    it("should handle MID exceeding string length", () => {
+      expect(formulaFunctions.MID("Hi", 2, 10)).toBe("i");
+    });
+
     it("should get text length", () => {
       expect(formulaFunctions.LEN("Hello")).toBe(5);
     });
@@ -539,6 +554,28 @@ describe("Formula Functions", () => {
       const date1 = new Date("2024-01-01").getTime();
       const date2 = new Date("2024-01-10").getTime();
       expect(formulaFunctions.DATEDIF(date1, date2, "D")).toBe(9);
+    });
+
+    it("should calculate DATEDIF with various unit formats", () => {
+      const date1 = new Date("2024-01-01").getTime();
+      const date2 = new Date("2024-01-10").getTime();
+      // 支持多种单位格式
+      expect(formulaFunctions.DATEDIF(date1, date2, "d")).toBe(9);
+      expect(formulaFunctions.DATEDIF(date1, date2, "day")).toBe(9);
+      expect(formulaFunctions.DATEDIF(date1, date2, "days")).toBe(9);
+    });
+
+    it("should calculate DATEDIF with month and year units", () => {
+      const date1 = new Date("2024-01-01").getTime();
+      const date2 = new Date("2025-03-01").getTime();
+      // 月差
+      expect(formulaFunctions.DATEDIF(date1, date2, "M")).toBe(14);
+      expect(formulaFunctions.DATEDIF(date1, date2, "month")).toBe(14);
+      expect(formulaFunctions.DATEDIF(date1, date2, "months")).toBe(14);
+      // 年差
+      expect(formulaFunctions.DATEDIF(date1, date2, "Y")).toBe(1);
+      expect(formulaFunctions.DATEDIF(date1, date2, "year")).toBe(1);
+      expect(formulaFunctions.DATEDIF(date1, date2, "years")).toBe(1);
     });
 
     it("should calculate DATEDIFF with timestamp", () => {
@@ -749,6 +786,48 @@ describe("Formula Engine Factory", () => {
   it("should create engine with fields", () => {
     const engine = formulaEngine.createEngine(mockFields);
     expect(engine).toBeInstanceOf(FormulaEngine);
+  });
+});
+
+describe("Newly Added Functions", () => {
+  it("should support extended math functions", () => {
+    expect(typeof formulaFunctions.LN(1)).toBe("number");
+    expect(typeof formulaFunctions.LOG(100, 10)).toBe("number");
+    expect(typeof formulaFunctions.EXP(1)).toBe("number");
+    expect(formulaFunctions.PI()).toBe(Math.PI);
+    expect(formulaFunctions.E()).toBe(Math.E);
+    expect(typeof formulaFunctions.RAND()).toBe("number");
+    const randBetween = formulaFunctions.RANDBETWEEN(1, 10) as number;
+    expect(randBetween).toBeGreaterThanOrEqual(1);
+    expect(randBetween).toBeLessThanOrEqual(10);
+  });
+
+  it("should support extended text functions", () => {
+    expect(formulaFunctions.REPT("ab", 3)).toBe("ababab");
+    expect(formulaFunctions.TEXT(0.75, "0%")).toBe("75%");
+    expect(formulaFunctions.VALUE("123.45")).toBe(123.45);
+  });
+
+  it("should support extended logic functions", () => {
+    expect(formulaFunctions.XOR(true, false)).toBe(true);
+    expect(formulaFunctions.XOR(true, true)).toBe(false);
+    expect(formulaFunctions.ISBLANK("")).toBe(true);
+    expect(formulaFunctions.ISERROR("#ERROR")).toBe(true);
+    expect(formulaFunctions.ISNUMBER(42)).toBe(true);
+    expect(formulaFunctions.ISTEXT("hello")).toBe(true);
+    expect(formulaFunctions.ISDATE("2025-01-01")).toBe(true);
+    expect(formulaFunctions.BLANK()).toBeNull();
+    expect(formulaFunctions.NA()).toBe("#N/A");
+  });
+
+  it("should support extended statistical functions", () => {
+    expect(formulaFunctions.COUNTBLANK("", null, 1)).toBe(2);
+    expect(formulaFunctions.STDEV(2, 4, 4, 4, 5, 5, 7, 9)).toBeGreaterThan(0);
+    expect(formulaFunctions.VAR(2, 4, 4, 4, 5, 5, 7, 9)).toBeGreaterThan(0);
+    expect(formulaFunctions.MEDIAN(1, 3, 5)).toBe(3);
+    expect(formulaFunctions.MODE(1, 2, 2, 3, 3, 3)).toBe(3);
+    expect(formulaFunctions.RANK(3, 1, 2, 3, 4, 5)).toBe(3);
+    expect(formulaFunctions.UNIQUE(1, 2, 2, 3)).toEqual([1, 2, 3]);
   });
 });
 

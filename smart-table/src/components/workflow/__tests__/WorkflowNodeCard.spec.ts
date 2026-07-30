@@ -12,6 +12,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   CircleCheck: { name: 'CircleCheck', template: '<span class="icon-circle-check" />' },
   Delete: { name: 'Delete', template: '<span class="icon-delete" />' },
   Search: { name: 'Search', template: '<span class="icon-search" />' },
+  Refresh: { name: 'Refresh', template: '<span class="icon-refresh" />' },
 }));
 
 function mountCard(overrideProps: Record<string, any> = {}) {

@@ -354,6 +354,39 @@ const loadDisplayFields = async () => {
   }
 };
 
+/** 根据字段类型和选项将原始值格式化为可读的显示文本 */
+const formatValueForDisplay = (value: unknown, field?: DisplayField): string => {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  // 单选
+  if (field?.type === FieldType.SINGLE_SELECT) {
+    const choices = (field.options?.choices ?? field.options?.options ?? []) as Array<{ id: string; name: string }>;
+    const option = choices.find(c => c.id === value);
+    return option?.name ?? String(value);
+  }
+
+  // 多选
+  if (field?.type === FieldType.MULTI_SELECT) {
+    if (Array.isArray(value)) {
+      const choices = (field.options?.choices ?? field.options?.options ?? []) as Array<{ id: string; name: string }>;
+      return value.map(v => {
+        if (typeof v === 'object' && v !== null && 'name' in v) return (v as { name: string }).name;
+        const opt = choices.find(c => c.id === v);
+        return opt?.name ?? String(v);
+      }).filter(Boolean).join(', ');
+    }
+    if (typeof value === 'string') {
+      const choices = (field.options?.choices ?? field.options?.options ?? []) as Array<{ id: string; name: string }>;
+      const opt = choices.find(c => c.id === value);
+      return opt?.name ?? value;
+    }
+  }
+
+  return String(value);
+};
+
 const preloadLinkFieldDisplayMaps = async () => {
   const newMap = new Map<string, Map<string, string>>();
   const linkFields = displayFields.value.filter(f => f.type === FieldType.LINK || f.type === 'link_to_record');
@@ -363,10 +396,40 @@ const preloadLinkFieldDisplayMaps = async () => {
     return;
   }
 
+  // 预加载所有关联表的字段信息（用于格式化单选/多选等字段）
+  const linkedTableFieldsMap = new Map<string, DisplayField[]>();
   for (const field of linkFields) {
     const linkedTableId = field.config?.linkedTableId as string | undefined;
-    const displayFieldId = field.config?.displayFieldId as string | undefined;
+    if (!linkedTableId || linkedTableFieldsMap.has(linkedTableId)) continue;
+    try {
+      const fields = await fieldCacheService.getFieldsWithCache(linkedTableId);
+      linkedTableFieldsMap.set(linkedTableId, fields.map(f => ({
+        id: f.id,
+        name: f.name,
+        type: f.type,
+        options: f.options,
+        config: f.config,
+      })));
+    } catch (error) {
+      console.warn('[LinkRecordSelector] 加载关联表字段失败:', linkedTableId, error);
+    }
+  }
+
+  for (const field of linkFields) {
+    const linkedTableId = field.config?.linkedTableId as string | undefined;
+    let displayFieldId = field.config?.displayFieldId as string | undefined;
     if (!linkedTableId) continue;
+
+    // 如果未配置显示字段，回退到关联表的主字段
+    if (!displayFieldId) {
+      try {
+        const linkedTable = await tableService.getTable(linkedTableId);
+        displayFieldId = linkedTable?.primaryFieldId;
+      } catch (error) {
+        console.warn('[LinkRecordSelector] 获取关联表主字段失败:', linkedTableId, error);
+      }
+    }
+    if (!displayFieldId) continue;
 
     const fieldMap = new Map<string, string>();
     newMap.set(field.id, fieldMap);
@@ -386,6 +449,9 @@ const preloadLinkFieldDisplayMaps = async () => {
 
     if (linkedIds.size === 0) continue;
 
+    const linkedFields = linkedTableFieldsMap.get(linkedTableId) || [];
+    const displayField = linkedFields.find(f => f.id === displayFieldId);
+
     try {
       // 从关联表获取记录以解析显示值
       const result = await linkApiService.searchLinkableRecords(linkedTableId, {
@@ -394,9 +460,8 @@ const preloadLinkFieldDisplayMaps = async () => {
       });
       for (const item of result.items) {
         if (linkedIds.has(item.id)) {
-          const displayVal = displayFieldId
-            ? String(item.values[displayFieldId] ?? '')
-            : '';
+          const rawDisplayVal = item.values[displayFieldId];
+          const displayVal = formatValueForDisplay(rawDisplayVal, displayField);
           fieldMap.set(item.id, displayVal || item.id);
         }
       }

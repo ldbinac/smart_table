@@ -83,7 +83,7 @@ def configure_static_serving(app):
     
     if not dist_path:
         print('[Static Serving] ⚠️ Warning: Frontend dist directory not found!')
-        print('[Static Serving]   Please run "npm run build" in smart-table/ first.')
+        print('[Static Serving]   Please run "pnpm run build" in smart-table/ first.')
         # 开发模式下前端由 Vite dev server 提供，此处不注册 catch-all 路由，
         # 避免捕获 /api/* 请求导致 API 无法正常响应。
         return False

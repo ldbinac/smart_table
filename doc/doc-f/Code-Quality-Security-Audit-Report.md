@@ -291,7 +291,7 @@ $ npx vue-tsc --noEmit
 ### 单元测试
 
 ```
-$ npm run test
+$ pnpm run test
 Test Files:  2 failed | 4 passed (6)
 Tests:       7 failed | 141 passed (148)
 Duration:    8.84s

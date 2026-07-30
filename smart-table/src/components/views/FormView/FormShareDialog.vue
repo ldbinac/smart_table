@@ -312,8 +312,8 @@ function copyExistingShareUrl(share: FormShareConfig) {
           <el-table-column prop="title" label="分享标题" min-width="140" show-overflow-tooltip />
           <el-table-column label="状态" width="90">
             <template #default="{ row }">
-              <el-tag :type="getStatusType(row)" size="small" effect="light">
-                {{ getStatusText(row) }}
+              <el-tag :type="getStatusType(row as FormShareConfig)" size="small" effect="light">
+                {{ getStatusText(row as FormShareConfig) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -336,14 +336,14 @@ function copyExistingShareUrl(share: FormShareConfig) {
                 link
                 type="primary"
                 size="small"
-                @click="copyExistingShareUrl(row)">
+                @click="copyExistingShareUrl(row as FormShareConfig)">
                 复制链接
               </el-button>
               <el-button
                 link
                 :type="row.is_active ? 'warning' : 'success'"
                 size="small"
-                @click="toggleShareStatus(row)">
+                @click="toggleShareStatus(row as FormShareConfig)">
                 {{ row.is_active ? "停用" : "启用" }}
               </el-button>
               <el-button

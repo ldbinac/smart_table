@@ -67,7 +67,7 @@ TableView (computed处理)
 #### 3.2.1 依赖安装
 ```bash
 # 安装 VTable 及 Vue 封装
-npm install @visactor/vtable @visactor/vtable-vue
+pnpm install @visactor/vtable @visactor/vtable-vue
 ```
 
 #### 3.2.2 主要文件变更清单

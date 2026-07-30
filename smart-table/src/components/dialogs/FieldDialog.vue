@@ -554,6 +554,9 @@ function openEditField(field: FieldEntity) {
 function backToList() {
   activeTab.value = "list";
   editingField.value = null;
+  nextTick(() => {
+    initSortable();
+  });
   newField.value = {
     name: "",
     type: FieldType.SINGLE_LINE_TEXT,

@@ -292,7 +292,7 @@ volumes:
 ### 环境要求
 
 - Node.js >= 18
-- npm >= 9
+- pnpm >= 9
 - Python >= 3.11 （仅后端模式需要）
 
 ### 前端开发
@@ -301,13 +301,13 @@ volumes:
 
 ```bash
 cd smart-table
-npm install
+pnpm install
 ```
 
 #### 开发模式
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 访问 <http://localhost:5173>
@@ -315,26 +315,26 @@ npm run dev
 #### 构建生产版本
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 #### 预览生产版本
 
 ```bash
-npm run preview
+pnpm run preview
 ```
 
 #### 运行测试
 
 ```bash
 # 运行所有测试
-npm run test
+pnpm run test
 
 # 监听模式运行测试（开发时使用）
-npm run test:watch
+pnpm run test:watch
 
 # 生成测试覆盖率报告
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 ### 后端服务
@@ -884,7 +884,7 @@ smart-table-spec/
 
 - 前端遵循 ESLint + Prettier 配置
 - 后端遵循 PEP 8 规范
-- 提交前确保通过所有测试：`npm run test` (前端) / `pytest` (后端)
+- 提交前确保通过所有测试：`pnpm run test` (前端) / `pytest` (后端)
 - 确保 TypeScript 类型检查通过：`vue-tsc --noEmit`
 
 ## 📄 许可证

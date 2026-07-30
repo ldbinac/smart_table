@@ -24,7 +24,7 @@
 | 步骤 | 命令 | 验证点 |
 |------|------|--------|
 | 启动后端 | `cd smarttable-backend && python run.py` 或等价启动命令 | 服务监听在配置端口（默认 5000） |
-| 启动前端 | `cd smart-table && npm run dev` | 浏览器可访问 `http://localhost:5173` |
+| 启动前端 | `cd smart-table && pnpm run dev` | 浏览器可访问 `http://localhost:5173` |
 | 准备测试数据 | 登录并创建一个 Base，至少添加一张表和两个字段 | 表中存在可用于触发工作流的数据 |
 
 ### 1.2 测试用户准备
@@ -409,7 +409,7 @@ npx vitest run src/services/api/__tests__/workflowApiService.spec.ts \
   src/components/workflow/__tests__/WorkflowDesigner.spec.ts
 
 # 运行全部测试
-npm run test
+pnpm run test
 ```
 
 ### 10.2 后端测试

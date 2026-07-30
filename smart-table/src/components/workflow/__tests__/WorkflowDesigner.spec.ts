@@ -26,8 +26,8 @@ vi.mock('../WorkflowNodeConfig.vue', () => ({
   default: {
     name: 'WorkflowNodeConfig',
     template: '<div class="workflow-node-config-mock"><slot /></div>',
-    props: ['node', 'fields', 'tables', 'webhooks'],
-    emits: ['update:node'],
+    props: ['node', 'fields', 'tables', 'webhooks', 'allNodes', 'readonly'],
+    emits: ['update:node', 'add-child-node', 'remove-child-node', 'select-child-node'],
   },
 }));
 
@@ -96,6 +96,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   Timer: { template: '<span class="icon-timer" />' },
   CopyDocument: { template: '<span class="icon-copy-document" />' },
   Search: { template: '<span class="icon-search" />' },
+  Refresh: { template: '<span class="icon-refresh" />' },
 }));
 
 describe('WorkflowDesigner', () => {
@@ -269,7 +270,7 @@ describe('WorkflowDesigner', () => {
     expect(newNode.config.conditions).toEqual([]);
     expect(newNode.config.sort_direction).toBe('asc');
     expect(newNode.config.limit).toBe(100);
-    expect(newNode.config.empty_action).toBe('continue');
+    expect(newNode.config.empty_result_action).toBe('continue');
   });
 
   it('添加节点菜单应包含发送邮件选项', async () => {
