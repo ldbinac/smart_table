@@ -233,6 +233,12 @@ export interface FieldOptions {
   // ==================== 单元格合并选项 ====================
   /** 是否启用单元格合并（将内容相同的相邻单元格自动合并） */
   mergeCell?: boolean;
+
+  // ==================== 单行文本字段正则校验选项 ====================
+  /** 正则表达式字符串（仅用于 single_line_text，空值表示不校验） */
+  regex?: string;
+  /** 正则校验失败时的自定义提示信息（仅用于 single_line_text） */
+  regexMessage?: string;
 }
 
 export type CellValue =

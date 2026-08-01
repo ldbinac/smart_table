@@ -203,6 +203,21 @@ function validateCellValue(
       return { valid: true };
     }
 
+    case FieldType.SINGLE_LINE_TEXT: {
+      // 仅当字段配置了 regex 时执行正则校验
+      const regexPattern = field.options?.regex as string | undefined;
+      if (regexPattern) {
+        const result = validateFieldFormat(value, FieldType.SINGLE_LINE_TEXT as any, field);
+        if (!result.valid) {
+          return {
+            valid: false,
+            message: result.error || `${field.name} 格式不正确`,
+          };
+        }
+      }
+      return { valid: true };
+    }
+
     case FieldType.PHONE: {
       const result = validateFieldFormat(value, FieldType.PHONE as any);
       if (!result.valid) {

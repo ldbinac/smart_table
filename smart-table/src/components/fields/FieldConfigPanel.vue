@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { Delete, Plus } from "@element-plus/icons-vue";
 import { FieldType, type FieldOption, type FieldOptions } from "@/types/fields";
 import { generateId } from "@/utils/id";
+import { PRESET_REGEX_OPTIONS } from "@/utils/validation";
 
 interface Field {
   id: string;
@@ -70,6 +71,23 @@ const updateOption = <K extends keyof FieldOptions>(
   };
 };
 
+// 应用预置正则：同时写入 regex 与对应的提示信息 regexMessage
+const applyPresetRegex = (preset: {
+  label: string;
+  pattern: string;
+  message: string;
+}) => {
+  ensureOptions();
+  localField.value = {
+    ...localField.value,
+    options: {
+      ...localField.value.options,
+      regex: preset.pattern,
+      regexMessage: preset.message,
+    },
+  };
+};
+
 const addOption = () => {
   ensureOptions();
   const options = localField.value.options?.options || [];
@@ -116,6 +134,10 @@ const showTextOptions = computed(
   () => localField.value.type === FieldType.SINGLE_LINE_TEXT ||
        localField.value.type === FieldType.LONG_TEXT ||
        localField.value.type === FieldType.RICH_TEXT,
+);
+// 仅单行文本字段展示正则表达式配置
+const showRegexOptions = computed(
+  () => localField.value.type === FieldType.SINGLE_LINE_TEXT,
 );
 const showNumberOptions = computed(
   () => localField.value.type === FieldType.NUMBER,
@@ -307,6 +329,44 @@ const currencySymbolOptions = [
           :controls="false"
           placeholder="不限制"
           class="config-input" />
+      </div>
+    </template>
+
+    <!-- 正则表达式配置区块（仅单行文本字段） -->
+    <template v-if="showRegexOptions">
+      <div class="config-section">
+        <div class="config-label">预置正则</div>
+        <div class="regex-preset-list">
+          <el-tag
+            v-for="preset in PRESET_REGEX_OPTIONS"
+            :key="preset.label"
+            size="small"
+            type="info"
+            effect="plain"
+            class="regex-preset-tag"
+            style="cursor: pointer"
+            @click="applyPresetRegex(preset)">
+            {{ preset.label }}
+          </el-tag>
+        </div>
+      </div>
+      <div class="config-section">
+        <div class="config-label">正则表达式</div>
+        <el-input
+          :model-value="localField.options?.regex || ''"
+          @update:model-value="(val: string) => updateOption('regex', val)"
+          placeholder="请输入正则表达式，如 ^\d{4}$"
+          class="config-input"
+          clearable />
+      </div>
+      <div v-if="localField.options?.regex" class="config-section">
+        <div class="config-label">提示信息</div>
+        <el-input
+          :model-value="localField.options?.regexMessage || ''"
+          @update:model-value="(val: string) => updateOption('regexMessage', val)"
+          placeholder="校验不通过时显示的提示信息"
+          class="config-input"
+          clearable />
       </div>
     </template>
 
@@ -532,5 +592,16 @@ const currencySymbolOptions = [
 
 .add-option-btn {
   width: fit-content;
+}
+
+.regex-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+}
+
+.regex-preset-tag {
+  cursor: pointer;
+  user-select: none;
 }
 </style>

@@ -32,6 +32,7 @@ import {
   validateRequiredFields,
   getRequiredFieldErrorMessage,
   validateFieldsFormat,
+  validateFieldFormat,
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
@@ -170,6 +171,8 @@ watch(
 );
 
 const formData = ref<Record<string, unknown>>({});
+// 单行文本字段正则校验错误信息（按字段 ID 索引）
+const fieldErrors = ref<Record<string, string>>({});
 const isSaving = ref(false);
 const historyVisible = ref(false);
 
@@ -568,6 +571,27 @@ function handleValueChange(fieldId: string, value: unknown) {
   formData.value[fieldId] = value;
 }
 
+// 校验单行文本字段的正则（失焦时触发）
+function validateTextFieldRegex(field: FieldEntity) {
+  const regexPattern = (field.options?.regex as string | undefined) || "";
+  if (!regexPattern) {
+    // 未配置正则，清除该字段错误
+    delete fieldErrors.value[field.id];
+    return;
+  }
+  const value = formData.value[field.id];
+  const result = validateFieldFormat(
+    value as CellValue,
+    FieldType.SINGLE_LINE_TEXT,
+    field,
+  );
+  if (!result.valid) {
+    fieldErrors.value[field.id] = result.error || `${field.name} 格式不正确`;
+  } else {
+    delete fieldErrors.value[field.id];
+  }
+}
+
 // 获取评分最大值
 function getMaxRating(field: FieldEntity): number {
   return (field.options?.maxRating as number) ?? 5;
@@ -738,7 +762,11 @@ const drawerTitle = computed(() => {
               :placeholder="`请输入${field.name}`"
               :disabled="readonly"
               :maxlength="(field.options?.maxLength as number) || undefined"
-              class="field-input" />
+              :class="['field-input', { 'is-error': fieldErrors[field.id] }]"
+              @blur="validateTextFieldRegex(field)" />
+            <div v-if="fieldErrors[field.id]" class="field-error-message">
+              {{ fieldErrors[field.id] }}
+            </div>
           </template>
 
           <!-- 多行文本 -->
@@ -1108,6 +1136,20 @@ const drawerTitle = computed(() => {
 
 .field-input {
   width: 100%;
+}
+
+// 单行文本字段正则校验错误样式
+.field-error-message {
+  font-size: 12px;
+  color: #f56c6c;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+// 校验失败时输入框显示红色边框
+:deep(.is-error.el-input__wrapper),
+:deep(.el-input.is-error .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #f56c6c inset;
 }
 
 .select-option {
