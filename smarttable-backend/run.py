@@ -362,8 +362,14 @@ if __name__ == '__main__':
         sys.exit(0)
 
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
-    port = int(os.environ.get('FLASK_PORT', 5000))
+    port = int(os.environ.get('FLASK_PORT', '5000'))
     debug = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+
+    # 检测是否为 PyInstaller 打包环境
+    is_packaged = getattr(sys, 'frozen', False)
+    if is_packaged:
+        # 打包环境强制关闭调试模式/重载器，避免子进程重复打开浏览器
+        debug = False
 
     print(f'Starting SmartTable server...')
     print(f'Environment: {config_name}')
@@ -372,9 +378,7 @@ if __name__ == '__main__':
     print(f'Debug: {debug}')
     print(f'Real-time collaboration: {"enabled" if enable_realtime else "disabled"}')
     print(f'API Documentation: http://{host}:{port}/api/')
-    
-    # 检测是否为 PyInstaller 打包环境
-    is_packaged = getattr(sys, 'frozen', False)
+
     if is_packaged:
         print(f'[Packaging] Running in packaged mode (PyInstaller)')
         print(f'Frontend URL: http://{host}:{port}/')
