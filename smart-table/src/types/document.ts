@@ -36,4 +36,6 @@ export interface DocumentUpdateRequest {
   contentFormat?: 'delta' | 'markdown';
   order?: number;
   isPinned?: boolean;
+  // 乐观锁：期望的文档更新时间（ISO 字符串），用于后端检测并发冲突
+  expected_updated_at?: string;
 }

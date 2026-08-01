@@ -3,6 +3,7 @@
 提供文档的 CRUD 和导出功能
 """
 import tempfile
+from datetime import datetime
 
 from flask import Blueprint, request, g, send_file
 
@@ -288,11 +289,19 @@ def update_document(doc_id):
         data = request.get_json()
         expected_updated_at = data.pop('expected_updated_at', None)
 
-        # 乐观锁检查
+        # 乐观锁检查：前端传 expected_updated_at（ISO 字符串或时间戳），
+        # 后端用 datetime 对象比较（秒级精度），容忍 Z/+00:00 格式差异和微秒精度差异
         if expected_updated_at:
-            current_updated_at = doc.updated_at.isoformat() if doc.updated_at else None
-            if current_updated_at != expected_updated_at:
-                return api_error('文档已被他人修改，请刷新后重试', 409)
+            try:
+                expected_dt = datetime.fromisoformat(str(expected_updated_at).replace('Z', '+00:00'))
+                current_dt = doc.updated_at
+                if current_dt and current_dt.replace(microsecond=0) != expected_dt.replace(microsecond=0):
+                    return api_error('文档已被他人修改，请刷新后重试', 409)
+            except (ValueError, AttributeError, TypeError):
+                # 时间解析失败，fallback 到字符串比较
+                current_updated_at = doc.updated_at.isoformat() if doc.updated_at else None
+                if current_updated_at != expected_updated_at:
+                    return api_error('文档已被他人修改，请刷新后重试', 409)
 
         updated = document_service.update(doc_id=doc_id, user_id=user_id, **data)
         return api_response(updated.to_dict(include_content=True))
