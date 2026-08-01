@@ -73,7 +73,10 @@ const vtableViewRef = shallowRef<{ openSearch: () => void } | null>(null);
 const documentEditorRef = ref<{ hasUnsavedChanges: () => boolean; save: () => Promise<void> } | null>(null);
 
 const baseId = route.params.id as string;
-const realtimeCollab = baseId ? useRealtimeCollaboration(baseId) : null;
+// 初始化实时协同编辑连接（内部通过 onUnmounted 自动断开）
+if (baseId) {
+  useRealtimeCollaboration(baseId)
+}
 
 // 初始化实体操作
 const {
@@ -2553,10 +2556,10 @@ const handleDocumentExportPdf = async () => {
     </el-dialog>
     <CollaborationToast v-if="collaborationStore.isRealtimeAvailable" />
     <ConflictDialog
-      v-if="collaborationStore.isRealtimeAvailable && realtimeCollab"
-      :visible="realtimeCollab.conflictVisible.value"
-      :conflict="realtimeCollab.currentConflict.value"
-      @resolve="realtimeCollab.resolveConflict"
+      v-if="collaborationStore.isRealtimeAvailable"
+      :visible="collaborationStore.conflictVisible"
+      :conflict="collaborationStore.currentConflict"
+      @resolve="collaborationStore.resolveConflict"
     />
     <div v-if="isExportingPdf" class="pdf-export-loading">
       <div class="pdf-export-loading__track">

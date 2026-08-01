@@ -81,6 +81,7 @@ export interface PresenceUserLeftBroadcast {
 }
 
 export interface LockAcquireRequest {
+  base_id: string
   table_id: string
   record_id: string
   field_id: string
@@ -102,6 +103,7 @@ export interface LockAcquiredBroadcast {
 }
 
 export interface LockReleaseRequest {
+  base_id: string
   table_id: string
   record_id: string
   field_id: string

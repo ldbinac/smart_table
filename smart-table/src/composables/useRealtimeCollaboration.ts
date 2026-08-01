@@ -5,7 +5,6 @@ import type {
   OnlineUser,
   PresenceViewChangedRequest,
   PresenceCellSelectedRequest,
-  LockAcquireRequest,
   LockReleaseRequest,
   PresenceUserJoinedBroadcast,
   PresenceUserLeftBroadcast,
@@ -29,7 +28,6 @@ import { REALTIME_BASE_URL } from '@/api/config'
 import { useAuthStore } from '../stores/authStore'
 import { getToken } from '@/utils/auth/token'
 import { ElMessage } from 'element-plus'
-import type { ConflictInfo } from '@/components/collaboration/ConflictDialog.vue'
 import { useTableStore } from '../stores/tableStore'
 import { useViewStore } from '../stores/viewStore'
 import type { FieldEntity } from '../db/schema'
@@ -101,15 +99,6 @@ export function useRealtimeCollaboration(baseId: string) {
 
   const socketClient = ref<RealtimeSocketClient | null>(null)
 
-  const pendingChanges = ref<Map<string, { fieldId: string; value: unknown; timestamp: number }>>(new Map())
-  const conflictVisible = ref(false)
-  const currentConflict = ref<ConflictInfo | null>(null)
-  const waitingForLocks = ref<Set<string>>(new Set())
-  const pendingLockRequests = ref<Map<string, { 
-    resolve: (result: { success: boolean; reason?: string; locked_by?: { name: string } }) => void
-    timeout: ReturnType<typeof setTimeout>
-  }>>(new Map())
-
   const {
     isRealtimeAvailable,
     connectionStatus,
@@ -167,7 +156,7 @@ export function useRealtimeCollaboration(baseId: string) {
     const client = await createSocketClient(REALTIME_BASE_URL, token)
     socketClient.value = client
 
-    // 注册 socket client 到共享锁服务
+    // 注册 socket client 到共享锁服务（会自动监听 lock_result 事件）
     collaborationStore.registerLockClient(client)
 
     setupEventListeners()
@@ -176,6 +165,7 @@ export function useRealtimeCollaboration(baseId: string) {
   }
 
   function handleConnect() {
+    console.log('[COLLAB-DEBUG] socket connected, joining room', baseId)
     collaborationStore.setConnectionStatus('connected')
     joinRoom()
     if (collaborationStore.offlineQueue.length > 0) {
@@ -206,7 +196,6 @@ export function useRealtimeCollaboration(baseId: string) {
     socketClient.value.on('presence:cell_selected', handleCellSelected)
     socketClient.value.on('lock:acquired', handleLockAcquired)
     socketClient.value.on('lock:released', handleLockReleased)
-    socketClient.value.on('lock_result', handleLockResult)
     socketClient.value.on('data:record_created', handleRecordCreated)
     socketClient.value.on('data:record_updated', handleRecordUpdated)
     socketClient.value.on('data:record_deleted', handleRecordDeleted)
@@ -230,7 +219,6 @@ export function useRealtimeCollaboration(baseId: string) {
     socketClient.value.off('presence:cell_selected', handleCellSelected)
     socketClient.value.off('lock:acquired', handleLockAcquired)
     socketClient.value.off('lock:released', handleLockReleased)
-    socketClient.value.off('lock_result', handleLockResult)
     socketClient.value.off('data:record_created', handleRecordCreated)
     socketClient.value.off('data:record_updated', handleRecordUpdated)
     socketClient.value.off('data:record_deleted', handleRecordDeleted)
@@ -263,35 +251,8 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleCellSelected(_data: PresenceCellSelectedBroadcast) {
   }
 
-  function handleLockResult(data: { 
-    success: boolean
-    base_id: string
-    table_id: string
-    record_id: string
-    field_id: string
-    locked_by?: { name: string; nickname: string }
-    message?: string
-  }) {
-    const key = `${data.record_id}:${data.field_id}`
-    const pending = pendingLockRequests.value.get(key)
-    
-    if (pending) {
-      clearTimeout(pending.timeout)
-      pendingLockRequests.value.delete(key)
-      
-      if (data.success) {
-        pending.resolve({ success: true })
-      } else {
-        pending.resolve({ 
-          success: false, 
-          reason: 'locked',
-          locked_by: data.locked_by
-        })
-      }
-    }
-  }
-
   function handleLockAcquired(data: LockAcquiredBroadcast) {
+    console.log('[COLLAB-DEBUG] lock:acquired received', data)
     const key = `${data.record_id}:${data.field_id}`
     collaborationStore.setLockedCell(key, {
       user_id: data.user_id,
@@ -308,20 +269,15 @@ export function useRealtimeCollaboration(baseId: string) {
     const key = `${data.record_id}:${data.field_id}`
     collaborationStore.removeLockedCell(key)
 
-    if (waitingForLocks.value.has(key)) {
-      waitingForLocks.value.delete(key)
-      if (data.reason === 'timeout') {
-        ElMessage.warning('编辑锁已超时释放')
-      } else {
-        ElMessage.info('单元格已解锁，可以开始编辑')
-      }
+    if (data.reason === 'timeout') {
+      ElMessage.warning('编辑锁已超时释放')
     }
   }
 
   function handleRecordCreated(data: DataRecordCreatedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.record && data.table_id) {
       tableStore.addRecordFromRemote(data.table_id, data.record as any)
     }
@@ -337,28 +293,14 @@ export function useRealtimeCollaboration(baseId: string) {
       tableStore.updateRecordFromRemote(data.table_id, data.record_id, data.changes)
     }
 
-    for (const change of data.changes || []) {
-      const pendingKey = `${data.record_id}:${change.field_id}`
-      const pending = pendingChanges.value.get(pendingKey)
-      if (pending) {
-        currentConflict.value = {
-          fieldName: change.field_id,
-          fieldId: change.field_id,
-          recordId: data.record_id,
-          myValue: pending.value,
-          otherValue: change.new_value,
-          otherUserName: data.changed_by,
-        }
-        conflictVisible.value = true
-        pendingChanges.value.delete(pendingKey)
-      }
-    }
+    // 乐观冲突检测：检查远程更新是否与本地待提交变更冲突
+    collaborationStore.checkConflictOnRemoteUpdate(data, currentUserId || '')
   }
 
   function handleRecordDeleted(data: DataRecordDeletedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.table_id && data.record_id) {
       tableStore.deleteRecordFromRemote(data.table_id, data.record_id)
     }
@@ -367,7 +309,7 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleFieldCreated(data: DataFieldCreatedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.field && data.table_id) {
       const fieldEntity = convertApiFieldToEntity(data.field)
       tableStore.addFieldFromRemote(data.table_id, fieldEntity)
@@ -377,7 +319,7 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleFieldUpdated(data: DataFieldUpdatedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.table_id && data.field_id && data.field) {
       const fieldEntity = convertApiFieldToEntity(data.field)
       tableStore.updateFieldFromRemote(data.table_id, data.field_id, fieldEntity)
@@ -387,7 +329,7 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleFieldDeleted(data: DataFieldDeletedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.table_id && data.field_id) {
       tableStore.deleteFieldFromRemote(data.table_id, data.field_id)
     }
@@ -396,7 +338,7 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleViewUpdated(data: DataViewUpdatedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.view_id) {
       viewStore.updateViewFromRemote(data.view_id, data.changes)
     }
@@ -405,7 +347,7 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleTableCreated(data: DataTableCreatedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.table) {
       tableStore.addTableFromRemote(data.table as any)
     }
@@ -414,7 +356,7 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleTableUpdated(data: DataTableUpdatedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.table_id) {
       tableStore.updateTableFromRemote(data.table_id, data.changes)
     }
@@ -423,7 +365,7 @@ export function useRealtimeCollaboration(baseId: string) {
   function handleTableDeleted(data: DataTableDeletedBroadcast) {
     const currentUserId = authStore.user?.id
     if (data.changed_by === currentUserId) return
-    
+
     if (data.table_id) {
       tableStore.deleteTableFromRemote(data.table_id)
     }
@@ -451,55 +393,11 @@ export function useRealtimeCollaboration(baseId: string) {
     socketClient.value.emit('presence:cell_selected' as never, data as never)
   }
 
-  function acquireLock(data: LockAcquireRequest): Promise<{ success: boolean; reason?: string }> {
-    if (!collaborationStore.isRealtimeAvailable || !socketClient.value) {
-      return Promise.resolve({ success: false, reason: 'realtime_unavailable' })
-    }
-
-    return new Promise((resolve) => {
-      const key = `${data.record_id}:${data.field_id}`
-      const existingLock = collaborationStore.lockedCells.get(key)
-      if (existingLock && existingLock.user_id !== authStore.user?.id) {
-        ElMessage.warning(`${existingLock.nickname || existingLock.name} 正在编辑此单元格`)
-        waitingForLocks.value.add(key)
-        resolve({ success: false, reason: 'locked' })
-        return
-      }
-
-      // 如果已有等待中的请求，先清除
-      const existingPending = pendingLockRequests.value.get(key)
-      if (existingPending) {
-        clearTimeout(existingPending.timeout)
-        pendingLockRequests.value.delete(key)
-      }
-
-      // 设置超时（5秒）
-      const timeout = setTimeout(() => {
-        pendingLockRequests.value.delete(key)
-        resolve({ success: false, reason: 'timeout' })
-      }, 5000)
-
-      // 存储等待中的请求
-      pendingLockRequests.value.set(key, { resolve, timeout })
-
-      // 发送锁请求
-      socketClient.value!.emit('lock:acquire' as never, data as never)
-    })
-  }
-
   function releaseLock(data: LockReleaseRequest) {
-    if (!collaborationStore.isRealtimeAvailable || !socketClient.value) return
-    socketClient.value.emit('lock:release' as never, data as never)
+    collaborationStore.releaseLock(data)
   }
 
   function disconnect() {
-    // 清理所有等待中的锁请求
-    pendingLockRequests.value.forEach((pending) => {
-      clearTimeout(pending.timeout)
-      pending.resolve({ success: false, reason: 'disconnected' })
-    })
-    pendingLockRequests.value.clear()
-    
     if (socketClient.value) {
       removeEventListeners()
       socketClient.value.disconnect()
@@ -510,29 +408,6 @@ export function useRealtimeCollaboration(baseId: string) {
     collaborationStore.onlineUsers.clear()
     collaborationStore.lockedCells.clear()
     collaborationStore.setCurrentBase(null)
-    pendingChanges.value.clear()
-    waitingForLocks.value.clear()
-  }
-
-  function trackPendingChange(recordId: string, fieldId: string, value: unknown) {
-    const key = `${recordId}:${fieldId}`
-    pendingChanges.value.set(key, { fieldId, value, timestamp: Date.now() })
-  }
-
-  function removePendingChange(recordId: string, fieldId: string) {
-    const key = `${recordId}:${fieldId}`
-    pendingChanges.value.delete(key)
-  }
-
-  function resolveConflict(choice: 'mine' | 'theirs' | 'history') {
-    if (!currentConflict.value) return
-
-    if (choice === 'mine') {
-      trackPendingChange(currentConflict.value.recordId, currentConflict.value.fieldId, currentConflict.value.myValue)
-    }
-
-    currentConflict.value = null
-    conflictVisible.value = false
   }
 
   connect()
@@ -553,13 +428,7 @@ export function useRealtimeCollaboration(baseId: string) {
     leaveRoom,
     sendPresenceViewChange,
     sendPresenceCellSelect,
-    acquireLock,
     releaseLock,
     disconnect,
-    conflictVisible,
-    currentConflict,
-    resolveConflict,
-    trackPendingChange,
-    removePendingChange,
   }
 }

@@ -4,22 +4,40 @@ from typing import Optional, Tuple, List, Dict, Any
 
 from flask import current_app
 
-from app.extensions import db, socketio, redis_client
+from app.extensions import db, socketio
+import app.extensions as _app_extensions
 from app.models.collaboration_session import CollaborationSession
 from app.models.user import User
 
 
 def _get_redis_client():
     """
-    获取 Redis 客户端实例
-    
+    获取 Redis 客户端实例，支持懒连接。
+
+    后端启动时 Redis 可能未就绪导致 redis_client 为 None，
+    此处会在首次调用时尝试重新连接，避免锁功能永久失效。
+
     Returns:
-        Redis 客户端实例，如果未初始化则返回 None
+        Redis 客户端实例，如果连接失败则返回 None
     """
-    if redis_client is None:
-        current_app.logger.warning('[CollaborationService] Redis client not initialized')
+    # 通过模块引用动态获取，避免 from import 值快照过期问题
+    rc = _app_extensions.redis_client
+    if rc is not None:
+        return rc
+
+    # 懒连接：尝试重新初始化 Redis 客户端
+    try:
+        import redis as _redis_lib
+        redis_url = current_app.config.get('REDIS_URL', 'redis://localhost:6379/0')
+        new_client = _redis_lib.from_url(redis_url, decode_responses=True)
+        new_client.ping()
+        # 写回模块全局变量，后续调用直接复用
+        _app_extensions.redis_client = new_client
+        current_app.logger.info('[CollaborationService] Redis client lazy-initialized successfully')
+        return new_client
+    except Exception as e:
+        current_app.logger.warning(f'[CollaborationService] Redis lazy-connect failed: {e}')
         return None
-    return redis_client
 
 
 class CollaborationService:
@@ -206,21 +224,38 @@ class CollaborationService:
             r.delete(lock_key)
 
     @staticmethod
-    def release_all_locks(base_id: str, user_id: str):
+    def release_all_locks(base_id: str, user_id: str) -> List[dict]:
+        """
+        释放指定用户在某 base 下的所有单元格锁。
+
+        Returns:
+            被释放的锁列表，每项包含 table_id / record_id / field_id
+        """
         r = _get_redis_client()
         if not r:
-            return
-        
+            return []
+
         pattern = f'collab:lock:{base_id}:*'
         cursor = 0
+        released: List[dict] = []
         while True:
             cursor, keys = r.scan(cursor, match=pattern, count=100)
             for key in keys:
                 holder = r.get(key)
                 if holder == user_id:
                     r.delete(key)
+                    # 解析 lock_key: collab:lock:{base_id}:{table_id}:{record_id}:{field_id}
+                    parts = key.split(':') if isinstance(key, str) else key.decode().split(':')
+                    # parts: ['collab', 'lock', base_id, table_id, record_id, field_id]
+                    if len(parts) >= 6:
+                        released.append({
+                            'table_id': parts[3],
+                            'record_id': parts[4],
+                            'field_id': parts[5],
+                        })
             if cursor == 0:
                 break
+        return released
 
     @staticmethod
     def get_lock_info(base_id: str, table_id: str, record_id: str, field_id: str) -> Optional[dict]:
@@ -284,7 +319,7 @@ class CollaborationService:
                 presence_key = f'collab:presence:{base_id}:{user_id}'
                 r.delete(presence_key)
 
-            CollaborationService.release_all_locks(base_id, user_id)
+            released_locks = CollaborationService.release_all_locks(base_id, user_id)
 
             session.is_active = False
 
@@ -296,6 +331,20 @@ class CollaborationService:
                 'name': user_info.get('name', 'Unknown'),
                 'avatar': user_info.get('avatar')
             }, room=f'base:{base_id}')
+
+            # 广播断线释放的单元格锁，通知其他在线用户
+            for lock in released_locks:
+                socketio.emit('lock:released', {
+                    'base_id': base_id,
+                    'user_id': user_id,
+                    'nickname': user_info.get('name', 'Unknown'),
+                    'name': user_info.get('name', 'Unknown'),
+                    'avatar': user_info.get('avatar'),
+                    'table_id': lock['table_id'],
+                    'record_id': lock['record_id'],
+                    'field_id': lock['field_id'],
+                    'reason': 'disconnect'
+                }, room=f'base:{base_id}')
 
         if sessions:
             db.session.commit()

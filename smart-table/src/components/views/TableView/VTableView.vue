@@ -3783,8 +3783,9 @@ const bindTableEvents = () => {
         const authStore = useAuthStore();
         const currentUserId = authStore.user?.id;
         const tableId = tableStore.currentTable?.id;
+        const baseId = tableStore.currentTable?.baseId;
 
-        if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+        if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
           // 如果被其他用户锁定，回退开关状态并提示
           if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
             const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
@@ -3796,7 +3797,7 @@ const bindTableEvents = () => {
 
           // 尝试获取锁
           const lockResult = await collabStore.acquireLock(
-            { table_id: tableId, record_id: recordId, field_id: fieldId },
+            { base_id: baseId, table_id: tableId, record_id: recordId, field_id: fieldId },
             currentUserId
           );
           if (!lockResult.success && lockResult.reason === 'locked') {
@@ -3809,6 +3810,11 @@ const bindTableEvents = () => {
         try {
           if (!tableId) return;
 
+          // 乐观冲突检测：记录待提交变更
+          if (collabStore.isRealtimeAvailable) {
+            collabStore.trackPendingChange(recordId, fieldId, checked);
+          }
+
           await recordService.updateRecord(recordId, {
             values: {
               ...originalRecord.values,
@@ -3816,12 +3822,18 @@ const bindTableEvents = () => {
             } as Record<string, CellValue>,
           });
 
+          // 保存成功，移除待提交变更
+          if (collabStore.isRealtimeAvailable) {
+            collabStore.removePendingChange(recordId, fieldId);
+          }
+
           // 刷新表格数据
           await tableStore.refreshRecords(tableId);
 
           // 协同编辑：释放锁
-          if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+          if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
             collabStore.releaseLock({
+              base_id: baseId,
               table_id: tableId,
               record_id: recordId,
               field_id: fieldId,
@@ -3830,53 +3842,17 @@ const bindTableEvents = () => {
         } catch (error) {
           console.error('开关状态保存失败:', error);
           ElMessage.error('开关状态保存失败');
+          // 保存失败也移除待提交变更，避免残留
+          if (collabStore.isRealtimeAvailable) {
+            collabStore.removePendingChange(recordId, fieldId);
+          }
         }
       }
     }
   });
 
-  // 编辑开始前事件 - 协同锁检查
-  tableInstanceAny.on('before_start_edit', (args: any) => {
-    if (!tableInstance) return;
-
-    const { col, row } = args;
-    // 跳过行号列
-    if (col <= 0) return;
-
-    const record = tableInstance.getCellOriginRecord(col, row);
-    if (!record?._recordId) return;
-
-    const fieldId = orderedVisibleFields.value[col - 1]?.id;
-    if (!fieldId) return;
-
-    const authStore = useAuthStore();
-    const currentUserId = authStore.user?.id;
-    if (!currentUserId) return;
-
-    // 检查是否被其他用户锁定
-    if (collabStore.isCellLockedByOther(record._recordId, fieldId, currentUserId)) {
-      const lockInfo = collabStore.getCellLockInfo(record._recordId, fieldId);
-      ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格`);
-      return false; // 阻止编辑
-    }
-
-    // 如果没有锁定或由当前用户锁定，异步获取锁
-    const tableId = tableStore.currentTable?.id;
-    if (tableId && collabStore.isRealtimeAvailable) {
-      collabStore.acquireLock(
-        { table_id: tableId, record_id: record._recordId, field_id: fieldId },
-        currentUserId
-      ).then((result) => {
-        if (!result.success && result.reason === 'locked') {
-          // 竞争条件：在我们检查后锁被其他用户获取
-          ElMessage.warning(`${result.locked_by?.nickname || result.locked_by?.name || '其他用户'} 已锁定此单元格`);
-          // 通知用户但编辑已开启 - 保存时处理冲突
-        }
-      });
-    }
-
-    return true; // 允许编辑
-  });
+  // 注意：VTable 无 before_start_edit 事件，编辑锁检查已移至 click_cell 事件中
+  // （配合 editCellTrigger: 'click' 配置，在编辑器启动前后介入）
 
   // 列宽调整结束：按列缓存宽度到 localStorage
   tableInstanceAny.on('resize_column_end', (args: any) => {
@@ -4037,9 +4013,41 @@ const bindTableEvents = () => {
         actionIconVisible.value = true;
       }
 
-      if (cellRecord && cellRecord._originalRecord) {
-        
-        // ElMessage.success('已输出行数据到浏览器控制台');
+      // 协同编辑：进入编辑前检查并获取单元格锁
+      // editCellTrigger: 'click' 配置下，VTable 在 click 时启动编辑器，
+      // 因此在 click_cell 中接入锁逻辑（VTable 无 before_start_edit 事件）
+      if (args.col > 0 && cellRecord?._recordId) {
+        const fieldId = orderedVisibleFields.value[args.col - 1]?.id;
+        if (fieldId) {
+          const authStore = useAuthStore();
+          const currentUserId = authStore.user?.id;
+          const tableId = tableStore.currentTable?.id;
+          const baseId = tableStore.currentTable?.baseId;
+
+          if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
+            // 同步检查本地锁缓存：若被其他用户持有，立即取消编辑器并提示
+            if (collabStore.isCellLockedByOther(cellRecord._recordId, fieldId, currentUserId)) {
+              const lockInfo = collabStore.getCellLockInfo(cellRecord._recordId, fieldId);
+              ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格`);
+              // 延迟一帧调用，确保在 VTable 启动编辑器之后取消
+              setTimeout(() => {
+                try { tableInstanceAny.cancelEditCell?.(); } catch (e) { /* ignore */ }
+              }, 0);
+            } else {
+              // 异步获取锁；仅在真正被其他用户锁定时阻止编辑
+              // （服务故障/超时等不阻塞，保证可用性）
+              collabStore.acquireLock(
+                { base_id: baseId, table_id: tableId, record_id: cellRecord._recordId, field_id: fieldId },
+                currentUserId
+              ).then((result) => {
+                if (!result.success && result.reason === 'locked' && result.locked_by) {
+                  ElMessage.warning(`${result.locked_by.nickname || result.locked_by.name || '其他用户'} 已锁定此单元格`);
+                  try { tableInstanceAny.cancelEditCell?.(); } catch (e) { /* ignore */ }
+                }
+              });
+            }
+          }
+        }
       }
 
       // URL 字段延时导航：单击等待 250ms 后跳转，双击时在 dblclick_cell 中取消
@@ -4252,9 +4260,10 @@ const bindTableEvents = () => {
     const authStore = useAuthStore();
     const currentUserId = authStore.user?.id;
     const tableId = tableStore.currentTable?.id;
-    
+    const baseId = tableStore.currentTable?.baseId;
+
     // 协同编辑：检查锁状态，如果被其他用户锁定则阻止保存
-    if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+    if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
       if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
         const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
         ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格，保存被拒绝`);
@@ -4285,9 +4294,19 @@ const bindTableEvents = () => {
         [fieldId]: finalValue,
       };
 
+      // 乐观冲突检测：记录待提交变更
+      if (collabStore.isRealtimeAvailable) {
+        collabStore.trackPendingChange(recordId, fieldId, finalValue);
+      }
+
       await recordService.updateRecord(recordId, {
         values: values as Record<string, CellValue>,
       });
+
+      // 保存成功，移除待提交变更
+      if (collabStore.isRealtimeAvailable) {
+        collabStore.removePendingChange(recordId, fieldId);
+      }
 
       // 不再手动刷新表格数据，让实时协作监听器（onRecordUpdated）处理
       // 如果实时协作不可用，才手动刷新
@@ -4296,8 +4315,9 @@ const bindTableEvents = () => {
       }
 
       // 协同编辑：保存成功后释放锁
-      if (tableId && currentUserId && collabStore.isRealtimeAvailable) {
+      if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
         collabStore.releaseLock({
+          base_id: baseId,
           table_id: tableId,
           record_id: recordId,
           field_id: fieldId,
@@ -4308,6 +4328,10 @@ const bindTableEvents = () => {
     } catch (error) {
       console.error('编辑保存失败:', error);
       ElMessage.error('编辑保存失败');
+      // 保存失败也移除待提交变更，避免残留
+      if (collabStore.isRealtimeAvailable) {
+        collabStore.removePendingChange(recordId, fieldId);
+      }
     }
   });
 
@@ -4651,8 +4675,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   // 释放所有持有的协同编辑锁
   const tableId = tableStore.currentTable?.id;
-  if (tableId && collabStore.isRealtimeAvailable) {
-    collabStore.releaseAllCurrentLocks(tableId);
+  const baseId = tableStore.currentTable?.baseId;
+  if (tableId && baseId && collabStore.isRealtimeAvailable) {
+    collabStore.releaseAllCurrentLocks(baseId, tableId);
   }
   cleanupRealtimeListeners();
   document.removeEventListener('click', handleDocumentClick);

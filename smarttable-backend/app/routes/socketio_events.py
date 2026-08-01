@@ -211,13 +211,17 @@ def register_socketio_handlers(socketio, app):
                 'locked_by': locked_by
             })
             if success:
+                user_brief = CollaborationService._get_user_brief(user_id)
                 socketio_ext.emit('lock:acquired', {
                     'base_id': base_id,
                     'user_id': user_id,
+                    'nickname': user_brief.get('name', 'Unknown'),
+                    'name': user_brief.get('name', 'Unknown'),
+                    'avatar': user_brief.get('avatar'),
                     'table_id': table_id,
                     'record_id': record_id,
                     'field_id': field_id
-                }, room=f'base:{base_id}')
+                }, room=f'base:{base_id}', include_self=False)
         except Exception as e:
             current_app.logger.error(f'lock:acquire error: {e}')
             emit('lock_result', {'success': False, 'message': str(e)})
@@ -235,13 +239,18 @@ def register_socketio_handlers(socketio, app):
             return
         try:
             CollaborationService.release_lock(base_id, user_id, table_id, record_id, field_id)
+            user_brief = CollaborationService._get_user_brief(user_id)
             socketio_ext.emit('lock:released', {
                 'base_id': base_id,
                 'user_id': user_id,
+                'nickname': user_brief.get('name', 'Unknown'),
+                'name': user_brief.get('name', 'Unknown'),
+                'avatar': user_brief.get('avatar'),
                 'table_id': table_id,
                 'record_id': record_id,
-                'field_id': field_id
-            }, room=f'base:{base_id}')
+                'field_id': field_id,
+                'reason': 'manual'
+            }, room=f'base:{base_id}', include_self=False)
         except Exception as e:
             current_app.logger.error(f'lock:release error: {e}')
 
