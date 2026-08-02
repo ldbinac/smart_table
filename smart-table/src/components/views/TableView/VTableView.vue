@@ -2603,10 +2603,13 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
         }
       }
     }
+    // 预设 hierarchyState: CachedDataSource 模式下 dataSource.records 在 initialized 事件时为空，
+    // MasterDetailPlugin.processRecordsHierarchyStates 无法遍历到记录设置 hierarchyState，
+    // 需在此预设 'collapse' 确保 VTable tree-helper 能识别并显示展开按钮
     const row: any = {
       _recordId: record?.id || '',
       _originalRecord: record,
-      ...(hasLinkedRecords ? { children: true } : {}),
+      ...(hasLinkedRecords ? { children: true, hierarchyState: 'collapse' } : {}),
     };
     orderedVisibleFields.value.forEach(field => {
       if (!field?.id || !record?.values) return;
@@ -5025,7 +5028,7 @@ const updateTable = () => {
     pendingUpdate = true;
     return;
   }
-  
+
   isUpdating = true;
   pendingUpdate = false;
 
