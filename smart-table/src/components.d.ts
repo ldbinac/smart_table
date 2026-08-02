@@ -166,6 +166,7 @@ declare module 'vue' {
     Skeleton: typeof import('./components/common/Skeleton.vue')['default']
     SortDialog: typeof import('./components/dialogs/SortDialog.vue')['default']
     SortPanel: typeof import('./components/sorts/SortPanel.vue')['default']
+    SubTableToolbar: typeof import('./components/views/TableView/SubTableToolbar.vue')['default']
     TableCell: typeof import('./components/views/TableView/TableCell.vue')['default']
     TableHeader: typeof import('./components/views/TableView/TableHeader.vue')['default']
     TableRow: typeof import('./components/views/TableView/TableRow.vue')['default']
