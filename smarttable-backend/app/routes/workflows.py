@@ -54,11 +54,11 @@ def _get_workflow_or_404(workflow_id):
 
 
 def _check_base_edit_permission(base_id, user_id):
-    """检查 EDITOR 权限"""
+    """检查 ADMIN 权限（工作流管理需要管理员及以上角色）"""
     return PermissionService.check_permission(
         base_id=str(base_id),
         user_id=str(user_id),
-        min_role=MemberRole.EDITOR
+        min_role=MemberRole.ADMIN
     )
 
 

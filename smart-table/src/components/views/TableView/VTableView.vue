@@ -5,6 +5,7 @@ import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useMemberStore } from "@/stores/memberStore";
 import { userApi } from "@/api/user";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import LoadingProgress from "@/components/common/LoadingProgress.vue";
@@ -114,6 +115,9 @@ const tableStore = useTableStore();
 const viewStore = useViewStore();
 const collabStore = useCollaborationStore();
 const userCacheStore = useUserCacheStore();
+const memberStore = useMemberStore();
+// 权限控制：字段管理（隐藏/编辑属性）需要管理员及以上角色
+const canManage = computed(() => memberStore.canManage);
 
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
@@ -2020,22 +2024,25 @@ const contextMenuItems = computed(() => {
       action: () => handleFreeze(!isFrozen),
     });
 
-    items.push({
-      id: 'hide',
-      label: '隐藏该列',
-      icon: 'hide',
-      action: () => handleHideColumn(),
-    });
+    // 隐藏该列和字段属性需要 ADMIN 权限
+    if (canManage.value) {
+      items.push({
+        id: 'hide',
+        label: '隐藏该列',
+        icon: 'hide',
+        action: () => handleHideColumn(),
+      });
 
-    items.push({ id: 'divider-2', divider: true, label: '' });
+      items.push({ id: 'divider-2', divider: true, label: '' });
 
-    // 字段属性
-    items.push({
-      id: 'field-settings',
-      label: '字段属性',
-      icon: 'settings',
-      action: () => handleFieldSettings(),
-    });
+      // 字段属性
+      items.push({
+        id: 'field-settings',
+        label: '字段属性',
+        icon: 'settings',
+        action: () => handleFieldSettings(),
+      });
+    }
   }
 
   return items;

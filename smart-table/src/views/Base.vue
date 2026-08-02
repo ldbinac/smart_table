@@ -1824,7 +1824,7 @@ const handleDocumentExportPdf = async () => {
       :show-tables="true"
       :show-dashboards="true"
       :show-documents="true"
-      :can-edit="canEdit"
+      :can-manage="canManage"
       @select-table="handleTableSelect"
       @select-dashboard="handleDashboardClick"
       @select-document="handleDocumentSelect"
@@ -1968,7 +1968,7 @@ const handleDocumentExportPdf = async () => {
                     </el-tag>
                   </el-button>
                   <el-button
-                    v-if="canEdit"
+                    v-if="canManage"
                     size="default"
                     @click="openFieldDialog">
                     <el-icon><Grid /></el-icon>
@@ -2168,7 +2168,7 @@ const handleDocumentExportPdf = async () => {
       <div v-else class="empty-state">
         <el-empty description="请选择或创建一个数据表">
           <el-button
-            v-if="canEdit"
+            v-if="canManage"
             type="primary"
             @click="openCreateTableDialog"
             >创建数据表</el-button

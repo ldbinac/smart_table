@@ -106,13 +106,13 @@ def create_field(table_id) -> tuple:
         description: 创建的字段详情
     """
     user_id = g.current_user_id
-    
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
+
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限在此表格中创建字段')
-    
+
     data = request.get_json() or {}
-    
+
     # 验证必填字段
     if 'type' not in data:
         return error_response('字段类型不能为空', code=400)
@@ -230,9 +230,9 @@ def update_field(field_id) -> tuple:
         description: 字段不存在
     """
     user_id = g.current_user_id
-    
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
+
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此字段')
     
     data = request.get_json() or {}
@@ -284,9 +284,9 @@ def delete_field(field_id) -> tuple:
         description: 字段不存在
     """
     user_id = g.current_user_id
-    
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
+
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限删除此字段')
     
     field = FieldService.get_field(str(field_id))
@@ -356,10 +356,10 @@ def reorder_fields() -> tuple:
     if not field_orders:
         return error_response('请提供排序数据', code=400)
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此表格')
-    
+
     success = FieldService.reorder_fields(str(table_id), field_orders)
     
     if not success:
@@ -401,9 +401,9 @@ def duplicate_field(field_id) -> tuple:
         description: 字段不存在
     """
     user_id = g.current_user_id
-    
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
+
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限复制此字段')
     
     source_field = FieldService.get_field(str(field_id))
@@ -605,9 +605,9 @@ def create_link_field() -> tuple:
     if relationship_type not in valid_types:
         return error_response(f'关联类型必须是: {", ".join(valid_types)}', code=400)
     
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限在此表格中创建字段')
-    
+
     result = LinkService.create_link_field(str(table_id), data, user_id)
     
     if not result['success']:
@@ -672,15 +672,15 @@ def update_link_field(field_id) -> tuple:
         description: 字段不存在
     """
     user_id = g.current_user_id
-    
+
     # 检查权限
-    if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此字段')
-    
+
     field = FieldService.get_field(str(field_id))
     if not field:
         return not_found_response('字段')
-    
+
     # 检查是否为关联字段（支持 'link' 和 'link_to_record' 两种类型）
     if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
         return error_response('该字段不是关联字段', code=400)
@@ -767,9 +767,9 @@ def delete_link_field(field_id) -> tuple:
         description: 删除失败
     """
     user_id = g.current_user_id
-    
+
     # 检查权限
-    if not FieldService.check_permission(str(field_id), user_id, MemberRole.EDITOR):
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限删除此字段')
     
     field = FieldService.get_field(str(field_id))

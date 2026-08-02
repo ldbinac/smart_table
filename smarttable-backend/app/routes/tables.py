@@ -93,8 +93,8 @@ def create_table(base_id) -> tuple:
     """
     user_id = g.current_user_id
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限在此基础数据中创建表格')
     
     data = request.get_json() or {}
@@ -198,8 +198,8 @@ def update_table(table_id) -> tuple:
     """
     user_id = g.current_user_id
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此表格')
     
     data = request.get_json() or {}
@@ -247,8 +247,8 @@ def delete_table(table_id) -> tuple:
     """
     user_id = g.current_user_id
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限删除此表格')
     
     table = TableService.get_table(str(table_id))
@@ -308,8 +308,8 @@ def reorder_tables(base_id) -> tuple:
     """
     user_id = g.current_user_id
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此基础数据')
     
     data = request.get_json() or {}
@@ -359,8 +359,8 @@ def duplicate_table(table_id) -> tuple:
     """
     user_id = g.current_user_id
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限复制此表格')
     
     source_table = TableService.get_table(str(table_id))

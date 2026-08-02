@@ -17,6 +17,7 @@ import MemberDisplay from "@/components/common/MemberDisplay.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
+import { useMemberStore } from "@/stores/memberStore";
 
 interface Props {
   fields: FieldEntity[];
@@ -69,6 +70,10 @@ const groupNodes = ref<GroupNode[]>([]);
 const expandedKeys = ref<Set<string>>(new Set());
 const selectedRows = ref<Set<string>>(new Set());
 const hoveredRowId = ref<string | null>(null);
+
+// 权限控制：字段管理（隐藏/编辑属性）需要管理员及以上角色
+const memberStore = useMemberStore();
+const canManage = computed(() => memberStore.canManage);
 
 // 右键菜单相关状态
 const contextMenuVisible = ref(false);
@@ -191,11 +196,14 @@ const contextMenuItems = computed(() => {
         items.push({ id: "freeze", label: "冻结列", icon: "freeze" });
       }
 
-      items.push(
-        { divider: true, id: "divider2" },
-        { id: "hide-field", label: "隐藏字段", icon: "hide" },
-        { id: "edit-field", label: "编辑字段属性", icon: "settings" },
-      );
+      // 隐藏字段和编辑字段属性需要 ADMIN 权限
+      if (canManage.value) {
+        items.push(
+          { divider: true, id: "divider2" },
+          { id: "hide-field", label: "隐藏字段", icon: "hide" },
+          { id: "edit-field", label: "编辑字段属性", icon: "settings" },
+        );
+      }
     }
   }
 

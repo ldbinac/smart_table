@@ -3,6 +3,7 @@ import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBaseStore, useTableStore } from "@/stores";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useMemberStore } from "@/stores/memberStore";
 import {
   dashboardService,
   dashboardTemplateService,
@@ -45,8 +46,13 @@ import { freshColors } from "@/utils/helpers";
 const baseStore = useBaseStore();
 const tableStore = useTableStore();
 const documentStore = useDocumentStore();
+const memberStore = useMemberStore();
 const route = useRoute();
 const router = useRouter();
+
+// 权限控制
+const canManage = computed(() => memberStore.canManage);
+const canEdit = computed(() => memberStore.canEdit);
 
 // 侧边栏引用
 const sidebarRef = ref<InstanceType<typeof BaseSidebar> | null>(null);
@@ -2385,7 +2391,7 @@ onUnmounted(() => {
       :show-tables="true"
       :show-dashboards="true"
       :show-documents="true"
-      :can-edit="true"
+      :can-manage="canManage"
       @select-table="handleTableSelect"
       @select-dashboard="handleDashboardSelect"
       @select-document="handleDocumentSelect"
@@ -2420,7 +2426,7 @@ onUnmounted(() => {
 
           <el-divider direction="vertical" class="toolbar-divider" />
           -->
-          <el-dropdown @command="addWidget" :max-height="400">
+          <el-dropdown v-if="canManage" @command="addWidget" :max-height="400">
             <el-button size="default" type="primary">
               <el-icon><Plus /></el-icon>
               <span>添加组件</span>
@@ -2482,7 +2488,7 @@ onUnmounted(() => {
           </el-dropdown>
           <el-button-group>
             <el-button
-              v-if="currentDashboard"
+              v-if="currentDashboard && canManage"
               size="default"
               title="编辑当前仪表盘"
               @click="
@@ -2497,7 +2503,7 @@ onUnmounted(() => {
               <span>编辑</span>
             </el-button>
             <el-button
-              v-if="currentDashboard"
+              v-if="currentDashboard && canManage"
               size="default"
               title="复制当前仪表盘"
               @click="duplicateDashboard(currentDashboard)">
@@ -2510,7 +2516,7 @@ onUnmounted(() => {
               </el-button
             -->
             <el-button
-              v-if="currentDashboard"
+              v-if="currentDashboard && canManage"
               size="default"
               title="分享当前仪表盘"
               @click="openShareDialog">
@@ -2530,7 +2536,7 @@ onUnmounted(() => {
 
         <div class="toolbar-right">
           <!-- 布局控制按钮组 -->
-          <template v-if="currentDashboard">
+          <template v-if="currentDashboard && canManage">
             <!--<el-divider direction="vertical" class="toolbar-divider" />
             <el-button-group class="layout-controls">
               <el-button
@@ -2623,7 +2629,7 @@ onUnmounted(() => {
                   {{ getAggregationLabel(widget.aggregation) }}
                 </span>
               </div>
-              <div class="widget-actions">
+              <div v-if="canManage" class="widget-actions">
                 <el-button
                   link
                   size="small"
@@ -2634,7 +2640,7 @@ onUnmounted(() => {
               </div>
             </div>
             <!-- 标题栏隐藏时的悬浮删除按钮 -->
-            <div v-else class="widget-floating-actions">
+            <div v-else-if="canManage" class="widget-floating-actions">
               <el-button
                 link
                 size="small"
@@ -2650,6 +2656,7 @@ onUnmounted(() => {
               class="widget-body"></div>
             <!-- 调整大小手柄 -->
             <div
+              v-if="canManage"
               class="resize-handle"
               :class="{ active: resizingWidget === widget.id }"
               @mousedown.stop="startResize($event, widget)">
