@@ -8,6 +8,7 @@
 """
 import copy
 import logging
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -31,6 +32,9 @@ from app.services.permission_service import PermissionService
 
 
 log = logging.getLogger(__name__)
+
+# 脚本节点结果变量名合法模式（字母/数字/下划线，首字符为字母或下划线，≤64 字符）
+_SCRIPT_RESULT_VAR_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,63}$')
 
 
 def _parse_datetime(value: Any) -> Optional[datetime]:
@@ -391,6 +395,65 @@ class WorkflowService:
                 WorkflowService._validate_loop_node(child, depth + 1)
 
     @staticmethod
+    def _validate_script_node(node_config: Dict[str, Any], all_node_ids: set = None) -> None:
+        """校验脚本节点配置，失败抛 ValueError。
+
+        Args:
+            node_config: 节点配置（含 config 字段）
+            all_node_ids: 工作流内所有节点 id 集合（str 形式），用于校验分支目标存在性
+        """
+        if not isinstance(node_config, dict):
+            raise ValueError('脚本节点配置必须是一个对象')
+        config = node_config.get('config', {}) or {}
+
+        # language
+        language = config.get('language')
+        if language != 'python':
+            raise ValueError("脚本语言必须为 'python'")
+
+        # script_source 非空且 ≤50000 字符
+        script_source = config.get('script_source', '')
+        if not isinstance(script_source, str) or not script_source.strip():
+            raise ValueError('脚本内容不能为空')
+        if len(script_source) > 50000:
+            raise ValueError('脚本内容不能超过 50000 字符')
+
+        # timeout 1-300 正整数
+        timeout = config.get('timeout', 30)
+        if (
+            not isinstance(timeout, int)
+            or isinstance(timeout, bool)
+            or timeout < 1
+            or timeout > 300
+        ):
+            raise ValueError('超时时间必须为 1-300 之间的正整数')
+
+        # result_variable 合法变量名，缺省 script_result
+        result_variable = config.get('result_variable', 'script_result') or 'script_result'
+        if not _SCRIPT_RESULT_VAR_PATTERN.match(result_variable):
+            raise ValueError('结果变量名必须为字母数字下划线且以字母或下划线开头（≤64 字符）')
+
+        # branches：label 非空且唯一、target_node_id 存在
+        branches = config.get('branches', []) or []
+        if not isinstance(branches, list):
+            raise ValueError('分支路由配置必须为数组')
+        labels = set()
+        for b in branches:
+            if not isinstance(b, dict):
+                raise ValueError('分支配置项必须为对象')
+            label = b.get('label')
+            target = b.get('target_node_id')
+            if not label or not isinstance(label, str):
+                raise ValueError('分支标签不能为空')
+            if label in labels:
+                raise ValueError(f'分支标签重复: {label}')
+            labels.add(label)
+            if not target:
+                raise ValueError(f'分支 {label} 缺少目标节点 ID')
+            if all_node_ids is not None and str(target) not in all_node_ids:
+                raise ValueError(f'分支 {label} 的目标节点不存在: {target}')
+
+    @staticmethod
     def _count_loop_nodes(nodes_config: List[Dict[str, Any]]) -> int:
         """递归统计 loop 节点总数（含嵌套循环体内的）"""
         if not isinstance(nodes_config, list):
@@ -487,11 +550,20 @@ class WorkflowService:
             if loop_count > 5:
                 raise ValueError('单个工作流最多 5 个循环节点')
 
+            # 收集所有顶层节点 id（str 形式），用于校验脚本分支目标存在性
+            all_node_ids = {
+                str(n.get('id'))
+                for n in nodes_config
+                if isinstance(n, dict) and n.get('id') is not None
+            }
+
             for index, node_data in enumerate(nodes_config):
                 node_type = node_data.get('node_type', 'action')
                 node_config = dict(node_data.get('config', {}))
                 if node_type == 'loop':
                     cls._validate_loop_node(node_data)
+                elif node_type == 'script':
+                    cls._validate_script_node(node_data, all_node_ids)
                 elif node_type == 'action':
                     # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
                     action_type = node_config.get('action_type')
@@ -626,6 +698,13 @@ class WorkflowService:
                 if loop_count > 5:
                     raise ValueError('单个工作流最多 5 个循环节点')
 
+                # 收集所有顶层节点 id（str 形式），用于校验脚本分支目标存在性
+                all_node_ids = {
+                    str(n.get('id'))
+                    for n in nodes_config
+                    if isinstance(n, dict) and n.get('id') is not None
+                }
+
                 _ACTION_TYPE_UPGRADE = {
                     'update_record': 'update_record',
                     'create_record': 'create_record',
@@ -638,6 +717,8 @@ class WorkflowService:
                     config = dict(node_data.get('config', {}))
                     if node_type_str == 'loop':
                         cls._validate_loop_node(node_data)
+                    elif node_type_str == 'script':
+                        cls._validate_script_node(node_data, all_node_ids)
                     elif node_type_str == 'action':
                         # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
                         action_type = config.get('action_type')

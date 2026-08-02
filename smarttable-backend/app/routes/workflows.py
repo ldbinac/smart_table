@@ -530,6 +530,93 @@ def update_workflow_nodes(workflow_id) -> tuple:
     )
 
 
+@workflows_bp.route('/workflows/<uuid:workflow_id>/nodes/script/test', methods=['POST'])
+@jwt_required
+def test_script_node(workflow_id) -> tuple:
+    """
+    测试执行脚本节点（不持久化、不产生工作流实例与执行日志）
+    ---
+    tags:
+      - Workflows
+    security:
+      - Bearer: []
+    parameters:
+      - name: workflow_id
+        in: path
+        type: string
+        required: true
+        description: 工作流 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            language:
+              type: string
+              enum: [python]
+            script_source:
+              type: string
+            sample_input:
+              description: 模拟上游节点输出
+            timeout:
+              type: integer
+    responses:
+      200:
+        description: 执行结果（含 status/result/branch/error/duration_ms/stdout）
+      400:
+        description: 参数错误
+      403:
+        description: 无权限
+      404:
+        description: 工作流不存在
+    """
+    workflow, error = _get_workflow_or_404(workflow_id)
+    if error:
+        return error
+
+    if not _check_base_edit_permission(str(workflow.base_id), g.current_user_id):
+        return forbidden_response('您没有权限修改此工作流')
+
+    data = request.get_json() or {}
+    language = data.get('language')
+    script_source = data.get('script_source', '')
+    sample_input = data.get('sample_input')
+    timeout = data.get('timeout', 30)
+
+    # 基本参数校验
+    if language != 'python':
+        return {'error': "语言必须为 'python'"}, 400
+    if not script_source or not isinstance(script_source, str):
+        return {'error': '脚本内容不能为空'}, 400
+    try:
+        timeout = int(timeout)
+        if timeout < 1 or timeout > 300:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return {'error': '超时时间必须为 1-300 之间的正整数'}, 400
+
+    from app.services.script_execution_service import ScriptExecutionService
+
+    # 测试执行：仅提供最小上下文，不写实例与日志
+    context = {
+        'trigger': {},
+        'record': {},
+        'instance': {},
+        'workflow': {},
+        'loop': None,
+        'node_outputs': {},
+    }
+    result = ScriptExecutionService.execute(
+        language=language,
+        script_source=script_source,
+        input_data=sample_input,
+        context=context,
+        timeout=timeout,
+    )
+    # 即使脚本执行失败也返回 200：API 调用本身成功，失败信息在 body 的 status/error 字段
+    return result, 200
+
+
 @workflows_bp.route('/workflows/<uuid:workflow_id>/trigger', methods=['PUT'])
 @jwt_required
 def update_workflow_trigger(workflow_id) -> tuple:

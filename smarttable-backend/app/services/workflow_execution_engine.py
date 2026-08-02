@@ -361,9 +361,49 @@ class WorkflowExecutionEngine:
         while attempt <= max_retries:
             try:
                 result = self._dispatch_node(instance, node)
+
+                # 检测节点返回的错误状态（脚本节点等返回 dict 含 status=error 而非 raise）
+                if isinstance(result, dict) and result.get('status') == 'error':
+                    execution_log.status = 'error'
+                    execution_log.error_message = result.get('error_message', '节点执行失败')
+                    execution_log.output_result = result
+                    execution_log.completed_at = datetime.now(timezone.utc)
+                    db.session.commit()
+                    # 错误也写入 node_outputs 以便下游引用（含 error 信息）
+                    try:
+                        ctx = instance.context or {}
+                        node_outputs = ctx.get('node_outputs') or {}
+                        node_outputs[str(node.id) if node.id else None] = result.get('result') or {'error': result.get('error_message')}
+                        ctx['node_outputs'] = node_outputs
+                        instance.context = ctx
+                        from sqlalchemy.orm.attributes import flag_modified
+                        flag_modified(instance, 'context')
+                        db.session.commit()
+                    except Exception as node_out_err:
+                        log.warning(f'[WorkflowExecutionEngine] 写入 node_outputs 失败: {node_out_err}')
+                    if node.config and node.config.get('continue_on_error'):
+                        return result
+                    raise RuntimeError(result.get('error_message', '节点执行失败'))
+
                 execution_log.status = 'success'
                 execution_log.output_result = result if isinstance(result, dict) else {'result': result}
                 execution_log.completed_at = datetime.now(timezone.utc)
+
+                # 追加写入 node_outputs（统一节点输出流转接口，纯新增向后兼容）
+                # 仅写入 dispatch_result 的 result 部分（output_result），使 {{node_outputs.<id>.result.field}} 模板路径可正确解析
+                # 注意：execution_log.output_result 仍写入完整 dispatch result（含 next_nodes 等调度信息，用于审计）
+                try:
+                    ctx = instance.context or {}
+                    node_outputs = ctx.get('node_outputs') or {}
+                    output_result = result.get('result', result) if isinstance(result, dict) and 'result' in result else (result if isinstance(result, dict) else {'result': result})
+                    node_outputs[str(node.id) if node.id else None] = output_result
+                    ctx['node_outputs'] = node_outputs
+                    instance.context = ctx
+                    from sqlalchemy.orm.attributes import flag_modified
+                    flag_modified(instance, 'context')
+                except Exception as node_out_err:
+                    log.warning(f'[WorkflowExecutionEngine] 写入 node_outputs 失败: {node_out_err}')
+
                 db.session.commit()
                 return result if isinstance(result, dict) else {'result': result}
             except Exception as e:
@@ -418,6 +458,9 @@ class WorkflowExecutionEngine:
 
         if node_type == WorkflowNodeType.LOOP.value:
             return self._execute_loop_node(instance, node)
+
+        if node_type == WorkflowNodeType.SCRIPT.value:
+            return self._execute_script_node(instance, node)
 
         # 兼容旧数据：node_type='action' + config.action_type
         if node_type == WorkflowNodeType.ACTION.value:
@@ -779,6 +822,11 @@ class WorkflowExecutionEngine:
         loop_context = render_context.get('loop')
         if loop_context:
             event_data['loop'] = loop_context
+        # 合并渲染上下文中的其他变量（如脚本结果 script_result、node_outputs 等），
+        # 使下游 webhook 可通过 {{script_result.field}} 或 {{node_outputs.<id>.field}} 引用上游节点输出
+        for ctx_key, ctx_value in render_context.items():
+            if ctx_key not in event_data:
+                event_data[ctx_key] = ctx_value
         return WebhookService.deliver(webhook_config, instance, event_data)
 
     def _resolve_loop_data_source(
@@ -1111,6 +1159,115 @@ class WorkflowExecutionEngine:
                     f'[WorkflowExecutionEngine] 循环体子节点 next_node 未找到: {next_id}'
                 )
 
+    def _execute_script_node(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
+        """执行自定义脚本节点"""
+        from app.services.script_execution_service import ScriptExecutionService
+
+        config = node.config or {}
+        language = config.get('language', 'python')
+        script_source = config.get('script_source', '')
+        timeout = config.get('timeout', 30)
+        result_variable = config.get('result_variable', 'script_result') or 'script_result'
+        input_node_id = config.get('input_node_id')
+        branches = config.get('branches', []) or []
+
+        # 解析输入
+        input_data = self._resolve_script_input(instance, node, input_node_id)
+
+        # 构建上下文（复用渲染上下文）
+        context = self._build_render_context(instance)
+
+        # 调用沙箱执行
+        exec_result = ScriptExecutionService.execute(
+            language=language,
+            script_source=script_source,
+            input_data=input_data,
+            context=context,
+            timeout=timeout,
+        )
+
+        # 失败处理
+        if exec_result.get('status') == 'error':
+            error_msg = exec_result.get('error', '脚本执行失败')
+            traceback_info = exec_result.get('traceback')
+            if traceback_info:
+                error_msg = f'{error_msg}\n--- traceback ---\n{traceback_info}'
+            return {
+                'status': 'error',
+                'error_message': error_msg,
+                'result': None,
+                'next_nodes': node.next_nodes or [],
+            }
+
+        result_value = exec_result.get('result')
+        branch_label = exec_result.get('branch')
+
+        # 写入 instance.context（仅写结果变量；node_outputs 由 execute_node 统一写入）
+        ctx = instance.context or {}
+        ctx[result_variable] = result_value
+        instance.context = ctx
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(instance, 'context')
+        db.session.commit()
+
+        # 分支路由
+        next_nodes = self._resolve_script_branch(node, branches, branch_label)
+
+        return {
+            'result': {
+                'result': result_value,
+                'branch': branch_label,
+                'duration_ms': exec_result.get('duration_ms', 0),
+            },
+            'next_nodes': next_nodes,
+        }
+
+    def _resolve_script_input(self, instance: WorkflowInstance, node: WorkflowNode, input_node_id) -> Any:
+        """解析脚本节点的输入数据"""
+        ctx = instance.context or {}
+        node_outputs = ctx.get('node_outputs') or {}
+
+        # 找前驱节点（next_nodes 包含当前节点 id 的节点）
+        all_nodes = WorkflowNode.query.filter_by(workflow_id=node.workflow_id).all()
+        predecessors = []
+        for n in all_nodes:
+            if str(node.id) in [str(nid) for nid in (n.next_nodes or [])]:
+                predecessors.append(n)
+
+        if input_node_id:
+            # 指定输入节点
+            out = node_outputs.get(str(input_node_id))
+            return out.get('result') if isinstance(out, dict) else out
+        elif len(predecessors) == 1:
+            # 单一前驱：返回其输出
+            out = node_outputs.get(str(predecessors[0].id))
+            return out.get('result') if isinstance(out, dict) else out
+        elif len(predecessors) > 1:
+            # 多前驱：返回 {node_id: output_result} 字典
+            return {
+                str(p.id): (
+                    node_outputs.get(str(p.id), {}).get('result')
+                    if isinstance(node_outputs.get(str(p.id)), dict)
+                    else node_outputs.get(str(p.id))
+                )
+                for p in predecessors
+            }
+        else:
+            return None
+
+    def _resolve_script_branch(self, node: WorkflowNode, branches: list, branch_label) -> list:
+        """根据脚本返回的 branch label 解析 next_nodes"""
+        if not branch_label:
+            return node.next_nodes or []
+        for b in branches:
+            if isinstance(b, dict) and b.get('label') == branch_label:
+                target = b.get('target_node_id')
+                if target:
+                    return [target]
+        # label 未匹配，记录警告并回退默认顺序流
+        log.warning(f'[WorkflowExecutionEngine] 脚本分支标签 {branch_label} 未匹配，使用默认顺序流')
+        return node.next_nodes or []
+
     def _build_render_context(self, instance: WorkflowInstance) -> Dict[str, Any]:
         """构建模板渲染上下文"""
         context = instance.context or {}
@@ -1128,13 +1285,21 @@ class WorkflowExecutionEngine:
 
         workflow = Workflow.query.get(instance.workflow_id)
 
-        return {
+        render_ctx = {
             'trigger': trigger_event_with_record,
             'record': record_values,
             'instance': instance.to_dict(),
             'workflow': workflow.to_dict() if workflow else {},
-            'loop': context.get('loop_context')
+            'loop': context.get('loop_context'),
+            'node_outputs': context.get('node_outputs') or {},
         }
+        # 暴露脚本结果变量（如 script_result）到顶层，使 {{<result_variable>.field}} 可直接引用
+        # 保留键不再上抛，避免覆盖既有顶层结构
+        RESERVED_CONTEXT_KEYS = {'trigger_event', 'record', 'loop_context', 'node_outputs'}
+        for key, value in context.items():
+            if key not in RESERVED_CONTEXT_KEYS and key not in render_ctx:
+                render_ctx[key] = value
+        return render_ctx
 
     @staticmethod
     def render_template(value: Any, context: Dict[str, Any]) -> Any:

@@ -37,6 +37,8 @@ vi.mock('@element-plus/icons-vue', () => ({
   Timer: { template: '<span class="icon-timer" />' },
   InfoFilled: { template: '<span class="icon-info-filled" />' },
   Refresh: { template: '<span class="icon-refresh" />' },
+  Cpu: { template: '<span class="icon-cpu" />' },
+  QuestionFilled: { template: '<span class="icon-question-filled" />' },
 }));
 
 // Mock 工具函数

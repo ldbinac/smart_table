@@ -220,4 +220,41 @@ describe('workflowApiService', () => {
       expect(result).toEqual(mockWorkflow);
     });
   });
+
+  describe('脚本节点测试', () => {
+    it('应该调用正确 URL 与 payload 测试脚本节点', async () => {
+      (apiClient.post as any).mockResolvedValue({
+        status: 'success',
+        result: { count: 3 },
+        duration_ms: 10,
+      });
+      const res = await workflowApiService.testScriptNode('wf-1', {
+        language: 'python',
+        script_source: 'set_result(1)',
+        sample_input: [1, 2, 3],
+        timeout: 5,
+      });
+      expect(apiClient.post).toHaveBeenCalledWith('/workflows/wf-1/nodes/script/test', {
+        language: 'python',
+        script_source: 'set_result(1)',
+        sample_input: [1, 2, 3],
+        timeout: 5,
+      });
+      expect(res.status).toBe('success');
+      expect(res.result).toEqual({ count: 3 });
+    });
+
+    it('错误时应返回 error 字段', async () => {
+      (apiClient.post as any).mockResolvedValue({
+        status: 'error',
+        error: '脚本执行超时',
+      });
+      const res = await workflowApiService.testScriptNode('wf-1', {
+        language: 'python',
+        script_source: 'while True: pass',
+      });
+      expect(res.status).toBe('error');
+      expect(res.error).toBe('脚本执行超时');
+    });
+  });
 });
