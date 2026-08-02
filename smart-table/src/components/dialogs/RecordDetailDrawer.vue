@@ -38,6 +38,7 @@ import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import SubTableInDrawer from "@/components/dialogs/SubTableInDrawer.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { formatDateTime, formatDate, toConfiguredTimezone } from "@/utils/timezone";
@@ -189,6 +190,56 @@ const triggerLoading = ref(false);
 const linkFieldRecords = ref<Map<string, LinkedRecord[]>>(new Map());
 const linkFieldLoading = ref<Set<string>>(new Set());
 const editingLinkField = ref<string | null>(null);
+
+// 二级抽屉：子表记录详情（点击子表放大按钮触发）
+// 使用独立的 RecordDetailDrawer 嵌套展示子表记录的完整字段详情
+const subRecordDrawerVisible = ref(false);
+const subRecordExpanded = ref<RecordEntity | null>(null);
+// 子表记录详情抽屉使用的字段列表（目标表的字段）
+const subRecordFields = ref<FieldEntity[]>([]);
+
+/**
+ * 处理子表放大按钮点击 - 打开子表记录详情抽屉
+ * 异步获取子表（目标表）字段定义后展示二级抽屉
+ */
+const handleSubTableExpandRecord = async (record: RecordEntity) => {
+  if (!record?.tableId) return;
+  try {
+    // 动态获取目标表字段定义（避免主表 fields 与子表字段混淆）
+    const { masterDetailService } = await import("@/services/masterDetailService");
+    const targetFields = await masterDetailService.getTargetTableFields(record.tableId);
+    subRecordFields.value = targetFields as FieldEntity[];
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 获取子表字段定义失败:", error);
+    subRecordFields.value = [];
+  }
+  subRecordExpanded.value = record;
+  subRecordDrawerVisible.value = true;
+};
+
+/**
+ * 子表记录详情抽屉保存回调
+ * 通过 recordApiService 直接更新目标表记录
+ */
+const handleSubRecordSave = async (
+  recordId: string,
+  values: Record<string, unknown>,
+) => {
+  try {
+    const { recordApiService } = await import("@/services/api/recordApiService");
+    await recordApiService.updateRecord(recordId, {
+      values: values as Record<string, CellValue>,
+    });
+    // 清除关联缓存（关联显示值可能已变更）
+    linkApiService.invalidateCacheByPattern("record_links:");
+    ElMessage.success("保存成功");
+    subRecordDrawerVisible.value = false;
+    subRecordExpanded.value = null;
+  } catch (error) {
+    console.error("[RecordDetailDrawer] 子表记录保存失败:", error);
+    ElMessage.error("保存失败");
+  }
+};
 
 // 显示变更历史
 const showHistory = () => {
@@ -722,13 +773,38 @@ const drawerTitle = computed(() => {
   }
   return "编辑记录";
 });
+
+// 计算抽屉实际宽度
+// 对传入的 size 做最小值兜底，避免抽屉过窄：
+// - 百分比 < 60% 时取 60%
+// - 像素 < 720 时取 720
+const effectiveSize = computed<string | number>(() => {
+  const s = props.size;
+  if (!s) return "60%";
+  if (typeof s === "number") {
+    return Math.max(s, 720);
+  }
+  if (typeof s === "string") {
+    // 百分比形式：解析数值，<60% 时兜底为 60%
+    if (s.endsWith("%")) {
+      const pct = parseFloat(s);
+      return Number.isNaN(pct) ? "60%" : `${Math.max(pct, 60)}%`;
+    }
+    // 像素形式：解析数值，<720 时兜底为 720
+    if (s.endsWith("px")) {
+      const px = parseFloat(s);
+      return Number.isNaN(px) ? "60%" : `${Math.max(px, 720)}px`;
+    }
+  }
+  return s;
+});
 </script>
 
 <template>
   <el-drawer
     :model-value="visible"
     :title="drawerTitle"
-    :size="size || '50%'"
+    :size="effectiveSize"
     direction="rtl"
     :destroy-on-close="true"
     :close-on-click-modal="true"
@@ -995,6 +1071,19 @@ const drawerTitle = computed(() => {
               "
               @edit-end="editingLinkField = null"
               @remove="(targetId) => handleLinkFieldRemove(field, targetId)" />
+
+            <!-- 关联字段子表数据展示
+                 与 VTableView 子表展示逻辑一致：
+                 - VTable ListTable 渲染所有字段类型
+                 - 异步加载子表数据，不阻塞抽屉打开
+                 - 点击子表单元格显示放大按钮，点击放大按钮弹出二级抽屉详情 -->
+            <SubTableInDrawer
+              v-if="record?.id && getLinkFieldConfig(field)?.targetTableId"
+              :record-id="record.id"
+              :field-id="field.id"
+              :target-table-id="getLinkFieldConfig(field)!.targetTableId"
+              :readonly="readonly"
+              @expand-record="handleSubTableExpandRecord" />
           </template>
 
           <!-- 自动编号字段类型 -->
@@ -1057,6 +1146,19 @@ const drawerTitle = computed(() => {
       </div>
     </template>
   </el-drawer>
+
+  <!-- 二级抽屉：子表记录详情
+       点击子表放大按钮触发，使用目标表的字段定义展示子表记录详情
+       使用 v-if 控制挂载，避免 RecordDetailDrawer 递归自引用导致无限递归栈溢出：
+       每一层仅在用户点击放大按钮时才挂载下一层，挂载时下一层 v-if=false 不再递归 -->
+  <RecordDetailDrawer
+    v-if="subRecordDrawerVisible"
+    v-model:visible="subRecordDrawerVisible"
+    :record="subRecordExpanded"
+    :fields="subRecordFields"
+    :size="effectiveSize"
+    :readonly="readonly"
+    @save="handleSubRecordSave" />
 
   <!-- 变更历史抽屉 -->
   <RecordHistoryDrawer
