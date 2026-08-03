@@ -148,6 +148,7 @@ declare module 'vue' {
     MultiSelectField: typeof import('./components/fields/MultiSelectField.vue')['default']
     NumberField: typeof import('./components/fields/NumberField.vue')['default']
     OnlineUsers: typeof import('./components/collaboration/OnlineUsers.vue')['default']
+    ParentFieldConfig: typeof import('./components/views/TableView/ParentFieldConfig.vue')['default']
     PhoneField: typeof import('./components/fields/PhoneField.vue')['default']
     ProgressField: typeof import('./components/fields/ProgressField.vue')['default']
     RatingField: typeof import('./components/fields/RatingField.vue')['default']

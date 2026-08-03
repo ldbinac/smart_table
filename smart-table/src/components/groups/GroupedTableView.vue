@@ -1464,6 +1464,9 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
                     :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
                     :relationship-type="getLinkFieldConfig(field)?.relationshipType"
                     :is-editing="false"
+                    :record-id="item.record!.id"
+                    :field-id="field.id"
+                    :is-self-link="getLinkFieldConfig(field)?.targetTableId === field.tableId"
                     @edit-start="handleLinkFieldClick(item.record!, field)" />
                 </template>
 

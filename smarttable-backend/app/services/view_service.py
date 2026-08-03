@@ -31,7 +31,8 @@ class ViewService:
                    config: Dict[str, Any] = None, 
                    filters: List[Dict] = None,
                    sorts: List[Dict] = None,
-                   group_bys: List[str] = None) -> View:
+                   group_bys: List[str] = None,
+                   parent_field_id: str = None) -> View:
         """
         创建视图
         
@@ -43,6 +44,7 @@ class ViewService:
             filters: 筛选条件
             sorts: 排序规则
             group_bys: 分组字段列表
+            parent_field_id: 父字段 ID
             
         Returns:
             创建的视图对象
@@ -71,7 +73,8 @@ class ViewService:
             filters=filters or [],
             sort_config=sorts or [],
             group_config=group_config or {},
-            field_visibility={}
+            field_visibility={},
+            parent_field_id=parent_field_id
         )
         
         db.session.add(view)
@@ -111,7 +114,7 @@ class ViewService:
         direct_fields = ['name', 'filters', 
                         'hidden_fields', 'frozen_fields', 'row_height', 
                         'is_default', 'field_widths', 'order', 'description',
-                        'form_config']
+                        'form_config', 'parent_field_id']
         
         for key in direct_fields:
             if key in kwargs:
@@ -209,7 +212,8 @@ class ViewService:
             field_visibility=view.field_visibility,
             hidden_fields=view.hidden_fields,
             field_widths=view.field_widths,
-            order=view.order + 1
+            order=view.order + 1,
+            parent_field_id=view.parent_field_id
         )
         
         db.session.add(new_view)

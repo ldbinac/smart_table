@@ -65,6 +65,7 @@ export interface ViewEntity {
   groupBys: string[];
   hiddenFields: string[];
   frozenFields: string[];
+  parentFieldId: string | null;
   rowHeight: "short" | "medium" | "tall";
   isDefault: boolean;
   order: number;

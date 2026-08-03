@@ -8,6 +8,10 @@ from marshmallow import Schema, fields, validate
 from app.extensions import db
 from app.services.view_service import ViewService
 from app.services.table_service import TableService
+from app.services.record_service import RecordService
+from app.services.link_service import LinkService
+from app.services.field_service import FieldService
+from app.models.field import Field, FieldType
 from app.utils.response import success_response, error_response
 from app.utils.decorators import jwt_required, role_required
 
@@ -35,6 +39,7 @@ class ViewCreateSchema(Schema):
     is_default = fields.Boolean(missing=False)
     field_widths = fields.Dict(missing=dict)
     order = fields.Integer(missing=0)
+    parent_field_id = fields.String(missing=None)
 
 
 class ViewUpdateSchema(Schema):
@@ -53,6 +58,7 @@ class ViewUpdateSchema(Schema):
     form_config = fields.Dict()
     order = fields.Integer()
     description = fields.String()
+    parent_field_id = fields.String(allow_none=True)
 
 
 class ViewDuplicateSchema(Schema):
@@ -151,6 +157,9 @@ def create_view(table_id) -> tuple:
             description:
               type: string
               description: 视图描述
+            parent_field_id:
+              type: string
+              description: 父字段 ID（关联到 fields 表）
     responses:
       201:
         description: 视图创建成功
@@ -190,7 +199,8 @@ def create_view(table_id) -> tuple:
             config=json_data.get('config', {}),
             filters=json_data.get('filters', []),
             sorts=json_data.get('sorts', []),
-            group_bys=json_data.get('group_bys', [])
+            group_bys=json_data.get('group_bys', []),
+            parent_field_id=json_data.get('parent_field_id')
         )
         
         # 更新其他可选字段
@@ -321,6 +331,9 @@ def update_view(view_id) -> tuple:
             description:
               type: string
               description: 视图描述
+            parent_field_id:
+              type: string
+              description: 父字段 ID（关联到 fields 表）
     responses:
       200:
         description: 视图更新成功
@@ -694,3 +707,140 @@ def get_view_types() -> tuple:
     ]
     
     return success_response(view_types)
+
+
+@views_bp.route('/views/<view_id>/tree-records', methods=['GET'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+def get_view_tree_records(view_id) -> tuple:
+    """
+    获取视图的树形记录数据
+    ---
+    tags:
+      - Views
+    parameters:
+      - name: view_id
+        in: path
+        type: string
+        required: true
+        description: 视图 ID
+      - name: search
+        in: query
+        type: string
+        required: false
+        description: 搜索关键词，筛选时包含该关键词的记录及其父级上下文
+    responses:
+      200:
+        description: 树形记录数据
+    """
+    view = ViewService.get_view_by_id(view_id)
+    if not view:
+        return error_response('视图不存在', 404)
+
+    try:
+        # 检查视图是否配置了 parent_field_id
+        if not view.parent_field_id:
+            # 没有配置父字段，返回扁平记录（正常行为）
+            records, total = RecordService.get_table_records(str(view.table_id))
+            return success_response({
+                'tree': [],
+                'flat_records': [r.to_dict() for r in records],
+                'total': total,
+                'is_tree': False
+            })
+
+        # 有 parent_field_id，构建树形数据
+        parent_field_id = str(view.parent_field_id)
+
+        # 获取搜索关键词
+        search = request.args.get('search', '')
+
+        if search:
+            # 筛选模式：获取匹配的记录及其父级上下文
+            tree = RecordService.get_filtered_tree_records(
+                str(view.table_id), parent_field_id, search
+            )
+        else:
+            tree = RecordService.get_tree_records(str(view.table_id), parent_field_id)
+
+        return success_response({
+            'tree': tree,
+            'is_tree': True,
+            'parent_field_id': parent_field_id
+        })
+
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取树形记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取树形记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+
+
+@views_bp.route('/views/<view_id>/auto-create-parent-field', methods=['POST'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor'])
+def auto_create_parent_field(view_id) -> tuple:
+    """
+    自动创建父记录字段
+    ---
+    tags:
+      - Views
+    responses:
+      200:
+        description: 创建成功
+    """
+    view = ViewService.get_view_by_id(view_id)
+    if not view:
+        return error_response('视图不存在', 404)
+
+    table_id = str(view.table_id)
+
+    try:
+        # 检查是否已存在自引用的 LINK_TO_RECORD 字段
+        existing_fields = FieldService.get_fields_by_type(table_id, FieldType.LINK_TO_RECORD.value)
+        parent_field = None
+
+        for field in existing_fields:
+            field_config = field.config or {}
+            linked_table_id = field_config.get('linkedTableId') or field_config.get('linked_table_id')
+            if linked_table_id and str(linked_table_id) == table_id:
+                parent_field = field
+                break
+
+        if not parent_field:
+            # 创建自引用的 LINK_TO_RECORD 字段
+            link_result = LinkService.create_link_field(
+                table_id=table_id,
+                data={
+                    'name': '父记录',
+                    'target_table_id': table_id,
+                    'relationship_type': 'one_to_many',
+                    'bidirectional': False
+                },
+                user_id=g.current_user_id
+            )
+
+            if not link_result.get('success'):
+                return error_response(f'创建父记录字段失败: {link_result.get("error", "未知错误")}', 400)
+
+            parent_field_obj = Field.query.get(link_result['field']['id'])
+            if not parent_field_obj:
+                return error_response('创建字段后获取字段失败', 500)
+            parent_field = parent_field_obj
+
+        # 设置视图的 parent_field_id
+        view.parent_field_id = parent_field.id
+        db.session.commit()
+
+        return success_response({
+            'field_id': str(parent_field.id),
+            'field_name': parent_field.name,
+            'parent_field_id': str(view.parent_field_id)
+        }, '父记录字段创建成功')
+
+    except Exception as e:
+        db.session.rollback()
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 自动创建父记录字段失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('自动创建父记录字段失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)

@@ -29,6 +29,7 @@ import FilterDialog from "@/components/dialogs/FilterDialog.vue";
 import SortDialog from "@/components/dialogs/SortDialog.vue";
 import GroupDialog from "@/components/dialogs/GroupDialog.vue";
 import ExportDialog from "@/components/dialogs/ExportDialog.vue";
+import ParentFieldConfig from "@/components/views/TableView/ParentFieldConfig.vue";
 import { formatDateTime, initDayjsPlugins } from "@/utils/timezone";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import AddRecordDrawer from "@/components/dialogs/AddRecordDrawer.vue";
@@ -37,6 +38,7 @@ import ExcelImportCreateDialog from "@/components/dialogs/ExcelImportCreateDialo
 import MemberManagementDialog from "@/components/dialogs/MemberManagementDialog.vue";
 import BaseShareDialog from "@/components/dialogs/BaseShareDialog.vue";
 import { ViewType } from "@/types";
+import { FieldType } from "@/types/fields";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FilterCondition, SortConfig } from "@/types/filters";
@@ -340,6 +342,25 @@ const isFormView = computed(() => currentViewType.value === ViewType.FORM);
 // 当前分组配置
 const currentGroupBys = computed(() => viewStore.currentGroupBys);
 
+// 当前视图的父记录字段 ID
+const currentParentFieldId = computed(() => viewStore.currentView?.parentFieldId || null);
+
+// 是否存在自关联字段（关联字段且目标表为当前表），存在时才有树形层级能力
+const hasSelfLinkField = computed(() => {
+  const tableId = tableStore.currentTable?.id;
+  if (!tableId) return false;
+  return tableStore.fields.some((field: any) => {
+    if (field.type !== FieldType.LINK) return false;
+    const targetTableId =
+      field.options?.linkedTableId ||
+      field.options?.linked_table_id ||
+      field.config?.linkedTableId ||
+      field.config?.linked_table_id ||
+      '';
+    return !!targetTableId && String(targetTableId) === String(tableId);
+  });
+});
+
 // 是否有分组配置
 const hasGroupConfig = computed(() => currentGroupBys.value.length > 0);
 
@@ -430,23 +451,11 @@ onMounted(async () => {
           await handleTableSelect(targetTable.id);
         } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
           // 回退到第一个表格
-          const firstTable = tableStore.tables[0];
-          await tableStore.selectTable(firstTable.id);
-          await viewStore.loadViews(firstTable.id);
-          await viewStore.selectDefaultView(firstTable.id);
-          if (viewStore.currentView?.type === ViewType.FORM) {
-            loadFormConfig();
-          }
+          await loadTableView(tableStore.tables[0].id);
         }
       } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
         // 默认选择第一个表格
-        const firstTable = tableStore.tables[0];
-        await tableStore.selectTable(firstTable.id);
-        await viewStore.loadViews(firstTable.id);
-        await viewStore.selectDefaultView(firstTable.id);
-        if (viewStore.currentView?.type === ViewType.FORM) {
-          loadFormConfig();
-        }
+        await loadTableView(tableStore.tables[0].id);
       }
       
       // 初始化拖拽排序
@@ -554,24 +563,15 @@ watch(
     try {
       const targetTable = tableStore.tables.find(t => t.id === newTableId);
       if (targetTable) {
-        // 现在直接调用 selectTable，因为我们已经跳转到路由了
-        await tableStore.selectTable(targetTable.id);
-        // 同步视图数据到 viewStore
-        await viewStore.loadViews(targetTable.id);
-        // 选择默认视图（这会设置 viewStore.currentView，并自动加载视图的排序配置）
-        await viewStore.selectDefaultView(targetTable.id);
+        // 现在直接调用 loadTableView，因为我们已经跳转到路由了
+        await loadTableView(targetTable.id);
         // 重置筛选
         filterConjunction.value = "and";
         // 关闭分组弹窗，确保切换数据表时弹窗状态正确
         groupDialogVisible.value = false;
       } else if (tableStore.tables.length > 0 && !tableStore.currentTable) {
         const firstTable = tableStore.tables[0];
-        await tableStore.selectTable(firstTable.id);
-        await viewStore.loadViews(firstTable.id);
-        await viewStore.selectDefaultView(firstTable.id);
-        if (viewStore.currentView?.type === ViewType.FORM) {
-          loadFormConfig();
-        }
+        await loadTableView(firstTable.id);
       }
     } catch (error) {
       ElMessage.error('加载数据失败');
@@ -613,6 +613,24 @@ async function handleTableDragEnd(evt: Sortable.SortableEvent) {
   }
 }
 
+// 正在加载的表格 ID（防重入：handleTableSelect 与路由 watch 可能并发触发同一表格加载）
+let tableLoadInFlight = '';
+// 加载表格及其视图的统一入口
+const loadTableView = async (tableId: string) => {
+  if (!tableId || tableLoadInFlight === tableId) return;
+  tableLoadInFlight = tableId;
+  try {
+    await tableStore.selectTable(tableId);
+    await viewStore.loadViews(tableId);
+    await viewStore.selectDefaultView(tableId);
+    if (viewStore.currentView?.type === ViewType.FORM) {
+      loadFormConfig();
+    }
+  } finally {
+    tableLoadInFlight = '';
+  }
+};
+
 const handleTableSelect = async (tableId: string) => {
   // 如果点击的是当前已选中的表格，不做任何操作
   if (tableId === tableStore.currentTable?.id) {
@@ -632,17 +650,14 @@ const handleTableSelect = async (tableId: string) => {
   try {
     // 跳转到路由
     const baseId = route.params.id as string;
-    router.push(`/base/${baseId}/table/${tableId}`);
-    
-    // 直接处理加载逻辑，不依赖 watch
-    const targetTable = tableStore.tables.find(t => t.id === tableId);
-    if (targetTable) {
-      await tableStore.selectTable(targetTable.id);
-      await viewStore.loadViews(targetTable.id);
-      await viewStore.selectDefaultView(targetTable.id);
-      if (viewStore.currentView?.type === ViewType.FORM) {
-        loadFormConfig();
-      }
+    if (route.params.tableId === tableId) {
+      // 已在目标表格路由（如初始化/刷新场景）：直接加载
+      await loadTableView(tableId);
+    } else {
+      // 切换到新表格路由：先清空残留视图，避免旧视图数据误渲染/误请求，
+      // 再跳转路由，加载由 watch(route.params.tableId) 统一处理
+      viewStore.clearView();
+      await router.push(`/base/${baseId}/table/${tableId}`);
     }
   } catch (error) {
     ElMessage.error('加载数据失败');
@@ -1974,6 +1989,26 @@ const handleDocumentExportPdf = async () => {
                     <el-icon><Grid /></el-icon>
                     字段
                   </el-button>
+                </el-button-group>
+                <el-button-group>
+                  <el-popover
+                    v-if="hasSelfLinkField"
+                    placement="bottom"
+                    :width="260"
+                    trigger="click">
+                    <template #reference>
+                      <el-button
+                        size="default"
+                        :type="currentParentFieldId ? 'primary' : 'default'">
+                        <el-icon><Setting /></el-icon>
+                        树形
+                      </el-button>
+                    </template>
+                    <ParentFieldConfig
+                      :view-id="viewStore.currentView?.id || ''"
+                      :table-id="currentTableId"
+                      :current-parent-field-id="currentParentFieldId" />
+                  </el-popover>
                 </el-button-group>
                 <el-button-group>
                   <el-button

@@ -1065,6 +1065,7 @@ const effectiveSize = computed<string | number>(() => {
               :readonly="readonly"
               :record-id="record?.id || ''"
               :field-id="field.id"
+              :is-self-link="getLinkFieldConfig(field)?.targetTableId === field.tableId"
               @edit-start="handleLinkFieldEdit(field.id)"
               @change="
                 (val, records) => handleLinkFieldChange(field, val, records)

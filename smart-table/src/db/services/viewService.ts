@@ -22,6 +22,7 @@ export interface UpdateViewData {
   groupBys?: string[];
   hiddenFields?: string[];
   frozenFields?: string[];
+  parentFieldId?: string | null;
   rowHeight?: "short" | "medium" | "tall";
   isDefault?: boolean;
   updatedAt?: number;
@@ -52,6 +53,7 @@ export class ViewService {
         groupBys: (viewData.group_bys as string[]) || [],
         hiddenFields: (viewData.hidden_fields as string[]) || [],
         frozenFields: (viewData.frozen_fields as string[]) || [],
+        parentFieldId: (viewData.parent_field_id as string) || null,
         rowHeight:
           (viewData.row_height as "short" | "medium" | "tall") || "medium",
         isDefault: apiView.is_default || false,
@@ -125,6 +127,7 @@ export class ViewService {
             groupBys: (viewData.group_bys as string[]) || [],
             hiddenFields: (viewData.hidden_fields as string[]) || [],
             frozenFields: (viewData.frozen_fields as string[]) || [],
+            parentFieldId: (viewData.parent_field_id as string) || null,
             rowHeight:
               (viewData.row_height as "short" | "medium" | "tall") || "medium",
             isDefault: viewData.is_default || false,
@@ -186,6 +189,7 @@ export class ViewService {
         apiData.frozen_fields = data.frozenFields;
       if (data.rowHeight !== undefined) apiData.row_height = data.rowHeight;
       if (data.isDefault !== undefined) apiData.is_default = data.isDefault;
+      if (data.parentFieldId !== undefined) apiData.parent_field_id = data.parentFieldId;
 
       console.log("[ViewService] API data:", apiData);
 
@@ -223,6 +227,7 @@ export class ViewService {
         updateData.frozenFields = data.frozenFields;
       if (data.rowHeight !== undefined) updateData.rowHeight = data.rowHeight;
       if (data.isDefault !== undefined) updateData.isDefault = data.isDefault;
+      if (data.parentFieldId !== undefined) updateData.parentFieldId = data.parentFieldId;
 
       console.log("[ViewService] Final update data:", updateData);
 
@@ -281,6 +286,7 @@ export class ViewService {
         groupBys: (apiView.group_bys as string[]) || [],
         hiddenFields: (apiView.hidden_fields as string[]) || [],
         frozenFields: (apiView.frozen_fields as string[]) || [],
+        parentFieldId: (apiView.parent_field_id as string) || null,
         rowHeight:
           (apiView.row_height as "short" | "medium" | "tall") || "medium",
         isDefault: apiView.is_default || false,

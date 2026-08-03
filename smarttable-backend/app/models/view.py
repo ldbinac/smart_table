@@ -131,6 +131,13 @@ class View(db.Model):
         nullable=True,
         default=dict
     )
+    # 父字段 ID（关联到 fields 表，用于视图分组/层级关系）
+    parent_field_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey('fields.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True
+    )
     # 表单视图特定配置
     form_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON,
@@ -152,6 +159,12 @@ class View(db.Model):
     table = relationship(
         'Table',
         back_populates='views',
+        lazy='joined'
+    )
+
+    parent_field = relationship(
+        'Field',
+        foreign_keys=[parent_field_id],
         lazy='joined'
     )
 
@@ -207,6 +220,7 @@ class View(db.Model):
             'frozen_fields': self.frozen_fields or [],
             'row_height': self.row_height or 'medium',
             'field_widths': self.field_widths or {},
+            'parent_field_id': str(self.parent_field_id) if self.parent_field_id else None,
             # 为了兼容前端，将 form_config 以 config 的形式返回
             'config': self.form_config or {},
             'form_config': self.form_config or {},

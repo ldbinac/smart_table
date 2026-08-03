@@ -369,9 +369,18 @@ const linkFieldConfig = computed(() => {
 });
 
 // 处理关联字段值更新
-const handleLinkFieldChange = (value: string[], records: LinkedRecord[]) => {
+const handleLinkFieldChange = async (value: string[], records: LinkedRecord[]) => {
   linkedRecords.value = records;
-  emit("update", value as CellValue);
+  // 通过专用接口更新关联值，同时同步 LinkValue 表与 values JSON
+  try {
+    await linkApiService.updateRecordLink(props.record.id, props.field.id, {
+      target_record_ids: value,
+    });
+    emit("update", value as CellValue);
+  } catch (error) {
+    console.error("[TableCell] 更新关联字段失败:", error);
+    ElMessage.error("关联字段更新失败，请稍后重试");
+  }
   isEditing.value = false;
 };
 
@@ -696,6 +705,7 @@ const multiSelectDisplayValues = computed(() => {
           :readonly="readonly"
           :record-id="record.id"
           :field-id="field.id"
+          :is-self-link="linkFieldConfig?.targetTableId === props.field.tableId"
           @change="handleLinkFieldChange"
           @edit-end="cancelEdit"
           @remove="handleLinkRemove" />
@@ -801,6 +811,7 @@ const multiSelectDisplayValues = computed(() => {
             :readonly="readonly"
             :record-id="record.id"
             :field-id="field.id"
+            :is-self-link="linkFieldConfig?.targetTableId === props.field.tableId"
             @edit-start="startEdit"
             @remove="handleLinkRemove" />
         </template>

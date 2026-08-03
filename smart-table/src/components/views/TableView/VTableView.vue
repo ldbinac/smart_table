@@ -28,6 +28,8 @@ import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { linkApiService } from "@/services/api/linkApiService";
+import { viewApiService } from "@/services/api/viewApiService";
+import { recordApiService } from "@/services/api/recordApiService";
 
 // 导入 VTable
 import { ListTable, themes, register as registerVTable } from "@visactor/vtable";
@@ -201,6 +203,27 @@ const {
   },
 });
 
+// 树形视图：索引列 "+" 按钮状态
+const treeAddChildIconVisible = ref(false);
+const treeAddChildIcon = ref<{ x: number; y: number; recordId: string; recordName?: string } | null>(null);
+const treeAddChildLoading = ref(false);
+let hideTreeAddChildIconTimer: ReturnType<typeof setTimeout> | null = null;
+
+const clearHideTreeAddChildIconTimer = () => {
+  if (hideTreeAddChildIconTimer) {
+    clearTimeout(hideTreeAddChildIconTimer);
+    hideTreeAddChildIconTimer = null;
+  }
+};
+
+const delayHideTreeAddChildIcon = () => {
+  clearHideTreeAddChildIconTimer();
+  hideTreeAddChildIconTimer = setTimeout(() => {
+    treeAddChildIconVisible.value = false;
+    treeAddChildIcon.value = null;
+  }, 300);
+};
+
 // 子表工具栏状态
 const subTableToolbarVisible = ref(false);
 const subTableToolbarRecordId = ref('');
@@ -277,6 +300,8 @@ const linkSelectorSelectedIds = ref<string[]>([]);
 const linkSelectorFieldId = ref('');
 const linkSelectorRecordId = ref('');
 const linkSelectorAllowMultiple = ref(true);
+/** 自关联（树形）场景下需要排除的当前记录 ID */
+const linkSelectorExcludeRecordId = ref('');
 const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string }[]>([]);
 
 // ==================== 搜索功能状态 ====================
@@ -1913,6 +1938,7 @@ const contextMenuItems = computed(() => {
     id: string;
     label: string;
     icon?: string;
+    hint?: string;
     disabled?: boolean;
     divider?: boolean;
     danger?: boolean;
@@ -1944,6 +1970,7 @@ const contextMenuItems = computed(() => {
         id: 'unfreeze-row',
         label: '取消冻结行',
         icon: 'freeze',
+        hint: '取消当前行的冻结状态',
         action: () => handleFreezeRow(true),
       });
     } else {
@@ -1953,15 +1980,47 @@ const contextMenuItems = computed(() => {
         id: 'freeze-row',
         label: `冻结到此行（前 ${freezeCount} 行）`,
         icon: 'freeze',
+        hint: '冻结当前行及其上方所有行，滚动时保持可见',
         action: () => handleFreezeRow(false, freezeCount),
       });
     }
 
     items.push({ divider: true, id: "divider-freeze", label: "" });
 
+    // 树形视图操作
+    if (isTreeView.value && !props.readonly) {
+      items.push({
+        id: "add-child-record",
+        label: "添加子记录",
+        icon: "circle-plus",
+        hint: "在当前记录下创建一条子记录",
+        action: () => {
+          handleAddChildRecord();
+        },
+      });
+
+      items.push({
+        id: "promote",
+        label: "提升层级",
+        icon: "promote",
+        hint: "将当前记录提升到上一层级（与父记录同级）",
+        action: () => handlePromoteRecord(),
+      });
+
+      items.push({
+        id: "demote",
+        label: "降低层级",
+        icon: "demote",
+        hint: "将当前记录下降一个层级（挂到前一条记录下）",
+        action: () => handleDemoteRecord(),
+      });
+
+      items.push({ divider: true, id: "divider-tree", label: "" });
+    }
+
     if (!props.readonly) {
-      items.push({ id: "edit", label: "编辑当前记录", icon: "edit", action: () => handleEditRecord() });
-      items.push({ id: "duplicate", label: "复制当前记录", icon: "copy", action: () => handleDuplicateRecord() });
+      items.push({ id: "edit", label: "编辑当前记录", icon: "edit", hint: "打开详情面板，编辑当前记录", action: () => handleEditRecord() });
+      items.push({ id: "duplicate", label: "复制当前记录", icon: "copy", hint: "基于当前记录复制生成一条新记录", action: () => handleDuplicateRecord() });
       items.push({ divider: true, id: "divider1", label: "" });
 
       // 始终显示"删除当前记录"
@@ -1970,6 +2029,7 @@ const contextMenuItems = computed(() => {
         label: "删除当前记录",
         icon: "delete",
         danger: true,
+        hint: "永久删除当前记录，此操作不可撤销",
         action: () => handleDeleteRecord(),
       });
 
@@ -1981,6 +2041,7 @@ const contextMenuItems = computed(() => {
           label: `删除选中的 ${selectedCount} 条记录`,
           icon: "delete",
           danger: true,
+          hint: `永久删除选中的 ${selectedCount} 条记录，此操作不可撤销`,
           action: () => handleDeleteSelectedRecords(),
         });
       }
@@ -1996,6 +2057,7 @@ const contextMenuItems = computed(() => {
       id: 'sort-asc',
       label: '升序排列',
       icon: 'sort',
+      hint: '按该字段从小到大升序排列记录',
       action: () => handleSort('asc'),
     });
 
@@ -2003,6 +2065,7 @@ const contextMenuItems = computed(() => {
       id: 'sort-desc',
       label: '降序排列',
       icon: 'sort',
+      hint: '按该字段从大到小降序排列记录',
       action: () => handleSort('desc'),
     });
 
@@ -2010,6 +2073,7 @@ const contextMenuItems = computed(() => {
       items.push({
         id: 'sort-clear',
         label: '取消排序',
+        hint: '取消该字段当前的排序',
         action: () => handleSort(null),
       });
     }
@@ -2021,6 +2085,7 @@ const contextMenuItems = computed(() => {
       id: isFrozen ? 'unfreeze' : 'freeze',
       label: isFrozen ? '取消冻结' : '冻结列',
       icon: 'freeze',
+      hint: isFrozen ? '取消该列的冻结状态' : '冻结该列及其左侧所有列，滚动时保持可见',
       action: () => handleFreeze(!isFrozen),
     });
 
@@ -2030,6 +2095,7 @@ const contextMenuItems = computed(() => {
         id: 'hide',
         label: '隐藏该列',
         icon: 'hide',
+        hint: '在视图中隐藏该列',
         action: () => handleHideColumn(),
       });
 
@@ -2040,6 +2106,7 @@ const contextMenuItems = computed(() => {
         id: 'field-settings',
         label: '字段属性',
         icon: 'settings',
+        hint: '编辑该字段的属性配置',
         action: () => handleFieldSettings(),
       });
     }
@@ -2417,6 +2484,108 @@ const handleDeleteSelectedRecords = async () => {
   contextMenuVisible.value = false;
 };
 
+// 提升层级：将记录的父级设为祖父级（即上移一层）
+const handlePromoteRecord = async () => {
+  if (!contextMenuRecord.value || !parentFieldId.value) return;
+  const record = contextMenuRecord.value;
+  const currentParentIds = record.values?.[parentFieldId.value];
+  if (!currentParentIds || !Array.isArray(currentParentIds) || currentParentIds.length === 0) {
+    ElMessage.warning("该记录已经是顶层记录，无法提升层级");
+    contextMenuVisible.value = false;
+    return;
+  }
+  const currentParentId = currentParentIds[0];
+  // 遍历树形记录，查找父记录的父级
+  const findParent = (records: any[]): any => {
+    for (const r of records) {
+      if (r.id === currentParentId || r._recordId === currentParentId) {
+        // 返回父记录，其 _originalRecord.values 包含父级字段值
+        // 但我们实际上需要父记录自身的 values，所以用 _originalRecord
+        return r._originalRecord || r;
+      }
+      if (r.children && Array.isArray(r.children)) {
+        const found = findParent(r.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  const parentRecord = findParent(treeRecords.value);
+  if (!parentRecord || !parentRecord.values) {
+    ElMessage.warning("无法找到父记录");
+    contextMenuVisible.value = false;
+    return;
+  }
+  const grandParentIds = parentRecord.values[parentFieldId.value];
+  const newParentId = (Array.isArray(grandParentIds) && grandParentIds.length > 0) ? grandParentIds[0] : null;
+  try {
+    await recordService.updateRecord(record.id, {
+      values: { [parentFieldId.value]: newParentId ? [newParentId] : [] },
+    });
+    await loadTreeRecords();
+    ElMessage.success("已提升层级");
+  } catch (error) {
+    console.error("[VTableView] 提升层级失败:", error);
+    ElMessage.error("提升层级失败");
+  }
+  contextMenuVisible.value = false;
+};
+
+// 降低层级：将记录设为上一个兄弟节点的子级（下移一层）
+const handleDemoteRecord = async () => {
+  if (!contextMenuRecord.value || !parentFieldId.value) return;
+  ElMessage.info("降低层级功能正在开发中");
+  contextMenuVisible.value = false;
+};
+
+// 处理添加子记录（树形视图）
+const handleAddChildRecord = async () => {
+  if (!contextMenuRecord.value || !parentFieldId.value) return;
+  try {
+    await recordApiService.createChildRecord(contextMenuRecord.value.id, parentFieldId.value);
+    await loadTreeRecords();
+    ElMessage.success("子记录已创建");
+  } catch (error) {
+    console.error("创建子记录失败:", error);
+    ElMessage.error("创建子记录失败");
+  }
+  contextMenuVisible.value = false;
+};
+
+// 处理索引列 "+" 按钮点击（树形视图）
+const handleTreeAddChildClick = async () => {
+  if (!treeAddChildIcon.value || !parentFieldId.value) return;
+  if (treeAddChildLoading.value) return;
+  const recordId = treeAddChildIcon.value.recordId;
+  clearHideTreeAddChildIconTimer();
+  treeAddChildLoading.value = true;
+  try {
+    await recordApiService.createChildRecord(recordId, parentFieldId.value);
+    await loadTreeRecords();
+    ElMessage.success("子记录已创建");
+  } catch (error) {
+    console.error("创建子记录失败:", error);
+    ElMessage.error("创建子记录失败");
+  } finally {
+    treeAddChildLoading.value = false;
+    treeAddChildIconVisible.value = false;
+    treeAddChildIcon.value = null;
+  }
+};
+
+// 自动创建父字段（树形视图）
+const autoCreateParentField = async () => {
+  if (!viewStore.currentView?.id) return null;
+  try {
+    const result = await viewApiService.autoCreateParentField(viewStore.currentView.id);
+    await viewStore.loadViews(viewStore.currentView.tableId);
+    return result?.parent_field_id || null;
+  } catch (error) {
+    console.error("自动创建父字段失败:", error);
+    return null;
+  }
+};
+
 // 处理记录保存
 const handleRecordSave = async (
   recordId: string,
@@ -2444,6 +2613,10 @@ const handleRecordSave = async (
     } else {
       // 主表记录保存：重新加载主表记录列表
       await tableStore.refreshRecords(tableStore.currentTable?.id || "");
+      // 树形视图下重新构建树（详情页中修改父级字段后层级需要重排）
+      if (isTreeView.value) {
+        await loadTreeRecords();
+      }
     }
     ElMessage.success("保存成功");
     expandDialogVisible.value = false;
@@ -2547,6 +2720,15 @@ const createSortComparator = (fieldType: FieldTypeValue | string): ((v1: any, v2
 };
 const fields = computed(() => tableStore.fields);
 const currentView = computed(() => viewStore.currentView);
+
+// 树形视图相关
+const parentFieldId = computed(() => viewStore.currentView?.parentFieldId || null);
+const isTreeView = computed(() => !!parentFieldId.value);
+const treeRecords = ref<any[]>([]);
+/** 组件是否已销毁（异步回调保护，避免卸载后仍触发加载） */
+const isComponentDestroyed = ref(false);
+/** 当前正在加载树形数据的视图 ID（防并发重复请求） */
+let treeLoadingViewId = '';
 
 // 计算可见字段
 const visibleFields = computed(() => {
@@ -2740,6 +2922,143 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
 /** 清除转换缓存（用户缓存变更、公式变更等场景需强制重转换） */
 const clearTransformCache = (): void => {
   transformedCache.clear();
+};
+
+/** 转换树形记录为 VTable 分层格式 */
+const transformTreeRecords = (records: any[], depth: number = 0): any[] => {
+  const formulaFields = orderedVisibleFields.value.filter(f => f.type === FieldType.FORMULA);
+  let formulaEngine: FormulaEngine | null = null;
+  if (formulaFields.length > 0) {
+    formulaEngine = new FormulaEngine(fields.value);
+  }
+
+  return (records || []).map((record: any) => {
+    const row: any = {
+      _recordId: record?.id || '',
+      _originalRecord: record,
+      _depth: depth,
+    };
+
+    // 递归转换子节点
+    if (record.children && record.children.length > 0) {
+      row.children = transformTreeRecords(record.children, depth + 1);
+      row.hierarchyState = 'expand';
+    } else if (record.has_children) {
+      // 有子节点标记但未加载子节点数据，设置占位
+      row.children = true;
+      row.hierarchyState = 'collapse';
+    }
+
+    // 映射字段值（与 transformRecords 逻辑一致）
+    orderedVisibleFields.value.forEach(field => {
+      if (!field?.id || !record?.values) return;
+      const rawVal = record.values[field.id];
+
+      switch (field.type) {
+        case FieldType.SINGLE_SELECT: {
+          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+          const selId = typeof rawVal === 'object' && rawVal !== null ? String((rawVal as any).id || '') : String(rawVal || '');
+          const found = opts.find(o => o.id === selId || o.name === selId);
+          row[field.id] = found?.name || selId;
+          break;
+        }
+        case FieldType.MULTI_SELECT: {
+          let items: any[] = [];
+          if (Array.isArray(rawVal)) items = rawVal;
+          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) items = p; } catch {}
+          if (items.length === 0) { row[field.id] = ''; break; }
+          const opts = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
+          row[field.id] = items.map(v => {
+            const vid = typeof v === 'object' ? String((v as any).id || '') : String(v);
+            const vname = typeof v === 'object' ? String((v as any).name || '') : '';
+            const of = opts.find(o => o.id === vid || o.name === vid);
+            return vname || of?.name || vid;
+          }).join(', ');
+          break;
+        }
+        case FieldType.MEMBER: {
+          let mems: any[] = [];
+          if (Array.isArray(rawVal)) mems = rawVal;
+          else if (typeof rawVal === 'string') try { const p = JSON.parse(rawVal); if (Array.isArray(p)) mems = p; } catch {}
+          else if (typeof rawVal === 'object' && rawVal !== null) mems = [rawVal];
+          const resolvedMembers = mems.map((m) => {
+            let id = '';
+            let name: string | undefined;
+            if (typeof m === 'string') { id = m; }
+            else if (typeof m === 'object' && m !== null) {
+              id = String(m.user_id || m.id || '');
+              name = m.name || undefined;
+            } else { id = String(m); }
+            if (!name) {
+              const cached = userCacheStore.getCachedUser(id);
+              name = cached?.name || id;
+            }
+            return { id, name: name || id };
+          });
+          row[field.id] = JSON.stringify(resolvedMembers);
+          break;
+        }
+        case FieldType.ATTACHMENT: {
+          // 附件字段：保持原始值，渲染由 customLayout 处理
+          row[field.id] = rawVal;
+          break;
+        }
+        case FieldType.FORMULA: {
+          if (formulaEngine && rawVal === undefined) {
+            try {
+              row[field.id] = formulaEngine.calculate(field, record.values);
+            } catch { row[field.id] = ''; }
+          } else {
+            row[field.id] = rawVal ?? '';
+          }
+          break;
+        }
+        default: {
+          row[field.id] = rawVal ?? '';
+          break;
+        }
+      }
+    });
+
+    // 缓存转换结果
+    if (row._recordId) {
+      transformedCache.set(row._recordId, row);
+    }
+
+    return row;
+  });
+};
+
+/** 加载树形视图记录 */
+const loadTreeRecords = async () => {
+  if (isComponentDestroyed.value) return;
+  // 仅加载当前组件所绑定表格的视图树形数据，避免表格切换/初始化残留时误调其他表格接口
+  const current = viewStore.currentView;
+  if (!current || current.tableId !== props.tableId) {
+    treeRecords.value = [];
+    return;
+  }
+  const viewId = props.viewId;
+  if (!isTreeView.value || !viewId) {
+    treeRecords.value = [];
+    return;
+  }
+  // 防并发重复：同一视图的加载仍在进行中则跳过
+  if (treeLoadingViewId === viewId) return;
+  treeLoadingViewId = viewId;
+  try {
+    // 传递搜索关键词，后端筛选时会包含匹配记录的父级上下文
+    const searchParam = searchInput.value ? searchInput.value.trim() : '';
+    const data = await viewApiService.getViewTreeRecords(viewId, searchParam);
+    if (isComponentDestroyed.value) return;
+    treeRecords.value = transformTreeRecords(data.tree || []);
+    updateTable();
+  } catch (error) {
+    console.error('[VTableView] 加载树形记录失败:', error);
+    if (!isComponentDestroyed.value) treeRecords.value = [];
+  } finally {
+    treeLoadingViewId = '';
+  }
 };
 
 // 为分组模式构建记录（在每个分组末尾插入虚拟「添加记录」行）
@@ -4032,13 +4351,18 @@ const buildTableConfig = (): any => {
     };
   });
 
+  // 树形视图：启用 VTable 原生树形渲染，第一列自动显示展开/折叠图标和层级缩进
+  if (isTreeView.value && columns.length > 0) {
+    columns[0].tree = true;
+  }
+
   // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
   clearTransformCache(); // 确保全量重建时使用最新记录数据，不返回缓存中的旧行
-  let tableRecords = transformRecords(sortedRecords.value);
+  let tableRecords = isTreeView.value ? treeRecords.value : transformRecords(sortedRecords.value);
 
   // 非分组模式下在表格末尾追加「+ 添加记录」虚拟行
-  // 当表格只读时，不追加按钮行
-  if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly) {
+  // 树形视图不追加按钮行
+  if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly && !isTreeView.value) {
     const addButtonRecord: any = {
       _recordId: '__add_button__',
       _originalRecord: null,
@@ -4098,13 +4422,20 @@ const buildTableConfig = (): any => {
 
   const config = {
     columns,
-    ...(isGrouped
+    ...(isTreeView.value
       ? { records: tableRecords }
-      : { dataSource: smartDataSource!.dataSource }),
-    // 主从表插件配置
-    ...(hasLinkFields.value && masterDetailPlugin.value ? {
+      : (isGrouped
+        ? { records: tableRecords }
+        : { dataSource: smartDataSource!.dataSource })),
+    // 主从表插件配置（树形视图下不启用主从表）
+    ...(!isTreeView.value && hasLinkFields.value && masterDetailPlugin.value ? {
       plugins: [masterDetailPlugin.value],
       hierarchyExpandLevel: 1, // 默认折叠
+    } : {}),
+    // 树形视图配置
+    ...(isTreeView.value ? {
+      hierarchyExpandLevel: -1, // 展开所有层级
+      enableTreeStickCell: true,
     } : {}),
     frozenColCount,
     showFrozenIcon: true,
@@ -4135,6 +4466,8 @@ const buildTableConfig = (): any => {
         // 新增行禁用复选框
         return row === table.dataSource._sourceLength;
       },
+      // 普通平铺模式下启用拖拽排序，树形视图下禁用（避免与树形展开/折叠冲突）
+      dragOrder: !isTreeView.value,
     },
     allowCopy: true,
     editCellTrigger: 'click',
@@ -4305,9 +4638,9 @@ const handleActionIconClick = () => {
 const initTable = () => {
   if (!tableContainerRef.value) return;
 
-  // 检测 LINK 字段并创建主从表插件
+  // 检测 LINK 字段并创建主从表插件（树形视图下禁用主从表）
   detectLinkFields(fields.value);
-  if (hasLinkFields.value) {
+  if (hasLinkFields.value && !isTreeView.value) {
     // 注入子表列增强器和记录转换器：让子表字段渲染样式和数据转换与主表保持一致
     setColumnEnhancer(enhanceSubTableColumns);
     setRecordTransformer(transformSubTableRecords);
@@ -4318,6 +4651,11 @@ const initTable = () => {
       bodyStyle: { color: '#374151' },
     });
     createPluginInstance(subTableTheme);
+  }
+
+  // 树形视图：异步加载树形记录后重建表格
+  if (isTreeView.value) {
+    loadTreeRecords();
   }
 
   const config = buildTableConfig();
@@ -4519,6 +4857,54 @@ const bindTableEvents = () => {
       }
     }
   });
+
+  // 树形视图：索引列悬停显示 "+" 按钮
+  if (isTreeView.value) {
+    tableInstanceAny.on('mouseenter_cell', (args: any) => {
+      if (!tableInstance) return;
+      clearHideTreeAddChildIconTimer();
+      const { col, row } = args;
+      // col === 0 表示索引列
+      if (col === 0 && !tableInstance.isHeader(col, row)) {
+        const record = tableInstance.getCellOriginRecord(col, row);
+        if (record && record._recordId && record._rowType !== 'addButton') {
+          // 按钮固定在序号列右侧边界、当前行垂直居中，明确指向当前行
+          const cellRect = tableInstance.getCellRect(col, row);
+          if (!cellRect) return;
+          const containerRect = tableContainerRef.value?.getBoundingClientRect();
+          if (!containerRect) return;
+          const iconX = containerRect.left + cellRect.left + cellRect.width - 10;
+          const iconY = containerRect.top + cellRect.top + cellRect.height / 2;
+
+          // 获取当前行主字段显示名（用于操作提示）
+          let recordName = '';
+          const primaryFieldId = tableStore.currentTable?.primaryFieldId;
+          const original = record._originalRecord;
+          if (primaryFieldId && original?.values?.[primaryFieldId] != null) {
+            const rawName = original.values[primaryFieldId];
+            if (String(rawName).trim() !== '') {
+              recordName = String(rawName);
+            }
+          }
+
+          treeAddChildIcon.value = {
+            x: iconX,
+            y: iconY,
+            recordId: record._recordId,
+            recordName,
+          };
+          treeAddChildIconVisible.value = true;
+        }
+      }
+    });
+
+    tableInstanceAny.on('mouseleave_cell', (args: any) => {
+      const { col, row } = args;
+      if (col === 0) {
+        delayHideTreeAddChildIcon();
+      }
+    });
+  }
 
   // 排序点击 —— 同步应用层排序状态，VTable 内置排序引擎通过自定义比较函数
   // (createSortComparator) 自动将 addButton 虚拟行保持在末尾
@@ -4787,16 +5173,19 @@ const bindTableEvents = () => {
           currentIds = rawValue.map((id: any) => String(id));
         }
 
-        // 判断是否允许多选
+        // 判断是否允许多选（自关联字段强制单选：每个子记录仅能有一个父级）
         const relationshipType = field.options?.relationshipType || field.options?.relationship_type || field.config?.relationshipType || field.config?.relationship_type || 'many_to_many';
-        const allowMultiple = relationshipType !== 'one_to_one' && relationshipType !== 'many_to_one';
+        const targetTableId = (field.options?.linkedTableId || field.options?.linked_table_id || field.config?.linkedTableId || field.config?.linked_table_id || '') as string;
+        const isSelfLink = targetTableId === props.tableId;
+        const allowMultiple = !isSelfLink && relationshipType !== 'one_to_one' && relationshipType !== 'many_to_one';
 
-        linkSelectorTargetTableId.value = (field.options?.linkedTableId || field.options?.linked_table_id || field.config?.linkedTableId || field.config?.linked_table_id || '') as string;
+        linkSelectorTargetTableId.value = targetTableId;
         linkSelectorDisplayFieldId.value = (field.options?.displayFieldId || field.options?.display_field_id || field.config?.displayFieldId || field.config?.display_field_id || '') as string;
         linkSelectorSelectedIds.value = currentIds;
         linkSelectorFieldId.value = field.id;
         linkSelectorRecordId.value = recordId;
         linkSelectorAllowMultiple.value = allowMultiple;
+        linkSelectorExcludeRecordId.value = isSelfLink ? recordId : '';
 
         // 构建 linkedRecords：从缓存中获取已选记录的 display_value
         const linkedRecords: { record_id: string; display_value: string }[] = [];
@@ -4956,6 +5345,10 @@ const bindTableEvents = () => {
       // 如果实时协作不可用，才手动刷新
       if (!collabStore.isRealtimeAvailable) {
         await tableStore.refreshRecords(tableId);
+        // 树形视图下重新构建树（层级可能因父级字段变化而改变）
+        if (isTreeView.value) {
+          await loadTreeRecords();
+        }
       }
 
       // 协同编辑：保存成功后释放锁
@@ -4996,7 +5389,7 @@ const bindTableEvents = () => {
   // ==================== 主从表事件 ====================
   // 懒加载：展开行时异步获取关联记录
   tableInstanceAny.on('tree_hierarchy_state_change', async (args: any) => {
-    if (hasLinkFields.value && tableInstance) {
+    if (hasLinkFields.value && !isTreeView.value && tableInstance) {
       await handleLazyLoad(args, tableInstance);
       // 展开后显示子表工具栏
       if (args.hierarchyState === 'expand') {
@@ -5024,6 +5417,69 @@ const bindTableEvents = () => {
   tableInstanceAny.on('plugin_event', (args: any) => {
     handleSubTableEvent(args);
   });
+
+  // 树形视图：拖拽记录改变层级关系
+  if (isTreeView.value) {
+    let dragSourceRecordId: string | null = null;
+    let dragSourceRow: number = -1;
+
+    // 拖拽开始：记录拖拽源
+    tableInstanceAny.on('drag_select_end', (args: any) => {
+      if (!tableInstance) return;
+      const { col, row } = args;
+      if (col === 0 && !tableInstance.isHeader(col, row)) {
+        const record = tableInstance.getCellOriginRecord(col, row);
+        if (record && record._recordId && record._rowType !== 'addButton') {
+          dragSourceRecordId = record._recordId;
+          dragSourceRow = row;
+        }
+      }
+    });
+
+    // 拖拽结束：检测放置位置并更新层级
+    tableInstanceAny.on('dropdown_menu_close', () => {
+      // 重置拖拽状态
+      dragSourceRecordId = null;
+      dragSourceRow = -1;
+    });
+
+    // 监听鼠标释放事件作为拖拽放置的检测
+    tableInstanceAny.on('mouseup_cell', async (args: any) => {
+      if (!dragSourceRecordId || !parentFieldId.value || !tableInstance) return;
+      const { col, row } = args;
+      // 目标行不能是原始行
+      if (row === dragSourceRow) {
+        dragSourceRecordId = null;
+        dragSourceRow = -1;
+        return;
+      }
+      if (col === 0 && !tableInstance.isHeader(col, row)) {
+        const targetRecord = tableInstance.getCellOriginRecord(col, row);
+        if (targetRecord && targetRecord._recordId && targetRecord._rowType !== 'addButton') {
+          const targetId = targetRecord._recordId;
+          // 避免将记录设为自身的子记录
+          if (targetId === dragSourceRecordId) {
+            dragSourceRecordId = null;
+            dragSourceRow = -1;
+            return;
+          }
+          try {
+            // 更新拖拽记录的父记录字段为目标记录
+            await recordService.updateRecord(dragSourceRecordId, {
+              values: { [parentFieldId.value]: [targetId] } as Record<string, CellValue>,
+            });
+            await loadTreeRecords();
+            ElMessage.success("已更新层级关系");
+          } catch (error) {
+            console.error("拖拽更新层级失败:", error);
+            ElMessage.error("拖拽更新层级失败");
+          }
+        }
+      }
+      dragSourceRecordId = null;
+      dragSourceRow = -1;
+    });
+  }
 };
 
 // 更新表格数据（带防重入保护和延迟队列）
@@ -5053,9 +5509,9 @@ const updateTable = () => {
       tableContainerRef.value.innerHTML = '';
     }
 
-    // 重新检测 LINK 字段并创建插件
+    // 重新检测 LINK 字段并创建插件（树形视图下禁用主从表）
     detectLinkFields(fields.value);
-    if (hasLinkFields.value) {
+    if (hasLinkFields.value && !isTreeView.value) {
       setColumnEnhancer(enhanceSubTableColumns);
       setRecordTransformer(transformSubTableRecords);
       // 使用与主表一致的定制主题
@@ -5100,9 +5556,8 @@ const updateTableData = () => {
   pendingDataUpdate = false;
 
   try {
-    if (isGrouped) {
-      // 分组模式：updateOption({ records }) 无法正确重新初始化 groupBy 分组逻辑，
-      // 导致全量数据加载后表格空白。必须全量重建以确保 groupBy 与 records 一同初始化。
+    if (isTreeView.value || isGrouped) {
+      // 树形视图或分组模式：必须全量重建，增量更新无法处理树形结构
       updateTable();
     } else if (smartDataSource) {
       // 非分组 CachedDataSource 模式：更新内存缓存 + 轻量重绘
@@ -5153,17 +5608,30 @@ const setupRealtimeListeners = () => {
 
   const onRecordUpdated = (data: DataRecordUpdatedBroadcast) => {
     if (data.table_id !== props.tableId) return;
-    setTimeout(updateTable, 100);
+    // 树形视图下重新构建树（层级可能因父级字段变化而改变）
+    if (isTreeView.value) {
+      setTimeout(loadTreeRecords, 100);
+    } else {
+      setTimeout(updateTable, 100);
+    }
   };
 
   const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
     if (data.table_id !== props.tableId) return;
-    setTimeout(updateTable, 100);
+    if (isTreeView.value) {
+      setTimeout(loadTreeRecords, 100);
+    } else {
+      setTimeout(updateTable, 100);
+    }
   };
 
   const onRecordDeleted = (data: DataRecordDeletedBroadcast) => {
     if (data.table_id !== props.tableId) return;
-    setTimeout(updateTable, 100);
+    if (isTreeView.value) {
+      setTimeout(loadTreeRecords, 100);
+    } else {
+      setTimeout(updateTable, 100);
+    }
   };
 
   realtimeEventEmitter.on('data:record_updated', onRecordUpdated);
@@ -5236,6 +5704,9 @@ async function preloadMemberUsers() {
 watch(() => tableStore.records, async () => {
   if (!tableInstance) return;
 
+  // 树形视图：记录由 tree-records API 管理，跳过 flat records 更新逻辑
+  if (isTreeView.value) return;
+
   // 等待 Vue 响应式链路传播完毕：
   // tableStore.records → 父组件 filteredRecords → props.records → sortedRecords
   // 不等 nextTick 的话，sortedRecords.value 可能还是旧值，导致行数判断错误
@@ -5306,7 +5777,16 @@ watch(() => tableStore.fields, () => {
 }, { deep: true });
 
 watch(() => viewStore.currentView, () => {
-  updateTable();
+  // 仅响应当前组件所属表格的视图变化，避免表格切换时旧实例误响应全局 currentView
+  if (!viewStore.currentView || viewStore.currentView.tableId !== props.tableId) {
+    return;
+  }
+  if (isTreeView.value) {
+    loadTreeRecords();
+  } else {
+    treeRecords.value = [];
+    updateTable();
+  }
 }, { deep: true });
 
 // 表格切换时重新加载对应缓存列宽
@@ -5363,6 +5843,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  // 标记组件已销毁，阻止异步回调（watch / 实时监听）继续触发接口请求
+  isComponentDestroyed.value = true;
   // 释放所有持有的协同编辑锁
   const tableId = tableStore.currentTable?.id;
   const baseId = tableStore.currentTable?.baseId;
@@ -5573,6 +6055,11 @@ async function handleLinkSelectorConfirm(selectedIds: string[]) {
 
     await tableStore.refreshRecords(props.tableId);
 
+    // 树形视图下重新构建树（父级字段可能变化，层级需要重排）
+    if (isTreeView.value) {
+      await loadTreeRecords();
+    }
+
     // 显式重新加载关联显示数据，确保新选择的记录立即显示
     await loadLinkDisplayData();
   } catch (error) {
@@ -5589,6 +6076,7 @@ async function handleLinkSelectorConfirm(selectedIds: string[]) {
 
 function handleLinkSelectorCancel() {
   linkSelectorVisible.value = false;
+  linkSelectorExcludeRecordId.value = '';
 }
 
 // ==================== 子表操作处理 ====================
@@ -5615,6 +6103,7 @@ async function handleSubTableAddLink() {
   linkSelectorDisplayFieldId.value = (field.options?.displayFieldId || '') as string;
   linkSelectorSelectedIds.value = [...existingIds];
   linkSelectorAllowMultiple.value = field.options?.relationshipType !== 'one_to_one';
+  linkSelectorExcludeRecordId.value = ''; // 子表场景非自关联，无需排除
   linkSelectorLinkedRecords.value = existingIds.map(id => ({ record_id: id, display_value: '' }));
   linkSelectorVisible.value = true;
 }
@@ -5724,12 +6213,21 @@ function handleSearch() {
   if (!searchComponent.value || !searchInput.value.trim()) {
     searchResultIndex.value = 0;
     searchTotalCount.value = 0;
+    // 树形视图：搜索词为空时重新加载完整树
+    if (isTreeView.value) {
+      loadTreeRecords();
+    }
     return;
   }
 
   const result = searchComponent.value.search(searchInput.value.trim());
   searchResultIndex.value = result.index + 1; // 显示为 1-based
   searchTotalCount.value = result.results.length;
+
+  // 树形视图：同步加载筛选后的树记录（包含父级上下文）
+  if (isTreeView.value) {
+    loadTreeRecords();
+  }
 }
 
 // 下一个结果
@@ -5755,6 +6253,10 @@ function closeSearch() {
   searchInput.value = '';
   searchResultIndex.value = 0;
   searchTotalCount.value = 0;
+  // 树形视图：关闭搜索时重新加载完整树
+  if (isTreeView.value) {
+    loadTreeRecords();
+  }
 }
 
 // 监听记录变化，重新加载关联数据
@@ -5802,7 +6304,7 @@ watch(
 
     <!-- 子表工具栏（跟随子表末尾定位，放在 vtable-view 下避免被 VTable 初始化清空） -->
     <div
-      v-if="subTableToolbarVisible && hasLinkFields"
+      v-if="subTableToolbarVisible && hasLinkFields && !isTreeView"
       class="sub-table-toolbar-container"
       :style="{ top: subTableToolbarPosition.top + 'px', right: subTableToolbarPosition.right + 'px' }"
     >
@@ -5836,6 +6338,30 @@ watch(
         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         <line x1="11" y1="8" x2="11" y2="14"/>
         <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+    </div>
+
+    <!-- 树形视图：索引列 "+" 按钮 -->
+    <div
+      v-if="isTreeView && treeAddChildIconVisible && treeAddChildIcon && !treeAddChildLoading"
+      class="vtable-tree-add-child-btn"
+      :class="{ 'is-loading': treeAddChildLoading }"
+      :style="{
+        left: treeAddChildIcon.x + 'px',
+        top: treeAddChildIcon.y + 'px',
+      }"
+      @click.stop="handleTreeAddChildClick"
+      @mouseenter="clearHideTreeAddChildIconTimer()"
+      @mouseleave="delayHideTreeAddChildIcon()"
+      :title="
+        treeAddChildIcon?.recordName
+          ? `在「${treeAddChildIcon.recordName}」下添加子记录`
+          : '在当前行下添加一条子记录'
+      "
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
     </div>
     
@@ -5907,6 +6433,7 @@ watch(
       :selected-ids="linkSelectorSelectedIds"
       :linked-records="linkSelectorLinkedRecords"
       :allow-multiple="linkSelectorAllowMultiple"
+      :exclude-record-id="linkSelectorExcludeRecordId"
       @confirm="handleLinkSelectorConfirm"
       @cancel="handleLinkSelectorCancel"
     />
@@ -6013,6 +6540,36 @@ watch(
 
   &:active {
     transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
+.vtable-tree-add-child-btn {
+  position: fixed;
+  z-index: 1000;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #67c23a;
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.45);
+  transform: translate(-50%, -50%);
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  animation: iconFadeIn 0.15s ease;
+
+  &:hover {
+    background-color: #5daf34;
+    box-shadow: 0 4px 12px rgba(103, 194, 58, 0.6);
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+
+  &:active {
+    background-color: #4f9e2a;
+    transform: translate(-50%, -50%) scale(0.9);
   }
 }
 

@@ -188,8 +188,8 @@ const memberConfig = ref({
 
 // 关联字段配置 - 可关联的表列表
 const availableTables = computed(() => {
-  // 使用 tableStore.tables 获取当前 base 的所有表
-  return tableStore.tables.filter((t) => t.id !== props.tableId);
+  // 使用 tableStore.tables 获取当前 base 的所有表（包含自身表，用于自关联）
+  return tableStore.tables;
 });
 
 // 目标表的字段列表
@@ -217,6 +217,10 @@ watch(
   (newTableId) => {
     if (newTableId) {
       loadTargetTableFields(newTableId);
+      // 自关联（关联自身表）时，默认使用一对多关系并禁用变更
+      if (newTableId === props.tableId) {
+        newField.value.linkConfig.relationshipType = "one_to_many";
+      }
     } else {
       targetTableFields.value = [];
     }
@@ -1758,14 +1762,21 @@ async function toggleFieldVisibility(
               <ElOption
                 v-for="table in availableTables"
                 :key="table.id"
-                :label="table.name"
+                :label="table.id === tableId ? `${table.name}（当前表）` : table.name"
                 :value="table.id" />
             </ElSelect>
             <div class="field-hint">选择要关联的目标数据表</div>
+            <div
+              v-if="newField.linkConfig.targetTableId === tableId"
+              class="field-hint self-link-hint">
+              关联自身表可用于在表格视图中设置记录层级
+            </div>
           </ElFormItem>
 
           <ElFormItem label="关联类型" required>
-            <ElRadioGroup v-model="newField.linkConfig.relationshipType">
+            <ElRadioGroup
+              v-model="newField.linkConfig.relationshipType"
+              :disabled="newField.linkConfig.targetTableId === tableId">
               <ElRadioButton label="one_to_one">一对一</ElRadioButton>
               <ElRadioButton label="one_to_many">一对多</ElRadioButton>
               <ElRadioButton label="many_to_one">多对一</ElRadioButton>
@@ -1794,7 +1805,7 @@ async function toggleFieldVisibility(
           </ElFormItem>
 
           <ElFormItem label="双向关联">
-            <ElSwitch v-model="newField.linkConfig.bidirectional" />
+            <ElSwitch v-model="newField.linkConfig.bidirectional" :disabled="newField.linkConfig.targetTableId === tableId" />
             <div class="field-hint">
               开启后会在目标表中自动创建一个反向关联字段，方便从目标记录查看关联的源记录
             </div>
@@ -2256,6 +2267,11 @@ async function toggleFieldVisibility(
     font-size: calc($font-size-xs * 0.85);
     color: $text-secondary;
     margin-top: 4px;
+  }
+
+  .self-link-hint {
+    color: var(--el-color-primary);
+    font-weight: 500;
   }
 
   .options-editor {
