@@ -86,7 +86,7 @@ describe("FormulaEngine.inferResultType", () => {
     });
 
     it("UNIXTIMESTAMP() 函数应返回 number 类型", () => {
-      expect(FormulaEngine.inferResultType("UNIXTIMESTAMP(NOW())")).toBe("datetime");
+      expect(FormulaEngine.inferResultType("UNIXTIMESTAMP(NOW())")).toBe("number");
     });
 
     it("DATEDIF() 函数应返回 number 类型", () => {
@@ -169,6 +169,33 @@ describe("FormulaEngine.inferResultType", () => {
 
     it("小写的 year() 应正确识别", () => {
       expect(FormulaEngine.inferResultType("year({创建日期})")).toBe("number");
+    });
+  });
+
+  describe("嵌套函数结果类型推断（修复：integerFunctions 优先于 dateFunctions）", () => {
+    it("YEAR(TODAY()) 应返回 number 而非 date", () => {
+      expect(FormulaEngine.inferResultType("YEAR(TODAY())")).toBe("number");
+    });
+
+    it("YEAR(NOW()) 应返回 number 而非 datetime", () => {
+      expect(FormulaEngine.inferResultType("YEAR(NOW())")).toBe("number");
+    });
+
+    it("MONTH(TODAY()) 应返回 number 而非 date", () => {
+      expect(FormulaEngine.inferResultType("MONTH(TODAY())")).toBe("number");
+    });
+
+    it("DAY(TODAY()) 应返回 number 而非 date", () => {
+      expect(FormulaEngine.inferResultType("DAY(TODAY())")).toBe("number");
+    });
+
+    it("DATEDIF({出生日期}, TODAY(), 'year') 应返回 number 而非 date", () => {
+      expect(FormulaEngine.inferResultType("DATEDIF({出生日期}, TODAY(), 'year')")).toBe("number");
+    });
+
+    it("复杂嵌套 DATEDIF(DATETIME_FORMAT(MID(...), ...), TODAY(), ...) 应返回 number", () => {
+      const formula = 'DATEDIF(DATETIME_FORMAT(MID({身份证}, 7, 8), "YYYY-MM-DD"), TODAY(), "year")';
+      expect(FormulaEngine.inferResultType(formula)).toBe("number");
     });
   });
 });

@@ -180,8 +180,9 @@ export class FormulaEngine {
           const parsedArgs = this.parseArguments(evaluatedArgs);
           const funcResult = func(...parsedArgs);
           return this.valueToExpression(funcResult as CellValue, undefined);
-        } catch {
-          return "#ERROR";
+        } catch (e) {
+          const errorMsg = e instanceof Error ? e.message : String(e);
+          return `#ERROR: ${funcName}(${args}) - ${errorMsg}`;
         }
       });
     } while (result !== prevResult);
@@ -546,6 +547,16 @@ export class FormulaEngine {
       "DATEDIFF",      // 日期差（DATEDIF 别名）
     ];
 
+    // 检查整数函数（提取日期部分的函数，返回数值）
+    // 必须最先检查，因为 YEAR(TODAY()) 应返回 number 而非 date，
+    // YEAR(NOW()) 应返回 number 而非 datetime
+    for (const func of integerFunctions) {
+      const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
+      if (regex.test(upperFormula)) {
+        return "number";
+      }
+    }
+
     // 检查日期时间函数
     for (const func of datetimeFunctions) {
       const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
@@ -559,14 +570,6 @@ export class FormulaEngine {
       const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
       if (regex.test(upperFormula)) {
         return "date";
-      }
-    }
-
-    // 检查整数函数
-    for (const func of integerFunctions) {
-      const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
-      if (regex.test(upperFormula)) {
-        return "number";
       }
     }
 

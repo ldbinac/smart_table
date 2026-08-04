@@ -756,17 +756,8 @@ def fn_year(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, datetime):
-        return val.year
-    if isinstance(val, date):
-        return val.year
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.year
-        except ValueError:
-            pass
-    return None
+    dt = _parse_date_value(val)
+    return dt.year if dt else None
 
 @FormulaEvaluator.register('MONTH')
 def fn_month(args: List[Any]) -> Optional[int]:
@@ -774,15 +765,8 @@ def fn_month(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, (datetime, date)):
-        return val.month
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.month
-        except ValueError:
-            pass
-    return None
+    dt = _parse_date_value(val)
+    return dt.month if dt else None
 
 @FormulaEvaluator.register('DAY')
 def fn_day(args: List[Any]) -> Optional[int]:
@@ -790,57 +774,35 @@ def fn_day(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, (datetime, date)):
-        return val.day
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.day
-        except ValueError:
-            pass
-    return None
+    dt = _parse_date_value(val)
+    return dt.day if dt else None
 
 @FormulaEvaluator.register('HOUR')
 def fn_hour(args: List[Any]) -> Optional[int]:
     """获取小时"""
     val = args[0]
-    if isinstance(val, datetime):
-        return val.hour
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.hour
-        except ValueError:
-            pass
-    return None
+    if val is None:
+        return None
+    dt = _parse_date_value(val)
+    return dt.hour if dt else None
 
 @FormulaEvaluator.register('MINUTE')
 def fn_minute(args: List[Any]) -> Optional[int]:
     """获取分钟"""
     val = args[0]
-    if isinstance(val, datetime):
-        return val.minute
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.minute
-        except ValueError:
-            pass
-    return None
+    if val is None:
+        return None
+    dt = _parse_date_value(val)
+    return dt.minute if dt else None
 
 @FormulaEvaluator.register('SECOND')
 def fn_second(args: List[Any]) -> Optional[int]:
     """获取秒"""
     val = args[0]
-    if isinstance(val, datetime):
-        return val.second
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.second
-        except ValueError:
-            pass
-    return None
+    if val is None:
+        return None
+    dt = _parse_date_value(val)
+    return dt.second if dt else None
 
 @FormulaEvaluator.register('WEEKDAY')
 def fn_weekday(args: List[Any]) -> Optional[int]:
@@ -848,15 +810,10 @@ def fn_weekday(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, (datetime, date)):
-        wd = val.weekday()
+    dt = _parse_date_value(val)
+    if dt:
+        wd = dt.weekday()
         return wd + 1
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.weekday() + 1
-        except ValueError:
-            pass
     return None
 
 @FormulaEvaluator.register('DATEADD')
@@ -915,10 +872,42 @@ def _parse_date_value(value: Any) -> Optional[datetime]:
     if isinstance(value, date):
         return datetime.combine(value, datetime.min.time())
     if isinstance(value, str):
-        try:
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
-        except ValueError:
+        trimmed = value.strip()
+        if not trimmed:
             return None
+
+        # 支持 YYYYMMDD 格式（如 MID 返回的 "19900307"）
+        # 必须在数字时间戳检查之前，因为 8 位数字字符串也会通过 isdigit 检查
+        if re.match(r'^\d{8}$', trimmed):
+            try:
+                return datetime.strptime(trimmed, '%Y%m%d')
+            except ValueError:
+                pass
+
+        # 尝试解析为数字时间戳（其他函数嵌套返回的序列化时间戳字符串）
+        # 只有超过 8 位（如 13 位毫秒时间戳）才尝试，避免与 YYYYMMDD 混淆
+        if trimmed.isdigit() and len(trimmed) > 8:
+            try:
+                ts = int(trimmed)
+                return datetime.fromtimestamp(ts / 1000)
+            except (ValueError, OSError, OverflowError):
+                pass
+
+        # 尝试标准 ISO 格式
+        try:
+            return datetime.fromisoformat(trimmed.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+
+        # 尝试常见日期格式
+        for fmt in ('%Y-%m-%d', '%Y/%m/%d', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+            try:
+                return datetime.strptime(trimmed, fmt)
+            except ValueError:
+                continue
+
+        return None
+
     if isinstance(value, (int, float)):
         # 毫秒时间戳（前端及日期字段常用）
         try:
@@ -990,14 +979,10 @@ def fn_datetime_format(args: List[Any]) -> str:
     if val is None:
         return ''
     
-    if isinstance(val, str):
-        try:
-            val = datetime.fromisoformat(val.replace('Z', '+00:00'))
-        except ValueError:
-            return str(val)
-    
-    if isinstance(val, (datetime, date)):
-        return val.strftime(str(fmt))
+    # 使用 _parse_date_value 统一解析，支持更多格式
+    parsed = _parse_date_value(val)
+    if parsed is not None:
+        return parsed.strftime(str(fmt))
     
     return str(val)
 
