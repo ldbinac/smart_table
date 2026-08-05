@@ -149,7 +149,7 @@ def create_dashboard_share(dashboard_id) -> tuple:
         return error_response('创建分享链接失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
-@dashboards_share_bp.route('/shares/<uuid:share_id>', methods=['DELETE'])
+@dashboards_share_bp.route('/dashboard-shares/<uuid:share_id>', methods=['DELETE'])
 @jwt_required
 def delete_dashboard_share(share_id) -> tuple:
     """

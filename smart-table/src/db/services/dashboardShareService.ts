@@ -466,7 +466,7 @@ export class DashboardShareService {
   async deleteShare(shareId: string): Promise<void> {
     try {
       // 调用后端 API 删除
-      await apiClient.delete(`/shares/${shareId}`);
+      await apiClient.delete(`/dashboard-shares/${shareId}`);
 
       // 从本地删除
       await db.dashboardShares.delete(shareId);

@@ -108,11 +108,11 @@ def get_shares(base_id) -> tuple:
     )
 
 
-@shares_bp.route('/shares/<share_id>', methods=['PUT'])
+@shares_bp.route('/shares/<share_id>', methods=['PUT', 'DELETE'])
 @jwt_required
-def update_share(share_id) -> tuple:
+def handle_share(share_id) -> tuple:
     """
-    更新分享链接（启用/禁用）
+    处理分享链接操作（更新/删除）
     ---
     tags:
       - Shares
@@ -141,7 +141,7 @@ def update_share(share_id) -> tuple:
               description: 过期时间（Unix 时间戳）
     responses:
       200:
-        description: 更新后的分享信息
+        description: 操作成功
       403:
         description: 无权限
       404:
@@ -150,71 +150,44 @@ def update_share(share_id) -> tuple:
     user_id = g.current_user_id
     
     # 查找分享并检查权限
-    share = BaseShare.query.get(share_id)
+    # 使用 filter_by 替代 query.get 以兼容 CompatUUID 类型
+    share = BaseShare.query.filter_by(id=share_id).first()
     if not share:
         return not_found_response('分享链接')
     
-    if not BaseService.check_permission(share.base_id, user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限更新此分享链接')
+    if request.method == 'PUT':
+        # 更新分享链接
+        if not BaseService.check_permission(share.base_id, user_id, MemberRole.ADMIN):
+            return forbidden_response('您没有权限更新此分享链接')
+        
+        data = request.get_json() or {}
+        result = ShareService.update_share(str(share_id), user_id, data)
+        
+        if not result['success']:
+            status_code = result.get('status', 400)
+            if status_code == 404:
+                return not_found_response('分享链接')
+            return error_response(result['error'], code=status_code)
+        
+        return success_response(
+            data=result['share'].to_dict(),
+            message='分享链接更新成功'
+        )
     
-    data = request.get_json() or {}
-    result = ShareService.update_share(str(share_id), user_id, data)
-    
-    if not result['success']:
-        status_code = result.get('status', 400)
-        if status_code == 404:
-            return not_found_response('分享链接')
-        return error_response(result['error'], code=status_code)
-    
-    return success_response(
-        data=result['share'].to_dict(),
-        message='分享链接更新成功'
-    )
-
-
-@shares_bp.route('/shares/<share_id>', methods=['DELETE'])
-@jwt_required
-def delete_share(share_id) -> tuple:
-    """
-    删除分享链接
-    ---
-    tags:
-      - Shares
-    security:
-      - Bearer: []
-    parameters:
-      - name: share_id
-        in: path
-        type: string
-        required: true
-        description: 分享 ID
-    responses:
-      200:
-        description: 删除成功
-      403:
-        description: 无权限
-      404:
-        description: 分享链接不存在
-    """
-    user_id = g.current_user_id
-    
-    # 查找分享并检查权限
-    share = BaseShare.query.get(share_id)
-    if not share:
-        return not_found_response('分享链接')
-    
-    if not BaseService.check_permission(share.base_id, user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限删除此分享链接')
-    
-    result = ShareService.delete_share(str(share_id), user_id)
-    
-    if not result['success']:
-        status_code = result.get('status', 400)
-        if status_code == 404:
-            return not_found_response('分享链接')
-        return error_response(result['error'], code=status_code)
-    
-    return success_response(message='分享链接删除成功')
+    elif request.method == 'DELETE':
+        # 删除分享链接
+        if not BaseService.check_permission(share.base_id, user_id, MemberRole.ADMIN):
+            return forbidden_response('您没有权限删除此分享链接')
+        
+        result = ShareService.delete_share(str(share_id), user_id)
+        
+        if not result['success']:
+            status_code = result.get('status', 400)
+            if status_code == 404:
+                return not_found_response('分享链接')
+            return error_response(result['error'], code=status_code)
+        
+        return success_response(message='分享链接删除成功')
 
 
 @shares_bp.route('/share/<share_token>', methods=['GET'])

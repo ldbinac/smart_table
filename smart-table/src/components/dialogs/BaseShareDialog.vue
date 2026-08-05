@@ -186,7 +186,8 @@ function shareUrl(token: string) {
 // 检查是否过期
 function isExpired(share: BaseShare) {
   if (!share.expires_at) return false;
-  return Date.now() > share.expires_at;
+  // 后端返回的 expires_at 是秒级时间戳，Date.now() 是毫秒级，需要转换
+  return Date.now() > share.expires_at * 1000;
 }
 
 import { formatDate as tzFormatDate } from "@/utils/timezone";
@@ -206,7 +207,8 @@ function formatDate(dateString: string) {
 
 // 格式化过期时间
 function formatExpiresAt(timestamp: number) {
-  return tzFormatDate(timestamp, "YYYY-MM-DD");
+  // 后端返回的 expires_at 是秒级时间戳，dayjs 需要毫秒级
+  return tzFormatDate(timestamp * 1000, "YYYY-MM-DD");
 }
 
 // 创建分享链接
@@ -277,10 +279,12 @@ async function toggleShareStatus(share: BaseShare) {
     ElMessage.success(`${action}成功`);
     await loadShares();
     emit('share-changed');
-  } catch (error) {
-    if (error !== 'cancel') {
+  } catch (error: any) {
+    // ElMessageBox.confirm 取消时 reject 'cancel'，点 X 关闭时 reject 'close'
+    if (error !== 'cancel' && error !== 'close') {
       console.error('切换分享状态失败:', error);
-      ElMessage.error('操作失败');
+      const msg = error?.message || error?.response?.data?.message || '操作失败';
+      ElMessage.error(msg);
     }
   }
 }
@@ -302,10 +306,12 @@ async function handleDeleteShare(shareId: string) {
     ElMessage.success('分享链接已删除');
     await loadShares();
     emit('share-changed');
-  } catch (error) {
-    if (error !== 'cancel') {
+  } catch (error: any) {
+    // ElMessageBox.confirm 取消时 reject 'cancel'，点 X 关闭时 reject 'close'
+    if (error !== 'cancel' && error !== 'close') {
       console.error('删除分享失败:', error);
-      ElMessage.error('删除分享失败');
+      const msg = error?.message || error?.response?.data?.message || '删除分享失败';
+      ElMessage.error(msg);
     }
   }
 }
