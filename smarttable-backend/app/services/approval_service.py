@@ -27,6 +27,7 @@ from app.models.workflow_instance import (
     WorkflowTaskStatus,
 )
 from app.services.email_queue_service import EmailPriority, email_queue
+from app.services.notification_service import NotificationService
 from app.services.record_service import RecordService
 
 
@@ -207,24 +208,23 @@ class ApprovalService:
         content: str,
         priority: EmailPriority = EmailPriority.NORMAL
     ) -> None:
-        """通过邮件队列发送通知邮件"""
-        email = ApprovalService._user_email(to_user_id)
-        if not email:
+        """发送审批通知（站内信先于邮件，邮件不可用时站内信仍独立工作）"""
+        user_uuid = ApprovalService._to_uuid(to_user_id)
+        if not user_uuid:
             return
         try:
-            email_queue.enqueue_quick(
-                to_email=email,
-                to_name=ApprovalService._user_name(to_user_id),
+            NotificationService.send_notification(
+                recipient_user_id=user_uuid,
                 template_key='notification',
                 template_data={
                     'notification_title': title,
                     'notification_content': content,
                     'user_name': ApprovalService._user_name(to_user_id)
                 },
-                priority=priority
+                source='approval'
             )
         except Exception as e:
-            log.warning(f'[ApprovalService] 发送邮件通知失败: {e}')
+            log.warning(f'[ApprovalService] 发送通知失败: {e}')
 
     @staticmethod
     def _notify_task_created(instance: WorkflowInstance, task: WorkflowTask, node: WorkflowNode) -> None:

@@ -19,6 +19,7 @@ from app.models.form_share import FormShare
 from app.models.form_submission import FormSubmission
 from app.models.email_template import EmailTemplate
 from app.models.email_log import EmailLog, EmailStatus
+from app.models.notification import Notification, NotificationStatus
 from app.models.collaboration_session import CollaborationSession
 from app.models.document import Document
 from app.models.document_version import DocumentVersion
@@ -79,6 +80,8 @@ __all__ = [
     'EmailTemplate',
     'EmailLog',
     'EmailStatus',
+    'Notification',
+    'NotificationStatus',
     'CollaborationSession',
     'Document',
     'DocumentVersion',

@@ -24,6 +24,7 @@ from app.models.log import OperationLog, AdminActionType, EntityType
 from app.models.config import SystemConfig
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
+from app.services.notification_service import NotificationService
 from app.services.security_config_service import SecurityConfigService
 from app.services.config_cache_service import ConfigCacheService
 
@@ -317,21 +318,21 @@ class AdminService:
             if not user or user.status == UserStatus.DELETED:
                 return False, '用户不存在'
             
-            # 发送账号删除通知邮件（在删除前发送）
-            if EmailConfigService.is_email_enabled():
-                try:
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
-                        template_key='account_deleted',
-                        template_data={
-                            'user_name': user.name,
-                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'admin_name': '系统管理员'
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f'发送账号删除通知邮件失败: {str(e)}')
+            # 发送账号删除通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            try:
+                NotificationService.send_notification(
+                    recipient_email=user.email,
+                    recipient_user_id=user.id,
+                    template_key='account_deleted',
+                    template_data={
+                        'user_name': user.name,
+                        'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'admin_name': '系统管理员'
+                    },
+                    source='admin'
+                )
+            except Exception as e:
+                logger.error(f'发送账号删除通知邮件失败: {str(e)}')
             
             # 软删除：设置状态为 DELETED
             user.status = UserStatus.DELETED
@@ -374,22 +375,22 @@ class AdminService:
             
             logger.info(f"暂停用户成功：{user.email}")
             
-            # 发送账号停用通知邮件
-            if EmailConfigService.is_email_enabled():
-                try:
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
-                        template_key='account_suspended',
-                        template_data={
-                            'user_name': user.name,
-                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'reason': '账号已被管理员暂停使用',
-                            'admin_name': '系统管理员'
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f'发送账号停用通知邮件失败: {str(e)}')
+            # 发送账号停用通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            try:
+                NotificationService.send_notification(
+                    recipient_email=user.email,
+                    recipient_user_id=user.id,
+                    template_key='account_suspended',
+                    template_data={
+                        'user_name': user.name,
+                        'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'reason': '账号已被管理员暂停使用',
+                        'admin_name': '系统管理员'
+                    },
+                    source='admin'
+                )
+            except Exception as e:
+                logger.error(f'发送账号停用通知邮件失败: {str(e)}')
             
             return user.to_dict(include_email=True), None
             
@@ -425,22 +426,22 @@ class AdminService:
             
             logger.info(f"激活用户成功：{user.email}")
             
-            # 发送账号启用通知邮件
-            if EmailConfigService.is_email_enabled():
-                try:
-                    login_link = f"{EmailConfigService.get_frontend_url()}/login"
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
-                        template_key='account_activated',
-                        template_data={
-                            'user_name': user.name,
-                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'login_link': login_link
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f'发送账号启用通知邮件失败: {str(e)}')
+            # 发送账号启用通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            try:
+                login_link = f"{EmailConfigService.get_frontend_url()}/login"
+                NotificationService.send_notification(
+                    recipient_email=user.email,
+                    recipient_user_id=user.id,
+                    template_key='account_activated',
+                    template_data={
+                        'user_name': user.name,
+                        'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'login_link': login_link
+                    },
+                    source='admin'
+                )
+            except Exception as e:
+                logger.error(f'发送账号启用通知邮件失败: {str(e)}')
             
             return user.to_dict(include_email=True), None
             
@@ -488,20 +489,20 @@ class AdminService:
             
             logger.info(f"重置用户密码成功：{user.email}")
             
-            # 发送密码重置通知邮件
-            if EmailConfigService.is_email_enabled():
-                try:
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
-                        template_key='password_changed',
-                        template_data={
-                            'user_name': user.name,
-                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f'发送密码重置通知邮件失败: {str(e)}')
+            # 发送密码重置通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            try:
+                NotificationService.send_notification(
+                    recipient_email=user.email,
+                    recipient_user_id=user.id,
+                    template_key='password_changed',
+                    template_data={
+                        'user_name': user.name,
+                        'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    },
+                    source='admin'
+                )
+            except Exception as e:
+                logger.error(f'发送密码重置通知邮件失败: {str(e)}')
             
             return temporary_password, None
             

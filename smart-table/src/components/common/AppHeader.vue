@@ -27,6 +27,7 @@ import { debounce } from "@/utils/debounce";
 import ConnectionStatusBar from "@/components/collaboration/ConnectionStatusBar.vue";
 import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
 import FeedbackDialog from "@/components/common/FeedbackDialog.vue";
+import NotificationBell from "@/components/common/NotificationBell.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -490,6 +491,7 @@ onMounted(() => {
           <el-icon><QuestionFilled /></el-icon>
         </el-button>
       </el-tooltip>
+      <NotificationBell />
       <el-dropdown
         v-model:visible="userMenuVisible"
         trigger="click"

@@ -23,6 +23,7 @@ from app.routes.shares import shares_bp
 from app.routes.form_shares import form_shares_bp
 from app.routes.auth_captcha import auth_captcha_bp
 from app.routes.email import email_bp
+from app.routes.notifications import notifications_bp
 from app.routes.realtime import realtime_bp
 from app.routes.users import users_bp
 from app.routes.documents import documents_bp
@@ -250,6 +251,9 @@ def register_blueprints(app):
 
     # 注册邮件服务蓝图
     app.register_blueprint(email_bp, url_prefix='/api/admin/email')
+
+    # 注册站内信通知蓝图
+    app.register_blueprint(notifications_bp, url_prefix='/api')
 
     # 注册分享蓝图
     app.register_blueprint(shares_bp, url_prefix='/api')
@@ -561,6 +565,20 @@ def register_api_docs(app):
                     {"method": "GET", "path": "/stats", "description": "获取邮件统计"},
                     {"method": "GET", "path": "/queue/stats", "description": "获取队列统计"},
                     {"method": "POST", "path": "/queue/clear", "description": "清空邮件队列"}
+                ]
+            },
+            "站内信通知模块 (Notifications)": {
+                "prefix": "/api",
+                "routes": [
+                    {"method": "GET", "path": "/notifications", "description": "获取当前用户的站内信列表"},
+                    {"method": "GET", "path": "/notifications/unread-count", "description": "获取未读站内信数量"},
+                    {"method": "GET", "path": "/notifications/<notification_id>", "description": "获取站内信详情"},
+                    {"method": "POST", "path": "/notifications/<notification_id>/read", "description": "标记站内信为已读"},
+                    {"method": "POST", "path": "/notifications/read-all", "description": "标记所有站内信为已读"},
+                    {"method": "DELETE", "path": "/notifications/<notification_id>", "description": "删除站内信"},
+                    {"method": "GET", "path": "/admin/notifications/logs", "description": "获取站内信日志"},
+                    {"method": "GET", "path": "/admin/notifications/stats", "description": "获取站内信统计"},
+                    {"method": "POST", "path": "/admin/notifications/<notification_id>/retry", "description": "重试发送失败的站内信"}
                 ]
             },
             "实时协作模块 (Realtime)": {
@@ -964,6 +982,7 @@ def init_swagger(app):
         {"name": "Form Shares", "description": "表单分享接口"},
         {"name": "Admin", "description": "管理员接口（用户管理、系统设置等）"},
         {"name": "Email", "description": "邮件服务管理接口"},
+        {"name": "Notifications", "description": "站内信通知管理接口"},
         {"name": "Realtime", "description": "实时协作状态接口"},
     ]
     

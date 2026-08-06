@@ -162,6 +162,15 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/notifications",
+    name: "Notifications",
+    component: () => import("@/views/Notifications.vue"),
+    meta: {
+      title: "站内信通知",
+      requiresAuth: true,
+    },
+  },
+  {
     path: "/admin/users",
     name: "AdminUsers",
     component: () => import("@/views/admin/UserManagement.vue"),
@@ -217,6 +226,26 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/admin/EmailStats.vue"),
     meta: {
       title: "邮件统计",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/notifications/logs",
+    name: "NotificationLogs",
+    component: () => import("@/views/admin/NotificationLogs.vue"),
+    meta: {
+      title: "站内信日志",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/notifications/stats",
+    name: "NotificationStats",
+    component: () => import("@/views/admin/NotificationStats.vue"),
+    meta: {
+      title: "站内信统计",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,

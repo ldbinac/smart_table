@@ -26,6 +26,7 @@ from app.models.workflow_instance import (
 from app.services.approval_service import ApprovalService
 from app.services.email_queue_service import email_queue
 from app.services.email_sender_service import EmailSenderService
+from app.services.notification_service import NotificationService
 from app.services.record_service import RecordService
 from app.services.webhook_service import WebhookService
 from app.services.workflow_event_bus import workflow_event_bus, WorkflowEvent
@@ -681,29 +682,35 @@ class WorkflowExecutionEngine:
         return emails
 
     def _execute_send_email(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
-        """执行发送邮件动作"""
-        from app.services.email_config_service import EmailConfigService
-        if not EmailConfigService.is_email_enabled():
-            raise ValueError('邮件服务未启用或配置不完整')
-
+        """执行发送通知动作（站内信先于邮件，邮件不可用时站内信仍独立工作）"""
         config = node.config or {}
         context = self._build_render_context(instance)
         content_mode = config.get('content_mode', 'custom')
 
         to_email = self._resolve_email_recipients(config, context)
+        # to_email 可能是逗号分隔的多个邮箱，拆分后逐个发送
+        emails = [e.strip() for e in to_email.split(',') if e.strip()]
 
         if content_mode == 'custom':
             subject = self.render_template(config.get('subject', ''), context)
             body = self.render_template(config.get('body', ''), context)
 
-            success, error = EmailSenderService.send_email_quick(
-                to_email=to_email,
-                subject=str(subject),
-                html_content=str(body),
-            )
-            if not success:
-                raise ValueError(f'邮件发送失败: {error}')
-            return {'status': 'sent', 'to_email': to_email}
+            last_result = None
+            for email in emails:
+                result = NotificationService.send_notification(
+                    recipient_email=email,
+                    title=str(subject),
+                    content=str(body),
+                    source='workflow'
+                )
+                last_result = result
+                if not result['success']:
+                    raise ValueError(f'通知发送失败: {result.get("error")}')
+            return {
+                'status': 'sent',
+                'to_email': to_email,
+                'notification_id': last_result.get('notification_id') if last_result else None
+            }
 
         # template 模式
         template_key = config.get('template_key')
@@ -716,13 +723,21 @@ class WorkflowExecutionEngine:
             for k, v in config.get('template_data', {}).items()
         }
 
-        task_id = email_queue.enqueue_quick(
-            to_email=str(to_email),
-            to_name=str(to_name),
-            template_key=template_key,
-            template_data=template_data
-        )
-        return {'task_id': task_id}
+        last_result = None
+        for email in emails:
+            result = NotificationService.send_notification(
+                recipient_email=str(email),
+                recipient_user_id=None,
+                template_key=template_key,
+                template_data=template_data,
+                source='workflow'
+            )
+            last_result = result
+        return {
+            'status': 'sent',
+            'to_email': to_email,
+            'notification_id': last_result.get('notification_id') if last_result else None
+        }
 
     @staticmethod
     def _normalize_condition_config(config: Dict[str, Any]) -> Dict[str, Any]:

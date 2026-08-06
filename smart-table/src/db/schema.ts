@@ -196,7 +196,7 @@ class SmartTableDB extends Dexie {
   constructor() {
     super("SmartTableDB");
 
-    this.version(7).stores({
+    this.version(10).stores({
       bases: "id, name, updatedAt, isStarred",
       tableEntities: "id, baseId, name, order, updatedAt, isStarred",
       fields: "id, tableId, name, type, order, [tableId+order]",
