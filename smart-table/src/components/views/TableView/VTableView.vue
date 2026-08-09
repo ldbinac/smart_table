@@ -642,7 +642,7 @@ class MultiSelectEditor implements IEditor {
 
   private createOptionItem(opt: {id: string, name: string, color?: string}): HTMLElement {
     const color = opt.color || '#6B7280';
-    const isChecked = this.selectedValues.includes(opt.name);
+    const isChecked = this.selectedValues.includes(opt.id);
 
     const item = document.createElement('label');
     item.style.cssText = `
@@ -658,14 +658,14 @@ class MultiSelectEditor implements IEditor {
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.value = opt.name;
+    checkbox.value = opt.id;
     checkbox.checked = isChecked;
     checkbox.style.cssText = 'margin-right: 10px; cursor: pointer; accent-color: #409eff; flex-shrink: 0;';
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) {
-        if (!this.selectedValues.includes(opt.name)) this.selectedValues.push(opt.name);
+        if (!this.selectedValues.includes(opt.id)) this.selectedValues.push(opt.id);
       } else {
-        this.selectedValues = this.selectedValues.filter(v => v !== opt.name);
+        this.selectedValues = this.selectedValues.filter(v => v !== opt.id);
       }
     });
 
@@ -864,7 +864,7 @@ class SingleSelectEditor implements IEditor {
 
   private createOptionItem(opt: {id: string, name: string, color?: string}): HTMLElement {
     const color = opt.color || '#6B7280';
-    const isSelected = this.selectedValue === opt.name;
+    const isSelected = this.selectedValue === opt.id;
 
     const item = document.createElement('div');
     item.style.cssText = `
@@ -878,7 +878,7 @@ class SingleSelectEditor implements IEditor {
     item.addEventListener('mouseenter', () => { item.style.backgroundColor = '#e5f7fa'; });
     item.addEventListener('mouseleave', () => { item.style.backgroundColor = ''; });
     item.addEventListener('click', () => {
-      this.selectedValue = opt.name;
+      this.selectedValue = opt.id;
       try {
         this.successCallback?.();
       } catch (err) {
@@ -3371,11 +3371,12 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
           case FieldType.SINGLE_SELECT: {
             const val = String(value);
             const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
-            const found = options.find(o => o.name === val);
+            const found = options.find(o => o.id === val || o.name === val);
+            const displayName = found?.name || val;
             const color = found?.color;
 
             const tagHeight = 26;
-            const textWidth = measureText(val);
+            const textWidth = measureText(displayName);
             const tagWidth = Math.min(textWidth + 16, cellWidth);
             const xOffset = Math.max(0, (cellWidth - tagWidth) / 2);
             const yOffset = Math.max(0, (cellHeight - tagHeight) / 2);
@@ -3383,7 +3384,7 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
             const container = createGroup({ width: cellWidth, height: cellHeight });
             const bg = createRect({ x: xOffset, y: yOffset, width: tagWidth, height: tagHeight, cornerRadius: 12, fill: color });
             container.add(bg);
-            const text = createText({ x: xOffset + 8, y: yOffset + tagHeight / 2, text: val, fontSize, fill: '#ffffff', textBaseline: 'middle' });
+            const text = createText({ x: xOffset + 8, y: yOffset + tagHeight / 2, text: displayName, fontSize, fill: '#ffffff', textBaseline: 'middle' });
             container.add(text);
             return { rootContainer: container, renderDefault: false };
           }
@@ -3410,14 +3411,15 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
             container.add(spacerLeft);
 
             vals.forEach((v) => {
-              const opt = options.find(o => o.name === v);
+              const opt = options.find(o => o.id === v || o.name === v);
+              const displayName = opt?.name || v;
               const color = opt?.color || '#6B7280';
-              const textWidth = measureText(v);
+              const textWidth = measureText(displayName);
               const tagWidth = textWidth + 16;
               const tagGroup = createGroup({ width: tagWidth + gap, height: tagHeight, flexDirection: 'row' as const, alignItems: 'center' as const });
               const bg = createRect({ x: 0, y: 0, width: tagWidth, height: tagHeight, cornerRadius: 12, fill: color });
               tagGroup.add(bg);
-              const text = createText({ x: 8, y: tagHeight / 2, text: v, fontSize, fill: '#ffffff', textBaseline: 'middle' });
+              const text = createText({ x: 8, y: tagHeight / 2, text: displayName, fontSize, fill: '#ffffff', textBaseline: 'middle' });
               tagGroup.add(text);
               container.add(tagGroup);
             });
@@ -3936,11 +3938,12 @@ const buildTableConfig = (): any => {
         case FieldType.SINGLE_SELECT: {
           const val = String(value);
           const options = (field.options?.choices || field.options?.options || []) as Array<{id: string, name: string, color?: string}>;
-          const found = options.find(o => o.name === val);
+          const found = options.find(o => o.id === val || o.name === val);
+          const displayName = found?.name || val;
           const color = found?.color;
 
           const tagHeight = 26;
-          const textWidth = measureText(val);
+          const textWidth = measureText(displayName);
           const tagWidth = Math.min(textWidth + 16, cellWidth);
           const xOffset = Math.max(0, (cellWidth - tagWidth) / 2);
           const yOffset = Math.max(0, (cellHeight - tagHeight) / 2);
@@ -3963,7 +3966,7 @@ const buildTableConfig = (): any => {
           const text = createText({
             x: xOffset + 8,
             y: yOffset + tagHeight / 2,
-            text: val,
+            text: displayName,
             fontSize,
             fill: '#ffffff',
             textBaseline: 'middle'
@@ -4009,9 +4012,10 @@ const buildTableConfig = (): any => {
           container.add(spacerLeft);
 
           vals.forEach((v) => {
-            const opt = options.find(o => o.name === v);
+            const opt = options.find(o => o.id === v || o.name === v);
+            const displayName = opt?.name || v;
             const color = opt?.color || '#6B7280';
-            const textWidth = measureText(v);
+            const textWidth = measureText(displayName);
             const tagWidth = textWidth + 16;
 
             // 每个标签用一个子 Group 包裹（flex 布局下自动排列）
@@ -4035,7 +4039,7 @@ const buildTableConfig = (): any => {
             const text = createText({
               x: 8,
               y: tagHeight / 2,
-              text: v,
+              text: displayName,
               fontSize,
               fill: '#ffffff',
               textBaseline: 'middle'
