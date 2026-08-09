@@ -12,6 +12,7 @@ from app.services.record_service import RecordService
 from app.services.link_service import LinkService
 from app.services.field_service import FieldService
 from app.models.field import Field, FieldType
+from app.models.view import View
 from app.utils.response import success_response, error_response
 from app.utils.decorators import jwt_required, role_required
 
@@ -555,7 +556,7 @@ def reorder_views(table_id) -> tuple:
             
             if view_id is not None and order is not None:
                 view = ViewService.get_view_by_id(view_id)
-                if view and view.table_id == table_id:
+                if view and str(view.table_id) == table_id:
                     view.order = order
         
         db.session.commit()
@@ -606,7 +607,7 @@ def set_default_view(table_id, view_id) -> tuple:
         return error_response('表格不存在', 404)
     
     view = ViewService.get_view_by_id(view_id)
-    if not view or view.table_id != table_id:
+    if not view or str(view.table_id) != table_id:
         return error_response('视图不存在或不属于该表格', 404)
     
     try:

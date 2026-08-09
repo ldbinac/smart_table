@@ -575,13 +575,18 @@ class MultiSelectEditor implements IEditor {
     this.container = container;
     this.successCallback = endEdit;
     const currentValue = String(value ?? '');
+    const { options } = this.editorConfig;
     // 兼容 JSON 数组格式和旧版逗号分隔格式
     let parsed: string[] = [];
     if (currentValue) {
       try { const p = JSON.parse(currentValue); if (Array.isArray(p)) parsed = p.map(v => String(v)); } catch {}
       if (parsed.length === 0) parsed = currentValue.split(', ').filter(Boolean);
     }
-    this.selectedValues = parsed;
+    // 将值统一转换为 id（兼容旧数据中存储 name 的情况，避免与后续 id 比对不一致）
+    this.selectedValues = parsed.map(v => {
+      const found = options.find(o => o.id === v || o.name === v);
+      return found ? found.id : v;
+    }).filter(Boolean);
     this.createElement();
     if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
   }
@@ -751,7 +756,14 @@ class SingleSelectEditor implements IEditor {
   onStart({ container, value, referencePosition, endEdit }: EditContext) {
     this.container = container;
     this.successCallback = endEdit;
-    this.selectedValue = String(value ?? '') || null;
+    const rawValue = String(value ?? '') || null;
+    // 将值统一转换为 id（兼容旧数据中存储 name 的情况，避免与后续 id 比对不一致）
+    if (rawValue) {
+      const found = this.editorConfig.options.find(o => o.id === rawValue || o.name === rawValue);
+      this.selectedValue = found ? found.id : rawValue;
+    } else {
+      this.selectedValue = null;
+    }
     this.createElement();
     if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
   }

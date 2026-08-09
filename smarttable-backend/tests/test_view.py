@@ -155,7 +155,7 @@ class TestView:
         
         assert response.status_code == 200
         data = response.get_json()
-        assert data['code'] == 200
+        assert data['success'] is True
     
     def test_set_default_nonexistent_view(self, client, auth_headers, test_table):
         """测试设置不存在的视图为默认"""
