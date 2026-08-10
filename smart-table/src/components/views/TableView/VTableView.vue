@@ -3019,7 +3019,7 @@ const transformTreeRecords = (records: any[], depth: number = 0): any[] => {
         case FieldType.FORMULA: {
           if (formulaEngine && rawVal === undefined) {
             try {
-              row[field.id] = formulaEngine.calculate(field, record.values);
+              row[field.id] = formulaEngine.calculate(record, field.formula);
             } catch { row[field.id] = ''; }
           } else {
             row[field.id] = rawVal ?? '';

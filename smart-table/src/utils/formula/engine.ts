@@ -138,9 +138,12 @@ export class FormulaEngine {
         return Boolean(value) ? "1" : "0";
 
       case FieldType.DATE:
+      case FieldType.DATE_TIME:
       case FieldType.CREATED_TIME:
       case FieldType.UPDATED_TIME:
-        // 日期字段值可能是：毫秒时间戳（数字）、ISO 字符串、或日期字符串
+        // 日期/时间字段值可能是：毫秒时间戳（数字）、ISO 字符串、或日期字符串。
+        // 统一转为毫秒时间戳（与 TODAY()/NOW() 返回的时间戳基准一致），
+        // 否则字符串与数字时间戳比较会失效（IF({结束日期}>TODAY(),'1','2') 误判）
         if (typeof value === "number") {
           return String(value);
         }
@@ -265,6 +268,23 @@ export class FormulaEngine {
     const num = Number(value);
     if (!isNaN(num)) return num;
 
+    // 若参数是比较表达式（如 "1753987200000>1754688000000"），需先求值，
+    // 否则 IF/AND/OR/NOT/IFS 等逻辑函数会把比较字符串当成非空文本而恒为真，
+    // 导致 IF({结束日期}>TODAY(),'1','2') 永远返回 trueValue（如永远返回 '1'）
+    const trimmedVal = value.trim();
+    if (
+      /[<>=!]/.test(trimmedVal) &&
+      !/^["'].*["']$/.test(trimmedVal)
+    ) {
+      try {
+        const cmpResult = this.parseAndEvaluate(trimmedVal);
+        if (typeof cmpResult === "boolean") return cmpResult;
+        if (typeof cmpResult === "number") return cmpResult;
+      } catch {
+        // 不是有效比较表达式，继续后续处理
+      }
+    }
+
     // 尝试将表达式作为算术运算求值（如 "10+11" → 21）
     // 确保函数参数中的算术表达式能被正确计算
     try {
@@ -342,8 +362,8 @@ export class FormulaEngine {
       return this.compareStrings(left, op, right);
     }
 
-    // 处理数字比较
-    const comparisonMatch = expr.match(/^(.+?)([<>=!]+)(.+)$/);
+    // 处理数字比较（运算符按多字符优先匹配：>= <= == != <> 以及单字符 > < = !）
+    const comparisonMatch = expr.match(/^(.+?)([<>=!]=?|<>)(.+)$/);
     if (comparisonMatch) {
       const [, left, op, right] = comparisonMatch;
       const leftVal = this.parseNumber(left);
@@ -385,20 +405,24 @@ export class FormulaEngine {
   }
 
   private compareNumbers(left: number, op: string, right: number): boolean {
+    // 对毫秒时间戳等浮点数值，使用容差比较相等，避免 === 因精度差异误判
+    const EPS = 1e-6;
+    const eq = Math.abs(left - right) < EPS;
     switch (op) {
       case "<":
-        return left < right;
+        return left < right && !eq;
       case ">":
-        return left > right;
+        return left > right && !eq;
       case "<=":
-        return left <= right;
+        return left < right || eq;
       case ">=":
-        return left >= right;
+        return left > right || eq;
       case "==":
       case "=":
-        return left === right;
+        return eq;
       case "!=":
-        return left !== right;
+      case "<>":
+        return !eq;
       default:
         return false;
     }
@@ -410,6 +434,7 @@ export class FormulaEngine {
       case "=":
         return left === right;
       case "!=":
+      case "<>":
         return left !== right;
       default:
         return false;

@@ -409,12 +409,20 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
   },
 
   IFS: (...args: unknown[]) => {
-    for (let i = 0; i < args.length; i += 2) {
+    // 参数个数为奇数时，最后一个参数视为「默认兜底值」（所有条件都不满足时返回）
+    const hasDefault = args.length % 2 !== 0
+    const pairCount = hasDefault ? args.length - 1 : args.length
+
+    for (let i = 0; i < pairCount; i += 2) {
       const condition = args[i]
       const value = args[i + 1]
       if (toBoolean(condition)) {
         return value
       }
+    }
+
+    if (hasDefault) {
+      return args[args.length - 1]
     }
     return '#ERROR'
   },

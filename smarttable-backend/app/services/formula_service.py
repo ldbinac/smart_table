@@ -419,6 +419,17 @@ class FormulaEvaluator:
         left = self.evaluate(node['left'])
         right = self.evaluate(node['right'])
         
+        # 日期/时间智能比较：当两侧任一可解析为日期时，统一归一化为 datetime 再比较，
+        # 解决字段值（JSON 存储的日期字符串、datetime 对象）与 TODAY()/NOW()（date/datetime）
+        # 类型不一致导致比较抛 TypeError 的问题（如 IF({结束日期}>TODAY(),'1','2') 永远异常）。
+        # 同时去除时区信息（naive），避免 NOW()（UTC aware）与字段（naive）比较仍抛异常。
+        if left is not None and right is not None:
+            left_dt = _parse_date_value(left)
+            right_dt = _parse_date_value(right)
+            if left_dt is not None and right_dt is not None:
+                left = left_dt.replace(tzinfo=None) if isinstance(left_dt, datetime) else left_dt
+                right = right_dt.replace(tzinfo=None) if isinstance(right_dt, datetime) else right_dt
+        
         if op == '=':
             return left == right
         elif op == '<>':
@@ -864,11 +875,16 @@ def fn_dateadd(args: List[Any]) -> datetime:
     return start_date + relativedelta(**kwargs)
 
 def _parse_date_value(value: Any) -> Optional[datetime]:
-    """将字符串、毫秒时间戳或 datetime/date 解析为 datetime"""
+    """将字符串、毫秒时间戳或 datetime/date 解析为 datetime
+
+    统一返回"无时区(naive)"的 datetime，避免 NOW()（UTC aware）与字段值
+    （naive）在比较/相减时出现 aware/naive 类型冲突而抛 TypeError。
+    """
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value
+        # 去除时区信息，统一为 naive，便于与无时区日期值进行运算/比较
+        return value.replace(tzinfo=None) if value.tzinfo is not None else value
     if isinstance(value, date):
         return datetime.combine(value, datetime.min.time())
     if isinstance(value, str):
@@ -895,7 +911,9 @@ def _parse_date_value(value: Any) -> Optional[datetime]:
 
         # 尝试标准 ISO 格式
         try:
-            return datetime.fromisoformat(trimmed.replace('Z', '+00:00'))
+            parsed = datetime.fromisoformat(trimmed.replace('Z', '+00:00'))
+            # 去除时区信息，统一为 naive（如带 Z 的 UTC 时间）
+            return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed
         except ValueError:
             pass
 
@@ -1028,16 +1046,23 @@ def fn_if(args: List[Any]) -> Any:
 
 @FormulaEvaluator.register('IFS')
 def fn_ifs(args: List[Any]) -> Any:
-    """多条件判断"""
-    if len(args) % 2 != 0:
-        raise FormulaError("IFS 需要偶数个参数（条件/值对）")
-    
-    for i in range(0, len(args), 2):
+    """多条件判断
+
+    参数个数为奇数时，最后一个参数视为「默认兜底值」，
+    即当所有条件/值对都不满足时返回该默认值（与前端引擎保持一致）。
+    """
+    has_default = len(args) % 2 != 0
+    pair_count = len(args) - 1 if has_default else len(args)
+
+    for i in range(0, pair_count, 2):
         condition = args[i]
         value = args[i + 1]
         if condition is not None and condition:
             return value
-    
+
+    if has_default:
+        return args[-1]
+
     return None
 
 @FormulaEvaluator.register('SWITCH')
