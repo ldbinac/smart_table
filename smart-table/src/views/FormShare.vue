@@ -348,9 +348,11 @@ async function handleSubmit() {
       const errorMessages = Object.values(details).join("；");
       ElMessage.error(errorMessages || "表单数据验证失败，请检查填写内容");
     } else {
-      // 兼容没有 details 的情况，直接显示 message
+      // 兼容没有 details 的情况：后端错误统一放在 error 字段，部分接口用 message 字段
       const errorMessage =
-        error.response?.data?.message || "提交失败，请稍后重试";
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "提交失败，请稍后重试";
       ElMessage.error(errorMessage);
     }
 

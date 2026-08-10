@@ -169,17 +169,15 @@ async function createShare() {
 }
 
 // 复制分享链接
-function copyShareUrl() {
+async function copyShareUrl() {
   if (!shareUrl.value) return;
 
-  navigator.clipboard
-    .writeText(shareUrl.value)
-    .then(() => {
-      ElMessage.success("链接已复制到剪贴板");
-    })
-    .catch(() => {
-      ElMessage.error("复制失败，请手动复制");
-    });
+  const ok = await copyToClipboard(shareUrl.value);
+  if (ok) {
+    ElMessage.success("链接已复制到剪贴板");
+  } else {
+    ElMessage.error("复制失败，请手动复制：" + shareUrl.value);
+  }
 }
 
 // 删除分享
@@ -255,18 +253,44 @@ function goToSharesList() {
   loadExistingShares();   // 刷新列表
 }
 
+// 复制文本到剪贴板（优先使用 Clipboard API，非安全上下文/旧浏览器回退 execCommand）
+async function copyToClipboard(text: string): Promise<boolean> {
+  // 尝试现代 Clipboard API
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_e) {
+      // 失败时回退到 execCommand 方案
+    }
+  }
+  // 回退方案：临时 textarea + execCommand('copy')，兼容 HTTP 环境及非用户手势场景
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.top = "-9999px";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return ok;
+  } catch (_e) {
+    return false;
+  }
+}
+
 // 复制现有分享链接
-function copyExistingShareUrl(share: FormShareConfig) {
+async function copyExistingShareUrl(share: FormShareConfig) {
   const shareUrl = `${window.location.origin}/#/form/${share.share_token}`;
-  
-  navigator.clipboard
-    .writeText(shareUrl)
-    .then(() => {
-      ElMessage.success("链接已复制到剪贴板");
-    })
-    .catch(() => {
-      ElMessage.error("复制失败，请手动复制");
-    });
+  const ok = await copyToClipboard(shareUrl);
+  if (ok) {
+    ElMessage.success("链接已复制到剪贴板");
+  } else {
+    ElMessage.error("复制失败，请手动复制：" + shareUrl);
+  }
 }
 </script>
 
