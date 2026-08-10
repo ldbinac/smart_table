@@ -2624,6 +2624,7 @@ const handleRecordSave = async (
       }
     } else {
       // 主表记录保存：重新加载主表记录列表
+      lastUpdatedRecordId.value = recordId; // 记录被更新的记录，刷新后滚动定位回该行
       await tableStore.refreshRecords(tableStore.currentTable?.id || "");
       // 树形视图下重新构建树（详情页中修改父级字段后层级需要重排）
       if (isTreeView.value) {
@@ -5352,6 +5353,9 @@ const bindTableEvents = () => {
         values: values as Record<string, CellValue>,
       });
 
+      // 记录被更新的记录，刷新/增量更新后滚动定位回该行，保持操作上下文
+      lastUpdatedRecordId.value = recordId;
+
       // 保存成功，移除待提交变更
       if (collabStore.isRealtimeAvailable) {
         collabStore.removePendingChange(recordId, fieldId);
@@ -5498,6 +5502,10 @@ const bindTableEvents = () => {
   }
 };
 
+// 最近一次发生数据更新的记录 id，用于在表格重建/重绘后将视图滚动定位回该行，
+// 避免更新后表格跳回首行导致用户丢失操作上下文
+const lastUpdatedRecordId = ref<string | null>(null);
+
 // 更新表格数据（带防重入保护和延迟队列）
 let isUpdating = false;
 let pendingUpdate = false;
@@ -5510,6 +5518,16 @@ const updateTable = () => {
 
   isUpdating = true;
   pendingUpdate = false;
+
+  // 重建前保存当前滚动位置，重建后恢复，避免更新数据后表格跳回首行
+  let savedScrollTop = 0;
+  let savedScrollLeft = 0;
+  try {
+    savedScrollTop = (tableInstance as any).getScrollTop() ?? 0;
+    savedScrollLeft = (tableInstance as any).getScrollLeft() ?? 0;
+  } catch (_e) {
+    // 读取失败则忽略，使用默认 0
+  }
 
   try {
     // 释放旧 VTable 实例，避免事件监听器泄漏导致重复触发
@@ -5545,6 +5563,30 @@ const updateTable = () => {
 
     // 应用缓存的列宽
     applyColumnWidths();
+
+    // 重建后恢复滚动位置：优先定位到最近更新的记录行，保持用户操作上下文连续性；
+    // 若该记录不存在（如已被删除/过滤），则回退到重建前的滚动位置
+    nextTick(() => {
+      if (!tableInstance) return;
+      const targetId = lastUpdatedRecordId.value;
+      if (targetId) {
+        const idx = sortedRecords.value.findIndex(r => r.id === targetId);
+        if (idx >= 0) {
+          try {
+            (tableInstance as any).scrollToRow(idx);
+            return;
+          } catch (_e) {
+            // 定位失败，回退到之前的滚动位置
+          }
+        }
+      }
+      try {
+        (tableInstance as any).setScrollTop(savedScrollTop);
+        (tableInstance as any).setScrollLeft(savedScrollLeft);
+      } catch (_e) {
+        // 恢复失败不影响主流程
+      }
+    });
   } catch (error) {
     console.error('更新表格失败:', error);
   } finally {
@@ -5604,6 +5646,22 @@ const updateTableData = () => {
       // 清除重建期间可能累积的 pendingDataUpdate，避免 finally 中重入导致二次覆盖
       pendingDataUpdate = false;
     }
+
+    // 增量更新后，将视图滚动定位到最近更新的记录行，保持用户操作上下文连续性
+    const targetId = lastUpdatedRecordId.value;
+    if (targetId && tableInstance) {
+      const idx = sortedRecords.value.findIndex(r => r.id === targetId);
+      if (idx >= 0) {
+        nextTick(() => {
+          if (!tableInstance) return;
+          try {
+            (tableInstance as any).scrollToRow(idx);
+          } catch (_e) {
+            // 定位失败不影响主流程
+          }
+        });
+      }
+    }
   } catch (error) {
     console.error('增量数据更新失败:', error);
     // 回退到全量重建
@@ -5624,11 +5682,25 @@ const setupRealtimeListeners = () => {
 
   const onRecordUpdated = (data: DataRecordUpdatedBroadcast) => {
     if (data.table_id !== props.tableId) return;
+    // 记录被更新的记录 id，后续表格重建/重绘时据此滚动定位回该行
+    if (data.record_id) {
+      lastUpdatedRecordId.value = data.record_id;
+    }
     // 树形视图下重新构建树（层级可能因父级字段变化而改变）
     if (isTreeView.value) {
       setTimeout(loadTreeRecords, 100);
     } else {
-      setTimeout(updateTable, 100);
+      // 行数不变时走增量更新（保留滚动位置），仅行数变化才全量重建
+      setTimeout(() => {
+        if (!tableInstance) return;
+        const total = smartDataSource ? smartDataSource.totalCount : 0;
+        const expected = sortedRecords.value.length + (((!props.groupBy || props.groupBy.length === 0) && !props.readonly) ? 1 : 0);
+        if (expected !== total && smartDataSource) {
+          updateTable();
+        } else {
+          updateTableData();
+        }
+      }, 100);
     }
   };
 
