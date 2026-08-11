@@ -86,7 +86,7 @@
         <div class="status-list">
           <div v-for="item in statusDistribution" :key="item.key" class="status-item">
             <div class="status-item-header">
-              <el-tag :type="item.type">{{ item.label }}</el-tag>
+              <el-tag :type="(item.type as any)">{{ item.label }}</el-tag>
               <span class="status-item-count">{{ item.value }} ({{ item.percentage }}%)</span>
             </div>
             <el-progress

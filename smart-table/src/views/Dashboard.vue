@@ -52,7 +52,6 @@ const router = useRouter();
 
 // 权限控制
 const canManage = computed(() => memberStore.canManage);
-const canEdit = computed(() => memberStore.canEdit);
 
 // 侧边栏引用
 const sidebarRef = ref<InstanceType<typeof BaseSidebar> | null>(null);

@@ -129,7 +129,7 @@ export function useMasterDetail(options: {
           defaultHeaderRowHeight: 36,
           theme: theme || undefined,
           columns: cachedColumns.value,
-          emptyTip: '暂无关联记录',
+          emptyTip: { text: '暂无关联记录' },
           style: {
             // 底部 margin 设为 48px，为子表工具栏预留空间，避免遮挡最后一条数据
             // 总高度 280 = 240（内容区）+ 8（顶部）+ 48（底部含工具栏）

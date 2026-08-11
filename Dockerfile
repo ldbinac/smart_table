@@ -63,7 +63,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.11-slim
 
 LABEL maintainer="SmartTable Team" \
-      version="1.6.3" \
+      version="1.6.4" \
       description="SmartTable - 智能表格应用"
 
 # 设置环境变量

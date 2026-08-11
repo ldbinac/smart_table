@@ -194,8 +194,8 @@ const {
           col: originalEventArgs.col,
           row: originalEventArgs.row,
           record: cellRecord,
-          x: Math.min(iconX, window.innerWidth - 40),
-          y: Math.max(iconY, 4),
+          x: Math.min(iconX ?? 0, window.innerWidth - 40),
+          y: Math.max(iconY ?? 0, 4),
         };
         actionIconVisible.value = true;
       }
@@ -255,9 +255,8 @@ const updateSubTableToolbarPosition = () => {
     // 子表展开后，展开行的高度包含主行 + 子表区域
     // 工具栏定位到子表末尾（展开行底部）上方 4px，右侧留 16px
     const containerRect = tableContainerRef.value.getBoundingClientRect();
-    const canvasRect = tableInstance.getCanvasRect?.();
+    const canvasRect = (tableInstance as any).getCanvasRect?.();
     const canvasOffsetTop = canvasRect ? (canvasRect as any).top - containerRect.top : 0;
-    const canvasOffsetLeft = canvasRect ? (canvasRect as any).left - containerRect.left : 0;
 
     // 子表末尾的 Y 坐标（展开行底部）
     const subTableBottomY = canvasOffsetTop + cellRect.top + cellRect.height;
@@ -2585,19 +2584,6 @@ const handleTreeAddChildClick = async () => {
   }
 };
 
-// 自动创建父字段（树形视图）
-const autoCreateParentField = async () => {
-  if (!viewStore.currentView?.id) return null;
-  try {
-    const result = await viewApiService.autoCreateParentField(viewStore.currentView.id);
-    await viewStore.loadViews(viewStore.currentView.tableId);
-    return result?.parent_field_id || null;
-  } catch (error) {
-    console.error("自动创建父字段失败:", error);
-    return null;
-  }
-};
-
 // 处理记录保存
 const handleRecordSave = async (
   recordId: string,
@@ -3019,7 +3005,7 @@ const transformTreeRecords = (records: any[], depth: number = 0): any[] => {
         case FieldType.FORMULA: {
           if (formulaEngine && rawVal === undefined) {
             try {
-              row[field.id] = formulaEngine.calculate(record, field.formula);
+              row[field.id] = formulaEngine.calculate(record, (field as any).formula);
             } catch { row[field.id] = ''; }
           } else {
             row[field.id] = rawVal ?? '';
@@ -4370,7 +4356,7 @@ const buildTableConfig = (): any => {
 
   // 树形视图：启用 VTable 原生树形渲染，第一列自动显示展开/折叠图标和层级缩进
   if (isTreeView.value && columns.length > 0) {
-    columns[0].tree = true;
+    (columns[0] as any).tree = true;
   }
 
   // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
@@ -4916,7 +4902,7 @@ const bindTableEvents = () => {
     });
 
     tableInstanceAny.on('mouseleave_cell', (args: any) => {
-      const { col, row } = args;
+      const { col } = args;
       if (col === 0) {
         delayHideTreeAddChildIcon();
       }

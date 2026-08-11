@@ -115,7 +115,7 @@ describe('WorkflowNodeConfig script 面板', () => {
     next_nodes: [],
   };
 
-  function mountScript(overrides: { readonly?: boolean; node?: Record<string, unknown> } = {}) {
+  function mountScript(overrides: { readonly?: boolean; node?: any } = {}) {
     return mount(WorkflowNodeConfig, {
       props: {
         node: overrides.node ?? mockScriptNode,

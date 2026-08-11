@@ -13,7 +13,7 @@ import { ListTable, themes } from '@visactor/vtable';
 import { createGroup, createText, createRect, createPath, createImage, createCircle } from '@visactor/vtable/es/vrender';
 import { FieldType } from '@/types/fields';
 import { masterDetailService } from '@/services/masterDetailService';
-import type { FieldEntity, RecordEntity } from '@/db/schema';
+import type { RecordEntity } from '@/db/schema';
 import { useUserCacheStore } from '@/stores/userCacheStore';
 import { formatDate, formatDateTime } from '@/utils/timezone';
 
@@ -571,8 +571,7 @@ const renderTable = (columns: any[], records: any[]) => {
     heightMode: 'autoHeight',
     autoWrapText: false,
     showHeader: true,
-    disableColumnResize: false,
-    emptyTip: '暂无关联记录',
+    emptyTip: { text: '暂无关联记录' },
   });
 
   // 绑定 click_cell 事件：显示放大按钮
