@@ -25,7 +25,12 @@ const refreshClient = axios.create({
 });
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  return apiClient.post<LoginResponse>('/auth/login', data);
+  // skipAuthRedirect: 登录接口失败（如账号密码错误）返回 401 时，
+  // 不应被拦截器当作"已登录 token 过期"去续期并提示"登录已过期"，
+  // 而应把后端 message（邮箱或密码错误）直接返回给登录页显示。
+  return apiClient.post<LoginResponse>('/auth/login', data, {
+    skipAuthRedirect: true,
+  } as any);
 };
 
 export const register = async (data: RegisterRequest): Promise<User> => {

@@ -4469,8 +4469,8 @@ const buildTableConfig = (): any => {
         // 新增行禁用复选框
         return row === table.dataSource._sourceLength;
       },
-      // 普通平铺模式下启用拖拽排序，树形视图下禁用（避免与树形展开/折叠冲突）
-      dragOrder: !isTreeView.value,
+      // 不显示行序号列（最左侧 # 列）上的拖拽排序手柄按钮
+      dragOrder: false,
     },
     allowCopy: true,
     editCellTrigger: 'click',

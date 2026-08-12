@@ -114,6 +114,15 @@ onUnmounted(() => {
                 <p class="feedback-intro">
                   感谢您的反馈！请选择以下任一渠道提交您的问题或建议，系统会自动附带环境信息以便定位问题。
                 </p>
+                <a
+                  class="doc-banner"
+                  href="https://my-smart-table.github.io/smart-table-docs"
+                  target="_blank"
+                  rel="noopener noreferrer">
+                  <span class="doc-icon">📖</span>
+                  <span class="doc-text">提交前，可先查阅项目官方文档自助排查</span>
+                  <span class="doc-arrow">↗</span>
+                </a>
                 <div class="channels-grid">
                   <!-- GitHub Issues -->
                   <div class="channel-card">
@@ -297,6 +306,42 @@ onUnmounted(() => {
   font-size: $font-size-sm;
   color: var(--text-secondary, $text-secondary);
   line-height: 1.6;
+}
+
+.doc-banner {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin: 0 0 $spacing-lg;
+  padding: $spacing-md $spacing-lg;
+  border: 1px solid $primary-color;
+  border-radius: $border-radius-lg;
+  background-color: $primary-light;
+  text-decoration: none;
+  color: var(--text-primary, $text-primary);
+  transition: box-shadow $transition-fast, transform $transition-fast;
+
+  &:hover {
+    box-shadow: $shadow-sm;
+    transform: translateY(-1px);
+  }
+
+  .doc-icon {
+    font-size: $font-size-lg;
+    line-height: 1;
+  }
+
+  .doc-text {
+    flex: 1;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $primary-color;
+  }
+
+  .doc-arrow {
+    font-size: $font-size-base;
+    color: $primary-color;
+  }
 }
 
 .channels-grid {
