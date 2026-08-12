@@ -124,7 +124,7 @@ class TestResolveScriptInput:
         pred = _add_node(workflow, WorkflowNodeType.FIND_RECORDS, '前驱', order=0, next_nodes=[str(script_node.id)])
 
         instance = _make_instance(workflow, context={
-            'node_outputs': {str(pred.id): {'result': 'pred_data'}}
+            'node_outputs': {str(pred.id): 'pred_data'}
         })
         result = engine._resolve_script_input(instance, script_node, None)
         assert result == 'pred_data'
@@ -137,8 +137,8 @@ class TestResolveScriptInput:
 
         instance = _make_instance(workflow, context={
             'node_outputs': {
-                str(pred_a.id): {'result': 'data_a'},
-                str(pred_b.id): {'result': 'data_b'},
+                str(pred_a.id): 'data_a',
+                str(pred_b.id): 'data_b',
             }
         })
         result = engine._resolve_script_input(instance, script_node, None)
@@ -160,7 +160,7 @@ class TestResolveScriptInput:
         pred = _add_node(workflow, WorkflowNodeType.FIND_RECORDS, '前驱', order=0, next_nodes=[str(script_node.id)])
 
         instance = _make_instance(workflow, context={
-            'node_outputs': {str(pred.id): {'result': 'specified_data'}}
+            'node_outputs': {str(pred.id): 'specified_data'}
         })
         result = engine._resolve_script_input(instance, script_node, str(pred.id))
         assert result == 'specified_data'

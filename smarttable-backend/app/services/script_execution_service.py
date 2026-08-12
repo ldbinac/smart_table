@@ -7,6 +7,8 @@
 """
 import json
 import logging
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -132,6 +134,33 @@ class ScriptExecutionService:
         return result
 
     @staticmethod
+    def _resolve_python_executable() -> str:
+        """解析用于执行 runner 脚本的 Python 解释器路径。
+
+        不能简单使用 sys.executable：在 PyInstaller 单文件打包模式下，
+        sys.executable 指向生成的 EXE（如 SmartTable.exe），它本身不是
+        Python 解释器，用它去启动 .py 脚本会在 Windows 上触发
+        NotADirectoryError: [WinError 267]（目录名称无效）。
+
+        解析优先级：
+        1. 当前进程是常规 python 解释器（sys.executable 指向 python*.exe）→ 直接使用；
+        2. PATH 中的 python / python3（打包环境通常已安装 Python）；
+        3. 回退到 sys.executable（保底，便于暴露真实错误）。
+        """
+        exe = sys.executable or ''
+        exe_name = os.path.basename(exe).lower()
+        # 常规 CPython 解释器：python.exe / python3.exe / python3.11.exe 等
+        if 'python' in exe_name and exe_name.endswith('.exe'):
+            return exe
+        # 在 PATH 中探测独立的 Python 解释器
+        for candidate in ('python', 'python3'):
+            found = shutil.which(candidate)
+            if found:
+                return found
+        # 保底：仍用 sys.executable，让错误信息暴露真实路径
+        return exe
+
+    @staticmethod
     def _execute_python(
         script_source: str,
         input_data: Any,
@@ -141,6 +170,7 @@ class ScriptExecutionService:
         """通过子进程调用 python_runner.py 执行 Python 脚本"""
         runner_path = Path(__file__).parent.parent / 'script_runner' / 'python_runner.py'
         runner_dir = runner_path.parent
+        python_exe = ScriptExecutionService._resolve_python_executable()
         payload = json.dumps(
             {
                 'script_source': script_source,
@@ -150,15 +180,27 @@ class ScriptExecutionService:
             ensure_ascii=True,
             default=str,
         )
-        proc = subprocess.run(
-            [sys.executable, str(runner_path)],
-            input=payload,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            encoding='utf-8',
-            cwd=str(runner_dir),
-        )
+        try:
+            proc = subprocess.run(
+                [python_exe, str(runner_path)],
+                input=payload,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                encoding='utf-8',
+                cwd=str(runner_dir),
+            )
+        except FileNotFoundError as e:
+            return {
+                'status': 'error',
+                'error': (
+                    f'找不到可用的 Python 解释器（已探测 sys.executable={sys.executable!r}，'
+                    f'PATH 中 python/python3 均不可用）。脚本节点需要在已安装 Python 的环境中运行。'
+                ),
+                'result': None,
+                'branch': None,
+                'stdout': '',
+            }
         return ScriptExecutionService._parse_runner_output(
             proc.stdout, proc.stderr, proc.returncode
         )

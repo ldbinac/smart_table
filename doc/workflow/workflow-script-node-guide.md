@@ -417,9 +417,13 @@ input_node_id 显式指定  >  最近前驱节点输出  >  多前驱合并字�
 │  工作流实例上下文 (instance.context)                          │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  node_outputs: {                                     │    │
-│  │    "node-A-id": { result: ..., branch: ..., ... },  │    │
-│  │    "node-B-id": { result: ..., branch: ..., ... },  │    │
-│  │    "script-node-id": { result: <脚本输出>, branch: ... }│   │
+│  │    # 节点输出已展开（不含外层 'result' 包裹），形态   │    │
+│  │    # 取决于上游节点类型：                            │    │
+│  │    #   find_records: { count: N, records: [...] }    │    │
+│  │    #   create_record / update_record: { record_id }  │    │
+│  │    #   script: { result: <脚本输出>, branch, ... }   │    │
+│  │    "node-A-id": { count: 3, records: [...] },        │    │
+│  │    "script-node-id": { result: <脚本输出>, ... }     │    │
 │  │  }                                                   │    │
 │  │  script_result: <脚本输出>  # 结果变量直接写入         │    │
 │  │  loop_context: { ... }     # 循环上下文              │    │
@@ -429,9 +433,17 @@ input_node_id 显式指定  >  最近前驱节点输出  >  多前驱合并字�
 └─────────────────────────────────────────────────────────────┘
 ```
 
+> **注意**：`node_outputs[id]` 存储的是**已展开的上游输出**，并不统一包含外层 `result` 键（`find_records` 输出为 `{count, records}`，`create_record`/`update_record` 输出为 `{record_id}`）。因此脚本中 `input` 即为上游节点的真实输出结构，无需再取 `.get('result')`。例如 `find_records` 接入脚本时，`input` 直接就是 `{count: N, records: [...]}`，可直接 `input.get('records', [])`。
+
 #### 4.3.2 输入注入
 
-脚本执行时，引擎通过 `_resolve_script_input` 解析输入数据，将其作为 `input` 变量注入脚本全局作用域。
+脚本执行时，引擎通过 `_resolve_script_input` 解析输入数据，将其作为 `input` 变量注入脚本全局作用域。`input` 的内容取决于输入来源配置：
+
+- **指定输入节点（`input_node_id`）** 或 **单一前驱节点**：`input` 等于该上游节点在 `node_outputs` 中**已展开的输出**。
+- **多个前驱节点**：`input` 为字典 `{ 上游节点ID: 已展开输出, ... }`，需通过节点 ID 取对应输出。
+- **无前驱且未指定输入节点**：`input` 为 `None`。
+
+由于 `node_outputs` 中的输出不包含外层 `result` 键，脚本应直接按上游节点的真实输出结构访问字段（如 `input.get('records')`）。
 
 #### 4.3.3 输出写入
 

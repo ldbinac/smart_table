@@ -1238,7 +1238,13 @@ class WorkflowExecutionEngine:
         }
 
     def _resolve_script_input(self, instance: WorkflowInstance, node: WorkflowNode, input_node_id) -> Any:
-        """解析脚本节点的输入数据"""
+        """解析脚本节点的输入数据。
+
+        注意：上下文中 node_outputs[id] 写入的是已展开的上游输出
+        （见 execute_node 中仅写入 dispatch result 的 result 部分，无外层 'result' 包裹）。
+        因此此处直接返回该输出，不再二次解包 .get('result')，
+        否则当输出本身没有 'result' 键（如 find_records 的 {'count','records'}）时会取到 None。
+        """
         ctx = instance.context or {}
         node_outputs = ctx.get('node_outputs') or {}
 
@@ -1250,21 +1256,15 @@ class WorkflowExecutionEngine:
                 predecessors.append(n)
 
         if input_node_id:
-            # 指定输入节点
-            out = node_outputs.get(str(input_node_id))
-            return out.get('result') if isinstance(out, dict) else out
+            # 指定输入节点：返回其已展开的输出
+            return node_outputs.get(str(input_node_id))
         elif len(predecessors) == 1:
-            # 单一前驱：返回其输出
-            out = node_outputs.get(str(predecessors[0].id))
-            return out.get('result') if isinstance(out, dict) else out
+            # 单一前驱：返回其已展开的输出
+            return node_outputs.get(str(predecessors[0].id))
         elif len(predecessors) > 1:
             # 多前驱：返回 {node_id: output_result} 字典
             return {
-                str(p.id): (
-                    node_outputs.get(str(p.id), {}).get('result')
-                    if isinstance(node_outputs.get(str(p.id)), dict)
-                    else node_outputs.get(str(p.id))
-                )
+                str(p.id): node_outputs.get(str(p.id))
                 for p in predecessors
             }
         else:
