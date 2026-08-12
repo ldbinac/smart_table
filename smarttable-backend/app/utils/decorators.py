@@ -673,13 +673,17 @@ def api_rate_limit(
             if not identifiers:
                 identifiers.append(f"ip:{get_client_ip()}")
             
+            current_time = time.time()
+            # 收集各维度超限时需要等待的剩余时间，取最长（最严格）的提示给用户
+            exceeded = False
+            max_remaining = 0
+            
             # 检查所有限制
             for identifier in identifiers:
                 cache_key = f"rate_limit:{key_prefix}:{identifier}"
                 
                 # 获取当前请求计数
                 request_data = cache.get(cache_key)
-                current_time = time.time()
                 
                 if request_data is None:
                     # 首次请求
@@ -688,30 +692,51 @@ def api_rate_limit(
                         'first_request': current_time
                     }
                     cache.set(cache_key, request_data, timeout=window)
+                    continue
+                
+                first_request = request_data.get('first_request', current_time)
+                # 防御：first_request 异常（时钟回拨/缓存跨进程时间戳错乱/反序列化异常）
+                # 会导致 remaining 被放大成巨大值（如数千秒）。统一钳制到 [now - window, now]。
+                if not isinstance(first_request, (int, float)) or first_request > current_time:
+                    first_request = current_time
+                elif current_time - first_request > window:
+                    # 窗口已过期，重置计数
+                    first_request = current_time
+                    request_data['count'] = 0
+                
+                # 增加计数
+                request_data['count'] = request_data.get('count', 0) + 1
+
+                # 检查是否超过限制
+                if request_data['count'] > max_requests:
+                    exceeded = True
+                    # 超限时立即把窗口起点重置为当前时间（滑动惩罚），
+                    # 避免窗口从很久以前的第一次请求起算，导致剩余时间被拉长到数十分钟。
+                    first_request = current_time
+                    request_data['first_request'] = first_request
+                    request_data['count'] = 0
+                    # 剩余等待时间钳制在 [0, window]，避免返回过长（如数千秒）
+                    remaining_time = int(window - (current_time - first_request))
+                    remaining_time = max(0, min(window, remaining_time))
+                    max_remaining = max(max_remaining, remaining_time)
                 else:
-                    # 检查时间窗口是否过期
-                    if current_time - request_data['first_request'] > window:
-                        # 重置计数
-                        request_data = {
-                            'count': 1,
-                            'first_request': current_time
-                        }
-                        cache.set(cache_key, request_data, timeout=window)
-                    else:
-                        # 增加计数
-                        request_data['count'] += 1
-                        
-                        # 检查是否超过限制
-                        if request_data['count'] > max_requests:
-                            remaining_time = int(window - (current_time - request_data['first_request']))
-                            return error_response(
-                                message=f'请求过于频繁，请 {remaining_time} 秒后再试',
-                                code=429,
-                                error='too_many_requests'
-                            )
-                        
-                        # 更新缓存
-                        cache.set(cache_key, request_data, timeout=window)
+                    request_data['first_request'] = first_request
+                
+                # 更新缓存（无论是否超限都更新，保证窗口结束自动清除）
+                cache.set(cache_key, request_data, timeout=window)
+            
+            if exceeded:
+                if max_remaining >= 60:
+                    minutes = max_remaining // 60
+                    seconds = max_remaining % 60
+                    wait_text = f'{minutes} 分 {seconds} 秒' if seconds else f'{minutes} 分钟'
+                else:
+                    wait_text = f'{max_remaining} 秒'
+                return error_response(
+                    message=f'请求过于频繁，请 {wait_text}后再试',
+                    code=429,
+                    error='too_many_requests'
+                )
             
             return fn(*args, **kwargs)
         
@@ -720,8 +745,8 @@ def api_rate_limit(
 
 
 def upload_rate_limit(
-    max_uploads: int = 20,
-    window: int = 3600
+    max_uploads: int = 30,
+    window: int = 300
 ) -> Callable:
     """
     文件上传速率限制装饰器
@@ -729,8 +754,8 @@ def upload_rate_limit(
     限制单位时间内的文件上传次数，防止存储滥用
     
     Args:
-        max_uploads: 最大上传次数（默认 20 次/小时）
-        window: 时间窗口（秒，默认 1 小时 = 3600 秒）
+        max_uploads: 最大上传次数（默认 30 次/5 分钟）
+        window: 时间窗口（秒，默认 5 分钟 = 300 秒）
         
     Returns:
         装饰器函数

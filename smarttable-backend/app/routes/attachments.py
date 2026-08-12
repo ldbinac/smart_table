@@ -22,7 +22,7 @@ attachments_bp.strict_slashes = False
 
 @attachments_bp.route('/upload', methods=['POST'])
 @jwt_required
-@upload_rate_limit(max_uploads=20, window=3600)
+@upload_rate_limit(max_uploads=30, window=300)
 def upload_attachment() -> tuple:
     """
     上传附件
