@@ -1144,9 +1144,29 @@ def update_record_link(record_id, field_id) -> tuple:
         
         if not result[0]:
             return error_response(result[1], 400)
-        
+
+        # ---------- 广播协作事件（不影响主流程） ----------
+        try:
+            from app.services.collaboration_service import CollaborationService
+            source_table = RecordService.get_record_by_id(record_id)
+            if source_table:
+                CollaborationService.broadcast_if_enabled(
+                    'data:record_updated',
+                    str(source_table.table.base_id),
+                    {
+                        'table_id': str(source_table.table_id),
+                        'record_id': str(source_table.id),
+                        'field_id': str(field_id),
+                        'target_record_ids': target_record_ids,
+                        'changed_by': str(g.current_user_id) if g.current_user_id else None,
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    }
+                )
+        except Exception as e:
+            current_app.logger.error(f'[update_record_link] 广播协作事件失败: {e}')
+
         return success_response(
-            data={'updated_count': result[0]},
+            data={'updated_count': len(target_record_ids)},
             message='关联值更新成功'
         )
     
@@ -1248,6 +1268,274 @@ def delete_record_link(record_id, field_id) -> tuple:
         current_app.logger.error(f'[{request_id}] 删除关联值失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response('删除关联值失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+
+
+@records_bp.route('/records/<record_id>/links/<field_id>/details', methods=['GET'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+def get_linked_records_detail(record_id, field_id) -> tuple:
+    """
+    获取主从表子表数据详情
+
+    根据源记录和关联字段，返回目标表中关联记录的完整数据、目标表字段定义以及分页信息。
+
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 源记录 ID
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 关联字段 ID
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码
+      - name: per_page
+        in: query
+        type: integer
+        default: 50
+        description: 每页数量
+      - name: keyword
+        in: query
+        type: string
+        description: 关键词（对目标记录主字段值进行模糊过滤）
+    responses:
+      200:
+        description: 关联记录详情
+      400:
+        description: 参数错误或不是关联字段
+      404:
+        description: 记录不存在
+      500:
+        description: 获取失败
+    """
+    record = RecordService.get_record_by_id(record_id)
+    if not record:
+        return error_response('记录不存在', 404)
+
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        keyword = request.args.get('keyword')
+
+        result, err = LinkService.get_linked_records_detail(
+            record_id=record_id,
+            field_id=field_id,
+            page=page,
+            per_page=per_page,
+            keyword=keyword
+        )
+        if err:
+            return error_response(err, 400)
+
+        return success_response(data=result, message='获取关联记录详情成功')
+
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取关联记录详情失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取关联记录详情失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+
+
+@records_bp.route('/records/<record_id>/links/<field_id>/records', methods=['POST'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor'])
+def create_and_link_record(record_id, field_id) -> tuple:
+    """
+    在目标表中创建记录并建立与源记录的关联
+
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 源记录 ID
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 关联字段 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - values
+          properties:
+            values:
+              type: object
+              description: 新记录的字段值
+    responses:
+      200:
+        description: 创建并关联成功
+      400:
+        description: 参数错误或约束冲突
+      404:
+        description: 记录不存在
+      500:
+        description: 创建失败
+    """
+    record = RecordService.get_record_by_id(record_id)
+    if not record:
+        return error_response('记录不存在', 404)
+
+    data = request.get_json()
+    if not data:
+        return error_response('请求数据不能为空', 400)
+
+    values = data.get('values', {})
+    if not isinstance(values, dict):
+        return error_response('values 必须是对象', 400)
+
+    user_id = getattr(g, 'current_user_id', None)
+
+    try:
+        result, err = LinkService.create_and_link_record(
+            source_record_id=record_id,
+            field_id=field_id,
+            values=values,
+            user_id=user_id
+        )
+        if err:
+            return error_response(err, 400)
+
+        return success_response(data=result, message='创建并关联记录成功')
+
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 创建并关联记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('创建并关联记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+
+
+@records_bp.route('/records/<record_id>/child', methods=['POST'])
+@jwt_required
+@write_rate_limit(max_writes=100, window=60)
+def create_child_record(record_id) -> tuple:
+    """
+    创建子记录
+    ---
+    tags:
+      - Records
+    parameters:
+      - name: record_id
+        in: path
+        type: string
+        required: true
+        description: 父记录 ID
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            field_id:
+              type: string
+              description: 父记录字段 ID（关联自身表的 LINK_TO_RECORD 字段）
+            values:
+              type: object
+              description: 新记录的字段值
+    responses:
+      201:
+        description: 创建成功
+    """
+    parent_record = RecordService.get_record_by_id(record_id)
+    if not parent_record:
+        return error_response('父记录不存在', 404)
+
+    json_data = request.get_json()
+    if not json_data:
+        return error_response('请求数据不能为空', 400)
+
+    field_id = json_data.get('field_id')
+    if not field_id:
+        return error_response('field_id 不能为空', 400)
+
+    values = json_data.get('values', {})
+
+    table_id = str(parent_record.table_id)
+
+    try:
+        # 验证 field_id 是 LINK_TO_RECORD 字段且指向同一张表
+        field = FieldService.get_field(field_id)
+        if not field:
+            return error_response('字段不存在', 404)
+
+        if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
+            return error_response('该字段不是关联字段', 400)
+
+        # 检查字段是否指向同一张表（自引用）
+        field_config = field.config or {}
+        linked_table_id = field_config.get('linkedTableId') or field_config.get('linked_table_id')
+        if not linked_table_id or str(linked_table_id) != table_id:
+            return error_response('该字段不是指向本表的自引用关联字段', 400)
+
+        # 检查是否有权限
+        table = TableService.get_table_by_id(table_id)
+        if table and not PermissionService.check_permission(
+            str(table.base_id), g.current_user_id, MemberRole.EDITOR
+        ):
+            return error_response('无权在该表格中创建记录', 403)
+
+        # 创建新记录
+        new_record = RecordService.create_record(
+            table_id=table_id,
+            values=values,
+            created_by=g.current_user_id
+        )
+
+        # 获取或创建关联关系
+        link_relation = LinkService.get_link_relation_by_field(field_id, linked_table_id)
+        if not link_relation:
+            # 自动创建关联关系
+            link_data = {
+                'source_table_id': table_id,
+                'target_table_id': table_id,
+                'source_field_id': field_id,
+                'target_field_id': None,
+                'relationship_type': 'one_to_many',
+                'bidirectional': False
+            }
+            link_result = LinkService.create_link_relation(link_data)
+            if not link_result[0]:
+                return error_response('创建关联关系失败', 500)
+            link_relation = link_result[0]
+
+        # 建立关联：新记录的自关联字段指向父记录（子记录仅能有一个父级）
+        LinkService.update_link_values(
+            link_relation_id=str(link_relation.id),
+            source_record_id=str(new_record.id),
+            target_record_ids=[record_id],
+            updated_by=g.current_user_id
+        )
+
+        result = new_record.to_dict()
+        result['computed_values'] = FormulaService.compute_record_formulas(
+            table_id, new_record.values
+        )
+
+        return success_response(result, '子记录创建成功', 201)
+
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 创建子记录失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('创建子记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records/search', methods=['GET'])

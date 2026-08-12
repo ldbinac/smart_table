@@ -189,6 +189,27 @@ export const listDeliveries = async (
   return extractItems(response);
 };
 
+// ==================== 脚本节点测试 ====================
+
+export const testScriptNode = async (
+  workflowId: string,
+  data: {
+    language: string;
+    script_source: string;
+    sample_input?: unknown;
+    timeout?: number;
+  },
+): Promise<{
+  status: string;
+  result: unknown;
+  branch?: string | null;
+  error?: string;
+  duration_ms?: number;
+  stdout?: string;
+}> => {
+  return apiClient.post(`/workflows/${workflowId}/nodes/script/test`, data);
+};
+
 // ==================== 模板 ====================
 
 export const listTemplates = async (
@@ -242,6 +263,7 @@ export const workflowApiService = {
   deleteWebhook,
   getWebhookReferences,
   testWebhook,
+  testScriptNode,
   listDeliveries,
   listTemplates,
   saveAsTemplate,

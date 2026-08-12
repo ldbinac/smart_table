@@ -3,12 +3,14 @@
 提供文档的 CRUD 和导出功能
 """
 import tempfile
+from datetime import datetime
 
 from flask import Blueprint, request, g, send_file
 
 from app.services.document_service import DocumentService
 from app.services.document_export_service import DocumentExportService
 from app.services.permission_service import PermissionService
+from app.models.base import MemberRole
 from app.utils.response import success_response as api_response, error_response as api_error
 from app.utils.decorators import jwt_required
 
@@ -97,7 +99,7 @@ def get_documents(base_id):
     """
     try:
         user_id = g.user_id
-        if not permission_service.can_access_base(user_id, base_id):
+        if not permission_service.check_permission(base_id, user_id, MemberRole.VIEWER):
             return api_error('无权访问', 403)
 
         docs = document_service.get_list_by_base(base_id)
@@ -162,8 +164,9 @@ def create_document(base_id):
     """
     try:
         user_id = g.user_id
-        if not permission_service.can_edit_base(user_id, base_id):
-            return api_error('无权编辑', 403)
+        # 创建文档需要 ADMIN 或更高权限
+        if not permission_service.check_permission(base_id, user_id, MemberRole.ADMIN):
+            return api_error('无权创建文档，需要管理员权限', 403)
 
         data = request.get_json()
         count = document_service.get_count_by_base(base_id)
@@ -214,7 +217,7 @@ def get_document(doc_id):
         if not doc:
             return api_error('文档不存在', 404)
 
-        if not permission_service.can_access_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
             return api_error('无权访问', 403)
 
         return api_response(doc.to_dict(include_content=True))
@@ -282,17 +285,26 @@ def update_document(doc_id):
         if not doc:
             return api_error('文档不存在', 404)
 
-        if not permission_service.can_edit_base(user_id, doc.base_id):
-            return api_error('无权编辑', 403)
+        # 更新文档（含重命名）需要 ADMIN 或更高权限
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
+            return api_error('无权修改文档，需要管理员权限', 403)
 
         data = request.get_json()
         expected_updated_at = data.pop('expected_updated_at', None)
 
-        # 乐观锁检查
+        # 乐观锁检查：前端传 expected_updated_at（ISO 字符串或时间戳），
+        # 后端用 datetime 对象比较（秒级精度），容忍 Z/+00:00 格式差异和微秒精度差异
         if expected_updated_at:
-            current_updated_at = doc.updated_at.isoformat() if doc.updated_at else None
-            if current_updated_at != expected_updated_at:
-                return api_error('文档已被他人修改，请刷新后重试', 409)
+            try:
+                expected_dt = datetime.fromisoformat(str(expected_updated_at).replace('Z', '+00:00'))
+                current_dt = doc.updated_at
+                if current_dt and current_dt.replace(microsecond=0) != expected_dt.replace(microsecond=0):
+                    return api_error('文档已被他人修改，请刷新后重试', 409)
+            except (ValueError, AttributeError, TypeError):
+                # 时间解析失败，fallback 到字符串比较
+                current_updated_at = doc.updated_at.isoformat() if doc.updated_at else None
+                if current_updated_at != expected_updated_at:
+                    return api_error('文档已被他人修改，请刷新后重试', 409)
 
         updated = document_service.update(doc_id=doc_id, user_id=user_id, **data)
         return api_response(updated.to_dict(include_content=True))
@@ -332,8 +344,9 @@ def delete_document(doc_id):
         if not doc:
             return api_error('文档不存在', 404)
 
-        if not permission_service.can_edit_base(user_id, doc.base_id):
-            return api_error('无权编辑', 403)
+        # 删除文档需要 ADMIN 或更高权限
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
+            return api_error('无权删除文档，需要管理员权限', 403)
 
         document_service.delete(doc_id)
         return api_response(None, 204)
@@ -404,7 +417,7 @@ def export_pdf(doc_id):
         if not doc:
             return api_error('文档不存在', 404)
 
-        if not permission_service.can_access_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
             return api_error('无权访问', 403)
 
         data = request.get_json() or {}
@@ -459,7 +472,7 @@ def download_pdf(doc_id):
         if not doc:
             return api_error('文档不存在', 404)
 
-        if not permission_service.can_access_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
             return api_error('无权访问', 403)
 
         html_content = document_export_service._convert_to_html(doc)

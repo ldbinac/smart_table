@@ -10,6 +10,8 @@ import type {
   ConditionNodeConfig,
   LoopDataSource,
   WorkflowNodeType,
+  ScriptNodeConfig,
+  ScriptBranch,
 } from "@/types/workflow";
 import { FilterOperator } from "@/types/filters";
 import type { FilterOperatorValue } from "@/types/filters";
@@ -53,7 +55,12 @@ import {
   EditPen,
   Close,
   InfoFilled,
+  QuestionFilled,
 } from "@element-plus/icons-vue";
+import { Codemirror as codemirror } from "vue-codemirror";
+import { python } from "@codemirror/lang-python";
+import { lintGutter } from "@codemirror/lint";
+import { testScriptNode as apiTestScriptNode } from "@/services/api/workflowApiService";
 
 interface Props {
   node: WorkflowNode;
@@ -103,6 +110,9 @@ watch(
   (newNode) => {
     isUpdatingFromParent = true;
     localNode.value = buildLocalNode(newNode);
+    if (newNode.node_type === "script") {
+      initScriptConfig();
+    }
     nextTick(() => {
       isUpdatingFromParent = false;
     });
@@ -987,6 +997,243 @@ function appendLoopVarSnippet(currentTemplate: string, snippet: string | undefin
   if (!snippet) return currentTemplate ?? "";
   ElMessage.success("已插入循环变量");
   return `${currentTemplate ?? ""}${snippet}`;
+}
+
+// ==================== 脚本节点配置 ====================
+
+const scriptConfig = ref<ScriptNodeConfig>({
+  language: "python",
+  script_source: "",
+  timeout: 30,
+  result_variable: "script_result",
+  input_node_id: null,
+  branches: [],
+});
+
+/** 从 localNode.config 初始化 scriptConfig */
+function initScriptConfig() {
+  const cfg = (localNode.value.config || {}) as Partial<ScriptNodeConfig>;
+  scriptConfig.value = {
+    language: "python",
+    script_source: cfg.script_source || "",
+    timeout: cfg.timeout ?? 30,
+    result_variable: cfg.result_variable || "script_result",
+    input_node_id: cfg.input_node_id ?? null,
+    branches: Array.isArray(cfg.branches)
+      ? cfg.branches.map((b): ScriptBranch => ({ ...b }))
+      : [],
+  };
+}
+initScriptConfig();
+watch(() => localNode.value.node_type, (t) => {
+  if (t === "script") initScriptConfig();
+});
+
+/** 将 scriptConfig 同步回 localNode.config 以触发 emit */
+function syncScriptConfig() {
+  localNode.value = {
+    ...localNode.value,
+    config: { ...scriptConfig.value } as Record<string, unknown>,
+  };
+}
+
+/** 监听 scriptConfig 变化，自动同步到 localNode（不依赖 @change 事件） */
+watch(
+  scriptConfig,
+  () => {
+    if (!isUpdatingFromParent) {
+      syncScriptConfig();
+    }
+  },
+  { deep: true },
+);
+
+/** 结果变量引用提示（避免模板内联 {{ }} 拼接导致编译错误） */
+const scriptResultVarHint = computed(() => {
+  const varName = scriptConfig.value.result_variable || "script_result";
+  return `下游节点可通过 {{${varName}.field}} 引用脚本输出`;
+});
+
+const scriptEditorExtensions = computed(() => [python(), lintGutter()]);
+
+/** 帮助面板显示状态 */
+const scriptHelpVisible = ref(false);
+
+/** 脚本帮助文档内容 */
+const scriptHelpApi = {
+  setResult: "set_result(value)",
+  setBranch: "set_branch(label)",
+  modules: ["json", "re", "math", "datetime", "decimal", "collections", "itertools", "hashlib", "base64", "uuid", "statistics"],
+  examples: [
+    {
+      title: "读取上游输入",
+      code: `# input 为上游节点输出
+data = input or {}
+set_result({
+    'received': True,
+    'type': type(input).__name__,
+})`,
+    },
+    {
+      title: "处理查找记录结果",
+      code: `# input 为 find_records 节点输出
+data = input or {}
+records = data.get('records', []) if isinstance(data, dict) else []
+set_result({
+    'count': len(records),
+    'first': records[0] if records else None,
+})`,
+    },
+    {
+      title: "条件分支",
+      code: `# 根据值路由到不同分支
+value = input.get('score', 0) if isinstance(input, dict) else 0
+if value > 80:
+    set_branch('high')
+elif value > 60:
+    set_branch('medium')
+else:
+    set_branch('low')
+set_result({'score': value})`,
+    },
+    {
+      title: "数组聚合",
+      code: `# 对数组求和与均值
+import statistics
+data = input if isinstance(input, list) else [input]
+set_result({
+    'count': len(data),
+    'sum': sum(data),
+    'avg': statistics.mean(data) if data else 0,
+})`,
+    },
+    {
+      title: "读取触发记录字段",
+      code: `# context['record'] 为触发记录
+record = context.get('record', {}) if isinstance(context, dict) else {}
+field_value = record.get('field_id_here')
+set_result({'field_value': field_value})`,
+    },
+    {
+      title: "数据清洗",
+      code: `# 清洗字符串字段
+import re
+data = input or {}
+raw = data.get('phone', '') if isinstance(data, dict) else ''
+phone = re.sub(r'\\D', '', raw)
+set_result({'phone': phone, 'valid': len(phone) == 11})`,
+    },
+  ],
+};
+
+/** 输入来源候选：当前节点之前的节点（order 小于当前节点） */
+const scriptInputCandidates = computed(() => {
+  const cur = localNode.value;
+  return (props.allNodes || []).filter(
+    (n) => n.id !== cur.id && n.order < cur.order,
+  );
+});
+
+/** 分支目标候选：当前节点之外的其他节点 */
+const scriptBranchCandidates = computed(() => {
+  const cur = localNode.value;
+  return (props.allNodes || []).filter((n) => n.id !== cur.id);
+});
+
+const SCRIPT_TEMPLATES: { name: string; code: string }[] = [
+  {
+    name: "数据转换",
+    code: '# 转换输入数据\nresult = {"processed": True, "input_type": type(input).__name__}\nset_result(result)',
+  },
+  {
+    name: "条件分支",
+    code: '# 根据条件设置分支\nvalue = input.get("score", 0) if isinstance(input, dict) else 0\nif value > 80:\n    set_branch("high")\nelif value > 60:\n    set_branch("medium")\nelse:\n    set_branch("low")\nset_result({"score": value})',
+  },
+  {
+    name: "数组聚合",
+    code: "# 对数组求和\nimport statistics\ndata = input if isinstance(input, list) else [input]\nset_result({\"count\": len(data), \"sum\": sum(data), \"avg\": statistics.mean(data) if data else 0})",
+  },
+  {
+    name: "字段提取",
+    code: '# 从记录中提取字段\nrecord = context.get("record", {}) if isinstance(context, dict) else {}\nset_result({"field_value": record.get("field_id_here")})',
+  },
+];
+
+const currentLanguageTemplates = computed(() => SCRIPT_TEMPLATES);
+
+function insertTemplate(name: string) {
+  const tpl = currentLanguageTemplates.value.find((t) => t.name === name);
+  if (tpl) {
+    scriptConfig.value.script_source =
+      (scriptConfig.value.script_source
+        ? scriptConfig.value.script_source + "\n"
+        : "") + tpl.code;
+    syncScriptConfig();
+  }
+}
+
+const scriptTestInput = ref("");
+
+/** 示例输入 placeholder：展示上游节点实际输出格式 */
+const scriptTestInputPlaceholder = [
+  "模拟上游节点输出（即脚本中的 input 变量）",
+  '查找记录：{"count":1,"records":[{"id":"r1","name":"张三"}]}',
+  '更新/创建记录：{"record_id":"r1"}',
+].join("\n");
+
+const scriptTesting = ref(false);
+const scriptTestResult = ref<{
+  status: string;
+  result: unknown;
+  branch?: string | null;
+  error?: string;
+  duration_ms?: number;
+  stdout?: string;
+} | null>(null);
+
+async function runScriptTest() {
+  if (!scriptConfig.value.script_source.trim()) {
+    ElMessage.warning("请先输入脚本代码");
+    return;
+  }
+  let sampleInput: unknown = null;
+  const raw = scriptTestInput.value.trim();
+  if (raw) {
+    try {
+      sampleInput = JSON.parse(raw);
+    } catch {
+      ElMessage.warning("示例输入不是有效的 JSON");
+      return;
+    }
+  }
+  scriptTesting.value = true;
+  scriptTestResult.value = null;
+  try {
+    const res = await apiTestScriptNode(localNode.value.workflow_id, {
+      language: scriptConfig.value.language,
+      script_source: scriptConfig.value.script_source,
+      sample_input: sampleInput,
+      timeout: scriptConfig.value.timeout,
+    });
+    scriptTestResult.value = res;
+  } catch (e: unknown) {
+    const err = e as { message?: string };
+    scriptTestResult.value = {
+      status: "error",
+      result: null,
+      error: err?.message || "请求失败",
+    };
+  } finally {
+    scriptTesting.value = false;
+  }
+}
+
+function formatScriptResult(r: unknown): string {
+  try {
+    return JSON.stringify(r, null, 2);
+  } catch {
+    return String(r);
+  }
 }
 
 // ==================== 渲染辅助 ====================
@@ -1889,6 +2136,170 @@ const nodeTypeLabel = computed(() => {
       </div>
     </template>
 
+    <!-- 自定义脚本节点 -->
+    <template v-else-if="localNode.node_type === 'script'">
+      <el-form label-position="top" class="config-form">
+        <el-form-item label="脚本代码（python）">
+          <div class="script-editor-wrapper">
+            <codemirror
+              v-model="scriptConfig.script_source"
+              :extensions="scriptEditorExtensions"
+              :disabled="readonly"
+              :style="{ height: '300px' }" />
+            <div class="script-editor-toolbar">
+              <el-dropdown
+                trigger="click"
+                :disabled="readonly"
+                @command="insertTemplate">
+                <el-button
+                  type="primary"
+                  :icon="Plus"
+                  link
+                  size="small"
+                  :disabled="readonly"
+                  class="script-template-inserter-btn">
+                  插入模板
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-for="tpl in currentLanguageTemplates"
+                      :key="tpl.name"
+                      :command="tpl.name">
+                      {{ tpl.name }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-button
+                type="info"
+                :icon="QuestionFilled"
+                link
+                size="small"
+                class="script-help-btn"
+                @click="scriptHelpVisible = !scriptHelpVisible">
+                使用帮助
+              </el-button>
+            </div>
+            <div v-show="scriptHelpVisible" class="script-help-panel">
+              <div class="help-section">
+                <div class="help-title">预置变量</div>
+                <table class="help-table">
+                  <thead>
+                    <tr><th>变量</th><th>类型</th><th>说明</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>input</code></td>
+                      <td>any</td>
+                      <td>上游节点的输出数据（由"输入来源"决定）</td>
+                    </tr>
+                    <tr>
+                      <td><code>context</code></td>
+                      <td>object</td>
+                      <td>工作流上下文，含 trigger / record / instance / workflow / loop / node_outputs</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="help-section">
+                <div class="help-title">预置函数</div>
+                <table class="help-table">
+                  <thead>
+                    <tr><th>函数</th><th>说明</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>{{ scriptHelpApi.setResult }}</code></td>
+                      <td>设置脚本输出结果（推荐）</td>
+                    </tr>
+                    <tr>
+                      <td><code>{{ scriptHelpApi.setBranch }}</code></td>
+                      <td>声明分支标签，路由到对应目标节点</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="help-section">
+                <div class="help-title">白名单模块</div>
+                <div class="help-modules">
+                  <el-tag
+                    v-for="m in scriptHelpApi.modules"
+                    :key="m"
+                    size="small"
+                    class="help-module-tag">{{ m }}</el-tag>
+                </div>
+              </div>
+              <div class="help-section">
+                <div class="help-title">执行规则</div>
+                <ul class="help-rules">
+                  <li>输出必须可 JSON 序列化，体积 ≤ 1MB</li>
+                  <li>默认超时 30 秒（可配置 1-300 秒），超时强制终止</li>
+                  <li>禁用文件 I/O、网络、子进程等危险操作</li>
+                </ul>
+              </div>
+              <div class="help-example">
+                <div class="help-title">常见场景示例</div>
+                <div
+                  v-for="ex in scriptHelpApi.examples"
+                  :key="ex.title"
+                  class="help-example-item">
+                  <div class="help-example-title">{{ ex.title }}</div>
+                  <pre>{{ ex.code }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="超时时间（秒）">
+          <el-input-number v-model="scriptConfig.timeout" :min="1" :max="300" :disabled="readonly" @change="syncScriptConfig" />
+        </el-form-item>
+
+        <el-form-item label="结果变量名">
+          <el-input v-model="scriptConfig.result_variable" :disabled="readonly" placeholder="script_result" @change="syncScriptConfig" />
+          <div class="field-hint">{{ scriptResultVarHint }}</div>
+        </el-form-item>
+
+        <el-form-item label="输入来源">
+          <el-select v-model="scriptConfig.input_node_id" :disabled="readonly" placeholder="默认取上一节点输出" clearable class="full-width" @change="syncScriptConfig">
+            <el-option label="上一节点输出（默认）" :value="(null as any)" />
+            <el-option v-for="n in scriptInputCandidates" :key="n.id" :label="n.name + ' (' + n.node_type + ')'" :value="n.id" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="分支路由">
+          <div class="script-branches">
+            <div v-for="(b, idx) in scriptConfig.branches" :key="idx" class="script-branch-row">
+              <el-input v-model="b.label" placeholder="分支标签" :disabled="readonly" style="width:140px" @change="syncScriptConfig" />
+              <el-select v-model="b.target_node_id" placeholder="目标节点" :disabled="readonly" class="full-width" @change="syncScriptConfig">
+                <el-option v-for="n in scriptBranchCandidates" :key="n.id" :label="n.name + ' (' + n.node_type + ')'" :value="n.id" />
+              </el-select>
+              <el-button v-if="!readonly" :icon="Delete" link @click="scriptConfig.branches.splice(idx, 1); syncScriptConfig()" />
+            </div>
+            <el-button v-if="!readonly" :icon="Plus" text size="small" @click="scriptConfig.branches.push({ label: '', target_node_id: '' })">添加分支</el-button>
+            <div class="field-hint">脚本中调用 set_branch('标签') 即路由到对应目标节点</div>
+          </div>
+        </el-form-item>
+
+        <el-divider content-position="left">测试运行</el-divider>
+        <el-form-item label="示例输入（JSON）">
+          <el-input v-model="scriptTestInput" type="textarea" :rows="4" :placeholder="scriptTestInputPlaceholder" :disabled="readonly" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="scriptTesting" :disabled="readonly" @click="runScriptTest">测试运行</el-button>
+        </el-form-item>
+        <div v-if="scriptTestResult" class="script-test-result">
+          <div class="result-status" :class="{ success: scriptTestResult.status === 'success', error: scriptTestResult.status !== 'success' }">
+            {{ scriptTestResult.status === 'success' ? '执行成功' : '执行失败' }}（耗时 {{ scriptTestResult.duration_ms || 0 }}ms）
+          </div>
+          <pre v-if="scriptTestResult.status === 'success'" class="result-json">{{ formatScriptResult(scriptTestResult.result) }}</pre>
+          <pre v-if="scriptTestResult.status !== 'success'" class="result-error">{{ scriptTestResult.error }}</pre>
+          <div v-if="scriptTestResult.stdout" class="result-stdout"><span class="hint">stdout:</span> {{ scriptTestResult.stdout }}</div>
+        </div>
+      </el-form>
+    </template>
+
     <!-- 未知类型 -->
     <template v-else>
       <el-empty :description="`暂不支持该节点类型配置：${localNode.node_type || '未知类型'}`" />
@@ -1948,6 +2359,7 @@ const nodeTypeLabel = computed(() => {
   color: $text-secondary;
   line-height: 1.4;
   margin-top: 4px;
+  margin-left: 8px;
 }
 
 .condition-conjunction {
@@ -2372,5 +2784,208 @@ const nodeTypeLabel = computed(() => {
 
 .loop-body-add {
   margin-top: $spacing-xs;
+}
+
+.script-editor-wrapper {
+  width: 100%;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  overflow: hidden;
+  background-color: #fff;
+
+  .script-editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-xs $spacing-sm;
+    border-top: 1px solid $border-color;
+    background-color: $bg-color;
+  }
+
+  .script-template-inserter-btn,
+  .script-help-btn {
+    padding: 0;
+  }
+
+  .script-help-btn {
+    margin-left: auto;
+  }
+
+  .script-help-panel {
+    padding: $spacing-md;
+    max-height: 360px;
+    overflow-y: auto;
+    border-top: 1px solid $border-color;
+    background-color: $bg-color;
+    font-size: $font-size-sm;
+
+    .help-section {
+      margin-bottom: $spacing-md;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .help-title {
+      margin-bottom: $spacing-xs;
+      font-weight: 600;
+      color: $text-primary;
+    }
+
+    .help-table {
+      width: 100%;
+      border-collapse: collapse;
+
+      th,
+      td {
+        padding: $spacing-xs $spacing-sm;
+        border: 1px solid $border-color;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background-color: #fff;
+        font-weight: 600;
+      }
+
+      code {
+        padding: 1px 4px;
+        border-radius: $border-radius-sm;
+        background-color: $gray-100;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 12px;
+        color: $primary-color;
+      }
+    }
+
+    .help-modules {
+      display: flex;
+      flex-wrap: wrap;
+      gap: $spacing-xs;
+    }
+
+    .help-module-tag {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    .help-rules {
+      margin: 0;
+      padding-left: $spacing-lg;
+      color: $text-secondary;
+
+      li {
+        line-height: 1.8;
+      }
+    }
+
+    .help-example {
+      .help-example-item {
+        margin-bottom: $spacing-sm;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      .help-example-title {
+        margin-bottom: $spacing-xs;
+        font-weight: 600;
+        color: $primary-color;
+      }
+
+      pre {
+        margin: 0;
+        padding: $spacing-sm;
+        border-radius: $border-radius-sm;
+        background-color: #fff;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 12px;
+        color: $text-primary;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+    }
+  }
+
+  :deep(.cm-editor) {
+    height: 100%;
+    font-size: $font-size-sm;
+  }
+
+  :deep(.cm-scroller) {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+}
+
+.script-branches {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  width: 100%;
+}
+
+.script-branch-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.script-test-result {
+  margin-top: $spacing-sm;
+  padding: $spacing-sm;
+  background-color: $bg-color;
+  border-radius: $border-radius-md;
+  border: 1px solid $border-color;
+
+  .result-status {
+    font-weight: 600;
+    margin-bottom: $spacing-xs;
+
+    &.success {
+      color: $success-color;
+    }
+
+    &.error {
+      color: $error-color;
+    }
+  }
+
+  .result-json {
+    margin: 0;
+    padding: $spacing-sm;
+    background-color: #fff;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-xs;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 240px;
+    overflow: auto;
+  }
+
+  .result-error {
+    margin: 0;
+    padding: $spacing-sm;
+    background-color: #fff;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-xs;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    color: $error-color;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .result-stdout {
+    margin-top: $spacing-xs;
+    font-size: $font-size-xs;
+    color: $text-secondary;
+
+    .hint {
+      color: $text-secondary;
+      margin-right: 4px;
+    }
+  }
 }
 </style>

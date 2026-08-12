@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useWorkflowStore } from "@/stores/workflowStore";
+import { useMemberStore } from "@/stores/memberStore";
 import type { Workflow, WorkflowStatus } from "@/types/workflow";
 import type { TableEntity } from "@/db/schema";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -42,6 +43,10 @@ const emit = defineEmits<{
 }>();
 
 const workflowStore = useWorkflowStore();
+const memberStore = useMemberStore();
+
+// 权限控制：工作流管理需要管理员及以上角色
+const canManage = computed(() => memberStore.canManage);
 
 const isCollapsed = ref(false);
 function toggleCollapse() {
@@ -221,7 +226,7 @@ function handleSwitchTable() {
       <el-button title="工作流与数据表关联关系" type="success" plain class="action-btn" :icon="Connection" @click="openRelationDialog">
         <span class="btn-text">关系</span>
       </el-button>
-      <el-button title="新建工作流" type="primary" class="action-btn" :icon="Plus" @click="handleCreate">
+      <el-button v-if="canManage" title="新建工作流" type="primary" class="action-btn" :icon="Plus" @click="handleCreate">
         <span class="btn-text">新建</span>
       </el-button>
       <el-button
@@ -282,7 +287,7 @@ function handleSwitchTable() {
             }}
           </span>
           <el-button
-            v-if="workflow.status === 'draft'"
+            v-if="workflow.status === 'draft' && canManage"
             type="primary"
             link
             size="small"
@@ -300,7 +305,7 @@ function handleSwitchTable() {
           <span>创建于 {{ formatDate(workflow.created_at) }} &nbsp; &nbsp;更新于 {{ formatDate(workflow.updated_at) }}</span>
         </div>
 
-        <div class="card-actions">
+        <div v-if="canManage" class="card-actions">
           <el-button
             type="primary"
             :icon="Edit"

@@ -55,6 +55,13 @@ function getLabel(shortcut: {
             </div>
             <div class="shortcut-footer">
               <span class="shortcut-hint">按 <kbd>?</kbd> 显示此帮助</span>
+              <a
+                class="doc-link"
+                href="https://my-smart-table.github.io/smart-table-docs"
+                target="_blank"
+                rel="noopener noreferrer">
+                查看项目官方文档
+              </a>
             </div>
           </div>
         </Transition>
@@ -186,7 +193,11 @@ function getLabel(shortcut: {
 .shortcut-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border-color);
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
 
 .shortcut-hint {
@@ -206,6 +217,17 @@ function getLabel(shortcut: {
     font-family: inherit;
     font-size: 12px;
     margin: 0 4px;
+  }
+}
+
+.doc-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary-color, #409eff);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
   }
 }
 </style>

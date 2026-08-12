@@ -118,6 +118,24 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
     return null;
   }
 
+  // 单行文本字段正则校验
+  if (field.type === FieldType.SINGLE_LINE_TEXT) {
+    const regexPattern = (field.options?.regex as string | undefined) || "";
+    if (regexPattern) {
+      try {
+        const regex = new RegExp(regexPattern);
+        if (!regex.test(String(value))) {
+          return (
+            (field.options?.regexMessage as string | undefined) ||
+            `${field.name} 格式不正确`
+          );
+        }
+      } catch {
+        // 非法正则，放行
+      }
+    }
+  }
+
   // 字段类型特定验证
   switch (field.type) {
     case FieldType.EMAIL:

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useMemberStore } from "@/stores/memberStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import type {
   DataRecordUpdatedBroadcast,
@@ -54,6 +55,9 @@ const emit = defineEmits<{
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
+const memberStore = useMemberStore();
+// 权限控制：字段管理（隐藏/编辑属性）需要管理员及以上角色
+const canManage = computed(() => memberStore.canManage);
 
 const selectedRows = ref<string[]>([]);
 const hoveredRowId = ref<string | null>(null);
@@ -190,11 +194,14 @@ const contextMenuItems = computed(() => {
         items.push({ id: "freeze", label: "冻结列", icon: "freeze" });
       }
 
-      items.push(
-        { divider: true, id: "divider2" },
-        { id: "hide-field", label: "隐藏字段", icon: "hide" },
-        { id: "edit-field", label: "编辑字段属性", icon: "settings" },
-      );
+      // 隐藏字段和编辑字段属性需要 ADMIN 权限
+      if (canManage.value) {
+        items.push(
+          { divider: true, id: "divider2" },
+          { id: "hide-field", label: "隐藏字段", icon: "hide" },
+          { id: "edit-field", label: "编辑字段属性", icon: "settings" },
+        );
+      }
     }
   }
 

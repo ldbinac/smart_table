@@ -78,8 +78,10 @@ const handleLogin = async (data: LoginRequest) => {
         : route.query.redirect
       router.push(redirect || '/')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('登录失败:', error)
+    // 显示后端返回的错误信息（如"邮箱或密码错误"），而不是笼统的"登录已过期"
+    message.error(error?.message || '登录失败，请检查账号或密码')
   } finally {
     isLoading.value = false
   }

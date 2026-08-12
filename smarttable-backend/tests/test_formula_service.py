@@ -411,6 +411,68 @@ class TestDateFunctions:
         ts2 = int(datetime(2025, 6, 15).timestamp() * 1000)
         assert self._eval(f'DATEDIF({ts1}, {ts2}, "D")') == 14
 
+    def test_year_today_nested(self):
+        """YEAR(TODAY()) 嵌套函数返回当前年份"""
+        result = self._eval('YEAR(TODAY())')
+        from datetime import date
+        assert result == date.today().year
+
+    def test_month_today_nested(self):
+        """MONTH(TODAY()) 嵌套函数返回当前月份"""
+        result = self._eval('MONTH(TODAY())')
+        from datetime import date
+        assert result == date.today().month
+
+    def test_day_today_nested(self):
+        """DAY(TODAY()) 嵌套函数返回当前日"""
+        result = self._eval('DAY(TODAY())')
+        from datetime import date
+        assert result == date.today().day
+
+    def test_datedif_today_nested(self):
+        """DATEDIF({字段}, TODAY(), 'Y') 嵌套函数计算年龄差"""
+        ctx = {'birth': '1990-01-01'}
+        result = self._eval('DATEDIF({birth}, TODAY(), "Y")', ctx)
+        from datetime import date
+        expected_age = date.today().year - 1990
+        # 允许 1 岁的误差（取决于生日是否已过）
+        assert abs(result - expected_age) <= 1
+
+    def test_year_now_nested(self):
+        """YEAR(NOW()) 嵌套函数返回当前年份"""
+        result = self._eval('YEAR(NOW())')
+        from datetime import date
+        assert result == date.today().year
+
+    def test_datetime_format_mid_nested(self):
+        """DATETIME_FORMAT(MID(...), ...) 嵌套函数提取身份证日期"""
+        ctx = {'id_card': '11010119900307888X'}
+        # MID 提取 YYYYMMDD，DATETIME_FORMAT 格式化为标准日期字符串，DATEDIF 计算年龄
+        result = self._eval(
+            'DATEDIF(DATETIME_FORMAT(MID({id_card}, 7, 8), "%Y-%m-%d"), TODAY(), "Y")',
+            ctx
+        )
+        from datetime import date
+        expected_age = date.today().year - 1990
+        # 1990年出生，年龄应合理
+        assert result is not None
+        assert isinstance(result, int)
+        assert abs(result - expected_age) <= 1
+
+    def test_mid_datetime_format_parse(self):
+        """MID → DATETIME_FORMAT 数据转换测试"""
+        ctx = {'id_card': '11010119900307888X'}
+        # MID 提取 "19900307"，DATETIME_FORMAT 格式化为 "1990-03-07"
+        result = self._eval('DATETIME_FORMAT(MID({id_card}, 7, 8), "%Y-%m-%d")', ctx)
+        assert result == '1990-03-07'
+
+    def test_deeply_nested_functions(self):
+        """多层嵌套函数测试"""
+        ctx = {'a': 10, 'b': 20}
+        result = self._eval('YEAR(DATEADD(TODAY(), 0, "D"))', ctx)
+        from datetime import date
+        assert result == date.today().year
+
 
 class TestLogicFunctions:
     """逻辑函数测试"""

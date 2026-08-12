@@ -409,12 +409,20 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
   },
 
   IFS: (...args: unknown[]) => {
-    for (let i = 0; i < args.length; i += 2) {
+    // 参数个数为奇数时，最后一个参数视为「默认兜底值」（所有条件都不满足时返回）
+    const hasDefault = args.length % 2 !== 0
+    const pairCount = hasDefault ? args.length - 1 : args.length
+
+    for (let i = 0; i < pairCount; i += 2) {
       const condition = args[i]
       const value = args[i + 1]
       if (toBoolean(condition)) {
         return value
       }
+    }
+
+    if (hasDefault) {
+      return args[args.length - 1]
     }
     return '#ERROR'
   },
@@ -645,10 +653,34 @@ function parseDateValue(value: unknown): dayjs.Dayjs | null {
     return d.isValid() ? d : null
   }
 
-  // 字符串：尝试用 dayjs 解析
+  // 字符串处理
   if (typeof value === 'string') {
-    const d = dayjs(value)
-    return d.isValid() ? d : null
+    const trimmed = value.trim()
+    if (!trimmed) return null
+
+    // 支持 YYYYMMDD 格式（如 MID 返回的 "19900307"）
+    // 必须在数字时间戳检查之前，因为 8 位数字字符串也会通过 Number 检查
+    if (/^\d{8}$/.test(trimmed)) {
+      const year = parseInt(trimmed.substring(0, 4), 10)
+      const month = parseInt(trimmed.substring(4, 6), 10) - 1
+      const day = parseInt(trimmed.substring(6, 8), 10)
+      const d = dayjs(new Date(year, month, day))
+      if (d.isValid()) return d
+    }
+
+    // 尝试解析为数字时间戳（其他函数返回的序列化时间戳）
+    // 只有超过 8 位（如 13 位毫秒时间戳）才尝试，避免与 YYYYMMDD 混淆
+    const num = Number(trimmed)
+    if (!isNaN(num) && trimmed.length > 8) {
+      const d = dayjs(num)
+      if (d.isValid()) return d
+    }
+
+    // 尝试用 dayjs 解析标准格式
+    const d = dayjs(trimmed)
+    if (d.isValid()) return d
+
+    return null
   }
 
   // Date 对象或 dayjs 对象

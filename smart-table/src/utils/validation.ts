@@ -408,11 +408,13 @@ export function validateUrl(value: string): FieldFormatValidationResult {
  * 根据字段类型校验值格式
  * @param value 字段值
  * @param fieldType 字段类型
+ * @param field 字段实体（用于读取单行文本字段的 options.regex 等配置）
  * @returns 校验结果
  */
 export function validateFieldFormat(
   value: CellValue,
   fieldType: FieldTypeValue,
+  field?: FieldEntity,
 ): FieldFormatValidationResult {
   if (!value || (typeof value === "string" && value.trim() === "")) {
     return { valid: true };
@@ -427,6 +429,31 @@ export function validateFieldFormat(
       return validatePhone(strValue);
     case FieldType.URL:
       return validateUrl(strValue);
+    case FieldType.SINGLE_LINE_TEXT: {
+      // 读取正则配置，空字符串或不存在时不校验
+      const regexPattern = field?.options?.regex;
+      if (typeof regexPattern !== "string" || regexPattern === "") {
+        return { valid: true };
+      }
+      try {
+        const regex = new RegExp(regexPattern);
+        if (regex.test(strValue)) {
+          return { valid: true };
+        }
+        // 不匹配时返回自定义提示或默认提示
+        const customMessage = field?.options?.regexMessage;
+        return {
+          valid: false,
+          error:
+            typeof customMessage === "string" && customMessage
+              ? customMessage
+              : `${field?.name ?? ""} 格式不正确`,
+        };
+      } catch {
+        // 非法正则放行
+        return { valid: true };
+      }
+    }
     default:
       return { valid: true };
   }
@@ -446,17 +473,26 @@ export function validateFieldsFormat(
     [];
 
   for (const field of fields) {
-    // 只校验 EMAIL、PHONE、URL 类型字段
-    if (
-      field.type !== FieldType.EMAIL &&
-      field.type !== FieldType.PHONE &&
-      field.type !== FieldType.URL
-    ) {
+    // 校验 EMAIL、PHONE、URL 类型字段，以及配置了 regex 的单行文本字段
+    const isFormatFieldType =
+      field.type === FieldType.EMAIL ||
+      field.type === FieldType.PHONE ||
+      field.type === FieldType.URL;
+    const isRegexText =
+      field.type === FieldType.SINGLE_LINE_TEXT &&
+      typeof field.options?.regex === "string" &&
+      field.options.regex !== "";
+
+    if (!isFormatFieldType && !isRegexText) {
       continue;
     }
 
     const value = values[field.id];
-    const result = validateFieldFormat(value, field.type as FieldTypeValue);
+    const result = validateFieldFormat(
+      value,
+      field.type as FieldTypeValue,
+      field,
+    );
 
     if (!result.valid) {
       errors.push({
@@ -469,3 +505,43 @@ export function validateFieldsFormat(
 
   return errors;
 }
+
+// ==================== 单行文本字段预置正则选项 ====================
+
+/** 预置正则选项单项结构 */
+export interface PresetRegexOption {
+  /** 选项标签 */
+  label: string;
+  /** 正则表达式字符串 */
+  pattern: string;
+  /** 校验失败提示信息 */
+  message: string;
+}
+
+/**
+ * 单行文本字段预置正则选项列表
+ * 可在前端配置界面供用户选择，pattern 为字符串形式（可直接用于 new RegExp）
+ */
+export const PRESET_REGEX_OPTIONS: PresetRegexOption[] = [
+  {
+    label: "国内电话号码",
+    pattern: "^\\d{3,4}-\\d{7,8}$",
+    message: "请输入正确的电话号码格式（如 0511-4405222）",
+  },
+  {
+    label: "中国邮政编码",
+    pattern: "^[1-9]\\d{5}$",
+    message: "请输入正确的6位邮政编码",
+  },
+  {
+    label: "中国身份证号码",
+    pattern: "^\\d{15}$|^\\d{17}[\\dXx]$",
+    message: "请输入正确的身份证号码",
+  },
+  {
+    label: "IPv4 地址",
+    pattern:
+      "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
+    message: "请输入正确的 IPv4 地址",
+  },
+];

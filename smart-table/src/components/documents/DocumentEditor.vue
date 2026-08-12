@@ -542,7 +542,21 @@ watch(() => props.document, (newDoc, oldDoc) => {
 
 const handleSaveName = async () => {
   if (documentName.value !== props.document.name) {
-    await documentApiService.update(props.document.id, { name: documentName.value });
+    const expectedUpdatedAt = typeof props.document.updatedAt === 'number'
+      ? new Date(props.document.updatedAt).toISOString()
+      : String(props.document.updatedAt);
+    try {
+      await documentApiService.update(props.document.id, {
+        name: documentName.value,
+        expected_updated_at: expectedUpdatedAt,
+      });
+    } catch (error: any) {
+      if (error?.response?.status === 409) {
+        ElMessage.warning('文档已被他人修改，请刷新页面获取最新内容后重试');
+      } else {
+        ElMessage.error('重命名失败，请重试');
+      }
+    }
   }
 };
 
@@ -557,9 +571,15 @@ const doSave = async (showMessage = true) => {
   isSaving = true;
   saveStatus.value = 'saving';
   try {
+    // 乐观锁：传递 expected_updated_at 让后端检测并发冲突
+    const expectedUpdatedAt = typeof props.document.updatedAt === 'number'
+      ? new Date(props.document.updatedAt).toISOString()
+      : String(props.document.updatedAt);
+
     const updated = await documentApiService.update(props.document.id, {
       content,
-      contentFormat: 'delta'
+      contentFormat: 'delta',
+      expected_updated_at: expectedUpdatedAt,
     });
     savedContent.value = content;
     saveStatus.value = 'saved';
@@ -567,10 +587,15 @@ const doSave = async (showMessage = true) => {
     if (showMessage) {
       ElMessage.success('保存成功');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[DocumentEditor] 保存失败:', error);
     saveStatus.value = 'unsaved';
-    ElMessage.error('保存失败，请重试');
+    // 409 冲突：文档已被他人修改
+    if (error?.response?.status === 409) {
+      ElMessage.warning('文档已被他人修改，请刷新页面获取最新内容后重试');
+    } else {
+      ElMessage.error('保存失败，请重试');
+    }
   } finally {
     isSaving = false;
   }

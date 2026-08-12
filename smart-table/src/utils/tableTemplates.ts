@@ -54,6 +54,8 @@ export interface TableTemplate {
   color: string;
   category: string;
   tables: TemplateTable[];
+  /** 是否默认隐藏（不展示在模板选择列表中） */
+  hidden?: boolean;
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -1106,6 +1108,7 @@ const fullFieldTypeTestTemplate: TableTemplate = {
   icon: '🧪',
   color: '#6366F1',
   category: '全字段测试',
+  hidden: true,
   tables: [
     {
       id: 'test-table',

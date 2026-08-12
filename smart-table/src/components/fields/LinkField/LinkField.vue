@@ -35,6 +35,7 @@
         :selected-ids="selectedRecordIds"
         :linked-records="linkedRecords"
         :allow-multiple="allowMultiple"
+        :exclude-record-id="props.isSelfLink ? props.recordId : ''"
         @confirm="handleConfirm"
         @cancel="handleCancel"
       />
@@ -73,6 +74,8 @@ interface Props {
   readonly?: boolean;
   recordId?: string;
   fieldId?: string;
+  /** 是否为自关联字段（关联自身表）：强制单选且禁止选择当前记录自身 */
+  isSelfLink?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -84,6 +87,7 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   recordId: "",
   fieldId: "",
+  isSelfLink: false,
 });
 
 const emit = defineEmits<{
@@ -96,10 +100,12 @@ const emit = defineEmits<{
 
 const selectedRecordIds = computed(() => props.value || []);
 
-const allowMultiple = computed(() => 
-  props.relationshipType === "one_to_many" || 
-  props.relationshipType === "many_to_many"
-);
+// 自关联字段强制单选（父级记录仅能有一个）；普通关联按关系类型决定
+const allowMultiple = computed(() => {
+  if (props.isSelfLink) return false;
+  return props.relationshipType === "one_to_many" ||
+    props.relationshipType === "many_to_many";
+});
 
 // 显示的记录列表
 const displayedRecords = computed(() => {

@@ -34,8 +34,8 @@ const props = defineProps<{
   showDashboards?: boolean;
   // 是否显示文档列表
   showDocuments?: boolean;
-  // 是否有编辑权限
-  canEdit?: boolean;
+  // 是否有管理权限（owner/admin）
+  canManage?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -443,7 +443,7 @@ defineExpose({
         >
 
         <el-button
-          v-if="isDashboardView"
+          v-if="isDashboardView && canManage !== false"
           link
           class="manage-btn"
           @click.stop="handleManageDashboards">
@@ -494,7 +494,9 @@ defineExpose({
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">
+                  <el-dropdown-item
+                    v-if="canManage !== false"
+                    command="rename">
                     <el-icon><Edit /></el-icon>重命名
                   </el-dropdown-item>
                   <el-dropdown-item command="star">
@@ -505,6 +507,7 @@ defineExpose({
                     {{ dashboard.isStarred ? "取消收藏" : "收藏" }}
                   </el-dropdown-item>
                   <el-dropdown-item
+                    v-if="canManage !== false"
                     divided
                     command="delete"
                     class="delete-item">
@@ -579,7 +582,9 @@ defineExpose({
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">
+                  <el-dropdown-item
+                    v-if="canManage !== false"
+                    command="rename">
                     <el-icon><Edit /></el-icon>重命名
                   </el-dropdown-item>
                   <el-dropdown-item command="pin">
@@ -587,6 +592,7 @@ defineExpose({
                     {{ doc.isPinned ? "取消置顶" : "置顶" }}
                   </el-dropdown-item>
                   <el-dropdown-item
+                    v-if="canManage !== false"
                     divided
                     command="delete"
                     class="delete-item">
@@ -622,7 +628,7 @@ defineExpose({
         >
 
         <el-button
-          v-if="isTableView || isDefaultView"
+          v-if="(isTableView || isDefaultView) && canManage !== false"
           link
           class="manage-btn"
           @click.stop="handleManageTables">
@@ -673,7 +679,9 @@ defineExpose({
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">
+                  <el-dropdown-item
+                    v-if="canManage !== false"
+                    command="rename">
                     <el-icon><Edit /></el-icon>重命名
                   </el-dropdown-item>
                   <el-dropdown-item command="star">
@@ -683,6 +691,7 @@ defineExpose({
                     {{ table.isStarred ? "取消收藏" : "收藏" }}
                   </el-dropdown-item>
                   <el-dropdown-item
+                    v-if="canManage !== false"
                     divided
                     command="delete"
                     class="delete-item">
@@ -701,7 +710,7 @@ defineExpose({
       <div class="footer-buttons-column">
         <el-button
           title="添加新的空白数据表"
-          v-if="showTables !== false && canEdit !== false"
+          v-if="showTables !== false && canManage !== false"
           type="primary"
           text
           @click="handleAddTable"
@@ -712,7 +721,7 @@ defineExpose({
         <el-button
           title="添加新的空白仪表盘"
           style="margin-left: 0px"
-          v-if="showDashboards !== false && canEdit !== false"
+          v-if="showDashboards !== false && canManage !== false"
           type="primary"
           text
           @click="handleAddDashboard"
@@ -723,7 +732,7 @@ defineExpose({
         <el-button
           title="根据Excel表格的表头和数据，自动识别创建数据表的字段，并支持创建后直接导入数据"
           style="margin-left: 0px"
-          v-if="showTables !== false && canEdit !== false"
+          v-if="showTables !== false && canManage !== false"
           type="primary"
           text
           @click="handleExcelImportCreate"
@@ -734,7 +743,7 @@ defineExpose({
         <el-button
           title="添加新文档"
           style="margin-left: 0px"
-          v-if="showDocuments !== false && canEdit !== false"
+          v-if="showDocuments !== false && canManage !== false"
           type="primary"
           text
           @click="handleAddDocument"

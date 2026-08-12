@@ -39,6 +39,7 @@ import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.vue";
 import FormulaHelper from "@/components/fields/FormulaHelper.vue";
+import { PRESET_REGEX_OPTIONS } from "@/utils/validation";
 
 const viewStore = useViewStore();
 const tableStore = useTableStore();
@@ -100,6 +101,9 @@ const newField = ref<{
   };
   // 文本字段配置
   maxLength?: number;
+  // 单行文本字段正则校验配置
+  regex?: string;
+  regexMessage?: string;
   // 单元格合并配置
   mergeCell: boolean;
 }>({
@@ -133,6 +137,8 @@ const newField = ref<{
     },
   },
   maxLength: undefined,
+  regex: undefined,
+  regexMessage: undefined,
   mergeCell: false,
 });
 
@@ -145,6 +151,16 @@ const fieldTypeConfigs = getUserCreatableFieldTypeOptions({
 const selectOptions = ref<{ id: string; name: string; color: string }[]>([]);
 const newOptionName = ref("");
 const newOptionColor = ref("#3370FF");
+
+// 应用预置正则：同时写入 regex 与对应的提示信息
+const applyPresetRegex = (preset: {
+  label: string;
+  pattern: string;
+  message: string;
+}) => {
+  newField.value.regex = preset.pattern;
+  newField.value.regexMessage = preset.message;
+};
 
 // 附件字段配置
 const attachmentConfig = ref({
@@ -172,8 +188,8 @@ const memberConfig = ref({
 
 // 关联字段配置 - 可关联的表列表
 const availableTables = computed(() => {
-  // 使用 tableStore.tables 获取当前 base 的所有表
-  return tableStore.tables.filter((t) => t.id !== props.tableId);
+  // 使用 tableStore.tables 获取当前 base 的所有表（包含自身表，用于自关联）
+  return tableStore.tables;
 });
 
 // 目标表的字段列表
@@ -201,6 +217,10 @@ watch(
   (newTableId) => {
     if (newTableId) {
       loadTargetTableFields(newTableId);
+      // 自关联（关联自身表）时，默认使用一对多关系并禁用变更
+      if (newTableId === props.tableId) {
+        newField.value.linkConfig.relationshipType = "one_to_many";
+      }
     } else {
       targetTableFields.value = [];
     }
@@ -391,6 +411,8 @@ function openCreateField() {
       },
     },
     maxLength: undefined,
+    regex: undefined,
+    regexMessage: undefined,
     mergeCell: false,
   };
   selectOptions.value = [];
@@ -466,6 +488,8 @@ function openEditField(field: FieldEntity) {
       },
     },
     maxLength: (field.options?.maxLength as number) ?? undefined,
+    regex: (field.options?.regex as string) ?? undefined,
+    regexMessage: (field.options?.regexMessage as string) ?? undefined,
     mergeCell: Boolean(field.options?.mergeCell),
   };
 
@@ -588,6 +612,8 @@ function backToList() {
       },
     },
     maxLength: undefined,
+    regex: undefined,
+    regexMessage: undefined,
     mergeCell: false,
   };
   selectOptions.value = [];
@@ -693,6 +719,15 @@ async function createField() {
         newField.value.type === FieldType.RICH_TEXT) {
       if (newField.value.maxLength) {
         options.maxLength = newField.value.maxLength;
+      }
+    }
+    // 单行文本字段正则校验配置
+    if (newField.value.type === FieldType.SINGLE_LINE_TEXT) {
+      if (newField.value.regex) {
+        options.regex = newField.value.regex;
+        if (newField.value.regexMessage) {
+          options.regexMessage = newField.value.regexMessage;
+        }
       }
     }
     // 自动编号字段配置
@@ -859,6 +894,15 @@ async function updateField() {
         newField.value.type === FieldType.RICH_TEXT) {
       if (newField.value.maxLength) {
         options.maxLength = newField.value.maxLength;
+      }
+    }
+    // 单行文本字段正则校验配置
+    if (newField.value.type === FieldType.SINGLE_LINE_TEXT) {
+      if (newField.value.regex) {
+        options.regex = newField.value.regex;
+        if (newField.value.regexMessage) {
+          options.regexMessage = newField.value.regexMessage;
+        }
       }
     }
     // 自动编号字段配置
@@ -1444,6 +1488,37 @@ async function toggleFieldVisibility(
           <div class="field-hint">设置文本的最大长度，不填则不限制</div>
         </ElFormItem>
 
+        <!-- 单行文本字段正则校验配置 -->
+        <template v-if="newField.type === FieldType.SINGLE_LINE_TEXT">
+          
+          <ElFormItem label="正则表达式">
+            <ElInput
+              v-model="newField.regex"
+              placeholder="请输入正则表达式，如 ^\d{4}$"
+              clearable />
+            <div class="field-hint">使用 JavaScript 正则语法，留空则不校验</div>
+            <div class="regex-preset-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <ElTag
+                v-for="preset in PRESET_REGEX_OPTIONS"
+                :key="preset.label"
+                size="small"
+                type="info"
+                effect="plain"
+                title="点击标签快速填充常用正则"
+                style="cursor: pointer; user-select: none"
+                @click="applyPresetRegex(preset)">
+                {{ preset.label }}
+              </ElTag>
+            </div>
+          </ElFormItem>
+          <ElFormItem v-if="newField.regex" label="正则校验提示">
+            <ElInput
+              v-model="newField.regexMessage"
+              placeholder="校验不通过时显示的提示信息"
+              clearable />
+          </ElFormItem>
+        </template>
+
         <!-- 数值字段精度配置 -->
         <ElFormItem v-if="newField.type === FieldType.NUMBER" label="小数位数">
           <div class="precision-config">
@@ -1687,14 +1762,21 @@ async function toggleFieldVisibility(
               <ElOption
                 v-for="table in availableTables"
                 :key="table.id"
-                :label="table.name"
+                :label="table.id === tableId ? `${table.name}（当前表）` : table.name"
                 :value="table.id" />
             </ElSelect>
             <div class="field-hint">选择要关联的目标数据表</div>
+            <div
+              v-if="newField.linkConfig.targetTableId === tableId"
+              class="field-hint self-link-hint">
+              关联自身表可用于在表格视图中设置记录层级
+            </div>
           </ElFormItem>
 
           <ElFormItem label="关联类型" required>
-            <ElRadioGroup v-model="newField.linkConfig.relationshipType">
+            <ElRadioGroup
+              v-model="newField.linkConfig.relationshipType"
+              :disabled="newField.linkConfig.targetTableId === tableId">
               <ElRadioButton label="one_to_one">一对一</ElRadioButton>
               <ElRadioButton label="one_to_many">一对多</ElRadioButton>
               <ElRadioButton label="many_to_one">多对一</ElRadioButton>
@@ -1723,7 +1805,7 @@ async function toggleFieldVisibility(
           </ElFormItem>
 
           <ElFormItem label="双向关联">
-            <ElSwitch v-model="newField.linkConfig.bidirectional" />
+            <ElSwitch v-model="newField.linkConfig.bidirectional" :disabled="newField.linkConfig.targetTableId === tableId" />
             <div class="field-hint">
               开启后会在目标表中自动创建一个反向关联字段，方便从目标记录查看关联的源记录
             </div>
@@ -2185,6 +2267,11 @@ async function toggleFieldVisibility(
     font-size: calc($font-size-xs * 0.85);
     color: $text-secondary;
     margin-top: 4px;
+  }
+
+  .self-link-hint {
+    color: var(--el-color-primary);
+    font-weight: 500;
   }
 
   .options-editor {

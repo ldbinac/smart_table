@@ -30,7 +30,7 @@ class FormShareService:
     """表单分享服务类"""
     
     # 速率限制配置
-    SUBMIT_RATE_LIMIT = 10  # 每 IP 每 15 分钟最多提交次数
+    SUBMIT_RATE_LIMIT = 100  # 每个分享链接每 15 分钟最多的提交次数（用于防刷，而非限制正常多用户填写）
     RATE_LIMIT_WINDOW = 900  # 15 分钟（秒）
     
     @staticmethod
@@ -281,10 +281,12 @@ class FormShareService:
             status = 403 if '失效' in error or '过期' in error or '上限' in error else 404
             return {'success': False, 'error': error, 'status': status}
         
-        # 检查速率限制
-        client_ip = client_info.get('ip', 'unknown')
-        if not FormShareService._check_rate_limit(client_ip):
+        # 检查速率限制（按分享令牌维度）
+        if not FormShareService._check_rate_limit(token):
             return {'success': False, 'error': '提交过于频繁，请稍后再试', 'status': 429}
+
+        # 获取提交者 IP（用于记录，不参与限流判断）
+        client_ip = client_info.get('ip', 'unknown')
         
         # 验证验证码（如果需要）
         if form_share.require_captcha:
@@ -516,14 +518,14 @@ class FormShareService:
         return None
     
     @staticmethod
-    def _check_rate_limit(client_ip: str) -> bool:
+    def _check_rate_limit(token: str) -> bool:
         """
-        检查速率限制
+        检查速率限制（按分享令牌维度，避免同一局域网/出口 IP 的多个正常用户被全局限流误伤）
         
         Returns:
             True 表示允许提交，False 表示超过限制
         """
-        cache_key = f'form_share_submit:{client_ip}'
+        cache_key = f'form_share_submit:{token}'
         
         # 获取当前提交次数
         submit_count = cache.get(cache_key) or 0

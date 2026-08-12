@@ -14,6 +14,18 @@
         <el-tag size="small" type="primary" effect="plain">
           {{ targetTableName }}
         </el-tag>
+        <el-tag v-if="!allowMultiple" size="small" type="warning" effect="plain">
+          仅可选择一条
+        </el-tag>
+        <el-tag
+          v-if="excludeRecordId"
+          size="small"
+          type="info"
+          effect="plain"
+          class="self-hint-tag"
+        >
+          不能选择当前记录自身
+        </el-tag>
       </div>
 
       <!-- 搜索栏 -->
@@ -171,12 +183,15 @@ interface Props {
   selectedIds?: string[];
   linkedRecords?: LinkedRecord[];
   allowMultiple?: boolean;
+  /** 需要从可选列表中排除的记录 ID（如自关联时禁止选择当前记录自身） */
+  excludeRecordId?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   selectedIds: () => [],
   linkedRecords: () => [],
   allowMultiple: true,
+  excludeRecordId: "",
 });
 
 const MAX_DISPLAY_FIELDS = 3;
@@ -260,9 +275,10 @@ const initSelectedRecords = () => {
       }
     }
 
-    const uniqueIds = [...new Set(props.selectedIds)];
-
-    console.log('[LinkRecordSelector] initSelectedRecords: ids=', props.selectedIds, 'uniqueIds=', uniqueIds, 'linkedMapSize=', linkedRecordMap.size);
+    // 过滤掉当前记录自身（自关联场景禁止选自己作为父级）
+    const uniqueIds = [...new Set(props.selectedIds)].filter(
+      (id) => id !== props.excludeRecordId
+    );
 
     for (const id of uniqueIds) {
       const linked = linkedRecordMap.get(id);
@@ -274,8 +290,6 @@ const initSelectedRecords = () => {
         },
       });
     }
-  } else {
-    console.log('[LinkRecordSelector] initSelectedRecords: no selectedIds, selectedRecords cleared');
   }
 };
 
@@ -486,11 +500,16 @@ const loadRecords = async () => {
   if (!props.targetTableId) return;
   loading.value = true;
   try {
+    // 自关联场景下排除当前记录自身（禁止选自己作为父级）
+    const excludeIds = [...(props.selectedIds || [])];
+    if (props.excludeRecordId && !excludeIds.includes(props.excludeRecordId)) {
+      excludeIds.push(props.excludeRecordId);
+    }
     const result = await linkApiService.searchLinkableRecords(
       props.targetTableId,
       {
         keyword: searchKeyword.value,
-        exclude_ids: props.selectedIds,
+        exclude_ids: excludeIds,
         page: currentPage.value,
         per_page: pageSize.value,
       }
@@ -624,6 +643,9 @@ const isSelected = (recordId: string): boolean => {
 };
 
 const toggleSelect = (record: { id: string; values: Record<string, unknown> }) => {
+  // 禁止选择当前记录自身（自关联场景）
+  if (props.excludeRecordId && record.id === props.excludeRecordId) return;
+
   const index = selectedRecords.value.findIndex((r) => r.id === record.id);
   if (index > -1) {
     selectedRecords.value.splice(index, 1);

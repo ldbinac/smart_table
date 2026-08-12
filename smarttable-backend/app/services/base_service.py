@@ -21,6 +21,7 @@ from app.models.dashboard import Dashboard
 from app.utils.constants import ROLE_LEVELS
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
+from app.services.notification_service import NotificationService
 
 
 class BaseService:
@@ -326,32 +327,32 @@ class BaseService:
         db.session.add(membership)
         db.session.commit()
 
-        # 发送分享邀请邮件
-        if EmailConfigService.is_email_enabled():
-            try:
-                inviter = User.query.get(invited_by)
-                base_link = f"{EmailConfigService.get_frontend_url()}/base/{base_id}"
-                permission_map = {
-                    'owner': '所有者',
-                    'admin': '管理员',
-                    'editor': '编辑者',
-                    'commenter': '评论者',
-                    'viewer': '查看者'
-                }
-                EmailSenderService.send_email_quick(
-                    to_email=user.email,
-                    to_name=user.name,
-                    template_key='share_invitation',
-                    template_data={
-                        'sharer_name': inviter.name if inviter else '系统管理员',
-                        'base_name': base.name if base else '未命名多维表',
-                        'base_description': base.description or '暂无描述',
-                        'permission': permission_map.get(member_role.value, member_role.value),
-                        'base_link': base_link
-                    }
-                )
-            except Exception as e:
-                current_app.logger.error(f'发送分享邀请邮件失败: {str(e)}')
+        # 发送分享邀请通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+        try:
+            inviter = User.query.get(invited_by)
+            base_link = f"{EmailConfigService.get_frontend_url()}/base/{base_id}"
+            permission_map = {
+                'owner': '所有者',
+                'admin': '管理员',
+                'editor': '编辑者',
+                'commenter': '评论者',
+                'viewer': '查看者'
+            }
+            NotificationService.send_notification(
+                recipient_email=user.email,
+                recipient_user_id=user.id,
+                template_key='share_invitation',
+                template_data={
+                    'sharer_name': inviter.name if inviter else '系统管理员',
+                    'base_name': base.name if base else '未命名多维表',
+                    'base_description': base.description or '暂无描述',
+                    'permission': permission_map.get(member_role.value, member_role.value),
+                    'base_link': base_link
+                },
+                source='system'
+            )
+        except Exception as e:
+            current_app.logger.error(f'发送分享邀请邮件失败: {str(e)}')
 
         return {
             'success': True,
@@ -387,20 +388,21 @@ class BaseService:
             db.session.delete(membership)
             db.session.commit()
 
-            # 发送分享移除通知邮件
-            if EmailConfigService.is_email_enabled() and user and base:
+            # 发送分享移除通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            if user and base:
                 try:
                     operator = User.query.get(removed_by) if removed_by else None
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
+                    NotificationService.send_notification(
+                        recipient_email=user.email,
+                        recipient_user_id=user.id,
                         template_key='share_removed',
                         template_data={
                             'user_name': user.name,
                             'base_name': base.name,
                             'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                             'operator_name': operator.name if operator else '系统管理员'
-                        }
+                        },
+                        source='system'
                     )
                 except Exception as e:
                     current_app.logger.error(f'发送分享移除通知邮件失败: {str(e)}')
@@ -443,39 +445,39 @@ class BaseService:
         membership.role = member_role
         db.session.commit()
 
-        # 发送权限变更通知邮件
-        if EmailConfigService.is_email_enabled():
-            try:
-                user = User.query.get(user_id)
-                base = Base.query.get(base_id)
+        # 发送权限变更通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+        try:
+            user = User.query.get(user_id)
+            base = Base.query.get(base_id)
 
-                if user and base:
-                    operator = User.query.get(updated_by) if updated_by else None
-                    permission_map = {
-                        'owner': '所有者',
-                        'admin': '管理员',
-                        'editor': '编辑者',
-                        'commenter': '评论者',
-                        'viewer': '查看者'
-                    }
-                    base_link = f"{EmailConfigService.get_frontend_url()}/base/{base_id}"
+            if user and base:
+                operator = User.query.get(updated_by) if updated_by else None
+                permission_map = {
+                    'owner': '所有者',
+                    'admin': '管理员',
+                    'editor': '编辑者',
+                    'commenter': '评论者',
+                    'viewer': '查看者'
+                }
+                base_link = f"{EmailConfigService.get_frontend_url()}/base/{base_id}"
 
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
-                        template_key='permission_changed',
-                        template_data={
-                            'user_name': user.name,
-                            'base_name': base.name,
-                            'old_permission': permission_map.get(old_role.value, old_role.value),
-                            'new_permission': permission_map.get(member_role.value, member_role.value),
-                            'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'operator_name': operator.name if operator else '系统管理员',
-                            'base_link': base_link
-                        }
-                    )
-            except Exception as e:
-                current_app.logger.error(f'发送权限变更通知邮件失败: {str(e)}')
+                NotificationService.send_notification(
+                    recipient_email=user.email,
+                    recipient_user_id=user.id,
+                    template_key='permission_changed',
+                    template_data={
+                        'user_name': user.name,
+                        'base_name': base.name,
+                        'old_permission': permission_map.get(old_role.value, old_role.value),
+                        'new_permission': permission_map.get(member_role.value, member_role.value),
+                        'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'operator_name': operator.name if operator else '系统管理员',
+                        'base_link': base_link
+                    },
+                    source='system'
+                )
+        except Exception as e:
+            current_app.logger.error(f'发送权限变更通知邮件失败: {str(e)}')
 
         return {
             'success': True,

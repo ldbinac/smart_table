@@ -419,6 +419,17 @@ class FormulaEvaluator:
         left = self.evaluate(node['left'])
         right = self.evaluate(node['right'])
         
+        # 日期/时间智能比较：当两侧任一可解析为日期时，统一归一化为 datetime 再比较，
+        # 解决字段值（JSON 存储的日期字符串、datetime 对象）与 TODAY()/NOW()（date/datetime）
+        # 类型不一致导致比较抛 TypeError 的问题（如 IF({结束日期}>TODAY(),'1','2') 永远异常）。
+        # 同时去除时区信息（naive），避免 NOW()（UTC aware）与字段（naive）比较仍抛异常。
+        if left is not None and right is not None:
+            left_dt = _parse_date_value(left)
+            right_dt = _parse_date_value(right)
+            if left_dt is not None and right_dt is not None:
+                left = left_dt.replace(tzinfo=None) if isinstance(left_dt, datetime) else left_dt
+                right = right_dt.replace(tzinfo=None) if isinstance(right_dt, datetime) else right_dt
+        
         if op == '=':
             return left == right
         elif op == '<>':
@@ -756,17 +767,8 @@ def fn_year(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, datetime):
-        return val.year
-    if isinstance(val, date):
-        return val.year
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.year
-        except ValueError:
-            pass
-    return None
+    dt = _parse_date_value(val)
+    return dt.year if dt else None
 
 @FormulaEvaluator.register('MONTH')
 def fn_month(args: List[Any]) -> Optional[int]:
@@ -774,15 +776,8 @@ def fn_month(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, (datetime, date)):
-        return val.month
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.month
-        except ValueError:
-            pass
-    return None
+    dt = _parse_date_value(val)
+    return dt.month if dt else None
 
 @FormulaEvaluator.register('DAY')
 def fn_day(args: List[Any]) -> Optional[int]:
@@ -790,57 +785,35 @@ def fn_day(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, (datetime, date)):
-        return val.day
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.day
-        except ValueError:
-            pass
-    return None
+    dt = _parse_date_value(val)
+    return dt.day if dt else None
 
 @FormulaEvaluator.register('HOUR')
 def fn_hour(args: List[Any]) -> Optional[int]:
     """获取小时"""
     val = args[0]
-    if isinstance(val, datetime):
-        return val.hour
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.hour
-        except ValueError:
-            pass
-    return None
+    if val is None:
+        return None
+    dt = _parse_date_value(val)
+    return dt.hour if dt else None
 
 @FormulaEvaluator.register('MINUTE')
 def fn_minute(args: List[Any]) -> Optional[int]:
     """获取分钟"""
     val = args[0]
-    if isinstance(val, datetime):
-        return val.minute
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.minute
-        except ValueError:
-            pass
-    return None
+    if val is None:
+        return None
+    dt = _parse_date_value(val)
+    return dt.minute if dt else None
 
 @FormulaEvaluator.register('SECOND')
 def fn_second(args: List[Any]) -> Optional[int]:
     """获取秒"""
     val = args[0]
-    if isinstance(val, datetime):
-        return val.second
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.second
-        except ValueError:
-            pass
-    return None
+    if val is None:
+        return None
+    dt = _parse_date_value(val)
+    return dt.second if dt else None
 
 @FormulaEvaluator.register('WEEKDAY')
 def fn_weekday(args: List[Any]) -> Optional[int]:
@@ -848,15 +821,10 @@ def fn_weekday(args: List[Any]) -> Optional[int]:
     val = args[0]
     if val is None:
         return None
-    if isinstance(val, (datetime, date)):
-        wd = val.weekday()
+    dt = _parse_date_value(val)
+    if dt:
+        wd = dt.weekday()
         return wd + 1
-    if isinstance(val, str):
-        try:
-            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-            return dt.weekday() + 1
-        except ValueError:
-            pass
     return None
 
 @FormulaEvaluator.register('DATEADD')
@@ -907,18 +875,57 @@ def fn_dateadd(args: List[Any]) -> datetime:
     return start_date + relativedelta(**kwargs)
 
 def _parse_date_value(value: Any) -> Optional[datetime]:
-    """将字符串、毫秒时间戳或 datetime/date 解析为 datetime"""
+    """将字符串、毫秒时间戳或 datetime/date 解析为 datetime
+
+    统一返回"无时区(naive)"的 datetime，避免 NOW()（UTC aware）与字段值
+    （naive）在比较/相减时出现 aware/naive 类型冲突而抛 TypeError。
+    """
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value
+        # 去除时区信息，统一为 naive，便于与无时区日期值进行运算/比较
+        return value.replace(tzinfo=None) if value.tzinfo is not None else value
     if isinstance(value, date):
         return datetime.combine(value, datetime.min.time())
     if isinstance(value, str):
-        try:
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
-        except ValueError:
+        trimmed = value.strip()
+        if not trimmed:
             return None
+
+        # 支持 YYYYMMDD 格式（如 MID 返回的 "19900307"）
+        # 必须在数字时间戳检查之前，因为 8 位数字字符串也会通过 isdigit 检查
+        if re.match(r'^\d{8}$', trimmed):
+            try:
+                return datetime.strptime(trimmed, '%Y%m%d')
+            except ValueError:
+                pass
+
+        # 尝试解析为数字时间戳（其他函数嵌套返回的序列化时间戳字符串）
+        # 只有超过 8 位（如 13 位毫秒时间戳）才尝试，避免与 YYYYMMDD 混淆
+        if trimmed.isdigit() and len(trimmed) > 8:
+            try:
+                ts = int(trimmed)
+                return datetime.fromtimestamp(ts / 1000)
+            except (ValueError, OSError, OverflowError):
+                pass
+
+        # 尝试标准 ISO 格式
+        try:
+            parsed = datetime.fromisoformat(trimmed.replace('Z', '+00:00'))
+            # 去除时区信息，统一为 naive（如带 Z 的 UTC 时间）
+            return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed
+        except ValueError:
+            pass
+
+        # 尝试常见日期格式
+        for fmt in ('%Y-%m-%d', '%Y/%m/%d', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+            try:
+                return datetime.strptime(trimmed, fmt)
+            except ValueError:
+                continue
+
+        return None
+
     if isinstance(value, (int, float)):
         # 毫秒时间戳（前端及日期字段常用）
         try:
@@ -990,14 +997,10 @@ def fn_datetime_format(args: List[Any]) -> str:
     if val is None:
         return ''
     
-    if isinstance(val, str):
-        try:
-            val = datetime.fromisoformat(val.replace('Z', '+00:00'))
-        except ValueError:
-            return str(val)
-    
-    if isinstance(val, (datetime, date)):
-        return val.strftime(str(fmt))
+    # 使用 _parse_date_value 统一解析，支持更多格式
+    parsed = _parse_date_value(val)
+    if parsed is not None:
+        return parsed.strftime(str(fmt))
     
     return str(val)
 
@@ -1043,16 +1046,23 @@ def fn_if(args: List[Any]) -> Any:
 
 @FormulaEvaluator.register('IFS')
 def fn_ifs(args: List[Any]) -> Any:
-    """多条件判断"""
-    if len(args) % 2 != 0:
-        raise FormulaError("IFS 需要偶数个参数（条件/值对）")
-    
-    for i in range(0, len(args), 2):
+    """多条件判断
+
+    参数个数为奇数时，最后一个参数视为「默认兜底值」，
+    即当所有条件/值对都不满足时返回该默认值（与前端引擎保持一致）。
+    """
+    has_default = len(args) % 2 != 0
+    pair_count = len(args) - 1 if has_default else len(args)
+
+    for i in range(0, pair_count, 2):
         condition = args[i]
         value = args[i + 1]
         if condition is not None and condition:
             return value
-    
+
+    if has_default:
+        return args[-1]
+
     return None
 
 @FormulaEvaluator.register('SWITCH')

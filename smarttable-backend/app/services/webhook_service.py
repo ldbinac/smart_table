@@ -292,6 +292,11 @@ class WebhookService:
         }
         if loop_context:
             result['loop'] = loop_context
+        # 合并 event_data 中的其他变量（如 script_result、node_outputs 等），
+        # 使 {{script_result.field}} 或 {{node_outputs.<id>.field}} 等模板变量可正确引用上游节点输出
+        for key, value in event_data.items():
+            if key not in result:
+                result[key] = value
         return result
 
     @staticmethod

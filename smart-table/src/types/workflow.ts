@@ -12,7 +12,8 @@ export type WorkflowNodeType =
   | 'send_email'
   | 'webhook'
   | 'find_records'
-  | 'loop';
+  | 'loop'
+  | 'script';
 
 /** 循环节点数据源类型 */
 export type LoopDataSourceType =
@@ -47,6 +48,30 @@ export interface LoopNodeConfig {
   empty_result_action: 'skip' | 'error';
   /** 循环体子节点列表（结构同主节点列表） */
   loop_body_nodes: WorkflowNode[];
+}
+
+/** 脚本节点分支路由配置 */
+export interface ScriptBranch {
+  /** 分支标签（脚本中通过 set_branch(label) 引用） */
+  label: string;
+  /** 目标节点 ID */
+  target_node_id: string;
+}
+
+/** 脚本节点配置 */
+export interface ScriptNodeConfig {
+  /** 脚本语言：固定为 python */
+  language: 'python';
+  /** 脚本源代码（≤50000 字符） */
+  script_source: string;
+  /** 执行超时（秒，1-300，默认 30） */
+  timeout: number;
+  /** 结果变量名（默认 script_result，下游可通过 {{<result_variable>.field}} 引用） */
+  result_variable: string;
+  /** 输入来源节点 ID（缺省取最近一个前驱节点的输出） */
+  input_node_id?: string | null;
+  /** 分支路由配置 */
+  branches: ScriptBranch[];
 }
 
 export type TriggerType =

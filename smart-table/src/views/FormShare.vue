@@ -212,6 +212,24 @@ function validateField(
     return null;
   }
 
+  // 单行文本字段正则校验
+  if (field.type === FieldType.SINGLE_LINE_TEXT) {
+    const regexPattern = (field.config?.regex as string | undefined) || "";
+    if (regexPattern) {
+      try {
+        const regex = new RegExp(regexPattern);
+        if (!regex.test(String(value))) {
+          return (
+            (field.config?.regexMessage as string | undefined) ||
+            `${field.name} 格式不正确`
+          );
+        }
+      } catch {
+        // 非法正则，放行
+      }
+    }
+  }
+
   switch (field.type) {
     case FieldType.EMAIL:
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {
@@ -330,9 +348,11 @@ async function handleSubmit() {
       const errorMessages = Object.values(details).join("；");
       ElMessage.error(errorMessages || "表单数据验证失败，请检查填写内容");
     } else {
-      // 兼容没有 details 的情况，直接显示 message
+      // 兼容没有 details 的情况：后端错误统一放在 error 字段，部分接口用 message 字段
       const errorMessage =
-        error.response?.data?.message || "提交失败，请稍后重试";
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "提交失败，请稍后重试";
       ElMessage.error(errorMessage);
     }
 

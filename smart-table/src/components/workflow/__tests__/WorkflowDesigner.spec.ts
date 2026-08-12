@@ -97,6 +97,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   CopyDocument: { template: '<span class="icon-copy-document" />' },
   Search: { template: '<span class="icon-search" />' },
   Refresh: { template: '<span class="icon-refresh" />' },
+  Cpu: { template: '<span class="icon-cpu" />' },
 }));
 
 describe('WorkflowDesigner', () => {

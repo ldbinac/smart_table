@@ -44,6 +44,18 @@ export const getViewTypes = async (): Promise<Array<{ type: ViewType; name: stri
   return apiClient.get<Array<{ type: ViewType; name: string; description: string; icon: string }>>('/views/types');
 };
 
+export const getViewTreeRecords = async (viewId: string, search?: string): Promise<any> => {
+  const params: Record<string, string> = {};
+  if (search) {
+    params.search = search;
+  }
+  return apiClient.get(`/views/${viewId}/tree-records`, { params });
+};
+
+export const autoCreateParentField = async (viewId: string): Promise<any> => {
+  return apiClient.post(`/views/${viewId}/auto-create-parent-field`);
+};
+
 export const viewApiService = {
   getViews,
   getView,
@@ -53,7 +65,9 @@ export const viewApiService = {
   duplicateView,
   setDefaultView,
   reorderViews,
-  getViewTypes
+  getViewTypes,
+  getViewTreeRecords,
+  autoCreateParentField,
 };
 
 export default viewApiService;

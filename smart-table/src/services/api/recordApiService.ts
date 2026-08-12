@@ -118,6 +118,10 @@ export const computeFormulas = async (
   );
 };
 
+export const createChildRecord = async (recordId: string, fieldId: string, values?: Record<string, unknown>): Promise<any> => {
+  return apiClient.post(`/records/${recordId}/child`, { field_id: fieldId, values: values || {} });
+};
+
 export const recordApiService = {
   getRecords,
   getRecord,
@@ -128,6 +132,7 @@ export const recordApiService = {
   batchUpdateRecords,
   batchDeleteRecords,
   computeFormulas,
+  createChildRecord,
 };
 
 export default recordApiService;

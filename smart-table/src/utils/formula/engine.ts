@@ -138,9 +138,12 @@ export class FormulaEngine {
         return Boolean(value) ? "1" : "0";
 
       case FieldType.DATE:
+      case FieldType.DATE_TIME:
       case FieldType.CREATED_TIME:
       case FieldType.UPDATED_TIME:
-        // 日期字段值可能是：毫秒时间戳（数字）、ISO 字符串、或日期字符串
+        // 日期/时间字段值可能是：毫秒时间戳（数字）、ISO 字符串、或日期字符串。
+        // 统一转为毫秒时间戳（与 TODAY()/NOW() 返回的时间戳基准一致），
+        // 否则字符串与数字时间戳比较会失效（IF({结束日期}>TODAY(),'1','2') 误判）
         if (typeof value === "number") {
           return String(value);
         }
@@ -180,8 +183,9 @@ export class FormulaEngine {
           const parsedArgs = this.parseArguments(evaluatedArgs);
           const funcResult = func(...parsedArgs);
           return this.valueToExpression(funcResult as CellValue, undefined);
-        } catch {
-          return "#ERROR";
+        } catch (e) {
+          const errorMsg = e instanceof Error ? e.message : String(e);
+          return `#ERROR: ${funcName}(${args}) - ${errorMsg}`;
         }
       });
     } while (result !== prevResult);
@@ -264,6 +268,23 @@ export class FormulaEngine {
     const num = Number(value);
     if (!isNaN(num)) return num;
 
+    // 若参数是比较表达式（如 "1753987200000>1754688000000"），需先求值，
+    // 否则 IF/AND/OR/NOT/IFS 等逻辑函数会把比较字符串当成非空文本而恒为真，
+    // 导致 IF({结束日期}>TODAY(),'1','2') 永远返回 trueValue（如永远返回 '1'）
+    const trimmedVal = value.trim();
+    if (
+      /[<>=!]/.test(trimmedVal) &&
+      !/^["'].*["']$/.test(trimmedVal)
+    ) {
+      try {
+        const cmpResult = this.parseAndEvaluate(trimmedVal);
+        if (typeof cmpResult === "boolean") return cmpResult;
+        if (typeof cmpResult === "number") return cmpResult;
+      } catch {
+        // 不是有效比较表达式，继续后续处理
+      }
+    }
+
     // 尝试将表达式作为算术运算求值（如 "10+11" → 21）
     // 确保函数参数中的算术表达式能被正确计算
     try {
@@ -341,8 +362,8 @@ export class FormulaEngine {
       return this.compareStrings(left, op, right);
     }
 
-    // 处理数字比较
-    const comparisonMatch = expr.match(/^(.+?)([<>=!]+)(.+)$/);
+    // 处理数字比较（运算符按多字符优先匹配：>= <= == != <> 以及单字符 > < = !）
+    const comparisonMatch = expr.match(/^(.+?)([<>=!]=?|<>)(.+)$/);
     if (comparisonMatch) {
       const [, left, op, right] = comparisonMatch;
       const leftVal = this.parseNumber(left);
@@ -384,20 +405,24 @@ export class FormulaEngine {
   }
 
   private compareNumbers(left: number, op: string, right: number): boolean {
+    // 对毫秒时间戳等浮点数值，使用容差比较相等，避免 === 因精度差异误判
+    const EPS = 1e-6;
+    const eq = Math.abs(left - right) < EPS;
     switch (op) {
       case "<":
-        return left < right;
+        return left < right && !eq;
       case ">":
-        return left > right;
+        return left > right && !eq;
       case "<=":
-        return left <= right;
+        return left < right || eq;
       case ">=":
-        return left >= right;
+        return left > right || eq;
       case "==":
       case "=":
-        return left === right;
+        return eq;
       case "!=":
-        return left !== right;
+      case "<>":
+        return !eq;
       default:
         return false;
     }
@@ -409,6 +434,7 @@ export class FormulaEngine {
       case "=":
         return left === right;
       case "!=":
+      case "<>":
         return left !== right;
       default:
         return false;
@@ -546,6 +572,16 @@ export class FormulaEngine {
       "DATEDIFF",      // 日期差（DATEDIF 别名）
     ];
 
+    // 检查整数函数（提取日期部分的函数，返回数值）
+    // 必须最先检查，因为 YEAR(TODAY()) 应返回 number 而非 date，
+    // YEAR(NOW()) 应返回 number 而非 datetime
+    for (const func of integerFunctions) {
+      const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
+      if (regex.test(upperFormula)) {
+        return "number";
+      }
+    }
+
     // 检查日期时间函数
     for (const func of datetimeFunctions) {
       const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
@@ -559,14 +595,6 @@ export class FormulaEngine {
       const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
       if (regex.test(upperFormula)) {
         return "date";
-      }
-    }
-
-    // 检查整数函数
-    for (const func of integerFunctions) {
-      const regex = new RegExp(`\\b${func}\\s*\\(`, "i");
-      if (regex.test(upperFormula)) {
-        return "number";
       }
     }
 

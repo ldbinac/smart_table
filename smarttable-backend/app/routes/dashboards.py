@@ -93,8 +93,8 @@ def create_base_dashboard(base_id) -> tuple:
     """
     user_id = g.current_user_id
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限创建仪表盘')
     
     data = request.get_json() or {}
@@ -218,8 +218,8 @@ def update_dashboard(dashboard_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此仪表盘')
     
     data = request.get_json() or {}
@@ -274,8 +274,8 @@ def delete_dashboard(dashboard_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限删除此仪表盘')
     
     success = DashboardService.delete_dashboard(str(dashboard_id))
@@ -342,8 +342,8 @@ def add_widget(dashboard_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此仪表盘')
     
     data = request.get_json() or {}
@@ -409,8 +409,8 @@ def update_widgets_batch(dashboard_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此仪表盘')
     
     data = request.get_json() or {}
@@ -485,8 +485,8 @@ def update_widget(dashboard_id, widget_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此仪表盘')
     
     # 验证组件是否属于该仪表盘
@@ -544,8 +544,8 @@ def delete_widget(dashboard_id, widget_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此仪表盘')
     
     # 验证组件是否属于该仪表盘
@@ -627,8 +627,8 @@ def update_layout(dashboard_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此仪表盘')
     
     data = request.get_json() or {}
@@ -688,8 +688,8 @@ def duplicate_dashboard(dashboard_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限复制此仪表盘')
     
     data = request.get_json() or {}
@@ -738,8 +738,8 @@ def set_default_dashboard(dashboard_id) -> tuple:
     if not dashboard:
         return not_found_response('仪表盘')
     
-    # 检查权限（需要 EDITOR 或更高权限）
-    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
         return forbidden_response('您没有权限修改此仪表盘')
     
     updated_dashboard = DashboardService.set_default_dashboard(str(dashboard_id))

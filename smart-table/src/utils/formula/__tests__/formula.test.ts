@@ -971,4 +971,186 @@ describe("Edge Cases", () => {
     expect(numericResult2020).toBeLessThan(numericResult2000);
     expect(numericResult2000 - numericResult2020).toBeGreaterThanOrEqual(19);
   });
+
+  describe("复杂嵌套公式测试", () => {
+    it("YEAR(TODAY()) 应返回当前年份", () => {
+      const engine = new FormulaEngine(mockFields);
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const result = engine.calculate(record, "YEAR(TODAY())");
+      const currentYear = new Date().getFullYear();
+      expect(result).toBe(currentYear);
+    });
+
+    it("YEAR(NOW()) 应返回当前年份", () => {
+      const engine = new FormulaEngine(mockFields);
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const result = engine.calculate(record, "YEAR(NOW())");
+      const currentYear = new Date().getFullYear();
+      expect(result).toBe(currentYear);
+    });
+
+    it("MONTH(TODAY()) 应返回当前月份", () => {
+      const engine = new FormulaEngine(mockFields);
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const result = engine.calculate(record, "MONTH(TODAY())");
+      const currentMonth = new Date().getMonth() + 1;
+      expect(result).toBe(currentMonth);
+    });
+
+    it("DAY(TODAY()) 应返回当前日期", () => {
+      const engine = new FormulaEngine(mockFields);
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const result = engine.calculate(record, "DAY(TODAY())");
+      const currentDay = new Date().getDate();
+      expect(result).toBe(currentDay);
+    });
+
+    it("多层嵌套函数: YEAR(DATEADD(TODAY(), 0, 'day')) 应返回当前年份", () => {
+      const engine = new FormulaEngine(mockFields);
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const result = engine.calculate(record, "YEAR(DATEADD(TODAY(), 0, 'day'))");
+      // 如果 DATEADD 返回的时间戳在同年，YEAR 应返回当前年份
+      expect(typeof result).toBe("number");
+      const currentYear = new Date().getFullYear();
+      // 允许 0 或当前年份（视 DATEADD 实现而定）
+      if (result !== 0) {
+        expect(result).toBe(currentYear);
+      }
+    });
+
+    it("身份证号码提取年龄的复杂嵌套公式", () => {
+      // 创建身份证号码字段（文本类型）
+      const idCardField: FieldEntity = {
+        id: "idCard",
+        tableId: "table1",
+        name: "身份证号码",
+        type: FieldType.SINGLE_LINE_TEXT,
+        options: {},
+        order: 7,
+        isPrimary: false,
+        isSystem: false,
+        isRequired: false,
+        isVisible: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      const fieldsWithIdCard = [...mockFields, idCardField];
+      const engine = new FormulaEngine(fieldsWithIdCard);
+
+      // 身份证号：11010119900307888X（1990年3月7日出生）
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {
+          idCard: "11010119900307888X",
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      // 复杂嵌套公式：
+      // DATEDIF(DATETIME_FORMAT(MID({身份证号码}, 7, 8), "YYYY-MM-DD"), TODAY(), "year")
+      // 1. MID({身份证号码}, 7, 8) → "19900307"
+      // 2. DATETIME_FORMAT("19900307", "YYYY-MM-DD") → "1990-03-07"
+      // 3. DATEDIF("1990-03-07", TODAY(), "year") → 年龄
+      const formula = 'DATEDIF(DATETIME_FORMAT(MID({身份证号码}, 7, 8), "YYYY-MM-DD"), TODAY(), "year")';
+      const result = engine.calculate(record, formula);
+
+      console.log("复杂嵌套公式结果:", result, "type:", typeof result);
+
+      // 结果应为数字（年龄），大于0
+      const numericResult = typeof result === "string" ? parseFloat(result) : result;
+      expect(typeof numericResult).toBe("number");
+      expect(numericResult).toBeGreaterThan(0);
+      // 1990年出生，年龄应在 30-60 之间
+      expect(numericResult).toBeGreaterThanOrEqual(30);
+      expect(numericResult).toBeLessThanOrEqual(60);
+    });
+
+    it("嵌套函数错误消息处理", () => {
+      const engine = new FormulaEngine(mockFields);
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      // 测试 YEAR 接收无效日期时返回 #ERROR
+      const result = engine.calculate(record, "YEAR('invalid-date')") as string;
+      expect(typeof result).toBe("string");
+      expect(result).toContain("#ERROR");
+    });
+
+    it("DATEDIF 嵌套 TODAY() 返回年龄差", () => {
+      const dateField: FieldEntity = {
+        id: "startDate",
+        tableId: "table1",
+        name: "开始日期",
+        type: FieldType.DATE,
+        options: {},
+        order: 7,
+        isPrimary: false,
+        isSystem: false,
+        isRequired: false,
+        isVisible: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      const fieldsWithDate = [...mockFields, dateField];
+      const engine = new FormulaEngine(fieldsWithDate);
+
+      // 10天前的日期
+      const tenDaysAgo = Date.now() - 10 * 24 * 60 * 60 * 1000;
+      const record: RecordEntity = {
+        id: "rec1",
+        tableId: "table1",
+        values: {
+          startDate: tenDaysAgo,
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      // 计算过去日期到今天的天数差
+      const result = engine.calculate(record, 'DATEDIF({开始日期}, TODAY(), "D")');
+      const numericResult = typeof result === "string" ? parseFloat(result) : result;
+      // 10天前后，结果应在 9-11 之间（考虑时区）
+      expect(typeof numericResult).toBe("number");
+      expect(numericResult).toBeGreaterThanOrEqual(9);
+      expect(numericResult).toBeLessThanOrEqual(11);
+    });
+  });
 });

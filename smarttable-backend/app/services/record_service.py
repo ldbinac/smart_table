@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import cast, or_
 from sqlalchemy.types import String
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.extensions import db
 from app.models.record import Record
@@ -481,9 +482,147 @@ class RecordService:
         return record
     
     @staticmethod
+    def _get_self_referencing_link_fields(table_id: str):
+        """
+        获取表格中所有自引用的 LINK_TO_RECORD 字段
+
+        自引用字段是指关联目标表与当前表相同的 LINK_TO_RECORD 字段。
+        这些字段用于表示表格内部的父子关系。
+
+        Args:
+            table_id: 表格 ID
+
+        Returns:
+            自引用 LINK_TO_RECORD 字段列表
+        """
+        fields = Field.query.filter_by(
+            table_id=table_id,
+            type=FieldType.LINK_TO_RECORD.value
+        ).all()
+
+        self_ref_fields = []
+        for field in fields:
+            # 从 config 或 options 中获取 linkedTableId
+            linked_table_id = None
+            for storage in (field.config, field.options):
+                if storage and isinstance(storage, dict):
+                    linked_table_id = storage.get('linkedTableId') or storage.get('linked_table_id')
+                    if linked_table_id:
+                        break
+            # 如果关联的目标表与当前表相同，则为自引用字段
+            if linked_table_id and str(linked_table_id) == str(table_id):
+                self_ref_fields.append(field)
+
+        return self_ref_fields
+
+    @staticmethod
+    def _clear_parent_references(record_id: str, table_id: str):
+        """
+        清除记录作为父记录时的子记录引用
+
+        当一条记录被删除时，如果它是其他记录的父记录（即其他记录的自引用字段值中包含该记录 ID），
+        需要清除这些子记录中的引用，使其成为孤儿记录（不被删除）。
+
+        Args:
+            record_id: 被删除的记录 ID
+            table_id: 表格 ID
+        """
+        self_ref_fields = RecordService._get_self_referencing_link_fields(table_id)
+
+        for field in self_ref_fields:
+            field_id = str(field.id)
+            # 查找所有子记录：values[field_id] 中包含 record_id 的记录
+            children = Record.query.filter(
+                Record.table_id == table_id,
+                cast(Record.values[field_id], String).contains(record_id)
+            ).all()
+
+            for child in children:
+                current_values = dict(child.values) if child.values else {}
+                field_value = current_values.get(field_id)
+
+                if isinstance(field_value, list):
+                    # 从列表中移除被删除的记录 ID
+                    filtered = [v for v in field_value if str(v) != str(record_id)]
+                    if len(filtered) != len(field_value):
+                        current_values[field_id] = filtered
+                        child.values = current_values
+                        flag_modified(child, 'values')
+                        log.info(
+                            f'[RecordService] 清除子记录 {child.id} 的父引用（字段 {field_id}），'
+                            f'移除记录 {record_id}'
+                        )
+                elif field_value and str(field_value) == str(record_id):
+                    # 单值情况
+                    current_values[field_id] = None
+                    child.values = current_values
+                    flag_modified(child, 'values')
+                    log.info(
+                        f'[RecordService] 清除子记录 {child.id} 的父引用（字段 {field_id}），'
+                        f'移除记录 {record_id}'
+                    )
+
+    @staticmethod
+    def _delete_descendants(record_id: str, table_id: str, deleted_by: str = None):
+        """
+        递归删除记录的所有后代记录（级联删除）
+
+        当一条记录被删除时，查找其所有子记录（通过自引用 LINK_TO_RECORD 字段），
+        并递归删除这些子记录及其后代。
+
+        Args:
+            record_id: 被删除的记录 ID
+            table_id: 表格 ID
+            deleted_by: 删除者 ID
+        """
+        self_ref_fields = RecordService._get_self_referencing_link_fields(table_id)
+
+        for field in self_ref_fields:
+            field_id = str(field.id)
+            # 查找所有子记录：values[field_id] 中包含 record_id 的记录
+            children = Record.query.filter(
+                Record.table_id == table_id,
+                cast(Record.values[field_id], String).contains(record_id)
+            ).all()
+
+            for child in children:
+                child_id = str(child.id)
+                # 先递归删除后代的记录
+                RecordService._delete_descendants(child_id, table_id, deleted_by)
+
+                # 为子记录创建删除历史
+                snapshot = dict(child.values) if child.values else {}
+                child_uuid = child.id if isinstance(child.id, uuid.UUID) else uuid.UUID(child_id)
+                tbl_uuid = uuid.UUID(table_id) if isinstance(table_id, str) else table_id
+                changer_id = uuid.UUID(str(deleted_by)) if deleted_by else None
+
+                history = RecordHistory.create_history(
+                    record_id=child_uuid,
+                    table_id=tbl_uuid,
+                    action=HistoryAction.DELETE,
+                    changed_by=changer_id,
+                    changes=None,
+                    snapshot=snapshot
+                )
+                db.session.add(history)
+
+                # 清理关联数据
+                LinkService.delete_record_links(child_id)
+
+                # 删除子记录
+                db.session.delete(child)
+                log.info(
+                    f'[RecordService] 级联删除后代记录 {child_id}（父记录 {record_id}）'
+                )
+
+    @staticmethod
     def delete_record(record: Record, deleted_by: str = None) -> bool:
         """
         删除记录
+
+        删除时处理父子关系：
+        - 如果记录是父记录（有子记录引用它），先清除子记录的引用（子记录成为孤儿，不被删除）
+        - 如果记录有子记录，递归删除所有后代记录（级联删除）
 
         Args:
             record: 记录对象
@@ -498,6 +637,17 @@ class RecordService:
             saved_base_id = str(record.table.base_id)
             saved_table_id = str(record.table_id)
             saved_record_id = str(record.id)
+
+            # 处理父子关系：
+            # 1. 先递归删除所有后代记录（级联删除），
+            #    必须在清除父引用之前执行，否则 _delete_descendants 无法找到子记录
+            RecordService._delete_descendants(
+                saved_record_id, saved_table_id, deleted_by
+            )
+            # 2. 清除父引用（清理可能残留的引用，确保数据一致性）
+            RecordService._clear_parent_references(
+                saved_record_id, saved_table_id
+            )
 
             # 创建删除历史记录
             # 确保 ID 是 UUID 对象
@@ -557,6 +707,167 @@ class RecordService:
             current_app.logger.error(f'[RecordService] 删除记录失败：{record_id}, 错误：{str(e)}')
             return False
     
+    @staticmethod
+    def get_tree_records(table_id: str, parent_field_id: str) -> List[Dict]:
+        """
+        获取树形记录数据
+
+        根据 parent_field_id 字段的值构建树形结构，最多支持 4 层嵌套。
+
+        Args:
+            table_id: 表格 ID
+            parent_field_id: 父记录字段 ID（LINK_TO_RECORD 类型）
+
+        Returns:
+            树形记录列表，每个节点包含 id, values, children, depth, has_children
+        """
+        records = Record.query.filter_by(table_id=table_id).all()
+
+        # 构建节点映射
+        record_map: Dict[str, Dict] = {}
+        for record in records:
+            record_map[str(record.id)] = {
+                'id': str(record.id),
+                'values': dict(record.values) if record.values else {},
+                'children': [],
+                'depth': 0,
+                'has_children': False
+            }
+
+        # 构建父子关系：自关联字段存储的是父级记录的 ID（每个记录最多一个父级）
+        # 记录通过 parent_field_id 指向其父记录；父级字段为空的记录是根节点
+        roots: List[Dict] = []
+        for node in record_map.values():
+            values = node['values']
+            parent_id = values.get(parent_field_id)
+            if isinstance(parent_id, list):
+                parent_id = parent_id[0] if parent_id else None
+            elif parent_id is not None:
+                parent_id = str(parent_id)
+
+            if parent_id and parent_id in record_map:
+                parent_node = record_map[parent_id]
+                parent_node['children'].append(node)
+                parent_node['has_children'] = True
+            else:
+                roots.append(node)
+
+        # 递归设置深度，最多 4 层
+        def _assign_depth(nodes: List[Dict], depth: int = 0) -> None:
+            if depth >= 4:
+                return
+            for n in nodes:
+                n['depth'] = depth
+                if n['children']:
+                    _assign_depth(n['children'], depth + 1)
+
+        _assign_depth(roots)
+
+        return roots
+
+    @staticmethod
+    def get_filtered_tree_records(table_id: str, parent_field_id: str, search: str) -> List[Dict]:
+        """
+        获取筛选后的树形记录数据（包含匹配记录的父级上下文）
+
+        根据搜索关键词筛选记录，并确保匹配记录的父级祖先链也被包含在结果中，
+        以便在前端展示筛选结果时保留层级上下文。
+
+        Args:
+            table_id: 表格 ID
+            parent_field_id: 父记录字段 ID
+            search: 搜索关键词
+
+        Returns:
+            筛选后的树形记录列表
+        """
+        # 获取所有记录
+        records = Record.query.filter_by(table_id=table_id).all()
+
+        # 构建节点映射
+        record_map: Dict[str, Dict] = {}
+        for record in records:
+            record_map[str(record.id)] = {
+                'id': str(record.id),
+                'values': dict(record.values) if record.values else {},
+                'children': [],
+                'depth': 0,
+                'has_children': False
+            }
+
+        # 构建父子关系：自关联字段存储的是父级记录的 ID（每个记录最多一个父级）
+        # 同时构建子记录→父记录的映射，用于查找祖先链
+        child_to_parent: Dict[str, str] = {}
+        for node in record_map.values():
+            values = node['values']
+            parent_id = values.get(parent_field_id)
+            if isinstance(parent_id, list):
+                parent_id = parent_id[0] if parent_id else None
+            elif parent_id is not None:
+                parent_id = str(parent_id)
+
+            if parent_id and parent_id in record_map:
+                parent_node = record_map[parent_id]
+                parent_node['children'].append(node)
+                parent_node['has_children'] = True
+                child_to_parent[node['id']] = parent_id
+
+        # 搜索匹配的记录 ID 集合
+        search_lower = search.lower()
+        matched_ids = set()
+        for node_id, node in record_map.items():
+            values_str = str(node['values']).lower()
+            if search_lower in values_str:
+                matched_ids.add(node_id)
+
+        # 收集匹配记录的祖先链
+        ancestor_ids = set()
+        for node_id in matched_ids:
+            current_id = node_id
+            while True:
+                parent_id = child_to_parent.get(current_id)
+                if parent_id and parent_id in record_map:
+                    ancestor_ids.add(parent_id)
+                    current_id = parent_id
+                else:
+                    break
+
+        # 需要保留的节点 ID = 匹配记录 + 祖先节点
+        keep_ids = matched_ids | ancestor_ids
+
+        # 过滤树：只保留需要保留的节点
+        def _filter_children(nodes: List[Dict]) -> List[Dict]:
+            result = []
+            for node in nodes:
+                if node['id'] in keep_ids:
+                    filtered_children = _filter_children(node['children'])
+                    node['children'] = filtered_children
+                    if filtered_children:
+                        node['has_children'] = True
+                    result.append(node)
+            return result
+
+        # 根节点：父级字段为空（或父级不在当前表中）的记录
+        roots: List[Dict] = []
+        for node in record_map.values():
+            if node['id'] not in child_to_parent:
+                roots.append(node)
+
+        # 过滤并设置深度
+        filtered_roots = _filter_children(roots)
+
+        def _assign_depth(nodes: List[Dict], depth: int = 0) -> None:
+            if depth >= 4:
+                return
+            for n in nodes:
+                n['depth'] = depth
+                if n['children']:
+                    _assign_depth(n['children'], depth + 1)
+
+        _assign_depth(filtered_roots)
+
+        return filtered_roots
+
     @staticmethod
     def search_records(table_id: str, query: str, 
                       field_ids: List[str] = None) -> List[Record]:

@@ -274,11 +274,16 @@ instance.interceptors.response.use(
         break;
       case 401:
         {
-          // 分享接口的 401 不跳转登录页
+          // 分享接口的 401 不跳转登录页（如登录、刷新令牌等认证请求）
           const skipRedirect = (error.config as any)?.skipAuthRedirect;
           if (skipRedirect) {
-            // 不弹 ElMessage，由组件自行处理错误
-            break;
+            // 不弹 ElMessage、不触发续期，直接把后端 message 返回给调用方处理
+            return Promise.reject(
+              Object.assign(
+                new Error(backendMessage || "认证失败"),
+                { requestId, code: 401, error: data?.error, response: error.response }
+              )
+            );
           }
 
           // 将当前请求加入队列等待重试，并返回一个 Promise 供拦截器使用
@@ -429,7 +434,10 @@ instance.interceptors.response.use(
       Object.assign(error, { 
         requestId,
         error: data?.error,
-        details: data?.details 
+        details: data?.details,
+        // 优先使用后端返回的错误消息，避免在调用方只能拿到
+        // "Request failed with status code 429" 这类 axios 原始文案
+        message: backendMessage || error.message,
       })
     );
   },

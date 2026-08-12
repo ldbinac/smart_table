@@ -11,6 +11,7 @@ import {
   Link,
   Search,
   Refresh,
+  Cpu,
 } from "@element-plus/icons-vue";
 import type { WorkflowNodeType } from "@/types/workflow";
 
@@ -30,6 +31,7 @@ export const ADDABLE_NODE_TYPES: WorkflowNodeTypeOption[] = [
   { type: "webhook", label: "Webhook", icon: Link },
   { type: "condition", label: "条件节点", icon: Share },
   { type: "loop", label: "循环", icon: Refresh },
+  { type: "script", label: "自定义脚本", icon: Cpu },
 ];
 
 /** 循环体内允许的节点类型（不含 condition） */
@@ -40,6 +42,7 @@ export const LOOP_BODY_ALLOWED_NODE_TYPES: WorkflowNodeTypeOption[] = [
   { type: "send_email", label: "发送邮件", icon: Message },
   { type: "webhook", label: "Webhook", icon: Link },
   { type: "loop", label: "循环", icon: Refresh },
+  { type: "script", label: "自定义脚本", icon: Cpu },
 ];
 
 /** 所有节点类型列表（含 trigger） */
@@ -59,6 +62,7 @@ export const NODE_TYPE_ICON_MAP: Record<string, typeof CircleCheck> = {
   webhook: Link,
   action: EditPen,
   loop: Refresh,
+  script: Cpu,
 };
 
 /** 节点类型 → 中文名称映射 */
@@ -72,6 +76,7 @@ export const NODE_TYPE_LABEL_MAP: Record<string, string> = {
   webhook: "Webhook",
   action: "动作节点",
   loop: "循环",
+  script: "自定义脚本",
 };
 
 /** 获取节点类型的中文名称 */

@@ -20,6 +20,7 @@ from app.services.auth_service import AuthService
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
 from app.services.gitee_service import GiteeService
+from app.services.notification_service import NotificationService
 from app.services.security_config_service import SecurityConfigService
 from app.schemas.user_schema import (
     user_registration_schema,
@@ -857,23 +858,20 @@ def resend_verification() -> tuple:
     if user.email_verified:
         return error_response('邮箱已验证', code=400, error='already_verified')
 
-    # 检查邮件服务是否启用
-    if not EmailConfigService.is_email_enabled():
-        return error_response('邮件服务未启用', code=400, error='email_service_disabled')
-
     # 生成新的验证令牌
     verification_token = user.generate_verification_token()
 
     try:
         verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
-        EmailSenderService.send_email_quick(
-            to_email=user.email,
-            to_name=user.name,
+        NotificationService.send_notification(
+            recipient_email=user.email,
+            recipient_user_id=user.id,
             template_key='user_registration',
             template_data={
                 'user_name': user.name,
                 'verification_link': verification_link
-            }
+            },
+            source='auth'
         )
 
         return success_response(
@@ -944,25 +942,20 @@ def forgot_password() -> tuple:
             message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
         )
 
-    # 检查邮件服务是否启用
-    if not EmailConfigService.is_email_enabled():
-        return success_response(
-            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
-        )
-
     # 生成重置令牌
     reset_token = user.generate_reset_token()
 
     try:
         reset_link = f"{EmailConfigService.get_frontend_url()}/reset-password?token={reset_token}"
-        EmailSenderService.send_email_quick(
-            to_email=user.email,
-            to_name=user.name,
+        NotificationService.send_notification(
+            recipient_email=user.email,
+            recipient_user_id=user.id,
             template_key='password_reset',
             template_data={
                 'user_name': user.name,
                 'reset_link': reset_link
-            }
+            },
+            source='auth'
         )
 
         return success_response(
@@ -1036,20 +1029,20 @@ def reset_password() -> tuple:
         user.set_password(new_password)
         user.clear_reset_token()
 
-        # 发送密码重置通知邮件
-        if EmailConfigService.is_email_enabled():
-            try:
-                EmailSenderService.send_email_quick(
-                    to_email=user.email,
-                    to_name=user.name,
-                    template_key='password_changed',
-                    template_data={
-                        'user_name': user.name,
-                        'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    }
-                )
-            except Exception as e:
-                logger.error(f'发送密码重置通知邮件失败: {str(e)}')
+        # 发送密码重置通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+        try:
+            NotificationService.send_notification(
+                recipient_email=user.email,
+                recipient_user_id=user.id,
+                template_key='password_changed',
+                template_data={
+                    'user_name': user.name,
+                    'operation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                },
+                source='auth'
+            )
+        except Exception as e:
+            logger.error(f'发送密码重置通知邮件失败: {str(e)}')
 
         return success_response(
             message='密码重置成功，请使用新密码登录'

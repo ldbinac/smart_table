@@ -56,6 +56,7 @@ import {
   getLoopBodyNodes,
   setLoopBodyNodes,
 } from "@/utils/workflow";
+import { useMemberStore } from "@/stores/memberStore";
 
 interface Props {
   workflow: Workflow;
@@ -76,6 +77,10 @@ const emit = defineEmits<{
   (e: "clone"): void;
   (e: "viewVersions"): void;
 }>();
+
+const memberStore = useMemberStore();
+// 权限控制：工作流管理需要管理员及以上角色
+const canManage = computed(() => memberStore.canManage);
 
 const localNodes = ref<WorkflowNode[]>([]);
 const localTrigger = ref<WorkflowTrigger>({ ...props.trigger });
@@ -201,7 +206,7 @@ watch(
 const isDraft = computed(() => props.workflow.status === "draft");
 const isPaused = computed(() => props.workflow.status === "paused");
 const isFreshDraft = computed(() => isDraft.value && (props.workflow.current_version ?? 0) === 0);
-const readonly = computed(() => !["draft", "paused"].includes(props.workflow.status));
+const readonly = computed(() => !["draft", "paused"].includes(props.workflow.status) || !canManage.value);
 const hasInvalidMappingNodes = computed(() => !validateNodeMappings(localNodes.value).valid);
 
 function cloneConfig(config: Record<string, unknown>): Record<string, unknown> {
@@ -868,7 +873,7 @@ onBeforeRouteLeave((_, __, next) => {
                 节点列表
                 <span class="node-count">（{{ localNodes.length }}）</span>
               </span>
-              <div v-if="!readonly" class="add-node-menu">
+              <div v-if="!readonly && canManage" class="add-node-menu">
                 <el-dropdown placement="bottom-start" trigger="click">
                   <el-button type="primary" :icon="Plus" class="add-node-btn" size="small">
                     添加节点
@@ -896,7 +901,7 @@ onBeforeRouteLeave((_, __, next) => {
                 :data-node-id="node.id"
                 :class="{ active: selectedNodeId === node.id }"
                 @click="selectNode(node.id)">
-                <el-icon v-show="!readonly" class="drag-handle"><Rank /></el-icon>
+                <el-icon v-show="!readonly && canManage" class="drag-handle"><Rank /></el-icon>
                 <el-icon class="node-icon"><component :is="getNodeIcon(node.node_type)" /></el-icon>
                 <div class="node-info">
                   <div class="node-name">{{ node.name }}</div>
@@ -904,7 +909,7 @@ onBeforeRouteLeave((_, __, next) => {
                 </div>
                 <div class="node-order">#{{ node.order + 1 }}</div>
                 <el-button
-                  v-if="!readonly"
+                  v-if="!readonly && canManage"
                   type="danger"
                   :icon="Delete"
                   link
@@ -977,14 +982,14 @@ onBeforeRouteLeave((_, __, next) => {
 
       <div class="footer-actions">
         <template v-if="!isFreshDraft">
-          <el-button title="基于当前流程创建新版本" type="success" plain :icon="CopyDocument" @click="handleClone">
+          <el-button v-if="canManage" title="基于当前流程创建新版本" type="success" plain :icon="CopyDocument" @click="handleClone">
             复制创建新版本
           </el-button>
           <el-button :icon="Timer" @click="handleViewVersions">
             查看版本历史
           </el-button>
         </template>
-        <template v-if="isDraft || isPaused">
+        <template v-if="(isDraft || isPaused) && canManage">
           <el-button :icon="CircleCheck" type="primary" @click="handleSave">
             保存
           </el-button>

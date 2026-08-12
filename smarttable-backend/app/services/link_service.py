@@ -1567,3 +1567,224 @@ class LinkService:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 更新关联字段关系类型失败: {str(e)}')
             return {'success': False, 'error': '更新关联关系类型失败，请稍后重试'}
+
+    @staticmethod
+    def get_linked_records_detail(
+        record_id: str,
+        field_id: str,
+        page: int = 1,
+        per_page: int = 50,
+        keyword: str = None
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """
+        获取主从表子表数据详情
+
+        根据源记录和关联字段，返回目标表中关联记录的完整数据、目标表字段定义以及分页信息。
+
+        Args:
+            record_id: 源记录 ID
+            field_id: 关联字段 ID
+            page: 页码，默认 1
+            per_page: 每页数量，默认 50
+            keyword: 可选关键词，对目标记录主字段值进行模糊过滤
+
+        Returns:
+            (结果字典, 错误信息)
+            结果字典包含: records, fields, total, page, per_page, link_relation
+        """
+        try:
+            # 1. 通过 field_id 查询 Field，确认是 LINK 类型字段
+            field = db.session.get(Field, field_id)
+            if not field:
+                return None, '字段不存在'
+            if field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
+                return None, '字段不是关联类型'
+
+            # 2. 从 field.options 或 field.config 获取 linkedTableId（目标表ID）
+            linked_table_id = None
+            for storage in (field.config, field.options):
+                if storage and isinstance(storage, dict):
+                    linked_table_id = storage.get('linkedTableId') or storage.get('linked_table_id')
+                    if linked_table_id:
+                        break
+            if not linked_table_id:
+                return None, '字段配置缺少关联表ID'
+
+            # 3. 获取关联关系
+            link_relation = LinkService.get_link_relation_by_field(field_id, linked_table_id)
+            if not link_relation:
+                return None, '关联关系不存在'
+
+            # 4. 查询 LinkValue 表，获取所有 source_record_id == record_id 且 link_relation_id 匹配的记录
+            link_values = db.session.execute(
+                select(LinkValue).where(
+                    and_(
+                        LinkValue.link_relation_id == link_relation.id,
+                        LinkValue.source_record_id == record_id
+                    )
+                )
+            ).scalars().all()
+
+            # 5. 获取目标记录的完整数据
+            target_record_ids = [lv.target_record_id for lv in link_values]
+            if target_record_ids:
+                target_records = db.session.execute(
+                    select(Record).where(Record.id.in_(target_record_ids))
+                ).scalars().all()
+            else:
+                target_records = []
+
+            # 6. 如果有 keyword 参数，对目标记录的主字段值进行模糊过滤
+            if keyword:
+                kw = str(keyword).lower()
+                target_records = [
+                    tr for tr in target_records
+                    if kw in str(tr.get_primary_value()).lower()
+                ]
+
+            # 7. 分页处理
+            total = len(target_records)
+            if page < 1:
+                page = 1
+            if per_page < 1:
+                per_page = 50
+            start = (page - 1) * per_page
+            end = start + per_page
+            paged_records = target_records[start:end]
+
+            # 8. 查询目标表的字段定义
+            target_fields = FieldService.get_all_fields(str(linked_table_id))
+
+            # 9. 组装返回结果
+            records_data = []
+            for tr in paged_records:
+                records_data.append({
+                    'id': str(tr.id),
+                    'values': tr.values,
+                    'created_at': tr.created_at.isoformat() if tr.created_at else None,
+                    'updated_at': tr.updated_at.isoformat() if tr.updated_at else None
+                })
+
+            return {
+                'records': records_data,
+                'fields': [f.to_dict() for f in target_fields],
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'link_relation': link_relation.to_dict()
+            }, None
+
+        except Exception as e:
+            current_app.logger.error(f'[LinkService] 获取关联记录详情失败: {str(e)}')
+            return None, '获取关联记录详情失败，请稍后重试'
+
+    @staticmethod
+    def create_and_link_record(
+        source_record_id: str,
+        field_id: str,
+        values: Dict[str, Any],
+        user_id: str = None
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """
+        在目标表中创建记录并建立与源记录的关联
+
+        Args:
+            source_record_id: 源记录 ID
+            field_id: 关联字段 ID
+            values: 新记录的字段值
+            user_id: 操作用户 ID
+
+        Returns:
+            (结果字典, 错误信息)
+            结果字典包含: record, link_value
+        """
+        # 局部导入 RecordService，避免与 record_service 模块产生循环导入
+        from app.services.record_service import RecordService
+
+        try:
+            # 1. 通过 field_id 查询 Field，确认是 LINK 类型
+            field = db.session.get(Field, field_id)
+            if not field:
+                return None, '字段不存在'
+            if field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
+                return None, '字段不是关联类型'
+
+            # 2. 获取 linkedTableId（目标表ID）
+            linked_table_id = None
+            for storage in (field.config, field.options):
+                if storage and isinstance(storage, dict):
+                    linked_table_id = storage.get('linkedTableId') or storage.get('linked_table_id')
+                    if linked_table_id:
+                        break
+            if not linked_table_id:
+                return None, '字段配置缺少关联表ID'
+
+            # 3. 获取关联关系
+            link_relation = LinkService.get_link_relation_by_field(field_id, linked_table_id)
+            if not link_relation:
+                return None, '关联关系不存在'
+
+            # 4. 一对一约束检查：如果已有关联记录，返回错误
+            if link_relation.relationship_type == RelationshipType.ONE_TO_ONE.value:
+                existing = db.session.execute(
+                    select(LinkValue).where(
+                        and_(
+                            LinkValue.link_relation_id == link_relation.id,
+                            LinkValue.source_record_id == source_record_id
+                        )
+                    )
+                ).scalars().first()
+                if existing:
+                    return None, '一对一关联约束：源记录已有关联记录'
+
+            # 5. 在目标表创建记录
+            new_record = RecordService.create_record(
+                str(linked_table_id),
+                values,
+                created_by=user_id
+            )
+
+            # 6. 建立关联（追加到已有关联列表，避免覆盖一对多场景下的现有关联）
+            existing_links = db.session.execute(
+                select(LinkValue).where(
+                    and_(
+                        LinkValue.link_relation_id == link_relation.id,
+                        LinkValue.source_record_id == source_record_id
+                    )
+                )
+            ).scalars().all()
+            target_ids = [str(lv.target_record_id) for lv in existing_links]
+            new_target_id = str(new_record.id)
+            if new_target_id not in target_ids:
+                target_ids.append(new_target_id)
+
+            # update_link_values 内部会处理双向关联同步
+            result, err = LinkService.update_link_values(
+                link_relation_id=str(link_relation.id),
+                source_record_id=source_record_id,
+                target_record_ids=target_ids,
+                updated_by=user_id
+            )
+            if not result:
+                return None, f'建立关联失败: {err}'
+
+            # 获取新建的 link_value
+            link_value = db.session.execute(
+                select(LinkValue).where(
+                    and_(
+                        LinkValue.link_relation_id == link_relation.id,
+                        LinkValue.source_record_id == source_record_id,
+                        LinkValue.target_record_id == str(new_record.id)
+                    )
+                )
+            ).scalar_one_or_none()
+
+            return {
+                'record': new_record.to_dict(),
+                'link_value': link_value.to_dict() if link_value else None
+            }, None
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'[LinkService] 创建并关联记录失败: {str(e)}')
+            return None, '创建并关联记录失败，请稍后重试'

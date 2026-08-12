@@ -230,9 +230,9 @@ const hasSearchResults = computed(() => {
 // 过滤后的模板列表（仅按名称搜索）
 const filteredTemplates = computed(() => {
   const query = templateSearchQuery.value.trim().toLowerCase();
-  if (!query) return tableTemplates;
+  if (!query) return tableTemplates.filter((template) => !template.hidden);
   return tableTemplates.filter((template) =>
-    template.name.toLowerCase().includes(query),
+    !template.hidden && template.name.toLowerCase().includes(query),
   );
 });
 

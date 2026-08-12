@@ -82,8 +82,8 @@ class ShareService:
         Returns:
             包含操作结果的字典
         """
-        # 查找分享
-        share = BaseShare.query.get(share_id)
+        # 查找分享（使用 filter_by 替代 query.get 以兼容 CompatUUID 类型）
+        share = BaseShare.query.filter_by(id=share_id).first()
         if not share:
             return {'success': False, 'error': '分享链接不存在', 'status': 404}
 
@@ -132,7 +132,8 @@ class ShareService:
         Returns:
             包含操作结果的字典
         """
-        share = BaseShare.query.get(share_id)
+        # 使用 filter_by 替代 query.get 以兼容 CompatUUID 类型
+        share = BaseShare.query.filter_by(id=share_id).first()
         if not share:
             return {'success': False, 'error': '分享链接不存在', 'status': 404}
 

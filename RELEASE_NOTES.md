@@ -4,6 +4,176 @@
 
 ***
 
+# SmartTable v1.6.4 Release Notes
+
+**发布日期 / Release Date**: 2026-08-10
+
+**版本号 / Version**: v1.6.4
+
+**标签 / Tags**: `release`, `v1.6.4`, `latest`, `stable`, `master-detail`, `tree-view`, `notification`, `script-node`, `collaboration`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.4 更新说明
+
+本次更新聚焦 **主从表与树形层级能力**、**站内信通知体系**、**工作流自定义脚本节点**、**协同编辑与并发控制** 以及 **权限体系收敛**。新增主从表（子表）完整支持、表格视图树形层级记录、站内信通知系统、工作流自定义脚本节点；实现单元格协同锁与冲突检测、文档乐观锁；字段与管理类操作权限统一收敛至管理员及以上角色；并修复了下拉编辑器、视图校验、分享接口、表格滚动定位等一批问题。
+
+### ✨ 新增及功能优化
+
+#### 🔗 主从表与树形层级 ⭐
+
+- ⭐ **主从表功能**：新增主从表（子表）完整支持，包含子表工具栏、多关联字段切换、添加关联与刷新能力
+- **主从表数据服务**：新增 `masterDetailService` 与 `useMasterDetail` 组合式函数，封装数据获取、列构建、缓存与懒加载逻辑
+- **抽屉内子表详情**：新增 `SubTableInDrawer` 组件，在详情抽屉内渲染关联子表，并支持二级子表记录详情弹窗
+- **抽屉宽度优化**：优化抽屉宽度计算逻辑，增加最小宽度兜底
+- ⭐ **树形层级记录**：新增视图父字段配置，支持通过自关联字段构建记录树形层级
+- **树形记录接口**：新增创建子记录接口与树形记录数据查询接口
+- **自关联优化**：优化关联字段组件，自关联场景下自动排除当前记录
+
+#### 📬 站内信通知系统 ⭐
+
+- ⭐ **站内信通知**：完整实现站内信通知系统，包含通知服务、模型、API 路由与管理接口
+- **前端通知中心**：新增通知组件、状态管理与通知页面
+- **通知优先策略**：替换原有邮件通知逻辑，优先发送站内信并兼容邮件发送
+- **多场景覆盖**：覆盖注册、密码修改、分享协作、审批等多场景通知推送
+- **数据库升级**：新增通知表与数据迁移脚本，Dexie 前端数据库升级至版本 10
+
+#### 🔄 工作流引擎增强
+
+- ⭐ **自定义脚本节点**：新增工作流自定义脚本节点，支持 Python语言的自定义脚本
+- **脚本执行沙箱**：后端新增脚本执行沙箱，通过子进程隔离执行，保障运行安全
+- **脚本配置面板**：前端新增脚本节点配置面板，集成代码编辑器与测试运行能力
+- **引擎调度完善**：完善工作流执行引擎对脚本节点的调度与上下文处理
+
+#### 🤝 协同编辑与并发控制
+
+- ⭐ **单元格协同锁**：实现完整的单元格协同锁与冲突检测，支持锁超时、断线重试与状态管理
+- **乐观冲突检测**：本地待提交变更支持乐观冲突检测，提供冲突对话框与用户裁决逻辑
+- **锁资源释放**：组件卸载时自动释放所有持有的锁，避免锁泄漏
+- **文档乐观锁**：文档更新新增 `expected_updated_at` 乐观锁校验，重命名与保存冲突返回 409 提示
+
+#### 🧮 公式与字段增强
+
+- **日期函数完善**：重构后端日期解析逻辑，新增支持 YYYYMMDD 格式、毫秒时间戳字符串与常见日期格式
+- **嵌套函数支持**：统一日期解析入口，完善多层嵌套函数场景（如身份证提取日期）
+- **公式错误提示**：为公式引擎添加详细错误提示，包含函数名、参数与错误信息
+- **正则校验字段**：为单行文本字段新增正则表达式校验配置，支持自定义规则与校验提示
+- **正则预设**：内置国内电话、邮编、身份证、IPv4 等常用正则预设，支持快速填充
+- **实时校验**：表单与详情弹窗支持失焦实时校验与错误提示样式
+
+#### 🎨 交互与体验优化
+
+- **右键菜单增强**：菜单项新增 hint 悬浮提示，新增升级/降级/新增子级树形操作图标并优化布局
+- **表格定位保持**：数据更新后自动滚动定位到最近更新的记录行，保持操作上下文连续
+- **增量更新优化**：实时更新时行数不变优先走增量更新，减少全量重建
+- **剪贴板兼容**：新增 `copyToClipboard` 工具，优先使用 Clipboard API，失败自动回退并展示完整 URL
+
+#### 🔐 权限与安全
+
+- **权限收敛**：字段类与管理类操作权限由 EDITOR 及以上统一提升至 ADMIN 及以上，避免普通用户误操作
+- **范围覆盖**：工作流、数据表、文档、仪表盘等管理功能均仅管理员可操作
+- **分享限流优化**：表单分享速率限制由客户端 IP 维度改为分享令牌维度，避免局域网多用户被误限，阈值调整为 100 次 / 15 分钟
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复下拉选择编辑器选中值匹配异常，单选/多选改为按 id 匹配并兼容旧的 name 匹配方式
+- 修复下拉选项显示文本错误，改用实际 name 作为展示内容
+- 修复视图路由中 table_id 类型不匹配导致的校验失败，表单视图现可设置为默认视图
+- 修复层级表格展开按钮不显示的问题（CachedDataSource 模式下初始化 records 为空）
+- 修复数据更新后表格跳回首行的问题
+- 统一前后端分享接口路由路径，合并分享的更新与删除接口并优化错误提示
+- 修复分享接口使用 `filter_by` 替代 `query.get` 以兼容 CompatUUID 类型
+- 修复后端返回秒级时间戳的前端适配问题
+- 修复表单提交错误提示取值顺序，优先读取 error 字段以兼容后端错误格式
+- 修复打包模式下 Flask 调试重载导致重复打开浏览器的问题
+- 修复日期/时间字段值在公式比较中的类型不一致问题
+- 修复单元格中调整单选与多选的值，存储的选项值与弹窗里的不一致问题
+- 修复表单分享链接部分场景下无法复制问题
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.4 Release Notes
+
+This release focuses on **master-detail tables & tree hierarchy**, **in-app notification system**, **workflow custom script nodes**, **collaborative editing & concurrency control**, and **permission model tightening**. Added full master-detail (sub-table) support, tree hierarchy records in table views, an in-app notification system, and workflow custom script nodes; implemented cell collaboration locks with conflict detection and document optimistic locking; tightened field and management operations to admin-and-above roles; and fixed select editors, view validation, sharing APIs, table scroll positioning and more.
+
+### ✨ New Features & Improvements
+
+#### 🔗 Master-Detail & Tree Hierarchy ⭐
+
+- ⭐ **Master-Detail Tables**: Full master-detail (sub-table) support with sub-table toolbar, multi-link-field switching, add-link and refresh capabilities
+- **Master-Detail Data Service**: New `masterDetailService` and `useMasterDetail` composable encapsulating data fetching, column building, caching and lazy loading
+- **Sub-Table in Drawer**: New `SubTableInDrawer` component renders linked sub-tables inside the detail drawer, with a second-level sub-record detail dialog
+- **Drawer Width Optimization**: Improved drawer width calculation with a minimum-width fallback
+- ⭐ **Tree Hierarchy Records**: New view parent-field configuration, build record tree hierarchy via self-referencing link fields
+- **Tree Record APIs**: New create-child-record API and tree record data query API
+- **Self-Link Optimization**: Link field component now excludes the current record in self-referencing scenarios
+
+#### 📬 In-App Notification System ⭐
+
+- ⭐ **In-App Notifications**: Complete in-app notification system with notification service, models, API routes and admin interfaces
+- **Frontend Notification Center**: New notification components, state management and notification page
+- **Notification-First Strategy**: Replaced legacy email notification logic — sends in-app messages first while remaining compatible with email delivery
+- **Multi-Scenario Coverage**: Covers registration, password change, share collaboration, approval and other notification scenarios
+- **Database Upgrade**: New notification table with migration script; frontend Dexie database upgraded to version 10
+
+#### 🔄 Workflow Engine
+
+- ⭐ **Custom Script Node**: New workflow custom script node supporting custom scripts written in Python
+- **Script Execution Sandbox**: Backend script execution sandbox with subprocess isolation for safe execution
+- **Script Config Panel**: New script node configuration panel with integrated code editor and test-run capability
+- **Engine Scheduling**: Enhanced workflow execution engine scheduling and context handling for script nodes
+
+#### 🤝 Collaboration & Concurrency Control
+
+- ⭐ **Cell Collaboration Lock**: Complete cell collaboration lock with conflict detection, supporting lock timeout, reconnection retry and state management
+- **Optimistic Conflict Detection**: Optimistic conflict detection for locally pending changes, with conflict dialog and user arbitration flow
+- **Lock Release**: Automatically release all held locks on component unmount to prevent lock leaks
+- **Document Optimistic Lock**: Document updates now carry `expected_updated_at` for optimistic lock validation; rename/save conflicts return a 409 prompt
+
+#### 🧮 Formula & Fields
+
+- **Date Function Enhancements**: Refactored backend date parsing with support for YYYYMMDD format, millisecond timestamp strings and common date formats
+- **Nested Function Support**: Unified date parsing entry point, improved multi-level nested function scenarios (e.g. extracting dates from ID numbers)
+- **Formula Error Messages**: Detailed formula engine error messages including function name, arguments and error details
+- **Regex Validation Field**: Added regex validation configuration for single-line text fields with custom rules and validation messages
+- **Regex Presets**: Built-in presets for phone number, postal code, ID card and IPv4 for quick fill
+- **Real-Time Validation**: Forms and detail dialogs support on-blur real-time validation with error styling
+
+#### 🎨 Interaction & Experience
+
+- **Context Menu Enhancements**: Menu items support hint tooltips; added promote/demote/add-child tree operation icons with improved layout
+- **Scroll Position Retention**: Automatically scrolls to the most recently updated record after data updates, preserving operation context
+- **Incremental Update Optimization**: Prefers incremental updates over full rebuilds when row count is unchanged during real-time updates
+- **Clipboard Compatibility**: New `copyToClipboard` utility prioritizing the Clipboard API with automatic fallback and full URL display
+
+#### 🔐 Permissions & Security
+
+- **Permission Tightening**: Field and management operations raised from EDITOR-and-above to ADMIN-and-above to prevent accidental changes by regular users
+- **Scope Coverage**: Workflow, table, document and dashboard management now restricted to administrators
+- **Share Rate Limiting**: Form share rate limiting switched from client IP to share token dimension, avoiding false limits for LAN users; threshold adjusted to 100 requests / 15 minutes
+
+### 🐛 Bug Fixes
+
+- Fixed select editor value matching — single/multi select now match by id with backward compatibility for legacy name matching
+- Fixed incorrect select option display text, now using the actual name as display content
+- Fixed view validation failure caused by table_id type mismatch in view routes; form views can now be set as default view
+- Fixed hierarchy table expand button not displaying (empty records on init under CachedDataSource mode)
+- Fixed table jumping back to the first row after data updates
+- Unified frontend/backend share API route paths, merged share update and delete APIs with improved error messages
+- Fixed share APIs by using `filter_by` instead of `query.get` for CompatUUID compatibility
+- Fixed frontend adaptation for second-level timestamps returned by the backend
+- Fixed form submission error message precedence, reading the error field first for backend error format compatibility
+- Fixed duplicate browser windows opening due to Flask debug reloader in packaged mode
+- Fixed type inconsistency of date/time field values in formula comparisons
+- Fixed inconsistency between stored option values and those shown in the dialog when editing single/multi select values in a cell
+- Fixed form share links failing to be copied in some scenarios
+
+***
+
 # SmartTable v1.6.3 Release Notes
 
 **发布日期 / Release Date**: 2026-07-30

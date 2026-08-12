@@ -70,7 +70,19 @@ export const useViewStore = defineStore("view", () => {
   async function selectDefaultView(tableId: string) {
     try {
       const defaultView = await viewService.getDefaultView(tableId);
-      currentView.value = defaultView || null;
+      if (!defaultView) {
+        currentView.value = null;
+        return;
+      }
+      // 幂等：若当前视图已是该表格的同一视图，跳过重复赋值，
+      // 避免多次加载流程（如 handleTableSelect 与路由 watch 并发）触发重复的视图级数据加载
+      if (
+        currentView.value?.id === defaultView.id &&
+        currentView.value?.tableId === tableId
+      ) {
+        return;
+      }
+      currentView.value = defaultView;
     } catch (e) {
       error.value =
         e instanceof Error ? e.message : "Failed to select default view";
@@ -256,6 +268,10 @@ export const useViewStore = defineStore("view", () => {
     await updateView(viewId, { groupBys });
   }
 
+  async function updateParentField(viewId: string, parentFieldId: string | null) {
+    await updateView(viewId, { parentFieldId: parentFieldId || undefined } as any);
+  }
+
   function clearView() {
     views.value = [];
     currentView.value = null;
@@ -345,6 +361,7 @@ export const useViewStore = defineStore("view", () => {
     updateFrozenFields,
     updateRowHeight,
     updateGroupBys,
+    updateParentField,
     clearView,
     setupRealtimeListeners,
     cleanupRealtimeListeners,

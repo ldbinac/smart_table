@@ -22,6 +22,7 @@ from app.models.operation_history import OperationHistory
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_template_service import EmailTemplateService
+from app.services.notification_service import NotificationService
 from app.services.security_config_service import SecurityConfigService
 
 logger = logging.getLogger(__name__)
@@ -91,22 +92,22 @@ class AuthService:
             # 生成验证令牌
             verification_token = user.generate_verification_token()
             
-            # 如果邮件服务启用，发送验证邮件
-            if EmailConfigService.is_email_enabled():
-                try:
-                    verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
-                        template_key='user_registration',
-                        template_data={
-                            'user_name': user.name,
-                            'verification_link': verification_link
-                        }
-                    )
-                except Exception as e:
-                    # 邮件发送失败不影响注册流程，记录错误即可
-                    current_app.logger.error(f'发送验证邮件失败: {str(e)}')
+            # 发送验证通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            try:
+                verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
+                NotificationService.send_notification(
+                    recipient_email=user.email,
+                    recipient_user_id=user.id,
+                    template_key='user_registration',
+                    template_data={
+                        'user_name': user.name,
+                        'verification_link': verification_link
+                    },
+                    source='auth'
+                )
+            except Exception as e:
+                # 通知发送失败不影响注册流程，记录错误即可
+                current_app.logger.error(f'发送验证邮件失败: {str(e)}')
             
             return user, None
             
@@ -370,20 +371,20 @@ class AuthService:
 
             db.session.commit()
 
-            # 发送密码修改通知邮件
-            if EmailConfigService.is_email_enabled():
-                try:
-                    EmailSenderService.send_email_quick(
-                        to_email=user.email,
-                        to_name=user.name,
-                        template_key='password_changed',
-                        template_data={
-                            'user_name': user.name,
-                            'operation_time': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f'发送密码修改通知邮件失败: {str(e)}')
+            # 发送密码修改通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            try:
+                NotificationService.send_notification(
+                    recipient_email=user.email,
+                    recipient_user_id=user.id,
+                    template_key='password_changed',
+                    template_data={
+                        'user_name': user.name,
+                        'operation_time': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+                    },
+                    source='auth'
+                )
+            except Exception as e:
+                logger.error(f'发送密码修改通知邮件失败: {str(e)}')
 
             return True, None
 

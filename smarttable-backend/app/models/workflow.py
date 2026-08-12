@@ -40,6 +40,8 @@ class WorkflowNodeType(PyEnum):
     UPDATE_RECORD = 'update_record'
     CREATE_RECORD = 'create_record'
     TRIGGER_WEBHOOK = 'trigger_webhook'
+    # 自定义脚本节点
+    SCRIPT = 'script'
     # 保留 ACTION 用于向后兼容（历史数据迁移后可废弃）
     ACTION = 'action'
 
