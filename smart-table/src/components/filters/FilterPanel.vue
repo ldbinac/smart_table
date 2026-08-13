@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "../../db/schema";
 import type { FilterCondition } from "../../types";
 import {
@@ -9,6 +10,8 @@ import {
 } from "../../utils/filter";
 import { generateId } from "../../utils/id";
 import FilterConditionComponent from "./FilterCondition.vue";
+
+const { t } = useI18n();
 
 interface Props {
   fields: FieldEntity[];
@@ -103,7 +106,7 @@ function handleReset() {
 function saveFilterPreset() {
   const preset = {
     id: generateId(),
-    name: `筛选预设 ${new Date().toLocaleString()}`,
+    name: `${t('view.filter.filterPresetName')} ${new Date().toLocaleString()}`,
     conditions: localConditions.value,
     conjunction: localConjunction.value,
     createdAt: Date.now(),
@@ -119,9 +122,9 @@ function saveFilterPreset() {
   <div class="filter-panel">
     <div class="panel-header">
       <div class="header-title">
-        <span class="title">筛选条件</span>
+        <span class="title">{{ t('view.filter.filterConditions') }}</span>
         <span v-if="validConditionsCount > 0" class="condition-count">
-          {{ validConditionsCount }} 个条件
+          {{ t('view.filter.conditionCount', { count: validConditionsCount }) }}
         </span>
       </div>
       <div class="header-actions">
@@ -130,7 +133,7 @@ function saveFilterPreset() {
           size="small"
           @click="saveFilterPreset"
           :disabled="!hasConditions">
-          保存预设
+          {{ t('view.filter.savePreset') }}
         </el-button>
         <el-button
           text
@@ -138,15 +141,15 @@ function saveFilterPreset() {
           type="danger"
           @click="clearAllConditions"
           :disabled="!hasConditions">
-          清空
+          {{ t('view.filter.clearAll') }}
         </el-button>
       </div>
     </div>
 
     <div v-if="hasConditions" class="conjunction-toggle">
       <el-radio-group v-model="localConjunction" size="small">
-        <el-radio-button value="and">且 (AND)</el-radio-button>
-        <el-radio-button value="or">或 (OR)</el-radio-button>
+        <el-radio-button value="and">{{ t('view.filter.and') }}</el-radio-button>
+        <el-radio-button value="or">{{ t('view.filter.or') }}</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -162,28 +165,28 @@ function saveFilterPreset() {
           @remove="removeCondition(index)" />
       </template>
       <div v-else class="empty-state">
-        <span>暂无筛选条件</span>
+        <span>{{ t('view.filter.noFilterCondition') }}</span>
       </div>
     </div>
 
     <div class="panel-footer">
       <el-button type="primary" plain size="small" @click="addCondition">
-        添加条件
+        {{ t('view.filter.addCondition') }}
       </el-button>
       <div class="footer-actions">
-        <el-button size="small" @click="handleReset"> 重置 </el-button>
+        <el-button size="small" @click="handleReset"> {{ t('view.filter.reset') }} </el-button>
         <el-button
           type="primary"
           size="small"
           @click="handleApply"
           :disabled="validConditionsCount === 0">
-          应用
+          {{ t('view.filter.apply') }}
         </el-button>
       </div>
     </div>
 
     <div v-if="conditionDescriptions.length > 0" class="condition-summary">
-      <div class="summary-title">当前筛选：</div>
+      <div class="summary-title">{{ t('view.filter.currentFilter') }}</div>
       <div class="summary-content">
         <el-tag
           v-for="(desc, index) in conditionDescriptions"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
 import {
@@ -26,6 +27,8 @@ import { AttachmentError } from '@/utils/attachment';
 import { useBaseStore } from '@/stores';
 
 const baseStore = useBaseStore();
+
+const { t } = useI18n();
 
 interface Props {
   field: FieldEntity;
@@ -238,10 +241,10 @@ function formatUploadTime(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
 
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
+  if (diff < 60000) return t('view.attachment.justNow');
+  if (diff < 3600000) return t('view.attachment.minutesAgo', { count: Math.floor(diff / 60000) });
+  if (diff < 86400000) return t('view.attachment.hoursAgo', { count: Math.floor(diff / 3600000) });
+  if (diff < 604800000) return t('view.attachment.daysAgo', { count: Math.floor(diff / 86400000) });
 
   const date = new Date(timestamp);
   const year = date.getFullYear();
@@ -270,7 +273,7 @@ async function handleUpload(uploadFile: UploadFile) {
   if (!file) return;
 
   if (!props.recordId) {
-    ElMessage.error('请先保存记录后再上传附件');
+    ElMessage.error(t('view.attachment.saveRecordFirst'));
     return;
   }
 
@@ -299,12 +302,12 @@ async function handleUpload(uploadFile: UploadFile) {
     files.value = [...files.value, ...uploadedFiles];
     emit('update:modelValue', buildModelValue());
 
-    ElMessage.success(`文件 "${file.name}" 上传成功`);
+    ElMessage.success(t('view.attachment.fileUploadSuccess', { name: file.name }));
   } catch (error) {
     if (error instanceof AttachmentError) {
       ElMessage.error(error.message);
     } else {
-      ElMessage.error('文件上传失败');
+      ElMessage.error(t('view.attachment.fileUploadFailed'));
       console.error('Upload error:', error);
     }
   } finally {
@@ -317,9 +320,9 @@ async function handleUpload(uploadFile: UploadFile) {
 // 处理删除
 async function handleRemove(fileId: string) {
   try {
-    await ElMessageBox.confirm('确定要删除这个附件吗？', '确认删除', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('view.attachment.deleteAttachmentConfirm'), t('view.base.deleteTitle'), {
+      confirmButtonText: t('view.base.confirmDelete'),
+      cancelButtonText: t('view.cancel'),
       type: 'warning'
     });
 
@@ -329,10 +332,10 @@ async function handleRemove(fileId: string) {
     files.value = files.value.filter(f => f.id !== fileId);
     emit('update:modelValue', buildModelValue());
 
-    ElMessage.success('附件已删除');
+    ElMessage.success(t('view.attachment.attachmentDeleted'));
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败');
+      ElMessage.error(t('view.attachment.deleteAttachmentFailed'));
       console.error('Delete error:', error);
     }
   }
@@ -346,7 +349,7 @@ async function handleDownload(file: AttachmentFile) {
     if (error instanceof AttachmentError) {
       ElMessage.error(error.message);
     } else {
-      ElMessage.error('下载失败');
+      ElMessage.error(t('view.attachment.downloadFailed'));
       console.error('Download error:', error);
     }
   }
@@ -410,7 +413,7 @@ onUnmounted(() => {
     >
       <!-- 面板头部 -->
       <div class="panel-header">
-        <span class="panel-title">附件管理</span>
+        <span class="panel-title">{{ t('view.attachment.attachmentManage') }}</span>
         <el-button
           class="panel-close-btn"
           link
@@ -441,15 +444,15 @@ onUnmounted(() => {
             </el-icon>
             <div class="upload-text">
               <template v-if="!uploading">
-                拖拽文件到此处或<em>点击上传</em>
+                {{ t('view.attachment.dragOrClick') }}<em>{{ t('view.attachment.clickUpload') }}</em>
               </template>
               <template v-else>
-                正在上传 {{ currentUploadFile }}... {{ uploadProgress }}%
+                {{ t('view.attachment.uploading', { file: currentUploadFile, percent: uploadProgress }) }}
               </template>
             </div>
             <template #tip>
               <div class="upload-tip">
-                <div>文件最大: {{ formatFileSize(maxSize) }};&nbsp;<span v-if="maxCount">最多 {{ maxCount }} 个文件</span></div>
+                <div>{{ t('view.attachment.fileMax', { size: formatFileSize(maxSize) }) }}<span v-if="maxCount">&nbsp;{{ t('view.attachment.maxFiles', { count: maxCount }) }}</span></div>
               </div>
             </template>
           </el-upload>
@@ -522,7 +525,7 @@ onUnmounted(() => {
         <!-- 空状态 -->
         <div v-else class="empty-state">
           <el-icon class="empty-icon"><Document /></el-icon>
-          <span class="empty-text">暂无附件</span>
+          <span class="empty-text">{{ t('view.attachment.noAttachment') }}</span>
         </div>
       </div>
     </div>
@@ -530,7 +533,7 @@ onUnmounted(() => {
     <!-- 预览对话框 - 独立于面板之外，避免被面板 CSS 约束尺寸 -->
     <el-dialog
       v-model="previewVisible"
-      :title="previewFile?.originalName || '预览'"
+      :title="previewFile?.originalName || t('view.attachment.previewTitle')"
       width="90%"
       top="5vh"
       destroy-on-close
@@ -562,11 +565,11 @@ onUnmounted(() => {
                 <el-icon><ZoomIn /></el-icon>
               </el-button>
               <el-button size="small" @click="resetZoom">
-                <el-icon><RefreshRight /></el-icon> 重置
+                <el-icon><RefreshRight /></el-icon> {{ t('view.attachment.resetZoom') }}
               </el-button>
             </el-button-group>
             <el-button size="small" type="primary" @click="handleDownload(previewFile)">
-              <el-icon><Download /></el-icon> 下载
+              <el-icon><Download /></el-icon> {{ t('view.attachment.download') }}
             </el-button>
           </div>
         </div>
@@ -577,7 +580,7 @@ onUnmounted(() => {
           class="preview-video"
         >
           <source :src="previewFile.url" :type="previewFile.type" />
-          您的浏览器不支持视频播放
+          {{ t('view.attachment.browserNoVideo') }}
         </video>
         <!-- 音频预览 -->
         <audio
@@ -586,14 +589,14 @@ onUnmounted(() => {
           class="preview-audio"
         >
           <source :src="previewFile.url" :type="previewFile.type" />
-          您的浏览器不支持音频播放
+          {{ t('view.attachment.browserNoAudio') }}
         </audio>
         <!-- 其他文件 -->
         <div v-else class="preview-other">
           <el-icon size="64"><Document /></el-icon>
-          <p>该文件类型暂不支持预览</p>
+          <p>{{ t('view.attachment.previewNotSupported') }}</p>
           <el-button type="primary" @click="handleDownload(previewFile)">
-            下载文件
+            {{ t('view.attachment.downloadFile') }}
           </el-button>
         </div>
       </div>

@@ -425,7 +425,7 @@ defineExpose({
     <div
       v-if="searchKeyword && !hasSearchResults && !isCollapsed"
       class="search-empty">
-      没有找到匹配的内容
+      {{ t('sidebar.searchEmpty') }}
     </div>
 
     <!-- 分隔线 -->
@@ -439,7 +439,7 @@ defineExpose({
       class="dashboard-section">
       <div v-show="!isCollapsed" class="section-title">
         <span class="title-text"
-          >仪表盘 &nbsp;<span class="section-count"
+          >{{ t('sidebar.dashboardSection') }} &nbsp;<span class="section-count"
             >({{ filteredDashboards.length }})</span
           ></span
         >
@@ -513,7 +513,7 @@ defineExpose({
                     divided
                     command="delete"
                     class="delete-item">
-                    <el-icon><Delete /></el-icon>删除
+                    <el-icon><Delete /></el-icon>{{ t('common.delete') }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -587,18 +587,18 @@ defineExpose({
                   <el-dropdown-item
                     v-if="canManage !== false"
                     command="rename">
-                    <el-icon><Edit /></el-icon>重命名
+                    <el-icon><Edit /></el-icon>{{ t('common.rename') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="pin">
                     <el-icon><StarFilled /></el-icon>
-                    {{ doc.isPinned ? "取消置顶" : "置顶" }}
+                    {{ doc.isPinned ? t('sidebar.unpin') : t('sidebar.pin') }}
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="canManage !== false"
                     divided
                     command="delete"
                     class="delete-item">
-                    <el-icon><Delete /></el-icon>删除
+                    <el-icon><Delete /></el-icon>{{ t('common.delete') }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -624,7 +624,7 @@ defineExpose({
       class="table-section">
       <div v-show="!isCollapsed" class="section-title">
         <span class="title-text"
-          >数据表&nbsp;<span class="section-count"
+          >{{ t('sidebar.tableSection') }}&nbsp;<span class="section-count"
             >({{ filteredTables.length }})</span
           ></span
         >
@@ -697,7 +697,7 @@ defineExpose({
                     divided
                     command="delete"
                     class="delete-item">
-                    <el-icon><Delete /></el-icon>删除
+                    <el-icon><Delete /></el-icon>{{ t('common.delete') }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>

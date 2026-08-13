@@ -1,0 +1,21 @@
+{
+  "feedbackTemplateCopied": "反馈模板已复制，请在 Gitee 新建 Issue 时粘贴",
+  "copyFailed": "复制失败，请手动填写反馈内容",
+  "feedbackTitle": "问题反馈",
+  "feedbackIntro": "感谢您的反馈！请选择以下任一渠道提交您的问题或建议，系统会自动附带环境信息以便定位问题。",
+  "docBannerText": "提交前，可先查阅项目官方文档自助排查",
+  "githubIssues": "GitHub Issues",
+  "githubDesc": "跳转到 GitHub 仓库提交 Issue（新标签页打开，预填充系统信息）",
+  "goSubmit": "前往提交",
+  "giteeIssues": "Gitee Issues",
+  "giteeDesc": "跳转到 Gitee 新建 Issue 页（模板自动复制到剪贴板，粘贴即可）",
+  "emailFeedback": "邮件反馈",
+  "emailDesc": "调用系统默认邮件客户端，自动填充收件人、主题与正文模板",
+  "sendEmail": "发送邮件",
+  "wechatFollow": "公众号关注反馈",
+  "wechatDesc": "扫码关注 SmartTable 公众号，通过菜单联系反馈",
+  "showQrcodeBtn": "查看二维码",
+  "qrcodeAlt": "SmartTable 公众号二维码",
+  "qrcodeTip": "扫码关注 SmartTable 公众号，通过菜单联系反馈",
+  "backToChannels": "返回选择渠道"
+}

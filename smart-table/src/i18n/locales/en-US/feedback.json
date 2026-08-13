@@ -1,0 +1,21 @@
+{
+  "feedbackTemplateCopied": "Feedback template copied, please paste when creating a new Issue on Gitee",
+  "copyFailed": "Copy failed, please fill in feedback manually",
+  "feedbackTitle": "Feedback",
+  "feedbackIntro": "Thank you for your feedback! Please choose any of the channels below to submit your issue or suggestion. System info will be attached automatically for troubleshooting.",
+  "docBannerText": "Before submitting, you can check the official docs for self-help",
+  "githubIssues": "GitHub Issues",
+  "githubDesc": "Go to GitHub repo to submit an Issue (opens in a new tab, prefilled with system info)",
+  "goSubmit": "Go Submit",
+  "giteeIssues": "Gitee Issues",
+  "giteeDesc": "Go to Gitee new Issue page (template auto-copied to clipboard, just paste)",
+  "emailFeedback": "Email Feedback",
+  "emailDesc": "Open system default mail client, auto-fill recipient, subject and body template",
+  "sendEmail": "Send Email",
+  "wechatFollow": "Follow Official Account",
+  "wechatDesc": "Scan to follow SmartTable official account, contact us via menu",
+  "showQrcodeBtn": "View QR Code",
+  "qrcodeAlt": "SmartTable Official Account QR Code",
+  "qrcodeTip": "Scan to follow SmartTable official account, contact us via menu",
+  "backToChannels": "Back to Channels"
+}
