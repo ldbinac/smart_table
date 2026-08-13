@@ -305,7 +305,7 @@ function initSortable() {
           ElMessage.closeAll();
           ElMessage({
             type: "warning",
-            message: "不能将字段拖动到索引列之前",
+            message: t('field.cannotDragBeforePrimary'),
             duration: 2000,
             showClose: true,
             customClass: "field-reorder-warning",
@@ -342,8 +342,8 @@ async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
     
     if (movedField.id === primaryField.id) {
       ElNotification({
-        title: "操作不允许",
-        message: "索引列字段不能被移动，它是表格的标识字段",
+        title: t('field.notAllowedTitle'),
+        message: t('field.primaryMoveMsg'),
         type: "warning",
         duration: 3000,
         position: "top" as any,
@@ -354,8 +354,8 @@ async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
 
     if (evt.newIndex! <= primaryFieldIndex) {
       ElNotification({
-        title: "操作不允许",
-        message: "其他字段不能调整到索引列字段之前，索引列始终位于最左侧",
+        title: t('field.notAllowedTitle'),
+        message: t('field.beforePrimaryMsg'),
         type: "warning",
         duration: 3000,
         position: "top" as any,
@@ -374,9 +374,9 @@ async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
   try {
     await fieldService.reorderFields(props.tableId, fieldIds);
     emit("fields-reordered", fieldIds);
-    ElMessage.success("字段排序已更新");
+    ElMessage.success(t('field.fieldSortUpdated'));
   } catch (error) {
-    ElMessage.error("字段排序失败");
+    ElMessage.error(t('field.fieldSortFailed'));
     nextTick(() => initSortable());
   }
 }
@@ -664,14 +664,14 @@ function handleDateDefaultTypeChange(value: string) {
 
 async function createField() {
   if (!newField.value.name.trim()) {
-    ElMessage.warning("请输入字段名称");
+    ElMessage.warning(t('field.nameRequired'));
     return;
   }
 
   // 关联字段特殊验证
   if (newField.value.type === FieldType.LINK) {
     if (!newField.value.linkConfig.targetTableId) {
-      ElMessage.warning("请选择目标数据表");
+      ElMessage.warning(t('field.selectTargetTableRequired'));
       return;
     }
   }
@@ -827,26 +827,24 @@ async function createField() {
     }
 
     emit("field-created", field);
-    ElMessage.success("字段创建成功");
+    ElMessage.success(t('field.fieldCreated'));
     backToList();
   } catch (error) {
-    ElMessage.error(
-      "字段创建失败: " + (error instanceof Error ? error.message : "未知错误"),
-    );
+    ElMessage.error(t('field.fieldCreateFailed'));
   }
 }
 
 async function updateField() {
   if (!editingField.value) return;
   if (!newField.value.name.trim()) {
-    ElMessage.warning("请输入字段名称");
+    ElMessage.warning(t('field.nameRequired'));
     return;
   }
 
   // 关联字段特殊验证
   if (newField.value.type === FieldType.LINK) {
     if (!newField.value.linkConfig.targetTableId) {
-      ElMessage.warning("请选择目标数据表");
+      ElMessage.warning(t('field.selectTargetTableRequired'));
       return;
     }
   }
@@ -1009,33 +1007,31 @@ async function updateField() {
     if (updatedField) {
       emit("field-updated", updatedField);
     }
-    ElMessage.success("字段更新成功");
+    ElMessage.success(t('field.fieldUpdated'));
     backToList();
   } catch (error) {
-    ElMessage.error(
-      "字段更新失败: " + (error instanceof Error ? error.message : "未知错误"),
-    );
+    ElMessage.error(t('field.fieldUpdateFailed'));
   }
 }
 
 async function deleteField(field: FieldEntity) {
   if (field.isSystem) {
-    ElMessage.warning("系统字段不能删除");
+    ElMessage.warning(t('field.systemCannotDelete'));
     return;
   }
 
   if (field.isPrimary) {
-    ElMessage.warning("索引列字段不能删除");
+    ElMessage.warning(t('field.primaryCannotDelete'));
     return;
   }
 
   try {
     await ElMessageBox.confirm(
-      `确定要删除字段 "${field.name}" 吗？删除后该字段的数据将无法恢复。`,
-      "删除确认",
+      t('field.deleteFieldConfirm', { name: field.name }),
+      t('field.deleteTitle'),
       {
-        confirmButtonText: "确定删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('field.deleteConfirmBtn'),
+        cancelButtonText: t('common.cancel'),
         type: "warning",
         confirmButtonClass: "el-button--danger",
       },
@@ -1043,14 +1039,12 @@ async function deleteField(field: FieldEntity) {
 
     await fieldService.deleteField(field.id);
     emit("field-deleted", field.id);
-    ElMessage.success("字段删除成功");
+    ElMessage.success(t('field.fieldDeleted'));
   } catch (error) {
     if (error === "cancel" || error === "close") {
       return;
     }
-    ElMessage.error(
-      "字段删除失败: " + (error instanceof Error ? error.message : "未知错误"),
-    );
+    ElMessage.error(t('field.fieldDeleteFailed'));
   }
 }
 
@@ -1289,7 +1283,7 @@ async function toggleFieldVisibility(
   newVisibility: boolean,
 ) {
   if (field.isPrimary && !newVisibility) {
-    ElMessage.warning("索引列字段不能被隐藏");
+    ElMessage.warning(t('field.primaryCannotHide'));
     return;
   }
 
@@ -1322,7 +1316,7 @@ async function toggleFieldVisibility(
         //   `[FieldDialog] Emitting field-visibility-changed: ${field.id}, true`,
         // );
         emit("field-visibility-changed", field.id, true);
-        ElMessage.success(`字段 "${field.name}" 已显示`);
+        ElMessage.success(t('field.fieldShown', { name: field.name }));
         return;
       } else if (!isGloballyVisible) {
         // console.log(
@@ -1330,7 +1324,7 @@ async function toggleFieldVisibility(
         // );
         await fieldService.updateFieldVisibility(field.id, true);
         emit("field-updated", { ...field, isVisible: true });
-        ElMessage.success(`字段 "${field.name}" 已显示`);
+        ElMessage.success(t('field.fieldShown', { name: field.name }));
         return;
       }
     }
@@ -1340,15 +1334,15 @@ async function toggleFieldVisibility(
       //   `[FieldDialog] Emitting field-visibility-changed: ${field.id}, false`,
       // );
       emit("field-visibility-changed", field.id, false);
-      ElMessage.success(`字段 "${field.name}" 已隐藏`);
+      ElMessage.success(t('field.fieldHidden', { name: field.name }));
       return;
     }
 
     // console.log(`[FieldDialog] No state change needed`);
-    ElMessage.info(`字段 "${field.name}" 状态未改变`);
+    ElMessage.info(t('field.fieldStateUnchanged', { name: field.name }));
   } catch (error) {
     console.error(`[FieldDialog] Error in toggleFieldVisibility:`, error);
-    ElMessage.error("更新字段可见性失败");
+    ElMessage.error(t('field.updateVisibilityFailed'));
     emit("field-updated", { ...field });
   }
 }
@@ -1358,15 +1352,15 @@ async function toggleFieldVisibility(
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="字段管理"
+    :title="t('field.manage')"
     width="600px"
     :close-on-click-modal="false">
     <!-- 字段列表 -->
     <div v-if="activeTab === 'list'" class="field-list">
       <div class="field-list-header">
-        <span class="field-count">共 {{ fields.length }} 个字段</span>
+        <span class="field-count">{{ t('field.totalFields', { count: fields.length }) }}</span>
         <ElButton type="primary" size="small" @click="openCreateField">
-          + 添加字段
+          + {{ t('field.addField') }}
         </ElButton>
       </div>
 
@@ -1379,7 +1373,7 @@ async function toggleFieldVisibility(
           effect="dark">
           <template #content>
             <div class="primary-field-tooltip">
-              索引列：用来标识每条记录。不能被删除、移动或隐藏。
+              {{ t('field.primaryFieldTooltip') }}
             </div>
           </template>
           <div
@@ -1393,7 +1387,7 @@ async function toggleFieldVisibility(
               <span 
                 class="drag-handle" 
                 :class="{ 'disabled': field.isPrimary }"
-                :title="field.isPrimary ? '索引列字段不能移动' : '拖拽排序'">
+                :title="field.isPrimary ? t('field.primaryCannotMove') : t('field.dragToSort')">
                 <ElIcon><Rank /></ElIcon>
               </span>
               <span class="field-icon">
@@ -1403,10 +1397,10 @@ async function toggleFieldVisibility(
               </span>
               <span class="field-name">{{ field.name }}</span>
               <span class="field-type">{{ getFieldTypeLabel(field.type) }}</span>
-              <ElTag v-if="field.isPrimary" size="small" type="success">索引列</ElTag>
-              <ElTag v-if="field.isSystem" size="small" type="info">系统</ElTag>
+              <ElTag v-if="field.isPrimary" size="small" type="success">{{ t('field.primary') }}</ElTag>
+              <ElTag v-if="field.isSystem" size="small" type="info">{{ t('field.system') }}</ElTag>
               <ElTag v-if="field.isRequired" size="small" type="warning"
-                >必填</ElTag
+                >{{ t('field.required') }}</ElTag
               >
             </div>
             <div class="field-actions">
@@ -1417,8 +1411,8 @@ async function toggleFieldVisibility(
                 :inactive-value="false"
                 size="small"
                 inline-prompt
-                active-text="显示"
-                inactive-text="隐藏"
+                :active-text="t('field.show')"
+                :inactive-text="t('field.hide')"
                 @change="(val) => toggleFieldVisibility(field, val as boolean)"
                 style="margin-right: 8px" />
               <ElButton
@@ -1427,7 +1421,7 @@ async function toggleFieldVisibility(
                 type="primary"
                 size="small"
                 @click="openEditField(field)">
-                编辑
+                {{ t('common.edit') }}
               </ElButton>
               <ElButton
                 v-if="!field.isSystem && !field.isPrimary"
@@ -1435,7 +1429,7 @@ async function toggleFieldVisibility(
                 type="danger"
                 size="small"
                 @click="deleteField(field)">
-                删除
+                {{ t('common.delete') }}
               </ElButton>
             </div>
           </div>
@@ -1446,15 +1440,15 @@ async function toggleFieldVisibility(
     <!-- 创建/编辑字段 -->
     <div v-else class="field-form">
       <ElForm label-width="100px">
-        <ElFormItem label="字段名称" required>
+        <ElFormItem :label="t('field.fieldName')" required>
           <ElInput
             v-model="newField.name"
-            placeholder="请输入字段名称"
+            :placeholder="t('field.nameRequired')"
             maxlength="50"
             show-word-limit />
         </ElFormItem>
 
-        <ElFormItem label="字段类型" required>
+        <ElFormItem :label="t('field.fieldType')" required>
           <ElSelect
             v-model="newField.type"
             style="width: 100%"
@@ -1479,26 +1473,26 @@ async function toggleFieldVisibility(
         <!-- 文本字段最大长度配置 -->
         <ElFormItem
           v-if="newField.type === FieldType.SINGLE_LINE_TEXT || newField.type === FieldType.LONG_TEXT || newField.type === FieldType.RICH_TEXT"
-          label="最大长度">
+          :label="t('field.maxLength')">
           <ElInputNumber
             v-model="newField.maxLength"
             :min="1"
             :max="10000"
             :step="1"
-            placeholder="不限制"
+            :placeholder="t('field.noLimit')"
             style="width: 200px" />
-          <div class="field-hint">设置文本的最大长度，不填则不限制</div>
+          <div class="field-hint">{{ t('field.maxLengthHint') }}</div>
         </ElFormItem>
 
         <!-- 单行文本字段正则校验配置 -->
         <template v-if="newField.type === FieldType.SINGLE_LINE_TEXT">
           
-          <ElFormItem label="正则表达式">
+          <ElFormItem :label="t('field.regex')">
             <ElInput
               v-model="newField.regex"
-              placeholder="请输入正则表达式，如 ^\d{4}$"
+              :placeholder="t('field.regexPlaceholder')"
               clearable />
-            <div class="field-hint">使用 JavaScript 正则语法，留空则不校验</div>
+            <div class="field-hint">{{ t('field.regexHint') }}</div>
             <div class="regex-preset-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
               <ElTag
                 v-for="preset in PRESET_REGEX_OPTIONS"
@@ -1506,23 +1500,23 @@ async function toggleFieldVisibility(
                 size="small"
                 type="info"
                 effect="plain"
-                title="点击标签快速填充常用正则"
+                :title="t('field.regexPresetTitle')"
                 style="cursor: pointer; user-select: none"
                 @click="applyPresetRegex(preset)">
                 {{ preset.label }}
               </ElTag>
             </div>
           </ElFormItem>
-          <ElFormItem v-if="newField.regex" label="正则校验提示">
+          <ElFormItem v-if="newField.regex" :label="t('field.regexMessage')">
             <ElInput
               v-model="newField.regexMessage"
-              placeholder="校验不通过时显示的提示信息"
+              :placeholder="t('field.regexMessagePlaceholder')"
               clearable />
           </ElFormItem>
         </template>
 
         <!-- 数值字段精度配置 -->
-        <ElFormItem v-if="newField.type === FieldType.NUMBER" label="小数位数">
+        <ElFormItem v-if="newField.type === FieldType.NUMBER" :label="t('field.decimalPlaces')">
           <div class="precision-config">
             <ElSlider
               v-model="newField.precision"
@@ -1531,27 +1525,27 @@ async function toggleFieldVisibility(
               :step="1"
               show-stops
               style="width: 300px" />
-            <span class="precision-value">{{ newField.precision }} 位</span>
+            <span class="precision-value">{{ newField.precision }} {{ t('field.digitsUnit') }}</span>
           </div>
-          <div class="field-hint">设置数值显示的小数位数，默认为 0</div>
+          <div class="field-hint">{{ t('field.precisionHint') }}</div>
         </ElFormItem>
 
         <!-- 公式字段配置 -->
         <template v-if="newField.type === FieldType.FORMULA">
-          <ElFormItem label="公式表达式" required>
+          <ElFormItem :label="t('field.formulaExpr')" required>
             <ElInput
               v-model="newField.formula"
               type="textarea"
               :rows="3"
-              placeholder="输入公式，如: SUM({单价}, {数量}) 或 {单价} * {数量}"
+              :placeholder="t('field.formulaExprPlaceholder')"
               maxlength="500"
               show-word-limit />
             <div class="field-hint">
-              使用 {字段名} 引用其他字段，支持数学、文本、日期、逻辑函数
+              {{ t('field.formulaExprHint') }}
             </div>
           </ElFormItem>
 
-          <ElFormItem label="小数位数">
+          <ElFormItem :label="t('field.decimalPlaces')">
             <div class="precision-config">
               <ElSlider
                 v-model="newField.precision"
@@ -1561,17 +1555,17 @@ async function toggleFieldVisibility(
                 show-stops
                 style="width: 300px" />
               <span class="precision-value"
-                >{{ newField.precision }} 位</span
+                >{{ newField.precision }} {{ t('field.digitsUnit') }}</span
               >
             </div>
-            <div class="field-hint">设置公式结果显示的小数位数，默认为 0</div>
+            <div class="field-hint">{{ t('field.formulaPrecisionHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="公式函数">
+          <ElFormItem :label="t('field.formulaFunctions')">
             <FormulaHelper @insert="handleFormulaInsert" />
           </ElFormItem>
 
-          <ElFormItem label="可用字段">
+          <ElFormItem :label="t('field.availableFields')">
             <div class="formula-fields">
               <ElTag
                 v-for="field in availableFieldsForFormula"
@@ -1588,69 +1582,69 @@ async function toggleFieldVisibility(
 
         <!-- 自动编号字段配置 -->
         <template v-if="newField.type === FieldType.AUTO_NUMBER">
-          <ElFormItem label="编号预览">
+          <ElFormItem :label="t('field.preview')">
             <div class="auto-number-preview">
-              <span class="preview-label">预览:</span>
+              <span class="preview-label">{{ t('field.previewLabel') }}:</span>
               <span class="preview-value">{{ autoNumberPreview }}</span>
             </div>
           </ElFormItem>
 
-          <ElFormItem label="起始编号">
+          <ElFormItem :label="t('field.startNumber')">
             <ElInputNumber
               v-model="autoNumberConfig.startNumber"
               :min="1"
               :max="999999"
               :step="1"
               style="width: 200px" />
-            <div class="field-hint">设置编号的起始值，默认为 1</div>
+            <div class="field-hint">{{ t('field.startNumberHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="编号前缀">
+          <ElFormItem :label="t('field.prefix')">
             <ElInput
               v-model="autoNumberConfig.prefix"
-              placeholder="如: NO-"
+              :placeholder="t('field.prefixExample')"
               maxlength="20"
               show-word-limit
               style="width: 200px" />
-            <div class="field-hint">在编号前添加固定前缀</div>
+            <div class="field-hint">{{ t('field.prefixHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="编号后缀">
+          <ElFormItem :label="t('field.suffix')">
             <ElInput
               v-model="autoNumberConfig.suffix"
-              placeholder="如: -A"
+              :placeholder="t('field.suffixExample')"
               maxlength="20"
               show-word-limit
               style="width: 200px" />
-            <div class="field-hint">在编号后添加固定后缀</div>
+            <div class="field-hint">{{ t('field.suffixHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="编号位数">
+          <ElFormItem :label="t('field.digits')">
             <ElInputNumber
               v-model="autoNumberConfig.digitLength"
               :min="0"
               :max="10"
               :step="1"
               style="width: 200px" />
-            <div class="field-hint">设置编号位数，不足时前面补0（0表示不补零）</div>
+            <div class="field-hint">{{ t('field.digitsHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="包含日期">
+          <ElFormItem :label="t('field.includeDate')">
             <ElSwitch
               v-model="autoNumberConfig.includeDate"
-              active-text="是"
-              inactive-text="否" />
-            <div class="field-hint">开启后在编号中包含日期前缀</div>
+              :active-text="t('common.yes')"
+              :inactive-text="t('common.no')" />
+            <div class="field-hint">{{ t('field.includeDateHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem v-if="autoNumberConfig.includeDate" label="日期格式">
+          <ElFormItem v-if="autoNumberConfig.includeDate" :label="t('field.dateFormat')">
             <ElSelect v-model="autoNumberConfig.dateFormat" style="width: 200px">
               <ElOption label="YYYYMMDD (20240115)" value="YYYYMMDD" />
               <ElOption label="YYYYMM (202401)" value="YYYYMM" />
               <ElOption label="YYYY (2024)" value="YYYY" />
               <ElOption label="YYMMDD (240115)" value="YYMMDD" />
             </ElSelect>
-            <div class="field-hint">选择日期前缀的显示格式</div>
+            <div class="field-hint">{{ t('field.dateFormatHint') }}</div>
           </ElFormItem>
         </template>
 
@@ -1659,7 +1653,7 @@ async function toggleFieldVisibility(
             newField.type === FieldType.SINGLE_SELECT ||
             newField.type === FieldType.MULTI_SELECT
           "
-          label="选项">
+          :label="t('field.options')">
           <div class="options-editor">
             <div class="options-list">
               <div
@@ -1673,13 +1667,13 @@ async function toggleFieldVisibility(
                 <ElInput
                   v-model="option.name"
                   size="small"
-                  placeholder="选项名称" />
+                  :placeholder="t('field.optionNamePlaceholder')" />
                 <ElButton
                   link
                   type="danger"
                   size="small"
                   @click="removeOption(index)">
-                  删除
+                  {{ t('common.delete') }}
                 </ElButton>
               </div>
             </div>
@@ -1691,10 +1685,10 @@ async function toggleFieldVisibility(
               <ElInput
                 v-model="newOptionName"
                 size="small"
-                placeholder="输入选项名称，按回车添加"
+                :placeholder="t('field.optionNameInputPlaceholder')"
                 @keyup.enter="addOption" />
               <ElButton type="primary" size="small" @click="addOption"
-                >添加</ElButton
+                >{{ t('field.addOption') }}</ElButton
               >
             </div>
           </div>
@@ -1702,11 +1696,11 @@ async function toggleFieldVisibility(
 
         <!-- 附件字段配置 -->
         <template v-if="newField.type === FieldType.ATTACHMENT">
-          <ElFormItem label="文件类型限制">
+          <ElFormItem :label="t('field.fileTypeLimit')">
             <ElSelect
               v-model="attachmentConfig.acceptTypes"
               multiple
-              placeholder="选择允许的文件类型"
+              :placeholder="t('field.fileTypeLimitPlaceholder')"
               style="width: 100%">
               <ElOption label="图片 (image/*)" value="image/*" />
               <ElOption label="文档 (PDF)" value="application/pdf" />
@@ -1723,10 +1717,10 @@ async function toggleFieldVisibility(
               <ElOption label="视频 (video/*)" value="video/*" />
               <ElOption label="音频 (audio/*)" value="audio/*" />
             </ElSelect>
-            <div class="field-hint">不选择则表示允许所有文件类型</div>
+            <div class="field-hint">{{ t('field.fileTypeLimitHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="单个文件大小">
+          <ElFormItem :label="t('field.singleFileSize')">
             <ElInputNumber
               v-model="attachmentConfig.maxSize"
               :min="1"
@@ -1735,64 +1729,64 @@ async function toggleFieldVisibility(
               style="width: 200px">
               <template #suffix>MB</template>
             </ElInputNumber>
-            <div class="field-hint">单个文件的最大大小，默认为 10MB</div>
+            <div class="field-hint">{{ t('field.singleFileSizeHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="最大文件数量">
+          <ElFormItem :label="t('field.maxFileCount')">
             <ElInputNumber
               v-model="attachmentConfig.maxCount"
               :min="1"
               :max="50"
               :step="1"
               style="width: 200px" />
-            <div class="field-hint">最多允许上传的文件数量，默认为 20 个</div>
+            <div class="field-hint">{{ t('field.maxFileCountHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem label="生成缩略图">
+          <ElFormItem :label="t('field.generateThumbnail')">
             <ElSwitch v-model="attachmentConfig.enableThumbnail" />
-            <div class="field-hint">开启后会对图片和视频生成缩略图</div>
+            <div class="field-hint">{{ t('field.generateThumbnailHint') }}</div>
           </ElFormItem>
         </template>
 
         <!-- 关联字段配置 -->
         <template v-if="newField.type === FieldType.LINK">
-          <ElFormItem label="目标表" required>
+          <ElFormItem :label="t('field.targetTable')" required>
             <ElSelect
               v-model="newField.linkConfig.targetTableId"
-              placeholder="选择要关联的数据表"
+              :placeholder="t('field.selectTargetTablePlaceholder')"
               style="width: 100%">
               <ElOption
                 v-for="table in availableTables"
                 :key="table.id"
-                :label="table.id === tableId ? `${table.name}（当前表）` : table.name"
+                :label="table.id === tableId ? `${table.name}${t('field.currentTableSuffix')}` : table.name"
                 :value="table.id" />
             </ElSelect>
-            <div class="field-hint">选择要关联的目标数据表</div>
+            <div class="field-hint">{{ t('field.targetTableHint') }}</div>
             <div
               v-if="newField.linkConfig.targetTableId === tableId"
               class="field-hint self-link-hint">
-              关联自身表可用于在表格视图中设置记录层级
+              {{ t('field.selfLinkHint') }}
             </div>
           </ElFormItem>
 
-          <ElFormItem label="关联类型" required>
+          <ElFormItem :label="t('field.linkType')" required>
             <ElRadioGroup
               v-model="newField.linkConfig.relationshipType"
               :disabled="newField.linkConfig.targetTableId === tableId">
-              <ElRadioButton label="one_to_one">一对一</ElRadioButton>
-              <ElRadioButton label="one_to_many">一对多</ElRadioButton>
-              <ElRadioButton label="many_to_one">多对一</ElRadioButton>
-              <ElRadioButton label="many_to_many">多对多</ElRadioButton>
+              <ElRadioButton label="one_to_one">{{ t('field.oneToOne') }}</ElRadioButton>
+              <ElRadioButton label="one_to_many">{{ t('field.oneToMany') }}</ElRadioButton>
+              <ElRadioButton label="many_to_one">{{ t('field.manyToOne') }}</ElRadioButton>
+              <ElRadioButton label="many_to_many">{{ t('field.manyToMany') }}</ElRadioButton>
             </ElRadioGroup>
             <div class="field-hint">
-              一对一：每条记录只能关联一条目标记录；一对多：每条记录可以关联多条目标记录；多对一：多条记录可以关联到同一条目标记录；多对多：多条记录可相互关联
+              {{ t('field.relationshipHint') }}
             </div>
           </ElFormItem>
 
-          <ElFormItem label="显示字段">
+          <ElFormItem :label="t('field.displayField')">
             <ElSelect
               v-model="newField.linkConfig.displayFieldId"
-              placeholder="选择在关联字段中显示的字段"
+              :placeholder="t('field.selectDisplayFieldPlaceholder')"
               clearable
               style="width: 100%">
               <ElOption
@@ -1802,39 +1796,39 @@ async function toggleFieldVisibility(
                 :value="field.id" />
             </ElSelect>
             <div class="field-hint">
-              选择要在关联字段中显示的目标表字段，不选择则显示第一条字段
+              {{ t('field.displayFieldHint') }}
             </div>
           </ElFormItem>
 
-          <ElFormItem label="双向关联">
+          <ElFormItem :label="t('field.bidirectional')">
             <ElSwitch v-model="newField.linkConfig.bidirectional" :disabled="newField.linkConfig.targetTableId === tableId" />
             <div class="field-hint">
-              开启后会在目标表中自动创建一个反向关联字段，方便从目标记录查看关联的源记录
+              {{ t('field.bidirectionalHint') }}
             </div>
           </ElFormItem>
 
           <!-- 双向关联预览 -->
           <ElFormItem
             v-if="newField.linkConfig.bidirectional && newField.linkConfig.targetTableId"
-            label="反向关联预览"
+            :label="t('field.inverseLinkPreview')"
           >
             <div class="inverse-preview">
               <div class="inverse-preview-row">
                 <el-icon><Link /></el-icon>
-                <span>目标表「<b>{{ tableStore.tables.find((t) => t.id === newField.linkConfig.targetTableId)?.name || '目标表' }}</b>」将自动新增字段：</span>
+                <span>{{ t('field.inverseLinkPreviewMsg', { table: tableStore.tables.find((t) => t.id === newField.linkConfig.targetTableId)?.name || t('field.targetTable') }) }}</span>
               </div>
               <el-tag size="small" type="success" effect="plain" class="inverse-field-tag">
                 <el-icon style="margin-right: 4px; font-size: 12px;"><Link /></el-icon>
-                来自 {{ tableStore.tables.find((t) => t.id === tableId)?.name || '当前表' }} 的关联
+                {{ t('field.inverseLinkField', { table: tableStore.tables.find((t) => t.id === tableId)?.name || t('field.currentTable') }) }}
               </el-tag>
             </div>
           </ElFormItem>
 
           <!-- 关联关系预览 -->
-          <ElFormItem v-if="newField.linkConfig.targetTableId" label="关联预览">
+          <ElFormItem v-if="newField.linkConfig.targetTableId" :label="t('field.linkPreview')">
             <div class="link-preview">
               <div class="link-preview-item">
-                <span class="link-preview-label">当前表:</span>
+                <span class="link-preview-label">{{ t('field.currentTable') }}:</span>
                 <ElTag size="small">{{
                   tableStore.tables.find((t) => t.id === tableId)?.name ||
                   tableId
@@ -1845,15 +1839,15 @@ async function toggleFieldVisibility(
                 <span class="link-preview-type">
                   {{
                     newField.linkConfig.relationshipType === "one_to_one"
-                      ? "一对一"
+                      ? t('field.oneToOne')
                       : newField.linkConfig.relationshipType === "one_to_many"
-                        ? "一对多"
-                        : "多对一"
+                        ? t('field.oneToMany')
+                        : t('field.manyToOne')
                   }}
                 </span>
               </div>
               <div class="link-preview-item">
-                <span class="link-preview-label">目标表:</span>
+                <span class="link-preview-label">{{ t('field.targetTable') }}:</span>
                 <ElTag size="small" type="success">
                   {{
                     tableStore.tables.find(
@@ -1893,21 +1887,21 @@ async function toggleFieldVisibility(
             newField.type !== FieldType.CREATED_BY &&
             newField.type !== FieldType.LAST_MODIFIED_BY
           "
-          label="必填">
+          :label="t('field.isRequired')">
           <ElSwitch v-model="newField.isRequired" />
         </ElFormItem>
 
-        <ElFormItem label="合并单元格">
+        <ElFormItem :label="t('field.mergeCell')">
           <ElSwitch v-model="newField.mergeCell" />
-          <div class="field-hint">&nbsp;将内容相同的单元格进行自动合并</div>
+          <div class="field-hint">&nbsp;{{ t('field.mergeCellHint') }}</div>
         </ElFormItem>
 
-        <ElFormItem label="字段描述">
+        <ElFormItem :label="t('field.fieldDesc')">
           <ElInput
             v-model="newField.description"
             type="textarea"
             :rows="2"
-            placeholder="请输入字段描述（可选）" />
+            :placeholder="t('field.fieldDescPlaceholder')" />
         </ElFormItem>
 
         <!-- 默认值配置：查找字段、公式字段、自动编号、系统字段等不需要默认值 -->
@@ -1922,12 +1916,12 @@ async function toggleFieldVisibility(
             newField.type !== FieldType.LAST_MODIFIED_BY &&
             newField.type !== FieldType.LINK
           "
-          label="默认值">
+          :label="t('field.defaultValue')">
           <!-- 单行文本 -->
           <ElInput
             v-if="newField.type === FieldType.SINGLE_LINE_TEXT"
             v-model="newField.defaultValue"
-            placeholder="请输入默认文本"
+            :placeholder="t('field.defaultTextPlaceholder')"
             style="width: 100%" />
 
           <!-- 多行文本 -->
@@ -1936,7 +1930,7 @@ async function toggleFieldVisibility(
             v-model="newField.defaultValue"
             type="textarea"
             :rows="3"
-            placeholder="请输入默认文本"
+            :placeholder="t('field.defaultTextPlaceholder')"
             style="width: 100%" />
 
           <!-- 富文本 -->
@@ -1945,7 +1939,7 @@ async function toggleFieldVisibility(
             v-model="newField.defaultValue"
             type="textarea"
             :rows="3"
-            placeholder="请输入默认文本"
+            :placeholder="t('field.defaultTextPlaceholder')"
             style="width: 100%" />
 
           <!-- 数字类型 -->
@@ -1953,18 +1947,18 @@ async function toggleFieldVisibility(
             v-else-if="newField.type === FieldType.NUMBER"
             v-model="newField.defaultValue"
             :precision="newField.precision"
-            placeholder="请输入默认数值"
+            :placeholder="t('field.defaultNumberPlaceholder')"
             style="width: 100%" />
 
           <!-- 日期类型 -->
           <div v-else-if="newField.type === FieldType.DATE" style="width: 100%">
             <div style="margin-bottom: 8px">
               <el-radio-group v-model="dateDefaultType" size="small">
-                <el-radio-button label="">不使用默认值</el-radio-button>
+                <el-radio-button label="">{{ t('field.noDefault') }}</el-radio-button>
                 <el-radio-button label="now"
-                  >使用添加记录的日期</el-radio-button
+                  >{{ t('field.dateDefaultNow') }}</el-radio-button
                 >
-                <el-radio-button label="custom">指定日期</el-radio-button>
+                <el-radio-button label="custom">{{ t('field.dateDefaultCustom') }}</el-radio-button>
               </el-radio-group>
             </div>
             <el-date-picker
@@ -1972,7 +1966,7 @@ async function toggleFieldVisibility(
               v-model="newField.defaultValue"
               type="date"
               format="YYYY-MM-DD"
-              placeholder="选择默认日期"
+              :placeholder="t('field.defaultDatePlaceholder')"
               style="width: 100%" />
           </div>
 
@@ -1980,11 +1974,11 @@ async function toggleFieldVisibility(
           <div v-else-if="newField.type === FieldType.DATE_TIME" style="width: 100%">
             <div style="margin-bottom: 8px">
               <el-radio-group v-model="dateDefaultType" size="small">
-                <el-radio-button label="">不使用默认值</el-radio-button>
+                <el-radio-button label="">{{ t('field.noDefault') }}</el-radio-button>
                 <el-radio-button label="now"
-                  >使用添加记录的日期时间</el-radio-button
+                  >{{ t('field.dateTimeDefaultNow') }}</el-radio-button
                 >
-                <el-radio-button label="custom">指定日期时间</el-radio-button>
+                <el-radio-button label="custom">{{ t('field.dateTimeDefaultCustom') }}</el-radio-button>
               </el-radio-group>
             </div>
             <el-date-picker
@@ -1992,7 +1986,7 @@ async function toggleFieldVisibility(
               v-model="newField.defaultValue"
               type="datetime"
               format="YYYY-MM-DD HH:mm:ss"
-              placeholder="选择默认日期时间"
+              :placeholder="t('field.defaultDateTimePlaceholder')"
               style="width: 100%" />
           </div>
 
@@ -2000,7 +1994,7 @@ async function toggleFieldVisibility(
           <ElSelect
             v-else-if="newField.type === FieldType.SINGLE_SELECT"
             v-model="newField.defaultValue"
-            placeholder="请选择默认选项"
+            :placeholder="t('field.defaultOptionPlaceholder')"
             clearable
             style="width: 100%">
             <ElOption
@@ -2014,7 +2008,7 @@ async function toggleFieldVisibility(
           <ElSelect
             v-else-if="newField.type === FieldType.MULTI_SELECT"
             v-model="newField.defaultValue"
-            placeholder="请选择默认选项"
+            :placeholder="t('field.defaultOptionPlaceholder')"
             multiple
             collapse-tags
             collapse-tags-tooltip
@@ -2030,8 +2024,8 @@ async function toggleFieldVisibility(
           <ElSwitch
             v-else-if="newField.type === FieldType.CHECKBOX"
             v-model="newField.defaultValue"
-            active-text="选中"
-            inactive-text="未选中" />
+            :active-text="t('field.checked')"
+            :inactive-text="t('field.unchecked')" />
 
           <!-- 成员类型 -->
           <div v-else-if="newField.type === FieldType.MEMBER" style="width: 100%">
@@ -2045,16 +2039,16 @@ async function toggleFieldVisibility(
                   newField.defaultValue = memberConfig.defaultUser?.id;
                 }
               }">
-                <el-radio-button label="none">不使用默认值</el-radio-button>
-                <el-radio-button label="current_user">添加记录用户</el-radio-button>
-                <el-radio-button label="specific_user">指定用户</el-radio-button>
+                <el-radio-button label="none">{{ t('field.noDefault') }}</el-radio-button>
+                <el-radio-button label="current_user">{{ t('field.memberDefaultCurrentUser') }}</el-radio-button>
+                <el-radio-button label="specific_user">{{ t('field.memberDefaultSpecificUser') }}</el-radio-button>
               </el-radio-group>
             </div>
             <!-- 指定用户选择 -->
             <div v-show="memberConfig.defaultType === 'specific_user'" class="member-default-select" @click.stop>
               <MemberSelect
                 v-model="memberConfig.defaultUser"
-                placeholder="选择默认用户"
+                :placeholder="t('field.memberDefaultPlaceholder')"
                 :allow-multiple="false"
                 :return-object="true"
                 @update:model-value="(val: any) => {
@@ -2078,7 +2072,7 @@ async function toggleFieldVisibility(
             type="success"
             size="small"
             style="margin-left: 8px">
-            已设置
+            {{ t('field.configured') }}
           </ElTag>
           <ElTag
             v-if="
@@ -2088,18 +2082,18 @@ async function toggleFieldVisibility(
             type="success"
             size="small"
             style="margin-left: 8px">
-            已设置
+            {{ t('field.configured') }}
           </ElTag>
-          <div class="field-hint">设置字段的默认值，创建记录时会自动填充</div>
+          <div class="field-hint">{{ t('field.defaultValueHint') }}</div>
         </ElFormItem>
       </ElForm>
 
       <div class="form-actions">
-        <ElButton @click="backToList">返回</ElButton>
+        <ElButton @click="backToList">{{ t('common.back') }}</ElButton>
         <ElButton
           type="primary"
           @click="activeTab === 'create' ? createField() : updateField()">
-          {{ activeTab === "create" ? "创建" : "保存" }}
+          {{ activeTab === "create" ? t('common.create') : t('common.save') }}
         </ElButton>
       </div>
     </div>

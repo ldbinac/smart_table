@@ -1,0 +1,15 @@
+{
+  "title": "Sort",
+  "selectField": "Select field",
+  "asc": "Ascending ↑",
+  "desc": "Descending ↓",
+  "delete": "Delete",
+  "addCondition": "Add sort condition",
+  "currentSort": "Current sort: ",
+  "ascending": "Ascending",
+  "descending": "Descending",
+  "empty": "No sort conditions yet",
+  "emptyHint": "Click the button above to add a sort condition",
+  "clear": "Clear sort",
+  "apply": "Apply sort"
+}

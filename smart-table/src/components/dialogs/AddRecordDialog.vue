@@ -29,6 +29,9 @@ import {
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import { formatDateTime } from "@/utils/timezone";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 interface GroupLevelInfo {
   fieldId: string;
@@ -126,7 +129,7 @@ const calculateFormulaValue = (
     const result = engine.calculate(record, formula);
 
     if (result === "#ERROR") {
-      return "计算错误";
+      return t('record.calcError');
     }
 
     // 数字格式化
@@ -141,7 +144,7 @@ const calculateFormulaValue = (
     return String(result);
   } catch (error) {
     console.error("Add record dialog formula calculation error:", error);
-    return "计算错误";
+    return t('record.calcError');
   }
 };
 
@@ -337,10 +340,10 @@ async function handleSave() {
   isSaving.value = true;
   try {
     emit("save", { ...formData.value });
-    ElMessage.success("记录添加成功");
+    ElMessage.success(t('record.added'));
     closeDialog();
   } catch (error) {
-    ElMessage.error("添加失败");
+    ElMessage.error(t('record.addFailed'));
   } finally {
     isSaving.value = false;
   }
@@ -392,7 +395,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    :title="groupName ? '添加记录到 ' + groupName : '添加记录'"
+    :title="groupName ? t('record.addToGroup', { group: groupName }) : t('record.addTitle')"
     width="600px"
     :close-on-click-modal="false">
     <ElForm label-width="100px" class="record-form">
@@ -421,7 +424,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
                 </template>
               </ElInput>
               <div v-if="field.options?.formula" class="formula-expression">
-                <span class="formula-label">公式:</span>
+                <span class="formula-label">{{ t('record.formulaLabel') }}</span>
                 <code class="formula-code">{{ field.options.formula }}</code>
               </div>
             </div>
@@ -434,12 +437,12 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
           </template>
           <span class="auto-filled-hint">{{
             field.type === FieldType.FORMULA
-              ? "公式计算字段，不可修改"
+              ? t('record.formulaReadonlyHint')
               : field.type === FieldType.LOOKUP
-                ? "查找字段，不可修改"
+                ? t('record.lookupReadonlyHint')
                 : field.type === FieldType.AUTO_NUMBER
-                  ? "自动编号，不可修改"
-                  : "系统字段，不可修改"
+                  ? t('record.autoNumberReadonlyHint')
+                  : t('record.systemReadonlyHint')
           }}</span>
         </template>
 
@@ -455,14 +458,14 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
               :label="option.name"
               :value="option.id" />
           </ElSelect>
-          <span class="auto-filled-hint">已自动关联当前分组</span>
+          <span class="auto-filled-hint">{{ t('record.autoGroupedHint') }}</span>
         </template>
 
         <!-- 文本类型 -->
         <template v-else-if="getFieldComponent(field) === 'text'">
           <ElInput
             :model-value="String(formData[field.id] || '')"
-            :placeholder="`请输入${field.name}`"
+            :placeholder="t('record.inputPlaceholder', { name: field.name })"
             @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
@@ -471,7 +474,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
           <ElInputNumber
             :model-value="Number(formData[field.id] || 0)"
             :precision="getNumberPrecision(field)"
-            :placeholder="`请输入${field.name}`"
+            :placeholder="t('record.inputPlaceholder', { name: field.name })"
             style="width: 100%"
             @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
@@ -480,7 +483,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
         <template v-else-if="getFieldComponent(field) === 'single_select'">
           <ElSelect
             :model-value="formData[field.id] as string | undefined"
-            :placeholder="`请选择${field.name}`"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
             clearable
             @update:model-value="(val) => handleValueChange(field.id, val)">
@@ -501,7 +504,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
         <template v-else-if="getFieldComponent(field) === 'multi_select'">
           <ElSelect
             :model-value="(formData[field.id] as string[]) || []"
-            :placeholder="`请选择${field.name}`"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
             multiple
             clearable
@@ -524,7 +527,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
           <ElDatePicker
             :model-value="formData[field.id] as Date | undefined"
             :type="getDatePickerType(field)"
-            :placeholder="`请选择${field.name}`"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             :format="getDateFormat(field)"
             style="width: 100%"
             @update:model-value="(val) => handleDateChange(field, val)" />
@@ -570,11 +573,11 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
         <template v-else-if="getFieldComponent(field) === 'member'">
           <ElSelect
             :model-value="formData[field.id] as string | undefined"
-            :placeholder="`请选择${field.name}`"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
             clearable
             @update:model-value="(val) => handleValueChange(field.id, val)">
-            <ElOption label="当前用户" value="current_user" />
+            <ElOption :label="t('record.memberCurrentUser')" value="current_user" />
           </ElSelect>
         </template>
 
@@ -582,7 +585,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
         <template v-else-if="getFieldComponent(field) === 'link'">
           <div class="link-hint">
             <el-icon><Link /></el-icon>
-            <span>关联字段请在详情页中编辑</span>
+            <span>{{ t('record.linkEditHint') }}</span>
           </div>
         </template>
 
@@ -590,7 +593,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
         <template v-else>
           <ElInput
             :model-value="String(formData[field.id] || '')"
-            :placeholder="`请输入${field.name}`"
+            :placeholder="t('record.inputPlaceholder', { name: field.name })"
             @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
       </ElFormItem>
@@ -598,9 +601,9 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
 
     <template #footer>
       <span class="dialog-footer">
-        <ElButton @click="closeDialog">取消</ElButton>
+        <ElButton @click="closeDialog">{{ t('common.cancel') }}</ElButton>
         <ElButton type="primary" :loading="isSaving" @click="handleSave">
-          保存
+          {{ t('common.save') }}
         </ElButton>
       </span>
     </template>

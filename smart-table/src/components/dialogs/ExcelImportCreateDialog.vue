@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { ElMessage } from "element-plus";
+import { useI18n } from "vue-i18n";
 import {
   Upload,
   ArrowRight,
@@ -12,6 +13,8 @@ import {
 } from "@element-plus/icons-vue";
 import { importExportApiService } from "@/services/api/importExportApiService";
 import { getUserCreatableFieldTypeOptions } from "@/types/fields";
+
+const { t } = useI18n();
 
 interface ExcelColumn {
   name: string;
@@ -95,9 +98,9 @@ const fieldTypeOptions = getUserCreatableFieldTypeOptions({
 
 // 创建步骤配置
 const createSteps = [
-  { key: 'creating_table', label: '创建数据表结构', icon: 'Document' },
-  { key: 'importing_data', label: '导入数据', icon: 'DataLine' },
-  { key: 'completed', label: '完成', icon: 'CircleCheck' },
+  { key: 'creating_table', label: t('importExcel.creatingTable'), icon: 'Document' },
+  { key: 'importing_data', label: t('importExcel.importingData', { pct: 0 }), icon: 'DataLine' },
+  { key: 'completed', label: t('importExcel.done'), icon: 'CircleCheck' },
 ];
 
 // 文件上传处理
@@ -106,7 +109,7 @@ async function handleFileChange(file: File) {
   const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
 
   if (!validExtensions.includes(extension)) {
-    ElMessage.error("请上传Excel文件(.xlsx或.xls格式)");
+    ElMessage.error(t('importExcel.unsupportedFormat'));
     return false;
   }
 
@@ -136,16 +139,16 @@ async function handleFileChange(file: File) {
       tableName.value = baseName;
 
       ElMessage.success(
-        `成功解析文件，共 ${result.data.total_rows} 行数据，${result.data.total_columns} 列`
+        t('importExcel.parsedSuccess', { rows: result.data.total_rows, cols: result.data.total_columns })
       );
 
       // 自动进入下一步
       currentStep.value = 2;
     } else {
-      ElMessage.error(result.message || "文件解析失败");
+      ElMessage.error(result.message || t('importExcel.parseFailed'));
     }
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "文件解析失败");
+    ElMessage.error(error instanceof Error ? error.message : t('importExcel.parseFailed'));
     uploadedFile.value = null;
     analysisResult.value = null;
   } finally {
@@ -196,29 +199,29 @@ async function queryTaskProgress(taskId: string) {
       switch (status.status) {
         case 'pending':
           createStatus.value = 'creating_table';
-          createStatusText.value = '等待处理...';
+          createStatusText.value = t('importExcel.waiting');
           break;
         case 'processing':
           if (createProgress.value < 30) {
             createStatus.value = 'creating_table';
-            createStatusText.value = '正在创建数据表结构...';
+            createStatusText.value = t('importExcel.creatingTable');
           } else if (createProgress.value < 90) {
             createStatus.value = 'importing_data';
-            createStatusText.value = `正在导入数据... ${createProgress.value}%`;
+            createStatusText.value = t('importExcel.importingData', { pct: createProgress.value });
           } else {
             createStatus.value = 'importing_data';
-            createStatusText.value = '正在完成导入...';
+            createStatusText.value = t('importExcel.finishingImport');
           }
           break;
         case 'completed':
           createProgress.value = 100;
           createStatus.value = 'completed';
-          createStatusText.value = '处理完成';
+          createStatusText.value = t('importExcel.done');
           stopProgressTimer();
           break;
         case 'failed':
           createStatus.value = 'failed';
-          createStatusText.value = status.error || '处理失败';
+          createStatusText.value = status.error || t('importExcel.failedStatus');
           stopProgressTimer();
           break;
       }
@@ -250,25 +253,25 @@ function stopProgressTimer() {
 // 执行创建
 async function handleCreate() {
   if (!tableName.value.trim()) {
-    ElMessage.warning("请输入数据表名称");
+    ElMessage.warning(t('importExcel.tableNameRequired'));
     return;
   }
 
   const enabledFieldsList = enabledFields.value;
   if (enabledFieldsList.length === 0) {
-    ElMessage.warning("请至少选择一个字段");
+    ElMessage.warning(t('importExcel.atLeastOneField'));
     return;
   }
 
   if (!primaryField.value) {
-    ElMessage.warning("请设置一个主字段");
+    ElMessage.warning(t('importExcel.setPrimary'));
     return;
   }
 
   isCreating.value = true;
   createProgress.value = 0;
   createStatus.value = 'creating_table';
-  createStatusText.value = '正在创建数据表结构...';
+  createStatusText.value = t('importExcel.creatingTable');
   currentTaskId.value = "";
 
   try {
@@ -310,25 +313,25 @@ async function handleCreate() {
         failedRows: result.data.failed_rows,
       };
       currentStep.value = 3;
-      ElMessage.success("数据表创建成功");
+      ElMessage.success(t('importExcel.tableCreated'));
       emit("created", result.data.table_id);
     } else {
       createStatus.value = 'failed';
       createResult.value = {
         success: false,
-        message: result.message || "创建失败",
+        message: result.message || t('importExcel.createFailed'),
       };
       currentStep.value = 3;
-      ElMessage.error(result.message || "创建失败");
+      ElMessage.error(result.message || t('importExcel.createFailed'));
     }
   } catch (error) {
     createStatus.value = 'failed';
     createResult.value = {
       success: false,
-      message: error instanceof Error ? error.message : "创建失败",
+      message: error instanceof Error ? error.message : t('importExcel.createFailed'),
     };
     currentStep.value = 3;
-    ElMessage.error(error instanceof Error ? error.message : "创建失败");
+    ElMessage.error(error instanceof Error ? error.message : t('importExcel.createFailed'));
   } finally {
     isCreating.value = false;
     stopProgressTimer();
@@ -372,15 +375,15 @@ function prevStep() {
 function nextStep() {
   if (currentStep.value === 2) {
     if (!tableName.value.trim()) {
-      ElMessage.warning("请输入数据表名称");
+      ElMessage.warning(t('importExcel.tableNameRequired'));
       return;
     }
     if (enabledFields.value.length === 0) {
-      ElMessage.warning("请至少选择一个字段");
+      ElMessage.warning(t('importExcel.atLeastOneField'));
       return;
     }
     if (!primaryField.value) {
-      ElMessage.warning("请设置一个主字段");
+      ElMessage.warning(t('importExcel.setPrimary'));
       return;
     }
   }
@@ -447,7 +450,7 @@ watch(() => props.visible, () => {
   <el-dialog
     :model-value="visible"
     @update:model-value="handleClose"
-    title="Excel导入创建数据表"
+    :title="t('importExcel.title')"
     width="900px"
     :close-on-click-modal="!isCreating"
     :close-on-press-escape="!isCreating"
@@ -459,9 +462,9 @@ watch(() => props.visible, () => {
       finish-status="success"
       class="import-steps"
     >
-      <el-step title="选择文件" />
-      <el-step title="配置字段" />
-      <el-step title="创建完成" />
+      <el-step :title="t('importExcel.stepSelectFile')" />
+      <el-step :title="t('importExcel.stepConfigField')" />
+      <el-step :title="t('importExcel.stepDone')" />
     </el-steps>
 
     <!-- 步骤 1: 选择文件 -->
@@ -477,24 +480,21 @@ watch(() => props.visible, () => {
       >
         <el-icon class="upload-icon"><Upload /></el-icon>
         <div class="upload-text">
-          <p>拖拽Excel文件到此处，或 <em>点击上传</em></p>
-          <p class="upload-hint">支持 .xlsx, .xls 格式</p>
+          <p>{{ t('importExcel.dragOrClick') }}</p>
+          <p class="upload-hint">{{ t('importExcel.supportedFormats') }}</p>
         </div>
       </el-upload>
 
       <div v-if="analysisResult" class="file-info">
         <el-alert
-          :title="`已选择文件: ${originalFilename}`"
+          :title="t('importExcel.selectedFile', { name: originalFilename })"
           type="success"
           :closable="false"
           show-icon
         >
           <template #default>
             <p>
-              共 {{ analysisResult.total_rows }} 行数据，{{
-                analysisResult.total_columns
-              }}
-              列
+              {{ t('importExcel.fileInfo', { rows: analysisResult.total_rows, cols: analysisResult.total_columns }) }}
             </p>
           </template>
         </el-alert>
@@ -504,7 +504,7 @@ watch(() => props.visible, () => {
       <div v-if="isParsing" class="parsing-status">
         <div class="progress-indicator">
           <el-icon class="rotating-icon"><Loading /></el-icon>
-          <span class="progress-text">正在解析文件，请稍候...</span>
+          <span class="progress-text">{{ t('importExcel.parsing') }}</span>
         </div>
         <el-progress 
           :percentage="100" 
@@ -520,22 +520,22 @@ watch(() => props.visible, () => {
     <div v-if="currentStep === 2" class="step-content">
       <!-- 数据表基本信息 -->
       <div class="table-info-section">
-        <h4>数据表信息</h4>
+        <h4>{{ t('importExcel.tableInfo') }}</h4>
         <el-form :model="{ tableName, tableDescription }" label-width="80px">
-          <el-form-item label="名称" required>
+          <el-form-item :label="t('importExcel.name')" required>
             <el-input
               v-model="tableName"
-              placeholder="请输入数据表名称"
+              :placeholder="t('importExcel.namePlaceholder')"
               maxlength="50"
               show-word-limit
             />
           </el-form-item>
-          <el-form-item label="描述">
+          <el-form-item :label="t('importExcel.description')">
             <el-input
               v-model="tableDescription"
               type="textarea"
               :rows="2"
-              placeholder="请输入描述（可选）"
+              :placeholder="t('importExcel.descPlaceholder')"
               maxlength="200"
               show-word-limit
             />
@@ -546,21 +546,21 @@ watch(() => props.visible, () => {
       <!-- 字段配置 -->
       <div class="fields-section">
         <div class="fields-header">
-          <h4>字段配置</h4>
-          <el-checkbox v-model="importData">同时导入数据</el-checkbox>
+          <h4>{{ t('importExcel.fieldConfig') }}</h4>
+          <el-checkbox v-model="importData">{{ t('importExcel.importDataTogether') }}</el-checkbox>
         </div>
         <p class="fields-hint">
-          系统将自动识别字段类型，您可以根据需要调整。请设置一个主字段（表格第一列）。
+          {{ t('importExcel.fieldConfigHint') }}
         </p>
 
         <el-table :data="fieldConfigs" border class="fields-table" size="small">
           <el-table-column type="index" width="50" />
-          <el-table-column label="导入" width="60" align="center">
+          <el-table-column :label="t('importExcel.importCol')" width="60" align="center">
             <template #default="{ row }">
               <el-checkbox v-model="row.included" />
             </template>
           </el-table-column>
-          <el-table-column label="主字段" width="80" align="center">
+          <el-table-column :label="t('importExcel.primaryCol')" width="80" align="center">
             <template #default="{ row, $index }">
               <el-radio
                 v-model="row.is_primary"
@@ -572,8 +572,8 @@ watch(() => props.visible, () => {
               </el-radio>
             </template>
           </el-table-column>
-          <el-table-column prop="source_column" label="Excel列名" width="150" />
-          <el-table-column label="字段名称" width="150">
+          <el-table-column prop="source_column" :label="t('importExcel.excelCol')" width="150" />
+          <el-table-column :label="t('field.fieldName')" width="150">
             <template #default="{ row }">
               <el-input
                 v-model="row.name"
@@ -583,7 +583,7 @@ watch(() => props.visible, () => {
               />
             </template>
           </el-table-column>
-          <el-table-column label="字段类型" width="130">
+          <el-table-column :label="t('field.fieldType')" width="130">
             <template #default="{ row, $index }">
               <el-select
                 v-model="row.type"
@@ -615,7 +615,7 @@ watch(() => props.visible, () => {
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="示例数据" min-width="150">
+          <el-table-column :label="t('importExcel.sampleData')" min-width="150">
             <template #default="{ row }">
               <span class="sample-values" :title="row.sample_values.join(', ')">
                 {{ row.sample_values.join(", ") }}
@@ -631,20 +631,19 @@ watch(() => props.visible, () => {
       <div v-if="createResult" class="result-section">
         <el-result
           :icon="createResult.success ? 'success' : 'error'"
-          :title="createResult.success ? '创建成功' : '创建失败'"
+          :title="createResult.success ? t('importExcel.createSuccess') : t('importExcel.createFailed')"
         >
           <template #sub-title>
             <div v-if="createResult.success" class="result-stats">
-              <p><strong>数据表:</strong> {{ createResult.tableName }}</p>
+              <p><strong>{{ t('importExcel.tableLabel') }}</strong> {{ createResult.tableName }}</p>
               <p>
-                <strong>创建字段:</strong>
-                {{ createResult.createdFieldsCount }} 个
+                <strong>{{ t('importExcel.createdFields', { count: createResult.createdFieldsCount }) }}</strong>
               </p>
               <p v-if="importData">
-                <strong>导入数据:</strong> {{ createResult.importedRows }} 条
+                <strong>{{ t('importExcel.importedRows', { count: createResult.importedRows }) }}</strong>
               </p>
               <p v-if="importData && createResult.failedRows">
-                <strong>失败:</strong> {{ createResult.failedRows }} 条
+                <strong>{{ t('importExcel.failedRows', { count: createResult.failedRows }) }}</strong>
               </p>
             </div>
             <div v-else class="error-message">
@@ -654,9 +653,9 @@ watch(() => props.visible, () => {
 
           <template #extra>
             <div class="result-actions">
-              <el-button @click="handleClose">关闭</el-button>
+              <el-button @click="handleClose">{{ t('common.close') }}</el-button>
               <el-button v-if="!createResult.success" type="primary" @click="handleRecreate"
-                >重新创建</el-button
+                >{{ t('importExcel.recreate') }}</el-button
               >
             </div>
           </template>
@@ -720,7 +719,7 @@ watch(() => props.visible, () => {
           <!-- 提示信息 -->
           <div class="creating-hint">
             <el-icon><Info-Filled /></el-icon>
-            <span>正在处理您的Excel文件，请勿关闭窗口或刷新页面</span>
+            <span>{{ t('importExcel.processingHint') }}</span>
           </div>
         </div>
       </div>
@@ -731,7 +730,7 @@ watch(() => props.visible, () => {
       <div class="dialog-footer">
         <el-button v-if="currentStep > 1 && currentStep < 3" @click="prevStep" :disabled="isCreating">
           <el-icon><ArrowLeft /></el-icon>
-          上一步
+          {{ t('importExcel.prevStep') }}
         </el-button>
 
         <el-button
@@ -740,7 +739,7 @@ watch(() => props.visible, () => {
           @click="nextStep"
           :disabled="!analysisResult"
         >
-          下一步
+          {{ t('importExcel.nextStep') }}
           <el-icon><ArrowRight /></el-icon>
         </el-button>
 
@@ -751,7 +750,7 @@ watch(() => props.visible, () => {
           :loading="isCreating"
           :disabled="enabledFields.length === 0 || !primaryField"
         >
-          创建数据表
+          {{ t('importExcel.createTable') }}
         </el-button>
       </div>
     </template>

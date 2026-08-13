@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ElDialog, ElButton, ElRadioGroup, ElRadio, ElCheckbox, ElCheckboxGroup, ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { exportToExcel, exportToCSV, exportToJSON } from '@/utils/export'
 import type { FieldEntity, RecordEntity } from '@/db/schema'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   visible: boolean
@@ -30,7 +33,7 @@ const selectAllFields = computed({
 
 function getDefaultFilename() {
   const date = new Date().toISOString().split('T')[0]
-  return `导出数据_${date}`
+  return t('export.defaultFilename', { date })
 }
 
 function downloadFile(content: string, mimeType: string, extension: string) {
@@ -47,7 +50,7 @@ function downloadFile(content: string, mimeType: string, extension: string) {
 
 async function handleExport() {
   if (selectedFields.value.length === 0) {
-    ElMessage.warning('请至少选择一个字段')
+    ElMessage.warning(t('export.atLeastOneField'))
     return
   }
 
@@ -81,10 +84,10 @@ async function handleExport() {
       }
     }
 
-    ElMessage.success('导出成功')
+    ElMessage.success(t('export.success'))
     emit('update:visible', false)
   } catch (error) {
-    ElMessage.error('导出失败: ' + (error instanceof Error ? error.message : '未知错误'))
+    ElMessage.error(t('export.failed', { message: error instanceof Error ? error.message : '未知错误' }))
   }
 }
 
@@ -100,7 +103,7 @@ function onDialogOpen() {
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="导出数据"
+    :title="t('export.title')"
     width="500px"
     :close-on-click-modal="false"
     @open="onDialogOpen"
@@ -108,24 +111,24 @@ function onDialogOpen() {
     <div class="export-dialog">
       <!-- 导出格式 -->
       <div class="export-section">
-        <div class="section-title">导出格式</div>
+        <div class="section-title">{{ t('export.format') }}</div>
         <ElRadioGroup v-model="exportFormat">
           <ElRadio label="excel">
             <span class="format-option">
               <span class="format-icon">📊</span>
-              <span>Excel (.xlsx)</span>
+              <span>{{ t('export.excelFormat') }}</span>
             </span>
           </ElRadio>
           <ElRadio label="csv">
             <span class="format-option">
               <span class="format-icon">📄</span>
-              <span>CSV (.csv)</span>
+              <span>{{ t('export.csvFormat') }}</span>
             </span>
           </ElRadio>
           <ElRadio label="json">
             <span class="format-option">
               <span class="format-icon">📝</span>
-              <span>JSON (.json)</span>
+              <span>{{ t('export.jsonFormat') }}</span>
             </span>
           </ElRadio>
         </ElRadioGroup>
@@ -133,19 +136,19 @@ function onDialogOpen() {
 
       <!-- 导出范围 -->
       <div class="export-section">
-        <div class="section-title">导出范围</div>
+        <div class="section-title">{{ t('export.scope') }}</div>
         <ElRadioGroup v-model="exportScope">
-          <ElRadio label="all">全部记录 ({{ records.length }} 条)</ElRadio>
-          <ElRadio label="selected" disabled>选中记录 (暂不支持)</ElRadio>
+          <ElRadio label="all">{{ t('export.allRecords', { count: records.length }) }}</ElRadio>
+          <ElRadio label="selected" disabled>{{ t('export.selectedRecords') }}</ElRadio>
         </ElRadioGroup>
       </div>
 
       <!-- 字段选择 -->
       <div class="export-section">
         <div class="section-title">
-          选择字段
+          {{ t('export.selectFields') }}
           <ElCheckbox v-model="selectAllFields" size="small" style="margin-left: 12px;">
-            全选
+            {{ t('export.selectAll') }}
           </ElCheckbox>
         </div>
         <ElCheckboxGroup v-model="selectedFields" class="fields-grid">
@@ -161,7 +164,7 @@ function onDialogOpen() {
 
       <!-- 文件名 -->
       <div class="export-section">
-        <div class="section-title">文件名 (可选)</div>
+        <div class="section-title">{{ t('export.filename') }}</div>
         <input
           v-model="filename"
           type="text"
@@ -173,9 +176,9 @@ function onDialogOpen() {
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="$emit('update:visible', false)">取消</ElButton>
+        <ElButton @click="$emit('update:visible', false)">{{ t('common.cancel') }}</ElButton>
         <ElButton type="primary" @click="handleExport">
-          导出
+          {{ t('export.title') }}
         </ElButton>
       </div>
     </template>

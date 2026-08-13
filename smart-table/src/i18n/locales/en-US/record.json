@@ -1,0 +1,21 @@
+{
+  "editTitle": "Edit Record",
+  "calcError": "Calculation error",
+  "saved": "Record saved successfully",
+  "saveFailed": "Save failed",
+  "primaryReadonlyHint": "Primary field, cannot be modified",
+  "formulaReadonlyHint": "Formula field, cannot be modified",
+  "lookupReadonlyHint": "Lookup field, cannot be modified",
+  "autoNumberReadonlyHint": "Auto number, cannot be modified",
+  "systemReadonlyHint": "System field, cannot be modified",
+  "formulaLabel": "Formula:",
+  "memberCurrentUser": "Current user",
+  "linkEditHint": "Edit link fields on the detail page",
+  "inputPlaceholder": "Enter {name}",
+  "selectPlaceholder": "Select {name}",
+  "addTitle": "Add Record",
+  "addToGroup": "Add record to {group}",
+  "added": "Record added successfully",
+  "addFailed": "Add failed",
+  "autoGroupedHint": "Auto-linked to the current group"
+}

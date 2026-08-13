@@ -1,0 +1,21 @@
+{
+  "editTitle": "编辑记录",
+  "calcError": "计算错误",
+  "saved": "记录保存成功",
+  "saveFailed": "保存失败",
+  "primaryReadonlyHint": "主键字段，不可修改",
+  "formulaReadonlyHint": "公式计算字段，不可修改",
+  "lookupReadonlyHint": "查找字段，不可修改",
+  "autoNumberReadonlyHint": "自动编号，不可修改",
+  "systemReadonlyHint": "系统字段，不可修改",
+  "formulaLabel": "公式:",
+  "memberCurrentUser": "当前用户",
+  "linkEditHint": "关联字段请在详情页中编辑",
+  "inputPlaceholder": "请输入{name}",
+  "selectPlaceholder": "请选择{name}",
+  "addTitle": "添加记录",
+  "addToGroup": "添加记录到 {group}",
+  "added": "记录添加成功",
+  "addFailed": "添加失败",
+  "autoGroupedHint": "已自动关联当前分组"
+}
