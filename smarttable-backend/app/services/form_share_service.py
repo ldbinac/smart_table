@@ -222,6 +222,15 @@ class FormShareService:
                     # 合并最大长度配置
                     if 'maxLength' in options:
                         merged_config['maxLength'] = options['maxLength']
+
+                    # 合并字段校验规则配置（单行文本正则、长度、数字范围、自定义规则等）
+                    # 这些校验规则通常存储在 field.options 中，需同步到前端填写页用于前端校验
+                    for rule_key in (
+                        'regex', 'regexMessage', 'minLength', 'maxLength',
+                        'min', 'max', 'validation',
+                    ):
+                        if rule_key in options and rule_key not in merged_config:
+                            merged_config[rule_key] = options[rule_key]
                 
                 field_schema = {
                     'id': str(field.id),
@@ -428,7 +437,83 @@ class FormShareService:
         field_type = field.type
         
         try:
-            if field_type == FieldType.NUMBER.value:
+            if field_type == FieldType.SINGLE_LINE_TEXT.value:
+                # 单行文本：正则、长度、自定义规则校验
+                config = field.config or {}
+                field_options = field.options or {}
+                # 校验规则优先从 config 取，回退到 options
+                regex = config.get('regex') or field_options.get('regex')
+                regex_message = config.get('regexMessage') or field_options.get('regexMessage')
+                str_value = str(value)
+
+                if regex:
+                    try:
+                        if not re.match(regex, str_value):
+                            return regex_message or f'{field.name} 格式不正确'
+                    except re.error:
+                        # 非法正则，跳过正则校验
+                        pass
+
+                min_length = config.get('minLength')
+                if min_length is not None and len(str_value) < int(min_length):
+                    return f'{field.name} 至少需要 {min_length} 个字符'
+
+                max_length = config.get('maxLength')
+                if max_length is not None and len(str_value) > int(max_length):
+                    return f'{field.name} 不能超过 {max_length} 个字符'
+
+                validation = config.get('validation') or field_options.get('validation')
+                if isinstance(validation, dict) and validation.get('pattern'):
+                    try:
+                        if not re.match(validation['pattern'], str_value):
+                            return validation.get('message') or f'{field.name} 格式不正确'
+                    except re.error:
+                        pass
+
+            elif field_type in (
+                FieldType.LONG_TEXT.value,
+                FieldType.RICH_TEXT.value,
+            ):
+                # 多行文本/富文本：长度校验
+                config = field.config or {}
+                field_options = field.options or {}
+                str_value = str(value)
+
+                min_length = config.get('minLength')
+                if min_length is not None and len(str_value) < int(min_length):
+                    return f'{field.name} 至少需要 {min_length} 个字符'
+
+                max_length = config.get('maxLength')
+                if max_length is not None and len(str_value) > int(max_length):
+                    return f'{field.name} 不能超过 {max_length} 个字符'
+
+            elif field_type == FieldType.MULTI_SELECT.value:
+                # 多选：选项数量长度校验
+                config = field.config or {}
+                field_options = field.options or {}
+
+                min_length = config.get('minLength')
+                if min_length is not None and isinstance(value, list) and len(value) < int(min_length):
+                    return f'{field.name} 至少需要选择 {min_length} 项'
+
+                max_length = config.get('maxLength')
+                if max_length is not None and isinstance(value, list) and len(value) > int(max_length):
+                    return f'{field.name} 最多只能选择 {max_length} 项'
+
+                if not isinstance(value, list):
+                    return f'{field.name} 必须是选项列表'
+
+                options = (
+                    config.get('options', [])
+                    or field_options.get('options', [])
+                    or field_options.get('choices', [])
+                )
+                option_values = [opt.get('value') or opt.get('id') for opt in options]
+                for v in value:
+                    if v not in option_values:
+                        return f'{field.name} 包含无效选项'
+
+            elif field_type == FieldType.NUMBER.value:
                 # 数字类型验证
                 if not isinstance(value, (int, float)):
                     try:
@@ -474,22 +559,6 @@ class FormShareService:
                 
                 if value not in option_values:
                     return f'{field.name} 必须是有效的选项'
-            
-            elif field_type == FieldType.MULTI_SELECT.value:
-                # 多选类型验证
-                if not isinstance(value, list):
-                    return f'{field.name} 必须是选项列表'
-                
-                config = field.config or {}
-                field_options = field.options or {}
-                
-                # 合并 config.options 和 field.options
-                options = config.get('options', []) or field_options.get('options', []) or field_options.get('choices', [])
-                option_values = [opt.get('value') or opt.get('id') for opt in options]
-                
-                for v in value:
-                    if v not in option_values:
-                        return f'{field.name} 包含无效选项'
             
             elif field_type == FieldType.EMAIL.value:
                 # 邮箱类型验证

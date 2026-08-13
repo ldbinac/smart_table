@@ -263,14 +263,52 @@ function validateField(
         }
       }
       break;
+    case FieldType.SINGLE_LINE_TEXT:
     case FieldType.LONG_TEXT:
-      // 多行文本长度验证
+    case FieldType.RICH_TEXT:
+    case FieldType.MULTI_SELECT: {
+      // 文本类字段长度校验（多行/富文本/多选合并到此处统一处理）
+      const config = field.config || {};
+      if (
+        field.type === FieldType.MULTI_SELECT &&
+        Array.isArray(value)
+      ) {
+        const minLength = config.minLength as number | undefined;
+        if (minLength !== undefined && value.length < Number(minLength)) {
+          return `${field.name}至少需要选择${minLength}项`;
+        }
+        const maxLength = config.maxLength as number | undefined;
+        if (maxLength !== undefined && value.length > Number(maxLength)) {
+          return `${field.name}最多只能选择${maxLength}项`;
+        }
+        break;
+      }
       const strValue = String(value);
-      const maxLength = field.config?.maxLength as number | undefined;
-  if (maxLength && strValue.length > maxLength) {
+      const minLength = config.minLength as number | undefined;
+      if (minLength !== undefined && strValue.length < Number(minLength)) {
+        return `${field.name}至少需要${minLength}个字符`;
+      }
+      const maxLength = config.maxLength as number | undefined;
+      if (maxLength !== undefined && strValue.length > Number(maxLength)) {
         return `${field.name}不能超过${maxLength}个字符`;
       }
       break;
+    }
+  }
+
+  // 自定义验证规则（与表单视图一致，支持 options.validation.pattern）
+  const validation = field.config?.validation as
+    | { pattern?: string; message?: string }
+    | undefined;
+  if (validation?.pattern) {
+    try {
+      const pattern = new RegExp(validation.pattern);
+      if (!pattern.test(String(value))) {
+        return validation.message || `${field.name}格式不正确`;
+      }
+    } catch {
+      // 非法正则，放行
+    }
   }
 
   return null;
