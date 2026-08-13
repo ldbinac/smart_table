@@ -234,15 +234,15 @@
   "lookupPreviewFailed": "Preview failed: {message}",
   "lookupUnknownError": "Unknown error",
   "type": {
-    "single_line_text": "Single-line Text",
-    "long_text": "Multi-line Text",
+    "single_line_text": "Single Line Text",
+    "long_text": "Long Text",
     "rich_text": "Rich Text",
     "number": "Number",
     "currency": "Currency",
     "percent": "Percentage",
     "rating": "Rating",
     "date": "Date",
-    "date_time": "Date & Time",
+    "date_time": "Date Time",
     "duration": "Duration",
     "single_select": "Single Select",
     "multi_select": "Multi Select",
@@ -264,8 +264,8 @@
     "progress": "Progress",
     "created_by": "Created By",
     "created_time": "Created Time",
-    "updated_by": "Modified By",
-    "updated_time": "Modified Time",
+    "updated_by": "Updated By",
+    "updated_time": "Updated Time",
     "last_modified_by": "Last Modified By"
   }
 }

@@ -50,7 +50,7 @@ describe("Field Types", () => {
 
   it("should return correct field type labels (en-US)", () => {
     setI18nLanguage("en-US");
-    expect(getFieldTypeLabel("single_line_text")).toBe("Single-line Text");
+    expect(getFieldTypeLabel("single_line_text")).toBe("Single Line Text");
     expect(getFieldTypeLabel("number")).toBe("Number");
     expect(getFieldTypeLabel("auto_number")).toBe("Auto Number");
     expect(getFieldTypeLabel("formula")).toBe("Formula");
