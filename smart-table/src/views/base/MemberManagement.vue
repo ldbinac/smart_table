@@ -4,13 +4,13 @@
       <div class="header-left">
         <el-button link @click="goBack">
           <el-icon><ArrowLeft /></el-icon>
-          返回
+          {{ t('member.back') }}
         </el-button>
-        <h1 class="page-title">成员管理</h1>
+        <h1 class="page-title">{{ t('member.title') }}</h1>
       </div>
       <el-button type="primary" @click="showAddDialog = true">
         <el-icon><Plus /></el-icon>
-        添加成员
+        {{ t('member.addMember') }}
       </el-button>
     </div>
 
@@ -35,17 +35,17 @@
     <AddMemberDialog v-model="showAddDialog" @submit="handleAddMember" />
 
     <!-- 编辑角色对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑成员角色" width="400px">
+    <el-dialog v-model="showEditDialog" :title="t('member.editRoleTitle')" width="400px">
       <el-form label-width="80px">
-        <el-form-item label="当前角色">
+        <el-form-item :label="t('member.currentRole')">
           <el-tag :type="getRoleType(editingMember?.role)">
             {{ getRoleLabel(editingMember?.role) }}
           </el-tag>
         </el-form-item>
-        <el-form-item label="新角色">
+        <el-form-item :label="t('member.newRole')">
           <el-select
             v-model="newRole"
-            placeholder="选择新角色"
+            :placeholder="t('member.selectRolePlaceholder')"
             style="width: 100%">
             <el-option
               v-for="role in roleOptions"
@@ -56,9 +56,9 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
+        <el-button @click="showEditDialog = false">{{ t('member.cancel') }}</el-button>
         <el-button type="primary" :loading="updating" @click="confirmEdit">
-          确认
+          {{ t('member.confirm') }}
         </el-button>
       </template>
     </el-dialog>
@@ -74,7 +74,10 @@ import MemberList from "@/components/base/MemberList.vue";
 import AddMemberDialog from "@/components/base/AddMemberDialog.vue";
 import { baseApiService } from "@/services/api/baseApiService";
 import { useAuthStore } from "@/stores/auth/authStore";
+import { useI18n } from "vue-i18n";
 import type { BaseMember } from "@/api/types";
+
+const { t } = useI18n();
 
 const route = useRoute();
 const router = useRouter();
@@ -106,21 +109,21 @@ const canDelete = computed(() => {
 
 // 角色选项
 const roleOptions = [
-  { value: "admin", label: "管理员" },
-  { value: "editor", label: "编辑者" },
-  { value: "commenter", label: "评论者" },
-  { value: "viewer", label: "查看者" },
+  { value: "admin", label: t("member.roleAdmin") },
+  { value: "editor", label: t("member.roleEditor") },
+  { value: "commenter", label: t("member.roleCommenter") },
+  { value: "viewer", label: t("member.roleViewer") },
 ];
 
 const roleMap: Record<
   string,
   { label: string; type: "success" | "warning" | "info" | "danger" | "" }
 > = {
-  owner: { label: "所有者", type: "danger" },
-  admin: { label: "管理员", type: "warning" },
-  editor: { label: "编辑者", type: "success" },
-  commenter: { label: "评论者", type: "info" },
-  viewer: { label: "查看者", type: "" },
+  owner: { label: t("member.roleOwner"), type: "danger" },
+  admin: { label: t("member.roleAdmin"), type: "warning" },
+  editor: { label: t("member.roleEditor"), type: "success" },
+  commenter: { label: t("member.roleCommenter"), type: "info" },
+  viewer: { label: t("member.roleViewer"), type: "" },
 };
 
 const getRoleLabel = (role?: string): string => {
@@ -141,7 +144,7 @@ const fetchMembers = async () => {
     members.value = response;
     total.value = response.length;
   } catch (error) {
-    ElMessage.error("获取成员列表失败");
+    ElMessage.error(t("member.fetchFailed"));
   } finally {
     loading.value = false;
   }
@@ -151,10 +154,10 @@ const fetchMembers = async () => {
 const handleAddMember = async (data: { userId: string; role: string }) => {
   try {
     await baseApiService.addBaseMember(baseId.value, data.userId, data.role);
-    ElMessage.success("成员添加成功");
+    ElMessage.success(t("member.addSuccess"));
     fetchMembers();
   } catch (error) {
-    ElMessage.error("添加成员失败");
+    ElMessage.error(t("member.addFailed"));
   }
 };
 
@@ -175,11 +178,11 @@ const confirmEdit = async () => {
       editingMember.value.id,
       newRole.value,
     );
-    ElMessage.success("角色更新成功");
+    ElMessage.success(t("member.updateRoleSuccess"));
     showEditDialog.value = false;
     fetchMembers();
   } catch (error) {
-    ElMessage.error("更新角色失败");
+    ElMessage.error(t("member.updateRoleFailed"));
   } finally {
     updating.value = false;
   }
@@ -188,21 +191,21 @@ const confirmEdit = async () => {
 // 移除成员
 const handleRemove = (member: BaseMember) => {
   ElMessageBox.confirm(
-    `确定要移除成员 "${member.user?.name || member.user_id}" 吗？`,
-    "确认移除",
+    t("member.removeConfirm", { name: member.user?.name || member.user_id }),
+    t("member.removeConfirmTitle"),
     {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
+      confirmButtonText: t("common.confirm"),
+      cancelButtonText: t("common.cancel"),
       type: "warning",
     },
   )
     .then(async () => {
       try {
         await baseApiService.removeBaseMember(baseId.value, member.id);
-        ElMessage.success("成员已移除");
+        ElMessage.success(t("member.removeSuccess"));
         fetchMembers();
       } catch (error) {
-        ElMessage.error("移除成员失败");
+        ElMessage.error(t("member.removeFailed"));
       }
     })
     .catch(() => {

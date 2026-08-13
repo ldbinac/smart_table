@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="添加成员"
+    :title="t('member.addMember')"
     width="500px"
     :close-on-click-modal="false"
   >
@@ -11,12 +11,12 @@
       :rules="rules"
       label-width="80px"
     >
-      <el-form-item label="用户" prop="userId">
+      <el-form-item :label="t('member.user')" prop="userId">
         <el-select
           v-model="form.userId"
           filterable
           remote
-          placeholder="搜索用户邮箱或用户名"
+          :placeholder="t('member.searchUserPlaceholder')"
           :remote-method="searchUsers"
           :loading="searching"
           style="width: 100%"
@@ -38,8 +38,8 @@
         </el-select>
       </el-form-item>
       
-      <el-form-item label="角色" prop="role">
-        <el-select v-model="form.role" placeholder="选择角色" style="width: 100%">
+      <el-form-item :label="t('member.role')" prop="role">
+        <el-select v-model="form.role" :placeholder="t('member.selectRolePlaceholder')" style="width: 100%">
           <el-option
             v-for="role in roleOptions"
             :key="role.value"
@@ -56,18 +56,21 @@
     </el-form>
     
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
+      <el-button @click="visible = false">{{ t('member.cancel') }}</el-button>
       <el-button type="primary" :loading="submitting" @click="handleSubmit">
-        添加
+        {{ t('member.add') }}
       </el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { User, MemberRole } from '@/api/types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -94,15 +97,15 @@ const form = reactive({
 })
 
 const rules: FormRules = {
-  userId: [{ required: true, message: '请选择用户', trigger: 'change' }],
-  role: [{ required: true, message: '请选择角色', trigger: 'change' }]
+  userId: [{ required: true, message: t('member.selectUser'), trigger: 'change' }],
+  role: [{ required: true, message: t('member.selectRole'), trigger: 'change' }]
 }
 
 const roleOptions = [
-  { value: 'admin', label: '管理员', description: '可以管理Base设置和成员' },
-  { value: 'editor', label: '编辑者', description: '可以创建、编辑、删除记录和视图' },
-  { value: 'commenter', label: '评论者', description: '可以查看数据并添加评论' },
-  { value: 'viewer', label: '查看者', description: '只能查看数据' }
+  { value: 'admin', label: t('member.roleAdmin'), description: t('member.descAdmin') },
+  { value: 'editor', label: t('member.roleEditor'), description: t('member.descEditor') },
+  { value: 'commenter', label: t('member.roleCommenter'), description: t('member.descCommenter') },
+  { value: 'viewer', label: t('member.roleViewer'), description: t('member.descViewer') }
 ]
 
 // 搜索用户

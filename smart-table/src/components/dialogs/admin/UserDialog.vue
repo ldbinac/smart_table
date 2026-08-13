@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    :title="mode === 'create' ? '添加用户' : '编辑用户'"
+    :title="mode === 'create' ? t('user.addUser') : t('user.editUser')"
     width="500px"
     :close-on-click-modal="false"
   >
@@ -13,10 +13,10 @@
       label-width="80px"
       label-position="left"
     >
-      <el-form-item label="邮箱" prop="email" required>
+      <el-form-item :label="t('user.email')" prop="email" required>
         <el-input
           v-model="formData.email"
-          placeholder="请输入邮箱地址"
+          :placeholder="t('user.emailPlaceholder')"
           :disabled="mode === 'edit'"
           maxlength="255"
         />
@@ -24,49 +24,49 @@
 
       <el-form-item
         v-if="mode === 'create'"
-        label="密码"
+        :label="t('user.password')"
         prop="password"
         required
       >
         <el-input
           v-model="formData.password"
           type="password"
-          placeholder="请输入密码（至少 8 位）"
+          :placeholder="t('user.passwordPlaceholder')"
           show-password
           maxlength="50"
         />
       </el-form-item>
 
-      <el-form-item label="姓名" prop="name" required>
+      <el-form-item :label="t('user.name')" prop="name" required>
         <el-input
           v-model="formData.name"
-          placeholder="请输入姓名"
+          :placeholder="t('user.namePlaceholder')"
           maxlength="100"
         />
       </el-form-item>
 
-      <el-form-item label="角色" prop="role" required>
+      <el-form-item :label="t('user.role')" prop="role" required>
         <el-select
           v-model="formData.role"
-          placeholder="请选择角色"
+          :placeholder="t('user.rolePlaceholder')"
           style="width: 100%"
         >
-          <el-option label="管理员" value="admin" />
-          <el-option label="工作区管理员" value="workspace_admin" />
-          <el-option label="编辑者" value="editor" />
-          <el-option label="查看者" value="viewer" />
+          <el-option :label="t('user.roleAdmin')" value="admin" />
+          <el-option :label="t('user.roleWorkspaceAdmin')" value="workspace_admin" />
+          <el-option :label="t('user.roleEditor')" value="editor" />
+          <el-option :label="t('user.roleViewer')" value="viewer" />
         </el-select>
       </el-form-item>
     </el-form>
 
     <template #footer>
-      <el-button @click="handleCancel">取消</el-button>
+      <el-button @click="handleCancel">{{ t('user.cancel') }}</el-button>
       <el-button
         type="primary"
         :loading="submitting"
         @click="handleSubmit"
       >
-        确定
+        {{ t('user.confirm') }}
       </el-button>
     </template>
   </el-dialog>
@@ -76,6 +76,7 @@
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAdminStore } from '@/stores/adminStore'
+import { useI18n } from 'vue-i18n'
 import type { User, UserRole } from '@/api/types'
 
 const props = defineProps<{
@@ -89,6 +90,7 @@ const emit = defineEmits<{
   'success': []
 }>()
 
+const { t } = useI18n()
 const adminStore = useAdminStore()
 
 const formRef = ref<FormInstance>()
@@ -103,32 +105,32 @@ const formData = reactive({
 
 const formRules = computed<FormRules>(() => ({
   email: [
-    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+    { required: true, message: t('user.emailRequired'), trigger: 'blur' },
     {
       type: 'email',
-      message: '请输入有效的邮箱格式',
+      message: t('user.emailInvalid'),
       trigger: 'blur'
     }
   ],
   password: props.mode === 'create' ? [
-    { required: true, message: '请输入密码', trigger: 'blur' },
+    { required: true, message: t('user.passwordRequired'), trigger: 'blur' },
     {
       min: 8,
-      message: '密码长度至少 8 位',
+      message: t('user.passwordTooShort'),
       trigger: 'blur'
     }
   ] : [],
   name: [
-    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { required: true, message: t('user.nameRequired'), trigger: 'blur' },
     {
       min: 1,
       max: 100,
-      message: '姓名长度在 1 到 100 个字符之间',
+      message: t('user.nameLength'),
       trigger: 'blur'
     }
   ],
   role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
+    { required: true, message: t('user.roleRequired'), trigger: 'change' }
   ]
 }))
 
