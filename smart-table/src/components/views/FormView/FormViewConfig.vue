@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "@/db/schema";
 import { ElMessage } from "element-plus";
 import { getFieldTypeLabel } from "@/types/fields";
@@ -28,13 +29,15 @@ const emit = defineEmits<{
   (e: "save", config: FormConfig): void;
 }>();
 
+const { t } = useI18n();
+
 // 表单配置
 const config = ref<FormConfig>({
-  title: "数据收集表单",
+  title: t("view.formDefaultTitle"),
   description: "",
-  submitButtonText: "提交",
+  submitButtonText: t("view.formSubmit"),
   visibleFieldIds: [],
-  successMessage: "提交成功，感谢您的参与！",
+  successMessage: t("view.formSuccessMessage"),
   allowMultipleSubmit: true,
 });
 
@@ -50,14 +53,14 @@ watch(
         Array.isArray(props.initialConfig.visibleFieldIds);
 
       config.value = {
-        title: props.initialConfig?.title || "数据收集表单",
+        title: props.initialConfig?.title || t("view.formDefaultTitle"),
         description: props.initialConfig?.description || "",
-        submitButtonText: props.initialConfig?.submitButtonText || "提交",
+        submitButtonText: props.initialConfig?.submitButtonText || t("view.formSubmit"),
         visibleFieldIds: hasVisibleFieldIds
           ? props.initialConfig!.visibleFieldIds!
           : props.fields.map((f) => f.id),
         successMessage:
-          props.initialConfig?.successMessage || "提交成功，感谢您的参与！",
+          props.initialConfig?.successMessage || t("view.formSuccessMessage"),
         allowMultipleSubmit: props.initialConfig?.allowMultipleSubmit !== false,
       };
     }
@@ -102,18 +105,18 @@ function handleCheckAllChange(val: boolean) {
 // 保存配置
 function handleSave() {
   if (!config.value.title.trim()) {
-    ElMessage.error("请输入表单标题");
+    ElMessage.error(t("view.formEnterTitle"));
     return;
   }
 
   if (config.value.visibleFieldIds.length === 0) {
-    ElMessage.error("请至少选择一个字段");
+    ElMessage.error(t("view.formSelectAtLeastOneField"));
     return;
   }
 
   emit("save", { ...config.value });
   emit("update:visible", false);
-  ElMessage.success("表单配置已保存");
+  ElMessage.success(t("view.formConfigSaved"));
 }
 
 // 取消
@@ -151,66 +154,66 @@ function getFieldName(fieldId: string): string {
   <el-dialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="表单配置"
+    :title="t('view.formConfigTitle')"
     width="600px"
     :close-on-click-modal="false">
     <el-form label-position="top" class="form-config">
       <!-- 基本信息 -->
       <div class="config-section">
-        <h4 class="section-title">基本信息</h4>
+        <h4 class="section-title">{{ t("view.formBasicInfo") }}</h4>
 
-        <el-form-item label="表单标题">
+        <el-form-item :label="t('view.formConfigTitleLabel')">
           <el-input
             v-model="config.title"
-            placeholder="请输入表单标题"
+            :placeholder="t('view.formTitlePlaceholder')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="表单描述">
+        <el-form-item :label="t('view.formDescriptionLabel')">
           <el-input
             v-model="config.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入表单描述（可选）"
+            :placeholder="t('view.formDescriptionPlaceholder')"
             maxlength="200"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="提交按钮文字">
+        <el-form-item :label="t('view.formSubmitButtonLabel')">
           <el-input
             v-model="config.submitButtonText"
-            placeholder="例如：提交、保存、确认"
+            :placeholder="t('view.formSubmitButtonPlaceholder')"
             maxlength="10" />
         </el-form-item>
 
-        <el-form-item label="成功提示消息">
+        <el-form-item :label="t('view.formSuccessMessageLabel')">
           <el-input
             v-model="config.successMessage"
-            placeholder="提交成功后显示的提示"
+            :placeholder="t('view.formSuccessMessagePlaceholder')"
             maxlength="100" />
         </el-form-item>
 
         <el-form-item>
           <el-checkbox v-model="config.allowMultipleSubmit">
-            允许同一用户多次提交
+            {{ t("view.formAllowMultiple") }}
           </el-checkbox>
         </el-form-item>
       </div>
 
       <!-- 字段选择 -->
       <div class="config-section">
-        <h4 class="section-title">字段配置</h4>
+        <h4 class="section-title">{{ t("view.formFieldConfig") }}</h4>
 
         <div class="field-select-header">
           <el-checkbox
             :model-value="isAllSelected"
             :indeterminate="isIndeterminate"
             @change="(val) => handleCheckAllChange(val as boolean)">
-            全选
+            {{ t("view.selectAll") }}
           </el-checkbox>
           <span class="field-count">
-            已选择 {{ config.visibleFieldIds.length }} 个字段
+            {{ t("view.fieldsSelected", { count: config.visibleFieldIds.length }) }}
           </span>
         </div>
 
@@ -262,14 +265,14 @@ function getFieldName(fieldId: string): string {
 
           <el-empty
             v-if="availableFields.length === 0"
-            description="暂无可用的字段" />
+            :description="t('view.noAvailableFields')" />
         </div>
       </div>
     </el-form>
 
     <template #footer>
-      <el-button @click="handleCancel">取消</el-button>
-      <el-button type="primary" @click="handleSave"> 保存配置 </el-button>
+      <el-button @click="handleCancel">{{ t("view.cancel") }}</el-button>
+      <el-button type="primary" @click="handleSave">{{ t("view.saveConfig") }}</el-button>
     </template>
   </el-dialog>
 </template>

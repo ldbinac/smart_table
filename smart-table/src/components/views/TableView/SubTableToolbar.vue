@@ -23,7 +23,7 @@
 
     <div class="toolbar-right">
       <el-tooltip
-        :content="addDisabledReason || '添加关联记录'"
+        :content="addDisabledReason || t('view.addLinkRecord')"
         :disabled="!readonly && !disabledAdd"
       >
         <el-button
@@ -33,7 +33,7 @@
           :disabled="readonly || disabledAdd"
           @click="handleAddLink"
         >
-          添加关联
+          {{ t("view.addLink") }}
         </el-button>
       </el-tooltip>
 
@@ -51,8 +51,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElButton, ElSelect, ElOption, ElTooltip } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
+
+const { t } = useI18n();
 
 interface Props {
   linkFields: Array<{

@@ -1,10 +1,10 @@
 <template>
   <div class="parent-field-config">
     <div class="config-item">
-      <label class="config-label">父记录字段</label>
+      <label class="config-label">{{ t("view.parentRecordField") }}</label>
       <el-select
         v-model="selectedFieldId"
-        placeholder="选择父记录字段"
+        :placeholder="t('view.selectParentField')"
         clearable
         @change="handleChange"
         style="width: 100%">
@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { FieldType } from "@/types/fields";
@@ -38,6 +39,7 @@ const props = defineProps<{
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
+const { t } = useI18n();
 
 const selectedFieldId = ref<string | null>(props.currentParentFieldId || null);
 

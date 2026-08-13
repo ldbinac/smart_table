@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import dayjs from "dayjs";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
@@ -34,6 +35,8 @@ const emit = defineEmits<{
   (e: "edit", active: boolean): void;
   (e: "open-detail"): void;
 }>();
+
+const { t } = useI18n();
 
 const isEditing = ref(false);
 const editValue = ref<string | number | boolean | string[] | null>(null);
@@ -232,7 +235,7 @@ const displayValue = computed(() => {
     }
     case "attachment": {
       if (!Array.isArray(value)) return "";
-      return `${value.length} 个文件`;
+      return t("view.fileCount", { count: value.length });
     }
     case "formula": {
       // 公式字段使用独立的 computed 属性
@@ -304,7 +307,7 @@ const calculateFormula = (): string => {
     const result = engine.calculate(props.record, formula);
 
     if (result === "#ERROR") {
-      return "计算错误";
+      return t("view.calcError");
     }
 
     // 数字格式化
@@ -330,7 +333,7 @@ const calculateFormula = (): string => {
     return String(result);
   } catch (error) {
     console.error("Formula calculation error:", error);
-    return "计算错误";
+    return t("view.calcError");
   }
 };
 
@@ -379,7 +382,7 @@ const handleLinkFieldChange = async (value: string[], records: LinkedRecord[]) =
     emit("update", value as CellValue);
   } catch (error) {
     console.error("[TableCell] 更新关联字段失败:", error);
-    ElMessage.error("关联字段更新失败，请稍后重试");
+    ElMessage.error(t("view.linkUpdateFailed"));
   }
   isEditing.value = false;
 };
@@ -400,10 +403,10 @@ const handleLinkRemove = async (recordId: string) => {
       (id) => id !== recordId,
     );
     emit("update", newValue as CellValue);
-    ElMessage.success("已解除关联");
+    ElMessage.success(t("view.linkUnlinked"));
   } catch (error) {
     console.error("[TableCell] 解除关联失败:", error);
-    ElMessage.error("解除关联失败，请稍后重试");
+    ElMessage.error(t("view.linkUnlinkFailed"));
   }
 };
 
@@ -652,7 +655,7 @@ const multiSelectDisplayValues = computed(() => {
           ref="inputRef"
           v-model="dateEditValue"
           :type="datePickerType"
-          :placeholder="isDateTimeField ? '选择日期时间' : '选择日期'"
+          :placeholder="isDateTimeField ? t('view.selectDateTime') : t('view.selectDate')"
           :format="dateDisplayFormat"
           class="cell-date-picker"
           @change="handleDateChange" />
@@ -676,7 +679,7 @@ const multiSelectDisplayValues = computed(() => {
       <template v-else-if="fieldType === 'member'">
         <MemberSelect
           v-model="editValue as string[]"
-          :placeholder="'选择成员'"
+          :placeholder="t('view.selectMember')"
           :allow-multiple="false"
           class="cell-member-select"
           @update:model-value="finishEdit" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive } from "vue";
+import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -112,6 +113,8 @@ const emit = defineEmits<{
   (e: "add-record"): void;
   (e: "group-add-record", groupFieldValues: Record<string, any>): void;
 }>();
+
+const { t } = useI18n();
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
@@ -361,7 +364,7 @@ function validateCellValue(
     case FieldType.EMAIL: {
       const result = validateFieldFormat(value, FieldType.EMAIL as any);
       if (!result.valid) {
-        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的邮箱地址` };
+        return { valid: false, message: result.error || t("view.formatInvalidEmail", { name: field.name }) };
       }
       return { valid: true };
     }
@@ -374,7 +377,7 @@ function validateCellValue(
         if (!result.valid) {
           return {
             valid: false,
-            message: result.error || `${field.name} 格式不正确`,
+            message: result.error || t("view.formFormatInvalid", { name: field.name }),
           };
         }
       }
@@ -384,7 +387,7 @@ function validateCellValue(
     case FieldType.PHONE: {
       const result = validateFieldFormat(value, FieldType.PHONE as any);
       if (!result.valid) {
-        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的11位手机号码` };
+        return { valid: false, message: result.error || t("view.formatInvalidPhone", { name: field.name }) };
       }
       return { valid: true };
     }
@@ -393,7 +396,7 @@ function validateCellValue(
     case FieldType.LINK: {
       const result = validateFieldFormat(value, FieldType.URL as any);
       if (!result.valid) {
-        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的链接地址` };
+        return { valid: false, message: result.error || t("view.formatInvalidLink", { name: field.name }) };
       }
       return { valid: true };
     }
@@ -1563,7 +1566,7 @@ class MemberEditor implements IEditor {
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
-        <span>请输入关键词搜索</span>
+        <span>{{ t("view.searchPlaceholder") }}</span>
       `;
       this.resultsListEl.appendChild(emptyEl);
       return;
@@ -1979,9 +1982,9 @@ const contextMenuItems = computed(() => {
       // 当前行在冻结区 → 显示取消冻结
       items.push({
         id: 'unfreeze-row',
-        label: '取消冻结行',
+        label: t('view.unfreezeRow'),
         icon: 'freeze',
-        hint: '取消当前行的冻结状态',
+        hint: t('view.unfreezeRowHint'),
         action: () => handleFreezeRow(true),
       });
     } else {
@@ -1989,9 +1992,9 @@ const contextMenuItems = computed(() => {
       const freezeCount = currentDataRow + 1;
       items.push({
         id: 'freeze-row',
-        label: `冻结到此行（前 ${freezeCount} 行）`,
+        label: t('view.freezeToRow', { count: freezeCount }),
         icon: 'freeze',
-        hint: '冻结当前行及其上方所有行，滚动时保持可见',
+        hint: t('view.freezeRowHint'),
         action: () => handleFreezeRow(false, freezeCount),
       });
     }
@@ -2002,9 +2005,9 @@ const contextMenuItems = computed(() => {
     if (isTreeView.value && !props.readonly) {
       items.push({
         id: "add-child-record",
-        label: "添加子记录",
+        label: t("view.addChildRecord"),
         icon: "circle-plus",
-        hint: "在当前记录下创建一条子记录",
+        hint: t("view.addChildRecordHint"),
         action: () => {
           handleAddChildRecord();
         },
@@ -2012,17 +2015,17 @@ const contextMenuItems = computed(() => {
 
       items.push({
         id: "promote",
-        label: "提升层级",
+        label: t("view.promoteLevel"),
         icon: "promote",
-        hint: "将当前记录提升到上一层级（与父记录同级）",
+        hint: t("view.promoteLevelHint"),
         action: () => handlePromoteRecord(),
       });
 
       items.push({
         id: "demote",
-        label: "降低层级",
+        label: t("view.demoteLevel"),
         icon: "demote",
-        hint: "将当前记录下降一个层级（挂到前一条记录下）",
+        hint: t("view.demoteLevelHint"),
         action: () => handleDemoteRecord(),
       });
 
@@ -2030,17 +2033,17 @@ const contextMenuItems = computed(() => {
     }
 
     if (!props.readonly) {
-      items.push({ id: "edit", label: "编辑当前记录", icon: "edit", hint: "打开详情面板，编辑当前记录", action: () => handleEditRecord() });
-      items.push({ id: "duplicate", label: "复制当前记录", icon: "copy", hint: "基于当前记录复制生成一条新记录", action: () => handleDuplicateRecord() });
+      items.push({ id: "edit", label: t("view.editCurrentRecord"), icon: "edit", hint: t("view.editCurrentRecordHint"), action: () => handleEditRecord() });
+      items.push({ id: "duplicate", label: t("view.duplicateCurrentRecord"), icon: "copy", hint: t("view.duplicateCurrentRecordHint"), action: () => handleDuplicateRecord() });
       items.push({ divider: true, id: "divider1", label: "" });
 
       // 始终显示"删除当前记录"
       items.push({
         id: "delete",
-        label: "删除当前记录",
+        label: t("view.deleteCurrentRecord"),
         icon: "delete",
         danger: true,
-        hint: "永久删除当前记录，此操作不可撤销",
+        hint: t("view.deleteCurrentRecordHint"),
         action: () => handleDeleteRecord(),
       });
 
@@ -2049,10 +2052,10 @@ const contextMenuItems = computed(() => {
       if (selectedCount >= 1) {
         items.push({
           id: "delete-selected",
-          label: `删除选中的 ${selectedCount} 条记录`,
+          label: t("view.deleteSelectedRecords", { count: selectedCount }),
           icon: "delete",
           danger: true,
-          hint: `永久删除选中的 ${selectedCount} 条记录，此操作不可撤销`,
+          hint: t("view.deleteSelectedRecordsHint", { count: selectedCount }),
           action: () => handleDeleteSelectedRecords(),
         });
       }
@@ -2066,25 +2069,25 @@ const contextMenuItems = computed(() => {
     // 排序相关
     items.push({
       id: 'sort-asc',
-      label: '升序排列',
+      label: t('view.sortAsc'),
       icon: 'sort',
-      hint: '按该字段从小到大升序排列记录',
+      hint: t('view.sortAscHint'),
       action: () => handleSort('asc'),
     });
 
     items.push({
       id: 'sort-desc',
-      label: '降序排列',
+      label: t('view.sortDesc'),
       icon: 'sort',
-      hint: '按该字段从大到小降序排列记录',
+      hint: t('view.sortDescHint'),
       action: () => handleSort('desc'),
     });
 
     if (currentSort) {
       items.push({
         id: 'sort-clear',
-        label: '取消排序',
-        hint: '取消该字段当前的排序',
+        label: t('view.cancelSort'),
+        hint: t('view.cancelSortHint'),
         action: () => handleSort(null),
       });
     }
@@ -2094,9 +2097,9 @@ const contextMenuItems = computed(() => {
     // 冻结相关
     items.push({
       id: isFrozen ? 'unfreeze' : 'freeze',
-      label: isFrozen ? '取消冻结' : '冻结列',
+      label: isFrozen ? t('view.unfreezeColumn') : t('view.freezeColumn'),
       icon: 'freeze',
-      hint: isFrozen ? '取消该列的冻结状态' : '冻结该列及其左侧所有列，滚动时保持可见',
+      hint: isFrozen ? t('view.unfreezeColumnHint') : t('view.freezeColumnHint'),
       action: () => handleFreeze(!isFrozen),
     });
 
@@ -2104,9 +2107,9 @@ const contextMenuItems = computed(() => {
     if (canManage.value) {
       items.push({
         id: 'hide',
-        label: '隐藏该列',
+        label: t('view.hideColumn'),
         icon: 'hide',
-        hint: '在视图中隐藏该列',
+        hint: t('view.hideColumnHint'),
         action: () => handleHideColumn(),
       });
 
@@ -2115,9 +2118,9 @@ const contextMenuItems = computed(() => {
       // 字段属性
       items.push({
         id: 'field-settings',
-        label: '字段属性',
+        label: t('view.fieldSettings'),
         icon: 'settings',
-        hint: '编辑该字段的属性配置',
+        hint: t('view.fieldSettingsHint'),
         action: () => handleFieldSettings(),
       });
     }
@@ -2135,9 +2138,9 @@ const handleSort = async (direction: 'asc' | 'desc' | null) => {
   const newSorts = direction ? [{ fieldId: field.id, direction }] : [];
 
   if (direction) {
-    ElMessage.success(`已按 ${field.name} ${direction === 'asc' ? '升序' : '降序'}排列`);
+    ElMessage.success(t("view.sortedByDirection", { name: field.name, direction: direction === 'asc' ? t("view.asc") : t("view.desc") }));
   } else {
-    ElMessage.success(`已取消 ${field.name} 的排序`);
+    ElMessage.success(t("view.sortCancelled", { name: field.name }));
   }
 
   // 同步应用层排序状态
@@ -2169,14 +2172,14 @@ const handleFreeze = async (freeze: boolean) => {
     newFrozen = visibleFields.value
       .slice(0, fieldIndex + 1)
       .map(f => f.id);
-    ElMessage.success(`已冻结 ${field.name} 及其左侧列`);
+    ElMessage.success(t("view.columnFrozenLeft", { name: field.name }));
   } else {
     // 取消冻结：取消该列及其右侧所有列的冻结
     newFrozen = currentFrozen.filter(frozenId => {
       const frozenIndex = visibleFields.value.findIndex(f => f.id === frozenId);
       return frozenIndex !== -1 && frozenIndex < fieldIndex;
     });
-    ElMessage.success(`已取消冻结 ${field.name} 及其右侧列`);
+    ElMessage.success(t("view.columnUnfrozenRight", { name: field.name }));
   }
 
   await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
@@ -2197,13 +2200,13 @@ const handleFreezeRow = (isFrozen: boolean, freezeCount?: number) => {
     newFrozenRowCount = headerRowCount;
     // 更新响应式变量（取消冻结，数据行冻结数变为 0）
     frozenDataRowCount.value = 0;
-    ElMessage.success('已取消冻结行');
+    ElMessage.success(t("view.rowUnfrozen"));
   } else {
     // 冻结行：表头行数 + 数据行数
     newFrozenRowCount = headerRowCount + (freezeCount ?? 1);
     // 更新响应式变量（冻结指定数据行数）
     frozenDataRowCount.value = freezeCount ?? 1;
-    ElMessage.success(`已冻结前 ${freezeCount ?? 1} 行`);
+    ElMessage.success(t("view.rowsFrozen", { count: freezeCount ?? 1 }));
   }
 
   // 同时更新配置和内部状态，确保状态一致性
@@ -2225,7 +2228,7 @@ const handleHideColumn = async () => {
 
   // 索引列（主键字段）不允许隐藏
   if (field.isPrimary === true) {
-    ElMessage.warning('索引列，用来标识每条记录。不能被删除、移动或隐藏。');
+    ElMessage.warning(t("view.primaryColumnCannotHide"));
     contextMenuVisible.value = false;
     return;
   }
@@ -2234,7 +2237,7 @@ const handleHideColumn = async () => {
   const newHidden = [...currentHidden, field.id];
 
   await viewStore.updateHiddenFields(currentView.value.id, newHidden);
-  ElMessage.success(`已隐藏 ${field.name}`);
+  ElMessage.success(t("view.fieldHidden", { name: field.name }));
   contextMenuVisible.value = false;
 };
 
@@ -2397,10 +2400,10 @@ const handleAddNewRecord = async () => {
     }
 
     emit('record-create');
-    ElMessage.success('已添加新记录');
+    ElMessage.success(t('view.recordAdded'));
   } catch (error) {
     console.error('[VTableView] 添加记录失败:', error);
-    ElMessage.error('添加记录失败');
+    ElMessage.error(t('view.addRecordFailed'));
   } finally {
     // 添加短暂冷却期，避免 VTable 事件重复触发导致一次点击添加多条记录
     addRecordCooldownTimer = setTimeout(() => {
@@ -2420,11 +2423,11 @@ const handleDuplicateRecord = async () => {
       values: { ...contextMenuRecord.value.values },
     });
     if (newRecord) {
-      ElMessage.success("复制记录成功");
+      ElMessage.success(t("view.recordDuplicated"));
     }
   } catch (error) {
     console.error("复制记录失败:", error);
-    ElMessage.error("复制记录失败");
+    ElMessage.error(t("view.duplicateFailed"));
   }
   contextMenuVisible.value = false;
 };
@@ -2434,11 +2437,11 @@ const handleDeleteRecord = async () => {
   if (!contextMenuRecord.value) return;
   try {
     await ElMessageBox.confirm(
-      "确定要删除这条记录吗？此操作不可恢复。",
-      "删除确认",
+      t("view.deleteRecordConfirm"),
+      t("view.deleteRecordTitle"),
       {
-        confirmButtonText: "确定删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t("view.confirmDelete"),
+        cancelButtonText: t("view.cancel"),
         type: "warning",
         confirmButtonClass: "el-button--danger",
       },
@@ -2449,12 +2452,12 @@ const handleDeleteRecord = async () => {
       selectedRows.value = [];
       checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => id !== recordId);
       emit("record-delete", [recordId]);
-      ElMessage.success("记录删除成功");
+      ElMessage.success(t("view.recordDeleted"));
     }
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除记录失败:", error);
-      ElMessage.error("删除记录失败");
+      ElMessage.error(t("view.deleteFailed"));
     }
   }
   contextMenuVisible.value = false;
@@ -2467,11 +2470,11 @@ const handleDeleteSelectedRecords = async () => {
   if (count === 0) return;
   try {
     await ElMessageBox.confirm(
-      `确定要删除选中的 ${count} 条记录吗？此操作不可恢复。`,
-      "批量删除确认",
+      t("view.deleteSelectedConfirm", { count }),
+      t("view.deleteSelectedTitle"),
       {
-        confirmButtonText: "确定删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t("view.confirmDelete"),
+        cancelButtonText: t("view.cancel"),
         type: "warning",
         confirmButtonClass: "el-button--danger",
       },
@@ -2482,14 +2485,14 @@ const handleDeleteSelectedRecords = async () => {
       emit("record-delete", ids);
       selectedRows.value = selectedRows.value.filter(id => !ids.includes(id));
       checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => !ids.includes(id));
-      ElMessage.success(`成功删除 ${count} 条记录`);
+      ElMessage.success(t("view.recordsDeleted", { count }));
     } finally {
       deleteLoading.value = false;
     }
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除记录失败:", error);
-      ElMessage.error("删除记录失败");
+      ElMessage.error(t("view.deleteFailed"));
     }
   }
   contextMenuVisible.value = false;
@@ -2501,7 +2504,7 @@ const handlePromoteRecord = async () => {
   const record = contextMenuRecord.value;
   const currentParentIds = record.values?.[parentFieldId.value];
   if (!currentParentIds || !Array.isArray(currentParentIds) || currentParentIds.length === 0) {
-    ElMessage.warning("该记录已经是顶层记录，无法提升层级");
+    ElMessage.warning(t("view.alreadyTopLevel"));
     contextMenuVisible.value = false;
     return;
   }
@@ -2523,7 +2526,7 @@ const handlePromoteRecord = async () => {
   };
   const parentRecord = findParent(treeRecords.value);
   if (!parentRecord || !parentRecord.values) {
-    ElMessage.warning("无法找到父记录");
+    ElMessage.warning(t("view.parentNotFound"));
     contextMenuVisible.value = false;
     return;
   }
@@ -2534,10 +2537,10 @@ const handlePromoteRecord = async () => {
       values: { [parentFieldId.value]: newParentId ? [newParentId] : [] },
     });
     await loadTreeRecords();
-    ElMessage.success("已提升层级");
+    ElMessage.success(t("view.levelPromoted"));
   } catch (error) {
     console.error("[VTableView] 提升层级失败:", error);
-    ElMessage.error("提升层级失败");
+    ElMessage.error(t("view.promoteFailed"));
   }
   contextMenuVisible.value = false;
 };
@@ -2545,7 +2548,7 @@ const handlePromoteRecord = async () => {
 // 降低层级：将记录设为上一个兄弟节点的子级（下移一层）
 const handleDemoteRecord = async () => {
   if (!contextMenuRecord.value || !parentFieldId.value) return;
-  ElMessage.info("降低层级功能正在开发中");
+  ElMessage.info(t("view.demoteWip"));
   contextMenuVisible.value = false;
 };
 
@@ -2555,10 +2558,10 @@ const handleAddChildRecord = async () => {
   try {
     await recordApiService.createChildRecord(contextMenuRecord.value.id, parentFieldId.value);
     await loadTreeRecords();
-    ElMessage.success("子记录已创建");
+    ElMessage.success(t("view.childRecordCreated"));
   } catch (error) {
     console.error("创建子记录失败:", error);
-    ElMessage.error("创建子记录失败");
+    ElMessage.error(t("view.createChildFailed"));
   }
   contextMenuVisible.value = false;
 };
@@ -2573,10 +2576,10 @@ const handleTreeAddChildClick = async () => {
   try {
     await recordApiService.createChildRecord(recordId, parentFieldId.value);
     await loadTreeRecords();
-    ElMessage.success("子记录已创建");
+    ElMessage.success(t("view.childRecordCreated"));
   } catch (error) {
     console.error("创建子记录失败:", error);
-    ElMessage.error("创建子记录失败");
+    ElMessage.error(t("view.createChildFailed"));
   } finally {
     treeAddChildLoading.value = false;
     treeAddChildIconVisible.value = false;
@@ -2617,12 +2620,12 @@ const handleRecordSave = async (
         await loadTreeRecords();
       }
     }
-    ElMessage.success("保存成功");
+    ElMessage.success(t("view.saveSuccess"));
     expandDialogVisible.value = false;
     expandedRecord.value = null;
   } catch (error) {
     console.error("Error saving record-tv:", error);
-    ElMessage.error("保存失败");
+    ElMessage.error(t("view.saveFailed"));
   }
 };
 
@@ -4770,7 +4773,7 @@ const bindTableEvents = () => {
           // 如果被其他用户锁定，回退开关状态并提示
           if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
             const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
-            ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格，无法更改`);
+            ElMessage.warning(t("view.cellLockedNoEdit", { user: lockInfo?.nickname || lockInfo?.name || t("view.otherUser") }));
             // 回退到原始状态（需要刷新表格）
             tableStore.refreshRecords(tableId);
             return;
@@ -4782,7 +4785,7 @@ const bindTableEvents = () => {
             currentUserId
           );
           if (!lockResult.success && lockResult.reason === 'locked') {
-            ElMessage.warning(`${lockResult.locked_by?.nickname || lockResult.locked_by?.name || '其他用户'} 正在编辑此单元格`);
+            ElMessage.warning(t("view.cellLockedByOther", { user: lockResult.locked_by?.nickname || lockResult.locked_by?.name || t("view.otherUser") }));
             tableStore.refreshRecords(tableId);
             return;
           }
@@ -4822,7 +4825,7 @@ const bindTableEvents = () => {
           }
         } catch (error) {
           console.error('开关状态保存失败:', error);
-          ElMessage.error('开关状态保存失败');
+          ElMessage.error(t("view.toggleSaveFailed"));
           // 保存失败也移除待提交变更，避免残留
           if (collabStore.isRealtimeAvailable) {
             collabStore.removePendingChange(recordId, fieldId);
@@ -4933,9 +4936,9 @@ const bindTableEvents = () => {
     // 同步应用层排序状态（sortedRecords computed 依赖此状态）
     const newSorts = newDirection ? [{ fieldId: field.id, direction: newDirection }] : [];
     if (newDirection) {
-      ElMessage.success(`已按 ${field.name} ${newDirection === 'asc' ? '升序' : '降序'}排列`);
+      ElMessage.success(t("view.sortedByDirection", { name: field.name, direction: newDirection === 'asc' ? t("view.asc") : t("view.desc") }));
     } else {
-      ElMessage.success(`已取消 ${field.name} 的排序`);
+      ElMessage.success(t("view.sortCancelled", { name: field.name }));
     }
     await viewStore.updateSorts(currentView.value.id, newSorts);
     // 不返回 false → VTable 内置排序正常执行，
@@ -5057,7 +5060,7 @@ const bindTableEvents = () => {
             // 同步检查本地锁缓存：若被其他用户持有，立即取消编辑器并提示
             if (collabStore.isCellLockedByOther(cellRecord._recordId, fieldId, currentUserId)) {
               const lockInfo = collabStore.getCellLockInfo(cellRecord._recordId, fieldId);
-              ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格`);
+              ElMessage.warning(t("view.cellLockedByOther", { user: lockInfo?.nickname || lockInfo?.name || t("view.otherUser") }));
               // 延迟一帧调用，确保在 VTable 启动编辑器之后取消
               setTimeout(() => {
                 try { tableInstanceAny.cancelEditCell?.(); } catch (e) { /* ignore */ }
@@ -5070,7 +5073,7 @@ const bindTableEvents = () => {
                 currentUserId
               ).then((result) => {
                 if (!result.success && result.reason === 'locked' && result.locked_by) {
-                  ElMessage.warning(`${result.locked_by.nickname || result.locked_by.name || '其他用户'} 已锁定此单元格`);
+                  ElMessage.warning(t("view.cellLockedByUser", { user: result.locked_by.nickname || result.locked_by.name || t("view.otherUser") }));
                   try { tableInstanceAny.cancelEditCell?.(); } catch (e) { /* ignore */ }
                 }
               });
@@ -5302,7 +5305,7 @@ const bindTableEvents = () => {
     if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
       if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
         const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
-        ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格，保存被拒绝`);
+        ElMessage.warning(t("view.cellLockedRejected", { user: lockInfo?.nickname || lockInfo?.name || t("view.otherUser") }));
         // 刷新表格以显示原始数据
         if (tableId) {
           await tableStore.refreshRecords(tableId);
@@ -5367,10 +5370,10 @@ const bindTableEvents = () => {
         });
       }
 
-      ElMessage.success('编辑保存成功');
+      ElMessage.success(t("view.editSavedSuccess"));
     } catch (error) {
       console.error('编辑保存失败:', error);
-      ElMessage.error('编辑保存失败');
+      ElMessage.error(t("view.editSaveFailed"));
       // 保存失败也移除待提交变更，避免残留
       if (collabStore.isRealtimeAvailable) {
         collabStore.removePendingChange(recordId, fieldId);
@@ -5388,7 +5391,7 @@ const bindTableEvents = () => {
       cellCount += cols * rows;
     }
     if (cellCount > 0) {
-      ElMessage.success(`已复制 ${cellCount} 个单元格`);
+      ElMessage.success(t("view.cellsCopied", { count: cellCount }));
     }
   });
 
@@ -5475,10 +5478,10 @@ const bindTableEvents = () => {
               values: { [parentFieldId.value]: [targetId] } as Record<string, CellValue>,
             });
             await loadTreeRecords();
-            ElMessage.success("已更新层级关系");
+            ElMessage.success(t("view.hierarchyUpdated"));
           } catch (error) {
             console.error("拖拽更新层级失败:", error);
-            ElMessage.error("拖拽更新层级失败");
+            ElMessage.error(t("view.dragUpdateFailed"));
           }
         }
       }
@@ -5994,10 +5997,10 @@ async function handleAttachmentUpdate(value: any) {
       values: newValues as Record<string, CellValue>,
     };
     await tableStore.refreshRecords(props.tableId);
-    ElMessage.success('附件保存成功');
+    ElMessage.success(t("view.attachmentSaved"));
   } catch (error) {
     console.error('附件保存失败:', error);
-    ElMessage.error('附件保存失败');
+    ElMessage.error(t("view.attachmentSaveFailed"));
     // 恢复原始值，使 AttachmentManager 重新加载为删除前的状态
     attachmentManagerInitialValue.value = originalValue;
   }
@@ -6138,7 +6141,7 @@ async function handleLinkSelectorConfirm(selectedIds: string[]) {
     await loadLinkDisplayData();
   } catch (error) {
     console.error('更新关联字段失败:', error);
-    ElMessage.error('更新关联字段失败');
+    ElMessage.error(t("view.linkFieldUpdateFailed"));
   }
 
   linkSelectorVisible.value = false;
@@ -6205,11 +6208,11 @@ async function handleSubTableUnlink(targetRecordId: string) {
 
   try {
     await ElMessageBox.confirm(
-      '确定要解除与该记录的关联吗？',
-      '确认解除关联',
+      t("view.confirmUnlink"),
+      t("view.confirmUnlinkTitle"),
       {
-        confirmButtonText: '确认解除',
-        cancelButtonText: '取消',
+        confirmButtonText: t("view.confirmUnlinkBtn"),
+        cancelButtonText: t("view.cancel"),
         type: 'warning',
       },
     );
@@ -6225,11 +6228,11 @@ async function handleSubTableUnlink(targetRecordId: string) {
     loadLinkDisplayData();
     updateSubTableDisabledAdd();
 
-    ElMessage.success('已解除关联');
+    ElMessage.success(t("view.linkUnlinked"));
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       console.error('[VTableView] 解除关联失败:', error);
-      ElMessage.error('解除关联失败');
+      ElMessage.error(t("view.linkUnlinkFailed"));
     }
   }
 }
@@ -6405,7 +6408,7 @@ watch(
       }"
       @click.stop="handleActionIconClick"
       @mouseenter="actionIconVisible = true"
-      title="查看行数据"
+      :title="t('view.viewRowData')"
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/>
@@ -6484,7 +6487,7 @@ watch(
     <!-- 图片缩略图单击预览对话框 -->
     <el-dialog
       v-model="attachmentImagePreviewVisible"
-      :title="attachmentImagePreviewName || '预览'"
+      :title="attachmentImagePreviewName || t('view.preview')"
       width="90%"
       top="5vh"
       destroy-on-close
@@ -6523,12 +6526,12 @@ watch(
     <LoadingOverlay
       :visible="deleteLoading"
       :record-count="checkboxSelectedRows.length"
-      action-text="删除" />
+      :action-text="t('view.delete')" />
 
     <!-- 全局搜索弹窗 -->
     <el-dialog
       v-model="searchVisible"
-      title="表格内容全局搜索"
+      :title="t('view.globalSearchTitle')"
       width="360px"
       :modal="false"
       :close-on-click-modal="false"
@@ -6539,7 +6542,7 @@ watch(
       <div class="search-content">
         <el-input
           v-model="searchInput"
-          placeholder="输入搜索内容..."
+          :placeholder="t('view.searchPlaceholder')"
           class="vtable-search-input"
           @input="handleSearch"
           clearable
