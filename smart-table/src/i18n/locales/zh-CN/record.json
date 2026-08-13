@@ -17,5 +17,15 @@
   "addToGroup": "添加记录到 {group}",
   "added": "记录添加成功",
   "addFailed": "添加失败",
-  "autoGroupedHint": "已自动关联当前分组"
+  "autoGroupedHint": "已自动关联当前分组",
+  "baseInfoFailed": "无法获取当前 Base 信息",
+  "linkUpdated": "关联字段更新成功",
+  "linkUpdateFailed": "更新关联字段失败",
+  "linkUnlinked": "已解除关联",
+  "linkUnlinkFailed": "解除关联失败，请稍后重试",
+  "editWithValue": "编辑记录 - {value}",
+  "history": "变更历史",
+  "triggerWorkflow": "触发工作流",
+  "noTriggerableWorkflow": "没有可手动触发的工作流",
+  "trigger": "触发"
 }

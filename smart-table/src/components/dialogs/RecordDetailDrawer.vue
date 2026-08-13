@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElDrawer,
   ElButton,
@@ -19,6 +20,8 @@ import {
   ElRadio,
 } from "element-plus";
 import { Clock, Connection } from "@element-plus/icons-vue";
+
+const { t } = useI18n();
 import { useWorkflowStore } from "@/stores";
 import { useMemberStore } from "@/stores/memberStore";
 import { useBaseStore } from "@/stores/baseStore";
@@ -95,7 +98,7 @@ async function initRichEditors() {
 
     const editor = new FluentEditor(container, {
       theme: "snow",
-      placeholder: `请输入${field.name}`,
+      placeholder: t("record.inputPlaceholder", { name: field.name }),
       modules: {
         toolbar: [
           ["bold", "italic", "underline", "strike"],
@@ -232,12 +235,12 @@ const handleSubRecordSave = async (
     });
     // 清除关联缓存（关联显示值可能已变更）
     linkApiService.invalidateCacheByPattern("record_links:");
-    ElMessage.success("保存成功");
+    ElMessage.success(t("common.saveSuccess"));
     subRecordDrawerVisible.value = false;
     subRecordExpanded.value = null;
   } catch (error) {
     console.error("[RecordDetailDrawer] 子表记录保存失败:", error);
-    ElMessage.error("保存失败");
+    ElMessage.error(t("record.saveFailed"));
   }
 };
 
@@ -256,7 +259,7 @@ const openTriggerDialog = async () => {
   if (!props.record) return;
   const baseId = baseStore.currentBase?.id;
   if (!baseId) {
-    ElMessage.warning("无法获取当前 Base 信息");
+    ElMessage.warning(t("record.baseInfoFailed"));
     return;
   }
   triggerDialogVisible.value = true;
@@ -394,10 +397,10 @@ const handleLinkFieldChange = async (
     formData.value[field.id] = value;
     linkFieldRecords.value.set(field.id, records);
     editingLinkField.value = null;
-    ElMessage.success("关联字段更新成功");
+    ElMessage.success(t("record.linkUpdated"));
   } catch (error) {
     console.error("[RecordDetailDrawer] 更新关联字段失败:", error);
-    ElMessage.error("更新关联字段失败");
+    ElMessage.error(t("record.linkUpdateFailed"));
   }
 };
 
@@ -426,10 +429,10 @@ const handleLinkFieldRemove = async (
       (id) => id !== targetRecordId,
     );
 
-    ElMessage.success("已解除关联");
+    ElMessage.success(t("record.linkUnlinked"));
   } catch (error) {
     console.error("[RecordDetailDrawer] 解除关联失败:", error);
-    ElMessage.error("解除关联失败，请稍后重试");
+    ElMessage.error(t("record.linkUnlinkFailed"));
   }
 };
 
@@ -637,7 +640,8 @@ function validateTextFieldRegex(field: FieldEntity) {
     field,
   );
   if (!result.valid) {
-    fieldErrors.value[field.id] = result.error || `${field.name} 格式不正确`;
+    fieldErrors.value[field.id] =
+      result.error || t("view.formFormatInvalid", { name: field.name });
   } else {
     delete fieldErrors.value[field.id];
   }
@@ -750,12 +754,12 @@ async function handleSave() {
   isSaving.value = true;
   try {
     emit("save", props.record.id, { ...formData.value });
-    ElMessage.success("记录保存成功");
+    ElMessage.success(t("record.saved"));
     // 保存成功后自动关闭抽屉
     closeDrawer();
   } catch (error) {
     console.error("Error saving record:", error);
-    ElMessage.error("保存失败");
+    ElMessage.error(t("record.saveFailed"));
   } finally {
     isSaving.value = false;
   }
@@ -769,9 +773,9 @@ function closeDrawer() {
 // 获取抽屉标题
 const drawerTitle = computed(() => {
   if (primaryField.value && primaryValue.value) {
-    return `编辑记录 - ${primaryValue.value}`;
+    return t("record.editWithValue", { value: primaryValue.value });
   }
-  return "编辑记录";
+  return t("record.editTitle");
 });
 
 // 计算抽屉实际宽度
@@ -835,7 +839,7 @@ const effectiveSize = computed<string | number>(() => {
             <el-input
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
-              :placeholder="`请输入${field.name}`"
+              :placeholder="t('record.inputPlaceholder', { name: field.name })"
               :disabled="readonly"
               :maxlength="(field.options?.maxLength as number) || undefined"
               :class="['field-input', { 'is-error': fieldErrors[field.id] }]"
@@ -851,7 +855,7 @@ const effectiveSize = computed<string | number>(() => {
               <el-input
                 :model-value="String(formData[field.id] || '')"
                 @update:model-value="(val) => handleValueChange(field.id, val)"
-                :placeholder="`请输入${field.name}`"
+                :placeholder="t('record.inputPlaceholder', { name: field.name })"
                 :disabled="readonly"
                 :maxlength="(field.options?.maxLength as number) || undefined"
                 type="textarea"
@@ -888,7 +892,7 @@ const effectiveSize = computed<string | number>(() => {
             <el-input-number
               :model-value="Number(formData[field.id] || 0)"
               @update:model-value="(val) => handleValueChange(field.id, val)"
-              :placeholder="`请输入${field.name}`"
+              :placeholder="t('record.inputPlaceholder', { name: field.name })"
               :disabled="readonly"
               class="field-input"
               style="width: 100%" />
@@ -899,7 +903,7 @@ const effectiveSize = computed<string | number>(() => {
             <el-select
               :model-value="formData[field.id] as string"
               @update:model-value="(val) => handleValueChange(field.id, val)"
-              :placeholder="`请选择${field.name}`"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
               :disabled="readonly"
               class="field-input"
               style="width: 100%">
@@ -923,7 +927,7 @@ const effectiveSize = computed<string | number>(() => {
             <el-select
               :model-value="(formData[field.id] as string[]) || []"
               @update:model-value="(val) => handleValueChange(field.id, val)"
-              :placeholder="`请选择${field.name}`"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
               :disabled="readonly"
               multiple
               class="field-input"
@@ -968,7 +972,7 @@ const effectiveSize = computed<string | number>(() => {
                     )
                 "
                 :type="getDatePickerType(field)"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('record.selectPlaceholder', { name: field.name })"
                 :format="getDateFormat(field)"
                 :disabled="readonly"
                 class="field-input"
@@ -1023,7 +1027,7 @@ const effectiveSize = computed<string | number>(() => {
                 </template>
               </el-input>
               <div v-if="field.options?.formula" class="formula-expression">
-                <span class="formula-label">公式:</span>
+                <span class="formula-label">{{ t('record.formulaLabel') }}</span>
                 <code class="formula-code">{{ field.options.formula }}</code>
               </div>
             </div>
@@ -1046,7 +1050,7 @@ const effectiveSize = computed<string | number>(() => {
           <template v-else-if="getFieldComponent(field) === 'member'">
             <MemberSelect
               :model-value="(formData[field.id] as string | null)"
-              :placeholder="`请选择${field.name}`"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
               :allow-multiple="false"
               :disabled="readonly"
               class="field-input"
@@ -1108,7 +1112,7 @@ const effectiveSize = computed<string | number>(() => {
             <el-input
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
-              :placeholder="`请输入${field.name}`"
+              :placeholder="t('record.inputPlaceholder', { name: field.name })"
               :disabled="readonly"
               :maxlength="(field.options?.maxLength as number) || undefined"
               class="field-input" />
@@ -1124,24 +1128,24 @@ const effectiveSize = computed<string | number>(() => {
             v-if="record?.id"
             :icon="Clock"
             circle
-            title="变更历史"
+            :title="t('record.history')"
             @click="showHistory" />
           <el-button
             v-if="record?.id && canTriggerWorkflow"
             :icon="Connection"
             circle disabled
             style="display: none;"
-            title="触发工作流"
+            :title="t('record.triggerWorkflow')"
             @click="openTriggerDialog" />
         </div>
         <div class="footer-right">
-          <el-button @click="closeDrawer">关闭</el-button>
+          <el-button @click="closeDrawer">{{ t('common.close') }}</el-button>
           <el-button
             v-if="!readonly"
             type="primary"
             :loading="isSaving"
             @click="handleSave">
-            保存
+            {{ t('common.save') }}
           </el-button>
         </div>
       </div>
@@ -1170,12 +1174,12 @@ const effectiveSize = computed<string | number>(() => {
   <!-- 触发工作流对话框 -->
   <ElDialog
     v-model="triggerDialogVisible"
-    title="触发工作流"
+    :title="t('record.triggerWorkflow')"
     width="400px"
     :close-on-click-modal="false">
     <div v-loading="triggerLoading">
       <p v-if="triggerableWorkflows.length === 0" class="workflow-empty">
-        没有可手动触发的工作流
+        {{ t('record.noTriggerableWorkflow') }}
       </p>
       <ElRadioGroup v-else v-model="selectedWorkflowId" class="workflow-radio-group">
         <ElRadio
@@ -1188,13 +1192,13 @@ const effectiveSize = computed<string | number>(() => {
       </ElRadioGroup>
     </div>
     <template #footer>
-      <el-button @click="triggerDialogVisible = false">取消</el-button>
+      <el-button @click="triggerDialogVisible = false">{{ t('common.cancel') }}</el-button>
       <el-button
         type="primary"
         :disabled="!selectedWorkflowId"
         :loading="triggerLoading"
         @click="handleTriggerWorkflow">
-        触发
+        {{ t('record.trigger') }}
       </el-button>
     </template>
   </ElDialog>

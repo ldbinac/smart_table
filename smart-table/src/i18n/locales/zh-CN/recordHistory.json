@@ -1,0 +1,14 @@
+{
+  "title": "变更历史",
+  "empty": "暂无变更历史",
+  "unknownUser": "未知用户",
+  "fieldChanges": "字段变更：",
+  "createdSnapshot": "创建了这条记录",
+  "deletedSnapshot": "删除了这条记录（已保存数据快照）",
+  "create": "创建",
+  "update": "更新",
+  "delete": "删除",
+  "yes": "是",
+  "no": "否",
+  "loadFailed": "加载变更历史失败"
+}

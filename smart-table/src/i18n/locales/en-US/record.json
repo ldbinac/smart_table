@@ -17,5 +17,15 @@
   "addToGroup": "Add record to {group}",
   "added": "Record added successfully",
   "addFailed": "Add failed",
-  "autoGroupedHint": "Auto-linked to the current group"
+  "autoGroupedHint": "Auto-linked to the current group",
+  "baseInfoFailed": "Unable to get current Base info",
+  "linkUpdated": "Link field updated successfully",
+  "linkUpdateFailed": "Failed to update link field",
+  "linkUnlinked": "Unlinked",
+  "linkUnlinkFailed": "Failed to unlink, please try again later",
+  "editWithValue": "Edit Record - {value}",
+  "history": "Change History",
+  "triggerWorkflow": "Trigger Workflow",
+  "noTriggerableWorkflow": "No manually triggerable workflows",
+  "trigger": "Trigger"
 }

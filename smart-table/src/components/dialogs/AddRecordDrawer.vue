@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElDrawer,
   ElButton,
@@ -32,6 +33,8 @@ import {
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+
+const { t } = useI18n();
 
 interface GroupLevelInfo {
   fieldId: string;
@@ -184,7 +187,7 @@ const calculateFormulaValue = (
     const result = engine.calculate(record, formula);
 
     if (result === "#ERROR") {
-      return "计算错误";
+      return t("record.calcError");
     }
 
     // 根据公式类型决定格式化方式
@@ -211,7 +214,7 @@ const calculateFormulaValue = (
     return String(result);
   } catch (error) {
     console.error("Add record drawer formula calculation error:", error);
-    return "计算错误";
+    return t("record.calcError");
   }
 };
 
@@ -423,10 +426,10 @@ async function handleSave() {
   isSaving.value = true;
   try {
     emit("save", { ...formData.value });
-    ElMessage.success("记录添加成功");
+    ElMessage.success(t("record.added"));
     closeDrawer();
   } catch (error) {
-    ElMessage.error("添加失败");
+    ElMessage.error(t("record.addFailed"));
   } finally {
     isSaving.value = false;
   }
@@ -457,7 +460,8 @@ function validateTextFieldRegex(field: FieldEntity) {
     field,
   );
   if (!result.valid) {
-    fieldErrors.value[field.id] = result.error || `${field.name} 格式不正确`;
+    fieldErrors.value[field.id] =
+      result.error || t("view.formFormatInvalid", { name: field.name });
   } else {
     delete fieldErrors.value[field.id];
   }
@@ -498,7 +502,9 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
 
 // 获取抽屉标题
 const drawerTitle = computed(() => {
-  return props.groupName ? `添加记录到 ${props.groupName}` : "添加记录";
+  return props.groupName
+    ? t("record.addToGroup", { group: props.groupName })
+    : t("record.addTitle");
 });
 </script>
 
@@ -548,7 +554,7 @@ const drawerTitle = computed(() => {
                   </template>
                 </ElInput>
                 <div v-if="field.options?.formula" class="formula-expression">
-                  <span class="formula-label">公式:</span>
+                  <span class="formula-label">{{ t('record.formulaLabel') }}</span>
                   <code class="formula-code">{{ field.options.formula }}</code>
                 </div>
               </div>
@@ -556,7 +562,7 @@ const drawerTitle = computed(() => {
             <template v-else-if="field.type === FieldType.AUTO_NUMBER">
               <div class="auto-number-preview">
                 <span class="auto-number-value">{{ getAutoNumberPreview(field) }}</span>
-                <span class="auto-number-hint">保存后自动生成</span>
+                <span class="auto-number-hint">{{ t('view.formAutoGenerate') }}</span>
               </div>
             </template>
             <template v-else>
@@ -568,10 +574,10 @@ const drawerTitle = computed(() => {
             </template>
             <span v-if="field.type !== FieldType.AUTO_NUMBER" class="auto-filled-hint">{{
               field.type === FieldType.FORMULA
-                ? "公式计算字段，不可修改"
+                ? t('record.formulaReadonlyHint')
                 : field.type === FieldType.LOOKUP
-                  ? "查找字段，不可修改"
-                  : "系统字段，不可修改"
+                  ? t('record.lookupReadonlyHint')
+                  : t('record.systemReadonlyHint')
             }}</span>
           </template>
 
@@ -587,14 +593,14 @@ const drawerTitle = computed(() => {
                 :label="option.name"
                 :value="option.id" />
             </ElSelect>
-            <span class="auto-filled-hint">已自动关联当前分组</span>
+            <span class="auto-filled-hint">{{ t('record.autoGroupedHint') }}</span>
           </template>
 
           <!-- 单行文本 -->
           <template v-else-if="field.type === FieldType.SINGLE_LINE_TEXT">
             <ElInput
               :model-value="String(formData[field.id] || '')"
-              :placeholder="`请输入${field.name}`"
+              :placeholder="t('record.inputPlaceholder', { name: field.name })"
               :maxlength="(field.options?.maxLength as number) || undefined"
               :class="['field-input', { 'is-error': fieldErrors[field.id] }]"
               @update:model-value="(val) => handleValueChange(field.id, val)"
@@ -609,7 +615,7 @@ const drawerTitle = computed(() => {
             <div class="textarea-wrapper">
               <ElInput
                 :model-value="String(formData[field.id] || '')"
-                :placeholder="`请输入${field.name}`"
+                :placeholder="t('record.inputPlaceholder', { name: field.name })"
                 :maxlength="(field.options?.maxLength as number) || undefined"
                 type="textarea"
                 :rows="3"
@@ -638,7 +644,7 @@ const drawerTitle = computed(() => {
           <template v-else-if="field.type === FieldType.RICH_TEXT">
             <RichTextField
               :model-value="(formData[field.id] as string) || null"
-              :placeholder="`请输入${field.name}`"
+              :placeholder="t('record.inputPlaceholder', { name: field.name })"
               :max-length="(field.options?.maxLength as number) || undefined"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
@@ -649,7 +655,7 @@ const drawerTitle = computed(() => {
             <ElInputNumber
               :model-value="Number(formData[field.id] || 0)"
               :precision="getNumberPrecision(field)"
-              :placeholder="`请输入${field.name}`"
+              :placeholder="t('record.inputPlaceholder', { name: field.name })"
               class="field-input"
               style="width: 100%"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
@@ -659,7 +665,7 @@ const drawerTitle = computed(() => {
           <template v-else-if="getFieldComponent(field) === 'single_select'">
             <ElSelect
               :model-value="formData[field.id] as string | undefined"
-              :placeholder="`请选择${field.name}`"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
               class="field-input"
               clearable
               @update:model-value="(val) => handleValueChange(field.id, val)">
@@ -682,7 +688,7 @@ const drawerTitle = computed(() => {
           <template v-else-if="getFieldComponent(field) === 'multi_select'">
             <ElSelect
               :model-value="(formData[field.id] as string[]) || []"
-              :placeholder="`请选择${field.name}`"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
               class="field-input"
               multiple
               clearable
@@ -711,7 +717,7 @@ const drawerTitle = computed(() => {
                   : null
               "
               :type="getDatePickerType(field)"
-              :placeholder="`请选择${field.name}`"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
               :format="getDateFormat(field)"
               class="field-input"
               style="width: 100%"
@@ -758,7 +764,7 @@ const drawerTitle = computed(() => {
           <template v-else-if="getFieldComponent(field) === 'member'">
             <MemberSelect
               :model-value="(formData[field.id] as string | null)"
-              :placeholder="`请选择${field.name}`"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
               :allow-multiple="false"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
@@ -767,7 +773,7 @@ const drawerTitle = computed(() => {
           <!-- 关联类型 -->
           <template v-else-if="getFieldComponent(field) === 'link'">
             <div class="link-hint">
-              <span>关联字段请在详情页中编辑</span>
+              <span>{{ t('record.linkEditHint') }}</span>
             </div>
           </template>
 
@@ -775,7 +781,7 @@ const drawerTitle = computed(() => {
           <template v-else>
             <ElInput
               :model-value="String(formData[field.id] || '')"
-              :placeholder="`请输入${field.name}`"
+              :placeholder="t('record.inputPlaceholder', { name: field.name })"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
@@ -785,9 +791,9 @@ const drawerTitle = computed(() => {
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="closeDrawer">取消</ElButton>
+        <ElButton @click="closeDrawer">{{ t('common.cancel') }}</ElButton>
         <ElButton type="primary" :loading="isSaving" @click="handleSave">
-          保存
+          {{ t('common.save') }}
         </ElButton>
       </div>
     </template>

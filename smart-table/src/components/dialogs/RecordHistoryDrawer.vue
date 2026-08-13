@@ -1,7 +1,7 @@
 <template>
   <el-drawer
     v-model="visible"
-    title="变更历史"
+    :title="t('recordHistory.title')"
     :size="drawerSize"
     :close-on-click-modal="true"
     :show-close="true"
@@ -11,7 +11,7 @@
       <!-- 空状态 -->
       <el-empty
         v-if="!loading && historyList.length === 0"
-        description="暂无变更历史" />
+        :description="t('recordHistory.empty')" />
 
       <!-- 历史列表 -->
       <div v-else class="history-list">
@@ -32,7 +32,7 @@
               :icon="UserFilled"
               class="changer-avatar" />
             <span class="changer-name">{{
-              item.changed_by?.name || "未知用户"
+              item.changed_by?.name || t("recordHistory.unknownUser")
             }}</span>
           </div>
 
@@ -40,7 +40,7 @@
           <div
             v-if="item.changes && item.changes.length > 0"
             class="changes-detail">
-            <div class="changes-title">字段变更：</div>
+            <div class="changes-title">{{ t('recordHistory.fieldChanges') }}</div>
             <div
               v-for="(change, index) in item.changes"
               :key="index"
@@ -66,12 +66,12 @@
 
           <!-- 创建/删除时的快照提示 -->
           <div v-else-if="item.action === 'CREATE'" class="snapshot-hint">
-            创建了这条记录
+            {{ t('recordHistory.createdSnapshot') }}
           </div>
           <div
             v-else-if="item.action === 'DELETE'"
             class="snapshot-hint delete-hint">
-            删除了这条记录（已保存数据快照）
+            {{ t('recordHistory.deletedSnapshot') }}
           </div>
         </div>
       </div>
@@ -93,8 +93,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { UserFilled, ArrowRight } from "@element-plus/icons-vue";
 import { formatDateTime } from "@/utils/timezone";
+
+const { t } = useI18n();
 import type { Field } from "@/api/types";
 import {
   recordHistoryApiService,
@@ -144,7 +147,7 @@ const formatValue = (value: any): string => {
     return "-";
   }
   if (typeof value === "boolean") {
-    return value ? "是" : "否";
+    return value ? t("recordHistory.yes") : t("recordHistory.no");
   }
   if (Array.isArray(value)) {
     return value.join(", ") || "-";
@@ -155,9 +158,9 @@ const formatValue = (value: any): string => {
 // 获取操作类型文本
 const getActionText = (action: string): string => {
   const actionMap: Record<string, string> = {
-    CREATE: "创建",
-    UPDATE: "更新",
-    DELETE: "删除",
+    CREATE: t("recordHistory.create"),
+    UPDATE: t("recordHistory.update"),
+    DELETE: t("recordHistory.delete"),
   };
   return actionMap[action] || action;
 };

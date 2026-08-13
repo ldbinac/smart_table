@@ -1,0 +1,14 @@
+{
+  "title": "Change History",
+  "empty": "No change history",
+  "unknownUser": "Unknown user",
+  "fieldChanges": "Field changes:",
+  "createdSnapshot": "Created this record",
+  "deletedSnapshot": "Deleted this record (data snapshot saved)",
+  "create": "Created",
+  "update": "Updated",
+  "delete": "Deleted",
+  "yes": "Yes",
+  "no": "No",
+  "loadFailed": "Failed to load change history"
+}
