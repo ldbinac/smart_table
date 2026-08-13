@@ -1240,8 +1240,8 @@ async function handleCopyBase(base: Base, event: Event) {
               <div v-else class="tab-panel">
                 <div v-if="allBases.length === 0" class="empty-state">
                   <el-icon :size="48" class="empty-icon"><Grid /></el-icon>
-                  <h3>暂无多维表格</h3>
-                  <p>点击右上角"新建"按钮创建您的第一个表格</p>
+                  <h3>{{ t('base.noBases') }}</h3>
+                  <p>{{ t('base.createHint') }}</p>
                 </div>
                 <div v-else class="table-list-container">
                   <div class="table-list">
@@ -1521,7 +1521,7 @@ async function handleCopyBase(base: Base, event: Event) {
                       </div>
                       <div class="item-actions" @click.stop>
                         <el-tooltip
-                          :content="base.is_starred ? '取消收藏' : '收藏'"
+                          :content="base.is_starred ? t('base.unstar') : t('base.star')"
                           placement="top"
                           :show-after="200">
                           <el-button
