@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { ElMessage } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { fieldService } from "@/db/services/fieldService";
@@ -9,8 +10,24 @@ import type {
   LookupFieldConfig,
   LookupAggregationType,
 } from "@/types/fields";
-import { getLookupAggregationTypeLabel } from "@/types/fields";
 import LookupConditionEditor from "./LookupConditionEditor.vue";
+
+const { t } = useI18n();
+
+/** 本地化查找字段计算方式标签 */
+function getLookupAggregationTypeLabel(type: LookupAggregationType): string {
+  const keyMap: Record<LookupAggregationType, string> = {
+    original: "field.lookupAggOriginal",
+    distinct: "field.lookupAggDistinct",
+    distinct_count: "field.lookupAggDistinctCount",
+    sum: "field.lookupAggSum",
+    count: "field.lookupAggCount",
+    avg: "field.lookupAggAvg",
+    max: "field.lookupAggMax",
+    min: "field.lookupAggMin",
+  };
+  return t(keyMap[type]) || type;
+}
 
 interface Props {
   /** 字段对象（包含 name、type、config） */
@@ -177,11 +194,11 @@ function onAggregationTypeChange() {
 /** 预览查找结果 */
 async function handlePreview() {
   if (!props.field.id) {
-    ElMessage.warning("字段尚未保存，无法预览");
+    ElMessage.warning(t("field.lookupNotSavedWarning"));
     return;
   }
   if (!props.recordId) {
-    ElMessage.warning("需要记录 ID 才能预览");
+    ElMessage.warning(t("field.lookupNeedRecordId"));
     return;
   }
 
@@ -193,7 +210,11 @@ async function handlePreview() {
     });
     previewValue.value = result.value;
   } catch (e) {
-    ElMessage.error("预览失败：" + (e instanceof Error ? e.message : "未知错误"));
+    ElMessage.error(
+      t("field.lookupPreviewFailed", {
+        message: e instanceof Error ? e.message : t("field.lookupUnknownError"),
+      }),
+    );
     previewValue.value = null;
   } finally {
     previewLoading.value = false;
@@ -228,19 +249,19 @@ watch(
   <div class="lookup-config-panel">
     <ElForm label-width="100px" label-position="right">
       <!-- 1. 字段名称 -->
-      <ElFormItem label="字段名称" required>
+      <ElFormItem :label="t('field.fieldName')" required>
         <ElInput
           v-model="fieldName"
-          placeholder="请输入字段名称"
+          :placeholder="t('field.nameRequired')"
           @input="emitUpdate"
         />
       </ElFormItem>
 
       <!-- 2. 源数据表 -->
-      <ElFormItem label="源数据表" required>
+      <ElFormItem :label="t('field.lookupSourceTable')" required>
         <ElSelect
           v-model="config.sourceTableId"
-          placeholder="选择要查找的数据表"
+          :placeholder="t('field.lookupSourceTablePlaceholder')"
           style="width: 100%"
           @change="onSourceTableChange"
         >
@@ -251,14 +272,14 @@ watch(
             :value="table.id"
           />
         </ElSelect>
-        <div class="field-hint">选择要查找数据的数据表（限同库其他表）</div>
+        <div class="field-hint">{{ t('field.lookupSourceTableHint') }}</div>
       </ElFormItem>
 
       <!-- 3. 引用字段 -->
-      <ElFormItem label="引用字段" required>
+      <ElFormItem :label="t('field.lookupTargetField')" required>
         <ElSelect
           v-model="config.targetFieldId"
-          placeholder="选择要引用的字段"
+          :placeholder="t('field.lookupTargetFieldPlaceholder')"
           style="width: 100%"
           :disabled="!config.sourceTableId"
           @change="emitUpdate"
@@ -271,12 +292,12 @@ watch(
           />
         </ElSelect>
         <div class="field-hint">
-          选择源数据表中要引用的字段（包含隐藏字段）
+          {{ t('field.lookupTargetFieldHint') }}
         </div>
       </ElFormItem>
 
       <!-- 4. 过滤条件 -->
-      <ElFormItem label="过滤条件">
+      <ElFormItem :label="t('field.lookupFilterConditions')">
         <LookupConditionEditor
           v-model:conditions="config.filterConditions"
           v-model:conjunction="config.filterConjunction"
@@ -285,11 +306,11 @@ watch(
           @update:conditions="emitUpdate"
           @update:conjunction="emitUpdate"
         />
-        <div class="field-hint">最多 5 个条件，留空则返回源表所有记录</div>
+        <div class="field-hint">{{ t('field.lookupFilterConditionsHint') }}</div>
       </ElFormItem>
 
       <!-- 5. 计算方式 -->
-      <ElFormItem label="计算方式" required>
+      <ElFormItem :label="t('field.lookupAggregationType')" required>
         <ElSelect
           v-model="config.aggregationType"
           style="width: 100%"
@@ -302,14 +323,14 @@ watch(
             :value="type"
           />
         </ElSelect>
-        <div class="field-hint">选择如何聚合查找结果</div>
+        <div class="field-hint">{{ t('field.lookupAggregationTypeHint') }}</div>
       </ElFormItem>
 
       <!-- 6. 字段格式 -->
-      <ElFormItem v-if="needsFieldFormat" label="字段格式" required>
+      <ElFormItem v-if="needsFieldFormat" :label="t('field.lookupFieldFormat')" required>
         <!-- original/distinct：提示自动跟随源字段 -->
         <div v-if="isOriginalOrDistinct" class="format-hint">
-          格式自动跟随源字段，不可修改
+          {{ t('field.lookupFormatFollowSource') }}
         </div>
 
         <!-- distinct_count/sum/count/avg：number/currency 二选一 -->
@@ -318,8 +339,8 @@ watch(
           v-model="config.fieldFormat.type"
           @change="emitUpdate"
         >
-          <ElRadioButton value="number">数字</ElRadioButton>
-          <ElRadioButton value="currency">货币</ElRadioButton>
+          <ElRadioButton value="number">{{ t('field.lookupFormatNumber') }}</ElRadioButton>
+          <ElRadioButton value="currency">{{ t('field.lookupFormatCurrency') }}</ElRadioButton>
         </ElRadioGroup>
 
         <!-- max/min 且源字段为日期类型：可选 date -->
@@ -328,14 +349,14 @@ watch(
           v-model="config.fieldFormat.type"
           @change="emitUpdate"
         >
-          <ElRadioButton value="number">数字</ElRadioButton>
-          <ElRadioButton value="currency">货币</ElRadioButton>
-          <ElRadioButton value="date">日期</ElRadioButton>
+          <ElRadioButton value="number">{{ t('field.lookupFormatNumber') }}</ElRadioButton>
+          <ElRadioButton value="currency">{{ t('field.lookupFormatCurrency') }}</ElRadioButton>
+          <ElRadioButton value="date">{{ t('field.lookupFormatDate') }}</ElRadioButton>
         </ElRadioGroup>
       </ElFormItem>
 
       <!-- 7. 数字格式：小数位数 -->
-      <ElFormItem v-if="config.fieldFormat.type === 'number'" label="小数位数">
+      <ElFormItem v-if="config.fieldFormat.type === 'number'" :label="t('field.precision')">
         <ElInputNumber
           v-model="config.fieldFormat.precision"
           :min="0"
@@ -346,14 +367,14 @@ watch(
 
       <!-- 8. 货币格式配置 -->
       <template v-if="config.fieldFormat.type === 'currency'">
-        <ElFormItem label="货币符号">
+        <ElFormItem :label="t('field.lookupCurrencySymbol')">
           <ElInput
             v-model="config.fieldFormat.currencySymbol"
-            placeholder="如 ¥、$、€"
+            :placeholder="t('field.lookupCurrencySymbolPlaceholder')"
             @input="emitUpdate"
           />
         </ElFormItem>
-        <ElFormItem label="小数位数">
+        <ElFormItem :label="t('field.precision')">
           <ElInputNumber
             v-model="config.fieldFormat.precision"
             :min="0"
@@ -364,7 +385,7 @@ watch(
       </template>
 
       <!-- 9. 日期格式配置 -->
-      <ElFormItem v-if="config.fieldFormat.type === 'date'" label="日期格式">
+      <ElFormItem v-if="config.fieldFormat.type === 'date'" :label="t('field.dateFormat')">
         <ElSelect
           v-model="config.fieldFormat.dateFormat"
           @change="emitUpdate"
@@ -385,10 +406,10 @@ watch(
           :disabled="!canPreview"
           @click="handlePreview"
         >
-          预览结果
+          {{ t('field.lookupPreviewResult') }}
         </ElButton>
         <div v-if="previewValue !== null" class="preview-result">
-          <span class="preview-label">预览值：</span>
+          <span class="preview-label">{{ t('field.lookupPreviewValue') }}</span>
           <span class="preview-value">{{ formatPreviewValue(previewValue) }}</span>
         </div>
       </ElFormItem>

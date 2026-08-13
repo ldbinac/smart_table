@@ -19,6 +19,7 @@
   "sourceColumn": "文件列名",
   "selectFieldOptional": "选择字段（可选）",
   "unmapped": "未映射",
+  "preview": "预览",
   "previewTitle": "数据预览（前 5 行）",
   "previewHint": "预览导入数据，确认数据格式正确",
   "rowNumber": "行号",

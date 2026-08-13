@@ -19,6 +19,7 @@
   "sourceColumn": "Source Column",
   "selectFieldOptional": "Select field (optional)",
   "unmapped": "Unmapped",
+  "preview": "Preview",
   "previewTitle": "Data Preview (first 5 rows)",
   "previewHint": "Preview the imported data and confirm the format is correct",
   "rowNumber": "Row",

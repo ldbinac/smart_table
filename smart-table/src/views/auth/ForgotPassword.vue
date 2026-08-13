@@ -1,16 +1,20 @@
 <template>
   <div class="forgot-password-page">
+    <div class="lang-switcher-wrapper">
+      <LanguageSwitcher />
+    </div>
+
     <div class="forgot-container">
       <div class="forgot-header">
         <h1 class="title">SmartTable</h1>
-        <p class="subtitle">多维表格管理系统</p>
+        <p class="subtitle">{{ t('auth.brandSubtitle') }}</p>
       </div>
 
       <div class="forgot-box">
-        <h2 class="box-title">找回密码</h2>
+        <h2 class="box-title">{{ t('auth.forgotPassword') }}</h2>
 
         <div v-if="!emailSent" class="forgot-form">
-          <p class="form-desc">请输入您的注册邮箱，我们将发送密码重置链接</p>
+          <p class="form-desc">{{ t('auth.forgotPasswordDesc') }}</p>
 
           <el-form
             ref="formRef"
@@ -21,7 +25,7 @@
             <el-form-item prop="email">
               <el-input
                 v-model="form.email"
-                placeholder="请输入邮箱地址"
+                :placeholder="t('auth.emailPlaceholder')"
                 size="large"
               />
             </el-form-item>
@@ -31,7 +35,7 @@
               <div class="captcha-input-group">
                 <el-input
                   v-model="form.captcha"
-                  placeholder="请输入验证码"
+                  :placeholder="t('auth.captchaPlaceholder')"
                   size="large"
                   maxlength="4"
                   style="flex: 1"
@@ -40,12 +44,12 @@
                   <img
                     v-if="captchaImage"
                     :src="captchaImage"
-                    alt="验证码"
+                    :alt="t('auth.captchaAlt')"
                     class="captcha-image"
                   />
                   <div v-else class="captcha-placeholder">
                     <el-icon><Refresh /></el-icon>
-                    <span>点击刷新</span>
+                    <span>{{ t('auth.clickRefresh') }}</span>
                   </div>
                 </div>
               </div>
@@ -59,7 +63,7 @@
                 :loading="submitting"
                 @click="handleSubmit"
               >
-                发送重置链接
+                {{ t('auth.sendResetLink') }}
               </el-button>
             </el-form-item>
           </el-form>
@@ -67,16 +71,16 @@
 
         <div v-else class="success-box">
           <el-icon class="success-icon" :size="48" color="#67c23a"><CircleCheck /></el-icon>
-          <p class="success-text">邮件已发送</p>
-          <p class="success-desc">密码重置链接已发送到 <strong>{{ form.email }}</strong></p>
-          <p class="success-hint">请检查您的邮箱（包括垃圾邮件文件夹），点击邮件中的链接重置密码。</p>
-          <el-button type="primary" @click="goToLogin">返回登录</el-button>
+          <p class="success-text">{{ t('auth.emailSent') }}</p>
+          <p class="success-desc">{{ t('auth.resetLinkSentTo') }} <strong>{{ form.email }}</strong></p>
+          <p class="success-hint">{{ t('auth.checkEmailHint') }}</p>
+          <el-button type="primary" @click="goToLogin">{{ t('auth.backToLogin') }}</el-button>
         </div>
 
         <div v-if="!emailSent" class="forgot-footer">
-          <span>想起密码了？</span>
+          <span>{{ t('auth.rememberPassword') }}</span>
           <el-link type="primary" @click="goToLogin">
-            返回登录
+            {{ t('auth.backToLogin') }}
           </el-link>
         </div>
       </div>
@@ -108,7 +112,7 @@
               style="width: 20px; height: 20px; object-fit: contain" />
           </a>
         </div>
-        <p class="footer-text">SmartTable - 开源多维表格管理系统</p>
+        <p class="footer-text">SmartTable - {{ t('auth.footerText') }}</p>
       </div>
     </div>
   </div>
@@ -117,11 +121,15 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { CircleCheck, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import apiClient from '@/api/client'
 import { getAuthCaptcha } from '@/api/captcha'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher.vue'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -136,12 +144,12 @@ const form = reactive({
 
 const rules: FormRules = {
   email: [
-    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
+    { required: true, message: t('auth.emailPlaceholder'), trigger: 'blur' },
+    { type: 'email', message: t('auth.emailFormat'), trigger: 'blur' }
   ],
   captcha: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
-    { len: 4, message: '验证码长度为4位', trigger: 'blur' }
+    { required: true, message: t('auth.captchaPlaceholder'), trigger: 'blur' },
+    { len: 4, message: t('auth.captchaLength'), trigger: 'blur' }
   ]
 }
 
@@ -171,9 +179,9 @@ const handleSubmit = async () => {
 
       // 后端返回成功（即使data为null），显示成功状态
       emailSent.value = true
-      ElMessage.success('重置邮件已发送')
+      ElMessage.success(t('auth.resetEmailSent'))
     } catch (error: any) {
-      const message = error?.response?.data?.message || '发送失败'
+      const message = error?.response?.data?.message || t('auth.sendFailed')
       ElMessage.error(message)
       // 刷新验证码
       refreshCaptcha()
@@ -199,8 +207,24 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+}
+
+.lang-switcher-wrapper {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 10;
+
+  :deep(.lang-switcher-trigger) {
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
 }
 
 .forgot-container {

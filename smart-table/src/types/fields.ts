@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 export const FieldType = {
   SINGLE_LINE_TEXT: "single_line_text",
   LONG_TEXT: "long_text",
@@ -251,42 +253,43 @@ export type CellValue =
   | { id: string; url: string; name: string }[];
 
 export function getFieldTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    single_line_text: "单行文本",
-    long_text: "多行文本",
-    rich_text: "富文本",
-    number: "数字",
-    currency: "货币",
-    percent: "百分比",
-    rating: "评分",
-    date: "日期",
-    date_time: "日期时间",
-    duration: "时长",
-    single_select: "单选",
-    multi_select: "多选",
-    checkbox: "复选框",
-    attachment: "附件",
-    member: "成员",
-    collaborator: "协作者",
-    phone: "电话",
-    email: "邮箱",
-    url: "链接",
-    link_to_record: "关联记录",
-    link: "关联",
-    lookup: "查找",
-    rollup: "汇总",
-    formula: "公式",
-    auto_number: "自动编号",
-    barcode: "条形码",
-    button: "按钮",
-    progress: "进度",
-    created_by: "创建人",
-    created_time: "创建时间",
-    updated_by: "修改人",
-    updated_time: "修改时间",
-    last_modified_by: "最后修改人",
-  };
-  return labels[type] || type;
+  const supportedTypes: string[] = [
+    "single_line_text",
+    "long_text",
+    "rich_text",
+    "number",
+    "currency",
+    "percent",
+    "rating",
+    "date",
+    "date_time",
+    "duration",
+    "single_select",
+    "multi_select",
+    "checkbox",
+    "attachment",
+    "member",
+    "collaborator",
+    "phone",
+    "email",
+    "url",
+    "link_to_record",
+    "link",
+    "lookup",
+    "rollup",
+    "formula",
+    "auto_number",
+    "barcode",
+    "button",
+    "progress",
+    "created_by",
+    "created_time",
+    "updated_by",
+    "updated_time",
+    "last_modified_by",
+  ];
+  if (!supportedTypes.includes(type)) return type;
+  return t(`field.type.${type}`);
 }
 
 /**
