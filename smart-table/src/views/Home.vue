@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/authStore";
 import { useShareStore } from "@/stores/shareStore";
@@ -13,6 +14,7 @@ import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
 import { formatDateTime, formatRelativeTime } from "@/utils/timezone";
 
+const { t } = useI18n();
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
 const shareStore = useShareStore();
@@ -101,16 +103,16 @@ const editForm = reactive({
 // 表单验证规则
 const createFormRules: FormRules = {
   name: [
-    { required: true, message: "请输入多维表格名称", trigger: "blur" },
-    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+    { required: true, message: t('base.nameRequired'), trigger: "blur" },
+    { min: 1, max: 50, message: t('base.nameLength'), trigger: "blur" },
   ],
 };
 
 // 编辑表单验证规则
 const editFormRules: FormRules = {
   name: [
-    { required: true, message: "请输入多维表格名称", trigger: "blur" },
-    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+    { required: true, message: t('base.nameRequired'), trigger: "blur" },
+    { min: 1, max: 50, message: t('base.nameLength'), trigger: "blur" },
   ],
 };
 
@@ -365,12 +367,12 @@ function formatShareDate(dateString: string) {
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (days === 0) return "今天";
-  if (days === 1) return "昨天";
-  if (days < 7) return `${days}天前`;
-  if (days < 30) return `${Math.floor(days / 7)}周前`;
-  if (days < 365) return `${Math.floor(days / 30)}个月前`;
-  return `${Math.floor(days / 365)}年前`;
+  if (days === 0) return t('base.today');
+  if (days === 1) return t('base.yesterday');
+  if (days < 7) return t('base.daysAgo', { days });
+  if (days < 30) return t('base.weeksAgo', { weeks: Math.floor(days / 7) });
+  if (days < 365) return t('base.monthsAgo', { months: Math.floor(days / 30) });
+  return t('base.yearsAgo', { years: Math.floor(days / 365) });
 }
 
 // 复制分享链接
@@ -380,10 +382,10 @@ function copyShareLink(shareToken: string) {
   navigator.clipboard
     .writeText(shareUrl)
     .then(() => {
-      ElMessage.success("链接已复制到剪贴板");
+      ElMessage.success(t('base.copyLinkSuccess'));
     })
     .catch(() => {
-      ElMessage.error("复制失败，请手动复制");
+      ElMessage.error(t('base.copyFailed'));
     });
 }
 
@@ -391,18 +393,18 @@ function copyShareLink(shareToken: string) {
 async function handleDeleteShare(shareId: string) {
   try {
     await ElMessageBox.confirm(
-      "确定要删除此分享链接吗？删除后将无法通过该链接访问。",
-      "确认删除",
+      t('base.deleteShareConfirm'),
+      t('base.deleteShareTitle'),
       {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         type: "warning",
       },
     );
 
     await shareStore.deleteShare(shareId);
     await loadSharedByMe();
-    ElMessage.success("分享链接已删除");
+    ElMessage.success(t('base.deleted'));
   } catch (error) {
     if (error !== "cancel") {
       console.error("删除分享失败:", error);
@@ -468,10 +470,10 @@ async function handleCreateBase() {
       });
 
       if (base) {
-        ElMessage.success("创建成功");
+        ElMessage.success(t('base.created'));
         closeCreateDialog();
       } else {
-        ElMessage.error(baseStore.error || "创建失败");
+        ElMessage.error(baseStore.error || t('base.createFailed'));
       }
     }
   });
@@ -504,7 +506,7 @@ async function handleEditBase() {
         color: editForm.color,
       });
 
-      ElMessage.success("更新成功");
+      ElMessage.success(t('base.updated'));
       closeEditDialog();
     }
   });
@@ -514,21 +516,21 @@ async function handleEditBase() {
 async function handleDeleteBase(base: Base) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除多维表格 "${base.name}" 吗？此操作将删除该表格中的所有数据表、字段和记录，且无法恢复。`,
-      "删除确认",
+      t('base.deleteBaseConfirm', { name: base.name }),
+      t('base.deleteTitle'),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
         type: "warning",
         confirmButtonClass: "el-button--danger",
       },
     );
 
     await baseStore.deleteBase(base.id);
-    ElMessage.success("删除成功");
+    ElMessage.success(t('base.deleted'));
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error("删除失败");
+      ElMessage.error(t('base.deleteFailed'));
     }
   }
 }
@@ -537,7 +539,7 @@ async function handleDeleteBase(base: Base) {
 async function handleStarBase(base: Base, event: Event) {
   event.stopPropagation();
   await baseStore.toggleStar(base.id);
-  ElMessage.success("已收藏");
+  ElMessage.success(t('base.starred'));
 }
 
 // 处理取消收藏
@@ -547,9 +549,9 @@ async function handleUnstarBase(base: Base, event: Event) {
 
   try {
     await baseStore.toggleStar(base.id);
-    ElMessage.success("已取消收藏");
+    ElMessage.success(t('base.unstarred'));
   } catch (error) {
-    ElMessage.error("取消收藏失败");
+    ElMessage.error(t('base.starFailed'));
   } finally {
     unstarLoadingMap.value.set(base.id, false);
   }
@@ -567,9 +569,9 @@ async function handleToggleStar(base: Base, event: Event) {
 
   try {
     await baseStore.toggleStar(base.id);
-    ElMessage.success(base.is_starred ? "已取消收藏" : "已收藏");
+    ElMessage.success(base.is_starred ? t('base.unstarred') : t('base.starred'));
   } catch (error) {
-    ElMessage.error("操作失败");
+    ElMessage.error(t('base.toggleFailed'));
   } finally {
     unstarLoadingMap.value.set(base.id, false);
   }
@@ -609,7 +611,7 @@ async function handleUseTemplate(template: TableTemplate) {
 
   // 显示进度提示
   const loadingMsg = ElMessage({
-    message: "正在创建多维表...",
+    message: t('base.creatingBase'),
     type: "info",
     duration: 0, // 不自动关闭
     icon: "Loading",
@@ -640,7 +642,7 @@ async function handleUseTemplate(template: TableTemplate) {
     }
 
     await baseStore.fetchBases();
-    ElMessage.success(`已成功使用"${template.name}"模板创建多维表格`);
+    ElMessage.success(t('base.createFromTemplateSuccess', { name: template.name }));
     closePreview();
     goToBase(base.id);
   } catch (error) {
@@ -649,7 +651,7 @@ async function handleUseTemplate(template: TableTemplate) {
     if (currentMsg) {
       currentMsg.close();
     }
-    ElMessage.error("创建失败，请稍后重试");
+    ElMessage.error(t('base.createFailedRetry'));
   } finally {
     templateLoadingMap.value.set(template.id, false);
   }
@@ -662,11 +664,11 @@ async function handleCopyBase(base: Base, event: Event) {
   // 确认对话框
   try {
     await ElMessageBox.confirm(
-      `确定要复制"${base.name}"吗？将创建一个包含所有数据和配置的副本。`,
-      "复制确认",
+      t('base.copyBaseConfirm', { name: base.name }),
+      t('base.copyTitle'),
       {
-        confirmButtonText: "复制",
-        cancelButtonText: "取消",
+        confirmButtonText: t('base.copy'),
+        cancelButtonText: t('common.cancel'),
         type: "info",
       }
     );
@@ -680,7 +682,7 @@ async function handleCopyBase(base: Base, event: Event) {
 
   // 显示进度提示
   const loadingMsg = ElMessage({
-    message: "正在复制多维表格...",
+    message: t('base.copyingBase'),
     type: "info",
     duration: 0,
     icon: "Loading",
@@ -695,11 +697,11 @@ async function handleCopyBase(base: Base, event: Event) {
     // 刷新列表
     await baseStore.fetchBases();
 
-    ElMessage.success(`复制成功：${newBase.name}`);
+    ElMessage.success(t('base.copySuccess', { name: newBase.name }));
   } catch (error) {
     console.error("Failed to copy base:", error);
     loadingMsg.close();
-    ElMessage.error("复制失败，请稍后重试");
+    ElMessage.error(t('base.copyFailedRetry'));
   } finally {
     copyLoadingMap.value.set(base.id, false);
   }
@@ -715,28 +717,28 @@ async function handleCopyBase(base: Base, event: Event) {
         :class="{ active: currentNav === 'home' }"
         @click="currentNav = 'home'">
         <el-icon><HomeFilled /></el-icon>
-        <span>首页</span>
+        <span>{{ t('base.home') }}</span>
       </div>
       <div
         class="nav-tab-item"
         :class="{ active: currentNav === 'all' }"
         @click="currentNav = 'all'">
         <el-icon><Grid /></el-icon>
-        <span>全部</span>
+        <span>{{ t('base.all') }}</span>
       </div>
       <div
         class="nav-tab-item"
         :class="{ active: currentNav === 'templates' }"
         @click="currentNav = 'templates'">
         <el-icon><Document /></el-icon>
-        <span>模板</span>
+        <span>{{ t('base.templates') }}</span>
       </div>
       <div
         class="nav-tab-item"
         :class="{ active: currentNav === 'shares' }"
         @click="currentNav = 'shares'">
         <el-icon><Share /></el-icon>
-        <span>分享</span>
+        <span>{{ t('base.shares') }}</span>
       </div>
       <!-- 右侧操作区 -->
       <div class="header-right-section">
@@ -746,7 +748,7 @@ async function handleCopyBase(base: Base, event: Event) {
             class="create-btn"
             @click="openCreateChoiceDialog">
             <el-icon><Plus /></el-icon>
-            <span>新建</span>
+            <span>{{ t('common.create') }}</span>
           </el-button>
         </div>
       </div>
@@ -808,23 +810,23 @@ async function handleCopyBase(base: Base, event: Event) {
                   fill="#A5B4FC" />
               </svg>
             </div>
-            <h3>开始创建您的第一个多维表格</h3>
-            <p class="empty-desc">多维表格让数据管理更简单、更高效</p>
+            <h3>{{ t('base.emptyTitle1') }}</h3>
+            <p class="empty-desc">{{ t('base.emptyDesc1') }}</p>
             <el-button
               type="primary"
               size="large"
               @click="openCreateChoiceDialog">
               <el-icon><Plus /></el-icon>
-              创建多维表格
+              {{ t('base.createBaseBtn') }}
             </el-button>
           </div>
 
           <!-- 搜索无结果 -->
           <div v-else-if="!hasSearchResults" class="empty-state search-empty">
             <el-icon class="empty-icon" :size="64"><Search /></el-icon>
-            <h3>未找到匹配的多维表格</h3>
-            <p class="empty-desc">尝试使用其他关键词搜索</p>
-            <el-button @click="clearSearch">清除搜索</el-button>
+            <h3>{{ t('base.searchEmptyTitle') }}</h3>
+            <p class="empty-desc">{{ t('base.searchEmptyDesc') }}</p>
+            <el-button @click="clearSearch">{{ t('base.clearSearch') }}</el-button>
           </div>
 
           <div v-else class="content-wrapper">
@@ -835,7 +837,7 @@ async function handleCopyBase(base: Base, event: Event) {
                   <div class="title-icon starred-icon">
                     <el-icon><StarFilled /></el-icon>
                   </div>
-                  <h2>我的收藏</h2>
+                  <h2>{{ t('base.starredSection') }}</h2>
                   <span class="count-badge">{{ starredBases.length }}</span>
                 </div>
                 <el-button
@@ -844,7 +846,7 @@ async function handleCopyBase(base: Base, event: Event) {
                   type="primary"
                   class="view-more-btn"
                   @click="currentNav = 'all'">
-                  查看更多……
+                  {{ t('base.viewMore') }}
                 </el-button>
               </div>
 
@@ -865,19 +867,19 @@ async function handleCopyBase(base: Base, event: Event) {
                         class="card-name"
                         v-html="highlightText(base.name, searchQuery)" />
                       <p class="card-desc">
-                        {{ base.description || "暂无描述" }}
+                        {{ base.description || t('base.noDescription') }}
                       </p>
                     </div>
                   </div>
                   <div class="card-footer">
                     <span class="update-time">
-                      最后修改时间：{{ formatDateTime(base.updated_at) }}
+                      {{ t('base.lastModified') }}{{ formatDateTime(base.updated_at) }}
                     </span>
                     <div class="card-actions" @click.stop="stopPropagation">
                       <el-button
                         link
                         type="warning"
-                        title="取消收藏"
+                        :title="t('base.unstar')"
                         :loading="isUnstarLoading(base.id)"
                         @click="handleUnstarBase(base, $event)">
                         <el-icon><StarFilled /></el-icon>
@@ -886,7 +888,7 @@ async function handleCopyBase(base: Base, event: Event) {
                         link
                         :loading="isCopyLoading(base.id)"
                         @click="handleCopyBase(base, $event)"
-                        title="复制">
+                        :title="t('base.copy')">
                         <el-icon><DocumentCopy /></el-icon>
                       </el-button>
                       <el-dropdown
@@ -904,13 +906,13 @@ async function handleCopyBase(base: Base, event: Event) {
                         <template #dropdown>
                           <el-dropdown-menu>
                             <el-dropdown-item command="edit">
-                              <el-icon><Edit /></el-icon>编辑
+                              <el-icon><Edit /></el-icon>{{ t('base.edit') }}
                             </el-dropdown-item>
                             <el-dropdown-item
                               divided
                               command="delete"
                               class="delete-item">
-                              <el-icon><Delete /></el-icon>删除
+                              <el-icon><Delete /></el-icon>{{ t('base.deleteAction') }}
                             </el-dropdown-item>
                           </el-dropdown-menu>
                         </template>
@@ -928,7 +930,7 @@ async function handleCopyBase(base: Base, event: Event) {
                   <div class="title-icon all-icon">
                     <el-icon><Grid /></el-icon>
                   </div>
-                  <h2>所有多维表格</h2>
+                  <h2>{{ t('base.allBasesSection') }}</h2>
                   <span class="count-badge gray">{{ allBases.length }}</span>
                 </div>
                 <el-button
@@ -937,7 +939,7 @@ async function handleCopyBase(base: Base, event: Event) {
                   type="primary"
                   class="view-more-btn"
                   @click="currentNav = 'all'">
-                  查看更多……
+                  {{ t('base.viewMore') }}
                 </el-button>
               </div>
 
@@ -950,7 +952,7 @@ async function handleCopyBase(base: Base, event: Event) {
                     <div class="create-icon">
                       <el-icon :size="24"><Plus /></el-icon>
                     </div>
-                    <span>创建多维表格</span>
+                    <span>{{ t('base.createBaseBtn') }}</span>
                   </div>
                 </div>
 
@@ -972,19 +974,19 @@ async function handleCopyBase(base: Base, event: Event) {
                         class="card-name"
                         v-html="highlightText(base.name, searchQuery)" />
                       <p class="card-desc">
-                        {{ base.description || "暂无描述" }}
+                        {{ base.description || t('base.noDescription') }}
                       </p>
                     </div>
                   </div>
                   <div class="card-footer">
                     <span class="update-time">
-                      最后修改时间：{{ formatDateTime(base.updated_at) }}
+                      {{ t('base.lastModified') }}{{ formatDateTime(base.updated_at) }}
                     </span>
                     <div class="card-actions" @click.stop="stopPropagation">
                       <el-button
                         v-if="!base.is_starred"
                         link
-                        title="收藏"
+                        :title="t('base.star')"
                         @click="handleStarBase(base, $event)">
                         <el-icon><Star /></el-icon>
                       </el-button>
@@ -992,7 +994,7 @@ async function handleCopyBase(base: Base, event: Event) {
                         v-else
                         link
                         type="warning"
-                        title="取消收藏"
+                        :title="t('base.unstar')"
                         @click="handleUnstarBase(base, $event)">
                         <el-icon><StarFilled /></el-icon>
                       </el-button>
@@ -1000,7 +1002,7 @@ async function handleCopyBase(base: Base, event: Event) {
                         link
                         :loading="isCopyLoading(base.id)"
                         @click="handleCopyBase(base, $event)"
-                        title="复制">
+                        :title="t('base.copy')">
                         <el-icon><DocumentCopy /></el-icon>
                       </el-button>
                       <el-dropdown
@@ -1018,13 +1020,13 @@ async function handleCopyBase(base: Base, event: Event) {
                         <template #dropdown>
                           <el-dropdown-menu>
                             <el-dropdown-item command="edit">
-                              <el-icon><Edit /></el-icon>编辑
+                              <el-icon><Edit /></el-icon>{{ t('base.edit') }}
                             </el-dropdown-item>
                             <el-dropdown-item
                               divided
                               command="delete"
                               class="delete-item">
-                              <el-icon><Delete /></el-icon>删除
+                              <el-icon><Delete /></el-icon>{{ t('base.deleteAction') }}
                             </el-dropdown-item>
                           </el-dropdown-menu>
                         </template>
@@ -1042,8 +1044,8 @@ async function handleCopyBase(base: Base, event: Event) {
           <div class="templates-header">
             <div class="templates-header-top">
               <div>
-                <h2 class="view-title">选择模板</h2>
-                <p class="view-desc">选择一个预置模板快速开始您的多维表格</p>
+                <h2 class="view-title">{{ t('base.templatesViewTitle') }}</h2>
+                <p class="view-desc">{{ t('base.templatesViewDesc') }}</p>
               </div>
               <div class="template-search-wrapper">
                 <div class="template-search-box">
@@ -1052,7 +1054,7 @@ async function handleCopyBase(base: Base, event: Event) {
                     v-model="templateSearchQuery"
                     type="text"
                     class="template-search-input"
-                    placeholder="搜索模板..." />
+                    :placeholder="t('base.searchTemplates')" />
                   <el-icon
                     v-if="templateSearchQuery"
                     class="search-clear"
@@ -1082,14 +1084,14 @@ async function handleCopyBase(base: Base, event: Event) {
               </div>
               <div class="template-footer">
                 <el-button size="small" @click="openPreview(template)">
-                  预览
+                  {{ t('base.preview') }}
                 </el-button>
                 <el-button
                   type="primary"
                   size="small"
                   :loading="isTemplateLoading(template.id)"
                   @click="handleUseTemplate(template)">
-                  使用模板
+                  {{ t('base.useTemplate') }}
                 </el-button>
               </div>
             </div>
@@ -1109,7 +1111,7 @@ async function handleCopyBase(base: Base, event: Event) {
                 :class="{ active: activeTab === 'starred' }"
                 @click="activeTab = 'starred'">
                 <el-icon><StarFilled /></el-icon>
-                <span>我的收藏</span>
+                <span>{{ t('base.starredSection') }}</span>
                 <span class="tab-count">{{ starredBases.length }}</span>
               </div>
               <div
@@ -1117,7 +1119,7 @@ async function handleCopyBase(base: Base, event: Event) {
                 :class="{ active: activeTab === 'all' }"
                 @click="activeTab = 'all'">
                 <el-icon><Grid /></el-icon>
-                <span>所有多维表格</span>
+                <span>{{ t('base.allBasesSection') }}</span>
                 <span class="tab-count">{{ allBases.length }}</span>
               </div>
             </div>
@@ -1126,15 +1128,15 @@ async function handleCopyBase(base: Base, event: Event) {
               <!-- 加载状态 -->
               <div v-if="isLoading" class="loading-state">
                 <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
-                <p>正在加载数据...</p>
+                <p>{{ t('base.loadingData') }}</p>
               </div>
 
               <!-- 我的收藏页签 -->
               <div v-else-if="activeTab === 'starred'" class="tab-panel">
                 <div v-if="starredBases.length === 0" class="empty-state">
                   <el-icon :size="48" class="empty-icon"><Star /></el-icon>
-                  <h3>暂无收藏的表格</h3>
-                  <p>在首页点击星标图标收藏您常用的表格</p>
+                  <h3>{{ t('base.noStarred') }}</h3>
+                  <p>{{ t('base.starHint') }}</p>
                 </div>
                 <div v-else class="table-list-container">
                   <div class="table-list">
@@ -1151,19 +1153,19 @@ async function handleCopyBase(base: Base, event: Event) {
                       <div class="item-info">
                         <h4 class="item-name">{{ base.name }}</h4>
                         <p class="item-desc">
-                          {{ base.description || "暂无描述" }}
+                          {{ base.description || t('base.noDescription') }}
                         </p>
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatRelativeTime(base.updated_at) }}
+                          {{ t('base.modifiedAt') }} {{ formatRelativeTime(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
                         <el-button
                           link
                           type="warning"
-                          title="取消收藏"
+                          :title="t('base.unstar')"
                           :loading="isUnstarLoading(base.id)"
                           @click="handleUnstarBase(base, $event)">
                           <el-icon><StarFilled /></el-icon>
@@ -1172,7 +1174,7 @@ async function handleCopyBase(base: Base, event: Event) {
                           link
                           :loading="isCopyLoading(base.id)"
                           @click="handleCopyBase(base, $event)"
-                          title="复制">
+                          :title="t('base.copy')">
                           <el-icon><DocumentCopy /></el-icon>
                         </el-button>
                         <el-dropdown
@@ -1190,13 +1192,13 @@ async function handleCopyBase(base: Base, event: Event) {
                           <template #dropdown>
                             <el-dropdown-menu>
                               <el-dropdown-item command="edit">
-                                <el-icon><Edit /></el-icon>编辑
+                                <el-icon><Edit /></el-icon>{{ t('base.edit') }}
                               </el-dropdown-item>
                               <el-dropdown-item
                                 divided
                                 command="delete"
                                 class="delete-item">
-                                <el-icon><Delete /></el-icon>删除
+                                <el-icon><Delete /></el-icon>{{ t('base.deleteAction') }}
                               </el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
@@ -1209,16 +1211,16 @@ async function handleCopyBase(base: Base, event: Event) {
                   <div class="pagination-container">
                     <div class="pagination-left">
                       <span class="pagination-total"
-                        >共 {{ starredBases.length }} 条</span
+                        >{{ t('base.paginationTotal', { total: starredBases.length }) }}</span
                       >
                       <el-select
                         v-model="starredPageSize"
                         class="page-size-select"
                         size="small">
-                        <el-option :label="'10条/页'" :value="10" />
-                        <el-option :label="'20条/页'" :value="20" />
-                        <el-option :label="'50条/页'" :value="50" />
-                        <el-option :label="'100条/页'" :value="100" />
+                        <el-option :label="'10 ' + t('base.pageSize')" :value="10" />
+                        <el-option :label="'20 ' + t('base.pageSize')" :value="20" />
+                        <el-option :label="'50 ' + t('base.pageSize')" :value="50" />
+                        <el-option :label="'100 ' + t('base.pageSize')" :value="100" />
                       </el-select>
                     </div>
                     <el-pagination
@@ -1256,26 +1258,26 @@ async function handleCopyBase(base: Base, event: Event) {
                       <div class="item-info">
                         <h4 class="item-name">{{ base.name }}</h4>
                         <p class="item-desc">
-                          {{ base.description || "暂无描述" }}
+                          {{ base.description || t('base.noDescription') }}
                         </p>
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatRelativeTime(base.updated_at) }}
+                          {{ t('base.modifiedAt') }} {{ formatRelativeTime(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
                         <el-button
                           v-if="!base.is_starred"
                           link
-                          title="收藏"
+                          :title="t('base.star')"
                           @click="handleStarBase(base, $event)">
                           <el-icon><Star /></el-icon>
                         </el-button>
                         <el-button
                           v-else
                           link
-                          title="取消收藏"
+                          :title="t('base.unstar')"
                           type="warning"
                           @click="handleUnstarBase(base, $event)">
                           <el-icon><StarFilled /></el-icon>
@@ -1284,7 +1286,7 @@ async function handleCopyBase(base: Base, event: Event) {
                           link
                           :loading="isCopyLoading(base.id)"
                           @click="handleCopyBase(base, $event)"
-                          title="复制">
+                          :title="t('base.copy')">
                           <el-icon><DocumentCopy /></el-icon>
                         </el-button>
                         <el-dropdown
@@ -1302,13 +1304,13 @@ async function handleCopyBase(base: Base, event: Event) {
                           <template #dropdown>
                             <el-dropdown-menu>
                               <el-dropdown-item command="edit">
-                                <el-icon><Edit /></el-icon>编辑
+                                <el-icon><Edit /></el-icon>{{ t('base.edit') }}
                               </el-dropdown-item>
                               <el-dropdown-item
                                 divided
                                 command="delete"
                                 class="delete-item">
-                                <el-icon><Delete /></el-icon>删除
+                                <el-icon><Delete /></el-icon>{{ t('base.deleteAction') }}
                               </el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
@@ -1321,16 +1323,16 @@ async function handleCopyBase(base: Base, event: Event) {
                   <div class="pagination-container">
                     <div class="pagination-left">
                       <span class="pagination-total"
-                        >共 {{ allBases.length }} 条</span
+                        >{{ t('base.paginationTotal', { total: allBases.length }) }}</span
                       >
                       <el-select
                         v-model="allPageSize"
                         class="page-size-select"
                         size="small">
-                        <el-option :label="'10条/页'" :value="10" />
-                        <el-option :label="'20条/页'" :value="20" />
-                        <el-option :label="'50条/页'" :value="50" />
-                        <el-option :label="'100条/页'" :value="100" />
+                        <el-option :label="'10 ' + t('base.pageSize')" :value="10" />
+                        <el-option :label="'20 ' + t('base.pageSize')" :value="20" />
+                        <el-option :label="'50 ' + t('base.pageSize')" :value="50" />
+                        <el-option :label="'100 ' + t('base.pageSize')" :value="100" />
                       </el-select>
                     </div>
                     <el-pagination
@@ -1358,7 +1360,7 @@ async function handleCopyBase(base: Base, event: Event) {
                 :class="{ active: shareActiveTab === 'shared-by-me' }"
                 @click="shareActiveTab = 'shared-by-me'">
                 <el-icon><Share /></el-icon>
-                <span>我分享的</span>
+                <span>{{ t('base.myShares') }}</span>
                 <span class="tab-count">{{ sharedByMeShares.length }}</span>
               </div>
               <div
@@ -1366,7 +1368,7 @@ async function handleCopyBase(base: Base, event: Event) {
                 :class="{ active: shareActiveTab === 'shared-with-me' }"
                 @click="shareActiveTab = 'shared-with-me'">
                 <el-icon><Connection /></el-icon>
-                <span>分享给我的</span>
+                <span>{{ t('base.sharedWithMe') }}</span>
                 <span class="tab-count">{{ sharedWithMeBases.length }}</span>
               </div>
             </div>
@@ -1375,7 +1377,7 @@ async function handleCopyBase(base: Base, event: Event) {
               <!-- 加载状态 -->
               <div v-if="sharingLoading" class="loading-state">
                 <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
-                <p>正在加载数据...</p>
+                <p>{{ t('base.loadingData') }}</p>
               </div>
 
               <!-- 我分享的页签 -->
@@ -1384,8 +1386,8 @@ async function handleCopyBase(base: Base, event: Event) {
                 class="tab-panel">
                 <div v-if="sharedByMeShares.length === 0" class="empty-state">
                   <el-icon :size="48" class="empty-icon"><Share /></el-icon>
-                  <h3>暂无分享</h3>
-                  <p>您还没有创建任何分享链接</p>
+                  <h3>{{ t('base.sharedByMeEmpty') }}</h3>
+                  <p>{{ t('base.sharedByMeEmptyDesc') }}</p>
                 </div>
                 <div v-else class="table-list-container">
                   <div class="table-list">
@@ -1410,26 +1412,26 @@ async function handleCopyBase(base: Base, event: Event) {
                             "
                             size="small">
                             {{
-                              share.permission === "edit" ? "可编辑" : "仅查看"
+                              share.permission === "edit" ? t('base.permissionEdit') : t('base.permissionView')
                             }}
                           </el-tag>
                           <span class="access-count"
-                            >访问 {{ share.access_count }} 次</span
+                            >{{ t('base.accessCount', { count: share.access_count }) }}</span
                           >
                           <span class="share-time"
-                            >创建于
+                            >{{ t('base.createdAt') }}
                             {{ formatShareDate(share.created_at) }}</span
                           >
                         </div>
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          更新于 {{ formatShareDate(share.updated_at) }}
+                          {{ t('base.updatedAt') }} {{ formatShareDate(share.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
                         <el-tooltip
-                          content="复制链接"
+                          :content="t('base.copyLink')"
                           placement="top"
                           :show-after="200">
                           <el-button
@@ -1441,7 +1443,7 @@ async function handleCopyBase(base: Base, event: Event) {
                           </el-button>
                         </el-tooltip>
                         <el-tooltip
-                          content="删除分享"
+                          :content="t('base.deleteShare')"
                           placement="top"
                           :show-after="200">
                           <el-button
@@ -1460,16 +1462,16 @@ async function handleCopyBase(base: Base, event: Event) {
                   <div class="pagination-container">
                     <div class="pagination-left">
                       <span class="pagination-total"
-                        >共 {{ sharedByMeShares.length }} 条</span
+                        >{{ t('base.paginationTotal', { total: sharedByMeShares.length }) }}</span
                       >
                       <el-select
                         v-model="sharedByMePageSize"
                         class="page-size-select"
                         size="small">
-                        <el-option :label="'10 条/页'" :value="10" />
-                        <el-option :label="'20 条/页'" :value="20" />
-                        <el-option :label="'50 条/页'" :value="50" />
-                        <el-option :label="'100 条/页'" :value="100" />
+                        <el-option :label="'10 ' + t('base.pageSize')" :value="10" />
+                        <el-option :label="'20 ' + t('base.pageSize')" :value="20" />
+                        <el-option :label="'50 ' + t('base.pageSize')" :value="50" />
+                        <el-option :label="'100 ' + t('base.pageSize')" :value="100" />
                       </el-select>
                     </div>
                     <el-pagination
@@ -1491,8 +1493,8 @@ async function handleCopyBase(base: Base, event: Event) {
                   <el-icon :size="48" class="empty-icon"
                     ><Connection
                   /></el-icon>
-                  <h3>暂无分享</h3>
-                  <p>还没有其他用户分享给您多维表格</p>
+                  <h3>{{ t('base.sharedWithMeEmpty') }}</h3>
+                  <p>{{ t('base.sharedWithMeEmptyDesc') }}</p>
                 </div>
                 <div v-else class="table-list-container">
                   <div class="table-list">
@@ -1509,12 +1511,12 @@ async function handleCopyBase(base: Base, event: Event) {
                       <div class="item-info">
                         <h4 class="item-name">{{ base.name }}</h4>
                         <p class="item-desc">
-                          {{ base.description || "暂无描述" }}
+                          {{ base.description || t('base.noDescription') }}
                         </p>
                       </div>
                       <div class="item-meta">
                         <span class="update-time">
-                          修改于 {{ formatRelativeTime(base.updated_at) }}
+                          {{ t('base.modifiedAt') }} {{ formatRelativeTime(base.updated_at) }}
                         </span>
                       </div>
                       <div class="item-actions" @click.stop>
@@ -1542,16 +1544,16 @@ async function handleCopyBase(base: Base, event: Event) {
                   <div class="pagination-container">
                     <div class="pagination-left">
                       <span class="pagination-total"
-                        >共 {{ sharedWithMeBases.length }} 条</span
+                        >{{ t('base.paginationTotal', { total: sharedWithMeBases.length }) }}</span
                       >
                       <el-select
                         v-model="sharedWithMePageSize"
                         class="page-size-select"
                         size="small">
-                        <el-option :label="'10 条/页'" :value="10" />
-                        <el-option :label="'20 条/页'" :value="20" />
-                        <el-option :label="'50 条/页'" :value="50" />
-                        <el-option :label="'100 条/页'" :value="100" />
+                        <el-option :label="'10 ' + t('base.pageSize')" :value="10" />
+                        <el-option :label="'20 ' + t('base.pageSize')" :value="20" />
+                        <el-option :label="'50 ' + t('base.pageSize')" :value="50" />
+                        <el-option :label="'100 ' + t('base.pageSize')" :value="100" />
                       </el-select>
                     </div>
                     <el-pagination
@@ -1575,7 +1577,7 @@ async function handleCopyBase(base: Base, event: Event) {
     <!-- 创建对话框 -->
     <el-dialog
       v-model="createDialogVisible"
-      title="创建多维表格"
+      :title="t('base.createTitle')"
       width="480px"
       :close-on-click-modal="false"
       class="create-dialog">
@@ -1585,25 +1587,25 @@ async function handleCopyBase(base: Base, event: Event) {
         :rules="createFormRules"
         label-width="70px"
         class="compact-form">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('base.nameLabel')" prop="name">
           <el-input
             v-model="createForm.name"
-            placeholder="请输入多维表格名称"
+            :placeholder="t('base.namePlaceholder')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="描述">
+        <el-form-item :label="t('base.descLabel')">
           <el-input
             v-model="createForm.description"
             type="textarea"
             :rows="2"
-            placeholder="请输入描述（可选）"
+            :placeholder="t('base.descPlaceholder')"
             maxlength="200"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="图标">
+        <el-form-item :label="t('base.iconLabel')">
           <div class="icon-selector compact">
             <span
               v-for="icon in iconOptions"
@@ -1616,7 +1618,7 @@ async function handleCopyBase(base: Base, event: Event) {
           </div>
         </el-form-item>
 
-        <el-form-item label="颜色">
+        <el-form-item :label="t('base.colorLabel')">
           <div class="color-selector compact">
             <span
               v-for="color in colorOptions"
@@ -1630,15 +1632,15 @@ async function handleCopyBase(base: Base, event: Event) {
       </el-form>
 
       <template #footer>
-        <el-button @click="closeCreateDialog">取消</el-button>
-        <el-button type="primary" @click="handleCreateBase">创建</el-button>
+        <el-button @click="closeCreateDialog">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleCreateBase">{{ t('common.create') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 编辑对话框 -->
     <el-dialog
       v-model="editDialogVisible"
-      title="编辑多维表格"
+      :title="t('base.editTitle')"
       width="480px"
       :close-on-click-modal="false"
       class="create-dialog">
@@ -1648,25 +1650,25 @@ async function handleCopyBase(base: Base, event: Event) {
         :rules="editFormRules"
         label-width="70px"
         class="compact-form">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('base.nameLabel')" prop="name">
           <el-input
             v-model="editForm.name"
-            placeholder="请输入多维表格名称"
+            :placeholder="t('base.namePlaceholder')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="描述">
+        <el-form-item :label="t('base.descLabel')">
           <el-input
             v-model="editForm.description"
             type="textarea"
             :rows="2"
-            placeholder="请输入描述（可选）"
+            :placeholder="t('base.descPlaceholder')"
             maxlength="200"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="图标">
+        <el-form-item :label="t('base.iconLabel')">
           <div class="icon-selector compact">
             <span
               v-for="icon in iconOptions"
@@ -1679,7 +1681,7 @@ async function handleCopyBase(base: Base, event: Event) {
           </div>
         </el-form-item>
 
-        <el-form-item label="颜色">
+        <el-form-item :label="t('base.colorLabel')">
           <div class="color-selector compact">
             <span
               v-for="color in colorOptions"
@@ -1693,15 +1695,15 @@ async function handleCopyBase(base: Base, event: Event) {
       </el-form>
 
       <template #footer>
-        <el-button @click="closeEditDialog">取消</el-button>
-        <el-button type="primary" @click="handleEditBase">保存</el-button>
+        <el-button @click="closeEditDialog">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleEditBase">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 新建选择对话框 -->
     <el-dialog
       v-model="createChoiceDialogVisible"
-      title="创建多维表格"
+      :title="t('base.createTitle')"
       width="560px"
       append-to-body
       :close-on-click-modal="false"
@@ -1713,8 +1715,8 @@ async function handleCopyBase(base: Base, event: Event) {
             <el-icon :size="32"><Plus /></el-icon>
           </div>
           <div class="choice-info">
-            <h3 class="choice-title">创建空白多维表</h3>
-            <p class="choice-desc">从零开始创建一个全新的空白多维表格</p>
+            <h3 class="choice-title">{{ t('base.createBlankBase') }}</h3>
+            <p class="choice-desc">{{ t('base.createBlankBaseDesc') }}</p>
           </div>
           <el-icon class="choice-arrow"><ArrowRight /></el-icon>
         </div>
@@ -1723,8 +1725,8 @@ async function handleCopyBase(base: Base, event: Event) {
             <el-icon :size="32"><DocumentCopy /></el-icon>
           </div>
           <div class="choice-info">
-            <h3 class="choice-title">从模板创建</h3>
-            <p class="choice-desc">选择系统提供的预置模板快速开始</p>
+            <h3 class="choice-title">{{ t('base.fromTemplate') }}</h3>
+            <p class="choice-desc">{{ t('base.fromTemplateDesc') }}</p>
           </div>
           <el-icon class="choice-arrow"><ArrowRight /></el-icon>
         </div>
@@ -1733,8 +1735,8 @@ async function handleCopyBase(base: Base, event: Event) {
             <el-icon :size="32"><CopyDocument /></el-icon>
           </div>
           <div class="choice-info">
-            <h3 class="choice-title">复制已有多维表</h3>
-            <p class="choice-desc">从已有的多维表格中复制一个完整副本</p>
+            <h3 class="choice-title">{{ t('base.copyExisting') }}</h3>
+            <p class="choice-desc">{{ t('base.copyExistingDesc') }}</p>
           </div>
           <el-icon class="choice-arrow"><ArrowRight /></el-icon>
         </div>

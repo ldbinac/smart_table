@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElDialog,
   ElButton,
@@ -41,6 +42,7 @@ import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.v
 import FormulaHelper from "@/components/fields/FormulaHelper.vue";
 import { PRESET_REGEX_OPTIONS } from "@/utils/validation";
 
+const { t } = useI18n();
 const viewStore = useViewStore();
 const tableStore = useTableStore();
 

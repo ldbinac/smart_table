@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { useNotificationStore } from '@/stores/notificationStore'
@@ -10,6 +11,7 @@ import type { AppNotification } from '@/services/api/notificationApiService'
 defineOptions({ name: 'NotificationBell' })
 
 const router = useRouter()
+const { t } = useI18n()
 const notificationStore = useNotificationStore()
 
 // 未读数量
@@ -63,10 +65,10 @@ const handleMarkAllAsRead = async () => {
   if (unreadCount.value === 0) return
   try {
     await notificationStore.markAllAsRead()
-    ElMessage.success('已标记全部通知为已读')
+    ElMessage.success(t('notification.markAllReadSuccess'))
   } catch (error) {
     console.error('[NotificationBell] markAllAsRead failed:', error)
-    ElMessage.error('标记全部已读失败')
+    ElMessage.error(t('notification.markAllReadFailed'))
   }
 }
 
@@ -89,7 +91,7 @@ onMounted(() => {
         :max="99"
         class="notification-badge"
       >
-        <el-button type="primary" plain circle title="通知">
+        <el-button type="primary" plain circle :title="t('notification.pageTitle')">
           <el-icon><Bell /></el-icon>
         </el-button>
       </el-badge>
@@ -98,21 +100,21 @@ onMounted(() => {
     <div class="notification-panel">
       <!-- 头部：标题 + 全部已读 -->
       <div class="panel-header">
-        <span class="panel-title">通知</span>
+        <span class="panel-title">{{ t('notification.pageTitle') }}</span>
         <el-button
           link
           type="primary"
           :disabled="unreadCount === 0"
           @click="handleMarkAllAsRead"
         >
-          全部已读
+          {{ t('notification.markAllRead') }}
         </el-button>
       </div>
 
       <!-- 列表区 -->
       <div class="panel-list">
         <div v-if="recentNotifications.length === 0" class="empty-state">
-          暂无通知
+          {{ t('notification.noNotification') }}
         </div>
         <div
           v-for="item in recentNotifications"
@@ -142,7 +144,7 @@ onMounted(() => {
       <!-- 底部：查看全部通知 -->
       <div class="panel-footer">
         <el-button link type="primary" @click="goToList">
-          查看全部通知
+          {{ t('notification.viewAll') }}
         </el-button>
       </div>
     </div>

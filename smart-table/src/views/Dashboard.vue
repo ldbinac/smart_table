@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useBaseStore, useTableStore } from "@/stores";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useMemberStore } from "@/stores/memberStore";
@@ -49,6 +50,7 @@ const documentStore = useDocumentStore();
 const memberStore = useMemberStore();
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
 // 权限控制
 const canManage = computed(() => memberStore.canManage);
@@ -89,7 +91,7 @@ const excelImportCreateDialogVisible = ref(false);
 
 // 加载状态
 const isLoading = ref(false);
-const loadingText = ref("加载中...");
+const loadingText = ref(t('dashboard.loading'));
 const skeletonCount = ref(6);
 
 // 数据状态
@@ -129,51 +131,51 @@ const showShareDialog = ref(false);
 const chartWidgetTypes = [
   {
     value: "bar",
-    label: "柱状图",
+    label: t('dashboard.widgetBar'),
     icon: "Histogram",
-    description: "展示分类数据的对比",
+    description: t('dashboard.widgetBarDesc'),
     category: "chart",
   },
   {
     value: "line",
-    label: "折线图",
+    label: t('dashboard.widgetLine'),
     icon: "TrendCharts",
-    description: "展示数据随时间的变化趋势",
+    description: t('dashboard.widgetLineDesc'),
     category: "chart",
   },
   {
     value: "area",
-    label: "面积图",
+    label: t('dashboard.widgetArea'),
     icon: "Management",
-    description: "强调数量随时间变化的程度",
+    description: t('dashboard.widgetAreaDesc'),
     category: "chart",
   },
   {
     value: "pie",
-    label: "饼图",
+    label: t('dashboard.widgetPie'),
     icon: "PieChart",
-    description: "展示各部分占整体的比例",
+    description: t('dashboard.widgetPieDesc'),
     category: "chart",
   },
   {
     value: "scatter",
-    label: "散点图",
+    label: t('dashboard.widgetScatter'),
     icon: "CircleCheck",
-    description: "展示两个变量之间的关系",
+    description: t('dashboard.widgetScatterDesc'),
     category: "chart",
   },
   {
     value: "number",
-    label: "数字卡片",
+    label: t('dashboard.widgetNumber'),
     icon: "DataAnalysis",
-    description: "突出显示关键指标",
+    description: t('dashboard.widgetNumberDesc'),
     category: "data",
   },
   {
     value: "table",
-    label: "数据表格",
+    label: t('dashboard.widgetTable'),
     icon: "Grid",
-    description: "以表格形式展示详细数据",
+    description: t('dashboard.widgetTableDesc'),
     category: "data",
   },
 ];
@@ -182,44 +184,44 @@ const chartWidgetTypes = [
 const screenWidgetTypes = [
   {
     value: "clock",
-    label: "时钟",
+    label: t('dashboard.widgetClock'),
     icon: "Clock",
-    description: "显示当前时间，支持12/24小时制",
+    description: t('dashboard.widgetClockDesc'),
     category: "screen",
   },
   {
     value: "date",
-    label: "日期",
+    label: t('dashboard.widgetDate'),
     icon: "Calendar",
-    description: "显示当前日期和星期",
+    description: t('dashboard.widgetDateDesc'),
     category: "screen",
   },
   {
     value: "marquee",
-    label: "跑马灯",
+    label: t('dashboard.widgetMarquee'),
     icon: "ChatDotRound",
-    description: "滚动显示通知信息",
+    description: t('dashboard.widgetMarqueeDesc'),
     category: "screen",
   },
   {
     value: "kpi",
-    label: "KPI指标",
+    label: t('dashboard.widgetKpi'),
     icon: "TrendCharts",
-    description: "大屏专用关键指标展示",
+    description: t('dashboard.widgetKpiDesc'),
     category: "screen",
   },
   {
     value: "realtime",
-    label: "实时数据流",
+    label: t('dashboard.widgetRealtime'),
     icon: "VideoPlay",
-    description: "实时展示数据变化趋势",
+    description: t('dashboard.widgetRealtimeDesc'),
     category: "screen",
   },
   {
     value: "text",
-    label: "标题文字",
+    label: t('dashboard.widgetText'),
     icon: "Edit",
-    description: "大屏标题和副标题文字展示",
+    description: t('dashboard.widgetTextDesc'),
     category: "screen",
   },
 ];
@@ -228,16 +230,16 @@ const screenWidgetTypes = [
 const widgetTypes = [...chartWidgetTypes, ...screenWidgetTypes];
 
 const aggregationTypes = [
-  { value: "count", label: "计数", description: "统计记录数量" },
+  { value: "count", label: t('dashboard.aggCount'), description: t('dashboard.aggCountDesc') },
   {
     value: "countDistinct",
-    label: "去重计数",
-    description: "统计不重复值的数量",
+    label: t('dashboard.aggDistinctCount'),
+    description: t('dashboard.aggDistinctCountDesc'),
   },
-  { value: "sum", label: "求和", description: "对数值字段求和" },
-  { value: "avg", label: "平均值", description: "计算数值字段的平均值" },
-  { value: "max", label: "最大值", description: "获取数值字段的最大值" },
-  { value: "min", label: "最小值", description: "获取数值字段的最小值" },
+  { value: "sum", label: t('dashboard.aggSum'), description: t('dashboard.aggSumDesc') },
+  { value: "avg", label: t('dashboard.aggAvg'), description: t('dashboard.aggAvgDesc') },
+  { value: "max", label: t('dashboard.aggMax'), description: t('dashboard.aggMaxDesc') },
+  { value: "min", label: t('dashboard.aggMin'), description: t('dashboard.aggMinDesc') },
 ];
 
 // 计算属性
@@ -291,7 +293,7 @@ async function loadDashboards() {
   }
 
   isLoading.value = true;
-  loadingText.value = "加载基地信息...";
+  loadingText.value = t('dashboard.loadingBase');
 
   try {
     if (!baseStore.currentBase || baseStore.currentBase.id !== baseId) {
@@ -299,11 +301,11 @@ async function loadDashboards() {
     }
 
     if (!baseStore.currentBase) {
-      ElMessage.error("加载基地信息失败");
+      ElMessage.error(t('dashboard.loadingBaseFailed'));
       return;
     }
 
-    loadingText.value = "加载仪表盘列表...";
+    loadingText.value = t('dashboard.loadingDashboards');
     dashboards.value = await dashboardService.getDashboardsByBase(baseId);
 
     const dashboardIdFromRoute = route.params.dashboardId as string;
@@ -321,7 +323,7 @@ async function loadDashboards() {
       await selectDashboard(dashboards.value[0]);
     }
   } catch (error) {
-    ElMessage.error("加载数据失败，请刷新页面重试");
+    ElMessage.error(t('dashboard.loadDataFailed'));
   } finally {
     isLoading.value = false;
   }
@@ -457,22 +459,22 @@ async function applyTemplate(template: DashboardTemplate) {
       widgets.value.forEach((widget) => renderWidget(widget));
     });
 
-    ElMessage.success("模板应用成功");
+    ElMessage.success(t('dashboard.templateApplied'));
     showTemplateDialog.value = false;
   } catch (error) {
-    ElMessage.error("应用模板失败");
+    ElMessage.error(t('dashboard.applyTemplateFailed'));
   }
 }
 
 // 创建仪表盘
 async function createDashboard() {
   if (!baseStore.currentBase) {
-    ElMessage.error("当前未选择基地");
+    ElMessage.error(t('dashboard.noBaseSelected'));
     return;
   }
 
   if (!dashboardForm.value.name.trim()) {
-    ElMessage.warning("请输入仪表盘名称");
+    ElMessage.warning(t('dashboard.enterName'));
     return;
   }
 
@@ -491,21 +493,21 @@ async function createDashboard() {
     isCreatingDashboard.value = false;
     dashboardForm.value = { name: "", description: "" };
 
-    ElMessage.success("仪表盘创建成功");
+    ElMessage.success(t('dashboard.created'));
   } catch (error) {
-    ElMessage.error("创建仪表盘失败，请重试");
+    ElMessage.error(t('dashboard.createFailed'));
   }
 }
 
 // 更新仪表盘
 async function updateDashboard() {
   if (!currentDashboard.value) {
-    ElMessage.error("当前未选择仪表盘");
+    ElMessage.error(t('dashboard.noDashboardSelected'));
     return;
   }
 
   if (!dashboardForm.value.name.trim()) {
-    ElMessage.warning("请输入仪表盘名称");
+    ElMessage.warning(t('dashboard.enterName'));
     return;
   }
 
@@ -522,9 +524,9 @@ async function updateDashboard() {
 
     isEditingDashboard.value = false;
     isCreatingDashboard.value = false;
-    ElMessage.success("仪表盘更新成功");
+    ElMessage.success(t('dashboard.updated'));
   } catch (error) {
-    ElMessage.error("更新仪表盘失败，请重试");
+    ElMessage.error(t('dashboard.updateFailed'));
   }
 }
 
@@ -564,10 +566,10 @@ async function duplicateDashboard(dashboard: Dashboard) {
     // 选中新复制的仪表盘
     await selectDashboard(duplicated);
 
-    ElMessage.success("仪表盘复制成功");
+    ElMessage.success(t('dashboard.copied'));
   } catch (error) {
     console.error("复制仪表盘失败:", error);
-    ElMessage.error("复制失败");
+    ElMessage.error(t('dashboard.copyFailed'));
   }
 }
 
@@ -580,7 +582,7 @@ const hasUnsavedChanges = ref(false);
 async function saveWidgets(showMessage = true) {
   if (!currentDashboard.value) {
     if (showMessage) {
-      ElMessage.warning("请先创建或选择一个仪表盘");
+      ElMessage.warning(t('dashboard.createOrSelectFirst'));
     }
     return;
   }
@@ -601,11 +603,11 @@ async function saveWidgets(showMessage = true) {
     );
     hasUnsavedChanges.value = false;
     if (showMessage) {
-      ElMessage.success("保存成功");
+      ElMessage.success(t('common.saveSuccess'));
     }
   } catch (error) {
     if (showMessage) {
-      ElMessage.error("保存失败，请重试");
+      ElMessage.error(t('dashboard.saveFailed'));
     }
   } finally {
     isSaving.value = false;
@@ -637,7 +639,7 @@ function onWidgetConfigChange() {
 
 async function openShareDialog() {
   if (!currentDashboard.value) {
-    ElMessage.warning("请先选择仪表盘");
+    ElMessage.warning(t('dashboard.selectFirst'));
     return;
   }
 
@@ -653,7 +655,7 @@ const showPreviewDialog = ref(false);
 
 function openPreviewDialog() {
   if (!currentDashboard.value) {
-    ElMessage.warning("请先选择仪表盘");
+    ElMessage.warning(t('dashboard.selectFirst'));
     return;
   }
   showPreviewDialog.value = true;

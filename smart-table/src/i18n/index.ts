@@ -13,7 +13,10 @@ import {
   DEFAULT_LOCALE,
   FALLBACK_LOCALE,
   isSupportedLocale,
+  AVAILABLE_LANGUAGES,
+  ENABLED_LANGUAGES,
   type SupportedLocale,
+  type LanguageOption,
 } from "./types";
 
 /**
@@ -107,3 +110,11 @@ export function getI18nLanguage(): SupportedLocale {
 
 /** 导出 I18n 类型供其他模块类型标注使用 */
 export type { I18n };
+
+/** 重新导出语言相关常量与类型，便于统一从 '@/i18n' 引入 */
+export {
+  AVAILABLE_LANGUAGES,
+  ENABLED_LANGUAGES,
+};
+export type { LanguageOption };
+export type { SupportedLocale };

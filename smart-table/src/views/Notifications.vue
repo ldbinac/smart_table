@@ -1,8 +1,8 @@
 <template>
   <div class="notifications-page">
     <div class="page-header">
-      <h1 class="page-title">站内信通知</h1>
-      <p class="page-description">查看您的站内通知消息</p>
+      <h1 class="page-title">{{ t('notification.pageTitle') }}</h1>
+      <p class="page-description">{{ t('notification.pageDesc') }}</p>
     </div>
 
     <div class="page-content">
@@ -11,37 +11,37 @@
         <div class="filter-bar">
           <el-select
             v-model="filters.is_read"
-            placeholder="已读状态"
+            :placeholder="t('notification.readStatus')"
             clearable
             style="width: 140px"
             @change="handleSearch"
           >
-            <el-option label="全部" value="" />
-            <el-option label="未读" value="unread" />
-            <el-option label="已读" value="read" />
+            <el-option :label="t('common.all')" value="" />
+            <el-option :label="t('notification.unread')" value="unread" />
+            <el-option :label="t('notification.read')" value="read" />
           </el-select>
           <el-select
             v-model="filters.source"
-            placeholder="来源"
+            :placeholder="t('notification.source')"
             clearable
             style="width: 160px"
             @change="handleSearch"
           >
-            <el-option label="系统" value="system" />
-            <el-option label="认证" value="auth" />
-            <el-option label="管理" value="admin" />
-            <el-option label="工作流" value="workflow" />
-            <el-option label="审批" value="approval" />
+            <el-option :label="t('notification.system')" value="system" />
+            <el-option :label="t('notification.auth')" value="auth" />
+            <el-option :label="t('notification.admin')" value="admin" />
+            <el-option :label="t('notification.workflow')" value="workflow" />
+            <el-option :label="t('notification.approval')" value="approval" />
           </el-select>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button type="primary" @click="handleSearch">{{ t('notification.query') }}</el-button>
+          <el-button @click="handleReset">{{ t('common.reset') }}</el-button>
           <el-button
             type="success"
             plain
             :disabled="unreadCount === 0"
             @click="handleMarkAllAsRead"
           >
-            全部标记已读
+            {{ t('notification.markAllRead') }}
           </el-button>
         </div>
 
@@ -52,41 +52,41 @@
           stripe
           style="width: 100%; margin-top: 16px"
         >
-          <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip>
+          <el-table-column prop="title" :label="t('notification.title')" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
               <span :class="{ 'title-unread': !row.is_read }">{{ row.title }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="source" label="来源" width="110">
+          <el-table-column prop="source" :label="t('notification.source')" width="110">
             <template #default="{ row }">
               <el-tag :type="getSourceTagType(row.source)" size="small">
                 {{ getSourceLabel(row.source) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" :label="t('common.status')" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusTagType(row.status)" size="small">
                 {{ getStatusText(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="is_read" label="已读" width="90">
+          <el-table-column prop="is_read" :label="t('notification.isRead')" width="90">
             <template #default="{ row }">
               <el-tag :type="row.is_read ? 'info' : 'danger'" size="small">
-                {{ row.is_read ? '已读' : '未读' }}
+                {{ row.is_read ? t('notification.read') : t('notification.unread') }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" min-width="170">
+          <el-table-column prop="created_at" :label="t('common.createdAt')" min-width="170">
             <template #default="{ row }">
               {{ formatDateTime(row.created_at) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
+          <el-table-column :label="t('common.actions')" width="220" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="handleViewDetail(row as AppNotification)">
-                详情
+                {{ t('notification.detail') }}
               </el-button>
               <el-button
                 v-if="!row.is_read"
@@ -94,10 +94,10 @@
                 type="success"
                 @click="handleMarkAsRead(row as AppNotification)"
               >
-                标记已读
+                {{ t('notification.markRead') }}
               </el-button>
               <el-button link type="danger" @click="handleDelete(row as AppNotification)">
-                删除
+                {{ t('common.delete') }}
               </el-button>
             </template>
           </el-table-column>
@@ -119,7 +119,7 @@
     </div>
 
     <!-- 详情抽屉 -->
-    <el-drawer v-model="detailVisible" title="通知详情" size="500px">
+    <el-drawer v-model="detailVisible" :title="t('notification.detailTitle')" size="500px">
       <div v-if="currentNotification" class="detail-content">
         <h2 class="detail-title">{{ currentNotification.title }}</h2>
         <div class="detail-meta">
@@ -130,16 +130,16 @@
             {{ getStatusText(currentNotification.status) }}
           </el-tag>
           <el-tag :type="currentNotification.is_read ? 'info' : 'danger'" size="small">
-            {{ currentNotification.is_read ? '已读' : '未读' }}
+            {{ currentNotification.is_read ? t('notification.read') : t('notification.unread') }}
           </el-tag>
         </div>
         <div class="detail-time">
-          <span>创建时间：{{ formatDateTime(currentNotification.created_at) }}</span>
+          <span>{{ t('notification.createTime') }}：{{ formatDateTime(currentNotification.created_at) }}</span>
           <span v-if="currentNotification.sent_at">
-            发送时间：{{ formatDateTime(currentNotification.sent_at) }}
+            {{ t('notification.sentTime') }}：{{ formatDateTime(currentNotification.sent_at) }}
           </span>
           <span v-if="currentNotification.read_at">
-            阅读时间：{{ formatDateTime(currentNotification.read_at) }}
+            {{ t('notification.readTime') }}：{{ formatDateTime(currentNotification.read_at) }}
           </span>
         </div>
         <el-divider />
@@ -152,6 +152,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   notificationApiService,
@@ -161,6 +162,7 @@ import {
 import { useNotificationStore } from '@/stores/notificationStore'
 import { formatDateTime } from '@/utils/timezone'
 
+const { t } = useI18n()
 const notificationStore = useNotificationStore()
 
 const loading = ref(false)
@@ -184,15 +186,15 @@ const pagination = reactive({
 
 // 来源标签映射
 const sourceMap: Record<string, { label: string; type: any }> = {
-  system: { label: '系统', type: 'info' },
-  auth: { label: '认证', type: 'warning' },
-  admin: { label: '管理', type: 'danger' },
-  workflow: { label: '工作流', type: 'success' },
-  approval: { label: '审批', type: 'primary' },
+  system: { label: t('notification.system'), type: 'info' },
+  auth: { label: t('notification.auth'), type: 'warning' },
+  admin: { label: t('notification.admin'), type: 'danger' },
+  workflow: { label: t('notification.workflow'), type: 'success' },
+  approval: { label: t('notification.approval'), type: 'primary' },
 }
 
 const getSourceLabel = (source: string): string => {
-  return sourceMap[source]?.label || source || '其他'
+  return sourceMap[source]?.label || source || t('notification.other')
 }
 
 const getSourceTagType = (source: string): any => {
@@ -211,10 +213,10 @@ const getStatusTagType = (status: NotificationStatus): any => {
 
 const getStatusText = (status: NotificationStatus): string => {
   const textMap: Record<string, string> = {
-    pending: '待发送',
-    sent: '已发送',
-    failed: '失败',
-    retrying: '重试中',
+    pending: t('notification.pending'),
+    sent: t('notification.sent'),
+    failed: t('notification.failed'),
+    retrying: t('notification.retrying'),
   }
   return textMap[status] || status
 }
@@ -245,7 +247,7 @@ const fetchList = async () => {
     pagination.total = response.meta?.pagination?.total || 0
   } catch (error) {
     console.error('[Notifications] 获取通知列表失败:', error)
-    ElMessage.error('获取通知列表失败')
+    ElMessage.error(t('notification.fetchFailed'))
   } finally {
     loading.value = false
   }
@@ -295,30 +297,30 @@ const handleMarkAsRead = async (row: AppNotification) => {
   try {
     await notificationApiService.markAsRead(row.id)
     row.is_read = true
-    ElMessage.success('已标记为已读')
+    ElMessage.success(t('notification.markReadSuccess'))
     await refreshUnreadCount()
   } catch (error) {
     console.error('[Notifications] 标记已读失败:', error)
-    ElMessage.error('标记已读失败')
+    ElMessage.error(t('notification.markReadFailed'))
   }
 }
 
 // 全部标记已读
 const handleMarkAllAsRead = async () => {
   try {
-    await ElMessageBox.confirm('确定要将所有通知标记为已读吗？', '全部已读确认', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('notification.markAllConfirm'), t('notification.markAllTitle'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
     })
     await notificationApiService.markAllAsRead()
-    ElMessage.success('已标记全部通知为已读')
+    ElMessage.success(t('notification.markAllReadSuccess'))
     await fetchList()
     await refreshUnreadCount()
   } catch (error) {
     if (error === 'cancel') return
     console.error('[Notifications] 全部标记已读失败:', error)
-    ElMessage.error('全部标记已读失败')
+    ElMessage.error(t('notification.markAllReadFailed'))
   }
 }
 
@@ -326,22 +328,22 @@ const handleMarkAllAsRead = async () => {
 const handleDelete = async (row: AppNotification) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除通知"${row.title}"吗？此操作不可恢复。`,
-      '删除确认',
+      t('notification.deleteConfirm', { title: row.title }),
+      t('notification.deleteTitle'),
       {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
+        confirmButtonText: t('notification.deleteConfirmBtn'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning',
       },
     )
     await notificationApiService.deleteNotification(row.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('notification.deleteSuccess'))
     await fetchList()
     await refreshUnreadCount()
   } catch (error) {
     if (error === 'cancel') return
     console.error('[Notifications] 删除通知失败:', error)
-    ElMessage.error('删除通知失败')
+    ElMessage.error(t('notification.deleteFailed'))
   }
 }
 

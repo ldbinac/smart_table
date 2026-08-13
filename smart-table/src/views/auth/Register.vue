@@ -1,17 +1,17 @@
 <template>
   <AuthLayout
     :title="title"
-    footer-hint="已有账号？"
-    footer-link-text="立即登录"
+    :footer-hint="t('auth.hasAccount')"
+    :footer-link-text="t('auth.goLogin')"
     footer-link-to="/login">
     <template v-if="!isRegistrationEnabledState && !isLoading">
       <div class="disabled-icon">
         <el-icon :size="48"><Lock /></el-icon>
       </div>
-      <p class="disabled-text">当前系统暂不开放新用户注册，请联系管理员获取账号。</p>
+      <p class="disabled-text">{{ t('auth.registerClosedText') }}</p>
       <div class="disabled-action">
         <el-button type="primary" @click="$router.push('/login')">
-          前往登录
+          {{ t('auth.goToLogin') }}
         </el-button>
       </div>
     </template>
@@ -19,7 +19,7 @@
     <template v-else>
       <div v-if="isLoading" class="loading-box">
         <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
-        <p>正在加载...</p>
+        <p>{{ t('common.loading') }}</p>
       </div>
 
       <RegisterForm v-else :loading="authStore.isLoading" @submit="handleRegister" />
@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useAuthStore } from "@/stores/auth/authStore";
 import AuthLayout from "./AuthLayout.vue";
 import RegisterForm from "@/components/auth/RegisterForm.vue";
@@ -39,6 +40,7 @@ import { Lock, Loading } from '@element-plus/icons-vue';
 import { isRegistrationEnabled } from '@/utils/securityConfig';
 
 const router = useRouter();
+const { t } = useI18n();
 const authStore = useAuthStore();
 
 const isLoading = ref(true);
@@ -46,21 +48,21 @@ const isRegistrationEnabledState = ref(true);
 
 const title = computed(() => {
   if (!isLoading.value && !isRegistrationEnabledState.value) {
-    return '注册已关闭';
+    return t('auth.registerClosedTitle');
   }
-  return '注册';
+  return t('auth.registerTitle');
 });
 
 const handleRegister = async (data: RegisterRequest) => {
   if (!isRegistrationEnabledState.value) {
-    ElMessage.error("当前系统暂不开放新用户注册");
+    ElMessage.error(t('auth.registerDisabledHint'));
     return;
   }
 
   const success = await authStore.register(data);
 
   if (success) {
-    ElMessage.success("注册成功，请登录");
+    ElMessage.success(t('auth.registerSuccessHint'));
     router.push("/login");
   }
 };

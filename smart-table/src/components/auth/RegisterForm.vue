@@ -9,37 +9,37 @@
     <el-form-item prop="username">
       <el-input
         v-model="form.username"
-        placeholder="请输入用户名"
+        :placeholder="t('auth.usernamePlaceholder')"
         size="large"
         :prefix-icon="User"
       />
     </el-form-item>
-    
+
     <el-form-item prop="email">
       <el-input
         v-model="form.email"
-        placeholder="请输入邮箱"
+        :placeholder="t('auth.emailPlaceholder')"
         size="large"
         :prefix-icon="Message"
       />
     </el-form-item>
-    
+
     <el-form-item prop="password">
       <el-input
         v-model="form.password"
         type="password"
-        placeholder="请输入密码"
+        :placeholder="t('auth.passwordPlaceholder')"
         size="large"
         :prefix-icon="Lock"
         show-password
       />
     </el-form-item>
-    
+
     <el-form-item prop="confirmPassword">
       <el-input
         v-model="form.confirmPassword"
         type="password"
-        placeholder="请确认密码"
+        :placeholder="t('auth.confirmPasswordPlaceholder')"
         size="large"
         :prefix-icon="Lock"
         show-password
@@ -51,7 +51,7 @@
       <div class="captcha-input-group">
         <el-input
           v-model="form.captcha"
-          placeholder="请输入验证码"
+          :placeholder="t('auth.captchaPlaceholder')"
           size="large"
           maxlength="6"
           style="flex: 1"
@@ -60,17 +60,17 @@
           <img
             v-if="captchaImage"
             :src="captchaImage"
-            alt="验证码"
+            :alt="t('auth.captchaAlt')"
             class="captcha-image"
           />
           <div v-else class="captcha-placeholder">
             <el-icon><Refresh /></el-icon>
-            <span>点击刷新</span>
+            <span>{{ t('auth.clickRefresh') }}</span>
           </div>
         </div>
       </div>
     </el-form-item>
-    
+
     <el-form-item>
       <el-button
         type="primary"
@@ -79,7 +79,7 @@
         :loading="loading"
         @click="handleSubmit"
       >
-        注册
+        {{ t('auth.registerButton') }}
       </el-button>
     </el-form-item>
   </el-form>
@@ -87,11 +87,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { User, Message, Lock, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { RegisterRequest } from '@/api/types'
 import { getAuthCaptcha } from '@/api/captcha'
 import { getPasswordMinLength, validatePasswordStrength } from '@/utils/securityConfig'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   loading?: boolean
@@ -115,7 +118,7 @@ const form = reactive({
 
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (value !== form.password) {
-    callback(new Error('两次输入的密码不一致'))
+    callback(new Error(t('auth.passwordMismatch')))
   } else {
     callback()
   }
@@ -132,24 +135,24 @@ const validatePassword = async (_rule: unknown, value: string, callback: (error?
 
 const rules: FormRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度应在3-20位之间', trigger: 'blur' }
+    { required: true, message: t('auth.usernamePlaceholder'), trigger: 'blur' },
+    { min: 3, max: 20, message: t('auth.usernameLength'), trigger: 'blur' }
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    { required: true, message: t('auth.emailPlaceholder'), trigger: 'blur' },
+    { type: 'email', message: t('auth.emailFormat'), trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
+    { required: true, message: t('auth.passwordPlaceholder'), trigger: 'blur' },
     { validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
+    { required: true, message: t('auth.confirmPasswordPlaceholder'), trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ],
   captcha: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
-    { len: 4, message: '验证码长度为4位', trigger: 'blur' }
+    { required: true, message: t('auth.captchaPlaceholder'), trigger: 'blur' },
+    { len: 4, message: t('auth.captchaLength'), trigger: 'blur' }
   ]
 }
 

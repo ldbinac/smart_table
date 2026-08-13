@@ -9,17 +9,17 @@
     <el-form-item prop="email">
       <el-input
         v-model="form.email"
-        placeholder="请输入邮箱"
+        :placeholder="t('auth.emailPlaceholder')"
         size="large"
         :prefix-icon="User"
       />
     </el-form-item>
-    
+
     <el-form-item prop="password">
       <el-input
         v-model="form.password"
         type="password"
-        placeholder="请输入密码"
+        :placeholder="t('auth.passwordPlaceholder')"
         size="large"
         :prefix-icon="Lock"
         show-password
@@ -30,7 +30,7 @@
     <!-- 忘记密码 -->
     <div class="forgot-password-link">
       <el-link type="primary" :underline="false" @click="emit('forgotPassword')">
-        忘记密码？
+        {{ t('auth.forgotPasswordLink') }}
       </el-link>
     </div>
 
@@ -39,7 +39,7 @@
       <div class="captcha-input-group">
         <el-input
           v-model="form.captcha"
-          placeholder="请输入验证码"
+          :placeholder="t('auth.captchaPlaceholder')"
           size="large"
           maxlength="6"
           style="flex: 1"
@@ -48,17 +48,17 @@
           <img
             v-if="captchaImage"
             :src="captchaImage"
-            alt="验证码"
+            :alt="t('auth.captchaAlt')"
             class="captcha-image"
           />
           <div v-else class="captcha-placeholder">
             <el-icon><Refresh /></el-icon>
-            <span>点击刷新</span>
+            <span>{{ t('auth.clickRefresh') }}</span>
           </div>
         </div>
       </div>
     </el-form-item>
-    
+
     <el-form-item>
       <el-button
         type="primary"
@@ -67,7 +67,7 @@
         :loading="loading"
         @click="handleSubmit"
       >
-        登录
+        {{ t('auth.loginButton') }}
       </el-button>
     </el-form-item>
   </el-form>
@@ -75,10 +75,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { User, Lock, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { LoginRequest } from '@/api/types'
 import { getAuthCaptcha } from '@/api/captcha'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   loading?: boolean
@@ -100,16 +103,16 @@ const form = reactive({
 
 const rules: FormRules = {
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    { required: true, message: t('auth.emailPlaceholder'), trigger: 'blur' },
+    { type: 'email', message: t('auth.emailFormat'), trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { required: true, message: t('auth.passwordPlaceholder'), trigger: 'blur' },
+    { min: 6, message: t('auth.passwordMinLength', { min: 6 }), trigger: 'blur' }
   ],
   captcha: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
-    { len: 4, message: '验证码长度为4位', trigger: 'blur' }
+    { required: true, message: t('auth.captchaPlaceholder'), trigger: 'blur' },
+    { len: 4, message: t('auth.captchaLength'), trigger: 'blur' }
   ]
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useBaseStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
 import { dashboardService } from "@/db/services/dashboardService";
@@ -82,6 +83,7 @@ const emit = defineEmits<{
 }>();
 
 const route = useRoute();
+const { t } = useI18n();
 const baseStore = useBaseStore();
 const tableStore = useTableStore();
 
@@ -266,11 +268,11 @@ const handleRenameDashboard = (dashboard: Dashboard) => {
 const handleDeleteDashboard = async (dashboard: Dashboard) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除仪表盘 "${dashboard.name}" 吗？`,
-      "删除确认",
+      t('sidebar.deleteDashboardConfirm', { name: dashboard.name }),
+      t('sidebar.deleteTitle'),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
         type: "warning",
       },
     );
@@ -314,11 +316,11 @@ const handleRenameDocument = (doc: DocumentEntity) => {
 const handleDeleteDocument = async (doc: DocumentEntity) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除文档 "${doc.name}" 吗？`,
-      "删除确认",
+      t('sidebar.deleteDocumentConfirm', { name: doc.name }),
+      t('sidebar.deleteTitle'),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
         type: "warning",
       },
     );
@@ -402,7 +404,7 @@ defineExpose({
       <div class="header-content" v-show="!isCollapsed">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索数据表和仪表盘"
+          :placeholder="t('sidebar.searchPlaceholder')"
           clearable
           size="small">
           <template #prefix>
@@ -413,7 +415,7 @@ defineExpose({
       <button
         class="collapse-btn"
         @click="toggleSidebar"
-        :title="isCollapsed ? '展开' : '收起'">
+        :title="isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')">
         <span v-if="isCollapsed" class="collapse-icon">&gt;&gt;</span>
         <span v-else class="collapse-icon">&lt;&lt;</span>
       </button>
@@ -497,14 +499,14 @@ defineExpose({
                   <el-dropdown-item
                     v-if="canManage !== false"
                     command="rename">
-                    <el-icon><Edit /></el-icon>重命名
+                    <el-icon><Edit /></el-icon>{{ t('common.rename') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="star">
                     <el-icon
                       ><component
                         :is="dashboard.isStarred ? 'Star' : 'StarFilled'"
                     /></el-icon>
-                    {{ dashboard.isStarred ? "取消收藏" : "收藏" }}
+                    {{ dashboard.isStarred ? t('sidebar.unstar') : t('sidebar.star') }}
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="canManage !== false"
@@ -536,7 +538,7 @@ defineExpose({
       class="document-section">
       <div v-show="!isCollapsed" class="section-title">
         <span class="title-text"
-          >文档&nbsp;<span class="section-count"
+          >{{ t('sidebar.documentSection') }}&nbsp;<span class="section-count"
             >({{ filteredDocuments.length }})</span
           ></span
         >
@@ -682,13 +684,13 @@ defineExpose({
                   <el-dropdown-item
                     v-if="canManage !== false"
                     command="rename">
-                    <el-icon><Edit /></el-icon>重命名
+                    <el-icon><Edit /></el-icon>{{ t('common.rename') }}
                   </el-dropdown-item>
                   <el-dropdown-item command="star">
                     <el-icon
                       ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
                     /></el-icon>
-                    {{ table.isStarred ? "取消收藏" : "收藏" }}
+                    {{ table.isStarred ? t('sidebar.unstar') : t('sidebar.star') }}
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="canManage !== false"
@@ -709,17 +711,17 @@ defineExpose({
     <div class="sidebar-footer">
       <div class="footer-buttons-column">
         <el-button
-          title="添加新的空白数据表"
+          :title="t('sidebar.addTableTitle')"
           v-if="showTables !== false && canManage !== false"
           type="primary"
           text
           @click="handleAddTable"
           class="footer-btn">
           <el-icon><Plus /></el-icon>
-          <span v-show="!isCollapsed">添加数据表</span>
+          <span v-show="!isCollapsed">{{ t('sidebar.addTable') }}</span>
         </el-button>
         <el-button
-          title="添加新的空白仪表盘"
+          :title="t('sidebar.addDashboardTitle')"
           style="margin-left: 0px"
           v-if="showDashboards !== false && canManage !== false"
           type="primary"
@@ -727,10 +729,10 @@ defineExpose({
           @click="handleAddDashboard"
           class="footer-btn">
           <el-icon><DataAnalysis /></el-icon>
-          <span v-show="!isCollapsed">添加仪表盘</span>
+          <span v-show="!isCollapsed">{{ t('sidebar.addDashboard') }}</span>
         </el-button>
         <el-button
-          title="根据Excel表格的表头和数据，自动识别创建数据表的字段，并支持创建后直接导入数据"
+          :title="t('sidebar.excelImportTitle')"
           style="margin-left: 0px"
           v-if="showTables !== false && canManage !== false"
           type="primary"
@@ -738,10 +740,10 @@ defineExpose({
           @click="handleExcelImportCreate"
           class="footer-btn">
           <el-icon><Upload /></el-icon>
-          <span v-show="!isCollapsed">Excel导入创建</span>
+          <span v-show="!isCollapsed">{{ t('sidebar.excelImport') }}</span>
         </el-button>
         <el-button
-          title="添加新文档"
+          :title="t('sidebar.addDocumentTitle')"
           style="margin-left: 0px"
           v-if="showDocuments !== false && canManage !== false"
           type="primary"
@@ -749,7 +751,7 @@ defineExpose({
           @click="handleAddDocument"
           class="footer-btn">
           <el-icon><Edit /></el-icon>
-          <span v-show="!isCollapsed">添加文档</span>
+          <span v-show="!isCollapsed">{{ t('sidebar.addDocument') }}</span>
         </el-button>
       </div>
     </div>

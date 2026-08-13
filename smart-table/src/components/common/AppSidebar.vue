@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useAuthStore } from "@/stores/authStore";
 import { Document } from "@element-plus/icons-vue";
 
@@ -15,6 +16,7 @@ interface NavItem {
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 const authStore = useAuthStore();
 
 const isCollapsed = ref(true);
@@ -31,7 +33,7 @@ let closeTimer: ReturnType<typeof setTimeout> | null = null;
 const navItems = computed<NavItem[]>(() => [
   {
     id: "home",
-    label: "我的",
+    label: t('nav.home'),
     icon: "HomeFilled",
     path: "/",
   },
@@ -52,7 +54,7 @@ const navItems = computed<NavItem[]>(() => [
   // },
   {
     id: "settings",
-    label: "设置",
+    label: t('nav.settings'),
     icon: "View",
     path: "/settings",
   },
@@ -60,42 +62,42 @@ const navItems = computed<NavItem[]>(() => [
     ? [
         {
           id: "admin",
-          label: "系统管理",
+          label: t('nav.systemAdmin'),
           icon: "Setting",
           children: [
             {
               id: "admin-users",
-              label: "用户管理",
+              label: t('nav.userManagement'),
               icon: "User",
               path: "/admin/users",
             },
             {
               id: "admin-settings",
-              label: "系统配置",
+              label: t('nav.systemConfig'),
               icon: "Setting",
               path: "/admin/settings",
             },
             {
               id: "admin-logs",
-              label: "操作日志",
+              label: t('nav.operationLogs'),
               icon: "Document",
               path: "/admin/logs",
             },
             {
               id: "admin-email-templates",
-              label: "邮件模板",
+              label: t('nav.emailTemplates'),
               icon: "Message",
               path: "/admin/email/templates",
             },
             {
               id: "admin-email-logs",
-              label: "邮件日志",
+              label: t('nav.emailLogs'),
               icon: "MessageBox",
               path: "/admin/email/logs",
             },
             {
               id: "admin-email-stats",
-              label: "邮件统计",
+              label: t('nav.emailStats'),
               icon: "DataLine",
               path: "/admin/email/stats",
             },
@@ -187,7 +189,7 @@ const isActive = (item: NavItem): boolean => {
 <template>
   <aside class="app-sidebar" :class="{ collapsed: isCollapsed }">
     <div class="sidebar-header">
-      <span v-if="!isCollapsed" class="sidebar-title">导航菜单</span>
+      <span v-if="!isCollapsed" class="sidebar-title">{{ t('nav.navMenu') }}</span>
       <button class="collapse-btn" @click="toggleCollapse">
         <svg
           v-if="isCollapsed"

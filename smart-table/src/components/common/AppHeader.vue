@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useBaseStore } from "@/stores";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -31,6 +32,7 @@ import NotificationBell from "@/components/common/NotificationBell.vue";
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
 const collaborationStore = useCollaborationStore();
@@ -48,9 +50,9 @@ const feedbackDialogVisible = ref(false);
 // 处理退出登录
 const handleLogout = async () => {
   try {
-    await ElMessageBox.confirm("确定要退出登录吗？", "退出确认", {
-      confirmButtonText: "确定退出",
-      cancelButtonText: "取消",
+    await ElMessageBox.confirm(t('nav.logoutConfirm'), t('nav.logoutConfirmTitle'), {
+      confirmButtonText: t('nav.logout'),
+      cancelButtonText: t('common.cancel'),
       type: "warning",
     });
 
@@ -65,11 +67,11 @@ const handleLogout = async () => {
 const handleLogoutAll = async () => {
   try {
     await ElMessageBox.confirm(
-      "确定要从所有设备退出登录吗？此操作将使您在其他所有设备上也被迫下线。",
-      "退出所有设备",
+      t('nav.logoutAllConfirm'),
+      t('nav.logoutAllTitle'),
       {
-        confirmButtonText: "确定退出",
-        cancelButtonText: "取消",
+        confirmButtonText: t('nav.logoutAll'),
+        cancelButtonText: t('common.cancel'),
         type: "warning",
       },
     );
@@ -130,7 +132,7 @@ const loadDashboard = async () => {
       currentDashboard.value = await dashboardService.getDashboard(dashboardId);
     } catch (error) {
       console.error("加载仪表盘失败:", error);
-      dashboardError.value = "加载仪表盘失败";
+      dashboardError.value = t('nav.loadDashboardFailed');
       currentDashboard.value = undefined;
     } finally {
       isLoadingDashboard.value = false;
@@ -179,7 +181,7 @@ const handleWorkflowClick = () => {
 // 左侧显示的标题：Base（多维表根）名称或默认标题
 const leftTitle = computed(() => {
   if (isWorkflowPage.value) {
-    return "工作流配置";
+    return t('nav.workflowConfig');
   }
   if (currentBase.value) {
     return currentBase.value.name;
@@ -191,7 +193,7 @@ const leftTitle = computed(() => {
 const leftDescription = computed(() => {
   if (isWorkflowPage.value) {
     return currentBase.value
-      ? `多维表"${currentBase.value.name}"的工作流配置`
+      ? t('nav.workflowConfigDesc', { name: currentBase.value.name })
       : "";
   }
   if (currentBase.value && currentBase.value.description) {
@@ -210,7 +212,7 @@ const centerInfo = computed(() => {
       };
     }
     return {
-      name: "请选择具体工作流",
+      name: t('nav.selectSpecificWorkflow'),
       description: "",
     };
   }
@@ -368,7 +370,7 @@ onMounted(() => {
         <!-- 加载状态 -->
         <div v-if="isLoadingDashboard" class="loading-state">
           <el-icon class="is-loading"><Loading /></el-icon>
-          <span>加载中...</span>
+          <span>{{ t('nav.loading') }}</span>
         </div>
         <!-- 错误状态 -->
         <div v-else-if="dashboardError" class="error-state">
@@ -394,7 +396,7 @@ onMounted(() => {
         </template>
         <!-- 无数据状态 -->
         <div v-else class="empty-state">
-          <span>请选择表格、文档或仪表盘</span>
+          <span>{{ t('nav.selectTableDocDashboard') }}</span>
         </div>
       </div>
 
@@ -407,14 +409,14 @@ onMounted(() => {
             v-model="searchQuery"
             type="text"
             class="search-input"
-            placeholder="搜索多维表格..."
+            :placeholder="t('nav.searchBasePlaceholder')"
             @input="handleSearchInput" />
           <el-icon v-if="searchQuery" class="search-clear" @click="clearSearch">
             <CircleClose />
           </el-icon>
         </div>
         <div v-if="searchQuery" class="search-stats">
-          找到 {{ searchStats }} 个结果
+          {{ t('nav.searchResults', { count: searchStats }) }}
         </div>
       </div>
     </div>
@@ -434,14 +436,14 @@ onMounted(() => {
         <el-dropdown trigger="click" @command="(cmd: string) => {
           if (cmd === 'workflow') handleWorkflowClick();
         }">
-          <el-button type="primary" plain circle title="自动化">
+          <el-button type="primary" plain circle :title="t('nav.workflow')">
             <el-icon><Connection /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="workflow" :class="{ 'is-active': isWorkflowPage }">
                 <el-icon><Connection /></el-icon>
-                工作流
+                {{ t('nav.workflow') }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -454,7 +456,7 @@ onMounted(() => {
         <el-tooltip
           class="box-item"
           effect="dark"
-          content="分享"
+          :content="t('nav.share')"
           placement="bottom">
           <el-button type="primary" plain circle @click="handleShareClick">
             <el-icon><Share /></el-icon>
@@ -463,7 +465,7 @@ onMounted(() => {
         <el-tooltip
           class="box-item"
           effect="dark"
-          content="成员"
+          :content="t('nav.member')"
           placement="bottom">
           <el-button
             type="primary"
@@ -481,7 +483,7 @@ onMounted(() => {
       <el-tooltip
         class="box-item"
         effect="dark"
-        content="反馈问题"
+        :content="t('nav.feedback')"
         placement="bottom">
         <el-button
           type="primary"
@@ -512,15 +514,15 @@ onMounted(() => {
             <el-divider style="margin: 4px 0" />
             <el-dropdown-item @click="handleChangePassword">
               <el-icon><Lock /></el-icon>
-              修改密码
+              {{ t('nav.changePassword') }}
             </el-dropdown-item>
             <el-dropdown-item divided @click="handleLogout">
               <el-icon><SwitchButton /></el-icon>
-              退出登录
+              {{ t('nav.logout') }}
             </el-dropdown-item>
             <el-dropdown-item @click="handleLogoutAll">
               <el-icon><Delete /></el-icon>
-              退出所有设备
+              {{ t('nav.logoutAll') }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>

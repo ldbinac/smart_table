@@ -227,70 +227,70 @@ const { t } = useI18n()
 const settingsStore = useSettingsStore()
 
 // 确保 settingsStore 已加载（store 初始化时即 loadSettings，这里兜底）
-onMounted(async () => {
+onMounted(() => {
   if (settingsStore.loading) {
-    await settingsStore.loadSettings()
+    settingsStore.loadSettings()
   }
 })
 
 // 主题
 const theme = ref<string>(settingsStore.settings.theme)
-const handleThemeChange = async (value: string) => {
-  await settingsStore.updateSettings('theme', value as AppSettings['theme'])
+const handleThemeChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('theme', value as AppSettings['theme'])
 }
 
 // 语言
 const language = ref<SupportedLocale>(settingsStore.settings.language)
-const handleLanguageChange = async (value: SupportedLocale) => {
-  settingsStore.setLanguage(value)
+const handleLanguageChange = (value: string | number | boolean | undefined) => {
+  settingsStore.setLanguage(value as SupportedLocale)
 }
 
 // 行高
 const rowHeight = ref<string>(settingsStore.settings.tableRowHeight)
-const handleRowHeightChange = async (value: string) => {
-  await settingsStore.updateSettings('tableRowHeight', value as AppSettings['tableRowHeight'])
+const handleRowHeightChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('tableRowHeight', value as AppSettings['tableRowHeight'])
 }
 
 // 网格线
 const gridLines = ref<boolean>(settingsStore.settings.showGridLines)
-const handleGridLinesChange = async (value: boolean) => {
-  await settingsStore.updateSettings('showGridLines', value)
+const handleGridLinesChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('showGridLines', value as boolean)
 }
 
 // 斑马纹
 const stripedRows = ref<boolean>(settingsStore.settings.stripeRows)
-const handleStripedRowsChange = async (value: boolean) => {
-  await settingsStore.updateSettings('stripeRows', value)
+const handleStripedRowsChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('stripeRows', value as boolean)
 }
 
 // 自动保存
 const autoSave = ref<boolean>(settingsStore.settings.autoSave)
-const handleAutoSaveChange = async (value: boolean) => {
-  await settingsStore.updateSettings('autoSave', value)
+const handleAutoSaveChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('autoSave', value as boolean)
 }
 
 // 删除前确认
 const confirmBeforeDelete = ref<boolean>(settingsStore.settings.confirmBeforeDelete)
-const handleConfirmBeforeDeleteChange = async (value: boolean) => {
-  await settingsStore.updateSettings('confirmBeforeDelete', value)
+const handleConfirmBeforeDeleteChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('confirmBeforeDelete', value as boolean)
 }
 
 // 日期格式
 const dateFormat = ref<string>(settingsStore.settings.dateFormat)
-const handleDateFormatChange = async (value: string) => {
-  await settingsStore.updateSettings('dateFormat', value)
+const handleDateFormatChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('dateFormat', value as string)
 }
 
 // 时间格式
 const timeFormat = ref<string>(settingsStore.settings.timeFormat)
-const handleTimeFormatChange = async (value: string) => {
-  await settingsStore.updateSettings('timeFormat', value)
+const handleTimeFormatChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('timeFormat', value as string)
 }
 
 // 货币符号
 const currencySymbol = ref<string>(settingsStore.settings.currencySymbol)
-const handleCurrencySymbolChange = async (value: string) => {
-  await settingsStore.updateSettings('currencySymbol', value)
+const handleCurrencySymbolChange = (value: string | number | boolean | undefined) => {
+  settingsStore.updateSettings('currencySymbol', value as string)
 }
 
 // 重置设置
@@ -305,7 +305,7 @@ const handleResetSettings = async () => {
         type: 'warning'
       }
     )
-    await settingsStore.resetSettings()
+    settingsStore.resetSettings()
     ElMessage.success(t('common.operationSuccess'))
     // 重置后刷新页面以应用默认设置
     window.location.reload()
