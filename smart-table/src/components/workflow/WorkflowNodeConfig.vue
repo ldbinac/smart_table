@@ -39,6 +39,7 @@ import {
   MAX_LOOP_NESTING_DEPTH,
 } from "@/utils/workflowNodeType";
 import { ElMessage } from "element-plus";
+import { useI18n } from "vue-i18n";
 import {
   normalizeConditionConfig,
   addConditionBranch,
@@ -73,6 +74,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
+
 const emit = defineEmits<{
   (e: "update:node", node: WorkflowNode): void;
   /** 选中循环体子节点切换配置面板 */
@@ -196,8 +199,8 @@ const availableWebhooks = computed(() => {
 type ConjunctionValue = "and" | "or";
 
 const CONJUNCTION_OPTIONS: { value: ConjunctionValue; label: string }[] = [
-  { value: "and", label: "满足全部条件" },
-  { value: "or", label: "满足任一条件" },
+  { value: "and", label: t("workflow.nodeConfig.condAll") },
+  { value: "or", label: t("workflow.nodeConfig.condAny") },
 ];
 
 const conditionConfig = computed<ConditionNodeConfig>({
@@ -357,7 +360,7 @@ function onConditionValueChange(branchId: string, index: number, value: unknown)
 
 function renderConditionValue(condition: ConditionItem): string {
   if (!operatorRequiresValue(condition.operator)) return "";
-  if (condition.value === undefined || condition.value === null) return "空";
+  if (condition.value === undefined || condition.value === null) return t("workflow.nodeConfig.emptyValue");
 
   const field = getFieldById(condition.field_id);
   const fieldType = field?.type;
@@ -854,7 +857,7 @@ function handleAddLoopChild(type: WorkflowNodeType) {
     const allNodes = props.allNodes ?? [props.node];
     const currentCount = countLoopNodes(allNodes);
     if (currentCount + 1 > MAX_LOOP_NODES_PER_WORKFLOW) {
-      ElMessage.warning("单个工作流最多 5 个循环节点");
+      ElMessage.warning(t("workflow.nodeConfig.loopMaxCount"));
       return;
     }
     // 模拟添加后深度校验
@@ -879,7 +882,7 @@ function handleAddLoopChild(type: WorkflowNodeType) {
     );
     const newDepth = getMaxLoopNestingDepth(simulatedAllNodes);
     if (newDepth > MAX_LOOP_NESTING_DEPTH) {
-      ElMessage.warning("循环嵌套深度不能超过 3 层");
+      ElMessage.warning(t("workflow.nodeConfig.loopDepthExceeded"));
       return;
     }
   }
@@ -995,7 +998,7 @@ const canInsertLoopVar = computed(
  */
 function appendLoopVarSnippet(currentTemplate: string, snippet: string | undefined): string {
   if (!snippet) return currentTemplate ?? "";
-  ElMessage.success("已插入循环变量");
+  ElMessage.success(t("workflow.nodeConfig.loopVarInserted"));
   return `${currentTemplate ?? ""}${snippet}`;
 }
 
@@ -1051,7 +1054,7 @@ watch(
 /** 结果变量引用提示（避免模板内联 {{ }} 拼接导致编译错误） */
 const scriptResultVarHint = computed(() => {
   const varName = scriptConfig.value.result_variable || "script_result";
-  return `下游节点可通过 {{${varName}.field}} 引用脚本输出`;
+  return t("workflow.nodeConfig.scriptResultVarHint", { varName: `{{${varName}.field}}` });
 });
 
 const scriptEditorExtensions = computed(() => [python(), lintGutter()]);
@@ -1066,7 +1069,7 @@ const scriptHelpApi = {
   modules: ["json", "re", "math", "datetime", "decimal", "collections", "itertools", "hashlib", "base64", "uuid", "statistics"],
   examples: [
     {
-      title: "读取上游输入",
+      title: t("workflow.nodeConfig.exampleReadInput"),
       code: `# input 为上游节点输出
 data = input or {}
 set_result({
@@ -1075,7 +1078,7 @@ set_result({
 })`,
     },
     {
-      title: "处理查找记录结果",
+      title: t("workflow.nodeConfig.exampleFindRecords"),
       code: `# input 为 find_records 节点输出
 data = input or {}
 records = data.get('records', []) if isinstance(data, dict) else []
@@ -1085,7 +1088,7 @@ set_result({
 })`,
     },
     {
-      title: "条件分支",
+      title: t("workflow.nodeConfig.exampleCondition"),
       code: `# 根据值路由到不同分支
 value = input.get('score', 0) if isinstance(input, dict) else 0
 if value > 80:
@@ -1108,14 +1111,14 @@ set_result({
 })`,
     },
     {
-      title: "读取触发记录字段",
+      title: t("workflow.nodeConfig.exampleTriggerRecord"),
       code: `# context['record'] 为触发记录
 record = context.get('record', {}) if isinstance(context, dict) else {}
 field_value = record.get('field_id_here')
 set_result({'field_value': field_value})`,
     },
     {
-      title: "数据清洗",
+      title: t("workflow.nodeConfig.exampleClean"),
       code: `# 清洗字符串字段
 import re
 data = input or {}
@@ -1175,11 +1178,7 @@ function insertTemplate(name: string) {
 const scriptTestInput = ref("");
 
 /** 示例输入 placeholder：展示上游节点实际输出格式 */
-const scriptTestInputPlaceholder = [
-  "模拟上游节点输出（即脚本中的 input 变量）",
-  '查找记录：{"count":1,"records":[{"id":"r1","name":"张三"}]}',
-  '更新/创建记录：{"record_id":"r1"}',
-].join("\n");
+const scriptTestInputPlaceholder = t("workflow.nodeConfig.scriptTestInputPlaceholder");
 
 const scriptTesting = ref(false);
 const scriptTestResult = ref<{
@@ -1193,7 +1192,7 @@ const scriptTestResult = ref<{
 
 async function runScriptTest() {
   if (!scriptConfig.value.script_source.trim()) {
-    ElMessage.warning("请先输入脚本代码");
+    ElMessage.warning(t("workflow.nodeConfig.scriptEnterCode"));
     return;
   }
   let sampleInput: unknown = null;
@@ -1202,7 +1201,7 @@ async function runScriptTest() {
     try {
       sampleInput = JSON.parse(raw);
     } catch {
-      ElMessage.warning("示例输入不是有效的 JSON");
+      ElMessage.warning(t("workflow.nodeConfig.scriptInvalidJson"));
       return;
     }
   }
@@ -1273,8 +1272,8 @@ const nodeTypeLabel = computed(() => {
     <template v-if="localNode.node_type === 'condition'">
       <div class="condition-branches">
         <div class="branches-header">
-          <span class="branches-title">条件分支</span>
-          <span class="branches-hint"><el-icon><InfoFilled /></el-icon>&nbsp;在画布上拖拽分支连线到目标节点</span>
+          <span class="branches-title">{{ t('workflow.nodeConfig.conditionBranchTitle') }}</span>
+          <span class="branches-hint"><el-icon><InfoFilled /></el-icon>&nbsp;{{ t('workflow.nodeConfig.branchHint') }}</span>
         </div>
 
         <div class="branch-tabs">
@@ -1285,7 +1284,7 @@ const nodeTypeLabel = computed(() => {
             :class="{ active: branch.id === activeBranchId, 'is-default': branch.is_default }"
             @click="activeBranchId = branch.id">
             <span class="branch-tab-name">{{ branch.name }}</span>
-            <el-tag v-if="branch.is_default" size="small" type="warning" class="branch-tab-default">默认</el-tag>
+            <el-tag v-if="branch.is_default" size="small" type="warning" class="branch-tab-default">{{ t('workflow.nodeConfig.defaultBadge') }}</el-tag>
             <el-icon
               v-if="!readonly && branches.length > 1"
               class="branch-tab-close"
@@ -1298,12 +1297,12 @@ const nodeTypeLabel = computed(() => {
             trigger="click"
             @command="handleAddBranchCommand">
             <el-button type="primary" :icon="Plus" text size="small">
-              添加分支
+              {{ t('workflow.nodeConfig.addBranch') }}
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="condition">条件分支</el-dropdown-item>
-                <el-dropdown-item command="default" :disabled="hasDefaultBranch">默认分支</el-dropdown-item>
+                <el-dropdown-item command="condition">{{ t('workflow.nodeConfig.conditionBranchOption') }}</el-dropdown-item>
+                <el-dropdown-item command="default" :disabled="hasDefaultBranch">{{ t('workflow.nodeConfig.defaultBranchOption') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -1311,28 +1310,28 @@ const nodeTypeLabel = computed(() => {
 
         <div v-if="activeBranch" class="branch-panel">
           <div class="branch-name-row">
-            <span class="branch-name-label">分支名称</span>
+            <span class="branch-name-label">{{ t('workflow.nodeConfig.branchName') }}</span>
             <el-input
               :model-value="activeBranch.name"
               :disabled="readonly"
               size="small"
-              placeholder="分支名称"
+              :placeholder="t('workflow.nodeConfig.branchName')"
               class="branch-name-input"
               @update:model-value="(val) => updateBranchName((activeBranch as ConditionBranch).id, val as string)" />
           </div>
 
           <div class="branch-target-row">
-            <span class="branch-target-label">连线状态</span>
+            <span class="branch-target-label">{{ t('workflow.nodeConfig.connectionStatus') }}</span>
             <el-tag
               :type="activeBranch.target_node_id ? 'success' : 'info'"
               size="small">
-              {{ activeBranch.target_node_id ? "已连线" : "未连线" }}
+              {{ activeBranch.target_node_id ? t('workflow.nodeConfig.connected') : t('workflow.nodeConfig.notConnected') }}
             </el-tag>
           </div>
 
           <template v-if="!activeBranch.is_default">
             <div class="condition-conjunction">
-              <span class="conjunction-label">条件关系</span>
+              <span class="conjunction-label">{{ t('workflow.nodeConfig.conjunction') }}</span>
               <template v-if="readonly">
                 <span class="conjunction-value">{{ getConjunctionLabel(activeBranch.conjunction) }}</span>
               </template>
@@ -1357,7 +1356,7 @@ const nodeTypeLabel = computed(() => {
                 class="condition-row">
                 <el-select
                   :model-value="condition.field_id"
-                  placeholder="选择字段"
+                  :placeholder="t('workflow.trigger.selectField')"
                   class="field-select"
                   :disabled="readonly"
                   @change="(val) => onConditionFieldChange((activeBranch as ConditionBranch).id, index, val as string)">
@@ -1370,7 +1369,7 @@ const nodeTypeLabel = computed(() => {
 
                 <el-select
                   :model-value="condition.operator"
-                  placeholder="操作符"
+                  :placeholder="t('workflow.trigger.operator')"
                   class="operator-select"
                   :disabled="readonly"
                   @change="(val) => onConditionOperatorChange((activeBranch as ConditionBranch).id, index, val as FilterOperatorValue)">
@@ -1385,12 +1384,12 @@ const nodeTypeLabel = computed(() => {
                   v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
                   :field="getFieldById(condition.field_id)!"
                   :model-value="condition.value"
-                  placeholder="值"
+                  :placeholder="t('workflow.trigger.value')"
                   class="value-input"
                   :disabled="readonly"
                   @update:model-value="(val) => onConditionValueChange((activeBranch as ConditionBranch).id, index, val)" />
 
-                <span v-else class="value-placeholder">无需值</span>
+                <span v-else class="value-placeholder">{{ t('workflow.trigger.noValue') }}</span>
 
                 <el-button
                   v-if="!readonly"
@@ -1407,26 +1406,26 @@ const nodeTypeLabel = computed(() => {
                 :icon="Plus"
                 text
                 @click="addCondition(activeBranch.id)">
-                添加条件
+                {{ t('workflow.nodeConfig.addCondition') }}
               </el-button>
             </div>
 
             <el-divider />
 
             <div class="summary">
-              <div class="summary-title">条件摘要</div>
+              <div class="summary-title">{{ t('workflow.nodeConfig.conditionSummary') }}</div>
               <div v-if="activeBranch.conditions.length > 1" class="summary-conjunction">
-                关系：{{ getConjunctionLabel(activeBranch.conjunction) }}
+                {{ t('workflow.nodeConfig.relation') }}{{ getConjunctionLabel(activeBranch.conjunction) }}
               </div>
               <div
                 v-for="(condition, index) in activeBranch.conditions"
                 :key="`summary-${index}`"
                 class="summary-item">
-                {{ getFieldById(condition.field_id)?.name ?? "未选择字段" }}
+                {{ getFieldById(condition.field_id)?.name ?? t('workflow.nodeConfig.noFieldSelected') }}
                 {{ OPERATOR_LABELS[condition.operator] ?? condition.operator }}
                 {{ renderConditionValue(condition) }}
               </div>
-              <el-empty v-if="activeBranch.conditions.length === 0" description="暂无条件" :image-size="60" />
+              <el-empty v-if="activeBranch.conditions.length === 0" :description="t('workflow.nodeConfig.noCondition')" :image-size="60" />
             </div>
           </template>
 
@@ -1434,8 +1433,8 @@ const nodeTypeLabel = computed(() => {
             v-else
             type="info"
             :closable="false"
-            title="默认分支无需配置条件"
-            description="当所有条件分支都不满足时，将执行此分支" />
+            :title="t('workflow.nodeConfig.defaultBranchNoConfig')"
+            :description="t('workflow.nodeConfig.defaultBranchDesc')" />
         </div>
       </div>
     </template>
@@ -1449,7 +1448,7 @@ const nodeTypeLabel = computed(() => {
           class="mapping-row update-record-mapping-row">
           <el-select
             :model-value="mapping.field_id"
-            placeholder="目标字段"
+            :placeholder="t('workflow.nodeConfig.targetField')"
             class="field-select"
             :disabled="readonly"
             @change="(val) => updateMappingFieldId(index, val as string)">
@@ -1467,8 +1466,8 @@ const nodeTypeLabel = computed(() => {
                   :model-value="useExpressionForUpdate[index]"
                   :disabled="readonly || !mapping.field_id"
                   size="small"
-                  active-text="使用表达式"
-                  inactive-text="使用静态值"
+                  :active-text="t('workflow.nodeConfig.useExpression')"
+                  :inactive-text="t('workflow.nodeConfig.useStaticValue')"
                   @update:model-value="(val) => toggleExpressionForUpdate(index, val as boolean)" />
               </div>
 
@@ -1477,7 +1476,7 @@ const nodeTypeLabel = computed(() => {
                 class="template-input-with-loop-var">
                 <el-input
                   :model-value="mapping.value_template"
-                  placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
+                  :placeholder="t('workflow.nodeConfig.exprPlaceholder')"
                   class="template-input"
                   :disabled="readonly"
                   @update:model-value="(val) => updateMappingTemplate(index, val)" />
@@ -1494,7 +1493,7 @@ const nodeTypeLabel = computed(() => {
                 :key="`update-static-${index}`"
                 :field="getFieldById(mapping.field_id)!"
                 :model-value="mapping.value_template"
-                placeholder="输入静态值"
+                :placeholder="t('workflow.nodeConfig.staticValuePlaceholder')"
                 class="static-value-input"
                 :disabled="readonly"
                 @update:model-value="(val) => onUpdateStaticValueChange(index, val)" />
@@ -1506,7 +1505,7 @@ const nodeTypeLabel = computed(() => {
                 :key="`update-static-${index}`"
                 :field="getFieldById(mapping.field_id)!"
                 :model-value="mapping.value_template"
-                placeholder="输入静态值"
+                :placeholder="t('workflow.nodeConfig.staticValuePlaceholder')"
                 class="static-value-input"
                 :disabled="readonly"
                 @update:model-value="(val) => onUpdateStaticValueChange(index, val)" />
@@ -1524,7 +1523,7 @@ const nodeTypeLabel = computed(() => {
         </div>
 
         <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addUpdateMapping">
-          添加字段更新
+          {{ t('workflow.nodeConfig.addFieldUpdate') }}
         </el-button>
       </div>
     </template>
@@ -1532,10 +1531,10 @@ const nodeTypeLabel = computed(() => {
     <!-- 创建记录节点 -->
     <template v-else-if="localNode.node_type === 'create_record'">
       <el-form label-position="top" class="config-form">
-        <el-form-item label="目标表格">
+        <el-form-item :label="t('workflow.nodeConfig.targetTable')">
           <el-select
             v-model="createRecordTargetTableId"
-            placeholder="选择目标表格"
+            :placeholder="t('workflow.nodeConfig.selectTargetTable')"
             class="full-width"
             :disabled="readonly"
             @change="onCreateRecordTargetTableChange">
@@ -1557,7 +1556,7 @@ const nodeTypeLabel = computed(() => {
           <div class="field-select-group">
             <el-select
               :model-value="mapping.target_field_id"
-              placeholder="目标字段"
+              :placeholder="t('workflow.nodeConfig.targetField')"
               class="field-select"
               :disabled="readonly"
               :loading="isLoadingTargetFields"
@@ -1571,7 +1570,7 @@ const nodeTypeLabel = computed(() => {
 
             <el-select
               :model-value="mapping.source_field_id"
-              placeholder="源字段（可选）"
+              :placeholder="t('workflow.nodeConfig.sourceFieldOptional')"
               clearable
               class="field-select"
               :disabled="readonly"
@@ -1591,8 +1590,8 @@ const nodeTypeLabel = computed(() => {
                   :model-value="useExpressionForCreate[index]"
                   :disabled="readonly || !mapping.target_field_id"
                   size="small"
-                  active-text="使用表达式"
-                  inactive-text="使用静态值"
+                  :active-text="t('workflow.nodeConfig.useExpression')"
+                  :inactive-text="t('workflow.nodeConfig.useStaticValue')"
                   @update:model-value="(val) => toggleExpressionForCreate(index, val as boolean)" />
               </div>
 
@@ -1601,7 +1600,7 @@ const nodeTypeLabel = computed(() => {
                 class="template-input-with-loop-var">
                 <el-input
                   :model-value="mapping.value_template"
-                  placeholder="使用表达式（支持 {{trigger.record.field_id}}）"
+                  :placeholder="t('workflow.nodeConfig.exprPlaceholder')"
                   class="template-input"
                   :disabled="readonly"
                   @update:model-value="(val) => updateCreateValueTemplate(index, val)" />
@@ -1618,7 +1617,7 @@ const nodeTypeLabel = computed(() => {
                 :key="`create-static-${index}`"
                 :field="getTargetFieldById(mapping.target_field_id)!"
                 :model-value="mapping.value_template"
-                placeholder="输入静态值"
+                :placeholder="t('workflow.nodeConfig.staticValuePlaceholder')"
                 class="static-value-input"
                 :disabled="readonly"
                 @update:model-value="(val) => onCreateStaticValueChange(index, val)" />
@@ -1630,7 +1629,7 @@ const nodeTypeLabel = computed(() => {
                 :key="`create-static-${index}`"
                 :field="getTargetFieldById(mapping.target_field_id)!"
                 :model-value="mapping.value_template"
-                placeholder="输入静态值"
+                :placeholder="t('workflow.nodeConfig.staticValuePlaceholder')"
                 class="static-value-input"
                 :disabled="readonly"
                 @update:model-value="(val) => onCreateStaticValueChange(index, val)" />
@@ -1648,28 +1647,28 @@ const nodeTypeLabel = computed(() => {
         </div>
 
         <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addCreateMapping">
-          添加字段映射
+          {{ t('workflow.nodeConfig.addFieldMapping') }}
         </el-button>
       </div>
 
       <!-- 只读模式：展示字段映射摘要 -->
       <div v-else class="readonly-mapping-summary">
-        <div class="summary-title">字段映射</div>
-        <el-empty v-if="createRecordMappings.length === 0" description="暂无字段映射" :image-size="60" />
+        <div class="summary-title">{{ t('workflow.nodeConfig.fieldMapping') }}</div>
+        <el-empty v-if="createRecordMappings.length === 0" :description="t('workflow.nodeConfig.noFieldMapping')" :image-size="60" />
         <div
           v-for="(mapping, index) in createRecordMappings"
           :key="index"
           class="summary-row">
           <div class="summary-field">
-            <span class="summary-label">目标字段</span>
+            <span class="summary-label">{{ t('workflow.nodeConfig.targetField') }}</span>
             <span class="summary-value">{{ (getTargetFieldById(mapping.target_field_id)?.name ?? mapping.target_field_id) || '-' }}</span>
           </div>
           <div class="summary-field">
-            <span class="summary-label">源字段</span>
+            <span class="summary-label">{{ t('workflow.nodeConfig.sourceField') }}</span>
             <span class="summary-value">{{ (getFieldById(mapping.source_field_id ?? '')?.name ?? mapping.source_field_id) || '-' }}</span>
           </div>
           <div class="summary-field summary-wide">
-            <span class="summary-label">取值</span>
+            <span class="summary-label">{{ t('workflow.nodeConfig.value') }}</span>
             <span class="summary-value">{{ mapping.value_template || '-' }}</span>
           </div>
         </div>
@@ -1679,18 +1678,18 @@ const nodeTypeLabel = computed(() => {
     <!-- 发送邮件节点 -->
     <template v-else-if="localNode.node_type === 'send_email'">
       <el-form label-position="top" class="config-form">
-        <el-form-item label="收件人来源">
+        <el-form-item :label="t('workflow.nodeConfig.recipientSource')">
           <el-radio-group v-model="emailRecipientType" :disabled="readonly">
-            <el-radio label="field">字段</el-radio>
-            <el-radio label="fixed">固定邮箱</el-radio>
+            <el-radio label="field">{{ t('workflow.nodeConfig.field') }}</el-radio>
+            <el-radio label="fixed">{{ t('workflow.nodeConfig.fixedEmail') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item v-if="emailRecipientType === 'field'" label="收件人字段">
+        <el-form-item v-if="emailRecipientType === 'field'" :label="t('workflow.nodeConfig.recipientField')">
           <el-select
             v-model="emailRecipientValue"
             multiple
-            placeholder="选择字段"
+            :placeholder="t('workflow.trigger.selectField')"
             class="full-width"
             :disabled="readonly">
             <el-option
@@ -1699,34 +1698,34 @@ const nodeTypeLabel = computed(() => {
               :label="field.name"
               :value="field.id" />
           </el-select>
-          <div class="field-hint">仅支持邮箱、成员、协作人类型字段</div>
+          <div class="field-hint">{{ t('workflow.nodeConfig.emailFieldHint') }}</div>
         </el-form-item>
 
-        <el-form-item v-else label="固定邮箱">
+        <el-form-item v-else :label="t('workflow.nodeConfig.fixedEmail')">
           <el-select
             v-model="emailRecipientValue"
             multiple
             filterable
             allow-create
             default-first-option
-            placeholder="输入邮箱地址"
+            :placeholder="t('workflow.nodeConfig.fixedEmailPlaceholder')"
             class="full-width"
             :disabled="readonly" />
         </el-form-item>
 
-        <el-form-item label="内容模式">
+        <el-form-item :label="t('workflow.nodeConfig.contentMode')">
           <el-radio-group v-model="emailContentMode" :disabled="readonly">
-            <el-radio label="custom">自定义内容</el-radio>
-            <el-radio label="template">邮件模板</el-radio>
+            <el-radio label="custom">{{ t('workflow.nodeConfig.customContent') }}</el-radio>
+            <el-radio label="template">{{ t('workflow.nodeConfig.emailTemplateLabel') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
         <template v-if="emailContentMode === 'custom'">
-          <el-form-item label="邮件主题">
+          <el-form-item :label="t('workflow.nodeConfig.emailSubject')">
             <div class="template-input-with-loop-var">
               <el-input
                 v-model="emailSubject"
-                placeholder="请输入邮件主题"
+                :placeholder="t('workflow.nodeConfig.emailSubjectPlaceholder')"
                 :disabled="readonly" />
               <LoopVarInserter
                 v-if="canInsertLoopVar"
@@ -1735,16 +1734,16 @@ const nodeTypeLabel = computed(() => {
                 :disabled="isLoadingLoopFieldDrillFields"
                 @insert="(snippet) => emailSubject = appendLoopVarSnippet(emailSubject, snippet)" />
             </div>
-            <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值</div>
+            <div class="field-hint">{{ t('workflow.nodeConfig.emailFieldRefHint') }}</div>
           </el-form-item>
 
-          <el-form-item label="邮件正文">
+          <el-form-item :label="t('workflow.nodeConfig.emailBody')">
             <div class="template-input-with-loop-var">
               <el-input
                 v-model="emailBody"
                 type="textarea"
                 :rows="6"
-                placeholder="请输入邮件正文"
+                :placeholder="t('workflow.nodeConfig.emailBodyPlaceholder')"
                 :disabled="readonly" />
               <LoopVarInserter
                 v-if="canInsertLoopVar"
@@ -1753,13 +1752,13 @@ const nodeTypeLabel = computed(() => {
                 :disabled="isLoadingLoopFieldDrillFields"
                 @insert="(snippet) => emailBody = appendLoopVarSnippet(emailBody, snippet)" />
             </div>
-            <div class="field-hint" v-pre>支持 {{record.field_id}} 引用记录字段值，{{trigger.event_type}} 引用触发事件</div>
+            <div class="field-hint">{{ t('workflow.nodeConfig.emailBodyRefHint') }}</div>
           </el-form-item>
         </template>
 
         <template v-else>
-          <el-form-item label="邮件模板">
-            <el-select v-model="emailTemplateId" placeholder="选择模板" class="full-width" :disabled="readonly">
+          <el-form-item :label="t('workflow.nodeConfig.emailTemplateLabel')">
+            <el-select v-model="emailTemplateId" :placeholder="t('workflow.nodeConfig.selectTemplate')" class="full-width" :disabled="readonly">
               <el-option
                 v-for="template in emailTemplates"
                 :key="template.id"
@@ -1774,15 +1773,15 @@ const nodeTypeLabel = computed(() => {
     <!-- Webhook 节点 -->
     <template v-else-if="localNode.node_type === 'webhook'">
       <el-form label-position="top" class="config-form">
-        <el-form-item label="Webhook 来源">
+        <el-form-item :label="t('workflow.nodeConfig.webhookSource')">
           <el-radio-group v-model="webhookMode" class="webhook-source-radio" :disabled="readonly || !isNewWebhookNode">
-            <el-radio label="existing">选择已配置</el-radio>
-            <el-radio label="inline">内联新建</el-radio>
+            <el-radio label="existing">{{ t('workflow.nodeConfig.selectExisting') }}</el-radio>
+            <el-radio label="inline">{{ t('workflow.nodeConfig.inlineNew') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item v-if="webhookMode === 'existing'" label="选择 Webhook">
-          <el-select v-model="selectedWebhookId" placeholder="选择 Webhook" class="full-width" :disabled="readonly">
+        <el-form-item v-if="webhookMode === 'existing'" :label="t('workflow.nodeConfig.selectWebhook')">
+          <el-select v-model="selectedWebhookId" :placeholder="t('workflow.nodeConfig.selectWebhook')" class="full-width" :disabled="readonly">
             <el-option
               v-for="webhook in availableWebhooks"
               :key="webhook.id"
@@ -1792,23 +1791,23 @@ const nodeTypeLabel = computed(() => {
         </el-form-item>
 
         <template v-else>
-          <el-form-item label="名称">
+          <el-form-item :label="t('workflow.nodeConfig.name')">
             <el-input
               :model-value="inlineWebhook.name"
-              placeholder="Webhook 名称"
+              :placeholder="t('workflow.nodeConfig.webhookNamePlaceholder')"
               :disabled="readonly"
               @update:model-value="(val) => updateInlineWebhook({ name: val })" />
           </el-form-item>
 
-          <el-form-item label="请求地址">
+          <el-form-item :label="t('workflow.nodeConfig.requestUrl')">
             <el-input
               :model-value="inlineWebhook.url"
-              placeholder="https://example.com/webhook"
+              :placeholder="t('workflow.nodeConfig.urlPlaceholder')"
               :disabled="readonly"
               @update:model-value="(val) => updateInlineWebhook({ url: val })" />
           </el-form-item>
 
-          <el-form-item label="请求方法">
+          <el-form-item :label="t('workflow.nodeConfig.requestMethod')">
             <el-select
               :model-value="inlineWebhook.method"
               class="full-width"
@@ -1831,14 +1830,14 @@ const nodeTypeLabel = computed(() => {
                 <el-input :model-value="key" disabled class="header-key" />
                 <el-input
                   :model-value="inlineWebhook.headers[key]"
-                  placeholder="值"
+                  :placeholder="t('workflow.trigger.value')"
                   class="header-value"
                   :disabled="readonly"
                   @update:model-value="(val) => updateInlineHeader(key, val)" />
               </div>
               <div v-if="!readonly" class="header-row">
                 <el-input
-                  placeholder="新 Header 键"
+                  :placeholder="t('workflow.nodeConfig.newHeaderKey')"
                   class="header-key"
                   @blur="(e: Event) => {
                     const target = e.target as HTMLInputElement;
@@ -1848,13 +1847,13 @@ const nodeTypeLabel = computed(() => {
             </div>
           </el-form-item>
 
-          <el-form-item label="Body 模板">
+          <el-form-item :label="t('workflow.nodeConfig.bodyTemplate')">
             <div class="template-input-with-loop-var">
               <el-input
                 :model-value="inlineWebhook.body_template"
                 type="textarea"
                 :rows="4"
-                placeholder="JSON 模板（注意对应webhook接口配置要求），支持通过 {{record}}、{{record.field_id}} 获取对应的数据"
+                :placeholder="t('workflow.nodeConfig.bodyTemplatePlaceholder')"
                 :disabled="readonly"
                 @update:model-value="(val) => updateInlineWebhook({ body_template: val })" />
               <LoopVarInserter
@@ -1871,12 +1870,12 @@ const nodeTypeLabel = computed(() => {
 
     <!-- 查找记录节点 -->
     <template v-else-if="localNode.node_type === 'find_records'">
-      <div class="section-title">查找记录</div>
+      <div class="section-title">{{ t('workflow.nodeConfig.findRecords') }}</div>
       <el-form label-position="top" class="config-form">
-        <el-form-item label="目标表格">
+        <el-form-item :label="t('workflow.nodeConfig.targetTable')">
           <el-select
             v-model="findRecordsTargetTableId"
-            placeholder="选择目标表格"
+            :placeholder="t('workflow.nodeConfig.selectTargetTable')"
             class="full-width"
             :disabled="readonly"
             @change="onFindRecordsTargetTableChange">
@@ -1888,10 +1887,10 @@ const nodeTypeLabel = computed(() => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="过滤条件">
+        <el-form-item :label="t('workflow.nodeConfig.filterCondition')">
           <div class="find-records-conditions">
             <div class="condition-conjunction">
-              <span class="conjunction-label">条件关系</span>
+              <span class="conjunction-label">{{ t('workflow.nodeConfig.conjunction') }}</span>
               <template v-if="readonly">
                 <span class="conjunction-value">{{ getConjunctionLabel(findRecordsConjunction) }}</span>
               </template>
@@ -1915,7 +1914,7 @@ const nodeTypeLabel = computed(() => {
                 class="condition-row">
                 <el-select
                   :model-value="condition.field_id"
-                  placeholder="选择字段"
+                  :placeholder="t('workflow.trigger.selectField')"
                   class="field-select"
                   :disabled="readonly"
                   @change="(val) => onFindRecordsConditionFieldChange(index, val as string)">
@@ -1928,7 +1927,7 @@ const nodeTypeLabel = computed(() => {
 
                 <el-select
                   :model-value="condition.operator"
-                  placeholder="操作符"
+                  :placeholder="t('workflow.trigger.operator')"
                   class="operator-select"
                   :disabled="readonly"
                   @change="(val) => onFindRecordsConditionOperatorChange(index, val as FilterOperatorValue)">
@@ -1943,12 +1942,12 @@ const nodeTypeLabel = computed(() => {
                   v-if="operatorRequiresValue(condition.operator) && getTargetFieldById(condition.field_id)"
                   :field="getTargetFieldById(condition.field_id)!"
                   :model-value="condition.value"
-                  placeholder="值"
+                  :placeholder="t('workflow.trigger.value')"
                   class="value-input"
                   :disabled="readonly"
                   @update:model-value="(val) => onFindRecordsConditionValueChange(index, val)" />
 
-                <span v-else class="value-placeholder">无需值</span>
+                <span v-else class="value-placeholder">{{ t('workflow.trigger.noValue') }}</span>
 
                 <el-button
                   v-if="!readonly"
@@ -1965,16 +1964,16 @@ const nodeTypeLabel = computed(() => {
                 :icon="Plus"
                 text
                 @click="addFindRecordsCondition">
-                添加条件
+                {{ t('workflow.nodeConfig.addCondition') }}
               </el-button>
             </div>
           </div>
         </el-form-item>
 
-        <el-form-item label="排序字段">
+        <el-form-item :label="t('workflow.nodeConfig.sortField')">
           <el-select
             v-model="findRecordsSortFieldId"
-            placeholder="选择排序字段"
+            :placeholder="t('workflow.nodeConfig.selectSortField')"
             class="full-width"
             :disabled="readonly">
             <el-option
@@ -1985,14 +1984,14 @@ const nodeTypeLabel = computed(() => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="排序方向">
+        <el-form-item :label="t('workflow.nodeConfig.sortDirection')">
           <el-radio-group v-model="findRecordsSortDirection" :disabled="readonly">
-            <el-radio label="asc">升序</el-radio>
-            <el-radio label="desc">降序</el-radio>
+            <el-radio label="asc">{{ t('workflow.nodeConfig.asc') }}</el-radio>
+            <el-radio label="desc">{{ t('workflow.nodeConfig.desc') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="返回条数上限">
+        <el-form-item :label="t('workflow.nodeConfig.limit')">
           <el-input-number
             v-model="findRecordsLimit"
             :min="1"
@@ -2002,24 +2001,24 @@ const nodeTypeLabel = computed(() => {
             :disabled="readonly" />
         </el-form-item>
 
-        <el-form-item label="结果变量名">
+        <el-form-item :label="t('workflow.nodeConfig.resultVarName')">
           <el-input
             v-model="findRecordsVariable"
             placeholder="records"
             class="full-width"
             :disabled="readonly" />
           <div class="form-item-hint">
-            变量名只能包含字母、数字和下划线，且不能以数字开头。
+            {{ t('workflow.nodeConfig.varNameHint') }}
           </div>
           <div v-if="!isFindRecordsVariableValid" class="form-item-error">
-            变量名格式不正确，请检查输入。
+            {{ t('workflow.nodeConfig.varNameInvalid') }}
           </div>
         </el-form-item>
 
-        <el-form-item label="空结果处理">
+        <el-form-item :label="t('workflow.nodeConfig.emptyResult')">
           <el-radio-group v-model="findRecordsEmptyAction" :disabled="readonly">
-            <el-radio label="continue">空结果继续执行</el-radio>
-            <el-radio label="stop">空结果终止分支</el-radio>
+            <el-radio label="continue">{{ t('workflow.nodeConfig.continueOnEmpty') }}</el-radio>
+            <el-radio label="stop">{{ t('workflow.nodeConfig.stopOnEmpty') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -2028,19 +2027,19 @@ const nodeTypeLabel = computed(() => {
     <!-- 循环节点 -->
     <template v-else-if="localNode.node_type === 'loop'">
       <el-form label-position="top" class="config-form">
-        <el-form-item label="循环方式">
+        <el-form-item :label="t('workflow.nodeConfig.loopMode')">
           <el-select
             :model-value="'sequential'"
             disabled
             class="full-width">
-            <el-option label="依次处理每条数据" value="sequential" />
+            <el-option :label="t('workflow.nodeConfig.sequential')" value="sequential" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="数据源">
+        <el-form-item :label="t('workflow.nodeConfig.dataSource')">
           <el-select
             v-model="loopDataSourceValueKey"
-            placeholder="选择数据源"
+            :placeholder="t('workflow.nodeConfig.selectDataSource')"
             class="full-width"
             :disabled="readonly">
             <el-option
@@ -2050,11 +2049,11 @@ const nodeTypeLabel = computed(() => {
               :value="loopDataSourceKey(opt.value)" />
           </el-select>
           <div v-if="loopDataSourceOptions.length === 0" class="field-hint">
-            暂无可用的前序数据源，请先在循环前添加"查找记录"或"Webhook"节点，或确保表格中存在人员/群组/附件/关联字段。
+            {{ t('workflow.nodeConfig.noPrevDataSource') }}
           </div>
         </el-form-item>
 
-        <el-form-item label="最大循环次数">
+        <el-form-item :label="t('workflow.nodeConfig.maxLoopTimes')">
           <el-input-number
             v-model="loopMaxIterations"
             :min="1"
@@ -2064,17 +2063,17 @@ const nodeTypeLabel = computed(() => {
             :disabled="readonly" />
         </el-form-item>
 
-        <el-form-item label="错误处理方式">
+        <el-form-item :label="t('workflow.nodeConfig.errorHandling')">
           <el-radio-group v-model="loopErrorHandling" :disabled="readonly">
-            <el-radio label="skip">跳过当次继续</el-radio>
-            <el-radio label="terminate">终止流程</el-radio>
+            <el-radio label="skip">{{ t('workflow.nodeConfig.skipOnError') }}</el-radio>
+            <el-radio label="terminate">{{ t('workflow.nodeConfig.terminateOnError') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="空结果处理">
+        <el-form-item :label="t('workflow.nodeConfig.emptyResult')">
           <el-radio-group v-model="loopEmptyResultAction" :disabled="readonly">
-            <el-radio label="skip">跳过循环</el-radio>
-            <el-radio label="error">报错</el-radio>
+            <el-radio label="skip">{{ t('workflow.nodeConfig.skipLoop') }}</el-radio>
+            <el-radio label="error">{{ t('workflow.nodeConfig.reportError') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -2082,7 +2081,7 @@ const nodeTypeLabel = computed(() => {
       <!-- 循环体子节点编辑区 -->
       <div class="loop-body-section">
         <div class="loop-body-header">
-          <span class="loop-body-title">循环体节点</span>
+          <span class="loop-body-title">{{ t('workflow.nodeConfig.loopBodyNodes') }}</span>
           <span class="loop-body-count">（{{ loopBodyNodes.length }}）</span>
         </div>
 
@@ -2111,13 +2110,13 @@ const nodeTypeLabel = computed(() => {
 
           <el-empty
             v-if="loopBodyNodes.length === 0"
-            description="暂无循环体节点"
+            :description="t('workflow.nodeConfig.noLoopBody')"
             :image-size="60" />
 
           <div v-if="!readonly" class="loop-body-add">
             <el-dropdown placement="bottom-start" trigger="click">
               <el-button type="primary" :icon="Plus" text size="small">
-                添加循环体节点
+                {{ t('workflow.nodeConfig.addLoopBody') }}
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
@@ -2139,7 +2138,7 @@ const nodeTypeLabel = computed(() => {
     <!-- 自定义脚本节点 -->
     <template v-else-if="localNode.node_type === 'script'">
       <el-form label-position="top" class="config-form">
-        <el-form-item label="脚本代码（python）">
+        <el-form-item :label="t('workflow.nodeConfig.scriptCode')">
           <div class="script-editor-wrapper">
             <codemirror
               v-model="scriptConfig.script_source"
@@ -2158,7 +2157,7 @@ const nodeTypeLabel = computed(() => {
                   size="small"
                   :disabled="readonly"
                   class="script-template-inserter-btn">
-                  插入模板
+                  {{ t('workflow.nodeConfig.insertTemplate') }}
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -2178,50 +2177,50 @@ const nodeTypeLabel = computed(() => {
                 size="small"
                 class="script-help-btn"
                 @click="scriptHelpVisible = !scriptHelpVisible">
-                使用帮助
+                {{ t('workflow.nodeConfig.help') }}
               </el-button>
             </div>
             <div v-show="scriptHelpVisible" class="script-help-panel">
               <div class="help-section">
-                <div class="help-title">预置变量</div>
+                <div class="help-title">{{ t('workflow.nodeConfig.presetVars') }}</div>
                 <table class="help-table">
                   <thead>
-                    <tr><th>变量</th><th>类型</th><th>说明</th></tr>
+                    <tr><th>{{ t('workflow.nodeConfig.varHeader') }}</th><th>{{ t('workflow.nodeConfig.typeHeader') }}</th><th>{{ t('workflow.nodeConfig.descHeader') }}</th></tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td><code>input</code></td>
                       <td>any</td>
-                      <td>上游节点的输出数据（由"输入来源"决定）</td>
+                      <td>{{ t('workflow.nodeConfig.upstreamOutputDesc') }}</td>
                     </tr>
                     <tr>
                       <td><code>context</code></td>
                       <td>object</td>
-                      <td>工作流上下文，含 trigger / record / instance / workflow / loop / node_outputs</td>
+                      <td>{{ t('workflow.nodeConfig.contextDesc') }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <div class="help-section">
-                <div class="help-title">预置函数</div>
+                <div class="help-title">{{ t('workflow.nodeConfig.presetFns') }}</div>
                 <table class="help-table">
                   <thead>
-                    <tr><th>函数</th><th>说明</th></tr>
+                    <tr><th>{{ t('workflow.nodeConfig.fnHeader') }}</th><th>{{ t('workflow.nodeConfig.descHeader') }}</th></tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td><code>{{ scriptHelpApi.setResult }}</code></td>
-                      <td>设置脚本输出结果（推荐）</td>
+                      <td>{{ t('workflow.nodeConfig.setResultDesc') }}</td>
                     </tr>
                     <tr>
                       <td><code>{{ scriptHelpApi.setBranch }}</code></td>
-                      <td>声明分支标签，路由到对应目标节点</td>
+                      <td>{{ t('workflow.nodeConfig.setBranchDesc') }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <div class="help-section">
-                <div class="help-title">白名单模块</div>
+                <div class="help-title">{{ t('workflow.nodeConfig.whitelistModules') }}</div>
                 <div class="help-modules">
                   <el-tag
                     v-for="m in scriptHelpApi.modules"
@@ -2231,15 +2230,15 @@ const nodeTypeLabel = computed(() => {
                 </div>
               </div>
               <div class="help-section">
-                <div class="help-title">执行规则</div>
+                <div class="help-title">{{ t('workflow.nodeConfig.execRules') }}</div>
                 <ul class="help-rules">
-                  <li>输出必须可 JSON 序列化，体积 ≤ 1MB</li>
-                  <li>默认超时 30 秒（可配置 1-300 秒），超时强制终止</li>
-                  <li>禁用文件 I/O、网络、子进程等危险操作</li>
+                  <li>{{ t('workflow.nodeConfig.ruleJsonSize') }}</li>
+                  <li>{{ t('workflow.nodeConfig.ruleTimeout') }}</li>
+                  <li>{{ t('workflow.nodeConfig.ruleDanger') }}</li>
                 </ul>
               </div>
               <div class="help-example">
-                <div class="help-title">常见场景示例</div>
+                <div class="help-title">{{ t('workflow.nodeConfig.commonExamples') }}</div>
                 <div
                   v-for="ex in scriptHelpApi.examples"
                   :key="ex.title"
@@ -2252,46 +2251,46 @@ const nodeTypeLabel = computed(() => {
           </div>
         </el-form-item>
 
-        <el-form-item label="超时时间（秒）">
+        <el-form-item :label="t('workflow.nodeConfig.timeoutSec')">
           <el-input-number v-model="scriptConfig.timeout" :min="1" :max="300" :disabled="readonly" @change="syncScriptConfig" />
         </el-form-item>
 
-        <el-form-item label="结果变量名">
+        <el-form-item :label="t('workflow.nodeConfig.resultVar')">
           <el-input v-model="scriptConfig.result_variable" :disabled="readonly" placeholder="script_result" @change="syncScriptConfig" />
           <div class="field-hint">{{ scriptResultVarHint }}</div>
         </el-form-item>
 
-        <el-form-item label="输入来源">
-          <el-select v-model="scriptConfig.input_node_id" :disabled="readonly" placeholder="默认取上一节点输出" clearable class="full-width" @change="syncScriptConfig">
-            <el-option label="上一节点输出（默认）" :value="(null as any)" />
+        <el-form-item :label="t('workflow.nodeConfig.inputSource')">
+          <el-select v-model="scriptConfig.input_node_id" :disabled="readonly" :placeholder="t('workflow.nodeConfig.defaultPrevOutputPlaceholder')" clearable class="full-width" @change="syncScriptConfig">
+            <el-option :label="t('workflow.nodeConfig.defaultPrevOutput')" :value="(null as any)" />
             <el-option v-for="n in scriptInputCandidates" :key="n.id" :label="n.name + ' (' + n.node_type + ')'" :value="n.id" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="分支路由">
+        <el-form-item :label="t('workflow.nodeConfig.branchRoute')">
           <div class="script-branches">
             <div v-for="(b, idx) in scriptConfig.branches" :key="idx" class="script-branch-row">
-              <el-input v-model="b.label" placeholder="分支标签" :disabled="readonly" style="width:140px" @change="syncScriptConfig" />
-              <el-select v-model="b.target_node_id" placeholder="目标节点" :disabled="readonly" class="full-width" @change="syncScriptConfig">
+              <el-input v-model="b.label" :placeholder="t('workflow.nodeConfig.branchLabel')" :disabled="readonly" style="width:140px" @change="syncScriptConfig" />
+              <el-select v-model="b.target_node_id" :placeholder="t('workflow.nodeConfig.targetNode')" :disabled="readonly" class="full-width" @change="syncScriptConfig">
                 <el-option v-for="n in scriptBranchCandidates" :key="n.id" :label="n.name + ' (' + n.node_type + ')'" :value="n.id" />
               </el-select>
               <el-button v-if="!readonly" :icon="Delete" link @click="scriptConfig.branches.splice(idx, 1); syncScriptConfig()" />
             </div>
-            <el-button v-if="!readonly" :icon="Plus" text size="small" @click="scriptConfig.branches.push({ label: '', target_node_id: '' })">添加分支</el-button>
-            <div class="field-hint">脚本中调用 set_branch('标签') 即路由到对应目标节点</div>
+            <el-button v-if="!readonly" :icon="Plus" text size="small" @click="scriptConfig.branches.push({ label: '', target_node_id: '' })">{{ t('workflow.nodeConfig.addBranch') }}</el-button>
+            <div class="field-hint">{{ t('workflow.nodeConfig.branchRouteHint') }}</div>
           </div>
         </el-form-item>
 
-        <el-divider content-position="left">测试运行</el-divider>
-        <el-form-item label="示例输入（JSON）">
+        <el-divider content-position="left">{{ t('workflow.nodeConfig.testRunTitle') }}</el-divider>
+        <el-form-item :label="t('workflow.nodeConfig.sampleInput')">
           <el-input v-model="scriptTestInput" type="textarea" :rows="4" :placeholder="scriptTestInputPlaceholder" :disabled="readonly" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="scriptTesting" :disabled="readonly" @click="runScriptTest">测试运行</el-button>
+          <el-button type="primary" :loading="scriptTesting" :disabled="readonly" @click="runScriptTest">{{ t('workflow.nodeConfig.runTest') }}</el-button>
         </el-form-item>
         <div v-if="scriptTestResult" class="script-test-result">
           <div class="result-status" :class="{ success: scriptTestResult.status === 'success', error: scriptTestResult.status !== 'success' }">
-            {{ scriptTestResult.status === 'success' ? '执行成功' : '执行失败' }}（耗时 {{ scriptTestResult.duration_ms || 0 }}ms）
+            {{ scriptTestResult.status === 'success' ? t('workflow.nodeConfig.execSuccess') : t('workflow.nodeConfig.execFailed') }}（耗时 {{ scriptTestResult.duration_ms || 0 }}ms）
           </div>
           <pre v-if="scriptTestResult.status === 'success'" class="result-json">{{ formatScriptResult(scriptTestResult.result) }}</pre>
           <pre v-if="scriptTestResult.status !== 'success'" class="result-error">{{ scriptTestResult.error }}</pre>
@@ -2302,7 +2301,7 @@ const nodeTypeLabel = computed(() => {
 
     <!-- 未知类型 -->
     <template v-else>
-      <el-empty :description="`暂不支持该节点类型配置：${localNode.node_type || '未知类型'}`" />
+      <el-empty :description="t('workflow.nodeConfig.unsupportedNodeType', { type: localNode.node_type || t('workflow.nodeConfig.unknownType') })" />
     </template>
   </div>
 </template>

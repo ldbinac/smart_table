@@ -9,6 +9,7 @@ import {
   NODE_TYPE_ICON_MAP,
   getNodeLabel,
 } from "@/utils/workflowNodeType";
+import { useI18n } from "vue-i18n";
 
 const iconMap = NODE_TYPE_ICON_MAP;
 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: "add-before", nodeType: string): void;
@@ -76,7 +78,7 @@ function handleDelete() {
     <div
       v-if="!isReadonly"
       class="node-add-button node-add-before"
-      title="在前面添加节点"
+      :title="t('workflow.canvas.addBefore')"
     >
       <el-dropdown placement="top" trigger="click">
         <div class="add-button-inner">
@@ -90,7 +92,7 @@ function handleDelete() {
               @click="handleAddBefore(item.type)"
             >
               <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
+              <span>{{ getNodeLabel(item.type) }}</span>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -112,7 +114,7 @@ function handleDelete() {
         <el-icon
           v-if="!isReadonly"
           class="node-delete-btn"
-          title="删除节点"
+          :title="t('workflow.canvas.deleteNode')"
           @click.stop="handleDelete">
           <Delete />
         </el-icon>
@@ -149,7 +151,7 @@ function handleDelete() {
     <div
       v-if="!isReadonly"
       class="node-add-button node-add-after"
-      title="在后面添加节点"
+      :title="t('workflow.canvas.addAfter')"
     >
       <el-dropdown placement="bottom" trigger="click">
         <div class="add-button-inner">
@@ -163,7 +165,7 @@ function handleDelete() {
               @click="handleAddAfter(item.type)"
             >
               <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
+              <span>{{ getNodeLabel(item.type) }}</span>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>

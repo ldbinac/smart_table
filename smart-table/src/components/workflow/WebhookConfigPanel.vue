@@ -4,6 +4,7 @@ import { Delete, Plus } from "@element-plus/icons-vue";
 import { type FormInstance, type FormRules } from "element-plus";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import type { WebhookConfig, WebhookMethod } from "@/types/workflow";
+import { useI18n } from "vue-i18n";
 
 interface Props {
   webhook: WebhookConfig | null;
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 }>();
 
 const workflowStore = useWorkflowStore();
+const { t } = useI18n();
 const formRef = ref<FormInstance>();
 const testResultVisible = ref(false);
 const testResult = ref<Record<string, unknown> | null>(null);
@@ -169,9 +171,9 @@ const createEmptyForm = () => ({
 const form = reactive(createEmptyForm());
 
 const rules: FormRules = {
-  name: [{ required: true, message: "请输入 Webhook 名称", trigger: "blur" }],
-  url: [{ required: true, message: "请输入请求 URL", trigger: "blur" }],
-  method: [{ required: true, message: "请选择 HTTP 方法", trigger: "change" }],
+  name: [{ required: true, message: t("workflow.webhook.nameRequired"), trigger: "blur" }],
+  url: [{ required: true, message: t("workflow.webhook.urlRequired"), trigger: "blur" }],
+  method: [{ required: true, message: t("workflow.webhook.methodRequired"), trigger: "change" }],
 };
 
 const syncFormFromWebhook = () => {
@@ -283,15 +285,15 @@ const handleTest = async () => {
 <template>
   <div class="webhook-config-panel">
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-      <el-form-item label="名称" prop="name">
-        <el-input v-model="form.name" placeholder="请输入 Webhook 名称" />
+      <el-form-item :label="t('workflow.webhook.name')" prop="name">
+        <el-input v-model="form.name" :placeholder="t('workflow.webhook.namePlaceholder')" />
       </el-form-item>
 
-      <el-form-item label="URL" prop="url">
+      <el-form-item :label="t('workflow.webhook.url')" prop="url">
         <el-input v-model="form.url" placeholder="https://example.com/webhook" />
       </el-form-item>
 
-      <el-form-item label="HTTP 方法" prop="method">
+      <el-form-item :label="t('workflow.webhook.method')" prop="method">
         <el-select v-model="form.method" class="config-input">
           <el-option label="GET" value="GET" />
           <el-option label="POST" value="POST" />
@@ -299,7 +301,7 @@ const handleTest = async () => {
         </el-select>
       </el-form-item>
 
-      <el-form-item label="请求头">
+      <el-form-item :label="t('workflow.webhook.headers')">
         <div class="headers-list">
           <div
             v-for="(header, index) in headerList"
@@ -316,14 +318,14 @@ const handleTest = async () => {
             />
           </div>
           <el-button type="primary" :icon="Plus" @click="addHeader">
-            添加请求头
+            {{ t('workflow.webhook.addHeader') }}
           </el-button>
         </div>
       </el-form-item>
 
-      <el-form-item label="请求体模板">
+      <el-form-item :label="t('workflow.webhook.bodyTemplate')">
         <div class="variable-hints">
-          <span class="hint-label">可用变量（点击插入）：</span>
+          <span class="hint-label">{{ t('workflow.webhook.availableVars') }}</span>
           <el-tooltip
             v-for="v in basicVariables"
             :key="v.placeholder"
@@ -344,7 +346,7 @@ const handleTest = async () => {
           </el-tooltip>
         </div>
         <div class="variable-hints variable-hints-loop">
-          <span class="hint-label">循环变量（点击插入，仅循环体内触发）：</span>
+          <span class="hint-label">{{ t('workflow.webhook.loopVars') }}</span>
           <el-tooltip
             v-for="v in loopVariables"
             :key="v.placeholder"
@@ -373,23 +375,23 @@ const handleTest = async () => {
         />
       </el-form-item>
 
-      <el-form-item label="签名密钥">
+      <el-form-item :label="t('workflow.webhook.secret')">
         <el-input disabled
           v-model="form.secret"
           type="password"
           show-password
-          placeholder="留空表示不启用签名验证"
+          :placeholder="t('workflow.webhook.secretPlaceholder')"
         >
           <template #append>
-            <el-button disabled @click="generateSecret">自动生成</el-button>
+            <el-button disabled @click="generateSecret">{{ t('workflow.webhook.autoGen') }}</el-button>
           </template>
         </el-input>
       </el-form-item>
 
-      <el-form-item label="重试策略">
+      <el-form-item :label="t('workflow.webhook.retryPolicy')">
         <div class="retry-row">
           <div class="retry-item">
-            <span class="retry-label">最大重试次数</span>
+            <span class="retry-label">{{ t('workflow.webhook.maxRetries') }}</span>
             <el-input-number
               v-model="form.retry_policy.max_retries"
               :min="0"
@@ -398,7 +400,7 @@ const handleTest = async () => {
             />
           </div>
           <div class="retry-item">
-            <span class="retry-label">重试间隔（秒）</span>
+            <span class="retry-label">{{ t('workflow.webhook.retryInterval') }}</span>
             <el-input-number
               v-model="form.retry_policy.retry_interval"
               :min="1"
@@ -409,24 +411,24 @@ const handleTest = async () => {
         </div>
       </el-form-item>
 
-      <el-form-item label="启用状态">
+      <el-form-item :label="t('workflow.webhook.status')">
         <el-switch
           v-model="form.is_active"
-          active-text="启用"
-          inactive-text="禁用"
+          :active-text="t('workflow.webhook.enabled')"
+          :inactive-text="t('workflow.webhook.disabled')"
         />
       </el-form-item>
     </el-form>
 
     <div class="actions">
       <el-button type="primary" :loading="workflowStore.loading" @click="handleSave">
-        保存
+        {{ t('workflow.webhook.save') }}
       </el-button>
-      <el-button @click="handleCancel">取消</el-button>
-      <el-button :disabled="!webhook?.id" @click="handleTest">测试发送</el-button>
+      <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
+      <el-button :disabled="!webhook?.id" @click="handleTest">{{ t('workflow.webhook.testSend') }}</el-button>
     </div>
 
-    <el-dialog v-model="testResultVisible" title="测试结果" width="600px">
+    <el-dialog v-model="testResultVisible" :title="t('workflow.webhook.testResult')" width="600px">
       <pre class="test-result">{{ JSON.stringify(testResult, null, 2) }}</pre>
     </el-dialog>
   </div>

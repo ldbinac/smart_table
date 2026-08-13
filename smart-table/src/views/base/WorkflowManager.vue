@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
+import { useI18n } from "vue-i18n";
 import {
   Collection,
   EditPen,
@@ -37,6 +38,7 @@ import type { FieldEntity } from "@/db/schema";
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 const baseId = route.params.id as string;
 
 const workflowStore = useWorkflowStore();
@@ -73,17 +75,17 @@ const editForm = ref({
 const editFormRules = computed<FormRules>(() => {
   const rules: FormRules = {
     name: [
-      { required: true, message: "请输入工作流名称", trigger: "blur" },
-      { max: 200, message: "名称不能超过 200 个字符", trigger: "blur" },
+      { required: true, message: t('workflow.manager.namePlaceholder'), trigger: "blur" },
+      { max: 200, message: t('workflow.manager.nameMax'), trigger: "blur" },
     ],
     description: [
-      { max: 500, message: "描述不能超过 500 个字符", trigger: "blur" },
+      { max: 500, message: t('workflow.manager.descMax'), trigger: "blur" },
     ],
   };
 
   if (!editForm.value.id) {
     rules.table_id = [
-      { required: true, message: "请选择关联数据表", trigger: "change" },
+      { required: true, message: t('workflow.manager.tableRequired'), trigger: "change" },
     ];
   }
 
@@ -366,10 +368,10 @@ async function handleSaveWorkflow(
       await loadWorkflowDetail(refreshed);
     }
 
-    ElMessage.success("工作流保存成功");
+    ElMessage.success(t('workflow.manager.saveSuccess'));
   } catch (error) {
     console.error("保存工作流失败:", error);
-    ElMessage.error("保存工作流失败");
+    ElMessage.error(t('workflow.manager.saveFailed'));
   }
 }
 
@@ -385,11 +387,11 @@ async function handleCloneWorkflow() {
   if (!currentWorkflow.value) return;
   try {
     await ElMessageBox.confirm(
-      `将基于当前工作流「${currentWorkflow.value.name}」创建一个新的草稿副本，当前工作流不会受到任何影响。是否继续？`,
-      '创建新版本',
+      t('workflow.manager.cloneConfirm', { name: currentWorkflow.value.name }),
+      t('workflow.manager.cloneTitle'),
       {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'info',
       }
     );
@@ -443,11 +445,11 @@ function handleWebhookSaved(webhook: WebhookConfig) {
 async function handleDeleteWebhook(row: WebhookConfig) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除 Webhook「${row.name}」吗？此操作不可恢复。`,
-      "删除确认",
+      t('workflow.manager.deleteWebhookConfirm', { name: row.name }),
+      t('workflow.manager.deleteWebhookTitle'),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('workflow.manager.delete'),
+        cancelButtonText: t('common.cancel'),
         type: "warning",
       },
     );
@@ -473,16 +475,16 @@ async function handleToggleWebhookActive(row: WebhookConfig, newVal: boolean) {
       const refList = references
         .map(
           (r) =>
-            `• 工作流「${r.workflow_name}」（${r.workflow_status}）- 节点「${r.node_name}」`,
+            `• ${t('workflow.manager.refWorkflow')}「${r.workflow_name}」（${r.workflow_status}）- ${t('workflow.manager.refNode')}「${r.node_name}」`,
         )
         .join("\n");
       try {
         await ElMessageBox.confirm(
-          `该 Webhook 被 ${count} 个工作流节点引用：\n${refList}\n\n禁用后相关工作流将无法触发该 Webhook，是否继续？`,
-          "禁用确认",
+          t('workflow.manager.disableWebhookConfirm', { count, refList }),
+          t('workflow.manager.disableWebhookTitle'),
           {
-            confirmButtonText: "继续禁用",
-            cancelButtonText: "取消",
+            confirmButtonText: t('workflow.manager.continueDisable'),
+            cancelButtonText: t('common.cancel'),
             type: "warning",
           },
         );
@@ -542,29 +544,29 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
           <el-radio-group v-model="activeTab" size="small">
             <el-radio-button label="editor">
               <el-icon><EditPen /></el-icon>
-              <span>工作流编辑器</span>
+              <span>{{ t('workflow.manager.radioEditor') }}</span>
             </el-radio-button>
             <el-radio-button label="history">
               <el-icon><Timer /></el-icon>
-              <span>执行历史</span>
+              <span>{{ t('workflow.manager.radioHistory') }}</span>
             </el-radio-button>
             <el-radio-button label="webhook">
               <el-icon><Link /></el-icon>
-              <span>Webhook 管理</span>
+              <span>{{ t('workflow.manager.radioWebhook') }}</span>
             </el-radio-button>
           </el-radio-group>
         </div>
 
         <div class="header-actions" style="display: none;">
           <el-button :icon="Collection" @click="handleOpenGallery">
-            模板库
+            {{ t('workflow.manager.gallery') }}
           </el-button>
         </div>
       </div>
 
       <div class="workflow-content">
         <div v-if="!currentWorkflow" class="empty-container">
-          <el-empty description="请选择或创建一个工作流" />
+          <el-empty :description="t('workflow.manager.emptyCreate')" />
         </div>
 
         <template v-else>
@@ -589,10 +591,10 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
 
           <div v-show="activeTab === 'history'" class="tab-panel history-panel">
             <div class="instance-selector">
-              <span class="selector-label">执行实例：</span>
+              <span class="selector-label">{{ t('workflow.manager.instanceLabel') }}</span>
               <el-select
                 v-model="selectedInstanceId"
-                placeholder="请选择执行实例"
+                :placeholder="t('workflow.manager.instancePlaceholder')"
                 style="width: 320px"
                 @change="handleInstanceChange">
                 <el-option
@@ -601,7 +603,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                   :label="`#${instance.id.slice(0, 8)} - ${instance.status}`"
                   :value="instance.id" />
               </el-select>
-              <el-button :icon="Refresh" text type="primary" @click="refreshInstances">刷新</el-button>
+              <el-button :icon="Refresh" text type="primary" @click="refreshInstances">{{ t('workflow.manager.refresh') }}</el-button>
             </div>
 
             <div class="log-container">
@@ -610,7 +612,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                 :instance="selectedInstance"
                 :logs="executionLogs"
                 :workflow-id="currentWorkflow?.id || ''" />
-              <el-empty v-else description="暂无执行实例" />
+              <el-empty v-else :description="t('workflow.manager.noInstance')" />
             </div>
           </div>
 
@@ -618,12 +620,12 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
             <div class="webhook-layout">
               <div class="webhook-list">
                 <div class="webhook-list-header">
-                  <span class="list-title">Webhook 列表</span>
+                  <span class="list-title">{{ t('workflow.manager.webhookList') }}</span>
                   <el-button
                     type="primary"
                     size="small"
                     @click="selectedWebhookId = ''">
-                    新建
+                    {{ t('workflow.manager.webhookNew') }}
                   </el-button>
                 </div>
                 <el-table
@@ -631,20 +633,20 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                   highlight-current-row
                   style="width: 100%"
                   @row-click="handleWebhookRowClick">
-                  <el-table-column prop="name" label="名称" min-width="140" />
-                  <el-table-column prop="method" label="方法" width="80" />
-                  <el-table-column prop="url" label="URL" min-width="200" show-overflow-tooltip />
-                  <el-table-column label="状态" width="65" fixed="right">
+                  <el-table-column prop="name" :label="t('workflow.manager.colName')" min-width="140" />
+                  <el-table-column prop="method" :label="t('workflow.manager.colMethod')" width="80" />
+                  <el-table-column prop="url" :label="t('workflow.manager.colUrl')" min-width="200" show-overflow-tooltip />
+                  <el-table-column :label="t('workflow.manager.colStatus')" width="65" fixed="right">
                     <template #default="{ row }">
                       <el-tag :type="getWebhookStatusType(row.is_active)" size="small">
-                        {{ row.is_active ? "启用" : "禁用" }}
+                        {{ row.is_active ? t('workflow.manager.statusEnabled') : t('workflow.manager.statusDisabled') }}
                       </el-tag>
                     </template>
                   </el-table-column>
-                  <el-table-column label="操作" width="118" fixed="right">
+                  <el-table-column :label="t('workflow.manager.colActions')" width="118" fixed="right">
                     <template #default="{ row }">
                       <el-tooltip
-                        :content="row.is_active ? '点击禁用' : '点击启用'"
+                        :content="row.is_active ? t('workflow.manager.clickDisable') : t('workflow.manager.clickEnable')"
                         placement="top">
                         <el-switch
                           :model-value="row.is_active"
@@ -657,7 +659,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                         text
                         :icon="Delete"
                         @click.stop="handleDeleteWebhook(row as WebhookConfig)">
-                        删除
+                        {{ t('workflow.manager.delete') }}
                       </el-button>
                     </template>
                   </el-table-column>
@@ -675,8 +677,8 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
                   v-if="selectedWebhook"
                   class="webhook-deliveries">
                   <div class="section-title" style="display: flex; align-items: center; justify-content: space-between;">
-                    <span>投递记录</span>
-                    <el-button :icon="Refresh" text size="small" type="primary" @click="refreshDeliveryList">刷新</el-button>
+                    <span>{{ t('workflow.manager.deliveriesTitle') }}</span>
+                    <el-button :icon="Refresh" text size="small" type="primary" @click="refreshDeliveryList">{{ t('workflow.manager.refresh') }}</el-button>
                   </div>
                   <WebhookDeliveryList ref="deliveryListRef" :webhook-id="selectedWebhook.id" />
                 </div>
@@ -690,7 +692,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
     <!-- 编辑/新建工作流弹窗 -->
     <el-dialog
       v-model="editDialogVisible"
-      :title="editForm.id ? '编辑工作流' : '新建工作流'"
+      :title="editForm.id ? t('workflow.manager.editTitleEdit') : t('workflow.manager.editTitleCreate')"
       width="520px"
       destroy-on-close>
       <el-form
@@ -698,19 +700,19 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
         :model="editForm"
         :rules="editFormRules"
         label-position="top">
-        <el-form-item label="工作流名称" prop="name">
+        <el-form-item :label="t('workflow.manager.nameLabel')" prop="name">
           <el-input
             v-model="editForm.name"
-            placeholder="请输入工作流名称"
+            :placeholder="t('workflow.manager.namePlaceholder')"
             maxlength="200"
             show-word-limit
             clearable />
         </el-form-item>
 
-        <el-form-item label="关联数据表" prop="table_id">
+        <el-form-item :label="t('workflow.manager.tableLabel')" prop="table_id">
           <el-select
             v-model="editForm.table_id"
-            placeholder="请选择数据表"
+            :placeholder="t('workflow.manager.tablePlaceholder')"
             style="width: 100%"
             clearable
             :disabled="!!editForm.id"
@@ -722,16 +724,16 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
               :value="table.id" />
           </el-select>
           <div v-if="tables.length === 0" class="form-help-text">
-            当前基础数据下暂无数据表，请先创建数据表
+            {{ t('workflow.manager.noTableHint') }}
           </div>
         </el-form-item>
 
-        <el-form-item label="工作流描述" prop="description">
+        <el-form-item :label="t('workflow.manager.descLabel')" prop="description">
           <el-input
             v-model="editForm.description"
             type="textarea"
             :rows="4"
-            placeholder="请描述工作流的用途、功能和注意事项（可选）"
+            :placeholder="t('workflow.manager.descPlaceholder')"
             maxlength="500"
             show-word-limit
             resize="none" />
@@ -741,9 +743,9 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button @click="editDialogVisible = false">{{ t('workflow.manager.cancel') }}</el-button>
         <el-button type="primary" @click="editForm.id ? handleUpdateWorkflowInfo() : handleCreateWorkflow()">
-          {{ editForm.id ? '保存' : '创建' }}
+          {{ editForm.id ? t('workflow.manager.save') : t('workflow.manager.create') }}
         </el-button>
       </template>
     </el-dialog>
@@ -751,7 +753,7 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
     <!-- 版本历史弹窗 -->
     <el-dialog
       v-model="versionDialogVisible"
-      title="版本历史"
+      :title="t('workflow.manager.versionHistory')"
       width="680px"
       destroy-on-close>
       <el-table
@@ -764,16 +766,16 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
           <template #default="{ row }">
             <div class="version-snapshot">
               <div class="snapshot-section">
-                <div class="snapshot-label">节点列表：</div>
+                <div class="snapshot-label">{{ t('workflow.manager.nodeList') }}</div>
                 <el-empty
                   v-if="getVersionNodes(row as WorkflowVersion).length === 0"
-                  description="无节点信息"
+                  :description="t('workflow.manager.noNodeInfo')"
                   :image-size="60" />
                 <el-collapse v-else>
                   <el-collapse-item
                     v-for="(node, index) in getVersionNodes(row as WorkflowVersion)"
                     :key="node.id || index"
-                    :title="`${node.name || '未命名节点'} (#${node.order + 1 || index + 1})`">
+                    :title="`${node.name || t('workflow.manager.unnamedNode')} (#${node.order + 1 || index + 1})`">
                     <WorkflowVersionNodeSnapshot
                       :node="node"
                       :fields="fields"
@@ -785,24 +787,24 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="版本号" width="100">
+        <el-table-column :label="t('workflow.manager.versionNumber')" width="100">
           <template #default="{ row }">
             <el-tag type="primary" size="small">v{{ row.version_number }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" min-width="180">
+        <el-table-column :label="t('workflow.manager.createdTime')" min-width="180">
           <template #default="{ row }">
             {{ row.created_at ? formatDateTime(row.created_at) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="创建者" min-width="140">
+        <el-table-column :label="t('workflow.manager.createdBy')" min-width="140">
           <template #default="{ row }">
             {{ row.created_by_name || row.created_by || '-' }}
           </template>
         </el-table-column>
       </el-table>
       <template #footer>
-        <el-button @click="versionDialogVisible = false">关闭</el-button>
+        <el-button @click="versionDialogVisible = false">{{ t('workflow.manager.versionClose') }}</el-button>
       </template>
     </el-dialog>
 

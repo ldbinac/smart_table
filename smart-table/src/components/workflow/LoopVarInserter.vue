@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
+import { useI18n } from "vue-i18n";
 
 /**
  * 循环变量插入按钮
@@ -35,6 +36,7 @@ withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: "insert", snippet: string): void;
 }>();
+const { t } = useI18n();
 
 /** 命令类型：基础循环变量 或 字段下钻 */
 type LoopVarCommand =
@@ -81,16 +83,16 @@ function handleCommand(command: LoopVarCommand) {
       size="small"
       :disabled="disabled"
       class="loop-var-inserter-btn">
-      插入循环变量
+      {{ t('workflow.loopVar.insert') }}
     </el-button>
     <template #dropdown>
       <el-dropdown-menu>
-        <el-dropdown-item command="current_data">当前循环数据</el-dropdown-item>
-        <el-dropdown-item command="round">当前循环轮数（1-based）</el-dropdown-item>
-        <el-dropdown-item command="index">当前循环索引（0-based）</el-dropdown-item>
+        <el-dropdown-item command="current_data">{{ t('workflow.loopVar.currentData') }}</el-dropdown-item>
+        <el-dropdown-item command="round">{{ t('workflow.loopVar.round') }}</el-dropdown-item>
+        <el-dropdown-item command="index">{{ t('workflow.loopVar.index') }}</el-dropdown-item>
         <template v-if="supportsFieldDrill">
           <el-dropdown-item divided disabled class="loop-var-group-title">
-            字段下钻
+            {{ t('workflow.loopVar.fieldDrill') }}
           </el-dropdown-item>
           <el-dropdown-item
             v-for="field in fieldOptions"
@@ -99,7 +101,7 @@ function handleCommand(command: LoopVarCommand) {
             {{ field.name }}
           </el-dropdown-item>
           <el-dropdown-item v-if="fieldOptions.length === 0" disabled>
-            暂无可下钻字段
+            {{ t('workflow.loopVar.noDrillField') }}
           </el-dropdown-item>
         </template>
       </el-dropdown-menu>

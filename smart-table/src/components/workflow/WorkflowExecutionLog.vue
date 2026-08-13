@@ -7,6 +7,7 @@ import type {
 } from "@/types/workflow";
 import { formatDateTime } from "@/utils/timezone";
 import { getNodeLabel } from "@/utils/workflowNodeType";
+import { useI18n } from "vue-i18n";
 import { getInstanceWebhookDeliveries } from "@/services/api/workflowApiService";
 import {
   CircleCheck,
@@ -24,6 +25,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
 
 const allWebhookDeliveries = ref<WebhookDeliveryLog[] | null>(null);
 const loadingAllDeliveries = ref(false);
@@ -147,21 +149,21 @@ function getDeliveryStatusType(status: string): "success" | "danger" | "warning"
   <div class="workflow-execution-log">
     <div class="instance-summary">
       <div class="summary-item">
-        <span class="summary-label">实例状态</span>
+        <span class="summary-label">{{ t('workflow.execution.instanceStatus') }}</span>
         <el-tag :type="getStatusType(instance.status)">
           {{ instance.status }}
         </el-tag>
       </div>
       <div class="summary-item">
-        <span class="summary-label">触发方式</span>
+        <span class="summary-label">{{ t('workflow.execution.triggerMethod') }}</span>
         <span>{{ instance.trigger_type }}</span>
       </div>
       <div class="summary-item">
-        <span class="summary-label">开始时间</span>
+        <span class="summary-label">{{ t('workflow.execution.startTime') }}</span>
         <span>{{ formatTime(instance.started_at) }}</span>
       </div>
       <div v-if="instance.completed_at" class="summary-item">
-        <span class="summary-label">结束时间</span>
+        <span class="summary-label">{{ t('workflow.execution.endTime') }}</span>
         <span>{{ formatTime(instance.completed_at) }}</span>
       </div>
       <div class="summary-item">
@@ -171,23 +173,23 @@ function getDeliveryStatusType(status: string): "success" | "danger" | "warning"
           @click="openAllDeliveriesDialog"
           :loading="loadingAllDeliveries"
         >
-          查看 Webhook 投递日志
+          {{ t('workflow.execution.viewWebhookLog') }}
         </el-button>
       </div>
     </div>
 
     <el-dialog
       v-model="showAllDeliveriesDialog"
-      title="全部 Webhook 投递日志"
+      :title="t('workflow.execution.allWebhookLog')"
       width="80%"
       :close-on-click-modal="false"
     >
       <div v-if="loadingAllDeliveries" class="dialog-loading">
         <el-icon class="is-loading"><Loading /></el-icon>
-        <span>加载中...</span>
+        <span>{{ t('workflow.execution.loading') }}</span>
       </div>
       <div v-else-if="!allWebhookDeliveries || allWebhookDeliveries.length === 0" class="dialog-empty">
-        暂无投递记录
+        {{ t('workflow.execution.noDelivery') }}
       </div>
       <div v-else class="all-deliveries-list">
         <div
@@ -203,24 +205,24 @@ function getDeliveryStatusType(status: string): "success" | "danger" | "warning"
           </div>
           <div class="delivery-detail">
             <div v-if="delivery.payload" class="detail-row">
-              <span class="detail-label">请求体:</span>
+              <span class="detail-label">{{ t('workflow.execution.requestBody') }}</span>
               <pre class="detail-value payload-pre">{{ delivery.payload }}</pre>
             </div>
             <div v-if="delivery.response_status" class="detail-row">
-              <span class="detail-label">响应状态:</span>
+              <span class="detail-label">{{ t('workflow.execution.responseStatus') }}</span>
               <span class="detail-value">{{ delivery.response_status }}</span>
             </div>
             <div v-if="delivery.delivered_at" class="detail-row">
-              <span class="detail-label">投递时间:</span>
+              <span class="detail-label">{{ t('workflow.execution.deliveryTime') }}</span>
               <span class="detail-value">{{ formatTime(delivery.delivered_at) }}</span>
             </div>
             <div v-if="delivery.retry_count > 0" class="detail-row">
-              <span class="detail-label">重试次数:</span>
+              <span class="detail-label">{{ t('workflow.execution.retryCount') }}</span>
               <span class="detail-value">{{ delivery.retry_count }}</span>
             </div>
           </div>
           <el-collapse v-if="delivery.response_body" class="response-collapse">
-            <el-collapse-item title="响应内容">
+            <el-collapse-item :title="t('workflow.execution.responseContent')">
               <pre class="response-pre">{{ delivery.response_body }}</pre>
             </el-collapse-item>
           </el-collapse>
@@ -265,9 +267,9 @@ function getDeliveryStatusType(status: string): "success" | "danger" | "warning"
           </div>
 
           <div class="log-meta">
-            <span class="meta-item">耗时：{{ formatDuration(log.started_at, log.completed_at) }}</span>
+            <span class="meta-item">{{ t('workflow.execution.duration') }}：{{ formatDuration(log.started_at, log.completed_at) }}</span>
             <span v-if="log.completed_at" class="meta-item">
-              结束：{{ formatTime(log.completed_at) }}
+              {{ t('workflow.execution.end') }}：{{ formatTime(log.completed_at) }}
             </span>
           </div>
 
@@ -280,23 +282,23 @@ function getDeliveryStatusType(status: string): "success" | "danger" | "warning"
             class="error-alert" />
 
           <el-collapse class="context-collapse">
-            <el-collapse-item title="输入上下文">
+            <el-collapse-item :title="t('workflow.execution.inputContext')">
               <pre class="context-pre">{{ formatContext(log.input_context) }}</pre>
             </el-collapse-item>
-            <el-collapse-item title="输出结果">
+            <el-collapse-item :title="t('workflow.execution.outputResult')">
               <pre class="context-pre">{{ formatContext(log.output_result) }}</pre>
             </el-collapse-item>
             <el-collapse-item
               v-if="isWebhookNode(log.node_type)"
-              title="Webhook 投递详情"
+              :title="t('workflow.execution.webhookDetail')"
               @click="ensureDeliveriesLoaded"
             >
               <div v-if="loadingAllDeliveries" class="delivery-loading">
                 <el-icon class="is-loading"><Loading /></el-icon>
-                <span>加载中...</span>
+                <span>{{ t('workflow.execution.loading') }}</span>
               </div>
               <div v-else-if="getDeliveriesForLog(log).length === 0" class="delivery-empty">
-                暂无投递记录
+                {{ t('workflow.execution.noDelivery') }}
               </div>
               <div v-else class="delivery-list">
                 <div
@@ -312,24 +314,24 @@ function getDeliveryStatusType(status: string): "success" | "danger" | "warning"
                   </div>
                   <div class="delivery-detail">
                     <div v-if="delivery.payload" class="detail-row">
-                      <span class="detail-label">请求体:</span>
+                      <span class="detail-label">{{ t('workflow.execution.requestBody') }}</span>
                       <pre class="detail-value payload-pre">{{ delivery.payload }}</pre>
                     </div>
                     <div v-if="delivery.response_status" class="detail-row">
-                      <span class="detail-label">响应状态:</span>
+                      <span class="detail-label">{{ t('workflow.execution.responseStatus') }}</span>
                       <span class="detail-value">{{ delivery.response_status }}</span>
                     </div>
                     <div v-if="delivery.delivered_at" class="detail-row">
-                      <span class="detail-label">投递时间:</span>
+                      <span class="detail-label">{{ t('workflow.execution.deliveryTime') }}</span>
                       <span class="detail-value">{{ formatTime(delivery.delivered_at) }}</span>
                     </div>
                     <div v-if="delivery.retry_count > 0" class="detail-row">
-                      <span class="detail-label">重试次数:</span>
+                      <span class="detail-label">{{ t('workflow.execution.retryCount') }}</span>
                       <span class="detail-value">{{ delivery.retry_count }}</span>
                     </div>
                   </div>
                   <el-collapse v-if="delivery.response_body" class="response-collapse">
-                    <el-collapse-item title="响应内容">
+                    <el-collapse-item :title="t('workflow.execution.responseContent')">
                       <pre class="response-pre">{{ delivery.response_body }}</pre>
                     </el-collapse-item>
                   </el-collapse>
@@ -349,7 +351,7 @@ function getDeliveryStatusType(status: string): "success" | "danger" | "warning"
       </el-timeline-item>
     </el-timeline>
 
-    <el-empty v-if="sortedLogs.length === 0" description="暂无执行日志" />
+    <el-empty v-if="sortedLogs.length === 0" :description="t('workflow.execution.noLog')" />
   </div>
 </template>
 

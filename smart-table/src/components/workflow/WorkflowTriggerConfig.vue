@@ -12,6 +12,7 @@ import {
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import { Delete, Plus } from "@element-plus/icons-vue";
 import { isSpecifiedTimeTrigger, createDefaultScheduleConfig } from "@/utils/workflow";
+import { useI18n } from "vue-i18n";
 
 interface Props {
   trigger: WorkflowTrigger;
@@ -23,6 +24,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: "update:trigger", trigger: WorkflowTrigger): void;
 }>();
+const { t } = useI18n();
 
 function cloneTrigger(trigger: WorkflowTrigger): WorkflowTrigger {
   return JSON.parse(JSON.stringify(trigger));
@@ -53,10 +55,10 @@ watch(
 );
 
 const triggerTypes: { value: TriggerType; label: string }[] = [
-  { value: "record_created", label: "记录创建时" },
-  { value: "record_updated", label: "记录更新时" },
-  { value: "specified_time", label: "指定时间" },
-  { value: "record_time_reached", label: "到达记录中的时间时" },
+  { value: "record_created", label: t("workflow.trigger.triggerCreated") },
+  { value: "record_updated", label: t("workflow.trigger.triggerUpdated") },
+  { value: "specified_time", label: t("workflow.trigger.specifiedTime") },
+  { value: "record_time_reached", label: t("workflow.trigger.recordTimeReached") },
   // { value: "field_changed", label: "字段变更时（暂不支持）" },
   // { value: "manual", label: "手动触发（暂不支持）" },
 ];
@@ -259,20 +261,20 @@ function onFilterValueChange(index: number, value: unknown) {
 // ==================== 定时器配置 ====================
 
 const repeatTypeOptions: { value: ScheduleRepeatType; label: string }[] = [
-  { value: "no_repeat", label: "不重复" },
-  { value: "daily", label: "每天重复" },
-  { value: "weekly", label: "每周重复" },
-  { value: "monthly", label: "每月重复" },
-  { value: "yearly", label: "每年重复" },
-  { value: "weekdays", label: "周一至周五重复" },
-  { value: "custom", label: "自定义重复" },
+  { value: "no_repeat", label: t("workflow.trigger.noRepeat") },
+  { value: "daily", label: t("workflow.trigger.daily") },
+  { value: "weekly", label: t("workflow.trigger.weekly") },
+  { value: "monthly", label: t("workflow.trigger.monthly") },
+  { value: "yearly", label: t("workflow.trigger.yearly") },
+  { value: "weekdays", label: t("workflow.trigger.weekdays") },
+  { value: "custom", label: t("workflow.trigger.customRepeat") },
 ];
 
 const customUnitOptions: { value: ScheduleCustomUnit; label: string }[] = [
-  { value: "day", label: "天" },
-  { value: "week", label: "周" },
-  { value: "month", label: "月" },
-  { value: "year", label: "年" },
+  { value: "day", label: t("workflow.trigger.perDay") },
+  { value: "week", label: t("workflow.trigger.perWeek") },
+  { value: "month", label: t("workflow.trigger.perMonth") },
+  { value: "year", label: t("workflow.trigger.perYear") },
 ];
 
 function ensureScheduleConfig(): ScheduleConfig {
@@ -345,7 +347,7 @@ defineExpose({ validateFieldIds, validateTimeField });
 <template>
   <div class="workflow-trigger-config">
     <el-form label-position="top" class="config-form">
-      <el-form-item label="触发类型">
+      <el-form-item :label="t('workflow.trigger.triggerType')">
         <el-select v-model="triggerType" class="full-width" :disabled="readonly">
           <el-option
             v-for="type in triggerTypes"
@@ -355,11 +357,11 @@ defineExpose({ validateFieldIds, validateTimeField });
         </el-select>
       </el-form-item>
 
-      <el-form-item v-if="showFieldIdsSelector" label="监听字段" :error="fieldIdsEmpty ? '请选择监听字段' : ''">
+      <el-form-item v-if="showFieldIdsSelector" :label="t('workflow.trigger.monitorFields')" :error="fieldIdsEmpty ? t('workflow.trigger.listenFieldEmpty') : ''">
         <el-select
           v-model="selectedFieldIds"
           multiple
-          placeholder="选择监听的字段"
+          :placeholder="t('workflow.trigger.selectField')"
           class="full-width"
           :class="{ 'field-ids-error': fieldIdsEmpty }"
           :disabled="readonly">
@@ -371,10 +373,10 @@ defineExpose({ validateFieldIds, validateTimeField });
         </el-select>
       </el-form-item>
 
-      <el-form-item v-if="showTimeFieldSelector" label="时间字段" :error="timeFieldEmpty ? '请选择时间字段' : ''">
+      <el-form-item v-if="showTimeFieldSelector" :label="t('workflow.trigger.timeField')" :error="timeFieldEmpty ? t('workflow.trigger.timeFieldEmpty') : ''">
         <el-select
           v-model="selectedTimeFieldId"
-          placeholder="选择日期/日期时间字段"
+          :placeholder="t('workflow.trigger.selectField')"
           class="full-width time-field-select"
           :class="{ 'field-ids-error': timeFieldEmpty }"
           :disabled="readonly">
@@ -390,10 +392,10 @@ defineExpose({ validateFieldIds, validateTimeField });
 
       <div v-if="showFilterSection" class="filter-section">
         <div class="filter-header">
-          <span class="filter-title">触发过滤条件</span>
+          <span class="filter-title">{{ t('workflow.trigger.filterTitle') }}</span>
           <el-radio-group v-model="filterConjunction" size="small" :disabled="readonly">
-            <el-radio-button label="and">全部满足</el-radio-button>
-            <el-radio-button label="or">任一满足</el-radio-button>
+            <el-radio-button label="and">{{ t('workflow.trigger.allMatch') }}</el-radio-button>
+            <el-radio-button label="or">{{ t('workflow.trigger.anyMatch') }}</el-radio-button>
           </el-radio-group>
         </div>
 
@@ -404,7 +406,7 @@ defineExpose({ validateFieldIds, validateTimeField });
             class="condition-row">
             <el-select
               :model-value="condition.field_id"
-              placeholder="选择字段"
+              :placeholder="t('workflow.trigger.selectField')"
               class="field-select"
               :disabled="readonly"
               @change="(val) => onFilterFieldChange(index, val as string)">
@@ -417,7 +419,7 @@ defineExpose({ validateFieldIds, validateTimeField });
 
             <el-select
               :model-value="condition.operator"
-              placeholder="操作符"
+              :placeholder="t('workflow.trigger.operator')"
               class="operator-select"
               :disabled="readonly"
               @change="(val) => onFilterOperatorChange(index, val as FilterOperatorValue)">
@@ -433,12 +435,12 @@ defineExpose({ validateFieldIds, validateTimeField });
                 v-if="operatorRequiresValue(condition.operator) && getFieldById(condition.field_id)"
                 :field="getFieldById(condition.field_id)!"
                 :model-value="condition.value"
-                placeholder="值"
+                :placeholder="t('workflow.trigger.value')"
                 class="value-input"
                 :disabled="readonly"
                 @update:model-value="(val) => onFilterValueChange(index, val)" />
 
-              <span v-else class="value-placeholder">无需值</span>
+              <span v-else class="value-placeholder">{{ t('workflow.trigger.noValue') }}</span>
 
               <el-button
                 v-if="!readonly"
@@ -451,41 +453,41 @@ defineExpose({ validateFieldIds, validateTimeField });
           </div>
 
           <el-button v-if="!readonly" type="primary" :icon="Plus" text @click="addFilterCondition">
-            添加过滤条件
+            {{ t('workflow.trigger.addFilter') }}
           </el-button>
         </div>
       </div>
 
       <div v-if="showScheduleSection" class="schedule-section">
         <div class="schedule-header">
-          <span class="schedule-title">定时器配置</span>
+          <span class="schedule-title">{{ t('workflow.trigger.scheduleTitle') }}</span>
         </div>
 
         <div class="schedule-form">
           <div class="schedule-row">
-            <el-form-item class="schedule-start-date half-width" label="触发日期">
+            <el-form-item class="schedule-start-date half-width" :label="t('workflow.trigger.triggerDate')">
               <el-date-picker
                 :model-value="scheduleConfig.start_date"
                 value-format="YYYY-MM-DD"
-                placeholder="选择日期"
+                :placeholder="t('workflow.trigger.selectDate')"
                 class="full-width"
                 :disabled="readonly"
                 @update:model-value="(val: string) => updateScheduleField('start_date', val)" />
             </el-form-item>
 
-            <el-form-item class="schedule-start-time half-width" label="触发时间">
+            <el-form-item class="schedule-start-time half-width" :label="t('workflow.trigger.triggerTime')">
               <el-time-picker
                 :model-value="scheduleConfig.start_time"
                 value-format="HH:mm"
                 format="HH:mm"
-                placeholder="选择时间"
+                :placeholder="t('workflow.trigger.selectTime')"
                 class="full-width"
                 :disabled="readonly"
                 @update:model-value="(val: string) => updateScheduleField('start_time', val)" />
             </el-form-item>
           </div>
 
-          <el-form-item class="schedule-repeat-type" label="重复模式">
+          <el-form-item class="schedule-repeat-type" :label="t('workflow.trigger.repeatMode')">
             <el-select
               :model-value="scheduleConfig.repeat_type"
               class="full-width"
@@ -500,7 +502,7 @@ defineExpose({ validateFieldIds, validateTimeField });
           </el-form-item>
 
           <div v-if="showCustomRepeat" class="schedule-row schedule-custom-row">
-            <span class="custom-repeat-label">每</span>
+            <span class="custom-repeat-label">{{ t('workflow.trigger.customEvery') }}</span>
             <el-input-number
               :model-value="scheduleConfig.custom_interval"
               :min="1"
@@ -517,25 +519,25 @@ defineExpose({ validateFieldIds, validateTimeField });
                 :label="option.label"
                 :value="option.value" />
             </el-select>
-            <span class="custom-repeat-label">重复一次</span>
+            <span class="custom-repeat-label">{{ t('workflow.trigger.customRepeatOnce') }}</span>
           </div>
 
           <template v-if="showEndDateSection">
-            <el-form-item class="schedule-end-type" label="截止日期">
+            <el-form-item class="schedule-end-type" :label="t('workflow.trigger.endDate')">
               <el-radio-group
                 :model-value="scheduleConfig.end_type"
                 :disabled="readonly"
                 @update:model-value="(val: string | number | boolean | undefined) => updateScheduleField('end_type', val as ScheduleEndType)">
-                <el-radio value="never">永不结束</el-radio>
-                <el-radio value="end_date">指定日期</el-radio>
+                <el-radio value="never">{{ t('workflow.trigger.neverEnd') }}</el-radio>
+                <el-radio value="end_date">{{ t('workflow.trigger.endDateType') }}</el-radio>
               </el-radio-group>
             </el-form-item>
 
-            <el-form-item v-if="showEndDate" class="schedule-end-date" label="结束日期">
+            <el-form-item v-if="showEndDate" class="schedule-end-date" :label="t('workflow.trigger.endDateLabel')">
               <el-date-picker
                 :model-value="scheduleConfig.end_date"
                 value-format="YYYY-MM-DD"
-                placeholder="选择结束日期"
+                :placeholder="t('workflow.trigger.selectEndDate')"
                 class="full-width"
                 :disabled="readonly"
                 @update:model-value="(val: string) => updateScheduleField('end_date', val)" />

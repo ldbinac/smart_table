@@ -22,10 +22,12 @@ import {
   LOOP_BODY_ALLOWED_NODE_TYPES,
   NODE_TYPE_ICON_MAP,
   NODE_TYPE_LABEL_MAP,
+  getNodeLabel,
 } from "@/utils/workflowNodeType";
 import WorkflowNodeCard from "./WorkflowNodeCard.vue";
 import WorkflowEdgeWithAddButton from "./WorkflowEdgeWithAddButton.vue";
 import "@vue-flow/core/dist/style.css";
+import { useI18n } from "vue-i18n";
 
 interface Props {
   nodes: WorkflowNode[];
@@ -37,6 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   selectedNodeId: null,
 });
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: "update:nodes", nodes: WorkflowNode[]): void;
@@ -325,17 +328,17 @@ defineExpose({
             <div class="loop-container-info">
               <div class="loop-container-name">{{ nodeProps.data?.node?.name }}</div>
               <div class="loop-container-summary">
-                <span>依次处理每条数据</span>
+                <span>{{ t('workflow.canvas.loopProcessEach') }}</span>
                 <span class="loop-separator">·</span>
                 <span>{{ getLoopDataSourceLabel(nodeProps.data?.node) }}</span>
                 <span class="loop-separator">·</span>
-                <span>最多 {{ nodeProps.data?.node?.config?.max_iterations ?? 100 }} 次</span>
+                <span>{{ t('workflow.canvas.loopMaxTimes') }} {{ nodeProps.data?.node?.config?.max_iterations ?? 100 }} {{ t('workflow.canvas.loopTimes') }}</span>
               </div>
             </div>
             <el-icon
               v-if="!readonly"
               class="loop-container-delete"
-              title="删除循环节点"
+              :title="t('workflow.canvas.deleteLoopNode')"
               @click.stop="handleDeleteNode(nodeProps.data?.node?.id)">
               <Delete />
             </el-icon>
@@ -358,20 +361,20 @@ defineExpose({
               <el-icon
                 v-if="!readonly"
                 class="loop-child-delete"
-                title="删除子节点"
+                :title="t('workflow.canvas.deleteChildNode')"
                 @click.stop="handleDeleteLoopChild(nodeProps.data?.node?.id, child.id)">
                 <Delete />
               </el-icon>
             </div>
 
             <div v-if="getLoopBodyNodes(nodeProps.data?.node).length === 0" class="loop-body-empty">
-              暂无循环体节点
+              {{ t('workflow.canvas.loopBodyEmpty') }}
             </div>
 
             <div v-if="!readonly" class="loop-container-add">
               <el-dropdown placement="bottom" trigger="click">
                 <el-button type="primary" :icon="Plus" text size="small">
-                  添加循环体节点
+                  {{ t('workflow.canvas.addLoopBody') }}
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -380,7 +383,7 @@ defineExpose({
                       :key="item.type"
                       @click="handleAddLoopChild(nodeProps.data?.node?.id, item.type)">
                       <el-icon><component :is="item.icon" /></el-icon>
-                      <span>{{ item.label }}</span>
+                      <span>{{ getNodeLabel(item.type) }}</span>
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -429,7 +432,7 @@ defineExpose({
               @click="handleAddFirstNode(item.type)"
             >
               <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
+              <span>{{ getNodeLabel(item.type) }}</span>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>

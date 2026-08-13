@@ -6,6 +6,7 @@ import { useWorkflowStore } from "@/stores/workflowStore";
 import type { Workflow, WorkflowTemplate } from "@/types/workflow";
 import type { TableEntity } from "@/db/schema";
 import { formatDateTime } from "@/utils/timezone";
+import { useI18n } from "vue-i18n";
 
 interface Props {
   visible: boolean;
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 }>();
 
 const workflowStore = useWorkflowStore();
+const { t } = useI18n();
 
 const loading = ref(false);
 const selectedTableId = ref<string>(props.tableId || "");
@@ -96,7 +98,7 @@ function handleClose() {
 
 async function handleUseTemplate(template: WorkflowTemplate) {
   if (!selectedTableId.value) {
-    ElMessage.warning("请选择要应用模板的数据表");
+    ElMessage.warning(t("workflow.list.pleaseSelectTable"));
     return;
   }
 
@@ -120,7 +122,7 @@ function formatDate(date: string): string {
 <template>
   <el-dialog
     v-model="visible"
-    title="模板库"
+    :title="t('workflow.list.galleryTitle')"
     width="900px"
     :close-on-click-modal="false"
     @close="handleClose">
@@ -128,9 +130,9 @@ function formatDate(date: string): string {
       <div class="gallery-toolbar">
         <div class="filter-groups">
           <el-radio-group v-model="activeSource" size="small">
-            <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="system">系统内置</el-radio-button>
-            <el-radio-button label="custom">用户自定义</el-radio-button>
+            <el-radio-button label="all">{{ t('workflow.list.filterAll') }}</el-radio-button>
+            <el-radio-button label="system">{{ t('workflow.list.filterSystem') }}</el-radio-button>
+            <el-radio-button label="custom">{{ t('workflow.list.filterCustom') }}</el-radio-button>
           </el-radio-group>
 
           <el-radio-group
@@ -141,16 +143,16 @@ function formatDate(date: string): string {
               v-for="category in categories"
               :key="category"
               :label="category">
-              {{ category === "all" ? "全部分类" : category }}
+              {{ category === "all" ? t('workflow.list.categoryAll') : category }}
             </el-radio-button>
           </el-radio-group>
         </div>
 
         <div class="table-selector">
-          <span class="selector-label">应用至数据表：</span>
+          <span class="selector-label">{{ t('workflow.list.applyToTable') }}</span>
           <el-select
             v-model="selectedTableId"
-            placeholder="请选择数据表"
+            :placeholder="t('workflow.list.selectTablePlaceholder')"
             style="width: 220px"
             :disabled="!!props.tableId">
             <el-option
@@ -165,7 +167,7 @@ function formatDate(date: string): string {
       <div class="template-list">
         <el-empty
           v-if="filteredTemplates.length === 0"
-          description="暂无符合条件的模板" />
+          :description="t('workflow.list.noTemplate')" />
 
         <el-card
           v-for="template in filteredTemplates"
@@ -180,9 +182,9 @@ function formatDate(date: string): string {
               <div class="template-name">{{ template.name }}</div>
               <div class="template-tags">
                 <el-tag v-if="template.is_system" size="small" type="success">
-                  系统内置
+                  {{ t('workflow.list.systemBuiltin') }}
                 </el-tag>
-                <el-tag v-else size="small" type="info">用户自定义</el-tag>
+                <el-tag v-else size="small" type="info">{{ t('workflow.list.userCustom') }}</el-tag>
                 <el-tag
                   v-if="template.category"
                   size="small"
@@ -195,11 +197,11 @@ function formatDate(date: string): string {
           </div>
 
           <div class="template-description">
-            {{ template.description || "暂无描述" }}
+            {{ template.description || t('workflow.list.noDescription') }}
           </div>
 
           <div class="template-meta">
-            <span>更新于 {{ formatDate(template.updated_at) }}</span>
+            <span>{{ t('workflow.list.updatedAt') }} {{ formatDate(template.updated_at) }}</span>
           </div>
 
           <div class="template-actions">
@@ -207,7 +209,7 @@ function formatDate(date: string): string {
               type="primary"
               :icon="CopyDocument"
               @click="handleUseTemplate(template)">
-              使用模板
+              {{ t('workflow.list.useTemplate') }}
             </el-button>
           </div>
         </el-card>
