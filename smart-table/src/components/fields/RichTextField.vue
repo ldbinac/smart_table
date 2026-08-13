@@ -191,7 +191,7 @@ async function initEditor() {
         console.log("[RichTextField] text-change", { source });
         if (source !== "user") return;
 
-        let selection = null;
+        let selection: any = null;
         try {
           selection = editorInstance.value.getSelection();
         } catch (e) {

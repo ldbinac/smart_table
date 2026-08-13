@@ -38,7 +38,7 @@ const currentDate = ref(new Date());
 
 // 时间刻度（用于日视图和周视图）
 const timeSlots = computed(() => {
-  const slots = [];
+  const slots: number[] = [];
   for (let i = 0; i < 24; i++) {
     slots.push(i);
   }
@@ -275,7 +275,7 @@ const monthViewRowCount = computed(() => {
 // ========== 周视图计算属性 ==========
 const weekDaysData = computed(() => {
   const startOfWeek = getStartOfWeek(currentDate.value);
-  const days = [];
+  const days: Array<{ date: Date; isToday: boolean; events: CalendarEvent[] }> = [];
 
   for (let i = 0; i < 7; i++) {
     const date = new Date(startOfWeek);

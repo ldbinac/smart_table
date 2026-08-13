@@ -270,9 +270,15 @@ class AttachmentService:
         upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
 
         if is_packaged:
-            # ===== 打包模式：使用 EXE 根目录下的 uploads/（与 exe 同级）=====
+            # ===== 打包模式 =====
+            # 支持自定义上传目录：
+            # - 绝对路径（如 D:/my_uploads）：直接使用
+            # - 相对路径（如 uploads，默认）：相对 EXE 所在目录解析（与 exe 同级）
             exe_dir = Path(sys.executable).parent
-            upload_path = exe_dir / 'uploads'
+            if os.path.isabs(upload_folder):
+                upload_path = Path(upload_folder)
+            else:
+                upload_path = exe_dir / upload_folder
             os.makedirs(upload_path, exist_ok=True)
             return str(upload_path)
         else:
