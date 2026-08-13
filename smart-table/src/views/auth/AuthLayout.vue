@@ -1,5 +1,9 @@
 <template>
   <div class="auth-page">
+    <div class="lang-switcher-wrapper">
+      <LanguageSwitcher />
+    </div>
+
     <div class="brand-section">
       <img
         src="/SmartTable.png"
@@ -100,6 +104,7 @@ import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Star } from '@element-plus/icons-vue'
 import type { DemoConfig } from '@/api/types'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher.vue'
 
 const { t } = useI18n()
 
@@ -131,6 +136,21 @@ const showWechatQR = ref(false);
       radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.12) 0%, transparent 40%),
       radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 40%);
     pointer-events: none;
+  }
+}
+
+.lang-switcher-wrapper {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 10;
+
+  :deep(.lang-switcher-trigger) {
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
   }
 }
 

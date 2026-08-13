@@ -1,10 +1,17 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
-import {
-  type SupportedLocale,
-  DEFAULT_LOCALE,
-} from "@/i18n/types";
+import type { SupportedLocale } from "@/i18n/types";
 import { setI18nLanguage } from "@/i18n";
+
+/**
+ * 根据系统语言返回默认语言（中文环境 → zh-CN，其余 → en-US）。
+ */
+function getSystemLocale(): SupportedLocale {
+  const navLang = (
+    typeof navigator !== "undefined" ? navigator.language || "" : ""
+  ).toLowerCase();
+  return navLang.startsWith("zh") ? "zh-CN" : "en-US";
+}
 
 export interface AppSettings {
   theme: "light" | "dark" | "auto";
@@ -25,7 +32,7 @@ export interface AppSettings {
 
 const defaultSettings: AppSettings = {
   theme: "light",
-  language: DEFAULT_LOCALE,
+  language: getSystemLocale(),
   sidebarCollapsed: false,
   tableRowHeight: "medium",
   showGridLines: true,

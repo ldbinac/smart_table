@@ -127,6 +127,7 @@ declare module 'vue' {
     KanbanColumn: typeof import('./components/views/KanbanView/KanbanColumn.vue')['default']
     KanbanView: typeof import('./components/views/KanbanView/KanbanView.vue')['default']
     KpiWidget: typeof import('./components/dashboard/KpiWidget.vue')['default']
+    LanguageSwitcher: typeof import('./components/common/LanguageSwitcher.vue')['default']
     LinkedRecordDetailDialog: typeof import('./components/fields/LinkField/LinkedRecordDetailDialog.vue')['default']
     LinkField: typeof import('./components/fields/LinkField/LinkField.vue')['default']
     LinkRecordSelector: typeof import('./components/fields/LinkField/LinkRecordSelector.vue')['default']

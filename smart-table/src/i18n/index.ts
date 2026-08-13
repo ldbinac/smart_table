@@ -59,8 +59,23 @@ function assembleMessages(): Record<string, Record<string, unknown>> {
 const messages = assembleMessages();
 
 /**
- * 从 localStorage 读取用户上次选择的语言。
+ * 根据浏览器/系统语言返回合适的默认语言。
+ * 中文环境（zh-*）返回 zh-CN，其余语言环境返回 en-US。
+ */
+function getSystemLocale(): SupportedLocale {
+  const navLang = (
+    typeof navigator !== "undefined" ? navigator.language || "" : ""
+  ).toLowerCase();
+  if (navLang.startsWith("zh")) {
+    return "zh-CN";
+  }
+  return "en-US";
+}
+
+/**
+ * 从 localStorage 读取用户上次选择的语言（缓存优先）。
  * settingsStore 的存储 key 为 "smart-table-settings"，其中包含 language 字段。
+ * 无缓存时按系统语言判断默认语言。
  */
 function getInitialLocale(): SupportedLocale {
   try {
@@ -74,7 +89,7 @@ function getInitialLocale(): SupportedLocale {
   } catch {
     // 读取失败时静默回退到默认语言
   }
-  return DEFAULT_LOCALE;
+  return getSystemLocale();
 }
 
 /** vue-i18n 实例 */
