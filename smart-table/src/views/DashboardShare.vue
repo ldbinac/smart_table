@@ -13,8 +13,10 @@ import {
 } from "@/utils/dashboardDataProcessor";
 import { ElMessage } from "element-plus";
 import { freshColors, escapeHtml } from "@/utils/helpers";
+import { useI18n } from "vue-i18n";
 
 const route = useRoute();
+const { t } = useI18n();
 
 // 状态
 const isLoading = ref(true);
@@ -35,28 +37,28 @@ const gridColumns = ref<12 | 24>(12);
 // 错误码到标准提示的映射
 const ERROR_MESSAGE_MAP: Record<string, { title: string; subTitle: string }> = {
   share_not_found: {
-    title: "无效的认证令牌",
-    subTitle: "该分享链接不存在或已被删除",
+    title: t("dashboard.shareNoToken"),
+    subTitle: t("dashboard.shareNotFoundSub"),
   },
   share_deactivated: {
-    title: "无效的认证令牌",
-    subTitle: "该分享链接已被创建者禁用",
+    title: t("dashboard.shareNoToken"),
+    subTitle: t("dashboard.shareDeactivatedSub"),
   },
   share_expired: {
-    title: "无效的认证令牌",
-    subTitle: "该分享链接已过期，请联系创建者重新分享",
+    title: t("dashboard.shareNoToken"),
+    subTitle: t("dashboard.shareExpiredSub"),
   },
   share_access_limit: {
-    title: "无效的认证令牌",
-    subTitle: "该分享链接的访问次数已达上限",
+    title: t("dashboard.shareNoToken"),
+    subTitle: t("dashboard.shareAccessLimitSub"),
   },
   access_code_locked: {
-    title: "密码尝试次数过多",
-    subTitle: "请等待 15 分钟后再试",
+    title: t("dashboard.shareCodeLockedTitle"),
+    subTitle: t("dashboard.shareCodeLockedSub"),
   },
   access_code_invalid: {
-    title: "访问密码错误",
-    subTitle: "请检查密码后重新输入",
+    title: t("dashboard.shareCodeWrongTitle"),
+    subTitle: t("dashboard.shareCodeWrongSub"),
   },
 };
 
@@ -69,26 +71,26 @@ function mapErrorMessage(error: string): { title: string; subTitle: string } {
   // 匹配后端返回的中文消息
   if (error.includes("无效的认证令牌") || error === "无效的认证令牌") {
     return {
-      title: "无效的认证令牌",
-      subTitle: "该分享链接可能已失效、被禁用或已过期",
+      title: t("dashboard.shareNoToken"),
+      subTitle: t("dashboard.shareDefaultSub"),
     };
   }
   if (error.includes("访问密码错误")) {
     return {
-      title: "访问密码错误",
-      subTitle: "请检查密码后重新输入",
+      title: t("dashboard.shareCodeWrongTitle"),
+      subTitle: t("dashboard.shareCodeWrongSub"),
     };
   }
   if (error.includes("密码尝试次数过多") || error.includes("稍后再试")) {
     return {
-      title: "密码尝试次数过多",
-      subTitle: "请等待 15 分钟后再试",
+      title: t("dashboard.shareCodeLockedTitle"),
+      subTitle: t("dashboard.shareCodeLockedSub"),
     };
   }
   // 默认
   return {
-    title: error || "分享链接无效",
-    subTitle: "该分享链接可能已失效、被禁用或已过期",
+    title: error || t("dashboard.shareInvalid"),
+    subTitle: t("dashboard.shareDefaultSub"),
   };
 }
 
@@ -96,8 +98,8 @@ function mapErrorMessage(error: string): { title: string; subTitle: string } {
 async function validateShare() {
   const token = route.params.token as string;
   if (!token) {
-    errorMessage.value = "无效的认证令牌";
-    errorSubTitle.value = "分享链接缺少必要的认证参数";
+    errorMessage.value = t("dashboard.shareNoToken");
+    errorSubTitle.value = t("dashboard.shareNoTokenSub");
     isLoading.value = false;
     return;
   }
@@ -188,8 +190,8 @@ async function validateShare() {
   }
 
   // 如果 validate 没有返回 dashboard（不应该发生），显示错误
-  errorMessage.value = "加载数据失败";
-  errorSubTitle.value = "无法获取仪表盘数据，请稍后重试";
+  errorMessage.value = t("dashboard.shareLoadFailed");
+  errorSubTitle.value = t("dashboard.shareLoadFailedSub");
   isLoading.value = false;
 }
 
@@ -220,7 +222,7 @@ async function loadTableDataFromLocal(tableId: string) {
 // 提交访问密码
 async function submitAccessCode() {
   if (!accessCode.value.trim()) {
-    ElMessage.warning("请输入访问密码");
+    ElMessage.warning(t("dashboard.sharePleasePassword"));
     return;
   }
   isValidating.value = false;
@@ -362,7 +364,7 @@ function renderWidget(widget: WidgetConfig) {
       return;
     }
   } else if (!widget.fieldId || records.length === 0) {
-    container.innerHTML = '<div class="widget-empty">暂无数据</div>';
+    container.innerHTML = '<div class="widget-empty">' + t("common.noData") + "</div>";
     return;
   }
 
@@ -402,7 +404,7 @@ function renderWidget(widget: WidgetConfig) {
         <table class="data-table">
           <thead>
             <tr>
-              <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || "分组" : "类别"}</th>
+              <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || t("dashboard.groupBy") : t("dashboard.category")}</th>
               <th>数值</th>
             </tr>
           </thead>
@@ -538,7 +540,7 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
 // 跑马灯组件
 function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const content = escapeHtml(config.content || "欢迎使用 Smart Table 数据仪表盘");
+  const content = escapeHtml(config.content || t("dashboard.marqueeDefault"));
   const speed = config.speed || 2;
   const fontSize = config.fontSize || 16;
   const direction = config.direction || "left";
@@ -757,8 +759,8 @@ function renderRealtimeWidgetEmpty(
       padding: 20px;
       text-align: center;
     ">
-      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">实时数据流组件</div>
-      <div style="font-size: 12px; opacity: 0.5;">请配置数据表和字段以显示实时数据</div>
+      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">${t("dashboard.widgetRealtime")}</div>
+      <div style="font-size: 12px; opacity: 0.5;">${t("dashboard.realtimeEmptyHint")}</div>
     </div>
   `;
 }
@@ -766,7 +768,7 @@ function renderRealtimeWidgetEmpty(
 // 标题文字组件
 function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const text = escapeHtml(config.text || widget.title || "标题文字");
+  const text = escapeHtml(config.text || widget.title || t("dashboard.titleText"));
   const subtitle = escapeHtml(config.subtitle || "");
   const fontSize = config.fontSize || 32;
   const subtitleFontSize = config.subtitleFontSize || 16;
@@ -1141,19 +1143,19 @@ onUnmounted(() => {
         <template #header>
           <div class="card-header">
             <el-icon :size="48" color="#3370FF"><Lock /></el-icon>
-            <h2>需要访问密码</h2>
-            <p>此仪表盘分享链接需要密码才能访问</p>
+            <h2>{{ t('dashboard.sharePasswordTitle') }}</h2>
+            <p>{{ t('dashboard.sharePasswordHint') }}</p>
           </div>
         </template>
         <el-input
           v-model="accessCode"
-          placeholder="请输入6位访问密码"
+          :placeholder="t('dashboard.sharePasswordPlaceholder')"
           maxlength="6"
           size="large"
           @keyup.enter="submitAccessCode">
           <template #append>
             <el-button type="primary" @click="submitAccessCode">
-              进入
+              {{ t('dashboard.shareEnter') }}
             </el-button>
           </template>
         </el-input>
@@ -1168,7 +1170,7 @@ onUnmounted(() => {
         :sub-title="errorSubTitle">
         <template #extra>
           <el-button type="primary" @click="$router.push('/')">
-            返回首页
+            {{ t('dashboard.backHome') }}
           </el-button>
         </template>
       </el-result>
@@ -1183,7 +1185,7 @@ onUnmounted(() => {
           <p v-if="dashboard?.description">{{ dashboard.description }}</p>
         </div>
         <div class="header-right">
-          <el-tag type="info">只读查看</el-tag>
+          <el-tag type="info">{{ t('dashboard.readonlyView') }}</el-tag>
         </div>
       </div>
 
@@ -1215,13 +1217,13 @@ onUnmounted(() => {
         </div>
 
         <div v-if="widgets.length === 0" class="empty-dashboard">
-          <el-empty description="该仪表盘暂无组件" />
+          <el-empty :description="t('dashboard.noWidget')" />
         </div>
       </div>
 
       <!-- 底部信息 -->
       <div class="share-footer" style="display: none">
-        <p>通过 Smart Table 分享</p>
+        <p>{{ t('dashboard.sharedVia') }}</p>
       </div>
     </div>
   </div>

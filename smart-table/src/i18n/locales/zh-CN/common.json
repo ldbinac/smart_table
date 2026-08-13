@@ -58,5 +58,9 @@
   "tooManyRequests": "请求过于频繁，请稍后再试",
   "validationFailed": "数据验证失败",
   "resourceNotFound": "请求的资源不存在",
-  "paramError": "请求参数错误"
+  "paramError": "请求参数错误",
+  "action": "操作",
+  "desc": "描述",
+  "share": "分享",
+  "createDashboard": "新建仪表盘"
 }

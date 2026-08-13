@@ -63,5 +63,9 @@
   "backHome": "Back to Home",
   "forbiddenTitle": "Access Forbidden",
   "forbiddenAccess": "You do not have permission to access this page",
-  "backPrevious": "Go Back"
+  "backPrevious": "Go Back",
+  "desc": "Description",
+  "action": "Actions",
+  "share": "Share",
+  "createDashboard": "New dashboard"
 }
