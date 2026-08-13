@@ -17,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from marshmallow import ValidationError as MarshmallowValidationError
 
 from app.utils.response import error_response
+from app.i18n import translate
 
 
 def _log_error_with_context(app, error, error_code=None):
@@ -65,7 +66,7 @@ class APIError(Exception):
     API 错误基类
     
     属性:
-        message: 错误消息
+        message: 错误消息（i18n key 或原始文本）
         code: HTTP 状态码
         error: 错误代码
         details: 详细错误信息
@@ -73,7 +74,7 @@ class APIError(Exception):
     
     def __init__(
         self,
-        message: str = '操作失败',
+        message: str = 'operation_failed',
         code: int = 400,
         error: str = None,
         details: list = None
@@ -88,7 +89,7 @@ class APIError(Exception):
 class ValidationError(APIError):
     """数据验证错误"""
     
-    def __init__(self, message: str = '数据验证失败', details: list = None):
+    def __init__(self, message: str = 'validation_error', details: list = None):
         super().__init__(
             message=message,
             code=422,
@@ -100,9 +101,9 @@ class ValidationError(APIError):
 class ResourceNotFoundError(APIError):
     """资源未找到错误"""
     
-    def __init__(self, resource: str = '资源'):
+    def __init__(self, resource: str = 'resource_not_found'):
         super().__init__(
-            message=f'{resource}不存在',
+            message=resource,
             code=404,
             error='not_found'
         )
@@ -111,7 +112,7 @@ class ResourceNotFoundError(APIError):
 class PermissionDeniedError(APIError):
     """权限不足错误"""
     
-    def __init__(self, message: str = '权限不足'):
+    def __init__(self, message: str = 'permission_denied'):
         super().__init__(
             message=message,
             code=403,
@@ -122,7 +123,7 @@ class PermissionDeniedError(APIError):
 class ConflictError(APIError):
     """资源冲突错误"""
     
-    def __init__(self, message: str = '资源冲突'):
+    def __init__(self, message: str = 'conflict'):
         super().__init__(
             message=message,
             code=409,
@@ -145,7 +146,7 @@ def register_handlers(app: Flask) -> None:
         request_id = getattr(g, 'request_id', None)
         app.logger.warning(f"[{request_id}] Bad request: {str(error)}")
         return error_response(
-            message='请求格式错误',
+            message='bad_request',
             code=400,
             error='bad_request',
             request_id=request_id
@@ -157,7 +158,7 @@ def register_handlers(app: Flask) -> None:
         """处理未授权请求"""
         request_id = getattr(g, 'request_id', None)
         return error_response(
-            message='请先登录',
+            message='unauthorized',
             code=401,
             error='unauthorized',
             request_id=request_id
@@ -169,7 +170,7 @@ def register_handlers(app: Flask) -> None:
         """处理禁止访问请求"""
         request_id = getattr(g, 'request_id', None)
         return error_response(
-            message='权限不足',
+            message='forbidden',
             code=403,
             error='forbidden',
             request_id=request_id
@@ -182,7 +183,7 @@ def register_handlers(app: Flask) -> None:
         request_id = getattr(g, 'request_id', None)
         if request.path.startswith('/api/'):
             return error_response(
-                message='请求的资源不存在',
+                message='not_found',
                 code=404,
                 error='not_found',
                 request_id=request_id
@@ -196,7 +197,7 @@ def register_handlers(app: Flask) -> None:
         """处理方法不允许"""
         request_id = getattr(g, 'request_id', None)
         return error_response(
-            message=f'不支持的请求方法: {request.method}',
+            message=translate('method_not_allowed'),
             code=405,
             error='method_not_allowed',
             request_id=request_id
@@ -212,7 +213,7 @@ def register_handlers(app: Flask) -> None:
             for field, msgs in error.messages.items()
         ]
         return error_response(
-            message='数据验证失败',
+            message='validation_error',
             code=422,
             error='validation_error',
             details=details,
@@ -243,28 +244,28 @@ def register_handlers(app: Flask) -> None:
         
         if 'unique' in error_str or 'duplicate' in error_str:
             return error_response(
-                message='数据已存在，请勿重复添加',
+                message='duplicate_entry',
                 code=409,
                 error='duplicate_entry',
                 request_id=request_id
             )
         elif 'foreign key' in error_str:
             return error_response(
-                message='关联的数据不存在',
+                message='foreign_key_constraint',
                 code=400,
                 error='foreign_key_constraint',
                 request_id=request_id
             )
         elif 'not null' in error_str:
             return error_response(
-                message='必填字段不能为空',
+                message='not_null_constraint',
                 code=400,
                 error='not_null_constraint',
                 request_id=request_id
             )
         else:
             return error_response(
-                message='数据操作失败',
+                message='integrity_error',
                 code=400,
                 error='integrity_error',
                 request_id=request_id
@@ -276,7 +277,7 @@ def register_handlers(app: Flask) -> None:
         """处理数据库错误"""
         request_id = _log_error_with_context(app, error, 'DATABASE_ERROR')
         return error_response(
-            message='数据库操作失败，请稍后重试',
+            message='database_error',
             code=500,
             error='database_error',
             request_id=request_id
@@ -293,7 +294,7 @@ def register_handlers(app: Flask) -> None:
         # 如果是 HTTP 异常，使用其状态码
         if isinstance(error, HTTPException):
             return error_response(
-                message=error.description or '服务器错误',
+                message='http_error',
                 code=error.code,
                 error='http_error',
                 request_id=request_id
@@ -302,7 +303,7 @@ def register_handlers(app: Flask) -> None:
         # 生产环境不暴露详细错误信息
         if not app.debug:
             return error_response(
-                message='服务器内部错误，请稍后重试',
+                message='internal_server_error',
                 code=500,
                 error='internal_server_error',
                 request_id=request_id
@@ -317,31 +318,31 @@ def register_handlers(app: Flask) -> None:
         )
 
 
-def handle_404_error(resource_name: str = '资源') -> tuple:
+def handle_404_error(resource_name: str = 'resource_not_found') -> tuple:
     """
     生成 404 错误响应的快捷方法
     
     Args:
-        resource_name: 资源名称
+        resource_name: 资源名称或 i18n key
         
     Returns:
         错误响应元组
     """
     request_id = getattr(g, 'request_id', None)
     return error_response(
-        message=f'{resource_name}不存在',
+        message=resource_name,
         code=404,
         error='not_found',
         request_id=request_id
     )
 
 
-def handle_409_error(message: str = '资源冲突') -> tuple:
+def handle_409_error(message: str = 'conflict') -> tuple:
     """
     生成 409 冲突错误响应的快捷方法
     
     Args:
-        message: 错误消息
+        message: 错误消息（i18n key 或原始文本，自动翻译）
         
     Returns:
         错误响应元组

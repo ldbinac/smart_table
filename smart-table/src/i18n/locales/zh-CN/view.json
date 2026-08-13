@@ -1,0 +1,22 @@
+{
+  "table": "表格",
+  "kanban": "看板",
+  "calendar": "日历",
+  "gantt": "甘特图",
+  "form": "表单",
+  "gallery": "画册",
+  "default": "默认",
+  "rename": "重命名",
+  "duplicate": "复制视图",
+  "setDefault": "设为默认",
+  "deleteView": "删除视图",
+  "addView": "添加视图",
+  "createViewTitle": "创建新视图",
+  "viewName": "视图名称",
+  "viewNamePlaceholder": "请输入视图名称",
+  "viewType": "视图类型",
+  "keepOneView": "至少保留一个视图",
+  "deleteViewConfirm": "确定要删除视图“{name}”吗？",
+  "copySuffix": " 副本",
+  "nameSuffix": "视图"
+}

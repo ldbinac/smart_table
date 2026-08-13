@@ -1,0 +1,109 @@
+/**
+ * vue-i18n 实例创建与配置
+ *
+ * 设计要点：
+ * - legacy: false  → 启用 Composition API 模式，与项目现有 setup 语法一致
+ * - 资源文件通过 import.meta.glob 同步收集，Vite 会按语言 code-split
+ * - 仅加载已启用语言（ENABLED_LANGUAGES）的资源，预留语言不打包
+ * - 导出 i18n 实例供 main.ts 注册，同时导出便捷的 t 函数供非组件上下文使用
+ */
+import { createI18n } from "vue-i18n";
+import type { I18n } from "vue-i18n";
+import {
+  DEFAULT_LOCALE,
+  FALLBACK_LOCALE,
+  isSupportedLocale,
+  type SupportedLocale,
+} from "./types";
+
+/**
+ * 通过 import.meta.glob 收集所有已启用语言的 JSON 资源。
+ * Vite 在构建时会为每种语言生成独立 chunk，实现按需加载。
+ *
+ * glob 模式匹配：locales/{zh-CN,en-US}/*.json
+ * eager: true → 同步导入，应用启动时即可用，避免首屏闪烁
+ */
+const localeModules = import.meta.glob(
+  ["./locales/zh-CN/*.json", "./locales/en-US/*.json"],
+  { eager: true },
+);
+
+/**
+ * 将收集到的模块按语言组装为 { [lang]: { [module]: {...} } } 结构。
+ * 文件名作为模块 key（如 common、route、auth、settings）。
+ */
+function assembleMessages(): Record<string, Record<string, unknown>> {
+  const messages: Record<string, Record<string, unknown>> = {};
+
+  for (const path in localeModules) {
+    // path 形如 "./locales/zh-CN/common.json"
+    const match = path.match(/\.\/locales\/([^/]+)\/([^/]+)\.json$/);
+    if (!match) continue;
+
+    const lang = match[1];
+    const moduleName = match[2];
+    const moduleContent = (localeModules[path] as { default: Record<string, unknown> }).default;
+
+    if (!messages[lang]) {
+      messages[lang] = {};
+    }
+    messages[lang][moduleName] = moduleContent;
+  }
+
+  return messages;
+}
+
+const messages = assembleMessages();
+
+/**
+ * 从 localStorage 读取用户上次选择的语言。
+ * settingsStore 的存储 key 为 "smart-table-settings"，其中包含 language 字段。
+ */
+function getInitialLocale(): SupportedLocale {
+  try {
+    const stored = localStorage.getItem("smart-table-settings");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && isSupportedLocale(parsed.language)) {
+        return parsed.language;
+      }
+    }
+  } catch {
+    // 读取失败时静默回退到默认语言
+  }
+  return DEFAULT_LOCALE;
+}
+
+/** vue-i18n 实例 */
+const i18n = createI18n({
+  legacy: false,
+  locale: getInitialLocale(),
+  fallbackLocale: FALLBACK_LOCALE,
+  messages,
+});
+
+export default i18n;
+
+/**
+ * 全局翻译函数（非组件上下文使用，如 api/client.ts、router/guards.ts）。
+ * 在组件内请使用 useI18n() 获取的 t 函数。
+ */
+export const t = i18n.global.t;
+
+/**
+ * 切换当前语言（供 settingsStore 调用）。
+ * @param lang 目标语言代码
+ */
+export function setI18nLanguage(lang: SupportedLocale): void {
+  i18n.global.locale.value = lang;
+}
+
+/**
+ * 获取当前语言代码。
+ */
+export function getI18nLanguage(): SupportedLocale {
+  return i18n.global.locale.value as SupportedLocale;
+}
+
+/** 导出 I18n 类型供其他模块类型标注使用 */
+export type { I18n };

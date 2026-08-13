@@ -5,10 +5,12 @@
 from typing import Any, Optional, Dict, List
 from flask import jsonify, Response
 
+from app.i18n import translate
+
 
 def success_response(
     data: Any = None,
-    message: str = '操作成功',
+    message: str = 'operation_success',
     code: int = 200,
     meta: Optional[Dict] = None
 ) -> Response:
@@ -17,16 +19,19 @@ def success_response(
     
     Args:
         data: 响应数据
-        message: 成功消息
+        message: 成功消息（i18n key 或原始文本，自动翻译）
         code: HTTP 状态码
         meta: 元数据（如分页信息等）
         
     Returns:
         Flask Response 对象
     """
+    # 翻译 message：若 message 是 i18n key 则翻译，否则原样返回
+    translated_message = translate(message)
+    
     response = {
         'success': True,
-        'message': message,
+        'message': translated_message,
         'data': data
     }
     
@@ -37,7 +42,7 @@ def success_response(
 
 
 def error_response(
-    message: str = '操作失败',
+    message: str = 'operation_failed',
     code: int = 400,
     error: Optional[str] = None,
     details: Optional[List[Dict]] = None,
@@ -47,7 +52,7 @@ def error_response(
     错误响应
     
     Args:
-        message: 错误消息
+        message: 错误消息（i18n key 或原始文本，自动翻译）
         code: HTTP 状态码
         error: 错误代码
         details: 详细错误信息列表
@@ -56,9 +61,12 @@ def error_response(
     Returns:
         Flask Response 对象
     """
+    # 翻译 message：若 message 是 i18n key 则翻译，否则原样返回
+    translated_message = translate(message)
+    
     response = {
         'success': False,
-        'message': message
+        'message': translated_message
     }
     
     if error is not None:
@@ -78,7 +86,7 @@ def paginated_response(
     total: int,
     page: int,
     per_page: int,
-    message: str = '获取成功'
+    message: str = 'fetch_success'
 ) -> Response:
     """
     分页响应
@@ -88,7 +96,7 @@ def paginated_response(
         total: 总记录数
         page: 当前页码
         per_page: 每页数量
-        message: 成功消息
+        message: 成功消息（i18n key 或原始文本，自动翻译）
         
     Returns:
         Flask Response 对象
@@ -132,36 +140,36 @@ def validation_error_response(errors: Dict[str, List[str]]) -> Response:
     ]
     
     return error_response(
-        message='数据验证失败',
+        message='validation_error',
         code=422,
         error='validation_error',
         details=details
     )
 
 
-def not_found_response(resource: str = '资源') -> Response:
+def not_found_response(resource: str = 'resource_not_found') -> Response:
     """
     资源未找到响应
     
     Args:
-        resource: 资源名称
+        resource: 资源名称或 i18n key
         
     Returns:
         Flask Response 对象
     """
     return error_response(
-        message=f'{resource}不存在',
+        message=resource,
         code=404,
         error='not_found'
     )
 
 
-def unauthorized_response(message: str = '未授权访问') -> Response:
+def unauthorized_response(message: str = 'unauthorized_access') -> Response:
     """
     未授权响应
     
     Args:
-        message: 错误消息
+        message: 错误消息（i18n key 或原始文本，自动翻译）
         
     Returns:
         Flask Response 对象
@@ -173,12 +181,12 @@ def unauthorized_response(message: str = '未授权访问') -> Response:
     )
 
 
-def forbidden_response(message: str = '权限不足') -> Response:
+def forbidden_response(message: str = 'forbidden') -> Response:
     """
     禁止访问响应
 
     Args:
-        message: 错误消息
+        message: 错误消息（i18n key 或原始文本，自动翻译）
 
     Returns:
         Flask Response 对象
@@ -190,12 +198,12 @@ def forbidden_response(message: str = '权限不足') -> Response:
     )
 
 
-def bad_request_response(message: str = '请求参数错误') -> Response:
+def bad_request_response(message: str = 'param_error') -> Response:
     """
     错误请求响应
 
     Args:
-        message: 错误消息
+        message: 错误消息（i18n key 或原始文本，自动翻译）
 
     Returns:
         Flask Response 对象

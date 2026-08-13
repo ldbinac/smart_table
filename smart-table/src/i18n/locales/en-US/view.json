@@ -1,0 +1,22 @@
+{
+  "table": "Table",
+  "kanban": "Kanban",
+  "calendar": "Calendar",
+  "gantt": "Gantt",
+  "form": "Form",
+  "gallery": "Gallery",
+  "default": "Default",
+  "rename": "Rename",
+  "duplicate": "Duplicate View",
+  "setDefault": "Set as Default",
+  "deleteView": "Delete View",
+  "addView": "Add View",
+  "createViewTitle": "Create New View",
+  "viewName": "View Name",
+  "viewNamePlaceholder": "Enter view name",
+  "viewType": "View Type",
+  "keepOneView": "At least one view must be kept",
+  "deleteViewConfirm": "Delete the view \"{name}\"?",
+  "copySuffix": " Copy",
+  "nameSuffix": " View"
+}

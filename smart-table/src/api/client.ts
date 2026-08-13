@@ -17,6 +17,7 @@ import { apiConfig } from "./config";
 import { getToken, clearToken } from "@/utils/auth/token";
 import { useAuthStore } from "@/stores/authStore";
 import devLog from "@/utils/logger";
+import { t, getI18nLanguage } from "@/i18n";
 
 const { baseURL, timeout } = apiConfig;
 
@@ -46,6 +47,10 @@ instance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // 注入 Accept-Language header，后端据此返回对应语言的 message
+    config.headers["Accept-Language"] = getI18nLanguage();
+
     return config;
   },
   (error: AxiosError) => {
@@ -143,7 +148,7 @@ instance.interceptors.response.use(
                 // 续期失败,清除状态并跳转登录页
                 clearToken();
                 router.push("/login");
-                ElMessage.error("登录已过期，请重新登录");
+                ElMessage.error(t("common.loginExpired"));
                 // 拒绝所有待重试的请求
                 pendingRequests.forEach(({ reject }) => {
                   reject(new Error('Token refresh failed'));
@@ -155,7 +160,7 @@ instance.interceptors.response.use(
               devLog.error('[API] Token续期异常:', err);
               clearToken();
               router.push("/login");
-              ElMessage.error("登录已过期，请重新登录");
+              ElMessage.error(t("common.loginExpired"));
               // 拒绝所有待重试的请求
               pendingRequests.forEach(({ reject }) => {
                 reject(err);
@@ -192,7 +197,7 @@ instance.interceptors.response.use(
           // 清除 token 并跳转登录页
           clearToken();
           router.push("/login");
-          ElMessage.error(errorData.message || "认证令牌无效，请重新登录");
+          ElMessage.error(errorData.message || t("auth.tokenInvalid"));
           return Promise.reject(
             Object.assign(new Error("Forbidden - Invalid Token"), { 
               requestId,
@@ -202,7 +207,7 @@ instance.interceptors.response.use(
         }
         
         // 普通权限不足错误
-        ElMessage.error(errorData.message || "没有操作权限");
+        ElMessage.error(errorData.message || t("common.noPermission"));
         return Promise.reject(
           Object.assign(new Error("Forbidden"), { 
             requestId,
@@ -221,7 +226,7 @@ instance.interceptors.response.use(
         );
       }
 
-      const msg = errorData.message || "请求失败";
+      const msg = errorData.message || t("common.requestFailed");
       ElMessage.error(msg);
       return Promise.reject(
         Object.assign(new Error(msg), { 
@@ -237,7 +242,7 @@ instance.interceptors.response.use(
   },
   (error: AxiosError) => {
     if (!error.response) {
-      ElMessage.error("网络连接失败，请检查网络设置");
+      ElMessage.error(t("common.networkError"));
       return Promise.reject(error);
     }
 
@@ -270,7 +275,7 @@ instance.interceptors.response.use(
 
     switch (status) {
       case 400:
-        ElMessage.error(backendMessage || "请求参数错误");
+        ElMessage.error(backendMessage || t("common.paramError"));
         break;
       case 401:
         {
@@ -280,7 +285,7 @@ instance.interceptors.response.use(
             // 不弹 ElMessage、不触发续期，直接把后端 message 返回给调用方处理
             return Promise.reject(
               Object.assign(
-                new Error(backendMessage || "认证失败"),
+                new Error(backendMessage || t("auth.loginFailed")),
                 { requestId, code: 401, error: data?.error, response: error.response }
               )
             );
@@ -339,7 +344,7 @@ instance.interceptors.response.use(
                   // 续期失败,清除状态并跳转登录页
                   clearToken();
                   router.push("/login");
-                  ElMessage.error("登录已过期，请重新登录");
+                  ElMessage.error(t("common.loginExpired"));
                   // 拒绝所有待重试的请求
                   pendingRequests.forEach(({ reject }) => {
                     reject(new Error('Token refresh failed'));
@@ -351,7 +356,7 @@ instance.interceptors.response.use(
                 devLog.error('[API] Token续期异常:', err);
                 clearToken();
                 router.push("/login");
-                ElMessage.error("登录已过期，请重新登录");
+                ElMessage.error(t("common.loginExpired"));
                 // 拒绝所有待重试的请求
                 pendingRequests.forEach(({ reject }) => {
                   reject(err);
@@ -383,15 +388,15 @@ instance.interceptors.response.use(
             // 清除 token 并跳转登录页
             clearToken();
             router.push("/login");
-            ElMessage.error(backendMessage || "认证令牌无效，请重新登录");
+            ElMessage.error(backendMessage || t("auth.tokenInvalid"));
           } else {
             // 普通权限不足错误
-            ElMessage.error(backendMessage || "没有操作权限");
+            ElMessage.error(backendMessage || t("common.noPermission"));
           }
         }
         break;
       case 404:
-        ElMessage.error(backendMessage || "请求的资源不存在");
+        ElMessage.error(backendMessage || t("common.resourceNotFound"));
         break;
       case 422:
         // 处理验证错误，显示详细的字段错误信息
@@ -407,27 +412,27 @@ instance.interceptors.response.use(
           );
           ElMessage.error(errorMessages.join('\n'));
         } else {
-          ElMessage.error(backendMessage || "数据验证失败");
+          ElMessage.error(backendMessage || t("common.validationFailed"));
         }
         break;
       case 429:
         {
           const skipRedirect = (error.config as any)?.skipAuthRedirect;
           if (!skipRedirect) {
-            ElMessage.error(backendMessage || "请求过于频繁，请稍后再试");
+            ElMessage.error(backendMessage || t("common.tooManyRequests"));
           }
         }
         break;
       case 500:
-        ElMessage.error(backendMessage || "服务器内部错误");
+        ElMessage.error(backendMessage || t("common.serverError"));
         break;
       case 502:
       case 503:
       case 504:
-        ElMessage.error(backendMessage || "服务暂时不可用，请稍后再试");
+        ElMessage.error(backendMessage || t("common.serviceUnavailable"));
         break;
       default:
-        ElMessage.error(backendMessage || `请求失败 (${status})`);
+        ElMessage.error(backendMessage || `${t("common.requestFailed")} (${status})`);
     }
 
     return Promise.reject(

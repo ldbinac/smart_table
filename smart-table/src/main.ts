@@ -8,6 +8,7 @@ import "vxe-table/lib/style.css";
 
 import App from "./App.vue";
 import router from "./router";
+import i18n from "./i18n";
 import { db } from "./db";
 import { initDayjsPlugins } from "./utils/timezone";
 import { getTokenRefreshService } from "./services/tokenRefreshService";
@@ -24,6 +25,7 @@ const app = createApp(App);
 
 app.use(createPinia());
 app.use(router);
+app.use(i18n);
 app.use(ElementPlus);
 app.use(VxeTable);
 

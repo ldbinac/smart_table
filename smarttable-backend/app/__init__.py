@@ -2,7 +2,7 @@
 SmartTable Flask 应用工厂模块
 """
 import uuid
-from flask import Flask, jsonify, render_template_string, g
+from flask import Flask, jsonify, render_template_string, g, request
 from flasgger import Swagger
 from app.extensions import init_extensions, db
 from app.config import config
@@ -43,6 +43,7 @@ from app.services.workflow_template_service import init_default_templates as ini
 from app.services.workflow_execution_engine import init_workflow_execution_engine
 from app.static_serving import configure_static_serving
 from app.errors.handlers import register_handlers
+from app.i18n.utils import parse_accept_language, set_current_language
 from app.models import (
     User, Base, BaseMember, Table, Field,
     Record, View, Dashboard, Attachment
@@ -181,6 +182,13 @@ def register_lifecycle_hooks(app):
     def generate_request_id():
         """为每个请求生成唯一 ID"""
         g.request_id = str(uuid.uuid4())
+
+    @app.before_request
+    def parse_language():
+        """解析 Accept-Language header，设置当前请求语言到 g.language"""
+        accept_lang = request.headers.get('Accept-Language', '')
+        lang = parse_accept_language(accept_lang)
+        set_current_language(lang)
 
     @app.before_request
     def init_services():

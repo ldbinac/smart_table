@@ -48,6 +48,7 @@
     "vue": "^3.5.30",
     "vue-codemirror": "^6.1.1",
     "vue-echarts": "^6.7.3",
+    "vue-i18n": "^9.14.5",
     "vue-router": "^4.6.4",
     "vxe-table": "^4.18.7",
     "xe-utils": "^4.0.11",

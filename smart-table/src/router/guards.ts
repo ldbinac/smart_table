@@ -6,6 +6,7 @@
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { isRegistrationEnabled } from '@/utils/securityConfig'
+import i18n from '@/i18n'
 
 const whiteList = ['/login', '/register', '/forgot-password']
 
@@ -119,11 +120,13 @@ export const titleGuard = (
   _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ): void => {
-  const title = to.meta.title as string
-  if (title) {
-    document.title = `${title} - SmartTable`
+  const titleKey = to.meta.title as string
+  if (titleKey) {
+    // meta.title 存储的是 i18n key（如 'route.login'），通过 i18n 翻译为对应语言
+    const translatedTitle = i18n.global.t(titleKey)
+    document.title = `${translatedTitle} - SmartTable`
   } else {
-    document.title = 'SmartTable - 多维表格管理系统'
+    document.title = 'SmartTable'
   }
   next()
 }
