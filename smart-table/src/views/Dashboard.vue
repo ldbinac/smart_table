@@ -1121,8 +1121,8 @@ function renderWidget(widget: WidgetConfig) {
         <div class="empty-icon-wrapper">
           <el-icon :size="32"><DataAnalysis /></el-icon>
         </div>
-        <span class="empty-text">{{ t('dashboard.configDataSource') }}</span>
-        <span class="empty-hint">{{ t('dashboard.selectTableFieldHint') }}</span>
+        <span class="empty-text">${t('dashboard.configDataSource')}</span>
+        <span class="empty-hint">${t('dashboard.selectTableFieldHint')}</span>
       </div>
     `;
     return;
@@ -1145,7 +1145,7 @@ function renderWidget(widget: WidgetConfig) {
       <div class="number-card" style="--number-color: ${color}">
         <div class="number-value">${formattedValue}</div>
         <div class="number-label">${escapeHtml(widget.title)}</div>
-        ${values.length > 1 ? `<div class="number-detail">共 ${values.length} 项数据</div>` : ""}
+        ${values.length > 1 ? `<div class="number-detail">${t('dashboard.totalItems', { count: values.length })}</div>` : ""}
       </div>
     `;
     return;
@@ -1917,7 +1917,7 @@ function renderKpiWidgetEmpty(widget: WidgetConfig, container: HTMLElement) {
     ? `
       <div style="margin-top: 12px;">
         <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
-          <span>目标: ${prefix}${targetValue.toLocaleString()}${suffix}</span>
+          <span>${t('dashboard.targetLabel')}: ${prefix}${targetValue.toLocaleString()}${suffix}</span>
           <span>75%</span>
         </div>
         <div style="height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
@@ -2244,7 +2244,7 @@ async function switchGridColumns(columns: 12 | 24) {
     widgets: widgets.value,
   });
 
-  ElMessage.success(`已切换到${columns}列网格`);
+  ElMessage.success(t('dashboard.switchedToGrid', { count: columns }));
 }
 
 watch(
@@ -2491,7 +2491,7 @@ onUnmounted(() => {
             <el-button
               v-if="currentDashboard && canManage"
               size="default"
-              title="t('dashboard.editCurrentDashboard')"
+              :title="t('dashboard.editCurrentDashboard')"
               @click="
                 isEditingDashboard = true;
                 isCreatingDashboard = false;
@@ -2506,7 +2506,7 @@ onUnmounted(() => {
             <el-button
               v-if="currentDashboard && canManage"
               size="default"
-              title="t('dashboard.copyCurrentDashboard')"
+              :title="t('dashboard.copyCurrentDashboard')"
               @click="duplicateDashboard(currentDashboard)">
               <el-icon><CopyDocument /></el-icon>
               <span>{{ t('common.duplicate') }}</span>
@@ -2519,7 +2519,7 @@ onUnmounted(() => {
             <el-button
               v-if="currentDashboard && canManage"
               size="default"
-              title="t('dashboard.shareCurrentDashboard')"
+              :title="t('dashboard.shareCurrentDashboard')"
               @click="openShareDialog">
               <el-icon><Share /></el-icon>
               <span>{{ t('common.share') }}</span>
@@ -2527,7 +2527,7 @@ onUnmounted(() => {
             <el-button
               v-if="currentDashboard"
               size="default"
-              title="t('dashboard.previewDashboard')"
+              :title="t('dashboard.previewDashboard')"
               @click="openPreviewDialog">
               <el-icon><View /></el-icon>
               <span>{{ t('dashboard.preview') }}</span>
@@ -2559,22 +2559,22 @@ onUnmounted(() => {
               <template v-if="layoutType === 'grid'">
                 <el-button
                   size="default"
-                  title="t('dashboard.switchTo12Cols')"
+                  :title="t('dashboard.switchTo12Cols')"
                   :type="gridColumns === 12 ? 'primary' : 'default'"
                   @click="switchGridColumns(12)">
-                  12列
+                  {{ t('dashboard.column12') }}
                 </el-button>
                 <el-button
                   size="default"
-                  title="t('dashboard.switchTo24Cols')"
+                  :title="t('dashboard.switchTo24Cols')"
                   :type="gridColumns === 24 ? 'primary' : 'default'"
                   @click="switchGridColumns(24)">
-                  24列
+                  {{ t('dashboard.column24') }}
                 </el-button>
               </template>
               <el-button
                 size="default"
-                title="t('dashboard.toggleGridLine')"
+                :title="t('dashboard.toggleGridLine')"
                 :type="showGridLines ? 'primary' : 'default'"
                 @click="showGridLines = !showGridLines">
                 <el-icon><View /></el-icon>
@@ -2723,7 +2723,7 @@ onUnmounted(() => {
             <h3 class="empty-title">{{ t('dashboard.startCreateTitle') }}</h3>
             <p class="empty-desc">{{ t('dashboard.startCreateDesc') }}</p>
             <p v-if="!currentDashboard" class="empty-hint">
-              请先创建一个仪表盘
+              {{ t('dashboard.createFirstDashboard') }}
             </p>
             <el-button
               v-else
@@ -2739,7 +2739,7 @@ onUnmounted(() => {
               type="primary"
               class="create-dashboard-btn"
               size="default"
-              title="t('dashboard.createFromTemplate')"
+              :title="t('dashboard.createFromTemplate')"
               @click="showTemplateDialog = true">
               <el-icon><Grid /></el-icon>
               <span>{{ t('dashboard.useTemplate') }}</span>
@@ -2786,10 +2786,10 @@ onUnmounted(() => {
               <div class="config-section">
                 <div class="section-title">
                   <span class="section-icon">📋</span>
-                  基础配置
+                  {{ t('dashboard.basicConfig') }}
                 </div>
 
-                <el-form-item label="t('dashboard.widgetTitle')">
+                <el-form-item :label="t('dashboard.widgetTitle')">
                   <el-input
                     v-model="selectedWidget.title"
                     @input="onWidgetConfigChange()" />
@@ -2797,7 +2797,7 @@ onUnmounted(() => {
 
                 <!-- 数据表选择 - 仅对需要数据的组件显示 -->
                 <el-form-item
-                  label="t('dashboard.dataTable')"
+                  :label="t('dashboard.dataTable')"
                   v-if="
                     !isScreenWidget(selectedWidget!.type) ||
                     ['kpi', 'realtime'].includes(selectedWidget!.type)
@@ -2829,14 +2829,14 @@ onUnmounted(() => {
                 ">
                 <div class="section-title">
                   <span class="section-icon">📊</span>
-                  数据配置
+                  {{ t('dashboard.dataConfig') }}
                 </div>
 
-                <el-form-item label="t('dashboard.groupFieldOptional')">
+                <el-form-item :label="t('dashboard.groupFieldOptional')">
                   <el-select
                     v-model="selectedWidget.groupBy"
                     clearable
-                    placeholder="t('dashboard.noGroup')"
+                    :placeholder="t('dashboard.noGroup')"
                     @change="onWidgetConfigChange()">
                     <el-option
                       v-for="field in fields.filter(
@@ -2860,10 +2860,10 @@ onUnmounted(() => {
                   </el-select>
                 </el-form-item>
 
-                <el-form-item label="t('dashboard.valueField')">
+                <el-form-item :label="t('dashboard.valueField')">
                   <el-select
                     v-model="selectedWidget!.fieldId"
-                    placeholder="t('dashboard.selectField')"
+                    :placeholder="t('dashboard.selectField')"
                     @change="onWidgetConfigChange()">
                     <el-option
                       v-for="field in fields.filter(
@@ -2887,7 +2887,7 @@ onUnmounted(() => {
                   </el-select>
                 </el-form-item>
 
-                <el-form-item label="t('dashboard.aggregation')">
+                <el-form-item :label="t('dashboard.aggregation')">
                   <el-select
                     v-model="selectedWidget.aggregation"
                     @change="onWidgetConfigChange()">
@@ -2912,7 +2912,7 @@ onUnmounted(() => {
                     "
                     class="validation-warning">
                     <el-icon><Warning /></el-icon>
-                    当前字段不支持数值聚合，已自动切换为计数
+                    {{ t('dashboard.aggregationNotSupported') }}
                   </div>
                 </el-form-item>
               </div>
@@ -2923,29 +2923,29 @@ onUnmounted(() => {
                 class="config-section">
                 <div class="section-title">
                   <span class="section-icon">🖥️</span>
-                  大屏组件配置
+                  {{ t('dashboard.screenConfig') }}
                 </div>
 
                 <!-- 通用边框配置 -->
-                <el-form-item label="t('dashboard.borderSize')">
+                <el-form-item :label="t('dashboard.borderSize')">
                   <el-select
                     v-model="(selectedWidget!.config as any).borderSize"
                     @change="onWidgetConfigChange()">
-                    <el-option label="t('dashboard.borderNone')" value="none" />
-                    <el-option label="t('dashboard.borderNarrow')" value="narrow" />
-                    <el-option label="t('dashboard.borderMedium')" value="medium" />
-                    <el-option label="t('dashboard.borderWide')" value="wide" />
+                    <el-option :label="t('dashboard.borderNone')" value="none" />
+                    <el-option :label="t('dashboard.borderNarrow')" value="narrow" />
+                    <el-option :label="t('dashboard.borderMedium')" value="medium" />
+                    <el-option :label="t('dashboard.borderWide')" value="wide" />
                   </el-select>
                 </el-form-item>
 
                 <!-- 通用颜色配置 -->
-                <el-form-item label="t('dashboard.bgColor')">
+                <el-form-item :label="t('dashboard.bgColor')">
                   <el-color-picker
                     v-model="(selectedWidget!.config as any).backgroundColor"
                     show-alpha
                     @change="onWidgetConfigChange()" />
                 </el-form-item>
-                <el-form-item label="t('dashboard.textColor')">
+                <el-form-item :label="t('dashboard.textColor')">
                   <el-color-picker
                     v-model="(selectedWidget!.config as any).textColor"
                     @change="onWidgetConfigChange()" />
@@ -2953,39 +2953,39 @@ onUnmounted(() => {
 
                 <!-- 时钟组件配置 -->
                 <template v-if="selectedWidget!.type === 'clock'">
-                  <el-form-item label="t('dashboard.showTitleBar')">
+                  <el-form-item :label="t('dashboard.showTitleBar')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.timeFormat')">
+                  <el-form-item :label="t('dashboard.timeFormat')">
                     <el-select
                       v-model="(selectedWidget!.config as any).timeFormat"
                       @change="onWidgetConfigChange()">
-                      <el-option label="t('dashboard.hour24')" value="24h" />
-                      <el-option label="t('dashboard.hour12')" value="12h" />
+                      <el-option :label="t('dashboard.hour24')" value="24h" />
+                      <el-option :label="t('dashboard.hour12')" value="12h" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="t('dashboard.showSeconds')">
+                  <el-form-item :label="t('dashboard.showSeconds')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showSeconds"
                       :default-value="true"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.showDate')">
+                  <el-form-item :label="t('dashboard.showDate')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showDate"
                       :default-value="true"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.showWeekday')">
+                  <el-form-item :label="t('dashboard.showWeekday')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showWeekday"
                       :default-value="true"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.timeFontSize')">
+                  <el-form-item :label="t('dashboard.timeFontSize')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).timeFontSize"
                       :min="16"
@@ -2993,7 +2993,7 @@ onUnmounted(() => {
                       :step="2"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.dateFontSize')">
+                  <el-form-item :label="t('dashboard.dateFontSize')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).dateFontSize"
                       :min="10"
@@ -3005,19 +3005,19 @@ onUnmounted(() => {
 
                 <!-- 日期组件配置 -->
                 <template v-if="selectedWidget!.type === 'date'">
-                  <el-form-item label="t('dashboard.showTitleBar')">
+                  <el-form-item :label="t('dashboard.showTitleBar')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.showWeekday')">
+                  <el-form-item :label="t('dashboard.showWeekday')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showWeekday"
                       :default-value="true"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.dateFontSize')">
+                  <el-form-item :label="t('dashboard.dateFontSize')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).monthFontSize"
                       :min="10"
@@ -3029,19 +3029,19 @@ onUnmounted(() => {
 
                 <!-- 跑马灯组件配置 -->
                 <template v-if="selectedWidget!.type === 'marquee'">
-                  <el-form-item label="t('dashboard.showTitleBar')">
+                  <el-form-item :label="t('dashboard.showTitleBar')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.showContent')">
+                  <el-form-item :label="t('dashboard.showContent')">
                     <el-input
                       v-model="(selectedWidget!.config as any).content"
-                      placeholder="t('dashboard.scrollContentPlaceholder')"
+                      :placeholder="t('dashboard.scrollContentPlaceholder')"
                       @input="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.scrollSpeed')">
+                  <el-form-item :label="t('dashboard.scrollSpeed')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).speed"
                       :min="1"
@@ -3049,15 +3049,15 @@ onUnmounted(() => {
                       :step="1"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.scrollDirection')">
+                  <el-form-item :label="t('dashboard.scrollDirection')">
                     <el-select
                       v-model="(selectedWidget!.config as any).direction"
                       @change="onWidgetConfigChange()">
-                      <el-option label="t('dashboard.scrollLeft')" value="left" />
-                      <el-option label="t('dashboard.scrollRight')" value="right" />
+                      <el-option :label="t('dashboard.scrollLeft')" value="left" />
+                      <el-option :label="t('dashboard.scrollRight')" value="right" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="t('dashboard.textFontSize')">
+                  <el-form-item :label="t('dashboard.textFontSize')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).fontSize"
                       :min="12"
@@ -3069,31 +3069,31 @@ onUnmounted(() => {
 
                 <!-- KPI 组件配置 -->
                 <template v-if="selectedWidget!.type === 'kpi'">
-                  <el-form-item label="t('dashboard.prefix')">
+                  <el-form-item :label="t('dashboard.prefix')">
                     <el-input
                       v-model="(selectedWidget!.config as any).prefix"
-                      placeholder="t('dashboard.prefixPlaceholder')"
+                      :placeholder="t('dashboard.prefixPlaceholder')"
                       @input="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.suffix')">
+                  <el-form-item :label="t('dashboard.suffix')">
                     <el-input
                       v-model="(selectedWidget!.config as any).suffix"
-                      placeholder="t('dashboard.suffixPlaceholder')"
+                      :placeholder="t('dashboard.suffixPlaceholder')"
                       @input="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.showTrend')">
+                  <el-form-item :label="t('dashboard.showTrend')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showTrend"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.showTarget')">
+                  <el-form-item :label="t('dashboard.showTarget')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showTarget"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
                   <el-form-item
                     v-if="(selectedWidget!.config as any).showTarget"
-                    label="t('dashboard.targetValue')">
+                    :label="t('dashboard.targetValue')">
                     <el-input-number
                       v-model="(selectedWidget!.config as any).targetValue"
                       :min="0"
@@ -3103,15 +3103,15 @@ onUnmounted(() => {
 
                 <!-- 实时数据流配置 -->
                 <template v-if="selectedWidget!.type === 'realtime'">
-                  <el-form-item label="t('dashboard.chartType')">
+                  <el-form-item :label="t('dashboard.chartType')">
                     <el-select
                       v-model="(selectedWidget!.config as any).chartType"
                       @change="onWidgetConfigChange()">
-                      <el-option label="t('dashboard.lineChart')" value="line" />
-                      <el-option label="t('dashboard.areaChart')" value="area" />
+                      <el-option :label="t('dashboard.lineChart')" value="line" />
+                      <el-option :label="t('dashboard.areaChart')" value="area" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="t('dashboard.maxDataPoints')">
+                  <el-form-item :label="t('dashboard.maxDataPoints')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).maxDataPoints"
                       :min="10"
@@ -3119,7 +3119,7 @@ onUnmounted(() => {
                       :step="10"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.smoothCurve')">
+                  <el-form-item :label="t('dashboard.smoothCurve')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).smooth"
                       :default-value="true"
@@ -3129,25 +3129,25 @@ onUnmounted(() => {
 
                 <!-- 标题文字组件配置 -->
                 <template v-if="selectedWidget!.type === 'text'">
-                  <el-form-item label="t('dashboard.showTitleBar')">
+                  <el-form-item :label="t('dashboard.showTitleBar')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).showHeader"
                       :default-value="false"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.mainTitleText')">
+                  <el-form-item :label="t('dashboard.mainTitleText')">
                     <el-input
                       v-model="(selectedWidget!.config as any).text"
-                      placeholder="t('dashboard.mainTitlePlaceholder')"
+                      :placeholder="t('dashboard.mainTitlePlaceholder')"
                       @input="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.subTitleText')">
+                  <el-form-item :label="t('dashboard.subTitleText')">
                     <el-input
                       v-model="(selectedWidget!.config as any).subtitle"
-                      placeholder="t('dashboard.subTitlePlaceholder')"
+                      :placeholder="t('dashboard.subTitlePlaceholder')"
                       @input="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.mainTitleFontSize')">
+                  <el-form-item :label="t('dashboard.mainTitleFontSize')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).fontSize"
                       :min="16"
@@ -3155,7 +3155,7 @@ onUnmounted(() => {
                       :step="2"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.subTitleFontSize')">
+                  <el-form-item :label="t('dashboard.subTitleFontSize')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).subtitleFontSize"
                       :min="10"
@@ -3163,17 +3163,17 @@ onUnmounted(() => {
                       :step="1"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.fontWeight')">
+                  <el-form-item :label="t('dashboard.fontWeight')">
                     <el-select
                       v-model="(selectedWidget!.config as any).fontWeight"
                       @change="onWidgetConfigChange()">
-                      <el-option label="t('dashboard.normal')" value="normal" />
-                      <el-option label="t('dashboard.medium')" value="500" />
-                      <el-option label="t('dashboard.fontWeightBold')" value="bold" />
-                      <el-option label="t('dashboard.fontWeightExtraBold')" value="800" />
+                      <el-option :label="t('dashboard.normal')" value="normal" />
+                      <el-option :label="t('dashboard.medium')" value="500" />
+                      <el-option :label="t('dashboard.fontWeightBold')" value="bold" />
+                      <el-option :label="t('dashboard.fontWeightExtraBold')" value="800" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="t('dashboard.textAlign')">
+                  <el-form-item :label="t('dashboard.textAlign')">
                     <el-radio-group
                       v-model="(selectedWidget!.config as any).textAlign"
                       @change="onWidgetConfigChange()">
@@ -3182,26 +3182,26 @@ onUnmounted(() => {
                       <el-radio-button label="right">{{ t('dashboard.alignRight') }}</el-radio-button>
                     </el-radio-group>
                   </el-form-item>
-                  <el-form-item label="t('dashboard.mainTitleColor')">
+                  <el-form-item :label="t('dashboard.mainTitleColor')">
                     <el-color-picker
                       v-model="(selectedWidget!.config as any).textColor"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.subTitleColor')">
+                  <el-form-item :label="t('dashboard.subTitleColor')">
                     <el-color-picker
                       v-model="(selectedWidget!.config as any).subtitleColor"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.bgStyle')">
+                  <el-form-item :label="t('dashboard.bgStyle')">
                     <el-select
                       v-model="(selectedWidget!.config as any).backgroundStyle"
                       @change="onWidgetConfigChange()">
-                      <el-option label="t('dashboard.gradient')" value="gradient" />
-                      <el-option label="t('dashboard.solid')" value="solid" />
-                      <el-option label="t('dashboard.transparent')" value="transparent" />
+                      <el-option :label="t('dashboard.gradient')" value="gradient" />
+                      <el-option :label="t('dashboard.solid')" value="solid" />
+                      <el-option :label="t('dashboard.transparent')" value="transparent" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="t('dashboard.letterSpacing')">
+                  <el-form-item :label="t('dashboard.letterSpacing')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).letterSpacing"
                       :min="0"
@@ -3209,7 +3209,7 @@ onUnmounted(() => {
                       :step="1"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.rowHeight')">
+                  <el-form-item :label="t('dashboard.rowHeight')">
                     <el-slider
                       v-model="(selectedWidget!.config as any).lineHeight"
                       :min="1"
@@ -3217,7 +3217,7 @@ onUnmounted(() => {
                       :step="0.1"
                       @change="onWidgetConfigChange()" />
                   </el-form-item>
-                  <el-form-item label="t('dashboard.textShadow')">
+                  <el-form-item :label="t('dashboard.textShadow')">
                     <el-switch
                       v-model="(selectedWidget!.config as any).textShadow"
                       :default-value="true"
@@ -3232,11 +3232,11 @@ onUnmounted(() => {
                 class="config-section">
                 <div class="section-title">
                   <span class="section-icon">🎨</span>
-                  样式配置
+                  {{ t('dashboard.styleConfig') }}
                 </div>
 
                 <el-form-item
-                  label="t('dashboard.showLegend')"
+                  :label="t('dashboard.showLegend')"
                   v-if="
                     selectedWidget!.type !== 'number' &&
                     selectedWidget!.type !== 'table'
@@ -3247,7 +3247,7 @@ onUnmounted(() => {
                 </el-form-item>
 
                 <el-form-item
-                  label="t('dashboard.showValueLabel')"
+                  :label="t('dashboard.showValueLabel')"
                   v-if="
                     selectedWidget!.type === 'bar' ||
                     selectedWidget!.type === 'pie'
@@ -3258,7 +3258,7 @@ onUnmounted(() => {
                 </el-form-item>
 
                 <el-form-item
-                  label="t('dashboard.smoothCurve')"
+                  :label="t('dashboard.smoothCurve')"
                   v-if="
                     selectedWidget!.type === 'line' ||
                     selectedWidget!.type === 'area'
@@ -3273,10 +3273,10 @@ onUnmounted(() => {
               <div class="config-section">
                 <div class="section-title">
                   <span class="section-icon">📐</span>
-                  组件大小
+                  {{ t('dashboard.widgetSize') }}
                 </div>
 
-                <el-form-item label="t('dashboard.widthCols')">
+                <el-form-item :label="t('dashboard.widthCols')">
                   <el-slider
                     v-model="selectedWidget.position.w"
                     :min="2"
@@ -3286,7 +3286,7 @@ onUnmounted(() => {
                     @change="onWidgetConfigChange()" />
                 </el-form-item>
 
-                <el-form-item label="t('dashboard.heightRows')">
+                <el-form-item :label="t('dashboard.heightRows')">
                   <el-slider
                     v-model="selectedWidget.position.h"
                     :min="1"
@@ -3323,7 +3323,7 @@ onUnmounted(() => {
       <!-- 仪表盘管理对话框 -->
       <el-dialog
         v-model="showDashboardManager"
-        title="t('dashboard.dashboardManage')"
+        :title="t('dashboard.dashboardManage')"
         width="680px"
         destroy-on-close
         class="dashboard-manager-dialog">
@@ -3338,7 +3338,7 @@ onUnmounted(() => {
                 dashboardForm = { name: '', description: '' };
               ">
               <el-icon><Plus /></el-icon>
-              新建仪表盘
+              {{ t('common.createDashboard') }}
             </el-button>
           </div>
 
@@ -3346,7 +3346,7 @@ onUnmounted(() => {
             :data="dashboards"
             style="width: 100%"
             class="manager-table">
-            <el-table-column prop="name" label="t('common.name')" min-width="160">
+            <el-table-column prop="name" :label="t('common.name')" min-width="160">
               <template #default="{ row }">
                 <div class="dashboard-name-cell">
                   <div class="dashboard-icon">
@@ -3365,15 +3365,15 @@ onUnmounted(() => {
             </el-table-column>
             <el-table-column
               prop="description"
-              label="t('common.desc')"
+              :label="t('common.desc')"
               min-width="180"
               show-overflow-tooltip />
-            <el-table-column prop="updatedAt" label="t('dashboard.updateTime')" width="140">
+            <el-table-column prop="updatedAt" :label="t('dashboard.updateTime')" width="140">
               <template #default="{ row }">
                 {{ formatDateTime(row.updatedAt) }}
               </template>
             </el-table-column>
-            <el-table-column label="t('common.action')" width="180" fixed="right">
+            <el-table-column :label="t('common.action')" width="180" fixed="right">
               <template #default="{ row }">
                 <el-button
                   link
@@ -3382,7 +3382,7 @@ onUnmounted(() => {
                     selectDashboard(row as Dashboard);
                     showDashboardManager = false;
                   ">
-                  打开
+                  {{ t('dashboard.open') }}
                 </el-button>
                 <el-button link @click="duplicateDashboard(row as Dashboard)"
                   >{{ t('common.duplicate') }}</el-button
@@ -3402,28 +3402,28 @@ onUnmounted(() => {
       <!-- 创建/编辑仪表盘对话框 -->
       <el-dialog
         v-model="isEditingDashboard"
-        ::title="isCreatingDashboard ? t('common.createDashboard') : t('dashboard.editDashboard')"
+        :title="isCreatingDashboard ? t('common.createDashboard') : t('dashboard.editDashboard')"
         width="480px"
         destroy-on-close
         class="dashboard-form-dialog"
         @closed="isCreatingDashboard = false">
         <el-form label-position="top" class="compact-form">
-          <el-form-item label="t('dashboard.dashboardName')" required>
+          <el-form-item :label="t('dashboard.dashboardName')" required>
             <el-input
               v-model="dashboardForm.name"
-              placeholder="t('dashboard.dashboardNamePlaceholder')"
+              :placeholder="t('dashboard.dashboardNamePlaceholder')"
               maxlength="50"
               show-word-limit
               @keyup.enter="
                 isCreatingDashboard ? createDashboard() : updateDashboard()
               " />
           </el-form-item>
-          <el-form-item label="t('common.desc')">
+          <el-form-item :label="t('common.desc')">
             <el-input
               v-model="dashboardForm.description"
               type="textarea"
               :rows="3"
-              placeholder="t('dashboard.dashboardDescPlaceholder')"
+              :placeholder="t('dashboard.dashboardDescPlaceholder')"
               maxlength="200"
               show-word-limit />
           </el-form-item>
@@ -3443,24 +3443,24 @@ onUnmounted(() => {
       <!-- 侧边栏编辑仪表盘对话框 -->
       <el-dialog
         v-model="isEditingSidebarDashboard"
-        title="t('dashboard.editDashboard')"
+        :title="t('dashboard.editDashboard')"
         width="480px"
         destroy-on-close
         class="dashboard-form-dialog">
         <el-form label-position="top" class="compact-form">
-          <el-form-item label="t('dashboard.dashboardName')" required>
+          <el-form-item :label="t('dashboard.dashboardName')" required>
             <el-input
               v-model="sidebarDashboardForm.name"
-              placeholder="t('dashboard.dashboardNamePlaceholder')"
+              :placeholder="t('dashboard.dashboardNamePlaceholder')"
               maxlength="50"
               show-word-limit />
           </el-form-item>
-          <el-form-item label="t('common.desc')">
+          <el-form-item :label="t('common.desc')">
             <el-input
               v-model="sidebarDashboardForm.description"
               type="textarea"
               :rows="3"
-              placeholder="t('dashboard.dashboardDescPlaceholder')"
+              :placeholder="t('dashboard.dashboardDescPlaceholder')"
               maxlength="200"
               show-word-limit />
           </el-form-item>
@@ -3472,7 +3472,7 @@ onUnmounted(() => {
             class="confirm-btn"
             @click="handleEditSidebarDashboard"
             :disabled="!sidebarDashboardForm.name.trim()">
-            保存
+            {{ t('common.save') }}
           </el-button>
         </template>
       </el-dialog>
@@ -3480,24 +3480,24 @@ onUnmounted(() => {
       <!-- 侧边栏编辑数据表对话框 -->
       <el-dialog
         v-model="isEditingSidebarTable"
-        title="t('dashboard.editTable')"
+        :title="t('dashboard.editTable')"
         width="480px"
         destroy-on-close
         class="dashboard-form-dialog">
         <el-form label-position="top" class="compact-form">
-          <el-form-item label="t('dashboard.tableName')" required>
+          <el-form-item :label="t('dashboard.tableName')" required>
             <el-input
               v-model="sidebarTableForm.name"
-              placeholder="t('dashboard.tableNamePlaceholder')"
+              :placeholder="t('dashboard.tableNamePlaceholder')"
               maxlength="50"
               show-word-limit />
           </el-form-item>
-          <el-form-item label="t('common.desc')">
+          <el-form-item :label="t('common.desc')">
             <el-input
               v-model="sidebarTableForm.description"
               type="textarea"
               :rows="3"
-              placeholder="t('dashboard.tableDescPlaceholder')"
+              :placeholder="t('dashboard.tableDescPlaceholder')"
               maxlength="200"
               show-word-limit />
           </el-form-item>
@@ -3509,7 +3509,7 @@ onUnmounted(() => {
             class="confirm-btn"
             @click="handleEditSidebarTable"
             :disabled="!sidebarTableForm.name.trim()">
-            保存
+            {{ t('common.save') }}
           </el-button>
         </template>
       </el-dialog>
@@ -3537,23 +3537,23 @@ onUnmounted(() => {
     <!-- 创建数据表对话框 -->
     <el-dialog
       v-model="createTableDialogVisible"
-      title="t('dashboard.newTable')"
+      :title="t('dashboard.newTable')"
       width="500px"
       :close-on-click-modal="false"
       @close="closeCreateTableDialog">
       <el-form label-width="80px" @submit.prevent>
-        <el-form-item label="t('common.name')" required>
+        <el-form-item :label="t('common.name')" required>
           <el-input
             v-model="createTableForm.name"
-            placeholder="t('dashboard.tableNamePlaceholder')"
+            :placeholder="t('dashboard.tableNamePlaceholder')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
-        <el-form-item label="t('common.desc')">
+        <el-form-item :label="t('common.desc')">
           <el-input
             v-model="createTableForm.description"
             type="textarea"
-            placeholder="t('dashboard.tableDescPlaceholder')"
+            :placeholder="t('dashboard.tableDescPlaceholder')"
             :rows="3"
             maxlength="200"
             show-word-limit />

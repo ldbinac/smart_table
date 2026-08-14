@@ -405,6 +405,8 @@ export function useRealtimeCollaboration(baseId: string) {
     }
     collaborationStore.clearLockClient()
     collaborationStore.setConnectionStatus('disconnected')
+    // 断开时同步重置实时可用标记，避免切换页面（如表格切到仪表盘）后残留"已断开"提示
+    collaborationStore.setRealtimeAvailable(false)
     collaborationStore.onlineUsers.clear()
     collaborationStore.lockedCells.clear()
     collaborationStore.setCurrentBase(null)

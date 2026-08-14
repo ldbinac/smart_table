@@ -429,8 +429,8 @@ function renderRealtimeWidgetEmpty(widget: WidgetConfig, container: HTMLElement)
       height: 100%; background: ${backgroundColor}; border-radius: 12px; color: ${textColor};
       padding: 20px; text-align: center;
     ">
-      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">{{ t('dashboard.realtimeWidgetName') }}</div>
-      <div style="font-size: 12px; opacity: 0.5;">{{ t('dashboard.realtimeEmptyHint') }}</div>
+      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">${t('dashboard.realtimeWidgetName')}</div>
+      <div style="font-size: 12px; opacity: 0.5;">${t('dashboard.realtimeEmptyHint')}</div>
     </div>
   `;
 }
