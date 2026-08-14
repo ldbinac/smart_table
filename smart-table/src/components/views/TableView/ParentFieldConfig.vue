@@ -15,10 +15,10 @@
           :value="field.id" />
       </el-select>
       <div class="config-hint" v-if="!selectedFieldId">
-        选择一个关联自身表（单向关联，一对多）的字段作为父记录字段，开启树形层级展示
+        {{ t("view.parentFieldHintEmpty") }}
       </div>
       <div class="config-hint" v-else>
-        已启用树形层级展示，可右键点击记录添加子记录
+        {{ t("view.parentFieldHintActive") }}
       </div>
     </div>
   </div>

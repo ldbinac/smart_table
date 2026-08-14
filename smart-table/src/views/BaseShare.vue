@@ -16,7 +16,7 @@
           <div class="permission-badge">
             <el-tag :type="permission === 'edit' ? 'warning' : 'info'" size="large">
               <el-icon><Lock /></el-icon>
-              {{ permission === 'edit' ? '可编辑' : '仅查看' }}
+              {{ permission === 'edit' ? t('view.share.permissionEdit') : t('view.share.permissionView') }}
             </el-tag>
           </div>
         </div>
@@ -27,20 +27,20 @@
             size="large"
             @click="enterBase">
             <el-icon><ArrowRight /></el-icon>
-            进入多维表格
+            {{ t("view.enterBase") }}
           </el-button>
         </div>
 
         <div class="share-info">
           <el-alert
             v-if="permission === 'view'"
-            title="您只有查看权限，无法编辑内容"
+            :title="t('view.shareViewOnlyAlert')"
             type="info"
             :closable="false"
             show-icon />
           <el-alert
             v-else
-            title="您可以编辑此多维表格的内容"
+            :title="t('view.shareCanEditAlert')"
             type="success"
             :closable="false"
             show-icon />
@@ -50,9 +50,9 @@
       <!-- 错误状态 -->
       <div v-else-if="error" class="share-error">
         <el-icon :size="64" color="#f56c6c"><WarningFilled /></el-icon>
-        <h2>分享链接无效</h2>
+        <h2>{{ t("view.shareLinkInvalid") }}</h2>
         <p class="error-message">{{ errorMessage }}</p>
-        <el-button type="primary" @click="goHome">返回首页</el-button>
+        <el-button type="primary" @click="goHome">{{ t("view.backToHome") }}</el-button>
       </div>
     </div>
   </div>
@@ -61,11 +61,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { ElMessage } from "element-plus";
 import { ArrowRight, Lock, WarningFilled } from "@element-plus/icons-vue";
 import { shareApiService } from "@/services/api/shareApiService";
 
 const router = useRouter();
+const { t } = useI18n();
 
 const loading = ref(true);
 const error = ref(false);
@@ -94,10 +96,10 @@ async function loadShareInfo() {
     shareData.value = data;
     
     // 设置页面标题
-    document.title = `访问分享 - ${data.base.name}`;
+    document.title = t("view.sharePageTitle", { name: data.base.name });
   } catch (err: any) {
     error.value = true;
-    errorMessage.value = err.message || "分享链接无效或已过期";
+    errorMessage.value = err.message || t("view.shareInvalidOrExpired");
     console.error("加载分享信息失败:", err);
   } finally {
     loading.value = false;
@@ -118,12 +120,12 @@ async function enterBase() {
       })
     );
 
-    ElMessage.success("正在进入多维表格...");
+    ElMessage.success(t("view.enteringBase"));
     
     // 跳转到 Base 页面
     router.push(`/base/${shareData.value.base.id}`);
   } catch (err: any) {
-    ElMessage.error("进入失败：" + err.message);
+    ElMessage.error(t("view.enterFailed", { message: err.message }));
   }
 }
 
@@ -137,7 +139,7 @@ onMounted(() => {
     loadShareInfo();
   } else {
     error.value = true;
-    errorMessage.value = "分享令牌无效";
+    errorMessage.value = t("view.invalidShareToken");
     loading.value = false;
   }
 });

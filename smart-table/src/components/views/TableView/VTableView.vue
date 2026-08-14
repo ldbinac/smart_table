@@ -4565,7 +4565,7 @@ const buildTableConfig = (): any => {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
-              text: '+ 添加记录',
+              text: `+ ${t("view.addRecord")}`,
               fontSize: 13,
               fill: '#c0c0c0',
               textBaseline: 'middle',
@@ -4602,7 +4602,7 @@ const buildTableConfig = (): any => {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
-              text: '+ 添加记录',
+              text: `+ ${t("view.addRecord")}`,
               fontSize: 13,
               fill: '#c0c0c0',
               textBaseline: 'middle',

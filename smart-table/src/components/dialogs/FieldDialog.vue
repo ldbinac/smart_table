@@ -1516,7 +1516,7 @@ async function toggleFieldVisibility(
         </template>
 
         <!-- 数值字段精度配置 -->
-        <ElFormItem v-if="newField.type === FieldType.NUMBER" :label="t('field.decimalPlaces')">
+        <ElFormItem v-if="newField.type === FieldType.NUMBER" :label="t('field.precision')">
           <div class="precision-config">
             <ElSlider
               v-model="newField.precision"
@@ -1545,7 +1545,7 @@ async function toggleFieldVisibility(
             </div>
           </ElFormItem>
 
-          <ElFormItem :label="t('field.decimalPlaces')">
+          <ElFormItem :label="t('field.precision')">
             <div class="precision-config">
               <ElSlider
                 v-model="newField.precision"
@@ -1619,7 +1619,7 @@ async function toggleFieldVisibility(
             <div class="field-hint">{{ t('field.suffixHint') }}</div>
           </ElFormItem>
 
-          <ElFormItem :label="t('field.digits')">
+          <ElFormItem :label="t('field.digitLength')">
             <ElInputNumber
               v-model="autoNumberConfig.digitLength"
               :min="0"
@@ -1887,7 +1887,7 @@ async function toggleFieldVisibility(
             newField.type !== FieldType.CREATED_BY &&
             newField.type !== FieldType.LAST_MODIFIED_BY
           "
-          :label="t('field.isRequired')">
+          :label="t('field.required')">
           <ElSwitch v-model="newField.isRequired" />
         </ElFormItem>
 
