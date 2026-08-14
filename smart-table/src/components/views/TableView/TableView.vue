@@ -485,7 +485,7 @@ const handleContextMenuSelect = async (item: any) => {
           contextMenuField.value.id,
         ];
         await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
-        ElMessage.success(`已冻结列：${contextMenuField.value.name}`);
+        ElMessage.success(t('view.freezeColumnSuccess', { name: contextMenuField.value.name }));
       }
       break;
 
@@ -964,7 +964,7 @@ defineExpose({
     </div>
 
     <div v-else class="empty-state">
-      <p>暂无字段，请先添加字段</p>
+      <p>{{ t('view.noFields') }}</p>
     </div>
 
     <ContextMenu

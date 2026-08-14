@@ -20,16 +20,18 @@ const unreadCount = computed(() => notificationStore.unreadCount)
 const recentNotifications = computed(() => notificationStore.recentNotifications)
 
 // 来源标签映射
-const sourceTagMap: Record<string, { label: string; type: any }> = {
-  system: { label: '系统', type: 'info' },
-  auth: { label: '认证', type: 'warning' },
-  admin: { label: '管理', type: 'danger' },
-  workflow: { label: '工作流', type: 'success' },
-  approval: { label: '审批', type: 'primary' },
+const sourceTagMap: Record<string, { labelKey: string; type: any }> = {
+  system: { labelKey: 'common.sourceSystem', type: 'info' },
+  auth: { labelKey: 'common.sourceAuth', type: 'warning' },
+  admin: { labelKey: 'common.sourceAdmin', type: 'danger' },
+  workflow: { labelKey: 'common.sourceWorkflow', type: 'success' },
+  approval: { labelKey: 'common.sourceApproval', type: 'primary' },
 }
 
 const getSourceTag = (source: string) => {
-  return sourceTagMap[source] || { label: source || '其他', type: 'info' }
+  const item = sourceTagMap[source]
+  if (item) return { label: t(item.labelKey), type: item.type }
+  return { label: source || t('common.sourceOther'), type: 'info' }
 }
 
 // 内容摘要：优先使用纯文本，否则去除 HTML 标签

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "../../db/schema";
+
+const { t } = useI18n();
 import type { FilterCondition, FilterOperatorValue } from "../../types";
 import { FilterOperator } from "../../types";
 import {
@@ -97,7 +100,7 @@ function handleRemove() {
   <div class="filter-condition">
     <el-select
       :model-value="localCondition.fieldId"
-      placeholder="选择字段"
+      :placeholder="t('filter.selectField')"
       class="field-select"
       @change="handleFieldChange">
       <el-option
@@ -109,7 +112,7 @@ function handleRemove() {
 
     <el-select
       :model-value="localCondition.operator"
-      placeholder="选择操作符"
+      :placeholder="t('filter.selectOperator')"
       class="operator-select"
       :disabled="!selectedField"
       @change="handleOperatorChange">

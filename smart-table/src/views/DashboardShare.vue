@@ -405,7 +405,7 @@ function renderWidget(widget: WidgetConfig) {
           <thead>
             <tr>
               <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || t("dashboard.groupBy") : t("dashboard.category")}</th>
-              <th>数值</th>
+              <th>${t("dashboard.previewValue")}</th>
             </tr>
           </thead>
           <tbody>
@@ -625,7 +625,7 @@ function renderKpiWidget(
     progressHtml = `
       <div style="margin-top: 12px;">
         <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
-          <span>进度</span>
+          <span>${t("dashboard.progress")}</span>
           <span>${progress.toFixed(1)}%</span>
         </div>
         <div style="height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">

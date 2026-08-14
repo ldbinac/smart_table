@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import dayjs from "dayjs";
 import type { FieldOptions } from "@/types/fields";
+
+const { t } = useI18n();
 import { FormulaEngine } from "@/utils/formula/engine";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 
@@ -78,7 +81,7 @@ const displayValue = computed(() => {
   }
 
   if (value === "#ERROR") {
-    return "计算错误";
+    return t('field.calculationError');
   }
 
   // 数字格式化
@@ -135,7 +138,7 @@ defineExpose({ focus });
         <el-input
           ref="inputRef"
           :model-value="displayValue"
-          :placeholder="placeholder || '自动计算'"
+          :placeholder="placeholder || t('field.autoCalculate')"
           readonly
           class="formula-input">
           <template #prefix>
@@ -143,7 +146,7 @@ defineExpose({ focus });
           </template>
         </el-input>
         <div v-if="formulaDisplay" class="formula-hint" :title="formulaDisplay">
-          公式: {{ formulaDisplay }}
+          {{ t('field.formulaLabel') }} {{ formulaDisplay }}
         </div>
       </div>
     </template>

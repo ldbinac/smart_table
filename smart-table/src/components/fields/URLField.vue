@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "@/db/schema";
+
+const { t } = useI18n();
 import type { CellValue } from "@/types";
 import { validateUrl } from "@/utils/validation";
 
@@ -84,7 +87,7 @@ function openUrl() {
     <el-input
       v-if="!readonly"
       :model-value="localValue"
-      placeholder="请输入链接地址"
+      :placeholder="t('field.placeholderUrl')"
       :class="{ 'is-error': !isValid }"
       @update:model-value="handleInput"
       @blur="handleBlur">

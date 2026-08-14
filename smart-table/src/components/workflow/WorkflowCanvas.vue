@@ -96,12 +96,12 @@ function getLoopDataSourceLabel(node: WorkflowNode): string {
     node_id?: string;
     field_id?: string;
   };
-  if (!ds.type) return "未配置";
+  if (!ds.type) return t('workflow.notConfigured');
   const dsTypeLabel: Record<string, string> = {
-    find_records_all: "查找记录 - 全部",
-    find_records_column: "查找记录 - 列值",
-    webhook_array: "Webhook - json.array",
-    trigger_field: "触发器字段",
+    find_records_all: t('workflow.canvas.dsTypeFindRecordsAll'),
+    find_records_column: t('workflow.canvas.dsTypeFindRecordsColumn'),
+    webhook_array: t('workflow.canvas.dsTypeWebhookArray'),
+    trigger_field: t('workflow.canvas.dsTypeTriggerField'),
   };
   return dsTypeLabel[ds.type] ?? ds.type;
 }
@@ -422,7 +422,7 @@ defineExpose({
     >
       <el-dropdown placement="bottom" trigger="click">
         <el-button type="primary" :icon="Plus">
-          添加节点
+          {{ t('workflow.canvas.addNode') }}
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>

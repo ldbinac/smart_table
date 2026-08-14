@@ -1,7 +1,7 @@
 <template>
   <ElDialog
     v-model="dialogVisible"
-    :title="template?.name || '模板预览'"
+    :title="template?.name || t('view.templatePreview')"
     width="90%"
     top="5vh"
     :close-on-click-modal="true"
@@ -169,7 +169,7 @@
         <div v-else-if="currentViewType === 'calendar'" class="view-container calendar-preview">
           <div class="calendar-placeholder">
             <ElIcon size="48"><Calendar /></ElIcon>
-            <p>日历视图预览</p>
+            <p>{{ t('view.calendarPreview') }}</p>
             <p class="hint">展示「{{ getDateFieldName }}」字段的日期数据</p>
           </div>
         </div>
@@ -199,7 +199,7 @@
         <div v-else-if="currentViewType === 'gantt'" class="view-container gantt-preview">
           <div class="gantt-placeholder">
             <ElIcon size="48"><DataLine /></ElIcon>
-            <p>甘特图视图预览</p>
+            <p>{{ t('view.ganttPreview') }}</p>
             <p class="hint">展示「{{ getStartDateFieldName }}」到「{{ getEndDateFieldName }}」的时间范围</p>
           </div>
         </div>
@@ -208,9 +208,9 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="handleClose">取消</ElButton>
+        <ElButton @click="handleClose">{{ t('common.cancel') }}</ElButton>
         <ElButton type="primary" @click="handleConfirm">
-          使用此模板
+          {{ t('view.useThisTemplate') }}
         </ElButton>
       </div>
     </template>
@@ -219,6 +219,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElDialog,
   ElButton,
@@ -354,7 +355,7 @@ const kanbanGroups = computed(() => {
   if (ungroupedRecords.length > 0) {
     groups.push({
       id: 'uncategorized',
-      name: '未分组',
+      name: t('view.uncategorized'),
       color: '#909399',
       records: ungroupedRecords,
     });
@@ -470,6 +471,8 @@ const getMemberInitial = (value: unknown): string => {
   }
   return "?";
 };
+
+const { t } = useI18n();
 
 const handleClose = () => {
   dialogVisible.value = false;

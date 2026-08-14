@@ -44,7 +44,7 @@ const isConditionSource = computed(
  */
 const HIDE_ADD_BUTTON_IN_EDIT_MODE = true;
 
-const branchName = computed(() => props.data?.branchName ?? "满足条件");
+const branchName = computed(() => props.data?.branchName ?? t('workflow.branchSatisfied'));
 
 const sourceLabelPosition = computed(() => {
   const [, labelX, labelY] = path.value;

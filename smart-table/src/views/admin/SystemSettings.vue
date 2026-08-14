@@ -41,17 +41,17 @@
             </el-form-item>
             <el-form-item :label="t('system.localTimezone')" v-if="basicConfigs.timezone_mode === 'local'">
               <el-select v-model="basicConfigs.timezone_name" :placeholder="t('system.timezonePlaceholder')" style="width: 100%">
-                <el-option label="Asia/Shanghai (中国标准时间)" value="Asia/Shanghai" />
-                <el-option label="Asia/Hong_Kong (香港时间)" value="Asia/Hong_Kong" />
-                <el-option label="Asia/Tokyo (日本标准时间)" value="Asia/Tokyo" />
-                <el-option label="Asia/Seoul (韩国标准时间)" value="Asia/Seoul" />
-                <el-option label="Asia/Singapore (新加坡时间)" value="Asia/Singapore" />
-                <el-option label="America/New_York (美国东部时间)" value="America/New_York" />
-                <el-option label="America/Los_Angeles (美国西部时间)" value="America/Los_Angeles" />
-                <el-option label="Europe/London (格林尼治时间)" value="Europe/London" />
-                <el-option label="Europe/Paris (中欧时间)" value="Europe/Paris" />
-                <el-option label="Australia/Sydney (澳大利亚东部时间)" value="Australia/Sydney" />
-                <el-option label="Pacific/Auckland (新西兰时间)" value="Pacific/Auckland" />
+                <el-option :label="t('system.tzShanghai')" value="Asia/Shanghai" />
+                <el-option :label="t('system.tzHongKong')" value="Asia/Hong_Kong" />
+                <el-option :label="t('system.tzTokyo')" value="Asia/Tokyo" />
+                <el-option :label="t('system.tzSeoul')" value="Asia/Seoul" />
+                <el-option :label="t('system.tzSingapore')" value="Asia/Singapore" />
+                <el-option :label="t('system.tzNewYork')" value="America/New_York" />
+                <el-option :label="t('system.tzLosAngeles')" value="America/Los_Angeles" />
+                <el-option :label="t('system.tzLondon')" value="Europe/London" />
+                <el-option :label="t('system.tzParis')" value="Europe/Paris" />
+                <el-option :label="t('system.tzSydney')" value="Australia/Sydney" />
+                <el-option :label="t('system.tzAuckland')" value="Pacific/Auckland" />
               </el-select>
             </el-form-item>
             <el-form-item>

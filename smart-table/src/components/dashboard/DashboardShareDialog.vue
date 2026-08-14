@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
 import { Share, Plus, CopyDocument } from "@element-plus/icons-vue";
 import { dashboardShareService } from "@/db/services/dashboardShareService";
 import type { DashboardShare } from "@/db/schema";
 import { formatDateTime } from "@/utils/timezone";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -98,7 +101,7 @@ async function loadExistingShares() {
 // 创建分享链接
 async function createShare() {
   if (!props.dashboardId) {
-    ElMessage.error("仪表盘ID不能为空");
+    ElMessage.error(t("dashboard.shareDialog.errorNoDashboardId"));
     return;
   }
 
@@ -118,7 +121,7 @@ async function createShare() {
     shareUrl.value =
       dashboardShareService.generateShareUrl(share.shareToken);
 
-    ElMessage.success("分享链接创建成功");
+    ElMessage.success(t("dashboard.shareDialog.createdTitle"));
     emit("created", share);
 
     // 进入获取链接步骤
@@ -126,7 +129,7 @@ async function createShare() {
   } catch (error: any) {
     console.error("创建分享链接失败:", error);
     ElMessage.error(
-      error.response?.data?.message || "创建失败，请稍后重试",
+      error.response?.data?.message || t("dashboard.shareDialog.errorCreateFailed"),
     );
   } finally {
     isCreating.value = false;
@@ -139,9 +142,9 @@ function copyShareUrl() {
 
   dashboardShareService.copyToClipboard(shareUrl.value).then((success) => {
     if (success) {
-      ElMessage.success("链接已复制到剪贴板");
+      ElMessage.success(t("dashboard.shareDialog.copied"));
     } else {
-      ElMessage.error("复制失败，请手动复制");
+      ElMessage.error(t("dashboard.shareDialog.copyFailed"));
     }
   });
 }
@@ -154,9 +157,9 @@ function copyAccessCode() {
     .copyToClipboard(createdShare.value.accessCode)
     .then((success) => {
       if (success) {
-        ElMessage.success("访问密码已复制到剪贴板");
+        ElMessage.success(t("dashboard.shareDialog.codeCopied"));
       } else {
-        ElMessage.error("复制失败，请手动复制");
+        ElMessage.error(t("dashboard.shareDialog.copyFailed"));
       }
     });
 }
@@ -166,9 +169,9 @@ function copyExistingShareUrl(share: DashboardShare) {
   const url = dashboardShareService.generateShareUrl(share.shareToken);
   dashboardShareService.copyToClipboard(url).then((success) => {
     if (success) {
-      ElMessage.success("链接已复制到剪贴板");
+      ElMessage.success(t("dashboard.shareDialog.copied"));
     } else {
-      ElMessage.error("复制失败，请手动复制");
+      ElMessage.error(t("dashboard.shareDialog.copyFailed"));
     }
   });
 }
@@ -179,14 +182,14 @@ function copyLinkAndCode() {
 
   let text = shareUrl.value;
   if (createdShare.value?.accessCode) {
-    text += `\n访问密码：${createdShare.value.accessCode}`;
+    text += `\n${t("dashboard.shareDialog.accessCodeLabel")}${createdShare.value.accessCode}`;
   }
 
   dashboardShareService.copyToClipboard(text).then((success) => {
     if (success) {
-      ElMessage.success("链接和密码已复制到剪贴板");
+      ElMessage.success(t("dashboard.shareDialog.copiedAll"));
     } else {
-      ElMessage.error("复制失败，请手动复制");
+      ElMessage.error(t("dashboard.shareDialog.copyFailed"));
     }
   });
 }
@@ -196,22 +199,22 @@ async function toggleShareStatus(share: DashboardShare) {
   try {
     if (share.isActive) {
       await ElMessageBox.confirm(
-        "禁用后该分享链接将无法访问，是否继续？",
-        "确认禁用",
+        t("dashboard.shareDialog.disableConfirmMsg"),
+        t("dashboard.shareDialog.disableConfirmTitle"),
         { type: "warning" },
       );
       await dashboardShareService.deactivateShare(share.id);
-      ElMessage.success("分享链接已禁用");
+      ElMessage.success(t("dashboard.shareDialog.disabled"));
     } else {
       // 重新启用需要重新创建
-      ElMessage.info("已停用的分享无法重新启用，请新建分享链接");
+      ElMessage.info(t("dashboard.shareDialog.cannotReenable"));
       return;
     }
     loadExistingShares();
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("更新状态失败:", error);
-      ElMessage.error("操作失败，请稍后重试");
+      ElMessage.error(t("dashboard.shareDialog.opFailed"));
     }
   }
 }
@@ -220,22 +223,22 @@ async function toggleShareStatus(share: DashboardShare) {
 async function deleteShare(shareId: string) {
   try {
     await ElMessageBox.confirm(
-      "删除后该分享链接将永久失效，是否继续？",
-      "确认删除",
+      t("dashboard.shareDialog.deleteConfirmMsg"),
+      t("dashboard.shareDialog.deleteConfirmTitle"),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t("dashboard.shareDialog.delete"),
+        cancelButtonText: t("dashboard.shareDialog.close"),
         type: "warning",
       },
     );
 
     await dashboardShareService.deleteShare(shareId);
-    ElMessage.success("删除成功");
+    ElMessage.success(t("dashboard.shareDialog.deleted"));
     loadExistingShares();
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除失败:", error);
-      ElMessage.error("删除失败，请稍后重试");
+      ElMessage.error(t("dashboard.shareDialog.deleteFailed"));
     }
   }
 }
@@ -254,10 +257,10 @@ function isShareReachedLimit(share: DashboardShare): boolean {
 
 // 获取状态文本
 function getStatusText(share: DashboardShare): string {
-  if (!share.isActive) return "已停用";
-  if (isShareExpired(share)) return "已过期";
-  if (isShareReachedLimit(share)) return "已达上限";
-  return "有效";
+  if (!share.isActive) return t("dashboard.shareDialog.statusDisabled");
+  if (isShareExpired(share)) return t("dashboard.shareDialog.statusExpired");
+  if (isShareReachedLimit(share)) return t("dashboard.shareDialog.statusLimited");
+  return t("dashboard.shareDialog.statusActive");
 }
 
 // 获取状态类型
@@ -277,8 +280,8 @@ function formatExpireTime(timestamp: number): string {
 
 // 格式化有效期显示
 function formatExpiresLabel(expiresAt?: number): string {
-  if (!expiresAt) return "永久有效";
-  return `有效期至 ${formatDateTime(expiresAt)}`;
+  if (!expiresAt) return t("dashboard.shareDialog.foreverValid");
+  return t("dashboard.shareDialog.validUntil", { time: formatDateTime(expiresAt) });
 }
 
 // 关闭对话框
@@ -298,22 +301,22 @@ function goToCreateShare() {
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="分享仪表盘"
+    :title="t('dashboard.shareDialog.title')"
     width="700px"
     :close-on-click-modal="false"
     destroy-on-close>
     <el-steps :active="currentStep" finish-status="success" class="share-steps">
-      <el-step title="已分享链接" />
-      <el-step title="配置分享" />
-      <el-step title="获取链接" />
+      <el-step :title="t('dashboard.shareDialog.stepShared')" />
+      <el-step :title="t('dashboard.shareDialog.stepConfig')" />
+      <el-step :title="t('dashboard.shareDialog.stepGetLink')" />
     </el-steps>
 
     <!-- 步骤0：已分享链接列表 -->
     <div v-if="currentStep === 0" class="step-content">
       <div class="shares-header">
-        <h3 class="shares-title">当前仪表盘的所有分享记录</h3>
+        <h3 class="shares-title">{{ t('dashboard.shareDialog.allSharesTitle') }}</h3>
         <p class="shares-description">
-          您可以查看、管理已有的分享，或创建新的分享链接
+          {{ t('dashboard.shareDialog.allSharesDesc') }}
         </p>
       </div>
 
@@ -323,72 +326,72 @@ function goToCreateShare() {
 
       <el-empty
         v-else-if="existingShares.length === 0"
-        description="暂无分享记录"
+        :description="t('dashboard.shareDialog.noShares')"
         :image-size="80">
         <template #image>
           <el-icon :size="60" color="#c0c4cc"><Share /></el-icon>
         </template>
         <template #description>
-          <p style="color: #909399; margin-top: 8px">还没有创建任何分享</p>
+          <p style="color: #909399; margin-top: 8px">{{ t('dashboard.shareDialog.noSharesHint') }}</p>
           <p style="color: #b0b3b8; font-size: 13px">
-            点击下方按钮创建第一个分享链接
+            {{ t('dashboard.shareDialog.noSharesCta') }}
           </p>
         </template>
       </el-empty>
 
       <div v-else class="shares-list">
         <el-table :data="existingShares" size="default" class="share-table" stripe>
-          <el-table-column label="标题" min-width="140" show-overflow-tooltip>
+          <el-table-column :label="t('dashboard.shareDialog.colTitle')" min-width="140" show-overflow-tooltip>
             <template #default="{ row }">
-              <span class="share-title">{{ row.title || "未命名分享" }}</span>
+              <span class="share-title">{{ row.title || t('dashboard.shareDialog.unnamedShare') }}</span>
               <p v-if="row.description" class="share-desc">{{ row.description }}</p>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="90">
+          <el-table-column :label="t('dashboard.shareDialog.colStatus')" width="90">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row as DashboardShare)" size="small" effect="light">
                 {{ getStatusText(row as DashboardShare) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="访问次数" width="110">
+          <el-table-column :label="t('dashboard.shareDialog.colAccessCount')" width="110">
             <template #default="{ row }">
               <span class="access-count">{{ row.currentAccessCount }}</span>
               <span v-if="row.maxAccessCount" class="access-limit">
                 / {{ row.maxAccessCount }}
               </span>
-              <span v-else class="access-unlimited">/ 无限制</span>
+              <span v-else class="access-unlimited">/ {{ t('dashboard.shareDialog.unlimited') }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="有效期" min-width="130">
+          <el-table-column :label="t('dashboard.shareDialog.colExpiry')" min-width="130">
             <template #default="{ row }">
               <span v-if="row.expiresAt">{{
                 formatExpireTime(row.expiresAt)
               }}</span>
-              <span v-else>永久</span>
+              <span v-else>{{ t('dashboard.shareDialog.forever') }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="权限" width="80">
+          <el-table-column :label="t('dashboard.shareDialog.colPermission')" width="80">
             <template #default="{ row }">
               <el-tag
                 :type="row.permission === 'view' ? 'info' : 'warning'"
                 size="small"
                 effect="plain">
-                {{ row.permission === "view" ? "查看" : "编辑" }}
+                {{ row.permission === "view" ? t('dashboard.shareDialog.permissionView') : t('dashboard.shareDialog.permissionEdit') }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="密码" width="65">
+          <el-table-column :label="t('dashboard.shareDialog.colPassword')" width="65">
             <template #default="{ row }">
               <el-tag
                 v-if="row.accessCode"
                 size="small"
                 type="warning"
-                effect="light">有</el-tag>
-              <el-tag v-else size="small" type="info" effect="light">无</el-tag>
+                effect="light">{{ t('dashboard.shareDialog.yes') }}</el-tag>
+              <el-tag v-else size="small" type="info" effect="light">{{ t('dashboard.shareDialog.no') }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column :label="t('dashboard.shareDialog.colActions')" width="180" fixed="right">
             <template #default="{ row }">
               <el-button
                 v-if="row.isActive && !isShareExpired(row as DashboardShare)"
@@ -396,7 +399,7 @@ function goToCreateShare() {
                 type="primary"
                 size="small"
                 @click="copyExistingShareUrl(row as DashboardShare)">
-                复制链接
+                {{ t('dashboard.shareDialog.copyLink') }}
               </el-button>
               <el-button
                 v-if="row.isActive"
@@ -404,29 +407,28 @@ function goToCreateShare() {
                 type="warning"
                 size="small"
                 @click="toggleShareStatus(row as DashboardShare)">
-                停用
+                {{ t('dashboard.shareDialog.disable') }}
               </el-button>
               <el-button
                 link
                 type="danger"
                 size="small"
                 @click="deleteShare(row.id)">
-                删除
+                {{ t('dashboard.shareDialog.delete') }}
               </el-button>
             </template>
           </el-table-column>
         </el-table>
 
         <div class="shares-summary">
-          共 <strong>{{ existingShares.length }}</strong> 个分享，
-          其中 <strong>{{ activeSharesCount }}</strong> 个有效
+          {{ t('dashboard.shareDialog.summary', { total: existingShares.length, active: activeSharesCount }) }}
         </div>
       </div>
 
       <div class="new-share-action">
         <el-button type="primary" size="large" @click="goToCreateShare">
           <el-icon><Plus /></el-icon>
-          新建分享
+          {{ t('dashboard.shareDialog.newShare') }}
         </el-button>
       </div>
     </div>
@@ -435,58 +437,58 @@ function goToCreateShare() {
     <div v-if="currentStep === 1" class="step-content">
       <el-form label-position="top">
         <!-- 基本信息 -->
-        <el-divider content-position="left">基本信息</el-divider>
+        <el-divider content-position="left">{{ t('dashboard.shareDialog.basicInfo') }}</el-divider>
 
-        <el-form-item label="分享标题">
+        <el-form-item :label="t('dashboard.shareDialog.labelTitle')">
           <el-input
             v-model="shareForm.title"
-            placeholder="请输入分享标题（可选）"
+            :placeholder="t('dashboard.shareDialog.titlePlaceholder')"
             maxlength="200"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="备注">
+        <el-form-item :label="t('dashboard.shareDialog.labelNote')">
           <el-input
             v-model="shareForm.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入备注信息（可选）" />
+            :placeholder="t('dashboard.shareDialog.notePlaceholder')" />
         </el-form-item>
 
         <!-- 分享设置 -->
-        <el-divider content-position="left">分享设置</el-divider>
+        <el-divider content-position="left">{{ t('dashboard.shareDialog.shareSettings') }}</el-divider>
 
-        <el-form-item label="有效期">
+        <el-form-item :label="t('dashboard.shareDialog.labelExpiry')">
           <el-select v-model="shareForm.expiresInHours" style="width: 100%">
-            <el-option :value="1" label="1小时" />
-            <el-option :value="24" label="1天" />
-            <el-option :value="168" label="7天" />
-            <el-option :value="720" label="30天" />
-            <el-option :value="0" label="永久有效" />
+            <el-option :value="1" :label="t('dashboard.shareDialog.opt1Hour')" />
+            <el-option :value="24" :label="t('dashboard.shareDialog.opt1Day')" />
+            <el-option :value="168" :label="t('dashboard.shareDialog.opt7Days')" />
+            <el-option :value="720" :label="t('dashboard.shareDialog.opt30Days')" />
+            <el-option :value="0" :label="t('dashboard.shareDialog.optForever')" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="访问次数限制">
+        <el-form-item :label="t('dashboard.shareDialog.labelAccessLimit')">
           <el-input-number
             v-model="shareForm.maxAccessCount"
             :min="0"
             :max="10000"
             :controls="true"
             style="width: 100%"
-            placeholder="0表示无限制" />
+            :placeholder="t('dashboard.shareDialog.accessLimitPlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="访问密码">
+        <el-form-item :label="t('dashboard.shareDialog.labelAccessCode')">
           <el-switch
             v-model="shareForm.requireAccessCode"
-            active-text="需要密码"
-            inactive-text="无需密码" />
+            :active-text="t('dashboard.shareDialog.requireCode')"
+            :inactive-text="t('dashboard.shareDialog.noCode')" />
         </el-form-item>
 
-        <el-form-item label="权限">
+        <el-form-item :label="t('dashboard.shareDialog.labelPermission')">
           <el-radio-group v-model="shareForm.permission">
-            <el-radio label="view">仅查看</el-radio>
-            <el-radio label="edit">可编辑</el-radio>
+            <el-radio label="view">{{ t('dashboard.shareDialog.radioView') }}</el-radio>
+            <el-radio label="edit">{{ t('dashboard.shareDialog.radioEdit') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -496,8 +498,8 @@ function goToCreateShare() {
     <div v-if="currentStep === 2" class="step-content">
       <el-result
         icon="success"
-        title="分享链接创建成功"
-        sub-title="您可以将以下链接分享给他人访问">
+        :title="t('dashboard.shareDialog.createdTitle')"
+        :sub-title="t('dashboard.shareDialog.createdSubtitle')">
         <template #extra>
           <div class="share-url-container">
             <el-input
@@ -508,7 +510,7 @@ function goToCreateShare() {
               <template #append>
                 <el-button type="primary" @click="copyShareUrl">
                   <el-icon><CopyDocument /></el-icon>
-                  复制链接
+                  {{ t('dashboard.shareDialog.copyLink') }}
                 </el-button>
               </template>
             </el-input>
@@ -519,7 +521,7 @@ function goToCreateShare() {
             v-if="createdShare?.accessCode"
             class="share-access-code-block">
             <div class="access-code-row">
-              <span class="label">访问密码：</span>
+              <span class="label">{{ t('dashboard.shareDialog.accessCodeLabel') }}</span>
               <span class="code">{{ createdShare.accessCode }}</span>
               <el-button
                 link
@@ -527,7 +529,7 @@ function goToCreateShare() {
                 size="small"
                 @click="copyAccessCode">
                 <el-icon><CopyDocument /></el-icon>
-                复制密码
+                {{ t('dashboard.shareDialog.copyCode') }}
               </el-button>
             </div>
             <el-button
@@ -536,30 +538,30 @@ function goToCreateShare() {
               size="small"
               class="copy-all-btn"
               @click="copyLinkAndCode">
-              一键复制链接和密码
+              {{ t('dashboard.shareDialog.copyAll') }}
             </el-button>
           </div>
 
           <!-- 分享详情 -->
           <div class="share-info mt-4">
             <el-descriptions :column="2" border size="small">
-              <el-descriptions-item label="分享标题">
-                {{ createdShare?.title || "未命名" }}
+              <el-descriptions-item :label="t('dashboard.shareDialog.labelTitle')">
+                {{ createdShare?.title || t('dashboard.shareDialog.unnamedShare') }}
               </el-descriptions-item>
-              <el-descriptions-item label="权限">
-                {{ createdShare?.permission === "view" ? "仅查看" : "可编辑" }}
+              <el-descriptions-item :label="t('dashboard.shareDialog.labelPermission')">
+                {{ createdShare?.permission === "view" ? t('dashboard.shareDialog.radioView') : t('dashboard.shareDialog.radioEdit') }}
               </el-descriptions-item>
-              <el-descriptions-item label="有效期">
+              <el-descriptions-item :label="t('dashboard.shareDialog.labelExpiry')">
                 {{ formatExpiresLabel(createdShare?.expiresAt) }}
               </el-descriptions-item>
-              <el-descriptions-item label="访问限制">
+              <el-descriptions-item :label="t('dashboard.shareDialog.labelAccessLimit2')">
                 {{ createdShare?.maxAccessCount
-                  ? `最多 ${createdShare.maxAccessCount} 次`
-                  : "无限制" }}
+                  ? t('dashboard.shareDialog.maxTimes', { count: createdShare.maxAccessCount })
+                  : t('dashboard.shareDialog.unlimited') }}
               </el-descriptions-item>
               <el-descriptions-item
                 v-if="createdShare?.description"
-                label="备注"
+                :label="t('dashboard.shareDialog.labelNote')"
                 :span="2">
                 {{ createdShare.description }}
               </el-descriptions-item>
@@ -567,10 +569,10 @@ function goToCreateShare() {
           </div>
 
           <div class="mt-4 share-actions">
-            <el-button @click="currentStep = 1">返回修改</el-button>
-            <el-button type="primary" @click="closeDialog">完成分享</el-button>
+            <el-button @click="currentStep = 1">{{ t('dashboard.shareDialog.backEdit') }}</el-button>
+            <el-button type="primary" @click="closeDialog">{{ t('dashboard.shareDialog.doneShare') }}</el-button>
             <el-button type="success" plain @click="goToCreateShare">
-              再创建一个
+              {{ t('dashboard.shareDialog.createAnother') }}
             </el-button>
           </div>
         </template>
@@ -579,22 +581,23 @@ function goToCreateShare() {
 
     <template #footer>
       <span v-if="currentStep === 1" class="dialog-footer">
-        <el-button @click="currentStep = 0">返回</el-button>
+        <el-button @click="currentStep = 0">{{ t('dashboard.shareDialog.back') }}</el-button>
         <el-button
           type="primary"
           :loading="isCreating"
           @click="createShare">
-          创建分享
+          {{ t('dashboard.shareDialog.createShare') }}
         </el-button>
       </span>
       <span v-else-if="currentStep === 0" class="dialog-footer">
-        <el-button @click="closeDialog">关闭</el-button>
+        <el-button @click="closeDialog">{{ t('dashboard.shareDialog.close') }}</el-button>
       </span>
     </template>
   </el-dialog>
 </template>
 
 <style lang="scss" scoped>
+
 @use "@/assets/styles/variables" as *;
 
 .share-steps {

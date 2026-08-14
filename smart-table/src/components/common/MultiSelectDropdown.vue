@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { FieldOption } from '@/types/fields'
+
+const { t } = useI18n();
 
 interface Props {
   modelValue: string[]
@@ -12,7 +15,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: () => [],
-  placeholder: '请选择',
+  placeholder: "",
   showSearch: true,
   showSelectAll: true
 })
@@ -278,7 +281,7 @@ defineExpose({
             +{{ selectedOptions.length - 3 }}
           </span>
         </template>
-        <span v-else class="placeholder">{{ placeholder }}</span>
+        <span v-else class="placeholder">{{ placeholder || t('common.selectPlaceholder') }}</span>
       </div>
       <el-icon class="trigger-icon" :class="{ 'is-open': isOpen }">
         <ArrowDown />
@@ -300,7 +303,7 @@ defineExpose({
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="搜索选项..."
+              :placeholder="t('common.searchOptionsPlaceholder')"
               class="search-input"
               @keydown.stop
             />
@@ -353,9 +356,9 @@ defineExpose({
 
           <!-- 底部按钮 -->
           <div class="dropdown-footer">
-            <button class="btn-cancel" @click="cancelSelection">取消</button>
+            <button class="btn-cancel" @click="cancelSelection">{{ t('common.cancel') }}</button>
             <button class="btn-confirm" @click="confirmSelection">
-              确定 ({{ localValue.length }})
+              {{ t('common.confirmCount', { count: localValue.length }) }}
             </button>
           </div>
         </div>

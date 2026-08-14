@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
+
+const { t } = useI18n();
 import { Link, ArrowRight, Close, Search, Check } from "@element-plus/icons-vue";
 import { tableService } from "@/db/services/tableService";
 import { fieldService } from "@/db/services/fieldService";
@@ -118,7 +121,7 @@ async function loadLinkedTableData() {
     updateSelectedRecordsFromModelValue();
   } catch (error) {
     console.error("加载关联表数据失败:", error);
-    ElMessage.error("加载关联表数据失败");
+    ElMessage.error(t('link.loadTableDataFailed'));
   } finally {
     recordLoading.value = false;
   }
@@ -203,11 +206,11 @@ async function removeRecord(recordId: string) {
 
   try {
     await ElMessageBox.confirm(
-      `确定要解除与「${recordName}」的关联关系吗？`,
-      "确认解除关联",
+      t('link.confirmUnlinkMsg', { name: recordName }),
+      t('link.confirmUnlinkTitle'),
       {
-        confirmButtonText: "确认解除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('link.confirmUnlinkBtn'),
+        cancelButtonText: t('link.cancel'),
         type: "warning",
       }
     );
@@ -233,10 +236,10 @@ async function removeRecord(recordId: string) {
       emit("update:modelValue", null);
     }
 
-    ElMessage.success("已解除关联");
+    ElMessage.success(t('link.unlinked'));
   } catch (error) {
     console.error("解除关联失败:", error);
-    ElMessage.error("解除关联失败，请稍后重试");
+    ElMessage.error(t('link.unlinkFailed'));
   } finally {
     deleting.value = false;
   }
@@ -245,7 +248,7 @@ async function removeRecord(recordId: string) {
 function getRecordDisplayValue(record: RecordEntity): string {
   if (!displayField.value) return record.id.slice(0, 8);
   const value = record.values[displayField.value.id];
-  return value !== undefined && value !== null ? String(value) : "无标题";
+  return value !== undefined && value !== null ? String(value) : t('link.noTitle');
 }
 
 function openRecordSelector() {
@@ -294,7 +297,7 @@ async function showRecordDetail(recordId: string) {
     detailDrawerVisible.value = true;
   } catch (error) {
     console.error("加载记录详情失败:", error);
-    ElMessage.error("加载记录详情失败");
+    ElMessage.error(t('link.loadDetailFailed'));
   }
 }
 
@@ -381,7 +384,7 @@ onMounted(async () => {
         </div>
         <div v-if="selectedRecords.length === 0" class="link-placeholder">
           <el-icon class="placeholder-icon"><Link /></el-icon>
-          <span>选择关联记录</span>
+          <span>{{ t('link.selectRecords') }}</span>
         </div>
         <el-icon class="edit-arrow"><ArrowRight /></el-icon>
       </div>
@@ -389,7 +392,7 @@ onMounted(async () => {
       <!-- 记录选择弹窗 -->
       <el-dialog
         v-model="showRecordSelector"
-        title="选择关联记录"
+        :title="t('link.selectRecordTitle')"
         width="620px"
         destroy-on-close
         class="link-selector-dialog"
@@ -398,7 +401,7 @@ onMounted(async () => {
           <!-- 关联目标提示 -->
           <div class="selector-header">
             <el-icon class="header-link-icon"><Link /></el-icon>
-            <span>关联到：</span>
+            <span>{{ t('link.linkTo') }}</span>
             <el-tag size="small" type="primary" effect="plain">
               {{ targetTableName || linkedTableId }}
             </el-tag>
@@ -408,7 +411,7 @@ onMounted(async () => {
           <div class="selector-search">
             <el-input
               v-model="searchQuery"
-              placeholder="搜索记录..."
+              :placeholder="t('link.searchPlaceholder')"
               clearable
               size="default"
             >
@@ -420,7 +423,7 @@ onMounted(async () => {
 
           <!-- 已选记录摘要 -->
           <div v-if="selectedRecords.length > 0" class="selector-selected-summary">
-            <span class="summary-label">已选择</span>
+            <span class="summary-label">{{ t('link.selected') }}</span>
             <div class="summary-tags">
               <el-tag
                 v-for="record in selectedRecords"
@@ -473,7 +476,7 @@ onMounted(async () => {
                 v-if="filteredRecords.length === 0"
                 class="records-empty"
               >
-                <el-empty description="暂无匹配的记录" :image-size="60" />
+                <el-empty :description="t('link.noMatchingRecords')" :image-size="60" />
               </div>
             </template>
           </div>
@@ -482,12 +485,12 @@ onMounted(async () => {
         <template #footer>
           <div class="selector-footer">
             <span class="footer-count">
-              已选择 {{ selectedRecords.length }} 条记录
+              {{ t('link.selectedCount', { count: selectedRecords.length }) }}
             </span>
             <div class="footer-actions">
-              <el-button @click="closeRecordSelector">取消</el-button>
+              <el-button @click="closeRecordSelector">{{ t('link.cancel') }}</el-button>
               <el-button type="primary" @click="confirmSelection">
-                确认
+                {{ t('link.confirm') }}
               </el-button>
             </div>
           </div>

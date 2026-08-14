@@ -1,22 +1,24 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { ElMessage } from "element-plus";
 
+const { t } = useI18n();
 const collaborationStore = useCollaborationStore();
 
 const statusConfig = computed(() => {
   switch (collaborationStore.connectionStatus) {
     case "connected":
-      return { dotClass: "status-dot connected", label: "已连接" };
+      return { dotClass: "status-dot connected", label: t("collaboration.connected") };
     case "connecting":
-      return { dotClass: "status-dot connecting", label: "连接中..." };
+      return { dotClass: "status-dot connecting", label: t("collaboration.connecting") };
     case "reconnecting":
-      return { dotClass: "status-dot reconnecting", label: "重连中..." };
+      return { dotClass: "status-dot reconnecting", label: t("collaboration.reconnecting") };
     case "disconnected":
-      return { dotClass: "status-dot disconnected", label: "已断开" };
+      return { dotClass: "status-dot disconnected", label: t("collaboration.disconnected") };
     default:
-      return { dotClass: "status-dot disconnected", label: "未连接" };
+      return { dotClass: "status-dot disconnected", label: t("collaboration.notConnected") };
   }
 });
 
@@ -32,7 +34,7 @@ watch(
   () => collaborationStore.connectionStatus,
   (newStatus, oldStatus) => {
     if (oldStatus === "reconnecting" && newStatus === "connected") {
-      ElMessage.success("已重新连接");
+      ElMessage.success(t("collaboration.reconnected"));
     }
     previousStatus.value = newStatus;
   },
@@ -47,7 +49,7 @@ watch(
     </div>
     <div v-if="showDisconnectedBanner" class="disconnected-banner">
       <span class="banner-icon">⚠</span>
-      <span>网络连接已断开，正在尝试重连...</span>
+      <span>{{ t('collaboration.connectionLostRetrying') }}</span>
     </div>
   </div>
 </template>

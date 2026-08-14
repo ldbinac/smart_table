@@ -43,7 +43,7 @@
         :disabled="readonly"
         @click="handleRefresh"
       >
-        刷新
+        {{ t('common.refresh') }}
       </el-button>
     </div>
   </div>

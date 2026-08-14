@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { formatDate } from "@/utils/timezone";
+
+const { t } = useI18n();
 import dayjs from "dayjs";
 
 interface Props {
@@ -68,7 +71,7 @@ defineExpose({ focus });
       <el-date-picker
         v-model="localValue"
         type="date"
-        :placeholder="placeholder || '请选择日期'"
+        :placeholder="placeholder || t('field.placeholderDate')"
         :format="displayFormat"
         :value-format="displayFormat"
         clearable

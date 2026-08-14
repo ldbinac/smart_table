@@ -392,7 +392,7 @@ watch(
         >
           <ElOption label="YYYY-MM-DD" value="YYYY-MM-DD" />
           <ElOption label="YYYY/MM/DD" value="YYYY/MM/DD" />
-          <ElOption label="YYYY年MM月DD日" value="YYYY年MM月DD日" />
+          <ElOption :label="t('field.dateFormatCN')" value="YYYY年MM月DD日" />
           <ElOption label="YYYY-MM-DD HH:mm:ss" value="YYYY-MM-DD HH:mm:ss" />
         </ElSelect>
       </ElFormItem>

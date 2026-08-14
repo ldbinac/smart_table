@@ -1,88 +1,88 @@
 <template>
   <div class="notification-logs-page">
     <div class="page-header">
-      <h1 class="page-title">站内信日志</h1>
-      <p class="page-description">查看系统站内信发送记录和状态</p>
+      <h1 class="page-title">{{ t('admin.notificationLogs.title') }}</h1>
+      <p class="page-description">{{ t('admin.notificationLogs.desc') }}</p>
     </div>
 
     <div class="page-content">
       <el-card>
         <!-- 筛选栏 -->
         <div class="filter-bar">
-          <el-select v-model="filters.status" placeholder="发送状态" clearable style="width: 120px">
-            <el-option label="待发送" value="pending" />
-            <el-option label="已发送" value="sent" />
-            <el-option label="发送失败" value="failed" />
-            <el-option label="重试中" value="retrying" />
+          <el-select v-model="filters.status" :placeholder="t('admin.notificationLogs.filterStatus')" clearable style="width: 120px">
+            <el-option :label="t('admin.statusPending')" value="pending" />
+            <el-option :label="t('admin.statusSent')" value="sent" />
+            <el-option :label="t('admin.statusFailed')" value="failed" />
+            <el-option :label="t('admin.statusRetrying')" value="retrying" />
           </el-select>
-          <el-select v-model="filters.source" placeholder="来源" clearable style="width: 140px">
-            <el-option label="系统" value="system" />
-            <el-option label="认证" value="auth" />
-            <el-option label="管理" value="admin" />
-            <el-option label="工作流" value="workflow" />
-            <el-option label="审批" value="approval" />
+          <el-select v-model="filters.source" :placeholder="t('admin.notificationLogs.filterSource')" clearable style="width: 140px">
+            <el-option :label="t('admin.sourceSystem')" value="system" />
+            <el-option :label="t('admin.sourceAuth')" value="auth" />
+            <el-option :label="t('admin.sourceAdmin')" value="admin" />
+            <el-option :label="t('admin.sourceWorkflow')" value="workflow" />
+            <el-option :label="t('admin.sourceApproval')" value="approval" />
           </el-select>
           <el-input
             v-model="filters.recipient_user_id"
-            placeholder="收件人用户ID"
+            :placeholder="t('admin.notificationLogs.filterRecipient')"
             clearable
             style="width: 200px"
           />
-          <el-select v-model="filters.is_read" placeholder="已读" clearable style="width: 120px">
-            <el-option label="已读" value="read" />
-            <el-option label="未读" value="unread" />
+          <el-select v-model="filters.is_read" :placeholder="t('admin.notificationLogs.filterRead')" clearable style="width: 120px">
+            <el-option :label="t('admin.read')" value="read" />
+            <el-option :label="t('admin.unread')" value="unread" />
           </el-select>
           <el-date-picker
             v-model="filters.date_range"
             type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            :range-separator="t('admin.dateRangeSeparator')"
+            :start-placeholder="t('admin.startDate')"
+            :end-placeholder="t('admin.endDate')"
             value-format="YYYY-MM-DD"
             style="width: 260px"
           />
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button type="primary" @click="handleSearch">{{ t('admin.search') }}</el-button>
+          <el-button @click="handleReset">{{ t('admin.reset') }}</el-button>
         </div>
 
         <!-- 数据表格 -->
         <el-table v-loading="loading" :data="logs" stripe style="width: 100%; margin-top: 16px">
-          <el-table-column prop="recipient_user_id" label="收件人用户ID" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="source" label="来源" width="100">
+          <el-table-column prop="recipient_user_id" :label="t('admin.notificationLogs.colRecipient')" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="title" :label="t('admin.notificationLogs.colTitle')" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="source" :label="t('admin.notificationLogs.colSource')" width="100">
             <template #default="{ row }">
               <el-tag type="info">{{ getSourceText(row.source) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" :label="t('admin.notificationLogs.colStatus')" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)">
                 {{ getStatusText(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="is_read" label="已读" width="90" align="center">
+          <el-table-column prop="is_read" :label="t('admin.read')" width="90" align="center">
             <template #default="{ row }">
               <el-tag :type="row.is_read ? 'success' : 'info'">
-                {{ row.is_read ? '已读' : '未读' }}
+                {{ row.is_read ? t('admin.read') : t('admin.unread') }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="retry_count" label="重试次数" width="90" align="center" />
-          <el-table-column prop="created_at" label="创建时间" min-width="150">
+          <el-table-column prop="retry_count" :label="t('admin.notificationLogs.colRetryCount')" width="90" align="center" />
+          <el-table-column prop="created_at" :label="t('admin.notificationLogs.colCreatedAt')" min-width="150">
             <template #default="{ row }">
               {{ formatDate(row.created_at) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column :label="t('admin.notificationLogs.colActions')" width="140" fixed="right">
             <template #default="{ row }">
               <el-button
                 v-if="row.status === 'failed'"
                 link
                 type="warning"
                 @click="handleRetry(row as AppNotification)"
-              >重试</el-button>
-              <el-button link type="primary" @click="handleViewDetail(row as AppNotification)">详情</el-button>
+              >{{ t('admin.retry') }}</el-button>
+              <el-button link type="primary" @click="handleViewDetail(row as AppNotification)">{{ t('admin.detail') }}</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -103,34 +103,34 @@
     </div>
 
     <!-- 详情抽屉 -->
-    <el-drawer v-model="detailDrawerVisible" title="站内信详情" size="500px">
+    <el-drawer v-model="detailDrawerVisible" :title="t('admin.notificationLogs.detailTitle')" size="500px">
       <el-descriptions :column="1" border>
-        <el-descriptions-item label="收件人用户ID">{{ currentLog?.recipient_user_id }}</el-descriptions-item>
-        <el-descriptions-item label="标题">{{ currentLog?.title }}</el-descriptions-item>
-        <el-descriptions-item label="来源">
+        <el-descriptions-item :label="t('admin.notificationLogs.labelRecipient')">{{ currentLog?.recipient_user_id }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.notificationLogs.labelTitle')">{{ currentLog?.title }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.notificationLogs.labelSource')">
           <el-tag type="info">{{ getSourceText(currentLog?.source) }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="发送状态">
+        <el-descriptions-item :label="t('admin.notificationLogs.labelStatus')">
           <el-tag :type="getStatusType(currentLog?.status)">
             {{ getStatusText(currentLog?.status) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="是否已读">
+        <el-descriptions-item :label="t('admin.notificationLogs.labelRead')">
           <el-tag :type="currentLog?.is_read ? 'success' : 'info'">
-            {{ currentLog?.is_read ? '已读' : '未读' }}
+            {{ currentLog?.is_read ? t('admin.read') : t('admin.unread') }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="重试次数">{{ currentLog?.retry_count || 0 }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatDate(currentLog?.created_at || null) }}</el-descriptions-item>
-        <el-descriptions-item label="发送时间">{{ formatDate(currentLog?.sent_at || null) || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="阅读时间">{{ formatDate(currentLog?.read_at || null) || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.notificationLogs.labelRetryCount')">{{ currentLog?.retry_count || 0 }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.notificationLogs.labelCreatedAt')">{{ formatDate(currentLog?.created_at || null) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.notificationLogs.labelSentAt')">{{ formatDate(currentLog?.sent_at || null) || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.notificationLogs.labelReadAt')">{{ formatDate(currentLog?.read_at || null) || '-' }}</el-descriptions-item>
       </el-descriptions>
       <div class="detail-content">
-        <div class="detail-content-label">内容</div>
+        <div class="detail-content-label">{{ t('admin.notificationLogs.content') }}</div>
         <div class="detail-content-body" v-html="currentLog?.content || ''"></div>
       </div>
       <div v-if="currentLog?.error_message" class="detail-error">
-        <div class="detail-content-label">错误信息</div>
+        <div class="detail-content-label">{{ t('admin.notificationLogs.errorInfo') }}</div>
         <div class="detail-content-body" style="color: #f56c6c">{{ currentLog.error_message }}</div>
       </div>
     </el-drawer>
@@ -139,9 +139,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { notificationApiService, type AppNotification } from '@/services/api/notificationApiService'
 import { formatDateTime } from "@/utils/timezone";
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const logs = ref<AppNotification[]>([])
@@ -179,21 +182,21 @@ const getStatusType = (status: string | undefined) => {
 
 const getStatusText = (status: string | undefined) => {
   const textMap: Record<string, string> = {
-    pending: '待发送',
-    sent: '已发送',
-    failed: '失败',
-    retrying: '重试中'
+    pending: t('admin.statusPending'),
+    sent: t('admin.statusSent'),
+    failed: t('admin.statusFailed'),
+    retrying: t('admin.statusRetrying')
   }
   return textMap[status || ''] || status
 }
 
 const getSourceText = (source: string | undefined) => {
   const textMap: Record<string, string> = {
-    system: '系统',
-    auth: '认证',
-    admin: '管理',
-    workflow: '工作流',
-    approval: '审批'
+    system: t('admin.sourceSystem'),
+    auth: t('admin.sourceAuth'),
+    admin: t('admin.sourceAdmin'),
+    workflow: t('admin.sourceWorkflow'),
+    approval: t('admin.sourceApproval')
   }
   return textMap[source || ''] || source || '-'
 }
@@ -222,7 +225,7 @@ const fetchLogs = async () => {
     pagination.total = response.meta?.pagination?.total || 0
   } catch (error) {
     console.error('获取站内信日志失败:', error)
-    ElMessage.error('获取站内信日志失败')
+    ElMessage.error(t('admin.notificationLogs.fetchFailed'))
   } finally {
     loading.value = false
   }
@@ -262,11 +265,11 @@ const handleViewDetail = (row: AppNotification) => {
 const handleRetry = async (row: AppNotification) => {
   try {
     await notificationApiService.retryNotification(row.id)
-    ElMessage.success('重试请求已提交')
+    ElMessage.success(t('admin.notificationLogs.retrySuccess'))
     fetchLogs()
   } catch (error) {
     console.error('重试站内信失败:', error)
-    ElMessage.error('重试站内信失败')
+    ElMessage.error(t('admin.notificationLogs.retryFailed'))
   }
 }
 

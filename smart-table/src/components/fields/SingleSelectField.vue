@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldOption } from "@/types/fields";
+
+const { t } = useI18n();
 
 interface Props {
   modelValue: string | null;
@@ -69,7 +72,7 @@ defineExpose({ focus });
     <template v-else>
       <el-select
         v-model="localValue"
-        :placeholder="placeholder || '请选择'"
+        :placeholder="placeholder || t('field.placeholderSelect')"
         clearable
         ref="selectRef"
         class="select-input">

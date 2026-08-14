@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElInput,
   ElInputNumber,
@@ -13,6 +14,8 @@ import {
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types/fields";
 import dayjs from "dayjs";
+
+const { t } = useI18n();
 
 interface Props {
   field: FieldEntity;
@@ -149,7 +152,7 @@ function getComponentType() {
     <template v-if="getComponentType() === 'text'">
       <ElInput
         :model-value="getTextValue()"
-        :placeholder="placeholder || `请输入${field.name}`"
+        :placeholder="placeholder || t('field.inputFieldName', { name: field.name })"
         :maxlength="maxLength"
         :disabled="disabled"
         class="input-control"
@@ -163,7 +166,7 @@ function getComponentType() {
         type="textarea"
         :rows="2"
         resize="none"
-        :placeholder="placeholder || `请输入${field.name}`"
+        :placeholder="placeholder || t('field.inputFieldName', { name: field.name })"
         :maxlength="maxLength"
         :disabled="disabled"
         class="input-control"
@@ -175,7 +178,7 @@ function getComponentType() {
       <ElInputNumber
         :model-value="getNumberValue()"
         :precision="precision"
-        :placeholder="placeholder || `请输入${field.name}`"
+        :placeholder="placeholder || t('field.inputFieldName', { name: field.name })"
         :disabled="disabled"
         class="input-control"
         style="width: 100%"
@@ -186,7 +189,7 @@ function getComponentType() {
     <template v-else-if="getComponentType() === 'single_select'">
       <ElSelect
         :model-value="getSingleSelectValue()"
-        :placeholder="placeholder || `请选择${field.name}`"
+        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
         :disabled="disabled"
         class="input-control"
         clearable
@@ -210,7 +213,7 @@ function getComponentType() {
     <template v-else-if="getComponentType() === 'multi_select'">
       <ElSelect
         :model-value="getMultiSelectValue()"
-        :placeholder="placeholder || `请选择${field.name}`"
+        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
         :disabled="disabled"
         class="input-control"
         multiple
@@ -236,7 +239,7 @@ function getComponentType() {
       <ElDatePicker
         :model-value="getDateValue()"
         :type="isDateTime ? 'datetime' : 'date'"
-        :placeholder="placeholder || `请选择${field.name}`"
+        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
         :format="dateFormat"
         :disabled="disabled"
         class="input-control"

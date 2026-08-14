@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   ElDialog,
   ElButton,
@@ -16,6 +17,36 @@ import {
 import { Star, StarFilled, Search, View, Check, Plus } from '@element-plus/icons-vue'
 import { dashboardTemplateService } from '@/db/services'
 import type { DashboardTemplate, Dashboard } from '@/db/schema'
+
+const { t } = useI18n()
+
+// 分类名称 → 图标 key 映射（value 与后端存储一致，label 通过 i18n 翻译）
+const catIcons: Record<string, string> = {
+  '销售': '💰',
+  '运营': '📊',
+  '财务': '💵',
+  '项目管理': '📋',
+  '人力资源': '👥',
+  '客户服务': '🎧',
+  '营销': '📢',
+  'IT运维': '🖥️',
+  '生产': '🏭',
+  '自定义': '🎨',
+}
+
+// 分类名称 → 颜色映射
+const catColors: Record<string, string> = {
+  '销售': '#52c41a',
+  '运营': '#1890ff',
+  '财务': '#faad14',
+  '项目管理': '#722ed1',
+  '人力资源': '#eb2f96',
+  '客户服务': '#13c2c2',
+  '营销': '#fa8c16',
+  'IT运维': '#2f54eb',
+  '生产': '#52c41a',
+  '自定义': '#722ed1',
+}
 
 interface WidgetPosition {
   x: number
@@ -60,6 +91,7 @@ const saveForm = ref({
   description: '',
   category: '自定义',
 })
+const CUSTOM_CATEGORY = '自定义'
 const saveLoading = ref(false)
 
 // 预览对话框
@@ -67,23 +99,34 @@ const previewDialogVisible = ref(false)
 const previewTemplate = ref<DashboardTemplate | null>(null)
 
 // 分类列表
-const categories = [
-  { label: '全部', value: 'all' },
-  // { label: '销售', value: '销售' },
-  { label: '运营营销', value: '运营' },
-  { label: '销售财务', value: '财务' },
-  { label: '项目管理', value: '项目管理' },
-  { label: '人力资源', value: '人力资源' },
-  { label: '客户服务', value: '客户服务' },
-  // { label: '营销', value: '营销' },
-  { label: 'IT运维', value: 'IT运维' },
-  { label: '生产制造', value: '生产' },
-  { label: '自定义', value: '自定义' },
-  { label: '我的收藏', value: 'starred' },
-]
+const categories = computed(() => [
+  { label: t('dashboard.template.category.all'), value: 'all' },
+  // { label: t('dashboard.template.category.销售'), value: '销售' },
+  { label: t('dashboard.template.category.运营'), value: '运营' },
+  { label: t('dashboard.template.category.财务'), value: '财务' },
+  { label: t('dashboard.template.category.项目管理'), value: '项目管理' },
+  { label: t('dashboard.template.category.人力资源'), value: '人力资源' },
+  { label: t('dashboard.template.category.客户服务'), value: '客户服务' },
+  // { label: t('dashboard.template.category.营销'), value: '营销' },
+  { label: t('dashboard.template.category.IT运维'), value: 'IT运维' },
+  { label: t('dashboard.template.category.生产'), value: '生产' },
+  { label: t('dashboard.template.category.自定义'), value: '自定义' },
+  { label: t('dashboard.template.category.starred'), value: 'starred' },
+])
 
-// 分类选项（用于保存表单）
-const categoryOptions = ['销售', '运营', '财务', '项目管理', '人力资源', '客户服务', '营销', 'IT运维',  '生产', '自定义']
+// 分类选项（用于保存表单，label 翻译、value 保持与后端一致的中文分类名）
+const categoryOptions = computed(() =>
+  ['销售', '运营', '财务', '项目管理', '人力资源', '客户服务', '营销', 'IT运维', '生产', '自定义'].map(
+    (v) => ({ label: t(`dashboard.template.category.${v}`), value: v })
+  )
+)
+
+// 按分类名取翻译后 label（用于展示，未匹配时返回原值）
+function categoryLabel(cat: string): string {
+  const key = `dashboard.template.category.${cat}`
+  const label = t(key)
+  return label === key ? cat : label
+}
 
 // 过滤后的模板列表
 const filteredTemplates = computed(() => {
@@ -131,7 +174,7 @@ async function loadTemplates() {
     await dashboardTemplateService.cleanupDuplicatePresets()
     templates.value = await dashboardTemplateService.getAllTemplates()
   } catch (error) {
-    ElMessage.error('加载模板失败')
+    ElMessage.error(t('dashboard.template.loadFailed'))
     console.error(error)
   } finally {
     loading.value = false
@@ -144,9 +187,9 @@ async function toggleStar(template: DashboardTemplate, event: Event) {
   try {
     await dashboardTemplateService.toggleStar(template.id)
     template.isStarred = !template.isStarred
-    ElMessage.success(template.isStarred ? '已收藏' : '已取消收藏')
+    ElMessage.success(template.isStarred ? t('dashboard.template.starredAdd') : t('dashboard.template.starredRemove'))
   } catch (error) {
-    ElMessage.error('操作失败')
+    ElMessage.error(t('dashboard.template.operationFailed'))
   }
 }
 
@@ -154,10 +197,10 @@ async function toggleStar(template: DashboardTemplate, event: Event) {
 async function applyTemplate(template: DashboardTemplate) {
   try {
     emit('apply', template)
-    ElMessage.success('模板应用成功')
+    ElMessage.success(t('dashboard.templateApplied'))
     emit('update:visible', false)
   } catch (error) {
-    ElMessage.error('应用模板失败')
+    ElMessage.error(t('dashboard.applyTemplateFailed'))
   }
 }
 
@@ -170,13 +213,13 @@ function preview(template: DashboardTemplate) {
 // 打开保存对话框
 function openSaveDialog() {
   if (!props.currentDashboard) {
-    ElMessage.warning('请先选择仪表盘')
+    ElMessage.warning(t('dashboard.template.selectDashboardFirst'))
     return
   }
   saveForm.value = {
-    name: `${props.currentDashboard.name} 模板`,
+    name: `${props.currentDashboard.name} ${t('dashboard.template.custom')}`,
     description: props.currentDashboard.description || '',
-    category: '自定义',
+    category: CUSTOM_CATEGORY,
   }
   saveDialogVisible.value = true
 }
@@ -184,12 +227,12 @@ function openSaveDialog() {
 // 保存为新模板
 async function handleSaveTemplate() {
   if (!saveForm.value.name.trim()) {
-    ElMessage.warning('请输入模板名称')
+    ElMessage.warning(t('dashboard.template.enterName'))
     return
   }
 
   if (!props.currentDashboard) {
-    ElMessage.warning('请先选择仪表盘')
+    ElMessage.warning(t('dashboard.template.selectDashboardFirst'))
     return
   }
 
@@ -201,11 +244,11 @@ async function handleSaveTemplate() {
       saveForm.value.description,
       saveForm.value.category
     )
-    ElMessage.success('模板保存成功')
+    ElMessage.success(t('dashboard.template.saved'))
     saveDialogVisible.value = false
     await loadTemplates()
   } catch (error) {
-    ElMessage.error('保存模板失败')
+    ElMessage.error(t('dashboard.template.saveFailed'))
     console.error(error)
   } finally {
     saveLoading.value = false
@@ -217,56 +260,36 @@ async function deleteTemplate(template: DashboardTemplate, event: Event) {
   event.stopPropagation()
   
   if (template.isPreset) {
-    ElMessage.warning('预设模板不能删除')
+    ElMessage.warning(t('dashboard.template.presetCannotDelete'))
     return
   }
 
   try {
-    await ElMessageBox.confirm('确定要删除这个模板吗？', '确认删除', {
-      type: 'warning',
-    })
+    await ElMessageBox.confirm(
+      t('dashboard.template.deleteConfirm'),
+      t('dashboard.template.deleteTitle'),
+      {
+        type: 'warning',
+      }
+    )
     await dashboardTemplateService.deleteTemplate(template.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('dashboard.template.deleted'))
     await loadTemplates()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('dashboard.template.deleteFailed'))
     }
   }
 }
 
 // 获取模板图标
 function getTemplateIcon(category: string): string {
-  const iconMap: Record<string, string> = {
-    '销售': '💰',
-    '运营': '📊',
-    '财务': '💵',
-    '项目管理': '📋',
-    '人力资源': '👥',
-    '客户服务': '🎧',
-    '营销': '📢',
-    'IT运维': '🖥️',
-    '生产': '🏭',
-    '自定义': '🎨',
-  }
-  return iconMap[category] || '📋'
+  return catIcons[category] || '📋'
 }
 
 // 获取模板颜色
 function getTemplateColor(category: string): string {
-  const colorMap: Record<string, string> = {
-    '销售': '#52c41a',
-    '运营': '#1890ff',
-    '财务': '#faad14',
-    '项目管理': '#722ed1',
-    '人力资源': '#eb2f96',
-    '客户服务': '#13c2c2',
-    '营销': '#fa8c16',
-    'IT运维': '#2f54eb',
-    '生产': '#52c41a',
-    '自定义': '#722ed1',
-  }
-  return colorMap[category] || '#8c8c8c'
+  return catColors[category] || '#8c8c8c'
 }
 
 import { formatDate, formatDateTime } from "@/utils/timezone";
@@ -402,7 +425,7 @@ onMounted(() => {
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="仪表盘模板"
+    :title="t('dashboard.template.title')"
     width="900px"
     :close-on-click-modal="false"
     class="dashboard-template-dialog"
@@ -413,7 +436,7 @@ onMounted(() => {
         <div class="search-box">
           <ElInput
             v-model="searchQuery"
-            placeholder="搜索模板..."
+            :placeholder="t('dashboard.template.searchPlaceholder')"
             clearable
             :prefix-icon="Search"
             class="search-input"
@@ -425,7 +448,7 @@ onMounted(() => {
           :icon="Plus"
           @click="openSaveDialog"
         >
-          保存当前为模板
+          {{ t('dashboard.template.saveCurrent') }}
         </ElButton>
       </div>
 
@@ -453,7 +476,7 @@ onMounted(() => {
             >
               <div class="group-title">
                 <span class="group-icon">{{ getTemplateIcon(category) }}</span>
-                <span>{{ category }}</span>
+                <span>{{ categoryLabel(category) }}</span>
                 <span class="group-count">({{ groupTemplates.length }})</span>
               </div>
               <div class="template-grid">
@@ -484,17 +507,17 @@ onMounted(() => {
                     </p>
                     <div class="template-meta">
                       <span class="template-type" :class="{ preset: template.isPreset }">
-                        {{ template.isPreset ? '预设' : '自定义' }}
+                        {{ template.isPreset ? t('dashboard.template.preset') : t('dashboard.template.custom') }}
                       </span>
                       <span class="template-date">{{ formatTemplateDate(template.updatedAt) }}</span>
                     </div>
                   </div>
                   <div class="card-footer">
                     <ElButton link :icon="View" @click="preview(template)">
-                      预览
+                      {{ t('dashboard.template.preview') }}
                     </ElButton>
                     <ElButton type="primary" :icon="Check" @click="applyTemplate(template)">
-                      应用
+                      {{ t('dashboard.template.apply') }}
                     </ElButton>
                   </div>
                   <div v-if="!template.isPreset" class="delete-btn" @click="deleteTemplate(template, $event)">
@@ -534,18 +557,18 @@ onMounted(() => {
                     {{ template.description }}
                   </p>
                   <div class="template-meta">
-                    <span class="template-category">{{ template.category }}</span>
+                    <span class="template-category">{{ categoryLabel(template.category) }}</span>
                     <span class="template-type" :class="{ preset: template.isPreset }">
-                      {{ template.isPreset ? '预设' : '自定义' }}
+                      {{ template.isPreset ? t('dashboard.template.preset') : t('dashboard.template.custom') }}
                     </span>
                   </div>
                 </div>
                 <div class="card-footer">
                   <ElButton link :icon="View" @click="preview(template)">
-                    预览
+                    {{ t('dashboard.template.preview') }}
                   </ElButton>
                   <ElButton type="primary" :icon="Check" @click="applyTemplate(template)">
-                    应用
+                    {{ t('dashboard.template.apply') }}
                   </ElButton>
                 </div>
                 <div v-if="!template.isPreset" class="delete-btn" @click="deleteTemplate(template, $event)">
@@ -556,46 +579,46 @@ onMounted(() => {
           </template>
         </template>
         
-        <ElEmpty v-else description="暂无模板" />
+        <ElEmpty v-else :description="t('dashboard.template.noTemplates')" />
       </div>
     </div>
 
     <!-- 保存模板对话框 -->
     <ElDialog
       v-model="saveDialogVisible"
-      title="保存为模板"
+      :title="t('dashboard.template.saveAsTitle')"
       width="500px"
       :close-on-click-modal="false"
       append-to-body
     >
       <ElForm :model="saveForm" label-width="80px">
-        <ElFormItem label="模板名称" required>
-          <ElInput v-model="saveForm.name" placeholder="请输入模板名称" />
+        <ElFormItem :label="t('dashboard.template.templateName')" required>
+          <ElInput v-model="saveForm.name" :placeholder="t('dashboard.template.templateNamePlaceholder')" />
         </ElFormItem>
-        <ElFormItem label="模板描述">
+        <ElFormItem :label="t('dashboard.template.templateDesc')">
           <ElInput
             v-model="saveForm.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入模板描述（可选）"
+            :placeholder="t('dashboard.template.templateDescPlaceholder')"
           />
         </ElFormItem>
-        <ElFormItem label="分类">
+        <ElFormItem :label="t('dashboard.template.categoryLabel')">
           <ElSelect v-model="saveForm.category" style="width: 100%">
             <ElOption
               v-for="cat in categoryOptions"
-              :key="cat"
-              :label="cat"
-              :value="cat"
+              :key="cat.value"
+              :label="cat.label"
+              :value="cat.value"
             />
           </ElSelect>
         </ElFormItem>
       </ElForm>
       <template #footer>
         <div class="dialog-footer">
-          <ElButton @click="saveDialogVisible = false">取消</ElButton>
+          <ElButton @click="saveDialogVisible = false">{{ t('dashboard.template.cancel') }}</ElButton>
           <ElButton type="primary" :loading="saveLoading" @click="handleSaveTemplate">
-            保存
+            {{ t('dashboard.template.save') }}
           </ElButton>
         </div>
       </template>
@@ -604,7 +627,7 @@ onMounted(() => {
     <!-- 预览对话框 -->
     <ElDialog
       v-model="previewDialogVisible"
-      :title="previewTemplate?.name || '模板预览'"
+      :title="previewTemplate?.name || t('dashboard.template.previewTitle')"
       width="900px"
       :close-on-click-modal="false"
       append-to-body
@@ -621,11 +644,11 @@ onMounted(() => {
               {{ previewTemplate.description }}
             </p>
             <div class="preview-tags">
-              <span class="tag category">{{ previewTemplate.category }}</span>
+              <span class="tag category">{{ categoryLabel(previewTemplate.category) }}</span>
               <span class="tag" :class="{ preset: previewTemplate.isPreset }">
-                {{ previewTemplate.isPreset ? '预设模板' : '自定义模板' }}
+                {{ previewTemplate.isPreset ? t('dashboard.template.presetTemplate') : t('dashboard.template.customTemplate') }}
               </span>
-              <span v-if="previewTemplate.isStarred" class="tag starred">⭐ 已收藏</span>
+              <span v-if="previewTemplate.isStarred" class="tag starred">{{ t('dashboard.template.starredTag') }}</span>
             </div>
           </div>
         </div>
@@ -633,7 +656,7 @@ onMounted(() => {
         <div class="preview-section">
           <h4 class="section-title">
             <span class="title-icon">🖥️</span>
-            仪表盘效果预览
+            {{ t('dashboard.template.dashboardPreviewEffect') }}
           </h4>
           <div class="dashboard-preview-container">
             <div 
@@ -676,9 +699,9 @@ onMounted(() => {
                   <template v-else-if="widget.type === 'table'">
                     <div class="mock-table">
                       <div class="table-row header">
-                        <div class="cell">列1</div>
-                        <div class="cell">列2</div>
-                        <div class="cell">列3</div>
+                        <div class="cell">{{ t('dashboard.template.col1') }}</div>
+                        <div class="cell">{{ t('dashboard.template.col2') }}</div>
+                        <div class="cell">{{ t('dashboard.template.col3') }}</div>
                       </div>
                       <div v-for="i in 2" :key="i" class="table-row">
                         <div class="cell">-</div>
@@ -703,7 +726,7 @@ onMounted(() => {
                   </template>
                   <template v-else-if="widget.type === 'marquee'">
                     <div class="mock-marquee">
-                      <span class="marquee-text">📢 系统公告：欢迎使用仪表盘模板...</span>
+                      <span class="marquee-text">{{ t('dashboard.template.marqueeText') }}</span>
                     </div>
                   </template>
                   <template v-else>
@@ -718,7 +741,7 @@ onMounted(() => {
         </div>
         
         <div class="preview-widgets">
-          <h4>包含组件 ({{ (previewTemplate.widgets || []).length }})</h4>
+          <h4>{{ t('dashboard.template.includedWidgets', { count: (previewTemplate.widgets || []).length }) }}</h4>
           <div class="widgets-list">
             <div
               v-for="(widget, index) in previewTemplate.widgets || []"
@@ -732,14 +755,14 @@ onMounted(() => {
         </div>
 
         <div class="preview-layout">
-          <h4>布局信息</h4>
+          <h4>{{ t('dashboard.template.layoutInfo') }}</h4>
           <div class="layout-info">
             <div class="layout-item">
-              <span class="label">布局类型:</span>
-              <span class="value">{{ previewTemplate.layoutType === 'grid' ? '网格布局' : '自由布局' }}</span>
+              <span class="label">{{ t('dashboard.template.layoutType') }}</span>
+              <span class="value">{{ previewTemplate.layoutType === 'grid' ? t('dashboard.template.gridLayout') : t('dashboard.template.freeLayout') }}</span>
             </div>
             <div v-if="previewTemplate.gridColumns" class="layout-item">
-              <span class="label">网格列数:</span>
+              <span class="label">{{ t('dashboard.template.gridColumns') }}</span>
               <span class="value">{{ previewTemplate.gridColumns }}</span>
             </div>
           </div>
@@ -747,14 +770,14 @@ onMounted(() => {
       </div>
       <template #footer>
         <div class="dialog-footer">
-          <ElButton @click="previewDialogVisible = false">关闭</ElButton>
+          <ElButton @click="previewDialogVisible = false">{{ t('dashboard.template.close') }}</ElButton>
           <ElButton
             v-if="previewTemplate"
             type="primary"
             :icon="Check"
             @click="applyTemplate(previewTemplate); previewDialogVisible = false"
           >
-            应用此模板
+            {{ t('dashboard.template.applyThis') }}
           </ElButton>
         </div>
       </template>
@@ -762,7 +785,7 @@ onMounted(() => {
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="$emit('update:visible', false)">关闭</ElButton>
+        <ElButton @click="$emit('update:visible', false)">{{ t('dashboard.template.close') }}</ElButton>
       </div>
     </template>
   </ElDialog>

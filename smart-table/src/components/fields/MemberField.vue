@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { FieldEntity } from '@/db/schema'
+
+const { t } = useI18n()
 import type { CellValue } from '@/types'
 import { useUserCacheStore } from '@/stores/userCacheStore'
 
@@ -202,7 +205,7 @@ function getAvatarColor(name: string | undefined): string {
             </el-icon>
           </div>
           <span v-if="selectedMembers.length === 0" class="placeholder">
-            选择成员
+            {{ t('field.selectMember') }}
           </span>
         </div>
       </template>
@@ -210,7 +213,7 @@ function getAvatarColor(name: string | undefined): string {
       <div class="member-dropdown">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索成员"
+          :placeholder="t('field.searchMember')"
           prefix-icon="Search"
           size="small"
           clearable
@@ -238,7 +241,7 @@ function getAvatarColor(name: string | undefined): string {
           </div>
           
           <div v-if="filteredMembers.length === 0" class="no-results">
-            未找到成员
+            {{ t('field.noMemberFound') }}
           </div>
         </div>
       </div>

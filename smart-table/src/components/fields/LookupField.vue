@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import dayjs from "dayjs";
 import { fieldService } from "@/db/services/fieldService";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, LookupFieldConfig } from "@/types/fields";
+
+const { t } = useI18n();
 
 interface Props {
   /** 后端实时计算的查找值（null / 数组 / 数字 / 字符串） */
@@ -130,10 +133,10 @@ function formatSingleItem(item: unknown): string {
 
   // 复选框：显示为 是/否
   if (CHECKBOX_TYPES.has(type)) {
-    if (typeof item === "boolean") return item ? "是" : "否";
+    if (typeof item === "boolean") return item ? t('common.yes') : t('common.no');
     const s = String(item).toLowerCase();
-    if (s === "true" || s === "1") return "是";
-    if (s === "false" || s === "0" || s === "") return "否";
+    if (s === "true" || s === "1") return t('common.yes');
+    if (s === "false" || s === "0" || s === "") return t('common.no');
     return String(item);
   }
 
@@ -240,11 +243,11 @@ function formatRenderItem(item: unknown): RenderItem {
   if (CHECKBOX_TYPES.has(type)) {
     let text: string;
     if (typeof item === "boolean") {
-      text = item ? "是" : "否";
+      text = item ? t('common.yes') : t('common.no');
     } else {
       const s = String(item).toLowerCase();
-      if (s === "true" || s === "1") text = "是";
-      else if (s === "false" || s === "0" || s === "") text = "否";
+      if (s === "true" || s === "1") text = t('common.yes');
+      else if (s === "false" || s === "0" || s === "") text = t('common.no');
       else text = String(item);
     }
     return { text, type: "text" };

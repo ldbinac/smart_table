@@ -23,19 +23,19 @@
 
     <div class="chart-footer">
       <div class="stats-item">
-        <span class="stats-label">当前值</span>
+        <span class="stats-label">{{ t('dashboard.currentValue') }}</span>
         <span class="stats-value current">{{
           formatNumber(currentValue)
         }}</span>
       </div>
       <div class="stats-item">
-        <span class="stats-label">平均值</span>
+        <span class="stats-label">{{ t('dashboard.aggAvg') }}</span>
         <span class="stats-value average">{{
           formatNumber(averageValue)
         }}</span>
       </div>
       <div class="stats-item">
-        <span class="stats-label">最大值</span>
+        <span class="stats-label">{{ t('dashboard.aggMax') }}</span>
         <span class="stats-value max">{{ formatNumber(maxValue) }}</span>
       </div>
     </div>
@@ -44,6 +44,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { LineChart } from "echarts/charts";
@@ -54,6 +55,8 @@ import {
   DataZoomComponent,
 } from "echarts/components";
 import VChart from "vue-echarts";
+
+const { t } = useI18n();
 
 use([
   CanvasRenderer,

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "@/db/schema";
 import { getFieldTypeIconComponent } from "@/types/fields";
 import { Sort, Lock } from "@element-plus/icons-vue";
+
+const { t } = useI18n();
 
 interface Props {
   field: FieldEntity;
@@ -103,6 +106,7 @@ const handleContextMenu = (event: MouseEvent) => {
 
     <div v-if="isFrozen" class="frozen-indicator">
       <el-icon><Lock /></el-icon>
+      <span class="frozen-text">{{ t('view.frozen') }}</span>
     </div>
   </div>
 </template>
@@ -145,8 +149,8 @@ const handleContextMenu = (event: MouseEvent) => {
       font-size: 10px;
       font-weight: 500;
 
-      &::after {
-        content: "冻结";
+      .frozen-text {
+        margin-left: 1px;
       }
     }
   }

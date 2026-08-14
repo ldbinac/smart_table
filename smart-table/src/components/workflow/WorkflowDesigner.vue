@@ -807,14 +807,14 @@ function handleViewVersions() {
   emit("viewVersions");
 }
 
-const LEAVE_CONFIRM_MESSAGE =
-  '当前工作流存在配置不完整的节点，离开将丢失未保存的修改，是否继续？';
+const LEAVE_CONFIRM_MESSAGE = () => t('workflow.designer.leaveConfirm');
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
   if (hasInvalidMappingNodes.value) {
     event.preventDefault();
-    event.returnValue = LEAVE_CONFIRM_MESSAGE;
-    return LEAVE_CONFIRM_MESSAGE;
+    const msg = LEAVE_CONFIRM_MESSAGE();
+    event.returnValue = msg;
+    return msg;
   }
 }
 

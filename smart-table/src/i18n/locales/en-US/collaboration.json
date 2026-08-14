@@ -1,0 +1,18 @@
+{
+  "connected": "Connected",
+  "connecting": "Connecting...",
+  "reconnecting": "Reconnecting...",
+  "disconnected": "Disconnected",
+  "notConnected": "Not connected",
+  "reconnected": "Reconnected",
+  "connectionLostRetrying": "Connection lost, attempting to reconnect...",
+  "conflictViewHistory": "View History",
+  "conflictAcceptTheirs": "Accept Their Changes",
+  "conflictKeepMine": "Keep My Changes",
+  "conflictDialogTitle": "Edit Conflict",
+  "conflictField": "Field",
+  "conflictMyChanges": "My Changes",
+  "conflictOtherChanges": "Their Changes",
+  "conflictEmpty": "(empty)",
+  "conflictEditedDesc": "{user} edited this field at the same time. Please choose which version to keep:"
+}

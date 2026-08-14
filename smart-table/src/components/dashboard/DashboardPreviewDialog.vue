@@ -157,7 +157,7 @@ function renderWidget(widget: WidgetConfig) {
       return;
     }
   } else if (!widget.fieldId || records.length === 0) {
-    container.innerHTML = '<div class="widget-empty">暂无数据</div>';
+    container.innerHTML = `<div class="widget-empty">${t("common.noData")}</div>`;
     return;
   }
 
@@ -193,7 +193,7 @@ function renderWidget(widget: WidgetConfig) {
           <thead>
             <tr>
               <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || t("dashboard.groupBy") : t("dashboard.category")}</th>
-              <th>数值</th>
+              <th>${t("dashboard.previewValue")}</th>
             </tr>
           </thead>
           <tbody>
@@ -374,7 +374,7 @@ function renderKpiWidget(widget: WidgetConfig, container: HTMLElement, values: n
     const progress = Math.min(100, (total / Number(config.targetValue)) * 100);
     progressHtml = `<div style="margin-top: 12px;">
       <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
-        <span>进度</span><span>${progress.toFixed(1)}%</span></div>
+        <span>${t("dashboard.progress")}</span><span>${progress.toFixed(1)}%</span></div>
       <div style="height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
         <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, #10B981, #34D399); border-radius: 3px;"></div></div></div>`;
   }
@@ -429,8 +429,8 @@ function renderRealtimeWidgetEmpty(widget: WidgetConfig, container: HTMLElement)
       height: 100%; background: ${backgroundColor}; border-radius: 12px; color: ${textColor};
       padding: 20px; text-align: center;
     ">
-      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">实时数据流组件</div>
-      <div style="font-size: 12px; opacity: 0.5;">请配置数据表和字段以显示实时数据</div>
+      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">{{ t('dashboard.realtimeWidgetName') }}</div>
+      <div style="font-size: 12px; opacity: 0.5;">{{ t('dashboard.realtimeEmptyHint') }}</div>
     </div>
   `;
 }

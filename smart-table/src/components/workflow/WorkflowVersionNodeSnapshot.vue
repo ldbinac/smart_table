@@ -69,7 +69,7 @@ const configEntries = computed(() => {
     })
   }
   else if (node_type === 'send_email') {
-    const recipientType = config.recipient_type as string || '未配置'
+    const recipientType = config.recipient_type as string || t('workflow.notConfigured')
     entries.push({ label: t('workflow.version.recipientSource'), value: recipientType === 'field' ? t('workflow.version.fieldRecipient') : t('workflow.version.fixedEmail') })
     const recipientValue = (config.recipient_value as string[] | undefined) || []
     entries.push({ label: t('workflow.version.recipients'), value: recipientValue.join(', ') || '-' })

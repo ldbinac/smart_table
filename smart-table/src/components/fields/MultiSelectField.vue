@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldOption } from "@/types/fields";
+
+const { t } = useI18n();
 import MultiSelectDropdown from "@/components/common/MultiSelectDropdown.vue";
 
 interface Props {
@@ -86,7 +89,7 @@ defineExpose({ focus });
         ref="dropdownRef"
         v-model="localValue"
         :options="options"
-        :placeholder="placeholder || '请选择'"
+        :placeholder="placeholder || t('field.placeholderSelect')"
         @confirm="handleConfirm"
         @cancel="handleCancel" />
     </template>

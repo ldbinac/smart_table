@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldOptions } from "@/types/fields";
+
+const { t } = useI18n();
 
 interface Props {
   modelValue: number | null;
@@ -107,7 +110,7 @@ defineExpose({ focus });
     <template v-else>
       <el-input-number
         v-model="localValue"
-        :placeholder="placeholder || '请输入数字'"
+        :placeholder="placeholder || t('field.placeholderNumber')"
         :precision="precision"
         :controls="false"
         class="number-input"

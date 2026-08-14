@@ -98,7 +98,7 @@ function toggleDirection(index: number) {
   <div class="sort-panel">
     <div class="panel-header">
       <div class="header-title">
-        <span class="title">排序条件</span>
+        <span class="title">{{ t('sort.conditionTitle') }}</span>
         <span v-if="hasSorts" class="sort-count">
           {{ localSorts.length }} 个排序
         </span>
@@ -127,7 +127,7 @@ function toggleDirection(index: number) {
 
           <el-select
             :model-value="sort.fieldId"
-            placeholder="选择字段"
+            :placeholder="t('sort.selectField')"
             class="field-select"
             @change="updateSortField(index, $event)"
           >
@@ -181,7 +181,7 @@ function toggleDirection(index: number) {
         </div>
       </template>
       <div v-else class="empty-state">
-        <span>暂无排序条件</span>
+        <span>{{ t('sort.empty') }}</span>
       </div>
     </div>
 
@@ -223,7 +223,7 @@ function toggleDirection(index: number) {
     </div>
 
     <div v-if="hasSorts" class="sort-summary">
-      <div class="summary-title">排序顺序：</div>
+      <div class="summary-title">{{ t('sort.sortOrder') }}</div>
       <div class="summary-content">
         <template v-for="(item, index) in sortDescriptions" :key="item.sort.fieldId">
           <span class="summary-text">{{ item.description }}</span>

@@ -347,17 +347,17 @@ function validateCellValue(
   switch (field.type) {
     case FieldType.NUMBER:
       if (isNaN(Number(value))) {
-        return { valid: false, message: `"${field.name}" 字段只能填写数字` };
+        return { valid: false, message: t("view.formatInvalidNumber", { name: field.name }) };
       }
       return { valid: true };
 
     case FieldType.PROGRESS:
       if (isNaN(Number(value))) {
-        return { valid: false, message: `"${field.name}" 字段只能填写数字` };
+        return { valid: false, message: t("view.formatInvalidNumber", { name: field.name }) };
       }
       const num = Number(value);
       if (num < 0 || num > 100) {
-        return { valid: false, message: `"${field.name}" 字段的值应在 0-100 之间` };
+        return { valid: false, message: t("view.formatProgressRange", { name: field.name }) };
       }
       return { valid: true };
 
@@ -615,7 +615,7 @@ class MultiSelectEditor implements IEditor {
     } else {
       const emptyHint = document.createElement('div');
       emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
-      emptyHint.textContent = '无可用选项';
+      emptyHint.textContent = t('view.selectNoOptions');
       wrapper.appendChild(emptyHint);
     }
 
@@ -797,7 +797,7 @@ class SingleSelectEditor implements IEditor {
     } else {
       const emptyHint = document.createElement('div');
       emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
-      emptyHint.textContent = '无可用选项';
+      emptyHint.textContent = t('view.selectNoOptions');
       wrapper.appendChild(emptyHint);
     }
 
@@ -872,7 +872,7 @@ class SingleSelectEditor implements IEditor {
     icon.textContent = '✕';
     icon.style.cssText = 'margin-right: 8px; font-size: 12px; color: #bbb;';
     item.appendChild(icon);
-    item.appendChild(document.createTextNode('清空'));
+    item.appendChild(document.createTextNode(t('view.filter.clearAll')));
     return item;
   }
 
@@ -1366,12 +1366,12 @@ class MemberEditor implements IEditor {
       const users = await userCacheStore.fetchUsers(this.selectedIds);
       this.selectedMembers = users.map((u: any) => ({
         id: u.id,
-        name: u.name || u.nickname || '未知',
+        name: u.name || u.nickname || t('view.unknown'),
         email: u.email,
         avatar: u.avatar,
       }));
     } catch {
-      this.selectedMembers = this.selectedIds.map(id => ({ id, name: '未知成员' }));
+      this.selectedMembers = this.selectedIds.map(id => ({ id, name: t('view.unknownMember') }));
     }
   }
 
@@ -1410,7 +1410,7 @@ class MemberEditor implements IEditor {
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = '输入姓名或邮箱搜索';
+    searchInput.placeholder = t('view.searchMemberPlaceholder');
     searchInput.style.cssText = `
       width: 100%; height: 32px; padding: 0 10px;
       border: 1px solid #dcdfe6; border-radius: 4px;
@@ -1455,7 +1455,7 @@ class MemberEditor implements IEditor {
         padding: 6px 12px; font-size: 11px; color: #909399;
         text-align: center; border-top: 1px solid #ebeef5;
       `;
-      tip.textContent = '点击外部或按 Enter 完成选择';
+      tip.textContent = t('view.selectDoneHint');
       wrapper.appendChild(tip);
     }
 
@@ -1480,7 +1480,7 @@ class MemberEditor implements IEditor {
     if (this.selectedMembers.length === 0) {
       const placeholder = document.createElement('span');
       placeholder.style.cssText = 'color: #c0c4cc; font-size: 13px;';
-      placeholder.textContent = '未选择成员';
+      placeholder.textContent = t('view.noMembersSelected');
       this.selectedTagsEl.appendChild(placeholder);
       return;
     }
@@ -1549,7 +1549,7 @@ class MemberEditor implements IEditor {
         display: flex; align-items: center; justify-content: center;
         gap: 8px; padding: 24px; color: #909399; font-size: 13px;
       `;
-      loadingEl.textContent = '搜索中...';
+      loadingEl.textContent = t('view.searching');
       this.resultsListEl.appendChild(loadingEl);
       return;
     }
@@ -1566,7 +1566,7 @@ class MemberEditor implements IEditor {
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
-        <span>{{ t("view.searchPlaceholder") }}</span>
+        <span>${t("view.searchPlaceholder")}</span>
       `;
       this.resultsListEl.appendChild(emptyEl);
       return;
@@ -1584,7 +1584,7 @@ class MemberEditor implements IEditor {
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
-        <span>未找到匹配的成员</span>
+        <span>${t("view.noMemberFound")}</span>
       `;
       this.resultsListEl.appendChild(emptyEl);
       return;
@@ -1681,7 +1681,7 @@ class MemberEditor implements IEditor {
         });
         this.searchResults = response.users.map((u: any) => ({
           id: u.id,
-          name: u.name || u.nickname || '未知',
+          name: u.name || u.nickname || t('view.unknown'),
           email: u.email,
           avatar: u.avatar,
         }));
@@ -2879,7 +2879,7 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
           const result = formulaEngine!.calculate(record, formula);
           
           if (result === '#ERROR') {
-            row[field.id] = '计算错误';
+            row[field.id] = t('view.calcError');
           } else if (typeof result === 'number') {
             // 根据公式类型决定格式化方式
             const resultType = FormulaEngine.inferResultType(formula);
@@ -2903,7 +2903,7 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
             row[field.id] = String(result);
           }
         } catch {
-          row[field.id] = '计算错误';
+          row[field.id] = t('view.calcError');
         }
       });
     }
@@ -3250,15 +3250,15 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
         const recordId = record?._originalRecord?.id || record?._recordId || '';
         const cacheKey = recordId ? `${recordId}:${field.id}` : '';
 
-        if (cacheKey && linkLoadingStates[cacheKey]) return '加载中...';
-        if (cacheKey && linkErrorStates[cacheKey]) return '加载失败';
+        if (cacheKey && linkLoadingStates[cacheKey]) return t('common.loading');
+        if (cacheKey && linkErrorStates[cacheKey]) return t('view.linkLoadFailed');
 
         const displayValues = cacheKey ? linkDisplayCache[cacheKey] : undefined;
         if (displayValues && displayValues.length > 0) {
           return displayValues.join(', ');
         }
         if (Array.isArray(rawIds) && rawIds.length > 0) {
-          return `关联 ${rawIds.length} 条`;
+          return t('view.linkCount', { count: rawIds.length });
         }
         return '';
       };
@@ -4507,7 +4507,7 @@ const buildTableConfig = (): any => {
           const groupName = record?.vtableMergeName || '';
           const children = record?.vtableChildren || record?.children || [];
           const realCount = children.filter((c: any) => c._rowType !== 'addButton').length;
-          return `${groupName} (${realCount} 条)`;
+          return t('view.groupRecordCount', { name: groupName, count: realCount });
         },
       },
       enableCheckboxCascade: true,
@@ -6049,7 +6049,7 @@ async function loadLinkDisplayData() {
         // 该记录下所有字段标记错误
         for (const n of needsLoad.filter(n => n.recordId === recordId)) {
           const key = `${recordId}:${n.fieldId}`;
-          linkErrorStates[key] = result.reason?.message || '加载关联数据失败';
+          linkErrorStates[key] = result.reason?.message || t('view.linkDataLoadFailed');
           linkLoadingStates[key] = false;
         }
         continue;
@@ -6073,7 +6073,7 @@ async function loadLinkDisplayData() {
   } catch (error) {
     for (const n of needsLoad) {
       const key = `${n.recordId}:${n.fieldId}`;
-      linkErrorStates[key] = '加载关联数据失败';
+      linkErrorStates[key] = t('view.linkDataLoadFailed');
       linkLoadingStates[key] = false;
     }
   }
@@ -6254,7 +6254,7 @@ function updateSubTableDisabledAdd() {
     const existingIds = (record?.values?.[field.id] as string[]) || [];
     if (existingIds.length >= 1) {
       subTableDisabledAdd.value = true;
-      subTableAddDisabledReason.value = '一对一关系仅支持关联 1 条记录';
+      subTableAddDisabledReason.value = t('view.oneToOneLimit');
       return;
     }
   }
@@ -6432,8 +6432,8 @@ watch(
       @mouseleave="delayHideTreeAddChildIcon()"
       :title="
         treeAddChildIcon?.recordName
-          ? `在「${treeAddChildIcon.recordName}」下添加子记录`
-          : '在当前行下添加一条子记录'
+          ? t('view.addChildUnderRecord', { name: treeAddChildIcon.recordName })
+          : t('view.addChildCurrentRow')
       "
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -6556,7 +6556,7 @@ watch(
           <span>{{ searchResultIndex }} / {{ searchTotalCount }}</span>
         </div>
         <div class="search-result-info" v-else-if="searchInput">
-          <span>无结果</span>
+          <span>{{ t("view.searchNoResult") }}</span>
         </div>
 
         <div class="search-actions">
@@ -6564,13 +6564,13 @@ watch(
             size="small"
             :disabled="searchResultIndex <= 1"
             @click="handleSearchPrev">
-            上一个
+            {{ t("view.searchPrev") }}
           </el-button>
           <el-button
             size="small"
             :disabled="searchResultIndex >= searchTotalCount || searchTotalCount === 0"
             @click="handleSearchNext">
-            下一个
+            {{ t("view.searchNext") }}
           </el-button>
         </div>
       </div>

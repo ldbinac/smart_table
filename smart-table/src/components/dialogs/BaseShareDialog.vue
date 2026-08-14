@@ -202,9 +202,9 @@ function formatDate(dateString: string) {
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (days === 0) return '今天';
-  if (days === 1) return '昨天';
-  if (days < 7) return `${days}天前`;
+  if (days === 0) return t('view.today');
+  if (days === 1) return t('view.yesterday');
+  if (days < 7) return t('view.daysAgo', { count: days });
   return tzFormatDate(dateString, "YYYY-MM-DD");
 }
 

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 interface Props {
   modelValue: string | null;
@@ -56,7 +59,7 @@ defineExpose({ focus });
     <template v-else>
       <el-input
         v-model="localValue"
-        :placeholder="placeholder || '请输入文本'"
+        :placeholder="placeholder || t('field.placeholderText')"
         :maxlength="maxLength"
         ref="inputRef"
         clearable

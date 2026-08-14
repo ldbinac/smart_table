@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
           class="empty-action"
           @click="imageFieldId = attachmentFields[0].id">
           <el-icon><Check /></el-icon>
-          选择 {{ attachmentFields[0].name }}
+          {{ t('view.selectAttachmentField', { name: attachmentFields[0].name }) }}
         </el-button>
       </div>
     </div>

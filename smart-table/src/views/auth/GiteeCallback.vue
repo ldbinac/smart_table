@@ -1,13 +1,13 @@
 <template>
-  <AuthLayout title="Gitee 授权回调">
+  <AuthLayout :title="t('auth.giteeCallbackTitle')">
     <div class="callback-content">
       <el-icon v-if="loading" class="is-loading" :size="48"><Loading /></el-icon>
-      <p v-if="loading">正在处理 Gitee 授权...</p>
+      <p v-if="loading">{{ t('auth.giteeProcessing') }}</p>
       <template v-else>
         <p v-if="error" class="error-text">{{ error }}</p>
-        <p v-else class="success-text">登录成功，正在跳转...</p>
+        <p v-else class="success-text">{{ t('auth.giteeLoginSuccess') }}</p>
         <el-button v-if="error" type="primary" @click="goToLogin">
-          返回登录页
+          {{ t('auth.backToLogin') }}
         </el-button>
       </template>
     </div>
@@ -17,6 +17,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Loading } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth/authStore'
@@ -38,6 +39,7 @@ interface ApiError extends Error {
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const authStore = useAuthStore()
 
 const loading = ref(true)
@@ -57,7 +59,7 @@ onMounted(async () => {
   const state = (route.query.state as string) || searchParams.get('state') || ''
 
   if (!code || !state) {
-    error.value = '授权参数不完整，请重新登录'
+    error.value = t('auth.giteeParamsIncomplete')
     loading.value = false
     return
   }
@@ -71,10 +73,10 @@ onMounted(async () => {
         const redirect = (route.query.redirect as string) || searchParams.get('redirect') || '/'
         await router.push(redirect)
       } catch (e) {
-        error.value = '页面跳转失败，请手动返回首页'
+        error.value = t('auth.giteeRedirectFailed')
       }
     } else {
-      error.value = '登录状态保存失败，请重新登录'
+      error.value = t('auth.giteeStateSaveFailed')
     }
   } catch (err) {
     const apiErr = err as ApiError
@@ -84,10 +86,10 @@ onMounted(async () => {
       const repoUrl = demoConfig.value?.gitee_repo_url || 'https://gitee.com/binac/smart_table'
       try {
         await ElMessageBox.alert(
-          '请先 watch 本项目后再访问，点击确定跳转到项目页面。',
-          '未 watch 项目',
+          t('auth.giteeWatchTip'),
+          t('auth.giteeNotWatched'),
           {
-            confirmButtonText: '确定',
+            confirmButtonText: t('auth.confirm'),
             type: 'warning',
             closeOnClickModal: false,
             closeOnPressEscape: false,
@@ -100,7 +102,7 @@ onMounted(async () => {
       }
       return
     }
-    error.value = apiErr.message || 'Gitee 授权处理失败，请重新登录'
+    error.value = apiErr.message || t('auth.giteeAuthFailed')
   } finally {
     loading.value = false
   }
@@ -110,7 +112,7 @@ const goToLogin = () => {
   try {
     router.push('/login')
   } catch (e) {
-    error.value = '页面跳转失败，请稍后重试'
+    error.value = t('auth.giteeRedirectRetry')
   }
 }
 </script>

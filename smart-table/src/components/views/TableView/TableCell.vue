@@ -480,7 +480,7 @@ const finishEdit = () => {
   } else {
     // 检查必填字段
     if (isFieldRequired(props.field) && isValueEmpty(editValue.value)) {
-      ElMessage.error(`请填写必填字段：${props.field.name}`);
+      ElMessage.error(t('view.requiredFieldMsg', { name: props.field.name }));
       cancelEdit();
       return;
     }
@@ -622,7 +622,7 @@ const multiSelectDisplayValues = computed(() => {
           class="cell-select"
           @change="finishEdit"
           @blur="finishEdit">
-          <el-option value="" label="无" />
+          <el-option value="" :label="t('common.none')" />
           <el-option
             v-for="opt in getSelectOptions"
             :key="opt.id"
@@ -671,7 +671,7 @@ const multiSelectDisplayValues = computed(() => {
             @click="editValue = i"
             >★</span
           >
-          <button class="clear-btn" @click="editValue = 0">清除</button>
+          <button class="clear-btn" @click="editValue = 0">{{ t('field.clear') }}</button>
         </div>
       </template>
 

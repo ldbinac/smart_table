@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { FieldType, type FieldOptions, type CellValue } from "@/types/fields";
+
+const { t } = useI18n();
 import SingleLineTextField from "./SingleLineTextField.vue";
 import LongTextField from "./LongTextField.vue";
 import RichTextField from "./RichTextField.vue";
@@ -127,7 +130,7 @@ defineExpose({ focus });
     </template>
     <template v-else>
       <div class="unsupported-field">
-        <span class="unsupported-text">{{ field?.type ? '不支持的字段类型：' + field.type : '字段信息不完整' }}</span>
+        <span class="unsupported-text">{{ field?.type ? t('field.unsupportedFieldType', { type: field.type }) : t('field.fieldInfoIncomplete') }}</span>
       </div>
     </template>
   </div>

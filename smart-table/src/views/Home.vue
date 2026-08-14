@@ -763,7 +763,7 @@ async function handleCopyBase(base: Base, event: Event) {
             class="create-btn"
             @click="openCreateChoiceDialog">
             <el-icon><Plus /></el-icon>
-            <span>新建</span>
+            <span>{{ t('common.create') }}</span>
           </el-button>
           <el-button class="settings-btn" @click="goToSettings">
             <el-icon><Setting /></el-icon>

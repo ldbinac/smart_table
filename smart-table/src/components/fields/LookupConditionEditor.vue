@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { Delete } from "@element-plus/icons-vue";
+
+const { t } = useI18n();
 import type { FieldEntity } from "@/db/schema";
 import type {
   LookupFilterOperator,
@@ -172,8 +175,8 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
           emit('update:conjunction', $event as 'and' | 'or')
         "
       >
-        <ElRadioButton value="and">满足全部条件</ElRadioButton>
-        <ElRadioButton value="or">满足任一条件</ElRadioButton>
+        <ElRadioButton value="and">{{ t('field.allConditions') }}</ElRadioButton>
+        <ElRadioButton value="or">{{ t('field.anyCondition') }}</ElRadioButton>
       </ElRadioGroup>
     </div>
 
@@ -189,7 +192,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
           :model-value="condition.fieldId"
           :disabled="disabled"
           size="small"
-          placeholder="选择字段"
+          :placeholder="t('field.selectField')"
           class="condition-field-select"
           @update:model-value="onFieldChange(index, $event as string)"
         >
@@ -206,7 +209,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
           :model-value="condition.operator"
           :disabled="disabled"
           size="small"
-          placeholder="选择操作符"
+          :placeholder="t('field.selectOperator')"
           class="condition-operator-select"
           @update:model-value="
             onOperatorChange(index, $event as LookupFilterOperator)
@@ -235,8 +238,8 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
               })
             "
           >
-            <ElOption label="当前表字段" value="field" />
-            <ElOption label="自定义值" value="custom" />
+            <ElOption :label="t('field.currentTableField')" value="field" />
+            <ElOption :label="t('field.customValue')" value="custom" />
           </ElSelect>
 
           <div class="condition-value-input">
@@ -246,7 +249,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
               :model-value="condition.valueFieldId"
               :disabled="disabled"
               size="small"
-              placeholder="选择当前表字段"
+              :placeholder="t('field.selectCurrentTableField')"
               class="value-field-select"
               @update:model-value="
                 updateCondition(index, { valueFieldId: $event as string })
@@ -271,7 +274,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
                 "
                 :disabled="disabled"
                 size="small"
-                placeholder="请输入数值"
+                :placeholder="t('field.inputNumber')"
                 class="value-custom-input"
                 @update:model-value="
                   updateCondition(index, {
@@ -292,7 +295,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
                 size="small"
                 type="date"
                 value-format="YYYY-MM-DD"
-                placeholder="请选择日期"
+                :placeholder="t('field.selectDate')"
                 class="value-custom-input"
                 @update:model-value="
                   updateCondition(index, {
@@ -309,7 +312,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
                 "
                 :disabled="disabled"
                 size="small"
-                placeholder="请输入值"
+                :placeholder="t('field.inputValue')"
                 class="value-custom-input"
                 @update:model-value="
                   updateCondition(index, { valueCustom: $event as string })

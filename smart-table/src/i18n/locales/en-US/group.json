@@ -11,5 +11,10 @@
   "empty": "No grouping configured",
   "emptyHint": "Click the button above to add a group field (up to {n} levels)",
   "clear": "Clear group",
-  "apply": "Apply group"
+  "apply": "Apply group",
+  "settingTitle": "Group Settings",
+  "noGroup": "No grouping set",
+  "preview": "Group Preview",
+  "emptyNoField": "Select a field to group by",
+  "drag": "Drag to sort"
 }

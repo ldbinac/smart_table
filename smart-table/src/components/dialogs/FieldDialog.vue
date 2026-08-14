@@ -1702,20 +1702,20 @@ async function toggleFieldVisibility(
               multiple
               :placeholder="t('field.fileTypeLimitPlaceholder')"
               style="width: 100%">
-              <ElOption label="图片 (image/*)" value="image/*" />
-              <ElOption label="文档 (PDF)" value="application/pdf" />
-              <ElOption label="文档 (Word .doc)" value="application/msword" />
+              <ElOption :label="t('field.fileTypeImage')" value="image/*" />
+              <ElOption :label="t('field.fileTypePdf')" value="application/pdf" />
+              <ElOption :label="t('field.fileTypeWordDoc')" value="application/msword" />
               <ElOption
-                label="文档 (Word .docx)"
+                :label="t('field.fileTypeWordDocx')"
                 value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
               <ElOption
-                label="文档 (Excel .xls)"
+                :label="t('field.fileTypeExcelXls')"
                 value="application/vnd.ms-excel" />
               <ElOption
-                label="文档 (Excel .xlsx)"
+                :label="t('field.fileTypeExcelXlsx')"
                 value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-              <ElOption label="视频 (video/*)" value="video/*" />
-              <ElOption label="音频 (audio/*)" value="audio/*" />
+              <ElOption :label="t('field.fileTypeVideo')" value="video/*" />
+              <ElOption :label="t('field.fileTypeAudio')" value="audio/*" />
             </ElSelect>
             <div class="field-hint">{{ t('field.fileTypeLimitHint') }}</div>
           </ElFormItem>

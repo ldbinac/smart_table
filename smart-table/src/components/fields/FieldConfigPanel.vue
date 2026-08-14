@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { Delete, Plus } from "@element-plus/icons-vue";
 import { FieldType, type FieldOption, type FieldOptions } from "@/types/fields";
 import { generateId } from "@/utils/id";
 import { PRESET_REGEX_OPTIONS } from "@/utils/validation";
+
+const { t } = useI18n();
 
 interface Field {
   id: string;
@@ -29,16 +32,16 @@ const localField = computed({
 });
 
 const fieldTypeOptions = [
-  { label: "单行文本", value: FieldType.SINGLE_LINE_TEXT },
-  { label: "多行文本", value: FieldType.LONG_TEXT },
-  { label: "富文本", value: FieldType.RICH_TEXT },
-  { label: "数字", value: FieldType.NUMBER },
-  { label: "日期", value: FieldType.DATE },
-  { label: "日期时间", value: FieldType.DATE_TIME },
-  { label: "单选", value: FieldType.SINGLE_SELECT },
-  { label: "多选", value: FieldType.MULTI_SELECT },
-  { label: "复选框", value: FieldType.CHECKBOX },
-  { label: "附件", value: FieldType.ATTACHMENT },
+  { label: t('field.type.single_line_text'), value: FieldType.SINGLE_LINE_TEXT },
+  { label: t('field.type.long_text'), value: FieldType.LONG_TEXT },
+  { label: t('field.type.rich_text'), value: FieldType.RICH_TEXT },
+  { label: t('field.type.number'), value: FieldType.NUMBER },
+  { label: t('field.type.date'), value: FieldType.DATE },
+  { label: t('field.type.date_time'), value: FieldType.DATE_TIME },
+  { label: t('field.type.single_select'), value: FieldType.SINGLE_SELECT },
+  { label: t('field.type.multi_select'), value: FieldType.MULTI_SELECT },
+  { label: t('field.type.checkbox'), value: FieldType.CHECKBOX },
+  { label: t('field.type.attachment'), value: FieldType.ATTACHMENT },
 ];
 
 const defaultColors = [
@@ -93,7 +96,7 @@ const addOption = () => {
   const options = localField.value.options?.options || [];
   const newOption: FieldOption = {
     id: generateId(),
-    name: `选项 ${options.length + 1}`,
+    name: t('field.optionCount', { count: options.length + 1 }),
     color: defaultColors[options.length % defaultColors.length],
   };
   updateOption("options", [...options, newOption]);
@@ -178,31 +181,31 @@ const getSelectOptions = computed(() => {
 });
 
 const numberFormatOptions = [
-  { label: "数字", value: "number" },
-  { label: "货币", value: "currency" },
-  { label: "百分比", value: "percent" },
+  { label: t('field.numFormat'), value: "number" },
+  { label: t('field.currencyFormat'), value: "currency" },
+  { label: t('field.percentFormat'), value: "percent" },
 ];
 
 const currencySymbolOptions = [
-  { label: "¥ 人民币", value: "¥" },
-  { label: "$ 美元", value: "$" },
-  { label: "€ 欧元", value: "€" },
-  { label: "£ 英镑", value: "£" },
+  { label: t('field.currencySymbolCny'), value: "¥" },
+  { label: t('field.currencySymbolUsd'), value: "$" },
+  { label: t('field.currencySymbolEur'), value: "€" },
+  { label: t('field.currencySymbolGbp'), value: "£" },
 ];
 </script>
 
 <template>
   <div class="field-config-panel">
     <div class="config-section">
-      <div class="config-label">字段名称</div>
+      <div class="config-label">{{ t('field.fieldName') }}</div>
       <el-input
         v-model="localField.name"
-        placeholder="请输入字段名称"
+        :placeholder="t('field.nameRequired')"
         class="config-input" />
     </div>
 
     <div class="config-section">
-      <div class="config-label">字段类型</div>
+      <div class="config-label">{{ t('field.fieldType') }}</div>
       <el-select v-model="localField.type" class="config-input" disabled>
         <el-option
           v-for="option in fieldTypeOptions"
@@ -215,14 +218,14 @@ const currencySymbolOptions = [
     <!-- 默认值配置区域 -->
     <div class="config-section default-value-section">
       <div class="config-label">
-        <span>默认值</span>
+        <span>{{ t('field.defaultValue') }}</span>
         <el-button
           v-if="localField.defaultValue !== undefined"
           type="danger"
           size="small"
           @click="clearDefaultValue"
           class="clear-btn">
-          清除
+          {{ t('field.clear') }}
         </el-button>
       </div>
 
@@ -231,7 +234,7 @@ const currencySymbolOptions = [
         v-if="showTextOptions"
         v-model="localField.defaultValue"
         @update:model-value="updateDefaultValue"
-        placeholder="请输入默认文本"
+        :placeholder="t('field.defaultTextPlaceholder')"
         class="config-input" />
 
       <!-- 数字类型默认值 -->
@@ -240,7 +243,7 @@ const currencySymbolOptions = [
         :model-value="localField.defaultValue"
         @update:model-value="updateDefaultValue"
         :precision="localField.options?.precision"
-        placeholder="请输入默认数值"
+        :placeholder="t('field.defaultNumberPlaceholder')"
         class="config-input" />
 
       <!-- 日期类型默认值 -->
@@ -254,8 +257,8 @@ const currencySymbolOptions = [
           "
           size="small"
           class="date-radio-group">
-          <el-radio-button label="static">指定日期</el-radio-button>
-          <el-radio-button label="dynamic">当前{{ isDateTimeField ? '日期时间' : '日期' }}</el-radio-button>
+          <el-radio-button label="static">{{ t('field.specifyDate') }}</el-radio-button>
+          <el-radio-button label="dynamic">当前{{ isDateTimeField ? t('field.currentDateTime') : t('field.currentDate') }}</el-radio-button>
         </el-radio-group>
         <el-date-picker
           v-if="localField.defaultValue !== 'now'"
@@ -263,7 +266,7 @@ const currencySymbolOptions = [
           @update:model-value="updateDefaultValue"
           :type="isDateTimeField ? 'datetime' : 'date'"
           :format="isDateTimeField ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'"
-          :placeholder="isDateTimeField ? '选择默认日期时间' : '选择默认日期'"
+          :placeholder="isDateTimeField ? t('field.defaultDateTimePlaceholder') : t('field.defaultDatePlaceholder')"
           class="config-input date-picker" />
       </div>
 
@@ -272,7 +275,7 @@ const currencySymbolOptions = [
         v-if="localField.type === FieldType.SINGLE_SELECT"
         :model-value="localField.defaultValue"
         @update:model-value="updateDefaultValue"
-        placeholder="请选择默认选项"
+        :placeholder="t('field.defaultOptionPlaceholder')"
         clearable
         class="config-input">
         <el-option
@@ -287,7 +290,7 @@ const currencySymbolOptions = [
         v-if="localField.type === FieldType.MULTI_SELECT"
         :model-value="localField.defaultValue"
         @update:model-value="updateDefaultValue"
-        placeholder="请选择默认选项"
+        :placeholder="t('field.defaultOptionPlaceholder')"
         multiple
         collapse-tags
         collapse-tags-tooltip
@@ -304,13 +307,13 @@ const currencySymbolOptions = [
         v-if="localField.type === FieldType.CHECKBOX"
         :model-value="localField.defaultValue"
         @update:model-value="updateDefaultValue"
-        active-text="选中"
-        inactive-text="未选中" />
+        :active-text="t('field.checked')"
+        :inactive-text="t('field.unchecked')" />
     </div>
 
     <template v-if="showTextOptions">
       <div class="config-section">
-        <div class="config-label">多行文本</div>
+        <div class="config-label">{{ t('field.multiLineText') }}</div>
         <el-switch
           :model-value="localField.options?.isRichText || false"
           @update:model-value="
@@ -318,7 +321,7 @@ const currencySymbolOptions = [
           " />
       </div>
       <div class="config-section">
-        <div class="config-label">最大长度</div>
+        <div class="config-label">{{ t('field.maxLength') }}</div>
         <el-input-number
           :model-value="localField.options?.maxLength"
           @update:model-value="
@@ -327,7 +330,7 @@ const currencySymbolOptions = [
           :min="1"
           :max="10000"
           :controls="false"
-          placeholder="不限制"
+          :placeholder="t('field.noLimit')"
           class="config-input" />
       </div>
     </template>
@@ -335,7 +338,7 @@ const currencySymbolOptions = [
     <!-- 正则表达式配置区块（仅单行文本字段） -->
     <template v-if="showRegexOptions">
       <div class="config-section">
-        <div class="config-label">预置正则</div>
+        <div class="config-label">{{ t('field.regexPreset') }}</div>
         <div class="regex-preset-list">
           <el-tag
             v-for="preset in PRESET_REGEX_OPTIONS"
@@ -351,20 +354,20 @@ const currencySymbolOptions = [
         </div>
       </div>
       <div class="config-section">
-        <div class="config-label">正则表达式</div>
+        <div class="config-label">{{ t('field.regex') }}</div>
         <el-input
           :model-value="localField.options?.regex || ''"
           @update:model-value="(val: string) => updateOption('regex', val)"
-          placeholder="请输入正则表达式，如 ^\d{4}$"
+          :placeholder="t('field.regexPlaceholder')"
           class="config-input"
           clearable />
       </div>
       <div v-if="localField.options?.regex" class="config-section">
-        <div class="config-label">提示信息</div>
+        <div class="config-label">{{ t('field.regexMessage') }}</div>
         <el-input
           :model-value="localField.options?.regexMessage || ''"
           @update:model-value="(val: string) => updateOption('regexMessage', val)"
-          placeholder="校验不通过时显示的提示信息"
+          :placeholder="t('field.regexMessagePlaceholder')"
           class="config-input"
           clearable />
       </div>
@@ -372,7 +375,7 @@ const currencySymbolOptions = [
 
     <template v-if="showNumberOptions">
       <div class="config-section">
-        <div class="config-label">数字格式</div>
+        <div class="config-label">{{ t('field.numberFormat') }}</div>
         <el-select
           :model-value="localField.options?.format || 'number'"
           @update:model-value="
@@ -390,7 +393,7 @@ const currencySymbolOptions = [
       <div
         v-if="localField.options?.format === 'currency'"
         class="config-section">
-        <div class="config-label">货币符号</div>
+        <div class="config-label">{{ t('field.currencySymbolLabel') }}</div>
         <el-select
           :model-value="localField.options?.currencySymbol || '¥'"
           @update:model-value="
@@ -405,7 +408,7 @@ const currencySymbolOptions = [
         </el-select>
       </div>
       <div class="config-section">
-        <div class="config-label">小数位数</div>
+        <div class="config-label">{{ t('field.precision') }}</div>
         <el-input-number
           :model-value="localField.options?.precision ?? 2"
           @update:model-value="
@@ -420,7 +423,7 @@ const currencySymbolOptions = [
 
     <template v-if="showSelectOptions">
       <div class="config-section">
-        <div class="config-label">选项列表</div>
+        <div class="config-label">{{ t('field.optionList') }}</div>
         <div class="options-list">
           <div
             v-for="option in localField.options?.options || []"
@@ -452,7 +455,7 @@ const currencySymbolOptions = [
             :icon="Plus"
             @click="addOption"
             class="add-option-btn">
-            添加选项
+            {{ t('field.addOption') }}
           </el-button>
         </div>
       </div>
@@ -460,34 +463,34 @@ const currencySymbolOptions = [
 
     <template v-if="showAttachmentOptions">
       <div class="config-section">
-        <div class="config-label">文件类型限制</div>
+        <div class="config-label">{{ t('field.fileTypeLimit') }}</div>
         <el-select
           :model-value="localField.options?.acceptTypes || []"
           @update:model-value="
             (val: string[]) => updateOption('acceptTypes', val)
           "
           multiple
-          placeholder="选择允许的文件类型"
+          :placeholder="t('field.fileTypeLimitPlaceholder')"
           class="config-input">
-          <el-option label="图片 (image/*)" value="image/*" />
-          <el-option label="文档 (PDF)" value="application/pdf" />
-          <el-option label="文档 (Word .doc)" value="application/msword" />
+          <el-option :label="t('field.fileTypeImage')" value="image/*" />
+          <el-option :label="t('field.fileTypePdf')" value="application/pdf" />
+          <el-option :label="t('field.fileTypeWordDoc')" value="application/msword" />
           <el-option
-            label="文档 (Word .docx)"
+            :label="t('field.fileTypeWordDocx')"
             value="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
           <el-option
-            label="文档 (Excel .xls)"
+            :label="t('field.fileTypeExcelXls')"
             value="application/vnd.ms-excel" />
           <el-option
-            label="文档 (Excel .xlsx)"
+            :label="t('field.fileTypeExcelXlsx')"
             value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-          <el-option label="视频 (video/*)" value="video/*" />
-          <el-option label="音频 (audio/*)" value="audio/*" />
+          <el-option :label="t('field.fileTypeVideo')" value="video/*" />
+          <el-option :label="t('field.fileTypeAudio')" value="audio/*" />
         </el-select>
       </div>
 
       <div class="config-section">
-        <div class="config-label">单个文件大小限制 (MB)</div>
+        <div class="config-label">{{ t('field.singleFileSizeMb') }}</div>
         <el-input-number
           :model-value="
             Math.floor(
@@ -504,7 +507,7 @@ const currencySymbolOptions = [
       </div>
 
       <div class="config-section">
-        <div class="config-label">最大文件数量</div>
+        <div class="config-label">{{ t('field.maxFileCount') }}</div>
         <el-input-number
           :model-value="localField.options?.maxCount || 20"
           @update:model-value="
@@ -516,7 +519,7 @@ const currencySymbolOptions = [
       </div>
 
       <div class="config-section">
-        <div class="config-label">生成缩略图</div>
+        <div class="config-label">{{ t('field.generateThumbnail') }}</div>
         <el-switch
           :model-value="localField.options?.enableThumbnail !== false"
           @update:model-value="(val: string | number | boolean) => updateOption('enableThumbnail', !!val)" />

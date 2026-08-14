@@ -7,9 +7,9 @@
       <span class="loading-icon">
         <el-icon><Loading /></el-icon>
       </span>
-      <span>加载中 {{ loadedCount }}/{{ totalCount }} 条记录</span>
+      <span>{{ t('common.loadingRecords', { loaded: loadedCount, total: totalCount }) }}</span>
       <el-button size="small" text type="info" class="cancel-btn" @click="$emit('cancel')">
-        取消
+        {{ t('common.cancel') }}
       </el-button>
     </div>
   </div>
@@ -17,7 +17,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Loading } from '@element-plus/icons-vue';
+
+const { t } = useI18n();
 
 interface Props {
   loadedCount: number;

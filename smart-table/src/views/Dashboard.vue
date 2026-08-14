@@ -2731,9 +2731,9 @@ onUnmounted(() => {
               class="create-dashboard-btn"
               @click="addWidget('bar')">
               <el-icon><Plus /></el-icon>
-              添加第一个组件
+              {{ t('dashboard.addFirstWidget') }}
             </el-button>
-            <h4 class="empty-title">或</h4>
+            <h4 class="empty-title">{{ t('dashboard.or') }}</h4>
             <el-button
               v-if="currentDashboard"
               type="primary"
@@ -2769,7 +2769,7 @@ onUnmounted(() => {
                 size="small"
                 type="info"
                 effect="light"
-                >保存中...</el-tag
+                >{{ t('dashboard.saving') }}</el-tag
               >
               <el-tag v-else size="small" type="success" effect="light"
                 >{{ t('common.saved') }}</el-tag

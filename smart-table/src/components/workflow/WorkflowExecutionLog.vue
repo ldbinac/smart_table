@@ -39,7 +39,7 @@ const sortedLogs = computed(() => {
 });
 
 function getNodeTypeLabel(nodeType: string | null | undefined): string {
-  if (!nodeType) return "未知节点";
+  if (!nodeType) return t('workflow.unknownNode');
   return getNodeLabel(nodeType);
 }
 

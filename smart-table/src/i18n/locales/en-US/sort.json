@@ -11,5 +11,8 @@
   "empty": "No sort conditions yet",
   "emptyHint": "Click the button above to add a sort condition",
   "clear": "Clear sort",
-  "apply": "Apply sort"
+  "apply": "Apply sort",
+  "conditionTitle": "Sort Conditions",
+  "sortOrder": "Sort order: ",
+  "drag": "Drag to sort"
 }

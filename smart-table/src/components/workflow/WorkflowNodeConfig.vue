@@ -1100,7 +1100,7 @@ else:
 set_result({'score': value})`,
     },
     {
-      title: "数组聚合",
+      title: t("workflow.nodeConfig.exampleAggregate"),
       code: `# 对数组求和与均值
 import statistics
 data = input if isinstance(input, list) else [input]
@@ -1143,26 +1143,24 @@ const scriptBranchCandidates = computed(() => {
   return (props.allNodes || []).filter((n) => n.id !== cur.id);
 });
 
-const SCRIPT_TEMPLATES: { name: string; code: string }[] = [
+const currentLanguageTemplates = computed(() => [
   {
-    name: "数据转换",
+    name: t("workflow.nodeConfig.templateTransform"),
     code: '# 转换输入数据\nresult = {"processed": True, "input_type": type(input).__name__}\nset_result(result)',
   },
   {
-    name: "条件分支",
+    name: t("workflow.nodeConfig.exampleCondition"),
     code: '# 根据条件设置分支\nvalue = input.get("score", 0) if isinstance(input, dict) else 0\nif value > 80:\n    set_branch("high")\nelif value > 60:\n    set_branch("medium")\nelse:\n    set_branch("low")\nset_result({"score": value})',
   },
   {
-    name: "数组聚合",
+    name: t("workflow.nodeConfig.exampleAggregate"),
     code: "# 对数组求和\nimport statistics\ndata = input if isinstance(input, list) else [input]\nset_result({\"count\": len(data), \"sum\": sum(data), \"avg\": statistics.mean(data) if data else 0})",
   },
   {
-    name: "字段提取",
+    name: t("workflow.nodeConfig.templateExtract"),
     code: '# 从记录中提取字段\nrecord = context.get("record", {}) if isinstance(context, dict) else {}\nset_result({"field_value": record.get("field_id_here")})',
   },
-];
-
-const currentLanguageTemplates = computed(() => SCRIPT_TEMPLATES);
+]);
 
 function insertTemplate(name: string) {
   const tpl = currentLanguageTemplates.value.find((t) => t.name === name);
@@ -1220,7 +1218,7 @@ async function runScriptTest() {
     scriptTestResult.value = {
       status: "error",
       result: null,
-      error: err?.message || "请求失败",
+      error: err?.message || t('workflow.nodeConfig.scriptTestFailed'),
     };
   } finally {
     scriptTesting.value = false;

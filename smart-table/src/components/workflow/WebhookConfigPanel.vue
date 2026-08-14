@@ -43,86 +43,90 @@ interface VariableDef {
   group: "basic" | "loop";
 }
 
-const variableDefinitions: VariableDef[] = [
+const variableDefinitions = computed<VariableDef[]>(() => [
   {
     placeholder: "{{event}}",
-    label: "触发事件",
-    description: "触发工作流执行的完整事件对象，包含事件类型 (event_type)、表格 ID (table_id)、记录 ID (record_id)、变更字段 (changes) 等信息",
+    label: t("workflow.webhook.varEventLabel"),
+    description: t("workflow.webhook.varEventDesc"),
     type: "object",
     defaultValue: "{}",
-    notes: "支持点号路径访问子属性，如 {{event.event_type}}、{{event.table_id}}",
+    notes: t("workflow.webhook.varEventNotes"),
     group: "basic",
   },
   {
     placeholder: "{{record}}",
-    label: "触发记录",
-    description: "触发工作流执行的记录数据，键为字段 ID，值为字段值。对于记录创建/更新触发，包含完整的记录字段值",
+    label: t("workflow.webhook.varRecordLabel"),
+    description: t("workflow.webhook.varRecordDesc"),
     type: "object",
     defaultValue: "{}",
-    notes: "支持点号路径访问具体字段，如 {{record.field_id}}。若为指定时间触发则可能为空对象",
+    notes: t("workflow.webhook.varRecordNotes"),
     group: "basic",
   },
   {
     placeholder: "{{workflow}}",
-    label: "工作流信息",
-    description: "当前执行的工作流元数据，包含工作流 ID、名称、状态、版本号等信息",
+    label: t("workflow.webhook.varWorkflowLabel"),
+    description: t("workflow.webhook.varWorkflowDesc"),
     type: "object",
     defaultValue: "{}",
-    notes: "主要用于传递工作流上下文信息给外部系统",
+    notes: t("workflow.webhook.varWorkflowNotes"),
     group: "basic",
   },
   {
     placeholder: "{{instance}}",
-    label: "执行实例",
-    description: "当前工作流执行实例信息，包含实例 ID、触发类型、状态、创建时间等",
+    label: t("workflow.webhook.varInstanceLabel"),
+    description: t("workflow.webhook.varInstanceDesc"),
     type: "object",
     defaultValue: "{}",
-    notes: "可用于追踪和关联工作流执行记录",
+    notes: t("workflow.webhook.varInstanceNotes"),
     group: "basic",
   },
   {
     placeholder: "{{loop.current_data}}",
-    label: "当前循环数据",
-    description: "当前循环迭代的数据项。当数据源为 find_records_all 时，为完整的记录字典（字段ID→字段值）；当为 find_records_column 时，为提取的单值或去重后的列表项",
+    label: t("workflow.webhook.varCurrentDataLabel"),
+    description: t("workflow.webhook.varCurrentDataDesc"),
     type: "object | any",
-    defaultValue: "无（必须处于循环体内）",
-    notes: "仅在循环体内可用。支持字段下钻：{{loop.current_data.field_id}} 可获取具体字段值（仅 find_records_all 数据源支持）",
+    defaultValue: t("workflow.webhook.noDefaultInLoop"),
+    notes: t("workflow.webhook.varCurrentDataNotes"),
     group: "loop",
   },
   {
     placeholder: "{{loop.index}}",
-    label: "循环索引",
-    description: "当前循环迭代的零基索引，从 0 开始计数",
+    label: t("workflow.webhook.varIndexLabel"),
+    description: t("workflow.webhook.varIndexDesc"),
     type: "number",
-    defaultValue: "无（必须处于循环体内）",
-    notes: "仅在循环体内可用。第一次迭代为 0，第二次为 1，以此类推",
+    defaultValue: t("workflow.webhook.noDefaultInLoop"),
+    notes: t("workflow.webhook.varIndexNotes"),
     group: "loop",
   },
   {
     placeholder: "{{loop.round}}",
-    label: "循环轮数",
-    description: "当前循环迭代的一基轮数，从 1 开始计数",
+    label: t("workflow.webhook.varRoundLabel"),
+    description: t("workflow.webhook.varRoundDesc"),
     type: "number",
-    defaultValue: "无（必须处于循环体内）",
-    notes: "仅在循环体内可用。round = index + 1，适合面向用户的序号展示",
+    defaultValue: t("workflow.webhook.noDefaultInLoop"),
+    notes: t("workflow.webhook.varRoundNotes"),
     group: "loop",
   },
   {
     placeholder: "{{loop.total}}",
-    label: "循环总轮数",
-    description: "当前循环的总迭代次数，等于 min(data_array.length, max_iterations)",
+    label: t("workflow.webhook.varTotalLabel"),
+    description: t("workflow.webhook.varTotalDesc"),
     type: "number",
-    defaultValue: "无（必须处于循环体内）",
-    notes: "仅在循环体内可用。可用于计算进度百分比，如 {{loop.round}}/{{loop.total}}",
+    defaultValue: t("workflow.webhook.noDefaultInLoop"),
+    notes: t("workflow.webhook.varTotalNotes"),
     group: "loop",
   },
-];
+]);
 
 /** 基础变量 */
-const basicVariables = variableDefinitions.filter((v) => v.group === "basic");
+const basicVariables = computed(() =>
+  variableDefinitions.value.filter((v) => v.group === "basic"),
+);
 
 /** 循环变量 */
-const loopVariables = variableDefinitions.filter((v) => v.group === "loop");
+const loopVariables = computed(() =>
+  variableDefinitions.value.filter((v) => v.group === "loop"),
+);
 
 /** 生成悬停提示 HTML */
 function buildTooltipContent(def: VariableDef): string {
@@ -131,10 +135,10 @@ function buildTooltipContent(def: VariableDef): string {
     `<div class="var-tooltip-name">${def.label}</div>`,
     `<div class="var-tooltip-desc">${def.description}</div>`,
     `<div class="var-tooltip-meta">`,
-    `<span class="var-tooltip-type">类型: ${def.type}</span>`,
-    `<span class="var-tooltip-default">默认: ${def.defaultValue}</span>`,
+    `<span class="var-tooltip-type">${t("workflow.webhook.typeLabel")}${def.type}</span>`,
+    `<span class="var-tooltip-default">${t("workflow.webhook.defaultLabel")}${def.defaultValue}</span>`,
     `</div>`,
-    `<div class="var-tooltip-notes">注意: ${def.notes}</div>`,
+    `<div class="var-tooltip-notes">${t("workflow.webhook.notesLabel")}${def.notes}</div>`,
     `</div>`,
   ].join("");
 }

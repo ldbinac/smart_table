@@ -87,7 +87,7 @@ async function handleExport() {
     ElMessage.success(t('export.success'))
     emit('update:visible', false)
   } catch (error) {
-    ElMessage.error(t('export.failed', { message: error instanceof Error ? error.message : '未知错误' }))
+    ElMessage.error(t('export.failed', { message: error instanceof Error ? error.message : t('common.unknownError') }))
   }
 }
 

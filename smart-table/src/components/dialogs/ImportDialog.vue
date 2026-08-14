@@ -79,11 +79,11 @@ onUnmounted(() => {
 });
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms.toFixed(0)} 毫秒`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)} 秒`;
+  if (ms < 1000) return `${ms.toFixed(0)} ${t('common.unitMillisecond')}`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)} ${t('common.unitSecond')}`;
   const minutes = Math.floor(ms / 60000);
   const seconds = Math.floor((ms % 60000) / 1000);
-  return `${minutes} 分 ${seconds} 秒`;
+  return `${minutes} ${t('common.unitMinute')} ${seconds} ${t('common.unitSecond')}`;
 }
 
 async function handleFileChange(file: File) {
@@ -304,7 +304,7 @@ async function handleImport() {
         {
           batchIndex: -1,
           rowRange: { start: 1, end: allRows.length },
-          message: error instanceof Error ? error.message : "未知错误",
+          message: error instanceof Error ? error.message : t('common.unknownError'),
           retryCount: 0,
         },
       ],

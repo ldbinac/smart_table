@@ -39,10 +39,10 @@
               size="small"
               :disabled="!canManageMembers"
               @change="handleRoleChange(member)">
-              <el-option label="管理员" value="admin" />
-              <el-option label="编辑者" value="editor" />
-              <el-option label="评论者" value="commenter" />
-              <el-option label="查看者" value="viewer" />
+              <el-option :label="t('view.member.roleAdmin')" value="admin" />
+              <el-option :label="t('view.member.roleEditor')" value="editor" />
+              <el-option :label="t('view.member.roleCommenter')" value="commenter" />
+              <el-option :label="t('view.member.roleViewer')" value="viewer" />
             </el-select>
             <el-tag v-else type="warning" size="small">{{ t('view.member.owner') }}</el-tag>
 
