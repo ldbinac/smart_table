@@ -45,7 +45,7 @@
         <!-- 数据表格 -->
         <el-table v-loading="loading" :data="logs" stripe style="width: 100%; margin-top: 16px">
           <el-table-column prop="recipient_email" :label="t('admin.emailLogs.colRecipient')" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="template_key" :label="t('admin.emailLogs.colType')" min-width="120">
+          <el-table-column prop="template_key" :label="t('admin.emailLogs.colTemplate')" min-width="120">
             <template #default="{ row }">
               {{ getTemplateName(row.template_key) }}
             </template>

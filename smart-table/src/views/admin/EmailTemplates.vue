@@ -91,16 +91,16 @@
           <div class="form-tip">
             <p><strong>{{ t('email.availableVariables') }}</strong></p>
             <p v-if="currentTemplate?.template_key === 'user_registration'">
-              {{ '{{user_name}}' }} - {{ t('email.varUsername') }}, {{ '{{verification_link}}' }} - {{ t('email.varVerificationLink') }}
+              <code>&#123;&#123;user_name&#125;&#125;</code> - {{ t('email.varUsername') }}, <code>&#123;&#123;verification_link&#125;&#125;</code> - {{ t('email.varVerificationLink') }}
             </p>
             <p v-else-if="currentTemplate?.template_key === 'password_reset'">
-              {{ '{{user_name}}' }} - {{ t('email.varUsername') }}, {{ '{{reset_link}}' }} - {{ t('email.varResetLink') }}
+              <code>&#123;&#123;user_name&#125;&#125;</code> - {{ t('email.varUsername') }}, <code>&#123;&#123;reset_link&#125;&#125;</code> - {{ t('email.varResetLink') }}
             </p>
             <p v-else-if="currentTemplate?.template_key === 'share_invitation'">
-              {{ '{{sharer_name}}' }} - {{ t('email.varSharerName') }}, {{ '{{base_name}}' }} - {{ t('email.varBaseName') }}, {{ '{{base_link}}' }} - {{ t('email.varBaseLink') }}, {{ '{{permission}}' }} - {{ t('email.varPermission') }}
+              <code>&#123;&#123;sharer_name&#125;&#125;</code> - {{ t('email.varSharerName') }}, <code>&#123;&#123;base_name&#125;&#125;</code> - {{ t('email.varBaseName') }}, <code>&#123;&#123;base_link&#125;&#125;</code> - {{ t('email.varBaseLink') }}, <code>&#123;&#123;permission&#125;&#125;</code> - {{ t('email.varPermission') }}
             </p>
             <p v-else>
-              {{ '{{user_name}}' }} - {{ t('email.varUsername') }}, {{ '{{operation_time}}' }} - {{ t('email.varOperationTime') }}
+              <code>&#123;&#123;user_name&#125;&#125;</code> - {{ t('email.varUsername') }}, <code>&#123;&#123;operation_time&#125;&#125;</code> - {{ t('email.varOperationTime') }}
             </p>
           </div>
         </el-form-item>

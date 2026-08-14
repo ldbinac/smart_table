@@ -23,6 +23,7 @@ declare module 'vue' {
     BaseSidebar: typeof import('./components/common/BaseSidebar.vue')['default']
     CalendarView: typeof import('./components/views/CalendarView/CalendarView.vue')['default']
     CellEditingIndicator: typeof import('./components/collaboration/CellEditingIndicator.vue')['default']
+    ChangePasswordDialog: typeof import('./components/common/ChangePasswordDialog.vue')['default']
     CheckboxField: typeof import('./components/fields/CheckboxField.vue')['default']
     ClockWidget: typeof import('./components/dashboard/ClockWidget.vue')['default']
     CollaborationToast: typeof import('./components/collaboration/CollaborationToast.vue')['default']

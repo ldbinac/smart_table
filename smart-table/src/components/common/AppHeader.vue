@@ -29,6 +29,7 @@ import ConnectionStatusBar from "@/components/collaboration/ConnectionStatusBar.
 import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
 import FeedbackDialog from "@/components/common/FeedbackDialog.vue";
 import NotificationBell from "@/components/common/NotificationBell.vue";
+import ChangePasswordDialog from "@/components/common/ChangePasswordDialog.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -46,6 +47,9 @@ const userMenuVisible = ref(false);
 
 // 反馈弹窗控制
 const feedbackDialogVisible = ref(false);
+
+// 修改密码弹窗控制
+const changePasswordDialogVisible = ref(false);
 
 // 处理退出登录
 const handleLogout = async () => {
@@ -83,14 +87,10 @@ const handleLogoutAll = async () => {
   }
 };
 
-// 处理修改密码 - 跳转到设置页面
+// 处理修改密码 - 打开修改密码弹窗
 const handleChangePassword = () => {
   userMenuVisible.value = false;
-  router.push("/settings");
-  // 延迟打开修改密码对话框
-  setTimeout(() => {
-    window.dispatchEvent(new CustomEvent("open-change-password-dialog"));
-  }, 100);
+  changePasswordDialogVisible.value = true;
 };
 
 // 用户信息显示
@@ -530,6 +530,7 @@ onMounted(() => {
     </div>
 
     <FeedbackDialog v-model:visible="feedbackDialogVisible" />
+    <ChangePasswordDialog v-model:visible="changePasswordDialogVisible" />
   </header>
 </template>
 
