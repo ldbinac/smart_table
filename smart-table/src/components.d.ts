@@ -176,6 +176,7 @@ declare module 'vue' {
     SubTableToolbar: typeof import('./components/views/TableView/SubTableToolbar.vue')['default']
     TableCell: typeof import('./components/views/TableView/TableCell.vue')['default']
     TableHeader: typeof import('./components/views/TableView/TableHeader.vue')['default']
+    TableHistoryDialog: typeof import('./components/dialogs/TableHistoryDialog.vue')['default']
     TableRow: typeof import('./components/views/TableView/TableRow.vue')['default']
     TableView: typeof import('./components/views/TableView/TableView.vue')['default']
     TemplatePreviewDialog: typeof import('./components/templates/TemplatePreviewDialog.vue')['default']

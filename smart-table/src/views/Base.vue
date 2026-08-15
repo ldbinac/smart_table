@@ -13,6 +13,7 @@ import {
   Document,
   Plus,
   Search,
+  Clock,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView, VTableView } from "@/components/views/TableView";
@@ -56,6 +57,7 @@ import { useRealtimeCollaboration } from "@/composables/useRealtimeCollaboration
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import CollaborationToast from "@/components/collaboration/CollaborationToast.vue";
 import ConflictDialog from "@/components/collaboration/ConflictDialog.vue";
+import TableHistoryDialog from "@/components/dialogs/TableHistoryDialog.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { DocumentEditor } from "@/components/documents";
@@ -226,6 +228,9 @@ const formConfigDialogVisible = ref(false);
 const formShareDialogVisible = ref(false);
 const importDialogVisible = ref(false);
 const excelImportCreateDialogVisible = ref(false);
+
+// 表格历史变更弹窗显示状态
+const showTableHistory = ref(false);
 
 // 表单配置
 const formConfig = ref({
@@ -2203,7 +2208,23 @@ const handleDocumentExportPdf = async () => {
             <span v-if="hasGroupConfig" class="group-badge">
               <el-tag size="small" type="primary">{{ t('view.base.groupBadge', { count: currentGroupBys.length }) }}</el-tag>
             </span>
+            <el-tooltip
+              class="history-btn"
+              :content="t('recordHistory.table.button')"
+              placement="top">
+              <el-button
+                size="small"
+                circle
+                :icon="Clock"
+                @click="showTableHistory = true" />
+            </el-tooltip>
           </div>
+
+          <!-- 表格历史变更弹窗 -->
+          <TableHistoryDialog
+            v-model="showTableHistory"
+            :table-id="currentTableId"
+            :fields="tableStore.fields" />
         </div>
       </template>
       <div v-else class="empty-state">
@@ -3070,6 +3091,10 @@ const handleDocumentExportPdf = async () => {
   background: $surface-color;
   border-top: 1px solid $gray-200;
   font-size: $font-size-sm;
+
+  .history-btn {
+    margin-left: auto;
+  }
 
   .record-count {
     color: $text-secondary;

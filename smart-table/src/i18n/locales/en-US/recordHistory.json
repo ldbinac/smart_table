@@ -10,5 +10,26 @@
   "delete": "Deleted",
   "yes": "Yes",
   "no": "No",
-  "loadFailed": "Failed to load change history"
+  "loadFailed": "Failed to load change history",
+  "table": {
+    "title": "Table Change History",
+    "button": "View History",
+    "search": "Search",
+    "reset": "Reset",
+    "timeRange": "Time Range",
+    "changedBy": "Changed By",
+    "action": "Action",
+    "actionPlaceholder": "Select action type",
+    "all": "All",
+    "recordId": "Record ID",
+    "changedAt": "Changed At",
+    "detail": "Detail",
+    "changeDetail": "Change Details",
+    "snapshot": "History Snapshot",
+    "snapshotTip": "The following is the complete data snapshot of the record at the time of this change:",
+    "emptySnapshot": "No snapshot data",
+    "total": "{total} change records in total",
+    "empty": "No matching change records",
+    "loadFailed": "Failed to load table change history"
+  }
 }

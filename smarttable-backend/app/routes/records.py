@@ -27,6 +27,7 @@ from app.extensions import db
 from app.models.record import Record
 from app.models.record_history import RecordHistory, HistoryAction
 from app.models.field import Field, FieldType
+from app.models.user import User
 from app.models.base import MemberRole
 
 records_bp = Blueprint('records', __name__)
@@ -702,7 +703,9 @@ def delete_record(record_id) -> tuple:
         return error_response('无权删除该记录', 403)
     
     try:
-        success = RecordService.delete_record(record)
+        success = RecordService.delete_record(
+            record, deleted_by=str(g.current_user_id) if g.current_user_id else None
+        )
         if success:
             return success_response(None, '记录删除成功')
         else:
@@ -780,7 +783,9 @@ def batch_delete_records() -> tuple:
         for record_id in record_ids:
             record = RecordService.get_record_by_id(record_id)
             if record:
-                success = RecordService.delete_record(record)
+                success = RecordService.delete_record(
+                    record, deleted_by=str(g.current_user_id) if g.current_user_id else None
+                )
                 if success:
                     deleted_count += 1
                 else:
@@ -936,6 +941,129 @@ def get_record_history(record_id) -> tuple:
         current_app.logger.error(f'[{request_id}] 获取变更历史失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response('获取变更历史失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+
+
+@records_bp.route('/tables/<table_id>/history', methods=['GET'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+def get_table_history(table_id) -> tuple:
+    """
+    获取数据表级别变更历史（审计日志）
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    description: 按数据表查询 record_history 表，支持时间段、变更人、变更动作过滤，按时间倒序分页
+    parameters:
+      - name: table_id
+        in: path
+        type: string
+        required: true
+        description: 数据表 ID
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: 页码
+      - name: size
+        in: query
+        type: integer
+        default: 10
+        description: 每页数量
+      - name: start_time
+        in: query
+        type: string
+        required: false
+        description: 起始时间（ISO 格式）
+      - name: end_time
+        in: query
+        type: string
+        required: false
+        description: 结束时间（ISO 格式）
+      - name: changed_by
+        in: query
+        type: string
+        required: false
+        description: 变更人（member_id 或 display_name）
+      - name: action
+        in: query
+        type: string
+        required: false
+        description: 变更动作（CREATE/UPDATE/DELETE）
+    responses:
+      200:
+        description: 数据表变更历史列表（分页）
+      500:
+        description: 获取失败
+    """
+    # 获取分页参数
+    page = request.args.get('page', 1, type=int)
+    size = request.args.get('size', 10, type=int)
+
+    # 限制每页数量
+    if size > 100:
+        size = 100
+    if size < 1:
+        size = 10
+    if page < 1:
+        page = 1
+
+    # 可选过滤参数
+    start_time = request.args.get('start_time', type=str)
+    end_time = request.args.get('end_time', type=str)
+    changed_by = request.args.get('changed_by', type=str)
+    action = request.args.get('action', type=str)
+
+    try:
+        query = RecordHistory.query.filter_by(table_id=table_id)
+
+        # 时间段过滤
+        if start_time:
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                query = query.filter(RecordHistory.changed_at >= start_dt)
+            except ValueError:
+                return error_response('start_time 格式不正确，请使用 ISO 格式', 400)
+        if end_time:
+            try:
+                end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                query = query.filter(RecordHistory.changed_at <= end_dt)
+            except ValueError:
+                return error_response('end_time 格式不正确，请使用 ISO 格式', 400)
+
+        # 变更人过滤（按 member_id 精确匹配或变更人名称模糊匹配）
+        if changed_by:
+            query = query.filter(
+                db.or_(
+                    RecordHistory.changed_by == changed_by,
+                    User.name.like(f'%{changed_by}%')
+                )
+            )
+
+        # 变更动作过滤
+        if action:
+            query = query.filter(RecordHistory.action == action)
+
+        # 按时间倒序
+        query = query.order_by(RecordHistory.changed_at.desc())
+
+        # 获取总数
+        total = query.count()
+
+        # 分页
+        histories = query.offset((page - 1) * size).limit(size).all()
+
+        # 序列化
+        items = [h.to_dict() for h in histories]
+
+        return paginated_response(items, total, page, size)
+
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 获取数据表变更历史失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('获取数据表变更历史失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 关联记录 API ====================
