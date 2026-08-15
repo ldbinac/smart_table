@@ -20,7 +20,7 @@ import ProgressField from "./ProgressField.vue";
 import PhoneField from "./PhoneField.vue";
 import EmailField from "./EmailField.vue";
 import URLField from "./URLField.vue";
-import LinkField from "./LinkField.vue";
+import LinkField from "./LinkFieldEditor.vue";
 import LookupField from "./LookupField.vue";
 import CreatedByField from "./CreatedByField.vue";
 import CreatedTimeField from "./CreatedTimeField.vue";

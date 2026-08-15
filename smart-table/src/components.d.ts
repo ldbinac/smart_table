@@ -131,6 +131,7 @@ declare module 'vue' {
     LanguageSwitcher: typeof import('./components/common/LanguageSwitcher.vue')['default']
     LinkedRecordDetailDialog: typeof import('./components/fields/LinkField/LinkedRecordDetailDialog.vue')['default']
     LinkField: typeof import('./components/fields/LinkField/LinkField.vue')['default']
+    LinkFieldEditor: typeof import('./components/fields/LinkFieldEditor.vue')['default']
     LinkRecordSelector: typeof import('./components/fields/LinkField/LinkRecordSelector.vue')['default']
     Loading: typeof import('./components/common/Loading.vue')['default']
     LoadingOverlay: typeof import('./components/common/LoadingOverlay.vue')['default']
