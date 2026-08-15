@@ -10,6 +10,7 @@ import {
   openInNewTab,
   copyToClipboard,
   WECHAT_QR_PATH,
+  APP_VERSION,
 } from "@/utils/feedback";
 
 const { t } = useI18n();
@@ -231,6 +232,10 @@ onUnmounted(() => {
 
             <!-- 底部 -->
             <div class="feedback-footer">
+              <div class="version-tag">
+                <span class="version-label">{{ t('feedback.versionLabel') }}</span>
+                <span class="version-value">v{{ APP_VERSION }}</span>
+              </div>
               <el-button @click="close">{{ t('view.cancel') }}</el-button>
             </div>
           </div>
@@ -450,7 +455,34 @@ onUnmounted(() => {
   padding: $spacing-md $spacing-xl;
   border-top: 1px solid var(--border-color, $border-color);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+}
+
+.version-tag {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .version-label {
+    font-size: $font-size-xs;
+    color: var(--text-secondary, $text-secondary);
+  }
+
+  .version-value {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px $spacing-sm;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: $primary-color;
+    background-color: $primary-light;
+    border: 1px solid $primary-color;
+    border-radius: $border-radius-full;
+    letter-spacing: 0.3px;
+  }
 }
 
 // 窄屏适配
