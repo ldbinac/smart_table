@@ -23,6 +23,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix, type NumberFormatOptions } from "@/utils/numberFormat";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import {
   validateRequiredFields,
@@ -203,11 +204,14 @@ const calculateFormulaValue = (
       if (resultType === "date") {
         return formatDate(result);
       }
-      // 数字类型：带精度格式化
-      const precision = (field.options?.precision as number) ?? 2;
-      return result.toLocaleString("zh-CN", {
-        minimumFractionDigits: precision,
-        maximumFractionDigits: precision,
+      // 数字类型：沿用数值字段的展示格式（精度/货币/百分比/前后缀/千分位）
+      return formatNumberField(result, {
+        precision: (field.options?.precision as number) ?? 2,
+        format: (field.options?.format as NumberFormatOptions["format"]) ?? "number",
+        currencySymbol: field.options?.currencySymbol as string | undefined,
+        prefix: field.options?.prefix as string | undefined,
+        suffix: field.options?.suffix as string | undefined,
+        thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
       });
     }
 
@@ -292,10 +296,7 @@ function getSelectOptions(field: FieldEntity) {
   return choices;
 }
 
-// 获取数值字段精度
-function getNumberPrecision(field: FieldEntity): number {
-  return (field.options?.precision as number) ?? 0;
-}
+
 
 // 获取日期字段是否显示时间
 function getDateShowTime(field: FieldEntity): boolean {
@@ -654,11 +655,15 @@ const drawerTitle = computed(() => {
           <template v-else-if="getFieldComponent(field) === 'number'">
             <ElInputNumber
               :model-value="Number(formData[field.id] || 0)"
-              :precision="getNumberPrecision(field)"
+              :formatter="createNumberInputFormatter(field.options as NumberFormatOptions)"
+              :parser="createNumberInputParser(field.options as NumberFormatOptions)"
               :placeholder="t('record.inputPlaceholder', { name: field.name })"
               class="field-input"
               style="width: 100%"
-              @update:model-value="(val) => handleValueChange(field.id, val)" />
+              @update:model-value="(val) => handleValueChange(field.id, val)">
+                <template #prefix v-if="getNumberFieldPrefix(field.options)">{{ getNumberFieldPrefix(field.options) }}</template>
+                <template #suffix v-if="getNumberFieldSuffix(field.options)">{{ getNumberFieldSuffix(field.options) }}</template>
+              </ElInputNumber>
           </template>
 
           <!-- 单选类型 -->

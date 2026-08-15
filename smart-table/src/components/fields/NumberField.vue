@@ -2,6 +2,11 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FieldOptions } from "@/types/fields";
+import {
+  formatNumberField,
+  getNumberFieldPrefix,
+  getNumberFieldSuffix,
+} from "@/utils/numberFormat";
 
 const { t } = useI18n();
 
@@ -40,34 +45,37 @@ const currencySymbol = computed(() => {
   return props.field?.options?.currencySymbol ?? "¥";
 });
 
-const prefix = computed(() => {
-  if (format.value === "currency") return currencySymbol.value;
-  return props.field?.options?.prefix ?? "";
+const thousandsSeparator = computed(() => {
+  return props.field?.options?.thousandsSeparator ?? false;
 });
 
-const suffix = computed(() => {
-  if (format.value === "percent") return "%";
-  return props.field?.options?.suffix ?? "";
-});
+const prefix = computed(() =>
+  getNumberFieldPrefix({
+    format: format.value,
+    currencySymbol: currencySymbol.value,
+    prefix: props.field?.options?.prefix,
+  }),
+);
+
+const suffix = computed(() =>
+  getNumberFieldSuffix({
+    format: format.value,
+    suffix: props.field?.options?.suffix,
+  }),
+);
 
 const displayValue = computed(() => {
   if (props.modelValue === null || props.modelValue === undefined) return "-";
 
-  let value = props.modelValue;
-
-  if (format.value === "percent") {
-    value = props.modelValue * 100;
-  }
-
-  return formatNumber(value, precision.value);
-});
-
-const formatNumber = (num: number, prec: number): string => {
-  return num.toLocaleString("zh-CN", {
-    minimumFractionDigits: prec,
-    maximumFractionDigits: prec,
+  return formatNumberField(props.modelValue, {
+    precision: precision.value,
+    format: format.value,
+    currencySymbol: currencySymbol.value,
+    prefix: props.field?.options?.prefix,
+    suffix: props.field?.options?.suffix,
+    thousandsSeparator: thousandsSeparator.value,
   });
-};
+});
 
 const localValue = computed({
   get: () => props.modelValue,

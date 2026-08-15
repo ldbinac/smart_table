@@ -17,6 +17,7 @@ import { masterDetailService } from '@/services/masterDetailService';
 import type { RecordEntity } from '@/db/schema';
 import { useUserCacheStore } from '@/stores/userCacheStore';
 import { formatDate, formatDateTime } from '@/utils/timezone';
+import { formatNumberField } from '@/utils/numberFormat';
 
 const { t } = useI18n();
 
@@ -136,15 +137,14 @@ const buildColumnConfig = (field: any): Record<string, any> => {
         if (value === null || value === undefined || value === '') return '';
         const num = Number(value);
         if (Number.isNaN(num)) return String(value);
-        const options = field.options || {};
-        const precision = options.precision ?? 0;
-        const prefix = options.prefix || '';
-        const suffix = options.suffix || '';
-        const currencySymbol = options.currencySymbol || '';
-        let formatted = num.toFixed(precision);
-        if (field.type === FieldType.PERCENT) formatted = `${formatted}%`;
-        else if (field.type === FieldType.CURRENCY && currencySymbol) formatted = `${currencySymbol}${formatted}`;
-        return `${prefix}${formatted}${suffix}`;
+        return formatNumberField(num, {
+          precision: field.options?.precision ?? 0,
+          format: field.options?.format ?? 'number',
+          currencySymbol: field.options?.currencySymbol,
+          prefix: field.options?.prefix,
+          suffix: field.options?.suffix,
+          thousandsSeparator: field.options?.thousandsSeparator,
+        });
       };
       break;
     case FieldType.LINK:

@@ -136,6 +136,12 @@ export interface FieldOptions {
   precision?: number;
   format?: "number" | "currency" | "percent";
   currencySymbol?: string;
+  // 自定义前缀文字（货币格式下追加在货币符号之后；百分比格式下显示在 % 之前）
+  prefix?: string;
+  // 自定义后缀文字（百分比格式下追加在 % 之前）
+  suffix?: string;
+  // 千分位分隔符：开启后使用逗号分隔千分位，如 1,234,567.00
+  thousandsSeparator?: boolean;
   includeTime?: boolean;
   defaultValue?: string | number | boolean | string[];
 

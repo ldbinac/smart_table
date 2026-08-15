@@ -407,6 +407,44 @@ const currencySymbolOptions = [
             :value="option.value" />
         </el-select>
       </div>
+
+      <!-- 自定义前缀文字（货币格式使用货币符号，故不在此配置） -->
+      <div
+        v-if="localField.options?.format === 'number' || localField.options?.format === 'percent'"
+        class="config-section">
+        <div class="config-label">{{ t('field.numberPrefix') }}</div>
+        <el-input
+          :model-value="localField.options?.prefix || ''"
+          @update:model-value="(val: string) => updateOption('prefix', val)"
+          :placeholder="t('field.numberPrefixHint')"
+          :maxlength="10"
+          class="config-input" />
+      </div>
+
+      <!-- 自定义后缀文字（百分比格式后缀固定为 %，故不在此配置） -->
+      <div
+        v-if="localField.options?.format === 'number'"
+        class="config-section">
+        <div class="config-label">{{ t('field.numberSuffix') }}</div>
+        <el-input
+          :model-value="localField.options?.suffix || ''"
+          @update:model-value="(val: string) => updateOption('suffix', val)"
+          :placeholder="t('field.numberSuffixHint')"
+          :maxlength="10"
+          class="config-input" />
+      </div>
+
+      <!-- 千分位分隔符（自动编号不按数值格式渲染，故不展示） -->
+      <div
+        v-if="localField.type === 'number' || localField.type === 'formula'"
+        class="config-section">
+        <div class="config-label">{{ t('field.thousandsSeparator') }}</div>
+        <div class="config-hint">{{ t('field.thousandsSeparatorHint') }}</div>
+        <el-switch
+          :model-value="localField.options?.thousandsSeparator || false"
+          @update:model-value="(val: string | number | boolean) => updateOption('thousandsSeparator', !!val)" />
+      </div>
+
       <div class="config-section">
         <div class="config-label">{{ t('field.precision') }}</div>
         <el-input-number
@@ -577,6 +615,12 @@ const currencySymbolOptions = [
 
 .config-input {
   width: 100%;
+}
+
+.config-hint {
+  font-size: 12px;
+  color: $text-secondary;
+  line-height: 1.4;
 }
 
 .options-list {

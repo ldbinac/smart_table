@@ -28,6 +28,7 @@ import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { formatNumberField } from "@/utils/numberFormat";
 import { linkApiService } from "@/services/api/linkApiService";
 import { viewApiService } from "@/services/api/viewApiService";
 import { recordApiService } from "@/services/api/recordApiService";
@@ -2891,12 +2892,15 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
             else if (resultType === "date") {
               row[field.id] = formatDate(result);
             }
-            // 数字类型：带精度格式化
+            // 数字类型：沿用数值字段的展示格式（精度/前后缀/千分位）
             else {
-              const precision = (field.options?.precision as number) ?? 2;
-              row[field.id] = result.toLocaleString('zh-CN', {
-                minimumFractionDigits: precision,
-                maximumFractionDigits: precision,
+              row[field.id] = formatNumberField(result, {
+                precision: (field.options?.precision as number) ?? 2,
+                format: (field.options?.format as 'number' | 'currency' | 'percent') ?? 'number',
+                currencySymbol: field.options?.currencySymbol,
+                prefix: field.options?.prefix,
+                suffix: field.options?.suffix,
+                thousandsSeparator: field.options?.thousandsSeparator,
               });
             }
           } else {
@@ -3279,19 +3283,21 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
         if (Number.isNaN(num)) return String(value);
 
         const options = field.options || {};
-        const precision = options.precision ?? 0;
-        const prefix = options.prefix || '';
-        const suffix = options.suffix || '';
-        const currencySymbol = options.currencySymbol || '';
+        const format =
+          field.type === FieldType.CURRENCY
+            ? 'currency'
+            : field.type === FieldType.PERCENT
+              ? 'percent'
+              : 'number';
 
-        let formatted = num.toFixed(precision);
-        if (field.type === FieldType.PERCENT) {
-          formatted = `${formatted}%`;
-        } else if (field.type === FieldType.CURRENCY && currencySymbol) {
-          formatted = `${currencySymbol}${formatted}`;
-        }
-
-        return `${prefix}${formatted}${suffix}`;
+        return formatNumberField(num, {
+          precision: options.precision ?? 0,
+          format,
+          currencySymbol: options.currencySymbol,
+          prefix: options.prefix,
+          suffix: options.suffix,
+          thousandsSeparator: options.thousandsSeparator,
+        });
       };
       break;
     case FieldType.PHONE:

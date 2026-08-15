@@ -17,6 +17,7 @@ import RichTextField from "@/components/fields/RichTextField.vue";
 import { Search as SearchIcon } from '@element-plus/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
 import { FormulaEngine } from "@/utils/formula";
+import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
 import { stripHtml } from "@/utils/helpers";
 import type { RecordEntity } from "@/db/schema";
 
@@ -606,10 +607,7 @@ function getSelectOptions(field: FormFieldSchema) {
   }));
 }
 
-// 获取数值字段精度
-function getNumberPrecision(field: FormFieldSchema): number {
-  return (field.config?.precision as number) ?? 0;
-}
+
 
 // 获取评分最大值
 function getMaxRating(field: FormFieldSchema): number {
@@ -689,12 +687,15 @@ function calculateFormulaValue(field: FormFieldSchema): string {
       return t("view.calcError");
     }
 
-    // 数字格式化
+    // 数字格式化：沿用数值字段的展示格式（精度/前后缀/千分位）
     if (typeof result === "number" && !isNaN(result)) {
-      const precision = (config.precision as number) ?? 2;
-      return result.toLocaleString("zh-CN", {
-        minimumFractionDigits: precision,
-        maximumFractionDigits: precision,
+      return formatNumberField(result, {
+        precision: (config.precision as number) ?? 2,
+        format: (config.format as "number" | "currency" | "percent") ?? "number",
+        currencySymbol: config.currencySymbol as string | undefined,
+        prefix: config.prefix as string | undefined,
+        suffix: config.suffix as string | undefined,
+        thousandsSeparator: config.thousandsSeparator as boolean | undefined,
       });
     }
 
@@ -837,7 +838,8 @@ function calculateFormulaValue(field: FormFieldSchema): string {
               <el-input-number
                 :model-value="Number(formValues[field.id] || 0)"
                 :placeholder="t('view.formInputPlaceholder', { name: field.name })"
-                :precision="getNumberPrecision(field)"
+                :formatter="createNumberInputFormatter(field.config)"
+                :parser="createNumberInputParser(field.config)"
                 :min="
                   field.config?.min !== undefined
                     ? Number(field.config.min)
@@ -851,7 +853,10 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 style="width: 100%"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val as CellValue)
-                " />
+                ">
+                  <template #prefix v-if="getNumberFieldPrefix(field.config)">{{ getNumberFieldPrefix(field.config) }}</template>
+                  <template #suffix v-if="getNumberFieldSuffix(field.config)">{{ getNumberFieldSuffix(field.config) }}</template>
+                </el-input-number>
             </template>
 
             <!-- 评分类型 -->

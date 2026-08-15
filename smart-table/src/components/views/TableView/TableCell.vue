@@ -16,6 +16,7 @@ import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { truncateRichText } from "@/utils/helpers";
 import { formatDateTime, formatDate } from "@/utils/timezone";
+import { formatNumberField } from "@/utils/numberFormat";
 
 interface Props {
   record: RecordEntity;
@@ -169,11 +170,14 @@ const displayValue = computed(() => {
     }
     case "number":
       if (typeof value === "number") {
-        const precision = options?.precision ?? 0;
-        const formatted = value.toFixed(precision);
-        const prefix = options?.prefix || "";
-        const suffix = options?.suffix || "";
-        return `${prefix}${formatted}${suffix}`;
+        return formatNumberField(value, {
+          precision: options?.precision ?? 0,
+          format: options?.format ?? "number",
+          currencySymbol: options?.currencySymbol,
+          prefix: options?.prefix,
+          suffix: options?.suffix,
+          thousandsSeparator: options?.thousandsSeparator,
+        });
       }
       return value === null || value === undefined ? "" : String(value);
     case "single_select": {

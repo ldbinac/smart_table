@@ -231,6 +231,9 @@ class FormShareService:
                         'min', 'max', 'validation',
                         # 公式字段：公式表达式与精度需同步到前端用于计算渲染
                         'formula', 'precision',
+                        # 数字字段：格式配置需同步到前端，否则分享页无法展示前后缀/千分位
+                        'format', 'currencySymbol', 'prefix', 'suffix',
+                        'thousandsSeparator',
                     ):
                         if rule_key in options and rule_key not in merged_config:
                             merged_config[rule_key] = options[rule_key]

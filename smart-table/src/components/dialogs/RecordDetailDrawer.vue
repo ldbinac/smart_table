@@ -31,6 +31,7 @@ import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
 import dayjs from "dayjs";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
 import {
   validateRequiredFields,
   getRequiredFieldErrorMessage,
@@ -533,11 +534,14 @@ const calculateFormulaValue = (
       if (resultType === "date") {
         return formatDate(result);
       }
-      // 数字类型：带精度格式化
-      const precision = (field.options?.precision as number) ?? 2;
-      return result.toLocaleString("zh-CN", {
-        minimumFractionDigits: precision,
-        maximumFractionDigits: precision,
+      // 数字类型：沿用数值字段的展示格式（精度/货币/百分比/前后缀/千分位）
+      return formatNumberField(result, {
+        precision: (field.options?.precision as number) ?? 2,
+        format: (field.options?.format as "number" | "currency" | "percent") ?? "number",
+        currencySymbol: field.options?.currencySymbol as string | undefined,
+        prefix: field.options?.prefix as string | undefined,
+        suffix: field.options?.suffix as string | undefined,
+        thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
       });
     }
     return String(result);
@@ -892,10 +896,15 @@ const effectiveSize = computed<string | number>(() => {
             <el-input-number
               :model-value="Number(formData[field.id] || 0)"
               @update:model-value="(val) => handleValueChange(field.id, val)"
+              :formatter="createNumberInputFormatter(field.options)"
+              :parser="createNumberInputParser(field.options)"
               :placeholder="t('record.inputPlaceholder', { name: field.name })"
               :disabled="readonly"
               class="field-input"
-              style="width: 100%" />
+              style="width: 100%">
+                <template #prefix v-if="getNumberFieldPrefix(field.options)">{{ getNumberFieldPrefix(field.options) }}</template>
+                <template #suffix v-if="getNumberFieldSuffix(field.options)">{{ getNumberFieldSuffix(field.options) }}</template>
+              </el-input-number>
           </template>
 
           <!-- 单选类型 -->

@@ -87,6 +87,12 @@ const newField = ref<{
   defaultValue?: any;
   // 数值字段配置
   precision: number;
+  // 数值字段展示格式配置
+  format: "number" | "currency" | "percent";
+  currencySymbol: string;
+  prefix: string;
+  suffix: string;
+  thousandsSeparator: boolean;
   // 公式字段配置
   formula: string;
   // 关联字段配置
@@ -115,6 +121,11 @@ const newField = ref<{
   description: "",
   defaultValue: undefined,
   precision: 0,
+  format: "number",
+  currencySymbol: "¥",
+  prefix: "",
+  suffix: "",
+  thousandsSeparator: false,
   formula: "",
   linkConfig: {
     targetTableId: "",
@@ -389,6 +400,11 @@ function openCreateField() {
     isRequired: false,
     description: "",
     precision: 0,
+    format: "number",
+    currencySymbol: "¥",
+    prefix: "",
+    suffix: "",
+    thousandsSeparator: false,
     formula: "",
     linkConfig: {
       targetTableId: "",
@@ -463,6 +479,11 @@ function openEditField(field: FieldEntity) {
     description: field.description || "",
     defaultValue: dateDefaultValue,
     precision: (field.options?.precision as number) ?? 0,
+    format: ((field.options?.format as "number" | "currency" | "percent") ?? "number"),
+    currencySymbol: (field.options?.currencySymbol as string) ?? "¥",
+    prefix: (field.options?.prefix as string) ?? "",
+    suffix: (field.options?.suffix as string) ?? "",
+    thousandsSeparator: Boolean(field.options?.thousandsSeparator),
     formula: (field.options?.formula as string) ?? "",
     // 关联字段的配置保存在 config 中
     linkConfig: {
@@ -590,6 +611,11 @@ function backToList() {
     description: "",
     defaultValue: undefined,
     precision: 0,
+    format: "number",
+    currencySymbol: "¥",
+    prefix: "",
+    suffix: "",
+    thousandsSeparator: false,
     formula: "",
     linkConfig: {
       targetTableId: "",
@@ -689,14 +715,24 @@ async function createField() {
         color: opt.color,
       }));
     }
-    // 数值字段精度配置
+    // 数值字段精度与展示格式配置
     if (newField.value.type === FieldType.NUMBER) {
       options.precision = newField.value.precision;
+      options.format = newField.value.format;
+      options.currencySymbol = newField.value.currencySymbol;
+      options.prefix = newField.value.prefix || undefined;
+      options.suffix = newField.value.suffix || undefined;
+      options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
     }
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
       options.precision = newField.value.precision ?? 0;
+      options.format = newField.value.format;
+      options.currencySymbol = newField.value.currencySymbol;
+      options.prefix = newField.value.prefix || undefined;
+      options.suffix = newField.value.suffix || undefined;
+      options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -862,14 +898,24 @@ async function updateField() {
         color: opt.color,
       }));
     }
-    // 数值字段精度配置
+    // 数值字段精度与展示格式配置
     if (newField.value.type === FieldType.NUMBER) {
       options.precision = newField.value.precision;
+      options.format = newField.value.format;
+      options.currencySymbol = newField.value.currencySymbol;
+      options.prefix = newField.value.prefix || undefined;
+      options.suffix = newField.value.suffix || undefined;
+      options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
     }
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
       options.precision = newField.value.precision ?? 0;
+      options.format = newField.value.format;
+      options.currencySymbol = newField.value.currencySymbol;
+      options.prefix = newField.value.prefix || undefined;
+      options.suffix = newField.value.suffix || undefined;
+      options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -1530,6 +1576,36 @@ async function toggleFieldVisibility(
           <div class="field-hint">{{ t('field.precisionHint') }}</div>
         </ElFormItem>
 
+        <!-- 自定义前缀文字 -->
+        <ElFormItem
+          v-if="newField.type === FieldType.NUMBER"
+          :label="t('field.numberPrefix')">
+          <ElInput
+            v-model="newField.prefix"
+            :maxlength="10"
+            style="width: 220px"
+            :placeholder="t('field.numberPrefixHint')" />
+        </ElFormItem>
+
+        <!-- 自定义后缀文字 -->
+        <ElFormItem
+          v-if="newField.type === FieldType.NUMBER"
+          :label="t('field.numberSuffix')">
+          <ElInput
+            v-model="newField.suffix"
+            :maxlength="10"
+            style="width: 220px"
+            :placeholder="t('field.numberSuffixHint')" />
+        </ElFormItem>
+
+        <!-- 千分位分隔符 -->
+        <ElFormItem
+          v-if="newField.type === FieldType.NUMBER"
+          :label="t('field.thousandsSeparator')">
+          <ElSwitch v-model="newField.thousandsSeparator" />
+          <div class="field-hint">{{ t('field.thousandsSeparatorHint') }}</div>
+        </ElFormItem>
+
         <!-- 公式字段配置 -->
         <template v-if="newField.type === FieldType.FORMULA">
           <ElFormItem :label="t('field.formulaExpr')" required>
@@ -1559,6 +1635,54 @@ async function toggleFieldVisibility(
               >
             </div>
             <div class="field-hint">{{ t('field.formulaPrecisionHint') }}</div>
+          </ElFormItem>
+
+          <!-- 公式字段显示格式 -->
+          <ElFormItem :label="t('field.numFormat')">
+            <ElSelect v-model="newField.format" style="width: 220px">
+              <ElOption :label="t('field.numberFormat')" value="number" />
+              <ElOption :label="t('field.currencyFormat')" value="currency" />
+              <ElOption :label="t('field.percentFormat')" value="percent" />
+            </ElSelect>
+          </ElFormItem>
+
+          <!-- 货币符号（仅货币格式显示） -->
+          <ElFormItem
+            v-if="newField.format === 'currency'"
+            :label="t('field.currencySymbolLabel')">
+            <ElInput
+              v-model="newField.currencySymbol"
+              :maxlength="4"
+              style="width: 220px"
+              :placeholder="t('field.currencySymbolPlaceholder')" />
+          </ElFormItem>
+
+          <!-- 自定义前缀文字（货币格式使用货币符号，故不在此配置） -->
+          <ElFormItem
+            v-if="newField.format !== 'currency'"
+            :label="t('field.numberPrefix')">
+            <ElInput
+              v-model="newField.prefix"
+              :maxlength="10"
+              style="width: 220px"
+              :placeholder="t('field.numberPrefixHint')" />
+          </ElFormItem>
+
+          <!-- 自定义后缀文字（百分比格式后缀固定为 %，故不在此配置） -->
+          <ElFormItem
+            v-if="newField.format === 'number'"
+            :label="t('field.numberSuffix')">
+            <ElInput
+              v-model="newField.suffix"
+              :maxlength="10"
+              style="width: 220px"
+              :placeholder="t('field.numberSuffixHint')" />
+          </ElFormItem>
+
+          <!-- 千分位分隔符 -->
+          <ElFormItem :label="t('field.thousandsSeparator')">
+            <ElSwitch v-model="newField.thousandsSeparator" />
+            <div class="field-hint">{{ t('field.thousandsSeparatorHint') }}</div>
           </ElFormItem>
 
           <ElFormItem :label="t('field.formulaFunctions')">
