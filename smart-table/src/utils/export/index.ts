@@ -2,11 +2,24 @@ import * as XLSX from "xlsx";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
 import { formatDate, formatDateTime } from "@/utils/timezone";
+import {
+  calculateFormulaDisplay,
+  getFormulaRawValue,
+} from "@/utils/formula/formatFormula";
 
 export interface ExportOptions {
   filename?: string;
   sheetName?: string;
   includeHeaders?: boolean;
+  context?: ExportContext;
+}
+
+// 导出上下文：用于在导出时补充字段值的显示信息（如成员名称）
+export interface ExportContext {
+  /** 成员 ID -> 成员名称 映射，成员字段导出为名称而非 id */
+  memberNameMap?: Map<string, string>;
+  /** 表格的全部字段，用于公式字段在前端回退计算（计算引擎需要跨字段引用） */
+  allFields?: FieldEntity[];
 }
 
 export interface ImportResult {
@@ -15,8 +28,37 @@ export interface ImportResult {
   totalRows: number;
 }
 
+// 从公式字段取原始计算值（JSON 导出作为数据交换使用原始值）
+// 优先后端预计算结果，缺失时回退前端计算（与表格视图一致）
+function getFormulaComputedValues(
+  record: RecordEntity,
+  fields: FieldEntity[],
+  allFields: FieldEntity[] = [],
+): Record<string, CellValue> {
+  const result: Record<string, CellValue> = {};
+  for (const field of fields) {
+    if (field.type === FieldType.FORMULA) {
+      const v = getFormulaRawValue(field, record, allFields);
+      if (v !== undefined && v !== null) {
+        result[field.name] = v as CellValue;
+      }
+    }
+  }
+  return result;
+}
+
 // 公共格式化函数 - 用于 Excel 导出
-function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
+function formatValueForExcel(
+  value: CellValue,
+  field: FieldEntity,
+  record?: RecordEntity,
+  context: ExportContext = {},
+): unknown {
+  // 公式字段：优先后端预计算结果，缺失时前端回退计算（与表格视图显示一致）
+  if (field.type === FieldType.FORMULA) {
+    return calculateFormulaDisplay(field, record, context.allFields ?? []);
+  }
+
   if (value === null || value === undefined) return "";
 
   switch (field.type) {
@@ -67,17 +109,20 @@ function formatValueForExcel(value: CellValue, field: FieldEntity): unknown {
       }
       return value;
 
-    case FieldType.MEMBER:
-      if (Array.isArray(value)) {
-        return value
-          .map((m) =>
-            typeof m === "object" && m !== null && "name" in m
-              ? m.name
-              : String(m),
-          )
-          .join(", ");
-      }
-      return value;
+    case FieldType.MEMBER: {
+      // 成员字段：导出为成员名称（而非 id），与表格视图显示一致
+      const ids = Array.isArray(value) ? value : [value];
+      const names = ids
+        .map((m) => {
+          if (m && typeof m === "object" && m !== null && "name" in m) {
+            return String((m as any).name);
+          }
+          const id = m != null ? String((m as any).id ?? m) : "";
+          return (context.memberNameMap?.get(id) ?? id) || "";
+        })
+        .filter((n) => n);
+      return names.join(", ");
+    }
 
     case FieldType.ATTACHMENT:
       if (Array.isArray(value)) {
@@ -106,7 +151,17 @@ function escapeCSV(value: unknown): string {
 }
 
 // 公共格式化函数 - 用于 CSV 导出
-function formatValueForCSV(value: CellValue, field: FieldEntity): string {
+function formatValueForCSV(
+  value: CellValue,
+  field: FieldEntity,
+  record?: RecordEntity,
+  context: ExportContext = {},
+): string {
+  // 公式字段：优先后端预计算结果，缺失时前端回退计算（与表格视图显示一致）
+  if (field.type === FieldType.FORMULA) {
+    return calculateFormulaDisplay(field, record, context.allFields ?? []);
+  }
+
   if (value === null || value === undefined) return "";
 
   switch (field.type) {
@@ -157,6 +212,21 @@ function formatValueForCSV(value: CellValue, field: FieldEntity): string {
       }
       return String(value);
 
+    case FieldType.MEMBER: {
+      // 成员字段：导出为成员名称（而非 id），与表格视图显示一致
+      const ids = Array.isArray(value) ? value : [value];
+      const names = ids
+        .map((m) => {
+          if (m && typeof m === "object" && "name" in m) {
+            return String((m as any).name);
+          }
+          const id = m != null ? String((m as any).id ?? m) : "";
+          return (context.memberNameMap?.get(id) ?? id) || "";
+        })
+        .filter((n) => n);
+      return names.join(", ");
+    }
+
     default:
       return String(value);
   }
@@ -180,7 +250,7 @@ export class ExcelExporter {
     const data = records.map((record) => {
       return fields.map((field) => {
         const value = record.values[field.id];
-        return formatValueForExcel(value, field);
+        return formatValueForExcel(value, field, record, options.context);
       });
     });
 
@@ -254,7 +324,7 @@ export class CSVExporter {
     const data = records.map((record) => {
       return fields.map((field) => {
         const value = record.values[field.id];
-        return escapeCSV(formatValueForCSV(value, field));
+        return escapeCSV(formatValueForCSV(value, field, record, options.context));
       });
     });
 
@@ -355,6 +425,7 @@ export class JSONExporter {
     options: ExportOptions = {},
   ): void {
     const { filename = tableName } = options;
+    const allFields = options.context?.allFields ?? [];
 
     const fieldMap = new Map(fields.map((f) => [f.id, f]));
 
@@ -367,6 +438,9 @@ export class JSONExporter {
           obj[field.name] = value;
         }
       }
+
+      // 公式字段的值不在 record.values 中，从后端预计算结果或前端回退计算补充
+      Object.assign(obj, getFormulaComputedValues(record, fields, allFields));
 
       return obj;
     });
@@ -434,6 +508,7 @@ export async function exportToExcel(
   records: RecordEntity[],
   fields: FieldEntity[],
   options: ExportOptions = {},
+  context: ExportContext = {},
 ): Promise<Uint8Array> {
   const { sheetName = "Sheet1", includeHeaders = true } = options;
 
@@ -442,7 +517,7 @@ export async function exportToExcel(
   const data = records.map((record) => {
     return fields.map((field) => {
       const value = record.values[field.id];
-      return formatValueForExcel(value, field);
+      return formatValueForExcel(value, field, record, context);
     });
   });
 
@@ -468,6 +543,7 @@ export function exportToCSV(
   records: RecordEntity[],
   fields: FieldEntity[],
   options: ExportOptions = {},
+  context: ExportContext = {},
 ): string {
   const { includeHeaders = true } = options;
 
@@ -475,7 +551,7 @@ export function exportToCSV(
   const data = records.map((record) => {
     return fields.map((field) => {
       const value = record.values[field.id];
-      return escapeCSV(formatValueForCSV(value, field));
+      return escapeCSV(formatValueForCSV(value, field, record, context));
     });
   });
 
@@ -490,7 +566,9 @@ export function exportToJSON(
   records: RecordEntity[],
   fields: FieldEntity[],
   _options: ExportOptions = {},
+  context: ExportContext = {},
 ): string {
+  const allFields = context.allFields ?? [];
   const fieldMap = new Map(fields.map((f) => [f.id, f]));
 
   const exportData = records.map((record) => {
@@ -502,6 +580,9 @@ export function exportToJSON(
         obj[field.name] = value;
       }
     }
+
+    // 公式字段的值不在 record.values 中，从后端预计算结果或前端回退计算补充
+    Object.assign(obj, getFormulaComputedValues(record, fields, allFields));
 
     return obj;
   });

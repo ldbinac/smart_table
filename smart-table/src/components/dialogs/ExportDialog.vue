@@ -2,10 +2,15 @@
 import { ref, computed } from 'vue'
 import { ElDialog, ElButton, ElRadioGroup, ElRadio, ElCheckbox, ElCheckboxGroup, ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { exportToExcel, exportToCSV, exportToJSON } from '@/utils/export'
+import { exportToExcel, exportToCSV, exportToJSON, type ExportContext } from '@/utils/export'
 import type { FieldEntity, RecordEntity } from '@/db/schema'
+import { FieldType } from '@/types'
+import { useUserCacheStore } from '@/stores/userCacheStore'
+import { useTableStore } from '@/stores/tableStore'
 
 const { t } = useI18n()
+const userCacheStore = useUserCacheStore()
+const tableStore = useTableStore()
 
 const props = defineProps<{
   visible: boolean
@@ -58,9 +63,32 @@ async function handleExport() {
     const fieldsToExport = props.fields.filter(f => selectedFields.value.includes(f.id))
     const recordsToExport = props.records
 
+    // 构建导出上下文：成员 ID -> 名称 映射（成员字段导出为名称而非 id）
+    const context: ExportContext = {}
+    // 公式字段在前端回退计算时需要表格全部字段（用于解析跨字段引用）
+    context.allFields = tableStore.fields
+    const memberFieldIds = fieldsToExport
+      .filter((f) => f.type === FieldType.MEMBER)
+      .map((f) => f.id)
+    if (memberFieldIds.length > 0) {
+      const memberIds = new Set<string>()
+      for (const record of recordsToExport) {
+        for (const fieldId of memberFieldIds) {
+          const val = (record as any).values?.[fieldId]
+          if (Array.isArray(val)) {
+            val.forEach((v) => v != null && memberIds.add(String((v as any).id ?? v)))
+          } else if (val != null) {
+            memberIds.add(String((val as any).id ?? val))
+          }
+        }
+      }
+      const users = await userCacheStore.fetchUsers(Array.from(memberIds))
+      context.memberNameMap = new Map(users.map((u) => [u.id, u.name]))
+    }
+
     switch (exportFormat.value) {
       case 'excel': {
-        const buffer = await exportToExcel(recordsToExport, fieldsToExport, {})
+        const buffer = await exportToExcel(recordsToExport, fieldsToExport, {}, context)
         const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -73,7 +101,7 @@ async function handleExport() {
         break
       }
       case 'csv': {
-        const csv = exportToCSV(recordsToExport, fieldsToExport, {})
+        const csv = exportToCSV(recordsToExport, fieldsToExport, {}, context)
         downloadFile(csv, 'text/csv;charset=utf-8;', 'csv')
         break
       }
