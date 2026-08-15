@@ -16,6 +16,9 @@ import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import { Search as SearchIcon } from '@element-plus/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
+import { FormulaEngine } from "@/utils/formula";
+import { stripHtml } from "@/utils/helpers";
+import type { RecordEntity } from "@/db/schema";
 
 const route = useRoute();
 const router = useRouter();
@@ -308,7 +311,12 @@ function validateField(
         }
         break;
       }
-      const strValue = String(value);
+      // 富文本存储的是 HTML，需按纯文本长度进行字数限制校验，
+      // 否则带样式标签时 HTML 字符数会远多于可见文字数，导致提前超限。
+      const strValue =
+        field.type === FieldType.RICH_TEXT
+          ? stripHtml(String(value))
+          : String(value);
       const minLength = config.minLength as number | undefined;
       if (minLength !== undefined && strValue.length < Number(minLength)) {
         return t("view.formAtLeastChars", {
@@ -391,8 +399,20 @@ async function handleSubmit() {
   isSubmitting.value = true;
 
   try {
+    // 公式字段为只读自动计算，不纳入提交数据
+    const formulaFieldIds = new Set(
+      fields.value
+        .filter((f) => getFieldType(f) === FieldType.FORMULA)
+        .map((f) => f.id)
+    );
+    const submitValues: Record<string, CellValue> = {};
+    for (const [fieldId, val] of Object.entries(formValues.value)) {
+      if (formulaFieldIds.has(fieldId)) continue;
+      submitValues[fieldId] = val as CellValue;
+    }
+
     const submitData: any = {
-      values: { ...formValues.value },
+      values: submitValues,
     };
 
     // 如果需要验证码，添加验证码
@@ -543,6 +563,8 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "datetime";
     case FieldType.CHECKBOX:
       return "checkbox";
+    case FieldType.FORMULA:
+      return "formula";
     case FieldType.ATTACHMENT:
       return "attachment";
     case FieldType.COLLABORATOR:
@@ -643,6 +665,44 @@ function getProgressMin(field: FormFieldSchema): number {
 // 获取字段类型（直接返回字段类型，不再需要转换）
 function getFieldType(field: FormFieldSchema): FieldTypeValue {
   return field.type as FieldTypeValue;
+}
+
+// 计算公式字段值（参照表单视图逻辑）
+function calculateFormulaValue(field: FormFieldSchema): string {
+  const config = field.config || {};
+  const formula = config.formula as string | undefined;
+  if (!formula) return "";
+
+  try {
+    const engine = new FormulaEngine(fields.value as unknown as FieldEntity[]);
+    // 构建当前记录对象，公式引擎按字段 id 读取表单值
+    const record: RecordEntity = {
+      id: "temp",
+      tableId: "",
+      values: formValues.value as Record<string, CellValue>,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const result = engine.calculate(record, formula);
+
+    if (result === "#ERROR") {
+      return t("view.calcError");
+    }
+
+    // 数字格式化
+    if (typeof result === "number" && !isNaN(result)) {
+      const precision = (config.precision as number) ?? 2;
+      return result.toLocaleString("zh-CN", {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      });
+    }
+
+    return String(result);
+  } catch (error) {
+    console.error("FormShare formula calculation error:", error);
+    return t("view.calcError");
+  }
 }
 </script>
 
@@ -887,6 +947,20 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val)
                 " />
+            </template>
+
+            <!-- 公式类型（只读，实时计算结果） -->
+            <template v-else-if="getFieldComponentType(field) === 'formula'">
+              <div class="formula-field-display">
+                <el-input
+                  :model-value="calculateFormulaValue(field)"
+                  readonly
+                  class="formula-input"
+                  :placeholder="t('view.formFormulaPlaceholder')" />
+                <div v-if="field.config?.formula" class="formula-hint">
+                  {{ t("view.formFormula", { formula: field.config.formula }) }}
+                </div>
+              </div>
             </template>
 
             <!-- 进度类型 -->

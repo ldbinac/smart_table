@@ -88,6 +88,7 @@
   "formSelectPlaceholder": "Please select {name}",
   "formAutoCalc": "Auto-calculated",
   "formFormula": "Formula: {formula}",
+  "formFormulaPlaceholder": "Formula result",
   "formAutoGenerate": "Auto-generated after saving",
   "formCancel": "Cancel",
   "formRequiredField": "Please fill in the required field: {name}",

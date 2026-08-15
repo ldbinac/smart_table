@@ -2,6 +2,7 @@
 表单分享服务模块
 处理表单分享的创建、管理和数据提交
 """
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple
@@ -228,6 +229,8 @@ class FormShareService:
                     for rule_key in (
                         'regex', 'regexMessage', 'minLength', 'maxLength',
                         'min', 'max', 'validation',
+                        # 公式字段：公式表达式与精度需同步到前端用于计算渲染
+                        'formula', 'precision',
                     ):
                         if rule_key in options and rule_key not in merged_config:
                             merged_config[rule_key] = options[rule_key]
@@ -562,21 +565,18 @@ class FormShareService:
             
             elif field_type == FieldType.EMAIL.value:
                 # 邮箱类型验证
-                import re
                 email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
                 if not re.match(email_pattern, str(value)):
                     return f'{field.name} 必须是有效的邮箱地址'
             
             elif field_type == FieldType.URL.value:
                 # URL 类型验证
-                import re
                 url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
                 if not re.match(url_pattern, str(value)):
                     return f'{field.name} 必须是有效的 URL 地址'
             
             elif field_type == FieldType.PHONE.value:
                 # 手机号验证（简化版）
-                import re
                 phone_pattern = r'^1[3-9]\d{9}$'
                 if not re.match(phone_pattern, str(value)):
                     return f'{field.name} 必须是有效的手机号码'

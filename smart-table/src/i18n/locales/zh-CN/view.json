@@ -88,6 +88,7 @@
   "formSelectPlaceholder": "请选择{name}",
   "formAutoCalc": "自动计算",
   "formFormula": "公式: {formula}",
+  "formFormulaPlaceholder": "公式结果",
   "formAutoGenerate": "保存后自动生成",
   "formCancel": "取消",
   "formRequiredField": "请填写必填字段：{name}",
