@@ -48,6 +48,7 @@
     "colStatus": "状态",
     "colRetryCount": "重试次数",
     "colCreatedAt": "创建时间",
+    "colSource": "来源",
     "colActions": "操作",
     "detailTitle": "站内信详情",
     "labelRecipient": "收件人用户ID",

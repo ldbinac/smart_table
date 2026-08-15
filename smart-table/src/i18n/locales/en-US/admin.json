@@ -48,6 +48,7 @@
     "colStatus": "Status",
     "colRetryCount": "Retry Count",
     "colCreatedAt": "Created At",
+    "colSource": "Source",
     "colActions": "Actions",
     "detailTitle": "Notification Details",
     "labelRecipient": "Recipient User ID",

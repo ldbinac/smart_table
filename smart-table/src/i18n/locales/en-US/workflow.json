@@ -59,6 +59,7 @@
   },
   "webhook": {
     "new": "New Webhook",
+    "save": "Save",
     "name": "Name",
     "method": "Method",
     "url": "Callback URL",
@@ -503,6 +504,7 @@
     "selectWebhook": "Select Webhook",
     "webhookNamePlaceholder": "Webhook name",
     "name": "Name",
+    "field": "Field",
     "requestUrl": "Request URL",
     "urlPlaceholder": "https://example.com/webhook",
     "requestMethod": "Request Method",
@@ -567,5 +569,15 @@
       "loop": "Loop",
       "script": "Custom Script"
     }
+  },
+  "branchSatisfied": "Condition met",
+  "notConfigured": "Not configured",
+  "unknownNode": "Unknown node",
+  "validation": {
+    "branchIncomplete": "Branch configuration incomplete",
+    "mappingNotConfigured": "Field mapping not configured",
+    "resultVarInvalid": "Invalid result variable name format",
+    "resultVarNotConfigured": "Result variable name not configured",
+    "targetTableNotSelected": "Target table not selected"
   }
 }

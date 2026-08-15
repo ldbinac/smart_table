@@ -59,6 +59,7 @@
   },
   "webhook": {
     "new": "新建 Webhook",
+    "save": "保存",
     "name": "名称",
     "method": "方法",
     "url": "回调地址",
@@ -405,6 +406,7 @@
     "configIndex": "{{index}}"
   },
   "nodeConfig": {
+    "field": "字段",
     "conditionBranchTitle": "条件分支",
     "branchHint": "在画布上拖拽分支连线到目标节点",
     "branchName": "分支名称",
@@ -567,5 +569,15 @@
       "loop": "循环",
       "script": "自定义脚本"
     }
+  },
+  "branchSatisfied": "满足条件",
+  "notConfigured": "未配置",
+  "unknownNode": "未知节点",
+  "validation": {
+    "branchIncomplete": "分支配置不完整",
+    "mappingNotConfigured": "字段映射未配置",
+    "resultVarInvalid": "结果变量名格式不正确",
+    "resultVarNotConfigured": "结果变量名未配置",
+    "targetTableNotSelected": "目标表格未选择"
   }
 }

@@ -20,6 +20,7 @@
   "addCondition": "添加筛选条件",
   "currentFilter": "当前筛选：",
   "clear": "清除筛选",
+  "delete": "删除",
   "apply": "应用筛选",
   "opEquals": "等于",
   "opNotEquals": "不等于",

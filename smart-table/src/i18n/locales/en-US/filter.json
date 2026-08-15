@@ -20,6 +20,7 @@
   "addCondition": "Add filter condition",
   "currentFilter": "Current filter: ",
   "clear": "Clear filter",
+  "delete": "Delete",
   "apply": "Apply filter",
   "opEquals": "equals",
   "opNotEquals": "not equals",

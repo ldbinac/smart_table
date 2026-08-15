@@ -97,5 +97,10 @@
   "unitMillisecond": "毫秒",
   "unitSecond": "秒",
   "unitMinute": "分",
-  "unknownError": "未知错误"
+  "unknownError": "未知错误",
+  "pageNotFound": "抱歉，您访问的页面不存在",
+  "backHome": "返回首页",
+  "forbiddenTitle": "访问被拒绝",
+  "forbiddenAccess": "您没有权限访问此页面",
+  "backPrevious": "返回上一页"
 }
