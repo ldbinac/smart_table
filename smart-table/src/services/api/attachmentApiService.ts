@@ -6,7 +6,7 @@ import type { Attachment, UploadResult } from '@/api/types';
 
 export const uploadFile = async (
   file: File,
-  options?: { table_id?: string; record_id?: string; field_id?: string },
+  options?: { table_id?: string; record_id?: string; field_id?: string; form_share_token?: string },
   onProgress?: (percent: number) => void
 ): Promise<UploadResult> => {
   const formData = new FormData();
@@ -14,6 +14,7 @@ export const uploadFile = async (
   if (options?.table_id) formData.append('table_id', options.table_id);
   if (options?.record_id) formData.append('record_id', options.record_id);
   if (options?.field_id) formData.append('field_id', options.field_id);
+  if (options?.form_share_token) formData.append('form_share_token', options.form_share_token);
 
   return apiClient.upload('/attachments/upload', formData, onProgress) as Promise<UploadResult>;
 };

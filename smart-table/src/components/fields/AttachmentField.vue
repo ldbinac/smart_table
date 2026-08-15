@@ -33,6 +33,7 @@ interface Props {
   field: FieldEntity;
   readonly?: boolean;
   recordId?: string;
+  formShareToken?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -227,7 +228,8 @@ async function handleUpload(uploadFile: UploadFile) {
       recordId: props.recordId,
       fieldId: props.field.id,
       tableId: props.field.tableId,
-      baseId: baseStore.currentBaseId || ''
+      baseId: baseStore.currentBaseId || '',
+      formShareToken: props.formShareToken
     };
 
     const uploadedFiles = await attachmentService.uploadFiles(

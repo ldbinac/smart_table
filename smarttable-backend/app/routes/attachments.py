@@ -6,13 +6,16 @@ import os
 import traceback
 from flask import Blueprint, request, g, send_file, current_app, send_from_directory
 
+from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+
 from app.services.attachment_service import AttachmentService
 from app.services.base_service import BaseService
+from app.services.form_share_service import FormShareService
 from app.models.base import MemberRole
 from app.utils.decorators import jwt_required, upload_rate_limit
 from app.utils.response import (
     success_response, error_response, not_found_response,
-    forbidden_response, paginated_response
+    forbidden_response, paginated_response, unauthorized_response
 )
 
 attachments_bp = Blueprint('attachments', __name__)
@@ -21,7 +24,6 @@ attachments_bp.strict_slashes = False
 
 
 @attachments_bp.route('/upload', methods=['POST'])
-@jwt_required
 @upload_rate_limit(max_uploads=30, window=300)
 def upload_attachment() -> tuple:
     """
@@ -29,8 +31,6 @@ def upload_attachment() -> tuple:
     ---
     tags:
       - Attachments
-    security:
-      - Bearer: []
     consumes:
       - multipart/form-data
     parameters:
@@ -43,12 +43,42 @@ def upload_attachment() -> tuple:
         in: formData
         type: string
         description: 所属基础数据 ID（可选）
+      - name: form_share_token
+        in: formData
+        type: string
+        description: 表单分享令牌（开启匿名提交时用于免登录上传附件）
     responses:
       201:
         description: 上传成功的附件信息
+      401:
+        description: 需要登录
+      403:
+        description: 无权上传或该表单不允许匿名上传
     """
-    user_id = g.current_user_id
-    
+    # 鉴权：优先使用 JWT；匿名提交场景支持携带表单分享令牌
+    user_id = None
+    anonymous = False
+    try:
+        verify_jwt_in_request(optional=True)
+        identity = get_jwt_identity()
+        if identity:
+            user_id = str(identity)
+    except Exception:
+        user_id = None
+
+    if not user_id:
+        form_share_token = request.form.get('form_share_token') or request.args.get('form_share_token')
+        if not form_share_token:
+            return unauthorized_response('请先登录')
+        valid, form_share, error = FormShareService.validate_form_share(form_share_token)
+        if not valid:
+            status = 403 if '失效' in (error or '') or '过期' in (error or '') or '上限' in (error or '') else 404
+            return error_response(error or '表单分享无效', code=status)
+        if not form_share.allow_anonymous:
+            return forbidden_response('该表单不允许匿名上传附件')
+        user_id = str(form_share.created_by)
+        anonymous = True
+
     # 检查是否有文件
     if 'file' not in request.files:
         return error_response('请选择要上传的文件', code=400)
@@ -62,8 +92,8 @@ def upload_attachment() -> tuple:
     # 获取基础数据 ID（如果有）
     base_id = request.form.get('base_id') or request.args.get('base_id')
     
-    # 如果指定了基础数据，检查权限
-    if base_id:
+    # 如果指定了基础数据，检查权限（匿名上传跳过基础数据权限校验，由表单分享授权）
+    if base_id and not anonymous:
         if not BaseService.check_permission(base_id, user_id, MemberRole.EDITOR):
             return forbidden_response('您没有权限上传文件到此基础数据')
     

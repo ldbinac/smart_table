@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { useNotificationStore } from '@/stores/notificationStore'
+import { useAuthStore } from '@/stores/authStore'
 import { formatRelativeTime } from '@/utils/timezone'
 import type { AppNotification } from '@/services/api/notificationApiService'
 
@@ -13,6 +14,7 @@ defineOptions({ name: 'NotificationBell' })
 const router = useRouter()
 const { t } = useI18n()
 const notificationStore = useNotificationStore()
+const authStore = useAuthStore()
 
 // 未读数量
 const unreadCount = computed(() => notificationStore.unreadCount)
@@ -75,7 +77,10 @@ const handleMarkAllAsRead = async () => {
 }
 
 onMounted(() => {
-  notificationStore.refresh()
+  // 仅已登录用户才拉取通知，避免未登录时调用需认证的接口导致跳转登录页
+  if (authStore.isAuthenticated) {
+    notificationStore.refresh()
+  }
 })
 </script>
 

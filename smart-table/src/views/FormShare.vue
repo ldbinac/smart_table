@@ -9,6 +9,7 @@ import {
   formShareApi,
   type FormFieldSchema,
 } from "@/api/formShare";
+import { useAuthStore } from "@/stores/authStore";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
@@ -19,6 +20,7 @@ import { useDebounceFn } from '@vueuse/core';
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const authStore = useAuthStore();
 
 // 加载状态
 const isLoading = ref(true);
@@ -145,6 +147,15 @@ async function loadFormData(token: string) {
 
     if (!validation.valid) {
       loadError.value = t("view.formShareInvalidOrExpired");
+      return;
+    }
+
+    // 未开启匿名提交且用户未登录时，先跳转登录页（登录后跳回本表单）
+    if (!validation.allow_anonymous && !authStore.isAuthenticated) {
+      router.replace({
+        path: "/login",
+        query: { redirect: route.fullPath },
+      });
       return;
     }
 
@@ -944,6 +955,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 :model-value="formValues[field.id]"
                 :field="field as unknown as FieldEntity"
                 :record-id="newRecordId"
+                :form-share-token="shareToken"
                 :readonly="false"
                 @update:model-value="(val) => handleFieldChange(field.id, val)"
                 @upload="(files) => handleAttachmentUpload(field.id, files)"

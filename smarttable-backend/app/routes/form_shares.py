@@ -508,7 +508,8 @@ def validate_form_share(token: str) -> tuple:
         data={
             'valid': True,
             'require_captcha': form_share.require_captcha,
-            'can_submit': form_share.can_submit()
+            'can_submit': form_share.can_submit(),
+            'allow_anonymous': form_share.allow_anonymous
         },
         message='表单分享有效'
     )
