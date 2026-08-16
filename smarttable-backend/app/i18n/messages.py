@@ -153,4 +153,14 @@ MESSAGES = {
         'zh-CN': '服务器内部错误，请稍后重试',
         'en-US': 'Internal server error, please try again later',
     },
+
+    # ===== 默认表格视图（创建空白表格时自动生成的视图）=====
+    'default_table_view_name': {
+        'zh-CN': '表格视图',
+        'en-US': 'Table View',
+    },
+    'default_table_view_description': {
+        'zh-CN': '默认表格视图',
+        'en-US': 'Default table view',
+    },
 }
