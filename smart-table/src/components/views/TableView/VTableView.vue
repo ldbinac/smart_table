@@ -3162,7 +3162,23 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       };
       break;
     case FieldType.CHECKBOX:
-      config.cellType = 'switch';
+      // 复选框使用内置开关控件（cellType:'switch'）。
+      // 注意：VTable 的 switch 单元格会忽略 customLayout/customRender，
+      // 导致“新增记录行”（_rowType === 'addButton'）的覆盖逻辑失效、开关控件仍被渲染。
+      // 因此将该行的 cellType 动态切换为 'text'，使其与其它字段类型一致（显示占位背景、不渲染控件）。
+      config.cellType = (args: any) => {
+        const { table, col, row } = args;
+        if (!table) return 'switch';
+        try {
+          const record = table.getCellOriginRecord(col, row);
+          if (record && record._rowType === 'addButton') {
+            return 'text';
+          }
+        } catch (_e) {
+          // 单元格类型解析阶段记录尚未就绪时忽略异常，避免影响开关交互
+        }
+        return 'switch';
+      };
       config.style = {
         textAlign: 'center'
       };
@@ -4762,12 +4778,24 @@ const bindTableEvents = () => {
     // 仅处理行数据（非表头）
     if (!tableInstance.isHeader(col, row)) {
       const record = tableInstance.getCellOriginRecord(col, row);
-      if (record && record._recordId && record._originalRecord) {
+      if (record && record._recordId) {
         const recordId = record._recordId;
-        const fieldId = orderedVisibleFields.value[col - 1]?.id;
-        if (!fieldId) return;
+        // 优先使用事件自带的字段标识（cellInfo.field/fieldKey，与列定义一致、不受列索引偏移影响），
+        // 回退到可见字段列表推导，确保能稳定解析出字段ID
+        const fieldId = (args.field || args.fieldKey || orderedVisibleFields.value[col - 1]?.id) as string | undefined;
+        if (!fieldId) {
+          console.warn('[开关保存] 未解析到字段ID，已跳过保存', { col, row });
+          return;
+        }
 
-        const originalRecord = record._originalRecord;
+        // 兼容部分场景下单元格原始记录未挂载 _originalRecord 的情况
+        const originalRecord = record._originalRecord || record;
+        const newChecked = !!checked;
+
+        // 值未变化则不触发保存，避免重复写库
+        if (originalRecord.values && originalRecord.values[fieldId] === newChecked) {
+          return;
+        }
 
         // 协同编辑：检查锁状态
         const authStore = useAuthStore();
@@ -4775,6 +4803,7 @@ const bindTableEvents = () => {
         const tableId = tableStore.currentTable?.id;
         const baseId = tableStore.currentTable?.baseId;
 
+        let lockAcquired = false;
         if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
           // 如果被其他用户锁定，回退开关状态并提示
           if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
@@ -4785,16 +4814,23 @@ const bindTableEvents = () => {
             return;
           }
 
-          // 尝试获取锁
-          const lockResult = await collabStore.acquireLock(
-            { base_id: baseId, table_id: tableId, record_id: recordId, field_id: fieldId },
-            currentUserId
-          );
-          if (!lockResult.success && lockResult.reason === 'locked') {
-            ElMessage.warning(t("view.cellLockedByOther", { user: lockResult.locked_by?.nickname || lockResult.locked_by?.name || t("view.otherUser") }));
-            tableStore.refreshRecords(tableId);
-            return;
-          }
+          // 乐观获取锁（非阻塞）：与文本/选择单元格一致，避免并发重复切换开关时
+          // await 被挂起（acquireLock 对同一 key 的并发请求此前会丢弃先前的 pending 导致其
+          // Promise 永久不被 resolve），从而令 updateRecord 永远不执行、保存不触发。
+          collabStore
+            .acquireLock(
+              { base_id: baseId, table_id: tableId, record_id: recordId, field_id: fieldId },
+              currentUserId
+            )
+            .then((result) => {
+              // 兜底：仅当锁确实被其他用户持有时提示（正常本端获取不会进入）
+              if (!result.success && result.reason === 'locked' && result.locked_by) {
+                ElMessage.warning(t("view.cellLockedByOther", { user: result.locked_by.nickname || result.locked_by.name || t("view.otherUser") }));
+                tableStore.refreshRecords(tableId);
+              }
+            });
+          // 视为本端已持有锁，记录以便 finally 释放，避免锁泄漏
+          lockAcquired = true;
         }
 
         try {
@@ -4802,13 +4838,13 @@ const bindTableEvents = () => {
 
           // 乐观冲突检测：记录待提交变更
           if (collabStore.isRealtimeAvailable) {
-            collabStore.trackPendingChange(recordId, fieldId, checked);
+            collabStore.trackPendingChange(recordId, fieldId, newChecked);
           }
 
           await recordService.updateRecord(recordId, {
             values: {
               ...originalRecord.values,
-              [fieldId]: checked,
+              [fieldId]: newChecked,
             } as Record<string, CellValue>,
           });
 
@@ -4819,22 +4855,26 @@ const bindTableEvents = () => {
 
           // 刷新表格数据
           await tableStore.refreshRecords(tableId);
-
-          // 协同编辑：释放锁
-          if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
-            collabStore.releaseLock({
-              base_id: baseId,
-              table_id: tableId,
-              record_id: recordId,
-              field_id: fieldId,
-            });
-          }
         } catch (error) {
           console.error('开关状态保存失败:', error);
           ElMessage.error(t("view.toggleSaveFailed"));
           // 保存失败也移除待提交变更，避免残留
           if (collabStore.isRealtimeAvailable) {
             collabStore.removePendingChange(recordId, fieldId);
+          }
+        } finally {
+          // 协同编辑：无论保存成功与否都释放编辑锁，防止锁泄漏导致后续无法编辑
+          if (lockAcquired && tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
+            try {
+              collabStore.releaseLock({
+                base_id: baseId,
+                table_id: tableId,
+                record_id: recordId,
+                field_id: fieldId,
+              });
+            } catch (_e) {
+              // 释放锁失败不影响主流程
+            }
           }
         }
       }
@@ -5633,6 +5673,28 @@ const updateTableData = () => {
       smartDataSource.clearCache();
       smartDataSource.updateMemoryCache(newRows, 0);
       smartDataSource.markFullyLoaded();
+
+      // 清除 switch 单元格的勾选状态缓存，使其重新从数据读取最新值。
+      // VTable 的 stateManager.checkedState 在首次渲染时按「行索引 + 字段」缓存开关状态，
+      // 外部更新（如详情抽屉保存）后走增量刷新不会自动同步该缓存，
+      // 导致开关单元格持续显示旧值（需整页刷新才生效）。仅清理 CHECKBOX 字段即可，
+      // 不影响行选择等其他 checkbox 的状态。
+      try {
+        const sm = (tableInstance as any)?.stateManager;
+        if (sm && sm.checkedState && typeof sm.checkedState.forEach === 'function') {
+          const checkboxFieldIds = orderedVisibleFields.value
+            .filter((f: any) => f.type === FieldType.CHECKBOX)
+            .map((f: any) => f.id);
+          if (checkboxFieldIds.length) {
+            sm.checkedState.forEach((rec: Record<string, unknown>) => {
+              if (rec) checkboxFieldIds.forEach((fid: string) => { delete (rec as any)[fid]; });
+            });
+          }
+        }
+      } catch (_e) {
+        // 清除缓存失败不影响主流程
+      }
+
       (tableInstance as any).renderWithRecreateCells();
     } else {
       // 无 dataSource，回退全量重建
