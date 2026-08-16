@@ -234,6 +234,8 @@ class FormShareService:
                         # 数字字段：格式配置需同步到前端，否则分享页无法展示前后缀/千分位
                         'format', 'currencySymbol', 'prefix', 'suffix',
                         'thousandsSeparator',
+                        # 日期字段：显示/录入格式需同步到前端，否则分享页无法按设定格式渲染
+                        'dateFormat',
                     ):
                         if rule_key in options and rule_key not in merged_config:
                             merged_config[rule_key] = options[rule_key]

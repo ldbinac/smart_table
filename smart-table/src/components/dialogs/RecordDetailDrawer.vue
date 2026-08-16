@@ -9,7 +9,6 @@ import {
   ElInputNumber,
   ElSelect,
   ElOption,
-  ElDatePicker,
   ElSwitch,
   ElMessage,
   ElRate,
@@ -28,7 +27,6 @@ import { useBaseStore } from "@/stores/baseStore";
 import type { Workflow } from "@/types/workflow";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
-import dayjs from "dayjs";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
@@ -40,12 +38,13 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import SubTableInDrawer from "@/components/dialogs/SubTableInDrawer.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
-import { formatDateTime, formatDate, toConfiguredTimezone } from "@/utils/timezone";
+import { formatDateTime, formatDate } from "@/utils/timezone";
 
 interface GroupLevel {
   fieldId: string;
@@ -656,36 +655,14 @@ function getMaxRating(field: FieldEntity): number {
   return (field.options?.maxRating as number) ?? 5;
 }
 
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FieldEntity): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FieldEntity): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
-
-// 将 UTC 日期字符串转换为配置时区的 Date 对象（用于 el-date-picker 显示）
-function parseUtcDateForPicker(value: string | unknown): Date | null {
-  if (!value || typeof value !== "string") return null;
-  const converted = toConfiguredTimezone(value);
-  if (!converted) return null;
-  return converted.toDate();
-}
-
-// 将 Date 对象转换为 UTC 日期字符串（用于提交到后端）
-function formatDateForSubmit(val: unknown, showTime: boolean): string | null {
-  if (!val) return null;
-  const d = dayjs(val as Date);
-  if (!d.isValid()) return null;
-  // 转换为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）或日期字符串（如 2026-05-10）
-  return showTime ? d.toISOString() : d.format("YYYY-MM-DD");
+// 获取日期字段只读显示值（兼容配置的日期格式：年月 / 月日）
+function getDateDisplayValue(field: FieldEntity): string {
+  const v = formData.value[field.id];
+  if (v == null || v === "") return "-";
+  if (field.type === FieldType.DATE_TIME) return formatDateTime(v as string);
+  const fmt = (field.options?.dateFormat as string) || "YYYY-MM-DD";
+  if (fmt === "YYYY-MM-DD") return formatDate(v as string);
+  return v as string;
 }
 
 // 处理附件上传
@@ -958,35 +935,19 @@ const effectiveSize = computed<string | number>(() => {
 
           <!-- 日期类型 -->
           <template v-else-if="getFieldComponent(field) === 'date'">
-            <template v-if="readonly">
-              <el-input
-                :model-value="
-                  formData[field.id]
-                    ? (getDateShowTime(field)
-                        ? formatDateTime(formData[field.id] as string)
-                        : formatDate(formData[field.id] as string))
-                    : '-'
-                "
-                disabled
-                class="field-input" />
-            </template>
-            <template v-else>
-              <el-date-picker
-                :model-value="parseUtcDateForPicker(formData[field.id])"
-                @update:model-value="
-                  (val) =>
-                    handleValueChange(
-                      field.id,
-                      formatDateForSubmit(val, getDateShowTime(field)),
-                    )
-                "
-                :type="getDatePickerType(field)"
-                :placeholder="t('record.selectPlaceholder', { name: field.name })"
-                :format="getDateFormat(field)"
-                :disabled="readonly"
-                class="field-input"
-                style="width: 100%" />
-            </template>
+            <el-input
+              v-if="readonly"
+              :model-value="getDateDisplayValue(field)"
+              disabled
+              class="field-input" />
+            <DateInput
+              v-else
+              :field="field"
+              :model-value="formData[field.id]"
+              :placeholder="t('record.selectPlaceholder', { name: field.name })"
+              :disabled="readonly"
+              class="field-input"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 复选框类型 -->

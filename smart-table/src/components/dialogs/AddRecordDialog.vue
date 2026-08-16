@@ -9,7 +9,6 @@ import {
   ElInputNumber,
   ElSelect,
   ElOption,
-  ElDatePicker,
   ElSwitch,
   ElMessage,
   ElRate,
@@ -19,7 +18,6 @@ import {
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import { generateId } from "@/utils/id";
-import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
 import {
@@ -29,6 +27,7 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
 import { formatDateTime } from "@/utils/timezone";
 import { useI18n } from "vue-i18n";
 
@@ -227,41 +226,9 @@ function getSelectOptions(field: FieldEntity) {
 
 
 
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FieldEntity): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FieldEntity): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
-
 // 获取评分最大值
 function getMaxRating(field: FieldEntity): number {
   return (field.options?.maxRating as number) ?? 5;
-}
-
-// 处理日期变更
-function handleDateChange(field: FieldEntity, val: Date | null) {
-  if (!val) {
-    formData.value[field.id] = null;
-    return;
-  }
-
-  const showTime = getDateShowTime(field);
-  if (showTime) {
-    // 显示时间时存储为时间戳
-    formData.value[field.id] = val.getTime();
-  } else {
-    // 仅日期时存储为日期字符串
-    formData.value[field.id] = dayjs(val).format("YYYY-MM-DD");
-  }
 }
 
 // 检查字段是否已自动填充（分组字段）
@@ -529,13 +496,12 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
 
         <!-- 日期类型 -->
         <template v-else-if="getFieldComponent(field) === 'date'">
-          <ElDatePicker
-            :model-value="formData[field.id] as Date | undefined"
-            :type="getDatePickerType(field)"
+          <DateInput
+            :field="field"
+            :model-value="formData[field.id]"
             :placeholder="t('record.selectPlaceholder', { name: field.name })"
-            :format="getDateFormat(field)"
             style="width: 100%"
-            @update:model-value="(val) => handleDateChange(field, val)" />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
         <!-- 复选框类型 -->

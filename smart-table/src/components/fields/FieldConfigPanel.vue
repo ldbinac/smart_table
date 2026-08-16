@@ -151,6 +151,21 @@ const showDateOptions = computed(
 const isDateTimeField = computed(
   () => localField.value.type === FieldType.DATE_TIME,
 );
+
+// 仅日期字段（非日期时间）展示日期格式配置
+const showDateFormatOptions = computed(
+  () => localField.value.type === FieldType.DATE,
+);
+
+// 可选的日期显示/录入格式
+const dateFormatOptions = [
+  { label: "YYYY-MM-DD", value: "YYYY-MM-DD" },
+  { label: "YYYY-MM", value: "YYYY-MM" },
+  { label: "YYYYMMDD", value: "YYYYMMDD" },
+  { label: "YYYYMM", value: "YYYYMM" },
+  { label: "MMDD", value: "MMDD" },
+  { label: "MM-DD", value: "MM-DD" },
+];
 const showSelectOptions = computed(
   () =>
     localField.value.type === FieldType.SINGLE_SELECT ||
@@ -245,6 +260,22 @@ const currencySymbolOptions = [
         :precision="localField.options?.precision"
         :placeholder="t('field.defaultNumberPlaceholder')"
         class="config-input" />
+
+      <!-- 日期格式 -->
+      <div v-if="showDateFormatOptions" class="config-section">
+        <div class="config-label">{{ t('field.dateDisplayFormat') }}</div>
+        <div class="config-hint">{{ t('field.dateDisplayFormatHint') }}</div>
+        <el-select
+          :model-value="localField.options?.dateFormat || 'YYYY-MM-DD'"
+          @update:model-value="(val: string) => updateOption('dateFormat', val)"
+          class="config-input">
+          <el-option
+            v-for="option in dateFormatOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value" />
+        </el-select>
+      </div>
 
       <!-- 日期类型默认值 -->
       <div v-if="showDateOptions" class="date-default-wrapper">

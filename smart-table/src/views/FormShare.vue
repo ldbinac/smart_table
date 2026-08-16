@@ -14,6 +14,8 @@ import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
+import type { FieldOptions } from "@/types/fields";
 import { Search as SearchIcon } from '@element-plus/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
 import { FormulaEngine } from "@/utils/formula";
@@ -478,11 +480,11 @@ function resetForm() {
     ) {
       // 特殊处理日期字段的动态默认值 'now'
       if ((field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) && defaultValue === "now") {
-        const isDateTime = field.type === FieldType.DATE_TIME;
-        if (isDateTime) {
+        if (field.type === FieldType.DATE_TIME) {
           formValues.value[field.id] = new Date().toISOString();
         } else {
-          formValues.value[field.id] = new Date().toISOString().split("T")[0];
+          const fmt = (field.config?.dateFormat as string) || "YYYY-MM-DD";
+          formValues.value[field.id] = dayjs().format(fmt);
         }
       } else if (
         field.type === FieldType.MULTI_SELECT &&
@@ -615,39 +617,6 @@ function getMaxRating(field: FormFieldSchema): number {
     (field.config?.maxRating as number) ??
     5
   );
-}
-
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FormFieldSchema): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FormFieldSchema): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FormFieldSchema): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
-
-// 处理日期变更
-function handleDateChange(fieldId: string, val: Date | null) {
-  if (!val) {
-    handleFieldChange(fieldId, null);
-    return;
-  }
-
-  const field = fields.value.find((f) => f.id === fieldId);
-  if (!field) return;
-
-  const showTime = getDateShowTime(field);
-  if (showTime) {
-    handleFieldChange(fieldId, val.getTime());
-  } else {
-    handleFieldChange(fieldId, dayjs(val).format("YYYY-MM-DD"));
-  }
 }
 
 // 获取进度最大值
@@ -916,33 +885,22 @@ function calculateFormulaValue(field: FormFieldSchema): string {
 
             <!-- 日期类型 -->
             <template v-else-if="getFieldComponentType(field) === 'date'">
-              <el-date-picker
-                :model-value="
-                  formValues[field.id] as unknown as Date | undefined
-                "
-                :type="getDatePickerType(field)"
+              <DateInput
+                :field="{ type: field.type, options: field.config as FieldOptions }"
+                :model-value="formValues[field.id]"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
-                :format="getDateFormat(field)"
                 style="width: 100%"
-                @update:model-value="
-                  (val) => handleDateChange(field.id, val as Date | null)
-                " />
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 日期时间类型 -->
             <template v-else-if="getFieldComponentType(field) === 'datetime'">
-              <el-date-picker
-                :model-value="
-                  formValues[field.id] as unknown as Date | undefined
-                "
-                type="datetime"
+              <DateInput
+                :field="{ type: field.type, options: field.config as FieldOptions }"
+                :model-value="formValues[field.id]"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
-                format="YYYY-MM-DD HH:mm:ss"
                 style="width: 100%"
-                @update:model-value="
-                  (val) =>
-                    handleFieldChange(field.id, val ? val.toISOString() : null)
-                " />
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 复选框类型 -->

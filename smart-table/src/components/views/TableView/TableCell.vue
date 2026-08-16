@@ -6,6 +6,7 @@ import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
 import MultiSelectField from "@/components/fields/MultiSelectField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
 import MemberDisplay from "@/components/common/MemberDisplay.vue";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -127,15 +128,7 @@ const isDateTimeField = computed(() => {
   return props.field?.type === FieldType.DATE_TIME;
 });
 
-// 日期显示格式
-const dateDisplayFormat = computed(() => {
-  return isDateTimeField.value ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-});
-
-// 日期选择器类型
-const datePickerType = computed(() => {
-  return isDateTimeField.value ? "datetime" : "date";
-});
+// 日期显示格式与选择器类型由 DateInput 根据 field.options.dateFormat 统一处理
 
 // 公式字段计算结果 - 使用独立的 computed 来确保响应性
 const formulaValue = computed(() => {
@@ -213,16 +206,30 @@ const displayValue = computed(() => {
       if (!value) return "";
       // 根据字段类型显示日期或日期时间
       const isDateTime = type === "date_time";
+      if (isDateTime) return formatDateTime(value);
 
-      // 处理字符串日期格式
+      // 普通日期：按字段配置的 dateFormat 显示
+      const fmt = (fieldOptions?.dateFormat as string) || "YYYY-MM-DD";
+      if (fmt === "YYYY-MM-DD") return formatDate(value);
       if (typeof value === "string") {
-        return isDateTime ? formatDateTime(value) : formatDate(value);
+        const s = value.trim();
+        if (fmt === "MMDD" && /^\d{4}$/.test(s)) return value;
+        if (fmt === "MM-DD" && /^\d{2}-\d{2}$/.test(s)) return value;
+        if (fmt === "YYYYMMDD" && /^\d{8}$/.test(s)) return value;
+        if (fmt === "YYYYMM" && /^\d{6}$/.test(s)) return value;
+        if (fmt === "YYYY-MM" && /^\d{4}-\d{2}$/.test(s)) return value;
       }
-      // 处理数字时间戳格式
-      if (typeof value === "number") {
-        return isDateTime ? formatDateTime(value) : formatDate(value);
-      }
-      return String(value);
+      const date = value instanceof Date ? value : new Date(typeof value === "number" ? value : Date.parse(value));
+      if (isNaN(date.getTime())) return String(value);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      if (fmt === "YYYY-MM") return `${y}-${m}`;
+      if (fmt === "YYYYMM") return `${y}${m}`;
+      if (fmt === "MMDD") return `${m}${d}`;
+      if (fmt === "MM-DD") return `${m}-${d}`;
+      if (fmt === "YYYYMMDD") return `${y}${m}${d}`;
+      return formatDate(value);
     }
     case "rating": {
       const maxRating = options?.maxRating || 5;
@@ -509,21 +516,12 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 };
 
-const handleDateChange = (val: Date | null) => {
-  dateEditValue.value = val;
-  if (val) {
-    // 根据字段类型决定存储格式
-    if (isDateTimeField.value) {
-      // 日期时间字段存储为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）
-      editValue.value = dayjs(val).toISOString();
-    } else {
-      // 日期字段存储为日期字符串（如 2026-05-10）
-      editValue.value = dayjs(val).format("YYYY-MM-DD");
-    }
-  } else {
-    editValue.value = null;
+const handleCellDateInput = (val: CellValue) => {
+  isEditing.value = false;
+  emit("edit", false);
+  if (val !== cellValue.value) {
+    emit("update", val);
   }
-  finishEdit();
 };
 
 const handleDoubleClick = () => {
@@ -655,14 +653,12 @@ const multiSelectDisplayValues = computed(() => {
       </template>
 
       <template v-else-if="fieldType === 'date' || fieldType === 'date_time'">
-        <el-date-picker
-          ref="inputRef"
-          v-model="dateEditValue"
-          :type="datePickerType"
+        <DateInput
+          :field="props.field"
+          :model-value="cellValue"
           :placeholder="isDateTimeField ? t('view.selectDateTime') : t('view.selectDate')"
-          :format="dateDisplayFormat"
           class="cell-date-picker"
-          @change="handleDateChange" />
+          @update:model-value="handleCellDateInput" />
       </template>
 
       <template v-else-if="fieldType === 'rating'">

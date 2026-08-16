@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatDate } from "@/utils/timezone";
+import DateInput from "./DateInput.vue";
+import type { CellValue } from "@/types";
+import type { FieldOptions } from "@/types/fields";
 
 const { t } = useI18n();
-import dayjs from "dayjs";
 
 interface Props {
-  modelValue: string | null;
+  modelValue: CellValue;
   field?: {
     id: string;
     name: string;
     type: string;
-    options?: {
-      dateFormat?: string;
-    };
+    options?: FieldOptions;
   };
   readonly?: boolean;
   placeholder?: string;
@@ -27,37 +27,23 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  (e: "update:modelValue", value: string | null): void;
+  (e: "update:modelValue", value: CellValue): void;
 }>();
 
-const displayFormat = "YYYY-MM-DD";
+const dateFormat = computed<string>(() => props.field?.options?.dateFormat || "YYYY-MM-DD");
 
 const displayValue = computed(() => {
-  if (!props.modelValue) return "-";
-  return formatDate(props.modelValue);
+  if (props.modelValue == null || props.modelValue === "") return "-";
+  // 默认 YYYY-MM-DD 维持原有（带时区）显示；其余格式字符串本身即展示样式
+  if (dateFormat.value === "YYYY-MM-DD") {
+    return formatDate(props.modelValue as string);
+  }
+  return props.modelValue as string;
 });
 
-const localValue = computed({
-  get: () => {
-    if (!props.modelValue) return null;
-    return dayjs(props.modelValue).toDate();
-  },
-  set: (val: Date | null) => {
-    if (!val) {
-      emit("update:modelValue", null);
-    } else {
-      emit("update:modelValue", dayjs(val).format(displayFormat));
-    }
-  },
-});
-
-const pickerRef = ref();
-
-const focus = () => {
-  pickerRef.value?.focus();
-};
-
-defineExpose({ focus });
+function onInputUpdate(val: CellValue) {
+  emit("update:modelValue", val == null ? null : val);
+}
 </script>
 
 <template>
@@ -68,15 +54,11 @@ defineExpose({ focus });
       </div>
     </template>
     <template v-else>
-      <el-date-picker
-        v-model="localValue"
-        type="date"
+      <DateInput
+        :field="field"
+        :model-value="modelValue"
         :placeholder="placeholder || t('field.placeholderDate')"
-        :format="displayFormat"
-        :value-format="displayFormat"
-        clearable
-        ref="pickerRef"
-        class="date-picker" />
+        @update:model-value="onInputUpdate" />
     </template>
   </div>
 </template>
@@ -92,14 +74,6 @@ defineExpose({ focus });
       padding: $spacing-sm;
       color: $text-primary;
       font-size: $font-size-base;
-    }
-  }
-
-  .date-picker {
-    width: 100%;
-
-    :deep(.el-input__wrapper) {
-      border-radius: $border-radius-sm;
     }
   }
 }

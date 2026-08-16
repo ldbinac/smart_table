@@ -6,14 +6,14 @@ import {
   ElInputNumber,
   ElSelect,
   ElOption,
-  ElDatePicker,
   ElSwitch,
   ElRate,
   ElSlider,
 } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types/fields";
-import dayjs from "dayjs";
+import DateInput from "@/components/fields/DateInput.vue";
+import type { CellValue } from "@/types";
 
 const { t } = useI18n();
 
@@ -46,26 +46,8 @@ const maxLength = computed(() => {
   return (props.field.options?.maxLength as number) || undefined;
 });
 
-const isDateTime = computed(() => props.field.type === FieldType.DATE_TIME);
-
-const dateFormat = computed(() =>
-  isDateTime.value ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD",
-);
-
 function update(value: unknown) {
   emit("update:modelValue", value);
-}
-
-function handleDateChange(val: Date | null) {
-  if (!val) {
-    update(null);
-    return;
-  }
-  if (isDateTime.value) {
-    update(dayjs(val).toISOString());
-  } else {
-    update(dayjs(val).format("YYYY-MM-DD"));
-  }
 }
 
 function getTextValue() {
@@ -94,12 +76,6 @@ function getMultiSelectValue() {
     return props.modelValue.split(",");
   }
   return [];
-}
-
-function getDateValue() {
-  if (!props.modelValue) return null;
-  const date = dayjs(props.modelValue as string);
-  return date.isValid() ? date.toDate() : null;
 }
 
 function getCheckboxValue() {
@@ -236,15 +212,14 @@ function getComponentType() {
 
     <!-- 日期 / 日期时间 -->
     <template v-else-if="getComponentType() === 'date'">
-      <ElDatePicker
-        :model-value="getDateValue()"
-        :type="isDateTime ? 'datetime' : 'date'"
+      <DateInput
+        :field="field"
+        :model-value="props.modelValue as CellValue"
         :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
-        :format="dateFormat"
-        :disabled="disabled"
+        :disabled="disabled || isViewMode(field)"
         class="input-control"
         style="width: 100%"
-        @update:model-value="handleDateChange" />
+        @update:model-value="update" />
     </template>
 
     <!-- 复选框 -->

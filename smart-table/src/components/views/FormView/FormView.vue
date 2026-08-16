@@ -12,6 +12,7 @@ import { formatNumberField, createNumberInputFormatter, createNumberInputParser,
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useAuthStore } from "@/stores/authStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
@@ -300,12 +301,12 @@ function resetForm() {
     if (field.defaultValue !== undefined && field.defaultValue !== null) {
       // 特殊处理日期字段的动态默认值 'now'
       if ((field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) && field.defaultValue === 'now') {
-        // 动态计算当前日期
-        const isDateTime = field.type === FieldType.DATE_TIME;
-        if (isDateTime) {
+        // 动态计算当前日期，按字段配置的日期格式存储
+        if (field.type === FieldType.DATE_TIME) {
           formValues.value[field.id] = new Date().toISOString();
         } else {
-          formValues.value[field.id] = new Date().toISOString().split('T')[0];
+          const fmt = (field.options?.dateFormat as string) || "YYYY-MM-DD";
+          formValues.value[field.id] = dayjs().format(fmt);
         }
       } else {
         formValues.value[field.id] = field.defaultValue as CellValue;
@@ -460,41 +461,6 @@ function getSelectOptions(field: FieldEntity) {
 }
 
 
-
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FieldEntity): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FieldEntity): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
-
-// 处理日期变更
-function handleDateChange(fieldId: string, val: Date | null) {
-  if (!val) {
-    handleFieldChange(fieldId, null);
-    return;
-  }
-
-  const field = props.fields.find((f) => f.id === fieldId);
-  if (!field) return;
-
-  const showTime = getDateShowTime(field);
-  if (showTime) {
-    // 显示时间时存储为时间戳
-    handleFieldChange(fieldId, val.getTime());
-  } else {
-    // 仅日期时存储为日期字符串
-    handleFieldChange(fieldId, dayjs(val).format("YYYY-MM-DD"));
-  }
-}
 
 // 导出表单数据为 JSON
 function exportFormData() {
@@ -777,18 +743,13 @@ defineExpose({
 
             <!-- 日期类型 -->
             <template v-else-if="getFieldComponentType(field) === 'date'">
-              <el-date-picker
-                :model-value="
-                  formValues[field.id] as unknown as Date | undefined
-                "
-                :type="getDatePickerType(field)"
+              <DateInput
+                :field="field"
+                :model-value="formValues[field.id]"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
-                :format="getDateFormat(field)"
                 :disabled="readonly"
                 class="form-date-picker"
-                @update:model-value="
-                  (val) => handleDateChange(field.id, val as Date | null)
-                " />
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 复选框类型 -->

@@ -36,6 +36,7 @@ declare module 'vue' {
     DashboardShareDialog: typeof import('./components/dashboard/DashboardShareDialog.vue')['default']
     DashboardTemplateDialog: typeof import('./components/dialogs/DashboardTemplateDialog.vue')['default']
     DateField: typeof import('./components/fields/DateField.vue')['default']
+    DateInput: typeof import('./components/fields/DateInput.vue')['default']
     DateTimeField: typeof import('./components/fields/DateTimeField.vue')['default']
     DateWidget: typeof import('./components/dashboard/DateWidget.vue')['default']
     DocumentEditor: typeof import('./components/documents/DocumentEditor.vue')['default']

@@ -558,8 +558,121 @@ class DateTimeEditor extends InputEditor {
   }
 }
 
+// 自定义年月编辑器（input type=month，仅选年月，返回时间戳）
+class DateMonthEditor extends InputEditor {
+  editorType = 'DateMonth';
+  createElement() {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'month');
+    input.style.padding = '4px';
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
+    input.style.position = 'absolute';
+    input.style.backgroundColor = '#FFFFFF';
+    input.style.borderRadius = '0px';
+    input.style.border = '2px solid #4A90E2';
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'a' && (e.ctrlKey || e.metaKey)) e.stopPropagation();
+    });
+    input.addEventListener('wheel', (e: Event) => { e.preventDefault(); });
+    this.element = input;
+    this.container.appendChild(input);
+  }
+  setValue(value: any) {
+    let year = 2000;
+    let month = 1;
+    if (value instanceof Date) {
+      year = value.getFullYear();
+      month = value.getMonth() + 1;
+    } else if (typeof value === 'number') {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) { year = d.getFullYear(); month = d.getMonth() + 1; }
+    } else if (typeof value === 'string') {
+      const s = value.trim().replace(/-/g, '');
+      if (/^\d{6}$/.test(s)) {
+        year = parseInt(s.slice(0, 4));
+        month = parseInt(s.slice(4, 6));
+      } else {
+        const ts = Date.parse(value);
+        if (!isNaN(ts)) { const d = new Date(ts); year = d.getFullYear(); month = d.getMonth() + 1; }
+      }
+    }
+    if (this.element) this.element.value = `${year}-${String(month).padStart(2, '0')}`;
+  }
+  getValue() {
+    const val = this.element?.value;
+    return (val ? new Date(val).getTime() : null) as any;
+  }
+}
+
+// 自定义月日编辑器（两个下拉框，仅选月日，返回固定年份的时间戳）
+class DateMonthDayEditor extends InputEditor {
+  editorType = 'DateMonthDay';
+  monthSelect?: HTMLSelectElement;
+  daySelect?: HTMLSelectElement;
+  createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex; gap:4px; padding:4px; width:100%; box-sizing:border-box; position:absolute; background:#fff; border:2px solid #4A90E2; border-radius:0; z-index:9999;';
+    const monthSel = document.createElement('select');
+    const daySel = document.createElement('select');
+    for (let i = 1; i <= 12; i++) {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = String(i).padStart(2, '0');
+      monthSel.appendChild(o);
+    }
+    for (let i = 1; i <= 31; i++) {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = String(i).padStart(2, '0');
+      daySel.appendChild(o);
+    }
+    monthSel.style.cssText = 'flex:1; padding:2px;';
+    daySel.style.cssText = 'flex:1; padding:2px;';
+    wrapper.appendChild(monthSel);
+    wrapper.appendChild(daySel);
+    this.monthSelect = monthSel;
+    this.daySelect = daySel;
+    this.element = wrapper as any;
+    this.container.appendChild(wrapper);
+    wrapper.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'a' && (e.ctrlKey || e.metaKey)) e.stopPropagation();
+    });
+  }
+  setValue(value: any) {
+    let month = 1;
+    let day = 1;
+    if (typeof value === 'string') {
+      const s = value.trim().replace(/-/g, '');
+      if (/^\d{4}$/.test(s)) {
+        month = parseInt(s.slice(0, 2));
+        day = parseInt(s.slice(2, 4));
+      } else {
+        const ts = Date.parse(value);
+        if (!isNaN(ts)) { const d = new Date(ts); month = d.getMonth() + 1; day = d.getDate(); }
+      }
+    } else if (typeof value === 'number') {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) { month = d.getMonth() + 1; day = d.getDate(); }
+    } else if (value instanceof Date) {
+      month = value.getMonth() + 1;
+      day = value.getDate();
+    }
+    if (this.monthSelect) this.monthSelect.value = String(month);
+    if (this.daySelect) this.daySelect.value = String(day);
+  }
+  getValue(): any {
+    const m = this.monthSelect ? parseInt(this.monthSelect.value) : 1;
+    const d = this.daySelect ? parseInt(this.daySelect.value) : 1;
+    if (!m || !d) return null;
+    return Date.UTC(2000, m - 1, d);
+  }
+}
+
 registerVTable.editor('date-only', new DateOnlyEditor());
 registerVTable.editor('date-time', new DateTimeEditor());
+registerVTable.editor('date-month', new DateMonthEditor());
+registerVTable.editor('date-month-day', new DateMonthDayEditor());
 
 // 自定义多选编辑器（checkbox 下拉列表，支持多项选择和 Enter/外部点击退出）
 class MultiSelectEditor implements IEditor {
@@ -3135,6 +3248,43 @@ const getStarPath = (cx: number, cy: number, outerR: number, points: number, inn
   return parts.join('');
 };
 
+// 按字段配置的日期格式格式化单元格显示值
+const formatDateByConfig = (cellValue: any, fmt: string): string => {
+  if (cellValue == null || cellValue === '') return '';
+  if (fmt === 'YYYY-MM-DD') {
+    return formatDate(cellValue);
+  }
+  let date: Date | null = null;
+  if (cellValue instanceof Date) {
+    date = cellValue;
+  } else if (typeof cellValue === 'number') {
+    const d = new Date(cellValue);
+    if (!isNaN(d.getTime())) date = d;
+  } else if (typeof cellValue === 'string') {
+    const s = cellValue.trim();
+    // 已是紧凑格式则直接展示，避免被重新解析导致偏移
+    if (fmt === 'MMDD' && /^\d{4}$/.test(s)) return s;
+    if (fmt === 'MM-DD' && /^\d{2}-\d{2}$/.test(s)) return s;
+    if (fmt === 'YYYYMMDD' && /^\d{8}$/.test(s)) return s;
+    if (fmt === 'YYYYMM' && /^\d{6}$/.test(s)) return s;
+    if (fmt === 'YYYY-MM' && /^\d{4}-\d{2}$/.test(s)) return s;
+    const ts = Date.parse(s);
+    if (!isNaN(ts)) date = new Date(ts);
+  }
+  if (!date) return String(cellValue);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  switch (fmt) {
+    case 'YYYY-MM': return `${y}-${m}`;
+    case 'YYYYMM': return `${y}${m}`;
+    case 'MMDD': return `${m}${d}`;
+    case 'MM-DD': return `${m}-${d}`;
+    case 'YYYYMMDD': return `${y}${m}${d}`;
+    default: return `${y}-${m}-${d}`;
+  }
+};
+
 // 根据字段类型获取 VTable 列配置
 const getCellTypeConfig = (field: any): Record<string, any> => {
   const config: Record<string, any> = {};
@@ -3203,7 +3353,8 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.cellType = 'link';
       config.editor = 'input';
       break;
-    case FieldType.DATE:
+    case FieldType.DATE: {
+      const dateFormat = (field.options?.dateFormat as string) || 'YYYY-MM-DD';
       config.cellType = 'text';
       config.style = {
         textAlign: 'center'
@@ -3212,22 +3363,18 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
         // fieldFormat 接收的是整条 record，需用 field.id 提取单元格值
         const cellValue = value?.[field.id];
         if (cellValue == null || cellValue === '') return '';
-        // 处理 Date 对象
-        if (cellValue instanceof Date) {
-          return formatDate(cellValue.getTime());
-        }
-        // 处理数字时间戳
-        if (typeof cellValue === "number") {
-          return formatDate(cellValue);
-        }
-        // 处理字符串
-        if (typeof cellValue === "string") {
-          return formatDate(cellValue);
-        }
-        return String(cellValue);
+        return formatDateByConfig(cellValue, dateFormat);
       };
-      config.editor = 'date-only';
+      // 按配置格式选择对应的 VTable 编辑器：年月 / 月日 / 完整日期
+      if (dateFormat === 'YYYY-MM' || dateFormat === 'YYYYMM') {
+        config.editor = 'date-month';
+      } else if (dateFormat === 'MMDD' || dateFormat === 'MM-DD') {
+        config.editor = 'date-month-day';
+      } else {
+        config.editor = 'date-only';
+      }
       break;
+    }
     case FieldType.DATE_TIME:
       config.cellType = 'text';
       config.fieldFormat = (value: any) => {
@@ -5317,12 +5464,28 @@ const bindTableEvents = () => {
     let finalValue = newValue;
     if (targetField?.type && typeof finalValue === 'number') {
       if (targetField.type === FieldType.DATE) {
-        // 时间戳 → YYYY-MM-DD 日期字符串，确保与服务端格式一致
+        // 按字段配置的日期格式转换。VTable 日期编辑器返回的是 UTC 时间戳，
+        // 用 UTC 取值避免时区造成的日/月偏移，存储对应格式字符串
+        const dateFormat = (targetField.options?.dateFormat as string) || 'YYYY-MM-DD';
         const date = new Date(finalValue);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        finalValue = `${year}-${month}-${day}`;
+        const y = date.getUTCFullYear();
+        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(date.getUTCDate()).padStart(2, '0');
+        if (dateFormat === 'YYYY-MM-DD') {
+          finalValue = `${y}-${m}-${d}`;
+        } else if (dateFormat === 'YYYYMMDD') {
+          finalValue = `${y}${m}${d}`;
+        } else if (dateFormat === 'YYYY-MM') {
+          finalValue = `${y}-${m}`;
+        } else if (dateFormat === 'YYYYMM') {
+          finalValue = `${y}${m}`;
+        } else if (dateFormat === 'MMDD') {
+          finalValue = `${m}${d}`;
+        } else if (dateFormat === 'MM-DD') {
+          finalValue = `${m}-${d}`;
+        } else {
+          finalValue = `${y}-${m}-${d}`;
+        }
       } else if (targetField.type === FieldType.DATE_TIME) {
         // 时间戳 → UTC ISO 字符串 (2026-06-19T16:02:00.000Z)
         finalValue = new Date(finalValue).toISOString();

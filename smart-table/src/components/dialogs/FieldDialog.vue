@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from "vue";
+import DateInput from "@/components/fields/DateInput.vue";
 import { useI18n } from "vue-i18n";
 import { getLiteral } from "@/i18n";
 import {
@@ -115,6 +116,8 @@ const newField = ref<{
   regexMessage?: string;
   // 单元格合并配置
   mergeCell: boolean;
+  // 日期字段显示/录入格式配置（仅 DATE 类型生效，DATE_TIME 仍按 ISO 存储）
+  dateFormat: string;
 }>({
   name: "",
   type: FieldType.SINGLE_LINE_TEXT,
@@ -154,6 +157,7 @@ const newField = ref<{
   regex: undefined,
   regexMessage: undefined,
   mergeCell: false,
+  dateFormat: "YYYY-MM-DD",
 });
 
 // 用户可创建的字段类型配置列表
@@ -161,6 +165,16 @@ const fieldTypeConfigs = getUserCreatableFieldTypeOptions({
   includeSpecial: true,
   markSpecial: false,
 });
+
+// 可选的日期显示/录入格式
+const dateFormatOptions = [
+  { label: "YYYY-MM-DD", value: "YYYY-MM-DD" },
+  { label: "YYYY-MM", value: "YYYY-MM" },
+  { label: "YYYYMMDD", value: "YYYYMMDD" },
+  { label: "YYYYMM", value: "YYYYMM" },
+  { label: "MMDD", value: "MMDD" },
+  { label: "MM-DD", value: "MM-DD" },
+];
 
 const selectOptions = ref<{ id: string; name: string; color: string }[]>([]);
 const newOptionName = ref("");
@@ -433,6 +447,7 @@ function openCreateField() {
     regex: undefined,
     regexMessage: undefined,
     mergeCell: false,
+    dateFormat: "YYYY-MM-DD",
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -515,6 +530,7 @@ function openEditField(field: FieldEntity) {
     regex: (field.options?.regex as string) ?? undefined,
     regexMessage: (field.options?.regexMessage as string) ?? undefined,
     mergeCell: Boolean(field.options?.mergeCell),
+    dateFormat: (field.options?.dateFormat as string) ?? "YYYY-MM-DD",
   };
 
   // 如果是关联字段，加载目标表字段
@@ -644,6 +660,7 @@ function backToList() {
     regex: undefined,
     regexMessage: undefined,
     mergeCell: false,
+    dateFormat: "YYYY-MM-DD",
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -771,6 +788,10 @@ async function createField() {
           options.regexMessage = newField.value.regexMessage;
         }
       }
+    }
+    // 日期字段显示格式配置（仅 DATE 类型；DATE_TIME 仍按 ISO 字符串存储）
+    if (newField.value.type === FieldType.DATE) {
+      options.dateFormat = newField.value.dateFormat || "YYYY-MM-DD";
     }
     // 自动编号字段配置
     if (newField.value.type === FieldType.AUTO_NUMBER) {
@@ -957,6 +978,10 @@ async function updateField() {
           options.regexMessage = newField.value.regexMessage;
         }
       }
+    }
+    // 日期字段显示格式配置（仅 DATE 类型；DATE_TIME 仍按 ISO 字符串存储）
+    if (newField.value.type === FieldType.DATE) {
+      options.dateFormat = newField.value.dateFormat || "YYYY-MM-DD";
     }
     // 自动编号字段配置
     if (newField.value.type === FieldType.AUTO_NUMBER) {
@@ -2087,8 +2112,21 @@ async function toggleFieldVisibility(
             :placeholder="t('field.defaultNumberPlaceholder')"
             style="width: 100%" />
 
+          <!-- 日期显示格式（仅 DATE 类型可配置） -->
+          <div v-if="newField.type === FieldType.DATE" style="margin-bottom: 4px">
+            <div class="config-label" style="margin-bottom: 4px">{{ t('field.dateDisplayFormat') }}</div>
+            <div style="font-size: 12px; color: #909399; line-height: 1.4; margin-bottom: 6px">{{ t('field.dateDisplayFormatHint') }}</div>
+            <ElSelect v-model="newField.dateFormat" style="width: 100%">
+              <ElOption
+                v-for="opt in dateFormatOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value" />
+            </ElSelect>
+          </div>
+
           <!-- 日期类型 -->
-          <div v-else-if="newField.type === FieldType.DATE" style="width: 100%">
+          <div v-if="newField.type === FieldType.DATE" style="width: 100%">
             <div style="margin-bottom: 8px">
               <el-radio-group v-model="dateDefaultType" size="small">
                 <el-radio-button value="">{{ t('field.noDefault') }}</el-radio-button>
@@ -2098,11 +2136,10 @@ async function toggleFieldVisibility(
                 <el-radio-button value="custom">{{ t('field.dateDefaultCustom') }}</el-radio-button>
               </el-radio-group>
             </div>
-            <el-date-picker
+            <DateInput
               v-if="dateDefaultType === 'custom'"
               v-model="newField.defaultValue"
-              type="date"
-              format="YYYY-MM-DD"
+              :field="{ type: FieldType.DATE, options: { dateFormat: newField.dateFormat } }"
               :placeholder="t('field.defaultDatePlaceholder')"
               style="width: 100%" />
           </div>

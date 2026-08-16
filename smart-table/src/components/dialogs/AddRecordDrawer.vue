@@ -9,7 +9,6 @@ import {
   ElInputNumber,
   ElSelect,
   ElOption,
-  ElDatePicker,
   ElSwitch,
   ElMessage,
   ElRate,
@@ -34,6 +33,7 @@ import {
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
 
 const { t } = useI18n();
 
@@ -91,12 +91,12 @@ watch(
         if (field.defaultValue !== undefined && field.defaultValue !== null) {
           // 特殊处理日期字段的动态默认值 'now'
           if ((field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) && field.defaultValue === "now") {
-            // 动态计算当前日期
-            const isDateTime = field.type === FieldType.DATE_TIME;
-            if (isDateTime) {
+            // 动态计算当前日期，按字段配置的日期格式存储
+            if (field.type === FieldType.DATE_TIME) {
               formData.value[field.id] = new Date().toISOString();
             } else {
-              formData.value[field.id] = new Date().toISOString().split("T")[0];
+              const fmt = (field.options?.dateFormat as string) || "YYYY-MM-DD";
+              formData.value[field.id] = dayjs().format(fmt);
             }
           } else {
             formData.value[field.id] = field.defaultValue;
@@ -298,41 +298,9 @@ function getSelectOptions(field: FieldEntity) {
 
 
 
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FieldEntity): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FieldEntity): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
-
 // 获取评分最大值
 function getMaxRating(field: FieldEntity): number {
   return (field.options?.maxRating as number) ?? 5;
-}
-
-// 处理日期变更
-function handleDateChange(field: FieldEntity, val: Date | null) {
-  if (!val) {
-    formData.value[field.id] = null;
-    return;
-  }
-
-  const showTime = getDateShowTime(field);
-  if (showTime) {
-    // 显示时间时存储为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）
-    formData.value[field.id] = dayjs(val).toISOString();
-  } else {
-    // 仅日期时存储为 UTC 日期字符串（如 2026-05-10）
-    formData.value[field.id] = dayjs(val).format("YYYY-MM-DD");
-  }
 }
 
 // 检查字段是否已自动填充（分组字段）
@@ -715,18 +683,12 @@ const drawerTitle = computed(() => {
 
           <!-- 日期类型 -->
           <template v-else-if="getFieldComponent(field) === 'date'">
-            <ElDatePicker
-              :model-value="
-                formData[field.id]
-                  ? dayjs(formData[field.id] as string).toDate()
-                  : null
-              "
-              :type="getDatePickerType(field)"
+            <DateInput
+              :field="field"
+              :model-value="formData[field.id]"
               :placeholder="t('record.selectPlaceholder', { name: field.name })"
-              :format="getDateFormat(field)"
               class="field-input"
-              style="width: 100%"
-              @update:model-value="(val) => handleDateChange(field, val)" />
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 复选框类型 -->
