@@ -24,6 +24,8 @@
   "templatePreview": "模板预览",
   "calendarPreview": "日历视图预览",
   "ganttPreview": "甘特图视图预览",
+  "calendarDateHint": "展示「{field}」字段的日期数据",
+  "ganttRangeHint": "展示「{start}」到「{end}」的时间范围",
   "useThisTemplate": "使用此模板",
   "groupField": "分组字段",
   "selectGroupField": "选择分组字段",

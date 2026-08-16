@@ -7,14 +7,14 @@ import { useShareStore } from "@/stores/shareStore";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { Base } from "@/api/types";
-import { tableTemplates, type TableTemplate } from "@/utils/tableTemplates";
+import { getTableTemplates, type TableTemplate } from "@/utils/tableTemplates";
 import { templateService } from "@/db/services";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
 import { formatDateTime, formatRelativeTime } from "@/utils/timezone";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const baseStore = useBaseStore();
 const authStore = useAuthStore();
 const shareStore = useShareStore();
@@ -229,11 +229,13 @@ const hasSearchResults = computed(() => {
   return starredBases.value.length > 0 || allBases.value.length > 0;
 });
 
-// 过滤后的模板列表（仅按名称搜索）
+// 过滤后的模板列表（仅按名称搜索，按当前语言加载对应模板集）
 const filteredTemplates = computed(() => {
   const query = templateSearchQuery.value.trim().toLowerCase();
-  if (!query) return tableTemplates.filter((template) => !template.hidden);
-  return tableTemplates.filter((template) =>
+  // 根据当前界面语言渲染对应语言模板（zh-CN 中文 / en-US 英文），切换语言时自动重新计算
+  const templates = getTableTemplates(locale.value);
+  if (!query) return templates.filter((template) => !template.hidden);
+  return templates.filter((template) =>
     !template.hidden && template.name.toLowerCase().includes(query),
   );
 });

@@ -24,6 +24,8 @@
   "templatePreview": "Template Preview",
   "calendarPreview": "Calendar View Preview",
   "ganttPreview": "Gantt Chart View Preview",
+  "calendarDateHint": "Displays date data from the \"{field}\" field",
+  "ganttRangeHint": "Displays the time range from \"{start}\" to \"{end}\"",
   "useThisTemplate": "Use This Template",
   "groupField": "Group Field",
   "selectGroupField": "Select group field",

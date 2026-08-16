@@ -45,7 +45,7 @@
       </div>
 
       <!-- 表格设置 -->
-      <div class="settings-section">
+      <div class="settings-section" style="display: none;">
         <h3 class="section-title">{{ t('settings.tableSettings') }}</h3>
 
         <div class="setting-item">
@@ -84,7 +84,7 @@
       </div>
 
       <!-- 数据设置 -->
-      <div class="settings-section">
+      <div class="settings-section" style="display: none;">
         <h3 class="section-title">{{ t('settings.dataSection') }}</h3>
 
         <div class="setting-item">
@@ -109,7 +109,7 @@
       </div>
 
       <!-- 格式设置 -->
-      <div class="settings-section">
+      <div class="settings-section" style="display: none;">
         <h3 class="section-title">{{ t('settings.formatSection') }}</h3>
 
         <div class="setting-item">
@@ -173,7 +173,7 @@
       </div>
 
       <!-- 修改密码 -->
-      <div class="settings-section">
+      <div class="settings-section" style="display: none;">
         <h3 class="section-title">{{ t('settings.passwordChangeTitle') }}</h3>
         <el-form :model="passwordForm" label-width="120px" class="password-form" ref="passwordFormRef">
           <el-form-item :label="t('settings.currentPasswordLabel')" prop="currentPassword">

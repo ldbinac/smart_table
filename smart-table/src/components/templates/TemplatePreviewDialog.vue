@@ -170,7 +170,7 @@
           <div class="calendar-placeholder">
             <ElIcon size="48"><Calendar /></ElIcon>
             <p>{{ t('view.calendarPreview') }}</p>
-            <p class="hint">展示「{{ getDateFieldName }}」字段的日期数据</p>
+            <p class="hint">{{ t('view.calendarDateHint', { field: getDateFieldName }) }}</p>
           </div>
         </div>
 
@@ -200,7 +200,7 @@
           <div class="gantt-placeholder">
             <ElIcon size="48"><DataLine /></ElIcon>
             <p>{{ t('view.ganttPreview') }}</p>
-            <p class="hint">展示「{{ getStartDateFieldName }}」到「{{ getEndDateFieldName }}」的时间范围</p>
+            <p class="hint">{{ t('view.ganttRangeHint', { start: getStartDateFieldName, end: getEndDateFieldName }) }}</p>
           </div>
         </div>
       </div>
@@ -282,23 +282,23 @@ const currentViews = computed(() => {
 });
 
 const availableViews = computed(() => {
-  const views = [{ type: "table", label: "表格", icon: Grid }];
-  
+  const views = [{ type: "table", label: t("view.table"), icon: Grid }];
+
   const viewTypes = new Set(currentViews.value.map(v => v.type));
-  
+
   if (viewTypes.has("kanban")) {
-    views.push({ type: "kanban", label: "看板", icon: CalendarIcon });
+    views.push({ type: "kanban", label: t("view.kanban"), icon: CalendarIcon });
   }
   if (viewTypes.has("calendar")) {
-    views.push({ type: "calendar", label: "日历", icon: Calendar });
+    views.push({ type: "calendar", label: t("view.calendar"), icon: Calendar });
   }
   if (viewTypes.has("gallery")) {
-    views.push({ type: "gallery", label: "画廊", icon: Picture });
+    views.push({ type: "gallery", label: t("view.gallery"), icon: Picture });
   }
   if (viewTypes.has("gantt")) {
-    views.push({ type: "gantt", label: "甘特图", icon: DataLine });
+    views.push({ type: "gantt", label: t("view.gantt"), icon: DataLine });
   }
-  
+
   return views;
 });
 
