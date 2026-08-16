@@ -409,6 +409,7 @@ async function handleFieldDragEnd(evt: Sortable.SortableEvent) {
 
 function openCreateField() {
   activeTab.value = "create";
+  editingField.value = null;
   newField.value = {
     name: "",
     type: FieldType.SINGLE_LINE_TEXT,
@@ -1934,7 +1935,7 @@ async function toggleFieldVisibility(
           <ElFormItem :label="t('field.linkType')" required>
             <ElRadioGroup
               v-model="newField.linkConfig.relationshipType"
-              :disabled="newField.linkConfig.targetTableId === tableId">
+              :disabled="!!editingField || newField.linkConfig.targetTableId === tableId">
               <ElRadioButton label="one_to_one">{{ t('field.oneToOne') }}</ElRadioButton>
               <ElRadioButton label="one_to_many">{{ t('field.oneToMany') }}</ElRadioButton>
               <ElRadioButton label="many_to_one">{{ t('field.manyToOne') }}</ElRadioButton>
@@ -1963,7 +1964,7 @@ async function toggleFieldVisibility(
           </ElFormItem>
 
           <ElFormItem :label="t('field.bidirectional')">
-            <ElSwitch v-model="newField.linkConfig.bidirectional" :disabled="newField.linkConfig.targetTableId === tableId" />
+            <ElSwitch v-model="newField.linkConfig.bidirectional" :disabled="!!editingField || newField.linkConfig.targetTableId === tableId" />
             <div class="field-hint">
               {{ t('field.bidirectionalHint') }}
             </div>
