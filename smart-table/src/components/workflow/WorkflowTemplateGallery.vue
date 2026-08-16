@@ -130,9 +130,9 @@ function formatDate(date: string): string {
       <div class="gallery-toolbar">
         <div class="filter-groups">
           <el-radio-group v-model="activeSource" size="small">
-            <el-radio-button label="all">{{ t('workflow.list.filterAll') }}</el-radio-button>
-            <el-radio-button label="system">{{ t('workflow.list.filterSystem') }}</el-radio-button>
-            <el-radio-button label="custom">{{ t('workflow.list.filterCustom') }}</el-radio-button>
+            <el-radio-button value="all">{{ t('workflow.list.filterAll') }}</el-radio-button>
+            <el-radio-button value="system">{{ t('workflow.list.filterSystem') }}</el-radio-button>
+            <el-radio-button value="custom">{{ t('workflow.list.filterCustom') }}</el-radio-button>
           </el-radio-group>
 
           <el-radio-group

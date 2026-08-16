@@ -3177,9 +3177,9 @@ onUnmounted(() => {
                     <el-radio-group
                       v-model="(selectedWidget!.config as any).textAlign"
                       @change="onWidgetConfigChange()">
-                      <el-radio-button label="left">{{ t('dashboard.alignLeft') }}</el-radio-button>
-                      <el-radio-button label="center">{{ t('dashboard.alignCenter') }}</el-radio-button>
-                      <el-radio-button label="right">{{ t('dashboard.alignRight') }}</el-radio-button>
+                      <el-radio-button value="left">{{ t('dashboard.alignLeft') }}</el-radio-button>
+                      <el-radio-button value="center">{{ t('dashboard.alignCenter') }}</el-radio-button>
+                      <el-radio-button value="right">{{ t('dashboard.alignRight') }}</el-radio-button>
                     </el-radio-group>
                   </el-form-item>
                   <el-form-item :label="t('dashboard.mainTitleColor')">

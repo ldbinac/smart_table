@@ -542,15 +542,15 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
       <div class="workflow-header">
         <div class="header-tabs">
           <el-radio-group v-model="activeTab" size="small">
-            <el-radio-button label="editor">
+            <el-radio-button value="editor">
               <el-icon><EditPen /></el-icon>
               <span>{{ t('workflow.manager.radioEditor') }}</span>
             </el-radio-button>
-            <el-radio-button label="history">
+            <el-radio-button value="history">
               <el-icon><Timer /></el-icon>
               <span>{{ t('workflow.manager.radioHistory') }}</span>
             </el-radio-button>
-            <el-radio-button label="webhook">
+            <el-radio-button value="webhook">
               <el-icon><Link /></el-icon>
               <span>{{ t('workflow.manager.radioWebhook') }}</span>
             </el-radio-button>

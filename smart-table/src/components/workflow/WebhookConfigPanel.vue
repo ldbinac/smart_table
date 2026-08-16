@@ -50,7 +50,10 @@ const variableDefinitions = computed<VariableDef[]>(() => [
     description: t("workflow.webhook.varEventDesc"),
     type: "object",
     defaultValue: "{}",
-    notes: t("workflow.webhook.varEventNotes"),
+    notes: t("workflow.webhook.varEventNotes", {
+      eventType: "{{event.event_type}}",
+      tableId: "{{event.table_id}}",
+    }),
     group: "basic",
   },
   {
@@ -59,7 +62,7 @@ const variableDefinitions = computed<VariableDef[]>(() => [
     description: t("workflow.webhook.varRecordDesc"),
     type: "object",
     defaultValue: "{}",
-    notes: t("workflow.webhook.varRecordNotes"),
+    notes: t("workflow.webhook.varRecordNotes", { fieldRef: "{{record.field_id}}" }),
     group: "basic",
   },
   {
@@ -86,7 +89,9 @@ const variableDefinitions = computed<VariableDef[]>(() => [
     description: t("workflow.webhook.varCurrentDataDesc"),
     type: "object | any",
     defaultValue: t("workflow.webhook.noDefaultInLoop"),
-    notes: t("workflow.webhook.varCurrentDataNotes"),
+    notes: t("workflow.webhook.varCurrentDataNotes", {
+      loopFieldRef: "{{loop.current_data.field_id}}",
+    }),
     group: "loop",
   },
   {
@@ -113,7 +118,9 @@ const variableDefinitions = computed<VariableDef[]>(() => [
     description: t("workflow.webhook.varTotalDesc"),
     type: "number",
     defaultValue: t("workflow.webhook.noDefaultInLoop"),
-    notes: t("workflow.webhook.varTotalNotes"),
+    notes: t("workflow.webhook.varTotalNotes", {
+      progressRef: "{{loop.round}}/{{loop.total}}",
+    }),
     group: "loop",
   },
 ]);

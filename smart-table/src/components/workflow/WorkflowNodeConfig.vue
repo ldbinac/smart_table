@@ -76,6 +76,13 @@ interface Props {
 const props = defineProps<Props>();
 const { t } = useI18n();
 
+// 模板示例中的双花括号占位符。注意：Vue 文本插值 {{ }} 内部不能出现字面量 {{，
+// 否则会被误判为嵌套插值导致解析失败，因此统一用常量引用。
+const RECORD_FIELD_REF = "{{record.field_id}}";
+const TRIGGER_EVENT_REF = "{{trigger.event_type}}";
+const TRIGGER_RECORD_REF = "{{trigger.record.field_id}}";
+const RECORD_REF = "{{record}}";
+
 const emit = defineEmits<{
   (e: "update:node", node: WorkflowNode): void;
   /** 选中循环体子节点切换配置面板 */
@@ -1176,7 +1183,10 @@ function insertTemplate(name: string) {
 const scriptTestInput = ref("");
 
 /** 示例输入 placeholder：展示上游节点实际输出格式 */
-const scriptTestInputPlaceholder = t("workflow.nodeConfig.scriptTestInputPlaceholder");
+const scriptTestInputPlaceholder = t("workflow.nodeConfig.scriptTestInputPlaceholder", {
+  example: `{"count":1,"records":[{"id":"r1","name":"张三"}]}`,
+  example2: `{"record_id":"r1"}`,
+});
 
 const scriptTesting = ref(false);
 const scriptTestResult = ref<{
@@ -1474,7 +1484,7 @@ const nodeTypeLabel = computed(() => {
                 class="template-input-with-loop-var">
                 <el-input
                   :model-value="mapping.value_template"
-                  :placeholder="t('workflow.nodeConfig.exprPlaceholder')"
+                  :placeholder="t('workflow.nodeConfig.exprPlaceholder', { exprRef: TRIGGER_RECORD_REF })"
                   class="template-input"
                   :disabled="readonly"
                   @update:model-value="(val) => updateMappingTemplate(index, val)" />
@@ -1598,7 +1608,7 @@ const nodeTypeLabel = computed(() => {
                 class="template-input-with-loop-var">
                 <el-input
                   :model-value="mapping.value_template"
-                  :placeholder="t('workflow.nodeConfig.exprPlaceholder')"
+                  :placeholder="t('workflow.nodeConfig.exprPlaceholder', { exprRef: TRIGGER_RECORD_REF })"
                   class="template-input"
                   :disabled="readonly"
                   @update:model-value="(val) => updateCreateValueTemplate(index, val)" />
@@ -1678,8 +1688,8 @@ const nodeTypeLabel = computed(() => {
       <el-form label-position="top" class="config-form">
         <el-form-item :label="t('workflow.nodeConfig.recipientSource')">
           <el-radio-group v-model="emailRecipientType" :disabled="readonly">
-            <el-radio label="field">{{ t('workflow.nodeConfig.field') }}</el-radio>
-            <el-radio label="fixed">{{ t('workflow.nodeConfig.fixedEmail') }}</el-radio>
+            <el-radio value="field">{{ t('workflow.nodeConfig.field') }}</el-radio>
+            <el-radio value="fixed">{{ t('workflow.nodeConfig.fixedEmail') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -1713,8 +1723,8 @@ const nodeTypeLabel = computed(() => {
 
         <el-form-item :label="t('workflow.nodeConfig.contentMode')">
           <el-radio-group v-model="emailContentMode" :disabled="readonly">
-            <el-radio label="custom">{{ t('workflow.nodeConfig.customContent') }}</el-radio>
-            <el-radio label="template">{{ t('workflow.nodeConfig.emailTemplateLabel') }}</el-radio>
+            <el-radio value="custom">{{ t('workflow.nodeConfig.customContent') }}</el-radio>
+            <el-radio value="template">{{ t('workflow.nodeConfig.emailTemplateLabel') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -1732,7 +1742,7 @@ const nodeTypeLabel = computed(() => {
                 :disabled="isLoadingLoopFieldDrillFields"
                 @insert="(snippet) => emailSubject = appendLoopVarSnippet(emailSubject, snippet)" />
             </div>
-            <div class="field-hint">{{ t('workflow.nodeConfig.emailFieldRefHint') }}</div>
+            <div class="field-hint">{{ t('workflow.nodeConfig.emailFieldRefHint', { fieldRef: RECORD_FIELD_REF }) }}</div>
           </el-form-item>
 
           <el-form-item :label="t('workflow.nodeConfig.emailBody')">
@@ -1750,7 +1760,7 @@ const nodeTypeLabel = computed(() => {
                 :disabled="isLoadingLoopFieldDrillFields"
                 @insert="(snippet) => emailBody = appendLoopVarSnippet(emailBody, snippet)" />
             </div>
-            <div class="field-hint">{{ t('workflow.nodeConfig.emailBodyRefHint') }}</div>
+            <div class="field-hint">{{ t('workflow.nodeConfig.emailBodyRefHint', { fieldRef: RECORD_FIELD_REF, eventRef: TRIGGER_EVENT_REF }) }}</div>
           </el-form-item>
         </template>
 
@@ -1773,8 +1783,8 @@ const nodeTypeLabel = computed(() => {
       <el-form label-position="top" class="config-form">
         <el-form-item :label="t('workflow.nodeConfig.webhookSource')">
           <el-radio-group v-model="webhookMode" class="webhook-source-radio" :disabled="readonly || !isNewWebhookNode">
-            <el-radio label="existing">{{ t('workflow.nodeConfig.selectExisting') }}</el-radio>
-            <el-radio label="inline">{{ t('workflow.nodeConfig.inlineNew') }}</el-radio>
+            <el-radio value="existing">{{ t('workflow.nodeConfig.selectExisting') }}</el-radio>
+            <el-radio value="inline">{{ t('workflow.nodeConfig.inlineNew') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -1851,7 +1861,10 @@ const nodeTypeLabel = computed(() => {
                 :model-value="inlineWebhook.body_template"
                 type="textarea"
                 :rows="4"
-                :placeholder="t('workflow.nodeConfig.bodyTemplatePlaceholder')"
+                :placeholder="t('workflow.nodeConfig.bodyTemplatePlaceholder', {
+                  recordRef: RECORD_REF,
+                  recordFieldRef: RECORD_FIELD_REF,
+                })"
                 :disabled="readonly"
                 @update:model-value="(val) => updateInlineWebhook({ body_template: val })" />
               <LoopVarInserter
@@ -1984,8 +1997,8 @@ const nodeTypeLabel = computed(() => {
 
         <el-form-item :label="t('workflow.nodeConfig.sortDirection')">
           <el-radio-group v-model="findRecordsSortDirection" :disabled="readonly">
-            <el-radio label="asc">{{ t('workflow.nodeConfig.asc') }}</el-radio>
-            <el-radio label="desc">{{ t('workflow.nodeConfig.desc') }}</el-radio>
+            <el-radio value="asc">{{ t('workflow.nodeConfig.asc') }}</el-radio>
+            <el-radio value="desc">{{ t('workflow.nodeConfig.desc') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -2015,8 +2028,8 @@ const nodeTypeLabel = computed(() => {
 
         <el-form-item :label="t('workflow.nodeConfig.emptyResult')">
           <el-radio-group v-model="findRecordsEmptyAction" :disabled="readonly">
-            <el-radio label="continue">{{ t('workflow.nodeConfig.continueOnEmpty') }}</el-radio>
-            <el-radio label="stop">{{ t('workflow.nodeConfig.stopOnEmpty') }}</el-radio>
+            <el-radio value="continue">{{ t('workflow.nodeConfig.continueOnEmpty') }}</el-radio>
+            <el-radio value="stop">{{ t('workflow.nodeConfig.stopOnEmpty') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -2063,15 +2076,15 @@ const nodeTypeLabel = computed(() => {
 
         <el-form-item :label="t('workflow.nodeConfig.errorHandling')">
           <el-radio-group v-model="loopErrorHandling" :disabled="readonly">
-            <el-radio label="skip">{{ t('workflow.nodeConfig.skipOnError') }}</el-radio>
-            <el-radio label="terminate">{{ t('workflow.nodeConfig.terminateOnError') }}</el-radio>
+            <el-radio value="skip">{{ t('workflow.nodeConfig.skipOnError') }}</el-radio>
+            <el-radio value="terminate">{{ t('workflow.nodeConfig.terminateOnError') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
         <el-form-item :label="t('workflow.nodeConfig.emptyResult')">
           <el-radio-group v-model="loopEmptyResultAction" :disabled="readonly">
-            <el-radio label="skip">{{ t('workflow.nodeConfig.skipLoop') }}</el-radio>
-            <el-radio label="error">{{ t('workflow.nodeConfig.reportError') }}</el-radio>
+            <el-radio value="skip">{{ t('workflow.nodeConfig.skipLoop') }}</el-radio>
+            <el-radio value="error">{{ t('workflow.nodeConfig.reportError') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

@@ -257,8 +257,8 @@ const currencySymbolOptions = [
           "
           size="small"
           class="date-radio-group">
-          <el-radio-button label="static">{{ t('field.specifyDate') }}</el-radio-button>
-          <el-radio-button label="dynamic">当前{{ isDateTimeField ? t('field.currentDateTime') : t('field.currentDate') }}</el-radio-button>
+          <el-radio-button value="static">{{ t('field.specifyDate') }}</el-radio-button>
+          <el-radio-button value="dynamic">当前{{ isDateTimeField ? t('field.currentDateTime') : t('field.currentDate') }}</el-radio-button>
         </el-radio-group>
         <el-date-picker
           v-if="localField.defaultValue !== 'now'"

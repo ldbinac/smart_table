@@ -35,8 +35,8 @@
             </el-form-item>
             <el-form-item :label="t('system.timezoneMode')">
               <el-radio-group v-model="basicConfigs.timezone_mode">
-                <el-radio label="utc">{{ t('system.timezoneUtc') }}</el-radio>
-                <el-radio label="local">{{ t('system.timezoneLocal') }}</el-radio>
+                <el-radio value="utc">{{ t('system.timezoneUtc') }}</el-radio>
+                <el-radio value="local">{{ t('system.timezoneLocal') }}</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item :label="t('system.localTimezone')" v-if="basicConfigs.timezone_mode === 'local'">

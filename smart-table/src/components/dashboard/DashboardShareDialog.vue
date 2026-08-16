@@ -487,8 +487,8 @@ function goToCreateShare() {
 
         <el-form-item :label="t('dashboard.shareDialog.labelPermission')">
           <el-radio-group v-model="shareForm.permission">
-            <el-radio label="view">{{ t('dashboard.shareDialog.radioView') }}</el-radio>
-            <el-radio label="edit">{{ t('dashboard.shareDialog.radioEdit') }}</el-radio>
+            <el-radio value="view">{{ t('dashboard.shareDialog.radioView') }}</el-radio>
+            <el-radio value="edit">{{ t('dashboard.shareDialog.radioEdit') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

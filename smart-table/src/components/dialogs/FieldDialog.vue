@@ -2078,11 +2078,11 @@ async function toggleFieldVisibility(
           <div v-else-if="newField.type === FieldType.DATE" style="width: 100%">
             <div style="margin-bottom: 8px">
               <el-radio-group v-model="dateDefaultType" size="small">
-                <el-radio-button label="">{{ t('field.noDefault') }}</el-radio-button>
-                <el-radio-button label="now"
+                <el-radio-button value="">{{ t('field.noDefault') }}</el-radio-button>
+                <el-radio-button value="now"
                   >{{ t('field.dateDefaultNow') }}</el-radio-button
                 >
-                <el-radio-button label="custom">{{ t('field.dateDefaultCustom') }}</el-radio-button>
+                <el-radio-button value="custom">{{ t('field.dateDefaultCustom') }}</el-radio-button>
               </el-radio-group>
             </div>
             <el-date-picker
@@ -2098,11 +2098,11 @@ async function toggleFieldVisibility(
           <div v-else-if="newField.type === FieldType.DATE_TIME" style="width: 100%">
             <div style="margin-bottom: 8px">
               <el-radio-group v-model="dateDefaultType" size="small">
-                <el-radio-button label="">{{ t('field.noDefault') }}</el-radio-button>
-                <el-radio-button label="now"
+                <el-radio-button value="">{{ t('field.noDefault') }}</el-radio-button>
+                <el-radio-button value="now"
                   >{{ t('field.dateTimeDefaultNow') }}</el-radio-button
                 >
-                <el-radio-button label="custom">{{ t('field.dateTimeDefaultCustom') }}</el-radio-button>
+                <el-radio-button value="custom">{{ t('field.dateTimeDefaultCustom') }}</el-radio-button>
               </el-radio-group>
             </div>
             <el-date-picker
@@ -2163,9 +2163,9 @@ async function toggleFieldVisibility(
                   newField.defaultValue = memberConfig.defaultUser?.id;
                 }
               }">
-                <el-radio-button label="none">{{ t('field.noDefault') }}</el-radio-button>
-                <el-radio-button label="current_user">{{ t('field.memberDefaultCurrentUser') }}</el-radio-button>
-                <el-radio-button label="specific_user">{{ t('field.memberDefaultSpecificUser') }}</el-radio-button>
+                <el-radio-button value="none">{{ t('field.noDefault') }}</el-radio-button>
+                <el-radio-button value="current_user">{{ t('field.memberDefaultCurrentUser') }}</el-radio-button>
+                <el-radio-button value="specific_user">{{ t('field.memberDefaultSpecificUser') }}</el-radio-button>
               </el-radio-group>
             </div>
             <!-- 指定用户选择 -->

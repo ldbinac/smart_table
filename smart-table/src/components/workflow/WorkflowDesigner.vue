@@ -284,7 +284,7 @@ function getNodeIcon(nodeType: string) {
 }
 
 function getNodeLabel(nodeType: string) {
-  return _getNodeLabel(nodeType);
+  return _getNodeLabel(nodeType, t);
 }
 
 function getDefaultNodeConfig(type: WorkflowNodeType): Record<string, unknown> {

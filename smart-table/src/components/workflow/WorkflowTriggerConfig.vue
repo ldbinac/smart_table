@@ -394,8 +394,8 @@ defineExpose({ validateFieldIds, validateTimeField });
         <div class="filter-header">
           <span class="filter-title">{{ t('workflow.trigger.filterTitle') }}</span>
           <el-radio-group v-model="filterConjunction" size="small" :disabled="readonly">
-            <el-radio-button label="and">{{ t('workflow.trigger.allMatch') }}</el-radio-button>
-            <el-radio-button label="or">{{ t('workflow.trigger.anyMatch') }}</el-radio-button>
+            <el-radio-button value="and">{{ t('workflow.trigger.allMatch') }}</el-radio-button>
+            <el-radio-button value="or">{{ t('workflow.trigger.anyMatch') }}</el-radio-button>
           </el-radio-group>
         </div>
 
