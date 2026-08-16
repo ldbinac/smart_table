@@ -109,6 +109,26 @@ export default i18n;
 export const t = i18n.global.t;
 
 /**
+ * 按路径从当前 locale message 中读取原始值，不经过 ICU 编译。
+ * 用于公式示例、正则占位符等包含字面量花括号的文本，避免触发
+ * vue-i18n message compiler 的 “Unterminated/Unbalanced closing brace” 报错。
+ */
+export function getLiteral(key: string): string {
+  const locale = i18n.global.locale.value;
+  const localeMessages = i18n.global.getLocaleMessage(locale) as Record<string, unknown>;
+  const parts = key.split(".");
+  let current: unknown = localeMessages;
+  for (const part of parts) {
+    if (current && typeof current === "object" && part in current) {
+      current = (current as Record<string, unknown>)[part];
+    } else {
+      return key;
+    }
+  }
+  return typeof current === "string" ? current : key;
+}
+
+/**
  * 切换当前语言（供 settingsStore 调用）。
  * @param lang 目标语言代码
  */

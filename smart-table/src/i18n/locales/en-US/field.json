@@ -321,6 +321,7 @@
   "numberFormat": "Number",
   "currencyFormat": "Currency",
   "percentFormat": "Percent",
+  "textFormat": "Text",
   "numberPrefix": "Prefix Text",
   "numberSuffix": "Suffix Text",
   "numberPrefixHint": "Fixed text shown before the number, e.g. $ or ¥",

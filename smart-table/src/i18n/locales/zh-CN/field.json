@@ -321,6 +321,7 @@
   "numberFormat": "数字",
   "currencyFormat": "货币",
   "percentFormat": "百分比",
+  "textFormat": "文本",
   "numberPrefix": "前缀文字",
   "numberSuffix": "后缀文字",
   "numberPrefixHint": "在数值前显示固定文字，如 $、¥",

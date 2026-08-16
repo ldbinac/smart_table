@@ -89,6 +89,7 @@
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { Search } from "@element-plus/icons-vue";
+import { getLiteral } from "@/i18n";
 
 const { t } = useI18n();
 
@@ -193,7 +194,7 @@ const formulas = computed<FormulaInfo[]>(() =>
       desc: t(`formula.f.${f.name}.p${idx}`),
     })),
     returns: t(`formula.f.${f.name}.returns`),
-    example: t(`formula.f.${f.name}.example`),
+    example: getLiteral(`formula.f.${f.name}.example`),
   })),
 );
 

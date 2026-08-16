@@ -134,7 +134,7 @@ export interface FieldOptions {
   // 通用选项
   maxLength?: number;
   precision?: number;
-  format?: "number" | "currency" | "percent";
+  format?: "number" | "currency" | "percent" | "text";
   currencySymbol?: string;
   // 自定义前缀文字（货币格式下追加在货币符号之后；百分比格式下显示在 % 之前）
   prefix?: string;

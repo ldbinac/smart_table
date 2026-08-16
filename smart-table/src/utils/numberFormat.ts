@@ -1,6 +1,6 @@
 export interface NumberFormatOptions {
   precision?: number;
-  format?: "number" | "currency" | "percent";
+  format?: "number" | "currency" | "percent" | "text";
   currencySymbol?: string;
   prefix?: string;
   suffix?: string;
@@ -50,6 +50,11 @@ export function formatNumberField(
   const precision = options?.precision ?? 0;
   const format = options?.format ?? "number";
   const thousandsSeparator = options?.thousandsSeparator ?? false;
+
+  // 文本格式：原样展示，不做数值精度、前后缀、千分位等格式化处理
+  if (format === "text") {
+    return String(value);
+  }
 
   // 百分比格式：原始值按小数存储，展示时乘以 100
   let num = value;

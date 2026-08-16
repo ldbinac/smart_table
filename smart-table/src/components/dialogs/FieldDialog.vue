@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { getLiteral } from "@/i18n";
 import {
   ElDialog,
   ElButton,
@@ -88,7 +89,7 @@ const newField = ref<{
   // 数值字段配置
   precision: number;
   // 数值字段展示格式配置
-  format: "number" | "currency" | "percent";
+  format: "number" | "currency" | "percent" | "text";
   currencySymbol: string;
   prefix: string;
   suffix: string;
@@ -479,7 +480,7 @@ function openEditField(field: FieldEntity) {
     description: field.description || "",
     defaultValue: dateDefaultValue,
     precision: (field.options?.precision as number) ?? 0,
-    format: ((field.options?.format as "number" | "currency" | "percent") ?? "number"),
+    format: ((field.options?.format as "number" | "currency" | "percent" | "text") ?? "number"),
     currencySymbol: (field.options?.currencySymbol as string) ?? "¥",
     prefix: (field.options?.prefix as string) ?? "",
     suffix: (field.options?.suffix as string) ?? "",
@@ -727,12 +728,15 @@ async function createField() {
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
-      options.precision = newField.value.precision ?? 0;
       options.format = newField.value.format;
-      options.currencySymbol = newField.value.currencySymbol;
-      options.prefix = newField.value.prefix || undefined;
-      options.suffix = newField.value.suffix || undefined;
-      options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
+      // 文本格式无需小数位数、前后缀、货币符号、千分位等数值相关配置
+      if (newField.value.format !== "text") {
+        options.precision = newField.value.precision ?? 0;
+        options.currencySymbol = newField.value.currencySymbol;
+        options.prefix = newField.value.prefix || undefined;
+        options.suffix = newField.value.suffix || undefined;
+        options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
+      }
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -910,12 +914,15 @@ async function updateField() {
     // 公式字段配置
     if (newField.value.type === FieldType.FORMULA) {
       options.formula = newField.value.formula;
-      options.precision = newField.value.precision ?? 0;
       options.format = newField.value.format;
-      options.currencySymbol = newField.value.currencySymbol;
-      options.prefix = newField.value.prefix || undefined;
-      options.suffix = newField.value.suffix || undefined;
-      options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
+      // 文本格式无需小数位数、前后缀、货币符号、千分位等数值相关配置
+      if (newField.value.format !== "text") {
+        options.precision = newField.value.precision ?? 0;
+        options.currencySymbol = newField.value.currencySymbol;
+        options.prefix = newField.value.prefix || undefined;
+        options.suffix = newField.value.suffix || undefined;
+        options.thousandsSeparator = newField.value.thousandsSeparator || undefined;
+      }
     }
     // 附件字段配置
     if (newField.value.type === FieldType.ATTACHMENT) {
@@ -1613,15 +1620,28 @@ async function toggleFieldVisibility(
               v-model="newField.formula"
               type="textarea"
               :rows="3"
-              :placeholder="t('field.formulaExprPlaceholder')"
+              :placeholder="getLiteral('field.formulaExprPlaceholder')"
               maxlength="500"
               show-word-limit />
             <div class="field-hint">
-              {{ t('field.formulaExprHint') }}
+              {{ getLiteral('field.formulaExprHint') }}
             </div>
           </ElFormItem>
 
-          <ElFormItem :label="t('field.precision')">
+          <!-- 公式字段显示格式（置于小数位数之前） -->
+          <ElFormItem :label="t('field.numFormat')">
+            <ElSelect v-model="newField.format" style="width: 220px">
+              <ElOption :label="t('field.numberFormat')" value="number" />
+              <ElOption :label="t('field.currencyFormat')" value="currency" />
+              <ElOption :label="t('field.percentFormat')" value="percent" />
+              <ElOption :label="t('field.textFormat')" value="text" />
+            </ElSelect>
+          </ElFormItem>
+
+          <!-- 小数位数（文本格式不展示） -->
+          <ElFormItem
+            v-if="newField.format !== 'text'"
+            :label="t('field.precision')">
             <div class="precision-config">
               <ElSlider
                 v-model="newField.precision"
@@ -1637,15 +1657,6 @@ async function toggleFieldVisibility(
             <div class="field-hint">{{ t('field.formulaPrecisionHint') }}</div>
           </ElFormItem>
 
-          <!-- 公式字段显示格式 -->
-          <ElFormItem :label="t('field.numFormat')">
-            <ElSelect v-model="newField.format" style="width: 220px">
-              <ElOption :label="t('field.numberFormat')" value="number" />
-              <ElOption :label="t('field.currencyFormat')" value="currency" />
-              <ElOption :label="t('field.percentFormat')" value="percent" />
-            </ElSelect>
-          </ElFormItem>
-
           <!-- 货币符号（仅货币格式显示） -->
           <ElFormItem
             v-if="newField.format === 'currency'"
@@ -1657,9 +1668,9 @@ async function toggleFieldVisibility(
               :placeholder="t('field.currencySymbolPlaceholder')" />
           </ElFormItem>
 
-          <!-- 自定义前缀文字（货币格式使用货币符号，故不在此配置） -->
+          <!-- 自定义前缀文字（货币格式使用货币符号，故不在此配置；文本格式不展示） -->
           <ElFormItem
-            v-if="newField.format !== 'currency'"
+            v-if="newField.format !== 'currency' && newField.format !== 'text'"
             :label="t('field.numberPrefix')">
             <ElInput
               v-model="newField.prefix"
@@ -1668,7 +1679,7 @@ async function toggleFieldVisibility(
               :placeholder="t('field.numberPrefixHint')" />
           </ElFormItem>
 
-          <!-- 自定义后缀文字（百分比格式后缀固定为 %，故不在此配置） -->
+          <!-- 自定义后缀文字（百分比格式后缀固定为 %，故不在此配置；文本格式不展示） -->
           <ElFormItem
             v-if="newField.format === 'number'"
             :label="t('field.numberSuffix')">
@@ -1679,8 +1690,10 @@ async function toggleFieldVisibility(
               :placeholder="t('field.numberSuffixHint')" />
           </ElFormItem>
 
-          <!-- 千分位分隔符 -->
-          <ElFormItem :label="t('field.thousandsSeparator')">
+          <!-- 千分位分隔符（文本格式不展示） -->
+          <ElFormItem
+            v-if="newField.format !== 'text'"
+            :label="t('field.thousandsSeparator')">
             <ElSwitch v-model="newField.thousandsSeparator" />
             <div class="field-hint">{{ t('field.thousandsSeparatorHint') }}</div>
           </ElFormItem>
