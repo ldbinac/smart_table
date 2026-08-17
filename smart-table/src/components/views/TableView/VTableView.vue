@@ -4602,8 +4602,12 @@ const buildTableConfig = (): any => {
       : (isGrouped
         ? { records: tableRecords }
         : { dataSource: smartDataSource!.dataSource })),
-    // 主从表插件配置（树形视图下不启用主从表）
-    ...(!isTreeView.value && hasLinkFields.value && masterDetailPlugin.value ? {
+    // 主从表插件配置（树形视图 / 分组视图下不启用主从表）
+    // 分组模式下若注册 MasterDetailPlugin，VTable 的 _setRecords 会检测到该插件，
+    // 将 rowHierarchyType 强制置为 "grid"，导致分组树（vtableMerge）无法展平，
+    // 分组内数据行会全部不可见（这是关联字段表格分组后看不到数据的根因）。
+    // 与树形视图一致，分组模式下不启用主从表子表能力，保证分组数据正常显示。
+    ...(!isTreeView.value && !isGrouped && hasLinkFields.value && masterDetailPlugin.value ? {
       plugins: [masterDetailPlugin.value],
       hierarchyExpandLevel: 1, // 默认折叠
     } : {}),
@@ -4629,17 +4633,40 @@ const buildTableConfig = (): any => {
       width: 'auto',
       cellType: 'checkbox',
       headerType: 'checkbox',
-      format: (_col: number, row: number, table: any) => {
-        if (row === table.dataSource._sourceLength){
-          return '+';
+      // VTable 官方 rowSeriesNumber.format 签名：format(col, row, table, value)
+      // - 分组视图下 VTable 在 getCellValue 中调用 getGroupSeriesNumber 计算 value
+      //   （返回组内从 0 开始的序号），并作为第 4 个参数传入
+      // - 非分组视图下 value = row - columnHeaderLevelCount + 1（从 1 开始）
+      // 分组视图下 +1 使每个分组独立从 1 开始编号；VTable 已自行处理
+      // vtableMerge 组标题 / 聚合行（这些行 getCellValue 不会调用 format）。
+      format: (_col: number, row: number, table: any, value?: number) => {
+        if (typeof value !== 'number') {
+          return row;
         }
-        return row;
+        // 新增行虚拟行（分组视图下每组末尾各一个、非分组视图下表格末尾一个）显示 '+'
+        try {
+          const record = table.getCellOriginRecord(_col, row);
+          if (record && record._rowType === 'addButton') {
+            return '+';
+          }
+        } catch (_e) {
+          // 记录未就绪时按常规序号处理
+        }
+        if (!table.internalProps.groupBy) {
+          return value;
+        }
+        return value;
       },
-      // 禁用新增行的复选框（虽然显示但不可点击）
+      // 禁用所有分组「+ 添加记录」虚拟行的复选框（分组下每组末尾各有一个）
       disable: (args: any) => {
-        const { row, table } = args;
-        // 新增行禁用复选框
-        return row === table.dataSource._sourceLength;
+        const { col, row, table } = args;
+        try {
+          const record = table.getCellOriginRecord(col, row);
+          return !!(record && record._rowType === 'addButton');
+        } catch (_e) {
+          // 记录未就绪时回退到原逻辑（仅最末行禁用）
+          return row === table.dataSource._sourceLength;
+        }
       },
       // 不显示行序号列（最左侧 # 列）上的拖拽排序手柄按钮
       dragOrder: false,
