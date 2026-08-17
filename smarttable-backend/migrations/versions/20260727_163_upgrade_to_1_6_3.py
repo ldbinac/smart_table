@@ -13,7 +13,7 @@ Create Date: 2026-07-27
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import table, column
+from sqlalchemy import table, column, inspect
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 revision = '20260727_163'
@@ -143,13 +143,16 @@ def upgrade():
             nullable=True,
         )
 
-    # 5.2 新增 node_name 字段
-    with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column('node_name', sa.String(200), nullable=True)
-        )
+    # 5.2 新增 node_name 字段（幂等：已存在则跳过 add_column，直接回填）
+    inspector = inspect(bind)
+    existing_wel_cols = {c['name'] for c in inspector.get_columns('workflow_execution_logs')}
+    if 'node_name' not in existing_wel_cols:
+        with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
+            batch_op.add_column(
+                sa.Column('node_name', sa.String(200), nullable=True)
+            )
 
-    # 回填 node_name
+    # 回填 node_name（列已存在则直接回填，兼容历史 create_all 已建表的情况）
     op.execute("""
         UPDATE workflow_execution_logs
         SET node_name = (
