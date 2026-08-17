@@ -7,6 +7,7 @@ Create Date: 2025-04-12
 """
 from alembic import op
 import sqlalchemy as sa
+from app.db_types import CompatUUID as UUID
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
@@ -21,10 +22,10 @@ def upgrade():
     
     # 创建 form_shares 表
     op.create_table('form_shares',
-        sa.Column('id', sa.String(36), nullable=False),
-        sa.Column('table_id', sa.String(36), nullable=False),
+        sa.Column('id', UUID(), nullable=False),
+        sa.Column('table_id', UUID(), nullable=False),
         sa.Column('share_token', sa.String(64), nullable=False),
-        sa.Column('created_by', sa.String(36), nullable=False),
+        sa.Column('created_by', UUID(), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=False, default=True),
         sa.Column('allow_anonymous', sa.Boolean(), nullable=False, default=True),
         sa.Column('require_captcha', sa.Boolean(), nullable=False, default=False),
@@ -52,9 +53,9 @@ def upgrade():
     
     # 创建 form_submissions 表
     op.create_table('form_submissions',
-        sa.Column('id', sa.String(36), nullable=False),
-        sa.Column('form_share_id', sa.String(36), nullable=False),
-        sa.Column('record_id', sa.String(36), nullable=True),
+        sa.Column('id', UUID(), nullable=False),
+        sa.Column('form_share_id', UUID(), nullable=False),
+        sa.Column('record_id', UUID(), nullable=True),
         sa.Column('submitter_ip', sa.String(45), nullable=True, comment='支持 IPv6 地址'),
         sa.Column('submitter_user_agent', sa.Text(), nullable=True),
         sa.Column('submitter_info', sa.Text(), nullable=True, comment='JSON格式，包含邮箱、姓名等提交者信息'),

@@ -7,6 +7,7 @@ Create Date: 2026-04-16
 """
 from alembic import op
 import sqlalchemy as sa
+from app.db_types import CompatUUID as UUID
 
 revision = '20250416_0008'
 down_revision = '20250414_0007'
@@ -16,12 +17,12 @@ depends_on = None
 
 def upgrade():
     op.create_table('collaboration_sessions',
-        sa.Column('id', sa.String(36), nullable=False),
-        sa.Column('base_id', sa.String(36), nullable=False),
-        sa.Column('user_id', sa.String(36), nullable=False),
+        sa.Column('id', UUID(), nullable=False),
+        sa.Column('base_id', UUID(), nullable=False),
+        sa.Column('user_id', UUID(), nullable=False),
         sa.Column('socket_id', sa.String(64), nullable=False),
-        sa.Column('current_table_id', sa.String(36), nullable=True),
-        sa.Column('current_view_id', sa.String(36), nullable=True),
+        sa.Column('current_table_id', UUID(), nullable=True),
+        sa.Column('current_view_id', UUID(), nullable=True),
         sa.Column('current_view_type', sa.String(20), nullable=True),
         sa.Column('locked_cells', sa.Text(), nullable=True),
         sa.Column('joined_at', sa.DateTime(), nullable=False),

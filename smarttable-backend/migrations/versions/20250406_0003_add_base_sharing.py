@@ -9,6 +9,7 @@
 """
 from alembic import op
 import sqlalchemy as sa
+from app.db_types import CompatUUID as UUID
 from sqlalchemy.engine.reflection import Inspector
 
 
@@ -32,10 +33,10 @@ def upgrade() -> None:
     # 创建 Base 分享配置表
     op.create_table(
         'base_shares',
-        sa.Column('id', sa.String(36), primary_key=True, nullable=False),
-        sa.Column('base_id', sa.String(36), sa.ForeignKey('bases.id', ondelete='CASCADE'), nullable=False, index=True),
+        sa.Column('id', UUID(), primary_key=True, nullable=False),
+        sa.Column('base_id', UUID(), sa.ForeignKey('bases.id', ondelete='CASCADE'), nullable=False, index=True),
         sa.Column('share_token', sa.String(64), nullable=False, unique=True, index=True),
-        sa.Column('created_by', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('created_by', UUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
         sa.Column('permission', sa.Enum('view', 'edit', name='sharepermission'), nullable=False, default='view'),
         sa.Column('expires_at', sa.Integer(), nullable=True),
         sa.Column('access_count', sa.Integer(), nullable=False, default=0),

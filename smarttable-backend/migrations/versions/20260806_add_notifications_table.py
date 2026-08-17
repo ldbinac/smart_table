@@ -9,6 +9,11 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
+# 与模型 app/models/notification.py 一致：UUID 列在 PostgreSQL 下编译为原生 UUID，
+# 在 SQLite 下为 String(36)。不要使用 sa.String(36) 表示 UUID 主键/外键列，
+# 否则在 PostgreSQL 下外键会从 VARCHAR 指向 UUID 主键，触发类型不兼容错误导致迁移失败。
+from app.db_types import CompatUUID as UUID
+
 
 # revision identifiers, used by Alembic.
 revision = '20260806_0024'
@@ -27,8 +32,8 @@ def upgrade():
 
     # 创建 notifications 表
     op.create_table('notifications',
-        sa.Column('id', sa.String(36), nullable=False),
-        sa.Column('recipient_user_id', sa.String(36), nullable=False),
+        sa.Column('id', UUID(), nullable=False),
+        sa.Column('recipient_user_id', UUID(), nullable=False),
         sa.Column('recipient_email', sa.String(255), nullable=True),
         sa.Column('title', sa.String(500), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
