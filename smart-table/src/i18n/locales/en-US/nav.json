@@ -4,6 +4,7 @@
   "settings": "Settings",
   "systemAdmin": "System Admin",
   "userManagement": "User Management",
+  "oauthApps": "OAuth Apps",
   "systemConfig": "System Config",
   "operationLogs": "Operation Logs",
   "emailTemplates": "Email Templates",

@@ -20,6 +20,7 @@
   "adminUsers": "User Management",
   "adminSettings": "System Management",
   "adminLogs": "Operation Logs",
+  "adminOAuthApps": "Third-Party Apps",
   "emailTemplates": "Email Templates",
   "emailLogs": "Email Logs",
   "emailStats": "Email Statistics",

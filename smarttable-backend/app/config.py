@@ -121,7 +121,24 @@ class Config:
     JWT_TOKEN_LOCATION = ['headers']
     JWT_HEADER_NAME = 'Authorization'
     JWT_HEADER_TYPE = 'Bearer'
-    
+
+    # ===== 第三方应用接入（OAuth2 客户端凭证模式）配置 =====
+    # 开放 API 令牌有效期（秒）
+    OPEN_API_TOKEN_EXPIRES = int(os.environ.get('OPEN_API_TOKEN_EXPIRES', 7200))
+    # 支持的 scope 白名单
+    OAUTH_SCOPES = [
+        'base:read',
+        'table:read',
+        'table:write',
+        'record:read',
+        'record:write',
+        'field:read',
+    ]
+    # 令牌端点限流（按 client_id + IP）：次数/分钟
+    OAUTH_TOKEN_RATE_LIMIT = os.environ.get('OAUTH_TOKEN_RATE_LIMIT', '60/minute')
+    # 开放 API 限流（按应用）：次数/分钟
+    OPEN_API_RATE_LIMIT = os.environ.get('OPEN_API_RATE_LIMIT', '600/minute')
+
     # Redis 配置
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
     

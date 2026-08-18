@@ -84,6 +84,12 @@ const navItems = computed<NavItem[]>(() => [
               path: "/admin/logs",
             },
             {
+              id: "admin-oauth-apps",
+              label: t('nav.oauthApps'),
+              icon: "Key",
+              path: "/admin/oauth-apps",
+            },
+            {
               id: "admin-email-templates",
               label: t('nav.emailTemplates'),
               icon: "Message",

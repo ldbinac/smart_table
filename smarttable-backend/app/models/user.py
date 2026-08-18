@@ -161,7 +161,14 @@ class User(db.Model):
         lazy='dynamic',
         cascade='all, delete-orphan'
     )
-    
+
+    oauth_apps = relationship(
+        'OAuthApp',
+        back_populates='owner',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+
     def __init__(self, **kwargs):
         """初始化用户，自动处理密码哈希"""
         password = kwargs.pop('password', None)

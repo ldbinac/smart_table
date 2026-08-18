@@ -20,6 +20,7 @@
   "adminUsers": "用户管理",
   "adminSettings": "系统配置",
   "adminLogs": "操作日志",
+  "adminOAuthApps": "第三方应用",
   "emailTemplates": "邮件模板",
   "emailLogs": "邮件日志",
   "emailStats": "邮件统计",

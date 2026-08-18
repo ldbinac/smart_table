@@ -34,6 +34,8 @@ from app.routes.workflow_templates import workflow_templates_bp
 from app.routes.workflows import workflows_bp
 from app.routes.config import config_bp
 from app.routes.lookup import lookup_bp
+from app.routes.oauth import oauth_bp
+from app.routes.open_api import open_api_bp
 
 # 服务导入
 from app.services.email_queue_service import init_email_queue
@@ -298,6 +300,12 @@ def register_blueprints(app):
 
     # 注册查找字段蓝图
     app.register_blueprint(lookup_bp, url_prefix='/api')
+
+    # 注册 OAuth2 第三方应用接入蓝图（url_prefix 已在 oauth.py 中定义为 /api/oauth）
+    app.register_blueprint(oauth_bp)
+
+    # 注册开放 API 蓝图（第三方应用以应用身份访问数据）
+    app.register_blueprint(open_api_bp)
 
 
 def register_error_handlers(app):

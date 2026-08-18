@@ -81,6 +81,51 @@ def error_response(
     return jsonify(response), code
 
 
+def created_response(
+    data: Any = None,
+    message: str = 'resource_created',
+    code: int = 201
+) -> Response:
+    """
+    创建资源成功响应（201）
+
+    Args:
+        data: 响应数据
+        message: 成功消息（i18n key 或原始文本，自动翻译）
+        code: HTTP 状态码
+
+    Returns:
+        Flask Response 对象
+    """
+    return success_response(data=data, message=message, code=code)
+
+
+def conflict_response(message: str = 'conflict') -> Response:
+    """
+    资源冲突响应（409）
+
+    Args:
+        message: 错误消息（i18n key 或原始文本，自动翻译）
+
+    Returns:
+        Flask Response 对象
+    """
+    return error_response(message=message, code=409, error='conflict')
+
+
+def server_error_response(message: str = 'server_error') -> Response:
+    """
+    服务器错误响应（500）
+
+    Args:
+        message: 错误消息（i18n key 或原始文本，自动翻译）
+
+    Returns:
+        Flask Response 对象
+    """
+    return error_response(message=message, code=500, error='server_error')
+
+
 def paginated_response(
     items: List[Any],
     total: int,

@@ -172,7 +172,17 @@ def register_jwt_callbacks(jwt_manager):
         
         jti = jwt_payload["jti"]
         user_id = jwt_payload.get("sub")
-        
+
+        # 第三方应用令牌（OAuth2 客户端凭证）撤销检查：Redis jti 黑名单，O(1) 查询
+        try:
+            from app.extensions import redis_client
+            if redis_client is not None:
+                if redis_client.sismember('oauth:revoked_jti', jti):
+                    return True
+        except Exception:
+            # Redis 不可用时不影响用户令牌校验路径
+            pass
+
         try:
             # 先检查是否在黑名单中
             token = TokenBlocklist.query.filter_by(jti=jti).first()

@@ -201,6 +201,16 @@ const routes: RouteRecordRaw[] = [
     beforeEnter: adminGuard,
   },
   {
+    path: "/admin/oauth-apps",
+    name: "AdminOAuthApps",
+    component: () => import("@/views/admin/OAuthAppManagement.vue"),
+    meta: {
+      title: "route.adminOAuthApps",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
     path: "/admin/email/templates",
     name: "EmailTemplates",
     component: () => import("@/views/admin/EmailTemplates.vue"),

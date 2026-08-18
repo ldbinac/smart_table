@@ -817,3 +817,116 @@ def write_rate_limit(
         by_user=True,
         by_ip=True
     )
+
+
+def open_api_auth_required(fn: Callable) -> Callable:
+    """
+    开放 API（第三方应用）认证装饰器
+
+    校验 OAuth2 客户端凭证签发的 JWT（携带 app_id / scope / client_id），
+    加载 OAuthApp 并校验 `is_active`，在 g 上设置：
+        - g.oauth_app: OAuthApp 实例
+        - g.oauth_app_id: 应用 id（str）
+        - g.oauth_scopes: scope 列表（list[str]）
+        - g.is_service_account: True
+
+    注意：该装饰器不依赖 g.current_user（用户认证），仅用于应用身份。
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        from flask import current_app
+        from app.models.oauth_app import OAuthApp
+
+        try:
+            verify_jwt_in_request()
+            claims = get_jwt()
+        except Exception as e:
+            current_app.logger.error(f'[OpenAPI] JWT 验证失败：{str(e)}')
+            return unauthorized_response('无效的访问令牌')
+
+        app_id = claims.get('app_id') or claims.get('sub')
+        if not app_id:
+            return unauthorized_response('令牌缺少应用身份信息')
+
+        if claims.get('token_type') != 'app':
+            # 仅接受开放 API 签发（应用身份）的令牌，拒绝用户令牌
+            return forbidden_response('该令牌不适用于开放 API')
+
+        try:
+            from uuid import UUID
+            app = OAuthApp.query.get(UUID(str(app_id)))
+        except (ValueError, TypeError):
+            app = None
+
+        if app is None:
+            return unauthorized_response('应用不存在或已被删除')
+        if not app.is_active:
+            return forbidden_response('应用已被停用')
+
+        # 同步令牌中的 scope 与库中授予的 scope
+        token_scopes = (claims.get('scope') or '').split()
+        granted_scopes = app.scopes.split() if app.scopes else []
+        effective_scopes = [s for s in token_scopes if s in granted_scopes]
+
+        g.oauth_app = app
+        g.oauth_app_id = str(app.id)
+        g.oauth_scopes = effective_scopes
+        g.is_service_account = True
+
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def require_open_scope(*required_scopes: str) -> Callable:
+    """
+    开放 API scope 校验装饰器
+
+    校验 g.oauth_scopes 是否包含所需的全部 scope，否则返回 403。
+    必须在 @open_api_auth_required 之后使用。
+
+    使用示例：
+        @open_api_bp.route('/records', methods=['POST'])
+        @open_api_auth_required
+        @require_open_scope('record:write')
+        def create_record():
+            ...
+    """
+    def decorator(fn: Callable) -> Callable:
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            scopes = getattr(g, 'oauth_scopes', None) or []
+            missing = [s for s in required_scopes if s not in scopes]
+            if missing:
+                return forbidden_response(
+                    f'缺少所需权限范围（scope）：{", ".join(missing)}'
+                )
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def open_api_rate_limit(
+    max_requests: int = 600,
+    window: int = 60
+) -> Callable:
+    """
+    开放 API 速率限制装饰器
+
+    与用户 API 限流隔离：以应用身份（jwt identity = app_id）为维度，
+    key_prefix='open'，防止第三方应用耗尽用户配额。
+
+    使用示例：
+        @open_api_bp.route('/records', methods=['GET'])
+        @open_api_auth_required
+        @open_api_rate_limit(max_requests=300, window=60)
+        def list_records():
+            ...
+    """
+    return api_rate_limit(
+        max_requests=max_requests,
+        window=window,
+        key_prefix='open',
+        by_user=True,
+        by_ip=False
+    )

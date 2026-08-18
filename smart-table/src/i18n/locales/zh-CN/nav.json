@@ -4,6 +4,7 @@
   "settings": "设置",
   "systemAdmin": "系统管理",
   "userManagement": "用户管理",
+  "oauthApps": "第三方应用",
   "systemConfig": "系统配置",
   "operationLogs": "操作日志",
   "emailTemplates": "邮件模板",
