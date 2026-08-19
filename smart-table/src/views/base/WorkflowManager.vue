@@ -10,6 +10,7 @@ import {
   Link,
   Refresh,
   Delete,
+  QuestionFilled,
 } from "@element-plus/icons-vue";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useTableStore } from "@/stores/tableStore";
@@ -117,6 +118,15 @@ const designerTrigger = computed<WorkflowTrigger>(() => {
 onMounted(() => {
   init();
 });
+
+// 打开工作流帮助文档
+function openWorkflowDocs() {
+  window.open(
+    "https://my-smart-table.github.io/smart-table-docs/zh-CN/user-guide/workflow.html",
+    "_blank",
+    "noopener",
+  );
+}
 
 watch(
   () => baseId,
@@ -562,6 +572,12 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
             {{ t('workflow.manager.gallery') }}
           </el-button>
         </div>
+
+        <el-tooltip :content="t('workflow.manager.helpDocs')" placement="bottom">
+          <el-icon class="workflow-help-icon" @click="openWorkflowDocs">
+            <QuestionFilled />
+          </el-icon>
+        </el-tooltip>
       </div>
 
       <div class="workflow-content">
@@ -848,6 +864,17 @@ function getVersionNodes(version: WorkflowVersion): WorkflowNode[] {
   padding: $spacing-md;
   border-bottom: 1px solid $border-color;
   background-color: white;
+}
+
+.workflow-help-icon {
+  font-size: 18px;
+  color: $text-secondary;
+  cursor: pointer;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: $primary-color;
+  }
 }
 
 .header-tabs {

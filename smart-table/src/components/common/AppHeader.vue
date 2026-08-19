@@ -431,8 +431,8 @@ onMounted(() => {
         <el-divider direction="vertical" class="header-divider" />
       </template>
 
-      <!-- Base页面的自动化下拉菜单 -->
-      <template v-if="isBasePage && currentBase">
+      <!-- Base页面的自动化下拉菜单（工作流配置界面已在该界面内，无需再显示入口按钮） -->
+      <template v-if="isBasePage && currentBase && !isWorkflowPage">
         <el-dropdown trigger="click" @command="(cmd: string) => {
           if (cmd === 'workflow') handleWorkflowClick();
         }">

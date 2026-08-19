@@ -1,5 +1,6 @@
 {
   "manage": "字段管理",
+  "helpDocs": "查看字段类型帮助文档",
   "totalFields": "共 {count} 个字段",
   "addField": "添加字段",
   "primaryFieldTooltip": "索引列：用来标识每条记录。不能被删除、移动或隐藏。",

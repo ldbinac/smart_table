@@ -4,6 +4,7 @@
     "radioHistory": "Run History",
     "radioWebhook": "Webhook Management",
     "gallery": "Template Gallery",
+    "helpDocs": "View workflow documentation",
     "emptyCreate": "Select or create a workflow",
     "instanceLabel": "Run instance:",
     "instancePlaceholder": "Select a run instance",

@@ -4,6 +4,126 @@
 
 ***
 
+# SmartTable v1.6.5 Release Notes
+
+**发布日期 / Release Date**: 2026-08-19
+
+**版本号 / Version**: v1.6.5
+
+**标签 / Tags**: `release`, `v1.6.5`, `latest`, `stable`, `i18n`, `oauth`, `third-party`, `audit-log`, `date-input`, `formula-display`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.5 更新说明
+
+本次更新聚焦 **国际化与多语言框架**、**第三方应用接入与审计体系**、**日期字段增强** 以及 **表格功能优化**。搭建前后端多语言框架并覆盖完整功能界面，新增语言切换与系统语言自动检测；新增第三方应用 OAuth2 接入与完整的应用审计日志；新增统一日期输入组件、公式字段文本格式与数值字段统一展示；新增表格历史变更审计弹窗、导出成员名称与公式计算结果、分享表单公式字段展示等功能；并同步修复了一批问题。
+
+### ✨ 新增及功能优化
+
+#### 🌐 国际化与多语言支持 ⭐
+
+- ⭐ **前后端多语言框架**：搭建前后端国际化框架骨架，统一多语言键值管理与加载机制
+- ⭐ **语言切换组件**：新增语言切换组件，支持手动切换并自动检测系统语言
+- **多界面国际化**：国际化认证页面覆盖完整的系统界面文案
+- **视图国际化**：新增视图国际化支持，默认表格视图名称和描述支持国际化
+- **英文模板**：模板预览视图支持英文翻译并新增英文模板
+- **英文文案更新**：更新字段类型与组件名称等英文文案
+
+#### 🔌 第三方应用接入 ⭐
+
+- ⭐ **第三方应用接入**：新增第三方应用 OAuth2 接入能力，支持开放 API 鉴权与接入
+- ⭐ **应用审计日志**：实现完整的应用审计日志功能，记录第三方应用的关键操作
+- ⭐ **应用接入文档**：文档项目，新增应用接入文档，详细介绍接入流程与使用示例
+
+#### 📅 日期输入与字段格式增强
+
+- ⭐ **DateInput 统一日期输入组件**：新增 DateInput 统一日期输入组件，支持自定义日期格式
+- **公式字段文本格式**：公式字段支持以文本格式显示
+- **数值字段统一展示**：统一数值字段的展示格式
+
+#### 📝 表格能力与导出增强
+
+- ⭐ **表格历史变更审计弹窗**：新增表格历史变更审计弹窗，便于追溯记录变更
+- **导出增强**：导出支持成员名称与公式计算结果
+- **链接字段编辑器**：更新链接字段编辑器实现
+- **分享表单公式**：分享表单支持公式字段展示与提交过滤
+
+#### 🔐 账户与表单体验
+
+- **修改密码弹窗**：新增修改密码弹窗组件
+- **表单匿名/登录提交**：支持匿名提交时表单及非匿名场景下的登录提交
+- **版本号展示**：反馈弹窗底部显示当前版本号
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复分组视图下主从表配置导致数据不可见的问题
+- 修复字段编辑状态残留问题
+- 修复开关单元格在新增行中的显示及锁并发保存问题
+- 统一 UUID 列类型以兼容 PostgreSQL
+- 迁移脚本增加幂等检查，修复旧库结构漂移
+- 修复仪表盘删除问题
+- 修复分享表单富文本长度校验问题
+- 修复打包模式自定义上传目录无效问题
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.5 Release Notes
+
+This release focuses on **internationalization & multi-language framework**, **third-party app integration & audit system**, **date field enhancements**, and **table feature optimizations**. Built a frontend/backend i18n framework covering the complete feature UI, with a language switcher and automatic system-language detection; added OAuth2 third-party app integration with complete application audit logs; introduced a unified DateInput component, text-format formula fields and unified number display; added a table change-history audit dialog, member-name and formula-result export, and shared-form formula field display; and fixed a batch of issues.
+
+### ✨ New Features & Improvements
+
+#### 🌐 Internationalization & Multi-Language ⭐
+
+- ⭐ **Frontend/Backend i18n Framework**: Built the frontend/backend internationalization framework skeleton with unified multi-language key management and loading
+- ⭐ **Language Switcher**: New language switcher component with manual switching and automatic system-language detection
+- **Multi-UI Localization**: Localized the auth page covering the complete system UI copy
+- **View Internationalization**: Added view i18n support; default table view name and description now support localization
+- **English Templates**: Template preview now supports English translation with new English templates
+- **English Copy Updates**: Updated English copy for field types and component names
+
+#### 🔌 Third-Party App Integration ⭐
+
+- ⭐ **Third-Party App Integration**: Added OAuth2 third-party app integration with open API authentication
+- ⭐ **Application Audit Log**: Implemented complete application audit logging of key third-party app operations
+- ⭐ **App Integration Docs**: Added app integration documentation detailing the integration flow and usage examples
+
+#### 📅 Date Input & Field Format
+
+- ⭐ **Unified DateInput Component**: New unified DateInput date component supporting custom date formats
+- **Formula Field Text Format**: Formula fields can now display in text format
+- **Unified Number Display**: Unified number field display format
+
+#### 📝 Table Capabilities & Export
+
+- ⭐ **Table Change-History Audit Dialog**: New table change-history audit dialog for tracing record changes
+- **Export Enhancements**: Export now includes member names and formula results
+- **Link Field Editor**: Updated link field editor implementation
+- **Shared Form Formula**: Shared forms support formula field display and submit filtering
+
+#### 🔐 Account & Form Experience
+
+- **Change-Password Dialog**: New change-password dialog component
+- **Anonymous/Authenticated Submit**: Support anonymous form submission as well as authenticated submission for non-anonymous scenarios
+- **Version Display**: Feedback dialog now shows the current version number at the bottom
+
+### 🐛 Bug Fixes
+
+- Fixed master-detail data invisibility caused by master-detail config under grouped views
+- Fixed residual field edit state
+- Fixed switch-cell display on new rows and lock concurrent-save issues
+- Unified UUID column type for PostgreSQL compatibility
+- Added idempotency checks to migration scripts, fixing legacy schema drift
+- Fixed dashboard deletion issue
+- Fixed rich-text length validation in shared forms
+- Fixed invalid custom upload directory in packaged mode
+
+***
+
 # SmartTable v1.6.4 Release Notes
 
 **发布日期 / Release Date**: 2026-08-10

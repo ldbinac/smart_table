@@ -4,7 +4,7 @@
   "feedbackTitle": "Feedback",
   "feedbackIntro": "Thank you for your feedback! Please choose any of the channels below to submit your issue or suggestion. System info will be attached automatically for troubleshooting.",
   "versionLabel": "Current Version",
-  "docBannerText": "Before submitting, you can check the official docs for self-help",
+  "docBannerText": "Before submitting, you can check the official docs for self-help（Click to open Official Document）",
   "githubIssues": "GitHub Issues",
   "githubDesc": "Go to GitHub repo to submit an Issue (opens in a new tab, prefilled with system info)",
   "goSubmit": "Go Submit",

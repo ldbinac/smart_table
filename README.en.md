@@ -16,6 +16,9 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Record Management** - CRUD operations, batch actions, detail drawer, and change history tracking
 - **View Management** - **6 view types** with filtering, sorting, grouping, view switching, and column freezing
 - **Document Management** - Document CRUD, rich text editing (Quill), Markdown support, PDF export, version history
+- **Automation Workflow Management** - Workflow create/edit, node management, trigger management, and delivery record viewing
+- **Data Visualization** - Dashboard create/edit, chart components, grid layout, real-time data, and dashboard sharing
+- **Audit Log** - Complete audit log system with trace tracking
 
 ### 📝 Supported Field Types (26 Types)
 
@@ -154,6 +157,12 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Version History** - Version tracking and rollback, comparison view, creator tracking
 - **PDF Export** - Export documents as PDF with DOM direct parsing for accurate styling
 
+#### 🔌 Third-Party App Integration (New in v1.6.5)
+
+- **Third-Party App Integration** - Added OAuth2 third-party app integration with open API authentication and access
+- **Application Audit Log** - Implemented complete application audit logging of key third-party app operations
+- **App Integration Docs** - Added app integration documentation detailing the integration flow and usage examples
+
 ## 📸 Feature Preview
 
 | Feature            | Preview                                           | Feature            | Preview                                         |
@@ -221,9 +230,9 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 
 | Mode                   | Technology         | Description                                                                                        |
 | ---------------------- | ------------------ | -------------------------------------------------------------------------------------------------- |
-| **Pure Frontend Mode** | Dexie (IndexedDB)  | Data stored locally in browser, no server required, suitable for personal use or offline scenarios |
-| **Backend Mode**       | SQLite + Flask     | Default uses SQLite, lightweight without additional database installation                          |
-| **Production Mode**    | PostgreSQL + Flask | Supports PostgreSQL, suitable for multi-user concurrent access and production environments         |
+| **Pure Frontend Mode** | Dexie (IndexedDB)  | Data stored locally in browser as cache                                 |
+| **Backend Mode**       | SQLite + Flask     | Default uses SQLite, lightweight without additional database installation |
+| **Production Mode**    | PostgreSQL + Flask | Supports PostgreSQL, suitable for multi-user concurrency and production environments |
 
 ## 🚀 Quick Start
 
@@ -414,138 +423,6 @@ python run.py -r
 ✅ **Email System**: Optional SMTP email sending\
 ✅ **Object Storage**: Optional MinIO file storage\
 ✅ **Security Protection**: XSS protection, rate limiting, security headers
-
-## 🗄️ Data Models
-
-### Core Entity Relationships
-
-```
-User (User)
-  ├── owns many Base (Multi-dimensional Tables)
-  ├── is member of many Base (via BaseMember)
-  └── has many OperationLog (Operation Logs)
-
-Base (Multi-dimensional Table)
-  ├── has many Table (Data Tables)
-  ├── has many Dashboard (Dashboards)
-  ├── has many BaseShare (Share Links)
-  ├── has many BaseMember (Members)
-  ├── has many CollaborationSession (Collaboration Sessions)
-  └── has many Workflow (Workflows) (New in v1.6.0)
-
-Table (Data Table)
-  ├── has many Field (Fields)
-  ├── has many Record (Records)
-  ├── has many View (Views)
-  ├── has many LinkRelation (Link Relations)
-  ├── has many Workflow (Associated Workflows) (New in v1.6.0)
-  └── belongs to Base
-
-Field (Field)
-  ├── has options (field options)
-  └── belongs to Table
-
-Record (Record)
-  ├── has many RecordHistory (Change History)
-  ├── has values for each Field
-  └── belongs to Table
-
-View (View)
-  ├── has filter/sort/group configs
-  └── belongs to Table
-
-Workflow (Workflow) (New in v1.6.0)
-  ├── has many WorkflowVersion (Version Snapshots)
-  ├── has many WebhookConfig (Webhook Configs)
-  └── belongs to Base/Table
-
-WebhookConfig (Webhook Config) (New in v1.6.0)
-  ├── has many WebhookDelivery (Delivery Records)
-  └── belongs to Workflow
-```
-
-### Main Model Descriptions
-
-#### User
-
-- User authentication info (username, email, password hash)
-- Email verification status
-- Role permissions (regular user/admin)
-- Avatar and profile info
-
-#### Base (Multi-dimensional Table)
-
-- Base unit for multi-dimensional tables
-- Support starring, custom icon and color
-- Member management and permission control
-- Sharing settings (public/private/password protected)
-
-#### Table (Data Table)
-
-- Contains field definitions and record data
-- Support drag-sort, starring
-- Relationship configuration
-
-#### Field (Field)
-
-- Define column types and properties
-- Support 26 field types
-- Rich field options (validation rules, default values, formatting, etc.)
-
-#### Record (Record)
-
-- Data row storing values for each field
-- Support CRUD, batch operations
-- Complete change history tracking
-
-#### View (View)
-
-- Data display method (6 view types)
-- Independent filter, sort, group configurations
-- View-level field control (hidden, freeze, width)
-
-#### Document (v1.4.0)
-
-- Document storage and management, linked to Base
-- Supports rich text and Markdown content
-- Permissions inherited from parent Base
-
-#### DocumentVersion (v1.4.0)
-
-- Document version history tracking
-- Snapshot and creator per save
-- Supports version rollback and comparison
-
-#### CollaborationSession
-
-- Real-time collaboration session tracking
-- Records user join/leave and active status
-- Only used when real-time collaboration is enabled
-
-#### Workflow (New in v1.6.0)
-
-- Workflow automation engine core entity
-- Binds to Base or specific Table
-- Contains trigger config and node execution chain
-- Supports pause, resume, edit, version management
-
-#### WorkflowVersion (New in v1.6.0)
-
-- Workflow version history snapshot
-- Records saved config and creator per version
-- Supports version rollback and config comparison
-
-#### WebhookConfig (New in v1.6.0)
-
-- Webhook delivery configuration
-- Supports URL, HTTP method, headers, request body template
-- Supports retry strategy configuration
-
-#### WebhookDelivery (New in v1.6.0)
-
-- Webhook delivery records
-- Records request params, response status, response content
-- Supports delivery status tracking
 
 ## 🔢 Formula Engine
 
@@ -741,8 +618,6 @@ environment:
 
 ### Quick Deploy (Official Image One-click Start)
 
-> For ARM architectures, please use the corresponding version image：`ygbinac/smarttable:1.4.1-arm64`
-
 Directly start:
 
 ```bash
@@ -894,30 +769,6 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) specifica
 
 This project is licensed under the [MIT License](LICENSE).
 
-```
-MIT License
-
-Copyright (c) 2026 Smart Table Contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 ***
 
 ## 🙏 Acknowledgments
@@ -940,7 +791,7 @@ Special thanks to:
 
 - 📧 Email: <ldengbin@126.com>
 - 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
-- 📖 Documentation: [User-Manual](https://github.com/ldbinac/smart_table/blob/main/doc/Smart-Table-User-Manual.md)
+- 📖 Documentation: [User-Manual](https://my-smart-table.github.io/smart-table-docs)
 - Follow the author on WeChat:
   ![](./doc/img/wechat_official_account.png)
 

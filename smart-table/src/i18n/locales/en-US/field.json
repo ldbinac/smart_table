@@ -1,5 +1,6 @@
 {
   "manage": "Field Management",
+  "helpDocs": "View field type documentation",
   "totalFields": "{count} fields total",
   "addField": "Add Field",
   "primaryFieldTooltip": "Primary column: identifies each record. Cannot be deleted, moved or hidden.",

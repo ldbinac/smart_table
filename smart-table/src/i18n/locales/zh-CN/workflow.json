@@ -4,6 +4,7 @@
     "radioHistory": "执行历史",
     "radioWebhook": "Webhook 管理",
     "gallery": "模板库",
+    "helpDocs": "查看工作流帮助文档",
     "emptyCreate": "请选择或创建一个工作流",
     "instanceLabel": "执行实例：",
     "instancePlaceholder": "请选择执行实例",

@@ -36,7 +36,7 @@ import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
 import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
-import { Rank, ArrowRight, Link } from "@element-plus/icons-vue";
+import { Rank, ArrowRight, Link, QuestionFilled } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
 import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
@@ -47,6 +47,15 @@ import { PRESET_REGEX_OPTIONS } from "@/utils/validation";
 const { t } = useI18n();
 const viewStore = useViewStore();
 const tableStore = useTableStore();
+
+// 打开字段类型帮助文档
+function openFieldDocs() {
+  window.open(
+    "https://my-smart-table.github.io/smart-table-docs/zh-CN/user-guide/field-types.html",
+    "_blank",
+    "noopener",
+  );
+}
 
 // 用于预览的记录 ID（取当前表第一条记录）
 const previewRecordId = computed(() => {
@@ -1431,9 +1440,18 @@ async function toggleFieldVisibility(
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    :title="t('field.manage')"
     width="600px"
     :close-on-click-modal="false">
+    <template #header>
+      <div class="field-dialog-header">
+        <span class="field-dialog-title">{{ t('field.manage') }}</span>
+        <el-tooltip :content="t('field.helpDocs')" placement="bottom">
+          <el-icon class="field-help-icon" @click="openFieldDocs">
+            <QuestionFilled />
+          </el-icon>
+        </el-tooltip>
+      </div>
+    </template>
     <!-- 字段列表 -->
     <div v-if="activeTab === 'list'" class="field-list">
       <div class="field-list-header">
@@ -2277,6 +2295,28 @@ async function toggleFieldVisibility(
 
 <style lang="scss" scoped>
 @use "@/assets/styles/variables" as *;
+
+.field-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .field-dialog-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .field-help-icon {
+    font-size: 16px;
+    color: $text-secondary;
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: $primary-color;
+    }
+  }
+}
 
 .field-list {
   .field-list-header {
