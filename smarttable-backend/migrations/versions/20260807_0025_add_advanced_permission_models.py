@@ -48,92 +48,81 @@ def _col_exists(table_name, column_name):
 
 
 def upgrade():
-    # ===== 1. 角色表 =====
+    # ===== 1. 角色表（与模型 Role 对齐） =====
     if not _table_exists('roles'):
         op.create_table(
             'roles',
             sa.Column('id', UUID(), nullable=False),
-            sa.Column('base_id', UUID(), nullable=True),
+            sa.Column('base_id', UUID(), nullable=False),
             sa.Column('name', sa.String(length=100), nullable=False),
-            sa.Column('display_name', sa.String(length=100), nullable=True),
             sa.Column('description', sa.Text(), nullable=True),
-            sa.Column('type', sa.String(length=20), nullable=False),
-            sa.Column('priority', sa.Integer(), nullable=False),
             sa.Column('is_system', sa.Boolean(), nullable=False, server_default=sa.text('0')),
-            sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.ForeignKeyConstraint(['base_id'], ['bases.id'], ondelete='CASCADE'),
         )
 
-    # ===== 2. 权限规则组表 =====
+    # ===== 2. 权限规则组表（与模型 PermissionRuleGroup 对齐） =====
     if not _table_exists('permission_rule_groups'):
         op.create_table(
             'permission_rule_groups',
             sa.Column('id', UUID(), nullable=False),
-            sa.Column('base_id', UUID(), nullable=True),
             sa.Column('name', sa.String(length=100), nullable=False),
-            sa.Column('display_name', sa.String(length=100), nullable=True),
             sa.Column('description', sa.Text(), nullable=True),
-            sa.Column('is_system', sa.Boolean(), nullable=False, server_default=sa.text('0')),
-            sa.Column('created_by', UUID(), nullable=True),
+            sa.Column('base_id', UUID(), nullable=False),
+            sa.Column('created_by', UUID(), nullable=False),
+            sa.Column('status', sa.String(length=20), nullable=False, server_default=sa.text("'active'")),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.ForeignKeyConstraint(['base_id'], ['bases.id'], ondelete='CASCADE'),
-            sa.ForeignKeyConstraint(['created_by'], ['users.id'], ondelete='SET NULL'),
+            sa.ForeignKeyConstraint(['created_by'], ['users.id'], ondelete='CASCADE'),
         )
+        op.create_index('ix_permission_rule_groups_base_id', 'permission_rule_groups', ['base_id'], unique=False)
 
-    # ===== 3. 权限规则表 =====
+    # ===== 3. 权限规则表（与模型 PermissionRule 对齐） =====
     if not _table_exists('permission_rules'):
         op.create_table(
             'permission_rules',
             sa.Column('id', UUID(), nullable=False),
-            sa.Column('base_id', UUID(), nullable=True),
-            sa.Column('rule_group_id', UUID(), nullable=True),
-            sa.Column('name', sa.String(length=100), nullable=False),
-            sa.Column('display_name', sa.String(length=100), nullable=True),
-            sa.Column('description', sa.Text(), nullable=True),
-            sa.Column('resource_type', sa.String(length=50), nullable=True),
-            sa.Column('action', sa.String(length=50), nullable=True),
-            sa.Column('effect', sa.String(length=20), nullable=False, server_default=sa.text("'allow'")),
-            sa.Column('priority', sa.Integer(), nullable=False, server_default=sa.text('50')),
-            sa.Column('conditions', sa.Text(), nullable=True),
-            sa.Column('is_enabled', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+            sa.Column('rule_group_id', UUID(), nullable=False),
+            sa.Column('rule_type', sa.String(length=50), nullable=False),
+            sa.Column('rule_target_id', UUID(), nullable=False),
+            sa.Column('permission', sa.String(length=20), nullable=False),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.ForeignKeyConstraint(['rule_group_id'], ['permission_rule_groups.id'], ondelete='CASCADE'),
         )
+        op.create_index('ix_permission_rules_rule_group_id', 'permission_rules', ['rule_group_id'], unique=False)
 
-    # ===== 4. 数据权限条件表 =====
+    # ===== 4. 数据权限条件表（与模型 DataPermissionCondition 对齐） =====
     if not _table_exists('data_permission_conditions'):
         op.create_table(
             'data_permission_conditions',
             sa.Column('id', UUID(), nullable=False),
-            sa.Column('base_id', UUID(), nullable=True),
-            sa.Column('rule_group_id', UUID(), nullable=True),
-            sa.Column('resource_type', sa.String(length=50), nullable=True),
-            sa.Column('field', sa.String(length=100), nullable=True),
-            sa.Column('operator', sa.String(length=50), nullable=True),
-            sa.Column('field_type', sa.String(length=50), nullable=True),
+            sa.Column('rule_group_id', UUID(), nullable=False),
+            sa.Column('table_id', UUID(), nullable=True),
+            sa.Column('field_id', UUID(), nullable=False),
+            sa.Column('operator', sa.String(length=50), nullable=False),
             sa.Column('value', sa.Text(), nullable=True),
+            sa.Column('logical_operator', sa.String(length=10), nullable=False, server_default=sa.text("'and'")),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.ForeignKeyConstraint(['rule_group_id'], ['permission_rule_groups.id'], ondelete='CASCADE'),
         )
         op.create_index('ix_data_permission_conditions_rule_group_id', 'data_permission_conditions', ['rule_group_id'], unique=False)
+        op.create_index('ix_data_permission_conditions_table_id', 'data_permission_conditions', ['table_id'], unique=False)
 
-    # ===== 5. 角色-规则组关联表 =====
+    # ===== 5. 角色-规则组关联表（与模型 RolePermissionGroup 对齐） =====
     if not _table_exists('role_permission_groups'):
         op.create_table(
             'role_permission_groups',
             sa.Column('id', UUID(), nullable=False),
-            sa.Column('base_id', UUID(), nullable=True),
-            sa.Column('role_id', UUID(), nullable=True),
-            sa.Column('rule_group_id', UUID(), nullable=True),
+            sa.Column('role_id', UUID(), nullable=False),
+            sa.Column('rule_group_id', UUID(), nullable=False),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ondelete='CASCADE'),
@@ -142,14 +131,13 @@ def upgrade():
         op.create_index('ix_role_permission_groups_role_id', 'role_permission_groups', ['role_id'], unique=False)
         op.create_index('ix_role_permission_groups_rule_group_id', 'role_permission_groups', ['rule_group_id'], unique=False)
 
-    # ===== 6. 用户-规则组关联表 =====
+    # ===== 6. 用户-规则组关联表（与模型 UserPermissionGroup 对齐） =====
     if not _table_exists('user_permission_groups'):
         op.create_table(
             'user_permission_groups',
             sa.Column('id', UUID(), nullable=False),
-            sa.Column('base_id', UUID(), nullable=True),
-            sa.Column('user_id', UUID(), nullable=True),
-            sa.Column('rule_group_id', UUID(), nullable=True),
+            sa.Column('user_id', UUID(), nullable=False),
+            sa.Column('rule_group_id', UUID(), nullable=False),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
@@ -158,23 +146,21 @@ def upgrade():
         op.create_index('ix_user_permission_groups_user_id', 'user_permission_groups', ['user_id'], unique=False)
         op.create_index('ix_user_permission_groups_rule_group_id', 'user_permission_groups', ['rule_group_id'], unique=False)
 
-    # ===== 7. 数据权限按表配置表 =====
+    # ===== 7. 数据权限按表配置表（与模型 DataPermissionTableConfig 对齐） =====
     if not _table_exists('data_permission_table_configs'):
         op.create_table(
             'data_permission_table_configs',
             sa.Column('id', UUID(), nullable=False),
-            sa.Column('base_id', UUID(), nullable=True),
-            sa.Column('rule_group_id', UUID(), nullable=True),
-            sa.Column('table_id', sa.String(length=255), nullable=True),
-            sa.Column('table_name', sa.String(length=255), nullable=True),
-            sa.Column('table_type', sa.String(length=50), nullable=True),
-            sa.Column('priority', sa.Integer(), nullable=False, server_default=sa.text('50')),
-            sa.Column('is_enabled', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+            sa.Column('rule_group_id', UUID(), nullable=False),
+            sa.Column('table_id', UUID(), nullable=False),
+            sa.Column('mode', sa.String(length=20), nullable=False, server_default=sa.text("'unrestricted'")),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.ForeignKeyConstraint(['rule_group_id'], ['permission_rule_groups.id'], ondelete='CASCADE'),
         )
+        op.create_index('ix_data_permission_table_configs_rule_group_id', 'data_permission_table_configs', ['rule_group_id'], unique=False)
+        op.create_index('ix_data_permission_table_configs_table_id', 'data_permission_table_configs', ['table_id'], unique=False)
 
     # ===== 8. 修改 base_members 表添加 role_id 字段 =====
     if not _col_exists('base_members', 'role_id'):
@@ -204,11 +190,6 @@ def upgrade():
         with op.batch_alter_table('base_shares') as batch_op:
             batch_op.add_column(sa.Column('allow_anonymous', sa.Boolean(), nullable=False, server_default=sa.text('0')))
 
-    # ===== 10. 修改 data_permission_conditions 表添加 table_id 字段 =====
-    if not _col_exists('data_permission_conditions', 'table_id'):
-        with op.batch_alter_table('data_permission_conditions') as batch_op:
-            batch_op.add_column(sa.Column('table_id', sa.String(length=255), nullable=True))
-        op.create_index('ix_data_permission_conditions_table_id', 'data_permission_conditions', ['table_id'], unique=False)
 
 
 def downgrade():
