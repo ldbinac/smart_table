@@ -428,6 +428,7 @@
     "useExpression": "Use expression",
     "useStaticValue": "Use static value",
     "exprPlaceholder": "Use expression (e.g. {exprRef})",
+    "expressionDocsHint": "View documentation for using expressions",
     "staticValuePlaceholder": "Enter static value",
     "addFieldUpdate": "Add Field Update",
     "addFieldMapping": "Add Field Mapping",

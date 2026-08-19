@@ -454,6 +454,14 @@ function toggleExpressionForUpdate(index: number, value: boolean) {
   useExpressionForUpdate.value[index] = value;
 }
 
+// 打开「使用表达式」相关的官方帮助文档
+const EXPRESSION_DOC_BASE = "https://my-smart-table.github.io/smart-table-docs";
+function openExpressionDocsUrl(nodeType: "create_record" | "update_record") {
+  const slug = nodeType === "create_record" ? "create-record" : "update-record";
+  const url = `${EXPRESSION_DOC_BASE}/zh-CN/user-guide/workflow/${slug}.html#%E5%BC%95%E7%94%A8%E8%A1%A8%E8%BE%BE%E5%BC%8F`;
+  window.open(url, "_blank", "noopener");
+}
+
 // ==================== 创建记录节点配置 ====================
 
 interface FieldMapping {
@@ -1477,6 +1485,11 @@ const nodeTypeLabel = computed(() => {
                   :active-text="t('workflow.nodeConfig.useExpression')"
                   :inactive-text="t('workflow.nodeConfig.useStaticValue')"
                   @update:model-value="(val) => toggleExpressionForUpdate(index, val as boolean)" />
+                <el-tooltip :content="t('workflow.nodeConfig.expressionDocsHint')" placement="top">
+                  <el-icon class="expr-docs-icon" @click.stop="openExpressionDocsUrl('update_record')">
+                    <QuestionFilled />
+                  </el-icon>
+                </el-tooltip>
               </div>
 
               <div
@@ -1601,6 +1614,11 @@ const nodeTypeLabel = computed(() => {
                   :active-text="t('workflow.nodeConfig.useExpression')"
                   :inactive-text="t('workflow.nodeConfig.useStaticValue')"
                   @update:model-value="(val) => toggleExpressionForCreate(index, val as boolean)" />
+                <el-tooltip :content="t('workflow.nodeConfig.expressionDocsHint')" placement="top">
+                  <el-icon class="expr-docs-icon" @click.stop="openExpressionDocsUrl('create_record')">
+                    <QuestionFilled />
+                  </el-icon>
+                </el-tooltip>
               </div>
 
               <div
@@ -2457,6 +2475,17 @@ const nodeTypeLabel = computed(() => {
   align-items: center;
   gap: $spacing-md;
   padding: $spacing-xs 0;
+}
+
+.expr-docs-icon {
+  color: $text-secondary;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: $primary-color;
+  }
 }
 
 .update-record-mapping-row {
