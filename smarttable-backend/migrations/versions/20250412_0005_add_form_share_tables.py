@@ -28,7 +28,7 @@ def upgrade():
         sa.Column('created_by', UUID(), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=False, default=True),
         sa.Column('allow_anonymous', sa.Boolean(), nullable=False, default=True),
-        sa.Column('require_captcha', sa.Boolean(), nullable=False, default=False),
+        sa.Column('require_captcha', sa.Boolean(), nullable=False, default=True),
         sa.Column('expires_at', sa.Integer(), nullable=True),
         sa.Column('max_submissions', sa.Integer(), nullable=True),
         sa.Column('current_submissions', sa.Integer(), nullable=False, default=0),

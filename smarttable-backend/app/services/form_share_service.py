@@ -101,7 +101,7 @@ class FormShareService:
                 created_by=str(user_id),
                 is_active=config.get('is_active', True),
                 allow_anonymous=config.get('allow_anonymous', True),
-                require_captcha=config.get('require_captcha', False),
+                require_captcha=config.get('require_captcha', True),
                 expires_at=expires_at,
                 max_submissions=config.get('max_submissions'),
                 title=config.get('title'),

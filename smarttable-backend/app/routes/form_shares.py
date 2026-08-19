@@ -44,7 +44,7 @@ def create_form_share(table_id: str) -> tuple:
               description: 是否允许匿名提交
             require_captcha:
               type: boolean
-              default: false
+              default: true
               description: 是否需要验证码
             expires_at:
               type: integer
