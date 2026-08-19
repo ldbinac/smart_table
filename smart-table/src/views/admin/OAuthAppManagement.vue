@@ -5,10 +5,12 @@
         <h1 class="page-title">{{ t("oauthApp.title") }}</h1>
         <p class="page-subtitle">{{ t("oauthApp.subtitle") }}</p>
       </div>
-      <el-button type="primary" @click="openCreate">
-        <el-icon><Plus /></el-icon>
-        {{ t("oauthApp.createApp") }}
-      </el-button>
+      <div class="header-actions">
+        <el-button type="primary" @click="openCreate">
+          <el-icon><Plus /></el-icon>
+          {{ t("oauthApp.createApp") }}
+        </el-button>
+      </div>
     </div>
 
     <div class="page-content">
@@ -100,9 +102,18 @@
     <!-- 创建 / 编辑抽屉 -->
     <el-drawer append-to-body
       v-model="formVisible"
-      :title="formMode === 'create' ? t('oauthApp.createApp') : t('oauthApp.editApp')"
       size="460px"
       @closed="resetForm">
+      <template #header>
+        <div class="drawer-header">
+          <span class="drawer-title">{{ formMode === 'create' ? t('oauthApp.createApp') : t('oauthApp.editApp') }}</span>
+          <el-tooltip :content="t('oauthApp.helpDocs')" placement="bottom">
+            <el-icon class="oauth-help-icon" @click="openOAuthDocs">
+              <QuestionFilled />
+            </el-icon>
+          </el-tooltip>
+        </div>
+      </template>
       <el-form :model="form" label-position="top">
         <el-form-item :label="t('oauthApp.appName')" required>
           <el-input v-model="form.app_name" :placeholder="t('oauthApp.appNamePlaceholder')" />
@@ -228,7 +239,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { Plus, Search } from "@element-plus/icons-vue";
+import { Plus, Search, QuestionFilled } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from "vue-i18n";
 import { formatDateTime } from "@/utils/timezone";
@@ -249,6 +260,15 @@ import {
 } from "@/api/oauthApp";
 
 const { t } = useI18n();
+
+// 打开第三方应用（OAuth2 集成）帮助文档
+function openOAuthDocs() {
+  window.open(
+    "https://my-smart-table.github.io/smart-table-docs/zh-CN/developer/app-integration/oauth2-integration.html",
+    "_blank",
+    "noopener",
+  );
+}
 
 const apps = ref<OAuthApp[]>([]);
 const bases = ref<BaseOption[]>([]);
@@ -516,6 +536,12 @@ onMounted(() => {
       font-size: 14px;
       max-width: 640px;
     }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: $spacing-md;
+    }
   }
 
   .page-content {
@@ -603,5 +629,28 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 12px;
+}
+
+/* 抽屉 header 使用 append-to-body，渲染在 .oauth-app-page 之外，故置于顶层作用域 */
+.drawer-header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .drawer-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .oauth-help-icon {
+    font-size: 16px;
+    color: $text-secondary;
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: $primary-color;
+    }
+  }
 }
 </style>

@@ -1,5 +1,6 @@
 {
   "title": "Third-Party Apps",
+  "helpDocs": "View third-party app (OAuth2 integration) documentation",
   "subtitle": "Manage third-party applications that connect via OAuth2 Client Credentials and grant them data scopes and permissions.",
   "createApp": "New Application",
   "editApp": "Edit Application",

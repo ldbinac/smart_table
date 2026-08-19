@@ -1,6 +1,7 @@
 {
   "title": "第三方应用",
   "subtitle": "管理以 OAuth2 客户端凭证模式接入系统的第三方应用，分配访问范围与权限。",
+  "helpDocs": "查看第三方应用（OAuth2 集成）帮助文档",
   "createApp": "新建应用",
   "editApp": "编辑应用",
   "searchPlaceholder": "搜索应用名称",
