@@ -84,7 +84,7 @@
             </el-form-item>
             <el-form-item :label="t('system.requireSpecial')">
               <el-switch v-model="securityConfigs.password_require_special" />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.specialCharsHint') }}</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ getLiteral('system.specialCharsHint') }}</div>
             </el-form-item>
             <el-divider />
             <el-form-item :label="t('system.sessionTimeout')">
@@ -245,6 +245,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { useAdminStore } from '@/stores/adminStore'
 import { useI18n } from 'vue-i18n'
+import { getLiteral } from '@/i18n'
 
 const { t } = useI18n()
 const adminStore = useAdminStore()

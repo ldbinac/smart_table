@@ -109,3 +109,5 @@ data/
 build/
 logs/
 config/.env__default
+
+config/
