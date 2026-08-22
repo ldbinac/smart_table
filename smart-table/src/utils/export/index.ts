@@ -56,7 +56,7 @@ function formatValueForExcel(
 ): unknown {
   // 公式字段：优先后端预计算结果，缺失时前端回退计算（与表格视图显示一致）
   if (field.type === FieldType.FORMULA) {
-    return calculateFormulaDisplay(field, record, context.allFields ?? []);
+    return calculateFormulaDisplay(field, record as RecordEntity, context.allFields ?? []);
   }
 
   if (value === null || value === undefined) return "";
@@ -159,7 +159,7 @@ function formatValueForCSV(
 ): string {
   // 公式字段：优先后端预计算结果，缺失时前端回退计算（与表格视图显示一致）
   if (field.type === FieldType.FORMULA) {
-    return calculateFormulaDisplay(field, record, context.allFields ?? []);
+    return calculateFormulaDisplay(field, record as RecordEntity, context.allFields ?? []);
   }
 
   if (value === null || value === undefined) return "";

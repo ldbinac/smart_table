@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { FieldEntity } from '../../db/schema'
 import type { SortConfig } from '../../types'
 import { SortDirection } from '../../types'
@@ -11,6 +12,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { t } = useI18n()
 const emit = defineEmits<{
   (e: 'update:modelValue', value: SortConfig[]): void
   (e: 'apply'): void

@@ -3010,10 +3010,10 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
               row[field.id] = formatNumberField(result, {
                 precision: (field.options?.precision as number) ?? 2,
                 format: (field.options?.format as 'number' | 'currency' | 'percent') ?? 'number',
-                currencySymbol: field.options?.currencySymbol,
-                prefix: field.options?.prefix,
-                suffix: field.options?.suffix,
-                thousandsSeparator: field.options?.thousandsSeparator,
+                currencySymbol: field.options?.currencySymbol as string | undefined,
+                prefix: field.options?.prefix as string | undefined,
+                suffix: field.options?.suffix as string | undefined,
+                thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
               });
             }
           } else {

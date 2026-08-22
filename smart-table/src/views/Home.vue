@@ -13,6 +13,7 @@ import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
 import { formatDateTime, formatRelativeTime } from "@/utils/timezone";
+import type { SupportedLocale } from "@/i18n/types";
 
 const { t, locale } = useI18n();
 const baseStore = useBaseStore();
@@ -233,7 +234,7 @@ const hasSearchResults = computed(() => {
 const filteredTemplates = computed(() => {
   const query = templateSearchQuery.value.trim().toLowerCase();
   // 根据当前界面语言渲染对应语言模板（zh-CN 中文 / en-US 英文），切换语言时自动重新计算
-  const templates = getTableTemplates(locale.value);
+  const templates = getTableTemplates(locale.value as SupportedLocale);
   if (!query) return templates.filter((template) => !template.hidden);
   return templates.filter((template) =>
     !template.hidden && template.name.toLowerCase().includes(query),

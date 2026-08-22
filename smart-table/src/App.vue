@@ -10,7 +10,6 @@ import BlankLayout from '@/layouts/BlankLayout.vue'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardShortcutsStore } from '@/stores/keyboardShortcuts'
 import { useAdminStore } from '@/stores/adminStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 import { onLogoutEvent } from '@/utils/auth/token'
 import { getI18nLanguage } from '@/i18n'
 
@@ -19,7 +18,6 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardShortcutsStore()
 const adminStore = useAdminStore()
-const settingsStore = useSettingsStore()
 
 // Element Plus locale 映射：随界面语言切换同步
 const elementLocale = computed(() => {

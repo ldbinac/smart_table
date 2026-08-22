@@ -175,7 +175,7 @@
       <!-- 修改密码 -->
       <div class="settings-section" style="display: none;">
         <h3 class="section-title">{{ t('settings.passwordChangeTitle') }}</h3>
-        <el-form :model="passwordForm" label-width="120px" class="password-form" ref="passwordFormRef">
+        <el-form :model="passwordForm" label-width="120px" class="password-form">
           <el-form-item :label="t('settings.currentPasswordLabel')" prop="currentPassword">
             <el-input
               v-model="passwordForm.currentPassword"
@@ -315,7 +315,6 @@ const handleResetSettings = async () => {
 }
 
 // 修改密码
-const passwordFormRef = ref()
 const changingPassword = ref(false)
 const passwordForm = reactive({
   currentPassword: '',

@@ -2,8 +2,6 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "../../db/schema";
-
-const { t } = useI18n();
 import type { FilterCondition, FilterOperatorValue } from "../../types";
 import { FilterOperator } from "../../types";
 import {
@@ -12,6 +10,8 @@ import {
   operatorRequiresValue,
 } from "../../utils/filter";
 import FilterValueInput from "./FilterValueInput.vue";
+
+const { t } = useI18n();
 
 interface Props {
   condition: FilterCondition;

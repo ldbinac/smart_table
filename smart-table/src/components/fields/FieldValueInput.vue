@@ -120,6 +120,10 @@ function getComponentType() {
       return "text";
   }
 }
+
+function isViewMode(_field: FieldEntity): boolean {
+  return false
+}
 </script>
 
 <template>

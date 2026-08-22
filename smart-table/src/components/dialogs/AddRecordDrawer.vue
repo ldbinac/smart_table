@@ -685,7 +685,7 @@ const drawerTitle = computed(() => {
           <template v-else-if="getFieldComponent(field) === 'date'">
             <DateInput
               :field="field"
-              :model-value="formData[field.id]"
+              :model-value="(formData[field.id] as CellValue)"
               :placeholder="t('record.selectPlaceholder', { name: field.name })"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />

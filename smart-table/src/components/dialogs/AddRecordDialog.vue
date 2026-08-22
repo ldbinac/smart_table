@@ -498,7 +498,7 @@ function handleAttachmentDelete(fieldId: string, fileId: string) {
         <template v-else-if="getFieldComponent(field) === 'date'">
           <DateInput
             :field="field"
-            :model-value="formData[field.id]"
+            :model-value="(formData[field.id] as CellValue)"
             :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
             @update:model-value="(val) => handleValueChange(field.id, val)" />

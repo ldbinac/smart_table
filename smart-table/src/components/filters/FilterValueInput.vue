@@ -11,6 +11,7 @@ interface Props {
   field: FieldEntity;
   operator: FilterOperatorValue;
   modelValue: unknown;
+  placeholder?: string;
 }
 
 const props = defineProps<Props>();

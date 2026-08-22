@@ -10,7 +10,7 @@ import type { FieldOptions } from "@/types/fields";
 const props = defineProps<{
   /** 结构化字段类型，兼容 FieldEntity 与配置面板的精简字段对象 */
   field?: {
-    type?: FieldType | string;
+    type?: string;
     options?: FieldOptions;
   };
   modelValue: CellValue;

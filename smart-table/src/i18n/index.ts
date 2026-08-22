@@ -10,7 +10,6 @@
 import { createI18n } from "vue-i18n";
 import type { I18n } from "vue-i18n";
 import {
-  DEFAULT_LOCALE,
   FALLBACK_LOCALE,
   isSupportedLocale,
   AVAILABLE_LANGUAGES,
@@ -97,7 +96,7 @@ const i18n = createI18n({
   legacy: false,
   locale: getInitialLocale(),
   fallbackLocale: FALLBACK_LOCALE,
-  messages,
+  messages: messages as Record<string, any>,
 });
 
 export default i18n;
@@ -106,7 +105,7 @@ export default i18n;
  * 全局翻译函数（非组件上下文使用，如 api/client.ts、router/guards.ts）。
  * 在组件内请使用 useI18n() 获取的 t 函数。
  */
-export const t = i18n.global.t;
+export const t = (i18n.global as any).t as (key: string, ...args: any[]) => string;
 
 /**
  * 按路径从当前 locale message 中读取原始值，不经过 ICU 编译。

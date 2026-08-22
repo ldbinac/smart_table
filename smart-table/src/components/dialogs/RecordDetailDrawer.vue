@@ -943,7 +943,7 @@ const effectiveSize = computed<string | number>(() => {
             <DateInput
               v-else
               :field="field"
-              :model-value="formData[field.id]"
+              :model-value="(formData[field.id] as CellValue)"
               :placeholder="t('record.selectPlaceholder', { name: field.name })"
               :disabled="readonly"
               class="field-input"

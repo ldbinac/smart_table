@@ -90,7 +90,7 @@
         </el-table-column>
         <el-table-column :label="t('recordHistory.table.detail')" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openDetail(row)">
+            <el-button type="primary" link @click="openDetail(row as RecordHistory)">
               {{ t('recordHistory.table.detail') }}
             </el-button>
           </template>

@@ -206,11 +206,11 @@ const displayValue = computed(() => {
       if (!value) return "";
       // 根据字段类型显示日期或日期时间
       const isDateTime = type === "date_time";
-      if (isDateTime) return formatDateTime(value);
+      if (isDateTime) return formatDateTime(value as string | number | Date | null | undefined);
 
       // 普通日期：按字段配置的 dateFormat 显示
-      const fmt = (fieldOptions?.dateFormat as string) || "YYYY-MM-DD";
-      if (fmt === "YYYY-MM-DD") return formatDate(value);
+      const fmt = (options?.dateFormat as string) || "YYYY-MM-DD";
+      if (fmt === "YYYY-MM-DD") return formatDate(value as string | number | Date | null | undefined);
       if (typeof value === "string") {
         const s = value.trim();
         if (fmt === "MMDD" && /^\d{4}$/.test(s)) return value;
@@ -219,7 +219,7 @@ const displayValue = computed(() => {
         if (fmt === "YYYYMM" && /^\d{6}$/.test(s)) return value;
         if (fmt === "YYYY-MM" && /^\d{4}-\d{2}$/.test(s)) return value;
       }
-      const date = value instanceof Date ? value : new Date(typeof value === "number" ? value : Date.parse(value));
+      const date = value instanceof Date ? value : new Date(typeof value === "number" ? value : Date.parse(value as string));
       if (isNaN(date.getTime())) return String(value);
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -229,7 +229,7 @@ const displayValue = computed(() => {
       if (fmt === "MMDD") return `${m}${d}`;
       if (fmt === "MM-DD") return `${m}-${d}`;
       if (fmt === "YYYYMMDD") return `${y}${m}${d}`;
-      return formatDate(value);
+      return formatDate(value as string | number | Date | null | undefined);
     }
     case "rating": {
       const maxRating = options?.maxRating || 5;

@@ -170,10 +170,6 @@ export interface FieldOptions {
   // ==================== 自动编号字段 (Auto Number Field) 选项 ====================
   /** 起始编号 */
   startNumber?: number;
-  /** 编号前缀 */
-  prefix?: string;
-  /** 编号后缀 */
-  suffix?: string;
   /** 编号位数（不足时前面补0） */
   digitLength?: number;
   /** 是否包含日期前缀 */
