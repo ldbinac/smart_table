@@ -1,7 +1,7 @@
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
 import type { FieldTypeValue } from "@/types";
-import { t } from "@/i18n";
+import { t, getLiteral } from "@/i18n";
 
 export interface ValidationError {
   fieldId: string;
@@ -360,7 +360,7 @@ export function validateEmail(value: string): FieldFormatValidationResult {
 
   return {
     valid,
-    error: valid ? undefined : t('validation.emailFormat'),
+    error: valid ? undefined : getLiteral('validation.emailFormat'),
   };
 }
 

@@ -84,7 +84,7 @@
           ref="addMemberFormRef"
           :model="addMemberForm"
           :rules="addMemberFormRules"
-          label-width="80px">
+          label-width="130px">
           <el-form-item :label="t('view.member.userEmail')" prop="email">
             <el-input
               v-model="addMemberForm.email"
@@ -105,7 +105,7 @@
       <el-tab-pane :label="t('view.member.batchAdd')" name="batch">
         <el-alert
           :title="t('view.member.batchAddTitle')"
-          :description="t('view.member.batchAddDesc')"
+          :description="getLiteral('view.member.batchAddDesc')"
           type="info"
           :closable="false"
           show-icon />
@@ -113,7 +113,7 @@
           v-model="batchEmails"
           type="textarea"
           :rows="10"
-          :placeholder="t('view.member.batchEmailsPlaceholder')" />
+          :placeholder="getLiteral('view.member.batchEmailsPlaceholder')" />
       </el-tab-pane>
     </el-tabs>
 
@@ -129,6 +129,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { getLiteral } from "@/i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
