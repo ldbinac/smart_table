@@ -139,17 +139,24 @@
               :key="idx"
               class="change-item">
               <div class="field-name">{{ getFieldName(change.field_id) }}</div>
-              <div class="value-change">
-                <span
-                  class="old-value"
-                  :title="String(change.old_value ?? '-')">
-                  {{ formatValue(change.old_value) }}
+              <!-- 成员字段：通过 MemberDisplay 解析用户 ID 为实际姓名 -->
+              <div v-if="isMemberField(change.field_id)" class="value-change member-value-change">
+                <span class="old-value" :title="formatRawValue(change.old_value)">
+                  <MemberDisplay :user-ids="getMemberIds(change.old_value)" mode="name" />
                 </span>
                 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
-                <span
-                  class="new-value"
-                  :title="String(change.new_value ?? '-')">
-                  {{ formatValue(change.new_value) }}
+                <span class="new-value" :title="formatRawValue(change.new_value)">
+                  <MemberDisplay :user-ids="getMemberIds(change.new_value)" mode="name" />
+                </span>
+              </div>
+              <!-- 其他字段：按字段类型将选项 ID 转换为名称 -->
+              <div v-else class="value-change">
+                <span class="old-value" :title="formatRawValue(change.old_value)">
+                  {{ formatValue(change.field_id, change.old_value) }}
+                </span>
+                <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+                <span class="new-value" :title="formatRawValue(change.new_value)">
+                  {{ formatValue(change.field_id, change.new_value) }}
                 </span>
               </div>
             </div>
@@ -205,7 +212,9 @@ import {
   type RecordHistory,
 } from "@/services/api/recordHistoryApiService";
 import type { FieldEntity } from "@/db/schema";
+import { FieldType, type FieldOption, type FieldOptions } from "@/types/fields";
 import MemberSelect from "@/components/common/MemberSelect.vue";
+import MemberDisplay from "@/components/common/MemberDisplay.vue";
 
 interface Props {
   modelValue: boolean;
@@ -278,10 +287,73 @@ const getFieldName = (fieldId: string): string => {
   return field?.name || fieldId;
 };
 
-const formatValue = (value: any): string => {
+// 获取指定字段的选项列表（兼容 choices 与 options 两种格式）
+const getFieldOptions = (fieldId: string): FieldOption[] => {
+  const field = props.fields?.find((f) => f.id === fieldId);
+  if (!field) return [];
+  const options = field.options as FieldOptions | undefined;
+  return options?.choices || options?.options || [];
+};
+
+// 原始值字符串（用于 tooltip），对对象数组提取 name/id
+const formatRawValue = (value: any): string => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") {
+    return value ? t("recordHistory.yes") : t("recordHistory.no");
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => {
+        if (v === null || v === undefined) return "";
+        if (typeof v === "object") return (v?.name ?? v?.id ?? "");
+        return String(v);
+      })
+      .filter((v) => v !== "")
+      .join(", ");
+  }
+  return String(value);
+};
+
+// 是否成员类型字段
+const isMemberField = (fieldId: string): boolean => {
+  const field = props.fields?.find((f) => f.id === fieldId);
+  return field?.type === FieldType.MEMBER || field?.type === FieldType.COLLABORATOR;
+};
+
+// 提取成员字段值的用户 ID 列表（兼容字符串、字符串数组、{id,name} 数组等格式）
+const getMemberIds = (value: any): string[] => {
+  if (value === null || value === undefined) return [];
+  const toId = (v: any) => (typeof v === "string" ? v : v?.id);
+  const raw = Array.isArray(value) ? value.map(toId) : [toId(value)];
+  return raw.filter((id) => id && id !== "current_user");
+};
+
+const formatValue = (fieldId: string, value: any): string => {
   if (value === null || value === undefined) return "-";
   if (typeof value === "boolean") {
     return value ? t("recordHistory.yes") : t("recordHistory.no");
+  }
+  const field = props.fields?.find((f) => f.id === fieldId);
+  if (!field) {
+    return Array.isArray(value) ? value.join(", ") || "-" : String(value);
+  }
+  const opts = getFieldOptions(fieldId);
+  // 单选：将选项 ID 转换为名称
+  if (field.type === FieldType.SINGLE_SELECT) {
+    const opt = opts.find((o) => o.id === value || o.name === value);
+    return opt?.name || String(value);
+  }
+  // 多选：将每个选项 ID 转换为名称
+  if (field.type === FieldType.MULTI_SELECT) {
+    if (!Array.isArray(value)) return String(value);
+    return (
+      value
+        .map((v) => {
+          const opt = opts.find((o) => o.id === v || o.name === v);
+          return opt?.name || String(v);
+        })
+        .join(", ") || "-"
+    );
   }
   if (Array.isArray(value)) return value.join(", ") || "-";
   return String(value);
@@ -360,7 +432,7 @@ const openDetail = (row: RecordHistory) => {
   snapshotEntries.value = Object.keys(snapshot).map((key) => ({
     key,
     label: getFieldName(key),
-    value: formatValue(snapshot[key]),
+    value: formatValue(key, snapshot[key]),
   }));
   detailVisible.value = true;
 };
@@ -532,6 +604,7 @@ watch(
     color: #f56c6c;
     border-radius: 4px;
     text-decoration: line-through;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -543,6 +616,7 @@ watch(
     background: #f0f9eb;
     color: #67c23a;
     border-radius: 4px;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
