@@ -30,13 +30,16 @@ def upgrade():
     bind = op.get_bind()
     is_postgres = bind.dialect.name == 'postgresql'
 
-    # PostgreSQL: 先扩展原生枚举类型
+    # PostgreSQL: 原生枚举类型只需扩展枚举值即可，无需重建表。
+    # 重建表需删除 workflow_nodes 主键约束，将因外键依赖
+    # (workflow_tasks_node_id_fkey -> workflow_nodes_pkey) 而失败：
+    # DependentObjectsStillExist，返回遵循 SQLite 分支。
     if is_postgres:
         op.execute("ALTER TYPE workflownodetype ADD VALUE IF NOT EXISTS 'script'")
+        return
 
-    # 使用 batch_alter_table 重建 node_type 列
     # SQLite 不支持 ALTER COLUMN 语法，必须使用 batch 模式重建表
-    # create_type=False 避免 PostgreSQL 重复创建已存在的原生枚举类型
+    # create_type=False 避免重建时重复创建原生枚举类型
     with op.batch_alter_table('workflow_nodes', recreate='always') as batch_op:
         batch_op.alter_column(
             'node_type',

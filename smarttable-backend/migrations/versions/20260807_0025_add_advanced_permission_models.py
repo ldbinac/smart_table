@@ -56,7 +56,7 @@ def upgrade():
             sa.Column('base_id', UUID(), nullable=False),
             sa.Column('name', sa.String(length=100), nullable=False),
             sa.Column('description', sa.Text(), nullable=True),
-            sa.Column('is_system', sa.Boolean(), nullable=False, server_default=sa.text('0')),
+            sa.Column('is_system', sa.Boolean(), nullable=False, server_default=sa.true()),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
             sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint('id'),
@@ -188,7 +188,7 @@ def upgrade():
 
     if not _col_exists('base_shares', 'allow_anonymous'):
         with op.batch_alter_table('base_shares') as batch_op:
-            batch_op.add_column(sa.Column('allow_anonymous', sa.Boolean(), nullable=False, server_default=sa.text('0')))
+            batch_op.add_column(sa.Column('allow_anonymous', sa.Boolean(), nullable=False, server_default=sa.true()))
 
 
 
