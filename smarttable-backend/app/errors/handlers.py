@@ -209,7 +209,10 @@ def register_handlers(app: Flask) -> None:
         """处理数据验证错误"""
         request_id = getattr(g, 'request_id', None)
         details = [
-            {'field': field, 'message': msgs[0] if isinstance(msgs, list) else msgs}
+            {
+                'field': field,
+                'message': translate(msgs[0] if isinstance(msgs, list) else msgs)
+            }
             for field, msgs in error.messages.items()
         ]
         return error_response(

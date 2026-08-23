@@ -17,7 +17,7 @@ import { FilterOperator } from "@/types/filters";
 import type { FilterOperatorValue } from "@/types/filters";
 import {
   getOperatorsForFieldType,
-  OPERATOR_LABELS,
+  getOperatorLabel,
   operatorRequiresValue,
 } from "@/utils/filter";
 import { FieldType } from "@/types/fields";
@@ -324,7 +324,7 @@ function isStaticOnlyFieldType(fieldType: string): boolean {
 function getOperatorOptions(fieldType: string) {
   return getOperatorsForFieldType(fieldType).map((op) => ({
     value: op,
-    label: OPERATOR_LABELS[op],
+    label: getOperatorLabel(op),
   }));
 }
 
@@ -1438,7 +1438,7 @@ const nodeTypeLabel = computed(() => {
                 :key="`summary-${index}`"
                 class="summary-item">
                 {{ getFieldById(condition.field_id)?.name ?? t('workflow.nodeConfig.noFieldSelected') }}
-                {{ OPERATOR_LABELS[condition.operator] ?? condition.operator }}
+                {{ getOperatorLabel(condition.operator as any) ?? condition.operator }}
                 {{ renderConditionValue(condition) }}
               </div>
               <el-empty v-if="activeBranch.conditions.length === 0" :description="t('workflow.nodeConfig.noCondition')" :image-size="60" />

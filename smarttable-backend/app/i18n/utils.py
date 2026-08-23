@@ -111,7 +111,7 @@ def parse_accept_language(accept_language: str) -> str:
     return _normalize_language(accept_language)
 
 
-def translate(key: str, lang: Optional[str] = None, **kwargs) -> str:
+def translate(key: str, *args, lang: Optional[str] = None, **kwargs) -> str:
     """
     翻译消息 key 为指定语言的文本。
 
@@ -123,8 +123,9 @@ def translate(key: str, lang: Optional[str] = None, **kwargs) -> str:
 
     Args:
         key: 消息 key（如 'operation_success'）或原始消息文本
+        *args: 位置占位符参数（用于 {0} 等编号占位符替换）
         lang: 语言代码，None 时自动从请求上下文获取
-        **kwargs: 模板参数（用于 {field} 等占位符替换）
+        **kwargs: 模板参数（用于 {field} 等命名占位符替换）
 
     Returns:
         翻译后的文本
@@ -148,9 +149,9 @@ def translate(key: str, lang: Optional[str] = None, **kwargs) -> str:
             result = key
 
     # 模板参数替换（如 translate('field_required', field='邮箱') → '邮箱不能为空'）
-    if kwargs:
+    if args or kwargs:
         try:
-            result = result.format(**kwargs)
+            result = result.format(*args, **kwargs)
         except (KeyError, IndexError, ValueError):
             # 模板参数不匹配时保留原文
             pass

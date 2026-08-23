@@ -361,7 +361,7 @@ class RecordService:
         if expected_updated_at is not None:
             current_updated_at = record.updated_at.isoformat() if record.updated_at else None
             if current_updated_at != expected_updated_at:
-                raise ConflictError('记录已被其他用户修改，请刷新后重试')
+                raise ConflictError('record_been_modified_another_user_refresh_try_again')
         # 保存旧值用于历史记录
         old_values = dict(record.values) if record.values else {}
         changes = []

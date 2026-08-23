@@ -395,5 +395,11 @@
     "deleteConfirmTitle": "确认删除",
     "deleted": "删除成功",
     "deleteFailed": "删除失败，请稍后重试"
-  }
+  },
+  "notNumericField": "{0} 不是数值字段，无法使用 {1} 聚合",
+  "cannotDeletePresetTemplate": "不能删除预设模板",
+  "templateNotFound": "模板不存在",
+  "shareValidationNoResponse": "验证失败：无响应数据",
+  "shareValidationDataFormat": "验证失败：数据格式错误",
+  "shareValidationFailed": "验证失败"
 }

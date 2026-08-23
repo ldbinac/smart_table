@@ -90,5 +90,10 @@
   "reportErrorDetail": "--- 错误详情 ---",
   "tableName": "数据表",
   "rowRange": "行 {start} - {end}",
-  "mappingField": "映射到表格字段"
+  "mappingField": "映射到表格字段",
+  "fileEmpty": "文件为空",
+  "readFileFailed": "读取文件失败",
+  "jsonMustBeArray": "JSON 文件必须是数组格式",
+  "jsonFormatError": "JSON 格式错误",
+  "unsupportedFormatExt": "不支持的文件格式：{0}"
 }

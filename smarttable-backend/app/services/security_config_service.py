@@ -6,6 +6,7 @@ import logging
 from typing import Optional, Tuple, Any
 
 from app.models.config import SystemConfig
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -239,24 +240,24 @@ class SecurityConfigService:
         
         # 检查长度
         if len(password) < min_length:
-            return False, f'密码长度至少为 {min_length} 位'
+            return False, translate('password_min_length', min_length=min_length)
         
         # 检查大写字母
         if require_uppercase and not any(c.isupper() for c in password):
-            return False, '密码必须包含大写字母'
+            return False, translate('password_require_uppercase')
         
         # 检查小写字母
         if require_lowercase and not any(c.islower() for c in password):
-            return False, '密码必须包含小写字母'
+            return False, translate('password_require_lowercase')
         
         # 检查数字
         if require_digit and not any(c.isdigit() for c in password):
-            return False, '密码必须包含数字'
+            return False, translate('password_require_digit')
         
         # 检查特殊字符
         special_chars = '!@#$%^&*()_+-=[]{}|;:,.<>?/'
         if require_special and not any(c in special_chars for c in password):
-            return False, '密码必须包含特殊字符 (!@#$%^&*()_+-=[]{}|;:,.<>?/)'
+            return False, translate('password_require_special')
         
         return True, None
     

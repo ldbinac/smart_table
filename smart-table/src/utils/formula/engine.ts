@@ -2,6 +2,7 @@ import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
 import { formulaFunctions } from "./functions";
 import dayjs from "dayjs";
+import { t } from "@/i18n";
 
 export interface FormulaError {
   message: string;
@@ -53,7 +54,7 @@ export class FormulaEngine {
       return result;
     } catch (error) {
       return {
-        message: error instanceof Error ? error.message : "计算错误",
+        message: error instanceof Error ? error.message : t('formula.calcError'),
         code: "CALCULATION_ERROR",
       };
     }
@@ -506,14 +507,14 @@ export class FormulaEngine {
       if (missingFields.length > 0) {
         return {
           valid: false,
-          error: `未知字段引用: ${missingFields.join(", ")}`,
+          error: t('formula.unknownFieldReference', [missingFields.join(", ")]),
         };
       }
       return { valid: true };
     } catch (error) {
       return {
         valid: false,
-        error: error instanceof Error ? error.message : "公式验证失败",
+        error: error instanceof Error ? error.message : t('formula.validationFailed'),
       };
     }
   }
@@ -522,14 +523,14 @@ export class FormulaEngine {
     const refs = this.parseFieldRefs(formula);
     const fieldNames = refs.map((id) => {
       const field = this.fields.get(id);
-      return field ? field.name : "未知字段";
+      return field ? field.name : t('formula.unknownField');
     });
 
     if (fieldNames.length === 0) {
-      return "无字段引用";
+      return t('formula.noFieldReference');
     }
 
-    return `引用字段: ${fieldNames.join(", ")}`;
+    return t('formula.referencedFields', [fieldNames.join(", ")]);
   }
 
   /**

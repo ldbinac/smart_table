@@ -396,5 +396,11 @@
     "deleteConfirmTitle": "Confirm Delete",
     "deleted": "Deleted successfully",
     "deleteFailed": "Delete failed, please try again later"
-  }
+  },
+  "notNumericField": "{0} is not a numeric field and cannot be aggregated with {1}",
+  "cannotDeletePresetTemplate": "Preset templates cannot be deleted",
+  "templateNotFound": "Template not found",
+  "shareValidationNoResponse": "Validation failed: no response data",
+  "shareValidationDataFormat": "Validation failed: invalid data format",
+  "shareValidationFailed": "Validation failed"
 }

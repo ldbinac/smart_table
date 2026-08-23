@@ -37,5 +37,8 @@
   "opAfter": "after",
   "opBefore": "before",
   "opAfterOrEqual": "on or after",
-  "opBeforeOrEqual": "on or before"
+  "opBeforeOrEqual": "on or before",
+  "opIsWithin": "within range",
+  "opIsAnyOf": "is any of",
+  "opIsNoneOf": "is none of"
 }

@@ -16,6 +16,7 @@ from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_template_service import EmailTemplateService
 from app.services.email_log_service import EmailLogService
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ class EmailRetryService:
             if not email_log:
                 return {
                     'success': False,
-                    'error': f'日志不存在：{log_id}'
+                    'error': translate('email_log_not_found', log_id)
                 }
 
             # 检查是否达到最大重试次数
@@ -85,7 +86,7 @@ class EmailRetryService:
                 return {
                     'success': False,
                     'should_retry': False,
-                    'error': f'已达到最大重试次数：{EmailRetryService.MAX_RETRY_COUNT}'
+                    'error': 'maximum_retry_count_reached'
                 }
 
             # 计算下次重试时间
@@ -111,7 +112,7 @@ class EmailRetryService:
             logger.error(f'安排邮件重试失败：{str(e)}')
             return {
                 'success': False,
-                'error': '安排重试失败，请稍后重试'
+                'error': 'failed_schedule_retry_try_again_later'
             }
 
     @staticmethod
@@ -158,7 +159,7 @@ class EmailRetryService:
         if not EmailConfigService.is_email_enabled():
             return {
                 'success': False,
-                'error': '邮件服务未启用'
+                'error': 'email_service_not_enabled'
             }
 
         results = {
@@ -196,7 +197,7 @@ class EmailRetryService:
                 return {
                     'success': True,
                     'results': results,
-                    'message': '没有待处理的邮件'
+                    'message': 'no_pending_emails'
                 }
 
             # 使用上下文管理器处理邮件
@@ -306,7 +307,7 @@ class EmailRetryService:
             logger.error(f'处理待发送邮件失败：{str(e)}')
             return {
                 'success': False,
-                'error': '处理失败，请稍后重试',
+                'error': 'processing_failed_try_again_later',
                 'results': results
             }
 
@@ -327,19 +328,19 @@ class EmailRetryService:
             if not email_log:
                 return {
                     'success': False,
-                    'error': f'日志不存在：{log_id}'
+                    'error': translate('email_log_not_found', log_id)
                 }
 
             if email_log.status not in [EmailStatus.FAILED, EmailStatus.RETRYING]:
                 return {
                     'success': False,
-                    'error': f'邮件状态不允许重试：{email_log.status.value}'
+                    'error': translate('email_status_not_retriable', email_log.status.value)
                 }
 
             if email_log.retry_count >= EmailRetryService.MAX_RETRY_COUNT:
                 return {
                     'success': False,
-                    'error': f'已达到最大重试次数'
+                    'error': 'maximum_retry_count_reached'
                 }
 
             # 使用上下文管理器发送邮件
@@ -371,7 +372,7 @@ class EmailRetryService:
                     EmailLogService.mark_as_sent(log_id)
                     return {
                         'success': True,
-                        'message': '邮件重试发送成功'
+                        'message': 'email_retry_sent_successfully'
                     }
                 else:
                     EmailLogService.mark_as_failed(log_id, error or '未知错误')
@@ -385,7 +386,7 @@ class EmailRetryService:
             EmailLogService.mark_as_failed(log_id, '重试发送失败')
             return {
                 'success': False,
-                'error': '重试失败，请稍后重试'
+                'error': 'failed_retry_try_again_later'
             }
 
     @staticmethod
@@ -449,7 +450,7 @@ class EmailRetryService:
             logger.error(f'获取重试统计失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取统计失败，请稍后重试'
+                'error': 'failed_fetch_statistics_try_again_later'
             }
 
     @staticmethod
@@ -469,13 +470,13 @@ class EmailRetryService:
             if not email_log:
                 return {
                     'success': False,
-                    'error': f'日志不存在：{log_id}'
+                    'error': translate('email_log_not_found', log_id)
                 }
 
             if email_log.status not in [EmailStatus.PENDING, EmailStatus.RETRYING]:
                 return {
                     'success': False,
-                    'error': f'邮件状态不允许取消：{email_log.status.value}'
+                    'error': translate('email_status_not_cancellable', email_log.status.value)
                 }
 
             # 标记为失败并设置重试次数为最大值
@@ -487,7 +488,7 @@ class EmailRetryService:
 
             return {
                 'success': True,
-                'message': '已取消重试'
+                'message': 'retry_cancelled'
             }
 
         except Exception as e:
@@ -495,5 +496,5 @@ class EmailRetryService:
             logger.error(f'取消邮件重试失败：{str(e)}')
             return {
                 'success': False,
-                'error': '取消失败，请稍后重试'
+                'error': 'cancellation_failed_try_again_later'
             }

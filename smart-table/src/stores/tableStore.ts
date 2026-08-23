@@ -18,6 +18,7 @@ import type {
   DataRecordDeletedBroadcast,
 } from "../services/realtime/eventTypes";
 import type { StreamingLoadState } from "../db/services/recordService";
+import { t } from "@/i18n";
 
 export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
@@ -96,9 +97,9 @@ export const useTableStore = defineStore("table", () => {
             streamingState.value = {
               ...streamingState.value,
               isLoading: false,
-              error: typeof err === 'string' ? err : '加载失败',
+              error: typeof err === 'string' ? err : t('common.loadFailed'),
             };
-            error.value = typeof err === 'string' ? err : '加载失败';
+            error.value = typeof err === 'string' ? err : t('common.loadFailed');
             // 加载失败也刷新本地数据，展示已成功加载的部分
             refreshRecords(tableId);
           },
@@ -136,7 +137,7 @@ export const useTableStore = defineStore("table", () => {
     streamingState.value = {
       ...streamingState.value,
       isLoading: false,
-      error: '用户取消加载',
+      error: t('common.cancelLoading'),
     };
   }
 

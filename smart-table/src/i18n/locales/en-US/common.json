@@ -66,7 +66,14 @@
   "backPrevious": "Go Back",
   "desc": "Description",
   "action": "Actions",
-  "share": "Share",
+  "share": {
+    "fetchListFailed": "Failed to fetch share list",
+    "createFailed": "Failed to create share link",
+    "deleteFailed": "Failed to delete share link",
+    "updateFailed": "Failed to update share link",
+    "fetchReceivedFailed": "Failed to fetch shares received with me",
+    "fetchCreatedFailed": "Failed to fetch shares created by me"
+  },
   "createDashboard": "New dashboard",
   "shortcutDialogTitle": "Keyboard Shortcuts",
   "shortcutHint": "Press {key} to show this help",
@@ -102,5 +109,27 @@
   "unitMillisecond": "ms",
   "unitSecond": "s",
   "unitMinute": "min",
-  "unknownError": "Unknown error"
+  "unknownError": "Unknown error",
+  "loadFailed": "Load failed",
+  "cancelLoading": "Loading cancelled",
+  "importCancelled": "Request cancelled",
+  "linkedCount": "Linked {0} records",
+  "adminRequired": "Administrator permission required",
+  "member": {
+    "fetchListFailed": "Failed to fetch member list",
+    "addFailed": "Failed to add member",
+    "batchAddFailed": "Failed to batch add members",
+    "updateRoleFailed": "Failed to update member role",
+    "removeFailed": "Failed to remove member"
+  },
+  "base": {
+    "fetchListFailed": "Failed to fetch base list",
+    "fetchDetailFailed": "Failed to fetch base detail",
+    "createFailed": "Failed to create base",
+    "updateFailed": "Failed to update base",
+    "deleteFailed": "Failed to delete base"
+  },
+  "networkRetry": "Network connection is abnormal, retrying...",
+  "tokenRefreshFailed": "Token refresh failed",
+  "userIdRequired": "User ID cannot be empty"
 }

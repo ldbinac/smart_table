@@ -33,5 +33,6 @@
   "close": "关闭",
   "viewFullRecord": "查看完整记录",
   "unknownMember": "未知成员",
-  "recordNotLoaded": "记录数据未加载"
+  "recordNotLoaded": "记录数据未加载",
+  "masterDetailEmpty": "暂无关联记录"
 }

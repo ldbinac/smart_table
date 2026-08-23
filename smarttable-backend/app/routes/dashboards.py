@@ -44,13 +44,13 @@ def get_base_dashboards(base_id) -> tuple:
     
     # 检查权限
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此基础数据')
+        return forbidden_response('no_permission_access_base')
     
     dashboards = DashboardService.get_all_dashboards(str(base_id))
     
     return success_response(
         data=[d.to_dict(include_widgets=False) for d in dashboards],
-        message='获取仪表盘列表成功'
+        message='fetched_dashboard_list_successfully'
     )
 
 
@@ -95,7 +95,7 @@ def create_base_dashboard(base_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限创建仪表盘')
+        return forbidden_response('do_not_permission_create_dashboard')
     
     data = request.get_json() or {}
     
@@ -103,7 +103,7 @@ def create_base_dashboard(base_id) -> tuple:
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
-            return error_response('名称不能超过100个字符', code=400)
+            return error_response('name_exceed_characters', code=400)
         data['name'] = name
     
     dashboard = DashboardService.create_dashboard(
@@ -114,7 +114,7 @@ def create_base_dashboard(base_id) -> tuple:
     
     return success_response(
         data=dashboard.to_dict(include_widgets=True),
-        message='仪表盘创建成功',
+        message='dashboard_created_successfully',
         code=201
     )
 
@@ -154,18 +154,18 @@ def get_dashboard(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此仪表盘')
+        return forbidden_response('no_permission_access_dashboard')
     
     # 是否包含组件
     include_widgets = request.args.get('include_widgets', 'true').lower() == 'true'
     
     return success_response(
         data=dashboard.to_dict(include_widgets=include_widgets),
-        message='获取仪表盘成功'
+        message='fetched_dashboard_successfully'
     )
 
 
@@ -216,11 +216,11 @@ def update_dashboard(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此仪表盘')
+        return forbidden_response('do_not_permission_modify_dashboard')
     
     data = request.get_json() or {}
     
@@ -228,7 +228,7 @@ def update_dashboard(dashboard_id) -> tuple:
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
-            return error_response('名称不能超过100个字符', code=400)
+            return error_response('name_exceed_characters', code=400)
         data['name'] = name
     
     updated_dashboard = DashboardService.update_dashboard(
@@ -238,7 +238,7 @@ def update_dashboard(dashboard_id) -> tuple:
     
     return success_response(
         data=updated_dashboard.to_dict(include_widgets=True),
-        message='仪表盘更新成功'
+        message='dashboard_updated_successfully'
     )
 
 
@@ -272,17 +272,17 @@ def delete_dashboard(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限删除此仪表盘')
+        return forbidden_response('do_not_permission_delete_dashboard')
     
     success = DashboardService.delete_dashboard(str(dashboard_id))
     if not success:
-        return error_response('删除失败，请稍后重试', code=500)
+        return error_response('deletion_failed_try_again_later', code=500)
     
-    return success_response(message='仪表盘删除成功')
+    return success_response(message='dashboard_deleted_successfully')
 
 
 # ==================== 组件管理 ====================
@@ -340,17 +340,17 @@ def add_widget(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此仪表盘')
+        return forbidden_response('do_not_permission_modify_dashboard')
     
     data = request.get_json() or {}
     
     # 验证必填字段
     if not data.get('type'):
-        return error_response('请提供组件类型', code=400)
+        return error_response('provide_widget_type', code=400)
     
     widget = DashboardService.add_widget(
         dashboard_id=str(dashboard_id),
@@ -359,7 +359,7 @@ def add_widget(dashboard_id) -> tuple:
     
     return success_response(
         data=widget.to_dict(),
-        message='组件添加成功',
+        message='widget_added_successfully',
         code=201
     )
 
@@ -407,17 +407,17 @@ def update_widgets_batch(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此仪表盘')
+        return forbidden_response('do_not_permission_modify_dashboard')
     
     data = request.get_json() or {}
     widgets_data = data.get('widgets', [])
     
     if not isinstance(widgets_data, list):
-        return error_response('widgets 必须是数组', code=400)
+        return error_response('widgets_array', code=400)
     
     updated_widgets = DashboardService.batch_update_widgets(
         dashboard_id=str(dashboard_id),
@@ -426,7 +426,7 @@ def update_widgets_batch(dashboard_id) -> tuple:
     
     return success_response(
         data=[w.to_dict() for w in updated_widgets],
-        message='组件批量更新成功'
+        message='widgets_batch_updated_successfully'
     )
 
 
@@ -483,16 +483,16 @@ def update_widget(dashboard_id, widget_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此仪表盘')
+        return forbidden_response('do_not_permission_modify_dashboard')
     
     # 验证组件是否属于该仪表盘
     widget = DashboardService.get_widget(str(widget_id))
     if not widget or str(widget.dashboard_id) != str(dashboard_id):
-        return not_found_response('组件')
+        return not_found_response('widget')
     
     data = request.get_json() or {}
     
@@ -503,7 +503,7 @@ def update_widget(dashboard_id, widget_id) -> tuple:
     
     return success_response(
         data=updated_widget.to_dict(),
-        message='组件更新成功'
+        message='widget_updated_successfully'
     )
 
 
@@ -542,22 +542,22 @@ def delete_widget(dashboard_id, widget_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此仪表盘')
+        return forbidden_response('do_not_permission_modify_dashboard')
     
     # 验证组件是否属于该仪表盘
     widget = DashboardService.get_widget(str(widget_id))
     if not widget or str(widget.dashboard_id) != str(dashboard_id):
-        return not_found_response('组件')
+        return not_found_response('widget')
     
     success = DashboardService.delete_widget(str(widget_id))
     if not success:
-        return error_response('删除失败，请稍后重试', code=500)
+        return error_response('deletion_failed_try_again_later', code=500)
     
-    return success_response(message='组件删除成功')
+    return success_response(message='widget_deleted_successfully')
 
 
 # ==================== 布局管理 ====================
@@ -625,17 +625,17 @@ def update_layout(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此仪表盘')
+        return forbidden_response('do_not_permission_modify_dashboard')
     
     data = request.get_json() or {}
     
     # 验证布局类型
     if 'type' in data and data['type'] not in ['grid', 'free']:
-        return error_response('布局类型必须是 grid 或 free', code=400)
+        return error_response('layout_type_grid_free', code=400)
     
     updated_dashboard = DashboardService.update_layout(
         dashboard_id=str(dashboard_id),
@@ -644,7 +644,7 @@ def update_layout(dashboard_id) -> tuple:
     
     return success_response(
         data=updated_dashboard.to_dict(include_widgets=True),
-        message='布局更新成功'
+        message='layout_updated_successfully'
     )
 
 
@@ -686,11 +686,11 @@ def duplicate_dashboard(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限复制此仪表盘')
+        return forbidden_response('do_not_permission_copy_dashboard')
     
     data = request.get_json() or {}
     new_name = data.get('name')
@@ -703,7 +703,7 @@ def duplicate_dashboard(dashboard_id) -> tuple:
     
     return success_response(
         data=new_dashboard.to_dict(include_widgets=True),
-        message='仪表盘复制成功',
+        message='dashboard_copied_successfully',
         code=201
     )
 
@@ -736,15 +736,15 @@ def set_default_dashboard(dashboard_id) -> tuple:
     
     dashboard = DashboardService.get_dashboard(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此仪表盘')
+        return forbidden_response('do_not_permission_modify_dashboard')
     
     updated_dashboard = DashboardService.set_default_dashboard(str(dashboard_id))
     
     return success_response(
         data=updated_dashboard.to_dict(include_widgets=False),
-        message='默认仪表盘设置成功'
+        message='default_dashboard_set_successfully'
     )

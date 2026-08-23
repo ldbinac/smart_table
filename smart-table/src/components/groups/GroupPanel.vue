@@ -159,14 +159,14 @@ const canAddMoreGroups = computed(() => {
 
 function addGroupField(fieldId: string) {
   if (localGroupBy.value.length >= MAX_GROUP_LEVELS) {
-    ElMessage.warning(`最多支持 ${MAX_GROUP_LEVELS} 级分组`);
+    ElMessage.warning(t('group.maxLevelHint', [MAX_GROUP_LEVELS]));
     return;
   }
 
   if (!localGroupBy.value.includes(fieldId)) {
     localGroupBy.value.push(fieldId);
     updateGroups();
-    ElMessage.success("分组字段已添加");
+    ElMessage.success(t('group.fieldAdded'));
   }
 }
 

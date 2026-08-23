@@ -6,7 +6,7 @@ import type { FilterCondition, FilterOperatorValue } from "../../types";
 import { FilterOperator } from "../../types";
 import {
   getOperatorsForFieldType,
-  OPERATOR_LABELS,
+  getOperatorLabel,
   operatorRequiresValue,
 } from "../../utils/filter";
 import FilterValueInput from "./FilterValueInput.vue";
@@ -55,7 +55,7 @@ const availableOperators = computed(() => {
 const operatorOptions = computed(() => {
   return availableOperators.value.map((op) => ({
     value: op,
-    label: OPERATOR_LABELS[op],
+    label: getOperatorLabel(op),
   }));
 });
 

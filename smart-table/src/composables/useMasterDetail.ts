@@ -4,6 +4,7 @@ import type { ListTable } from '@visactor/vtable';
 import { FieldType } from '@/types/fields';
 import { masterDetailService } from '@/services/masterDetailService';
 import { linkApiService } from '@/services/api/linkApiService';
+import { t } from '@/i18n';
 
 export interface LinkFieldInfo {
   fieldId: string;
@@ -129,7 +130,7 @@ export function useMasterDetail(options: {
           defaultHeaderRowHeight: 36,
           theme: theme || undefined,
           columns: cachedColumns.value,
-          emptyTip: { text: '暂无关联记录' },
+          emptyTip: { text: t('link.masterDetailEmpty') },
           style: {
             // 底部 margin 设为 48px，为子表工具栏预留空间，避免遮挡最后一条数据
             // 总高度 280 = 240（内容区）+ 8（顶部）+ 48（底部含工具栏）

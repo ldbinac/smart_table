@@ -95,7 +95,7 @@ def get_notifications() -> tuple:
 
         if not result.get('success'):
             return error_response(
-                result.get('error', '获取站内信列表失败'),
+                result.get('error', 'failed_fetch_notification_list_try_again_later'),
                 code=500
             )
 
@@ -106,14 +106,14 @@ def get_notifications() -> tuple:
             total=pagination.get('total', 0),
             page=pagination.get('current_page', page),
             per_page=pagination.get('per_page', per_page),
-            message='获取站内信列表成功'
+            message='fetched_notification_list_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取站内信列表失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取站内信列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_notification_list_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @notifications_bp.route('/notifications/unread-count', methods=['GET'])
@@ -154,20 +154,20 @@ def get_unread_count() -> tuple:
 
         if not result.get('success'):
             return error_response(
-                result.get('error', '获取未读数量失败'),
+                result.get('error', 'failed_fetch_unread_count_try_again_later'),
                 code=500
             )
 
         return success_response(
             data={'count': result.get('count', 0)},
-            message='获取未读数量成功'
+            message='fetched_unread_count_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取未读站内信数量失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取未读数量失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_unread_count_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @notifications_bp.route('/notifications/<notification_id>', methods=['GET'])
@@ -202,22 +202,22 @@ def get_notification(notification_id: str) -> tuple:
 
         if not result.get('success'):
             error_msg = result.get('error', '')
-            if '不存在' in error_msg:
-                return not_found_response('站内信')
-            if '无权' in error_msg:
+            if error_msg == 'notification_does_not_exist':
+                return not_found_response('notification')
+            if 'no_permission' in error_msg:
                 return error_response(error_msg, code=403, error='forbidden')
-            return error_response(error_msg or '获取站内信详情失败', code=400)
+            return error_response(error_msg or 'failed_fetch_notification_details_try_again_later', code=400)
 
         return success_response(
             data=result.get('notification'),
-            message='获取站内信详情成功'
+            message='fetched_notification_details_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取站内信详情失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取站内信详情失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_notification_details_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @notifications_bp.route('/notifications/<notification_id>/read', methods=['POST'])
@@ -252,19 +252,19 @@ def mark_notification_as_read(notification_id: str) -> tuple:
 
         if not result.get('success'):
             error_msg = result.get('error', '')
-            if '不存在' in error_msg:
-                return not_found_response('站内信')
-            if '无权' in error_msg:
+            if error_msg == 'notification_does_not_exist':
+                return not_found_response('notification')
+            if 'no_permission' in error_msg:
                 return error_response(error_msg, code=403, error='forbidden')
-            return error_response(error_msg or '标记已读失败', code=400)
+            return error_response(error_msg or 'failed_mark_notification_read_try_again_later', code=400)
 
-        return success_response(message=result.get('message', '已标记为已读'))
+        return success_response(message=result.get('message', 'marked_read'))
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 标记站内信已读失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('标记站内信已读失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_mark_notification_read_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @notifications_bp.route('/notifications/read-all', methods=['POST'])
@@ -305,20 +305,20 @@ def mark_all_notifications_as_read() -> tuple:
 
         if not result.get('success'):
             return error_response(
-                result.get('error', '标记已读失败'),
+                result.get('error', 'failed_mark_notification_read_try_again_later'),
                 code=500
             )
 
         return success_response(
             data={'updated_count': result.get('updated_count', 0)},
-            message='已全部标记为已读'
+            message='all_marked_read'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 批量标记站内信已读失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('批量标记站内信已读失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_batch_mark_notifications_read_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @notifications_bp.route('/notifications/<notification_id>', methods=['DELETE'])
@@ -353,19 +353,19 @@ def delete_notification(notification_id: str) -> tuple:
 
         if not result.get('success'):
             error_msg = result.get('error', '')
-            if '不存在' in error_msg:
-                return not_found_response('站内信')
-            if '无权' in error_msg:
+            if error_msg == 'notification_does_not_exist':
+                return not_found_response('notification')
+            if 'no_permission' in error_msg:
                 return error_response(error_msg, code=403, error='forbidden')
-            return error_response(error_msg or '删除站内信失败', code=400)
+            return error_response(error_msg or 'failed_delete_notification_try_again_later', code=400)
 
-        return success_response(message=result.get('message', '站内信已删除'))
+        return success_response(message=result.get('message', 'notification_deleted'))
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 删除站内信失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('删除站内信失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_delete_notification_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 管理端路由 ====================
@@ -451,7 +451,7 @@ def get_notification_logs() -> tuple:
                 notification_status = NotificationStatus(status.lower())
                 query = query.filter_by(status=notification_status)
             except ValueError:
-                return error_response('无效的状态值', code=400)
+                return error_response('invalid_status_value', code=400)
 
         if source:
             query = query.filter_by(source=source)
@@ -461,7 +461,7 @@ def get_notification_logs() -> tuple:
             try:
                 recipient_uuid = UUID(recipient_user_id)
             except (ValueError, AttributeError):
-                return error_response('无效的收件人用户 ID', code=400)
+                return error_response('invalid_recipient_user_id', code=400)
             query = query.filter_by(recipient_user_id=recipient_uuid)
 
         if is_read is not None:
@@ -472,14 +472,14 @@ def get_notification_logs() -> tuple:
                 start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
                 query = query.filter(Notification.created_at >= start_dt)
             except ValueError:
-                return error_response('开始时间格式错误', code=400)
+                return error_response('invalid_start_time_format', code=400)
 
         if end_date:
             try:
                 end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
                 query = query.filter(Notification.created_at <= end_dt)
             except ValueError:
-                return error_response('结束时间格式错误', code=400)
+                return error_response('invalid_end_time_format', code=400)
 
         total = query.count()
         logs = query.order_by(Notification.created_at.desc()).offset(
@@ -491,14 +491,14 @@ def get_notification_logs() -> tuple:
             total=total,
             page=page,
             per_page=per_page,
-            message='获取站内信日志成功'
+            message='fetched_notification_logs_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取站内信日志失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取站内信日志失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_notification_logs_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @notifications_bp.route('/admin/notifications/stats', methods=['GET'])
@@ -559,20 +559,20 @@ def get_notification_stats() -> tuple:
 
         if not result.get('success'):
             return error_response(
-                result.get('error', '获取站内信统计失败'),
+                result.get('error', 'failed_fetch_notification_statistics_try_again_later'),
                 code=500
             )
 
         return success_response(
             data=result.get('stats'),
-            message='获取站内信统计成功'
+            message='fetched_notification_statistics_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取站内信统计失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取站内信统计失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_notification_statistics_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @notifications_bp.route('/admin/notifications/<notification_id>/retry', methods=['POST'])
@@ -610,14 +610,14 @@ def retry_notification(notification_id: str) -> tuple:
 
         if not result.get('success'):
             error_msg = result.get('error', '')
-            if '不存在' in error_msg:
-                return not_found_response('站内信')
-            return error_response(error_msg or '重试失败', code=400)
+            if error_msg == 'notification_does_not_exist':
+                return not_found_response('notification')
+            return error_response(error_msg or 'failed_retry_try_again_later', code=400)
 
-        return success_response(message=result.get('message', '站内信重试处理成功'))
+        return success_response(message=result.get('message', 'notification_retry_processed_successfully'))
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 重试站内信失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('重试站内信失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_retry_notification_try_again_later', code=500, error='internal_server_error', request_id=request_id)

@@ -117,7 +117,7 @@
     </div>
 
     <!-- 日志详情对话框 -->
-    <el-dialog v-model="detailVisible" :title="t('logs.detailTitle')" width="800px">
+    <el-dialog v-model="detailVisible" :title="t('logs.detailTitle')" width="800px" append-to-body>
       <el-descriptions :column="2" border v-if="selectedLog">
         <el-descriptions-item :label="t('logs.userId')">{{
           selectedLog.user_id
@@ -286,9 +286,9 @@ const handleExport = async () => {
     await adminStore.exportOperationLogs({
       ...filters,
     });
-    ElMessage.success("导出成功");
+    ElMessage.success(t('admin.logExportSuccess'));
   } catch (error) {
-    ElMessage.error("导出失败");
+    ElMessage.error(t('admin.logExportFailed'));
   }
 };
 

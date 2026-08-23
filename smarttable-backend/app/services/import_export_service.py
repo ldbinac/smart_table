@@ -18,6 +18,7 @@ except ImportError:
     pd = None
     HAS_PANDAS = False
 
+from app.i18n import translate
 from app.extensions import db
 from app.models.table import Table
 from app.models.field import Field, FieldType
@@ -132,24 +133,24 @@ class ImportExportService:
         """
         try:
             if not HAS_PANDAS:
-                raise ImportError('请安装 pandas: pip install pandas openpyxl')
+                raise ImportError('install_pandas_pip_install_pandas_openpyxl')
         except ImportError:
-            raise ImportError('请安装 pandas: pip install pandas openpyxl')
+            raise ImportError('install_pandas_pip_install_pandas_openpyxl')
         
         # 读取 Excel 文件
         try:
             df = pd.read_excel(file)
         except Exception as e:
-            raise ValueError(f'无法读取 Excel 文件: {str(e)}')
+            raise ValueError(translate('excel_read_failed', str(e)))
         
         # 检查行数限制
         if len(df) > cls.MAX_IMPORT_ROWS:
-            raise ValueError(f'导入数据行数超过限制（最大 {cls.MAX_IMPORT_ROWS} 行）')
+            raise ValueError(translate('import_rows_exceed_limit', cls.MAX_IMPORT_ROWS))
         
         # 获取表格信息
         table = Table.query.get(table_id)
         if not table:
-            raise ValueError('表格不存在')
+            raise ValueError('table_does_not_exist')
         
         # 获取字段信息
         fields = {str(f.id): f for f in table.fields.all()}
@@ -208,7 +209,7 @@ class ImportExportService:
         if errors:
             return {
                 'success': False,
-                'message': '数据验证失败',
+                'message': 'data_validation_failed',
                 'total_rows': len(df),
                 'error_rows': len(errors),
                 'errors': errors
@@ -336,7 +337,7 @@ class ImportExportService:
             file.seek(0)
             df = pd.read_csv(file, encoding='gbk', delimiter=delimiter)
         except Exception as e:
-            raise ValueError(f'无法读取 CSV 文件: {str(e)}')
+            raise ValueError(translate('csv_read_failed', str(e)))
         
         # 复用 Excel 导入逻辑
         return cls.import_from_excel(
@@ -370,7 +371,7 @@ class ImportExportService:
         # 获取表格信息
         table = Table.query.get(table_id)
         if not table:
-            raise ValueError('表格不存在')
+            raise ValueError('table_does_not_exist')
         
         # 获取字段信息
         fields = {str(f.id): f for f in table.fields.all()}
@@ -386,7 +387,7 @@ class ImportExportService:
         
         # 检查行数限制
         if len(data) > cls.MAX_IMPORT_ROWS:
-            raise ValueError(f'导入数据行数超过限制（最大 {cls.MAX_IMPORT_ROWS} 行）')
+            raise ValueError(translate('import_rows_exceed_limit', cls.MAX_IMPORT_ROWS))
         
         # 转换数据
         records_data = []
@@ -441,7 +442,7 @@ class ImportExportService:
         if errors:
             return {
                 'success': False,
-                'message': '数据验证失败',
+                'message': 'data_validation_failed',
                 'total_rows': len(data),
                 'error_rows': len(errors),
                 'errors': errors
@@ -513,12 +514,12 @@ class ImportExportService:
             (文件内容字节, 文件名)
         """
         if not HAS_PANDAS:
-            raise ImportError('请安装 pandas: pip install pandas openpyxl')
+            raise ImportError('install_pandas_pip_install_pandas_openpyxl')
         
         # 获取表格和字段
         table = Table.query.get(table_id)
         if not table:
-            raise ValueError('表格不存在')
+            raise ValueError('table_does_not_exist')
         
         # 获取字段
         if field_ids:
@@ -581,7 +582,7 @@ class ImportExportService:
         # 复用 Excel 的数据准备逻辑
         table = Table.query.get(table_id)
         if not table:
-            raise ValueError('表格不存在')
+            raise ValueError('table_does_not_exist')
         
         if field_ids:
             fields = Field.query.filter(
@@ -631,7 +632,7 @@ class ImportExportService:
         """
         table = Table.query.get(table_id)
         if not table:
-            raise ValueError('表格不存在')
+            raise ValueError('table_does_not_exist')
         
         if field_ids:
             fields = Field.query.filter(
@@ -973,16 +974,16 @@ class ImportExportService:
             文件结构信息和字段建议
         """
         if not HAS_PANDAS:
-            raise ImportError('请安装 pandas: pip install pandas openpyxl')
+            raise ImportError('install_pandas_pip_install_pandas_openpyxl')
         
         # 读取Excel文件
         try:
             df = pd.read_excel(file)
         except Exception as e:
-            raise ValueError(f'无法读取Excel文件: {str(e)}')
+            raise ValueError(translate('excel_read_failed_short', str(e)))
         
         if len(df) == 0:
-            raise ValueError('Excel文件为空或没有数据行')
+            raise ValueError('excel_file_empty_contains_no_data_rows')
         
         # 分析列
         columns = []
@@ -1019,7 +1020,7 @@ class ImportExportService:
             文件结构信息（列名、示例数据等）
         """
         if not HAS_PANDAS:
-            raise ImportError('请安装 pandas: pip install pandas openpyxl')
+            raise ImportError('install_pandas_pip_install_pandas_openpyxl')
         
         # 读取文件
         if file_type == 'excel':
@@ -1031,7 +1032,7 @@ class ImportExportService:
                 file.seek(0)
                 df = pd.read_csv(file, encoding='gbk')
         else:
-            raise ValueError('不支持的文件类型')
+            raise ValueError('unsupported_file_type')
         
         # 分析列
         columns = []

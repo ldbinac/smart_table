@@ -1440,7 +1440,7 @@ async function toggleFieldVisibility(
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    width="600px"
+    width="700px"
     :close-on-click-modal="false">
     <template #header>
       <div class="field-dialog-header">
@@ -1536,7 +1536,7 @@ async function toggleFieldVisibility(
 
     <!-- 创建/编辑字段 -->
     <div v-else class="field-form">
-      <ElForm label-width="100px">
+      <ElForm label-width="130px">
         <ElFormItem :label="t('field.fieldName')" required>
           <ElInput
             v-model="newField.name"

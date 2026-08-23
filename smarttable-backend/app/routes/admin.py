@@ -11,6 +11,7 @@ from typing import Optional
 from flask import Blueprint, request, g, make_response, current_app
 from marshmallow import ValidationError
 
+from app.i18n import translate
 from app.services.admin_service import AdminService
 from app.services.email_config_service import EmailConfigService
 from app.services.config_cache_service import ConfigCacheService
@@ -57,13 +58,13 @@ def get_public_configs() -> tuple:
         configs = ConfigCacheService.get_public_configs()
         return success_response(
             data=configs,
-            message='获取公开配置成功'
+            message='fetched_public_configuration_successfully'
         )
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取公开配置失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取公开配置失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_public_configuration_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/users', methods=['GET'])
@@ -136,14 +137,14 @@ def get_users() -> tuple:
             total=result['total'],
             page=result['page'],
             per_page=result['per_page'],
-            message='获取用户列表成功'
+            message='fetched_user_list_successfully'
         )
         
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取用户列表失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取用户列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_user_list_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/users', methods=['POST'])
@@ -171,7 +172,7 @@ def create_user() -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     try:
         validated_data = user_create_schema.load(data)
@@ -192,7 +193,7 @@ def create_user() -> tuple:
     )
     
     if error:
-        if '已被注册' in error:
+        if error == 'email_already_registered':
             return error_response(error, code=409, error='email_already_exists')
         return error_response(error, code=500)
     
@@ -208,7 +209,7 @@ def create_user() -> tuple:
     
     return success_response(
         data=user_info,
-        message='用户创建成功',
+        message='user_created_successfully',
         code=201
     )
 
@@ -244,11 +245,11 @@ def get_user(user_id) -> tuple:
     user_info = AdminService.get_user(user_id)
     
     if not user_info:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     return success_response(
         data=user_info,
-        message='获取用户信息成功'
+        message='fetched_user_information_successfully'
     )
 
 
@@ -302,7 +303,7 @@ def update_user(user_id) -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     try:
         validated_data = user_update_schema.load(data, partial=True)
@@ -311,13 +312,13 @@ def update_user(user_id) -> tuple:
     
     old_user_info = AdminService.get_user(user_id)
     if not old_user_info:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     user_info, error = AdminService.update_user(user_id=user_id, data=validated_data)
     
     if error:
-        if '用户不存在' in error:
-            return not_found_response('用户')
+        if 'user_does_not_exist' in error:
+            return not_found_response('user')
         return error_response(error, code=500)
     
     AdminService.log_operation(
@@ -333,7 +334,7 @@ def update_user(user_id) -> tuple:
     
     return success_response(
         data=user_info,
-        message='用户信息更新成功'
+        message='user_information_updated_successfully'
     )
 
 
@@ -367,13 +368,13 @@ def delete_user(user_id) -> tuple:
     """
     old_user_info = AdminService.get_user(user_id)
     if not old_user_info:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     success, error = AdminService.delete_user(user_id)
     
     if not success:
-        if '用户不存在' in error:
-            return not_found_response('用户')
+        if 'user_does_not_exist' in error:
+            return not_found_response('user')
         return error_response(error, code=500)
     
     AdminService.log_operation(
@@ -387,7 +388,7 @@ def delete_user(user_id) -> tuple:
     )
     
     return success_response(
-        message='用户删除成功'
+        message='user_deleted_successfully'
     )
 
 
@@ -435,7 +436,7 @@ def update_user_status(user_id) -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     try:
         validated_data = user_status_update_schema.load(data)
@@ -444,7 +445,7 @@ def update_user_status(user_id) -> tuple:
     
     old_user_info = AdminService.get_user(user_id)
     if not old_user_info:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     status = validated_data['status'].lower()
     
@@ -455,11 +456,11 @@ def update_user_status(user_id) -> tuple:
         user_info, error = AdminService.activate_user(user_id)
         action = AdminActionType.ACTIVATE
     else:
-        return error_response('无效的状态值', code=400)
+        return error_response('invalid_status_value', code=400)
     
     if error:
-        if '用户不存在' in error:
-            return not_found_response('用户')
+        if 'user_does_not_exist' in error:
+            return not_found_response('user')
         return error_response(error, code=500)
     
     AdminService.log_operation(
@@ -475,7 +476,7 @@ def update_user_status(user_id) -> tuple:
     
     return success_response(
         data=user_info,
-        message='用户状态更新成功'
+        message='user_status_updated_successfully'
     )
 
 
@@ -528,7 +529,7 @@ def reset_user_password(user_id) -> tuple:
     
     old_user_info = AdminService.get_user(user_id)
     if not old_user_info:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     temp_pwd, error = AdminService.reset_password(
         user_id=user_id,
@@ -536,8 +537,8 @@ def reset_user_password(user_id) -> tuple:
     )
     
     if error:
-        if '用户不存在' in error:
-            return not_found_response('用户')
+        if 'user_does_not_exist' in error:
+            return not_found_response('user')
         return error_response(error, code=500)
     
     AdminService.log_operation(
@@ -553,7 +554,7 @@ def reset_user_password(user_id) -> tuple:
     
     return success_response(
         data={'temporary_password': temp_pwd},
-        message='密码重置成功，请通知用户及时修改密码'
+        message='password_reset_successfully_notify_user_change_password_promptly'
     )
 
 
@@ -578,13 +579,13 @@ def get_settings() -> tuple:
         configs = AdminService.get_all_configs()
         return success_response(
             data=configs,
-            message='获取系统配置成功'
+            message='fetched_system_configuration_successfully'
         )
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取系统配置失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取系统配置失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_system_configuration_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/settings', methods=['PUT'])
@@ -637,7 +638,7 @@ def update_settings() -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     try:
         validated_data = system_config_batch_update_schema.load(data)
@@ -660,7 +661,7 @@ def update_settings() -> tuple:
                 value = EmailConfigService.encrypt_password(value, secret_key)
             except Exception as e:
                 current_app.logger.error(f'加密 SMTP 密码失败: {str(e)}')
-                return error_response('加密密码失败', code=500)
+                return error_response('failed_encrypt_password', code=500)
         
         old_value = AdminService.get_config(key)
         
@@ -691,7 +692,7 @@ def update_settings() -> tuple:
     
     return success_response(
         data={'configs': updated_configs},
-        message='系统配置更新成功'
+        message='system_configuration_updated_successfully'
     )
 
 
@@ -767,13 +768,13 @@ def get_operation_logs() -> tuple:
             try:
                 start_date_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             except ValueError:
-                return error_response('开始时间格式错误', code=400)
+                return error_response('invalid_start_time_format', code=400)
         
         if end_date:
             try:
                 end_date_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             except ValueError:
-                return error_response('结束时间格式错误', code=400)
+                return error_response('invalid_end_time_format', code=400)
         
         result = AdminService.get_operation_logs(
             page=page,
@@ -790,14 +791,14 @@ def get_operation_logs() -> tuple:
             total=result['total'],
             page=result['page'],
             per_page=result['per_page'],
-            message='获取操作日志成功'
+            message='fetched_operation_logs_successfully'
         )
         
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取操作日志失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取操作日志失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_operation_logs_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/operation-logs/export', methods=['GET'])
@@ -857,13 +858,13 @@ def export_operation_logs() -> tuple:
             try:
                 start_date_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             except ValueError:
-                return error_response('开始时间格式错误', code=400)
+                return error_response('invalid_start_time_format', code=400)
         
         if end_date:
             try:
                 end_date_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             except ValueError:
-                return error_response('结束时间格式错误', code=400)
+                return error_response('invalid_end_time_format', code=400)
         
         csv_content = AdminService.export_operation_logs(
             user_id=user_id,
@@ -897,7 +898,7 @@ def export_operation_logs() -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 导出操作日志失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('导出操作日志失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_export_operation_logs_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @admin_bp.route('/roles', methods=['GET'])
@@ -958,7 +959,7 @@ def get_roles() -> tuple:
     
     return success_response(
         data=roles_list,
-        message='获取角色列表成功'
+        message='fetched_role_list_successfully'
     )
 
 
@@ -1023,7 +1024,7 @@ def verify_email_config() -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     try:
         validated_data = email_config_verify_schema.load(data)
@@ -1036,7 +1037,7 @@ def verify_email_config() -> tuple:
         return error_response(error, code=400, error='invalid_email_config')
     
     return success_response(
-        message='邮件配置验证成功'
+        message='email_configuration_verified_successfully'
     )
 
 
@@ -1107,7 +1108,7 @@ def send_test_email() -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     try:
         validated_data = email_config_test_schema.load(data)
@@ -1118,7 +1119,7 @@ def send_test_email() -> tuple:
     secret_key = current_app.config.get('SECRET_KEY')
     
     if not secret_key:
-        return error_response('服务器未配置加密密钥', code=500)
+        return error_response('server_not_configured_encryption_key', code=500)
     
     success, error = AdminService.send_test_email(
         config_data=validated_data,
@@ -1140,5 +1141,5 @@ def send_test_email() -> tuple:
     )
     
     return success_response(
-        message=f'测试邮件已发送至 {test_email}'
+        message=translate('test_email_sent_to', test_email)
     )

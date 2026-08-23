@@ -214,7 +214,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '令牌已过期，请重新登录',
+            'message': 'token_expired_log_again',
             'error': 'token_expired',
             'request_id': request_id
         }, 401
@@ -225,7 +225,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '无效的令牌',
+            'message': 'invalid_token',
             'error': 'invalid_token',
             'request_id': request_id
         }, 401
@@ -236,7 +236,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '请求缺少认证令牌',
+            'message': 'request_missing_authentication_token',
             'error': 'authorization_required',
             'request_id': request_id
         }, 401
@@ -247,7 +247,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '令牌已被撤销，请重新登录',
+            'message': 'token_been_revoked_log_again',
             'error': 'token_revoked',
             'request_id': request_id
         }, 401

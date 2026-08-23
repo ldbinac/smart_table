@@ -13,5 +13,7 @@
   "atLeastOneField": "Please select at least one field",
   "success": "Export successful",
   "failed": "Export failed",
-  "defaultFilename": "Export_{date}"
+  "defaultFilename": "Export_{date}",
+  "readFileFailed": "Failed to read the file",
+  "invalidJsonArray": "Invalid JSON format: expected an array"
 }

@@ -36,7 +36,7 @@
     </div>
 
     <!-- 编辑模板对话框 -->
-    <el-dialog
+    <el-dialog append-to-body
       v-model="editDialogVisible"
       :title="t('email.editTitle')"
       width="900px"
@@ -113,7 +113,7 @@
     </el-dialog>
 
     <!-- 预览对话框 -->
-    <el-dialog
+    <el-dialog append-to-body
       v-model="previewDialogVisible"
       :title="t('email.previewTitle')"
       width="700px"

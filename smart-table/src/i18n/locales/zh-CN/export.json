@@ -13,5 +13,7 @@
   "atLeastOneField": "请至少选择一个字段",
   "success": "导出成功",
   "failed": "导出失败",
-  "defaultFilename": "导出数据_{date}"
+  "defaultFilename": "导出数据_{date}",
+  "readFileFailed": "文件读取失败",
+  "invalidJsonArray": "JSON 格式错误：应为数组"
 }

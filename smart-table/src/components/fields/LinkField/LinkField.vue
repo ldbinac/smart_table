@@ -56,12 +56,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { ElTag, ElMessage, ElMessageBox } from "element-plus";
+import { useI18n } from "vue-i18n";
 import LinkRecordSelector from "./LinkRecordSelector.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 import { recordApiService } from "@/services/api/recordApiService";
 import { fieldService } from "@/db/services/fieldService";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
+
+const { t } = useI18n();
 
 interface Props {
   value?: string[];
@@ -174,7 +177,7 @@ const showRecordDetail = async (recordId: string) => {
     detailDrawerVisible.value = true;
   } catch (error) {
     console.error("[LinkField] 加载记录详情失败:", error);
-    ElMessage.error("加载记录详情失败");
+    ElMessage.error(t('link.loadDetailFailed'));
   } finally {
     loadingRecord.value = false;
   }

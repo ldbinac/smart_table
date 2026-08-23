@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { ElMessage } from "element-plus";
+import { t } from "@/i18n";
 import type { User, UserRole, UserStatus } from "@/api/types";
 import { adminApiService } from "@/services/api/adminApiService";
 import type {
@@ -148,7 +149,7 @@ export const useAdminStore = defineStore("admin", () => {
       const newUser = await adminApiService.createUser(data);
       users.value.unshift(newUser);
       userPagination.value.total += 1;
-      ElMessage.success("用户创建成功");
+      ElMessage.success(t('admin.userManagement.createSuccess'));
       return newUser;
     } catch (error) {
       throw error;
@@ -169,7 +170,7 @@ export const useAdminStore = defineStore("admin", () => {
       if (index !== -1) {
         users.value[index] = updatedUser;
       }
-      ElMessage.success("用户信息更新成功");
+      ElMessage.success(t('admin.userManagement.updateSuccess'));
       return updatedUser;
     } catch (error) {
       throw error;
@@ -181,7 +182,7 @@ export const useAdminStore = defineStore("admin", () => {
       await adminApiService.deleteUser(userId);
       users.value = users.value.filter((user) => user.id !== userId);
       userPagination.value.total -= 1;
-      ElMessage.success("用户删除成功");
+      ElMessage.success(t('admin.userManagement.deleteSuccess'));
     } catch (error) {
       throw error;
     }
@@ -197,7 +198,7 @@ export const useAdminStore = defineStore("admin", () => {
       if (index !== -1) {
         users.value[index] = updatedUser;
       }
-      ElMessage.success("用户状态更新成功");
+      ElMessage.success(t('admin.userManagement.statusUpdateSuccess'));
       return updatedUser;
     } catch (error) {
       throw error;
@@ -208,9 +209,9 @@ export const useAdminStore = defineStore("admin", () => {
     try {
       const result = await adminApiService.resetUserPassword(userId, password);
       if (result.temporary_password) {
-        ElMessage.info(`临时密码：${result.temporary_password}`);
+        ElMessage.info(t('admin.userManagement.tempPassword', [result.temporary_password]));
       } else {
-        ElMessage.success("密码重置成功，新密码已发送给用户");
+        ElMessage.success(t('admin.userManagement.passwordResetSuccess'));
       }
       return result;
     } catch (error) {
@@ -306,7 +307,7 @@ export const useAdminStore = defineStore("admin", () => {
       systemConfigs.value = configMap;
       // 配置更新后清除缓存，下次获取时重新请求
       clearConfigCache();
-      ElMessage.success("系统配置更新成功");
+      ElMessage.success(t('admin.configUpdateSuccess'));
       return configMap;
     } catch (error) {
       throw error;
@@ -370,7 +371,7 @@ export const useAdminStore = defineStore("admin", () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      ElMessage.success("日志导出成功");
+      ElMessage.success(t('admin.logExportSuccess'));
     } catch (error) {
       throw error;
     }
@@ -398,14 +399,14 @@ export const useAdminStore = defineStore("admin", () => {
       const response = await adminApiService.sendTestEmail(config, testEmail);
       
       if (response.success) {
-        ElMessage.success(response.message || "测试邮件发送成功");
+        ElMessage.success(response.message || t('admin.emailTest.sendSuccess'));
         return response;
       } else {
-        ElMessage.error(response.message || "测试邮件发送失败");
+        ElMessage.error(response.message || t('admin.emailTest.sendFailed'));
         throw new Error(response.message);
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "测试邮件发送失败";
+      const errorMessage = error.response?.data?.message || error.message || t('admin.emailTest.sendFailed');
       ElMessage.error(errorMessage);
       throw error;
     }

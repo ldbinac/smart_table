@@ -24,11 +24,11 @@ def validate_email(email: str) -> Tuple[bool, Optional[str]]:
         (是否有效, 错误信息)
     """
     if not email:
-        return False, '邮箱地址不能为空'
+        return False, 'email_address_empty'
     
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(pattern, email):
-        return False, '邮箱地址格式不正确'
+        return False, 'invalid_email_address_format'
     
     return True, None
 
@@ -45,22 +45,22 @@ def validate_password(password: str, min_length: int = 8) -> Tuple[bool, Optiona
         (是否有效, 错误信息)
     """
     if not password:
-        return False, '密码不能为空'
+        return False, 'password_empty'
     
     if len(password) < min_length:
         return False, f'密码长度至少为 {min_length} 位'
     
     # 检查是否包含至少一个大写字母
     if not re.search(r'[A-Z]', password):
-        return False, '密码必须包含至少一个大写字母'
+        return False, 'password_contain_least_one_uppercase_letter'
     
     # 检查是否包含至少一个小写字母
     if not re.search(r'[a-z]', password):
-        return False, '密码必须包含至少一个小写字母'
+        return False, 'password_contain_least_one_lowercase_letter'
     
     # 检查是否包含至少一个数字
     if not re.search(r'\d', password):
-        return False, '密码必须包含至少一个数字'
+        return False, 'password_contain_least_one_number'
     
     return True, None
 
@@ -76,13 +76,13 @@ def validate_uuid(value: str) -> Tuple[bool, Optional[str]]:
         (是否有效, 错误信息)
     """
     if not value:
-        return False, 'UUID 不能为空'
+        return False, 'uuid_empty'
     
     try:
         uuid.UUID(value)
         return True, None
     except ValueError:
-        return False, '无效的 UUID 格式'
+        return False, 'invalid_uuid_format'
 
 
 def validate_url(url: str) -> Tuple[bool, Optional[str]]:
@@ -96,11 +96,11 @@ def validate_url(url: str) -> Tuple[bool, Optional[str]]:
         (是否有效, 错误信息)
     """
     if not url:
-        return False, 'URL 不能为空'
+        return False, 'url_empty'
     
     pattern = r'^https?://[^\s/$.?#].[^\s]*$'
     if not re.match(pattern, url):
-        return False, 'URL 格式不正确'
+        return False, 'invalid_url_format'
     
     return True, None
 
@@ -116,11 +116,11 @@ def validate_phone(phone: str) -> Tuple[bool, Optional[str]]:
         (是否有效, 错误信息)
     """
     if not phone:
-        return False, '手机号码不能为空'
+        return False, 'phone_number_empty'
     
     pattern = r'^1[3-9]\d{9}$'
     if not re.match(pattern, phone):
-        return False, '手机号码格式不正确'
+        return False, 'invalid_phone_number_format'
     
     return True, None
 
@@ -136,11 +136,11 @@ def validate_hex_color(color: str) -> Tuple[bool, Optional[str]]:
         (是否有效, 错误信息)
     """
     if not color:
-        return False, '颜色代码不能为空'
+        return False, 'color_code_empty'
     
     pattern = r'^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$'
     if not re.match(pattern, color):
-        return False, '颜色代码格式不正确（如 #FF5733）'
+        return False, 'invalid_color_code_format_ff'
     
     return True, None
 
@@ -157,7 +157,7 @@ def validate_date_string(date_str: str, format: str = '%Y-%m-%d') -> Tuple[bool,
         (是否有效, 错误信息)
     """
     if not date_str:
-        return False, '日期不能为空'
+        return False, 'date_empty'
     
     try:
         datetime.strptime(date_str, format)
@@ -279,13 +279,13 @@ def validate_field_name(name: str) -> Tuple[bool, Optional[str]]:
         (是否有效, 错误信息)
     """
     if not name:
-        return False, '字段名称不能为空'
+        return False, 'field_name_empty'
     
     if len(name) > 100:
-        return False, '字段名称不能超过 100 个字符'
+        return False, 'field_name_exceed_characters'
     
     # 检查是否包含非法字符
     if re.search(r'[<>&"\']', name):
-        return False, '字段名称包含非法字符'
+        return False, 'field_name_contains_invalid_characters'
     
     return True, None

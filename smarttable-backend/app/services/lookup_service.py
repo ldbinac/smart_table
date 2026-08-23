@@ -94,41 +94,41 @@ class LookupService:
             (是否合法, 错误信息)
         """
         if not config or not isinstance(config, dict):
-            return False, '配置不能为空'
+            return False, 'configuration_empty'
 
         # 1. 源数据表
         source_table_id = config.get('sourceTableId')
         if not source_table_id:
-            return False, '源数据表不能为空'
+            return False, 'source_data_table_empty'
 
         if str(source_table_id) == str(current_table_id):
-            return False, '不能引用当前数据表，请选择其他表'
+            return False, 'reference_current_data_table_choose_another_table'
 
         source_table = Table.query.get(str(source_table_id))
         if not source_table:
-            return False, '源数据表必须与当前表在同一个多维表格中'
+            return False, 'source_data_table_same_base_current_table'
 
         current_table = Table.query.get(str(current_table_id))
         if not current_table or str(source_table.base_id) != str(current_table.base_id):
-            return False, '源数据表必须与当前表在同一个多维表格中'
+            return False, 'source_data_table_same_base_current_table'
 
         # 2. 引用字段
         target_field_id = config.get('targetFieldId')
         if not target_field_id:
-            return False, '引用字段不能为空'
+            return False, 'referenced_field_empty'
 
         source_fields = Field.query.filter_by(table_id=str(source_table_id)).all()
         source_fields_map = {str(f.id): f for f in source_fields}
         if str(target_field_id) not in source_fields_map:
-            return False, '引用字段必须属于源数据表'
+            return False, 'referenced_field_belong_source_data_table'
 
         # 3. 过滤条件
         conditions = config.get('filterConditions') or []
         if not isinstance(conditions, list):
-            return False, '过滤条件格式不正确'
+            return False, 'invalid_filter_condition_format'
 
         if len(conditions) > 5:
-            return False, '最多支持 5 个查找条件'
+            return False, 'most_lookup_conditions_supported'
 
         # 当前表字段，用于校验 valueType=field 时的 valueFieldId
         current_fields = Field.query.filter_by(table_id=str(current_table_id)).all()
@@ -137,21 +137,21 @@ class LookupService:
         valid_operator_values = {op.value for op in LookupFilterOperator}
         for cond in conditions:
             if not isinstance(cond, dict):
-                return False, '过滤条件格式不正确'
+                return False, 'invalid_filter_condition_format'
 
             # 3.1 过滤条件字段
             cond_field_id = cond.get('fieldId')
             if not cond_field_id:
-                return False, '过滤条件字段必须属于源数据表'
+                return False, 'filter_field_belong_source_data_table'
             if str(cond_field_id) not in source_fields_map:
-                return False, '过滤条件字段必须属于源数据表'
+                return False, 'filter_field_belong_source_data_table'
 
             # 3.2 操作符
             operator = cond.get('operator')
             if not operator:
-                return False, '过滤条件操作符不能为空'
+                return False, 'filter_operator_empty'
             if operator not in valid_operator_values:
-                return False, '过滤条件操作符不合法'
+                return False, 'invalid_filter_operator'
 
             # 3.3 值类型与值
             if operator in (LookupFilterOperator.IS_EMPTY.value, LookupFilterOperator.IS_NOT_EMPTY.value):
@@ -160,24 +160,24 @@ class LookupService:
 
             value_type = cond.get('valueType')
             if value_type not in ('field', 'custom'):
-                return False, '值类型必须为 field 或 custom'
+                return False, 'value_type_field_custom'
 
             if value_type == 'field':
                 value_field_id = cond.get('valueFieldId')
                 if not value_field_id or str(value_field_id) not in current_field_ids:
-                    return False, '过滤条件值字段必须属于当前表'
+                    return False, 'filter_value_field_belong_current_table'
             else:  # custom
                 value_custom = cond.get('valueCustom')
                 if value_custom is None or value_custom == '':
-                    return False, '自定义值不能为空'
+                    return False, 'custom_value_empty'
 
         # 4. 计算方式
         aggregation_type = config.get('aggregationType')
         if not aggregation_type:
-            return False, '计算方式不能为空'
+            return False, 'computation_type_empty'
         valid_agg_values = {t.value for t in LookupAggregationType}
         if aggregation_type not in valid_agg_values:
-            return False, '计算方式不合法'
+            return False, 'invalid_computation_type'
 
         # 5. 字段格式兼容性
         field_format = config.get('fieldFormat')
@@ -196,7 +196,7 @@ class LookupService:
             # 必须是 number 或 currency
             allowed = (LookupFieldFormat.NUMBER.value, LookupFieldFormat.CURRENCY.value)
             if field_format_type and field_format_type not in allowed:
-                return False, '字段格式与计算方式不兼容'
+                return False, 'field_format_incompatible_computation_type'
         elif aggregation_type in (LookupAggregationType.MAX.value, LookupAggregationType.MIN.value):
             # number / currency / date（仅当源字段是日期类型时 date 才合法）
             allowed = [LookupFieldFormat.NUMBER.value, LookupFieldFormat.CURRENCY.value]
@@ -204,13 +204,13 @@ class LookupService:
             if target_field and target_field.type in _DATE_LIKE_TYPES:
                 allowed.append(LookupFieldFormat.DATE.value)
             if field_format_type and field_format_type not in allowed:
-                return False, '字段格式与计算方式不兼容'
+                return False, 'field_format_incompatible_computation_type'
         # original / distinct：fieldFormat 跟随源字段，后端不强制
 
         # 6. 条件连接符
         conjunction = config.get('filterConjunction', 'and')
         if conjunction not in ('and', 'or'):
-            return False, '条件连接符必须为 and 或 or'
+            return False, 'condition_connector'
 
         return True, None
 

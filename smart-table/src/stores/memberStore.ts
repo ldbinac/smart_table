@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { shareApiService } from "@/services/api/shareApiService";
+import { t } from "@/i18n";
 import { useAuthStore } from "./authStore";
 
 export interface BaseMember {
@@ -69,7 +70,7 @@ export const useMemberStore = defineStore("member", () => {
       members.value = data as any;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取成员列表失败";
+      const msg = e instanceof Error ? e.message : t('common.member.fetchListFailed');
       error.value = msg;
       console.error("[memberStore] fetchMembers failed:", e);
       throw e;
@@ -85,7 +86,7 @@ export const useMemberStore = defineStore("member", () => {
       members.value.push(data as any);
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "添加成员失败";
+      const msg = e instanceof Error ? e.message : t('common.member.addFailed');
       error.value = msg;
       console.error("[memberStore] addMember failed:", e);
       throw e;
@@ -106,7 +107,7 @@ export const useMemberStore = defineStore("member", () => {
       });
       return result;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "批量添加成员失败";
+      const msg = e instanceof Error ? e.message : t('common.member.batchAddFailed');
       error.value = msg;
       console.error("[memberStore] batchAddMembers failed:", e);
       throw e;
@@ -125,7 +126,7 @@ export const useMemberStore = defineStore("member", () => {
       }
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "更新成员角色失败";
+      const msg = e instanceof Error ? e.message : t('common.member.updateRoleFailed');
       error.value = msg;
       console.error("[memberStore] updateMemberRole failed:", e);
       throw e;
@@ -140,7 +141,7 @@ export const useMemberStore = defineStore("member", () => {
       await shareApiService.removeMember(baseId, userId);
       members.value = members.value.filter((m) => m.user_id !== userId);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "移除成员失败";
+      const msg = e instanceof Error ? e.message : t('common.member.removeFailed');
       error.value = msg;
       console.error("[memberStore] removeMember failed:", e);
       throw e;

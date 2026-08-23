@@ -1,0 +1,19 @@
+{
+  "requiredSingle": "Please fill in the required field: {0}",
+  "requiredList": "Please fill in the following required fields: {0}",
+  "emailFormat": "Please enter a valid email address, e.g. example@domain.com",
+  "phoneFormat": "Please enter a valid 11-digit mobile number",
+  "urlFormat": "Please enter a full URL starting with http://, https://, ftp:// or sftp://",
+  "invalidFormat": "{0} format is incorrect",
+  "typeFormat": "{0} format is incorrect",
+  "preset": {
+    "telephoneLabel": "Telephone number",
+    "telephoneMsg": "Please enter a valid telephone number format (e.g. 0511-4405222)",
+    "postcodeLabel": "Postal code (China)",
+    "postcodeMsg": "Please enter a valid 6-digit postal code",
+    "idLabel": "ID card number (China)",
+    "idMsg": "Please enter a valid ID card number",
+    "ipv4Label": "IPv4 address",
+    "ipv4Msg": "Please enter a valid IPv4 address"
+  }
+}

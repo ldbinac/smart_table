@@ -44,7 +44,7 @@ vi.mock('@element-plus/icons-vue', () => ({
 // Mock 工具函数
 vi.mock('@/utils/filter', () => ({
   getOperatorsForFieldType: vi.fn(() => []),
-  OPERATOR_LABELS: {},
+  getOperatorLabel: vi.fn((op: string) => op),
   operatorRequiresValue: vi.fn(() => true),
 }));
 

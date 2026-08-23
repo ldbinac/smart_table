@@ -85,10 +85,10 @@ def get_versions(doc_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.can_access_base(user_id, doc.base_id):
-            return api_error('无权访问', 403)
+            return api_error('no_permission_access', 403)
 
         versions = document_version_service.get_list_by_document(doc_id)
         return api_response({
@@ -150,10 +150,10 @@ def create_version(doc_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.can_edit_base(user_id, doc.base_id):
-            return api_error('无权编辑', 403)
+            return api_error('no_permission_edit', 403)
 
         data = request.get_json()
         name = data.get('name', f'版本 #{document_version_service.get_version_count(doc_id) + 1}')
@@ -208,14 +208,14 @@ def get_version(doc_id, version_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.can_access_base(user_id, doc.base_id):
-            return api_error('无权访问', 403)
+            return api_error('no_permission_access', 403)
 
         version = document_version_service.get_by_id(version_id)
         if not version or str(version.document_id) != doc_id:
-            return api_error('版本不存在', 404)
+            return api_error('version_does_not_exist', 404)
 
         result = version.to_dict()
         result['content'] = version.content
@@ -260,14 +260,14 @@ def restore_version(doc_id, version_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.can_edit_base(user_id, doc.base_id):
-            return api_error('无权编辑', 403)
+            return api_error('no_permission_edit', 403)
 
         version = document_version_service.get_by_id(version_id)
         if not version or str(version.document_id) != doc_id:
-            return api_error('版本不存在', 404)
+            return api_error('version_does_not_exist', 404)
 
         # 恢复版本（会创建一个新版本记录）
         restored = document_version_service.restore_version(version_id, user_id)
@@ -320,14 +320,14 @@ def delete_version(doc_id, version_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.can_edit_base(user_id, doc.base_id):
-            return api_error('无权编辑', 403)
+            return api_error('no_permission_edit', 403)
 
         version = document_version_service.get_by_id(version_id)
         if not version or str(version.document_id) != doc_id:
-            return api_error('版本不存在', 404)
+            return api_error('version_does_not_exist', 404)
 
         document_version_service.delete_version(version_id)
         return api_response(None, 204)

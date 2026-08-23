@@ -342,7 +342,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
       class="add-button"
       @click="addCondition"
     >
-      + 添加条件
+      + {{ t('field.addCondition') }}
     </ElButton>
   </div>
 </template>

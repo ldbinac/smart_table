@@ -108,5 +108,20 @@
     "content": "邮件内容",
     "errorInfo": "错误信息",
     "fetchFailed": "获取邮件日志失败"
-  }
+  },
+  "userManagement": {
+    "createSuccess": "用户创建成功",
+    "updateSuccess": "用户信息更新成功",
+    "deleteSuccess": "用户删除成功",
+    "statusUpdateSuccess": "用户状态更新成功",
+    "tempPassword": "临时密码：{0}",
+    "passwordResetSuccess": "密码重置成功，新密码已发送给用户"
+  },
+  "configUpdateSuccess": "系统配置更新成功",
+  "logExportSuccess": "日志导出成功",
+  "emailTest": {
+    "sendSuccess": "测试邮件发送成功",
+    "sendFailed": "测试邮件发送失败"
+  },
+  "logExportFailed": "日志导出失败"
 }

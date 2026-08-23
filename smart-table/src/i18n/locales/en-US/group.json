@@ -16,5 +16,6 @@
   "noGroup": "No grouping set",
   "preview": "Group Preview",
   "emptyNoField": "Select a field to group by",
-  "drag": "Drag to sort"
+  "drag": "Drag to sort",
+  "fieldAdded": "Group field added"
 }

@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 from PIL import Image
 
+from app.i18n import translate
 from app.extensions import db
 from app.models.attachment import Attachment, AttachmentType
 
@@ -136,7 +137,7 @@ class AttachmentService:
         file.seek(0)
         
         if len(header) == 0:
-            return False, '文件内容为空'
+            return False, 'file_content_empty'
         
         # 对于文本文件（代码、文本等），跳过 Magic Number 检查
         text_extensions = {
@@ -154,7 +155,7 @@ class AttachmentService:
                     header.decode('latin-1')
                     return True, expected_mime
                 except:
-                    return False, '文件内容不是有效的文本格式'
+                    return False, 'file_content_not_valid_text_format'
         
         # 检查文件签名
         detected_mime = None
@@ -197,7 +198,7 @@ class AttachmentService:
                 return True, expected_mime
             
             # MIME 类型不匹配
-            return False, f'文件内容与扩展名不匹配（检测到: {detected_mime}）'
+            return False, translate('file_content_mismatch_extension', detected_mime)
         
         # 无法识别的文件格式
         # 对于一些不常见的格式，允许通过但记录警告
@@ -375,12 +376,12 @@ class AttachmentService:
         
         # 检查文件类型（扩展名）
         if not cls.is_allowed_file(original_filename):
-            raise ValueError(f'不支持的文件类型: {original_filename}')
+            raise ValueError(translate('file_type_unsupported_detail', original_filename))
         
         # 验证文件内容（Magic Number 检查）
         is_valid, message = cls.verify_file_content(file, original_filename)
         if not is_valid:
-            raise ValueError(f'文件验证失败: {message}')
+            raise ValueError(translate('file_validation_failed', message))
         
         # 获取文件大小
         file.seek(0, 2)  # 移动到文件末尾
@@ -389,7 +390,7 @@ class AttachmentService:
         
         # 检查文件大小
         if file_size > cls.MAX_FILE_SIZE:
-            raise ValueError(f'文件大小超过限制 ({cls.MAX_FILE_SIZE / 1024 / 1024}MB)')
+            raise ValueError(translate('file_size_exceed_limit', cls.MAX_FILE_SIZE / 1024 / 1024))
         
         # 生成存储文件名
         stored_filename = cls.generate_stored_filename(original_filename)
@@ -402,7 +403,7 @@ class AttachmentService:
         try:
             file.save(file_path)
         except Exception as e:
-            raise ValueError(f'文件保存失败: {str(e)}')
+            raise ValueError(translate('file_save_failed', str(e)))
         
         # 获取 MIME 类型
         mime_type = cls.get_mime_type(original_filename)

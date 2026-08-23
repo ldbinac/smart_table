@@ -46,7 +46,7 @@ def list_email_templates_for_workflow() -> tuple:
         from app.services.email_template_service import EmailTemplateService
         result = EmailTemplateService.get_all_templates()
         if not result['success']:
-            return error_response(result.get('error', '获取模板列表失败'), code=500)
+            return error_response(result.get('error', 'failed_fetch_email_template_list_try_again_later'), code=500)
 
         # 只返回工作流配置需要的字段
         templates = [
@@ -60,12 +60,12 @@ def list_email_templates_for_workflow() -> tuple:
 
         return success_response(
             data=templates,
-            message='获取邮件模板列表成功'
+            message='fetched_email_template_list_successfully'
         )
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取邮件模板列表失败：{str(e)}')
-        return error_response('获取邮件模板列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_email_template_list_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/templates', methods=['GET'])
@@ -129,14 +129,14 @@ def get_email_templates() -> tuple:
             total=total,
             page=page,
             per_page=per_page,
-            message='获取邮件模板列表成功'
+            message='fetched_email_template_list_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取邮件模板列表失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取邮件模板列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_email_template_list_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/templates/<template_key>', methods=['GET'])
@@ -170,11 +170,11 @@ def get_email_template(template_key: str) -> tuple:
     template = EmailTemplate.query.filter_by(template_key=template_key).first()
 
     if not template:
-        return not_found_response('邮件模板')
+        return not_found_response('email_template')
 
     return success_response(
         data=template.to_dict(),
-        message='获取邮件模板详情成功'
+        message='fetched_email_template_details_successfully'
     )
 
 
@@ -231,19 +231,19 @@ def update_email_template(template_key: str) -> tuple:
     template = EmailTemplate.query.filter_by(template_key=template_key).first()
 
     if not template:
-        return not_found_response('邮件模板')
+        return not_found_response('email_template')
 
     data = request.get_json()
 
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
 
     try:
         allowed_fields = ['name', 'subject', 'content_html', 'content_text', 'description']
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
 
         if not update_data:
-            return error_response('没有提供有效的更新字段', code=400)
+            return error_response('no_valid_update_fields_provided', code=400)
 
         for field, value in update_data.items():
             setattr(template, field, value)
@@ -252,7 +252,7 @@ def update_email_template(template_key: str) -> tuple:
 
         return success_response(
             data=template.to_dict(),
-            message='邮件模板更新成功'
+            message='email_template_updated_successfully'
         )
 
     except Exception as e:
@@ -260,7 +260,7 @@ def update_email_template(template_key: str) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 更新邮件模板失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('更新邮件模板失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_update_email_template_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/templates/<template_key>/reset', methods=['POST'])
@@ -296,16 +296,16 @@ def reset_email_template(template_key: str) -> tuple:
     template = EmailTemplate.query.filter_by(template_key=template_key).first()
 
     if not template:
-        return not_found_response('邮件模板')
+        return not_found_response('email_template')
 
     if not template.is_default:
-        return error_response('只有系统默认模板支持重置操作', code=400)
+        return error_response('system_default_templates_support_reset', code=400)
 
     try:
         default_templates = _get_default_templates()
 
         if template_key not in default_templates:
-            return error_response('未找到该模板的默认内容', code=400)
+            return error_response('default_content_template_not_found', code=400)
 
         default_data = default_templates[template_key]
         template.name = default_data['name']
@@ -318,7 +318,7 @@ def reset_email_template(template_key: str) -> tuple:
 
         return success_response(
             data=template.to_dict(),
-            message='邮件模板已重置为默认内容'
+            message='email_template_been_reset_default_content'
         )
 
     except Exception as e:
@@ -326,7 +326,7 @@ def reset_email_template(template_key: str) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 重置邮件模板失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('重置邮件模板失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_reset_email_template_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/logs', methods=['GET'])
@@ -404,7 +404,7 @@ def get_email_logs() -> tuple:
                 email_status = EmailStatus(status.lower())
                 query = query.filter_by(status=email_status)
             except ValueError:
-                return error_response('无效的状态值', code=400)
+                return error_response('invalid_status_value', code=400)
 
         if template_key:
             query = query.filter_by(template_key=template_key)
@@ -417,14 +417,14 @@ def get_email_logs() -> tuple:
                 start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
                 query = query.filter(EmailLog.created_at >= start_dt)
             except ValueError:
-                return error_response('开始时间格式错误', code=400)
+                return error_response('invalid_start_time_format', code=400)
 
         if end_date:
             try:
                 end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
                 query = query.filter(EmailLog.created_at <= end_dt)
             except ValueError:
-                return error_response('结束时间格式错误', code=400)
+                return error_response('invalid_end_time_format', code=400)
 
         total = query.count()
         logs = query.order_by(EmailLog.created_at.desc()).offset(
@@ -436,14 +436,14 @@ def get_email_logs() -> tuple:
             total=total,
             page=page,
             per_page=per_page,
-            message='获取邮件发送日志成功'
+            message='fetched_email_sending_logs_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取邮件发送日志失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取邮件发送日志失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_email_sending_logs_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/stats', methods=['GET'])
@@ -554,14 +554,14 @@ def get_email_stats() -> tuple:
 
         return success_response(
             data=stats,
-            message='获取邮件发送统计成功'
+            message='fetched_email_sending_statistics_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取邮件发送统计失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取邮件发送统计失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_email_sending_statistics_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/queue/stats', methods=['GET'])
@@ -627,14 +627,14 @@ def get_email_queue_stats() -> tuple:
 
         return success_response(
             data=stats,
-            message='获取邮件队列统计成功'
+            message='fetched_email_queue_statistics_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取邮件队列统计失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('获取邮件队列统计失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_email_queue_statistics_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @email_bp.route('/queue/clear', methods=['POST'])
@@ -662,13 +662,13 @@ def clear_email_queue_stats() -> tuple:
 
         email_queue.clear_stats()
 
-        return success_response(message='邮件队列统计已清除')
+        return success_response(message='email_queue_statistics_cleared')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 清除邮件队列统计失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('清除邮件队列统计失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_clear_email_queue_statistics_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 def _get_default_templates() -> dict:
@@ -712,7 +712,7 @@ def _get_default_templates() -> dict:
 
 SmartTable 团队
             ''',
-            'description': '用户注册成功后发送的欢迎邮件'
+            'description': 'welcome_email_sent_after_successful_registration'
         },
         'password_reset': {
             'name': '密码重置邮件',
@@ -750,7 +750,7 @@ SmartTable 团队
 
 SmartTable 团队
             ''',
-            'description': '用户请求密码重置时发送的邮件'
+            'description': 'email_sent_when_user_requests_password_reset'
         },
         'email_verification': {
             'name': '邮箱验证邮件',
@@ -788,6 +788,6 @@ SmartTable 团队
 
 SmartTable 团队
             ''',
-            'description': '用户注册后发送的邮箱验证邮件'
+            'description': 'email_verification_email_sent_after_registration'
         }
     }

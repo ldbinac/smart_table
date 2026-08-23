@@ -9,6 +9,7 @@ from flask import Blueprint, request, g, current_app
 
 from sqlalchemy import insert
 
+from app.i18n import translate
 from app.services.record_service import RecordService, _format_date_value
 from app.services.table_service import TableService
 from app.services.formula_service import FormulaService
@@ -78,13 +79,13 @@ def get_records(table_id) -> tuple:
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
     
     # 资源级权限检查
     if not PermissionService.check_permission(
         str(table.base_id), g.current_user_id, MemberRole.VIEWER
     ):
-        return error_response('无权访问该表格', 403)
+        return error_response('no_permission_access_table', 403)
     
     # 获取分页参数
     page = request.args.get('page', 1, type=int)
@@ -167,7 +168,7 @@ def get_records(table_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取记录列表失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取记录列表失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_record_list_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records', methods=['POST'])
@@ -204,22 +205,22 @@ def create_record(table_id) -> tuple:
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
     
     # 资源级权限检查
     if not PermissionService.check_permission(
         str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
-        return error_response('无权在该表格中创建记录', 403)
+        return error_response('no_permission_create_records_table', 403)
     
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
     
     errors = record_create_schema.validate(json_data)
     if errors:
-        return error_response('数据验证失败', 400, errors)
+        return error_response('data_validation_failed', 400, errors)
     
     try:
         # 创建记录
@@ -235,13 +236,13 @@ def create_record(table_id) -> tuple:
             table_id, record.values
         )
         
-        return success_response(result, '记录创建成功', 201)
+        return success_response(result, 'record_created_successfully', 201)
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 创建记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('创建记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_create_record_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records/batch', methods=['POST'])
@@ -291,26 +292,26 @@ def batch_create_records(table_id) -> tuple:
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
 
     # 资源级权限检查
     if not PermissionService.check_permission(
         str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
-        return error_response('无权在该表格中创建记录', 403)
+        return error_response('no_permission_create_records_table', 403)
 
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
 
     errors = batch_create_schema.validate(json_data)
     if errors:
-        return error_response('数据验证失败', 400, errors)
+        return error_response('data_validation_failed', 400, errors)
 
     records_data = json_data.get('records', [])
     if len(records_data) > 1000:
-        return error_response('单次批量创建记录数量不能超过1000条', 400)
+        return error_response('batch_create_more_than_records_time', 400)
 
     try:
         # ---------- 批量预加载（只需一次） ----------
@@ -421,14 +422,14 @@ def batch_create_records(table_id) -> tuple:
         return success_response({
             'created_count': len(records_dicts),
             'record_ids': [str(rid) for rid in created_record_ids],
-        }, f'成功创建 {len(records_dicts)} 条记录')
+        }, translate('records_created_success', len(records_dicts)))
 
     except Exception as e:
         db.session.rollback()
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 批量创建记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('批量创建记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_batch_create_records_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>', methods=['GET'])
@@ -457,14 +458,14 @@ def get_record(record_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
     
     # 资源级权限检查
     table = TableService.get_table_by_id(record.table_id)
     if table and not PermissionService.check_permission(
         str(table.base_id), g.current_user_id, MemberRole.VIEWER
     ):
-        return error_response('无权访问该记录', 403)
+        return error_response('no_permission_access_record', 403)
     
     try:
         result = record.to_dict()
@@ -488,7 +489,7 @@ def get_record(record_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取记录详情失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取记录详情失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_record_details_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>', methods=['PUT'])
@@ -531,23 +532,23 @@ def update_record(record_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
     
     # 资源级权限检查
     table = TableService.get_table_by_id(record.table_id)
     if table and not PermissionService.check_permission(
         str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
-        return error_response('无权修改该记录', 403)
+        return error_response('no_permission_modify_record', 403)
     
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
     
     errors = record_update_schema.validate(json_data)
     if errors:
-        return error_response('数据验证失败', 400, errors)
+        return error_response('data_validation_failed', 400, errors)
     
     try:
         record = RecordService.update_record(
@@ -562,13 +563,13 @@ def update_record(record_id) -> tuple:
             record.table_id, record.values
         )
         
-        return success_response(result, '记录更新成功')
+        return success_response(result, 'record_updated_successfully')
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 更新记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('更新记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_update_record_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/batch', methods=['PUT'])
@@ -611,17 +612,17 @@ def batch_update_records() -> tuple:
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
     
     errors = batch_update_schema.validate(json_data)
     if errors:
-        return error_response('数据验证失败', 400, errors)
+        return error_response('data_validation_failed', 400, errors)
     
     record_ids = json_data.get('record_ids', [])
     values = json_data.get('values', {})
     
     if len(record_ids) > 1000:
-        return error_response('单次批量更新记录数量不能超过1000条', 400)
+        return error_response('batch_update_more_than_records_time', 400)
     
     # 收集所有记录的 base_id 并进行权限检查
     base_ids_checked = set()
@@ -633,7 +634,7 @@ def batch_update_records() -> tuple:
                 if not PermissionService.check_permission(
                     str(table.base_id), g.current_user_id, MemberRole.EDITOR
                 ):
-                    return error_response(f'无权修改表格 {table.base_id} 中的记录', 403)
+                    return error_response(translate('no_permission_modify_records_in_table', table.base_id), 403)
                 base_ids_checked.add(str(table.base_id))
     
     try:
@@ -655,13 +656,13 @@ def batch_update_records() -> tuple:
         return success_response({
             'updated_count': updated_count,
             'failed_ids': failed_ids
-        }, f'成功更新 {updated_count} 条记录')
+        }, translate('records_updated_success', updated_count))
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 批量更新记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('批量更新记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_batch_update_records_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>', methods=['DELETE'])
@@ -693,29 +694,29 @@ def delete_record(record_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
     
     # 资源级权限检查
     table = TableService.get_table_by_id(record.table_id)
     if table and not PermissionService.check_permission(
         str(table.base_id), g.current_user_id, MemberRole.EDITOR
     ):
-        return error_response('无权删除该记录', 403)
+        return error_response('no_permission_delete_record', 403)
     
     try:
         success = RecordService.delete_record(
             record, deleted_by=str(g.current_user_id) if g.current_user_id else None
         )
         if success:
-            return success_response(None, '记录删除成功')
+            return success_response(None, 'record_deleted_successfully')
         else:
-            return error_response('删除记录失败', 500)
+            return error_response('failed_delete_record', 500)
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 删除记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('删除记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_delete_record_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/batch', methods=['DELETE'])
@@ -754,14 +755,14 @@ def batch_delete_records() -> tuple:
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
     
     record_ids = json_data.get('record_ids', [])
     if not record_ids:
-        return error_response('记录ID列表不能为空', 400)
+        return error_response('record_id_list_empty', 400)
     
     if len(record_ids) > 1000:
-        return error_response('单次批量删除记录数量不能超过1000条', 400)
+        return error_response('batch_delete_more_than_records_time', 400)
     
     # 收集所有记录的 base_id 并进行权限检查
     base_ids_checked = set()
@@ -773,7 +774,7 @@ def batch_delete_records() -> tuple:
                 if not PermissionService.check_permission(
                     str(table.base_id), g.current_user_id, MemberRole.EDITOR
                 ):
-                    return error_response(f'无权删除表格 {table.base_id} 中的记录', 403)
+                    return error_response(translate('no_permission_delete_records_in_table', table.base_id), 403)
                 base_ids_checked.add(str(table.base_id))
     
     try:
@@ -796,13 +797,13 @@ def batch_delete_records() -> tuple:
         return success_response({
             'deleted_count': deleted_count,
             'failed_ids': failed_ids
-        }, f'成功删除 {deleted_count} 条记录')
+        }, translate('records_deleted_success', deleted_count))
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 批量删除记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('批量删除记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_batch_delete_records_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/compute', methods=['POST'])
@@ -841,7 +842,7 @@ def compute_formulas(record_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
     
     # 获取预览值（可能包含未保存的修改）
     json_data = request.get_json() or {}
@@ -863,7 +864,7 @@ def compute_formulas(record_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 公式计算失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('公式计算失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('formula_calculation_failed_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/history', methods=['GET'])
@@ -905,7 +906,7 @@ def get_record_history(record_id) -> tuple:
     # 检查记录是否存在
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
     
     # 获取分页参数
     page = request.args.get('page', 1, type=int)
@@ -940,7 +941,7 @@ def get_record_history(record_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取变更历史失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取变更历史失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_change_history_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/history', methods=['GET'])
@@ -1024,13 +1025,13 @@ def get_table_history(table_id) -> tuple:
                 start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
                 query = query.filter(RecordHistory.changed_at >= start_dt)
             except ValueError:
-                return error_response('start_time 格式不正确，请使用 ISO 格式', 400)
+                return error_response('invalid_start_time_format_use_iso_format', 400)
         if end_time:
             try:
                 end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
                 query = query.filter(RecordHistory.changed_at <= end_dt)
             except ValueError:
-                return error_response('end_time 格式不正确，请使用 ISO 格式', 400)
+                return error_response('invalid_end_time_format_use_iso_format', 400)
 
         # 变更人过滤（按 member_id 精确匹配或变更人名称模糊匹配）
         if changed_by:
@@ -1063,7 +1064,7 @@ def get_table_history(table_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取数据表变更历史失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取数据表变更历史失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_data_table_change_history_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 关联记录 API ====================
@@ -1096,7 +1097,7 @@ def get_record_links(record_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
     
     try:
         # 获取记录的所有关联信息
@@ -1150,14 +1151,14 @@ def get_record_links(record_id) -> tuple:
         
         return success_response(
             data={'outbound': outbound, 'inbound': inbound},
-            message='获取关联数据成功'
+            message='fetched_linked_data_successfully'
         )
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取关联数据失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取关联数据失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_linked_data_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/links/<field_id>', methods=['PUT'])
@@ -1207,23 +1208,23 @@ def update_record_link(record_id, field_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
     
     field = FieldService.get_field(field_id)
     if not field:
-        return error_response('字段不存在', 404)
+        return error_response('field_does_not_exist', 404)
     
     # 检查是否为关联字段（支持 'link' 和 'link_to_record' 两种类型）
     if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
-        return error_response('该字段不是关联字段', 400)
+        return error_response('field_not_link_field', 400)
     
     data = request.get_json()
     if not data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
     
     target_record_ids = data.get('target_record_ids', [])
     if not isinstance(target_record_ids, list):
-        return error_response('target_record_ids 必须是数组', 400)
+        return error_response('target_record_ids_array', 400)
     
     try:
         # 获取字段配置中的目标表ID
@@ -1231,7 +1232,7 @@ def update_record_link(record_id, field_id) -> tuple:
         target_table_id = field_config.get('linkedTableId')
         
         if not target_table_id:
-            return error_response('字段配置缺少关联表ID', 400)
+            return error_response('field_configuration_missing_linked_table_id', 400)
         
         # 获取关联关系（使用目标表ID进行精确匹配）
         link_relation = LinkService.get_link_relation_by_field(field_id, target_table_id)
@@ -1252,7 +1253,7 @@ def update_record_link(record_id, field_id) -> tuple:
 
             link_result = LinkService.create_link_relation(link_data)
             if not link_result[0]:
-                return error_response(f'自动创建关联关系失败: {link_result[1]}', 400)
+                return error_response(translate('auto_link_creation_failed', link_result[1]), 400)
 
             link_relation = link_result[0]
             current_app.logger.info(f'[update_record_links] 自动创建关联关系: {link_relation.id}')
@@ -1260,7 +1261,7 @@ def update_record_link(record_id, field_id) -> tuple:
         
         # 验证一对一约束
         if link_relation.relationship_type == 'one_to_one' and len(target_record_ids) > 1:
-            return error_response('一对一关联只能关联一条记录', 400)
+            return error_response('one_one_link_link_one_record', 400)
         
         # 更新关联值
         result = LinkService.update_link_values(
@@ -1295,14 +1296,14 @@ def update_record_link(record_id, field_id) -> tuple:
 
         return success_response(
             data={'updated_count': len(target_record_ids)},
-            message='关联值更新成功'
+            message='linked_value_updated_successfully'
         )
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 更新关联值失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('更新关联值失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_update_linked_value_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/links/<field_id>', methods=['DELETE'])
@@ -1350,30 +1351,30 @@ def delete_record_link(record_id, field_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
 
     field = FieldService.get_field(field_id)
     if not field:
-        return error_response('字段不存在', 404)
+        return error_response('field_does_not_exist', 404)
 
     if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
-        return error_response('该字段不是关联字段', 400)
+        return error_response('field_not_link_field', 400)
 
     target_record_id = request.args.get('target_record_id')
     if not target_record_id:
-        return error_response('缺少 target_record_id 参数', 400)
+        return error_response('missing_target_record_id_parameter', 400)
 
     try:
         # 获取字段配置中的目标表ID
         field_config = field.config or {}
         target_table_id = field_config.get('linkedTableId')
         if not target_table_id:
-            return error_response('字段配置缺少关联表ID', 400)
+            return error_response('field_configuration_missing_linked_table_id', 400)
 
         # 获取关联关系
         link_relation = LinkService.get_link_relation_by_field(field_id, target_table_id)
         if not link_relation:
-            return error_response('关联关系不存在', 404)
+            return error_response('link_relation_does_not_exist', 404)
 
         # 执行删除
         result = LinkService.delete_link_value_by_target(
@@ -1388,14 +1389,14 @@ def delete_record_link(record_id, field_id) -> tuple:
 
         return success_response(
             data={'link_relation_id': str(link_relation.id)},
-            message='关联已解除'
+            message='link_removed'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 删除关联值失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('删除关联值失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_delete_linked_value_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/links/<field_id>/details', methods=['GET'])
@@ -1449,7 +1450,7 @@ def get_linked_records_detail(record_id, field_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
 
     try:
         page = request.args.get('page', 1, type=int)
@@ -1466,13 +1467,13 @@ def get_linked_records_detail(record_id, field_id) -> tuple:
         if err:
             return error_response(err, 400)
 
-        return success_response(data=result, message='获取关联记录详情成功')
+        return success_response(data=result, message='fetched_linked_record_details_successfully')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取关联记录详情失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取关联记录详情失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_linked_record_details_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/links/<field_id>/records', methods=['POST'])
@@ -1521,15 +1522,15 @@ def create_and_link_record(record_id, field_id) -> tuple:
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
 
     data = request.get_json()
     if not data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
 
     values = data.get('values', {})
     if not isinstance(values, dict):
-        return error_response('values 必须是对象', 400)
+        return error_response('values_object', 400)
 
     user_id = getattr(g, 'current_user_id', None)
 
@@ -1543,13 +1544,13 @@ def create_and_link_record(record_id, field_id) -> tuple:
         if err:
             return error_response(err, 400)
 
-        return success_response(data=result, message='创建并关联记录成功')
+        return success_response(data=result, message='record_created_linked_successfully')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 创建并关联记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('创建并关联记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_create_link_record_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/records/<record_id>/child', methods=['POST'])
@@ -1584,15 +1585,15 @@ def create_child_record(record_id) -> tuple:
     """
     parent_record = RecordService.get_record_by_id(record_id)
     if not parent_record:
-        return error_response('父记录不存在', 404)
+        return error_response('parent_record_does_not_exist', 404)
 
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
 
     field_id = json_data.get('field_id')
     if not field_id:
-        return error_response('field_id 不能为空', 400)
+        return error_response('field_id_empty', 400)
 
     values = json_data.get('values', {})
 
@@ -1602,23 +1603,23 @@ def create_child_record(record_id) -> tuple:
         # 验证 field_id 是 LINK_TO_RECORD 字段且指向同一张表
         field = FieldService.get_field(field_id)
         if not field:
-            return error_response('字段不存在', 404)
+            return error_response('field_does_not_exist', 404)
 
         if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
-            return error_response('该字段不是关联字段', 400)
+            return error_response('field_not_link_field', 400)
 
         # 检查字段是否指向同一张表（自引用）
         field_config = field.config or {}
         linked_table_id = field_config.get('linkedTableId') or field_config.get('linked_table_id')
         if not linked_table_id or str(linked_table_id) != table_id:
-            return error_response('该字段不是指向本表的自引用关联字段', 400)
+            return error_response('field_not_self_referencing_link_field_pointing_table', 400)
 
         # 检查是否有权限
         table = TableService.get_table_by_id(table_id)
         if table and not PermissionService.check_permission(
             str(table.base_id), g.current_user_id, MemberRole.EDITOR
         ):
-            return error_response('无权在该表格中创建记录', 403)
+            return error_response('no_permission_create_records_table', 403)
 
         # 创建新记录
         new_record = RecordService.create_record(
@@ -1641,7 +1642,7 @@ def create_child_record(record_id) -> tuple:
             }
             link_result = LinkService.create_link_relation(link_data)
             if not link_result[0]:
-                return error_response('创建关联关系失败', 500)
+                return error_response('failed_create_link_relation', 500)
             link_relation = link_result[0]
 
         # 建立关联：新记录的自关联字段指向父记录（子记录仅能有一个父级）
@@ -1657,13 +1658,13 @@ def create_child_record(record_id) -> tuple:
             table_id, new_record.values
         )
 
-        return success_response(result, '子记录创建成功', 201)
+        return success_response(result, 'sub_record_created_successfully', 201)
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 创建子记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('创建子记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_create_sub_record_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @records_bp.route('/tables/<table_id>/records/search', methods=['GET'])
@@ -1712,7 +1713,7 @@ def search_linkable_records(table_id) -> tuple:
     """
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
     
     # 获取查询参数
     keyword = request.args.get('keyword', '')
@@ -1765,4 +1766,4 @@ def search_linkable_records(table_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 搜索记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('搜索记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_search_records_try_again_later', 500, error='internal_server_error', request_id=request_id)

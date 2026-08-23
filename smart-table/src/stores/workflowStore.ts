@@ -5,6 +5,8 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { ElMessage } from "element-plus";
+
+import { t } from "@/i18n";
 import { workflowApiService } from "@/services/api/workflowApiService";
 import type { WebhookReferencesResult } from "@/services/api/workflowApiService";
 import type {
@@ -38,7 +40,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
 
   // ==================== Helpers ====================
   function handleError(action: string, e: unknown): string {
-    const msg = e instanceof Error ? e.message : `${action}失败`;
+    const msg = e instanceof Error ? e.message : t('workflow.operationFailed');
     error.value = msg;
     console.error(`[workflowStore] ${action} failed:`, e);
     ElMessage.error(msg);
@@ -97,7 +99,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       const created = await workflowApiService.createWorkflow(baseId, data);
       workflows.value.push(created);
       currentWorkflow.value = created;
-      ElMessage.success("工作流创建成功");
+      ElMessage.success(t('workflow.message.workflowCreated'));
       return created;
     } catch (e: unknown) {
       handleError("createWorkflow", e);
@@ -122,7 +124,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       if (currentWorkflow.value?.id === workflowId) {
         currentWorkflow.value = updated;
       }
-      ElMessage.success("工作流更新成功");
+      ElMessage.success(t('workflow.message.workflowUpdated'));
       return updated;
     } catch (e: unknown) {
       handleError("updateWorkflow", e);
@@ -141,7 +143,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       if (currentWorkflow.value?.id === workflowId) {
         currentWorkflow.value = null;
       }
-      ElMessage.success("工作流删除成功");
+      ElMessage.success(t('workflow.message.workflowDeleted'));
     } catch (e: unknown) {
       handleError("deleteWorkflow", e);
       throw e;
@@ -162,7 +164,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       if (currentWorkflow.value?.id === workflowId) {
         currentWorkflow.value = { ...currentWorkflow.value, status: "active" };
       }
-      ElMessage.success("工作流已发布");
+      ElMessage.success(t('workflow.message.workflowPublished'));
     } catch (e: unknown) {
       handleError("publishWorkflow", e);
       throw e;
@@ -183,7 +185,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       if (currentWorkflow.value?.id === workflowId) {
         currentWorkflow.value = { ...currentWorkflow.value, status: "paused" };
       }
-      ElMessage.success("工作流已暂停");
+      ElMessage.success(t('workflow.message.workflowPaused'));
     } catch (e: unknown) {
       handleError("pauseWorkflow", e);
       throw e;
@@ -204,7 +206,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       if (currentWorkflow.value?.id === workflowId) {
         currentWorkflow.value = { ...currentWorkflow.value, status: "active" };
       }
-      ElMessage.success("工作流已恢复");
+      ElMessage.success(t('workflow.message.workflowResumed'));
     } catch (e: unknown) {
       handleError("resumeWorkflow", e);
       throw e;
@@ -220,7 +222,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       const cloned = await workflowApiService.cloneWorkflow(workflowId);
       workflows.value.push(cloned);
       currentWorkflow.value = cloned;
-      ElMessage.success("工作流克隆成功");
+      ElMessage.success(t('workflow.message.workflowCloned'));
       return cloned;
     } catch (e: unknown) {
       handleError("cloneWorkflow", e);
@@ -290,7 +292,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       await workflowApiService.triggerWorkflow(tableId, recordId, {
         workflow_id: workflowId,
       });
-      ElMessage.success("工作流触发成功");
+      ElMessage.success(t('workflow.message.workflowTriggered'));
     } catch (e: unknown) {
       handleError("triggerWorkflow", e);
       throw e;
@@ -324,7 +326,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     try {
       const created = await workflowApiService.createWebhook(baseId, data);
       webhooks.value.push(created);
-      ElMessage.success("Webhook 创建成功");
+      ElMessage.success(t('workflow.message.webhookCreated'));
       return created;
     } catch (e: unknown) {
       handleError("createWebhook", e);
@@ -346,7 +348,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       if (idx !== -1) {
         webhooks.value[idx] = updated;
       }
-      ElMessage.success("Webhook 更新成功");
+      ElMessage.success(t('workflow.message.webhookUpdated'));
       return updated;
     } catch (e: unknown) {
       handleError("updateWebhook", e);
@@ -362,7 +364,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     try {
       await workflowApiService.deleteWebhook(webhookId);
       webhooks.value = webhooks.value.filter((w) => w.id !== webhookId);
-      ElMessage.success("Webhook 删除成功");
+      ElMessage.success(t('workflow.message.webhookDeleted'));
     } catch (e: unknown) {
       handleError("deleteWebhook", e);
       throw e;
@@ -387,7 +389,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     clearError();
     try {
       const result = await workflowApiService.testWebhook(webhookId);
-      ElMessage.success("Webhook 测试请求已发送");
+      ElMessage.success(t('workflow.message.webhookTestSent'));
       return result;
     } catch (e: unknown) {
       handleError("testWebhook", e);
@@ -422,7 +424,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     try {
       const created = await workflowApiService.saveAsTemplate(workflowId, data);
       templates.value.push(created);
-      ElMessage.success("已保存为模板");
+      ElMessage.success(t('workflow.message.savedAsTemplate'));
       return created;
     } catch (e: unknown) {
       handleError("saveAsTemplate", e);
@@ -445,7 +447,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
       );
       workflows.value.push(created);
       currentWorkflow.value = created;
-      ElMessage.success("模板实例化成功");
+      ElMessage.success(t('workflow.message.templateInstantiated'));
       return created;
     } catch (e: unknown) {
       handleError("instantiateTemplate", e);

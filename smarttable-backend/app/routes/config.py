@@ -32,5 +32,5 @@ def get_demo_config() -> tuple:
             'gitee_repo_owner': owner,
             'gitee_repo_name': repo,
         },
-        message='获取成功'
+        message='fetched_successfully'
     )

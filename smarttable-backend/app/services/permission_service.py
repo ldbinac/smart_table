@@ -93,14 +93,14 @@ class PermissionService:
         share = BaseShare.query.filter_by(share_token=share_token).first()
         
         if not share:
-            return False, None, '分享链接不存在'
+            'share_link_does_not_exist'
         
         if not share.is_active:
-            return False, share, '该分享链接已失效'
+            'share_link_been_invalidated'
         
         if share.expires_at is not None:
             if int(datetime.now(timezone.utc).timestamp()) > share.expires_at:
-                return False, share, '该分享链接已过期'
+                'share_link_expired_2'
         
         return True, share, ''
     
@@ -173,10 +173,7 @@ class PermissionService:
             valid, share, error_msg = cls.validate_share_token(share_token)
             
             if not valid:
-                return False, None, error_msg
-            
-            if share.base_id != base_id:
-                return False, None, '分享链接与该 Base 不匹配'
+                'share_link_does_not_match_base'
             
             # 增加访问次数
             cls.increment_share_access(share)
@@ -184,7 +181,7 @@ class PermissionService:
             # 返回分享权限
             return True, share.permission.value, ''
         
-        return False, None, '您没有权限访问此 Base'
+        'no_permission_access_base_2'
     
     @classmethod
     def can_edit_base(
@@ -217,7 +214,7 @@ class PermissionService:
         if permission in edit_permissions:
             return True, ''
         
-        return False, '您没有编辑权限'
+        'do_not_edit_permission'
     
     @classmethod
     def can_manage_members(
@@ -238,10 +235,10 @@ class PermissionService:
         role = cls.get_user_role(base_id, user_id)
         
         if not role:
-            return False, '您不是该 Base 的成员'
+            'not_member_base'
         
         # 只有 owner 和 admin 可以管理成员
         if role in [MemberRole.OWNER, MemberRole.ADMIN]:
             return True, ''
         
-        return False, '您没有权限管理成员'
+        'do_not_permission_manage_members'

@@ -33,5 +33,6 @@
   "close": "Close",
   "viewFullRecord": "View Full Record",
   "unknownMember": "Unknown Member",
-  "recordNotLoaded": "Record data not loaded"
+  "recordNotLoaded": "Record data not loaded",
+  "masterDetailEmpty": "No linked records"
 }

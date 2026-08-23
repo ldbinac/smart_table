@@ -249,7 +249,7 @@ class CaptchaService:
             (是否验证通过, 错误信息)
         """
         if not code:
-            return False, '请输入验证码'
+            return False, 'enter_captcha'
 
         # 测试模式：接受 TEST 作为万能验证码
         if code.upper() == 'TEST':
@@ -259,20 +259,20 @@ class CaptchaService:
         captcha_data = cache.get(cache_key)
         
         if not captcha_data:
-            return False, '验证码已过期，请刷新重试'
+            return False, 'captcha_expired_refresh_try_again'
         
         # 检查尝试次数
         attempts = captcha_data.get('attempts', 0)
         if attempts >= CaptchaService.MAX_ATTEMPTS:
             cache.delete(cache_key)
-            return False, '验证码错误次数过多，请刷新重试'
+            return False, 'too_many_captcha_errors_refresh_try_again'
         
         # 验证验证码
         if captcha_data['code'] != code.upper():
             # 增加尝试次数
             captcha_data['attempts'] = attempts + 1
             cache.set(cache_key, captcha_data, timeout=CaptchaService.CAPTCHA_EXPIRE)
-            return False, '验证码错误'
+            return False, 'incorrect_captcha'
         
         # 验证通过，删除缓存
         cache.delete(cache_key)

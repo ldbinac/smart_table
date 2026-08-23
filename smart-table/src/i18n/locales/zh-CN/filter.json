@@ -37,5 +37,8 @@
   "opAfter": "晚于",
   "opBefore": "早于",
   "opAfterOrEqual": "晚于等于",
-  "opBeforeOrEqual": "早于等于"
+  "opBeforeOrEqual": "早于等于",
+  "opIsWithin": "在范围内",
+  "opIsAnyOf": "属于",
+  "opIsNoneOf": "不属于"
 }

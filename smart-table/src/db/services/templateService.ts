@@ -12,6 +12,7 @@ import { fieldApiService } from "@/services/api/fieldApiService";
 import { viewApiService } from "@/services/api/viewApiService";
 import { recordApiService } from "@/services/api/recordApiService";
 import { createLinkField } from "@/services/api/linkApiService";
+import { t } from "@/i18n";
 
 export interface CreateTemplateProgress {
   stage:
@@ -37,14 +38,14 @@ export class TemplateService {
     let createdBase: Base | undefined;
     const progress: CreateTemplateProgress = {
       stage: "creating_base",
-      message: "正在创建多维表...",
+      message: t("base.creatingBase"),
       progress: 0,
     };
 
     try {
       // 第一阶段：创建到后端
       progress.stage = "creating_base";
-      progress.message = "正在创建多维表基础结构...";
+      progress.message = t("base.creatingBaseStructure");
       progress.progress = 10;
       onProgress?.({ ...progress });
 
@@ -58,7 +59,7 @@ export class TemplateService {
 
       // 2. 同步 Tables（先创建所有表，不创建字段）
       progress.stage = "creating_tables";
-      progress.message = "正在创建数据表...";
+      progress.message = t("base.creatingDataTables");
       progress.progress = 30;
       onProgress?.({ ...progress });
 
@@ -75,7 +76,7 @@ export class TemplateService {
       }
 
       // 3. 同步 Fields（创建所有字段，包括关联字段的 linkedTableId 映射）
-      progress.message = "正在创建字段...";
+      progress.message = t("base.creatingFields");
       progress.progress = 45;
       onProgress?.({ ...progress });
 
@@ -93,7 +94,7 @@ export class TemplateService {
 
       // 4. 同步 Views
       progress.stage = "creating_views";
-      progress.message = "正在创建视图...";
+      progress.message = t("base.creatingViews");
       progress.progress = 60;
       onProgress?.({ ...progress });
 
@@ -107,7 +108,7 @@ export class TemplateService {
 
       // 5. 同步 Records
       progress.stage = "creating_records";
-      progress.message = "正在导入初始数据...";
+      progress.message = t("base.importingInitialData");
       progress.progress = 80;
       onProgress?.({ ...progress });
 
@@ -178,7 +179,7 @@ export class TemplateService {
       // );
 
       progress.stage = "completed";
-      progress.message = "创建完成！";
+      progress.message = t("base.creationCompleted");
       progress.progress = 100;
       onProgress?.({ ...progress });
 

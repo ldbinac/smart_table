@@ -179,7 +179,7 @@ def validation_error_response(errors: Dict[str, List[str]]) -> Response:
     details = [
         {
             'field': field,
-            'message': messages[0] if isinstance(messages, list) else messages
+            'message': translate(messages[0] if isinstance(messages, list) else messages)
         }
         for field, messages in errors.items()
     ]

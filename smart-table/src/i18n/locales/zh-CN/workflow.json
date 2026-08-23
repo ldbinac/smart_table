@@ -581,5 +581,22 @@
     "resultVarInvalid": "结果变量名格式不正确",
     "resultVarNotConfigured": "结果变量名未配置",
     "targetTableNotSelected": "目标表格未选择"
-  }
+  },
+  "message": {
+    "workflowCreated": "工作流创建成功",
+    "workflowUpdated": "工作流更新成功",
+    "workflowDeleted": "工作流删除成功",
+    "workflowPublished": "工作流已发布",
+    "workflowPaused": "工作流已暂停",
+    "workflowResumed": "工作流已恢复",
+    "workflowCloned": "工作流克隆成功",
+    "workflowTriggered": "工作流触发成功",
+    "webhookCreated": "Webhook 创建成功",
+    "webhookUpdated": "Webhook 更新成功",
+    "webhookDeleted": "Webhook 删除成功",
+    "webhookTestSent": "Webhook 测试请求已发送",
+    "savedAsTemplate": "已保存为模板",
+    "templateInstantiated": "模板实例化成功"
+  },
+  "operationFailed": "操作失败"
 }

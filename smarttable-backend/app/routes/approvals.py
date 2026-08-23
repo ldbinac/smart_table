@@ -9,6 +9,7 @@ from typing import Optional
 
 from flask import Blueprint, request, g, current_app
 
+from app.i18n import translate
 from app.models.base import Base, MemberRole
 from app.models.operation_history import OperationHistory
 from app.models.record import Record
@@ -122,10 +123,10 @@ def get_my_approvals(base_id: str):
     """
     base = Base.query.get(base_id)
     if not base:
-        return error_response('Base 不存在', 404)
+        return error_response('base_does_not_exist', 404)
 
     if not _check_base_viewer(base_id, g.current_user_id):
-        return error_response('无权访问该 Base', 403)
+        return error_response('no_permission_access_base_3', 403)
 
     status = request.args.get('status', '').strip()
     user_uuid = _to_uuid(g.current_user_id)
@@ -144,21 +145,21 @@ def get_my_approvals(base_id: str):
                 task_status = WorkflowTaskStatus(status)
                 query = query.filter(WorkflowTask.status == task_status)
             except ValueError:
-                return error_response(f'无效的状态值: {status}', 400)
+                return error_response(translate('invalid_status_value_detail', status), 400)
 
         # 按实例开始时间倒序排列
         query = query.order_by(WorkflowInstance.started_at.desc())
         tasks = query.all()
         items = [t.to_dict() for t in tasks]
 
-        return success_response(items, '获取审批列表成功')
+        return success_response(items, 'fetched_approval_list_successfully')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取审批列表失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response(
-            '获取审批列表失败，请稍后重试',
+            'failed_fetch_approval_list_try_again_later',
             500,
             error='internal_server_error',
             request_id=request_id,
@@ -191,26 +192,26 @@ def get_approval_task(task_id: str):
     """
     task = _get_task_or_404(task_id)
     if not task:
-        return error_response('审批任务不存在', 404)
+        return error_response('approval_task_does_not_exist', 404)
 
     task_base_id = _task_base_id(task)
     if not task_base_id:
-        return error_response('任务数据异常', 500)
+        return error_response('task_data_abnormal', 500)
 
     if not _check_task_assignee(task, g.current_user_id) and \
             not _check_base_viewer(task_base_id, g.current_user_id):
-        return error_response('无权查看该审批任务', 403)
+        return error_response('no_permission_view_approval_task', 403)
 
     try:
         detail = _build_task_detail(task)
-        return success_response(detail, '获取审批任务详情成功')
+        return success_response(detail, 'fetched_approval_task_details_successfully')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取审批任务详情失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response(
-            '获取审批任务详情失败，请稍后重试',
+            'failed_fetch_approval_task_details_try_again_later',
             500,
             error='internal_server_error',
             request_id=request_id,
@@ -251,10 +252,10 @@ def approve_task(task_id: str):
     """
     task = _get_task_or_404(task_id)
     if not task:
-        return error_response('审批任务不存在', 404)
+        return error_response('approval_task_does_not_exist', 404)
 
     if not _check_task_assignee(task, g.current_user_id):
-        return error_response('无权处理该审批任务', 403)
+        return error_response('no_permission_process_approval_task', 403)
 
     data = request.get_json(silent=True) or {}
     comment = data.get('comment')
@@ -270,14 +271,14 @@ def approve_task(task_id: str):
                 result.get('error', '审批失败'),
                 400,
             )
-        return success_response(result, '审批已通过')
+        return success_response(result, 'approval_approved')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 审批同意失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response(
-            '审批同意失败，请稍后重试',
+            'failed_approve_task_try_again_later',
             500,
             error='internal_server_error',
             request_id=request_id,
@@ -318,10 +319,10 @@ def reject_task(task_id: str):
     """
     task = _get_task_or_404(task_id)
     if not task:
-        return error_response('审批任务不存在', 404)
+        return error_response('approval_task_does_not_exist', 404)
 
     if not _check_task_assignee(task, g.current_user_id):
-        return error_response('无权处理该审批任务', 403)
+        return error_response('no_permission_process_approval_task', 403)
 
     data = request.get_json(silent=True) or {}
     comment = data.get('comment')
@@ -337,14 +338,14 @@ def reject_task(task_id: str):
                 result.get('error', '驳回失败'),
                 400,
             )
-        return success_response(result, '审批已驳回')
+        return success_response(result, 'approval_rejected')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 审批驳回失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response(
-            '审批驳回失败，请稍后重试',
+            'failed_reject_approval_try_again_later',
             500,
             error='internal_server_error',
             request_id=request_id,
@@ -392,17 +393,17 @@ def transfer_task(task_id: str):
     """
     task = _get_task_or_404(task_id)
     if not task:
-        return error_response('审批任务不存在', 404)
+        return error_response('approval_task_does_not_exist', 404)
 
     if not _check_task_assignee(task, g.current_user_id):
-        return error_response('无权处理该审批任务', 403)
+        return error_response('no_permission_process_approval_task', 403)
 
     data = request.get_json(silent=True) or {}
     new_assignee_id = data.get('new_assignee_id')
     comment = data.get('comment')
 
     if not new_assignee_id:
-        return error_response('缺少 new_assignee_id 参数', 400)
+        return error_response('missing_new_assignee_id_parameter', 400)
 
     try:
         result = ApprovalService.transfer(
@@ -416,14 +417,14 @@ def transfer_task(task_id: str):
                 result.get('error', '转办失败'),
                 400,
             )
-        return success_response(result, '审批已转办')
+        return success_response(result, 'approval_transferred')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 审批转办失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response(
-            '审批转办失败，请稍后重试',
+            'failed_transfer_approval_try_again_later',
             500,
             error='internal_server_error',
             request_id=request_id,
@@ -456,11 +457,11 @@ def get_record_approval_history(record_id: str):
     """
     record = RecordService.get_record_by_id(record_id)
     if not record:
-        return error_response('记录不存在', 404)
+        return error_response('record_does_not_exist', 404)
 
     table = record.table
     if table and not _check_base_viewer(str(table.base_id), g.current_user_id):
-        return error_response('无权访问该记录', 403)
+        return error_response('no_permission_access_record', 403)
 
     try:
         record_uuid = _to_uuid(record_id)
@@ -482,14 +483,14 @@ def get_record_approval_history(record_id: str):
                 'history': [h.to_dict() for h in history],
             })
 
-        return success_response(result, '获取审批历史成功')
+        return success_response(result, 'fetched_approval_history_successfully')
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取记录审批历史失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response(
-            '获取记录审批历史失败，请稍后重试',
+            'failed_fetch_record_approval_history_try_again_later',
             500,
             error='internal_server_error',
             request_id=request_id,

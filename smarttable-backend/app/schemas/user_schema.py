@@ -32,24 +32,24 @@ class UserRegistrationSchema(Schema):
     """
     email = fields.Email(
         required=True,
-        error_messages={'required': '邮箱地址不能为空', 'invalid': '邮箱地址格式不正确'},
+        error_messages={'required': 'email_required', 'invalid': 'email_invalid'},
         description='邮箱地址'
     )
     password = fields.String(
         required=True,
         load_only=True,
-        error_messages={'required': '密码不能为空'},
+        error_messages={'required': 'password_required'},
         description='密码（至少8位，包含大小写字母和数字）'
     )
     name = fields.String(
         load_only=True,
-        validate=validate.Length(min=1, max=100, error='姓名长度必须在 1-100 个字符之间'),
+        validate=validate.Length(min=1, max=100, error='name_length'),
         allow_none=True,
         description='用户姓名'
     )
     username = fields.String(
         load_only=True,
-        validate=validate.Length(min=1, max=100, error='用户名长度必须在 1-100 个字符之间'),
+        validate=validate.Length(min=1, max=100, error='username_length'),
         allow_none=True,
         description='用户名'
     )
@@ -66,7 +66,7 @@ class UserRegistrationSchema(Schema):
             # 如果没有提供name，尝试从username获取
             if hasattr(self, 'context') and self.context.get('username'):
                 return
-            raise ValidationError('姓名不能为空')
+            raise ValidationError('name_required')
     
     @post_load
     def process_data(self, data, **kwargs):
@@ -86,16 +86,16 @@ class UserRegistrationSchema(Schema):
         要求：至少8位，包含至少一个大写字母、一个小写字母和一个数字
         """
         if len(value) < 8:
-            raise ValidationError('密码长度至少为 8 位')
+            raise ValidationError('password_too_short')
         
         if not re.search(r'[A-Z]', value):
-            raise ValidationError('密码必须包含至少一个大写字母')
+            raise ValidationError('password_need_uppercase')
         
         if not re.search(r'[a-z]', value):
-            raise ValidationError('密码必须包含至少一个小写字母')
+            raise ValidationError('password_need_lowercase')
         
         if not re.search(r'\d', value):
-            raise ValidationError('密码必须包含至少一个数字')
+            raise ValidationError('password_need_digit')
 
 
 class UserLoginSchema(Schema):
@@ -105,13 +105,13 @@ class UserLoginSchema(Schema):
     """
     email = fields.Email(
         required=True,
-        error_messages={'required': '邮箱地址不能为空', 'invalid': '邮箱地址格式不正确'},
+        error_messages={'required': 'email_required', 'invalid': 'email_invalid'},
         description='邮箱地址'
     )
     password = fields.String(
         required=True,
         load_only=True,
-        error_messages={'required': '密码不能为空'},
+        error_messages={'required': 'password_required'},
         description='密码'
     )
     captcha = fields.String(
@@ -127,7 +127,7 @@ class UserUpdateSchema(Schema):
     验证用户更新个人资料时的输入数据
     """
     name = fields.String(
-        validate=validate.Length(min=1, max=100, error='姓名长度必须在 1-100 个字符之间'),
+        validate=validate.Length(min=1, max=100, error='name_length'),
         allow_none=True,
         description='用户姓名'
     )
@@ -135,7 +135,7 @@ class UserUpdateSchema(Schema):
         allow_none=True,
         validate=validate.Regexp(
             r'^https?://.*$',
-            error='头像 URL 必须是有效的 http 或 https 链接'
+            error='avatar_url_invalid'
         ),
         description='头像 URL'
     )
@@ -149,13 +149,13 @@ class ChangePasswordSchema(Schema):
     old_password = fields.String(
         required=True,
         load_only=True,
-        error_messages={'required': '旧密码不能为空'},
+        error_messages={'required': 'old_password_required'},
         description='旧密码'
     )
     new_password = fields.String(
         required=True,
         load_only=True,
-        error_messages={'required': '新密码不能为空'},
+        error_messages={'required': 'new_password_required'},
         description='新密码（至少8位，包含大小写字母和数字）'
     )
     
@@ -165,16 +165,16 @@ class ChangePasswordSchema(Schema):
         验证新密码强度
         """
         if len(value) < 8:
-            raise ValidationError('新密码长度至少为 8 位')
+            raise ValidationError('new_password_too_short')
         
         if not re.search(r'[A-Z]', value):
-            raise ValidationError('新密码必须包含至少一个大写字母')
+            raise ValidationError('password_need_uppercase')
         
         if not re.search(r'[a-z]', value):
-            raise ValidationError('新密码必须包含至少一个小写字母')
+            raise ValidationError('password_need_lowercase')
         
         if not re.search(r'\d', value):
-            raise ValidationError('新密码必须包含至少一个数字')
+            raise ValidationError('password_need_digit')
 
 
 class TokenRefreshSchema(Schema):
@@ -185,7 +185,7 @@ class TokenRefreshSchema(Schema):
     refresh_token = fields.String(
         required=True,
         load_only=True,
-        error_messages={'required': '刷新令牌不能为空'},
+        error_messages={'required': 'refresh_token_required'},
         description='刷新令牌'
     )
 
@@ -233,7 +233,7 @@ class PasswordResetRequestSchema(Schema):
     """
     email = fields.Email(
         required=True,
-        error_messages={'required': '邮箱地址不能为空', 'invalid': '邮箱地址格式不正确'},
+        error_messages={'required': 'email_required', 'invalid': 'email_invalid'},
         description='注册时使用的邮箱地址'
     )
 
@@ -245,13 +245,13 @@ class PasswordResetConfirmSchema(Schema):
     """
     token = fields.String(
         required=True,
-        error_messages={'required': '重置令牌不能为空'},
+        error_messages={'required': 'reset_token_required'},
         description='密码重置令牌'
     )
     new_password = fields.String(
         required=True,
         load_only=True,
-        error_messages={'required': '新密码不能为空'},
+        error_messages={'required': 'new_password_required'},
         description='新密码'
     )
     
@@ -259,16 +259,16 @@ class PasswordResetConfirmSchema(Schema):
     def validate_new_password(self, value):
         """验证新密码强度"""
         if len(value) < 8:
-            raise ValidationError('新密码长度至少为 8 位')
+            raise ValidationError('new_password_too_short')
         
         if not re.search(r'[A-Z]', value):
-            raise ValidationError('新密码必须包含至少一个大写字母')
+            raise ValidationError('password_need_uppercase')
         
         if not re.search(r'[a-z]', value):
-            raise ValidationError('新密码必须包含至少一个小写字母')
+            raise ValidationError('password_need_lowercase')
         
         if not re.search(r'\d', value):
-            raise ValidationError('新密码必须包含至少一个数字')
+            raise ValidationError('password_need_digit')
 
 
 # 创建 Schema 实例（供直接使用）

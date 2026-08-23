@@ -4,6 +4,7 @@ import type { Base } from "@/api/types";
 
 import { baseApiService } from "@/services/api/baseApiService";
 import { baseService as baseDexieService } from "@/db/services/baseService";
+import { t } from "@/i18n";
 import { useMemberStore } from "./memberStore";
 
 export const useBaseStore = defineStore("base", () => {
@@ -40,7 +41,7 @@ export const useBaseStore = defineStore("base", () => {
       }
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取 Base 列表失败";
+      const msg = e instanceof Error ? e.message : t('common.base.fetchListFailed');
       error.value = msg;
       console.error("[baseStore] fetchBases failed:", e);
       try {
@@ -83,7 +84,7 @@ export const useBaseStore = defineStore("base", () => {
         .catch(() => {});
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取 Base 详情失败";
+      const msg = e instanceof Error ? e.message : t('common.base.fetchDetailFailed');
       error.value = msg;
       console.error("[baseStore] fetchBase failed:", e);
       try {
@@ -129,7 +130,7 @@ export const useBaseStore = defineStore("base", () => {
         .catch(() => {});
       return newBase;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "创建 Base 失败";
+      const msg = e instanceof Error ? e.message : t('common.base.createFailed');
       error.value = msg;
       console.error("[baseStore] createBase failed:", e);
       throw e;
@@ -157,7 +158,7 @@ export const useBaseStore = defineStore("base", () => {
       await baseDexieService.updateBase(id, updates as Record<string, unknown>);
       return updated;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "更新 Base 失败";
+      const msg = e instanceof Error ? e.message : t('common.base.updateFailed');
       error.value = msg;
       console.error("[baseStore] updateBase failed:", e);
       throw e;
@@ -181,7 +182,7 @@ export const useBaseStore = defineStore("base", () => {
       }
       await baseDexieService.deleteBase(id);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "删除 Base 失败";
+      const msg = e instanceof Error ? e.message : t('common.base.deleteFailed');
       error.value = msg;
       console.error("[baseStore] deleteBase failed:", e);
       throw e;

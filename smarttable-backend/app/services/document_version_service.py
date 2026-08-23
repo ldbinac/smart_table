@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 from app.extensions import db
 from app.models.document_version import DocumentVersion
+from app.i18n import translate
 
 
 class DocumentVersionService:
@@ -87,7 +88,7 @@ class DocumentVersionService:
         change_size = abs(new_len - old_len)
 
         if change_size >= self.CONTENT_CHANGE_THRESHOLD:
-            return True, f'内容变化 {change_size} 个字符'
+            return True, translate('content_changed_size_chars', change_size)
 
         # 检查时间间隔
         now = datetime.now(timezone.utc)

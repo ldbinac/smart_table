@@ -58,7 +58,7 @@ def create_share(base_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限创建分享链接')
+        return forbidden_response('do_not_permission_create_share_link')
     
     data = request.get_json() or {}
     result = ShareService.create_share(str(base_id), user_id, data)
@@ -68,7 +68,7 @@ def create_share(base_id) -> tuple:
     
     return success_response(
         data=result['share'].to_dict(),
-        message='分享链接创建成功',
+        message='share_link_created_successfully',
         code=201
     )
 
@@ -97,14 +97,14 @@ def get_shares(base_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限查看分享列表')
+        return forbidden_response('do_not_permission_view_share_list')
     
     shares = ShareService.get_shares_by_base(str(base_id))
     shares_data = [share.to_dict() for share in shares]
     
     return success_response(
         data=shares_data,
-        message='获取分享列表成功'
+        message='fetched_share_list_successfully'
     )
 
 
@@ -153,12 +153,12 @@ def handle_share(share_id) -> tuple:
     # 使用 filter_by 替代 query.get 以兼容 CompatUUID 类型
     share = BaseShare.query.filter_by(id=share_id).first()
     if not share:
-        return not_found_response('分享链接')
+        return not_found_response('share_link')
     
     if request.method == 'PUT':
         # 更新分享链接
         if not BaseService.check_permission(share.base_id, user_id, MemberRole.ADMIN):
-            return forbidden_response('您没有权限更新此分享链接')
+            return forbidden_response('do_not_permission_update_share_link')
         
         data = request.get_json() or {}
         result = ShareService.update_share(str(share_id), user_id, data)
@@ -166,28 +166,28 @@ def handle_share(share_id) -> tuple:
         if not result['success']:
             status_code = result.get('status', 400)
             if status_code == 404:
-                return not_found_response('分享链接')
+                return not_found_response('share_link')
             return error_response(result['error'], code=status_code)
         
         return success_response(
             data=result['share'].to_dict(),
-            message='分享链接更新成功'
+            message='share_link_updated_successfully'
         )
     
     elif request.method == 'DELETE':
         # 删除分享链接
         if not BaseService.check_permission(share.base_id, user_id, MemberRole.ADMIN):
-            return forbidden_response('您没有权限删除此分享链接')
+            return forbidden_response('do_not_permission_delete_share_link')
         
         result = ShareService.delete_share(str(share_id), user_id)
         
         if not result['success']:
             status_code = result.get('status', 400)
             if status_code == 404:
-                return not_found_response('分享链接')
+                return not_found_response('share_link')
             return error_response(result['error'], code=status_code)
         
-        return success_response(message='分享链接删除成功')
+        return success_response(message='share_link_deleted_successfully')
 
 
 @shares_bp.route('/share/<share_token>', methods=['GET'])
@@ -217,7 +217,7 @@ def access_share(share_token) -> tuple:
         status_code = result.get('status', 404)
         if status_code == 403:
             return error_response(result['error'], code=403)
-        return not_found_response('分享链接')
+        return not_found_response('share_link')
     
     return success_response(
         data={
@@ -225,7 +225,7 @@ def access_share(share_token) -> tuple:
             'permission': result['permission'],
             'share_token': share_token
         },
-        message='访问成功'
+        message='access_succeeded'
     )
 
 
@@ -253,7 +253,7 @@ def get_shared_with_me() -> tuple:
     if not base_ids:
         return success_response(
             data=[],
-            message='暂无分享给您的 Base'
+            message='no_bases_been_shared_yet'
         )
 
     # 查询 Base 信息，但排除当前用户自己创建的 Base
@@ -265,7 +265,7 @@ def get_shared_with_me() -> tuple:
 
     return success_response(
         data=bases_data,
-        message='获取分享给您的 Base 成功'
+        message='fetched_bases_shared_successfully'
     )
 
 
@@ -289,5 +289,5 @@ def get_shared_by_me() -> tuple:
     
     return success_response(
         data=shares_data,
-        message='获取您创建的分享成功'
+        message='fetched_shares_created_successfully'
     )

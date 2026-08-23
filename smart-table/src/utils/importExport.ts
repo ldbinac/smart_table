@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { FieldEntity } from '@/db/schema';
 import { FieldType, type CellValue, type FieldTypeValue, type FieldOption } from '@/types';
+import { t } from '@/i18n';
 
 export interface ParsedFileData {
   data: Record<string, any>[];
@@ -34,7 +35,7 @@ export function parseExcel(file: File): Promise<ParsedFileData> {
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
         
         if (jsonData.length === 0) {
-          reject(new Error('文件为空'));
+          reject(new Error(t('import.fileEmpty')));
           return;
         }
         
@@ -56,7 +57,7 @@ export function parseExcel(file: File): Promise<ParsedFileData> {
         reject(error);
       }
     };
-    reader.onerror = () => reject(new Error('读取文件失败'));
+    reader.onerror = () => reject(new Error(t('import.readFileFailed')));
     reader.readAsBinaryString(file);
   });
 }
@@ -73,7 +74,7 @@ export function parseCSV(file: File): Promise<ParsedFileData> {
         const lines = content.split('\n').filter(line => line.trim());
         
         if (lines.length === 0) {
-          reject(new Error('文件为空'));
+          reject(new Error(t('import.fileEmpty')));
           return;
         }
         
@@ -122,7 +123,7 @@ export function parseCSV(file: File): Promise<ParsedFileData> {
         reject(error);
       }
     };
-    reader.onerror = () => reject(new Error('读取文件失败'));
+    reader.onerror = () => reject(new Error(t('import.readFileFailed')));
     reader.readAsText(file);
   });
 }
@@ -139,12 +140,12 @@ export function parseJSON(file: File): Promise<ParsedFileData> {
         const data = JSON.parse(content);
         
         if (!Array.isArray(data)) {
-          reject(new Error('JSON 文件必须是数组格式'));
+          reject(new Error(t('import.jsonMustBeArray')));
           return;
         }
         
         if (data.length === 0) {
-          reject(new Error('文件为空'));
+          reject(new Error(t('import.fileEmpty')));
           return;
         }
         
@@ -156,10 +157,10 @@ export function parseJSON(file: File): Promise<ParsedFileData> {
           format: 'json'
         });
       } catch (error) {
-        reject(new Error('JSON 格式错误'));
+        reject(new Error(t('import.jsonFormatError')));
       }
     };
-    reader.onerror = () => reject(new Error('读取文件失败'));
+    reader.onerror = () => reject(new Error(t('import.readFileFailed')));
     reader.readAsText(file);
   });
 }
@@ -179,7 +180,7 @@ export async function parseFile(file: File): Promise<ParsedFileData> {
     case 'json':
       return parseJSON(file);
     default:
-      throw new Error(`不支持的文件格式: ${extension}`);
+      throw new Error(t('import.unsupportedFormatExt', [extension]));
   }
 }
 

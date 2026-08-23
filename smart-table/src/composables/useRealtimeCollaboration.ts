@@ -28,6 +28,8 @@ import { REALTIME_BASE_URL } from '@/api/config'
 import { useAuthStore } from '../stores/authStore'
 import { getToken } from '@/utils/auth/token'
 import { ElMessage } from 'element-plus'
+
+import { t } from '@/i18n'
 import { useTableStore } from '../stores/tableStore'
 import { useViewStore } from '../stores/viewStore'
 import type { FieldEntity } from '../db/schema'
@@ -270,7 +272,7 @@ export function useRealtimeCollaboration(baseId: string) {
     collaborationStore.removeLockedCell(key)
 
     if (data.reason === 'timeout') {
-      ElMessage.warning('编辑锁已超时释放')
+      ElMessage.warning(t('collaboration.lockTimeoutReleased'))
     }
   }
 

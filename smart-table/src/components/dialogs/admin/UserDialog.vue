@@ -1,5 +1,5 @@
 <template>
-  <el-dialog
+  <el-dialog append-to-body
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
     :title="mode === 'create' ? t('user.addUser') : t('user.editUser')"

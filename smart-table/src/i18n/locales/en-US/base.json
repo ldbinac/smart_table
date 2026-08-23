@@ -83,6 +83,12 @@
   "copySuccess": "Copied: {name}",
   "createFailedRetry": "Failed to create, please try again",
   "copyFailedRetry": "Failed to copy, please try again",
+  "creatingBaseStructure": "Creating base structure...",
+  "creatingDataTables": "Creating data tables...",
+  "creatingFields": "Creating fields...",
+  "creatingViews": "Creating views...",
+  "importingInitialData": "Importing initial data...",
+  "creationCompleted": "Creation completed!",
   "paginationTotal": "Total {total}",
   "pageSize": "/page",
   "loadingData": "Loading data...",
@@ -90,5 +96,10 @@
   "deleteAction": "Delete",
   "star": "Star",
   "unstar": "Unstar",
-  "copy": "Copy"
+  "copy": "Copy",
+  "tableUpdated": "Table updated successfully",
+  "tableDeleteConfirm": "Are you sure you want to delete the table “{0}”? This will delete all data in the table, including fields, records and views, and cannot be undone.",
+  "dashboardUpdated": "Dashboard updated successfully",
+  "dashboardDeleted": "Dashboard deleted successfully",
+  "dashboardDeleteConfirm": "Are you sure you want to delete the dashboard “{0}”?"
 }

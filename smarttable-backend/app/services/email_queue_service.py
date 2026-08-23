@@ -18,6 +18,7 @@ from app.services.email_sender_service import EmailSenderService
 from app.services.email_log_service import EmailLogService
 from app.services.email_config_service import EmailConfigService
 from app.models.email_log import EmailStatus
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +255,7 @@ class EmailQueueService:
 
                 template_result = EmailTemplateService.get_template(task.template_key)
                 if not template_result['success']:
-                    self._handle_failure(task, f'模板不存在: {task.template_key}')
+                    self._handle_failure(task, translate('template_not_found', task.template_key))
                     return
 
                 template = template_result['template']

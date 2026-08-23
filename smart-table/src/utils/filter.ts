@@ -5,26 +5,33 @@ import type {
 } from "../types";
 import type { FieldEntity, RecordEntity } from "../db/schema";
 import { FilterOperator, FieldType } from "../types";
+import { t } from "@/i18n";
 
-export const OPERATOR_LABELS: Record<FilterOperatorValue, string> = {
-  [FilterOperator.EQUALS]: "等于",
-  [FilterOperator.NOT_EQUALS]: "不等于",
-  [FilterOperator.CONTAINS]: "包含",
-  [FilterOperator.NOT_CONTAINS]: "不包含",
-  [FilterOperator.STARTS_WITH]: "开头为",
-  [FilterOperator.ENDS_WITH]: "结尾为",
-  [FilterOperator.IS_EMPTY]: "为空",
-  [FilterOperator.IS_NOT_EMPTY]: "不为空",
-  [FilterOperator.GREATER_THAN]: "大于",
-  [FilterOperator.LESS_THAN]: "小于",
-  [FilterOperator.GREATER_THAN_OR_EQUAL]: "大于等于",
-  [FilterOperator.LESS_THAN_OR_EQUAL]: "小于等于",
-  [FilterOperator.IS_WITHIN]: "在范围内",
-  [FilterOperator.IS_BEFORE]: "早于",
-  [FilterOperator.IS_AFTER]: "晚于",
-  [FilterOperator.IS_ANY_OF]: "属于",
-  [FilterOperator.IS_NONE_OF]: "不属于",
+/** 操作符枚举值到国际化 key 的映射 */
+const OPERATOR_KEY_MAP: Record<FilterOperatorValue, string> = {
+  [FilterOperator.EQUALS]: "filter.opEquals",
+  [FilterOperator.NOT_EQUALS]: "filter.opNotEquals",
+  [FilterOperator.CONTAINS]: "filter.opContains",
+  [FilterOperator.NOT_CONTAINS]: "filter.opNotContains",
+  [FilterOperator.STARTS_WITH]: "filter.opStartsWith",
+  [FilterOperator.ENDS_WITH]: "filter.opEndsWith",
+  [FilterOperator.IS_EMPTY]: "filter.opIsEmpty",
+  [FilterOperator.IS_NOT_EMPTY]: "filter.opIsNotEmpty",
+  [FilterOperator.GREATER_THAN]: "filter.opGreaterThan",
+  [FilterOperator.LESS_THAN]: "filter.opLessThan",
+  [FilterOperator.GREATER_THAN_OR_EQUAL]: "filter.opGreaterThanOrEqual",
+  [FilterOperator.LESS_THAN_OR_EQUAL]: "filter.opLessThanOrEqual",
+  [FilterOperator.IS_WITHIN]: "filter.opIsWithin",
+  [FilterOperator.IS_BEFORE]: "filter.opBefore",
+  [FilterOperator.IS_AFTER]: "filter.opAfter",
+  [FilterOperator.IS_ANY_OF]: "filter.opIsAnyOf",
+  [FilterOperator.IS_NONE_OF]: "filter.opIsNoneOf",
 };
+
+export function getOperatorLabel(operator: FilterOperatorValue): string {
+  const key = OPERATOR_KEY_MAP[operator];
+  return key ? t(key) : operator;
+}
 
 export const OPERATORS_BY_FIELD_TYPE: Record<string, FilterOperatorValue[]> = {
   [FieldType.SINGLE_LINE_TEXT]: [
@@ -735,8 +742,7 @@ export function getConditionDescription(
   const field = fields.find((f) => f.id === condition.fieldId);
   if (!field) return "";
 
-  const operatorLabel =
-    OPERATOR_LABELS[condition.operator] || condition.operator;
+  const operatorLabel = getOperatorLabel(condition.operator);
 
   if (!operatorRequiresValue(condition.operator)) {
     return `${field.name} ${operatorLabel}`;

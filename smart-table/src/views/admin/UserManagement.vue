@@ -1,5 +1,5 @@
 <template>
-  <div class="user-management-page">
+  <div class="user-management-page" append-to-body>
     <div class="page-header">
       <h1 class="page-title">{{ t('user.title') }}</h1>
       <el-button type="primary" @click="showCreateDialog = true">

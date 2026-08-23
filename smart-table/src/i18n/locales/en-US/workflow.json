@@ -581,5 +581,22 @@
     "resultVarInvalid": "Invalid result variable name format",
     "resultVarNotConfigured": "Result variable name not configured",
     "targetTableNotSelected": "Target table not selected"
-  }
+  },
+  "message": {
+    "workflowCreated": "Workflow created successfully",
+    "workflowUpdated": "Workflow updated successfully",
+    "workflowDeleted": "Workflow deleted successfully",
+    "workflowPublished": "Workflow published",
+    "workflowPaused": "Workflow paused",
+    "workflowResumed": "Workflow resumed",
+    "workflowCloned": "Workflow cloned successfully",
+    "workflowTriggered": "Workflow triggered successfully",
+    "webhookCreated": "Webhook created successfully",
+    "webhookUpdated": "Webhook updated successfully",
+    "webhookDeleted": "Webhook deleted successfully",
+    "webhookTestSent": "Webhook test request sent",
+    "savedAsTemplate": "Saved as template",
+    "templateInstantiated": "Template instantiated successfully"
+  },
+  "operationFailed": "Operation failed"
 }

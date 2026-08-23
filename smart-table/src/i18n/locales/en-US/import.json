@@ -90,5 +90,10 @@
   "reportErrorDetail": "--- Error details ---",
   "tableName": "Data Table",
   "rowRange": "rows {start} - {end}",
-  "mappingField": "Map to table field"
+  "mappingField": "Map to table field",
+  "fileEmpty": "The file is empty",
+  "readFileFailed": "Failed to read the file",
+  "jsonMustBeArray": "The JSON file must be in array format",
+  "jsonFormatError": "Invalid JSON format",
+  "unsupportedFormatExt": "Unsupported file format: {0}"
 }

@@ -1,6 +1,7 @@
 import { db } from "../schema";
 import type { DashboardShare, Dashboard } from "../schema";
 import { apiClient } from "@/api/client";
+import { t } from "@/i18n";
 
 export interface CreateShareData {
   dashboardId: string;
@@ -271,7 +272,7 @@ export class DashboardShareService {
       if (!result) {
         return {
           valid: false,
-          error: "验证失败：无响应数据",
+          error: t('dashboard.shareValidationNoResponse'),
         };
       }
 
@@ -408,7 +409,7 @@ export class DashboardShareService {
         );
         return {
           valid: false,
-          error: "验证失败：数据格式错误",
+          error: t('dashboard.shareValidationDataFormat'),
         };
       }
     } catch (error: any) {
@@ -416,7 +417,7 @@ export class DashboardShareService {
       // 优先使用后端返回的错误码，其次使用消息
       const errorCode = error.response?.data?.error;
       const errorMsg =
-        error.response?.data?.message || error.message || "验证失败";
+        error.response?.data?.message || error.message || t('dashboard.shareValidationFailed');
       return {
         valid: false,
         error: errorCode || errorMsg,

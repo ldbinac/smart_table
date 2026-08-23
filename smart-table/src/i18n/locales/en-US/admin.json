@@ -108,5 +108,20 @@
     "content": "Email Content",
     "errorInfo": "Error Info",
     "fetchFailed": "Failed to fetch email logs"
-  }
+  },
+  "userManagement": {
+    "createSuccess": "User created successfully",
+    "updateSuccess": "User info updated successfully",
+    "deleteSuccess": "User deleted successfully",
+    "statusUpdateSuccess": "User status updated successfully",
+    "tempPassword": "Temporary password: {0}",
+    "passwordResetSuccess": "Password reset successfully, new password sent to the user"
+  },
+  "configUpdateSuccess": "System configuration updated successfully",
+  "logExportSuccess": "Logs exported successfully",
+  "emailTest": {
+    "sendSuccess": "Test email sent successfully",
+    "sendFailed": "Test email failed to send"
+  },
+  "logExportFailed": "Logs export failed"
 }

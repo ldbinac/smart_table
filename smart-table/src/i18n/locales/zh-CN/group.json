@@ -16,5 +16,6 @@
   "noGroup": "未设置分组",
   "preview": "分组预览",
   "emptyNoField": "选择字段进行分组",
-  "drag": "拖拽排序"
+  "drag": "拖拽排序",
+  "fieldAdded": "分组字段已添加"
 }

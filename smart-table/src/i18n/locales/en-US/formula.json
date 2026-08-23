@@ -13,74 +13,451 @@
     "stats": "Statistics"
   },
   "f": {
-    "SUM": { "desc": "Calculates the sum of all numeric arguments", "returns": "Number (sum result)", "example": "SUM({Unit Price}, {Quantity}) or SUM(10, 20, 30)", "p0": "Numbers or field references to add, supports any number of arguments" },
-    "AVG": { "desc": "Calculates the average of all numeric arguments", "returns": "Number (average)", "example": "AVG({Math}, {English}, {Chinese})", "p0": "Numbers to average, empty values are skipped" },
-    "MAX": { "desc": "Returns the maximum value from a set of numbers", "returns": "Maximum (number or other comparable type)", "example": "MAX({Jan Sales}, {Feb Sales}, {Mar Sales})", "p0": "Numbers to compare" },
-    "MIN": { "desc": "Returns the minimum value from a set of numbers", "returns": "Minimum", "example": "MIN({Lowest Temp}, {Highest Temp})", "p0": "Numbers to compare" },
-    "ROUND": { "desc": "Rounds a number to a specified number of digits", "returns": "Rounded number", "example": "ROUND(3.14159, 2) → 3.14", "p0": "Number to round", "p1": "Digits to keep, defaults to 0" },
-    "ABS": { "desc": "Returns the absolute value of a number", "returns": "Non-negative number", "example": "ABS(-10) → 10", "p0": "Number to take the absolute value of" },
-    "CEILING": { "desc": "Rounds up to the nearest integer", "returns": "Integer", "example": "CEILING(3.2) → 4", "p0": "Number to round up" },
-    "FLOOR": { "desc": "Rounds down to the nearest integer", "returns": "Integer", "example": "FLOOR(3.8) → 3", "p0": "Number to round down" },
-    "POWER": { "desc": "Calculates a number raised to a power", "returns": "Number (base to the exponent power)", "example": "POWER(2, 3) → 8", "p0": "Base", "p1": "Exponent" },
-    "SQRT": { "desc": "Calculates the square root of a number", "returns": "Number (square root)", "example": "SQRT(16) → 4", "p0": "Non-negative number" },
-    "MOD": { "desc": "Returns the remainder of dividing two numbers", "returns": "Number (remainder)", "example": "MOD(10, 3) → 1", "p0": "Dividend", "p1": "Divisor" },
-    "LN": { "desc": "Calculates the natural logarithm of a number (base e)", "returns": "Number (natural logarithm)", "example": "LN(2.718) → 1", "p0": "Positive number" },
-    "LOG": { "desc": "Calculates the logarithm of a number", "returns": "Number (logarithm)", "example": "LOG(100, 10) → 2", "p0": "Positive number", "p1": "Logarithm base, defaults to 10" },
-    "EXP": { "desc": "Calculates e raised to a specified power", "returns": "Number (e^value)", "example": "EXP(1) → 2.718...", "p0": "Exponent value" },
-    "PI": { "desc": "Returns the value of pi (π)", "returns": "Number (approx. 3.14159)", "example": "PI() → 3.14159..." },
-    "E": { "desc": "Returns the value of Euler's constant e", "returns": "Number (approx. 2.71828)", "example": "E() → 2.71828..." },
-    "RAND": { "desc": "Returns a random number in the range [0, 1)", "returns": "Number (0 <= x < 1)", "example": "RAND() → 0.428..." },
-    "RANDBETWEEN": { "desc": "Returns a random integer within a specified range", "returns": "Integer", "example": "RANDBETWEEN(1, 100) → 42", "p0": "Minimum value (inclusive)", "p1": "Maximum value (inclusive)" },
-    "CONCAT": { "desc": "Concatenates multiple text strings", "returns": "String", "example": "CONCAT({Last Name}, {First Name}) → \"Zhang San\"", "p0": "Text values to concatenate" },
-    "UPPER": { "desc": "Converts text to uppercase", "returns": "String (uppercase)", "example": "UPPER(\"hello\") → \"HELLO\"", "p0": "Text to convert" },
-    "LOWER": { "desc": "Converts text to lowercase", "returns": "String (lowercase)", "example": "LOWER(\"HELLO\") → \"hello\"", "p0": "Text to convert" },
-    "LEN": { "desc": "Returns the number of characters in text", "returns": "Integer", "example": "LEN(\"Hello\") → 5", "p0": "Text to measure" },
-    "TRIM": { "desc": "Removes leading and trailing whitespace from text", "returns": "String", "example": "TRIM(\"  hello  \") → \"hello\"", "p0": "Text to trim" },
-    "LEFT": { "desc": "Extracts a specified number of characters from the left of text", "returns": "String", "example": "LEFT(\"Hello\", 2) → \"He\"", "p0": "Source text", "p1": "Number of characters to extract" },
-    "RIGHT": { "desc": "Extracts a specified number of characters from the right of text", "returns": "String", "example": "RIGHT(\"Hello\", 2) → \"lo\"", "p0": "Source text", "p1": "Number of characters to extract" },
-    "MID": { "desc": "Extracts a specified number of characters from the middle of text", "returns": "String", "example": "MID(\"Hello\", 2, 3) → \"ell\"", "p0": "Source text", "p1": "Start position (1-based)", "p2": "Number of characters to extract" },
-    "REPLACE": { "desc": "Replaces characters at a specified position in text", "returns": "String", "example": "REPLACE(\"Hello\", 2, 2, \"aa\") → \"Haalo\"", "p0": "Source text", "p1": "Start position (1-based)", "p2": "Number of characters to replace", "p3": "Replacement text" },
-    "SUBSTITUTE": { "desc": "Replaces a specified substring in text", "returns": "String", "example": "SUBSTITUTE(\"hello hello\", \"hello\", \"hi\") → \"hi hi\"", "p0": "Source text", "p1": "Substring to replace", "p2": "Replacement text", "p3": "Which occurrence to replace (optional, default all)" },
-    "FIND": { "desc": "Finds the position of a substring in text", "returns": "Integer (position, 0 if not found)", "example": "FIND(\"l\", \"Hello\") → 3", "p0": "Substring to find", "p1": "Source text", "p2": "Start position (optional, default 1)" },
-    "REPT": { "desc": "Repeats text a specified number of times", "returns": "String", "example": "REPT(\"*\", 5) → \"*****\"", "p0": "Text to repeat", "p1": "Repeat count" },
-    "TEXT": { "desc": "Formats a number as text", "returns": "String", "example": "TEXT(1234.5, \"#,##0.00\") → \"1,234.50\"", "p0": "Number to format", "p1": "Format string, e.g. \"0.00\", \"#,##0\"" },
-    "VALUE": { "desc": "Converts text to a number", "returns": "Number", "example": "VALUE(\"123.45\") → 123.45", "p0": "Text representing a number" },
-    "NOW": { "desc": "Returns the current date and time", "returns": "Date time", "example": "NOW() → 2026-07-17 09:30:00" },
-    "TODAY": { "desc": "Returns the current date (without time)", "returns": "Date", "example": "TODAY() → 2026-07-17" },
-    "YEAR": { "desc": "Extracts the year from a date", "returns": "Integer (year)", "example": "YEAR({Created Date}) → 2026", "p0": "Date value or field reference" },
-    "MONTH": { "desc": "Extracts the month from a date (1-12)", "returns": "Integer (1-12)", "example": "MONTH({Created Date}) → 7", "p0": "Date value or field reference" },
-    "DAY": { "desc": "Extracts the day from a date (1-31)", "returns": "Integer (1-31)", "example": "DAY({Created Date}) → 17", "p0": "Date value or field reference" },
-    "HOUR": { "desc": "Extracts the hour from a datetime (0-23)", "returns": "Integer (0-23)", "example": "HOUR(NOW()) → 9", "p0": "Datetime value" },
-    "MINUTE": { "desc": "Extracts the minute from a datetime (0-59)", "returns": "Integer (0-59)", "example": "MINUTE(NOW()) → 30", "p0": "Datetime value" },
-    "SECOND": { "desc": "Extracts the second from a datetime (0-59)", "returns": "Integer (0-59)", "example": "SECOND(NOW()) → 45", "p0": "Datetime value" },
-    "WEEKDAY": { "desc": "Returns the weekday of a date (1=Sunday, 7=Saturday)", "returns": "Integer (1-7)", "example": "WEEKDAY(TODAY()) → 6 (Friday)", "p0": "Date value" },
-    "DATEADD": { "desc": "Adds a specified time unit to a date", "returns": "Date", "example": "DATEADD(TODAY(), 7, \"day\") → one week later", "p0": "Start date", "p1": "Amount to add (can be negative)", "p2": "Time unit: \"day\", \"month\", \"year\", \"hour\", \"minute\", \"second\"" },
-    "DATEDIF": { "desc": "Calculates the difference between two dates", "returns": "Integer (difference)", "example": "DATEDIF({Start Date}, {End Date}, \"day\") → day difference", "p0": "Start date", "p1": "End date", "p2": "Time unit: \"day\", \"month\", \"year\"" },
-    "DATEDIFF": { "desc": "Calculates the difference between two dates (same as DATEDIF)", "returns": "Integer (difference)", "example": "DATEDIFF({Created Time}, NOW(), \"hour\") → hour difference", "p0": "Start date", "p1": "End date", "p2": "Time unit" },
-    "DATETIME_FORMAT": { "desc": "Formats a datetime according to a specified format", "returns": "String", "example": "DATETIME_FORMAT(NOW(), \"YYYY-MM-DD HH:mm:ss\")", "p0": "Datetime value", "p1": "Format string, e.g. \"YYYY-MM-DD HH:mm:ss\"" },
-    "FROMUNIXTIME": { "desc": "Converts a Unix timestamp to datetime", "returns": "Date time", "example": "FROMUNIXTIME(1640995200) → 2021-12-31...", "p0": "Unix timestamp (seconds)" },
-    "UNIXTIMESTAMP": { "desc": "Converts a datetime to a Unix timestamp", "returns": "Integer (Unix timestamp)", "example": "UNIXTIMESTAMP(NOW()) → 1721187000", "p0": "Datetime value" },
-    "IF": { "desc": "Returns different values based on a condition", "returns": "Value based on the condition", "example": "IF({Score} >= 60, \"Pass\", \"Fail\")", "p0": "Condition expression", "p1": "Value returned when the condition is true", "p2": "Value returned when the condition is false" },
-    "IFS": { "desc": "Multi-condition check, returns the value of the first true condition", "returns": "Value of the matching condition", "example": "IFS({Score}>=90, \"A\", {Score}>=80, \"B\", {Score}>=60, \"C\", \"D\")", "p0": "Pairs of conditions and return values" },
-    "SWITCH": { "desc": "Multi-value matching, returns the corresponding result based on the expression value", "returns": "Matching result", "example": "SWITCH({Status}, \"Pending\", \"⏳\", \"In Progress\", \"🔄\", \"Done\", \"✅\", \"DEFAULT\", \"?\")", "p0": "Expression to match", "p1": "Pairs of values and results", "p2": "Default result (optional)" },
-    "AND": { "desc": "Logical AND, returns TRUE when all conditions are true", "returns": "TRUE or FALSE", "example": "AND({Score} >= 60, {Attendance} >= 0.8)", "p0": "Conditions to check" },
-    "OR": { "desc": "Logical OR, returns TRUE when any condition is true", "returns": "TRUE or FALSE", "example": "OR({Grade} = \"A\", {Grade} = \"B\")", "p0": "Conditions to check" },
-    "NOT": { "desc": "Logical NOT, inverts the condition result", "returns": "TRUE or FALSE", "example": "NOT(ISBLANK({Note}))", "p0": "Condition to invert" },
-    "XOR": { "desc": "Exclusive OR, returns TRUE only when exactly one condition is true", "returns": "TRUE or FALSE", "example": "XOR({Is Member}, {Has Discount})", "p0": "First condition", "p1": "Second condition" },
-    "ISBLANK": { "desc": "Checks whether a value is empty", "returns": "TRUE or FALSE", "example": "ISBLANK({Note})", "p0": "Value to check" },
-    "ISERROR": { "desc": "Checks whether a value is an error", "returns": "TRUE or FALSE", "example": "ISERROR(1/0) → TRUE", "p0": "Value to check" },
-    "ISNUMBER": { "desc": "Checks whether a value is a number", "returns": "TRUE or FALSE", "example": "ISNUMBER({Age})", "p0": "Value to check" },
-    "ISTEXT": { "desc": "Checks whether a value is text", "returns": "TRUE or FALSE", "example": "ISTEXT({Name})", "p0": "Value to check" },
-    "ISDATE": { "desc": "Checks whether a value is a date", "returns": "TRUE or FALSE", "example": "ISDATE({Created Time})", "p0": "Value to check" },
-    "BLANK": { "desc": "Returns a null value", "returns": "NULL", "example": "IF({Score} = 0, BLANK(), {Score})" },
-    "COUNT": { "desc": "Counts the number of numeric arguments", "returns": "Integer", "example": "COUNT({Score1}, {Score2}, {Score3})", "p0": "Numbers to count" },
-    "COUNTA": { "desc": "Counts the number of non-empty arguments", "returns": "Integer", "example": "COUNTA({Field1}, {Field2}, {Field3})", "p0": "Values to count" },
-    "COUNTBLANK": { "desc": "Counts the number of empty arguments", "returns": "Integer", "example": "COUNTBLANK({Field1}, {Field2}, {Field3})", "p0": "Values to check" },
-    "STDEV": { "desc": "Calculates the sample standard deviation", "returns": "Number", "example": "STDEV({Score1}, {Score2}, {Score3})", "p0": "Sample data" },
-    "VAR": { "desc": "Calculates the sample variance", "returns": "Number", "example": "VAR({Score1}, {Score2}, {Score3})", "p0": "Sample data" },
-    "MEDIAN": { "desc": "Calculates the median", "returns": "Number", "example": "MEDIAN({Score1}, {Score2}, {Score3})", "p0": "Numeric data" },
-    "MODE": { "desc": "Calculates the mode (most frequently occurring value)", "returns": "Number", "example": "MODE(1, 2, 2, 3, 3, 3) → 3", "p0": "Numeric data" },
-    "RANK": { "desc": "Calculates the rank of a number within a set of numbers", "returns": "Integer (rank)", "example": "RANK({Score}, {Score1}, {Score2}, {Score3})", "p0": "Number to rank", "p1": "Set of numbers for ranking" },
-    "UNIQUE": { "desc": "Returns an array with duplicates removed", "returns": "Array", "example": "UNIQUE(1, 2, 2, 3, 3) → [1, 2, 3]", "p0": "Values to deduplicate" }
-  }
+    "SUM": {
+      "desc": "Calculates the sum of all numeric arguments",
+      "returns": "Number (sum result)",
+      "example": "SUM({Unit Price}, {Quantity}) or SUM(10, 20, 30)",
+      "p0": "Numbers or field references to add, supports any number of arguments"
+    },
+    "AVG": {
+      "desc": "Calculates the average of all numeric arguments",
+      "returns": "Number (average)",
+      "example": "AVG({Math}, {English}, {Chinese})",
+      "p0": "Numbers to average, empty values are skipped"
+    },
+    "MAX": {
+      "desc": "Returns the maximum value from a set of numbers",
+      "returns": "Maximum (number or other comparable type)",
+      "example": "MAX({Jan Sales}, {Feb Sales}, {Mar Sales})",
+      "p0": "Numbers to compare"
+    },
+    "MIN": {
+      "desc": "Returns the minimum value from a set of numbers",
+      "returns": "Minimum",
+      "example": "MIN({Lowest Temp}, {Highest Temp})",
+      "p0": "Numbers to compare"
+    },
+    "ROUND": {
+      "desc": "Rounds a number to a specified number of digits",
+      "returns": "Rounded number",
+      "example": "ROUND(3.14159, 2) → 3.14",
+      "p0": "Number to round",
+      "p1": "Digits to keep, defaults to 0"
+    },
+    "ABS": {
+      "desc": "Returns the absolute value of a number",
+      "returns": "Non-negative number",
+      "example": "ABS(-10) → 10",
+      "p0": "Number to take the absolute value of"
+    },
+    "CEILING": {
+      "desc": "Rounds up to the nearest integer",
+      "returns": "Integer",
+      "example": "CEILING(3.2) → 4",
+      "p0": "Number to round up"
+    },
+    "FLOOR": {
+      "desc": "Rounds down to the nearest integer",
+      "returns": "Integer",
+      "example": "FLOOR(3.8) → 3",
+      "p0": "Number to round down"
+    },
+    "POWER": {
+      "desc": "Calculates a number raised to a power",
+      "returns": "Number (base to the exponent power)",
+      "example": "POWER(2, 3) → 8",
+      "p0": "Base",
+      "p1": "Exponent"
+    },
+    "SQRT": {
+      "desc": "Calculates the square root of a number",
+      "returns": "Number (square root)",
+      "example": "SQRT(16) → 4",
+      "p0": "Non-negative number"
+    },
+    "MOD": {
+      "desc": "Returns the remainder of dividing two numbers",
+      "returns": "Number (remainder)",
+      "example": "MOD(10, 3) → 1",
+      "p0": "Dividend",
+      "p1": "Divisor"
+    },
+    "LN": {
+      "desc": "Calculates the natural logarithm of a number (base e)",
+      "returns": "Number (natural logarithm)",
+      "example": "LN(2.718) → 1",
+      "p0": "Positive number"
+    },
+    "LOG": {
+      "desc": "Calculates the logarithm of a number",
+      "returns": "Number (logarithm)",
+      "example": "LOG(100, 10) → 2",
+      "p0": "Positive number",
+      "p1": "Logarithm base, defaults to 10"
+    },
+    "EXP": {
+      "desc": "Calculates e raised to a specified power",
+      "returns": "Number (e^value)",
+      "example": "EXP(1) → 2.718...",
+      "p0": "Exponent value"
+    },
+    "PI": {
+      "desc": "Returns the value of pi (π)",
+      "returns": "Number (approx. 3.14159)",
+      "example": "PI() → 3.14159..."
+    },
+    "E": {
+      "desc": "Returns the value of Euler's constant e",
+      "returns": "Number (approx. 2.71828)",
+      "example": "E() → 2.71828..."
+    },
+    "RAND": {
+      "desc": "Returns a random number in the range [0, 1)",
+      "returns": "Number (0 <= x < 1)",
+      "example": "RAND() → 0.428..."
+    },
+    "RANDBETWEEN": {
+      "desc": "Returns a random integer within a specified range",
+      "returns": "Integer",
+      "example": "RANDBETWEEN(1, 100) → 42",
+      "p0": "Minimum value (inclusive)",
+      "p1": "Maximum value (inclusive)"
+    },
+    "CONCAT": {
+      "desc": "Concatenates multiple text strings",
+      "returns": "String",
+      "example": "CONCAT({Last Name}, {First Name}) → \"Zhang San\"",
+      "p0": "Text values to concatenate"
+    },
+    "UPPER": {
+      "desc": "Converts text to uppercase",
+      "returns": "String (uppercase)",
+      "example": "UPPER(\"hello\") → \"HELLO\"",
+      "p0": "Text to convert"
+    },
+    "LOWER": {
+      "desc": "Converts text to lowercase",
+      "returns": "String (lowercase)",
+      "example": "LOWER(\"HELLO\") → \"hello\"",
+      "p0": "Text to convert"
+    },
+    "LEN": {
+      "desc": "Returns the number of characters in text",
+      "returns": "Integer",
+      "example": "LEN(\"Hello\") → 5",
+      "p0": "Text to measure"
+    },
+    "TRIM": {
+      "desc": "Removes leading and trailing whitespace from text",
+      "returns": "String",
+      "example": "TRIM(\"  hello  \") → \"hello\"",
+      "p0": "Text to trim"
+    },
+    "LEFT": {
+      "desc": "Extracts a specified number of characters from the left of text",
+      "returns": "String",
+      "example": "LEFT(\"Hello\", 2) → \"He\"",
+      "p0": "Source text",
+      "p1": "Number of characters to extract"
+    },
+    "RIGHT": {
+      "desc": "Extracts a specified number of characters from the right of text",
+      "returns": "String",
+      "example": "RIGHT(\"Hello\", 2) → \"lo\"",
+      "p0": "Source text",
+      "p1": "Number of characters to extract"
+    },
+    "MID": {
+      "desc": "Extracts a specified number of characters from the middle of text",
+      "returns": "String",
+      "example": "MID(\"Hello\", 2, 3) → \"ell\"",
+      "p0": "Source text",
+      "p1": "Start position (1-based)",
+      "p2": "Number of characters to extract"
+    },
+    "REPLACE": {
+      "desc": "Replaces characters at a specified position in text",
+      "returns": "String",
+      "example": "REPLACE(\"Hello\", 2, 2, \"aa\") → \"Haalo\"",
+      "p0": "Source text",
+      "p1": "Start position (1-based)",
+      "p2": "Number of characters to replace",
+      "p3": "Replacement text"
+    },
+    "SUBSTITUTE": {
+      "desc": "Replaces a specified substring in text",
+      "returns": "String",
+      "example": "SUBSTITUTE(\"hello hello\", \"hello\", \"hi\") → \"hi hi\"",
+      "p0": "Source text",
+      "p1": "Substring to replace",
+      "p2": "Replacement text",
+      "p3": "Which occurrence to replace (optional, default all)"
+    },
+    "FIND": {
+      "desc": "Finds the position of a substring in text",
+      "returns": "Integer (position, 0 if not found)",
+      "example": "FIND(\"l\", \"Hello\") → 3",
+      "p0": "Substring to find",
+      "p1": "Source text",
+      "p2": "Start position (optional, default 1)"
+    },
+    "REPT": {
+      "desc": "Repeats text a specified number of times",
+      "returns": "String",
+      "example": "REPT(\"*\", 5) → \"*****\"",
+      "p0": "Text to repeat",
+      "p1": "Repeat count"
+    },
+    "TEXT": {
+      "desc": "Formats a number as text",
+      "returns": "String",
+      "example": "TEXT(1234.5, \"#,##0.00\") → \"1,234.50\"",
+      "p0": "Number to format",
+      "p1": "Format string, e.g. \"0.00\", \"#,##0\""
+    },
+    "VALUE": {
+      "desc": "Converts text to a number",
+      "returns": "Number",
+      "example": "VALUE(\"123.45\") → 123.45",
+      "p0": "Text representing a number"
+    },
+    "NOW": {
+      "desc": "Returns the current date and time",
+      "returns": "Date time",
+      "example": "NOW() → 2026-07-17 09:30:00"
+    },
+    "TODAY": {
+      "desc": "Returns the current date (without time)",
+      "returns": "Date",
+      "example": "TODAY() → 2026-07-17"
+    },
+    "YEAR": {
+      "desc": "Extracts the year from a date",
+      "returns": "Integer (year)",
+      "example": "YEAR({Created Date}) → 2026",
+      "p0": "Date value or field reference"
+    },
+    "MONTH": {
+      "desc": "Extracts the month from a date (1-12)",
+      "returns": "Integer (1-12)",
+      "example": "MONTH({Created Date}) → 7",
+      "p0": "Date value or field reference"
+    },
+    "DAY": {
+      "desc": "Extracts the day from a date (1-31)",
+      "returns": "Integer (1-31)",
+      "example": "DAY({Created Date}) → 17",
+      "p0": "Date value or field reference"
+    },
+    "HOUR": {
+      "desc": "Extracts the hour from a datetime (0-23)",
+      "returns": "Integer (0-23)",
+      "example": "HOUR(NOW()) → 9",
+      "p0": "Datetime value"
+    },
+    "MINUTE": {
+      "desc": "Extracts the minute from a datetime (0-59)",
+      "returns": "Integer (0-59)",
+      "example": "MINUTE(NOW()) → 30",
+      "p0": "Datetime value"
+    },
+    "SECOND": {
+      "desc": "Extracts the second from a datetime (0-59)",
+      "returns": "Integer (0-59)",
+      "example": "SECOND(NOW()) → 45",
+      "p0": "Datetime value"
+    },
+    "WEEKDAY": {
+      "desc": "Returns the weekday of a date (1=Sunday, 7=Saturday)",
+      "returns": "Integer (1-7)",
+      "example": "WEEKDAY(TODAY()) → 6 (Friday)",
+      "p0": "Date value"
+    },
+    "DATEADD": {
+      "desc": "Adds a specified time unit to a date",
+      "returns": "Date",
+      "example": "DATEADD(TODAY(), 7, \"day\") → one week later",
+      "p0": "Start date",
+      "p1": "Amount to add (can be negative)",
+      "p2": "Time unit: \"day\", \"month\", \"year\", \"hour\", \"minute\", \"second\""
+    },
+    "DATEDIF": {
+      "desc": "Calculates the difference between two dates",
+      "returns": "Integer (difference)",
+      "example": "DATEDIF({Start Date}, {End Date}, \"day\") → day difference",
+      "p0": "Start date",
+      "p1": "End date",
+      "p2": "Time unit: \"day\", \"month\", \"year\""
+    },
+    "DATEDIFF": {
+      "desc": "Calculates the difference between two dates (same as DATEDIF)",
+      "returns": "Integer (difference)",
+      "example": "DATEDIFF({Created Time}, NOW(), \"hour\") → hour difference",
+      "p0": "Start date",
+      "p1": "End date",
+      "p2": "Time unit"
+    },
+    "DATETIME_FORMAT": {
+      "desc": "Formats a datetime according to a specified format",
+      "returns": "String",
+      "example": "DATETIME_FORMAT(NOW(), \"YYYY-MM-DD HH:mm:ss\")",
+      "p0": "Datetime value",
+      "p1": "Format string, e.g. \"YYYY-MM-DD HH:mm:ss\""
+    },
+    "FROMUNIXTIME": {
+      "desc": "Converts a Unix timestamp to datetime",
+      "returns": "Date time",
+      "example": "FROMUNIXTIME(1640995200) → 2021-12-31...",
+      "p0": "Unix timestamp (seconds)"
+    },
+    "UNIXTIMESTAMP": {
+      "desc": "Converts a datetime to a Unix timestamp",
+      "returns": "Integer (Unix timestamp)",
+      "example": "UNIXTIMESTAMP(NOW()) → 1721187000",
+      "p0": "Datetime value"
+    },
+    "IF": {
+      "desc": "Returns different values based on a condition",
+      "returns": "Value based on the condition",
+      "example": "IF({Score} >= 60, \"Pass\", \"Fail\")",
+      "p0": "Condition expression",
+      "p1": "Value returned when the condition is true",
+      "p2": "Value returned when the condition is false"
+    },
+    "IFS": {
+      "desc": "Multi-condition check, returns the value of the first true condition",
+      "returns": "Value of the matching condition",
+      "example": "IFS({Score}>=90, \"A\", {Score}>=80, \"B\", {Score}>=60, \"C\", \"D\")",
+      "p0": "Pairs of conditions and return values"
+    },
+    "SWITCH": {
+      "desc": "Multi-value matching, returns the corresponding result based on the expression value",
+      "returns": "Matching result",
+      "example": "SWITCH({Status}, \"Pending\", \"⏳\", \"In Progress\", \"🔄\", \"Done\", \"✅\", \"DEFAULT\", \"?\")",
+      "p0": "Expression to match",
+      "p1": "Pairs of values and results",
+      "p2": "Default result (optional)"
+    },
+    "AND": {
+      "desc": "Logical AND, returns TRUE when all conditions are true",
+      "returns": "TRUE or FALSE",
+      "example": "AND({Score} >= 60, {Attendance} >= 0.8)",
+      "p0": "Conditions to check"
+    },
+    "OR": {
+      "desc": "Logical OR, returns TRUE when any condition is true",
+      "returns": "TRUE or FALSE",
+      "example": "OR({Grade} = \"A\", {Grade} = \"B\")",
+      "p0": "Conditions to check"
+    },
+    "NOT": {
+      "desc": "Logical NOT, inverts the condition result",
+      "returns": "TRUE or FALSE",
+      "example": "NOT(ISBLANK({Note}))",
+      "p0": "Condition to invert"
+    },
+    "XOR": {
+      "desc": "Exclusive OR, returns TRUE only when exactly one condition is true",
+      "returns": "TRUE or FALSE",
+      "example": "XOR({Is Member}, {Has Discount})",
+      "p0": "First condition",
+      "p1": "Second condition"
+    },
+    "ISBLANK": {
+      "desc": "Checks whether a value is empty",
+      "returns": "TRUE or FALSE",
+      "example": "ISBLANK({Note})",
+      "p0": "Value to check"
+    },
+    "ISERROR": {
+      "desc": "Checks whether a value is an error",
+      "returns": "TRUE or FALSE",
+      "example": "ISERROR(1/0) → TRUE",
+      "p0": "Value to check"
+    },
+    "ISNUMBER": {
+      "desc": "Checks whether a value is a number",
+      "returns": "TRUE or FALSE",
+      "example": "ISNUMBER({Age})",
+      "p0": "Value to check"
+    },
+    "ISTEXT": {
+      "desc": "Checks whether a value is text",
+      "returns": "TRUE or FALSE",
+      "example": "ISTEXT({Name})",
+      "p0": "Value to check"
+    },
+    "ISDATE": {
+      "desc": "Checks whether a value is a date",
+      "returns": "TRUE or FALSE",
+      "example": "ISDATE({Created Time})",
+      "p0": "Value to check"
+    },
+    "BLANK": {
+      "desc": "Returns a null value",
+      "returns": "NULL",
+      "example": "IF({Score} = 0, BLANK(), {Score})"
+    },
+    "COUNT": {
+      "desc": "Counts the number of numeric arguments",
+      "returns": "Integer",
+      "example": "COUNT({Score1}, {Score2}, {Score3})",
+      "p0": "Numbers to count"
+    },
+    "COUNTA": {
+      "desc": "Counts the number of non-empty arguments",
+      "returns": "Integer",
+      "example": "COUNTA({Field1}, {Field2}, {Field3})",
+      "p0": "Values to count"
+    },
+    "COUNTBLANK": {
+      "desc": "Counts the number of empty arguments",
+      "returns": "Integer",
+      "example": "COUNTBLANK({Field1}, {Field2}, {Field3})",
+      "p0": "Values to check"
+    },
+    "STDEV": {
+      "desc": "Calculates the sample standard deviation",
+      "returns": "Number",
+      "example": "STDEV({Score1}, {Score2}, {Score3})",
+      "p0": "Sample data"
+    },
+    "VAR": {
+      "desc": "Calculates the sample variance",
+      "returns": "Number",
+      "example": "VAR({Score1}, {Score2}, {Score3})",
+      "p0": "Sample data"
+    },
+    "MEDIAN": {
+      "desc": "Calculates the median",
+      "returns": "Number",
+      "example": "MEDIAN({Score1}, {Score2}, {Score3})",
+      "p0": "Numeric data"
+    },
+    "MODE": {
+      "desc": "Calculates the mode (most frequently occurring value)",
+      "returns": "Number",
+      "example": "MODE(1, 2, 2, 3, 3, 3) → 3",
+      "p0": "Numeric data"
+    },
+    "RANK": {
+      "desc": "Calculates the rank of a number within a set of numbers",
+      "returns": "Integer (rank)",
+      "example": "RANK({Score}, {Score1}, {Score2}, {Score3})",
+      "p0": "Number to rank",
+      "p1": "Set of numbers for ranking"
+    },
+    "UNIQUE": {
+      "desc": "Returns an array with duplicates removed",
+      "returns": "Array",
+      "example": "UNIQUE(1, 2, 2, 3, 3) → [1, 2, 3]",
+      "p0": "Values to deduplicate"
+    }
+  },
+  "calcError": "Calculation error",
+  "validationFailed": "Formula validation failed",
+  "unknownFieldReference": "Unknown field reference: {0}",
+  "unknownField": "Unknown field",
+  "noFieldReference": "No field reference",
+  "referencedFields": "Referenced fields: {0}"
 }

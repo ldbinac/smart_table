@@ -6,6 +6,7 @@ import {
   calculateFormulaDisplay,
   getFormulaRawValue,
 } from "@/utils/formula/formatFormula";
+import { t } from "@/i18n";
 
 export interface ExportOptions {
   filename?: string;
@@ -88,7 +89,7 @@ function formatValueForExcel(
       return value;
 
     case FieldType.CHECKBOX:
-      return value ? "是" : "否";
+      return value ? t('common.yes') : t('common.no');
 
     case FieldType.DATE:
       if (typeof value === "number") {
@@ -191,7 +192,7 @@ function formatValueForCSV(
       return String(value);
 
     case FieldType.CHECKBOX:
-      return value ? "是" : "否";
+      return value ? t('common.yes') : t('common.no');
 
     case FieldType.DATE:
       if (typeof value === "number") {
@@ -305,7 +306,7 @@ export class ExcelExporter {
         }
       };
 
-      reader.onerror = () => reject(new Error("文件读取失败"));
+      reader.onerror = () => reject(new Error(t('export.readFileFailed')));
       reader.readAsArrayBuffer(file);
     });
   }
@@ -376,7 +377,7 @@ export class CSVExporter {
         }
       };
 
-      reader.onerror = () => reject(new Error("文件读取失败"));
+      reader.onerror = () => reject(new Error(t('export.readFileFailed')));
       reader.readAsText(file, "UTF-8");
     });
   }
@@ -467,7 +468,7 @@ export class JSONExporter {
           const jsonData = JSON.parse(text);
 
           if (!Array.isArray(jsonData)) {
-            reject(new Error("JSON 格式错误：应为数组"));
+            reject(new Error(t('export.invalidJsonArray')));
             return;
           }
 
@@ -491,7 +492,7 @@ export class JSONExporter {
         }
       };
 
-      reader.onerror = () => reject(new Error("文件读取失败"));
+      reader.onerror = () => reject(new Error(t('export.readFileFailed')));
       reader.readAsText(file, "UTF-8");
     });
   }

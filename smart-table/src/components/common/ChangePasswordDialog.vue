@@ -108,7 +108,7 @@ const handleSubmit = async () => {
     :model-value="visible"
     @update:model-value="emit('update:visible', $event)"
     :title="t('auth.changePassword')"
-    width="460px"
+    width="560px"
     :close-on-click-modal="false"
     append-to-body
     class="change-password-dialog"
@@ -117,7 +117,7 @@ const handleSubmit = async () => {
       ref="formRef"
       :model="form"
       :rules="rules"
-      label-width="90px"
+      label-width="140px"
       class="change-password-form"
       @submit.prevent>
       <el-form-item :label="t('auth.currentPassword')" prop="currentPassword">

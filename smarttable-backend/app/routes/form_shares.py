@@ -99,7 +99,7 @@ def create_form_share(table_id: str) -> tuple:
             **form_share.to_dict(include_stats=True),
             'share_url': result['share_url']
         },
-        message='表单分享创建成功',
+        message='form_share_created_successfully',
         code=201
     )
 
@@ -138,7 +138,7 @@ def get_form_shares(table_id: str) -> tuple:
     
     return success_response(
         data=shares_data,
-        message='获取表单分享列表成功'
+        message='fetched_form_share_list_successfully'
     )
 
 
@@ -167,11 +167,11 @@ def get_form_share(share_id: str) -> tuple:
     form_share = FormShareService.get_form_share_by_id(share_id)
     
     if not form_share:
-        return error_response('表单分享不存在', 404)
+        return error_response('form_share_does_not_exist', 404)
     
     return success_response(
         data=form_share.to_dict(include_stats=True),
-        message='获取表单分享详情成功'
+        message='fetched_form_share_details_successfully'
     )
 
 
@@ -254,7 +254,7 @@ def update_form_share(share_id: str) -> tuple:
     
     return success_response(
         data=result['form_share'].to_dict(include_stats=True),
-        message='表单分享更新成功'
+        message='form_share_updated_successfully'
     )
 
 
@@ -292,7 +292,7 @@ def delete_form_share(share_id: str) -> tuple:
             return error_response(result['error'], 404)
         return error_response(result['error'], status)
     
-    return success_response(message='表单分享删除成功')
+    return success_response(message='form_share_deleted_successfully')
 
 
 @form_shares_bp.route('/form-shares/<share_id>/submissions', methods=['GET'])
@@ -390,7 +390,7 @@ def get_form_schema(token: str) -> tuple:
     
     return success_response(
         data=result['data'],
-        message='获取表单结构成功'
+        message='fetched_form_structure_successfully'
     )
 
 
@@ -501,7 +501,7 @@ def validate_form_share(token: str) -> tuple:
     valid, form_share, error = FormShareService.validate_form_share(token)
     
     if not valid:
-        status = 403 if '失效' in error or '过期' in error or '上限' in error else 404
+        status = 403 if error in ('form_share_been_invalidated', 'form_share_expired', 'submission_limit_reached') else 404
         return error_response(error, status)
     
     return success_response(
@@ -511,7 +511,7 @@ def validate_form_share(token: str) -> tuple:
             'can_submit': form_share.can_submit(),
             'allow_anonymous': form_share.allow_anonymous
         },
-        message='表单分享有效'
+        message='form_share_valid'
     )
 
 
@@ -554,12 +554,12 @@ def get_captcha(token: str) -> tuple:
     valid, form_share, error = FormShareService.validate_form_share(token)
     
     if not valid:
-        status = 403 if '失效' in error or '过期' in error or '上限' in error else 404
+        status = 403 if error in ('form_share_been_invalidated', 'form_share_expired', 'submission_limit_reached') else 404
         return error_response(error, status)
     
     # 检查是否需要验证码
     if not form_share.require_captcha:
-        return error_response('该表单不需要验证码', 400)
+        return error_response('form_does_not_require_captcha', 400)
     
     try:
         # 生成验证码
@@ -570,13 +570,13 @@ def get_captcha(token: str) -> tuple:
                 'image': f'data:{mime_type};base64,{image_base64}',
                 'expire': 300  # 5分钟有效期
             },
-            message='验证码生成成功'
+            message='captcha_generated_successfully'
         )
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 验证码生成失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('验证码生成失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_generate_captcha_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @form_shares_bp.route('/form-shares/<token>/members/search', methods=['GET'])
@@ -632,7 +632,7 @@ def search_members_for_form(token: str) -> tuple:
     valid, form_share, error = FormShareService.validate_form_share(token)
 
     if not valid:
-        status = 403 if '失效' in error or '过期' in error or '上限' in error else 404
+        status = 403 if error in ('form_share_been_invalidated', 'form_share_expired', 'submission_limit_reached') else 404
         return error_response(error, status)
 
     # 获取搜索关键词
@@ -641,14 +641,14 @@ def search_members_for_form(token: str) -> tuple:
     if not query:
         return success_response(
             data={'users': [], 'total': 0},
-            message='请输入搜索关键词'
+            message='enter_search_keyword'
         )
 
     try:
         # 获取表格对应的 base_id
         table = db.session.get(Table, form_share.table_id)
         if not table:
-            return error_response('关联的表格不存在', 404)
+            return error_response('linked_table_does_not_exist', 404)
 
         base_id = table.base_id
 
@@ -688,11 +688,11 @@ def search_members_for_form(token: str) -> tuple:
                 'users': users_data,
                 'total': len(users_data)
             },
-            message='搜索成员成功'
+            message='members_searched_successfully'
         )
 
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 搜索成员失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('搜索成员失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_search_members_try_again_later', 500, error='internal_server_error', request_id=request_id)

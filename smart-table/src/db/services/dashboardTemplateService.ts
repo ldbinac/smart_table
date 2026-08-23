@@ -2,6 +2,7 @@ import { db } from '../schema'
 import type { DashboardTemplate, Dashboard } from '../schema'
 import { generateId } from '../../utils/id'
 import type { WidgetConfig } from './dashboardService'
+import { t } from '@/i18n';
 
 export interface CreateTemplateData {
   name: string
@@ -1408,7 +1409,7 @@ export class DashboardTemplateService {
   async deleteTemplate(id: string): Promise<void> {
     const template = await this.getTemplate(id)
     if (template?.isPreset) {
-      throw new Error('不能删除预设模板')
+      throw new Error(t('dashboard.cannotDeletePresetTemplate'))
     }
     await db.dashboardTemplates.delete(id)
   }
@@ -1428,7 +1429,7 @@ export class DashboardTemplateService {
   ): Promise<Partial<Dashboard>> {
     const template = await this.getTemplate(templateId)
     if (!template) {
-      throw new Error('模板不存在')
+      throw new Error(t('dashboard.templateNotFound'))
     }
 
     return {

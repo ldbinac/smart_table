@@ -61,7 +61,14 @@
   "paramError": "请求参数错误",
   "action": "操作",
   "desc": "描述",
-  "share": "分享",
+  "share": {
+    "fetchListFailed": "获取分享列表失败",
+    "createFailed": "创建分享链接失败",
+    "deleteFailed": "删除分享链接失败",
+    "updateFailed": "更新分享链接失败",
+    "fetchReceivedFailed": "获取分享给我的 Base 失败",
+    "fetchCreatedFailed": "获取我创建的分享失败"
+  },
   "createDashboard": "新建仪表盘",
   "shortcutDialogTitle": "键盘快捷键",
   "shortcutHint": "按 {key} 显示此帮助",
@@ -102,5 +109,27 @@
   "backHome": "返回首页",
   "forbiddenTitle": "访问被拒绝",
   "forbiddenAccess": "您没有权限访问此页面",
-  "backPrevious": "返回上一页"
+  "backPrevious": "返回上一页",
+  "loadFailed": "加载失败",
+  "cancelLoading": "用户取消加载",
+  "importCancelled": "请求被取消",
+  "linkedCount": "关联 {0} 条",
+  "adminRequired": "需要管理员权限",
+  "member": {
+    "fetchListFailed": "获取成员列表失败",
+    "addFailed": "添加成员失败",
+    "batchAddFailed": "批量添加成员失败",
+    "updateRoleFailed": "更新成员角色失败",
+    "removeFailed": "移除成员失败"
+  },
+  "base": {
+    "fetchListFailed": "获取 Base 列表失败",
+    "fetchDetailFailed": "获取 Base 详情失败",
+    "createFailed": "创建 Base 失败",
+    "updateFailed": "更新 Base 失败",
+    "deleteFailed": "删除 Base 失败"
+  },
+  "networkRetry": "网络连接异常，正在重试...",
+  "tokenRefreshFailed": "Token 续期失败",
+  "userIdRequired": "用户ID不能为空"
 }

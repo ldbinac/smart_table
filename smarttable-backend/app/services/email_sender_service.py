@@ -14,6 +14,7 @@ from flask import current_app
 from app.services.email_config_service import EmailConfigService
 from app.services.email_template_service import EmailTemplateService
 from app.services.email_log_service import EmailLogService
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +92,10 @@ class EmailSenderService:
 
         except smtplib.SMTPAuthenticationError as e:
             logger.error(f'SMTP 认证失败：{str(e)}')
-            raise ConnectionError(f'SMTP 认证失败：请检查用户名和密码')
+            raise ConnectionError(translate('smtp_auth_failed_check_credentials'))
         except smtplib.SMTPConnectError as e:
             logger.error(f'无法连接到 SMTP 服务器：{str(e)}')
-            raise ConnectionError(f'无法连接到 SMTP 服务器：{self._config["host"]}:{self._config["port"]}')
+            raise ConnectionError(translate('smtp_connection_failed', self._config["host"], self._config["port"]))
         except Exception as e:
             logger.error(f'SMTP 连接失败：{str(e)}')
             raise ConnectionError('SMTP 连接失败，请检查配置')
@@ -153,7 +154,7 @@ class EmailSenderService:
             (是否发送成功, 错误信息) - 成功时错误信息为 None
         """
         if not html_content and not text_content:
-            return False, '邮件内容不能为空'
+            return False, 'email_content_empty'
 
         if not self._is_connected:
             try:
@@ -207,28 +208,28 @@ class EmailSenderService:
             return True, None
 
         except smtplib.SMTPRecipientsRefused as e:
-            error_msg = f'收件人地址被拒绝：{str(e)}'
+            error_msg = translate('smtp_recipient_refused', str(e))
             logger.error(error_msg)
             if log_id:
                 EmailLogService.mark_as_failed(log_id, error_msg)
             return False, error_msg
 
         except smtplib.SMTPSenderRefused as e:
-            error_msg = f'发件人地址被拒绝：{str(e)}'
+            error_msg = translate('smtp_sender_refused', str(e))
             logger.error(error_msg)
             if log_id:
                 EmailLogService.mark_as_failed(log_id, error_msg)
             return False, error_msg
 
         except smtplib.SMTPException as e:
-            error_msg = f'SMTP 错误：{str(e)}'
+            error_msg = translate('smtp_error', str(e))
             logger.error(error_msg)
             if log_id:
                 EmailLogService.mark_as_failed(log_id, error_msg)
             return False, error_msg
 
         except Exception as e:
-            error_msg = f'发送邮件失败：{str(e)}'
+            error_msg = translate('email_send_failed', str(e))
             logger.error(error_msg)
             if log_id:
                 EmailLogService.mark_as_failed(log_id, error_msg)
@@ -260,7 +261,7 @@ class EmailSenderService:
         # 获取模板
         template_result = EmailTemplateService.get_template(template_key)
         if not template_result['success']:
-            return False, f'获取模板失败：{template_result.get("error", "模板不存在")}'
+            return False, translate('email_template_fetch_failed', translate(template_result.get('error', 'template_not_found')))
 
         template = template_result['template']
 
@@ -281,7 +282,7 @@ class EmailSenderService:
                     template_data
                 )
         except Exception as e:
-            return False, '渲染模板失败，请检查模板格式'
+            return False, 'failed_render_template_check_template_format'
 
         # 发送邮件
         return self.send_email(
@@ -343,7 +344,7 @@ class EmailSenderService:
             return False, str(e)
         except Exception as e:
             logger.error(f'快速发送邮件失败：{str(e)}')
-            return False, '发送失败，请稍后重试'
+            return False, 'sending_failed_try_again_later'
 
     def is_connected(self) -> bool:
         """

@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import type { Base, BaseShare as BaseShareType } from "@/api/types";
 import { shareApiService } from "@/services/api/shareApiService";
+import { t } from "@/i18n";
 
 export type { BaseShareType as BaseShare };
 
@@ -20,7 +21,7 @@ export const useShareStore = defineStore("share", () => {
       shares.value = data;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取分享列表失败";
+      const msg = e instanceof Error ? e.message : t('common.share.fetchListFailed');
       error.value = msg;
       console.error("[shareStore] fetchShares failed:", e);
       throw e;
@@ -40,7 +41,7 @@ export const useShareStore = defineStore("share", () => {
       shares.value.unshift(data);
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "创建分享链接失败";
+      const msg = e instanceof Error ? e.message : t('common.share.createFailed');
       error.value = msg;
       console.error("[shareStore] createShare failed:", e);
       throw e;
@@ -55,7 +56,7 @@ export const useShareStore = defineStore("share", () => {
       await shareApiService.deleteShare(shareId);
       shares.value = shares.value.filter((s) => s.id !== shareId);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "删除分享链接失败";
+      const msg = e instanceof Error ? e.message : t('common.share.deleteFailed');
       error.value = msg;
       console.error("[shareStore] deleteShare failed:", e);
       throw e;
@@ -74,7 +75,7 @@ export const useShareStore = defineStore("share", () => {
       }
       return updated;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "更新分享链接失败";
+      const msg = e instanceof Error ? e.message : t('common.share.updateFailed');
       error.value = msg;
       console.error("[shareStore] updateShare failed:", e);
       throw e;
@@ -91,7 +92,7 @@ export const useShareStore = defineStore("share", () => {
       sharedWithMe.value = data;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取分享给我的 Base 失败";
+      const msg = e instanceof Error ? e.message : t('common.share.fetchReceivedFailed');
       error.value = msg;
       console.error("[shareStore] fetchSharedWithMe failed:", e);
       throw e;
@@ -108,7 +109,7 @@ export const useShareStore = defineStore("share", () => {
       sharedByMe.value = data;
       return data;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "获取我创建的分享失败";
+      const msg = e instanceof Error ? e.message : t('common.share.fetchCreatedFailed');
       error.value = msg;
       console.error("[shareStore] fetchSharedByMe failed:", e);
       throw e;

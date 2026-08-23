@@ -6,7 +6,7 @@ import { FilterOperator } from "@/types/filters";
 import type { FilterOperatorValue } from "@/types/filters";
 import {
   getOperatorsForFieldType,
-  OPERATOR_LABELS,
+  getOperatorLabel,
   operatorRequiresValue,
 } from "@/utils/filter";
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
@@ -227,7 +227,7 @@ function getFieldById(fieldId: string) {
 function getOperatorOptions(fieldType: string) {
   return getOperatorsForFieldType(fieldType).map((op) => ({
     value: op,
-    label: OPERATOR_LABELS[op],
+    label: getOperatorLabel(op),
   }));
 }
 

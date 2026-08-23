@@ -4,6 +4,7 @@
 """
 from flask import Blueprint, request, g
 
+from app.i18n import translate
 from app.extensions import db
 from app.models.workflow import (
     Workflow,
@@ -49,7 +50,7 @@ def _get_workflow_or_404(workflow_id):
         is_deleted=False
     ).first()
     if not workflow:
-        return None, not_found_response('工作流')
+        return None, not_found_response('workflow')
     return workflow, None
 
 
@@ -107,7 +108,7 @@ def get_base_workflows(base_id) -> tuple:
     base_id_str = str(base_id)
 
     if not _check_base_view_permission(base_id_str, user_id):
-        return forbidden_response('您没有权限访问此基础数据')
+        return forbidden_response('no_permission_access_base')
 
     table_id = request.args.get('table_id')
     status = request.args.get('status')
@@ -121,7 +122,7 @@ def get_base_workflows(base_id) -> tuple:
 
     return success_response(
         data=[w.to_dict() for w in workflows],
-        message='获取工作流列表成功'
+        message='fetched_workflow_list_successfully'
     )
 
 
@@ -179,23 +180,23 @@ def create_base_workflow(base_id) -> tuple:
     base_id_str = str(base_id)
 
     if not _check_base_edit_permission(base_id_str, user_id):
-        return forbidden_response('您没有权限在此基础数据中创建工作流')
+        return forbidden_response('do_not_permission_create_workflow_base')
 
     data = request.get_json() or {}
 
     name = data.get('name', '').strip()
     if not name:
-        return error_response('工作流名称不能为空', code=400)
+        return error_response('workflow_name_empty', code=400)
     if len(name) > 200:
-        return error_response('工作流名称不能超过200个字符', code=400)
+        return error_response('workflow_name_exceed_characters', code=400)
 
     table_id = data.get('table_id')
     if not table_id:
-        return error_response('请选择关联数据表', code=400)
+        return error_response('select_linked_data_table', code=400)
 
     table = TableService.get_table_by_id(str(table_id))
     if not table or str(table.base_id) != base_id_str:
-        return error_response('关联表格不存在或不属于当前基础数据', code=400)
+        return error_response('linked_table_does_not_exist_does_not_belong_current_base', code=400)
 
     trigger_config = data.get('trigger_config')
     nodes_config = data.get('nodes_config')
@@ -203,13 +204,13 @@ def create_base_workflow(base_id) -> tuple:
     # 简单校验节点配置
     if nodes_config is not None:
         if not isinstance(nodes_config, list):
-            return error_response('nodes_config 必须是数组', code=400)
+            return error_response('nodes_config_array', code=400)
         for idx, node in enumerate(nodes_config):
             if not isinstance(node, dict):
-                return error_response(f'第 {idx + 1} 个节点必须是对象', code=400)
+                return error_response(translate('node_must_be_object', idx + 1), code=400)
             node_type = node.get('node_type')
             if node_type and node_type not in [t.value for t in WorkflowNodeType]:
-                return error_response(f'第 {idx + 1} 个节点类型不合法', code=400)
+                return error_response(translate('node_type_invalid', idx + 1), code=400)
 
     try:
         workflow = WorkflowService.create_workflow(
@@ -222,11 +223,11 @@ def create_base_workflow(base_id) -> tuple:
             nodes_config=nodes_config
         )
     except Exception as e:
-        return error_response(f'创建工作流失败: {str(e)}', code=400)
+        return error_response(translate('workflow_creation_failed', str(e)), code=400)
 
     return success_response(
         data=workflow.to_dict(),
-        message='工作流创建成功',
+        message='workflow_created_successfully',
         code=201
     )
 
@@ -261,14 +262,14 @@ def get_workflow(workflow_id) -> tuple:
 
     result = WorkflowService.get_workflow(workflow_id)
     if result is None:
-        return not_found_response('工作流')
+        return not_found_response('workflow')
 
     if not _check_base_view_permission(result['workflow']['base_id'], user_id):
-        return forbidden_response('您没有权限访问此工作流')
+        return forbidden_response('no_permission_access_workflow')
 
     return success_response(
         data=result,
-        message='获取工作流详情成功'
+        message='fetched_workflow_details_successfully'
     )
 
 
@@ -303,7 +304,7 @@ def get_workflow_nodes(workflow_id) -> tuple:
         return error
 
     if not _check_base_view_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限访问此工作流')
+        return forbidden_response('no_permission_access_workflow')
 
     nodes = WorkflowNode.query.filter_by(
         workflow_id=workflow.id
@@ -311,7 +312,7 @@ def get_workflow_nodes(workflow_id) -> tuple:
 
     return success_response(
         data=[node.to_dict() for node in nodes],
-        message='获取节点列表成功'
+        message='fetched_node_list_successfully'
     )
 
 
@@ -346,7 +347,7 @@ def get_workflow_trigger(workflow_id) -> tuple:
         return error
 
     if not _check_base_view_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限访问此工作流')
+        return forbidden_response('no_permission_access_workflow')
 
     trigger = WorkflowTrigger.query.filter_by(
         workflow_id=workflow.id
@@ -354,7 +355,7 @@ def get_workflow_trigger(workflow_id) -> tuple:
 
     return success_response(
         data=trigger.to_dict() if trigger else None,
-        message='获取触发器成功'
+        message='fetched_trigger_successfully'
     )
 
 
@@ -401,10 +402,10 @@ def update_workflow_nodes(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限修改此工作流')
+        return forbidden_response('do_not_permission_modify_workflow')
 
     if workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
-        return bad_request_response('仅草稿或暂停状态可编辑节点')
+        return bad_request_response('workflows_draft_paused_status_edit_nodes')
 
     data = request.get_json() or {}
     nodes = data.get('nodes', [])
@@ -526,7 +527,7 @@ def update_workflow_nodes(workflow_id) -> tuple:
 
     return success_response(
         data=[node.to_dict() for node in updated_nodes],
-        message='节点已更新'
+        message='node_updated'
     )
 
 
@@ -575,7 +576,7 @@ def test_script_node(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), g.current_user_id):
-        return forbidden_response('您没有权限修改此工作流')
+        return forbidden_response('do_not_permission_modify_workflow')
 
     data = request.get_json() or {}
     language = data.get('language')
@@ -585,15 +586,15 @@ def test_script_node(workflow_id) -> tuple:
 
     # 基本参数校验
     if language != 'python':
-        return {'error': "语言必须为 'python'"}, 400
+        return {'error': "language_python"}, 400
     if not script_source or not isinstance(script_source, str):
-        return {'error': '脚本内容不能为空'}, 400
+        return {'error': 'script_content_empty'}, 400
     try:
         timeout = int(timeout)
         if timeout < 1 or timeout > 300:
             raise ValueError()
     except (TypeError, ValueError):
-        return {'error': '超时时间必须为 1-300 之间的正整数'}, 400
+        return {'error': 'timeout_positive_integer_between'}, 400
 
     from app.services.script_execution_service import ScriptExecutionService
 
@@ -664,10 +665,10 @@ def update_workflow_trigger(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限修改此工作流')
+        return forbidden_response('do_not_permission_modify_workflow')
 
     if workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
-        return bad_request_response('仅草稿或暂停状态可编辑触发器')
+        return bad_request_response('workflows_draft_paused_status_edit_triggers')
 
     data = request.get_json() or {}
 
@@ -690,7 +691,7 @@ def update_workflow_trigger(workflow_id) -> tuple:
 
     return success_response(
         data=updated_trigger.to_dict() if updated_trigger else None,
-        message='触发器已更新'
+        message='trigger_updated'
     )
 
 
@@ -749,7 +750,7 @@ def update_workflow(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限修改此工作流')
+        return forbidden_response('do_not_permission_modify_workflow')
 
     data = request.get_json() or {}
 
@@ -758,9 +759,9 @@ def update_workflow(workflow_id) -> tuple:
     if 'name' in data:
         name = str(data['name']).strip()
         if not name:
-            return error_response('工作流名称不能为空', code=400)
+            return error_response('workflow_name_empty', code=400)
         if len(name) > 200:
-            return error_response('工作流名称不能超过200个字符', code=400)
+            return error_response('workflow_name_exceed_characters', code=400)
         kwargs['name'] = name
 
     if 'description' in data:
@@ -771,7 +772,7 @@ def update_workflow(workflow_id) -> tuple:
         if table_id:
             kwargs['table_id'] = table_id
         else:
-            return error_response('关联数据表不能为空', code=400)
+            return error_response('linked_data_table_empty', code=400)
 
     if 'trigger_config' in data:
         kwargs['trigger_config'] = data['trigger_config']
@@ -779,23 +780,23 @@ def update_workflow(workflow_id) -> tuple:
     if 'nodes_config' in data:
         nodes_config = data['nodes_config']
         if not isinstance(nodes_config, list):
-            return error_response('nodes_config 必须是数组', code=400)
+            return error_response('nodes_config_array', code=400)
         for idx, node in enumerate(nodes_config):
             if not isinstance(node, dict):
-                return error_response(f'第 {idx + 1} 个节点必须是对象', code=400)
+                return error_response(translate('node_must_be_object', idx + 1), code=400)
             node_type = node.get('node_type')
             if node_type and node_type not in [t.value for t in WorkflowNodeType]:
-                return error_response(f'第 {idx + 1} 个节点类型不合法', code=400)
+                return error_response(translate('node_type_invalid', idx + 1), code=400)
         kwargs['nodes_config'] = nodes_config
 
     # 关联数据表仅草稿状态可变更
     if 'table_id' in kwargs and workflow.status != WorkflowStatus.DRAFT:
-        return error_response('仅 draft 状态的工作流可变更关联数据表', code=400)
+        return error_response('workflows_draft_status_change_linked_data_table', code=400)
 
     # 结构变更（节点/触发器）仅草稿状态可编辑
     has_structure_changes = 'trigger_config' in kwargs or 'nodes_config' in kwargs
     if has_structure_changes and workflow.status != WorkflowStatus.DRAFT:
-        return error_response('仅 draft 状态的工作流可编辑节点和触发器', code=400)
+        return error_response('workflows_draft_status_edit_nodes_triggers', code=400)
 
     updated = WorkflowService.update_workflow(
         workflow_id=workflow_id,
@@ -804,12 +805,12 @@ def update_workflow(workflow_id) -> tuple:
     )
 
     if updated is None:
-        return error_response('更新失败', code=400)
+        return error_response('update_failed', code=400)
 
     result = WorkflowService.get_workflow(updated.id)
     return success_response(
         data=result['workflow'],
-        message='工作流更新成功'
+        message='workflow_updated_successfully'
     )
 
 
@@ -844,13 +845,13 @@ def delete_workflow(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限删除此工作流')
+        return forbidden_response('do_not_permission_delete_workflow')
 
     success = WorkflowService.delete_workflow(workflow_id, user_id=user_id)
     if not success:
-        return error_response('删除工作流失败', code=500)
+        return error_response('failed_delete_workflow', code=500)
 
-    return success_response(message='工作流删除成功')
+    return success_response(message='workflow_deleted_successfully')
 
 
 # ==================== 工作流状态管理 ====================
@@ -886,7 +887,7 @@ def publish_workflow(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限发布此工作流')
+        return forbidden_response('do_not_permission_publish_workflow')
 
     try:
         published = WorkflowService.publish_workflow(workflow_id, created_by=user_id)
@@ -894,12 +895,12 @@ def publish_workflow(workflow_id) -> tuple:
         return bad_request_response(str(e))
 
     if published is None:
-        return error_response('发布工作流失败', code=400)
+        return error_response('failed_publish_workflow', code=400)
 
     result = WorkflowService.get_workflow(published.id)
     return success_response(
         data=result,
-        message='工作流发布成功'
+        message='workflow_published_successfully'
     )
 
 
@@ -931,7 +932,7 @@ def save_workflow_snapshot(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限修改此工作流')
+        return forbidden_response('do_not_permission_modify_workflow')
 
     try:
         version = WorkflowService.save_version_snapshot(workflow_id, created_by=user_id)
@@ -941,12 +942,12 @@ def save_workflow_snapshot(workflow_id) -> tuple:
     if version is None:
         return success_response(
             data=None,
-            message='内容无变更，跳过版本快照创建'
+            message='no_content_changes_skipping_version_snapshot_creation'
         )
 
     return success_response(
         data=version.to_dict(),
-        message=f'版本快照已保存: v{version.version_number}'
+        message=translate('version_snapshot_saved', version.version_number)
     )
 
 
@@ -981,16 +982,16 @@ def pause_workflow(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限暂停此工作流')
+        return forbidden_response('do_not_permission_pause_workflow')
 
     paused = WorkflowService.pause_workflow(workflow_id, user_id=user_id)
     if paused is None:
-        return error_response('暂停工作流失败', code=400)
+        return error_response('failed_pause_workflow', code=400)
 
     result = WorkflowService.get_workflow(paused.id)
     return success_response(
         data=result,
-        message='工作流已暂停'
+        message='workflow_paused'
     )
 
 
@@ -1025,16 +1026,16 @@ def resume_workflow(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限恢复此工作流')
+        return forbidden_response('do_not_permission_resume_workflow')
 
     resumed = WorkflowService.resume_workflow(workflow_id, user_id=user_id)
     if resumed is None:
-        return error_response('恢复工作流失败', code=400)
+        return error_response('failed_resume_workflow', code=400)
 
     result = WorkflowService.get_workflow(resumed.id)
     return success_response(
         data=result,
-        message='工作流已恢复'
+        message='workflow_resumed'
     )
 
 
@@ -1069,15 +1070,15 @@ def clone_workflow(workflow_id) -> tuple:
         return error
 
     if not _check_base_edit_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限克隆此工作流')
+        return forbidden_response('do_not_permission_clone_workflow')
 
     cloned = WorkflowService.clone_workflow(workflow_id, user_id=user_id)
     if cloned is None:
-        return error_response('克隆工作流失败', code=400)
+        return error_response('failed_clone_workflow', code=400)
 
     return success_response(
         data=cloned.to_dict(),
-        message='工作流克隆成功',
+        message='workflow_cloned_successfully',
         code=201
     )
 
@@ -1113,12 +1114,12 @@ def get_workflow_versions(workflow_id) -> tuple:
         return error
 
     if not _check_base_view_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限访问此工作流')
+        return forbidden_response('no_permission_access_workflow')
 
     versions = WorkflowService.list_workflow_versions(workflow_id)
     return success_response(
         data=[v.to_dict() for v in versions],
-        message='获取版本列表成功'
+        message='fetched_version_list_successfully'
     )
 
 
@@ -1165,7 +1166,7 @@ def get_workflow_instances(workflow_id) -> tuple:
         return error
 
     if not _check_base_view_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限访问此工作流')
+        return forbidden_response('no_permission_access_workflow')
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -1191,7 +1192,7 @@ def get_workflow_instances(workflow_id) -> tuple:
         total=total,
         page=page,
         per_page=per_page,
-        message='获取实例列表成功'
+        message='fetched_instance_list_successfully'
     )
 
 
@@ -1231,7 +1232,7 @@ def get_workflow_instance(workflow_id, instance_id) -> tuple:
         return error
 
     if not _check_base_view_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限访问此工作流')
+        return forbidden_response('no_permission_access_workflow')
 
     instance = WorkflowInstance.query.filter_by(
         id=WorkflowService._to_uuid(instance_id),
@@ -1239,7 +1240,7 @@ def get_workflow_instance(workflow_id, instance_id) -> tuple:
     ).first()
 
     if not instance:
-        return not_found_response('实例')
+        return not_found_response('instance')
 
     execution_logs = instance.execution_logs.all()
 
@@ -1248,7 +1249,7 @@ def get_workflow_instance(workflow_id, instance_id) -> tuple:
             'instance': instance.to_dict(),
             'execution_logs': [log.to_dict() for log in execution_logs]
         },
-        message='获取实例详情成功'
+        message='fetched_instance_details_successfully'
     )
 
 
@@ -1288,7 +1289,7 @@ def get_instance_webhook_deliveries(workflow_id, instance_id) -> tuple:
         return error
 
     if not _check_base_view_permission(str(workflow.base_id), user_id):
-        return forbidden_response('您没有权限访问此工作流')
+        return forbidden_response('no_permission_access_workflow')
 
     instance = WorkflowInstance.query.filter_by(
         id=WorkflowService._to_uuid(instance_id),
@@ -1296,7 +1297,7 @@ def get_instance_webhook_deliveries(workflow_id, instance_id) -> tuple:
     ).first()
 
     if not instance:
-        return not_found_response('实例')
+        return not_found_response('instance')
 
     # 查询该实例的所有 Webhook 投递日志（包括内联 webhook）
     delivery_logs = WebhookDeliveryLog.query.filter_by(
@@ -1305,7 +1306,7 @@ def get_instance_webhook_deliveries(workflow_id, instance_id) -> tuple:
 
     return success_response(
         data=[log.to_dict() for log in delivery_logs],
-        message='获取 Webhook 投递日志成功'
+        message='fetched_webhook_delivery_logs_successfully'
     )
 
 
@@ -1354,19 +1355,19 @@ def trigger_record_workflow(table_id, record_id) -> tuple:
 
     table = TableService.get_table_by_id(str(table_id))
     if not table:
-        return error_response('表格不存在', code=404)
+        return error_response('table_does_not_exist', code=404)
 
     base_id = str(table.base_id)
 
     if not _check_base_edit_permission(base_id, user_id):
-        return forbidden_response('您没有权限触发此记录的工作流')
+        return forbidden_response('do_not_permission_trigger_workflow_record')
 
     record = RecordService.get_record_by_id(str(record_id))
     if not record:
-        return error_response('记录不存在', code=404)
+        return error_response('record_does_not_exist', code=404)
 
     if str(record.table_id) != str(table_id):
-        return error_response('记录不属于该表格', code=400)
+        return error_response('record_does_not_belong_table', code=400)
 
     # 查询可手动触发的工作流：active 状态且触发器类型为 manual
     manual_triggers = WorkflowTrigger.query.join(Workflow).filter(
@@ -1393,7 +1394,7 @@ def trigger_record_workflow(table_id, record_id) -> tuple:
             data={
                 'available_workflows': available_workflows
             },
-            message='获取可手动触发的工作流列表成功'
+            message='fetched_manually_triggerable_workflow_list_successfully'
         )
 
     # 触发指定工作流
@@ -1404,7 +1405,7 @@ def trigger_record_workflow(table_id, record_id) -> tuple:
             break
 
     if not target_workflow:
-        return error_response('指定的工作流不存在或不可手动触发', code=404)
+        return error_response('specified_workflow_does_not_exist_manually_triggered', code=404)
 
     event = WorkflowEvent(
         event_type=WorkflowTriggerType.MANUAL.value,
@@ -1416,7 +1417,7 @@ def trigger_record_workflow(table_id, record_id) -> tuple:
 
     instance = workflow_execution_engine.start_instance(target_workflow, event)
     if not instance:
-        return error_response('触发工作流失败，请稍后重试', code=500)
+        return error_response('failed_trigger_workflow_try_again_later', code=500)
 
     workflow_execution_engine.executor.submit(
         workflow_execution_engine._run_instance,
@@ -1429,7 +1430,7 @@ def trigger_record_workflow(table_id, record_id) -> tuple:
             'workflow_id': str(target_workflow.id),
             'version_number': instance.version_number
         },
-        message='工作流触发成功'
+        message='workflow_triggered_successfully'
     )
 
 

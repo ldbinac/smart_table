@@ -1,6 +1,7 @@
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
 import type { FieldTypeValue } from "@/types";
+import { t } from "@/i18n";
 
 export interface ValidationError {
   fieldId: string;
@@ -289,7 +290,7 @@ export function validateRequiredFields(
       errors.push({
         fieldId: field.id,
         fieldName: field.name,
-        message: `请填写必填字段：${field.name}`,
+        message: t('validation.requiredSingle', [field.name]),
       });
     }
   }
@@ -313,10 +314,10 @@ export function getRequiredFieldErrorMessage(
   const fieldNames = errors.map((e) => e.fieldName).join("、");
 
   if (errors.length === 1) {
-    return `请填写必填字段：${fieldNames}`;
+    return t('validation.requiredSingle', [fieldNames]);
   }
 
-  return `请填写以下必填字段：${fieldNames}`;
+  return t('validation.requiredList', [fieldNames]);
 }
 
 // ==================== 字段类型格式校验工具函数 ====================
@@ -359,7 +360,7 @@ export function validateEmail(value: string): FieldFormatValidationResult {
 
   return {
     valid,
-    error: valid ? undefined : "请输入正确的邮箱地址格式，如：example@domain.com",
+    error: valid ? undefined : t('validation.emailFormat'),
   };
 }
 
@@ -379,7 +380,7 @@ export function validatePhone(value: string): FieldFormatValidationResult {
 
   return {
     valid,
-    error: valid ? undefined : "请输入正确的11位手机号码",
+    error: valid ? undefined : t('validation.phoneFormat'),
   };
 }
 
@@ -400,7 +401,7 @@ export function validateUrl(value: string): FieldFormatValidationResult {
     valid,
     error: valid
       ? undefined
-      : "请输入完整的链接地址，需以 http://、https://、ftp:// 或 sftp:// 开头",
+      : t('validation.urlFormat'),
   };
 }
 
@@ -447,7 +448,7 @@ export function validateFieldFormat(
           error:
             typeof customMessage === "string" && customMessage
               ? customMessage
-              : `${field?.name ?? ""} 格式不正确`,
+              : t('validation.invalidFormat', [field?.name ?? ""]),
         };
       } catch {
         // 非法正则放行
@@ -498,7 +499,7 @@ export function validateFieldsFormat(
       errors.push({
         fieldId: field.id,
         fieldName: field.name,
-        message: result.error || `${field.name}格式不正确`,
+        message: result.error || t('validation.typeFormat', [field.name]),
       });
     }
   }
@@ -524,24 +525,24 @@ export interface PresetRegexOption {
  */
 export const PRESET_REGEX_OPTIONS: PresetRegexOption[] = [
   {
-    label: "国内电话号码",
+    label: t('validation.preset.telephoneLabel'),
     pattern: "^\\d{3,4}-\\d{7,8}$",
-    message: "请输入正确的电话号码格式（如 0511-4405222）",
+    message: t('validation.preset.telephoneMsg'),
   },
   {
-    label: "中国邮政编码",
+    label: t('validation.preset.postcodeLabel'),
     pattern: "^[1-9]\\d{5}$",
-    message: "请输入正确的6位邮政编码",
+    message: t('validation.preset.postcodeMsg'),
   },
   {
-    label: "中国身份证号码",
+    label: t('validation.preset.idLabel'),
     pattern: "^\\d{15}$|^\\d{17}[\\dXx]$",
-    message: "请输入正确的身份证号码",
+    message: t('validation.preset.idMsg'),
   },
   {
-    label: "IPv4 地址",
+    label: t('validation.preset.ipv4Label'),
     pattern:
       "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
-    message: "请输入正确的 IPv4 地址",
+    message: t('validation.preset.ipv4Msg'),
   },
 ];

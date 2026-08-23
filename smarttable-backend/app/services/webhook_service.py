@@ -21,6 +21,7 @@ import requests
 from flask import current_app
 from requests.exceptions import RequestException
 
+from app.i18n import translate
 from app.extensions import db
 from app.models.webhook import (
     WebhookConfig,
@@ -496,8 +497,8 @@ class WebhookService:
         webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id) if delivery_log.webhook_config_id else None
         if not webhook_config:
             if delivery_log.webhook_config_id is None:
-                raise ValueError('内联 Webhook 不支持重新投递（配置未持久化）')
-            raise ValueError(f'Webhook 配置不存在: {delivery_log.webhook_config_id}')
+                raise ValueError('inline_webhook_does_not_support_redelivery_configuration_not_per')
+            raise ValueError(translate('webhook_config_not_found', delivery_log.webhook_config_id))
 
         instance = None
         if delivery_log.instance_id:

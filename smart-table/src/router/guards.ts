@@ -84,7 +84,7 @@ export const permissionGuard = (requiredRole: string) => {
     } else {
       next({
         path: '/403',
-        query: { message: '您没有权限访问此页面' }
+        query: { message: t('common.forbiddenAccess') }
       })
     }
   }
@@ -110,7 +110,7 @@ export const adminGuard = async (
   } else {
     next({
       path: '/403',
-      query: { message: '需要管理员权限' }
+      query: { message: t('common.adminRequired') }
     })
   }
 }

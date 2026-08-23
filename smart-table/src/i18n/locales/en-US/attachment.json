@@ -1,0 +1,22 @@
+{
+  "fileTooLarge": "File \"{0}\" ({1}) exceeds the size limit of {2}",
+  "typeNotAllowed": "File \"{0}\" of type \"{1}\" is not allowed",
+  "countExceeded": "Too many files: {0} current, maximum allowed is {1}",
+  "totalSizeExceeded": "Total file size exceeds the limit: current {0}, maximum allowed is {1}",
+  "notFound": "Attachment does not exist or has been deleted (ID: {0})",
+  "storageFull": "Insufficient storage space, please clean up unnecessary attachments and retry",
+  "readFailed": "Failed to read file \"{0}\"{1}",
+  "readReason": "read failed",
+  "convertReason": "format conversion failed",
+  "fileEmpty": "The file is empty",
+  "minCount": "At least {0} files are required, but only {1} are present",
+  "storageShort": "Insufficient storage space: {0} available, {1} required",
+  "canvasContextFail": "Unable to create a canvas context",
+  "blobConvertFail": "Thumbnail generation failed: unable to convert to Blob",
+  "thumbFail": "Thumbnail generation failed: {0}",
+  "imageLoadFail": "Failed to load the image",
+  "videoThumbFail": "Failed to generate the video thumbnail",
+  "videoThumbFailDetail": "Failed to generate the video thumbnail: {0}",
+  "videoLoadFail": "Failed to load the video",
+  "blobToDataUrlFail": "Failed to convert Blob to DataURL"
+}
