@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
-from sqlalchemy import String, DateTime, Enum, ForeignKey, UniqueConstraint
+from sqlalchemy import String, DateTime, Enum, ForeignKey, UniqueConstraint, TypeDecorator
 from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +34,24 @@ class MemberRole(PyEnum):
             if member.value == value_str:
                 return member
         return None
+
+
+class MemberRoleEnum(TypeDecorator):
+    """成员角色列类型；读写时统一转小写，兼容历史数据中的大写角色值。"""
+    impl = String(20)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, MemberRole):
+            return value.value
+        return str(value).lower()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return MemberRole(str(value).lower())
 
 
 class Base(db.Model):
@@ -215,7 +233,7 @@ class BaseMember(db.Model):
         nullable=False
     )
     role: Mapped[MemberRole] = mapped_column(
-        Enum(MemberRole, values_callable=_enum_values),
+        MemberRoleEnum(),
         default=MemberRole.EDITOR,
         nullable=False
     )
