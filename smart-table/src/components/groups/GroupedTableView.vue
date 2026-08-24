@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity, RecordEntity } from "../../db/schema";
 import type { GroupNode } from "../../utils/group";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
@@ -74,6 +75,7 @@ const hoveredRowId = ref<string | null>(null);
 // 权限控制：字段管理（隐藏/编辑属性）需要管理员及以上角色
 const memberStore = useMemberStore();
 const canManage = computed(() => memberStore.canManage);
+const { t } = useI18n();
 
 // 右键菜单相关状态
 const contextMenuVisible = ref(false);
@@ -158,23 +160,25 @@ const contextMenuItems = computed(() => {
   if (contextMenuTarget.value === "row") {
     // 非只读模式下显示编辑、复制和删除选项
     if (!props.readonly) {
-      items.push({ id: "edit", label: "编辑", icon: "edit" });
+      items.push({ id: "edit", label: t("view.edit"), icon: "edit" });
       items.push(
-        { id: "duplicate", label: "复制记录", icon: "copy" },
+        { id: "duplicate", label: t("view.duplicateRecord"), icon: "copy" },
         { divider: true, id: "divider1" },
       );
 
       if (selectedRows.value.size > 1) {
         items.push({
           id: "delete-selected",
-          label: `删除选中的 ${selectedRows.value.size} 条记录`,
+          label: t("view.deleteSelectedRecords", {
+            count: selectedRows.value.size,
+          }),
           icon: "delete",
           danger: true,
         });
       } else {
         items.push({
           id: "delete",
-          label: "删除记录",
+          label: t("view.deleteRecord"),
           icon: "delete",
           danger: true,
         });
@@ -184,24 +188,24 @@ const contextMenuItems = computed(() => {
     const field = contextMenuField.value;
     if (field) {
       items.push(
-        { id: "sort-asc", label: "升序排列", icon: "sort" },
-        { id: "sort-desc", label: "降序排列", icon: "sort" },
+        { id: "sort-asc", label: t("view.sortAsc"), icon: "sort" },
+        { id: "sort-desc", label: t("view.sortDesc"), icon: "sort" },
         { divider: true, id: "divider1" },
       );
 
       const isFrozen = frozenFields.value.includes(field.id);
       if (isFrozen) {
-        items.push({ id: "unfreeze", label: "取消冻结", icon: "freeze" });
+        items.push({ id: "unfreeze", label: t("view.unfreezeColumn"), icon: "freeze" });
       } else {
-        items.push({ id: "freeze", label: "冻结列", icon: "freeze" });
+        items.push({ id: "freeze", label: t("view.freezeColumn"), icon: "freeze" });
       }
 
       // 隐藏字段和编辑字段属性需要 ADMIN 权限
       if (canManage.value) {
         items.push(
           { divider: true, id: "divider2" },
-          { id: "hide-field", label: "隐藏字段", icon: "hide" },
-          { id: "edit-field", label: "编辑字段属性", icon: "settings" },
+          { id: "hide-field", label: t("view.hideField"), icon: "hide" },
+          { id: "edit-field", label: t("view.editFieldProps"), icon: "settings" },
         );
       }
     }
@@ -687,7 +691,7 @@ function getFormulaDisplay(field: FieldEntity, record: RecordEntity): string {
     const result = engine.calculate(record, formula);
 
     if (result === "#ERROR") {
-      return "计算错误";
+      return t("view.calcError");
     }
 
     // 数字格式化
@@ -702,7 +706,7 @@ function getFormulaDisplay(field: FieldEntity, record: RecordEntity): string {
     return String(result);
   } catch (error) {
     console.error("Grouped table formula calculation error:", error);
-    return "计算错误";
+    return t("view.calcError");
   }
 }
 
@@ -1078,7 +1082,7 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
     <!-- 分组工具栏 -->
     <div v-if="isGrouped" class="group-toolbar">
       <div class="toolbar-left">
-        <span class="group-summary"> 共 {{ groupNodes.length }} 个分组 </span>
+        <span class="group-summary"> {{ t("view.groupCount", { count: groupNodes.length }) }} </span>
       </div>
       <div class="toolbar-right">
         <el-button
@@ -1089,7 +1093,7 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
           <el-icon v-if="isAllExpanded"><ArrowRight /></el-icon>
           <el-icon v-else><ArrowDown /></el-icon>
           <span class="btn-text">{{
-            isAllExpanded ? "全部折叠" : "全部展开"
+            isAllExpanded ? t("view.collapseAll") : t("view.expandAll")
           }}</span>
         </el-button>
       </div>
@@ -1138,7 +1142,7 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
               <!-- 冻结标识 -->
               <div v-if="isFieldFrozen(field.id)" class="frozen-indicator">
                 <el-icon><Lock /></el-icon>
-                <span>冻结</span>
+                <span>{{ t("view.frozen") }}</span>
               </div>
               <!-- 列宽调整手柄 -->
               <div
@@ -1196,7 +1200,7 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
                   <template v-else>
                     <span class="group-name">{{ item.node!.value }}</span>
                   </template>
-                  <span class="group-count">总数：{{ item.node!.count }}</span>
+                  <span class="group-count">{{ t("view.groupTotalCount", { count: item.node!.count }) }}</span>
                 </div>
               </td>
               <td :colspan="visibleFields.length" class="group-info-cell"></td>
@@ -1235,7 +1239,7 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
                     class="expand-btn"
                     :class="{ 'is-visible': isRowSelected(item.record!.id) }"
                     @click.stop="handleExpandRecord(item.record!)"
-                    title="查看/编辑记录">
+                    :title="t('view.viewEditRecord')">
                     <el-icon><ZoomIn /></el-icon>
                   </button>
                   <span class="row-number">{{ item.rowIndex }}</span>
@@ -1402,11 +1406,12 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
                     <el-icon class="attachment-icon"><Paperclip /></el-icon>
                     <span class="attachment-count">
                       {{
-                        Array.isArray(item.record?.values[field.id])
-                          ? (item.record!.values[field.id] as any[]).length
-                          : 0
+                        t("view.fileCount", {
+                          count: Array.isArray(item.record?.values[field.id])
+                            ? (item.record!.values[field.id] as any[]).length
+                            : 0,
+                        })
                       }}
-                      个文件
                     </span>
                   </div>
                 </template>
@@ -1532,7 +1537,7 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
                   class="add-button-wrapper"
                   @click.stop="handleAddRecord(item)">
                   <el-icon class="add-icon"><Plus /></el-icon>
-                  <span class="add-text">添加记录</span>
+                  <span class="add-text">{{ t("view.addRecord") }}</span>
                 </div>
               </td>
             </tr>
@@ -1541,7 +1546,7 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
       </table>
 
       <div v-if="flattenedData.length === 0" class="empty-table">
-        <el-empty description="暂无数据" />
+        <el-empty :description="t('common.noData')" />
       </div>
     </div>
 

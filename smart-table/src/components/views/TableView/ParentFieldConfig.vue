@@ -1,10 +1,10 @@
 <template>
   <div class="parent-field-config">
     <div class="config-item">
-      <label class="config-label">父记录字段</label>
+      <label class="config-label">{{ t("view.parentRecordField") }}</label>
       <el-select
         v-model="selectedFieldId"
-        placeholder="选择父记录字段"
+        :placeholder="t('view.selectParentField')"
         clearable
         @change="handleChange"
         style="width: 100%">
@@ -15,10 +15,10 @@
           :value="field.id" />
       </el-select>
       <div class="config-hint" v-if="!selectedFieldId">
-        选择一个关联自身表（单向关联，一对多）的字段作为父记录字段，开启树形层级展示
+        {{ t("view.parentFieldHintEmpty") }}
       </div>
       <div class="config-hint" v-else>
-        已启用树形层级展示，可右键点击记录添加子记录
+        {{ t("view.parentFieldHintActive") }}
       </div>
     </div>
   </div>
@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { FieldType } from "@/types/fields";
@@ -38,6 +39,7 @@ const props = defineProps<{
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
+const { t } = useI18n();
 
 const selectedFieldId = ref<string | null>(props.currentParentFieldId || null);
 

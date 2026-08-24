@@ -11,6 +11,7 @@ from sqlalchemy import or_, func
 
 from app.extensions import db
 from app.models.email_log import EmailLog, EmailStatus
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class EmailLogService:
             logger.error(f'记录邮件发送日志失败：{str(e)}')
             return {
                 'success': False,
-                'error': '记录日志失败，请稍后重试'
+                'error': 'failed_log_record_try_again_later'
             }
 
     @staticmethod
@@ -92,7 +93,7 @@ class EmailLogService:
             if not email_log:
                 return {
                     'success': False,
-                    'error': f'日志不存在：{log_id}'
+                    'error': translate('email_log_not_found', log_id)
                 }
 
             email_log.mark_as_sent()
@@ -102,7 +103,7 @@ class EmailLogService:
 
             return {
                 'success': True,
-                'message': '已标记为发送成功'
+                'message': 'marked_sent_successfully'
             }
 
         except Exception as e:
@@ -110,7 +111,7 @@ class EmailLogService:
             logger.error(f'标记邮件发送状态失败：{str(e)}')
             return {
                 'success': False,
-                'error': '更新状态失败，请稍后重试'
+                'error': 'failed_update_status_try_again_later'
             }
 
     @staticmethod
@@ -131,7 +132,7 @@ class EmailLogService:
             if not email_log:
                 return {
                     'success': False,
-                    'error': f'日志不存在：{log_id}'
+                    'error': translate('email_log_not_found', log_id)
                 }
 
             email_log.mark_as_failed(error)
@@ -141,7 +142,7 @@ class EmailLogService:
 
             return {
                 'success': True,
-                'message': '已标记为发送失败'
+                'message': 'marked_sending_failed'
             }
 
         except Exception as e:
@@ -149,7 +150,7 @@ class EmailLogService:
             logger.error(f'标记邮件失败状态失败：{str(e)}')
             return {
                 'success': False,
-                'error': '更新状态失败，请稍后重试'
+                'error': 'failed_update_status_try_again_later'
             }
 
     @staticmethod
@@ -169,7 +170,7 @@ class EmailLogService:
             if not email_log:
                 return {
                     'success': False,
-                    'error': f'日志不存在：{log_id}'
+                    'error': translate('email_log_not_found', log_id)
                 }
 
             email_log.mark_as_retrying()
@@ -179,7 +180,7 @@ class EmailLogService:
 
             return {
                 'success': True,
-                'message': '已标记为重试中'
+                'message': 'marked_retrying'
             }
 
         except Exception as e:
@@ -187,7 +188,7 @@ class EmailLogService:
             logger.error(f'标记邮件重试状态失败：{str(e)}')
             return {
                 'success': False,
-                'error': '更新状态失败，请稍后重试'
+                'error': 'failed_update_status_try_again_later'
             }
 
     @staticmethod
@@ -290,7 +291,7 @@ class EmailLogService:
             logger.error(f'查询邮件日志失败：{str(e)}')
             return {
                 'success': False,
-                'error': '查询日志失败，请稍后重试'
+                'error': 'failed_query_logs_try_again_later'
             }
 
     @staticmethod
@@ -310,7 +311,7 @@ class EmailLogService:
             if not email_log:
                 return {
                     'success': False,
-                    'error': f'日志不存在：{log_id}'
+                    'error': translate('email_log_not_found', log_id)
                 }
 
             return {
@@ -322,7 +323,7 @@ class EmailLogService:
             logger.error(f'获取邮件日志详情失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取日志详情失败，请稍后重试'
+                'error': 'failed_fetch_log_details_try_again_later'
             }
 
     @staticmethod
@@ -439,7 +440,7 @@ class EmailLogService:
             logger.error(f'获取邮件统计失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取统计失败，请稍后重试'
+                'error': 'failed_fetch_statistics_try_again_later'
             }
 
     @staticmethod
@@ -466,7 +467,7 @@ class EmailLogService:
             logger.error(f'获取待发送邮件失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取待发送邮件失败，请稍后重试'
+                'error': 'failed_fetch_pending_emails_try_again_later'
             }
 
     @staticmethod
@@ -499,7 +500,7 @@ class EmailLogService:
             logger.error(f'获取失败邮件失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取失败邮件失败，请稍后重试'
+                'error': 'failed_fetch_failed_emails_try_again_later'
             }
 
     @staticmethod
@@ -540,5 +541,5 @@ class EmailLogService:
             logger.error(f'删除旧邮件日志失败：{str(e)}')
             return {
                 'success': False,
-                'error': '删除旧日志失败，请稍后重试'
+                'error': 'failed_delete_old_logs_try_again_later'
             }

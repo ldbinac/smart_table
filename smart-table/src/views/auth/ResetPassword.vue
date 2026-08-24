@@ -3,26 +3,26 @@
     <div class="reset-container">
       <div class="page-header">
         <h1 class="title">SmartTable</h1>
-        <p class="subtitle">多维表格管理系统</p>
+        <p class="subtitle">{{ t('auth.brandSubtitle') }}</p>
       </div>
 
       <!-- 验证令牌状态 -->
       <div v-if="validating" class="status-box loading">
         <el-icon class="icon" :size="48"><Loading /></el-icon>
-        <p>正在验证链接...</p>
+        <p>{{ t('auth.verifyingResetLink') }}</p>
       </div>
 
       <div v-else-if="!tokenValid" class="status-box error">
         <el-icon class="icon" :size="48" color="#f56c6c"><CircleClose /></el-icon>
-        <h2>链接无效或已过期</h2>
+        <h2>{{ t('auth.resetLinkInvalid') }}</h2>
         <p>{{ errorMessage }}</p>
-        <el-button type="primary" @click="goToForgotPassword">重新申请重置</el-button>
+        <el-button type="primary" @click="goToForgotPassword">{{ t('auth.reapplyReset') }}</el-button>
       </div>
 
       <!-- 重置密码表单 -->
       <div v-else-if="!resetSuccess" class="reset-form">
-        <h2>重置密码</h2>
-        <p class="subtitle">请设置您的新密码</p>
+        <h2>{{ t('auth.resetPassword') }}</h2>
+        <p class="subtitle">{{ t('auth.setNewPasswordDesc') }}</p>
 
         <el-form
           ref="formRef"
@@ -31,20 +31,20 @@
           label-position="top"
           @keyup.enter="handleSubmit"
         >
-          <el-form-item label="新密码" prop="password">
+          <el-form-item :label="t('auth.newPassword')" prop="password">
             <el-input
               v-model="form.password"
               type="password"
-              placeholder="请输入新密码"
+              :placeholder="t('auth.newPasswordPlaceholder')"
               show-password
             />
           </el-form-item>
 
-          <el-form-item label="确认密码" prop="confirmPassword">
+          <el-form-item :label="t('auth.confirmPassword')" prop="confirmPassword">
             <el-input
               v-model="form.confirmPassword"
               type="password"
-              placeholder="请再次输入新密码"
+              :placeholder="t('auth.resetConfirmPasswordPlaceholder')"
               show-password
             />
           </el-form-item>
@@ -56,7 +56,7 @@
               @click="handleSubmit"
               style="width: 100%"
             >
-              重置密码
+              {{ t('auth.resetPassword') }}
             </el-button>
           </el-form-item>
         </el-form>
@@ -65,9 +65,9 @@
       <!-- 重置成功 -->
       <div v-else class="status-box success">
         <el-icon class="icon" :size="48" color="#67c23a"><CircleCheck /></el-icon>
-        <h2>密码重置成功</h2>
-        <p>您的密码已成功重置，请使用新密码登录。</p>
-        <el-button type="primary" @click="goToLogin">前往登录</el-button>
+        <h2>{{ t('auth.resetSuccess') }}</h2>
+        <p>{{ t('auth.resetSuccessDesc') }}</p>
+        <el-button type="primary" @click="goToLogin">{{ t('auth.goToLogin') }}</el-button>
       </div>
     </div>
   </div>
@@ -76,6 +76,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Loading, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -84,13 +85,14 @@ import { validatePasswordStrength, getPasswordMinLength } from '@/utils/security
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const formRef = ref<FormInstance>()
 const validating = ref(true)
 const tokenValid = ref(false)
 const resetSuccess = ref(false)
 const submitting = ref(false)
-const errorMessage = ref('链接无效或已过期')
+const errorMessage = ref(t('auth.resetLinkInvalid'))
 const token = ref('')
 const passwordMinLength = ref(8)
 
@@ -101,7 +103,7 @@ const form = reactive({
 
 const validateConfirmPassword = (_rule: any, value: string, callback: Function) => {
   if (value !== form.password) {
-    callback(new Error('两次输入的密码不一致'))
+    callback(new Error(t('auth.passwordMismatch')))
   } else {
     callback()
   }
@@ -118,11 +120,11 @@ const validatePassword = async (_rule: any, value: string, callback: Function) =
 
 const rules: FormRules = {
   password: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { required: true, message: t('auth.newPasswordRequired'), trigger: 'blur' },
     { validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
+    { required: true, message: t('auth.confirmPasswordRequired'), trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ]
 }
@@ -143,7 +145,7 @@ const validateToken = async () => {
   if (!token.value) {
     validating.value = false
     tokenValid.value = false
-    errorMessage.value = '无效的重置链接'
+    errorMessage.value = t('auth.invalidResetLink')
     return
   }
 
@@ -169,15 +171,15 @@ const handleSubmit = async () => {
 
       if (response.success) {
         resetSuccess.value = true
-        ElMessage.success('密码重置成功')
+        ElMessage.success(t('auth.resetSuccess'))
       }
     } catch (error: any) {
-      const message = error?.response?.data?.message || '重置失败'
+      const message = error?.response?.data?.message || t('auth.resetFailed')
       const errorCode = error?.response?.data?.error
 
       if (errorCode === 'invalid_token' || errorCode === 'token_expired') {
         tokenValid.value = false
-        errorMessage.value = '重置链接已过期，请重新申请'
+        errorMessage.value = t('auth.resetLinkExpired')
       } else {
         ElMessage.error(message)
       }

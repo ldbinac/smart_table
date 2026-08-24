@@ -4,6 +4,7 @@ import { generateId } from "../../utils/id";
 import type { CellValue, FieldOptions } from "../../types";
 import { fieldApiService } from "@/services/api/fieldApiService";
 import { normalizeFieldType, denormalizeFieldType } from "@/types/fields";
+import { t } from "@/i18n";
 
 // 内存缓存：防止短时间内重复请求
 const fieldsCache = new Map<string, { data: FieldEntity[]; timestamp: number }>();
@@ -133,7 +134,7 @@ export class FieldService {
 
       // 如果本地缓存也为空，抛出错误
       if (fields.length === 0) {
-        throw new Error('无法获取字段数据，请检查网络连接后重试');
+        throw new Error(t('field.fetchDataFailed'));
       }
 
       return fields;
@@ -400,7 +401,7 @@ export class FieldService {
     const inverseField: FieldEntity = {
       id: config.inverseFieldId,
       tableId: config.linkedTableId,
-      name: `${sourceTable.name}关联`,
+      name: t('field.fromCurrentTable', { name: sourceTable.name }),
       type: "link",
       options: {
         linkedTableId: sourceField.tableId,

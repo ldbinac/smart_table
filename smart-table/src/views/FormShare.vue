@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { ElMessage, ElLoading } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
@@ -8,15 +9,24 @@ import {
   formShareApi,
   type FormFieldSchema,
 } from "@/api/formShare";
+import { useAuthStore } from "@/stores/authStore";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
+import type { FieldOptions } from "@/types/fields";
 import { Search as SearchIcon } from '@element-plus/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
+import { FormulaEngine } from "@/utils/formula";
+import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
+import { stripHtml } from "@/utils/helpers";
+import type { RecordEntity } from "@/db/schema";
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
+const authStore = useAuthStore();
 
 // 加载状态
 const isLoading = ref(true);
@@ -87,10 +97,10 @@ function getDebouncedSearch(fieldId: string): (query: string) => void {
 
 // 表单配置
 const formConfig = ref({
-  title: "数据收集表单",
+  title: t("view.formDefaultTitle"),
   description: "",
-  submitButtonText: "提交",
-  successMessage: "提交成功，感谢您的参与！",
+  submitButtonText: t("view.formSubmit"),
+  successMessage: t("view.formSuccessMessage"),
   requireCaptcha: false,
 });
 
@@ -115,7 +125,7 @@ onMounted(async () => {
   const token = route.params.token as string;
 
   if (!token) {
-    loadError.value = "无效的表单链接";
+    loadError.value = t("view.formInvalidLink");
     isLoading.value = false;
     return;
   }
@@ -126,7 +136,7 @@ onMounted(async () => {
     await loadFormData(token);
   } catch (error) {
     console.error("加载表单失败:", error);
-    loadError.value = "表单加载失败，请检查链接是否有效";
+    loadError.value = t("view.formLoadFailedRetry");
   } finally {
     isLoading.value = false;
   }
@@ -142,7 +152,16 @@ async function loadFormData(token: string) {
     console.log("[FormShare] Form validation:", validation);
 
     if (!validation.valid) {
-      loadError.value = "该表单分享已失效或已过期";
+      loadError.value = t("view.formShareInvalidOrExpired");
+      return;
+    }
+
+    // 未开启匿名提交且用户未登录时，先跳转登录页（登录后跳回本表单）
+    if (!validation.allow_anonymous && !authStore.isAuthenticated) {
+      router.replace({
+        path: "/login",
+        query: { redirect: route.fullPath },
+      });
       return;
     }
 
@@ -156,10 +175,10 @@ async function loadFormData(token: string) {
 
     // 加载表单配置
     formConfig.value = {
-      title: schema.form_title || "数据收集表单",
+      title: schema.form_title || t("view.formDefaultTitle"),
       description: schema.form_description || "",
-      submitButtonText: schema.submit_button_text || "提交",
-      successMessage: schema.success_message || "提交成功，感谢您的参与！",
+      submitButtonText: schema.submit_button_text || t("view.formSubmit"),
+      successMessage: schema.success_message || t("view.formSuccessMessage"),
       requireCaptcha: schema.require_captcha || false,
     };
 
@@ -173,11 +192,11 @@ async function loadFormData(token: string) {
   } catch (error: any) {
     console.error("[FormShare] Error loading form data:", error);
     if (error.response?.status === 404) {
-      loadError.value = "表单分享不存在";
+      loadError.value = t("view.formShareNotFound");
     } else if (error.response?.status === 403) {
-      loadError.value = "该表单分享已失效、已过期或已达到提交次数上限";
+      loadError.value = t("view.formShareReachedLimit");
     } else {
-      loadError.value = "表单加载失败，请稍后重试";
+      loadError.value = t("view.formLoadFailedRetry");
     }
     throw error;
   }
@@ -192,7 +211,7 @@ async function refreshCaptcha() {
     captchaImage.value = result.image;
   } catch (error) {
     console.error("[FormShare] 获取验证码失败:", error);
-    ElMessage.error("获取验证码失败，请刷新重试");
+    ElMessage.error(t("view.captchaFetchFailed"));
   }
 }
 
@@ -205,7 +224,7 @@ function validateField(
     field.required &&
     (value === null || value === undefined || value === "" || value === false)
   ) {
-    return `${field.name}为必填项`;
+    return t("view.formIsRequired", { name: field.name });
   }
 
   if (value === null || value === undefined || value === "") {
@@ -221,7 +240,7 @@ function validateField(
         if (!regex.test(String(value))) {
           return (
             (field.config?.regexMessage as string | undefined) ||
-            `${field.name} 格式不正确`
+            t("view.formFormatInvalid", { name: field.name })
           );
         }
       } catch {
@@ -233,19 +252,19 @@ function validateField(
   switch (field.type) {
     case FieldType.EMAIL:
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {
-        return "请输入有效的邮箱地址";
+        return t("view.formInvalidEmail");
       }
       break;
     case FieldType.PHONE:
       if (!/^1[3-9]\d{9}$/.test(String(value))) {
-        return "请输入有效的手机号码";
+        return t("view.formInvalidPhone");
       }
       break;
     case FieldType.URL:
       try {
         new URL(String(value));
       } catch {
-        return "请输入有效的URL";
+        return t("view.formInvalidUrl");
       }
       break;
     case FieldType.NUMBER:
@@ -256,21 +275,82 @@ function validateField(
         const numValue = Number(value);
         const config = field.config || {};
         if (config.min !== undefined && numValue < Number(config.min)) {
-          return `${field.name}不能小于${config.min}`;
+          return t("view.formCannotLessThan", {
+            name: field.name,
+            min: String(config.min),
+          });
         }
         if (config.max !== undefined && numValue > Number(config.max)) {
-          return `${field.name}不能大于${config.max}`;
+          return t("view.formCannotGreaterThan", {
+            name: field.name,
+            max: String(config.max),
+          });
         }
       }
       break;
+    case FieldType.SINGLE_LINE_TEXT:
     case FieldType.LONG_TEXT:
-      // 多行文本长度验证
-      const strValue = String(value);
-      const maxLength = field.config?.maxLength as number | undefined;
-  if (maxLength && strValue.length > maxLength) {
-        return `${field.name}不能超过${maxLength}个字符`;
+    case FieldType.RICH_TEXT:
+    case FieldType.MULTI_SELECT: {
+      // 文本类字段长度校验（多行/富文本/多选合并到此处统一处理）
+      const config = field.config || {};
+      if (
+        field.type === FieldType.MULTI_SELECT &&
+        Array.isArray(value)
+      ) {
+        const minLength = config.minLength as number | undefined;
+        if (minLength !== undefined && value.length < Number(minLength)) {
+          return t("view.formAtLeastItems", {
+            name: field.name,
+            count: minLength,
+          });
+        }
+        const maxLength = config.maxLength as number | undefined;
+        if (maxLength !== undefined && value.length > Number(maxLength)) {
+          return t("view.formAtMostItems", {
+            name: field.name,
+            count: maxLength,
+          });
+        }
+        break;
+      }
+      // 富文本存储的是 HTML，需按纯文本长度进行字数限制校验，
+      // 否则带样式标签时 HTML 字符数会远多于可见文字数，导致提前超限。
+      const strValue =
+        field.type === FieldType.RICH_TEXT
+          ? stripHtml(String(value))
+          : String(value);
+      const minLength = config.minLength as number | undefined;
+      if (minLength !== undefined && strValue.length < Number(minLength)) {
+        return t("view.formAtLeastChars", {
+          name: field.name,
+          count: minLength,
+        });
+      }
+      const maxLength = config.maxLength as number | undefined;
+      if (maxLength !== undefined && strValue.length > Number(maxLength)) {
+        return t("view.formAtMostChars", {
+          name: field.name,
+          count: maxLength,
+        });
       }
       break;
+    }
+  }
+
+  // 自定义验证规则（与表单视图一致，支持 options.validation.pattern）
+  const validation = field.config?.validation as
+    | { pattern?: string; message?: string }
+    | undefined;
+  if (validation?.pattern) {
+    try {
+      const pattern = new RegExp(validation.pattern);
+      if (!pattern.test(String(value))) {
+        return validation.message || t("view.formFormatInvalid", { name: field.name });
+      }
+    } catch {
+      // 非法正则，放行
+    }
   }
 
   return null;
@@ -309,21 +389,33 @@ async function handleSubmit() {
   }
 
   if (!shareToken.value) {
-    ElMessage.error("表单配置错误");
+    ElMessage.error(t("view.formConfigError"));
     return;
   }
 
   // 验证验证码
   if (formConfig.value.requireCaptcha && !captchaCode.value) {
-    ElMessage.error("请输入验证码");
+    ElMessage.error(t("view.formEnterCaptcha"));
     return;
   }
 
   isSubmitting.value = true;
 
   try {
+    // 公式字段为只读自动计算，不纳入提交数据
+    const formulaFieldIds = new Set(
+      fields.value
+        .filter((f) => getFieldType(f) === FieldType.FORMULA)
+        .map((f) => f.id)
+    );
+    const submitValues: Record<string, CellValue> = {};
+    for (const [fieldId, val] of Object.entries(formValues.value)) {
+      if (formulaFieldIds.has(fieldId)) continue;
+      submitValues[fieldId] = val as CellValue;
+    }
+
     const submitData: any = {
-      values: { ...formValues.value },
+      values: submitValues,
     };
 
     // 如果需要验证码，添加验证码
@@ -346,13 +438,13 @@ async function handleSubmit() {
       });
       // 显示详细的验证错误信息
       const errorMessages = Object.values(details).join("；");
-      ElMessage.error(errorMessages || "表单数据验证失败，请检查填写内容");
+      ElMessage.error(errorMessages || t("view.formDataValidationFailed"));
     } else {
       // 兼容没有 details 的情况：后端错误统一放在 error 字段，部分接口用 message 字段
       const errorMessage =
         error.response?.data?.error ||
         error.response?.data?.message ||
-        "提交失败，请稍后重试";
+        t("view.submitFailedRetry");
       ElMessage.error(errorMessage);
     }
 
@@ -388,11 +480,11 @@ function resetForm() {
     ) {
       // 特殊处理日期字段的动态默认值 'now'
       if ((field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) && defaultValue === "now") {
-        const isDateTime = field.type === FieldType.DATE_TIME;
-        if (isDateTime) {
+        if (field.type === FieldType.DATE_TIME) {
           formValues.value[field.id] = new Date().toISOString();
         } else {
-          formValues.value[field.id] = new Date().toISOString().split("T")[0];
+          const fmt = (field.config?.dateFormat as string) || "YYYY-MM-DD";
+          formValues.value[field.id] = dayjs().format(fmt);
         }
       } else if (
         field.type === FieldType.MULTI_SELECT &&
@@ -474,6 +566,8 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "datetime";
     case FieldType.CHECKBOX:
       return "checkbox";
+    case FieldType.FORMULA:
+      return "formula";
     case FieldType.ATTACHMENT:
       return "attachment";
     case FieldType.COLLABORATOR:
@@ -515,10 +609,7 @@ function getSelectOptions(field: FormFieldSchema) {
   }));
 }
 
-// 获取数值字段精度
-function getNumberPrecision(field: FormFieldSchema): number {
-  return (field.config?.precision as number) ?? 0;
-}
+
 
 // 获取评分最大值
 function getMaxRating(field: FormFieldSchema): number {
@@ -526,39 +617,6 @@ function getMaxRating(field: FormFieldSchema): number {
     (field.config?.maxRating as number) ??
     5
   );
-}
-
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FormFieldSchema): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FormFieldSchema): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FormFieldSchema): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
-
-// 处理日期变更
-function handleDateChange(fieldId: string, val: Date | null) {
-  if (!val) {
-    handleFieldChange(fieldId, null);
-    return;
-  }
-
-  const field = fields.value.find((f) => f.id === fieldId);
-  if (!field) return;
-
-  const showTime = getDateShowTime(field);
-  if (showTime) {
-    handleFieldChange(fieldId, val.getTime());
-  } else {
-    handleFieldChange(fieldId, dayjs(val).format("YYYY-MM-DD"));
-  }
 }
 
 // 获取进度最大值
@@ -575,24 +633,65 @@ function getProgressMin(field: FormFieldSchema): number {
 function getFieldType(field: FormFieldSchema): FieldTypeValue {
   return field.type as FieldTypeValue;
 }
+
+// 计算公式字段值（参照表单视图逻辑）
+function calculateFormulaValue(field: FormFieldSchema): string {
+  const config = field.config || {};
+  const formula = config.formula as string | undefined;
+  if (!formula) return "";
+
+  try {
+    const engine = new FormulaEngine(fields.value as unknown as FieldEntity[]);
+    // 构建当前记录对象，公式引擎按字段 id 读取表单值
+    const record: RecordEntity = {
+      id: "temp",
+      tableId: "",
+      values: formValues.value as Record<string, CellValue>,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const result = engine.calculate(record, formula);
+
+    if (result === "#ERROR") {
+      return t("view.calcError");
+    }
+
+    // 数字格式化：沿用数值字段的展示格式（精度/前后缀/千分位）
+    if (typeof result === "number" && !isNaN(result)) {
+      return formatNumberField(result, {
+        precision: (config.precision as number) ?? 2,
+        format: (config.format as "number" | "currency" | "percent") ?? "number",
+        currencySymbol: config.currencySymbol as string | undefined,
+        prefix: config.prefix as string | undefined,
+        suffix: config.suffix as string | undefined,
+        thousandsSeparator: config.thousandsSeparator as boolean | undefined,
+      });
+    }
+
+    return String(result);
+  } catch (error) {
+    console.error("FormShare formula calculation error:", error);
+    return t("view.calcError");
+  }
+}
 </script>
 
 <template>
   <div class="form-share-page">
     <!-- 加载状态 -->
     <div v-if="isLoading" class="loading-container">
-      <el-loading :visible="true" text="加载中..." />
+      <el-loading :visible="true" :text="t('common.loading')" />
     </div>
 
     <!-- 错误状态 -->
     <el-result
       v-else-if="loadError"
       icon="error"
-      title="无法加载表单"
+      :title="t('view.cannotLoadForm')"
       :sub-title="loadError">
       <template #extra>
-        <el-button @click="goHome">返回首页</el-button>
-        <el-button type="primary" @click="reload">重新加载</el-button>
+        <el-button @click="goHome">{{ t("view.backToHome") }}</el-button>
+        <el-button type="primary" @click="reload">{{ t("view.base.reload") }}</el-button>
       </template>
     </el-result>
 
@@ -600,11 +699,11 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
     <el-result
       v-else-if="submitSuccess"
       icon="success"
-      title="提交成功"
+      :title="t('view.formSubmitSuccess')"
       :sub-title="formConfig.successMessage">
       <template #extra>
-        <el-button type="primary" @click="resetForm">继续填写</el-button>
-        <el-button @click="goHome">返回首页</el-button>
+        <el-button type="primary" @click="resetForm">{{ t("view.formContinue") }}</el-button>
+        <el-button @click="goHome">{{ t("view.backToHome") }}</el-button>
       </template>
     </el-result>
 
@@ -641,28 +740,28 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
               <el-input
                 v-if="getFieldType(field) === FieldType.SINGLE_LINE_TEXT"
                 :model-value="String(formValues[field.id] || '')"
-                :placeholder="`请输入${field.name}`"
+                :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :maxlength="(field.config?.maxLength as number | undefined)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 邮箱 -->
               <el-input
                 v-else-if="getFieldType(field) === FieldType.EMAIL"
                 :model-value="String(formValues[field.id] || '')"
-                placeholder="请输入邮箱地址"
+                :placeholder="t('view.formEmailPlaceholder')"
                 type="email"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 电话 -->
               <el-input
                 v-else-if="getFieldType(field) === FieldType.PHONE"
                 :model-value="String(formValues[field.id] || '')"
-                placeholder="请输入手机号码"
+                :placeholder="t('view.formPhonePlaceholder')"
                 type="tel"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 链接 -->
               <el-input
                 v-else-if="getFieldType(field) === FieldType.URL"
                 :model-value="String(formValues[field.id] || '')"
-                placeholder="请输入链接地址"
+                :placeholder="t('view.formUrlPlaceholder')"
                 type="url"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 多行文本 -->
@@ -671,7 +770,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 class="textarea-wrapper">
                 <el-input
                   :model-value="String(formValues[field.id] || '')"
-                  :placeholder="`请输入${field.name}`"
+                  :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                   :maxlength="(field.config?.maxLength as number | undefined)"
                   type="textarea"
                   :rows="4"
@@ -697,7 +796,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
               <RichTextField
                 v-else-if="getFieldType(field) === FieldType.RICH_TEXT"
                 :model-value="(formValues[field.id] as string) || null"
-                :placeholder="`请输入${field.name}`"
+                :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :max-length="(field.config?.maxLength as number | undefined)"
                 class="form-rich-text"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
@@ -707,8 +806,9 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
             <template v-else-if="getFieldComponentType(field) === 'number'">
               <el-input-number
                 :model-value="Number(formValues[field.id] || 0)"
-                :placeholder="`请输入${field.name}`"
-                :precision="getNumberPrecision(field)"
+                :placeholder="t('view.formInputPlaceholder', { name: field.name })"
+                :formatter="createNumberInputFormatter(field.config)"
+                :parser="createNumberInputParser(field.config)"
                 :min="
                   field.config?.min !== undefined
                     ? Number(field.config.min)
@@ -722,7 +822,10 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 style="width: 100%"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val as CellValue)
-                " />
+                ">
+                  <template #prefix v-if="getNumberFieldPrefix(field.config)">{{ getNumberFieldPrefix(field.config) }}</template>
+                  <template #suffix v-if="getNumberFieldSuffix(field.config)">{{ getNumberFieldSuffix(field.config) }}</template>
+                </el-input-number>
             </template>
 
             <!-- 评分类型 -->
@@ -740,7 +843,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
               v-else-if="getFieldComponentType(field) === 'single_select'">
               <el-select
                 :model-value="formValues[field.id] as string | undefined"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
                 clearable
                 @update:model-value="(val) => handleFieldChange(field.id, val)">
@@ -762,7 +865,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
               v-else-if="getFieldComponentType(field) === 'multi_select'">
               <el-select
                 :model-value="(formValues[field.id] as string[]) || []"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
                 multiple
                 clearable
@@ -782,33 +885,22 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
 
             <!-- 日期类型 -->
             <template v-else-if="getFieldComponentType(field) === 'date'">
-              <el-date-picker
-                :model-value="
-                  formValues[field.id] as unknown as Date | undefined
-                "
-                :type="getDatePickerType(field)"
-                :placeholder="`请选择${field.name}`"
-                :format="getDateFormat(field)"
+              <DateInput
+                :field="{ type: field.type, options: field.config as FieldOptions }"
+                :model-value="formValues[field.id]"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
-                @update:model-value="
-                  (val) => handleDateChange(field.id, val as Date | null)
-                " />
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 日期时间类型 -->
             <template v-else-if="getFieldComponentType(field) === 'datetime'">
-              <el-date-picker
-                :model-value="
-                  formValues[field.id] as unknown as Date | undefined
-                "
-                type="datetime"
-                :placeholder="`请选择${field.name}`"
-                format="YYYY-MM-DD HH:mm:ss"
+              <DateInput
+                :field="{ type: field.type, options: field.config as FieldOptions }"
+                :model-value="formValues[field.id]"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
-                @update:model-value="
-                  (val) =>
-                    handleFieldChange(field.id, val ? val.toISOString() : null)
-                " />
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 复选框类型 -->
@@ -818,6 +910,20 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val)
                 " />
+            </template>
+
+            <!-- 公式类型（只读，实时计算结果） -->
+            <template v-else-if="getFieldComponentType(field) === 'formula'">
+              <div class="formula-field-display">
+                <el-input
+                  :model-value="calculateFormulaValue(field)"
+                  readonly
+                  class="formula-input"
+                  :placeholder="t('view.formFormulaPlaceholder')" />
+                <div v-if="field.config?.formula" class="formula-hint">
+                  {{ t("view.formFormula", { formula: field.config.formula }) }}
+                </div>
+              </div>
             </template>
 
             <!-- 进度类型 -->
@@ -839,7 +945,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
             <template v-else-if="getFieldComponentType(field) === 'collaborator' || getFieldComponentType(field) === 'member'">
               <el-select
                 :model-value="(formValues[field.id] as string | string[] | null)"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 filterable
                 remote
                 reserve-keyword
@@ -874,7 +980,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 <template #empty>
                   <div style="padding: 20px 16px; text-align: center; color: #909399;">
                     <el-icon :size="24" style="color: #c0c4cc;"><SearchIcon /></el-icon>
-                    <p style="margin: 10px 0 0 0; font-size: 13px;">请输入关键词搜索成员</p>
+                    <p style="margin: 10px 0 0 0; font-size: 13px;">{{ t("view.formSearchMemberHint") }}</p>
                   </div>
                 </template>
               </el-select>
@@ -886,6 +992,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 :model-value="formValues[field.id]"
                 :field="field as unknown as FieldEntity"
                 :record-id="newRecordId"
+                :form-share-token="shareToken"
                 :readonly="false"
                 @update:model-value="(val) => handleFieldChange(field.id, val)"
                 @upload="(files) => handleAttachmentUpload(field.id, files)"
@@ -898,7 +1005,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
             <template v-else-if="getFieldComponentType(field) === 'auto_number'">
               <div class="auto-number-display">
                 <span class="auto-number-value">{{ formValues[field.id] || '-' }}</span>
-                <span v-if="!formValues[field.id]" class="auto-number-hint">提交后自动生成</span>
+                <span v-if="!formValues[field.id]" class="auto-number-hint">{{ t("view.formAutoGenerate") }}</span>
               </div>
             </template>
 
@@ -907,7 +1014,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
             <template v-else-if="getFieldComponentType(field) === 'member'">
               <el-select
                 :model-value="(formValues[field.id] as string | string[] | null)"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 filterable
                 remote
                 reserve-keyword
@@ -941,7 +1048,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
                 <template #empty>
                   <div style="padding: 10px; text-align: center; color: #909399;">
                     <el-icon><SearchIcon /></el-icon>
-                    <p style="margin: 8px 0 0 0; font-size: 13px;">请输入关键词搜索成员</p>
+                    <p style="margin: 8px 0 0 0; font-size: 13px;">{{ t("view.formSearchMemberHint") }}</p>
                   </div>
                 </template>
               </el-select>
@@ -950,7 +1057,7 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
             <!-- 不支持的字段类型 -->
             <template v-else>
               <el-alert
-                :title="`不支持的字段类型: ${field.type}`"
+                :title="t('view.formUnsupportedFieldType', { type: field.type })"
                 type="warning"
                 :closable="false"
                 show-icon />
@@ -970,28 +1077,28 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
         <!-- 验证码 -->
         <div v-if="formConfig.requireCaptcha" class="form-item captcha-item">
           <label class="form-label">
-            验证码
+            {{ t("view.formEnterCaptcha") }}
             <span class="required-mark">*</span>
           </label>
           <div class="captcha-input-group">
             <el-input
               v-model="captchaCode"
-              placeholder="请输入验证码"
+              :placeholder="t('view.formEnterCaptcha')"
               maxlength="6"
               style="flex: 1" />
             <div class="captcha-image-wrapper" @click="refreshCaptcha">
               <img
                 v-if="captchaImage"
                 :src="captchaImage"
-                alt="验证码"
+                :alt="t('view.formEnterCaptcha')"
                 class="captcha-image" />
               <div v-else class="captcha-placeholder">
                 <el-icon><Refresh /></el-icon>
-                <span>点击刷新</span>
+                <span>{{ t("view.formClickToRefresh") }}</span>
               </div>
             </div>
           </div>
-          <div class="captcha-hint">点击图片刷新验证码</div>
+          <div class="captcha-hint">{{ t("view.formClickImageRefresh") }}</div>
         </div>
 
         <div class="form-actions">

@@ -6,6 +6,7 @@ import { ref, computed } from 'vue';
 import { documentApiService } from '@/services/api/documentApiService';
 import { db } from '@/db/schema';
 import type { Document, DocumentCreateRequest, DocumentUpdateRequest } from '@/types/document';
+import { t } from '@/i18n';
 
 function snakeToCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
@@ -58,7 +59,7 @@ export const useDocumentStore = defineStore('document', () => {
         updatedAt: new Date(doc.updatedAt).getTime()
       })));
     } catch (e) {
-      error.value = e instanceof Error ? e.message : '获取文档失败';
+      error.value = e instanceof Error ? e.message : t('document.loadFailed');
       const cached = await db.documents.where('baseId').equals(baseId).toArray();
       documents.value = cached;
     } finally {

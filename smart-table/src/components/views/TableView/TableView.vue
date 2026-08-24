@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -52,6 +53,8 @@ const emit = defineEmits<{
   (e: "record-delete", recordIds: string[]): void;
   (e: "add-record"): void;
 }>();
+
+const { t } = useI18n();
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
@@ -156,23 +159,23 @@ const contextMenuItems = computed(() => {
   if (contextMenuTarget.value === "row") {
     // 非只读模式下显示编辑、复制和删除选项
     if (!props.readonly) {
-      items.push({ id: "edit", label: "编辑", icon: "edit" });
+      items.push({ id: "edit", label: t("view.edit"), icon: "edit" });
       items.push(
-        { id: "duplicate", label: "复制记录", icon: "copy" },
+        { id: "duplicate", label: t("view.duplicateRecord"), icon: "copy" },
         { divider: true, id: "divider1" },
       );
 
       if (selectedRows.value.length > 1) {
         items.push({
           id: "delete-selected",
-          label: `删除选中的 ${selectedRows.value.length} 条记录`,
+          label: t("view.deleteSelectedRecords", { count: selectedRows.value.length }),
           icon: "delete",
           danger: true,
         });
       } else {
         items.push({
           id: "delete",
-          label: "删除记录",
+          label: t("view.deleteRecord"),
           icon: "delete",
           danger: true,
         });
@@ -182,24 +185,24 @@ const contextMenuItems = computed(() => {
     const field = contextMenuField.value;
     if (field) {
       items.push(
-        { id: "sort-asc", label: "升序排列", icon: "sort" },
-        { id: "sort-desc", label: "降序排列", icon: "sort" },
+        { id: "sort-asc", label: t("view.sortAsc"), icon: "sort" },
+        { id: "sort-desc", label: t("view.sortDesc"), icon: "sort" },
         { divider: true, id: "divider1" },
       );
 
       const isFrozen = frozenFields.value.some((f) => f.id === field.id);
       if (isFrozen) {
-        items.push({ id: "unfreeze", label: "取消冻结", icon: "freeze" });
+        items.push({ id: "unfreeze", label: t("view.unfreezeColumn"), icon: "freeze" });
       } else {
-        items.push({ id: "freeze", label: "冻结列", icon: "freeze" });
+        items.push({ id: "freeze", label: t("view.freezeColumn"), icon: "freeze" });
       }
 
       // 隐藏字段和编辑字段属性需要 ADMIN 权限
       if (canManage.value) {
         items.push(
           { divider: true, id: "divider2" },
-          { id: "hide-field", label: "隐藏字段", icon: "hide" },
-          { id: "edit-field", label: "编辑字段属性", icon: "settings" },
+          { id: "hide-field", label: t("view.hideField"), icon: "hide" },
+          { id: "edit-field", label: t("view.editFieldProps"), icon: "settings" },
         );
       }
     }
@@ -216,7 +219,7 @@ const handleCellUpdate = async (
   // 1. 检查必填字段
   const field = fields.value.find((f) => f.id === fieldId);
   if (field && isFieldRequired(field) && isValueEmpty(value)) {
-    ElMessage.error(`请填写必填字段：${field.name}`);
+    ElMessage.error(t("view.formRequiredField", { name: field.name }));
     editingCell.value = null;
     return;
   }
@@ -258,7 +261,7 @@ const handleCellUpdate = async (
       return;
     } catch (error) {
       console.error("更新关联字段失败:", error);
-      ElMessage.error("更新关联字段失败");
+      ElMessage.error(t("view.linkFieldUpdateFailed"));
       editingCell.value = null;
       return;
     }
@@ -351,12 +354,12 @@ const handleRecordSave = async (
     });
     // 重新加载记录列表
     await tableStore.refreshRecords(tableStore.currentTable?.id || "");
-    ElMessage.success("保存成功");
+    ElMessage.success(t("view.saveSuccess"));
     expandDialogVisible.value = false;
     expandedRecord.value = null;
   } catch (error) {
     console.error("Error saving record-tv:", error);
-    ElMessage.error("保存失败");
+    ElMessage.error(t("view.saveFailed"));
   }
 };
 
@@ -406,11 +409,11 @@ const handleContextMenuSelect = async (item: any) => {
       if (contextMenuRecord.value) {
         try {
           await ElMessageBox.confirm(
-            "确定要删除这条记录吗？此操作不可恢复。",
-            "删除确认",
+            t("view.deleteRecordConfirm"),
+            t("view.deleteRecordTitle"),
             {
-              confirmButtonText: "确定删除",
-              cancelButtonText: "取消",
+              confirmButtonText: t("view.confirmDelete"),
+              cancelButtonText: t("view.cancel"),
               type: "warning",
               confirmButtonClass: "el-button--danger",
             },
@@ -418,11 +421,11 @@ const handleContextMenuSelect = async (item: any) => {
           await tableStore.deleteRecord(contextMenuRecord.value.id);
           selectedRows.value = [];
           emit("record-delete", [contextMenuRecord.value.id]);
-          ElMessage.success("记录删除成功");
+          ElMessage.success(t("view.recordDeleted"));
         } catch (error: any) {
           if (error !== "cancel") {
             console.error("删除记录失败:", error);
-            ElMessage.error("删除记录失败");
+            ElMessage.error(t("view.deleteFailed"));
           }
         }
       }
@@ -431,11 +434,11 @@ const handleContextMenuSelect = async (item: any) => {
     case "delete-selected":
       try {
         await ElMessageBox.confirm(
-          `确定要删除选中的 ${selectedRows.value.length} 条记录吗？此操作不可恢复。`,
-          "批量删除确认",
+          t("view.deleteSelectedConfirm", { count: selectedRows.value.length }),
+          t("view.deleteSelectedTitle"),
           {
-            confirmButtonText: "确定删除",
-            cancelButtonText: "取消",
+            confirmButtonText: t("view.confirmDelete"),
+            cancelButtonText: t("view.cancel"),
             type: "warning",
             confirmButtonClass: "el-button--danger",
           },
@@ -445,14 +448,14 @@ const handleContextMenuSelect = async (item: any) => {
           await tableStore.batchDeleteRecords(selectedRows.value);
           emit("record-delete", [...selectedRows.value]);
           selectedRows.value = [];
-          ElMessage.success("记录删除成功");
+          ElMessage.success(t("view.recordDeleted"));
         } finally {
           deleteLoading.value = false;
         }
       } catch (error: any) {
         if (error !== "cancel") {
           console.error("删除记录失败:", error);
-          ElMessage.error("删除记录失败");
+          ElMessage.error(t("view.deleteFailed"));
         }
       }
       break;
@@ -462,7 +465,7 @@ const handleContextMenuSelect = async (item: any) => {
         await viewStore.updateSorts(currentView.value.id, [
           { fieldId: contextMenuField.value.id, direction: "asc" },
         ]);
-        ElMessage.success(`已按 ${contextMenuField.value.name} 升序排列`);
+        ElMessage.success(t("view.sortedAsc", { name: contextMenuField.value.name }));
       }
       break;
 
@@ -471,7 +474,7 @@ const handleContextMenuSelect = async (item: any) => {
         await viewStore.updateSorts(currentView.value.id, [
           { fieldId: contextMenuField.value.id, direction: "desc" },
         ]);
-        ElMessage.success(`已按 ${contextMenuField.value.name} 降序排列`);
+        ElMessage.success(t("view.sortedDesc", { name: contextMenuField.value.name }));
       }
       break;
 
@@ -482,7 +485,7 @@ const handleContextMenuSelect = async (item: any) => {
           contextMenuField.value.id,
         ];
         await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
-        ElMessage.success(`已冻结列：${contextMenuField.value.name}`);
+        ElMessage.success(t('view.freezeColumnSuccess', { name: contextMenuField.value.name }));
       }
       break;
 
@@ -492,7 +495,7 @@ const handleContextMenuSelect = async (item: any) => {
           (fid) => fid !== contextMenuField.value!.id,
         );
         await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
-        ElMessage.success(`已取消冻结列：${contextMenuField.value.name}`);
+        ElMessage.success(t("view.columnUnfrozen", { name: contextMenuField.value.name }));
       }
       break;
 
@@ -503,7 +506,7 @@ const handleContextMenuSelect = async (item: any) => {
           currentView.value.hiddenFields.includes(contextMenuField.value.id)
         ) {
           ElMessage.warning(
-            `字段 "${contextMenuField.value.name}" 已经是隐藏状态`,
+            t("view.fieldAlreadyHidden", { name: contextMenuField.value.name }),
           );
           break;
         }
@@ -512,7 +515,7 @@ const handleContextMenuSelect = async (item: any) => {
           contextMenuField.value.id,
         ];
         await viewStore.updateHiddenFields(currentView.value.id, newHidden);
-        ElMessage.success(`已隐藏字段：${contextMenuField.value.name}`);
+        ElMessage.success(t("view.fieldHidden", { name: contextMenuField.value.name }));
       }
       break;
 
@@ -608,11 +611,11 @@ const handleKeyDown = async (event: KeyboardEvent) => {
         event.preventDefault();
         try {
           await ElMessageBox.confirm(
-            `确定要删除选中的 ${selectedRows.value.length} 条记录吗？此操作不可恢复。`,
-            "批量删除确认",
+            t("view.deleteSelectedConfirm", { count: selectedRows.value.length }),
+            t("view.deleteSelectedTitle"),
             {
-              confirmButtonText: "确定删除",
-              cancelButtonText: "取消",
+              confirmButtonText: t("view.confirmDelete"),
+              cancelButtonText: t("view.cancel"),
               type: "warning",
               confirmButtonClass: "el-button--danger",
             },
@@ -622,14 +625,14 @@ const handleKeyDown = async (event: KeyboardEvent) => {
             await tableStore.batchDeleteRecords(selectedRows.value);
             emit("record-delete", [...selectedRows.value]);
             selectedRows.value = [];
-            ElMessage.success("记录删除成功");
+            ElMessage.success(t("view.recordDeleted"));
           } finally {
             deleteLoading.value = false;
           }
         } catch (error: any) {
           if (error !== "cancel") {
             console.error("删除记录失败:", error);
-            ElMessage.error("删除记录失败");
+            ElMessage.error(t("view.deleteFailed"));
           }
         }
       }
@@ -709,7 +712,7 @@ const handleFieldUpdated = async (_updatedField: FieldEntity) => {
   if (tableStore.currentTable) {
     await tableStore.loadTables(tableStore.currentTable.baseId);
   }
-  ElMessage.success("字段更新成功");
+  ElMessage.success(t("view.fieldUpdated"));
 };
 
 // 字段删除后的处理
@@ -721,7 +724,7 @@ const handleFieldDeleted = async (fieldId: string) => {
   if (editingCell.value?.fieldId === fieldId) {
     editingCell.value = null;
   }
-  ElMessage.success("字段删除成功");
+  ElMessage.success(t("view.fieldDeleted"));
 };
 
 // 字段可见性变化处理（视图级隐藏/显示）
@@ -747,7 +750,7 @@ const handleFieldVisibilityChanged = async (
     await viewStore.updateHiddenFields(currentView.value.id, newHiddenFields);
     // 注意：不需要调用 loadTable，因为 visibleFields 计算属性会自动响应 currentView 的变化
   } catch (error) {
-    ElMessage.error("更新字段可见性失败");
+    ElMessage.error(t("view.updateVisibilityFailed"));
   }
 };
 
@@ -905,7 +908,7 @@ defineExpose({
               class="expand-btn"
               :class="{ 'is-visible': selectedRows.includes(record.id) }"
               @click.stop="handleExpandRecord(record)"
-              title="查看/编辑记录">
+              :title="t('view.viewEditRecord')">
               <ElIcon><ZoomIn /></ElIcon>
             </button>
             <span class="row-number">{{ index + 1 }}</span>
@@ -955,13 +958,13 @@ defineExpose({
 
         <div v-if="!readonly" class="add-row-button" @click="addNewRecord">
           <span class="add-icon">+</span>
-          <span>添加记录</span>
+          <span>{{ t("view.addRecord") }}</span>
         </div>
       </div>
     </div>
 
     <div v-else class="empty-state">
-      <p>暂无字段，请先添加字段</p>
+      <p>{{ t('view.noFields') }}</p>
     </div>
 
     <ContextMenu
@@ -1001,7 +1004,7 @@ defineExpose({
     <LoadingOverlay
       :visible="deleteLoading"
       :record-count="selectedRows.length"
-      action-text="删除" />
+      :action-text="t('view.delete')" />
   </div>
 </template>
 

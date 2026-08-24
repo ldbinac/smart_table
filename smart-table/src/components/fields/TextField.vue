@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldOptions } from "@/types/fields";
+
+const { t } = useI18n();
 
 interface Props {
   modelValue: string | null;
@@ -44,7 +47,7 @@ const displayValue = computed(() => {
     <input
       type="text"
       :value="displayValue"
-      :placeholder="placeholder || '请输入' + (field?.name || '文本')"
+      :placeholder="placeholder || t('field.placeholderTextPrefix') + (field?.name || t('field.placeholderTextName'))"
       :maxlength="maxLength"
       :readonly="readonly"
       @input="handleInput"

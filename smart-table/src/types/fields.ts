@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 export const FieldType = {
   SINGLE_LINE_TEXT: "single_line_text",
   LONG_TEXT: "long_text",
@@ -132,8 +134,14 @@ export interface FieldOptions {
   // 通用选项
   maxLength?: number;
   precision?: number;
-  format?: "number" | "currency" | "percent";
+  format?: "number" | "currency" | "percent" | "text";
   currencySymbol?: string;
+  // 自定义前缀文字（货币格式下追加在货币符号之后；百分比格式下显示在 % 之前）
+  prefix?: string;
+  // 自定义后缀文字（百分比格式下追加在 % 之前）
+  suffix?: string;
+  // 千分位分隔符：开启后使用逗号分隔千分位，如 1,234,567.00
+  thousandsSeparator?: boolean;
   includeTime?: boolean;
   defaultValue?: string | number | boolean | string[];
 
@@ -162,10 +170,6 @@ export interface FieldOptions {
   // ==================== 自动编号字段 (Auto Number Field) 选项 ====================
   /** 起始编号 */
   startNumber?: number;
-  /** 编号前缀 */
-  prefix?: string;
-  /** 编号后缀 */
-  suffix?: string;
   /** 编号位数（不足时前面补0） */
   digitLength?: number;
   /** 是否包含日期前缀 */
@@ -251,42 +255,43 @@ export type CellValue =
   | { id: string; url: string; name: string }[];
 
 export function getFieldTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    single_line_text: "单行文本",
-    long_text: "多行文本",
-    rich_text: "富文本",
-    number: "数字",
-    currency: "货币",
-    percent: "百分比",
-    rating: "评分",
-    date: "日期",
-    date_time: "日期时间",
-    duration: "时长",
-    single_select: "单选",
-    multi_select: "多选",
-    checkbox: "复选框",
-    attachment: "附件",
-    member: "成员",
-    collaborator: "协作者",
-    phone: "电话",
-    email: "邮箱",
-    url: "链接",
-    link_to_record: "关联记录",
-    link: "关联",
-    lookup: "查找",
-    rollup: "汇总",
-    formula: "公式",
-    auto_number: "自动编号",
-    barcode: "条形码",
-    button: "按钮",
-    progress: "进度",
-    created_by: "创建人",
-    created_time: "创建时间",
-    updated_by: "修改人",
-    updated_time: "修改时间",
-    last_modified_by: "最后修改人",
-  };
-  return labels[type] || type;
+  const supportedTypes: string[] = [
+    "single_line_text",
+    "long_text",
+    "rich_text",
+    "number",
+    "currency",
+    "percent",
+    "rating",
+    "date",
+    "date_time",
+    "duration",
+    "single_select",
+    "multi_select",
+    "checkbox",
+    "attachment",
+    "member",
+    "collaborator",
+    "phone",
+    "email",
+    "url",
+    "link_to_record",
+    "link",
+    "lookup",
+    "rollup",
+    "formula",
+    "auto_number",
+    "barcode",
+    "button",
+    "progress",
+    "created_by",
+    "created_time",
+    "updated_by",
+    "updated_time",
+    "last_modified_by",
+  ];
+  if (!supportedTypes.includes(type)) return type;
+  return t(`field.type.${type}`);
 }
 
 /**
@@ -296,9 +301,9 @@ export function getFieldTypeLabel(type: string): string {
  */
 function getSpecialFieldHint(type: FieldTypeValue): string {
   const hints: Partial<Record<FieldTypeValue, string>> = {
-    [FieldType.FORMULA]: "需配置公式",
-    [FieldType.LINK]: "需配置关联",
-    [FieldType.LOOKUP]: "需配置查找",
+    [FieldType.FORMULA]: t("field.specialHintFormula"),
+    [FieldType.LINK]: t("field.specialHintLink"),
+    [FieldType.LOOKUP]: t("field.specialHintLookup"),
   };
   return hints[type] || "";
 }
@@ -540,12 +545,12 @@ export const fieldTypeSvgContentMap: Record<string, string> = {
  */
 export function getRelationshipTypeLabel(type: RelationshipType): string {
   const labels: Record<RelationshipType, string> = {
-    one_to_one: "一对一",
-    one_to_many: "一对多",
-    many_to_one: "多对一",
-    many_to_many: "多对多",
+    one_to_one: t("field.oneToOne"),
+    one_to_many: t("field.oneToMany"),
+    many_to_one: t("field.manyToOne"),
+    many_to_many: t("field.manyToMany"),
   };
-  return labels[type] || type;
+  return labels[type] || t("field.oneToOne");
 }
 
 /**
@@ -553,13 +558,13 @@ export function getRelationshipTypeLabel(type: RelationshipType): string {
  */
 export function getAggregationTypeLabel(type: AggregationType): string {
   const labels: Record<AggregationType, string> = {
-    single: "单个值",
-    concat: "连接",
-    sum: "求和",
-    avg: "平均值",
-    min: "最小值",
-    max: "最大值",
-    count: "计数",
+    single: t("field.aggSingle"),
+    concat: t("field.aggConcat"),
+    sum: t("field.lookupAggSum"),
+    avg: t("field.lookupAggAvg"),
+    min: t("field.lookupAggMin"),
+    max: t("field.lookupAggMax"),
+    count: t("field.lookupAggCount"),
   };
   return labels[type] || type;
 }
@@ -569,13 +574,13 @@ export function getAggregationTypeLabel(type: AggregationType): string {
  */
 export function getLookupFilterOperatorLabel(operator: LookupFilterOperator): string {
   const labels: Record<LookupFilterOperator, string> = {
-    equal: "等于",
-    not_equal: "不等于",
-    contains: "包含",
-    is_empty: "为空",
-    is_not_empty: "不为空",
-    before: "早于",
-    after: "晚于",
+    equal: t("filter.opEquals"),
+    not_equal: t("filter.opNotEquals"),
+    contains: t("filter.opContains"),
+    is_empty: t("filter.opIsEmpty"),
+    is_not_empty: t("filter.opIsNotEmpty"),
+    before: t("filter.opBefore"),
+    after: t("filter.opAfter"),
   };
   return labels[operator] || operator;
 }
@@ -585,14 +590,14 @@ export function getLookupFilterOperatorLabel(operator: LookupFilterOperator): st
  */
 export function getLookupAggregationTypeLabel(type: LookupAggregationType): string {
   const labels: Record<LookupAggregationType, string> = {
-    original: "原值",
-    distinct: "去重",
-    distinct_count: "去重计数",
-    sum: "求和",
-    count: "计数",
-    avg: "平均值",
-    max: "最大值",
-    min: "最小值",
+    original: t("field.lookupAggOriginal"),
+    distinct: t("field.lookupAggDistinct"),
+    distinct_count: t("field.lookupAggDistinctCount"),
+    sum: t("field.lookupAggSum"),
+    count: t("field.lookupAggCount"),
+    avg: t("field.lookupAggAvg"),
+    max: t("field.lookupAggMax"),
+    min: t("field.lookupAggMin"),
   };
   return labels[type] || type;
 }
@@ -602,9 +607,9 @@ export function getLookupAggregationTypeLabel(type: LookupAggregationType): stri
  */
 export function getLookupFieldFormatLabel(format: LookupFieldFormat): string {
   const labels: Record<LookupFieldFormat, string> = {
-    number: "数字",
-    date: "日期",
-    currency: "货币",
+    number: t("field.lookupFormatNumber"),
+    date: t("field.lookupFormatDate"),
+    currency: t("field.lookupFormatCurrency"),
   };
   return labels[format] || format;
 }

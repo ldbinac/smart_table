@@ -1,0 +1,22 @@
+{
+  "fileTooLarge": "文件 \"{0}\" ({1}) 超过大小限制 {2}",
+  "typeNotAllowed": "文件 \"{0}\" 的类型 \"{1}\" 不被允许",
+  "countExceeded": "文件数量超过限制，当前 {0} 个，最多允许 {1} 个",
+  "totalSizeExceeded": "文件总大小超过限制，当前 {0}，最多允许 {1}",
+  "notFound": "附件不存在或已被删除 (ID: {0})",
+  "storageFull": "存储空间不足，请清理不必要的附件后重试",
+  "readFailed": "文件 \"{0}\" 读取失败{1}",
+  "readReason": "读取失败",
+  "convertReason": "格式转换失败",
+  "fileEmpty": "文件不能为空",
+  "minCount": "至少需要 {0} 个文件，当前只有 {1} 个",
+  "storageShort": "存储空间不足，可用空间 {0}，需要 {1}",
+  "canvasContextFail": "无法创建 canvas 上下文",
+  "blobConvertFail": "缩略图生成失败：无法转换为 Blob",
+  "thumbFail": "缩略图生成失败：{0}",
+  "imageLoadFail": "图片加载失败",
+  "videoThumbFail": "视频缩略图生成失败",
+  "videoThumbFailDetail": "视频缩略图生成失败：{0}",
+  "videoLoadFail": "视频加载失败",
+  "blobToDataUrlFail": "Blob 转 DataURL 失败"
+}

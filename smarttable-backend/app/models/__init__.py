@@ -45,6 +45,13 @@ from app.models.webhook import (
     WebhookMethod,
     WebhookDeliveryStatus
 )
+from app.models.oauth_app import (
+    OAuthApp,
+    ApiAppToken,
+    ApiAppAuditLog,
+    generate_client_id,
+    generate_client_secret
+)
 from app.models.workflow_template import WorkflowTemplate
 from app.models.workflow_record_time_trigger import WorkflowRecordTimeTrigger
 from app.models.lookup import LookupFilterOperator, LookupAggregationType, LookupFieldFormat
@@ -101,6 +108,11 @@ __all__ = [
     'WebhookDeliveryLog',
     'WebhookMethod',
     'WebhookDeliveryStatus',
+    'OAuthApp',
+    'ApiAppToken',
+    'ApiAppAuditLog',
+    'generate_client_id',
+    'generate_client_secret',
     'WorkflowTemplate',
     'WorkflowRecordTimeTrigger',
     'LookupFilterOperator',

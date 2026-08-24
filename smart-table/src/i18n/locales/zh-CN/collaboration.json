@@ -1,0 +1,19 @@
+{
+  "connected": "已连接",
+  "connecting": "连接中...",
+  "reconnecting": "重连中...",
+  "disconnected": "已断开",
+  "notConnected": "未连接",
+  "reconnected": "已重新连接",
+  "connectionLostRetrying": "网络连接已断开，正在尝试重连...",
+  "conflictViewHistory": "查看历史版本",
+  "conflictAcceptTheirs": "接受对方的修改",
+  "conflictKeepMine": "保留我的修改",
+  "conflictDialogTitle": "编辑冲突",
+  "conflictField": "字段",
+  "conflictMyChanges": "我的修改",
+  "conflictOtherChanges": "对方的修改",
+  "conflictEmpty": "(空)",
+  "conflictEditedDesc": "{user} 同时编辑了此字段，请选择保留哪个版本：",
+  "lockTimeoutReleased": "编辑锁已超时释放"
+}

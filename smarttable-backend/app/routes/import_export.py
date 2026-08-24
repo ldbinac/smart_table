@@ -73,11 +73,11 @@ def preview_import() -> tuple:
     
     # 检查文件
     if 'file' not in request.files:
-        return error_response('请选择要导入的文件', code=400)
+        return error_response('select_file_import', code=400)
     
     file = request.files['file']
     if file.filename == '':
-        return error_response('文件名不能为空', code=400)
+        return error_response('file_name_empty', code=400)
     
     # 获取参数
     table_id = request.form.get('table_id') or request.args.get('table_id')
@@ -85,18 +85,18 @@ def preview_import() -> tuple:
     file_type = request.form.get('file_type') or request.args.get('file_type')
     
     if not table_id:
-        return error_response('请指定目标表格 ID', code=400)
+        return error_response('specify_target_table_id', code=400)
     
     # 检查权限
     if not BaseService.check_permission_for_table(table_id, user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限导入数据到此表格')
+        return forbidden_response('do_not_permission_import_data_into_table')
     
     # 解析字段映射
     try:
         import json
         field_mapping = json.loads(field_mapping_str)
     except json.JSONDecodeError:
-        return error_response('字段映射格式无效', code=400)
+        return error_response('invalid_field_mapping_format', code=400)
     
     # 自动检测文件类型
     if not file_type:
@@ -106,7 +106,7 @@ def preview_import() -> tuple:
         elif filename.endswith('.csv'):
             file_type = 'csv'
         else:
-            return error_response('不支持的文件类型，请上传 Excel 或 CSV 文件', code=400)
+            return error_response('unsupported_file_type_upload_excel_csv_file', code=400)
     
     try:
         if file_type == 'excel':
@@ -126,11 +126,11 @@ def preview_import() -> tuple:
                 preview_only=True
             )
         else:
-            return error_response('不支持的文件类型', code=400)
+            return error_response('unsupported_file_type', code=400)
         
         return success_response(
             data=result,
-            message='导入预览成功'
+            message='import_preview_succeeded'
         )
         
     except ValueError as e:
@@ -138,12 +138,12 @@ def preview_import() -> tuple:
     except ImportError as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 导入预览失败: {str(e)}')
-        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('missing_feature_dependencies_try_again_later', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 导入预览失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('导入预览失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_preview_import_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import', methods=['POST'])
@@ -186,11 +186,11 @@ def import_data() -> tuple:
     
     # 检查文件
     if 'file' not in request.files:
-        return error_response('请选择要导入的文件', code=400)
+        return error_response('select_file_import', code=400)
     
     file = request.files['file']
     if file.filename == '':
-        return error_response('文件名不能为空', code=400)
+        return error_response('file_name_empty', code=400)
     
     # 获取参数
     table_id = request.form.get('table_id') or request.args.get('table_id')
@@ -198,18 +198,18 @@ def import_data() -> tuple:
     file_type = request.form.get('file_type') or request.args.get('file_type')
     
     if not table_id:
-        return error_response('请指定目标表格 ID', code=400)
+        return error_response('specify_target_table_id', code=400)
     
     # 检查权限
     if not BaseService.check_permission_for_table(table_id, user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限导入数据到此表格')
+        return forbidden_response('do_not_permission_import_data_into_table')
     
     # 解析字段映射
     try:
         import json
         field_mapping = json.loads(field_mapping_str)
     except json.JSONDecodeError:
-        return error_response('字段映射格式无效', code=400)
+        return error_response('invalid_field_mapping_format', code=400)
     
     # 自动检测文件类型
     if not file_type:
@@ -219,7 +219,7 @@ def import_data() -> tuple:
         elif filename.endswith('.csv'):
             file_type = 'csv'
         else:
-            return error_response('不支持的文件类型，请上传 Excel 或 CSV 文件', code=400)
+            return error_response('unsupported_file_type_upload_excel_csv_file', code=400)
     
     try:
         if file_type == 'excel':
@@ -239,12 +239,12 @@ def import_data() -> tuple:
                 preview_only=False
             )
         else:
-            return error_response('不支持的文件类型', code=400)
+            return error_response('unsupported_file_type', code=400)
         
         if result.get('success'):
             return success_response(
                 data=result,
-                message='数据导入成功',
+                message='data_imported_successfully',
                 code=201
             )
         else:
@@ -259,12 +259,12 @@ def import_data() -> tuple:
     except ImportError as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 数据导入失败: {str(e)}')
-        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('missing_feature_dependencies_try_again_later', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 数据导入失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('数据导入失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_import_data_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import/json', methods=['POST'])
@@ -322,14 +322,14 @@ def import_json() -> tuple:
     preview_only = data.get('preview_only', False)
     
     if not table_id:
-        return error_response('请指定目标表格 ID', code=400)
+        return error_response('specify_target_table_id', code=400)
     
     if not json_data or not isinstance(json_data, list):
-        return error_response('请提供有效的 JSON 数据数组', code=400)
+        return error_response('provide_valid_json_data_array', code=400)
     
     # 检查权限
     if not BaseService.check_permission_for_table(table_id, user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限导入数据到此表格')
+        return forbidden_response('do_not_permission_import_data_into_table')
     
     try:
         result = ImportExportService.import_from_json(
@@ -343,13 +343,13 @@ def import_json() -> tuple:
         if preview_only:
             return success_response(
                 data=result,
-                message='导入预览成功'
+                message='import_preview_succeeded'
             )
         
         if result.get('success'):
             return success_response(
                 data=result,
-                message='数据导入成功',
+                message='data_imported_successfully',
                 code=201
             )
         else:
@@ -365,7 +365,7 @@ def import_json() -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] JSON 导入失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('数据导入失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_import_data_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import/analyze', methods=['POST'])
@@ -401,11 +401,11 @@ def analyze_import_file() -> tuple:
     """
     # 检查文件
     if 'file' not in request.files:
-        return error_response('请选择要分析的文件', code=400)
+        return error_response('select_file_analyze', code=400)
     
     file = request.files['file']
     if file.filename == '':
-        return error_response('文件名不能为空', code=400)
+        return error_response('file_name_empty', code=400)
     
     file_type = request.form.get('file_type') or request.args.get('file_type')
     
@@ -417,25 +417,25 @@ def analyze_import_file() -> tuple:
         elif filename.endswith('.csv'):
             file_type = 'csv'
         else:
-            return error_response('不支持的文件类型', code=400)
+            return error_response('unsupported_file_type', code=400)
     
     try:
         result = ImportExportService.analyze_import_file(file, file_type)
         return success_response(
             data=result,
-            message='文件分析成功'
+            message='file_analysis_succeeded'
         )
     except ValueError as e:
         return error_response(str(e), code=400)
     except ImportError as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
-        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('missing_feature_dependencies_try_again_later', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('文件分析失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_analyze_file_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 导出功能 ====================
@@ -577,11 +577,11 @@ def _do_export(data: dict) -> tuple:
     field_ids = data.get('field_ids')
     
     if not table_id:
-        return error_response('请指定表格 ID', code=400)
+        return error_response('specify_table_id', code=400)
     
     # 检查权限
     if not BaseService.check_permission_for_table(table_id, user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限导出此表格数据')
+        return forbidden_response('do_not_permission_export_data_table')
     
     try:
         if export_format == 'excel':
@@ -606,7 +606,7 @@ def _do_export(data: dict) -> tuple:
             )
             mimetype = 'application/json'
         else:
-            return error_response('不支持的导出格式', code=400)
+            return error_response('unsupported_export_format', code=400)
         
         return send_file(
             io.BytesIO(file_content),
@@ -620,12 +620,12 @@ def _do_export(data: dict) -> tuple:
     except ImportError as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 数据导出失败: {str(e)}')
-        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('missing_feature_dependencies_try_again_later', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 数据导出失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('数据导出失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_export_data_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 任务状态查询 ====================
@@ -660,15 +660,15 @@ def get_import_task(task_id) -> tuple:
     task = ImportExportService.get_task(task_id)
     
     if not task:
-        return not_found_response('任务')
+        return not_found_response('task')
     
     # 检查权限（只能查看自己的任务）
     if task.get('user_id') != g.current_user_id:
-        return forbidden_response('您没有权限查看此任务')
+        return forbidden_response('do_not_permission_view_task')
     
     return success_response(
         data=task,
-        message='获取任务状态成功'
+        message='fetched_task_status_successfully'
     )
 
 
@@ -698,16 +698,16 @@ def analyze_excel_for_table() -> tuple:
     """
     # 检查文件
     if 'file' not in request.files:
-        return error_response('请选择要上传的文件', code=400)
+        return error_response('select_file_upload', code=400)
     
     file = request.files['file']
     if file.filename == '':
-        return error_response('文件名不能为空', code=400)
+        return error_response('file_name_empty', code=400)
     
     # 验证文件类型
     filename = file.filename.lower()
     if not filename.endswith(('.xlsx', '.xls')):
-        return error_response('请上传Excel文件(.xlsx或.xls格式)', code=400)
+        return error_response('upload_excel_file_xlsx_xls_format', code=400)
     
     try:
         # 保存临时文件
@@ -721,19 +721,19 @@ def analyze_excel_for_table() -> tuple:
         
         return success_response(
             data=result,
-            message='文件分析成功'
+            message='file_analysis_succeeded'
         )
     except ValueError as e:
         return error_response(str(e), code=400)
     except ImportError as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
-        return error_response('功能依赖缺失，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('missing_feature_dependencies_try_again_later', code=500, error='internal_server_error', request_id=request_id)
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 文件分析失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('文件分析失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_analyze_file_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @import_export_bp.route('/import/excel/create-table', methods=['POST'])
@@ -789,29 +789,29 @@ def create_table_from_excel() -> tuple:
     import_data = data.get('import_data', False)
     
     if not base_id:
-        return error_response('请指定Base ID', code=400)
+        return error_response('specify_base_id', code=400)
     
     if not table_name:
-        return error_response('请输入数据表名称', code=400)
+        return error_response('enter_data_table_name', code=400)
     
     if not file_key:
-        return error_response('请提供文件标识', code=400)
+        return error_response('provide_file_id', code=400)
     
     if not fields_config:
-        return error_response('请至少选择一个字段', code=400)
+        return error_response('select_least_one_field', code=400)
     
     # 检查权限
     if not BaseService.check_permission(base_id, user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限在此Base中创建数据表')
+        return forbidden_response('do_not_permission_create_data_table_base')
     
     # 获取临时文件路径
     temp_file_path = _get_temp_file_path(file_key)
     if not temp_file_path or not os.path.exists(temp_file_path):
-        return error_response('文件已过期，请重新上传', code=400)
+        return error_response('file_expired_upload_again', code=400)
     
     # 检查 pandas 是否可用
     if not HAS_PANDAS or pd is None:
-        return error_response('请安装 pandas: pip install pandas openpyxl', code=500)
+        return error_response('install_pandas_pip_install_pandas_openpyxl', code=500)
     
     try:
         # 读取Excel文件
@@ -828,7 +828,7 @@ def create_table_from_excel() -> tuple:
         )
         
         if not table:
-            return error_response('创建数据表失败', code=500)
+            return error_response('failed_create_data_table', code=500)
         
         created_fields = []
         field_mapping = {}  # source_column -> field_id
@@ -966,7 +966,7 @@ def create_table_from_excel() -> tuple:
         
         return success_response(
             data=result,
-            message='数据表创建成功',
+            message='data_table_created_successfully',
             code=201
         )
         
@@ -974,7 +974,7 @@ def create_table_from_excel() -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 从Excel创建表失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('创建失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('creation_failed_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 # ==================== 临时文件存储 ====================

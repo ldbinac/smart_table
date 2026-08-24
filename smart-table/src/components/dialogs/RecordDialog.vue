@@ -9,17 +9,17 @@ import {
   ElInputNumber,
   ElSelect,
   ElOption,
-  ElDatePicker,
   ElSwitch,
   ElMessage,
   ElRate,
   ElSlider,
   ElIcon,
 } from "element-plus";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
-import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
 import {
   validateRequiredFields,
   getRequiredFieldErrorMessage,
@@ -27,8 +27,10 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
-import { formatDateTime, toConfiguredTimezone } from "@/utils/timezone";
+import DateInput from "@/components/fields/DateInput.vue";
+import { formatDateTime } from "@/utils/timezone";
 // import { Calculator } from "@element-plus/icons-vue";
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -103,22 +105,25 @@ const calculateFormulaValue = (
     const result = engine.calculate(record, formula);
 
     if (result === "#ERROR") {
-      return "计算错误";
+      return t('record.calcError');
     }
 
-    // 数字格式化
+    // 数字格式化：沿用数值字段的展示格式
     if (typeof result === "number") {
-      const precision = (field.options?.precision as number) ?? 2;
-      return result.toLocaleString("zh-CN", {
-        minimumFractionDigits: precision,
-        maximumFractionDigits: precision,
+      return formatNumberField(result, {
+        precision: (field.options?.precision as number) ?? 2,
+        format: (field.options?.format as "number" | "currency" | "percent") ?? "number",
+        currencySymbol: field.options?.currencySymbol as string | undefined,
+        prefix: field.options?.prefix as string | undefined,
+        suffix: field.options?.suffix as string | undefined,
+        thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
       });
     }
 
     return String(result);
   } catch (error) {
     console.error("Record dialog formula calculation error:", error);
-    return "计算错误";
+    return t('record.calcError');
   }
 };
 
@@ -195,54 +200,11 @@ function getSelectOptions(field: FieldEntity) {
   return choices;
 }
 
-// 获取数值字段精度
-function getNumberPrecision(field: FieldEntity): number {
-  return (field.options?.precision as number) ?? 0;
-}
 
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FieldEntity): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FieldEntity): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
 
 // 获取评分最大值
 function getMaxRating(field: FieldEntity): number {
   return (field.options?.maxRating as number) ?? 5;
-}
-
-// 将 UTC 日期字符串转换为配置时区的 Date 对象（用于 el-date-picker 显示）
-function parseUtcDateForPicker(value: unknown): Date | undefined {
-  if (!value || typeof value !== "string") return undefined;
-  const converted = toConfiguredTimezone(value);
-  if (!converted) return undefined;
-  return converted.toDate();
-}
-
-// 处理日期变更
-function handleDateChange(field: FieldEntity, val: Date | null) {
-  if (!val) {
-    formData.value[field.id] = null;
-    return;
-  }
-
-  const showTime = getDateShowTime(field);
-  if (showTime) {
-    // 显示时间时存储为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）
-    formData.value[field.id] = dayjs(val).toISOString();
-  } else {
-    // 仅日期时存储为 UTC 日期字符串（如 2026-05-10）
-    formData.value[field.id] = dayjs(val).format("YYYY-MM-DD");
-  }
 }
 
 // 保存记录
@@ -276,10 +238,10 @@ async function handleSave() {
   isSaving.value = true;
   try {
     emit("save", props.record.id, { ...formData.value });
-    ElMessage.success("记录保存成功");
+    ElMessage.success(t('record.saved'));
     closeDialog();
   } catch (error) {
-    ElMessage.error("保存失败");
+    ElMessage.error(t('record.saveFailed'));
   } finally {
     isSaving.value = false;
   }
@@ -370,7 +332,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="编辑记录"
+    :title="t('record.editTitle')"
     width="600px"
     :close-on-click-modal="false">
     <ElForm label-width="100px" class="record-form">
@@ -385,7 +347,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
             :model-value="String(formData[field.id] || '')"
             disabled
             :placeholder="field.name" />
-          <span class="readonly-hint">主键字段，不可修改</span>
+          <span class="readonly-hint">{{ t('record.primaryReadonlyHint') }}</span>
         </template>
 
         <!-- 只读字段（系统字段、公式字段等） -->
@@ -404,7 +366,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
                 </template>
               </ElInput>
               <div v-if="field.options?.formula" class="formula-expression">
-                <span class="formula-label">公式:</span>
+                <span class="formula-label">{{ t('record.formulaLabel') }}</span>
                 <code class="formula-code">{{ field.options.formula }}</code>
               </div>
             </div>
@@ -417,12 +379,12 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
           </template>
           <span class="readonly-hint">{{
             field.type === FieldType.FORMULA
-              ? "公式计算字段，不可修改"
+              ? t('record.formulaReadonlyHint')
               : field.type === FieldType.LOOKUP
-                ? "查找字段，不可修改"
+                ? t('record.lookupReadonlyHint')
                 : field.type === FieldType.AUTO_NUMBER
-                  ? "自动编号，不可修改"
-                  : "系统字段，不可修改"
+                  ? t('record.autoNumberReadonlyHint')
+                  : t('record.systemReadonlyHint')
           }}</span>
         </template>
 
@@ -430,7 +392,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
         <template v-else-if="getFieldComponent(field) === 'text'">
           <ElInput
             :model-value="String(formData[field.id] || '')"
-            :placeholder="`请输入${field.name}`"
+            :placeholder="t('record.inputPlaceholder', { name: field.name })"
             @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
@@ -438,17 +400,21 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
         <template v-else-if="getFieldComponent(field) === 'number'">
           <ElInputNumber
             :model-value="Number(formData[field.id] || 0)"
-            :precision="getNumberPrecision(field)"
-            :placeholder="`请输入${field.name}`"
+            :formatter="createNumberInputFormatter(field.options)"
+            :parser="createNumberInputParser(field.options)"
+            :placeholder="t('record.inputPlaceholder', { name: field.name })"
             style="width: 100%"
-            @update:model-value="(val) => handleValueChange(field.id, val)" />
+            @update:model-value="(val) => handleValueChange(field.id, val)">
+              <template #prefix v-if="getNumberFieldPrefix(field.options)">{{ getNumberFieldPrefix(field.options) }}</template>
+              <template #suffix v-if="getNumberFieldSuffix(field.options)">{{ getNumberFieldSuffix(field.options) }}</template>
+            </ElInputNumber>
         </template>
 
         <!-- 单选类型 -->
         <template v-else-if="getFieldComponent(field) === 'single_select'">
           <ElSelect
             :model-value="formData[field.id] as string | undefined"
-            :placeholder="`请选择${field.name}`"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
             clearable
             @update:model-value="(val) => handleValueChange(field.id, val)">
@@ -469,7 +435,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
         <template v-else-if="getFieldComponent(field) === 'multi_select'">
           <ElSelect
             :model-value="(formData[field.id] as string[]) || []"
-            :placeholder="`请选择${field.name}`"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
             multiple
             clearable
@@ -489,13 +455,12 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
 
         <!-- 日期类型 -->
         <template v-else-if="getFieldComponent(field) === 'date'">
-          <ElDatePicker
-            :model-value="parseUtcDateForPicker(formData[field.id])"
-            :type="getDatePickerType(field)"
-            :placeholder="`请选择${field.name}`"
-            :format="getDateFormat(field)"
+          <DateInput
+            :field="field"
+            :model-value="(formData[field.id] as CellValue)"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
-            @update:model-value="(val) => handleDateChange(field, val)" />
+            @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
 
         <!-- 复选框类型 -->
@@ -538,11 +503,11 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
         <template v-else-if="getFieldComponent(field) === 'member'">
           <ElSelect
             :model-value="formData[field.id] as string | undefined"
-            :placeholder="`请选择${field.name}`"
+            :placeholder="t('record.selectPlaceholder', { name: field.name })"
             style="width: 100%"
             clearable
             @update:model-value="(val) => handleValueChange(field.id, val)">
-            <ElOption label="当前用户" value="current_user" />
+            <ElOption :label="t('record.memberCurrentUser')" value="current_user" />
           </ElSelect>
         </template>
 
@@ -550,7 +515,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
         <template v-else-if="getFieldComponent(field) === 'link'">
           <div class="link-hint">
             <el-icon><Link /></el-icon>
-            <span>关联字段请在详情页中编辑</span>
+            <span>{{ t('record.linkEditHint') }}</span>
           </div>
         </template>
 
@@ -558,7 +523,7 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
         <template v-else>
           <ElInput
             :model-value="String(formData[field.id] || '')"
-            :placeholder="`请输入${field.name}`"
+            :placeholder="t('record.inputPlaceholder', { name: field.name })"
             @update:model-value="(val) => handleValueChange(field.id, val)" />
         </template>
       </ElFormItem>
@@ -566,9 +531,9 @@ function getReadonlyDisplayValue(field: FieldEntity): string {
 
     <template #footer>
       <span class="dialog-footer">
-        <ElButton @click="closeDialog">取消</ElButton>
+        <ElButton @click="closeDialog">{{ t('common.cancel') }}</ElButton>
         <ElButton type="primary" :loading="isSaving" @click="handleSave">
-          保存
+          {{ t('common.save') }}
         </ElButton>
       </span>
     </template>

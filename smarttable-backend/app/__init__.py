@@ -2,7 +2,7 @@
 SmartTable Flask 应用工厂模块
 """
 import uuid
-from flask import Flask, jsonify, render_template_string, g
+from flask import Flask, jsonify, render_template_string, g, request
 from flasgger import Swagger
 from app.extensions import init_extensions, db
 from app.config import config
@@ -34,6 +34,8 @@ from app.routes.workflow_templates import workflow_templates_bp
 from app.routes.workflows import workflows_bp
 from app.routes.config import config_bp
 from app.routes.lookup import lookup_bp
+from app.routes.oauth import oauth_bp
+from app.routes.open_api import open_api_bp
 
 # 服务导入
 from app.services.email_queue_service import init_email_queue
@@ -43,6 +45,7 @@ from app.services.workflow_template_service import init_default_templates as ini
 from app.services.workflow_execution_engine import init_workflow_execution_engine
 from app.static_serving import configure_static_serving
 from app.errors.handlers import register_handlers
+from app.i18n.utils import parse_accept_language, set_current_language
 from app.models import (
     User, Base, BaseMember, Table, Field,
     Record, View, Dashboard, Attachment
@@ -183,6 +186,13 @@ def register_lifecycle_hooks(app):
         g.request_id = str(uuid.uuid4())
 
     @app.before_request
+    def parse_language():
+        """解析 Accept-Language header，设置当前请求语言到 g.language"""
+        accept_lang = request.headers.get('Accept-Language', '')
+        lang = parse_accept_language(accept_lang)
+        set_current_language(lang)
+
+    @app.before_request
     def init_services():
         """应用首次请求时初始化服务"""
         nonlocal _first_request_initialized
@@ -290,6 +300,12 @@ def register_blueprints(app):
 
     # 注册查找字段蓝图
     app.register_blueprint(lookup_bp, url_prefix='/api')
+
+    # 注册 OAuth2 第三方应用接入蓝图（url_prefix 已在 oauth.py 中定义为 /api/oauth）
+    app.register_blueprint(oauth_bp)
+
+    # 注册开放 API 蓝图（第三方应用以应用身份访问数据）
+    app.register_blueprint(open_api_bp)
 
 
 def register_error_handlers(app):

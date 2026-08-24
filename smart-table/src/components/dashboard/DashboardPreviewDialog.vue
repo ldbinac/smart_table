@@ -12,6 +12,7 @@ import {
   formatLargeNumber,
 } from "@/utils/dashboardDataProcessor";
 import { escapeHtml } from "@/utils/helpers";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps<{
   visible: boolean;
@@ -23,6 +24,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:visible": [value: boolean];
 }>();
+
+const { t } = useI18n();
 
 const chartRefs = ref<Map<string, echarts.ECharts>>(new Map());
 const chartContainers = ref<Map<string, HTMLElement>>(new Map());
@@ -154,7 +157,7 @@ function renderWidget(widget: WidgetConfig) {
       return;
     }
   } else if (!widget.fieldId || records.length === 0) {
-    container.innerHTML = '<div class="widget-empty">暂无数据</div>';
+    container.innerHTML = `<div class="widget-empty">${t("common.noData")}</div>`;
     return;
   }
 
@@ -189,8 +192,8 @@ function renderWidget(widget: WidgetConfig) {
         <table class="data-table">
           <thead>
             <tr>
-              <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || "分组" : "类别"}</th>
-              <th>数值</th>
+              <th>${widget.groupBy ? fields.find((f: any) => f.id === widget.groupBy)?.name || t("dashboard.groupBy") : t("dashboard.category")}</th>
+              <th>${t("dashboard.previewValue")}</th>
             </tr>
           </thead>
           <tbody>
@@ -288,7 +291,7 @@ function renderDateWidget(widget: WidgetConfig, container: HTMLElement) {
 
 function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const content = escapeHtml(config.content || "欢迎使用 Smart Table 数据仪表盘");
+  const content = escapeHtml(config.content || t("dashboard.marqueeDefault"));
   const speed = config.speed || 2;
   const fontSize = config.fontSize || 16;
   const direction = config.direction || "left";
@@ -316,7 +319,7 @@ function renderMarqueeWidget(widget: WidgetConfig, container: HTMLElement) {
 
 function renderTextWidget(widget: WidgetConfig, container: HTMLElement) {
   const config = widget.config || {};
-  const text = escapeHtml(config.text || widget.title || "标题文字");
+  const text = escapeHtml(config.text || widget.title || t("dashboard.titleText"));
   const subtitle = escapeHtml(config.subtitle || "");
   const fontSize = config.fontSize || 32;
   const subtitleFontSize = config.subtitleFontSize || 16;
@@ -371,7 +374,7 @@ function renderKpiWidget(widget: WidgetConfig, container: HTMLElement, values: n
     const progress = Math.min(100, (total / Number(config.targetValue)) * 100);
     progressHtml = `<div style="margin-top: 12px;">
       <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
-        <span>进度</span><span>${progress.toFixed(1)}%</span></div>
+        <span>${t("dashboard.progress")}</span><span>${progress.toFixed(1)}%</span></div>
       <div style="height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
         <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, #10B981, #34D399); border-radius: 3px;"></div></div></div>`;
   }
@@ -426,8 +429,8 @@ function renderRealtimeWidgetEmpty(widget: WidgetConfig, container: HTMLElement)
       height: 100%; background: ${backgroundColor}; border-radius: 12px; color: ${textColor};
       padding: 20px; text-align: center;
     ">
-      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">实时数据流组件</div>
-      <div style="font-size: 12px; opacity: 0.5;">请配置数据表和字段以显示实时数据</div>
+      <div style="font-size: 14px; opacity: 0.7; margin-bottom: 8px;">${t('dashboard.realtimeWidgetName')}</div>
+      <div style="font-size: 12px; opacity: 0.5;">${t('dashboard.realtimeEmptyHint')}</div>
     </div>
   `;
 }
@@ -464,7 +467,7 @@ function getChartOption(widget: WidgetConfig, labels: string[], values: number[]
 <template>
   <ElDialog
     v-model="dialogVisible"
-    title="仪表盘预览"
+    :title="t('dashboard.previewTitle')"
     width="100%"
     :fullscreen="true"
     :show-close="true"
@@ -499,7 +502,7 @@ function getChartOption(widget: WidgetConfig, labels: string[], values: number[]
         </div>
 
         <div v-if="widgets.length === 0" class="preview-empty">
-          <ElEmpty description="该仪表盘暂无组件" />
+          <ElEmpty :description="t('dashboard.noWidget')" />
         </div>
       </div>
     </div>
@@ -508,7 +511,7 @@ function getChartOption(widget: WidgetConfig, labels: string[], values: number[]
       <div class="preview-footer">
         <ElButton @click="closeDialog" type="danger" plain>
           <ElIcon><Close /></ElIcon>
-          关闭预览
+          {{ t('dashboard.closePreview') }}
         </ElButton>
       </div>
     </template>

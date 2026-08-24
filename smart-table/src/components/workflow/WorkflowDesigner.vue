@@ -34,6 +34,7 @@ import {
   Plus,
 } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
+import { useI18n } from "vue-i18n";
 import WorkflowNodeConfig from "./WorkflowNodeConfig.vue";
 import WorkflowTriggerConfig from "./WorkflowTriggerConfig.vue";
 import WorkflowCanvas from "./WorkflowCanvas.vue";
@@ -81,6 +82,7 @@ const emit = defineEmits<{
 const memberStore = useMemberStore();
 // 权限控制：工作流管理需要管理员及以上角色
 const canManage = computed(() => memberStore.canManage);
+const { t } = useI18n();
 
 const localNodes = ref<WorkflowNode[]>([]);
 const localTrigger = ref<WorkflowTrigger>({ ...props.trigger });
@@ -236,17 +238,17 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
     if (node.node_type === 'create_record') {
       const mappings = (node.config?.field_mappings ?? []) as unknown[];
       if (!mappings.length) {
-        invalidNodes.push({ name: node.name, reason: '字段映射未配置' });
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.mappingNotConfigured') });
       }
     } else if (node.node_type === 'update_record') {
       const updates = (node.config?.updates ?? []) as unknown[];
       if (!updates.length) {
-        invalidNodes.push({ name: node.name, reason: '字段映射未配置' });
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.mappingNotConfigured') });
       }
     } else if (node.node_type === 'condition') {
       const branches = getConditionBranches(node.config);
       if (branches.length === 0) {
-        invalidNodes.push({ name: node.name, reason: '分支配置不完整' });
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.branchIncomplete') });
       } else {
         const hasInvalid = branches.some((b) =>
           b.is_default
@@ -254,7 +256,7 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
             : b.conditions.length === 0
         );
         if (hasInvalid) {
-          invalidNodes.push({ name: node.name, reason: '分支配置不完整' });
+          invalidNodes.push({ name: node.name, reason: t('workflow.validation.branchIncomplete') });
         }
       }
     } else if (node.node_type === 'find_records') {
@@ -262,11 +264,11 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
       const targetTableId = config.target_table_id;
       const resultVariable = config.result_variable;
       if (!targetTableId) {
-        invalidNodes.push({ name: node.name, reason: '目标表格未选择' });
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.targetTableNotSelected') });
       } else if (!resultVariable) {
-        invalidNodes.push({ name: node.name, reason: '结果变量名未配置' });
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.resultVarNotConfigured') });
       } else if (!isValidWorkflowVariableName(resultVariable as string)) {
-        invalidNodes.push({ name: node.name, reason: '结果变量名格式不正确' });
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.resultVarInvalid') });
       }
     }
   });
@@ -282,7 +284,7 @@ function getNodeIcon(nodeType: string) {
 }
 
 function getNodeLabel(nodeType: string) {
-  return _getNodeLabel(nodeType);
+  return _getNodeLabel(nodeType, t);
 }
 
 function getDefaultNodeConfig(type: WorkflowNodeType): Record<string, unknown> {
@@ -338,7 +340,7 @@ function addNode(type: WorkflowNodeType, parentId?: string) {
     if (type === "loop") {
       const currentCount = countLoopNodes(localNodes.value);
       if (currentCount + 1 > MAX_LOOP_NODES_PER_WORKFLOW) {
-        ElMessage.warning("单个工作流最多 5 个循环节点");
+        ElMessage.warning(t("workflow.designer.loopMaxNodes"));
         return;
       }
       const simulatedParent: WorkflowNode = {
@@ -364,7 +366,7 @@ function addNode(type: WorkflowNodeType, parentId?: string) {
       );
       const newDepth = getMaxLoopNestingDepth(simulatedAllNodes);
       if (newDepth > MAX_LOOP_NESTING_DEPTH) {
-        ElMessage.warning("循环节点最多嵌套 3 层");
+        ElMessage.warning(t("workflow.designer.loopMaxDepth"));
         return;
       }
     }
@@ -755,11 +757,11 @@ async function handleSave() {
   if (triggerConfigRef.value?.validateFieldIds?.() === false) {
     try {
       await ElMessageBox.confirm(
-        '当前触发器类型要求配置"监听字段"，未配置监听字段可能导致触发器无法正常工作。是否仍要保存？',
-        '监听字段未配置',
+        t('workflow.designer.monitorFieldUnset'),
+        t('workflow.designer.monitorFieldTitle'),
         {
-          cancelButtonText: '去配置',
-          confirmButtonText: '仍然保存',
+          cancelButtonText: t('workflow.designer.goConfig'),
+          confirmButtonText: t('workflow.designer.stillSave'),
           type: 'warning',
         }
       );
@@ -770,9 +772,9 @@ async function handleSave() {
 
   if (triggerConfigRef.value?.validateTimeField?.() === false) {
     await ElMessageBox.alert(
-      '"到达记录中的时间时"触发类型必须选择时间字段，否则触发器无法正常工作。请先配置时间字段。',
-      '时间字段未配置',
-      { confirmButtonText: '去配置' }
+      t('workflow.designer.timeFieldUnset'),
+      t('workflow.designer.timeFieldTitle'),
+      { confirmButtonText: t('workflow.designer.goConfig') }
     );
     return;
   }
@@ -783,9 +785,9 @@ async function handleSave() {
       .map((node) => `· ${node.name}：${node.reason}`)
       .join('\n');
     await ElMessageBox.alert(
-      `以下节点配置不完整，请先配置后再保存：\n${nodeList}`,
-      '节点配置不完整',
-      { confirmButtonText: '去配置' }
+      t('workflow.designer.nodeIncomplete', { list: nodeList }),
+      t('workflow.designer.nodeIncompleteTitle'),
+      { confirmButtonText: t('workflow.designer.goConfig') }
     );
     return;
   }
@@ -805,22 +807,22 @@ function handleViewVersions() {
   emit("viewVersions");
 }
 
-const LEAVE_CONFIRM_MESSAGE =
-  '当前工作流存在配置不完整的节点，离开将丢失未保存的修改，是否继续？';
+const LEAVE_CONFIRM_MESSAGE = () => t('workflow.designer.leaveConfirm');
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
   if (hasInvalidMappingNodes.value) {
     event.preventDefault();
-    event.returnValue = LEAVE_CONFIRM_MESSAGE;
-    return LEAVE_CONFIRM_MESSAGE;
+    const msg = LEAVE_CONFIRM_MESSAGE();
+    event.returnValue = msg;
+    return msg;
   }
 }
 
 onBeforeRouteLeave((_, __, next) => {
   if (hasInvalidMappingNodes.value) {
-    ElMessageBox.confirm(LEAVE_CONFIRM_MESSAGE, '确认离开', {
-      confirmButtonText: '继续离开',
-      cancelButtonText: '去配置',
+    ElMessageBox.confirm(t('workflow.designer.leaveConfirm'), t('workflow.designer.leaveTitle'), {
+      confirmButtonText: t('workflow.designer.leaveAnyway'),
+      cancelButtonText: t('workflow.designer.goConfig'),
       type: 'warning',
     })
       .then(() => next())
@@ -837,26 +839,26 @@ onBeforeRouteLeave((_, __, next) => {
       <!-- 左侧：触发器 + 节点列表 / 画布 -->
       <div class="designer-left" :style="leftPanelStyle">
         <div class="left-panel-header">
-          <span class="left-panel-title">流程设计</span>
+          <span class="left-panel-title">{{ t('workflow.designer.designTitle') }}</span>
           <el-button-group>
             <el-button
               size="small"
               :type="viewMode === 'list' ? 'primary' : 'default'"
               @click="viewMode = 'list'">
-              列表
+              {{ t('workflow.designer.listView') }}
             </el-button>
             <el-button
               size="small"
               :type="viewMode === 'canvas' ? 'primary' : 'default'"
               @click="viewMode = 'canvas'">
-              画布
+              {{ t('workflow.designer.canvasView') }}
             </el-button>
           </el-button-group>
         </div>
 
         <template v-if="viewMode === 'list'">
           <div class="section trigger-section">
-            <div class="section-title">触发器配置</div>
+            <div class="section-title">{{ t('workflow.designer.triggerConfig') }}</div>
             <div class="trigger-content">
               <WorkflowTriggerConfig
                 ref="triggerConfigRef"
@@ -870,13 +872,13 @@ onBeforeRouteLeave((_, __, next) => {
           <div class="section nodes-section">
             <div class="section-title section-title-with-action">
               <span>
-                节点列表
+                {{ t('workflow.designer.nodeList') }}
                 <span class="node-count">（{{ localNodes.length }}）</span>
               </span>
               <div v-if="!readonly && canManage" class="add-node-menu">
                 <el-dropdown placement="bottom-start" trigger="click">
                   <el-button type="primary" :icon="Plus" class="add-node-btn" size="small">
-                    添加节点
+                    {{ t('workflow.designer.addNode') }}
                   </el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -885,7 +887,7 @@ onBeforeRouteLeave((_, __, next) => {
                         :key="item.type"
                         @click="addNode(item.type as WorkflowNodeType)">
                         <el-icon><component :is="item.icon" /></el-icon>
-                        <span>{{ item.label }}</span>
+                        <span>{{ getNodeLabel(item.type) }}</span>
                       </el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -947,12 +949,12 @@ onBeforeRouteLeave((_, __, next) => {
       <div
         class="designer-splitter"
         :class="{ 'is-resizing': isResizing }"
-        title="拖动调整宽度"
+        :title="t('workflow.designer.dragResize')"
         @mousedown="startResize" />
 
       <!-- 右侧：节点配置 -->
       <div class="designer-right" :style="rightPanelStyle">
-        <div class="section-title">节点配置</div>
+        <div class="section-title">{{ t('workflow.designer.nodeConfig') }}</div>
         <div class="config-panel">
           <WorkflowNodeConfig
             v-if="selectedNode"
@@ -966,7 +968,7 @@ onBeforeRouteLeave((_, __, next) => {
             @add-child-node="handleConfigAddChildNode"
             @remove-child-node="handleConfigRemoveChildNode"
             @select-child-node="handleConfigSelectChildNode" />
-          <el-empty v-else description="请选择或添加一个节点" />
+          <el-empty v-else :description="t('workflow.designer.nodeConfigEmpty')" />
         </div>
       </div>
     </div>
@@ -974,24 +976,24 @@ onBeforeRouteLeave((_, __, next) => {
     <!-- 底部操作栏 -->
     <div class="designer-footer">
       <div class="workflow-status">
-        <el-tag v-if="isDraft" type="info">草稿</el-tag>
-        <el-tag v-else-if="workflow.status === 'active'" type="success">已发布</el-tag>
-        <el-tag v-else-if="workflow.status === 'paused'" type="warning">已暂停</el-tag>
-        <el-tag v-else type="danger">已归档</el-tag>
+        <el-tag v-if="isDraft" type="info">{{ t('workflow.list.statusDraft') }}</el-tag>
+        <el-tag v-else-if="workflow.status === 'active'" type="success">{{ t('workflow.list.statusActive') }}</el-tag>
+        <el-tag v-else-if="workflow.status === 'paused'" type="warning">{{ t('workflow.list.statusPaused') }}</el-tag>
+        <el-tag v-else type="danger">{{ t('workflow.list.statusArchived') }}</el-tag>
       </div>
 
       <div class="footer-actions">
         <template v-if="!isFreshDraft">
-          <el-button v-if="canManage" title="基于当前流程创建新版本" type="success" plain :icon="CopyDocument" @click="handleClone">
-            复制创建新版本
+          <el-button v-if="canManage" :title="t('workflow.designer.cloneHint')" type="success" plain :icon="CopyDocument" @click="handleClone">
+            {{ t('workflow.designer.cloneVersion') }}
           </el-button>
           <el-button :icon="Timer" @click="handleViewVersions">
-            查看版本历史
+            {{ t('workflow.designer.viewVersions') }}
           </el-button>
         </template>
         <template v-if="(isDraft || isPaused) && canManage">
           <el-button :icon="CircleCheck" type="primary" @click="handleSave">
-            保存
+            {{ t('workflow.designer.save') }}
           </el-button>
           <!-- <el-button v-if="isPaused" type="success" :icon="CircleCheck" @click="handlePublish">
             发布

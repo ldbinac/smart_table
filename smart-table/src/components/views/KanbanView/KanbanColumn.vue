@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import KanbanCard from "./KanbanCard.vue";
 import Sortable from "sortablejs";
+
+const { t } = useI18n();
 
 interface Group {
   id: string;
@@ -98,14 +101,14 @@ defineExpose({
           <el-dropdown-menu>
             <el-dropdown-item v-if="!readonly" @click="handleAddClick">
               <el-icon><Plus /></el-icon>
-              添加记录
+              {{ t("view.addRecord") }}
             </el-dropdown-item>
             <el-dropdown-item
               v-if="!readonly"
               divided
               @click="$emit('deleteRecord', group.id)">
               <el-icon><Delete /></el-icon>
-              删除分组
+              {{ t("view.deleteGroup") }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -126,7 +129,7 @@ defineExpose({
     <div v-if="!readonly" class="column-footer">
       <button class="add-card-btn" @click="handleAddClick">
         <el-icon class="add-icon"><Plus /></el-icon>
-        <span>添加卡片</span>
+        <span>{{ t("view.addCard") }}</span>
       </button>
     </div>
   </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive } from "vue";
+import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -27,6 +28,7 @@ import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { formatNumberField } from "@/utils/numberFormat";
 import { linkApiService } from "@/services/api/linkApiService";
 import { viewApiService } from "@/services/api/viewApiService";
 import { recordApiService } from "@/services/api/recordApiService";
@@ -112,6 +114,8 @@ const emit = defineEmits<{
   (e: "add-record"): void;
   (e: "group-add-record", groupFieldValues: Record<string, any>): void;
 }>();
+
+const { t } = useI18n();
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
@@ -344,24 +348,24 @@ function validateCellValue(
   switch (field.type) {
     case FieldType.NUMBER:
       if (isNaN(Number(value))) {
-        return { valid: false, message: `"${field.name}" 字段只能填写数字` };
+        return { valid: false, message: t("view.formatInvalidNumber", { name: field.name }) };
       }
       return { valid: true };
 
     case FieldType.PROGRESS:
       if (isNaN(Number(value))) {
-        return { valid: false, message: `"${field.name}" 字段只能填写数字` };
+        return { valid: false, message: t("view.formatInvalidNumber", { name: field.name }) };
       }
       const num = Number(value);
       if (num < 0 || num > 100) {
-        return { valid: false, message: `"${field.name}" 字段的值应在 0-100 之间` };
+        return { valid: false, message: t("view.formatProgressRange", { name: field.name }) };
       }
       return { valid: true };
 
     case FieldType.EMAIL: {
       const result = validateFieldFormat(value, FieldType.EMAIL as any);
       if (!result.valid) {
-        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的邮箱地址` };
+        return { valid: false, message: result.error || t("view.formatInvalidEmail", { name: field.name }) };
       }
       return { valid: true };
     }
@@ -374,7 +378,7 @@ function validateCellValue(
         if (!result.valid) {
           return {
             valid: false,
-            message: result.error || `${field.name} 格式不正确`,
+            message: result.error || t("view.formFormatInvalid", { name: field.name }),
           };
         }
       }
@@ -384,7 +388,7 @@ function validateCellValue(
     case FieldType.PHONE: {
       const result = validateFieldFormat(value, FieldType.PHONE as any);
       if (!result.valid) {
-        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的11位手机号码` };
+        return { valid: false, message: result.error || t("view.formatInvalidPhone", { name: field.name }) };
       }
       return { valid: true };
     }
@@ -393,7 +397,7 @@ function validateCellValue(
     case FieldType.LINK: {
       const result = validateFieldFormat(value, FieldType.URL as any);
       if (!result.valid) {
-        return { valid: false, message: result.error || `"${field.name}" 格式不正确，请输入正确的链接地址` };
+        return { valid: false, message: result.error || t("view.formatInvalidLink", { name: field.name }) };
       }
       return { valid: true };
     }
@@ -554,8 +558,121 @@ class DateTimeEditor extends InputEditor {
   }
 }
 
+// 自定义年月编辑器（input type=month，仅选年月，返回时间戳）
+class DateMonthEditor extends InputEditor {
+  editorType = 'DateMonth';
+  createElement() {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'month');
+    input.style.padding = '4px';
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
+    input.style.position = 'absolute';
+    input.style.backgroundColor = '#FFFFFF';
+    input.style.borderRadius = '0px';
+    input.style.border = '2px solid #4A90E2';
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'a' && (e.ctrlKey || e.metaKey)) e.stopPropagation();
+    });
+    input.addEventListener('wheel', (e: Event) => { e.preventDefault(); });
+    this.element = input;
+    this.container.appendChild(input);
+  }
+  setValue(value: any) {
+    let year = 2000;
+    let month = 1;
+    if (value instanceof Date) {
+      year = value.getFullYear();
+      month = value.getMonth() + 1;
+    } else if (typeof value === 'number') {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) { year = d.getFullYear(); month = d.getMonth() + 1; }
+    } else if (typeof value === 'string') {
+      const s = value.trim().replace(/-/g, '');
+      if (/^\d{6}$/.test(s)) {
+        year = parseInt(s.slice(0, 4));
+        month = parseInt(s.slice(4, 6));
+      } else {
+        const ts = Date.parse(value);
+        if (!isNaN(ts)) { const d = new Date(ts); year = d.getFullYear(); month = d.getMonth() + 1; }
+      }
+    }
+    if (this.element) this.element.value = `${year}-${String(month).padStart(2, '0')}`;
+  }
+  getValue() {
+    const val = this.element?.value;
+    return (val ? new Date(val).getTime() : null) as any;
+  }
+}
+
+// 自定义月日编辑器（两个下拉框，仅选月日，返回固定年份的时间戳）
+class DateMonthDayEditor extends InputEditor {
+  editorType = 'DateMonthDay';
+  monthSelect?: HTMLSelectElement;
+  daySelect?: HTMLSelectElement;
+  createElement() {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex; gap:4px; padding:4px; width:100%; box-sizing:border-box; position:absolute; background:#fff; border:2px solid #4A90E2; border-radius:0; z-index:9999;';
+    const monthSel = document.createElement('select');
+    const daySel = document.createElement('select');
+    for (let i = 1; i <= 12; i++) {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = String(i).padStart(2, '0');
+      monthSel.appendChild(o);
+    }
+    for (let i = 1; i <= 31; i++) {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = String(i).padStart(2, '0');
+      daySel.appendChild(o);
+    }
+    monthSel.style.cssText = 'flex:1; padding:2px;';
+    daySel.style.cssText = 'flex:1; padding:2px;';
+    wrapper.appendChild(monthSel);
+    wrapper.appendChild(daySel);
+    this.monthSelect = monthSel;
+    this.daySelect = daySel;
+    this.element = wrapper as any;
+    this.container.appendChild(wrapper);
+    wrapper.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'a' && (e.ctrlKey || e.metaKey)) e.stopPropagation();
+    });
+  }
+  setValue(value: any) {
+    let month = 1;
+    let day = 1;
+    if (typeof value === 'string') {
+      const s = value.trim().replace(/-/g, '');
+      if (/^\d{4}$/.test(s)) {
+        month = parseInt(s.slice(0, 2));
+        day = parseInt(s.slice(2, 4));
+      } else {
+        const ts = Date.parse(value);
+        if (!isNaN(ts)) { const d = new Date(ts); month = d.getMonth() + 1; day = d.getDate(); }
+      }
+    } else if (typeof value === 'number') {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) { month = d.getMonth() + 1; day = d.getDate(); }
+    } else if (value instanceof Date) {
+      month = value.getMonth() + 1;
+      day = value.getDate();
+    }
+    if (this.monthSelect) this.monthSelect.value = String(month);
+    if (this.daySelect) this.daySelect.value = String(day);
+  }
+  getValue(): any {
+    const m = this.monthSelect ? parseInt(this.monthSelect.value) : 1;
+    const d = this.daySelect ? parseInt(this.daySelect.value) : 1;
+    if (!m || !d) return null;
+    return Date.UTC(2000, m - 1, d);
+  }
+}
+
 registerVTable.editor('date-only', new DateOnlyEditor());
 registerVTable.editor('date-time', new DateTimeEditor());
+registerVTable.editor('date-month', new DateMonthEditor());
+registerVTable.editor('date-month-day', new DateMonthDayEditor());
 
 // 自定义多选编辑器（checkbox 下拉列表，支持多项选择和 Enter/外部点击退出）
 class MultiSelectEditor implements IEditor {
@@ -612,7 +729,7 @@ class MultiSelectEditor implements IEditor {
     } else {
       const emptyHint = document.createElement('div');
       emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
-      emptyHint.textContent = '无可用选项';
+      emptyHint.textContent = t('view.selectNoOptions');
       wrapper.appendChild(emptyHint);
     }
 
@@ -794,7 +911,7 @@ class SingleSelectEditor implements IEditor {
     } else {
       const emptyHint = document.createElement('div');
       emptyHint.style.cssText = 'padding: 12px; color: #999; font-size: 12px; text-align: center;';
-      emptyHint.textContent = '无可用选项';
+      emptyHint.textContent = t('view.selectNoOptions');
       wrapper.appendChild(emptyHint);
     }
 
@@ -869,7 +986,7 @@ class SingleSelectEditor implements IEditor {
     icon.textContent = '✕';
     icon.style.cssText = 'margin-right: 8px; font-size: 12px; color: #bbb;';
     item.appendChild(icon);
-    item.appendChild(document.createTextNode('清空'));
+    item.appendChild(document.createTextNode(t('view.filter.clearAll')));
     return item;
   }
 
@@ -1363,12 +1480,12 @@ class MemberEditor implements IEditor {
       const users = await userCacheStore.fetchUsers(this.selectedIds);
       this.selectedMembers = users.map((u: any) => ({
         id: u.id,
-        name: u.name || u.nickname || '未知',
+        name: u.name || u.nickname || t('view.unknown'),
         email: u.email,
         avatar: u.avatar,
       }));
     } catch {
-      this.selectedMembers = this.selectedIds.map(id => ({ id, name: '未知成员' }));
+      this.selectedMembers = this.selectedIds.map(id => ({ id, name: t('view.unknownMember') }));
     }
   }
 
@@ -1407,7 +1524,7 @@ class MemberEditor implements IEditor {
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = '输入姓名或邮箱搜索';
+    searchInput.placeholder = t('view.searchMemberPlaceholder');
     searchInput.style.cssText = `
       width: 100%; height: 32px; padding: 0 10px;
       border: 1px solid #dcdfe6; border-radius: 4px;
@@ -1452,7 +1569,7 @@ class MemberEditor implements IEditor {
         padding: 6px 12px; font-size: 11px; color: #909399;
         text-align: center; border-top: 1px solid #ebeef5;
       `;
-      tip.textContent = '点击外部或按 Enter 完成选择';
+      tip.textContent = t('view.selectDoneHint');
       wrapper.appendChild(tip);
     }
 
@@ -1477,7 +1594,7 @@ class MemberEditor implements IEditor {
     if (this.selectedMembers.length === 0) {
       const placeholder = document.createElement('span');
       placeholder.style.cssText = 'color: #c0c4cc; font-size: 13px;';
-      placeholder.textContent = '未选择成员';
+      placeholder.textContent = t('view.noMembersSelected');
       this.selectedTagsEl.appendChild(placeholder);
       return;
     }
@@ -1546,7 +1663,7 @@ class MemberEditor implements IEditor {
         display: flex; align-items: center; justify-content: center;
         gap: 8px; padding: 24px; color: #909399; font-size: 13px;
       `;
-      loadingEl.textContent = '搜索中...';
+      loadingEl.textContent = t('view.searching');
       this.resultsListEl.appendChild(loadingEl);
       return;
     }
@@ -1563,7 +1680,7 @@ class MemberEditor implements IEditor {
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
-        <span>请输入关键词搜索</span>
+        <span>${t("view.searchPlaceholder")}</span>
       `;
       this.resultsListEl.appendChild(emptyEl);
       return;
@@ -1581,7 +1698,7 @@ class MemberEditor implements IEditor {
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
-        <span>未找到匹配的成员</span>
+        <span>${t("view.noMemberFound")}</span>
       `;
       this.resultsListEl.appendChild(emptyEl);
       return;
@@ -1678,7 +1795,7 @@ class MemberEditor implements IEditor {
         });
         this.searchResults = response.users.map((u: any) => ({
           id: u.id,
-          name: u.name || u.nickname || '未知',
+          name: u.name || u.nickname || t('view.unknown'),
           email: u.email,
           avatar: u.avatar,
         }));
@@ -1979,9 +2096,9 @@ const contextMenuItems = computed(() => {
       // 当前行在冻结区 → 显示取消冻结
       items.push({
         id: 'unfreeze-row',
-        label: '取消冻结行',
+        label: t('view.unfreezeRow'),
         icon: 'freeze',
-        hint: '取消当前行的冻结状态',
+        hint: t('view.unfreezeRowHint'),
         action: () => handleFreezeRow(true),
       });
     } else {
@@ -1989,9 +2106,9 @@ const contextMenuItems = computed(() => {
       const freezeCount = currentDataRow + 1;
       items.push({
         id: 'freeze-row',
-        label: `冻结到此行（前 ${freezeCount} 行）`,
+        label: t('view.freezeToRow', { count: freezeCount }),
         icon: 'freeze',
-        hint: '冻结当前行及其上方所有行，滚动时保持可见',
+        hint: t('view.freezeRowHint'),
         action: () => handleFreezeRow(false, freezeCount),
       });
     }
@@ -2002,9 +2119,9 @@ const contextMenuItems = computed(() => {
     if (isTreeView.value && !props.readonly) {
       items.push({
         id: "add-child-record",
-        label: "添加子记录",
+        label: t("view.addChildRecord"),
         icon: "circle-plus",
-        hint: "在当前记录下创建一条子记录",
+        hint: t("view.addChildRecordHint"),
         action: () => {
           handleAddChildRecord();
         },
@@ -2012,17 +2129,17 @@ const contextMenuItems = computed(() => {
 
       items.push({
         id: "promote",
-        label: "提升层级",
+        label: t("view.promoteLevel"),
         icon: "promote",
-        hint: "将当前记录提升到上一层级（与父记录同级）",
+        hint: t("view.promoteLevelHint"),
         action: () => handlePromoteRecord(),
       });
 
       items.push({
         id: "demote",
-        label: "降低层级",
+        label: t("view.demoteLevel"),
         icon: "demote",
-        hint: "将当前记录下降一个层级（挂到前一条记录下）",
+        hint: t("view.demoteLevelHint"),
         action: () => handleDemoteRecord(),
       });
 
@@ -2030,17 +2147,17 @@ const contextMenuItems = computed(() => {
     }
 
     if (!props.readonly) {
-      items.push({ id: "edit", label: "编辑当前记录", icon: "edit", hint: "打开详情面板，编辑当前记录", action: () => handleEditRecord() });
-      items.push({ id: "duplicate", label: "复制当前记录", icon: "copy", hint: "基于当前记录复制生成一条新记录", action: () => handleDuplicateRecord() });
+      items.push({ id: "edit", label: t("view.editCurrentRecord"), icon: "edit", hint: t("view.editCurrentRecordHint"), action: () => handleEditRecord() });
+      items.push({ id: "duplicate", label: t("view.duplicateCurrentRecord"), icon: "copy", hint: t("view.duplicateCurrentRecordHint"), action: () => handleDuplicateRecord() });
       items.push({ divider: true, id: "divider1", label: "" });
 
       // 始终显示"删除当前记录"
       items.push({
         id: "delete",
-        label: "删除当前记录",
+        label: t("view.deleteCurrentRecord"),
         icon: "delete",
         danger: true,
-        hint: "永久删除当前记录，此操作不可撤销",
+        hint: t("view.deleteCurrentRecordHint"),
         action: () => handleDeleteRecord(),
       });
 
@@ -2049,10 +2166,10 @@ const contextMenuItems = computed(() => {
       if (selectedCount >= 1) {
         items.push({
           id: "delete-selected",
-          label: `删除选中的 ${selectedCount} 条记录`,
+          label: t("view.deleteSelectedRecords", { count: selectedCount }),
           icon: "delete",
           danger: true,
-          hint: `永久删除选中的 ${selectedCount} 条记录，此操作不可撤销`,
+          hint: t("view.deleteSelectedRecordsHint", { count: selectedCount }),
           action: () => handleDeleteSelectedRecords(),
         });
       }
@@ -2066,25 +2183,25 @@ const contextMenuItems = computed(() => {
     // 排序相关
     items.push({
       id: 'sort-asc',
-      label: '升序排列',
+      label: t('view.sortAsc'),
       icon: 'sort',
-      hint: '按该字段从小到大升序排列记录',
+      hint: t('view.sortAscHint'),
       action: () => handleSort('asc'),
     });
 
     items.push({
       id: 'sort-desc',
-      label: '降序排列',
+      label: t('view.sortDesc'),
       icon: 'sort',
-      hint: '按该字段从大到小降序排列记录',
+      hint: t('view.sortDescHint'),
       action: () => handleSort('desc'),
     });
 
     if (currentSort) {
       items.push({
         id: 'sort-clear',
-        label: '取消排序',
-        hint: '取消该字段当前的排序',
+        label: t('view.cancelSort'),
+        hint: t('view.cancelSortHint'),
         action: () => handleSort(null),
       });
     }
@@ -2094,9 +2211,9 @@ const contextMenuItems = computed(() => {
     // 冻结相关
     items.push({
       id: isFrozen ? 'unfreeze' : 'freeze',
-      label: isFrozen ? '取消冻结' : '冻结列',
+      label: isFrozen ? t('view.unfreezeColumn') : t('view.freezeColumn'),
       icon: 'freeze',
-      hint: isFrozen ? '取消该列的冻结状态' : '冻结该列及其左侧所有列，滚动时保持可见',
+      hint: isFrozen ? t('view.unfreezeColumnHint') : t('view.freezeColumnHint'),
       action: () => handleFreeze(!isFrozen),
     });
 
@@ -2104,9 +2221,9 @@ const contextMenuItems = computed(() => {
     if (canManage.value) {
       items.push({
         id: 'hide',
-        label: '隐藏该列',
+        label: t('view.hideColumn'),
         icon: 'hide',
-        hint: '在视图中隐藏该列',
+        hint: t('view.hideColumnHint'),
         action: () => handleHideColumn(),
       });
 
@@ -2115,9 +2232,9 @@ const contextMenuItems = computed(() => {
       // 字段属性
       items.push({
         id: 'field-settings',
-        label: '字段属性',
+        label: t('view.fieldSettings'),
         icon: 'settings',
-        hint: '编辑该字段的属性配置',
+        hint: t('view.fieldSettingsHint'),
         action: () => handleFieldSettings(),
       });
     }
@@ -2135,9 +2252,9 @@ const handleSort = async (direction: 'asc' | 'desc' | null) => {
   const newSorts = direction ? [{ fieldId: field.id, direction }] : [];
 
   if (direction) {
-    ElMessage.success(`已按 ${field.name} ${direction === 'asc' ? '升序' : '降序'}排列`);
+    ElMessage.success(t("view.sortedByDirection", { name: field.name, direction: direction === 'asc' ? t("view.asc") : t("view.desc") }));
   } else {
-    ElMessage.success(`已取消 ${field.name} 的排序`);
+    ElMessage.success(t("view.sortCancelled", { name: field.name }));
   }
 
   // 同步应用层排序状态
@@ -2169,14 +2286,14 @@ const handleFreeze = async (freeze: boolean) => {
     newFrozen = visibleFields.value
       .slice(0, fieldIndex + 1)
       .map(f => f.id);
-    ElMessage.success(`已冻结 ${field.name} 及其左侧列`);
+    ElMessage.success(t("view.columnFrozenLeft", { name: field.name }));
   } else {
     // 取消冻结：取消该列及其右侧所有列的冻结
     newFrozen = currentFrozen.filter(frozenId => {
       const frozenIndex = visibleFields.value.findIndex(f => f.id === frozenId);
       return frozenIndex !== -1 && frozenIndex < fieldIndex;
     });
-    ElMessage.success(`已取消冻结 ${field.name} 及其右侧列`);
+    ElMessage.success(t("view.columnUnfrozenRight", { name: field.name }));
   }
 
   await viewStore.updateFrozenFields(currentView.value.id, newFrozen);
@@ -2197,13 +2314,13 @@ const handleFreezeRow = (isFrozen: boolean, freezeCount?: number) => {
     newFrozenRowCount = headerRowCount;
     // 更新响应式变量（取消冻结，数据行冻结数变为 0）
     frozenDataRowCount.value = 0;
-    ElMessage.success('已取消冻结行');
+    ElMessage.success(t("view.rowUnfrozen"));
   } else {
     // 冻结行：表头行数 + 数据行数
     newFrozenRowCount = headerRowCount + (freezeCount ?? 1);
     // 更新响应式变量（冻结指定数据行数）
     frozenDataRowCount.value = freezeCount ?? 1;
-    ElMessage.success(`已冻结前 ${freezeCount ?? 1} 行`);
+    ElMessage.success(t("view.rowsFrozen", { count: freezeCount ?? 1 }));
   }
 
   // 同时更新配置和内部状态，确保状态一致性
@@ -2225,7 +2342,7 @@ const handleHideColumn = async () => {
 
   // 索引列（主键字段）不允许隐藏
   if (field.isPrimary === true) {
-    ElMessage.warning('索引列，用来标识每条记录。不能被删除、移动或隐藏。');
+    ElMessage.warning(t("view.primaryColumnCannotHide"));
     contextMenuVisible.value = false;
     return;
   }
@@ -2234,7 +2351,7 @@ const handleHideColumn = async () => {
   const newHidden = [...currentHidden, field.id];
 
   await viewStore.updateHiddenFields(currentView.value.id, newHidden);
-  ElMessage.success(`已隐藏 ${field.name}`);
+  ElMessage.success(t("view.fieldHidden", { name: field.name }));
   contextMenuVisible.value = false;
 };
 
@@ -2397,10 +2514,10 @@ const handleAddNewRecord = async () => {
     }
 
     emit('record-create');
-    ElMessage.success('已添加新记录');
+    ElMessage.success(t('view.recordAdded'));
   } catch (error) {
     console.error('[VTableView] 添加记录失败:', error);
-    ElMessage.error('添加记录失败');
+    ElMessage.error(t('view.addRecordFailed'));
   } finally {
     // 添加短暂冷却期，避免 VTable 事件重复触发导致一次点击添加多条记录
     addRecordCooldownTimer = setTimeout(() => {
@@ -2420,11 +2537,11 @@ const handleDuplicateRecord = async () => {
       values: { ...contextMenuRecord.value.values },
     });
     if (newRecord) {
-      ElMessage.success("复制记录成功");
+      ElMessage.success(t("view.recordDuplicated"));
     }
   } catch (error) {
     console.error("复制记录失败:", error);
-    ElMessage.error("复制记录失败");
+    ElMessage.error(t("view.duplicateFailed"));
   }
   contextMenuVisible.value = false;
 };
@@ -2434,11 +2551,11 @@ const handleDeleteRecord = async () => {
   if (!contextMenuRecord.value) return;
   try {
     await ElMessageBox.confirm(
-      "确定要删除这条记录吗？此操作不可恢复。",
-      "删除确认",
+      t("view.deleteRecordConfirm"),
+      t("view.deleteRecordTitle"),
       {
-        confirmButtonText: "确定删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t("view.confirmDelete"),
+        cancelButtonText: t("view.cancel"),
         type: "warning",
         confirmButtonClass: "el-button--danger",
       },
@@ -2449,12 +2566,12 @@ const handleDeleteRecord = async () => {
       selectedRows.value = [];
       checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => id !== recordId);
       emit("record-delete", [recordId]);
-      ElMessage.success("记录删除成功");
+      ElMessage.success(t("view.recordDeleted"));
     }
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除记录失败:", error);
-      ElMessage.error("删除记录失败");
+      ElMessage.error(t("view.deleteFailed"));
     }
   }
   contextMenuVisible.value = false;
@@ -2467,11 +2584,11 @@ const handleDeleteSelectedRecords = async () => {
   if (count === 0) return;
   try {
     await ElMessageBox.confirm(
-      `确定要删除选中的 ${count} 条记录吗？此操作不可恢复。`,
-      "批量删除确认",
+      t("view.deleteSelectedConfirm", { count }),
+      t("view.deleteSelectedTitle"),
       {
-        confirmButtonText: "确定删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t("view.confirmDelete"),
+        cancelButtonText: t("view.cancel"),
         type: "warning",
         confirmButtonClass: "el-button--danger",
       },
@@ -2482,14 +2599,14 @@ const handleDeleteSelectedRecords = async () => {
       emit("record-delete", ids);
       selectedRows.value = selectedRows.value.filter(id => !ids.includes(id));
       checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => !ids.includes(id));
-      ElMessage.success(`成功删除 ${count} 条记录`);
+      ElMessage.success(t("view.recordsDeleted", { count }));
     } finally {
       deleteLoading.value = false;
     }
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除记录失败:", error);
-      ElMessage.error("删除记录失败");
+      ElMessage.error(t("view.deleteFailed"));
     }
   }
   contextMenuVisible.value = false;
@@ -2501,7 +2618,7 @@ const handlePromoteRecord = async () => {
   const record = contextMenuRecord.value;
   const currentParentIds = record.values?.[parentFieldId.value];
   if (!currentParentIds || !Array.isArray(currentParentIds) || currentParentIds.length === 0) {
-    ElMessage.warning("该记录已经是顶层记录，无法提升层级");
+    ElMessage.warning(t("view.alreadyTopLevel"));
     contextMenuVisible.value = false;
     return;
   }
@@ -2523,7 +2640,7 @@ const handlePromoteRecord = async () => {
   };
   const parentRecord = findParent(treeRecords.value);
   if (!parentRecord || !parentRecord.values) {
-    ElMessage.warning("无法找到父记录");
+    ElMessage.warning(t("view.parentNotFound"));
     contextMenuVisible.value = false;
     return;
   }
@@ -2534,10 +2651,10 @@ const handlePromoteRecord = async () => {
       values: { [parentFieldId.value]: newParentId ? [newParentId] : [] },
     });
     await loadTreeRecords();
-    ElMessage.success("已提升层级");
+    ElMessage.success(t("view.levelPromoted"));
   } catch (error) {
     console.error("[VTableView] 提升层级失败:", error);
-    ElMessage.error("提升层级失败");
+    ElMessage.error(t("view.promoteFailed"));
   }
   contextMenuVisible.value = false;
 };
@@ -2545,7 +2662,7 @@ const handlePromoteRecord = async () => {
 // 降低层级：将记录设为上一个兄弟节点的子级（下移一层）
 const handleDemoteRecord = async () => {
   if (!contextMenuRecord.value || !parentFieldId.value) return;
-  ElMessage.info("降低层级功能正在开发中");
+  ElMessage.info(t("view.demoteWip"));
   contextMenuVisible.value = false;
 };
 
@@ -2555,10 +2672,10 @@ const handleAddChildRecord = async () => {
   try {
     await recordApiService.createChildRecord(contextMenuRecord.value.id, parentFieldId.value);
     await loadTreeRecords();
-    ElMessage.success("子记录已创建");
+    ElMessage.success(t("view.childRecordCreated"));
   } catch (error) {
     console.error("创建子记录失败:", error);
-    ElMessage.error("创建子记录失败");
+    ElMessage.error(t("view.createChildFailed"));
   }
   contextMenuVisible.value = false;
 };
@@ -2573,10 +2690,10 @@ const handleTreeAddChildClick = async () => {
   try {
     await recordApiService.createChildRecord(recordId, parentFieldId.value);
     await loadTreeRecords();
-    ElMessage.success("子记录已创建");
+    ElMessage.success(t("view.childRecordCreated"));
   } catch (error) {
     console.error("创建子记录失败:", error);
-    ElMessage.error("创建子记录失败");
+    ElMessage.error(t("view.createChildFailed"));
   } finally {
     treeAddChildLoading.value = false;
     treeAddChildIconVisible.value = false;
@@ -2617,12 +2734,12 @@ const handleRecordSave = async (
         await loadTreeRecords();
       }
     }
-    ElMessage.success("保存成功");
+    ElMessage.success(t("view.saveSuccess"));
     expandDialogVisible.value = false;
     expandedRecord.value = null;
   } catch (error) {
     console.error("Error saving record-tv:", error);
-    ElMessage.error("保存失败");
+    ElMessage.error(t("view.saveFailed"));
   }
 };
 
@@ -2876,7 +2993,7 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
           const result = formulaEngine!.calculate(record, formula);
           
           if (result === '#ERROR') {
-            row[field.id] = '计算错误';
+            row[field.id] = t('view.calcError');
           } else if (typeof result === 'number') {
             // 根据公式类型决定格式化方式
             const resultType = FormulaEngine.inferResultType(formula);
@@ -2888,19 +3005,22 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
             else if (resultType === "date") {
               row[field.id] = formatDate(result);
             }
-            // 数字类型：带精度格式化
+            // 数字类型：沿用数值字段的展示格式（精度/前后缀/千分位）
             else {
-              const precision = (field.options?.precision as number) ?? 2;
-              row[field.id] = result.toLocaleString('zh-CN', {
-                minimumFractionDigits: precision,
-                maximumFractionDigits: precision,
+              row[field.id] = formatNumberField(result, {
+                precision: (field.options?.precision as number) ?? 2,
+                format: (field.options?.format as 'number' | 'currency' | 'percent') ?? 'number',
+                currencySymbol: field.options?.currencySymbol as string | undefined,
+                prefix: field.options?.prefix as string | undefined,
+                suffix: field.options?.suffix as string | undefined,
+                thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
               });
             }
           } else {
             row[field.id] = String(result);
           }
         } catch {
-          row[field.id] = '计算错误';
+          row[field.id] = t('view.calcError');
         }
       });
     }
@@ -3128,6 +3248,43 @@ const getStarPath = (cx: number, cy: number, outerR: number, points: number, inn
   return parts.join('');
 };
 
+// 按字段配置的日期格式格式化单元格显示值
+const formatDateByConfig = (cellValue: any, fmt: string): string => {
+  if (cellValue == null || cellValue === '') return '';
+  if (fmt === 'YYYY-MM-DD') {
+    return formatDate(cellValue);
+  }
+  let date: Date | null = null;
+  if (cellValue instanceof Date) {
+    date = cellValue;
+  } else if (typeof cellValue === 'number') {
+    const d = new Date(cellValue);
+    if (!isNaN(d.getTime())) date = d;
+  } else if (typeof cellValue === 'string') {
+    const s = cellValue.trim();
+    // 已是紧凑格式则直接展示，避免被重新解析导致偏移
+    if (fmt === 'MMDD' && /^\d{4}$/.test(s)) return s;
+    if (fmt === 'MM-DD' && /^\d{2}-\d{2}$/.test(s)) return s;
+    if (fmt === 'YYYYMMDD' && /^\d{8}$/.test(s)) return s;
+    if (fmt === 'YYYYMM' && /^\d{6}$/.test(s)) return s;
+    if (fmt === 'YYYY-MM' && /^\d{4}-\d{2}$/.test(s)) return s;
+    const ts = Date.parse(s);
+    if (!isNaN(ts)) date = new Date(ts);
+  }
+  if (!date) return String(cellValue);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  switch (fmt) {
+    case 'YYYY-MM': return `${y}-${m}`;
+    case 'YYYYMM': return `${y}${m}`;
+    case 'MMDD': return `${m}${d}`;
+    case 'MM-DD': return `${m}-${d}`;
+    case 'YYYYMMDD': return `${y}${m}${d}`;
+    default: return `${y}-${m}-${d}`;
+  }
+};
+
 // 根据字段类型获取 VTable 列配置
 const getCellTypeConfig = (field: any): Record<string, any> => {
   const config: Record<string, any> = {};
@@ -3155,7 +3312,23 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       };
       break;
     case FieldType.CHECKBOX:
-      config.cellType = 'switch';
+      // 复选框使用内置开关控件（cellType:'switch'）。
+      // 注意：VTable 的 switch 单元格会忽略 customLayout/customRender，
+      // 导致“新增记录行”（_rowType === 'addButton'）的覆盖逻辑失效、开关控件仍被渲染。
+      // 因此将该行的 cellType 动态切换为 'text'，使其与其它字段类型一致（显示占位背景、不渲染控件）。
+      config.cellType = (args: any) => {
+        const { table, col, row } = args;
+        if (!table) return 'switch';
+        try {
+          const record = table.getCellOriginRecord(col, row);
+          if (record && record._rowType === 'addButton') {
+            return 'text';
+          }
+        } catch (_e) {
+          // 单元格类型解析阶段记录尚未就绪时忽略异常，避免影响开关交互
+        }
+        return 'switch';
+      };
       config.style = {
         textAlign: 'center'
       };
@@ -3180,7 +3353,8 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
       config.cellType = 'link';
       config.editor = 'input';
       break;
-    case FieldType.DATE:
+    case FieldType.DATE: {
+      const dateFormat = (field.options?.dateFormat as string) || 'YYYY-MM-DD';
       config.cellType = 'text';
       config.style = {
         textAlign: 'center'
@@ -3189,22 +3363,18 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
         // fieldFormat 接收的是整条 record，需用 field.id 提取单元格值
         const cellValue = value?.[field.id];
         if (cellValue == null || cellValue === '') return '';
-        // 处理 Date 对象
-        if (cellValue instanceof Date) {
-          return formatDate(cellValue.getTime());
-        }
-        // 处理数字时间戳
-        if (typeof cellValue === "number") {
-          return formatDate(cellValue);
-        }
-        // 处理字符串
-        if (typeof cellValue === "string") {
-          return formatDate(cellValue);
-        }
-        return String(cellValue);
+        return formatDateByConfig(cellValue, dateFormat);
       };
-      config.editor = 'date-only';
+      // 按配置格式选择对应的 VTable 编辑器：年月 / 月日 / 完整日期
+      if (dateFormat === 'YYYY-MM' || dateFormat === 'YYYYMM') {
+        config.editor = 'date-month';
+      } else if (dateFormat === 'MMDD' || dateFormat === 'MM-DD') {
+        config.editor = 'date-month-day';
+      } else {
+        config.editor = 'date-only';
+      }
       break;
+    }
     case FieldType.DATE_TIME:
       config.cellType = 'text';
       config.fieldFormat = (value: any) => {
@@ -3247,15 +3417,15 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
         const recordId = record?._originalRecord?.id || record?._recordId || '';
         const cacheKey = recordId ? `${recordId}:${field.id}` : '';
 
-        if (cacheKey && linkLoadingStates[cacheKey]) return '加载中...';
-        if (cacheKey && linkErrorStates[cacheKey]) return '加载失败';
+        if (cacheKey && linkLoadingStates[cacheKey]) return t('common.loading');
+        if (cacheKey && linkErrorStates[cacheKey]) return t('view.linkLoadFailed');
 
         const displayValues = cacheKey ? linkDisplayCache[cacheKey] : undefined;
         if (displayValues && displayValues.length > 0) {
           return displayValues.join(', ');
         }
         if (Array.isArray(rawIds) && rawIds.length > 0) {
-          return `关联 ${rawIds.length} 条`;
+          return t('view.linkCount', { count: rawIds.length });
         }
         return '';
       };
@@ -3276,19 +3446,21 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
         if (Number.isNaN(num)) return String(value);
 
         const options = field.options || {};
-        const precision = options.precision ?? 0;
-        const prefix = options.prefix || '';
-        const suffix = options.suffix || '';
-        const currencySymbol = options.currencySymbol || '';
+        const format =
+          field.type === FieldType.CURRENCY
+            ? 'currency'
+            : field.type === FieldType.PERCENT
+              ? 'percent'
+              : 'number';
 
-        let formatted = num.toFixed(precision);
-        if (field.type === FieldType.PERCENT) {
-          formatted = `${formatted}%`;
-        } else if (field.type === FieldType.CURRENCY && currencySymbol) {
-          formatted = `${currencySymbol}${formatted}`;
-        }
-
-        return `${prefix}${formatted}${suffix}`;
+        return formatNumberField(num, {
+          precision: options.precision ?? 0,
+          format,
+          currencySymbol: options.currencySymbol,
+          prefix: options.prefix,
+          suffix: options.suffix,
+          thousandsSeparator: options.thousandsSeparator,
+        });
       };
       break;
     case FieldType.PHONE:
@@ -4430,8 +4602,12 @@ const buildTableConfig = (): any => {
       : (isGrouped
         ? { records: tableRecords }
         : { dataSource: smartDataSource!.dataSource })),
-    // 主从表插件配置（树形视图下不启用主从表）
-    ...(!isTreeView.value && hasLinkFields.value && masterDetailPlugin.value ? {
+    // 主从表插件配置（树形视图 / 分组视图下不启用主从表）
+    // 分组模式下若注册 MasterDetailPlugin，VTable 的 _setRecords 会检测到该插件，
+    // 将 rowHierarchyType 强制置为 "grid"，导致分组树（vtableMerge）无法展平，
+    // 分组内数据行会全部不可见（这是关联字段表格分组后看不到数据的根因）。
+    // 与树形视图一致，分组模式下不启用主从表子表能力，保证分组数据正常显示。
+    ...(!isTreeView.value && !isGrouped && hasLinkFields.value && masterDetailPlugin.value ? {
       plugins: [masterDetailPlugin.value],
       hierarchyExpandLevel: 1, // 默认折叠
     } : {}),
@@ -4457,17 +4633,40 @@ const buildTableConfig = (): any => {
       width: 'auto',
       cellType: 'checkbox',
       headerType: 'checkbox',
-      format: (_col: number, row: number, table: any) => {
-        if (row === table.dataSource._sourceLength){
-          return '+';
+      // VTable 官方 rowSeriesNumber.format 签名：format(col, row, table, value)
+      // - 分组视图下 VTable 在 getCellValue 中调用 getGroupSeriesNumber 计算 value
+      //   （返回组内从 0 开始的序号），并作为第 4 个参数传入
+      // - 非分组视图下 value = row - columnHeaderLevelCount + 1（从 1 开始）
+      // 分组视图下 +1 使每个分组独立从 1 开始编号；VTable 已自行处理
+      // vtableMerge 组标题 / 聚合行（这些行 getCellValue 不会调用 format）。
+      format: (_col: number, row: number, table: any, value?: number) => {
+        if (typeof value !== 'number') {
+          return row;
         }
-        return row;
+        // 新增行虚拟行（分组视图下每组末尾各一个、非分组视图下表格末尾一个）显示 '+'
+        try {
+          const record = table.getCellOriginRecord(_col, row);
+          if (record && record._rowType === 'addButton') {
+            return '+';
+          }
+        } catch (_e) {
+          // 记录未就绪时按常规序号处理
+        }
+        if (!table.internalProps.groupBy) {
+          return value;
+        }
+        return value;
       },
-      // 禁用新增行的复选框（虽然显示但不可点击）
+      // 禁用所有分组「+ 添加记录」虚拟行的复选框（分组下每组末尾各有一个）
       disable: (args: any) => {
-        const { row, table } = args;
-        // 新增行禁用复选框
-        return row === table.dataSource._sourceLength;
+        const { col, row, table } = args;
+        try {
+          const record = table.getCellOriginRecord(col, row);
+          return !!(record && record._rowType === 'addButton');
+        } catch (_e) {
+          // 记录未就绪时回退到原逻辑（仅最末行禁用）
+          return row === table.dataSource._sourceLength;
+        }
       },
       // 不显示行序号列（最左侧 # 列）上的拖拽排序手柄按钮
       dragOrder: false,
@@ -4504,7 +4703,7 @@ const buildTableConfig = (): any => {
           const groupName = record?.vtableMergeName || '';
           const children = record?.vtableChildren || record?.children || [];
           const realCount = children.filter((c: any) => c._rowType !== 'addButton').length;
-          return `${groupName} (${realCount} 条)`;
+          return t('view.groupRecordCount', { name: groupName, count: realCount });
         },
       },
       enableCheckboxCascade: true,
@@ -4562,7 +4761,7 @@ const buildTableConfig = (): any => {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
-              text: '+ 添加记录',
+              text: `+ ${t("view.addRecord")}`,
               fontSize: 13,
               fill: '#c0c0c0',
               textBaseline: 'middle',
@@ -4599,7 +4798,7 @@ const buildTableConfig = (): any => {
             const text = createText({
               x: cellWidth / 2,
               y: cellHeight / 2,
-              text: '+ 添加记录',
+              text: `+ ${t("view.addRecord")}`,
               fontSize: 13,
               fill: '#c0c0c0',
               textBaseline: 'middle',
@@ -4753,12 +4952,24 @@ const bindTableEvents = () => {
     // 仅处理行数据（非表头）
     if (!tableInstance.isHeader(col, row)) {
       const record = tableInstance.getCellOriginRecord(col, row);
-      if (record && record._recordId && record._originalRecord) {
+      if (record && record._recordId) {
         const recordId = record._recordId;
-        const fieldId = orderedVisibleFields.value[col - 1]?.id;
-        if (!fieldId) return;
+        // 优先使用事件自带的字段标识（cellInfo.field/fieldKey，与列定义一致、不受列索引偏移影响），
+        // 回退到可见字段列表推导，确保能稳定解析出字段ID
+        const fieldId = (args.field || args.fieldKey || orderedVisibleFields.value[col - 1]?.id) as string | undefined;
+        if (!fieldId) {
+          console.warn('[开关保存] 未解析到字段ID，已跳过保存', { col, row });
+          return;
+        }
 
-        const originalRecord = record._originalRecord;
+        // 兼容部分场景下单元格原始记录未挂载 _originalRecord 的情况
+        const originalRecord = record._originalRecord || record;
+        const newChecked = !!checked;
+
+        // 值未变化则不触发保存，避免重复写库
+        if (originalRecord.values && originalRecord.values[fieldId] === newChecked) {
+          return;
+        }
 
         // 协同编辑：检查锁状态
         const authStore = useAuthStore();
@@ -4766,26 +4977,34 @@ const bindTableEvents = () => {
         const tableId = tableStore.currentTable?.id;
         const baseId = tableStore.currentTable?.baseId;
 
+        let lockAcquired = false;
         if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
           // 如果被其他用户锁定，回退开关状态并提示
           if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
             const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
-            ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格，无法更改`);
+            ElMessage.warning(t("view.cellLockedNoEdit", { user: lockInfo?.nickname || lockInfo?.name || t("view.otherUser") }));
             // 回退到原始状态（需要刷新表格）
             tableStore.refreshRecords(tableId);
             return;
           }
 
-          // 尝试获取锁
-          const lockResult = await collabStore.acquireLock(
-            { base_id: baseId, table_id: tableId, record_id: recordId, field_id: fieldId },
-            currentUserId
-          );
-          if (!lockResult.success && lockResult.reason === 'locked') {
-            ElMessage.warning(`${lockResult.locked_by?.nickname || lockResult.locked_by?.name || '其他用户'} 正在编辑此单元格`);
-            tableStore.refreshRecords(tableId);
-            return;
-          }
+          // 乐观获取锁（非阻塞）：与文本/选择单元格一致，避免并发重复切换开关时
+          // await 被挂起（acquireLock 对同一 key 的并发请求此前会丢弃先前的 pending 导致其
+          // Promise 永久不被 resolve），从而令 updateRecord 永远不执行、保存不触发。
+          collabStore
+            .acquireLock(
+              { base_id: baseId, table_id: tableId, record_id: recordId, field_id: fieldId },
+              currentUserId
+            )
+            .then((result) => {
+              // 兜底：仅当锁确实被其他用户持有时提示（正常本端获取不会进入）
+              if (!result.success && result.reason === 'locked' && result.locked_by) {
+                ElMessage.warning(t("view.cellLockedByOther", { user: result.locked_by.nickname || result.locked_by.name || t("view.otherUser") }));
+                tableStore.refreshRecords(tableId);
+              }
+            });
+          // 视为本端已持有锁，记录以便 finally 释放，避免锁泄漏
+          lockAcquired = true;
         }
 
         try {
@@ -4793,13 +5012,13 @@ const bindTableEvents = () => {
 
           // 乐观冲突检测：记录待提交变更
           if (collabStore.isRealtimeAvailable) {
-            collabStore.trackPendingChange(recordId, fieldId, checked);
+            collabStore.trackPendingChange(recordId, fieldId, newChecked);
           }
 
           await recordService.updateRecord(recordId, {
             values: {
               ...originalRecord.values,
-              [fieldId]: checked,
+              [fieldId]: newChecked,
             } as Record<string, CellValue>,
           });
 
@@ -4810,22 +5029,26 @@ const bindTableEvents = () => {
 
           // 刷新表格数据
           await tableStore.refreshRecords(tableId);
-
-          // 协同编辑：释放锁
-          if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
-            collabStore.releaseLock({
-              base_id: baseId,
-              table_id: tableId,
-              record_id: recordId,
-              field_id: fieldId,
-            });
-          }
         } catch (error) {
           console.error('开关状态保存失败:', error);
-          ElMessage.error('开关状态保存失败');
+          ElMessage.error(t("view.toggleSaveFailed"));
           // 保存失败也移除待提交变更，避免残留
           if (collabStore.isRealtimeAvailable) {
             collabStore.removePendingChange(recordId, fieldId);
+          }
+        } finally {
+          // 协同编辑：无论保存成功与否都释放编辑锁，防止锁泄漏导致后续无法编辑
+          if (lockAcquired && tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
+            try {
+              collabStore.releaseLock({
+                base_id: baseId,
+                table_id: tableId,
+                record_id: recordId,
+                field_id: fieldId,
+              });
+            } catch (_e) {
+              // 释放锁失败不影响主流程
+            }
           }
         }
       }
@@ -4933,9 +5156,9 @@ const bindTableEvents = () => {
     // 同步应用层排序状态（sortedRecords computed 依赖此状态）
     const newSorts = newDirection ? [{ fieldId: field.id, direction: newDirection }] : [];
     if (newDirection) {
-      ElMessage.success(`已按 ${field.name} ${newDirection === 'asc' ? '升序' : '降序'}排列`);
+      ElMessage.success(t("view.sortedByDirection", { name: field.name, direction: newDirection === 'asc' ? t("view.asc") : t("view.desc") }));
     } else {
-      ElMessage.success(`已取消 ${field.name} 的排序`);
+      ElMessage.success(t("view.sortCancelled", { name: field.name }));
     }
     await viewStore.updateSorts(currentView.value.id, newSorts);
     // 不返回 false → VTable 内置排序正常执行，
@@ -5057,7 +5280,7 @@ const bindTableEvents = () => {
             // 同步检查本地锁缓存：若被其他用户持有，立即取消编辑器并提示
             if (collabStore.isCellLockedByOther(cellRecord._recordId, fieldId, currentUserId)) {
               const lockInfo = collabStore.getCellLockInfo(cellRecord._recordId, fieldId);
-              ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格`);
+              ElMessage.warning(t("view.cellLockedByOther", { user: lockInfo?.nickname || lockInfo?.name || t("view.otherUser") }));
               // 延迟一帧调用，确保在 VTable 启动编辑器之后取消
               setTimeout(() => {
                 try { tableInstanceAny.cancelEditCell?.(); } catch (e) { /* ignore */ }
@@ -5070,7 +5293,7 @@ const bindTableEvents = () => {
                 currentUserId
               ).then((result) => {
                 if (!result.success && result.reason === 'locked' && result.locked_by) {
-                  ElMessage.warning(`${result.locked_by.nickname || result.locked_by.name || '其他用户'} 已锁定此单元格`);
+                  ElMessage.warning(t("view.cellLockedByUser", { user: result.locked_by.nickname || result.locked_by.name || t("view.otherUser") }));
                   try { tableInstanceAny.cancelEditCell?.(); } catch (e) { /* ignore */ }
                 }
               });
@@ -5268,12 +5491,28 @@ const bindTableEvents = () => {
     let finalValue = newValue;
     if (targetField?.type && typeof finalValue === 'number') {
       if (targetField.type === FieldType.DATE) {
-        // 时间戳 → YYYY-MM-DD 日期字符串，确保与服务端格式一致
+        // 按字段配置的日期格式转换。VTable 日期编辑器返回的是 UTC 时间戳，
+        // 用 UTC 取值避免时区造成的日/月偏移，存储对应格式字符串
+        const dateFormat = (targetField.options?.dateFormat as string) || 'YYYY-MM-DD';
         const date = new Date(finalValue);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        finalValue = `${year}-${month}-${day}`;
+        const y = date.getUTCFullYear();
+        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(date.getUTCDate()).padStart(2, '0');
+        if (dateFormat === 'YYYY-MM-DD') {
+          finalValue = `${y}-${m}-${d}`;
+        } else if (dateFormat === 'YYYYMMDD') {
+          finalValue = `${y}${m}${d}`;
+        } else if (dateFormat === 'YYYY-MM') {
+          finalValue = `${y}-${m}`;
+        } else if (dateFormat === 'YYYYMM') {
+          finalValue = `${y}${m}`;
+        } else if (dateFormat === 'MMDD') {
+          finalValue = `${m}${d}`;
+        } else if (dateFormat === 'MM-DD') {
+          finalValue = `${m}-${d}`;
+        } else {
+          finalValue = `${y}-${m}-${d}`;
+        }
       } else if (targetField.type === FieldType.DATE_TIME) {
         // 时间戳 → UTC ISO 字符串 (2026-06-19T16:02:00.000Z)
         finalValue = new Date(finalValue).toISOString();
@@ -5302,7 +5541,7 @@ const bindTableEvents = () => {
     if (tableId && currentUserId && baseId && collabStore.isRealtimeAvailable) {
       if (collabStore.isCellLockedByOther(recordId, fieldId, currentUserId)) {
         const lockInfo = collabStore.getCellLockInfo(recordId, fieldId);
-        ElMessage.warning(`${lockInfo?.nickname || lockInfo?.name || '其他用户'} 正在编辑此单元格，保存被拒绝`);
+        ElMessage.warning(t("view.cellLockedRejected", { user: lockInfo?.nickname || lockInfo?.name || t("view.otherUser") }));
         // 刷新表格以显示原始数据
         if (tableId) {
           await tableStore.refreshRecords(tableId);
@@ -5367,10 +5606,10 @@ const bindTableEvents = () => {
         });
       }
 
-      ElMessage.success('编辑保存成功');
+      ElMessage.success(t("view.editSavedSuccess"));
     } catch (error) {
       console.error('编辑保存失败:', error);
-      ElMessage.error('编辑保存失败');
+      ElMessage.error(t("view.editSaveFailed"));
       // 保存失败也移除待提交变更，避免残留
       if (collabStore.isRealtimeAvailable) {
         collabStore.removePendingChange(recordId, fieldId);
@@ -5388,7 +5627,7 @@ const bindTableEvents = () => {
       cellCount += cols * rows;
     }
     if (cellCount > 0) {
-      ElMessage.success(`已复制 ${cellCount} 个单元格`);
+      ElMessage.success(t("view.cellsCopied", { count: cellCount }));
     }
   });
 
@@ -5475,10 +5714,10 @@ const bindTableEvents = () => {
               values: { [parentFieldId.value]: [targetId] } as Record<string, CellValue>,
             });
             await loadTreeRecords();
-            ElMessage.success("已更新层级关系");
+            ElMessage.success(t("view.hierarchyUpdated"));
           } catch (error) {
             console.error("拖拽更新层级失败:", error);
-            ElMessage.error("拖拽更新层级失败");
+            ElMessage.error(t("view.dragUpdateFailed"));
           }
         }
       }
@@ -5624,6 +5863,28 @@ const updateTableData = () => {
       smartDataSource.clearCache();
       smartDataSource.updateMemoryCache(newRows, 0);
       smartDataSource.markFullyLoaded();
+
+      // 清除 switch 单元格的勾选状态缓存，使其重新从数据读取最新值。
+      // VTable 的 stateManager.checkedState 在首次渲染时按「行索引 + 字段」缓存开关状态，
+      // 外部更新（如详情抽屉保存）后走增量刷新不会自动同步该缓存，
+      // 导致开关单元格持续显示旧值（需整页刷新才生效）。仅清理 CHECKBOX 字段即可，
+      // 不影响行选择等其他 checkbox 的状态。
+      try {
+        const sm = (tableInstance as any)?.stateManager;
+        if (sm && sm.checkedState && typeof sm.checkedState.forEach === 'function') {
+          const checkboxFieldIds = orderedVisibleFields.value
+            .filter((f: any) => f.type === FieldType.CHECKBOX)
+            .map((f: any) => f.id);
+          if (checkboxFieldIds.length) {
+            sm.checkedState.forEach((rec: Record<string, unknown>) => {
+              if (rec) checkboxFieldIds.forEach((fid: string) => { delete (rec as any)[fid]; });
+            });
+          }
+        }
+      } catch (_e) {
+        // 清除缓存失败不影响主流程
+      }
+
       (tableInstance as any).renderWithRecreateCells();
     } else {
       // 无 dataSource，回退全量重建
@@ -5994,10 +6255,10 @@ async function handleAttachmentUpdate(value: any) {
       values: newValues as Record<string, CellValue>,
     };
     await tableStore.refreshRecords(props.tableId);
-    ElMessage.success('附件保存成功');
+    ElMessage.success(t("view.attachmentSaved"));
   } catch (error) {
     console.error('附件保存失败:', error);
-    ElMessage.error('附件保存失败');
+    ElMessage.error(t("view.attachmentSaveFailed"));
     // 恢复原始值，使 AttachmentManager 重新加载为删除前的状态
     attachmentManagerInitialValue.value = originalValue;
   }
@@ -6046,7 +6307,7 @@ async function loadLinkDisplayData() {
         // 该记录下所有字段标记错误
         for (const n of needsLoad.filter(n => n.recordId === recordId)) {
           const key = `${recordId}:${n.fieldId}`;
-          linkErrorStates[key] = result.reason?.message || '加载关联数据失败';
+          linkErrorStates[key] = result.reason?.message || t('view.linkDataLoadFailed');
           linkLoadingStates[key] = false;
         }
         continue;
@@ -6070,7 +6331,7 @@ async function loadLinkDisplayData() {
   } catch (error) {
     for (const n of needsLoad) {
       const key = `${n.recordId}:${n.fieldId}`;
-      linkErrorStates[key] = '加载关联数据失败';
+      linkErrorStates[key] = t('view.linkDataLoadFailed');
       linkLoadingStates[key] = false;
     }
   }
@@ -6138,7 +6399,7 @@ async function handleLinkSelectorConfirm(selectedIds: string[]) {
     await loadLinkDisplayData();
   } catch (error) {
     console.error('更新关联字段失败:', error);
-    ElMessage.error('更新关联字段失败');
+    ElMessage.error(t("view.linkFieldUpdateFailed"));
   }
 
   linkSelectorVisible.value = false;
@@ -6205,11 +6466,11 @@ async function handleSubTableUnlink(targetRecordId: string) {
 
   try {
     await ElMessageBox.confirm(
-      '确定要解除与该记录的关联吗？',
-      '确认解除关联',
+      t("view.confirmUnlink"),
+      t("view.confirmUnlinkTitle"),
       {
-        confirmButtonText: '确认解除',
-        cancelButtonText: '取消',
+        confirmButtonText: t("view.confirmUnlinkBtn"),
+        cancelButtonText: t("view.cancel"),
         type: 'warning',
       },
     );
@@ -6225,11 +6486,11 @@ async function handleSubTableUnlink(targetRecordId: string) {
     loadLinkDisplayData();
     updateSubTableDisabledAdd();
 
-    ElMessage.success('已解除关联');
+    ElMessage.success(t("view.linkUnlinked"));
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       console.error('[VTableView] 解除关联失败:', error);
-      ElMessage.error('解除关联失败');
+      ElMessage.error(t("view.linkUnlinkFailed"));
     }
   }
 }
@@ -6251,7 +6512,7 @@ function updateSubTableDisabledAdd() {
     const existingIds = (record?.values?.[field.id] as string[]) || [];
     if (existingIds.length >= 1) {
       subTableDisabledAdd.value = true;
-      subTableAddDisabledReason.value = '一对一关系仅支持关联 1 条记录';
+      subTableAddDisabledReason.value = t('view.oneToOneLimit');
       return;
     }
   }
@@ -6405,7 +6666,7 @@ watch(
       }"
       @click.stop="handleActionIconClick"
       @mouseenter="actionIconVisible = true"
-      title="查看行数据"
+      :title="t('view.viewRowData')"
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/>
@@ -6429,8 +6690,8 @@ watch(
       @mouseleave="delayHideTreeAddChildIcon()"
       :title="
         treeAddChildIcon?.recordName
-          ? `在「${treeAddChildIcon.recordName}」下添加子记录`
-          : '在当前行下添加一条子记录'
+          ? t('view.addChildUnderRecord', { name: treeAddChildIcon.recordName })
+          : t('view.addChildCurrentRow')
       "
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -6484,7 +6745,7 @@ watch(
     <!-- 图片缩略图单击预览对话框 -->
     <el-dialog
       v-model="attachmentImagePreviewVisible"
-      :title="attachmentImagePreviewName || '预览'"
+      :title="attachmentImagePreviewName || t('view.preview')"
       width="90%"
       top="5vh"
       destroy-on-close
@@ -6523,12 +6784,12 @@ watch(
     <LoadingOverlay
       :visible="deleteLoading"
       :record-count="checkboxSelectedRows.length"
-      action-text="删除" />
+      :action-text="t('view.delete')" />
 
     <!-- 全局搜索弹窗 -->
     <el-dialog
       v-model="searchVisible"
-      title="表格内容全局搜索"
+      :title="t('view.globalSearchTitle')"
       width="360px"
       :modal="false"
       :close-on-click-modal="false"
@@ -6539,7 +6800,7 @@ watch(
       <div class="search-content">
         <el-input
           v-model="searchInput"
-          placeholder="输入搜索内容..."
+          :placeholder="t('view.searchPlaceholder')"
           class="vtable-search-input"
           @input="handleSearch"
           clearable
@@ -6553,7 +6814,7 @@ watch(
           <span>{{ searchResultIndex }} / {{ searchTotalCount }}</span>
         </div>
         <div class="search-result-info" v-else-if="searchInput">
-          <span>无结果</span>
+          <span>{{ t("view.searchNoResult") }}</span>
         </div>
 
         <div class="search-actions">
@@ -6561,13 +6822,13 @@ watch(
             size="small"
             :disabled="searchResultIndex <= 1"
             @click="handleSearchPrev">
-            上一个
+            {{ t("view.searchPrev") }}
           </el-button>
           <el-button
             size="small"
             :disabled="searchResultIndex >= searchTotalCount || searchTotalCount === 0"
             @click="handleSearchNext">
-            下一个
+            {{ t("view.searchNext") }}
           </el-button>
         </div>
       </div>

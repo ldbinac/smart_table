@@ -1,6 +1,8 @@
 /**
  * 附件错误代码常量
  */
+import { t } from '@/i18n';
+
 export const AttachmentErrorCode = {
   // 文件校验错误
   FILE_TOO_LARGE: 'FILE_TOO_LARGE',
@@ -60,7 +62,7 @@ export function createFileTooLargeError(
   maxSize: number
 ): AttachmentError {
   return new AttachmentError(
-    `文件 "${fileName}" (${formatFileSize(fileSize)}) 超过大小限制 ${formatFileSize(maxSize)}`,
+    t('attachment.fileTooLarge', [fileName, formatFileSize(fileSize), formatFileSize(maxSize)]),
     AttachmentErrorCode.FILE_TOO_LARGE,
     { fileName, fileSize, maxSize }
   );
@@ -74,7 +76,7 @@ export function createFileTypeNotAllowedError(
   fileType: string
 ): AttachmentError {
   return new AttachmentError(
-    `文件 "${fileName}" 的类型 "${fileType}" 不被允许`,
+    t('attachment.typeNotAllowed', [fileName, fileType]),
     AttachmentErrorCode.FILE_TYPE_NOT_ALLOWED,
     { fileName, fileType }
   );
@@ -88,7 +90,7 @@ export function createFileCountExceededError(
   maxCount: number
 ): AttachmentError {
   return new AttachmentError(
-    `文件数量超过限制，当前 ${currentCount} 个，最多允许 ${maxCount} 个`,
+    t('attachment.countExceeded', [currentCount, maxCount]),
     AttachmentErrorCode.FILE_COUNT_EXCEEDED,
     { currentCount, maxCount }
   );
@@ -102,7 +104,7 @@ export function createTotalSizeExceededError(
   maxTotalSize: number
 ): AttachmentError {
   return new AttachmentError(
-    `文件总大小超过限制，当前 ${formatFileSize(currentSize)}，最多允许 ${formatFileSize(maxTotalSize)}`,
+    t('attachment.totalSizeExceeded', [formatFileSize(currentSize), formatFileSize(maxTotalSize)]),
     AttachmentErrorCode.TOTAL_SIZE_EXCEEDED,
     { currentSize, maxTotalSize }
   );
@@ -113,7 +115,7 @@ export function createTotalSizeExceededError(
  */
 export function createAttachmentNotFoundError(attachmentId: string): AttachmentError {
   return new AttachmentError(
-    `附件不存在或已被删除 (ID: ${attachmentId})`,
+    t('attachment.notFound', [attachmentId]),
     AttachmentErrorCode.ATTACHMENT_NOT_FOUND,
     { attachmentId }
   );
@@ -124,7 +126,7 @@ export function createAttachmentNotFoundError(attachmentId: string): AttachmentE
  */
 export function createStorageFullError(): AttachmentError {
   return new AttachmentError(
-    '存储空间不足，请清理不必要的附件后重试',
+    t('attachment.storageFull'),
     AttachmentErrorCode.STORAGE_FULL
   );
 }
@@ -134,7 +136,7 @@ export function createStorageFullError(): AttachmentError {
  */
 export function createReadError(fileName: string, reason?: string): AttachmentError {
   return new AttachmentError(
-    `文件 "${fileName}" 读取失败${reason ? ': ' + reason : ''}`,
+    t('attachment.readFailed', [fileName, reason ? ': ' + reason : '']),
     AttachmentErrorCode.READ_ERROR,
     { fileName, reason }
   );

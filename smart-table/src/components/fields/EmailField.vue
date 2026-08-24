@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "@/db/schema";
+
+const { t } = useI18n();
 import type { CellValue } from "@/types";
 import { validateEmail } from "@/utils/validation";
 
@@ -59,7 +62,7 @@ function handleBlur() {
     <el-input
       v-if="!readonly"
       :model-value="localValue"
-      placeholder="请输入邮箱地址"
+      :placeholder="t('field.placeholderEmail')"
       :class="{ 'is-error': !isValid }"
       @update:model-value="handleInput"
       @blur="handleBlur">

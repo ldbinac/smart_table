@@ -5,6 +5,7 @@ import { useMemberStore } from "@/stores/memberStore";
 import type { Workflow, WorkflowStatus } from "@/types/workflow";
 import type { TableEntity } from "@/db/schema";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { useI18n } from "vue-i18n";
 import { formatDateTime } from "@/utils/timezone";
 import {
   Plus,
@@ -44,6 +45,7 @@ const emit = defineEmits<{
 
 const workflowStore = useWorkflowStore();
 const memberStore = useMemberStore();
+const { t } = useI18n();
 
 // 权限控制：工作流管理需要管理员及以上角色
 const canManage = computed(() => memberStore.canManage);
@@ -91,11 +93,11 @@ const groupedByTable = computed(() => {
 });
 
 const statusOptions: { value: WorkflowStatus | "all"; label: string }[] = [
-  { value: "all", label: "全部" },
-  { value: "draft", label: "草稿" },
-  { value: "active", label: "已发布" },
-  { value: "paused", label: "已暂停" },
-  { value: "archived", label: "已归档" },
+  { value: "all", label: t("workflow.list.statusAll") },
+  { value: "draft", label: t("workflow.list.statusDraft") },
+  { value: "active", label: t("workflow.list.statusActive") },
+  { value: "paused", label: t("workflow.list.statusPaused") },
+  { value: "archived", label: t("workflow.list.statusArchived") },
 ];
 
 const workflows = computed(() => props.workflows ?? workflowStore.workflows);
@@ -145,12 +147,12 @@ function getStatusType(status: WorkflowStatus) {
 
 function getStatusLabel(status: WorkflowStatus) {
   const map: Record<WorkflowStatus, string> = {
-    draft: "草稿",
-    active: "已发布",
-    paused: "已暂停",
-    archived: "已归档",
+    draft: t("workflow.list.statusDraft"),
+    active: t("workflow.list.statusActive"),
+    paused: t("workflow.list.statusPaused"),
+    archived: t("workflow.list.statusArchived"),
   };
-  return map[status] ?? status;
+  return map[status] ?? t("workflow.list.statusUnknown");
 }
 
 function formatDate(date: string): string {
@@ -160,11 +162,11 @@ function formatDate(date: string): string {
 async function handleDelete(workflow: Workflow) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除工作流 "${workflow.name}" 吗？`,
-      "删除确认",
+      t("workflow.list.deleteConfirm", { name: workflow.name }),
+      t("workflow.list.deleteTitle"),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t("workflow.manager.delete"),
+        cancelButtonText: t("common.cancel"),
         type: "warning",
       },
     );
@@ -207,7 +209,7 @@ function openSwitchTableDialog(workflow: Workflow) {
 function handleSwitchTable() {
   if (!switchTableWorkflow.value) return;
   if (!switchTableId.value) {
-    ElMessage.warning("请选择关联数据表");
+    ElMessage.warning(t("workflow.list.tableRequired"));
     return;
   }
   emit("updateTable", switchTableWorkflow.value, switchTableId.value);
@@ -220,14 +222,14 @@ function handleSwitchTable() {
 <template>
   <div class="workflow-list-panel" :class="{ collapsed: isCollapsed }">
     <div class="header-actions">
-      <el-button title="返回多维表" type="info" plain class="action-btn back-btn" :icon="ArrowLeftBold" @click="emit('back')">
-        <span class="btn-text">返回</span>
+      <el-button :title="t('workflow.list.back')" type="info" plain class="action-btn back-btn" :icon="ArrowLeftBold" @click="emit('back')">
+        <span class="btn-text">{{ t('workflow.list.back') }}</span>
       </el-button>
-      <el-button title="工作流与数据表关联关系" type="success" plain class="action-btn" :icon="Connection" @click="openRelationDialog">
-        <span class="btn-text">关系</span>
+      <el-button :title="t('workflow.list.relation')" type="success" plain class="action-btn" :icon="Connection" @click="openRelationDialog">
+        <span class="btn-text">{{ t('workflow.list.relation') }}</span>
       </el-button>
-      <el-button v-if="canManage" title="新建工作流" type="primary" class="action-btn" :icon="Plus" @click="handleCreate">
-        <span class="btn-text">新建</span>
+      <el-button v-if="canManage" :title="t('workflow.list.create')" type="primary" class="action-btn" :icon="Plus" @click="handleCreate">
+        <span class="btn-text">{{ t('workflow.list.create') }}</span>
       </el-button>
       <el-button
         class="collapse-btn" style="margin-right: 12px;"
@@ -235,13 +237,13 @@ function handleSwitchTable() {
         circle
         size="small"
         :icon="isCollapsed ? DArrowRight : DArrowLeft"
-        :title="isCollapsed ? '展开' : '收起'"
+        :title="isCollapsed ? t('workflow.list.expand') : t('workflow.list.collapse')"
         @click="toggleCollapse" />
     </div>
     <div class="workflow-search">
       <el-input
         v-model="searchKeyword"
-        placeholder="搜索工作流名称或描述"
+        :placeholder="t('workflow.list.searchPlaceholder')"
         :prefix-icon="Search"
         clearable
         size="small" />
@@ -282,8 +284,8 @@ function handleSwitchTable() {
           <span class="table-name">
             {{
               workflow.table_id
-                ? tableNameMap[workflow.table_id] || "未知数据表"
-                : "未关联数据表"
+                ? tableNameMap[workflow.table_id] || t("workflow.list.unknownTable")
+                : t("workflow.list.noTable")
             }}
           </span>
           <el-button
@@ -293,16 +295,16 @@ function handleSwitchTable() {
             size="small"
             :icon="Switch"
             @click.stop="openSwitchTableDialog(workflow)">
-            变更
+            {{ t('workflow.list.change') }}
           </el-button>
         </div>
 
         <div class="workflow-description">
-          {{ workflow.description || "暂无描述" }}
+          {{ workflow.description || t('workflow.list.noDescription') }}
         </div>
 
         <div class="workflow-meta">
-          <span>创建于 {{ formatDate(workflow.created_at) }} &nbsp; &nbsp;更新于 {{ formatDate(workflow.updated_at) }}</span>
+          <span>{{ t('workflow.list.createdAt') }} {{ formatDate(workflow.created_at) }} &nbsp; &nbsp;{{ t('workflow.list.updatedAt') }} {{ formatDate(workflow.updated_at) }}</span>
         </div>
 
         <div v-if="canManage" class="card-actions">
@@ -312,7 +314,7 @@ function handleSwitchTable() {
             text
             size="small"
             @click.stop="handleEdit(workflow)">
-            编辑
+            {{ t('workflow.list.edit') }}
           </el-button>
 
           <template v-if="workflow.status === 'draft'">
@@ -322,7 +324,7 @@ function handleSwitchTable() {
               text
               size="small"
               @click="handlePublish(workflow)">
-              发布
+              {{ t('workflow.list.publish') }}
             </el-button>
           </template>
 
@@ -333,7 +335,7 @@ function handleSwitchTable() {
               text
               size="small"
               @click="handlePause(workflow)">
-              暂停
+              {{ t('workflow.list.pause') }}
             </el-button>
           </template>
 
@@ -344,7 +346,7 @@ function handleSwitchTable() {
               text
               size="small"
               @click="handleResume(workflow)">
-              恢复
+              {{ t('workflow.list.resume') }}
             </el-button>
           </template>
 
@@ -354,20 +356,20 @@ function handleSwitchTable() {
             text
             size="small"
             @click="handleDelete(workflow)">
-            删除
+            {{ t('workflow.list.delete') }}
           </el-button>
         </div>
       </el-card>
 
       <el-empty
         v-if="searchFilteredWorkflows.length === 0 && !isLoading"
-        description="没有找到匹配的工作流" />
+        :description="t('workflow.list.noMatch')" />
     </div>
 
     <!-- 关联关系可视化弹窗 -->
     <el-dialog
       v-model="relationDialogVisible"
-      title="工作流与数据表关联关系"
+      :title="t('workflow.list.relationTitle')"
       width="720px"
       destroy-on-close>
       <div class="relation-dialog-content">
@@ -378,10 +380,10 @@ function handleSwitchTable() {
           <div class="relation-table-header">
             <el-icon><Connection /></el-icon>
             <span class="relation-table-name">{{
-              tableNameMap[tableId] || "未知数据表"
+              tableNameMap[tableId] || t('workflow.list.unknownTable')
             }}</span>
             <el-tag size="small" type="info"
-              >{{ groupWorkflows.length }} 个工作流</el-tag
+              >{{ groupWorkflows.length }} {{ t('workflow.list.workflowCount') }}</el-tag
             >
           </div>
           <div class="relation-workflow-list">
@@ -405,9 +407,9 @@ function handleSwitchTable() {
           class="relation-group unlinked-group">
           <div class="relation-table-header">
             <el-icon><Connection /></el-icon>
-            <span class="relation-table-name">未关联数据表</span>
+            <span class="relation-table-name">{{ t('workflow.list.unlinked') }}</span>
             <el-tag size="small" type="warning"
-              >{{ groupedByTable.unlinked.length }} 个工作流</el-tag
+              >{{ groupedByTable.unlinked.length }} {{ t('workflow.list.workflowCount') }}</el-tag
             >
           </div>
           <div class="relation-workflow-list">
@@ -426,36 +428,36 @@ function handleSwitchTable() {
           </div>
         </div>
 
-        <el-empty v-if="workflows.length === 0" description="暂无工作流" />
+        <el-empty v-if="workflows.length === 0" :description="t('workflow.list.emptyRelation')" />
       </div>
     </el-dialog>
 
     <!-- 变更数据表弹窗 -->
     <el-dialog
       v-model="switchTableDialogVisible"
-      title="变更关联数据表"
+      :title="t('workflow.list.switchTitle')"
       width="480px"
       destroy-on-close>
       <div class="switch-table-form">
         <div class="switch-table-info">
-          <div class="info-label">当前工作流</div>
+          <div class="info-label">{{ t('workflow.list.currentWorkflow') }}</div>
           <div class="info-value">{{ switchTableWorkflow?.name }}</div>
         </div>
         <div class="switch-table-info">
-          <div class="info-label">当前关联数据表</div>
+          <div class="info-label">{{ t('workflow.list.currentTable') }}</div>
           <div class="info-value">
             {{
               switchTableWorkflow?.table_id
-                ? tableNameMap[switchTableWorkflow.table_id] || "未知数据表"
-                : "未关联"
+                ? tableNameMap[switchTableWorkflow.table_id] || t('workflow.list.unknownTable')
+                : t('workflow.list.notLinked')
             }}
           </div>
         </div>
         <el-form label-position="top">
-          <el-form-item label="选择新的关联数据表" required>
+          <el-form-item :label="t('workflow.list.selectNewTable')" required>
             <el-select
               v-model="switchTableId"
-              placeholder="请选择数据表"
+              :placeholder="t('workflow.list.tablePlaceholder')"
               style="width: 100%">
               <el-option
                 v-for="table in tables"
@@ -467,9 +469,9 @@ function handleSwitchTable() {
         </el-form>
       </div>
       <template #footer>
-        <el-button @click="switchTableDialogVisible = false">取消</el-button>
+        <el-button @click="switchTableDialogVisible = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" @click="handleSwitchTable"
-          >确认变更</el-button
+          >{{ t('workflow.list.confirmChange') }}</el-button
         >
       </template>
     </el-dialog>

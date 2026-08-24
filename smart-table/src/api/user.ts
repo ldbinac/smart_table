@@ -4,6 +4,7 @@
  */
 import { apiClient } from './client'
 import type { User } from './types'
+import { t } from '@/i18n'
 
 export interface SearchUsersParams {
   query?: string
@@ -33,7 +34,7 @@ export const searchUsers = async (params: SearchUsersParams): Promise<SearchUser
  */
 export const getUserById = async (id: string): Promise<User> => {
   if (!id || id.trim() === '') {
-    throw new Error('用户ID不能为空')
+    throw new Error(t('common.userIdRequired'))
   }
   return apiClient.get<User>(`/users/${id}`)
 }

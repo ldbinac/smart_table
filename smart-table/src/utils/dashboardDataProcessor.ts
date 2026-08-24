@@ -1,6 +1,7 @@
 import type { FieldEntity, RecordEntity } from '@/db/schema'
 import { FieldType } from '@/types'
 import { formatDateTime } from '@/utils/timezone'
+import { t } from '@/i18n';
 
 export interface ProcessedData {
   labels: string[]
@@ -321,7 +322,7 @@ export function validateAggregation(
   aggregation: string
 ): { valid: boolean; message?: string } {
   if (!field) {
-    return { valid: false, message: '请选择字段' }
+    return { valid: false, message: t('dashboard.selectField') }
   }
 
   if (aggregation === 'count' || aggregation === 'countDistinct') {
@@ -333,7 +334,7 @@ export function validateAggregation(
   if (!numericTypes.includes(field.type)) {
     return {
       valid: false,
-      message: `${field.name} 不是数值字段，无法使用 ${aggregation} 聚合`
+      message: t('dashboard.notNumericField', [field.name, aggregation])
     }
   }
 

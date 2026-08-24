@@ -1,0 +1,18 @@
+{
+  "title": "排序",
+  "selectField": "选择字段",
+  "asc": "升序 ↑",
+  "desc": "降序 ↓",
+  "delete": "删除",
+  "addCondition": "添加排序条件",
+  "currentSort": "当前排序：",
+  "ascending": "升序",
+  "descending": "降序",
+  "empty": "暂无排序条件",
+  "emptyHint": "点击上方按钮添加排序条件",
+  "clear": "清除排序",
+  "apply": "应用排序",
+  "conditionTitle": "排序条件",
+  "sortOrder": "排序顺序：",
+  "drag": "拖拽排序"
+}

@@ -6,6 +6,8 @@
 
 一个基于 Vue 3 + Flask 的智能多维表格系统，类似于 Airtable 或飞书多维表格。支持多种视图（表格视图、分组视图、看板视图、日历视图、甘特视图、表单视图、仪表盘等），拥有丰富的字段类型；支持markdown编写富文本文档。
 
+- 📖 项目文档: [User-Manual](https://my-smart-table.github.io/smart-table-docs)
+
 ## ✨ 功能特性
 
 ### 🎯 核心功能
@@ -16,6 +18,9 @@
 - **记录管理** - 增删改查、批量操作、记录详情抽屉、变更历史追踪
 - **视图管理** - **6 种视图类型**，支持筛选、排序、分组、视图切换、列冻结
 - **文档管理** - 文档创建编辑、富文本编辑（Quill）、Markdown 支持、PDF 导出、版本历史管理
+- **自动化工作流管理** - 工作流创建编辑、节点管理、触发器管理、投递记录查看
+- **数据可视化** - 仪表盘创建编辑、图表组件、网格布局、实时数据、仪表盘分享
+- **审计日志** - 完善的审计日志系统，支持轨迹追踪
 
 ### 📝 支持的字段类型（26 种）
 
@@ -130,7 +135,7 @@
 - **Element Plus 图标** - 统一的图标系统，提升视觉一致性
 - **快捷键支持** - 常用操作的键盘快捷键
 
-#### 仪表盘系统
+#### 仪表盘系统（数据可视化）
 
 - **多种图表组件** - 数字卡片、时钟组件、日期组件、KPI 卡片、跑马灯、实时图表等
 - **仪表盘模板** - 支持保存和复用仪表盘配置模板
@@ -153,6 +158,12 @@
 - **Markdown 编写** - 支持 Markdown 语法实时渲染
 - **版本历史** - 版本记录与回溯，版本对比查看，创建者追踪
 - **PDF 导出** - 文档内容导出为 PDF，DOM 直接解析确保样式准确
+
+#### 🔌 第三方应用接入（v1.6.5 新增）
+
+- **第三方应用接入**：新增第三方应用 OAuth2 接入能力，支持开放 API 鉴权与接入
+- **应用审计日志**：实现完整的应用审计日志功能，记录第三方应用的关键操作
+- **应用接入文档**：文档项目，新增应用接入文档，详细介绍接入流程与使用示例
 
 ## 📸 功能预览
 
@@ -237,7 +248,7 @@
 # Windows PowerShell
 .\start.bat
 
-# Linux/macOS
+# Linux/macOS（完整的编译包待后续实现）
 ./start.sh
 ```
 
@@ -414,137 +425,6 @@ python run.py --enable-realtime
 ✅ **对象存储**: 可选的 MinIO 文件存储\
 ✅ **安全防护**: XSS 防护、速率限制、安全响应头
 
-## 🗄️ 数据模型
-
-### 核心实体关系
-
-```
-User (用户)
-  ├── owns many Base (多维表格)
-  ├── is member of many Base (通过 BaseMember)
-  └── has many OperationLog (操作日志)
-
-Base (多维表格)
-  ├── has many Table (数据表)
-  ├── has many Dashboard (仪表盘)
-  ├── has many BaseShare (分享链接)
-  ├── has many BaseMember (成员)
-  ├── has many CollaborationSession (协作会话)
-  └── has many Workflow (工作流) （v1.6.0 新增）
-
-Table (数据表)
-  ├── has many Field (字段)
-  ├── has many Record (记录)
-  ├── has many View (视图)
-  ├── has many LinkRelation (关联关系)
-  ├── has many Workflow (关联工作流) （v1.6.0 新增）
-  └── belongs to Base
-
-Field (字段)
-  ├── has options (字段配置)
-  └── belongs to Table
-
-Record (记录)
-  ├── has many RecordHistory (变更历史)
-  ├── has values for each Field
-  └── belongs to Table
-
-View (视图)
-  ├── has filter/sort/group configs
-  └── belongs to Table
-
-Workflow (工作流) （v1.6.0 新增）
-  ├── has many WorkflowVersion (版本快照)
-  ├── has many WebhookConfig (Webhook配置)
-  └── belongs to Base/Table
-
-WebhookConfig (Webhook配置) （v1.6.0 新增）
-  ├── has many WebhookDelivery (投递记录)
-  └── belongs to Workflow
-```
-
-### 主要模型说明
-
-#### User（用户）
-
-- 用户认证信息（用户名、邮箱、密码哈希）
-- 邮箱验证状态
-- 角色权限（普通用户/管理员）
-- 头像和个人资料
-
-#### Base（多维表格）
-
-- 多维表格基础单元
-- 支持收藏、自定义图标和颜色
-- 成员管理和权限控制
-- 分享设置（公开/私有/密码保护）
-
-#### Table（数据表）
-
-- 包含字段定义和记录数据
-- 支持拖拽排序、收藏
-- 关联关系配置
-
-#### Field（字段）
-
-- 定义数据列的类型和属性
-- 支持 26 种字段类型
-- 丰富的字段选项（验证规则、默认值、格式化等）
-
-#### Record（记录）
-
-- 数据行，存储各字段的值
-- 支持增删改查、批量操作
-- 完整的变更历史追踪
-
-#### View（视图）
-
-- 数据展示方式（6 种视图类型）
-- 独立的筛选、排序、分组配置
-- 视图级别字段控制（隐藏、冻结、宽度）
-
-#### Document（文档）（v1.4.0 新增）
-
-- 文档存储与管理，关联到 Base
-- 支持富文本和 Markdown 内容
-- 权限继承自所属 Base
-
-#### DocumentVersion（文档版本）（v1.4.0 新增）
-
-- 文档版本历史追踪
-- 记录每次保存的快照和创建者
-- 支持版本回溯和对比
-
-#### CollaborationSession（协作会话）
-
-- 实时协作会话追踪
-- 记录用户加入/离开、活跃状态
-- 仅在启用实时协作功能时使用
-
-#### Workflow（工作流）（v1.6.0 新增）
-
-- 工作流自动化引擎核心实体
-- 绑定到 Base 或具体 Table
-- 包含触发器配置和节点执行链
-- 支持暂停、继续、编辑、版本管理
-
-#### WorkflowVersion（工作流版本）（v1.6.0 新增）
-
-- 工作流版本历史快照
-- 记录每次保存的配置和创建者
-- 支持版本回溯和配置对比
-
-#### WebhookConfig（Webhook 配置）（v1.6.0 新增）
-
-- Webhook 投递配置
-- 支持 URL、HTTP 方法、请求头、请求体模板
-- 支持重试策略配置
-
-#### WebhookDelivery（Webhook 投递）（v1.6.0 新增）
-
-- Webhook 投递记录
-- 记录请求参数、响应状态、响应内容
-- 支持投递状态追踪
 
 ## 🔢 公式引擎
 
@@ -913,7 +793,7 @@ smart-table-spec/
 
 - 📧 Email: <ldengbin@126.com>
 - 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
-- 📖 Documentation: [User-Manual](https://github.com/ldbinac/smart_table/blob/main/doc/Smart-Table-User-Manual.md)
+- 📖 Documentation: [User-Manual](https://my-smart-table.github.io/smart-table-docs)
 - 关注作者：
   ![](./doc/img/wechat_official_account.png)
 

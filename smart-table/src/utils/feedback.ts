@@ -11,8 +11,12 @@ import { formatDateTime } from "./timezone";
 /** 应用名称 */
 export const APP_NAME = "SmartTable";
 
-/** 应用版本（与 package.json 保持一致） */
-export const APP_VERSION = "1.6.2";
+/**
+ * 应用版本（与 version.json 保持一致）
+ * 该常量由 build.py 在编译构建时自动从 version.json 同步写入，
+ * 确保"问题反馈"自动携带的版本号始终与发布版本一致。
+ */
+export const APP_VERSION = "1.6.5";
 
 /** GitHub 仓库地址 */
 export const GITHUB_REPO_URL = "https://github.com/ldbinac/smart_table";

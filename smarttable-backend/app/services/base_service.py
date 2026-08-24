@@ -294,7 +294,7 @@ class BaseService:
         # 查找用户
         user = User.query.filter_by(email=email.lower()).first()
         if not user:
-            return {'success': False, 'error': '用户不存在'}
+            return {'success': False, 'error': 'user_does_not_exist'}
 
         # 检查是否已经是成员
         existing = BaseMember.query.filter_by(
@@ -303,18 +303,18 @@ class BaseService:
         ).first()
 
         if existing:
-            return {'success': False, 'error': '该用户已经是成员'}
+            return {'success': False, 'error': 'user_already_member'}
 
         # 检查是否是基础数据所有者
         base = Base.query.get(base_id)
         if base and str(base.owner_id) == str(user.id):
-            return {'success': False, 'error': '所有者是基础数据的拥有者，不能添加为成员'}
+            return {'success': False, 'error': 'owner_owner_base_added_member'}
 
         # 验证角色
         try:
             member_role = MemberRole(role.lower())
         except ValueError:
-            return {'success': False, 'error': '无效的角色类型'}
+            return {'success': False, 'error': 'invalid_role_type'}
 
         # 创建成员关系
         membership = BaseMember(
@@ -432,7 +432,7 @@ class BaseService:
         ).first()
 
         if not membership:
-            return {'success': False, 'error': '成员不存在'}
+            return {'success': False, 'error': 'member_does_not_exist'}
 
         # 保存旧角色用于邮件通知
         old_role = membership.role
@@ -440,7 +440,7 @@ class BaseService:
         try:
             member_role = MemberRole(new_role.lower())
         except ValueError:
-            return {'success': False, 'error': '无效的角色类型'}
+            return {'success': False, 'error': 'invalid_role_type'}
 
         membership.role = member_role
         db.session.commit()
@@ -627,18 +627,18 @@ class BaseService:
         
         if not share:
             current_app.logger.error(f'[BaseService] 分享令牌不存在')
-            return {'success': False, 'error': '分享令牌不存在'}
+            return {'success': False, 'error': 'share_token_does_not_exist'}
         
         # 检查分享是否激活
         if not share.is_active:
             current_app.logger.error(f'[BaseService] 分享链接已失效')
-            return {'success': False, 'error': '分享链接已失效'}
+            return {'success': False, 'error': 'share_link_no_longer_active'}
         
         # 检查是否过期
         if share.expires_at is not None:
             if int(datetime.now(timezone.utc).timestamp()) > share.expires_at:
                 current_app.logger.error(f'[BaseService] 分享链接已过期')
-                return {'success': False, 'error': '分享链接已过期'}
+                return {'success': False, 'error': 'share_link_expired'}
         
         # 检查用户是否已经是成员
         existing = BaseMember.query.filter_by(base_id=base_id, user_id=user_id).first()
@@ -1142,7 +1142,7 @@ class BaseService:
         try:
             source_base = Base.query.get(base_id)
             if not source_base:
-                return {'success': False, 'error': '源基础数据不存在'}
+                return {'success': False, 'error': 'source_base_does_not_exist'}
             
             new_base = BaseService._copy_base_info(source_base, user_id, new_name)
             
@@ -1188,10 +1188,10 @@ class BaseService:
             return {
                 'success': True,
                 'base': new_base.to_dict(),
-                'message': '复制成功'
+                'message': 'copied_successfully'
             }
             
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[BaseService] 复制 Base 失败：{base_id}, 错误：{str(e)}')
-            return {'success': False, 'error': '复制失败，请稍后重试'}
+            return {'success': False, 'error': 'copy_failed_try_again_later'}

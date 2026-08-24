@@ -10,6 +10,9 @@ import {
 } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -85,7 +88,7 @@ function getFieldName(fieldId: string) {
 // 添加分组字段
 function addGroupField() {
   if (isMaxLevelReached.value) {
-    ElMessage.warning(`最多支持 ${MAX_GROUP_LEVELS} 级分组`);
+    ElMessage.warning(t('group.maxLevelHint', { n: MAX_GROUP_LEVELS }));
     return;
   }
 
@@ -163,7 +166,7 @@ watch(
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="分组"
+    :title="t('group.title')"
     width="500px"
     :close-on-click-modal="false">
     <div class="group-dialog">
@@ -175,7 +178,7 @@ watch(
           <!-- 字段选择 -->
           <ElSelect
             v-model="groupBy[index]"
-            placeholder="选择字段"
+            :placeholder="t('group.selectField')"
             style="width: 200px">
             <ElOption
               v-for="field in getAvailableFields(index)"
@@ -197,7 +200,7 @@ watch(
           <!-- 层级指示 -->
           <span class="level-indicator">
             {{
-              index === 0 ? "一级分组" : index === 1 ? "二级分组" : "三级分组"
+              index === 0 ? t('group.level1') : index === 1 ? t('group.level2') : t('group.level3')
             }}
           </span>
 
@@ -216,7 +219,7 @@ watch(
               ↓
             </ElButton>
             <ElButton link type="danger" @click="removeGroupField(index)">
-              删除
+              {{ t('group.delete') }}
             </ElButton>
           </div>
         </div>
@@ -229,15 +232,15 @@ watch(
         type="primary"
         class="add-group-btn"
         @click="addGroupField">
-        + 添加分组字段
+        + {{ t('group.addField') }}
       </ElButton>
       <div v-else-if="isMaxLevelReached" class="limit-hint">
-        已达到最大分组层级（{{ MAX_GROUP_LEVELS }}级）
+        {{ t('group.maxLevelHint', { n: MAX_GROUP_LEVELS }) }}
       </div>
 
       <!-- 已选字段预览 -->
       <div v-if="groupBy.length > 0" class="group-preview">
-        <div class="preview-label">当前分组：</div>
+        <div class="preview-label">{{ t('group.currentGroup') }}</div>
         <div class="preview-tags">
           <ElTag
             v-for="(fieldId, index) in groupBy"
@@ -252,16 +255,16 @@ watch(
 
       <!-- 空状态 -->
       <div v-if="groupBy.length === 0" class="empty-group">
-        <p>暂无分组配置</p>
-        <p class="hint">点击上方按钮添加分组字段，最多支持3级分组</p>
+        <p>{{ t('group.empty') }}</p>
+        <p class="hint">{{ t('group.emptyHint', { n: MAX_GROUP_LEVELS }) }}</p>
       </div>
     </div>
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="$emit('update:visible', false)">取消</ElButton>
-        <ElButton link type="danger" @click="clearGroups">清除分组</ElButton>
-        <ElButton type="primary" @click="applyGroups">应用分组</ElButton>
+        <ElButton @click="$emit('update:visible', false)">{{ t('common.cancel') }}</ElButton>
+        <ElButton link type="danger" @click="clearGroups">{{ t('group.clear') }}</ElButton>
+        <ElButton type="primary" @click="applyGroups">{{ t('group.apply') }}</ElButton>
       </div>
     </template>
   </ElDialog>

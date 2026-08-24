@@ -27,6 +27,7 @@ from app.services.email_sender_service import EmailSenderService
 from app.services.notification_service import NotificationService
 from app.services.security_config_service import SecurityConfigService
 from app.services.config_cache_service import ConfigCacheService
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -190,18 +191,18 @@ class AdminService:
         """
         # 验证邮箱格式
         if not email or '@' not in email:
-            return None, '邮箱地址格式不正确'
+            return None, 'invalid_email_address_format'
         
         # 检查邮箱是否已存在
         existing_user = User.query.filter_by(email=email.lower()).first()
         if existing_user:
-            return None, '该邮箱已被注册'
+            return None, 'email_already_registered'
         
         # 验证角色有效性
         try:
             role_enum = UserRole(role.lower())
         except ValueError:
-            return None, f'无效的角色：{role}'
+            return None, translate('invalid_role', role)
         
         # 验证密码强度（使用安全配置）
         valid, error_msg = SecurityConfigService.validate_password_strength(password)
@@ -228,7 +229,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"创建用户失败：{str(e)}")
-            return None, '创建用户失败，请稍后重试'
+            return None, 'failed_create_user_try_again_later'
     
     @staticmethod
     def update_user(
@@ -254,7 +255,7 @@ class AdminService:
             user = User.query.filter_by(id=uuid_id).first()
             
             if not user or user.status == UserStatus.DELETED:
-                return None, '用户不存在'
+                return None, 'user_does_not_exist'
             
             # 更新邮箱
             if 'email' in data:
@@ -263,7 +264,7 @@ class AdminService:
                     # 检查邮箱是否已被其他用户使用
                     existing = User.query.filter_by(email=new_email).first()
                     if existing and existing.id != user.id:
-                        return None, '该邮箱已被其他用户使用'
+                        return None, 'email_already_used_another_user'
                     user.email = new_email
             
             # 更新姓名
@@ -275,7 +276,7 @@ class AdminService:
                 try:
                     user.role = UserRole(data['role'].lower())
                 except ValueError:
-                    return None, f'无效的角色：{data["role"]}'
+                    return None, translate('invalid_role', data["role"])
             
             # 更新状态
             if 'status' in data:
@@ -283,10 +284,10 @@ class AdminService:
                     new_status = UserStatus(data['status'].lower())
                     # 不允许直接设置为 DELETED 状态
                     if new_status == UserStatus.DELETED:
-                        return None, '不能直接设置用户状态为已删除'
+                        return None, 'directly_set_user_status_deleted'
                     user.status = new_status
                 except ValueError:
-                    return None, f'无效的状态：{data["status"]}'
+                    return None, translate('invalid_status', data["status"])
             
             user.updated_at = datetime.now(timezone.utc)
             db.session.commit()
@@ -298,7 +299,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"更新用户失败：{str(e)}")
-            return None, '更新用户失败，请稍后重试'
+            return None, 'failed_update_user_try_again_later'
     
     @staticmethod
     def delete_user(user_id: str) -> Tuple[bool, Optional[str]]:
@@ -316,7 +317,7 @@ class AdminService:
             user = User.query.filter_by(id=uuid_id).first()
             
             if not user or user.status == UserStatus.DELETED:
-                return False, '用户不存在'
+                return False, 'user_does_not_exist'
             
             # 发送账号删除通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
             try:
@@ -346,7 +347,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"删除用户失败：{str(e)}")
-            return False, '删除用户失败，请稍后重试'
+            return False, 'failed_delete_user_try_again_later'
     
     @staticmethod
     def suspend_user(user_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -364,10 +365,10 @@ class AdminService:
             user = User.query.filter_by(id=uuid_id).first()
             
             if not user or user.status == UserStatus.DELETED:
-                return None, '用户不存在'
+                return None, 'user_does_not_exist'
             
             if user.status == UserStatus.SUSPENDED:
-                return None, '用户已被暂停'
+                return None, 'user_been_suspended'
             
             user.status = UserStatus.SUSPENDED
             user.updated_at = datetime.now(timezone.utc)
@@ -397,7 +398,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"暂停用户失败：{str(e)}")
-            return None, '暂停用户失败，请稍后重试'
+            return None, 'failed_suspend_user_try_again_later'
     
     @staticmethod
     def activate_user(user_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -415,10 +416,10 @@ class AdminService:
             user = User.query.filter_by(id=uuid_id).first()
             
             if not user or user.status == UserStatus.DELETED:
-                return None, '用户不存在'
+                return None, 'user_does_not_exist'
             
             if user.status == UserStatus.ACTIVE:
-                return None, '用户已是激活状态'
+                return None, 'user_already_active'
             
             user.status = UserStatus.ACTIVE
             user.updated_at = datetime.now(timezone.utc)
@@ -448,7 +449,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"激活用户失败：{str(e)}")
-            return None, '激活用户失败，请稍后重试'
+            return None, 'failed_activate_user_try_again_later'
     
     @staticmethod
     def reset_password(
@@ -470,7 +471,7 @@ class AdminService:
             user = User.query.filter_by(id=uuid_id).first()
             
             if not user or user.status == UserStatus.DELETED:
-                return None, '用户不存在'
+                return None, 'user_does_not_exist'
             
             # 如果没有提供临时密码，则生成随机密码
             if not temporary_password:
@@ -509,7 +510,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"重置用户密码失败：{str(e)}")
-            return None, '重置密码失败，请稍后重试'
+            return None, 'failed_reset_password_try_again_later_2'
     
     @staticmethod
     def log_operation(
@@ -795,7 +796,7 @@ class AdminService:
             config = SystemConfig.query.filter_by(config_key=key).first()
             
             if not config:
-                return False, '配置不存在'
+                return False, 'configuration_does_not_exist'
             
             db.session.delete(config)
             db.session.commit()
@@ -810,7 +811,7 @@ class AdminService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"删除配置失败：{str(e)}")
-            return False, '删除配置失败，请稍后重试'
+            return False, 'failed_delete_configuration_try_again_later'
     
     @staticmethod
     def _get_encryption_key(secret_key: str) -> bytes:
@@ -893,7 +894,7 @@ class AdminService:
         
         for field in required_fields:
             if field not in config_data or not config_data[field]:
-                return False, f'缺少必需字段：{field}'
+                return False, translate('missing_required_field', field)
         
         try:
             smtp_host = config_data['smtp_host']
@@ -904,7 +905,7 @@ class AdminService:
             smtp_use_ssl = config_data.get('smtp_use_ssl', False)
             
             if smtp_port < 1 or smtp_port > 65535:
-                return False, 'SMTP 端口必须在 1-65535 范围内'
+                return False, 'smtp_port_between'
             
             context = ssl.create_default_context()
             
@@ -920,19 +921,16 @@ class AdminService:
                 server.login(smtp_username, smtp_password)
             
             logger.info(f"SMTP 配置验证成功：{smtp_host}:{smtp_port}")
-            return True, None
-            
-        except smtplib.SMTPAuthenticationError:
-            return False, 'SMTP 认证失败，请检查用户名和密码'
+            return False, 'smtp_authentication_failed_check_username_password'
         except smtplib.SMTPConnectError:
-            return False, '无法连接到 SMTP 服务器，请检查服务器地址和端口'
+            return False, 'connect_smtp_server_check_server_address_port'
         except smtplib.SMTPException:
-            return False, 'SMTP 连接错误，请检查配置'
+            return False, 'smtp_connection_error_check_configuration'
         except ValueError:
-            return False, 'SMTP 端口格式错误'
+            return False, 'invalid_smtp_port_format'
         except Exception as e:
             logger.error(f"验证 SMTP 配置失败：{str(e)}")
-            return False, '验证失败，请稍后重试'
+            return False, 'verification_failed_try_again_later'
     
     @staticmethod
     def send_test_email(config_data: Dict[str, Any], test_email: str, secret_key: str) -> Tuple[bool, Optional[str]]:
@@ -959,10 +957,10 @@ class AdminService:
         
         for field in required_fields:
             if field not in config_data or not config_data[field]:
-                return False, f'缺少必需字段：{field}'
+                return False, translate('missing_required_field', field)
         
         if not test_email or '@' not in test_email:
-            return False, '测试邮箱地址格式不正确'
+            return False, 'invalid_test_email_address_format'
         
         try:
             smtp_host = config_data['smtp_host']
@@ -1016,16 +1014,13 @@ class AdminService:
                 server.sendmail(from_email, [test_email], msg.as_string())
             
             logger.info(f"测试邮件发送成功：{test_email}")
-            return True, None
-            
-        except smtplib.SMTPAuthenticationError:
-            return False, 'SMTP 认证失败，请检查用户名和密码'
+            return False, 'smtp_authentication_failed_check_username_password'
         except smtplib.SMTPConnectError:
-            return False, '无法连接到 SMTP 服务器，请检查服务器地址和端口'
+            return False, 'connect_smtp_server_check_server_address_port'
         except smtplib.SMTPRecipientsRefused:
-            return False, '收件人地址被拒绝'
+            return False, 'recipient_address_was_rejected'
         except smtplib.SMTPException:
-            return False, 'SMTP 连接错误，请检查配置'
+            return False, 'smtp_connection_error_check_configuration'
         except Exception as e:
             logger.error(f"发送测试邮件失败：{str(e)}")
-            return False, '发送失败，请稍后重试'
+            return False, 'sending_failed_try_again_later'

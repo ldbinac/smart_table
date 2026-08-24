@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.i18n import translate
 from app.extensions import db
 from app.models.base import MemberRole
 from app.models.workflow import (
@@ -348,24 +349,24 @@ class WorkflowService:
         校验失败时抛出 ValueError，由调用方转为 400 响应。
         """
         if not isinstance(node_config, dict):
-            raise ValueError('循环节点配置必须是一个对象')
+            raise ValueError('loop_node_configuration_object')
 
         if depth > 3:
-            raise ValueError('循环嵌套深度不能超过 3 层')
+            raise ValueError('loop_nesting_depth_exceed_levels')
 
         config = node_config.get('config', {}) or {}
 
         # 校验 loop_body_nodes 为非空 list
         loop_body_nodes = config.get('loop_body_nodes')
         if not isinstance(loop_body_nodes, list) or len(loop_body_nodes) == 0:
-            raise ValueError('循环节点必须包含非空的 loop_body_nodes')
+            raise ValueError('loop_nodes_contain_non_empty_loop_body_nodes')
 
         # 校验循环体子节点不包含 condition
         for child in loop_body_nodes:
             if not isinstance(child, dict):
                 continue
             if child.get('node_type') == 'condition':
-                raise ValueError('循环体不支持条件分支节点')
+                raise ValueError('conditional_branch_nodes_not_supported_loop_bodies')
 
         # 校验 max_iterations 为 1-1000 正整数
         max_iterations = config.get('max_iterations', 100)
@@ -375,17 +376,17 @@ class WorkflowService:
             or max_iterations < 1
             or max_iterations > 1000
         ):
-            raise ValueError('max_iterations 必须为 1-1000 之间的正整数')
+            raise ValueError('max_iterations_positive_integer_between')
 
         # 校验 error_handling
         error_handling = config.get('error_handling', 'skip')
         if error_handling not in ('skip', 'terminate'):
-            raise ValueError("error_handling 必须为 'skip' 或 'terminate'")
+            raise ValueError("error_handling_skip_terminate")
 
         # 校验 empty_result_action
         empty_result_action = config.get('empty_result_action', 'skip')
         if empty_result_action not in ('skip', 'error'):
-            raise ValueError("empty_result_action 必须为 'skip' 或 'error'")
+            raise ValueError("empty_result_action_skip_error")
 
         # 递归校验嵌套循环
         for child in loop_body_nodes:
@@ -403,20 +404,20 @@ class WorkflowService:
             all_node_ids: 工作流内所有节点 id 集合（str 形式），用于校验分支目标存在性
         """
         if not isinstance(node_config, dict):
-            raise ValueError('脚本节点配置必须是一个对象')
+            raise ValueError('script_node_configuration_object')
         config = node_config.get('config', {}) or {}
 
         # language
         language = config.get('language')
         if language != 'python':
-            raise ValueError("脚本语言必须为 'python'")
+            raise ValueError("script_language_python")
 
         # script_source 非空且 ≤50000 字符
         script_source = config.get('script_source', '')
         if not isinstance(script_source, str) or not script_source.strip():
-            raise ValueError('脚本内容不能为空')
+            raise ValueError('script_content_empty')
         if len(script_source) > 50000:
-            raise ValueError('脚本内容不能超过 50000 字符')
+            raise ValueError('script_content_exceed_characters')
 
         # timeout 1-300 正整数
         timeout = config.get('timeout', 30)
@@ -426,32 +427,32 @@ class WorkflowService:
             or timeout < 1
             or timeout > 300
         ):
-            raise ValueError('超时时间必须为 1-300 之间的正整数')
+            raise ValueError('timeout_positive_integer_between')
 
         # result_variable 合法变量名，缺省 script_result
         result_variable = config.get('result_variable', 'script_result') or 'script_result'
         if not _SCRIPT_RESULT_VAR_PATTERN.match(result_variable):
-            raise ValueError('结果变量名必须为字母数字下划线且以字母或下划线开头（≤64 字符）')
+            raise ValueError('result_variable_name_alphanumeric_underscore_start_letter_unders')
 
         # branches：label 非空且唯一、target_node_id 存在
         branches = config.get('branches', []) or []
         if not isinstance(branches, list):
-            raise ValueError('分支路由配置必须为数组')
+            raise ValueError('branch_routing_configuration_array')
         labels = set()
         for b in branches:
             if not isinstance(b, dict):
-                raise ValueError('分支配置项必须为对象')
+                raise ValueError('branch_configuration_items_objects')
             label = b.get('label')
             target = b.get('target_node_id')
             if not label or not isinstance(label, str):
-                raise ValueError('分支标签不能为空')
+                raise ValueError('branch_label_empty')
             if label in labels:
-                raise ValueError(f'分支标签重复: {label}')
+                raise ValueError(translate('branch_label_duplicate', label))
             labels.add(label)
             if not target:
-                raise ValueError(f'分支 {label} 缺少目标节点 ID')
+                raise ValueError(translate('branch_missing_target_node_id', label))
             if all_node_ids is not None and str(target) not in all_node_ids:
-                raise ValueError(f'分支 {label} 的目标节点不存在: {target}')
+                raise ValueError(translate('branch_target_node_not_found', label, target))
 
     @staticmethod
     def _count_loop_nodes(nodes_config: List[Dict[str, Any]]) -> int:
@@ -548,7 +549,7 @@ class WorkflowService:
             # 单个工作流最多 5 个循环节点（含嵌套循环体内的）
             loop_count = cls._count_loop_nodes(nodes_config)
             if loop_count > 5:
-                raise ValueError('单个工作流最多 5 个循环节点')
+                raise ValueError('single_workflow_most_loop_nodes')
 
             # 收集所有顶层节点 id（str 形式），用于校验脚本分支目标存在性
             all_node_ids = {
@@ -686,7 +687,7 @@ class WorkflowService:
                 if trigger.trigger_type == WorkflowTriggerType.SPECIFIED_TIME:
                     schedule = trigger.filter_config.get('schedule')
                     if not schedule:
-                        raise ValueError('specified_time 触发器必须配置 schedule')
+                        raise ValueError('specified_time_trigger_schedule_configured')
                     cls._validate_schedule_config(schedule)
 
         if 'nodes_config' in kwargs:
@@ -696,7 +697,7 @@ class WorkflowService:
                 # 单个工作流最多 5 个循环节点（含嵌套循环体内的）
                 loop_count = cls._count_loop_nodes(nodes_config)
                 if loop_count > 5:
-                    raise ValueError('单个工作流最多 5 个循环节点')
+                    raise ValueError('single_workflow_most_loop_nodes')
 
                 # 收集所有顶层节点 id（str 形式），用于校验脚本分支目标存在性
                 all_node_ids = {
@@ -983,7 +984,7 @@ class WorkflowService:
 
         # 状态校验：仅草稿和暂停状态可发布
         if workflow.status not in (WorkflowStatus.DRAFT, WorkflowStatus.PAUSED):
-            raise ValueError(f'仅草稿或暂停状态可发布，当前状态: {workflow.status.value}')
+            raise ValueError(translate('workflow_publish_status_invalid', workflow.status.value))
 
         # 配置完整性验证
         cls._validate_workflow_config(workflow)
@@ -1018,36 +1019,36 @@ class WorkflowService:
     def _validate_schedule_config(schedule: Dict[str, Any]) -> datetime:
         """校验定时器配置完整性与时间合法性，返回带时区的 start_datetime"""
         if not isinstance(schedule, dict):
-            raise ValueError('定时器配置必须是一个对象')
+            raise ValueError('timer_configuration_object')
 
         required_fields = ['start_date', 'start_time', 'repeat_type', 'end_type']
         for field in required_fields:
             if field not in schedule or schedule[field] is None or schedule[field] == '':
-                raise ValueError(f'定时器配置缺少必填字段: {field}')
+                raise ValueError(translate('timer_config_missing_required', field))
 
         valid_repeat_types = {'no_repeat', 'daily', 'weekly', 'monthly', 'yearly', 'weekdays', 'custom'}
         repeat_type = schedule['repeat_type']
         if repeat_type not in valid_repeat_types:
-            raise ValueError(f'repeat_type 不合法: {repeat_type}')
+            raise ValueError(translate('repeat_type_invalid', repeat_type))
 
         if repeat_type == 'custom':
             custom_interval = schedule.get('custom_interval')
             if not isinstance(custom_interval, int) or isinstance(custom_interval, bool) or custom_interval <= 0:
-                raise ValueError('custom_interval 必须为正整数')
+                raise ValueError('custom_interval_positive_integer')
             custom_unit = schedule.get('custom_unit')
             if custom_unit not in {'day', 'week', 'month', 'year'}:
-                raise ValueError('custom_unit 必须是 day/week/month/year 之一')
+                raise ValueError('custom_unit_one_day_week_month_year')
 
         end_type = schedule['end_type']
         if end_type not in {'never', 'end_date'}:
-            raise ValueError(f'end_type 不合法: {end_type}')
+            raise ValueError(translate('end_type_invalid', end_type))
 
         timezone_name = schedule.get('timezone')
         if timezone_name:
             try:
                 tz = ZoneInfo(str(timezone_name))
             except Exception as e:
-                raise ValueError(f'时区无效: {timezone_name}') from e
+                raise ValueError(translate('timezone_invalid', timezone_name)) from e
         else:
             # 未指定时区时，使用服务器本地时区解释用户配置的日期时间
             tz = datetime.now().astimezone().tzinfo
@@ -1060,24 +1061,24 @@ class WorkflowService:
             try:
                 start_dt = datetime.strptime(f'{start_date} {start_time}', '%Y-%m-%dT%H:%M')
             except ValueError as e:
-                raise ValueError(f'start_date/start_time 格式不正确: {start_date} {start_time}') from e
+                raise ValueError(translate('start_datetime_format_invalid', start_date, start_time)) from e
 
         start_dt = start_dt.replace(tzinfo=tz)
 
         if end_type == 'end_date':
             end_date = schedule.get('end_date')
             if not end_date:
-                raise ValueError('end_type 为 end_date 时 end_date 必填')
+                raise ValueError('end_date_required_when_end_type_end_date')
             try:
                 end_dt = datetime.strptime(str(end_date), '%Y-%m-%d').replace(tzinfo=tz)
             except ValueError as e:
-                raise ValueError(f'end_date 格式不正确: {end_date}') from e
+                raise ValueError(translate('end_date_format_invalid', end_date)) from e
             if end_dt < start_dt:
-                raise ValueError('end_date 不能早于 start_date')
+                raise ValueError('end_date_earlier_than_start_date')
 
         if repeat_type == 'no_repeat':
             if start_dt <= datetime.now(timezone.utc):
-                raise ValueError('no_repeat 模式下开始时间必须在当前 UTC 时间之后')
+                raise ValueError('start_time_after_current_utc_time_no_repeat_mode')
 
         return start_dt
 
@@ -1089,26 +1090,26 @@ class WorkflowService:
         filter_config = trigger.filter_config or {}
         time_field_id = filter_config.get('time_field_id')
         if not time_field_id:
-            raise ValueError('必须选择时间字段')
+            raise ValueError('select_time_field')
 
         field = Field.query.filter_by(id=time_field_id, table_id=table_id).first()
         if not field:
-            raise ValueError(f'时间字段不存在: {time_field_id}')
+            raise ValueError(translate('time_field_not_found', time_field_id))
         field_type = field.type.value if isinstance(field.type, FieldType) else field.type
         if field_type not in (FieldType.DATE.value, FieldType.DATE_TIME.value):
-            raise ValueError(f'时间字段必须为日期或日期时间类型，当前类型: {field_type}')
+            raise ValueError(translate('time_field_type_invalid', field_type))
 
     @classmethod
     def _validate_workflow_config(cls, workflow: Workflow) -> None:
         """验证工作流配置完整性，不通过时抛出 ValueError"""
         if not workflow.table_id:
-            raise ValueError('工作流必须关联数据表格')
+            raise ValueError('workflow_linked_data_table')
 
         trigger = workflow.triggers.first()
         if trigger and trigger.trigger_type == WorkflowTriggerType.SPECIFIED_TIME:
             schedule = (trigger.filter_config or {}).get('schedule')
             if not schedule:
-                raise ValueError('specified_time 触发器必须配置 schedule')
+                raise ValueError('specified_time_trigger_schedule_configured')
             cls._validate_schedule_config(schedule)
         elif trigger and trigger.trigger_type == WorkflowTriggerType.RECORD_TIME_REACHED:
             cls._validate_record_time_config(trigger, workflow.table_id)
@@ -1135,10 +1136,10 @@ class WorkflowService:
         ).first()
 
         if not workflow:
-            raise ValueError('工作流不存在')
+            raise ValueError('workflow_does_not_exist')
 
         if workflow.status != WorkflowStatus.PAUSED:
-            raise ValueError('仅暂停状态的工作流可保存版本快照')
+            raise ValueError('workflows_paused_status_save_version_snapshots')
 
         # 构建当前配置快照（仅对比业务字段，排除 id/workflow_id 等非实质字段）
         current_content = cls._build_content_fingerprint(workflow)

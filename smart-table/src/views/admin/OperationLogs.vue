@@ -1,10 +1,10 @@
 <template>
   <div class="operation-logs-page">
     <div class="page-header">
-      <h1 class="page-title">操作日志</h1>
+      <h1 class="page-title">{{ t('logs.title') }}</h1>
       <el-button type="success" @click="handleExport">
         <el-icon><Download /></el-icon>
-        导出日志
+        {{ t('logs.export') }}
       </el-button>
     </div>
 
@@ -14,45 +14,45 @@
           <div class="filter-row">
             <el-input
               v-model="filters.user_id"
-              placeholder="操作人 ID"
+              :placeholder="t('logs.userIdPlaceholder')"
               clearable
               style="width: 200px"
               @clear="handleFilter" />
 
             <el-select
               v-model="filters.action"
-              placeholder="操作类型"
+              :placeholder="t('logs.action')"
               clearable
               style="width: 150px; margin-left: 12px"
               @change="handleFilter">
-              <el-option label="创建" value="create" />
-              <el-option label="更新" value="update" />
-              <el-option label="删除" value="delete" />
-              <el-option label="暂停" value="suspend" />
-              <el-option label="激活" value="activate" />
-              <el-option label="重置密码" value="reset_password" />
+              <el-option :label="t('logs.create')" value="create" />
+              <el-option :label="t('logs.update')" value="update" />
+              <el-option :label="t('logs.delete')" value="delete" />
+              <el-option :label="t('logs.suspend')" value="suspend" />
+              <el-option :label="t('logs.activate')" value="activate" />
+              <el-option :label="t('logs.resetPassword')" value="reset_password" />
             </el-select>
 
             <el-select
               v-model="filters.entity_type"
-              placeholder="实体类型"
+              :placeholder="t('logs.target')"
               clearable
               style="width: 150px; margin-left: 12px"
               @change="handleFilter">
-              <el-option label="用户" value="user" />
-              <el-option label="配置" value="config" />
-              <el-option label="多维表" value="base" />
-              <el-option label="数据表" value="table" />
-              <el-option label="字段" value="field" />
-              <el-option label="记录" value="record" />
+              <el-option :label="t('logs.entityUser')" value="user" />
+              <el-option :label="t('logs.entityConfig')" value="config" />
+              <el-option :label="t('logs.entityBase')" value="base" />
+              <el-option :label="t('logs.entityTable')" value="table" />
+              <el-option :label="t('logs.entityField')" value="field" />
+              <el-option :label="t('logs.entityRecord')" value="record" />
             </el-select>
 
             <el-date-picker
               v-model="dateRange"
               type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
+              range-separator="~"
+              :start-placeholder="t('logs.startDate')"
+              :end-placeholder="t('logs.endDate')"
               style="margin-left: 12px"
               @change="handleFilter" />
           </div>
@@ -65,38 +65,38 @@
             style="width: 100%"
             :default-sort="{ prop: 'created_at', order: 'descending' }"
             max-height="600px">
-            <el-table-column prop="user_id" label="操作人 ID" width="280" />
-            <el-table-column prop="action" label="操作类型" width="120">
+            <el-table-column prop="user_id" :label="t('logs.userId')" width="280" />
+            <el-table-column prop="action" :label="t('logs.action')" width="120">
               <template #default="{ row }">
                 <el-tag :type="getActionTagType(row.action)">
                   {{ getActionLabel(row.action) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="entity_type" label="实体类型" width="100">
+            <el-table-column prop="entity_type" :label="t('logs.target')" width="100">
               <template #default="{ row }">
                 {{ getEntityTypeLabel(row.entity_type) }}
               </template>
             </el-table-column>
-            <el-table-column prop="entity_id" label="实体 ID" width="280" />
-            <el-table-column prop="ip_address" label="IP 地址" width="150" />
+            <el-table-column prop="entity_id" :label="t('logs.entityId')" width="280" />
+            <el-table-column prop="ip_address" :label="t('logs.ip')" width="150" />
             <el-table-column
               prop="created_at"
-              label="操作时间"
+              :label="t('logs.time')"
               width="180"
               sortable>
               <template #default="{ row }">
                 {{ formatDate(row.created_at) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right">
+            <el-table-column :label="t('logs.actions')" width="100" fixed="right">
               <template #default="{ row }">
                 <el-button
                   link
                   type="primary"
                   size="small"
                   @click="showDetail(row)">
-                  详情
+                  {{ t('logs.detail') }}
                 </el-button>
               </template>
             </el-table-column>
@@ -117,42 +117,42 @@
     </div>
 
     <!-- 日志详情对话框 -->
-    <el-dialog v-model="detailVisible" title="日志详情" width="800px">
+    <el-dialog v-model="detailVisible" :title="t('logs.detailTitle')" width="800px" append-to-body>
       <el-descriptions :column="2" border v-if="selectedLog">
-        <el-descriptions-item label="操作人 ID">{{
+        <el-descriptions-item :label="t('logs.userId')">{{
           selectedLog.user_id
         }}</el-descriptions-item>
-        <el-descriptions-item label="操作类型">
+        <el-descriptions-item :label="t('logs.action')">
           <el-tag :type="getActionTagType(selectedLog.action)">
             {{ getActionLabel(selectedLog.action) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="实体类型">
+        <el-descriptions-item :label="t('logs.target')">
           {{ getEntityTypeLabel(selectedLog.entity_type) }}
         </el-descriptions-item>
-        <el-descriptions-item label="实体 ID">{{
+        <el-descriptions-item :label="t('logs.entityId')">{{
           selectedLog.entity_id
         }}</el-descriptions-item>
-        <el-descriptions-item label="IP 地址">{{
+        <el-descriptions-item :label="t('logs.ip')">{{
           selectedLog.ip_address
         }}</el-descriptions-item>
-        <el-descriptions-item label="操作时间">
+        <el-descriptions-item :label="t('logs.time')">
           {{ formatDate(selectedLog.created_at) }}
         </el-descriptions-item>
         <el-descriptions-item label="User Agent" :span="2">
           {{ selectedLog.user_agent }}
         </el-descriptions-item>
-        <el-descriptions-item label="旧值" :span="2">
+        <el-descriptions-item :label="t('logs.oldValue')" :span="2">
           <pre v-if="selectedLog.old_value" class="json-viewer">{{
             JSON.stringify(selectedLog.old_value, null, 2)
           }}</pre>
-          <span v-else class="text-muted">无</span>
+          <span v-else class="text-muted">{{ t('logs.none') }}</span>
         </el-descriptions-item>
-        <el-descriptions-item label="新值" :span="2">
+        <el-descriptions-item :label="t('logs.newValue')" :span="2">
           <pre v-if="selectedLog.new_value" class="json-viewer">{{
             JSON.stringify(selectedLog.new_value, null, 2)
           }}</pre>
-          <span v-else class="text-muted">无</span>
+          <span v-else class="text-muted">{{ t('logs.none') }}</span>
         </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -164,7 +164,9 @@ import { ref, reactive, computed, onMounted } from "vue";
 import { Download } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { useAdminStore } from "@/stores/adminStore";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const adminStore = useAdminStore();
 
 const logs = computed(() => adminStore.operationLogs);
@@ -189,12 +191,12 @@ const filters = reactive({
 const dateRange = ref<[Date, Date] | null>(null);
 
 const actionLabelMap: Record<string, string> = {
-  create: "创建",
-  update: "更新",
-  delete: "删除",
-  suspend: "暂停",
-  activate: "激活",
-  reset_password: "重置密码",
+  create: t("logs.create"),
+  update: t("logs.update"),
+  delete: t("logs.delete"),
+  suspend: t("logs.suspend"),
+  activate: t("logs.activate"),
+  reset_password: t("logs.resetPassword"),
 };
 
 const getActionLabel = (action: string): string => {
@@ -220,14 +222,14 @@ const getActionTagType = (
 
 const getEntityTypeLabel = (entityType: string): string => {
   const typeMap: Record<string, string> = {
-    user: "用户",
-    config: "配置",
-    base: "多维表",
-    table: "数据表",
-    field: "字段",
-    record: "记录",
-    view: "视图",
-    dashboard: "仪表盘",
+    user: t("logs.entityUser"),
+    config: t("logs.entityConfig"),
+    base: t("logs.entityBase"),
+    table: t("logs.entityTable"),
+    field: t("logs.entityField"),
+    record: t("logs.entityRecord"),
+    view: t("logs.entityView"),
+    dashboard: t("logs.entityDashboard"),
   };
   return typeMap[entityType] || entityType;
 };
@@ -247,7 +249,7 @@ const fetchLogs = async () => {
       ...filters,
     });
   } catch (error) {
-    ElMessage.error("获取日志失败");
+    ElMessage.error(t("logs.fetchFailed"));
   }
 };
 
@@ -284,9 +286,9 @@ const handleExport = async () => {
     await adminStore.exportOperationLogs({
       ...filters,
     });
-    ElMessage.success("导出成功");
+    ElMessage.success(t('admin.logExportSuccess'));
   } catch (error) {
-    ElMessage.error("导出失败");
+    ElMessage.error(t('admin.logExportFailed'));
   }
 };
 

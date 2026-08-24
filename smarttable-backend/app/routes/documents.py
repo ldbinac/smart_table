@@ -100,7 +100,7 @@ def get_documents(base_id):
     try:
         user_id = g.user_id
         if not permission_service.check_permission(base_id, user_id, MemberRole.VIEWER):
-            return api_error('无权访问', 403)
+            return api_error('no_permission_access', 403)
 
         docs = document_service.get_list_by_base(base_id)
         return api_response({
@@ -166,12 +166,12 @@ def create_document(base_id):
         user_id = g.user_id
         # 创建文档需要 ADMIN 或更高权限
         if not permission_service.check_permission(base_id, user_id, MemberRole.ADMIN):
-            return api_error('无权创建文档，需要管理员权限', 403)
+            return api_error('no_permission_create_document_administrator_rights_required', 403)
 
         data = request.get_json()
         count = document_service.get_count_by_base(base_id)
         if count >= 10:
-            return api_error('每个 Base 最多创建 10 个文档', 400)
+            return api_error('each_base_most_documents', 400)
 
         doc = document_service.create(
             base_id=base_id,
@@ -215,10 +215,10 @@ def get_document(doc_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
-            return api_error('无权访问', 403)
+            return api_error('no_permission_access', 403)
 
         return api_response(doc.to_dict(include_content=True))
     except Exception as e:
@@ -283,11 +283,11 @@ def update_document(doc_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         # 更新文档（含重命名）需要 ADMIN 或更高权限
         if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
-            return api_error('无权修改文档，需要管理员权限', 403)
+            return api_error('no_permission_modify_document_administrator_rights_required', 403)
 
         data = request.get_json()
         expected_updated_at = data.pop('expected_updated_at', None)
@@ -299,12 +299,12 @@ def update_document(doc_id):
                 expected_dt = datetime.fromisoformat(str(expected_updated_at).replace('Z', '+00:00'))
                 current_dt = doc.updated_at
                 if current_dt and current_dt.replace(microsecond=0) != expected_dt.replace(microsecond=0):
-                    return api_error('文档已被他人修改，请刷新后重试', 409)
+                    return api_error('document_been_modified_someone_else_refresh_try_again', 409)
             except (ValueError, AttributeError, TypeError):
                 # 时间解析失败，fallback 到字符串比较
                 current_updated_at = doc.updated_at.isoformat() if doc.updated_at else None
                 if current_updated_at != expected_updated_at:
-                    return api_error('文档已被他人修改，请刷新后重试', 409)
+                    return api_error('document_been_modified_someone_else_refresh_try_again', 409)
 
         updated = document_service.update(doc_id=doc_id, user_id=user_id, **data)
         return api_response(updated.to_dict(include_content=True))
@@ -342,11 +342,11 @@ def delete_document(doc_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         # 删除文档需要 ADMIN 或更高权限
         if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
-            return api_error('无权删除文档，需要管理员权限', 403)
+            return api_error('no_permission_delete_document_administrator_rights_required', 403)
 
         document_service.delete(doc_id)
         return api_response(None, 204)
@@ -415,10 +415,10 @@ def export_pdf(doc_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
-            return api_error('无权访问', 403)
+            return api_error('no_permission_access', 403)
 
         data = request.get_json() or {}
         export_type = data.get('export_type', 'backend')
@@ -470,10 +470,10 @@ def download_pdf(doc_id):
         user_id = g.user_id
         doc = document_service.get_by_id(doc_id)
         if not doc:
-            return api_error('文档不存在', 404)
+            return api_error('document_does_not_exist', 404)
 
         if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
-            return api_error('无权访问', 403)
+            return api_error('no_permission_access', 403)
 
         html_content = document_export_service._convert_to_html(doc)
 
@@ -488,6 +488,6 @@ def download_pdf(doc_id):
                     download_name=f'{doc.name}.pdf'
                 )
         except ImportError:
-            return api_error('PDF 导出功能暂不可用，请安装 WeasyPrint 依赖', 503)
+            return api_error('pdf_export_unavailable_install_weasyprint_dependency', 503)
     except Exception as e:
         return api_error(str(e), 500)

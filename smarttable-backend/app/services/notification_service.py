@@ -15,6 +15,7 @@ from app.models.user import User
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_template_service import EmailTemplateService
 from app.services.email_config_service import EmailConfigService
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ class NotificationService:
                         'notification_id': None,
                         'email_sent': False,
                         'email_error': None,
-                        'error': '渲染模板失败，请检查模板格式'
+                        'error': 'failed_render_template_check_template_format'
                     }
 
                 final_title = title or rendered_subject
@@ -128,7 +129,7 @@ class NotificationService:
                         'notification_id': None,
                         'email_sent': False,
                         'email_error': None,
-                        'error': '标题和内容不能为空'
+                        'error': 'title_content_empty'
                     }
 
             # 3. 先写站内信（仅当 user_id 不为 None）
@@ -157,13 +158,13 @@ class NotificationService:
                     logger.info(f'站内信写入成功：{notification_id}')
                 except Exception as e:
                     db.session.rollback()
-                    logger.error(f'写入站内信失败：{str(e)}')
+                    logger.error(translate('notification_write_failed', str(e)))
                     return {
                         'success': False,
                         'notification_id': None,
                         'email_sent': False,
                         'email_error': None,
-                        'error': f'写入站内信失败：{str(e)}'
+                        'error': translate('notification_write_failed', str(e))
                     }
 
             # 4. 再发邮件（仅当 send_email 且 recipient_email 提供）
@@ -216,7 +217,7 @@ class NotificationService:
                 'notification_id': None,
                 'email_sent': False,
                 'email_error': None,
-                'error': '发送站内信失败，请稍后重试'
+                'error': 'failed_send_notification_try_again_later'
             }
 
     @staticmethod
@@ -273,7 +274,7 @@ class NotificationService:
             logger.error(f'获取站内信列表失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取站内信列表失败，请稍后重试'
+                'error': 'failed_fetch_notification_list_try_again_later'
             }
 
     @staticmethod
@@ -297,7 +298,7 @@ class NotificationService:
             logger.error(f'获取未读站内信数量失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取未读数量失败，请稍后重试'
+                'error': 'failed_fetch_unread_count_try_again_later'
             }
 
     @staticmethod
@@ -318,13 +319,13 @@ class NotificationService:
             if not notification:
                 return {
                     'success': False,
-                    'error': f'站内信不存在：{notification_id}'
+                    'error': 'notification_does_not_exist'
                 }
 
             if user_id is not None and str(notification.recipient_user_id) != str(user_id):
                 return {
                     'success': False,
-                    'error': '无权访问该站内信'
+                    'error': 'no_permission_access_notification'
                 }
 
             return {
@@ -336,7 +337,7 @@ class NotificationService:
             logger.error(f'获取站内信详情失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取站内信详情失败，请稍后重试'
+                'error': 'failed_fetch_notification_details_try_again_later'
             }
 
     @staticmethod
@@ -357,13 +358,13 @@ class NotificationService:
             if not notification:
                 return {
                     'success': False,
-                    'error': f'站内信不存在：{notification_id}'
+                    'error': 'notification_does_not_exist'
                 }
 
             if str(notification.recipient_user_id) != str(user_id):
                 return {
                     'success': False,
-                    'error': '无权操作该站内信'
+                    'error': 'no_permission_operate_notification'
                 }
 
             notification.mark_as_read()
@@ -371,7 +372,7 @@ class NotificationService:
 
             return {
                 'success': True,
-                'message': '已标记为已读'
+                'message': 'marked_read'
             }
 
         except Exception as e:
@@ -379,7 +380,7 @@ class NotificationService:
             logger.error(f'标记站内信已读失败：{str(e)}')
             return {
                 'success': False,
-                'error': '更新状态失败，请稍后重试'
+                'error': 'failed_update_status_try_again_later'
             }
 
     @staticmethod
@@ -416,7 +417,7 @@ class NotificationService:
             logger.error(f'批量标记站内信已读失败：{str(e)}')
             return {
                 'success': False,
-                'error': '更新状态失败，请稍后重试'
+                'error': 'failed_update_status_try_again_later'
             }
 
     @staticmethod
@@ -437,13 +438,13 @@ class NotificationService:
             if not notification:
                 return {
                     'success': False,
-                    'error': f'站内信不存在：{notification_id}'
+                    'error': 'notification_does_not_exist'
                 }
 
             if str(notification.recipient_user_id) != str(user_id):
                 return {
                     'success': False,
-                    'error': '无权删除该站内信'
+                    'error': 'no_permission_delete_notification'
                 }
 
             db.session.delete(notification)
@@ -453,7 +454,7 @@ class NotificationService:
 
             return {
                 'success': True,
-                'message': '站内信已删除'
+                'message': 'notification_deleted'
             }
 
         except Exception as e:
@@ -461,7 +462,7 @@ class NotificationService:
             logger.error(f'删除站内信失败：{str(e)}')
             return {
                 'success': False,
-                'error': '删除站内信失败，请稍后重试'
+                'error': 'failed_delete_notification_try_again_later'
             }
 
     @staticmethod
@@ -528,5 +529,5 @@ class NotificationService:
             logger.error(f'获取站内信统计失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取统计失败，请稍后重试'
+                'error': 'failed_fetch_statistics_try_again_later'
             }

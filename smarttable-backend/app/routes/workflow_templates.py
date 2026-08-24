@@ -65,7 +65,7 @@ def list_workflow_templates() -> tuple:
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 20))
     except (TypeError, ValueError):
-        return error_response('分页参数必须是整数', code=400)
+        return error_response('pagination_parameters_integers', code=400)
 
     if page < 1:
         page = 1
@@ -86,7 +86,7 @@ def list_workflow_templates() -> tuple:
         total=result['total'],
         page=result['page'],
         per_page=result['per_page'],
-        message='获取工作流模板列表成功'
+        message='fetched_workflow_template_list_successfully'
     )
 
 
@@ -141,11 +141,11 @@ def save_workflow_as_template() -> tuple:
     category = data.get('category')
 
     if not workflow_id:
-        return error_response('请提供工作流 ID', code=400)
+        return error_response('provide_workflow_id', code=400)
     if not name:
-        return error_response('请提供模板名称', code=400)
+        return error_response('provide_template_name', code=400)
     if len(name) > 200:
-        return error_response('模板名称不能超过200个字符', code=400)
+        return error_response('template_name_exceed_characters', code=400)
 
     template_id = WorkflowTemplateService.save_as_template(
         workflow_id=workflow_id,
@@ -156,11 +156,11 @@ def save_workflow_as_template() -> tuple:
     )
 
     if not template_id:
-        return error_response('保存模板失败，请检查工作流是否存在或是否有权限', code=403)
+        return error_response('failed_save_template_check_whether_workflow_exists_whether_permi', code=403)
 
     return success_response(
         data={'template_id': str(template_id)},
-        message='工作流已保存为模板',
+        message='workflow_saved_template',
         code=201
     )
 
@@ -207,7 +207,7 @@ def instantiate_workflow_template(template_id) -> tuple:
 
     table_id = data.get('table_id')
     if not table_id:
-        return error_response('请提供表格 ID', code=400)
+        return error_response('provide_table_id', code=400)
 
     workflow_id = WorkflowTemplateService.create_from_template(
         template_id=template_id,
@@ -216,10 +216,10 @@ def instantiate_workflow_template(template_id) -> tuple:
     )
 
     if not workflow_id:
-        return error_response('从模板创建工作流失败，请检查模板、表格是否存在或是否有权限', code=403)
+        return error_response('failed_create_workflow_template_check_whether_template_table_exi', code=403)
 
     return success_response(
         data={'workflow_id': str(workflow_id)},
-        message='已从模板创建工作流',
+        message='workflow_created_template',
         code=201
     )

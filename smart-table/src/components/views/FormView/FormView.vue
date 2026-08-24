@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType, type CellValue, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
 import MemberSelect from "@/components/common/MemberSelect.vue";
@@ -7,9 +8,11 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import { FormulaEngine } from "@/utils/formula/engine";
+import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useAuthStore } from "@/stores/authStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
@@ -36,13 +39,15 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   title: "",
   description: "",
-  submitButtonText: "提交",
+  submitButtonText: "",
 });
 
 const emit = defineEmits<{
   (e: "submit", values: Record<string, CellValue>): void;
   (e: "cancel"): void;
 }>();
+
+const { t } = useI18n();
 
 const formValues = ref<Record<string, CellValue>>({});
 const formErrors = ref<Record<string, string>>({});
@@ -90,7 +95,7 @@ const isValid = computed(() => {
 });
 
 const formTitle = computed(() => {
-  return props.title || "数据收集表单";
+  return props.title || t("view.formDefaultTitle");
 });
 
 watch(
@@ -110,7 +115,7 @@ watch(
 function validateField(field: FieldEntity, value: CellValue): string | null {
   // 必填验证 - 支持 field.isRequired 和 field.options.required
   if (isFieldRequired(field) && isValueEmpty(value)) {
-    return `请填写必填字段：${field.name}`;
+    return t("view.formRequiredField", { name: field.name });
   }
 
   // 如果值为空且不是必填项，跳过其他验证
@@ -127,7 +132,7 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
         if (!regex.test(String(value))) {
           return (
             (field.options?.regexMessage as string | undefined) ||
-            `${field.name} 格式不正确`
+            t("view.formFormatInvalid", { name: field.name })
           );
         }
       } catch {
@@ -140,19 +145,19 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
   switch (field.type) {
     case FieldType.EMAIL:
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {
-        return "请输入有效的邮箱地址";
+        return t("view.formInvalidEmail");
       }
       break;
     case FieldType.PHONE:
       if (!/^1[3-9]\d{9}$/.test(String(value))) {
-        return "请输入有效的手机号码";
+        return t("view.formInvalidPhone");
       }
       break;
     case FieldType.URL:
       try {
         new URL(String(value));
       } catch {
-        return "请输入有效的URL";
+        return t("view.formInvalidUrl");
       }
       break;
     case FieldType.NUMBER:
@@ -164,14 +169,14 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
           field.options?.min !== undefined &&
           numValue < Number(field.options.min)
         ) {
-          return `${field.name}不能小于${field.options.min}`;
+          return t("view.formCannotLessThan", { name: field.name, min: field.options.min });
         }
         // 最大值验证
         if (
           field.options?.max !== undefined &&
           numValue > Number(field.options.max)
         ) {
-          return `${field.name}不能大于${field.options.max}`;
+          return t("view.formCannotGreaterThan", { name: field.name, max: field.options.max });
         }
       }
       break;
@@ -185,14 +190,14 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
         field.options?.minLength !== undefined &&
         strValue.length < Number(field.options.minLength)
       ) {
-        return `${field.name}至少需要${field.options.minLength}个字符`;
+        return t("view.formAtLeastChars", { name: field.name, count: field.options.minLength });
       }
       // 最大长度验证
       if (
         field.options?.maxLength !== undefined &&
         strValue.length > Number(field.options.maxLength)
       ) {
-        return `${field.name}不能超过${field.options.maxLength}个字符`;
+        return t("view.formAtMostChars", { name: field.name, count: field.options.maxLength });
       }
       break;
   }
@@ -204,7 +209,7 @@ function validateField(field: FieldEntity, value: CellValue): string | null {
   if (validation?.pattern) {
     const pattern = new RegExp(validation.pattern);
     if (!pattern.test(String(value))) {
-      return validation.message || `${field.name}格式不正确`;
+      return validation.message || t("view.formFormatInvalid", { name: field.name });
     }
   }
 
@@ -268,11 +273,11 @@ async function handleCancel() {
   if (hasValues && !props.readonly) {
     try {
       await ElMessageBox.confirm(
-        "确定要取消吗？已填写的内容将不会保存。",
-        "确认取消",
+        t("view.formCancelConfirm"),
+        t("view.formCancelTitle"),
         {
-          confirmButtonText: "确定",
-          cancelButtonText: "继续填写",
+          confirmButtonText: t("view.confirm"),
+          cancelButtonText: t("view.formContinue"),
           type: "warning",
         },
       );
@@ -296,12 +301,12 @@ function resetForm() {
     if (field.defaultValue !== undefined && field.defaultValue !== null) {
       // 特殊处理日期字段的动态默认值 'now'
       if ((field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) && field.defaultValue === 'now') {
-        // 动态计算当前日期
-        const isDateTime = field.type === FieldType.DATE_TIME;
-        if (isDateTime) {
+        // 动态计算当前日期，按字段配置的日期格式存储
+        if (field.type === FieldType.DATE_TIME) {
           formValues.value[field.id] = new Date().toISOString();
         } else {
-          formValues.value[field.id] = new Date().toISOString().split('T')[0];
+          const fmt = (field.options?.dateFormat as string) || "YYYY-MM-DD";
+          formValues.value[field.id] = dayjs().format(fmt);
         }
       } else {
         formValues.value[field.id] = field.defaultValue as CellValue;
@@ -377,22 +382,25 @@ const calculateFormulaValue = (field: FieldEntity): string => {
     const result = engine.calculate(record, formula);
 
     if (result === "#ERROR") {
-      return "计算错误";
+      return t("view.calcError");
     }
 
-    // 数字格式化
+    // 数字格式化：沿用数值字段的展示格式（精度/前后缀/千分位）
     if (typeof result === "number" && !isNaN(result)) {
-      const precision = (field.options?.precision as number) ?? 2;
-      return result.toLocaleString("zh-CN", {
-        minimumFractionDigits: precision,
-        maximumFractionDigits: precision,
+      return formatNumberField(result, {
+        precision: (field.options?.precision as number) ?? 2,
+        format: (field.options?.format as "number" | "currency" | "percent") ?? "number",
+        currencySymbol: field.options?.currencySymbol as string | undefined,
+        prefix: field.options?.prefix as string | undefined,
+        suffix: field.options?.suffix as string | undefined,
+        thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
       });
     }
 
     return String(result);
   } catch (error) {
     console.error("Form formula calculation error:", error);
-    return "计算错误";
+    return t("view.calcError");
   }
 };
 
@@ -452,45 +460,7 @@ function getSelectOptions(field: FieldEntity) {
   );
 }
 
-// 获取数值字段精度
-function getNumberPrecision(field: FieldEntity): number {
-  return (field.options?.precision as number) ?? 0;
-}
 
-// 获取日期字段是否显示时间
-function getDateShowTime(field: FieldEntity): boolean {
-  return field.type === FieldType.DATE_TIME;
-}
-
-// 获取日期字段格式
-function getDateFormat(field: FieldEntity): string {
-  return getDateShowTime(field) ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-}
-
-// 获取日期选择器类型
-function getDatePickerType(field: FieldEntity): "date" | "datetime" {
-  return getDateShowTime(field) ? "datetime" : "date";
-}
-
-// 处理日期变更
-function handleDateChange(fieldId: string, val: Date | null) {
-  if (!val) {
-    handleFieldChange(fieldId, null);
-    return;
-  }
-
-  const field = props.fields.find((f) => f.id === fieldId);
-  if (!field) return;
-
-  const showTime = getDateShowTime(field);
-  if (showTime) {
-    // 显示时间时存储为时间戳
-    handleFieldChange(fieldId, val.getTime());
-  } else {
-    // 仅日期时存储为日期字符串
-    handleFieldChange(fieldId, dayjs(val).format("YYYY-MM-DD"));
-  }
-}
 
 // 导出表单数据为 JSON
 function exportFormData() {
@@ -517,7 +487,7 @@ function exportFormData() {
   a.click();
   URL.revokeObjectURL(url);
 
-  ElMessage.success("表单数据已导出");
+  ElMessage.success(t("view.formExported"));
 }
 
 const collabStore = useCollaborationStore();
@@ -587,11 +557,11 @@ defineExpose({
       <div class="success-icon">
         <el-icon><CircleCheckFilled /></el-icon>
       </div>
-      <h3 class="success-title">提交成功</h3>
-      <p class="success-subtitle">您的数据已成功保存</p>
+      <h3 class="success-title">{{ t("view.formSubmitSuccess") }}</h3>
+      <p class="success-subtitle">{{ t("view.formSaveSuccess") }}</p>
       <el-button type="primary" class="success-button" @click="resetForm">
         <el-icon><Plus /></el-icon>
-        继续填写
+        {{ t("view.formContinue") }}
       </el-button>
     </div>
 
@@ -600,9 +570,9 @@ defineExpose({
       <div class="empty-illustration">
         <el-icon><DocumentDelete /></el-icon>
       </div>
-      <h3 class="empty-title">暂无可见字段</h3>
+      <h3 class="empty-title">{{ t("view.formNoVisibleFields") }}</h3>
       <p class="empty-subtitle">
-        当前没有可填写的字段，请在字段管理中配置表单字段
+        {{ t("view.formNoFieldsHint") }}
       </p>
     </div>
 
@@ -638,7 +608,7 @@ defineExpose({
             <template v-if="field.type === FieldType.SINGLE_LINE_TEXT || field.type === FieldType.EMAIL || field.type === FieldType.PHONE || field.type === FieldType.URL">
               <el-input
                 :model-value="String(formValues[field.id] || '')"
-                :placeholder="`请输入${field.name}`"
+                :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :disabled="readonly"
                 :maxlength="(field.options?.maxLength as number | undefined)"
                 class="form-input"
@@ -660,7 +630,7 @@ defineExpose({
               <div class="textarea-wrapper">
                 <el-input
                   :model-value="String(formValues[field.id] || '')"
-                  :placeholder="`请输入${field.name}`"
+                  :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                   :disabled="readonly"
                   :maxlength="(field.options?.maxLength as number | undefined)"
                   type="textarea"
@@ -690,7 +660,7 @@ defineExpose({
             <template v-else-if="field.type === FieldType.RICH_TEXT">
               <RichTextField
                 :model-value="(formValues[field.id] as string) || null"
-                :placeholder="`请输入${field.name}`"
+                :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :readonly="readonly"
                 :max-length="(field.options?.maxLength as number) || undefined"
                 class="form-rich-text"
@@ -701,9 +671,10 @@ defineExpose({
             <template v-else-if="getFieldComponentType(field) === 'number'">
               <el-input-number
                 :model-value="Number(formValues[field.id] || 0)"
-                :placeholder="`请输入${field.name}`"
+                :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :disabled="readonly"
-                :precision="getNumberPrecision(field)"
+                :formatter="createNumberInputFormatter(field.options)"
+                :parser="createNumberInputParser(field.options)"
                 :min="
                   field.options?.min !== undefined
                     ? Number(field.options.min)
@@ -717,7 +688,10 @@ defineExpose({
                 class="form-input-number"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val as CellValue)
-                " />
+                ">
+                  <template #prefix v-if="getNumberFieldPrefix(field.options)">{{ getNumberFieldPrefix(field.options) }}</template>
+                  <template #suffix v-if="getNumberFieldSuffix(field.options)">{{ getNumberFieldSuffix(field.options) }}</template>
+                </el-input-number>
             </template>
 
             <!-- 单选类型 -->
@@ -725,7 +699,7 @@ defineExpose({
               v-else-if="getFieldComponentType(field) === 'single_select'">
               <el-select
                 :model-value="formValues[field.id] as string | undefined"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 :disabled="readonly"
                 class="form-select"
                 clearable
@@ -748,7 +722,7 @@ defineExpose({
               v-else-if="getFieldComponentType(field) === 'multi_select'">
               <el-select
                 :model-value="(formValues[field.id] as string[]) || []"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 :disabled="readonly"
                 class="form-select"
                 multiple
@@ -769,18 +743,13 @@ defineExpose({
 
             <!-- 日期类型 -->
             <template v-else-if="getFieldComponentType(field) === 'date'">
-              <el-date-picker
-                :model-value="
-                  formValues[field.id] as unknown as Date | undefined
-                "
-                :type="getDatePickerType(field)"
-                :placeholder="`请选择${field.name}`"
-                :format="getDateFormat(field)"
+              <DateInput
+                :field="field"
+                :model-value="formValues[field.id]"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 :disabled="readonly"
                 class="form-date-picker"
-                @update:model-value="
-                  (val) => handleDateChange(field.id, val as Date | null)
-                " />
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 复选框类型 -->
@@ -801,13 +770,13 @@ defineExpose({
                   :model-value="calculateFormulaValue(field)"
                   disabled
                   class="formula-input"
-                  :placeholder="'自动计算'">
+                  :placeholder="t('view.formAutoCalc')">
                   <template #prefix>
                     <el-icon><Calculator /></el-icon>
                   </template>
                 </el-input>
                 <div v-if="field.options?.formula" class="formula-hint">
-                  公式: {{ field.options.formula }}
+                  {{ t("view.formFormula", { formula: field.options.formula }) }}
                 </div>
               </div>
             </template>
@@ -828,7 +797,7 @@ defineExpose({
             <template v-else-if="getFieldComponentType(field) === 'auto_number'">
               <div class="auto-number-display">
                 <span class="auto-number-value">{{ formValues[field.id] || '-' }}</span>
-                <span v-if="!formValues[field.id]" class="auto-number-hint">保存后自动生成</span>
+                <span v-if="!formValues[field.id]" class="auto-number-hint">{{ t("view.formAutoGenerate") }}</span>
               </div>
             </template>
 
@@ -837,7 +806,7 @@ defineExpose({
             <template v-else-if="getFieldComponentType(field) === 'member'">
               <MemberSelect
                 v-model="(formValues[field.id] as any)"
-                :placeholder="`请选择${field.name}`"
+                :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 :allow-multiple="false"
                 :disabled="readonly"
                 class="form-select"
@@ -861,7 +830,7 @@ defineExpose({
 
       <div v-if="!readonly" class="form-actions">
         <el-button class="cancel-button" @click="handleCancel">
-          取消
+          {{ t("view.formCancel") }}
         </el-button>
         <el-button
           type="primary"
@@ -870,7 +839,7 @@ defineExpose({
           :disabled="!isValid && Object.keys(formErrors).length > 0"
           class="submit-button">
           <el-icon v-if="!isSubmitting"><Check /></el-icon>
-          {{ submitButtonText }}
+          {{ submitButtonText || t("view.formSubmit") }}
         </el-button>
       </div>
     </el-form>

@@ -1,42 +1,46 @@
 <template>
   <div class="verify-email-page">
+    <div class="lang-switcher-wrapper">
+      <LanguageSwitcher />
+    </div>
+
     <div class="verify-container">
       <div class="page-header">
         <h1 class="title">SmartTable</h1>
-        <p class="subtitle">多维表格管理系统</p>
+        <p class="subtitle">{{ t('auth.brandSubtitle') }}</p>
       </div>
 
       <div v-if="loading" class="status-box loading">
         <el-icon class="icon" :size="48"><Loading /></el-icon>
-        <p>正在验证邮箱...</p>
+        <p>{{ t('auth.verifyingEmail') }}</p>
       </div>
 
       <div v-else-if="success" class="status-box success">
         <el-icon class="icon" :size="48" color="#67c23a"><CircleCheck /></el-icon>
-        <h2>邮箱验证成功</h2>
-        <p>您的邮箱已成功验证，现在可以使用全部功能了。</p>
-        <el-button type="primary" @click="goToLogin">前往登录</el-button>
+        <h2>{{ t('auth.emailVerifySuccess') }}</h2>
+        <p>{{ t('auth.emailVerifySuccessDesc') }}</p>
+        <el-button type="primary" @click="goToLogin">{{ t('auth.goToLogin') }}</el-button>
       </div>
 
       <div v-else-if="alreadyVerified" class="status-box info">
         <el-icon class="icon" :size="48" color="#409eff"><InfoFilled /></el-icon>
-        <h2>邮箱已验证</h2>
-        <p>您的邮箱已经验证过了，无需重复验证。</p>
-        <el-button type="primary" @click="goToLogin">前往登录</el-button>
+        <h2>{{ t('auth.emailAlreadyVerified') }}</h2>
+        <p>{{ t('auth.emailAlreadyVerifiedDesc') }}</p>
+        <el-button type="primary" @click="goToLogin">{{ t('auth.goToLogin') }}</el-button>
       </div>
 
       <div v-else-if="expired" class="status-box warning">
         <el-icon class="icon" :size="48" color="#e6a23c"><Warning /></el-icon>
-        <h2>验证链接已过期</h2>
-        <p>该验证链接已过期，请重新发送验证邮件。</p>
-        <el-button type="primary" @click="resendVerification">重新发送验证邮件</el-button>
+        <h2>{{ t('auth.verifyLinkExpired') }}</h2>
+        <p>{{ t('auth.verifyLinkExpiredDesc') }}</p>
+        <el-button type="primary" @click="resendVerification">{{ t('auth.resendVerification') }}</el-button>
       </div>
 
       <div v-else class="status-box error">
         <el-icon class="icon" :size="48" color="#f56c6c"><CircleClose /></el-icon>
-        <h2>验证失败</h2>
+        <h2>{{ t('auth.verifyFailed') }}</h2>
         <p>{{ errorMessage }}</p>
-        <el-button type="primary" @click="goToLogin">返回登录</el-button>
+        <el-button type="primary" @click="goToLogin">{{ t('auth.backToLogin') }}</el-button>
       </div>
     </div>
   </div>
@@ -45,9 +49,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Loading, CircleCheck, CircleClose, Warning, InfoFilled } from '@element-plus/icons-vue'
 import apiClient from '@/api/client'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher.vue'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -56,14 +64,14 @@ const loading = ref(true)
 const success = ref(false)
 const alreadyVerified = ref(false)
 const expired = ref(false)
-const errorMessage = ref('验证失败，请稍后重试')
+const errorMessage = ref('')
 
 const verifyEmail = async () => {
   const token = route.query.token as string
 
   if (!token) {
     loading.value = false
-    errorMessage.value = '无效的验证链接'
+    errorMessage.value = t('auth.invalidVerifyLink')
     return
   }
 
@@ -75,7 +83,7 @@ const verifyEmail = async () => {
     }
   } catch (error: any) {
     const errorCode = error?.response?.data?.error
-    const message = error?.response?.data?.message || '验证失败'
+    const message = error?.response?.data?.message || t('auth.verifyFailed')
 
     if (errorCode === 'token_expired') {
       expired.value = true
@@ -94,10 +102,10 @@ const resendVerification = async () => {
     const response = await apiClient.post('/auth/resend-verification') as { success: boolean }
 
     if (response.success) {
-      ElMessage.success('验证邮件已重新发送，请查收')
+      ElMessage.success(t('auth.verifyEmailResent'))
     }
   } catch (error: any) {
-    const message = error?.response?.data?.message || '发送失败'
+    const message = error?.response?.data?.message || t('auth.sendFailed')
     ElMessage.error(message)
   }
 }
@@ -117,8 +125,24 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+}
+
+.lang-switcher-wrapper {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 10;
+
+  :deep(.lang-switcher-trigger) {
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
 }
 
 .verify-container {

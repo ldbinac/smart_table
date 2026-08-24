@@ -9,6 +9,7 @@
  * - 异步加载子表数据，不阻塞抽屉打开
  */
 import { ref, shallowRef, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ListTable, themes } from '@visactor/vtable';
 import { createGroup, createText, createRect, createPath, createImage, createCircle } from '@visactor/vtable/es/vrender';
 import { FieldType } from '@/types/fields';
@@ -16,6 +17,9 @@ import { masterDetailService } from '@/services/masterDetailService';
 import type { RecordEntity } from '@/db/schema';
 import { useUserCacheStore } from '@/stores/userCacheStore';
 import { formatDate, formatDateTime } from '@/utils/timezone';
+import { formatNumberField } from '@/utils/numberFormat';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   /** 主表记录 ID */
@@ -133,22 +137,21 @@ const buildColumnConfig = (field: any): Record<string, any> => {
         if (value === null || value === undefined || value === '') return '';
         const num = Number(value);
         if (Number.isNaN(num)) return String(value);
-        const options = field.options || {};
-        const precision = options.precision ?? 0;
-        const prefix = options.prefix || '';
-        const suffix = options.suffix || '';
-        const currencySymbol = options.currencySymbol || '';
-        let formatted = num.toFixed(precision);
-        if (field.type === FieldType.PERCENT) formatted = `${formatted}%`;
-        else if (field.type === FieldType.CURRENCY && currencySymbol) formatted = `${currencySymbol}${formatted}`;
-        return `${prefix}${formatted}${suffix}`;
+        return formatNumberField(num, {
+          precision: field.options?.precision ?? 0,
+          format: field.options?.format ?? 'number',
+          currencySymbol: field.options?.currencySymbol,
+          prefix: field.options?.prefix,
+          suffix: field.options?.suffix,
+          thousandsSeparator: field.options?.thousandsSeparator,
+        });
       };
       break;
     case FieldType.LINK:
       config.cellType = 'text';
       config.fieldFormat = (record: any) => {
         const rawIds = record?.[field.id];
-        if (Array.isArray(rawIds) && rawIds.length > 0) return `关联 ${rawIds.length} 条`;
+        if (Array.isArray(rawIds) && rawIds.length > 0) return t('view.linkCount', { count: rawIds.length });
         return '';
       };
       break;
@@ -514,7 +517,7 @@ const loadData = async () => {
     }
   } catch (error) {
     console.error('[SubTableInDrawer] 加载子表数据失败:', error);
-    errorMessage.value = '加载子表数据失败';
+    errorMessage.value = t('view.subTableLoadFailed');
     loading.value = false;
     hasData.value = false;
   }
@@ -571,7 +574,7 @@ const renderTable = (columns: any[], records: any[]) => {
     heightMode: 'autoHeight',
     autoWrapText: false,
     showHeader: true,
-    emptyTip: { text: '暂无关联记录' },
+    emptyTip: { text: t('view.noLinkedRecords') },
   });
 
   // 绑定 click_cell 事件：显示放大按钮
@@ -669,13 +672,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="subtable-in-drawer">
     <div v-if="loading" class="subtable-loading">
-      <span>加载中...</span>
+      <span>{{ t('common.loading') }}</span>
     </div>
     <div v-else-if="errorMessage" class="subtable-error">
       <span>{{ errorMessage }}</span>
     </div>
     <div v-else-if="!hasData" class="subtable-empty">
-      <span>暂无关联记录</span>
+      <span>{{ t('view.noLinkedRecords') }}</span>
     </div>
     <div
       v-if="hasData && !loading"
@@ -693,7 +696,7 @@ onBeforeUnmount(() => {
       }"
       @click.stop="handleActionIconClick"
       @mouseenter="actionIconVisible = true"
-      title="查看记录详情">
+      :title="t('view.viewRecordDetail')">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />

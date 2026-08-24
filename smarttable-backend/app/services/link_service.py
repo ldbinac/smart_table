@@ -21,6 +21,7 @@ from app.models.record import Record
 from app.models.table import Table
 from app.services.table_service import TableService
 from app.services.field_service import FieldService
+from app.i18n import translate
 
 
 # 缓存键前缀
@@ -216,7 +217,7 @@ class LinkService:
                 if relation.relationship_type != relationship_type:
                     existing_field = db.session.get(Field, relation.source_field_id)
                     field_name = existing_field.name if existing_field else '未知字段'
-                    return True, f'已存在不同类型的关联字段 "{field_name}"，类型为 {relation.relationship_type}'
+                    return True, translate('link_conflict_existing_type', field_name, relation.relationship_type)
             
             return False, None
             
@@ -246,27 +247,27 @@ class LinkService:
             required_fields = ['source_table_id', 'target_table_id', 'source_field_id']
             for field in required_fields:
                 if field not in data:
-                    return None, f'缺少必需字段: {field}'
+                    return None, translate('missing_required_field', field)
 
             # 验证源字段是否存在且为 LINK_TO_RECORD 或 LINK 类型
             source_field = db.session.get(Field, data['source_field_id'])
             if not source_field:
-                return None, '源字段不存在'
+                'source_field_does_not_exist'
             if source_field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
-                return None, '源字段必须是关联字段类型'
+                'source_field_link_type'
 
             # 验证表是否存在
             source_table = db.session.get(Table, data['source_table_id'])
             target_table = db.session.get(Table, data['target_table_id'])
             if not source_table:
-                return None, '源表不存在'
+                'source_table_does_not_exist'
             if not target_table:
-                return None, '目标表不存在'
+                'target_table_does_not_exist'
 
             # 验证关联类型
             relationship_type = data.get('relationship_type', RelationshipType.ONE_TO_MANY.value)
             if relationship_type not in [rt.value for rt in RelationshipType]:
-                return None, f'无效的关联类型: {relationship_type}'
+                return None, translate('invalid_link_type', relationship_type)
 
             # 检查是否已存在相同的关联关系
             existing = db.session.execute(
@@ -279,7 +280,7 @@ class LinkService:
             ).scalar_one_or_none()
 
             if existing:
-                return None, '该字段已存在关联关系'
+                'field_already_link_relation'
 
             # 创建关联关系
             link_relation = LinkRelation(
@@ -305,7 +306,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 创建关联关系失败: {str(e)}')
-            return None, '创建关联关系失败，请稍后重试'
+            'failed_create_link_relation_try_again_later'
 
     @staticmethod
     def update_link_relation(link_relation_id: str, data: Dict[str, Any]) -> Tuple[Optional[LinkRelation], Optional[str]]:
@@ -325,7 +326,7 @@ class LinkService:
         try:
             link_relation = db.session.get(LinkRelation, link_relation_id)
             if not link_relation:
-                return None, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 允许更新的字段
             allowed_fields = ['relationship_type', 'bidirectional', 'target_field_id']
@@ -335,7 +336,7 @@ class LinkService:
                     # 验证关联类型
                     if field == 'relationship_type':
                         if data[field] not in [rt.value for rt in RelationshipType]:
-                            return None, f'无效的关联类型: {data[field]}'
+                            return None, translate('invalid_link_type', data[field])
                     setattr(link_relation, field, data[field])
 
             link_relation.updated_at = datetime.now(timezone.utc)
@@ -348,7 +349,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 更新关联关系失败: {str(e)}')
-            return None, '更新关联关系失败，请稍后重试'
+            'failed_update_link_relation_try_again_later'
 
     @staticmethod
     def delete_link_relation(link_relation_id: str) -> Tuple[bool, Optional[str]]:
@@ -364,7 +365,7 @@ class LinkService:
         try:
             link_relation = db.session.get(LinkRelation, link_relation_id)
             if not link_relation:
-                return False, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 获取关联的 LinkValue 数量（用于日志）
             link_value_count = db.session.execute(
@@ -387,7 +388,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 删除关联关系失败: {str(e)}')
-            return False, '删除关联关系失败，请稍后重试'
+            'failed_delete_link_relation_try_again_later'
 
     @staticmethod
     def get_link_relation_by_field(field_id: str, target_table_id: str = None) -> Optional[LinkRelation]:
@@ -464,7 +465,7 @@ class LinkService:
         try:
             link_relation = db.session.get(LinkRelation, link_relation_id)
             if not link_relation:
-                return None, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 查询关联值
             link_values = db.session.execute(
@@ -494,7 +495,7 @@ class LinkService:
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 获取关联记录失败: {str(e)}')
-            return None, '获取关联记录失败，请稍后重试'
+            'failed_fetch_linked_records_try_again_later'
 
     @staticmethod
     def update_link_values(
@@ -518,21 +519,21 @@ class LinkService:
         try:
             link_relation = db.session.get(LinkRelation, link_relation_id)
             if not link_relation:
-                return False, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 验证源记录是否存在
             source_record = db.session.get(Record, source_record_id)
             if not source_record:
-                return False, '源记录不存在'
+                'source_record_does_not_exist'
 
             # 验证所有目标记录是否存在且属于目标表
             target_records = []
             for target_id in target_record_ids:
                 target_record = db.session.get(Record, target_id)
                 if not target_record:
-                    return False, f'目标记录不存在: {target_id}'
+                    return False, translate('target_record_not_exist', target_id)
                 if str(target_record.table_id) != str(link_relation.target_table_id):
-                    return False, f'目标记录 {target_id} 不属于目标表'
+                    return False, translate('target_record_not_in_target_table', target_id)
                 target_records.append(target_record)
 
             # 获取现有的关联值
@@ -592,7 +593,7 @@ class LinkService:
                 )
                 if not sync_result:
                     db.session.rollback()
-                    return False, f'双向同步失败: {sync_error}'
+                    return False, translate('bidirectional_sync_failed', sync_error)
 
             db.session.commit()
 
@@ -611,7 +612,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 更新关联值失败: {str(e)}')
-            return False, '更新关联值失败，请稍后重试'
+            'failed_update_linked_value_try_again_later'
 
     @staticmethod
     def _sync_bidirectional_links(
@@ -733,7 +734,7 @@ class LinkService:
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 双向关联同步失败: {str(e)}')
-            return False, '双向关联同步失败，请稍后重试'
+            'bidirectional_link_sync_failed_try_again_later'
 
     @staticmethod
     def sync_bidirectional_link(link_relation_id: str) -> Tuple[bool, Optional[str]]:
@@ -749,7 +750,7 @@ class LinkService:
         try:
             link_relation = db.session.get(LinkRelation, link_relation_id)
             if not link_relation:
-                return False, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             if not link_relation.bidirectional:
                 return True, None  # 不是双向关联，无需同步
@@ -777,7 +778,7 @@ class LinkService:
                 )
                 if not result:
                     db.session.rollback()
-                    return False, f'同步记录 {source_id} 失败: {error}'
+                    return False, translate('sync_record_failed', source_id, error)
 
             current_app.logger.info(
                 f'[LinkService] 双向关联全量同步完成: link_relation={link_relation_id}, '
@@ -790,7 +791,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 双向关联同步失败: {str(e)}')
-            return False, '双向关联同步失败，请稍后重试'
+            'bidirectional_link_sync_failed_try_again_later'
 
     @staticmethod
     def get_table_link_relations(table_id: str) -> List[LinkRelation]:
@@ -839,7 +840,7 @@ class LinkService:
         try:
             link_relation = db.session.get(LinkRelation, link_relation_id)
             if not link_relation:
-                return False, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 一对一约束检查
             if link_relation.relationship_type == RelationshipType.ONE_TO_ONE.value:
@@ -854,7 +855,7 @@ class LinkService:
                 ).scalar_one_or_none()
 
                 if existing and str(existing.target_record_id) != target_record_id:
-                    return False, '一对一关联约束：源记录已有关联'
+                    'one_one_constraint_source_record_already_link'
 
                 # 检查目标记录是否已被其他源记录关联
                 existing_target = db.session.execute(
@@ -867,13 +868,13 @@ class LinkService:
                 ).scalar_one_or_none()
 
                 if existing_target and str(existing_target.source_record_id) != source_record_id:
-                    return False, '一对一关联约束：目标记录已被其他记录关联'
+                    'one_one_constraint_target_record_already_linked_another_record'
 
             return True, None
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 验证关联约束失败: {str(e)}')
-            return False, '验证失败，请稍后重试'
+            'verification_failed_try_again_later'
 
     @staticmethod
     def get_record_links(record_id: str, use_cache: bool = True) -> Dict[str, List[Dict[str, Any]]]:
@@ -1206,7 +1207,7 @@ class LinkService:
         try:
             link_relation = db.session.get(LinkRelation, link_relation_id)
             if not link_relation:
-                return False, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 查找要删除的关联值
             link_value = db.session.execute(
@@ -1220,7 +1221,7 @@ class LinkService:
             ).scalar_one_or_none()
 
             if not link_value:
-                return False, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 删除关联值
             db.session.delete(link_value)
@@ -1300,7 +1301,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 删除关联值失败: {str(e)}')
-            return False, '删除关联值失败，请稍后重试'
+            'failed_delete_linked_value_try_again_later'
 
     @staticmethod
     def create_link_field(table_id: str, data: Dict[str, Any], user_id: str = None) -> Dict[str, Any]:
@@ -1341,17 +1342,17 @@ class LinkService:
 
         source_table = TableService.get_table_by_id(str(table_id))
         if not source_table:
-            return {'success': False, 'error': '源表不存在'}
+            return {'success': False, 'error': 'source_table_does_not_exist'}
 
         target_table = TableService.get_table_by_id(str(target_table_id))
         if not target_table:
-            return {'success': False, 'error': '目标表不存在'}
+            return {'success': False, 'error': 'target_table_does_not_exist'}
 
         has_conflict, conflict_msg = LinkService.check_relationship_conflict(
             str(table_id), str(target_table_id), relationship_type
         )
         if has_conflict:
-            return {'success': False, 'error': f'关联关系冲突: {conflict_msg}'}
+            return {'success': False, 'error': translate('link_relationship_conflict', conflict_msg)}
 
         try:
             field_data = {
@@ -1385,9 +1386,9 @@ class LinkService:
                 # 反向关联字段默认使用源表主字段作为显示字段，避免显示关联记录 ID
                 inverse_display_field_id = str(source_table.primary_field_id) if source_table.primary_field_id else None
                 inverse_field_data = {
-                    'name': f"来自 {source_table_name} 的关联",
+                    'name': translate('inverse_link_field_name', table=source_table_name),
                     'type': FieldType.LINK_TO_RECORD.value,
-                    'description': f'自动创建的反向关联字段，关联到 {source_table_name}',
+                    'description': translate('inverse_link_field_description', table=source_table_name),
                     'config': {
                         'linkedTableId': table_id,
                         'relationshipType': inverse_relationship_type,
@@ -1470,7 +1471,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 创建关联字段失败: {str(e)}')
-            return {'success': False, 'error': '创建关联字段失败，请稍后重试'}
+            return {'success': False, 'error': 'failed_create_link_field_try_again_later'}
 
     @staticmethod
     def update_link_field_relationship(
@@ -1494,18 +1495,18 @@ class LinkService:
         try:
             field = db.session.get(Field, field_id)
             if not field:
-                return {'success': False, 'error': '字段不存在'}
+                return {'success': False, 'error': 'field_does_not_exist'}
             
             if field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
-                return {'success': False, 'error': '字段不是关联类型'}
+                return {'success': False, 'error': 'field_not_link_type'}
             
             link_relation = LinkService.get_link_relation_by_field(field_id)
             if not link_relation:
-                return {'success': False, 'error': '关联关系不存在'}
+                return {'success': False, 'error': 'link_relation_does_not_exist'}
             
             old_relationship_type = link_relation.relationship_type
             if old_relationship_type == new_relationship_type:
-                return {'success': True, 'message': '关系类型未变化'}
+                return {'success': True, 'message': 'link_type_not_changed'}
             
             has_conflict, conflict_msg = LinkService.check_relationship_conflict(
                 str(link_relation.source_table_id),
@@ -1514,7 +1515,7 @@ class LinkService:
                 exclude_field_id=field_id
             )
             if has_conflict:
-                return {'success': False, 'error': f'关联关系冲突: {conflict_msg}'}
+                return {'success': False, 'error': translate('link_relationship_conflict', conflict_msg)}
             
             link_relation.relationship_type = new_relationship_type
             link_relation.updated_at = datetime.now(timezone.utc)
@@ -1566,7 +1567,7 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 更新关联字段关系类型失败: {str(e)}')
-            return {'success': False, 'error': '更新关联关系类型失败，请稍后重试'}
+            return {'success': False, 'error': 'failed_update_link_relation_type_try_again_later'}
 
     @staticmethod
     def get_linked_records_detail(
@@ -1596,9 +1597,9 @@ class LinkService:
             # 1. 通过 field_id 查询 Field，确认是 LINK 类型字段
             field = db.session.get(Field, field_id)
             if not field:
-                return None, '字段不存在'
+                'field_does_not_exist'
             if field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
-                return None, '字段不是关联类型'
+                'field_not_link_type'
 
             # 2. 从 field.options 或 field.config 获取 linkedTableId（目标表ID）
             linked_table_id = None
@@ -1608,12 +1609,12 @@ class LinkService:
                     if linked_table_id:
                         break
             if not linked_table_id:
-                return None, '字段配置缺少关联表ID'
+                'field_configuration_missing_linked_table_id'
 
             # 3. 获取关联关系
             link_relation = LinkService.get_link_relation_by_field(field_id, linked_table_id)
             if not link_relation:
-                return None, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 4. 查询 LinkValue 表，获取所有 source_record_id == record_id 且 link_relation_id 匹配的记录
             link_values = db.session.execute(
@@ -1676,7 +1677,7 @@ class LinkService:
 
         except Exception as e:
             current_app.logger.error(f'[LinkService] 获取关联记录详情失败: {str(e)}')
-            return None, '获取关联记录详情失败，请稍后重试'
+            'failed_fetch_linked_record_details_try_again_later'
 
     @staticmethod
     def create_and_link_record(
@@ -1705,9 +1706,9 @@ class LinkService:
             # 1. 通过 field_id 查询 Field，确认是 LINK 类型
             field = db.session.get(Field, field_id)
             if not field:
-                return None, '字段不存在'
+                'field_does_not_exist'
             if field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
-                return None, '字段不是关联类型'
+                'field_not_link_type'
 
             # 2. 获取 linkedTableId（目标表ID）
             linked_table_id = None
@@ -1717,12 +1718,12 @@ class LinkService:
                     if linked_table_id:
                         break
             if not linked_table_id:
-                return None, '字段配置缺少关联表ID'
+                'field_configuration_missing_linked_table_id'
 
             # 3. 获取关联关系
             link_relation = LinkService.get_link_relation_by_field(field_id, linked_table_id)
             if not link_relation:
-                return None, '关联关系不存在'
+                'link_relation_does_not_exist'
 
             # 4. 一对一约束检查：如果已有关联记录，返回错误
             if link_relation.relationship_type == RelationshipType.ONE_TO_ONE.value:
@@ -1735,7 +1736,7 @@ class LinkService:
                     )
                 ).scalars().first()
                 if existing:
-                    return None, '一对一关联约束：源记录已有关联记录'
+                    'one_one_constraint_source_record_already_linked_record'
 
             # 5. 在目标表创建记录
             new_record = RecordService.create_record(
@@ -1766,7 +1767,7 @@ class LinkService:
                 updated_by=user_id
             )
             if not result:
-                return None, f'建立关联失败: {err}'
+                return None, translate('link_creation_failed', err)
 
             # 获取新建的 link_value
             link_value = db.session.execute(
@@ -1787,4 +1788,4 @@ class LinkService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[LinkService] 创建并关联记录失败: {str(e)}')
-            return None, '创建并关联记录失败，请稍后重试'
+            'failed_create_link_record_try_again_later'

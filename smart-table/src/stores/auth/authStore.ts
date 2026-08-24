@@ -19,6 +19,7 @@ import {
   triggerLogoutEvent
 } from '@/utils/auth/token'
 import { message } from '@/utils/message'
+import { t } from '@/i18n'
 
 // 用户信息缓存常量
 const USER_CACHE_KEY = 'auth_user_cache'
@@ -84,8 +85,8 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authService.login(credentials)
       return await completeLogin(response, remember)
     } catch (error) {
-      console.error('登录失败:', error)
-      message.error('登录失败，请检查邮箱和密码')
+      console.error('Login failed:', error)
+      message.error(t('auth.loginFailedEmailHint'))
       return false
     } finally {
       isLoading.value = false
@@ -98,7 +99,7 @@ export const useAuthStore = defineStore('auth', () => {
   const completeLogin = async (response: LoginResponse, remember: boolean = true): Promise<boolean> => {
     try {
       if (!response.tokens?.access_token || !response.tokens?.refresh_token || !response.user) {
-        message.error('登录响应数据不完整')
+        message.error(t('auth.loginResponseIncomplete'))
         return false
       }
 
@@ -110,11 +111,11 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = true
       setUserCache(response.user)
 
-      message.success('登录成功')
+      message.success(t('auth.loginSuccess'))
       return true
     } catch (error) {
       console.error('[authStore] 完成登录失败:', error)
-      message.error('登录状态保存失败')
+      message.error(t('auth.loginStateSaveFailed'))
       return false
     }
   }
@@ -126,7 +127,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true
     try {
       await authService.register(data)
-      message.success('注册成功，请登录')
+      message.success(t('auth.registerSuccessHint'))
       return true
     } catch (error) {
       // 错误信息已在 API 客户端显示，这里不需要重复显示
@@ -146,7 +147,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (logoutAll) {
         // 退出所有设备
         await authService.logoutAll()
-        message.success('已从所有设备退出')
+        message.success(t('auth.loggedOutAllDevices'))
       } else {
         // 退出当前设备
         await authService.logout()
@@ -155,7 +156,7 @@ export const useAuthStore = defineStore('auth', () => {
       // 网络错误或其他错误时，仍然清除本地状态
       console.error('Logout error:', error)
       if (logoutAll) {
-        message.warning('退出所有设备失败，但已清除本地登录状态')
+        message.warning(t('auth.logoutAllPartial'))
       }
     } finally {
       // 无论成功失败都清除本地状态
@@ -170,7 +171,7 @@ export const useAuthStore = defineStore('auth', () => {
       triggerLogoutEvent()
 
       if (!logoutAll) {
-        message.success('已安全退出')
+        message.success(t('auth.logoutSafe'))
       }
     }
   }

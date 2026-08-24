@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import FieldComponentFactory from "@/components/fields/FieldComponentFactory.vue";
 import { FieldType } from "@/types";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { formatDate, formatDateTime } from "@/utils/timezone";
 import { useTableStore } from "@/stores/tableStore";
+
+const { t } = useI18n();
 
 interface Props {
   record: RecordEntity;
@@ -81,13 +84,13 @@ const formulaValues = computed(() => {
           });
         }
       } else if (result === "#ERROR") {
-        values[field.id] = "计算错误";
+        values[field.id] = t("view.calcError");
       } else {
         values[field.id] = result as string | null;
       }
     } catch (e) {
       console.error('[KanbanCard] 公式计算错误:', e);
-      values[field.id] = "计算错误";
+      values[field.id] = t("view.calcError");
     }
   }
   
@@ -119,7 +122,7 @@ function handleCardClick(event: MouseEvent) {
   <div class="kanban-card" @click="handleCardClick">
     <div class="card-header">
       <span class="card-title">
-        {{ primaryValue || "无标题" }}
+        {{ primaryValue || t("view.noTitle") }}
       </span>
       <div class="card-actions" @click.stop>
         <el-dropdown trigger="click">
@@ -130,11 +133,11 @@ function handleCardClick(event: MouseEvent) {
             <el-dropdown-menu>
               <el-dropdown-item @click="$emit('edit')">
                 <el-icon><Edit /></el-icon>
-                编辑
+                {{ t("view.edit") }}
               </el-dropdown-item>
               <el-dropdown-item divided @click="$emit('delete')">
                 <el-icon><Delete /></el-icon>
-                删除
+                {{ t("view.delete") }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>

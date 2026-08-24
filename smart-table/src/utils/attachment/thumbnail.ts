@@ -1,6 +1,7 @@
 import type { AttachmentFieldOptions } from '@/types/attachment';
 import { AttachmentError, AttachmentErrorCode, type AttachmentErrorCodeType } from './errors';
 import { DEFAULT_ATTACHMENT_LIMITS } from '@/types/attachment';
+import { t } from '@/i18n';
 
 /**
  * 缩略图生成选项
@@ -47,7 +48,7 @@ export async function generateThumbnail(
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           reject(new AttachmentError(
-            '无法创建 canvas 上下文',
+            t('attachment.canvasContextFail'),
             AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
           ));
           return;
@@ -67,7 +68,7 @@ export async function generateThumbnail(
               resolve(blob);
             } else {
               reject(new AttachmentError(
-                '缩略图生成失败：无法转换为 Blob',
+                t('attachment.blobConvertFail'),
                 AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
               ));
             }
@@ -77,7 +78,7 @@ export async function generateThumbnail(
         );
       } catch (error) {
         reject(new AttachmentError(
-          `缩略图生成失败：${error instanceof Error ? error.message : '未知错误'}`,
+          t('attachment.thumbFail', [error instanceof Error ? error.message : t('common.unknownError')]),
           AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
         ));
       }
@@ -86,7 +87,7 @@ export async function generateThumbnail(
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
       reject(new AttachmentError(
-        '图片加载失败',
+        t('attachment.imageLoadFail'),
         AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
       ));
     };
@@ -133,7 +134,7 @@ export async function generateVideoThumbnail(
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           reject(new AttachmentError(
-            '无法创建 canvas 上下文',
+            t('attachment.canvasContextFail'),
             AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
           ));
           return;
@@ -151,7 +152,7 @@ export async function generateVideoThumbnail(
               resolve(blob);
             } else {
               reject(new AttachmentError(
-                '视频缩略图生成失败',
+                t('attachment.videoThumbFail'),
                 AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
               ));
             }
@@ -162,7 +163,7 @@ export async function generateVideoThumbnail(
       } catch (error) {
         URL.revokeObjectURL(objectUrl);
         reject(new AttachmentError(
-          `视频缩略图生成失败：${error instanceof Error ? error.message : '未知错误'}`,
+          t('attachment.videoThumbFailDetail', [error instanceof Error ? error.message : t('common.unknownError')]),
           AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
         ));
       }
@@ -171,7 +172,7 @@ export async function generateVideoThumbnail(
     video.onerror = () => {
       URL.revokeObjectURL(objectUrl);
       reject(new AttachmentError(
-        '视频加载失败',
+        t('attachment.videoLoadFail'),
         AttachmentErrorCode.THUMBNAIL_ERROR as AttachmentErrorCodeType
       ));
     };
@@ -216,7 +217,7 @@ export function blobToDataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Blob 转 DataURL 失败'));
+    reader.onerror = () => reject(new Error(t('attachment.blobToDataUrlFail')));
     reader.readAsDataURL(blob);
   });
 }

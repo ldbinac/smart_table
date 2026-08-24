@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "../../db/schema";
 import type { GroupNode, GroupConfig } from "../../utils/group";
 import type { FieldTypeValue } from "../../types";
@@ -13,6 +14,8 @@ import {
 } from "../../utils/group";
 import Sortable from "sortablejs";
 import { ElMessage } from "element-plus";
+
+const { t } = useI18n();
 
 interface Props {
   fields: FieldEntity[];
@@ -156,14 +159,14 @@ const canAddMoreGroups = computed(() => {
 
 function addGroupField(fieldId: string) {
   if (localGroupBy.value.length >= MAX_GROUP_LEVELS) {
-    ElMessage.warning(`最多支持 ${MAX_GROUP_LEVELS} 级分组`);
+    ElMessage.warning(t('group.maxLevelHint', [MAX_GROUP_LEVELS]));
     return;
   }
 
   if (!localGroupBy.value.includes(fieldId)) {
     localGroupBy.value.push(fieldId);
     updateGroups();
-    ElMessage.success("分组字段已添加");
+    ElMessage.success(t('group.fieldAdded'));
   }
 }
 
@@ -249,7 +252,7 @@ function getIndentStyle(level: number) {
   <div class="group-panel">
     <div class="panel-header">
       <div class="header-title">
-        <span class="title">分组设置</span>
+        <span class="title">{{ t('group.settingTitle') }}</span>
         <span v-if="localGroupBy.length > 0" class="group-count">
           {{ localGroupBy.length }} / {{ MAX_GROUP_LEVELS }} 级
         </span>
@@ -276,7 +279,7 @@ function getIndentStyle(level: number) {
             v-for="(fieldId, index) in localGroupBy"
             :key="fieldId"
             class="field-tag-wrapper">
-            <span class="drag-handle" title="拖拽排序">
+            <span class="drag-handle" :title="t('group.drag')">
               <el-icon><Rank /></el-icon>
             </span>
             <el-tag
@@ -294,7 +297,7 @@ function getIndentStyle(level: number) {
             </span>
           </div>
         </template>
-        <span v-else class="no-fields">未设置分组</span>
+        <span v-else class="no-fields">{{ t('group.noGroup') }}</span>
       </div>
     </div>
 
@@ -335,7 +338,7 @@ function getIndentStyle(level: number) {
 
     <div v-if="groupNodes.length > 0" class="group-tree">
       <div class="tree-header">
-        <span class="header-text">分组预览</span>
+        <span class="header-text">{{ t('group.preview') }}</span>
         <span class="header-count">
           共 {{ totalRecords }} 条，显示 {{ visibleRecords }} 条
         </span>
@@ -364,7 +367,7 @@ function getIndentStyle(level: number) {
 
     <div v-else-if="localGroupBy.length === 0" class="empty-state">
       <el-icon class="empty-icon"><FolderOpened /></el-icon>
-      <span>选择字段进行分组</span>
+      <span>{{ t('group.emptyNoField') }}</span>
     </div>
   </div>
 </template>

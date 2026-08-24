@@ -11,7 +11,7 @@ const routes: RouteRecordRaw[] = [
     name: "Login",
     component: () => import("@/views/auth/Login.vue"),
     meta: {
-      title: "登录",
+      title: "route.login",
       public: true,
       layout: "blank",
     },
@@ -21,7 +21,7 @@ const routes: RouteRecordRaw[] = [
     name: "Register",
     component: () => import("@/views/auth/Register.vue"),
     meta: {
-      title: "注册",
+      title: "route.register",
       public: true,
       layout: "blank",
     },
@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
     name: "VerifyEmail",
     component: () => import("@/views/auth/VerifyEmail.vue"),
     meta: {
-      title: "验证邮箱",
+      title: "route.verifyEmail",
       public: true,
       layout: "blank",
     },
@@ -41,7 +41,7 @@ const routes: RouteRecordRaw[] = [
     name: "ForgotPassword",
     component: () => import("@/views/auth/ForgotPassword.vue"),
     meta: {
-      title: "找回密码",
+      title: "route.forgotPassword",
       public: true,
       layout: "blank",
     },
@@ -51,7 +51,7 @@ const routes: RouteRecordRaw[] = [
     name: "GiteeCallback",
     component: () => import("@/views/auth/GiteeCallback.vue"),
     meta: {
-      title: "Gitee 授权回调",
+      title: "route.giteeCallback",
       public: true,
       layout: "blank",
     },
@@ -61,7 +61,7 @@ const routes: RouteRecordRaw[] = [
     name: "ResetPassword",
     component: () => import("@/views/auth/ResetPassword.vue"),
     meta: {
-      title: "重置密码",
+      title: "route.resetPassword",
       public: true,
       layout: "blank",
     },
@@ -71,7 +71,7 @@ const routes: RouteRecordRaw[] = [
     name: "Home",
     component: () => import("@/views/Home.vue"),
     meta: {
-      title: "首页",
+      title: "route.home",
     },
   },
   {
@@ -79,7 +79,7 @@ const routes: RouteRecordRaw[] = [
     name: "Base",
     component: () => import("@/views/Base.vue"),
     meta: {
-      title: "多维表格",
+      title: "route.base",
     },
   },
   {
@@ -87,7 +87,7 @@ const routes: RouteRecordRaw[] = [
     name: "BaseTable",
     component: () => import("@/views/Base.vue"),
     meta: {
-      title: "数据表",
+      title: "route.baseTable",
     },
   },
   {
@@ -95,7 +95,7 @@ const routes: RouteRecordRaw[] = [
     name: "Dashboard",
     component: () => import("@/views/Dashboard.vue"),
     meta: {
-      title: "仪表盘",
+      title: "route.dashboard",
     },
   },
   {
@@ -103,7 +103,7 @@ const routes: RouteRecordRaw[] = [
     name: "BaseMembers",
     component: () => import("@/views/base/MemberManagement.vue"),
     meta: {
-      title: "成员管理",
+      title: "route.baseMembers",
     },
   },
   {
@@ -111,7 +111,7 @@ const routes: RouteRecordRaw[] = [
     name: "BaseDocument",
     component: () => import("@/views/Base.vue"),
     meta: {
-      title: "文档",
+      title: "route.baseDocument",
     },
   },
   {
@@ -119,7 +119,7 @@ const routes: RouteRecordRaw[] = [
     name: "BaseWorkflows",
     component: () => import("@/views/base/WorkflowManager.vue"),
     meta: {
-      title: "工作流",
+      title: "route.baseWorkflows",
       requiresAuth: true,
     },
   },
@@ -128,7 +128,7 @@ const routes: RouteRecordRaw[] = [
     name: "DashboardShare",
     component: () => import("@/views/DashboardShare.vue"),
     meta: {
-      title: "仪表盘分享",
+      title: "route.dashboardShare",
       public: true,
       layout: "blank",
     },
@@ -138,7 +138,7 @@ const routes: RouteRecordRaw[] = [
     name: "FormShare",
     component: () => import("@/views/FormShare.vue"),
     meta: {
-      title: "表单填写",
+      title: "route.formShare",
       public: true,
       layout: "blank",
     },
@@ -148,7 +148,7 @@ const routes: RouteRecordRaw[] = [
     name: "BaseShare",
     component: () => import("@/views/BaseShare.vue"),
     meta: {
-      title: "访问分享的多维表格",
+      title: "route.baseShare",
       public: true,
       layout: "blank",
     },
@@ -158,7 +158,7 @@ const routes: RouteRecordRaw[] = [
     name: "Settings",
     component: () => import("@/views/Settings.vue"),
     meta: {
-      title: "设置",
+      title: "route.settings",
     },
   },
   {
@@ -166,7 +166,7 @@ const routes: RouteRecordRaw[] = [
     name: "Notifications",
     component: () => import("@/views/Notifications.vue"),
     meta: {
-      title: "站内信通知",
+      title: "route.notifications",
       requiresAuth: true,
     },
   },
@@ -175,7 +175,7 @@ const routes: RouteRecordRaw[] = [
     name: "AdminUsers",
     component: () => import("@/views/admin/UserManagement.vue"),
     meta: {
-      title: "用户管理",
+      title: "route.adminUsers",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -185,7 +185,7 @@ const routes: RouteRecordRaw[] = [
     name: "AdminSettings",
     component: () => import("@/views/admin/SystemSettings.vue"),
     meta: {
-      title: "系统配置",
+      title: "route.adminSettings",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -195,7 +195,17 @@ const routes: RouteRecordRaw[] = [
     name: "AdminLogs",
     component: () => import("@/views/admin/OperationLogs.vue"),
     meta: {
-      title: "操作日志",
+      title: "route.adminLogs",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/oauth-apps",
+    name: "AdminOAuthApps",
+    component: () => import("@/views/admin/OAuthAppManagement.vue"),
+    meta: {
+      title: "route.adminOAuthApps",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -205,7 +215,7 @@ const routes: RouteRecordRaw[] = [
     name: "EmailTemplates",
     component: () => import("@/views/admin/EmailTemplates.vue"),
     meta: {
-      title: "邮件模板",
+      title: "route.emailTemplates",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -215,7 +225,7 @@ const routes: RouteRecordRaw[] = [
     name: "EmailLogs",
     component: () => import("@/views/admin/EmailLogs.vue"),
     meta: {
-      title: "邮件日志",
+      title: "route.emailLogs",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -225,7 +235,7 @@ const routes: RouteRecordRaw[] = [
     name: "EmailStats",
     component: () => import("@/views/admin/EmailStats.vue"),
     meta: {
-      title: "邮件统计",
+      title: "route.emailStats",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -235,7 +245,7 @@ const routes: RouteRecordRaw[] = [
     name: "NotificationLogs",
     component: () => import("@/views/admin/NotificationLogs.vue"),
     meta: {
-      title: "站内信日志",
+      title: "route.notificationLogs",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -245,7 +255,7 @@ const routes: RouteRecordRaw[] = [
     name: "NotificationStats",
     component: () => import("@/views/admin/NotificationStats.vue"),
     meta: {
-      title: "站内信统计",
+      title: "route.notificationStats",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,
@@ -255,7 +265,7 @@ const routes: RouteRecordRaw[] = [
     name: "Forbidden",
     component: () => import("@/views/Forbidden.vue"),
     meta: {
-      title: "禁止访问",
+      title: "route.forbidden",
     },
   },
   {
@@ -263,7 +273,7 @@ const routes: RouteRecordRaw[] = [
     name: "NotFound",
     component: () => import("@/views/NotFound.vue"),
     meta: {
-      title: "页面未找到",
+      title: "route.notFound",
     },
   },
 ];

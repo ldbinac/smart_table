@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import dayjs from "dayjs";
@@ -37,6 +38,8 @@ const emit = defineEmits<{
   (e: "deleteRecord", recordId: string): void;
   (e: "editRecord", recordId: string): void;
 }>();
+
+const { t } = useI18n();
 
 const startDateFieldId = ref<string>("");
 const endDateFieldId = ref<string>("");
@@ -160,7 +163,7 @@ const tasks = computed<GanttTask[]>(() => {
 
       return {
         id: record.id,
-        title: String(titleValue || "无标题"),
+        title: String(titleValue || t("view.noTitle")),
         start,
         end,
         progress: Math.min(100, Math.max(0, Number(progressValue) || 0)),
@@ -296,8 +299,15 @@ function isFirstDayOfMonth(date: Date): boolean {
 }
 
 function getMonthLabel(date: Date): string {
-  return dayjs(date).format("YYYY年M月");
+  return t("view.monthLabel", {
+    year: dayjs(date).year(),
+    month: dayjs(date).month() + 1,
+  });
 }
+
+const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"].map((d) =>
+  t(`view.weekday${d}`),
+);
 
 function handleTaskClick(task: GanttTask) {
   emit("editRecord", task.id);
@@ -573,7 +583,7 @@ watch(
       <div class="toolbar-left">
         <el-select
           v-model="startDateFieldId"
-          placeholder="开始日期字段"
+          :placeholder="t('view.startDateField')"
           class="field-select">
           <template #prefix>
             <el-icon><Calendar /></el-icon>
@@ -586,7 +596,7 @@ watch(
         </el-select>
         <el-select
           v-model="endDateFieldId"
-          placeholder="结束日期字段"
+          :placeholder="t('view.endDateField')"
           class="field-select">
           <template #prefix>
             <el-icon><Calendar /></el-icon>
@@ -599,7 +609,7 @@ watch(
         </el-select>
         <el-select
           v-model="titleFieldId"
-          placeholder="标题字段"
+          :placeholder="t('view.titleField')"
           class="field-select">
           <template #prefix>
             <el-icon><EditPen /></el-icon>
@@ -612,7 +622,7 @@ watch(
         </el-select>
         <el-select
           v-model="progressFieldId"
-          placeholder="进度字段"
+          :placeholder="t('view.progressField')"
           class="field-select"
           clearable>
           <template #prefix>
@@ -631,7 +641,7 @@ watch(
           <button class="nav-btn" @click="zoomOut">
             <el-icon><ZoomOut /></el-icon>
           </button>
-          <button class="nav-btn today-btn" @click="goToToday">今天</button>
+          <button class="nav-btn today-btn" @click="goToToday">{{ t("view.today") }}</button>
           <button class="nav-btn" @click="zoomIn">
             <el-icon><ZoomIn /></el-icon>
           </button>
@@ -644,19 +654,19 @@ watch(
             class="view-btn"
             :class="{ active: viewMode === 'day' }"
             @click="viewMode = 'day'">
-            日
+            {{ t("view.day") }}
           </button>
           <button
             class="view-btn"
             :class="{ active: viewMode === 'week' }"
             @click="viewMode = 'week'">
-            周
+            {{ t("view.week") }}
           </button>
           <button
             class="view-btn"
             :class="{ active: viewMode === 'month' }"
             @click="viewMode = 'month'">
-            月
+            {{ t("view.month") }}
           </button>
         </div>
       </div>
@@ -666,7 +676,7 @@ watch(
       <!-- 表头 -->
       <div class="gantt-header">
         <div class="header-left">
-          <div class="task-header">任务名称</div>
+          <div class="task-header">{{ t("view.taskName") }}</div>
         </div>
         <div class="header-right-wrapper" ref="headerRightWrapperRef">
           <div class="header-right" :style="{ width: `${timelineWidth}px` }">
@@ -694,7 +704,7 @@ watch(
                 :style="{ width: `${cellWidth}px` }">
                 <span class="day-number">{{ day.getDate() }}</span>
                 <span class="day-week">{{
-                  ["日", "一", "二", "三", "四", "五", "六"][day.getDay()]
+                  weekdayLabels[day.getDay()]
                 }}</span>
               </div>
             </div>
@@ -719,7 +729,7 @@ watch(
             </div>
           </div>
           <div v-if="tasks.length === 0" class="empty-tasks">
-            <el-empty description="暂无任务数据" :image-size="80" />
+            <el-empty :description="t('view.noTaskData')" :image-size="80" />
           </div>
         </div>
 
@@ -825,19 +835,19 @@ watch(
                 <div class="tooltip-header">{{ task.title }}</div>
                 <div class="tooltip-body">
                   <div class="tooltip-row">
-                    <span class="tooltip-label">开始:</span>
+                    <span class="tooltip-label">{{ t("view.ganttStart") }}</span>
                     <span class="tooltip-value">{{
                       formatGanttDate(task.start)
                     }}</span>
                   </div>
                   <div class="tooltip-row">
-                    <span class="tooltip-label">结束:</span>
+                    <span class="tooltip-label">{{ t("view.ganttEnd") }}</span>
                     <span class="tooltip-value">{{
                       formatGanttDate(task.end)
                     }}</span>
                   </div>
                   <div class="tooltip-row">
-                    <span class="tooltip-label">进度:</span>
+                    <span class="tooltip-label">{{ t("view.ganttProgress") }}</span>
                     <span class="tooltip-value">{{ task.progress }}%</span>
                   </div>
                   <div class="tooltip-progress-bar">
@@ -852,7 +862,7 @@ watch(
               <div
                 v-if="task.dependencies.length > 0"
                 class="dependency-indicator"
-                :title="`依赖: ${task.dependencies.length} 个任务`">
+                :title="t('view.dependencyTasks', { count: task.dependencies.length })">
                 <el-icon><Link /></el-icon>
               </div>
             </div>

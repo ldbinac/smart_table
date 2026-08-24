@@ -12,6 +12,7 @@ from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.email_template import EmailTemplate
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class EmailTemplateService:
 此邮件由系统自动发送，请勿回复。
 &copy; {{year}} SmartTable. All rights reserved.
             ''',
-            'description': '用户注册成功后发送的欢迎邮件'
+            'description': 'welcome_email_sent_after_successful_registration'
         },
         'password_reset': {
             'name': '密码重置邮件',
@@ -283,7 +284,7 @@ class EmailTemplateService:
                 else:
                     return {
                         'success': False,
-                        'error': f'模板不存在：{template_key}'
+                        'error': translate('template_not_found', template_key)
                     }
 
             return {
@@ -295,7 +296,7 @@ class EmailTemplateService:
             logger.error(f'获取模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取模板失败，请稍后重试'
+                'error': 'failed_fetch_template_try_again_later'
             }
 
     @staticmethod
@@ -336,7 +337,7 @@ class EmailTemplateService:
 
         except Exception as e:
             logger.error(f'渲染模板失败：{str(e)}')
-            raise ValueError('渲染模板失败，请检查模板格式')
+            raise ValueError('failed_render_template_check_template_format')
 
     @staticmethod
     def get_all_templates() -> Dict[str, Any]:
@@ -379,7 +380,7 @@ class EmailTemplateService:
             logger.error(f'获取所有模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取模板列表失败，请稍后重试'
+                'error': 'failed_fetch_template_list_try_again_later'
             }
 
     @staticmethod
@@ -458,7 +459,7 @@ class EmailTemplateService:
             logger.error(f'更新模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': '更新模板失败，请稍后重试'
+                'error': 'failed_update_template_try_again_later'
             }
 
     @staticmethod
@@ -478,7 +479,7 @@ class EmailTemplateService:
         if template_key not in EmailTemplateService.DEFAULT_TEMPLATES:
             return {
                 'success': False,
-                'error': f'不存在默认模板：{template_key}'
+                'error': translate('default_template_not_found', template_key)
             }
 
         try:
@@ -522,7 +523,7 @@ class EmailTemplateService:
             logger.error(f'重置模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': '重置模板失败，请稍后重试'
+                'error': 'failed_reset_template_try_again_later'
             }
 
     @staticmethod
@@ -542,14 +543,14 @@ class EmailTemplateService:
             if not template:
                 return {
                     'success': False,
-                    'error': f'模板不存在：{template_key}'
+                    'error': translate('template_not_found', template_key)
                 }
 
             # 不允许删除系统默认模板
             if template.is_default and template_key in EmailTemplateService.DEFAULT_TEMPLATES:
                 return {
                     'success': False,
-                    'error': '不能删除系统默认模板，请使用重置功能'
+                    'error': 'system_default_templates_deleted_use_reset_feature'
                 }
 
             db.session.delete(template)
@@ -559,7 +560,7 @@ class EmailTemplateService:
 
             return {
                 'success': True,
-                'message': '模板删除成功'
+                'message': 'template_deleted_successfully'
             }
 
         except Exception as e:
@@ -567,7 +568,7 @@ class EmailTemplateService:
             logger.error(f'删除模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': '删除模板失败，请稍后重试'
+                'error': 'failed_delete_template_try_again_later'
             }
 
     @staticmethod
@@ -600,5 +601,5 @@ class EmailTemplateService:
             logger.error(f'搜索模板失败：{str(e)}')
             return {
                 'success': False,
-                'error': '搜索模板失败，请稍后重试'
+                'error': 'failed_search_templates_try_again_later'
             }

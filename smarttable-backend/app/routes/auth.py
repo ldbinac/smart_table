@@ -15,6 +15,7 @@ from flask_jwt_extended import (
 from marshmallow import ValidationError
 
 from app.extensions import db
+from app.i18n import translate
 from app.models.user import User, TokenBlocklist
 from app.services.auth_service import AuthService
 from app.services.email_config_service import EmailConfigService
@@ -95,13 +96,13 @@ def register() -> tuple:
     # 检查是否允许注册
     if not SecurityConfigService.is_registration_enabled():
         logger.warning(f"注册尝试被拒绝 - IP: {request.remote_addr}, 原因: 系统已关闭注册功能")
-        return error_response('当前系统暂不开放注册功能', code=403, error='registration_disabled')
+        return error_response('registration_currently_disabled_system', code=403, error='registration_disabled')
     
     # 获取请求数据
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     # 验证输入数据
     try:
@@ -130,17 +131,17 @@ def register() -> tuple:
             logger.warning(
                 f"注册验证码验证失败 - IP: {client_ip}, Email: {email}, Reason: {error_msg}"
             )
-            return error_response(f'验证码错误: {error_msg}', code=403, error='captcha_invalid')
+            return error_response(f"{translate('incorrect_captcha')}: {translate(error_msg)}", code=403, error='captcha_invalid')
     else:
         # 未提供验证码
         logger.warning(f"注册尝试未提供验证码 - IP: {client_ip}, Email: {email}")
-        return error_response('请输入验证码', code=403, error='captcha_required')
+        return error_response('enter_captcha', code=403, error='captcha_required')
     
     # 调用服务层进行注册
     user, error = AuthService.register_user(email, password, name)
     
     if error:
-        if '已被注册' in error:
+        if error == 'email_already_registered':
             return error_response(error, code=409, error='email_already_exists')
         return error_response(error, code=500)
     
@@ -156,7 +157,7 @@ def register() -> tuple:
             'user': user.to_dict(include_email=True),
             'tokens': tokens
         },
-        message='注册成功',
+        message='register_success',
         code=201
     )
 
@@ -206,7 +207,7 @@ def login() -> tuple:
     
     if not data:
         record_login_attempt(success=False)
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     # 验证输入数据
     try:
@@ -231,12 +232,12 @@ def login() -> tuple:
                 f"登录验证码验证失败 - IP: {client_ip}, Email: {email}, Reason: {error_msg}"
             )
             record_login_attempt(success=False)
-            return error_response(f'验证码错误: {error_msg}', code=403, error='captcha_invalid')
+            return error_response(f"{translate('incorrect_captcha')}: {translate(error_msg)}", code=403, error='captcha_invalid')
     else:
         # 未提供验证码
         logger.warning(f"登录尝试未提供验证码 - IP: {client_ip}, Email: {email}")
         record_login_attempt(success=False)
-        return error_response('请输入验证码', code=403, error='captcha_required')
+        return error_response('enter_captcha', code=403, error='captcha_required')
     
     # 调用服务层进行认证
     user, error = AuthService.authenticate_user(email, password)
@@ -253,7 +254,7 @@ def login() -> tuple:
                 'requires_gitee_star_check': True,
                 'user_id': str(user.id)
             },
-            message='需要检测 Gitee watch 状态'
+            message='gitee_watch_status_needs_checked'
         )
 
     # 更新最后登录时间
@@ -274,7 +275,7 @@ def login() -> tuple:
             'user': user.to_dict(include_email=True),
             'tokens': tokens
         },
-        message='登录成功'
+        message='login_success'
     )
 
 
@@ -315,7 +316,7 @@ def refresh() -> tuple:
             'token_type': 'Bearer',
             'expires_in': AuthService.get_access_token_expires()
         },
-        message='令牌刷新成功'
+        message='token_refreshed_successfully'
     )
 
 
@@ -346,9 +347,9 @@ def logout() -> tuple:
     success, error = AuthService.logout_user(jti, user_id, token_type)
     
     if not success:
-        return error_response(error or '登出失败', code=500)
+        return error_response(error or 'logout_failed_try_again_later', code=500)
     
-    return success_response(message='登出成功')
+    return success_response(message='logged_out_successfully')
 
 
 @auth_bp.route('/logout-all', methods=['POST'])
@@ -379,7 +380,7 @@ def logout_all() -> tuple:
     # 撤销用户的所有令牌
     AuthService.revoke_all_user_tokens(user_id)
     
-    return success_response(message='已从所有设备登出')
+    return success_response(message='logged_out_all_devices')
 
 
 @auth_bp.route('/me', methods=['GET'])
@@ -406,11 +407,11 @@ def get_current_user() -> tuple:
     user = AuthService.get_current_user(user_id)
     
     if not user:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     return success_response(
         data=user.to_dict(include_email=True),
-        message='获取成功'
+        message='fetched_successfully'
     )
 
 
@@ -454,13 +455,13 @@ def update_current_user() -> tuple:
     user = AuthService.get_current_user(user_id)
     
     if not user:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     # 获取请求数据
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     # 验证输入数据
     try:
@@ -479,7 +480,7 @@ def update_current_user() -> tuple:
         
         return success_response(
             data=user.to_dict(include_email=True),
-            message='更新成功'
+            message='updated_successfully'
         )
         
     except Exception as e:
@@ -487,7 +488,7 @@ def update_current_user() -> tuple:
         request_id = getattr(g, 'request_id', None)
         logger.error(f'[{request_id}] 更新失败: {str(e)}')
         logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('更新失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('update_failed_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @auth_bp.route('/password', methods=['PUT'])
@@ -534,7 +535,7 @@ def change_password() -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     # 验证输入数据
     try:
@@ -558,14 +559,14 @@ def change_password() -> tuple:
     success, error = AuthService.change_password(user_id, old_password, new_password, ip_address, user_agent)
     
     if not success:
-        if '旧密码错误' in error:
+        if 'old_password_incorrect' in error:
             return error_response(error, code=400, error='invalid_old_password')
-        if '用户不存在' in error:
-            return not_found_response('用户')
+        if 'user_does_not_exist' in error:
+            return not_found_response('user')
         return error_response(error, code=500)
     
     return success_response(
-        message='密码修改成功，请使用新密码重新登录'
+        message='password_changed_successfully_log_again_new_password'
     )
 
 
@@ -598,19 +599,19 @@ def gitee_star_authorize() -> tuple:
         description: 用户不存在
     """
     if not current_app.config.get('IS_DEMO_ENVIRONMENT', False):
-        return error_response('演示环境未启用', code=403, error='demo_disabled')
+        return error_response('demo_environment_not_enabled', code=403, error='demo_disabled')
 
     data = request.get_json() or {}
     user_id = data.get('user_id')
 
     if not user_id:
         logger.warning(f"Gitee 授权请求缺少用户标识 - IP: {request.remote_addr}")
-        return error_response('缺少用户标识', code=400, error='missing_user_id')
+        return error_response('missing_user_identifier', code=400, error='missing_user_id')
 
     user = AuthService.get_current_user(user_id)
     if not user:
         logger.warning(f"Gitee 授权请求用户不存在 - IP: {request.remote_addr}, UserID: {user_id}")
-        return not_found_response('用户')
+        return not_found_response('user')
 
     try:
         authorize_url = GiteeService.generate_authorize_url(str(user.id), user.email)
@@ -620,7 +621,7 @@ def gitee_star_authorize() -> tuple:
 
     return success_response(
         data={'authorize_url': authorize_url},
-        message='授权地址生成成功'
+        message='authorization_url_generated_successfully'
     )
 
 
@@ -659,7 +660,7 @@ def gitee_star_callback() -> tuple:
         description: star 检测失败（严格模式）
     """
     if not current_app.config.get('IS_DEMO_ENVIRONMENT', False):
-        return error_response('演示环境未启用', code=403, error='demo_disabled')
+        return error_response('demo_environment_not_enabled', code=403, error='demo_disabled')
 
     data = request.get_json() or {}
     code = data.get('code')
@@ -667,32 +668,32 @@ def gitee_star_callback() -> tuple:
 
     if not code or not state:
         logger.warning(f"Gitee 回调缺少必要参数 - IP: {request.remote_addr}")
-        return error_response('缺少必要参数', code=400, error='missing_params')
+        return error_response('missing_required_parameters', code=400, error='missing_params')
 
     state_data = GiteeService.get_state_data(state)
     if not state_data:
         logger.warning(f"Gitee 回调 state 无效或已过期 - IP: {request.remote_addr}, State: {state}")
-        return error_response('授权状态已过期或无效', code=400, error='invalid_oauth_state')
+        return error_response('authorization_state_expired_invalid', code=400, error='invalid_oauth_state')
 
     GiteeService.clear_state(state)
 
     access_token, error = GiteeService.exchange_access_token(code)
     if error:
         logger.warning(f"Gitee 授权码换取 access_token 失败 - IP: {request.remote_addr}, Error: {error}")
-        return error_response('Gitee 授权失败，请重试', code=400, error=error)
+        return error_response('gitee_authorization_failed_try_again', code=400, error=error)
 
     is_watched, error = GiteeService.check_watched(access_token)
     if error:
         if error == 'gitee_repo_not_watched':
             logger.warning(f"Gitee watch 校验未通过，用户未 watch - IP: {request.remote_addr}")
-            return error_response('请先 watch 本项目后再访问', code=403, error=error)
+            return error_response('watch_project_before_accessing', code=403, error=error)
         logger.error(f"Gitee watch 检测失败 - IP: {request.remote_addr}, Error: {error}")
-        return error_response('watch 检测失败，请稍后重试', code=500, error=error)
+        return error_response('watch_detection_failed_try_again_later', code=500, error=error)
 
     user = AuthService.get_current_user(state_data.get('user_id'))
     if not user:
         logger.warning(f"Gitee watch 回调用户不存在 - IP: {request.remote_addr}, UserID: {state_data.get('user_id')}")
-        return not_found_response('用户')
+        return not_found_response('user')
 
     AuthService.update_last_login(str(user.id))
     tokens = AuthService.generate_tokens(str(user.id))
@@ -704,7 +705,7 @@ def gitee_star_callback() -> tuple:
             'user': user.to_dict(include_email=True),
             'tokens': tokens
         },
-        message='登录成功'
+        message='login_success'
     )
 
 
@@ -739,7 +740,7 @@ def check_email() -> tuple:
     email = request.args.get('email', '').strip().lower()
     
     if not email:
-        return error_response('请提供邮箱地址', code=400)
+        return error_response('provide_email_address', code=400)
     
     exists = AuthService.check_email_exists(email)
     
@@ -748,7 +749,7 @@ def check_email() -> tuple:
             'available': not exists,
             'email': email
         },
-        message='邮箱可用' if not exists else '邮箱已被注册'
+        message='email_available' if not exists else 'email_already_registered_2'
     )
 
 
@@ -773,17 +774,17 @@ def verify_token() -> tuple:
     user = AuthService.get_current_user(user_id)
     
     if not user:
-        return not_found_response('用户')
+        return not_found_response('user')
     
     if not user.is_active():
-        return unauthorized_response('用户账号已被禁用')
+        return unauthorized_response('user_account_disabled')
     
     return success_response(
         data={
             'valid': True,
             'user': user.to_dict(include_email=True)
         },
-        message='令牌有效'
+        message='token_valid'
     )
 
 
@@ -811,22 +812,22 @@ def verify_email() -> tuple:
     token = request.args.get('token')
     
     if not token:
-        return error_response('请提供验证令牌', code=400)
+        return error_response('provide_verification_token', code=400)
     
     # 查找具有该验证令牌的用户
     user = User.query.filter_by(verification_token=token).first()
     
     if not user:
-        return error_response('验证令牌无效', code=400, error='invalid_token')
+        return error_response('verification_token_invalid', code=400, error='invalid_token')
     
     # 验证令牌
     if user.verify_email(token):
         return success_response(
             data={'email_verified': True},
-            message='邮箱验证成功'
+            message='email_verification_succeeded'
         )
     else:
-        return error_response('验证令牌已过期', code=400, error='token_expired')
+        return error_response('verification_token_expired', code=400, error='token_expired')
 
 
 @auth_bp.route('/resend-verification', methods=['POST'])
@@ -853,33 +854,30 @@ def resend_verification() -> tuple:
     user = User.query.get(user_id)
 
     if not user:
-        return not_found_response('用户')
+        return not_found_response('user')
 
     if user.email_verified:
-        return error_response('邮箱已验证', code=400, error='already_verified')
+        return error_response('email_verified', code=400, error='already_verified')
 
     # 生成新的验证令牌
-    verification_token = user.generate_verification_token()
+    user.generate_verification_token()
 
     try:
-        verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
+        message_data = AuthService._build_registration_message(user)
         NotificationService.send_notification(
             recipient_email=user.email,
             recipient_user_id=user.id,
             template_key='user_registration',
-            template_data={
-                'user_name': user.name,
-                'verification_link': verification_link
-            },
-            source='auth'
+            source='auth',
+            **message_data
         )
 
         return success_response(
-            message='验证邮件已发送，请查收'
+            message='verification_email_sent_check_inbox'
         )
     except Exception as e:
         logger.error(f'发送验证邮件失败: {str(e)}')
-        return error_response('发送验证邮件失败，请稍后重试', code=500)
+        return error_response('failed_send_verification_email_try_again_later', code=500)
 
 
 @auth_bp.route('/forgot-password', methods=['POST'])
@@ -917,13 +915,13 @@ def forgot_password() -> tuple:
     data = request.get_json()
 
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
 
     email = data.get('email', '').strip().lower()
     captcha = data.get('captcha', '').strip()
 
     if not email:
-        return error_response('请提供邮箱地址', code=400)
+        return error_response('provide_email_address', code=400)
 
     # 验证验证码
     client_ip = request.remote_addr or 'unknown'
@@ -939,7 +937,7 @@ def forgot_password() -> tuple:
     # 即使用户不存在，也返回相同的消息（安全考虑）
     if not user:
         return success_response(
-            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
+            message='if_email_registered_password_reset_email_will_sent'
         )
 
     # 生成重置令牌
@@ -959,12 +957,12 @@ def forgot_password() -> tuple:
         )
 
         return success_response(
-            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
+            message='if_email_registered_password_reset_email_will_sent'
         )
     except Exception as e:
         logger.error(f'发送密码重置邮件失败: {str(e)}')
         return success_response(
-            message='如果该邮箱已注册，重置邮件将发送至您的邮箱'
+            message='if_email_registered_password_reset_email_will_sent'
         )
 
 
@@ -1002,7 +1000,7 @@ def reset_password() -> tuple:
     data = request.get_json()
     
     if not data:
-        return error_response('请求体不能为空', code=400)
+        return error_response('request_body_empty_2', code=400)
     
     # 使用 Schema 验证请求参数（包含密码强度验证）
     try:
@@ -1022,7 +1020,7 @@ def reset_password() -> tuple:
     user = User.query.filter_by(reset_token=token).first()
     
     if not user or not user.verify_reset_token(token):
-        return error_response('重置令牌无效或已过期', code=400, error='invalid_token')
+        return error_response('reset_token_invalid_expired', code=400, error='invalid_token')
     
     # 重置密码
     try:
@@ -1045,9 +1043,9 @@ def reset_password() -> tuple:
             logger.error(f'发送密码重置通知邮件失败: {str(e)}')
 
         return success_response(
-            message='密码重置成功，请使用新密码登录'
+            message='password_reset_successfully_log_new_password'
         )
     except Exception as e:
         db.session.rollback()
         logger.error(f'密码重置失败: {str(e)}')
-        return error_response('密码重置失败，请稍后重试', code=500)
+        return error_response('failed_reset_password_try_again_later', code=500)

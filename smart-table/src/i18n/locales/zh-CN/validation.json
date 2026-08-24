@@ -1,0 +1,19 @@
+{
+  "requiredSingle": "请填写必填字段：{0}",
+  "requiredList": "请填写以下必填字段：{0}",
+  "emailFormat": "请输入正确的邮箱地址格式，如：example@domain.com",
+  "phoneFormat": "请输入正确的11位手机号码",
+  "urlFormat": "请输入完整的链接地址，需以 http://、https://、ftp:// 或 sftp:// 开头",
+  "invalidFormat": "{0} 格式不正确",
+  "typeFormat": "{0}格式不正确",
+  "preset": {
+    "telephoneLabel": "国内电话号码",
+    "telephoneMsg": "请输入正确的电话号码格式（如 0511-4405222）",
+    "postcodeLabel": "中国邮政编码",
+    "postcodeMsg": "请输入正确的6位邮政编码",
+    "idLabel": "中国身份证号码",
+    "idMsg": "请输入正确的身份证号码",
+    "ipv4Label": "IPv4 地址",
+    "ipv4Msg": "请输入正确的 IPv4 地址"
+  }
+}

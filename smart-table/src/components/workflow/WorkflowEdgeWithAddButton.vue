@@ -3,7 +3,8 @@ import { computed, ref } from "vue";
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from "@vue-flow/core";
 import { Plus, Delete } from "@element-plus/icons-vue";
 import type { EdgeProps } from "@vue-flow/core";
-import { ADDABLE_NODE_TYPES } from "@/utils/workflowNodeType";
+import { ADDABLE_NODE_TYPES, getNodeLabel } from "@/utils/workflowNodeType";
+import { useI18n } from "vue-i18n";
 
 interface EdgeData {
   readonly?: boolean;
@@ -23,6 +24,7 @@ const emit = defineEmits<{
     payload: { sourceId: string; targetId: string; branchId?: string },
   ): void;
 }>();
+const { t } = useI18n();
 
 const path = computed(() => getSmoothStepPath(props));
 const menuVisible = ref(false);
@@ -42,7 +44,7 @@ const isConditionSource = computed(
  */
 const HIDE_ADD_BUTTON_IN_EDIT_MODE = true;
 
-const branchName = computed(() => props.data?.branchName ?? "满足条件");
+const branchName = computed(() => props.data?.branchName ?? t('workflow.branchSatisfied'));
 
 const sourceLabelPosition = computed(() => {
   const [, labelX, labelY] = path.value;
@@ -96,7 +98,7 @@ function handleDelete() {
           @click="handleSelect(item.type)"
         >
           <el-icon><component :is="item.icon" /></el-icon>
-          <span>{{ item.label }}</span>
+          <span>{{ getNodeLabel(item.type) }}</span>
         </div>
       </div>
     </div>
@@ -110,7 +112,7 @@ function handleDelete() {
         pointerEvents: 'all',
       }"
     >
-      <button class="edge-delete-button" title="删除连线" @click="handleDelete">
+      <button class="edge-delete-button" :title="t('workflow.canvas.deleteConditionNode')" @click="handleDelete">
         <Delete />
       </button>
     </div>

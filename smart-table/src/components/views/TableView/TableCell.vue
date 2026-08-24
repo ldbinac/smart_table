@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import dayjs from "dayjs";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import type { CellValue, FieldOptions } from "@/types";
 import MultiSelectField from "@/components/fields/MultiSelectField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import DateInput from "@/components/fields/DateInput.vue";
 import MemberDisplay from "@/components/common/MemberDisplay.vue";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -15,6 +17,7 @@ import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { truncateRichText } from "@/utils/helpers";
 import { formatDateTime, formatDate } from "@/utils/timezone";
+import { formatNumberField } from "@/utils/numberFormat";
 
 interface Props {
   record: RecordEntity;
@@ -34,6 +37,8 @@ const emit = defineEmits<{
   (e: "edit", active: boolean): void;
   (e: "open-detail"): void;
 }>();
+
+const { t } = useI18n();
 
 const isEditing = ref(false);
 const editValue = ref<string | number | boolean | string[] | null>(null);
@@ -123,15 +128,7 @@ const isDateTimeField = computed(() => {
   return props.field?.type === FieldType.DATE_TIME;
 });
 
-// 日期显示格式
-const dateDisplayFormat = computed(() => {
-  return isDateTimeField.value ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD";
-});
-
-// 日期选择器类型
-const datePickerType = computed(() => {
-  return isDateTimeField.value ? "datetime" : "date";
-});
+// 日期显示格式与选择器类型由 DateInput 根据 field.options.dateFormat 统一处理
 
 // 公式字段计算结果 - 使用独立的 computed 来确保响应性
 const formulaValue = computed(() => {
@@ -166,11 +163,14 @@ const displayValue = computed(() => {
     }
     case "number":
       if (typeof value === "number") {
-        const precision = options?.precision ?? 0;
-        const formatted = value.toFixed(precision);
-        const prefix = options?.prefix || "";
-        const suffix = options?.suffix || "";
-        return `${prefix}${formatted}${suffix}`;
+        return formatNumberField(value, {
+          precision: options?.precision ?? 0,
+          format: options?.format ?? "number",
+          currencySymbol: options?.currencySymbol,
+          prefix: options?.prefix,
+          suffix: options?.suffix,
+          thousandsSeparator: options?.thousandsSeparator,
+        });
       }
       return value === null || value === undefined ? "" : String(value);
     case "single_select": {
@@ -206,16 +206,30 @@ const displayValue = computed(() => {
       if (!value) return "";
       // 根据字段类型显示日期或日期时间
       const isDateTime = type === "date_time";
+      if (isDateTime) return formatDateTime(value as string | number | Date | null | undefined);
 
-      // 处理字符串日期格式
+      // 普通日期：按字段配置的 dateFormat 显示
+      const fmt = (options?.dateFormat as string) || "YYYY-MM-DD";
+      if (fmt === "YYYY-MM-DD") return formatDate(value as string | number | Date | null | undefined);
       if (typeof value === "string") {
-        return isDateTime ? formatDateTime(value) : formatDate(value);
+        const s = value.trim();
+        if (fmt === "MMDD" && /^\d{4}$/.test(s)) return value;
+        if (fmt === "MM-DD" && /^\d{2}-\d{2}$/.test(s)) return value;
+        if (fmt === "YYYYMMDD" && /^\d{8}$/.test(s)) return value;
+        if (fmt === "YYYYMM" && /^\d{6}$/.test(s)) return value;
+        if (fmt === "YYYY-MM" && /^\d{4}-\d{2}$/.test(s)) return value;
       }
-      // 处理数字时间戳格式
-      if (typeof value === "number") {
-        return isDateTime ? formatDateTime(value) : formatDate(value);
-      }
-      return String(value);
+      const date = value instanceof Date ? value : new Date(typeof value === "number" ? value : Date.parse(value as string));
+      if (isNaN(date.getTime())) return String(value);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      if (fmt === "YYYY-MM") return `${y}-${m}`;
+      if (fmt === "YYYYMM") return `${y}${m}`;
+      if (fmt === "MMDD") return `${m}${d}`;
+      if (fmt === "MM-DD") return `${m}-${d}`;
+      if (fmt === "YYYYMMDD") return `${y}${m}${d}`;
+      return formatDate(value as string | number | Date | null | undefined);
     }
     case "rating": {
       const maxRating = options?.maxRating || 5;
@@ -232,7 +246,7 @@ const displayValue = computed(() => {
     }
     case "attachment": {
       if (!Array.isArray(value)) return "";
-      return `${value.length} 个文件`;
+      return t("view.fileCount", { count: value.length });
     }
     case "formula": {
       // 公式字段使用独立的 computed 属性
@@ -304,7 +318,7 @@ const calculateFormula = (): string => {
     const result = engine.calculate(props.record, formula);
 
     if (result === "#ERROR") {
-      return "计算错误";
+      return t("view.calcError");
     }
 
     // 数字格式化
@@ -330,7 +344,7 @@ const calculateFormula = (): string => {
     return String(result);
   } catch (error) {
     console.error("Formula calculation error:", error);
-    return "计算错误";
+    return t("view.calcError");
   }
 };
 
@@ -379,7 +393,7 @@ const handleLinkFieldChange = async (value: string[], records: LinkedRecord[]) =
     emit("update", value as CellValue);
   } catch (error) {
     console.error("[TableCell] 更新关联字段失败:", error);
-    ElMessage.error("关联字段更新失败，请稍后重试");
+    ElMessage.error(t("view.linkUpdateFailed"));
   }
   isEditing.value = false;
 };
@@ -400,10 +414,10 @@ const handleLinkRemove = async (recordId: string) => {
       (id) => id !== recordId,
     );
     emit("update", newValue as CellValue);
-    ElMessage.success("已解除关联");
+    ElMessage.success(t("view.linkUnlinked"));
   } catch (error) {
     console.error("[TableCell] 解除关联失败:", error);
-    ElMessage.error("解除关联失败，请稍后重试");
+    ElMessage.error(t("view.linkUnlinkFailed"));
   }
 };
 
@@ -477,7 +491,7 @@ const finishEdit = () => {
   } else {
     // 检查必填字段
     if (isFieldRequired(props.field) && isValueEmpty(editValue.value)) {
-      ElMessage.error(`请填写必填字段：${props.field.name}`);
+      ElMessage.error(t('view.requiredFieldMsg', { name: props.field.name }));
       cancelEdit();
       return;
     }
@@ -502,21 +516,12 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 };
 
-const handleDateChange = (val: Date | null) => {
-  dateEditValue.value = val;
-  if (val) {
-    // 根据字段类型决定存储格式
-    if (isDateTimeField.value) {
-      // 日期时间字段存储为 UTC ISO 字符串（如 2026-05-10T16:16:40.478Z）
-      editValue.value = dayjs(val).toISOString();
-    } else {
-      // 日期字段存储为日期字符串（如 2026-05-10）
-      editValue.value = dayjs(val).format("YYYY-MM-DD");
-    }
-  } else {
-    editValue.value = null;
+const handleCellDateInput = (val: CellValue) => {
+  isEditing.value = false;
+  emit("edit", false);
+  if (val !== cellValue.value) {
+    emit("update", val);
   }
-  finishEdit();
 };
 
 const handleDoubleClick = () => {
@@ -619,7 +624,7 @@ const multiSelectDisplayValues = computed(() => {
           class="cell-select"
           @change="finishEdit"
           @blur="finishEdit">
-          <el-option value="" label="无" />
+          <el-option value="" :label="t('common.none')" />
           <el-option
             v-for="opt in getSelectOptions"
             :key="opt.id"
@@ -648,14 +653,12 @@ const multiSelectDisplayValues = computed(() => {
       </template>
 
       <template v-else-if="fieldType === 'date' || fieldType === 'date_time'">
-        <el-date-picker
-          ref="inputRef"
-          v-model="dateEditValue"
-          :type="datePickerType"
-          :placeholder="isDateTimeField ? '选择日期时间' : '选择日期'"
-          :format="dateDisplayFormat"
+        <DateInput
+          :field="props.field"
+          :model-value="cellValue"
+          :placeholder="isDateTimeField ? t('view.selectDateTime') : t('view.selectDate')"
           class="cell-date-picker"
-          @change="handleDateChange" />
+          @update:model-value="handleCellDateInput" />
       </template>
 
       <template v-else-if="fieldType === 'rating'">
@@ -668,7 +671,7 @@ const multiSelectDisplayValues = computed(() => {
             @click="editValue = i"
             >★</span
           >
-          <button class="clear-btn" @click="editValue = 0">清除</button>
+          <button class="clear-btn" @click="editValue = 0">{{ t('field.clear') }}</button>
         </div>
       </template>
 
@@ -676,7 +679,7 @@ const multiSelectDisplayValues = computed(() => {
       <template v-else-if="fieldType === 'member'">
         <MemberSelect
           v-model="editValue as string[]"
-          :placeholder="'选择成员'"
+          :placeholder="t('view.selectMember')"
           :allow-multiple="false"
           class="cell-member-select"
           @update:model-value="finishEdit" />

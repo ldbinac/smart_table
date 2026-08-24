@@ -1,45 +1,45 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="分享多维表Base"
+    :title="t('view.share.shareBaseTitle')"
     width="700px"
     :close-on-click-modal="false"
     class="base-share-dialog">
-    
+
     <div v-loading="loading" class="share-content">
       <!-- 创建分享 -->
       <div class="create-share-section">
-        <h3 class="section-title">创建分享链接</h3>
+        <h3 class="section-title">{{ t('view.share.createShareLink') }}</h3>
         <el-form
           ref="shareFormRef"
           :model="shareForm"
           :rules="shareFormRules"
           label-width="100px">
-          <el-form-item label="权限" prop="permission">
+          <el-form-item :label="t('view.share.permission')" prop="permission">
             <el-radio-group v-model="shareForm.permission">
-              <el-radio value="view">仅查看</el-radio>
-              <el-radio value="edit">可编辑</el-radio>
+              <el-radio value="view">{{ t('view.share.permissionView') }}</el-radio>
+              <el-radio value="edit">{{ t('view.share.permissionEdit') }}</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="有效期" prop="expiresAt">
-            <el-select v-model="shareForm.expiresAtType" placeholder="请选择有效期">
-              <el-option label="永久有效" value="permanent" />
-              <el-option label="7 天" value="7days" />
-              <el-option label="30 天" value="30days" />
-              <el-option label="自定义" value="custom" />
+          <el-form-item :label="t('view.share.validity')" prop="expiresAt">
+            <el-select v-model="shareForm.expiresAtType" :placeholder="t('view.share.selectValidity')">
+              <el-option :label="t('view.share.permanent')" value="permanent" />
+              <el-option :label="t('view.share.days7')" value="7days" />
+              <el-option :label="t('view.share.days30')" value="30days" />
+              <el-option :label="t('view.share.custom')" value="custom" />
             </el-select>
           </el-form-item>
-          <el-form-item v-if="shareForm.expiresAtType === 'custom'" label="过期时间">
+          <el-form-item v-if="shareForm.expiresAtType === 'custom'" :label="t('view.share.expireTime')">
             <el-date-picker
               v-model="shareForm.customExpiresAt"
               type="datetime"
-              placeholder="选择过期时间"
+              :placeholder="t('view.share.selectExpireTime')"
               :disabled-date="disabledDate"
               value-format="X" />
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="creating" @click="handleCreateShare">
-              创建分享链接
+              {{ t('view.share.createShareLink') }}
             </el-button>
           </el-form-item>
         </el-form>
@@ -47,7 +47,7 @@
 
       <!-- 分享列表 -->
       <div class="share-list-section" v-if="shares.length > 0">
-        <h3 class="section-title">我的分享</h3>
+        <h3 class="section-title">{{ t('view.share.myShares') }}</h3>
         <div class="share-list">
           <div
             v-for="share in shares"
@@ -57,10 +57,10 @@
             <div class="share-info">
               <div class="share-permission">
                 <el-tag :type="share.permission === 'edit' ? 'warning' : 'info'" size="small">
-                  {{ share.permission === 'edit' ? '可编辑' : '仅查看' }}
+                  {{ share.permission === 'edit' ? t('view.share.shareEdit') : t('view.share.shareView') }}
                 </el-tag>
-                <span class="share-status" v-if="isExpired(share)">已过期</span>
-                <span class="share-status" v-else-if="!share.is_active">已禁用</span>
+                <span class="share-status" v-if="isExpired(share)">{{ t('view.share.shareExpired') }}</span>
+                <span class="share-status" v-else-if="!share.is_active">{{ t('view.share.shareDisabled') }}</span>
               </div>
               <div class="share-link">
                 <el-input
@@ -70,23 +70,23 @@
                   class="share-link-input" />
               </div>
               <div class="share-meta">
-                <span>访问 {{ share.access_count }} 次</span>
-                <span>创建于 {{ formatDate(share.created_at) }}</span>
-                <span v-if="share.expires_at">过期时间：{{ formatExpiresAt(share.expires_at) }}</span>
+                <span>{{ t('view.share.visitCount', { count: share.access_count }) }}</span>
+                <span>{{ t('view.share.createdAt', { date: formatDate(share.created_at) }) }}</span>
+                <span v-if="share.expires_at">{{ t('view.share.expiryAt', { date: formatExpiresAt(share.expires_at) }) }}</span>
               </div>
             </div>
             <div class="share-actions">
               <el-button size="small" @click="copyShareLink(share.share_token)">
-                复制链接
+                {{ t('view.share.copyLink') }}
               </el-button>
               <el-button
                 size="small"
                 :type="share.is_active ? 'warning' : 'success'"
                 @click="toggleShareStatus(share)">
-                {{ share.is_active ? '禁用' : '启用' }}
+                {{ share.is_active ? t('view.share.disable') : t('view.share.enable') }}
               </el-button>
               <el-button size="small" type="danger" @click="handleDeleteShare(share.id)">
-                删除
+                {{ t('view.delete') }}
               </el-button>
             </div>
           </div>
@@ -96,23 +96,26 @@
       <!-- 空状态 -->
       <div v-else-if="!loading" class="empty-state">
         <el-icon :size="64" color="#C0C4CC"><Share /></el-icon>
-        <h3>暂无分享</h3>
-        <p>您还没有创建任何分享链接</p>
+        <h3>{{ t('view.share.noShares') }}</h3>
+        <p>{{ t('view.share.noSharesDesc') }}</p>
       </div>
     </div>
 
     <template #footer>
-      <el-button @click="closeDialog">关闭</el-button>
+      <el-button @click="closeDialog">{{ t('view.close') }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Share } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { useShareStore, type BaseShare } from '@/stores/shareStore';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   baseId: string;
@@ -145,10 +148,10 @@ const shareForm = reactive({
 
 const shareFormRules: FormRules = {
   permission: [
-    { required: true, message: '请选择权限', trigger: 'change' }
+    { required: true, message: t('view.base.selectPermission'), trigger: 'change' }
   ],
   expiresAtType: [
-    { required: true, message: '请选择有效期', trigger: 'change' }
+    { required: true, message: t('view.base.selectExpiry'), trigger: 'change' }
   ]
 };
 
@@ -172,7 +175,7 @@ async function loadShares() {
     shares.value = data;
   } catch (error) {
     console.error('加载分享列表失败:', error);
-    ElMessage.error('加载分享列表失败');
+    ElMessage.error(t('view.share.shareListLoadFailed'));
   } finally {
     loading.value = false;
   }
@@ -199,9 +202,9 @@ function formatDate(dateString: string) {
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (days === 0) return '今天';
-  if (days === 1) return '昨天';
-  if (days < 7) return `${days}天前`;
+  if (days === 0) return t('view.today');
+  if (days === 1) return t('view.yesterday');
+  if (days < 7) return t('view.daysAgo', { count: days });
   return tzFormatDate(dateString, "YYYY-MM-DD");
 }
 
@@ -229,7 +232,7 @@ async function handleCreateShare() {
     }
     
     await shareStore.createShare(props.baseId, shareForm.permission, expiresAt);
-    ElMessage.success('分享链接创建成功');
+    ElMessage.success(t('view.share.shareCreated'));
     
     await loadShares();
     emit('share-changed');
@@ -241,7 +244,7 @@ async function handleCreateShare() {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('创建分享链接失败:', error);
-      ElMessage.error('创建分享链接失败');
+      ElMessage.error(t('view.share.createShareFailed'));
     }
   } finally {
     creating.value = false;
@@ -253,9 +256,9 @@ async function copyShareLink(token: string) {
   const url = shareUrl(token);
   try {
     await navigator.clipboard.writeText(url);
-    ElMessage.success('链接已复制到剪贴板');
+    ElMessage.success(t('view.share.linkCopied'));
   } catch (error) {
-    ElMessage.error('复制失败，请手动复制');
+    ElMessage.error(t('view.share.copyFailedManual'));
   }
 }
 
@@ -263,27 +266,30 @@ async function copyShareLink(token: string) {
 async function toggleShareStatus(share: BaseShare) {
   try {
     const newStatus = !share.is_active;
-    const action = newStatus ? '启用' : '禁用';
-    
+    const action = newStatus ? t('view.share.enable') : t('view.share.disable');
+
     await ElMessageBox.confirm(
-      `确定要${action}此分享链接吗？${newStatus ? '启用后将可以再次通过该链接访问' : '禁用后将无法通过该链接访问'}`,
-      `确认${action}`,
+      t('view.share.toggleShareConfirm', {
+        action,
+        hint: newStatus ? t('view.share.enableHint') : t('view.share.disableHint'),
+      }),
+      t('view.share.toggleShareTitle', { action }),
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+        confirmButtonText: t('view.confirm'),
+        cancelButtonText: t('view.cancel'),
         type: 'warning'
       }
     );
-    
+
     await shareStore.updateShare(share.id, { is_active: newStatus });
-    ElMessage.success(`${action}成功`);
+    ElMessage.success(t('view.share.toggleSuccess', { action }));
     await loadShares();
     emit('share-changed');
   } catch (error: any) {
     // ElMessageBox.confirm 取消时 reject 'cancel'，点 X 关闭时 reject 'close'
     if (error !== 'cancel' && error !== 'close') {
       console.error('切换分享状态失败:', error);
-      const msg = error?.message || error?.response?.data?.message || '操作失败';
+      const msg = error?.message || error?.response?.data?.message || t('view.base.toggleFailed');
       ElMessage.error(msg);
     }
   }
@@ -293,24 +299,24 @@ async function toggleShareStatus(share: BaseShare) {
 async function handleDeleteShare(shareId: string) {
   try {
     await ElMessageBox.confirm(
-      '确定要删除此分享链接吗？删除后将无法通过该链接访问。',
-      '确认删除',
+      t('view.share.deleteShareConfirm'),
+      t('view.share.deleteShareTitle'),
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+        confirmButtonText: t('view.confirm'),
+        cancelButtonText: t('view.cancel'),
         type: 'warning'
       }
     );
-    
+
     await shareStore.deleteShare(shareId);
-    ElMessage.success('分享链接已删除');
+    ElMessage.success(t('view.share.shareDeleted'));
     await loadShares();
     emit('share-changed');
   } catch (error: any) {
     // ElMessageBox.confirm 取消时 reject 'cancel'，点 X 关闭时 reject 'close'
     if (error !== 'cancel' && error !== 'close') {
       console.error('删除分享失败:', error);
-      const msg = error?.message || error?.response?.data?.message || '删除分享失败';
+      const msg = error?.message || error?.response?.data?.message || t('view.share.deleteShareFailed');
       ElMessage.error(msg);
     }
   }

@@ -26,6 +26,7 @@ export interface OfflineOperation {
 interface PendingLockRequest {
   resolve: (result: { success: boolean; reason?: string; locked_by?: { name: string; nickname: string } }) => void
   timeout: ReturnType<typeof setTimeout>
+  promise: Promise<{ success: boolean; reason?: string; locked_by?: { name: string; nickname: string } }>
 }
 
 interface PendingChange {
@@ -231,22 +232,28 @@ export const useCollaborationStore = defineStore('collaboration', () => {
       return Promise.resolve({ success: true })
     }
 
-    return new Promise((resolve) => {
-      // 如果已有等待中的请求，先清除
-      const existingPending = pendingLockRequests.value.get(key)
-      if (existingPending) {
-        clearTimeout(existingPending.timeout)
-        pendingLockRequests.value.delete(key)
-      }
+    // 同一 key 已有等待中的请求：直接复用其 Promise，避免重复 emit 把先前的请求从
+    // pending 中移除而导致其 Promise 永远不被 resolve（并发重复切换开关时会触发）。
+    const existingPending = pendingLockRequests.value.get(key)
+    if (existingPending) {
+      return existingPending.promise
+    }
 
+    // 将 resolve / timeout / promise 提到外部，避免依赖 Promise 构造函数同步执行期内的
+    // 变量状态。否则构造函数内 set 的 pending 对象里 promise 仍是 undefined，并发复用
+    // （同一 key 的第二次 acquireLock）会 return undefined，导致调用方 .then(...) 报错
+    // （Cannot read properties of undefined）。
+    let promise!: Promise<{ success: boolean; reason?: string; locked_by?: { name: string; nickname: string } }>
+    let resolveFn!: (result: { success: boolean; reason?: string; locked_by?: { name: string; nickname: string } }) => void
+    let timeout!: ReturnType<typeof setTimeout>
+
+    promise = new Promise<{ success: boolean; reason?: string; locked_by?: { name: string; nickname: string } }>((resolve) => {
+      resolveFn = resolve
       // 设置超时（8秒）
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
         pendingLockRequests.value.delete(key)
-        resolve({ success: false, reason: 'timeout' })
+        resolveFn({ success: false, reason: 'timeout' })
       }, 8000)
-
-      // 存储等待中的请求
-      pendingLockRequests.value.set(key, { resolve, timeout })
 
       // 发送锁请求（不带 ack 回调，通过 lock_result 事件接收结果）
       try {
@@ -254,9 +261,14 @@ export const useCollaborationStore = defineStore('collaboration', () => {
       } catch {
         clearTimeout(timeout)
         pendingLockRequests.value.delete(key)
-        resolve({ success: false, reason: 'error' })
+        resolveFn({ success: false, reason: 'error' })
       }
     })
+
+    // 必须等 Promise 构造完成（promise 已赋值）后再登记 pending，确保并发复用拿到的
+    // existingPending.promise 一定指向已创建的 Promise。
+    pendingLockRequests.value.set(key, { resolve: resolveFn, timeout, promise })
+    return promise
   }
 
   /** 释放编辑锁 */

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { ElMessage } from "element-plus";
 import {
   buildGitHubIssueUrl,
@@ -9,7 +10,10 @@ import {
   openInNewTab,
   copyToClipboard,
   WECHAT_QR_PATH,
+  APP_VERSION,
 } from "@/utils/feedback";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -47,9 +51,9 @@ async function handleGiteeClick() {
   const body = buildIssueBody();
   const ok = await copyToClipboard(body);
   if (ok) {
-    ElMessage.success("反馈模板已复制，请在 Gitee 新建 Issue 时粘贴");
+    ElMessage.success(t('feedback.feedbackTemplateCopied'));
   } else {
-    ElMessage.warning("复制失败，请手动填写反馈内容");
+    ElMessage.warning(t('feedback.copyFailed'));
   }
   openInNewTab(buildGiteeIssueUrl());
   close();
@@ -98,10 +102,10 @@ onUnmounted(() => {
             @click.stop>
             <!-- 头部 -->
             <div class="feedback-header">
-              <h2>问题反馈</h2>
+              <h2>{{ t('feedback.feedbackTitle') }}</h2>
               <button
                 class="close-btn"
-                title="关闭"
+                :title="t('view.close')"
                 @click="close">
                 ✕
               </button>
@@ -112,7 +116,7 @@ onUnmounted(() => {
               <!-- 渠道列表视图 -->
               <template v-if="view === 'channels'">
                 <p class="feedback-intro">
-                  感谢您的反馈！请选择以下任一渠道提交您的问题或建议，系统会自动附带环境信息以便定位问题。
+                  {{ t('feedback.feedbackIntro') }}
                 </p>
                 <a
                   class="doc-banner"
@@ -120,7 +124,7 @@ onUnmounted(() => {
                   target="_blank"
                   rel="noopener noreferrer">
                   <span class="doc-icon">📖</span>
-                  <span class="doc-text">提交前，可先查阅项目官方文档自助排查</span>
+                  <span class="doc-text">{{ t('feedback.docBannerText') }}</span>
                   <span class="doc-arrow">↗</span>
                 </a>
                 <div class="channels-grid">
@@ -133,14 +137,14 @@ onUnmounted(() => {
                       </svg>
                     </div>
                     <div class="channel-info">
-                      <h3>GitHub Issues</h3>
-                      <p>跳转到 GitHub 仓库提交 Issue（新标签页打开，预填充系统信息）</p>
+                      <h3>{{ t('feedback.githubIssues') }}</h3>
+                      <p>{{ t('feedback.githubDesc') }}</p>
                     </div>
                     <el-button
                       type="primary"
                       plain
                       @click="handleGitHubClick">
-                      前往提交
+                      {{ t('feedback.goSubmit') }}
                     </el-button>
                   </div>
 
@@ -153,14 +157,14 @@ onUnmounted(() => {
                       </svg>
                     </div>
                     <div class="channel-info">
-                      <h3>Gitee Issues</h3>
-                      <p>跳转到 Gitee 新建 Issue 页（模板自动复制到剪贴板，粘贴即可）</p>
+                      <h3>{{ t('feedback.giteeIssues') }}</h3>
+                      <p>{{ t('feedback.giteeDesc') }}</p>
                     </div>
                     <el-button
                       type="primary"
                       plain
                       @click="handleGiteeClick">
-                      前往提交
+                      {{ t('feedback.goSubmit') }}
                     </el-button>
                   </div>
 
@@ -173,14 +177,14 @@ onUnmounted(() => {
                       </svg>
                     </div>
                     <div class="channel-info">
-                      <h3>邮件反馈</h3>
-                      <p>调用系统默认邮件客户端，自动填充收件人、主题与正文模板</p>
+                      <h3>{{ t('feedback.emailFeedback') }}</h3>
+                      <p>{{ t('feedback.emailDesc') }}</p>
                     </div>
                     <el-button
                       type="primary"
                       plain
                       @click="handleEmailClick">
-                      发送邮件
+                      {{ t('feedback.sendEmail') }}
                     </el-button>
                   </div>
 
@@ -193,14 +197,14 @@ onUnmounted(() => {
                       </svg>
                     </div>
                     <div class="channel-info">
-                      <h3>公众号关注反馈</h3>
-                      <p>扫码关注 SmartTable 公众号，通过菜单联系反馈</p>
+                      <h3>{{ t('feedback.wechatFollow') }}</h3>
+                      <p>{{ t('feedback.wechatDesc') }}</p>
                     </div>
                     <el-button
                       type="primary"
                       plain
                       @click="showQrcode">
-                      查看二维码
+                      {{ t('feedback.showQrcodeBtn') }}
                     </el-button>
                   </div>
                 </div>
@@ -211,24 +215,28 @@ onUnmounted(() => {
                 <div class="qrcode-view">
                   <img
                     :src="WECHAT_QR_PATH"
-                    alt="SmartTable 公众号二维码"
+                    :alt="t('feedback.qrcodeAlt')"
                     class="qrcode-img" />
                   <p class="qrcode-tip">
-                    扫码关注 SmartTable 公众号，通过菜单联系反馈
+                    {{ t('feedback.qrcodeTip') }}
                   </p>
                   <el-button
                     type="primary"
                     plain
                     @click="backToChannels">
-                    返回选择渠道
-                  </el-button>
+                    {{ t('feedback.backToChannels') }}
+                    </el-button>
                 </div>
               </template>
             </div>
 
             <!-- 底部 -->
             <div class="feedback-footer">
-              <el-button @click="close">取消</el-button>
+              <div class="version-tag">
+                <span class="version-label">{{ t('feedback.versionLabel') }}</span>
+                <span class="version-value">v{{ APP_VERSION }}</span>
+              </div>
+              <el-button @click="close">{{ t('view.cancel') }}</el-button>
             </div>
           </div>
         </Transition>
@@ -447,7 +455,34 @@ onUnmounted(() => {
   padding: $spacing-md $spacing-xl;
   border-top: 1px solid var(--border-color, $border-color);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+}
+
+.version-tag {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .version-label {
+    font-size: $font-size-xs;
+    color: var(--text-secondary, $text-secondary);
+  }
+
+  .version-value {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px $spacing-sm;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: $primary-color;
+    background-color: $primary-light;
+    border: 1px solid $primary-color;
+    border-radius: $border-radius-full;
+    letter-spacing: 0.3px;
+  }
 }
 
 // 窄屏适配

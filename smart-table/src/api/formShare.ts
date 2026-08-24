@@ -130,6 +130,7 @@ export interface ValidateFormShareResponse {
   valid: boolean;
   require_captcha: boolean;
   can_submit: boolean;
+  allow_anonymous: boolean;
 }
 
 /**

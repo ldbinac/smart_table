@@ -10,6 +10,7 @@ from typing import Callable, List, Optional, Union, Any, Dict
 from flask import request, g
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, get_jwt
 
+from app.i18n import translate
 from app.extensions import cache
 from app.utils.response import forbidden_response, unauthorized_response, error_response
 
@@ -138,11 +139,11 @@ def authenticate(fn: Callable) -> Callable:
 
             if not user:
                 current_app.logger.error(f'[JWT] User not found: {user_id}')
-                return unauthorized_response('用户不存在')
+                return unauthorized_response('user_does_not_exist')
 
             if not user.is_active():
                 current_app.logger.error(f'[JWT] User inactive: {user_id}')
-                return unauthorized_response('用户账号已被禁用')
+                return unauthorized_response('user_account_disabled')
 
             g.current_user = user
             g.current_user_id = user_id
@@ -155,16 +156,16 @@ def authenticate(fn: Callable) -> Callable:
             # 根据异常类型返回更具体的错误信息
             if 'No such table' in error_msg or 'OperationalError' in error_type:
                 current_app.logger.error(f'[JWT] 数据库表不存在，请运行数据库迁移：{error_msg}', exc_info=True)
-                return error_response('服务配置错误，请联系管理员', code=500)
+                return error_response('service_configuration_error_contact_administrator', code=500)
             elif 'Signature verification' in error_msg or 'Signature' in error_msg:
                 current_app.logger.error(f'[JWT] Token 签名验证失败：{error_msg}')
-                return unauthorized_response('无效的认证令牌')
+                return unauthorized_response('invalid_authentication_token')
             elif 'ExpiredSignature' in error_msg:
                 current_app.logger.error(f'[JWT] Token 已过期：{error_msg}')
-                return unauthorized_response('认证令牌已过期，请重新登录')
+                return unauthorized_response('authentication_token_expired_log_again')
             else:
                 current_app.logger.error(f'[JWT] JWT 验证失败 [{error_type}]：{error_msg}', exc_info=True)
-                return unauthorized_response('无效的认证令牌')
+                return unauthorized_response('invalid_authentication_token')
 
         # 视图函数在 try/except 块之外执行，
         # 避免视图函数中的非 JWT 相关异常被错误地当作 401 返回
@@ -195,7 +196,7 @@ def role_required(roles) -> Callable:
             from app.models.user import UserRole
             
             if not hasattr(g, 'current_user') or g.current_user is None:
-                return unauthorized_response('请先登录')
+                return unauthorized_response('log_first')
             
             # 标准化角色列表（支持字符串和 UserRole 枚举）
             if isinstance(roles, list):
@@ -233,7 +234,7 @@ def role_required(roles) -> Callable:
             current_role_value = current_user_role.value if hasattr(current_user_role, 'value') else current_user_role
             
             if current_role_value not in allowed_role_values:
-                return forbidden_response('权限不足，无法执行此操作')
+                return forbidden_response('insufficient_permissions_perform_operation')
             
             return fn(*args, **kwargs)
         
@@ -263,7 +264,7 @@ def admin_required(fn: Callable) -> Callable:
         from app.models.user import UserRole
         
         if not hasattr(g, 'current_user') or g.current_user is None:
-            return unauthorized_response('请先登录')
+            return unauthorized_response('log_first')
         
         # 检查是否为管理员
         current_user_role = g.current_user.role
@@ -271,7 +272,7 @@ def admin_required(fn: Callable) -> Callable:
         
         allowed_roles = ['admin', 'workspace_admin']
         if current_role_value not in allowed_roles:
-            return forbidden_response('权限不足，无法执行此操作')
+            return forbidden_response('insufficient_permissions_perform_operation')
         
         # 记录管理员访问日志（仅记录访问，不记录具体操作）
         try:
@@ -444,7 +445,7 @@ def owner_or_admin_required(get_owner_id: Callable) -> Callable:
         def wrapper(*args, **kwargs):
             # 确保已经通过 JWT 认证
             if not hasattr(g, 'current_user') or g.current_user is None:
-                return unauthorized_response('请先登录')
+                return unauthorized_response('log_first')
             
             # 管理员直接通过
             if g.current_user.is_admin():
@@ -455,7 +456,7 @@ def owner_or_admin_required(get_owner_id: Callable) -> Callable:
             
             # 检查是否为所有者
             if str(g.current_user.id) != str(owner_id):
-                return forbidden_response('只有资源所有者可以执行此操作')
+                return forbidden_response('resource_owner_perform_operation')
             
             return fn(*args, **kwargs)
         
@@ -480,7 +481,7 @@ def validate_json(*required_fields: str) -> Callable:
             # 检查 Content-Type
             if not request.is_json:
                 return error_response(
-                    message='请求内容必须是 JSON 格式',
+                    message='request_content_json_format',
                     code=415,
                     error='invalid_content_type'
                 )
@@ -495,7 +496,7 @@ def validate_json(*required_fields: str) -> Callable:
             
             if missing_fields:
                 return error_response(
-                    message=f'缺少必需字段: {", ".join(missing_fields)}',
+                    message=translate('missing_required_fields', ', '.join(missing_fields)),
                     code=400,
                     error='missing_required_fields'
                 )
@@ -541,7 +542,7 @@ def rate_limit(max_attempts: int = 5, window: int = 900) -> Callable:
                     minutes = remaining_time // 60
                     seconds = remaining_time % 60
                     return error_response(
-                        message=f'登录尝试次数过多，请 {minutes} 分 {seconds} 秒后再试',
+                        message=translate('login_attempts_exceeded', minutes, seconds),
                         code=429,
                         error='too_many_requests'
                     )
@@ -565,7 +566,7 @@ def rate_limit(max_attempts: int = 5, window: int = 900) -> Callable:
                 cache.set(lockout_key, lockout_until, timeout=window)
                 minutes = window // 60
                 return error_response(
-                    message=f'登录尝试次数过多，账户已锁定 {minutes} 分钟',
+                    message=translate('login_attempts_locked', minutes),
                     code=429,
                     error='too_many_requests'
                 )
@@ -733,7 +734,7 @@ def api_rate_limit(
                 else:
                     wait_text = f'{max_remaining} 秒'
                 return error_response(
-                    message=f'请求过于频繁，请 {wait_text}后再试',
+                    message=translate('request_too_frequent', wait_text),
                     code=429,
                     error='too_many_requests'
                 )
@@ -816,4 +817,117 @@ def write_rate_limit(
         key_prefix='write',
         by_user=True,
         by_ip=True
+    )
+
+
+def open_api_auth_required(fn: Callable) -> Callable:
+    """
+    开放 API（第三方应用）认证装饰器
+
+    校验 OAuth2 客户端凭证签发的 JWT（携带 app_id / scope / client_id），
+    加载 OAuthApp 并校验 `is_active`，在 g 上设置：
+        - g.oauth_app: OAuthApp 实例
+        - g.oauth_app_id: 应用 id（str）
+        - g.oauth_scopes: scope 列表（list[str]）
+        - g.is_service_account: True
+
+    注意：该装饰器不依赖 g.current_user（用户认证），仅用于应用身份。
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        from flask import current_app
+        from app.models.oauth_app import OAuthApp
+
+        try:
+            verify_jwt_in_request()
+            claims = get_jwt()
+        except Exception as e:
+            current_app.logger.error(f'[OpenAPI] JWT 验证失败：{str(e)}')
+            return unauthorized_response('invalid_access_token')
+
+        app_id = claims.get('app_id') or claims.get('sub')
+        if not app_id:
+            return unauthorized_response('token_missing_application_identity_information')
+
+        if claims.get('token_type') != 'app':
+            # 仅接受开放 API 签发（应用身份）的令牌，拒绝用户令牌
+            return forbidden_response('token_not_applicable_open_api')
+
+        try:
+            from uuid import UUID
+            app = OAuthApp.query.get(UUID(str(app_id)))
+        except (ValueError, TypeError):
+            app = None
+
+        if app is None:
+            return unauthorized_response('application_does_not_exist_been_deleted')
+        if not app.is_active:
+            return forbidden_response('application_been_disabled')
+
+        # 同步令牌中的 scope 与库中授予的 scope
+        token_scopes = (claims.get('scope') or '').split()
+        granted_scopes = app.scopes.split() if app.scopes else []
+        effective_scopes = [s for s in token_scopes if s in granted_scopes]
+
+        g.oauth_app = app
+        g.oauth_app_id = str(app.id)
+        g.oauth_scopes = effective_scopes
+        g.is_service_account = True
+
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def require_open_scope(*required_scopes: str) -> Callable:
+    """
+    开放 API scope 校验装饰器
+
+    校验 g.oauth_scopes 是否包含所需的全部 scope，否则返回 403。
+    必须在 @open_api_auth_required 之后使用。
+
+    使用示例：
+        @open_api_bp.route('/records', methods=['POST'])
+        @open_api_auth_required
+        @require_open_scope('record:write')
+        def create_record():
+            ...
+    """
+    def decorator(fn: Callable) -> Callable:
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            scopes = getattr(g, 'oauth_scopes', None) or []
+            missing = [s for s in required_scopes if s not in scopes]
+            if missing:
+                return forbidden_response(
+                    translate('missing_required_scope', ', '.join(missing))
+                )
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def open_api_rate_limit(
+    max_requests: int = 600,
+    window: int = 60
+) -> Callable:
+    """
+    开放 API 速率限制装饰器
+
+    与用户 API 限流隔离：以应用身份（jwt identity = app_id）为维度，
+    key_prefix='open'，防止第三方应用耗尽用户配额。
+
+    使用示例：
+        @open_api_bp.route('/records', methods=['GET'])
+        @open_api_auth_required
+        @open_api_rate_limit(max_requests=300, window=60)
+        def list_records():
+            ...
+    """
+    return api_rate_limit(
+        max_requests=max_requests,
+        window=window,
+        key_prefix='open',
+        by_user=True,
+        by_ip=False
     )

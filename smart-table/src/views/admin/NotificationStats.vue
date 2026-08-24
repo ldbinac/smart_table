@@ -1,8 +1,8 @@
 <template>
   <div class="notification-stats-page">
     <div class="page-header">
-      <h1 class="page-title">站内信统计</h1>
-      <p class="page-description">查看系统站内信发送的统计数据和分析</p>
+      <h1 class="page-title">{{ t('admin.notificationStats.title') }}</h1>
+      <p class="page-description">{{ t('admin.notificationStats.desc') }}</p>
     </div>
 
     <div v-loading="loading" class="page-content">
@@ -12,7 +12,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value">{{ stats.total || 0 }}</div>
-              <div class="stat-label">总量</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statTotal') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -20,7 +20,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value success">{{ stats.sent || 0 }}</div>
-              <div class="stat-label">已发送</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statSent') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -28,7 +28,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value danger">{{ stats.failed || 0 }}</div>
-              <div class="stat-label">失败</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statFailed') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -36,7 +36,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value">{{ stats.pending || 0 }}</div>
-              <div class="stat-label">待发送</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statPending') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -46,7 +46,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value warning">{{ stats.retrying || 0 }}</div>
-              <div class="stat-label">重试中</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statRetrying') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -54,7 +54,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value success">{{ stats.read || 0 }}</div>
-              <div class="stat-label">已读数</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statRead') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -62,7 +62,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value">{{ stats.unread || 0 }}</div>
-              <div class="stat-label">未读数</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statUnread') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -70,7 +70,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value success">{{ successRate }}%</div>
-              <div class="stat-label">成功率</div>
+              <div class="stat-label">{{ t('admin.notificationStats.statSuccessRate') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -80,7 +80,7 @@
       <el-card class="status-distribution-card">
         <template #header>
           <div class="card-header">
-            <span>状态分布</span>
+            <span>{{ t('admin.notificationStats.statusDistribution') }}</span>
           </div>
         </template>
         <div class="status-list">
@@ -103,23 +103,23 @@
       <el-card class="source-stats-card">
         <template #header>
           <div class="card-header">
-            <span>按来源分组统计</span>
+            <span>{{ t('admin.notificationStats.sourceStatsTitle') }}</span>
           </div>
         </template>
         <el-table :data="sourceStats" stripe style="width: 100%">
-          <el-table-column prop="source" label="来源" min-width="120">
+          <el-table-column prop="source" :label="t('admin.notificationStats.colSource')" min-width="120">
             <template #default="{ row }">
               <el-tag type="info">{{ getSourceText(row.source) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="count" label="数量" width="120" align="center" />
-          <el-table-column label="占比" width="200" align="center">
+          <el-table-column prop="count" :label="t('admin.notificationStats.colCount')" width="120" align="center" />
+          <el-table-column :label="t('admin.notificationStats.colPercentage')" width="200" align="center">
             <template #default="{ row }">
               <el-progress :percentage="row.percentage" :show-text="true" :stroke-width="8" />
             </template>
           </el-table-column>
         </el-table>
-        <div v-if="sourceStats.length === 0" class="empty-text">暂无数据</div>
+        <div v-if="sourceStats.length === 0" class="empty-text">{{ t('admin.noData') }}</div>
       </el-card>
     </div>
   </div>
@@ -127,8 +127,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { notificationApiService, type NotificationStats } from '@/services/api/notificationApiService'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const stats = ref<NotificationStats>({
@@ -156,7 +159,7 @@ const statusDistribution = computed(() => {
   return [
     {
       key: 'sent',
-      label: '已发送',
+      label: t('admin.notificationStats.statSent'),
       value: stats.value.sent,
       percentage: calc(stats.value.sent),
       type: 'success',
@@ -164,7 +167,7 @@ const statusDistribution = computed(() => {
     },
     {
       key: 'failed',
-      label: '失败',
+      label: t('admin.notificationStats.statFailed'),
       value: stats.value.failed,
       percentage: calc(stats.value.failed),
       type: 'danger',
@@ -172,7 +175,7 @@ const statusDistribution = computed(() => {
     },
     {
       key: 'pending',
-      label: '待发送',
+      label: t('admin.notificationStats.statPending'),
       value: stats.value.pending,
       percentage: calc(stats.value.pending),
       type: 'info',
@@ -180,7 +183,7 @@ const statusDistribution = computed(() => {
     },
     {
       key: 'retrying',
-      label: '重试中',
+      label: t('admin.notificationStats.statRetrying'),
       value: stats.value.retrying,
       percentage: calc(stats.value.retrying),
       type: 'warning',
@@ -202,11 +205,11 @@ const sourceStats = computed(() => {
 
 const getSourceText = (source: string | undefined) => {
   const textMap: Record<string, string> = {
-    system: '系统',
-    auth: '认证',
-    admin: '管理',
-    workflow: '工作流',
-    approval: '审批'
+    system: t('admin.sourceSystem'),
+    auth: t('admin.sourceAuth'),
+    admin: t('admin.sourceAdmin'),
+    workflow: t('admin.sourceWorkflow'),
+    approval: t('admin.sourceApproval')
   }
   return textMap[source || ''] || source || '-'
 }
@@ -232,7 +235,7 @@ const fetchStats = async () => {
     }
   } catch (error) {
     console.error('获取站内信统计失败:', error)
-    ElMessage.error('获取站内信统计失败')
+    ElMessage.error(t('admin.notificationStats.fetchFailed'))
   } finally {
     loading.value = false
   }

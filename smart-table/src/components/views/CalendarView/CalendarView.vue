@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import { ArrowLeft, ArrowRight, Clock, Calendar, EditPen } from "@element-plus/icons-vue";
@@ -30,6 +31,8 @@ const emit = defineEmits<{
   (e: "editRecord", recordId: string): void;
 }>();
 
+const { t } = useI18n();
+
 const dateFieldId = ref<string>("");
 const endDateFieldId = ref<string>("");
 const titleFieldId = ref<string>("");
@@ -38,7 +41,7 @@ const currentDate = ref(new Date());
 
 // 时间刻度（用于日视图和周视图）
 const timeSlots = computed(() => {
-  const slots = [];
+  const slots: number[] = [];
   for (let i = 0; i < 24; i++) {
     slots.push(i);
   }
@@ -104,7 +107,7 @@ const getSingleSelectDisplay = (
 // 获取记录标题（支持公式字段和单选字段）
 const getRecordTitle = (record: RecordEntity): string => {
   const field = titleField.value;
-  if (!field) return "无标题";
+  if (!field) return t("view.noTitle");
 
   // 如果是公式字段，实时计算
   if (field.type === FieldType.FORMULA) {
@@ -120,20 +123,20 @@ const getRecordTitle = (record: RecordEntity): string => {
         console.error("Calendar formula calculation error:", error);
       }
     }
-    return "计算错误";
+    return t("view.calcError");
   }
 
   // 单选字段：返回选项名称而不是ID
   if (field.type === FieldType.SINGLE_SELECT) {
     const value = record.values[field.id];
-    if (value === null || value === undefined) return "无标题";
+    if (value === null || value === undefined) return t("view.noTitle");
     const option = getSingleSelectDisplay(field, String(value));
     return option?.name || String(value);
   }
 
   // 普通字段直接返回值
   const value = record.values[field.id];
-  return value !== null && value !== undefined ? String(value) : "无标题";
+  return value !== null && value !== undefined ? String(value) : t("view.noTitle");
 };
 
 interface CalendarEvent {
@@ -169,7 +172,7 @@ const events = computed<CalendarEvent[]>(() => {
 
       return {
         id: record.id,
-        title: String(titleValue || "无标题"),
+        title: String(titleValue || t("view.noTitle")),
         start: start,
         end: end || undefined,
         allDay: true,
@@ -208,8 +211,12 @@ function parseDateValue(value: unknown): Date | null {
   return null;
 }
 
-const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
-const weekDaysFull = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+const weekDays = ["日", "一", "二", "三", "四", "五", "六"].map((d) =>
+  t(`view.weekday${d}`),
+);
+const weekDaysFull = ["日", "一", "二", "三", "四", "五", "六"].map((d) =>
+  t(`view.weekdayFull${d}`),
+);
 
 // ========== 月视图计算属性 ==========
 const calendarDays = computed(() => {
@@ -275,7 +282,7 @@ const monthViewRowCount = computed(() => {
 // ========== 周视图计算属性 ==========
 const weekDaysData = computed(() => {
   const startOfWeek = getStartOfWeek(currentDate.value);
-  const days = [];
+  const days: Array<{ date: Date; isToday: boolean; events: CalendarEvent[] }> = [];
 
   for (let i = 0; i < 7; i++) {
     const date = new Date(startOfWeek);
@@ -302,9 +309,20 @@ const currentWeekRange = computed(() => {
   const year = startOfWeek.getFullYear();
 
   if (startMonth === endMonth) {
-    return `${year}年${startMonth}月${startDay}日 - ${endDay}日`;
+    return t("view.weekRangeSame", {
+      year,
+      month: startMonth,
+      startDay,
+      endDay,
+    });
   } else {
-    return `${year}年${startMonth}月${startDay}日 - ${endMonth}月${endDay}日`;
+    return t("view.weekRange", {
+      year,
+      startMonth,
+      startDay,
+      endMonth,
+      endDay,
+    });
   }
 });
 
@@ -322,14 +340,17 @@ const currentDayTitle = computed(() => {
   const month = currentDate.value.getMonth() + 1;
   const day = currentDate.value.getDate();
   const weekDay = weekDaysFull[currentDate.value.getDay()];
-  return `${year}年${month}月${day}日 ${weekDay}`;
+  return t("view.dayTitle", { year, month, day, weekday: weekDay });
 });
 
 // ========== 标题计算属性 ==========
 const currentTitle = computed(() => {
   switch (currentView.value) {
     case "month":
-      return `${currentDate.value.getFullYear()}年${currentDate.value.getMonth() + 1}月`;
+      return t("view.monthTitle", {
+        year: currentDate.value.getFullYear(),
+        month: currentDate.value.getMonth() + 1,
+      });
     case "week":
       return currentWeekRange.value;
     case "day":
@@ -614,7 +635,7 @@ watch(
       <div class="toolbar-left">
         <el-select
           v-model="dateFieldId"
-          placeholder="选择日期字段"
+          :placeholder="t('view.selectDateField')"
           class="field-select">
           <template #prefix>
             <el-icon><Calendar /></el-icon>
@@ -627,7 +648,7 @@ watch(
         </el-select>
         <el-select
           v-model="titleFieldId"
-          placeholder="选择标题字段"
+          :placeholder="t('view.selectTitleField')"
           class="field-select">
           <template #prefix>
             <el-icon><EditPen /></el-icon>
@@ -645,7 +666,7 @@ watch(
           <button class="nav-btn" @click="prev">
             <el-icon><ArrowLeft /></el-icon>
           </button>
-          <button class="nav-btn today-btn" @click="goToToday">今天</button>
+          <button class="nav-btn today-btn" @click="goToToday">{{ t("view.today") }}</button>
           <button class="nav-btn" @click="next">
             <el-icon><ArrowRight /></el-icon>
           </button>
@@ -659,19 +680,19 @@ watch(
             class="view-btn"
             :class="{ active: currentView === 'month' }"
             @click="handleViewChange('month')">
-            月
+            {{ t("view.month") }}
           </button>
           <button
             class="view-btn"
             :class="{ active: currentView === 'week' }"
             @click="handleViewChange('week')">
-            周
+            {{ t("view.week") }}
           </button>
           <button
             class="view-btn"
             :class="{ active: currentView === 'day' }"
             @click="handleViewChange('day')">
-            日
+            {{ t("view.day") }}
           </button>
         </div>
       </div>
@@ -700,7 +721,7 @@ watch(
           @click="handleDateClick(day.date)">
           <div class="cell-header">
             <span class="day-number"
-              >{{ day.date.getMonth() + 1 }}.{{ day.date.getDate() }}</span
+              >{{ t("view.dayNumberLabel", { month: day.date.getMonth() + 1, day: day.date.getDate() }) }}</span
             >
           </div>
           <div class="cell-events">
@@ -713,16 +734,16 @@ watch(
               {{ event.title }} {{ getRecordLinkSummary(event.record) }}
             </div>
             <div v-if="day.events.length > 3" class="more-events">
-              +{{ day.events.length - 3 }} 更多
+              +{{ day.events.length - 3 }} {{ t("view.more") }}
             </div>
           </div>
           <!-- 悬停时显示所有事件的浮层 -->
           <div v-if="day.events.length > 0" class="events-tooltip">
             <div class="tooltip-header">
               <span class="tooltip-date"
-                >{{ day.date.getMonth() + 1 }}月{{ day.date.getDate() }}日</span
+                >{{ t("view.monthDayLabel", { month: day.date.getMonth() + 1, day: day.date.getDate() }) }}</span
               >
-              <span class="tooltip-count">{{ day.events.length }} 个事件</span>
+              <span class="tooltip-count">{{ t("view.eventCount", { count: day.events.length }) }}</span>
             </div>
             <div class="tooltip-events-list">
               <div
@@ -805,14 +826,12 @@ watch(
               weekDaysFull[currentDate.getDay()]
             }}</span>
             <span class="day-full-date">
-              {{ currentDate.getFullYear() }}年{{
-                currentDate.getMonth() + 1
-              }}月
+              {{ t("view.yearMonthLabel", { year: currentDate.getFullYear(), month: currentDate.getMonth() + 1 }) }}
             </span>
           </span>
         </div>
         <div class="day-events-count">
-          {{ currentDayData.events.length }} 个事件
+          {{ t("view.eventCount", { count: currentDayData.events.length }) }}
         </div>
       </div>
 
@@ -849,10 +868,10 @@ watch(
           </div>
 
           <div v-if="currentDayData.events.length === 0" class="no-events">
-            <el-empty description="暂无事件" :image-size="80">
+            <el-empty :description="t('view.noEvents')" :image-size="80">
               <template #description>
-                <p>暂无事件</p>
-                <p v-if="!readonly" class="sub-text">点击空白处添加新记录</p>
+                <p>{{ t("view.noEvents") }}</p>
+                <p v-if="!readonly" class="sub-text">{{ t("view.clickToAdd") }}</p>
               </template>
             </el-empty>
           </div>

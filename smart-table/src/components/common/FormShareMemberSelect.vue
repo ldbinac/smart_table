@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Search, Close, Check, Loading, CircleClose } from '@element-plus/icons-vue'
 import { useDebounceFn } from '@vueuse/core'
 import { formShareApi } from '@/api/formShare'
+
+const { t } = useI18n()
 
 export interface Member {
   id: string
@@ -24,7 +27,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '选择成员',
+  placeholder: "",
   disabled: false,
   allowMultiple: false,
   returnObject: false,
@@ -72,7 +75,7 @@ async function searchMembers(query: string): Promise<Member[]> {
     }))
   } catch (error) {
     console.error('[FormShareMemberSelect] 搜索用户失败:', error)
-    ElMessage.error('搜索用户失败')
+    ElMessage.error(t('common.searchUserFailed'))
     return []
   } finally {
     loading.value = false
@@ -305,7 +308,7 @@ function getAvatarColor(name: string | undefined): string {
           </template>
 
           <!-- 占位符 -->
-          <span v-else class="placeholder">{{ placeholder }}</span>
+          <span v-else class="placeholder">{{ placeholder || t('common.selectMember') }}</span>
 
           <!-- 清空按钮（多选且有选中时显示） -->
           <el-icon
@@ -324,7 +327,7 @@ function getAvatarColor(name: string | undefined): string {
         <div class="search-box">
           <el-input
             v-model="searchQuery"
-            placeholder="输入姓名或邮箱搜索"
+            :placeholder="t('common.searchMemberPlaceholder')"
             :prefix-icon="Search"
             size="default"
             clearable
@@ -334,7 +337,7 @@ function getAvatarColor(name: string | undefined): string {
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-state">
           <el-icon class="loading-icon"><Loading /></el-icon>
-          <span>搜索中...</span>
+          <span>{{ t('common.searching') }}</span>
         </div>
 
         <!-- 成员列表 -->
@@ -365,8 +368,8 @@ function getAvatarColor(name: string | undefined): string {
           <!-- 空结果提示 -->
           <div v-if="searchResults.length === 0 && !loading" class="empty-state">
             <el-icon><Search /></el-icon>
-            <span v-if="searchQuery.trim()">未找到匹配的成员</span>
-            <span v-else>请输入关键词搜索</span>
+            <span v-if="searchQuery.trim()">{{ t('common.noMatchingMember') }}</span>
+            <span v-else>{{ t('common.enterKeywordSearch') }}</span>
           </div>
         </div>
       </div>

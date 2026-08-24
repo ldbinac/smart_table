@@ -6,7 +6,10 @@
  * 使用用户缓存机制避免重复请求
  */
 import { ref, watch, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUserCacheStore } from '@/stores/userCacheStore'
+
+const { t } = useI18n()
 
 interface Props {
   // 成员ID或ID数组
@@ -133,7 +136,7 @@ const allMemberNames = computed(() => {
 <template>
   <div class="member-display" :class="[`mode-${mode}`]">
     <!-- 加载中状态 -->
-    <span v-if="loading" class="loading-text">加载中...</span>
+    <span v-if="loading" class="loading-text">{{ t('common.loading') }}</span>
     
     <!-- 无数据状态 -->
     <span v-else-if="members.length === 0" class="empty-text">-</span>

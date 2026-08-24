@@ -5,6 +5,7 @@ import traceback
 from flask import Blueprint, request, g, current_app
 from marshmallow import Schema, fields, validate
 
+from app.i18n import translate
 from app.extensions import db
 from app.services.view_service import ViewService
 from app.services.table_service import TableService
@@ -97,7 +98,7 @@ def get_views(table_id) -> tuple:
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
     
     try:
         views = ViewService.get_table_views(table_id)
@@ -107,7 +108,7 @@ def get_views(table_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取视图列表失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取视图列表失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_view_list_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/tables/<table_id>/views', methods=['POST'])
@@ -168,16 +169,16 @@ def create_view(table_id) -> tuple:
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
     
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
     
     errors = view_create_schema.validate(json_data)
     if errors:
-        return error_response('数据验证失败', 400, errors)
+        return error_response('data_validation_failed', 400, errors)
     
     try:
         # 处理表单配置：将 config 中的表单特定配置提取到 form_config
@@ -225,13 +226,13 @@ def create_view(table_id) -> tuple:
         
         db.session.commit()
         
-        return success_response(view.to_dict(), '视图创建成功', 201)
+        return success_response(view.to_dict(), 'view_created_successfully', 201)
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 创建视图失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('创建视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_create_view_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>', methods=['GET'])
@@ -259,7 +260,7 @@ def get_view(view_id) -> tuple:
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
-        return error_response('视图不存在', 404)
+        return error_response('view_does_not_exist', 404)
     
     try:
         return success_response(view.to_dict())
@@ -267,7 +268,7 @@ def get_view(view_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取视图详情失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取视图详情失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_view_details_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>', methods=['PUT'])
@@ -345,16 +346,16 @@ def update_view(view_id) -> tuple:
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
-        return error_response('视图不存在', 404)
+        return error_response('view_does_not_exist', 404)
     
     # 验证请求数据
     json_data = request.get_json()
     if not json_data:
-        return error_response('请求数据不能为空', 400)
+        return error_response('request_data_empty', 400)
     
     errors = view_update_schema.validate(json_data)
     if errors:
-        return error_response('数据验证失败', 400, errors)
+        return error_response('data_validation_failed', 400, errors)
     
     try:
         # 处理表单配置：将 config 中的表单特定配置提取到 form_config
@@ -383,13 +384,13 @@ def update_view(view_id) -> tuple:
                     json_data['form_config'] = existing_form_config
         
         view = ViewService.update_view(view, **json_data)
-        return success_response(view.to_dict(), '视图更新成功')
+        return success_response(view.to_dict(), 'view_updated_successfully')
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 更新视图失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('更新视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_update_view_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>', methods=['DELETE'])
@@ -419,20 +420,20 @@ def delete_view(view_id) -> tuple:
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
-        return error_response('视图不存在', 404)
+        return error_response('view_does_not_exist', 404)
     
     try:
         success = ViewService.delete_view(view)
         if success:
-            return success_response(None, '视图删除成功')
+            return success_response(None, 'view_deleted_successfully')
         else:
-            return error_response('默认视图不能删除', 400)
+            return error_response('default_view_deleted', 400)
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 删除视图失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('删除视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_delete_view_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>/duplicate', methods=['POST'])
@@ -470,26 +471,26 @@ def duplicate_view(view_id) -> tuple:
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
-        return error_response('视图不存在', 404)
+        return error_response('view_does_not_exist', 404)
     
     # 验证请求数据
     json_data = request.get_json() or {}
     errors = view_duplicate_schema.validate(json_data)
     if errors:
-        return error_response('数据验证失败', 400, errors)
+        return error_response('data_validation_failed', 400, errors)
     
     try:
         new_view = ViewService.duplicate_view(
             view, 
             new_name=json_data.get('name')
         )
-        return success_response(new_view.to_dict(), '视图复制成功', 201)
+        return success_response(new_view.to_dict(), 'view_copied_successfully', 201)
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 复制视图失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('复制视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_copy_view_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/tables/<table_id>/views/reorder', methods=['PUT'])
@@ -540,11 +541,11 @@ def reorder_views(table_id) -> tuple:
     # 检查表格是否存在
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
     
     json_data = request.get_json()
     if not json_data or 'view_orders' not in json_data:
-        return error_response('view_orders不能为空', 400)
+        return error_response('view_orders_empty', 400)
     
     view_orders = json_data['view_orders']
     
@@ -563,14 +564,14 @@ def reorder_views(table_id) -> tuple:
         
         # 返回更新后的视图列表
         views = ViewService.get_table_views(table_id)
-        return success_response([view.to_dict() for view in views], '视图排序更新成功')
+        return success_response([view.to_dict() for view in views], 'view_order_updated_successfully')
     
     except Exception as e:
         db.session.rollback()
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 更新视图排序失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('更新视图排序失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_update_view_order_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/tables/<table_id>/views/<view_id>/set-default', methods=['PUT'])
@@ -604,11 +605,11 @@ def set_default_view(table_id, view_id) -> tuple:
     """
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
     
     view = ViewService.get_view_by_id(view_id)
     if not view or str(view.table_id) != table_id:
-        return error_response('视图不存在或不属于该表格', 404)
+        return error_response('view_does_not_exist_does_not_belong_table', 404)
     
     try:
         
@@ -617,14 +618,14 @@ def set_default_view(table_id, view_id) -> tuple:
         view.is_default = True
         db.session.commit()
         
-        return success_response(view.to_dict(), '已设置为默认视图')
+        return success_response(view.to_dict(), 'set_default_view')
     
     except Exception as e:
         db.session.rollback()
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 设置默认视图失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('设置默认视图失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_set_default_view_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/types', methods=['GET'])
@@ -736,7 +737,7 @@ def get_view_tree_records(view_id) -> tuple:
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
-        return error_response('视图不存在', 404)
+        return error_response('view_does_not_exist', 404)
 
     try:
         # 检查视图是否配置了 parent_field_id
@@ -774,7 +775,7 @@ def get_view_tree_records(view_id) -> tuple:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取树形记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取树形记录失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_tree_records_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @views_bp.route('/views/<view_id>/auto-create-parent-field', methods=['POST'])
@@ -792,7 +793,7 @@ def auto_create_parent_field(view_id) -> tuple:
     """
     view = ViewService.get_view_by_id(view_id)
     if not view:
-        return error_response('视图不存在', 404)
+        return error_response('view_does_not_exist', 404)
 
     table_id = str(view.table_id)
 
@@ -822,11 +823,11 @@ def auto_create_parent_field(view_id) -> tuple:
             )
 
             if not link_result.get('success'):
-                return error_response(f'创建父记录字段失败: {link_result.get("error", "未知错误")}', 400)
+                return error_response(translate('parent_record_field_creation_failed', link_result.get('error', 'unknown_error')), 400)
 
             parent_field_obj = Field.query.get(link_result['field']['id'])
             if not parent_field_obj:
-                return error_response('创建字段后获取字段失败', 500)
+                return error_response('failed_fetch_field_after_creating', 500)
             parent_field = parent_field_obj
 
         # 设置视图的 parent_field_id
@@ -837,11 +838,11 @@ def auto_create_parent_field(view_id) -> tuple:
             'field_id': str(parent_field.id),
             'field_name': parent_field.name,
             'parent_field_id': str(view.parent_field_id)
-        }, '父记录字段创建成功')
+        }, 'parent_record_field_created_successfully')
 
     except Exception as e:
         db.session.rollback()
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 自动创建父记录字段失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('自动创建父记录字段失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_auto_create_parent_record_field_try_again_later', 500, error='internal_server_error', request_id=request_id)

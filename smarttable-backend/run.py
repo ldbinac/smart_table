@@ -141,6 +141,65 @@ def init_db():
         print('Creating database tables...')
         db.create_all()
         print('Database tables created successfully!')
+        # 兜底自修复：db.create_all 只创建缺失的表、不会补齐既有表缺失的可空列，
+        # 因此这里也补齐一次，确保 dashboard_shares.title 等列存在。
+        repair_schema_columns()
+
+
+def repair_schema_columns():
+    """
+    数据库结构自修复（幂等，可重复执行）
+
+    问题背景：
+    旧版本通过 db.create_all() 创建数据库，未记录 alembic_version。
+    这类库的 schema 可能早于引入 Alembic 迁移之前的状态，导致部分迁移脚本
+    （如 20260718_0014 为 dashboard_shares 增加 title/description 字段）
+    在「标记基线 -> upgrade」流程中被跳过，从而出现部分机器上
+    dashboard_shares 表缺失 title 字段、删除仪表盘时因级联查询该列失败的问题。
+
+    本函数遍历所有模型，确保模型中定义的可空列在数据库表中均存在；
+    若缺失则补齐。已存在的列不会重复添加，因此对正常数据库是空操作。
+    """
+    from sqlalchemy import inspect as sa_inspect, text
+
+    bind = db.engine
+    dialect = bind.dialect
+    preparer = dialect.identifier_preparer
+    inspector = sa_inspect(bind)
+    existing_tables = set(inspector.get_table_names())
+
+    repaired = 0
+    for mapper in db.Model.registry.mappers:
+        model = mapper.class_
+        table = getattr(model, '__table__', None)
+        if table is None or table.name not in existing_tables:
+            continue
+        try:
+            existing_cols = {c['name'] for c in inspector.get_columns(table.name)}
+        except Exception as e:
+            print(f'[Repair] ⚠️ 读取表 {table.name} 列信息失败，跳过: {e}')
+            continue
+
+        for col in table.columns:
+            # 仅补齐缺失的「可空」列，避免对非空表添加 NOT NULL 列导致失败
+            if col.name in existing_cols or not col.nullable:
+                continue
+            try:
+                col_type = col.type.compile(dialect=dialect)
+                table_name = preparer.quote(table.name)
+                col_name = preparer.quote(col.name)
+                sql = text(
+                    f'ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}'
+                )
+                with bind.begin() as conn:
+                    conn.execute(sql)
+                repaired += 1
+                print(f'[Repair] ✅ 已为表 {table.name} 补齐缺失列: {col.name}')
+            except Exception as e:
+                print(f'[Repair] ⚠️ 为表 {table.name} 补齐列 {col.name} 失败: {e}')
+
+    if repaired:
+        print(f'[Repair] 共补齐 {repaired} 个缺失列')
 
 
 def run_migrations():
@@ -198,9 +257,18 @@ def run_migrations():
                     print(f'[Migrate] ✅ 已标记当前版本为 {BASELINE_REVISION}')
 
             upgrade(directory=str(migrations_dir))
+            # 自修复：补齐因历史迁移被跳过而缺失的模型列（如 dashboard_shares.title）
+            repair_schema_columns()
             print('[Migrate] ✅ 数据库迁移完成')
         except Exception as e:
             print(f'[Migrate] ❌ 数据库迁移失败: {e}')
+            # 即使迁移失败，也尝试补齐模型列（应对旧库结构漂移），
+            # 避免 dashboard_shares 等表缺 title 列导致删除仪表盘失败。
+            # 修复失败不影响后续流程，交由 entrypoint 回退到 init-db。
+            try:
+                repair_schema_columns()
+            except Exception as repair_err:
+                print(f'[Migrate] ⚠️ 自修复也失败（可忽略，将回退到 init-db）: {repair_err}')
             raise
 
 

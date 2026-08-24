@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import current_app
 
+from app.i18n import translate
 from app.extensions import db
 from app.models.webhook import WebhookConfig
 from app.models.record import Record
@@ -476,20 +477,20 @@ class WorkflowExecutionEngine:
                 return self._execute_webhook_node(instance, node)
             if action_type == 'find_records':
                 return self._execute_find_records(instance, node)
-            raise ValueError(f'未知动作类型: {action_type}')
+            raise ValueError(translate('unknown_action_type', action_type))
 
-        raise ValueError(f'未知节点类型: {node_type}')
+        raise ValueError(translate('unknown_node_type', node_type))
 
     def _execute_update_record(self, instance: WorkflowInstance, node: WorkflowNode) -> Dict[str, Any]:
         """执行更新记录动作"""
         config = node.config or {}
         record_id = config.get('record_id') or instance.trigger_record_id
         if not record_id:
-            raise ValueError('缺少目标记录 ID')
+            raise ValueError('missing_target_record_id')
 
         record = RecordService.get_record_by_id(str(record_id))
         if not record:
-            raise ValueError(f'记录不存在: {record_id}')
+            raise ValueError(translate('record_not_found', record_id))
 
         # 前端存储为 updates 数组，需转为字段ID→值的字典
         updates = config.get('updates', [])
@@ -510,7 +511,7 @@ class WorkflowExecutionEngine:
         config = node.config or {}
         table_id = config.get('target_table_id')
         if not table_id:
-            raise ValueError('缺少目标表格 ID')
+            raise ValueError('missing_target_table_id')
 
         # 前端存储为 field_mappings 数组，需转为字段ID→值的字典
         field_mappings = config.get('field_mappings', [])
@@ -536,11 +537,11 @@ class WorkflowExecutionEngine:
 
         target_table_id = config.get('target_table_id')
         if not target_table_id:
-            raise ValueError('缺少目标表格 ID')
+            raise ValueError('missing_target_table_id')
 
         table = Table.query.get(self._to_uuid(target_table_id))
         if not table:
-            raise ValueError(f'目标表格不存在: {target_table_id}')
+            raise ValueError(translate('target_table_not_found', target_table_id))
 
         conditions = config.get('conditions', [])
         conjunction = config.get('conjunction', 'and')
@@ -705,7 +706,7 @@ class WorkflowExecutionEngine:
                 )
                 last_result = result
                 if not result['success']:
-                    raise ValueError(f'通知发送失败: {result.get("error")}')
+                    raise ValueError(translate('notification_send_failed', result.get('error')))
             return {
                 'status': 'sent',
                 'to_email': to_email,
@@ -715,7 +716,7 @@ class WorkflowExecutionEngine:
         # template 模式
         template_key = config.get('template_key')
         if not template_key:
-            raise ValueError('缺少邮件模板 key')
+            raise ValueError('missing_email_template_key')
 
         to_name = self.render_template(config.get('to_name', ''), context)
         template_data = {
@@ -807,7 +808,7 @@ class WorkflowExecutionEngine:
             webhook_config = WebhookConfig.query.get(self._to_uuid(webhook_config_id))
             if not webhook_config:
                 raise ValueError(
-                    f'Webhook 配置不存在: {webhook_config_id}（节点: {node.id}, 工作流实例: {instance.id}）'
+                    translate('webhook_config_not_found_node', webhook_config_id, node.id, instance.id)
                 )
         else:
             # 内联模式：从节点配置构建临时 WebhookConfig（不持久化到数据库，
@@ -815,7 +816,7 @@ class WorkflowExecutionEngine:
             inline_webhook = config.get('inline_webhook')
             if not inline_webhook or not inline_webhook.get('url'):
                 raise ValueError(
-                    f'缺少 Webhook 配置 ID 或内联配置（节点: {node.id}, 工作流实例: {instance.id}）'
+                    translate('webhook_config_id_missing', node.id, instance.id)
                 )
             webhook_config = WebhookConfig(
                 base_id=instance.workflow.base_id if instance.workflow else None,
@@ -1008,7 +1009,7 @@ class WorkflowExecutionEngine:
             db.session.commit()
 
             if empty_result_action == 'error':
-                raise ValueError('循环数据源为空')
+                raise ValueError('loop_data_source_empty')
             # skip 模式：跳过循环，继续主链
             return {'next_nodes': node.next_nodes or []}
 

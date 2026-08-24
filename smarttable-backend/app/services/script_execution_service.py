@@ -14,6 +14,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict
+from app.i18n import translate
 
 # 结果最大体积 1MB
 MAX_RESULT_SIZE = 1024 * 1024
@@ -66,7 +67,7 @@ class ScriptExecutionService:
             else:
                 result = {
                     'status': 'error',
-                    'error': f'不支持的脚本语言: {language}（仅支持 python）',
+                    'error': translate('unsupported_script_language', language),
                     'result': None,
                     'branch': None,
                     'stdout': '',
@@ -75,7 +76,7 @@ class ScriptExecutionService:
             duration_ms = int((time.time() - start_time) * 1000)
             return {
                 'status': 'error',
-                'error': f'脚本执行超时（{timeout}秒）',
+                'error': translate('script_execution_timeout', timeout),
                 'result': None,
                 'branch': None,
                 'duration_ms': duration_ms,
@@ -103,7 +104,7 @@ class ScriptExecutionService:
                 if len(serialized.encode('utf-8')) > MAX_RESULT_SIZE:
                     return {
                         'status': 'error',
-                        'error': '脚本输出超过 1MB 限制',
+                        'error': 'script_output_exceeds_mb_limit',
                         'result': None,
                         'branch': None,
                         'duration_ms': duration_ms,
@@ -112,7 +113,7 @@ class ScriptExecutionService:
             except (TypeError, ValueError) as e:
                 return {
                     'status': 'error',
-                    'error': f'脚本输出无法 JSON 序列化: {e}',
+                    'error': translate('script_output_not_json_serializable', e),
                     'result': None,
                     'branch': None,
                     'duration_ms': duration_ms,
@@ -229,7 +230,7 @@ class ScriptExecutionService:
         except json.JSONDecodeError:
             return {
                 'status': 'error',
-                'error': '脚本 runner 输出解析失败',
+                'error': 'failed_parse_script_runner_output',
                 'result': None,
                 'branch': None,
                 'stdout': stdout,
@@ -238,7 +239,7 @@ class ScriptExecutionService:
         if not isinstance(result, dict):
             return {
                 'status': 'error',
-                'error': '脚本 runner 输出格式异常',
+                'error': 'script_runner_output_format_abnormal',
                 'result': None,
                 'branch': None,
                 'stdout': stdout,

@@ -1,4 +1,5 @@
 import { batchCreateRecords } from "@/services/api/recordApiService";
+import { t } from "@/i18n";
 
 export interface BatchConfig {
   batchSize: number;
@@ -259,7 +260,7 @@ export class BatchImportController {
           break;
         } catch (error: unknown) {
           const errorMessage =
-            error instanceof Error ? error.message : "未知错误";
+            error instanceof Error ? error.message : t("common.unknownError");
           lastError = errorMessage;
 
           if (error instanceof Error && error.message.includes("429")) {
@@ -288,7 +289,7 @@ export class BatchImportController {
         errors.push({
           batchIndex,
           rowRange: { start: rowStart, end: rowEnd },
-          message: "请求被取消",
+          message: t('common.importCancelled'),
           retryCount: 0,
         });
       }

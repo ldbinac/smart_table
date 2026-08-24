@@ -1,4 +1,7 @@
 import type { FieldTypeValue, CellValue, ViewTypeValue, ViewConfig, FieldOptions } from '../types';
+import type { SupportedLocale } from "@/i18n/types";
+import { DEFAULT_LOCALE } from "@/i18n/types";
+import { enTableTemplates } from "./tableTemplates.en";
 
 export interface TemplateField {
   id: string;
@@ -1245,7 +1248,7 @@ const okrTemplate: TableTemplate = {
   ]
 };
 
-export const tableTemplates: TableTemplate[] = [
+export const zhTableTemplates: TableTemplate[] = [
   projectManagementTemplate,
   taskTrackingTemplate,
   customerManagementTemplate,
@@ -1262,7 +1265,24 @@ export const tableTemplates: TableTemplate[] = [
   assetManagementTemplate,
   bugTrackingTemplate,
   okrTemplate,
-  fullFieldTypeTestTemplate
+  fullFieldTypeTestTemplate,
 ];
+
+/** @deprecated 向后兼容别名，新建流程请使用 getTableTemplates(lang) 以适配国际化 */
+export const tableTemplates = zhTableTemplates;
+
+/**
+ * 根据当前语言返回对应的模板集合。
+ * 中文（zh-CN）返回中文模板，英文（en-US）返回英文模板，其余回退到默认语言。
+ *
+ * 采用「两套完整模板」方案而非逐字段 i18n 配置，便于后续维护：
+ * 中文模板见 zhTableTemplates，英文模板见 tableTemplates.en.ts 的 enTableTemplates。
+ */
+export function getTableTemplates(
+  lang: SupportedLocale = DEFAULT_LOCALE,
+): TableTemplate[] {
+  if (lang === "en-US") return enTableTemplates;
+  return zhTableTemplates;
+}
 
 // 类型已在文件顶部导出，无需重复导出

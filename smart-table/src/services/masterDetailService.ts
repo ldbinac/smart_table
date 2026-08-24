@@ -5,6 +5,7 @@
 import { apiClient } from "@/api/client";
 import { FieldType } from "@/types/fields";
 import { fieldService } from "@/db/services/fieldService";
+import { t } from "@/i18n";
 import { formatDate, formatDateTime } from "@/utils/timezone";
 
 // ==================== 类型定义 ====================
@@ -221,8 +222,8 @@ export function buildSubTableColumns(
     else if (fieldType === FieldType.CHECKBOX) {
       column.fieldFormat = (record: any) => {
         const value = record?.[field.id];
-        if (value === true) return "是";
-        if (value === false) return "否";
+        if (value === true) return t('common.yes');
+        if (value === false) return t('common.no');
         if (value === null || value === undefined || value === "") return "";
         return String(value);
       };
@@ -232,7 +233,7 @@ export function buildSubTableColumns(
       column.fieldFormat = (record: any) => {
         const rawIds = record?.[field.id];
         if (Array.isArray(rawIds) && rawIds.length > 0) {
-          return `关联 ${rawIds.length} 条`;
+          return t('common.linkedCount', [rawIds.length]);
         }
         return "";
       };

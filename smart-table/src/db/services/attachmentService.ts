@@ -33,6 +33,7 @@ export interface UploadContext {
   fieldId: string;
   tableId: string;
   baseId: string;
+  formShareToken?: string;
 }
 
 /**
@@ -100,7 +101,8 @@ export class AttachmentService {
       {
         table_id: context.tableId,
         record_id: context.recordId,
-        field_id: context.fieldId
+        field_id: context.fieldId,
+        form_share_token: context.formShareToken
       }
     );
 

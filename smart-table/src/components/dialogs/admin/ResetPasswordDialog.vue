@@ -2,28 +2,28 @@
   <el-dialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="重置密码"
+    :title="t('user.resetPasswordTitle')"
     width="500px"
     :close-on-click-modal="false"
   >
     <div class="reset-password-dialog">
       <el-alert
-        title="警告"
+        :title="t('user.resetWarningTitle')"
         type="warning"
         :closable="false"
         style="margin-bottom: 20px"
       >
-        <p>重置密码后，用户需要使用新密码登录。</p>
-        <p>建议要求用户在首次登录时修改密码。</p>
+        <p>{{ t('user.resetWarningText') }}</p>
+        <p>{{ t('user.resetWarningHint') }}</p>
       </el-alert>
 
       <el-form label-width="120px" label-position="left">
-        <el-form-item label="临时密码">
+        <el-form-item :label="t('user.tempPassword')">
           <div class="password-input-wrapper">
             <el-input
               v-model="temporaryPassword"
               type="password"
-              placeholder="生成临时密码"
+              :placeholder="t('user.tempPasswordPlaceholder')"
               show-password
               readonly
               style="width: 100%"
@@ -34,26 +34,26 @@
               @click="generatePassword"
               style="margin-left: 8px"
             >
-              生成密码
+              {{ t('user.generatePassword') }}
             </el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="自定义密码">
+        <el-form-item :label="t('user.customPassword')">
           <div class="password-input-wrapper">
             <el-input
               v-model="customPassword"
               type="password"
-              placeholder="输入自定义临时密码（可选）"
+              :placeholder="t('user.customPasswordPlaceholder')"
               show-password
               maxlength="50"
               style="width: 100%"
             />
           </div>
-          <div class="form-hint">留空则使用上方生成的临时密码</div>
+          <div class="form-hint">{{ t('user.leaveEmptyHint') }}</div>
         </el-form-item>
 
-        <el-form-item label="复制密码">
+        <el-form-item :label="t('user.copyPassword')">
           <el-button
             type="info"
             size="small"
@@ -61,20 +61,20 @@
             :disabled="!effectivePassword"
           >
             <el-icon><CopyDocument /></el-icon>
-            复制密码到剪贴板
+            {{ t('user.copyPassword') }}
           </el-button>
         </el-form-item>
       </el-form>
     </div>
 
     <template #footer>
-      <el-button @click="handleCancel">取消</el-button>
+      <el-button @click="handleCancel">{{ t('user.cancel') }}</el-button>
       <el-button
         type="primary"
         :loading="submitting"
         @click="handleSubmit"
       >
-        确定
+        {{ t('user.confirm') }}
       </el-button>
     </template>
   </el-dialog>
@@ -85,6 +85,7 @@ import { ref, computed, watch } from 'vue'
 import { CopyDocument } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAdminStore } from '@/stores/adminStore'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   visible: boolean
@@ -96,6 +97,7 @@ const emit = defineEmits<{
   'success': []
 }>()
 
+const { t } = useI18n()
 const adminStore = useAdminStore()
 
 const temporaryPassword = ref('')
@@ -128,20 +130,20 @@ const generatePassword = () => {
     password += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   temporaryPassword.value = password
-  ElMessage.success('密码已生成')
+  ElMessage.success(t('user.passwordGenerated'))
 }
 
 const copyPassword = async () => {
   if (!effectivePassword) {
-    ElMessage.warning('请先生成或输入密码')
+    ElMessage.warning(t('user.copyEmptyWarning'))
     return
   }
 
   try {
     await navigator.clipboard.writeText(effectivePassword.value)
-    ElMessage.success('密码已复制到剪贴板')
+    ElMessage.success(t('user.copySuccess'))
   } catch (error) {
-    ElMessage.error('复制失败，请手动复制')
+    ElMessage.error(t('user.copyFailed'))
   }
 }
 
@@ -151,19 +153,19 @@ const handleCancel = () => {
 
 const handleSubmit = async () => {
   if (!props.userId) {
-    ElMessage.error('用户 ID 不能为空')
+    ElMessage.error(t('user.userIdEmptyError'))
     return
   }
 
   if (!effectivePassword) {
-    ElMessage.warning('请生成或输入临时密码')
+    ElMessage.warning(t('user.tempPasswordEmptyWarning'))
     return
   }
 
   submitting.value = true
   try {
     await adminStore.resetUserPassword(props.userId, effectivePassword.value)
-    ElMessage.success('密码重置成功')
+    ElMessage.success(t('user.resetSuccess'))
     emit('success')
   } catch (error) {
     console.error('密码重置失败:', error)

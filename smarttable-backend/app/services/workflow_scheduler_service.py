@@ -13,6 +13,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app.i18n import translate
+
 log = logging.getLogger(__name__)
 
 
@@ -110,7 +112,7 @@ def _build_trigger(schedule: dict, start_dt: datetime):
     elif repeat_type == 'weekdays':
         cron_kwargs['day_of_week'] = 'mon-fri'
     else:
-        raise ValueError(f'不支持的 repeat_type: {repeat_type}')
+        raise ValueError(translate('repeat_type_unsupported', repeat_type))
 
     if end_date:
         cron_kwargs['end_date'] = end_date

@@ -2,13 +2,13 @@
   <div class="forbidden-page">
     <div class="content">
       <h1 class="error-code">403</h1>
-      <h2 class="error-title">禁止访问</h2>
+      <h2 class="error-title">{{ t('common.forbiddenTitle') }}</h2>
       <p class="error-message">
-        {{ message || '您没有权限访问此页面' }}
+        {{ message || t('common.forbiddenAccess') }}
       </p>
       <div class="actions">
-        <el-button type="primary" @click="goHome">返回首页</el-button>
-        <el-button @click="goBack">返回上一页</el-button>
+        <el-button type="primary" @click="goHome">{{ t('common.backHome') }}</el-button>
+        <el-button @click="goBack">{{ t('common.backPrevious') }}</el-button>
       </div>
     </div>
   </div>
@@ -16,9 +16,11 @@
 
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
 const message = route.query.message as string || ''
 

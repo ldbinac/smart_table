@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { getToken, getTokenExpiry, isTokenExpired, parseToken } from '@/utils/auth/token'
 import { message } from '@/utils/message'
 import devLog from '@/utils/logger'
+import { t } from '@/i18n'
 
 /**
  * 续期配置
@@ -216,7 +217,7 @@ class TokenAutoRefreshService {
         // 通知其他标签页
         this.notifyOtherTabs()
       } else {
-        throw new Error('续期失败')
+        throw new Error(t('common.tokenRefreshFailed'))
       }
     } catch (error) {
       devLog.error('[TokenRefresh] 续期失败:', error)
@@ -238,7 +239,7 @@ class TokenAutoRefreshService {
     // 连续失败超过阈值,强制登出
     if (this.refreshFailureCount >= REFRESH_CONFIG.MAX_RETRY_COUNT) {
       devLog.error('[TokenRefresh] 续期连续失败,强制登出')
-      message.error('登录已过期,请重新登录')
+      message.error(t('common.loginExpired'))
 
       const authStore = useAuthStore()
       authStore.logout()
@@ -247,7 +248,7 @@ class TokenAutoRefreshService {
     }
 
     // 显示友好提示
-    message.warning('网络连接异常,正在重试...')
+    message.warning(t('common.networkRetry'))
 
     // 延迟重试
     setTimeout(() => {

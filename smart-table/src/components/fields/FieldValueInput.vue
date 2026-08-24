@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElInput,
   ElInputNumber,
   ElSelect,
   ElOption,
-  ElDatePicker,
   ElSwitch,
   ElRate,
   ElSlider,
 } from "element-plus";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types/fields";
-import dayjs from "dayjs";
+import DateInput from "@/components/fields/DateInput.vue";
+import type { CellValue } from "@/types";
+
+const { t } = useI18n();
 
 interface Props {
   field: FieldEntity;
@@ -43,26 +46,8 @@ const maxLength = computed(() => {
   return (props.field.options?.maxLength as number) || undefined;
 });
 
-const isDateTime = computed(() => props.field.type === FieldType.DATE_TIME);
-
-const dateFormat = computed(() =>
-  isDateTime.value ? "YYYY-MM-DD HH:mm:ss" : "YYYY-MM-DD",
-);
-
 function update(value: unknown) {
   emit("update:modelValue", value);
-}
-
-function handleDateChange(val: Date | null) {
-  if (!val) {
-    update(null);
-    return;
-  }
-  if (isDateTime.value) {
-    update(dayjs(val).toISOString());
-  } else {
-    update(dayjs(val).format("YYYY-MM-DD"));
-  }
 }
 
 function getTextValue() {
@@ -91,12 +76,6 @@ function getMultiSelectValue() {
     return props.modelValue.split(",");
   }
   return [];
-}
-
-function getDateValue() {
-  if (!props.modelValue) return null;
-  const date = dayjs(props.modelValue as string);
-  return date.isValid() ? date.toDate() : null;
 }
 
 function getCheckboxValue() {
@@ -141,6 +120,10 @@ function getComponentType() {
       return "text";
   }
 }
+
+function isViewMode(_field: FieldEntity): boolean {
+  return false
+}
 </script>
 
 <template>
@@ -149,7 +132,7 @@ function getComponentType() {
     <template v-if="getComponentType() === 'text'">
       <ElInput
         :model-value="getTextValue()"
-        :placeholder="placeholder || `请输入${field.name}`"
+        :placeholder="placeholder || t('field.inputFieldName', { name: field.name })"
         :maxlength="maxLength"
         :disabled="disabled"
         class="input-control"
@@ -163,7 +146,7 @@ function getComponentType() {
         type="textarea"
         :rows="2"
         resize="none"
-        :placeholder="placeholder || `请输入${field.name}`"
+        :placeholder="placeholder || t('field.inputFieldName', { name: field.name })"
         :maxlength="maxLength"
         :disabled="disabled"
         class="input-control"
@@ -175,7 +158,7 @@ function getComponentType() {
       <ElInputNumber
         :model-value="getNumberValue()"
         :precision="precision"
-        :placeholder="placeholder || `请输入${field.name}`"
+        :placeholder="placeholder || t('field.inputFieldName', { name: field.name })"
         :disabled="disabled"
         class="input-control"
         style="width: 100%"
@@ -186,7 +169,7 @@ function getComponentType() {
     <template v-else-if="getComponentType() === 'single_select'">
       <ElSelect
         :model-value="getSingleSelectValue()"
-        :placeholder="placeholder || `请选择${field.name}`"
+        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
         :disabled="disabled"
         class="input-control"
         clearable
@@ -210,7 +193,7 @@ function getComponentType() {
     <template v-else-if="getComponentType() === 'multi_select'">
       <ElSelect
         :model-value="getMultiSelectValue()"
-        :placeholder="placeholder || `请选择${field.name}`"
+        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
         :disabled="disabled"
         class="input-control"
         multiple
@@ -233,15 +216,14 @@ function getComponentType() {
 
     <!-- 日期 / 日期时间 -->
     <template v-else-if="getComponentType() === 'date'">
-      <ElDatePicker
-        :model-value="getDateValue()"
-        :type="isDateTime ? 'datetime' : 'date'"
-        :placeholder="placeholder || `请选择${field.name}`"
-        :format="dateFormat"
-        :disabled="disabled"
+      <DateInput
+        :field="field"
+        :model-value="props.modelValue as CellValue"
+        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
+        :disabled="disabled || isViewMode(field)"
         class="input-control"
         style="width: 100%"
-        @update:model-value="handleDateChange" />
+        @update:model-value="update" />
     </template>
 
     <!-- 复选框 -->

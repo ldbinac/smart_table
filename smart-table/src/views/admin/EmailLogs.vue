@@ -1,21 +1,21 @@
 <template>
   <div class="email-logs-page">
     <div class="page-header">
-      <h1 class="page-title">邮件发送日志</h1>
-      <p class="page-description">查看系统邮件发送记录和状态</p>
+      <h1 class="page-title">{{ t('admin.emailLogs.title') }}</h1>
+      <p class="page-description">{{ t('admin.emailLogs.desc') }}</p>
     </div>
 
     <div class="page-content">
       <el-card>
         <!-- 筛选栏 -->
         <div class="filter-bar">
-          <el-select v-model="filters.status" placeholder="发送状态" clearable style="width: 120px">
-            <el-option label="待发送" value="pending" />
-            <el-option label="已发送" value="sent" />
-            <el-option label="发送失败" value="failed" />
-            <el-option label="重试中" value="retrying" />
+          <el-select v-model="filters.status" :placeholder="t('admin.emailLogs.filterStatus')" clearable style="width: 120px">
+            <el-option :label="t('admin.statusPending')" value="pending" />
+            <el-option :label="t('admin.statusSent')" value="sent" />
+            <el-option :label="t('admin.statusFailed')" value="failed" />
+            <el-option :label="t('admin.statusRetrying')" value="retrying" />
           </el-select>
-          <el-select v-model="filters.template_key" placeholder="邮件类型" clearable style="width: 150px">
+          <el-select v-model="filters.template_key" :placeholder="t('admin.emailLogs.filterTemplate')" clearable style="width: 150px">
             <el-option
               v-for="template in templates"
               :key="template.template_key"
@@ -25,53 +25,53 @@
           </el-select>
           <el-input
             v-model="filters.recipient_email"
-            placeholder="收件人邮箱"
+            :placeholder="t('admin.emailLogs.filterRecipient')"
             clearable
             style="width: 200px"
           />
           <el-date-picker
             v-model="filters.date_range"
             type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            :range-separator="t('admin.dateRangeSeparator')"
+            :start-placeholder="t('admin.startDate')"
+            :end-placeholder="t('admin.endDate')"
             value-format="YYYY-MM-DD"
             style="width: 260px"
           />
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button type="primary" @click="handleSearch">{{ t('admin.search') }}</el-button>
+          <el-button @click="handleReset">{{ t('admin.reset') }}</el-button>
         </div>
 
         <!-- 数据表格 -->
         <el-table v-loading="loading" :data="logs" stripe style="width: 100%; margin-top: 16px">
-          <el-table-column prop="recipient_email" label="收件人" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="template_key" label="邮件类型" min-width="120">
+          <el-table-column prop="recipient_email" :label="t('admin.emailLogs.colRecipient')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="template_key" :label="t('admin.emailLogs.colTemplate')" min-width="120">
             <template #default="{ row }">
               {{ getTemplateName(row.template_key) }}
             </template>
           </el-table-column>
-          <el-table-column prop="subject" label="主题" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="subject" :label="t('admin.emailLogs.colSubject')" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="status" :label="t('admin.emailLogs.colStatus')" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)">
                 {{ getStatusText(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="retry_count" label="重试次数" width="90" align="center" />
-          <el-table-column prop="sent_at" label="发送时间" min-width="150">
+          <el-table-column prop="retry_count" :label="t('admin.emailLogs.colRetryCount')" width="90" align="center" />
+          <el-table-column prop="sent_at" :label="t('admin.emailLogs.colCreatedAt')" min-width="150">
             <template #default="{ row }">
               {{ formatDate(row.sent_at) }}
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" min-width="150">
+          <el-table-column prop="created_at" :label="t('admin.emailLogs.colCreatedAt')" min-width="150">
             <template #default="{ row }">
               {{ formatDate(row.created_at) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column :label="t('admin.emailLogs.colActions')" width="100" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="handleViewDetail(row as EmailLog)">详情</el-button>
+              <el-button link type="primary" @click="handleViewDetail(row as EmailLog)">{{ t('admin.detail') }}</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -92,21 +92,21 @@
     </div>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="邮件详情" width="700px">
+    <el-dialog v-model="detailDialogVisible" :title="t('admin.emailLogs.detailTitle')" width="700px">
       <el-descriptions :column="1" border>
-        <el-descriptions-item label="收件人">{{ currentLog?.recipient_email }}</el-descriptions-item>
-        <el-descriptions-item label="收件人名称">{{ currentLog?.recipient_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="邮件类型">{{ getTemplateName(currentLog?.template_key) }}</el-descriptions-item>
-        <el-descriptions-item label="邮件主题">{{ currentLog?.subject }}</el-descriptions-item>
-        <el-descriptions-item label="发送状态">
+        <el-descriptions-item :label="t('admin.emailLogs.labelRecipient')">{{ currentLog?.recipient_email }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.emailLogs.labelRecipientName')">{{ currentLog?.recipient_name || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.emailLogs.labelTemplateType')">{{ getTemplateName(currentLog?.template_key) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.emailLogs.labelSubject')">{{ currentLog?.subject }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.emailLogs.labelStatus')">
           <el-tag :type="getStatusType(currentLog?.status)">
             {{ getStatusText(currentLog?.status) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="重试次数">{{ currentLog?.retry_count || 0 }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatDate(currentLog?.created_at || null) }}</el-descriptions-item>
-        <el-descriptions-item label="发送时间">{{ formatDate(currentLog?.sent_at || null) || '-' }}</el-descriptions-item>
-        <el-descriptions-item v-if="currentLog?.error_message" label="错误信息">
+        <el-descriptions-item :label="t('admin.emailLogs.labelRetryCount')">{{ currentLog?.retry_count || 0 }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.emailLogs.labelSentAt')">{{ formatDate(currentLog?.created_at || null) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('admin.emailLogs.labelSentAt')">{{ formatDate(currentLog?.sent_at || null) || '-' }}</el-descriptions-item>
+        <el-descriptions-item v-if="currentLog?.error_message" :label="t('admin.emailLogs.errorInfo')">
           <span style="color: #f56c6c">{{ currentLog.error_message }}</span>
         </el-descriptions-item>
       </el-descriptions>
@@ -116,8 +116,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { emailApiService } from '@/services/api/emailApiService'
+
+const { t } = useI18n()
 
 interface EmailLog {
   id: string
@@ -175,10 +178,10 @@ const getStatusType = (status: string | undefined) => {
 
 const getStatusText = (status: string | undefined) => {
   const textMap: Record<string, string> = {
-    pending: '待发送',
-    sent: '已发送',
-    failed: '失败',
-    retrying: '重试中'
+    pending: t('admin.statusPending'),
+    sent: t('admin.statusSent'),
+    failed: t('admin.statusFailed'),
+    retrying: t('admin.statusRetrying')
   }
   return textMap[status || ''] || status
 }
@@ -220,7 +223,7 @@ const fetchLogs = async () => {
     pagination.total = response.meta?.pagination?.total || 0
   } catch (error) {
     console.error('获取邮件日志失败:', error)
-    ElMessage.error('获取邮件日志失败')
+    ElMessage.error(t('admin.emailLogs.fetchFailed'))
   } finally {
     loading.value = false
   }

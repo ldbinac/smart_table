@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onMounted, computed, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { ElConfigProvider } from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import enUs from 'element-plus/es/locale/lang/en'
 import { useAuthStore } from '@/stores/auth/authStore'
 import MainLayout from '@/layouts/MainLayout.vue'
 import BlankLayout from '@/layouts/BlankLayout.vue'
@@ -8,12 +11,24 @@ import { useThemeStore } from '@/stores/theme'
 import { useKeyboardShortcutsStore } from '@/stores/keyboardShortcuts'
 import { useAdminStore } from '@/stores/adminStore'
 import { onLogoutEvent } from '@/utils/auth/token'
+import { getI18nLanguage } from '@/i18n'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardShortcutsStore()
 const adminStore = useAdminStore()
+
+// Element Plus locale 映射：随界面语言切换同步
+const elementLocale = computed(() => {
+  const lang = getI18nLanguage()
+  switch (lang) {
+    case 'en-US':
+      return enUs
+    default:
+      return zhCn
+  }
+})
 
 // 监听登出事件，实现多标签页同步
 let removeLogoutListener: (() => void) | null = null
@@ -80,13 +95,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <component :is="layoutComponent">
-    <router-view v-slot="{ Component, route }">
-      <Transition name="slide-fade" mode="out-in">
-        <component :is="Component" :key="route.path" />
-      </Transition>
-    </router-view>
-  </component>
+  <el-config-provider :locale="elementLocale">
+    <component :is="layoutComponent">
+      <router-view v-slot="{ Component, route }">
+        <Transition name="slide-fade" mode="out-in">
+          <component :is="Component" :key="route.path" />
+        </Transition>
+      </router-view>
+    </component>
+  </el-config-provider>
 </template>
 
 <style lang="scss">

@@ -24,6 +24,7 @@ from app.services.email_sender_service import EmailSenderService
 from app.services.email_template_service import EmailTemplateService
 from app.services.notification_service import NotificationService
 from app.services.security_config_service import SecurityConfigService
+from app.i18n import translate, get_current_language
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class AuthService:
         # 检查邮箱是否已存在
         existing_user = User.query.filter_by(email=email.lower()).first()
         if existing_user:
-            return None, '该邮箱已被注册'
+            return None, 'email_already_registered'
         
         # 验证密码强度
         valid, error_msg = SecurityConfigService.validate_password_strength(password)
@@ -89,31 +90,82 @@ class AuthService:
             db.session.add(user)
             db.session.commit()
             
-            # 生成验证令牌
-            verification_token = user.generate_verification_token()
+            # 生成验证令牌（写入用户记录，供 /verify-email 路由校验）
+            user.generate_verification_token()
             
             # 发送验证通知（站内信先于邮件，邮件不可用时站内信仍独立工作）
+            # 标题与内容按注册请求的语言翻译，实现站内信与邮件的国际化
             try:
-                verification_link = f"{EmailConfigService.get_frontend_url()}/verify-email?token={verification_token}"
+                message_data = AuthService._build_registration_message(user)
                 NotificationService.send_notification(
                     recipient_email=user.email,
                     recipient_user_id=user.id,
                     template_key='user_registration',
-                    template_data={
-                        'user_name': user.name,
-                        'verification_link': verification_link
-                    },
-                    source='auth'
+                    source='auth',
+                    **message_data
                 )
             except Exception as e:
                 # 通知发送失败不影响注册流程，记录错误即可
                 current_app.logger.error(f'发送验证邮件失败: {str(e)}')
             
             return user, None
-            
+
         except Exception as e:
             db.session.rollback()
-            return None, '注册失败，请稍后重试'
+            return None, 'registration_failed_try_again_later'
+
+    @staticmethod
+    def _build_registration_message(user: User) -> Dict[str, Any]:
+        """
+        构建注册欢迎通知/邮件内容（按当前请求语言翻译）。
+
+        Returns:
+            可直接展开传给 send_notification 的参数字典：
+            - title: 标题（邮件主题）
+            - content: HTML 内容
+            - content_text: 纯文本内容
+            - template_data: 模板变量
+        """
+        lang = get_current_language()
+        login_url = EmailConfigService.get_frontend_url()
+        registration_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+        welcome_title = translate('notification_register_title', lang=lang)
+        welcome_content_text = translate(
+            'notification_register_content',
+            lang=lang,
+            user_name=user.name,
+            user_email=user.email,
+            registration_time=registration_time,
+        )
+        login_btn = translate('notification_register_login_btn', lang=lang)
+        auto_notice = translate('notification_register_auto_notice', lang=lang)
+        welcome_content_html = (
+            '<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; '
+            'max-width: 600px; margin: 0 auto; padding: 20px;">'
+            f'<div style="background: #6366F1; color: white; padding: 20px; text-align: center; border-radius: 4px;">'
+            f'<h1 style="margin: 0;">{welcome_title}</h1></div>'
+            f'<div style="background: #f9f9f9; padding: 20px; margin: 20px 0; border-radius: 4px;">'
+            f'<p>{welcome_content_text}</p>'
+            f'<p style="text-align: center; margin: 30px 0;">'
+            f'<a href="{login_url}" style="display: inline-block; background: #6366F1; color: white; '
+            f'padding: 12px 24px; text-decoration: none; border-radius: 4px;">{login_btn}</a></p></div>'
+            f'<div style="text-align: center; color: #666; font-size: 12px;">'
+            f'<p>{auto_notice}</p>'
+            f'<p>&copy; {datetime.now().year} SmartTable. All rights reserved.</p></div></div>'
+        )
+
+        return {
+            'title': welcome_title,
+            'content': welcome_content_html,
+            'content_text': welcome_content_text,
+            'template_data': {
+                'user_name': user.name,
+                'user_email': user.email,
+                'registration_time': registration_time,
+                'login_url': login_url,
+            },
+        }
     
     @staticmethod
     def authenticate_user(email: str, password: str) -> Tuple[Optional[User], Optional[str]]:
@@ -130,13 +182,13 @@ class AuthService:
         user = User.query.filter_by(email=email.lower()).first()
         
         if not user:
-            return None, '邮箱或密码错误'
+            return None, 'invalid_email_password'
         
         if not user.check_password(password):
-            return None, '邮箱或密码错误'
+            return None, 'invalid_email_password'
         
         if not user.is_active():
-            return None, '账号已被禁用，请联系管理员'
+            return None, 'account_disabled_contact_administrator'
         
         return user, None
     
@@ -194,10 +246,10 @@ class AuthService:
         user = User.query.get(user_id)
         
         if not user:
-            return None, '用户不存在'
+            return None, 'user_does_not_exist'
         
         if not user.is_active():
-            return None, '用户账号已被禁用'
+            return None, 'user_account_disabled'
         
         # 获取可配置的过期时间
         access_token_expires = AuthService.get_access_token_expires()
@@ -329,7 +381,7 @@ class AuthService:
                 user_agent=user_agent
             )
             db.session.commit()
-            return False, '用户不存在'
+            return False, 'user_does_not_exist'
 
         # 验证旧密码
         if not user.check_password(old_password):
@@ -344,7 +396,7 @@ class AuthService:
                 user_agent=user_agent
             )
             db.session.commit()
-            return False, '旧密码错误'
+            return False, 'old_password_incorrect'
         
         # 验证新密码强度
         valid, error_msg = SecurityConfigService.validate_password_strength(new_password)
@@ -403,7 +455,7 @@ class AuthService:
             )
             db.session.commit()
 
-            return False, '密码修改失败，请稍后重试'
+            return False, 'failed_change_password_try_again_later'
     
     @staticmethod
     def get_current_user(user_id: str) -> Optional[User]:
@@ -494,9 +546,7 @@ class AuthService:
         success = AuthService.revoke_token(jti, user_id, token_type)
         
         if success:
-            return True, None
-        else:
-            return False, '登出失败，请稍后重试'
+            return False, 'logout_failed_try_again_later'
     
     @staticmethod
     def cleanup_expired_tokens() -> int:

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useViewStore } from "@/stores/viewStore";
 import { ViewType, type ViewTypeValue } from "@/types";
+
+const { t } = useI18n();
 
 interface Props {
   tableId?: string;
@@ -30,12 +33,12 @@ const views = computed(() => viewStore.sortedViews);
 const currentView = computed(() => viewStore.currentView);
 
 const viewTypes = [
-  { type: ViewType.TABLE, label: "表格", icon: "table" },
-  { type: ViewType.KANBAN, label: "看板", icon: "kanban" },
-  { type: ViewType.CALENDAR, label: "日历", icon: "calendar" },
-  { type: ViewType.GANTT, label: "甘特图", icon: "gantt" },
-  { type: ViewType.FORM, label: "表单", icon: "form" },
-  { type: ViewType.GALLERY, label: "画册", icon: "gallery" },
+  { type: ViewType.TABLE, label: t('view.table'), icon: "table" },
+  { type: ViewType.KANBAN, label: t('view.kanban'), icon: "kanban" },
+  { type: ViewType.CALENDAR, label: t('view.calendar'), icon: "calendar" },
+  { type: ViewType.GANTT, label: t('view.gantt'), icon: "gantt" },
+  { type: ViewType.FORM, label: t('view.form'), icon: "form" },
+  { type: ViewType.GALLERY, label: t('view.gallery'), icon: "gallery" },
 ];
 
 const getViewIcon = (type: string) => {
@@ -57,7 +60,7 @@ const selectView = async (viewId: string) => {
 
 const startCreateView = (type: ViewTypeValue) => {
   newViewType.value = type;
-  newViewName.value = `${getViewLabel(type)}视图`;
+  newViewName.value = `${getViewLabel(type)}${t('view.nameSuffix')}`;
   showCreateMenu.value = true;
 };
 
@@ -106,17 +109,17 @@ const cancelRename = () => {
 };
 
 const duplicateView = async (view: any) => {
-  const newName = `${view.name} 副本`;
+  const newName = `${view.name}${t('view.copySuffix')}`;
   await viewStore.duplicateView(view.id, newName);
 };
 
 const deleteView = async (view: any) => {
   if (views.value.length <= 1) {
-    alert("至少保留一个视图");
+    alert(t('view.keepOneView'));
     return;
   }
 
-  if (confirm(`确定要删除视图 "${view.name}" 吗？`)) {
+  if (confirm(t('view.deleteViewConfirm', { name: view.name }))) {
     await viewStore.deleteView(view.id);
   }
 };
@@ -127,7 +130,7 @@ const setDefaultView = async (view: any) => {
 
 function getViewLabel(type: string): string {
   const typeInfo = viewTypes.find((t) => t.type === type);
-  return typeInfo?.label || "表格";
+  return typeInfo?.label || t('view.table');
 }
 </script>
 
@@ -227,7 +230,7 @@ function getViewLabel(type: string): string {
           <span class="view-name">{{ view.name }}</span>
         </template>
 
-        <span v-if="view.isDefault" class="default-badge">默认</span>
+        <span v-if="view.isDefault" class="default-badge">{{ t('view.default') }}</span>
 
         <el-dropdown
           v-if="!readonly"
@@ -255,13 +258,13 @@ function getViewLabel(type: string): string {
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="rename">重命名</el-dropdown-item>
-              <el-dropdown-item command="duplicate">复制视图</el-dropdown-item>
+              <el-dropdown-item command="rename">{{ t('view.rename') }}</el-dropdown-item>
+              <el-dropdown-item command="duplicate">{{ t('view.duplicate') }}</el-dropdown-item>
               <el-dropdown-item v-if="!view.isDefault" command="default"
-                >设为默认</el-dropdown-item
+                >{{ t('view.setDefault') }}</el-dropdown-item
               >
               <el-dropdown-item command="delete" divided class="danger"
-                >删除视图</el-dropdown-item
+                >{{ t('view.deleteView') }}</el-dropdown-item
               >
             </el-dropdown-menu>
           </template>
@@ -283,7 +286,7 @@ function getViewLabel(type: string): string {
           height="14">
           <path d="M12 5v14M5 12h14" />
         </svg>
-        <span>添加视图</span>
+        <span>{{ t('view.addView') }}</span>
       </button>
       <template #dropdown>
         <el-dropdown-menu>
@@ -372,19 +375,19 @@ function getViewLabel(type: string): string {
 
     <el-dialog
       v-model="showCreateMenu"
-      title="创建新视图"
+      :title="t('view.createViewTitle')"
       width="400px"
       :close-on-click-modal="false"
       :append-to-body="true"
       align-center>
       <el-form @submit.prevent="createView">
-        <el-form-item label="视图名称">
+        <el-form-item :label="t('view.viewName')">
           <el-input
             v-model="newViewName"
-            placeholder="请输入视图名称"
+            :placeholder="t('view.viewNamePlaceholder')"
             autofocus />
         </el-form-item>
-        <el-form-item label="视图类型">
+        <el-form-item :label="t('view.viewType')">
           <el-select v-model="newViewType" disabled>
             <el-option
               v-for="vt in viewTypes"
@@ -395,9 +398,9 @@ function getViewLabel(type: string): string {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateMenu = false">取消</el-button>
+        <el-button @click="showCreateMenu = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :loading="isCreating" @click="createView">
-          创建
+          {{ t('common.create') }}
         </el-button>
       </template>
     </el-dialog>

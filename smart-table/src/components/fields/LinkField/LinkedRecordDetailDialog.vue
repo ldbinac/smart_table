@@ -16,11 +16,11 @@
 
     <!-- 错误状态 -->
     <div v-else-if="error" class="error-container">
-      <el-empty description="加载失败">
+      <el-empty :description="t('link.loadFailed')">
         <template #description>
           <p>{{ error }}</p>
         </template>
-        <el-button type="primary" @click="loadRecordDetail">重新加载</el-button>
+        <el-button type="primary" @click="loadRecordDetail">{{ t('link.reload') }}</el-button>
       </el-empty>
     </div>
 
@@ -29,11 +29,11 @@
       <!-- 记录基本信息 -->
       <div class="record-header">
         <div class="record-id">
-          <span class="label">记录ID:</span>
+          <span class="label">{{ t('link.recordId') }}</span>
           <span class="value">{{ recordDetail.id }}</span>
         </div>
         <div class="record-time" v-if="recordDetail.createdAt">
-          <span class="label">创建时间:</span>
+          <span class="label">{{ t('link.createdTime') }}</span>
           <span class="value">{{ formatDateTime(recordDetail.createdAt) }}</span>
         </div>
       </div>
@@ -74,7 +74,7 @@
                   class="value-tag"
                   type="info"
                 >
-                  {{ file.name || file.filename || '附件' }}
+                  {{ file.name || file.filename || t('link.attachment') }}
                 </el-tag>
                 <span v-if="getAttachmentFieldValue(field.id).length > 3" class="more-count">
                   +{{ getAttachmentFieldValue(field.id).length - 3 }}
@@ -102,7 +102,7 @@
             <!-- 复选框字段 -->
             <template v-else-if="field.type === 'checkbox'">
               <el-tag size="small" :type="recordDetail.values[field.id] ? 'success' : 'info'">
-                {{ recordDetail.values[field.id] ? '是' : '否' }}
+                {{ recordDetail.values[field.id] ? t('link.yes') : t('link.no') }}
               </el-tag>
             </template>
             <!-- 日期/日期时间字段 -->
@@ -153,14 +153,14 @@
     </div>
 
     <!-- 空状态 -->
-    <el-empty v-else description="暂无记录详情" />
+    <el-empty v-else :description="t('link.noRecordDetail')" />
 
     <!-- 底部按钮 -->
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">关闭</el-button>
+        <el-button @click="handleClose">{{ t('link.close') }}</el-button>
         <el-button type="primary" @click="showFullRecordDetail">
-          查看完整记录
+          {{ t('link.viewFullRecord') }}
         </el-button>
       </div>
     </template>
@@ -179,6 +179,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElMessage,
   ElTag,
@@ -190,6 +191,8 @@ import { recordApiService } from "@/services/api/recordApiService";
 import { fieldService } from "@/db/services";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
+
+const { t } = useI18n();
 
 interface Props {
   visible: boolean;
@@ -212,7 +215,7 @@ const dialogVisible = computed({
 
 // 弹窗标题
 const dialogTitle = computed(() => {
-  return "关联记录详情";
+  return t('link.recordDetailTitle');
 });
 
 // 加载状态
@@ -271,8 +274,8 @@ const loadRecordDetail = async () => {
     recordDetail.value = record as any;
   } catch (err) {
     console.error("[LinkedRecordDetailDialog] 加载记录详情失败:", err);
-    error.value = "加载记录详情失败，请稍后重试";
-    ElMessage.error("加载记录详情失败");
+    error.value = t('link.loadDetailFailedRetry');
+    ElMessage.error(t('link.loadDetailFailed'));
   } finally {
     loading.value = false;
   }
@@ -304,7 +307,7 @@ const formatFieldValue = (value: unknown, field: FieldEntity): string => {
     case "date":
       return formatDateTime(value as string);
     case "checkbox":
-      return value ? "是" : "否";
+      return value ? t('link.yes') : t('link.no');
     case "singleSelect":
     case "multiSelect":
       if (Array.isArray(value)) {
@@ -376,7 +379,7 @@ const getMemberDisplayName = (value: unknown): string => {
   
   if (typeof value === "object" && value !== null) {
     const member = value as { name?: string; displayName?: string; email?: string };
-    return member.name || member.displayName || member.email || "未知成员";
+    return member.name || member.displayName || member.email || t('link.unknownMember');
   }
   return String(value);
 };
@@ -384,7 +387,7 @@ const getMemberDisplayName = (value: unknown): string => {
 // 显示完整记录详情弹窗
 const showFullRecordDetail = () => {
   if (!recordDetail.value) {
-    ElMessage.warning("记录数据未加载");
+    ElMessage.warning(t('link.recordNotLoaded'));
     return;
   }
   detailDrawerVisible.value = true;

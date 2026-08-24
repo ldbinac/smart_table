@@ -1,9 +1,21 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
+import type { SupportedLocale } from "@/i18n/types";
+import { setI18nLanguage } from "@/i18n";
+
+/**
+ * 根据系统语言返回默认语言（中文环境 → zh-CN，其余 → en-US）。
+ */
+function getSystemLocale(): SupportedLocale {
+  const navLang = (
+    typeof navigator !== "undefined" ? navigator.language || "" : ""
+  ).toLowerCase();
+  return navLang.startsWith("zh") ? "zh-CN" : "en-US";
+}
 
 export interface AppSettings {
   theme: "light" | "dark" | "auto";
-  language: "zh-CN" | "en-US";
+  language: SupportedLocale;
   sidebarCollapsed: boolean;
   tableRowHeight: "short" | "medium" | "tall";
   showGridLines: boolean;
@@ -20,7 +32,7 @@ export interface AppSettings {
 
 const defaultSettings: AppSettings = {
   theme: "light",
-  language: "zh-CN",
+  language: getSystemLocale(),
   sidebarCollapsed: false,
   tableRowHeight: "medium",
   showGridLines: true,
@@ -105,8 +117,9 @@ export const useSettingsStore = defineStore("settings", () => {
     }
   }
 
-  function setLanguage(language: "zh-CN" | "en-US") {
+  function setLanguage(language: SupportedLocale) {
     settings.value.language = language;
+    setI18nLanguage(language);
     saveSettings();
   }
 
@@ -119,6 +132,9 @@ export const useSettingsStore = defineStore("settings", () => {
   );
 
   loadSettings();
+
+  // 初始化时将 settingsStore 中的语言同步到 vue-i18n 实例
+  setI18nLanguage(settings.value.language);
 
   return {
     settings,

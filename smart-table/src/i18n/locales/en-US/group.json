@@ -1,0 +1,21 @@
+{
+  "title": "Group",
+  "selectField": "Select field",
+  "level1": "Level 1",
+  "level2": "Level 2",
+  "level3": "Level 3",
+  "delete": "Delete",
+  "addField": "Add group field",
+  "maxLevelHint": "Maximum grouping levels reached ({n})",
+  "currentGroup": "Current group: ",
+  "empty": "No grouping configured",
+  "emptyHint": "Click the button above to add a group field (up to {n} levels)",
+  "clear": "Clear group",
+  "apply": "Apply group",
+  "settingTitle": "Group Settings",
+  "noGroup": "No grouping set",
+  "preview": "Group Preview",
+  "emptyNoField": "Select a field to group by",
+  "drag": "Drag to sort",
+  "fieldAdded": "Group field added"
+}

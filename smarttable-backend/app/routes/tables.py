@@ -41,7 +41,7 @@ def get_tables(base_id) -> tuple:
     
     # 检查权限
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此基础数据')
+        return forbidden_response('no_permission_access_base')
     
     tables = TableService.get_all_tables(str(base_id))
     
@@ -50,7 +50,7 @@ def get_tables(base_id) -> tuple:
     
     return success_response(
         data=tables_data,
-        message='获取表格列表成功'
+        message='fetched_table_list_successfully'
     )
 
 
@@ -95,7 +95,7 @@ def create_table(base_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限在此基础数据中创建表格')
+        return forbidden_response('do_not_permission_create_table_base')
     
     data = request.get_json() or {}
     
@@ -103,7 +103,7 @@ def create_table(base_id) -> tuple:
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
-            return error_response('表格名称不能超过100个字符', code=400)
+            return error_response('table_name_exceed_characters', code=400)
         data['name'] = name
     
     # 获取 create_default_fields 参数，默认为 True
@@ -118,7 +118,7 @@ def create_table(base_id) -> tuple:
     
     return success_response(
         data=table.to_dict(include_stats=True),
-        message='表格创建成功',
+        message='table_created_successfully',
         code=201
     )
 
@@ -147,15 +147,15 @@ def get_table(table_id) -> tuple:
     
     # 检查权限
     if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此表格')
+        return forbidden_response('no_permission_access_table_2')
     
     table = TableService.get_table(str(table_id))
     if not table:
-        return not_found_response('表格')
+        return not_found_response('table')
     
     return success_response(
         data=table.to_dict(include_stats=True),
-        message='获取表格成功'
+        message='fetched_table_successfully'
     )
 
 
@@ -200,7 +200,7 @@ def update_table(table_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此表格')
+        return forbidden_response('do_not_permission_modify_table')
     
     data = request.get_json() or {}
     
@@ -208,16 +208,16 @@ def update_table(table_id) -> tuple:
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
-            return error_response('表格名称不能超过100个字符', code=400)
+            return error_response('table_name_exceed_characters', code=400)
         data['name'] = name
     
     table = TableService.update_table(str(table_id), data)
     if not table:
-        return not_found_response('表格')
+        return not_found_response('table')
     
     return success_response(
         data=table.to_dict(include_stats=True),
-        message='表格更新成功'
+        message='table_updated_successfully'
     )
 
 
@@ -249,17 +249,17 @@ def delete_table(table_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限删除此表格')
+        return forbidden_response('do_not_permission_delete_table')
     
     table = TableService.get_table(str(table_id))
     if not table:
-        return not_found_response('表格')
+        return not_found_response('table')
     
     success = TableService.delete_table(str(table_id))
     if not success:
-        return error_response('删除失败，请稍后重试', code=500)
+        return error_response('deletion_failed_try_again_later', code=500)
     
-    return success_response(message='表格删除成功')
+    return success_response(message='table_deleted_successfully')
 
 
 @tables_bp.route('/bases/<uuid:base_id>/tables/reorder', methods=['POST'])
@@ -310,19 +310,19 @@ def reorder_tables(base_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此基础数据')
+        return forbidden_response('do_not_permission_modify_base')
     
     data = request.get_json() or {}
     table_orders = data.get('orders', [])
     
     if not table_orders:
-        return error_response('请提供排序数据', code=400)
+        return error_response('provide_sort_data', code=400)
     
     success = TableService.reorder_tables(str(base_id), table_orders)
     if not success:
-        return error_response('排序失败，请稍后重试', code=500)
+        return error_response('failed_reorder_try_again_later', code=500)
     
-    return success_response(message='表格排序更新成功')
+    return success_response(message='table_order_updated_successfully')
 
 
 @tables_bp.route('/tables/<uuid:table_id>/duplicate', methods=['POST'])
@@ -361,21 +361,21 @@ def duplicate_table(table_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限复制此表格')
+        return forbidden_response('do_not_permission_copy_table')
     
     source_table = TableService.get_table(str(table_id))
     if not source_table:
-        return not_found_response('表格')
+        return not_found_response('table')
     
     data = request.get_json() or {}
     new_name = data.get('name')
     
     new_table = TableService.duplicate_table(str(table_id), new_name)
     if not new_table:
-        return error_response('复制失败，请稍后重试', code=500)
+        return error_response('copy_failed_try_again_later', code=500)
     
     return success_response(
         data=new_table.to_dict(include_stats=True),
-        message='表格复制成功',
+        message='table_copied_successfully',
         code=201
     )

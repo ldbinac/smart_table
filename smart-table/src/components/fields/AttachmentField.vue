@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
 import {
@@ -25,12 +26,14 @@ import { AttachmentError } from '@/utils/attachment';
 import { useBaseStore } from '@/stores';
 
 const baseStore = useBaseStore();
+const { t } = useI18n();
 
 interface Props {
   modelValue: CellValue;
   field: FieldEntity;
   readonly?: boolean;
   recordId?: string;
+  formShareToken?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -212,7 +215,7 @@ async function handleUpload(uploadFile: UploadFile) {
   if (!file) return;
 
   if (!props.recordId) {
-    ElMessage.error('请先保存记录后再上传附件');
+    ElMessage.error(t('view.attachment.saveRecordFirst'));
     return;
   }
 
@@ -225,7 +228,8 @@ async function handleUpload(uploadFile: UploadFile) {
       recordId: props.recordId,
       fieldId: props.field.id,
       tableId: props.field.tableId,
-      baseId: baseStore.currentBaseId || ''
+      baseId: baseStore.currentBaseId || '',
+      formShareToken: props.formShareToken
     };
 
     const uploadedFiles = await attachmentService.uploadFiles(
@@ -243,12 +247,12 @@ async function handleUpload(uploadFile: UploadFile) {
     emit('update:modelValue', files.value);
     emit('upload', uploadedFiles);
 
-    ElMessage.success(`文件 "${file.name}" 上传成功`);
+    ElMessage.success(t('view.attachment.fileUploadSuccess', { name: file.name }));
   } catch (error) {
     if (error instanceof AttachmentError) {
       ElMessage.error(error.message);
     } else {
-      ElMessage.error('文件上传失败');
+      ElMessage.error(t('view.attachment.fileUploadFailed'));
       console.error('Upload error:', error);
     }
   } finally {
@@ -261,9 +265,9 @@ async function handleUpload(uploadFile: UploadFile) {
 // 处理删除
 async function handleRemove(fileId: string) {
   try {
-    await ElMessageBox.confirm('确定要删除这个附件吗？', '确认删除', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('view.attachment.deleteAttachmentConfirm'), t('view.confirmDelete'), {
+      confirmButtonText: t('view.delete'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     });
 
@@ -274,10 +278,10 @@ async function handleRemove(fileId: string) {
     emit('update:modelValue', files.value);
     emit('delete', fileId);
 
-    ElMessage.success('附件已删除');
+    ElMessage.success(t('view.attachment.attachmentDeleted'));
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败');
+      ElMessage.error(t('view.attachment.deleteAttachmentFailed'));
       console.error('Delete error:', error);
     }
   }
@@ -291,7 +295,7 @@ async function handleDownload(file: AttachmentFile) {
     if (error instanceof AttachmentError) {
       ElMessage.error(error.message);
     } else {
-      ElMessage.error('下载失败');
+      ElMessage.error(t('view.attachment.downloadFailed'));
       console.error('Download error:', error);
     }
   }
@@ -339,16 +343,16 @@ function canPreview(file: AttachmentFile): boolean {
         </el-icon>
         <div class="upload-text">
           <template v-if="!uploading">
-            拖拽文件到此处或<em>点击上传</em>
+            {{ t('view.attachment.dragOrClick') }}<em>{{ t('view.attachment.clickUpload') }}</em>
           </template>
           <template v-else>
-            正在上传 {{ currentUploadFile }}... {{ uploadProgress }}%
+            {{ t('view.attachment.uploading', { file: currentUploadFile, percent: uploadProgress }) }}
           </template>
         </div>
         <template #tip>
           <div class="upload-tip">
-            <div>最大文件大小: {{ formatFileSize(maxSize) }}</div>
-            <div v-if="maxCount">最多 {{ maxCount }} 个文件</div>
+            <div>{{ t('view.attachment.fileMax', { size: formatFileSize(maxSize) }) }}</div>
+            <div v-if="maxCount">{{ t('view.attachment.maxFiles', { count: maxCount }) }}</div>
           </div>
         </template>
       </el-upload>
@@ -420,13 +424,13 @@ function canPreview(file: AttachmentFile): boolean {
     <!-- 空状态 -->
     <div v-else-if="readonly" class="empty-state">
       <el-icon><Document /></el-icon>
-      <span>无附件</span>
+      <span>{{ t("view.attachment.noAttachment") }}</span>
     </div>
 
     <!-- 预览对话框 -->
     <el-dialog
       v-model="previewVisible"
-      :title="previewFile?.originalName || '预览'"
+      :title="previewFile?.originalName || t('view.attachment.previewTitle')"
       width="90%"
       top="5vh"
       destroy-on-close
@@ -459,11 +463,11 @@ function canPreview(file: AttachmentFile): boolean {
                 <el-icon><ZoomIn /></el-icon>
               </el-button>
               <el-button size="small" @click="resetZoom">
-                <el-icon><RefreshRight /></el-icon> 重置
+                <el-icon><RefreshRight /></el-icon> {{ t("view.attachment.resetZoom") }}
               </el-button>
             </el-button-group>
             <el-button size="small" type="primary" @click="handleDownload(previewFile)">
-              <el-icon><Download /></el-icon> 下载
+              <el-icon><Download /></el-icon> {{ t("view.attachment.download") }}
             </el-button>
           </div>
         </div>
@@ -474,7 +478,7 @@ function canPreview(file: AttachmentFile): boolean {
           class="preview-video"
         >
           <source :src="previewFile.url" :type="previewFile.type" />
-          您的浏览器不支持视频播放
+          {{ t("view.attachment.browserNoVideo") }}
         </video>
         <!-- 音频预览 -->
         <audio
@@ -483,14 +487,14 @@ function canPreview(file: AttachmentFile): boolean {
           class="preview-audio"
         >
           <source :src="previewFile.url" :type="previewFile.type" />
-          您的浏览器不支持音频播放
+          {{ t("view.attachment.browserNoAudio") }}
         </audio>
         <!-- 其他文件 -->
         <div v-else class="preview-other">
           <el-icon size="64"><Document /></el-icon>
-          <p>该文件类型暂不支持预览</p>
+          <p>{{ t("view.attachment.previewNotSupported") }}</p>
           <el-button type="primary" @click="handleDownload(previewFile)">
-            下载文件
+            {{ t("view.attachment.downloadFile") }}
           </el-button>
         </div>
       </div>

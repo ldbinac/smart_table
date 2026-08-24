@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { useNotificationStore } from '@/stores/notificationStore'
+import { useAuthStore } from '@/stores/authStore'
 import { formatRelativeTime } from '@/utils/timezone'
 import type { AppNotification } from '@/services/api/notificationApiService'
 
 defineOptions({ name: 'NotificationBell' })
 
 const router = useRouter()
+const { t } = useI18n()
 const notificationStore = useNotificationStore()
+const authStore = useAuthStore()
 
 // 未读数量
 const unreadCount = computed(() => notificationStore.unreadCount)
@@ -18,16 +22,18 @@ const unreadCount = computed(() => notificationStore.unreadCount)
 const recentNotifications = computed(() => notificationStore.recentNotifications)
 
 // 来源标签映射
-const sourceTagMap: Record<string, { label: string; type: any }> = {
-  system: { label: '系统', type: 'info' },
-  auth: { label: '认证', type: 'warning' },
-  admin: { label: '管理', type: 'danger' },
-  workflow: { label: '工作流', type: 'success' },
-  approval: { label: '审批', type: 'primary' },
+const sourceTagMap: Record<string, { labelKey: string; type: any }> = {
+  system: { labelKey: 'common.sourceSystem', type: 'info' },
+  auth: { labelKey: 'common.sourceAuth', type: 'warning' },
+  admin: { labelKey: 'common.sourceAdmin', type: 'danger' },
+  workflow: { labelKey: 'common.sourceWorkflow', type: 'success' },
+  approval: { labelKey: 'common.sourceApproval', type: 'primary' },
 }
 
 const getSourceTag = (source: string) => {
-  return sourceTagMap[source] || { label: source || '其他', type: 'info' }
+  const item = sourceTagMap[source]
+  if (item) return { label: t(item.labelKey), type: item.type }
+  return { label: source || t('common.sourceOther'), type: 'info' }
 }
 
 // 内容摘要：优先使用纯文本，否则去除 HTML 标签
@@ -63,15 +69,18 @@ const handleMarkAllAsRead = async () => {
   if (unreadCount.value === 0) return
   try {
     await notificationStore.markAllAsRead()
-    ElMessage.success('已标记全部通知为已读')
+    ElMessage.success(t('notification.markAllReadSuccess'))
   } catch (error) {
     console.error('[NotificationBell] markAllAsRead failed:', error)
-    ElMessage.error('标记全部已读失败')
+    ElMessage.error(t('notification.markAllReadFailed'))
   }
 }
 
 onMounted(() => {
-  notificationStore.refresh()
+  // 仅已登录用户才拉取通知，避免未登录时调用需认证的接口导致跳转登录页
+  if (authStore.isAuthenticated) {
+    notificationStore.refresh()
+  }
 })
 </script>
 
@@ -89,7 +98,7 @@ onMounted(() => {
         :max="99"
         class="notification-badge"
       >
-        <el-button type="primary" plain circle title="通知">
+        <el-button type="primary" plain circle :title="t('notification.pageTitle')">
           <el-icon><Bell /></el-icon>
         </el-button>
       </el-badge>
@@ -98,21 +107,21 @@ onMounted(() => {
     <div class="notification-panel">
       <!-- 头部：标题 + 全部已读 -->
       <div class="panel-header">
-        <span class="panel-title">通知</span>
+        <span class="panel-title">{{ t('notification.pageTitle') }}</span>
         <el-button
           link
           type="primary"
           :disabled="unreadCount === 0"
           @click="handleMarkAllAsRead"
         >
-          全部已读
+          {{ t('notification.markAllRead') }}
         </el-button>
       </div>
 
       <!-- 列表区 -->
       <div class="panel-list">
         <div v-if="recentNotifications.length === 0" class="empty-state">
-          暂无通知
+          {{ t('notification.noNotification') }}
         </div>
         <div
           v-for="item in recentNotifications"
@@ -142,7 +151,7 @@ onMounted(() => {
       <!-- 底部：查看全部通知 -->
       <div class="panel-footer">
         <el-button link type="primary" @click="goToList">
-          查看全部通知
+          {{ t('notification.viewAll') }}
         </el-button>
       </div>
     </div>

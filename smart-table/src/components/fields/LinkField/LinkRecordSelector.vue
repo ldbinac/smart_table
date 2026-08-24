@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="选择关联记录"
+    :title="t('link.selectRecordTitle')"
     width="620px"
     :close-on-click-modal="false"
     @close="handleCancel"
@@ -10,12 +10,12 @@
       <!-- 关联目标提示 -->
       <div class="selector-header">
         <el-icon class="header-link-icon"><Link /></el-icon>
-        <span>关联到：</span>
+        <span>{{ t('link.linkTo') }}</span>
         <el-tag size="small" type="primary" effect="plain">
           {{ targetTableName }}
         </el-tag>
         <el-tag v-if="!allowMultiple" size="small" type="warning" effect="plain">
-          仅可选择一条
+          {{ t('link.onlyOne') }}
         </el-tag>
         <el-tag
           v-if="excludeRecordId"
@@ -24,7 +24,7 @@
           effect="plain"
           class="self-hint-tag"
         >
-          不能选择当前记录自身
+          {{ t('link.cannotSelectSelf') }}
         </el-tag>
       </div>
 
@@ -32,7 +32,7 @@
       <div class="search-bar">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索记录..."
+          :placeholder="t('link.searchPlaceholder')"
           clearable
           @input="handleSearch"
         >
@@ -45,7 +45,7 @@
       <!-- 已选记录摘要 -->
       <div v-if="selectedRecords.length > 0" class="selected-section">
         <div class="section-title">
-          已选择
+          {{ t('link.selected') }}
           <span class="section-count">{{ selectedRecords.length }}</span>
         </div>
         <div class="selected-list">
@@ -65,7 +65,7 @@
       <!-- 可选记录列表 -->
       <div class="records-section">
         <div class="section-title">
-          可选记录
+          {{ t('link.availableRecords') }}
           <span v-if="records.length > 0" class="section-count">
             {{ total }}
           </span>
@@ -74,7 +74,7 @@
           <el-skeleton :rows="5" animated />
         </div>
         <div v-else-if="records.length === 0" class="empty-state">
-          <el-empty description="暂无可用记录" :image-size="60" />
+          <el-empty :description="t('link.noAvailableRecords')" :image-size="60" />
         </div>
         <div v-else class="records-table-container">
           <table class="records-table">
@@ -141,12 +141,12 @@
     <template #footer>
       <div class="dialog-footer">
         <span class="footer-count">
-          已选择 {{ selectedRecords.length }} 条记录
+          {{ t('link.selectedCount', { count: selectedRecords.length }) }}
         </span>
         <div class="footer-actions">
-          <el-button @click="handleCancel">取消</el-button>
+          <el-button @click="handleCancel">{{ t('link.cancel') }}</el-button>
           <el-button type="primary" @click="handleConfirm">
-            确认
+            {{ t('link.confirm') }}
           </el-button>
         </div>
       </div>
@@ -156,6 +156,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElDialog,
   ElInput,
@@ -175,6 +176,8 @@ import type { LinkedRecord } from "@/types/link";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types/fields";
 import { debounce } from "lodash-es";
+
+const { t } = useI18n();
 
 interface Props {
   visible: boolean;

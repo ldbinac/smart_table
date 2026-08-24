@@ -85,10 +85,10 @@ class FormShare(db.Model):
         nullable=False
     )
     
-    # 是否需要验证码
+    # 是否需要验证码（默认开启，避免匿名分享表单时被恶意攻击）
     require_captcha: Mapped[bool] = mapped_column(
         Boolean,
-        default=False,
+        default=True,
         nullable=False
     )
     

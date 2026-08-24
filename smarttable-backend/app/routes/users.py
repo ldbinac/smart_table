@@ -138,7 +138,7 @@ def get_user(user_id):
     user = db.session.get(User, user_id)
     
     if not user:
-        return error_response(message='用户不存在', code=404)
+        return error_response(message='user_does_not_exist', code=404)
     
     return success_response({
         'id': str(user.id),
@@ -188,12 +188,12 @@ def get_users_batch():
     data = request.get_json()
     
     if not data or 'ids' not in data:
-        return error_response(message='缺少用户ID列表', code=400)
+        return error_response(message='missing_user_id_list', code=400)
     
     user_ids = data['ids']
     
     if not isinstance(user_ids, list):
-        return error_response(message='ids 必须是数组', code=400)
+        return error_response(message='ids_array', code=400)
     
     # 过滤无效ID
     valid_ids = []
@@ -207,7 +207,7 @@ def get_users_batch():
         return success_response([])
     
     if len(valid_ids) > 100:
-        return error_response(message='一次最多查询100个用户', code=400)
+        return error_response(message='search_most_users_time', code=400)
     
     # 查询用户
     users = db.session.query(User).filter(

@@ -1,8 +1,8 @@
 <template>
   <AuthLayout
-    title="登录"
-    footer-hint="还没有账号？"
-    footer-link-text="立即注册"
+    :title="t('auth.loginTitle')"
+    :footer-hint="t('auth.noAccount')"
+    :footer-link-text="t('auth.goRegister')"
     footer-link-to="/register"
     :demo-config="demoConfig">
     <LoginForm
@@ -15,6 +15,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth/authStore'
 import { authService } from '@/services/api/authService'
@@ -26,6 +27,7 @@ import { message } from '@/utils/message'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const authStore = useAuthStore()
 
 const demoConfig = ref<DemoConfig | null>(null)
@@ -47,11 +49,11 @@ const handleLogin = async (data: LoginRequest) => {
     if (response.requires_gitee_star_check && response.user_id) {
       try {
         await ElMessageBox.confirm(
-          '访问本系统需检测是否 watch 本项目，是否继续？',
-          '提示',
+          t('auth.giteeStarTip'),
+          t('auth.giteeStarTipTitle'),
           {
-            confirmButtonText: '继续',
-            cancelButtonText: '取消',
+            confirmButtonText: t('auth.continue'),
+            cancelButtonText: t('common.cancel'),
             type: 'info',
             closeOnClickModal: false,
           }
@@ -66,7 +68,7 @@ const handleLogin = async (data: LoginRequest) => {
         window.location.href = authorize_url
       } catch (error) {
         console.error('获取 Gitee 授权链接失败:', error)
-        message.error('获取 Gitee 授权链接失败，请稍后重试')
+        message.error(t('auth.giteeStarFailed'))
       }
       return
     }
@@ -81,7 +83,7 @@ const handleLogin = async (data: LoginRequest) => {
   } catch (error: any) {
     console.error('登录失败:', error)
     // 显示后端返回的错误信息（如"邮箱或密码错误"），而不是笼统的"登录已过期"
-    message.error(error?.message || '登录失败，请检查账号或密码')
+    message.error(error?.message || t('auth.loginFailedHint'))
   } finally {
     isLoading.value = false
   }

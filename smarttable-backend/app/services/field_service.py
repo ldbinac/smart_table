@@ -17,6 +17,7 @@ from app.models.record import Record
 from app.models.table import Table
 from app.models.base import MemberRole
 from app.services.base_service import BaseService
+from app.i18n import translate
 from app.services.workflow_event_bus import workflow_event_bus
 import logging
 
@@ -149,18 +150,18 @@ class FieldService:
         # 验证字段类型
         field_type = data.get('type', '').strip().lower()
         if not field_type:
-            return {'success': False, 'error': '字段类型不能为空'}
+            return {'success': False, 'error': 'field_type_empty'}
         
         if field_type not in FieldService.VALID_FIELD_TYPES:
             valid_types = ', '.join(FieldService.VALID_FIELD_TYPES)
-            return {'success': False, 'error': f'无效的字段类型。支持的类型: {valid_types}'}
+            return {'success': False, 'error': translate('invalid_field_type_supported_types', valid_types)}
         
         # 验证选择类型字段的选项
         if field_type in FieldService.OPTIONS_REQUIRED_TYPES:
             options = data.get('options', {})
             choices = options.get('choices', [])
             if not choices or not isinstance(choices, list):
-                return {'success': False, 'error': f'{field_type} 类型字段必须提供选项列表'}
+                return {'success': False, 'error': translate('options_required_for_field_type', field_type)}
 
         # 查找字段配置校验
         if field_type == FieldType.LOOKUP.value:
@@ -226,7 +227,7 @@ class FieldService:
             }
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': '创建字段失败，请稍后重试'}
+            return {'success': False, 'error': 'failed_create_field_try_again_later'}
     
     @staticmethod
     def update_field(field_id: str, data: Dict[str, Any], user_id: str = None) -> Dict[str, Any]:
@@ -243,11 +244,11 @@ class FieldService:
         field = Field.query.get(field_id)
         
         if not field:
-            return {'success': False, 'error': '字段不存在'}
+            return {'success': False, 'error': 'field_does_not_exist'}
         
         # 检查是否是系统字段
         if field.is_primary and 'is_primary' in data and not data['is_primary']:
-            return {'success': False, 'error': '不能取消主字段的主键状态'}
+            return {'success': False, 'error': 'primary_key_status_primary_field_removed'}
         
         # 允许更新的字段
         allowed_fields = ['name', 'description', 'is_required', 'options', 'config']
@@ -281,7 +282,7 @@ class FieldService:
             if new_type != field.type:
                 # 检查类型转换是否合法
                 if not FieldService._is_valid_type_conversion(field.type, new_type):
-                    return {'success': False, 'error': f'不能将 {field.type} 转换为 {new_type}'}
+                    return {'success': False, 'error': translate('cannot_convert_field_type', field.type, new_type)}
                 old_type = field.type
                 field.type = new_type
                 # 转换已有记录中该字段的值，避免类型变更后出现类型转换错误
@@ -303,7 +304,7 @@ class FieldService:
             options = field.options or {}
             choices = options.get('choices', [])
             if not choices or not isinstance(choices, list):
-                return {'success': False, 'error': f'{field.type} 类型字段必须提供选项列表'}
+                return {'success': False, 'error': translate('options_required_for_field_type', field.type)}
 
         # 查找字段配置校验
         if field.type == FieldType.LOOKUP.value:
@@ -347,7 +348,7 @@ class FieldService:
             }
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': '更新字段失败，请稍后重试'}
+            return {'success': False, 'error': 'failed_update_field_try_again_later'}
     
     @staticmethod
     def delete_field(field_id: str, user_id: str = None) -> Dict[str, Any]:
@@ -364,17 +365,17 @@ class FieldService:
         """
         field = Field.query.get(field_id)
         if not field:
-            return {'success': False, 'error': '字段不存在'}
+            return {'success': False, 'error': 'field_does_not_exist'}
         
         # 检查是否是主字段
         if field.is_primary:
-            return {'success': False, 'error': '主字段不能被删除'}
+            return {'success': False, 'error': 'primary_field_deleted'}
         
         # 检查是否是系统字段类型
         try:
             field_type_enum = FieldType(field.type)
             if field_type_enum in FieldService.SYSTEM_FIELD_TYPES:
-                return {'success': False, 'error': f'{field.type} 是系统字段类型，不能被删除'}
+                return {'success': False, 'error': translate('system_field_type_cannot_delete', field.type)}
         except ValueError:
             pass
 
@@ -400,7 +401,7 @@ class FieldService:
             return {'success': True}
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': '删除字段失败，请稍后重试'}
+            return {'success': False, 'error': 'failed_delete_field_try_again_later'}
     
     @staticmethod
     def reorder_fields(table_id: str, field_orders: List[Dict[str, Any]]) -> bool:
@@ -451,7 +452,7 @@ class FieldService:
         """
         source_field = Field.query.get(field_id)
         if not source_field:
-            return {'success': False, 'error': '字段不存在'}
+            return {'success': False, 'error': 'field_does_not_exist'}
         
         # 获取当前最大 order
         max_order = db.session.query(func.max(Field.order)).filter_by(
@@ -482,7 +483,7 @@ class FieldService:
             }
         except Exception as e:
             db.session.rollback()
-            return {'success': False, 'error': '复制字段失败，请稍后重试'}
+            return {'success': False, 'error': 'failed_copy_field_try_again_later'}
     
     @staticmethod
     def validate_field_value(field_id: str, value: Any) -> Dict[str, Any]:
@@ -498,7 +499,7 @@ class FieldService:
         """
         field = Field.query.get(field_id)
         if not field:
-            return {'success': False, 'error': '字段不存在'}
+            return {'success': False, 'error': 'field_does_not_exist'}
         
         is_valid, error_msg = field.validate_value(value)
         
@@ -529,60 +530,60 @@ class FieldService:
             if field_type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
                 return True, None
             else:
-                return False, f'字段类型 {field_type} 不支持动态默认值'
+                return False, translate('field_type_no_dynamic_default', field_type)
         
         # 根据字段类型验证默认值
         if field_type in [FieldType.SINGLE_LINE_TEXT.value, FieldType.LONG_TEXT.value, 
                          FieldType.RICH_TEXT.value, FieldType.EMAIL.value, 
                          FieldType.PHONE.value, FieldType.URL.value]:
             if not isinstance(value, str):
-                return False, f'字段类型 {field_type} 的默认值必须是字符串'
+                return False, translate('field_default_value_must_be_string', field_type)
         
         elif field_type in [FieldType.NUMBER.value, FieldType.CURRENCY.value, 
                            FieldType.PERCENT.value, FieldType.RATING.value, 
                            FieldType.DURATION.value]:
             if not isinstance(value, (int, float)):
-                return False, f'字段类型 {field_type} 的默认值必须是数字'
+                return False, translate('field_default_value_must_be_number', field_type)
         
         elif field_type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
             if not isinstance(value, str):
-                return False, f'字段类型 {field_type} 的默认值必须是日期字符串'
+                return False, translate('field_default_value_must_be_date_string', field_type)
             # 验证日期格式
             try:
                 datetime.fromisoformat(value.replace('Z', '+00:00'))
             except ValueError:
-                return False, f'字段类型 {field_type} 的默认值必须是有效的日期格式'
+                return False, translate('field_default_value_must_be_valid_date_format', field_type)
         
         elif field_type == FieldType.CHECKBOX.value:
             if not isinstance(value, bool):
-                return False, f'字段类型 {field_type} 的默认值必须是布尔值'
+                return False, translate('field_default_value_must_be_boolean', field_type)
         
         elif field_type == FieldType.SINGLE_SELECT.value:
             # 单选默认值应该是选项 ID（字符串）
             if not isinstance(value, str):
-                return False, f'字段类型 {field_type} 的默认值必须是选项 ID'
+                return False, translate('field_default_value_must_be_option_id', field_type)
             # 验证选项是否存在
             if options and isinstance(options, dict):
                 choices = options.get('choices', [])
                 if not any(choice.get('id') == value for choice in choices):
-                    return False, f'字段类型 {field_type} 的默认值对应的选项不存在'
+                    return False, translate('field_default_value_option_not_exist', field_type)
         
         elif field_type == FieldType.MULTI_SELECT.value:
             # 多选默认值应该是选项 ID 数组
             if not isinstance(value, list):
-                return False, f'字段类型 {field_type} 的默认值必须是选项 ID 数组'
+                return False, translate('field_default_value_must_be_option_id_array', field_type)
             # 验证所有选项是否存在
             if options and isinstance(options, dict):
                 choices = options.get('choices', [])
                 for option_id in value:
                     if not any(choice.get('id') == option_id for choice in choices):
-                        return False, f'字段类型 {field_type} 的默认值包含不存在的选项'
+                        return False, translate('field_default_value_contains_nonexistent_options', field_type)
         
         elif field_type in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value,
                            FieldType.COLLABORATOR.value, FieldType.ATTACHMENT.value]:
             # 这些类型默认值应该是数组
             if not isinstance(value, list):
-                return False, f'字段类型 {field_type} 的默认值必须是数组'
+                return False, translate('field_default_value_must_be_array', field_type)
 
         return True, None
     

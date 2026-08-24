@@ -1,7 +1,7 @@
 <template>
   <ElDialog
     v-model="dialogVisible"
-    :title="template?.name || '模板预览'"
+    :title="template?.name || t('view.templatePreview')"
     width="90%"
     top="5vh"
     :close-on-click-modal="true"
@@ -169,8 +169,8 @@
         <div v-else-if="currentViewType === 'calendar'" class="view-container calendar-preview">
           <div class="calendar-placeholder">
             <ElIcon size="48"><Calendar /></ElIcon>
-            <p>日历视图预览</p>
-            <p class="hint">展示「{{ getDateFieldName }}」字段的日期数据</p>
+            <p>{{ t('view.calendarPreview') }}</p>
+            <p class="hint">{{ t('view.calendarDateHint', { field: getDateFieldName }) }}</p>
           </div>
         </div>
 
@@ -199,8 +199,8 @@
         <div v-else-if="currentViewType === 'gantt'" class="view-container gantt-preview">
           <div class="gantt-placeholder">
             <ElIcon size="48"><DataLine /></ElIcon>
-            <p>甘特图视图预览</p>
-            <p class="hint">展示「{{ getStartDateFieldName }}」到「{{ getEndDateFieldName }}」的时间范围</p>
+            <p>{{ t('view.ganttPreview') }}</p>
+            <p class="hint">{{ t('view.ganttRangeHint', { start: getStartDateFieldName, end: getEndDateFieldName }) }}</p>
           </div>
         </div>
       </div>
@@ -208,9 +208,9 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="handleClose">取消</ElButton>
+        <ElButton @click="handleClose">{{ t('common.cancel') }}</ElButton>
         <ElButton type="primary" @click="handleConfirm">
-          使用此模板
+          {{ t('view.useThisTemplate') }}
         </ElButton>
       </div>
     </template>
@@ -219,6 +219,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ElDialog,
   ElButton,
@@ -281,23 +282,23 @@ const currentViews = computed(() => {
 });
 
 const availableViews = computed(() => {
-  const views = [{ type: "table", label: "表格", icon: Grid }];
-  
+  const views = [{ type: "table", label: t("view.table"), icon: Grid }];
+
   const viewTypes = new Set(currentViews.value.map(v => v.type));
-  
+
   if (viewTypes.has("kanban")) {
-    views.push({ type: "kanban", label: "看板", icon: CalendarIcon });
+    views.push({ type: "kanban", label: t("view.kanban"), icon: CalendarIcon });
   }
   if (viewTypes.has("calendar")) {
-    views.push({ type: "calendar", label: "日历", icon: Calendar });
+    views.push({ type: "calendar", label: t("view.calendar"), icon: Calendar });
   }
   if (viewTypes.has("gallery")) {
-    views.push({ type: "gallery", label: "画廊", icon: Picture });
+    views.push({ type: "gallery", label: t("view.gallery"), icon: Picture });
   }
   if (viewTypes.has("gantt")) {
-    views.push({ type: "gantt", label: "甘特图", icon: DataLine });
+    views.push({ type: "gantt", label: t("view.gantt"), icon: DataLine });
   }
-  
+
   return views;
 });
 
@@ -354,7 +355,7 @@ const kanbanGroups = computed(() => {
   if (ungroupedRecords.length > 0) {
     groups.push({
       id: 'uncategorized',
-      name: '未分组',
+      name: t('view.uncategorized'),
       color: '#909399',
       records: ungroupedRecords,
     });
@@ -470,6 +471,8 @@ const getMemberInitial = (value: unknown): string => {
   }
   return "?";
 };
+
+const { t } = useI18n();
 
 const handleClose = () => {
   dialogVisible.value = false;

@@ -75,7 +75,7 @@ class EmailConfigService:
             if not secret_key:
                 secret_key = current_app.config.get('SECRET_KEY')
                 if not secret_key:
-                    raise ValueError('未配置 SECRET_KEY')
+                    raise ValueError('secret_key_not_configured')
 
             key = EmailConfigService._get_encryption_key(secret_key)
             f = Fernet(key)
@@ -83,7 +83,7 @@ class EmailConfigService:
             return decrypted.decode()
         except Exception as e:
             logger.error(f'解密 SMTP 密码失败：{str(e)}')
-            raise ValueError('解密密码失败，请检查配置')
+            raise ValueError('failed_decrypt_password_check_configuration')
 
     @staticmethod
     def encrypt_password(password: str, secret_key: Optional[str] = None) -> str:
@@ -104,7 +104,7 @@ class EmailConfigService:
             if not secret_key:
                 secret_key = current_app.config.get('SECRET_KEY')
                 if not secret_key:
-                    raise ValueError('未配置 SECRET_KEY')
+                    raise ValueError('secret_key_not_configured')
 
             key = EmailConfigService._get_encryption_key(secret_key)
             f = Fernet(key)
@@ -112,7 +112,7 @@ class EmailConfigService:
             return encrypted.decode()
         except Exception as e:
             logger.error(f'加密 SMTP 密码失败：{str(e)}')
-            raise ValueError('加密密码失败，请稍后重试')
+            raise ValueError('failed_encrypt_password_try_again_later')
 
     @staticmethod
     def get_email_config() -> Dict[str, Any]:
@@ -299,12 +299,12 @@ class EmailConfigService:
             db.session.commit()
             logger.info('邮件配置保存成功')
 
-            return {'success': True, 'message': '配置保存成功'}
+            return {'success': True, 'message': 'configuration_saved_successfully'}
 
         except Exception as e:
             db.session.rollback()
             logger.error(f'保存邮件配置失败：{str(e)}')
-            return {'success': False, 'error': '保存配置失败，请稍后重试'}
+            return {'success': False, 'error': 'failed_save_configuration_try_again_later'}
 
     @staticmethod
     def test_config() -> Dict[str, Any]:
@@ -315,7 +315,7 @@ class EmailConfigService:
             包含测试结果的字典
         """
         if not EmailConfigService.is_email_enabled():
-            return {'success': False, 'error': '邮件服务未启用或配置不完整'}
+            return {'success': False, 'error': 'email_service_not_enabled_configuration_incomplete'}
 
         smtp_config = EmailConfigService.get_smtp_config()
 
@@ -346,14 +346,14 @@ class EmailConfigService:
                 server.login(smtp_config['username'], smtp_config['password'])
 
             logger.info('邮件配置测试成功')
-            return {'success': True, 'message': 'SMTP 连接测试成功'}
+            return {'success': True, 'message': 'smtp_connection_test_succeeded'}
 
         except smtplib.SMTPAuthenticationError:
-            return {'success': False, 'error': 'SMTP 认证失败，请检查用户名和密码'}
+            return {'success': False, 'error': 'smtp_authentication_failed_check_username_password'}
         except smtplib.SMTPConnectError:
-            return {'success': False, 'error': '无法连接到 SMTP 服务器，请检查服务器地址和端口'}
+            return {'success': False, 'error': 'connect_smtp_server_check_server_address_port'}
         except smtplib.SMTPException:
-            return {'success': False, 'error': 'SMTP 连接错误，请检查配置'}
+            return {'success': False, 'error': 'smtp_connection_error_check_configuration'}
         except Exception as e:
             logger.error(f'测试邮件配置失败：{str(e)}')
-            return {'success': False, 'error': '测试失败，请稍后重试'}
+            return {'success': False, 'error': 'test_failed_try_again_later'}

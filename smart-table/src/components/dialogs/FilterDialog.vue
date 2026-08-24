@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ElDialog, ElButton, ElSelect, ElOption, ElInput, ElRadioGroup, ElRadioButton, ElDatePicker, ElInputNumber, ElTag } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { FilterOperator, type FilterCondition } from '@/types/filters'
 import { FieldType } from '@/types/fields'
 import type { FieldEntity } from '@/db/schema'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   visible: boolean
@@ -26,48 +29,48 @@ const filters = ref<FilterConditionExt[]>([])
 const conjunction = ref<'and' | 'or'>('and')
 
 const textOperators = [
-  { value: FilterOperator.EQUALS, label: '等于' },
-  { value: FilterOperator.NOT_EQUALS, label: '不等于' },
-  { value: FilterOperator.CONTAINS, label: '包含' },
-  { value: FilterOperator.NOT_CONTAINS, label: '不包含' },
-  { value: FilterOperator.STARTS_WITH, label: '开头是' },
-  { value: FilterOperator.ENDS_WITH, label: '结尾是' },
-  { value: FilterOperator.IS_EMPTY, label: '为空' },
-  { value: FilterOperator.IS_NOT_EMPTY, label: '不为空' }
+  { value: FilterOperator.EQUALS, label: t('filter.opEquals') },
+  { value: FilterOperator.NOT_EQUALS, label: t('filter.opNotEquals') },
+  { value: FilterOperator.CONTAINS, label: t('filter.opContains') },
+  { value: FilterOperator.NOT_CONTAINS, label: t('filter.opNotContains') },
+  { value: FilterOperator.STARTS_WITH, label: t('filter.opStartsWith') },
+  { value: FilterOperator.ENDS_WITH, label: t('filter.opEndsWith') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
 ]
 
 const numberOperators = [
-  { value: FilterOperator.EQUALS, label: '等于' },
-  { value: FilterOperator.NOT_EQUALS, label: '不等于' },
-  { value: FilterOperator.GREATER_THAN, label: '大于' },
-  { value: FilterOperator.LESS_THAN, label: '小于' },
-  { value: FilterOperator.GREATER_THAN_OR_EQUAL, label: '大于等于' },
-  { value: FilterOperator.LESS_THAN_OR_EQUAL, label: '小于等于' },
-  { value: FilterOperator.IS_EMPTY, label: '为空' },
-  { value: FilterOperator.IS_NOT_EMPTY, label: '不为空' }
+  { value: FilterOperator.EQUALS, label: t('filter.opEquals') },
+  { value: FilterOperator.NOT_EQUALS, label: t('filter.opNotEquals') },
+  { value: FilterOperator.GREATER_THAN, label: t('filter.opGreaterThan') },
+  { value: FilterOperator.LESS_THAN, label: t('filter.opLessThan') },
+  { value: FilterOperator.GREATER_THAN_OR_EQUAL, label: t('filter.opGreaterThanOrEqual') },
+  { value: FilterOperator.LESS_THAN_OR_EQUAL, label: t('filter.opLessThanOrEqual') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
 ]
 
 const dateOperators = [
-  { value: FilterOperator.EQUALS, label: '等于' },
-  { value: FilterOperator.NOT_EQUALS, label: '不等于' },
-  { value: FilterOperator.GREATER_THAN, label: '晚于' },
-  { value: FilterOperator.LESS_THAN, label: '早于' },
-  { value: FilterOperator.GREATER_THAN_OR_EQUAL, label: '晚于等于' },
-  { value: FilterOperator.LESS_THAN_OR_EQUAL, label: '早于等于' },
-  { value: FilterOperator.IS_EMPTY, label: '为空' },
-  { value: FilterOperator.IS_NOT_EMPTY, label: '不为空' }
+  { value: FilterOperator.EQUALS, label: t('filter.opEquals') },
+  { value: FilterOperator.NOT_EQUALS, label: t('filter.opNotEquals') },
+  { value: FilterOperator.GREATER_THAN, label: t('filter.opAfter') },
+  { value: FilterOperator.LESS_THAN, label: t('filter.opBefore') },
+  { value: FilterOperator.GREATER_THAN_OR_EQUAL, label: t('filter.opAfterOrEqual') },
+  { value: FilterOperator.LESS_THAN_OR_EQUAL, label: t('filter.opBeforeOrEqual') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
 ]
 
 const selectOperators = [
-  { value: FilterOperator.EQUALS, label: '等于' },
-  { value: FilterOperator.NOT_EQUALS, label: '不等于' },
-  { value: FilterOperator.IS_EMPTY, label: '为空' },
-  { value: FilterOperator.IS_NOT_EMPTY, label: '不为空' }
+  { value: FilterOperator.EQUALS, label: t('filter.opEquals') },
+  { value: FilterOperator.NOT_EQUALS, label: t('filter.opNotEquals') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
 ]
 
 const checkboxOperators = [
-  { value: FilterOperator.EQUALS, label: '等于' },
-  { value: FilterOperator.IS_EMPTY, label: '为空' }
+  { value: FilterOperator.EQUALS, label: t('filter.opEquals') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') }
 ]
 
 function getOperatorsForField(field: FieldEntity | undefined) {
@@ -188,17 +191,17 @@ watch(() => props.visible, (visible) => {
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="筛选"
+    :title="t('filter.title')"
     width="700px"
     :close-on-click-modal="false"
   >
     <div class="filter-dialog">
       <!-- 条件组合方式 -->
       <div class="conjunction-row">
-        <span class="label">满足以下</span>
+        <span class="label">{{ t('filter.satisfyFollowing') }}</span>
         <ElRadioGroup v-model="conjunction" size="small">
-          <ElRadioButton label="and">所有条件</ElRadioButton>
-          <ElRadioButton label="or">任一条件</ElRadioButton>
+          <ElRadioButton label="and">{{ t('filter.allConditions') }}</ElRadioButton>
+          <ElRadioButton label="or">{{ t('filter.anyCondition') }}</ElRadioButton>
         </ElRadioGroup>
       </div>
 
@@ -212,7 +215,7 @@ watch(() => props.visible, (visible) => {
           <!-- 字段选择 -->
           <ElSelect
             v-model="filter.fieldId"
-            placeholder="选择字段"
+            :placeholder="t('filter.selectField')"
             style="width: 150px"
             @change="onFieldChange(index)"
           >
@@ -227,7 +230,7 @@ watch(() => props.visible, (visible) => {
           <!-- 操作符选择 -->
           <ElSelect
             v-model="filter.operator"
-            placeholder="操作"
+            :placeholder="t('filter.operator')"
             style="width: 130px"
           >
             <ElOption
@@ -244,7 +247,7 @@ watch(() => props.visible, (visible) => {
             <ElInput
               v-if="getValueInputType(getFieldById(filter.fieldId)) === 'text'"
               v-model="filter.value"
-              placeholder="输入值"
+              :placeholder="t('filter.inputValue')"
               style="width: 180px"
             />
 
@@ -252,7 +255,7 @@ watch(() => props.visible, (visible) => {
             <ElInputNumber
               v-else-if="getValueInputType(getFieldById(filter.fieldId)) === 'number'"
               v-model="filter.value"
-              placeholder="输入数值"
+              :placeholder="t('filter.inputNumber')"
               style="width: 180px"
             />
 
@@ -261,7 +264,7 @@ watch(() => props.visible, (visible) => {
               v-else-if="getValueInputType(getFieldById(filter.fieldId)) === 'date'"
               v-model="filter.value"
               type="date"
-              placeholder="选择日期"
+              :placeholder="t('filter.selectDate')"
               style="width: 180px"
               value-format="YYYY-MM-DD"
             />
@@ -270,7 +273,7 @@ watch(() => props.visible, (visible) => {
             <ElSelect
               v-else-if="getValueInputType(getFieldById(filter.fieldId)) === 'select'"
               v-model="filter.value"
-              placeholder="选择选项"
+              :placeholder="t('filter.selectOption')"
               style="width: 180px"
             >
               <ElOption
@@ -285,11 +288,11 @@ watch(() => props.visible, (visible) => {
             <ElSelect
               v-else-if="getValueInputType(getFieldById(filter.fieldId)) === 'checkbox'"
               v-model="filter.value"
-              placeholder="选择"
+              :placeholder="t('filter.checkboxSelect')"
               style="width: 180px"
             >
-              <ElOption label="已选中" :value="true" />
-              <ElOption label="未选中" :value="false" />
+              <ElOption :label="t('filter.checked')" :value="true" />
+              <ElOption :label="t('filter.unchecked')" :value="false" />
             </ElSelect>
           </template>
 
@@ -299,7 +302,7 @@ watch(() => props.visible, (visible) => {
             type="danger"
             @click="removeFilter(index)"
           >
-            删除
+            {{ t('filter.delete') }}
           </ElButton>
         </div>
       </div>
@@ -311,12 +314,12 @@ watch(() => props.visible, (visible) => {
         class="add-filter-btn"
         @click="addFilter"
       >
-        + 添加筛选条件
+        + {{ t('filter.addCondition') }}
       </ElButton>
 
       <!-- 已选条件预览 -->
       <div v-if="filters.length > 0" class="filter-preview">
-        <div class="preview-label">当前筛选：</div>
+        <div class="preview-label">{{ t('filter.currentFilter') }}</div>
         <div class="preview-tags">
           <ElTag
             v-for="(filter, index) in filters"
@@ -337,9 +340,9 @@ watch(() => props.visible, (visible) => {
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="$emit('update:visible', false)">取消</ElButton>
-        <ElButton link type="danger" @click="clearFilters">清除筛选</ElButton>
-        <ElButton type="primary" @click="applyFilters">应用筛选</ElButton>
+        <ElButton @click="$emit('update:visible', false)">{{ t('common.cancel') }}</ElButton>
+        <ElButton link type="danger" @click="clearFilters">{{ t('filter.clear') }}</ElButton>
+        <ElButton type="primary" @click="applyFilters">{{ t('filter.apply') }}</ElButton>
       </div>
     </template>
   </ElDialog>

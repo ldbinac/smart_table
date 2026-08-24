@@ -69,6 +69,7 @@ ENV/
 env.bak/
 venv.bak/
 .trae/
+.codebuddy/
 
 # mypy
 .mypy_cache/
@@ -108,3 +109,5 @@ data/
 build/
 logs/
 config/.env__default
+
+config/

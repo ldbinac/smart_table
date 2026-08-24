@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { sanitizeHtml } from "@/utils/helpers";
+
+const { t } = useI18n();
 
 interface Props {
   modelValue: string | null;
@@ -12,7 +15,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   modelValue: null,
   readonly: false,
-  placeholder: "请输入内容...",
+  placeholder: "",
   maxLength: undefined,
 });
 
@@ -81,7 +84,7 @@ async function initEditor() {
 
     editorInstance.value = new FluentEditor(editorRef.value, {
       theme: "snow",
-      placeholder: props.placeholder,
+      placeholder: props.placeholder || t('field.richTextPlaceholder'),
       modules: {
         toolbar: [
           ["bold", "italic", "underline", "strike"],
@@ -191,7 +194,7 @@ async function initEditor() {
         console.log("[RichTextField] text-change", { source });
         if (source !== "user") return;
 
-        let selection = null;
+        let selection: any = null;
         try {
           selection = editorInstance.value.getSelection();
         } catch (e) {
@@ -273,7 +276,7 @@ onUnmounted(() => {
               normalizeHtml(($event.target as HTMLTextAreaElement).value)
             )
           "
-          :placeholder="placeholder"
+          :placeholder="placeholder || t('field.richTextPlaceholder')"
           class="fallback-textarea"
         />
       </div>

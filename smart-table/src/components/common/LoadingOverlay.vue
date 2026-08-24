@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
+
 interface Props {
   visible: boolean
   recordCount: number
@@ -6,7 +10,7 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  actionText: '删除',
+  actionText: "",
 })
 </script>
 
@@ -20,7 +24,7 @@ withDefaults(defineProps<Props>(), {
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="50" stroke-dashoffset="0" />
             </svg>
           </div>
-          <p class="loading-text">正在{{ actionText }} {{ recordCount }} 条记录，请稍候...</p>
+          <p class="loading-text">{{ t('common.loadingAction', { action: actionText || t('common.delete'), count: recordCount }) }}</p>
         </div>
       </div>
     </Transition>

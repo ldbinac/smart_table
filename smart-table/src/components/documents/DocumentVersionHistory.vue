@@ -1,7 +1,7 @@
 <template>
   <div class="document-version-history">
     <div class="version-history__header">
-      <h3 class="version-history__title">版本历史</h3>
+      <h3 class="version-history__title">{{ t('document.versionHistory') }}</h3>
       <el-button text @click="handleClose">
         <el-icon><Close /></el-icon>
       </el-button>
@@ -12,7 +12,7 @@
     </div>
 
     <div v-else-if="versions.length === 0" class="version-history__empty">
-      <el-empty description="暂无版本历史" />
+      <el-empty :description="t('document.noVersionHistory')" />
     </div>
 
     <div v-else class="version-history__list">
@@ -45,9 +45,9 @@
             size="small"
             @click.stop="handleRestore(version)"
           >
-            恢复此版本
+            {{ t('document.restoreVersion') }}
           </el-button>
-          <el-tag v-else type="success" size="small">当前版本</el-tag>
+          <el-tag v-else type="success" size="small">{{ t('document.currentVersion') }}</el-tag>
         </div>
       </div>
     </div>
@@ -78,20 +78,20 @@
           <el-skeleton :rows="6" animated />
         </div>
         <div v-else-if="previewError" class="version-preview__error-overlay">
-          <el-empty description="内容加载失败">
+          <el-empty :description="t('document.contentLoadFailed')">
             <p>{{ previewError }}</p>
-            <el-button type="primary" @click="reloadPreview">重新加载</el-button>
+            <el-button type="primary" @click="reloadPreview">{{ t('document.reload') }}</el-button>
           </el-empty>
         </div>
       </div>
       <template #footer>
-        <el-button @click="previewVisible = false">关闭</el-button>
+        <el-button @click="previewVisible = false">{{ t('document.close') }}</el-button>
         <el-button
           v-if="previewVersion && previewVersion.id !== currentVersionId"
           type="primary"
           @click="handleRestore(previewVersion)"
         >
-          恢复此版本
+          {{ t('document.restoreVersion') }}
         </el-button>
       </template>
     </el-dialog>
@@ -100,8 +100,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Close, Clock } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+
+const { t } = useI18n();
 import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import { documentVersionApiService } from '@/services/api/documentVersionApiService';
@@ -154,7 +157,7 @@ const fetchVersions = async () => {
       await userCacheStore.fetchUsers(userIds);
     }
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '获取版本历史失败');
+    ElMessage.error(e instanceof Error ? e.message : t('document.fetchHistoryFailed'));
   } finally {
     loading.value = false;
   }
@@ -172,23 +175,23 @@ const handlePreview = (version: DocumentVersion) => {
 const handleRestore = async (version: DocumentVersion) => {
   try {
     await ElMessageBox.confirm(
-      `确定要恢复到版本 "${version.name}" 吗？当前内容将被覆盖。`,
-      '恢复版本',
+      t('document.restoreConfirm', { name: version.name }),
+      t('document.restoreTitle'),
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+        confirmButtonText: t('document.confirm'),
+        cancelButtonText: t('document.cancel'),
         type: 'warning'
       }
     );
 
     await documentVersionApiService.restore(props.documentId, version.id);
-    ElMessage.success('版本恢复成功');
+    ElMessage.success(t('document.versionRestored'));
     previewVisible.value = false;
     emit('restore', version);
     await fetchVersions();
   } catch (e) {
     if (e !== 'cancel') {
-      ElMessage.error(e instanceof Error ? e.message : '恢复版本失败');
+      ElMessage.error(e instanceof Error ? e.message : t('document.restoreFailed'));
     }
   }
 };
@@ -218,7 +221,7 @@ const initPreviewEditor = async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
     
     if (!previewRef.value) {
-      previewError.value = '编辑器容器未找到';
+      previewError.value = t('document.editorContainerNotFound');
       console.error('[DocumentVersionHistory] 未能找到编辑器容器');
       return;
     }
@@ -257,14 +260,14 @@ const initPreviewEditor = async () => {
         previewEditor.setContents(content);
       } catch (parseError) {
         console.error('[DocumentVersionHistory] 解析内容失败:', parseError);
-        previewError.value = '内容解析失败';
+        previewError.value = t('document.contentParseFailed');
       }
     } else {
       console.log('[DocumentVersionHistory] 版本内容为空');
     }
   } catch (error) {
     console.error('[DocumentVersionHistory] 初始化预览编辑器失败:', error);
-    previewError.value = error instanceof Error ? error.message : '加载失败';
+    previewError.value = error instanceof Error ? error.message : t('document.loadFailed');
   } finally {
     previewLoading.value = false;
   }

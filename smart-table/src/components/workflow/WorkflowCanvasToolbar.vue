@@ -7,6 +7,7 @@ import {
   Handbag,
   Pointer,
 } from "@element-plus/icons-vue";
+import { useI18n } from "vue-i18n";
 
 interface Props {
   panMode?: boolean;
@@ -22,6 +23,7 @@ const emit = defineEmits<{
   (e: "fit-view"): void;
   (e: "toggle-pan-mode"): void;
 }>();
+const { t } = useI18n();
 
 function handleKeyDown(event: KeyboardEvent) {
   const modifierPressed = event.ctrlKey || event.metaKey;
@@ -62,7 +64,7 @@ onUnmounted(() => {
         size="small"
         :type="panMode ? 'primary' : 'default'"
         :class="{ active: panMode }"
-        :title="panMode ? '退出抓手模式' : '进入抓手模式'"
+        :title="panMode ? t('workflow.canvas.panModeExit') : t('workflow.canvas.panModeEnter')"
         @click="emit('toggle-pan-mode')"
       >
         <el-icon>
@@ -73,7 +75,7 @@ onUnmounted(() => {
 
       <el-button
         size="small"
-        title="放大"
+        :title="t('workflow.canvas.zoomIn')"
         @click="emit('zoom-in')"
       >
         <el-icon><Plus /></el-icon>
@@ -81,7 +83,7 @@ onUnmounted(() => {
 
       <el-button
         size="small"
-        title="缩小"
+        :title="t('workflow.canvas.zoomOut')"
         @click="emit('zoom-out')"
       >
         <el-icon><Minus /></el-icon>
@@ -89,7 +91,7 @@ onUnmounted(() => {
 
       <el-button
         size="small"
-        title="适应屏幕"
+        :title="t('workflow.canvas.fitView')"
         @click="emit('fit-view')"
       >
         <el-icon><FullScreen /></el-icon>

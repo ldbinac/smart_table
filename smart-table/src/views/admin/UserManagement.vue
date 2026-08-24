@@ -1,10 +1,10 @@
 <template>
-  <div class="user-management-page">
+  <div class="user-management-page" append-to-body>
     <div class="page-header">
-      <h1 class="page-title">用户管理</h1>
+      <h1 class="page-title">{{ t('user.title') }}</h1>
       <el-button type="primary" @click="showCreateDialog = true">
         <el-icon><Plus /></el-icon>
-        添加用户
+        {{ t('user.addUser') }}
       </el-button>
     </div>
 
@@ -14,7 +14,7 @@
           <div class="filter-left">
             <el-input
               v-model="searchQuery"
-              placeholder="搜索邮箱或姓名"
+              :placeholder="t('user.searchPlaceholder')"
               clearable
               style="width: 300px"
               @clear="handleSearch">
@@ -22,32 +22,32 @@
                 <el-icon><Search /></el-icon>
               </template>
               <template #append>
-                <el-button @click="handleSearch">搜索</el-button>
+                <el-button @click="handleSearch">{{ t('common.search') }}</el-button>
               </template>
             </el-input>
 
             <el-select
               v-model="filterRole"
-              placeholder="角色筛选"
+              :placeholder="t('user.roleFilter')"
               clearable
               style="width: 150px; margin-left: 12px"
               @change="handleFilter">
-              <el-option label="管理员" value="admin" />
-              <el-option label="工作区管理员" value="workspace_admin" />
-              <el-option label="编辑者" value="editor" />
-              <el-option label="查看者" value="viewer" />
+              <el-option :label="t('user.roleAdmin')" value="admin" />
+              <el-option :label="t('user.roleWorkspaceAdmin')" value="workspace_admin" />
+              <el-option :label="t('user.roleEditor')" value="editor" />
+              <el-option :label="t('user.roleViewer')" value="viewer" />
             </el-select>
 
             <el-select
               v-model="filterStatus"
-              placeholder="状态筛选"
+              :placeholder="t('user.statusFilter')"
               clearable
               style="width: 120px; margin-left: 12px"
               @change="handleFilter">
-              <el-option label="活跃" value="active" />
-              <el-option label="未激活" value="inactive" />
-              <el-option label="已暂停" value="suspended" />
-              <el-option label="已删除" value="deleted" />
+              <el-option :label="t('user.statusActive')" value="active" />
+              <el-option :label="t('user.statusInactive')" value="inactive" />
+              <el-option :label="t('user.statusSuspended')" value="suspended" />
+              <el-option :label="t('user.statusDeleted')" value="deleted" />
             </el-select>
           </div>
 
@@ -55,7 +55,7 @@
             <el-button
               @click="handleBatchDelete"
               :disabled="selectedRows.length === 0">
-              批量删除
+              {{ t('user.batchDelete') }}
             </el-button>
           </div>
         </div>
@@ -66,35 +66,35 @@
           style="width: 100%; margin-top: 16px"
           @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="55" />
-          <el-table-column prop="email" label="邮箱" min-width="200" />
-          <el-table-column prop="name" label="姓名" min-width="120" />
-          <el-table-column prop="role" label="角色" width="120">
+          <el-table-column prop="email" :label="t('user.email')" min-width="200" />
+          <el-table-column prop="name" :label="t('user.name')" min-width="120" />
+          <el-table-column prop="role" :label="t('user.role')" width="120">
             <template #default="{ row }">
               <el-tag :type="getRoleTagType(row.role)">
                 {{ getRoleLabel(row.role) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" :label="t('user.status')" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusTagType(row.status)">
                 {{ getStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" width="180">
+          <el-table-column prop="created_at" :label="t('user.createdAt')" width="180">
             <template #default="{ row }">
               {{ formatUserDate(row.created_at) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column :label="t('user.actions')" width="280" fixed="right">
             <template #default="{ row }">
               <el-button
                 link
                 type="primary"
                 size="small"
                 @click="handleEdit(row as User)">
-                编辑
+                {{ t('user.edit') }}
               </el-button>
               <el-button
                 v-if="row.status === 'active'"
@@ -102,7 +102,7 @@
                 type="warning"
                 size="small"
                 @click="handleSuspend(row as User)">
-                暂停
+                {{ t('user.suspend') }}
               </el-button>
               <el-button
                 v-else-if="row.status === 'suspended'"
@@ -110,21 +110,21 @@
                 type="success"
                 size="small"
                 @click="handleActivate(row as User)">
-                激活
+                {{ t('user.activate') }}
               </el-button>
               <el-button
                 link
                 type="warning"
                 size="small"
                 @click="handleResetPassword(row as User)">
-                重置密码
+                {{ t('user.resetPassword') }}
               </el-button>
               <el-button
                 link
                 type="danger"
                 size="small"
                 @click="handleDelete(row as User)">
-                删除
+                {{ t('user.delete') }}
               </el-button>
             </template>
           </el-table-column>
@@ -170,7 +170,9 @@ import type { User, UserRole, UserStatus } from "@/api/types";
 import UserDialog from "@/components/dialogs/admin/UserDialog.vue";
 import ResetPasswordDialog from "@/components/dialogs/admin/ResetPasswordDialog.vue";
 import { formatDateTime } from "@/utils/timezone";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const adminStore = useAdminStore();
 
 const users = computed(() => {
@@ -198,17 +200,17 @@ const resetPasswordUserId = ref<string>("");
 const total = computed(() => userPagination.value.total);
 
 const roleLabelMap: Record<UserRole, string> = {
-  admin: "管理员",
-  workspace_admin: "工作区管理员",
-  editor: "编辑者",
-  viewer: "查看者",
+  admin: t("user.roleAdmin"),
+  workspace_admin: t("user.roleWorkspaceAdmin"),
+  editor: t("user.roleEditor"),
+  viewer: t("user.roleViewer"),
 };
 
 const statusLabelMap: Record<UserStatus, string> = {
-  active: "活跃",
-  inactive: "未激活",
-  suspended: "已暂停",
-  deleted: "已删除",
+  active: t("user.statusActive"),
+  inactive: t("user.statusInactive"),
+  suspended: t("user.statusSuspended"),
+  deleted: t("user.statusDeleted"),
 };
 
 const getRoleLabel = (role: UserRole): string => {
@@ -273,7 +275,7 @@ const fetchUsers = async () => {
     console.log("[UserManagement] fetchUsers 完成");
   } catch (error) {
     console.error("[UserManagement] fetchUsers 失败:", error);
-    ElMessage.error("获取用户列表失败");
+    ElMessage.error(t("user.fetchFailed"));
   }
 };
 
@@ -319,9 +321,9 @@ const handleUserUpdated = () => {
 };
 
 const handleSuspend = (user: User) => {
-  ElMessageBox.confirm(`确定要暂停用户 "${user.name}" 吗？`, "确认暂停", {
-    confirmButtonText: "确定",
-    cancelButtonText: "取消",
+  ElMessageBox.confirm(t("user.suspendConfirm", { name: user.name }), t("user.suspendConfirmTitle"), {
+    confirmButtonText: t("common.confirm"),
+    cancelButtonText: t("common.cancel"),
     type: "warning",
   })
     .then(async () => {
@@ -329,16 +331,16 @@ const handleSuspend = (user: User) => {
         await adminStore.updateUserStatus(user.id, "suspended");
         fetchUsers();
       } catch (error) {
-        ElMessage.error("暂停用户失败");
+        ElMessage.error(t("user.suspendFailed"));
       }
     })
     .catch(() => {});
 };
 
 const handleActivate = (user: User) => {
-  ElMessageBox.confirm(`确定要激活用户 "${user.name}" 吗？`, "确认激活", {
-    confirmButtonText: "确定",
-    cancelButtonText: "取消",
+  ElMessageBox.confirm(t("user.activateConfirm", { name: user.name }), t("user.activateConfirmTitle"), {
+    confirmButtonText: t("common.confirm"),
+    cancelButtonText: t("common.cancel"),
     type: "success",
   })
     .then(async () => {
@@ -346,7 +348,7 @@ const handleActivate = (user: User) => {
         await adminStore.updateUserStatus(user.id, "active");
         fetchUsers();
       } catch (error) {
-        ElMessage.error("激活用户失败");
+        ElMessage.error(t("user.activateFailed"));
       }
     })
     .catch(() => {});
@@ -364,11 +366,11 @@ const handlePasswordReset = () => {
 
 const handleDelete = (user: User) => {
   ElMessageBox.confirm(
-    `确定要删除用户 "${user.name}" 吗？此操作不可恢复。`,
-    "确认删除",
+    t("user.deleteConfirm", { name: user.name }),
+    t("user.deleteConfirmTitle"),
     {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
+      confirmButtonText: t("common.confirm"),
+      cancelButtonText: t("common.cancel"),
       type: "error",
     },
   )
@@ -377,7 +379,7 @@ const handleDelete = (user: User) => {
         await adminStore.deleteUser(user.id);
         fetchUsers();
       } catch (error) {
-        ElMessage.error("删除用户失败");
+        ElMessage.error(t("user.deleteFailed"));
       }
     })
     .catch(() => {});
@@ -385,11 +387,11 @@ const handleDelete = (user: User) => {
 
 const handleBatchDelete = () => {
   ElMessageBox.confirm(
-    `确定要删除选中的 ${selectedRows.value.length} 个用户吗？此操作不可恢复。`,
-    "批量删除",
+    t("user.batchDeleteConfirm", { count: selectedRows.value.length }),
+    t("user.batchDeleteTitle"),
     {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
+      confirmButtonText: t("common.confirm"),
+      cancelButtonText: t("common.cancel"),
       type: "error",
     },
   )
@@ -398,11 +400,11 @@ const handleBatchDelete = () => {
         for (const user of selectedRows.value) {
           await adminStore.deleteUser(user.id);
         }
-        ElMessage.success("批量删除成功");
+        ElMessage.success(t("user.batchDeleteSuccess"));
         selectedRows.value = [];
         fetchUsers();
       } catch (error) {
-        ElMessage.error("批量删除失败");
+        ElMessage.error(t("user.batchDeleteFailed"));
       }
     })
     .catch(() => {});

@@ -1,0 +1,21 @@
+{
+  "title": "分组",
+  "selectField": "选择字段",
+  "level1": "一级分组",
+  "level2": "二级分组",
+  "level3": "三级分组",
+  "delete": "删除",
+  "addField": "添加分组字段",
+  "maxLevelHint": "已达到最大分组层级（{n}级）",
+  "currentGroup": "当前分组：",
+  "empty": "暂无分组配置",
+  "emptyHint": "点击上方按钮添加分组字段，最多支持 {n} 级分组",
+  "clear": "清除分组",
+  "apply": "应用分组",
+  "settingTitle": "分组设置",
+  "noGroup": "未设置分组",
+  "preview": "分组预览",
+  "emptyNoField": "选择字段进行分组",
+  "drag": "拖拽排序",
+  "fieldAdded": "分组字段已添加"
+}

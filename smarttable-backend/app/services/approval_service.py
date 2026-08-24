@@ -28,6 +28,7 @@ from app.models.workflow_instance import (
 )
 from app.services.email_queue_service import EmailPriority, email_queue
 from app.services.notification_service import NotificationService
+from app.i18n import translate
 from app.services.record_service import RecordService
 
 
@@ -414,7 +415,7 @@ class ApprovalService:
         approvers = ApprovalService._resolve_approvers(instance, node)
         if not approvers:
             log.warning(f'[ApprovalService] 节点 {node.id} 未解析到审批人')
-            return {'success': False, 'error': '未解析到审批人', 'tasks': []}
+            return {'success': False, 'error': 'no_assignee_resolved', 'tasks': []}
 
         # 若执行引擎尚未写入执行日志（如直接调用 API 测试），补充一条
         # 以便超时扫描能够定位任务开始时间
@@ -461,7 +462,7 @@ class ApprovalService:
         except Exception as e:
             db.session.rollback()
             log.exception(f'[ApprovalService] 创建审批任务失败: {e}')
-            return {'success': False, 'error': f'创建审批任务失败: {e}', 'tasks': []}
+            return {'success': False, 'error': translate('approval_task_create_failed', e), 'tasks': []}
 
         # 发送通知
         for task in created_tasks:
@@ -499,9 +500,9 @@ class ApprovalService:
 
         task = WorkflowTask.query.get(task_uuid)
         if not task:
-            return {'success': False, 'error': '任务不存在'}
+            return {'success': False, 'error': 'task_does_not_exist'}
         if task.assignee_id != user_uuid:
-            return {'success': False, 'error': '无权处理该任务'}
+            return {'success': False, 'error': 'no_permission_process_task'}
 
         # 使用数据库状态做并发控制：只有 pending 状态才能更新
         now = ApprovalService._now()
@@ -516,7 +517,7 @@ class ApprovalService:
         db.session.commit()
 
         if updated == 0:
-            return {'success': False, 'error': '任务已被处理或不存在'}
+            return {'success': False, 'error': 'task_already_been_processed_does_not_exist'}
 
         db.session.refresh(task)
         instance = task.instance
@@ -573,7 +574,7 @@ class ApprovalService:
         except Exception as e:
             db.session.rollback()
             log.exception(f'[ApprovalService] approve 后续处理失败: {e}')
-            return {'success': True, 'warning': '审批已记录，但后续处理失败', 'task': task.to_dict()}
+            return {'success': True, 'message': 'approval_been_recorded_but_subsequent_processing_failed', 'task': task.to_dict()}
 
         return {'success': True, 'task': task.to_dict()}
 
@@ -595,9 +596,9 @@ class ApprovalService:
 
         task = WorkflowTask.query.get(task_uuid)
         if not task:
-            return {'success': False, 'error': '任务不存在'}
+            return {'success': False, 'error': 'task_does_not_exist'}
         if task.assignee_id != user_uuid:
-            return {'success': False, 'error': '无权处理该任务'}
+            return {'success': False, 'error': 'no_permission_process_task'}
 
         now = ApprovalService._now()
         updated = db.session.query(WorkflowTask).filter_by(
@@ -611,7 +612,7 @@ class ApprovalService:
         db.session.commit()
 
         if updated == 0:
-            return {'success': False, 'error': '任务已被处理或不存在'}
+            return {'success': False, 'error': 'task_already_been_processed_does_not_exist'}
 
         db.session.refresh(task)
         instance = task.instance
@@ -654,13 +655,13 @@ class ApprovalService:
         new_assignee_uuid = ApprovalService._to_uuid(new_assignee_id)
 
         if not new_assignee_uuid:
-            return {'success': False, 'error': '新审批人 ID 无效'}
+            return {'success': False, 'error': 'new_assignee_id_invalid'}
 
         task = WorkflowTask.query.get(task_uuid)
         if not task:
-            return {'success': False, 'error': '任务不存在'}
+            return {'success': False, 'error': 'task_does_not_exist'}
         if task.assignee_id != user_uuid:
-            return {'success': False, 'error': '无权处理该任务'}
+            return {'success': False, 'error': 'no_permission_process_task'}
 
         now = ApprovalService._now()
         updated = db.session.query(WorkflowTask).filter_by(
@@ -674,7 +675,7 @@ class ApprovalService:
         db.session.commit()
 
         if updated == 0:
-            return {'success': False, 'error': '任务已被处理或不存在'}
+            return {'success': False, 'error': 'task_already_been_processed_does_not_exist'}
 
         db.session.refresh(task)
         instance = task.instance
@@ -689,7 +690,7 @@ class ApprovalService:
         except Exception as e:
             db.session.rollback()
             log.exception(f'[ApprovalService] 创建转交任务失败: {e}')
-            return {'success': False, 'error': f'创建转交任务失败: {e}'}
+            return {'success': False, 'error': translate('approval_transfer_task_failed', e)}
 
         ApprovalService._log_history(
             user_uuid,

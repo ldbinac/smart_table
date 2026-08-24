@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="成员管理"
+    :title="t('view.member.memberManagement')"
     width="800px"
     :close-on-click-modal="false"
     class="member-management-dialog">
@@ -21,12 +21,12 @@
             </div>
             <div class="member-details">
               <div class="member-name">
-                {{ member.user?.name || "未知用户" }}
+                {{ member.user?.name || t('view.member.unknownUser') }}
                 <el-tag
                   v-if="member.role === 'owner'"
                   type="warning"
                   size="small"
-                  >所有者</el-tag
+                  >{{ t('view.member.owner') }}</el-tag
                 >
               </div>
               <div class="member-email">{{ member.user?.email || "" }}</div>
@@ -39,12 +39,12 @@
               size="small"
               :disabled="!canManageMembers"
               @change="handleRoleChange(member)">
-              <el-option label="管理员" value="admin" />
-              <el-option label="编辑者" value="editor" />
-              <el-option label="评论者" value="commenter" />
-              <el-option label="查看者" value="viewer" />
+              <el-option :label="t('view.member.roleAdmin')" value="admin" />
+              <el-option :label="t('view.member.roleEditor')" value="editor" />
+              <el-option :label="t('view.member.roleCommenter')" value="commenter" />
+              <el-option :label="t('view.member.roleViewer')" value="viewer" />
             </el-select>
-            <el-tag v-else type="warning" size="small">所有者</el-tag>
+            <el-tag v-else type="warning" size="small">{{ t('view.member.owner') }}</el-tag>
 
             <el-button
               v-if="member.role !== 'owner' && canManageMembers"
@@ -52,7 +52,7 @@
               size="small"
               text
               @click="handleRemoveMember(member)">
-              移除
+              {{ t('view.member.removeMember') }}
             </el-button>
           </div>
         </div>
@@ -62,50 +62,50 @@
       <div v-if="canManageMembers" class="add-member-section">
         <el-button type="primary" @click="showAddMemberDialog = true">
           <el-icon><Plus /></el-icon>
-          添加成员
+          {{ t('view.member.addMember') }}
         </el-button>
       </div>
     </div>
 
     <template #footer>
-      <el-button @click="closeDialog">关闭</el-button>
+      <el-button @click="closeDialog">{{ t('view.close') }}</el-button>
     </template>
   </el-dialog>
 
   <!-- 添加成员对话框 -->
   <el-dialog
     v-model="showAddMemberDialog"
-    title="添加成员"
+    :title="t('view.member.addMemberTitle')"
     width="600px"
     :close-on-click-modal="false">
     <el-tabs v-model="activeTab">
-      <el-tab-pane label="单个添加" name="single">
+      <el-tab-pane :label="t('view.member.singleAdd')" name="single">
         <el-form
           ref="addMemberFormRef"
           :model="addMemberForm"
           :rules="addMemberFormRules"
-          label-width="80px">
-          <el-form-item label="用户邮箱" prop="email">
+          label-width="130px">
+          <el-form-item :label="t('view.member.userEmail')" prop="email">
             <el-input
               v-model="addMemberForm.email"
-              placeholder="请输入用户邮箱"
+              :placeholder="t('view.member.enterUserEmail')"
               type="email" />
           </el-form-item>
-          <el-form-item label="角色" prop="role">
-            <el-select v-model="addMemberForm.role" placeholder="请选择角色">
-              <el-option label="管理员" value="admin" />
-              <el-option label="编辑者" value="editor" />
-              <el-option label="评论者" value="commenter" />
-              <el-option label="查看者" value="viewer" />
+          <el-form-item :label="t('view.member.role')" prop="role">
+            <el-select v-model="addMemberForm.role" :placeholder="t('view.member.selectRole')">
+              <el-option :label="t('view.member.roleAdmin')" value="admin" />
+              <el-option :label="t('view.member.roleEditor')" value="editor" />
+              <el-option :label="t('view.member.roleCommenter')" value="commenter" />
+              <el-option :label="t('view.member.roleViewer')" value="viewer" />
             </el-select>
           </el-form-item>
         </el-form>
       </el-tab-pane>
 
-      <el-tab-pane label="批量添加" name="batch">
+      <el-tab-pane :label="t('view.member.batchAdd')" name="batch">
         <el-alert
-          title="批量添加成员"
-          description="每行一个邮箱地址，可选角色。格式：邮箱地址 角色（如：user@example.com editor）"
+          :title="t('view.member.batchAddTitle')"
+          :description="getLiteral('view.member.batchAddDesc')"
           type="info"
           :closable="false"
           show-icon />
@@ -113,14 +113,14 @@
           v-model="batchEmails"
           type="textarea"
           :rows="10"
-          placeholder="user1@example.com editor&#10;user2@example.com viewer&#10;user3@example.com" />
+          :placeholder="getLiteral('view.member.batchEmailsPlaceholder')" />
       </el-tab-pane>
     </el-tabs>
 
     <template #footer>
-      <el-button @click="showAddMemberDialog = false">取消</el-button>
+      <el-button @click="showAddMemberDialog = false">{{ t('view.cancel') }}</el-button>
       <el-button type="primary" :loading="adding" @click="handleAddMember">
-        添加
+        {{ t('view.member.addMember') }}
       </el-button>
     </template>
   </el-dialog>
@@ -128,10 +128,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { getLiteral } from "@/i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
 import { useMemberStore, type BaseMember } from "@/stores/memberStore";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   baseId: string;
@@ -167,10 +171,10 @@ const addMemberForm = reactive({
 
 const addMemberFormRules: FormRules = {
   email: [
-    { required: true, message: "请输入用户邮箱", trigger: "blur" },
-    { type: "email", message: "请输入有效的邮箱地址", trigger: "blur" },
+    { required: true, message: t('view.member.enterUserEmail'), trigger: "blur" },
+    { type: "email", message: t('view.base.invalidEmail'), trigger: "blur" },
   ],
-  role: [{ required: true, message: "请选择角色", trigger: "change" }],
+  role: [{ required: true, message: t('view.member.selectRole'), trigger: "change" }],
 };
 
 // 监听对话框打开，加载成员列表
@@ -192,7 +196,7 @@ async function loadMembers() {
     console.log("加载成员列表成功:", members.value);
   } catch (error) {
     console.error("加载成员列表失败:", error);
-    ElMessage.error("加载成员列表失败");
+    ElMessage.error(t('view.member.loadMembersFailed'));
   } finally {
     loading.value = false;
   }
@@ -202,11 +206,11 @@ async function loadMembers() {
 async function handleRoleChange(member: BaseMember) {
   try {
     await memberStore.updateMemberRole(props.baseId, member.user_id, member.role);
-    ElMessage.success("成员角色已更新");
+    ElMessage.success(t('view.member.memberRoleUpdated'));
     emit("member-changed");
   } catch (error) {
     console.error("更新成员角色失败:", error);
-    ElMessage.error("更新成员角色失败");
+    ElMessage.error(t('view.member.updateMemberRoleFailed'));
     // 恢复原角色
     await loadMembers();
   }
@@ -216,23 +220,23 @@ async function handleRoleChange(member: BaseMember) {
 async function handleRemoveMember(member: BaseMember) {
   try {
     await ElMessageBox.confirm(
-      `确定要移除成员"${member.user?.name || "未知用户"}"吗？`,
-      "确认移除",
+      t('view.member.removeMemberConfirm', { name: member.user?.name || t('view.member.unknownUser') }),
+      t('view.member.removeMemberTitle'),
       {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
+        confirmButtonText: t('view.confirm'),
+        cancelButtonText: t('view.cancel'),
         type: "warning",
       },
     );
 
     await memberStore.removeMember(props.baseId, member.user_id);
-    ElMessage.success("成员已移除");
+    ElMessage.success(t('view.member.memberRemoved'));
     await loadMembers();
     emit("member-changed");
   } catch (error) {
     if (error !== "cancel") {
       console.error("移除成员失败:", error);
-      ElMessage.error("移除成员失败");
+      ElMessage.error(t('view.member.removeMemberFailed'));
     }
   }
 }
@@ -261,7 +265,7 @@ async function handleSingleAdd() {
       addMemberForm.email,
       addMemberForm.role,
     );
-    ElMessage.success("成员添加成功");
+    ElMessage.success(t('view.member.addMemberSuccess'));
     showAddMemberDialog.value = false;
     await loadMembers();
     emit("member-changed");
@@ -272,7 +276,7 @@ async function handleSingleAdd() {
   } catch (error) {
     if (error !== "cancel") {
       console.error("添加成员失败:", error);
-      ElMessage.error("添加成员失败");
+      ElMessage.error(t('view.member.addMemberFailed'));
     }
   } finally {
     adding.value = false;
@@ -282,7 +286,7 @@ async function handleSingleAdd() {
 // 批量添加
 async function handleBatchAdd() {
   if (!batchEmails.value.trim()) {
-    ElMessage.warning("请输入成员邮箱列表");
+    ElMessage.warning(t('view.member.enterMemberEmails'));
     return;
   }
 
@@ -299,7 +303,7 @@ async function handleBatchAdd() {
     });
 
     if (members.length === 0) {
-      ElMessage.warning("没有有效的邮箱地址");
+      ElMessage.warning(t('view.member.noValidEmail'));
       return;
     }
 
@@ -307,7 +311,7 @@ async function handleBatchAdd() {
 
     if (result.success_count > 0) {
       ElMessage.success(
-        `批量添加完成：成功 ${result.success_count} 个，失败 ${result.failed_count} 个`,
+        t('view.member.batchAddDone', { success: result.success_count, failed: result.failed_count }),
       );
 
       if (result.failed_count > 0) {
@@ -315,7 +319,7 @@ async function handleBatchAdd() {
         const failedDetails = result.failed
           .map((f) => `${f.email}: ${f.error}`)
           .join("\n");
-        ElMessage.warning(`失败详情：\n${failedDetails}`);
+        ElMessage.warning(`${t('view.member.batchAddFailedDetail')}\n${failedDetails}`);
       }
 
       showAddMemberDialog.value = false;
@@ -323,12 +327,12 @@ async function handleBatchAdd() {
       emit("member-changed");
       batchEmails.value = "";
     } else {
-      ElMessage.error("批量添加失败，请检查邮箱地址格式");
+      ElMessage.error(t('view.member.batchAddFailed'));
     }
   } catch (error) {
     if (error !== "cancel") {
       console.error("批量添加失败:", error);
-      ElMessage.error("批量添加失败");
+      ElMessage.error(t('view.member.batchAddFailed'));
     }
   } finally {
     adding.value = false;

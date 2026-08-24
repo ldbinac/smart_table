@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 type EmptyType = "default" | "search" | "error" | "no-data" | "no-permission";
+
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -22,39 +25,39 @@ const emit = defineEmits<{
 
 const defaultConfig: Record<
   EmptyType,
-  { icon: string; title: string; description: string }
+  { icon: string; titleKey: string; descKey: string }
 > = {
   default: {
     icon: "📭",
-    title: "暂无数据",
-    description: "这里还没有任何内容",
+    titleKey: "common.noData",
+    descKey: "common.emptyDefaultDesc",
   },
   search: {
     icon: "🔍",
-    title: "未找到结果",
-    description: "尝试使用不同的关键词搜索",
+    titleKey: "common.emptySearchTitle",
+    descKey: "common.emptySearchDesc",
   },
   error: {
     icon: "❌",
-    title: "加载失败",
-    description: "数据加载出错，请稍后重试",
+    titleKey: "common.emptyErrorTitle",
+    descKey: "common.emptyErrorDesc",
   },
   "no-data": {
     icon: "📊",
-    title: "暂无数据",
-    description: "点击下方按钮添加新数据",
+    titleKey: "common.noData",
+    descKey: "common.emptyNoDataDesc",
   },
   "no-permission": {
     icon: "🔒",
-    title: "无访问权限",
-    description: "您没有权限查看此内容",
+    titleKey: "common.emptyNoPermissionTitle",
+    descKey: "common.emptyNoPermissionDesc",
   },
 };
 
 const config = computed(() => ({
   icon: props.icon || defaultConfig[props.type].icon,
-  title: props.title || defaultConfig[props.type].title,
-  description: props.description || defaultConfig[props.type].description,
+  title: props.title || t(defaultConfig[props.type].titleKey),
+  description: props.description || t(defaultConfig[props.type].descKey),
 }));
 </script>
 

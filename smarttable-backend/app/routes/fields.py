@@ -5,6 +5,7 @@
 import traceback
 from flask import Blueprint, request, g, current_app
 
+from app.i18n import translate
 from app.services.field_service import FieldService
 from app.services.table_service import TableService
 from app.services.link_service import LinkService
@@ -44,7 +45,7 @@ def get_fields(table_id) -> tuple:
     
     # 检查权限
     if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此表格')
+        return forbidden_response('no_permission_access_table_2')
     
     fields = FieldService.get_all_fields(str(table_id))
     
@@ -53,7 +54,7 @@ def get_fields(table_id) -> tuple:
     
     return success_response(
         data=fields_data,
-        message='获取字段列表成功'
+        message='fetched_field_list_successfully'
     )
 
 
@@ -109,19 +110,19 @@ def create_field(table_id) -> tuple:
 
     # 检查权限（需要 ADMIN 或更高权限）
     if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限在此表格中创建字段')
+        return forbidden_response('do_not_permission_create_field_table')
 
     data = request.get_json() or {}
 
     # 验证必填字段
     if 'type' not in data:
-        return error_response('字段类型不能为空', code=400)
+        return error_response('field_type_empty', code=400)
     
     # 验证名称长度
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
-            return error_response('字段名称不能超过100个字符', code=400)
+            return error_response('field_name_exceed_characters_2', code=400)
         data['name'] = name
     
     # 创建字段
@@ -132,7 +133,7 @@ def create_field(table_id) -> tuple:
     
     return success_response(
         data=result['field'],
-        message='字段创建成功',
+        message='field_created_successfully',
         code=201
     )
 
@@ -165,15 +166,15 @@ def get_field(field_id) -> tuple:
     
     # 检查权限
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此字段')
+        return forbidden_response('no_permission_access_field')
     
     field = FieldService.get_field(str(field_id))
     if not field:
-        return not_found_response('字段')
+        return not_found_response('field')
     
     return success_response(
         data=field.to_dict(),
-        message='获取字段成功'
+        message='fetched_field_successfully'
     )
 
 
@@ -233,7 +234,7 @@ def update_field(field_id) -> tuple:
 
     # 检查权限（需要 ADMIN 或更高权限）
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此字段')
+        return forbidden_response('do_not_permission_modify_field')
     
     data = request.get_json() or {}
     
@@ -241,7 +242,7 @@ def update_field(field_id) -> tuple:
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
-            return error_response('字段名称不能超过100个字符', code=400)
+            return error_response('field_name_exceed_characters_2', code=400)
         data['name'] = name
     
     # 更新字段
@@ -252,7 +253,7 @@ def update_field(field_id) -> tuple:
     
     return success_response(
         data=result['field'],
-        message='字段更新成功'
+        message='field_updated_successfully'
     )
 
 
@@ -287,18 +288,18 @@ def delete_field(field_id) -> tuple:
 
     # 检查权限（需要 ADMIN 或更高权限）
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限删除此字段')
+        return forbidden_response('do_not_permission_delete_field')
     
     field = FieldService.get_field(str(field_id))
     if not field:
-        return not_found_response('字段')
+        return not_found_response('field')
     
     result = FieldService.delete_field(str(field_id), user_id)
     
     if not result['success']:
         return error_response(result['error'], code=400)
     
-    return success_response(message='字段删除成功')
+    return success_response(message='field_deleted_successfully')
 
 
 @fields_bp.route('/fields/reorder', methods=['POST'])
@@ -351,21 +352,21 @@ def reorder_fields() -> tuple:
     field_orders = data.get('orders', [])
     
     if not table_id:
-        return error_response('请提供表格ID', code=400)
+        return error_response('provide_table_id_2', code=400)
     
     if not field_orders:
-        return error_response('请提供排序数据', code=400)
+        return error_response('provide_sort_data', code=400)
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此表格')
+        return forbidden_response('do_not_permission_modify_table')
 
     success = FieldService.reorder_fields(str(table_id), field_orders)
     
     if not success:
-        return error_response('排序失败，请稍后重试', code=500)
+        return error_response('failed_reorder_try_again_later', code=500)
     
-    return success_response(message='字段排序更新成功')
+    return success_response(message='field_order_updated_successfully')
 
 
 @fields_bp.route('/fields/<uuid:field_id>/duplicate', methods=['POST'])
@@ -404,11 +405,11 @@ def duplicate_field(field_id) -> tuple:
 
     # 检查权限（需要 ADMIN 或更高权限）
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限复制此字段')
+        return forbidden_response('do_not_permission_copy_field')
     
     source_field = FieldService.get_field(str(field_id))
     if not source_field:
-        return not_found_response('字段')
+        return not_found_response('field')
     
     data = request.get_json() or {}
     new_name = data.get('name')
@@ -420,7 +421,7 @@ def duplicate_field(field_id) -> tuple:
     
     return success_response(
         data=result['field'],
-        message='字段复制成功',
+        message='field_copied_successfully',
         code=201
     )
 
@@ -443,7 +444,7 @@ def get_field_types() -> tuple:
     
     return success_response(
         data=types,
-        message='获取字段类型列表成功'
+        message='fetched_field_type_list_successfully'
     )
 
 
@@ -471,7 +472,7 @@ def get_field_type_detail(field_type) -> tuple:
     
     return success_response(
         data=type_info,
-        message='获取字段类型详情成功'
+        message='fetched_field_type_details_successfully'
     )
 
 
@@ -516,11 +517,11 @@ def validate_field_value(field_id) -> tuple:
     
     # 检查权限
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此字段')
+        return forbidden_response('no_permission_access_field')
     
     field = FieldService.get_field(str(field_id))
     if not field:
-        return not_found_response('字段')
+        return not_found_response('field')
     
     data = request.get_json() or {}
     value = data.get('value')
@@ -528,7 +529,7 @@ def validate_field_value(field_id) -> tuple:
     result = FieldService.validate_field_value(str(field_id), value)
     
     if result['success']:
-        return success_response(message='验证通过')
+        return success_response(message='verified')
     else:
         return error_response(result['error'], code=400)
 
@@ -596,17 +597,17 @@ def create_link_field() -> tuple:
     relationship_type = data.get('relationship_type')
     
     if not table_id:
-        return error_response('请提供表格ID', code=400)
+        return error_response('provide_table_id_2', code=400)
     if not target_table_id:
-        return error_response('请提供目标表ID', code=400)
+        return error_response('provide_target_table_id', code=400)
     if not relationship_type:
-        return error_response('请提供关联类型', code=400)
+        return error_response('provide_link_type', code=400)
     valid_types = ['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many']
     if relationship_type not in valid_types:
-        return error_response(f'关联类型必须是: {", ".join(valid_types)}', code=400)
+        return error_response(translate('link_type_must_be', ', '.join(valid_types)), code=400)
     
     if not TableService.check_permission(str(table_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限在此表格中创建字段')
+        return forbidden_response('do_not_permission_create_field_table')
 
     result = LinkService.create_link_field(str(table_id), data, user_id)
     
@@ -619,7 +620,7 @@ def create_link_field() -> tuple:
             'inverse_field': result.get('inverse_field'),
             'link_relation': result.get('link_relation')
         },
-        message='关联字段创建成功',
+        message='link_field_created_successfully',
         code=201
     )
 
@@ -675,15 +676,15 @@ def update_link_field(field_id) -> tuple:
 
     # 检查权限
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改此字段')
+        return forbidden_response('do_not_permission_modify_field')
 
     field = FieldService.get_field(str(field_id))
     if not field:
-        return not_found_response('字段')
+        return not_found_response('field')
 
     # 检查是否为关联字段（支持 'link' 和 'link_to_record' 两种类型）
     if field.type not in [FieldType.LINK_TO_RECORD.value, 'link']:
-        return error_response('该字段不是关联字段', code=400)
+        return error_response('field_not_link_field', code=400)
     
     data = request.get_json() or {}
     
@@ -729,14 +730,14 @@ def update_link_field(field_id) -> tuple:
         
         return success_response(
             data=updated_field.to_dict(),
-            message='关联字段更新成功'
+            message='link_field_updated_successfully'
         )
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 更新关联字段失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('更新关联字段失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_update_link_field_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @fields_bp.route('/fields/<uuid:field_id>/link', methods=['DELETE'])
@@ -770,11 +771,11 @@ def delete_link_field(field_id) -> tuple:
 
     # 检查权限
     if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限删除此字段')
+        return forbidden_response('do_not_permission_delete_field')
     
     field = FieldService.get_field(str(field_id))
     if not field:
-        return not_found_response('字段')
+        return not_found_response('field')
     
     try:
         # 1. 删除关联关系（会级联删除关联值）
@@ -787,13 +788,13 @@ def delete_link_field(field_id) -> tuple:
         if not result['success']:
             return error_response(result['error'], code=400)
         
-        return success_response(message='关联字段删除成功')
+        return success_response(message='link_field_deleted_successfully')
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 删除关联字段失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('删除关联字段失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_delete_link_field_try_again_later', code=500, error='internal_server_error', request_id=request_id)
 
 
 @fields_bp.route('/tables/<uuid:table_id>/links', methods=['GET'])
@@ -824,18 +825,18 @@ def get_table_link_relations(table_id) -> tuple:
     
     # 检查权限
     if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此表格')
+        return forbidden_response('no_permission_access_table_2')
     
     try:
         link_relations = LinkService.get_table_link_relations(str(table_id))
         
         return success_response(
             data=[link.to_dict(include_related=True) for link in link_relations],
-            message='获取关联关系列表成功'
+            message='fetched_link_relation_list_successfully'
         )
     
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 获取关联关系列表失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('获取关联关系列表失败，请稍后重试', code=500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_fetch_link_relation_list_try_again_later', code=500, error='internal_server_error', request_id=request_id)

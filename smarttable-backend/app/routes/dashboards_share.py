@@ -46,17 +46,17 @@ def get_dashboard_shares(dashboard_id) -> tuple:
     # 获取仪表盘
     dashboard = Dashboard.query.get(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 EDITOR 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限管理此仪表盘的分享')
+        return forbidden_response('do_not_permission_manage_shares_dashboard')
     
     shares = DashboardShareService.get_shares_by_dashboard(str(dashboard_id))
     
     return success_response(
         data=[share.to_dict() for share in shares],
-        message='获取分享链接列表成功'
+        message='fetched_share_link_list_successfully'
     )
 
 
@@ -111,11 +111,11 @@ def create_dashboard_share(dashboard_id) -> tuple:
     # 获取仪表盘
     dashboard = Dashboard.query.get(str(dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 EDITOR 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限创建分享链接')
+        return forbidden_response('do_not_permission_create_share_link')
     
     data = request.get_json() or {}
     
@@ -139,14 +139,14 @@ def create_dashboard_share(dashboard_id) -> tuple:
 
         return success_response(
             data=share_data,
-            message='分享链接创建成功',
+            message='share_link_created_successfully',
             code=201
         )
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 创建分享链接失败：{str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪：{traceback.format_exc()}')
-        return error_response('创建分享链接失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_create_share_link_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
 @dashboards_share_bp.route('/dashboard-shares/<uuid:share_id>', methods=['DELETE'])
@@ -179,23 +179,23 @@ def delete_dashboard_share(share_id) -> tuple:
     
     share = DashboardShare.query.get(str(share_id))
     if not share:
-        return not_found_response('分享链接')
+        return not_found_response('share_link')
     
     # 获取仪表盘
     dashboard = Dashboard.query.get(str(share.dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 EDITOR 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限删除此分享链接')
+        return forbidden_response('do_not_permission_delete_share_link')
     
     success = DashboardShareService.delete_share(str(share_id))
     
     if success:
-        return success_response(message='分享链接删除成功')
+        return success_response(message='share_link_deleted_successfully')
     else:
-        return error_response('删除分享链接失败', 500)
+        return error_response('failed_delete_share_link', 500)
 
 
 @dashboards_share_bp.route('/shares/<uuid:share_id>/deactivate', methods=['POST'])
@@ -228,33 +228,33 @@ def deactivate_dashboard_share(share_id) -> tuple:
     
     share = DashboardShare.query.get(str(share_id))
     if not share:
-        return not_found_response('分享链接')
+        return not_found_response('share_link')
     
     # 获取仪表盘
     dashboard = Dashboard.query.get(str(share.dashboard_id))
     if not dashboard:
-        return not_found_response('仪表盘')
+        return not_found_response('dashboard')
     
     # 检查权限（需要 EDITOR 或更高权限）
     if not BaseService.check_permission(str(dashboard.base_id), user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限禁用此分享链接')
+        return forbidden_response('do_not_permission_disable_share_link')
     
     success = DashboardShareService.deactivate_share(str(share_id))
     
     if success:
-        return success_response(message='分享链接已禁用')
+        return success_response(message='share_link_been_disabled')
     else:
-        return error_response('禁用分享链接失败', 500)
+        return error_response('failed_disable_share_link', 500)
 
 
 # ==================== 公开访问接口（不需要登录） ====================
 
 # 错误码到 HTTP 响应的映射
 SHARE_ERROR_MAP = {
-    'share_not_found': ('无效的认证令牌', 401),
-    'share_deactivated': ('无效的认证令牌', 401),
-    'share_expired': ('无效的认证令牌', 401),
-    'share_access_limit': ('无效的认证令牌', 401),
+    'share_not_found': 'invalid_authentication_token',
+    'share_deactivated': 'invalid_authentication_token',
+    'share_expired': 'invalid_authentication_token',
+    'share_access_limit': 'invalid_authentication_token',
     'access_code_locked': ('密码尝试次数过多，请稍后再试', 429),
     'access_code_invalid': ('访问密码错误', 400),
 }
@@ -304,13 +304,13 @@ def validate_dashboard_share(token) -> tuple:
         if error == 'requires_access_code' and share:
             return success_response(
                 data={'share': share.to_dict(), 'requires_access_code': True},
-                message='需要访问密码'
+                message='access_password_required'
             )
         # 根据错误码映射为标准 HTTP 响应
         if error in SHARE_ERROR_MAP:
             message, status_code = SHARE_ERROR_MAP[error]
             return error_response(message, status_code, error=error)
-        return error_response('无效的认证令牌', 401)
+        return error_response('invalid_authentication_token', 401)
     
     # 记录访问（含 IP 和 User-Agent）
     user_agent = request.headers.get('User-Agent', '')[:200]
@@ -346,7 +346,7 @@ def validate_dashboard_share(token) -> tuple:
             'dashboard': dashboard_data,
             'tables': tables_data  # 新增：返回所有相关表的数据
         },
-        message='验证成功'
+        message='verification_succeeded'
     )
 
 
@@ -374,16 +374,16 @@ def get_shared_dashboard(token) -> tuple:
     share = DashboardShareService.get_share_by_token(token)
     
     if not share or not share.is_active:
-        return error_response('无效的认证令牌', 401, error='share_not_found')
+        return error_response('invalid_authentication_token', 401, error='share_not_found')
     
     # 检查是否过期
     if share.expires_at and __import__('time').time() > share.expires_at:
-        return error_response('无效的认证令牌', 401, error='share_expired')
+        return error_response('invalid_authentication_token', 401, error='share_expired')
     
     # 返回仪表盘数据
     dashboard_data = share.dashboard.to_dict(include_widgets=True)
     
     return success_response(
         data=dashboard_data,
-        message='获取成功'
+        message='fetched_successfully'
     )

@@ -5,30 +5,30 @@
       <el-input
         v-model="documentName"
         class="document-editor__title"
-        placeholder="文档标题"
+        :placeholder="t('document.titlePlaceholder')"
         @blur="handleSaveName"
       />
       <div class="document-editor__save-status">
-        <span v-if="saveStatus === 'saved'" class="save-status saved">已保存</span>
-        <span v-else-if="saveStatus === 'saving'" class="save-status saving">保存中...</span>
-        <span v-else-if="saveStatus === 'unsaved'" class="save-status unsaved">有未保存的更改</span>
+        <span v-if="saveStatus === 'saved'" class="save-status saved">{{ t('document.saved') }}</span>
+        <span v-else-if="saveStatus === 'saving'" class="save-status saving">{{ t('document.saving') }}</span>
+        <span v-else-if="saveStatus === 'unsaved'" class="save-status unsaved">{{ t('document.unsavedChanges') }}</span>
       </div>
       <div class="document-editor__actions">
         <el-button @click="handleShowVersionHistory">
           <el-icon><Clock /></el-icon>
-          版本历史
+          {{ t('document.versionHistory') }}
         </el-button>
         <el-button @click="handleExportPdf">
           <el-icon><Download /></el-icon>
-          导出 PDF
+          {{ t('document.exportPdf') }}
         </el-button>
         <el-button @click="toggleFullscreen">
           <el-icon><FullScreen v-if="!isFullscreen" /><Crop v-else /></el-icon>
-          {{ isFullscreen ? '退出全屏' : '全屏' }}
+          {{ isFullscreen ? t('document.exitFullscreen') : t('document.fullscreen') }}
         </el-button>
         <el-button type="primary" @click="handleSave">
           <el-icon><FolderChecked /></el-icon>
-          保存
+          {{ t('document.save') }}
         </el-button>
       </div>
     </div>
@@ -40,7 +40,7 @@
         <div ref="editorRef" class="document-editor__content"></div>
         <!-- 左侧：文档标题列表导航，定位在编辑内容区左侧 -->
         <div class="document-editor__header-list">
-          <p class="document-editor__header-list-title">大纲目录</p>
+          <p class="document-editor__header-list-title">{{ t('document.outline') }}</p>
           <div ref="headerListRef" class="document-editor__header-list-wrapper"></div>
         </div>
       </div>
@@ -49,7 +49,7 @@
     <!-- 版本历史侧边栏 -->
     <el-drawer
       v-model="versionHistoryVisible"
-      title="版本历史"
+      :title="t('document.versionHistory')"
       size="400px"
       destroy-on-close
     >
@@ -64,6 +64,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { getI18nLanguage } from '@/i18n';
 import { Download, Clock, FullScreen, Crop, FolderChecked } from '@element-plus/icons-vue';
 import debounce from 'lodash-es/debounce';
 import FluentEditor from '@opentiny/fluent-editor';
@@ -88,7 +90,7 @@ FluentEditor.register('modules/header-list', HeaderList, true);
 // 注册工具栏提示模块
 FluentEditor.register({ [`modules/${QuillToolbarTip.moduleName}`]: QuillToolbarTip }, true);
 
-// 基于官方 zh-CN 语言包构建 toolbar 嵌套键，供 createI18nToolbarTipMap 使用
+// 基于官方语言包构建 toolbar 嵌套键，供 createI18nToolbarTipMap 使用
 // 官方翻译使用扁平键（如 bold、list-ordered），toolbar-tip 需要 toolbar.bold、toolbar.list.ordered
 const toolbarI18nMessages = {
   'zh-CN': {
@@ -118,6 +120,34 @@ const toolbarI18nMessages = {
       'table-up': { '': '表格' },
       clean: '清除格式',
     }
+  },
+  'en-US': {
+    toolbar: {
+      'format-painter': 'Format Painter',
+      'header-list': 'Heading List',
+      header: { '': 'Normal', '1': 'Heading 1', '2': 'Heading 2', '3': 'Heading 3', '4': 'Heading 4', '5': 'Heading 5', '6': 'Heading 6' },
+      size: { '': 'Font Size', '12px': '12px', '13px': '13px', '14px': '14px', '15px': '15px', '16px': '16px', '19px': '19px', '22px': '22px', '24px': '24px', '29px': '29px', '32px': '32px', '40px': '40px', '48px': '48px' },
+      bold: 'Bold',
+      italic: 'Italic',
+      underline: 'Underline',
+      strike: 'Strikethrough',
+      script: { sub: 'Subscript', super: 'Superscript' },
+      code: 'Inline Code',
+      color: 'Text Color',
+      background: 'Background Color',
+      align: { '': 'Left Align', center: 'Center Align', right: 'Right Align', justify: 'Justify' },
+      list: { ordered: 'Ordered List', bullet: 'Bullet List', check: 'Task List' },
+      indent: { '-1': 'Decrease Indent', '+1': 'Increase Indent' },
+      'line-height': { '': 'Line Height', '1': '1.0', '1.15': '1.15', '1.5': '1.5', '2': '2.0', '2.5': '2.5', '3': '3.0' },
+      link: 'Link',
+      blockquote: 'Blockquote',
+      divider: 'Divider',
+      'code-block': 'Code Block',
+      image: 'Image',
+      video: 'Video',
+      'table-up': { '': 'Table' },
+      clean: 'Clear Formatting',
+    }
   }
 };
 
@@ -139,6 +169,8 @@ const toolbarTipTextMap = createI18nToolbarTipMap({
     }
   }
 });
+
+const { t } = useI18n();
 
 const props = defineProps<{
   document: Document;
@@ -244,7 +276,7 @@ const rebuildHeaderList = () => {
   if (headers.length === 0) {
     const emptyTip = document.createElement('div');
     emptyTip.className = 'header-list-empty';
-    emptyTip.textContent = '暂无标题';
+    emptyTip.textContent = t('document.noHeadings');
     wrapper.appendChild(emptyTip);
     return;
   }
@@ -350,7 +382,7 @@ onMounted(async () => {
 
   editor = new FluentEditor(editorRef.value, {
     theme: 'snow',
-    placeholder: '开始编写文档...…… 支持 Markdown 语法（如 # 标题，**粗体**，`代码` 等）直接撰写文档...…… 支持Ctrl+S 快速保存文档……',
+    placeholder: t('document.editorPlaceholder'),
     modules: {
       toolbar: [
         ['format-painter',
@@ -388,7 +420,7 @@ onMounted(async () => {
               });
               urls.push(result.attachment.url || '');
             } catch (error) {
-              ElMessage.error('图片上传失败');
+              ElMessage.error(t('document.imageUploadFailed'));
               console.error('Image upload error:', error);
             }
           }
@@ -413,9 +445,9 @@ onMounted(async () => {
           { module: TableResizeLine },
         ],
       },
-      // 国际化：设置为中文，并注入 toolbar 嵌套键供 toolbar-tip 模块使用
+      // 国际化：根据当前语言设置，并注入 toolbar 嵌套键供 toolbar-tip 模块使用
       i18n: {
-        locale: 'zh-CN',
+        locale: getI18nLanguage(),
         messages: toolbarI18nMessages,
       },
       // 工具栏提示
@@ -432,10 +464,10 @@ onMounted(async () => {
   scrollContainer = editor.root;
 
   // 触发 i18n 初始化：设置 locale 会触发 I18N_LOCALE_CHANGE 事件，
-  // Snow 主题监听此事件来更新工具栏文本为中文
+  // Snow 主题监听此事件来更新工具栏文本
   const i18nModule = editor.getModule('i18n') as { setLocale: (locale: string) => void };
   if (i18nModule) {
-    i18nModule.setLocale('zh-CN');
+    i18nModule.setLocale(getI18nLanguage());
   }
 
   // 编辑器初始化完成后立即加载内容
@@ -552,9 +584,9 @@ const handleSaveName = async () => {
       });
     } catch (error: any) {
       if (error?.response?.status === 409) {
-        ElMessage.warning('文档已被他人修改，请刷新页面获取最新内容后重试');
+        ElMessage.warning(t('document.modifiedByOther'));
       } else {
-        ElMessage.error('重命名失败，请重试');
+        ElMessage.error(t('document.renameFailed'));
       }
     }
   }
@@ -585,16 +617,16 @@ const doSave = async (showMessage = true) => {
     saveStatus.value = 'saved';
     emit('save', updated);
     if (showMessage) {
-      ElMessage.success('保存成功');
+      ElMessage.success(t('document.saveSuccess'));
     }
   } catch (error: any) {
     console.error('[DocumentEditor] 保存失败:', error);
     saveStatus.value = 'unsaved';
     // 409 冲突：文档已被他人修改
     if (error?.response?.status === 409) {
-      ElMessage.warning('文档已被他人修改，请刷新页面获取最新内容后重试');
+      ElMessage.warning(t('document.modifiedByOther'));
     } else {
-      ElMessage.error('保存失败，请重试');
+      ElMessage.error(t('document.saveFailedRetry'));
     }
   } finally {
     isSaving = false;
@@ -672,8 +704,14 @@ const handleVersionRestored = (version: DocumentVersion) => {
       : version.content;
     editor.setContents(content);
   }
-  documentName.value = version.name.replace(/^版本\s+/, '');
-  ElMessage.success('已恢复到选中版本，请保存以生效');
+  // 去除版本名中的语言前缀（如中文“版本 1”、英文“Version 1”），只保留名称
+  const versionPrefix = t('document.versionNamePrefix');
+  if (versionPrefix) {
+    documentName.value = version.name.replace(new RegExp(`^${versionPrefix}\\s+`), '');
+  } else {
+    documentName.value = version.name;
+  }
+  ElMessage.success(t('document.restoreSuccess'));
 };
 </script>
 

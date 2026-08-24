@@ -13,7 +13,7 @@ Create Date: 2026-07-27
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import table, column
+from sqlalchemy import table, column, inspect
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 revision = '20260727_163'
@@ -28,13 +28,19 @@ def upgrade():
 
     # ==================== 1. ENUM 类型扩展 ====================
     if is_postgres:
-        # 添加 loop 值
-        op.execute("ALTER TYPE workflownodetype ADD VALUE IF NOT EXISTS 'loop'")
-
-        # 添加细粒度节点类型
+        # PostgreSQL 限制：ALTER TYPE ... ADD VALUE 新增的枚举值只能在其所在
+        # 事务提交后才能被引用（否则报 "unsafe use of new value of enum type"）。
+        # 必须使用 Alembic 官方的 autocommit_block() 让 ALTER TYPE 在独立事务中
+        # 立即提交，同时保持 Alembic 外层迁移事务一致。避免裸 op.get_bind().commit()
+        # 破坏迁移事务管理（导致迁移执行后事务被回滚、alembic_version 不更新、
+        # 后续建表如 roles 不落地）。ADD VALUE ... IF NOT EXISTS 是幂等的，
+        # 重启重试仍可安全继续。
         fine_grained_types = ['find_records', 'send_email', 'update_record', 'create_record', 'trigger_webhook']
-        for node_type in fine_grained_types:
-            op.execute(f"ALTER TYPE workflownodetype ADD VALUE IF NOT EXISTS '{node_type}'")
+        ctx = op.get_context()
+        with ctx.autocommit_block():
+            op.execute("ALTER TYPE workflownodetype ADD VALUE IF NOT EXISTS 'loop'")
+            for node_type in fine_grained_types:
+                op.execute(f"ALTER TYPE workflownodetype ADD VALUE IF NOT EXISTS '{node_type}'")
 
     # ==================== 2. 升级 action 节点类型 ====================
     # action_type 到细粒度类型的映射
@@ -68,7 +74,7 @@ def upgrade():
             UPDATE workflow_execution_logs l
             SET node_type = n.node_type
             FROM workflow_nodes n
-            WHERE l.node_id = n.id
+            WHERE l.node_id = CAST(n.id AS TEXT)
               AND l.node_type = 'action'
               AND n.node_type != 'action'
         """)
@@ -143,13 +149,16 @@ def upgrade():
             nullable=True,
         )
 
-    # 5.2 新增 node_name 字段
-    with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column('node_name', sa.String(200), nullable=True)
-        )
+    # 5.2 新增 node_name 字段（幂等：已存在则跳过 add_column，直接回填）
+    inspector = inspect(bind)
+    existing_wel_cols = {c['name'] for c in inspector.get_columns('workflow_execution_logs')}
+    if 'node_name' not in existing_wel_cols:
+        with op.batch_alter_table('workflow_execution_logs', schema=None) as batch_op:
+            batch_op.add_column(
+                sa.Column('node_name', sa.String(200), nullable=True)
+            )
 
-    # 回填 node_name
+    # 回填 node_name（列已存在则直接回填，兼容历史 create_all 已建表的情况）
     op.execute("""
         UPDATE workflow_execution_logs
         SET node_name = (

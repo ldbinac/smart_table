@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import KanbanColumn from "./KanbanColumn.vue";
@@ -30,6 +31,8 @@ const emit = defineEmits<{
   (e: "deleteRecord", recordId: string): void;
   (e: "editRecord", recordId: string): void;
 }>();
+
+const { t } = useI18n();
 
 const groupFieldId = ref<string>("");
 const cardFields = ref<string[]>([]);
@@ -96,7 +99,7 @@ const selectFields = computed(() => {
 
 const groups = computed(() => {
   if (!groupField.value) {
-    return [{ id: "default", name: "全部", records: props.records }];
+    return [{ id: "default", name: t("view.all"), records: props.records }];
   }
 
   const options =
@@ -128,7 +131,7 @@ const groups = computed(() => {
       color: opt.color,
       records: grouped[opt.id],
     })),
-    { id: "uncategorized", name: "未分组", records: grouped["uncategorized"] },
+    { id: "uncategorized", name: t("view.uncategorized"), records: grouped["uncategorized"] },
   ];
 });
 
@@ -208,10 +211,10 @@ onBeforeUnmount(() => {
   <div class="kanban-view">
     <div class="kanban-toolbar">
       <div class="toolbar-left">
-        <label class="toolbar-label">分组字段</label>
+        <label class="toolbar-label">{{ t("view.groupField") }}</label>
         <el-select
           v-model="groupFieldId"
-          placeholder="选择分组字段"
+          :placeholder="t('view.selectGroupField')"
           class="group-select">
           <el-option
             v-for="field in selectFields"
@@ -221,13 +224,13 @@ onBeforeUnmount(() => {
         </el-select>
       </div>
       <div class="toolbar-right">
-        <label class="toolbar-label">显示字段</label>
+        <label class="toolbar-label">{{ t("view.displayFields") }}</label>
         <el-select
           v-model="cardFields"
           multiple
           collapse-tags
           collapse-tags-tooltip
-          placeholder="选择卡片显示字段"
+          :placeholder="t('view.selectCardFields')"
           class="card-fields-select">
           <el-option
             v-for="field in fields"

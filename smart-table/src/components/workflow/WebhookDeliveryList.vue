@@ -3,6 +3,7 @@ import { reactive, ref, watch, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 
 import { apiClient } from "@/api/client";
+import { useI18n } from "vue-i18n";
 import type { PaginatedData } from "@/api/types";
 import { formatDateTime } from "@/utils/timezone";
 import type { WebhookDeliveryLog, WebhookDeliveryStatus } from "@/types/workflow";
@@ -12,6 +13,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
 
 const loading = ref(false);
 const redeliveringId = ref<string | null>(null);
@@ -47,7 +49,7 @@ const fetchDeliveries = async () => {
     pagination.total = response.meta?.pagination?.total ?? items.length;
   } catch (error) {
     console.error("获取 Webhook 投递日志失败:", error);
-    ElMessage.error("获取 Webhook 投递日志失败");
+    ElMessage.error(t("workflow.webhook.loadDeliveryFailed"));
   } finally {
     loading.value = false;
   }
@@ -57,11 +59,11 @@ const handleRedeliver = async (row: WebhookDeliveryLog) => {
   redeliveringId.value = row.id;
   try {
     await apiClient.post(`/webhooks/deliveries/${row.id}/redeliver`, {});
-    ElMessage.success("重新投递请求已发送");
+    ElMessage.success(t("workflow.delivery.redeliverSent"));
     await fetchDeliveries();
   } catch (error) {
     console.error("重新投递失败:", error);
-    ElMessage.error("重新投递失败");
+    ElMessage.error(t("workflow.delivery.redeliverFailed"));
   } finally {
     redeliveringId.value = null;
   }
@@ -96,9 +98,9 @@ const getStatusType = (status: WebhookDeliveryStatus): TagType => {
 
 const getStatusText = (status: WebhookDeliveryStatus) => {
   const textMap: Record<WebhookDeliveryStatus, string> = {
-    pending: "待投递",
-    success: "成功",
-    failed: "失败",
+    pending: t("workflow.delivery.pending"),
+    success: t("workflow.webhook.deliverySuccess"),
+    failed: t("workflow.webhook.deliveryFailed"),
   };
   return textMap[status] || status;
 };
@@ -121,13 +123,13 @@ defineExpose({ fetchDeliveries });
 <template>
   <div class="webhook-delivery-list">
     <el-table v-loading="loading" :data="deliveries" stripe style="width: 100%">
-      <el-table-column prop="created_at" label="创建时间" min-width="160">
+      <el-table-column prop="created_at" :label="t('workflow.delivery.createdTime')" min-width="160">
         <template #default="{ row }">
           {{ formatDate(row.created_at) }}
         </template>
       </el-table-column>
 
-      <el-table-column prop="status" label="状态" width="100">
+      <el-table-column prop="status" :label="t('workflow.delivery.status')" width="100">
         <template #default="{ row }">
           <el-tag :type="getStatusType(row.status)">
             {{ getStatusText(row.status) }}
@@ -137,7 +139,7 @@ defineExpose({ fetchDeliveries });
 
       <el-table-column
         prop="response_status"
-        label="响应状态码"
+        :label="t('workflow.delivery.responseCode')"
         width="120"
         align="center"
       >
@@ -148,12 +150,12 @@ defineExpose({ fetchDeliveries });
 
       <el-table-column
         prop="retry_count"
-        label="重试次数"
+        :label="t('workflow.delivery.retryCountCol')"
         width="100"
         align="center"
       />
 
-      <el-table-column label="操作" width="120" fixed="right">
+      <el-table-column :label="t('workflow.delivery.actions')" width="120" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="row.status === 'failed'"
@@ -162,7 +164,7 @@ defineExpose({ fetchDeliveries });
             :loading="redeliveringId === row.id"
             @click="handleRedeliver(row as WebhookDeliveryLog)"
           >
-            重新投递
+            {{ t('workflow.delivery.redeliver') }}
           </el-button>
         </template>
       </el-table-column>
@@ -171,15 +173,15 @@ defineExpose({ fetchDeliveries });
         <template #default="{ row }">
           <div class="delivery-detail">
             <el-descriptions :column="1" border>
-              <el-descriptions-item label="请求体">
+              <el-descriptions-item :label="t('workflow.delivery.requestBody')">
                 <pre>{{ row.payload ?? "-" }}</pre>
               </el-descriptions-item>
-              <el-descriptions-item label="响应体">
+              <el-descriptions-item :label="t('workflow.delivery.responseBody')">
                 <pre>{{ row.response_body ?? "-" }}</pre>
               </el-descriptions-item>
               <el-descriptions-item
                 v-if="row.error_message"
-                label="错误信息"
+                :label="t('workflow.delivery.errorMsg')"
               >
                 <span style="color: #f56c6c">{{ row.error_message }}</span>
               </el-descriptions-item>

@@ -21,7 +21,7 @@ class BatchCreateSchema(Schema):
 
 class BatchUpdateSchema(Schema):
     """批量更新验证模式"""
-    record_ids = fields.List(fields.String(), required=True, error_messages={'required': '记录ID列表不能为空'})
+    record_ids = fields.List(fields.String(), required=True, error_messages={'required': 'record_id_list_empty'})
     values = fields.Dict(required=True, error_messages={'required': '字段值不能为空'})
 
 

@@ -5,6 +5,7 @@
 import logging
 from typing import Tuple, Optional, Any, Dict
 from flask import current_app
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def handle_service_exception(
     internal_error = str(error)
     logger.error(f'[{operation}] 内部错误: {internal_error}{context_str}')
     
-    return False, f'{operation}失败，请稍后重试'
+    return False, translate('operation_failed_try_again', operation)
 
 
 def handle_service_exception_dict(
@@ -71,10 +72,10 @@ def handle_service_exception_dict(
     internal_error = str(error)
     logger.error(f'[{operation}] 内部错误: {internal_error}{context_str}')
     
-    return {'success': False, 'error': f'{operation}失败，请稍后重试'}
+    return {'success': False, 'error': translate('operation_failed_try_again', operation)}
 
 
-def safe_error_message(error: Exception, default_message: str = '操作失败，请稍后重试') -> str:
+def safe_error_message(error: Exception, default_message: str = 'operation_failed') -> str:
     """
     获取安全的错误消息（不包含内部细节）
     

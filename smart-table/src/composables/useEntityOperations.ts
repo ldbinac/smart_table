@@ -1,4 +1,6 @@
 import { ElMessage, ElMessageBox } from 'element-plus';
+
+import { t } from '@/i18n';
 import { tableService } from '@/db/services/tableService';
 import { dashboardService } from '@/db/services/dashboardService';
 import type { TableEntity, Dashboard } from '@/db/schema';
@@ -32,9 +34,9 @@ export function useEntityOperations(): TableOperations & DashboardOperations {
         name: newName.trim(),
         description: newDescription?.trim(),
       });
-      ElMessage.success('数据表更新成功');
+      ElMessage.success(t('base.tableUpdated'));
     } catch (error) {
-      ElMessage.error('更新失败');
+      ElMessage.error(t('base.updateFailed'));
       console.error(error);
       throw error;
     }
@@ -47,22 +49,22 @@ export function useEntityOperations(): TableOperations & DashboardOperations {
   ): Promise<void> => {
     try {
       await ElMessageBox.confirm(
-        `确定要删除数据表 "${table.name}" 吗？此操作将删除该表中的所有数据，包括字段、记录和视图，且无法恢复。`,
-        '删除确认',
+        t('base.tableDeleteConfirm', [table.name]),
+        t('base.deleteTitle'),
         {
-          confirmButtonText: '删除',
-          cancelButtonText: '取消',
+          confirmButtonText: t('base.deleteAction'),
+          cancelButtonText: t('common.cancel'),
           type: 'warning',
           confirmButtonClass: 'el-button--danger',
         }
       );
 
       await tableService.deleteTable(table.id);
-      ElMessage.success('删除成功');
+      ElMessage.success(t('base.deleted'));
       onDeleteSuccess?.();
     } catch (error: any) {
       if (error !== 'cancel') {
-        ElMessage.error('删除失败');
+        ElMessage.error(t('base.deleteFailed'));
         console.error(error);
       }
       throw error;
@@ -75,9 +77,9 @@ export function useEntityOperations(): TableOperations & DashboardOperations {
       await tableService.updateTable(table.id, {
         isStarred: !table.isStarred,
       });
-      ElMessage.success(table.isStarred ? '已取消收藏' : '收藏成功');
+      ElMessage.success(table.isStarred ? t('base.unstarred') : t('base.starred'));
     } catch (error) {
-      ElMessage.error('操作失败');
+      ElMessage.error(t('base.toggleFailed'));
       console.error(error);
       throw error;
     }
@@ -94,9 +96,9 @@ export function useEntityOperations(): TableOperations & DashboardOperations {
         name: newName.trim(),
         description: newDescription?.trim(),
       });
-      ElMessage.success('仪表盘更新成功');
+      ElMessage.success(t('base.dashboardUpdated'));
     } catch (error) {
-      ElMessage.error('更新失败');
+      ElMessage.error(t('base.updateFailed'));
       console.error(error);
       throw error;
     }
@@ -109,21 +111,21 @@ export function useEntityOperations(): TableOperations & DashboardOperations {
   ): Promise<void> => {
     try {
       await ElMessageBox.confirm(
-        `确定要删除仪表盘 "${dashboard.name}" 吗？`,
-        '删除确认',
+        t('base.dashboardDeleteConfirm', [dashboard.name]),
+        t('base.deleteTitle'),
         {
-          confirmButtonText: '删除',
-          cancelButtonText: '取消',
+          confirmButtonText: t('base.deleteAction'),
+          cancelButtonText: t('common.cancel'),
           type: 'warning',
         }
       );
 
       await dashboardService.deleteDashboard(dashboard.id);
-      ElMessage.success('仪表盘删除成功');
+      ElMessage.success(t('base.dashboardDeleted'));
       onDeleteSuccess?.();
     } catch (error: any) {
       if (error !== 'cancel') {
-        ElMessage.error('删除失败');
+        ElMessage.error(t('base.deleteFailed'));
         console.error(error);
       }
       throw error;
@@ -136,9 +138,9 @@ export function useEntityOperations(): TableOperations & DashboardOperations {
       await dashboardService.updateDashboard(dashboard.id, {
         isStarred: !dashboard.isStarred,
       });
-      ElMessage.success(dashboard.isStarred ? '已取消收藏' : '收藏成功');
+      ElMessage.success(dashboard.isStarred ? t('base.unstarred') : t('base.starred'));
     } catch (error) {
-      ElMessage.error('操作失败');
+      ElMessage.error(t('base.toggleFailed'));
       console.error(error);
       throw error;
     }

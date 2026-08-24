@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 type LoadingSize = "small" | "medium" | "large";
+
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -14,7 +17,7 @@ const props = withDefaults(
   }>(),
   {
     size: "medium",
-    text: "加载中...",
+    text: "",
     fullscreen: false,
     overlay: true,
     showProgress: true,
@@ -45,7 +48,7 @@ const spinnerSize = computed(() => sizeMap[props.size]);
       <div
         class="loading-spinner"
         :style="{ width: `${spinnerSize}px`, height: `${spinnerSize}px` }" />
-      <span v-if="text" class="loading-text">{{ text }}</span>
+      <span class="loading-text">{{ text || t('common.loading') }}</span>
       <div v-if="showProgress" class="loading-progress">
         <div class="loading-bar"></div>
       </div>

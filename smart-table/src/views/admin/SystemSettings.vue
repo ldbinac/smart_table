@@ -1,29 +1,29 @@
 <template>
   <div class="system-settings-page">
     <div class="page-header">
-      <h1 class="page-title">系统配置</h1>
+      <h1 class="page-title">{{ t('system.title') }}</h1>
     </div>
 
     <div class="page-content">
       <el-tabs v-model="activeTab" type="border-card" class="settings-tabs">
         <!-- 基础配置 -->
-        <el-tab-pane label="基础配置" name="basic">
+        <el-tab-pane :label="t('system.tabBasic')" name="basic">
           <el-form :model="basicConfigs" label-width="200px" label-position="top">
-            <el-form-item label="系统名称">
-              <el-input v-model="basicConfigs.system_name" placeholder="请输入系统名称" disabled />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">该配置当前暂未启用</div>
+            <el-form-item :label="t('system.systemName')">
+              <el-input v-model="basicConfigs.system_name" :placeholder="t('system.systemNamePlaceholder')" disabled />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.notEnabledHint') }}</div>
             </el-form-item>
-            <el-form-item label="系统描述">
+            <el-form-item :label="t('system.systemDescription')">
               <el-input
                 v-model="basicConfigs.system_description"
                 type="textarea"
                 :rows="3"
-                placeholder="请输入系统描述"
+                :placeholder="t('system.systemDescriptionPlaceholder')"
                 disabled
               />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">该配置当前暂未启用</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.notEnabledHint') }}</div>
             </el-form-item>
-            <el-form-item label="每页记录数">
+            <el-form-item :label="t('system.pageSize')">
               <el-input-number
                 v-model="basicConfigs.page_size"
                 :min="10"
@@ -31,63 +31,63 @@
                 :step="10"
                 disabled
               />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">该配置当前暂未启用</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.notEnabledHint') }}</div>
             </el-form-item>
-            <el-form-item label="时区模式">
+            <el-form-item :label="t('system.timezoneMode')">
               <el-radio-group v-model="basicConfigs.timezone_mode">
-                <el-radio label="utc">UTC</el-radio>
-                <el-radio label="local">本地时区</el-radio>
+                <el-radio value="utc">{{ t('system.timezoneUtc') }}</el-radio>
+                <el-radio value="local">{{ t('system.timezoneLocal') }}</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item label="本地时区" v-if="basicConfigs.timezone_mode === 'local'">
-              <el-select v-model="basicConfigs.timezone_name" placeholder="请选择时区" style="width: 100%">
-                <el-option label="Asia/Shanghai (中国标准时间)" value="Asia/Shanghai" />
-                <el-option label="Asia/Hong_Kong (香港时间)" value="Asia/Hong_Kong" />
-                <el-option label="Asia/Tokyo (日本标准时间)" value="Asia/Tokyo" />
-                <el-option label="Asia/Seoul (韩国标准时间)" value="Asia/Seoul" />
-                <el-option label="Asia/Singapore (新加坡时间)" value="Asia/Singapore" />
-                <el-option label="America/New_York (美国东部时间)" value="America/New_York" />
-                <el-option label="America/Los_Angeles (美国西部时间)" value="America/Los_Angeles" />
-                <el-option label="Europe/London (格林尼治时间)" value="Europe/London" />
-                <el-option label="Europe/Paris (中欧时间)" value="Europe/Paris" />
-                <el-option label="Australia/Sydney (澳大利亚东部时间)" value="Australia/Sydney" />
-                <el-option label="Pacific/Auckland (新西兰时间)" value="Pacific/Auckland" />
+            <el-form-item :label="t('system.localTimezone')" v-if="basicConfigs.timezone_mode === 'local'">
+              <el-select v-model="basicConfigs.timezone_name" :placeholder="t('system.timezonePlaceholder')" style="width: 100%">
+                <el-option :label="t('system.tzShanghai')" value="Asia/Shanghai" />
+                <el-option :label="t('system.tzHongKong')" value="Asia/Hong_Kong" />
+                <el-option :label="t('system.tzTokyo')" value="Asia/Tokyo" />
+                <el-option :label="t('system.tzSeoul')" value="Asia/Seoul" />
+                <el-option :label="t('system.tzSingapore')" value="Asia/Singapore" />
+                <el-option :label="t('system.tzNewYork')" value="America/New_York" />
+                <el-option :label="t('system.tzLosAngeles')" value="America/Los_Angeles" />
+                <el-option :label="t('system.tzLondon')" value="Europe/London" />
+                <el-option :label="t('system.tzParis')" value="Europe/Paris" />
+                <el-option :label="t('system.tzSydney')" value="Australia/Sydney" />
+                <el-option :label="t('system.tzAuckland')" value="Pacific/Auckland" />
               </el-select>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="saving" @click="saveBasicConfigs">
-                保存配置
+                {{ t('system.saveConfig') }}
               </el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>
 
         <!-- 安全配置 -->
-        <el-tab-pane label="安全配置" name="security">
+        <el-tab-pane :label="t('system.tabSecurity')" name="security">
           <el-form :model="securityConfigs" label-width="200px" label-position="top">
-            <el-form-item label="密码最小长度">
+            <el-form-item :label="t('system.passwordMinLength')">
               <el-input-number
                 v-model="securityConfigs.password_min_length"
                 :min="6"
                 :max="50"
               />
             </el-form-item>
-            <el-divider content-position="left">密码复杂度要求</el-divider>
-            <el-form-item label="需要大写字母">
+            <el-divider content-position="left">{{ t('system.passwordComplexity') }}</el-divider>
+            <el-form-item :label="t('system.requireUppercase')">
               <el-switch v-model="securityConfigs.password_require_uppercase" />
             </el-form-item>
-            <el-form-item label="需要小写字母">
+            <el-form-item :label="t('system.requireLowercase')">
               <el-switch v-model="securityConfigs.password_require_lowercase" />
             </el-form-item>
-            <el-form-item label="需要数字">
+            <el-form-item :label="t('system.requireDigit')">
               <el-switch v-model="securityConfigs.password_require_digit" />
             </el-form-item>
-            <el-form-item label="需要特殊字符">
+            <el-form-item :label="t('system.requireSpecial')">
               <el-switch v-model="securityConfigs.password_require_special" />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">允许的特殊字符: !@#$%^&amp;*()_+-=[]{}|;:,.&lt;&gt;?/</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ getLiteral('system.specialCharsHint') }}</div>
             </el-form-item>
             <el-divider />
-            <el-form-item label="会话超时时间（分钟）">
+            <el-form-item :label="t('system.sessionTimeout')">
               <el-input-number
                 v-model="securityConfigs.session_timeout"
                 :min="5"
@@ -95,23 +95,23 @@
                 :step="5"
               />
             </el-form-item>
-            <el-form-item label="启用双因素认证">
+            <el-form-item :label="t('system.enable2fa')">
               <el-switch v-model="securityConfigs.enable_2fa" disabled/>
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.reservedHint') }}</div>
             </el-form-item>
-            <el-form-item label="允许注册">
+            <el-form-item :label="t('system.allowRegistration')">
               <el-switch v-model="securityConfigs.enable_registration" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="saving" @click="saveSecurityConfigs">
-                保存配置
+                {{ t('system.saveConfig') }}
               </el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>
 
         <!-- 邮件配置 -->
-        <el-tab-pane label="邮件配置" name="email" class="email-config-pane">
+        <el-tab-pane :label="t('system.tabEmail')" name="email" class="email-config-pane">
           <div class="email-form-container">
             <el-form
               ref="emailFormRef"
@@ -120,17 +120,17 @@
               label-width="200px"
               label-position="top"
             >
-            <el-form-item label="启用邮件服务">
+            <el-form-item :label="t('system.enableEmail')">
               <el-switch v-model="emailConfigs.email_enabled" />
             </el-form-item>
-            <el-form-item label="SMTP 服务器" prop="smtp_host">
+            <el-form-item :label="t('system.smtpHost')" prop="smtp_host">
               <el-input
                 v-model="emailConfigs.smtp_host"
                 placeholder="smtp.example.com"
                 :disabled="!emailConfigs.email_enabled"
               />
             </el-form-item>
-            <el-form-item label="SMTP 端口" prop="smtp_port">
+            <el-form-item :label="t('system.smtpPort')" prop="smtp_port">
               <el-input-number
                 v-model="emailConfigs.smtp_port"
                 :min="1"
@@ -138,53 +138,53 @@
                 :disabled="!emailConfigs.email_enabled"
               />
             </el-form-item>
-            <el-form-item label="发件人邮箱" prop="sender_email">
+            <el-form-item :label="t('system.senderEmail')" prop="sender_email">
               <el-input
                 v-model="emailConfigs.sender_email"
                 placeholder="noreply@example.com"
                 :disabled="!emailConfigs.email_enabled"
               />
             </el-form-item>
-            <el-form-item label="发件人显示名称">
+            <el-form-item :label="t('system.senderName')">
               <el-input
                 v-model="emailConfigs.sender_name"
                 placeholder="Smart Table"
                 :disabled="!emailConfigs.email_enabled"
               />
             </el-form-item>
-            <el-form-item label="SMTP 账号" prop="smtp_username">
+            <el-form-item :label="t('system.smtpUsername')" prop="smtp_username">
               <el-input
                 v-model="emailConfigs.smtp_username"
-                placeholder="请输入SMTP账号"
+                :placeholder="t('system.smtpUsernameRequired')"
                 :disabled="!emailConfigs.email_enabled"
               />
             </el-form-item>
-            <el-form-item label="SMTP 密码" prop="smtp_password">
+            <el-form-item :label="t('system.smtpPassword')" prop="smtp_password">
               <el-input
                 v-model="emailConfigs.smtp_password"
                 type="password"
-                placeholder="请输入SMTP密码"
+                :placeholder="t('system.smtpPasswordRequired')"
                 show-password
                 :disabled="!emailConfigs.email_enabled"
               />
             </el-form-item>
-            <el-form-item label="加密方式">
+            <el-form-item :label="t('system.encryptionType')">
               <el-select
                 v-model="emailConfigs.encryption_type"
-                placeholder="请选择加密方式"
+                :placeholder="t('system.encryptionType')"
                 :disabled="!emailConfigs.email_enabled"
                 style="width: 100%"
               >
-                <el-option label="SSL" value="ssl" />
-                <el-option label="TLS" value="tls" />
-                <el-option label="无" value="none" />
+                <el-option :label="t('system.encryptionSsl')" value="ssl" />
+                <el-option :label="t('system.encryptionTls')" value="tls" />
+                <el-option :label="t('system.encryptionNone')" value="none" />
               </el-select>
             </el-form-item>
             <el-divider />
-            <el-form-item label="测试邮箱地址">
+            <el-form-item :label="t('system.testEmail')">
               <el-input
                 v-model="emailConfigs.test_email"
-                placeholder="请输入测试邮箱地址"
+                :placeholder="t('system.testEmailPlaceholder')"
                 :disabled="!emailConfigs.email_enabled"
               />
             </el-form-item>
@@ -195,12 +195,12 @@
                 :loading="sendingTestEmail"
                 @click="sendTestEmail"
               >
-                发送测试邮件
+                {{ t('system.sendTestEmail') }}
               </el-button>
             </el-form-item>
               <el-form-item>
                 <el-button type="primary" :loading="saving" @click="saveEmailConfigs">
-                  保存配置
+                  {{ t('system.saveConfig') }}
                 </el-button>
               </el-form-item>
             </el-form>
@@ -208,28 +208,28 @@
         </el-tab-pane>
 
         <!-- 其他配置 -->
-        <el-tab-pane label="其他配置" name="other">
+        <el-tab-pane :label="t('system.tabOther')" name="other">
           <el-form :model="otherConfigs" label-width="200px" label-position="top">
-            <el-form-item label="启用日志记录">
+            <el-form-item :label="t('system.enableLogging')">
               <el-switch v-model="otherConfigs.enable_logging" disabled />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.reservedHint') }}</div>
             </el-form-item>
-            <el-form-item label="日志保留天数">
+            <el-form-item :label="t('system.logRetentionDays')">
               <el-input-number
                 v-model="otherConfigs.log_retention_days"
                 :min="1"
                 :max="365"
                 disabled
               />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.reservedHint') }}</div>
             </el-form-item>
-            <el-form-item label="启用性能监控">
+            <el-form-item :label="t('system.enablePerformanceMonitoring')">
               <el-switch v-model="otherConfigs.enable_performance_monitoring" disabled />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">预留功能，暂未启用</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.reservedHint') }}</div>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="saving" @click="saveOtherConfigs" disabled>
-                保存配置
+                {{ t('system.saveConfig') }}
               </el-button>
             </el-form-item>
           </el-form>
@@ -244,7 +244,10 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { useAdminStore } from '@/stores/adminStore'
+import { useI18n } from 'vue-i18n'
+import { getLiteral } from '@/i18n'
 
+const { t } = useI18n()
 const adminStore = useAdminStore()
 
 const activeTab = ref('basic')
@@ -293,20 +296,20 @@ const otherConfigs = reactive({
 
 const emailRules: FormRules = {
   smtp_host: [
-    { required: true, message: '请输入SMTP服务器地址', trigger: 'blur' }
+    { required: true, message: t('system.smtpHostRequired'), trigger: 'blur' }
   ],
   smtp_port: [
-    { required: true, message: '请输入SMTP端口', trigger: 'blur' }
+    { required: true, message: t('system.smtpPortRequired'), trigger: 'blur' }
   ],
   sender_email: [
-    { required: true, message: '请输入发件人邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    { required: true, message: t('system.senderEmailRequired'), trigger: 'blur' },
+    { type: 'email', message: t('system.senderEmailInvalid'), trigger: 'blur' }
   ],
   smtp_username: [
-    { required: true, message: '请输入SMTP账号', trigger: 'blur' }
+    { required: true, message: t('system.smtpUsernameRequired'), trigger: 'blur' }
   ],
   smtp_password: [
-    { required: true, message: '请输入SMTP密码', trigger: 'blur' }
+    { required: true, message: t('system.smtpPasswordRequired'), trigger: 'blur' }
   ]
 }
 
@@ -353,9 +356,9 @@ const saveBasicConfigs = async () => {
       { key: 'timezone_mode', value: basicConfigs.timezone_mode, group: 'basic' },
       { key: 'timezone_name', value: basicConfigs.timezone_name, group: 'basic' }
     ])
-    ElMessage.success('基础配置保存成功')
+    ElMessage.success(t('system.saveBasicSuccess'))
   } catch (error) {
-    ElMessage.error('保存配置失败')
+    ElMessage.error(t('system.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -374,9 +377,9 @@ const saveSecurityConfigs = async () => {
       { key: 'enable_2fa', value: securityConfigs.enable_2fa, group: 'security' },
       { key: 'enable_registration', value: securityConfigs.enable_registration, group: 'security' }
     ])
-    ElMessage.success('安全配置保存成功')
+    ElMessage.success(t('system.saveSecuritySuccess'))
   } catch (error) {
-    ElMessage.error('保存配置失败')
+    ElMessage.error(t('system.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -400,9 +403,9 @@ const saveEmailConfigs = async () => {
       { key: 'smtp_password', value: emailConfigs.smtp_password, group: 'email' },
       { key: 'encryption_type', value: emailConfigs.encryption_type, group: 'email' }
     ])
-    ElMessage.success('邮件配置保存成功')
+    ElMessage.success(t('system.saveEmailSuccess'))
   } catch (error) {
-    ElMessage.error('保存配置失败')
+    ElMessage.error(t('system.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -416,9 +419,9 @@ const saveOtherConfigs = async () => {
       { key: 'log_retention_days', value: otherConfigs.log_retention_days, group: 'other' },
       { key: 'enable_performance_monitoring', value: otherConfigs.enable_performance_monitoring, group: 'other' }
     ])
-    ElMessage.success('其他配置保存成功')
+    ElMessage.success(t('system.saveOtherSuccess'))
   } catch (error) {
-    ElMessage.error('保存配置失败')
+    ElMessage.error(t('system.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -426,7 +429,7 @@ const saveOtherConfigs = async () => {
 
 const sendTestEmail = async () => {
   if (!emailConfigs.test_email) {
-    ElMessage.warning('请输入测试邮箱地址')
+    ElMessage.warning(t('system.testEmailEmpty'))
     return
   }
 

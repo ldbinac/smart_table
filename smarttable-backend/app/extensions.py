@@ -172,7 +172,17 @@ def register_jwt_callbacks(jwt_manager):
         
         jti = jwt_payload["jti"]
         user_id = jwt_payload.get("sub")
-        
+
+        # 第三方应用令牌（OAuth2 客户端凭证）撤销检查：Redis jti 黑名单，O(1) 查询
+        try:
+            from app.extensions import redis_client
+            if redis_client is not None:
+                if redis_client.sismember('oauth:revoked_jti', jti):
+                    return True
+        except Exception:
+            # Redis 不可用时不影响用户令牌校验路径
+            pass
+
         try:
             # 先检查是否在黑名单中
             token = TokenBlocklist.query.filter_by(jti=jti).first()
@@ -204,7 +214,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '令牌已过期，请重新登录',
+            'message': 'token_expired_log_again',
             'error': 'token_expired',
             'request_id': request_id
         }, 401
@@ -215,7 +225,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '无效的令牌',
+            'message': 'invalid_token',
             'error': 'invalid_token',
             'request_id': request_id
         }, 401
@@ -226,7 +236,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '请求缺少认证令牌',
+            'message': 'request_missing_authentication_token',
             'error': 'authorization_required',
             'request_id': request_id
         }, 401
@@ -237,7 +247,7 @@ def register_jwt_callbacks(jwt_manager):
         request_id = getattr(g, 'request_id', None)
         return {
             'success': False,
-            'message': '令牌已被撤销，请重新登录',
+            'message': 'token_been_revoked_log_again',
             'error': 'token_revoked',
             'request_id': request_id
         }, 401

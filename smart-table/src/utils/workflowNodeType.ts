@@ -14,6 +14,7 @@ import {
   Cpu,
 } from "@element-plus/icons-vue";
 import type { WorkflowNodeType } from "@/types/workflow";
+import { useI18n } from "vue-i18n";
 
 /** 节点类型选项（含 type + label + icon） */
 export interface WorkflowNodeTypeOption {
@@ -22,32 +23,60 @@ export interface WorkflowNodeTypeOption {
   icon: typeof CircleCheck;
 }
 
+/** 节点类型 → i18n key 映射（label 字段存 i18n key，运行时通过 getNodeLabel 翻译） */
+export const NODE_TYPE_I18N_KEY: Record<string, string> = {
+  trigger: "workflow.nodeConfig.nodeType.trigger",
+  condition: "workflow.nodeConfig.nodeType.condition",
+  update_record: "workflow.nodeConfig.nodeType.update_record",
+  create_record: "workflow.nodeConfig.nodeType.create_record",
+  find_records: "workflow.nodeConfig.nodeType.find_records",
+  send_email: "workflow.nodeConfig.nodeType.send_email",
+  webhook: "workflow.nodeConfig.nodeType.webhook",
+  action: "workflow.nodeConfig.nodeType.action",
+  loop: "workflow.nodeConfig.nodeType.loop",
+  script: "workflow.nodeConfig.nodeType.script",
+};
+
+/** 节点类型 → 中文名称映射（i18n 不可用时回退） */
+export const NODE_TYPE_LABEL_MAP: Record<string, string> = {
+  trigger: "触发器",
+  condition: "条件节点",
+  update_record: "更新记录",
+  create_record: "创建记录",
+  find_records: "查找记录",
+  send_email: "发送邮件",
+  webhook: "Webhook",
+  action: "动作节点",
+  loop: "循环",
+  script: "自定义脚本",
+};
+
 /** 所有可添加的节点类型列表（不含 trigger，触发器由系统自动创建） */
 export const ADDABLE_NODE_TYPES: WorkflowNodeTypeOption[] = [
-  { type: "update_record", label: "更新记录", icon: EditPen },
-  { type: "create_record", label: "创建记录", icon: Plus },
-  { type: "find_records", label: "查找记录", icon: Search },
-  { type: "send_email", label: "发送邮件", icon: Message },
-  { type: "webhook", label: "Webhook", icon: Link },
-  { type: "condition", label: "条件节点", icon: Share },
-  { type: "loop", label: "循环", icon: Refresh },
-  { type: "script", label: "自定义脚本", icon: Cpu },
+  { type: "update_record", label: NODE_TYPE_I18N_KEY.update_record, icon: EditPen },
+  { type: "create_record", label: NODE_TYPE_I18N_KEY.create_record, icon: Plus },
+  { type: "find_records", label: NODE_TYPE_I18N_KEY.find_records, icon: Search },
+  { type: "send_email", label: NODE_TYPE_I18N_KEY.send_email, icon: Message },
+  { type: "webhook", label: NODE_TYPE_I18N_KEY.webhook, icon: Link },
+  { type: "condition", label: NODE_TYPE_I18N_KEY.condition, icon: Share },
+  { type: "loop", label: NODE_TYPE_I18N_KEY.loop, icon: Refresh },
+  { type: "script", label: NODE_TYPE_I18N_KEY.script, icon: Cpu },
 ];
 
 /** 循环体内允许的节点类型（不含 condition） */
 export const LOOP_BODY_ALLOWED_NODE_TYPES: WorkflowNodeTypeOption[] = [
-  { type: "update_record", label: "更新记录", icon: EditPen },
-  { type: "create_record", label: "创建记录", icon: Plus },
-  { type: "find_records", label: "查找记录", icon: Search },
-  { type: "send_email", label: "发送邮件", icon: Message },
-  { type: "webhook", label: "Webhook", icon: Link },
-  { type: "loop", label: "循环", icon: Refresh },
-  { type: "script", label: "自定义脚本", icon: Cpu },
+  { type: "update_record", label: NODE_TYPE_I18N_KEY.update_record, icon: EditPen },
+  { type: "create_record", label: NODE_TYPE_I18N_KEY.create_record, icon: Plus },
+  { type: "find_records", label: NODE_TYPE_I18N_KEY.find_records, icon: Search },
+  { type: "send_email", label: NODE_TYPE_I18N_KEY.send_email, icon: Message },
+  { type: "webhook", label: NODE_TYPE_I18N_KEY.webhook, icon: Link },
+  { type: "loop", label: NODE_TYPE_I18N_KEY.loop, icon: Refresh },
+  { type: "script", label: NODE_TYPE_I18N_KEY.script, icon: Cpu },
 ];
 
 /** 所有节点类型列表（含 trigger） */
 export const ALL_NODE_TYPES: WorkflowNodeTypeOption[] = [
-  { type: "trigger", label: "触发器", icon: CircleCheck },
+  { type: "trigger", label: NODE_TYPE_I18N_KEY.trigger, icon: CircleCheck },
   ...ADDABLE_NODE_TYPES,
 ];
 
@@ -65,23 +94,32 @@ export const NODE_TYPE_ICON_MAP: Record<string, typeof CircleCheck> = {
   script: Cpu,
 };
 
-/** 节点类型 → 中文名称映射 */
-export const NODE_TYPE_LABEL_MAP: Record<string, string> = {
-  trigger: "触发器",
-  condition: "条件节点",
-  update_record: "更新记录",
-  create_record: "创建记录",
-  find_records: "查找记录",
-  send_email: "发送邮件",
-  webhook: "Webhook",
-  action: "动作节点",
-  loop: "循环",
-  script: "自定义脚本",
-};
-
-/** 获取节点类型的中文名称 */
-export function getNodeLabel(type: WorkflowNodeType | string): string {
-  return NODE_TYPE_LABEL_MAP[type] ?? type;
+/**
+ * 获取节点类型名称（优先 i18n 翻译，无可用实例时回退中文）。
+ * 注意：useI18n() 依赖组件实例上下文，在事件回调（setup 之外）调用会失败并回退中文。
+ * 因此在组件内调用时请传入当前作用域的 t 函数（如 getNodeLabel(type, t)），
+ * 以保证在英文等语言下也能正确翻译（修复新建节点默认名称为中文的问题）。
+ */
+export function getNodeLabel(
+  type: WorkflowNodeType | string,
+  tFn?: (key: string) => string,
+): string {
+  const fallback = NODE_TYPE_LABEL_MAP[type] ?? (type as string);
+  const key = NODE_TYPE_I18N_KEY[type];
+  if (!key) return fallback;
+  if (tFn) {
+    try {
+      return tFn(key);
+    } catch {
+      return fallback;
+    }
+  }
+  try {
+    const { t } = useI18n();
+    return t(key);
+  } catch {
+    return fallback;
+  }
 }
 
 /** 获取节点类型的图标组件 */

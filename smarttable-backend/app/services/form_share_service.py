@@ -2,6 +2,7 @@
 表单分享服务模块
 处理表单分享的创建、管理和数据提交
 """
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple
@@ -19,6 +20,7 @@ from app.services.table_service import TableService
 from app.services.field_service import FieldService
 from app.services.permission_service import PermissionService
 from app.utils.captcha import CaptchaService
+from app.i18n import translate
 
 
 class FormShareError(Exception):
@@ -64,13 +66,13 @@ class FormShareService:
             # 验证表格是否存在
             table = TableService.get_table_by_id(table_id)
             if not table:
-                return {'success': False, 'error': '表格不存在', 'status': 404}
+                return {'success': False, 'error': 'table_does_not_exist', 'status': 404}
             
             # 验证用户权限（需要 EDITOR 或更高权限）
             if not PermissionService.check_permission(
                 str(table.base_id), user_id, MemberRole.EDITOR
             ):
-                return {'success': False, 'error': '无权创建表单分享', 'status': 403}
+                return {'success': False, 'error': 'no_permission_create_form_share', 'status': 403}
             
             # 验证过期时间
             expires_at = config.get('expires_at')
@@ -78,9 +80,9 @@ class FormShareService:
                 try:
                     expires_at = int(expires_at)
                     if expires_at < int(datetime.now(timezone.utc).timestamp()):
-                        return {'success': False, 'error': '过期时间不能是过去的时间'}
+                        return {'success': False, 'error': 'expiry_time_past'}
                 except (ValueError, TypeError):
-                    return {'success': False, 'error': '过期时间必须是有效的 Unix 时间戳'}
+                    return {'success': False, 'error': 'expiry_time_valid_unix_timestamp'}
             
             # 验证允许字段列表
             allowed_fields = config.get('allowed_fields', [])
@@ -92,7 +94,7 @@ class FormShareService:
                 # 检查所有指定字段是否存在于表格中
                 invalid_fields = [f for f in allowed_fields if f not in table_field_ids]
                 if invalid_fields:
-                    return {'success': False, 'error': f'以下字段不存在: {invalid_fields}'}
+                    return {'success': False, 'error': translate('form_share_invalid_fields', invalid_fields)}
             
             # 创建表单分享
             form_share = FormShare(
@@ -100,7 +102,7 @@ class FormShareService:
                 created_by=str(user_id),
                 is_active=config.get('is_active', True),
                 allow_anonymous=config.get('allow_anonymous', True),
-                require_captcha=config.get('require_captcha', False),
+                require_captcha=config.get('require_captcha', True),
                 expires_at=expires_at,
                 max_submissions=config.get('max_submissions'),
                 title=config.get('title'),
@@ -131,7 +133,7 @@ class FormShareService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[FormShareService] 创建表单分享失败: {str(e)}')
-            return {'success': False, 'error': f'创建失败: {str(e)}', 'status': 500}
+            return {'success': False, 'error': translate('form_share_create_failed', str(e)), 'status': 500}
     
     @staticmethod
     def get_form_share_by_token(token: str) -> Optional[FormShare]:
@@ -161,16 +163,16 @@ class FormShareService:
         form_share = FormShareService.get_form_share_by_token(token)
         
         if not form_share:
-            return False, None, '表单分享不存在'
+            return False, None, 'form_share_does_not_exist'
         
         if not form_share.is_active:
-            return False, None, '该表单分享已失效'
+            return False, None, 'form_share_been_invalidated'
         
         if form_share.is_expired():
-            return False, None, '该表单分享已过期'
+            return False, None, 'form_share_expired'
         
         if form_share.is_reached_limit():
-            return False, None, '提交次数已达上限'
+            return False, None, 'submission_limit_reached'
         
         return True, form_share, None
     
@@ -185,13 +187,13 @@ class FormShareService:
         valid, form_share, error = FormShareService.validate_form_share(token)
         
         if not valid:
-            return {'success': False, 'error': error, 'status': 403 if '失效' in error or '过期' in error or '上限' in error else 404}
+            return {'success': False, 'error': error, 'status': 403 if error in ('form_share_been_invalidated', 'form_share_expired', 'submission_limit_reached') else 404}
         
         try:
             # 获取表格信息
             table = TableService.get_table_by_id(form_share.table_id)
             if not table:
-                return {'success': False, 'error': '表格不存在', 'status': 404}
+                return {'success': False, 'error': 'table_does_not_exist', 'status': 404}
             
             # 获取字段列表
             all_fields = FieldService.get_all_fields(form_share.table_id)
@@ -222,6 +224,22 @@ class FormShareService:
                     # 合并最大长度配置
                     if 'maxLength' in options:
                         merged_config['maxLength'] = options['maxLength']
+
+                    # 合并字段校验规则配置（单行文本正则、长度、数字范围、自定义规则等）
+                    # 这些校验规则通常存储在 field.options 中，需同步到前端填写页用于前端校验
+                    for rule_key in (
+                        'regex', 'regexMessage', 'minLength', 'maxLength',
+                        'min', 'max', 'validation',
+                        # 公式字段：公式表达式与精度需同步到前端用于计算渲染
+                        'formula', 'precision',
+                        # 数字字段：格式配置需同步到前端，否则分享页无法展示前后缀/千分位
+                        'format', 'currencySymbol', 'prefix', 'suffix',
+                        'thousandsSeparator',
+                        # 日期字段：显示/录入格式需同步到前端，否则分享页无法按设定格式渲染
+                        'dateFormat',
+                    ):
+                        if rule_key in options and rule_key not in merged_config:
+                            merged_config[rule_key] = options[rule_key]
                 
                 field_schema = {
                     'id': str(field.id),
@@ -250,7 +268,7 @@ class FormShareService:
             
         except Exception as e:
             current_app.logger.error(f'[FormShareService] 获取表单结构失败: {str(e)}')
-            return {'success': False, 'error': '获取表单结构失败', 'status': 500}
+            return {'success': False, 'error': 'failed_fetch_form_structure', 'status': 500}
     
     @staticmethod
     def submit_form_data(
@@ -278,12 +296,12 @@ class FormShareService:
         valid, form_share, error = FormShareService.validate_form_share(token)
         
         if not valid:
-            status = 403 if '失效' in error or '过期' in error or '上限' in error else 404
+            status = 403 if error in ('form_share_been_invalidated', 'form_share_expired', 'submission_limit_reached') else 404
             return {'success': False, 'error': error, 'status': status}
         
         # 检查速率限制（按分享令牌维度）
         if not FormShareService._check_rate_limit(token):
-            return {'success': False, 'error': '提交过于频繁，请稍后再试', 'status': 429}
+            return {'success': False, 'error': 'submissions_too_frequent_try_again_later', 'status': 429}
 
         # 获取提交者 IP（用于记录，不参与限流判断）
         client_ip = client_info.get('ip', 'unknown')
@@ -292,7 +310,7 @@ class FormShareService:
         if form_share.require_captcha:
             captcha = data.get('captcha')
             if not captcha:
-                return {'success': False, 'error': '请输入验证码', 'status': 400}
+                return {'success': False, 'error': 'enter_captcha', 'status': 400}
             
             # 验证验证码
             is_valid, error_msg = CaptchaService.verify_captcha(token, captcha)
@@ -310,7 +328,7 @@ class FormShareService:
             if not validation_result['valid']:
                 return {
                     'success': False,
-                    'error': '数据验证失败',
+                    'error': 'data_validation_failed',
                     'details': validation_result['errors'],
                     'status': 400
                 }
@@ -365,7 +383,7 @@ class FormShareService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[FormShareService] 表单提交失败: {str(e)}')
-            return {'success': False, 'error': '提交失败，请稍后重试', 'status': 500}
+            return {'success': False, 'error': 'submission_failed_try_again_later', 'status': 500}
     
     @staticmethod
     def _validate_form_data(
@@ -397,7 +415,7 @@ class FormShareService:
         for field_id, value in valid_fields.items():
             field = field_map.get(field_id)
             if not field:
-                errors[field_id] = '字段不存在'
+                errors[field_id] = 'field_does_not_exist'
                 continue
             
             # 验证必填字段
@@ -428,7 +446,83 @@ class FormShareService:
         field_type = field.type
         
         try:
-            if field_type == FieldType.NUMBER.value:
+            if field_type == FieldType.SINGLE_LINE_TEXT.value:
+                # 单行文本：正则、长度、自定义规则校验
+                config = field.config or {}
+                field_options = field.options or {}
+                # 校验规则优先从 config 取，回退到 options
+                regex = config.get('regex') or field_options.get('regex')
+                regex_message = config.get('regexMessage') or field_options.get('regexMessage')
+                str_value = str(value)
+
+                if regex:
+                    try:
+                        if not re.match(regex, str_value):
+                            return regex_message or f'{field.name} 格式不正确'
+                    except re.error:
+                        # 非法正则，跳过正则校验
+                        pass
+
+                min_length = config.get('minLength')
+                if min_length is not None and len(str_value) < int(min_length):
+                    return f'{field.name} 至少需要 {min_length} 个字符'
+
+                max_length = config.get('maxLength')
+                if max_length is not None and len(str_value) > int(max_length):
+                    return f'{field.name} 不能超过 {max_length} 个字符'
+
+                validation = config.get('validation') or field_options.get('validation')
+                if isinstance(validation, dict) and validation.get('pattern'):
+                    try:
+                        if not re.match(validation['pattern'], str_value):
+                            return validation.get('message') or f'{field.name} 格式不正确'
+                    except re.error:
+                        pass
+
+            elif field_type in (
+                FieldType.LONG_TEXT.value,
+                FieldType.RICH_TEXT.value,
+            ):
+                # 多行文本/富文本：长度校验
+                config = field.config or {}
+                field_options = field.options or {}
+                str_value = str(value)
+
+                min_length = config.get('minLength')
+                if min_length is not None and len(str_value) < int(min_length):
+                    return f'{field.name} 至少需要 {min_length} 个字符'
+
+                max_length = config.get('maxLength')
+                if max_length is not None and len(str_value) > int(max_length):
+                    return f'{field.name} 不能超过 {max_length} 个字符'
+
+            elif field_type == FieldType.MULTI_SELECT.value:
+                # 多选：选项数量长度校验
+                config = field.config or {}
+                field_options = field.options or {}
+
+                min_length = config.get('minLength')
+                if min_length is not None and isinstance(value, list) and len(value) < int(min_length):
+                    return f'{field.name} 至少需要选择 {min_length} 项'
+
+                max_length = config.get('maxLength')
+                if max_length is not None and isinstance(value, list) and len(value) > int(max_length):
+                    return f'{field.name} 最多只能选择 {max_length} 项'
+
+                if not isinstance(value, list):
+                    return f'{field.name} 必须是选项列表'
+
+                options = (
+                    config.get('options', [])
+                    or field_options.get('options', [])
+                    or field_options.get('choices', [])
+                )
+                option_values = [opt.get('value') or opt.get('id') for opt in options]
+                for v in value:
+                    if v not in option_values:
+                        return f'{field.name} 包含无效选项'
+
+            elif field_type == FieldType.NUMBER.value:
                 # 数字类型验证
                 if not isinstance(value, (int, float)):
                     try:
@@ -475,39 +569,20 @@ class FormShareService:
                 if value not in option_values:
                     return f'{field.name} 必须是有效的选项'
             
-            elif field_type == FieldType.MULTI_SELECT.value:
-                # 多选类型验证
-                if not isinstance(value, list):
-                    return f'{field.name} 必须是选项列表'
-                
-                config = field.config or {}
-                field_options = field.options or {}
-                
-                # 合并 config.options 和 field.options
-                options = config.get('options', []) or field_options.get('options', []) or field_options.get('choices', [])
-                option_values = [opt.get('value') or opt.get('id') for opt in options]
-                
-                for v in value:
-                    if v not in option_values:
-                        return f'{field.name} 包含无效选项'
-            
             elif field_type == FieldType.EMAIL.value:
                 # 邮箱类型验证
-                import re
                 email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
                 if not re.match(email_pattern, str(value)):
                     return f'{field.name} 必须是有效的邮箱地址'
             
             elif field_type == FieldType.URL.value:
                 # URL 类型验证
-                import re
                 url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
                 if not re.match(url_pattern, str(value)):
                     return f'{field.name} 必须是有效的 URL 地址'
             
             elif field_type == FieldType.PHONE.value:
                 # 手机号验证（简化版）
-                import re
                 phone_pattern = r'^1[3-9]\d{9}$'
                 if not re.match(phone_pattern, str(value)):
                     return f'{field.name} 必须是有效的手机号码'
@@ -558,7 +633,7 @@ class FormShareService:
         try:
             form_share = FormShareService.get_form_share_by_id(share_id)
             if not form_share:
-                return {'success': False, 'error': '表单分享不存在', 'status': 404}
+                return {'success': False, 'error': 'form_share_does_not_exist', 'status': 404}
             
             # 验证权限（只有创建者可以更新）
             if str(form_share.created_by) != str(user_id):
@@ -567,7 +642,7 @@ class FormShareService:
                 if table and not PermissionService.check_permission(
                     str(table.base_id), user_id, MemberRole.ADMIN
                 ):
-                    return {'success': False, 'error': '无权更新此表单分享', 'status': 403}
+                    return {'success': False, 'error': 'no_permission_update_form_share', 'status': 403}
             
             # 更新字段
             if 'is_active' in data:
@@ -585,10 +660,10 @@ class FormShareService:
                     try:
                         expires_at = int(expires_at)
                         if expires_at < int(datetime.now(timezone.utc).timestamp()):
-                            return {'success': False, 'error': '过期时间不能是过去的时间'}
+                            return {'success': False, 'error': 'expiry_time_past'}
                         form_share.expires_at = expires_at
                     except (ValueError, TypeError):
-                        return {'success': False, 'error': '过期时间必须是有效的 Unix 时间戳'}
+                        return {'success': False, 'error': 'expiry_time_valid_unix_timestamp'}
                 else:
                     form_share.expires_at = None
             
@@ -607,7 +682,7 @@ class FormShareService:
                     table_field_ids = {str(f.id) for f in table_fields}
                     invalid_fields = [f for f in allowed_fields if f not in table_field_ids]
                     if invalid_fields:
-                        return {'success': False, 'error': f'以下字段不存在: {invalid_fields}'}
+                        return {'success': False, 'error': translate('form_share_invalid_fields', invalid_fields)}
                     form_share.set_allowed_fields_list(allowed_fields)
                 else:
                     form_share.allowed_fields = None
@@ -639,7 +714,7 @@ class FormShareService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[FormShareService] 更新表单分享失败: {str(e)}')
-            return {'success': False, 'error': f'更新失败: {str(e)}', 'status': 500}
+            return {'success': False, 'error': translate('form_share_update_failed', str(e)), 'status': 500}
     
     @staticmethod
     def delete_form_share(share_id: str, user_id: str) -> Dict[str, Any]:
@@ -656,7 +731,7 @@ class FormShareService:
         try:
             form_share = FormShareService.get_form_share_by_id(share_id)
             if not form_share:
-                return {'success': False, 'error': '表单分享不存在', 'status': 404}
+                return {'success': False, 'error': 'form_share_does_not_exist', 'status': 404}
             
             # 验证权限（只有创建者或管理员可以删除）
             if str(form_share.created_by) != str(user_id):
@@ -664,7 +739,7 @@ class FormShareService:
                 if table and not PermissionService.check_permission(
                     str(table.base_id), user_id, MemberRole.ADMIN
                 ):
-                    return {'success': False, 'error': '无权删除此表单分享', 'status': 403}
+                    return {'success': False, 'error': 'no_permission_delete_form_share', 'status': 403}
             
             db.session.delete(form_share)
             db.session.commit()
@@ -678,7 +753,7 @@ class FormShareService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'[FormShareService] 删除表单分享失败: {str(e)}')
-            return {'success': False, 'error': f'删除失败: {str(e)}', 'status': 500}
+            return {'success': False, 'error': translate('form_share_delete_failed', str(e)), 'status': 500}
     
     @staticmethod
     def get_submissions(
@@ -702,7 +777,7 @@ class FormShareService:
         try:
             form_share = FormShareService.get_form_share_by_id(share_id)
             if not form_share:
-                return {'success': False, 'error': '表单分享不存在', 'status': 404}
+                return {'success': False, 'error': 'form_share_does_not_exist', 'status': 404}
             
             # 验证权限
             if str(form_share.created_by) != str(user_id):
@@ -710,7 +785,7 @@ class FormShareService:
                 if table and not PermissionService.check_permission(
                     str(table.base_id), user_id, MemberRole.VIEWER
                 ):
-                    return {'success': False, 'error': '无权查看此表单的提交记录', 'status': 403}
+                    return {'success': False, 'error': 'no_permission_view_submission_records_form', 'status': 403}
             
             # 查询提交记录
             query = FormSubmission.query.filter_by(form_share_id=share_id)
@@ -732,4 +807,4 @@ class FormShareService:
             
         except Exception as e:
             current_app.logger.error(f'[FormShareService] 获取提交记录失败: {str(e)}')
-            return {'success': False, 'error': '获取提交记录失败', 'status': 500}
+            return {'success': False, 'error': 'failed_fetch_submission_records', 'status': 500}

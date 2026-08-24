@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, watch, computed, shallowRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useBaseStore } from "@/stores";
 import { useViewStore } from "@/stores/viewStore";
 import { useTableStore } from "@/stores/tableStore";
@@ -12,6 +13,7 @@ import {
   Document,
   Plus,
   Search,
+  Clock,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView, VTableView } from "@/components/views/TableView";
@@ -55,6 +57,7 @@ import { useRealtimeCollaboration } from "@/composables/useRealtimeCollaboration
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import CollaborationToast from "@/components/collaboration/CollaborationToast.vue";
 import ConflictDialog from "@/components/collaboration/ConflictDialog.vue";
+import TableHistoryDialog from "@/components/dialogs/TableHistoryDialog.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { DocumentEditor } from "@/components/documents";
@@ -68,6 +71,8 @@ const memberStore = useMemberStore();
 const collaborationStore = useCollaborationStore();
 const userCacheStore = useUserCacheStore();
 const documentStore = useDocumentStore();
+
+const { t } = useI18n();
 
 // VTableView 组件引用（用于调用搜索功能）
 const vtableViewRef = shallowRef<{ openSearch: () => void } | null>(null);
@@ -159,16 +164,16 @@ const createDocumentFormRef = ref<FormInstance>();
 // 仪表盘表单验证规则
 const createDashboardFormRules: FormRules = {
   name: [
-    { required: true, message: "请输入仪表盘名称", trigger: "blur" },
-    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+    { required: true, message: t('view.base.enterDashboardName'), trigger: "blur" },
+    { min: 1, max: 50, message: t('view.base.nameLength'), trigger: "blur" },
   ],
 };
 
 // 创建文档表单验证规则
 const createDocumentFormRules: FormRules = {
   name: [
-    { required: true, message: "请输入文档名称", trigger: "blur" },
-    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+    { required: true, message: t('view.base.enterDocName'), trigger: "blur" },
+    { min: 1, max: 50, message: t('view.base.nameLength'), trigger: "blur" },
   ],
 };
 
@@ -188,8 +193,8 @@ const renameDashboardFormRef = ref<FormInstance>();
 // 重命名仪表盘表单验证规则
 const renameDashboardFormRules: FormRules = {
   name: [
-    { required: true, message: "请输入仪表盘名称", trigger: "blur" },
-    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+    { required: true, message: t('view.base.enterDashboardName'), trigger: "blur" },
+    { min: 1, max: 50, message: t('view.base.nameLength'), trigger: "blur" },
   ],
 };
 
@@ -205,8 +210,8 @@ const createTableFormRef = ref<FormInstance>();
 // 表单验证规则
 const createTableFormRules: FormRules = {
   name: [
-    { required: true, message: "请输入数据表名称", trigger: "blur" },
-    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+    { required: true, message: t('view.base.enterTableName'), trigger: "blur" },
+    { min: 1, max: 50, message: t('view.base.nameLength'), trigger: "blur" },
   ],
 };
 
@@ -224,13 +229,16 @@ const formShareDialogVisible = ref(false);
 const importDialogVisible = ref(false);
 const excelImportCreateDialogVisible = ref(false);
 
+// 表格历史变更弹窗显示状态
+const showTableHistory = ref(false);
+
 // 表单配置
 const formConfig = ref({
-  title: "数据收集表单",
+  title: t('view.base.formTitleDefault'),
   description: "",
-  submitButtonText: "提交",
+  submitButtonText: t('view.base.formSubmitDefault'),
   visibleFieldIds: [] as string[],
-  successMessage: "提交成功，感谢您的参与！",
+  successMessage: t('view.base.formSuccessDefault'),
   allowMultipleSubmit: true,
 });
 
@@ -274,8 +282,8 @@ const renameTableForm = reactive({
 const renameTableFormRef = ref<FormInstance>();
 const renameTableFormRules: FormRules = {
   name: [
-    { required: true, message: "请输入数据表名称", trigger: "blur" },
-    { min: 1, max: 50, message: "名称长度在 1 到 50 个字符", trigger: "blur" },
+    { required: true, message: t('view.base.enterTableName'), trigger: "blur" },
+    { min: 1, max: 50, message: t('view.base.nameLength'), trigger: "blur" },
   ],
 };
 
@@ -373,7 +381,7 @@ function openGroupDialog() {
 async function handleGroupApply(newGroupBy: string[]) {
   if (viewStore.currentView) {
     await viewStore.updateGroupBys(viewStore.currentView.id, newGroupBy);
-    ElMessage.success("分组配置已应用");
+    ElMessage.success(t('view.base.groupApplied'));
   }
 }
 
@@ -381,7 +389,7 @@ async function handleGroupApply(newGroupBy: string[]) {
 async function handleGroupClear() {
   if (viewStore.currentView) {
     await viewStore.updateGroupBys(viewStore.currentView.id, []);
-    ElMessage.success("分组已清除");
+    ElMessage.success(t('view.base.groupCleared'));
   }
 }
 
@@ -441,7 +449,7 @@ onMounted(async () => {
         try {
           await documentStore.fetchDocumentDetail(targetDocId);
         } catch (error) {
-          ElMessage.error('加载文档失败');
+          ElMessage.error(t('view.base.docLoadFailed'));
           console.error('Failed to load document:', error);
         }
       } else if (targetTableId) {
@@ -510,7 +518,7 @@ watch(
       await tableStore.loadTables(newId as string);
       await documentStore.fetchDocuments(newId as string);
     } catch (error) {
-      ElMessage.error('加载数据失败');
+      ElMessage.error(t('view.base.loadDataFailed'));
       console.error('Failed to load data:', error);
     }
   },
@@ -526,7 +534,7 @@ watch(
     try {
       await documentStore.fetchDocumentDetail(newDocId as string);
     } catch (error) {
-      ElMessage.error('加载文档失败');
+      ElMessage.error(t('view.base.docLoadFailed'));
       console.error('Failed to load document:', error);
     }
   },
@@ -547,7 +555,7 @@ watch(
       }, 1000);
     } catch (error) {
       dashboardLoading.value = false;
-      ElMessage.error('加载仪表盘失败');
+      ElMessage.error(t('view.base.dashboardLoadFailed'));
       console.error('Failed to load dashboard:', error);
     }
   },
@@ -574,7 +582,7 @@ watch(
         await loadTableView(firstTable.id);
       }
     } catch (error) {
-      ElMessage.error('加载数据失败');
+      ElMessage.error(t('view.base.loadDataFailed'));
       console.error('Failed to load data:', error);
     } finally {
       // 确保 loading 状态被清除
@@ -660,7 +668,7 @@ const handleTableSelect = async (tableId: string) => {
       await router.push(`/base/${baseId}/table/${tableId}`);
     }
   } catch (error) {
-    ElMessage.error('加载数据失败');
+    ElMessage.error(t('view.base.loadDataFailed'));
     console.error('Failed to load data:', error);
   } finally {
     // 确保 loading 状态被清除
@@ -709,7 +717,7 @@ const handleAddRecord = (
   groupInfo?: { groupFieldId?: string; groupId?: string; groupName?: string },
 ) => {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
 
@@ -732,7 +740,7 @@ const handleAddRecordFromGroup = (groupInfo: {
   }>;
 }) => {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
 
@@ -760,7 +768,7 @@ const handleAddRecordFromGroup = (groupInfo: {
 // 处理 VTable 分组视图的添加记录
 const handleVTableGroupAddRecord = (groupFieldValues: Record<string, any>) => {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
 
@@ -783,23 +791,23 @@ const handleSaveNewRecord = async (values: Record<string, unknown>) => {
 
     if (record) {
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
-      ElMessage.success("记录创建成功");
+      ElMessage.success(t('view.base.recordCreated'));
       addRecordDialogVisible.value = false;
 
       // 强制刷新记录列表，确保分组表格视图等能正确显示新记录
       await tableStore.refreshRecords(tableStore.currentTable.id);
     } else {
-      ElMessage.error(tableStore.error || "创建记录失败");
+      ElMessage.error(tableStore.error || t('view.base.recordCreateFailed'));
     }
   } catch (error) {
-    ElMessage.error("创建记录失败");
+    ElMessage.error(t('view.base.recordCreateFailed'));
   }
 };
 
 // 处理表单提交
 const handleFormSubmit = async (values: Record<string, CellValue>) => {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
 
@@ -811,15 +819,15 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
 
     if (record) {
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
-      ElMessage.success("表单提交成功，记录已创建");
+      ElMessage.success(t('view.base.formSubmitSuccess'));
 
       // 强制刷新记录列表，确保分组表格视图等能正确显示新记录
       await tableStore.refreshRecords(tableStore.currentTable.id);
     } else {
-      ElMessage.error(tableStore.error || "提交失败");
+      ElMessage.error(tableStore.error || t('view.base.submitFailed'));
     }
   } catch (error) {
-    ElMessage.error("提交失败");
+    ElMessage.error(t('view.base.submitFailed'));
   }
 };
 
@@ -866,23 +874,23 @@ const loadFormConfig = () => {
     const hasVisibleFieldIdsConfig = configData?.visibleFieldIds !== undefined;
 
     formConfig.value = {
-      title: configData?.title || "数据收集表单",
+      title: configData?.title || t('view.base.formTitleDefault'),
       description: configData?.description || "",
-      submitButtonText: configData?.submitButtonText || "提交",
+      submitButtonText: configData?.submitButtonText || t('view.base.formSubmitDefault'),
       visibleFieldIds: hasVisibleFieldIdsConfig
         ? configData!.visibleFieldIds || []
         : defaultVisibleFieldIds,
-      successMessage: configData?.successMessage || "提交成功，感谢您的参与！",
+      successMessage: configData?.successMessage || t('view.base.formSuccessDefault'),
       allowMultipleSubmit: configData?.allowMultipleSubmit !== false,
     };
   } else {
     // 使用默认配置
     formConfig.value = {
-      title: "数据收集表单",
+      title: t('view.base.formTitleDefault'),
       description: "",
-      submitButtonText: "提交",
+      submitButtonText: t('view.base.formSubmitDefault'),
       visibleFieldIds: defaultVisibleFieldIds,
-      successMessage: "提交成功，感谢您的参与！",
+      successMessage: t('view.base.formSuccessDefault'),
       allowMultipleSubmit: true,
     };
   }
@@ -902,7 +910,7 @@ watch(
 // 打开表单配置对话框
 const openFormConfigDialog = () => {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
   // 加载当前视图的配置
@@ -933,13 +941,13 @@ const handleFormConfigSave = async (config: typeof formConfig.value) => {
     });
   }
 
-  ElMessage.success("表单配置已保存");
+  ElMessage.success(t('view.base.formConfigSaved'));
 };
 
 // 打开表单分享对话框
 const openFormShareDialog = () => {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
   formShareDialogVisible.value = true;
@@ -990,7 +998,10 @@ const handleSortFromGroup = async (
     newSorts as SortConfig[],
   );
   ElMessage.success(
-    `已按字段 ${tableStore.fields.find((f) => f.id === fieldId)?.name || ""} ${direction === "asc" ? "升序" : "降序"}排列`,
+    t('view.base.sortByField', {
+      name: tableStore.fields.find((f) => f.id === fieldId)?.name || "",
+      direction: direction === "asc" ? t('view.base.sortedAsc') : t('view.base.sortedDesc'),
+    }),
   );
 };
 
@@ -1000,7 +1011,7 @@ const handleFreezeFieldFromGroup = async (fieldId: string) => {
 
   const newFrozen = [...viewStore.currentView.frozenFields, fieldId];
   await viewStore.updateFrozenFields(viewStore.currentView.id, newFrozen);
-  ElMessage.success("已冻结列");
+  ElMessage.success(t('view.base.frozenColumn'));
 };
 
 // 处理分组视图的取消冻结列
@@ -1011,7 +1022,7 @@ const handleUnfreezeFieldFromGroup = async (fieldId: string) => {
     (fid) => fid !== fieldId,
   );
   await viewStore.updateFrozenFields(viewStore.currentView.id, newFrozen);
-  ElMessage.success("已取消冻结列");
+  ElMessage.success(t('view.base.unfrozenColumn'));
 };
 
 // 处理分组视图的隐藏字段
@@ -1019,13 +1030,13 @@ const handleHideFieldFromGroup = async (fieldId: string) => {
   if (!viewStore.currentView) return;
 
   if (viewStore.currentView.hiddenFields.includes(fieldId)) {
-    ElMessage.warning("该字段已经是隐藏状态");
+    ElMessage.warning(t('view.base.fieldAlreadyHidden'));
     return;
   }
 
   const newHidden = [...viewStore.currentView.hiddenFields, fieldId];
   await viewStore.updateHiddenFields(viewStore.currentView.id, newHidden);
-  ElMessage.success("已隐藏字段");
+  ElMessage.success(t('view.base.hiddenField'));
 };
 
 // 处理分组视图的编辑字段
@@ -1040,11 +1051,11 @@ const handleDeleteRecordsFromGroup = async (records: RecordEntity[]) => {
 
   try {
     await ElMessageBox.confirm(
-      `确定要删除选中的 ${records.length} 条记录吗？`,
-      "确认删除",
+      t('view.base.deleteRecordsConfirm', { count: records.length }),
+      t('view.base.deleteTitle'),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('view.base.confirmDelete'),
+        cancelButtonText: t('view.cancel'),
         type: "warning",
       },
     );
@@ -1058,7 +1069,7 @@ const handleDeleteRecordsFromGroup = async (records: RecordEntity[]) => {
       }
     }
 
-    ElMessage.success(`已删除 ${records.length} 条记录`);
+    ElMessage.success(t('view.base.deleteRecordsSuccess', { count: records.length }));
   } catch (error) {
     // 用户取消删除
   }
@@ -1079,13 +1090,13 @@ const handleDuplicateRecordFromGroup = async (record: RecordEntity) => {
     if (newRecord) {
       // 不再手动 push，因为实时事件会添加记录
       // 但为了立即打开编辑对话框，我们需要使用返回的记录
-      ElMessage.success("记录复制成功");
+      ElMessage.success(t('view.base.duplicateSuccess'));
       // 打开新记录的编辑对话框
       editingRecord.value = newRecord;
       recordDialogVisible.value = true;
     }
   } catch (error) {
-    ElMessage.error("复制记录失败");
+    ElMessage.error(t('view.base.duplicateFailed'));
     console.error("复制记录失败:", error);
   }
 };
@@ -1110,27 +1121,27 @@ const handleSaveRecord = async (
         updatedAt: Date.now(),
       };
     }
-    ElMessage.success("记录更新成功");
+    ElMessage.success(t('view.base.recordUpdated'));
   } catch (error) {
-    ElMessage.error("更新记录失败");
+    ElMessage.error(t('view.base.updateRecordFailed'));
   }
 };
 
 // 处理删除记录
 const handleDeleteRecord = async (recordId: string) => {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
 
   try {
     // 显示确认对话框
     await ElMessageBox.confirm(
-      "确定要删除这条记录吗？此操作无法恢复。",
-      "删除确认",
+      t('view.base.deleteRecordConfirm'),
+      t('view.base.deleteTitle'),
       {
-        confirmButtonText: "删除",
-        cancelButtonText: "取消",
+        confirmButtonText: t('view.base.confirmDelete'),
+        cancelButtonText: t('view.cancel'),
         type: "warning",
         confirmButtonClass: "el-button--danger",
       },
@@ -1145,11 +1156,11 @@ const handleDeleteRecord = async (recordId: string) => {
       tableStore.records.splice(index, 1);
     }
 
-    ElMessage.success("记录删除成功");
+    ElMessage.success(t('view.base.recordDeleted'));
   } catch (error) {
     // 用户取消删除时不显示错误
     if (error !== "cancel") {
-      ElMessage.error("删除记录失败");
+      ElMessage.error(t('view.base.deleteRecordFailed'));
     }
   }
 };
@@ -1157,7 +1168,7 @@ const handleDeleteRecord = async (recordId: string) => {
 // 打开创建数据表对话框
 function openCreateTableDialog() {
   if (!baseStore.currentBase) {
-    ElMessage.warning("请先选择一个 Base");
+    ElMessage.warning(t('view.base.baseSelectFirst'));
     return;
   }
   createTableDialogVisible.value = true;
@@ -1168,7 +1179,7 @@ function openCreateTableDialog() {
 // 打开创建仪表盘对话框
 function openCreateDashboardDialog() {
   if (!baseStore.currentBase) {
-    ElMessage.warning("请先选择一个 Base");
+    ElMessage.warning(t('view.base.baseSelectFirst'));
     return;
   }
   createDashboardDialogVisible.value = true;
@@ -1186,7 +1197,7 @@ function closeCreateDashboardDialog() {
 async function handleCreateDashboard() {
   if (!createDashboardFormRef.value) return;
   if (!baseStore.currentBase) {
-    ElMessage.error("请先选择一个 Base");
+    ElMessage.error(t('view.base.baseSelectFirst'));
     return;
   }
 
@@ -1203,7 +1214,7 @@ async function handleCreateDashboard() {
         });
 
         if (dashboard) {
-          ElMessage.success("仪表盘创建成功");
+          ElMessage.success(t('view.base.dashboardCreated'));
           closeCreateDashboardDialog();
           // 刷新仪表盘列表
           sidebarRef.value?.refreshDashboards();
@@ -1211,10 +1222,10 @@ async function handleCreateDashboard() {
           const baseId = route.params.id as string;
           router.push(`/base/${baseId}/dashboard/${dashboard.id}`);
         } else {
-          ElMessage.error("创建失败");
+          ElMessage.error(t('view.base.createFailed'));
         }
       } catch (error) {
-        ElMessage.error("创建仪表盘失败");
+        ElMessage.error(t('view.base.createFailed'));
       }
     }
   });
@@ -1315,7 +1326,7 @@ async function handleReorderDashboards(dashboardIds: string[]) {
     // 刷新仪表盘列表
     sidebarRef.value?.refreshDashboards();
   } catch (error) {
-    ElMessage.error("排序失败");
+    ElMessage.error(t('view.base.reorderFailed'));
   }
 }
 
@@ -1323,7 +1334,7 @@ async function handleReorderDashboards(dashboardIds: string[]) {
 async function handleCreateTable() {
   if (!createTableFormRef.value) return;
   if (!baseStore.currentBase) {
-    ElMessage.error("请先选择一个 Base");
+    ElMessage.error(t('view.base.baseSelectFirst'));
     return;
   }
 
@@ -1336,13 +1347,13 @@ async function handleCreateTable() {
       });
 
       if (table) {
-        ElMessage.success("数据表创建成功");
+        ElMessage.success(t('view.base.tableCreated'));
         closeCreateTableDialog();
         // 刷新当前 base 的表格列表并选中新创建的表格
         await tableStore.loadTables(baseStore.currentBase!.id);
         await tableStore.selectTable(table.id);
       } else {
-        ElMessage.error(tableStore.error || "创建失败");
+        ElMessage.error(tableStore.error || t('view.base.createFailed'));
       }
     }
   });
@@ -1449,10 +1460,10 @@ async function duplicateTable(table: { id: string; name: string }) {
     await tableService.duplicateTable(table.id);
     // 刷新表格列表
     await refreshTables();
-    ElMessage.success("数据表复制成功");
+    ElMessage.success(t('view.base.duplicateTableSuccess'));
   } catch (error: any) {
     console.error("复制数据表失败:", error);
-    ElMessage.error("复制失败，请稍后重试");
+    ElMessage.error(t('view.base.duplicateFailedRetry'));
   }
 }
 
@@ -1468,7 +1479,7 @@ async function refreshTables() {
 // 打开字段对话框
 function openFieldDialog() {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
   fieldDialogVisible.value = true;
@@ -1490,7 +1501,7 @@ function handleFieldUpdated(field: any) {
     // 使用 Object.assign 保留响应式，并触发更新
     Object.assign(tableStore.fields[index], field);
   }
-  ElMessage.success(`字段 "${field.name}" 更新成功`);
+  ElMessage.success(t('view.base.fieldUpdated', { name: field.name }));
 }
 
 // 处理字段删除
@@ -1499,7 +1510,7 @@ function handleFieldDeleted(fieldId: string) {
   if (index !== -1) {
     const fieldName = tableStore.fields[index].name;
     tableStore.fields.splice(index, 1);
-    ElMessage.success(`字段 "${fieldName}" 删除成功`);
+    ElMessage.success(t('view.base.fieldDeleted', { name: fieldName }));
   }
 }
 
@@ -1542,7 +1553,7 @@ async function handleFieldVisibilityChanged(
 // 打开筛选对话框
 function openFilterDialog() {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
   filterDialogVisible.value = true;
@@ -1559,7 +1570,7 @@ async function handleFilterApply(
     await viewStore.updateFilters(viewStore.currentView.id, filters);
   }
   if (filters.length > 0) {
-    ElMessage.success(`已应用 ${filters.length} 个筛选条件`);
+    ElMessage.success(t('view.base.filterApplied', { count: filters.length }));
   }
 }
 
@@ -1570,13 +1581,13 @@ async function handleFilterClear() {
   if (viewStore.currentView) {
     await viewStore.updateFilters(viewStore.currentView.id, []);
   }
-  ElMessage.success("筛选已清除");
+  ElMessage.success(t('view.base.filterCleared'));
 }
 
 // 打开排序对话框
 function openSortDialog() {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
   sortDialogVisible.value = true;
@@ -1587,7 +1598,7 @@ async function handleSortApply(sorts: SortConfig[]) {
   if (viewStore.currentView) {
     await viewStore.updateSorts(viewStore.currentView.id, sorts);
     if (sorts.length > 0) {
-      ElMessage.success(`已应用 ${sorts.length} 个排序条件`);
+      ElMessage.success(t('view.base.sortApplied', { count: sorts.length }));
     }
   }
 }
@@ -1596,14 +1607,14 @@ async function handleSortApply(sorts: SortConfig[]) {
 async function handleSortClear() {
   if (viewStore.currentView) {
     await viewStore.updateSorts(viewStore.currentView.id, []);
-    ElMessage.success("排序已清除");
+    ElMessage.success(t('view.base.sortCleared'));
   }
 }
 
 // 打开导出对话框
 function openExportDialog() {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
   exportDialogVisible.value = true;
@@ -1612,7 +1623,7 @@ function openExportDialog() {
 // 打开导入对话框
 function openImportDialog() {
   if (!tableStore.currentTable) {
-    ElMessage.warning("请先选择一个数据表");
+    ElMessage.warning(t('view.base.selectTableFirst'));
     return;
   }
   importDialogVisible.value = true;
@@ -1621,7 +1632,7 @@ function openImportDialog() {
 // 打开Excel导入创建对话框
 function openExcelImportCreateDialog() {
   if (!baseStore.currentBase) {
-    ElMessage.warning("请先选择一个Base");
+    ElMessage.warning(t('view.base.baseSelectFirst'));
     return;
   }
   excelImportCreateDialogVisible.value = true;
@@ -1670,11 +1681,11 @@ const confirmLeaveDocument = async (): Promise<boolean> => {
 
   try {
     await ElMessageBox.confirm(
-      '当前文档有未保存的更改，是否保存后再离开？',
-      '未保存的更改',
+      t('view.base.unsavedChanges'),
+      t('view.base.unsavedTitle'),
       {
-        confirmButtonText: '保存并离开',
-        cancelButtonText: '直接离开',
+        confirmButtonText: t('view.base.saveAndLeave'),
+        cancelButtonText: t('view.base.leaveDirectly'),
         type: 'warning',
         distinguishCancelAndClose: true,
       }
@@ -1711,7 +1722,7 @@ const handleDocumentSelect = async (docId: string) => {
     // 直接跳转路由，让 watch 来处理加载文档详情
     router.push(`/base/${baseId}/documents/${docId}`);
   } catch (error) {
-    ElMessage.error('加载文档失败');
+    ElMessage.error(t('view.base.docLoadFailed'));
     documentStore.loadingDocumentDetail = false;
     console.error('Failed to load document:', error);
   }
@@ -1720,7 +1731,7 @@ const handleDocumentSelect = async (docId: string) => {
 // 打开创建文档对话框
 const openCreateDocumentDialog = () => {
   if (!baseStore.currentBase) {
-    ElMessage.warning("请先选择一个 Base");
+    ElMessage.warning(t('view.base.baseSelectFirst'));
     return;
   }
   createDocumentDialogVisible.value = true;
@@ -1737,7 +1748,7 @@ const closeCreateDocumentDialog = () => {
 const handleCreateDocument = async () => {
   if (!createDocumentFormRef.value) return;
   if (!baseStore.currentBase) {
-    ElMessage.error("请先选择一个 Base");
+    ElMessage.error(t('view.base.baseSelectFirst'));
     return;
   }
 
@@ -1749,12 +1760,12 @@ const handleCreateDocument = async () => {
           content: JSON.stringify({ ops: [{ insert: '\n' }] }),
           contentFormat: 'delta'
         });
-        ElMessage.success('文档创建成功');
+        ElMessage.success(t('view.base.documentCreated'));
         closeCreateDocumentDialog();
         // 跳转到新创建的文档
         router.push(`/base/${baseStore.currentBase!.id}/documents/${doc.id}`);
       } catch (error) {
-        ElMessage.error('创建文档失败');
+        ElMessage.error(t('view.base.createDocFailed'));
       }
     }
   });
@@ -1768,17 +1779,17 @@ const handleAddDocument = () => {
 // 处理重命名文档
 const handleRenameDocument = async (doc: any) => {
   try {
-    const { value } = await ElMessageBox.prompt('请输入新名称', '重命名文档', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    const { value } = await ElMessageBox.prompt(t('view.base.enterNewName'), t('view.base.renameDocument'), {
+      confirmButtonText: t('view.confirm'),
+      cancelButtonText: t('view.cancel'),
       inputValue: doc.name,
       inputValidator: (value) => {
-        if (!value.trim()) return '名称不能为空';
+        if (!value.trim()) return t('view.base.nameNotEmpty');
         return true;
       }
     });
     await documentStore.updateDocument(doc.id, { name: value.trim() });
-    ElMessage.success('重命名成功');
+    ElMessage.success(t('view.base.renameSuccess'));
   } catch {
     // 用户取消
   }
@@ -1793,9 +1804,9 @@ const handleDeleteDocument = async (doc: any) => {
       const baseId = route.params.id as string;
       router.push(`/base/${baseId}`);
     }
-    ElMessage.success('文档删除成功');
+    ElMessage.success(t('view.base.deleteDocSuccess'));
   } catch (error) {
-    ElMessage.error('删除文档失败');
+    ElMessage.error(t('view.base.deleteDocFailed'));
   }
 };
 
@@ -1803,9 +1814,9 @@ const handleDeleteDocument = async (doc: any) => {
 const handleTogglePinDocument = async (doc: any) => {
   try {
     await documentStore.updateDocument(doc.id, { isPinned: !doc.isPinned });
-    ElMessage.success(doc.isPinned ? '已取消置顶' : '已置顶');
+    ElMessage.success(doc.isPinned ? t('view.base.unpinned') : t('view.base.pinned'));
   } catch (error) {
-    ElMessage.error('操作失败');
+    ElMessage.error(t('view.base.toggleFailed'));
   }
 };
 
@@ -1821,9 +1832,9 @@ const handleDocumentExportPdf = async () => {
   isExportingPdf.value = true;
   try {
     await documentStore.exportPdf(documentStore.currentDocument.id, 'frontend');
-    ElMessage.success('PDF 导出成功');
+    ElMessage.success(t('view.base.pdfExportSuccess'));
   } catch (error) {
-    ElMessage.error('PDF 导出失败');
+    ElMessage.error(t('view.base.pdfExportFailed'));
   } finally {
     isExportingPdf.value = false;
   }
@@ -1865,7 +1876,7 @@ const handleDocumentExportPdf = async () => {
       <div class="dashboard-container">
         <Loading
           v-if="dashboardLoading"
-          text="仪表盘加载中..."
+          :text="t('view.base.loadingDashboard')"
           size="large"
           absolute />
         <DashboardView :dashboard-id="route.params.dashboardId as string" />
@@ -1877,7 +1888,7 @@ const handleDocumentExportPdf = async () => {
         <!-- Loading 遮罩层：使用通用 Loading 组件 -->
         <Loading
           v-if="documentStore.loadingDocumentDetail"
-          text="文档加载中..."
+          :text="t('view.base.loadingDocument')"
           size="large"
           absolute />
         <DocumentEditor
@@ -1889,7 +1900,7 @@ const handleDocumentExportPdf = async () => {
           @save="handleDocumentSave"
           @export-pdf="handleDocumentExportPdf" />
         <div v-else class="empty-state">
-          <el-empty description="加载文档中..." />
+          <el-empty :description="t('view.base.loadingDocEmpty')" />
         </div>
       </div>
     </template>
@@ -1925,7 +1936,7 @@ const handleDocumentExportPdf = async () => {
                 size="default"
                 @click="handleAddRecord()">
                 <el-icon><Plus /></el-icon>
-                添加记录
+                {{ t('view.base.addRecord') }}
               </el-button>
             </div>
             <div
@@ -1938,7 +1949,7 @@ const handleDocumentExportPdf = async () => {
                   <el-button
                     v-if="useVTable"
                     size="default"
-                    title="表格全局搜索"
+                    :title="t('view.base.tableGlobalSearch')"
                     @click="vtableViewRef?.openSearch()">
                     <el-icon><Search /></el-icon>
                   </el-button>
@@ -1948,7 +1959,7 @@ const handleDocumentExportPdf = async () => {
                     :type="activeFilters.length > 0 ? 'primary' : 'default'"
                     @click="openFilterDialog">
                     <el-icon><Filter /></el-icon>
-                    筛选
+                    {{ t('view.base.filter') }}
                     <el-tag
                       v-if="activeFilters.length > 0"
                       size="default"
@@ -1961,7 +1972,7 @@ const handleDocumentExportPdf = async () => {
                     :type="activeSorts.length > 0 ? 'primary' : 'default'"
                     @click="openSortDialog">
                     <el-icon><Sort /></el-icon>
-                    排序
+                    {{ t('view.base.sort') }}
                     <el-tag
                       v-if="activeSorts.length > 0"
                       size="default"
@@ -1974,7 +1985,7 @@ const handleDocumentExportPdf = async () => {
                     :type="hasGroupConfig ? 'primary' : 'default'"
                     @click="openGroupDialog">
                     <el-icon><Folder /></el-icon>
-                    分组
+                    {{ t('view.base.group') }}
                     <el-tag
                       v-if="hasGroupConfig"
                       size="default"
@@ -1987,7 +1998,7 @@ const handleDocumentExportPdf = async () => {
                     size="default"
                     @click="openFieldDialog">
                     <el-icon><Grid /></el-icon>
-                    字段
+                    {{ t('view.base.field') }}
                   </el-button>
                 </el-button-group>
                 <el-button-group>
@@ -2001,7 +2012,7 @@ const handleDocumentExportPdf = async () => {
                         size="default"
                         :type="currentParentFieldId ? 'primary' : 'default'">
                         <el-icon><Setting /></el-icon>
-                        树形
+                        {{ t('view.base.treeShape') }}
                       </el-button>
                     </template>
                     <ParentFieldConfig
@@ -2016,11 +2027,11 @@ const handleDocumentExportPdf = async () => {
                     size="default"
                     @click="openImportDialog">
                     <el-icon><Upload /></el-icon>
-                    导入
+                    {{ t('view.base.import') }}
                   </el-button>
                   <el-button size="default" @click="openExportDialog">
                     <el-icon><Download /></el-icon>
-                    导出
+                    {{ t('view.base.export') }}
                   </el-button>
                 </el-button-group>
                 <!-- <el-button-group>
@@ -2042,15 +2053,15 @@ const handleDocumentExportPdf = async () => {
                     size="default"
                     @click="openFormConfigDialog">
                     <el-icon><Setting /></el-icon>
-                    配置
-                  </el-button>
-                  <el-button
+                    {{ t('view.base.config') }}
+                    </el-button>
+                    <el-button
                     v-if="canManage"
                     size="default"
                     @click="openFormShareDialog">
                     <el-icon><Share /></el-icon>
-                    分享
-                  </el-button>
+                    {{ t('view.base.share') }}
+                    </el-button>
                 </el-button-group>
               </template>
             </div>
@@ -2164,11 +2175,11 @@ const handleDocumentExportPdf = async () => {
 
             <!-- 其他视图类型占位 -->
             <div v-else class="unsupported-view">
-              <el-empty description="该视图类型暂不支持">
+              <el-empty :description="t('view.base.unsupportedView')">
                 <template #description>
-                  <p>该视图类型暂不支持</p>
+                  <p>{{ t('view.base.unsupportedView') }}</p>
                   <p class="sub-text">
-                    请切换到表格视图、看板视图、日历视图或甘特视图
+                    {{ t('view.base.unsupportedViewHint') }}
                   </p>
                 </template>
               </el-empty>
@@ -2186,27 +2197,43 @@ const handleDocumentExportPdf = async () => {
             "
             class="table-footer-stats">
             <span class="record-count">
-              {{ filteredRecords.length }} 条记录
+              {{ t('view.base.recordCount', { count: filteredRecords.length }) }}
             </span>
             <span v-if="activeFilters.length > 0" class="filter-badge">
-              <el-tag size="small" type="warning">筛选: {{ activeFilters.length }}</el-tag>
+              <el-tag size="small" type="warning">{{ t('view.base.filterBadge', { count: activeFilters.length }) }}</el-tag>
             </span>
             <span v-if="activeSorts.length > 0" class="sort-badge">
-              <el-tag size="small" type="success">排序: {{ activeSorts.length }}</el-tag>
+              <el-tag size="small" type="success">{{ t('view.base.sortBadge', { count: activeSorts.length }) }}</el-tag>
             </span>
             <span v-if="hasGroupConfig" class="group-badge">
-              <el-tag size="small" type="primary">分组: {{ currentGroupBys.length }}</el-tag>
+              <el-tag size="small" type="primary">{{ t('view.base.groupBadge', { count: currentGroupBys.length }) }}</el-tag>
             </span>
+            <el-tooltip
+              class="history-btn"
+              :content="t('recordHistory.table.button')"
+              placement="top">
+              <el-button
+                size="small"
+                circle
+                :icon="Clock"
+                @click="showTableHistory = true" />
+            </el-tooltip>
           </div>
+
+          <!-- 表格历史变更弹窗 -->
+          <TableHistoryDialog
+            v-model="showTableHistory"
+            :table-id="currentTableId"
+            :fields="tableStore.fields" />
         </div>
       </template>
       <div v-else class="empty-state">
-        <el-empty description="请选择或创建一个数据表">
+        <el-empty :description="t('view.base.selectOrCreateTable')">
           <el-button
             v-if="canManage"
             type="primary"
             @click="openCreateTableDialog"
-            >创建数据表</el-button
+            >{{ t('view.base.createTable') }}</el-button
           >
         </el-empty>
       </div>
@@ -2215,7 +2242,7 @@ const handleDocumentExportPdf = async () => {
     <!-- 创建数据表对话框 -->
     <el-dialog
       v-model="createTableDialogVisible"
-      title="创建数据表"
+      :title="t('view.base.createTableTitle')"
       width="500px"
       :close-on-click-modal="false">
       <el-form
@@ -2223,20 +2250,20 @@ const handleDocumentExportPdf = async () => {
         :model="createTableForm"
         :rules="createTableFormRules"
         label-width="80px">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="createTableForm.name"
-            placeholder="请输入数据表名称"
+            :placeholder="t('view.base.enterTableName')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="描述">
+        <el-form-item :label="t('view.base.description')">
           <el-input
             v-model="createTableForm.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入描述（可选）"
+            :placeholder="t('view.base.descriptionPlaceholder')"
             maxlength="200"
             show-word-limit />
         </el-form-item>
@@ -2244,8 +2271,8 @@ const handleDocumentExportPdf = async () => {
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="closeCreateTableDialog">取消</el-button>
-          <el-button type="primary" @click="handleCreateTable">确定</el-button>
+          <el-button @click="closeCreateTableDialog">{{ t('view.cancel') }}</el-button>
+          <el-button type="primary" @click="handleCreateTable">{{ t('view.confirm') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -2253,7 +2280,7 @@ const handleDocumentExportPdf = async () => {
     <!-- 创建仪表盘对话框 -->
     <el-dialog
       v-model="createDashboardDialogVisible"
-      title="创建仪表盘"
+      :title="t('view.base.createDashboardTitle')"
       width="500px"
       :close-on-click-modal="false">
       <el-form
@@ -2261,20 +2288,20 @@ const handleDocumentExportPdf = async () => {
         :model="createDashboardForm"
         :rules="createDashboardFormRules"
         label-width="80px">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="createDashboardForm.name"
-            placeholder="请输入仪表盘名称"
+            :placeholder="t('view.base.enterDashboardName')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
 
-        <el-form-item label="描述">
+        <el-form-item :label="t('view.base.description')">
           <el-input
             v-model="createDashboardForm.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入描述（可选）"
+            :placeholder="t('view.base.descriptionPlaceholder')"
             maxlength="200"
             show-word-limit />
         </el-form-item>
@@ -2282,9 +2309,9 @@ const handleDocumentExportPdf = async () => {
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="closeCreateDashboardDialog">取消</el-button>
+          <el-button @click="closeCreateDashboardDialog">{{ t('view.cancel') }}</el-button>
           <el-button type="primary" @click="handleCreateDashboard"
-            >确定</el-button
+            >{{ t('view.confirm') }}</el-button
           >
         </span>
       </template>
@@ -2293,7 +2320,7 @@ const handleDocumentExportPdf = async () => {
     <!-- 创建文档对话框 -->
     <el-dialog
       v-model="createDocumentDialogVisible"
-      title="创建文档"
+      :title="t('view.base.createDocTitle')"
       width="500px"
       :close-on-click-modal="false">
       <el-form
@@ -2301,10 +2328,10 @@ const handleDocumentExportPdf = async () => {
         :model="createDocumentForm"
         :rules="createDocumentFormRules"
         label-width="80px">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="createDocumentForm.name"
-            placeholder="请输入文档名称"
+            :placeholder="t('view.base.enterDocName')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
@@ -2312,9 +2339,9 @@ const handleDocumentExportPdf = async () => {
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="closeCreateDocumentDialog">取消</el-button>
+          <el-button @click="closeCreateDocumentDialog">{{ t('view.cancel') }}</el-button>
           <el-button type="primary" @click="handleCreateDocument"
-            >确定</el-button
+            >{{ t('view.confirm') }}</el-button
           >
         </span>
       </template>
@@ -2323,7 +2350,7 @@ const handleDocumentExportPdf = async () => {
     <!-- 重命名数据表对话框 -->
     <el-dialog
       v-model="renameTableDialogVisible"
-      title="编辑数据表"
+      :title="t('view.base.editTableTitle')"
       width="500px"
       :close-on-click-modal="false">
       <el-form
@@ -2331,17 +2358,17 @@ const handleDocumentExportPdf = async () => {
         :model="renameTableForm"
         :rules="renameTableFormRules"
         label-width="80px">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="renameTableForm.name"
-            placeholder="请输入数据表名称"
+            :placeholder="t('view.base.enterTableName')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
-        <el-form-item label="描述">
+        <el-form-item :label="t('view.base.description')">
           <el-input
             v-model="renameTableForm.description"
-            placeholder="请输入数据表描述"
+            :placeholder="t('view.base.enterTableDesc')"
             maxlength="200"
             show-word-limit
             type="textarea"
@@ -2351,8 +2378,8 @@ const handleDocumentExportPdf = async () => {
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="closeRenameTableDialog">取消</el-button>
-          <el-button type="primary" @click="handleRenameTable">确定</el-button>
+          <el-button @click="closeRenameTableDialog">{{ t('view.cancel') }}</el-button>
+          <el-button type="primary" @click="handleRenameTable">{{ t('view.confirm') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -2360,7 +2387,7 @@ const handleDocumentExportPdf = async () => {
     <!-- 数据表管理对话框 -->
     <el-dialog
       v-model="showTableManager"
-      title="数据表管理"
+      :title="t('view.base.tableManagerTitle')"
       width="680px"
       destroy-on-close
       class="table-manager-dialog">
@@ -2374,7 +2401,7 @@ const handleDocumentExportPdf = async () => {
               showTableManager = false;
             ">
             <el-icon><Plus /></el-icon>
-            新建数据表
+            {{ t('view.base.newDataTable') }}
           </el-button>
         </div>
 
@@ -2382,7 +2409,7 @@ const handleDocumentExportPdf = async () => {
           :data="tableStore.tables"
           style="width: 100%"
           class="manager-table">
-          <el-table-column prop="name" label="名称" min-width="160">
+          <el-table-column prop="name" :label="t('view.base.fieldName')" min-width="160">
             <template #default="{ row }">
               <div class="table-name-cell">
                 <div class="table-icon">
@@ -2394,7 +2421,7 @@ const handleDocumentExportPdf = async () => {
                   size="small"
                   type="primary"
                   effect="light"
-                  >当前</el-tag
+                  >{{ t('view.base.currentTag') }}</el-tag
                 >
                 <el-tag
                   v-if="row.isStarred"
@@ -2402,22 +2429,22 @@ const handleDocumentExportPdf = async () => {
                   type="warning"
                   effect="plain"
                   class="star-tag"
-                  >已收藏</el-tag
+                  >{{ t('view.base.starredTag') }}</el-tag
                 >
               </div>
             </template>
           </el-table-column>
           <el-table-column
             prop="description"
-            label="描述"
+            :label="t('view.base.description')"
             min-width="180"
             show-overflow-tooltip />
-          <el-table-column prop="updatedAt" label="更新时间" width="140">
+          <el-table-column prop="updatedAt" :label="t('view.updatedAt')" width="140">
             <template #default="{ row }">
               {{ formatDateTime(row.updatedAt) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
+          <el-table-column :label="t('view.actions')" width="220" fixed="right">
             <template #default="{ row }">
               <el-button
                 link
@@ -2426,14 +2453,14 @@ const handleDocumentExportPdf = async () => {
                   handleTableSelect(row.id);
                   showTableManager = false;
                 ">
-                打开
+                {{ t('view.base.open') }}
               </el-button>
               <el-button link @click="openRenameTableDialog(row as TableEntity)"
-                >编辑</el-button
+                >{{ t('view.edit') }}</el-button
               >
-              <el-button link @click="duplicateTable(row as TableEntity)">复制</el-button>
+              <el-button link @click="duplicateTable(row as TableEntity)">{{ t('view.duplicate') }}</el-button>
               <el-button link type="danger" @click="handleDeleteTable(row as TableEntity)"
-                >删除</el-button
+                >{{ t('view.delete') }}</el-button
               >
             </template>
           </el-table-column>
@@ -2554,7 +2581,7 @@ const handleDocumentExportPdf = async () => {
     <!-- 重命名仪表盘对话框 -->
     <el-dialog
       v-model="renameDashboardDialogVisible"
-      title="编辑仪表盘"
+      :title="t('view.base.editDashboardTitle')"
       width="500px"
       :close-on-click-modal="false">
       <el-form
@@ -2562,17 +2589,17 @@ const handleDocumentExportPdf = async () => {
         :model="renameDashboardForm"
         :rules="renameDashboardFormRules"
         label-width="80px">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="renameDashboardForm.name"
-            placeholder="请输入仪表盘名称"
+            :placeholder="t('view.base.enterDashboardName')"
             maxlength="50"
             show-word-limit />
         </el-form-item>
-        <el-form-item label="描述">
+        <el-form-item :label="t('view.base.description')">
           <el-input
             v-model="renameDashboardForm.description"
-            placeholder="请输入仪表盘描述"
+            :placeholder="t('view.base.enterDashboardDesc')"
             maxlength="200"
             show-word-limit
             type="textarea"
@@ -2582,9 +2609,9 @@ const handleDocumentExportPdf = async () => {
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="closeRenameDashboardDialog">取消</el-button>
+          <el-button @click="closeRenameDashboardDialog">{{ t('view.cancel') }}</el-button>
           <el-button type="primary" @click="handleRenameDashboard"
-            >确定</el-button
+            >{{ t('view.confirm') }}</el-button
           >
         </span>
       </template>
@@ -2600,7 +2627,7 @@ const handleDocumentExportPdf = async () => {
       <div class="pdf-export-loading__track">
         <div class="pdf-export-loading__thumb"></div>
       </div>
-      <span class="pdf-export-loading__text">正在导出 PDF...</span>
+      <span class="pdf-export-loading__text">{{ t('view.base.exportingPdf') }}</span>
     </div>
   </div>
 </template>
@@ -3064,6 +3091,10 @@ const handleDocumentExportPdf = async () => {
   background: $surface-color;
   border-top: 1px solid $gray-200;
   font-size: $font-size-sm;
+
+  .history-btn {
+    margin-left: auto;
+  }
 
   .record-count {
     color: $text-secondary;

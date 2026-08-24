@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { FieldType, generateAutoNumber, getFieldTypeLabel, getFieldTypeIconComponent } from "../fields";
+import { setI18nLanguage } from "@/i18n";
 import { FilterOperator, type FilterCondition } from "../filters";
 import { SortDirection, type SortConfig } from "../filters";
 import {
@@ -37,11 +38,22 @@ describe("Field Types", () => {
     expect(FieldType.AUTO_NUMBER).toBe("auto_number");
   });
 
-  it("should return correct field type labels", () => {
+  it("should return correct field type labels (zh-CN)", () => {
+    // 明确指定中文环境，保证断言与语言无关地稳定
+    setI18nLanguage("zh-CN");
     expect(getFieldTypeLabel("single_line_text")).toBe("单行文本");
     expect(getFieldTypeLabel("number")).toBe("数字");
     expect(getFieldTypeLabel("auto_number")).toBe("自动编号");
     expect(getFieldTypeLabel("formula")).toBe("公式");
+    expect(getFieldTypeLabel("unknown")).toBe("unknown");
+  });
+
+  it("should return correct field type labels (en-US)", () => {
+    setI18nLanguage("en-US");
+    expect(getFieldTypeLabel("single_line_text")).toBe("Single Line Text");
+    expect(getFieldTypeLabel("number")).toBe("Number");
+    expect(getFieldTypeLabel("auto_number")).toBe("Auto Number");
+    expect(getFieldTypeLabel("formula")).toBe("Formula");
     expect(getFieldTypeLabel("unknown")).toBe("unknown");
   });
 

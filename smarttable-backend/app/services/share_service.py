@@ -32,7 +32,7 @@ class ShareService:
         # 验证必填字段
         permission_str = data.get('permission', 'view').strip().lower()
         if permission_str not in ['view', 'edit']:
-            return {'success': False, 'error': '权限类型必须是 view 或 edit'}
+            return {'success': False, 'error': 'permission_type_view_edit'}
 
         permission = SharePermission(permission_str)
 
@@ -46,9 +46,9 @@ class ShareService:
                     expires_at = expires_at // 1000
                 # 验证过期时间不能是过去的时间
                 if expires_at < int(datetime.now(timezone.utc).timestamp()):
-                    return {'success': False, 'error': '过期时间不能是过去的时间'}
+                    return {'success': False, 'error': 'expiry_time_past'}
             except (ValueError, TypeError):
-                return {'success': False, 'error': '过期时间必须是有效的 Unix 时间戳'}
+                return {'success': False, 'error': 'expiry_time_valid_unix_timestamp'}
 
         # 生成分享令牌
         share_token = str(uuid.uuid4())
@@ -85,7 +85,7 @@ class ShareService:
         # 查找分享（使用 filter_by 替代 query.get 以兼容 CompatUUID 类型）
         share = BaseShare.query.filter_by(id=share_id).first()
         if not share:
-            return {'success': False, 'error': '分享链接不存在', 'status': 404}
+            return {'success': False, 'error': 'share_link_does_not_exist', 'status': 404}
 
         # 更新字段
         if 'is_active' in data:
@@ -96,7 +96,7 @@ class ShareService:
             if permission_str in ['view', 'edit']:
                 share.permission = SharePermission(permission_str)
             else:
-                return {'success': False, 'error': '权限类型必须是 view 或 edit'}
+                return {'success': False, 'error': 'permission_type_view_edit'}
 
         if 'expires_at' in data:
             if data['expires_at'] is not None:
@@ -106,10 +106,10 @@ class ShareService:
                     if expires_at > 10**11:
                         expires_at = expires_at // 1000
                     if expires_at < int(datetime.now(timezone.utc).timestamp()):
-                        return {'success': False, 'error': '过期时间不能是过去的时间'}
+                        return {'success': False, 'error': 'expiry_time_past'}
                     share.expires_at = expires_at
                 except (ValueError, TypeError):
-                    return {'success': False, 'error': '过期时间必须是有效的 Unix 时间戳'}
+                    return {'success': False, 'error': 'expiry_time_valid_unix_timestamp'}
             else:
                 share.expires_at = None
 
@@ -135,7 +135,7 @@ class ShareService:
         # 使用 filter_by 替代 query.get 以兼容 CompatUUID 类型
         share = BaseShare.query.filter_by(id=share_id).first()
         if not share:
-            return {'success': False, 'error': '分享链接不存在', 'status': 404}
+            return {'success': False, 'error': 'share_link_does_not_exist', 'status': 404}
 
         db.session.delete(share)
         db.session.commit()
@@ -158,16 +158,16 @@ class ShareService:
         # 查找分享
         share = BaseShare.query.filter_by(share_token=share_token).first()
         if not share:
-            return {'success': False, 'error': '分享链接不存在', 'status': 404}
+            return {'success': False, 'error': 'share_link_does_not_exist', 'status': 404}
 
         # 检查分享是否激活
         if not share.is_active:
-            return {'success': False, 'error': '该分享链接已失效', 'status': 403}
+            return {'success': False, 'error': 'share_link_been_invalidated', 'status': 403}
 
         # 检查是否过期
         if share.expires_at is not None:
             if int(datetime.now(timezone.utc).timestamp()) > share.expires_at:
-                return {'success': False, 'error': '该分享链接已过期', 'status': 403}
+                return {'success': False, 'error': 'share_link_expired_2', 'status': 403}
 
         # 更新访问次数和最后访问时间
         share.access_count += 1
@@ -177,7 +177,7 @@ class ShareService:
         # 获取 Base 信息
         base = Base.query.get(share.base_id)
         if not base:
-            return {'success': False, 'error': '基础数据不存在', 'status': 404}
+            return {'success': False, 'error': 'base_does_not_exist_2', 'status': 404}
 
         return {
             'success': True,

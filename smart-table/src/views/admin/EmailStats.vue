@@ -1,8 +1,8 @@
 <template>
   <div class="email-stats-page">
     <div class="page-header">
-      <h1 class="page-title">邮件发送统计</h1>
-      <p class="page-description">查看系统邮件发送的统计数据和分析</p>
+      <h1 class="page-title">{{ t('admin.emailStats.title') }}</h1>
+      <p class="page-description">{{ t('admin.emailStats.desc') }}</p>
     </div>
 
     <div v-loading="loading" class="page-content">
@@ -12,7 +12,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value">{{ stats.total_emails || 0 }}</div>
-              <div class="stat-label">总发送量</div>
+              <div class="stat-label">{{ t('admin.emailStats.statTotal') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -20,7 +20,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value success">{{ stats.sent_count || 0 }}</div>
-              <div class="stat-label">发送成功</div>
+              <div class="stat-label">{{ t('admin.emailStats.statSent') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -28,7 +28,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value danger">{{ stats.failed_count || 0 }}</div>
-              <div class="stat-label">发送失败</div>
+              <div class="stat-label">{{ t('admin.emailStats.statFailed') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -36,7 +36,7 @@
           <el-card>
             <div class="stat-item">
               <div class="stat-value">{{ stats.success_rate || 0 }}%</div>
-              <div class="stat-label">成功率</div>
+              <div class="stat-label">{{ t('admin.emailStats.statSuccessRate') }}</div>
             </div>
           </el-card>
         </el-col>
@@ -48,7 +48,7 @@
           <el-card>
             <template #header>
               <div class="card-header">
-                <span>邮件类型分布</span>
+                <span>{{ t('admin.emailStats.typeDistribution') }}</span>
               </div>
             </template>
             <div ref="typeChartRef" class="chart-container"></div>
@@ -58,7 +58,7 @@
           <el-card>
             <template #header>
               <div class="card-header">
-                <span>发送状态分布</span>
+                <span>{{ t('admin.emailStats.statusDistribution') }}</span>
               </div>
             </template>
             <div ref="statusChartRef" class="chart-container"></div>
@@ -70,27 +70,27 @@
       <el-card class="template-stats-card">
         <template #header>
           <div class="card-header">
-            <span>各模板发送统计</span>
+            <span>{{ t('admin.emailStats.templateStatsTitle') }}</span>
           </div>
         </template>
         <el-table :data="stats.template_stats || []" stripe style="width: 100%">
-          <el-table-column prop="template_key" label="模板标识" min-width="150">
+          <el-table-column prop="template_key" :label="t('admin.emailStats.colTemplateKey')" min-width="150">
             <template #default="{ row }">
               {{ getTemplateName(row.template_key) }}
             </template>
           </el-table-column>
-          <el-table-column prop="total" label="总发送量" width="120" align="center" />
-          <el-table-column prop="sent" label="成功" width="100" align="center">
+          <el-table-column prop="total" :label="t('admin.emailStats.colTotal')" width="120" align="center" />
+          <el-table-column prop="sent" :label="t('admin.emailStats.colSent')" width="100" align="center">
             <template #default="{ row }">
               <span style="color: #67c23a">{{ row.sent }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="failed" label="失败" width="100" align="center">
+          <el-table-column prop="failed" :label="t('admin.emailStats.colFailed')" width="100" align="center">
             <template #default="{ row }">
               <span style="color: #f56c6c">{{ row.failed }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="success_rate" label="成功率" width="120" align="center">
+          <el-table-column prop="success_rate" :label="t('admin.emailStats.colSuccessRate')" width="120" align="center">
             <template #default="{ row }">
               {{ row.success_rate }}%
             </template>
@@ -103,9 +103,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { emailApiService } from '@/services/api/emailApiService'
+
+const { t } = useI18n()
 
 interface TemplateStat {
   template_key: string
@@ -192,7 +195,7 @@ const fetchStats = async () => {
     initCharts()
   } catch (error) {
     console.error('获取邮件统计失败:', error)
-    ElMessage.error('获取邮件统计失败')
+    ElMessage.error(t('admin.emailStats.fetchFailed'))
   } finally {
     loading.value = false
   }
@@ -270,10 +273,10 @@ const initCharts = () => {
         type: 'pie',
         radius: '70%',
         data: [
-          { value: stats.value.sent_count, name: '已发送', itemStyle: { color: '#67c23a' } },
-          { value: stats.value.failed_count, name: '发送失败', itemStyle: { color: '#f56c6c' } },
-          { value: stats.value.pending_count, name: '待发送', itemStyle: { color: '#909399' } },
-          { value: stats.value.retrying_count, name: '重试中', itemStyle: { color: '#e6a23c' } }
+          { value: stats.value.sent_count, name: t('admin.statusSent'), itemStyle: { color: '#67c23a' } },
+          { value: stats.value.failed_count, name: t('admin.statusFailed'), itemStyle: { color: '#f56c6c' } },
+          { value: stats.value.pending_count, name: t('admin.statusPending'), itemStyle: { color: '#909399' } },
+          { value: stats.value.retrying_count, name: t('admin.statusRetrying'), itemStyle: { color: '#e6a23c' } }
         ].filter(item => item.value > 0),
         emphasis: {
           itemStyle: {

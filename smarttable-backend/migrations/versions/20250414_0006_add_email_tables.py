@@ -7,6 +7,7 @@ Create Date: 2025-04-14
 """
 from alembic import op
 import sqlalchemy as sa
+from app.db_types import CompatUUID as UUID
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
@@ -21,7 +22,7 @@ def upgrade():
 
     # 创建 email_templates 表
     op.create_table('email_templates',
-        sa.Column('id', sa.String(36), nullable=False),
+        sa.Column('id', UUID(), nullable=False),
         sa.Column('template_key', sa.String(100), nullable=False),
         sa.Column('name', sa.String(200), nullable=False),
         sa.Column('subject', sa.String(500), nullable=False),
@@ -40,7 +41,7 @@ def upgrade():
 
     # 创建 email_logs 表
     op.create_table('email_logs',
-        sa.Column('id', sa.String(36), nullable=False),
+        sa.Column('id', UUID(), nullable=False),
         sa.Column('recipient_email', sa.String(255), nullable=False),
         sa.Column('recipient_name', sa.String(100), nullable=True),
         sa.Column('template_key', sa.String(100), nullable=False),

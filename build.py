@@ -10,6 +10,7 @@ import os
 import sys
 import json  # 新增：用于解析 version.json
 import shutil
+import re  # 用于同步反馈模块版本号
 import argparse
 import time
 import platform
@@ -298,6 +299,56 @@ def sync_package_json():
 
     except Exception as e:
         log(f'⚠️ 同步 package.json 失败: {e}', 'WARNING')
+        return False
+
+
+def sync_feedback_version():
+    """
+    将 version.json 的版本号同步到前端反馈模块 feedback.ts
+
+    feedback.ts 中定义常量 APP_VERSION，用于"问题反馈"功能
+    自动附带当前应用版本号。构建时强制用 version.json 的真实版本
+    覆盖，确保打包产物中反馈携带的版本号始终与 version.json 一致。
+
+    仅当版本不同时才写入，避免不必要的文件变更。
+    """
+    feedback_path = FRONTEND_DIR / 'src' / 'utils' / 'feedback.ts'
+
+    if not feedback_path.exists():
+        log(f'⚠️ feedback.ts 不存在，跳过反馈版本同步', 'WARNING')
+        return False
+
+    try:
+        with open(feedback_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # 匹配: export const APP_VERSION = "x.y.z";
+        pattern = r'(export const APP_VERSION\s*=\s*)(["\'])([^"\']+)(["\'])'
+        match = re.search(pattern, content)
+        if not match:
+            log(f'⚠️ 未在 feedback.ts 中找到 APP_VERSION 常量，跳过同步', 'WARNING')
+            return False
+
+        current_version = match.group(3)
+        if current_version == VERSION:
+            log(f'✓ feedback.ts 版本已是最新 ({VERSION})', 'SUCCESS')
+            return True
+
+        new_content = re.sub(
+            pattern,
+            lambda m: f'{m.group(1)}{m.group(2)}{VERSION}{m.group(4)}',
+            content,
+             count=1,
+        )
+
+        with open(feedback_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+
+        log(f'✅ 已同步 feedback.ts: {current_version} → {VERSION}', 'SUCCESS')
+        return True
+
+    except Exception as e:
+        log(f'⚠️ 同步 feedback.ts 失败: {e}', 'WARNING')
         return False
 
 
@@ -592,6 +643,9 @@ def main():
 
     # 同步版本号到 package.json（保持前后端一致）
     sync_package_json()
+
+    # 同步版本号到前端反馈模块（问题反馈自动携带的版本号）
+    sync_feedback_version()
 
     # 前端构建逻辑
     need_frontend = not args.skip_frontend and not DIST_DIR.exists()

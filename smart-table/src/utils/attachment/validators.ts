@@ -11,6 +11,7 @@ import {
 } from './errors';
 import { isFileTypeAllowed, getFileExtension } from '@/types/attachment';
 import { DEFAULT_ATTACHMENT_LIMITS } from '@/types/attachment';
+import { t } from '@/i18n';
 
 /**
  * 文件校验结果
@@ -32,7 +33,7 @@ export function validateFile(
     return {
       valid: false,
       error: new AttachmentError(
-        '文件不能为空',
+        t('attachment.fileEmpty'),
         AttachmentErrorCode.FILE_EMPTY as AttachmentErrorCodeType,
         { fileName: file?.name }
       )
@@ -118,7 +119,7 @@ export function validateMinFileCount(
     return {
       valid: false,
       error: new AttachmentError(
-        `至少需要 ${minCount} 个文件，当前只有 ${files.length} 个`,
+        t('attachment.minCount', [minCount, files.length]),
         AttachmentErrorCode.INVALID_OPERATION as AttachmentErrorCodeType,
         { minCount, currentCount: files.length }
       )
@@ -134,7 +135,7 @@ export function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(createReadError(file.name, '读取失败'));
+    reader.onerror = () => reject(createReadError(file.name, t('attachment.readReason')));
     reader.readAsDataURL(file);
   });
 }
@@ -149,10 +150,10 @@ export function readFileAsBlob(file: File): Promise<Blob> {
       if (reader.result instanceof ArrayBuffer) {
         resolve(new Blob([reader.result]));
       } else {
-        reject(createReadError(file.name, '格式转换失败'));
+        reject(createReadError(file.name, t('attachment.convertReason')));
       }
     };
-    reader.onerror = () => reject(createReadError(file.name, '读取失败'));
+    reader.onerror = () => reject(createReadError(file.name, t('attachment.readReason')));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -164,7 +165,7 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(createReadError(file.name, '读取失败'));
+    reader.onerror = () => reject(createReadError(file.name, t('attachment.readReason')));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -186,7 +187,7 @@ export async function checkStorageSpace(
         return {
           valid: false,
           error: new AttachmentError(
-            `存储空间不足，可用空间 ${formatFileSize(available)}，需要 ${formatFileSize(requiredBytes)}`,
+            t('attachment.storageShort', [formatFileSize(available), formatFileSize(requiredBytes)]),
             AttachmentErrorCode.STORAGE_QUOTA_EXCEEDED as AttachmentErrorCodeType,
             { available, required: requiredBytes }
           )

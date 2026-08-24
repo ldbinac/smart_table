@@ -67,10 +67,10 @@ def get_auth_captcha() -> tuple:
                 'image': f'data:{mime_type};base64,{image_base64}',
                 'expire': 300  # 5分钟有效期
             },
-            message='验证码生成成功'
+            message='captcha_generated_successfully'
         )
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 验证码生成失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
-        return error_response('验证码生成失败，请稍后重试', 500, error='internal_server_error', request_id=request_id)
+        return error_response('failed_generate_captcha_try_again_later', 500, error='internal_server_error', request_id=request_id)

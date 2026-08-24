@@ -26,13 +26,13 @@
           <Minus v-else />
         </el-icon>
         <span class="trend-value">{{ Math.abs(trendValue) }}%</span>
-        <span class="trend-label">较{{ config.compareLabel || '上期' }}</span>
+        <span class="trend-label">{{ t('dashboard.compareTo', { label: config.compareLabel || t('dashboard.previousPeriod') }) }}</span>
       </div>
     </div>
 
     <div v-if="config.showTarget" class="kpi-footer">
       <div class="target-info">
-        <span class="target-label">目标</span>
+        <span class="target-label">{{ t('dashboard.targetLabel') }}</span>
         <span class="target-value">{{ config.prefix || '' }}{{ formatNumber(targetValue) }}{{ config.suffix || '' }}</span>
       </div>
       <div class="progress-bar">
@@ -45,7 +45,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ArrowUp, ArrowDown, Minus, TrendCharts, DataLine, Money, User, Goods, ShoppingCart, View } from '@element-plus/icons-vue';
+
+const { t } = useI18n();
 
 interface KpiConfig {
   title: string;

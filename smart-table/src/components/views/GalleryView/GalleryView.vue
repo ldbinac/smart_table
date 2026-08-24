@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import { FormulaEngine } from "@/utils/formula/engine";
@@ -25,6 +26,8 @@ const emit = defineEmits<{
   (e: "deleteRecord", recordId: string): void;
   (e: "editRecord", recordId: string): void;
 }>();
+
+const { t } = useI18n();
 
 const imageFieldId = ref<string>("");
 const titleFieldId = ref<string>("");
@@ -112,7 +115,7 @@ interface GalleryCard {
 // 获取记录标题（支持公式字段）
 const getRecordTitle = (record: RecordEntity): string => {
   const field = titleField.value;
-  if (!field) return "无标题";
+  if (!field) return t("view.noTitle");
 
   // 如果是公式字段，实时计算
   if (field.type === FieldType.FORMULA) {
@@ -128,7 +131,7 @@ const getRecordTitle = (record: RecordEntity): string => {
         console.error("Gallery formula calculation error:", error);
       }
     }
-    return "计算错误";
+    return t("view.calcError");
   }
 
   // 单选字段：返回选项名称而不是 ID
@@ -136,11 +139,11 @@ const getRecordTitle = (record: RecordEntity): string => {
     const value = record.values[field.id];
     const options = (field.options.choices as any[]) || [];
     const selectedOption = options.find((opt: any) => opt.id === value);
-    return selectedOption?.name || String(value || "无标题");
+    return selectedOption?.name || String(value || t("view.noTitle"));
   }
 
   // 普通字段直接返回值
-  return String(record.values[field.id] || "无标题");
+  return String(record.values[field.id] || t("view.noTitle"));
 };
 
 const cards = computed<GalleryCard[]>(() => {
@@ -173,8 +176,8 @@ const cards = computed<GalleryCard[]>(() => {
         images: images
           .map((img) => ({
             url: img.url || img.thumbnail || "",
-            name: img.name || "未命名",
-            originalName: img.originalName || img.name || "未命名",
+            name: img.name || t("view.untitled"),
+            originalName: img.originalName || img.name || t("view.untitled"),
           }))
           .filter((img) => img.url),
         record,
@@ -250,13 +253,13 @@ onBeforeUnmount(() => {
         <div class="toolbar-icon">
           <el-icon><Picture /></el-icon>
         </div>
-        <span class="toolbar-title">画册视图</span>
-        <span class="toolbar-count">{{ cards.length }} 个项目</span>
+        <span class="toolbar-title">{{ t("view.galleryTitle") }}</span>
+        <span class="toolbar-count">{{ t("view.itemCount", { count: cards.length }) }}</span>
       </div>
       <div class="toolbar-right">
         <el-select
           v-model="imageFieldId"
-          placeholder="选择图片字段"
+          :placeholder="t('view.selectImageField')"
           class="field-select">
           <template #prefix>
             <el-icon><Picture /></el-icon>
@@ -269,7 +272,7 @@ onBeforeUnmount(() => {
         </el-select>
         <el-select
           v-model="titleFieldId"
-          placeholder="选择标题字段"
+          :placeholder="t('view.selectTitleField')"
           class="field-select">
           <template #prefix>
             <el-icon><EditPen /></el-icon>
@@ -370,13 +373,13 @@ onBeforeUnmount(() => {
             <div class="decoration-dot dot-3"></div>
           </div>
         </div>
-        <h3 class="empty-title">暂无图片数据</h3>
+        <h3 class="empty-title">{{ t("view.galleryNoData") }}</h3>
         <p class="empty-subtitle">
           <template v-if="!imageFieldId">
-            请先选择一个图片字段来展示画册
+            {{ t("view.gallerySelectFieldHint") }}
           </template>
           <template v-else>
-            当前选择的字段没有图片数据，请添加一些图片
+            {{ t("view.galleryAddImagesHint") }}
           </template>
         </p>
         <el-button
@@ -385,7 +388,7 @@ onBeforeUnmount(() => {
           class="empty-action"
           @click="imageFieldId = attachmentFields[0].id">
           <el-icon><Check /></el-icon>
-          选择 {{ attachmentFields[0].name }}
+          {{ t('view.selectAttachmentField', { name: attachmentFields[0].name }) }}
         </el-button>
       </div>
     </div>
@@ -393,7 +396,7 @@ onBeforeUnmount(() => {
     <!-- 图片预览对话框 -->
     <el-dialog
       v-model="previewVisible"
-      title="图片预览"
+      :title="t('view.imagePreview')"
       width="80%"
       destroy-on-close
       class="preview-dialog">

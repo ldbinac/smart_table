@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useKeyboardShortcutsStore } from "@/stores/keyboardShortcuts";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -31,7 +34,7 @@ function getLabel(shortcut: {
         <Transition name="scale">
           <div v-if="visible" class="shortcut-dialog" @click.stop>
             <div class="shortcut-header">
-              <h2>键盘快捷键</h2>
+              <h2>{{ t('common.shortcutDialogTitle') }}</h2>
               <button class="close-btn" @click="emit('close')">✕</button>
             </div>
             <div class="shortcut-content">
@@ -54,13 +57,13 @@ function getLabel(shortcut: {
               </div>
             </div>
             <div class="shortcut-footer">
-              <span class="shortcut-hint">按 <kbd>?</kbd> 显示此帮助</span>
+              <span class="shortcut-hint">{{ t('common.shortcutHint', { key: '?' }) }}</span>
               <a
                 class="doc-link"
                 href="https://my-smart-table.github.io/smart-table-docs"
                 target="_blank"
                 rel="noopener noreferrer">
-                查看项目官方文档
+                {{ t('common.viewDocs') }}
               </a>
             </div>
           </div>

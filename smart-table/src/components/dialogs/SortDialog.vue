@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ElDialog, ElButton, ElSelect, ElOption, ElRadioGroup, ElRadioButton, ElTag } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { SortDirection, type SortConfig } from '@/types/filters'
 import type { FieldEntity } from '@/db/schema'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   visible: boolean
@@ -77,7 +80,7 @@ watch(() => props.visible, (visible) => {
   <ElDialog
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
-    title="排序"
+    :title="t('sort.title')"
     width="500px"
     :close-on-click-modal="false"
   >
@@ -90,11 +93,11 @@ watch(() => props.visible, (visible) => {
           class="sort-row"
         >
           <span class="sort-priority">{{ index + 1 }}</span>
-          
+
           <!-- 字段选择 -->
           <ElSelect
             v-model="sort.fieldId"
-            placeholder="选择字段"
+            :placeholder="t('sort.selectField')"
             style="width: 180px"
           >
             <ElOption
@@ -114,10 +117,10 @@ watch(() => props.visible, (visible) => {
           <!-- 排序方向 -->
           <ElRadioGroup v-model="sort.direction" size="small">
             <ElRadioButton :label="SortDirection.ASC">
-              升序 ↑
+              {{ t('sort.asc') }}
             </ElRadioButton>
             <ElRadioButton :label="SortDirection.DESC">
-              降序 ↓
+              {{ t('sort.desc') }}
             </ElRadioButton>
           </ElRadioGroup>
 
@@ -142,7 +145,7 @@ watch(() => props.visible, (visible) => {
               type="danger"
               @click="removeSort(index)"
             >
-              删除
+              {{ t('sort.delete') }}
             </ElButton>
           </div>
         </div>
@@ -156,12 +159,12 @@ watch(() => props.visible, (visible) => {
         class="add-sort-btn"
         @click="addSort"
       >
-        + 添加排序条件
+        + {{ t('sort.addCondition') }}
       </ElButton>
 
       <!-- 已选条件预览 -->
       <div v-if="sorts.length > 0" class="sort-preview">
-        <div class="preview-label">当前排序：</div>
+        <div class="preview-label">{{ t('sort.currentSort') }}</div>
         <div class="preview-tags">
           <ElTag
             v-for="(sort, index) in sorts"
@@ -171,23 +174,23 @@ watch(() => props.visible, (visible) => {
             @close="removeSort(index)"
           >
             {{ getFieldById(sort.fieldId)?.name }}
-            {{ sort.direction === SortDirection.ASC ? '升序' : '降序' }}
+            {{ sort.direction === SortDirection.ASC ? t('sort.ascending') : t('sort.descending') }}
           </ElTag>
         </div>
       </div>
 
       <!-- 空状态 -->
       <div v-if="sorts.length === 0" class="empty-sort">
-        <p>暂无排序条件</p>
-        <p class="hint">点击上方按钮添加排序条件</p>
+        <p>{{ t('sort.empty') }}</p>
+        <p class="hint">{{ t('sort.emptyHint') }}</p>
       </div>
     </div>
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="$emit('update:visible', false)">取消</ElButton>
-        <ElButton link type="danger" @click="clearSorts">清除排序</ElButton>
-        <ElButton type="primary" @click="applySorts">应用排序</ElButton>
+        <ElButton @click="$emit('update:visible', false)">{{ t('common.cancel') }}</ElButton>
+        <ElButton link type="danger" @click="clearSorts">{{ t('sort.clear') }}</ElButton>
+        <ElButton type="primary" @click="applySorts">{{ t('sort.apply') }}</ElButton>
       </div>
     </template>
   </ElDialog>

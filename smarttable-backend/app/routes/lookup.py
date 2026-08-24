@@ -67,11 +67,11 @@ def create_lookup_field(table_id) -> tuple:
     # 校验表格存在
     table = TableService.get_table_by_id(table_id)
     if not table:
-        return error_response('表格不存在', 404)
+        return error_response('table_does_not_exist', 404)
 
     # 权限校验
     if not TableService.check_permission(str(table_id), g.current_user_id, MemberRole.EDITOR):
-        return error_response('无权创建字段', 403)
+        return error_response('no_permission_create_field', 403)
 
     json_data = request.get_json() or {}
     name = json_data.get('name')
@@ -79,7 +79,7 @@ def create_lookup_field(table_id) -> tuple:
     config = json_data.get('config') or {}
 
     if not name or not name.strip():
-        return error_response('字段名称不能为空', 400)
+        return error_response('field_name_empty', 400)
 
     # 配置校验
     is_valid, error_msg = LookupService.validate_config(config, str(table_id))
@@ -98,9 +98,9 @@ def create_lookup_field(table_id) -> tuple:
     )
 
     if not result.get('success'):
-        return error_response(result.get('error', '创建查找字段失败'), 400)
+        return error_response(result.get('error', 'failed_create_field_try_again_later'), 400)
 
-    return success_response(data=result['field'], message='创建查找字段成功')
+    return success_response(data=result['field'], message='lookup_field_created_successfully')
 
 
 @lookup_bp.route('/fields/<field_id>/lookup', methods=['PUT'])
@@ -143,11 +143,11 @@ def update_lookup_field(field_id) -> tuple:
     """
     field = FieldService.get_field(field_id)
     if not field:
-        return error_response('字段不存在', 404)
+        return error_response('field_does_not_exist', 404)
 
     # 权限校验
     if not TableService.check_permission(str(field.table_id), g.current_user_id, MemberRole.EDITOR):
-        return error_response('无权更新字段', 403)
+        return error_response('no_permission_update_field', 403)
 
     json_data = request.get_json() or {}
     name = json_data.get('name')
@@ -172,9 +172,9 @@ def update_lookup_field(field_id) -> tuple:
     )
 
     if not result.get('success'):
-        return error_response(result.get('error', '更新查找字段失败'), 400)
+        return error_response(result.get('error', 'failed_update_field_try_again_later'), 400)
 
-    return success_response(data=result['field'], message='更新查找字段成功')
+    return success_response(data=result['field'], message='lookup_field_updated_successfully')
 
 
 @lookup_bp.route('/fields/<field_id>/lookup/preview', methods=['POST'])
@@ -217,18 +217,18 @@ def preview_lookup_field(field_id) -> tuple:
     """
     field = FieldService.get_field(field_id)
     if not field:
-        return error_response('字段不存在', 404)
+        return error_response('field_does_not_exist', 404)
 
     # 权限校验（VIEWER 即可）
     if not TableService.check_permission(str(field.table_id), g.current_user_id, MemberRole.VIEWER):
-        return error_response('无权访问该字段', 403)
+        return error_response('no_permission_access_field_2', 403)
 
     json_data = request.get_json() or {}
     record_id = json_data.get('record_id')
     config = json_data.get('config')
 
     if not record_id:
-        return error_response('record_id 不能为空', 400)
+        return error_response('record_id_empty', 400)
 
     # 未提供 config 则使用字段当前配置
     use_config = config if config else (field.config or {})

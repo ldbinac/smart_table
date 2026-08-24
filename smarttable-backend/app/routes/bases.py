@@ -6,6 +6,7 @@ from flask import Blueprint, request, g
 
 from app.services.base_service import BaseService
 from app.models.base import MemberRole
+from app.i18n import translate
 from app.utils.decorators import jwt_required, query_rate_limit
 from app.utils.response import (
     success_response, error_response, not_found_response, 
@@ -40,7 +41,7 @@ def get_bases() -> tuple:
     
     return success_response(
         data=bases_data,
-        message='获取基础数据列表成功'
+        message='fetched_base_list_successfully'
     )
 
 
@@ -85,14 +86,14 @@ def create_base() -> tuple:
     # 验证名称长度
     name = data.get('name', '').strip()
     if name and len(name) > 100:
-        return error_response('名称不能超过100个字符', code=400)
+        return error_response('name_exceed_characters', code=400)
     
     # 创建基础数据
     base = BaseService.create_base(data, user_id)
     
     return success_response(
         data=base.to_dict(include_stats=True),
-        message='基础数据创建成功',
+        message='base_created_successfully',
         code=201
     )
 
@@ -140,17 +141,17 @@ def get_base(base_id) -> tuple:
             if result['success']:
                 has_permission = True
             else:
-                return forbidden_response(f'您没有权限访问此基础数据：{result.get("error", "")}')
+                return forbidden_response(f"{translate('no_permission_access_base')}: {translate(result.get('error', ''))}")
         else:
-            return forbidden_response('您没有权限访问此基础数据')
+            return forbidden_response('no_permission_access_base')
     
     base = BaseService.get_base(str(base_id))
     if not base:
-        return not_found_response('基础数据')
+        return not_found_response('base')
     
     return success_response(
         data=base.to_dict(include_stats=True),
-        message='获取基础数据成功'
+        message='fetched_base_successfully'
     )
 
 
@@ -204,7 +205,7 @@ def update_base(base_id) -> tuple:
     
     # 检查权限（需要 EDITOR 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.EDITOR):
-        return forbidden_response('您没有权限修改此基础数据')
+        return forbidden_response('do_not_permission_modify_base')
     
     data = request.get_json() or {}
     
@@ -212,16 +213,16 @@ def update_base(base_id) -> tuple:
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
-            return error_response('名称不能超过100个字符', code=400)
+            return error_response('name_exceed_characters', code=400)
         data['name'] = name
     
     base = BaseService.update_base(str(base_id), data)
     if not base:
-        return not_found_response('基础数据')
+        return not_found_response('base')
     
     return success_response(
         data=base.to_dict(include_stats=True),
-        message='基础数据更新成功'
+        message='base_updated_successfully'
     )
 
 
@@ -254,16 +255,16 @@ def delete_base(base_id) -> tuple:
     # 检查权限（只有 OWNER 可以删除）
     base = BaseService.get_base(str(base_id))
     if not base:
-        return not_found_response('基础数据')
+        return not_found_response('base')
     
     if str(base.owner_id) != str(user_id):
-        return forbidden_response('只有基础数据所有者可以删除')
+        return forbidden_response('base_owner_delete')
     
     success = BaseService.delete_base(str(base_id))
     if not success:
-        return error_response('删除失败，请稍后重试', code=500)
+        return error_response('deletion_failed_try_again_later', code=500)
     
-    return success_response(message='基础数据删除成功')
+    return success_response(message='base_deleted_successfully')
 
 
 @bases_bp.route('/<uuid:base_id>/star', methods=['POST'])
@@ -300,15 +301,15 @@ def toggle_star(base_id) -> tuple:
     
     # 检查权限
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此基础数据')
+        return forbidden_response('no_permission_access_base')
     
     base = BaseService.toggle_star(str(base_id), user_id)
     if not base:
-        return not_found_response('基础数据')
+        return not_found_response('base')
     
     return success_response(
         data={'is_starred': base.is_starred},
-        message='星标状态更新成功'
+        message='star_status_updated_successfully'
     )
 
 
@@ -340,11 +341,11 @@ def get_members(base_id) -> tuple:
     
     # 检查权限
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限访问此基础数据')
+        return forbidden_response('no_permission_access_base')
     
     base = BaseService.get_base(str(base_id))
     if not base:
-        return not_found_response('基础数据')
+        return not_found_response('base')
     
     members = BaseService.get_members(str(base_id))
     
@@ -374,7 +375,7 @@ def get_members(base_id) -> tuple:
     
     return success_response(
         data=members,
-        message='获取成员列表成功'
+        message='fetched_member_list_successfully'
     )
 
 
@@ -425,14 +426,14 @@ def add_member(base_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限添加成员')
+        return forbidden_response('do_not_permission_add_members')
     
     data = request.get_json() or {}
     
     # 验证必填字段
     email = data.get('email', '').strip().lower()
     if not email:
-        return error_response('请提供被邀请用户的邮箱地址', code=400)
+        return error_response('provide_email_address_invited_user', code=400)
     
     role = data.get('role', 'editor').strip().lower()
     
@@ -449,7 +450,7 @@ def add_member(base_id) -> tuple:
     
     return success_response(
         data=result['member'],
-        message='添加成员成功',
+        message='member_added_successfully',
         code=201
     )
 
@@ -504,16 +505,16 @@ def batch_add_members(base_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限添加成员')
+        return forbidden_response('do_not_permission_add_members')
     
     data = request.get_json() or {}
     members_data = data.get('members', [])
     
     if not members_data or not isinstance(members_data, list):
-        return error_response('请提供成员列表', code=400)
+        return error_response('provide_member_list', code=400)
     
     if len(members_data) > 100:
-        return error_response('一次最多只能添加 100 个成员', code=400)
+        return error_response('add_most_members_time', code=400)
     
     results = {
         'success_count': 0,
@@ -530,7 +531,7 @@ def batch_add_members(base_id) -> tuple:
                 results['failed'].append({
                     'index': idx,
                     'email': member_data.get('email', '未知'),
-                    'error': '邮箱地址不能为空'
+                    'error': 'email_address_empty'
                 })
                 results['failed_count'] += 1
                 continue
@@ -566,7 +567,7 @@ def batch_add_members(base_id) -> tuple:
     
     return success_response(
         data=results,
-        message=f'批量添加完成：成功 {results["success_count"]} 个，失败 {results["failed_count"]} 个'
+        message=translate('batch_add_completed', results["success_count"], results["failed_count"])
     )
 
 
@@ -617,17 +618,17 @@ def update_member(base_id, user_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), current_user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限修改成员角色')
+        return forbidden_response('do_not_permission_change_member_roles')
     
     # 不能修改自己的角色
     if str(user_id) == str(current_user_id):
-        return error_response('不能修改自己的角色', code=400)
+        return error_response('change_own_role', code=400)
     
     data = request.get_json() or {}
     role = data.get('role', '').strip().lower()
     
     if not role:
-        return error_response('请提供新角色', code=400)
+        return error_response('provide_new_role', code=400)
     
     result = BaseService.update_member_role(
         base_id=str(base_id),
@@ -641,7 +642,7 @@ def update_member(base_id, user_id) -> tuple:
     
     return success_response(
         data=result['member'],
-        message='成员角色更新成功'
+        message='member_role_updated_successfully'
     )
 
 
@@ -680,22 +681,22 @@ def remove_member(base_id, user_id) -> tuple:
     
     # 检查权限（需要 ADMIN 或更高权限）
     if not BaseService.check_permission(str(base_id), current_user_id, MemberRole.ADMIN):
-        return forbidden_response('您没有权限移除成员')
+        return forbidden_response('do_not_permission_remove_members')
     
     # 不能移除自己
     if str(user_id) == str(current_user_id):
-        return error_response('不能移除自己，如需退出请使用其他方式', code=400)
+        return error_response('remove_yourself_use_other_methods_leave', code=400)
     
     # 不能移除所有者
     base = BaseService.get_base(str(base_id))
     if base and str(base.owner_id) == str(user_id):
-        return error_response('不能移除基础数据所有者', code=400)
+        return error_response('remove_base_owner', code=400)
     
     success = BaseService.remove_member(str(base_id), str(user_id), removed_by=str(current_user_id))
     if not success:
-        return error_response('成员不存在或移除失败', code=400)
+        return error_response('member_does_not_exist_removal_failed', code=400)
     
-    return success_response(message='成员移除成功')
+    return success_response(message='member_removed_successfully')
 
 
 @bases_bp.route('/<uuid:base_id>/copy', methods=['POST'])
@@ -737,7 +738,7 @@ def copy_base(base_id) -> tuple:
     
     # 检查权限（需要 VIEWER 或更高权限）
     if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('您没有权限复制此基础数据')
+        return forbidden_response('do_not_permission_copy_base')
     
     data = request.get_json() or {}
     new_name = data.get('name', '').strip()
@@ -754,6 +755,6 @@ def copy_base(base_id) -> tuple:
     
     return success_response(
         data=result['base'],
-        message='复制成功',
+        message='copied_successfully',
         code=201
     )

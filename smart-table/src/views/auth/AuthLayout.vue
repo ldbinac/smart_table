@@ -1,13 +1,17 @@
 <template>
   <div class="auth-page">
+    <div class="lang-switcher-wrapper">
+      <LanguageSwitcher />
+    </div>
+
     <div class="brand-section">
       <img
         src="/SmartTable.png"
         alt="SmartTable Logo"
         class="brand-logo" />
       <h1 class="brand-title">SmartTable</h1>
-      <p class="brand-subtitle">多维表格管理系统</p>
-      <p class="brand-slogan">让数据管理更简单、更高效</p>
+      <p class="brand-subtitle">{{ t('auth.brandSubtitle') }}</p>
+      <p class="brand-slogan">{{ t('auth.brandSlogan') }}</p>
     </div>
 
     <div class="form-section">
@@ -18,12 +22,12 @@
           <div v-if="demoConfig?.is_demo_environment" class="demo-star-tip">
             <el-icon><Star /></el-icon>
             <span>
-              Tip：请先 watch 本项目后再访问：
+              {{ t('auth.demoStarTip') }}
               <a
                 :href="demoConfig.gitee_repo_url"
                 target="_blank"
                 rel="noopener noreferrer">
-                点击 watch 和关注
+                {{ t('auth.watchAndFollow') }}
               </a>
             </span>
           </div>
@@ -43,7 +47,7 @@
           <div class="footer-links">
             <a
               class="footer-link wechat-link"
-              title="微信公众号"
+              :title="t('auth.wechatTitle')"
               @click="showWechatQR = true">
               <svg class="footer-icon" viewBox="0 0 576 512" fill="currentColor">
                 <path
@@ -75,30 +79,34 @@
             </a>
             
           </div>
-          <p class="footer-text">SmartTable - 开源多维表格管理系统</p>
+          <p class="footer-text">{{ t('auth.footerText') }}</p>
         </div>
       </div>
     </div>
 
     <el-dialog
       v-model="showWechatQR"
-      title="微信公众号"
+      :title="t('auth.wechatTitle')"
       width="320px"
       align-center
       :show-close="true">
       <img
         src="/wechat_official_account.png"
-        alt="微信公众号二维码"
+        :alt="t('auth.wechatQRAlt')"
         style="width: 100%; border-radius: 8px; display: block;" />
-      <p style="text-align: center; color: #666; margin-top: 12px; font-size: 14px;">扫码关注微信公众号</p>
+      <p style="text-align: center; color: #666; margin-top: 12px; font-size: 14px;">{{ t('auth.scanFollow') }}</p>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Star } from '@element-plus/icons-vue'
 import type { DemoConfig } from '@/api/types'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher.vue'
+
+const { t } = useI18n()
 
 defineProps<{
   title: string;
@@ -128,6 +136,21 @@ const showWechatQR = ref(false);
       radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.12) 0%, transparent 40%),
       radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 40%);
     pointer-events: none;
+  }
+}
+
+.lang-switcher-wrapper {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 10;
+
+  :deep(.lang-switcher-trigger) {
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
   }
 }
 

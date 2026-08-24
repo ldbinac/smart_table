@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models.notification import Notification, NotificationStatus
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_config_service import EmailConfigService
+from app.i18n import translate
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class NotificationRetryService:
             if not notification:
                 return {
                     'success': False,
-                    'error': f'站内信不存在：{notification_id}'
+                    'error': 'notification_does_not_exist'
                 }
 
             # 检查是否达到最大重试次数
@@ -83,7 +84,7 @@ class NotificationRetryService:
                 return {
                     'success': False,
                     'should_retry': False,
-                    'error': f'已达到最大重试次数：{NotificationRetryService.MAX_RETRY_COUNT}'
+                    'error': 'maximum_retry_count_reached'
                 }
 
             # 计算下次重试时间
@@ -114,7 +115,7 @@ class NotificationRetryService:
             logger.error(f'安排站内信重试失败：{str(e)}')
             return {
                 'success': False,
-                'error': '安排重试失败，请稍后重试'
+                'error': 'failed_schedule_retry_try_again_later'
             }
 
     @staticmethod
@@ -193,7 +194,7 @@ class NotificationRetryService:
                 return {
                     'success': True,
                     'results': results,
-                    'message': '没有待处理的站内信'
+                    'message': 'no_pending_notifications'
                 }
 
             email_enabled = EmailConfigService.is_email_enabled()
@@ -295,7 +296,7 @@ class NotificationRetryService:
             logger.error(f'处理待发送站内信失败：{str(e)}')
             return {
                 'success': False,
-                'error': '处理失败，请稍后重试',
+                'error': 'processing_failed_try_again_later',
                 'results': results
             }
 
@@ -316,19 +317,19 @@ class NotificationRetryService:
             if not notification:
                 return {
                     'success': False,
-                    'error': f'站内信不存在：{notification_id}'
+                    'error': 'notification_does_not_exist'
                 }
 
             if notification.status not in [NotificationStatus.FAILED, NotificationStatus.RETRYING]:
                 return {
                     'success': False,
-                    'error': f'站内信状态不允许重试：{notification.status.value}'
+                    'error': translate('notification_status_not_retriable', notification.status.value)
                 }
 
             if notification.retry_count >= NotificationRetryService.MAX_RETRY_COUNT:
                 return {
                     'success': False,
-                    'error': '已达到最大重试次数'
+                    'error': 'maximum_retry_count_reached'
                 }
 
             # 重新标记为已发送
@@ -356,7 +357,7 @@ class NotificationRetryService:
 
             return {
                 'success': True,
-                'message': '站内信重试处理成功'
+                'message': 'notification_retry_processed_successfully'
             }
 
         except Exception as e:
@@ -374,7 +375,7 @@ class NotificationRetryService:
 
             return {
                 'success': False,
-                'error': '重试失败，请稍后重试'
+                'error': 'failed_retry_try_again_later'
             }
 
     @staticmethod
@@ -441,7 +442,7 @@ class NotificationRetryService:
             logger.error(f'获取站内信重试统计失败：{str(e)}')
             return {
                 'success': False,
-                'error': '获取统计失败，请稍后重试'
+                'error': 'failed_fetch_statistics_try_again_later'
             }
 
     @staticmethod
@@ -461,13 +462,13 @@ class NotificationRetryService:
             if not notification:
                 return {
                     'success': False,
-                    'error': f'站内信不存在：{notification_id}'
+                    'error': 'notification_does_not_exist'
                 }
 
             if notification.status not in [NotificationStatus.PENDING, NotificationStatus.RETRYING]:
                 return {
                     'success': False,
-                    'error': f'站内信状态不允许取消：{notification.status.value}'
+                    'error': translate('notification_status_not_cancellable', notification.status.value)
                 }
 
             # 标记为失败并设置重试次数为最大值
@@ -479,7 +480,7 @@ class NotificationRetryService:
 
             return {
                 'success': True,
-                'message': '已取消重试'
+                'message': 'retry_cancelled'
             }
 
         except Exception as e:
@@ -487,5 +488,5 @@ class NotificationRetryService:
             logger.error(f'取消站内信重试失败：{str(e)}')
             return {
                 'success': False,
-                'error': '取消失败，请稍后重试'
+                'error': 'cancellation_failed_try_again_later'
             }

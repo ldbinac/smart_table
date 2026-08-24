@@ -5,7 +5,7 @@
       :data="members"
       style="width: 100%"
     >
-      <el-table-column label="用户" min-width="200">
+      <el-table-column :label="t('member.user')" min-width="200">
         <template #default="{ row }">
           <div class="user-info">
             <el-avatar :size="32" :src="row.user?.avatar_url">
@@ -19,7 +19,7 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="角色" width="150">
+      <el-table-column :label="t('member.role')" width="150">
         <template #default="{ row }">
           <el-tag :type="getRoleType(row.role)">
             {{ getRoleLabel(row.role) }}
@@ -27,13 +27,13 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="加入时间" width="180">
+      <el-table-column :label="t('member.joinedAt')" width="180">
         <template #default="{ row }">
           {{ formatDateTime(row.joined_at) }}
         </template>
       </el-table-column>
       
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column :label="t('member.actions')" width="150" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="canEdit"
@@ -42,7 +42,7 @@
             size="small"
             @click="$emit('edit', row as BaseMember)"
           >
-            编辑
+            {{ t('member.edit') }}
           </el-button>
           <el-button
             v-if="canDelete && row.role !== 'owner'"
@@ -51,7 +51,7 @@
             size="small"
             @click="$emit('remove', row as BaseMember)"
           >
-            移除
+            {{ t('member.remove') }}
           </el-button>
         </template>
       </el-table-column>
@@ -74,6 +74,9 @@
 
 <script setup lang="ts">
 import type { BaseMember, MemberRole } from '@/api/types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   members: BaseMember[]
@@ -94,11 +97,11 @@ const currentPage = defineModel<number>('currentPage', { default: 1 })
 const pageSize = defineModel<number>('pageSize', { default: 20 })
 
 const roleMap: Record<MemberRole, { label: string; type: 'success' | 'warning' | 'info' | 'danger' }> = {
-  owner: { label: '所有者', type: 'danger' },
-  admin: { label: '管理员', type: 'warning' },
-  editor: { label: '编辑者', type: 'success' },
-  commenter: { label: '评论者', type: 'info' },
-  viewer: { label: '查看者', type: 'info' }
+  owner: { label: t('member.roleOwner'), type: 'danger' },
+  admin: { label: t('member.roleAdmin'), type: 'warning' },
+  editor: { label: t('member.roleEditor'), type: 'success' },
+  commenter: { label: t('member.roleCommenter'), type: 'info' },
+  viewer: { label: t('member.roleViewer'), type: 'info' }
 }
 
 const getRoleLabel = (role: MemberRole): string => {

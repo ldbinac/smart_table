@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { FieldEntity } from "../../db/schema";
+
+const { t } = useI18n();
 import type { FilterOperatorValue, FieldTypeValue } from "../../types";
 import { FieldType, FilterOperator } from "../../types";
 
@@ -8,6 +11,7 @@ interface Props {
   field: FieldEntity;
   operator: FilterOperatorValue;
   modelValue: unknown;
+  placeholder?: string;
 }
 
 const props = defineProps<Props>();
@@ -200,7 +204,7 @@ const switchValue = computed({
           multiple
           collapse-tags
           collapse-tags-tooltip
-          placeholder="选择选项"
+          :placeholder="t('filter.selectOption')"
           class="full-width">
           <el-option
             v-for="option in selectOptions"
@@ -219,7 +223,7 @@ const switchValue = computed({
       <template v-else-if="field.type === FieldType.SINGLE_SELECT">
         <el-select
           v-model="singleSelectValue"
-          placeholder="选择选项"
+          :placeholder="t('filter.selectOption')"
           class="full-width">
           <el-option
             v-for="option in selectOptions"
@@ -238,7 +242,7 @@ const switchValue = computed({
       <template v-else-if="showDateRange">
         <el-select
           :model-value="dateRangeSelectValue"
-          placeholder="选择日期范围"
+          :placeholder="t('filter.selectDateRange')"
           class="full-width"
           @change="handleDateRangeChange">
           <el-option
@@ -251,9 +255,9 @@ const switchValue = computed({
           v-if="showCustomDateRange"
           v-model="customDateRange"
           type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
+          :range-separator="t('filter.dateRangeSeparator')"
+          :start-placeholder="t('filter.startDate')"
+          :end-placeholder="t('filter.endDate')"
           class="full-width mt-sm"
           @change="handleCustomDateRangeChange" />
       </template>
@@ -267,7 +271,7 @@ const switchValue = computed({
         <el-date-picker
           v-model="dateValue"
           type="date"
-          placeholder="选择日期"
+          :placeholder="t('filter.selectDate')"
           class="full-width"
           value-format="x" />
       </template>
@@ -282,12 +286,12 @@ const switchValue = computed({
         <el-input-number
           v-model="numberValue"
           :controls="false"
-          placeholder="输入数值"
+          :placeholder="placeholder || t('filter.inputNumber')"
           class="full-width" />
       </template>
 
       <template v-else>
-        <el-input v-model="textValue" placeholder="输入值" clearable />
+        <el-input v-model="textValue" :placeholder="t('filter.inputValue')" clearable />
       </template>
     </template>
   </div>

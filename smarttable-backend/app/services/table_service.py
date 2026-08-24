@@ -15,6 +15,7 @@ from app.models.view import View, ViewType
 from app.models.base import Base, MemberRole
 from app.services.base_service import BaseService
 from app.services.collaboration_service import CollaborationService
+from app.i18n import translate
 from flask import current_app
 
 
@@ -133,11 +134,12 @@ class TableService:
         # db.session.add(updated_at_field)
         
         # 4. 创建默认的表格视图
+        # name 和 description 根据当前请求语言（前端设置的 Accept-Language）渲染，适配国际化
         default_view = View(
             table_id=table.id,
-            name='表格视图',
+            name=translate('default_table_view_name'),
             type=ViewType.TABLE.value,  # 表格视图
-            description='默认表格视图',
+            description=translate('default_table_view_description'),
             order=0,
             is_default=True,
             is_public=True,
