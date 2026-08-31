@@ -41,6 +41,7 @@ import MemberManagementDialog from "@/components/dialogs/MemberManagementDialog.
 import BaseShareDialog from "@/components/dialogs/BaseShareDialog.vue";
 import { ViewType } from "@/types";
 import { FieldType } from "@/types/fields";
+import { linkApiService } from "@/services/api/linkApiService";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FilterCondition, SortConfig } from "@/types/filters";
@@ -779,6 +780,43 @@ const handleVTableGroupAddRecord = (groupFieldValues: Record<string, any>) => {
   addRecordDialogVisible.value = true;
 };
 
+// 新增记录后为关联（LINK）字段创建关联数据
+// 关联数据通过独立接口维护，无法随记录创建一起写入，需记录创建成功后单独建立
+const createRecordLinks = async (
+  recordId: string,
+  values: Record<string, unknown>,
+) => {
+  const linkFields = tableStore.fields.filter(
+    (f) => f.type === FieldType.LINK,
+  );
+  if (linkFields.length === 0) return;
+
+  for (const field of linkFields) {
+    const raw = values[field.id];
+    const ids = Array.isArray(raw)
+      ? raw
+      : raw
+        ? [String(raw)]
+        : [];
+    if (ids.length === 0) continue;
+
+    try {
+      // 正向：建立「源记录 -> 目标记录」的关联。
+      // 双向关联的反向数据由后端在 update_record_link 内通过
+      // _sync_bidirectional_links 自动补齐，且该逻辑采用「追加」方式写入
+      // （仅当 target_field_id 已配置时），不会覆盖目标记录已有的关联。
+      // 注意：绝不能在此显式调用 updateRecordLink 去写反向字段，因为该接口会
+      // 用传入的 id 列表「整体替换」目标字段值，从而导致一对多/多对多场景下
+      // 已有的关联记录被错误清空（如 A001 已关联 B01，再新增 B02 时 B01 丢失）。
+      await linkApiService.updateRecordLink(recordId, field.id, {
+        target_record_ids: ids,
+      });
+    } catch (error) {
+      console.error("[Base] 创建关联字段失败:", field.id, error);
+    }
+  }
+};
+
 // 处理保存新记录
 const handleSaveNewRecord = async (values: Record<string, unknown>) => {
   if (!tableStore.currentTable) return;
@@ -790,6 +828,9 @@ const handleSaveNewRecord = async (values: Record<string, unknown>) => {
     });
 
     if (record) {
+      // 记录创建成功后，为关联（LINK）字段建立关联数据
+      await createRecordLinks(record.id, values);
+
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success(t('view.base.recordCreated'));
       addRecordDialogVisible.value = false;
