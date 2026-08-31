@@ -55,6 +55,41 @@ def _authenticate_connection():
         return None
 
 
+# 防止在应用多次初始化时重复启动后台清理任务
+_PRESENCE_SWEEP_STARTED = False
+
+
+def _start_presence_sweep(socketio, app):
+    """
+    启动后台定时任务，清理过期的在线状态条目。
+
+    SocketIO 的 disconnect 事件在浏览器崩溃 / 网络异常时可能丢失，仅靠它
+    清理在线状态会导致条目永久残留。这里周期性扫描 Redis 中的在线房间，
+    移除 last_seen 超时的条目，保证协同在线状态最终一致。
+    """
+    global _PRESENCE_SWEEP_STARTED
+    if _PRESENCE_SWEEP_STARTED:
+        return
+    _PRESENCE_SWEEP_STARTED = True
+
+    def _run_sweep():
+        while True:
+            try:
+                socketio.sleep(CollaborationService.PRESENCE_SWEEP_INTERVAL)
+            except Exception:
+                # 服务停止时 sleep 可能抛错，结束循环
+                break
+            try:
+                with app.app_context():
+                    removed = CollaborationService.cleanup_stale_presence()
+                    if removed:
+                        current_app.logger.info(f'[PresenceSweep] 清理过期在线用户 {removed} 个')
+            except Exception as e:
+                current_app.logger.error(f'[PresenceSweep] 清理任务异常: {e}')
+
+    socketio.start_background_task(_run_sweep)
+
+
 def register_socketio_handlers(socketio, app):
 
     @socketio.on('connect')
@@ -138,6 +173,19 @@ def register_socketio_handlers(socketio, app):
             }, room=f'base:{base_id}')
         except Exception as e:
             current_app.logger.error(f'room:leave error: {e}')
+
+    @socketio.on('presence:heartbeat')
+    def handle_heartbeat(data):
+        user_id = _authenticate_connection()
+        if not user_id:
+            return
+        base_id = data.get('base_id') if isinstance(data, dict) else None
+        if not base_id:
+            return
+        try:
+            CollaborationService.touch_presence(base_id, user_id)
+        except Exception as e:
+            current_app.logger.error(f'presence:heartbeat error: {e}')
 
     @socketio.on('presence:view_changed')
     def handle_view_changed(data):
@@ -257,3 +305,6 @@ def register_socketio_handlers(socketio, app):
     @socketio.on('ping')
     def handle_ping():
         emit('pong')
+
+    # 启动后台在线状态过期清理任务（仅注册一次）
+    _start_presence_sweep(socketio, app)

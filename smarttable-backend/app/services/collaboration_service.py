@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Optional, Tuple, List, Dict, Any
 
@@ -44,6 +45,10 @@ class CollaborationService:
 
     LOCK_TIMEOUT = 60
 
+    # 在线状态心跳与过期清理参数（秒）
+    PRESENCE_STALE_SECONDS = 60
+    PRESENCE_SWEEP_INTERVAL = 15
+
     @staticmethod
     def join_room(base_id: str, user_id: str, socket_id: str) -> dict:
         r = _get_redis_client()
@@ -54,7 +59,8 @@ class CollaborationService:
             'name': user.name if user else 'Unknown',
             'avatar': user.avatar if user else None,
             'socket_id': socket_id,
-            'joined_at': datetime.now(timezone.utc).isoformat()
+            'joined_at': datetime.now(timezone.utc).isoformat(),
+            'last_seen': datetime.now(timezone.utc).isoformat()
         }
         
         if r:
@@ -118,6 +124,133 @@ class CollaborationService:
             except (json.JSONDecodeError, TypeError):
                 pass
         return result
+
+    @staticmethod
+    def touch_presence(base_id: str, user_id: str):
+        """
+        心跳：刷新在线用户的 last_seen，避免被过期清理误删。
+
+        仅当该用户已在房间内（Redis 中存在条目）时才更新，避免为未加入的
+        用户创建"幽灵"在线记录。
+        """
+        r = _get_redis_client()
+        if not r:
+            return
+
+        room_key = f'collab:room:{base_id}:users'
+        info_json = r.hget(room_key, user_id)
+        if info_json:
+            try:
+                info = json.loads(info_json)
+            except (json.JSONDecodeError, TypeError):
+                info = {}
+            info['last_seen'] = datetime.now(timezone.utc).isoformat()
+            r.hset(room_key, user_id, json.dumps(info))
+
+        session = CollaborationSession.query.filter_by(
+            base_id=base_id,
+            user_id=user_id,
+            is_active=True
+        ).first()
+        if session:
+            session.last_active_at = datetime.now(timezone.utc)
+            db.session.commit()
+
+    @staticmethod
+    def cleanup_stale_presence(stale_seconds: int = None) -> int:
+        """
+        清理过期的在线状态条目。
+
+        仅靠 SocketIO 的 disconnect 事件清理在线状态并不可靠：浏览器崩溃、
+        网络异常或 disconnect 事件丢失时，Redis 中的在线条目会永久残留
+        （表现为"退出多维表后其他用户仍显示在线"）。本方法定时扫描所有房间，
+        移除 last_seen 超过阈值的条目，并向房间广播 presence:user_left，
+        保证在线状态最终一致。
+
+        Returns:
+            被清理的过期用户数量
+        """
+        if stale_seconds is None:
+            stale_seconds = CollaborationService.PRESENCE_STALE_SECONDS
+
+        r = _get_redis_client()
+        if not r:
+            return 0
+
+        try:
+            now = datetime.now(timezone.utc)
+            removed = 0
+            cursor = 0
+            while True:
+                cursor, keys = r.scan(cursor, match='collab:room:*:users', count=200)
+                for room_key in keys:
+                    parts = room_key.split(':') if isinstance(room_key, str) else room_key.decode().split(':')
+                    # 结构：collab : room : {base_id} : users
+                    if len(parts) < 4:
+                        continue
+                    base_id = parts[2]
+                    try:
+                        base_uuid = uuid.UUID(base_id)
+                    except (ValueError, AttributeError, TypeError):
+                        continue
+
+                    users_data = r.hgetall(room_key)
+                    stale_uids = []
+                    for uid, info_json in users_data.items():
+                        try:
+                            info = json.loads(info_json)
+                            last_seen = info.get('last_seen')
+                            if not last_seen:
+                                stale_uids.append(uid)
+                                continue
+                            ts = datetime.fromisoformat(last_seen)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            if (now - ts).total_seconds() > stale_seconds:
+                                stale_uids.append(uid)
+                        except (json.JSONDecodeError, TypeError, ValueError):
+                            # 无法解析的条目也视为过期，直接清理
+                            stale_uids.append(uid)
+
+                    for uid in stale_uids:
+                        r.hdel(room_key, uid)
+                        presence_key = f'collab:presence:{base_id}:{uid}'
+                        r.delete(presence_key)
+
+                        try:
+                            user_uuid = uuid.UUID(uid)
+                        except (ValueError, AttributeError, TypeError):
+                            user_uuid = None
+
+                        if user_uuid is not None:
+                            sessions = CollaborationSession.query.filter_by(
+                                base_id=base_uuid,
+                                user_id=user_uuid,
+                                is_active=True
+                            ).all()
+                            for s in sessions:
+                                s.is_active = False
+
+                        user_info = CollaborationService._get_user_brief(uid)
+                        socketio.emit('presence:user_left', {
+                            'base_id': base_id,
+                            'user_id': uid,
+                            'nickname': user_info.get('name', 'Unknown'),
+                            'name': user_info.get('name', 'Unknown'),
+                            'avatar': user_info.get('avatar')
+                        }, room=f'base:{base_id}')
+
+                        removed += 1
+
+                    if stale_uids:
+                        db.session.commit()
+
+                if cursor == 0:
+                    break
+            return removed
+        except Exception as e:
+            current_app.logger.error(f'[CollaborationService] cleanup_stale_presence error: {e}')
+            return 0
 
     @staticmethod
     def update_user_view(base_id: str, user_id: str, table_id: str, view_id: str, view_type: str):
