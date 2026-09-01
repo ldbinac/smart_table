@@ -209,10 +209,12 @@ class FormShareService:
             # 获取字段列表
             all_fields = FieldService.get_all_fields(form_share.table_id)
             
-            # 过滤允许提交的字段
+            # 过滤允许提交的字段，并按 allowed_fields 的顺序排列
+            # （保证分享表单的字段展示顺序与配置一致，而非回退到表格字段顺序）
             allowed_field_ids = form_share.get_allowed_fields_list()
+            field_map = {str(f.id): f for f in all_fields}
             if allowed_field_ids:
-                fields = [f for f in all_fields if str(f.id) in allowed_field_ids]
+                fields = [field_map[fid] for fid in allowed_field_ids if fid in field_map]
             else:
                 fields = all_fields
             

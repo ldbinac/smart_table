@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
-import { Share, Plus, CopyDocument } from "@element-plus/icons-vue";
+import { Share, Plus, CopyDocument, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
@@ -71,6 +71,27 @@ const availableFields = computed(() => {
     (f) => !systemFieldTypes.includes(f.type as FieldTypeValue)
   );
 });
+
+// 根据字段 ID 查找字段
+function fieldById(id: string): FieldEntity {
+  return props.fields.find((f) => f.id === id) as FieldEntity;
+}
+
+// 字段排序（上移）
+function moveFieldUp(index: number) {
+  if (index === 0) return;
+  const fieldId = formConfig.value.allowedFields[index];
+  formConfig.value.allowedFields.splice(index, 1);
+  formConfig.value.allowedFields.splice(index - 1, 0, fieldId);
+}
+
+// 字段排序（下移）
+function moveFieldDown(index: number) {
+  if (index === formConfig.value.allowedFields.length - 1) return;
+  const fieldId = formConfig.value.allowedFields[index];
+  formConfig.value.allowedFields.splice(index, 1);
+  formConfig.value.allowedFields.splice(index + 1, 0, fieldId);
+}
 
 // 计算属性：有效分享数量
 const activeSharesCount = computed(() => {
@@ -467,21 +488,60 @@ async function copyExistingShareUrl(share: FormShareConfig) {
         <el-divider content-position="left">{{ t("view.formFieldConfig") }}</el-divider>
 
         <el-form-item :label="t('view.allowedFieldsLabel')">
-          <el-checkbox-group v-model="formConfig.allowedFields" class="field-checkbox-group">
-            <el-checkbox
-              v-for="field in availableFields"
+          <el-checkbox-group v-model="formConfig.allowedFields" class="field-checkbox-group field-order-group">
+            <!-- 已选字段：按配置顺序展示，支持上移/下移调整前后顺序 -->
+            <div
+              v-for="(fieldId, index) in formConfig.allowedFields"
+              :key="fieldId"
+              class="field-order-item">
+              <el-checkbox :label="fieldId">
+                <span class="field-checkbox-label">
+                  <el-icon class="field-icon">
+                    <component :is="getFieldTypeIconComponent(fieldById(fieldId).type)" />
+                  </el-icon>
+                  {{ fieldById(fieldId).name }}
+                </span>
+                <el-tag v-if="fieldById(fieldId).isRequired" size="small" type="danger" class="ml-2">
+                  {{ t("view.required") }}
+                </el-tag>
+              </el-checkbox>
+              <div class="field-order-actions">
+                <el-button
+                  link
+                  type="primary"
+                  :disabled="index === 0"
+                  @click="moveFieldUp(index)">
+                  <el-icon><ArrowUp /></el-icon>
+                </el-button>
+                <el-button
+                  link
+                  type="primary"
+                  :disabled="index === formConfig.allowedFields.length - 1"
+                  @click="moveFieldDown(index)">
+                  <el-icon><ArrowDown /></el-icon>
+                </el-button>
+              </div>
+            </div>
+
+            <el-divider v-if="formConfig.allowedFields.length > 0" />
+
+            <!-- 未选字段：勾选后追加到已选列表末尾 -->
+            <div
+              v-for="field in availableFields.filter((f) => !formConfig.allowedFields.includes(f.id))"
               :key="field.id"
-              :label="field.id">
-              <span class="field-checkbox-label">
-                <el-icon class="field-icon">
-                  <component :is="getFieldTypeIconComponent(field.type)" />
-                </el-icon>
-                {{ field.name }}
-              </span>
-              <el-tag v-if="field.isRequired" size="small" type="danger" class="ml-2">
-                {{ t("view.required") }}
-              </el-tag>
-            </el-checkbox>
+              class="field-unselected-item">
+              <el-checkbox :label="field.id">
+                <span class="field-checkbox-label">
+                  <el-icon class="field-icon">
+                    <component :is="getFieldTypeIconComponent(field.type)" />
+                  </el-icon>
+                  {{ field.name }}
+                </span>
+                <el-tag v-if="field.isRequired" size="small" type="danger" class="ml-2">
+                  {{ t("view.required") }}
+                </el-tag>
+              </el-checkbox>
+            </div>
           </el-checkbox-group>
           <div v-if="formConfig.allowedFields.length === 0" class="field-hint">
             <el-alert
@@ -680,6 +740,41 @@ async function copyExistingShareUrl(share: FormShareConfig) {
     font-size: 14px;
     color: $text-secondary;
   }
+}
+
+.field-order-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  :deep(.el-checkbox) {
+    margin-right: 0;
+    min-width: 0;
+  }
+}
+
+.field-order-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: $border-radius-sm;
+  background: rgba($primary-color, 0.05);
+
+  .el-checkbox {
+    flex: 1;
+  }
+}
+
+.field-order-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.field-unselected-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
 }
 
 .field-hint {
