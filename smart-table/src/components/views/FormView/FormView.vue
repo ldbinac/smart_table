@@ -95,6 +95,22 @@ const visibleFields = computed(() => {
     );
   }
 
+  // 按配置中的可见字段顺序排序，确保表单字段按用户设定的前后顺序展示
+  if (props.visibleFieldIds && props.visibleFieldIds.length > 0) {
+    const orderMap = new Map(
+      props.visibleFieldIds.map((id, idx) => [id, idx]),
+    );
+    fields = fields
+      .map((f) => ({
+        field: f,
+        order: orderMap.has(f.id)
+          ? (orderMap.get(f.id) as number)
+          : Number.MAX_SAFE_INTEGER,
+      }))
+      .sort((a, b) => a.order - b.order)
+      .map((item) => item.field);
+  }
+
   return fields;
 });
 
