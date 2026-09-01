@@ -1356,6 +1356,9 @@ function calculateFormulaValue(field: FormFieldSchema): string {
 
 // 验证码样式
 .captcha-item {
+  // 验证码独占整行，避免在多列布局下被压缩到单列中
+  grid-column: 1 / -1;
+
   .captcha-input-group {
     display: flex;
     gap: 12px;
@@ -1407,6 +1410,8 @@ function calculateFormulaValue(field: FormFieldSchema): string {
 }
 
 .form-actions {
+  // 无论每行显示几列，提交按钮与上方分割线始终占据整行
+  grid-column: 1 / -1;
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid $border-color;

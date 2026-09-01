@@ -745,6 +745,8 @@ async function copyExistingShareUrl(share: FormShareConfig) {
 .field-order-group {
   display: flex;
   flex-direction: column;
+  flex-wrap: nowrap;
+  width: 100%;
   gap: 10px;
 
   :deep(.el-checkbox) {
