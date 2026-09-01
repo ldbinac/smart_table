@@ -280,7 +280,8 @@ export const deleteRecordLink = async (
  */
 export const searchLinkableRecords = async (
   tableId: string,
-  params: SearchLinkableRecordsParams
+  params: SearchLinkableRecordsParams,
+  shareToken?: string
 ): Promise<{
   items: Array<{
     id: string;
@@ -303,6 +304,10 @@ export const searchLinkableRecords = async (
 
   if (params.exclude_ids && params.exclude_ids.length > 0) {
     queryParams.exclude_ids = params.exclude_ids.join(",");
+  }
+
+  if (shareToken) {
+    queryParams.share_token = shareToken;
   }
 
   // 后端返回格式为 {success, message, data: items, meta: {pagination: {...}}}

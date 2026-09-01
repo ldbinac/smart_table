@@ -26,7 +26,8 @@ export class FieldCacheService {
 
   async getFieldsWithCache(
     tableId: string,
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
+    shareToken?: string
   ): Promise<FieldEntity[]> {
     const cacheKey = getCacheKey(tableId);
 
@@ -46,7 +47,7 @@ export class FieldCacheService {
     }
 
     console.log(`[FieldCacheService] 从 API 获取表 ${tableId} 的字段`);
-    return this.fetchFromAPI(tableId);
+    return this.fetchFromAPI(tableId, shareToken);
   }
 
   private getFromMemoryCache(key: string): FieldEntity[] | null {
@@ -98,9 +99,9 @@ export class FieldCacheService {
     }
   }
 
-  private async fetchFromAPI(tableId: string): Promise<FieldEntity[]> {
+  private async fetchFromAPI(tableId: string, shareToken?: string): Promise<FieldEntity[]> {
     try {
-      const apiFields = await fieldApiService.getFields(tableId);
+      const apiFields = await fieldApiService.getFields(tableId, shareToken);
 
       const fields: FieldEntity[] = apiFields.map((apiField) => {
         const frontendType = normalizeFieldType(apiField.type);

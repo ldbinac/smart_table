@@ -100,7 +100,7 @@ export class FieldService {
     return db.fields.get(id);
   }
 
-  async getFieldsByTable(tableId: string): Promise<FieldEntity[]> {
+  async getFieldsByTable(tableId: string, shareToken?: string): Promise<FieldEntity[]> {
     try {
       // 检查内存缓存（5秒内有效）
       const cached = fieldsCache.get(tableId);
@@ -116,7 +116,7 @@ export class FieldService {
       }
 
       // 创建新请求并缓存 Promise
-      const requestPromise = this._fetchAndCacheFields(tableId);
+      const requestPromise = this._fetchAndCacheFields(tableId, shareToken);
       pendingRequests.set(tableId, requestPromise);
 
       try {
@@ -141,9 +141,9 @@ export class FieldService {
     }
   }
 
-  private async _fetchAndCacheFields(tableId: string): Promise<FieldEntity[]> {
+  private async _fetchAndCacheFields(tableId: string, shareToken?: string): Promise<FieldEntity[]> {
     // 先从后端 API 获取最新数据
-    const apiFields = await fieldApiService.getFields(tableId);
+    const apiFields = await fieldApiService.getFields(tableId, shareToken);
 
     // 将后端返回的字段保存到本地 IndexedDB
     await db.transaction("rw", db.fields, async () => {

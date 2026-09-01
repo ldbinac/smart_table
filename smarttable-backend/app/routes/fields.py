@@ -11,7 +11,7 @@ from app.services.table_service import TableService
 from app.services.link_service import LinkService
 from app.models.base import MemberRole
 from app.models.field import FieldType
-from app.utils.decorators import authenticate, jwt_required
+from app.utils.decorators import authenticate, jwt_required, form_share_or_jwt
 from app.utils.response import (
     success_response, error_response, not_found_response, forbidden_response
 )
@@ -22,7 +22,7 @@ fields_bp.strict_slashes = False
 
 
 @fields_bp.route('/tables/<uuid:table_id>/fields', methods=['GET'])
-@jwt_required
+@form_share_or_jwt(table_param='table_id')
 def get_fields(table_id) -> tuple:
     """
     获取表格中的所有字段
@@ -41,12 +41,6 @@ def get_fields(table_id) -> tuple:
       200:
         description: 字段列表
     """
-    user_id = g.current_user_id
-    
-    # 检查权限
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('no_permission_access_table_2')
-    
     fields = FieldService.get_all_fields(str(table_id))
     
     # 转换为字典列表

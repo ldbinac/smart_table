@@ -15,8 +15,9 @@ export const getTables = async (baseId: string): Promise<Table[]> => {
   return apiClient.get<Table[]>(`/bases/${baseId}/tables`);
 };
 
-export const getTable = async (id: string): Promise<Table> => {
-  return apiClient.get<Table>(`/tables/${id}`);
+export const getTable = async (id: string, shareToken?: string): Promise<Table> => {
+  const params = shareToken ? { share_token: shareToken } : undefined;
+  return apiClient.get<Table>(`/tables/${id}`, params);
 };
 
 export const createTable = async (

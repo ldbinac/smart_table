@@ -170,6 +170,7 @@ import {
 } from "element-plus";
 import { Search, Link } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
+import { tableApiService } from "@/services/api/tableApiService";
 import { fieldCacheService } from "@/db/services/fieldCacheService";
 import { tableService } from "@/db/services/tableService";
 import type { LinkedRecord } from "@/types/link";
@@ -188,6 +189,8 @@ interface Props {
   allowMultiple?: boolean;
   /** 需要从可选列表中排除的记录 ID（如自关联时禁止选择当前记录自身） */
   excludeRecordId?: string;
+  /** 匿名分享表单的分享 token：用于在未登录时凭 token 读取字段/记录 */
+  shareToken?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -195,6 +198,7 @@ const props = withDefaults(defineProps<Props>(), {
   linkedRecords: () => [],
   allowMultiple: true,
   excludeRecordId: "",
+  shareToken: "",
 });
 
 const MAX_DISPLAY_FIELDS = 3;
@@ -320,7 +324,8 @@ const refreshSelectedFromLoadedRecords = async () => {
     try {
       const result = await linkApiService.searchLinkableRecords(
         props.targetTableId,
-        { page: 1, per_page: Math.min(missingIds.length, 200) }
+        { page: 1, per_page: Math.min(missingIds.length, 200) },
+        props.shareToken
         // 不使用 exclude_ids，以确保这些记录被返回
       );
       for (const sr of selectedRecords.value) {
@@ -340,7 +345,9 @@ const refreshSelectedFromLoadedRecords = async () => {
 const loadTargetTableName = async () => {
   if (!props.targetTableId) return;
   try {
-    const table = await tableService.getTable(props.targetTableId);
+    const table = props.shareToken
+      ? await tableApiService.getTable(props.targetTableId, props.shareToken)
+      : await tableService.getTable(props.targetTableId);
     targetTableName.value = table?.name || props.targetTableId;
   } catch {
     targetTableName.value = props.targetTableId;
@@ -353,7 +360,7 @@ const loadDisplayFields = async () => {
     return;
   }
   try {
-    const allFields = await fieldCacheService.getFieldsWithCache(props.targetTableId);
+    const allFields = await fieldCacheService.getFieldsWithCache(props.targetTableId, false, props.shareToken);
     const visibleFields = allFields
       .filter((field: FieldEntity) => field.isVisible !== false)
       .sort((a: FieldEntity, b: FieldEntity) => a.order - b.order);
@@ -419,7 +426,7 @@ const preloadLinkFieldDisplayMaps = async () => {
     const linkedTableId = field.config?.linkedTableId as string | undefined;
     if (!linkedTableId || linkedTableFieldsMap.has(linkedTableId)) continue;
     try {
-      const fields = await fieldCacheService.getFieldsWithCache(linkedTableId);
+      const fields = await fieldCacheService.getFieldsWithCache(linkedTableId, false, props.shareToken);
       linkedTableFieldsMap.set(linkedTableId, fields.map(f => ({
         id: f.id,
         name: f.name,
@@ -440,7 +447,9 @@ const preloadLinkFieldDisplayMaps = async () => {
     // 如果未配置显示字段，回退到关联表的主字段
     if (!displayFieldId) {
       try {
-        const linkedTable = await tableService.getTable(linkedTableId);
+        const linkedTable: any = props.shareToken
+          ? await tableApiService.getTable(linkedTableId, props.shareToken)
+          : await tableService.getTable(linkedTableId);
         displayFieldId = linkedTable?.primaryFieldId;
       } catch (error) {
         console.warn('[LinkRecordSelector] 获取关联表主字段失败:', linkedTableId, error);
@@ -474,7 +483,7 @@ const preloadLinkFieldDisplayMaps = async () => {
       const result = await linkApiService.searchLinkableRecords(linkedTableId, {
         page: 1,
         per_page: Math.min(linkedIds.size, 200),
-      });
+      }, props.shareToken);
       for (const item of result.items) {
         if (linkedIds.has(item.id)) {
           const rawDisplayVal = item.values[displayFieldId];
@@ -515,7 +524,8 @@ const loadRecords = async () => {
         exclude_ids: excludeIds,
         page: currentPage.value,
         per_page: pageSize.value,
-      }
+      },
+      props.shareToken
     );
     records.value = result.items;
     total.value = result.total;

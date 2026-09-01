@@ -7,7 +7,7 @@ from flask import Blueprint, request, g
 from app.services.table_service import TableService
 from app.services.base_service import BaseService
 from app.models.base import MemberRole
-from app.utils.decorators import jwt_required
+from app.utils.decorators import jwt_required, form_share_or_jwt
 from app.utils.response import (
     success_response, error_response, not_found_response, forbidden_response
 )
@@ -124,7 +124,7 @@ def create_table(base_id) -> tuple:
 
 
 @tables_bp.route('/tables/<uuid:table_id>', methods=['GET'])
-@jwt_required
+@form_share_or_jwt(table_param='table_id')
 def get_table(table_id) -> tuple:
     """
     获取单个表格详情
@@ -143,12 +143,6 @@ def get_table(table_id) -> tuple:
       200:
         description: 表格详情
     """
-    user_id = g.current_user_id
-    
-    # 检查权限
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('no_permission_access_table_2')
-    
     table = TableService.get_table(str(table_id))
     if not table:
         return not_found_response('table')

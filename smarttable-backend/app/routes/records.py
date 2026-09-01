@@ -23,7 +23,7 @@ from app.schemas.record_schema import (
     batch_update_schema
 )
 from app.utils.response import success_response, error_response, paginated_response
-from app.utils.decorators import jwt_required, role_required, query_rate_limit, write_rate_limit
+from app.utils.decorators import jwt_required, role_required, query_rate_limit, write_rate_limit, form_share_or_jwt
 from app.extensions import db
 from app.models.record import Record
 from app.models.record_history import RecordHistory, HistoryAction
@@ -1668,8 +1668,7 @@ def create_child_record(record_id) -> tuple:
 
 
 @records_bp.route('/tables/<table_id>/records/search', methods=['GET'])
-@jwt_required
-@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+@form_share_or_jwt(table_param='table_id', require_role=['owner', 'admin', 'editor', 'commenter', 'viewer'])
 def search_linkable_records(table_id) -> tuple:
     """
     搜索可关联的记录

@@ -4,8 +4,9 @@
 import { apiClient } from '@/api/client';
 import type { Field, FieldType } from '@/api/types';
 
-export const getFields = async (tableId: string): Promise<Field[]> => {
-  return apiClient.get<Field[]>(`/tables/${tableId}/fields`);
+export const getFields = async (tableId: string, shareToken?: string): Promise<Field[]> => {
+  const params = shareToken ? { share_token: shareToken } : undefined;
+  return apiClient.get<Field[]>(`/tables/${tableId}/fields`, params);
 };
 
 export const getField = async (id: string): Promise<Field> => {

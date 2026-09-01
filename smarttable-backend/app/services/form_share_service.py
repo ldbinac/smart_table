@@ -188,6 +188,36 @@ class FormShareService:
         return True, form_share, None
     
     @staticmethod
+    def verify_share_access_to_table(token: str, table_id: str) -> Tuple[bool, Optional[str]]:
+        """
+        校验表单分享 token 是否允许匿名访问指定表（只读场景）。
+        
+        允许范围：表单所在表，或同一 base 下的其它表（关联字段通常指向同 base 表）。
+        用于匿名分享表单的只读接口（字段列表、可关联记录搜索等）。
+        
+        Returns:
+            (是否有效, 错误信息)
+        """
+        valid, form_share, error = FormShareService.validate_form_share(token)
+        if not valid:
+            return False, error
+        
+        try:
+            form_table = TableService.get_table_by_id(str(form_share.table_id))
+            target_table = TableService.get_table_by_id(str(table_id))
+        except Exception:
+            return False, 'table_does_not_exist'
+        
+        if not form_table or not target_table:
+            return False, 'table_does_not_exist'
+        
+        if (str(target_table.id) == str(form_table.id)
+                or str(target_table.base_id) == str(form_table.base_id)):
+            return True, None
+        
+        return False, 'no_permission_access_table_2'
+    
+    @staticmethod
     def get_form_schema(token: str) -> Dict[str, Any]:
         """
         获取表单结构（字段定义）

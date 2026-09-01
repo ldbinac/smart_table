@@ -17,7 +17,7 @@ import RichTextField from "@/components/fields/RichTextField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import DateInput from "@/components/fields/DateInput.vue";
-import type { FieldOptions } from "@/types/fields";
+import { normalizeFieldType, type FieldOptions } from "@/types/fields";
 import { Search as SearchIcon } from '@element-plus/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
 import { FormulaEngine } from "@/utils/formula";
@@ -242,7 +242,13 @@ async function loadFormData(token: string) {
 
     tableId.value = schema.table_id;
     tableName.value = schema.table_name;
-    fields.value = schema.fields;
+    // 将后端字段类型归一化为前端类型（与表单视图一致）。
+    // 后端存储的是 'link_to_record' 等，而前端 FormFieldSchema 使用 'link'，
+    // 否则关联字段会因类型不匹配走到“不支持的字段类型”分支而无法正常操作。
+    fields.value = (schema.fields || []).map((f: any) => ({
+      ...f,
+      type: normalizeFieldType(f.type),
+    }));
 
     // 加载表单配置
     formConfig.value = {
@@ -835,6 +841,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :record-id="newRecordId"
                 :field-id="field.id"
                 :is-self-link="getLinkFieldConfig(field)?.isSelfLink"
+                :share-token="shareToken"
                 @edit-start="handleLinkFieldEdit(field.id)"
                 @change="(val, records) => handleLinkFieldChange(field, val, records)"
                 @edit-end="handleLinkFieldEditEnd"
