@@ -18,6 +18,7 @@ from app.models.base import Base, MemberRole
 from app.services.record_service import RecordService
 from app.services.table_service import TableService
 from app.services.field_service import FieldService
+from app.services.link_service import LinkService
 from app.services.permission_service import PermissionService
 from app.utils.captcha import CaptchaService
 from app.i18n import translate
@@ -34,6 +35,15 @@ class FormShareService:
     # 速率限制配置
     SUBMIT_RATE_LIMIT = 100  # 每个分享链接每 15 分钟最多的提交次数（用于防刷，而非限制正常多用户填写）
     RATE_LIMIT_WINDOW = 900  # 15 分钟（秒）
+
+    @staticmethod
+    def _normalize_columns(value) -> int:
+        """将每行字段数列数限制在 1-4 之间（一行最多显示 4 个字段）"""
+        try:
+            c = int(value)
+        except (TypeError, ValueError):
+            return 1
+        return max(1, min(4, c))
     
     @staticmethod
     def create_form_share(
@@ -109,7 +119,8 @@ class FormShareService:
                 description=config.get('description'),
                 submit_button_text=config.get('submit_button_text', '提交'),
                 success_message=config.get('success_message', '提交成功，感谢您的参与！'),
-                theme=config.get('theme', 'default')
+                theme=config.get('theme', 'default'),
+                columns=FormShareService._normalize_columns(config.get('columns'))
             )
             
             # 设置允许字段
@@ -261,6 +272,7 @@ class FormShareService:
                     'submit_button_text': form_share.submit_button_text,
                     'success_message': form_share.success_message,
                     'theme': form_share.theme,
+                    'columns': form_share.columns,
                     'require_captcha': form_share.require_captcha,
                     'fields': fields_schema
                 }
@@ -370,7 +382,60 @@ class FormShareService:
                 f'[FormShareService] 表单提交成功: form_share={form_share.id}, '
                 f'record={record.id}, ip={client_ip}'
             )
-            
+
+            # 创建关联字段（LINK）的关联数据（含双向关联）
+            # 与表格视图新增记录流程一致：主记录与提交记录提交成功后，再为每个 LINK 字段建立关联。
+            # 匿名分享表单无法走需鉴权的 /records/<id>/links/<field_id> 接口，
+            # 因此在此直接通过 LinkService 建立关联（best-effort，失败不影响主提交结果）。
+            try:
+                link_fields = [
+                    f for f in FieldService.get_all_fields(form_share.table_id)
+                    if f.type in (FieldType.LINK_TO_RECORD.value, 'link')
+                ]
+                for link_field in link_fields:
+                    raw = values.get(str(link_field.id))
+                    if raw is None or raw == '':
+                        continue
+                    ids = raw if isinstance(raw, list) else [str(raw)]
+                    ids = [str(i) for i in ids if i]
+                    if not ids:
+                        continue
+
+                    field_config = link_field.config or {}
+                    target_table_id = field_config.get('linkedTableId')
+                    if not target_table_id:
+                        continue
+
+                    # 获取或自动创建关联关系
+                    link_relation = LinkService.get_link_relation_by_field(
+                        str(link_field.id), str(target_table_id)
+                    )
+                    if not link_relation:
+                        link_relation, _ = LinkService.create_link_relation({
+                            'source_table_id': str(link_field.table_id),
+                            'target_table_id': str(target_table_id),
+                            'source_field_id': str(link_field.id),
+                            'target_field_id': None,
+                            'relationship_type': field_config.get('relationshipType', 'one_to_many'),
+                            'bidirectional': field_config.get('bidirectional', False),
+                        })
+                        if not link_relation:
+                            continue
+
+                    # 一对一约束：超过一个目标记录则跳过
+                    if link_relation.relationship_type == 'one_to_one' and len(ids) > 1:
+                        continue
+
+                    LinkService.update_link_values(
+                        link_relation_id=link_relation.id,
+                        source_record_id=str(record.id),
+                        target_record_ids=ids,
+                    )
+            except Exception as link_err:
+                current_app.logger.error(
+                    f'[FormShareService] 关联字段创建失败（已忽略）: {str(link_err)}'
+                )
+
             return {
                 'success': True,
                 'data': {
@@ -701,6 +766,9 @@ class FormShareService:
             
             if 'theme' in data:
                 form_share.theme = data['theme']
+            
+            if 'columns' in data:
+                form_share.columns = FormShareService._normalize_columns(data['columns'])
             
             form_share.updated_at = datetime.now(timezone.utc)
             db.session.commit()

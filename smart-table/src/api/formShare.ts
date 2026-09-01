@@ -24,6 +24,8 @@ export interface FormShareConfig {
   submit_button_text: string;
   success_message: string;
   theme: string;
+  /** 每行显示的字段数量（1-4） */
+  columns: number;
   created_at: string;
   updated_at: string;
   created_by: string;
@@ -57,6 +59,8 @@ export interface FormSchema {
   submit_button_text: string;
   success_message: string;
   theme: string;
+  /** 每行显示的字段数量（1-4） */
+  columns: number;
   require_captcha: boolean;
   fields: FormFieldSchema[];
 }
@@ -87,6 +91,8 @@ export interface CreateFormShareRequest {
   submit_button_text?: string;
   success_message?: string;
   theme?: string;
+  /** 每行显示的字段数量（1-4） */
+  columns?: number;
 }
 
 /**
@@ -104,6 +110,8 @@ export interface UpdateFormShareRequest {
   submit_button_text?: string;
   success_message?: string;
   theme?: string;
+  /** 每行显示的字段数量（1-4） */
+  columns?: number;
 }
 
 /**

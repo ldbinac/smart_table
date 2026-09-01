@@ -12,6 +12,8 @@ import { formatNumberField, createNumberInputFormatter, createNumberInputParser,
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import type { LinkedRecord, RelationshipType } from "@/types/link";
 import DateInput from "@/components/fields/DateInput.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -33,6 +35,8 @@ interface Props {
   description?: string;
   submitButtonText?: string;
   visibleFieldIds?: string[];
+  /** 每行显示的字段数量（1-4），用于一行显示多个字段 */
+  columns?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -55,6 +59,10 @@ const isSubmitting = ref(false);
 const submitSuccess = ref(false);
 const newRecordId = ref(generateId());
 const authStore = useAuthStore();
+
+// 关联字段本地状态（新增模式下关联数据先暂存，提交后再建立关联）
+const linkFieldRecords = ref<Map<string, LinkedRecord[]>>(new Map());
+const editingLinkField = ref<string | null>(null);
 
 // 获取当前用户ID
 function getCurrentUserId(): string | null {
@@ -89,6 +97,70 @@ const visibleFields = computed(() => {
 
   return fields;
 });
+
+// 每行显示字段数（1-4，超过 4 按 4 处理，不足 1 按 1 处理）
+const effectiveColumns = computed(() => {
+  const c = Math.round(Number(props.columns) || 1);
+  return Math.min(4, Math.max(1, c));
+});
+
+const isMultiColumn = computed(() => effectiveColumns.value > 1);
+
+// 以下字段类型内容较宽，自动占满整行，避免在多列布局下显示拥挤
+function isFullWidthField(field: FieldEntity): boolean {
+  return (
+    field.type === FieldType.LONG_TEXT ||
+    field.type === FieldType.RICH_TEXT ||
+    field.type === FieldType.ATTACHMENT ||
+    field.type === FieldType.LINK
+  );
+}
+
+// ==================== 关联字段（LINK）交互 ====================
+function getLinkFieldConfig(field: FieldEntity) {
+  if (field.type !== FieldType.LINK) return null;
+  const config = (field.config || {}) as Record<string, unknown>;
+  return {
+    targetTableId: config.linkedTableId as string,
+    relationshipType: (config.relationshipType as RelationshipType) || "one_to_many",
+    displayFieldId: config.displayFieldId as string,
+    isSelfLink: config.linkedTableId === field.tableId,
+  };
+}
+
+function getLinkedRecords(field: FieldEntity): LinkedRecord[] {
+  return linkFieldRecords.value.get(field.id) || [];
+}
+
+function handleLinkFieldEdit(fieldId: string) {
+  editingLinkField.value = fieldId;
+}
+
+function handleLinkFieldEditEnd() {
+  editingLinkField.value = null;
+}
+
+function handleLinkFieldChange(
+  field: FieldEntity,
+  value: string[],
+  records: LinkedRecord[],
+) {
+  formValues.value[field.id] = value as CellValue;
+  linkFieldRecords.value.set(field.id, records);
+  editingLinkField.value = null;
+}
+
+function handleLinkFieldRemove(field: FieldEntity, targetRecordId: string) {
+  const currentRecords = linkFieldRecords.value.get(field.id) || [];
+  linkFieldRecords.value.set(
+    field.id,
+    currentRecords.filter((r) => r.record_id !== targetRecordId),
+  );
+  const currentValue = (formValues.value[field.id] as string[]) || [];
+  formValues.value[field.id] = currentValue.filter(
+    (id) => id !== targetRecordId,
+  ) as CellValue;
+}
 
 const isValid = computed(() => {
   return Object.keys(formErrors.value).length === 0;
@@ -295,6 +367,8 @@ function resetForm() {
   formErrors.value = {};
   submitSuccess.value = false;
   newRecordId.value = generateId();
+  linkFieldRecords.value.clear();
+  editingLinkField.value = null;
 
   // 设置默认值：使用 field.defaultValue（与 AddRecordDrawer 保持一致）
   visibleFields.value.forEach((field) => {
@@ -329,6 +403,14 @@ function resetForm() {
           formValues.value[field.id] = defaultValue;
         }
       }
+    }
+  });
+
+  // 关联字段统一初始化为空数组
+  visibleFields.value.forEach((field) => {
+    if (field.type === FieldType.LINK) {
+      const v = formValues.value[field.id];
+      formValues.value[field.id] = Array.isArray(v) ? v : [];
     }
   });
 }
@@ -582,7 +664,10 @@ defineExpose({
       label-position="top"
       class="form-container"
       @submit.prevent="handleSubmit">
-      <div class="form-card">
+      <div
+        class="form-card"
+        :class="{ 'is-multi-col': isMultiColumn }"
+        :style="{ '--form-cols': effectiveColumns }">
         <div
           v-for="field in visibleFields"
           :key="field.id"
@@ -590,6 +675,7 @@ defineExpose({
           :class="{
             'has-error': formErrors[field.id],
             'is-readonly': readonly,
+            'form-item--full': isFullWidthField(field),
           }">
           <label class="form-label">
             <el-icon class="field-icon">
@@ -812,6 +898,25 @@ defineExpose({
                 class="form-select"
                 @update:model-value="(val: any) => handleFieldChange(field.id, val)" />
             </template>
+
+            <!-- 关联字段类型 -->
+            <template v-else-if="field.type === FieldType.LINK">
+              <LinkField
+                :value="(formValues[field.id] as string[]) || []"
+                :linked-records="getLinkedRecords(field)"
+                :target-table-id="getLinkFieldConfig(field)?.targetTableId"
+                :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
+                :relationship-type="getLinkFieldConfig(field)?.relationshipType"
+                :is-editing="editingLinkField === field.id"
+                :readonly="readonly"
+                :record-id="props.record?.id || newRecordId"
+                :field-id="field.id"
+                :is-self-link="getLinkFieldConfig(field)?.isSelfLink"
+                @edit-start="handleLinkFieldEdit(field.id)"
+                @change="(val, records) => handleLinkFieldChange(field, val, records)"
+                @edit-end="handleLinkFieldEditEnd"
+                @remove="(targetId) => handleLinkFieldRemove(field, targetId)" />
+            </template>
           </div>
 
           <div v-if="formErrors[field.id]" class="form-error">
@@ -910,6 +1015,9 @@ defineExpose({
 
 // 表单卡片
 .form-card {
+  display: grid;
+  grid-template-columns: repeat(var(--form-cols, 1), minmax(0, 1fr));
+  gap: $spacing-lg $spacing-xl;
   background: $surface-color;
   border-radius: $border-radius-xl;
   padding: $spacing-xl;
@@ -925,6 +1033,23 @@ defineExpose({
       0 8px 16px rgba(0, 0, 0, 0.03);
     border-color: $gray-200;
   }
+
+  // 单列模式下保留字段之间的分隔线
+  &:not(.is-multi-col) .form-item:not(:last-child) {
+    border-bottom: 1px solid $gray-50;
+    padding-bottom: $spacing-md;
+    margin-bottom: $spacing-md;
+  }
+
+  &:not(.is-multi-col) .form-item:hover {
+    border-bottom-color: $gray-100;
+  }
+
+  // 移动端：强制单列布局，保证可读性与操作体验
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: $spacing-lg;
+  }
 }
 
 .form-container {
@@ -938,16 +1063,12 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;
-  padding: $spacing-md 0;
-  border-bottom: 1px solid transparent;
+  min-width: 0;
   transition: all 0.2s ease;
 
-  &:not(:last-child) {
-    border-bottom-color: $gray-50;
-  }
-
-  &:hover {
-    border-bottom-color: $gray-100;
+  // 宽字段（长文本 / 富文本 / 附件）在多列布局下占满整行
+  &--full {
+    grid-column: 1 / -1;
   }
 
   &.has-error {

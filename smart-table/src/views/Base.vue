@@ -859,6 +859,9 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
     });
 
     if (record) {
+      // 表单提交成功后，为关联（LINK）字段建立关联数据（含双向关联）
+      await createRecordLinks(record.id, values);
+
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success(t('view.base.formSubmitSuccess'));
 
@@ -907,6 +910,7 @@ const loadFormConfig = () => {
       visibleFieldIds?: string[];
       successMessage?: string;
       allowMultipleSubmit?: boolean;
+      columns?: number;
     };
 
     // 检查配置中是否明确设置了 visibleFieldIds
@@ -923,6 +927,7 @@ const loadFormConfig = () => {
         : defaultVisibleFieldIds,
       successMessage: configData?.successMessage || t('view.base.formSuccessDefault'),
       allowMultipleSubmit: configData?.allowMultipleSubmit !== false,
+      columns: configData?.columns ?? 1,
     };
   } else {
     // 使用默认配置
@@ -933,6 +938,7 @@ const loadFormConfig = () => {
       visibleFieldIds: defaultVisibleFieldIds,
       successMessage: t('view.base.formSuccessDefault'),
       allowMultipleSubmit: true,
+      columns: 1,
     };
   }
 };
@@ -975,6 +981,7 @@ const handleFormConfigSave = async (config: typeof formConfig.value) => {
       visibleFieldIds: config.visibleFieldIds,
       successMessage: config.successMessage,
       allowMultipleSubmit: config.allowMultipleSubmit,
+      columns: config.columns ?? 1,
     };
 
     await viewStore.updateView(currentView.id, {
@@ -2211,6 +2218,7 @@ const handleDocumentExportPdf = async () => {
               :description="formConfig.description"
               :submit-button-text="formConfig.submitButtonText"
               :visible-field-ids="formConfig.visibleFieldIds"
+              :columns="formConfig.columns"
               @submit="handleFormSubmit"
               @cancel="handleFormCancel" />
 

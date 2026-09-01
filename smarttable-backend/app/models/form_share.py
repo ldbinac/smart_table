@@ -151,6 +151,14 @@ class FormShare(db.Model):
         default='default'
     )
     
+    # 每行显示的字段数量（1-4），用于一行显示多个字段
+    columns: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        comment='表单填写时每行显示的字段数量（1-4）'
+    )
+    
     # 创建时间
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -228,6 +236,7 @@ class FormShare(db.Model):
             'submit_button_text': self.submit_button_text,
             'success_message': self.success_message,
             'theme': self.theme,
+            'columns': self.columns,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': str(self.created_by)

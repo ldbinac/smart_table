@@ -43,6 +43,7 @@ const formConfig = ref({
   maxSubmissions: null as number | null,
   allowedFields: [] as string[],
   theme: "default",
+  columns: 1,
 });
 
 // 已创建的分享
@@ -106,6 +107,7 @@ function resetForm() {
     maxSubmissions: null,
     allowedFields: availableFields.value.map((f) => f.id),
     theme: "default",
+    columns: 1,
   };
   createdShare.value = null;
   shareUrl.value = "";
@@ -153,6 +155,7 @@ async function createShare() {
       max_submissions: formConfig.value.maxSubmissions || undefined,
       allowed_fields: formConfig.value.allowedFields,
       theme: formConfig.value.theme,
+      columns: formConfig.value.columns,
     });
 
     createdShare.value = result;
@@ -488,6 +491,21 @@ async function copyExistingShareUrl(share: FormShareConfig) {
               show-icon />
           </div>
         </el-form-item>
+
+        <!-- 布局设置 -->
+        <el-divider content-position="left">{{ t("view.formLayoutConfig") }}</el-divider>
+
+        <el-form-item :label="t('view.formColumns')">
+          <el-radio-group v-model="formConfig.columns">
+            <el-radio-button :value="1">1</el-radio-button>
+            <el-radio-button :value="2">2</el-radio-button>
+            <el-radio-button :value="3">3</el-radio-button>
+            <el-radio-button :value="4">4</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <div class="field-hint">
+          <span>{{ t("view.formColumnsHint") }}</span>
+        </div>
       </el-form>
     </div>
 

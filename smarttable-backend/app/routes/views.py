@@ -186,8 +186,8 @@ def create_view(table_id) -> tuple:
         if 'config' in json_data and isinstance(json_data['config'], dict):
             config = json_data['config']
             # 表单特定的配置字段
-            form_config_fields = ['title', 'description', 'submitButtonText', 
-                                 'visibleFieldIds', 'successMessage', 'allowMultipleSubmit']
+            form_config_fields = ['title', 'description', 'submitButtonText',
+                                 'visibleFieldIds', 'successMessage', 'allowMultipleSubmit', 'columns']
             
             # 提取表单特定配置
             for field in form_config_fields:
@@ -363,8 +363,8 @@ def update_view(view_id) -> tuple:
             config = json_data['config']
             
             # 表单特定的配置字段
-            form_config_fields = ['title', 'description', 'submitButtonText', 
-                                 'visibleFieldIds', 'successMessage', 'allowMultipleSubmit']
+            form_config_fields = ['title', 'description', 'submitButtonText',
+                                 'visibleFieldIds', 'successMessage', 'allowMultipleSubmit', 'columns']
             
             # 检查是否有表单特定配置
             has_form_config = any(field in config for field in form_config_fields)
