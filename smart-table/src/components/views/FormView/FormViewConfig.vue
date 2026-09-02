@@ -276,7 +276,15 @@ function getFieldName(fieldId: string): string {
       <!-- 布局设置 -->
       <div class="config-section">
         <h4 class="section-title">{{ t("view.formLayoutConfig") }}</h4>
-        <p class="section-hint">{{ t("view.formColumnsHint") }}</p>
+        <div class="form-cols-hint">
+          <p class="section-hint">{{ t("view.formColumnsHint") }}</p>
+          <div class="full-row-types">
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLongText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeRichText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeAttachment") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLink") }}</el-tag>
+          </div>
+        </div>
 
         <el-form-item :label="t('view.formColumns')">
           <el-radio-group v-model="config.columns">
@@ -350,6 +358,27 @@ function getFieldName(fieldId: string): string {
   font-size: $font-size-sm;
   color: $text-secondary;
   margin: 0 0 $spacing-md;
+}
+
+.form-cols-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  background: var(--el-color-info-light-9);
+  border-left: 3px solid var(--el-color-info);
+  border-radius: 0 $border-radius-base $border-radius-base 0;
+
+  .section-hint {
+    margin: 0;
+  }
+}
+
+.full-row-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .columns-preview {

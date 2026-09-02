@@ -563,8 +563,14 @@ async function copyExistingShareUrl(share: FormShareConfig) {
             <el-radio-button :value="4">4</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <div class="field-hint">
-          <span>{{ t("view.formColumnsHint") }}</span>
+        <div class="form-cols-hint">
+          <span class="form-cols-hint__text">{{ t("view.formColumnsHint") }}</span>
+          <div class="full-row-types">
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLongText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeRichText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeAttachment") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLink") }}</el-tag>
+          </div>
         </div>
       </el-form>
     </div>
@@ -781,6 +787,29 @@ async function copyExistingShareUrl(share: FormShareConfig) {
 
 .field-hint {
   margin-top: 8px;
+}
+
+.form-cols-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--el-color-info-light-9);
+  border-left: 3px solid var(--el-color-info);
+  border-radius: 0 var(--el-border-radius-base, 4px) var(--el-border-radius-base, 4px);
+
+  .form-cols-hint__text {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    line-height: 1.5;
+  }
+}
+
+.full-row-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .share-table {
