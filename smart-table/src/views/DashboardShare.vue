@@ -380,11 +380,17 @@ function renderWidget(widget: WidgetConfig) {
   if (widget.type === "number") {
     const total = values.reduce((a, b) => a + b, 0);
     const formattedValue = formatLargeNumber(total);
+    const color = widget.config?.valueColor || widget.config?.colors?.[0] || "";
+    const textAlign = widget.config?.textAlign || "center";
+    const alignFlex =
+      textAlign === "left" ? "flex-start" : textAlign === "right" ? "flex-end" : "center";
+    const showNumberLabel = widget.config?.showNumberLabel !== false;
+    const numberLabel = widget.config?.numberLabel || widget.title;
 
     container.innerHTML = `
-      <div class="number-card">
-        <div class="number-value">${formattedValue}</div>
-        <div class="number-label">${escapeHtml(widget.title)}</div>
+      <div class="number-card" style="text-align: ${textAlign}; align-items: ${alignFlex}">
+        <div class="number-value" style="font-size: ${Number(widget.config?.valueFontSize) || 48}px${color ? `; color: ${color}` : ""}">${formattedValue}</div>
+        ${showNumberLabel ? `<div class="number-label">${escapeHtml(numberLabel)}</div>` : ""}
       </div>
     `;
     return;
