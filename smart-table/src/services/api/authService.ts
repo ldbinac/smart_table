@@ -67,7 +67,7 @@ export const getCurrentUser = async (): Promise<User> => {
 };
 
 export const changePassword = async (oldPassword: string, newPassword: string): Promise<void> => {
-  await apiClient.put<void>('/auth/change-password', {
+  await apiClient.put<void>('/auth/password', {
     old_password: oldPassword,
     new_password: newPassword
   });
