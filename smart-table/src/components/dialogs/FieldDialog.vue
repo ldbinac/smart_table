@@ -1046,8 +1046,11 @@ async function updateField() {
     };
 
     // 对于非成员字段，使用 defaultValue；成员字段的默认值已在 options 中设置
-    if (newField.value.type !== FieldType.MEMBER && newField.value.defaultValue !== undefined) {
-      updateData.defaultValue = newField.value.defaultValue;
+    if (newField.value.type !== FieldType.MEMBER) {
+      // 必须显式传 null 表示“清除默认值”：
+      // 取消默认值时（如日期字段切换为“不使用默认值”）defaultValue 为 undefined，
+      // 若直接省略该字段，后端无法区分“清除默认值”与“不修改默认值”，会保留原默认值
+      updateData.defaultValue = newField.value.defaultValue ?? null;
     }
 
     let updatedField: FieldEntity | undefined;

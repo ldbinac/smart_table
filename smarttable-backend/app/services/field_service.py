@@ -255,7 +255,9 @@ class FieldService:
         
         # 处理默认值更新
         if 'defaultValue' in data or 'default_value' in data:
-            default_value = data.get('defaultValue') or data.get('default_value')
+            # 用 in 判断键是否存在，取出时不使用 `or` 兜底：
+            # 否则显式传入的 0 / '' / False 等假值会被吞掉，且无法区分“清除默认值(null)”与“未传”
+            default_value = data.get('defaultValue', data.get('default_value'))
             is_valid, error_msg = FieldService.validate_default_value(
                 field.type, field.options, default_value
             )
@@ -263,14 +265,21 @@ class FieldService:
                 return {'success': False, 'error': error_msg}
 
             # 日期类型字段根据字段类型格式化默认值
-            if field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
+            if default_value is not None and field.type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
                 default_value = _format_date_default_value(default_value, field.type)
 
             # 更新 config 中的默认值
             if field.config is None:
                 field.config = {}
-            field.config['defaultValue'] = default_value
-            field.config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
+            if default_value is None:
+                # 清除默认值：必须移除配置键而非写入 None，
+                # 否则 get_default_value() 会命中该键返回 None，
+                # 且 to_dict() 仍会输出 defaultValue，前端表现为“取消不生效”
+                field.config.pop('defaultValue', None)
+                field.config.pop('defaultType', None)
+            else:
+                field.config['defaultValue'] = default_value
+                field.config['defaultType'] = 'dynamic' if default_value == 'now' else 'static'
             field.config['updatedAt'] = datetime.now(timezone.utc).isoformat()
             # 标记 config 字段为已修改，确保 SQLAlchemy 检测到变更
             from sqlalchemy.orm.attributes import flag_modified
