@@ -2532,8 +2532,10 @@ const handleDuplicateRecord = async () => {
   if (!contextMenuRecord.value) return;
   try {
     // 使用 tableStore.createRecord 创建记录（与删除逻辑保持一致）
+    // tableId 兜底为当前视图表格 ID：实时新增等场景下记录的 tableId 可能缺失，
+    // 否则会请求 /tables/undefined/fields 导致复制失败
     const newRecord = await tableStore.createRecord({
-      tableId: contextMenuRecord.value.tableId,
+      tableId: contextMenuRecord.value.tableId || props.tableId,
       values: { ...contextMenuRecord.value.values },
     });
     if (newRecord) {
@@ -4819,17 +4821,19 @@ const buildTableConfig = (): any => {
 
 // 处理悬浮操作图标点击 - 打开记录详情
 const handleActionIconClick = () => {
-  if (selectedCell.value && selectedCell.value.record?._originalRecord) {
-    const original = selectedCell.value.record._originalRecord;
+  const cellRecord = selectedCell.value?.record;
+  if (cellRecord && cellRecord._originalRecord) {
     // 区分主表与子表记录：
-    // - 主表 _originalRecord 是 RecordEntity（含 createdAt/updatedAt camelCase）
-    // - 子表 _originalRecord 是 LinkedRecordDetail（含 created_at/updated_at snake_case）
-    if ('created_at' in original || 'updated_at' in original) {
+    // 子表行由 useMasterDetail 构建时带 _isSubTableRecord 显式标记。
+    // 不再通过 created_at/updated_at 字段嗅探判断——实时广播新增的主表记录
+    // 在未转换前同样携带 snake_case 字段，嗅探会误判为子表记录，
+    // 导致打开错误抽屉并把数据保存到错误表的字段
+    if ((cellRecord as any)._isSubTableRecord) {
       // 子表记录：使用子表字段和目标表 ID
-      handleSubTableExpandRecord(selectedCell.value.record);
+      handleSubTableExpandRecord(cellRecord);
     } else {
       // 主表记录
-      handleExpandRecord(original as RecordEntity);
+      handleExpandRecord(cellRecord._originalRecord as RecordEntity);
     }
   }
   actionIconVisible.value = false;

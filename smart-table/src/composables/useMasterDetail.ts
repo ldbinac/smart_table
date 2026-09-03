@@ -219,6 +219,9 @@ export function useMasterDetail(options: {
         ...r.values,
         _recordId: r.id,
         _originalRecord: r,
+        // 显式标记子表行：供 VTableView 区分主表/子表记录，
+        // 避免依赖 created_at/updated_at 字段嗅探导致误判
+        _isSubTableRecord: true,
       }));
       // 应用记录转换器：注入主表的字段值转换逻辑
       if (recordTransformer && linkField) {
@@ -396,6 +399,9 @@ export function useMasterDetail(options: {
         ...r.values,
         _recordId: r.id,
         _originalRecord: r,
+        // 显式标记子表行：供 VTableView 区分主表/子表记录，
+        // 避免依赖 created_at/updated_at 字段嗅探导致误判
+        _isSubTableRecord: true,
       }));
       // 应用记录转换器
       if (recordTransformer) {
