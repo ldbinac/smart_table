@@ -1062,6 +1062,110 @@ class SingleSelectEditor implements IEditor {
   }
 }
 
+/**
+ * 长文本 / 富文本浮窗编辑器需要"留在编辑器内部"的按键集合。
+ *
+ * VTable 在表格容器（table.getElement()）上以冒泡阶段监听 keydown，默认将
+ * 方向键解释为"移动/切换单元格"、Tab 解释为"移动到右侧单元格"，
+ * 导致多行编辑器里的光标移动、Tab 缩进被吞掉。
+ * 因此在编辑器自身的 DOM 上截断这些按键的冒泡，交还给 textarea / Quill 处理。
+ *
+ * 注意：监听必须在冒泡阶段（不能用捕获阶段），否则事件无法到达编辑器内部的输入元素。
+ */
+const TEXT_EDITOR_INNER_KEYS = new Set([
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+  'Home', 'End', 'PageUp', 'PageDown', 'Tab',
+]);
+
+/** 长文本编辑器的缩进宽度（空格数） */
+const TEXTAREA_INDENT = '    ';
+
+/**
+ * 替换 textarea 中指定区间的文本。
+ * 优先使用 execCommand('insertText')，以便保留浏览器原生的撤销栈；失败时直接改 value。
+ */
+function replaceTextareaRange(
+  textarea: HTMLTextAreaElement,
+  start: number,
+  end: number,
+  text: string
+): void {
+  textarea.focus();
+  textarea.setSelectionRange(start, end);
+
+  let done = false;
+  try {
+    done = document.execCommand('insertText', false, text);
+  } catch {
+    done = false;
+  }
+
+  if (!done) {
+    const value = textarea.value;
+    textarea.value = value.slice(0, start) + text + value.slice(end);
+    textarea.setSelectionRange(start + text.length, start + text.length);
+  }
+}
+
+/**
+ * textarea 的 Tab / Shift+Tab 缩进处理（不切换单元格）。
+ * - Tab：无选区时在光标处插入缩进；有选区时为选区涉及的每一行行首追加缩进。
+ * - Shift+Tab：删除选区涉及行的行首缩进（最多 4 个空格或 1 个制表符）。
+ */
+function applyTextareaIndent(textarea: HTMLTextAreaElement, outdent: boolean): void {
+  const { selectionStart, selectionEnd, value } = textarea;
+
+  // 只按整行处理：取光标/选区所在文本块 [blockStart, blockEnd)
+  const blockStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+  const lineEnd = value.indexOf('\n', selectionEnd);
+  const blockEnd = lineEnd === -1 ? value.length : lineEnd;
+  const block = value.slice(blockStart, blockEnd);
+
+  // 光标（无选区）且为缩进 → 直接插入固定缩进即可
+  if (!outdent && selectionStart === selectionEnd) {
+    replaceTextareaRange(textarea, selectionStart, selectionEnd, TEXTAREA_INDENT);
+    return;
+  }
+
+  let removedFromFirstLine = 0;
+  const nextBlock = block
+    .split('\n')
+    .map((line, index) => {
+      if (outdent) {
+        const matched = /^(\t| {1,4})/.exec(line);
+        if (!matched) return line;
+        if (index === 0) removedFromFirstLine = matched[0].length;
+        return line.slice(matched[0].length);
+      }
+      return TEXTAREA_INDENT + line;
+    })
+    .join('\n');
+
+  if (nextBlock === block) return;
+
+  replaceTextareaRange(textarea, blockStart, blockEnd, nextBlock);
+
+  // 整块替换后光标会落到末尾，按增删的字符数把选区还原回去
+  const delta = nextBlock.length - block.length;
+  const nextStart = Math.max(
+    blockStart,
+    selectionStart + (outdent ? -removedFromFirstLine : TEXTAREA_INDENT.length)
+  );
+  const nextEnd = Math.max(nextStart, selectionEnd + delta);
+  textarea.setSelectionRange(nextStart, nextEnd);
+}
+
+/**
+ * 阻断剪贴板事件冒泡。
+ * VTable 在表格容器上监听 copy / cut / paste（本项目开启了 copySelected / pasteValueToCell），
+ * 会把"整表复制粘贴"套用到浮窗编辑器上，覆盖编辑器内选区文本的复制、并把粘贴内容写进多个单元格。
+ */
+function stopClipboardEventsBubbling(element: HTMLElement): void {
+  (['copy', 'cut', 'paste'] as const).forEach((type) => {
+    element.addEventListener(type, (e) => e.stopPropagation());
+  });
+}
+
 // TextAreaEditor - 多行文本编辑器（浮窗 textarea，5行高，可拖动调整大小）
 class TextAreaEditor implements IEditor {
   editorType = 'TextArea';
@@ -1122,6 +1226,9 @@ class TextAreaEditor implements IEditor {
     // 键盘事件：
     //   - Ctrl+Enter / Cmd+Enter → 保存并退出编辑
     //   - 纯 Enter → 阻止冒泡，防止 VTable 拦截，让 textarea 正常换行
+    //   - Tab / Shift+Tab → 在文本内缩进 / 反缩进，不再切换单元格
+    //   - 方向键 / Home / End / PageUp / PageDown → 阻止冒泡，在文本内移动光标而非切换单元格
+    //   - Escape → 不拦截，交由 VTable 取消编辑并关闭浮窗（与表格其它单元格一致）
     textarea.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         if (e.ctrlKey || e.metaKey) {
@@ -1133,11 +1240,26 @@ class TextAreaEditor implements IEditor {
           // 纯 Enter → 阻止 VTable 拦截，让 textarea 插入换行
           e.stopPropagation();
         }
+        return;
       }
-      if (e.key === 'Escape') {
+
+      if (e.key === 'Tab') {
+        // Tab → 缩进（Shift+Tab 反缩进），并阻止 VTable 切换到相邻单元格
+        e.preventDefault();
+        e.stopPropagation();
+        applyTextareaIndent(textarea, e.shiftKey);
+        this.value = textarea.value;
+        return;
+      }
+
+      if (TEXT_EDITOR_INNER_KEYS.has(e.key)) {
+        // 光标移动 / 翻页类按键留在编辑器内部，不冒泡到 VTable
         e.stopPropagation();
       }
     });
+
+    // 复制 / 剪切 / 粘贴留在编辑器内部，不被 VTable 的整表剪贴板逻辑覆盖
+    stopClipboardEventsBubbling(textarea);
 
     wrapper.appendChild(textarea);
     this.element = wrapper;
@@ -1228,6 +1350,30 @@ class RichTextEditor implements IEditor {
     editorContainer.className = 'rich-text-editor-container';
     wrapper.appendChild(editorContainer);
 
+    // 键盘事件：浮窗内的按键不应触发 VTable 的单元格跳转。
+    // 监听挂在浮窗层并使用冒泡阶段，保证事件先被 Quill 的 root 监听器处理，
+    // 再在这里截断冒泡，使 VTable 容器上的 keydown 监听器收不到这些按键。
+    //   - Ctrl+Enter / Cmd+Enter → 保存并退出编辑
+    //   - 纯 Enter → 换行（列表续行等由 Quill 处理）
+    //   - 方向键 / Home / End / PageUp / PageDown → 在富文本内移动光标
+    //   - Tab / Shift+Tab → Quill 默认的缩进 / 反缩进绑定
+    //   - Escape → 不拦截，交由 VTable 取消编辑并关闭浮窗
+    wrapper.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.successCallback?.();
+        return;
+      }
+      if (e.key === 'Enter' || TEXT_EDITOR_INNER_KEYS.has(e.key)) {
+        // 仅阻止冒泡，不阻止默认行为，交给 Quill / contenteditable 正常处理
+        e.stopPropagation();
+      }
+    });
+
+    // 复制 / 剪切 / 粘贴留在编辑器内部，不被 VTable 的整表剪贴板逻辑覆盖
+    stopClipboardEventsBubbling(wrapper);
+
     this.element = wrapper;
     this.container?.appendChild(wrapper);
   }
@@ -1264,13 +1410,8 @@ class RichTextEditor implements IEditor {
         }
       });
 
-      // 阻止 Enter 冒泡到 VTable，确保纯 Enter 只换行不退出编辑
-      // 使用捕获阶段拦截，在 VTable 处理之前截断
-      (this.editor.root as HTMLElement).addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
-          e.stopPropagation();
-        }
-      }, true);
+      // 注意：编辑器内的按键拦截统一在 createElement() 的浮窗 keydown 监听里处理，
+      // 这里不再单独拦截，避免捕获阶段截断导致 Quill 自身的按键绑定（列表续行等）失效
     } catch (e) {
       console.error('[RichTextEditor] 初始化失败:', e);
     }
