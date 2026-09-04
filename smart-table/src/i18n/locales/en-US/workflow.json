@@ -428,6 +428,7 @@
     "sourceFieldOptional": "Source Field (optional)",
     "useExpression": "Use expression",
     "useStaticValue": "Use static value",
+    "templateRefHint": "Variable references (click to copy):",
     "exprPlaceholder": "Use expression (e.g. {exprRef})",
     "expressionDocsHint": "View documentation for using expressions",
     "staticValuePlaceholder": "Enter static value",

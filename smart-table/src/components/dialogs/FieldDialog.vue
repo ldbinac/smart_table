@@ -42,6 +42,7 @@ import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.vue";
 import FormulaHelper from "@/components/fields/FormulaHelper.vue";
+import CopyableId from "@/components/common/CopyableId.vue";
 import { PRESET_REGEX_OPTIONS } from "@/utils/validation";
 
 const { t } = useI18n();
@@ -1496,6 +1497,8 @@ async function toggleFieldVisibility(
                 </el-icon>
               </span>
               <span class="field-name">{{ field.name }}</span>
+              <!-- 字段 ID：工作流模板变量 {{record.<field_id>}} 等场景需要，点击即可复制 -->
+              <CopyableId :text="field.id" class="field-id" />
               <span class="field-type">{{ getFieldTypeLabel(field.type) }}</span>
               <ElTag v-if="field.isPrimary" size="small" type="success">{{ t('field.primary') }}</ElTag>
               <ElTag v-if="field.isSystem" size="small" type="info">{{ t('field.system') }}</ElTag>
@@ -2405,6 +2408,17 @@ async function toggleFieldVisibility(
       .field-name {
         font-weight: 500;
         color: $text-primary;
+      }
+
+      /* 字段 ID：默认淡化显示，hover 行时才高亮，避免干扰字段名的阅读 */
+      .field-id {
+        max-width: 160px;
+        opacity: 0.55;
+        transition: opacity 0.2s;
+
+        &:hover {
+          opacity: 1;
+        }
       }
 
       .field-type {

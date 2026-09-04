@@ -131,5 +131,9 @@
   },
   "networkRetry": "网络连接异常，正在重试...",
   "tokenRefreshFailed": "Token 续期失败",
-  "userIdRequired": "用户ID不能为空"
+  "userIdRequired": "用户ID不能为空",
+  "copy": "复制",
+  "clickToCopy": "点击复制：{value}",
+  "copied": "已复制：{value}",
+  "copyFailed": "复制失败，请手动选择文本复制"
 }

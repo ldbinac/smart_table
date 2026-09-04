@@ -10,6 +10,7 @@ import {
   getNodeLabel,
 } from "@/utils/workflowNodeType";
 import { useI18n } from "vue-i18n";
+import CopyableId from "@/components/common/CopyableId.vue";
 
 const iconMap = NODE_TYPE_ICON_MAP;
 
@@ -121,6 +122,8 @@ function handleDelete() {
       </div>
       <div class="node-card-footer">
         <span class="node-type-label">{{ nodeTypeLabel }}</span>
+        <!-- 节点 ID：配置模板变量（如 {{node_outputs.<node_id>.result}}）时需要，点击即可复制 -->
+        <CopyableId :text="node.id" compact class="node-id" />
         <el-icon v-if="isCondition" class="condition-branch-icon"><Share /></el-icon>
       </div>
 
@@ -315,11 +318,20 @@ function handleDelete() {
 }
 
 .node-type-label {
+  flex-shrink: 0;
   font-size: 12px;
   color: $text-secondary;
 }
 
+/* 节点 ID：窄卡片内容不下，靠 tooltip 展示完整值 + 点击复制 */
+.node-id {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
 .condition-branch-icon {
+  flex-shrink: 0;
   font-size: 12px;
   color: $warning-color;
 }

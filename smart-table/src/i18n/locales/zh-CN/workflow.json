@@ -429,6 +429,7 @@
     "sourceFieldOptional": "源字段（可选）",
     "useExpression": "使用表达式",
     "useStaticValue": "使用静态值",
+    "templateRefHint": "变量引用（点击复制）：",
     "exprPlaceholder": "使用表达式（支持 {exprRef}）",
     "expressionDocsHint": "查看「使用表达式」帮助文档",
     "staticValuePlaceholder": "输入静态值",

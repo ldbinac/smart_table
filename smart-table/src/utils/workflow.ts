@@ -52,12 +52,13 @@ export function getAvailableLoopDataSources(
     .forEach((n) => {
       const varName = (n.config?.result_variable as string | undefined) ?? "records";
       options.push({
-        label: `${n.name} - 所有记录（${varName}）`,
+        // 选项文案中带上节点 ID / 字段 ID，便于用户直接拼 {{node_outputs.<node_id>}} 等模板变量
+        label: `${n.name}（${n.id}）- 所有记录（${varName}）`,
         value: { type: "find_records_all", node_id: n.id },
       });
       allowedFields.forEach((f) => {
         options.push({
-          label: `${n.name} - ${f.name}`,
+          label: `${n.name}（${n.id}）- ${f.name}（${f.id}）`,
           value: {
             type: "find_records_column",
             node_id: n.id,
@@ -72,7 +73,7 @@ export function getAvailableLoopDataSources(
     .filter((n) => n.node_type === "webhook")
     .forEach((n) => {
       options.push({
-        label: `${n.name} - json.array`,
+        label: `${n.name}（${n.id}）- json.array`,
         value: { type: "webhook_array", node_id: n.id },
       });
     });
@@ -80,7 +81,7 @@ export function getAvailableLoopDataSources(
   // 触发器字段（始终可用，因为工作流必然有触发器）
   allowedFields.forEach((f) => {
     options.push({
-      label: `触发器 - ${f.name}`,
+      label: `触发器 - ${f.name}（${f.id}）`,
       value: {
         type: "trigger_field",
         field_id: f.id,

@@ -50,6 +50,7 @@ import {
 } from "@/utils/conditionBranch";
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import LoopVarInserter from "./LoopVarInserter.vue";
+import TemplateRefHint from "./TemplateRefHint.vue";
 import {
   Delete,
   Plus,
@@ -82,6 +83,25 @@ const RECORD_FIELD_REF = "{{record.field_id}}";
 const TRIGGER_EVENT_REF = "{{trigger.event_type}}";
 const TRIGGER_RECORD_REF = "{{trigger.record.field_id}}";
 const RECORD_REF = "{{record}}";
+/** 循环体内的当前项引用（脚本由 LoopVarInserter 生成更精确的语法，这里只给常用形态） */
+const LOOP_ITEM_REF = "{{loop.item}}";
+
+/**
+ * 字段下拉选项文案：字段名称 (字段ID)。
+ * 模板变量（如 {{record.<field_id>}}）以字段 ID 引用字段，选项上直接展示 ID，
+ * 免去用户抓包或查 DOM 获取 ID 的成本。
+ */
+function fieldOptionLabel(field: { name: string; id: string }): string {
+  return `${field.name} (${field.id})`;
+}
+
+/**
+ * 节点下拉选项文案：节点名称 (节点类型 · 节点ID)。
+ * {{node_outputs.<node_id>}}、分支 target_node_id 等配置都依赖节点 ID。
+ */
+function nodeOptionLabel(node: { name: string; id: string; node_type: string }): string {
+  return `${node.name} (${getNodeLabel(node.node_type)} · ${node.id})`;
+}
 
 const emit = defineEmits<{
   (e: "update:node", node: WorkflowNode): void;
@@ -1007,6 +1027,36 @@ const canInsertLoopVar = computed(
   () => isInLoopBody.value && !props.readonly && parentLoopDataSource.value !== null,
 );
 
+/** 当前节点的上一个节点（order 紧邻且更小），用于生成 node_outputs 引用示例 */
+const previousNode = computed<WorkflowNode | null>(() => {
+  const cur = localNode.value;
+  const allNodes = props.allNodes ?? [props.node];
+  return (
+    allNodes
+      .filter((n) => n.id !== cur.id && n.order < cur.order)
+      .sort((a, b) => b.order - a.order)[0] ?? null
+  );
+});
+
+/**
+ * 模板变量引用示例（配合 TemplateRefHint 渲染，点击即可复制）。
+ * 传入字段 ID 时给出带真实 ID 的引用语法，否则给出占位语法。
+ */
+function templateRefsFor(fieldId?: string): string[] {
+  const refs: string[] = fieldId
+    ? [`{{record.${fieldId}}}`, `{{trigger.record.${fieldId}}}`]
+    : [RECORD_FIELD_REF, TRIGGER_RECORD_REF];
+
+  const prev = previousNode.value;
+  if (prev) {
+    refs.push(`{{node_outputs.${prev.id}.result}}`);
+  }
+  if (isInLoopBody.value) {
+    refs.push(LOOP_ITEM_REF);
+  }
+  return refs;
+}
+
 /**
  * 将循环变量片段追加到模板字符串末尾，并触发 ElMessage 提示。
  * 返回拼接后的新模板字符串，由调用方写入对应字段。
@@ -1379,7 +1429,7 @@ const nodeTypeLabel = computed(() => {
                   <el-option
                     v-for="field in fields"
                     :key="field.id"
-                    :label="field.name"
+                    :label="fieldOptionLabel(field)"
                     :value="field.id" />
                 </el-select>
 
@@ -1471,7 +1521,7 @@ const nodeTypeLabel = computed(() => {
             <el-option
               v-for="field in fields"
               :key="field.id"
-              :label="field.name"
+              :label="fieldOptionLabel(field)"
               :value="field.id" />
           </el-select>
 
@@ -1508,6 +1558,7 @@ const nodeTypeLabel = computed(() => {
                   :disabled="isLoadingLoopFieldDrillFields"
                   @insert="(snippet) => updateMappingTemplate(index, appendLoopVarSnippet(mapping.value_template, snippet))" />
               </div>
+              <TemplateRefHint :refs="templateRefsFor(mapping.field_id)" />
 
               <FieldValueInput
                 v-if="!useExpressionForUpdate[index] && mapping.field_id && getFieldById(mapping.field_id)"
@@ -1585,7 +1636,7 @@ const nodeTypeLabel = computed(() => {
               <el-option
                 v-for="field in targetTableFields"
                 :key="field.id"
-                :label="field.name"
+                :label="fieldOptionLabel(field)"
                 :value="field.id" />
             </el-select>
 
@@ -1599,7 +1650,7 @@ const nodeTypeLabel = computed(() => {
               <el-option
                 v-for="field in fields"
                 :key="field.id"
-                :label="field.name"
+                :label="fieldOptionLabel(field)"
                 :value="field.id" />
             </el-select>
           </div>
@@ -1637,6 +1688,7 @@ const nodeTypeLabel = computed(() => {
                   :disabled="isLoadingLoopFieldDrillFields"
                   @insert="(snippet) => updateCreateValueTemplate(index, appendLoopVarSnippet(mapping.value_template ?? '', snippet))" />
               </div>
+              <TemplateRefHint :refs="templateRefsFor(mapping.target_field_id)" />
 
               <FieldValueInput
                 v-if="!useExpressionForCreate[index] && mapping.target_field_id && getTargetFieldById(mapping.target_field_id)"
@@ -1721,7 +1773,7 @@ const nodeTypeLabel = computed(() => {
             <el-option
               v-for="field in emailFields"
               :key="field.id"
-              :label="field.name"
+              :label="fieldOptionLabel(field)"
               :value="field.id" />
           </el-select>
           <div class="field-hint">{{ t('workflow.nodeConfig.emailFieldHint') }}</div>
@@ -1760,6 +1812,7 @@ const nodeTypeLabel = computed(() => {
                 :disabled="isLoadingLoopFieldDrillFields"
                 @insert="(snippet) => emailSubject = appendLoopVarSnippet(emailSubject, snippet)" />
             </div>
+            <TemplateRefHint :refs="templateRefsFor()" />
             <div class="field-hint">{{ t('workflow.nodeConfig.emailFieldRefHint', { fieldRef: RECORD_FIELD_REF }) }}</div>
           </el-form-item>
 
@@ -1778,6 +1831,7 @@ const nodeTypeLabel = computed(() => {
                 :disabled="isLoadingLoopFieldDrillFields"
                 @insert="(snippet) => emailBody = appendLoopVarSnippet(emailBody, snippet)" />
             </div>
+            <TemplateRefHint :refs="templateRefsFor()" />
             <div class="field-hint">{{ t('workflow.nodeConfig.emailBodyRefHint', { fieldRef: RECORD_FIELD_REF, eventRef: TRIGGER_EVENT_REF }) }}</div>
           </el-form-item>
         </template>
@@ -1892,6 +1946,7 @@ const nodeTypeLabel = computed(() => {
                 :disabled="isLoadingLoopFieldDrillFields"
                 @insert="(snippet) => updateInlineWebhook({ body_template: appendLoopVarSnippet(inlineWebhook.body_template ?? '', snippet) })" />
             </div>
+            <TemplateRefHint :refs="templateRefsFor()" />
           </el-form-item>
         </template>
       </el-form>
@@ -1950,7 +2005,7 @@ const nodeTypeLabel = computed(() => {
                   <el-option
                     v-for="field in targetTableFields"
                     :key="field.id"
-                    :label="field.name"
+                    :label="fieldOptionLabel(field)"
                     :value="field.id" />
                 </el-select>
 
@@ -2008,7 +2063,7 @@ const nodeTypeLabel = computed(() => {
             <el-option
               v-for="field in targetTableFields"
               :key="field.id"
-              :label="field.name"
+              :label="fieldOptionLabel(field)"
               :value="field.id" />
           </el-select>
         </el-form-item>
@@ -2292,7 +2347,7 @@ const nodeTypeLabel = computed(() => {
         <el-form-item :label="t('workflow.nodeConfig.inputSource')">
           <el-select v-model="scriptConfig.input_node_id" :disabled="readonly" :placeholder="t('workflow.nodeConfig.defaultPrevOutputPlaceholder')" clearable class="full-width" @change="syncScriptConfig">
             <el-option :label="t('workflow.nodeConfig.defaultPrevOutput')" :value="(null as any)" />
-            <el-option v-for="n in scriptInputCandidates" :key="n.id" :label="n.name + ' (' + n.node_type + ')'" :value="n.id" />
+            <el-option v-for="n in scriptInputCandidates" :key="n.id" :label="nodeOptionLabel(n)" :value="n.id" />
           </el-select>
         </el-form-item>
 
@@ -2301,7 +2356,7 @@ const nodeTypeLabel = computed(() => {
             <div v-for="(b, idx) in scriptConfig.branches" :key="idx" class="script-branch-row">
               <el-input v-model="b.label" :placeholder="t('workflow.nodeConfig.branchLabel')" :disabled="readonly" style="width:140px" @change="syncScriptConfig" />
               <el-select v-model="b.target_node_id" :placeholder="t('workflow.nodeConfig.targetNode')" :disabled="readonly" class="full-width" @change="syncScriptConfig">
-                <el-option v-for="n in scriptBranchCandidates" :key="n.id" :label="n.name + ' (' + n.node_type + ')'" :value="n.id" />
+                <el-option v-for="n in scriptBranchCandidates" :key="n.id" :label="nodeOptionLabel(n)" :value="n.id" />
               </el-select>
               <el-button v-if="!readonly" :icon="Delete" link @click="scriptConfig.branches.splice(idx, 1); syncScriptConfig()" />
             </div>

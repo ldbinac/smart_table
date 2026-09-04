@@ -131,5 +131,9 @@
   },
   "networkRetry": "Network connection is abnormal, retrying...",
   "tokenRefreshFailed": "Token refresh failed",
-  "userIdRequired": "User ID cannot be empty"
+  "userIdRequired": "User ID cannot be empty",
+  "copy": "Copy",
+  "clickToCopy": "Click to copy: {value}",
+  "copied": "Copied: {value}",
+  "copyFailed": "Copy failed, please select and copy manually"
 }

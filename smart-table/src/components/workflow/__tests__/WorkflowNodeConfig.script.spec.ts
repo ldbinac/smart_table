@@ -29,6 +29,7 @@ vi.mock('@/services/api/workflowApiService', () => ({
 // Mock Element Plus 图标（包含 Cpu，script 节点图标）
 vi.mock('@element-plus/icons-vue', () => ({
   Delete: { template: '<span class="icon-delete" />' },
+  DocumentCopy: { template: '<span class="icon-document-copy" />' },
   Plus: { template: '<span class="icon-plus" />' },
   EditPen: { template: '<span class="icon-edit-pen" />' },
   Check: { template: '<span class="icon-check" />' },
