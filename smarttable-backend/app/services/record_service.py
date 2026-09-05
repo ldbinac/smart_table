@@ -883,7 +883,7 @@ class RecordService:
         Args:
             table_id: 表格 ID
             query: 搜索关键词
-            field_ids: 要搜索的字段 ID 列表
+            field_ids: 要搜索的字段 ID 列表；为 None 时搜索表内全部字段
             
         Returns:
             记录列表
@@ -891,29 +891,32 @@ class RecordService:
         escaped_query = _escape_like_pattern(query)
         like_pattern = f'%{escaped_query}%'
         
+        # 未指定字段时，默认搜索表内全部字段。
+        # 注意：不能对整列 JSON(B) 直接 cast 成文本再做 ILIKE —— PostgreSQL 会把
+        # 非 ASCII 字符（如中文）转义为 \\uXXXX，导致中文关键词永远匹配不到，
+        # 而 ASCII（如英文）不受影响。逐字段用 ->> 运算符取出原始文本可避免该问题。
+        if not field_ids:
+            fields = FieldService.get_all_fields(table_id)
+            field_ids = [str(f.id) for f in fields]
+        
         query_obj = Record.query.filter_by(table_id=table_id)
         
         if field_ids:
-            valid_field_ids = []
             uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
-            for field_id in field_ids:
-                if uuid_pattern.match(str(field_id)):
-                    valid_field_ids.append(field_id)
-                else:
-                    log.warning(f'[RecordService] Invalid field_id format, skipped: {field_id}')
+            valid_field_ids = [fid for fid in field_ids if uuid_pattern.match(str(fid))]
             
-            if valid_field_ids:
-                conditions = []
-                for field_id in valid_field_ids:
-                    conditions.append(
-                        cast(Record.values[field_id], String).ilike(like_pattern)
-                    )
-                if conditions:
-                    query_obj = query_obj.filter(or_(*conditions))
-        else:
-            query_obj = query_obj.filter(
-                cast(Record.values, String).ilike(like_pattern)
-            )
+            if not valid_field_ids:
+                return []
+            
+            conditions = []
+            for field_id in valid_field_ids:
+                # 使用 ->> 运算符提取字段真实文本（保留中文等非 ASCII 字符）。
+                # 注意：不能直接 cast(Record.values[field_id], String)，PostgreSQL 的
+                # JSON(B) 文本转换会把中文转义成 \uXXXX；也不能用 .astext（本版本 SQLAlchemy
+                # 的 JSON 索引表达式无该属性），故用 op('->>') 直接生成 values ->> 'key'。
+                conditions.append(Record.values.op('->>')(field_id).ilike(like_pattern))
+            if conditions:
+                query_obj = query_obj.filter(or_(*conditions))
         
         results = query_obj.all()
         return results
