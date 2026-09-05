@@ -929,6 +929,489 @@ class TestExecuteUpdateRecord:
         assert record.values[str(field.id)] == '有效值'
 
 
+class TestUpdateRecordRelatedUpdates:
+    """测试更新记录节点同步更新关联表（多表一致性 + 失败回滚）"""
+
+    def _make_related_table(self, ctx, base, owner):
+        from app.models.field import FieldType
+        rel_table = Table(base_id=base.id, name='关联表', order=1)
+        db.session.add(rel_table)
+        db.session.commit()
+        db.session.refresh(rel_table)
+        rel_field = Field(table_id=rel_table.id, name='备注', type=FieldType.SINGLE_LINE_TEXT.value, order=0)
+        db.session.add(rel_field)
+        db.session.commit()
+        db.session.refresh(rel_field)
+        return rel_table, rel_field
+
+    def _make_link_field(self, ctx, table):
+        from app.models.field import FieldType
+        link_field = Field(table_id=table.id, name='关联', type=FieldType.LINK_TO_RECORD.value, order=1)
+        db.session.add(link_field)
+        db.session.commit()
+        db.session.refresh(link_field)
+        return link_field
+
+    def _make_related_record(self, ctx, rel_table, rel_field, owner, value):
+        rel_rec = Record(table_id=rel_table.id, values={str(rel_field.id): value}, created_by=owner.id)
+        db.session.add(rel_rec)
+        db.session.commit()
+        db.session.refresh(rel_rec)
+        return rel_rec
+
+    def _link_main_to(self, record, link_field, related_ids):
+        # 关联字段值以字符串 ID 列表存储（与真实运行环境一致）
+        record.values = {**record.values, str(link_field.id): [str(rid) for rid in related_ids]}
+        flag_modified(record, 'values')
+        db.session.commit()
+        db.session.refresh(record)
+
+    def _build_workflow(self, ctx, base, table, owner, config):
+        workflow = WorkflowService.create_workflow(
+            base_id=base.id, table_id=table.id, name='关联更新测试', created_by=owner.id,
+            nodes_config=[{
+                'node_type': 'update_record', 'name': '更新', 'config': config, 'order': 0,
+            }],
+            trigger_config={'trigger_type': 'record_created', 'filter_config': {}},
+        )
+        WorkflowService.publish_workflow(workflow.id, created_by=owner.id)
+        return workflow
+
+    def _run(self, ctx, workflow, record, engine):
+        instance = WorkflowInstance(
+            workflow_id=workflow.id, version_number=1, trigger_type='record_created',
+            status=WorkflowInstanceStatus.RUNNING, trigger_record_id=record.id,
+        )
+        db.session.add(instance)
+        db.session.commit()
+        action_node = workflow.nodes.first()
+        return engine.execute_node(instance, action_node)
+
+    def test_update_record_related_update_via_link_field(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """主记录与关联表记录在同一事务内同步更新。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_rec = self._make_related_record(ctx, rel_table, rel_field, owner, '旧值')
+        self._link_main_to(record, link_field, [rel_rec.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['record_id'] == str(record.id)
+        assert result['related_updated'] == 1
+        db.session.refresh(record)
+        db.session.refresh(rel_rec)
+        assert record.values[str(field.id)] == '新状态'
+        assert rel_rec.values[str(rel_field.id)] == '已同步'
+
+    def test_update_record_related_update_condition_trigger_skips(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """trigger=condition 不满足条件时跳过关联更新，但主记录仍更新。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_rec = self._make_related_record(ctx, rel_table, rel_field, owner, '旧值')
+        self._link_main_to(record, link_field, [rel_rec.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'trigger': 'condition',
+                'trigger_condition': [{
+                    'field_id': str(field.id), 'operator': 'equals', 'value': '绝不会匹配'
+                }],
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 0
+        db.session.refresh(record)
+        db.session.refresh(rel_rec)
+        assert record.values[str(field.id)] == '新状态'
+        assert rel_rec.values[str(rel_field.id)] == '旧值'
+
+    def test_update_record_related_update_with_conditions_filter(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """关联更新通过 conditions 仅更新满足条件的关联记录。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_match = self._make_related_record(ctx, rel_table, rel_field, owner, '匹配')
+        rel_nomatch = self._make_related_record(ctx, rel_table, rel_field, owner, '不匹配')
+        self._link_main_to(record, link_field, [rel_match.id, rel_nomatch.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'conditions': [{'field_id': str(rel_field.id), 'operator': 'equals', 'value': '匹配'}],
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 1
+        db.session.refresh(rel_match)
+        db.session.refresh(rel_nomatch)
+        assert rel_match.values[str(rel_field.id)] == '已同步'
+        assert rel_nomatch.values[str(rel_field.id)] == '不匹配'
+
+    def test_update_record_related_update_invalid_table_error(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """关联更新目标表不存在时抛错且主记录不被修改。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_rec = self._make_related_record(ctx, rel_table, rel_field, owner, '旧值')
+        self._link_main_to(record, link_field, [rel_rec.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': '00000000-0000-0000-0000-000000000000',
+                'link_field_id': str(link_field.id),
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        with pytest.raises(Exception):
+            self._run(ctx, workflow, record, engine)
+
+        db.session.refresh(record)
+        db.session.refresh(rel_rec)
+        assert record.values[str(field.id)] == '初始值'
+        assert rel_rec.values[str(rel_field.id)] == '旧值'
+
+    def test_update_record_related_update_rollback_on_commit_failure(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """提交阶段失败时整体回滚，主记录与关联记录均保持不变。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_rec = self._make_related_record(ctx, rel_table, rel_field, owner, '旧值')
+        self._link_main_to(record, link_field, [rel_rec.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+
+        original_commit = db.session.commit
+        # 模拟提交失败，触发引擎内部 rollback 路径
+        db.session.commit = lambda: (_ for _ in ()).throw(RuntimeError('simulated commit failure'))
+        try:
+            with pytest.raises(RuntimeError):
+                self._run(ctx, workflow, record, engine)
+        finally:
+            db.session.commit = original_commit
+
+        db.session.refresh(record)
+        db.session.refresh(rel_rec)
+        assert record.values[str(field.id)] == '初始值'
+        assert rel_rec.values[str(rel_field.id)] == '旧值'
+
+    def test_update_record_related_update_trigger_condition_and_skips_when_any_fails(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """trigger_condition 为 and 时，任一条件不成立则整体跳过关联更新。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_rec = self._make_related_record(ctx, rel_table, rel_field, owner, '旧值')
+        self._link_main_to(record, link_field, [rel_rec.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'trigger': 'condition',
+                'trigger_condition': [
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '初始值'},
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '绝不会匹配'},
+                ],
+                'trigger_condition_conjunction': 'and',
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 0
+        db.session.refresh(rel_rec)
+        assert rel_rec.values[str(rel_field.id)] == '旧值'
+
+    def test_update_record_related_update_trigger_condition_or_fires_when_any_matches(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """trigger_condition 为 or 时，任一条件成立即触发关联更新。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_rec = self._make_related_record(ctx, rel_table, rel_field, owner, '旧值')
+        self._link_main_to(record, link_field, [rel_rec.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'trigger': 'condition',
+                'trigger_condition': [
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '初始值'},
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '绝不会匹配'},
+                ],
+                'trigger_condition_conjunction': 'or',
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 1
+        db.session.refresh(rel_rec)
+        assert rel_rec.values[str(rel_field.id)] == '已同步'
+
+    def test_update_record_related_update_trigger_condition_and_fires_when_all_match(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """trigger_condition 为 and 且全部成立时触发关联更新。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_rec = self._make_related_record(ctx, rel_table, rel_field, owner, '旧值')
+        self._link_main_to(record, link_field, [rel_rec.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'trigger': 'condition',
+                'trigger_condition': [
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '初始值'},
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '初始值'},
+                ],
+                'trigger_condition_conjunction': 'and',
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 1
+        db.session.refresh(rel_rec)
+        assert rel_rec.values[str(rel_field.id)] == '已同步'
+
+    def test_update_record_related_update_conditions_and_excludes_when_any_fails(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """conditions 为 and 时，任一条件不成立则对应关联记录不被更新。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_match = self._make_related_record(ctx, rel_table, rel_field, owner, '匹配')
+        rel_nomatch = self._make_related_record(ctx, rel_table, rel_field, owner, '不匹配')
+        self._link_main_to(record, link_field, [rel_match.id, rel_nomatch.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'conditions': [
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '匹配'},
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '其它不存在的值'},
+                ],
+                'conditions_conjunction': 'and',
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 0
+        db.session.refresh(rel_match)
+        db.session.refresh(rel_nomatch)
+        assert rel_match.values[str(rel_field.id)] == '匹配'
+        assert rel_nomatch.values[str(rel_field.id)] == '不匹配'
+
+    def test_update_record_related_update_conditions_or_includes_when_any_matches(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """conditions 为 or 时，任一条件成立即更新对应关联记录。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_match = self._make_related_record(ctx, rel_table, rel_field, owner, '匹配')
+        rel_nomatch = self._make_related_record(ctx, rel_table, rel_field, owner, '不匹配')
+        self._link_main_to(record, link_field, [rel_match.id, rel_nomatch.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'conditions': [
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '匹配'},
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '其它不存在的值'},
+                ],
+                'conditions_conjunction': 'or',
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 1
+        db.session.refresh(rel_match)
+        db.session.refresh(rel_nomatch)
+        assert rel_match.values[str(rel_field.id)] == '已同步'
+        assert rel_nomatch.values[str(rel_field.id)] == '不匹配'
+
+    def test_update_record_related_update_conditions_and_includes_when_all_match(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """conditions 为 and 且全部成立时更新匹配记录。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_match = self._make_related_record(ctx, rel_table, rel_field, owner, '匹配')
+        rel_nomatch = self._make_related_record(ctx, rel_table, rel_field, owner, '不匹配')
+        self._link_main_to(record, link_field, [rel_match.id, rel_nomatch.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'conditions': [
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '匹配'},
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '匹配'},
+                ],
+                'conditions_conjunction': 'and',
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 1
+        db.session.refresh(rel_match)
+        db.session.refresh(rel_nomatch)
+        assert rel_match.values[str(rel_field.id)] == '已同步'
+        assert rel_nomatch.values[str(rel_field.id)] == '不匹配'
+
+    def test_update_record_related_update_conditions_default_conjunction_is_and(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """未指定 conditions_conjunction 时默认按 and 处理。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_match = self._make_related_record(ctx, rel_table, rel_field, owner, '匹配')
+        rel_nomatch = self._make_related_record(ctx, rel_table, rel_field, owner, '不匹配')
+        self._link_main_to(record, link_field, [rel_match.id, rel_nomatch.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'conditions': [
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '匹配'},
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '其它不存在的值'},
+                ],
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 0
+        db.session.refresh(rel_match)
+        assert rel_match.values[str(rel_field.id)] == '匹配'
+
+    def test_update_record_related_update_trigger_or_and_conditions_and_combined(
+        self, ctx, base, table, owner, field, record, engine
+    ):
+        """trigger_condition(or) 与 conditions(and) 独立生效、组合筛选。"""
+        rel_table, rel_field = self._make_related_table(ctx, base, owner)
+        link_field = self._make_link_field(ctx, table)
+        rel_match = self._make_related_record(ctx, rel_table, rel_field, owner, '匹配')
+        rel_nomatch = self._make_related_record(ctx, rel_table, rel_field, owner, '不匹配')
+        self._link_main_to(record, link_field, [rel_match.id, rel_nomatch.id])
+
+        config = {
+            'updates': [{'field_id': str(field.id), 'value_template': '新状态'}],
+            'related_updates': [{
+                'target_table_id': str(rel_table.id),
+                'link_field_id': str(link_field.id),
+                'trigger': 'condition',
+                'trigger_condition': [
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '初始值'},
+                    {'field_id': str(field.id), 'operator': 'equals', 'value': '绝不会匹配'},
+                ],
+                'trigger_condition_conjunction': 'or',
+                'conditions': [
+                    {'field_id': str(rel_field.id), 'operator': 'equals', 'value': '匹配'},
+                    {'field_id': str(rel_field.id), 'operator': 'notEquals', 'value': '不匹配'},
+                ],
+                'conditions_conjunction': 'and',
+                'field_mappings': [{'target_field_id': str(rel_field.id), 'value_template': '已同步'}],
+            }],
+        }
+        workflow = self._build_workflow(ctx, base, table, owner, config)
+        result = self._run(ctx, workflow, record, engine)
+
+        assert result['related_updated'] == 1
+        db.session.refresh(rel_match)
+        db.session.refresh(rel_nomatch)
+        assert rel_match.values[str(rel_field.id)] == '已同步'
+        assert rel_nomatch.values[str(rel_field.id)] == '不匹配'
+
+    def test_validate_update_record_node_rejects_invalid_conjunction(
+        self, ctx, base, table, owner
+    ):
+        """关联更新配置中非法 conjunction 值应被校验拒绝。"""
+        with pytest.raises(ValueError) as exc:
+            WorkflowService._validate_update_record_node({
+                'config': {
+                    'related_updates': [{
+                        'target_table_id': '00000000-0000-0000-0000-000000000000',
+                        'conditions_conjunction': 'xor',
+                        'trigger_condition_conjunction': 'and',
+                    }]
+                }
+            })
+        assert 'conjunction' in str(exc.value)
+
+        # 合法的 and/or 不抛错
+        WorkflowService._validate_update_record_node({
+            'config': {
+                'related_updates': [{
+                    'target_table_id': '00000000-0000-0000-0000-000000000000',
+                    'conditions_conjunction': 'or',
+                    'trigger_condition_conjunction': 'and',
+                }]
+            }
+        })
+
+
 class TestExecuteFindRecords:
     """测试查找记录动作节点"""
 

@@ -474,6 +474,195 @@ function toggleExpressionForUpdate(index: number, value: boolean) {
   useExpressionForUpdate.value[index] = value;
 }
 
+// ==================== 更新记录节点：关联表同步更新 ====================
+
+interface RelatedUpdateTask {
+  target_table_id: string;
+  link_field_id?: string;
+  trigger: 'always' | 'condition';
+  trigger_condition?: ConditionItem[];
+  trigger_condition_conjunction?: 'and' | 'or';
+  conditions?: ConditionItem[];
+  conditions_conjunction?: 'and' | 'or';
+  field_mappings: FieldMapping[];
+}
+
+const relatedUpdates = computed<RelatedUpdateTask[]>({
+  get: () => configValue<RelatedUpdateTask[]>('related_updates', []),
+  set: (value) => setConfigValue('related_updates', value),
+});
+
+const linkFields = computed(() =>
+  props.fields.filter((f) => f.type === 'link' || f.type === 'link_to_record')
+);
+
+const fieldCache = ref<Record<string, FieldEntity[]>>({});
+const loadingTables = ref<Record<string, boolean>>({});
+
+async function loadTaskTableFields(tableId: string) {
+  if (!tableId || fieldCache.value[tableId] !== undefined) return;
+  loadingTables.value = { ...loadingTables.value, [tableId]: true };
+  try {
+    fieldCache.value = { ...fieldCache.value, [tableId]: await fieldService.getFieldsByTable(tableId) };
+  } catch (e) {
+    fieldCache.value = { ...fieldCache.value, [tableId]: [] };
+  } finally {
+    loadingTables.value = { ...loadingTables.value, [tableId]: false };
+  }
+}
+
+function taskFields(task: RelatedUpdateTask): FieldEntity[] {
+  if (!task.target_table_id) return [];
+  const cached = fieldCache.value[task.target_table_id];
+  if (cached === undefined && !loadingTables.value[task.target_table_id]) {
+    void loadTaskTableFields(task.target_table_id);
+  }
+  return cached ?? [];
+}
+
+function getRelatedFieldById(task: RelatedUpdateTask, fieldId: string): FieldEntity | undefined {
+  return taskFields(task).find((f) => f.id === fieldId);
+}
+
+function getRelatedFieldType(task: RelatedUpdateTask, fieldId: string): string {
+  return getRelatedFieldById(task, fieldId)?.type ?? '';
+}
+
+function addRelatedUpdate() {
+  relatedUpdates.value = [
+    ...relatedUpdates.value,
+    { target_table_id: '', link_field_id: '', trigger: 'always', trigger_condition: [], trigger_condition_conjunction: 'and', conditions: [], conditions_conjunction: 'and', field_mappings: [] },
+  ];
+}
+
+function removeRelatedUpdate(index: number) {
+  const list = [...relatedUpdates.value];
+  list.splice(index, 1);
+  relatedUpdates.value = list;
+  const expr = { ...useExprForRelated.value };
+  delete expr[index];
+  useExprForRelated.value = expr;
+}
+
+function patchRelatedUpdate(index: number, patch: Partial<RelatedUpdateTask>) {
+  relatedUpdates.value = relatedUpdates.value.map((t, i) => (i === index ? { ...t, ...patch } : t));
+}
+
+function onRelatedTargetTableChange(index: number, tableId: string) {
+  patchRelatedUpdate(index, { target_table_id: tableId, field_mappings: [] });
+  const expr = { ...useExprForRelated.value };
+  expr[index] = {};
+  useExprForRelated.value = expr;
+  if (tableId) void loadTaskTableFields(tableId);
+}
+
+function getTaskConditions(task: RelatedUpdateTask, which: 'conditions' | 'trigger_condition'): ConditionItem[] {
+  return (task[which] as ConditionItem[] | undefined) ?? [];
+}
+
+function getRelatedConjunction(task: RelatedUpdateTask, which: 'conditions' | 'trigger_condition'): ConjunctionValue {
+  const key = which === 'conditions' ? 'conditions_conjunction' : 'trigger_condition_conjunction';
+  return (task[key] as ConjunctionValue | undefined) ?? 'and';
+}
+
+function updateRelatedConjunction(index: number, which: 'conditions' | 'trigger_condition', value: ConjunctionValue) {
+  const key = which === 'conditions' ? 'conditions_conjunction' : 'trigger_condition_conjunction';
+  relatedUpdates.value = relatedUpdates.value.map((t, i) =>
+    i === index ? { ...t, [key]: value } : t
+  );
+}
+
+function setTaskConditions(index: number, which: 'conditions' | 'trigger_condition', arr: ConditionItem[]) {
+  relatedUpdates.value = relatedUpdates.value.map((t, i) =>
+    i === index ? { ...t, [which]: arr } : t
+  );
+}
+
+function addTaskCondition(index: number, which: 'conditions' | 'trigger_condition') {
+  const arr = [...getTaskConditions(relatedUpdates.value[index], which), { field_id: '', operator: FilterOperator.EQUALS, value: undefined }];
+  setTaskConditions(index, which, arr);
+}
+
+function removeTaskCondition(index: number, which: 'conditions' | 'trigger_condition', cIdx: number) {
+  const arr = [...getTaskConditions(relatedUpdates.value[index], which)];
+  arr.splice(cIdx, 1);
+  setTaskConditions(index, which, arr);
+}
+
+function onTaskCondFieldChange(index: number, which: 'conditions' | 'trigger_condition', cIdx: number, fieldId: string) {
+  const arr = [...getTaskConditions(relatedUpdates.value[index], which)];
+  const field = getRelatedFieldById(relatedUpdates.value[index], fieldId);
+  const ops = field ? getOperatorsForFieldType(field.type) : [];
+  arr[cIdx] = { field_id: fieldId, operator: ops[0] ?? FilterOperator.EQUALS, value: undefined };
+  setTaskConditions(index, which, arr);
+}
+
+function onTaskCondOperatorChange(index: number, which: 'conditions' | 'trigger_condition', cIdx: number, op: FilterOperatorValue) {
+  const arr = [...getTaskConditions(relatedUpdates.value[index], which)];
+  arr[cIdx] = { ...arr[cIdx], operator: op };
+  if (!operatorRequiresValue(op)) arr[cIdx].value = undefined;
+  setTaskConditions(index, which, arr);
+}
+
+function onTaskCondValueChange(index: number, which: 'conditions' | 'trigger_condition', cIdx: number, val: unknown) {
+  const arr = [...getTaskConditions(relatedUpdates.value[index], which)];
+  arr[cIdx] = { ...arr[cIdx], value: val };
+  setTaskConditions(index, which, arr);
+}
+
+// 关联表字段映射（表达式 / 静态值可切换）
+const useExprForRelated = ref<Record<number, Record<number, boolean>>>({});
+
+function relatedExprMode(taskIdx: number, mIdx: number): boolean {
+  return useExprForRelated.value[taskIdx]?.[mIdx] ?? false;
+}
+
+function toggleRelatedExpr(taskIdx: number, mIdx: number, val: boolean) {
+  const expr = { ...useExprForRelated.value };
+  expr[taskIdx] = { ...(expr[taskIdx] ?? {}), [mIdx]: val };
+  useExprForRelated.value = expr;
+}
+
+function addRelatedMapping(taskIdx: number) {
+  relatedUpdates.value = relatedUpdates.value.map((t, i) =>
+    i === taskIdx ? { ...t, field_mappings: [...(t.field_mappings ?? []), { target_field_id: '', value_template: '' }] } : t
+  );
+}
+
+function removeRelatedMapping(taskIdx: number, mIdx: number) {
+  relatedUpdates.value = relatedUpdates.value.map((t, i) => {
+    if (i !== taskIdx) return t;
+    const fm = [...(t.field_mappings ?? [])];
+    fm.splice(mIdx, 1);
+    return { ...t, field_mappings: fm };
+  });
+}
+
+function updateRelatedMappingField(taskIdx: number, mIdx: number, fieldId: string) {
+  relatedUpdates.value = relatedUpdates.value.map((t, i) => {
+    if (i !== taskIdx) return t;
+    const fm = [...(t.field_mappings ?? [])];
+    fm[mIdx] = { ...fm[mIdx], target_field_id: fieldId, value_template: '' };
+    return { ...t, field_mappings: fm };
+  });
+  const expr = { ...useExprForRelated.value };
+  expr[taskIdx] = { ...(expr[taskIdx] ?? {}), [mIdx]: false };
+  useExprForRelated.value = expr;
+}
+
+function updateRelatedMappingTemplate(taskIdx: number, mIdx: number, tpl: string) {
+  relatedUpdates.value = relatedUpdates.value.map((t, i) => {
+    if (i !== taskIdx) return t;
+    const fm = [...(t.field_mappings ?? [])];
+    fm[mIdx] = { ...fm[mIdx], value_template: tpl };
+    return { ...t, field_mappings: fm };
+  });
+}
+
+function onRelatedStaticValueChange(taskIdx: number, mIdx: number, val: unknown) {
+  updateRelatedMappingTemplate(taskIdx, mIdx, val == null ? '' : String(val));
+}
+
 // 打开「使用表达式」相关的官方帮助文档
 const EXPRESSION_DOC_BASE = "https://my-smart-table.github.io/smart-table-docs";
 function openExpressionDocsUrl(nodeType: "create_record" | "update_record") {
@@ -1516,6 +1705,7 @@ const nodeTypeLabel = computed(() => {
             :model-value="mapping.field_id"
             :placeholder="t('workflow.nodeConfig.targetField')"
             class="field-select"
+            popper-class="wf-field-dropdown"
             :disabled="readonly"
             @change="(val) => updateMappingFieldId(index, val as string)">
             <el-option
@@ -1598,6 +1788,367 @@ const nodeTypeLabel = computed(() => {
           {{ t('workflow.nodeConfig.addFieldUpdate') }}
         </el-button>
       </div>
+
+      <el-divider />
+
+      <!-- 关联表同步更新 -->
+      <div class="related-updates-section">
+        <div class="section-title">{{ t('workflow.nodeConfig.relatedUpdates') }}</div>
+
+        <div
+          v-for="(ru, ri) in relatedUpdates"
+          :key="ri"
+          class="related-update-card">
+          <div class="related-update-header">
+            <span class="card-title">{{ t('workflow.nodeConfig.relatedUpdates') }} #{{ ri + 1 }}</span>
+            <el-button
+              v-if="!readonly"
+              type="danger"
+              :icon="Delete"
+              circle
+              size="small"
+              @click="removeRelatedUpdate(ri)" />
+          </div>
+
+          <el-form label-position="top" class="config-form">
+            <el-form-item>
+              <template #label>
+                <span class="cond-group-label">
+                  <span class="cond-group-title">{{ t('workflow.nodeConfig.relatedUpdateTargetTable') }}</span>
+                  <el-tooltip :content="t('workflow.nodeConfig.relatedUpdateTargetTableHint')" placement="top">
+                    <el-icon class="cond-help-icon"><QuestionFilled /></el-icon>
+                  </el-tooltip>
+                </span>
+              </template>
+              <el-select
+                :model-value="ru.target_table_id"
+                :placeholder="t('workflow.nodeConfig.relatedUpdateSelectTable')"
+                class="full-width"
+                popper-class="wf-field-dropdown"
+                :disabled="readonly"
+                @change="(v) => onRelatedTargetTableChange(ri, v as string)">
+                <el-option
+                  v-for="tb in availableTables"
+                  :key="tb.id"
+                  :label="tb.name"
+                  :value="tb.id" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item>
+              <template #label>
+                <span class="cond-group-label">
+                  <span class="cond-group-title">{{ t('workflow.nodeConfig.relatedUpdateLinkField') }}</span>
+                  <el-tooltip :content="t('workflow.nodeConfig.relatedUpdateLinkFieldHint')" placement="top">
+                    <el-icon class="cond-help-icon"><QuestionFilled /></el-icon>
+                  </el-tooltip>
+                </span>
+              </template>
+              <div class="field-hint" style="margin-bottom: 4px;">{{ t('workflow.nodeConfig.relatedUpdateLinkFieldHint') }}</div>
+              <el-select
+                :model-value="ru.link_field_id"
+                :placeholder="t('workflow.nodeConfig.relatedUpdateLinkFieldPlaceholder')"
+                class="full-width"
+                popper-class="wf-field-dropdown"
+                clearable
+                :disabled="readonly"
+                @change="(v) => patchRelatedUpdate(ri, { link_field_id: v as string })">
+                <el-option
+                  v-for="lf in linkFields"
+                  :key="lf.id"
+                  :label="lf.name"
+                  :value="lf.id" />
+              </el-select>
+            </el-form-item>
+
+            <!-- 关联表筛选条件：始终显示，置于同步触发方式之前 -->
+            <el-form-item>
+              <template #label>
+                <span class="cond-group-label">
+                  <span class="cond-group-title">{{ t('workflow.nodeConfig.relatedUpdateFilterConditionsTitle') }}</span>
+                  <el-tooltip :content="t('workflow.nodeConfig.relatedUpdateFilterConditionsHint')" placement="top">
+                    <el-icon class="cond-help-icon"><QuestionFilled /></el-icon>
+                  </el-tooltip>
+                </span>
+              </template>
+              <div class="cond-group-desc">{{ t('workflow.nodeConfig.relatedUpdateFilterConditionsHint') }}</div>
+              <div class="condition-conjunction">
+                <span class="conjunction-label">{{ t('workflow.nodeConfig.conjunction') }}</span>
+                <template v-if="readonly">
+                  <span class="conjunction-value">{{ getConjunctionLabel(getRelatedConjunction(ru, 'conditions')) }}</span>
+                </template>
+                <el-radio-group
+                  v-else
+                  :model-value="getRelatedConjunction(ru, 'conditions')"
+                  size="small"
+                  @change="(val) => updateRelatedConjunction(ri, 'conditions', val as ConjunctionValue)">
+                  <el-radio
+                    v-for="opt in CONJUNCTION_OPTIONS"
+                    :key="opt.value"
+                    :label="opt.value">
+                    {{ opt.label }}
+                  </el-radio>
+                </el-radio-group>
+              </div>
+              <div class="condition-editor">
+                <div v-if="getTaskConditions(ru, 'conditions').length === 0" class="empty-hint">
+                  {{ t('workflow.nodeConfig.noCondition') }}
+                </div>
+                <div
+                  v-for="(c, ci) in getTaskConditions(ru, 'conditions')"
+                  :key="ci"
+                  class="condition-row">
+                  <el-select
+                    :model-value="c.field_id"
+                    :placeholder="t('workflow.nodeConfig.targetField')"
+                    class="cond-field-select"
+                    :disabled="readonly"
+                    @change="(v) => onTaskCondFieldChange(ri, 'conditions', ci, v as string)">
+                    <el-option
+                      v-for="f in taskFields(ru)"
+                      :key="f.id"
+                      :label="fieldOptionLabel(f)"
+                      :value="f.id" />
+                  </el-select>
+                  <el-select
+                    :model-value="c.operator"
+                    class="cond-op-select"
+                    :disabled="readonly"
+                    @change="(v) => onTaskCondOperatorChange(ri, 'conditions', ci, v as FilterOperatorValue)">
+                    <el-option
+                      v-for="op in getOperatorOptions(getRelatedFieldType(ru, c.field_id))"
+                      :key="op.value"
+                      :label="op.label"
+                      :value="op.value" />
+                  </el-select>
+                  <FieldValueInput
+                    v-if="operatorRequiresValue(c.operator) && c.field_id && getRelatedFieldById(ru, c.field_id)"
+                    :field="getRelatedFieldById(ru, c.field_id)!"
+                    :model-value="c.value"
+                    class="cond-value-input"
+                    :disabled="readonly"
+                    @update:model-value="(v) => onTaskCondValueChange(ri, 'conditions', ci, v)" />
+                  <el-button
+                    v-if="!readonly"
+                    type="danger"
+                    :icon="Delete"
+                    circle
+                    size="small"
+                    @click="removeTaskCondition(ri, 'conditions', ci)" />
+                </div>
+                <el-button
+                  v-if="!readonly"
+                  type="primary"
+                  :icon="Plus"
+                  text
+                  @click="addTaskCondition(ri, 'conditions')">
+                  {{ t('workflow.nodeConfig.addCondition') }}
+                </el-button>
+              </div>
+            </el-form-item>
+
+            <el-form-item :label="t('workflow.nodeConfig.relatedUpdateTrigger')">
+              <el-select
+                :model-value="ru.trigger"
+                class="full-width"
+                :disabled="readonly"
+                @change="(v) => patchRelatedUpdate(ri, { trigger: v as 'always' | 'condition' })">
+                <el-option :label="t('workflow.nodeConfig.relatedUpdateTriggerAlways')" value="always" />
+                <el-option :label="t('workflow.nodeConfig.relatedUpdateTriggerCondition')" value="condition" />
+              </el-select>
+            </el-form-item>
+
+            <template v-if="ru.trigger === 'condition'">
+              <el-form-item>
+                <template #label>
+                  <span class="cond-group-label">
+                    <span class="cond-group-title">{{ t('workflow.nodeConfig.relatedUpdateTriggerConditionTitle') }}</span>
+                    <el-tooltip :content="t('workflow.nodeConfig.relatedUpdateTriggerConditionHint')" placement="top">
+                      <el-icon class="cond-help-icon"><QuestionFilled /></el-icon>
+                    </el-tooltip>
+                  </span>
+                </template>
+                <div class="cond-group-desc">{{ t('workflow.nodeConfig.relatedUpdateTriggerConditionHint') }}</div>
+                <div class="condition-conjunction">
+                  <span class="conjunction-label">{{ t('workflow.nodeConfig.conjunction') }}</span>
+                  <template v-if="readonly">
+                    <span class="conjunction-value">{{ getConjunctionLabel(getRelatedConjunction(ru, 'trigger_condition')) }}</span>
+                  </template>
+                  <el-radio-group
+                    v-else
+                    :model-value="getRelatedConjunction(ru, 'trigger_condition')"
+                    size="small"
+                    @change="(val) => updateRelatedConjunction(ri, 'trigger_condition', val as ConjunctionValue)">
+                    <el-radio
+                      v-for="opt in CONJUNCTION_OPTIONS"
+                      :key="opt.value"
+                      :label="opt.value">
+                      {{ opt.label }}
+                    </el-radio>
+                  </el-radio-group>
+                </div>
+                <div class="condition-editor">
+                  <div v-if="getTaskConditions(ru, 'trigger_condition').length === 0" class="empty-hint">
+                    {{ t('workflow.nodeConfig.noCondition') }}
+                  </div>
+                  <div
+                    v-for="(c, ci) in getTaskConditions(ru, 'trigger_condition')"
+                    :key="ci"
+                    class="condition-row">
+                    <el-select
+                      :model-value="c.field_id"
+                      :placeholder="t('workflow.nodeConfig.targetField')"
+                      class="cond-field-select"
+                      :disabled="readonly"
+                      @change="(v) => onTaskCondFieldChange(ri, 'trigger_condition', ci, v as string)">
+                      <el-option
+                        v-for="f in taskFields(ru)"
+                        :key="f.id"
+                        :label="fieldOptionLabel(f)"
+                        :value="f.id" />
+                    </el-select>
+                    <el-select
+                      :model-value="c.operator"
+                      class="cond-op-select"
+                      :disabled="readonly"
+                      @change="(v) => onTaskCondOperatorChange(ri, 'trigger_condition', ci, v as FilterOperatorValue)">
+                      <el-option
+                        v-for="op in getOperatorOptions(getRelatedFieldType(ru, c.field_id))"
+                        :key="op.value"
+                        :label="op.label"
+                        :value="op.value" />
+                    </el-select>
+                    <FieldValueInput
+                      v-if="operatorRequiresValue(c.operator) && c.field_id && getRelatedFieldById(ru, c.field_id)"
+                      :field="getRelatedFieldById(ru, c.field_id)!"
+                      :model-value="c.value"
+                      class="cond-value-input"
+                      :disabled="readonly"
+                      @update:model-value="(v) => onTaskCondValueChange(ri, 'trigger_condition', ci, v)" />
+                    <el-button
+                      v-if="!readonly"
+                      type="danger"
+                      :icon="Delete"
+                      circle
+                      size="small"
+                      @click="removeTaskCondition(ri, 'trigger_condition', ci)" />
+                  </div>
+                  <el-button
+                    v-if="!readonly"
+                    type="primary"
+                    :icon="Plus"
+                    text
+                    @click="addTaskCondition(ri, 'trigger_condition')">
+                    {{ t('workflow.nodeConfig.addCondition') }}
+                  </el-button>
+                </div>
+              </el-form-item>
+            </template>
+
+            <el-form-item :label="t('workflow.nodeConfig.relatedUpdateFieldMappings')">
+              <div class="mapping-list">
+                <div
+                  v-for="(m, mi) in ru.field_mappings"
+                  :key="mi"
+                  class="mapping-row">
+                  <div class="field-select">
+                    <el-select
+                      :model-value="m.target_field_id"
+                      :placeholder="t('workflow.nodeConfig.targetField')"
+                      popper-class="wf-field-dropdown"
+                      style="width: 100%"
+                      :disabled="readonly"
+                      @change="(v) => updateRelatedMappingField(ri, mi, v as string)">
+                      <el-option
+                        v-for="f in taskFields(ru)"
+                        :key="f.id"
+                        :label="fieldOptionLabel(f)"
+                        :value="f.id" />
+                    </el-select>
+                  </div>
+                  <div class="template-input-column">
+                    <template v-if="!isStaticOnlyFieldType(getRelatedFieldType(ru, m.target_field_id))">
+                      <div class="mode-switch-row">
+                        <el-switch
+                          :model-value="relatedExprMode(ri, mi)"
+                          :disabled="readonly || !m.target_field_id"
+                          size="small"
+                          :active-text="t('workflow.nodeConfig.useExpression')"
+                          :inactive-text="t('workflow.nodeConfig.useStaticValue')"
+                          @update:model-value="(v) => toggleRelatedExpr(ri, mi, v as boolean)" />
+                      </div>
+                      <div v-if="relatedExprMode(ri, mi)" class="template-input-with-loop-var">
+                        <el-input
+                          :model-value="m.value_template"
+                          :placeholder="t('workflow.nodeConfig.exprPlaceholder', { exprRef: TRIGGER_RECORD_REF })"
+                          class="template-input"
+                          :disabled="readonly"
+                          @update:model-value="(v) => updateRelatedMappingTemplate(ri, mi, v as string)" />
+                        <LoopVarInserter
+                          v-if="canInsertLoopVar"
+                          :supports-field-drill="loopDataSourceSupportsFieldDrill"
+                          :field-options="loopFieldDrillOptions"
+                          :disabled="isLoadingLoopFieldDrillFields"
+                          @insert="(snippet) => updateRelatedMappingTemplate(ri, mi, appendLoopVarSnippet(m.value_template ?? '', snippet))" />
+                      </div>
+                      <TemplateRefHint :refs="templateRefsFor(m.target_field_id)" />
+                      <FieldValueInput
+                        v-if="!relatedExprMode(ri, mi) && m.target_field_id && getRelatedFieldById(ru, m.target_field_id)"
+                        :key="`rel-static-${ri}-${mi}`"
+                        :field="getRelatedFieldById(ru, m.target_field_id)!"
+                        :model-value="m.value_template"
+                        :placeholder="t('workflow.nodeConfig.staticValuePlaceholder')"
+                        class="static-value-input"
+                        :disabled="readonly"
+                        @update:model-value="(v) => onRelatedStaticValueChange(ri, mi, v)" />
+                    </template>
+                    <template v-else>
+                      <FieldValueInput
+                        v-if="m.target_field_id && getRelatedFieldById(ru, m.target_field_id)"
+                        :key="`rel-static-${ri}-${mi}`"
+                        :field="getRelatedFieldById(ru, m.target_field_id)!"
+                        :model-value="m.value_template"
+                        :placeholder="t('workflow.nodeConfig.staticValuePlaceholder')"
+                        class="static-value-input"
+                        :disabled="readonly"
+                        @update:model-value="(v) => onRelatedStaticValueChange(ri, mi, v)" />
+                    </template>
+                  </div>
+                  <el-button
+                    v-if="!readonly"
+                    type="danger"
+                    :icon="Delete"
+                    circle
+                    size="small"
+                    class="delete-btn"
+                    @click="removeRelatedMapping(ri, mi)" />
+                </div>
+                <el-button
+                  v-if="!readonly"
+                  type="primary"
+                  :icon="Plus"
+                  text
+                  @click="addRelatedMapping(ri)">
+                  {{ t('workflow.nodeConfig.addFieldMapping') }}
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <el-empty
+          v-if="relatedUpdates.length === 0"
+          :description="t('workflow.nodeConfig.relatedUpdateNoTask')"
+          :image-size="60" />
+        <el-button
+          v-if="!readonly"
+          type="primary"
+          :icon="Plus"
+          text
+          @click="addRelatedUpdate">
+          {{ t('workflow.nodeConfig.addRelatedUpdate') }}
+        </el-button>
+      </div>
     </template>
 
     <!-- 创建记录节点 -->
@@ -1608,6 +2159,7 @@ const nodeTypeLabel = computed(() => {
             v-model="createRecordTargetTableId"
             :placeholder="t('workflow.nodeConfig.selectTargetTable')"
             class="full-width"
+            popper-class="wf-field-dropdown"
             :disabled="readonly"
             @change="onCreateRecordTargetTableChange">
             <el-option
@@ -1630,6 +2182,7 @@ const nodeTypeLabel = computed(() => {
               :model-value="mapping.target_field_id"
               :placeholder="t('workflow.nodeConfig.targetField')"
               class="field-select"
+              popper-class="wf-field-dropdown"
               :disabled="readonly"
               :loading="isLoadingTargetFields"
               @change="(val) => updateCreateMapping(index, { target_field_id: val as string })">
@@ -1645,6 +2198,7 @@ const nodeTypeLabel = computed(() => {
               :placeholder="t('workflow.nodeConfig.sourceFieldOptional')"
               clearable
               class="field-select"
+              popper-class="wf-field-dropdown"
               :disabled="readonly"
               @change="(val) => onCreateSourceFieldChange(index, val as string | undefined)">
               <el-option
@@ -2395,6 +2949,114 @@ const nodeTypeLabel = computed(() => {
   padding: $spacing-md;
 }
 
+.related-updates-section {
+  margin-top: $spacing-md;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: $spacing-sm;
+  color: $text-primary;
+}
+
+.related-update-card {
+  border: 1px solid $border-color;
+  border-radius: 6px;
+  padding: $spacing-sm;
+  margin-bottom: $spacing-md;
+  background: $gray-50;
+}
+
+.related-update-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-sm;
+}
+
+.card-title {
+  font-weight: 600;
+}
+
+.field-hint,
+.cond-group-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $text-secondary;
+  background: $bg-color;
+  border-left: 3px solid $border-color;
+  border-radius: 0 $border-radius-sm $border-radius-sm 0;
+  padding: 6px 10px;
+}
+
+.field-hint {
+  margin: $spacing-xs 0 0 $spacing-xs;
+}
+
+.sub-title {
+  font-size: 13px;
+  color: $text-secondary;
+  margin: $spacing-xs 0;
+}
+
+.cond-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.cond-group-title {
+  font-weight: 500;
+}
+
+.cond-help-icon {
+  color: $text-secondary;
+  cursor: help;
+  font-size: 14px;
+}
+
+.cond-group-desc {
+  margin: 0 0 $spacing-xs $spacing-xs;
+}
+
+.condition-editor {
+  width: 100%;
+}
+
+.condition-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  margin-bottom: $spacing-xs;
+  flex-wrap: wrap;
+}
+
+.cond-field-select {
+  width: 38%;
+  min-width: 120px;
+}
+
+.cond-op-select {
+  width: 28%;
+  min-width: 90px;
+}
+
+.cond-value-input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: $text-secondary;
+  padding: 4px 0px 4px 50px;
+}
+
+.full-width {
+  width: 100%;
+}
+
 .config-header {
   display: flex;
   align-items: center;
@@ -2437,14 +3099,6 @@ const nodeTypeLabel = computed(() => {
   width: 100%;
 }
 
-.field-hint {
-  font-size: $font-size-xs;
-  color: $text-secondary;
-  line-height: 1.4;
-  margin-top: 4px;
-  margin-left: 8px;
-}
-
 .condition-conjunction {
   display: flex;
   align-items: center;
@@ -2469,6 +3123,7 @@ const nodeTypeLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;
+  width: 100%;
 }
 
 .condition-row,
@@ -2501,9 +3156,49 @@ const nodeTypeLabel = computed(() => {
   min-width: 120px;
 }
 
+// 字段映射行：固定字段选择列占比并截断超长名称，
+// 避免 el-select 按内容自适应宽度把后续控件挤出卡片导致无法操作
+.mapping-row {
+  .field-select {
+    flex: 0 0 38%;
+    max-width: 38%;
+    min-width: 0;
+
+    // Element Plus 2.x 的 .el-select 是 display:inline-block，
+    // 其内部 .el-select__wrapper（flex 容器）作为 inline-block 的子元素
+    // 不会自动撑满父级，会塌缩成内容宽度。
+    // 强制 display:block + width:100% 让 wrapper 正常撑满并参与省略号截断。
+    :deep(.el-select) {
+      display: block !important;
+      width: 100% !important;
+    }
+
+    :deep(.el-select__wrapper) {
+      display: flex !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+    }
+
+    :deep(.el-select__selected-item),
+    :deep(.el-select__placeholder) {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .template-input-column {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+}
+
 .value-input,
 .template-input {
   flex: 1;
+  min-width: 0;
 }
 
 .template-input-column {
@@ -2547,6 +3242,18 @@ const nodeTypeLabel = computed(() => {
   .field-select {
     flex: 0 0 40%;
     min-width: 0;
+
+    // 绕过 Element Plus 2.x 的 inline-block + flex 子元素塌缩坑
+    :deep(.el-select) {
+      display: block !important;
+      width: 100% !important;
+    }
+    :deep(.el-select__wrapper) {
+      display: flex !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+    }
   }
 
   .template-input-column {
@@ -2565,6 +3272,18 @@ const nodeTypeLabel = computed(() => {
     .field-select {
       flex: 1;
       min-width: 0;
+
+      // 绕过 Element Plus 2.x 的 inline-block + flex 子元素塌缩坑
+      :deep(.el-select) {
+        display: block !important;
+        width: 100% !important;
+      }
+      :deep(.el-select__wrapper) {
+        display: flex !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+      }
     }
   }
 
@@ -3080,6 +3799,16 @@ const nodeTypeLabel = computed(() => {
       color: $text-secondary;
       margin-right: 4px;
     }
+  }
+}
+</style>
+
+<style lang="scss">
+// 字段/表下拉列表（长列表）限制最大高度并支持滚动，
+// 避免选项过多时下拉遮住后续配置项导致无法操作
+.wf-field-dropdown {
+  .el-select-dropdown__wrap {
+    max-height: 240px;
   }
 }
 </style>

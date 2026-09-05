@@ -2334,6 +2334,10 @@ MESSAGES = {
         'zh-CN': '缺少目标记录 ID',
         'en-US': 'Missing target record ID',
     },
+    'related_update_missing_target_table': {
+        'zh-CN': '关联表同步更新任务 #{0} 未指定目标表',
+        'en-US': 'Related update task #{0} is missing a target table',
+    },
     'missing_email_template_key': {
         'zh-CN': '缺少邮件模板 key',
         'en-US': 'Missing email template key',

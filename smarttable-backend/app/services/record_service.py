@@ -344,7 +344,8 @@ class RecordService:
     @staticmethod
     def update_record(record: Record, values: Dict[str, Any] = None,
                      updated_by: str = None,
-                     expected_updated_at: str = None) -> Record:
+                     expected_updated_at: str = None,
+                     commit: bool = True) -> Record:
         """
         更新记录
 
@@ -444,9 +445,11 @@ class RecordService:
 
         # 刷新对象以确保获取最新的数据库状态
         db.session.flush()
-        db.session.commit()
+        if commit:
+            db.session.commit()
 
-        if changes:
+        # 以下事件广播仅在真正提交时触发，避免事务回滚后发送错误的实时消息
+        if commit and changes:
             try:
                 change_dict = {
                     change['field_id']: {
@@ -466,20 +469,21 @@ class RecordService:
                 from flask import current_app
                 current_app.logger.error(f'[RecordService] workflow_event_bus publish (update) error: {e}')
 
-        try:
-            from app.services.collaboration_service import CollaborationService
-            table = Table.query.get(str(record.table_id))
-            if table:
-                CollaborationService.broadcast_if_enabled('data:record_updated', str(table.base_id), {
-                    'table_id': str(record.table_id),
-                    'record_id': str(record.id),
-                    'changes': changes,
-                    'changed_by': str(updated_by) if updated_by else None,
-                    'timestamp': datetime.now(timezone.utc).isoformat()
-                })
-        except Exception as e:
-            from flask import current_app
-            current_app.logger.error(f'[RecordService] broadcast_if_enabled error: {e}')
+        if commit:
+            try:
+                from app.services.collaboration_service import CollaborationService
+                table = Table.query.get(str(record.table_id))
+                if table:
+                    CollaborationService.broadcast_if_enabled('data:record_updated', str(table.base_id), {
+                        'table_id': str(record.table_id),
+                        'record_id': str(record.id),
+                        'changes': changes,
+                        'changed_by': str(updated_by) if updated_by else None,
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    })
+            except Exception as e:
+                from flask import current_app
+                current_app.logger.error(f'[RecordService] broadcast_if_enabled error: {e}')
 
         return record
     
