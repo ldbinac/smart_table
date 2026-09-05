@@ -1206,6 +1206,10 @@ MESSAGES = {
         'zh-CN': '字段配置缺少关联表ID',
         'en-US': 'Field configuration is missing the linked table ID',
     },
+    'field_configuration_missing_formula': {
+        'zh-CN': '公式字段配置缺少公式表达式',
+        'en-US': 'Formula field configuration is missing the formula expression',
+    },
     'failed_schedule_retry_try_again_later': {
         'zh-CN': '安排重试失败，请稍后重试',
         'en-US': 'Failed to schedule a retry, please try again later',
@@ -3491,6 +3495,54 @@ MESSAGES = {
     'cannot_convert_field_type': {
         'zh-CN': '不能将 {0} 转换为 {1}',
         'en-US': 'Cannot convert {0} to {1}',
+    },
+    'field_type_conversion_requires_confirmation': {
+        'zh-CN': '将 {0} 转换为 {1} 会丢失部分数据，请确认后重试',
+        'en-US': 'Converting {0} to {1} will lose some data. Please confirm and try again',
+    },
+    'field_type_conversion_incompatible_values': {
+        'zh-CN': '存在 {0} 条数据无法转换为目标类型，已取消本次转换',
+        'en-US': '{0} value(s) cannot be converted to the target type. Conversion cancelled',
+    },
+    'field_type_conversion_blocked_system_type': {
+        'zh-CN': '系统字段类型不支持转换字段类型',
+        'en-US': 'System field types do not support changing the field type',
+    },
+    'field_type_conversion_blocked_reference_type': {
+        'zh-CN': '关联、查找、汇总等引用类型不支持转换字段类型',
+        'en-US': 'Reference types such as link, lookup and rollup do not support changing the field type',
+    },
+    'field_type_conversion_blocked_target_formula': {
+        'zh-CN': '不支持将字段转换为公式类型',
+        'en-US': 'Converting a field to the formula type is not supported',
+    },
+    'field_type_conversion_blocked_lossy': {
+        'zh-CN': '该字段已有数据，不支持此类型转换（可能会丢失数据）',
+        'en-US': 'This field already has data; this conversion is not supported because it would lose data',
+    },
+    'field_type_conversion_text_to_contact_blocked': {
+        'zh-CN': '文本字段已有数据，不支持转换为电话/邮箱/链接（原有文本可能不符合目标格式校验）',
+        'en-US': 'Text fields with existing data cannot be converted to phone, email or URL (the existing text may fail the target format validation)',
+    },
+    'field_type_conversion_primary_text_only': {
+        'zh-CN': '主字段仅支持在文本类型之间转换',
+        'en-US': 'The primary field can only be converted between text types',
+    },
+    'field_type_conversion_notice_formula_freeze': {
+        'zh-CN': '转换后该字段将不再自动重算，当前计算结果会被保留为静态值',
+        'en-US': 'After conversion this field will no longer recalculate; the current result is kept as a static value',
+    },
+    'field_type_conversion_notice_keep_member_id': {
+        'zh-CN': '转换后将保留成员 ID 文本，不再与成员关联',
+        'en-US': 'After conversion the member ID text is kept and the member link is removed',
+    },
+    'field_type_conversion_notice_keep_option_id': {
+        'zh-CN': '转换后将保留选项 ID 文本，不再与选项关联',
+        'en-US': 'After conversion the option ID text is kept and the option link is removed',
+    },
+    'field_type_conversion_lossy_datetime_to_date': {
+        'zh-CN': '转换后将仅保留日期部分，时间部分会被丢弃且不可恢复',
+        'en-US': 'After conversion only the date part is kept; the time part is discarded and cannot be recovered',
     },
     'system_field_type_cannot_delete': {
         'zh-CN': '{0} 是系统字段类型，不能被删除',

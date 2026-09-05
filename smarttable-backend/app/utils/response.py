@@ -31,6 +31,7 @@ def success_response(
     
     response = {
         'success': True,
+        'code': code,
         'message': translated_message,
         'data': data
     }
@@ -66,6 +67,7 @@ def error_response(
     
     response = {
         'success': False,
+        'code': code,
         'message': translated_message
     }
     

@@ -29,14 +29,16 @@ import {
   getFieldTypeLabel,
   getFieldTypeIconComponent,
   getUserCreatableFieldTypeOptions,
+  denormalizeFieldType,
   type FieldTypeValue,
   type LookupFieldConfig,
+  type ConvertibleTypesResult,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
 import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
-import { Rank, ArrowRight, Link, QuestionFilled } from "@element-plus/icons-vue";
+import { Rank, ArrowRight, Link, QuestionFilled, InfoFilled, WarningFilled } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
 import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
@@ -175,6 +177,58 @@ const fieldTypeConfigs = getUserCreatableFieldTypeOptions({
   includeSpecial: true,
   markSpecial: false,
 });
+
+// 字段类型转换：编辑已有字段时，从后端拉取该字段可转换的目标类型清单
+const convertibleTypes = ref<ConvertibleTypesResult | null>(null);
+// 已确认的有损转换目标类型（仅对当前选中值有效，切换类型后失效）
+const lossyConfirmedTarget = ref<string>("");
+// 当前类型变更前的类型，用于有损转换取消时回退
+const previousType = ref<string>("");
+
+// 将后端返回的可转换清单按“后端类型”建索引，避免前端/后端类型映射（如 rollup/lookup）错位
+const convertMap = computed<Record<string, { lossy: boolean; notice: string; disabled: boolean; reason: string }>>(() => {
+  const map: Record<string, { lossy: boolean; notice: string; disabled: boolean; reason: string }> = {};
+  const data = convertibleTypes.value;
+  if (!data) return map;
+  for (const item of data.allowed) {
+    map[item.type] = { lossy: item.lossy, notice: item.notice || "", disabled: false, reason: "" };
+  }
+  for (const item of data.blocked) {
+    map[item.type] = { lossy: false, notice: "", disabled: true, reason: item.reason || "" };
+  }
+  return map;
+});
+
+// 通过前端类型反查其在可转换清单中的信息
+function convertInfo(frontendType: string): { lossy: boolean; notice: string; disabled: boolean; reason: string } | undefined {
+  return convertMap.value[denormalizeFieldType(frontendType)];
+}
+
+const isEditMode = computed(() => !!editingField.value);
+const showTypeConvertHint = computed(() => isEditMode.value && convertibleTypes.value !== null);
+const typeConvertHasData = computed(() => convertibleTypes.value?.hasData ?? false);
+
+// 当前选择相对原始类型属于“行为变化”转换时，展示影响告知（公式冻结 / 引用型保留 ID 等）
+const currentConversionNotice = computed(() => {
+  if (!isEditMode.value || !editingField.value) return "";
+  if (newField.value.type === editingField.value.type) return "";
+  const info = convertInfo(newField.value.type as string);
+  if (info && !info.disabled && info.notice) return info.notice;
+  return "";
+});
+
+function typeOptionDisabled(config: { value: string }): boolean {
+  if (!isEditMode.value) return false;
+  const info = convertInfo(config.value);
+  return !!(info && info.disabled);
+}
+
+function typeOptionLabel(config: { value: string; label: string }): string {
+  if (!isEditMode.value) return config.label;
+  const info = convertInfo(config.value);
+  if (info && info.disabled && info.reason) return `${config.label}（${info.reason}）`;
+  return config.label;
+}
 
 // 可选的日期显示/录入格式
 const dateFormatOptions = [
@@ -624,6 +678,19 @@ function openEditField(field: FieldEntity) {
     memberConfig.value.defaultType = 'none';
     memberConfig.value.defaultUser = null;
   }
+
+  // 拉取该字段可转换的目标类型清单（异步，不阻塞编辑界面打开）
+  convertibleTypes.value = null;
+  lossyConfirmedTarget.value = "";
+  previousType.value = (field.type as string) || "";
+  fieldService
+    .getConvertibleTypes(field.id)
+    .then((res) => {
+      convertibleTypes.value = res;
+    })
+    .catch(() => {
+      convertibleTypes.value = null;
+    });
 }
 
 function backToList() {
@@ -1076,6 +1143,13 @@ async function updateField() {
       updatedField = await fieldService.updateField(
         editingField.value.id,
         updateData,
+        {
+          // 有损转换需携带二次确认标记，否则后端会拒绝
+          confirmLossy:
+            isEditMode.value &&
+            lossyConfirmedTarget.value !== "" &&
+            lossyConfirmedTarget.value === newField.value.type,
+        },
       );
 
       // 如果是关联字段，更新关联关系
@@ -1101,8 +1175,13 @@ async function updateField() {
     }
     ElMessage.success(t('field.fieldUpdated'));
     backToList();
-  } catch (error) {
-    ElMessage.error(t('field.fieldUpdateFailed'));
+  } catch (error: any) {
+    // apiClient 拦截器已对绝大多数错误码弹出后端 message，此处仅对未覆盖的情况兜底
+    if (!error?.code || error.code === 404) {
+      ElMessage.error(t('field.fieldUpdateFailed'));
+    } else {
+      console.error('[FieldDialog] updateField failed:', error);
+    }
   }
 }
 
@@ -1156,24 +1235,61 @@ function removeOption(index: number) {
 }
 
 function onTypeChange() {
+  const target = newField.value.type as string;
+  const info = isEditMode.value ? convertMap.value[target] : undefined;
+
+  // 有损转换（当前仅 date_time -> date）：需用户二次确认，未确认则回退到原类型
+  if (isEditMode.value && info && info.lossy && lossyConfirmedTarget.value !== target) {
+    ElMessageBox.confirm(
+      t("field.lossyConvertMessage", {
+        target: getFieldTypeLabel(denormalizeFieldType(target)),
+      }),
+      t("field.lossyConvertTitle"),
+      {
+        confirmButtonText: t("field.lossyConvertConfirm"),
+        cancelButtonText: t("field.lossyConvertCancel"),
+        type: "warning",
+      },
+    )
+      .then(() => {
+        lossyConfirmedTarget.value = target;
+        applyTypeChangeResets(target);
+      })
+      .catch(() => {
+        // 用户取消：回退到变更前类型
+        newField.value.type = (previousType.value || target) as FieldTypeValue;
+      });
+    return;
+  }
+
+  // 切换到非有损类型时清除有损确认标记
+  if (info && !info.lossy) {
+    lossyConfirmedTarget.value = "";
+  }
+  applyTypeChangeResets(target);
+}
+
+// 切换字段类型时重置与目标类型无关的临时配置
+function applyTypeChangeResets(target: string) {
+  const tgt = target as FieldTypeValue;
   if (
-    newField.value.type !== FieldType.SINGLE_SELECT &&
-    newField.value.type !== FieldType.MULTI_SELECT
+    tgt !== FieldType.SINGLE_SELECT &&
+    tgt !== FieldType.MULTI_SELECT
   ) {
     selectOptions.value = [];
   }
   // 切换类型时重置特定配置
   if (
-    newField.value.type !== FieldType.NUMBER &&
-    newField.value.type !== FieldType.FORMULA
+    tgt !== FieldType.NUMBER &&
+    tgt !== FieldType.FORMULA
   ) {
     newField.value.precision = 0;
   }
-  if (newField.value.type !== FieldType.FORMULA) {
+  if (tgt !== FieldType.FORMULA) {
     newField.value.formula = "";
   }
   // 切换类型时重置关联字段配置
-  if (newField.value.type !== FieldType.LINK) {
+  if (tgt !== FieldType.LINK) {
     newField.value.linkConfig = {
       targetTableId: "",
       relationshipType: "one_to_many",
@@ -1183,7 +1299,7 @@ function onTypeChange() {
     targetTableFields.value = [];
   }
   // 切换类型时重置查找字段配置
-  if (newField.value.type !== FieldType.LOOKUP) {
+  if (tgt !== FieldType.LOOKUP) {
     newField.value.lookupConfig = {
       name: "",
       config: {
@@ -1201,6 +1317,7 @@ function onTypeChange() {
       },
     };
   }
+  previousType.value = tgt;
 }
 
 /** 查找字段配置面板更新回调 */
@@ -1559,18 +1676,31 @@ async function toggleFieldVisibility(
             <ElOption
               v-for="config in fieldTypeConfigs"
               :key="config.value"
-              :label="config.label"
-              :value="config.value">
+              :label="typeOptionLabel(config)"
+              :value="config.value"
+              :disabled="typeOptionDisabled(config)">
               <span class="type-option">
                 <span class="type-icon">
                   <el-icon>
                     <component :is="config.icon" />
                   </el-icon>
                 </span>
-                <span>{{ config.label }}</span>
+                <span>{{ typeOptionLabel(config) }}</span>
               </span>
             </ElOption>
           </ElSelect>
+          <div
+            v-if="showTypeConvertHint"
+            class="field-hint type-convert-hint">
+            <el-icon><InfoFilled /></el-icon>
+            <span>{{ typeConvertHasData ? t('field.convertTypeHasDataHint') : t('field.convertTypeNoDataHint') }}</span>
+          </div>
+          <div
+            v-if="currentConversionNotice"
+            class="type-convert-notice">
+            <el-icon><WarningFilled /></el-icon>
+            <span>{{ currentConversionNotice }}</span>
+          </div>
         </ElFormItem>
 
         <!-- 文本字段最大长度配置 -->
@@ -2500,6 +2630,36 @@ async function toggleFieldVisibility(
   .self-link-hint {
     color: var(--el-color-primary);
     font-weight: 500;
+  }
+
+  // 类型转换：无数据自由提示 / 有数据无损提示
+  .type-convert-hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: calc($font-size-xs * 0.85);
+    color: $text-secondary;
+    margin-top: 4px;
+  }
+
+  // 类型转换：行为变化告知（公式冻结 / 引用型保留 ID 等）
+  .type-convert-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: calc($font-size-xs * 0.9);
+    line-height: 1.5;
+    color: #a05a00;
+    background: rgba(255, 125, 0, 0.1);
+    border: 1px solid rgba(255, 125, 0, 0.3);
+
+    .el-icon {
+      margin-top: 2px;
+      color: #ff7d00;
+    }
   }
 
   .options-editor {

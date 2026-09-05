@@ -3,6 +3,7 @@
  */
 import { apiClient } from '@/api/client';
 import type { Field, FieldType } from '@/api/types';
+import type { ConvertibleTypeItem, ConvertibleTypesResult } from '@/types/fields';
 
 export const getFields = async (tableId: string, shareToken?: string): Promise<Field[]> => {
   const params = shareToken ? { share_token: shareToken } : undefined;
@@ -43,6 +44,14 @@ export const getFieldTypes = async (): Promise<Array<{
   return apiClient.get<Array<{ type: FieldType; name: string; description: string }>>('/fields/types');
 };
 
+/**
+ * 获取字段可转换的目标类型清单
+ * 用于字段配置面板启用/禁用类型选项，并提示有损转换与影响告知
+ */
+export const getConvertibleTypes = async (id: string): Promise<ConvertibleTypesResult> => {
+  return apiClient.get<ConvertibleTypesResult>(`/fields/${id}/convertible-types`);
+};
+
 export const fieldApiService = {
   getFields,
   getField,
@@ -50,7 +59,8 @@ export const fieldApiService = {
   updateField,
   deleteField,
   reorderFields,
-  getFieldTypes
+  getFieldTypes,
+  getConvertibleTypes
 };
 
 export default fieldApiService;

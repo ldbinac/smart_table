@@ -3,6 +3,7 @@ import type { FieldEntity } from "../schema";
 import { generateId } from "../../utils/id";
 import type { CellValue, FieldOptions } from "../../types";
 import { fieldApiService } from "@/services/api/fieldApiService";
+import type { ConvertibleTypesResult } from "@/services/api/fieldApiService";
 import { normalizeFieldType, denormalizeFieldType } from "@/types/fields";
 import { t } from "@/i18n";
 
@@ -183,12 +184,26 @@ export class FieldService {
     return fields;
   }
 
-  async updateField(id: string, changes: Partial<FieldEntity>): Promise<FieldEntity | undefined> {
+  /**
+   * 更新字段
+   * @param id 字段ID
+   * @param changes 变更内容
+   * @param options.confirmLossy 有损转换的用户二次确认标记（date_time → date 时必填）
+   */
+  async updateField(
+    id: string,
+    changes: Partial<FieldEntity>,
+    options?: { confirmLossy?: boolean },
+  ): Promise<FieldEntity | undefined> {
     try {
       // 如果需要更新 type，先转换为后端类型
-      const apiChanges: Partial<FieldEntity> = { ...changes };
+      const apiChanges: Partial<FieldEntity> & Record<string, unknown> = { ...changes };
       if (changes.type) {
         apiChanges.type = denormalizeFieldType(changes.type);
+      }
+      // 有损转换需显式携带确认标记，后端未收到该标记时会拒绝转换
+      if (options?.confirmLossy) {
+        apiChanges.confirmLossy = true;
       }
 
       // 先调用后端 API 更新字段，获取更新后的数据
@@ -228,6 +243,15 @@ export class FieldService {
       console.error("[fieldService] updateField failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * 获取字段可转换的目标类型清单
+   * 供字段配置面板启用/禁用类型选项，并展示有损转换与影响告知
+   * @param fieldId 字段ID
+   */
+  async getConvertibleTypes(fieldId: string): Promise<ConvertibleTypesResult> {
+    return fieldApiService.getConvertibleTypes(fieldId);
   }
 
   /**

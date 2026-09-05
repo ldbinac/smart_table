@@ -306,5 +306,15 @@
   "aggConcat": "Concatenate",
   "specialHintFormula": "Requires a formula",
   "specialHintLink": "Requires a link",
-  "specialHintLookup": "Requires a lookup"
+  "specialHintLookup": "Requires a lookup",
+  "convertTypeHasDataHint": "This field already has data. Only lossless conversions are allowed (Date ↔ Date Time is the only permitted lossy conversion, requiring confirmation)",
+  "convertTypeNoDataHint": "This field has no data yet, so you can freely change its type",
+  "lossyConvertTitle": "Confirm lossy conversion",
+  "lossyConvertMessage": "Converting to \"{target}\" will discard the time portion and cannot be undone. Continue?",
+  "lossyConvertConfirm": "Confirm conversion",
+  "lossyConvertCancel": "Cancel",
+  "convertIncompatibleTitle": "Cannot convert losslessly",
+  "convertIncompatibleMessage": "{count} record(s) cannot be converted to the target type losslessly. Conversion cancelled.",
+  "selectTypeRequired": "Please select a field type",
+  "optionsRequiredForConvert": "Target type is single/multi select; please configure options first"
 }

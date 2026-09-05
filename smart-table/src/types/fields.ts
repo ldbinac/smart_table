@@ -659,6 +659,29 @@ export function denormalizeFieldType(frontendType: string): string {
 }
 
 /**
+ * 字段类型转换：单个可转换目标项
+ * type 为后端字段类型，渲染前需经 normalizeFieldType 处理
+ */
+export interface ConvertibleTypeItem {
+  /** 后端字段类型，渲染前需 normalizeFieldType */
+  type: string;
+  /** true 表示有损转换，提交前必须弹二次确认并携带 confirmLossy */
+  lossy: boolean;
+  /** 行为变化告知（如"转换后不再自动重算"）；有损时为丢弃说明；无则为空串 */
+  notice: string;
+  /** 禁止转换的原因（仅 blocked 列表存在） */
+  reason?: string;
+}
+
+/** 字段可转换的目标类型清单（来自 GET /fields/{id}/convertible-types） */
+export interface ConvertibleTypesResult {
+  /** 该字段是否已产生数据（无数据时允许自由转换） */
+  hasData: boolean;
+  allowed: ConvertibleTypeItem[];
+  blocked: ConvertibleTypeItem[];
+}
+
+/**
  * 生成自动编号字符串
  * @param sequence 序列号
  * @param options 自动编号配置选项

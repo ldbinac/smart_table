@@ -306,5 +306,15 @@
   "aggConcat": "连接",
   "specialHintFormula": "需配置公式",
   "specialHintLink": "需配置关联",
-  "specialHintLookup": "需配置查找"
+  "specialHintLookup": "需配置查找",
+  "convertTypeHasDataHint": "该字段已存在数据，仅支持无损类型转换（日期↔日期时间为唯一允许的有损转换，需二次确认）",
+  "convertTypeNoDataHint": "该字段暂无数据，可自由调整字段类型",
+  "lossyConvertTitle": "确认有损转换",
+  "lossyConvertMessage": "转换为「{target}」将丢弃时间部分且不可恢复，确定继续吗？",
+  "lossyConvertConfirm": "确认转换",
+  "lossyConvertCancel": "取消",
+  "convertIncompatibleTitle": "无法无损转换",
+  "convertIncompatibleMessage": "存在 {count} 条数据无法无损转换为目标类型，已取消本次转换。",
+  "selectTypeRequired": "请选择字段类型",
+  "optionsRequiredForConvert": "目标类型为单选/多选时，请先配置选项"
 }
