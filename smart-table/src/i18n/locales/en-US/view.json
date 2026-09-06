@@ -530,7 +530,20 @@
     "hoursAgo": "{count} hours ago",
     "daysAgo": "{count} days ago",
     "resetZoom": "Reset",
-    "download": "Download"
+    "download": "Download",
+    "fullscreen": "Full Screen",
+    "exitFullscreen": "Exit Full Screen",
+    "pdfRotate": "Rotate",
+    "pdfPrevPage": "Previous",
+    "pdfNextPage": "Next",
+    "pdfPreviewFailed": "Preview failed, please download",
+    "pdfCloseTab": "Close",
+    "pdfOutline": "Outline",
+    "pdfFind": "Find",
+    "findPlaceholder": "Find in document...",
+    "noOutline": "No outline",
+    "searchPrev": "Previous match",
+    "searchNext": "Next match"
   },
   "member": {
     "memberManagement": "Member Management",

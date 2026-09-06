@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive, createApp, defineComponent, h } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import ElementPlus from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
@@ -65,31 +66,9 @@ import SubTableToolbar from "@/components/views/TableView/SubTableToolbar.vue";
 function recalcFloatingPanelPosition(
   col: number, row: number, panelWidth: number, panelHeight: number
 ): { x: number; y: number } | null {
-  const cellRect = (tableInstance as any)?.getCellRect(col, row);
-  const canvas = (tableInstance as any)?.canvas;
-  const canvasRect = canvas?.getBoundingClientRect();
-  if (!cellRect || !canvasRect) return null;
-
-  // VTable 的 getCellRect 返回表格内绝对坐标，需加上 canvas 视口位置和 tableX/tableY 偏移
-  const tableX = (tableInstance as any).tableX || 0;
-  const tableY = (tableInstance as any).tableY || 0;
-  const cellLeft = canvasRect.left + tableX + cellRect.left;
-  const cellTop = canvasRect.top + tableY + cellRect.top;
-  const cellRight = cellLeft + cellRect.width;
-  const cellBottom = cellTop + cellRect.height;
-
-  let panelX = cellRight;
-  let panelY = cellBottom;
-
-  if (panelX + panelWidth > window.innerWidth - 16) {
-    panelX = cellLeft - panelWidth;
-  }
-  if (panelY + panelHeight > window.innerHeight - 16) {
-    panelY = cellTop - panelHeight;
-  }
-  if (panelX < 8) panelX = 8;
-  if (panelY < 8) panelY = 8;
-
+  // 附件浮窗始终居中显示于浏览器视口，避免字段在表格右侧被滚动隐藏后弹窗跑到视口外
+  const panelX = Math.max(8, Math.round((window.innerWidth - panelWidth) / 2));
+  const panelY = Math.max(8, Math.round((window.innerHeight - panelHeight) / 2));
   return { x: panelX, y: panelY };
 }
 
@@ -119,6 +98,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const router = useRouter();
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
@@ -3996,6 +3976,12 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
               return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
             };
 
+            const isPdfFile = (name: string, type?: string): boolean => {
+              if (type && /pdf/i.test(type)) return true;
+              const ext = (name || '').split('.').pop()?.toLowerCase() || '';
+              return ext === 'pdf';
+            };
+
             const itemSize = 32;
             const gap = 6;
             const maxDisplay = 3;
@@ -4024,6 +4010,24 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
                 const itemGroup = createGroup({ width: itemSize + gap, height: itemSize, display: 'flex', alignItems: 'center' });
                 itemGroup.add(img);
                 container.add(itemGroup);
+              } else if (isPdfFile(fileName, file.type)) {
+                const fileId = typeof file === 'string' ? file : file.id;
+                const pdfItemGroup = createGroup({ width: itemSize + gap, height: itemSize });
+                const pdfRect = createRect({ x: 0, y: 0, width: itemSize, height: itemSize, cornerRadius: 4, fill: '#FDECEA', stroke: '#F56C6C', lineWidth: 1, cursor: 'pointer' });
+                const pdfTextGroup = createGroup({ x: 0, y: 0, width: itemSize, height: itemSize, display: 'flex', alignItems: 'center', justifyContent: 'center', pickable: false });
+                const pdfText = createText({ text: 'PDF', fontSize: 11, fontWeight: 'bold', fill: '#F56C6C', textBaseline: 'middle', textAlign: 'center', pickable: false });
+                pdfTextGroup.add(pdfText);
+                pdfItemGroup.add(pdfRect);
+                pdfItemGroup.add(pdfTextGroup);
+                pdfItemGroup.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
+                pdfItemGroup.addEventListener('pointertap', (e: any) => {
+                  e.stopPropagation?.();
+                  if (fileId) {
+                    const href = router.resolve({ name: 'PdfPreview', query: { id: fileId, name: file.originalName || file.name || '' } }).href;
+                    window.open(href, '_blank', 'noopener');
+                  }
+                });
+                container.add(pdfItemGroup);
               } else {
                 const itemGroup = createGroup({ width: itemSize + gap, height: itemSize, display: 'flex', alignItems: 'center' });
                 const pinPath = createPath({
@@ -4813,6 +4817,12 @@ const buildTableConfig = (): any => {
             return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
           };
 
+          const isPdfFile = (name: string, type?: string): boolean => {
+            if (type && /pdf/i.test(type)) return true;
+            const ext = (name || '').split('.').pop()?.toLowerCase() || '';
+            return ext === 'pdf';
+          };
+
           const itemSize = 32;
           const gap = 6;
           const maxDisplay = 3;
@@ -4860,8 +4870,26 @@ const buildTableConfig = (): any => {
               });
               itemGroup.add(img);
               container.add(itemGroup);
+            } else if (isPdfFile(fileName, file.type)) {
+              const fileId = typeof file === 'string' ? file : file.id;
+              const pdfItemGroup = createGroup({ width: itemSize + gap, height: itemSize });
+              const pdfRect = createRect({ x: 0, y: 0, width: itemSize, height: itemSize, cornerRadius: 4, fill: '#FDECEA', stroke: '#F56C6C', lineWidth: 1, cursor: 'pointer' });
+              const pdfTextGroup = createGroup({ x: 0, y: 0, width: itemSize, height: itemSize, display: 'flex', alignItems: 'center', justifyContent: 'center', pickable: false });
+              const pdfText = createText({ text: 'PDF', fontSize: 11, fontWeight: 'bold', fill: '#F56C6C', textBaseline: 'middle', textAlign: 'center', pickable: false });
+              pdfTextGroup.add(pdfText);
+              pdfItemGroup.add(pdfRect);
+              pdfItemGroup.add(pdfTextGroup);
+              pdfItemGroup.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
+              pdfItemGroup.addEventListener('pointertap', (e: any) => {
+                e.stopPropagation?.();
+                if (fileId) {
+                  const href = router.resolve({ name: 'PdfPreview', query: { id: fileId, name: file.originalName || file.name || '' } }).href;
+                  window.open(href, '_blank', 'noopener');
+                }
+              });
+              container.add(pdfItemGroup);
             } else {
-              // 文件类型图标 - 仅显示回形针 SVG 图标
+            // 文件类型图标 - 仅显示回形针 SVG 图标
               const itemGroup = createGroup({
                 width: itemSize + gap,
                 height: itemSize,
@@ -5732,35 +5760,11 @@ const bindTableEvents = () => {
           const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
           if (!cellRecord) return;
 
-          // 获取水平和垂直滚动偏移量，非冻结列/行需要减去 scrollLeft/scrollTop 以修正位置
-          const scrollLeft = (tableInstance as any).scrollLeft || 0;
-          const scrollTop = (tableInstance as any).scrollTop || 0;
-          const frozenColCount = (tableInstance as any).frozenColCount || 1;
-          const adjustedLeft = colIndex < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
-
-          // 基准位置：单元格右下角（垂直需减去 scrollTop 修正）
-          let panelX = containerRect.left + adjustedLeft + cellRect.width;
-          let panelY = containerRect.top + cellRect.bottom - scrollTop;
-
-          // 视口边界检测：浮窗宽度约 380px，高度约 480px
+          // 附件浮窗始终居中显示于浏览器视口，避免字段在表格右侧被滚动隐藏后弹窗跑到视口外
           const panelWidth = 380;
           const panelHeight = 480;
-          // 水平方向：如果超出右侧，则改为在单元格左侧显示
-          if (panelX + panelWidth > window.innerWidth - 16) {
-            panelX = containerRect.left + adjustedLeft - panelWidth;
-          }
-          // 垂直方向：如果超出底部，则改为在单元格上方显示（使用修正后的 top）
-          if (panelY + panelHeight > window.innerHeight - 16) {
-            panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
-          }
-          // 水平不超出左边界
-          if (panelX < 8) {
-            panelX = 8;
-          }
-          // 垂直不超出上边界
-          if (panelY < 8) {
-            panelY = 8;
-          }
+          const panelX = Math.max(8, Math.round((window.innerWidth - panelWidth) / 2));
+          const panelY = Math.max(8, Math.round((window.innerHeight - panelHeight) / 2));
 
           attachmentManagerPosition.value = {
             x: panelX,

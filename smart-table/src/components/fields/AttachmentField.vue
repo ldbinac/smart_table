@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
 import {
@@ -15,18 +16,20 @@ import {
   Loading,
   ZoomIn,
   ZoomOut,
-  RefreshRight
+  RefreshRight,
+  FullScreen
 } from '@element-plus/icons-vue';
 import type { FieldEntity } from '@/db/schema';
 import type { CellValue } from '@/types';
 import type { AttachmentFile, AttachmentFieldOptions } from '@/types/attachment';
-import { formatFileSize, isImageFile, isVideoFile, isAudioFile } from '@/types/attachment';
+import { formatFileSize, isImageFile, isVideoFile, isAudioFile, isPdfFile } from '@/types/attachment';
 import { attachmentService } from '@/db/services';
 import { AttachmentError } from '@/utils/attachment';
 import { useBaseStore } from '@/stores';
 
 const baseStore = useBaseStore();
 const { t } = useI18n();
+const router = useRouter();
 
 interface Props {
   modelValue: CellValue;
@@ -317,10 +320,54 @@ async function handlePreview(file: AttachmentFile) {
   }
 }
 
-// 判断是否可以预览
+// 判断是否可以预览（图片/视频/音频/PDF）
 function canPreview(file: AttachmentFile): boolean {
   return isImageFile(file) || isVideoFile(file) || isAudioFile(file);
 }
+
+// 判断是否为可预览类型（含 PDF）
+function isPreviewable(file: AttachmentFile): boolean {
+  return canPreview(file) || isPdfFile(file);
+}
+
+// 预览点击：PDF 打开新标签，其余走弹窗
+function handlePreviewClick(file: AttachmentFile) {
+  if (isPdfFile(file)) {
+    openPdfNewTab(file);
+  } else {
+    handlePreview(file);
+  }
+}
+
+// 在新标签页打开 PDF 预览页（保留原数据页可见）
+function openPdfNewTab(file: AttachmentFile) {
+  const query: Record<string, string> = { id: file.id, name: file.originalName };
+  if (props.formShareToken) query.token = props.formShareToken;
+  const href = router.resolve({ name: 'PdfPreview', query }).href;
+  window.open(href, '_blank', 'noopener');
+}
+
+// 图片全屏
+const imageWrapperRef = ref<HTMLElement | null>(null);
+const isImageFullscreen = ref(false);
+function toggleImageFullscreen() {
+  const el = imageWrapperRef.value;
+  if (!el) return;
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  } else {
+    el.requestFullscreen?.().catch(() => {});
+  }
+}
+function onFullscreenChange() {
+  isImageFullscreen.value = !!document.fullscreenElement;
+}
+onMounted(() => {
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+});
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', onFullscreenChange);
+});
 </script>
 
 <template>
@@ -369,8 +416,8 @@ function canPreview(file: AttachmentFile): boolean {
         <!-- 文件预览图 -->
         <div
           class="file-preview"
-          :class="{ 'is-clickable': canPreview(file) }"
-          @click="canPreview(file) && handlePreview(file)"
+          :class="{ 'is-clickable': isPreviewable(file) }"
+          @click="isPreviewable(file) && handlePreviewClick(file)"
         >
           <img
             v-if="file.thumbnail"
@@ -398,10 +445,10 @@ function canPreview(file: AttachmentFile): boolean {
         <!-- 文件操作 -->
         <div class="file-actions">
           <el-button
-            v-if="canPreview(file)"
+            v-if="isPreviewable(file)"
             link
             size="small"
-            @click="handlePreview(file)"
+            @click="handlePreviewClick(file)"
           >
             <el-icon><View /></el-icon>
           </el-button>
@@ -433,6 +480,7 @@ function canPreview(file: AttachmentFile): boolean {
       :title="previewFile?.originalName || t('view.attachment.previewTitle')"
       width="90%"
       top="5vh"
+      fullscreen
       destroy-on-close
       class="attachment-preview-dialog"
       @opened="initPreview"
@@ -440,7 +488,7 @@ function canPreview(file: AttachmentFile): boolean {
       <div v-if="previewFile" class="preview-content">
         <!-- 图片预览 -->
         <div v-if="isImageFile(previewFile)" class="image-preview-container">
-          <div class="image-preview-wrapper" @wheel="handleImageWheel">
+          <div ref="imageWrapperRef" class="image-preview-wrapper" @wheel="handleImageWheel">
             <img
               :src="previewFile.url || previewFile.thumbnail"
               class="preview-image"
@@ -464,6 +512,9 @@ function canPreview(file: AttachmentFile): boolean {
               </el-button>
               <el-button size="small" @click="resetZoom">
                 <el-icon><RefreshRight /></el-icon> {{ t("view.attachment.resetZoom") }}
+              </el-button>
+              <el-button size="small" @click="toggleImageFullscreen">
+                <el-icon><FullScreen /></el-icon> {{ isImageFullscreen ? t("view.attachment.exitFullscreen") : t("view.attachment.fullscreen") }}
               </el-button>
             </el-button-group>
             <el-button size="small" type="primary" @click="handleDownload(previewFile)">
@@ -746,6 +797,23 @@ function canPreview(file: AttachmentFile): boolean {
     object-fit: contain;
     transition: transform 0.1s ease;
     user-select: none;
+  }
+}
+
+.image-preview-wrapper:fullscreen {
+  border-radius: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+  }
+}
+
+:deep(.attachment-preview-dialog.is-fullscreen) {
+  .el-dialog__body {
+    height: 100%;
   }
 }
 

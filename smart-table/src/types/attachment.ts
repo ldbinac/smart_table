@@ -213,6 +213,13 @@ export function isAudioFile(file: File | AttachmentFile): boolean {
 }
 
 /**
+ * 检查是否为 PDF 类型
+ */
+export function isPdfFile(file: File | AttachmentFile): boolean {
+  return file.type === 'application/pdf' || getFileExtension(file.name) === 'pdf';
+}
+
+/**
  * 检查文件类型是否被允许
  */
 export function isFileTypeAllowed(

@@ -530,7 +530,20 @@
     "hoursAgo": "{count} 小时前",
     "daysAgo": "{count} 天前",
     "resetZoom": "重置",
-    "download": "下载"
+    "download": "下载",
+    "fullscreen": "全屏",
+    "exitFullscreen": "退出全屏",
+    "pdfRotate": "旋转",
+    "pdfPrevPage": "上一页",
+    "pdfNextPage": "下一页",
+    "pdfPreviewFailed": "预览失败，请下载后查看",
+    "pdfCloseTab": "关闭",
+    "pdfOutline": "大纲",
+    "pdfFind": "查找",
+    "findPlaceholder": "查找内容...",
+    "noOutline": "该 PDF 未包含大纲",
+    "searchPrev": "上一处",
+    "searchNext": "下一处"
   },
   "member": {
     "memberManagement": "成员管理",

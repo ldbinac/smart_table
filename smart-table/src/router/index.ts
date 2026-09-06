@@ -154,6 +154,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/pdf-preview",
+    name: "PdfPreview",
+    component: () => import("@/views/PdfPreviewPage.vue"),
+    meta: {
+      title: "route.pdfPreview",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
     path: "/settings",
     name: "Settings",
     component: () => import("@/views/Settings.vue"),
