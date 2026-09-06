@@ -203,6 +203,14 @@ class Config:
     GITEE_REPO_NAME = os.environ.get('GITEE_REPO_NAME', 'smart_table')
     GITEE_STAR_CHECK_STRICT_MODE = os.environ.get('GITEE_STAR_CHECK_STRICT_MODE', 'false').lower() == 'true'
 
+    # ===== 地理位置字段 / 天地图（Tianditu）地图服务配置 =====
+    # 天地图 JS API 密钥（tk），需在 https://console.tianditu.gov.cn 申请
+    TIANDITU_KEY = os.environ.get('TIANDITU_KEY', '')
+    # 天地图服务地址，私有化部署时可整体替换
+    TIANDITU_API_BASE = os.environ.get('TIANDITU_API_BASE', 'https://api.tianditu.gov.cn')
+    # 地图服务开关：未配置 tk 时自动关闭，前端将隐藏地图选点入口
+    MAP_ENABLED = bool(TIANDITU_KEY)
+
 
 class DevelopmentConfig(Config):
     """开发环境配置"""

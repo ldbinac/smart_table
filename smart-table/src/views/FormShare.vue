@@ -15,6 +15,7 @@ import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import GeoField from "@/components/fields/geo/GeoField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import DateInput from "@/components/fields/DateInput.vue";
 import { normalizeFieldType, type FieldOptions } from "@/types/fields";
@@ -669,6 +670,8 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "auto_number";
     case FieldType.MEMBER:
       return "member";
+    case FieldType.GEOLOCATION:
+      return "geolocation";
     default:
       return "text";
   }
@@ -1166,6 +1169,16 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                   </div>
                 </template>
               </el-select>
+            </template>
+
+            <!-- 地理位置字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'geolocation'">
+              <GeoField
+                :model-value="(formValues[field.id] as any)"
+                :field="field"
+                :readonly="false"
+                @update:model-value="(val: any) => handleFieldChange(field.id, val)"
+              />
             </template>
 
             <!-- 不支持的字段类型 -->

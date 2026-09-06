@@ -12,7 +12,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 
 - **Base Management** - Create, edit, delete, star multi-dimensional tables with member management and sharing
 - **Table Management** - Support multiple tables with drag-sort, rename, delete, and duplicate
-- **Field Management** - Support **26 field types** with configuration, sorting, visibility control, and default values
+- **Field Management** - Support **27 field types** with configuration, sorting, visibility control, and default values
 - **Record Management** - CRUD operations, batch actions, detail drawer, and change history tracking
 - **View Management** - **6 view types** with filtering, sorting, grouping, view switching, and column freezing
 - **Document Management** - Document CRUD, rich text editing (Quill), Markdown support, PDF export, version history
@@ -20,7 +20,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Data Visualization** - Dashboard create/edit, chart components, grid layout, real-time data, and dashboard sharing
 - **Audit Log** - Complete audit log system with trace tracking
 
-### 📝 Supported Field Types (26 Types)
+### 📝 Supported Field Types (27 Types)
 
 | Category            | Field Type       | Description                                                         | Status |
 | ------------------- | ---------------- | ------------------------------------------------------------------- | ------ |
@@ -46,6 +46,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 | **System Types**    | Updated By       | Auto-record last modifier                                           | ✅      |
 | **System Types**    | Updated Time     | Auto-record last modification time                                  | ✅      |
 | **System Types**    | Auto Number      | Auto-increment with prefix/suffix/date format/padding               | ✅      |
+| **Geolocation**     | Geolocation      | Province/city/district, country/region, lat-lng, map picker, multi-language | ✅      |
 | **Others**          | Rating           | Star rating component                                               | ✅      |
 | **Others**          | Progress         | Progress bar/percentage display                                     | ✅      |
 

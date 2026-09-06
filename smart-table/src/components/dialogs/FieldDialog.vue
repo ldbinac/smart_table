@@ -33,6 +33,7 @@ import {
   type FieldTypeValue,
   type LookupFieldConfig,
   type ConvertibleTypesResult,
+  type GeoFormat,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
@@ -130,6 +131,8 @@ const newField = ref<{
   mergeCell: boolean;
   // 日期字段显示/录入格式配置（仅 DATE 类型生效，DATE_TIME 仍按 ISO 存储）
   dateFormat: string;
+  // 地理位置字段配置
+  geoFormat: GeoFormat;
 }>({
   name: "",
   type: FieldType.SINGLE_LINE_TEXT,
@@ -170,6 +173,7 @@ const newField = ref<{
   regexMessage: undefined,
   mergeCell: false,
   dateFormat: "YYYY-MM-DD",
+  geoFormat: "province_city_district",
 });
 
 // 用户可创建的字段类型配置列表
@@ -177,6 +181,17 @@ const fieldTypeConfigs = getUserCreatableFieldTypeOptions({
   includeSpecial: true,
   markSpecial: false,
 });
+
+// 地理位置子格式列表
+const geoFormats: { value: GeoFormat }[] = [
+  { value: "province" },
+  { value: "province_city" },
+  { value: "province_city_district" },
+  { value: "province_city_district_detail" },
+  { value: "country_region" },
+  { value: "lng_lat" },
+  { value: "map_picker" },
+];
 
 // 字段类型转换：编辑已有字段时，从后端拉取该字段可转换的目标类型清单
 const convertibleTypes = ref<ConvertibleTypesResult | null>(null);
@@ -513,6 +528,7 @@ function openCreateField() {
     regexMessage: undefined,
     mergeCell: false,
     dateFormat: "YYYY-MM-DD",
+    geoFormat: "province_city_district",
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -596,6 +612,7 @@ function openEditField(field: FieldEntity) {
     regexMessage: (field.options?.regexMessage as string) ?? undefined,
     mergeCell: Boolean(field.options?.mergeCell),
     dateFormat: (field.options?.dateFormat as string) ?? "YYYY-MM-DD",
+    geoFormat: ((field.options?.geoFormat as GeoFormat) ?? "province_city_district"),
   };
 
   // 如果是关联字段，加载目标表字段
@@ -739,6 +756,7 @@ function backToList() {
     regexMessage: undefined,
     mergeCell: false,
     dateFormat: "YYYY-MM-DD",
+    geoFormat: "province_city_district",
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -870,6 +888,10 @@ async function createField() {
     // 日期字段显示格式配置（仅 DATE 类型；DATE_TIME 仍按 ISO 字符串存储）
     if (newField.value.type === FieldType.DATE) {
       options.dateFormat = newField.value.dateFormat || "YYYY-MM-DD";
+    }
+    // 地理位置字段配置（语言不再作为字段配置，统一跟随界面当前语言）
+    if (newField.value.type === FieldType.GEOLOCATION) {
+      options.geoFormat = newField.value.geoFormat || "province_city_district";
     }
     // 自动编号字段配置
     if (newField.value.type === FieldType.AUTO_NUMBER) {
@@ -1060,6 +1082,10 @@ async function updateField() {
     // 日期字段显示格式配置（仅 DATE 类型；DATE_TIME 仍按 ISO 字符串存储）
     if (newField.value.type === FieldType.DATE) {
       options.dateFormat = newField.value.dateFormat || "YYYY-MM-DD";
+    }
+    // 地理位置字段配置（语言不再作为字段配置，统一跟随界面当前语言）
+    if (newField.value.type === FieldType.GEOLOCATION) {
+      options.geoFormat = newField.value.geoFormat || "province_city_district";
     }
     // 自动编号字段配置
     if (newField.value.type === FieldType.AUTO_NUMBER) {
@@ -1965,6 +1991,24 @@ async function toggleFieldVisibility(
           </ElFormItem>
         </template>
 
+        <!-- 地理位置字段配置 -->
+        <template v-if="newField.type === FieldType.GEOLOCATION">
+          <ElFormItem :label="t('field.geo.geoFormat')">
+            <div class="geo-format-grid">
+              <label
+                v-for="fmt in geoFormats"
+                :key="fmt.value"
+                class="geo-format-card"
+                :class="{ active: newField.geoFormat === fmt.value }">
+                <input type="radio" :value="fmt.value" v-model="newField.geoFormat" />
+                <span class="geo-format-card__title">{{ t('field.geo.format.' + fmt.value) }}</span>
+                <span class="geo-format-card__desc">{{ t('field.geo.geoFormatDesc.' + fmt.value) }}</span>
+              </label>
+            </div>
+          </ElFormItem>
+
+        </template>
+
         <ElFormItem
           v-if="
             newField.type === FieldType.SINGLE_SELECT ||
@@ -2766,6 +2810,55 @@ async function toggleFieldVisibility(
       font-weight: 600;
       font-family: "SF Mono", Monaco, monospace;
       letter-spacing: 0.5px;
+    }
+  }
+
+  // 地理位置子格式选择卡片
+  .geo-format-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+  }
+
+  .geo-format-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    cursor: pointer;
+    background-color: #fff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+
+    input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &:hover {
+      border-color: $primary-color;
+    }
+
+    &.active {
+      border-color: $primary-color;
+      background-color: $primary-light;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.15);
+    }
+
+    &__title {
+      font-size: $font-size-sm;
+      font-weight: 500;
+      color: $text-primary;
+    }
+
+    &__desc {
+      font-size: calc($font-size-xs * 0.9);
+      color: $text-secondary;
+      line-height: 1.4;
     }
   }
 

@@ -157,6 +157,8 @@ class FieldService:
         FieldType.PHONE.value: list(TEXT_TYPES),
         FieldType.URL.value: list(TEXT_TYPES),
         FieldType.BARCODE.value: list(TEXT_TYPES),
+        # 文本类 <-> 地理位置：文本直接承载为地址串，地理对象转文本按层级拼接
+        FieldType.GEOLOCATION.value: list(TEXT_TYPES),
         # 数值族互转 + 转文本类
         FieldType.NUMBER.value: [
             FieldType.CURRENCY.value,
@@ -231,6 +233,15 @@ class FieldService:
             FieldType.DATE_TIME.value,
         ],
     }
+
+    # 文本类字段可转换为地理位置（文本承载为地址串），统一补充目标类型
+    _geolocation_target = FieldType.GEOLOCATION.value
+    for _src in TEXT_TYPES + [FieldType.EMAIL.value, FieldType.PHONE.value,
+                              FieldType.URL.value, FieldType.BARCODE.value]:
+        if _src != _geolocation_target:
+            LOSSLESS_CONVERSIONS.setdefault(_src, [])
+            if _geolocation_target not in LOSSLESS_CONVERSIONS[_src]:
+                LOSSLESS_CONVERSIONS[_src].append(_geolocation_target)
 
     # 字段已有数据时允许的有损转换白表（全局唯一例外：日期时间转日期，丢弃时间部分）
     LOSSY_CONVERSIONS = {
@@ -805,6 +816,11 @@ class FieldService:
             if not isinstance(value, list):
                 return False, translate('field_default_value_must_be_array', field_type)
 
+        elif field_type == FieldType.GEOLOCATION.value:
+            # 地理位置默认值应该是结构化对象
+            if not isinstance(value, dict):
+                return False, translate('field_default_value_must_be_object', field_type)
+
         return True, None
     
     @staticmethod
@@ -989,6 +1005,12 @@ class FieldService:
                 'icon': 'mouse-pointer',
                 'description': '可点击按钮',
                 'configurable': ['label', 'action', 'style']
+            },
+            FieldType.GEOLOCATION.value: {
+                'name': '地理位置',
+                'icon': 'map-pin',
+                'description': '省份/城市/区县/国家和地区/经纬度/地图选点',
+                'configurable': ['geo_format', 'geo_language', 'default_value']
             }
         }
         
@@ -1018,8 +1040,39 @@ class FieldService:
         if isinstance(value, list):
             return ', '.join(FieldService._to_text(item) for item in value)
         if isinstance(value, dict):
+            # 地理位置对象：按层级拼接为可读地址串
+            if 'province' in value or 'city' in value or 'district' in value \
+                    or 'country' in value or 'region' in value \
+                    or 'lng' in value or 'lat' in value or 'address' in value:
+                return FieldService._format_geo_text(value)
             return str(value.get('id') or value.get('name') or '')
         return str(value)
+
+    @staticmethod
+    def _format_geo_text(value: Any) -> str:
+        """将地理位置对象格式化为地址文本串（用于展示与文本转换）。"""
+        if not isinstance(value, dict):
+            return str(value) if value is not None else ''
+        # 经纬度优先展示坐标
+        if ('lng' in value or 'lat' in value) and (value.get('lng') or value.get('lat')):
+            lng = value.get('lng')
+            lat = value.get('lat')
+            return f'{lng}, {lat}'
+        # 国家和地区
+        if value.get('country') or value.get('region'):
+            parts = [p for p in [value.get('region'), value.get('country')] if p]
+            if parts:
+                return ' / '.join(parts)
+        # 省/市/区及详情
+        parts = [value.get('province'), value.get('city'), value.get('district')]
+        parts = [p for p in parts if p]
+        if value.get('detail'):
+            parts.append(value['detail'])
+        if parts:
+            return ' / '.join(parts)
+        if value.get('address'):
+            return str(value['address'])
+        return ''
 
     @staticmethod
     def _to_number(value: Any) -> Any:
@@ -1099,6 +1152,16 @@ class FieldService:
         if to_type in FieldService.DATE_TYPES and isinstance(value, str):
             return value
 
+        # 地理位置 <-> 文本类：文本承载为地址串，地理对象按层级拼接
+        if to_type == FieldType.GEOLOCATION.value:
+            if isinstance(value, dict):
+                return value
+            if isinstance(value, str):
+                return {'address': value}
+            return {'address': FieldService._to_text(value)}
+        if from_type == FieldType.GEOLOCATION.value and to_type in FieldService.TEXT_TYPES:
+            return FieldService._format_geo_text(value)
+
         return value
 
     @staticmethod
@@ -1126,6 +1189,8 @@ class FieldService:
             return isinstance(value, str) and (value.strip() == '' or '@' in value)
         if to_type in (FieldType.URL.value, FieldType.PHONE.value, FieldType.BARCODE.value):
             return isinstance(value, str)
+        if to_type == FieldType.GEOLOCATION.value:
+            return isinstance(value, dict)
         return True
 
     @staticmethod

@@ -41,6 +41,7 @@ import AttachmentField from "@/components/fields/AttachmentField.vue";
 import DateInput from "@/components/fields/DateInput.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import GeoField from "@/components/fields/geo/GeoField.vue";
 import SubTableInDrawer from "@/components/dialogs/SubTableInDrawer.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
@@ -579,6 +580,8 @@ const getFieldComponent = (field: FieldEntity): string => {
       return "attachment";
     case FieldType.LINK:
       return "link";
+    case FieldType.GEOLOCATION:
+      return "geo";
     case FieldType.PROGRESS:
     case FieldType.PERCENT:
       return "progress";
@@ -1075,6 +1078,15 @@ const effectiveSize = computed<string | number>(() => {
               disabled
               :placeholder="field.name"
               class="field-input" />
+          </template>
+
+          <!-- 地理位置类型 -->
+          <template v-else-if="getFieldComponent(field) === 'geo'">
+            <GeoField
+              :model-value="(formData[field.id] as any)"
+              :field="field"
+              :readonly="readonly"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 默认文本类型（URL、EMAIL、PHONE 等） -->

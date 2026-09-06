@@ -35,6 +35,7 @@ import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import DateInput from "@/components/fields/DateInput.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import GeoField from "@/components/fields/geo/GeoField.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 
 const { t } = useI18n();
@@ -278,6 +279,8 @@ function getFieldComponent(field: FieldEntity) {
       return "formula";
     case FieldType.LINK:
       return "link";
+    case FieldType.GEOLOCATION:
+      return "geo";
     case FieldType.LOOKUP:
       return "lookup";
     case FieldType.CREATED_BY:
@@ -825,6 +828,15 @@ const drawerTitle = computed(() => {
               @change="(val, records) => handleLinkFieldChange(field, val, records)"
               @edit-end="handleLinkFieldEditEnd"
               @remove="(targetId) => handleLinkFieldRemove(field, targetId)" />
+          </template>
+
+          <!-- 地理位置类型 -->
+          <template v-else-if="getFieldComponent(field) === 'geo'">
+            <GeoField
+              :model-value="(formData[field.id] as any)"
+              :field="field"
+              :readonly="false"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 默认文本类型 -->

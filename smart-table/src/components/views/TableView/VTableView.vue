@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive, createApp, defineComponent, h } from "vue";
 import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
+import ElementPlus from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -22,8 +23,10 @@ import { db } from "@/db/schema";
 import { recordService } from "@/db/services";
 import { serializeRecordValues } from "@/utils/recordValueSerializer";
 import { FieldType, fieldTypeSvgContentMap } from "@/types/fields";
-import type { FieldTypeValue } from "@/types/fields";
+import type { FieldTypeValue, GeoFormat, GeoValue } from "@/types/fields";
 import type { CellValue } from "@/types";
+import { formatGeoValue } from "@/utils/geo";
+import GeoField from "@/components/fields/geo/GeoField.vue";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
@@ -1059,6 +1062,238 @@ class SingleSelectEditor implements IEditor {
 
   isEditorElement(target: HTMLElement) {
     return this.element?.contains(target) ?? false;
+  }
+}
+
+/**
+ * 地理位置字段自定义编辑器
+ * 以浮层形式挂载 Vue 组件 GeoField，提供「取消 / 确定」底部按钮提交。
+ * 由于 GeoField 内部包含 teleport 到 body 的 Popover / Dialog（地图选点），
+ * 点击浮层外部时仅对真实页面区域关闭，忽略 el-popper / el-dialog 内的点击。
+ */
+class GeoLocationEditor implements IEditor {
+  editorType = 'GeoLocation';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  editorConfig: { field: FieldEntity };
+  successCallback?: (value: any) => void;
+  originalValue: any = null;
+  selectedValue: any = null;
+  private app: any = null;
+  private outsideHandler?: (e: MouseEvent) => void;
+
+  constructor(editorConfig: { field: FieldEntity }) {
+    this.editorConfig = editorConfig;
+  }
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    this.originalValue = value ?? null;
+    this.selectedValue = value ?? null;
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+  }
+
+  createElement() {
+    if (!this.container) return;
+    const host = document.createElement('div');
+    host.className = 'vtable-geo-editor';
+    host.style.cssText = `
+      position: absolute;
+      background: #ffffff;
+      border: 1px solid #d9d9d9;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      // 地理字段使用 inline 模式直接把面板渲染在宿主内部（不 teleport），因此面板是
+      // this.element 的子节点，VTable 的 isEditorElement 判定为编辑器内部点击，不会
+      // 穿透到表格。z-index: 1500 保证编辑器宿主位于 VTable 画布(0)之上。
+      z-index: 1500;
+      min-width: 300px;
+      max-width: 600px;
+      padding: 10px;
+      box-sizing: border-box;
+    `;
+
+    const geoFormat = (this.editorConfig.field?.options?.geoFormat ??
+      "province_city_district") as GeoFormat;
+    // 这些格式选到最后一级即可直接提交，不需要确认/取消按钮；其余格式（详情、经纬度、地图选点）保留按钮
+    const autoCommitFormats: GeoFormat[] = [
+      "province",
+      "province_city",
+      "province_city_district",
+      "country_region",
+    ];
+    const isAutoCommit = autoCommitFormats.includes(geoFormat);
+
+    const isCompleteValue = (v: GeoValue | null | undefined, fmt: GeoFormat): boolean => {
+      if (!v) return false;
+      switch (fmt) {
+        case "province":
+          return !!v.province;
+        case "province_city":
+          return !!v.province && !!v.city;
+        case "province_city_district":
+          return !!v.province && !!v.city && !!v.district;
+        case "country_region":
+          return !!v.country;
+        default:
+          return false;
+      }
+    };
+
+    const commit = (v: GeoValue | null | undefined) => {
+      this.selectedValue = v ?? null;
+      try {
+        this.successCallback?.(v ?? "");
+      } catch (err) {
+        console.warn('Geo editor commit error:', err);
+      }
+    };
+    const cancel = () => {
+      try {
+        this.successCallback?.(this.originalValue);
+      } catch (err) {
+        console.warn('Geo editor cancel error:', err);
+      }
+    };
+
+    const HostComp = defineComponent({
+      setup: () => {
+        const val = ref<GeoValue | null>(this.originalValue);
+        const onUpdate = (v: GeoValue | null) => {
+          val.value = v;
+          this.selectedValue = v;
+          if (isAutoCommit && isCompleteValue(v, geoFormat)) {
+            commit(v);
+          }
+        };
+        return () => {
+          const children: any[] = [
+            h(GeoField, {
+              modelValue: val.value,
+              field: this.editorConfig.field,
+              readonly: false,
+              inline: true,
+              'onUpdate:modelValue': onUpdate,
+            }),
+          ];
+          if (!isAutoCommit) {
+            children.push(
+              h('div', { class: 'vtable-geo-editor__footer' }, [
+                h('button', { class: 'vtable-geo-editor__btn', onClick: cancel }, t('common.cancel')),
+                h(
+                  'button',
+                  {
+                    class: 'vtable-geo-editor__btn vtable-geo-editor__btn--primary',
+                    onClick: () => commit(val.value),
+                  },
+                  t('common.confirm'),
+                ),
+              ]),
+            );
+          }
+          return h('div', {}, children);
+        };
+      },
+    });
+
+    this.app = createApp(HostComp);
+    this.app.use(ElementPlus);
+    this.app.mount(host);
+
+    // 点击浮层外部关闭（忽略 el-popper / el-popover / el-dialog / el-select 等 teleport 内容）
+    this.outsideHandler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const inside =
+        host.contains(target) ||
+        !!target.closest?.(
+          '.el-popper, .el-popover, .geo-popover, .el-dialog, .el-select__popper, .vtable-geo-editor, .geo-map-overlay',
+        );
+      if (!inside) {
+        if (this.outsideHandler) {
+          document.removeEventListener('mousedown', this.outsideHandler, true);
+        }
+        cancel();
+      }
+    };
+    setTimeout(() => {
+      if (this.outsideHandler) document.addEventListener('mousedown', this.outsideHandler, true);
+    }, 0);
+
+    this.element = host;
+    this.container.appendChild(host);
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+
+    const dropdownHeight = this.element.offsetHeight || 360;
+    const cellBottom = rect.top + (rect.height || 40);
+    const offsetParent = this.element.offsetParent as HTMLElement | null;
+    const containerHeight = offsetParent?.clientHeight ?? window.innerHeight;
+    const containerWidth = offsetParent?.clientWidth ?? window.innerWidth;
+    const margin = 8;
+
+    // 垂直方向：下方放不下就向上翻转
+    let top: number;
+    if (cellBottom + 4 + dropdownHeight > containerHeight) {
+      top = Math.max(0, rect.top - dropdownHeight - 2);
+    } else {
+      top = rect.top - 1;
+    }
+
+    // 水平方向：先让宽度随内容自然展开（受 min/max 约束），渲染完成后再根据真实宽度调整
+    this.element.style.top = `${top}px`;
+    this.element.style.left = `${rect.left - 1}px`;
+    this.element.style.width = 'auto';
+    this.element.style.minWidth = '300px';
+    this.element.style.maxWidth = '600px';
+
+    requestAnimationFrame(() => {
+      if (!this.element) return;
+      let width = this.element.offsetWidth;
+
+      // 若内容过宽超出容器，优先整体缩放到容器内
+      if (width > containerWidth - 2 * margin) {
+        width = Math.max(280, containerWidth - 2 * margin);
+        this.element.style.width = `${width}px`;
+      }
+
+      const cellRight = rect.left + (rect.width || 0);
+      // 若右侧会溢出，则以单元格右边缘为锚点向左展开；左侧顶到容器边缘则保留 margin
+      if (rect.left - 1 + width + margin > containerWidth) {
+        let left = cellRight - width - 1;
+        left = Math.max(margin, left);
+        this.element.style.left = `${left}px`;
+      }
+    });
+  }
+
+  getValue() {
+    return this.selectedValue ?? '';
+  }
+
+  onEnd() {
+    if (this.outsideHandler) {
+      document.removeEventListener('mousedown', this.outsideHandler, true);
+      this.outsideHandler = undefined;
+    }
+    if (this.app) {
+      this.app.unmount();
+      this.app = null;
+    }
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    if (this.element?.contains(target)) return true;
+    // 地图选点弹窗(el-dialog)经 append-to-body teleport 到 body，不在 this.element 内。
+    // 若不显式判为编辑器内部点击，VTable 会结束编辑并在底层单元格重新开启（点击穿透到表格）。
+    return !!target.closest?.('.geo-map-overlay, .geo-map-dialog');
   }
 }
 
@@ -3552,6 +3787,11 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
     case FieldType.MEMBER:
       config.cellType = 'text';
       break;
+    case FieldType.GEOLOCATION:
+      config.cellType = 'text';
+      config.fieldFormat = (record: any) =>
+        formatGeoValue(record?.[field.id], field?.options?.geoFormat);
+      break;
     case FieldType.LINK:
       config.cellType = 'text';
       config.fieldFormat = (record: any) => {
@@ -4055,6 +4295,11 @@ const buildTableConfig = (): any => {
       const allowMultiple = (field.options as any)?.allowMultiple !== false;
       const baseId = tableStore.currentTable?.baseId;
       cellTypeConfig.editor = new MemberEditor({ allowMultiple, baseId });
+    }
+
+    // 为 GEOLOCATION 分配 GeoLocationEditor（浮层挂载 GeoField，支持级联/地图选点）
+    if (field.type === FieldType.GEOLOCATION) {
+      cellTypeConfig.editor = new GeoLocationEditor({ field });
     }
 
     // 附件类型字段不需要编辑器，由自定义双击浮窗 AttachmentManager 处理
@@ -5697,8 +5942,12 @@ const bindTableEvents = () => {
 
     // ==================== 无改动检查 ====================
     const originalValue = originalRecord.values[fieldId];
+    // 将值规整为可比较的字符串：
+    // - 对象/数组（如地理位置 GeoValue、多选数组）需用 JSON 序列化，不能用 String()，
+    //   否则所有对象都会变成 "[object Object]" 导致"有改动"被误判为"无改动"而不保存。
     const normalizeValue = (v: unknown): string | null => {
       if (v == null || v === '') return null;
+      if (typeof v === 'object') return JSON.stringify(v);
       return String(v);
     };
     if (normalizeValue(finalValue) === normalizeValue(originalValue)) {
@@ -7147,6 +7396,52 @@ watch(
 .attachment-image-preview-dialog.el-dialog {
   .el-dialog__body {
     padding: 0;
+  }
+}
+
+// 地理字段单元格编辑器（inline 模式渲染在宿主内部，需要非 scoped 样式）
+.vtable-geo-editor {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  line-height: 1.4;
+
+  .vtable-geo-editor__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e4e7ed;
+    flex-shrink: 0;
+  }
+
+  .vtable-geo-editor__btn {
+    padding: 6px 14px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #606266;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+
+    &:hover {
+      color: #409eff;
+      border-color: #c6e2ff;
+      background: #ecf5ff;
+    }
+
+    &--primary {
+      background: #409eff;
+      border-color: #409eff;
+      color: #ffffff;
+
+      &:hover {
+        background: #66b1ff;
+        border-color: #66b1ff;
+      }
+    }
   }
 }
 </style>

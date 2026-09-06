@@ -3712,6 +3712,10 @@ MESSAGES = {
         'zh-CN': '字段类型 {0} 的默认值必须是数组',
         'en-US': 'Default value for field type {0} must be an array',
     },
+    'field_default_value_must_be_object': {
+        'zh-CN': '字段类型 {0} 的默认值必须是地理信息对象',
+        'en-US': 'Default value for field type {0} must be a geo object',
+    },
     'invalid_link_type': {
         'zh-CN': '无效的关联类型: {0}',
         'en-US': 'Invalid link type: {0}',

@@ -34,6 +34,7 @@ from app.routes.workflow_templates import workflow_templates_bp
 from app.routes.workflows import workflows_bp
 from app.routes.config import config_bp
 from app.routes.lookup import lookup_bp
+from app.routes.geo import geo_bp
 from app.routes.oauth import oauth_bp
 from app.routes.open_api import open_api_bp
 
@@ -301,6 +302,9 @@ def register_blueprints(app):
     # 注册查找字段蓝图
     app.register_blueprint(lookup_bp, url_prefix='/api')
 
+    # 注册地理位置数据蓝图（行政区划 / 国家和地区 / 地图配置）
+    app.register_blueprint(geo_bp, url_prefix='/api')
+
     # 注册 OAuth2 第三方应用接入蓝图（url_prefix 已在 oauth.py 中定义为 /api/oauth）
     app.register_blueprint(oauth_bp)
 
@@ -435,6 +439,14 @@ def register_api_docs(app):
                     {"method": "PUT", "path": "/fields/<field_id>/link", "description": "更新关联字段"},
                     {"method": "DELETE", "path": "/fields/<field_id>/link", "description": "删除关联字段"},
                     {"method": "GET", "path": "/tables/<table_id>/links", "description": "获取表格关联字段"}
+                ]
+            },
+            "地理位置模块 (Geo)": {
+                "prefix": "/api",
+                "routes": [
+                    {"method": "GET", "path": "/geo/config", "description": "获取地图服务配置（天地图 Key）"},
+                    {"method": "GET", "path": "/geo/china-locations", "description": "获取中国省/市/区数据"},
+                    {"method": "GET", "path": "/geo/regions", "description": "获取国家和地区数据（支持中英文）"}
                 ]
             },
             "记录模块 (Records)": {
@@ -672,6 +684,7 @@ def register_api_docs(app):
             {"type": "EMAIL", "name": "邮箱", "description": "邮箱地址"},
             {"type": "URL", "name": "链接", "description": "URL链接"},
             {"type": "AUTO_NUMBER", "name": "自动编号", "description": "自动生成唯一编号"},
+            {"type": "GEOLOCATION", "name": "地理位置", "description": "省份/城市/区县/国家和地区/经纬度/地图选点"},
             {"type": "CREATED_TIME", "name": "创建时间", "description": "记录创建时间"},
             {"type": "CREATED_BY", "name": "创建人", "description": "记录创建人"},
             {"type": "LAST_MODIFIED_TIME", "name": "最后修改时间", "description": "记录最后修改时间"},
@@ -985,6 +998,7 @@ def init_swagger(app):
         {"name": "Bases", "description": "数据基础（Base）管理接口"},
         {"name": "Tables", "description": "表格管理接口"},
         {"name": "Fields", "description": "字段管理接口"},
+        {"name": "Geo", "description": "地理位置数据接口（行政区划、国家和地区、地图配置）"},
         {"name": "Records", "description": "记录（数据行）管理接口"},
         {"name": "Views", "description": "视图管理接口"},
         {"name": "Dashboards", "description": "仪表盘管理接口"},

@@ -32,9 +32,57 @@ export const FieldType = {
   LAST_MODIFIED_BY: "last_modified_by",
   DURATION: "duration",
   BUTTON: "button",
+  GEOLOCATION: "geolocation",
 } as const;
 
 export type FieldTypeValue = (typeof FieldType)[keyof typeof FieldType];
+
+// ==================== 地理位置字段 (Geo Field) 类型定义 ====================
+
+/** 地理位置子格式 */
+export type GeoFormat =
+  | "province" // 省份
+  | "province_city" // 省份/城市
+  | "province_city_district" // 省/市/区
+  | "province_city_district_detail" // 省/市/区及详情
+  | "country_region" // 国家和地区
+  | "lng_lat" // 经度和纬度
+  | "map_picker"; // 地图选点
+
+/** 国家和区域项 */
+export interface GeoRegionItem {
+  name: string;
+  items: string[];
+}
+
+/** 中国行政区划节点 */
+export interface GeoChinaNode {
+  name: string;
+  alphabetic?: string;
+  children?: GeoChinaNode[];
+}
+
+/** 地理位置单元格值（结构化 JSON 对象） */
+export interface GeoValue {
+  /** 省 */
+  province?: string;
+  /** 市 */
+  city?: string;
+  /** 区/县 */
+  district?: string;
+  /** 详细地址（街道门牌等） */
+  detail?: string;
+  /** 国家/地区（country_region 格式使用） */
+  country?: string;
+  /** 大洲（country_region 格式使用） */
+  region?: string;
+  /** 经度 */
+  lng?: number;
+  /** 纬度 */
+  lat?: number;
+  /** 通用地址文本（lng_lat / map_picker / 解析兜底使用） */
+  address?: string;
+}
 
 export interface FieldOption {
   id: string;
@@ -243,6 +291,11 @@ export interface FieldOptions {
   regex?: string;
   /** 正则校验失败时的自定义提示信息（仅用于 single_line_text） */
   regexMessage?: string;
+
+  // ==================== 地理位置字段 (Geo Field) 选项 ====================
+  /** 地理位置子格式 */
+  geoFormat?: GeoFormat;
+  // 注：原 geoLanguage 字段配置已移除，地理数据语言统一跟随界面当前语言
 }
 
 export type CellValue =
@@ -252,7 +305,8 @@ export type CellValue =
   | null
   | string[]
   | { id: string; name: string }[]
-  | { id: string; url: string; name: string }[];
+  | { id: string; url: string; name: string }[]
+  | GeoValue;
 
 export function getFieldTypeLabel(type: string): string {
   const supportedTypes: string[] = [
@@ -289,6 +343,7 @@ export function getFieldTypeLabel(type: string): string {
     "updated_by",
     "updated_time",
     "last_modified_by",
+    "geolocation",
   ];
   if (!supportedTypes.includes(type)) return type;
   return t(`field.type.${type}`);
@@ -339,6 +394,7 @@ export function getUserCreatableFieldTypeOptions(options?: {
     FieldType.EMAIL,
     FieldType.URL,
     FieldType.AUTO_NUMBER,
+    FieldType.GEOLOCATION,
   ];
 
   const specialTypes: FieldTypeValue[] = [
@@ -428,6 +484,7 @@ import {
   Share,
   Search,
   Timer,
+  LocationInformation,
 } from "@element-plus/icons-vue";
 
 /**
@@ -459,6 +516,7 @@ const fieldTypeIconComponentMap: Record<string, Component> = {
   created_time: Timer,
   updated_time: Timer,
   auto_number: List,
+  geolocation: LocationInformation,
 };
 
 /**
@@ -538,6 +596,8 @@ export const fieldTypeSvgContentMap: Record<string, string> = {
     '<path fill="currentColor" d="M512 832a320 320 0 1 0 0-640 320 320 0 0 0 0 640m0 64a384 384 0 1 1 0-768 384 384 0 0 1 0 768"/><path fill="currentColor" d="m292.288 824.576 55.424 32-48 83.136a32 32 0 1 1-55.424-32zm439.424 0-55.424 32 48 83.136a32 32 0 1 0 55.424-32zM512 512h160a32 32 0 1 1 0 64H480a32 32 0 0 1-32-32V320a32 32 0 0 1 64 0zM90.496 312.256A160 160 0 0 1 312.32 90.496l-46.848 46.848a96 96 0 0 0-128 128L90.56 312.256zm835.264 0A160 160 0 0 0 704 90.496l46.848 46.848a96 96 0 0 1 128 128z"/>',
   button:
     '<path fill="currentColor" d="M813.176 180.706a60.235 60.235 0 0 1 60.236 60.235v481.883a60.235 60.235 0 0 1-60.236 60.235H210.824a60.235 60.235 0 0 1-60.236-60.235V240.94a60.235 60.235 0 0 1 60.236-60.235h602.352zm0-60.235H210.824A120.47 120.47 0 0 0 90.353 240.94v481.883a120.47 120.47 0 0 0 120.47 120.47h602.353a120.47 120.47 0 0 0 120.471-120.47V240.94a120.47 120.47 0 0 0-120.47-120.47zm-120.47 180.705a30.12 30.12 0 0 0-30.118 30.118v301.177a30.118 30.118 0 0 0 60.236 0V331.294a30.12 30.12 0 0 0-30.118-30.118m-361.412 0a30.12 30.12 0 0 0-30.118 30.118v301.177a30.118 30.118 0 1 0 60.236 0V331.294a30.12 30.12 0 0 0-30.118-30.118M512 361.412a30.12 30.12 0 0 0-30.118 30.117v30.118a30.118 30.118 0 0 0 60.236 0V391.53A30.12 30.12 0 0 0 512 361.412M512 512a30.12 30.12 0 0 0-30.118 30.118v30.117a30.118 30.118 0 0 0 60.236 0v-30.117A30.12 30.12 0 0 0 512 512"/>',
+  geolocation:
+    '<path fill="currentColor" d="M512 64C348.8 64 217.6 195.2 217.6 358.4 217.6 588.8 512 960 512 960s294.4-371.2 294.4-601.6C806.4 195.2 675.2 64 512 64z m0 384a128 128 0 1 1 0-256 128 128 0 0 1 0 256z"/>',
 };
 
 /**
