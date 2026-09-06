@@ -119,8 +119,15 @@ const emit = defineEmits<{
   (e: "update:modelValue", v: GeoValue): void;
 }>();
 
+// 地址格式：优先读 field.config.geoFormat（分享表单后端合并到 config 的字段），
+// 回退读 field.options.geoFormat（表格视图等字段对象的标准位置），
+// 最终回退为默认的 province_city_district。
+// 注意：分享表单 schema 只返回 config、不返回 options，若只读 options 会导致永远回退默认省市区。
 const format = computed<GeoFormat>(
-  () => (props.field?.options?.geoFormat as GeoFormat) || "province_city_district"
+  () =>
+    (props.field?.config?.geoFormat as GeoFormat) ||
+    (props.field?.options?.geoFormat as GeoFormat) ||
+    "province_city_district"
 );
 
 // 地理数据语言统一跟随界面当前语言（「设置」中切换 中文/English 后立即生效）。

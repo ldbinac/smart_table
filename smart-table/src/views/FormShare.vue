@@ -550,10 +550,13 @@ function resetForm() {
   linkFieldRecords.value.clear();
   editingLinkField.value = null;
 
-  // 设置默认值
+  // 设置默认值（优先级：分享表单配置默认值 > 字段自身默认值，由后端 schema 统一解析为 field.defaultValue）
   visibleFields.value.forEach((field) => {
     const config = field.config || {};
-    const defaultValue = config.defaultValue ?? config.default ?? null;
+    const defaultValue =
+      field.defaultValue !== undefined && field.defaultValue !== null
+        ? field.defaultValue
+        : (config.defaultValue ?? config.default ?? null);
 
     if (
       defaultValue !== null &&
@@ -726,6 +729,11 @@ function getFieldType(field: FormFieldSchema): FieldTypeValue {
   return field.type as FieldTypeValue;
 }
 
+// 字段是否只读（分享表单中设置为只读，填写者不可编辑）
+function isReadonly(field: FormFieldSchema): boolean {
+  return !!field.readOnly;
+}
+
 // 计算公式字段值（参照表单视图逻辑）
 function calculateFormulaValue(field: FormFieldSchema): string {
   const config = field.config || {};
@@ -828,6 +836,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
             </el-icon>
             {{ field.name }}
             <span v-if="field.required" class="required-mark">*</span>
+            <span v-if="isReadonly(field)" class="readonly-mark">{{ t("view.formFieldReadonly") }}</span>
           </label>
 
           <div class="form-control">
@@ -840,11 +849,11 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
                 :relationship-type="getLinkFieldConfig(field)?.relationshipType"
                 :is-editing="editingLinkField === field.id"
-                :readonly="false"
                 :record-id="newRecordId"
                 :field-id="field.id"
                 :is-self-link="getLinkFieldConfig(field)?.isSelfLink"
                 :share-token="shareToken"
+                :readonly="isReadonly(field)"
                 @edit-start="handleLinkFieldEdit(field.id)"
                 @change="(val, records) => handleLinkFieldChange(field, val, records)"
                 @edit-end="handleLinkFieldEditEnd"
@@ -859,6 +868,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :maxlength="(field.config?.maxLength as number | undefined)"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 邮箱 -->
               <el-input
@@ -866,6 +876,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formEmailPlaceholder')"
                 type="email"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 电话 -->
               <el-input
@@ -873,6 +884,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formPhonePlaceholder')"
                 type="tel"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 链接 -->
               <el-input
@@ -880,6 +892,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formUrlPlaceholder')"
                 type="url"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 多行文本 -->
               <div
@@ -891,6 +904,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                   :maxlength="(field.config?.maxLength as number | undefined)"
                   type="textarea"
                   :rows="4"
+                  :readonly="isReadonly(field)"
                   resize="none"
                   @update:model-value="(val) => handleFieldChange(field.id, val)" />
                 <div
@@ -915,6 +929,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="(formValues[field.id] as string) || null"
                 :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :max-length="(field.config?.maxLength as number | undefined)"
+                :readonly="isReadonly(field)"
                 class="form-rich-text"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
@@ -924,6 +939,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
               <el-input-number
                 :model-value="Number(formValues[field.id] || 0)"
                 :placeholder="t('view.formInputPlaceholder', { name: field.name })"
+                :disabled="isReadonly(field)"
                 :formatter="createNumberInputFormatter(field.config)"
                 :parser="createNumberInputParser(field.config)"
                 :min="
@@ -950,6 +966,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
               <el-rate
                 :model-value="Number(formValues[field.id] || 0)"
                 :max="getMaxRating(field)"
+                :disabled="isReadonly(field)"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val)
                 " />
@@ -962,6 +979,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="formValues[field.id] as string | undefined"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 clearable
                 @update:model-value="(val) => handleFieldChange(field.id, val)">
                 <el-option
@@ -984,6 +1002,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="(formValues[field.id] as string[]) || []"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 multiple
                 clearable
                 @update:model-value="(val) => handleFieldChange(field.id, val)">
@@ -1007,6 +1026,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="formValues[field.id]"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
@@ -1017,6 +1037,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="formValues[field.id]"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
@@ -1024,6 +1045,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
             <template v-else-if="getFieldComponentType(field) === 'checkbox'">
               <el-switch
                 :model-value="Boolean(formValues[field.id])"
+                :disabled="isReadonly(field)"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val)
                 " />
@@ -1050,6 +1072,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                   :model-value="Number(formValues[field.id] || 0)"
                   :min="getProgressMin(field)"
                   :max="getProgressMax(field)"
+                  :disabled="isReadonly(field)"
                   show-stops
                   show-input
                   @update:model-value="
@@ -1069,6 +1092,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :remote-method="getDebouncedSearch(field.id)"
                 :loading="memberLoading[field.id]"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 clearable
                 popper-class="form-share-member-dropdown"
                 @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)">
@@ -1110,7 +1134,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :field="field as unknown as FieldEntity"
                 :record-id="newRecordId"
                 :form-share-token="shareToken"
-                :readonly="false"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)"
                 @upload="(files) => handleAttachmentUpload(field.id, files)"
                 @delete="
@@ -1138,6 +1162,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :remote-method="getDebouncedSearch(field.id)"
                 :loading="memberLoading[field.id]"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 clearable
                 @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)">
                 <el-option
@@ -1176,7 +1201,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
               <GeoField
                 :model-value="(formValues[field.id] as any)"
                 :field="field"
-                :readonly="false"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val: any) => handleFieldChange(field.id, val)"
               />
             </template>
@@ -1352,6 +1377,18 @@ function calculateFormulaValue(field: FormFieldSchema): string {
 .required-mark {
   color: $error-color;
   margin-left: 4px;
+}
+
+.readonly-mark {
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: $text-secondary;
+  background-color: $bg-color;
+  border: 1px solid $border-color;
+  border-radius: 4px;
 }
 
 .form-control {

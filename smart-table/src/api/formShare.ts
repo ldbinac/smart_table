@@ -26,6 +26,8 @@ export interface FormShareConfig {
   theme: string;
   /** 每行显示的字段数量（1-4） */
   columns: number;
+  /** 字段级配置：字段 ID -> { defaultValue, readOnly } */
+  field_settings: Record<string, FormFieldSetting>;
   created_at: string;
   updated_at: string;
   created_by: string;
@@ -75,6 +77,20 @@ export interface FormFieldSchema {
   required: boolean;
   config: Record<string, unknown>;
   description: string | null;
+  /** 经优先级解析后的生效默认值（分享表单默认 > 字段默认） */
+  defaultValue?: unknown;
+  /** 是否只读（填写者不可编辑） */
+  readOnly?: boolean;
+}
+
+/**
+ * 字段级配置：默认值与只读标记
+ */
+export interface FormFieldSetting {
+  /** 字段默认值（任意类型） */
+  defaultValue?: unknown;
+  /** 是否只读 */
+  readOnly?: boolean;
 }
 
 /**
@@ -93,6 +109,8 @@ export interface CreateFormShareRequest {
   theme?: string;
   /** 每行显示的字段数量（1-4） */
   columns?: number;
+  /** 字段级配置：字段 ID -> { defaultValue, readOnly } */
+  field_settings?: Record<string, FormFieldSetting>;
 }
 
 /**
@@ -112,6 +130,8 @@ export interface UpdateFormShareRequest {
   theme?: string;
   /** 每行显示的字段数量（1-4） */
   columns?: number;
+  /** 字段级配置：字段 ID -> { defaultValue, readOnly } */
+  field_settings?: Record<string, FormFieldSetting>;
 }
 
 /**

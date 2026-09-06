@@ -106,6 +106,17 @@ class FormShareService:
                 if invalid_fields:
                     return {'success': False, 'error': translate('form_share_invalid_fields', invalid_fields)}
             
+            # 验证字段级配置（默认值 + 只读）
+            field_settings = config.get('field_settings') or {}
+            if field_settings:
+                table_fields = table_fields if allowed_fields else FieldService.get_all_fields(table_id)
+                table_field_ids = {str(f.id) for f in table_fields}
+                invalid_settings_fields = [
+                    fid for fid in field_settings if str(fid) not in table_field_ids
+                ]
+                if invalid_settings_fields:
+                    return {'success': False, 'error': translate('form_share_invalid_fields', invalid_settings_fields)}
+            
             # 创建表单分享
             form_share = FormShare(
                 table_id=str(table_id),
@@ -126,6 +137,10 @@ class FormShareService:
             # 设置允许字段
             if allowed_fields:
                 form_share.set_allowed_fields_list(allowed_fields)
+
+            # 设置字段级配置（默认值 + 只读）
+            if field_settings:
+                form_share.set_field_settings(field_settings)
             
             db.session.add(form_share)
             db.session.commit()
@@ -242,6 +257,7 @@ class FormShareService:
             # 过滤允许提交的字段，并按 allowed_fields 的顺序排列
             # （保证分享表单的字段展示顺序与配置一致，而非回退到表格字段顺序）
             allowed_field_ids = form_share.get_allowed_fields_list()
+            field_settings_map = form_share.get_field_settings()
             field_map = {str(f.id): f for f in all_fields}
             if allowed_field_ids:
                 fields = [field_map[fid] for fid in allowed_field_ids if fid in field_map]
@@ -280,9 +296,23 @@ class FormShareService:
                         'thousandsSeparator',
                         # 日期字段：显示/录入格式需同步到前端，否则分享页无法按设定格式渲染
                         'dateFormat',
+                        # 地理位置字段：地址子格式（省/省+市/省+市+区/详情/国家地区/经纬度/地图选点）
+                        # 需同步到前端，否则分享页 GeoField 读不到 field.options.geoFormat，
+                        # 永远回退为默认的 province_city_district（省市区），无法按配置格式渲染。
+                        'geoFormat',
                     ):
                         if rule_key in options and rule_key not in merged_config:
                             merged_config[rule_key] = options[rule_key]
+                
+                # 字段级配置：分享表单中为该字段设置的默认值、只读标记
+                # 默认值优先级：分享表单配置 > 字段自身默认配置
+                field_setting = field_settings_map.get(str(field.id), {}) or {}
+                field_default = config.get('defaultValue')
+                if field_default is None:
+                    field_default = config.get('default')
+                share_default = field_setting.get('defaultValue')
+                effective_default = share_default if share_default is not None else field_default
+                read_only = bool(field_setting.get('readOnly', False))
                 
                 field_schema = {
                     'id': str(field.id),
@@ -290,7 +320,11 @@ class FormShareService:
                     'type': field.type,
                     'required': field.is_required if hasattr(field, 'is_required') else False,
                     'config': merged_config,
-                    'description': field.description if hasattr(field, 'description') else None
+                    'description': field.description if hasattr(field, 'description') else None,
+                    # 经优先级解析后的生效默认值（前端初始化填写页时使用）
+                    'defaultValue': effective_default,
+                    # 是否只读（填写者不可编辑）
+                    'readOnly': read_only,
                 }
                 fields_schema.append(field_schema)
             
@@ -365,9 +399,36 @@ class FormShareService:
             # 获取提交的值
             values = data.get('values', {})
             
+            # 字段级配置：只读字段忽略填写者输入，强制使用默认值
+            # 默认值优先级：分享表单配置 > 字段自身默认配置
+            field_settings_map = form_share.get_field_settings()
+            allowed_field_ids = form_share.get_allowed_fields_list()
+            if field_settings_map:
+                all_fields = FieldService.get_all_fields(form_share.table_id)
+                for field_id in list(values.keys()):
+                    setting = field_settings_map.get(str(field_id), {}) or {}
+                    if setting.get('readOnly'):
+                        # 只读字段：丢弃填写者提交的值
+                        del values[field_id]
+                for field in all_fields:
+                    fid = str(field.id)
+                    if allowed_field_ids and fid not in allowed_field_ids:
+                        continue
+                    setting = field_settings_map.get(fid, {}) or {}
+                    if setting.get('readOnly'):
+                        share_default = setting.get('defaultValue')
+                        if share_default is not None:
+                            values[fid] = share_default
+                        else:
+                            fcfg = (field.config or {}).get('defaultValue')
+                            if fcfg is None:
+                                fcfg = (field.config or {}).get('default')
+                            if fcfg is not None:
+                                values[fid] = fcfg
+            
             # 验证数据
             validation_result = FormShareService._validate_form_data(
-                form_share, values
+                form_share, values, field_settings_map
             )
             if not validation_result['valid']:
                 return {
@@ -378,7 +439,6 @@ class FormShareService:
                 }
             
             # 过滤只允许提交的字段
-            allowed_field_ids = form_share.get_allowed_fields_list()
             if allowed_field_ids:
                 values = {k: v for k, v in values.items() if k in allowed_field_ids}
             
@@ -485,7 +545,8 @@ class FormShareService:
     @staticmethod
     def _validate_form_data(
         form_share: FormShare,
-        values: Dict[str, Any]
+        values: Dict[str, Any],
+        field_settings_map: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         验证表单数据
@@ -494,6 +555,8 @@ class FormShareService:
             {'valid': bool, 'errors': Dict[str, str]}
         """
         errors = {}
+        
+        field_settings_map = field_settings_map or {}
         
         # 获取允许提交的字段
         allowed_field_ids = form_share.get_allowed_fields_list()
@@ -513,6 +576,11 @@ class FormShareService:
             field = field_map.get(field_id)
             if not field:
                 errors[field_id] = 'field_does_not_exist'
+                continue
+            
+            # 只读字段由创建者固定（默认值），填写者不可编辑，跳过必填校验
+            is_readonly = bool((field_settings_map.get(field_id, {}) or {}).get('readOnly', False))
+            if is_readonly:
                 continue
             
             # 验证必填字段
@@ -783,6 +851,22 @@ class FormShareService:
                     form_share.set_allowed_fields_list(allowed_fields)
                 else:
                     form_share.allowed_fields = None
+            
+            if 'field_settings' in data:
+                field_settings = data['field_settings']
+                if field_settings:
+                    # 验证配置中的字段是否存在
+                    table_fields = FieldService.get_all_fields(form_share.table_id)
+                    table_field_ids = {str(f.id) for f in table_fields}
+                    invalid_fields = [
+                        fid for fid in (field_settings or {})
+                        if str(fid) not in table_field_ids
+                    ]
+                    if invalid_fields:
+                        return {'success': False, 'error': translate('form_share_invalid_fields', invalid_fields)}
+                    form_share.set_field_settings(field_settings)
+                else:
+                    form_share.field_settings = None
             
             if 'title' in data:
                 form_share.title = data['title']

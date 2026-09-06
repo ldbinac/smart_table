@@ -129,7 +129,13 @@ async function initEditor() {
     // 安全补丁：getRange 增加 try-catch 兜底。
     // setContents 替换 DOM 后，MutationObserver 回调触发 Scroll.update 进而调用 getRange，
     // 此时浏览器 native selection 仍指向已被替换的旧 DOM 节点，normalizedToRange 中 blot.find
-    // 返回 null 导致崩溃。此补丁捕获该异常，返回 null 而非让整个编辑器崩溃。
+    // 返回 null 导致崩溃。此补丁捕获该异常，返回 [null, null] 而非让整个编辑器崩溃。
+    // 注意：必须返回与 Quill 原生一致的两元素元组 [range, nativeRange]，不能返回 null。
+    // Quill 内部多处对 getRange() 做数组解构（selection.js:343 `const [lastRange, nativeRange] =
+    // this.getRange()`、quill.js:140/149 `const [newRange] = this.selection.getRange()`、
+    // quill.js:320 `return this.selection.getRange()[0]`）。若返回 null，会触发
+    // "object null is not iterable" / "Cannot read properties of null (reading '0')"，
+    // 这正是此前线上报错的根因。Quill 原生在编辑器断开连接时即返回 [null, null]，此处保持一致。
     // 注意：不能补丁 normalizedToRange 本身，因为任何对 normalizedToRange 的修改都会干扰
     // Quill 正常的选区解析逻辑，导致工具栏格式按钮失效（getSelection 返回错误值使 format 静默跳过）。
     if (!Selection.prototype.__getRangePatched) {
@@ -138,7 +144,7 @@ async function initEditor() {
         try {
           return originalGetRange.call(this);
         } catch (e) {
-          return null;
+          return [null, null];
         }
       };
       Selection.prototype.__getRangePatched = true;
