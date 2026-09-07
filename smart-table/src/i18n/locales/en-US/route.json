@@ -22,6 +22,7 @@
   "adminSettings": "System Management",
   "adminLogs": "Operation Logs",
   "adminOAuthApps": "Third-Party Apps",
+  "adminPlugins": "Plugins",
   "emailTemplates": "Email Templates",
   "emailLogs": "Email Logs",
   "emailStats": "Email Statistics",

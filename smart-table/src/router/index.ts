@@ -271,6 +271,16 @@ const routes: RouteRecordRaw[] = [
     beforeEnter: adminGuard,
   },
   {
+    path: "/admin/plugins",
+    name: "AdminPlugins",
+    component: () => import("@/views/PluginManage.vue"),
+    meta: {
+      title: "route.adminPlugins",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
     path: "/403",
     name: "Forbidden",
     component: () => import("@/views/Forbidden.vue"),

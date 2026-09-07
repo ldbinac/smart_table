@@ -37,6 +37,7 @@ from app.routes.lookup import lookup_bp
 from app.routes.geo import geo_bp
 from app.routes.oauth import oauth_bp
 from app.routes.open_api import open_api_bp
+from app.routes.plugins import plugins_bp
 
 # 服务导入
 from app.services.email_queue_service import init_email_queue
@@ -310,6 +311,9 @@ def register_blueprints(app):
 
     # 注册开放 API 蓝图（第三方应用以应用身份访问数据）
     app.register_blueprint(open_api_bp)
+
+    # 注册插件蓝图（插件管理 API + 沙箱静态服务）
+    app.register_blueprint(plugins_bp, url_prefix='/api')
 
 
 def register_error_handlers(app):
@@ -660,6 +664,28 @@ def register_api_docs(app):
                     {"method": "GET", "path": "/workflows/<workflow_id>/instances", "description": "获取工作流实例列表"},
                     {"method": "GET", "path": "/workflows/<workflow_id>/instances/<instance_id>", "description": "获取工作流实例详情"},
                     {"method": "POST", "path": "/tables/<table_id>/records/<record_id>/trigger", "description": "手动触发工作流"}
+                ]
+            },
+            "插件模块 (Plugins)": {
+                "prefix": "/api/plugins",
+                "routes": [
+                    {"method": "POST", "path": "/upload", "description": "上传安装/升级插件包（系统管理员）"},
+                    {"method": "GET", "path": "/", "description": "获取插件列表（可选 base_id 附带 Base 级状态）"},
+                    {"method": "GET", "path": "/<plugin_id>", "description": "获取插件详情（含版本历史）"},
+                    {"method": "PUT", "path": "/<plugin_id>/status", "description": "全局启用/禁用/恢复（系统管理员）"},
+                    {"method": "POST", "path": "/<plugin_id>/rollback", "description": "回滚到历史版本（系统管理员）"},
+                    {"method": "DELETE", "path": "/<plugin_id>", "description": "卸载插件（系统管理员）"},
+                    {"method": "GET", "path": "/<plugin_id>/config", "description": "读取生效配置（base 合并 global）"},
+                    {"method": "PUT", "path": "/<plugin_id>/config", "description": "写入配置（configSchema 校验）"},
+                    {"method": "GET", "path": "/<plugin_id>/installations", "description": "获取 Base 级安装状态"},
+                    {"method": "POST", "path": "/<plugin_id>/installations", "description": "在 Base 内安装并启用（Base 管理员）"},
+                    {"method": "PUT", "path": "/<plugin_id>/installations", "description": "启停 Base 级插件（Base 管理员）"},
+                    {"method": "DELETE", "path": "/<plugin_id>/installations", "description": "从 Base 移除插件（Base 管理员）"},
+                    {"method": "POST", "path": "/<plugin_id>/run", "description": "手动运行脚本插件（触发者身份）"},
+                    {"method": "GET", "path": "/<plugin_id>/run-logs", "description": "查询运行日志（Base 管理员）"},
+                    {"method": "POST", "path": "/<plugin_id>/sandbox-url", "description": "获取 UI 插件沙箱签名 URL"},
+                    {"method": "GET", "path": "/<plugin_id>/versions/<version>/loader.html", "description": "UI 插件沙箱 loader（签名鉴权）"},
+                    {"method": "GET", "path": "/<plugin_id>/versions/<version>/files/<filename>", "description": "插件包静态文件（签名鉴权）"}
                 ]
             }
         },
@@ -1014,6 +1040,7 @@ def init_swagger(app):
         {"name": "Email", "description": "邮件服务管理接口"},
         {"name": "Notifications", "description": "站内信通知管理接口"},
         {"name": "Realtime", "description": "实时协作状态接口"},
+        {"name": "Plugins", "description": "插件管理接口（安装/升级/回滚/生命周期/配置/运行）"},
     ]
     
     swagger_template = {

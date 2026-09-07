@@ -22,6 +22,7 @@
   "adminSettings": "系统配置",
   "adminLogs": "操作日志",
   "adminOAuthApps": "第三方应用",
+  "adminPlugins": "插件管理",
   "emailTemplates": "邮件模板",
   "emailLogs": "邮件日志",
   "emailStats": "邮件统计",

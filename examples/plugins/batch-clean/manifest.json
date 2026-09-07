@@ -1,0 +1,32 @@
+{
+  "id": "com.smarttable.batch-clean",
+  "name": "Batch Clean",
+  "description": "示例后端脚本插件：将指定表中目标字段的空值批量填充为默认值，或清空指定字段（演示 records: write 权限与脚本代理 API）",
+  "author": {
+    "name": "SmartTable Team",
+    "url": "https://github.com/ldbinac/smart_table"
+  },
+  "version": "1.0.0",
+  "type": "script",
+  "apiVersion": "1",
+  "engines": {
+    "smarttable": ">=1.6.0 <2.0.0"
+  },
+  "entry": "main.py",
+  "permissions": {
+    "records": "write",
+    "tables": "read"
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "tableId": { "type": "string", "description": "目标表 ID" },
+      "fieldId": { "type": "string", "description": "目标字段 ID" },
+      "fillValue": { "type": "string", "default": "", "description": "用于填充空值的默认值（空串表示清空字段）" }
+    },
+    "required": ["tableId", "fieldId"]
+  },
+  "script": {
+    "timeout": 120
+  }
+}

@@ -62,6 +62,8 @@ import TableHistoryDialog from "@/components/dialogs/TableHistoryDialog.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { DocumentEditor } from "@/components/documents";
+// 插件体系：工具栏扩展点宿主
+import PluginToolbar from "@/components/plugins/PluginToolbar.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -2082,6 +2084,8 @@ const handleDocumentExportPdf = async () => {
                     {{ t('view.base.export') }}
                   </el-button>
                 </el-button-group>
+                <!-- 插件扩展点：工具栏按钮（有效启用的 UI 插件声明式注册） -->
+                <PluginToolbar />
                 <!-- <el-button-group>
                   <el-button
                     size="default"

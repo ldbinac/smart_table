@@ -1,0 +1,32 @@
+{
+  "id": "com.smarttable.hello-panel",
+  "name": "Hello Panel",
+  "description": "示例插件：在工具栏添加按钮，侧边面板中读取当前表记录并支持批量填充字段",
+  "author": {
+    "name": "SmartTable Team",
+    "url": "https://github.com/ldbinac/smart_table"
+  },
+  "version": "1.0.0",
+  "type": "ui",
+  "apiVersion": "1",
+  "engines": {
+    "smarttable": ">=1.6.0 <2.0.0"
+  },
+  "entry": "main.js",
+  "permissions": {
+    "records": "write",
+    "tables": "read",
+    "storage": true
+  },
+  "extensionPoints": [
+    { "type": "toolbar-button", "title": "Hello", "icon": "Star" },
+    { "type": "side-panel", "title": "Hello Panel" }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "greeting": { "type": "string", "default": "Hello" },
+      "pageSize": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+    }
+  }
+}
