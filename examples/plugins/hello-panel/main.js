@@ -5,6 +5,12 @@
  *   SmartTableSDK.ready(cb)              握手完成后回调
  *   SmartTableSDK.request(method, params) 发起 RPC 调用（Promise）
  *
+ * 勾选数据（表格 → 插件）：
+ *   ui.getContext() 返回的 selection 为打开插件瞬间的勾选快照：
+ *     { recordIds: string[], total: number, truncated: boolean,
+ *       selectAll: boolean, scope: "page" | "view", at: number }
+ *   也可单独调用 selection.get()。勾选变化不会实时推送，需重新打开插件。
+ *
  * 可用方法取决于 manifest.permissions 声明（未声明的方法宿主侧直接拒绝）：
  *   table.getRecords({ tableId, page, per_page })  需要 records: read
  *   table.getSchema({ tableId })                   需要 tables: read
@@ -53,7 +59,26 @@
     selectedFieldId: "",
     fillValue: "",
     loading: false,
+    /** 打开插件瞬间的表格勾选快照（宿主注入，仅含记录 ID） */
+    selection: null,
   };
+
+  /** 勾选摘要文案（含全选/截断提示） */
+  function selectionText() {
+    var sel = state.selection;
+    var ids = (sel && sel.recordIds) || [];
+    var total = (sel && sel.total) || ids.length;
+    if (!total) return "未勾选记录：请先在表格中勾选数据后重新打开本插件";
+    var tip = sel && sel.selectAll ? "（全选）" : "";
+    var trunc =
+      sel && sel.truncated ? "，已按上限截断为 " + ids.length + " 条" : "";
+    return "已勾选 " + total + " 条记录" + tip + trunc;
+  }
+
+  /** 当前勾选的记录 ID 列表 */
+  function selectedIds() {
+    return ((state.selection && state.selection.recordIds) || []).slice();
+  }
 
   // ---------- 渲染 ----------
   var root = document.getElementById("app") || document.body;
@@ -68,7 +93,10 @@
           (state.config.greeting || "Hello") + "，SmartTable 插件",
         ]),
         h("p", { style: "margin:0 0 12px;color:#909399;font-size:13px;" }, [
-          "读取当前表记录，并可将指定字段批量填充为同一值（演示 records: write 权限）。",
+          "读取表格勾选的记录，并可将指定字段批量填充为同一值（演示 records: write 权限）。",
+        ]),
+        h("div", { style: "margin:0 0 10px;color:#409EFF;font-size:13px;" }, [
+          selectionText(),
         ]),
         h("div", { style: "display:flex;gap:8px;align-items:center;margin-bottom:10px;" }, [
           h("select", {
@@ -153,6 +181,8 @@
     try {
       var ctx = state.context || (await SDK.request("ui.getContext", {}));
       state.context = ctx;
+      // 勾选快照：宿主在打开插件瞬间生成，仅含记录 ID
+      state.selection = ctx.selection || null;
 
       var schema = await SDK.request("table.getSchema", { tableId: ctx.tableId });
       state.fields = (schema && schema.fields) || [];
@@ -160,14 +190,28 @@
         state.selectedFieldId = state.fields[0].id;
       }
 
-      var pageSize = Number(state.config.pageSize) || 20;
-      var res = await SDK.request("table.getRecords", {
-        tableId: ctx.tableId,
-        page: 1,
-        per_page: pageSize,
-      });
-      state.records = (res && res.items) || [];
-      setStatus("共 " + ((res && res.total) || state.records.length) + " 条记录");
+      var ids = selectedIds();
+      if (ids.length === 0) {
+        state.records = [];
+        setStatus("未勾选记录：请先在表格中勾选数据后重新打开本插件");
+        render();
+        renderRecords();
+        return;
+      }
+
+      // 仅预览前 20 条，避免大量 RPC；填充时处理全部勾选记录
+      var preview = ids.slice(0, 20);
+      var items = [];
+      for (var i = 0; i < preview.length; i++) {
+        try {
+          var rec = await SDK.request("table.getRecord", { recordId: preview[i] });
+          if (rec) items.push(rec);
+        } catch (e) {
+          /* 单条读取失败忽略 */
+        }
+      }
+      state.records = items;
+      setStatus(selectionText());
       render();
       renderRecords();
     } catch (err) {
@@ -188,14 +232,22 @@
       return;
     }
 
+    // 对全部勾选记录执行填充（不局限于预览的 20 条）
+    var ids = selectedIds();
+    if (ids.length === 0) {
+      await SDK.request("ui.notify", {
+        message: "未勾选记录：请先在表格中勾选数据后重新打开本插件",
+        type: "warning",
+      });
+      return;
+    }
     var ok = 0;
     var fail = 0;
-    for (var i = 0; i < state.records.length; i++) {
-      var r = state.records[i];
+    for (var i = 0; i < ids.length; i++) {
       try {
         var values = {};
         values[state.selectedFieldId] = state.fillValue;
-        await SDK.request("record.update", { recordId: r.id, values: values });
+        await SDK.request("record.update", { recordId: ids[i], values: values });
         ok++;
       } catch (e) {
         fail++;

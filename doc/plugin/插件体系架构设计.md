@@ -131,6 +131,13 @@ permissions: {
 
 扩展点为声明式注册，宿主按清单渲染，插件无需（也无法）直接操作宿主 DOM。
 
+**勾选依赖声明**（可选，作用于该扩展点入口）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `requiresSelection` | boolean | 为 `true` 时表格未勾选记录则宿主禁用入口并提示；保证插件拿到的 `selection` 非空 |
+| `maxSelection` | number(1-1000) | 允许处理的最大勾选条数，超出时宿主禁用入口并提示，避免插件处理超大数据集 |
+
 ### 2.5 依赖管理范围声明
 
 **首期不支持插件间依赖**（无 `dependencies` 字段），仅支持宿主版本兼容声明（`engines` + `apiVersion`）。理由：插件间依赖图解析、循环检测、安装顺序对首期过重；宿主 API 版本协商已覆盖核心兼容需求。未来扩展路径：manifest 增加 `dependencies: {"com.example.lib": ">=1.0.0"}` 字段，安装时拓扑排序，与本架构不冲突。
@@ -353,6 +360,35 @@ token 为一次性 UUID，宿主侧维护 `(iframeWindow → pending token)` 映
 | GET | `/api/plugins/<id>/versions/<v>/files/<path>` | 登录用户（会话） | 插件静态资源（send_from_directory 防穿越） |
 
 REST 路径与静态文件路径用 `versions/<v>/files/` 前缀显式区分，避免 Flask 路由歧义。
+
+### 5.4 表格勾选数据通道（selection）
+
+**目标**：用户在表格中勾选记录后，点击插件按钮即可把所选记录交给插件处理。
+
+**数据通道（宿主 → 插件）**
+
+| 环节 | 实现 | 位置 |
+|------|------|------|
+| 勾选状态出口 | 表格实现 `SelectionProvider { getSelection(): SelectionSummary }` 并注册；VTable 合并"行选择 + 复选框选择"去重输出，表头全选映射为当页全部行 | `VTableView.getSelection()` → `Base.vue` 注册 |
+| 入口可用性 | 页面在 `records-select` 事件时上报勾选摘要（仅 ID + 计数），registry 维护 `selection`；工具栏按 `requiresSelection` / `maxSelection` 计算按钮 disabled 与提示 | `registry.setSelection` / `PluginToolbar` |
+| 快照生成 | 打开插件（创建 RPC 桥）的**瞬间**生成一次快照并写入 bridge context，不随勾选变化推送 | `PluginSandbox` → `buildSelectionSnapshot()` |
+| 插件读取 | `ui.getContext()` 返回 `selection`，或单独 `selection.get()` | `api-surface` |
+
+**快照结构**：`{ recordIds: string[], total: number, truncated: boolean, selectAll: boolean, scope: "page" \| "view", at: number }`
+
+**约束与完整性**
+
+1. **只传 ID**：记录内容由插件按需 `table.getRecord` 拉取，避免批量数据进入沙箱上下文与 postMessage 通道；
+2. **上限 1000**：超出截断并置 `truncated`（`total` 保留真实值），宿主与插件共同提示缩小范围；
+3. **打开时快照**：不做变更推送，勾选变化需重新打开插件（可预测、无事件风暴）；后续如需实时化，可在通道上扩展 `selection.change` 事件而不破坏现有契约；
+4. **失效清理**：表格刷新/删除记录后清理失效 ID；切换数据表时清空勾选，避免跨表串数据；
+5. **权限**：selection 只暴露 ID，真正的读写仍走既有双层校验（manifest 权限点 + 用户 RBAC），勾选数据不构成越权通道。
+
+**可扩展性与兼容性**
+
+- 宿主侧表格适配通过 `SelectionProvider` 接口解耦：VTable 已接入，原生表格/其他组件库只需实现同一接口并注册；
+- 插件侧只依赖全局 `SmartTableSDK`（postMessage + Promise），不绑定任何前端框架——Vue / React / 原生 JS 用法一致；
+- 扩展点声明（`requiresSelection` / `maxSelection`）由后端 manifest schema 校验，非法声明在安装阶段即被拒绝。
 
 ---
 

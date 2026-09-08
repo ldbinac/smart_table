@@ -114,6 +114,11 @@
     "traceback": "异常堆栈",
     "empty": "暂无运行记录"
   },
+  "selection": {
+    "selectFirst": "请先在表格中勾选记录，再使用该插件",
+    "maxExceeded": "最多只能选择 {n} 条记录",
+    "selectedCount": "已选 {n} 条"
+  },
   "baseInstall": {
     "title": "Base 安装状态",
     "notInstalled": "未安装",

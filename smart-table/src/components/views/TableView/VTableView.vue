@@ -18,6 +18,7 @@ import type {
   DataRecordCreatedBroadcast,
   DataRecordDeletedBroadcast,
 } from "@/services/realtime/eventTypes";
+import type { SelectionSummary } from "@/plugins/types";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { db } from "@/db/schema";
@@ -5326,9 +5327,7 @@ const bindTableEvents = () => {
       } else {
         emit('record-select', null);
       }
-      
-      const selectedRecords = sortedRecords.value.filter(r => newIds.includes(r.id));
-      emit('records-select', selectedRecords);
+      // 注：records-select 统一由 selectedRecordIds 的 watcher 上报（覆盖行选/复选框/全选）
     }
   });
 
@@ -6538,9 +6537,18 @@ watch(() => props.viewId, (newViewId, oldViewId) => {
   }
 });
 
-watch(selectedRows, () => {
-  // 选中行变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新
-}, { deep: true });
+// 勾选变化（行选择 / 复选框 / 表头全选）统一上报，供宿主消费（如插件工具栏按钮可用性）。
+// 选中态变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新。
+watch(
+  selectedRecordIds,
+  (ids) => {
+    const records = sortedRecords.value.filter(
+      (r) => r && r.id && ids.includes(r.id),
+    );
+    emit("records-select", records);
+  },
+  { deep: true },
+);
 
 // 用户缓存更新时刷新表格（成员名称异步加载完成后重渲染）
 watch(() => userCacheStore.cacheStats.size, () => {
@@ -6609,6 +6617,15 @@ onBeforeUnmount(() => {
 defineExpose({
   selectedRows,
   openSearch,
+  /** 当前勾选摘要（行选择 + 复选框选择去重合并），供插件体系只读消费 */
+  getSelection: (): SelectionSummary => ({
+    recordIds: [...selectedRecordIds.value],
+    total: selectedRecordIds.value.length,
+    selectAll:
+      selectedRecordIds.value.length > 0 &&
+      selectedRecordIds.value.length === sortedRecords.value.length,
+    scope: "page",
+  }),
   refresh: () => {
     updateTable();
   },

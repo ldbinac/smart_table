@@ -64,6 +64,9 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { DocumentEditor } from "@/components/documents";
 // 插件体系：工具栏扩展点宿主
 import PluginToolbar from "@/components/plugins/PluginToolbar.vue";
+import { setSelection } from "@/plugins/registry";
+import { registerSelectionProvider } from "@/plugins/selection";
+import type { SelectionSummary } from "@/plugins/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -77,8 +80,16 @@ const documentStore = useDocumentStore();
 
 const { t } = useI18n();
 
-// VTableView 组件引用（用于调用搜索功能）
-const vtableViewRef = shallowRef<{ openSearch: () => void } | null>(null);
+// VTableView 组件引用（用于调用搜索功能 / 读取勾选状态）
+const vtableViewRef = shallowRef<{
+  openSearch: () => void;
+  getSelection?: () => SelectionSummary | null;
+} | null>(null);
+
+// 插件体系：把 VTable 的勾选状态暴露给插件（惰性读取 ref，切换表格/卸载后自动降级为 null）
+registerSelectionProvider({
+  getSelection: () => vtableViewRef.value?.getSelection?.() ?? null,
+});
 // DocumentEditor 组件引用（用于检查未保存更改）
 const documentEditorRef = ref<{ hasUnsavedChanges: () => boolean; save: () => Promise<void> } | null>(null);
 
@@ -630,6 +641,8 @@ let tableLoadInFlight = '';
 const loadTableView = async (tableId: string) => {
   if (!tableId || tableLoadInFlight === tableId) return;
   tableLoadInFlight = tableId;
+  // 切换数据表：清空插件体系持有的勾选状态，避免跨表残留
+  setSelection(null);
   try {
     await tableStore.selectTable(tableId);
     await viewStore.loadViews(tableId);
@@ -711,7 +724,16 @@ const handleRecordSelect = (_record: any) => {
 };
 
 const handleRecordsSelect = (_records: any[]) => {
-  // 多记录选择处理
+  // 多记录选择处理：同步勾选状态给插件体系（仅记录 ID，用于按钮可用性与打开插件时的快照）
+  const ids = (_records || [])
+    .map((r) => (typeof r === "string" ? r : String(r?.id ?? "")))
+    .filter(Boolean);
+  setSelection({
+    recordIds: ids,
+    total: ids.length,
+    selectAll: ids.length > 0 && ids.length === filteredRecords.value.length,
+    scope: "page",
+  });
 };
 
 // 处理添加记录（来自看板视图和日历视图）

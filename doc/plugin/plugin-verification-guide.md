@@ -19,7 +19,7 @@
 
 1. **`base-menu` / `record-detail-block` 扩展点未挂载**：`registry.ts` 收集了声明，但没有任何宿主组件渲染它们。声明式注册存在，挂载缺失 → 这两项**目前无法端到端验证**。（原"Base 级安装无 UI"缺口已解决：插件管理页卡片新增 Base 安装区，见 §2A.5。）
 2. **文档与实现的小出入（不影响功能）**：
-   - 开发者指南 §3.2 写 `record.get({recordId})`，实际实现为 `table.getRecord`（架构设计 §4.2 也是 `table.getRecord`）。示例未用到该方法，无碍。
+   - （已修复）开发者指南原写 `record.get({recordId})`，现与实际实现 `table.getRecord` 对齐；架构设计 §4.2 亦为 `table.getRecord`。
    - 架构设计 §4.2 的 `record.batchUpdate` / `table.addField` / `base.add_field()` 等属"首期预留"，当前**未实现**（示例未涉及）。
    - 架构设计 §5.3 列的独立 `GET /api/plugins/<id>/versions` 未实现；版本历史随 `GET /<id>` 返回。
 
@@ -229,6 +229,12 @@ curl.exe -X PUT http://localhost:5000/api/plugins/com.smarttable.hello-panel/ins
 ```
 
 然后在 UI 验证：
+0. [ ] **勾选依赖（selection）**：
+   - [ ] 未勾选任何记录时，"Hello" 按钮为**禁用**态，悬浮提示"请先在表格中勾选记录，再使用该插件"；
+   - [ ] 勾选 2~3 条记录后按钮恢复可用，悬浮提示显示"已选 N 条"；
+   - [ ] 打开面板显示"已勾选 N 条记录"，批量填充**只作用于勾选记录**（未勾选记录字段值不变）；
+   - [ ] 勾选后不重开插件、直接在表格改勾选 → 面板内容不变（打开时快照语义）；
+   - [ ] 表头全选 → 面板显示"已勾选 N 条记录（全选）"。
 1. [ ] 进入第 1.3 节那张表，工具栏出现 **"Hello"** 按钮（来自 `extensionPoints.toolbar-button`）。
 2. [ ] 点击按钮，右侧 Drawer 打开 **Hello Panel**（来自 `extensionPoints.side-panel`），显示标题 `Hello，SmartTable 插件` 并自动加载记录列表。
 3. [ ] 选择字段、输入填充值、点"批量填充"：目标字段被写入；弹出 `填充完成：成功 N 条` 提示（`ui.notify` + `record.update` 走通）。

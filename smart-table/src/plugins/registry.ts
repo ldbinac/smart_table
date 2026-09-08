@@ -13,6 +13,7 @@ import type {
   ExtensionPoint,
   ExtensionPointType,
   PluginStatus,
+  SelectionSummary,
 } from "./types";
 
 /** 插件运行时错误记录 */
@@ -71,6 +72,20 @@ export async function loadPluginsForBase(baseId: string): Promise<void> {
 export function invalidatePluginsCache(): void {
   loadedBaseId.value = "";
 }
+
+/**
+ * 当前表格的勾选状态（由页面/表格组件上报）
+ * 仅含记录 ID 与计数，供工具栏按钮可用性判断；真正传给插件的快照在打开插件时生成。
+ */
+const selection = ref<SelectionSummary | null>(null);
+
+/** 上报当前勾选状态（切换表格/清空勾选时传 null） */
+export function setSelection(summary: SelectionSummary | null): void {
+  selection.value = summary;
+}
+
+/** 当前勾选条数（未接入表格时为 0） */
+export const selectionCount = computed(() => selection.value?.total ?? 0);
 
 /** 有效启用：全局 enabled 且 Base 级 enabled */
 export function isEffective(plugin: PluginEntity): boolean {
@@ -159,7 +174,10 @@ export const pluginRegistry = {
   errors,
   loading,
   context,
+  selection,
+  selectionCount,
   isEffective,
+  setSelection,
   setPlugins,
   setLoading,
   setContext,

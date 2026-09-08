@@ -7,15 +7,24 @@
  */
 import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
+import { ElMessage } from "element-plus";
 import * as Icons from "@element-plus/icons-vue";
 import {
   pluginRegistry,
   setContext,
   loadPluginsForBase,
 } from "@/plugins/registry";
+import { checkSelectionRequirement, getSelectionSummary } from "@/plugins/selection";
+import type {
+  ExtensionPoint,
+  PluginEntity,
+  SelectionSummary,
+} from "@/plugins/types";
 import PluginSandbox from "./PluginSandbox.vue";
 
 const route = useRoute();
+const { t } = useI18n();
 
 const panelVisible = ref(false);
 const activePluginId = ref("");
@@ -38,6 +47,73 @@ async function loadPlugins(): Promise<void> {
   setContext({ baseId: baseId.value, tableId: tableId.value });
   // 去重加载在 registry 内完成：组件被条件渲染重复挂载/多实例时不会重复请求
   await loadPluginsForBase(baseId.value);
+}
+
+/** 扩展点声明的勾选约束 */
+function requirementOf(extension: ExtensionPoint) {
+  return {
+    requiresSelection: extension.requiresSelection,
+    maxSelection: extension.maxSelection,
+  };
+}
+
+/** 依据当前勾选判断按钮可用性（声明了 requiresSelection/maxSelection 才约束） */
+function buttonState(item: { plugin: PluginEntity; extension: ExtensionPoint }) {
+  return checkSelectionRequirement(
+    pluginRegistry.selection.value as SelectionSummary | null,
+    requirementOf(item.extension),
+  );
+}
+
+function isButtonAvailable(item: {
+  plugin: PluginEntity;
+  extension: ExtensionPoint;
+}): boolean {
+  return buttonState(item).ok;
+}
+
+/** 按钮悬浮提示：不满足时给出原因，满足且声明了依赖时显示已选条数 */
+function buttonTitle(item: {
+  plugin: PluginEntity;
+  extension: ExtensionPoint;
+}): string {
+  const base = `${item.extension.title}（${item.plugin.name}）`;
+  const state = buttonState(item);
+  if (!state.ok) {
+    return state.reason === "empty"
+      ? t("plugin.selection.selectFirst")
+      : t("plugin.selection.maxExceeded", {
+          n: item.extension.maxSelection ?? 0,
+        });
+  }
+  const declared = Boolean(
+    item.extension.requiresSelection || item.extension.maxSelection,
+  );
+  return declared
+    ? `${base} · ${t("plugin.selection.selectedCount", { n: state.count })}`
+    : base;
+}
+
+/** 点击入口：按声明校验勾选（以打开瞬间的最新勾选为准），不满足则提示 */
+function handleButtonClick(item: {
+  plugin: PluginEntity;
+  extension: ExtensionPoint;
+}): void {
+  const state = checkSelectionRequirement(
+    getSelectionSummary(),
+    requirementOf(item.extension),
+  );
+  if (!state.ok) {
+    ElMessage.warning(
+      state.reason === "empty"
+        ? t("plugin.selection.selectFirst")
+        : t("plugin.selection.maxExceeded", {
+            n: item.extension.maxSelection ?? 0,
+          }),
+    );
+    return;
+  }
+  openPanel(item.plugin.id, item.extension.title);
 }
 
 function openPanel(pluginId: string, title: string): void {
@@ -81,8 +157,9 @@ watch(
         v-for="item in buttons"
         :key="item.plugin.id"
         size="default"
-        :title="`${item.extension.title}（${item.plugin.name}）`"
-        @click="openPanel(item.plugin.id, item.extension.title)">
+        :disabled="!isButtonAvailable(item)"
+        :title="buttonTitle(item)"
+        @click="handleButtonClick(item)">
         <el-icon>
           <component :is="resolveIcon(item.extension.icon)" />
         </el-icon>

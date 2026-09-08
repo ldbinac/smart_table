@@ -39,6 +39,34 @@ export interface ExtensionPoint {
   type: ExtensionPointType;
   title: string;
   icon?: string;
+  /** 是否要求表格中已勾选记录（未勾选时宿主禁用入口并提示） */
+  requiresSelection?: boolean;
+  /** 允许处理的最大勾选条数（超出时宿主禁用入口并提示） */
+  maxSelection?: number;
+}
+
+/** 勾选范围：page=当前页行、view=当前视图筛选结果 */
+export type SelectionScope = "page" | "view";
+
+/** 表格上报的勾选摘要（宿主内部使用，不含记录内容） */
+export interface SelectionSummary {
+  recordIds: string[];
+  total: number;
+  /** 是否命中"全选"（如表头复选框全选） */
+  selectAll: boolean;
+  scope: SelectionScope;
+}
+
+/** 传给插件的勾选快照（打开插件时生成，仅含记录 ID） */
+export interface SelectionSnapshot {
+  recordIds: string[];
+  total: number;
+  /** 是否因超过上限被截断（此时 total > recordIds.length） */
+  truncated: boolean;
+  selectAll: boolean;
+  scope: SelectionScope;
+  /** 快照生成时间戳（ms） */
+  at: number;
 }
 
 /** 脚本插件配置 */
@@ -177,6 +205,8 @@ export interface ApiHandlerContext {
   baseId: string;
   tableId: string;
   config: Record<string, unknown>;
+  /** 打开插件瞬间的表格勾选快照（未接入表格时为 null） */
+  selection: SelectionSnapshot | null;
 }
 
 export type ApiHandler = (

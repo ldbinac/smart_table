@@ -72,7 +72,11 @@ export function buildApiSurface(
     pluginId: ctx.pluginId,
     baseId: ctx.baseId,
     tableId: ctx.tableId,
+    selection: ctx.selection,
   }));
+
+  // 勾选数据读取（与 ui.getContext 同源，便于插件单独获取）
+  handlers.set("selection.get", (_params, ctx) => ctx.selection);
 
   // 配置读取：隐含授予（与后端一致）
   handlers.set("config.get", (_params, ctx) => ctx.config);

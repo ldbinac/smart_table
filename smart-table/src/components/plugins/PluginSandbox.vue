@@ -10,6 +10,7 @@ import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { fetchSandboxUrl } from "@/api/plugins";
 import { createPluginBridge, generateHandshakeToken } from "@/plugins/rpc";
 import { buildApiSurface } from "@/plugins/api-surface";
+import { buildSelectionSnapshot } from "@/plugins/selection";
 import { reportPluginError } from "@/plugins/registry";
 import type { ExtensionPointType } from "@/plugins/types";
 
@@ -74,6 +75,8 @@ async function loadPlugin(): Promise<void> {
         baseId: props.baseId,
         tableId: props.tableId,
         config: config || {},
+        // 打开插件瞬间的表格勾选快照（仅记录 ID；勾选变化需重开插件感知）
+        selection: buildSelectionSnapshot(),
       },
     });
 

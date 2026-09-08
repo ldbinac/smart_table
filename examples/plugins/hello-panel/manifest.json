@@ -19,8 +19,17 @@
     "storage": true
   },
   "extensionPoints": [
-    { "type": "toolbar-button", "title": "Hello", "icon": "Star" },
-    { "type": "side-panel", "title": "Hello Panel" }
+    {
+      "type": "toolbar-button",
+      "title": "Hello",
+      "icon": "Star",
+      "requiresSelection": true
+    },
+    {
+      "type": "side-panel",
+      "title": "Hello Panel",
+      "requiresSelection": true
+    }
   ],
   "configSchema": {
     "type": "object",

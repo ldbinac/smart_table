@@ -89,7 +89,17 @@ MANIFEST_SCHEMA = {
                     },
                     "title": {"type": "string", "minLength": 1, "maxLength": 50},
                     "icon": {"type": "string", "maxLength": 50,
-                             "description": "Element Plus 图标名（宿主渲染）"}
+                             "description": "Element Plus 图标名（宿主渲染）"},
+                    "requiresSelection": {
+                        "type": "boolean",
+                        "description": "是否要求表格中已勾选记录（未勾选时宿主禁用入口并提示）"
+                    },
+                    "maxSelection": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000,
+                        "description": "允许处理的最大勾选条数（超出时宿主禁用入口并提示，上限 1000）"
+                    }
                 }
             }
         },

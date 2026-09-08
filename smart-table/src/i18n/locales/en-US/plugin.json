@@ -114,6 +114,11 @@
     "traceback": "Traceback",
     "empty": "No run records yet"
   },
+  "selection": {
+    "selectFirst": "Select records in the table before using this plugin",
+    "maxExceeded": "Select at most {n} records",
+    "selectedCount": "{n} selected"
+  },
   "baseInstall": {
     "title": "Base Installation",
     "notInstalled": "Not Installed",

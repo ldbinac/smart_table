@@ -52,12 +52,27 @@
 
 ```json
 "extensionPoints": [
-  { "type": "toolbar-button", "title": "批量填充", "icon": "Star" },
-  { "type": "side-panel",     "title": "填充面板" }
+  {
+    "type": "toolbar-button",
+    "title": "批量填充",
+    "icon": "Star",
+    "requiresSelection": true,
+    "maxSelection": 500
+  },
+  { "type": "side-panel", "title": "填充面板", "requiresSelection": true }
 ]
 ```
 
 支持类型：`toolbar-button`（工具栏按钮）、`side-panel`（右侧 Drawer 中的 iframe）、`base-menu`（Base 级菜单）、`record-detail-block`（记录详情区块）。插件通过清单声明式注册，宿主在启用后自动挂载，无需修改宿主代码。
+
+**可选的勾选依赖声明**（作用于该扩展点入口）：
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `requiresSelection` | boolean | 为 `true` 时，表格中未勾选记录则宿主禁用入口并提示"请先勾选记录" |
+| `maxSelection` | number(1-1000) | 允许处理的最大勾选条数，超出时宿主禁用入口并提示 |
+
+勾选数据经 `ui.getContext()` / `selection.get()` 传给插件，详见 §3.3。
 
 ---
 
@@ -71,27 +86,75 @@ UI 插件在 iframe 中运行，宿主以同源 URL 加载但 `sandbox="allow-sc
 
 - `SmartTableSDK.ready(cb)`：握手完成后回调，回调参数为 `sdk`
 - `sdk.request(method, params)`：发起 RPC 调用，返回 `Promise`
-- `sdk.request("ui.getContext")` → `{ pluginId, baseId, tableId }`
+- `sdk.request("ui.getContext")` → `{ pluginId, baseId, tableId, selection }`（`selection` 为打开插件瞬间的表格勾选快照，见 §3.3）
+- `sdk.request("selection.get")` → 单独获取勾选快照（与 `ui.getContext().selection` 同源）
 
 ### 3.2 可用方法（受 `permissions` 约束）
 
 | 方法 | 所需权限 | 说明 |
 | ---- | -------- | ---- |
-| `ui.getContext()` | — | 获取当前上下文 |
+| `ui.getContext()` | — | 获取当前上下文（含勾选快照 `selection`） |
+| `selection.get()` | — | 获取打开插件瞬间的表格勾选快照 |
 | `ui.notify({ message, type })` | — | 弹提示 |
 | `config.get()` | —（隐含授予） | 读取生效配置（base 合并 global） |
 | `storage.get/set/remove({ key, value })` | `storage` | 插件自有 KV |
 | `table.getSchema({ tableId })` | `tables:read` | 表结构 + 字段 |
 | `table.listTables()` | `tables:read` | 当前 Base 的表列表 |
 | `table.getRecords({ tableId, page, per_page, search })` | `records:read` | 分页读取记录 |
-| `record.get({ recordId })` | `records:read` | 单条记录 |
+| `table.getRecord({ recordId })` | `records:read` | 单条记录 |
 | `record.create({ tableId, values })` | `records:write` | 创建记录 |
 | `record.update({ recordId, values })` | `records:write` | 更新记录 |
 | `record.delete({ recordId })` | `records:write` | 删除记录 |
 
 > 数据请求由宿主以**当前用户 JWT 身份**转发现有 REST API，插件永不持有凭证。越权调用返回 `{ code: "PERMISSION_DENIED" }`。
 
-### 3.3 最小示例（零构建 IIFE）
+### 3.3 表格勾选数据（selection）
+
+宿主在**打开插件的瞬间**生成表格勾选快照并注入 RPC 上下文，插件通过 `ui.getContext()` 或 `selection.get()` 读取：
+
+```ts
+type SelectionSnapshot = {
+  recordIds: string[];     // 勾选记录 ID（超过上限会被截断）
+  total: number;           // 勾选总数（截断时为真实总数）
+  truncated: boolean;      // 是否因超过上限被截断
+  selectAll: boolean;      // 是否命中全选
+  scope: "page" | "view";  // 勾选范围：当前页 / 当前视图筛选结果
+  at: number;              // 快照时间戳（ms）
+};
+```
+
+约定与边界：
+
+- **只传 ID**：快照不含记录内容，插件按需用 `table.getRecord({ recordId })` 取详情，避免大批量数据进入沙箱上下文；
+- **打开时快照**：勾选变化**不实时推送**，需重新打开插件获取最新勾选（语义简单可预测，避免沙箱与表格状态互相牵连）；
+- **上限保护**：单次最多传递 **1000** 个 ID，超出时 `truncated = true`（`total` 仍为真实总数），插件应提示用户缩小范围；
+- **全选语义**：表头全选映射为当前视图/当页全部行 ID，`selectAll = true`；
+- **完整性**：表格刷新/删除后会清理失效 ID；切换数据表时宿主清空勾选状态，避免跨表残留。
+
+典型处理流程：
+
+```js
+SDK.ready(async function (sdk) {
+  var ctx = await sdk.request("ui.getContext", {});      // 或 sdk.request("selection.get")
+  var ids = (ctx.selection && ctx.selection.recordIds) || [];
+  if (!ids.length) {
+    await sdk.request("ui.notify", { message: "请先勾选记录", type: "warning" });
+    return;
+  }
+  for (var i = 0; i < ids.length; i++) {
+    var rec = await sdk.request("table.getRecord", { recordId: ids[i] });
+    await sdk.request("record.update", {
+      recordId: ids[i],
+      values: { fld_xxx: "新值" },
+    });
+  }
+  await sdk.request("ui.notify", { message: "处理完成", type: "success" });
+});
+```
+
+**框架/组件库兼容性**：SDK 只依赖 `window.SmartTableSDK`（postMessage + Promise），与插件自身使用的框架无关——Vue / React / 原生 JS 均可按上述方式调用；宿主侧通过可插拔的 `SelectionProvider` 接口适配不同表格实现（当前接入 VTable，原生表格可后续接入同一接口），插件无需感知表格组件。
+
+### 3.4 最小示例（零构建 IIFE）
 
 无需任何构建工具链，单个 JS 文件即可：
 
@@ -110,7 +173,7 @@ UI 插件在 iframe 中运行，宿主以同源 URL 加载但 `sandbox="allow-sc
 
 完整可运行示例见 `examples/plugins/hello-panel/`（`manifest.json` + `main.js`）：工具栏按钮 + 侧边面板读取当前表记录并批量填充字段。
 
-### 3.4 调试
+### 3.5 调试
 
 1. 管理员在"插件管理"页上传 `.stplugin.zip` 安装；
 2. 在对应 Base 内启用该插件；
