@@ -361,7 +361,24 @@ token 为一次性 UUID，宿主侧维护 `(iframeWindow → pending token)` 映
 
 REST 路径与静态文件路径用 `versions/<v>/files/` 前缀显式区分，避免 Flask 路由歧义。
 
-### 5.4 表格勾选数据通道（selection）
+### 5.4 沙箱渲染运行时（vendor）
+
+插件 UI 允许直接用标准前端框架编写。宿主在 loader 中注入 **同源托管** 的渲染运行时，避免插件各自内联框架或依赖外网：
+
+| 运行时 | 文件 | 注入方式 | 用途 |
+|--------|------|---------|------|
+| Vue 3 | `vue.global.prod.js`（含模板编译器） | loader 在插件入口脚本前加载 `vendor/vue.global.prod.js` | 插件可用 `Vue.createApp({ template })` 编写 UI |
+
+要点：
+
+1. **同源 + 离线可用**：vendor 由后端静态托管（`app/plugins_sandbox/vendor/`），不走 CDN，无需 `permissions.network`，内网/离线环境可用；
+2. **安全边界**：文件名白名单（仅 `vue.global.js` / `vue.global.prod.js`）+ `send_from_directory` 防穿越；vendor 为只读静态资源，不参与握手鉴权；
+3. **零构建**：插件仍为单个入口文件，模板以字符串书写，不要求打包工具链；
+4. **CSP**：生产 CSP 的 `script-src` 已包含 `'unsafe-eval'`，满足 Vue 模板编译器（运行时编译）需求；
+5. **隔离不变**：注入的 Vue 只存在于 opaque origin 的 iframe 内，与宿主页面的 Vue 实例完全隔离，不共享 DOM/状态；
+6. **可扩展**：后续如需 React 等运行时，按同样的"白名单 vendor + loader 注入"方式加入即可，插件契约不变。
+
+### 5.5 表格勾选数据通道（selection）
 
 **目标**：用户在表格中勾选记录后，点击插件按钮即可把所选记录交给插件处理。
 

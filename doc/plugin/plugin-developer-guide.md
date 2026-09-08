@@ -82,12 +82,17 @@
 
 UI 插件在 iframe 中运行，宿主以同源 URL 加载但 `sandbox="allow-scripts"`（不带 `allow-same-origin`），使插件获得 **opaque origin**（`event.origin === "null"`），天然无法访问宿主 Cookie / localStorage / DOM。
 
-宿主提供 loader HTML 并向插件注入全局对象 `window.SmartTableSDK`：
+宿主提供 loader HTML（含挂载点 `<div id="app">`）并向插件注入两个全局对象：
 
-- `SmartTableSDK.ready(cb)`：握手完成后回调，回调参数为 `sdk`
-- `sdk.request(method, params)`：发起 RPC 调用，返回 `Promise`
-- `sdk.request("ui.getContext")` → `{ pluginId, baseId, tableId, selection }`（`selection` 为打开插件瞬间的表格勾选快照，见 §3.3）
-- `sdk.request("selection.get")` → 单独获取勾选快照（与 `ui.getContext().selection` 同源）
+- `window.SmartTableSDK`：插件 SDK
+  - `SmartTableSDK.ready(cb)`：握手完成后回调，回调参数为 `sdk`
+  - `sdk.request(method, params)`：发起 RPC 调用，返回 `Promise`
+  - `sdk.request("ui.getContext")` → `{ pluginId, baseId, tableId, selection }`（`selection` 为打开插件瞬间的表格勾选快照，见 §3.3）
+  - `sdk.request("selection.get")` → 单独获取勾选快照（与 `ui.getContext().selection` 同源）
+- `window.Vue`：Vue3 全局构建（`vue.global.prod.js`，**含模板编译器**），由宿主从同源 `vendor/` 目录注入
+
+> 推荐用 **Vue 模板语法**编写插件 UI（`Vue.createApp({ template: \`...\` })`），支持 `v-model`、`v-for`、`@click`、`:disabled` 与数据响应式，无需任何构建工具链；也允许用原生 HTML/JS 自行渲染挂载点。
+> Vue 运行时为宿主同源托管（不依赖外网/CDN，离线可用），生产环境 CSP 已包含 `'unsafe-eval'`（模板编译器需要）。
 
 ### 3.2 可用方法（受 `permissions` 约束）
 
@@ -156,22 +161,64 @@ SDK.ready(async function (sdk) {
 
 ### 3.4 最小示例（零构建 IIFE）
 
-无需任何构建工具链，单个 JS 文件即可：
+无需任何构建工具链，单个 JS 文件即可；推荐直接用宿主注入的 Vue 写模板：
 
 ```js
 (function () {
+  "use strict";
   var SDK = window.SmartTableSDK;
-  SDK.ready(async function (sdk) {
-    var ctx = await sdk.request("ui.getContext");
-    var schema = await sdk.request("table.getSchema", { tableId: ctx.tableId });
-    var rows = await sdk.request("table.getRecords", { tableId: ctx.tableId, per_page: 20 });
-    await sdk.request("ui.notify", { message: "已加载 " + rows.total + " 条", type: "success" });
-    // 渲染你自己的 UI 到 document.body
-  });
+  var Vue = window.Vue;
+
+  Vue.createApp({
+    // 标准 Vue 模板：v-model / v-for / @click / :disabled 均可正常使用
+    template: `
+      <div class="my-plugin">
+        <select v-model="fieldId">
+          <option v-for="f in fields" :key="f.id" :value="f.id">{{ f.name }}</option>
+        </select>
+        <input v-model="keyword" placeholder="查找值" />
+        <button :disabled="loading" @click="search">查找</button>
+        <p v-if="!records.length">暂无记录</p>
+        <div v-for="r in records" :key="r.id">{{ r.id }}</div>
+      </div>
+    `,
+    data() {
+      return { fields: [], records: [], fieldId: "", keyword: "", loading: false };
+    },
+    methods: {
+      async search() {
+        this.loading = true;
+        try {
+          var ctx = await SDK.request("ui.getContext", {});
+          var schema = await SDK.request("table.getSchema", { tableId: ctx.tableId });
+          this.fields = (schema && schema.fields) || [];
+          var res = await SDK.request("table.getRecords", {
+            tableId: ctx.tableId,
+            search: this.keyword,
+            per_page: 20,
+          });
+          this.records = (res && res.items) || [];
+          await SDK.request("ui.notify", { message: "已加载 " + this.records.length + " 条", type: "success" });
+        } finally {
+          this.loading = false;
+        }
+      },
+    },
+    mounted() {
+      this.search();
+    },
+  }).mount("#app");
 })();
 ```
 
-完整可运行示例见 `examples/plugins/hello-panel/`（`manifest.json` + `main.js`）：工具栏按钮 + 侧边面板读取当前表记录并批量填充字段。
+说明：
+
+- 挂载点为 loader 提供的 `<div id="app">`，不要自行清空 `document.body`；
+- 样式可随脚本注入 `<style>`（零构建下无 SFC 样式块），或用行内 `style`；
+- 若不使用 Vue，也可直接操作 `#app` 自行渲染，SDK 能力与模板写法无关；
+- 依赖 `window.Vue` 缺失时应给出明确提示（宿主 loader 会注入 vendor 运行时）。
+
+完整可运行示例见 `examples/plugins/hello-panel/`（`manifest.json` + `main.js`）：Vue 模板渲染的工具栏按钮 + 侧边面板，读取表格勾选记录并批量填充字段。
 
 ### 3.5 调试
 

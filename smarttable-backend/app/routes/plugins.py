@@ -146,6 +146,8 @@ _LOADER_TEMPLATE = """<!DOCTYPE html>
   }}
 }})();
 </script>
+<!-- 宿主注入的渲染运行时：Vue3 全局构建（含模板编译器），同源托管、离线可用 -->
+<script src="vendor/vue.global.prod.js"></script>
 <script src="files/{entry}?st={st}"></script>
 </body>
 </html>
@@ -177,6 +179,33 @@ def verify_sandbox_token(token: str, plugin_id: str, version: str) -> bool:
     if exp < int(time.time()):
         return False
     return hmac.compare_digest(_sign(f'{plugin_id}|{version}|{exp}'), sig)
+
+
+# ==================== 沙箱渲染运行时（vendor） ====================
+
+# 宿主自带的沙箱运行时（如 Vue3 全局构建，含模板编译器）：同源托管，离线可用
+_VENDOR_DIR = Path(__file__).resolve().parent.parent / 'plugins_sandbox' / 'vendor'
+# 文件名白名单：仅暴露明确允许的运行时，防止任意文件读取
+_VENDOR_ALLOWED = {'vue.global.prod.js', 'vue.global.js'}
+
+
+@plugins_bp.route('/plugins/vendor/<path:filename>', methods=['GET'])
+@plugins_bp.route(
+    '/plugins/<string:plugin_id>/versions/<string:version>/vendor/<path:filename>',
+    methods=['GET'])
+def plugin_vendor_asset(filename: str, plugin_id: str = '', version: str = ''):
+    """沙箱内可用的前端运行时资源（宿主自带，非插件包内容）
+
+    与 `/files/<path>`（插件包静态文件，需签名）不同，vendor 资源：
+    - 同源提供，不依赖外网/CDN，离线环境可用；
+    - 文件名白名单 + send_from_directory 双重防路径穿越。
+    """
+    name = Path(filename).name
+    if name not in _VENDOR_ALLOWED or not (_VENDOR_DIR / name).is_file():
+        return not_found_response('plugin_vendor_not_found')
+    resp = send_from_directory(str(_VENDOR_DIR), name)
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
 
 
 # ==================== 沙箱静态服务 ====================
