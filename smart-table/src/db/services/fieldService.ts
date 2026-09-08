@@ -3,7 +3,7 @@ import type { FieldEntity } from "../schema";
 import { generateId } from "../../utils/id";
 import type { CellValue, FieldOptions } from "../../types";
 import { fieldApiService } from "@/services/api/fieldApiService";
-import type { ConvertibleTypesResult } from "@/services/api/fieldApiService";
+import type { ConvertibleTypesResult } from "@/types/fields";
 import { normalizeFieldType, denormalizeFieldType } from "@/types/fields";
 import { t } from "@/i18n";
 

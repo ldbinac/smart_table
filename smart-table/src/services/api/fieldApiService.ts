@@ -3,7 +3,7 @@
  */
 import { apiClient } from '@/api/client';
 import type { Field, FieldType } from '@/api/types';
-import type { ConvertibleTypeItem, ConvertibleTypesResult } from '@/types/fields';
+import type { ConvertibleTypesResult } from '@/types/fields';
 
 export const getFields = async (tableId: string, shareToken?: string): Promise<Field[]> => {
   const params = shareToken ? { share_token: shareToken } : undefined;

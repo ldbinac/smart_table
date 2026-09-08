@@ -65,7 +65,7 @@ import { masterDetailService } from "@/services/masterDetailService";
 import SubTableToolbar from "@/components/views/TableView/SubTableToolbar.vue";
 
 function recalcFloatingPanelPosition(
-  col: number, row: number, panelWidth: number, panelHeight: number
+  _col: number, _row: number, panelWidth: number, panelHeight: number
 ): { x: number; y: number } | null {
   // 附件浮窗始终居中显示于浏览器视口，避免字段在表格右侧被滚动隐藏后弹窗跑到视口外
   const panelX = Math.max(8, Math.round((window.innerWidth - panelWidth) / 2));

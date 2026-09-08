@@ -79,13 +79,13 @@ function fieldById(id: string): FieldEntity {
 }
 
 // 字段级配置：默认值与只读（仅对允许提交的字段生效）
-const fieldDefaults = ref<Record<string, unknown>>({});
+const fieldDefaults = ref<Record<string, any>>({});
 const fieldReadOnly = ref<Record<string, boolean>>({});
 
 // 字段类型是否支持设置默认值（复杂类型暂不支持，仅提供只读开关）
 function supportsDefaultValue(field: FieldEntity): boolean {
   const t = field.type as FieldTypeValue;
-  return [
+  return ([
     FieldType.SINGLE_LINE_TEXT,
     FieldType.LONG_TEXT,
     FieldType.RICH_TEXT,
@@ -103,7 +103,7 @@ function supportsDefaultValue(field: FieldEntity): boolean {
     FieldType.MULTI_SELECT,
     FieldType.DATE,
     FieldType.DATE_TIME,
-  ].includes(t);
+  ] as FieldTypeValue[]).includes(t);
 }
 
 // 默认值的编辑器类型

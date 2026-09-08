@@ -247,13 +247,25 @@ const excelImportCreateDialogVisible = ref(false);
 const showTableHistory = ref(false);
 
 // 表单配置
-const formConfig = ref({
+interface FormConfig {
+  title: string;
+  description: string;
+  submitButtonText: string;
+  visibleFieldIds: string[];
+  successMessage: string;
+  allowMultipleSubmit: boolean;
+  /** 每行显示的字段数量（1-4），用于一行显示多个字段 */
+  columns?: number;
+}
+
+const formConfig = ref<FormConfig>({
   title: t('view.base.formTitleDefault'),
   description: "",
   submitButtonText: t('view.base.formSubmitDefault'),
   visibleFieldIds: [] as string[],
   successMessage: t('view.base.formSuccessDefault'),
   allowMultipleSubmit: true,
+  columns: 1,
 });
 
 // 当前编辑的记录
