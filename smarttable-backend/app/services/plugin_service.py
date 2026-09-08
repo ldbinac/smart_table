@@ -201,10 +201,14 @@ def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str]:
     smarttable_range = engines.get('smarttable', '*') if isinstance(engines, dict) else '*'
     host_ver = get_host_version()
     if not satisfies_range(host_ver, smarttable_range):
+        # 提示同时给出中英文：宿主 i18n 仅支持静态 key 翻译，动态值无法插值
         return False, ERR_ENGINES_INCOMPATIBLE, (
             f'当前宿主版本 {host_ver} 不满足插件声明的引擎兼容范围 '
             f'engines.smarttable: "{smarttable_range}"'
             f'（请升级宿主版本，或放宽插件 manifest 的 engines 声明）'
+            f' / Host version {host_ver} does not satisfy '
+            f'engines.smarttable "{smarttable_range}"; upgrade the host '
+            f'or relax the plugin engines range'
         )
 
     # entry 扩展名校验
@@ -553,7 +557,9 @@ class PluginService:
             raise PluginValidationError(
                 ERR_PLUGIN_TYPE_NOT_INSTALLABLE,
                 '仅 UI 插件支持 Base 级安装（脚本插件运行由 RBAC 与全局启停控制，'
-                '不依赖 Base 安装）')
+                '不依赖 Base 安装） / Only UI plugins support Base-level '
+                'installation (script plugins are governed by RBAC and '
+                'the global status)')
         existing = PluginInstallation.query.filter_by(
             plugin_id=plugin_id, base_id=base_id).first()
         if existing is None:
@@ -575,7 +581,9 @@ class PluginService:
             raise PluginValidationError(
                 ERR_PLUGIN_TYPE_NOT_INSTALLABLE,
                 '仅 UI 插件支持 Base 级安装（脚本插件运行由 RBAC 与全局启停控制，'
-                '不依赖 Base 安装）')
+                '不依赖 Base 安装） / Only UI plugins support Base-level '
+                'installation (script plugins are governed by RBAC and '
+                'the global status)')
         inst = PluginInstallation.query.filter_by(
             plugin_id=plugin_id, base_id=base_id).first()
         if inst is None:
