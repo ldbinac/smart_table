@@ -23,7 +23,13 @@ def upgrade():
     if 'columns' in existing_cols:
         return
 
-    with op.batch_alter_table('form_shares', recreate='always') as batch_op:
+    # 注意：不能使用 recreate='always' 强制重建表。PostgreSQL 上重建过程
+    # 需要先删除 form_shares_pkey 约束，而 form_submissions 的外键
+    # (form_submissions_form_share_id_fkey) 依赖该约束，会报
+    # DependentObjectsStillExist 导致迁移失败。
+    # 默认 recreate='auto' 时：PostgreSQL 原地执行 ADD COLUMN，
+    # SQLite 仅在不支持原地操作时才重建表。
+    with op.batch_alter_table('form_shares') as batch_op:
         batch_op.add_column(
             sa.Column('columns', sa.Integer(), nullable=False, server_default=sa.text('1'))
         )
@@ -36,5 +42,6 @@ def downgrade():
     if 'columns' not in existing_cols:
         return
 
-    with op.batch_alter_table('form_shares', recreate='always') as batch_op:
+    # recreate='auto'：PostgreSQL 原地 DROP COLUMN，SQLite 必要时重建表
+    with op.batch_alter_table('form_shares') as batch_op:
         batch_op.drop_column('columns')

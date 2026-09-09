@@ -23,7 +23,12 @@ def upgrade():
     if 'parent_field_id' in existing_cols:
         return
 
-    with op.batch_alter_table('views', recreate='always') as batch_op:
+    # 注意：不能使用 recreate='always' 强制重建表（同 20260818_0002）：
+    # PostgreSQL 上重建表需删除原表主键约束，会被依赖该主键的外键
+    # 阻塞而报 DependentObjectsStillExist。默认 recreate='auto' 时
+    # PostgreSQL 全部原地执行（ADD COLUMN / ADD CONSTRAINT / CREATE INDEX），
+    # SQLite 仅在需要（如添加外键）时才重建表。
+    with op.batch_alter_table('views') as batch_op:
         batch_op.add_column(sa.Column('parent_field_id', sa.Uuid(), nullable=True))
         batch_op.create_foreign_key(
             'fk_views_parent_field_id_fields',
@@ -42,7 +47,8 @@ def downgrade():
     if 'parent_field_id' not in existing_cols:
         return
 
-    with op.batch_alter_table('views', recreate='always') as batch_op:
+    # recreate='auto'：PostgreSQL 原地执行，SQLite 必要时重建表
+    with op.batch_alter_table('views') as batch_op:
         batch_op.drop_index('ix_views_parent_field_id')
         batch_op.drop_constraint('fk_views_parent_field_id_fields', type_='foreignkey')
         batch_op.drop_column('parent_field_id')

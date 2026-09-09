@@ -23,7 +23,11 @@ def upgrade():
     if 'field_settings' in existing_cols:
         return
 
-    with op.batch_alter_table('form_shares', recreate='always') as batch_op:
+    # 注意：不能使用 recreate='always' 强制重建表（同 20260818_0002）：
+    # PostgreSQL 上重建需删除 form_shares_pkey，会被
+    # form_submissions_form_share_id_fkey 依赖而报 DependentObjectsStillExist。
+    # 默认 recreate='auto' 时 PostgreSQL 原地执行，SQLite 必要时才重建表。
+    with op.batch_alter_table('form_shares') as batch_op:
         batch_op.add_column(
             sa.Column('field_settings', sa.Text(), nullable=True)
         )
@@ -36,5 +40,6 @@ def downgrade():
     if 'field_settings' not in existing_cols:
         return
 
-    with op.batch_alter_table('form_shares', recreate='always') as batch_op:
+    # recreate='auto'：PostgreSQL 原地 DROP COLUMN，SQLite 必要时重建表
+    with op.batch_alter_table('form_shares') as batch_op:
         batch_op.drop_column('field_settings')

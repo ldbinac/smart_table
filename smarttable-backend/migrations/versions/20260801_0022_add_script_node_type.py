@@ -58,6 +58,13 @@ def upgrade():
 
 
 def downgrade():
+    # PostgreSQL：原生枚举类型不支持移除枚举值，且重建表需删除
+    # workflow_nodes_pkey，会因外键依赖
+    # (workflow_tasks_node_id_fkey -> workflow_nodes_pkey) 而失败。
+    # 保留 'script' 枚举值不影响旧版本代码运行，因此在 PG 上跳过。
+    if op.get_bind().dialect.name == 'postgresql':
+        return
+
     # 使用 batch_alter_table 重建 node_type 列，移除 'script' 值
     with op.batch_alter_table('workflow_nodes', recreate='always') as batch_op:
         batch_op.alter_column(
