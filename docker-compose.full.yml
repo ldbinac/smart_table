@@ -94,7 +94,7 @@ services:
       JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-86400}
       
       # 数据库配置（使用 PostgreSQL）
-      DATABASE_URL: postgresql://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
       
       # Redis 配置
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0

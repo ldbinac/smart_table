@@ -6,7 +6,7 @@ Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.23
 Flask-Migrate==4.0.5
 alembic==1.13.1
-psycopg2-binary==2.9.9
+psycopg[binary]==3.3.5
 
 # 认证与安全
 Flask-JWT-Extended==4.6.0

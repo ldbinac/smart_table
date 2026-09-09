@@ -102,6 +102,12 @@ class Config:
             print(f'   原始配置: {_env_database_url}')
         else:
             # 绝对路径或其他数据库（PostgreSQL 等）→ 直接使用
+            # 协议归一化：裸 postgresql:// 默认改用 psycopg(v3) 驱动，
+            # 规避 psycopg2 在 Windows(GBK 代码页)/Python3.14 下的 UTF-8 解码失败问题
+            if _env_database_url.startswith('postgresql://') \
+                    and '+psycopg' not in _env_database_url \
+                    and '+psycopg2' not in _env_database_url:
+                _env_database_url = _env_database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
             SQLALCHEMY_DATABASE_URI = _env_database_url
             print(f'[Config] ✓ 数据库路径 (外部): {_env_database_url}')
         
