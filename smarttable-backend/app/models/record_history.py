@@ -47,9 +47,12 @@ class RecordHistory(db.Model):
         primary_key=True,
         default=uuid.uuid4
     )
+    # 注意：record_id 不建立到 records.id 的外键（尤其不能加 ondelete='CASCADE'）。
+    # 审计日志的生命周期必须独立于业务记录：删除记录后，其历史日志与数据快照
+    # 必须完整保留，供表级审计接口查询。若加外键级联，PostgreSQL 会在删除记录
+    # 时连带删掉全部历史日志（SQLite 默认不强制外键，不受影响，导致行为不一致）。
     record_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey('records.id', ondelete='CASCADE'),
         nullable=False,
         index=True
     )
@@ -87,11 +90,8 @@ class RecordHistory(db.Model):
     )
 
     # 关联关系
-    record = relationship(
-        'Record',
-        lazy='joined'
-    )
-
+    # 注意：record_id 已无外键，不能也不需要定义到 Record 的 relationship；
+    # 代码中从未使用 history.record，删除记录后历史行仍通过 record_id 值关联。
     changer = relationship(
         'User',
         lazy='joined'

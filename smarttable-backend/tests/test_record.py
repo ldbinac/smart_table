@@ -122,10 +122,53 @@ class TestRecord:
             },
             headers=auth_headers
         )
-        
+
         assert response.status_code == 200
         data = response.get_json()
         assert 'deleted_count' in data['data']
+
+    def test_delete_record_keeps_history_audit(self, app, client, auth_headers,
+                                                test_record, test_field):
+        """删除记录后，其历史日志（含 DELETE 审计记录）必须保留
+
+        回归测试：record_history.record_id 曾带 ondelete='CASCADE' 外键，
+        PostgreSQL 会级联删除历史日志导致审计信息丢失
+        （SQLite 默认不强制外键，不受影响）。
+        """
+        from sqlalchemy import inspect
+
+        from app.extensions import db
+        from app.models.record_history import RecordHistory
+
+        # 表结构层面：record_history 不得存在指向 records 的外键
+        fks = inspect(db.engine).get_foreign_keys('record_history')
+        assert all(fk['referred_table'] != 'records' for fk in fks)
+
+        record_id = str(test_record.id)
+
+        # 产生一条 UPDATE 历史
+        response = client.put(f'/api/records/{record_id}',
+            json={
+                'values': {
+                    str(test_field.id): '更新后的值'
+                }
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        # 删除记录（服务端会先写入 DELETE 历史再删除记录）
+        response = client.delete(f'/api/records/{record_id}',
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        # 记录已删除，但 CREATE/UPDATE/DELETE 历史日志必须完整保留
+        actions = {h.action for h in
+                   RecordHistory.query.filter_by(record_id=record_id).all()}
+        assert 'UPDATE' in actions
+        assert 'DELETE' in actions
+
     
     def test_search_records(self, client, auth_headers, test_table, test_record):
         """测试搜索记录"""
