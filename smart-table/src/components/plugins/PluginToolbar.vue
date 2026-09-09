@@ -21,10 +21,12 @@ import type {
   PluginEntity,
   SelectionSummary,
 } from "@/plugins/types";
+import { useTableStore } from "@/stores/tableStore";
 import PluginSandbox from "./PluginSandbox.vue";
 
 const route = useRoute();
 const { t } = useI18n();
+const tableStore = useTableStore();
 
 const panelVisible = ref(false);
 const activePluginId = ref("");
@@ -32,7 +34,11 @@ const activeTitle = ref("");
 const sandboxKey = ref(0); // 强制重建沙箱（切换插件/重试）
 
 const baseId = computed(() => String(route.params.id || ""));
-const tableId = computed(() => String(route.params.tableId || ""));
+// 路由为 /base/:id（无 tableId）时，Base.vue 会默认选中第一个表格但不改路由，
+// 此时回退到 store 中当前选中的表格，避免插件上下文缺失 tableId
+const tableId = computed(
+  () => String(route.params.tableId || tableStore.currentTable?.id || ""),
+);
 
 const buttons = computed(() => pluginRegistry.toolbarButtons.value);
 
