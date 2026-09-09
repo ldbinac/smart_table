@@ -1904,9 +1904,21 @@ const handleTogglePinDocument = async (doc: any) => {
   }
 };
 
-// 处理文档保存
+// 处理文档保存：保存成功后必须把服务端返回的最新文档（含新的 updatedAt）
+// 回写到 store，否则编辑器仍持有旧的乐观锁基准，再次保存会被判为版本冲突（409）
 const handleDocumentSave = (doc: any) => {
-  console.log('文档已保存:', doc.name);
+  documentStore.updateCurrentDocument(doc);
+};
+
+// 处理文档版本恢复：服务端文档内容/时间已变更，重新拉取以刷新乐观锁基准
+const handleDocumentRestored = async () => {
+  const docId = documentStore.currentDocument?.id;
+  if (!docId) return;
+  try {
+    await documentStore.fetchDocumentDetail(docId);
+  } catch (error) {
+    console.error('Failed to refresh document after restore:', error);
+  }
 };
 
 // 处理文档导出 PDF
@@ -1982,6 +1994,7 @@ const handleDocumentExportPdf = async () => {
           :document="documentStore.currentDocument"
           :base-id="baseId"
           @save="handleDocumentSave"
+          @restored="handleDocumentRestored"
           @export-pdf="handleDocumentExportPdf" />
         <div v-else class="empty-state">
           <el-empty :description="t('view.base.loadingDocEmpty')" />

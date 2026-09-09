@@ -7,6 +7,7 @@ from flask import Blueprint, request, g
 from app.services.document_version_service import DocumentVersionService
 from app.services.document_service import DocumentService
 from app.services.permission_service import PermissionService
+from app.models.base import MemberRole
 from app.utils.response import success_response as api_response, error_response as api_error
 from app.utils.decorators import jwt_required
 
@@ -87,7 +88,7 @@ def get_versions(doc_id):
         if not doc:
             return api_error('document_does_not_exist', 404)
 
-        if not permission_service.can_access_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
             return api_error('no_permission_access', 403)
 
         versions = document_version_service.get_list_by_document(doc_id)
@@ -152,7 +153,7 @@ def create_version(doc_id):
         if not doc:
             return api_error('document_does_not_exist', 404)
 
-        if not permission_service.can_edit_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
             return api_error('no_permission_edit', 403)
 
         data = request.get_json()
@@ -210,7 +211,7 @@ def get_version(doc_id, version_id):
         if not doc:
             return api_error('document_does_not_exist', 404)
 
-        if not permission_service.can_access_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.VIEWER):
             return api_error('no_permission_access', 403)
 
         version = document_version_service.get_by_id(version_id)
@@ -262,7 +263,7 @@ def restore_version(doc_id, version_id):
         if not doc:
             return api_error('document_does_not_exist', 404)
 
-        if not permission_service.can_edit_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
             return api_error('no_permission_edit', 403)
 
         version = document_version_service.get_by_id(version_id)
@@ -322,7 +323,7 @@ def delete_version(doc_id, version_id):
         if not doc:
             return api_error('document_does_not_exist', 404)
 
-        if not permission_service.can_edit_base(user_id, doc.base_id):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
             return api_error('no_permission_edit', 403)
 
         version = document_version_service.get_by_id(version_id)

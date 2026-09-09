@@ -180,6 +180,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'save', doc: Document): void;
   (e: 'export-pdf'): void;
+  (e: 'restored'): void;
 }>();
 
 const editorRef = ref<HTMLDivElement>();
@@ -191,6 +192,24 @@ const versionHistoryVisible = ref(false);
 const isFullscreen = ref(false);
 const saveStatus = ref<'saved' | 'saving' | 'unsaved'>('saved');
 const savedContent = ref(props.document.content);
+// 乐观锁基准时间：始终保存服务端最近一次返回的 updatedAt。
+// 若保存后不刷新，下一次保存会把过期的时间戳发给后端，被判定为版本冲突（409）。
+const baselineUpdatedAt = ref<string | number | undefined>(props.document.updatedAt);
+
+// 生成传给后端的 expected_updated_at（统一为 ISO 字符串）
+const getExpectedUpdatedAt = (): string | undefined => {
+  const value = baselineUpdatedAt.value ?? props.document.updatedAt;
+  if (value === undefined || value === null || value === '') return undefined;
+  return typeof value === 'number' ? new Date(value).toISOString() : String(value);
+};
+
+// 用服务端返回的最新文档刷新乐观锁基准
+const refreshBaseline = (doc?: Document | null) => {
+  const latest = doc?.updatedAt ?? doc?.updated_at;
+  if (latest !== undefined && latest !== null && latest !== '') {
+    baselineUpdatedAt.value = latest;
+  }
+};
 let isSaving = false;
 let editor: FluentEditor | null = null;
 let scrollContainer: HTMLElement | null = null;
@@ -557,6 +576,11 @@ watch(() => props.document, (newDoc, oldDoc) => {
   console.log('[DocumentEditor] props.document 变化:', newDoc.id, '旧值:', oldDoc?.id);
   documentName.value = newDoc.name;
 
+  // props 变化说明服务端推送了最新文档，同步乐观锁基准时间
+  if (newDoc.updatedAt !== undefined && newDoc.updatedAt !== null && newDoc.updatedAt !== '') {
+    baselineUpdatedAt.value = newDoc.updatedAt;
+  }
+
   // 切换文档时重置保存状态
   if (newDoc.id !== oldDoc?.id) {
     savedContent.value = newDoc.content;
@@ -574,14 +598,12 @@ watch(() => props.document, (newDoc, oldDoc) => {
 
 const handleSaveName = async () => {
   if (documentName.value !== props.document.name) {
-    const expectedUpdatedAt = typeof props.document.updatedAt === 'number'
-      ? new Date(props.document.updatedAt).toISOString()
-      : String(props.document.updatedAt);
     try {
-      await documentApiService.update(props.document.id, {
+      const updated = await documentApiService.update(props.document.id, {
         name: documentName.value,
-        expected_updated_at: expectedUpdatedAt,
+        expected_updated_at: getExpectedUpdatedAt(),
       });
+      refreshBaseline(updated);
     } catch (error: any) {
       if (error?.response?.status === 409) {
         ElMessage.warning(t('document.modifiedByOther'));
@@ -604,15 +626,13 @@ const doSave = async (showMessage = true) => {
   saveStatus.value = 'saving';
   try {
     // 乐观锁：传递 expected_updated_at 让后端检测并发冲突
-    const expectedUpdatedAt = typeof props.document.updatedAt === 'number'
-      ? new Date(props.document.updatedAt).toISOString()
-      : String(props.document.updatedAt);
-
     const updated = await documentApiService.update(props.document.id, {
       content,
       contentFormat: 'delta',
-      expected_updated_at: expectedUpdatedAt,
+      expected_updated_at: getExpectedUpdatedAt(),
     });
+    // 刷新基准时间，保证可以连续多次保存
+    refreshBaseline(updated);
     savedContent.value = content;
     saveStatus.value = 'saved';
     emit('save', updated);
@@ -703,6 +723,8 @@ const handleVersionRestored = (version: DocumentVersion) => {
       ? JSON.parse(version.content)
       : version.content;
     editor.setContents(content);
+    // 服务端已写入恢复后的内容，同步保存基准避免误显示“未保存”
+    savedContent.value = JSON.stringify(editor.getContents());
   }
   // 去除版本名中的语言前缀（如中文“版本 1”、英文“Version 1”），只保留名称
   const versionPrefix = t('document.versionNamePrefix');
@@ -712,6 +734,8 @@ const handleVersionRestored = (version: DocumentVersion) => {
     documentName.value = version.name;
   }
   ElMessage.success(t('document.restoreSuccess'));
+  // 恢复后服务端文档的 updated_at 已变化，通知外部刷新文档详情以更新乐观锁基准
+  emit('restored');
 };
 </script>
 

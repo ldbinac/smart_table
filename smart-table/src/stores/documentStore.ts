@@ -94,6 +94,17 @@ export const useDocumentStore = defineStore('document', () => {
     return convertedUpdated;
   }
 
+  /**
+   * 用服务端返回的最新文档刷新本地状态（仅覆盖字段，不重新拉取）。
+   * 用于编辑器保存成功后同步 updatedAt，避免乐观锁基准过期导致后续保存报冲突。
+   */
+  function updateCurrentDocument(updated: Document) {
+    if (!currentDocument.value || currentDocument.value.id !== updated.id) return;
+    currentDocument.value = { ...currentDocument.value, ...updated };
+    const index = documents.value.findIndex(d => d.id === updated.id);
+    if (index !== -1) documents.value[index] = currentDocument.value;
+  }
+
   async function deleteDocument(docId: string) {
     await documentApiService.delete(docId);
     documents.value = documents.value.filter(d => d.id !== docId);
@@ -143,6 +154,7 @@ export const useDocumentStore = defineStore('document', () => {
   return {
     documents, currentDocument, loading, loadingDocumentDetail, error,
     documentCount, canCreateMore, currentDocumentId, clearCurrentDocumentId,
-    fetchDocuments, createDocument, updateDocument, deleteDocument, fetchDocumentDetail, exportPdf
+    fetchDocuments, createDocument, updateDocument, deleteDocument, fetchDocumentDetail, exportPdf,
+    updateCurrentDocument
   };
 });
