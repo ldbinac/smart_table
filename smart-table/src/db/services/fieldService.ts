@@ -3,6 +3,7 @@ import type { FieldEntity } from "../schema";
 import { generateId } from "../../utils/id";
 import type { CellValue, FieldOptions } from "../../types";
 import { fieldApiService } from "@/services/api/fieldApiService";
+import type { ConvertibleTypesResult } from "@/types/fields";
 import { normalizeFieldType, denormalizeFieldType } from "@/types/fields";
 import { t } from "@/i18n";
 
@@ -100,7 +101,7 @@ export class FieldService {
     return db.fields.get(id);
   }
 
-  async getFieldsByTable(tableId: string): Promise<FieldEntity[]> {
+  async getFieldsByTable(tableId: string, shareToken?: string): Promise<FieldEntity[]> {
     try {
       // 检查内存缓存（5秒内有效）
       const cached = fieldsCache.get(tableId);
@@ -116,7 +117,7 @@ export class FieldService {
       }
 
       // 创建新请求并缓存 Promise
-      const requestPromise = this._fetchAndCacheFields(tableId);
+      const requestPromise = this._fetchAndCacheFields(tableId, shareToken);
       pendingRequests.set(tableId, requestPromise);
 
       try {
@@ -141,9 +142,9 @@ export class FieldService {
     }
   }
 
-  private async _fetchAndCacheFields(tableId: string): Promise<FieldEntity[]> {
+  private async _fetchAndCacheFields(tableId: string, shareToken?: string): Promise<FieldEntity[]> {
     // 先从后端 API 获取最新数据
-    const apiFields = await fieldApiService.getFields(tableId);
+    const apiFields = await fieldApiService.getFields(tableId, shareToken);
 
     // 将后端返回的字段保存到本地 IndexedDB
     await db.transaction("rw", db.fields, async () => {
@@ -183,12 +184,26 @@ export class FieldService {
     return fields;
   }
 
-  async updateField(id: string, changes: Partial<FieldEntity>): Promise<FieldEntity | undefined> {
+  /**
+   * 更新字段
+   * @param id 字段ID
+   * @param changes 变更内容
+   * @param options.confirmLossy 有损转换的用户二次确认标记（date_time → date 时必填）
+   */
+  async updateField(
+    id: string,
+    changes: Partial<FieldEntity>,
+    options?: { confirmLossy?: boolean },
+  ): Promise<FieldEntity | undefined> {
     try {
       // 如果需要更新 type，先转换为后端类型
-      const apiChanges: Partial<FieldEntity> = { ...changes };
+      const apiChanges: Partial<FieldEntity> & Record<string, unknown> = { ...changes };
       if (changes.type) {
         apiChanges.type = denormalizeFieldType(changes.type);
+      }
+      // 有损转换需显式携带确认标记，后端未收到该标记时会拒绝转换
+      if (options?.confirmLossy) {
+        apiChanges.confirmLossy = true;
       }
 
       // 先调用后端 API 更新字段，获取更新后的数据
@@ -228,6 +243,15 @@ export class FieldService {
       console.error("[fieldService] updateField failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * 获取字段可转换的目标类型清单
+   * 供字段配置面板启用/禁用类型选项，并展示有损转换与影响告知
+   * @param fieldId 字段ID
+   */
+  async getConvertibleTypes(fieldId: string): Promise<ConvertibleTypesResult> {
+    return fieldApiService.getConvertibleTypes(fieldId);
   }
 
   /**

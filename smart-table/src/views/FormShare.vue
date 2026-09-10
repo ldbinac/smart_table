@@ -14,8 +14,11 @@ import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
+import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import GeoField from "@/components/fields/geo/GeoField.vue";
+import type { LinkedRecord, RelationshipType } from "@/types/link";
 import DateInput from "@/components/fields/DateInput.vue";
-import type { FieldOptions } from "@/types/fields";
+import { normalizeFieldType, type FieldOptions } from "@/types/fields";
 import { Search as SearchIcon } from '@element-plus/icons-vue';
 import { useDebounceFn } from '@vueuse/core';
 import { FormulaEngine } from "@/utils/formula";
@@ -42,6 +45,10 @@ const formErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
 const submitSuccess = ref(false);
 const newRecordId = ref(generateId());
+
+// 关联字段本地状态（新增模式下关联数据先暂存，提交后再建立关联）
+const linkFieldRecords = ref<Map<string, LinkedRecord[]>>(new Map());
+const editingLinkField = ref<string | null>(null);
 
 // 验证码
 const captchaCode = ref("");
@@ -102,6 +109,7 @@ const formConfig = ref({
   submitButtonText: t("view.formSubmit"),
   successMessage: t("view.formSuccessMessage"),
   requireCaptcha: false,
+  columns: 1,
 });
 
 // 可见字段（根据表单配置和表格配置综合判断）
@@ -119,6 +127,70 @@ const visibleFields = computed(() => {
     (f) => !systemFieldTypes.includes(f.type as FieldTypeValue),
   );
 });
+
+// 每行显示字段数（1-4）
+const effectiveColumns = computed(() => {
+  const c = Math.round(Number(formConfig.value.columns) || 1);
+  return Math.min(4, Math.max(1, c));
+});
+
+const isMultiColumn = computed(() => effectiveColumns.value > 1);
+
+// 以下字段类型内容较宽，自动占满整行，避免多列布局下显示拥挤
+function isFullWidthField(field: FormFieldSchema): boolean {
+  return (
+    field.type === FieldType.LONG_TEXT ||
+    field.type === FieldType.RICH_TEXT ||
+    field.type === FieldType.ATTACHMENT ||
+    field.type === FieldType.LINK
+  );
+}
+
+// ==================== 关联字段（LINK）交互 ====================
+function getLinkFieldConfig(field: FormFieldSchema) {
+  if (field.type !== FieldType.LINK) return null;
+  const config = (field.config || {}) as Record<string, unknown>;
+  return {
+    targetTableId: config.linkedTableId as string,
+    relationshipType: (config.relationshipType as RelationshipType) || "one_to_many",
+    displayFieldId: config.displayFieldId as string,
+    isSelfLink: config.linkedTableId === tableId.value,
+  };
+}
+
+function getLinkedRecords(field: FormFieldSchema): LinkedRecord[] {
+  return linkFieldRecords.value.get(field.id) || [];
+}
+
+function handleLinkFieldEdit(fieldId: string) {
+  editingLinkField.value = fieldId;
+}
+
+function handleLinkFieldEditEnd() {
+  editingLinkField.value = null;
+}
+
+function handleLinkFieldChange(
+  field: FormFieldSchema,
+  value: string[],
+  records: LinkedRecord[],
+) {
+  formValues.value[field.id] = value as CellValue;
+  linkFieldRecords.value.set(field.id, records);
+  editingLinkField.value = null;
+}
+
+function handleLinkFieldRemove(field: FormFieldSchema, targetRecordId: string) {
+  const currentRecords = linkFieldRecords.value.get(field.id) || [];
+  linkFieldRecords.value.set(
+    field.id,
+    currentRecords.filter((r) => r.record_id !== targetRecordId),
+  );
+  const currentValue = (formValues.value[field.id] as string[]) || [];
+  formValues.value[field.id] = currentValue.filter(
+    (id) => id !== targetRecordId,
+  ) as CellValue;
+}
 
 // 页面加载时获取表单数据
 onMounted(async () => {
@@ -171,7 +243,13 @@ async function loadFormData(token: string) {
 
     tableId.value = schema.table_id;
     tableName.value = schema.table_name;
-    fields.value = schema.fields;
+    // 将后端字段类型归一化为前端类型（与表单视图一致）。
+    // 后端存储的是 'link_to_record' 等，而前端 FormFieldSchema 使用 'link'，
+    // 否则关联字段会因类型不匹配走到“不支持的字段类型”分支而无法正常操作。
+    fields.value = (schema.fields || []).map((f: any) => ({
+      ...f,
+      type: normalizeFieldType(f.type),
+    }));
 
     // 加载表单配置
     formConfig.value = {
@@ -180,6 +258,7 @@ async function loadFormData(token: string) {
       submitButtonText: schema.submit_button_text || t("view.formSubmit"),
       successMessage: schema.success_message || t("view.formSuccessMessage"),
       requireCaptcha: schema.require_captcha || false,
+      columns: schema.columns ?? 1,
     };
 
     // 如果需要验证码，加载验证码
@@ -222,7 +301,8 @@ function validateField(
 ): string | null {
   if (
     field.required &&
-    (value === null || value === undefined || value === "" || value === false)
+    (value === null || value === undefined || value === "" || value === false ||
+      (Array.isArray(value) && value.length === 0))
   ) {
     return t("view.formIsRequired", { name: field.name });
   }
@@ -467,11 +547,16 @@ function resetForm() {
   formErrors.value = {};
   newRecordId.value = generateId();
   captchaCode.value = "";
+  linkFieldRecords.value.clear();
+  editingLinkField.value = null;
 
-  // 设置默认值
+  // 设置默认值（优先级：分享表单配置默认值 > 字段自身默认值，由后端 schema 统一解析为 field.defaultValue）
   visibleFields.value.forEach((field) => {
     const config = field.config || {};
-    const defaultValue = config.defaultValue ?? config.default ?? null;
+    const defaultValue =
+      field.defaultValue !== undefined && field.defaultValue !== null
+        ? field.defaultValue
+        : (config.defaultValue ?? config.default ?? null);
 
     if (
       defaultValue !== null &&
@@ -495,6 +580,14 @@ function resetForm() {
       } else {
         formValues.value[field.id] = defaultValue as CellValue;
       }
+    }
+  });
+
+  // 关联字段统一初始化为空数组
+  visibleFields.value.forEach((field) => {
+    if (field.type === FieldType.LINK) {
+      const v = formValues.value[field.id];
+      formValues.value[field.id] = Array.isArray(v) ? v : [];
     }
   });
 }
@@ -580,6 +673,8 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "auto_number";
     case FieldType.MEMBER:
       return "member";
+    case FieldType.GEOLOCATION:
+      return "geolocation";
     default:
       return "text";
   }
@@ -632,6 +727,11 @@ function getProgressMin(field: FormFieldSchema): number {
 // 获取字段类型（直接返回字段类型，不再需要转换）
 function getFieldType(field: FormFieldSchema): FieldTypeValue {
   return field.type as FieldTypeValue;
+}
+
+// 字段是否只读（分享表单中设置为只读，填写者不可编辑）
+function isReadonly(field: FormFieldSchema): boolean {
+  return !!field.readOnly;
 }
 
 // 计算公式字段值（参照表单视图逻辑）
@@ -719,29 +819,56 @@ function calculateFormulaValue(field: FormFieldSchema): string {
       <el-form
         label-position="top"
         class="form-content"
+        :class="{ 'is-multi-col': isMultiColumn }"
+        :style="{ '--form-cols': effectiveColumns }"
         @submit.prevent="handleSubmit">
         <div
           v-for="field in visibleFields"
           :key="field.id"
           class="form-item"
-          :class="{ 'has-error': formErrors[field.id] }">
+          :class="{
+            'has-error': formErrors[field.id],
+            'form-item--full': isFullWidthField(field),
+          }">
           <label class="form-label">
             <el-icon class="field-icon">
               <component :is="getFieldTypeIconComponent(getFieldType(field) || field.type)" />
             </el-icon>
             {{ field.name }}
             <span v-if="field.required" class="required-mark">*</span>
+            <span v-if="isReadonly(field)" class="readonly-mark">{{ t("view.formFieldReadonly") }}</span>
           </label>
 
           <div class="form-control">
+            <!-- 关联字段类型 -->
+            <template v-if="field.type === FieldType.LINK">
+              <LinkField
+                :value="(formValues[field.id] as string[]) || []"
+                :linked-records="getLinkedRecords(field)"
+                :target-table-id="getLinkFieldConfig(field)?.targetTableId"
+                :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
+                :relationship-type="getLinkFieldConfig(field)?.relationshipType"
+                :is-editing="editingLinkField === field.id"
+                :record-id="newRecordId"
+                :field-id="field.id"
+                :is-self-link="getLinkFieldConfig(field)?.isSelfLink"
+                :share-token="shareToken"
+                :readonly="isReadonly(field)"
+                @edit-start="handleLinkFieldEdit(field.id)"
+                @change="(val, records) => handleLinkFieldChange(field, val, records)"
+                @edit-end="handleLinkFieldEditEnd"
+                @remove="(targetId) => handleLinkFieldRemove(field, targetId)" />
+            </template>
+
             <!-- 文本类型 -->
-            <template v-if="getFieldComponentType(field) === 'text'">
+            <template v-else-if="getFieldComponentType(field) === 'text'">
               <!-- 单行文本 -->
               <el-input
                 v-if="getFieldType(field) === FieldType.SINGLE_LINE_TEXT"
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :maxlength="(field.config?.maxLength as number | undefined)"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 邮箱 -->
               <el-input
@@ -749,6 +876,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formEmailPlaceholder')"
                 type="email"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 电话 -->
               <el-input
@@ -756,6 +884,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formPhonePlaceholder')"
                 type="tel"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 链接 -->
               <el-input
@@ -763,6 +892,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="String(formValues[field.id] || '')"
                 :placeholder="t('view.formUrlPlaceholder')"
                 type="url"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
               <!-- 多行文本 -->
               <div
@@ -774,6 +904,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                   :maxlength="(field.config?.maxLength as number | undefined)"
                   type="textarea"
                   :rows="4"
+                  :readonly="isReadonly(field)"
                   resize="none"
                   @update:model-value="(val) => handleFieldChange(field.id, val)" />
                 <div
@@ -798,6 +929,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="(formValues[field.id] as string) || null"
                 :placeholder="t('view.formInputPlaceholder', { name: field.name })"
                 :max-length="(field.config?.maxLength as number | undefined)"
+                :readonly="isReadonly(field)"
                 class="form-rich-text"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
@@ -807,6 +939,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
               <el-input-number
                 :model-value="Number(formValues[field.id] || 0)"
                 :placeholder="t('view.formInputPlaceholder', { name: field.name })"
+                :disabled="isReadonly(field)"
                 :formatter="createNumberInputFormatter(field.config)"
                 :parser="createNumberInputParser(field.config)"
                 :min="
@@ -833,6 +966,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
               <el-rate
                 :model-value="Number(formValues[field.id] || 0)"
                 :max="getMaxRating(field)"
+                :disabled="isReadonly(field)"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val)
                 " />
@@ -845,6 +979,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="formValues[field.id] as string | undefined"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 clearable
                 @update:model-value="(val) => handleFieldChange(field.id, val)">
                 <el-option
@@ -867,6 +1002,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="(formValues[field.id] as string[]) || []"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 multiple
                 clearable
                 @update:model-value="(val) => handleFieldChange(field.id, val)">
@@ -890,6 +1026,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="formValues[field.id]"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
@@ -900,6 +1037,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :model-value="formValues[field.id]"
                 :placeholder="t('view.formSelectPlaceholder', { name: field.name })"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
@@ -907,6 +1045,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
             <template v-else-if="getFieldComponentType(field) === 'checkbox'">
               <el-switch
                 :model-value="Boolean(formValues[field.id])"
+                :disabled="isReadonly(field)"
                 @update:model-value="
                   (val) => handleFieldChange(field.id, val)
                 " />
@@ -933,6 +1072,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                   :model-value="Number(formValues[field.id] || 0)"
                   :min="getProgressMin(field)"
                   :max="getProgressMax(field)"
+                  :disabled="isReadonly(field)"
                   show-stops
                   show-input
                   @update:model-value="
@@ -952,6 +1092,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :remote-method="getDebouncedSearch(field.id)"
                 :loading="memberLoading[field.id]"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 clearable
                 popper-class="form-share-member-dropdown"
                 @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)">
@@ -993,7 +1134,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :field="field as unknown as FieldEntity"
                 :record-id="newRecordId"
                 :form-share-token="shareToken"
-                :readonly="false"
+                :readonly="isReadonly(field)"
                 @update:model-value="(val) => handleFieldChange(field.id, val)"
                 @upload="(files) => handleAttachmentUpload(field.id, files)"
                 @delete="
@@ -1021,6 +1162,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 :remote-method="getDebouncedSearch(field.id)"
                 :loading="memberLoading[field.id]"
                 style="width: 100%"
+                :disabled="isReadonly(field)"
                 clearable
                 @update:model-value="(val: unknown) => handleFieldChange(field.id, val as CellValue)">
                 <el-option
@@ -1052,6 +1194,16 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                   </div>
                 </template>
               </el-select>
+            </template>
+
+            <!-- 地理位置字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'geolocation'">
+              <GeoField
+                :model-value="(formValues[field.id] as any)"
+                :field="field"
+                :readonly="isReadonly(field)"
+                @update:model-value="(val: any) => handleFieldChange(field.id, val)"
+              />
             </template>
 
             <!-- 不支持的字段类型 -->
@@ -1167,11 +1319,32 @@ function calculateFormulaValue(field: FormFieldSchema): string {
 }
 
 .form-content {
+  display: grid;
+  grid-template-columns: repeat(var(--form-cols, 1), minmax(0, 1fr));
+  gap: 24px 32px;
   padding: 32px;
+
+  // 单列模式下保留字段之间的分隔间距
+  &:not(.is-multi-col) .form-item:not(:last-child) {
+    border-bottom: 1px solid $gray-50;
+    padding-bottom: 24px;
+  }
+
+  // 移动端：强制单列布局，保证可读性与操作体验
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
 }
 
 .form-item {
-  margin-bottom: 24px;
+  margin-bottom: 0;
+  min-width: 0;
+
+  // 宽字段（长文本 / 富文本 / 附件）在多列布局下占满整行
+  &--full {
+    grid-column: 1 / -1;
+  }
 
   &.has-error {
     .form-label {
@@ -1206,6 +1379,18 @@ function calculateFormulaValue(field: FormFieldSchema): string {
   margin-left: 4px;
 }
 
+.readonly-mark {
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: $text-secondary;
+  background-color: $bg-color;
+  border: 1px solid $border-color;
+  border-radius: 4px;
+}
+
 .form-control {
   width: 100%;
 }
@@ -1228,6 +1413,9 @@ function calculateFormulaValue(field: FormFieldSchema): string {
 
 // 验证码样式
 .captcha-item {
+  // 验证码独占整行，避免在多列布局下被压缩到单列中
+  grid-column: 1 / -1;
+
   .captcha-input-group {
     display: flex;
     gap: 12px;
@@ -1279,6 +1467,8 @@ function calculateFormulaValue(field: FormFieldSchema): string {
 }
 
 .form-actions {
+  // 无论每行显示几列，提交按钮与上方分割线始终占据整行
+  grid-column: 1 / -1;
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid $border-color;

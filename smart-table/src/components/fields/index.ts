@@ -9,3 +9,4 @@ export { default as MultiSelectField } from "./MultiSelectField.vue";
 export { default as CheckboxField } from "./CheckboxField.vue";
 export { default as FieldComponentFactory } from "./FieldComponentFactory.vue";
 export { default as FieldConfigPanel } from "./FieldConfigPanel.vue";
+export { default as GeoField } from "./geo/GeoField.vue";

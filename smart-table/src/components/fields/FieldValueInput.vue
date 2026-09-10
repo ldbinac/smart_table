@@ -167,51 +167,57 @@ function isViewMode(_field: FieldEntity): boolean {
 
     <!-- 单选 -->
     <template v-else-if="getComponentType() === 'single_select'">
-      <ElSelect
-        :model-value="getSingleSelectValue()"
-        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
-        :disabled="disabled"
-        class="input-control"
-        clearable
-        @update:model-value="update">
-        <ElOption
-          v-for="option in choices"
-          :key="option.id"
-          :label="option.name"
-          :value="option.id">
-          <div class="select-option">
-            <span
-              class="option-color"
-              :style="{ backgroundColor: option.color || '#3370FF' }" />
-            <span>{{ option.name }}</span>
-          </div>
-        </ElOption>
-      </ElSelect>
+      <div class="select-wrap">
+        <ElSelect
+          :model-value="getSingleSelectValue()"
+          :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
+          :disabled="disabled"
+          class="input-control"
+          style="width: 100%"
+          clearable
+          @update:model-value="update">
+          <ElOption
+            v-for="option in choices"
+            :key="option.id"
+            :label="option.name"
+            :value="option.id">
+            <div class="select-option">
+              <span
+                class="option-color"
+                :style="{ backgroundColor: option.color || '#3370FF' }" />
+              <span>{{ option.name }}</span>
+            </div>
+          </ElOption>
+        </ElSelect>
+      </div>
     </template>
 
     <!-- 多选 -->
     <template v-else-if="getComponentType() === 'multi_select'">
-      <ElSelect
-        :model-value="getMultiSelectValue()"
-        :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
-        :disabled="disabled"
-        class="input-control"
-        multiple
-        clearable
-        @update:model-value="update">
-        <ElOption
-          v-for="option in choices"
-          :key="option.id"
-          :label="option.name"
-          :value="option.id">
-          <div class="select-option">
-            <span
-              class="option-color"
-              :style="{ backgroundColor: option.color || '#3370FF' }" />
-            <span>{{ option.name }}</span>
-          </div>
-        </ElOption>
-      </ElSelect>
+      <div class="select-wrap">
+        <ElSelect
+          :model-value="getMultiSelectValue()"
+          :placeholder="placeholder || t('field.selectFieldName', { name: field.name })"
+          :disabled="disabled"
+          class="input-control"
+          style="width: 100%"
+          multiple
+          clearable
+          @update:model-value="update">
+          <ElOption
+            v-for="option in choices"
+            :key="option.id"
+            :label="option.name"
+            :value="option.id">
+            <div class="select-option">
+              <span
+                class="option-color"
+                :style="{ backgroundColor: option.color || '#3370FF' }" />
+              <span>{{ option.name }}</span>
+            </div>
+          </ElOption>
+        </ElSelect>
+      </div>
     </template>
 
     <!-- 日期 / 日期时间 -->
@@ -260,6 +266,35 @@ function isViewMode(_field: FieldEntity): boolean {
 
 <style lang="scss" scoped>
 .field-value-input {
+  width: 100%;
+
+  // Element Plus 2.x 的 .el-select 是 display:inline-block，
+  // 其内部 .el-select__wrapper（flex 容器）作为 inline-block 的子元素
+  // 不会自动撑满父级，会塌缩成内容宽度。
+  // 强制 display:block + width:100% 让 wrapper 正常撑满，单选/多选等
+  // 动态切换字段类型时保持稳定布局，避免出现极窄样式。
+  :deep(.el-select) {
+    display: block !important;
+    width: 100% !important;
+  }
+  :deep(.el-select__wrapper) {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-input),
+  :deep(.el-input-number),
+  :deep(.el-date-editor) {
+    width: 100%;
+  }
+}
+
+// 单选/多选 ElSelect 的包裹层：保证 ElSelect 作为普通块级子元素渲染，
+// 避免上层 flex 上下文 blockify 导致内部 .el-select__wrapper 塌缩为内容宽度
+.select-wrap {
+  display: block;
   width: 100%;
 }
 

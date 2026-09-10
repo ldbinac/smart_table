@@ -1,0 +1,149 @@
+{
+  "title": "Plugin Management",
+  "uploadPackage": "Upload Package",
+  "uploadHint": "Select a .stplugin.zip package (containing manifest.json and entry file)",
+  "refresh": "Refresh",
+  "empty": "No plugins yet — click \"Upload Package\" to install your first plugin",
+  "searchPlaceholder": "Search by plugin name or ID",
+  "columns": {
+    "name": "Plugin",
+    "version": "Version",
+    "type": "Type",
+    "status": "Status",
+    "permissions": "Permissions",
+    "actions": "Actions"
+  },
+  "type": {
+    "ui": "UI Plugin",
+    "script": "Script Plugin"
+  },
+  "status": {
+    "installed": "Installed",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "error": "Error"
+  },
+  "permissions": {
+    "records": "Records",
+    "tables": "Schema",
+    "storage": "Storage",
+    "network": "Network",
+    "read": "Read",
+    "write": "Write"
+  },
+  "actions": {
+    "enable": "Enable",
+    "disable": "Disable",
+    "install": "Install",
+    "uninstall": "Uninstall",
+    "upgrade": "Upgrade",
+    "rollback": "Rollback",
+    "config": "Config",
+    "run": "Run",
+    "runLogs": "Run Logs",
+    "restore": "Restore"
+  },
+  "messages": {
+    "uploadSuccess": "Plugin installed successfully",
+    "upgradeSuccess": "Plugin upgraded successfully",
+    "uploadFailed": "Package validation failed",
+    "enableSuccess": "Plugin enabled",
+    "disableSuccess": "Plugin disabled",
+    "uninstallSuccess": "Plugin uninstalled",
+    "rollbackSuccess": "Plugin rolled back",
+    "runSuccess": "Script run completed",
+    "runFailed": "Script run failed",
+    "checkRunLogs": "See run logs for details",
+    "configSaved": "Configuration saved",
+    "selectFileFirst": "Please select a package file first"
+  },
+  "confirm": {
+    "uninstallTitle": "Confirm Uninstall",
+    "uninstallContent": "Uninstalling removes all plugin configuration, Base installations and run logs permanently. Continue?",
+    "disableTitle": "Confirm Disable",
+    "disableContent": "Once disabled, this plugin becomes unavailable in all Bases. Continue?"
+  },
+  "uploadDialog": {
+    "title": "Upload Plugin Package",
+    "selectFile": "Select File",
+    "uploading": "Uploading and installing…",
+    "permissionNotice": "Review the permissions requested by this plugin before installing"
+  },
+  "rollbackDialog": {
+    "title": "Rollback Plugin Version",
+    "selectVersion": "Select Version",
+    "current": "Current Version"
+  },
+  "configDialog": {
+    "title": "Plugin Configuration",
+    "scopeGlobal": "Global Configuration",
+    "scopeBase": "Current Base Configuration",
+    "baseLabel": "Current Base",
+    "jsonHint": "Edit as JSON; validated against the plugin configSchema on save",
+    "invalidJson": "Invalid JSON format"
+  },
+  "runDialog": {
+    "title": "Run Script Plugin",
+    "notice": "Select the target Base for this run; the script executes on that Base on behalf of the current user"
+  },
+  "runResultDialog": {
+    "title": "Plugin Run Result",
+    "execInfo": "Execution Info",
+    "status": "Status",
+    "viewResultHint": "See the plugin execution result in the multiline text below; full history is available in Run Logs",
+    "resultInfo": "Plugin Execution Result",
+    "overall": "Overall Result",
+    "statusSuccess": "Success",
+    "statusFailed": "Failed",
+    "statusTimeout": "Timeout",
+    "resultLabel": "Result",
+    "outputLabel": "Output"
+  },
+  "runLogDialog": {
+    "title": "Run Logs",
+    "status": "Status",
+    "statusRunning": "Running",
+    "duration": "Duration",
+    "time": "Time",
+    "triggeredBy": "Triggered By",
+    "result": "Result",
+    "detail": "Detail",
+    "detailTitle": "Log Detail",
+    "output": "Output",
+    "error": "Error",
+    "traceback": "Traceback",
+    "empty": "No run records yet"
+  },
+  "selection": {
+    "selectFirst": "Select records in the table before using this plugin",
+    "maxExceeded": "Select at most {n} records",
+    "selectedCount": "{n} selected"
+  },
+  "baseInstall": {
+    "title": "Base Installation",
+    "notInstalled": "Not Installed",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "globalDisabledHint": "Global status is disabled; it will not take effect in the Base. Enable the plugin first",
+    "install": "Install to Base",
+    "remove": "Remove from Base",
+    "removeConfirm": "Remove this plugin from the current Base? It will no longer be available in that Base",
+    "installSuccess": "Installed to the current Base",
+    "removeSuccess": "Removed from the current Base",
+    "enableSuccess": "Enabled in the current Base",
+    "disableSuccess": "Disabled in the current Base"
+  },
+  "detail": {
+    "id": "Plugin ID",
+    "author": "Author",
+    "description": "Description",
+    "engines": "Host Version Requirement",
+    "apiVersion": "API Version",
+    "entry": "Entry File",
+    "extensionPoints": "UI Extension Points",
+    "versions": "Version History",
+    "lastRun": "Last Run",
+    "targetBase": "Target Base",
+    "selectBaseFirst": "Please select a target Base first"
+  }
+}

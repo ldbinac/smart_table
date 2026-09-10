@@ -2,8 +2,19 @@
 安全响应头中间件
 为所有 HTTP 响应添加安全相关的响应头
 """
-from flask import current_app
+from flask import current_app, request
 from functools import wraps
+
+
+def _is_plugin_sandbox_asset(path: str) -> bool:
+    """是否为插件沙箱资源（loader.html / 插件包静态文件）
+
+    这些资源必须被宿主页面 iframe 内嵌才能运行，且已由短时签名 URL（st）
+    鉴权 + 宿主 sandbox iframe 隔离，不能套用 DENY / frame-ancestors 'none'。
+    """
+    if not path.startswith('/api/plugins/'):
+        return False
+    return path.endswith('/loader.html') or '/files/' in path
 
 
 def init_security_headers(app):
@@ -27,11 +38,15 @@ def init_security_headers(app):
         # X-Content-Type-Options: 防止 MIME 类型嗅探
         # 告诉浏览器严格遵守 Content-Type 头，不进行嗅探
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        
+
         # X-Frame-Options: 防止点击劫持
         # DENY: 完全禁止在 iframe 中嵌入
         # SAMEORIGIN: 只允许同源嵌入
-        response.headers['X-Frame-Options'] = 'DENY'
+        # 插件沙箱资源（loader.html / 包静态文件）放宽为 SAMEORIGIN：
+        # 它们必须被宿主页面 iframe 内嵌（dev 经 Vite 代理同源、prod nginx 同源部署）
+        sandbox_asset = _is_plugin_sandbox_asset(request.path or '')
+        response.headers['X-Frame-Options'] = (
+            'SAMEORIGIN' if sandbox_asset else 'DENY')
         
         # X-XSS-Protection: XSS 过滤器（现代浏览器已弃用，但仍建议保留）
         # 启用浏览器内置的 XSS 过滤器
@@ -72,7 +87,8 @@ def init_security_headers(app):
                 "object-src 'none'",
                 "base-uri 'self'",
                 "form-action 'self'",
-                "frame-ancestors 'none'",
+                # 插件沙箱资源允许同源 iframe 内嵌（需被宿主页面加载运行）
+                "frame-ancestors 'self'" if sandbox_asset else "frame-ancestors 'none'",
             ]
             response.headers['Content-Security-Policy'] = '; '.join(csp_directives)
             

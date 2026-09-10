@@ -10,6 +10,12 @@ SmartTable Docker 一键式构建脚本
     python build_docker.py --tag v1.0.0       # 指定镜像标签
     python build_docker.py --push             # 构建并推送到镜像仓库
     python build_docker.py --run              # 构建并启动容器
+    python build_docker.py --image smarttable # 指定镜像名称
+    python build_docker.py --platform linux/amd64,linux/arm64 # 指定平台
+    python build_docker.py --registry xxx.cn-heyuan.personal.cr.aliyuncs.com/smart-table # 指定镜像仓库
+
+快速构建指定仓库的多平台架构（linux/amd64,linux/arm64）：
+    python build_docker.py --tag 1.6.6 --tag latest --registry xxx.cn-heyuan.personal.cr.aliyuncs.com/smart-table --image smarttable
 """
 
 import subprocess
@@ -31,8 +37,9 @@ DIST_DIR = FRONTEND_DIR / "dist"
 DOCKER_DIR = PROJECT_ROOT / "docker"
 
 # ===== 配置参数 =====
-DEFAULT_IMAGE_NAME = "smarttable"
+DEFAULT_IMAGE_NAME = "ygbinac/smarttable"
 DEFAULT_TAG = "latest"
+DEFAULT_PLATFORMS = "linux/amd64,linux/arm64"
 VERSION_FILE = PROJECT_ROOT / "version.json"
 
 # ===== Python 3.7+ stdout 编码修复 =====
@@ -372,39 +379,136 @@ def build_frontend(skip_frontend=False):
 # ============================================
 # 阶段 2: Docker 镜像构建
 # ============================================
-def build_docker_image(no_cache=False, tag=None, push=False):
+def ensure_buildx_builder(multi_platform=False):
+    """
+    确保存在一个可用于多平台构建的 buildx builder。
+    多平台构建需要 docker-container 驱动 (default/desktop-linux 的 docker 驱动不支持)。
+    优先复用名为 'multiarch' 的 builder, 否则自动创建。
+    返回 builder 名称 (多平台时) 或 None (单平台使用默认驱动)。
+    """
+    if not multi_platform:
+        return None
+
+    builder_name = "multiarch"
+    try:
+        result = run_command(
+            ['docker', 'buildx', 'ls'],
+            capture=True, check=False
+        )
+        out = result.stdout
+        if builder_name in out:
+            # 通过 inspect 精确获取驱动类型
+            # (buildx ls 输出中 DRIVER 与 NAME 同行, 逐行解析易误判导致误删;
+            #  部分版本 buildx inspect 不支持 --format, 直接解析 Driver: 行)
+            try:
+                insp = run_command(
+                    ['docker', 'buildx', 'inspect', builder_name],
+                    capture=True, check=False
+                )
+                driver = ''
+                for line in (insp.stdout or '').splitlines():
+                    if line.strip().startswith('Driver:'):
+                        driver = line.split(':', 1)[1].strip()
+                        break
+                if driver == 'docker-container':
+                    log(f'  复用多平台 builder: {builder_name}', 'INFO')
+                    run_command(['docker', 'buildx', 'use', builder_name], check=False)
+                    return builder_name
+            except Exception:
+                pass
+            # 存在但驱动不对则删除重建
+            log(f'  builder {builder_name} 驱动不支持多平台，将重建', 'WARNING')
+            run_command(['docker', 'buildx', 'rm', builder_name], check=False)
+        # 创建新的 docker-container 驱动 builder
+        # 通过 host.docker.internal 复用宿主的 HTTP 代理 (如 Clash 7890),
+        # 解决 Windows Docker Desktop 下 buildx 容器直连 Docker Hub 不稳的问题。
+        proxy_url = os.environ.get('BUILDX_PROXY', 'http://host.docker.internal:7890')
+        log(f'  创建多平台 builder: {builder_name}', 'INFO')
+        cmd_create = [
+            'docker', 'buildx', 'create', '--name', builder_name,
+            '--driver', 'docker-container', '--use',
+            '--driver-opt', f'env.HTTP_PROXY={proxy_url}',
+            '--driver-opt', f'env.HTTPS_PROXY={proxy_url}',
+            '--driver-opt', 'env.NO_PROXY=',
+        ]
+        # 挂载国内可用的 Docker Hub 镜像代理配置 (docker/buildkitd.toml),
+        # 使 buildkitd 无需直连 auth.docker.io / registry-1.docker.io
+        buildkitd_config = DOCKER_DIR / 'buildkitd.toml'
+        if buildkitd_config.exists():
+            cmd_create += ['--buildkitd-config', str(buildkitd_config)]
+        run_command(cmd_create, check=False)
+        run_command(['docker', 'buildx', 'inspect', '--bootstrap'], check=False)
+        return builder_name
+    except Exception as e:
+        log(f'  ⚠ 无法准备多平台 builder: {e}', 'WARNING')
+        return None
+
+
+def build_docker_image(no_cache=False, image=None, tags=None, push=False,
+                        platforms=None):
     log('构建 Docker 镜像...', 'STEP')
     log('-' * 50, 'INFO')
 
-    # 确定镜像标签
-    image_tag = tag or DEFAULT_TAG
-    image_full = f'{DEFAULT_IMAGE_NAME}:{image_tag}'
+    # 确定镜像名与标签
+    image_name = image or DEFAULT_IMAGE_NAME
+    tag_list = tags if tags else [DEFAULT_TAG]
+    if not tags and not image:
+        tag_list = [DEFAULT_TAG]
+    # 规范化: 若用户只给了 image 没给 tag, 仍使用 latest
+    if not tags:
+        tag_list = [DEFAULT_TAG]
+    full_tags = [f'{image_name}:{t}' for t in tag_list]
+
+    # 多平台检测: --load 不支持多平台, 必须 --push
+    plat_list = [p.strip() for p in (platforms or DEFAULT_PLATFORMS).split(',') if p.strip()]
+    multi_platform = len(plat_list) > 1
+    if multi_platform:
+        push = True  # 多平台构建无法 --load 到本地, 强制推送
+        log(f'  检测到多平台构建 ({", ".join(plat_list)})，自动启用 --push 模式', 'WARNING')
+
+    # 多平台需使用支持跨架构的 buildx builder (docker-container 驱动)
+    builder = ensure_buildx_builder(multi_platform)
 
     start_time = time.time()
 
     # 构建命令
     cmd = ['docker', 'buildx', 'build']
+    if builder:
+        cmd.extend(['--builder', builder])
 
     if no_cache:
         cmd.append('--no-cache')
         log('  使用 --no-cache 模式（将重新构建所有层）', 'WARNING')
 
-    # 添加标签
-    cmd.extend(['-t', image_full])
+    # 添加标签 (支持多标签, 用于 latest + 版本号)
+    for t in full_tags:
+        cmd.extend(['-t', t])
+
+    # 目标平台
+    if plat_list:
+        cmd.extend(['--platform', ','.join(plat_list)])
+
+    # 关闭 provenance attestation：阿里云 ACR 等仓库不支持 OCI attestation manifest
+    # (推送时报 "unknown manifest class for application/vnd.oci.empty.v1+json")
+    cmd.append('--provenance=false')
 
     # 添加构建参数
     cmd.extend([
         '--build-arg', f'BUILD_DATE={datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}',
-        '--build-arg', f'BUILD_VERSION={image_tag}',
+        '--build-arg', f'BUILD_VERSION={tag_list[0]}',
     ])
 
-    # 加载到本地 Docker 镜像仓库
-    cmd.append('--load')
+    # 多平台必须 --push; 单平台可 --load 到本地
+    if push:
+        cmd.append('--push')
+    else:
+        cmd.append('--load')
 
     # 构建上下文
     cmd.append('.')
 
-    log(f'  镜像名称: {image_full}', 'INFO')
+    log(f'  镜像名称: {", ".join(full_tags)}', 'INFO')
+    log(f'  目标平台: {", ".join(plat_list)}', 'INFO')
     log(f'  构建上下文: {PROJECT_ROOT}', 'INFO')
     log('  开始构建（这可能需要 5-15 分钟）...', 'INFO')
     log('', 'INFO')
@@ -433,53 +537,87 @@ def build_docker_image(no_cache=False, tag=None, push=False):
     log(f'✅ Docker 镜像构建完成 ({duration:.1f}s)', 'SUCCESS')
     log('-' * 50, 'INFO')
 
-    # 推送到镜像仓库
-    if push:
-        push_image(image_full)
+    # 推送到镜像仓库 (仅在单独 --push 且单平台时使用; 多平台已在构建时 --push)
+    if push and not multi_platform:
+        push_image(full_tags)
 
-    return image_full
+    return full_tags
 
 
 # ============================================
 # 阶段 3: 构建验证
 # ============================================
-def verify_build(image_full):
+def verify_build(image_full_list, platforms=None):
     log('验证镜像构建...', 'STEP')
     log('-' * 50, 'INFO')
 
     errors = []
+    image_full_list = image_full_list if isinstance(image_full_list, list) else [image_full_list]
 
-    # 1. 检查镜像是否存在
-    log('  检查镜像是否存在...', 'INFO')
-    try:
-        result = run_command(['docker', 'images', image_full, '--format', '{{.Repository}}:{{.Tag}}'], capture=True)
-        if image_full in result.stdout.strip():
-            log(f'  ✓ 镜像存在: {image_full}', 'SUCCESS')
+    # 多平台镜像通过 buildx imagetools 检查 manifest (本地 docker images 查不到)
+    plat_list = [p.strip() for p in (platforms or DEFAULT_PLATFORMS).split(',') if p.strip()]
+    multi_platform = len(plat_list) > 1
+
+    for image_full in image_full_list:
+        if multi_platform:
+            # 1. 检查远程 manifest (含多平台)
+            log(f'  检查多平台 manifest: {image_full}', 'INFO')
+            try:
+                result = run_command(
+                    ['docker', 'buildx', 'imagetools', 'inspect', image_full],
+                    capture=True, check=True
+                )
+                out = result.stdout
+                # 校验每个目标平台都在 manifest 中
+                missing = []
+                for p in plat_list:
+                    # imagetools inspect 输出含 "linux/amd64" / "linux/arm64"
+                    if p not in out:
+                        missing.append(p)
+                if not missing:
+                    log(f'  ✓ 多平台 manifest 完整: {", ".join(plat_list)}', 'SUCCESS')
+                else:
+                    errors.append(f'{image_full} 缺少平台: {", ".join(missing)}')
+                # 显示摘要信息
+                for line in out.splitlines():
+                    if 'Digest:' in line or 'Name:' in line or 'Platform:' in line:
+                        log(f'    {line.strip()}', 'INFO')
+            except SystemExit:
+                errors.append(f'无法获取远程 manifest: {image_full}')
+            except Exception:
+                errors.append(f'无法获取远程 manifest: {image_full}')
         else:
-            errors.append(f'镜像 {image_full} 不存在')
-    except:
-        errors.append('无法检查镜像列表')
+            # 1. 检查镜像是否存在（本地）
+            log('  检查镜像是否存在...', 'INFO')
+            try:
+                result = run_command(['docker', 'images', image_full, '--format', '{{.Repository}}:{{.Tag}}'], capture=True)
+                if image_full in result.stdout.strip():
+                    log(f'  ✓ 镜像存在: {image_full}', 'SUCCESS')
+                else:
+                    errors.append(f'镜像 {image_full} 不存在')
+            except:
+                errors.append('无法检查镜像列表')
 
-    # 2. 获取镜像大小
-    log('  获取镜像大小...', 'INFO')
-    try:
-        result = run_command(['docker', 'images', image_full, '--format', '{{.Size}}'], capture=True)
-        size = result.stdout.strip()
-        log(f'  ✓ 镜像大小: {size}', 'SUCCESS')
-    except:
-        log(f'  ⚠ 无法获取镜像大小', 'WARNING')
+            # 2. 获取镜像大小
+            log('  获取镜像大小...', 'INFO')
+            try:
+                result = run_command(['docker', 'images', image_full, '--format', '{{.Size}}'], capture=True)
+                size = result.stdout.strip()
+                log(f'  ✓ 镜像大小: {size}', 'SUCCESS')
+            except:
+                log(f'  ⚠ 无法获取镜像大小', 'WARNING')
 
-    # 3. 检查镜像层数（摘要）
-    log('  检查镜像摘要...', 'INFO')
-    try:
-        result = run_command(['docker', 'images', '--digests', image_full, '--format', '{{.Digest}}'], capture=True)
-        digest = result.stdout.strip()
-        if digest:
-            log(f'  ✓ 镜像摘要: {digest[:40]}...', 'SUCCESS')
-        else:
-            log(f'  ⚠ 无法获取镜像摘要', 'WARNING')
-    except:
-        log(f'  ⚠ 无法获取镜像摘要', 'WARNING')
+            # 3. 检查镜像层数（摘要）
+            log('  检查镜像摘要...', 'INFO')
+            try:
+                result = run_command(['docker', 'images', '--digests', image_full, '--format', '{{.Digest}}'], capture=True)
+                digest = result.stdout.strip()
+                if digest:
+                    log(f'  ✓ 镜像摘要: {digest[:40]}...', 'SUCCESS')
+                else:
+                    log(f'  ⚠ 无法获取镜像摘要', 'WARNING')
+            except:
+                log(f'  ⚠ 无法获取镜像摘要', 'WARNING')
 
     # 4. 检查 Dockerfile 中的关键配置
     log('  检查 Dockerfile 配置...', 'INFO')
@@ -545,20 +683,21 @@ def verify_build(image_full):
 # ============================================
 # 阶段 4: 推送镜像
 # ============================================
-def push_image(image_full):
+def push_image(image_full_list):
     log('推送镜像到仓库...', 'STEP')
     log('-' * 50, 'INFO')
 
-    log(f'  推送: {image_full}', 'INFO')
-
+    image_full_list = image_full_list if isinstance(image_full_list, list) else [image_full_list]
     start_time = time.time()
 
-    try:
-        run_command(['docker', 'push', image_full])
-    except:
-        log('推送失败', 'ERROR')
-        log('请检查: Docker 登录状态、镜像仓库地址', 'ERROR')
-        sys.exit(1)
+    for image_full in image_full_list:
+        log(f'  推送: {image_full}', 'INFO')
+        try:
+            run_command(['docker', 'push', image_full])
+        except:
+            log('推送失败', 'ERROR')
+            log('请检查: Docker 登录状态、镜像仓库地址', 'ERROR')
+            sys.exit(1)
 
     duration = time.time() - start_time
     log(f'✅ 镜像推送完成 ({duration:.1f}s)', 'SUCCESS')
@@ -738,23 +877,45 @@ def main():
                         help='不使用 Docker 缓存，重新构建所有层')
     parser.add_argument('--skip-frontend', action='store_true',
                         help='跳过前端构建，使用已有的 dist 目录')
-    parser.add_argument('--tag', default=None,
-                        help='指定镜像标签（默认: latest）')
-    parser.add_argument('--push', action='store_true',
-                        help='构建完成后推送到镜像仓库')
+    parser.add_argument('--image', default=DEFAULT_IMAGE_NAME,
+                        help=f'镜像名 (默认: {DEFAULT_IMAGE_NAME})')
+    parser.add_argument('--tag', action='append', default=None,
+                        help='镜像标签，可重复指定；默认: latest')
+    parser.add_argument('--registry', default='',
+                        help='镜像仓库前缀, 例如 registry.example.com/ (默认: 空)')
+    parser.add_argument('--platform', default=DEFAULT_PLATFORMS,
+                        help=f'目标平台列表, 逗号分隔 (默认: {DEFAULT_PLATFORMS}). '
+                             '多平台构建自动采用 --push 模式.')
+    parser.add_argument('--push', action='store_true', default=None,
+                        help='构建后推送到远程仓库 (多平台构建默认开启)')
     parser.add_argument('--run', action='store_true',
-                        help='构建完成后启动容器')
+                        help='构建完成后启动容器 (仅单平台本地构建可用)')
     parser.add_argument('--check-only', action='store_true',
                         help='仅检查环境，不构建')
     parser.add_argument('--clean', action='store_true',
                         help='清理构建产物后退出')
     parser.add_argument('--verify-only', action='store_true',
-                        help='仅验证上次构建的镜像')
+                        help='仅验证已推送的镜像')
 
     args = parser.parse_args()
 
     # 显示 Banner
     print_banner()
+
+    # 解析镜像名 (应用 registry 前缀)
+    image_name = args.image
+    if args.registry:
+        image_name = f'{args.registry.rstrip("/")}/{image_name}'
+
+    # 解析标签列表
+    tag_list = args.tag if args.tag else [DEFAULT_TAG]
+
+    # 多平台构建 => 默认推送
+    plat_list = [p.strip() for p in args.platform.split(',') if p.strip()]
+    multi_platform = len(plat_list) > 1
+    push = True if args.push is None else args.push
+    if multi_platform:
+        push = True
 
     # 仅检查环境
     if args.check_only:
@@ -769,8 +930,8 @@ def main():
 
     # 仅验证
     if args.verify_only:
-        image_tag = args.tag or DEFAULT_TAG
-        verify_build(f'{DEFAULT_IMAGE_NAME}:{image_tag}')
+        full_tags = [f'{image_name}:{t}' for t in tag_list]
+        verify_build(full_tags, platforms=args.platform)
         return
 
     # ===== 完整构建流程 =====
@@ -802,14 +963,20 @@ def main():
     log('=' * 60, 'HEADER')
     log('步骤 3/4: 构建 Docker 镜像', 'HEADER')
     log('=' * 60, 'HEADER')
-    image_full = build_docker_image(no_cache=args.no_cache, tag=args.tag, push=args.push)
+    full_tags = build_docker_image(
+        no_cache=args.no_cache,
+        image=image_name,
+        tags=tag_list,
+        push=push,
+        platforms=args.platform,
+    )
 
     # 步骤 4: 验证构建结果
     log('', 'INFO')
     log('=' * 60, 'HEADER')
     log('步骤 4/4: 验证构建结果', 'HEADER')
     log('=' * 60, 'HEADER')
-    verify_success = verify_build(image_full)
+    verify_success = verify_build(full_tags, platforms=args.platform)
 
     if not verify_success:
         log('', 'ERROR')
@@ -823,31 +990,35 @@ def main():
     log('=' * 60, 'HEADER')
     log(f'  🎉 SmartTable Docker 镜像构建成功！', 'HEADER')
     log('=' * 60, 'HEADER')
-    log(f'  镜像名称: {image_full}', 'INFO')
+    log(f'  镜像名称: {", ".join(full_tags)}', 'INFO')
+    log(f'  目标平台: {", ".join(plat_list)}', 'INFO')
+    log(f'  推送状态: {"已推送" if push else "未推送 (本地)"}', 'INFO')
 
-    # 获取镜像大小
-    try:
-        result = run_command(['docker', 'images', image_full, '--format', '{{.Size}}'], capture=True)
-        log(f'  镜像大小: {result.stdout.strip()}', 'INFO')
-    except:
-        pass
+    if not push:
+        # 获取本地镜像大小
+        try:
+            result = run_command(['docker', 'images', full_tags[0], '--format', '{{.Size}}'], capture=True)
+            log(f'  镜像大小: {result.stdout.strip()}', 'INFO')
+        except:
+            pass
 
     log(f'  总耗时: {total_duration:.1f} 秒', 'INFO')
     log('', 'INFO')
-    log('快速启动:', 'INFO')
-    log(f'  docker compose up -d', 'INFO')
-    log('', 'INFO')
-    log('查看日志:', 'INFO')
-    log(f'  docker compose logs -f', 'INFO')
-    log('', 'INFO')
-    log('停止服务:', 'INFO')
-    log(f'  docker compose down', 'INFO')
+    if not multi_platform:
+        log('快速启动:', 'INFO')
+        log(f'  docker compose up -d', 'INFO')
+        log('', 'INFO')
+        log('查看日志:', 'INFO')
+        log(f'  docker compose logs -f', 'INFO')
+        log('', 'INFO')
+        log('停止服务:', 'INFO')
+        log(f'  docker compose down', 'INFO')
     log('=' * 60, 'HEADER')
 
-    # 可选：启动容器
-    if args.run:
+    # 可选：启动容器 (多平台构建不自动启动, 因为本地无单架构镜像)
+    if args.run and not multi_platform:
         log('', 'INFO')
-        run_container(image_full)
+        run_container(full_tags[0])
 
 
 if __name__ == '__main__':

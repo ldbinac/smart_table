@@ -90,6 +90,12 @@ const navItems = computed<NavItem[]>(() => [
               path: "/admin/oauth-apps",
             },
             {
+              id: "admin-plugins",
+              label: t('nav.plugins'),
+              icon: "Grid",
+              path: "/admin/plugins",
+            },
+            {
               id: "admin-email-templates",
               label: t('nav.emailTemplates'),
               icon: "Message",

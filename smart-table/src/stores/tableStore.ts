@@ -20,6 +20,16 @@ import type {
 import type { StreamingLoadState } from "../db/services/recordService";
 import { t } from "@/i18n";
 
+// 将后端广播的时间值（ISO 字符串或时间戳）转换为毫秒时间戳
+function toTimestamp(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const t = new Date(value).getTime();
+    if (!Number.isNaN(t)) return t;
+  }
+  return Date.now();
+}
+
 export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
   const currentTable = ref<TableEntity | null>(null);
@@ -419,9 +429,29 @@ export const useTableStore = defineStore("table", () => {
 
     const onRecordCreated = (data: DataRecordCreatedBroadcast) => {
       if (!currentTable.value || data.table_id !== currentTable.value.id) return;
-      const record = data.record as unknown as RecordEntity;
-      if (record && !records.value.find((r) => r.id === record.id)) {
+      // 后端广播的 record 为 Record.to_dict()（snake_case：table_id/created_at/updated_at），
+      // 必须转换为 RecordEntity 的 camelCase 格式，否则 tableId/createdAt/updatedAt 为 undefined：
+      // - 主从表场景下新记录被误判为子表记录，放大镜打开错误抽屉并保存到错误字段
+      // - 复制记录时请求 /tables/undefined/fields
+      const raw = (data.record || {}) as Record<string, unknown>;
+      const record: RecordEntity = {
+        id: String(raw.id ?? ""),
+        tableId: (raw.tableId as string) || data.table_id,
+        values: (raw.values as Record<string, CellValue>) || {},
+        createdAt: toTimestamp(raw.createdAt ?? raw.created_at),
+        updatedAt: toTimestamp(raw.updatedAt ?? raw.updated_at),
+        createdBy: (raw.createdBy as string) ?? (raw.created_by as string),
+        updatedBy: (raw.updatedBy as string) ?? (raw.updated_by as string),
+      };
+      if (record.id && !records.value.find((r) => r.id === record.id)) {
         records.value.push(record);
+        // 同步持久化到本地 IndexedDB：refreshRecords 仅读取本地缓存，
+        // 不落库会导致新记录在后续刷新后从前端消失
+        try {
+          db.records.put(record);
+        } catch (e) {
+          console.warn("[tableStore] 实时新增记录写入本地缓存失败:", e);
+        }
       }
     };
 

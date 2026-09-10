@@ -79,7 +79,7 @@ services:
     environment:
       FLASK_ENV: ${FLASK_ENV:-production}
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this}
-      DATABASE_URL: postgresql://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-jwt-secret-change-this}
       ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
@@ -117,7 +117,7 @@ services:
     container_name: smarttable-migrate
     environment:
       FLASK_ENV: ${FLASK_ENV:-production}
-      DATABASE_URL: postgresql://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
     command: >
       sh -c "flask db upgrade && 
              echo 'Database migration completed'"
@@ -138,7 +138,7 @@ services:
     restart: unless-stopped
     environment:
       FLASK_ENV: ${FLASK_ENV:-production}
-      DATABASE_URL: postgresql://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/2
@@ -160,7 +160,7 @@ services:
     restart: unless-stopped
     environment:
       FLASK_ENV: ${FLASK_ENV:-production}
-      DATABASE_URL: postgresql://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/2

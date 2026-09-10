@@ -34,6 +34,9 @@ import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import DateInput from "@/components/fields/DateInput.vue";
+import LinkField from "@/components/fields/LinkField/LinkField.vue";
+import GeoField from "@/components/fields/geo/GeoField.vue";
+import type { LinkedRecord, RelationshipType } from "@/types/link";
 
 const { t } = useI18n();
 
@@ -66,6 +69,10 @@ const fieldErrors = ref<Record<string, string>>({});
 const isSaving = ref(false);
 const newRecordId = ref(generateId());
 const authStore = useAuthStore();
+
+// 关联字段相关状态（新增模式下无记录 ID，关联数据先暂存在本地，保存后再创建关联）
+const linkFieldRecords = ref<Map<string, LinkedRecord[]>>(new Map());
+const editingLinkField = ref<string | null>(null);
 
 // 获取当前用户ID
 function getCurrentUserId(): string | null {
@@ -145,6 +152,19 @@ watch(
       ) {
         formData.value[props.groupFieldId] = props.groupId;
       }
+
+      // 4. 关联字段初始化为数组格式，并清空本地关联记录缓存
+      linkFieldRecords.value.clear();
+      props.fields.forEach((field) => {
+        if (field.type === FieldType.LINK) {
+          const raw = formData.value[field.id];
+          if (raw === null || raw === undefined) {
+            formData.value[field.id] = [];
+          } else if (!Array.isArray(raw)) {
+            formData.value[field.id] = [String(raw)];
+          }
+        }
+      });
     }
   },
   { immediate: true },
@@ -259,6 +279,8 @@ function getFieldComponent(field: FieldEntity) {
       return "formula";
     case FieldType.LINK:
       return "link";
+    case FieldType.GEOLOCATION:
+      return "geo";
     case FieldType.LOOKUP:
       return "lookup";
     case FieldType.CREATED_BY:
@@ -364,6 +386,58 @@ function getAutoNumberPreview(field: FieldEntity): string {
   const config = field.config as Record<string, unknown> | undefined;
   // 使用1作为序列号预览（实际序列号由后端生成）
   return generateAutoNumber(1, config as FieldOptions);
+}
+
+// 获取关联字段配置
+function getLinkFieldConfig(field: FieldEntity) {
+  if (field.type !== FieldType.LINK) return null;
+  const config = field.config as Record<string, unknown>;
+  return {
+    targetTableId: config?.linkedTableId as string,
+    relationshipType:
+      (config?.relationshipType as RelationshipType) || "one_to_many",
+    displayFieldId: config?.displayFieldId as string,
+  };
+}
+
+// 获取关联字段的已选记录（用于显示标签）
+function getLinkedRecords(field: FieldEntity): LinkedRecord[] {
+  return linkFieldRecords.value.get(field.id) || [];
+}
+
+// 进入关联字段编辑（打开选择器）
+function handleLinkFieldEdit(fieldId: string) {
+  editingLinkField.value = fieldId;
+}
+
+// 退出关联字段编辑
+function handleLinkFieldEditEnd() {
+  editingLinkField.value = null;
+}
+
+// 关联字段选择确认（新增模式下仅暂存到本地，保存后再创建关联）
+function handleLinkFieldChange(
+  field: FieldEntity,
+  value: string[],
+  records: LinkedRecord[],
+) {
+  formData.value[field.id] = value;
+  linkFieldRecords.value.set(field.id, records);
+  editingLinkField.value = null;
+}
+
+// 移除单个关联记录（本地）
+function handleLinkFieldRemove(field: FieldEntity, targetRecordId: string) {
+  const currentRecords = linkFieldRecords.value.get(field.id) || [];
+  linkFieldRecords.value.set(
+    field.id,
+    currentRecords.filter((r) => r.record_id !== targetRecordId),
+  );
+
+  const currentValue = (formData.value[field.id] as string[]) || [];
+  formData.value[field.id] = currentValue.filter(
+    (id) => id !== targetRecordId,
+  );
 }
 
 // 保存记录
@@ -739,9 +813,30 @@ const drawerTitle = computed(() => {
 
           <!-- 关联类型 -->
           <template v-else-if="getFieldComponent(field) === 'link'">
-            <div class="link-hint">
-              <span>{{ t('record.linkEditHint') }}</span>
-            </div>
+            <LinkField
+              :value="(formData[field.id] as string[]) || []"
+              :linked-records="getLinkedRecords(field)"
+              :target-table-id="getLinkFieldConfig(field)?.targetTableId"
+              :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
+              :relationship-type="getLinkFieldConfig(field)?.relationshipType"
+              :is-editing="editingLinkField === field.id"
+              :readonly="false"
+              :record-id="newRecordId"
+              :field-id="field.id"
+              :is-self-link="getLinkFieldConfig(field)?.targetTableId === field.tableId"
+              @edit-start="handleLinkFieldEdit(field.id)"
+              @change="(val, records) => handleLinkFieldChange(field, val, records)"
+              @edit-end="handleLinkFieldEditEnd"
+              @remove="(targetId) => handleLinkFieldRemove(field, targetId)" />
+          </template>
+
+          <!-- 地理位置类型 -->
+          <template v-else-if="getFieldComponent(field) === 'geo'">
+            <GeoField
+              :model-value="(formData[field.id] as any)"
+              :field="field"
+              :readonly="false"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 默认文本类型 -->

@@ -1,0 +1,9 @@
+# buildkitd 配置: 多平台构建使用国内可用的 Docker Hub 镜像代理
+#
+# 在 Windows Docker Desktop 下, buildx 容器直连 auth.docker.io / registry-1.docker.io
+# 不稳定 (连接超时/EOF)。配置 docker.io 的 mirror 为 docker.1ms.run (已验证容器内
+# 可解析且返回正确 401, 为有效 Docker Hub 代理), buildkit 将 Docker Hub 全部请求
+# (含 token 认证与 manifest/blob 拉取) 发往该镜像源, 由其透明代理 Docker Hub。
+[registry."docker.io"]
+  mirrors = ["https://docker.1ms.run"]
+  insecure = false

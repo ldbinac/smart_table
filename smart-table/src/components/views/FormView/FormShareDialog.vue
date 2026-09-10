@@ -2,11 +2,12 @@
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
-import { Share, Plus, CopyDocument } from "@element-plus/icons-vue";
+import { Share, Plus, CopyDocument, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
 import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
 import { formatDateTime } from "@/utils/timezone";
+import dayjs from "dayjs";
 
 const props = defineProps<{
   visible: boolean;
@@ -43,6 +44,7 @@ const formConfig = ref({
   maxSubmissions: null as number | null,
   allowedFields: [] as string[],
   theme: "default",
+  columns: 1,
 });
 
 // 已创建的分享
@@ -70,6 +72,134 @@ const availableFields = computed(() => {
     (f) => !systemFieldTypes.includes(f.type as FieldTypeValue)
   );
 });
+
+// 根据字段 ID 查找字段
+function fieldById(id: string): FieldEntity {
+  return props.fields.find((f) => f.id === id) as FieldEntity;
+}
+
+// 字段级配置：默认值与只读（仅对允许提交的字段生效）
+const fieldDefaults = ref<Record<string, any>>({});
+const fieldReadOnly = ref<Record<string, boolean>>({});
+
+// 字段类型是否支持设置默认值（复杂类型暂不支持，仅提供只读开关）
+function supportsDefaultValue(field: FieldEntity): boolean {
+  const t = field.type as FieldTypeValue;
+  return ([
+    FieldType.SINGLE_LINE_TEXT,
+    FieldType.LONG_TEXT,
+    FieldType.RICH_TEXT,
+    FieldType.EMAIL,
+    FieldType.PHONE,
+    FieldType.URL,
+    FieldType.BARCODE,
+    FieldType.NUMBER,
+    FieldType.CURRENCY,
+    FieldType.PERCENT,
+    FieldType.RATING,
+    FieldType.PROGRESS,
+    FieldType.CHECKBOX,
+    FieldType.SINGLE_SELECT,
+    FieldType.MULTI_SELECT,
+    FieldType.DATE,
+    FieldType.DATE_TIME,
+  ] as FieldTypeValue[]).includes(t);
+}
+
+// 默认值的编辑器类型
+function defaultEditorType(field: FieldEntity): string {
+  const t = field.type as FieldTypeValue;
+  switch (t) {
+    case FieldType.SINGLE_LINE_TEXT:
+    case FieldType.EMAIL:
+    case FieldType.PHONE:
+    case FieldType.URL:
+    case FieldType.BARCODE:
+      return "text";
+    case FieldType.LONG_TEXT:
+    case FieldType.RICH_TEXT:
+      return "textarea";
+    case FieldType.NUMBER:
+    case FieldType.CURRENCY:
+    case FieldType.PERCENT:
+    case FieldType.RATING:
+    case FieldType.PROGRESS:
+      return "number";
+    case FieldType.SINGLE_SELECT:
+      return "single_select";
+    case FieldType.MULTI_SELECT:
+      return "multi_select";
+    case FieldType.CHECKBOX:
+      return "checkbox";
+    case FieldType.DATE:
+      return "date";
+    case FieldType.DATE_TIME:
+      return "datetime";
+    default:
+      return "none";
+  }
+}
+
+// 获取字段选项（单选/多选）
+function fieldOptions(field: FieldEntity): Array<{ id: string; name: string }> {
+  const config = (field.config || {}) as Record<string, unknown>;
+  const opts =
+    (config.choices as unknown[]) ||
+    (config.options as unknown[]) ||
+    ((field.options as Record<string, unknown>)?.choices as unknown[]) ||
+    ((field.options as Record<string, unknown>)?.options as unknown[]) ||
+    [];
+  if (!Array.isArray(opts)) return [];
+  return opts.map((o: any) => ({
+    id: o.id || o.value || String(o),
+    name: o.name || o.label || String(o),
+  }));
+}
+
+// 格式化日期默认值（按字段 dateFormat 或默认 YYYY-MM-DD）
+function formatDateDefault(field: FieldEntity, val: unknown): string {
+  if (!val) return "";
+  const fmt = ((field.config as Record<string, unknown>)?.dateFormat as string) || "YYYY-MM-DD";
+  return dayjs(val as string | Date).format(fmt);
+}
+
+// 构建字段级配置（仅包含允许提交的字段）
+function buildFieldSettings(): Record<string, { defaultValue?: unknown; readOnly: boolean }> {
+  const settings: Record<string, { defaultValue?: unknown; readOnly: boolean }> = {};
+  for (const fid of formConfig.value.allowedFields) {
+    const setting: { defaultValue?: unknown; readOnly: boolean } = {
+      readOnly: !!fieldReadOnly.value[fid],
+    };
+    const def = fieldDefaults.value[fid];
+    if (def !== undefined && def !== null && def !== "") {
+      // 日期类型按字段格式序列化，确保分享页能正确解析
+      const field = fieldById(fid);
+      if (field.type === FieldType.DATE || field.type === FieldType.DATE_TIME) {
+        setting.defaultValue = formatDateDefault(field, def);
+      } else {
+        setting.defaultValue = def;
+      }
+    }
+    settings[fid] = setting;
+  }
+  return settings;
+}
+
+// 字段排序（上移）
+function moveFieldUp(index: number) {
+  if (index === 0) return;
+  const fieldId = formConfig.value.allowedFields[index];
+  formConfig.value.allowedFields.splice(index, 1);
+  formConfig.value.allowedFields.splice(index - 1, 0, fieldId);
+}
+
+// 字段排序（下移）
+function moveFieldDown(index: number) {
+  if (index === formConfig.value.allowedFields.length - 1) return;
+  const fieldId = formConfig.value.allowedFields[index];
+  formConfig.value.allowedFields.splice(index, 1);
+  formConfig.value.allowedFields.splice(index + 1, 0, fieldId);
+}
 
 // 计算属性：有效分享数量
 const activeSharesCount = computed(() => {
@@ -106,9 +236,12 @@ function resetForm() {
     maxSubmissions: null,
     allowedFields: availableFields.value.map((f) => f.id),
     theme: "default",
+    columns: 1,
   };
   createdShare.value = null;
   shareUrl.value = "";
+  fieldDefaults.value = {};
+  fieldReadOnly.value = {};
 }
 
 // 加载现有分享列表
@@ -153,6 +286,8 @@ async function createShare() {
       max_submissions: formConfig.value.maxSubmissions || undefined,
       allowed_fields: formConfig.value.allowedFields,
       theme: formConfig.value.theme,
+      columns: formConfig.value.columns,
+      field_settings: buildFieldSettings(),
     });
 
     createdShare.value = result;
@@ -464,21 +599,147 @@ async function copyExistingShareUrl(share: FormShareConfig) {
         <el-divider content-position="left">{{ t("view.formFieldConfig") }}</el-divider>
 
         <el-form-item :label="t('view.allowedFieldsLabel')">
-          <el-checkbox-group v-model="formConfig.allowedFields" class="field-checkbox-group">
-            <el-checkbox
-              v-for="field in availableFields"
+          <el-checkbox-group v-model="formConfig.allowedFields" class="field-checkbox-group field-order-group">
+            <!-- 已选字段：按配置顺序展示，支持上移/下移调整前后顺序 -->
+            <div
+              v-for="(fieldId, index) in formConfig.allowedFields"
+              :key="fieldId"
+              class="field-order-item">
+              <div class="field-order-main">
+                <el-checkbox :label="fieldId">
+                  <span class="field-checkbox-label">
+                    <el-icon class="field-icon">
+                      <component :is="getFieldTypeIconComponent(fieldById(fieldId).type)" />
+                    </el-icon>
+                    {{ fieldById(fieldId).name }}
+                  </span>
+                  <el-tag v-if="fieldById(fieldId).isRequired" size="small" type="danger" class="ml-2">
+                    {{ t("view.required") }}
+                  </el-tag>
+                </el-checkbox>
+                <div class="field-order-actions">
+                  <el-button
+                    link
+                    type="primary"
+                    :disabled="index === 0"
+                    @click="moveFieldUp(index)">
+                    <el-icon><ArrowUp /></el-icon>
+                  </el-button>
+                  <el-button
+                    link
+                    type="primary"
+                    :disabled="index === formConfig.allowedFields.length - 1"
+                    @click="moveFieldDown(index)">
+                    <el-icon><ArrowDown /></el-icon>
+                  </el-button>
+                </div>
+              </div>
+              <div class="field-order-config">
+                <el-switch
+                  v-model="fieldReadOnly[fieldId]"
+                  :active-text="t('view.formFieldReadonly')"
+                  size="small" />
+                <template v-if="supportsDefaultValue(fieldById(fieldId))">
+                  <span class="field-default-label">{{ t("view.formFieldDefaultValue") }}</span>
+                  <!-- 文本类 -->
+                  <el-input
+                    v-if="defaultEditorType(fieldById(fieldId)) === 'text'"
+                    v-model="fieldDefaults[fieldId]"
+                    :placeholder="t('view.formFieldDefaultPlaceholder')"
+                    size="small"
+                    class="field-default-input" />
+                  <!-- 多行/富文本 -->
+                  <el-input
+                    v-else-if="defaultEditorType(fieldById(fieldId)) === 'textarea'"
+                    v-model="fieldDefaults[fieldId]"
+                    type="textarea"
+                    :rows="2"
+                    :placeholder="t('view.formFieldDefaultPlaceholder')"
+                    size="small"
+                    class="field-default-input" />
+                  <!-- 数字类 -->
+                  <el-input-number
+                    v-else-if="defaultEditorType(fieldById(fieldId)) === 'number'"
+                    v-model="fieldDefaults[fieldId]"
+                    :controls="false"
+                    size="small"
+                    class="field-default-input" />
+                  <!-- 单选 -->
+                  <el-select
+                    v-else-if="defaultEditorType(fieldById(fieldId)) === 'single_select'"
+                    v-model="fieldDefaults[fieldId]"
+                    :placeholder="t('view.formFieldDefaultPlaceholder')"
+                    size="small"
+                    clearable
+                    class="field-default-input">
+                    <el-option
+                      v-for="opt in fieldOptions(fieldById(fieldId))"
+                      :key="opt.id"
+                      :label="opt.name"
+                      :value="opt.id" />
+                  </el-select>
+                  <!-- 多选 -->
+                  <el-select
+                    v-else-if="defaultEditorType(fieldById(fieldId)) === 'multi_select'"
+                    v-model="fieldDefaults[fieldId]"
+                    :placeholder="t('view.formFieldDefaultPlaceholder')"
+                    size="small"
+                    multiple
+                    clearable
+                    class="field-default-input">
+                    <el-option
+                      v-for="opt in fieldOptions(fieldById(fieldId))"
+                      :key="opt.id"
+                      :label="opt.name"
+                      :value="opt.id" />
+                  </el-select>
+                  <!-- 复选框 -->
+                  <el-switch
+                    v-else-if="defaultEditorType(fieldById(fieldId)) === 'checkbox'"
+                    v-model="fieldDefaults[fieldId]"
+                    size="small" />
+                  <!-- 日期 -->
+                  <el-date-picker
+                    v-else-if="defaultEditorType(fieldById(fieldId)) === 'date'"
+                    v-model="fieldDefaults[fieldId]"
+                    type="date"
+                    :placeholder="t('view.formFieldDefaultPlaceholder')"
+                    size="small"
+                    value-format="YYYY-MM-DD"
+                    class="field-default-input" />
+                  <!-- 日期时间 -->
+                  <el-date-picker
+                    v-else-if="defaultEditorType(fieldById(fieldId)) === 'datetime'"
+                    v-model="fieldDefaults[fieldId]"
+                    type="datetime"
+                    :placeholder="t('view.formFieldDefaultPlaceholder')"
+                    size="small"
+                    value-format="YYYY-MM-DDTHH:mm:ss"
+                    class="field-default-input" />
+                </template>
+                <span v-else class="field-default-hint">{{ t("view.formFieldNoDefaultSupport") }}</span>
+              </div>
+            </div>
+
+            <el-divider v-if="formConfig.allowedFields.length > 0" />
+
+            <!-- 未选字段：勾选后追加到已选列表末尾 -->
+            <div
+              v-for="field in availableFields.filter((f) => !formConfig.allowedFields.includes(f.id))"
               :key="field.id"
-              :label="field.id">
-              <span class="field-checkbox-label">
-                <el-icon class="field-icon">
-                  <component :is="getFieldTypeIconComponent(field.type)" />
-                </el-icon>
-                {{ field.name }}
-              </span>
-              <el-tag v-if="field.isRequired" size="small" type="danger" class="ml-2">
-                {{ t("view.required") }}
-              </el-tag>
-            </el-checkbox>
+              class="field-unselected-item">
+              <el-checkbox :label="field.id">
+                <span class="field-checkbox-label">
+                  <el-icon class="field-icon">
+                    <component :is="getFieldTypeIconComponent(field.type)" />
+                  </el-icon>
+                  {{ field.name }}
+                </span>
+                <el-tag v-if="field.isRequired" size="small" type="danger" class="ml-2">
+                  {{ t("view.required") }}
+                </el-tag>
+              </el-checkbox>
+            </div>
           </el-checkbox-group>
           <div v-if="formConfig.allowedFields.length === 0" class="field-hint">
             <el-alert
@@ -488,6 +749,27 @@ async function copyExistingShareUrl(share: FormShareConfig) {
               show-icon />
           </div>
         </el-form-item>
+
+        <!-- 布局设置 -->
+        <el-divider content-position="left">{{ t("view.formLayoutConfig") }}</el-divider>
+
+        <el-form-item :label="t('view.formColumns')">
+          <el-radio-group v-model="formConfig.columns">
+            <el-radio-button :value="1">1</el-radio-button>
+            <el-radio-button :value="2">2</el-radio-button>
+            <el-radio-button :value="3">3</el-radio-button>
+            <el-radio-button :value="4">4</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <div class="form-cols-hint">
+          <span class="form-cols-hint__text">{{ t("view.formColumnsHint") }}</span>
+          <div class="full-row-types">
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLongText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeRichText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeAttachment") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLink") }}</el-tag>
+          </div>
+        </div>
       </el-form>
     </div>
 
@@ -664,8 +946,99 @@ async function copyExistingShareUrl(share: FormShareConfig) {
   }
 }
 
+.field-order-group {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  width: 100%;
+  gap: 10px;
+
+  :deep(.el-checkbox) {
+    margin-right: 0;
+    min-width: 0;
+  }
+}
+
+.field-order-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: $border-radius-sm;
+  background: rgba($primary-color, 0.05);
+
+  .field-order-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .el-checkbox {
+      flex: 1;
+    }
+  }
+
+  .field-order-config {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 6px;
+    border-top: 1px dashed $border-color;
+  }
+
+  .field-default-label {
+    font-size: 13px;
+    color: $text-secondary;
+    white-space: nowrap;
+  }
+
+  .field-default-input {
+    width: 220px;
+    max-width: 100%;
+  }
+
+  .field-default-hint {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+}
+
+.field-order-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.field-unselected-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+}
+
 .field-hint {
   margin-top: 8px;
+}
+
+.form-cols-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--el-color-info-light-9);
+  border-left: 3px solid var(--el-color-info);
+  border-radius: 0 var(--el-border-radius-base, 4px) var(--el-border-radius-base, 4px);
+
+  .form-cols-hint__text {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    line-height: 1.5;
+  }
+}
+
+.full-row-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .share-table {

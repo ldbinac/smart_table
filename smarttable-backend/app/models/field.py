@@ -44,6 +44,7 @@ class FieldType(PyEnum):
     PHONE = 'phone'
     URL = 'url'
     BUTTON = 'button'
+    GEOLOCATION = 'geolocation'
 
 
 class Field(db.Model):
@@ -182,7 +183,8 @@ class Field(db.Model):
             FieldType.EMAIL: '',
             FieldType.PHONE: '',
             FieldType.URL: '',
-            FieldType.BUTTON: None
+            FieldType.BUTTON: None,
+            FieldType.GEOLOCATION: None
         }
         return defaults.get(field_type)
     
@@ -258,6 +260,11 @@ class Field(db.Model):
             # 这些类型默认值应该是数组
             if not isinstance(value, list):
                 return False, f'字段 "{self.name}" 的默认值必须是数组'
+
+        elif field_type == FieldType.GEOLOCATION:
+            # 地理位置默认值应该是结构化对象
+            if not isinstance(value, dict):
+                return False, f'字段 "{self.name}" 的默认值必须是地理信息对象'
 
         return True, None
 

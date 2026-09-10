@@ -179,6 +179,70 @@ def authenticate(fn: Callable) -> Callable:
 jwt_required = authenticate
 
 
+def form_share_or_jwt(table_param: str = 'table_id', require_role: Optional[List[str]] = None) -> Callable:
+    """
+    JWT 或表单分享 token 双通道认证装饰器。
+
+    - 已登录用户：走原有权限校验（require_role 走全局角色校验，否则走表格 VIEWER 权限校验）。
+    - 匿名用户：必须携带有效且未过期的表单分享 token，且该 token 允许访问目标表
+      （表单所在表或同 base 表），用于匿名分享表单的只读接口（字段、可关联记录等）。
+    """
+    def decorator(fn: Callable) -> Callable:
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            table_id = kwargs.get(table_param) or (request.view_args or {}).get(table_param)
+            user_id = None
+            try:
+                verify_jwt_in_request(optional=True)
+                identity = get_jwt_identity()
+                if identity:
+                    user_id = str(identity)
+                    from app.models.user import User
+                    from uuid import UUID
+                    try:
+                        g.current_user = User.query.filter_by(id=UUID(user_id)).first()
+                        g.current_user_id = user_id
+                    except Exception:
+                        g.current_user = None
+            except Exception:
+                user_id = None
+                g.current_user = None
+
+            if user_id:
+                if require_role:
+                    from app.models.user import UserRole
+                    if not getattr(g, 'current_user', None):
+                        return unauthorized_response('log_first')
+                    allowed = []
+                    for r in require_role:
+                        try:
+                            allowed.append(UserRole(r).value)
+                        except ValueError:
+                            allowed.append(r)
+                    cur = g.current_user.role
+                    cur_val = cur.value if hasattr(cur, 'value') else cur
+                    if cur_val not in allowed:
+                        return forbidden_response('insufficient_permissions_perform_operation')
+                else:
+                    from app.services.table_service import TableService
+                    from app.models.base import MemberRole
+                    if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
+                        return forbidden_response('no_permission_access_table_2')
+                return fn(*args, **kwargs)
+
+            # 匿名：需有效分享 token 且允许访问该表
+            share_token = request.args.get('share_token')
+            if not share_token:
+                return unauthorized_response('authentication_required')
+            from app.services.form_share_service import FormShareService
+            ok, err = FormShareService.verify_share_access_to_table(share_token, str(table_id))
+            if not ok:
+                return unauthorized_response(err or 'invalid_form_share_token')
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def role_required(roles) -> Callable:
     """
     角色权限检查装饰器

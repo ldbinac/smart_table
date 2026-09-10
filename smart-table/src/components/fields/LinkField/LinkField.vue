@@ -36,6 +36,7 @@
         :linked-records="linkedRecords"
         :allow-multiple="allowMultiple"
         :exclude-record-id="props.isSelfLink ? props.recordId : ''"
+        :share-token="shareToken"
         @confirm="handleConfirm"
         @cancel="handleCancel"
       />
@@ -79,6 +80,8 @@ interface Props {
   fieldId?: string;
   /** 是否为自关联字段（关联自身表）：强制单选且禁止选择当前记录自身 */
   isSelfLink?: boolean;
+  /** 匿名分享表单的分享 token：用于在未登录时凭 token 读取字段 */
+  shareToken?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -91,6 +94,7 @@ const props = withDefaults(defineProps<Props>(), {
   recordId: "",
   fieldId: "",
   isSelfLink: false,
+  shareToken: "",
 });
 
 const emit = defineEmits<{
@@ -131,7 +135,7 @@ const loadTargetTableFields = async () => {
   if (!props.targetTableId) return;
   
   try {
-    const fields = await fieldService.getFieldsByTable(props.targetTableId);
+    const fields = await fieldService.getFieldsByTable(props.targetTableId, props.shareToken);
     targetTableFields.value = fields;
   } catch (error) {
     console.error("[LinkField] 加载字段失败:", error);

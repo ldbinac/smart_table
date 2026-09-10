@@ -171,10 +171,17 @@ function renderWidget(widget: WidgetConfig) {
 
   if (widget.type === "number") {
     const total = values.reduce((a, b) => a + b, 0);
+    const color = widget.config?.valueColor || widget.config?.colors?.[0] || "#3b82f6";
+    const textAlign = widget.config?.textAlign || "center";
+    const alignFlex =
+      textAlign === "left" ? "flex-start" : textAlign === "right" ? "flex-end" : "center";
+    const showNumberLabel = widget.config?.showNumberLabel !== false;
+    const numberLabel = widget.config?.numberLabel || widget.title;
+
     container.innerHTML = `
-      <div class="number-card">
-        <div class="number-value">${formatLargeNumber(total)}</div>
-        <div class="number-label">${escapeHtml(widget.title)}</div>
+      <div class="number-card" style="text-align: ${textAlign}; align-items: ${alignFlex}">
+        <div class="number-value" style="font-size: ${Number(widget.config?.valueFontSize) || 52}px; color: ${color}">${formatLargeNumber(total)}</div>
+        ${showNumberLabel ? `<div class="number-label">${escapeHtml(numberLabel)}</div>` : ""}
       </div>
     `;
     return;

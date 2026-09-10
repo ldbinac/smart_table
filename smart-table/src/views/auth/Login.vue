@@ -1,7 +1,7 @@
 <template>
   <AuthLayout
     :title="t('auth.loginTitle')"
-    :footer-hint="t('auth.noAccount')"
+    :footer-hint="isRegistrationEnabledState ? t('auth.noAccount') : ''"
     :footer-link-text="t('auth.goRegister')"
     footer-link-to="/register"
     :demo-config="demoConfig">
@@ -24,6 +24,7 @@ import AuthLayout from './AuthLayout.vue'
 import LoginForm from '@/components/auth/LoginForm.vue'
 import type { DemoConfig, LoginResponse, LoginRequest } from '@/api/types'
 import { message } from '@/utils/message'
+import { isRegistrationEnabled } from '@/utils/securityConfig'
 
 const router = useRouter()
 const route = useRoute()
@@ -32,12 +33,19 @@ const authStore = useAuthStore()
 
 const demoConfig = ref<DemoConfig | null>(null)
 const isLoading = ref(false)
+const isRegistrationEnabledState = ref(true)
 
 onMounted(async () => {
   try {
     demoConfig.value = await getDemoConfig()
   } catch {
     demoConfig.value = null
+  }
+
+  try {
+    isRegistrationEnabledState.value = await isRegistrationEnabled()
+  } catch {
+    isRegistrationEnabledState.value = true
   }
 })
 

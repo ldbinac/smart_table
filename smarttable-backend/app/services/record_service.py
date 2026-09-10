@@ -256,7 +256,9 @@ class RecordService:
         # 处理自动编号字段
         auto_number_fields = [f for f in fields if f.type == FieldType.AUTO_NUMBER.value]
         # 获取当前时间作为记录的创建日期（用于自动编号的日期前缀）
-        from datetime import datetime
+        # 注意：不要在此函数内再 `from datetime import datetime`，
+        # 局部导入会让 datetime 变为整个函数作用域的局部变量，
+        # 导致上方默认值处理中的 datetime.now() 抛 UnboundLocalError
         record_created_at = datetime.now()
         for field in auto_number_fields:
             field_id = str(field.id)
@@ -342,7 +344,8 @@ class RecordService:
     @staticmethod
     def update_record(record: Record, values: Dict[str, Any] = None,
                      updated_by: str = None,
-                     expected_updated_at: str = None) -> Record:
+                     expected_updated_at: str = None,
+                     commit: bool = True) -> Record:
         """
         更新记录
 
@@ -442,9 +445,11 @@ class RecordService:
 
         # 刷新对象以确保获取最新的数据库状态
         db.session.flush()
-        db.session.commit()
+        if commit:
+            db.session.commit()
 
-        if changes:
+        # 以下事件广播仅在真正提交时触发，避免事务回滚后发送错误的实时消息
+        if commit and changes:
             try:
                 change_dict = {
                     change['field_id']: {
@@ -464,20 +469,21 @@ class RecordService:
                 from flask import current_app
                 current_app.logger.error(f'[RecordService] workflow_event_bus publish (update) error: {e}')
 
-        try:
-            from app.services.collaboration_service import CollaborationService
-            table = Table.query.get(str(record.table_id))
-            if table:
-                CollaborationService.broadcast_if_enabled('data:record_updated', str(table.base_id), {
-                    'table_id': str(record.table_id),
-                    'record_id': str(record.id),
-                    'changes': changes,
-                    'changed_by': str(updated_by) if updated_by else None,
-                    'timestamp': datetime.now(timezone.utc).isoformat()
-                })
-        except Exception as e:
-            from flask import current_app
-            current_app.logger.error(f'[RecordService] broadcast_if_enabled error: {e}')
+        if commit:
+            try:
+                from app.services.collaboration_service import CollaborationService
+                table = Table.query.get(str(record.table_id))
+                if table:
+                    CollaborationService.broadcast_if_enabled('data:record_updated', str(table.base_id), {
+                        'table_id': str(record.table_id),
+                        'record_id': str(record.id),
+                        'changes': changes,
+                        'changed_by': str(updated_by) if updated_by else None,
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    })
+            except Exception as e:
+                from flask import current_app
+                current_app.logger.error(f'[RecordService] broadcast_if_enabled error: {e}')
 
         return record
     
@@ -877,7 +883,7 @@ class RecordService:
         Args:
             table_id: 表格 ID
             query: 搜索关键词
-            field_ids: 要搜索的字段 ID 列表
+            field_ids: 要搜索的字段 ID 列表；为 None 时搜索表内全部字段
             
         Returns:
             记录列表
@@ -885,29 +891,32 @@ class RecordService:
         escaped_query = _escape_like_pattern(query)
         like_pattern = f'%{escaped_query}%'
         
+        # 未指定字段时，默认搜索表内全部字段。
+        # 注意：不能对整列 JSON(B) 直接 cast 成文本再做 ILIKE —— PostgreSQL 会把
+        # 非 ASCII 字符（如中文）转义为 \\uXXXX，导致中文关键词永远匹配不到，
+        # 而 ASCII（如英文）不受影响。逐字段用 ->> 运算符取出原始文本可避免该问题。
+        if not field_ids:
+            fields = FieldService.get_all_fields(table_id)
+            field_ids = [str(f.id) for f in fields]
+        
         query_obj = Record.query.filter_by(table_id=table_id)
         
         if field_ids:
-            valid_field_ids = []
             uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
-            for field_id in field_ids:
-                if uuid_pattern.match(str(field_id)):
-                    valid_field_ids.append(field_id)
-                else:
-                    log.warning(f'[RecordService] Invalid field_id format, skipped: {field_id}')
+            valid_field_ids = [fid for fid in field_ids if uuid_pattern.match(str(fid))]
             
-            if valid_field_ids:
-                conditions = []
-                for field_id in valid_field_ids:
-                    conditions.append(
-                        cast(Record.values[field_id], String).ilike(like_pattern)
-                    )
-                if conditions:
-                    query_obj = query_obj.filter(or_(*conditions))
-        else:
-            query_obj = query_obj.filter(
-                cast(Record.values, String).ilike(like_pattern)
-            )
+            if not valid_field_ids:
+                return []
+            
+            conditions = []
+            for field_id in valid_field_ids:
+                # 使用 ->> 运算符提取字段真实文本（保留中文等非 ASCII 字符）。
+                # 注意：不能直接 cast(Record.values[field_id], String)，PostgreSQL 的
+                # JSON(B) 文本转换会把中文转义成 \uXXXX；也不能用 .astext（本版本 SQLAlchemy
+                # 的 JSON 索引表达式无该属性），故用 op('->>') 直接生成 values ->> 'key'。
+                conditions.append(Record.values.op('->>')(field_id).ilike(like_pattern))
+            if conditions:
+                query_obj = query_obj.filter(or_(*conditions))
         
         results = query_obj.all()
         return results

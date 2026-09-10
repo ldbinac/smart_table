@@ -41,6 +41,7 @@ import MemberManagementDialog from "@/components/dialogs/MemberManagementDialog.
 import BaseShareDialog from "@/components/dialogs/BaseShareDialog.vue";
 import { ViewType } from "@/types";
 import { FieldType } from "@/types/fields";
+import { linkApiService } from "@/services/api/linkApiService";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { FilterCondition, SortConfig } from "@/types/filters";
@@ -61,6 +62,11 @@ import TableHistoryDialog from "@/components/dialogs/TableHistoryDialog.vue";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { DocumentEditor } from "@/components/documents";
+// 插件体系：工具栏扩展点宿主
+import PluginToolbar from "@/components/plugins/PluginToolbar.vue";
+import { setSelection } from "@/plugins/registry";
+import { registerSelectionProvider } from "@/plugins/selection";
+import type { SelectionSummary } from "@/plugins/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -74,8 +80,16 @@ const documentStore = useDocumentStore();
 
 const { t } = useI18n();
 
-// VTableView 组件引用（用于调用搜索功能）
-const vtableViewRef = shallowRef<{ openSearch: () => void } | null>(null);
+// VTableView 组件引用（用于调用搜索功能 / 读取勾选状态）
+const vtableViewRef = shallowRef<{
+  openSearch: () => void;
+  getSelection?: () => SelectionSummary | null;
+} | null>(null);
+
+// 插件体系：把 VTable 的勾选状态暴露给插件（惰性读取 ref，切换表格/卸载后自动降级为 null）
+registerSelectionProvider({
+  getSelection: () => vtableViewRef.value?.getSelection?.() ?? null,
+});
 // DocumentEditor 组件引用（用于检查未保存更改）
 const documentEditorRef = ref<{ hasUnsavedChanges: () => boolean; save: () => Promise<void> } | null>(null);
 
@@ -233,13 +247,25 @@ const excelImportCreateDialogVisible = ref(false);
 const showTableHistory = ref(false);
 
 // 表单配置
-const formConfig = ref({
+interface FormConfig {
+  title: string;
+  description: string;
+  submitButtonText: string;
+  visibleFieldIds: string[];
+  successMessage: string;
+  allowMultipleSubmit: boolean;
+  /** 每行显示的字段数量（1-4），用于一行显示多个字段 */
+  columns?: number;
+}
+
+const formConfig = ref<FormConfig>({
   title: t('view.base.formTitleDefault'),
   description: "",
   submitButtonText: t('view.base.formSubmitDefault'),
   visibleFieldIds: [] as string[],
   successMessage: t('view.base.formSuccessDefault'),
   allowMultipleSubmit: true,
+  columns: 1,
 });
 
 // 当前编辑的记录
@@ -627,6 +653,8 @@ let tableLoadInFlight = '';
 const loadTableView = async (tableId: string) => {
   if (!tableId || tableLoadInFlight === tableId) return;
   tableLoadInFlight = tableId;
+  // 切换数据表：清空插件体系持有的勾选状态，避免跨表残留
+  setSelection(null);
   try {
     await tableStore.selectTable(tableId);
     await viewStore.loadViews(tableId);
@@ -708,7 +736,16 @@ const handleRecordSelect = (_record: any) => {
 };
 
 const handleRecordsSelect = (_records: any[]) => {
-  // 多记录选择处理
+  // 多记录选择处理：同步勾选状态给插件体系（仅记录 ID，用于按钮可用性与打开插件时的快照）
+  const ids = (_records || [])
+    .map((r) => (typeof r === "string" ? r : String(r?.id ?? "")))
+    .filter(Boolean);
+  setSelection({
+    recordIds: ids,
+    total: ids.length,
+    selectAll: ids.length > 0 && ids.length === filteredRecords.value.length,
+    scope: "page",
+  });
 };
 
 // 处理添加记录（来自看板视图和日历视图）
@@ -779,6 +816,43 @@ const handleVTableGroupAddRecord = (groupFieldValues: Record<string, any>) => {
   addRecordDialogVisible.value = true;
 };
 
+// 新增记录后为关联（LINK）字段创建关联数据
+// 关联数据通过独立接口维护，无法随记录创建一起写入，需记录创建成功后单独建立
+const createRecordLinks = async (
+  recordId: string,
+  values: Record<string, unknown>,
+) => {
+  const linkFields = tableStore.fields.filter(
+    (f) => f.type === FieldType.LINK,
+  );
+  if (linkFields.length === 0) return;
+
+  for (const field of linkFields) {
+    const raw = values[field.id];
+    const ids = Array.isArray(raw)
+      ? raw
+      : raw
+        ? [String(raw)]
+        : [];
+    if (ids.length === 0) continue;
+
+    try {
+      // 正向：建立「源记录 -> 目标记录」的关联。
+      // 双向关联的反向数据由后端在 update_record_link 内通过
+      // _sync_bidirectional_links 自动补齐，且该逻辑采用「追加」方式写入
+      // （仅当 target_field_id 已配置时），不会覆盖目标记录已有的关联。
+      // 注意：绝不能在此显式调用 updateRecordLink 去写反向字段，因为该接口会
+      // 用传入的 id 列表「整体替换」目标字段值，从而导致一对多/多对多场景下
+      // 已有的关联记录被错误清空（如 A001 已关联 B01，再新增 B02 时 B01 丢失）。
+      await linkApiService.updateRecordLink(recordId, field.id, {
+        target_record_ids: ids,
+      });
+    } catch (error) {
+      console.error("[Base] 创建关联字段失败:", field.id, error);
+    }
+  }
+};
+
 // 处理保存新记录
 const handleSaveNewRecord = async (values: Record<string, unknown>) => {
   if (!tableStore.currentTable) return;
@@ -790,6 +864,9 @@ const handleSaveNewRecord = async (values: Record<string, unknown>) => {
     });
 
     if (record) {
+      // 记录创建成功后，为关联（LINK）字段建立关联数据
+      await createRecordLinks(record.id, values);
+
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success(t('view.base.recordCreated'));
       addRecordDialogVisible.value = false;
@@ -818,6 +895,9 @@ const handleFormSubmit = async (values: Record<string, CellValue>) => {
     });
 
     if (record) {
+      // 表单提交成功后，为关联（LINK）字段建立关联数据（含双向关联）
+      await createRecordLinks(record.id, values);
+
       // tableStore.createRecord 已经内部添加了记录，不需要手动 push
       ElMessage.success(t('view.base.formSubmitSuccess'));
 
@@ -866,6 +946,7 @@ const loadFormConfig = () => {
       visibleFieldIds?: string[];
       successMessage?: string;
       allowMultipleSubmit?: boolean;
+      columns?: number;
     };
 
     // 检查配置中是否明确设置了 visibleFieldIds
@@ -882,6 +963,7 @@ const loadFormConfig = () => {
         : defaultVisibleFieldIds,
       successMessage: configData?.successMessage || t('view.base.formSuccessDefault'),
       allowMultipleSubmit: configData?.allowMultipleSubmit !== false,
+      columns: configData?.columns ?? 1,
     };
   } else {
     // 使用默认配置
@@ -892,6 +974,7 @@ const loadFormConfig = () => {
       visibleFieldIds: defaultVisibleFieldIds,
       successMessage: t('view.base.formSuccessDefault'),
       allowMultipleSubmit: true,
+      columns: 1,
     };
   }
 };
@@ -934,6 +1017,7 @@ const handleFormConfigSave = async (config: typeof formConfig.value) => {
       visibleFieldIds: config.visibleFieldIds,
       successMessage: config.successMessage,
       allowMultipleSubmit: config.allowMultipleSubmit,
+      columns: config.columns ?? 1,
     };
 
     await viewStore.updateView(currentView.id, {
@@ -1820,9 +1904,21 @@ const handleTogglePinDocument = async (doc: any) => {
   }
 };
 
-// 处理文档保存
+// 处理文档保存：保存成功后必须把服务端返回的最新文档（含新的 updatedAt）
+// 回写到 store，否则编辑器仍持有旧的乐观锁基准，再次保存会被判为版本冲突（409）
 const handleDocumentSave = (doc: any) => {
-  console.log('文档已保存:', doc.name);
+  documentStore.updateCurrentDocument(doc);
+};
+
+// 处理文档版本恢复：服务端文档内容/时间已变更，重新拉取以刷新乐观锁基准
+const handleDocumentRestored = async () => {
+  const docId = documentStore.currentDocument?.id;
+  if (!docId) return;
+  try {
+    await documentStore.fetchDocumentDetail(docId);
+  } catch (error) {
+    console.error('Failed to refresh document after restore:', error);
+  }
 };
 
 // 处理文档导出 PDF
@@ -1898,6 +1994,7 @@ const handleDocumentExportPdf = async () => {
           :document="documentStore.currentDocument"
           :base-id="baseId"
           @save="handleDocumentSave"
+          @restored="handleDocumentRestored"
           @export-pdf="handleDocumentExportPdf" />
         <div v-else class="empty-state">
           <el-empty :description="t('view.base.loadingDocEmpty')" />
@@ -2034,6 +2131,8 @@ const handleDocumentExportPdf = async () => {
                     {{ t('view.base.export') }}
                   </el-button>
                 </el-button-group>
+                <!-- 插件扩展点：工具栏按钮（有效启用的 UI 插件声明式注册） -->
+                <PluginToolbar />
                 <!-- <el-button-group>
                   <el-button
                     size="default"
@@ -2170,6 +2269,7 @@ const handleDocumentExportPdf = async () => {
               :description="formConfig.description"
               :submit-button-text="formConfig.submitButtonText"
               :visible-field-ids="formConfig.visibleFieldIds"
+              :columns="formConfig.columns"
               @submit="handleFormSubmit"
               @cancel="handleFormCancel" />
 

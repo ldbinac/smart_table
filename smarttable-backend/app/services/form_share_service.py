@@ -18,6 +18,7 @@ from app.models.base import Base, MemberRole
 from app.services.record_service import RecordService
 from app.services.table_service import TableService
 from app.services.field_service import FieldService
+from app.services.link_service import LinkService
 from app.services.permission_service import PermissionService
 from app.utils.captcha import CaptchaService
 from app.i18n import translate
@@ -34,6 +35,15 @@ class FormShareService:
     # 速率限制配置
     SUBMIT_RATE_LIMIT = 100  # 每个分享链接每 15 分钟最多的提交次数（用于防刷，而非限制正常多用户填写）
     RATE_LIMIT_WINDOW = 900  # 15 分钟（秒）
+
+    @staticmethod
+    def _normalize_columns(value) -> int:
+        """将每行字段数列数限制在 1-4 之间（一行最多显示 4 个字段）"""
+        try:
+            c = int(value)
+        except (TypeError, ValueError):
+            return 1
+        return max(1, min(4, c))
     
     @staticmethod
     def create_form_share(
@@ -96,6 +106,17 @@ class FormShareService:
                 if invalid_fields:
                     return {'success': False, 'error': translate('form_share_invalid_fields', invalid_fields)}
             
+            # 验证字段级配置（默认值 + 只读）
+            field_settings = config.get('field_settings') or {}
+            if field_settings:
+                table_fields = table_fields if allowed_fields else FieldService.get_all_fields(table_id)
+                table_field_ids = {str(f.id) for f in table_fields}
+                invalid_settings_fields = [
+                    fid for fid in field_settings if str(fid) not in table_field_ids
+                ]
+                if invalid_settings_fields:
+                    return {'success': False, 'error': translate('form_share_invalid_fields', invalid_settings_fields)}
+            
             # 创建表单分享
             form_share = FormShare(
                 table_id=str(table_id),
@@ -109,12 +130,17 @@ class FormShareService:
                 description=config.get('description'),
                 submit_button_text=config.get('submit_button_text', '提交'),
                 success_message=config.get('success_message', '提交成功，感谢您的参与！'),
-                theme=config.get('theme', 'default')
+                theme=config.get('theme', 'default'),
+                columns=FormShareService._normalize_columns(config.get('columns'))
             )
             
             # 设置允许字段
             if allowed_fields:
                 form_share.set_allowed_fields_list(allowed_fields)
+
+            # 设置字段级配置（默认值 + 只读）
+            if field_settings:
+                form_share.set_field_settings(field_settings)
             
             db.session.add(form_share)
             db.session.commit()
@@ -177,6 +203,36 @@ class FormShareService:
         return True, form_share, None
     
     @staticmethod
+    def verify_share_access_to_table(token: str, table_id: str) -> Tuple[bool, Optional[str]]:
+        """
+        校验表单分享 token 是否允许匿名访问指定表（只读场景）。
+        
+        允许范围：表单所在表，或同一 base 下的其它表（关联字段通常指向同 base 表）。
+        用于匿名分享表单的只读接口（字段列表、可关联记录搜索等）。
+        
+        Returns:
+            (是否有效, 错误信息)
+        """
+        valid, form_share, error = FormShareService.validate_form_share(token)
+        if not valid:
+            return False, error
+        
+        try:
+            form_table = TableService.get_table_by_id(str(form_share.table_id))
+            target_table = TableService.get_table_by_id(str(table_id))
+        except Exception:
+            return False, 'table_does_not_exist'
+        
+        if not form_table or not target_table:
+            return False, 'table_does_not_exist'
+        
+        if (str(target_table.id) == str(form_table.id)
+                or str(target_table.base_id) == str(form_table.base_id)):
+            return True, None
+        
+        return False, 'no_permission_access_table_2'
+    
+    @staticmethod
     def get_form_schema(token: str) -> Dict[str, Any]:
         """
         获取表单结构（字段定义）
@@ -198,10 +254,13 @@ class FormShareService:
             # 获取字段列表
             all_fields = FieldService.get_all_fields(form_share.table_id)
             
-            # 过滤允许提交的字段
+            # 过滤允许提交的字段，并按 allowed_fields 的顺序排列
+            # （保证分享表单的字段展示顺序与配置一致，而非回退到表格字段顺序）
             allowed_field_ids = form_share.get_allowed_fields_list()
+            field_settings_map = form_share.get_field_settings()
+            field_map = {str(f.id): f for f in all_fields}
             if allowed_field_ids:
-                fields = [f for f in all_fields if str(f.id) in allowed_field_ids]
+                fields = [field_map[fid] for fid in allowed_field_ids if fid in field_map]
             else:
                 fields = all_fields
             
@@ -237,9 +296,23 @@ class FormShareService:
                         'thousandsSeparator',
                         # 日期字段：显示/录入格式需同步到前端，否则分享页无法按设定格式渲染
                         'dateFormat',
+                        # 地理位置字段：地址子格式（省/省+市/省+市+区/详情/国家地区/经纬度/地图选点）
+                        # 需同步到前端，否则分享页 GeoField 读不到 field.options.geoFormat，
+                        # 永远回退为默认的 province_city_district（省市区），无法按配置格式渲染。
+                        'geoFormat',
                     ):
                         if rule_key in options and rule_key not in merged_config:
                             merged_config[rule_key] = options[rule_key]
+                
+                # 字段级配置：分享表单中为该字段设置的默认值、只读标记
+                # 默认值优先级：分享表单配置 > 字段自身默认配置
+                field_setting = field_settings_map.get(str(field.id), {}) or {}
+                field_default = config.get('defaultValue')
+                if field_default is None:
+                    field_default = config.get('default')
+                share_default = field_setting.get('defaultValue')
+                effective_default = share_default if share_default is not None else field_default
+                read_only = bool(field_setting.get('readOnly', False))
                 
                 field_schema = {
                     'id': str(field.id),
@@ -247,7 +320,11 @@ class FormShareService:
                     'type': field.type,
                     'required': field.is_required if hasattr(field, 'is_required') else False,
                     'config': merged_config,
-                    'description': field.description if hasattr(field, 'description') else None
+                    'description': field.description if hasattr(field, 'description') else None,
+                    # 经优先级解析后的生效默认值（前端初始化填写页时使用）
+                    'defaultValue': effective_default,
+                    # 是否只读（填写者不可编辑）
+                    'readOnly': read_only,
                 }
                 fields_schema.append(field_schema)
             
@@ -261,6 +338,7 @@ class FormShareService:
                     'submit_button_text': form_share.submit_button_text,
                     'success_message': form_share.success_message,
                     'theme': form_share.theme,
+                    'columns': form_share.columns,
                     'require_captcha': form_share.require_captcha,
                     'fields': fields_schema
                 }
@@ -321,9 +399,36 @@ class FormShareService:
             # 获取提交的值
             values = data.get('values', {})
             
+            # 字段级配置：只读字段忽略填写者输入，强制使用默认值
+            # 默认值优先级：分享表单配置 > 字段自身默认配置
+            field_settings_map = form_share.get_field_settings()
+            allowed_field_ids = form_share.get_allowed_fields_list()
+            if field_settings_map:
+                all_fields = FieldService.get_all_fields(form_share.table_id)
+                for field_id in list(values.keys()):
+                    setting = field_settings_map.get(str(field_id), {}) or {}
+                    if setting.get('readOnly'):
+                        # 只读字段：丢弃填写者提交的值
+                        del values[field_id]
+                for field in all_fields:
+                    fid = str(field.id)
+                    if allowed_field_ids and fid not in allowed_field_ids:
+                        continue
+                    setting = field_settings_map.get(fid, {}) or {}
+                    if setting.get('readOnly'):
+                        share_default = setting.get('defaultValue')
+                        if share_default is not None:
+                            values[fid] = share_default
+                        else:
+                            fcfg = (field.config or {}).get('defaultValue')
+                            if fcfg is None:
+                                fcfg = (field.config or {}).get('default')
+                            if fcfg is not None:
+                                values[fid] = fcfg
+            
             # 验证数据
             validation_result = FormShareService._validate_form_data(
-                form_share, values
+                form_share, values, field_settings_map
             )
             if not validation_result['valid']:
                 return {
@@ -334,7 +439,6 @@ class FormShareService:
                 }
             
             # 过滤只允许提交的字段
-            allowed_field_ids = form_share.get_allowed_fields_list()
             if allowed_field_ids:
                 values = {k: v for k, v in values.items() if k in allowed_field_ids}
             
@@ -370,7 +474,60 @@ class FormShareService:
                 f'[FormShareService] 表单提交成功: form_share={form_share.id}, '
                 f'record={record.id}, ip={client_ip}'
             )
-            
+
+            # 创建关联字段（LINK）的关联数据（含双向关联）
+            # 与表格视图新增记录流程一致：主记录与提交记录提交成功后，再为每个 LINK 字段建立关联。
+            # 匿名分享表单无法走需鉴权的 /records/<id>/links/<field_id> 接口，
+            # 因此在此直接通过 LinkService 建立关联（best-effort，失败不影响主提交结果）。
+            try:
+                link_fields = [
+                    f for f in FieldService.get_all_fields(form_share.table_id)
+                    if f.type in (FieldType.LINK_TO_RECORD.value, 'link')
+                ]
+                for link_field in link_fields:
+                    raw = values.get(str(link_field.id))
+                    if raw is None or raw == '':
+                        continue
+                    ids = raw if isinstance(raw, list) else [str(raw)]
+                    ids = [str(i) for i in ids if i]
+                    if not ids:
+                        continue
+
+                    field_config = link_field.config or {}
+                    target_table_id = field_config.get('linkedTableId')
+                    if not target_table_id:
+                        continue
+
+                    # 获取或自动创建关联关系
+                    link_relation = LinkService.get_link_relation_by_field(
+                        str(link_field.id), str(target_table_id)
+                    )
+                    if not link_relation:
+                        link_relation, _ = LinkService.create_link_relation({
+                            'source_table_id': str(link_field.table_id),
+                            'target_table_id': str(target_table_id),
+                            'source_field_id': str(link_field.id),
+                            'target_field_id': None,
+                            'relationship_type': field_config.get('relationshipType', 'one_to_many'),
+                            'bidirectional': field_config.get('bidirectional', False),
+                        })
+                        if not link_relation:
+                            continue
+
+                    # 一对一约束：超过一个目标记录则跳过
+                    if link_relation.relationship_type == 'one_to_one' and len(ids) > 1:
+                        continue
+
+                    LinkService.update_link_values(
+                        link_relation_id=link_relation.id,
+                        source_record_id=str(record.id),
+                        target_record_ids=ids,
+                    )
+            except Exception as link_err:
+                current_app.logger.error(
+                    f'[FormShareService] 关联字段创建失败（已忽略）: {str(link_err)}'
+                )
+
             return {
                 'success': True,
                 'data': {
@@ -388,7 +545,8 @@ class FormShareService:
     @staticmethod
     def _validate_form_data(
         form_share: FormShare,
-        values: Dict[str, Any]
+        values: Dict[str, Any],
+        field_settings_map: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         验证表单数据
@@ -397,6 +555,8 @@ class FormShareService:
             {'valid': bool, 'errors': Dict[str, str]}
         """
         errors = {}
+        
+        field_settings_map = field_settings_map or {}
         
         # 获取允许提交的字段
         allowed_field_ids = form_share.get_allowed_fields_list()
@@ -416,6 +576,11 @@ class FormShareService:
             field = field_map.get(field_id)
             if not field:
                 errors[field_id] = 'field_does_not_exist'
+                continue
+            
+            # 只读字段由创建者固定（默认值），填写者不可编辑，跳过必填校验
+            is_readonly = bool((field_settings_map.get(field_id, {}) or {}).get('readOnly', False))
+            if is_readonly:
                 continue
             
             # 验证必填字段
@@ -687,6 +852,22 @@ class FormShareService:
                 else:
                     form_share.allowed_fields = None
             
+            if 'field_settings' in data:
+                field_settings = data['field_settings']
+                if field_settings:
+                    # 验证配置中的字段是否存在
+                    table_fields = FieldService.get_all_fields(form_share.table_id)
+                    table_field_ids = {str(f.id) for f in table_fields}
+                    invalid_fields = [
+                        fid for fid in (field_settings or {})
+                        if str(fid) not in table_field_ids
+                    ]
+                    if invalid_fields:
+                        return {'success': False, 'error': translate('form_share_invalid_fields', invalid_fields)}
+                    form_share.set_field_settings(field_settings)
+                else:
+                    form_share.field_settings = None
+            
             if 'title' in data:
                 form_share.title = data['title']
             
@@ -701,6 +882,9 @@ class FormShareService:
             
             if 'theme' in data:
                 form_share.theme = data['theme']
+            
+            if 'columns' in data:
+                form_share.columns = FormShareService._normalize_columns(data['columns'])
             
             form_share.updated_at = datetime.now(timezone.utc)
             db.session.commit()

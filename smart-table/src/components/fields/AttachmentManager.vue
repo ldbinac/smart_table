@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
 import {
@@ -16,12 +17,13 @@ import {
   ZoomIn,
   ZoomOut,
   RefreshRight,
-  Close
+  Close,
+  FullScreen
 } from '@element-plus/icons-vue';
 import type { FieldEntity } from '@/db/schema';
 import type { CellValue } from '@/types';
 import type { AttachmentFile, AttachmentFieldOptions } from '@/types/attachment';
-import { formatFileSize, isImageFile, isVideoFile, isAudioFile } from '@/types/attachment';
+import { formatFileSize, isImageFile, isVideoFile, isAudioFile, isPdfFile } from '@/types/attachment';
 import { attachmentService } from '@/db/services';
 import { AttachmentError } from '@/utils/attachment';
 import { useBaseStore } from '@/stores';
@@ -29,6 +31,7 @@ import { useBaseStore } from '@/stores';
 const baseStore = useBaseStore();
 
 const { t } = useI18n();
+const router = useRouter();
 
 interface Props {
   field: FieldEntity;
@@ -370,13 +373,51 @@ async function handlePreview(file: AttachmentFile) {
   }
 }
 
-// 判断是否可以预览
+// 判断是否可以预览（图片/视频/音频）
 function canPreview(file: AttachmentFile): boolean {
   return isImageFile(file) || isVideoFile(file) || isAudioFile(file);
 }
 
+// 判断是否为可预览类型（含 PDF）
+function isPreviewable(file: AttachmentFile): boolean {
+  return canPreview(file) || isPdfFile(file);
+}
+
+// 预览点击：PDF 打开新标签，其余走弹窗
+function handlePreviewClick(file: AttachmentFile) {
+  if (isPdfFile(file)) {
+    openPdfNewTab(file);
+  } else {
+    handlePreview(file);
+  }
+}
+
+// 在新标签页打开 PDF 预览页（保留原数据页可见）
+function openPdfNewTab(file: AttachmentFile) {
+  const query: Record<string, string> = { id: file.id, name: file.originalName };
+  const href = router.resolve({ name: 'PdfPreview', query }).href;
+  window.open(href, '_blank', 'noopener');
+}
+
+// 图片全屏
+const imageWrapperRef = ref<HTMLElement | null>(null);
+const isImageFullscreen = ref(false);
+function toggleImageFullscreen() {
+  const el = imageWrapperRef.value;
+  if (!el) return;
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  } else {
+    el.requestFullscreen?.().catch(() => {});
+  }
+}
+function onFullscreenChange() {
+  isImageFullscreen.value = !!document.fullscreenElement;
+}
+
 // 关闭面板
 function closePanel() {
+  previewVisible.value = false;
   emit('close');
 }
 
@@ -390,10 +431,14 @@ function handleKeydown(e: KeyboardEvent) {
 // 生命周期
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
+  document.addEventListener('fullscreenchange', onFullscreenChange);
 });
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener('fullscreenchange', onFullscreenChange);
+  // 防御性兜底：确保卸载时移除可能残留的全局模态遮罩，避免页面卡死
+  document.querySelectorAll('.attachment-manager-overlay').forEach((el) => el.remove());
 });
 </script>
 
@@ -468,8 +513,8 @@ onUnmounted(() => {
             <!-- 文件预览图 -->
             <div
               class="file-preview"
-              :class="{ 'is-clickable': canPreview(file) }"
-              @click="canPreview(file) && handlePreview(file)"
+              :class="{ 'is-clickable': isPreviewable(file) }"
+              @click="isPreviewable(file) && handlePreviewClick(file)"
             >
               <img
                 v-if="file.thumbnail"
@@ -500,10 +545,10 @@ onUnmounted(() => {
             <!-- 文件操作 -->
             <div class="file-actions">
               <el-button
-                v-if="canPreview(file)"
+                v-if="isPreviewable(file)"
                 link
                 size="small"
-                @click="handlePreview(file)"
+                @click="handlePreviewClick(file)"
               >
                 <el-icon><View /></el-icon>
               </el-button>
@@ -529,6 +574,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </teleport>
 
     <!-- 预览对话框 - 独立于面板之外，避免被面板 CSS 约束尺寸 -->
     <el-dialog
@@ -536,6 +582,7 @@ onUnmounted(() => {
       :title="previewFile?.originalName || t('view.attachment.previewTitle')"
       width="90%"
       top="5vh"
+      fullscreen
       destroy-on-close
       class="attachment-preview-dialog"
       @opened="initPreview"
@@ -543,7 +590,7 @@ onUnmounted(() => {
       <div v-if="previewFile" class="preview-content">
         <!-- 图片预览 -->
         <div v-if="isImageFile(previewFile)" class="image-preview-container">
-          <div class="image-preview-wrapper" @wheel="handleImageWheel">
+          <div ref="imageWrapperRef" class="image-preview-wrapper" @wheel="handleImageWheel">
             <img
               :src="previewFile.url || previewFile.thumbnail"
               class="preview-image"
@@ -568,6 +615,9 @@ onUnmounted(() => {
                 <el-icon><RefreshRight /></el-icon> {{ t('view.attachment.resetZoom') }}
               </el-button>
             </el-button-group>
+            <el-button size="small" @click="toggleImageFullscreen">
+              <el-icon><FullScreen /></el-icon> {{ isImageFullscreen ? t('view.attachment.exitFullscreen') : t('view.attachment.fullscreen') }}
+            </el-button>
             <el-button size="small" type="primary" @click="handleDownload(previewFile)">
               <el-icon><Download /></el-icon> {{ t('view.attachment.download') }}
             </el-button>
@@ -601,7 +651,6 @@ onUnmounted(() => {
         </div>
       </div>
     </el-dialog>
-  </teleport>
 </template>
 
 <style lang="scss" scoped>
@@ -909,6 +958,23 @@ onUnmounted(() => {
     object-fit: contain;
     transition: transform 0.1s ease;
     user-select: none;
+  }
+}
+
+.image-preview-wrapper:fullscreen {
+  border-radius: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+  }
+}
+
+:deep(.attachment-preview-dialog.is-fullscreen) {
+  .el-dialog__body {
+    height: 100%;
   }
 }
 

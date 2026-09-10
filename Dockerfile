@@ -12,6 +12,8 @@ FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 # 启用 corepack 以使用 pnpm
+# 国内网络直连 registry.npmjs.org 不稳定, corepack 与 pnpm 统一走 npmmirror
+ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # 复制 pnpm 相关文件（利用 Docker 缓存层）
@@ -19,7 +21,7 @@ COPY smart-table/package.json smart-table/pnpm-lock.yaml smart-table/pnpm-worksp
 
 # 安装全部依赖（包含 devDependencies；开启 CI 模式避免 TTY 交互）
 ENV CI=true
-RUN pnpm install --frozen-lockfile && pnpm store prune
+RUN pnpm install --frozen-lockfile --registry=https://registry.npmmirror.com && pnpm store prune
 
 # 复制前端源代码
 COPY smart-table/ ./
@@ -54,8 +56,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 复制 requirements 文件
 COPY smarttable-backend/requirements.txt ./
 
-# 安装 Python 依赖到用户目录
-RUN pip install --no-cache-dir --user -r requirements.txt
+# 安装 Python 依赖到用户目录（清华 PyPI 镜像加速，与 apt 换源保持一致）
+RUN pip install --no-cache-dir --user -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 
 # ============================================
 # 阶段 3: 生产运行环境
@@ -63,7 +65,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.11-slim
 
 LABEL maintainer="SmartTable Team" \
-      version="1.6.5" \
+      version="1.6.6" \
       description="SmartTable - 智能表格应用"
 
 # 设置环境变量
@@ -82,8 +84,12 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' /etc
     sed -i 's|security.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list 2>/dev/null || true
 
 # 安装运行时依赖
+# libpango/libpangocairo：WeasyPrint（PDF 导出）运行时必需的系统库
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libpangocairo-1.0-0 \
     nginx \
     curl \
     supervisor \
@@ -102,6 +108,9 @@ COPY --from=backend-builder /root/.local /root/.local
 
 # 复制后端代码
 COPY smarttable-backend/ ./
+
+# 复制宿主版本信息（插件引擎兼容校验 engines.smarttable 需要）
+COPY version.json /app/version.json
 
 # 创建必要的运行目录
 RUN mkdir -p /app/uploads/attachments /app/uploads/thumbnails /app/logs /data/redis /var/log/supervisor

@@ -12,6 +12,8 @@ interface FormConfig {
   visibleFieldIds: string[];
   successMessage: string;
   allowMultipleSubmit: boolean;
+  /** 每行显示的字段数量（1-4），用于一行显示多个字段 */
+  columns?: number;
 }
 
 interface Props {
@@ -39,6 +41,7 @@ const config = ref<FormConfig>({
   visibleFieldIds: [],
   successMessage: t("view.formSuccessMessage"),
   allowMultipleSubmit: true,
+  columns: 1,
 });
 
 // 初始化配置
@@ -62,6 +65,7 @@ watch(
         successMessage:
           props.initialConfig?.successMessage || t("view.formSuccessMessage"),
         allowMultipleSubmit: props.initialConfig?.allowMultipleSubmit !== false,
+        columns: props.initialConfig?.columns ?? 1,
       };
     }
   },
@@ -268,6 +272,42 @@ function getFieldName(fieldId: string): string {
             :description="t('view.noAvailableFields')" />
         </div>
       </div>
+
+      <!-- 布局设置 -->
+      <div class="config-section">
+        <h4 class="section-title">{{ t("view.formLayoutConfig") }}</h4>
+        <div class="form-cols-hint">
+          <p class="section-hint">{{ t("view.formColumnsHint") }}</p>
+          <div class="full-row-types">
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLongText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeRichText") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeAttachment") }}</el-tag>
+            <el-tag size="small" type="warning" effect="light">{{ t("view.formColumnsFullRowTypeLink") }}</el-tag>
+          </div>
+        </div>
+
+        <el-form-item :label="t('view.formColumns')">
+          <el-radio-group v-model="config.columns">
+            <el-radio-button :value="1">1</el-radio-button>
+            <el-radio-button :value="2">2</el-radio-button>
+            <el-radio-button :value="3">3</el-radio-button>
+            <el-radio-button :value="4">4</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+
+        <div class="columns-preview">
+          <div
+            class="columns-preview-grid"
+            :style="{ '--preview-cols': config.columns || 1 }">
+            <div
+              v-for="i in Math.min(Number(config.columns) || 1, 4)"
+              :key="i"
+              class="columns-preview-cell">
+              {{ t("view.formColumnsFieldExample") }}
+            </div>
+          </div>
+        </div>
+      </div>
     </el-form>
 
     <template #footer>
@@ -312,6 +352,58 @@ function getFieldName(fieldId: string): string {
 .field-count {
   font-size: $font-size-sm;
   color: $text-secondary;
+}
+
+.section-hint {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  margin: 0 0 $spacing-md;
+}
+
+.form-cols-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  background: var(--el-color-info-light-9);
+  border-left: 3px solid var(--el-color-info);
+  border-radius: 0 $border-radius-base $border-radius-base 0;
+
+  .section-hint {
+    margin: 0;
+  }
+}
+
+.full-row-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.columns-preview {
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  background: $bg-color;
+  border-radius: $border-radius-base;
+}
+
+.columns-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--preview-cols, 1), minmax(0, 1fr));
+  gap: $spacing-sm;
+}
+
+.columns-preview-cell {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  background: $surface-color;
+  border: 1px dashed $border-color;
+  border-radius: $border-radius-sm;
 }
 
 .field-list {

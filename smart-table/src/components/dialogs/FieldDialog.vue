@@ -29,19 +29,23 @@ import {
   getFieldTypeLabel,
   getFieldTypeIconComponent,
   getUserCreatableFieldTypeOptions,
+  denormalizeFieldType,
   type FieldTypeValue,
   type LookupFieldConfig,
+  type ConvertibleTypesResult,
+  type GeoFormat,
 } from "@/types/fields";
 import type { FieldEntity } from "@/db/schema";
 import type { FieldOptions } from "@/types";
 import type { RelationshipType } from "@/types/link";
 import Sortable from "sortablejs";
-import { Rank, ArrowRight, Link, QuestionFilled } from "@element-plus/icons-vue";
+import { Rank, ArrowRight, Link, QuestionFilled, InfoFilled, WarningFilled } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
 import { lookupApiService } from "@/services/api/lookupApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.vue";
 import FormulaHelper from "@/components/fields/FormulaHelper.vue";
+import CopyableId from "@/components/common/CopyableId.vue";
 import { PRESET_REGEX_OPTIONS } from "@/utils/validation";
 
 const { t } = useI18n();
@@ -127,6 +131,8 @@ const newField = ref<{
   mergeCell: boolean;
   // 日期字段显示/录入格式配置（仅 DATE 类型生效，DATE_TIME 仍按 ISO 存储）
   dateFormat: string;
+  // 地理位置字段配置
+  geoFormat: GeoFormat;
 }>({
   name: "",
   type: FieldType.SINGLE_LINE_TEXT,
@@ -167,6 +173,7 @@ const newField = ref<{
   regexMessage: undefined,
   mergeCell: false,
   dateFormat: "YYYY-MM-DD",
+  geoFormat: "province_city_district",
 });
 
 // 用户可创建的字段类型配置列表
@@ -174,6 +181,69 @@ const fieldTypeConfigs = getUserCreatableFieldTypeOptions({
   includeSpecial: true,
   markSpecial: false,
 });
+
+// 地理位置子格式列表
+const geoFormats: { value: GeoFormat }[] = [
+  { value: "province" },
+  { value: "province_city" },
+  { value: "province_city_district" },
+  { value: "province_city_district_detail" },
+  { value: "country_region" },
+  { value: "lng_lat" },
+  { value: "map_picker" },
+];
+
+// 字段类型转换：编辑已有字段时，从后端拉取该字段可转换的目标类型清单
+const convertibleTypes = ref<ConvertibleTypesResult | null>(null);
+// 已确认的有损转换目标类型（仅对当前选中值有效，切换类型后失效）
+const lossyConfirmedTarget = ref<string>("");
+// 当前类型变更前的类型，用于有损转换取消时回退
+const previousType = ref<string>("");
+
+// 将后端返回的可转换清单按“后端类型”建索引，避免前端/后端类型映射（如 rollup/lookup）错位
+const convertMap = computed<Record<string, { lossy: boolean; notice: string; disabled: boolean; reason: string }>>(() => {
+  const map: Record<string, { lossy: boolean; notice: string; disabled: boolean; reason: string }> = {};
+  const data = convertibleTypes.value;
+  if (!data) return map;
+  for (const item of data.allowed) {
+    map[item.type] = { lossy: item.lossy, notice: item.notice || "", disabled: false, reason: "" };
+  }
+  for (const item of data.blocked) {
+    map[item.type] = { lossy: false, notice: "", disabled: true, reason: item.reason || "" };
+  }
+  return map;
+});
+
+// 通过前端类型反查其在可转换清单中的信息
+function convertInfo(frontendType: string): { lossy: boolean; notice: string; disabled: boolean; reason: string } | undefined {
+  return convertMap.value[denormalizeFieldType(frontendType)];
+}
+
+const isEditMode = computed(() => !!editingField.value);
+const showTypeConvertHint = computed(() => isEditMode.value && convertibleTypes.value !== null);
+const typeConvertHasData = computed(() => convertibleTypes.value?.hasData ?? false);
+
+// 当前选择相对原始类型属于“行为变化”转换时，展示影响告知（公式冻结 / 引用型保留 ID 等）
+const currentConversionNotice = computed(() => {
+  if (!isEditMode.value || !editingField.value) return "";
+  if (newField.value.type === editingField.value.type) return "";
+  const info = convertInfo(newField.value.type as string);
+  if (info && !info.disabled && info.notice) return info.notice;
+  return "";
+});
+
+function typeOptionDisabled(config: { value: string }): boolean {
+  if (!isEditMode.value) return false;
+  const info = convertInfo(config.value);
+  return !!(info && info.disabled);
+}
+
+function typeOptionLabel(config: { value: string; label: string }): string {
+  if (!isEditMode.value) return config.label;
+  const info = convertInfo(config.value);
+  if (info && info.disabled && info.reason) return `${config.label}（${info.reason}）`;
+  return config.label;
+}
 
 // 可选的日期显示/录入格式
 const dateFormatOptions = [
@@ -458,6 +528,7 @@ function openCreateField() {
     regexMessage: undefined,
     mergeCell: false,
     dateFormat: "YYYY-MM-DD",
+    geoFormat: "province_city_district",
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -541,6 +612,7 @@ function openEditField(field: FieldEntity) {
     regexMessage: (field.options?.regexMessage as string) ?? undefined,
     mergeCell: Boolean(field.options?.mergeCell),
     dateFormat: (field.options?.dateFormat as string) ?? "YYYY-MM-DD",
+    geoFormat: ((field.options?.geoFormat as GeoFormat) ?? "province_city_district"),
   };
 
   // 如果是关联字段，加载目标表字段
@@ -623,6 +695,19 @@ function openEditField(field: FieldEntity) {
     memberConfig.value.defaultType = 'none';
     memberConfig.value.defaultUser = null;
   }
+
+  // 拉取该字段可转换的目标类型清单（异步，不阻塞编辑界面打开）
+  convertibleTypes.value = null;
+  lossyConfirmedTarget.value = "";
+  previousType.value = (field.type as string) || "";
+  fieldService
+    .getConvertibleTypes(field.id)
+    .then((res) => {
+      convertibleTypes.value = res;
+    })
+    .catch(() => {
+      convertibleTypes.value = null;
+    });
 }
 
 function backToList() {
@@ -671,6 +756,7 @@ function backToList() {
     regexMessage: undefined,
     mergeCell: false,
     dateFormat: "YYYY-MM-DD",
+    geoFormat: "province_city_district",
   };
   selectOptions.value = [];
   targetTableFields.value = [];
@@ -802,6 +888,10 @@ async function createField() {
     // 日期字段显示格式配置（仅 DATE 类型；DATE_TIME 仍按 ISO 字符串存储）
     if (newField.value.type === FieldType.DATE) {
       options.dateFormat = newField.value.dateFormat || "YYYY-MM-DD";
+    }
+    // 地理位置字段配置（语言不再作为字段配置，统一跟随界面当前语言）
+    if (newField.value.type === FieldType.GEOLOCATION) {
+      options.geoFormat = newField.value.geoFormat || "province_city_district";
     }
     // 自动编号字段配置
     if (newField.value.type === FieldType.AUTO_NUMBER) {
@@ -993,6 +1083,10 @@ async function updateField() {
     if (newField.value.type === FieldType.DATE) {
       options.dateFormat = newField.value.dateFormat || "YYYY-MM-DD";
     }
+    // 地理位置字段配置（语言不再作为字段配置，统一跟随界面当前语言）
+    if (newField.value.type === FieldType.GEOLOCATION) {
+      options.geoFormat = newField.value.geoFormat || "province_city_district";
+    }
     // 自动编号字段配置
     if (newField.value.type === FieldType.AUTO_NUMBER) {
       options.startNumber = autoNumberConfig.value.startNumber;
@@ -1046,8 +1140,11 @@ async function updateField() {
     };
 
     // 对于非成员字段，使用 defaultValue；成员字段的默认值已在 options 中设置
-    if (newField.value.type !== FieldType.MEMBER && newField.value.defaultValue !== undefined) {
-      updateData.defaultValue = newField.value.defaultValue;
+    if (newField.value.type !== FieldType.MEMBER) {
+      // 必须显式传 null 表示“清除默认值”：
+      // 取消默认值时（如日期字段切换为“不使用默认值”）defaultValue 为 undefined，
+      // 若直接省略该字段，后端无法区分“清除默认值”与“不修改默认值”，会保留原默认值
+      updateData.defaultValue = newField.value.defaultValue ?? null;
     }
 
     let updatedField: FieldEntity | undefined;
@@ -1072,6 +1169,13 @@ async function updateField() {
       updatedField = await fieldService.updateField(
         editingField.value.id,
         updateData,
+        {
+          // 有损转换需携带二次确认标记，否则后端会拒绝
+          confirmLossy:
+            isEditMode.value &&
+            lossyConfirmedTarget.value !== "" &&
+            lossyConfirmedTarget.value === newField.value.type,
+        },
       );
 
       // 如果是关联字段，更新关联关系
@@ -1097,8 +1201,13 @@ async function updateField() {
     }
     ElMessage.success(t('field.fieldUpdated'));
     backToList();
-  } catch (error) {
-    ElMessage.error(t('field.fieldUpdateFailed'));
+  } catch (error: any) {
+    // apiClient 拦截器已对绝大多数错误码弹出后端 message，此处仅对未覆盖的情况兜底
+    if (!error?.code || error.code === 404) {
+      ElMessage.error(t('field.fieldUpdateFailed'));
+    } else {
+      console.error('[FieldDialog] updateField failed:', error);
+    }
   }
 }
 
@@ -1152,24 +1261,61 @@ function removeOption(index: number) {
 }
 
 function onTypeChange() {
+  const target = newField.value.type as string;
+  const info = isEditMode.value ? convertMap.value[target] : undefined;
+
+  // 有损转换（当前仅 date_time -> date）：需用户二次确认，未确认则回退到原类型
+  if (isEditMode.value && info && info.lossy && lossyConfirmedTarget.value !== target) {
+    ElMessageBox.confirm(
+      t("field.lossyConvertMessage", {
+        target: getFieldTypeLabel(denormalizeFieldType(target)),
+      }),
+      t("field.lossyConvertTitle"),
+      {
+        confirmButtonText: t("field.lossyConvertConfirm"),
+        cancelButtonText: t("field.lossyConvertCancel"),
+        type: "warning",
+      },
+    )
+      .then(() => {
+        lossyConfirmedTarget.value = target;
+        applyTypeChangeResets(target);
+      })
+      .catch(() => {
+        // 用户取消：回退到变更前类型
+        newField.value.type = (previousType.value || target) as FieldTypeValue;
+      });
+    return;
+  }
+
+  // 切换到非有损类型时清除有损确认标记
+  if (info && !info.lossy) {
+    lossyConfirmedTarget.value = "";
+  }
+  applyTypeChangeResets(target);
+}
+
+// 切换字段类型时重置与目标类型无关的临时配置
+function applyTypeChangeResets(target: string) {
+  const tgt = target as FieldTypeValue;
   if (
-    newField.value.type !== FieldType.SINGLE_SELECT &&
-    newField.value.type !== FieldType.MULTI_SELECT
+    tgt !== FieldType.SINGLE_SELECT &&
+    tgt !== FieldType.MULTI_SELECT
   ) {
     selectOptions.value = [];
   }
   // 切换类型时重置特定配置
   if (
-    newField.value.type !== FieldType.NUMBER &&
-    newField.value.type !== FieldType.FORMULA
+    tgt !== FieldType.NUMBER &&
+    tgt !== FieldType.FORMULA
   ) {
     newField.value.precision = 0;
   }
-  if (newField.value.type !== FieldType.FORMULA) {
+  if (tgt !== FieldType.FORMULA) {
     newField.value.formula = "";
   }
   // 切换类型时重置关联字段配置
-  if (newField.value.type !== FieldType.LINK) {
+  if (tgt !== FieldType.LINK) {
     newField.value.linkConfig = {
       targetTableId: "",
       relationshipType: "one_to_many",
@@ -1179,7 +1325,7 @@ function onTypeChange() {
     targetTableFields.value = [];
   }
   // 切换类型时重置查找字段配置
-  if (newField.value.type !== FieldType.LOOKUP) {
+  if (tgt !== FieldType.LOOKUP) {
     newField.value.lookupConfig = {
       name: "",
       config: {
@@ -1197,6 +1343,7 @@ function onTypeChange() {
       },
     };
   }
+  previousType.value = tgt;
 }
 
 /** 查找字段配置面板更新回调 */
@@ -1493,6 +1640,8 @@ async function toggleFieldVisibility(
                 </el-icon>
               </span>
               <span class="field-name">{{ field.name }}</span>
+              <!-- 字段 ID：工作流模板变量 {{record.<field_id>}} 等场景需要，点击即可复制 -->
+              <CopyableId :text="field.id" class="field-id" />
               <span class="field-type">{{ getFieldTypeLabel(field.type) }}</span>
               <ElTag v-if="field.isPrimary" size="small" type="success">{{ t('field.primary') }}</ElTag>
               <ElTag v-if="field.isSystem" size="small" type="info">{{ t('field.system') }}</ElTag>
@@ -1553,18 +1702,31 @@ async function toggleFieldVisibility(
             <ElOption
               v-for="config in fieldTypeConfigs"
               :key="config.value"
-              :label="config.label"
-              :value="config.value">
+              :label="typeOptionLabel(config)"
+              :value="config.value"
+              :disabled="typeOptionDisabled(config)">
               <span class="type-option">
                 <span class="type-icon">
                   <el-icon>
                     <component :is="config.icon" />
                   </el-icon>
                 </span>
-                <span>{{ config.label }}</span>
+                <span>{{ typeOptionLabel(config) }}</span>
               </span>
             </ElOption>
           </ElSelect>
+          <div
+            v-if="showTypeConvertHint"
+            class="field-hint type-convert-hint">
+            <el-icon><InfoFilled /></el-icon>
+            <span>{{ typeConvertHasData ? t('field.convertTypeHasDataHint') : t('field.convertTypeNoDataHint') }}</span>
+          </div>
+          <div
+            v-if="currentConversionNotice"
+            class="type-convert-notice">
+            <el-icon><WarningFilled /></el-icon>
+            <span>{{ currentConversionNotice }}</span>
+          </div>
         </ElFormItem>
 
         <!-- 文本字段最大长度配置 -->
@@ -1827,6 +1989,24 @@ async function toggleFieldVisibility(
             </ElSelect>
             <div class="field-hint">{{ t('field.dateFormatHint') }}</div>
           </ElFormItem>
+        </template>
+
+        <!-- 地理位置字段配置 -->
+        <template v-if="newField.type === FieldType.GEOLOCATION">
+          <ElFormItem :label="t('field.geo.geoFormat')">
+            <div class="geo-format-grid">
+              <label
+                v-for="fmt in geoFormats"
+                :key="fmt.value"
+                class="geo-format-card"
+                :class="{ active: newField.geoFormat === fmt.value }">
+                <input type="radio" :value="fmt.value" v-model="newField.geoFormat" />
+                <span class="geo-format-card__title">{{ t('field.geo.format.' + fmt.value) }}</span>
+                <span class="geo-format-card__desc">{{ t('field.geo.geoFormatDesc.' + fmt.value) }}</span>
+              </label>
+            </div>
+          </ElFormItem>
+
         </template>
 
         <ElFormItem
@@ -2404,6 +2584,17 @@ async function toggleFieldVisibility(
         color: $text-primary;
       }
 
+      /* 字段 ID：默认淡化显示，hover 行时才高亮，避免干扰字段名的阅读 */
+      .field-id {
+        max-width: 160px;
+        opacity: 0.55;
+        transition: opacity 0.2s;
+
+        &:hover {
+          opacity: 1;
+        }
+      }
+
       .field-type {
         font-size: $font-size-xs;
         color: $text-secondary;
@@ -2483,6 +2674,36 @@ async function toggleFieldVisibility(
   .self-link-hint {
     color: var(--el-color-primary);
     font-weight: 500;
+  }
+
+  // 类型转换：无数据自由提示 / 有数据无损提示
+  .type-convert-hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: calc($font-size-xs * 0.85);
+    color: $text-secondary;
+    margin-top: 4px;
+  }
+
+  // 类型转换：行为变化告知（公式冻结 / 引用型保留 ID 等）
+  .type-convert-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: calc($font-size-xs * 0.9);
+    line-height: 1.5;
+    color: #a05a00;
+    background: rgba(255, 125, 0, 0.1);
+    border: 1px solid rgba(255, 125, 0, 0.3);
+
+    .el-icon {
+      margin-top: 2px;
+      color: #ff7d00;
+    }
   }
 
   .options-editor {
@@ -2589,6 +2810,55 @@ async function toggleFieldVisibility(
       font-weight: 600;
       font-family: "SF Mono", Monaco, monospace;
       letter-spacing: 0.5px;
+    }
+  }
+
+  // 地理位置子格式选择卡片
+  .geo-format-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+  }
+
+  .geo-format-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    cursor: pointer;
+    background-color: #fff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+
+    input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &:hover {
+      border-color: $primary-color;
+    }
+
+    &.active {
+      border-color: $primary-color;
+      background-color: $primary-light;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.15);
+    }
+
+    &__title {
+      font-size: $font-size-sm;
+      font-weight: 500;
+      color: $text-primary;
+    }
+
+    &__desc {
+      font-size: calc($font-size-xs * 0.9);
+      color: $text-secondary;
+      line-height: 1.4;
     }
   }
 

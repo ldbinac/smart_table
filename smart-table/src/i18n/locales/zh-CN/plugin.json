@@ -1,0 +1,149 @@
+{
+  "title": "插件管理",
+  "uploadPackage": "上传安装包",
+  "uploadHint": "选择 .stplugin.zip 安装包（内含 manifest.json 与入口文件）",
+  "refresh": "刷新",
+  "empty": "暂无插件，点击「上传安装包」安装第一个插件",
+  "searchPlaceholder": "搜索插件名称或 ID",
+  "columns": {
+    "name": "插件",
+    "version": "版本",
+    "type": "类型",
+    "status": "状态",
+    "permissions": "权限",
+    "actions": "操作"
+  },
+  "type": {
+    "ui": "前端 UI 插件",
+    "script": "后端脚本插件"
+  },
+  "status": {
+    "installed": "已安装",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "error": "异常"
+  },
+  "permissions": {
+    "records": "记录",
+    "tables": "表结构",
+    "storage": "本地存储",
+    "network": "网络请求",
+    "read": "只读",
+    "write": "可写"
+  },
+  "actions": {
+    "enable": "启用",
+    "disable": "禁用",
+    "install": "安装",
+    "uninstall": "卸载",
+    "upgrade": "升级",
+    "rollback": "回滚",
+    "config": "配置",
+    "run": "运行",
+    "runLogs": "运行日志",
+    "restore": "恢复正常"
+  },
+  "messages": {
+    "uploadSuccess": "插件安装成功",
+    "upgradeSuccess": "插件升级成功",
+    "uploadFailed": "安装包校验失败",
+    "enableSuccess": "插件已启用",
+    "disableSuccess": "插件已禁用",
+    "uninstallSuccess": "插件已卸载",
+    "rollbackSuccess": "插件已回滚",
+    "runSuccess": "脚本运行完成",
+    "runFailed": "脚本运行失败",
+    "checkRunLogs": "详情请查看运行日志",
+    "configSaved": "配置已保存",
+    "selectFileFirst": "请先选择安装包文件"
+  },
+  "confirm": {
+    "uninstallTitle": "确认卸载插件",
+    "uninstallContent": "卸载将删除该插件的全部配置、Base 安装关系与运行日志，且不可恢复。确认继续？",
+    "disableTitle": "确认禁用插件",
+    "disableContent": "禁用后所有 Base 内的该插件将立即不可用。确认继续？"
+  },
+  "uploadDialog": {
+    "title": "上传插件安装包",
+    "selectFile": "选择文件",
+    "uploading": "上传并安装中…",
+    "permissionNotice": "安装前请确认插件申请的权限"
+  },
+  "rollbackDialog": {
+    "title": "回滚插件版本",
+    "selectVersion": "选择版本",
+    "current": "当前版本"
+  },
+  "configDialog": {
+    "title": "插件配置",
+    "scopeGlobal": "全局配置",
+    "scopeBase": "当前 Base 配置",
+    "baseLabel": "当前 Base",
+    "jsonHint": "以 JSON 格式编辑，保存时按插件 configSchema 校验",
+    "invalidJson": "JSON 格式错误"
+  },
+  "runDialog": {
+    "title": "运行脚本插件",
+    "notice": "请选择本次运行的目标 Base，脚本将以当前登录用户身份在该 Base 上代理执行"
+  },
+  "runResultDialog": {
+    "title": "插件运行结果",
+    "execInfo": "执行信息",
+    "status": "运行状态",
+    "viewResultHint": "具体查看插件执行结果（见下方多行文本）；完整历史执行记录可在运行日志中查看",
+    "resultInfo": "插件执行结果",
+    "overall": "总体结果",
+    "statusSuccess": "成功",
+    "statusFailed": "失败",
+    "statusTimeout": "超时",
+    "resultLabel": "执行结果",
+    "outputLabel": "运行输出"
+  },
+  "runLogDialog": {
+    "title": "运行日志",
+    "status": "状态",
+    "statusRunning": "运行中",
+    "duration": "耗时",
+    "time": "时间",
+    "triggeredBy": "触发者",
+    "result": "执行结果",
+    "detail": "详情",
+    "detailTitle": "日志详情",
+    "output": "输出",
+    "error": "错误",
+    "traceback": "异常堆栈",
+    "empty": "暂无运行记录"
+  },
+  "selection": {
+    "selectFirst": "请先在表格中勾选记录，再使用该插件",
+    "maxExceeded": "最多只能选择 {n} 条记录",
+    "selectedCount": "已选 {n} 条"
+  },
+  "baseInstall": {
+    "title": "Base 安装状态",
+    "notInstalled": "未安装",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "globalDisabledHint": "全局状态为停用，Base 内不会生效；请先在上方启用插件",
+    "install": "安装到 Base",
+    "remove": "从 Base 移除",
+    "removeConfirm": "确认从当前 Base 移除该插件？移除后该 Base 页面将无法使用此插件",
+    "installSuccess": "已安装到当前 Base",
+    "removeSuccess": "已从当前 Base 移除",
+    "enableSuccess": "已在当前 Base 启用",
+    "disableSuccess": "已在当前 Base 停用"
+  },
+  "detail": {
+    "id": "插件 ID",
+    "author": "作者",
+    "description": "描述",
+    "engines": "宿主版本要求",
+    "apiVersion": "API 版本",
+    "entry": "入口文件",
+    "extensionPoints": "UI 扩展点",
+    "versions": "版本历史",
+    "lastRun": "最近运行",
+    "targetBase": "目标多维表格",
+    "selectBaseFirst": "请先选择目标多维表格"
+  }
+}

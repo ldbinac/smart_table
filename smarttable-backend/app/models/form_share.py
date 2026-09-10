@@ -151,6 +151,22 @@ class FormShare(db.Model):
         default='default'
     )
     
+    # 每行显示的字段数量（1-4），用于一行显示多个字段
+    columns: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        comment='表单填写时每行显示的字段数量（1-4）'
+    )
+
+    # 字段级配置（JSON）：字段 ID -> { defaultValue: <任意>, readOnly: <bool> }
+    # 用于为每个字段单独设置默认值、并标记是否只读（填写者不可编辑）
+    field_settings: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment='JSON格式：字段ID -> {"defaultValue": 任意值, "readOnly": 布尔}'
+    )
+    
     # 创建时间
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -185,6 +201,32 @@ class FormShare(db.Model):
         """设置允许的字段列表"""
         import json
         self.allowed_fields = json.dumps(fields)
+
+    def get_field_settings(self) -> Dict[str, Any]:
+        """获取字段级配置（默认值 + 只读标记）"""
+        if not self.field_settings:
+            return {}
+        import json
+        try:
+            data = json.loads(self.field_settings)
+            return data if isinstance(data, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+
+    def set_field_settings(self, settings: Dict[str, Any]) -> None:
+        """设置字段级配置"""
+        import json
+        # 规整：只保留合法的字段配置，避免脏数据
+        cleaned: Dict[str, Any] = {}
+        for field_id, cfg in (settings or {}).items():
+            if not isinstance(cfg, dict):
+                continue
+            entry: Dict[str, Any] = {}
+            if 'defaultValue' in cfg:
+                entry['defaultValue'] = cfg['defaultValue']
+            entry['readOnly'] = bool(cfg.get('readOnly', False))
+            cleaned[str(field_id)] = entry
+        self.field_settings = json.dumps(cleaned) if cleaned else None
     
     def is_expired(self) -> bool:
         """检查是否已过期"""
@@ -228,6 +270,8 @@ class FormShare(db.Model):
             'submit_button_text': self.submit_button_text,
             'success_message': self.success_message,
             'theme': self.theme,
+            'columns': self.columns,
+            'field_settings': self.get_field_settings(),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': str(self.created_by)

@@ -95,7 +95,7 @@ def upgrade():
         'workflow_nodes',
         column('id', sa.String),
         column('config', sa.JSON),
-        column('node_type', sa.String)
+        column('node_type', sa.Enum(name='workflownodetype'))
     )
 
     # SQLAlchemy 2.0: op.get_bind() 返回的是 Connection 对象，且 Alembic

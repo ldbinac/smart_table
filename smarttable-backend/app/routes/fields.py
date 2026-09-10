@@ -10,8 +10,8 @@ from app.services.field_service import FieldService
 from app.services.table_service import TableService
 from app.services.link_service import LinkService
 from app.models.base import MemberRole
-from app.models.field import FieldType
-from app.utils.decorators import authenticate, jwt_required
+from app.models.field import Field, FieldType
+from app.utils.decorators import authenticate, jwt_required, form_share_or_jwt
 from app.utils.response import (
     success_response, error_response, not_found_response, forbidden_response
 )
@@ -22,7 +22,7 @@ fields_bp.strict_slashes = False
 
 
 @fields_bp.route('/tables/<uuid:table_id>/fields', methods=['GET'])
-@jwt_required
+@form_share_or_jwt(table_param='table_id')
 def get_fields(table_id) -> tuple:
     """
     获取表格中的所有字段
@@ -41,12 +41,6 @@ def get_fields(table_id) -> tuple:
       200:
         description: 字段列表
     """
-    user_id = g.current_user_id
-    
-    # 检查权限
-    if not TableService.check_permission(str(table_id), user_id, MemberRole.VIEWER):
-        return forbidden_response('no_permission_access_table_2')
-    
     fields = FieldService.get_all_fields(str(table_id))
     
     # 转换为字典列表
@@ -249,11 +243,74 @@ def update_field(field_id) -> tuple:
     result = FieldService.update_field(str(field_id), data, user_id)
     
     if not result['success']:
-        return error_response(result['error'], code=400)
+        # 有损转换：需要用户二次确认后携带 confirmLossy 重新提交
+        if result.get('needConfirm'):
+            return error_response(
+                result['error'],
+                code=409,
+                error='lossy_conversion_requires_confirmation'
+            )
+        # 值兼容性预检未通过：返回不兼容数量与样例，明确不予转换
+        if result.get('incompatibleCount'):
+            return error_response(
+                result['error'],
+                code=400,
+                error='field_type_conversion_incompatible_values',
+                details=[{
+                    'incompatibleCount': result.get('incompatibleCount'),
+                    'samples': result.get('samples', []),
+                }]
+            )
+        return error_response(result['error'], code=400, error=result.get('errorKey'))
     
     return success_response(
         data=result['field'],
         message='field_updated_successfully'
+    )
+
+
+@fields_bp.route('/fields/<uuid:field_id>/convertible-types', methods=['GET'])
+@jwt_required
+def get_convertible_types(field_id) -> tuple:
+    """
+    获取字段可转换的目标类型清单
+    ---
+    tags:
+      - Fields
+    security:
+      - Bearer: []
+    description: |
+      返回该字段当前可转换的目标类型，供前端启用/禁用类型下拉选项：
+      - hasData：该字段是否已产生数据（无数据时在通用限制内允许自由转换）
+      - allowed：可转换的目标类型，其中 lossy 为 true 时需用户二次确认，notice 为影响告知
+      - blocked：禁止转换的目标类型及原因
+    parameters:
+      - name: field_id
+        in: path
+        type: string
+        required: true
+        description: 字段 ID
+    responses:
+      200:
+        description: 可转换类型清单
+      403:
+        description: 无权限查看
+      404:
+        description: 字段不存在
+    """
+    user_id = g.current_user_id
+
+    # 检查权限（需要 ADMIN 或更高权限）
+    if not FieldService.check_permission(str(field_id), user_id, MemberRole.ADMIN):
+        return forbidden_response('do_not_permission_modify_field')
+
+    field = Field.query.get(str(field_id))
+    if not field:
+        return not_found_response('field_does_not_exist')
+
+    return success_response(
+        data=FieldService.get_convertible_types(field),
+        message='operation_success'
     )
 
 

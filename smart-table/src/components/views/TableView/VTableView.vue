@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, shallowRef, reactive, createApp, defineComponent, h } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
+import ElementPlus from "element-plus";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -16,14 +18,17 @@ import type {
   DataRecordCreatedBroadcast,
   DataRecordDeletedBroadcast,
 } from "@/services/realtime/eventTypes";
+import type { SelectionSummary } from "@/plugins/types";
 
 import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { db } from "@/db/schema";
 import { recordService } from "@/db/services";
 import { serializeRecordValues } from "@/utils/recordValueSerializer";
 import { FieldType, fieldTypeSvgContentMap } from "@/types/fields";
-import type { FieldTypeValue } from "@/types/fields";
+import type { FieldTypeValue, GeoFormat, GeoValue } from "@/types/fields";
 import type { CellValue } from "@/types";
+import { formatGeoValue } from "@/utils/geo";
+import GeoField from "@/components/fields/geo/GeoField.vue";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
@@ -60,33 +65,11 @@ import { masterDetailService } from "@/services/masterDetailService";
 import SubTableToolbar from "@/components/views/TableView/SubTableToolbar.vue";
 
 function recalcFloatingPanelPosition(
-  col: number, row: number, panelWidth: number, panelHeight: number
+  _col: number, _row: number, panelWidth: number, panelHeight: number
 ): { x: number; y: number } | null {
-  const cellRect = (tableInstance as any)?.getCellRect(col, row);
-  const canvas = (tableInstance as any)?.canvas;
-  const canvasRect = canvas?.getBoundingClientRect();
-  if (!cellRect || !canvasRect) return null;
-
-  // VTable 的 getCellRect 返回表格内绝对坐标，需加上 canvas 视口位置和 tableX/tableY 偏移
-  const tableX = (tableInstance as any).tableX || 0;
-  const tableY = (tableInstance as any).tableY || 0;
-  const cellLeft = canvasRect.left + tableX + cellRect.left;
-  const cellTop = canvasRect.top + tableY + cellRect.top;
-  const cellRight = cellLeft + cellRect.width;
-  const cellBottom = cellTop + cellRect.height;
-
-  let panelX = cellRight;
-  let panelY = cellBottom;
-
-  if (panelX + panelWidth > window.innerWidth - 16) {
-    panelX = cellLeft - panelWidth;
-  }
-  if (panelY + panelHeight > window.innerHeight - 16) {
-    panelY = cellTop - panelHeight;
-  }
-  if (panelX < 8) panelX = 8;
-  if (panelY < 8) panelY = 8;
-
+  // 附件浮窗始终居中显示于浏览器视口，避免字段在表格右侧被滚动隐藏后弹窗跑到视口外
+  const panelX = Math.max(8, Math.round((window.innerWidth - panelWidth) / 2));
+  const panelY = Math.max(8, Math.round((window.innerHeight - panelHeight) / 2));
   return { x: panelX, y: panelY };
 }
 
@@ -116,6 +99,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const router = useRouter();
 
 const tableStore = useTableStore();
 const viewStore = useViewStore();
@@ -310,6 +294,10 @@ const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string
 // ==================== 搜索功能状态 ====================
 const searchVisible = ref(false);
 const searchComponent = shallowRef<SearchComponent | null>(null);
+/** 搜索组件当前绑定的表格实例。表格实例在数据更新时会被销毁重建
+ * （updateTable / 分组切换），旧实例已 release；搜索组件若仍持有旧实例
+ * 将搜不到任何内容，因此每次打开/执行搜索前需校验并重建绑定。 */
+let searchBoundTable: ListTable | null = null;
 const searchInput = ref('');
 const searchResultIndex = ref(0);
 const searchTotalCount = ref(0);
@@ -1062,6 +1050,342 @@ class SingleSelectEditor implements IEditor {
   }
 }
 
+/**
+ * 地理位置字段自定义编辑器
+ * 以浮层形式挂载 Vue 组件 GeoField，提供「取消 / 确定」底部按钮提交。
+ * 由于 GeoField 内部包含 teleport 到 body 的 Popover / Dialog（地图选点），
+ * 点击浮层外部时仅对真实页面区域关闭，忽略 el-popper / el-dialog 内的点击。
+ */
+class GeoLocationEditor implements IEditor {
+  editorType = 'GeoLocation';
+  container?: HTMLElement;
+  element?: HTMLElement;
+  editorConfig: { field: FieldEntity };
+  successCallback?: (value: any) => void;
+  originalValue: any = null;
+  selectedValue: any = null;
+  private app: any = null;
+  private outsideHandler?: (e: MouseEvent) => void;
+
+  constructor(editorConfig: { field: FieldEntity }) {
+    this.editorConfig = editorConfig;
+  }
+
+  onStart({ container, value, referencePosition, endEdit }: EditContext) {
+    this.container = container;
+    this.successCallback = endEdit;
+    this.originalValue = value ?? null;
+    this.selectedValue = value ?? null;
+    this.createElement();
+    if (referencePosition?.rect) this.adjustPosition(referencePosition.rect);
+  }
+
+  createElement() {
+    if (!this.container) return;
+    const host = document.createElement('div');
+    host.className = 'vtable-geo-editor';
+    host.style.cssText = `
+      position: absolute;
+      background: #ffffff;
+      border: 1px solid #d9d9d9;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      // 地理字段使用 inline 模式直接把面板渲染在宿主内部（不 teleport），因此面板是
+      // this.element 的子节点，VTable 的 isEditorElement 判定为编辑器内部点击，不会
+      // 穿透到表格。z-index: 1500 保证编辑器宿主位于 VTable 画布(0)之上。
+      z-index: 1500;
+      min-width: 300px;
+      max-width: 600px;
+      padding: 10px;
+      box-sizing: border-box;
+    `;
+
+    const geoFormat = (this.editorConfig.field?.options?.geoFormat ??
+      "province_city_district") as GeoFormat;
+    // 这些格式选到最后一级即可直接提交，不需要确认/取消按钮；其余格式（详情、经纬度、地图选点）保留按钮
+    const autoCommitFormats: GeoFormat[] = [
+      "province",
+      "province_city",
+      "province_city_district",
+      "country_region",
+    ];
+    const isAutoCommit = autoCommitFormats.includes(geoFormat);
+
+    const isCompleteValue = (v: GeoValue | null | undefined, fmt: GeoFormat): boolean => {
+      if (!v) return false;
+      switch (fmt) {
+        case "province":
+          return !!v.province;
+        case "province_city":
+          return !!v.province && !!v.city;
+        case "province_city_district":
+          return !!v.province && !!v.city && !!v.district;
+        case "country_region":
+          return !!v.country;
+        default:
+          return false;
+      }
+    };
+
+    const commit = (v: GeoValue | null | undefined) => {
+      this.selectedValue = v ?? null;
+      try {
+        this.successCallback?.(v ?? "");
+      } catch (err) {
+        console.warn('Geo editor commit error:', err);
+      }
+    };
+    const cancel = () => {
+      try {
+        this.successCallback?.(this.originalValue);
+      } catch (err) {
+        console.warn('Geo editor cancel error:', err);
+      }
+    };
+
+    const HostComp = defineComponent({
+      setup: () => {
+        const val = ref<GeoValue | null>(this.originalValue);
+        const onUpdate = (v: GeoValue | null) => {
+          val.value = v;
+          this.selectedValue = v;
+          if (isAutoCommit && isCompleteValue(v, geoFormat)) {
+            commit(v);
+          }
+        };
+        return () => {
+          const children: any[] = [
+            h(GeoField, {
+              modelValue: val.value,
+              field: this.editorConfig.field,
+              readonly: false,
+              inline: true,
+              'onUpdate:modelValue': onUpdate,
+            }),
+          ];
+          if (!isAutoCommit) {
+            children.push(
+              h('div', { class: 'vtable-geo-editor__footer' }, [
+                h('button', { class: 'vtable-geo-editor__btn', onClick: cancel }, t('common.cancel')),
+                h(
+                  'button',
+                  {
+                    class: 'vtable-geo-editor__btn vtable-geo-editor__btn--primary',
+                    onClick: () => commit(val.value),
+                  },
+                  t('common.confirm'),
+                ),
+              ]),
+            );
+          }
+          return h('div', {}, children);
+        };
+      },
+    });
+
+    this.app = createApp(HostComp);
+    this.app.use(ElementPlus);
+    this.app.mount(host);
+
+    // 点击浮层外部关闭（忽略 el-popper / el-popover / el-dialog / el-select 等 teleport 内容）
+    this.outsideHandler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const inside =
+        host.contains(target) ||
+        !!target.closest?.(
+          '.el-popper, .el-popover, .geo-popover, .el-dialog, .el-select__popper, .vtable-geo-editor, .geo-map-overlay',
+        );
+      if (!inside) {
+        if (this.outsideHandler) {
+          document.removeEventListener('mousedown', this.outsideHandler, true);
+        }
+        cancel();
+      }
+    };
+    setTimeout(() => {
+      if (this.outsideHandler) document.addEventListener('mousedown', this.outsideHandler, true);
+    }, 0);
+
+    this.element = host;
+    this.container.appendChild(host);
+  }
+
+  adjustPosition(rect: RectProps) {
+    if (!this.element) return;
+
+    const dropdownHeight = this.element.offsetHeight || 360;
+    const cellBottom = rect.top + (rect.height || 40);
+    const offsetParent = this.element.offsetParent as HTMLElement | null;
+    const containerHeight = offsetParent?.clientHeight ?? window.innerHeight;
+    const containerWidth = offsetParent?.clientWidth ?? window.innerWidth;
+    const margin = 8;
+
+    // 垂直方向：下方放不下就向上翻转
+    let top: number;
+    if (cellBottom + 4 + dropdownHeight > containerHeight) {
+      top = Math.max(0, rect.top - dropdownHeight - 2);
+    } else {
+      top = rect.top - 1;
+    }
+
+    // 水平方向：先让宽度随内容自然展开（受 min/max 约束），渲染完成后再根据真实宽度调整
+    this.element.style.top = `${top}px`;
+    this.element.style.left = `${rect.left - 1}px`;
+    this.element.style.width = 'auto';
+    this.element.style.minWidth = '300px';
+    this.element.style.maxWidth = '600px';
+
+    requestAnimationFrame(() => {
+      if (!this.element) return;
+      let width = this.element.offsetWidth;
+
+      // 若内容过宽超出容器，优先整体缩放到容器内
+      if (width > containerWidth - 2 * margin) {
+        width = Math.max(280, containerWidth - 2 * margin);
+        this.element.style.width = `${width}px`;
+      }
+
+      const cellRight = rect.left + (rect.width || 0);
+      // 若右侧会溢出，则以单元格右边缘为锚点向左展开；左侧顶到容器边缘则保留 margin
+      if (rect.left - 1 + width + margin > containerWidth) {
+        let left = cellRight - width - 1;
+        left = Math.max(margin, left);
+        this.element.style.left = `${left}px`;
+      }
+    });
+  }
+
+  getValue() {
+    return this.selectedValue ?? '';
+  }
+
+  onEnd() {
+    if (this.outsideHandler) {
+      document.removeEventListener('mousedown', this.outsideHandler, true);
+      this.outsideHandler = undefined;
+    }
+    if (this.app) {
+      this.app.unmount();
+      this.app = null;
+    }
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    this.element = undefined;
+  }
+
+  isEditorElement(target: HTMLElement) {
+    if (this.element?.contains(target)) return true;
+    // 地图选点弹窗(el-dialog)经 append-to-body teleport 到 body，不在 this.element 内。
+    // 若不显式判为编辑器内部点击，VTable 会结束编辑并在底层单元格重新开启（点击穿透到表格）。
+    return !!target.closest?.('.geo-map-overlay, .geo-map-dialog');
+  }
+}
+
+/**
+ * 长文本 / 富文本浮窗编辑器需要"留在编辑器内部"的按键集合。
+ *
+ * VTable 在表格容器（table.getElement()）上以冒泡阶段监听 keydown，默认将
+ * 方向键解释为"移动/切换单元格"、Tab 解释为"移动到右侧单元格"，
+ * 导致多行编辑器里的光标移动、Tab 缩进被吞掉。
+ * 因此在编辑器自身的 DOM 上截断这些按键的冒泡，交还给 textarea / Quill 处理。
+ *
+ * 注意：监听必须在冒泡阶段（不能用捕获阶段），否则事件无法到达编辑器内部的输入元素。
+ */
+const TEXT_EDITOR_INNER_KEYS = new Set([
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+  'Home', 'End', 'PageUp', 'PageDown', 'Tab',
+]);
+
+/** 长文本编辑器的缩进宽度（空格数） */
+const TEXTAREA_INDENT = '    ';
+
+/**
+ * 替换 textarea 中指定区间的文本。
+ * 优先使用 execCommand('insertText')，以便保留浏览器原生的撤销栈；失败时直接改 value。
+ */
+function replaceTextareaRange(
+  textarea: HTMLTextAreaElement,
+  start: number,
+  end: number,
+  text: string
+): void {
+  textarea.focus();
+  textarea.setSelectionRange(start, end);
+
+  let done = false;
+  try {
+    done = document.execCommand('insertText', false, text);
+  } catch {
+    done = false;
+  }
+
+  if (!done) {
+    const value = textarea.value;
+    textarea.value = value.slice(0, start) + text + value.slice(end);
+    textarea.setSelectionRange(start + text.length, start + text.length);
+  }
+}
+
+/**
+ * textarea 的 Tab / Shift+Tab 缩进处理（不切换单元格）。
+ * - Tab：无选区时在光标处插入缩进；有选区时为选区涉及的每一行行首追加缩进。
+ * - Shift+Tab：删除选区涉及行的行首缩进（最多 4 个空格或 1 个制表符）。
+ */
+function applyTextareaIndent(textarea: HTMLTextAreaElement, outdent: boolean): void {
+  const { selectionStart, selectionEnd, value } = textarea;
+
+  // 只按整行处理：取光标/选区所在文本块 [blockStart, blockEnd)
+  const blockStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+  const lineEnd = value.indexOf('\n', selectionEnd);
+  const blockEnd = lineEnd === -1 ? value.length : lineEnd;
+  const block = value.slice(blockStart, blockEnd);
+
+  // 光标（无选区）且为缩进 → 直接插入固定缩进即可
+  if (!outdent && selectionStart === selectionEnd) {
+    replaceTextareaRange(textarea, selectionStart, selectionEnd, TEXTAREA_INDENT);
+    return;
+  }
+
+  let removedFromFirstLine = 0;
+  const nextBlock = block
+    .split('\n')
+    .map((line, index) => {
+      if (outdent) {
+        const matched = /^(\t| {1,4})/.exec(line);
+        if (!matched) return line;
+        if (index === 0) removedFromFirstLine = matched[0].length;
+        return line.slice(matched[0].length);
+      }
+      return TEXTAREA_INDENT + line;
+    })
+    .join('\n');
+
+  if (nextBlock === block) return;
+
+  replaceTextareaRange(textarea, blockStart, blockEnd, nextBlock);
+
+  // 整块替换后光标会落到末尾，按增删的字符数把选区还原回去
+  const delta = nextBlock.length - block.length;
+  const nextStart = Math.max(
+    blockStart,
+    selectionStart + (outdent ? -removedFromFirstLine : TEXTAREA_INDENT.length)
+  );
+  const nextEnd = Math.max(nextStart, selectionEnd + delta);
+  textarea.setSelectionRange(nextStart, nextEnd);
+}
+
+/**
+ * 阻断剪贴板事件冒泡。
+ * VTable 在表格容器上监听 copy / cut / paste（本项目开启了 copySelected / pasteValueToCell），
+ * 会把"整表复制粘贴"套用到浮窗编辑器上，覆盖编辑器内选区文本的复制、并把粘贴内容写进多个单元格。
+ */
+function stopClipboardEventsBubbling(element: HTMLElement): void {
+  (['copy', 'cut', 'paste'] as const).forEach((type) => {
+    element.addEventListener(type, (e) => e.stopPropagation());
+  });
+}
+
 // TextAreaEditor - 多行文本编辑器（浮窗 textarea，5行高，可拖动调整大小）
 class TextAreaEditor implements IEditor {
   editorType = 'TextArea';
@@ -1122,6 +1446,9 @@ class TextAreaEditor implements IEditor {
     // 键盘事件：
     //   - Ctrl+Enter / Cmd+Enter → 保存并退出编辑
     //   - 纯 Enter → 阻止冒泡，防止 VTable 拦截，让 textarea 正常换行
+    //   - Tab / Shift+Tab → 在文本内缩进 / 反缩进，不再切换单元格
+    //   - 方向键 / Home / End / PageUp / PageDown → 阻止冒泡，在文本内移动光标而非切换单元格
+    //   - Escape → 不拦截，交由 VTable 取消编辑并关闭浮窗（与表格其它单元格一致）
     textarea.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         if (e.ctrlKey || e.metaKey) {
@@ -1133,11 +1460,26 @@ class TextAreaEditor implements IEditor {
           // 纯 Enter → 阻止 VTable 拦截，让 textarea 插入换行
           e.stopPropagation();
         }
+        return;
       }
-      if (e.key === 'Escape') {
+
+      if (e.key === 'Tab') {
+        // Tab → 缩进（Shift+Tab 反缩进），并阻止 VTable 切换到相邻单元格
+        e.preventDefault();
+        e.stopPropagation();
+        applyTextareaIndent(textarea, e.shiftKey);
+        this.value = textarea.value;
+        return;
+      }
+
+      if (TEXT_EDITOR_INNER_KEYS.has(e.key)) {
+        // 光标移动 / 翻页类按键留在编辑器内部，不冒泡到 VTable
         e.stopPropagation();
       }
     });
+
+    // 复制 / 剪切 / 粘贴留在编辑器内部，不被 VTable 的整表剪贴板逻辑覆盖
+    stopClipboardEventsBubbling(textarea);
 
     wrapper.appendChild(textarea);
     this.element = wrapper;
@@ -1228,6 +1570,30 @@ class RichTextEditor implements IEditor {
     editorContainer.className = 'rich-text-editor-container';
     wrapper.appendChild(editorContainer);
 
+    // 键盘事件：浮窗内的按键不应触发 VTable 的单元格跳转。
+    // 监听挂在浮窗层并使用冒泡阶段，保证事件先被 Quill 的 root 监听器处理，
+    // 再在这里截断冒泡，使 VTable 容器上的 keydown 监听器收不到这些按键。
+    //   - Ctrl+Enter / Cmd+Enter → 保存并退出编辑
+    //   - 纯 Enter → 换行（列表续行等由 Quill 处理）
+    //   - 方向键 / Home / End / PageUp / PageDown → 在富文本内移动光标
+    //   - Tab / Shift+Tab → Quill 默认的缩进 / 反缩进绑定
+    //   - Escape → 不拦截，交由 VTable 取消编辑并关闭浮窗
+    wrapper.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.successCallback?.();
+        return;
+      }
+      if (e.key === 'Enter' || TEXT_EDITOR_INNER_KEYS.has(e.key)) {
+        // 仅阻止冒泡，不阻止默认行为，交给 Quill / contenteditable 正常处理
+        e.stopPropagation();
+      }
+    });
+
+    // 复制 / 剪切 / 粘贴留在编辑器内部，不被 VTable 的整表剪贴板逻辑覆盖
+    stopClipboardEventsBubbling(wrapper);
+
     this.element = wrapper;
     this.container?.appendChild(wrapper);
   }
@@ -1264,13 +1630,8 @@ class RichTextEditor implements IEditor {
         }
       });
 
-      // 阻止 Enter 冒泡到 VTable，确保纯 Enter 只换行不退出编辑
-      // 使用捕获阶段拦截，在 VTable 处理之前截断
-      (this.editor.root as HTMLElement).addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
-          e.stopPropagation();
-        }
-      }, true);
+      // 注意：编辑器内的按键拦截统一在 createElement() 的浮窗 keydown 监听里处理，
+      // 这里不再单独拦截，避免捕获阶段截断导致 Quill 自身的按键绑定（列表续行等）失效
     } catch (e) {
       console.error('[RichTextEditor] 初始化失败:', e);
     }
@@ -2532,8 +2893,10 @@ const handleDuplicateRecord = async () => {
   if (!contextMenuRecord.value) return;
   try {
     // 使用 tableStore.createRecord 创建记录（与删除逻辑保持一致）
+    // tableId 兜底为当前视图表格 ID：实时新增等场景下记录的 tableId 可能缺失，
+    // 否则会请求 /tables/undefined/fields 导致复制失败
     const newRecord = await tableStore.createRecord({
-      tableId: contextMenuRecord.value.tableId,
+      tableId: contextMenuRecord.value.tableId || props.tableId,
       values: { ...contextMenuRecord.value.values },
     });
     if (newRecord) {
@@ -3409,6 +3772,11 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
     case FieldType.MEMBER:
       config.cellType = 'text';
       break;
+    case FieldType.GEOLOCATION:
+      config.cellType = 'text';
+      config.fieldFormat = (record: any) =>
+        formatGeoValue(record?.[field.id], field?.options?.geoFormat);
+      break;
     case FieldType.LINK:
       config.cellType = 'text';
       config.fieldFormat = (record: any) => {
@@ -3613,6 +3981,12 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
               return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
             };
 
+            const isPdfFile = (name: string, type?: string): boolean => {
+              if (type && /pdf/i.test(type)) return true;
+              const ext = (name || '').split('.').pop()?.toLowerCase() || '';
+              return ext === 'pdf';
+            };
+
             const itemSize = 32;
             const gap = 6;
             const maxDisplay = 3;
@@ -3641,6 +4015,24 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
                 const itemGroup = createGroup({ width: itemSize + gap, height: itemSize, display: 'flex', alignItems: 'center' });
                 itemGroup.add(img);
                 container.add(itemGroup);
+              } else if (isPdfFile(fileName, file.type)) {
+                const fileId = typeof file === 'string' ? file : file.id;
+                const pdfItemGroup = createGroup({ width: itemSize + gap, height: itemSize });
+                const pdfRect = createRect({ x: 0, y: 0, width: itemSize, height: itemSize, cornerRadius: 4, fill: '#FDECEA', stroke: '#F56C6C', lineWidth: 1, cursor: 'pointer' });
+                const pdfTextGroup = createGroup({ x: 0, y: 0, width: itemSize, height: itemSize, display: 'flex', alignItems: 'center', justifyContent: 'center', pickable: false });
+                const pdfText = createText({ text: 'PDF', fontSize: 11, fontWeight: 'bold', fill: '#F56C6C', textBaseline: 'middle', textAlign: 'center', pickable: false });
+                pdfTextGroup.add(pdfText);
+                pdfItemGroup.add(pdfRect);
+                pdfItemGroup.add(pdfTextGroup);
+                pdfItemGroup.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
+                pdfItemGroup.addEventListener('pointertap', (e: any) => {
+                  e.stopPropagation?.();
+                  if (fileId) {
+                    const href = router.resolve({ name: 'PdfPreview', query: { id: fileId, name: file.originalName || file.name || '' } }).href;
+                    window.open(href, '_blank', 'noopener');
+                  }
+                });
+                container.add(pdfItemGroup);
               } else {
                 const itemGroup = createGroup({ width: itemSize + gap, height: itemSize, display: 'flex', alignItems: 'center' });
                 const pinPath = createPath({
@@ -3912,6 +4304,11 @@ const buildTableConfig = (): any => {
       const allowMultiple = (field.options as any)?.allowMultiple !== false;
       const baseId = tableStore.currentTable?.baseId;
       cellTypeConfig.editor = new MemberEditor({ allowMultiple, baseId });
+    }
+
+    // 为 GEOLOCATION 分配 GeoLocationEditor（浮层挂载 GeoField，支持级联/地图选点）
+    if (field.type === FieldType.GEOLOCATION) {
+      cellTypeConfig.editor = new GeoLocationEditor({ field });
     }
 
     // 附件类型字段不需要编辑器，由自定义双击浮窗 AttachmentManager 处理
@@ -4425,6 +4822,12 @@ const buildTableConfig = (): any => {
             return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
           };
 
+          const isPdfFile = (name: string, type?: string): boolean => {
+            if (type && /pdf/i.test(type)) return true;
+            const ext = (name || '').split('.').pop()?.toLowerCase() || '';
+            return ext === 'pdf';
+          };
+
           const itemSize = 32;
           const gap = 6;
           const maxDisplay = 3;
@@ -4472,8 +4875,26 @@ const buildTableConfig = (): any => {
               });
               itemGroup.add(img);
               container.add(itemGroup);
+            } else if (isPdfFile(fileName, file.type)) {
+              const fileId = typeof file === 'string' ? file : file.id;
+              const pdfItemGroup = createGroup({ width: itemSize + gap, height: itemSize });
+              const pdfRect = createRect({ x: 0, y: 0, width: itemSize, height: itemSize, cornerRadius: 4, fill: '#FDECEA', stroke: '#F56C6C', lineWidth: 1, cursor: 'pointer' });
+              const pdfTextGroup = createGroup({ x: 0, y: 0, width: itemSize, height: itemSize, display: 'flex', alignItems: 'center', justifyContent: 'center', pickable: false });
+              const pdfText = createText({ text: 'PDF', fontSize: 11, fontWeight: 'bold', fill: '#F56C6C', textBaseline: 'middle', textAlign: 'center', pickable: false });
+              pdfTextGroup.add(pdfText);
+              pdfItemGroup.add(pdfRect);
+              pdfItemGroup.add(pdfTextGroup);
+              pdfItemGroup.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
+              pdfItemGroup.addEventListener('pointertap', (e: any) => {
+                e.stopPropagation?.();
+                if (fileId) {
+                  const href = router.resolve({ name: 'PdfPreview', query: { id: fileId, name: file.originalName || file.name || '' } }).href;
+                  window.open(href, '_blank', 'noopener');
+                }
+              });
+              container.add(pdfItemGroup);
             } else {
-              // 文件类型图标 - 仅显示回形针 SVG 图标
+            // 文件类型图标 - 仅显示回形针 SVG 图标
               const itemGroup = createGroup({
                 width: itemSize + gap,
                 height: itemSize,
@@ -4819,17 +5240,19 @@ const buildTableConfig = (): any => {
 
 // 处理悬浮操作图标点击 - 打开记录详情
 const handleActionIconClick = () => {
-  if (selectedCell.value && selectedCell.value.record?._originalRecord) {
-    const original = selectedCell.value.record._originalRecord;
+  const cellRecord = selectedCell.value?.record;
+  if (cellRecord && cellRecord._originalRecord) {
     // 区分主表与子表记录：
-    // - 主表 _originalRecord 是 RecordEntity（含 createdAt/updatedAt camelCase）
-    // - 子表 _originalRecord 是 LinkedRecordDetail（含 created_at/updated_at snake_case）
-    if ('created_at' in original || 'updated_at' in original) {
+    // 子表行由 useMasterDetail 构建时带 _isSubTableRecord 显式标记。
+    // 不再通过 created_at/updated_at 字段嗅探判断——实时广播新增的主表记录
+    // 在未转换前同样携带 snake_case 字段，嗅探会误判为子表记录，
+    // 导致打开错误抽屉并把数据保存到错误表的字段
+    if ((cellRecord as any)._isSubTableRecord) {
       // 子表记录：使用子表字段和目标表 ID
-      handleSubTableExpandRecord(selectedCell.value.record);
+      handleSubTableExpandRecord(cellRecord);
     } else {
       // 主表记录
-      handleExpandRecord(original as RecordEntity);
+      handleExpandRecord(cellRecord._originalRecord as RecordEntity);
     }
   }
   actionIconVisible.value = false;
@@ -4908,9 +5331,7 @@ const bindTableEvents = () => {
       } else {
         emit('record-select', null);
       }
-      
-      const selectedRecords = sortedRecords.value.filter(r => newIds.includes(r.id));
-      emit('records-select', selectedRecords);
+      // 注：records-select 统一由 selectedRecordIds 的 watcher 上报（覆盖行选/复选框/全选）
     }
   });
 
@@ -5342,35 +5763,11 @@ const bindTableEvents = () => {
           const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
           if (!cellRecord) return;
 
-          // 获取水平和垂直滚动偏移量，非冻结列/行需要减去 scrollLeft/scrollTop 以修正位置
-          const scrollLeft = (tableInstance as any).scrollLeft || 0;
-          const scrollTop = (tableInstance as any).scrollTop || 0;
-          const frozenColCount = (tableInstance as any).frozenColCount || 1;
-          const adjustedLeft = colIndex < frozenColCount ? cellRect.left : cellRect.left - scrollLeft;
-
-          // 基准位置：单元格右下角（垂直需减去 scrollTop 修正）
-          let panelX = containerRect.left + adjustedLeft + cellRect.width;
-          let panelY = containerRect.top + cellRect.bottom - scrollTop;
-
-          // 视口边界检测：浮窗宽度约 380px，高度约 480px
+          // 附件浮窗始终居中显示于浏览器视口，避免字段在表格右侧被滚动隐藏后弹窗跑到视口外
           const panelWidth = 380;
           const panelHeight = 480;
-          // 水平方向：如果超出右侧，则改为在单元格左侧显示
-          if (panelX + panelWidth > window.innerWidth - 16) {
-            panelX = containerRect.left + adjustedLeft - panelWidth;
-          }
-          // 垂直方向：如果超出底部，则改为在单元格上方显示（使用修正后的 top）
-          if (panelY + panelHeight > window.innerHeight - 16) {
-            panelY = containerRect.top + cellRect.top - scrollTop - panelHeight;
-          }
-          // 水平不超出左边界
-          if (panelX < 8) {
-            panelX = 8;
-          }
-          // 垂直不超出上边界
-          if (panelY < 8) {
-            panelY = 8;
-          }
+          const panelX = Math.max(8, Math.round((window.innerWidth - panelWidth) / 2));
+          const panelY = Math.max(8, Math.round((window.innerHeight - panelHeight) / 2));
 
           attachmentManagerPosition.value = {
             x: panelX,
@@ -5552,8 +5949,12 @@ const bindTableEvents = () => {
 
     // ==================== 无改动检查 ====================
     const originalValue = originalRecord.values[fieldId];
+    // 将值规整为可比较的字符串：
+    // - 对象/数组（如地理位置 GeoValue、多选数组）需用 JSON 序列化，不能用 String()，
+    //   否则所有对象都会变成 "[object Object]" 导致"有改动"被误判为"无改动"而不保存。
     const normalizeValue = (v: unknown): string | null => {
       if (v == null || v === '') return null;
+      if (typeof v === 'object') return JSON.stringify(v);
       return String(v);
     };
     if (normalizeValue(finalValue) === normalizeValue(originalValue)) {
@@ -6140,9 +6541,18 @@ watch(() => props.viewId, (newViewId, oldViewId) => {
   }
 });
 
-watch(selectedRows, () => {
-  // 选中行变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新
-}, { deep: true });
+// 勾选变化（行选择 / 复选框 / 表头全选）统一上报，供宿主消费（如插件工具栏按钮可用性）。
+// 选中态变化不需要重建表格，VTable 内建选中高亮机制处理视觉更新。
+watch(
+  selectedRecordIds,
+  (ids) => {
+    const records = sortedRecords.value.filter(
+      (r) => r && r.id && ids.includes(r.id),
+    );
+    emit("records-select", records);
+  },
+  { deep: true },
+);
 
 // 用户缓存更新时刷新表格（成员名称异步加载完成后重渲染）
 watch(() => userCacheStore.cacheStats.size, () => {
@@ -6205,12 +6615,24 @@ onBeforeUnmount(() => {
       tableContainerRef.value.innerHTML = '';
     }
     tableInstance = null;
+    // 表格实例已释放，同步丢弃搜索组件绑定，避免组件卸载后残留旧引用
+    searchComponent.value = null;
+    searchBoundTable = null;
   }
 });
 
 defineExpose({
   selectedRows,
   openSearch,
+  /** 当前勾选摘要（行选择 + 复选框选择去重合并），供插件体系只读消费 */
+  getSelection: (): SelectionSummary => ({
+    recordIds: [...selectedRecordIds.value],
+    total: selectedRecordIds.value.length,
+    selectAll:
+      selectedRecordIds.value.length > 0 &&
+      selectedRecordIds.value.length === sortedRecords.value.length,
+    scope: "page",
+  }),
   refresh: () => {
     updateTable();
   },
@@ -6522,17 +6944,40 @@ function updateSubTableDisabledAdd() {
 }
 
 // ==================== 搜索功能方法 ====================
-// 打开搜索弹窗（供父组件调用）
-function openSearch() {
-  if (!tableInstance) return;
-
-  // 初始化 SearchComponent（仅首次）
-  if (!searchComponent.value) {
+// 确保搜索组件绑定当前存活的表格实例（表格实例销毁重建后必须重建搜索组件）
+function ensureSearchComponent(): boolean {
+  if (!tableInstance) return false;
+  if (!searchComponent.value || searchBoundTable !== tableInstance) {
     searchComponent.value = new SearchComponent({
       table: tableInstance as any,
       autoJump: true,
     });
+    searchBoundTable = tableInstance;
+    // 主从表插件（MasterDetailPlugin）会强制把首列设为 tree:true，导致
+    // SearchComponent 误判为树形表而走树形搜索分支：该分支遍历 table.records，
+    // 而本表使用懒加载 CachedDataSource（get 回调模式），records 只有已渲染行的
+    // 不完整缓存，未渲染的行永远不会被搜到；结果定位还会对假树结构执行
+    // toggleHierarchyState，高亮与跳转全部错乱。
+    // 主从表主行实际是平铺行（子表是展开后内嵌的独立表格），必须强制走普通
+    // 的逐单元格搜索。SearchComponent 在每次 search() 时都会重新给 isTree
+    // 赋值（依据 columns 里是否存在 tree 标记），因此需用访问器拦截其 setter。
+    if (hasLinkFields.value && !isTreeView.value) {
+      const comp = searchComponent.value as any;
+      Object.defineProperty(comp, 'isTree', {
+        get: () => false,
+        set: () => {
+          /* 保持平铺搜索模式，忽略组件内部的树形判定 */
+        },
+        configurable: true,
+      });
+    }
   }
+  return true;
+}
+
+// 打开搜索弹窗（供父组件调用）
+function openSearch() {
+  if (!ensureSearchComponent()) return;
 
   searchVisible.value = true;
 
@@ -6545,7 +6990,7 @@ function openSearch() {
 
 // 执行搜索
 function handleSearch() {
-  if (!searchComponent.value || !searchInput.value.trim()) {
+  if (!searchInput.value.trim()) {
     searchResultIndex.value = 0;
     searchTotalCount.value = 0;
     // 树形视图：搜索词为空时重新加载完整树
@@ -6554,8 +6999,9 @@ function handleSearch() {
     }
     return;
   }
+  if (!ensureSearchComponent()) return;
 
-  const result = searchComponent.value.search(searchInput.value.trim());
+  const result = searchComponent.value!.search(searchInput.value.trim());
   searchResultIndex.value = result.index + 1; // 显示为 1-based
   searchTotalCount.value = result.results.length;
 
@@ -6567,22 +7013,23 @@ function handleSearch() {
 
 // 下一个结果
 function handleSearchNext() {
-  if (!searchComponent.value) return;
-  const result = searchComponent.value.next();
+  if (!ensureSearchComponent()) return;
+  const result = searchComponent.value!.next();
   searchResultIndex.value = result.index + 1;
 }
 
 // 上一个结果
 function handleSearchPrev() {
-  if (!searchComponent.value) return;
-  const result = searchComponent.value.prev();
+  if (!ensureSearchComponent()) return;
+  const result = searchComponent.value!.prev();
   searchResultIndex.value = result.index + 1;
 }
 
 // 关闭搜索
 function closeSearch() {
   searchVisible.value = false;
-  if (searchComponent.value) {
+  // 仅当搜索组件仍绑定当前表格实例时才清理高亮，避免对已 release 的旧实例操作
+  if (searchComponent.value && searchBoundTable === tableInstance) {
     searchComponent.value.clear();
   }
   searchInput.value = '';
@@ -7002,6 +7449,52 @@ watch(
 .attachment-image-preview-dialog.el-dialog {
   .el-dialog__body {
     padding: 0;
+  }
+}
+
+// 地理字段单元格编辑器（inline 模式渲染在宿主内部，需要非 scoped 样式）
+.vtable-geo-editor {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  line-height: 1.4;
+
+  .vtable-geo-editor__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e4e7ed;
+    flex-shrink: 0;
+  }
+
+  .vtable-geo-editor__btn {
+    padding: 6px 14px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #606266;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+
+    &:hover {
+      color: #409eff;
+      border-color: #c6e2ff;
+      background: #ecf5ff;
+    }
+
+    &--primary {
+      background: #409eff;
+      border-color: #409eff;
+      color: #ffffff;
+
+      &:hover {
+        background: #66b1ff;
+        border-color: #66b1ff;
+      }
+    }
   }
 }
 </style>

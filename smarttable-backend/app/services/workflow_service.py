@@ -454,6 +454,52 @@ class WorkflowService:
             if all_node_ids is not None and str(target) not in all_node_ids:
                 raise ValueError(translate('branch_target_node_not_found', label, target))
 
+    @classmethod
+    def _validate_update_record_node(cls, node_config: Dict[str, Any]) -> None:
+        """校验「更新记录」节点配置，失败抛 ValueError。
+
+        校验范围：主记录字段映射（updates）与关联表同步更新（related_updates）的结构合法性。
+        目标表/字段是否存在等依赖运行期数据的校验交由执行引擎在运行时处理。
+        """
+        if not isinstance(node_config, dict):
+            raise ValueError('update_record_node_configuration_object')
+        config = node_config.get('config', {}) or {}
+
+        # 主记录字段映射
+        updates = config.get('updates', []) or []
+        if not isinstance(updates, list):
+            raise ValueError('update_record_updates_array')
+        for m in updates:
+            if not isinstance(m, dict):
+                raise ValueError('update_record_updates_item_object')
+            if 'field_id' in m and not isinstance(m.get('field_id'), str):
+                raise ValueError('update_record_updates_field_id_string')
+
+        # 关联表同步更新
+        related = config.get('related_updates', []) or []
+        if not isinstance(related, list):
+            raise ValueError('related_updates_array')
+        for task in related:
+            if not isinstance(task, dict):
+                raise ValueError('related_updates_item_object')
+            if task.get('target_table_id') is not None and not isinstance(task.get('target_table_id'), str):
+                raise ValueError('related_updates_target_table_id_string')
+            if 'link_field_id' in task and task.get('link_field_id') is not None \
+                    and not isinstance(task.get('link_field_id'), str):
+                raise ValueError('related_updates_link_field_id_string')
+            if 'field_mappings' in task and not isinstance(task.get('field_mappings'), list):
+                raise ValueError('related_updates_field_mappings_array')
+            if 'conditions' in task and not isinstance(task.get('conditions'), list):
+                raise ValueError('related_updates_conditions_array')
+            if 'trigger_condition' in task and not isinstance(task.get('trigger_condition'), list):
+                raise ValueError('related_updates_trigger_condition_array')
+            trigger = task.get('trigger', 'always')
+            if trigger not in ('always', 'condition'):
+                raise ValueError('related_updates_trigger_invalid')
+            for conj_key in ('conditions_conjunction', 'trigger_condition_conjunction'):
+                if conj_key in task and task.get(conj_key) not in ('and', 'or'):
+                    raise ValueError('related_updates_conjunction_invalid')
+
     @staticmethod
     def _count_loop_nodes(nodes_config: List[Dict[str, Any]]) -> int:
         """递归统计 loop 节点总数（含嵌套循环体内的）"""
@@ -565,6 +611,8 @@ class WorkflowService:
                     cls._validate_loop_node(node_data)
                 elif node_type == 'script':
                     cls._validate_script_node(node_data, all_node_ids)
+                elif node_type == 'update_record':
+                    cls._validate_update_record_node(node_data)
                 elif node_type == 'action':
                     # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
                     action_type = node_config.get('action_type')
@@ -720,6 +768,8 @@ class WorkflowService:
                         cls._validate_loop_node(node_data)
                     elif node_type_str == 'script':
                         cls._validate_script_node(node_data, all_node_ids)
+                    elif node_type_str == 'update_record':
+                        cls._validate_update_record_node(node_data)
                     elif node_type_str == 'action':
                         # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
                         action_type = config.get('action_type')

@@ -92,6 +92,16 @@ instance.interceptors.response.use(
       });
 
       if (code === 401) {
+        // 防止 401 死循环：已重试过的请求若仍 401，直接拒绝（不再次触发续期）
+        if ((response.config as any)?._retry) {
+          return Promise.reject(
+            Object.assign(new Error(errorData.message || "Unauthorized"), {
+              requestId,
+              code: 401,
+              response,
+            })
+          );
+        }
         // 分享接口的 401 不跳转登录页（无效 token 是业务错误，不是认证失败）
         const skipRedirect = (response.config as any)?.skipAuthRedirect;
         if (skipRedirect) {
@@ -138,6 +148,8 @@ instance.interceptors.response.use(
                   if (config.headers) {
                     delete config.headers.Authorization;
                   }
+                  // 标记已重试，避免 401 死循环
+                  (config as any)._retry = true;
 
                   instance.request(config)
                     .then(resolve)
@@ -279,6 +291,18 @@ instance.interceptors.response.use(
         break;
       case 401:
         {
+          // 防止 401 死循环：已重试过的请求若仍 401，清除状态并跳转登录页
+          if ((error.config as any)?._retry) {
+            clearToken();
+            router.push("/login");
+            ElMessage.error(t("common.loginExpired"));
+            return Promise.reject(
+              Object.assign(
+                new Error(backendMessage || t("common.loginExpired")),
+                { requestId, code: 401, error: data?.error, response: error.response }
+              )
+            );
+          }
           // 分享接口的 401 不跳转登录页（如登录、刷新令牌等认证请求）
           const skipRedirect = (error.config as any)?.skipAuthRedirect;
           if (skipRedirect) {
@@ -333,6 +357,8 @@ instance.interceptors.response.use(
                       delete config.headers.Authorization;
                       devLog.debug('[API] 已清除旧的Authorization header');
                     }
+                    // 标记已重试，避免 401 死循环
+                    (config as any)._retry = true;
 
                     instance.request(config)
                       .then(resolve)

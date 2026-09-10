@@ -782,3 +782,25 @@ finally:
 | `{{instance}}` | dict | 当前工作流实例信息 | 所有类型 |
 
 > **字段下钻说明**：`{{loop.current_data.field_id}}` 仅在数据源为 `find_records_all` 时可用，因为此时 `current_data` 为包含所有字段的完整记录字典。其他数据源类型（`find_records_column`、`trigger_field`、`webhook_array`）的 `current_data` 为单值，不支持下钻。前端 `LoopVarInserter` 组件会根据数据源类型自动控制字段下钻选项的显示。
+
+---
+
+## 附录：如何获取节点 ID 与字段 ID
+
+循环体与模板变量（如 `{{loop.current_data.<字段ID>}}`、`{{node_outputs.<节点ID>.result}}`）都以节点 ID 或字段 ID 作为引用键。配置界面已在多处直接展示这些 ID，并支持点击复制，无需再通过抓包或查看 DOM 获取。
+
+### A.1 节点 ID
+
+- 在**工作流画布**的节点卡片右下角，节点类型标签旁以小号等宽字体显示当前节点的 ID（形如 `node_xxx`）。
+- 将鼠标悬停其上即可看到完整 ID；**点击该 ID 即可复制到剪贴板**。
+- 在循环节点的「数据源」下拉选项中，选项文案统一为 `节点名称（节点ID）`，可直接复制 `find_records`、`webhook` 等上游节点的 ID，填入 `data_source.node_id`。
+
+### A.2 字段 ID
+
+- 在**字段管理**对话框的字段列表中，每个字段名称右侧以小号等宽字体显示该字段的 ID（形如 `fld_xxx`）。
+- **点击该 ID 即可复制**；用于循环字段下钻 `{{loop.current_data.<字段ID>}}` 时直接粘贴即可。
+- 在「插入循环变量」的字段下钻下拉选项中，选项文案统一为 `字段名称（字段ID）`，便于直接复制。
+
+### A.3 可复制的模板变量语法
+
+在循环体子节点（更新记录、创建记录、发送邮件、Webhook 等）的模板输入框下方，界面会列出当前上下文可用的变量引用语法（如 `{{record.<字段ID>}}`、`{{node_outputs.<节点ID>.result}}`、`{{loop.current_data.<字段ID>}}`），**点击任意一条即可复制完整语法**，粘贴到模板中后再替换为真实 ID。

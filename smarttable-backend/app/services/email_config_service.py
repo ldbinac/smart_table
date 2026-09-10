@@ -253,18 +253,29 @@ class EmailConfigService:
     @staticmethod
     def get_frontend_url() -> str:
         """
-        获取前端应用 URL
+        获取前端应用 URL（平台入口域名）
+
+        优先读取基础配置中的 'system_domain'（系统域名），
+        其次兼容旧配置 'frontend_url'，均未配置时回退到本地开发地址。
+        域名变更只需在系统配置的基础配置模块调整，无需改动代码。
 
         Returns:
-            前端应用的基础 URL
+            前端应用的基础 URL（已去除结尾斜杠）
         """
-        # 优先从配置读取
-        frontend_url = SystemConfig.get_config('frontend_url')
+        # 优先读取基础配置中的系统域名
+        frontend_url = SystemConfig.get_config('system_domain')
+        # 兼容旧配置项 frontend_url
+        if not frontend_url:
+            frontend_url = SystemConfig.get_config('frontend_url')
         if frontend_url:
+            frontend_url = str(frontend_url).strip()
+            # 补全协议头，避免用户输入纯域名（如 example.com）时无法访问
+            if frontend_url and not frontend_url.startswith(('http://', 'https://')):
+                frontend_url = f'https://{frontend_url}'
             return frontend_url.rstrip('/')
-        
+
         # 默认返回本地开发地址
-        return 'http://localhost:5173'
+        return 'http://localhost:5000'
 
     @staticmethod
     def save_email_config(config_data: Dict[str, Any], secret_key: Optional[str] = None) -> Dict[str, Any]:

@@ -3,7 +3,14 @@ import { mount } from '@vue/test-utils';
 import type { WorkflowNode } from '@/types/workflow';
 import WorkflowNodeCard from '../WorkflowNodeCard.vue';
 
+const copyToClipboardMock = vi.fn().mockResolvedValue(true);
+vi.mock('@/utils/feedback', () => ({
+  copyToClipboard: (text: string) => copyToClipboardMock(text),
+}));
+
 vi.mock('@element-plus/icons-vue', () => ({
+  DocumentCopy: { name: 'DocumentCopy', template: '<span class="icon-copy" />' },
+  Cpu: { name: 'Cpu', template: '<span class="icon-cpu" />' },
   Share: { name: 'Share', template: '<span class="icon-share" />' },
   EditPen: { name: 'EditPen', template: '<span class="icon-edit-pen" />' },
   Plus: { name: 'Plus', template: '<span class="icon-plus" />' },
@@ -69,6 +76,21 @@ describe('WorkflowNodeCard', () => {
 
     expect(wrapper.find('.node-name').text()).toBe('更新项目状态');
     expect(wrapper.find('.node-type-label').text()).toBe('更新记录');
+  });
+
+  it('应该渲染节点 ID，便于配置模板变量时引用', () => {
+    const wrapper = mountCard();
+
+    expect(wrapper.find('.node-id .copyable-id-text').text()).toBe('node-1');
+  });
+
+  it('点击节点 ID 应该复制该 ID 到剪贴板', async () => {
+    const wrapper = mountCard();
+    copyToClipboardMock.mockClear();
+
+    await wrapper.find('.node-id').trigger('click');
+
+    expect(copyToClipboardMock).toHaveBeenCalledWith('node-1');
   });
 
   it('应该根据节点类型渲染对应的图标', () => {

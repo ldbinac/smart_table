@@ -21,7 +21,7 @@ htmlcov/
 .mypy_cache/
 
 # Node
-node_modules/
+**/node_modules
 npm-debug.log
 yarn-error.log
 pnpm-debug.log
@@ -74,3 +74,13 @@ smart-table/build/
 *.tmp
 .Trae/
 .trae/
+
+# 仓库内与镜像无关的目录（镜像只需 smart-table/ + smarttable-backend/ + docker/ + Dockerfile + version.json）
+backend/
+config/
+data/
+examples/
+release/
+tools/
+**/dist
+**/build

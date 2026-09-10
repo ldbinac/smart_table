@@ -154,6 +154,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/pdf-preview",
+    name: "PdfPreview",
+    component: () => import("@/views/PdfPreviewPage.vue"),
+    meta: {
+      title: "route.pdfPreview",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
     path: "/settings",
     name: "Settings",
     component: () => import("@/views/Settings.vue"),
@@ -256,6 +266,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/admin/NotificationStats.vue"),
     meta: {
       title: "route.notificationStats",
+      requiresAdmin: true,
+    },
+    beforeEnter: adminGuard,
+  },
+  {
+    path: "/admin/plugins",
+    name: "AdminPlugins",
+    component: () => import("@/views/PluginManage.vue"),
+    meta: {
+      title: "route.adminPlugins",
       requiresAdmin: true,
     },
     beforeEnter: adminGuard,

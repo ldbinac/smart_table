@@ -102,6 +102,12 @@ class Config:
             print(f'   原始配置: {_env_database_url}')
         else:
             # 绝对路径或其他数据库（PostgreSQL 等）→ 直接使用
+            # 协议归一化：裸 postgresql:// 默认改用 psycopg(v3) 驱动，
+            # 规避 psycopg2 在 Windows(GBK 代码页)/Python3.14 下的 UTF-8 解码失败问题
+            if _env_database_url.startswith('postgresql://') \
+                    and '+psycopg' not in _env_database_url \
+                    and '+psycopg2' not in _env_database_url:
+                _env_database_url = _env_database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
             SQLALCHEMY_DATABASE_URI = _env_database_url
             print(f'[Config] ✓ 数据库路径 (外部): {_env_database_url}')
         
@@ -202,6 +208,14 @@ class Config:
     GITEE_REPO_OWNER = os.environ.get('GITEE_REPO_OWNER', 'binac')
     GITEE_REPO_NAME = os.environ.get('GITEE_REPO_NAME', 'smart_table')
     GITEE_STAR_CHECK_STRICT_MODE = os.environ.get('GITEE_STAR_CHECK_STRICT_MODE', 'false').lower() == 'true'
+
+    # ===== 地理位置字段 / 天地图（Tianditu）地图服务配置 =====
+    # 天地图 JS API 密钥（tk），需在 https://console.tianditu.gov.cn 申请
+    TIANDITU_KEY = os.environ.get('TIANDITU_KEY', '')
+    # 天地图服务地址，私有化部署时可整体替换
+    TIANDITU_API_BASE = os.environ.get('TIANDITU_API_BASE', 'https://api.tianditu.gov.cn')
+    # 地图服务开关：未配置 tk 时自动关闭，前端将隐藏地图选点入口
+    MAP_ENABLED = bool(TIANDITU_KEY)
 
 
 class DevelopmentConfig(Config):

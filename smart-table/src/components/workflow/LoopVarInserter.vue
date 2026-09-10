@@ -98,7 +98,7 @@ function handleCommand(command: LoopVarCommand) {
             v-for="field in fieldOptions"
             :key="field.id"
             :command="{ type: 'field', fieldId: field.id }">
-            {{ field.name }}
+            {{ field.name }}（{{ field.id }}）
           </el-dropdown-item>
           <el-dropdown-item v-if="fieldOptions.length === 0" disabled>
             {{ t('workflow.loopVar.noDrillField') }}

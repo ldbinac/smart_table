@@ -1,7 +1,9 @@
 import * as XLSX from "xlsx";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
+import type { GeoFormat } from "@/types/fields";
 import { formatDate, formatDateTime } from "@/utils/timezone";
+import { formatGeoValue } from "@/utils/geo";
 import {
   calculateFormulaDisplay,
   getFormulaRawValue,
@@ -137,6 +139,12 @@ function formatValueForExcel(
       }
       return value;
 
+    case FieldType.GEOLOCATION:
+      if (value && typeof value === "object") {
+        return formatGeoValue(value as any, field.options?.geoFormat as GeoFormat | undefined);
+      }
+      return value;
+
     default:
       return value;
   }
@@ -227,6 +235,12 @@ function formatValueForCSV(
         .filter((n) => n);
       return names.join(", ");
     }
+
+    case FieldType.GEOLOCATION:
+      if (value && typeof value === "object") {
+        return formatGeoValue(value as any, field.options?.geoFormat as GeoFormat | undefined);
+      }
+      return String(value);
 
     default:
       return String(value);

@@ -16,7 +16,7 @@ export const APP_NAME = "SmartTable";
  * 该常量由 build.py 在编译构建时自动从 version.json 同步写入，
  * 确保"问题反馈"自动携带的版本号始终与发布版本一致。
  */
-export const APP_VERSION = "1.6.5";
+export const APP_VERSION = "1.6.6";
 
 /** GitHub 仓库地址 */
 export const GITHUB_REPO_URL = "https://github.com/ldbinac/smart_table";

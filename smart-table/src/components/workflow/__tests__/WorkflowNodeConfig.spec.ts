@@ -12,6 +12,7 @@ import WorkflowNodeConfig from '../WorkflowNodeConfig.vue';
 // Mock Element Plus 图标
 vi.mock('@element-plus/icons-vue', () => ({
   Delete: { template: '<span class="icon-delete" />' },
+  DocumentCopy: { template: '<span class="icon-document-copy" />' },
   Plus: { template: '<span class="icon-plus" />' },
   EditPen: { template: '<span class="icon-edit-pen" />' },
   Check: { template: '<span class="icon-check" />' },

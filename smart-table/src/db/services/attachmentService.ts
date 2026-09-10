@@ -298,6 +298,20 @@ export class AttachmentService {
   }
 
   /**
+   * 获取附件的 Blob 数据（用于 PDF 等新标签预览）
+   * 本地 IndexedDB 优先，否则从后端下载
+   */
+  async getAttachmentBlob(attachmentId: string): Promise<Blob> {
+    // 优先使用本地 IndexedDB 缓存
+    const local = await this.getAttachment(attachmentId);
+    if (local?.data) {
+      return local.data;
+    }
+    // 本地无数据，从后端下载
+    return attachmentApiService.downloadAttachment(attachmentId);
+  }
+
+  /**
    * 获取附件的缩略图 URL
    */
   async getThumbnailUrl(attachmentId: string): Promise<string | undefined> {

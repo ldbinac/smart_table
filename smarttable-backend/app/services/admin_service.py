@@ -1014,7 +1014,7 @@ class AdminService:
                 server.sendmail(from_email, [test_email], msg.as_string())
             
             logger.info(f"测试邮件发送成功：{test_email}")
-            return False, 'smtp_authentication_failed_check_username_password'
+            return True, None
         except smtplib.SMTPConnectError:
             return False, 'connect_smtp_server_check_server_address_port'
         except smtplib.SMTPRecipientsRefused:

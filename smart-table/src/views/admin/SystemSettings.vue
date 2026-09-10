@@ -8,7 +8,7 @@
       <el-tabs v-model="activeTab" type="border-card" class="settings-tabs">
         <!-- 基础配置 -->
         <el-tab-pane :label="t('system.tabBasic')" name="basic">
-          <el-form :model="basicConfigs" label-width="200px" label-position="top">
+          <el-form ref="basicFormRef" :model="basicConfigs" :rules="basicRules" label-width="200px" label-position="top">
             <el-form-item :label="t('system.systemName')">
               <el-input v-model="basicConfigs.system_name" :placeholder="t('system.systemNamePlaceholder')" disabled />
               <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.notEnabledHint') }}</div>
@@ -53,6 +53,13 @@
                 <el-option :label="t('system.tzSydney')" value="Australia/Sydney" />
                 <el-option :label="t('system.tzAuckland')" value="Pacific/Auckland" />
               </el-select>
+            </el-form-item>
+            <el-form-item :label="t('system.systemDomain')" prop="system_domain">
+              <el-input
+                v-model="basicConfigs.system_domain"
+                :placeholder="t('system.systemDomainPlaceholder')"
+              />
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ t('system.systemDomainHint') }}</div>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="saving" @click="saveBasicConfigs">
@@ -254,6 +261,7 @@ const activeTab = ref('basic')
 const saving = ref(false)
 const sendingTestEmail = ref(false)
 const emailFormRef = ref<FormInstance>()
+const basicFormRef = ref<FormInstance>()
 
 const systemConfigs = computed(() => adminStore.systemConfigs)
 
@@ -262,7 +270,8 @@ const basicConfigs = reactive({
   system_description: '',
   page_size: 20,
   timezone_mode: 'utc' as 'utc' | 'local',
-  timezone_name: 'Asia/Shanghai'
+  timezone_name: 'Asia/Shanghai',
+  system_domain: ''
 })
 
 const securityConfigs = reactive({
@@ -313,6 +322,28 @@ const emailRules: FormRules = {
   ]
 }
 
+const validateSystemDomain = (_rule: any, value: any, callback: (error?: Error) => void) => {
+  if (!value || !String(value).trim()) {
+    // 允许留空（留空时使用默认本地地址）
+    callback()
+    return
+  }
+  const v = String(value).trim()
+  // 简单校验：必须包含 http/https 协议，且为合法域名格式（不含空格，且含点号）
+  const domainRegex = /^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]+$/i
+  if (!domainRegex.test(v)) {
+    callback(new Error(t('system.systemDomainInvalid')))
+    return
+  }
+  callback()
+}
+
+const basicRules: FormRules = {
+  system_domain: [
+    { validator: validateSystemDomain, trigger: 'blur' }
+  ]
+}
+
 const loadConfigs = () => {
   const configs = systemConfigs.value as unknown as Record<string, { config_value: any }>
 
@@ -322,6 +353,7 @@ const loadConfigs = () => {
   basicConfigs.page_size = Number(configs['page_size']?.config_value ?? 20)
   basicConfigs.timezone_mode = String(configs['timezone_mode']?.config_value ?? 'utc') as 'utc' | 'local'
   basicConfigs.timezone_name = String(configs['timezone_name']?.config_value ?? 'Asia/Shanghai')
+  basicConfigs.system_domain = String(configs['system_domain']?.config_value ?? '')
 
   // 安全配置
   securityConfigs.password_min_length = Number(configs['password_min_length']?.config_value ?? 8)
@@ -350,11 +382,16 @@ const loadConfigs = () => {
 }
 
 const saveBasicConfigs = async () => {
+  if (!basicFormRef.value) return
+  const valid = await basicFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
   saving.value = true
   try {
     await adminStore.updateSystemConfig([
       { key: 'timezone_mode', value: basicConfigs.timezone_mode, group: 'basic' },
-      { key: 'timezone_name', value: basicConfigs.timezone_name, group: 'basic' }
+      { key: 'timezone_name', value: basicConfigs.timezone_name, group: 'basic' },
+      { key: 'system_domain', value: basicConfigs.system_domain.trim(), group: 'basic' }
     ])
     ElMessage.success(t('system.saveBasicSuccess'))
   } catch (error) {

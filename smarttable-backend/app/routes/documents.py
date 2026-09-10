@@ -3,7 +3,7 @@
 提供文档的 CRUD 和导出功能
 """
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, request, g, send_file
 
@@ -18,6 +18,43 @@ documents_bp = Blueprint('documents', __name__, url_prefix='/api')
 document_service = DocumentService()
 document_export_service = DocumentExportService()
 permission_service = PermissionService()
+
+
+def _to_utc(dt):
+    """把 datetime 统一转换为 UTC aware，避免 naive/aware 直接比较抛异常"""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _is_same_updated_at(current, expected):
+    """
+    比较文档的 updated_at 与前端传入的 expected_updated_at 是否一致（秒级精度）。
+
+    expected 支持：ISO 字符串、以 Z 结尾的字符串、秒/毫秒时间戳。
+    """
+    if current is None:
+        return False
+
+    current_utc = _to_utc(current)
+    raw = str(expected).strip()
+
+    # 纯数字：按时间戳处理（自动识别秒 / 毫秒）
+    if raw.isdigit():
+        timestamp = int(raw)
+        if timestamp > 10_000_000_000:
+            timestamp //= 1000
+        return int(current_utc.timestamp()) == timestamp
+
+    try:
+        expected_dt = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+    except ValueError:
+        # 无法解析为时间，退化为字符串比较
+        return current_utc.isoformat() == raw
+
+    return current_utc.replace(microsecond=0) == _to_utc(expected_dt).replace(microsecond=0)
 
 
 @documents_bp.route('/bases/<base_id>/documents', methods=['GET'])
@@ -293,18 +330,9 @@ def update_document(doc_id):
         expected_updated_at = data.pop('expected_updated_at', None)
 
         # 乐观锁检查：前端传 expected_updated_at（ISO 字符串或时间戳），
-        # 后端用 datetime 对象比较（秒级精度），容忍 Z/+00:00 格式差异和微秒精度差异
-        if expected_updated_at:
-            try:
-                expected_dt = datetime.fromisoformat(str(expected_updated_at).replace('Z', '+00:00'))
-                current_dt = doc.updated_at
-                if current_dt and current_dt.replace(microsecond=0) != expected_dt.replace(microsecond=0):
-                    return api_error('document_been_modified_someone_else_refresh_try_again', 409)
-            except (ValueError, AttributeError, TypeError):
-                # 时间解析失败，fallback 到字符串比较
-                current_updated_at = doc.updated_at.isoformat() if doc.updated_at else None
-                if current_updated_at != expected_updated_at:
-                    return api_error('document_been_modified_someone_else_refresh_try_again', 409)
+        # 比较前统一归一化到 UTC，避免 naive/aware 混用导致的误判
+        if expected_updated_at and not _is_same_updated_at(doc.updated_at, expected_updated_at):
+            return api_error('document_been_modified_someone_else_refresh_try_again', 409)
 
         updated = document_service.update(doc_id=doc_id, user_id=user_id, **data)
         return api_response(updated.to_dict(include_content=True))

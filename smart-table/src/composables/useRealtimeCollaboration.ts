@@ -101,6 +101,11 @@ export function useRealtimeCollaboration(baseId: string) {
 
   const socketClient = ref<RealtimeSocketClient | null>(null)
 
+  // 心跳定时器：定期发送 presence:heartbeat，刷新服务端在线状态的 last_seen，
+  // 避免浏览器崩溃 / 网络异常导致 disconnect 事件丢失后，在线状态永久残留。
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  const HEARTBEAT_INTERVAL = 20000
+
   const {
     isRealtimeAvailable,
     connectionStatus,
@@ -173,10 +178,29 @@ export function useRealtimeCollaboration(baseId: string) {
     if (collaborationStore.offlineQueue.length > 0) {
       collaborationStore.processOfflineQueue()
     }
+    startHeartbeat()
   }
 
   function handleDisconnect() {
     collaborationStore.setConnectionStatus('reconnecting')
+    stopHeartbeat()
+  }
+
+  function sendHeartbeat() {
+    if (!collaborationStore.isRealtimeAvailable || !socketClient.value) return
+    socketClient.value.emit('presence:heartbeat' as never, { base_id: baseId } as never)
+  }
+
+  function startHeartbeat() {
+    stopHeartbeat()
+    heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL)
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer)
+      heartbeatTimer = null
+    }
   }
 
   function setupEventListeners() {
@@ -400,7 +424,15 @@ export function useRealtimeCollaboration(baseId: string) {
   }
 
   function disconnect() {
+    stopHeartbeat()
     if (socketClient.value) {
+      // 先通知服务端离开房间（尽力而为），确保切换页面 / 退出多维表时
+      // 其他用户能立即看到自己下线，而不必等待心跳过期或服务端断线检测。
+      try {
+        leaveRoom()
+      } catch {
+        // 忽略离开失败，后续仍会断开 socket 触发服务端清理
+      }
       removeEventListeners()
       socketClient.value.disconnect()
       socketClient.value = null

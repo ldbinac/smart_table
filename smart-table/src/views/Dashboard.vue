@@ -1139,12 +1139,18 @@ function renderWidget(widget: WidgetConfig) {
   if (widget.type === "number") {
     const total = values.reduce((a, b) => a + b, 0);
     const formattedValue = formatLargeNumber(total);
-    const color = widget.config?.colors?.[0] || freshColors.primary;
+    const color =
+      widget.config?.valueColor || widget.config?.colors?.[0] || freshColors.primary;
+    const textAlign = widget.config?.textAlign || "center";
+    const alignFlex =
+      textAlign === "left" ? "flex-start" : textAlign === "right" ? "flex-end" : "center";
+    const showNumberLabel = widget.config?.showNumberLabel !== false;
+    const numberLabel = widget.config?.numberLabel || widget.title;
 
     container.innerHTML = `
-      <div class="number-card" style="--number-color: ${color}">
-        <div class="number-value">${formattedValue}</div>
-        <div class="number-label">${escapeHtml(widget.title)}</div>
+      <div class="number-card" style="--number-color: ${color}; text-align: ${textAlign}; align-items: ${alignFlex}">
+        <div class="number-value" style="font-size: ${Number(widget.config?.valueFontSize) || 52}px">${formattedValue}</div>
+        ${showNumberLabel ? `<div class="number-label">${escapeHtml(numberLabel)}</div>` : ""}
         ${values.length > 1 ? `<div class="number-detail">${t('dashboard.totalItems', { count: values.length })}</div>` : ""}
       </div>
     `;
@@ -3255,6 +3261,54 @@ onUnmounted(() => {
                   <el-switch
                     v-model="(selectedWidget!.config as any).showLabel"
                     @change="onWidgetConfigChange()" />
+                </el-form-item>
+
+                <el-form-item
+                  :label="t('dashboard.valueFontSize')"
+                  v-if="selectedWidget!.type === 'number'">
+                  <el-slider
+                    v-model="(selectedWidget!.config as any).valueFontSize"
+                    :min="24"
+                    :max="96"
+                    :step="2"
+                    @change="onWidgetConfigChange()" />
+                </el-form-item>
+
+                <el-form-item
+                  :label="t('dashboard.numberTextAlign')"
+                  v-if="selectedWidget!.type === 'number'">
+                  <el-select
+                    v-model="(selectedWidget!.config as any).textAlign"
+                    @change="onWidgetConfigChange()">
+                    <el-option :label="t('dashboard.alignLeft')" value="left" />
+                    <el-option :label="t('dashboard.alignCenter')" value="center" />
+                    <el-option :label="t('dashboard.alignRight')" value="right" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item
+                  :label="t('dashboard.numberValueColor')"
+                  v-if="selectedWidget!.type === 'number'">
+                  <el-color-picker
+                    v-model="(selectedWidget!.config as any).valueColor"
+                    @change="onWidgetConfigChange()" />
+                </el-form-item>
+
+                <el-form-item
+                  :label="t('dashboard.numberLabel')"
+                  v-if="selectedWidget!.type === 'number'">
+                  <el-input
+                    v-model="(selectedWidget!.config as any).numberLabel"
+                    :placeholder="t('dashboard.numberLabelPlaceholder')"
+                    @input="onWidgetConfigChange()" />
+                </el-form-item>
+
+                <el-form-item
+                  :label="t('dashboard.showNumberLabel')"
+                  v-if="selectedWidget!.type === 'number'">
+                  <el-switch
+                    :model-value="(selectedWidget!.config as any).showNumberLabel !== false"
+                    @change="(val) => { (selectedWidget!.config as any).showNumberLabel = val; onWidgetConfigChange(); }" />
                 </el-form-item>
 
                 <el-form-item

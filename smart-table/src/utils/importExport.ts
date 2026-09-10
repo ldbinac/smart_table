@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { FieldEntity } from '@/db/schema';
 import { FieldType, type CellValue, type FieldTypeValue, type FieldOption } from '@/types';
+import { textToGeoValue } from '@/utils/geo';
 import { t } from '@/i18n';
 
 export interface ParsedFileData {
@@ -388,6 +389,12 @@ export function convertValue(
         const optionId = findOptionIdByName(options, name);
         return optionId || name;
       });
+    }
+
+    case FieldType.GEOLOCATION: {
+      const str = String(value).trim();
+      if (!str) return null;
+      return textToGeoValue(str, field?.options?.geoFormat as any);
     }
 
     default:

@@ -122,8 +122,10 @@ export class RecordService {
       };
 
       // 保存到本地 IndexedDB
+      // 使用 put 而非 add：实时协作开启时，data:record_created 广播可能先于
+      // API 响应到达并已由 tableStore 写入本地缓存，add 会因主键冲突抛 ConstraintError
       await db.transaction("rw", [db.records, db.tableEntities], async () => {
-        await db.records.add(localRecord);
+        await db.records.put(localRecord);
         await tableService.updateRecordCount(data.tableId);
       });
 

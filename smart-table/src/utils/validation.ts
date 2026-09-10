@@ -2,6 +2,7 @@ import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
 import type { FieldTypeValue } from "@/types";
 import { t, getLiteral } from "@/i18n";
+import { isGeoEmpty } from "@/utils/geo";
 
 export interface ValidationError {
   fieldId: string;
@@ -285,6 +286,18 @@ export function validateRequiredFields(
     }
 
     const value = values[field.id];
+
+    // 地理位置：结构化对象需按子字段判断是否真正为空，避免空对象绕过必填
+    if (field.type === FieldType.GEOLOCATION) {
+      if (isGeoEmpty(value as any)) {
+        errors.push({
+          fieldId: field.id,
+          fieldName: field.name,
+          message: t('validation.requiredSingle', [field.name]),
+        });
+      }
+      continue;
+    }
 
     if (isValueEmpty(value)) {
       errors.push({

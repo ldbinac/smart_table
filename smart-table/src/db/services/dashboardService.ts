@@ -52,6 +52,8 @@ export interface WidgetConfig {
     titleColor?: string;
     valueFontSize?: number;
     valueColor?: string;
+    numberLabel?: string;
+    showNumberLabel?: boolean;
     // 数据显示配置
     showLegend?: boolean;
     showLabel?: boolean;

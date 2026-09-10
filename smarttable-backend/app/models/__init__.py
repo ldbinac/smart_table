@@ -55,6 +55,17 @@ from app.models.oauth_app import (
 from app.models.workflow_template import WorkflowTemplate
 from app.models.workflow_record_time_trigger import WorkflowRecordTimeTrigger
 from app.models.lookup import LookupFilterOperator, LookupAggregationType, LookupFieldFormat
+from app.models.plugin import (
+    Plugin,
+    PluginVersion,
+    PluginConfig,
+    PluginInstallation,
+    PluginRunLog,
+    PluginType,
+    PluginStatus,
+    PluginConfigScope,
+    RunStatus
+)
 
 __all__ = [
     'User',
@@ -117,5 +128,14 @@ __all__ = [
     'WorkflowRecordTimeTrigger',
     'LookupFilterOperator',
     'LookupAggregationType',
-    'LookupFieldFormat'
+    'LookupFieldFormat',
+    'Plugin',
+    'PluginVersion',
+    'PluginConfig',
+    'PluginInstallation',
+    'PluginRunLog',
+    'PluginType',
+    'PluginStatus',
+    'PluginConfigScope',
+    'RunStatus'
 ]

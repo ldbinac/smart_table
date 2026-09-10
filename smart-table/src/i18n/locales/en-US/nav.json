@@ -5,6 +5,7 @@
   "systemAdmin": "System Admin",
   "userManagement": "User Management",
   "oauthApps": "OAuth Apps",
+  "plugins": "Plugins",
   "systemConfig": "System Config",
   "operationLogs": "Operation Logs",
   "emailTemplates": "Email Templates",

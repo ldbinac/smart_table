@@ -13,3 +13,5 @@ export { importExportApiService } from './importExportApiService';
 export { documentApiService } from './documentApiService';
 export { workflowApiService } from './workflowApiService';
 export { lookupApiService } from './lookupApiService';
+export { getGeoConfig, getChinaLocations, getRegions, clearGeoCache, getGeoLocate } from './geoApiService';
+export type { GeoMapConfig, GeoLocateResult } from './geoApiService';
