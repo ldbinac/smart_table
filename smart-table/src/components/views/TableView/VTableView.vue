@@ -294,6 +294,10 @@ const linkSelectorLinkedRecords = ref<{ record_id: string; display_value: string
 // ==================== 搜索功能状态 ====================
 const searchVisible = ref(false);
 const searchComponent = shallowRef<SearchComponent | null>(null);
+/** 搜索组件当前绑定的表格实例。表格实例在数据更新时会被销毁重建
+ * （updateTable / 分组切换），旧实例已 release；搜索组件若仍持有旧实例
+ * 将搜不到任何内容，因此每次打开/执行搜索前需校验并重建绑定。 */
+let searchBoundTable: ListTable | null = null;
 const searchInput = ref('');
 const searchResultIndex = ref(0);
 const searchTotalCount = ref(0);
@@ -6611,6 +6615,9 @@ onBeforeUnmount(() => {
       tableContainerRef.value.innerHTML = '';
     }
     tableInstance = null;
+    // 表格实例已释放，同步丢弃搜索组件绑定，避免组件卸载后残留旧引用
+    searchComponent.value = null;
+    searchBoundTable = null;
   }
 });
 
@@ -6937,17 +6944,22 @@ function updateSubTableDisabledAdd() {
 }
 
 // ==================== 搜索功能方法 ====================
-// 打开搜索弹窗（供父组件调用）
-function openSearch() {
-  if (!tableInstance) return;
-
-  // 初始化 SearchComponent（仅首次）
-  if (!searchComponent.value) {
+// 确保搜索组件绑定当前存活的表格实例（表格实例销毁重建后必须重建搜索组件）
+function ensureSearchComponent(): boolean {
+  if (!tableInstance) return false;
+  if (!searchComponent.value || searchBoundTable !== tableInstance) {
     searchComponent.value = new SearchComponent({
       table: tableInstance as any,
       autoJump: true,
     });
+    searchBoundTable = tableInstance;
   }
+  return true;
+}
+
+// 打开搜索弹窗（供父组件调用）
+function openSearch() {
+  if (!ensureSearchComponent()) return;
 
   searchVisible.value = true;
 
@@ -6960,7 +6972,7 @@ function openSearch() {
 
 // 执行搜索
 function handleSearch() {
-  if (!searchComponent.value || !searchInput.value.trim()) {
+  if (!searchInput.value.trim()) {
     searchResultIndex.value = 0;
     searchTotalCount.value = 0;
     // 树形视图：搜索词为空时重新加载完整树
@@ -6969,8 +6981,9 @@ function handleSearch() {
     }
     return;
   }
+  if (!ensureSearchComponent()) return;
 
-  const result = searchComponent.value.search(searchInput.value.trim());
+  const result = searchComponent.value!.search(searchInput.value.trim());
   searchResultIndex.value = result.index + 1; // 显示为 1-based
   searchTotalCount.value = result.results.length;
 
@@ -6982,22 +6995,23 @@ function handleSearch() {
 
 // 下一个结果
 function handleSearchNext() {
-  if (!searchComponent.value) return;
-  const result = searchComponent.value.next();
+  if (!ensureSearchComponent()) return;
+  const result = searchComponent.value!.next();
   searchResultIndex.value = result.index + 1;
 }
 
 // 上一个结果
 function handleSearchPrev() {
-  if (!searchComponent.value) return;
-  const result = searchComponent.value.prev();
+  if (!ensureSearchComponent()) return;
+  const result = searchComponent.value!.prev();
   searchResultIndex.value = result.index + 1;
 }
 
 // 关闭搜索
 function closeSearch() {
   searchVisible.value = false;
-  if (searchComponent.value) {
+  // 仅当搜索组件仍绑定当前表格实例时才清理高亮，避免对已 release 的旧实例操作
+  if (searchComponent.value && searchBoundTable === tableInstance) {
     searchComponent.value.clear();
   }
   searchInput.value = '';
