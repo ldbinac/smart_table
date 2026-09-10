@@ -4,6 +4,131 @@
 
 ***
 
+# SmartTable v1.6.6 Release Notes
+
+**发布日期 / Release Date**: 2026-09-10
+
+**版本号 / Version**: v1.6.6
+
+**标签 / Tags**: `release`, `v1.6.6`, `latest`, `stable`, `plugins`, `geolocation`, `form-enhancement`, `workflow`, `dashboard`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.6 更新说明
+
+本次更新聚焦 **插件扩展体系**、**地理位置字段**、**表单能力增强** 以及 **工作流与仪表盘优化**。新增插件开发扩展体系架构与前后端示例插件，支持表格勾选数据传递与扩展点选择约束；新增地理位置字段组件；表单分享支持字段级默认值与只读配置、每行字段数布局与字段顺序调整；工作流更新记录节点支持关联表同步更新；并同步修复了一批问题。
+
+### ✨ 新增及功能优化
+
+#### 🧩 插件扩展体系 ⭐
+
+- ⭐ **插件开发扩展体系**：实现项目插件开发扩展体系架构，提供前后端两个扩展插件样例
+- ⭐ **插件数据传递**：支持表格勾选数据传递与扩展点选择约束
+- **插件文档与示例**：更新插件开发指南，示例重构为 Vue 模板渲染，附 hello-panel 示例插件
+
+#### 📍 地理位置字段 ⭐
+
+- ⭐ **地理位置字段**：新增地理位置字段组件与配置，支持天地图服务接入
+
+#### 📝 表单能力增强
+
+- ⭐ **字段级默认值与只读**：分享表单支持字段级默认值与只读配置
+- **每行字段数布局**：表单视图与分享表单支持每行字段数布局配置
+- **字段顺序调整**：分享表单支持调整字段顺序，并按配置顺序展示可见字段
+- **关联字段支持**：新增记录时支持关联字段选择与写入；匿名分享表单支持关联字段读取
+
+#### 🔧 字段与数据处理
+
+- **类型转换约束**：已有字段类型转换增加限制与二次确认
+- **附件预览增强**：支持 PDF 预览与图片全屏查看
+
+#### ⚙️ 工作流与仪表盘
+
+- **工作流**：更新记录节点支持关联表同步更新配置
+- **仪表盘**：数值组件支持自定义字体大小、颜色、对齐和标签
+
+#### 🛠 管理与账户
+
+- **平台入口域名**：系统配置支持设置平台入口域名，邮件通知与站内信改用该配置
+- **注册提示**：根据注册开关动态显示注册提示
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复 PostgreSQL 数据库迁移失败问题，切换驱动为 psycopg 以兼容 Python 3.14
+- 修复文档保存乐观锁基准过期与权限校验错误
+- 修复未指定字段时全文搜索中文匹配失败
+- 修复长文本和富文本编辑器按键及剪贴板冲突
+- 修复无法清除字段默认值的问题
+- 修复主从表场景下的记录处理问题
+- 修复修改密码接口路径错误导致请求失败
+- 增加在线状态心跳与过期清理机制，修复幽灵在线问题
+- 修复表单分享多列布局下验证码和提交按钮被压缩的问题
+- 修复测试邮件发送成功时返回值错误
+- 修复无 tableId 路由时插件上下文缺失的问题
+- 移除记录历史外键级联删除，保留审计日志完整性
+- **表格全局搜索失败**：修复表格在变动之后，全局搜索失败问题和关联字段存在时候无法搜索问题
+
+***
+
+## English Version
+
+### 🎉 SmartTable v1.6.6 Release Notes
+
+This release focuses on the **plugin extension system**, **geolocation field**, **form enhancements**, and **workflow & dashboard optimizations**. It introduces a plugin development extension architecture with frontend/backend sample plugins, supporting table row-selection data passing and extension-point constraints; adds a new geolocation field; shared forms now support field-level defaults & readonly config, fields-per-row layout and field order adjustment; the workflow update-record node supports syncing linked tables; and a batch of issues has been fixed.
+
+### ✨ New Features & Improvements
+
+#### 🧩 Plugin Extension System ⭐
+
+- ⭐ **Plugin Extension Architecture**: Implemented the project plugin development extension system with frontend and backend sample plugins
+- ⭐ **Plugin Data Passing**: Support passing table row-selection data to plugins with extension-point selection constraints
+- **Plugin Docs & Samples**: Updated the plugin development guide, rebuilt samples with Vue template rendering, and added the hello-panel sample plugin
+
+#### 📍 Geolocation Field ⭐
+
+- ⭐ **Geolocation Field**: New geolocation field component and configuration, with Tianmap (Tianditu) service support
+
+#### 📝 Form Enhancements
+
+- ⭐ **Field-Level Defaults & Readonly**: Shared forms support field-level default values and readonly configuration
+- **Fields-per-Row Layout**: Form views and shared forms support configurable fields per row
+- **Field Order Adjustment**: Shared forms support reordering fields and display visible fields in configured order
+- **Linked Field Support**: Creating records now supports selecting and writing linked fields; anonymous shared forms can read linked fields
+
+#### 🔧 Field & Data Handling
+
+- **Type Conversion Constraints**: Added restrictions and confirmation for converting existing field types
+- **Attachment Preview**: Added PDF preview and image fullscreen viewing
+
+#### ⚙️ Workflow & Dashboard
+
+- **Workflow**: The update-record node supports syncing updates to linked tables
+- **Dashboard**: Numeric components support custom font size, color, alignment and labels
+
+#### 🛠 Admin & Account
+
+- **Platform Entry Domain**: System settings now support a platform entry domain, used by email notifications and in-site messages
+- **Registration Hint**: The registration hint is shown dynamically based on the registration switch
+
+### 🐛 Bug Fixes
+
+- Fixed PostgreSQL migration failure; switched the driver to psycopg for Python 3.14 compatibility
+- Fixed stale optimistic-lock baseline and permission check errors on document save
+- Fixed Chinese full-text search matching failure when no fields are specified
+- Fixed keyboard and clipboard conflicts in long-text and rich-text editors
+- Fixed inability to clear field default values
+- Fixed record handling issues in master-detail scenarios
+- Fixed wrong change-password API path causing request failures
+- Added online-status heartbeat and expiration cleanup, fixing ghost-online issues
+- Fixed captcha and submit button being squeezed in multi-column shared form layouts
+- Fixed incorrect return value when test email sending succeeds
+- Fixed missing plugin context on routes without a tableId
+- Removed foreign-key cascade deletion of record history to preserve audit log integrity
+
+***
+
 # SmartTable v1.6.5 Release Notes
 
 **发布日期 / Release Date**: 2026-08-19
@@ -67,7 +192,7 @@
 - 修复分享表单富文本长度校验问题
 - 修复打包模式自定义上传目录无效问题
 
----
+***
 
 ## English Version
 
@@ -200,7 +325,7 @@ This release focuses on **internationalization & multi-language framework**, **t
 
 - 修复下拉选择编辑器选中值匹配异常，单选/多选改为按 id 匹配并兼容旧的 name 匹配方式
 - 修复下拉选项显示文本错误，改用实际 name 作为展示内容
-- 修复视图路由中 table_id 类型不匹配导致的校验失败，表单视图现可设置为默认视图
+- 修复视图路由中 table\_id 类型不匹配导致的校验失败，表单视图现可设置为默认视图
 - 修复层级表格展开按钮不显示的问题（CachedDataSource 模式下初始化 records 为空）
 - 修复数据更新后表格跳回首行的问题
 - 统一前后端分享接口路由路径，合并分享的更新与删除接口并优化错误提示
@@ -212,7 +337,7 @@ This release focuses on **internationalization & multi-language framework**, **t
 - 修复单元格中调整单选与多选的值，存储的选项值与弹窗里的不一致问题
 - 修复表单分享链接部分场景下无法复制问题
 
----
+***
 
 ## English Version
 
@@ -280,7 +405,7 @@ This release focuses on **master-detail tables & tree hierarchy**, **in-app noti
 
 - Fixed select editor value matching — single/multi select now match by id with backward compatibility for legacy name matching
 - Fixed incorrect select option display text, now using the actual name as display content
-- Fixed view validation failure caused by table_id type mismatch in view routes; form views can now be set as default view
+- Fixed view validation failure caused by table\_id type mismatch in view routes; form views can now be set as default view
 - Fixed hierarchy table expand button not displaying (empty records on init under CachedDataSource mode)
 - Fixed table jumping back to the first row after data updates
 - Unified frontend/backend share API route paths, merged share update and delete APIs with improved error messages
@@ -356,8 +481,7 @@ This release focuses on **master-detail tables & tree hierarchy**, **in-app noti
 - 修复时区获取逻辑，支持读取浏览器本地时区
 - 修复内联 Webhook 的投递与重投递拦截问题
 
-
----
+***
 
 ## English Version
 
@@ -456,7 +580,6 @@ This release focuses on **workflow engine capability expansion**, **formula & fi
 - **分享信息配置** - 新增仪表盘分享标题和备注功能，便于接收方理解分享内容
 - **安全策略优化** - 仅在创建分享时返回一次访问密码，避免密码在后续接口中重复暴露
 
-
 ### 🐛 Bug 修复
 
 | 问题描述     | 修复内容                    |
@@ -464,7 +587,7 @@ This release focuses on **workflow engine capability expansion**, **formula & fi
 | 认证与侧边栏显示 | 修复认证 store 和侧边栏显示逻辑     |
 | 查找字段格式化  | 修复默认值显示和查找字段格式化逻辑       |
 | 仪表盘分享模型  | 导入缺失的 DashboardShare 模型 |
-| 日期函数显示格式  | 修复日期函数显示格式逻辑 |
+| 日期函数显示格式 | 修复日期函数显示格式逻辑            |
 
 ***
 

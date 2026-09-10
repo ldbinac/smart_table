@@ -27,8 +27,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/root/.local/bin:$PATH
 
 # 安装运行时依赖
+# libpango/libpangocairo：WeasyPrint（PDF 导出）运行时必需的系统库
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libpangocairo-1.0-0 \
     curl \
     fonts-liberation \
     fonts-dejavu-core \
