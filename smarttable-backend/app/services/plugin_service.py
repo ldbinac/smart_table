@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -133,17 +134,24 @@ def get_host_version() -> str:
     global _host_version_cache
     if _host_version_cache is None:
         try:
-            # version.json 位于仓库根目录（smarttable-backend 的上一级）
-            candidates = [
-                Path(current_app.root_path).parent.parent / 'version.json',
-                Path(current_app.root_path).parent / 'version.json',
-            ]
+            candidates = []
+            # PyInstaller 打包：优先 exe 同目录（允许部署时覆盖），其次解压资源目录
+            meipass = getattr(sys, '_MEIPASS', None)
+            if meipass:
+                candidates.append(Path(sys.executable).parent / 'version.json')
+                candidates.append(Path(meipass) / 'version.json')
+            # 源码运行：version.json 位于仓库根目录（smarttable-backend 的上一级）
+            root = Path(current_app.root_path)
+            candidates.append(root.parent.parent / 'version.json')
+            candidates.append(root.parent / 'version.json')
             for c in candidates:
                 if c.exists():
                     with open(c, 'r', encoding='utf-8') as f:
                         _host_version_cache = json.load(f).get('version', '0.0.0')
                     break
             else:
+                log.warning('[PluginService] 未找到 version.json，宿主版本按 0.0.0 处理，已探测: %s',
+                            [str(c) for c in candidates])
                 _host_version_cache = '0.0.0'
         except Exception:
             log.exception('[PluginService] 读取宿主版本失败')
@@ -243,7 +251,15 @@ def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str]:
 # ==================== 安装包处理 ====================
 
 def _backend_root() -> Path:
-    """后端应用根目录（smarttable-backend/），与进程工作目录无关"""
+    """数据锚定根目录，与进程工作目录无关。
+
+    打包模式（PyInstaller）：sys._MEIPASS 是每次启动重新生成的临时解压目录
+    （进程退出即删除、易被系统清理），插件数据必须锚定到 EXE 所在目录，
+    与 config（data/logs）、attachment_service（uploads）的策略保持一致；
+    开发模式：smarttable-backend 根目录。
+    """
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent
     return Path(current_app.root_path).parent
 
 
@@ -453,7 +469,13 @@ class PluginService:
             if existing.status == PluginStatus.ERROR:
                 existing.status = PluginStatus.INSTALLED
 
-        package_path = str(root)
+        # 相对路径入库（如 uploads/plugins/<id>/<ver>）：EXE 目录迁移、
+        # 临时解压目录重建时记录不失效；resolve_package_path 读取时锚定解析。
+        # UPLOAD_FOLDER 为外部绝对路径时回退存绝对路径。
+        try:
+            package_path = str(root.relative_to(_backend_root()))
+        except ValueError:
+            package_path = str(root)
         db.session.add(PluginVersion(
             plugin_id=plugin_id,
             version=version,

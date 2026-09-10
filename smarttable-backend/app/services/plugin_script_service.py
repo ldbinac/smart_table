@@ -16,7 +16,6 @@ import logging
 import os
 import queue
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
@@ -33,7 +32,8 @@ from app.models.table import Table
 from app.models.field import Field
 from app.models.record import Record
 from app.services.permission_service import PermissionService
-from app.services.plugin_service import PluginService
+from app.services.plugin_service import PluginService, resolve_package_path
+from app.services.script_execution_service import resolve_python_executable
 
 log = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ class PluginScriptService:
         child_env = os.environ.copy()
         child_env['PYTHONIOENCODING'] = 'utf-8'
         proc = subprocess.Popen(
-            [sys.executable, str(_RUNNER_PATH)],
+            [resolve_python_executable(), str(_RUNNER_PATH)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -465,8 +465,7 @@ class PluginScriptService:
             raise FileNotFoundError(
                 f'plugin version not found: {plugin.id}@{plugin.current_version}')
         # 相对路径按后端根目录锚定解析，与进程 CWD 无关
-        entry_path = PluginService.resolve_package_path(
-            version.package_path) / entry
+        entry_path = resolve_package_path(version.package_path) / entry
         if not entry_path.is_file():
             raise FileNotFoundError(f'plugin entry missing: {entry_path}')
         return entry_path.read_text(encoding='utf-8')
