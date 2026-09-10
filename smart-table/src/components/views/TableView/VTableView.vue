@@ -6953,6 +6953,24 @@ function ensureSearchComponent(): boolean {
       autoJump: true,
     });
     searchBoundTable = tableInstance;
+    // 主从表插件（MasterDetailPlugin）会强制把首列设为 tree:true，导致
+    // SearchComponent 误判为树形表而走树形搜索分支：该分支遍历 table.records，
+    // 而本表使用懒加载 CachedDataSource（get 回调模式），records 只有已渲染行的
+    // 不完整缓存，未渲染的行永远不会被搜到；结果定位还会对假树结构执行
+    // toggleHierarchyState，高亮与跳转全部错乱。
+    // 主从表主行实际是平铺行（子表是展开后内嵌的独立表格），必须强制走普通
+    // 的逐单元格搜索。SearchComponent 在每次 search() 时都会重新给 isTree
+    // 赋值（依据 columns 里是否存在 tree 标记），因此需用访问器拦截其 setter。
+    if (hasLinkFields.value && !isTreeView.value) {
+      const comp = searchComponent.value as any;
+      Object.defineProperty(comp, 'isTree', {
+        get: () => false,
+        set: () => {
+          /* 保持平铺搜索模式，忽略组件内部的树形判定 */
+        },
+        configurable: true,
+      });
+    }
   }
   return true;
 }
