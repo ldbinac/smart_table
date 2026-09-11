@@ -3533,7 +3533,8 @@ const loadTreeRecords = async () => {
     const searchParam = searchInput.value ? searchInput.value.trim() : '';
     const data = await viewApiService.getViewTreeRecords(viewId, searchParam);
     if (isComponentDestroyed.value) return;
-    treeRecords.value = transformTreeRecords(data.tree || []);
+    // 保存后端返回的原始树结构，筛选/排序与格式转换在 treeDisplayRecords 中按需进行
+    treeRecords.value = data.tree || [];
     updateTable();
   } catch (error) {
     console.error('[VTableView] 加载树形记录失败:', error);
@@ -3542,6 +3543,87 @@ const loadTreeRecords = async () => {
     treeLoadingViewId = '';
   }
 };
+
+/**
+ * 树形视图的最终展示数据。
+ *
+ * 父组件已根据视图的筛选/排序配置计算出 props.records（扁平、已筛选并排序）。
+ * 树形结构必须保留层级关系，因此这里只让「叶子节点」参与筛选与排序：
+ * - 筛选：仅保留命中的叶子节点；父级节点只要存在命中的后代就保留，用于维持层级上下文。
+ * - 排序：仅对每一层中的叶子节点排序；父级节点保持原有位置不变，避免打乱层级。
+ */
+const treeDisplayRecords = computed(() => {
+  const raw = treeRecords.value;
+  if (!isTreeView.value || raw.length === 0) return raw;
+
+  const visible = props.records || [];
+  // props.records 为空（数据尚未加载完成）时不参与筛选，避免整棵树被清空
+  const hasVisible = visible.length > 0;
+  // 记录 ID → 在已筛选/排序结果中的序号，用于筛选命中判断与叶子排序
+  const orderMap = new Map<string, number>();
+  if (hasVisible) {
+    visible.forEach((record: any, index: number) => {
+      if (record?.id) orderMap.set(String(record.id), index);
+    });
+  }
+
+  // 1) 筛选：仅叶子节点参与
+  const filterNodes = (nodes: any[]): any[] => {
+    const result: any[] = [];
+    for (const node of nodes) {
+      const children = node?.children || [];
+      if (children.length > 0) {
+        const keptChildren = filterNodes(children);
+        if (keptChildren.length > 0) {
+          result.push({ ...node, children: keptChildren, has_children: true });
+        }
+        continue;
+      }
+      // 标记为有子节点但未加载子节点数据的节点：无法判断其后代，保留
+      if (node?.has_children) {
+        result.push(node);
+        continue;
+      }
+      if (!hasVisible || orderMap.has(String(node?.id))) {
+        result.push(node);
+      }
+    }
+    return result;
+  };
+
+  const filtered = hasVisible ? filterNodes(raw) : raw;
+
+  // 2) 排序：仅叶子节点参与，父级节点保持原有位置
+  const sortLeafNodes = (nodes: any[]): any[] => {
+    const withSortedChildren = nodes.map(node => (
+      node?.children?.length ? { ...node, children: sortLeafNodes(node.children) } : node
+    ));
+    // 父级节点（有子节点的分支）位置固定，叶子节点在剩余位置按排序结果排列
+    const branchFlags = withSortedChildren.map(node => !!(node?.children && node.children.length > 0));
+    const leaves = withSortedChildren.filter((_, index) => !branchFlags[index]);
+    if (leaves.length <= 1) return withSortedChildren;
+
+    const sortedLeaves = [...leaves].sort((a, b) => {
+      const aIndex = orderMap.get(String(a?.id));
+      const bIndex = orderMap.get(String(b?.id));
+      const ai = aIndex === undefined ? Number.MAX_SAFE_INTEGER : aIndex;
+      const bi = bIndex === undefined ? Number.MAX_SAFE_INTEGER : bIndex;
+      return ai - bi;
+    });
+
+    const result = new Array(withSortedChildren.length);
+    branchFlags.forEach((isBranch, index) => {
+      if (isBranch) result[index] = withSortedChildren[index];
+    });
+    let leafIndex = 0;
+    for (let i = 0; i < withSortedChildren.length; i++) {
+      if (!branchFlags[i]) result[i] = sortedLeaves[leafIndex++];
+    }
+    return result;
+  };
+
+  return transformTreeRecords(hasVisible ? sortLeafNodes(filtered) : filtered);
+});
 
 // 为分组模式构建记录（在每个分组末尾插入虚拟「添加记录」行）
 const buildGroupedRecords = (tableRecords: any[]): any[] => {
@@ -4952,13 +5034,16 @@ const buildTableConfig = (): any => {
     (columns[0] as any).tree = true;
   }
 
+  // 分组与树形互斥：树形视图下忽略分组配置（工具栏已置灰分组入口）
+  const isGrouped = !isTreeView.value && !!props.groupBy && props.groupBy.length > 0;
+
   // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
   clearTransformCache(); // 确保全量重建时使用最新记录数据，不返回缓存中的旧行
-  let tableRecords = isTreeView.value ? treeRecords.value : transformRecords(sortedRecords.value);
+  let tableRecords = isTreeView.value ? treeDisplayRecords.value : transformRecords(sortedRecords.value);
 
   // 非分组模式下在表格末尾追加「+ 添加记录」虚拟行
   // 树形视图不追加按钮行
-  if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly && !isTreeView.value) {
+  if (!isGrouped && !props.readonly && !isTreeView.value) {
     const addButtonRecord: any = {
       _recordId: '__add_button__',
       _originalRecord: null,
@@ -4974,7 +5059,7 @@ const buildTableConfig = (): any => {
   }
 
   // 分组末尾添加按钮行
-  if (props.groupBy && props.groupBy.length > 0 && tableRecords.length > 0) {
+  if (isGrouped && tableRecords.length > 0) {
     tableRecords = buildGroupedRecords(tableRecords);
   }
 
@@ -4998,8 +5083,6 @@ const buildTableConfig = (): any => {
   // 数据源模式选择：
   // - 非分组：使用 CachedDataSource 懒渲染，VTable 仅处理可见行
   // - 分组模式：必须使用 records 模式，VTable 的 groupBy/rowSeriesNumber 需要遍历全部记录
-  const isGrouped = props.groupBy && props.groupBy.length > 0;
-
   if (!isGrouped) {
     // 非分组：创建 CachedDataSource
     
@@ -5115,7 +5198,7 @@ const buildTableConfig = (): any => {
       height: true
     },
     // 分组配置：当设置分组条件时，使用 VTable 原生分组展示
-    ...(props.groupBy && props.groupBy.length > 0 ? {
+    ...(isGrouped ? {
       groupConfig: {
         groupBy: props.groupBy,
         enableTreeStickCell: true,
@@ -5141,7 +5224,7 @@ const buildTableConfig = (): any => {
       bodyStyle: {
         color: '#374151'
       },
-      ...(props.groupBy && props.groupBy.length > 0 ? {
+      ...(isGrouped ? {
         groupTitleStyle: {
           fontWeight: 'bold',
           fontSize: 13,
@@ -5161,7 +5244,7 @@ const buildTableConfig = (): any => {
 
   // 为所有数据列添加 addButton 行处理：覆盖单元格内容，隐藏分组字段值
   // customMergeCell 与 groupBy 不兼容，故使用每列 customLayout 方式
-  if (props.groupBy && props.groupBy.length > 0) {
+  if (isGrouped) {
     columns.forEach((col: any) => {
       const origCustomLayout = col.customLayout;
       col.customLayout = (args: any) => {
@@ -6235,7 +6318,8 @@ const updateTableData = () => {
     return;
   }
 
-  const isGrouped = props.groupBy && props.groupBy.length > 0;
+  // 树形视图与分组互斥：树形模式下不按分组渲染
+  const isGrouped = !isTreeView.value && !!props.groupBy && props.groupBy.length > 0;
   isUpdatingData = true;
   pendingDataUpdate = false;
 

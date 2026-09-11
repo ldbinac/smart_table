@@ -2050,10 +2050,13 @@ const handleDocumentExportPdf = async () => {
                     @click="vtableViewRef?.openSearch()">
                     <el-icon><Search /></el-icon>
                   </el-button>
-                  <!-- 筛选按钮 -->
+                  <!-- 筛选按钮（树形视图下仅作用于叶子节点） -->
                   <el-button
                     size="default"
                     :type="activeFilters.length > 0 ? 'primary' : 'default'"
+                    :title="
+                      currentParentFieldId ? t('view.base.treeFilterTip') : ''
+                    "
                     @click="openFilterDialog">
                     <el-icon><Filter /></el-icon>
                     {{ t('view.base.filter') }}
@@ -2067,6 +2070,7 @@ const handleDocumentExportPdf = async () => {
                   <el-button
                     size="default"
                     :type="activeSorts.length > 0 ? 'primary' : 'default'"
+                    :title="currentParentFieldId ? t('view.base.treeSortTip') : ''"
                     @click="openSortDialog">
                     <el-icon><Sort /></el-icon>
                     {{ t('view.base.sort') }}
@@ -2080,6 +2084,12 @@ const handleDocumentExportPdf = async () => {
                   <el-button
                     size="default"
                     :type="hasGroupConfig ? 'primary' : 'default'"
+                    :disabled="!!currentParentFieldId"
+                    :title="
+                      currentParentFieldId
+                        ? t('view.base.treeGroupDisabledTip')
+                        : ''
+                    "
                     @click="openGroupDialog">
                     <el-icon><Folder /></el-icon>
                     {{ t('view.base.group') }}
