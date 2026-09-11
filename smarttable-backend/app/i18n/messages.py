@@ -3612,6 +3612,34 @@ MESSAGES = {
         'zh-CN': '写入站内信失败：{0}',
         'en-US': 'Failed to write notification: {0}',
     },
+    'notify_node_configuration_object': {
+        'zh-CN': '站内信节点的配置必须是对象',
+        'en-US': 'The notification node configuration must be an object',
+    },
+    'notify_recipient_source_required': {
+        'zh-CN': '站内信节点至少需要一个接收人来源',
+        'en-US': 'The notification node requires at least one recipient source',
+    },
+    'notify_recipient_source_invalid': {
+        'zh-CN': '站内信节点接收人来源无效：{0}',
+        'en-US': 'Invalid notification recipient source: {0}',
+    },
+    'notify_fixed_recipients_required': {
+        'zh-CN': '站内信节点选择了「指定成员」，请至少选择一名成员',
+        'en-US': 'The notification node uses "Specific members", please select at least one member',
+    },
+    'notify_field_recipients_required': {
+        'zh-CN': '站内信节点选择了「成员字段」，请至少选择一个成员类型字段',
+        'en-US': 'The notification node uses "Member field", please select at least one member field',
+    },
+    'notify_content_string': {
+        'zh-CN': '站内信节点的 {0} 必须是字符串',
+        'en-US': 'The notification node {0} must be a string',
+    },
+    'notify_title_required': {
+        'zh-CN': '站内信标题不能为空',
+        'en-US': 'The notification title cannot be empty',
+    },
     'operation_failed_try_again': {
         'zh-CN': '{0}失败，请稍后重试',
         'en-US': '{0} failed, please try again later',
