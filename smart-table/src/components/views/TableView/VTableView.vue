@@ -212,6 +212,14 @@ const delayHideTreeAddChildIcon = () => {
   }, 300);
 };
 
+/** 页面或表格滚动时立即隐藏 "+" 按钮：按钮为 fixed 定位，滚动后会与所属行错位 */
+const hideTreeAddChildIconOnScroll = () => {
+  if (!treeAddChildIconVisible.value) return;
+  clearHideTreeAddChildIconTimer();
+  treeAddChildIconVisible.value = false;
+  treeAddChildIcon.value = null;
+};
+
 // 子表工具栏状态
 const subTableToolbarVisible = ref(false);
 const subTableToolbarRecordId = ref('');
@@ -5613,8 +5621,13 @@ const bindTableEvents = () => {
       if (col === 0 && !tableInstance.isHeader(col, row)) {
         const record = tableInstance.getCellOriginRecord(col, row);
         if (record && record._recordId && record._rowType !== 'addButton') {
-          // 按钮固定在序号列右侧边界、当前行垂直居中，明确指向当前行
-          const cellRect = tableInstance.getCellRect(col, row);
+          // 按钮固定在序号列右侧边界、当前行垂直居中，明确指向当前行。
+          // 必须使用 getCellRelativeRect（已扣除横向/纵向滚动偏移）：
+          // getCellRect 返回的是内容坐标系，表格滚动后据此计算的 fixed 坐标会整体偏移，
+          // 导致按钮错位甚至跑到可视区域之外。
+          const cellRect = typeof tableInstance.getCellRelativeRect === 'function'
+            ? tableInstance.getCellRelativeRect(col, row)
+            : tableInstance.getCellRect(col, row);
           if (!cellRect) return;
           const containerRect = tableContainerRef.value?.getBoundingClientRect();
           if (!containerRect) return;
@@ -6682,6 +6695,17 @@ onMounted(() => {
   setupRealtimeListeners();
   document.addEventListener('click', handleDocumentClick);
   window.addEventListener('resize', handleFloatingPanelWindowResize);
+  // 树形视图的 "+" 按钮用 fixed 定位，页面或表格滚动后不会跟随，
+  // 滚动时先隐藏，鼠标移动后会按新的行位置重新显示
+  window.addEventListener('scroll', hideTreeAddChildIconOnScroll, true);
+  tableContainerRef.value?.addEventListener('wheel', hideTreeAddChildIconOnScroll, {
+    passive: true,
+    capture: true,
+  });
+  tableContainerRef.value?.addEventListener('touchmove', hideTreeAddChildIconOnScroll, {
+    passive: true,
+    capture: true,
+  });
   // 初始加载时预加载成员字段的用户信息
   preloadMemberUsers();
 });
@@ -6700,6 +6724,14 @@ onBeforeUnmount(() => {
   disposeMasterDetail();
   document.removeEventListener('click', handleDocumentClick);
   window.removeEventListener('resize', handleFloatingPanelWindowResize);
+  window.removeEventListener('scroll', hideTreeAddChildIconOnScroll, true);
+  tableContainerRef.value?.removeEventListener('wheel', hideTreeAddChildIconOnScroll, {
+    capture: true,
+  } as EventListenerOptions);
+  tableContainerRef.value?.removeEventListener('touchmove', hideTreeAddChildIconOnScroll, {
+    capture: true,
+  } as EventListenerOptions);
+  clearHideTreeAddChildIconTimer();
   if (addRecordCooldownTimer) {
     clearTimeout(addRecordCooldownTimer);
     addRecordCooldownTimer = null;
