@@ -620,6 +620,20 @@ class TestLookupApplyAggregation:
         )
         assert result == 0
 
+    def test_sum_with_numeric_strings(self):
+        """sum: 字符串形式的数字需要参与求和（源字段值常以字符串存储）"""
+        result = LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.SUM.value, None
+        )
+        assert result == 129
+
+    def test_sum_with_thousands_separator(self):
+        """sum: 支持千分位分隔的数字字符串"""
+        result = LookupService._apply_aggregation(
+            ['1,200.50', '300'], LookupAggregationType.SUM.value, None
+        )
+        assert result == 1500.5
+
     # --- count ---
     def test_count(self):
         """count: 返回数量（与值无关）"""
@@ -718,6 +732,38 @@ class TestLookupApplyAggregation:
             [None, ''], LookupAggregationType.MIN.value, source_field
         )
         assert result is None
+
+    def test_max_min_with_numeric_strings(self):
+        """max/min: 字符串数字按数值比较，避免字典序误判（'9' > '100'）"""
+        source_field = _make_field(FieldType.NUMBER.value)
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MAX.value, source_field
+        ) == 100
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MIN.value, source_field
+        ) == 9
+
+    def test_max_min_numeric_strings_on_text_field(self):
+        """max/min: 源字段非数字类型但值为数字时，同样按数值比较"""
+        source_field = _make_field(FieldType.SINGLE_LINE_TEXT.value)
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MAX.value, source_field
+        ) == 100
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MIN.value, source_field
+        ) == 9
+
+    def test_max_min_timestamp_date_field(self):
+        """max/min: 日期字段存毫秒时间戳时按时间先后比较"""
+        source_field = _make_field(FieldType.DATE.value)
+        assert LookupService._apply_aggregation(
+            [1789000000000, 1789100000000],
+            LookupAggregationType.MAX.value, source_field,
+        ) == 1789100000000
+        assert LookupService._apply_aggregation(
+            [1789000000000, 1789100000000],
+            LookupAggregationType.MIN.value, source_field,
+        ) == 1789000000000
 
 
 # ======================================================================

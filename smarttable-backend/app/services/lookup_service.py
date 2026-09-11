@@ -10,7 +10,8 @@
 """
 import json
 import logging
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import current_app
@@ -73,6 +74,53 @@ _BASE_OPERATORS = [
 def _is_number(v: Any) -> bool:
     """判断是否为数字（排除 bool）"""
     return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+# 数值字符串前缀（货币符号、单位等），如 "¥1,200.50"
+_NUMERIC_PREFIX_RE = re.compile(r'^[^\d\-\+\.]+')
+
+
+def _to_number(v: Any) -> Optional[float]:
+    """
+    尽力把值转换为数字，无法转换时返回 None。
+
+    支持：int/float、数字字符串（可含千分位分隔符、货币符号、百分号、前后空白）。
+    源字段值在实际数据中常以字符串形式存储（导入数据、文本/公式字段、API 写入等），
+    聚合计算必须容忍这种情况，否则求和/平均值恒为 0、最大最小值恒为空。
+    """
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        s = v.strip().replace(',', '').replace('，', '')
+        if not s:
+            return None
+        s = _NUMERIC_PREFIX_RE.sub('', s)
+        if s.endswith('%'):
+            s = s[:-1]
+        if not s:
+            return None
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    return None
+
+
+def _normalize_number(v: float) -> Any:
+    """整数结果的浮点数还原为 int，避免出现 129.0 这类显示"""
+    if v == int(v):
+        return int(v)
+    return v
+
+
+def _safe_int(v: Any, default: int) -> int:
+    """安全地转换为 int，失败时返回默认值"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
 
 
 class LookupService:
@@ -402,16 +450,18 @@ class LookupService:
             return len(values)
 
         if aggregation_type == LookupAggregationType.SUM.value:
-            total = 0
+            total = 0.0
             has_number = False
             for v in values:
-                if _is_number(v):
-                    total += v
-                    has_number = True
-            return total if has_number else 0
+                num = _to_number(v)
+                if num is None:
+                    continue
+                total += num
+                has_number = True
+            return _normalize_number(total) if has_number else 0
 
         if aggregation_type == LookupAggregationType.AVG.value:
-            nums = [v for v in values if _is_number(v)]
+            nums = [n for n in (_to_number(v) for v in values) if n is not None]
             if not nums:
                 return None
             return sum(nums) / len(nums)
@@ -426,29 +476,73 @@ class LookupService:
         return values
 
     @staticmethod
+    def _parse_date_value(value: Any) -> Optional[float]:
+        """
+        把日期值解析为可比较的时间戳（秒），无法解析时返回 None。
+
+        支持：毫秒/秒级时间戳（数字或纯数字字符串）、ISO 字符串、YYYY-MM-DD 字符串。
+        """
+        if value is None or isinstance(value, bool):
+            return None
+
+        # 数字时间戳：大于 1e11 视为毫秒
+        if isinstance(value, (int, float)):
+            return float(value) / 1000 if abs(value) > 1e11 else float(value)
+
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return None
+            if s.isdigit() and len(s) >= 9:
+                ts = int(s)
+                return ts / 1000 if ts > 1e11 else float(ts)
+            try:
+                normalized = s.replace('Z', '+00:00') if 'T' in s else s
+                if 'T' in normalized:
+                    dt = datetime.fromisoformat(normalized)
+                else:
+                    dt = datetime.strptime(normalized[:10], '%Y-%m-%d')
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt.timestamp()
+            except (ValueError, TypeError):
+                return None
+
+        return None
+
+    @staticmethod
     def _aggregate_min_max(values: List[Any], source_field: Optional[Field], take_max: bool) -> Any:
-        """求最大/最小值：数字字段返回数字，日期字段返回日期字符串，其他类型返回字符串最值"""
+        """
+        求最大/最小值。
+
+        比较策略按优先级：
+        1. 所有非空值都能转为数字 → 按数值比较（返回数字）
+        2. 源字段为日期类型 → 按时间戳比较（返回原始值）
+        3. 其他 → 按字符串字典序比较
+        """
         # 过滤空值
         non_empty = [v for v in values if v is not None and v != '']
         if not non_empty:
             return None
 
+        # 1) 数值比较：不依赖源字段类型，只要值本身是（或可转为）数字即可，
+        #    避免 "9" > "100" 这类字符串字典序误判
+        nums = [_to_number(v) for v in non_empty]
+        if all(n is not None for n in nums):
+            best = max(nums) if take_max else min(nums)
+            return _normalize_number(best)
+
+        # 2) 日期比较：统一转为时间戳后再比较，返回值保持原始形态
         is_date_field = source_field is not None and source_field.type in _DATE_LIKE_TYPES
-        is_number_field = source_field is not None and source_field.type in _NUMBER_TYPES
-
-        if is_number_field:
-            nums = [v for v in non_empty if _is_number(v)]
-            if not nums:
-                return None
-            return max(nums) if take_max else min(nums)
-
         if is_date_field:
-            strs = [str(v) for v in non_empty if v]
-            if not strs:
-                return None
-            return max(strs) if take_max else min(strs)
+            parsed = [(LookupService._parse_date_value(v), v) for v in non_empty]
+            parsed = [(ts, v) for ts, v in parsed if ts is not None]
+            if parsed:
+                best_ts, best_value = (max(parsed, key=lambda x: x[0]) if take_max
+                                       else min(parsed, key=lambda x: x[0]))
+                return best_value
 
-        # 其他类型按字符串比较
+        # 3) 其他类型按字符串比较
         strs = [str(v) for v in non_empty]
         return max(strs) if take_max else min(strs)
 
@@ -476,25 +570,19 @@ class LookupService:
         field_format = field_format_config.get('type') if isinstance(field_format_config, dict) else field_format_config
 
         if field_format == LookupFieldFormat.NUMBER.value:
-            if not _is_number(value):
+            num = _to_number(value)
+            if num is None:
                 return value
-            precision = field_format_config.get('precision', 0)
-            try:
-                precision_int = int(precision)
-            except (TypeError, ValueError):
-                precision_int = 0
-            return f'{value:.{precision_int}f}'
+            precision_int = max(0, _safe_int(field_format_config.get('precision'), 0))
+            return f'{num:.{precision_int}f}'
 
         if field_format == LookupFieldFormat.CURRENCY.value:
-            if not _is_number(value):
+            num = _to_number(value)
+            if num is None:
                 return value
             symbol = field_format_config.get('currencySymbol', '¥')
-            precision = field_format_config.get('precision', 2)
-            try:
-                precision_int = int(precision)
-            except (TypeError, ValueError):
-                precision_int = 2
-            return f'{symbol}{value:.{precision_int}f}'
+            precision_int = max(0, _safe_int(field_format_config.get('precision'), 2))
+            return f'{symbol}{num:.{precision_int}f}'
 
         if field_format == LookupFieldFormat.DATE.value:
             if not isinstance(value, str) or not value:
