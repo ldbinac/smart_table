@@ -298,9 +298,15 @@ const searchComponent = shallowRef<SearchComponent | null>(null);
  * （updateTable / 分组切换），旧实例已 release；搜索组件若仍持有旧实例
  * 将搜不到任何内容，因此每次打开/执行搜索前需校验并重建绑定。 */
 let searchBoundTable: ListTable | null = null;
+/** 已执行过 search() 的表格实例。表格重建后 SearchComponent 会被重建，
+ *  其内部结果集随之丢失，此时 next()/prev() 会因读取空结果集而报错，
+ *  需要先按当前关键词重新搜索恢复结果集。 */
+let searchAppliedTable: ListTable | null = null;
 const searchInput = ref('');
 const searchResultIndex = ref(0);
 const searchTotalCount = ref(0);
+/** 树形视图搜索需要请求后端重建树，输入过程中做防抖，避免每敲一个字符都重建表格 */
+let treeSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ==================== 关联字段数据缓存 ====================
 // 键: `${recordId}:${fieldId}`, 值: display_value 数组
@@ -3208,6 +3214,8 @@ const treeRecords = ref<any[]>([]);
 const isComponentDestroyed = ref(false);
 /** 当前正在加载树形数据的视图 ID（防并发重复请求） */
 let treeLoadingViewId = '';
+/** 当前进行中的树形数据加载，供并发调用方等待同一份结果 */
+let treeLoadingPromise: Promise<void> | null = null;
 
 // 计算可见字段
 const visibleFields = computed(() => {
@@ -3525,23 +3533,30 @@ const loadTreeRecords = async () => {
     treeRecords.value = [];
     return;
   }
-  // 防并发重复：同一视图的加载仍在进行中则跳过
-  if (treeLoadingViewId === viewId) return;
-  treeLoadingViewId = viewId;
-  try {
-    // 传递搜索关键词，后端筛选时会包含匹配记录的父级上下文
-    const searchParam = searchInput.value ? searchInput.value.trim() : '';
-    const data = await viewApiService.getViewTreeRecords(viewId, searchParam);
-    if (isComponentDestroyed.value) return;
-    // 保存后端返回的原始树结构，筛选/排序与格式转换在 treeDisplayRecords 中按需进行
-    treeRecords.value = data.tree || [];
-    updateTable();
-  } catch (error) {
-    console.error('[VTableView] 加载树形记录失败:', error);
-    if (!isComponentDestroyed.value) treeRecords.value = [];
-  } finally {
-    treeLoadingViewId = '';
+  // 防并发重复：同一视图的加载仍在进行中时复用该次加载，
+  // 保证调用方（如树形搜索）在数据真正就绪、表格重建完成后再执行后续操作
+  if (treeLoadingViewId === viewId && treeLoadingPromise) {
+    return treeLoadingPromise;
   }
+  treeLoadingViewId = viewId;
+  treeLoadingPromise = (async () => {
+    try {
+      // 传递搜索关键词，后端筛选时会包含匹配记录的父级上下文
+      const searchParam = searchInput.value ? searchInput.value.trim() : '';
+      const data = await viewApiService.getViewTreeRecords(viewId, searchParam);
+      if (isComponentDestroyed.value) return;
+      // 保存后端返回的原始树结构，筛选/排序与格式转换在 treeDisplayRecords 中按需进行
+      treeRecords.value = data.tree || [];
+      updateTable();
+    } catch (error) {
+      console.error('[VTableView] 加载树形记录失败:', error);
+      if (!isComponentDestroyed.value) treeRecords.value = [];
+    } finally {
+      treeLoadingViewId = '';
+      treeLoadingPromise = null;
+    }
+  })();
+  return treeLoadingPromise;
 };
 
 /**
@@ -6702,6 +6717,11 @@ onBeforeUnmount(() => {
     // 表格实例已释放，同步丢弃搜索组件绑定，避免组件卸载后残留旧引用
     searchComponent.value = null;
     searchBoundTable = null;
+    searchAppliedTable = null;
+  }
+  if (treeSearchTimer) {
+    clearTimeout(treeSearchTimer);
+    treeSearchTimer = null;
   }
 });
 
@@ -7037,6 +7057,8 @@ function ensureSearchComponent(): boolean {
       autoJump: true,
     });
     searchBoundTable = tableInstance;
+    // 新建的搜索组件没有结果集，next()/prev() 前需要用当前关键词重新搜索
+    searchAppliedTable = null;
     // 主从表插件（MasterDetailPlugin）会强制把首列设为 tree:true，导致
     // SearchComponent 误判为树形表而走树形搜索分支：该分支遍历 table.records，
     // 而本表使用懒加载 CachedDataSource（get 回调模式），records 只有已渲染行的
@@ -7072,32 +7094,90 @@ function openSearch() {
   });
 }
 
+/**
+ * 在当前表格实例上执行一次搜索，并记录结果集与所在实例。
+ * @param restoreIndex 需要恢复到的结果序号（1-based），用于表格重建后回到原位置
+ */
+function runSearch(restoreIndex?: number): boolean {
+  const keyword = searchInput.value.trim();
+  if (!keyword || !ensureSearchComponent()) return false;
+
+  const result = searchComponent.value!.search(keyword);
+  searchTotalCount.value = result.results?.length || 0;
+  searchAppliedTable = tableInstance;
+
+  if (searchTotalCount.value === 0) {
+    searchResultIndex.value = 0;
+    return true;
+  }
+
+  // 表格重建后恢复：前进到此前所在的第 N 个结果
+  const target = Math.min(Math.max(restoreIndex ?? 1, 1), searchTotalCount.value);
+  let current = result.index;
+  let guard = searchTotalCount.value;
+  while (current + 1 < target && guard-- > 0) {
+    current = searchComponent.value!.next().index;
+  }
+  searchResultIndex.value = current + 1; // 显示为 1-based
+  return true;
+}
+
+/**
+ * 确保搜索结果集与当前表格实例匹配。
+ * 表格实例被重建（树形数据刷新、分组切换、记录更新等）后结果集会丢失，
+ * 直接调用 next()/prev() 会因读取空结果集抛出异常，需先重新搜索。
+ */
+function ensureSearchResult(): boolean {
+  if (searchAppliedTable === tableInstance) return searchTotalCount.value > 0;
+  return runSearch(searchResultIndex.value);
+}
+
 // 执行搜索
-function handleSearch() {
+async function handleSearch() {
+  if (treeSearchTimer) {
+    clearTimeout(treeSearchTimer);
+    treeSearchTimer = null;
+  }
+
   if (!searchInput.value.trim()) {
     searchResultIndex.value = 0;
     searchTotalCount.value = 0;
+    searchAppliedTable = null;
     // 树形视图：搜索词为空时重新加载完整树
     if (isTreeView.value) {
       loadTreeRecords();
     }
     return;
   }
+
+  if (isTreeView.value) {
+    // 树形视图：先按关键词加载筛选后的树（含父级上下文）并重建表格，
+    // 之后再执行搜索。若顺序相反，搜索高亮会绑定在即将被销毁的旧表格实例上，
+    // 高亮随重建立即消失，且 next()/prev() 会读到已失效的结果集。
+    treeSearchTimer = setTimeout(async () => {
+      treeSearchTimer = null;
+      try {
+        await loadTreeRecords();
+        runSearch(1);
+      } catch (error) {
+        console.error('[VTableView] 树形视图搜索失败:', error);
+      }
+    }, 300);
+    return;
+  }
+
   if (!ensureSearchComponent()) return;
 
   const result = searchComponent.value!.search(searchInput.value.trim());
   searchResultIndex.value = result.index + 1; // 显示为 1-based
   searchTotalCount.value = result.results.length;
-
-  // 树形视图：同步加载筛选后的树记录（包含父级上下文）
-  if (isTreeView.value) {
-    loadTreeRecords();
-  }
+  searchAppliedTable = tableInstance;
 }
 
 // 下一个结果
 function handleSearchNext() {
   if (!ensureSearchComponent()) return;
+  if (!ensureSearchResult()) return;
   const result = searchComponent.value!.next();
   searchResultIndex.value = result.index + 1;
 }
@@ -7105,6 +7185,7 @@ function handleSearchNext() {
 // 上一个结果
 function handleSearchPrev() {
   if (!ensureSearchComponent()) return;
+  if (!ensureSearchResult()) return;
   const result = searchComponent.value!.prev();
   searchResultIndex.value = result.index + 1;
 }
@@ -7119,6 +7200,7 @@ function closeSearch() {
   searchInput.value = '';
   searchResultIndex.value = 0;
   searchTotalCount.value = 0;
+  searchAppliedTable = null;
   // 树形视图：关闭搜索时重新加载完整树
   if (isTreeView.value) {
     loadTreeRecords();
