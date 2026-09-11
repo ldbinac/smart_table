@@ -299,6 +299,8 @@
   "selectOperator": "Select an operator",
   "currentTableField": "Current table field",
   "customValue": "Custom value",
+  "currentRecord": "Current record",
+  "currentRecordHint": "Match the current record (when the source link field points to this table)",
   "selectCurrentTableField": "Select a current table field",
   "inputNumber": "Enter a number",
   "selectDate": "Select a date",

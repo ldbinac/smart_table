@@ -953,3 +953,103 @@ class TestLookupComputeValue:
             data['record_a'], lookup_field
         )
         assert result == [100, 200]
+
+
+# ======================================================================
+# 关联字段过滤（link 字段存的是目标表记录 ID）
+# ======================================================================
+
+class TestLookupLinkFieldComparison:
+    """关联字段作为过滤条件时的比较逻辑"""
+
+    PROJECT_ID = 'e2b9c3ad-9147-4b84-8e3b-57f390fd9074'
+    OTHER_PROJECT_ID = '35552ebf-054d-495a-a8f9-cecb89f8f00e'
+
+    @staticmethod
+    def _link_field():
+        return _make_field(FieldType.LINK_TO_RECORD.value)
+
+    def test_extract_id_values(self):
+        """关联字段值归一化为记录 ID 列表"""
+        extract = LookupService._extract_id_values
+        assert extract([self.PROJECT_ID]) == [self.PROJECT_ID]
+        assert extract(self.PROJECT_ID) == [self.PROJECT_ID]
+        assert extract([{'id': self.PROJECT_ID, 'name': 'x'}]) == [self.PROJECT_ID]
+        assert extract([]) == []
+        assert extract(None) == []
+
+    def test_link_field_equal_current_record(self):
+        """关联字段包含当前记录 ID 时命中"""
+        result = LookupService._compare_values(
+            [self.PROJECT_ID.upper()],
+            LookupFilterOperator.EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        )
+        assert result is True
+
+    def test_link_field_equal_other_record(self):
+        """关联字段指向其他记录时不命中"""
+        result = LookupService._compare_values(
+            [self.OTHER_PROJECT_ID],
+            LookupFilterOperator.EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        )
+        assert result is False
+
+    def test_link_field_not_equal(self):
+        """关联字段的 not_equal 取反"""
+        assert LookupService._compare_values(
+            [self.OTHER_PROJECT_ID],
+            LookupFilterOperator.NOT_EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is True
+        assert LookupService._compare_values(
+            [self.PROJECT_ID],
+            LookupFilterOperator.NOT_EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is False
+
+    def test_link_field_empty_value(self):
+        """关联字段为空时只有 not_equal 成立"""
+        assert LookupService._compare_values(
+            [],
+            LookupFilterOperator.EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is False
+        assert LookupService._compare_values(
+            [],
+            LookupFilterOperator.NOT_EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is True
+
+    def test_evaluate_condition_with_current_record(self):
+        """valueType=current_record：用当前记录 ID 与关联字段比较"""
+        source_fields_map = {'link_field': self._link_field()}
+        condition = {
+            'fieldId': 'link_field',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'current_record',
+        }
+        source_record = _make_record({'link_field': [self.PROJECT_ID]})
+
+        class _CurrentRecord:
+            id = self.PROJECT_ID
+            values = {}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map
+        ) is True
+
+        class _OtherRecord:
+            id = self.OTHER_PROJECT_ID
+            values = {}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _OtherRecord(), source_fields_map
+        ) is False

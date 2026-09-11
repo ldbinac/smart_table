@@ -53,6 +53,12 @@ _DATE_LIKE_TYPES = {
     FieldType.DATE_TIME.value,
 }
 
+# 关联字段类型：记录中存储的是目标表的记录 ID（单个 ID 或 ID 数组）
+_LINK_FIELD_TYPES = {
+    FieldType.LINK.value,
+    FieldType.LINK_TO_RECORD.value,
+}
+
 # 数字字段类型
 _NUMBER_TYPES = {
     FieldType.NUMBER.value,
@@ -207,8 +213,12 @@ class LookupService:
                 continue
 
             value_type = cond.get('valueType')
-            if value_type not in ('field', 'custom'):
+            if value_type not in ('field', 'custom', 'current_record'):
                 return False, 'value_type_field_custom'
+
+            # current_record：与当前记录本身比较（关联字段场景无需选择字段）
+            if value_type == 'current_record':
+                continue
 
             if value_type == 'field':
                 value_field_id = cond.get('valueFieldId')
@@ -287,6 +297,7 @@ class LookupService:
         condition: Dict[str, Any],
         current_record: Optional[Record],
         source_fields_map: Dict[str, Field],
+        resolve_cache: Optional[Dict[str, List[str]]] = None,
     ) -> bool:
         """
         对单条源表记录评估单个过滤条件
@@ -311,7 +322,12 @@ class LookupService:
             # 获取比较值
             value_type = condition.get('valueType')
             compare_value: Any = None
-            if value_type == 'field':
+            if value_type == 'current_record':
+                # 与当前记录本身比较：关联字段存的是记录 ID，因此用当前记录 ID 参与比较
+                if not current_record:
+                    return False
+                compare_value = str(current_record.id)
+            elif value_type == 'field':
                 value_field_id = str(condition.get('valueFieldId', ''))
                 if not current_record:
                     return False
@@ -320,7 +336,14 @@ class LookupService:
             elif value_type == 'custom':
                 compare_value = condition.get('valueCustom')
 
-            return LookupService._compare_values(field_value, operator, compare_value)
+            return LookupService._compare_values(
+                field_value,
+                operator,
+                compare_value,
+                is_link_field=source_field.type in _LINK_FIELD_TYPES,
+                source_field=source_field,
+                resolve_cache=resolve_cache,
+            )
         except Exception as e:
             current_app.logger.error(f'[LookupService] 评估过滤条件异常: {e}')
             return False
@@ -337,9 +360,138 @@ class LookupService:
         return False
 
     @staticmethod
-    def _compare_values(field_value: Any, operator: str, compare_value: Any) -> bool:
+    def _extract_id_values(value: Any) -> List[str]:
+        """
+        把关联字段值归一化为记录 ID 字符串列表。
+
+        关联字段在记录中的形态可能是：单个 ID 字符串、ID 数组、
+        {id, name} 对象或对象数组。统一转为小写字符串便于比较。
+        """
+        if value is None:
+            return []
+
+        items = value if isinstance(value, list) else [value]
+        result: List[str] = []
+        for item in items:
+            if isinstance(item, dict):
+                item_id = item.get('id') or item.get('record_id') or item.get('recordId')
+                if item_id:
+                    result.append(str(item_id).lower())
+            elif isinstance(item, (str, int)) and not isinstance(item, bool):
+                result.append(str(item).lower())
+        return result
+
+    @staticmethod
+    def _resolve_value_to_record_ids(
+        source_field: Optional[Field],
+        compare_value: Any,
+        resolve_cache: Optional[Dict[str, List[str]]],
+    ) -> List[str]:
+        """
+        把非 ID 的比较值（如项目名等显示值）解析为关联目标表的记录 ID。
+
+        用于「源表关联字段 = 当前表某个文本字段」的场景：关联字段存的是记录 ID，
+        而当前表字段存的是显示值，直接比较永远不相等，需要先把显示值解析为记录 ID。
+        解析结果在单次查找计算内缓存，避免逐条源记录重复查表。
+        """
+        if compare_value is None or isinstance(compare_value, (list, dict, bool)):
+            return []
+
+        key = str(compare_value)
+        cache = resolve_cache if resolve_cache is not None else {}
+        if key in cache:
+            return cache[key]
+
+        ids: List[str] = []
+        try:
+            config = getattr(source_field, 'config', None)
+            config = config if isinstance(config, dict) else {}
+            linked_table_id = config.get('linkedTableId') or config.get('targetTableId')
+            if not linked_table_id:
+                cache[key] = ids
+                return ids
+
+            linked_table_id = str(linked_table_id)
+            target_fields = Field.query.filter_by(table_id=linked_table_id).all()
+            primary_field = next(
+                (f for f in target_fields if getattr(f, 'is_primary', False)), None
+            )
+            if not primary_field:
+                cache[key] = ids
+                return ids
+
+            records = Record.query.filter_by(
+                table_id=linked_table_id, is_deleted=False
+            ).all()
+            for r in records:
+                r_values = r.values if isinstance(r.values, dict) else {}
+                val = r_values.get(str(primary_field.id))
+                if val is None:
+                    continue
+                if isinstance(val, list):
+                    matched = any(str(x) == key for x in val)
+                else:
+                    matched = str(val) == key
+                if matched:
+                    ids.append(str(r.id).lower())
+        except Exception as e:
+            current_app.logger.error(f'[LookupService] 解析关联显示值为记录 ID 失败: {e}')
+
+        cache[key] = ids
+        return ids
+
+    @staticmethod
+    def _compare_link_values(
+        field_value: Any,
+        operator: str,
+        compare_value: Any,
+        source_field: Optional[Field],
+        resolve_cache: Optional[Dict[str, List[str]]],
+    ) -> bool:
+        """
+        关联字段比较：两边都归一化为记录 ID 集合后判断交集。
+
+        关联字段存储的是目标表记录 ID，因此不能用显示值直接比较。
+        """
+        source_ids = set(LookupService._extract_id_values(field_value))
+        target_ids = set(LookupService._extract_id_values(compare_value))
+
+        # 比较值不是 ID 形态（如主字段的项目名），尝试解析为记录 ID
+        if compare_value is not None and not target_ids:
+            target_ids = set(LookupService._resolve_value_to_record_ids(
+                source_field, compare_value, resolve_cache
+            ))
+
+        # 任一侧无法解析出记录 ID 时，只有「不等于」成立
+        if not source_ids or not target_ids:
+            return operator == LookupFilterOperator.NOT_EQUAL.value
+
+        has_intersection = bool(source_ids & target_ids)
+        if operator in (
+            LookupFilterOperator.EQUAL.value,
+            LookupFilterOperator.CONTAINS.value,
+        ):
+            return has_intersection
+        if operator == LookupFilterOperator.NOT_EQUAL.value:
+            return not has_intersection
+        return False
+
+    @staticmethod
+    def _compare_values(
+        field_value: Any,
+        operator: str,
+        compare_value: Any,
+        is_link_field: bool = False,
+        source_field: Optional[Field] = None,
+        resolve_cache: Optional[Dict[str, List[str]]] = None,
+    ) -> bool:
         """根据操作符比较字段值与比较值"""
         try:
+            if is_link_field:
+                return LookupService._compare_link_values(
+                    field_value, operator, compare_value, source_field, resolve_cache
+                )
+
             if operator == LookupFilterOperator.EQUAL.value:
                 if isinstance(field_value, list):
                     return compare_value in field_value
@@ -390,10 +542,14 @@ class LookupService:
         if not conditions:
             return list(source_records)
 
+        # 单次过滤内共享的显示值 → 记录 ID 解析缓存
+        resolve_cache: Dict[str, List[str]] = {}
         filtered: List[Record] = []
         for record in source_records:
             results = [
-                LookupService._evaluate_condition(record, cond, current_record, source_fields_map)
+                LookupService._evaluate_condition(
+                    record, cond, current_record, source_fields_map, resolve_cache
+                )
                 for cond in conditions
             ]
             if conjunction == 'or':
