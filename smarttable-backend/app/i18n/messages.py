@@ -614,6 +614,10 @@ MESSAGES = {
         'zh-CN': 'record_id 不能为空',
         'en-US': 'record_id cannot be empty',
     },
+    'record_ids_empty': {
+        'zh-CN': 'record_ids 不能为空',
+        'en-US': 'record_ids cannot be empty',
+    },
     'retry_policy_object': {
         'zh-CN': 'retry_policy 必须是对象',
         'en-US': 'retry_policy must be an object',

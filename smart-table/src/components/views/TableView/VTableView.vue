@@ -48,7 +48,7 @@ import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors';
 // 导入 VTable 搜索组件
 import { SearchComponent } from '@visactor/vtable-search';
 // 导入 Element Plus 图标
-import { Search } from '@element-plus/icons-vue';
+import { Search, Loading } from '@element-plus/icons-vue';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
@@ -195,6 +195,8 @@ const {
 const treeAddChildIconVisible = ref(false);
 const treeAddChildIcon = ref<{ x: number; y: number; recordId: string; recordName?: string } | null>(null);
 const treeAddChildLoading = ref(false);
+/** 树形数据加载中：首次加载/搜索重建期间表格为空，显示加载提示避免误认为没有数据 */
+const treeLoading = ref(false);
 let hideTreeAddChildIconTimer: ReturnType<typeof setTimeout> | null = null;
 
 const clearHideTreeAddChildIconTimer = () => {
@@ -3548,6 +3550,7 @@ const loadTreeRecords = async () => {
   }
   treeLoadingViewId = viewId;
   treeLoadingPromise = (async () => {
+    treeLoading.value = true;
     try {
       // 传递搜索关键词，后端筛选时会包含匹配记录的父级上下文
       const searchParam = searchInput.value ? searchInput.value.trim() : '';
@@ -3562,6 +3565,7 @@ const loadTreeRecords = async () => {
     } finally {
       treeLoadingViewId = '';
       treeLoadingPromise = null;
+      treeLoading.value = false;
     }
   })();
   return treeLoadingPromise;
@@ -6834,7 +6838,8 @@ async function loadLinkDisplayData() {
   for (const record of sortedRecords.value) {
     for (const field of linkFields) {
       const key = `${record.id}:${field.id}`;
-      if (linkDisplayCache[key] !== undefined) continue; // 已有缓存
+      // 已有缓存、或正在加载中（并发调用时避免重复请求同一批数据）则跳过
+      if (linkDisplayCache[key] !== undefined || linkLoadingStates[key]) continue;
       // 字段有值（目标记录ID数组）才加载
       const rawVal = record.values?.[field.id];
       if (rawVal && Array.isArray(rawVal) && rawVal.length > 0) {
@@ -6849,41 +6854,51 @@ async function loadLinkDisplayData() {
 
   if (needsLoad.length === 0) return;
 
-  // 按 recordId 分组去重，每条记录只调一次 API
+  // 按 recordId 分组去重，通过批量接口一次取回多条记录的关联数据。
+  // 树形/大表场景下逐条请求会产生成百上千个 HTTP 请求，
+  // 受浏览器并发连接数限制会长时间排队，表格因此长时间空白。
   const recordIds = [...new Set(needsLoad.map(n => n.recordId))];
+  const BATCH_SIZE = 100;
+  const pendingByRecord = new Map<string, Array<{ fieldId: string }>>();
+  for (const n of needsLoad) {
+    const list = pendingByRecord.get(n.recordId) || [];
+    list.push({ fieldId: n.fieldId });
+    pendingByRecord.set(n.recordId, list);
+  }
 
   try {
-    const results = await Promise.allSettled(
-      recordIds.map(recordId => linkApiService.getRecordLinks(recordId))
-    );
+    for (let i = 0; i < recordIds.length; i += BATCH_SIZE) {
+      const batch = recordIds.slice(i, i + BATCH_SIZE);
+      let batchLinks: Record<string, { outbound: Array<{ field_id: string; linked_records: Array<{ display_value: string }> }> }> = {};
 
-    for (let i = 0; i < recordIds.length; i++) {
-      const recordId = recordIds[i];
-      const result = results[i];
-
-      if (result.status === 'rejected') {
-        // 该记录下所有字段标记错误
-        for (const n of needsLoad.filter(n => n.recordId === recordId)) {
-          const key = `${recordId}:${n.fieldId}`;
-          linkErrorStates[key] = result.reason?.message || t('view.linkDataLoadFailed');
-          linkLoadingStates[key] = false;
+      try {
+        batchLinks = await linkApiService.getRecordLinksBatch(batch);
+      } catch (error) {
+        // 该批所有字段标记错误，继续加载后续批次
+        for (const recordId of batch) {
+          for (const n of pendingByRecord.get(recordId) || []) {
+            const key = `${recordId}:${n.fieldId}`;
+            linkErrorStates[key] = (error as Error)?.message || t('view.linkDataLoadFailed');
+            linkLoadingStates[key] = false;
+          }
         }
         continue;
       }
 
-      const linkData = result.value;
-
-      // 遍历该记录下需要加载的 LINK 字段
-      for (const n of needsLoad.filter(n => n.recordId === recordId)) {
-        const key = `${recordId}:${n.fieldId}`;
-        // 从 outbound 中找到匹配的字段
-        const outbound = linkData.outbound.find(o => o.field_id === n.fieldId);
-        if (outbound && outbound.linked_records.length > 0) {
-          linkDisplayCache[key] = outbound.linked_records.map(lr => lr.display_value);
-        } else {
-          linkDisplayCache[key] = [];
+      for (const recordId of batch) {
+        const linkData = batchLinks[recordId];
+        // 遍历该记录下需要加载的 LINK 字段
+        for (const n of pendingByRecord.get(recordId) || []) {
+          const key = `${recordId}:${n.fieldId}`;
+          // 从 outbound 中找到匹配的字段
+          const outbound = linkData?.outbound?.find(o => o.field_id === n.fieldId);
+          if (outbound && outbound.linked_records.length > 0) {
+            linkDisplayCache[key] = outbound.linked_records.map(lr => lr.display_value);
+          } else {
+            linkDisplayCache[key] = [];
+          }
+          linkLoadingStates[key] = false;
         }
-        linkLoadingStates[key] = false;
       }
     }
   } catch (error) {
@@ -7282,6 +7297,15 @@ watch(
       @contextmenu.prevent
     ></div>
 
+    <!-- 树形数据加载中：首次加载/搜索重建期间表格为空，给出明确加载提示 -->
+    <div
+      v-if="isTreeView && treeLoading && treeRecords.length === 0"
+      class="tree-loading-mask"
+    >
+      <el-icon class="is-loading"><Loading /></el-icon>
+      <span>{{ t('common.loading') }}</span>
+    </div>
+
     <!-- 子表工具栏（跟随子表末尾定位，放在 vtable-view 下避免被 VTable 初始化清空） -->
     <div
       v-if="subTableToolbarVisible && hasLinkFields && !isTreeView"
@@ -7493,6 +7517,25 @@ watch(
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+// 树形数据加载中遮罩：表格为空时给出明确加载提示
+.tree-loading-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+
+  .el-icon {
+    font-size: 20px;
+    color: var(--el-color-primary);
+  }
 }
 
 .vtable-action-icon {

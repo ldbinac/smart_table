@@ -1069,6 +1069,120 @@ def get_table_history(table_id) -> tuple:
 
 # ==================== 关联记录 API ====================
 
+def _format_record_links(links: Dict[str, List[Dict]]) -> Dict[str, List]:
+    """
+    把 LinkService.get_record_links 的结果转换为前端期望的 outbound/inbound 结构。
+    供单个记录与批量接口共用。
+    """
+    outbound = []
+    inbound = []
+
+    for field_id, link_list in links.items():
+        for link in link_list:
+            if link.get('direction') == 'outgoing':
+                # 找到或创建 outbound 条目
+                existing = next((o for o in outbound if o['field_id'] == field_id), None)
+                if not existing:
+                    field = FieldService.get_field(field_id)
+                    existing = {
+                        'field_id': field_id,
+                        'field_name': field.name if field else '未知字段',
+                        'target_table_id': str(
+                            (field.config or {}).get('linkedTableId')
+                            or (field.config or {}).get('linked_table_id')
+                            or (field.options or {}).get('linkedTableId')
+                            or (field.options or {}).get('linked_table_id')
+                        ) if field else None,
+                        'target_table_name': None,
+                        'linked_records': []
+                    }
+                    outbound.append(existing)
+                existing['linked_records'].append({
+                    'record_id': link['target_record_id'],
+                    'display_value': link.get('target_record') or link['target_record_id']
+                })
+            elif link.get('direction') == 'incoming':
+                # 找到或创建 inbound 条目
+                existing = next((i for i in inbound if i['field_id'] == field_id), None)
+                if not existing:
+                    field = FieldService.get_field(field_id)
+                    existing = {
+                        'field_id': field_id,
+                        'field_name': field.name if field else '未知字段',
+                        'source_table_id': None,
+                        'source_table_name': None,
+                        'linked_records': []
+                    }
+                    inbound.append(existing)
+                existing['linked_records'].append({
+                    'record_id': link['source_record_id'],
+                    'display_value': link.get('source_record') or link['source_record_id']
+                })
+
+    return {'outbound': outbound, 'inbound': inbound}
+
+
+@records_bp.route('/records/links/batch', methods=['POST'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+def batch_get_record_links() -> tuple:
+    """
+    批量获取多条记录的关联数据
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    description: 一次请求返回多条记录的关联数据，避免前端逐条请求造成的大量并发
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - record_ids
+          properties:
+            record_ids:
+              type: array
+              description: 记录 ID 列表（单批最多 200 条）
+              items:
+                type: string
+    responses:
+      200:
+        description: 以记录 ID 为键的关联数据映射
+      400:
+        description: 参数错误
+      500:
+        description: 获取失败
+    """
+    data = request.get_json() or {}
+    record_ids = data.get('record_ids')
+    if not isinstance(record_ids, list) or len(record_ids) == 0:
+        return error_response('record_ids_empty', 400)
+
+    # 限制单批数量，防止一次请求拖垮服务
+    record_ids = [str(r) for r in record_ids if r][:200]
+
+    try:
+        links_map: Dict[str, Dict[str, List]] = {}
+        for record_id in record_ids:
+            if record_id in links_map:
+                continue
+            links = LinkService.get_record_links(record_id)
+            links_map[record_id] = _format_record_links(links)
+
+        return success_response(
+            data={'links': links_map},
+            message='fetched_linked_data_successfully'
+        )
+    except Exception as e:
+        request_id = getattr(g, 'request_id', None)
+        current_app.logger.error(f'[{request_id}] 批量获取关联数据失败: {str(e)}')
+        current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
+        return error_response('failed_fetch_linked_data_try_again_later', 500, error='internal_server_error', request_id=request_id)
+
+
 @records_bp.route('/records/<record_id>/links', methods=['GET'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
@@ -1100,57 +1214,12 @@ def get_record_links(record_id) -> tuple:
         return error_response('record_does_not_exist', 404)
     
     try:
-        # 获取记录的所有关联信息
+        # 获取记录的所有关联信息并转换为前端期望的格式
         links = LinkService.get_record_links(record_id)
-        
-        # 转换为前端期望的格式
-        outbound = []
-        inbound = []
-        
-        for field_id, link_list in links.items():
-            for link in link_list:
-                if link.get('direction') == 'outgoing':
-                    # 找到或创建 outbound 条目
-                    existing = next((o for o in outbound if o['field_id'] == field_id), None)
-                    if not existing:
-                        field = FieldService.get_field(field_id)
-                        existing = {
-                            'field_id': field_id,
-                            'field_name': field.name if field else '未知字段',
-                            'target_table_id': str(
-                                (field.config or {}).get('linkedTableId')
-                                or (field.config or {}).get('linked_table_id')
-                                or (field.options or {}).get('linkedTableId')
-                                or (field.options or {}).get('linked_table_id')
-                            ) if field else None,
-                            'target_table_name': None,
-                            'linked_records': []
-                        }
-                        outbound.append(existing)
-                    existing['linked_records'].append({
-                        'record_id': link['target_record_id'],
-                        'display_value': link.get('target_record') or link['target_record_id']
-                    })
-                elif link.get('direction') == 'incoming':
-                    # 找到或创建 inbound 条目
-                    existing = next((i for i in inbound if i['field_id'] == field_id), None)
-                    if not existing:
-                        field = FieldService.get_field(field_id)
-                        existing = {
-                            'field_id': field_id,
-                            'field_name': field.name if field else '未知字段',
-                            'source_table_id': None,
-                            'source_table_name': None,
-                            'linked_records': []
-                        }
-                        inbound.append(existing)
-                    existing['linked_records'].append({
-                        'record_id': link['source_record_id'],
-                        'display_value': link.get('source_record') or link['source_record_id']
-                    })
-        
+        formatted = _format_record_links(links)
+
         return success_response(
-            data={'outbound': outbound, 'inbound': inbound},
+            data=formatted,
             message='fetched_linked_data_successfully'
         )
     
