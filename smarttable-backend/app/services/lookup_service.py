@@ -59,6 +59,12 @@ _LINK_FIELD_TYPES = {
     FieldType.LINK_TO_RECORD.value,
 }
 
+# 选择类字段类型：记录中存储的是选项 ID，显示给用户的则是选项名称
+_SELECT_FIELD_TYPES = {
+    FieldType.SINGLE_SELECT.value,
+    FieldType.MULTI_SELECT.value,
+}
+
 # 数字字段类型
 _NUMBER_TYPES = {
     FieldType.NUMBER.value,
@@ -298,6 +304,7 @@ class LookupService:
         current_record: Optional[Record],
         source_fields_map: Dict[str, Field],
         resolve_cache: Optional[Dict[str, List[str]]] = None,
+        current_fields_map: Optional[Dict[str, Field]] = None,
     ) -> bool:
         """
         对单条源表记录评估单个过滤条件
@@ -322,6 +329,7 @@ class LookupService:
             # 获取比较值
             value_type = condition.get('valueType')
             compare_value: Any = None
+            compare_field: Optional[Field] = None
             if value_type == 'current_record':
                 # 与当前记录本身比较：关联字段存的是记录 ID，因此用当前记录 ID 参与比较
                 if not current_record:
@@ -333,8 +341,15 @@ class LookupService:
                     return False
                 cur_values = current_record.values if isinstance(current_record.values, dict) else {}
                 compare_value = cur_values.get(value_field_id)
+                if current_fields_map:
+                    compare_field = current_fields_map.get(value_field_id)
             elif value_type == 'custom':
                 compare_value = condition.get('valueCustom')
+
+            # 选择类字段（单选/多选）存的是选项 ID，另一张表可能用文本存选项名称，
+            # 需要展开为「选项 ID + 选项名称」的候选集合后再比较
+            source_candidates = LookupService._expand_select_candidates(field_value, source_field)
+            compare_candidates = LookupService._expand_select_candidates(compare_value, compare_field)
 
             return LookupService._compare_values(
                 field_value,
@@ -343,10 +358,105 @@ class LookupService:
                 is_link_field=source_field.type in _LINK_FIELD_TYPES,
                 source_field=source_field,
                 resolve_cache=resolve_cache,
+                source_candidates=source_candidates,
+                compare_candidates=compare_candidates,
             )
         except Exception as e:
             current_app.logger.error(f'[LookupService] 评估过滤条件异常: {e}')
             return False
+
+    @staticmethod
+    def _get_field_choices(field: Optional[Field]) -> Dict[str, str]:
+        """
+        读取选择类字段的「选项 ID → 选项名称」映射。
+
+        单选/多选字段在记录中存的是选项 ID，而另一张表可能用单行文本存选项名称，
+        两者直接比较永远不会相等，需要先把 ID 与名称建立映射。
+        """
+        if field is None:
+            return {}
+
+        options = getattr(field, 'options', None)
+        if isinstance(options, str):
+            try:
+                options = json.loads(options)
+            except (ValueError, TypeError):
+                options = None
+        if not isinstance(options, dict):
+            return {}
+
+        choices = options.get('choices') or options.get('options') or []
+        choice_map: Dict[str, str] = {}
+        for choice in choices:
+            if not isinstance(choice, dict):
+                continue
+            choice_id = choice.get('id')
+            choice_name = choice.get('name')
+            if choice_id is not None and choice_name is not None:
+                choice_map[str(choice_id)] = str(choice_name)
+        return choice_map
+
+    @staticmethod
+    def _expand_select_candidates(value: Any, field: Optional[Field]) -> Optional[set]:
+        """
+        把选择类字段的值展开为可比较的候选集合（同时包含选项 ID 与选项名称）。
+
+        非选择类字段返回 None，表示不需要候选匹配，走原有比较逻辑。
+        """
+        if field is None or field.type not in _SELECT_FIELD_TYPES:
+            return None
+
+        choice_map = LookupService._get_field_choices(field)
+        raw_values = value if isinstance(value, list) else [value]
+
+        candidates = set()
+        for raw in raw_values:
+            if raw is None or raw == '':
+                continue
+            # 对象形态（{id, name}）时同时取 id 与 name
+            if isinstance(raw, dict):
+                raw_id = raw.get('id')
+                raw_name = raw.get('name')
+                if raw_id is not None:
+                    candidates.add(str(raw_id))
+                if raw_name is not None:
+                    candidates.add(str(raw_name))
+                    continue
+                if raw_id is None:
+                    continue
+                raw = raw_id
+
+            text = str(raw)
+            candidates.add(text)
+            # ID → 名称
+            if text in choice_map:
+                candidates.add(choice_map[text])
+            else:
+                # 名称 → ID（用选项名称作为比较值时反查）
+                for choice_id, choice_name in choice_map.items():
+                    if choice_name == text:
+                        candidates.add(choice_id)
+                        break
+
+        return candidates
+
+    @staticmethod
+    def _plain_values(value: Any) -> set:
+        """把普通值（标量或数组）转为字符串集合，用于候选匹配"""
+        if value is None or value == '':
+            return set()
+        items = value if isinstance(value, list) else [value]
+        result = set()
+        for item in items:
+            if item is None or item == '':
+                continue
+            if isinstance(item, dict):
+                item_id = item.get('id')
+                if item_id is not None:
+                    result.add(str(item_id))
+                continue
+            result.add(str(item))
+        return result
 
     @staticmethod
     def _is_empty_value(value: Any) -> bool:
@@ -477,6 +587,37 @@ class LookupService:
         return False
 
     @staticmethod
+    def _compare_candidates(
+        source_candidates: Optional[set],
+        compare_candidates: Optional[set],
+        field_value: Any,
+        compare_value: Any,
+        operator: str,
+    ) -> bool:
+        """
+        按候选集合比较：用于单选/多选字段与文本字段之间的匹配。
+
+        选择类字段存的是选项 ID，文本字段存的是选项名称，
+        两边都展开为「ID + 名称」的候选集合后取交集即可正确匹配。
+        """
+        left = source_candidates if source_candidates is not None else LookupService._plain_values(field_value)
+        right = compare_candidates if compare_candidates is not None else LookupService._plain_values(compare_value)
+
+        # 任一侧没有可比较的值：只有「不等于」成立
+        if not left or not right:
+            return operator == LookupFilterOperator.NOT_EQUAL.value
+
+        matched = bool(left & right)
+        if operator in (
+            LookupFilterOperator.EQUAL.value,
+            LookupFilterOperator.CONTAINS.value,
+        ):
+            return matched
+        if operator == LookupFilterOperator.NOT_EQUAL.value:
+            return not matched
+        return False
+
+    @staticmethod
     def _compare_values(
         field_value: Any,
         operator: str,
@@ -484,12 +625,24 @@ class LookupService:
         is_link_field: bool = False,
         source_field: Optional[Field] = None,
         resolve_cache: Optional[Dict[str, List[str]]] = None,
+        source_candidates: Optional[set] = None,
+        compare_candidates: Optional[set] = None,
     ) -> bool:
         """根据操作符比较字段值与比较值"""
         try:
             if is_link_field:
                 return LookupService._compare_link_values(
                     field_value, operator, compare_value, source_field, resolve_cache
+                )
+
+            # 选择类字段（单选/多选）与文本值之间的匹配
+            if source_candidates is not None or compare_candidates is not None:
+                return LookupService._compare_candidates(
+                    source_candidates,
+                    compare_candidates,
+                    field_value,
+                    compare_value,
+                    operator,
                 )
 
             if operator == LookupFilterOperator.EQUAL.value:
@@ -535,6 +688,7 @@ class LookupService:
         conjunction: str,
         current_record: Optional[Record],
         source_fields_map: Dict[str, Field],
+        current_fields_map: Optional[Dict[str, Field]] = None,
     ) -> List[Record]:
         """
         根据过滤条件筛选源表记录
@@ -548,7 +702,8 @@ class LookupService:
         for record in source_records:
             results = [
                 LookupService._evaluate_condition(
-                    record, cond, current_record, source_fields_map, resolve_cache
+                    record, cond, current_record, source_fields_map, resolve_cache,
+                    current_fields_map,
                 )
                 for cond in conditions
             ]
@@ -813,11 +968,17 @@ class LookupService:
             source_fields = Field.query.filter_by(table_id=str(source_table_id)).all()
             source_fields_map = {str(f.id): f for f in source_fields}
 
+            # 加载当前表字段：过滤条件 valueType=field 时，
+            # 需要按其字段类型（如单选/多选）解析比较值
+            current_fields = Field.query.filter_by(table_id=str(record.table_id)).all()
+            current_fields_map = {str(f.id): f for f in current_fields}
+
             target_field = source_fields_map.get(str(target_field_id))
 
             # 过滤记录
             filtered_records = LookupService._filter_source_records(
-                source_records, conditions, conjunction, record, source_fields_map
+                source_records, conditions, conjunction, record, source_fields_map,
+                current_fields_map,
             )
 
             # 提取引用字段值

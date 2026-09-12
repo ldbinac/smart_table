@@ -955,6 +955,126 @@ class TestLookupComputeValue:
         assert result == [100, 200]
 
 
+class TestLookupSelectFieldComparison:
+    """单选/多选字段与文本字段之间的过滤匹配"""
+
+    CHOICES = [
+        {'id': 'opt-1', 'name': '电子产品', 'color': '#f00'},
+        {'id': 'opt-2', 'name': '家居', 'color': '#0f0'},
+    ]
+
+    @staticmethod
+    def _select_field(multi=False):
+        field = _make_field(
+            FieldType.MULTI_SELECT.value if multi else FieldType.SINGLE_SELECT.value
+        )
+        field.options = {'choices': TestLookupSelectFieldComparison.CHOICES}
+        return field
+
+    @staticmethod
+    def _text_field():
+        return _make_field(FieldType.SINGLE_LINE_TEXT.value)
+
+    def test_expand_select_candidates(self):
+        """选择类字段展开为「选项 ID + 选项名称」候选集合"""
+        candidates = LookupService._expand_select_candidates(
+            'opt-1', self._select_field()
+        )
+        assert candidates == {'opt-1', '电子产品'}
+
+    def test_expand_non_select_field_returns_none(self):
+        """非选择类字段不展开，走原有比较逻辑"""
+        assert LookupService._expand_select_candidates('电子产品', self._text_field()) is None
+
+    def test_select_id_matches_text_name(self):
+        """源表单选存选项 ID，当前表存选项名称 → 命中"""
+        source_fields_map = {'src_cat': self._select_field()}
+        current_fields_map = {'cur_cat': self._text_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': 'opt-1'})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': '电子产品'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is True
+
+    def test_text_name_matches_select_id(self):
+        """反向：源表存文本，当前表单选存选项 ID → 命中"""
+        source_fields_map = {'src_cat': self._text_field()}
+        current_fields_map = {'cur_cat': self._select_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': '家居'})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': 'opt-2'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is True
+
+    def test_multi_select_matches_any_option(self):
+        """多选字段包含多个选项时，命中其中任一个即匹配"""
+        source_fields_map = {'src_cat': self._select_field(multi=True)}
+        current_fields_map = {'cur_cat': self._text_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': ['opt-1', 'opt-2']})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': '家居'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is True
+
+    def test_select_not_matching_text(self):
+        """选项名称不同 → 不命中"""
+        source_fields_map = {'src_cat': self._select_field()}
+        current_fields_map = {'cur_cat': self._text_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': 'opt-1'})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': '家居'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is False
+
+
 # ======================================================================
 # 关联字段过滤（link 字段存的是目标表记录 ID）
 # ======================================================================
