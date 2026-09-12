@@ -286,10 +286,25 @@ const handlePageChange = (page: number) => {
   fetchList()
 }
 
-// 查看详情
-const handleViewDetail = (row: AppNotification) => {
+// 查看详情：打开抽屉即视为已读，同步刷新列表行、抽屉标签与铃铛未读数
+const handleViewDetail = async (row: AppNotification) => {
   currentNotification.value = row
   detailVisible.value = true
+  if (row.is_read) return
+
+  try {
+    await notificationApiService.markAsRead(row.id)
+    // row 来自 notifications 数组，直接改即可响应式刷新表格已读标签
+    row.is_read = true
+    // currentNotification 用新对象赋值，确保抽屉内的已读标签同步刷新
+    if (currentNotification.value?.id === row.id) {
+      currentNotification.value = { ...row }
+    }
+    await refreshUnreadCount()
+  } catch (error) {
+    // 查看详情优先：标记失败仅记录日志，不弹错、不阻塞浏览
+    console.error('[Notifications] 查看详情自动标记已读失败:', error)
+  }
 }
 
 // 标记单条已读

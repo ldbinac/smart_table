@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useAuthStore } from '@/stores/authStore'
-import { formatRelativeTime } from '@/utils/timezone'
-import type { AppNotification } from '@/services/api/notificationApiService'
+import { formatDateTime, formatRelativeTime } from '@/utils/timezone'
+import { notificationApiService, type AppNotification } from '@/services/api/notificationApiService'
 
 defineOptions({ name: 'NotificationBell' })
 
@@ -47,21 +47,51 @@ const getContentSummary = (notification: AppNotification): string => {
   return ''
 }
 
+// 下拉面板显隐（打开详情时需收起，避免遮挡弹窗）
+const popoverVisible = ref(false)
+// 消息详情弹窗
+const detailVisible = ref(false)
+const currentNotification = ref<AppNotification | null>(null)
+
+// 状态标签映射
+const statusTagMap: Record<string, { labelKey: string; type: any }> = {
+  pending: { labelKey: 'notification.pending', type: 'info' },
+  sent: { labelKey: 'notification.sent', type: 'success' },
+  failed: { labelKey: 'notification.failed', type: 'danger' },
+  retrying: { labelKey: 'notification.retrying', type: 'warning' },
+}
+
+const getStatusTag = (status: string) => {
+  const item = statusTagMap[status]
+  if (item) return { label: t(item.labelKey), type: item.type }
+  return { label: status || t('common.sourceOther'), type: 'info' }
+}
+
 // 跳转到通知列表页
 const goToList = () => {
+  popoverVisible.value = false
+  detailVisible.value = false
   router.push('/notifications')
 }
 
-// 点击单条通知：未读则标记已读，并跳转到列表页
+// 点击单条通知：收起下拉面板并直接打开详情弹窗，未读的同时标记已读
 const handleClickNotification = async (notification: AppNotification) => {
-  if (!notification.is_read) {
-    try {
-      await notificationStore.markAsRead(notification.id)
-    } catch (error) {
-      console.error('[NotificationBell] markAsRead failed:', error)
+  currentNotification.value = notification
+  detailVisible.value = true
+  popoverVisible.value = false
+
+  if (notification.is_read) return
+
+  try {
+    await notificationStore.markAsRead(notification.id)
+    // 重新拉取详情，补齐服务端的 read_at 等字段
+    const res = await notificationApiService.getNotification(notification.id)
+    if (res?.data) {
+      currentNotification.value = res.data
     }
+  } catch (error) {
+    console.error('[NotificationBell] markAsRead failed:', error)
   }
-  goToList()
 }
 
 // 全部已读
@@ -76,20 +106,74 @@ const handleMarkAllAsRead = async () => {
   }
 }
 
-onMounted(() => {
-  // 仅已登录用户才拉取通知，避免未登录时调用需认证的接口导致跳转登录页
-  if (authStore.isAuthenticated) {
-    notificationStore.refresh()
+/** 定时轮询未读数的间隔（毫秒） */
+const UNREAD_POLL_INTERVAL = 60_000
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+/**
+ * 刷新入口统一做登录态判断，
+ * 避免未登录时调用需认证的接口导致跳转登录页。
+ */
+function safeRefresh() {
+  if (!authStore.isAuthenticated) return
+  notificationStore.refresh()
+}
+
+/** 页面重新可见时立即刷新，避免后台标签页长时间挂起后看到陈旧数据 */
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    safeRefresh()
   }
+}
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(() => {
+    if (!authStore.isAuthenticated) return
+    notificationStore.fetchUnreadCount()
+  }, UNREAD_POLL_INTERVAL)
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+onMounted(() => {
+  safeRefresh()
+  startPolling()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
+
+onUnmounted(() => {
+  stopPolling()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
+
+// 登录态兜底：已登录时立即刷新，登出时清空本地状态，避免残留上一位用户的数据
+watch(
+  () => authStore.isAuthenticated,
+  (isAuthenticated) => {
+    if (isAuthenticated) {
+      safeRefresh()
+    } else {
+      notificationStore.reset()
+    }
+  },
+)
 </script>
 
 <template>
   <el-popover
+    v-model:visible="popoverVisible"
     placement="bottom-end"
     :width="380"
     trigger="click"
     popper-class="notification-bell-popover"
+    @show="safeRefresh"
   >
     <template #reference>
       <el-badge
@@ -156,6 +240,44 @@ onMounted(() => {
       </div>
     </div>
   </el-popover>
+
+  <!-- 消息详情弹窗：点击下拉列表中的消息后直接展开查看。
+       必须 append-to-body 传送到 body，否则会被 AppHeader 的层叠上下文
+       （position: relative; z-index: 100）限制在导航栏区域内，导致内容不可见。 -->
+  <el-dialog
+    v-model="detailVisible"
+    :title="t('notification.detailTitle')"
+    width="560px"
+    append-to-body
+    class="notification-detail-dialog"
+  >
+    <div v-if="currentNotification" class="detail-content">
+      <h2 class="detail-title">{{ currentNotification.title }}</h2>
+      <div class="detail-meta">
+        <el-tag size="small" :type="getSourceTag(currentNotification.source).type">
+          {{ getSourceTag(currentNotification.source).label }}
+        </el-tag>
+        <el-tag size="small" :type="getStatusTag(currentNotification.status).type">
+          {{ getStatusTag(currentNotification.status).label }}
+        </el-tag>
+        <el-tag size="small" :type="currentNotification.is_read ? 'info' : 'danger'">
+          {{ currentNotification.is_read ? t('notification.read') : t('notification.unread') }}
+        </el-tag>
+      </div>
+      <div class="detail-time">
+        <span>{{ t('notification.createTime') }}：{{ formatDateTime(currentNotification.created_at) }}</span>
+        <span v-if="currentNotification.sent_at">
+          {{ t('notification.sentTime') }}：{{ formatDateTime(currentNotification.sent_at) }}
+        </span>
+        <span v-if="currentNotification.read_at">
+          {{ t('notification.readTime') }}：{{ formatDateTime(currentNotification.read_at) }}
+        </span>
+      </div>
+      <el-divider />
+      <!-- 内容为后端生成的 HTML，使用 v-html 渲染 -->
+      <div class="detail-body" v-html="currentNotification.content"></div>
+    </div>
+  </el-dialog>
 </template>
 
 <style lang="scss" scoped>
@@ -268,5 +390,46 @@ onMounted(() => {
   border-top: 1px solid var(--el-border-color-lighter);
   padding-top: 8px;
   margin-top: 4px;
+}
+
+// 弹窗经 append-to-body 传送到 body，此处限制最大宽度以适配窄屏
+.notification-detail-dialog {
+  max-width: 90vw;
+}
+
+.detail-content {
+  .detail-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: var(--el-text-color-primary);
+    word-break: break-word;
+  }
+
+  .detail-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .detail-time {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .detail-body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--el-text-color-primary);
+    word-break: break-word;
+
+    :deep(p) {
+      margin: 0 0 8px 0;
+    }
+  }
 }
 </style>
