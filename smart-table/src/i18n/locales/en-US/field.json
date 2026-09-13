@@ -118,6 +118,7 @@
   "configured": "Configured",
   "nameRequired": "Please enter a field name",
   "fieldName": "Field Name",
+  "fieldNamePlaceholder": "Enter field name",
   "notAllowedTitle": "Operation not allowed",
   "primaryMoveMsg": "The primary field cannot be moved; it is the identifier of the table",
   "beforePrimaryMsg": "Other fields cannot be placed before the primary field; the primary field is always at the leftmost",

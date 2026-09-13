@@ -13,6 +13,8 @@ const { t } = useI18n();
 interface Props {
   record: RecordEntity;
   fields: FieldEntity[];
+  /** 只读模式：隐藏卡片上的编辑/删除菜单（移动端看板用），点击仍可打开详情 */
+  readonly?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -124,7 +126,7 @@ function handleCardClick(event: MouseEvent) {
       <span class="card-title">
         {{ primaryValue || t("view.noTitle") }}
       </span>
-      <div class="card-actions" @click.stop>
+      <div v-if="!readonly" class="card-actions" @click.stop>
         <el-dropdown trigger="click">
           <button class="card-menu-btn">
             <el-icon><MoreFilled /></el-icon>

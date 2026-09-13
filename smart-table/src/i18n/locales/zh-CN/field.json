@@ -118,6 +118,7 @@
   "configured": "已配置",
   "nameRequired": "请输入字段名称",
   "fieldName": "字段名称",
+  "fieldNamePlaceholder": "请输入字段名称",
   "notAllowedTitle": "操作不允许",
   "primaryMoveMsg": "索引列字段不能被移动，它是表格的标识字段",
   "beforePrimaryMsg": "其他字段不能调整到索引列字段之前，索引列始终位于最左侧",

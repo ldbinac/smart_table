@@ -67,14 +67,19 @@ const suffix = computed(() =>
 const displayValue = computed(() => {
   if (props.modelValue === null || props.modelValue === undefined) return "-";
 
-  return formatNumberField(props.modelValue, {
-    precision: precision.value,
-    format: format.value,
-    currencySymbol: currencySymbol.value,
-    prefix: props.field?.options?.prefix,
-    suffix: props.field?.options?.suffix,
-    thousandsSeparator: thousandsSeparator.value,
-  });
+  // 前后缀交由下方单独的 prefix/suffix 插槽渲染，这里隐藏避免重复（如「1元元」）
+  return formatNumberField(
+    props.modelValue,
+    {
+      precision: precision.value,
+      format: format.value,
+      currencySymbol: currencySymbol.value,
+      prefix: props.field?.options?.prefix,
+      suffix: props.field?.options?.suffix,
+      thousandsSeparator: thousandsSeparator.value,
+    },
+    true,
+  );
 });
 
 const localValue = computed({

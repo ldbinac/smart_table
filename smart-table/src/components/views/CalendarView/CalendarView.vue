@@ -19,10 +19,13 @@ interface Props {
   fields: FieldEntity[];
   records: RecordEntity[];
   readonly?: boolean;
+  /** 移动端模式：月视图简化为「日期 + 蓝点」，点击日期在下方罗列当天数据 */
+  mobile?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
+  mobile: false,
 });
 const emit = defineEmits<{
   (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
@@ -489,6 +492,16 @@ function handleViewChange(view: "month" | "week" | "day") {
   currentView.value = view;
 }
 
+// 移动端月视图：点击日期后，在日历下方罗列当天数据
+const selectedDay = ref<Date | null>(null)
+const selectedDayEvents = computed<CalendarEvent[]>(() =>
+  selectedDay.value ? getEventsForDate(selectedDay.value) : []
+)
+
+function selectDay(date: Date) {
+  selectedDay.value = date
+}
+
 function formatTime(date: Date | string | number): string {
   const d = date instanceof Date ? date : new Date(date);
   if (isNaN(d.getTime())) {
@@ -699,7 +712,7 @@ watch(
     </div>
 
     <!-- 月视图 -->
-    <div v-if="currentView === 'month'" class="calendar-body month-view">
+    <div v-if="currentView === 'month'" class="calendar-body month-view" :class="{ 'mobile-month': mobile }">
       <div class="calendar-header">
         <div v-for="day in weekDays" :key="day" class="weekday-cell">
           {{ day }}
@@ -708,6 +721,7 @@ watch(
 
       <div
         class="calendar-grid"
+        :class="{ 'mobile-grid': mobile }"
         :style="{ gridTemplateRows: `repeat(${monthViewRowCount}, 1fr)` }">
         <div
           v-for="(day, index) in calendarDays"
@@ -717,46 +731,76 @@ watch(
             'other-month': !day.isCurrentMonth,
             today: day.isToday,
             'has-more-events': day.events.length > 3,
+            'is-selected': mobile && selectedDay && isSameDay(day.date, selectedDay),
           }"
-          @click="handleDateClick(day.date)">
+          @click="mobile ? selectDay(day.date) : handleDateClick(day.date)">
           <div class="cell-header">
             <span class="day-number"
               >{{ t("view.dayNumberLabel", { month: day.date.getMonth() + 1, day: day.date.getDate() }) }}</span
             >
           </div>
-          <div class="cell-events">
-            <div
-              v-for="event in day.events.slice(0, 3)"
-              :key="event.id"
-              class="event-item"
-              :style="{ borderLeftColor: event.color }"
-              @click.stop="handleEventClick(event)">
-              {{ event.title }} {{ getRecordLinkSummary(event.record) }}
-            </div>
-            <div v-if="day.events.length > 3" class="more-events">
-              +{{ day.events.length - 3 }} {{ t("view.more") }}
-            </div>
-          </div>
-          <!-- 悬停时显示所有事件的浮层 -->
-          <div v-if="day.events.length > 0" class="events-tooltip">
-            <div class="tooltip-header">
-              <span class="tooltip-date"
-                >{{ t("view.monthDayLabel", { month: day.date.getMonth() + 1, day: day.date.getDate() }) }}</span
-              >
-              <span class="tooltip-count">{{ t("view.eventCount", { count: day.events.length }) }}</span>
-            </div>
-            <div class="tooltip-events-list">
+
+          <!-- 移动端：仅用蓝点标记有数据的日期，点击在下方罗列 -->
+          <span v-if="mobile && day.events.length" class="m-day-dot"></span>
+
+          <!-- PC 端：展示事件条 + 悬停浮层 -->
+          <template v-else>
+            <div class="cell-events">
               <div
-                v-for="event in day.events"
+                v-for="event in day.events.slice(0, 3)"
                 :key="event.id"
-                class="tooltip-event-item"
+                class="event-item"
                 :style="{ borderLeftColor: event.color }"
                 @click.stop="handleEventClick(event)">
                 {{ event.title }} {{ getRecordLinkSummary(event.record) }}
               </div>
+              <div v-if="day.events.length > 3" class="more-events">
+                +{{ day.events.length - 3 }} {{ t("view.more") }}
+              </div>
             </div>
-          </div>
+            <!-- 悬停时显示所有事件的浮层 -->
+            <div v-if="day.events.length > 0" class="events-tooltip">
+              <div class="tooltip-header">
+                <span class="tooltip-date"
+                  >{{ t("view.monthDayLabel", { month: day.date.getMonth() + 1, day: day.date.getDate() }) }}</span
+                >
+                <span class="tooltip-count">{{ t("view.eventCount", { count: day.events.length }) }}</span>
+              </div>
+              <div class="tooltip-events-list">
+                <div
+                  v-for="event in day.events"
+                  :key="event.id"
+                  class="tooltip-event-item"
+                  :style="{ borderLeftColor: event.color }"
+                  @click.stop="handleEventClick(event)">
+                  {{ event.title }} {{ getRecordLinkSummary(event.record) }}
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
+      </div>
+
+      <!-- 移动端月视图：选中某天后，在其下方罗列当天所有数据 -->
+      <div v-if="mobile && selectedDay" class="m-day-panel">
+        <header class="m-day-panel__head">
+          <span class="m-day-panel__title">
+            {{ t("view.monthDayLabel", { month: selectedDay.getMonth() + 1, day: selectedDay.getDate() }) }}
+          </span>
+          <button class="m-day-panel__close" type="button" @click="selectedDay = null">×</button>
+        </header>
+        <div v-if="selectedDayEvents.length" class="m-day-panel__list">
+          <button
+            v-for="event in selectedDayEvents"
+            :key="event.id"
+            class="m-day-event"
+            :style="{ borderLeftColor: event.color }"
+            type="button"
+            @click="handleEventClick(event)">
+            {{ event.title }} {{ getRecordLinkSummary(event.record) }}
+          </button>
+        </div>
+        <p v-else class="m-day-panel__empty">{{ t("view.noEvents") }}</p>
       </div>
     </div>
 
@@ -1642,6 +1686,129 @@ watch(
         color: $text-secondary;
         margin-top: 8px;
       }
+    }
+  }
+}
+
+// ========== 移动端月视图 ==========
+.month-view.mobile-month {
+  // 月历下方要展示选中日期的数据面板，需允许整体纵向滚动
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  .calendar-grid.mobile-grid {
+    // 不占满剩余高度，给下方数据面板留出空间
+    flex: none;
+    gap: 2px;
+    overflow: visible;
+  }
+
+  .calendar-cell {
+    min-height: 44px;
+    padding: 2px;
+    align-items: center;
+    justify-content: center;
+
+    &.is-selected {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.4);
+    }
+
+    .cell-header {
+      height: auto;
+      margin: 0;
+    }
+
+    .day-number {
+      width: 26px;
+      height: 26px;
+      font-size: $font-size-sm;
+    }
+  }
+
+  // 有数据的日期显示蓝点
+  .m-day-dot {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: $primary-color;
+  }
+
+  // 选中日期后在日历下方罗列当天数据
+  .m-day-panel {
+    margin-top: $spacing-md;
+    padding: $spacing-md;
+    background: $surface-color;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-lg;
+    flex-shrink: 0;
+
+    &__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: $spacing-sm;
+    }
+
+    &__title {
+      font-size: $font-size-base;
+      font-weight: 600;
+      color: $text-primary;
+    }
+
+    &__close {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: $text-secondary;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 50%;
+
+      &:active {
+        background: rgba($primary-color, 0.1);
+      }
+    }
+
+    &__list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+
+    &__empty {
+      margin: 4px 0 0;
+      font-size: $font-size-sm;
+      color: $text-disabled;
+    }
+  }
+
+  .m-day-event {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: $font-size-sm;
+    color: $text-primary;
+    background: linear-gradient(
+      135deg,
+      rgba($primary-color, 0.08) 0%,
+      rgba($primary-color, 0.04) 100%
+    );
+    border-left: 3px solid $primary-color;
+    border-radius: $border-radius-md;
+    cursor: pointer;
+
+    &:active {
+      background: rgba($primary-color, 0.15);
     }
   }
 }
