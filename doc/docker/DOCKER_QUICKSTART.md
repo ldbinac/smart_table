@@ -190,8 +190,8 @@ services:
 ### 备份数据库
 
 ```bash
-# SQLite
-docker cp smarttable:/app/smarttable.db ./backup.db
+# SQLite（数据库文件位于持久化卷挂载的 /app/data 目录）
+docker cp smarttable:/app/data/smarttable.db ./backup.db
 
 # PostgreSQL
 docker exec smarttable-postgres pg_dump -U smarttable smarttable > backup.sql
@@ -200,8 +200,8 @@ docker exec smarttable-postgres pg_dump -U smarttable smarttable > backup.sql
 ### 恢复数据库
 
 ```bash
-# SQLite
-docker cp backup.db smarttable:/app/smarttable.db
+# SQLite（恢复前建议先停止应用，避免写入中覆盖）
+docker cp backup.db smarttable:/app/data/smarttable.db
 docker compose restart
 
 # PostgreSQL

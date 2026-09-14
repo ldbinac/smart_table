@@ -8,7 +8,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: smarttable:latest
+    # 允许通过 SMARTTABLE_IMAGE 指定镜像（build_docker.py --run 时传入，
+    # 避免构建产物镜像名与 compose 镜像名不一致导致重复构建）
+    image: ${SMARTTABLE_IMAGE:-smarttable:latest}
     container_name: smarttable
     restart: unless-stopped
     ports:
@@ -21,6 +23,10 @@ services:
       JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-86400}
       
       # 数据库配置（使用 SQLite，不设置则 Config 自动生成正确路径）
+      # 如需连接外部/网络上的 PostgreSQL，请在 .env 中设置 DATABASE_URL，例如：
+      #   DATABASE_URL=postgresql+psycopg://user:pass@host:5432/dbname
+      # 留空（默认）则使用容器内内置的 SQLite
+      DATABASE_URL: ${DATABASE_URL:-}
       
       # Redis 配置（内嵌 Redis，连接本地）
       REDIS_URL: redis://localhost:6379/0

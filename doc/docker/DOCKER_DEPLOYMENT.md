@@ -344,11 +344,11 @@ docker compose config
 **解决方案**:
 
 ```bash
-# 检查数据库文件权限
-docker exec smarttable ls -la /app/*.db
+# 检查数据库文件权限（SQLite 文件位于持久化卷挂载的 /app/data 目录）
+docker exec smarttable ls -la /app/data/
 
 # 修复权限
-docker exec smarttable chmod 644 /app/smarttable.db
+docker exec smarttable chmod 644 /app/data/smarttable.db
 
 # 重启容器
 docker compose restart
@@ -380,11 +380,8 @@ docker compose restart
 
 ```bash
 # 限制容器内存使用
-# 编辑 docker-compose.yml，添加：
-# deploy:
-#   resources:
-#     limits:
-#       memory: 1G
+# docker-compose.full.yml 已内置 deploy.resources.limits，
+# 可直接调整其中 postgres/redis/smarttable 各服务的 memory 上限
 ```
 
 ### 7. 访问速度慢
@@ -393,14 +390,17 @@ docker compose restart
 
 **解决方案**:
 
-```bash
-# 增加 Gunicorn worker 数量
-# 编辑 smarttable-backend/gunicorn.conf.py
-workers = 4  # 增加到 4 或更多
+应用进程统一由 `docker/server_runner.py` 通过 `eventlet.wsgi.server` 启动（单进程协程模型，
+最大并发连接由 max_size=8096 控制），不存在 gunicorn worker 调优项。可从以下方向排查：
 
-# 重新构建
-docker compose build
-docker compose up -d
+```bash
+# 1. 查看各服务资源占用，确认是否触发 full 部署中的内存限制
+docker stats
+
+# 2. 查看应用与 Nginx 日志定位慢请求（日志含 rt/urt 请求耗时）
+docker compose logs -f smarttable
+
+# 3. 数据库/Redis 部署在独立容器时，检查其负载与网络延迟
 ```
 
 ---
@@ -474,11 +474,11 @@ docker inspect smarttable
 ### 数据库备份
 
 ```bash
-# 备份 SQLite 数据库
-docker cp smarttable:/app/smarttable.db ./smarttable-backup-$(date +%Y%m%d).db
+# 备份 SQLite 数据库（文件位于持久化卷挂载的 /app/data 目录）
+docker cp smarttable:/app/data/smarttable.db ./smarttable-backup-$(date +%Y%m%d).db
 
 # 恢复数据库
-docker cp smarttable-backup-20240101.db smarttable:/app/smarttable.db
+docker cp smarttable-backup-20240101.db smarttable:/app/data/smarttable.db
 docker compose restart
 ```
 

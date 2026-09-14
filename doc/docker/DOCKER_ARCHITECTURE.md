@@ -11,11 +11,11 @@ SmartTable 采用单 Docker 镜像包含前后端的统一架构设计，简化�
 │                  Docker Container                    │
 │                                                      │
 │  ┌──────────────┐    ┌──────────────────────────┐  │
-│  │    Nginx     │───▶│      Gunicorn            │  │
+│  │    Nginx     │───▶│  Eventlet WSGI Server    │  │
 │  │   (Port 80)  │    │   (Flask App Port 5000)  │  │
 │  │              │    │                          │  │
 │  │  - 静态文件  │    │  - REST API              │  │
-│  │  - 反向代理  │    │  - 业务逻辑              │  │
+│  │  - 反向代理  │    │  - 业务逻辑/WebSocket     │  │
 │  └──────────────┘    └──────────────────────────┘  │
 │                                                      │
 │  ┌──────────────────────────────────────────────┐  │
@@ -100,7 +100,7 @@ SmartTable 采用单 Docker 镜像包含前后端的统一架构设计，简化�
          │
          ├─ 静态文件请求 ──▶ /app/static/ (直接返回)
          │
-         ├─ /api/* ────────▶ Gunicorn:5000
+         ├─ /api/* ────────▶ Eventlet WSGI:5000
          │                      │
          │                      ▼
          │                 ┌─────────────┐
@@ -128,7 +128,7 @@ SmartTable 采用单 Docker 镜像包含前后端的统一架构设计，简化�
 │   Nginx:80      │ ◀── 接收 WebSocket 升级请求
 └────────┬────────┘
          │
-         └─ /socket.io/* ─▶ Gunicorn:5000 (eventlet worker)
+         └─ /socket.io/* ─▶ Eventlet WSGI:5000
                                │
                                ▼
                           ┌─────────────┐
@@ -269,27 +269,15 @@ SmartTable 采用单 Docker 镜像包含前后端的统一架构设计，简化�
 └─────────────────┘
 ```
 
-### Gunicorn 配置优化
+### Eventlet WSGI 运行模型
 
-```python
-# worker 数量计算
-workers = (CPU 核心数 × 2) + 1
+容器中的应用进程由 `docker/server_runner.py` 启动，统一使用 `eventlet.wsgi.server`，
+不再依赖 Gunicorn（requirements.txt 中也不存在 gunicorn）：
 
-# 示例配置（不启用实时协作）
-workers = 4          # 4 核 CPU
-threads = 4          # 每个 worker 4 线程
-worker_class = 'gthread'  # 多线程 worker
-timeout = 120        # 超时时间
-keepalive = 5        # 保持连接时间
-
-# 示例配置（启用实时协作）
-workers = 4          # 4 核 CPU
-worker_class = 'eventlet'  # 协程 worker（支持 WebSocket）
-timeout = 120        # 超时时间
-keepalive = 5        # 保持连接时间
-```
-
-> **注意**：`gunicorn.conf.py` 会根据 `ENABLE_REALTIME` 环境变量自动选择 worker 类型。
+- eventlet 原生支持 HTTP + WebSocket 混合流量，无需按是否启用实时协作切换 worker 类型；
+- `ENABLE_REALTIME=true` 时，SocketIO middleware 自动拦截 `/socket.io/` 完成 WebSocket 升级；
+- 并发连接上限由 `eventlet.wsgi.server(max_size=8096)` 控制；
+- 进程由 Supervisor 托管，异常退出自动重启。
 
 ## 📈 监控指标
 
@@ -311,8 +299,8 @@ keepalive = 5        # 保持连接时间
 └─────────────┘
 
 ┌─────────────┐
-│ Gunicorn    │───▶ stdout/stderr
-│   Logs      │───▶ Supervisor 日志
+│ App Server  │───▶ stdout/stderr
+│ (Eventlet)  │───▶ Supervisor 日志
 └─────────────┘
 
 ┌─────────────┐

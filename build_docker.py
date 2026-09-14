@@ -132,7 +132,7 @@ def _normalize_cmd(cmd):
     return cmd
 
 
-def run_command(cmd, cwd=None, capture=False, check=True, timeout=None, shell=None):
+def run_command(cmd, cwd=None, capture=False, check=True, timeout=None, shell=None, env=None):
     """
     执行 shell 命令，带实时输出
 
@@ -143,6 +143,7 @@ def run_command(cmd, cwd=None, capture=False, check=True, timeout=None, shell=No
         check: 失败时是否退出
         timeout: 超时时间（秒）
         shell: 是否使用 shell（None=自动判断）
+        env: 子进程环境变量（None 时继承当前进程）
 
     Returns:
         CompletedProcess
@@ -166,6 +167,7 @@ def run_command(cmd, cwd=None, capture=False, check=True, timeout=None, shell=No
                 stderr=subprocess.PIPE,
                 encoding='utf-8',
                 errors='replace',
+                env=env,
             )
         except FileNotFoundError:
             log(f'命令未找到: {raw_cmd}', 'ERROR')
@@ -189,6 +191,7 @@ def run_command(cmd, cwd=None, capture=False, check=True, timeout=None, shell=No
             encoding='utf-8',
             errors='replace',
             bufsize=1,
+            env=env,
         )
 
         for line in process.stdout:
@@ -749,8 +752,14 @@ def run_container(image_full, env_file=None):
     log(f'  使用 {compose_cmd} 启动服务...', 'INFO')
     log(f'  配置文件: docker-compose.yml', 'INFO')
 
+    # 将刚构建的镜像名传给 compose（docker-compose.yml 中 image: ${SMARTTABLE_IMAGE:-...}），
+    # 否则 compose 按 smarttable:latest 找不到镜像会重新执行一次完整构建
+    compose_env = os.environ.copy()
+    compose_env['SMARTTABLE_IMAGE'] = image_full
+
     try:
-        run_command([compose_cmd, '-f', 'docker-compose.yml', 'up', '-d'], cwd=PROJECT_ROOT)
+        run_command([compose_cmd, '-f', 'docker-compose.yml', 'up', '-d', '--no-build'],
+                    cwd=PROJECT_ROOT, env=compose_env)
     except:
         log('启动容器失败', 'ERROR')
         sys.exit(1)
@@ -766,11 +775,22 @@ def _run_container_direct(image_full):
     """直接使用 docker run 启动（不依赖 compose）"""
     log('直接使用 docker run 启动...', 'INFO')
 
+    # 卷名必须与 docker compose 实际创建的命名卷一致：compose 默认项目名取
+    # 项目目录 basename（小写），卷名为「项目名_卷名」；显式设置
+    # COMPOSE_PROJECT_NAME 时以其为准，避免两条启动路径各用一套卷、数据互不可见
+    project_name = os.environ.get('COMPOSE_PROJECT_NAME', PROJECT_ROOT.name.lower())
+    project_name = ''.join(c for c in project_name if c.isalnum() or c in '_-') or 'smarttable'
+
     cmd = [
         'docker', 'run', '-d',
         '--name', 'smarttable',
         '--restart', 'unless-stopped',
         '-p', '80:80',
+        # 数据持久化（卷名与 docker-compose.yml 的 top-level volumes 经项目名前缀化后一致），
+        # 否则容器删除后 SQLite 数据库、Redis 数据与附件全部丢失
+        '-v', f'{project_name}_sqlite_data:/app/data',
+        '-v', f'{project_name}_redis_data:/data/redis',
+        '-v', f'{project_name}_uploads_data:/app/uploads',
         '-v', f'{PROJECT_ROOT}/logs:/app/logs',
         '-e', 'FLASK_ENV=production',
     ]
