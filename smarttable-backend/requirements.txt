@@ -6,7 +6,7 @@ Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.23
 Flask-Migrate==4.0.5
 alembic==1.13.1
-psycopg[binary]==3.3.5
+psycopg[binary,pool]>=3.2.1
 
 # 认证与安全
 Flask-JWT-Extended==4.6.0
@@ -23,7 +23,7 @@ redis==5.0.1
 
 # WebSocket 支持
 Flask-SocketIO==5.3.6
-eventlet==0.36.1
+eventlet==0.39.1
 
 # 工作流定时调度
 APScheduler==3.10.4
