@@ -6,7 +6,8 @@ Flask-CORS==4.0.0
 Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.23
 Flask-Migrate==4.0.5
-psycopg[binary]==3.3.5
+# 不要升级到 3.3.x：与 eventlet.monkey_patch() 存在 Queue 泛型兼容性 Bug
+psycopg[binary]==3.2.13
 
 # 认证
 Flask-JWT-Extended==4.6.0

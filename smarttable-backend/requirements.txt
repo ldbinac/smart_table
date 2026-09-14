@@ -6,7 +6,10 @@ Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.23
 Flask-Migrate==4.0.5
 alembic==1.13.1
-psycopg[binary]==3.3.5
+# 注意：不要升级到 3.3.x —— 3.3 的 _acompat.py 使用 class Queue(queue.Queue[T])，
+# 在 eventlet.monkey_patch() 替换标准库 queue.Queue 后会导致
+# "TypeError: type 'Queue' is not subscriptable"，app-server 无法启动
+psycopg[binary,pool]==3.2.13
 
 # 认证与安全
 Flask-JWT-Extended==4.6.0
@@ -23,7 +26,7 @@ redis==5.0.1
 
 # WebSocket 支持
 Flask-SocketIO==5.3.6
-eventlet==0.36.1
+eventlet==0.39.1
 
 # 工作流定时调度
 APScheduler==3.10.4
