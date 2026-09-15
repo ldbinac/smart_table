@@ -64,6 +64,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { DocumentEditor } from "@/components/documents";
 // 插件体系：工具栏扩展点宿主
 import PluginToolbar from "@/components/plugins/PluginToolbar.vue";
+import PluginBaseMenu from "@/components/plugins/PluginBaseMenu.vue";
 import { setSelection } from "@/plugins/registry";
 import { registerSelectionProvider } from "@/plugins/selection";
 import type { SelectionSummary } from "@/plugins/types";
@@ -2143,6 +2144,8 @@ const handleDocumentExportPdf = async () => {
                 </el-button-group>
                 <!-- 插件扩展点：工具栏按钮（有效启用的 UI 插件声明式注册） -->
                 <PluginToolbar />
+                <!-- 插件扩展点：Base 级菜单（下拉聚合，点击打开对话框沙箱） -->
+                <PluginBaseMenu />
                 <!-- <el-button-group>
                   <el-button
                     size="default"

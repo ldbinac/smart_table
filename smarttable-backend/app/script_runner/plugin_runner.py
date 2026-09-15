@@ -170,6 +170,9 @@ def run():
     script_source = payload['script_source']
     context = payload.get('context') or {}
     config = payload.get('config') or {}
+    # endpoint 模式：宿主注入 request（含 endpoint 名称、调用载荷与触发者）
+    mode = payload.get('mode', 'script')
+    request = payload.get('request') or {}
 
     result_holder = {'result': None, 'has_result': False}
 
@@ -186,6 +189,8 @@ def run():
         'config': config,
         'set_result': set_result,
         'result': None,
+        # endpoint 调用模式下插件读取 request 获取调用参数；脚本模式为 None
+        'request': request if mode == 'endpoint' else None,
     }
 
     # 捕获 print：写入用户 stdout 会污染协议通道，统一转为 log 帧

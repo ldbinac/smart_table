@@ -33,6 +33,8 @@
 | `permissions` | object | 权限声明（见第 3 节） |
 | `extensionPoints` | array | UI 扩展点声明（仅 `ui` 类型） |
 | `configSchema` | object | 配置 JSON Schema（可选） |
+| `assets` | object | 包内静态资源声明（可选，详见 §2.3）：`{ styles?: string[], scripts?: string[] }` |
+| `endpoints` | array | 自定义后端接口声明（可选，详见 §2.3）：`[{ name, entry, description?, timeout? }]` |
 | `script.timeout` | number | 后端脚本超时（秒，可选，封顶 300） |
 
 ### 2.1 对象式分级权限
@@ -42,7 +44,7 @@
   "records": "read" | "write",   // 记录读写
   "tables":  "read" | "write",   // 表结构读写
   "storage": true,               // 插件自有 KV（localStorage）
-  "network": ["api.example.com"] // 允许外联域名（首期预留）
+  "network": ["api.example.com"] // 允许经宿主代理外联的第三方域名（见 §3.5）
 }
 ```
 
@@ -63,7 +65,38 @@
 ]
 ```
 
-支持类型：`toolbar-button`（工具栏按钮）、`side-panel`（右侧 Drawer 中的 iframe）、`base-menu`（Base 级菜单）、`record-detail-block`（记录详情区块）。插件通过清单声明式注册，宿主在启用后自动挂载，无需修改宿主代码。
+支持类型：`toolbar-button`（工具栏按钮）、`side-panel`（右侧 Drawer 中的 iframe）、`base-menu`（Base 级菜单）、`record-detail-block`（记录详情区块）、`home-menu`（首页菜单，全局作用域）、`dashboard-widget`（仪表盘自定义组件）。插件通过清单声明式注册，宿主在启用后自动挂载，无需修改宿主代码。
+
+> **`toolbar-button` 与 `side-panel` 是「入口 ↔ 内容」的配对关系**：
+> `toolbar-button` 是表格工具栏上的入口按钮；`side-panel` 是点击该按钮后
+> 右侧滑出抽屉（Drawer）里的插件界面——二者一起构成"点按钮 → 开面板"的
+> 完整交互，**侧边面板没有独立于按钮的入口**。请成对声明这两个扩展点；
+> 仅声明 `side-panel` 而无 `toolbar-button` 的插件，其面板没有任何打开途径。
+> 其余扩展点均有各自独立的宿主入口，不受此约束。
+
+### 2.3 静态资源（assets）与自定义后端接口（endpoints）
+
+UI 插件可在清单中声明包内静态资源与自定义后端接口，形成前后端一体的能力：
+
+```json
+{
+  "assets": {
+    "styles": ["styles/main.css", "styles/theme.css"], // 仅 .css，在 entry 前以 <link> 注入
+    "scripts": ["vendor/lib.js"]                       // 仅 .js，在 entry 前按序以 <script> 注入
+  },
+  "endpoints": [
+    {
+      "name": "translate",                 // SDK backend.call 的 name 标识
+      "entry": "endpoints/translate.py",   // 包内 .py 文件
+      "description": "调用翻译服务",
+      "timeout": 60                         // 该接口超时秒数（1-300，默认 30）
+    }
+  ]
+}
+```
+
+- `assets`：包内相对路径，`styles` 在入口前注入样式、`scripts` 在入口前注入脚本；入口 JS 中通过 `SDK.assetUrl("images/logo.png")` 解析图片等运行时资源的签名 URL（详见 §3.2）。
+- `endpoints`：包内 Python 文件，由宿主 `/api/plugins/<id>/call/<endpoint>` 经**与脚本插件一致的受限沙箱**执行（无网络/文件系统能力），接收 `request`（见 §4.1）并返回 JSON 结果；`name` 须匹配 `^[a-z][a-z0-9-]*$`。
 
 **可选的勾选依赖声明**（作用于该扩展点入口）：
 
@@ -87,8 +120,9 @@ UI 插件在 iframe 中运行，宿主以同源 URL 加载但 `sandbox="allow-sc
 - `window.SmartTableSDK`：插件 SDK
   - `SmartTableSDK.ready(cb)`：握手完成后回调，回调参数为 `sdk`
   - `sdk.request(method, params)`：发起 RPC 调用，返回 `Promise`
-  - `sdk.request("ui.getContext")` → `{ pluginId, baseId, tableId, selection }`（`selection` 为打开插件瞬间的表格勾选快照，见 §3.3）
+  - `sdk.request("ui.getContext")` → `{ pluginId, baseId, tableId, recordId, selection }`（`selection` 为打开插件瞬间的表格勾选快照，见 §3.3；`recordId` 仅在 `record-detail-block` 扩展点为当前记录 ID）
   - `sdk.request("selection.get")` → 单独获取勾选快照（与 `ui.getContext().selection` 同源）
+  - `sdk.assetUrl(path)` → 解析包内静态资源的签名 URL（如 `SDK.assetUrl("images/logo.png")`），插件入口可据此引用图片/额外文件，无需自行拼接令牌
 - `window.Vue`：Vue3 全局构建（`vue.global.prod.js`，**含模板编译器**），由宿主从同源 `vendor/` 目录注入
 
 > 推荐用 **Vue 模板语法**编写插件 UI（`Vue.createApp({ template: \`...\` })`），支持 `v-model`、`v-for`、`@click`、`:disabled` 与数据响应式，无需任何构建工具链；也允许用原生 HTML/JS 自行渲染挂载点。
@@ -110,6 +144,8 @@ UI 插件在 iframe 中运行，宿主以同源 URL 加载但 `sandbox="allow-sc
 | `record.create({ tableId, values })` | `records:write` | 创建记录 |
 | `record.update({ recordId, values })` | `records:write` | 更新记录 |
 | `record.delete({ recordId })` | `records:write` | 删除记录 |
+| `backend.call({ name, payload })` | — | 调用插件自定义后端接口（见 §3.6） |
+| `network.fetch({ url, method?, headers?, body? })` | `network`（目标域名须命中 `permissions.network` 白名单） | 经宿主代理访问第三方服务（见 §3.5） |
 
 > 数据请求由宿主以**当前用户 JWT 身份**转发现有 REST API，插件永不持有凭证。越权调用返回 `{ code: "PERMISSION_DENIED" }`。
 
@@ -218,9 +254,56 @@ SDK.ready(async function (sdk) {
 - 若不使用 Vue，也可直接操作 `#app` 自行渲染，SDK 能力与模板写法无关；
 - 依赖 `window.Vue` 缺失时应给出明确提示（宿主 loader 会注入 vendor 运行时）。
 
-完整可运行示例见 `examples/plugins/hello-panel/`（`manifest.json` + `main.js`）：Vue 模板渲染的工具栏按钮 + 侧边面板，读取表格勾选记录并批量填充字段。
+完整可运行示例见 `examples/plugins/hello-panel/`（v1.2.0，多文件综合示例）：声明全部 6 类扩展点（入口按 `ui.getContext()` 自动分支渲染）、`assets` 多样式/脚本注入（`styles/main.css`+`styles/theme.css`、`vendor/helpers.js`）、`SDK.assetUrl` 引用包内图片（`images/logo.png`）、2 个自定义后端接口（`endpoints/echo.py`/`stats.py`，`backend.call`）、`network.fetch` 经宿主代理请求 GitHub API，以及勾选快照批量填充（`records:write`）与 `storage` 记忆。脚本插件示例见 `examples/plugins/batch-clean/`。
 
-### 3.5 调试
+### 3.5 第三方网络代理（network.fetch）
+
+iframe 为 opaque origin，直连第三方会受宿主 CSP 与对方 CORS 双重限制。插件以 `network.fetch` 经**宿主代理**转发请求：
+
+- 目标域名须命中清单 `permissions.network` 白名单（支持精确与子域匹配，如声明 `api.example.com` 可匹配 `a.api.example.com`）；未声明 `network` 权限时该 SDK 方法对插件不可见（deny by default）；
+- 服务端做 **SSRF 防护**：仅允许 `http/https`，DNS 解析后拒绝内网 / 环回 / 保留网段；过滤 `Cookie/Authorization` 等受控请求头；带超时、响应体大小上限与每插件速率限制；
+- 返回 `{ status, headers, body, body_encoding }`：`body_encoding` 为 `text`（UTF-8 文本）或 `base64`（二进制，如图片）。
+
+```js
+SDK.ready(async function (sdk) {
+  var res = await sdk.request("network.fetch", {
+    url: "https://api.example.com/v1/weather?city=Beijing",
+    method: "GET",
+  });
+  // res.body 为 JSON 文本字符串，按需 JSON.parse
+  await sdk.request("ui.notify", { message: res.status === 200 ? "OK" : "失败" });
+});
+```
+
+### 3.6 插件自定义后端接口（backend.call）
+
+前端插件可调用**插件自己实现的后端逻辑**（包内 `endpoints` 声明的 `.py` 文件），形成前后端一体能力（声明见 §2.3）：
+
+- 宿主以**触发者身份**经**与脚本插件一致的受限沙箱**执行对应 `.py` 文件，注入全局 `request = { endpoint, payload, user_id }`；
+- 业务失败后处理同脚本插件（`set_result({"error": "原因"})` 或抛异常，宿主整体标记 `failed`）；默认超时 30s（可经 `endpoints[].timeout` 声明，封顶 300s）；
+- 调用无需额外权限点（端点声明本身即授权），但受统一 RBAC 与沙箱边界约束。
+
+```js
+// 前端
+SDK.ready(async function (sdk) {
+  var res = await sdk.request("backend.call", {
+    name: "translate",
+    payload: { text: "你好", to: "en" },
+  });
+  // res.result 即 Python 端 set_result 的返回值
+});
+```
+
+```python
+# endpoints/translate.py
+text = request["payload"].get("text", "")
+# ...调用受限沙箱内的逻辑（无网络能力，可经 base.* 读写表格）...
+set_result({"translated": text + " [EN]"})
+```
+
+> `backend.call` 与脚本插件的区别：脚本插件以整段 `.py` 作为入口（`POST /run`），而 `endpoints` 允许多个命名入口按需调用，更适合"前端 UI + 多个后端服务"的组合场景。
+
+### 3.7 调试
 
 1. 管理员在"插件管理"页上传 `.stplugin.zip` 安装；
 2. 在对应 Base 内启用该插件；
@@ -241,6 +324,7 @@ SDK.ready(async function (sdk) {
 - `context`：`{ plugin_id, base_id, table_id? }`
 - `config`：当前 Base 的生效配置（经 `configSchema` 校验）
 - `set_result(v)` / `result`：设置最终返回结果
+- `request`：**仅 `backend.call` 调用模式**下注入，为 `{ endpoint, payload, user_id }`；普通 `run` 为 `None`（详见 §3.6）
 
 > **业务失败约定**：脚本正常结束时若返回结果（dict）中包含非空 `error` 字段，
 > 宿主将该次运行整体标记为 `failed`（错误摘要取该 `error` 值）。需要向宿主
@@ -291,9 +375,14 @@ set_result({"updated": len(resp["items"])})
    ```
    your-plugin/
    ├── manifest.json
-   └── main.js        # 或 main.py
-   # 可选静态资源（UI 插件）
+   ├── main.js                 # 或 main.py（UI/script 入口）
+   ├── vendor/helpers.js       # assets.scripts 声明的脚本（入口前按序注入，UI 插件可选）
+   ├── styles/main.css         # assets.styles 声明的样式（入口前按序注入，UI 插件可选）
+   ├── images/logo.png         # 运行时经 SDK.assetUrl 引用（UI 插件可选）
+   └── endpoints/echo.py       # endpoints 声明的自定义后端接口（可选）
    ```
+
+   > 静态资源与 endpoints 入口文件同样受包内路径穿越校验：声明后这些文件必须存在于包内，否则安装失败。
 
 2. 压缩为 `.stplugin.zip`（注意：包内路径不得包含 `../` 等穿越片段，宿主会校验）：
 
@@ -349,6 +438,8 @@ set_result({"updated": len(resp["items"])})
 | PUT/DELETE | `/<plugin_id>/installations` | Base 管理员（启停/移除；PUT 仅 UI 插件） |
 | POST | `/<plugin_id>/run` | 触发者身份（script） |
 | GET | `/<plugin_id>/run-logs` | Base 管理员 |
+| POST | `/<plugin_id>/call/<endpoint>` | 触发者身份（UI/Script 的自定义后端接口，endpoint 须在 `endpoints` 声明） |
+| POST | `/<plugin_id>/proxy` | 触发者身份（代理第三方，`permissions.network` 须声明目标域名；`network.fetch` 为 UI 插件 SDK 能力，脚本插件亦可经 API 触达，鉴权模型一致） |
 | POST | `/<plugin_id>/sandbox-url` | UI 沙箱签名 URL |
 | GET | `/<plugin_id>/versions/<version>/loader.html` | 沙箱 loader（签名鉴权） |
 
@@ -357,6 +448,10 @@ set_result({"updated": len(resp["items"])})
 ## 8. 常见问题
 
 - **插件按钮不可见？** 检查插件全局 `enabled` 且 Base 内 `enabled`，且 `extensionPoints` 声明了 `toolbar-button`，清单 `type` 为 `ui`。
+- **侧边面板（side-panel）在哪里 / 打不开？** side-panel **没有独立入口**：点击 `toolbar-button` 后右侧滑出的抽屉就是它的内容，二者是「入口 ↔ 内容」配对关系，须成对声明。抽屉点不开时，多半是未勾选记录（`requiresSelection: true` 时按钮为禁用态）或当前不在表格视图。
+- **base-menu / record-detail-block / home-menu / dashboard-widget 不出现？** 确认清单 `type=ui`、全局启用、且（UI 插件）对应 Base 已安装并启用；首页菜单（home-menu）为全局作用域，无需 Base 安装。
+- **backend.call 报 endpoint 未声明？** 确认该接口已在 `endpoints` 中声明且 `name` 匹配；endpoint 实质为受限沙箱执行，没有文件/网络能力。
+- **network.fetch 报 PERMISSION_DENIED / SSRF_BLOCKED？** 确认目标域名命中 `permissions.network` 白名单（含子域），且非内网/保留地址；仅支持 http/https。
 - **RPC 返回 PERMISSION_DENIED？** 调用的方法所需权限未在 `permissions` 声明，或当前用户在目标 Base 无对应 RBAC 权限。
 - **脚本运行报权限错误？** 确认 `permissions.records` 为 `write`（写入类方法），且触发者对目标表有写权限。
 - **iframe 中拿不到宿主全局变量？** 沙箱 opaque origin 设计如此，所有能力必须经 `SmartTableSDK.request` 走 RPC。

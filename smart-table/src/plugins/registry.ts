@@ -36,8 +36,12 @@ const context = ref<{ baseId: string; tableId: string }>({
 
 /** 已加载插件列表的 baseId（按 Base 去重：宿主组件重复挂载/多实例不重复请求） */
 const loadedBaseId = ref("");
+/** 已加载全局插件列表（首页菜单等全局作用域扩展点） */
+const loadedHome = ref(false);
 /** 进行中的加载请求（单飞：并发调用合并为一次网络请求） */
 let loadInFlight: Promise<void> | null = null;
+/** 进行中的全局加载请求（单飞） */
+let loadHomeInFlight: Promise<void> | null = null;
 
 /**
  * 加载某 Base 的插件列表进 registry。
@@ -66,6 +70,31 @@ export async function loadPluginsForBase(baseId: string): Promise<void> {
       loadInFlight = null;
     });
   return loadInFlight;
+}
+
+/**
+ * 加载全局插件列表（首页菜单等全局作用域扩展点使用，不依赖 Base 安装状态）。
+ * 与 Base 加载共享同一 plugins 列表（首页与 Base 为不同页面，互不干扰）。
+ */
+export async function loadPluginsForHome(): Promise<void> {
+  if (loadedHome.value) return;
+  if (loadHomeInFlight) return loadHomeInFlight;
+  setLoading(true);
+  loadHomeInFlight = fetchPlugins()
+    .then((list) => {
+      setPlugins(list);
+      loadedHome.value = true;
+    })
+    .catch((error) => {
+      console.warn("[registry] 全局插件列表加载失败（已降级为无插件）:", error);
+      setPlugins([]);
+      loadedHome.value = true;
+    })
+    .finally(() => {
+      setLoading(false);
+      loadHomeInFlight = null;
+    });
+  return loadHomeInFlight;
 }
 
 /** 使插件列表缓存失效（插件管理页安装/启停/卸载等变更后调用，下次进入 Base 重新拉取） */
@@ -127,13 +156,21 @@ export function clearPluginErrors(pluginId: string): void {
   errors.value = errors.value.filter((e) => e.pluginId !== pluginId);
 }
 
-/** 按扩展点类型取插件声明 */
+/** 按扩展点类型取插件声明
+ * @param globalOnly 仅全局作用域扩展点（如 home-menu，不要求 Base 安装）时使用
+ */
 function collectExtensionPoints(
   type: ExtensionPointType,
+  globalOnly = false,
 ): Array<{ plugin: PluginEntity; extension: ExtensionPoint }> {
   const result: Array<{ plugin: PluginEntity; extension: ExtensionPoint }> = [];
   for (const plugin of plugins.value) {
-    if (!isEffective(plugin)) continue;
+    // 全局作用域扩展点只看全局启用状态；其余需 Base 级生效
+    if (globalOnly) {
+      if (plugin.status !== "enabled") continue;
+    } else if (!isEffective(plugin)) {
+      continue;
+    }
     if (plugin.type !== "ui") continue;
     if (isErrorState(plugin.status)) continue;
     for (const ep of plugin.manifest?.extensionPoints || []) {
@@ -169,6 +206,16 @@ export const recordDetailBlocks = computed(() =>
   collectExtensionPoints("record-detail-block"),
 );
 
+/** 首页菜单扩展点（全局作用域，无 Base 上下文） */
+export const homeMenuItems = computed(() =>
+  collectExtensionPoints("home-menu", true),
+);
+
+/** 仪表盘自定义组件扩展点 */
+export const dashboardWidgets = computed(() =>
+  collectExtensionPoints("dashboard-widget"),
+);
+
 export const pluginRegistry = {
   plugins,
   errors,
@@ -187,6 +234,8 @@ export const pluginRegistry = {
   sidePanels,
   baseMenuItems,
   recordDetailBlocks,
+  homeMenuItems,
+  dashboardWidgets,
 };
 
 export default pluginRegistry;

@@ -12,6 +12,8 @@ import { templateService } from "@/db/services";
 import { copyBase } from "@/services/api/baseApiService";
 import { DocumentCopy } from "@element-plus/icons-vue";
 import TemplatePreviewDialog from "@/components/templates/TemplatePreviewDialog.vue";
+// 插件体系：首页菜单扩展点宿主
+import PluginHomeMenu from "@/components/plugins/PluginHomeMenu.vue";
 import { formatDateTime, formatRelativeTime } from "@/utils/timezone";
 import type { SupportedLocale } from "@/i18n/types";
 
@@ -746,6 +748,8 @@ async function handleCopyBase(base: Base, event: Event) {
       <!-- 右侧操作区 -->
       <div class="header-right-section">
         <div class="header-actions">
+          <!-- 插件扩展点：首页菜单（全局作用域） -->
+          <PluginHomeMenu />
           <el-button
             type="primary"
             class="create-btn"

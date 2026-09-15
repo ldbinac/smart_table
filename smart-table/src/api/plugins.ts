@@ -139,5 +139,49 @@ export const fetchRunLogs = async (
 export const fetchSandboxUrl = (
   pluginId: string,
   baseId: string,
-): Promise<{ url: string; version: string }> =>
+): Promise<{ url: string; version: string; fst?: string }> =>
   apiClient.post(`${BASE}/${pluginId}/sandbox-url`, { base_id: baseId });
+
+/** 调用插件自定义后端接口（endpoint 模式，以当前用户身份经受限沙箱执行） */
+export const callPluginEndpoint = (
+  pluginId: string,
+  endpoint: string,
+  payload: unknown,
+  baseId: string,
+): Promise<{
+  status: string;
+  duration_ms: number;
+  result: unknown;
+  output: string;
+  error?: string;
+  run_log_id: string;
+  base_id?: string;
+}> =>
+  apiClient.post(
+    `${BASE}/${pluginId}/call/${endpoint}`,
+    { base_id: baseId, payload },
+    // endpoint 后端最长可跑 300s，覆盖全局默认超时，避免长任务被前端提前掐断
+    { timeout: 320000 },
+  );
+
+/** 经宿主代理访问第三方后端服务（受 manifest network 白名单 + SSRF 防护约束） */
+export const proxyPluginRequest = (
+  pluginId: string,
+  baseId: string,
+  url: string,
+  method?: string,
+  headers?: Record<string, string>,
+  body?: unknown,
+): Promise<{
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+  body_encoding: "text" | "base64";
+}> =>
+  apiClient.post(`${BASE}/${pluginId}/proxy`, {
+    base_id: baseId,
+    url,
+    method,
+    headers,
+    body,
+  });

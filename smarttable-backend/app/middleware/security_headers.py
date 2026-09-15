@@ -75,7 +75,10 @@ def init_security_headers(app):
         
         # Content-Security-Policy: 内容安全策略
         # 仅在生产环境配置完整的 CSP
-        if not app.debug:
+        # 插件沙箱资源（loader.html / 包静态文件）由 loader 路由自带精确 CSP
+        # （按 manifest network 白名单动态生成 connect-src 等），此处不再覆盖，
+        # 否则会抹掉第三方 CDN 白名单，导致插件 network.fetch 在生产环境被拦截
+        if not app.debug and not sandbox_asset:
             # 生产环境的 CSP 配置
             # worker-src / script-src 中的 blob: data:：
             # pdf.js(vue-pdf-embed) 通过 blob 包装器 + data: 内联模块加载

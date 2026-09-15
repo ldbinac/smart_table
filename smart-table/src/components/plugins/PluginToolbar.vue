@@ -178,13 +178,17 @@ watch(
       :title="activeTitle"
       size="50%"
       @closed="handlePanelClosed">
-      <PluginSandbox
-        v-if="panelVisible && activePluginId"
-        :key="sandboxKey"
-        :plugin-id="activePluginId"
-        :base-id="baseId"
-        :table-id="tableId"
-        extension-type="side-panel" />
+      <!-- 显式高度容器：不依赖 el-drawer__body 的高度链，
+           否则 PluginSandbox 的 height:100% 会塌陷为 0 导致内容不可见 -->
+      <div class="plugin-drawer-panel">
+        <PluginSandbox
+          v-if="panelVisible && activePluginId"
+          :key="sandboxKey"
+          :plugin-id="activePluginId"
+          :base-id="baseId"
+          :table-id="tableId"
+          extension-type="side-panel" />
+      </div>
     </el-drawer>
   </div>
 </template>
@@ -193,5 +197,10 @@ watch(
 .plugin-toolbar {
   display: inline-flex;
   align-items: center;
+}
+
+/* 抽屉头约占 64px，其余全部留给沙箱 iframe */
+.plugin-drawer-panel {
+  height: calc(100vh - 64px);
 }
 </style>

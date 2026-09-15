@@ -1,0 +1,27 @@
+/* Hello Panel · 主题样式
+ * 由 manifest.assets.styles[1] 声明：loader 按 styles 数组顺序在入口前注入
+ * （先 main.css 后 theme.css，后加载的可覆盖先加载的同名规则）。
+ * 本文件演示：把"主题变量"独立成文件，便于换肤与多文件组织。
+ */
+.hp {
+  --hp-accent: #409eff;
+  --hp-accent-weak: #ecf5ff;
+  --hp-accent-border: #bae6fd;
+}
+
+/* 覆盖 main.css 中的默认按钮为主题色 */
+.hp__btn--primary {
+  background: var(--hp-accent);
+  border-color: var(--hp-accent);
+  color: #fff;
+}
+
+/* 勾选提示 / 标签使用主题色 */
+.hp__selection {
+  color: var(--hp-accent);
+}
+.hp__tag {
+  color: var(--hp-accent);
+  background: var(--hp-accent-weak);
+  border-color: var(--hp-accent-border);
+}

@@ -43,6 +43,8 @@ import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import GeoField from "@/components/fields/geo/GeoField.vue";
 import SubTableInDrawer from "@/components/dialogs/SubTableInDrawer.vue";
+// 插件体系：记录详情扩展点宿主
+import PluginRecordBlocks from "@/components/plugins/PluginRecordBlocks.vue";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
 import { formatDateTime, formatDate } from "@/utils/timezone";
@@ -1102,6 +1104,12 @@ const effectiveSize = computed<string | number>(() => {
         </div>
       </el-form>
     </div>
+
+    <!-- 插件扩展点：记录详情区块（有效启用的 UI 插件声明式注册） -->
+    <PluginRecordBlocks
+      v-if="record"
+      :record-id="record.id"
+      :table-id="record.tableId" />
 
     <template #footer>
       <div class="drawer-footer">

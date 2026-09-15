@@ -21,8 +21,13 @@ vi.mock("@/services/api/tableApiService", () => ({
 vi.mock("@/services/api/fieldApiService", () => ({
   getFields: vi.fn(),
 }));
+vi.mock("@/api/plugins", () => ({
+  callPluginEndpoint: vi.fn(),
+  proxyPluginRequest: vi.fn(),
+}));
 
 import { buildApiSurface } from "../api-surface";
+import { callPluginEndpoint, proxyPluginRequest } from "@/api/plugins";
 
 describe("buildApiSurface 权限过滤", () => {
   it("records:write 时暴露记录读写方法，但不暴露 storage", () => {
@@ -60,5 +65,66 @@ describe("buildApiSurface 权限过滤", () => {
     const surface = buildApiSurface({ tables: "read" });
     expect(surface.has("table.listTables")).toBe(true);
     expect(surface.has("table.getSchema")).toBe(true);
+  });
+});
+
+describe("插件自定义后端接口（backend.call）", () => {
+  it("未声明也无妨，backend.call 始终可用", () => {
+    const surface = buildApiSurface({});
+    expect(surface.has("backend.call")).toBe(true);
+  });
+
+  it("endpoint 名称非法时拒绝", async () => {
+    const surface = buildApiSurface({});
+    const handler = surface.get("backend.call")!;
+    await expect(
+      handler({ name: "Bad Name", payload: {} }, { pluginId: "p1", baseId: "b1" } as any),
+    ).rejects.toThrow(/VALIDATION_ERROR/);
+  });
+
+  it("合法调用转发到 callPluginEndpoint", async () => {
+    (callPluginEndpoint as any).mockResolvedValue({ ok: true });
+    const surface = buildApiSurface({});
+    const handler = surface.get("backend.call")!;
+    const res = await handler(
+      { name: "translate", payload: { a: 1 } },
+      { pluginId: "p1", baseId: "b1" } as any,
+    );
+    expect(callPluginEndpoint).toHaveBeenCalledWith("p1", "translate", { a: 1 }, "b1");
+    expect(res).toEqual({ ok: true });
+  });
+});
+
+describe("第三方网络代理（network.fetch）", () => {
+  it("未声明 network 权限时方法不可见（deny by default）", () => {
+    const surface = buildApiSurface({});
+    expect(surface.has("network.fetch")).toBe(false);
+  });
+
+  it("声明 network 权限后可见，并转发到 proxyPluginRequest", async () => {
+    (proxyPluginRequest as any).mockResolvedValue({ status: 200, body: "{}" });
+    const surface = buildApiSurface({ network: ["api.example.com"] });
+    expect(surface.has("network.fetch")).toBe(true);
+    const handler = surface.get("network.fetch")!;
+    await handler(
+      { url: "https://api.example.com/x", method: "GET" },
+      { pluginId: "p1", baseId: "b1" } as any,
+    );
+    expect(proxyPluginRequest).toHaveBeenCalledWith(
+      "p1",
+      "b1",
+      "https://api.example.com/x",
+      "GET",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("缺少 url 时拒绝", async () => {
+    const surface = buildApiSurface({ network: ["api.example.com"] });
+    const handler = surface.get("network.fetch")!;
+    await expect(
+      handler({}, { pluginId: "p1", baseId: "b1" } as any),
+    ).rejects.toThrow(/VALIDATION_ERROR/);
   });
 });

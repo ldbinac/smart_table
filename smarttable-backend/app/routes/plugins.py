@@ -21,7 +21,8 @@ from flask import Blueprint, request, g, send_from_directory, Response
 from app.i18n import translate
 from app.models.base import MemberRole
 from app.models.plugin import (
-    Plugin, PluginRunLog, PluginType, PluginStatus, RunStatus,
+    Plugin, PluginRunLog, PluginInstallation,
+    PluginType, PluginStatus, RunStatus,
 )
 from app.services.permission_service import PermissionService
 from app.services.plugin_service import (
@@ -40,6 +41,8 @@ plugins_bp.strict_slashes = False
 
 # 沙箱签名 URL 有效期（秒）
 SANDBOX_TOKEN_TTL = 600
+# 包内静态资源文件令牌有效期（秒）：较长 TTL，避免图片等重复加载过期
+FILE_TOKEN_TTL = 7200
 
 # loader.html 中注入的 SDK 源码（握手 + postMessage JSON-RPC 客户端）
 # 保持与前端宿主 rpc.ts 协议一致：init/initAck/rpc.request/rpc.response
@@ -59,6 +62,7 @@ _LOADER_TEMPLATE = """<!DOCTYPE html>
 (function () {{
   var PLUGIN_ID = {plugin_id_json};
   var VERSION = {version_json};
+  var FILE_TOKEN = '{fst}';
   var HANDSHAKE_TIMEOUT = 10000;
 
   // ---- 握手：从 URL fragment 读取一次性 token，向宿主发起 init ----
@@ -134,7 +138,13 @@ _LOADER_TEMPLATE = """<!DOCTYPE html>
         }}, 30000);
       }});
     }},
-    onUnloaded: function (cb) {{ window.addEventListener('unload', cb); }}
+    onUnloaded: function (cb) {{ window.addEventListener('unload', cb); }},
+    // 解析包内静态资源 URL（CSS/图片/额外 JS 等），自动附加文件令牌
+    assetUrl: function (path) {{
+      if (!path) return '';
+      var clean = String(path).replace(/^[\\/]+/, '');
+      return 'files/' + encodeURI(clean) + '?fst=' + FILE_TOKEN;
+    }}
   }};
   window.SmartTableSDK = SDK;
 
@@ -146,9 +156,10 @@ _LOADER_TEMPLATE = """<!DOCTYPE html>
   }}
 }})();
 </script>
+{assets_html}
 <!-- 宿主注入的渲染运行时：Vue3 全局构建（含模板编译器），同源托管、离线可用 -->
 <script src="vendor/vue.global.prod.js"></script>
-<script src="files/{entry}?st={st}"></script>
+<script src="files/{entry}?fst={fst}"></script>
 </body>
 </html>
 """
@@ -179,6 +190,29 @@ def verify_sandbox_token(token: str, plugin_id: str, version: str) -> bool:
     if exp < int(time.time()):
         return False
     return hmac.compare_digest(_sign(f'{plugin_id}|{version}|{exp}'), sig)
+
+
+def generate_file_token(plugin_id: str, version: str) -> str:
+    """生成包内静态资源文件令牌（较长 TTL，供 loader 内 CSS/图片/额外 JS 引用）"""
+    exp = int(time.time()) + FILE_TOKEN_TTL
+    payload = f'{plugin_id}|{version}|file|{exp}'
+    return f'{exp}.{_sign(payload)}'
+
+
+def verify_file_token(token: str, plugin_id: str, version: str) -> bool:
+    try:
+        exp_str, sig = token.split('.', 1)
+        exp = int(exp_str)
+    except (ValueError, AttributeError):
+        return False
+    if exp < int(time.time()):
+        return False
+    return hmac.compare_digest(_sign(f'{plugin_id}|{version}|file|{exp}'), sig)
+
+
+def _verify_any_token(token: str, plugin_id: str, version: str) -> bool:
+    """文件静态服务令牌：沙箱令牌或文件令牌任一有效即可"""
+    return verify_sandbox_token(token, plugin_id, version) or verify_file_token(token, plugin_id, version)
 
 
 # ==================== 沙箱渲染运行时（vendor） ====================
@@ -247,14 +281,51 @@ def plugin_loader(plugin_id: str, version: str):
         plugin = Plugin.query.filter_by(id=plugin_id).first()
         if plugin is None or plugin.status != PluginStatus.ENABLED:
             return forbidden_response('plugin_not_enabled')
-        entry = (plugin.manifest or {}).get('entry', '')
+        manifest = plugin.manifest or {}
+        entry = manifest.get('entry', '')
+
+        # 包内静态资源令牌（较长 TTL），供 loader 内 CSS/图片/额外 JS 引用
+        fst = generate_file_token(plugin_id, version)
+
+        # 按 manifest.assets 声明注入 <link>/<script>（在入口前加载）
+        assets = manifest.get('assets') or {}
+        asset_parts = []
+        for css in (assets.get('styles') or []):
+            asset_parts.append(
+                f'<link rel="stylesheet" href="files/{css}?fst={fst}">')
+        for js in (assets.get('scripts') or []):
+            asset_parts.append(
+                f'<script src="files/{js}?fst={fst}"></script>')
+        assets_html = '\n'.join(asset_parts)
+
+        # 动态 CSP：依据 network 白名单放行声明的第三方 CDN 域；
+        # 宿主资源用 request 来源显式声明（沙箱 opaque origin 下 'self' 无法匹配）
+        origin = request.host_url.rstrip('/')
+        cdn = (manifest.get('permissions') or {}).get('network') or []
+        sources = [origin] + [str(d) for d in cdn if d]
+        csp = (
+            "default-src 'none'; "
+            # 内联 SDK（握手/client）需 'unsafe-inline'；
+            # 由同源签名 URL 鉴权 + sandbox="allow-scripts" 隔离，风险可控
+            f"script-src 'unsafe-inline' 'unsafe-eval' {' '.join(sources)}; "
+            f"style-src 'unsafe-inline' {' '.join(sources)}; "
+            f"img-src {origin} data: blob: {' '.join(sources)}; "
+            f"font-src {origin} data:; "
+            f"connect-src {' '.join(sources)}; "
+            "frame-src 'self';"
+        )
+
         html = _LOADER_TEMPLATE.format(
             plugin_id_json=json.dumps(plugin_id),
             version_json=json.dumps(version),
-            entry=entry,
+            fst=fst,
             st=st,
+            entry=entry,
+            assets_html=assets_html,
         )
-        return Response(html, mimetype='text/html; charset=utf-8')
+        resp = Response(html, mimetype='text/html; charset=utf-8')
+        resp.headers['Content-Security-Policy'] = csp
+        return resp
     except PluginNotFoundError:
         return not_found_response('plugin_not_found')
     except Exception:
@@ -296,8 +367,8 @@ def plugin_file(plugin_id: str, version: str, filename: str):
       404:
         description: 文件不存在
     """
-    st = request.args.get('st', '')
-    if not verify_sandbox_token(st, plugin_id, version):
+    st = request.args.get('st', '') or request.args.get('fst', '')
+    if not _verify_any_token(st, plugin_id, version):
         return forbidden_response('plugin_sandbox_token_invalid')
 
     try:
@@ -337,14 +408,14 @@ def get_sandbox_url(plugin_id: str):
         description: 签名 URL
     """
     data = request.get_json(silent=True) or {}
-    base_id = data.get('base_id')
-    if not base_id:
-        return error_response('base_id_required', 400)
+    base_id = data.get('base_id') or None
 
-    # 用户须为 Base 成员（viewer 即可查看插件 UI）
-    if not PermissionService.check_permission(
-            str(base_id), str(g.current_user_id), MemberRole.VIEWER):
-        return forbidden_response('no_permission_access_base')
+    # base_id 可选：缺省时按全局作用域处理（如首页菜单插件，无 Base 上下文）
+    if base_id:
+        # 用户须为 Base 成员（viewer 即可查看插件 UI）
+        if not PermissionService.check_permission(
+                str(base_id), str(g.current_user_id), MemberRole.VIEWER):
+            return forbidden_response('no_permission_access_base')
 
     plugin = Plugin.query.filter_by(id=plugin_id).first()
     if plugin is None:
@@ -353,17 +424,19 @@ def get_sandbox_url(plugin_id: str):
         return error_response('plugin_not_ui_type', 400)
     if plugin.status != PluginStatus.ENABLED:
         return forbidden_response('plugin_not_enabled')
-    # Base 级有效启用检查
-    from app.models.plugin import PluginInstallation
-    inst = PluginInstallation.query.filter_by(
-        plugin_id=plugin_id, base_id=base_id, enabled=True).first()
-    if inst is None:
-        return forbidden_response('plugin_not_enabled_in_base')
+    # Base 级有效启用检查（全局作用域插件无需 Base 安装）
+    if base_id:
+        from app.models.plugin import PluginInstallation
+        inst = PluginInstallation.query.filter_by(
+            plugin_id=plugin_id, base_id=base_id, enabled=True).first()
+        if inst is None:
+            return forbidden_response('plugin_not_enabled_in_base')
 
     version = plugin.current_version
     st = generate_sandbox_token(plugin_id, version)
-    url = f'/api/plugins/{plugin_id}/versions/{version}/loader.html?st={st}'
-    return success_response({'url': url, 'version': version})
+    fst = generate_file_token(plugin_id, version)
+    url = f'/api/plugins/{plugin_id}/versions/{version}/loader.html?st={st}&fst={fst}'
+    return success_response({'url': url, 'version': version, 'fst': fst})
 
 
 # ==================== 管理接口：上传/升级/回滚/启停/卸载 ====================
@@ -939,6 +1012,99 @@ def run_plugin(plugin_id: str):
 
     from app.services.plugin_script_service import PluginScriptService
     result = PluginScriptService.run(plugin, base_id, str(g.current_user_id))
+    return success_response(result)
+
+
+@plugins_bp.route('/plugins/<string:plugin_id>/call/<string:endpoint>', methods=['POST'])
+@jwt_required
+def call_plugin_endpoint(plugin_id: str, endpoint: str):
+    """调用插件自定义后端接口（endpoint 模式，经受限沙箱执行）
+
+    鉴权：触发者对 base_id 的 RBAC（Editor+，与 run 一致）+ 插件全局启用；
+    UI 插件还需该 Base 已安装并启用（与前端 UI 可见性一致）。
+    """
+    data = request.get_json(silent=True) or {}
+    base_id = data.get('base_id')
+    if not base_id:
+        return error_response('base_id_required', 400)
+
+    if not PermissionService.check_permission(
+            str(base_id), str(g.current_user_id), MemberRole.EDITOR):
+        return forbidden_response('no_permission_run_plugin')
+
+    plugin = Plugin.query.filter_by(id=plugin_id).first()
+    if plugin is None:
+        return not_found_response('plugin_not_found')
+    if plugin.status != PluginStatus.ENABLED:
+        return forbidden_response('plugin_not_enabled')
+
+    # UI 插件要求该 Base 已安装并启用（与前端 UI 入口可见性一致）
+    if plugin.type == PluginType.UI:
+        inst = PluginInstallation.query.filter_by(
+            plugin_id=plugin_id, base_id=base_id, enabled=True).first()
+        if inst is None:
+            return forbidden_response('plugin_not_enabled_in_base')
+
+    # 接口必须已在 manifest.endpoints 声明
+    endpoints = (plugin.manifest or {}).get('endpoints') or []
+    if not any((e.get('name') == endpoint) for e in endpoints):
+        return not_found_response('plugin_endpoint_not_found')
+
+    from app.services.plugin_script_service import PluginScriptService
+    payload = data.get('payload')
+    result = PluginScriptService.call_endpoint(
+        plugin, endpoint, payload, str(base_id), str(g.current_user_id))
+    return success_response(result)
+
+
+@plugins_bp.route('/plugins/<string:plugin_id>/proxy', methods=['POST'])
+@jwt_required
+def proxy_plugin_request(plugin_id: str):
+    """插件第三方后端代理（宿主转发，按 manifest network 白名单 + SSRF 防护）
+
+    鉴权：Base 成员（Editor+，与 endpoints/run 一致）+ 插件全局启用；
+    UI 插件还需该 Base 已安装并启用。目标域名必须落在插件
+    permissions.network 白名单内。
+    """
+    data = request.get_json(silent=True) or {}
+    base_id = data.get('base_id')
+    target_url = data.get('url')
+    if not base_id:
+        return error_response('base_id_required', 400)
+    if not target_url:
+        return error_response('proxy_url_required', 400)
+
+    if not PermissionService.check_permission(
+            str(base_id), str(g.current_user_id), MemberRole.EDITOR):
+        return forbidden_response('no_permission_run_plugin')
+
+    plugin = Plugin.query.filter_by(id=plugin_id).first()
+    if plugin is None:
+        return not_found_response('plugin_not_found')
+    if plugin.status != PluginStatus.ENABLED:
+        return forbidden_response('plugin_not_enabled')
+
+    if plugin.type == PluginType.UI:
+        inst = PluginInstallation.query.filter_by(
+            plugin_id=plugin_id, base_id=base_id, enabled=True).first()
+        if inst is None:
+            return forbidden_response('plugin_not_enabled_in_base')
+
+    if not ((plugin.manifest or {}).get('permissions') or {}).get('network'):
+        return forbidden_response('plugin_network_not_declared')
+
+    from app.services import plugin_proxy_service
+    try:
+        result = plugin_proxy_service.proxy(
+            plugin_id=str(plugin_id),
+            manifest=plugin.manifest or {},
+            url=str(target_url),
+            method=data.get('method', 'GET'),
+            headers=data.get('headers') or {},
+            body=data.get('body'),
+        )
+    except plugin_proxy_service.ProxyError as e:
+        return error_response(e.message, e.http_status, e.error_code)
     return success_response(result)
 
 

@@ -156,8 +156,12 @@ class PluginScriptService:
 
     @classmethod
     def _execute(cls, script_source: str, base_id: str, user_id: str,
-                 plugin: Plugin, config: Dict, timeout: int) -> Dict[str, Any]:
-        """启动子进程并处理协议帧循环（读线程 + 队列 + 截止时间）"""
+                 plugin: Plugin, config: Dict, timeout: int,
+                 mode: str = 'script', request: Optional[Dict] = None) -> Dict[str, Any]:
+        """启动子进程并处理协议帧循环（读线程 + 队列 + 截止时间）
+
+        mode='endpoint' 时向沙箱注入 request（endpoint 调用模式）。
+        """
         # 强制子进程 stdio 使用 UTF-8：否则中文 Windows 上子进程会用本地编码(GBK)
         # 解码宿主写入的 UTF-8 init payload，多字节序列会吞并引号/破坏 JSON 结构，
         # 且脚本内的中文输出/回显也会乱码（已复现验证）
@@ -181,6 +185,8 @@ class PluginScriptService:
                 'base_id': base_id,
             },
             'config': config,
+            'mode': mode,
+            'request': request or {},
         }, ensure_ascii=False)
 
         frames: "queue.Queue[Optional[Dict]]" = queue.Queue()
@@ -456,8 +462,122 @@ class PluginScriptService:
                  'record=%s', plugin.id, action, record_id)
 
     @classmethod
-    def _read_entry_source(cls, plugin: Plugin) -> str:
-        entry = (plugin.manifest or {}).get('entry', '')
+    def call_endpoint(cls, plugin: Plugin, endpoint_name: str,
+                      payload: Any, base_id: str, user_id: str) -> Dict[str, Any]:
+        """调用插件自定义后端接口（endpoint 模式，复用受限沙箱执行）
+
+        Returns:
+            {status, duration_ms, result, output, error, run_log_id}
+        """
+        global _ACTIVE_RUNS
+        manifest = plugin.manifest or {}
+        endpoints = manifest.get('endpoints') or []
+        ep = next((e for e in endpoints if e.get('name') == endpoint_name), None)
+        if ep is None:
+            return {
+                'status': 'failed',
+                'error': f'endpoint not declared in manifest: {endpoint_name}',
+                'output': '',
+                'result': None,
+            }
+
+        # endpoint 超时：优先 endpoint.timeout，回退 script.timeout，再回退默认
+        ep_timeout = (ep.get('timeout') or (manifest.get('script') or {}).get('timeout'))
+        try:
+            timeout = max(1, min(MAX_TIMEOUT, int(ep_timeout)))
+        except (TypeError, ValueError):
+            timeout = DEFAULT_TIMEOUT
+
+        with _ACTIVE_RUNS_LOCK:
+            if _ACTIVE_RUNS >= MAX_CONCURRENT_RUNS:
+                return {
+                    'status': 'failed',
+                    'error': 'TOO_MANY_CONCURRENT_RUNS',
+                    'output': '',
+                    'result': None,
+                }
+            _ACTIVE_RUNS += 1
+
+        run_log = PluginRunLog(
+            plugin_id=plugin.id, base_id=base_id,
+            status=RunStatus.RUNNING, triggered_by=user_id)
+
+        started = time.time()
+        try:
+            _RUN_SEMAPHORE.acquire()
+            script_source = cls._read_source_at(plugin, ep.get('entry', ''))
+            config = PluginService.get_effective_config(plugin.id, base_id)
+            result = cls._execute(
+                script_source=script_source,
+                base_id=base_id,
+                user_id=user_id,
+                plugin=plugin,
+                config=config,
+                timeout=timeout,
+                mode='endpoint',
+                request={
+                    'endpoint': endpoint_name,
+                    'payload': payload,
+                    'user_id': user_id,
+                },
+            )
+        except Exception as e:
+            log.exception('[PluginScriptService] endpoint 执行编排异常 %s/%s',
+                          plugin.id, endpoint_name)
+            result = {
+                'status': 'failed',
+                'error': f'{type(e).__name__}: {e}',
+                'output': '',
+                'result': None,
+            }
+        finally:
+            _RUN_SEMAPHORE.release()
+            with _ACTIVE_RUNS_LOCK:
+                _ACTIVE_RUNS -= 1
+
+        duration_ms = int((time.time() - started) * 1000)
+
+        if result.get('status') == 'success':
+            payload_out = result.get('result')
+            if isinstance(payload_out, dict):
+                biz_err = payload_out.get('error')
+                if biz_err:
+                    result['status'] = 'failed'
+                    result['error'] = (biz_err if isinstance(biz_err, str)
+                                       else str(biz_err))
+            run_log.status = RunStatus.SUCCESS
+        else:
+            run_log.status = RunStatus.TIMEOUT if result.get('status') == 'timeout' \
+                else RunStatus.FAILED
+            cls._maybe_auto_error(plugin)
+
+        run_log.duration_ms = duration_ms
+        run_log.output = (result.get('output') or '')[:MAX_LOG_OUTPUT]
+        # endpoint 调用结果外层包裹 endpoint 名称，便于审计与运行日志区分
+        run_log.result = {
+            'endpoint': endpoint_name,
+            'data': result.get('result'),
+        }
+        run_log.error_summary = (result.get('error') or '')[:500]
+        run_log.traceback_text = (result.get('traceback') or '')[:MAX_TRACEBACK]
+        db.session.add(run_log)
+        db.session.commit()
+
+        return {
+            'status': result.get('status'),
+            'duration_ms': duration_ms,
+            'result': result.get('result'),
+            'output': run_log.output,
+            'error': result.get('error'),
+            'run_log_id': str(run_log.id),
+            'base_id': str(base_id),
+        }
+
+    @classmethod
+    def _read_source_at(cls, plugin: Plugin, entry: str) -> str:
+        """读取插件包内指定入口源码（按版本目录解析，与进程 CWD 无关）"""
+        if not entry:
+            raise FileNotFoundError('empty entry path')
         from app.models.plugin import PluginVersion
         version = PluginVersion.query.filter_by(
             plugin_id=plugin.id, version=plugin.current_version).first()
@@ -469,6 +589,11 @@ class PluginScriptService:
         if not entry_path.is_file():
             raise FileNotFoundError(f'plugin entry missing: {entry_path}')
         return entry_path.read_text(encoding='utf-8')
+
+    @classmethod
+    def _read_entry_source(cls, plugin: Plugin) -> str:
+        entry = (plugin.manifest or {}).get('entry', '')
+        return cls._read_source_at(plugin, entry)
 
     @classmethod
     def _resolve_timeout(cls, manifest: Dict) -> int:

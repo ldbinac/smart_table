@@ -145,5 +145,7 @@
     "lastRun": "最近运行",
     "targetBase": "目标多维表格",
     "selectBaseFirst": "请先选择目标多维表格"
-  }
+  },
+  "baseMenu": "插件菜单",
+  "homeMenu": "首页插件"
 }

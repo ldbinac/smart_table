@@ -145,5 +145,7 @@
     "lastRun": "Last Run",
     "targetBase": "Target Base",
     "selectBaseFirst": "Please select a target Base first"
-  }
+  },
+  "baseMenu": "Plugins",
+  "homeMenu": "Home Plugins"
 }

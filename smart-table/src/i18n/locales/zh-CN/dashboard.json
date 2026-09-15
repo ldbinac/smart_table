@@ -169,6 +169,8 @@
   "valueField": "数值字段",
   "gradient": "渐变",
   "chartCategory": "数据图表",
+  "pluginCategory": "插件组件",
+  "pluginWidget": "插件组件",
   "updateTime": "更新时间",
   "widgetTitle": "标题",
   "shareCurrentDashboard": "分享当前仪表盘",

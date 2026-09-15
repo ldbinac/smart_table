@@ -1,0 +1,129 @@
+/* Hello Panel · 基础样式
+ * 由 manifest.assets.styles[0] 声明：loader 在入口前以 <link rel="stylesheet"> 注入。
+ * 零构建插件推荐把样式放进包内 CSS（而非入口里 document.createElement("style")），
+ * 便于多文件组织与缓存 —— 本示例演示"两个样式文件按声明顺序注入"。
+ */
+.hp {
+  padding: 16px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  color: #303133;
+}
+
+/* 头部：logo + 标题 + 作用域标签 */
+.hp__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+}
+.hp__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #ebeef5;
+}
+.hp__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.hp__tag {
+  margin-left: auto;
+  font-size: 12px;
+  color: #909399;
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.hp__desc {
+  margin: 0 0 12px;
+  color: #909399;
+}
+.hp__selection {
+  margin: 0 0 10px;
+  color: #409eff;
+}
+
+/* 工具栏 */
+.hp__toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.hp__select,
+.hp__input {
+  padding: 6px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 13px;
+  background: #fff;
+  color: #303133;
+}
+.hp__select { min-width: 160px; }
+.hp__input { flex: 1; min-width: 120px; }
+.hp__btn {
+  padding: 6px 14px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+  color: #606266;
+  font-size: 13px;
+  cursor: pointer;
+}
+.hp__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 结果卡片 / 代码块 */
+.hp__card {
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.hp__card-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #909399;
+}
+.hp__pre {
+  background: #f5f7fa;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow: auto;
+  max-height: 220px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 6px 0 0;
+}
+
+/* 记录列表 */
+.hp__status {
+  margin: 8px 0;
+  color: #909399;
+}
+.hp__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hp__empty {
+  color: #909399;
+  padding: 8px 0;
+}
+.hp__item {
+  padding: 8px 10px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+}

@@ -27,12 +27,14 @@ export interface PluginPermissions {
   network?: string[];
 }
 
-/** UI 扩展点类型（首期） */
+/** UI 扩展点类型 */
 export type ExtensionPointType =
   | "toolbar-button"
   | "side-panel"
   | "base-menu"
-  | "record-detail-block";
+  | "record-detail-block"
+  | "home-menu"
+  | "dashboard-widget";
 
 /** UI 扩展点声明 */
 export interface ExtensionPoint {
@@ -74,6 +76,25 @@ export interface ScriptConfig {
   timeout?: number;
 }
 
+/** UI 插件包内静态资源声明（loader 按声明注入沙箱） */
+export interface PluginAssets {
+  /** 样式文件相对路径（仅 .css，在入口前以 <link> 注入） */
+  styles?: string[];
+  /** 额外脚本相对路径（仅 .js，在入口前按序以 <script> 注入） */
+  scripts?: string[];
+}
+
+/** 插件自定义后端接口声明（Python 文件，由宿主 /call/<endpoint> 经受限沙箱执行） */
+export interface PluginEndpoint {
+  /** 接口调用标识（SDK backend.call 的 name 参数） */
+  name: string;
+  /** 后端接口 .py 文件相对路径（仅 .py） */
+  entry: string;
+  description?: string;
+  /** 该接口超时秒数，默认 30，上限 300 */
+  timeout?: number;
+}
+
 /** 插件清单 */
 export interface PluginManifest {
   id: string;
@@ -90,6 +111,10 @@ export interface PluginManifest {
   extensionPoints?: ExtensionPoint[];
   configSchema?: Record<string, unknown>;
   script?: ScriptConfig;
+  /** 包内静态资源声明（UI 插件） */
+  assets?: PluginAssets;
+  /** 自定义后端接口声明（UI / Script 插件均可） */
+  endpoints?: PluginEndpoint[];
 }
 
 /** 插件（后端返回结构） */
@@ -204,6 +229,8 @@ export interface ApiHandlerContext {
   permissions: PluginPermissions;
   baseId: string;
   tableId: string;
+  /** 记录详情扩展点（record-detail-block）打开时的记录 ID */
+  recordId?: string;
   config: Record<string, unknown>;
   /** 打开插件瞬间的表格勾选快照（未接入表格时为 null） */
   selection: SelectionSnapshot | null;

@@ -164,7 +164,8 @@ def get_host_version() -> str:
 _PLUGIN_ID_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{2,199}$')
 
 _VALID_PERMISSION_LEVELS = {'read', 'write'}
-_VALID_EXTENSION_TYPES = {'toolbar-button', 'side-panel', 'base-menu', 'record-detail-block'}
+_VALID_EXTENSION_TYPES = {'toolbar-button', 'side-panel', 'base-menu',
+                           'record-detail-block', 'home-menu', 'dashboard-widget'}
 
 
 def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str]:
@@ -244,6 +245,32 @@ def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str]:
                 return False, ERR_MANIFEST_INVALID, 'script.timeout must be 1-300 seconds'
         except (TypeError, ValueError):
             return False, ERR_MANIFEST_INVALID, 'script.timeout must be an integer'
+
+    # assets 资源扩展名校验（styles 仅 .css / scripts 仅 .js）
+    assets = manifest.get('assets') or {}
+    for css in (assets.get('styles') or []):
+        if not isinstance(css, str) or not css.endswith('.css'):
+            return False, ERR_MANIFEST_INVALID, f'assets.styles must be .css: {css}'
+    for js in (assets.get('scripts') or []):
+        if not isinstance(js, str) or not js.endswith('.js'):
+            return False, ERR_MANIFEST_INVALID, f'assets.scripts must be .js: {js}'
+
+    # endpoints 校验（name 格式 / entry 仅 .py / timeout 范围）
+    for ep in (manifest.get('endpoints') or []):
+        ep_name = ep.get('name', '')
+        if not re.match(r'^[a-z][a-z0-9-]*$', ep_name):
+            return False, ERR_MANIFEST_INVALID, f'invalid endpoint name: {ep_name}'
+        ep_entry = ep.get('entry', '')
+        if not ep_entry.endswith('.py'):
+            return False, ERR_MANIFEST_INVALID, f'endpoint entry must be .py: {ep_entry}'
+        ep_timeout = ep.get('timeout')
+        if ep_timeout is not None:
+            try:
+                t = int(ep_timeout)
+                if not (1 <= t <= 300):
+                    return False, ERR_MANIFEST_INVALID, 'endpoint.timeout must be 1-300 seconds'
+            except (TypeError, ValueError):
+                return False, ERR_MANIFEST_INVALID, 'endpoint.timeout must be an integer'
 
     return True, '', ''
 
@@ -434,6 +461,23 @@ class PluginService:
             shutil.rmtree(root, ignore_errors=True)
             raise PluginValidationError(ERR_ENTRY_MISSING, entry)
 
+        # 静态资源文件存在校验（assets.styles / assets.scripts）
+        for css in (manifest.get('assets') or {}).get('styles') or []:
+            if css not in extracted and f'./{css}' not in extracted:
+                shutil.rmtree(root, ignore_errors=True)
+                raise PluginValidationError(ERR_ENTRY_MISSING, f'assets.styles: {css}')
+        for js in (manifest.get('assets') or {}).get('scripts') or []:
+            if js not in extracted and f'./{js}' not in extracted:
+                shutil.rmtree(root, ignore_errors=True)
+                raise PluginValidationError(ERR_ENTRY_MISSING, f'assets.scripts: {js}')
+
+        # endpoints 入口文件存在校验
+        for ep in (manifest.get('endpoints') or []):
+            ep_entry = ep.get('entry', '')
+            if ep_entry not in extracted and f'./{ep_entry}' not in extracted:
+                shutil.rmtree(root, ignore_errors=True)
+                raise PluginValidationError(ERR_ENTRY_MISSING, f'endpoints.entry: {ep_entry}')
+
         # configSchema 与存量配置兼容性检查（升级时）
         if existing is not None:
             incompatible = cls._check_config_compat(existing.id, manifest.get('configSchema'))
@@ -575,6 +619,10 @@ class PluginService:
         plugin = db.session.get(Plugin, plugin_id)
         if plugin is None:
             raise PluginNotFoundError(plugin_id)
+        # 仅 UI 插件支持 Base 级安装：脚本插件为纯后端形态，运行由触发者
+        # 对 Base 的 RBAC（Editor+）+ 全局启用控制，不依赖 Base 安装
+        # （见开发者指南 §5、设计 plan §5；前端 collectExtensionPoints 亦按
+        #  type==ui 过滤，脚本插件不进入 UI 扩展点）
         if plugin.type != PluginType.UI:
             raise PluginValidationError(
                 ERR_PLUGIN_TYPE_NOT_INSTALLABLE,
