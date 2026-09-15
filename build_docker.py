@@ -382,6 +382,36 @@ def build_frontend(skip_frontend=False):
 # ============================================
 # 阶段 2: Docker 镜像构建
 # ============================================
+# buildx docker-container 驱动的引导镜像由 Docker 守护进程直接拉取,
+# 不经过 buildkitd.toml 的镜像代理, 国内直连 Docker Hub 常超时。
+# 先通过国内镜像源预拉取并打回官方 tag, buildx 即可直接使用本地镜像。
+BUILDKIT_IMAGE = 'moby/buildkit:buildx-stable-1'
+BUILDKIT_IMAGE_MIRRORS = [
+    'docker.m.daocloud.io/moby/buildkit:buildx-stable-1',
+    'docker.1ms.run/moby/buildkit:buildx-stable-1',
+]
+
+
+def ensure_buildkit_image():
+    """确保 buildkit 引导镜像存在; 缺失时走国内镜像源预拉取。"""
+    result = run_command(
+        ['docker', 'image', 'inspect', BUILDKIT_IMAGE, '--format', '{{.Id}}'],
+        capture=True, check=False
+    )
+    if result.returncode == 0:
+        return
+    log(f'  引导镜像 {BUILDKIT_IMAGE} 不存在, 从国内镜像源预拉取...', 'INFO')
+    for mirror_image in BUILDKIT_IMAGE_MIRRORS:
+        log(f'  尝试拉取: {mirror_image}', 'INFO')
+        pull = run_command(['docker', 'pull', mirror_image], check=False)
+        if pull.returncode == 0:
+            run_command(['docker', 'tag', mirror_image, BUILDKIT_IMAGE])
+            log(f'  ✓ 引导镜像已就绪: {BUILDKIT_IMAGE}', 'SUCCESS')
+            return
+        log(f'  ✗ 拉取失败: {mirror_image}', 'WARNING')
+    log('  ⚠ 所有镜像源拉取引导镜像失败, 将由 buildx 自行尝试拉取', 'WARNING')
+
+
 def ensure_buildx_builder(multi_platform=False):
     """
     确保存在一个可用于多平台构建的 buildx builder。
@@ -393,6 +423,8 @@ def ensure_buildx_builder(multi_platform=False):
         return None
 
     builder_name = "multiarch"
+    # 引导镜像无论复用还是新建 builder 都需要 (inspect --bootstrap 会启动容器)
+    ensure_buildkit_image()
     try:
         result = run_command(
             ['docker', 'buildx', 'ls'],

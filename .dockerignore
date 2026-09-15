@@ -48,10 +48,13 @@ test/
 docker-compose*.yml
 docker-compose*.yaml
 
-# 环境变量
+# 环境变量（含子目录，防止 smarttable-backend/.env 等开发配置与密钥被打进镜像）
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 
 # 日志
 logs/
