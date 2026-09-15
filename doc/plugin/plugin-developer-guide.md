@@ -254,7 +254,11 @@ SDK.ready(async function (sdk) {
 - 若不使用 Vue，也可直接操作 `#app` 自行渲染，SDK 能力与模板写法无关；
 - 依赖 `window.Vue` 缺失时应给出明确提示（宿主 loader 会注入 vendor 运行时）。
 
-完整可运行示例见 `examples/plugins/hello-panel/`（v1.2.0，多文件综合示例）：声明全部 6 类扩展点（入口按 `ui.getContext()` 自动分支渲染）、`assets` 多样式/脚本注入（`styles/main.css`+`styles/theme.css`、`vendor/helpers.js`）、`SDK.assetUrl` 引用包内图片（`images/logo.png`）、2 个自定义后端接口（`endpoints/echo.py`/`stats.py`，`backend.call`）、`network.fetch` 经宿主代理请求 GitHub API，以及勾选快照批量填充（`records:write`）与 `storage` 记忆。脚本插件示例见 `examples/plugins/batch-clean/`。
+完整可运行示例见 `examples/plugins/hello-all/`（综合示例）：声明全部 6 类扩展点（入口按 `ui.getContext()` 自动分支渲染）、`assets` 多样式/脚本注入（`styles/main.css`+`styles/theme.css`、`vendor/helpers.js`）、`SDK.assetUrl` 引用包内图片（`images/logo.png`）、2 个自定义后端接口（`endpoints/echo.py`/`stats.py`，`backend.call`）、`network.fetch` 经宿主代理请求 GitHub API，以及勾选快照批量填充（`records:write`）与 `storage` 记忆。
+
+单一扩展点基础示例见 `examples/plugins/hello-panel/`（仅 `toolbar-button` + `side-panel`，零构建单文件，演示勾选快照批量填充）。
+
+各扩展点独立示例（每个插件仅关注一个扩展点，便于直接复制使用）：`examples/plugins/hello-base-menu/`（`base-menu`）、`examples/plugins/hello-record-detail-block/`（`record-detail-block`）、`examples/plugins/hello-home-menu/`（`home-menu`，全局作用域）、`examples/plugins/hello-dashboard-widget/`（`dashboard-widget`）。脚本插件示例见 `examples/plugins/batch-clean/`。
 
 ### 3.5 第三方网络代理（network.fetch）
 

@@ -23,7 +23,9 @@
 
 | 示例 | 类型 | 覆盖能力 |
 | --- | --- | --- |
-| `examples/plugins/hello-panel/`（v1.2.0） | `ui` | **综合示例**：多文件 assets（2 个 CSS + 1 个 JS + 1 张图片）、全部 6 类扩展点、2 个自定义后端接口（echo/stats）、`network.fetch`（GitHub API）、勾选快照批量填充、storage 记忆 |
+| `examples/plugins/hello-all/`（v1.2.0） | `ui` | **综合示例**：多文件 assets（2 个 CSS + 1 个 JS + 1 张图片）、全部 6 类扩展点、2 个自定义后端接口（echo/stats）、`network.fetch`（GitHub API）、勾选快照批量填充、storage 记忆 |
+| `examples/plugins/hello-panel/` | `ui` | **基础示例**：单一扩展点（`toolbar-button` + `side-panel`），零构建单文件，演示勾选快照批量填充 |
+| `examples/plugins/hello-base-menu/`、`hello-record-detail-block/`、`hello-home-menu/`、`hello-dashboard-widget/` | `ui` | **各扩展点独立示例**：每个插件仅关注一个扩展点，便于直接复制使用 |
 | `examples/plugins/batch-clean/` | `script` | 脚本沙箱：受限 builtins + 模块白名单、stdio 协议帧代理、configSchema 校验 |
 
 **文档与实现的小出入（不影响功能）：**

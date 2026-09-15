@@ -1,0 +1,33 @@
+{
+  "id": "com.smarttable.hello-dashboard-widget",
+  "name": "Hello Dashboard Widget",
+  "description": "扩展点示例：在仪表盘自定义组件区挂载组件（dashboard-widget），演示读取仪表盘配置的数据表并展示统计",
+  "author": {
+    "name": "SmartTable Team",
+    "url": "https://github.com/ldbinac/smart_table"
+  },
+  "version": "1.0.0",
+  "type": "ui",
+  "apiVersion": "1",
+  "engines": {
+    "smarttable": ">=1.6.6 <2.0.0"
+  },
+  "entry": "main.js",
+  "permissions": {
+    "records": "read",
+    "tables": "read"
+  },
+  "extensionPoints": [
+    {
+      "type": "dashboard-widget",
+      "title": "Hello 卡片",
+      "icon": "DataAnalysis"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "metricName": { "type": "string", "default": "记录总数" }
+    }
+  }
+}
