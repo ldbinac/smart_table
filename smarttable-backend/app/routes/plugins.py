@@ -3,9 +3,11 @@
 插件管理 REST API（上传/升级/回滚/生命周期/配置/运行/日志）与
 UI 插件沙箱静态服务（loader.html + 包文件，签名 URL 鉴权）。
 
-权限模型（两层 RBAC）：
+权限模型（两层）：
 - 上传/升级/回滚/卸载/全局启停：系统 Admin
-- Base 级安装/启停/配置：Base Owner/Admin
+  （插件必须先由 Admin 安装并全局启用，才可能被挂到 Base）
+- Base 级安装/启停/移除/配置：多维表格的创建者（Base.owner_id），
+  与调用者在该 Base 的成员角色无关
 - 脚本手动运行：Base Editor 及以上
 - 沙箱静态服务：短时签名 URL（iframe 无法携带 JWT 头）
 """
@@ -14,12 +16,13 @@ import hmac
 import json
 import logging
 import time
+import uuid
 from pathlib import Path
 
 from flask import Blueprint, request, g, send_from_directory, Response
 
 from app.i18n import translate
-from app.models.base import MemberRole
+from app.models.base import Base, MemberRole
 from app.models.plugin import (
     Plugin, PluginRunLog, PluginInstallation,
     PluginType, PluginStatus, RunStatus,
@@ -669,8 +672,47 @@ def uninstall_plugin(plugin_id: str):
 # ==================== Base 级安装/启停 ====================
 
 def _check_base_admin(base_id) -> bool:
+    """Base 成员角色鉴权：Admin 及以上（运行日志等管理/审计类读操作）"""
     return PermissionService.check_permission(
         str(base_id), str(g.current_user_id), MemberRole.ADMIN)
+
+
+def _check_base_owner(base_id) -> bool:
+    """Base 级插件管理鉴权：仅多维表格的创建者（所有者）可安装/启停/移除插件
+
+    与调用者在该 Base 的成员角色（admin/editor/...）解耦：系统 Admin 负责
+    全局安装并启用插件，Base 创建者自行决定把哪些已启用的插件挂到自己
+    创建的 Base 上。
+
+    Args:
+        base_id: Base ID（UUID 字符串或 UUID 对象）
+
+    Returns:
+        当前登录用户是否为该 Base 的创建者
+    """
+    try:
+        base_uuid = (base_id if isinstance(base_id, uuid.UUID)
+                     else uuid.UUID(str(base_id)))
+    except (ValueError, AttributeError, TypeError):
+        return False
+    base = Base.query.filter_by(id=base_uuid).first()
+    if base is None:
+        return False
+    return str(base.owner_id) == str(g.current_user_id)
+
+
+def _ensure_plugin_globally_enabled(plugin_id: str):
+    """校验插件已由系统 Admin 安装并全局启用（Base 级挂载/启用的前置条件）
+
+    Returns:
+        (plugin, error_response)：校验通过时 error_response 为 None
+    """
+    plugin = Plugin.query.filter_by(id=plugin_id).first()
+    if plugin is None:
+        return None, not_found_response('plugin_not_found')
+    if plugin.status != PluginStatus.ENABLED:
+        return None, forbidden_response('plugin_not_enabled')
+    return plugin, None
 
 
 @plugins_bp.route('/plugins/<string:plugin_id>/installations', methods=['GET'])
@@ -712,7 +754,7 @@ def get_installations(plugin_id: str):
 @plugins_bp.route('/plugins/<string:plugin_id>/installations', methods=['POST'])
 @jwt_required
 def install_to_base(plugin_id: str):
-    """在 Base 内安装并启用插件（Base Owner/Admin）
+    """在 Base 内安装并启用插件（Base 创建者；插件须已由 Admin 全局启用）
 
     ---
     tags:
@@ -740,8 +782,12 @@ def install_to_base(plugin_id: str):
     base_id = data.get('base_id')
     if not base_id:
         return error_response('base_id_required', 400)
-    if not _check_base_admin(base_id):
+    if not _check_base_owner(base_id):
         return forbidden_response('no_permission_manage_plugin_in_base')
+    # 前置条件：插件须先由系统 Admin 安装并全局启用
+    _plugin, err = _ensure_plugin_globally_enabled(plugin_id)
+    if err:
+        return err
     try:
         result = PluginService.install_to_base(
             plugin_id, base_id, str(g.current_user_id))
@@ -761,7 +807,7 @@ def install_to_base(plugin_id: str):
 @plugins_bp.route('/plugins/<string:plugin_id>/installations', methods=['PUT'])
 @jwt_required
 def set_installation_enabled(plugin_id: str):
-    """启停插件在 Base 内的启用状态（Base Owner/Admin）
+    """启停插件在 Base 内的启用状态（Base 创建者）
 
     ---
     tags:
@@ -792,8 +838,13 @@ def set_installation_enabled(plugin_id: str):
     enabled = data.get('enabled')
     if not base_id or not isinstance(enabled, bool):
         return error_response('base_id_and_enabled_required', 400)
-    if not _check_base_admin(base_id):
+    if not _check_base_owner(base_id):
         return forbidden_response('no_permission_manage_plugin_in_base')
+    # 重新启用时插件须仍处于全局启用状态（Admin 全局禁用后不允许 Base 内启用）
+    if enabled:
+        _plugin, err = _ensure_plugin_globally_enabled(plugin_id)
+        if err:
+            return err
     try:
         result = PluginService.set_base_enabled(plugin_id, base_id, enabled)
         return success_response(result)
@@ -812,7 +863,7 @@ def set_installation_enabled(plugin_id: str):
 @plugins_bp.route('/plugins/<string:plugin_id>/installations', methods=['DELETE'])
 @jwt_required
 def uninstall_from_base(plugin_id: str):
-    """从 Base 移除插件（Base Owner/Admin）
+    """从 Base 移除插件（Base 创建者）
 
     ---
     tags:
@@ -835,7 +886,7 @@ def uninstall_from_base(plugin_id: str):
     base_id = request.args.get('base_id')
     if not base_id:
         return error_response('base_id_required', 400)
-    if not _check_base_admin(base_id):
+    if not _check_base_owner(base_id):
         return forbidden_response('no_permission_manage_plugin_in_base')
     try:
         PluginService.uninstall_from_base(plugin_id, base_id)
@@ -899,7 +950,7 @@ def get_plugin_config(plugin_id: str):
 @plugins_bp.route('/plugins/<string:plugin_id>/config', methods=['PUT'])
 @jwt_required
 def set_plugin_config(plugin_id: str):
-    """写入插件配置（global 级需系统 Admin；base 级需 Base Owner/Admin）
+    """写入插件配置（global 级需系统 Admin；base 级需 Base 创建者）
 
     ---
     tags:
@@ -939,14 +990,14 @@ def set_plugin_config(plugin_id: str):
     if scope == 'base' and not base_id:
         return error_response('base_id_required', 400)
 
-    # 权限：global 级需系统 Admin；base 级需 Base Owner/Admin
+    # 权限：global 级需系统 Admin；base 级需 Base 创建者
     is_admin = hasattr(g, 'current_user') and g.current_user is not None \
         and g.current_user.is_admin()
     if scope == 'global':
         if not is_admin:
             return forbidden_response('admin_required_for_global_config')
     else:
-        if not _check_base_admin(base_id):
+        if not _check_base_owner(base_id):
             return forbidden_response('no_permission_manage_plugin_in_base')
 
     try:

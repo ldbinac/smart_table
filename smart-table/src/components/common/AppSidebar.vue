@@ -58,6 +58,12 @@ const navItems = computed<NavItem[]>(() => [
     icon: "View",
     path: "/settings",
   },
+  {
+    id: "plugins",
+    label: t('nav.plugins'),
+    icon: "Grid",
+    path: "/plugins",
+  },
   ...(authStore.isAdmin
     ? [
         {
@@ -88,12 +94,6 @@ const navItems = computed<NavItem[]>(() => [
               label: t('nav.oauthApps'),
               icon: "Key",
               path: "/admin/oauth-apps",
-            },
-            {
-              id: "admin-plugins",
-              label: t('nav.plugins'),
-              icon: "Grid",
-              path: "/admin/plugins",
             },
             {
               id: "admin-email-templates",
