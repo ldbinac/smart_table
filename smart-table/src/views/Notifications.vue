@@ -412,53 +412,55 @@ onMounted(() => {
   .title-unread {
     font-weight: 600;
   }
+}
 
-  .detail-content {
-    padding: 0 8px;
+// 详情抽屉经 append-to-body 传送到 body，其内容不在 .notifications-page 容器内，
+// 样式必须放在顶层，否则嵌套选择器无法命中，会导致时间等排版失效
+.detail-content {
+  padding: 0 8px;
 
-    .detail-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 0 0 12px 0;
-      color: #303133;
+  .detail-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: #303133;
+  }
+
+  .detail-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .detail-time {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: #909399;
+  }
+
+  .detail-body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #303133;
+    word-break: break-word;
+    // 邮件模板内容可能包含宽表格/图片，限制高度并允许滚动，防止撑破抽屉
+    max-height: 60vh;
+    overflow: auto;
+
+    :deep(p) {
+      margin: 0 0 8px 0;
     }
 
-    .detail-meta {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
+    :deep(img) {
+      max-width: 100%;
+      height: auto;
     }
 
-    .detail-time {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 13px;
-      color: #909399;
-    }
-
-    .detail-body {
-      font-size: 14px;
-      line-height: 1.6;
-      color: #303133;
-      word-break: break-word;
-      // 邮件模板内容可能包含宽表格/图片，限制高度并允许滚动，防止撑破抽屉
-      max-height: 60vh;
-      overflow: auto;
-
-      :deep(p) {
-        margin: 0 0 8px 0;
-      }
-
-      :deep(img) {
-        max-width: 100%;
-        height: auto;
-      }
-
-      :deep(table) {
-        max-width: 100%;
-      }
+    :deep(table) {
+      max-width: 100%;
     }
   }
 }
