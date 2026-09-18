@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/stores/notificationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { formatDateTime, formatRelativeTime } from '@/utils/timezone'
 import { notificationApiService, type AppNotification } from '@/services/api/notificationApiService'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 defineOptions({ name: 'NotificationBell' })
 
@@ -36,13 +37,20 @@ const getSourceTag = (source: string) => {
   return { label: source || t('common.sourceOther'), type: 'info' }
 }
 
-// 内容摘要：优先使用纯文本，否则去除 HTML 标签
+/**
+ * 站内信 content 可能为邮件模板渲染的完整 HTML 文档（含 <style> 全局样式与
+ * html/head/body 文档标签），直接 v-html 会污染整个页面布局，必须先经白名单清理。
+ */
+const getSafeContent = (notification: AppNotification): string =>
+  sanitizeHtml(notification.content || '')
+
+// 内容摘要：优先使用纯文本，否则对清理后的 HTML 去标签（避免把 <style> 里的 CSS 当摘要）
 const getContentSummary = (notification: AppNotification): string => {
   if (notification.content_text) {
     return notification.content_text
   }
   if (notification.content) {
-    return notification.content.replace(/<[^>]+>/g, '').trim()
+    return getSafeContent(notification).replace(/<[^>]+>/g, '').trim()
   }
   return ''
 }
@@ -274,8 +282,8 @@ watch(
         </span>
       </div>
       <el-divider />
-      <!-- 内容为后端生成的 HTML，使用 v-html 渲染 -->
-      <div class="detail-body" v-html="currentNotification.content"></div>
+      <!-- 内容为后端生成的 HTML，经白名单清理后使用 v-html 渲染 -->
+      <div class="detail-body" v-html="getSafeContent(currentNotification)"></div>
     </div>
   </el-dialog>
 </template>
@@ -426,9 +434,21 @@ watch(
     line-height: 1.6;
     color: var(--el-text-color-primary);
     word-break: break-word;
+    // 邮件模板内容可能包含宽表格/图片，限制高度并允许滚动，防止撑破弹窗与页面
+    max-height: 60vh;
+    overflow: auto;
 
     :deep(p) {
       margin: 0 0 8px 0;
+    }
+
+    :deep(img) {
+      max-width: 100%;
+      height: auto;
+    }
+
+    :deep(table) {
+      max-width: 100%;
     }
   }
 }

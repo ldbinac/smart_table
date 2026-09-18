@@ -119,7 +119,7 @@
     </div>
 
     <!-- 详情抽屉 -->
-    <el-drawer v-model="detailVisible" :title="t('notification.detailTitle')" size="500px">
+    <el-drawer v-model="detailVisible" :title="t('notification.detailTitle')" size="500px" append-to-body>
       <div v-if="currentNotification" class="detail-content">
         <h2 class="detail-title">{{ currentNotification.title }}</h2>
         <div class="detail-meta">
@@ -143,15 +143,15 @@
           </span>
         </div>
         <el-divider />
-        <!-- 内容为后端生成的 HTML，使用 v-html 渲染 -->
-        <div class="detail-body" v-html="currentNotification.content"></div>
+        <!-- 内容为后端生成的 HTML，经白名单清理后使用 v-html 渲染 -->
+        <div class="detail-body" v-html="safeDetailContent"></div>
       </div>
     </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -161,6 +161,7 @@ import {
 } from '@/services/api/notificationApiService'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { formatDateTime } from '@/utils/timezone'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const { t } = useI18n()
 const notificationStore = useNotificationStore()
@@ -169,6 +170,12 @@ const loading = ref(false)
 const notifications = ref<AppNotification[]>([])
 const detailVisible = ref(false)
 const currentNotification = ref<AppNotification | null>(null)
+
+// 站内信 content 可能为邮件模板渲染的完整 HTML 文档（含 <style> 全局样式），
+// 直接 v-html 会污染整个页面布局，必须先经白名单清理
+const safeDetailContent = computed(() =>
+  currentNotification.value ? sanitizeHtml(currentNotification.value.content || '') : '',
+)
 
 // 未读数量（来自 store，用于控制"全部标记已读"按钮状态）
 const unreadCount = ref(0)
@@ -436,9 +443,21 @@ onMounted(() => {
       line-height: 1.6;
       color: #303133;
       word-break: break-word;
+      // 邮件模板内容可能包含宽表格/图片，限制高度并允许滚动，防止撑破抽屉
+      max-height: 60vh;
+      overflow: auto;
 
       :deep(p) {
         margin: 0 0 8px 0;
+      }
+
+      :deep(img) {
+        max-width: 100%;
+        height: auto;
+      }
+
+      :deep(table) {
+        max-width: 100%;
       }
     }
   }
