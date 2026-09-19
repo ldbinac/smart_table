@@ -205,7 +205,7 @@ class ViewService:
             name=name,
             type=view.type,
             description=view.description,
-            config=view.config,
+            form_config=view.form_config,
             filters=view.filters,
             sort_config=view.sort_config,  # 使用 sort_config 而不是 sorts
             group_config=view.group_config,
