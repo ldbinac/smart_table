@@ -263,7 +263,7 @@ def restore_version(doc_id, version_id):
         if not doc:
             return api_error('document_does_not_exist', 404)
 
-        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.EDITOR):
             return api_error('no_permission_edit', 403)
 
         version = document_version_service.get_by_id(version_id)

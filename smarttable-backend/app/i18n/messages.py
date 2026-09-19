@@ -1875,8 +1875,8 @@ MESSAGES = {
         'en-US': 'Invalid access token',
     },
     'no_permission_modify_document_administrator_rights_required': {
-        'zh-CN': '无权修改文档，需要管理员权限',
-        'en-US': 'No permission to modify the document, administrator rights are required',
+        'zh-CN': '无权修改文档，需要编辑者或更高权限',
+        'en-US': 'No permission to modify the document, editor role or higher is required',
     },
     'no_permission_modify_record': {
         'zh-CN': '无权修改该记录',
