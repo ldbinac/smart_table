@@ -42,6 +42,8 @@ class WorkflowNodeType(PyEnum):
     TRIGGER_WEBHOOK = 'trigger_webhook'
     # 自定义脚本节点
     SCRIPT = 'script'
+    # 站内信通知节点（仅写站内信，不走邮件通道）
+    NOTIFY = 'notify'
     # 保留 ACTION 用于向后兼容（历史数据迁移后可废弃）
     ACTION = 'action'
 

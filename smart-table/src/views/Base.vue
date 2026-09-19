@@ -64,6 +64,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { DocumentEditor } from "@/components/documents";
 // 插件体系：工具栏扩展点宿主
 import PluginToolbar from "@/components/plugins/PluginToolbar.vue";
+import PluginBaseMenu from "@/components/plugins/PluginBaseMenu.vue";
 import { setSelection } from "@/plugins/registry";
 import { registerSelectionProvider } from "@/plugins/selection";
 import type { SelectionSummary } from "@/plugins/types";
@@ -2050,10 +2051,13 @@ const handleDocumentExportPdf = async () => {
                     @click="vtableViewRef?.openSearch()">
                     <el-icon><Search /></el-icon>
                   </el-button>
-                  <!-- 筛选按钮 -->
+                  <!-- 筛选按钮（树形视图下仅作用于叶子节点） -->
                   <el-button
                     size="default"
                     :type="activeFilters.length > 0 ? 'primary' : 'default'"
+                    :title="
+                      currentParentFieldId ? t('view.base.treeFilterTip') : ''
+                    "
                     @click="openFilterDialog">
                     <el-icon><Filter /></el-icon>
                     {{ t('view.base.filter') }}
@@ -2067,6 +2071,7 @@ const handleDocumentExportPdf = async () => {
                   <el-button
                     size="default"
                     :type="activeSorts.length > 0 ? 'primary' : 'default'"
+                    :title="currentParentFieldId ? t('view.base.treeSortTip') : ''"
                     @click="openSortDialog">
                     <el-icon><Sort /></el-icon>
                     {{ t('view.base.sort') }}
@@ -2080,6 +2085,12 @@ const handleDocumentExportPdf = async () => {
                   <el-button
                     size="default"
                     :type="hasGroupConfig ? 'primary' : 'default'"
+                    :disabled="!!currentParentFieldId"
+                    :title="
+                      currentParentFieldId
+                        ? t('view.base.treeGroupDisabledTip')
+                        : ''
+                    "
                     @click="openGroupDialog">
                     <el-icon><Folder /></el-icon>
                     {{ t('view.base.group') }}
@@ -2133,6 +2144,8 @@ const handleDocumentExportPdf = async () => {
                 </el-button-group>
                 <!-- 插件扩展点：工具栏按钮（有效启用的 UI 插件声明式注册） -->
                 <PluginToolbar />
+                <!-- 插件扩展点：Base 级菜单（下拉聚合，点击打开对话框沙箱） -->
+                <PluginBaseMenu />
                 <!-- <el-button-group>
                   <el-button
                     size="default"

@@ -55,6 +55,12 @@ class LinkDataCache {
 // 全局缓存实例
 const linkCache = new LinkDataCache();
 
+// 进行中的关联数据请求：recordId -> Promise。
+// 关联数据加载会被多处并发触发（watch immediate、记录变化、字段变化等），
+// 而缓存要等请求返回后才写入，并发调用会各自发出一份相同请求。
+// 这里把在途请求按记录 ID 缓存，重复的调用直接复用结果，避免重复 HTTP 请求。
+const pendingRecordLinks = new Map<string, Promise<unknown>>();
+
 export type RelationshipType = "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
 
 export const RELATIONSHIP_TYPE_LABELS: Record<RelationshipType, string> = {
@@ -232,6 +238,105 @@ export const getRecordLinks = async (
 };
 
 /**
+ * 批量获取多条记录的关联数据（带缓存）。
+ *
+ * 一次请求返回多条记录的关联数据，替代逐条调用 getRecordLinks：
+ * 大表中逐条请求会产生成百上千个并发 HTTP 请求，浏览器连接数限制下
+ * 会长时间排队，表格因此长时间空白。
+ */
+export const getRecordLinksBatch = async (
+  recordIds: string[],
+  useCache: boolean = true
+): Promise<Record<string, {
+  outbound: Array<{
+    field_id: string;
+    field_name: string;
+    target_table_id: string;
+    linked_records: Array<{ record_id: string; display_value: string }>;
+  }>;
+  inbound: Array<{
+    field_id: string;
+    field_name: string;
+    linked_records: Array<{ record_id: string; display_value: string }>;
+  }>;
+}>> => {
+  const result: Record<string, unknown> = {};
+
+  // 已缓存的直接取，未命中但已有在途请求的复用在途结果，其余才真正发起请求
+  const missing: string[] = [];
+  const reused: Array<{ recordId: string; promise: Promise<unknown> }> = [];
+
+  for (const recordId of recordIds) {
+    const cacheKey = `record_links:${recordId}`;
+    const cached = useCache ? linkCache.get<unknown>(cacheKey) : null;
+    if (cached) {
+      result[recordId] = cached;
+      continue;
+    }
+
+    const inFlight = pendingRecordLinks.get(recordId);
+    if (inFlight) {
+      reused.push({ recordId, promise: inFlight });
+    } else {
+      missing.push(recordId);
+    }
+  }
+
+  if (missing.length > 0) {
+    const request = apiClient
+      .post<{ links: Record<string, unknown> }>('/records/links/batch', { record_ids: missing })
+      .then(response => {
+        const links = response?.links || {};
+        for (const recordId of missing) {
+          const value = links[recordId] || { outbound: [], inbound: [] };
+          result[recordId] = value;
+          if (useCache) {
+            linkCache.set(`record_links:${recordId}`, value);
+          }
+        }
+      })
+      .finally(() => {
+        // 无论成功失败都释放，失败时允许后续调用重新发起
+        for (const recordId of missing) {
+          pendingRecordLinks.delete(recordId);
+        }
+      });
+
+    for (const recordId of missing) {
+      pendingRecordLinks.set(recordId, request.then(() => result[recordId]));
+    }
+
+    await request;
+  }
+
+  // 等待复用的在途请求
+  for (const item of reused) {
+    try {
+      const value = await item.promise;
+      if (value) {
+        result[item.recordId] = value;
+      }
+    } catch {
+      // 复用请求失败时保持为空，由上层按加载失败处理
+    }
+  }
+
+  return result as Record<string, {
+    outbound: Array<{
+      field_id: string;
+      field_name: string;
+      target_table_id: string;
+      linked_records: Array<{ record_id: string; display_value: string }>;
+    }>;
+    inbound: Array<{
+      field_id: string;
+      field_name: string;
+      linked_records: Array<{ record_id: string; display_value: string }>;
+    }>;
+  }>;
+};
+
+/**
  * 更新记录的关联值
  */
 export const updateRecordLink = async (
@@ -349,6 +454,7 @@ export const linkApiService = {
   deleteLinkField,
   getTableLinkRelations,
   getRecordLinks,
+  getRecordLinksBatch,
   updateRecordLink,
   deleteRecordLink,
   searchLinkableRecords,

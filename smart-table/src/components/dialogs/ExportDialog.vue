@@ -7,6 +7,7 @@ import type { FieldEntity, RecordEntity } from '@/db/schema'
 import { FieldType } from '@/types'
 import { useUserCacheStore } from '@/stores/userCacheStore'
 import { useTableStore } from '@/stores/tableStore'
+import { linkApiService } from '@/services/api/linkApiService'
 
 const { t } = useI18n()
 const userCacheStore = useUserCacheStore()
@@ -84,6 +85,36 @@ async function handleExport() {
       }
       const users = await userCacheStore.fetchUsers(Array.from(memberIds))
       context.memberNameMap = new Map(users.map((u) => [u.id, u.name]))
+    }
+
+    // 关联字段：批量预取每条记录的关联显示名称（含一对多多条关联、配置的展示字段值），
+    // 注入导出上下文，使导出单元格显示名称而非关联表记录 ID。
+    const linkFields = fieldsToExport.filter(
+      (f) => f.type === "link_to_record" || f.type === FieldType.LINK,
+    )
+    if (linkFields.length > 0) {
+      const batch = await linkApiService.getRecordLinksBatch(
+        recordsToExport.map((r) => r.id),
+      )
+      const linkDisplayMap = new Map<string, Map<string, string[]>>()
+      for (const [recId, links] of Object.entries(batch)) {
+        const fieldMap = new Map<string, string[]>()
+        const collect = (list: Array<{ field_id: string; linked_records?: Array<{ display_value?: string }> }>) => {
+          for (const item of list || []) {
+            const arr = fieldMap.get(item.field_id) || []
+            for (const lr of item.linked_records || []) {
+              if (lr?.display_value != null && lr.display_value !== '') {
+                arr.push(String(lr.display_value))
+              }
+            }
+            fieldMap.set(item.field_id, arr)
+          }
+        }
+        collect(links.outbound)
+        collect(links.inbound)
+        linkDisplayMap.set(recId, fieldMap)
+      }
+      context.linkDisplayMap = linkDisplayMap
     }
 
     switch (exportFormat.value) {

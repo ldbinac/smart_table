@@ -211,6 +211,8 @@
   "startCreateTitle": "Start creating your dashboard",
   "current": "Current",
   "chartCategory": "Charts",
+  "pluginCategory": "Plugin Widgets",
+  "pluginWidget": "Plugin Widget",
   "unsaved": "Unsaved",
   "startCreateDesc": "Add chart widgets to visualize your data",
   "manage": "Manage",

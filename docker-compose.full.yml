@@ -42,7 +42,8 @@ services:
     networks:
       - smarttable-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # redis 配置了 requirepass，健康检查必须带密码，否则 NOAUTH 导致永远失败
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-redis123} ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,6 +53,8 @@ services:
           memory: 512M
 
   # MinIO 对象存储服务（可选）
+  # 注意：后端 MinIO 上传功能尚未实现（attachment_service.py 中为 TODO），
+  # 当前附件存储在本地 uploads 目录（见下方 uploads_data 卷），此服务仅供未来扩展
   minio:
     image: minio/minio:latest
     container_name: smarttable-minio
@@ -78,10 +81,15 @@ services:
           memory: 1G
 
   # SmartTable 统一应用（包含前后端）
+  # 注意：统一镜像内仍会启动一个仅监听 127.0.0.1 的内嵌 Redis（Supervisor 托管），
+  # 它不对外暴露、不与外部 redis 容器冲突；业务缓存/SocketIO 队列走下方 REDIS_URL
+  # 指向的外部 redis 容器，内嵌实例仅为镜像单容器部署能力保留，可忽略。
   smarttable:
     build:
       context: .
       dockerfile: Dockerfile
+    # 与 docker-compose.yml 保持同一镜像名，避免两种部署方式各构建一份镜像
+    image: ${SMARTTABLE_IMAGE:-smarttable:latest}
     container_name: smarttable
     restart: unless-stopped
     ports:
@@ -98,6 +106,8 @@ services:
       
       # Redis 配置
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+      # SocketIO 消息队列（完整部署中 Redis 在独立容器且带密码，必须显式指定）
+      SOCKETIO_MESSAGE_QUEUE: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/2
       
       # MinIO 配置
       MINIO_ENDPOINT: minio:9000
@@ -124,8 +134,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      # MinIO 未加入 depends_on：后端 MinIO 功能尚未实现，不应对启动形成硬依赖
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/api/health"]
       interval: 30s

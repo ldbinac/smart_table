@@ -119,7 +119,7 @@
     </div>
 
     <!-- 详情抽屉 -->
-    <el-drawer v-model="detailVisible" :title="t('notification.detailTitle')" size="500px">
+    <el-drawer v-model="detailVisible" :title="t('notification.detailTitle')" size="500px" append-to-body>
       <div v-if="currentNotification" class="detail-content">
         <h2 class="detail-title">{{ currentNotification.title }}</h2>
         <div class="detail-meta">
@@ -143,15 +143,15 @@
           </span>
         </div>
         <el-divider />
-        <!-- 内容为后端生成的 HTML，使用 v-html 渲染 -->
-        <div class="detail-body" v-html="currentNotification.content"></div>
+        <!-- 内容为后端生成的 HTML，经白名单清理后使用 v-html 渲染 -->
+        <div class="detail-body" v-html="safeDetailContent"></div>
       </div>
     </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -161,6 +161,7 @@ import {
 } from '@/services/api/notificationApiService'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { formatDateTime } from '@/utils/timezone'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const { t } = useI18n()
 const notificationStore = useNotificationStore()
@@ -169,6 +170,12 @@ const loading = ref(false)
 const notifications = ref<AppNotification[]>([])
 const detailVisible = ref(false)
 const currentNotification = ref<AppNotification | null>(null)
+
+// 站内信 content 可能为邮件模板渲染的完整 HTML 文档（含 <style> 全局样式），
+// 直接 v-html 会污染整个页面布局，必须先经白名单清理
+const safeDetailContent = computed(() =>
+  currentNotification.value ? sanitizeHtml(currentNotification.value.content || '') : '',
+)
 
 // 未读数量（来自 store，用于控制"全部标记已读"按钮状态）
 const unreadCount = ref(0)
@@ -286,10 +293,25 @@ const handlePageChange = (page: number) => {
   fetchList()
 }
 
-// 查看详情
-const handleViewDetail = (row: AppNotification) => {
+// 查看详情：打开抽屉即视为已读，同步刷新列表行、抽屉标签与铃铛未读数
+const handleViewDetail = async (row: AppNotification) => {
   currentNotification.value = row
   detailVisible.value = true
+  if (row.is_read) return
+
+  try {
+    await notificationApiService.markAsRead(row.id)
+    // row 来自 notifications 数组，直接改即可响应式刷新表格已读标签
+    row.is_read = true
+    // currentNotification 用新对象赋值，确保抽屉内的已读标签同步刷新
+    if (currentNotification.value?.id === row.id) {
+      currentNotification.value = { ...row }
+    }
+    await refreshUnreadCount()
+  } catch (error) {
+    // 查看详情优先：标记失败仅记录日志，不弹错、不阻塞浏览
+    console.error('[Notifications] 查看详情自动标记已读失败:', error)
+  }
 }
 
 // 标记单条已读
@@ -390,41 +412,55 @@ onMounted(() => {
   .title-unread {
     font-weight: 600;
   }
+}
 
-  .detail-content {
-    padding: 0 8px;
+// 详情抽屉经 append-to-body 传送到 body，其内容不在 .notifications-page 容器内，
+// 样式必须放在顶层，否则嵌套选择器无法命中，会导致时间等排版失效
+.detail-content {
+  padding: 0 8px;
 
-    .detail-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 0 0 12px 0;
-      color: #303133;
+  .detail-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: #303133;
+  }
+
+  .detail-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .detail-time {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: #909399;
+  }
+
+  .detail-body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #303133;
+    word-break: break-word;
+    // 邮件模板内容可能包含宽表格/图片，限制高度并允许滚动，防止撑破抽屉
+    max-height: 60vh;
+    overflow: auto;
+
+    :deep(p) {
+      margin: 0 0 8px 0;
     }
 
-    .detail-meta {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
+    :deep(img) {
+      max-width: 100%;
+      height: auto;
     }
 
-    .detail-time {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 13px;
-      color: #909399;
-    }
-
-    .detail-body {
-      font-size: 14px;
-      line-height: 1.6;
-      color: #303133;
-      word-break: break-word;
-
-      :deep(p) {
-        margin: 0 0 8px 0;
-      }
+    :deep(table) {
+      max-width: 100%;
     }
   }
 }

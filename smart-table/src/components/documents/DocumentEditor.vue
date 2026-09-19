@@ -72,6 +72,7 @@ import FluentEditor from '@opentiny/fluent-editor';
 import '@opentiny/fluent-editor/style.css';
 import MarkdownShortcuts from 'quill-markdown-shortcuts';
 import HeaderList from 'quill-header-list';
+import { HeaderWithIDFixed } from '@/utils/quillHeaderFix';
 import QuillToolbarTip, { createI18nToolbarTipMap } from 'quill-toolbar-tip';
 import 'quill-toolbar-tip/dist/index.css';
 import 'quill-table-up/index.css';
@@ -87,6 +88,8 @@ import type { DocumentVersion } from '@/types/documentVersion';
 FluentEditor.register('modules/markdownShortcuts', MarkdownShortcuts);
 // 注册 HeaderList 模块（注册 HeaderWithID 格式 + 工具栏按钮）
 FluentEditor.register('modules/header-list', HeaderList, true);
+// 覆盖 HeaderWithID，修复工具栏传入字符串标题 value 时生成 <undefined> 节点的问题
+FluentEditor.register({ 'formats/header': HeaderWithIDFixed }, true);
 // 注册工具栏提示模块
 FluentEditor.register({ [`modules/${QuillToolbarTip.moduleName}`]: QuillToolbarTip }, true);
 

@@ -620,6 +620,20 @@ class TestLookupApplyAggregation:
         )
         assert result == 0
 
+    def test_sum_with_numeric_strings(self):
+        """sum: 字符串形式的数字需要参与求和（源字段值常以字符串存储）"""
+        result = LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.SUM.value, None
+        )
+        assert result == 129
+
+    def test_sum_with_thousands_separator(self):
+        """sum: 支持千分位分隔的数字字符串"""
+        result = LookupService._apply_aggregation(
+            ['1,200.50', '300'], LookupAggregationType.SUM.value, None
+        )
+        assert result == 1500.5
+
     # --- count ---
     def test_count(self):
         """count: 返回数量（与值无关）"""
@@ -718,6 +732,38 @@ class TestLookupApplyAggregation:
             [None, ''], LookupAggregationType.MIN.value, source_field
         )
         assert result is None
+
+    def test_max_min_with_numeric_strings(self):
+        """max/min: 字符串数字按数值比较，避免字典序误判（'9' > '100'）"""
+        source_field = _make_field(FieldType.NUMBER.value)
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MAX.value, source_field
+        ) == 100
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MIN.value, source_field
+        ) == 9
+
+    def test_max_min_numeric_strings_on_text_field(self):
+        """max/min: 源字段非数字类型但值为数字时，同样按数值比较"""
+        source_field = _make_field(FieldType.SINGLE_LINE_TEXT.value)
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MAX.value, source_field
+        ) == 100
+        assert LookupService._apply_aggregation(
+            ['100', '20', '9'], LookupAggregationType.MIN.value, source_field
+        ) == 9
+
+    def test_max_min_timestamp_date_field(self):
+        """max/min: 日期字段存毫秒时间戳时按时间先后比较"""
+        source_field = _make_field(FieldType.DATE.value)
+        assert LookupService._apply_aggregation(
+            [1789000000000, 1789100000000],
+            LookupAggregationType.MAX.value, source_field,
+        ) == 1789100000000
+        assert LookupService._apply_aggregation(
+            [1789000000000, 1789100000000],
+            LookupAggregationType.MIN.value, source_field,
+        ) == 1789000000000
 
 
 # ======================================================================
@@ -907,3 +953,223 @@ class TestLookupComputeValue:
             data['record_a'], lookup_field
         )
         assert result == [100, 200]
+
+
+class TestLookupSelectFieldComparison:
+    """单选/多选字段与文本字段之间的过滤匹配"""
+
+    CHOICES = [
+        {'id': 'opt-1', 'name': '电子产品', 'color': '#f00'},
+        {'id': 'opt-2', 'name': '家居', 'color': '#0f0'},
+    ]
+
+    @staticmethod
+    def _select_field(multi=False):
+        field = _make_field(
+            FieldType.MULTI_SELECT.value if multi else FieldType.SINGLE_SELECT.value
+        )
+        field.options = {'choices': TestLookupSelectFieldComparison.CHOICES}
+        return field
+
+    @staticmethod
+    def _text_field():
+        return _make_field(FieldType.SINGLE_LINE_TEXT.value)
+
+    def test_expand_select_candidates(self):
+        """选择类字段展开为「选项 ID + 选项名称」候选集合"""
+        candidates = LookupService._expand_select_candidates(
+            'opt-1', self._select_field()
+        )
+        assert candidates == {'opt-1', '电子产品'}
+
+    def test_expand_non_select_field_returns_none(self):
+        """非选择类字段不展开，走原有比较逻辑"""
+        assert LookupService._expand_select_candidates('电子产品', self._text_field()) is None
+
+    def test_select_id_matches_text_name(self):
+        """源表单选存选项 ID，当前表存选项名称 → 命中"""
+        source_fields_map = {'src_cat': self._select_field()}
+        current_fields_map = {'cur_cat': self._text_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': 'opt-1'})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': '电子产品'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is True
+
+    def test_text_name_matches_select_id(self):
+        """反向：源表存文本，当前表单选存选项 ID → 命中"""
+        source_fields_map = {'src_cat': self._text_field()}
+        current_fields_map = {'cur_cat': self._select_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': '家居'})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': 'opt-2'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is True
+
+    def test_multi_select_matches_any_option(self):
+        """多选字段包含多个选项时，命中其中任一个即匹配"""
+        source_fields_map = {'src_cat': self._select_field(multi=True)}
+        current_fields_map = {'cur_cat': self._text_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': ['opt-1', 'opt-2']})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': '家居'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is True
+
+    def test_select_not_matching_text(self):
+        """选项名称不同 → 不命中"""
+        source_fields_map = {'src_cat': self._select_field()}
+        current_fields_map = {'cur_cat': self._text_field()}
+        condition = {
+            'fieldId': 'src_cat',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'field',
+            'valueFieldId': 'cur_cat',
+        }
+        source_record = _make_record({'src_cat': 'opt-1'})
+
+        class _CurrentRecord:
+            id = 'cur-1'
+            table_id = 'table-2'
+            values = {'cur_cat': '家居'}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map,
+            None, current_fields_map,
+        ) is False
+
+
+# ======================================================================
+# 关联字段过滤（link 字段存的是目标表记录 ID）
+# ======================================================================
+
+class TestLookupLinkFieldComparison:
+    """关联字段作为过滤条件时的比较逻辑"""
+
+    PROJECT_ID = 'e2b9c3ad-9147-4b84-8e3b-57f390fd9074'
+    OTHER_PROJECT_ID = '35552ebf-054d-495a-a8f9-cecb89f8f00e'
+
+    @staticmethod
+    def _link_field():
+        return _make_field(FieldType.LINK_TO_RECORD.value)
+
+    def test_extract_id_values(self):
+        """关联字段值归一化为记录 ID 列表"""
+        extract = LookupService._extract_id_values
+        assert extract([self.PROJECT_ID]) == [self.PROJECT_ID]
+        assert extract(self.PROJECT_ID) == [self.PROJECT_ID]
+        assert extract([{'id': self.PROJECT_ID, 'name': 'x'}]) == [self.PROJECT_ID]
+        assert extract([]) == []
+        assert extract(None) == []
+
+    def test_link_field_equal_current_record(self):
+        """关联字段包含当前记录 ID 时命中"""
+        result = LookupService._compare_values(
+            [self.PROJECT_ID.upper()],
+            LookupFilterOperator.EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        )
+        assert result is True
+
+    def test_link_field_equal_other_record(self):
+        """关联字段指向其他记录时不命中"""
+        result = LookupService._compare_values(
+            [self.OTHER_PROJECT_ID],
+            LookupFilterOperator.EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        )
+        assert result is False
+
+    def test_link_field_not_equal(self):
+        """关联字段的 not_equal 取反"""
+        assert LookupService._compare_values(
+            [self.OTHER_PROJECT_ID],
+            LookupFilterOperator.NOT_EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is True
+        assert LookupService._compare_values(
+            [self.PROJECT_ID],
+            LookupFilterOperator.NOT_EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is False
+
+    def test_link_field_empty_value(self):
+        """关联字段为空时只有 not_equal 成立"""
+        assert LookupService._compare_values(
+            [],
+            LookupFilterOperator.EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is False
+        assert LookupService._compare_values(
+            [],
+            LookupFilterOperator.NOT_EQUAL.value,
+            self.PROJECT_ID,
+            is_link_field=True,
+        ) is True
+
+    def test_evaluate_condition_with_current_record(self):
+        """valueType=current_record：用当前记录 ID 与关联字段比较"""
+        source_fields_map = {'link_field': self._link_field()}
+        condition = {
+            'fieldId': 'link_field',
+            'operator': LookupFilterOperator.EQUAL.value,
+            'valueType': 'current_record',
+        }
+        source_record = _make_record({'link_field': [self.PROJECT_ID]})
+
+        class _CurrentRecord:
+            id = self.PROJECT_ID
+            values = {}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _CurrentRecord(), source_fields_map
+        ) is True
+
+        class _OtherRecord:
+            id = self.OTHER_PROJECT_ID
+            values = {}
+
+        assert LookupService._evaluate_condition(
+            source_record, condition, _OtherRecord(), source_fields_map
+        ) is False

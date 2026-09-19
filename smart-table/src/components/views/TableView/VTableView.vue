@@ -48,7 +48,7 @@ import type { IEditor, EditContext, RectProps } from '@visactor/vtable-editors';
 // 导入 VTable 搜索组件
 import { SearchComponent } from '@visactor/vtable-search';
 // 导入 Element Plus 图标
-import { Search } from '@element-plus/icons-vue';
+import { Search, Loading } from '@element-plus/icons-vue';
 // 导入 ContextMenu 组件
 import ContextMenu from "@/components/common/ContextMenu.vue";
 // 导入字段属性对话框
@@ -195,6 +195,8 @@ const {
 const treeAddChildIconVisible = ref(false);
 const treeAddChildIcon = ref<{ x: number; y: number; recordId: string; recordName?: string } | null>(null);
 const treeAddChildLoading = ref(false);
+/** 树形数据加载中：首次加载/搜索重建期间表格为空，显示加载提示避免误认为没有数据 */
+const treeLoading = ref(false);
 let hideTreeAddChildIconTimer: ReturnType<typeof setTimeout> | null = null;
 
 const clearHideTreeAddChildIconTimer = () => {
@@ -210,6 +212,14 @@ const delayHideTreeAddChildIcon = () => {
     treeAddChildIconVisible.value = false;
     treeAddChildIcon.value = null;
   }, 300);
+};
+
+/** 页面或表格滚动时立即隐藏 "+" 按钮：按钮为 fixed 定位，滚动后会与所属行错位 */
+const hideTreeAddChildIconOnScroll = () => {
+  if (!treeAddChildIconVisible.value) return;
+  clearHideTreeAddChildIconTimer();
+  treeAddChildIconVisible.value = false;
+  treeAddChildIcon.value = null;
 };
 
 // 子表工具栏状态
@@ -298,9 +308,15 @@ const searchComponent = shallowRef<SearchComponent | null>(null);
  * （updateTable / 分组切换），旧实例已 release；搜索组件若仍持有旧实例
  * 将搜不到任何内容，因此每次打开/执行搜索前需校验并重建绑定。 */
 let searchBoundTable: ListTable | null = null;
+/** 已执行过 search() 的表格实例。表格重建后 SearchComponent 会被重建，
+ *  其内部结果集随之丢失，此时 next()/prev() 会因读取空结果集而报错，
+ *  需要先按当前关键词重新搜索恢复结果集。 */
+let searchAppliedTable: ListTable | null = null;
 const searchInput = ref('');
 const searchResultIndex = ref(0);
 const searchTotalCount = ref(0);
+/** 树形视图搜索需要请求后端重建树，输入过程中做防抖，避免每敲一个字符都重建表格 */
+let treeSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ==================== 关联字段数据缓存 ====================
 // 键: `${recordId}:${fieldId}`, 值: display_value 数组
@@ -3208,6 +3224,8 @@ const treeRecords = ref<any[]>([]);
 const isComponentDestroyed = ref(false);
 /** 当前正在加载树形数据的视图 ID（防并发重复请求） */
 let treeLoadingViewId = '';
+/** 当前进行中的树形数据加载，供并发调用方等待同一份结果 */
+let treeLoadingPromise: Promise<void> | null = null;
 
 // 计算可见字段
 const visibleFields = computed(() => {
@@ -3525,23 +3543,114 @@ const loadTreeRecords = async () => {
     treeRecords.value = [];
     return;
   }
-  // 防并发重复：同一视图的加载仍在进行中则跳过
-  if (treeLoadingViewId === viewId) return;
-  treeLoadingViewId = viewId;
-  try {
-    // 传递搜索关键词，后端筛选时会包含匹配记录的父级上下文
-    const searchParam = searchInput.value ? searchInput.value.trim() : '';
-    const data = await viewApiService.getViewTreeRecords(viewId, searchParam);
-    if (isComponentDestroyed.value) return;
-    treeRecords.value = transformTreeRecords(data.tree || []);
-    updateTable();
-  } catch (error) {
-    console.error('[VTableView] 加载树形记录失败:', error);
-    if (!isComponentDestroyed.value) treeRecords.value = [];
-  } finally {
-    treeLoadingViewId = '';
+  // 防并发重复：同一视图的加载仍在进行中时复用该次加载，
+  // 保证调用方（如树形搜索）在数据真正就绪、表格重建完成后再执行后续操作
+  if (treeLoadingViewId === viewId && treeLoadingPromise) {
+    return treeLoadingPromise;
   }
+  treeLoadingViewId = viewId;
+  treeLoadingPromise = (async () => {
+    treeLoading.value = true;
+    try {
+      // 传递搜索关键词，后端筛选时会包含匹配记录的父级上下文
+      const searchParam = searchInput.value ? searchInput.value.trim() : '';
+      const data = await viewApiService.getViewTreeRecords(viewId, searchParam);
+      if (isComponentDestroyed.value) return;
+      // 保存后端返回的原始树结构，筛选/排序与格式转换在 treeDisplayRecords 中按需进行
+      treeRecords.value = data.tree || [];
+      updateTable();
+    } catch (error) {
+      console.error('[VTableView] 加载树形记录失败:', error);
+      if (!isComponentDestroyed.value) treeRecords.value = [];
+    } finally {
+      treeLoadingViewId = '';
+      treeLoadingPromise = null;
+      treeLoading.value = false;
+    }
+  })();
+  return treeLoadingPromise;
 };
+
+/**
+ * 树形视图的最终展示数据。
+ *
+ * 父组件已根据视图的筛选/排序配置计算出 props.records（扁平、已筛选并排序）。
+ * 树形结构必须保留层级关系，因此这里只让「叶子节点」参与筛选与排序：
+ * - 筛选：仅保留命中的叶子节点；父级节点只要存在命中的后代就保留，用于维持层级上下文。
+ * - 排序：仅对每一层中的叶子节点排序；父级节点保持原有位置不变，避免打乱层级。
+ */
+const treeDisplayRecords = computed(() => {
+  const raw = treeRecords.value;
+  if (!isTreeView.value || raw.length === 0) return raw;
+
+  const visible = props.records || [];
+  // props.records 为空（数据尚未加载完成）时不参与筛选，避免整棵树被清空
+  const hasVisible = visible.length > 0;
+  // 记录 ID → 在已筛选/排序结果中的序号，用于筛选命中判断与叶子排序
+  const orderMap = new Map<string, number>();
+  if (hasVisible) {
+    visible.forEach((record: any, index: number) => {
+      if (record?.id) orderMap.set(String(record.id), index);
+    });
+  }
+
+  // 1) 筛选：仅叶子节点参与
+  const filterNodes = (nodes: any[]): any[] => {
+    const result: any[] = [];
+    for (const node of nodes) {
+      const children = node?.children || [];
+      if (children.length > 0) {
+        const keptChildren = filterNodes(children);
+        if (keptChildren.length > 0) {
+          result.push({ ...node, children: keptChildren, has_children: true });
+        }
+        continue;
+      }
+      // 标记为有子节点但未加载子节点数据的节点：无法判断其后代，保留
+      if (node?.has_children) {
+        result.push(node);
+        continue;
+      }
+      if (!hasVisible || orderMap.has(String(node?.id))) {
+        result.push(node);
+      }
+    }
+    return result;
+  };
+
+  const filtered = hasVisible ? filterNodes(raw) : raw;
+
+  // 2) 排序：仅叶子节点参与，父级节点保持原有位置
+  const sortLeafNodes = (nodes: any[]): any[] => {
+    const withSortedChildren = nodes.map(node => (
+      node?.children?.length ? { ...node, children: sortLeafNodes(node.children) } : node
+    ));
+    // 父级节点（有子节点的分支）位置固定，叶子节点在剩余位置按排序结果排列
+    const branchFlags = withSortedChildren.map(node => !!(node?.children && node.children.length > 0));
+    const leaves = withSortedChildren.filter((_, index) => !branchFlags[index]);
+    if (leaves.length <= 1) return withSortedChildren;
+
+    const sortedLeaves = [...leaves].sort((a, b) => {
+      const aIndex = orderMap.get(String(a?.id));
+      const bIndex = orderMap.get(String(b?.id));
+      const ai = aIndex === undefined ? Number.MAX_SAFE_INTEGER : aIndex;
+      const bi = bIndex === undefined ? Number.MAX_SAFE_INTEGER : bIndex;
+      return ai - bi;
+    });
+
+    const result = new Array(withSortedChildren.length);
+    branchFlags.forEach((isBranch, index) => {
+      if (isBranch) result[index] = withSortedChildren[index];
+    });
+    let leafIndex = 0;
+    for (let i = 0; i < withSortedChildren.length; i++) {
+      if (!branchFlags[i]) result[i] = sortedLeaves[leafIndex++];
+    }
+    return result;
+  };
+
+  return transformTreeRecords(hasVisible ? sortLeafNodes(filtered) : filtered);
+});
 
 // 为分组模式构建记录（在每个分组末尾插入虚拟「添加记录」行）
 const buildGroupedRecords = (tableRecords: any[]): any[] => {
@@ -4952,13 +5061,16 @@ const buildTableConfig = (): any => {
     (columns[0] as any).tree = true;
   }
 
+  // 分组与树形互斥：树形视图下忽略分组配置（工具栏已置灰分组入口）
+  const isGrouped = !isTreeView.value && !!props.groupBy && props.groupBy.length > 0;
+
   // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
   clearTransformCache(); // 确保全量重建时使用最新记录数据，不返回缓存中的旧行
-  let tableRecords = isTreeView.value ? treeRecords.value : transformRecords(sortedRecords.value);
+  let tableRecords = isTreeView.value ? treeDisplayRecords.value : transformRecords(sortedRecords.value);
 
   // 非分组模式下在表格末尾追加「+ 添加记录」虚拟行
   // 树形视图不追加按钮行
-  if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly && !isTreeView.value) {
+  if (!isGrouped && !props.readonly && !isTreeView.value) {
     const addButtonRecord: any = {
       _recordId: '__add_button__',
       _originalRecord: null,
@@ -4974,7 +5086,7 @@ const buildTableConfig = (): any => {
   }
 
   // 分组末尾添加按钮行
-  if (props.groupBy && props.groupBy.length > 0 && tableRecords.length > 0) {
+  if (isGrouped && tableRecords.length > 0) {
     tableRecords = buildGroupedRecords(tableRecords);
   }
 
@@ -4998,8 +5110,6 @@ const buildTableConfig = (): any => {
   // 数据源模式选择：
   // - 非分组：使用 CachedDataSource 懒渲染，VTable 仅处理可见行
   // - 分组模式：必须使用 records 模式，VTable 的 groupBy/rowSeriesNumber 需要遍历全部记录
-  const isGrouped = props.groupBy && props.groupBy.length > 0;
-
   if (!isGrouped) {
     // 非分组：创建 CachedDataSource
     
@@ -5115,7 +5225,7 @@ const buildTableConfig = (): any => {
       height: true
     },
     // 分组配置：当设置分组条件时，使用 VTable 原生分组展示
-    ...(props.groupBy && props.groupBy.length > 0 ? {
+    ...(isGrouped ? {
       groupConfig: {
         groupBy: props.groupBy,
         enableTreeStickCell: true,
@@ -5141,7 +5251,7 @@ const buildTableConfig = (): any => {
       bodyStyle: {
         color: '#374151'
       },
-      ...(props.groupBy && props.groupBy.length > 0 ? {
+      ...(isGrouped ? {
         groupTitleStyle: {
           fontWeight: 'bold',
           fontSize: 13,
@@ -5161,7 +5271,7 @@ const buildTableConfig = (): any => {
 
   // 为所有数据列添加 addButton 行处理：覆盖单元格内容，隐藏分组字段值
   // customMergeCell 与 groupBy 不兼容，故使用每列 customLayout 方式
-  if (props.groupBy && props.groupBy.length > 0) {
+  if (isGrouped) {
     columns.forEach((col: any) => {
       const origCustomLayout = col.customLayout;
       col.customLayout = (args: any) => {
@@ -5515,8 +5625,13 @@ const bindTableEvents = () => {
       if (col === 0 && !tableInstance.isHeader(col, row)) {
         const record = tableInstance.getCellOriginRecord(col, row);
         if (record && record._recordId && record._rowType !== 'addButton') {
-          // 按钮固定在序号列右侧边界、当前行垂直居中，明确指向当前行
-          const cellRect = tableInstance.getCellRect(col, row);
+          // 按钮固定在序号列右侧边界、当前行垂直居中，明确指向当前行。
+          // 必须使用 getCellRelativeRect（已扣除横向/纵向滚动偏移）：
+          // getCellRect 返回的是内容坐标系，表格滚动后据此计算的 fixed 坐标会整体偏移，
+          // 导致按钮错位甚至跑到可视区域之外。
+          const cellRect = typeof tableInstance.getCellRelativeRect === 'function'
+            ? tableInstance.getCellRelativeRect(col, row)
+            : tableInstance.getCellRect(col, row);
           if (!cellRect) return;
           const containerRect = tableContainerRef.value?.getBoundingClientRect();
           if (!containerRect) return;
@@ -6235,7 +6350,8 @@ const updateTableData = () => {
     return;
   }
 
-  const isGrouped = props.groupBy && props.groupBy.length > 0;
+  // 树形视图与分组互斥：树形模式下不按分组渲染
+  const isGrouped = !isTreeView.value && !!props.groupBy && props.groupBy.length > 0;
   isUpdatingData = true;
   pendingDataUpdate = false;
 
@@ -6583,6 +6699,17 @@ onMounted(() => {
   setupRealtimeListeners();
   document.addEventListener('click', handleDocumentClick);
   window.addEventListener('resize', handleFloatingPanelWindowResize);
+  // 树形视图的 "+" 按钮用 fixed 定位，页面或表格滚动后不会跟随，
+  // 滚动时先隐藏，鼠标移动后会按新的行位置重新显示
+  window.addEventListener('scroll', hideTreeAddChildIconOnScroll, true);
+  tableContainerRef.value?.addEventListener('wheel', hideTreeAddChildIconOnScroll, {
+    passive: true,
+    capture: true,
+  });
+  tableContainerRef.value?.addEventListener('touchmove', hideTreeAddChildIconOnScroll, {
+    passive: true,
+    capture: true,
+  });
   // 初始加载时预加载成员字段的用户信息
   preloadMemberUsers();
 });
@@ -6601,6 +6728,14 @@ onBeforeUnmount(() => {
   disposeMasterDetail();
   document.removeEventListener('click', handleDocumentClick);
   window.removeEventListener('resize', handleFloatingPanelWindowResize);
+  window.removeEventListener('scroll', hideTreeAddChildIconOnScroll, true);
+  tableContainerRef.value?.removeEventListener('wheel', hideTreeAddChildIconOnScroll, {
+    capture: true,
+  } as EventListenerOptions);
+  tableContainerRef.value?.removeEventListener('touchmove', hideTreeAddChildIconOnScroll, {
+    capture: true,
+  } as EventListenerOptions);
+  clearHideTreeAddChildIconTimer();
   if (addRecordCooldownTimer) {
     clearTimeout(addRecordCooldownTimer);
     addRecordCooldownTimer = null;
@@ -6618,6 +6753,11 @@ onBeforeUnmount(() => {
     // 表格实例已释放，同步丢弃搜索组件绑定，避免组件卸载后残留旧引用
     searchComponent.value = null;
     searchBoundTable = null;
+    searchAppliedTable = null;
+  }
+  if (treeSearchTimer) {
+    clearTimeout(treeSearchTimer);
+    treeSearchTimer = null;
   }
 });
 
@@ -6698,7 +6838,8 @@ async function loadLinkDisplayData() {
   for (const record of sortedRecords.value) {
     for (const field of linkFields) {
       const key = `${record.id}:${field.id}`;
-      if (linkDisplayCache[key] !== undefined) continue; // 已有缓存
+      // 已有缓存、或正在加载中（并发调用时避免重复请求同一批数据）则跳过
+      if (linkDisplayCache[key] !== undefined || linkLoadingStates[key]) continue;
       // 字段有值（目标记录ID数组）才加载
       const rawVal = record.values?.[field.id];
       if (rawVal && Array.isArray(rawVal) && rawVal.length > 0) {
@@ -6713,41 +6854,51 @@ async function loadLinkDisplayData() {
 
   if (needsLoad.length === 0) return;
 
-  // 按 recordId 分组去重，每条记录只调一次 API
+  // 按 recordId 分组去重，通过批量接口一次取回多条记录的关联数据。
+  // 树形/大表场景下逐条请求会产生成百上千个 HTTP 请求，
+  // 受浏览器并发连接数限制会长时间排队，表格因此长时间空白。
   const recordIds = [...new Set(needsLoad.map(n => n.recordId))];
+  const BATCH_SIZE = 100;
+  const pendingByRecord = new Map<string, Array<{ fieldId: string }>>();
+  for (const n of needsLoad) {
+    const list = pendingByRecord.get(n.recordId) || [];
+    list.push({ fieldId: n.fieldId });
+    pendingByRecord.set(n.recordId, list);
+  }
 
   try {
-    const results = await Promise.allSettled(
-      recordIds.map(recordId => linkApiService.getRecordLinks(recordId))
-    );
+    for (let i = 0; i < recordIds.length; i += BATCH_SIZE) {
+      const batch = recordIds.slice(i, i + BATCH_SIZE);
+      let batchLinks: Record<string, { outbound: Array<{ field_id: string; linked_records: Array<{ display_value: string }> }> }> = {};
 
-    for (let i = 0; i < recordIds.length; i++) {
-      const recordId = recordIds[i];
-      const result = results[i];
-
-      if (result.status === 'rejected') {
-        // 该记录下所有字段标记错误
-        for (const n of needsLoad.filter(n => n.recordId === recordId)) {
-          const key = `${recordId}:${n.fieldId}`;
-          linkErrorStates[key] = result.reason?.message || t('view.linkDataLoadFailed');
-          linkLoadingStates[key] = false;
+      try {
+        batchLinks = await linkApiService.getRecordLinksBatch(batch);
+      } catch (error) {
+        // 该批所有字段标记错误，继续加载后续批次
+        for (const recordId of batch) {
+          for (const n of pendingByRecord.get(recordId) || []) {
+            const key = `${recordId}:${n.fieldId}`;
+            linkErrorStates[key] = (error as Error)?.message || t('view.linkDataLoadFailed');
+            linkLoadingStates[key] = false;
+          }
         }
         continue;
       }
 
-      const linkData = result.value;
-
-      // 遍历该记录下需要加载的 LINK 字段
-      for (const n of needsLoad.filter(n => n.recordId === recordId)) {
-        const key = `${recordId}:${n.fieldId}`;
-        // 从 outbound 中找到匹配的字段
-        const outbound = linkData.outbound.find(o => o.field_id === n.fieldId);
-        if (outbound && outbound.linked_records.length > 0) {
-          linkDisplayCache[key] = outbound.linked_records.map(lr => lr.display_value);
-        } else {
-          linkDisplayCache[key] = [];
+      for (const recordId of batch) {
+        const linkData = batchLinks[recordId];
+        // 遍历该记录下需要加载的 LINK 字段
+        for (const n of pendingByRecord.get(recordId) || []) {
+          const key = `${recordId}:${n.fieldId}`;
+          // 从 outbound 中找到匹配的字段
+          const outbound = linkData?.outbound?.find(o => o.field_id === n.fieldId);
+          if (outbound && outbound.linked_records.length > 0) {
+            linkDisplayCache[key] = outbound.linked_records.map(lr => lr.display_value);
+          } else {
+            linkDisplayCache[key] = [];
+          }
+          linkLoadingStates[key] = false;
         }
-        linkLoadingStates[key] = false;
       }
     }
   } catch (error) {
@@ -6953,6 +7104,8 @@ function ensureSearchComponent(): boolean {
       autoJump: true,
     });
     searchBoundTable = tableInstance;
+    // 新建的搜索组件没有结果集，next()/prev() 前需要用当前关键词重新搜索
+    searchAppliedTable = null;
     // 主从表插件（MasterDetailPlugin）会强制把首列设为 tree:true，导致
     // SearchComponent 误判为树形表而走树形搜索分支：该分支遍历 table.records，
     // 而本表使用懒加载 CachedDataSource（get 回调模式），records 只有已渲染行的
@@ -6988,32 +7141,90 @@ function openSearch() {
   });
 }
 
+/**
+ * 在当前表格实例上执行一次搜索，并记录结果集与所在实例。
+ * @param restoreIndex 需要恢复到的结果序号（1-based），用于表格重建后回到原位置
+ */
+function runSearch(restoreIndex?: number): boolean {
+  const keyword = searchInput.value.trim();
+  if (!keyword || !ensureSearchComponent()) return false;
+
+  const result = searchComponent.value!.search(keyword);
+  searchTotalCount.value = result.results?.length || 0;
+  searchAppliedTable = tableInstance;
+
+  if (searchTotalCount.value === 0) {
+    searchResultIndex.value = 0;
+    return true;
+  }
+
+  // 表格重建后恢复：前进到此前所在的第 N 个结果
+  const target = Math.min(Math.max(restoreIndex ?? 1, 1), searchTotalCount.value);
+  let current = result.index;
+  let guard = searchTotalCount.value;
+  while (current + 1 < target && guard-- > 0) {
+    current = searchComponent.value!.next().index;
+  }
+  searchResultIndex.value = current + 1; // 显示为 1-based
+  return true;
+}
+
+/**
+ * 确保搜索结果集与当前表格实例匹配。
+ * 表格实例被重建（树形数据刷新、分组切换、记录更新等）后结果集会丢失，
+ * 直接调用 next()/prev() 会因读取空结果集抛出异常，需先重新搜索。
+ */
+function ensureSearchResult(): boolean {
+  if (searchAppliedTable === tableInstance) return searchTotalCount.value > 0;
+  return runSearch(searchResultIndex.value);
+}
+
 // 执行搜索
-function handleSearch() {
+async function handleSearch() {
+  if (treeSearchTimer) {
+    clearTimeout(treeSearchTimer);
+    treeSearchTimer = null;
+  }
+
   if (!searchInput.value.trim()) {
     searchResultIndex.value = 0;
     searchTotalCount.value = 0;
+    searchAppliedTable = null;
     // 树形视图：搜索词为空时重新加载完整树
     if (isTreeView.value) {
       loadTreeRecords();
     }
     return;
   }
+
+  if (isTreeView.value) {
+    // 树形视图：先按关键词加载筛选后的树（含父级上下文）并重建表格，
+    // 之后再执行搜索。若顺序相反，搜索高亮会绑定在即将被销毁的旧表格实例上，
+    // 高亮随重建立即消失，且 next()/prev() 会读到已失效的结果集。
+    treeSearchTimer = setTimeout(async () => {
+      treeSearchTimer = null;
+      try {
+        await loadTreeRecords();
+        runSearch(1);
+      } catch (error) {
+        console.error('[VTableView] 树形视图搜索失败:', error);
+      }
+    }, 300);
+    return;
+  }
+
   if (!ensureSearchComponent()) return;
 
   const result = searchComponent.value!.search(searchInput.value.trim());
   searchResultIndex.value = result.index + 1; // 显示为 1-based
   searchTotalCount.value = result.results.length;
-
-  // 树形视图：同步加载筛选后的树记录（包含父级上下文）
-  if (isTreeView.value) {
-    loadTreeRecords();
-  }
+  searchAppliedTable = tableInstance;
 }
 
 // 下一个结果
 function handleSearchNext() {
   if (!ensureSearchComponent()) return;
+  if (!ensureSearchResult()) return;
   const result = searchComponent.value!.next();
   searchResultIndex.value = result.index + 1;
 }
@@ -7021,6 +7232,7 @@ function handleSearchNext() {
 // 上一个结果
 function handleSearchPrev() {
   if (!ensureSearchComponent()) return;
+  if (!ensureSearchResult()) return;
   const result = searchComponent.value!.prev();
   searchResultIndex.value = result.index + 1;
 }
@@ -7035,6 +7247,7 @@ function closeSearch() {
   searchInput.value = '';
   searchResultIndex.value = 0;
   searchTotalCount.value = 0;
+  searchAppliedTable = null;
   // 树形视图：关闭搜索时重新加载完整树
   if (isTreeView.value) {
     loadTreeRecords();
@@ -7083,6 +7296,15 @@ watch(
       class="vtable-container"
       @contextmenu.prevent
     ></div>
+
+    <!-- 树形数据加载中：首次加载/搜索重建期间表格为空，给出明确加载提示 -->
+    <div
+      v-if="isTreeView && treeLoading && treeRecords.length === 0"
+      class="tree-loading-mask"
+    >
+      <el-icon class="is-loading"><Loading /></el-icon>
+      <span>{{ t('common.loading') }}</span>
+    </div>
 
     <!-- 子表工具栏（跟随子表末尾定位，放在 vtable-view 下避免被 VTable 初始化清空） -->
     <div
@@ -7295,6 +7517,25 @@ watch(
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+// 树形数据加载中遮罩：表格为空时给出明确加载提示
+.tree-loading-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+
+  .el-icon {
+    font-size: 20px;
+    color: var(--el-color-primary);
+  }
 }
 
 .vtable-action-icon {

@@ -14,7 +14,6 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d
     # 生产环境不应暴露数据库端口到宿主机，仅通过内部网络访问
     # 开发调试时可取消注释以下端口映射
     # ports:
@@ -42,12 +41,15 @@ services:
     networks:
       - smarttable-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # redis 配置了 requirepass，健康检查必须带密码，否则 NOAUTH 导致永远失败
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-redis123} ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   # MinIO 对象存储服务（可选）
+  # 注意：后端 MinIO 上传功能尚未实现（attachment_service.py 中为 TODO），
+  # 当前附件存储在本地 uploads 目录（见下方 uploads_data 卷），此服务仅供未来扩展
   minio:
     image: minio/minio:latest
     container_name: smarttable-minio
@@ -82,6 +84,10 @@ services:
       DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-jwt-secret-change-this}
+      JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-86400}
+      # SocketIO 消息队列必须指向 redis 容器（config 默认值是 localhost:6379，
+      # 在独立后端容器内没有 Redis，ENABLE_REALTIME=true 时实时协作会初始化失败）
+      SOCKETIO_MESSAGE_QUEUE: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/2
       ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
@@ -92,6 +98,9 @@ services:
     volumes:
       - uploads_data:/app/uploads
       - ./logs:/app/logs
+      # 插件引擎兼容校验（engines.smarttable）需读取宿主版本；
+      # 后端构建上下文不含仓库根目录的 version.json，运行时从宿主挂载
+      - ../version.json:/app/version.json:ro
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     depends_on:
@@ -99,8 +108,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      # MinIO 未加入 depends_on：后端 MinIO 功能尚未实现，不应对启动形成硬依赖
     networks:
       - smarttable-network
     healthcheck:
@@ -119,7 +127,7 @@ services:
       FLASK_ENV: ${FLASK_ENV:-production}
       DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
     command: >
-      sh -c "flask db upgrade && 
+      sh -c "python run.py migrate &&
              echo 'Database migration completed'"
     depends_on:
       postgres:
@@ -129,49 +137,10 @@ services:
     profiles:
       - migrate
 
-  # Celery 任务队列 worker
-  celery-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: smarttable-celery-worker
-    restart: unless-stopped
-    environment:
-      FLASK_ENV: ${FLASK_ENV:-production}
-      DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
-      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/1
-      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/2
-    command: celery -A app.celery worker --loglevel=info --concurrency=4
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - smarttable-network
-    profiles:
-      - celery
-
-  # Celery Beat 定时任务调度器
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: smarttable-celery-beat
-    restart: unless-stopped
-    environment:
-      FLASK_ENV: ${FLASK_ENV:-production}
-      DATABASE_URL: postgresql+psycopg://${DB_USER:-smarttable}:${DB_PASSWORD:-smarttable123}@postgres:5432/${DB_NAME:-smarttable}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
-      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/1
-      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/2
-    command: celery -A app.celery beat --loglevel=info
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - smarttable-network
-    profiles:
-      - celery
+  # 说明：原 celery-worker / celery-beat 服务已移除。
+  # 项目中不存在 app.celery 模块，celery 也未列入生产依赖（requirements.txt），
+  # 这两个服务一旦启动必然失败（ModuleNotFoundError）。如后续实现任务队列，
+  # 请先添加 celery 依赖与 app/celery.py，再恢复对应服务定义。
 
   # Nginx 反向代理（可选）
   nginx:

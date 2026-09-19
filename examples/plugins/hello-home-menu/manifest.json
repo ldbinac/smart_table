@@ -1,0 +1,32 @@
+{
+  "id": "com.smarttable.hello-home-menu",
+  "name": "Hello Home Menu",
+  "description": "扩展点示例：在首页全局扩展菜单（home-menu）挂载入口，演示全局作用域（仅 config / storage / ui.notify）",
+  "author": {
+    "name": "SmartTable Team",
+    "url": "https://github.com/ldbinac/smart_table"
+  },
+  "version": "1.0.0",
+  "type": "ui",
+  "apiVersion": "1",
+  "engines": {
+    "smarttable": ">=1.6.6 <2.0.0"
+  },
+  "entry": "main.js",
+  "permissions": {
+    "storage": true
+  },
+  "extensionPoints": [
+    {
+      "type": "home-menu",
+      "title": "Hello 工具箱",
+      "icon": "HomeFilled"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "greeting": { "type": "string", "default": "Hello" }
+    }
+  }
+}

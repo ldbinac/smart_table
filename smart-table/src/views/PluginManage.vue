@@ -1,15 +1,18 @@
 <script setup lang="ts">
 /**
- * 插件管理页（系统管理员）
+ * 插件管理页
  *
  * 卡片式插件列表 + 上传安装包 + 启用/禁用/配置/升级/回滚/卸载 + 脚本运行日志。
- * 权限：页面级由 adminGuard 限制（与 /admin/* 管理页一致）。
+ * 权限（页面对所有登录用户开放，页面内按身份区分可见操作）：
+ * - 系统 Admin：上传/全局启停/回滚/卸载/全局配置/运行脚本与查看日志
+ * - Base 创建者：把自己创建的 Base 与管理员已启用的插件做安装/启停/移除/Base 级配置
  */
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Upload, Refresh, Plus } from "@element-plus/icons-vue";
 import { usePluginStore } from "@/stores/pluginStore";
+import { useAuthStore } from "@/stores/authStore";
 import { invalidatePluginsCache } from "@/plugins/registry";
 import { getBases } from "@/services/api/baseApiService";
 import PluginTypeTag from "@/components/plugins/PluginTypeTag.vue";
@@ -22,6 +25,14 @@ import type { UploadUserFile, UploadInstance } from "element-plus";
 
 const { t } = useI18n();
 const store = usePluginStore();
+const authStore = useAuthStore();
+
+/**
+ * 系统管理员：可上传安装包、全局启停/回滚/卸载、全局配置、运行脚本。
+ * 普通用户：只能把自己创建的 Base 与管理员已启用的插件做安装/启停/移除。
+ */
+const isAdmin = computed(() => authStore.isAdmin);
+const currentUserId = computed(() => authStore.user?.id ?? "");
 
 const selectedFile = ref<File | null>(null);
 const uploadDialogVisible = ref(false);
@@ -126,9 +137,23 @@ const runResultText = computed(() => {
   return parts.join("\n\n") || "-";
 });
 
-/** 脚本插件运行/日志需要 Base 上下文：管理员选择一个目标 Base */
-const bases = ref<Array<{ id: string; name: string }>>([]);
+/** 脚本插件运行/日志需要 Base 上下文：选择一个目标 Base */
+const bases = ref<Array<{ id: string; name: string; ownerId: string }>>([]);
 const selectedBaseId = ref("");
+
+/** 是否为某 Base 的创建者（与后端 Base.owner_id 判定保持一致） */
+function isBaseOwner(baseId: string): boolean {
+  if (!baseId || !currentUserId.value) return false;
+  return (
+    bases.value.find((b) => b.id === baseId)?.ownerId === currentUserId.value
+  );
+}
+
+/**
+ * 是否可对当前所选 Base 安装/启停/移除插件。
+ * 后端要求操作者必须是该 Base 的创建者，与 Base 成员角色无关。
+ */
+const canManageSelectedBase = computed(() => isBaseOwner(selectedBaseId.value));
 
 const statusType = computed(() => (status: PluginStatus) => {
   switch (status) {
@@ -144,9 +169,19 @@ const statusType = computed(() => (status: PluginStatus) => {
 });
 
 onMounted(async () => {
+  // Base 归属判定依赖当前用户 ID，先确保用户信息已就绪
+  await authStore.checkAuth();
   try {
     const list = await getBases();
-    bases.value = (list || []).map((b) => ({ id: b.id, name: b.name }));
+    const all = (list || []).map((b) => ({
+      id: b.id,
+      name: b.name,
+      ownerId: b.owner_id,
+    }));
+    // 非管理员只列出自己创建的 Base：后端要求只有创建者才能安装/管理插件
+    bases.value = isAdmin.value
+      ? all
+      : all.filter((b) => b.ownerId === currentUserId.value);
     if (bases.value.length > 0) selectedBaseId.value = bases.value[0].id;
   } catch (error) {
     console.warn("[PluginManage] Base 列表加载失败（脚本运行将不可用）:", error);
@@ -240,7 +275,8 @@ async function handleRollback(): Promise<void> {
 
 async function openConfig(plugin: PluginEntity): Promise<void> {
   configTarget.value = plugin;
-  configScope.value = "global";
+  // 非管理员无全局配置权限，直接进入 Base 级配置
+  configScope.value = isAdmin.value ? "global" : "base";
   configBaseId.value = selectedBaseId.value || bases.value[0]?.id || "";
   await loadConfigForScope();
   configDialogVisible.value = true;
@@ -456,7 +492,7 @@ function formatPermissions(plugin: PluginEntity): string[] {
       <div>
         <h2 class="plugin-manage__title">{{ t("plugin.title") }}</h2>
         <p class="plugin-manage__subtitle">
-          {{ t("plugin.uploadHint") }}
+          {{ isAdmin ? t("plugin.uploadHint") : t("plugin.userHint") }}
         </p>
       </div>
       <div class="plugin-manage__actions">
@@ -464,6 +500,7 @@ function formatPermissions(plugin: PluginEntity): string[] {
           {{ t("plugin.refresh") }}
         </el-button>
         <el-button
+          v-if="isAdmin"
           type="primary"
           :icon="Plus"
           @click="uploadDialogVisible = true">
@@ -492,7 +529,7 @@ function formatPermissions(plugin: PluginEntity): string[] {
 
     <el-empty
       v-if="!store.loading && store.filteredPlugins.length === 0"
-      :description="t('plugin.empty')" />
+      :description="isAdmin ? t('plugin.empty') : t('plugin.emptyUser')" />
 
     <div v-else v-loading="store.loading" class="plugin-manage__grid">
       <el-card
@@ -541,7 +578,8 @@ function formatPermissions(plugin: PluginEntity): string[] {
               {{ baseInstallText(plugin) }}
             </el-tag>
           </div>
-          <div class="plugin-card__footer">
+          <!-- 仅该 Base 的创建者可安装/启停/移除（后端同规则） -->
+          <div v-if="canManageSelectedBase" class="plugin-card__footer">
             <el-button
               v-if="!plugin.baseInstalled"
               size="small"
@@ -570,14 +608,21 @@ function formatPermissions(plugin: PluginEntity): string[] {
             </template>
           </div>
           <p
+            v-else
+            class="plugin-manage__notice plugin-card__base-hint">
+            {{ t("plugin.baseInstall.ownerOnlyHint") }}
+          </p>
+          <p
             v-if="plugin.baseInstalled && plugin.status !== 'enabled'"
             class="plugin-manage__notice plugin-card__base-hint">
             {{ t("plugin.baseInstall.globalDisabledHint") }}
           </p>
         </div>
 
-        <div class="plugin-card__footer">
+        <!-- 全局管理类操作仅系统管理员；Base 创建者另可使用 Base 级配置 -->
+        <div v-if="isAdmin || canManageSelectedBase" class="plugin-card__footer">
           <el-button
+            v-if="isAdmin"
             size="small"
             :type="plugin.status === 'enabled' ? 'default' : 'primary'"
             @click="handleToggleStatus(plugin)">
@@ -590,22 +635,23 @@ function formatPermissions(plugin: PluginEntity): string[] {
           <el-button size="small" @click="openConfig(plugin)">
             {{ t("plugin.actions.config") }}
           </el-button>
-          <el-button size="small" @click="openRollback(plugin)">
+          <el-button v-if="isAdmin" size="small" @click="openRollback(plugin)">
             {{ t("plugin.actions.rollback") }}
           </el-button>
           <el-button
-            v-if="plugin.type === 'script'"
+            v-if="isAdmin && plugin.type === 'script'"
             size="small"
             @click="openRunDialog(plugin)">
             {{ t("plugin.actions.run") }}
           </el-button>
           <el-button
-            v-if="plugin.type === 'script'"
+            v-if="isAdmin && plugin.type === 'script'"
             size="small"
             @click="openLogs(plugin)">
             {{ t("plugin.actions.runLogs") }}
           </el-button>
           <el-button
+            v-if="isAdmin"
             size="small"
             type="danger"
             plain
@@ -689,7 +735,7 @@ function formatPermissions(plugin: PluginEntity): string[] {
         v-model="configScope"
         class="plugin-manage__scope"
         @change="loadConfigForScope">
-        <el-radio-button value="global">
+        <el-radio-button v-if="isAdmin" value="global">
           {{ t("plugin.configDialog.scopeGlobal") }}
         </el-radio-button>
         <el-radio-button value="base">

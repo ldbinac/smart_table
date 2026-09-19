@@ -18,6 +18,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Document Management** - Document CRUD, rich text editing (Quill), Markdown support, PDF export, version history
 - **Automation Workflow Management** - Workflow create/edit, node management, trigger management, and delivery record viewing
 - **Data Visualization** - Dashboard create/edit, chart components, grid layout, real-time data, and dashboard sharing
+- **Plugin System** - Plugin management page supports upload/install, enable/disable, upgrade/rollback/uninstall; supports UI plugins (iframe sandbox + Vue templates) and script plugins (restricted subprocess), can read table selected records for batch processing
 - **Audit Log** - Complete audit log system with trace tracking
 
 ### 📝 Supported Field Types (27 Types)
@@ -95,6 +96,18 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Retry Strategy** - Supports max retry count, retry interval configuration
 - **Test Feature** - Test whether Webhook configuration is valid
 - **Delivery Records** - View delivery record list, details (request params, response status code, response body, etc.)
+
+#### 🔌 Plugin System (Extensible Capabilities)
+
+- **Dual-form Plugins**
+  - **UI Plugin** - Runs in an iframe sandbox (`sandbox="allow-scripts"`, opaque origin, cannot access host Cookie/DOM); the host injects the Vue 3 runtime and supports standard Vue template syntax (`v-model` / `v-for` / `@click` / data reactivity), developable as a zero-build single file
+  - **Script Plugin** - Runs in a restricted subprocess with a module whitelist and dangerous builtins disabled; data operations are proxied and executed under the **triggering user's identity** with double authentication
+- **Lifecycle Management** - Upload/install, global enable/disable, Base-level install/enable/disable/remove, upgrade, rollback to historical versions, and uninstall — all done by admins on the plugin management page (the Base page has zero-install interaction, ready to use on open)
+- **Two-level Configuration** - `global` and `base` scope config (base deep-merges global), validated against the plugin's declared `configSchema` on write
+- **Two-layer Permissions** - Plugin manifest permission declaration plus user RBAC, deny by default, host-side per-method authentication, unauthorized calls return `PERMISSION_DENIED`
+- **Selection Data Channel** - Table selected records are passed to the plugin as an open-time snapshot (record IDs only, capped at 1000, with select-all/truncation flags); extension points may declare `requiresSelection` / `maxSelection`, and the host disables the entry and prompts when unmet
+- **Security & Stability** - Short-lived signed URL for sandbox loading, zip path-traversal and zip-bomb protection, script timeout and concurrency limits, automatic error state on consecutive failures
+- **Runtime Logs** - Records running status, duration, output, results, and exception stacks; supports querying by Base, result popups, and log detail viewing
 
 #### Collaboration & Sharing
 

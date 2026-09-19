@@ -4,6 +4,119 @@
 
 ***
 
+# SmartTable v1.6.7 Release Notes
+
+**发布日期 / Release Date**: 2026-09-19
+
+**版本号 / Version**: v1.6.7
+
+**标签 / Tags**: `release`, `v1.6.7`, `latest`, `stable`, `plugin`, `notification`, `lookup`, `tree-view`, `document`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.7 更新说明
+
+本次更新聚焦 **插件系统**、**通知能力增强**、**查找与关联字段优化**等内容。新增完整的插件系统，覆盖全扩展点与能力，并配套多套示例插件与扩展点工具脚本；工作流新增站内信通知节点，铃铛通知交互与状态管理优化；查找字段支持关联记录比较过滤、选择类与文本字段过滤匹配；树形视图支持叶子节点筛选排序并修复若干交互问题；并修复了文档编辑、复制视图、关联字段导出、公式字段转换、PDF 预览跨域等一批问题。
+
+### ✨ 新增及功能优化
+
+#### 🔌 插件系统 ⭐
+
+- ⭐ **插件系统全扩展点落地**：完成插件系统全扩展点与能力落地，支持通过插件扩展系统功能
+- ⭐ **示例插件与工具脚本**：新增多套扩展点示例插件与配套工具脚本，便于二次开发参考
+- **插件管理页开放**：插件管理页面面向所有登录用户开放
+- **错误国际化**：统一插件错误信息国际化处理
+
+#### 🔔 通知能力增强
+
+- ⭐ **工作流站内信节点**：工作流新增站内信通知节点，可在流程中直接发送站内信
+- **铃铛通知优化**：优化铃铛通知交互与状态管理
+- **样式隔离**：清理站内信 HTML 并防止样式污染；修正详情抽屉样式作用域
+
+#### 🔍 查找与关联字段优化
+
+- ⭐ **关联记录比较过滤**：查找字段支持与当前记录进行关联比较过滤
+- **选择/文本字段过滤匹配**：查找字段支持选择类字段与文本字段的过滤匹配
+- **聚合转换优化**：优化数值和日期聚合转换
+- **关联数据批量获取**：批量获取关联数据并显示树形加载状态
+
+#### 🌳 树形视图增强
+
+- ⭐ **叶子节点筛选排序**：树形视图支持叶子节点筛选排序，并禁用分组
+- **搜索修复**：修复树形搜索与表格重建后搜索结果丢失问题
+- **"+"按钮错位修复**：修复树形视图"+"按钮滚动错位问题
+
+
+#### 🐳 部署与依赖优化
+
+- **PDF 预览跨域修复**：修复 PDF 预览功能的跨域拦截问题
+- **依赖兼容性**：降级 psycopg 至 3.2.13 并升级 eventlet，解决两者的兼容冲突
+- **Docker 优化**：修正相关的文档与配置样例，优化 Docker 镜像构建与部署配置
+- **压测脚本**：新增大数据量压测脚本
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复文档编辑者无法编辑文档的问题
+- 修复文档标题工具栏设置为字符串时生成样式异常问题
+- 修复复制视图功能错误
+- 修复数字字段调整为公式字段的报错问题
+- 修复关联字段导出显示记录 ID 而非名称的问题
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.7 Release Notes
+
+This release focuses on **plugin system**, **notification enhancements**, and **lookup & relation field optimization**. Introduced a complete plugin system covering all extension points and capabilities, with multiple sample plugins and extension-point tooling scripts; added an in-app (站内信) notification node to workflows and improved bell notification interaction and state management; lookup fields now support comparing against the current record and filter matching for select/text fields; tree views support leaf-node filtering and sorting with grouping disabled, and several interaction issues were fixed; and fixed issues including document editing, view duplication, relation-field export, formula-field conversion, and PDF preview cross-origin.
+
+### ✨ New Features & Improvements
+
+#### 🔌 Plugin System ⭐
+
+- ⭐ **Full Extension Points**: Completed the plugin system with all extension points and capabilities, enabling feature extension via plugins
+- ⭐ **Sample Plugins & Tooling**: Added multiple sample plugins for extension points along with supporting tooling scripts for easier secondary development
+- **Plugin Management Opened**: The plugin management page is now available to all logged-in users
+- **Error Internationalization**: Unified internationalization of plugin error messages
+
+#### 🔔 Notification Enhancements
+
+- ⭐ **Workflow In-App Notification Node**: Added an in-app (站内信) notification node to workflows, allowing direct in-app message sending within a flow
+- **Bell Notification Optimization**: Improved bell notification interaction and state management
+- **Style Isolation**: Cleaned in-app message HTML to prevent style pollution; fixed detail-drawer style scoping
+
+#### 🔍 Lookup & Relation Optimizations
+
+- ⭐ **Compare Against Current Record**: Lookup fields support filter comparison against the current record
+- **Select/Text Filter Matching**: Lookup fields support filter matching for select-type and text fields
+- **Aggregation Conversion**: Optimized numeric and date aggregation conversion
+- **Batch Relation Fetch**: Batch-fetch relation data with tree loading-state display
+
+#### 🌳 Tree View Enhancements
+
+- ⭐ **Leaf Filter & Sort**: Tree views support leaf-node filtering and sorting, with grouping disabled
+- **Search Fix**: Fixed lost search results after tree search and table rebuild
+- **"+" Button Offset**: Fixed the scrolling offset of the tree view "+" button
+
+#### 🐳 Deployment & Dependency Optimization
+
+- **PDF Preview CORS**: Fixed cross-origin interception of PDF preview
+- **Dependency Compatibility**: Downgraded psycopg to 3.2.13 and upgraded eventlet to resolve their compatibility conflict
+- **Docker Optimization**: Corrected related docs and config samples; optimized Docker image build and deployment config
+- **Stress Test Script**: Added a large-data-volume stress test script
+
+### 🐛 Bug Fixes
+
+- Fixed document editors being unable to edit documents
+- Fixed style abnormality issues when the document title toolbar is set to a string
+- Fixed view duplication errors
+- Fixed errors when converting a number field to a formula field
+- Fixed relation-field export showing record IDs instead of names
+
+***
+
 # SmartTable v1.6.6 Release Notes
 
 **发布日期 / Release Date**: 2026-09-10

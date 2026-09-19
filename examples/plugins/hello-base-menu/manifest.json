@@ -1,0 +1,33 @@
+{
+  "id": "com.smarttable.hello-base-menu",
+  "name": "Hello Base Menu",
+  "description": "扩展点示例：通过 Base 顶部扩展菜单（base-menu）打开面板，演示 Base 作用域能力（列出本 Base 表并预览记录）",
+  "author": {
+    "name": "SmartTable Team",
+    "url": "https://github.com/ldbinac/smart_table"
+  },
+  "version": "1.0.0",
+  "type": "ui",
+  "apiVersion": "1",
+  "engines": {
+    "smarttable": ">=1.6.6 <2.0.0"
+  },
+  "entry": "main.js",
+  "permissions": {
+    "records": "read",
+    "tables": "read"
+  },
+  "extensionPoints": [
+    {
+      "type": "base-menu",
+      "title": "Hello 菜单",
+      "icon": "Menu"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "greeting": { "type": "string", "default": "Hello" }
+    }
+  }
+}

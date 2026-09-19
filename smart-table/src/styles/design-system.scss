@@ -2,6 +2,14 @@
  * Smart Table Design System
  * 设计系统基础变量定义
  * 与 Home.vue 中的清新配色保持一致
+ *
+ * ⚠️ 已废弃（DEPRECATED）
+ * 本文件未被入口引用，属于历史遗留的死代码。
+ * 其中「响应式断点 token」($breakpoint-sm/md/lg/xl/2xl) 已于移动端改造中
+ * 迁移到在用的 src/assets/styles/variables.scss 的 $breakpoints 中，
+ * 并通过 src/assets/styles/mixins.scss 的 @mixin respond-to() 全局提供。
+ * 新代码请统一使用 variables.scss 的颜色/间距 token 与 respond-to() 断点 mixin，
+ * 不要再从本文件取值，避免两套 token 二次分裂。
  */
 
 // ============================================

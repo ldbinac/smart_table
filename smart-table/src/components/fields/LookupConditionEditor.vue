@@ -109,6 +109,27 @@ function isDateLikeType(type: string): boolean {
   return dateLikeTypes.includes(type);
 }
 
+/** 判断字段是否为关联字段（存储的是目标表记录 ID，支持与“当前记录”比较） */
+function isLinkField(fieldId: string): boolean {
+  return ["link", "link_to_record"].includes(getSourceFieldType(fieldId));
+}
+
+/** 切换值类型：current_record 无需字段/自定义值，切换时清理残留值 */
+function onValueTypeChange(
+  index: number,
+  valueType: "field" | "custom" | "current_record",
+) {
+  if (valueType === "current_record") {
+    updateCondition(index, {
+      valueType,
+      valueFieldId: undefined,
+      valueCustom: undefined,
+    });
+    return;
+  }
+  updateCondition(index, { valueType });
+}
+
 /** 添加新条件 */
 function addCondition() {
   if (props.conditions.length >= MAX_CONDITIONS) return;
@@ -145,6 +166,14 @@ function onFieldChange(index: number, newFieldId: string) {
       updateCondition(index, { fieldId: newFieldId, operator: "equal" });
       return;
     }
+  }
+  // 非关联字段不支持“当前记录”比较，回退为当前表字段
+  if (
+    props.conditions[index].valueType === "current_record" &&
+    !isLinkField(newFieldId)
+  ) {
+    updateCondition(index, { fieldId: newFieldId, valueType: "field" });
+    return;
   }
   updateCondition(index, { fieldId: newFieldId });
 }
@@ -233,16 +262,26 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
             size="small"
             class="condition-value-type-select"
             @update:model-value="
-              updateCondition(index, {
-                valueType: $event as 'field' | 'custom',
-              })
+              onValueTypeChange(
+                index,
+                $event as 'field' | 'custom' | 'current_record',
+              )
             "
           >
             <ElOption :label="t('field.currentTableField')" value="field" />
             <ElOption :label="t('field.customValue')" value="custom" />
+            <ElOption
+              v-if="isLinkField(condition.fieldId)"
+              :label="t('field.currentRecord')"
+              value="current_record" />
           </ElSelect>
 
           <div class="condition-value-input">
+            <!-- valueType === 'current_record'：当前记录，无需额外值输入 -->
+            <span v-if="condition.valueType === 'current_record'" class="value-current-record">
+              {{ t('field.currentRecordHint') }}
+            </span>
+
             <!-- valueType === 'field'：当前表字段下拉 -->
             <ElSelect
               v-if="condition.valueType === 'field'"
@@ -264,7 +303,7 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
             </ElSelect>
 
             <!-- valueType === 'custom'：根据源表字段类型动态渲染 -->
-            <template v-else>
+            <template v-else-if="condition.valueType === 'custom'">
               <ElInputNumber
                 v-if="isNumberLikeType(getSourceFieldType(condition.fieldId))"
                 :model-value="
@@ -395,6 +434,12 @@ function onOperatorChange(index: number, newOperator: LookupFilterOperator) {
 
   .value-custom-input {
     width: 100%;
+  }
+
+  .value-current-record {
+    width: 100%;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
   }
 }
 

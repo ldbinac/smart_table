@@ -17,6 +17,7 @@
   "baseShare": "访问分享的多维表格",
   "pdfPreview": "PDF 预览",
   "settings": "设置",
+  "plugins": "插件管理",
   "notifications": "站内信通知",
   "adminUsers": "用户管理",
   "adminSettings": "系统配置",

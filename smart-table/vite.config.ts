@@ -49,6 +49,16 @@ export default defineConfig({
         followRedirects: true,
         configure: (proxy) => {
           proxy.on("proxyReq", (proxyReq, req: any) => {
+            // 插件沙箱 loader.html：保持浏览器原始 Host。
+            // 后端依据 Host 生成沙箱 CSP；changeOrigin 改写 Host 后，
+            // CSP 会放行 localhost:5000 而沙箱文档实际在 localhost:3000，
+            // vendor/vue.global.prod.js 等相对资源会被 CSP 拦截。
+            if ((req.url || "").includes("loader.html")) {
+              if (req.headers.host) {
+                proxyReq.setHeader("Host", req.headers.host);
+              }
+              return;
+            }
             // 保留原始请求的所有头信息，包括 Authorization
             const headers = req.headers;
             if (headers.authorization) {

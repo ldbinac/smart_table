@@ -16,6 +16,11 @@ services:
       - "5432:5432"
     networks:
       - smarttable-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smarttable -d smarttable_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -25,6 +30,11 @@ services:
       - "6379:6379"
     networks:
       - smarttable-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   backend:
     build:
@@ -44,11 +54,15 @@ services:
       - .:/app
       - /app/__pycache__
       - uploads_dev_data:/app/uploads
+      # 插件引擎兼容校验需读取宿主版本；后端构建上下文不含仓库根目录的 version.json
+      - ../version.json:/app/version.json:ro
     ports:
       - "5000:5000"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - smarttable-dev-network
     command: flask run --host=0.0.0.0 --reload

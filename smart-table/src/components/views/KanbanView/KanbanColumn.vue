@@ -121,6 +121,7 @@ defineExpose({
         :key="record.id"
         :record="record"
         :fields="cardFieldObjects"
+        :readonly="props.readonly"
         :data-record-id="record.id"
         @edit="$emit('editRecord', record.id)"
         @delete="$emit('deleteRecord', record.id)" />
