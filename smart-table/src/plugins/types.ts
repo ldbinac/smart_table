@@ -40,6 +40,7 @@ export type ExtensionPointType =
 export interface ExtensionPoint {
   type: ExtensionPointType;
   title: string;
+  description?: string;
   icon?: string;
   /** 是否要求表格中已勾选记录（未勾选时宿主禁用入口并提示） */
   requiresSelection?: boolean;

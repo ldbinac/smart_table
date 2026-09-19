@@ -101,6 +101,8 @@ export interface WidgetConfig {
     darkMode?: boolean;
     // 通用配置
     showHeader?: boolean;
+    /** 插件自定义组件来源插件 ID（dashboard-widget 扩展点） */
+    pluginId?: string;
     showWeekday?: boolean;
     // 边框配置
     borderSize?: "none" | "narrow" | "medium" | "wide";

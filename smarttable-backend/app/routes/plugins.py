@@ -442,6 +442,22 @@ def get_sandbox_url(plugin_id: str):
     return success_response({'url': url, 'version': version, 'fst': fst})
 
 
+def _plugin_validation_error(e: PluginValidationError) -> Response:
+    """插件校验失败统一响应
+
+    PluginValidationError.detail 为 i18n key（含 {占位符}），此处按当前请求
+    语言渲染并插值；未命中词条时 translate 原样返回，兼容硬编码文案。
+    """
+    detail = translate(e.detail, **(e.params or {})) if e.detail else e.error_code
+    return error_response(
+        message=detail,
+        code=400,
+        error=e.error_code,
+        details=([{'error_code': e.error_code, 'detail': detail}]
+                 if detail else None),
+    )
+
+
 # ==================== 管理接口：上传/升级/回滚/启停/卸载 ====================
 
 @plugins_bp.route('/plugins/upload', methods=['POST'])
@@ -483,13 +499,7 @@ def upload_plugin():
             zip_bytes, str(g.current_user_id))
         return success_response(result)
     except PluginValidationError as e:
-        return error_response(
-            message=e.detail or e.error_code,
-            code=400,
-            error=e.error_code,
-            details=([{'error_code': e.error_code, 'detail': e.detail}]
-                     if e.detail else None),
-        )
+        return _plugin_validation_error(e)
     except Exception:
         log.exception('[plugins] 安装包处理失败')
         return error_response('plugin_install_failed', 500)
@@ -587,13 +597,7 @@ def set_plugin_status(plugin_id: str):
     except PluginNotFoundError:
         return not_found_response('plugin_not_found')
     except PluginValidationError as e:
-        return error_response(
-            message=e.detail or e.error_code,
-            code=400,
-            error=e.error_code,
-            details=([{'error_code': e.error_code, 'detail': e.detail}]
-                     if e.detail else None),
-        )
+        return _plugin_validation_error(e)
 
 
 @plugins_bp.route('/plugins/<string:plugin_id>/rollback', methods=['POST'])
@@ -633,13 +637,7 @@ def rollback_plugin(plugin_id: str):
     except PluginNotFoundError:
         return not_found_response('plugin_not_found')
     except PluginValidationError as e:
-        return error_response(
-            message=e.detail or e.error_code,
-            code=400,
-            error=e.error_code,
-            details=([{'error_code': e.error_code, 'detail': e.detail}]
-                     if e.detail else None),
-        )
+        return _plugin_validation_error(e)
 
 
 @plugins_bp.route('/plugins/<string:plugin_id>', methods=['DELETE'])
@@ -795,13 +793,7 @@ def install_to_base(plugin_id: str):
     except PluginNotFoundError:
         return not_found_response('plugin_not_found')
     except PluginValidationError as e:
-        return error_response(
-            message=e.detail or e.error_code,
-            code=400,
-            error=e.error_code,
-            details=([{'error_code': e.error_code, 'detail': e.detail}]
-                     if e.detail else None),
-        )
+        return _plugin_validation_error(e)
 
 
 @plugins_bp.route('/plugins/<string:plugin_id>/installations', methods=['PUT'])
@@ -851,13 +843,7 @@ def set_installation_enabled(plugin_id: str):
     except PluginNotFoundError:
         return not_found_response('plugin_not_found')
     except PluginValidationError as e:
-        return error_response(
-            message=e.detail or e.error_code,
-            code=400,
-            error=e.error_code,
-            details=([{'error_code': e.error_code, 'detail': e.detail}]
-                     if e.detail else None),
-        )
+        return _plugin_validation_error(e)
 
 
 @plugins_bp.route('/plugins/<string:plugin_id>/installations', methods=['DELETE'])
@@ -1007,13 +993,7 @@ def set_plugin_config(plugin_id: str):
     except PluginNotFoundError:
         return not_found_response('plugin_not_found')
     except PluginValidationError as e:
-        return error_response(
-            message=e.detail or e.error_code,
-            code=400,
-            error=e.error_code,
-            details=([{'error_code': e.error_code, 'detail': e.detail}]
-                     if e.detail else None),
-        )
+        return _plugin_validation_error(e)
 
 
 # ==================== 脚本插件运行 ====================
@@ -1155,7 +1135,9 @@ def proxy_plugin_request(plugin_id: str):
             body=data.get('body'),
         )
     except plugin_proxy_service.ProxyError as e:
-        return error_response(e.message, e.http_status, e.error_code)
+        # e.message 为 i18n key，按当前语言渲染（含参数插值）
+        return error_response(
+            translate(e.message, **(e.params or {})), e.http_status, e.error_code)
     return success_response(result)
 
 

@@ -13,10 +13,6 @@ import {
   setContext,
   loadPluginsForBase,
 } from "@/plugins/registry";
-import type {
-  ExtensionPoint,
-  PluginEntity,
-} from "@/plugins/types";
 import PluginSandbox from "./PluginSandbox.vue";
 
 const props = defineProps<{

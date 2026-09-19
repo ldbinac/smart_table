@@ -360,3 +360,46 @@ def test_full_lifecycle_upload_enable_install_call(client, app, db_session,
         json={"base_id": str(test_base.id), "payload": {"k": 1}})
     assert resp.status_code == 200
     assert resp.get_json()["data"]["result"] == {"ok": True, "echo": {"k": 1}}
+
+
+def test_plugin_error_messages_follow_accept_language(client, app, db_session,
+                                                      tmp_path):
+    """插件接口错误消息按 Accept-Language 返回对应语言
+
+    覆盖两层：
+    - 路由层静态 key（如 plugin_not_found）
+    - PluginValidationError.detail（i18n key + 参数插值）
+    """
+    app.config["UPLOAD_FOLDER"] = str(tmp_path / "uploads")
+    admin_headers = _admin_user(app, db_session, client)
+    en_headers = dict(admin_headers, **{"Accept-Language": "en-US"})
+
+    # 缺失资源：默认中文
+    resp = client.get("/api/plugins/not-exist", headers=admin_headers)
+    assert resp.status_code == 404
+    assert resp.get_json()["message"] == "插件不存在"
+
+    resp = client.get("/api/plugins/not-exist", headers=en_headers)
+    assert resp.status_code == 404
+    assert resp.get_json()["message"] == "Plugin not found"
+
+    # 重复上传同版本：触发校验错误（detail 为 i18n key 且带插值参数）
+    zip_bytes = _build_package()
+    assert client.post(
+        "/api/plugins/upload", headers=admin_headers,
+        data={"package": (io.BytesIO(zip_bytes), "echo.stplugin.zip")}
+    ).status_code == 200
+
+    resp = client.post(
+        "/api/plugins/upload", headers=admin_headers,
+        data={"package": (io.BytesIO(zip_bytes), "echo.stplugin.zip")})
+    assert resp.status_code == 400
+    assert PLUGIN_ID in resp.get_json()["message"]
+    assert "已安装" in resp.get_json()["message"]
+
+    resp = client.post(
+        "/api/plugins/upload", headers=en_headers,
+        data={"package": (io.BytesIO(zip_bytes), "echo.stplugin.zip")})
+    assert resp.status_code == 400
+    assert PLUGIN_ID in resp.get_json()["message"]
+    assert "already installed" in resp.get_json()["message"]

@@ -13,6 +13,7 @@ import ipaddress
 import socket
 import threading
 import time
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -35,13 +36,19 @@ _RATE_BUCKETS: dict = {}
 
 
 class ProxyError(Exception):
-    """代理失败（error_code + message + http_status）"""
+    """代理失败（error_code + message + http_status）
 
-    def __init__(self, error_code: str, message: str, http_status: int = 400):
+    message 为 i18n key（含 {占位符}），由路由层 translate() 结合 params
+    渲染为当前语言文本。
+    """
+
+    def __init__(self, error_code: str, message: str, http_status: int = 400,
+                 params: Optional[Dict[str, Any]] = None):
         super().__init__(f"{error_code}: {message}")
         self.error_code = error_code
         self.message = message
         self.http_status = http_status
+        self.params = params or {}
 
 
 def _check_rate_limit(plugin_id: str) -> None:
@@ -51,9 +58,9 @@ def _check_rate_limit(plugin_id: str) -> None:
         ts = [t for t in ts if now - t < _RATE_LIMIT_WINDOW]
         if len(ts) >= _RATE_LIMIT_MAX:
             raise ProxyError(
-                "RATE_LIMITED",
-                f"plugin {plugin_id} exceeds {_RATE_LIMIT_MAX} requests/"
-                f"{_RATE_LIMIT_WINDOW}s", 429)
+                "RATE_LIMITED", "plugin_proxy_rate_limited", 429,
+                {"plugin_id": plugin_id, "limit": _RATE_LIMIT_MAX,
+                 "window": int(_RATE_LIMIT_WINDOW)})
         ts.append(now)
         _RATE_BUCKETS[plugin_id] = ts
 
@@ -101,24 +108,24 @@ def proxy(plugin_id: str, manifest: dict, url: str, method: str = "GET",
 
     parsed = urlparse(url or "")
     if parsed.scheme not in ALLOWED_SCHEMES:
-        raise ProxyError("INVALID_URL",
-                         f"only http/https allowed, got: {parsed.scheme!r}")
+        raise ProxyError("INVALID_URL", "plugin_proxy_invalid_scheme",
+                         params={"scheme": parsed.scheme})
     host = (parsed.hostname or "").lower()
     if not host:
-        raise ProxyError("INVALID_URL", "missing host in url")
+        raise ProxyError("INVALID_URL", "plugin_proxy_missing_host")
 
     whitelist = (manifest.get("permissions") or {}).get("network") or []
     if not whitelist:
         raise ProxyError("PERMISSION_DENIED",
-                         "plugin did not declare permissions.network")
+                         "plugin_proxy_network_not_declared")
     if not _is_allowed_host(host, whitelist):
-        raise ProxyError("PERMISSION_DENIED",
-                         f"host not in network whitelist: {host}")
+        raise ProxyError("PERMISSION_DENIED", "plugin_proxy_host_not_allowed",
+                         params={"host": host})
 
     # SSRF 防护：解析目标地址，拒绝受限网段
     if _is_restricted_addr(host):
-        raise ProxyError("SSRF_BLOCKED",
-                         f"target resolves to restricted address: {host}")
+        raise ProxyError("SSRF_BLOCKED", "plugin_proxy_ssrf_blocked",
+                         params={"host": host})
 
     # 过滤受控/凭证头
     filtered = {}
@@ -133,9 +140,10 @@ def proxy(plugin_id: str, manifest: dict, url: str, method: str = "GET",
             method, url, headers=filtered, data=body,
             timeout=PROXY_TIMEOUT, stream=True, allow_redirects=False)
     except requests.exceptions.Timeout:
-        raise ProxyError("UPSTREAM_TIMEOUT", "upstream request timed out", 504)
+        raise ProxyError("UPSTREAM_TIMEOUT", "plugin_proxy_upstream_timeout", 504)
     except requests.exceptions.RequestException as e:
-        raise ProxyError("UPSTREAM_ERROR", f"{type(e).__name__}: {e}", 502)
+        raise ProxyError("UPSTREAM_ERROR", "plugin_proxy_upstream_error", 502,
+                         params={"error": f"{type(e).__name__}: {e}"})
 
     # 响应体大小上限（流式读取，超限即断开）
     chunks = []
@@ -173,8 +181,8 @@ def proxy(plugin_id: str, manifest: dict, url: str, method: str = "GET",
             safe_headers[k] = v
 
     if truncated:
-        raise ProxyError("RESPONSE_TOO_LARGE",
-                         f"response exceeds {MAX_RESPONSE_BYTES} bytes", 502)
+        raise ProxyError("RESPONSE_TOO_LARGE", "plugin_proxy_response_too_large",
+                         502, params={"limit": MAX_RESPONSE_BYTES})
 
     return {
         "status": resp.status_code,
