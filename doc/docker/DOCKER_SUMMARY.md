@@ -13,8 +13,8 @@
 - **大小**: ~2.5KB
 - **内容**:
   - 多阶段构建（前端构建、后端依赖、生产运行）
-  - 基于 Node.js 20 Alpine 和 Python 3.11 Slim
-  - 集成 Nginx + Gunicorn + Supervisor
+  - 基于 Node.js 22 Alpine 和 Python 3.11 Slim
+  - 集成 Nginx + Eventlet WSGI + Redis + Supervisor
   - 暴露 80 端口
   - 健康检查配置
 
@@ -84,7 +84,7 @@
 - **大小**: ~800B
 - **内容**:
   - Supervisor 进程管理配置
-  - Nginx 和 Gunicorn 进程管理
+  - Nginx、Redis 与 Eventlet WSGI 应用进程管理
   - 日志配置
 
 ---

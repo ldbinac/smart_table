@@ -5,5 +5,5 @@
 # 可解析且返回正确 401, 为有效 Docker Hub 代理), buildkit 将 Docker Hub 全部请求
 # (含 token 认证与 manifest/blob 拉取) 发往该镜像源, 由其透明代理 Docker Hub。
 [registry."docker.io"]
-  mirrors = ["https://docker.1ms.run"]
+  mirrors = [ "https://docker.m.daocloud.io","https://docker.1ms.run"]
   insecure = false

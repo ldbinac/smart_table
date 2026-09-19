@@ -41,6 +41,9 @@ import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialo
 import DashboardPreviewDialog from "@/components/dashboard/DashboardPreviewDialog.vue";
 import DashboardShareDialog from "@/components/dashboard/DashboardShareDialog.vue";
 import ExcelImportCreateDialog from "@/components/dialogs/ExcelImportCreateDialog.vue";
+// 插件体系：仪表盘自定义组件扩展点
+import PluginDashboardWidget from "@/components/plugins/PluginDashboardWidget.vue";
+import { pluginRegistry, loadPluginsForBase } from "@/plugins/registry";
 import { useEntityOperations } from "@/composables/useEntityOperations";
 import { freshColors } from "@/utils/helpers";
 
@@ -229,6 +232,25 @@ const screenWidgetTypes = [
 // 所有组件类型
 const widgetTypes = [...chartWidgetTypes, ...screenWidgetTypes];
 
+// 插件自定义组件类型（动态来源于插件注册表的 dashboard-widget 扩展点）
+const pluginWidgetTypes = computed(() =>
+  pluginRegistry.dashboardWidgets.value.map(
+    ({ plugin, extension }) => ({
+      value: `plugin:${plugin.id}` as WidgetConfig["type"],
+      label: extension.title,
+      icon: extension.icon || "Grid",
+      description: extension.description || "",
+      pluginId: plugin.id,
+      category: "plugin",
+    }),
+  ),
+);
+
+/** 判断组件类型是否为插件自定义组件 */
+function isPluginWidget(type: WidgetConfig["type"]): boolean {
+  return typeof type === "string" && type.startsWith("plugin:");
+}
+
 const aggregationTypes = [
   { value: "count", label: t('dashboard.aggCount'), description: t('dashboard.aggCountDesc') },
   {
@@ -299,6 +321,9 @@ async function loadDashboards() {
     if (!baseStore.currentBase || baseStore.currentBase.id !== baseId) {
       await baseStore.fetchBase(baseId);
     }
+
+    // 填充插件注册表（dashboard-widget 扩展点依赖 Base 级插件列表）
+    void loadPluginsForBase(baseId);
 
     if (!baseStore.currentBase) {
       ElMessage.error(t('dashboard.loadingBaseFailed'));
@@ -1042,6 +1067,26 @@ function addWidget(type: WidgetConfig["type"]) {
     return;
   }
 
+  // 插件自定义组件：类型为 'plugin:<pluginId>'，配置中保存 pluginId
+  if (isPluginWidget(type)) {
+    const pluginId = String(type).slice("plugin:".length);
+    const meta = pluginWidgetTypes.value.find((t) => t.value === type);
+    const newWidget: WidgetConfig = {
+      id: `widget-${Date.now()}`,
+      type,
+      title: meta?.label || t("dashboard.pluginWidget"),
+      tableId: "",
+      fieldId: "",
+      aggregation: "count",
+      position: { x: 0, y: 0, w: 6, h: 4 },
+      config: { pluginId, showHeader: true },
+    };
+    widgets.value.push(newWidget);
+    selectedWidget.value = newWidget;
+    debouncedSaveWidgets();
+    return;
+  }
+
   // 大屏组件默认隐藏标题栏
   const screenWidgetTypes = [
     "clock",
@@ -1095,6 +1140,9 @@ function removeWidget(widgetId: string) {
 function renderWidget(widget: WidgetConfig) {
   const container = chartContainers.value.get(widget.id);
   if (!container) return;
+
+  // 插件自定义组件由 Vue 组件（PluginDashboardWidget）渲染，跳过 echarts
+  if (isPluginWidget(widget.type)) return;
 
   // 大屏组件不需要数据源，直接渲染
   const screenWidgetTypes = [
@@ -2490,6 +2538,33 @@ onUnmounted(() => {
                     </div>
                   </div>
                 </el-dropdown-item>
+
+                <!-- 插件自定义组件（动态来源于插件注册表的 dashboard-widget 扩展点） -->
+                <template v-if="pluginWidgetTypes.length > 0">
+                  <el-dropdown-item divided disabled class="category-label">
+                    <span class="category-title">{{ t('dashboard.pluginCategory') }}</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-for="type in pluginWidgetTypes"
+                    :key="type.value"
+                    :command="type.value">
+                    <div class="widget-type-item">
+                      <div
+                        class="widget-type-icon screen-widget-icon"
+                        :style="{ backgroundColor: '#F0F9FF' }">
+                        <el-icon :size="18" color="#0EA5E9"
+                          ><component :is="type.icon"
+                        /></el-icon>
+                      </div>
+                      <div class="widget-type-info">
+                        <div class="widget-type-name">{{ type.label }}</div>
+                        <div class="widget-type-desc">
+                          {{ type.description }}
+                        </div>
+                      </div>
+                    </div>
+                  </el-dropdown-item>
+                </template>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -2629,7 +2704,7 @@ onUnmounted(() => {
               <div class="widget-title-section">
                 <span class="widget-title">{{ widget.title }}</span>
                 <span
-                  v-if="!isScreenWidget(widget.type)"
+                  v-if="!isScreenWidget(widget.type) && !isPluginWidget(widget.type)"
                   class="widget-subtitle">
                   {{ getTableById(widget.tableId)?.name }}
                   <span class="subtitle-dot">·</span>
@@ -2660,7 +2735,13 @@ onUnmounted(() => {
               :ref="
                 (el) => el && chartContainers.set(widget.id, el as HTMLElement)
               "
-              class="widget-body"></div>
+              class="widget-body">
+              <PluginDashboardWidget
+                v-if="isPluginWidget(widget.type)"
+                :plugin-id="(widget.config?.pluginId as string)"
+                :base-id="baseStore.currentBase?.id || ''"
+                :table-id="widget.tableId" />
+            </div>
             <!-- 调整大小手柄 -->
             <div
               v-if="canManage"

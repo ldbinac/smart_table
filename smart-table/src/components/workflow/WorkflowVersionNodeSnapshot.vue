@@ -83,6 +83,23 @@ const configEntries = computed(() => {
       entries.push({ label: t('workflow.version.emailBody'), value: body.length > 80 ? body.substring(0, 80) + '...' : body || '-' })
     }
   }
+  else if (node_type === 'notify') {
+    const sources = (config.recipient_sources as string[]) || []
+    const sourceLabels: Record<string, string> = {
+      fixed: t('workflow.version.notifySourceFixed'),
+      field: t('workflow.version.notifySourceField'),
+      trigger_user: t('workflow.version.notifySourceTriggerUser'),
+      record_creator: t('workflow.version.notifySourceRecordCreator'),
+      base_members: t('workflow.version.notifySourceBaseMembers'),
+    }
+    entries.push({
+      label: t('workflow.version.notifyRecipientSource'),
+      value: sources.map(s => sourceLabels[s] || s).join(', ') || t('workflow.notConfigured'),
+    })
+    entries.push({ label: t('workflow.version.notifyTitle'), value: (config.subject as string) || '-' })
+    const notifyBody = (config.body as string) || ''
+    entries.push({ label: t('workflow.version.notifyBody'), value: notifyBody.length > 80 ? notifyBody.substring(0, 80) + '...' : (notifyBody || '-') })
+  }
   else if (node_type === 'webhook') {
     const mode = config.webhook_mode as string || 'inline'
     if (mode === 'existing') {

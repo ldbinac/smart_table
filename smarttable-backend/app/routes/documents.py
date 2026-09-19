@@ -322,8 +322,8 @@ def update_document(doc_id):
         if not doc:
             return api_error('document_does_not_exist', 404)
 
-        # 更新文档（含重命名）需要 ADMIN 或更高权限
-        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.ADMIN):
+        # 更新文档（含重命名）需要 EDITOR 或更高权限
+        if not permission_service.check_permission(doc.base_id, user_id, MemberRole.EDITOR):
             return api_error('no_permission_modify_document_administrator_rights_required', 403)
 
         data = request.get_json()

@@ -1,0 +1,72 @@
+# SmartTable 生产部署配置（使用阿里云 ACR 已拉取的镜像，不触发构建）
+#
+# 与 docker-compose.yml（本地构建 + 命名卷）的区别：
+#   1. 无 build 段，直接使用 image 指定的镜像（默认 1.6.7，可用环境变量 SMARTTABLE_IMAGE 覆盖）
+#   2. 所有数据卷以 bind mount 方式挂载到 D:\DockerData\SmartTableData，便于备份与迁移
+#
+# 使用方法（在项目根目录执行）：
+#   启动: docker compose -f docker-compose.deploy.yml up -d
+#   日志: docker compose -f docker-compose.deploy.yml logs -f
+#   停止: docker compose -f docker-compose.deploy.yml down
+#   升级镜像: docker pull <新镜像> 后设置环境变量 SMARTTABLE_IMAGE=<新镜像> 再 up -d
+
+services:
+  smarttable:
+    image: ${SMARTTABLE_IMAGE:-smarttable:latest}
+    container_name: smarttable
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    environment:
+      # Flask 配置（生产环境建议在项目根目录 .env 中覆盖 SECRET_KEY / JWT_SECRET_KEY）
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret-in-production}
+      JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-86400}
+
+      # 数据库配置（默认使用容器内 SQLite；如需外部 PostgreSQL 在 .env 设置 DATABASE_URL）
+      DATABASE_URL: ${DATABASE_URL:-}
+
+      # Redis 配置（内嵌 Redis，连接本地）
+      REDIS_URL: redis://localhost:6379/0
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      SOCKETIO_MESSAGE_QUEUE: redis://localhost:6379/2
+
+      # 上传配置
+      UPLOAD_FOLDER: /app/uploads
+      MAX_CONTENT_LENGTH: 52428800  # 50MB
+
+      # 日志配置
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # 实时协作配置
+      ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
+    volumes:
+      # 容器内应用配置（run.py 查找顺序 /config/.env → /.env → /app/.env，
+      # 以最高优先级加载，覆盖镜像内打包的 /app/.env 开发配置，如数据库连接。
+      # 注意容器内 run.py 位于 /app/run.py，parent.parent 解析为根目录 /，
+      # 因此最高优先级路径是根级 /config/.env 而非 /app/config/.env）
+      - D:/DockerData/SmartTableData/config/.env:/config/.env:ro
+      # SQLite 数据库（使用外部 PostgreSQL 时不产生数据，保留以支持切回内置库）
+      - D:/DockerData/SmartTableData/data:/app/data
+      # Redis 持久化数据（RDB）
+      - D:/DockerData/SmartTableData/redis:/data/redis
+      # 上传文件（附件/缩略图）
+      - D:/DockerData/SmartTableData/uploads:/app/uploads
+      # 应用日志（包含 Flask 日志、Nginx 日志、Supervisor 日志）
+      - D:/DockerData/SmartTableData/logs/app:/app/logs
+      - D:/DockerData/SmartTableData/logs/nginx:/var/log/nginx
+      - D:/DockerData/SmartTableData/logs/supervisor:/var/log/supervisor
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - smarttable-network
+
+# 网络定义
+networks:
+  smarttable-network:
+    driver: bridge

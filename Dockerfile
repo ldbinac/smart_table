@@ -64,8 +64,15 @@ RUN pip install --no-cache-dir --user -i https://pypi.tuna.tsinghua.edu.cn/simpl
 # ============================================
 FROM python:3.11-slim
 
+# 构建参数（build_docker.py 会传入 BUILD_VERSION / BUILD_DATE；
+# 默认值与 version.json 当前版本保持一致）
+ARG BUILD_VERSION=1.6.6
+ARG BUILD_DATE=unknown
+
 LABEL maintainer="SmartTable Team" \
-      version="1.6.6" \
+      version="${BUILD_VERSION}" \
+      org.opencontainers.image.version="${BUILD_VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
       description="SmartTable - 智能表格应用"
 
 # 设置环境变量

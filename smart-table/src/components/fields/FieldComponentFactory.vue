@@ -126,6 +126,7 @@ defineExpose({ focus });
         :readonly="readonly"
         :placeholder="placeholder"
         :record="record"
+        :record-id="record?.id"
         :all-fields="allFields"
         :computed-value="computedValue"
         ref="fieldRef" />

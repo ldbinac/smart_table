@@ -141,6 +141,35 @@ $sidebar-collapsed-width: 64px;
 $content-max-width: 1200px;
 
 // ============================================
+// 响应式断点 (Responsive Breakpoints)
+// ============================================
+
+$breakpoints: (
+  "xs": 360px,
+  // 小屏手机 (iPhone SE / 320~360)
+  "sm": 480px,
+  // 常规手机 (360~480)
+  "md": 640px,
+  // 大屏手机 / 小平板竖屏
+  "lg": 768px,
+  // 平板竖屏 / 手机横屏
+  "xl": 1024px,
+  // 平板横屏 / 小笔记本
+  "2xl": 1280px, // 桌面
+);
+
+// 移动端判定阈值：小于等于该宽度视为移动端
+$mobile-max-width: 768px;
+
+// ============================================
+// 移动端布局常量 (Mobile Layout Constants)
+// ============================================
+
+$m-navbar-height: 44px;
+$m-tabbar-height: 50px;
+$m-statusbar-height: 20px;
+
+// ============================================
 // 层级系统 (Z-Index)
 // ============================================
 
@@ -217,6 +246,19 @@ $z-index-toast: 1300;
   --border-radius-lg: #{$border-radius-lg};
   --border-radius-xl: #{$border-radius-xl};
   --border-radius-full: #{$border-radius-full};
+
+  // 移动端：动态视口高度（由 useDevice 写入，1vh 的真实像素值）
+  --vh: 1vh;
+  // 移动端：安全区
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  // 注意：--m-* 等移动端 CSS 变量不要定义在这里。
+  // 本文件经 vite additionalData 注入到每个组件的 style，而 scoped 组件中的
+  // :root 规则会被 Vue 改写为 :root[data-v-xxx]，永远无法匹配 <html>，
+  // 导致变量（尤其 :root.dark 下的深色值）全部失效。
+  // 移动端变量统一在 src/mobile/styles/mobile.scss（非 scoped）中定义。
 }
 
 // ============================================
@@ -236,8 +278,10 @@ $z-index-toast: 1300;
   --border-color: #404040;
 
   --text-primary: #f5f5f5;
-  --text-secondary: #a0a0a0;
-  --text-disabled: #606060;
+  --text-secondary: #adadb3;
+  // 原值 #606060 在深色卡片（#1f1f1f）上对比度不足，抬亮保证可读
+  --text-disabled: #83838a;
+  // --m-* 移动端变量见 src/mobile/styles/mobile.scss（此处定义会因 scoped 失效）
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);

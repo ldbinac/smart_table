@@ -16,10 +16,13 @@ interface Props {
   fields: FieldEntity[];
   records: RecordEntity[];
   readonly?: boolean;
+  /** 移动端模式：看板仅作只读展示，禁用卡片拖拽换组 */
+  mobile?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
+  mobile: false,
 });
 const emit = defineEmits<{
   (e: "updateRecord", recordId: string, values: Record<string, unknown>): void;
@@ -171,6 +174,8 @@ function handleMoveRecord(recordId: string, targetGroupId: string) {
 
 // 初始化拖拽
 async function initSortable() {
+  // 只读 / 移动端：不启用拖拽换组，看板仅作展示用
+  if (props.readonly || props.mobile) return;
   await nextTick();
   columnRefs.value.forEach((column) => {
     column?.initSortable();

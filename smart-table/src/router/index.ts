@@ -172,6 +172,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    // 插件管理对所有登录用户开放：管理员可全局管理，
+    // 普通用户可为自己创建的多维表格安装管理员已启用的插件
+    path: "/plugins",
+    name: "Plugins",
+    component: () => import("@/views/PluginManage.vue"),
+    meta: {
+      title: "route.plugins",
+    },
+  },
+  {
     path: "/notifications",
     name: "Notifications",
     component: () => import("@/views/Notifications.vue"),
@@ -271,14 +281,9 @@ const routes: RouteRecordRaw[] = [
     beforeEnter: adminGuard,
   },
   {
+    // 插件管理已对所有登录用户开放，保留旧的管理员入口做向后兼容跳转
     path: "/admin/plugins",
-    name: "AdminPlugins",
-    component: () => import("@/views/PluginManage.vue"),
-    meta: {
-      title: "route.adminPlugins",
-      requiresAdmin: true,
-    },
-    beforeEnter: adminGuard,
+    redirect: "/plugins",
   },
   {
     path: "/403",

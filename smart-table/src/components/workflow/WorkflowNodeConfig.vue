@@ -51,6 +51,7 @@ import {
 import FieldValueInput from "@/components/fields/FieldValueInput.vue";
 import LoopVarInserter from "./LoopVarInserter.vue";
 import TemplateRefHint from "./TemplateRefHint.vue";
+import MemberSelect from "@/components/common/MemberSelect.vue";
 import {
   Delete,
   Plus,
@@ -71,6 +72,8 @@ interface Props {
   webhooks?: WebhookConfig[];
   /** 工作流全量节点列表（用于循环节点数据源选择） */
   allNodes?: WorkflowNode[];
+  /** 工作流所属空间 ID（用于限定站内信节点成员选择范围）；不传时退化为全站搜索 */
+  baseId?: string;
   readonly?: boolean;
 }
 
@@ -838,6 +841,59 @@ watch(
     if (type === "send_email") loadEmailTemplates();
   },
   { immediate: true },
+);
+
+// ==================== 站内信通知节点配置 ====================
+
+/**
+ * 站内信节点成员选择的空间范围。
+ * 优先使用显式传入的 baseId；未传入时回退尝试从节点上挂载的 workflow 读取
+ * （后端 WorkflowNode.to_dict 目前不含 workflow，故该回退通常取不到值）。
+ * 两者都取不到时不限定空间，MemberSelect 退化为全站用户搜索。
+ */
+const notifyBaseId = computed<string | undefined>(
+  () =>
+    props.baseId ??
+    (props.node as unknown as { workflow?: { base_id?: string } })?.workflow?.base_id,
+);
+
+/** 接收人来源（多选，可叠加） */
+const notifyRecipientSources = computed({
+  get: () => {
+    const raw = configValue<string[] | string>("recipient_sources", []);
+    if (typeof raw === "string") return [raw];
+    return Array.isArray(raw) ? raw : [];
+  },
+  set: (value) => setConfigValue("recipient_sources", value ?? []),
+});
+
+/** 「指定成员」来源选择的系统用户 ID */
+const notifyFixedUserIds = computed({
+  get: () => configValue<string[]>("recipient_user_ids", []),
+  set: (value) => setConfigValue("recipient_user_ids", value ?? []),
+});
+
+/** 「成员字段」来源选择的字段 ID */
+const notifyFieldIds = computed({
+  get: () => configValue<string[]>("recipient_field_ids", []),
+  set: (value) => setConfigValue("recipient_field_ids", value ?? []),
+});
+
+const notifySubject = computed({
+  get: () => configValue<string>("subject", ""),
+  set: (value) => setConfigValue("subject", value),
+});
+
+const notifyBody = computed({
+  get: () => configValue<string>("body", ""),
+  set: (value) => setConfigValue("body", value),
+});
+
+/** 可用于动态解析接收人的成员类字段 */
+const notifyMemberFields = computed(() =>
+  props.fields.filter(
+    (f) => f.type === "member" || f.type === "collaborator" || f.type === "created_by",
+  ),
 );
 
 // ==================== 查找记录节点配置 ====================
@@ -2401,6 +2457,83 @@ const nodeTypeLabel = computed(() => {
             </el-select>
           </el-form-item>
         </template>
+      </el-form>
+    </template>
+
+    <!-- 站内信通知节点 -->
+    <template v-else-if="localNode.node_type === 'notify'">
+      <el-form label-position="top" class="config-form">
+        <el-form-item :label="t('workflow.nodeConfig.notifyRecipientSource')">
+          <el-checkbox-group v-model="notifyRecipientSources" :disabled="readonly">
+            <el-checkbox value="fixed">{{ t('workflow.nodeConfig.notifySourceFixed') }}</el-checkbox>
+            <el-checkbox value="field">{{ t('workflow.nodeConfig.notifySourceField') }}</el-checkbox>
+            <el-checkbox value="trigger_user">{{ t('workflow.nodeConfig.notifySourceTriggerUser') }}</el-checkbox>
+            <el-checkbox value="record_creator">{{ t('workflow.nodeConfig.notifySourceRecordCreator') }}</el-checkbox>
+            <el-checkbox value="base_members">{{ t('workflow.nodeConfig.notifySourceBaseMembers') }}</el-checkbox>
+          </el-checkbox-group>
+          <div class="field-hint">{{ t('workflow.nodeConfig.notifyRecipientSourceHint') }}</div>
+        </el-form-item>
+
+        <el-form-item v-if="notifyRecipientSources.includes('fixed')" :label="t('workflow.nodeConfig.notifyFixedMembers')">
+          <MemberSelect
+            v-model="notifyFixedUserIds"
+            allow-multiple
+            :base-id="notifyBaseId"
+            :disabled="readonly"
+            :placeholder="t('workflow.nodeConfig.notifyFixedMembersPlaceholder')" />
+        </el-form-item>
+
+        <el-form-item v-if="notifyRecipientSources.includes('field')" :label="t('workflow.nodeConfig.notifyMemberFields')">
+          <el-select
+            v-model="notifyFieldIds"
+            multiple
+            :placeholder="t('workflow.trigger.selectField')"
+            class="full-width"
+            :disabled="readonly">
+            <el-option
+              v-for="field in notifyMemberFields"
+              :key="field.id"
+              :label="fieldOptionLabel(field)"
+              :value="field.id" />
+          </el-select>
+          <div class="field-hint">{{ t('workflow.nodeConfig.notifyMemberFieldHint') }}</div>
+        </el-form-item>
+
+        <el-form-item :label="t('workflow.nodeConfig.notifyTitle')">
+          <div class="template-input-with-loop-var">
+            <el-input
+              v-model="notifySubject"
+              :placeholder="t('workflow.nodeConfig.notifyTitlePlaceholder')"
+              :disabled="readonly" />
+            <LoopVarInserter
+              v-if="canInsertLoopVar"
+              :supports-field-drill="loopDataSourceSupportsFieldDrill"
+              :field-options="loopFieldDrillOptions"
+              :disabled="isLoadingLoopFieldDrillFields"
+              @insert="(snippet) => notifySubject = appendLoopVarSnippet(notifySubject, snippet)" />
+          </div>
+          <TemplateRefHint :refs="templateRefsFor()" />
+          <div class="field-hint">{{ t('workflow.nodeConfig.emailFieldRefHint', { fieldRef: RECORD_FIELD_REF }) }}</div>
+        </el-form-item>
+
+        <el-form-item :label="t('workflow.nodeConfig.notifyBody')">
+          <div class="template-input-with-loop-var">
+            <el-input
+              v-model="notifyBody"
+              type="textarea"
+              :rows="6"
+              :placeholder="t('workflow.nodeConfig.notifyBodyPlaceholder')"
+              :disabled="readonly" />
+            <LoopVarInserter
+              v-if="canInsertLoopVar"
+              :supports-field-drill="loopDataSourceSupportsFieldDrill"
+              :field-options="loopFieldDrillOptions"
+              :disabled="isLoadingLoopFieldDrillFields"
+              @insert="(snippet) => notifyBody = appendLoopVarSnippet(notifyBody, snippet)" />
+          </div>
+          <TemplateRefHint :refs="templateRefsFor()" />
+          <div class="field-hint">{{ t('workflow.nodeConfig.emailBodyRefHint', { fieldRef: RECORD_FIELD_REF, eventRef: TRIGGER_EVENT_REF }) }}</div>
+        </el-form-item>
       </el-form>
     </template>
 

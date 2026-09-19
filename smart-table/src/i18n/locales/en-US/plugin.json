@@ -3,7 +3,9 @@
   "uploadPackage": "Upload Package",
   "uploadHint": "Select a .stplugin.zip package (containing manifest.json and entry file)",
   "refresh": "Refresh",
+  "userHint": "Once an admin installs and enables a plugin, you can install it into the Bases you created",
   "empty": "No plugins yet — click \"Upload Package\" to install your first plugin",
+  "emptyUser": "No plugins available — ask a system admin to install and enable one",
   "searchPlaceholder": "Search by plugin name or ID",
   "columns": {
     "name": "Plugin",
@@ -125,6 +127,7 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "globalDisabledHint": "Global status is disabled; it will not take effect in the Base. Enable the plugin first",
+    "ownerOnlyHint": "Only the creator of this Base can install/manage this plugin",
     "install": "Install to Base",
     "remove": "Remove from Base",
     "removeConfirm": "Remove this plugin from the current Base? It will no longer be available in that Base",
@@ -145,5 +148,7 @@
     "lastRun": "Last Run",
     "targetBase": "Target Base",
     "selectBaseFirst": "Please select a target Base first"
-  }
+  },
+  "baseMenu": "Plugins",
+  "homeMenu": "Home Plugins"
 }

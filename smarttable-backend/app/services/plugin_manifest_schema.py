@@ -85,7 +85,8 @@ MANIFEST_SCHEMA = {
                 "properties": {
                     "type": {
                         "enum": ["toolbar-button", "side-panel",
-                                 "base-menu", "record-detail-block"]
+                                 "base-menu", "record-detail-block",
+                                 "home-menu", "dashboard-widget"]
                     },
                     "title": {"type": "string", "minLength": 1, "maxLength": 50},
                     "icon": {"type": "string", "maxLength": 50,
@@ -116,6 +117,56 @@ MANIFEST_SCHEMA = {
                     "minimum": 1,
                     "maximum": 300,
                     "description": "脚本超时秒数，默认 30，上限 300"
+                }
+            }
+        },
+        "assets": {
+            "type": "object",
+            "additionalProperties": False,
+            "description": "UI 插件包内静态资源声明（由 loader 按声明注入沙箱）",
+            "properties": {
+                "styles": {
+                    "type": "array",
+                    "items": {"type": "string", "maxLength": 500},
+                    "maxItems": 20,
+                    "description": "样式文件相对路径（仅 .css，在入口前以 <link> 注入）"
+                },
+                "scripts": {
+                    "type": "array",
+                    "items": {"type": "string", "maxLength": 500},
+                    "maxItems": 20,
+                    "description": "额外脚本相对路径（仅 .js，在入口前按序以 <script> 注入）"
+                }
+            }
+        },
+        "endpoints": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "插件自定义后端接口声明（Python 文件，由宿主 /call/<endpoint> 路由经受限沙箱执行）",
+            "items": {
+                "type": "object",
+                "required": ["name", "entry"],
+                "additionalProperties": False,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$",
+                        "maxLength": 64,
+                        "description": "接口调用标识（SDK backend.call 的 name 参数）"
+                    },
+                    "entry": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "description": "后端接口 .py 文件相对路径（仅 .py）"
+                    },
+                    "description": {"type": "string", "maxLength": 500},
+                    "timeout": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300,
+                        "description": "该接口超时秒数，默认 30，上限 300"
+                    }
                 }
             }
         }

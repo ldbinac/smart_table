@@ -20,6 +20,7 @@ import {
 } from "@/services/api/tableApiService";
 import { getFields } from "@/services/api/fieldApiService";
 import type { ApiHandler, PluginPermissions } from "./types";
+import { callPluginEndpoint, proxyPluginRequest } from "@/api/plugins";
 
 /** 方法 → 所需权限点映射 */
 interface MethodMeta {
@@ -72,6 +73,7 @@ export function buildApiSurface(
     pluginId: ctx.pluginId,
     baseId: ctx.baseId,
     tableId: ctx.tableId,
+    recordId: ctx.recordId,
     selection: ctx.selection,
   }));
 
@@ -80,6 +82,32 @@ export function buildApiSurface(
 
   // 配置读取：隐含授予（与后端一致）
   handlers.set("config.get", (_params, ctx) => ctx.config);
+
+  // 插件自定义后端接口调用：以当前用户身份经宿主受限沙箱执行，
+  // 无需额外权限点（端点声明本身即授权，安全边界与脚本插件一致）
+  handlers.set("backend.call", async (params, ctx) => {
+    const { name, payload } = params as { name?: string; payload?: unknown };
+    if (!name || !/^[a-z][a-z0-9-]*$/.test(name)) {
+      throw new Error("VALIDATION_ERROR: invalid endpoint name");
+    }
+    return callPluginEndpoint(ctx.pluginId, name, payload, ctx.baseId);
+  });
+
+  // 第三方后端代理：仅在插件声明了 network 白名单时可用（deny by default）
+  if (permissions.network && Array.isArray(permissions.network) && permissions.network.length > 0) {
+    handlers.set("network.fetch", async (params, ctx) => {
+      const { url, method, headers, body } = params as {
+        url?: string;
+        method?: string;
+        headers?: Record<string, string>;
+        body?: unknown;
+      };
+      if (!url || typeof url !== "string") {
+        throw new Error("VALIDATION_ERROR: url is required");
+      }
+      return proxyPluginRequest(ctx.pluginId, ctx.baseId, url, method, headers, body);
+    });
+  }
 
   // ---------- 需权限声明的数据能力 ----------
   const require = (

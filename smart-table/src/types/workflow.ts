@@ -13,7 +13,8 @@ export type WorkflowNodeType =
   | 'webhook'
   | 'find_records'
   | 'loop'
-  | 'script';
+  | 'script'
+  | 'notify';
 
 /** 循环节点数据源类型 */
 export type LoopDataSourceType =

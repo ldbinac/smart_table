@@ -1,0 +1,37 @@
+{
+  "id": "com.smarttable.hello-record-detail-block",
+  "name": "Hello Record Detail Block",
+  "description": "扩展点示例：在记录详情抽屉底部挂载区块（record-detail-block），演示读取当前记录并回写字段",
+  "author": {
+    "name": "SmartTable Team",
+    "url": "https://github.com/ldbinac/smart_table"
+  },
+  "version": "1.0.0",
+  "type": "ui",
+  "apiVersion": "1",
+  "engines": {
+    "smarttable": ">=1.6.6 <2.0.0"
+  },
+  "entry": "main.js",
+  "permissions": {
+    "records": "write",
+    "tables": "read",
+    "storage": true
+  },
+  "extensionPoints": [
+    {
+      "type": "record-detail-block",
+      "title": "Hello 记录卡片"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "targetField": {
+        "type": "string",
+        "default": "",
+        "description": "要回写的字段 ID（如 fld_xxx）；留空则仅展示记录"
+      }
+    }
+  }
+}

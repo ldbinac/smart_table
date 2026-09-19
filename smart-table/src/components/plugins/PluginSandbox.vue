@@ -19,11 +19,14 @@ const props = withDefaults(
     pluginId: string;
     baseId: string;
     tableId?: string;
+    /** 记录详情扩展点（record-detail-block）打开时的记录 ID */
+    recordId?: string;
     extensionType?: ExtensionPointType;
     config?: Record<string, unknown>;
   }>(),
   {
     tableId: "",
+    recordId: "",
     extensionType: "side-panel",
     config: () => ({}),
   },
@@ -74,6 +77,7 @@ async function loadPlugin(): Promise<void> {
         pluginId: props.pluginId,
         baseId: props.baseId,
         tableId: props.tableId,
+        recordId: props.recordId,
         config: config || {},
         // 打开插件瞬间的表格勾选快照（仅记录 ID；勾选变化需重开插件感知）
         selection: buildSelectionSnapshot(),

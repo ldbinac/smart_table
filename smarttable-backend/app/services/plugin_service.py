@@ -164,14 +164,17 @@ def get_host_version() -> str:
 _PLUGIN_ID_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{2,199}$')
 
 _VALID_PERMISSION_LEVELS = {'read', 'write'}
-_VALID_EXTENSION_TYPES = {'toolbar-button', 'side-panel', 'base-menu', 'record-detail-block'}
+_VALID_EXTENSION_TYPES = {'toolbar-button', 'side-panel', 'base-menu',
+                           'record-detail-block', 'home-menu', 'dashboard-widget'}
 
 
-def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str]:
+def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str, Dict[str, Any]]:
     """校验 manifest 结构
 
     Returns:
-        (ok, error_code, error_detail)
+        (ok, error_code, error_detail_key, error_params)
+        error_detail_key 为 i18n key（含 {占位符} 时由 error_params 插值），
+        由路由层调用 translate() 渲染为当前语言文本。
     """
     try:
         import jsonschema
@@ -181,58 +184,54 @@ def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str]:
         # jsonschema 不可用时退化为关键字段手工校验
         for field in ('id', 'name', 'version', 'type', 'apiVersion', 'engines', 'entry', 'permissions'):
             if field not in manifest:
-                return False, ERR_MANIFEST_INVALID, f'missing field: {field}'
+                return (False, ERR_MANIFEST_INVALID,
+                        'plugin_manifest_missing_field', {'field': field})
     except Exception as e:
-        return False, ERR_MANIFEST_INVALID, str(e)
+        return False, ERR_MANIFEST_INVALID, 'plugin_manifest_invalid', {'error': str(e)}
 
     # id 格式（反向域名）
     if not _PLUGIN_ID_RE.match(manifest['id']):
-        return False, ERR_MANIFEST_INVALID, 'id must be reverse-domain format (e.g. com.example.name)'
+        return (False, ERR_MANIFEST_INVALID, 'plugin_invalid_id',
+                {'id': str(manifest.get('id', ''))})
 
     # version 语义
     if parse_semver(manifest['version']) is None:
-        return False, ERR_VERSION_INVALID, (
-            f'version 字段 "{manifest.get("version", "")}" 不是合法的语义化版本号'
-            f'（需为 x.y.z 形式，如 1.0.0）'
-        )
+        return (False, ERR_VERSION_INVALID, 'plugin_version_invalid',
+                {'version': str(manifest.get('version', ''))})
 
     # type
     if manifest['type'] not in (PluginType.UI.value, PluginType.SCRIPT.value):
-        return False, ERR_MANIFEST_INVALID, f'invalid type: {manifest["type"]}'
+        return (False, ERR_MANIFEST_INVALID, 'plugin_invalid_type',
+                {'type': str(manifest.get('type', ''))})
 
     # apiVersion 协商
     if str(manifest.get('apiVersion', '')) not in SUPPORTED_API_VERSIONS:
-        return False, ERR_API_VERSION_MISMATCH, f'supported: {sorted(SUPPORTED_API_VERSIONS)}'
+        return (False, ERR_API_VERSION_MISMATCH, 'plugin_api_version_mismatch',
+                {'supported': ', '.join(sorted(SUPPORTED_API_VERSIONS))})
 
     # engines 兼容
     engines = manifest.get('engines') or {}
     smarttable_range = engines.get('smarttable', '*') if isinstance(engines, dict) else '*'
     host_ver = get_host_version()
     if not satisfies_range(host_ver, smarttable_range):
-        # 提示同时给出中英文：宿主 i18n 仅支持静态 key 翻译，动态值无法插值
-        return False, ERR_ENGINES_INCOMPATIBLE, (
-            f'当前宿主版本 {host_ver} 不满足插件声明的引擎兼容范围 '
-            f'engines.smarttable: "{smarttable_range}"'
-            f'（请升级宿主版本，或放宽插件 manifest 的 engines 声明）'
-            f' / Host version {host_ver} does not satisfy '
-            f'engines.smarttable "{smarttable_range}"; upgrade the host '
-            f'or relax the plugin engines range'
-        )
+        return (False, ERR_ENGINES_INCOMPATIBLE, 'plugin_engines_incompatible',
+                {'host': host_ver, 'range': smarttable_range})
 
     # entry 扩展名校验
     entry = manifest.get('entry', '')
     if manifest['type'] == PluginType.UI.value and not entry.endswith('.js'):
-        return False, ERR_ENTRY_MISSING, f'ui plugin entry must be .js: {entry}'
+        return False, ERR_ENTRY_MISSING, 'plugin_entry_must_be_js', {'entry': entry}
     if manifest['type'] == PluginType.SCRIPT.value and not entry.endswith('.py'):
-        return False, ERR_ENTRY_MISSING, f'script plugin entry must be .py: {entry}'
+        return False, ERR_ENTRY_MISSING, 'plugin_script_entry_must_be_py', {'entry': entry}
 
     # UI 插件需至少声明一个扩展点
     eps = manifest.get('extensionPoints') or []
     if manifest['type'] == PluginType.UI.value and not eps:
-        return False, ERR_MANIFEST_INVALID, 'ui plugin requires at least one extensionPoint'
+        return False, ERR_MANIFEST_INVALID, 'plugin_no_extension_points', {}
     for ep in eps:
         if ep.get('type') not in _VALID_EXTENSION_TYPES:
-            return False, ERR_MANIFEST_INVALID, f'invalid extensionPoint type: {ep.get("type")}'
+            return (False, ERR_MANIFEST_INVALID, 'plugin_invalid_extension_point',
+                    {'type': str(ep.get('type'))})
 
     # script.timeout 上限
     script_cfg = manifest.get('script') or {}
@@ -241,11 +240,41 @@ def _validate_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str, str]:
         try:
             t = int(timeout)
             if not (1 <= t <= 300):
-                return False, ERR_MANIFEST_INVALID, 'script.timeout must be 1-300 seconds'
+                return False, ERR_MANIFEST_INVALID, 'plugin_script_timeout_invalid', {}
         except (TypeError, ValueError):
-            return False, ERR_MANIFEST_INVALID, 'script.timeout must be an integer'
+            return False, ERR_MANIFEST_INVALID, 'plugin_script_timeout_invalid', {}
 
-    return True, '', ''
+    # assets 资源扩展名校验（styles 仅 .css / scripts 仅 .js）
+    assets = manifest.get('assets') or {}
+    for css in (assets.get('styles') or []):
+        if not isinstance(css, str) or not css.endswith('.css'):
+            return (False, ERR_MANIFEST_INVALID, 'plugin_asset_style_must_be_css',
+                    {'path': str(css)})
+    for js in (assets.get('scripts') or []):
+        if not isinstance(js, str) or not js.endswith('.js'):
+            return (False, ERR_MANIFEST_INVALID, 'plugin_asset_script_must_be_js',
+                    {'path': str(js)})
+
+    # endpoints 校验（name 格式 / entry 仅 .py / timeout 范围）
+    for ep in (manifest.get('endpoints') or []):
+        ep_name = ep.get('name', '')
+        if not re.match(r'^[a-z][a-z0-9-]*$', ep_name):
+            return (False, ERR_MANIFEST_INVALID, 'plugin_invalid_endpoint_name',
+                    {'name': ep_name})
+        ep_entry = ep.get('entry', '')
+        if not ep_entry.endswith('.py'):
+            return (False, ERR_MANIFEST_INVALID, 'plugin_endpoint_entry_must_be_py',
+                    {'entry': ep_entry})
+        ep_timeout = ep.get('timeout')
+        if ep_timeout is not None:
+            try:
+                t = int(ep_timeout)
+                if not (1 <= t <= 300):
+                    return False, ERR_MANIFEST_INVALID, 'plugin_endpoint_timeout_invalid', {}
+            except (TypeError, ValueError):
+                return False, ERR_MANIFEST_INVALID, 'plugin_endpoint_timeout_invalid', {}
+
+    return True, '', '', {}
 
 
 # ==================== 安装包处理 ====================
@@ -286,6 +315,19 @@ def resolve_package_path(package_path: str) -> Path:
     return path
 
 
+class _PackageError(ValueError):
+    """安装包结构/安全错误
+
+    携带 i18n key 与插值参数，由路由层 translate() 渲染为当前语言文本；
+    继承 ValueError 以兼容既有的 except ValueError 兜底分支。
+    """
+
+    def __init__(self, key: str, **params):
+        super().__init__(key)
+        self.key = key
+        self.params = params
+
+
 def _safe_extract(zip_file: zipfile.ZipFile, dest: Path) -> List[str]:
     """安全解压：路径穿越防护 + zip bomb 防护
 
@@ -293,11 +335,12 @@ def _safe_extract(zip_file: zipfile.ZipFile, dest: Path) -> List[str]:
         解压出的相对文件名列表
 
     Raises:
-        ValueError: 校验失败（携带原因）
+        _PackageError: 校验失败（携带 i18n key 与插值参数）
     """
     infos = zip_file.infolist()
     if len(infos) > MAX_FILE_COUNT:
-        raise ValueError(f'package contains too many files: {len(infos)} > {MAX_FILE_COUNT}')
+        raise _PackageError('plugin_package_too_many_files',
+                            count=len(infos), limit=MAX_FILE_COUNT)
 
     total_size = 0
     extracted: List[str] = []
@@ -309,26 +352,27 @@ def _safe_extract(zip_file: zipfile.ZipFile, dest: Path) -> List[str]:
         # 统一分隔符并规范化
         normalized = name.replace('\\', '/')
         if normalized.startswith('/') or normalized.startswith('..'):
-            raise ValueError(f'unsafe path entry: {name}')
+            raise _PackageError('plugin_package_unsafe_path', path=name)
         if re.match(r'^[A-Za-z]:', normalized):
-            raise ValueError(f'unsafe path entry (drive letter): {name}')
+            raise _PackageError('plugin_package_unsafe_path', path=name)
         parts = [p for p in normalized.split('/') if p not in ('', '.')]
         if '..' in parts:
-            raise ValueError(f'unsafe path entry (traversal): {name}')
+            raise _PackageError('plugin_package_unsafe_path', path=name)
 
         # zip bomb 检查
         total_size += info.file_size
         if total_size > MAX_PACKAGE_SIZE:
-            raise ValueError(f'package extracted size exceeds {MAX_PACKAGE_SIZE // (1024 * 1024)}MB')
+            raise _PackageError('plugin_package_too_large',
+                                limit=MAX_PACKAGE_SIZE // (1024 * 1024))
         if info.compress_size > 0 and info.file_size / info.compress_size > MAX_ENTRY_RATIO:
-            raise ValueError(f'suspicious compression ratio: {name}')
+            raise _PackageError('plugin_package_suspicious_compression', path=name)
         if info.file_size > MAX_PACKAGE_SIZE:
-            raise ValueError(f'file too large: {name}')
+            raise _PackageError('plugin_package_file_too_large', path=name)
 
         # 安全解压（逐条目）
         target = (dest_resolved / Path(*parts)).resolve()
         if not str(target).startswith(str(dest_resolved)):
-            raise ValueError(f'path escapes destination: {name}')
+            raise _PackageError('plugin_package_unsafe_path', path=name)
 
         if info.is_dir() or normalized.endswith('/'):
             target.mkdir(parents=True, exist_ok=True)
@@ -354,19 +398,19 @@ def _read_manifest_from_zip(zip_bytes: bytes) -> Tuple[Dict[str, Any], bytes, st
     checksum = hashlib.sha256(zip_bytes).hexdigest()
     try:
         zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
-    except zipfile.BadZipFile as e:
-        raise ValueError(f'not a valid zip file: {e}')
+    except zipfile.BadZipFile:
+        raise _PackageError('plugin_package_not_valid_zip')
 
     names = [n.replace('\\', '/') for n in zf.namelist()]
     manifest_names = [n for n in names if n in ('manifest.json', './manifest.json')]
     if not manifest_names:
-        raise ValueError('manifest.json not found in package root')
+        raise _PackageError('plugin_manifest_missing_in_package')
 
     with zf.open(manifest_names[0]) as f:
         try:
             manifest = json.loads(f.read().decode('utf-8'))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
-            raise ValueError(f'manifest.json parse error: {e}')
+            raise _PackageError('plugin_manifest_parse_error', error=str(e))
 
     return manifest, zip_bytes, checksum
 
@@ -393,12 +437,14 @@ class PluginService:
         """
         try:
             manifest, _, checksum = _read_manifest_from_zip(zip_bytes)
+        except _PackageError as e:
+            raise PluginValidationError(ERR_INVALID_PACKAGE, e.key, e.params)
         except ValueError as e:
             raise PluginValidationError(ERR_INVALID_PACKAGE, str(e))
 
-        ok, code, detail = _validate_manifest(manifest)
+        ok, code, detail, detail_params = _validate_manifest(manifest)
         if not ok:
-            raise PluginValidationError(code, detail)
+            raise PluginValidationError(code, detail, detail_params)
 
         plugin_id = manifest['id']
         version = manifest['version']
@@ -409,12 +455,13 @@ class PluginService:
             if existing.current_version == version:
                 raise PluginValidationError(
                     ERR_PLUGIN_EXISTS_VERSION,
-                    f'{plugin_id} {version} already installed')
+                    'plugin_version_already_installed',
+                    {'plugin_id': plugin_id, 'version': version})
             if not semver_gt(version, existing.current_version):
                 raise PluginValidationError(
                     ERR_DOWNGRADE_FORBIDDEN,
-                    f'current={existing.current_version}, uploaded={version}; '
-                    'use rollback API to switch to a lower version')
+                    'plugin_downgrade_forbidden',
+                    {'current': existing.current_version, 'uploaded': version})
 
         # 解包到版本目录
         root = _plugin_storage_root() / plugin_id / version
@@ -424,6 +471,9 @@ class PluginService:
         try:
             extracted = _safe_extract(
                 zipfile.ZipFile(io.BytesIO(zip_bytes)), root)
+        except _PackageError as e:
+            shutil.rmtree(root, ignore_errors=True)
+            raise PluginValidationError(ERR_INVALID_PACKAGE, e.key, e.params)
         except ValueError as e:
             shutil.rmtree(root, ignore_errors=True)
             raise PluginValidationError(ERR_INVALID_PACKAGE, str(e))
@@ -432,7 +482,29 @@ class PluginService:
         entry = manifest['entry']
         if entry not in extracted and f'./{entry}' not in extracted:
             shutil.rmtree(root, ignore_errors=True)
-            raise PluginValidationError(ERR_ENTRY_MISSING, entry)
+            raise PluginValidationError(
+                ERR_ENTRY_MISSING, 'plugin_entry_missing', {'entry': entry})
+
+        # 静态资源文件存在校验（assets.styles / assets.scripts）
+        for css in (manifest.get('assets') or {}).get('styles') or []:
+            if css not in extracted and f'./{css}' not in extracted:
+                shutil.rmtree(root, ignore_errors=True)
+                raise PluginValidationError(
+                    ERR_ENTRY_MISSING, 'plugin_asset_missing', {'path': css})
+        for js in (manifest.get('assets') or {}).get('scripts') or []:
+            if js not in extracted and f'./{js}' not in extracted:
+                shutil.rmtree(root, ignore_errors=True)
+                raise PluginValidationError(
+                    ERR_ENTRY_MISSING, 'plugin_asset_missing', {'path': js})
+
+        # endpoints 入口文件存在校验
+        for ep in (manifest.get('endpoints') or []):
+            ep_entry = ep.get('entry', '')
+            if ep_entry not in extracted and f'./{ep_entry}' not in extracted:
+                shutil.rmtree(root, ignore_errors=True)
+                raise PluginValidationError(
+                    ERR_ENTRY_MISSING,
+                    'plugin_endpoint_entry_missing', {'path': ep_entry})
 
         # configSchema 与存量配置兼容性检查（升级时）
         if existing is not None:
@@ -441,7 +513,7 @@ class PluginService:
                 shutil.rmtree(root, ignore_errors=True)
                 raise PluginValidationError(
                     ERR_CONFIG_INCOMPATIBLE,
-                    f'existing config incompatible with new configSchema: {incompatible}')
+                    'plugin_config_incompatible', {'detail': incompatible})
 
         action = 'installed'
         if existing is None:
@@ -524,13 +596,14 @@ class PluginService:
         if ver is None:
             raise PluginValidationError(
                 ERR_VERSION_INVALID,
-                f'version {target_version} not retained for {plugin_id}; '
-                'only previously installed versions can be rolled back')
+                'plugin_rollback_version_not_retained',
+                {'version': target_version, 'plugin_id': plugin_id})
 
         # 目录必须存在（相对路径按后端根目录锚定解析）
         if not resolve_package_path(ver.package_path).exists():
-            raise PluginValidationError(ERR_INVALID_PACKAGE,
-                                        f'package files missing: {ver.package_path}')
+            raise PluginValidationError(
+                ERR_INVALID_PACKAGE, 'plugin_package_files_missing',
+                {'path': ver.package_path})
 
         plugin.current_version = target_version
         plugin.manifest = plugin.manifest  # 保留（回滚不回写清单，前端按版本目录加载）
@@ -545,7 +618,8 @@ class PluginService:
         try:
             new_status = PluginStatus(status)
         except ValueError:
-            raise PluginValidationError(ERR_MANIFEST_INVALID, f'invalid status: {status}')
+            raise PluginValidationError(ERR_MANIFEST_INVALID,
+                                        'plugin_invalid_status', {'status': status})
         plugin = db.session.get(Plugin, plugin_id)
         if plugin is None:
             raise PluginNotFoundError(plugin_id)
@@ -575,13 +649,13 @@ class PluginService:
         plugin = db.session.get(Plugin, plugin_id)
         if plugin is None:
             raise PluginNotFoundError(plugin_id)
+        # 仅 UI 插件支持 Base 级安装：脚本插件为纯后端形态，运行由触发者
+        # 对 Base 的 RBAC（Editor+）+ 全局启用控制，不依赖 Base 安装
+        # （见开发者指南 §5、设计 plan §5；前端 collectExtensionPoints 亦按
+        #  type==ui 过滤，脚本插件不进入 UI 扩展点）
         if plugin.type != PluginType.UI:
             raise PluginValidationError(
-                ERR_PLUGIN_TYPE_NOT_INSTALLABLE,
-                '仅 UI 插件支持 Base 级安装（脚本插件运行由 RBAC 与全局启停控制，'
-                '不依赖 Base 安装） / Only UI plugins support Base-level '
-                'installation (script plugins are governed by RBAC and '
-                'the global status)')
+                ERR_PLUGIN_TYPE_NOT_INSTALLABLE, 'plugin_type_not_installable')
         existing = PluginInstallation.query.filter_by(
             plugin_id=plugin_id, base_id=base_id).first()
         if existing is None:
@@ -601,11 +675,7 @@ class PluginService:
             raise PluginNotFoundError(plugin_id)
         if plugin.type != PluginType.UI:
             raise PluginValidationError(
-                ERR_PLUGIN_TYPE_NOT_INSTALLABLE,
-                '仅 UI 插件支持 Base 级安装（脚本插件运行由 RBAC 与全局启停控制，'
-                '不依赖 Base 安装） / Only UI plugins support Base-level '
-                'installation (script plugins are governed by RBAC and '
-                'the global status)')
+                ERR_PLUGIN_TYPE_NOT_INSTALLABLE, 'plugin_type_not_installable')
         inst = PluginInstallation.query.filter_by(
             plugin_id=plugin_id, base_id=base_id).first()
         if inst is None:
@@ -651,7 +721,8 @@ class PluginService:
         try:
             cfg_scope = PluginConfigScope(scope)
         except ValueError:
-            raise PluginValidationError(ERR_MANIFEST_INVALID, f'invalid scope: {scope}')
+            raise PluginValidationError(ERR_MANIFEST_INVALID,
+                                        'plugin_invalid_scope', {'scope': scope})
         row = PluginConfig.query.filter_by(
             plugin_id=plugin_id, scope=cfg_scope,
             base_id=base_id if cfg_scope == PluginConfigScope.BASE else None).first()
@@ -663,7 +734,8 @@ class PluginService:
         try:
             cfg_scope = PluginConfigScope(scope)
         except ValueError:
-            raise PluginValidationError(ERR_MANIFEST_INVALID, f'invalid scope: {scope}')
+            raise PluginValidationError(ERR_MANIFEST_INVALID,
+                                        'plugin_invalid_scope', {'scope': scope})
 
         plugin = db.session.get(Plugin, plugin_id)
         if plugin is None:
@@ -678,7 +750,9 @@ class PluginService:
             except ImportError:
                 pass
             except Exception as e:
-                raise PluginValidationError(ERR_CONFIG_INCOMPATIBLE, str(e.message if hasattr(e, 'message') else e))
+                raise PluginValidationError(
+                    ERR_CONFIG_INCOMPATIBLE, 'plugin_config_schema_invalid',
+                    {'error': str(e.message if hasattr(e, 'message') else e)})
 
         existing = PluginConfig.query.filter_by(
             plugin_id=plugin_id, scope=cfg_scope,
@@ -738,12 +812,19 @@ class PluginService:
 # ==================== 异常定义 ====================
 
 class PluginValidationError(Exception):
-    """插件操作校验失败（error_code + detail）"""
+    """插件操作校验失败（error_code + i18n detail + 插值参数）
 
-    def __init__(self, error_code: str, detail: str = ''):
+    detail 统一使用 i18n key（如 'plugin_entry_missing'），由路由层调用
+    translate() 结合 params 渲染为当前语言文本；未命中词条时按原文返回，
+    保证与既有硬编码文案的向后兼容。
+    """
+
+    def __init__(self, error_code: str, detail: str = '',
+                 params: Optional[Dict[str, Any]] = None):
         super().__init__(f'{error_code}: {detail}')
         self.error_code = error_code
         self.detail = detail
+        self.params = params or {}
 
 
 class PluginNotFoundError(Exception):

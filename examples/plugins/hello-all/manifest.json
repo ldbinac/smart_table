@@ -1,0 +1,80 @@
+{
+  "id": "com.smarttable.hello-all",
+  "name": "Hello All",
+  "description": "综合示例插件（Hello All）：多文件 UI（assets 样式/脚本/图片）+ 6 类扩展点挂载 + 自定义后端接口（backend.call）+ 第三方网络代理（network.fetch）",
+  "author": {
+    "name": "SmartTable Team",
+    "url": "https://github.com/ldbinac/smart_table"
+  },
+  "version": "1.2.0",
+  "type": "ui",
+  "apiVersion": "1",
+  "engines": {
+    "smarttable": ">=1.6.6 <2.0.0"
+  },
+  "entry": "main.js",
+  "permissions": {
+    "records": "write",
+    "tables": "read",
+    "storage": true,
+    "network": ["api.github.com"]
+  },
+  "assets": {
+    "styles": ["styles/main.css", "styles/theme.css"],
+    "scripts": ["vendor/helpers.js"]
+  },
+  "endpoints": [
+    {
+      "name": "echo",
+      "entry": "endpoints/echo.py",
+      "description": "回显调用参数并读取当前 Base 表数量（演示 backend.call 与触发者身份注入）",
+      "timeout": 30
+    },
+    {
+      "name": "stats",
+      "entry": "endpoints/stats.py",
+      "description": "按表/字段统计记录空值分布（演示多 endpoint、服务端聚合与 base.list_records 代理）",
+      "timeout": 60
+    }
+  ],
+  "extensionPoints": [
+    {
+      "type": "toolbar-button",
+      "title": "Hello",
+      "icon": "Star",
+      "requiresSelection": true,
+      "maxSelection": 500
+    },
+    {
+      "type": "side-panel",
+      "title": "Hello Panel",
+      "requiresSelection": true
+    },
+    {
+      "type": "base-menu",
+      "title": "Hello 菜单",
+      "icon": "Menu"
+    },
+    {
+      "type": "record-detail-block",
+      "title": "Hello 记录卡片"
+    },
+    {
+      "type": "home-menu",
+      "title": "Hello 工具箱",
+      "icon": "HomeFilled"
+    },
+    {
+      "type": "dashboard-widget",
+      "title": "Hello 卡片",
+      "icon": "DataAnalysis"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "greeting": { "type": "string", "default": "Hello" },
+      "pageSize": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+    }
+  }
+}

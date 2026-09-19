@@ -118,6 +118,9 @@ def _resolve_date_range(range_key: str) -> tuple:
 class WorkflowService:
     """工作流核心服务"""
 
+    # 站内信节点支持的接收人来源
+    NOTIFY_RECIPIENT_SOURCES = ('fixed', 'field', 'trigger_user', 'record_creator', 'base_members')
+
     @staticmethod
     def _to_uuid(value: Any) -> Optional[uuid.UUID]:
         """将字符串或 UUID 对象转换为 UUID 对象"""
@@ -500,6 +503,50 @@ class WorkflowService:
                 if conj_key in task and task.get(conj_key) not in ('and', 'or'):
                     raise ValueError('related_updates_conjunction_invalid')
 
+    @classmethod
+    def _validate_notify_node(cls, node_config: Dict[str, Any]) -> None:
+        """校验「站内信通知」节点配置，失败抛 ValueError。
+
+        校验范围：接收人来源合法性、各来源对应的取值非空、标题/正文类型。
+        用户是否存在、字段是否能解析出成员等依赖运行期数据的校验交由执行引擎处理。
+        """
+        if not isinstance(node_config, dict):
+            raise ValueError('notify_node_configuration_object')
+        config = node_config.get('config', {}) or {}
+
+        sources = config.get('recipient_sources')
+        if isinstance(sources, str):
+            sources = [sources]
+        if not sources:
+            # 兼容单来源结构
+            legacy_type = config.get('recipient_type')
+            sources = [legacy_type] if legacy_type else []
+        if not isinstance(sources, list) or not sources:
+            raise ValueError('notify_recipient_source_required')
+
+        for source in sources:
+            if source not in cls.NOTIFY_RECIPIENT_SOURCES:
+                raise ValueError(translate('notify_recipient_source_invalid', source))
+
+        if 'fixed' in sources:
+            user_ids = config.get('recipient_user_ids') or []
+            if not isinstance(user_ids, list) or not user_ids:
+                raise ValueError('notify_fixed_recipients_required')
+
+        if 'field' in sources:
+            field_ids = config.get('recipient_field_ids') or []
+            if not isinstance(field_ids, list) or not field_ids:
+                raise ValueError('notify_field_recipients_required')
+
+        for key in ('subject', 'body'):
+            if key in config and config.get(key) is not None \
+                    and not isinstance(config.get(key), str):
+                raise ValueError(translate('notify_content_string', key))
+
+        # 标题为空会在运行时中断流程，保存阶段即拦截，把问题前置
+        if not str(config.get('subject') or '').strip():
+            raise ValueError('notify_title_required')
+
     @staticmethod
     def _count_loop_nodes(nodes_config: List[Dict[str, Any]]) -> int:
         """递归统计 loop 节点总数（含嵌套循环体内的）"""
@@ -613,6 +660,8 @@ class WorkflowService:
                     cls._validate_script_node(node_data, all_node_ids)
                 elif node_type == 'update_record':
                     cls._validate_update_record_node(node_data)
+                elif node_type == 'notify':
+                    cls._validate_notify_node(node_data)
                 elif node_type == 'action':
                     # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
                     action_type = node_config.get('action_type')
@@ -770,6 +819,8 @@ class WorkflowService:
                         cls._validate_script_node(node_data, all_node_ids)
                     elif node_type_str == 'update_record':
                         cls._validate_update_record_node(node_data)
+                    elif node_type_str == 'notify':
+                        cls._validate_notify_node(node_data)
                     elif node_type_str == 'action':
                         # 兼容：旧 'action' + config.action_type 升级为细粒度 node_type
                         action_type = config.get('action_type')

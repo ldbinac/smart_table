@@ -1,4 +1,160 @@
+@use 'sass:map';
 @use 'variables' as *;
+
+// ============================================
+// 响应式断点 (全局可用，经 vite additionalData 注入)
+// 用法：@include respond-to('md') { ... }   // >= 640px
+//      @include respond-below('lg') { ... } // < 768px
+// ============================================
+
+@mixin respond-to($name) {
+  @if map.has-key($breakpoints, $name) {
+    @media (min-width: map.get($breakpoints, $name)) {
+      @content;
+    }
+  } @else {
+    @error "未知断点：#{$name}，可选值：#{map.keys($breakpoints)}";
+  }
+}
+
+@mixin respond-below($name) {
+  @if map.has-key($breakpoints, $name) {
+    @media (max-width: (map.get($breakpoints, $name) - 0.02px)) {
+      @content;
+    }
+  } @else {
+    @error "未知断点：#{$name}，可选值：#{map.keys($breakpoints)}";
+  }
+}
+
+@mixin respond-between($min, $max) {
+  @if map.has-key($breakpoints, $min) and map.has-key($breakpoints, $max) {
+    @media (min-width: map.get($breakpoints, $min)) and (max-width: (map.get($breakpoints, $max) - 0.02px)) {
+      @content;
+    }
+  } @else {
+    @error "未知断点：#{$min} / #{$max}";
+  }
+}
+
+// 移动端（<= 768px）专属样式
+@mixin mobile-only {
+  @media (max-width: $mobile-max-width) {
+    @content;
+  }
+}
+
+// ============================================
+// 移动端通用 mixin
+// ============================================
+
+// 安全区：顶部 / 底部 / 左右
+@mixin safe-top($extra: 0px) {
+  padding-top: calc(#{$extra} + env(safe-area-inset-top, 0px));
+}
+
+@mixin safe-bottom($extra: 0px) {
+  padding-bottom: calc(#{$extra} + env(safe-area-inset-bottom, 0px));
+}
+
+@mixin safe-x($extra: 0px) {
+  padding-left: calc(#{$extra} + env(safe-area-inset-left, 0px));
+  padding-right: calc(#{$extra} + env(safe-area-inset-right, 0px));
+}
+
+// 触控目标：保证可点区域不小于 44px
+@mixin tap-target($size: 44px) {
+  position: relative;
+  min-width: $size;
+  min-height: $size;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+
+// 按压反馈
+@mixin pressable($bg: rgba(0, 0, 0, 0.04)) {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  transition: background-color $transition-fast;
+
+  &:active {
+    background-color: $bg;
+  }
+}
+
+// 0.5px 细线（通过 transform 缩放实现）
+@mixin hairline($position: bottom, $color: $border-color) {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    background-color: $color;
+    pointer-events: none;
+
+    @if $position == bottom {
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      transform: scaleY(0.5);
+      transform-origin: 0 100%;
+    } @else if $position == top {
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 1px;
+      transform: scaleY(0.5);
+      transform-origin: 0 0;
+    } @else if $position == right {
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 1px;
+      transform: scaleX(0.5);
+      transform-origin: 100% 0;
+    } @else {
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 1px;
+      transform: scaleX(0.5);
+      transform-origin: 0 0;
+    }
+  }
+}
+
+// 移动端纵向滚动容器（惯性滚动 + 隐藏滚动条）
+@mixin m-scroll-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+// 移动端横向滚动容器（用于 Tab / 看板列）
+@mixin m-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+// 动态视口高度：优先 --vh（JS 写入），不支持时回退 100dvh
+@mixin m-full-height($offset: 0px) {
+  height: calc(100vh - #{$offset});
+  height: calc(var(--vh, 1vh) * 100 - #{$offset});
+  height: calc(100dvh - #{$offset});
+}
+
+// ============================================
+// 基础布局 mixin
+// ============================================
 
 @mixin flex-center {
   display: flex;

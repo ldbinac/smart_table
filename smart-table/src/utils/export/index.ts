@@ -23,6 +23,12 @@ export interface ExportContext {
   memberNameMap?: Map<string, string>;
   /** 表格的全部字段，用于公式字段在前端回退计算（计算引擎需要跨字段引用） */
   allFields?: FieldEntity[];
+  /**
+   * 关联字段显示名称预取结果：recordId -> (fieldId -> 显示名称列表)。
+   * 由导出前批量拉取的关联数据填充，显示名称为关联字段配置的展示字段值，
+   * 且包含一对多主从关系下的全部关联记录，避免导出为关联表 ID 或仅导出一条。
+   */
+  linkDisplayMap?: Map<string, Map<string, string[]>>;
 }
 
 export interface ImportResult {
@@ -48,6 +54,34 @@ function getFormulaComputedValues(
     }
   }
   return result;
+}
+
+// 关联记录字段导出：优先使用批量预取的显示名称（含配置展示字段值、一对多全部关联），
+// 兜底退化为 record.values 中的关联记录 ID 列表。
+function formatLinkValue(
+  value: CellValue,
+  field: FieldEntity,
+  record?: RecordEntity,
+  context: ExportContext = {},
+): string {
+  const recId = record?.id;
+  const fieldMap = recId ? context.linkDisplayMap?.get(recId) : undefined;
+  const displayNames = fieldMap?.get(field.id);
+  if (displayNames && displayNames.length > 0) {
+    return displayNames.join(", ");
+  }
+
+  // 兜底：record.values 中的关联记录 ID 列表（可能仅含部分/单条），退化为展示 ID
+  if (Array.isArray(value)) {
+    const ids = value.map((v) => {
+      if (v != null && typeof v === "object" && "record_id" in (v as any)) {
+        return String((v as any).record_id);
+      }
+      return String(v);
+    });
+    return ids.join(", ");
+  }
+  return value == null ? "" : String(value);
 }
 
 // 公共格式化函数 - 用于 Excel 导出
@@ -145,6 +179,10 @@ function formatValueForExcel(
       }
       return value;
 
+    case "link_to_record":
+    case FieldType.LINK:
+      return formatLinkValue(value, field, record, context);
+
     default:
       return value;
   }
@@ -241,6 +279,10 @@ function formatValueForCSV(
         return formatGeoValue(value as any, field.options?.geoFormat as GeoFormat | undefined);
       }
       return String(value);
+
+    case "link_to_record":
+    case FieldType.LINK:
+      return formatLinkValue(value, field, record, context);
 
     default:
       return String(value);

@@ -39,20 +39,27 @@ app.mount("#app");
 const tokenRefreshService = getTokenRefreshService();
 tokenRefreshService.start();
 
+// 隐藏启动加载层（幂等，可重复调用）
+let loadingHidden = false;
+function hideAppLoading() {
+  if (loadingHidden) return;
+  const loadingEl = document.getElementById("app-loading");
+  if (!loadingEl) {
+    loadingHidden = true;
+    return;
+  }
+  loadingHidden = true;
+  loadingEl.classList.add("fade-out");
+  // 动画完成后移除元素
+  setTimeout(() => loadingEl.remove(), 300);
+}
+
 // 等待路由准备完成后隐藏加载状态
-router.isReady().then(() => {
-  // 延迟一小段时间让页面渲染完成
-  setTimeout(() => {
-    const loadingEl = document.getElementById("app-loading");
-    if (loadingEl) {
-      loadingEl.classList.add("fade-out");
-      // 动画完成后移除元素
-      setTimeout(() => {
-        loadingEl.remove();
-      }, 300);
-    }
-  }, 100);
-});
+router.isReady().then(hideAppLoading).catch(hideAppLoading);
+
+// 兜底：首屏导航被取消/失败时 router.isReady() 可能既不 resolve 也不 reject，
+// 导致加载层永久盖在页面上（全屏 z-index 9999，会拦截所有点击）
+setTimeout(hideAppLoading, 1500);
 
 // 应用销毁时清理资源
 window.addEventListener('beforeunload', () => {

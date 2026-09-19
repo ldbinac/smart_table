@@ -209,6 +209,9 @@ const isDraft = computed(() => props.workflow.status === "draft");
 const isPaused = computed(() => props.workflow.status === "paused");
 const isFreshDraft = computed(() => isDraft.value && (props.workflow.current_version ?? 0) === 0);
 const readonly = computed(() => !["draft", "paused"].includes(props.workflow.status) || !canManage.value);
+
+/** 工作流所属空间 ID，供站内信节点限定成员选择范围 */
+const workflowBaseId = computed(() => props.workflow.base_id);
 const hasInvalidMappingNodes = computed(() => !validateNodeMappings(localNodes.value).valid);
 
 function cloneConfig(config: Record<string, unknown>): Record<string, unknown> {
@@ -270,6 +273,18 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
       } else if (!isValidWorkflowVariableName(resultVariable as string)) {
         invalidNodes.push({ name: node.name, reason: t('workflow.validation.resultVarInvalid') });
       }
+    } else if (node.node_type === 'notify') {
+      const config = node.config || {};
+      const sources = (config.recipient_sources ?? []) as string[];
+      if (!sources.length) {
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyRecipientSourceNotConfigured') });
+      } else if (sources.includes('fixed') && !(config.recipient_user_ids as unknown[])?.length) {
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyFixedMembersNotConfigured') });
+      } else if (sources.includes('field') && !(config.recipient_field_ids as unknown[])?.length) {
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyMemberFieldsNotConfigured') });
+      } else if (!String(config.subject ?? '').trim()) {
+        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyTitleNotConfigured') });
+      }
     }
   });
   return { valid: invalidNodes.length === 0, invalidNodes };
@@ -302,7 +317,24 @@ function getDefaultNodeConfig(type: WorkflowNodeType): Record<string, unknown> {
   if (type === "loop") {
     return createDefaultLoopNodeConfig();
   }
+  if (type === "notify") {
+    return createDefaultNotifyNodeConfig();
+  }
   return {};
+}
+
+/**
+ * 站内信通知节点默认配置：默认选择「指定成员」来源，
+ * 其余来源由用户在配置面板中自行勾选。
+ */
+function createDefaultNotifyNodeConfig(): Record<string, unknown> {
+  return {
+    recipient_sources: ["fixed"],
+    recipient_user_ids: [],
+    recipient_field_ids: [],
+    subject: "",
+    body: "",
+  };
 }
 
 /**
@@ -963,6 +995,7 @@ onBeforeRouteLeave((_, __, next) => {
             :tables="tables"
             :webhooks="webhooks"
             :all-nodes="localNodes"
+            :base-id="workflowBaseId"
             :readonly="readonly"
             @update:node="updateNode"
             @add-child-node="handleConfigAddChildNode"

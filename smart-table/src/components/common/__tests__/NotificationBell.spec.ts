@@ -8,6 +8,8 @@ import type { AppNotification } from '@/services/api/notificationApiService'
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   refresh: vi.fn(),
+  fetchUnreadCount: vi.fn(),
+  reset: vi.fn(),
   markAsRead: vi.fn(),
   markAllAsRead: vi.fn(),
 }))
@@ -15,8 +17,19 @@ const mocks = vi.hoisted(() => ({
 // store 持有者：每个用例可重置其内部状态
 const storeHolder = vi.hoisted(() => ({ current: null as any }))
 
+// 认证状态持有者：用于覆盖已登录/未登录两种场景
+const authHolder = vi.hoisted(() => ({
+  current: { isAuthenticated: true } as { isAuthenticated: boolean },
+}))
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: mocks.push }),
+}))
+
+// 必须 mock 真实 authStore：其依赖链会经由 api client 加载 src/router/index.ts，
+// 而上面 vue-router 的 mock 未提供 createRouter，导致整个测试文件收集失败
+vi.mock('@/stores/auth/authStore', () => ({
+  useAuthStore: () => authHolder.current,
 }))
 
 vi.mock('@/stores/notificationStore', () => ({
@@ -41,9 +54,22 @@ vi.mock('@element-plus/icons-vue', () => ({
   Bell: { template: '<i class="mock-bell-icon" />' },
 }))
 
+// 未安装真实 i18n 实例，t() 直接返回 key，断言统一按 key 匹配
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
 // 规避 formatRelativeTime 对 Pinia/adminStore 的依赖
 vi.mock('@/utils/timezone', () => ({
   formatRelativeTime: vi.fn(() => '刚刚'),
+  formatDateTime: vi.fn(() => '2024-01-01 00:00'),
+}))
+
+// 详情弹窗会重新拉取单条站内信，需 mock 以避免加载真实 api client 依赖链
+vi.mock('@/services/api/notificationApiService', () => ({
+  notificationApiService: {
+    getNotification: vi.fn(async () => ({ data: null })),
+  },
 }))
 
 // 构造两条最近通知
@@ -96,6 +122,8 @@ function createStore(
     unreadCount: 0,
     recentNotifications: [] as AppNotification[],
     refresh: mocks.refresh,
+    fetchUnreadCount: mocks.fetchUnreadCount,
+    reset: mocks.reset,
     markAsRead: mocks.markAsRead,
     markAllAsRead: mocks.markAllAsRead,
     ...overrides,
@@ -114,10 +142,13 @@ describe('NotificationBell', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // 默认已登录，个别用例会覆盖为未登录
+    authHolder.current = { isAuthenticated: true }
   })
 
   afterEach(() => {
     wrapper?.unmount()
+    authHolder.current = { isAuthenticated: true }
   })
 
   it('未读数大于0时显示徽标', async () => {
@@ -142,6 +173,14 @@ describe('NotificationBell', () => {
     expect(mocks.refresh).toHaveBeenCalled()
   })
 
+  it('未登录时不请求通知数据', async () => {
+    authHolder.current = { isAuthenticated: false }
+    wrapper = mountBell()
+    await flushPromises()
+    expect(mocks.refresh).not.toHaveBeenCalled()
+    expect(mocks.fetchUnreadCount).not.toHaveBeenCalled()
+  })
+
   it('点击全部已读调用 markAllAsRead', async () => {
     wrapper = mountBell({ unreadCount: 3, recentNotifications: buildNotifications() })
     await flushPromises()
@@ -150,7 +189,7 @@ describe('NotificationBell', () => {
     await flushPromises()
     const markAllBtn = wrapper
       .findAll('button')
-      .find((b) => b.text().includes('全部已读'))
+      .find((b) => b.text().includes('notification.markAllRead'))
     expect(markAllBtn).toBeTruthy()
     await markAllBtn!.trigger('click')
     await flushPromises()
@@ -167,5 +206,28 @@ describe('NotificationBell', () => {
     const titles = items.map((i) => i.find('.title-text').text())
     expect(titles).toContain('欢迎使用 SmartTable')
     expect(titles).toContain('审批已通过')
+  })
+
+  it('点击未读通知直接打开详情弹窗，不跳转列表页', async () => {
+    wrapper = mountBell({ unreadCount: 1, recentNotifications: buildNotifications() })
+    await flushPromises()
+    await wrapper.find('.notification-badge').trigger('click')
+    await flushPromises()
+
+    const unreadItem = wrapper
+      .findAll('.notification-item')
+      .find((i) => i.classes().includes('is-unread'))
+    expect(unreadItem).toBeTruthy()
+
+    await unreadItem!.trigger('click')
+    await flushPromises()
+
+    // 打开详情弹窗而非跳转消息中心
+    expect(mocks.push).not.toHaveBeenCalled()
+    expect(mocks.markAsRead).toHaveBeenCalledWith('n1')
+    // el-dialog 内容通过 teleport 异步挂载，直接断言弹窗组件已打开
+    const dialog = wrapper.findComponent({ name: 'ElDialog' })
+    expect(dialog.exists()).toBe(true)
+    expect(dialog.props('modelValue')).toBe(true)
   })
 })

@@ -180,6 +180,18 @@ class Config:
     # 文件上传配置
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or 'uploads'
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 最大文件大小 50MB
+    # Flask 请求体大小上限（字节），超限返回 413。
+    # Docker Compose 通过 MAX_CONTENT_LENGTH 环境变量传入（与 nginx
+    # client_max_body_size 保持一致）；为空/非法/非正数时回退 MAX_FILE_SIZE。
+    _max_content_length_raw = os.environ.get('MAX_CONTENT_LENGTH', '').strip()
+    try:
+        MAX_CONTENT_LENGTH = int(_max_content_length_raw) if _max_content_length_raw else MAX_FILE_SIZE
+        if MAX_CONTENT_LENGTH <= 0:
+            raise ValueError('must be positive')
+    except ValueError:
+        if _max_content_length_raw:
+            print(f'[Config] ⚠ MAX_CONTENT_LENGTH 非法（{_max_content_length_raw!r}），回退到默认 50MB')
+        MAX_CONTENT_LENGTH = MAX_FILE_SIZE
     ALLOWED_EXTENSIONS = {
         'image': ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
         'document': ['doc', 'docx', 'pdf', 'txt', 'md'],

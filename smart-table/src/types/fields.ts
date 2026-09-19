@@ -133,8 +133,13 @@ export interface LookupFilterCondition {
   fieldId: string;
   /** 操作符 */
   operator: LookupFilterOperator;
-  /** 值类型："field"（当前表字段）或 "custom"（自定义值） */
-  valueType: "field" | "custom";
+  /**
+   * 值类型：
+   * - "field"：与当前表的某个字段值比较
+   * - "custom"：与自定义值比较
+   * - "current_record"：与当前记录本身比较（用于源表关联字段指向当前表的场景）
+   */
+  valueType: "field" | "custom" | "current_record";
   /** 当 valueType 为 "field" 时的当前表字段 ID */
   valueFieldId?: string;
   /** 当 valueType 为 "custom" 时的自定义值 */

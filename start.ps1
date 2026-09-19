@@ -15,6 +15,9 @@ try {
 }
 
 # 检查 Docker Compose 是否安装
+# 注意：$composeCmd 是含空格的字符串（如 "docker compose"），
+# 不能用 & $composeCmd 调用（PowerShell 会把它整体当作命令名查找而报错），
+# 统一通过 Invoke-Expression 执行
 try {
     $composeVersion = docker compose version
     Write-Host "✅ Docker Compose 已安装：$composeVersion" -ForegroundColor Green
@@ -32,14 +35,6 @@ try {
 
 Write-Host ""
 
-# 检查 .env 文件
-if (-not (Test-Path .env)) {
-    Write-Host "📝 创建环境变量文件..." -ForegroundColor Yellow
-    Copy-Item .env.example .env
-    Write-Host "✅ .env 文件已创建，请编辑此文件修改密钥配置" -ForegroundColor Green
-    Write-Host ""
-}
-
 # 选择部署模式
 Write-Host "请选择部署模式:" -ForegroundColor Cyan
 Write-Host "1) 简单部署（SQLite，适合测试）"
@@ -48,10 +43,17 @@ $choice = Read-Host "请输入选项 (1/2)"
 
 switch ($choice) {
     "1" {
+        # 检查 .env 文件（简单部署模板）
+        if (-not (Test-Path .env)) {
+            Write-Host "📝 创建环境变量文件..." -ForegroundColor Yellow
+            Copy-Item .env.example .env
+            Write-Host "✅ .env 文件已创建，请编辑此文件修改密钥配置" -ForegroundColor Green
+            Write-Host ""
+        }
         Write-Host ""
         Write-Host "🚀 开始简单部署..." -ForegroundColor Cyan
-        & $composeCmd -f docker-compose.yml up -d --build
-        
+        Invoke-Expression "$composeCmd -f docker-compose.yml up -d --build"
+
         Write-Host ""
         Write-Host "✅ 部署完成！" -ForegroundColor Green
         Write-Host ""
@@ -59,13 +61,17 @@ switch ($choice) {
         Write-Host "查看日志：$composeCmd logs -f" -ForegroundColor Gray
     }
     "2" {
+        # 检查 .env 文件（完整部署模板，包含 DB/Redis/MinIO 配置）
+        if (-not (Test-Path .env)) {
+            Write-Host "📝 创建环境变量文件..." -ForegroundColor Yellow
+            Copy-Item .env.full.example .env
+            Write-Host "✅ .env 文件已创建，请编辑此文件修改数据库密码与密钥配置" -ForegroundColor Green
+            Write-Host ""
+        }
         Write-Host ""
         Write-Host "🚀 开始完整部署..." -ForegroundColor Cyan
-        if (-not (Test-Path .env)) {
-            Copy-Item .env.full.example .env
-        }
-        & $composeCmd -f docker-compose.full.yml up -d --build
-        
+        Invoke-Expression "$composeCmd -f docker-compose.full.yml up -d --build"
+
         Write-Host ""
         Write-Host "✅ 部署完成！" -ForegroundColor Green
         Write-Host ""

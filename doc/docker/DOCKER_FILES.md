@@ -20,8 +20,12 @@ smart-table-spec/
 │   └── DOCKER_FILES.md                # 本文件
 │
 ├── 📂 docker/
+│   ├── entrypoint.sh                  # 容器入口（迁移初始化 + 启动 Supervisor）
+│   ├── server_runner.py               # Eventlet WSGI 启动器
 │   ├── nginx/
 │   │   └── nginx.conf                 # Nginx 配置文件
+│   ├── redis/
+│   │   └── redis.conf                 # 内嵌 Redis 配置
 │   └── supervisor/
 │       └── supervisord.conf           # Supervisor 进程管理配置
 │
@@ -34,7 +38,8 @@ smart-table-spec/
     ├── app/                           # Flask 应用代码
     ├── requirements.txt               # Python 依赖
     ├── run.py                         # 应用启动脚本
-    └── gunicorn.conf.py               # Gunicorn 配置
+    ├── Dockerfile                     # 独立后端镜像
+    └── docker-compose.yml             # 后端独立部署编排
 ```
 
 ## 📋 核心文件说明
@@ -71,8 +76,9 @@ smart-table-spec/
 - SmartTable 统一应用（前后端）
 
 **数据持久化**:
-- sqlite_data: 数据库文件
-- uploads_data: 上传文件
+- sqlite_data: SQLite 数据库文件（/app/data）
+- redis_data: 内嵌 Redis 的 RDB 数据（/data/redis）
+- uploads_data: 上传文件（/app/uploads）
 
 **文件大小**: ~1.5KB
 
@@ -180,7 +186,7 @@ cp .env.example .env
 **关键配置**:
 - 监听端口：80
 - 静态文件根目录：/app/static
-- API 代理目标：Gunicorn:5000
+- API 代理目标：127.0.0.1:5000（Eventlet WSGI）
 - 最大上传大小：50MB
 
 **文件大小**: ~2.5KB
@@ -194,8 +200,9 @@ cp .env.example .env
 **作用**: Supervisor 进程管理配置
 
 **管理进程**:
-1. Nginx（优先级 10）
-2. Gunicorn（优先级 20）
+1. Redis（优先级 5，内嵌，仅监听 127.0.0.1）
+2. Nginx（优先级 10）
+3. App Server（优先级 20，docker/server_runner.py，Eventlet WSGI）
 
 **特性**:
 - 自动重启
