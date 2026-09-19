@@ -530,6 +530,25 @@ class FieldService:
             if field_name in data and field_name != 'config':  # config 已单独处理
                 setattr(field, field_name, data[field_name])
         
+        # 公式字段：确保公式表达式同时落在 options 与 config，前后端/服务端一致。
+        # 前端以 options.formula 为准，服务端公式引擎（formula_service）读取 config.formula；
+        # 任一侧缺失时从另一侧补齐，避免保存后公式丢失或服务端计算失败。
+        if field.type == FieldType.FORMULA.value:
+            from sqlalchemy.orm.attributes import flag_modified
+            options = field.options or {}
+            formula_expr = options.get('formula')
+            if not formula_expr and field.config:
+                formula_expr = field.config.get('formula')
+            if formula_expr:
+                if field.options is None:
+                    field.options = {}
+                field.options['formula'] = formula_expr
+                if field.config is None:
+                    field.config = {}
+                field.config['formula'] = formula_expr
+                flag_modified(field, 'config')
+                flag_modified(field, 'options')
+
         # 验证选择类型字段的选项
         if field.type in FieldService.OPTIONS_REQUIRED_TYPES:
             options = field.options or {}
@@ -1417,8 +1436,13 @@ class FieldService:
                 return False, 'field_configuration_missing_linked_table_id'
 
         if new_type == FieldType.FORMULA.value:
+            # 公式表达式可能位于 config.formula（服务端约定）或 options.formula（前端约定），
+            # 二者任一存在即视为已提供，避免前端只下发 options 时被误判为缺失。
             config = data.get('config') or {}
             formula = config.get('formula')
+            if not formula:
+                options = data.get('options') or {}
+                formula = options.get('formula')
             if not formula or not str(formula).strip():
                 return False, 'field_configuration_missing_formula'
 
