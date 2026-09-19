@@ -498,7 +498,149 @@ class ImportExportService:
             raise
     
     # ==================== 导出功能 ====================
-    
+
+    @staticmethod
+    def _is_link_type(field) -> bool:
+        """判断字段是否为关联记录类型（兼容 link / link_to_record 两种存储值）"""
+        try:
+            ft = FieldType(field.type)
+        except ValueError:
+            ft = str(field.type)
+        return ft in (FieldType.LINK_TO_RECORD.value, FieldType.LINK.value)
+
+    @classmethod
+    def _prepare_export_data(cls, table_id: str,
+                             record_ids: Optional[List[str]] = None,
+                             field_ids: Optional[List[str]] = None
+                             ) -> Tuple[Any, List[Field], List[Record], List[Dict[str, Any]]]:
+        """
+        准备导出数据（Excel/CSV/JSON 共用）。
+
+        针对关联记录字段做两件事：
+        1. 从权威的 LinkValue 表批量获取关联记录 ID，保证一对多主从关系下
+           主表字段能导出全部关联的（而非仅 record.values 中可能缺失/被覆盖的一条）；
+        2. 将关联记录 ID 解析为关联字段配置的显示名称（displayFieldId），
+           避免直接导出关联表记录 ID。
+
+        返回:
+            (table, fields, records, data)
+            - data: 与 records 同序，元素为 {字段名: 已格式化值}
+        """
+        from app.services.link_service import LinkService
+
+        table = Table.query.get(table_id)
+        if not table:
+            raise ValueError('table_does_not_exist')
+
+        if field_ids:
+            fields = Field.query.filter(
+                Field.id.in_(field_ids),
+                Field.table_id == table_id
+            ).order_by(Field.order).all()
+        else:
+            fields = table.fields.order_by(Field.order).all()
+
+        query = Record.query.filter_by(table_id=table_id)
+        if record_ids:
+            query = query.filter(Record.id.in_(record_ids))
+        records = query.all()
+
+        # 关联字段：收集每条记录在「关联字段」上的全部关联记录 ID。
+        # 以界面展示所用的 record.values 为主来源（与前端一致），再与权威的 LinkValue 表
+        # （batch_get_record_link_ids，可覆盖反向双向关联）合并去重，避免漏导/漏显。
+        link_fields = [f for f in fields if cls._is_link_type(f)]
+        link_map: Dict[str, Dict[str, List[str]]] = {}
+        record_cache: Dict[str, Any] = {}
+        field_cache: Dict[str, Any] = {}
+
+        link_id_collections: Dict[Tuple[str, str], List[str]] = {}
+
+        if link_fields and records:
+            all_record_ids = [str(r.id) for r in records]
+            try:
+                link_map = LinkService.batch_get_record_link_ids(all_record_ids)
+            except Exception as e:
+                try:
+                    from flask import current_app as _ca
+                    _ca.logger.error(f'[ImportExport] 批量获取关联记录失败: {e}')
+                except Exception:
+                    pass
+                link_map = {}
+
+            # 合并两个来源的关联 ID，record.values 优先（与前端展示一致）
+            all_target_ids: set = set()
+            for record in records:
+                rec_id = str(record.id)
+                for field in link_fields:
+                    fid = str(field.id)
+                    ids: set = set()
+                    # 主来源：record.values 中存储的关联记录 ID 列表
+                    raw = record.values.get(fid)
+                    if raw:
+                        ids.update(raw if isinstance(raw, list) else [raw])
+                    # 补充来源：LinkValue 表（含双向反向关联，可能不在 record.values 中）
+                    lm_ids = (link_map.get(rec_id) or {}).get(fid)
+                    if lm_ids:
+                        ids.update(lm_ids)
+                    if ids:
+                        link_id_collections[(rec_id, fid)] = list(ids)
+                        all_target_ids.update(ids)
+
+            # 预取全部目标记录，用于把关联记录 ID 解析为显示名称
+            if all_target_ids:
+                targets = Record.query.filter(Record.id.in_(list(all_target_ids))).all()
+                record_cache = {str(t.id): t for t in targets}
+
+        data: List[Dict[str, Any]] = []
+        for record in records:
+            row: Dict[str, Any] = {}
+            rec_id = str(record.id)
+            for field in fields:
+                if cls._is_link_type(field):
+                    linked_ids = link_id_collections.get((rec_id, str(field.id)), [])
+                    row[field.name] = cls._format_link_export_value(
+                        linked_ids, field, record_cache, field_cache
+                    )
+                else:
+                    value = record.values.get(str(field.id))
+                    row[field.name] = cls._format_export_value(value, field)
+            data.append(row)
+
+        return table, fields, records, data
+
+    @staticmethod
+    def _format_link_export_value(linked_ids: Any, field: Field,
+                                  record_cache: Dict[str, Any],
+                                  field_cache: Dict[str, Any]) -> str:
+        """
+        格式化关联记录字段的导出值：将关联记录 ID 解析为显示名称，多值以逗号分隔。
+
+        Args:
+            linked_ids: 关联记录 ID 列表（或单个 ID）
+            field: 关联字段对象
+            record_cache: {记录ID: Record} 预取缓存
+            field_cache: {字段ID: Field} 缓存（供显示值解析复用）
+        """
+        from app.services.link_service import LinkService
+
+        if not linked_ids:
+            return ''
+        if not isinstance(linked_ids, list):
+            linked_ids = [linked_ids]
+
+        display_values = []
+        for rid in linked_ids:
+            rid = str(rid)
+            target = record_cache.get(rid)
+            if target is None:
+                # 关联记录已被删除等情况下，退化为显示 ID
+                display_values.append(rid)
+            else:
+                display_values.append(
+                    LinkService._get_link_display_value(target, str(field.id), field_cache)
+                )
+        return ', '.join(display_values)
+
     @classmethod
     def export_to_excel(cls, table_id: str, record_ids: Optional[List[str]] = None,
                        field_ids: Optional[List[str]] = None) -> Tuple[bytes, str]:
@@ -517,35 +659,7 @@ class ImportExportService:
             raise ImportError('install_pandas_pip_install_pandas_openpyxl')
         
         # 获取表格和字段
-        table = Table.query.get(table_id)
-        if not table:
-            raise ValueError('table_does_not_exist')
-        
-        # 获取字段
-        if field_ids:
-            fields = Field.query.filter(
-                Field.id.in_(field_ids),
-                Field.table_id == table_id
-            ).order_by(Field.order).all()
-        else:
-            fields = table.fields.order_by(Field.order).all()
-        
-        # 获取记录
-        query = Record.query.filter_by(table_id=table_id)
-        if record_ids:
-            query = query.filter(Record.id.in_(record_ids))
-        records = query.all()
-        
-        # 准备数据
-        data = []
-        field_id_map = {str(f.id): f for f in fields}
-        
-        for record in records:
-            row = {}
-            for field in fields:
-                value = record.values.get(str(field.id))
-                row[field.name] = cls._format_export_value(value, field)
-            data.append(row)
+        table, fields, records, data = cls._prepare_export_data(table_id, record_ids, field_ids)
         
         # 创建 DataFrame
         df = pd.DataFrame(data)
@@ -580,30 +694,7 @@ class ImportExportService:
             raise ImportError('请安装 pandas: pip install pandas')
         
         # 复用 Excel 的数据准备逻辑
-        table = Table.query.get(table_id)
-        if not table:
-            raise ValueError('table_does_not_exist')
-        
-        if field_ids:
-            fields = Field.query.filter(
-                Field.id.in_(field_ids),
-                Field.table_id == table_id
-            ).order_by(Field.order).all()
-        else:
-            fields = table.fields.order_by(Field.order).all()
-        
-        query = Record.query.filter_by(table_id=table_id)
-        if record_ids:
-            query = query.filter(Record.id.in_(record_ids))
-        records = query.all()
-        
-        data = []
-        for record in records:
-            row = {}
-            for field in fields:
-                value = record.values.get(str(field.id))
-                row[field.name] = cls._format_export_value(value, field)
-            data.append(row)
+        table, fields, records, data = cls._prepare_export_data(table_id, record_ids, field_ids)
         
         df = pd.DataFrame(data)
         
@@ -630,32 +721,15 @@ class ImportExportService:
         返回:
             (文件内容字节, 文件名)
         """
-        table = Table.query.get(table_id)
-        if not table:
-            raise ValueError('table_does_not_exist')
+        table, fields, records, data = cls._prepare_export_data(table_id, record_ids, field_ids)
         
-        if field_ids:
-            fields = Field.query.filter(
-                Field.id.in_(field_ids),
-                Field.table_id == table_id
-            ).order_by(Field.order).all()
-        else:
-            fields = table.fields.order_by(Field.order).all()
-        
-        query = Record.query.filter_by(table_id=table_id)
-        if record_ids:
-            query = query.filter(Record.id.in_(record_ids))
-        records = query.all()
-        
-        data = []
-        for record in records:
+        # 补充记录级元信息（与 Excel/CSV 区分，JSON 需要保留 id 与时间戳）
+        for i, record in enumerate(records):
             row = {'id': str(record.id)}
-            for field in fields:
-                value = record.values.get(str(field.id))
-                row[field.name] = cls._format_export_value(value, field)
+            row.update(data[i])
             row['created_at'] = record.created_at.isoformat()
             row['updated_at'] = record.updated_at.isoformat()
-            data.append(row)
+            data[i] = row
         
         output = io.BytesIO()
         output.write(json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'))
@@ -804,10 +878,6 @@ class ImportExportService:
         
         # 多选类型转为逗号分隔字符串
         if field_type == FieldType.MULTI_SELECT and isinstance(value, list):
-            return ', '.join(str(v) for v in value)
-        
-        # 关联记录类型
-        if field_type == FieldType.LINK_TO_RECORD and isinstance(value, list):
             return ', '.join(str(v) for v in value)
         
         # 附件类型
