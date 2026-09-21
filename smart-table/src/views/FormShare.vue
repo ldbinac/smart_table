@@ -558,6 +558,20 @@ function resetForm() {
         ? field.defaultValue
         : (config.defaultValue ?? config.default ?? null);
 
+    // 成员字段「添加记录用户」默认值：登录用户填写时自动填充当前用户
+    if (field.type === FieldType.MEMBER) {
+      const isCurrentUser =
+        config.memberDefaultType === "current_user" ||
+        defaultValue === "current_user";
+      if (isCurrentUser) {
+        const currentUserId = authStore.user?.id || null;
+        if (currentUserId) {
+          formValues.value[field.id] = [currentUserId];
+        }
+        return; // 跳过通用默认值逻辑
+      }
+    }
+
     if (
       defaultValue !== null &&
       defaultValue !== undefined &&

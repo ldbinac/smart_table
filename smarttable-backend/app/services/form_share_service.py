@@ -300,6 +300,9 @@ class FormShareService:
                         # 需同步到前端，否则分享页 GeoField 读不到 field.options.geoFormat，
                         # 永远回退为默认的 province_city_district（省市区），无法按配置格式渲染。
                         'geoFormat',
+                        # 成员字段：默认值类型需同步到前端，否则分享页无法识别
+                        # 「添加记录用户」默认值并自动预填当前登录用户
+                        'memberDefaultType',
                     ):
                         if rule_key in options and rule_key not in merged_config:
                             merged_config[rule_key] = options[rule_key]
@@ -352,7 +355,8 @@ class FormShareService:
     def submit_form_data(
         token: str,
         data: Dict[str, Any],
-        client_info: Dict[str, str]
+        client_info: Dict[str, str],
+        submitter_user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         提交表单数据
@@ -366,6 +370,7 @@ class FormShareService:
             client_info: 客户端信息
                 - ip: IP 地址
                 - user_agent: User-Agent
+            submitter_user_id: 提交者用户 ID（登录用户填写时为该用户 ID，匿名提交为 None）
         
         Returns:
             包含操作结果的字典
@@ -442,11 +447,33 @@ class FormShareService:
             if allowed_field_ids:
                 values = {k: v for k, v in values.items() if k in allowed_field_ids}
             
+            # 成员字段「添加记录用户」默认值：登录用户填写时自动填充为当前用户
+            if submitter_user_id:
+                all_fields = FieldService.get_all_fields(form_share.table_id)
+                for field in all_fields:
+                    if getattr(field, 'type', None) != FieldType.COLLABORATOR.value:
+                        continue
+                    fcfg = field.config or {}
+                    fopts = field.options or {}
+                    is_current_user = (
+                        fcfg.get('defaultValue') == 'current_user'
+                        or fcfg.get('default') == 'current_user'
+                        or fopts.get('memberDefaultType') == 'current_user'
+                        or fopts.get('defaultType') == 'current_user'
+                    )
+                    if not is_current_user:
+                        continue
+                    fid = str(field.id)
+                    cur = values.get(fid)
+                    # 未填写、空值或仍是标记字符串时，填充当前用户 ID
+                    if cur is None or cur == '' or cur == 'current_user' or (isinstance(cur, list) and len(cur) == 0):
+                        values[fid] = [submitter_user_id]
+            
             # 创建记录
             record = RecordService.create_record(
                 table_id=form_share.table_id,
                 values=values,
-                created_by=None  # 匿名提交
+                created_by=submitter_user_id  # 登录提交记录填表人，匿名提交为 None
             )
             
             # 创建提交记录
