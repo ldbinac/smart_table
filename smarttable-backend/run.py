@@ -248,13 +248,23 @@ def run_migrations():
             existing_tables = inspector.get_table_names()
             has_alembic_version = 'alembic_version' in existing_tables
 
+            if not has_alembic_version and not existing_tables:
+                # 全新数据库：不重放历史迁移链。
+                # 部分表（如 dashboard_shares）从未进入迁移脚本，仅由
+                # db.create_all() 创建，SQLite 方言下重放链会在对不存在的表
+                # 反射列时抛 NoSuchTableError。按当前模型建全表后标记到最新
+                # 版本，与迁移最终态等价且 schema 更完整、可重复执行。
+                print('[Migrate] 检测到全新数据库，按当前模型建表并标记最新版本...')
+                db.create_all()
+                stamp(directory=str(migrations_dir))
+                repair_schema_columns()
+                print('[Migrate] ✅ 数据库初始化完成')
+                return
+
             if not has_alembic_version:
-                if not existing_tables:
-                    print('[Migrate] 检测到全新数据库，执行全部迁移...')
-                else:
-                    print(f'[Migrate] 检测到旧数据库（无 alembic_version），先标记基线版本 {BASELINE_REVISION}...')
-                    stamp(directory=str(migrations_dir), revision=BASELINE_REVISION)
-                    print(f'[Migrate] ✅ 已标记当前版本为 {BASELINE_REVISION}')
+                print(f'[Migrate] 检测到旧数据库（无 alembic_version），先标记基线版本 {BASELINE_REVISION}...')
+                stamp(directory=str(migrations_dir), revision=BASELINE_REVISION)
+                print(f'[Migrate] ✅ 已标记当前版本为 {BASELINE_REVISION}')
 
             upgrade(directory=str(migrations_dir))
             # 自修复：补齐因历史迁移被跳过而缺失的模型列（如 dashboard_shares.title）
