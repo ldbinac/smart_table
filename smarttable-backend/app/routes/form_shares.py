@@ -4,6 +4,7 @@
 """
 import traceback
 from flask import Blueprint, request, g, current_app
+from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 
 from app.services.form_share_service import FormShareService
 from app.utils.decorators import jwt_required
@@ -437,13 +438,24 @@ def submit_form(token: str) -> tuple:
     """
     data = request.get_json() or {}
     
+    # 可选登录态：登录用户填写表单时请求会携带 JWT，
+    # 解析出提交者身份，用于记录 created_by 以及填充「添加记录用户」成员字段
+    submitter_user_id = None
+    try:
+        verify_jwt_in_request(optional=True)
+        identity = get_jwt_identity()
+        if identity:
+            submitter_user_id = str(identity)
+    except Exception:
+        submitter_user_id = None
+    
     # 获取客户端信息
     client_info = {
         'ip': get_client_ip(),
         'user_agent': request.headers.get('User-Agent')
     }
     
-    result = FormShareService.submit_form_data(token, data, client_info)
+    result = FormShareService.submit_form_data(token, data, client_info, submitter_user_id)
     
     if not result['success']:
         status = result.get('status', 400)
