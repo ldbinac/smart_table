@@ -41,7 +41,7 @@
             <template #content>
               <div class="tooltip-content">
                 <div class="tooltip-header">
-                  <span class="tooltip-name">{{ formula.name }}</span>
+                  <span class="tooltip-name">{{ formula.label || formula.name }}</span>
                   <ElTag size="small" type="info">{{ t(`formula.cat.${formula.category}`) }}</ElTag>
                 </div>
                 <div class="tooltip-desc">{{ formula.desc }}</div>
@@ -69,7 +69,7 @@
             </template>
             <div class="formula-info">
               <div class="formula-header">
-                <span class="formula-name">{{ formula.name }}</span>
+                <span class="formula-name">{{ formula.label || formula.name }}</span>
                 <ElTag size="small" type="info">{{ t(`formula.cat.${formula.category}`) }}</ElTag>
               </div>
               <div class="formula-desc">{{ formula.desc }}</div>
@@ -95,6 +95,7 @@ const { t } = useI18n();
 
 interface FormulaInfo {
   name: string;
+  label?: string;
   desc: string;
   syntax: string;
   category: string;
@@ -105,7 +106,13 @@ interface FormulaInfo {
 
 // 公式静态骨架（name/syntax/category/参数名），描述文本从 i18n 读取
 // 与后端 formula_service.py 对齐
-const FUNCS: Array<{ name: string; syntax: string; category: string; params: string[] }> = [
+const FUNCS: Array<{ name: string; label?: string; syntax: string; category: string; params: string[] }> = [
+  // ========== 运算符 ==========
+  { name: "ADD", label: "＋", syntax: "{字段A} + {字段B}", category: "operator", params: ["字段A", "字段B"] },
+  { name: "SUBTRACT", label: "－", syntax: "{字段A} - {字段B}", category: "operator", params: ["字段A", "字段B"] },
+  { name: "MULTIPLY", label: "×", syntax: "{字段A} * {字段B}", category: "operator", params: ["字段A", "字段B"] },
+  { name: "DIVIDE", label: "÷", syntax: "{字段A} / {字段B}", category: "operator", params: ["字段A", "字段B"] },
+  { name: "PARENTHESES", label: "( )", syntax: "({字段A} + {字段B}) * 2", category: "operator", params: ["表达式"] },
   // ========== 数学函数 ==========
   { name: "SUM", syntax: "SUM(value1, value2, ...)", category: "math", params: ["value1, value2, ..."] },
   { name: "AVG", syntax: "AVG(value1, value2, ...)", category: "math", params: ["value1, value2, ..."] },
@@ -186,6 +193,7 @@ const FUNCS: Array<{ name: string; syntax: string; category: string; params: str
 const formulas = computed<FormulaInfo[]>(() =>
   FUNCS.map((f) => ({
     name: f.name,
+    label: f.label,
     desc: t(`formula.f.${f.name}.desc`),
     syntax: f.syntax,
     category: f.category,

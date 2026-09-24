@@ -6,6 +6,7 @@
   "exampleLabel": "Example:",
   "noMatch": "No matching formulas",
   "cat": {
+    "operator": "Operators",
     "math": "Math",
     "text": "Text",
     "date": "Date",
@@ -13,6 +14,40 @@
     "stats": "Statistics"
   },
   "f": {
+    "ADD": {
+      "desc": "Addition: adds two numeric values",
+      "returns": "Number (sum result)",
+      "example": "{Unit Price} + {Shipping Fee}",
+      "p0": "Augend, a number or a reference to a numeric field",
+      "p1": "Addend, a number or a reference to a numeric field"
+    },
+    "SUBTRACT": {
+      "desc": "Subtraction: subtracts the second value from the first",
+      "returns": "Number (difference result)",
+      "example": "{Total Revenue} - {Total Cost}",
+      "p0": "Minuend, a number or a reference to a numeric field",
+      "p1": "Subtrahend, a number or a reference to a numeric field"
+    },
+    "MULTIPLY": {
+      "desc": "Multiplication: multiplies two numeric values",
+      "returns": "Number (product result)",
+      "example": "{Unit Price} * {Quantity}",
+      "p0": "Multiplier, a number or a reference to a numeric field",
+      "p1": "Multiplicand, a number or a reference to a numeric field"
+    },
+    "DIVIDE": {
+      "desc": "Division: divides the first value by the second; fails when the divisor is 0",
+      "returns": "Number (quotient result)",
+      "example": "{Total Amount} / {Quantity}",
+      "p0": "Dividend, a number or a reference to a numeric field",
+      "p1": "Divisor, must not be 0"
+    },
+    "PARENTHESES": {
+      "desc": "Parentheses: controls operation precedence; expressions inside are evaluated first",
+      "returns": "The evaluated result of the expression inside the parentheses",
+      "example": "({Field A} + {Field B}) * 2",
+      "p0": "Any expression, evaluated before the outer operations"
+    },
     "SUM": {
       "desc": "Calculates the sum of all numeric arguments",
       "returns": "Number (sum result)",
