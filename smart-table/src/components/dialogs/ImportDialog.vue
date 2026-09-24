@@ -22,11 +22,18 @@ import {
   validateRow,
   getFieldOptions,
   findOptionNameById,
+  splitMemberNames,
   type ParsedFileData,
   type FieldMapping,
 } from "@/utils/importExport";
-import { getFieldTypeLabel, type CellValue } from "@/types/fields";
+import { getFieldTypeLabel, type CellValue, FieldType } from "@/types/fields";
 import { exportTemplate } from "@/utils/templateGenerator";
+import { searchUsers } from "@/api/user";
+import {
+  batchMatchRecordLinks,
+  type BatchMatchLinkPair,
+} from "@/services/api/linkApiService";
+import { getFields } from "@/services/api/fieldApiService";
 import {
   BatchImportController,
   type BatchProgress,
@@ -68,6 +75,50 @@ const batchConfig = ref<BatchConfig>({ ...DEFAULT_BATCH_CONFIG });
 const showErrorDetails = ref(false);
 const failedBatchInputs = ref<Record<number, Record<string, unknown>[]>>({});
 
+// ==================== 关联字段自动匹配 ====================
+
+// 关联字段的匹配字段配置：sourceColumn -> 目标表匹配字段 ID
+const matchFieldIds = ref<Record<string, string>>({});
+
+// 目标表字段缓存：linkedTableId -> 字段列表
+interface TargetFieldOption {
+  id: string;
+  name: string;
+  type: string;
+  is_primary: boolean;
+}
+const targetFieldsCache = ref<Record<string, TargetFieldOption[]>>({});
+const isLoadingTargetFields = ref<Record<string, boolean>>({});
+
+// 建关联阶段进度
+const linkMatchPhase = ref(false);
+const linkMatchProgress = ref<{ current: number; total: number }>({ current: 0, total: 0 });
+
+// 关联匹配结果汇总（展示于结果步骤）
+interface LinkMatchSummary {
+  fieldLabel: string;
+  matchedCount: number;
+  unmatchedCount: number;
+  unmatchedValues: Array<{ value: string; count: number }>;
+  duplicateTargetCount: number;
+}
+const linkMatchSummaries = ref<LinkMatchSummary[]>([]);
+
+// ==================== 成员字段姓名解析 ====================
+
+// 姓名→用户ID映射（导入前解析构建，convertImportData 转换时使用）
+const memberNameToId = ref<Map<string, string>>(new Map());
+// 成员解析阶段进度（Step 3 展示）
+const memberMatchPhase = ref(false);
+// 成员解析结果汇总（展示于结果步骤）
+interface MemberMatchSummary {
+  fieldLabel: string;
+  matchedCount: number;
+  unmatchedCount: number;
+  unmatchedNames: Array<{ name: string; count: number }>;
+}
+const memberMatchSummaries = ref<MemberMatchSummary[]>([]);
+
 const availableFields = computed(() => {
   return props.fields.filter((f) => !f.isSystem);
 });
@@ -104,6 +155,20 @@ async function handleFileChange(file: File) {
       parsedData.value.columns,
       availableFields.value,
     );
+    // 自动匹配到关联字段的列：预加载目标表字段并默认选主字段
+    fieldMappings.value.forEach((mapping) => {
+      if (mapping.targetFieldId && mapping.targetFieldType === FieldType.LINK) {
+        const linkedTableId = getLinkedTableId(mapping);
+        if (linkedTableId) {
+          void ensureTargetFields(linkedTableId).then((fields) => {
+            if (!matchFieldIds.value[mapping.sourceColumn]) {
+              const primary = fields.find((f) => f.is_primary);
+              if (primary) matchFieldIds.value[mapping.sourceColumn] = primary.id;
+            }
+          });
+        }
+      }
+    });
     ElMessage.success(t('import.parsedSuccess', { count: parsedData.value.data.length }));
     if (parsedData.value.data.length > 0) {
       currentStep.value = 2;
@@ -125,10 +190,58 @@ function handleMappingChange(index: number, fieldId: string | null) {
     mapping.targetFieldId = fieldId;
     mapping.targetFieldName = field?.name ?? null;
     mapping.targetFieldType = (field?.type as any) ?? null;
+    // 关联字段：加载目标表字段并默认选主字段作为匹配字段
+    if (mapping.targetFieldType === FieldType.LINK) {
+      const linkedTableId = getLinkedTableId(mapping);
+      if (linkedTableId) {
+        void ensureTargetFields(linkedTableId).then((fields) => {
+          if (!matchFieldIds.value[mapping.sourceColumn]) {
+            const primary = fields.find((f) => f.is_primary);
+            if (primary) matchFieldIds.value[mapping.sourceColumn] = primary.id;
+          }
+        });
+      }
+    }
   } else {
     mapping.targetFieldId = null;
     mapping.targetFieldName = null;
     mapping.targetFieldType = null;
+    delete matchFieldIds.value[mapping.sourceColumn];
+  }
+}
+
+function isLinkMapping(mapping: FieldMapping): boolean {
+  return mapping.targetFieldType === FieldType.LINK;
+}
+
+function getLinkedTableId(mapping: FieldMapping): string {
+  if (!mapping.targetFieldId) return "";
+  const field = availableFields.value.find((f) => f.id === mapping.targetFieldId);
+  const config = field?.config as Record<string, unknown> | undefined;
+  return (config?.linkedTableId as string) || "";
+}
+
+async function ensureTargetFields(linkedTableId: string): Promise<TargetFieldOption[]> {
+  const cached = targetFieldsCache.value[linkedTableId];
+  if (cached) return cached;
+  isLoadingTargetFields.value[linkedTableId] = true;
+  try {
+    const fields = await getFields(linkedTableId);
+    const list: TargetFieldOption[] = fields
+      .filter((f) => !f.is_system)
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        type: f.type,
+        is_primary: !!f.is_primary,
+      }));
+    targetFieldsCache.value[linkedTableId] = list;
+    return list;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : t('import.loadTargetFieldsFailed'));
+    return [];
+  } finally {
+    isLoadingTargetFields.value[linkedTableId] = false;
   }
 }
 
@@ -217,27 +330,236 @@ const mappedFields = computed(() => {
 function prepareImportData(): Record<string, CellValue>[] {
   if (!parsedData.value) return [];
   return parsedData.value.data.map((row) => {
-    return convertImportData(row, fieldMappings.value, availableFields.value);
+    return convertImportData(row, fieldMappings.value, availableFields.value, memberNameToId.value);
   });
 }
 
 function validateAllRows(rows: Record<string, CellValue>[]): {
   validRows: Record<string, CellValue>[];
   invalidRows: Array<{ index: number; row: Record<string, CellValue>; errors: string[] }>;
+  validIndexes: number[];
 } {
   const validRows: Record<string, CellValue>[] = [];
   const invalidRows: Array<{ index: number; row: Record<string, CellValue>; errors: string[] }> = [];
+  const validIndexes: number[] = [];
 
   rows.forEach((row, index) => {
     const validation = validateRow(row, availableFields.value);
     if (validation.valid) {
       validRows.push(row);
+      validIndexes.push(index);
     } else {
       invalidRows.push({ index, row, errors: validation.errors });
     }
   });
 
-  return { validRows, invalidRows };
+  return { validRows, invalidRows, validIndexes };
+}
+
+function splitIntoChunks<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, Math.min(i + size, items.length)));
+  }
+  return chunks;
+}
+
+/**
+ * 成员字段姓名解析阶段：把 Excel 中成员列的姓名解析为用户 ID
+ *
+ * 收集所有成员映射列中的姓名（去重计数），通过用户搜索接口按姓名
+ * 精确匹配构建 name→userId 映射，供 convertImportData 转换时使用；
+ * 未匹配的姓名在结果步骤中报告，对应单元格留空。
+ *
+ * 注意：搜索不限定 Base 成员范围（与单元格内 MemberSelect 手动选择
+ * 行为一致——成员字段允许选择系统内所有 ACTIVE 用户），限定 base_id
+ * 时未加入该 Base 的用户会因 join base_members 过滤而匹配不到。
+ */
+async function ensureMemberNameMap() {
+  memberNameToId.value = new Map();
+  memberMatchSummaries.value = [];
+
+  const memberMappings = fieldMappings.value.filter(
+    (m) => m.targetFieldId && m.targetFieldType === FieldType.MEMBER,
+  );
+  if (memberMappings.length === 0 || !parsedData.value) return;
+
+  memberMatchPhase.value = true;
+
+  try {
+    // 收集各成员列的姓名出现次数：sourceColumn -> (name -> count)
+    const nameCounterByColumn = new Map<string, Map<string, number>>();
+    for (const mapping of memberMappings) {
+      const counter = new Map<string, number>();
+      for (const row of parsedData.value.data) {
+        for (const name of splitMemberNames(row[mapping.sourceColumn])) {
+          counter.set(name, (counter.get(name) || 0) + 1);
+        }
+      }
+      if (counter.size > 0) {
+        nameCounterByColumn.set(mapping.sourceColumn, counter);
+      }
+    }
+
+    if (nameCounterByColumn.size === 0) return;
+
+    // 全量去重姓名，分批并发查询用户搜索接口
+    const allNames = [...new Set([...nameCounterByColumn.values()].flatMap((c) => [...c.keys()]))];
+
+    const resolveName = async (name: string): Promise<string | null> => {
+      // searchUsers 为模糊匹配（name/email LIKE %query%），
+      // 翻页直至找到姓名完全相等的用户；上限 10 页防呆
+      let page = 1;
+      while (page <= 10) {
+        const res = await searchUsers({
+          query: name,
+          page,
+          per_page: 100,
+        });
+        const exact = res.users.find((u) => u.name === name);
+        if (exact) return exact.id;
+        if (page * 100 >= res.total) return null;
+        page += 1;
+      }
+      return null;
+    };
+
+    for (const chunk of splitIntoChunks(allNames, 5)) {
+      const results = await Promise.all(
+        chunk.map(async (name) => {
+          try {
+            return { name, userId: await resolveName(name) };
+          } catch (error) {
+            console.error("[ImportDialog] 解析成员姓名失败:", name, error);
+            return { name, userId: null };
+          }
+        }),
+      );
+      for (const { name, userId } of results) {
+        if (userId) {
+          memberNameToId.value.set(name, userId);
+        }
+      }
+    }
+
+    // 按列汇总匹配结果
+    for (const mapping of memberMappings) {
+      const counter = nameCounterByColumn.get(mapping.sourceColumn);
+      if (!counter) continue;
+
+      const fieldLabel =
+        availableFields.value.find((f) => f.id === mapping.targetFieldId)?.name ||
+        mapping.sourceColumn;
+
+      let matchedCount = 0;
+      let unmatchedCount = 0;
+      const unmatchedCounter = new Map<string, number>();
+      for (const [name, count] of counter) {
+        if (memberNameToId.value.has(name)) {
+          matchedCount += count;
+        } else {
+          unmatchedCount += count;
+          unmatchedCounter.set(name, count);
+        }
+      }
+
+      memberMatchSummaries.value.push({
+        fieldLabel,
+        matchedCount,
+        unmatchedCount,
+        unmatchedNames: [...unmatchedCounter.entries()]
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10),
+      });
+    }
+  } finally {
+    memberMatchPhase.value = false;
+  }
+}
+
+/**
+ * 建立关联阶段：对映射到关联字段的列，按原始值批量匹配目标表记录
+ *
+ * @param rowIndexes 参与匹配的行在 parsedData.data 中的原始索引（与 recordIdByRow 行序对齐）
+ * @param recordIdByRow 已创建记录 ID（与 rowIndexes 行序对齐，失败行为 null）
+ */
+async function executeLinkMatching(
+  rowIndexes: number[],
+  recordIdByRow: (string | null)[],
+) {
+  const linkMappings = fieldMappings.value.filter(
+    (m) => m.targetFieldId && isLinkMapping(m),
+  );
+  if (linkMappings.length === 0 || !parsedData.value) return;
+
+  linkMatchPhase.value = true;
+
+  for (const mapping of linkMappings) {
+    const matchFieldId = matchFieldIds.value[mapping.sourceColumn];
+    if (!matchFieldId || !mapping.targetFieldId) continue;
+
+    const fieldLabel =
+      availableFields.value.find((f) => f.id === mapping.targetFieldId)?.name ||
+      mapping.sourceColumn;
+
+    const summary: LinkMatchSummary = {
+      fieldLabel,
+      matchedCount: 0,
+      unmatchedCount: 0,
+      unmatchedValues: [],
+      duplicateTargetCount: 0,
+    };
+
+    // 组装 pairs：record_id 来自创建结果，value 取 Excel 原始单元格值
+    const pairs: BatchMatchLinkPair[] = [];
+    rowIndexes.forEach((rowIdx, k) => {
+      const recId = recordIdByRow[k];
+      if (!recId) return;
+      const raw = parsedData.value?.data[rowIdx]?.[mapping.sourceColumn];
+      if (raw === null || raw === undefined) return;
+      const value = typeof raw === "string" ? raw.trim() : raw;
+      if (value === "") return;
+      pairs.push({ record_id: recId, value: value as string | number });
+    });
+
+    if (pairs.length > 0) {
+      const chunks = splitIntoChunks(pairs, 1000);
+      linkMatchProgress.value = { current: 0, total: chunks.length };
+      const unmatchedCounter = new Map<string, number>();
+
+      for (let i = 0; i < chunks.length; i++) {
+        linkMatchProgress.value = { current: i, total: chunks.length };
+        try {
+          const r = await batchMatchRecordLinks(
+            mapping.targetFieldId!,
+            matchFieldId,
+            chunks[i],
+          );
+          summary.matchedCount += r.matched_count;
+          summary.unmatchedCount += r.unmatched_count;
+          summary.duplicateTargetCount += r.duplicate_target_count || 0;
+          (r.unmatched_values || []).forEach((uv) => {
+            unmatchedCounter.set(uv.value, (unmatchedCounter.get(uv.value) || 0) + uv.count);
+          });
+        } catch (error) {
+          // 单块失败不中断：计入未匹配，继续后续块
+          summary.unmatchedCount += chunks[i].length;
+          console.error("[ImportDialog] 批量匹配关联失败:", error);
+        }
+      }
+      linkMatchProgress.value = { current: chunks.length, total: chunks.length };
+
+      summary.unmatchedValues = [...unmatchedCounter.entries()]
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+    }
+
+    linkMatchSummaries.value.push(summary);
+  }
+
+  linkMatchPhase.value = false;
 }
 
 async function handleImport() {
@@ -249,23 +571,33 @@ async function handleImport() {
     return;
   }
 
+  isImporting.value = true;
+  importResult.value = null;
+  importProgress.value = null;
+  isPaused.value = false;
+  showErrorDetails.value = false;
+  linkMatchPhase.value = false;
+  linkMatchSummaries.value = [];
+
+  try {
+    // 成员字段姓名解析阶段：构建姓名→用户ID映射（Step 3 显示解析状态）
+    await ensureMemberNameMap();
+  } catch (error) {
+    console.error("[ImportDialog] 成员姓名解析异常:", error);
+  }
+
   const allRows = prepareImportData();
-  const { validRows, invalidRows } = validateAllRows(allRows);
+  const { validRows, invalidRows, validIndexes } = validateAllRows(allRows);
 
   if (validRows.length === 0) {
     ElMessage.error(t('import.allInvalid'));
+    isImporting.value = false;
     return;
   }
 
   if (invalidRows.length > 0) {
     ElMessage.warning(t('import.skippedRows', { count: invalidRows.length }));
   }
-
-  isImporting.value = true;
-  importResult.value = null;
-  importProgress.value = null;
-  isPaused.value = false;
-  showErrorDetails.value = false;
 
   const controller = new BatchImportController(batchConfig.value);
   importController.value = controller;
@@ -291,6 +623,11 @@ async function handleImport() {
       ElMessage.error(t('import.failed'));
     }
 
+    // 建立关联阶段：仅对已成功创建的行
+    if (result.status !== "cancelled" && result.status !== "error") {
+      await executeLinkMatching(validIndexes, result.recordIdByRow);
+    }
+
     currentStep.value = 4;
     if (result.successCount > 0) {
       emit("imported");
@@ -310,6 +647,7 @@ async function handleImport() {
       ],
       totalTime: 0,
       status: "error",
+      recordIdByRow: [],
     };
     currentStep.value = 4;
   } finally {
@@ -342,11 +680,13 @@ function handleRetryFailed() {
   if (!importResult.value || importResult.value.errors.length === 0) return;
 
   const failedRecords: Record<string, unknown>[] = [];
+  const failedIndexes: number[] = [];
   if (parsedData.value) {
     const allRows = prepareImportData();
     importResult.value.errors.forEach((err) => {
       for (let i = err.rowRange.start - 1; i < err.rowRange.end && i < allRows.length; i++) {
         failedRecords.push(allRows[i]);
+        failedIndexes.push(i);
       }
     });
   }
@@ -360,6 +700,8 @@ function handleRetryFailed() {
   importResult.value = null;
   importProgress.value = null;
   isPaused.value = false;
+  linkMatchPhase.value = false;
+  linkMatchSummaries.value = [];
 
   const controller = new BatchImportController(batchConfig.value);
   importController.value = controller;
@@ -369,13 +711,16 @@ function handleRetryFailed() {
   });
 
   controller
-    .execute(props.tableId, failedRecords)
-    .then((result) => {
+    .execute(props.tableId, failedRecords as Record<string, CellValue>[])
+    .then(async (result) => {
       importResult.value = result;
       if (result.status === "cancelled") {
         ElMessage.info(t('import.retryCancelled'));
       } else if (result.successCount > 0) {
         ElMessage.success(t('import.retrySuccess', { count: result.successCount }));
+        if (result.status !== "error") {
+          await executeLinkMatching(failedIndexes, result.recordIdByRow);
+        }
         emit("imported");
       }
       currentStep.value = 4;
@@ -407,6 +752,16 @@ function nextStep() {
       ElMessage.warning(t('import.atLeastOneMapping'));
       return;
     }
+    // 关联字段映射必须选择匹配字段
+    const linkWithoutMatch = fieldMappings.value.find(
+      (m) => m.targetFieldId && isLinkMapping(m) && !matchFieldIds.value[m.sourceColumn],
+    );
+    if (linkWithoutMatch) {
+      ElMessage.warning(
+        t('import.selectMatchFieldRequired', { column: linkWithoutMatch.sourceColumn }),
+      );
+      return;
+    }
   } else if (currentStep.value === 3) {
     handleImport();
     return;
@@ -435,6 +790,15 @@ function resetState() {
   isPaused.value = false;
   showErrorDetails.value = false;
   failedBatchInputs.value = {};
+  matchFieldIds.value = {};
+  targetFieldsCache.value = {};
+  isLoadingTargetFields.value = {};
+  linkMatchPhase.value = false;
+  linkMatchProgress.value = { current: 0, total: 0 };
+  linkMatchSummaries.value = [];
+  memberNameToId.value = new Map();
+  memberMatchPhase.value = false;
+  memberMatchSummaries.value = [];
 }
 
 function handleReimport() {
@@ -582,7 +946,7 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
         </p>
         <el-table :data="fieldMappings" border class="mapping-table">
           <el-table-column prop="sourceColumn" :label="t('import.sourceColumn')" width="200" />
-          <el-table-column :label="t('import.mappingField')" min-width="300">
+          <el-table-column :label="t('import.mappingField')" min-width="260">
             <template #default="{ row, $index }">
               <el-select
                 :model-value="row.targetFieldId"
@@ -596,6 +960,26 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
                   :label="`${field.name} (${getFieldTypeLabel(field.type)})`"
                   :value="field.id" />
               </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('import.matchField')" min-width="220">
+            <template #default="{ row, $index }">
+              <template v-if="row.targetFieldId && isLinkMapping(fieldMappings[$index])">
+                <el-select
+                  v-model="matchFieldIds[row.sourceColumn]"
+                  :placeholder="t('import.selectMatchField')"
+                  :loading="isLoadingTargetFields[getLinkedTableId(fieldMappings[$index])]"
+                  size="small"
+                  style="width: 100%">
+                  <el-option
+                    v-for="tf in targetFieldsCache[getLinkedTableId(fieldMappings[$index])] || []"
+                    :key="tf.id"
+                    :label="`${tf.name}${tf.is_primary ? ` (${t('import.primaryField')})` : ''}`"
+                    :value="tf.id" />
+                </el-select>
+                <div class="link-match-hint">{{ t('import.linkMatchHint') }}</div>
+              </template>
+              <span v-else class="unmatched-badge">-</span>
             </template>
           </el-table-column>
           <el-table-column :label="t('import.preview')" width="150">
@@ -651,20 +1035,26 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
       <!-- 导入进度展示 -->
       <div v-else class="importing-section">
         <div class="progress-header">
-          <h3>{{ t('import.importingData') }}</h3>
-          <span class="progress-status-badge" :class="isPaused ? 'paused' : 'running'">
-            {{ isPaused ? t('import.paused') : t('import.importing') }}
+          <h3>{{ memberMatchPhase ? t('import.memberMatchingTitle') : (linkMatchPhase ? t('import.linkMatchingTitle') : t('import.importingData')) }}</h3>
+          <span class="progress-status-badge" :class="isPaused && !memberMatchPhase && !linkMatchPhase ? 'paused' : 'running'">
+            {{ memberMatchPhase
+              ? t('import.memberMatchingPhase')
+              : (linkMatchPhase
+                ? t('import.linkMatchingPhase', { current: linkMatchProgress.current, total: linkMatchProgress.total })
+                : (isPaused ? t('import.paused') : t('import.importing'))) }}
           </span>
         </div>
 
         <!-- 进度条 -->
         <div class="progress-bar-area">
           <el-progress
-            :percentage="Math.round((importProgress?.completedBatches || 0) / (importProgress?.totalBatches || 1) * 100)"
+            :percentage="memberMatchPhase ? 100 : (linkMatchPhase
+              ? Math.round(linkMatchProgress.current / (linkMatchProgress.total || 1) * 100)
+              : Math.round((importProgress?.completedBatches || 0) / (importProgress?.totalBatches || 1) * 100))"
             :stroke-width="24"
             :text-inside="true"
             striped
-            :status="isPaused ? 'warning' : ''" />
+            :status="isPaused && !memberMatchPhase && !linkMatchPhase ? 'warning' : ''" />
         </div>
 
         <!-- 统计信息 -->
@@ -773,6 +1163,63 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
               </div>
             </div>
           </template>
+
+          <!-- 成员匹配结果 -->
+          <div v-if="memberMatchSummaries.length > 0" class="link-match-section">
+            <h4 class="link-match-title">{{ t('import.memberMatchResultTitle') }}</h4>
+            <div v-for="(s, i) in memberMatchSummaries" :key="i" class="link-match-item">
+              <div class="link-match-summary">
+                <span class="field-name">{{ s.fieldLabel }}</span>
+                <el-tag type="success" size="small">
+                  {{ t('import.memberMatched', { count: s.matchedCount }) }}
+                </el-tag>
+                <el-tag v-if="s.unmatchedCount > 0" type="danger" size="small">
+                  {{ t('import.memberUnmatched', { count: s.unmatchedCount }) }}
+                </el-tag>
+              </div>
+              <div v-if="s.unmatchedNames.length > 0" class="link-match-unmatched">
+                <span class="label">{{ t('import.memberUnmatchedNames') }}</span>
+                <el-tag
+                  v-for="un in s.unmatchedNames"
+                  :key="un.name"
+                  size="small"
+                  type="info"
+                  class="unmatched-value-tag">
+                  {{ un.name }} × {{ un.count }}
+                </el-tag>
+              </div>
+            </div>
+          </div>
+
+          <!-- 关联匹配结果 -->
+          <div v-if="linkMatchSummaries.length > 0" class="link-match-section">
+            <h4 class="link-match-title">{{ t('import.linkMatchResultTitle') }}</h4>
+            <div v-for="(s, i) in linkMatchSummaries" :key="i" class="link-match-item">
+              <div class="link-match-summary">
+                <span class="field-name">{{ s.fieldLabel }}</span>
+                <el-tag type="success" size="small">
+                  {{ t('import.linkMatched', { count: s.matchedCount }) }}
+                </el-tag>
+                <el-tag v-if="s.unmatchedCount > 0" type="danger" size="small">
+                  {{ t('import.linkUnmatched', { count: s.unmatchedCount }) }}
+                </el-tag>
+                <el-tag v-if="s.duplicateTargetCount > 0" type="warning" size="small">
+                  {{ t('import.linkDuplicateTarget', { count: s.duplicateTargetCount }) }}
+                </el-tag>
+              </div>
+              <div v-if="s.unmatchedValues.length > 0" class="link-match-unmatched">
+                <span class="label">{{ t('import.linkUnmatchedValues') }}</span>
+                <el-tag
+                  v-for="uv in s.unmatchedValues"
+                  :key="uv.value"
+                  size="small"
+                  type="info"
+                  class="unmatched-value-tag">
+                  {{ uv.value }} × {{ uv.count }}
+                </el-tag>
+              </div>
+            </div>
+          </div>
 
           <template #extra>
             <!-- 失败详情 -->
@@ -1180,6 +1627,69 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
     margin: 0 0 8px;
     color: $text-secondary;
     font-size: $font-size-sm;
+  }
+}
+
+.link-match-hint {
+  margin-top: 4px;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  line-height: 1.4;
+}
+
+.link-match-section {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: $bg-color;
+  border-radius: $border-radius-md;
+  text-align: left;
+
+  .link-match-title {
+    margin: 0 0 12px;
+    font-size: $font-size-base;
+    color: $text-primary;
+  }
+
+  .link-match-item {
+    padding: 8px 0;
+    border-bottom: 1px solid $border-color;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .link-match-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    .field-name {
+      font-size: $font-size-sm;
+      color: $text-primary;
+      font-weight: 500;
+    }
+  }
+
+  .link-match-unmatched {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+
+    .label {
+      font-size: $font-size-xs;
+      color: $text-secondary;
+      flex-shrink: 0;
+    }
+
+    .unmatched-value-tag {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 }
 </style>

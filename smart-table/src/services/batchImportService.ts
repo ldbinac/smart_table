@@ -52,6 +52,8 @@ export interface BatchResult {
   errors: BatchError[];
   totalTime: number;
   status: BatchStatus;
+  /** 与输入行序对齐的记录 ID（行创建失败/批次失败时为 null） */
+  recordIdByRow: (string | null)[];
 }
 
 interface BatchRecord {
@@ -204,6 +206,7 @@ export class BatchImportController {
     const errors: BatchError[] = [];
     let successCount = 0;
     let failedCount = 0;
+    const recordIdByRow: (string | null)[] = new Array(rawRecords.length).fill(null);
 
     this._progress = {
       ...this._createInitialProgress(),
@@ -256,6 +259,12 @@ export class BatchImportController {
           this._updateDelay(responseTime);
 
           successCount += result.created_count;
+          // 按 record_ids 与批内顺序对齐，回填到原始行索引
+          if (Array.isArray(result.record_ids) && result.record_ids.length === batch.length) {
+            batch.forEach((r, i) => {
+              recordIdByRow[r._originalIndex!] = result.record_ids[i] ?? null;
+            });
+          }
           batchSuccess = true;
           break;
         } catch (error: unknown) {
@@ -310,6 +319,7 @@ export class BatchImportController {
       errors,
       totalTime: Date.now() - this._progress.startTime,
       status: this._cancelled ? "cancelled" : errors.length > 0 && successCount === 0 ? "error" : "completed",
+      recordIdByRow,
     };
 
     this._progress.status = result.status;

@@ -381,6 +381,37 @@ export const deleteRecordLink = async (
 };
 
 /**
+ * 按值批量匹配并建立关联（Excel 导入自动关联）
+ *
+ * 后端根据关联字段的 config.linkedTableId 确定目标表，
+ * 在 matchFieldId 字段上按 pairs 中的值精确匹配目标记录并批量写入关联。
+ */
+export interface BatchMatchLinkPair {
+  record_id: string;
+  value: string | number | null;
+}
+
+export interface BatchMatchLinkResult {
+  matched_count: number;
+  unmatched_count: number;
+  unmatched_values: Array<{ value: string; count: number }>;
+  skipped_count: number;
+  duplicate_target_count: number;
+}
+
+export const batchMatchRecordLinks = async (
+  fieldId: string,
+  matchFieldId: string,
+  pairs: BatchMatchLinkPair[]
+): Promise<BatchMatchLinkResult> => {
+  return apiClient.post<BatchMatchLinkResult>("/records/links/batch-match", {
+    field_id: fieldId,
+    match_field_id: matchFieldId,
+    pairs,
+  });
+};
+
+/**
  * 搜索可关联的记录
  */
 export const searchLinkableRecords = async (
@@ -457,6 +488,7 @@ export const linkApiService = {
   getRecordLinksBatch,
   updateRecordLink,
   deleteRecordLink,
+  batchMatchRecordLinks,
   searchLinkableRecords,
   // 缓存操作
   invalidateCache: (key: string) => linkCache.invalidate(key),

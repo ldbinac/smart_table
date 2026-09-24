@@ -2906,6 +2906,34 @@ MESSAGES = {
         'zh-CN': '该字段已存在关联关系',
         'en-US': 'This field already has a link relation',
     },
+    'match_field_not_in_target_table': {
+        'zh-CN': '匹配字段不属于关联字段的目标表',
+        'en-US': 'The match field does not belong to the target table of the link field',
+    },
+    'failed_batch_match_link_values_try_again_later': {
+        'zh-CN': '批量匹配关联失败，请稍后重试',
+        'en-US': 'Failed to batch match link values, please try again later',
+    },
+    'provide_field_id': {
+        'zh-CN': '请提供字段 ID',
+        'en-US': 'Please provide the field ID',
+    },
+    'provide_match_field_id': {
+        'zh-CN': '请提供匹配字段 ID',
+        'en-US': 'Please provide the match field ID',
+    },
+    'pairs_must_be_array': {
+        'zh-CN': 'pairs 必须是数组',
+        'en-US': 'pairs must be an array',
+    },
+    'batch_match_more_than_pairs_limit': {
+        'zh-CN': '批量匹配每次最多处理 1000 条数据',
+        'en-US': 'Batch matching supports up to 1000 pairs per request',
+    },
+    'batch_match_link_completed': {
+        'zh-CN': '批量匹配关联完成',
+        'en-US': 'Batch link matching completed',
+    },
     'user_already_member': {
         'zh-CN': '该用户已经是成员',
         'en-US': 'This user is already a member',

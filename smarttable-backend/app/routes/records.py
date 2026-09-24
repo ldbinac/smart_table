@@ -1375,6 +1375,77 @@ def update_record_link(record_id, field_id) -> tuple:
         return error_response('failed_update_linked_value_try_again_later', 500, error='internal_server_error', request_id=request_id)
 
 
+@records_bp.route('/records/links/batch-match', methods=['POST'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor'])
+def batch_match_record_links() -> tuple:
+    """
+    按值批量匹配并建立关联（Excel 导入自动关联）
+    ---
+    tags:
+      - Records
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - field_id
+            - match_field_id
+            - pairs
+          properties:
+            field_id:
+              type: string
+              description: 关联字段 ID
+            match_field_id:
+              type: string
+              description: 目标表中用于匹配值的字段 ID
+            pairs:
+              type: array
+              description: 源记录与匹配值对列表（最多 1000 条）
+              items:
+                type: object
+                properties:
+                  record_id:
+                    type: string
+                    description: 源记录 ID
+                  value:
+                    description: 匹配值（Excel 单元格原始值）
+    responses:
+      200:
+        description: 匹配结果统计
+      400:
+        description: 参数错误
+    """
+    data = request.get_json() or {}
+    field_id = data.get('field_id')
+    match_field_id = data.get('match_field_id')
+    pairs = data.get('pairs', [])
+
+    if not field_id:
+        return error_response('provide_field_id', code=400)
+    if not match_field_id:
+        return error_response('provide_match_field_id', code=400)
+    if not isinstance(pairs, list):
+        return error_response('pairs_must_be_array', code=400)
+    if len(pairs) > 1000:
+        return error_response('batch_match_more_than_pairs_limit', code=400)
+
+    result, err = LinkService.batch_match_link_values(
+        field_id=field_id,
+        match_field_id=match_field_id,
+        pairs=pairs,
+        updated_by=g.current_user_id
+    )
+    if result is None:
+        return error_response(err, 400)
+
+    return success_response(data=result, message='batch_match_link_completed')
+
+
 @records_bp.route('/records/<record_id>/links/<field_id>', methods=['DELETE'])
 @jwt_required
 @role_required(['owner', 'admin', 'editor'])

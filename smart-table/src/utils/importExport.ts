@@ -266,15 +266,29 @@ export function findOptionNameById(options: FieldOption[], id: string): string |
 }
 
 /**
+ * 拆分成员字段单元格中的多个姓名
+ * 支持 逗号/中文逗号/分号/中文分号/顿号 分隔
+ */
+export function splitMemberNames(value: unknown): string[] {
+  if (value === null || value === undefined || value === '') return [];
+  return String(value)
+    .split(/[,，;；、]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
  * 转换值为目标字段类型
  * @param value 原始值
  * @param targetType 目标字段类型
  * @param field 字段定义（用于单选/多选字段的选项映射）
+ * @param memberNameToId 成员字段姓名→用户ID映射（导入前由姓名解析流程构建）
  */
 export function convertValue(
   value: any,
   targetType: FieldTypeValue,
-  field?: FieldEntity
+  field?: FieldEntity,
+  memberNameToId?: Map<string, string>
 ): CellValue {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -397,6 +411,24 @@ export function convertValue(
       return textToGeoValue(str, field?.options?.geoFormat as any);
     }
 
+    case FieldType.MEMBER: {
+      // 成员字段：Excel 中填写的是用户姓名，需解析为用户 ID。
+      // 存储格式与 MemberSelect 一致（统一为 ID 数组），纯文本姓名
+      // 会被前端当作无效用户 ID 查询不到而显示空白。
+      if (!memberNameToId || memberNameToId.size === 0) return null;
+
+      const names = splitMemberNames(value);
+
+      const ids: string[] = [];
+      for (const name of names) {
+        const userId = memberNameToId.get(name);
+        if (userId && !ids.includes(userId)) {
+          ids.push(userId);
+        }
+      }
+      return ids.length > 0 ? ids : null;
+    }
+
     default:
       return String(value);
   }
@@ -407,11 +439,13 @@ export function convertValue(
  * @param rowData 行数据
  * @param fieldMappings 字段映射
  * @param fields 字段定义列表（用于单选/多选字段的选项映射）
+ * @param memberNameToId 成员字段姓名→用户ID映射（导入前由姓名解析流程构建）
  */
 export function convertImportData(
   rowData: Record<string, any>,
   fieldMappings: FieldMapping[],
-  fields?: FieldEntity[]
+  fields?: FieldEntity[],
+  memberNameToId?: Map<string, string>
 ): Record<string, CellValue> {
   const result: Record<string, CellValue> = {};
 
@@ -420,11 +454,15 @@ export function convertImportData(
     if (mapping.targetFieldType && NON_IMPORTABLE_FIELD_TYPES.includes(mapping.targetFieldType)) {
       return;
     }
+    // 关联字段：值不直接写入，导入后由「按值批量匹配关联」流程处理
+    if (mapping.targetFieldType === FieldType.LINK) {
+      return;
+    }
     if (mapping.targetFieldId && mapping.targetFieldType) {
       const value = rowData[mapping.sourceColumn];
       // 查找字段定义以支持单选/多选选项映射
       const field = fields?.find((f) => f.id === mapping.targetFieldId);
-      const convertedValue = convertValue(value, mapping.targetFieldType, field);
+      const convertedValue = convertValue(value, mapping.targetFieldType, field, memberNameToId);
 
       // 日期/日期时间字段：若 Excel 单元格为空（转换后为 null），
       // 则不包含该字段，让后端自动应用字段配置的默认值。
@@ -434,6 +472,13 @@ export function convertImportData(
         (mapping.targetFieldType === FieldType.DATE || mapping.targetFieldType === FieldType.DATE_TIME)
       ) {
         // 跳过，让后端应用字段默认值
+        return;
+      }
+
+      // 成员字段：姓名未匹配到任何用户时转换结果为 null，不写入，
+      // 避免把姓名文本当作用户 ID 存入导致前端显示空白；未匹配情况
+      // 由导入对话框的成员解析流程汇总报告。
+      if (convertedValue === null && mapping.targetFieldType === FieldType.MEMBER) {
         return;
       }
 
@@ -454,6 +499,16 @@ export function validateRow(
   const errors: string[] = [];
 
   fields.forEach((field) => {
+    // 关联字段：值由导入后的批量匹配流程处理，跳过本地校验
+    if (field.type === FieldType.LINK) {
+      return;
+    }
+    // 成员字段：值由导入前的姓名解析流程转换，未匹配姓名会留空并在
+    // 结果中报告，不应因必填校验阻断整行导入
+    if (field.type === FieldType.MEMBER) {
+      return;
+    }
+
     const value = rowData[field.id];
 
     if (field.options?.required) {

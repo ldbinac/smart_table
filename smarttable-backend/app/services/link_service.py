@@ -615,6 +615,233 @@ class LinkService:
             'failed_update_linked_value_try_again_later'
 
     @staticmethod
+    def _get_or_create_link_relation_for_field(field: Field) -> Tuple[Optional[LinkRelation], Optional[str]]:
+        """
+        根据关联字段获取关联关系，缺失时按字段配置自动补建
+
+        Args:
+            field: link 类型字段对象
+
+        Returns:
+            (关联关系对象或 None, 错误信息)
+        """
+        field_config = field.config or {}
+        target_table_id = field_config.get('linkedTableId')
+        if not target_table_id:
+            return None, 'field_configuration_missing_linked_table_id'
+
+        link_relation = LinkService.get_link_relation_by_field(str(field.id), target_table_id)
+        if link_relation:
+            return link_relation, None
+
+        link_data = {
+            'source_table_id': str(field.table_id),
+            'target_table_id': str(target_table_id),
+            'source_field_id': str(field.id),
+            'target_field_id': None,
+            'relationship_type': field_config.get('relationshipType', RelationshipType.ONE_TO_MANY.value),
+            'bidirectional': field_config.get('bidirectional', False)
+        }
+        link_result = LinkService.create_link_relation(link_data)
+        if not link_result[0]:
+            return None, link_result[1] or 'failed_create_link_relation'
+        return link_result[0], None
+
+    @staticmethod
+    def batch_match_link_values(
+        field_id: str,
+        match_field_id: str,
+        pairs: List[Dict[str, Any]],
+        updated_by: Optional[str] = None
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """
+        按值批量匹配并建立关联（用于 Excel 导入自动关联场景）
+
+        根据关联字段的目标表，在 match_field_id 字段上按 pairs 中的值
+        精确匹配目标记录，批量创建 LinkValue 并同步双向冗余存储。
+
+        Args:
+            field_id: 关联字段 ID（link / link_to_record 类型）
+            match_field_id: 目标表中用于匹配值的字段 ID
+            pairs: [{record_id: 源记录 ID, value: 匹配值}]
+            updated_by: 操作者 ID（预留）
+
+        Returns:
+            (统计结果 dict 或 None, 错误信息)
+            统计: {matched_count, unmatched_count, unmatched_values,
+                   skipped_count, duplicate_target_count}
+        """
+        try:
+            # 1. 校验关联字段并获取/补建关联关系
+            field = db.session.get(Field, field_id)
+            if not field:
+                return None, 'field_does_not_exist'
+            if field.type not in [FieldType.LINK_TO_RECORD.value, FieldType.LINK.value]:
+                return None, 'field_not_link_field'
+
+            link_relation, rel_error = LinkService._get_or_create_link_relation_for_field(field)
+            if not link_relation:
+                return None, rel_error
+
+            # 2. 校验匹配字段属于目标表
+            match_field = db.session.get(Field, match_field_id)
+            if not match_field:
+                return None, 'field_does_not_exist'
+            if str(match_field.table_id) != str(link_relation.target_table_id):
+                return None, 'match_field_not_in_target_table'
+
+            empty_result = {
+                'matched_count': 0,
+                'unmatched_count': 0,
+                'unmatched_values': [],
+                'skipped_count': 0,
+                'duplicate_target_count': 0
+            }
+            if not pairs:
+                return empty_result, None
+
+            # 3. 校验源记录属于关联字段所在表（一次 IN 查询）
+            source_record_ids = list({str(p.get('record_id')) for p in pairs if p.get('record_id')})
+            source_records = Record.query.filter(
+                Record.id.in_(source_record_ids),
+                Record.table_id == field.table_id
+            ).all() if source_record_ids else []
+            valid_source_ids = {str(r.id) for r in source_records}
+
+            # 4. 构建目标表匹配映射（重复值取第一条并计数）
+            target_records = Record.query.filter_by(table_id=link_relation.target_table_id).all()
+            value_map: Dict[str, str] = {}
+            duplicate_target_count = 0
+            for tr in target_records:
+                raw = (tr.values or {}).get(str(match_field.id))
+                if raw is None or (isinstance(raw, (list, dict))):
+                    continue
+                key = str(raw).strip()
+                if not key:
+                    continue
+                if key in value_map:
+                    duplicate_target_count += 1
+                    continue
+                value_map[key] = str(tr.id)
+
+            # 5. 逐 pair 匹配
+            one_to_one = link_relation.relationship_type == RelationshipType.ONE_TO_ONE.value
+            matched: Dict[str, List[str]] = {}
+            unmatched_counter: Dict[str, int] = {}
+            skipped_count = 0
+
+            for p in pairs:
+                src = str(p.get('record_id') or '')
+                raw_value = p.get('value')
+                key = str(raw_value).strip() if raw_value is not None else ''
+                if not src or src not in valid_source_ids or not key:
+                    skipped_count += 1
+                    continue
+                target_id = value_map.get(key)
+                if not target_id:
+                    unmatched_counter[key] = unmatched_counter.get(key, 0) + 1
+                    continue
+                bucket = matched.setdefault(src, [])
+                if one_to_one and bucket:
+                    skipped_count += 1
+                    continue
+                if target_id not in bucket:
+                    bucket.append(target_id)
+
+            # 6. 过滤已存在的关联
+            all_new = [(src, tid) for src, tids in matched.items() for tid in tids]
+            existing: set = set()
+            if all_new:
+                src_ids = list({s for s, _ in all_new})
+                rows = db.session.execute(
+                    select(LinkValue.source_record_id, LinkValue.target_record_id).where(
+                        and_(
+                            LinkValue.link_relation_id == link_relation.id,
+                            LinkValue.source_record_id.in_(src_ids)
+                        )
+                    )
+                ).all()
+                existing = {(str(s), str(t)) for s, t in rows}
+            to_insert = [(s, t) for s, t in all_new if (s, t) not in existing]
+
+            # 7. 批量插入 LinkValue，并同步源/目标记录的 values 冗余存储
+            source_field_key = str(field.id)
+            inverse_field_key = (
+                str(link_relation.target_field_id)
+                if (link_relation.bidirectional and link_relation.target_field_id)
+                else None
+            )
+            target_ids_involved = {t for _, t in to_insert}
+            target_record_map: Dict[str, Record] = {}
+            if target_ids_involved:
+                trows = Record.query.filter(Record.id.in_(list(target_ids_involved))).all()
+                target_record_map = {str(t.id): t for t in trows}
+            source_record_map = {str(r.id): r for r in source_records}
+
+            for src, tid in to_insert:
+                db.session.add(LinkValue(
+                    link_relation_id=link_relation.id,
+                    source_record_id=src,
+                    target_record_id=tid
+                ))
+
+                s_rec = source_record_map.get(src)
+                if s_rec is not None:
+                    sv = dict(s_rec.values or {})
+                    cur = sv.get(source_field_key)
+                    if not isinstance(cur, list):
+                        cur = [cur] if cur else []
+                    if tid not in cur:
+                        cur.append(tid)
+                    sv[source_field_key] = cur
+                    s_rec.values = sv
+                    flag_modified(s_rec, 'values')
+
+                if inverse_field_key:
+                    t_rec = target_record_map.get(tid)
+                    if t_rec is not None:
+                        tv = dict(t_rec.values or {})
+                        cur = tv.get(inverse_field_key)
+                        if not isinstance(cur, list):
+                            cur = [cur] if cur else []
+                        if src not in cur:
+                            cur.append(src)
+                            tv[inverse_field_key] = cur
+                            t_rec.values = tv
+                            flag_modified(t_rec, 'values')
+
+            db.session.commit()
+
+            # 8. 清除涉及的记录关联缓存
+            touched = {s for s, _ in to_insert} | {t for _, t in to_insert}
+            for rid in touched:
+                _invalidate_record_links_cache(rid)
+
+            unmatched_values = sorted(
+                [{'value': v, 'count': c} for v, c in unmatched_counter.items()],
+                key=lambda x: x['count'], reverse=True
+            )[:50]
+
+            result = {
+                'matched_count': len(to_insert),
+                'unmatched_count': sum(unmatched_counter.values()),
+                'unmatched_values': unmatched_values,
+                'skipped_count': skipped_count,
+                'duplicate_target_count': duplicate_target_count
+            }
+            current_app.logger.info(
+                f'[LinkService] 批量匹配关联: field={field_id}, match_field={match_field_id}, '
+                f"matched={result['matched_count']}, unmatched={result['unmatched_count']}, "
+                f"skipped={result['skipped_count']}"
+            )
+            return result, None
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'[LinkService] 批量匹配关联失败: {str(e)}')
+            return None, 'failed_batch_match_link_values_try_again_later'
+
+    @staticmethod
     def _sync_bidirectional_links(
         link_relation: LinkRelation,
         source_record_id: str,
