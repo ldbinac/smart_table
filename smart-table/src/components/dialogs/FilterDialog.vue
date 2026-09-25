@@ -5,8 +5,14 @@ import { useI18n } from 'vue-i18n'
 import { FilterOperator, type FilterCondition } from '@/types/filters'
 import { FieldType } from '@/types/fields'
 import type { FieldEntity } from '@/db/schema'
+import { FormulaEngine } from '@/utils/formula/engine'
+import { linkApiService } from '@/services/api/linkApiService'
+import { useUserCacheStore } from '@/stores/userCacheStore'
+import MemberSelect from '@/components/common/MemberSelect.vue'
 
 const { t } = useI18n()
+
+const userCacheStore = useUserCacheStore()
 
 const props = defineProps<{
   visible: boolean
@@ -73,9 +79,56 @@ const checkboxOperators = [
   { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') }
 ]
 
+// 成员字段：包含/不属于等集合语义
+const memberOperators = [
+  { value: FilterOperator.IS_ANY_OF, label: t('filter.opIsAnyOf') },
+  { value: FilterOperator.IS_NONE_OF, label: t('filter.opIsNoneOf') },
+  { value: FilterOperator.CONTAINS, label: t('filter.opContains') },
+  { value: FilterOperator.NOT_CONTAINS, label: t('filter.opNotContains') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
+]
+
+// 关联字段：属于/不属于关联记录
+const linkOperators = [
+  { value: FilterOperator.IS_ANY_OF, label: t('filter.opIsAnyOf') },
+  { value: FilterOperator.IS_NONE_OF, label: t('filter.opIsNoneOf') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
+]
+
+// 查找字段：原值模式为数组，聚合模式为标量（数字），文本与数值比较均开放
+const lookupOperators = [
+  { value: FilterOperator.EQUALS, label: t('filter.opEquals') },
+  { value: FilterOperator.NOT_EQUALS, label: t('filter.opNotEquals') },
+  { value: FilterOperator.CONTAINS, label: t('filter.opContains') },
+  { value: FilterOperator.NOT_CONTAINS, label: t('filter.opNotContains') },
+  { value: FilterOperator.GREATER_THAN, label: t('filter.opGreaterThan') },
+  { value: FilterOperator.LESS_THAN, label: t('filter.opLessThan') },
+  { value: FilterOperator.GREATER_THAN_OR_EQUAL, label: t('filter.opGreaterThanOrEqual') },
+  { value: FilterOperator.LESS_THAN_OR_EQUAL, label: t('filter.opLessThanOrEqual') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
+]
+
+// 公式字段按公式结果类型分派操作符
+const formulaDateOperators = [
+  { value: FilterOperator.EQUALS, label: t('filter.opEquals') },
+  { value: FilterOperator.NOT_EQUALS, label: t('filter.opNotEquals') },
+  { value: FilterOperator.GREATER_THAN, label: t('filter.opAfter') },
+  { value: FilterOperator.LESS_THAN, label: t('filter.opBefore') },
+  { value: FilterOperator.IS_EMPTY, label: t('filter.opIsEmpty') },
+  { value: FilterOperator.IS_NOT_EMPTY, label: t('filter.opIsNotEmpty') }
+]
+
+function getFormulaResultType(field: FieldEntity): 'datetime' | 'date' | 'number' | 'text' {
+  const formula = String(field.options?.formula ?? field.config?.formula ?? '')
+  return FormulaEngine.inferResultType(formula)
+}
+
 function getOperatorsForField(field: FieldEntity | undefined) {
   if (!field) return textOperators
-  
+
   switch (field.type) {
     case FieldType.NUMBER:
     case FieldType.RATING:
@@ -87,8 +140,19 @@ function getOperatorsForField(field: FieldEntity | undefined) {
       return dateOperators
     case FieldType.SINGLE_SELECT:
     case FieldType.MULTI_SELECT:
-    case FieldType.MEMBER:
       return selectOperators
+    case FieldType.MEMBER:
+      return memberOperators
+    case FieldType.LINK:
+      return linkOperators
+    case FieldType.LOOKUP:
+      return lookupOperators
+    case FieldType.FORMULA: {
+      const resultType = getFormulaResultType(field)
+      if (resultType === 'number') return numberOperators
+      if (resultType === 'date' || resultType === 'datetime') return formulaDateOperators
+      return textOperators
+    }
     case FieldType.CHECKBOX:
       return checkboxOperators
     default:
@@ -96,9 +160,9 @@ function getOperatorsForField(field: FieldEntity | undefined) {
   }
 }
 
-function getValueInputType(field: FieldEntity | undefined): 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'none' {
+function getValueInputType(field: FieldEntity | undefined): 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'member' | 'link' | 'none' {
   if (!field) return 'text'
-  
+
   switch (field.type) {
     case FieldType.NUMBER:
     case FieldType.RATING:
@@ -111,6 +175,21 @@ function getValueInputType(field: FieldEntity | undefined): 'text' | 'number' | 
     case FieldType.SINGLE_SELECT:
     case FieldType.MULTI_SELECT:
       return 'select'
+    case FieldType.MEMBER:
+      return 'member'
+    case FieldType.LINK:
+      return 'link'
+    case FieldType.FORMULA: {
+      const resultType = getFormulaResultType(field)
+      if (resultType === 'number') return 'number'
+      if (resultType === 'date' || resultType === 'datetime') return 'date'
+      return 'text'
+    }
+    case FieldType.LOOKUP: {
+      // 聚合模式（求和/平均/最大/最小/计数）产出数字，其余按文本
+      const aggregation = String((field.config?.aggregationType as string) ?? 'original')
+      return aggregation !== 'original' ? 'number' : 'text'
+    }
     case FieldType.CHECKBOX:
       return 'checkbox'
     default:
@@ -125,10 +204,10 @@ function needsValue(operator: string): boolean {
 function addFilter() {
   const firstField = props.fields[0]
   if (!firstField) return
-  
+
   filters.value.push({
     fieldId: firstField.id,
-    operator: FilterOperator.EQUALS,
+    operator: getOperatorsForField(firstField)[0]?.value || FilterOperator.EQUALS,
     value: undefined
   } as FilterConditionExt)
 }
@@ -143,6 +222,126 @@ function getFieldById(fieldId: string) {
 
 function getSelectOptions(field: FieldEntity) {
   return (field.options?.choices || field.options?.options) as { id: string; name: string; color: string }[] || []
+}
+
+// ==================== 关联字段选项加载 ====================
+
+interface LinkRecordOption {
+  id: string
+  label: string
+}
+
+const linkFieldRecords = ref<Record<string, LinkRecordOption[]>>({})
+const linkRecordsLoading = ref<Record<string, boolean>>({})
+
+/** 从记录值中提取展示文本 */
+function pickDisplayText(value: unknown): string {
+  if (value === null || value === undefined || value === '') return ''
+  if (typeof value === 'object') {
+    const name = (value as { name?: string }).name
+    return name ? String(name) : ''
+  }
+  return String(value)
+}
+
+function getLinkRecordLabel(record: { id: string; values: Record<string, unknown> }, field: FieldEntity): string {
+  const displayFieldId = field.config?.displayFieldId as string | undefined
+  if (displayFieldId) {
+    const text = pickDisplayText(record.values?.[displayFieldId])
+    if (text) return text
+  }
+  const values = Object.values(record.values || {})
+  for (const value of values) {
+    const text = pickDisplayText(value)
+    if (text) return text
+  }
+  return record.id
+}
+
+async function loadLinkFieldRecords(field: FieldEntity | undefined) {
+  if (!field || field.type !== FieldType.LINK) return
+  const linkedTableId = String(field.config?.linkedTableId ?? '')
+  if (!linkedTableId || linkFieldRecords.value[field.id]) return
+
+  linkRecordsLoading.value[field.id] = true
+  try {
+    const result = await linkApiService.searchLinkableRecords(linkedTableId, {
+      page: 1,
+      per_page: 100
+    })
+    linkFieldRecords.value[field.id] = result.items.map((r) => ({
+      id: r.id,
+      label: getLinkRecordLabel(r, field)
+    }))
+  } catch (error) {
+    console.error('[FilterDialog] 加载关联记录失败:', error)
+    linkFieldRecords.value[field.id] = []
+  } finally {
+    linkRecordsLoading.value[field.id] = false
+  }
+}
+
+// ==================== 预览格式化 ====================
+
+const memberNameMap = ref<Record<string, string>>({})
+
+async function resolveMemberNames(ids: string[]) {
+  const missing = ids.filter((id) => !memberNameMap.value[id])
+  if (missing.length === 0) return
+  try {
+    const users = await userCacheStore.fetchUsers(missing)
+    const map: Record<string, string> = { ...memberNameMap.value }
+    for (const user of users) map[user.id] = user.name
+    memberNameMap.value = map
+  } catch (error) {
+    console.error('[FilterDialog] 解析成员姓名失败:', error)
+  }
+}
+
+function collectMemberIds(): string[] {
+  const ids = new Set<string>()
+  for (const filter of filters.value) {
+    const field = getFieldById(filter.fieldId)
+    if (field?.type === FieldType.MEMBER && Array.isArray(filter.value)) {
+      for (const id of filter.value) ids.add(String(id))
+    }
+  }
+  return [...ids]
+}
+
+function asIdArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String)
+  return value !== undefined && value !== null && value !== '' ? [String(value)] : []
+}
+
+/** 关联字段选项：已选值中不在选项列表的 ID 兜底显示，避免回显丢失 */
+function getLinkOptions(filter: FilterConditionExt): LinkRecordOption[] {
+  const loaded = linkFieldRecords.value[filter.fieldId] || []
+  if (!Array.isArray(filter.value) || filter.value.length === 0) return loaded
+  const knownIds = new Set(loaded.map((o) => o.id))
+  const extras = filter.value
+    .map((id) => String(id))
+    .filter((id) => !knownIds.has(id))
+    .map((id) => ({ id, label: id }))
+  return [...extras, ...loaded]
+}
+
+function formatFilterValue(filter: FilterConditionExt): string {
+  const field = getFieldById(filter.fieldId)
+  const value = filter.value
+  if (value === undefined || value === null || value === '') return ''
+  if (Array.isArray(value)) {
+    if (field?.type === FieldType.MEMBER) {
+      return value.map((id) => memberNameMap.value[String(id)] || String(id)).join(', ')
+    }
+    if (field?.type === FieldType.LINK) {
+      const options = linkFieldRecords.value[filter.fieldId] || []
+      const labelMap = Object.fromEntries(options.map((o) => [o.id, o.label]))
+      return value.map((id) => labelMap[String(id)] || String(id)).join(', ')
+    }
+    return value.map((v) => String(v)).join(', ')
+  }
+  return String(value)
 }
 
 function onFieldChange(index: number) {
@@ -175,13 +374,21 @@ function clearFilters() {
 watch(() => props.visible, (visible) => {
   if (visible) {
     // 确保 initialFilters 是数组
-    const initialFiltersArray = Array.isArray(props.initialFilters) 
-      ? props.initialFilters 
+    const initialFiltersArray = Array.isArray(props.initialFilters)
+      ? props.initialFilters
       : []
     filters.value = [...initialFiltersArray]
     conjunction.value = props.initialConjunction || 'and'
     if (filters.value.length === 0 && props.fields.length > 0) {
       addFilter()
+    }
+    // 回显：解析成员姓名、预加载关联字段选项，保证预览与下拉可显示
+    resolveMemberNames(collectMemberIds())
+    for (const filter of filters.value) {
+      const field = getFieldById(filter.fieldId)
+      if (field?.type === FieldType.LINK) {
+        loadLinkFieldRecords(field)
+      }
     }
   }
 })
@@ -243,9 +450,41 @@ watch(() => props.visible, (visible) => {
 
           <!-- 值输入 -->
           <template v-if="needsValue(filter.operator)">
+            <!-- 成员选择 -->
+            <MemberSelect
+              v-if="getValueInputType(getFieldById(filter.fieldId)) === 'member'"
+              :model-value="asIdArray(filter.value)"
+              allow-multiple
+              :placeholder="t('filter.selectMember')"
+              class="filter-member-select"
+              @update:model-value="filter.value = $event"
+            />
+
+            <!-- 关联记录选择 -->
+            <ElSelect
+              v-else-if="getValueInputType(getFieldById(filter.fieldId)) === 'link'"
+              :model-value="asIdArray(filter.value)"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              :loading="linkRecordsLoading[filter.fieldId]"
+              :placeholder="t('filter.selectLinkedRecord')"
+              style="width: 180px"
+              @update:model-value="filter.value = $event"
+              @visible-change="(v: boolean) => v && loadLinkFieldRecords(getFieldById(filter.fieldId))"
+            >
+              <ElOption
+                v-for="option in getLinkOptions(filter)"
+                :key="option.id"
+                :label="option.label"
+                :value="option.id"
+              />
+            </ElSelect>
+
             <!-- 文本输入 -->
             <ElInput
-              v-if="getValueInputType(getFieldById(filter.fieldId)) === 'text'"
+              v-else-if="getValueInputType(getFieldById(filter.fieldId)) === 'text'"
               v-model="filter.value"
               :placeholder="t('filter.inputValue')"
               style="width: 180px"
@@ -266,7 +505,7 @@ watch(() => props.visible, (visible) => {
               type="date"
               :placeholder="t('filter.selectDate')"
               style="width: 180px"
-              value-format="YYYY-MM-DD"
+              value-format="x"
             />
 
             <!-- 选项选择 -->
@@ -330,8 +569,8 @@ watch(() => props.visible, (visible) => {
           >
             {{ getFieldById(filter.fieldId)?.name }}
             {{ getOperatorsForField(getFieldById(filter.fieldId)).find(o => o.value === filter.operator)?.label }}
-            <template v-if="needsValue(filter.operator) && filter.value !== undefined">
-              {{ filter.value }}
+            <template v-if="needsValue(filter.operator) && formatFilterValue(filter)">
+              {{ formatFilterValue(filter) }}
             </template>
           </ElTag>
         </div>
@@ -377,6 +616,11 @@ watch(() => props.visible, (visible) => {
     display: flex;
     align-items: center;
     gap: 8px;
+
+    .filter-member-select {
+      width: 180px;
+      flex-shrink: 0;
+    }
   }
 
   .add-filter-btn {

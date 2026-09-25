@@ -10,6 +10,8 @@
   "inputNumber": "输入数值",
   "selectDate": "选择日期",
   "selectOption": "选择选项",
+  "selectMember": "选择成员",
+  "selectLinkedRecord": "选择关联记录",
   "selectDateRange": "选择日期范围",
   "dateRangeSeparator": "至",
   "startDate": "开始日期",

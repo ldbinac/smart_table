@@ -6,6 +6,7 @@ import type {
 import type { FieldEntity, RecordEntity } from "../db/schema";
 import { FilterOperator, FieldType } from "../types";
 import { t } from "@/i18n";
+import { FormulaEngine } from "./formula/engine";
 
 /** 操作符枚举值到国际化 key 的映射 */
 const OPERATOR_KEY_MAP: Record<FilterOperatorValue, string> = {
@@ -193,7 +194,50 @@ export const OPERATORS_BY_FIELD_TYPE: Record<string, FilterOperatorValue[]> = {
     FilterOperator.IS_EMPTY,
     FilterOperator.IS_NOT_EMPTY,
   ],
+  // 关联字段：值为关联记录 ID 数组，按"属于/不属于关联记录"筛选
+  [FieldType.LINK]: [
+    FilterOperator.IS_ANY_OF,
+    FilterOperator.IS_NONE_OF,
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
+  // 查找字段：值由后端注入（原值模式为数组，聚合模式为标量）
+  [FieldType.LOOKUP]: [
+    FilterOperator.EQUALS,
+    FilterOperator.NOT_EQUALS,
+    FilterOperator.CONTAINS,
+    FilterOperator.NOT_CONTAINS,
+    FilterOperator.GREATER_THAN,
+    FilterOperator.LESS_THAN,
+    FilterOperator.GREATER_THAN_OR_EQUAL,
+    FilterOperator.LESS_THAN_OR_EQUAL,
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
+  // 公式字段：按公式结果类型在 getOperatorsForField 中动态分派
+  [FieldType.FORMULA]: [
+    FilterOperator.EQUALS,
+    FilterOperator.NOT_EQUALS,
+    FilterOperator.CONTAINS,
+    FilterOperator.NOT_CONTAINS,
+    FilterOperator.GREATER_THAN,
+    FilterOperator.LESS_THAN,
+    FilterOperator.GREATER_THAN_OR_EQUAL,
+    FilterOperator.LESS_THAN_OR_EQUAL,
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
 };
+
+/** 公式字段按结果类型分派操作符（date/datetime 用时间戳数值比较） */
+const FORMULA_DATE_OPERATORS: FilterOperatorValue[] = [
+  FilterOperator.EQUALS,
+  FilterOperator.NOT_EQUALS,
+  FilterOperator.GREATER_THAN,
+  FilterOperator.LESS_THAN,
+  FilterOperator.IS_EMPTY,
+  FilterOperator.IS_NOT_EMPTY,
+];
 
 export function getOperatorsForFieldType(
   fieldType: string,
@@ -202,6 +246,28 @@ export function getOperatorsForFieldType(
     OPERATORS_BY_FIELD_TYPE[fieldType] ||
     OPERATORS_BY_FIELD_TYPE[FieldType.SINGLE_LINE_TEXT]
   );
+}
+
+/**
+ * 按字段实体获取可用操作符：
+ * 公式字段根据公式结果类型（number/date/datetime/text）返回对应操作符组
+ */
+export function getOperatorsForField(
+  field: FieldEntity,
+): FilterOperatorValue[] {
+  if (field.type === FieldType.FORMULA) {
+    const formula = (field.options?.formula ??
+      field.config?.formula) as string | undefined;
+    const resultType = FormulaEngine.inferResultType(formula || "");
+    if (resultType === "number") {
+      return OPERATORS_BY_FIELD_TYPE[FieldType.NUMBER];
+    }
+    if (resultType === "date" || resultType === "datetime") {
+      return FORMULA_DATE_OPERATORS;
+    }
+    return OPERATORS_BY_FIELD_TYPE[FieldType.SINGLE_LINE_TEXT];
+  }
+  return getOperatorsForFieldType(field.type);
 }
 
 export function operatorRequiresValue(operator: FilterOperatorValue): boolean {
@@ -235,7 +301,10 @@ function getNumericValue(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "number") return value;
   if (typeof value === "string") {
-    const num = parseFloat(value);
+    // 查找/公式字段的数字值可能经格式化（货币符号、千分位逗号），剥离后再解析
+    const cleaned = value.replace(/[¥$€£,]/g, "").trim();
+    if (cleaned === "") return null;
+    const num = parseFloat(cleaned);
     return isNaN(num) ? null : num;
   }
   return null;
@@ -276,6 +345,114 @@ function getArrayValue(value: unknown): string[] {
   return [String(value)];
 }
 
+/** 数值类字段的静态类型集合 */
+const NUMERIC_FIELD_TYPES: string[] = [
+  FieldType.NUMBER,
+  FieldType.RATING,
+  FieldType.PROGRESS,
+  FieldType.AUTO_NUMBER,
+];
+
+/** 日期类字段的静态类型集合 */
+const DATE_FIELD_TYPES: string[] = [
+  FieldType.DATE,
+  FieldType.DATE_TIME,
+  FieldType.CREATED_TIME,
+  FieldType.UPDATED_TIME,
+];
+
+/** 获取筛选条件的单元格取值：公式字段优先取后端 computed_values，否则前端实时计算 */
+function getConditionCellValue(
+  record: RecordEntity,
+  field: FieldEntity,
+  fields: FieldEntity[],
+): unknown {
+  if (field.type === FieldType.FORMULA) {
+    const computedValues = (
+      record as RecordEntity & { computed_values?: Record<string, unknown> }
+    ).computed_values;
+    if (computedValues && typeof computedValues === "object") {
+      const precomputed = computedValues[field.name];
+      if (precomputed !== null && precomputed !== undefined) {
+        return precomputed;
+      }
+    }
+    const formula = (field.options?.formula ??
+      field.config?.formula) as string | undefined;
+    if (!formula) return null;
+    try {
+      const engine = new FormulaEngine(fields);
+      const result = engine.calculate(record, formula);
+      // FormulaError（对象）视为无值
+      if (result !== null && typeof result === "object") return null;
+      return result;
+    } catch {
+      return null;
+    }
+  }
+  return record.values[field.id];
+}
+
+/** 值是否为日期格式字符串（如 "2026-01-01..."），此类字符串不可按数值解析 */
+function isDateString(value: unknown): boolean {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value);
+}
+
+/**
+ * 数组值与筛选值的比较（查找字段原值模式返回数组）：
+ * 任一元素满足比较条件即命中；数字元素优先，无数字元素时尝试日期字符串元素
+ */
+function arrayValueMatches(
+  cellValue: unknown[],
+  filterValue: unknown,
+  cmp: (a: number, b: number) => boolean,
+): boolean {
+  // 日期格式的筛选值/元素不可按数值解析（"2026-01-01" 会被 parseFloat 解析为 2026）
+  const numFilter = isDateString(filterValue)
+    ? null
+    : getNumericValue(filterValue);
+  if (numFilter !== null) {
+    const nums = cellValue
+      .filter((v) => !isDateString(v))
+      .map((v) => getNumericValue(v))
+      .filter((n): n is number => n !== null);
+    if (nums.length > 0) {
+      return nums.some((n) => cmp(n, numFilter));
+    }
+  }
+  const dateFilter = getDateValue(filterValue);
+  if (dateFilter !== null) {
+    const dates = cellValue
+      .filter((v) => isDateString(v))
+      .map((v) => getDateValue(v))
+      .filter((n): n is number => n !== null);
+    if (dates.length > 0) {
+      return dates.some((n) => cmp(n, dateFilter));
+    }
+  }
+  return false;
+}
+
+/** 是否按数值比较：数值类字段恒定；查找/公式字段在值为数字或可解析的数字字符串时（含日期时间戳）按数值比较 */
+function isNumericCompare(field: FieldEntity, cellValue: unknown): boolean {
+  if (NUMERIC_FIELD_TYPES.includes(field.type)) return true;
+  if (field.type === FieldType.LOOKUP || field.type === FieldType.FORMULA) {
+    if (typeof cellValue === "number") return true;
+    // 后端查找字段聚合值经格式化后为字符串（如 "30"、"¥1,234.50"），可解析为数字时也按数值比较
+    return !isDateString(cellValue) && getNumericValue(cellValue) !== null;
+  }
+  return false;
+}
+
+/** 是否按日期比较：日期类字段恒定；查找/公式字段在值为日期字符串时按日期比较 */
+function isDateCompare(field: FieldEntity, cellValue: unknown): boolean {
+  if (DATE_FIELD_TYPES.includes(field.type)) return true;
+  if (field.type === FieldType.LOOKUP || field.type === FieldType.FORMULA) {
+    return isDateString(cellValue);
+  }
+  return false;
+}
+
 export function evaluateCondition(
   record: RecordEntity,
   condition: FilterCondition,
@@ -284,7 +461,7 @@ export function evaluateCondition(
   const field = fields.find((f) => f.id === condition.fieldId);
   if (!field) return true;
 
-  const cellValue = record.values[condition.fieldId];
+  const cellValue = getConditionCellValue(record, field, fields);
   const operator = condition.operator;
   const filterValue = condition.value;
 
@@ -306,21 +483,18 @@ export function evaluateCondition(
       );
 
     case FilterOperator.EQUALS: {
-      if (
-        field.type === FieldType.NUMBER ||
-        field.type === FieldType.RATING ||
-        field.type === FieldType.PROGRESS
-      ) {
+      // 数组值（成员/关联/多选/查找原值模式）：包含任一筛选值即视为相等
+      if (Array.isArray(cellValue)) {
+        const arrVal = getArrayValue(cellValue);
+        const filterArr = getArrayValue(filterValue);
+        return filterArr.some((fv) => arrVal.includes(fv));
+      }
+      if (isNumericCompare(field, cellValue)) {
         const numVal = getNumericValue(cellValue);
         const numFilter = getNumericValue(filterValue);
         return numVal !== null && numFilter !== null && numVal === numFilter;
       }
-      if (
-        field.type === FieldType.DATE ||
-        field.type === FieldType.DATE_TIME ||
-        field.type === FieldType.CREATED_TIME ||
-        field.type === FieldType.UPDATED_TIME
-      ) {
+      if (isDateCompare(field, cellValue)) {
         const dateVal = getDateValue(cellValue);
         const dateFilter = getDateValue(filterValue);
         return (
@@ -348,21 +522,18 @@ export function evaluateCondition(
     }
 
     case FilterOperator.NOT_EQUALS: {
-      if (
-        field.type === FieldType.NUMBER ||
-        field.type === FieldType.RATING ||
-        field.type === FieldType.PROGRESS
-      ) {
+      // 数组值：不包含任一筛选值即视为不等
+      if (Array.isArray(cellValue)) {
+        const arrVal = getArrayValue(cellValue);
+        const filterArr = getArrayValue(filterValue);
+        return !filterArr.some((fv) => arrVal.includes(fv));
+      }
+      if (isNumericCompare(field, cellValue)) {
         const numVal = getNumericValue(cellValue);
         const numFilter = getNumericValue(filterValue);
         return numVal === null || numFilter === null || numVal !== numFilter;
       }
-      if (
-        field.type === FieldType.DATE ||
-        field.type === FieldType.DATE_TIME ||
-        field.type === FieldType.CREATED_TIME ||
-        field.type === FieldType.UPDATED_TIME
-      ) {
+      if (isDateCompare(field, cellValue)) {
         const dateVal = getDateValue(cellValue);
         const dateFilter = getDateValue(filterValue);
         return (
@@ -390,30 +561,26 @@ export function evaluateCondition(
     }
 
     case FilterOperator.CONTAINS: {
-      const strVal = getStringValue(cellValue).toLowerCase();
-      const filterStr = getStringValue(filterValue).toLowerCase();
-      if (
-        field.type === FieldType.MULTI_SELECT ||
-        field.type === FieldType.MEMBER
-      ) {
+      // 数组值（多选/成员/关联/查找原值模式）：交集判断
+      if (Array.isArray(cellValue)) {
         const arrVal = getArrayValue(cellValue);
         const filterArr = getArrayValue(filterValue);
         return filterArr.some((fv) => arrVal.includes(fv));
       }
+      const strVal = getStringValue(cellValue).toLowerCase();
+      const filterStr = getStringValue(filterValue).toLowerCase();
       return strVal.includes(filterStr);
     }
 
     case FilterOperator.NOT_CONTAINS: {
-      const strVal = getStringValue(cellValue).toLowerCase();
-      const filterStr = getStringValue(filterValue).toLowerCase();
-      if (
-        field.type === FieldType.MULTI_SELECT ||
-        field.type === FieldType.MEMBER
-      ) {
+      // 数组值（多选/成员/关联/查找原值模式）：无交集判断
+      if (Array.isArray(cellValue)) {
         const arrVal = getArrayValue(cellValue);
         const filterArr = getArrayValue(filterValue);
         return !filterArr.some((fv) => arrVal.includes(fv));
       }
+      const strVal = getStringValue(cellValue).toLowerCase();
+      const filterStr = getStringValue(filterValue).toLowerCase();
       return !strVal.includes(filterStr);
     }
 
@@ -430,22 +597,16 @@ export function evaluateCondition(
     }
 
     case FilterOperator.GREATER_THAN: {
-      if (
-        field.type === FieldType.NUMBER ||
-        field.type === FieldType.RATING ||
-        field.type === FieldType.PROGRESS ||
-        field.type === FieldType.AUTO_NUMBER
-      ) {
+      // 数组值（查找字段原值模式）：任一元素满足即命中
+      if (Array.isArray(cellValue)) {
+        return arrayValueMatches(cellValue, filterValue, (a, b) => a > b);
+      }
+      if (isNumericCompare(field, cellValue)) {
         const numVal = getNumericValue(cellValue);
         const numFilter = getNumericValue(filterValue);
         return numVal !== null && numFilter !== null && numVal > numFilter;
       }
-      if (
-        field.type === FieldType.DATE ||
-        field.type === FieldType.DATE_TIME ||
-        field.type === FieldType.CREATED_TIME ||
-        field.type === FieldType.UPDATED_TIME
-      ) {
+      if (isDateCompare(field, cellValue)) {
         const dateVal = getDateValue(cellValue);
         const dateFilter = getDateValue(filterValue);
         return dateVal !== null && dateFilter !== null && dateVal > dateFilter;
@@ -454,22 +615,16 @@ export function evaluateCondition(
     }
 
     case FilterOperator.LESS_THAN: {
-      if (
-        field.type === FieldType.NUMBER ||
-        field.type === FieldType.RATING ||
-        field.type === FieldType.PROGRESS ||
-        field.type === FieldType.AUTO_NUMBER
-      ) {
+      // 数组值（查找字段原值模式）：任一元素满足即命中
+      if (Array.isArray(cellValue)) {
+        return arrayValueMatches(cellValue, filterValue, (a, b) => a < b);
+      }
+      if (isNumericCompare(field, cellValue)) {
         const numVal = getNumericValue(cellValue);
         const numFilter = getNumericValue(filterValue);
         return numVal !== null && numFilter !== null && numVal < numFilter;
       }
-      if (
-        field.type === FieldType.DATE ||
-        field.type === FieldType.DATE_TIME ||
-        field.type === FieldType.CREATED_TIME ||
-        field.type === FieldType.UPDATED_TIME
-      ) {
+      if (isDateCompare(field, cellValue)) {
         const dateVal = getDateValue(cellValue);
         const dateFilter = getDateValue(filterValue);
         return dateVal !== null && dateFilter !== null && dateVal < dateFilter;
@@ -478,22 +633,16 @@ export function evaluateCondition(
     }
 
     case FilterOperator.GREATER_THAN_OR_EQUAL: {
-      if (
-        field.type === FieldType.NUMBER ||
-        field.type === FieldType.RATING ||
-        field.type === FieldType.PROGRESS ||
-        field.type === FieldType.AUTO_NUMBER
-      ) {
+      // 数组值（查找字段原值模式）：任一元素满足即命中
+      if (Array.isArray(cellValue)) {
+        return arrayValueMatches(cellValue, filterValue, (a, b) => a >= b);
+      }
+      if (isNumericCompare(field, cellValue)) {
         const numVal = getNumericValue(cellValue);
         const numFilter = getNumericValue(filterValue);
         return numVal !== null && numFilter !== null && numVal >= numFilter;
       }
-      if (
-        field.type === FieldType.DATE ||
-        field.type === FieldType.DATE_TIME ||
-        field.type === FieldType.CREATED_TIME ||
-        field.type === FieldType.UPDATED_TIME
-      ) {
+      if (isDateCompare(field, cellValue)) {
         const dateVal = getDateValue(cellValue);
         const dateFilter = getDateValue(filterValue);
         return dateVal !== null && dateFilter !== null && dateVal >= dateFilter;
@@ -502,22 +651,16 @@ export function evaluateCondition(
     }
 
     case FilterOperator.LESS_THAN_OR_EQUAL: {
-      if (
-        field.type === FieldType.NUMBER ||
-        field.type === FieldType.RATING ||
-        field.type === FieldType.PROGRESS ||
-        field.type === FieldType.AUTO_NUMBER
-      ) {
+      // 数组值（查找字段原值模式）：任一元素满足即命中
+      if (Array.isArray(cellValue)) {
+        return arrayValueMatches(cellValue, filterValue, (a, b) => a <= b);
+      }
+      if (isNumericCompare(field, cellValue)) {
         const numVal = getNumericValue(cellValue);
         const numFilter = getNumericValue(filterValue);
         return numVal !== null && numFilter !== null && numVal <= numFilter;
       }
-      if (
-        field.type === FieldType.DATE ||
-        field.type === FieldType.DATE_TIME ||
-        field.type === FieldType.CREATED_TIME ||
-        field.type === FieldType.UPDATED_TIME
-      ) {
+      if (isDateCompare(field, cellValue)) {
         const dateVal = getDateValue(cellValue);
         const dateFilter = getDateValue(filterValue);
         return dateVal !== null && dateFilter !== null && dateVal <= dateFilter;

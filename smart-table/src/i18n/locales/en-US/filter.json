@@ -10,6 +10,8 @@
   "inputNumber": "Enter number",
   "selectDate": "Select date",
   "selectOption": "Select option",
+  "selectMember": "Select members",
+  "selectLinkedRecord": "Select linked records",
   "selectDateRange": "Select date range",
   "dateRangeSeparator": "to",
   "startDate": "Start date",
