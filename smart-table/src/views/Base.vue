@@ -785,16 +785,29 @@ const handleAddRecordFromGroup = (groupInfo: {
   // 构建初始值，包含所有层级分组字段的值
   const initialValues: Record<string, unknown> = {};
 
+  // 关联（LINK）字段的值为数组（分组传入的可能是数组或单个 ID），其余字段为单值
+  const applyGroupInitialValue = (fieldId: string, valueId: string | string[]) => {
+    const field = tableStore.fields.find((f) => f.id === fieldId);
+    // 查找字段为计算字段，不参与新记录预填
+    if (field?.type === FieldType.LOOKUP) return;
+    initialValues[fieldId] =
+      field?.type === FieldType.LINK
+        ? Array.isArray(valueId)
+          ? valueId
+          : [valueId]
+        : valueId;
+  };
+
   // 优先使用 groupLevels（多层分组信息）
   if (groupInfo.groupLevels && groupInfo.groupLevels.length > 0) {
     for (const level of groupInfo.groupLevels) {
       if (level.fieldId && level.valueId) {
-        initialValues[level.fieldId] = level.valueId;
+        applyGroupInitialValue(level.fieldId, level.valueId);
       }
     }
   } else if (groupInfo.groupFieldId && groupInfo.groupId) {
     // 兼容旧版单层分组
-    initialValues[groupInfo.groupFieldId] = groupInfo.groupId;
+    applyGroupInitialValue(groupInfo.groupFieldId, groupInfo.groupId);
   }
 
   // 保存初始值和分组信息

@@ -56,11 +56,21 @@ function groupByField(
   const groups: Map<string, RecordEntity[]> = new Map();
 
   for (const record of records) {
-    const groupKey = getGroupKey(record.values[fieldId], field);
-    if (!groups.has(groupKey)) {
-      groups.set(groupKey, []);
+    const groupKeys = getGroupKeys(record.values[fieldId], field);
+    if (groupKeys.length === 0) {
+      if (!groups.has("__empty__")) {
+        groups.set("__empty__", []);
+      }
+      groups.get("__empty__")!.push(record);
+    } else {
+      // 多值字段（如关联字段）：关联了几个值就归入几个分组
+      for (const groupKey of groupKeys) {
+        if (!groups.has(groupKey)) {
+          groups.set(groupKey, []);
+        }
+        groups.get(groupKey)!.push(record);
+      }
     }
-    groups.get(groupKey)!.push(record);
   }
 
   const sortedGroups = sortGroups(groups, field);
@@ -153,6 +163,23 @@ function getGroupKey(value: unknown, field: FieldEntity): string {
     case FieldType.CHECKBOX:
       return value ? "__checked__" : "__unchecked__";
 
+    case FieldType.LINK: {
+      // 兼容历史数据：值可能是数组、JSON 字符串（'["id"]'）或裸 ID 字符串
+      const keys = getLinkGroupKeys(value);
+      return keys.length > 0 ? keys[0] : "__empty__";
+    }
+
+    case FieldType.LOOKUP: {
+      // 查找字段：原值模式为数组（取首值），聚合模式为单值
+      const keys = parseArrayLikeValue(value)
+        .map((v) =>
+          typeof v === "object" && v !== null ? JSON.stringify(v) : String(v),
+        )
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return keys.length > 0 ? keys[0] : "__empty__";
+    }
+
     case FieldType.MEMBER: {
       if (Array.isArray(value) && value.length > 0) {
         return value
@@ -170,6 +197,66 @@ function getGroupKey(value: unknown, field: FieldEntity): string {
     default:
       return String(value);
   }
+}
+
+/**
+ * 计算记录在分组字段下的所有分组键。
+ * 多值字段（关联字段、原值模式的查找字段）可同时属于多个分组；返回空数组表示归入"空值"组。
+ */
+export function getGroupKeys(value: unknown, field: FieldEntity): string[] {
+  if (field.type === FieldType.LINK) {
+    return getLinkGroupKeys(value);
+  }
+  if (field.type === FieldType.LOOKUP) {
+    // 查找字段：原值模式为数组（多值归多组），聚合模式为单值
+    const keys = parseArrayLikeValue(value)
+      .map((v) =>
+        typeof v === "object" && v !== null ? JSON.stringify(v) : String(v),
+      )
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return [...new Set(keys)];
+  }
+  const key = getGroupKey(value, field);
+  return key === "__empty__" ? [] : [key];
+}
+
+/** 将值规范化为数组：兼容数组、JSON 字符串（'["id"]'）、裸单值 */
+function parseArrayLikeValue(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (s.startsWith("[") && s.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch {
+        // 非法 JSON，按单值字符串处理
+      }
+    }
+    return s ? [s] : [];
+  }
+  if (value === null || value === undefined || value === "") {
+    return [];
+  }
+  return [value];
+}
+
+/** 关联字段的分组键列表：每条关联记录一个键（去重、过滤空值） */
+function getLinkGroupKeys(value: unknown): string[] {
+  const ids = parseArrayLikeValue(value)
+    .map((v) =>
+      typeof v === "object" && v !== null
+        ? (v as { id?: string }).id || ""
+        : String(v),
+    )
+    .map((id) => id.trim())
+    .filter(Boolean);
+  return [...new Set(ids)];
 }
 
 function getGroupDisplayValue(key: string, field: FieldEntity): string {

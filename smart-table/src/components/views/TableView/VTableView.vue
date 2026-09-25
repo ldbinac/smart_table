@@ -3652,15 +3652,162 @@ const treeDisplayRecords = computed(() => {
   return transformTreeRecords(hasVisible ? sortLeafNodes(filtered) : filtered);
 });
 
+// ========== 关联字段分组：值归一化与组名映射 ==========
+
+// 关联字段作为分组字段时的 ID → 显示名映射：fieldId -> { 记录ID: 名称 }
+const linkGroupNameMaps = ref<Record<string, Record<string, string>>>({});
+
+// 归一化关联字段值为 ID 数组：兼容数组、JSON 字符串（'["id"]'）、裸 ID
+function normalizeLinkIds(val: unknown): string[] {
+  let arr: unknown = val;
+  if (typeof arr === 'string') {
+    const s = arr.trim();
+    if (s.startsWith('[') && s.endsWith(']')) {
+      try {
+        const p = JSON.parse(s);
+        if (Array.isArray(p)) arr = p;
+      } catch {
+        // 非法 JSON，按单值处理
+      }
+    } else {
+      return s ? [s] : [];
+    }
+  }
+  if (!Array.isArray(arr)) {
+    return arr === null || arr === undefined || arr === '' ? [] : [String(arr)];
+  }
+  return arr
+    .map(v => (typeof v === 'object' && v !== null ? String((v as any).id || '') : String(v)))
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+// 从关联记录提取显示文本（优先配置的显示字段，其次首个非空值）
+function getLinkRecordLabel(record: { id: string; values: Record<string, unknown> }, field: any): string {
+  const config = field?.config as Record<string, unknown> | undefined;
+  const displayFieldId = String(config?.displayFieldId ?? '');
+  const pick = (v: unknown): string => {
+    if (v === null || v === undefined || v === '') return '';
+    if (typeof v === 'object') {
+      const name = (v as { name?: string }).name;
+      return name ? String(name) : '';
+    }
+    return String(v);
+  };
+  if (displayFieldId) {
+    const text = pick(record.values?.[displayFieldId]);
+    if (text) return text;
+  }
+  for (const v of Object.values(record.values || {})) {
+    const text = pick(v);
+    if (text) return text;
+  }
+  return record.id;
+}
+
+// 需要投影归一化的分组字段（关联 + 查找）：值存在数组/JSON 串/单值多种存储形态
+const getProjectedGroupFieldIds = (): string[] => {
+  if (!props.groupBy || props.groupBy.length === 0) return [];
+  return props.groupBy.filter(fid => {
+    const f = fields.value.find((x: any) => x.id === fid);
+    return f?.type === FieldType.LINK || f?.type === FieldType.LOOKUP;
+  });
+};
+
+// 分组中的关联字段列表（需要 ID→名称映射、新记录预填关联数组）
+const getLinkGroupFieldIds = (): string[] => {
+  if (!props.groupBy || props.groupBy.length === 0) return [];
+  return props.groupBy.filter(fid => {
+    const f = fields.value.find((x: any) => x.id === fid);
+    return f?.type === FieldType.LINK;
+  });
+};
+
+// 为关联分组字段加载 ID→名称映射（目标表记录），完成后全量重建表格以刷新组名
+let linkGroupNamesLoading = false;
+async function ensureLinkGroupNames() {
+  const linkGroupFieldIds = getLinkGroupFieldIds();
+  if (linkGroupFieldIds.length === 0 || linkGroupNamesLoading) return;
+  linkGroupNamesLoading = true;
+  let updated = false;
+  try {
+    for (const fid of linkGroupFieldIds) {
+      if (linkGroupNameMaps.value[fid]) continue;
+      const field = fields.value.find((x: any) => x.id === fid);
+      const targetTableId = String((field?.config as any)?.linkedTableId || '');
+      if (!targetTableId) continue;
+      try {
+        const result = await linkApiService.searchLinkableRecords(targetTableId, {
+          page: 1,
+          per_page: 200,
+        });
+        const map: Record<string, string> = {};
+        for (const r of result.items) {
+          map[r.id] = getLinkRecordLabel(r, field);
+        }
+        linkGroupNameMaps.value = { ...linkGroupNameMaps.value, [fid]: map };
+        updated = true;
+      } catch (error) {
+        console.error('[VTableView] 加载关联分组名称失败:', error);
+      }
+    }
+  } finally {
+    linkGroupNamesLoading = false;
+  }
+  if (updated) {
+    // 映射就绪后重建表格，组名由 ID 串变为记录名称
+    updateTable();
+  }
+}
+
+// 将组名（归一化 ID 串）映射为关联记录名称
+// vtableMergeName 类型不保证为字符串（可能为数组等），需做类型防御
+function mapLinkGroupNames(groupName: unknown): string {
+  if (groupName === null || groupName === undefined || groupName === '') return '';
+  if (Array.isArray(groupName)) {
+    return groupName
+      .map(v => mapLinkGroupNames(v))
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (typeof groupName !== 'string') {
+    return String(groupName);
+  }
+  const mergedMap: Record<string, string> = {};
+  for (const fid of getLinkGroupFieldIds()) {
+    Object.assign(mergedMap, linkGroupNameMaps.value[fid] || {});
+  }
+  if (Object.keys(mergedMap).length === 0) return groupName;
+  return groupName
+    .split(',')
+    .map(id => mergedMap[id.trim()] || id.trim())
+    .join(', ');
+}
+
 // 为分组模式构建记录（在每个分组末尾插入虚拟「添加记录」行）
 const buildGroupedRecords = (tableRecords: any[]): any[] => {
   if (!props.groupBy || props.groupBy.length === 0) return tableRecords;
+
+  // 关联/查找字段作为分组字段：将值投影为归一化串（原始值备份到 __linkRaw_<fieldId>），
+  // 使同一值（数组/JSON 串/单值等不同存储形态）得到相同分组键
+  const projectedFieldIds = getProjectedGroupFieldIds();
+  const linkGroupFieldIds = getLinkGroupFieldIds();
+  if (projectedFieldIds.length > 0) {
+    for (const row of tableRecords) {
+      for (const fid of projectedFieldIds) {
+        const rawKey = `__linkRaw_${fid}`;
+        if (row[rawKey] !== undefined) continue; // 幂等：已投影过
+        row[rawKey] = row[fid];
+        row[fid] = normalizeLinkIds(row[fid]).join(',');
+      }
+    }
+  }
 
   const groupToRecords = new Map<string, any[]>();
   for (const row of tableRecords) {
     const groupKey = props.groupBy.map(fieldId => {
       const val = row[fieldId];
-      return val !== null && val !== undefined ? String(val) : '__empty__';
+      return val !== null && val !== undefined && val !== '' ? String(val) : '__empty__';
     }).join('||');
     if (!groupToRecords.has(groupKey)) {
       groupToRecords.set(groupKey, []);
@@ -3672,9 +3819,16 @@ const buildGroupedRecords = (tableRecords: any[]): any[] => {
   for (const [, records] of groupToRecords) {
     rebuiltRecords.push(...records);
 
-    const groupValues: Record<string, any> = {};
+    const groupValues: Record<string, any> = {};    // 新记录预填数据（emit 给父组件）：关联字段为原始 ID 数组
+    const groupRowValues: Record<string, any> = {}; // addButton 行字段值：与真实记录的投影值一致，确保归入同一分组
     props.groupBy.forEach(fieldId => {
-      groupValues[fieldId] = records[0][fieldId] ?? null;
+      // 查找字段为计算字段，不参与新记录预填
+      if (linkGroupFieldIds.includes(fieldId)) {
+        groupValues[fieldId] = normalizeLinkIds(records[0][`__linkRaw_${fieldId}`] ?? records[0][fieldId]);
+      } else if (!projectedFieldIds.includes(fieldId)) {
+        groupValues[fieldId] = records[0][fieldId] ?? null;
+      }
+      groupRowValues[fieldId] = records[0][fieldId] ?? null;
     });
 
     const addButtonRecord: any = {
@@ -3685,7 +3839,7 @@ const buildGroupedRecords = (tableRecords: any[]): any[] => {
     };
 
     for (const fieldId of props.groupBy) {
-      addButtonRecord[fieldId] = groupValues[fieldId];
+      addButtonRecord[fieldId] = groupRowValues[fieldId];
     }
 
     orderedVisibleFields.value.forEach(field => {
@@ -3889,7 +4043,9 @@ const getCellTypeConfig = (field: any): Record<string, any> => {
     case FieldType.LINK:
       config.cellType = 'text';
       config.fieldFormat = (record: any) => {
-        const rawIds: string[] = record?.[field.id];
+        // 分组模式下 LINK 分组字段值已被投影为 ID 串，原始值备份在 __linkRaw_<fieldId>
+        const rawBackup = record?.[`__linkRaw_${field.id}`];
+        const rawIds: string[] = rawBackup !== undefined ? rawBackup : record?.[field.id];
         if (!rawIds) return '';
         const recordId = record?._originalRecord?.id || record?._recordId || '';
         const cacheKey = recordId ? `${recordId}:${field.id}` : '';
@@ -5231,7 +5387,8 @@ const buildTableConfig = (): any => {
         enableTreeStickCell: true,
         titleCheckbox: false,
         titleFieldFormat: (record: any) => {
-          const groupName = record?.vtableMergeName || '';
+          // 关联字段分组：组名为归一化 ID 串，映射为关联记录名称显示
+          let groupName = mapLinkGroupNames(record?.vtableMergeName || '');
           const children = record?.vtableChildren || record?.children || [];
           const realCount = children.filter((c: any) => c._rowType !== 'addButton').length;
           return t('view.groupRecordCount', { name: groupName, count: realCount });
@@ -6259,6 +6416,9 @@ const updateTable = () => {
 
   isUpdating = true;
   pendingUpdate = false;
+
+  // 关联字段分组：异步加载组名映射（加载完成后会再次触发 updateTable 刷新组名）
+  ensureLinkGroupNames();
 
   // 重建前保存当前滚动位置，重建后恢复，避免更新数据后表格跳回首行
   let savedScrollTop = 0;

@@ -44,6 +44,8 @@ const groupableFieldTypes = [
   FieldType.LONG_TEXT,
   FieldType.RICH_TEXT,
   FieldType.NUMBER,
+  FieldType.LINK,
+  FieldType.LOOKUP,
 ];
 
 // 可分组字段列表
@@ -72,6 +74,10 @@ function getFieldIcon(field: FieldEntity) {
       return "Check";
     case FieldType.MEMBER:
       return "User";
+    case FieldType.LINK:
+      return "Link";
+    case FieldType.LOOKUP:
+      return "Search";
     case FieldType.NUMBER:
       return "Sort";
     default:

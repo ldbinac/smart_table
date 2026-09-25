@@ -356,6 +356,7 @@ interface FlattenedItem {
   level: number;
   groupField?: FieldEntity;
   groupKey: string;
+  groupKeyPath?: string[];
   parentGroupKey?: string;
   groupValue?: string;
   rowIndex?: number;
@@ -375,12 +376,14 @@ const flattenedData = computed(() => {
     nodes: GroupNode[],
     level: number,
     parentGroupKey?: string,
+    parentKeys: string[] = [],
   ) => {
     for (const node of nodes) {
       const groupField = groupFields.value[level];
       const currentGroupKey = parentGroupKey
         ? `${parentGroupKey}-${node.key}`
         : node.key;
+      const keyPath = [...parentKeys, node.key];
 
       result.push({
         type: "group",
@@ -388,6 +391,7 @@ const flattenedData = computed(() => {
         level,
         groupField,
         groupKey: currentGroupKey,
+        groupKeyPath: keyPath,
         parentGroupKey,
         groupValue: node.value,
       });
@@ -396,7 +400,7 @@ const flattenedData = computed(() => {
 
       if (isExpanded) {
         if (node.children && node.children.length > 0) {
-          processNodes(node.children, level + 1, currentGroupKey);
+          processNodes(node.children, level + 1, currentGroupKey, keyPath);
         } else if (node.records.length > 0) {
           // 重置当前分组的行号计数器
           groupRowCounters.set(currentGroupKey, 0);
@@ -548,6 +552,11 @@ function updateGroups() {
     }
   };
   collectKeys(groupNodes.value);
+
+  // 关联字段分组：异步加载组名映射（组名由记录 ID 变为显示名）
+  nextTick(() => {
+    ensureLinkGroupLabels();
+  });
 
   // 初始加载完成后加载关联数据
   nextTick(() => {
@@ -890,16 +899,17 @@ function handleAddRecord(item: FlattenedItem) {
   // 构建所有层级的分组信息
   const groupLevels: GroupLevelInfo[] = [];
 
-  if (item.groupKey) {
-    // groupKey 格式: "level1Key-level2Key-level3Key"
-    const keyParts = item.groupKey.split("-");
+  if (item.groupKeyPath && item.groupKeyPath.length > 0) {
+    // 按层级 key 路径逐层查找分组节点（key 可能含 "-"，不能按字符拆分）
 
-    // 根据层级数量，从 groupNodes 树中查找每个层级的信息
     let currentNodes = groupNodes.value;
-    let currentKeyPath = "";
 
-    for (let i = 0; i < keyParts.length && i < groupFields.value.length; i++) {
-      const keyPart = keyParts[i];
+    for (
+      let i = 0;
+      i < item.groupKeyPath.length && i < groupFields.value.length;
+      i++
+    ) {
+      const keyPart = item.groupKeyPath[i];
       const field = groupFields.value[i];
 
       if (!field) continue;
@@ -907,10 +917,6 @@ function handleAddRecord(item: FlattenedItem) {
       // 在当前层级查找匹配的分组节点
       const node = currentNodes.find((n) => n.key === keyPart);
       if (node) {
-        currentKeyPath = currentKeyPath
-          ? `${currentKeyPath}-${keyPart}`
-          : keyPart;
-
         groupLevels.push({
           fieldId: field.id,
           fieldName: field.name,
@@ -980,6 +986,80 @@ function getRatingDisplay(field: FieldEntity, value: unknown): string {
 // 存储每条记录的关联字段数据
 const recordLinkData = ref<Map<string, Map<string, LinkedRecord[]>>>(new Map());
 const recordLinkLoading = ref<Map<string, Set<string>>>(new Map());
+
+// 关联字段作为分组字段时的组名映射：fieldId -> { 关联记录ID: 显示名 }
+const linkGroupLabelMaps = ref<Record<string, Record<string, string>>>({});
+
+// 从关联记录中提取展示文本（优先配置的显示字段，其次首个非空值）
+function getLinkRecordDisplayText(
+  record: { id: string; values: Record<string, unknown> },
+  field: FieldEntity,
+): string {
+  const config = field.config as Record<string, unknown> | undefined;
+  const displayFieldId = String(config?.displayFieldId ?? "");
+  const pick = (v: unknown): string => {
+    if (v === null || v === undefined || v === "") return "";
+    if (typeof v === "object") {
+      const name = (v as { name?: string }).name;
+      return name ? String(name) : "";
+    }
+    return String(v);
+  };
+  if (displayFieldId) {
+    const text = pick(record.values?.[displayFieldId]);
+    if (text) return text;
+  }
+  for (const v of Object.values(record.values || {})) {
+    const text = pick(v);
+    if (text) return text;
+  }
+  return record.id;
+}
+
+// 为 LINK 分组字段加载组名映射（目标表记录 ID → 显示名）
+async function ensureLinkGroupLabels() {
+  const linkFields = groupFields.value.filter(
+    (f) => f.type === FieldType.LINK,
+  );
+  let updated = false;
+  for (const field of linkFields) {
+    if (linkGroupLabelMaps.value[field.id]) continue;
+    const config = field.config as Record<string, unknown> | undefined;
+    const targetTableId = String(config?.linkedTableId ?? "");
+    if (!targetTableId) continue;
+    try {
+      const result = await linkApiService.searchLinkableRecords(targetTableId, {
+        page: 1,
+        per_page: 200,
+      });
+      const labelMap: Record<string, string> = {};
+      for (const r of result.items) {
+        labelMap[r.id] = getLinkRecordDisplayText(r, field);
+      }
+      linkGroupLabelMaps.value = {
+        ...linkGroupLabelMaps.value,
+        [field.id]: labelMap,
+      };
+      updated = true;
+    } catch (error) {
+      console.error("[GroupedTableView] 加载关联分组名称失败:", error);
+    }
+  }
+  if (updated) {
+    // 映射就绪后刷新组头显示（组名由 ID 变为记录名称）
+    refreshCounter.value++;
+  }
+}
+
+// 组头显示文本：LINK 分组将关联记录 ID 映射为显示名
+function getGroupHeaderText(item: FlattenedItem): string {
+  const value = item.node?.value ?? item.groupValue ?? "";
+  if (item.groupField?.type === FieldType.LINK) {
+    const labelMap = linkGroupLabelMaps.value[item.groupField.id];
+    if (labelMap && labelMap[value]) return labelMap[value];
+  }
+  return value;
+}
 
 // 获取关联字段配置
 function getLinkFieldConfig(field: FieldEntity) {
@@ -1196,9 +1276,9 @@ function handleLinkFieldClick(record: RecordEntity, field: FieldEntity) {
                       item.node!.value
                     }}</span>
                   </template>
-                  <!-- 其他字段分组：保持原有显示方式 -->
+                  <!-- 其他字段分组：保持原有显示方式（关联字段分组显示记录名称） -->
                   <template v-else>
-                    <span class="group-name">{{ item.node!.value }}</span>
+                    <span class="group-name">{{ getGroupHeaderText(item) }}</span>
                   </template>
                   <span class="group-count">{{ t("view.groupTotalCount", { count: item.node!.count }) }}</span>
                 </div>
