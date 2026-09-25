@@ -314,6 +314,19 @@ function getDateValue(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "number") return value;
   if (typeof value === "string") {
+    const s = value.trim();
+    // 纯数字字符串为时间戳（如筛选值 ElDatePicker value-format="x" 的毫秒串）
+    if (/^\d+$/.test(s)) {
+      const n = Number(s);
+      // 10 位数字视为秒级时间戳，其余按毫秒处理
+      return s.length === 10 ? n * 1000 : n;
+    }
+    // 纯日期串（YYYY-MM-DD）按本地时区解析：Date.parse 对 date-only 按 UTC 解析，
+    // 会与本地时区的筛选值（value-format="x"）相差时区偏移
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (m) {
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+    }
     const timestamp = Date.parse(value);
     return isNaN(timestamp) ? null : timestamp;
   }

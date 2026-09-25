@@ -135,6 +135,7 @@ function getOperatorsForField(field: FieldEntity | undefined) {
     case FieldType.PROGRESS:
       return numberOperators
     case FieldType.DATE:
+    case FieldType.DATE_TIME:
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       return dateOperators
@@ -160,7 +161,7 @@ function getOperatorsForField(field: FieldEntity | undefined) {
   }
 }
 
-function getValueInputType(field: FieldEntity | undefined): 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'member' | 'link' | 'none' {
+function getValueInputType(field: FieldEntity | undefined): 'text' | 'number' | 'date' | 'datetime' | 'select' | 'checkbox' | 'member' | 'link' | 'none' {
   if (!field) return 'text'
 
   switch (field.type) {
@@ -172,6 +173,9 @@ function getValueInputType(field: FieldEntity | undefined): 'text' | 'number' | 
     case FieldType.CREATED_TIME:
     case FieldType.UPDATED_TIME:
       return 'date'
+    case FieldType.DATE_TIME:
+      // 日期时间字段使用带时间选择的日期时间组件
+      return 'datetime'
     case FieldType.SINGLE_SELECT:
     case FieldType.MULTI_SELECT:
       return 'select'
@@ -498,11 +502,11 @@ watch(() => props.visible, (visible) => {
               style="width: 180px"
             />
 
-            <!-- 日期输入 -->
+            <!-- 日期/日期时间输入 -->
             <ElDatePicker
-              v-else-if="getValueInputType(getFieldById(filter.fieldId)) === 'date'"
+              v-else-if="['date', 'datetime'].includes(getValueInputType(getFieldById(filter.fieldId)))"
               v-model="filter.value"
-              type="date"
+              :type="getValueInputType(getFieldById(filter.fieldId)) === 'datetime' ? 'datetime' : 'date'"
               :placeholder="t('filter.selectDate')"
               style="width: 180px"
               value-format="x"
