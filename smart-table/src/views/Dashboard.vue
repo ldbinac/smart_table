@@ -38,7 +38,6 @@ import { FieldType } from "@/types";
 import { ElMessage } from "element-plus";
 import BaseSidebar from "@/components/common/BaseSidebar.vue";
 import DashboardTemplateDialog from "@/components/dialogs/DashboardTemplateDialog.vue";
-import DashboardPreviewDialog from "@/components/dashboard/DashboardPreviewDialog.vue";
 import DashboardShareDialog from "@/components/dashboard/DashboardShareDialog.vue";
 import ExcelImportCreateDialog from "@/components/dialogs/ExcelImportCreateDialog.vue";
 // 插件体系：仪表盘自定义组件扩展点
@@ -57,6 +56,29 @@ const { t } = useI18n();
 
 // 权限控制
 const canManage = computed(() => memberStore.canManage);
+// 「设计」入口仅 Base 所有者可见可操作
+const isBaseOwner = computed(() => memberStore.isOwner);
+
+// 视图模式：选中仪表盘后默认进入数据预览，点击「设计」切换到设计配置
+const viewMode = ref<"preview" | "design">("preview");
+const isDesignMode = computed(() => viewMode.value === "design");
+
+function enterDesignMode() {
+  if (!isBaseOwner.value) return;
+  viewMode.value = "design";
+}
+
+function enterPreviewMode() {
+  // 退出设计前清空选中组件，隐藏配置面板
+  selectedWidget.value = null;
+  viewMode.value = "preview";
+}
+
+// 预览模式下点击组件不选中、不弹配置面板
+function handleWidgetCardClick(widget: WidgetConfig) {
+  if (!isDesignMode.value) return;
+  selectedWidget.value = widget;
+}
 
 // 侧边栏引用
 const sidebarRef = ref<InstanceType<typeof BaseSidebar> | null>(null);
@@ -356,6 +378,9 @@ async function loadDashboards() {
 
 // 选择仪表盘
 async function selectDashboard(dashboard: Dashboard) {
+  // 需求：选中仪表盘后立即呈现数据预览视图
+  selectedWidget.value = null;
+  viewMode.value = "preview";
   // 从后端获取最新的仪表盘详情（包含完整的组件信息）
   try {
     const freshDashboard = await dashboardApiService.getDashboard(dashboard.id);
@@ -675,15 +700,13 @@ function onShareCreated() {
   // 分享创建成功后的回调（如有需要可扩展）
 }
 
-// 预览功能
-const showPreviewDialog = ref(false);
-
-function openPreviewDialog() {
+// 预览功能：设计模式下点击「预览」切回主区域预览模式
+function enterPreviewFromToolbar() {
   if (!currentDashboard.value) {
     ElMessage.warning(t('dashboard.selectFirst'));
     return;
   }
-  showPreviewDialog.value = true;
+  enterPreviewMode();
 }
 
 const handleTableSelect = (tableId: string) => {
@@ -2120,6 +2143,7 @@ function getTableById(tableId: string): TableEntity | undefined {
 }
 
 function startResize(event: MouseEvent, widget: WidgetConfig) {
+  if (!isDesignMode.value) return;
   event.stopPropagation();
   resizingWidget.value = widget.id;
   resizeStart.value = {
@@ -2194,6 +2218,7 @@ function getWidgetStyle(widget: WidgetConfig): Record<string, string | number> {
 // ==================== 拖拽移动功能 ====================
 
 function startDrag(event: MouseEvent, widget: WidgetConfig) {
+  if (!isDesignMode.value) return;
   event.stopPropagation();
   draggingWidget.value = widget.id;
   isDragging.value = false;
@@ -2464,9 +2489,44 @@ onUnmounted(() => {
       @excel-import-create="openExcelImportCreateDialog" />
 
     <div class="dashboard-main">
-      <!-- 顶部工具栏 -->
+      <!-- 顶部工具栏：预览/设计两种模式，切换带淡入淡出过渡 -->
       <div class="dashboard-toolbar">
+        <transition name="mode-fade" mode="out-in">
+        <!-- 预览模式：展示名称 + 「设计」入口（仅 Base 所有者可见） -->
+        <div v-if="!isDesignMode" key="preview-toolbar" class="toolbar-row">
+          <div class="toolbar-left">
+            <div class="preview-dashboard-name">
+              <div class="selector-icon">
+                <el-icon><DataAnalysis /></el-icon>
+              </div>
+              <span class="dashboard-name">{{
+                currentDashboard?.name || t('dashboard.selectDashboard')
+              }}</span>
+            </div>
+            <el-tag size="small" type="info" effect="plain" class="mode-tag">
+              {{ t('dashboard.previewMode') }}
+            </el-tag>
+          </div>
+
+          <div class="toolbar-right">
+            <el-tooltip
+              v-if="currentDashboard && isBaseOwner"
+              :content="t('dashboard.enterDesignTip')"
+              placement="bottom">
+              <el-button type="primary" @click="enterDesignMode">
+                <el-icon><Edit /></el-icon>
+                <span>{{ t('dashboard.design') }}</span>
+              </el-button>
+            </el-tooltip>
+          </div>
+        </div>
+
+        <!-- 设计模式：完整编辑工具栏 -->
+        <div v-else key="design-toolbar" class="toolbar-row">
         <div class="toolbar-left">
+          <el-tag size="small" type="warning" effect="plain" class="mode-tag">
+            {{ t('dashboard.designMode') }}
+          </el-tag>
           <!-- <el-dropdown @command="showDashboardManager = true">
             <el-button text class="dashboard-selector">
               <div class="selector-icon">
@@ -2609,7 +2669,7 @@ onUnmounted(() => {
               v-if="currentDashboard"
               size="default"
               :title="t('dashboard.previewDashboard')"
-              @click="openPreviewDialog">
+              @click="enterPreviewFromToolbar">
               <el-icon><View /></el-icon>
               <span>{{ t('dashboard.preview') }}</span>
             </el-button>
@@ -2664,6 +2724,8 @@ onUnmounted(() => {
             </el-button-group>
           </template>
         </div>
+        </div>
+        </transition>
       </div>
 
       <!-- 仪表盘内容 -->
@@ -2674,7 +2736,7 @@ onUnmounted(() => {
           :class="{
             'grid-layout': layoutType === 'grid',
             'free-layout': layoutType === 'free',
-            'show-grid-lines': showGridLines && layoutType === 'grid',
+            'show-grid-lines': isDesignMode && showGridLines && layoutType === 'grid',
             [`columns-${gridColumns}`]: layoutType === 'grid',
           }"
           :style="
@@ -2696,7 +2758,7 @@ onUnmounted(() => {
               dragging: draggingWidget === widget.id,
             }"
             :style="getWidgetStyle(widget)"
-            @click="selectedWidget = widget"
+            @click="handleWidgetCardClick(widget)"
             @mousedown="(e) => startDrag(e, widget)">
             <div
               v-if="widget.config?.showHeader !== false"
@@ -2711,7 +2773,7 @@ onUnmounted(() => {
                   {{ getAggregationLabel(widget.aggregation) }}
                 </span>
               </div>
-              <div v-if="canManage" class="widget-actions">
+              <div v-if="canManage && isDesignMode" class="widget-actions">
                 <el-button
                   link
                   size="small"
@@ -2722,7 +2784,7 @@ onUnmounted(() => {
               </div>
             </div>
             <!-- 标题栏隐藏时的悬浮删除按钮 -->
-            <div v-else-if="canManage" class="widget-floating-actions">
+            <div v-else-if="canManage && isDesignMode" class="widget-floating-actions">
               <el-button
                 link
                 size="small"
@@ -2744,7 +2806,7 @@ onUnmounted(() => {
             </div>
             <!-- 调整大小手柄 -->
             <div
-              v-if="canManage"
+              v-if="canManage && isDesignMode"
               class="resize-handle"
               :class="{ active: resizingWidget === widget.id }"
               @mousedown.stop="startResize($event, widget)">
@@ -2807,35 +2869,54 @@ onUnmounted(() => {
                   stroke-linejoin="round" />
               </svg>
             </div>
-            <h3 class="empty-title">{{ t('dashboard.startCreateTitle') }}</h3>
-            <p class="empty-desc">{{ t('dashboard.startCreateDesc') }}</p>
-            <p v-if="!currentDashboard" class="empty-hint">
-              {{ t('dashboard.createFirstDashboard') }}
-            </p>
+            <h3 class="empty-title">{{
+              isDesignMode
+                ? t('dashboard.startCreateTitle')
+                : t('dashboard.previewEmptyTitle')
+            }}</h3>
+            <p class="empty-desc">{{
+              isDesignMode
+                ? t('dashboard.startCreateDesc')
+                : t('dashboard.previewEmptyDesc')
+            }}</p>
+            <template v-if="isDesignMode">
+              <p v-if="!currentDashboard" class="empty-hint">
+                {{ t('dashboard.createFirstDashboard') }}
+              </p>
+              <el-button
+                v-else
+                type="primary"
+                class="create-dashboard-btn"
+                @click="addWidget('bar')">
+                <el-icon><Plus /></el-icon>
+                {{ t('dashboard.addFirstWidget') }}
+              </el-button>
+              <h4 class="empty-title">{{ t('dashboard.or') }}</h4>
+              <el-button
+                v-if="currentDashboard"
+                type="primary"
+                class="create-dashboard-btn"
+                size="default"
+                :title="t('dashboard.createFromTemplate')"
+                @click="showTemplateDialog = true">
+                <el-icon><Grid /></el-icon>
+                <span>{{ t('dashboard.useTemplate') }}</span>
+              </el-button>
+            </template>
+            <!-- 预览模式空状态：为所有者提供「设计」入口 -->
             <el-button
-              v-else
+              v-else-if="currentDashboard && isBaseOwner"
               type="primary"
               class="create-dashboard-btn"
-              @click="addWidget('bar')">
-              <el-icon><Plus /></el-icon>
-              {{ t('dashboard.addFirstWidget') }}
-            </el-button>
-            <h4 class="empty-title">{{ t('dashboard.or') }}</h4>
-            <el-button
-              v-if="currentDashboard"
-              type="primary"
-              class="create-dashboard-btn"
-              size="default"
-              :title="t('dashboard.createFromTemplate')"
-              @click="showTemplateDialog = true">
-              <el-icon><Grid /></el-icon>
-              <span>{{ t('dashboard.useTemplate') }}</span>
+              @click="enterDesignMode">
+              <el-icon><Edit /></el-icon>
+              {{ t('dashboard.design') }}
             </el-button>
           </div>
         </div>
 
         <!-- 配置面板 -->
-        <div v-if="selectedWidget" class="config-panel">
+        <div v-if="selectedWidget && isDesignMode" class="config-panel">
           <div class="panel-header">
             <div class="panel-title-wrapper">
               <div class="panel-icon">
@@ -3662,13 +3743,6 @@ onUnmounted(() => {
         :dashboard-name="currentDashboard?.name || ''"
         @created="onShareCreated" />
 
-      <!-- 预览对话框 -->
-      <DashboardPreviewDialog
-        v-model:visible="showPreviewDialog"
-        :dashboard="currentDashboard"
-        :widgets="widgets"
-        :grid-columns="gridColumns" />
-
     <!-- 创建数据表对话框 -->
     <el-dialog
       v-model="createTableDialogVisible"
@@ -3915,6 +3989,33 @@ $gray-800: #1f2937;
   z-index: 10;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
+  // 预览/设计两种模式的工具栏行，占满宽度保证左右分布
+  .toolbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 16px;
+  }
+
+  .mode-tag {
+    flex-shrink: 0;
+  }
+
+  // 预览模式的仪表盘名称展示
+  .preview-dashboard-name {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+
+    .dashboard-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: $gray-800;
+      @include text-ellipsis;
+    }
+  }
+
   .toolbar-left {
     display: flex;
     align-items: center;
@@ -3926,6 +4027,22 @@ $gray-800: #1f2937;
     align-items: center;
     gap: 8px;
   }
+}
+
+// 预览/设计模式切换过渡
+.mode-fade-enter-active,
+.mode-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.mode-fade-enter-from {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.mode-fade-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 .dashboard-selector {
