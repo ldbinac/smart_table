@@ -62,6 +62,7 @@
   "action": "操作",
   "desc": "描述",
   "share": {
+    "title": "分享",
     "fetchListFailed": "获取分享列表失败",
     "createFailed": "创建分享链接失败",
     "deleteFailed": "删除分享链接失败",

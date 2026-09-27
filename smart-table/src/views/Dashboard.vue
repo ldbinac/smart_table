@@ -2603,7 +2603,7 @@ onUnmounted(() => {
               :title="t('dashboard.shareCurrentDashboard')"
               @click="openShareDialog">
               <el-icon><Share /></el-icon>
-              <span>{{ t('common.share') }}</span>
+              <span>{{ t('common.share.title') }}</span>
             </el-button>
             <el-button
               v-if="currentDashboard"

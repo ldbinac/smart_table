@@ -67,6 +67,7 @@
   "desc": "Description",
   "action": "Actions",
   "share": {
+    "title": "Share",
     "fetchListFailed": "Failed to fetch share list",
     "createFailed": "Failed to create share link",
     "deleteFailed": "Failed to delete share link",
