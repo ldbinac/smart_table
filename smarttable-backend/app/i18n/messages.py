@@ -4113,5 +4113,43 @@ MESSAGES = {
         'zh-CN': '上游响应超过 {limit} 字节上限',
         'en-US': 'The upstream response exceeds {limit} bytes',
     },
+
+    # -- 数据表文件夹 --
+    'folder_not_empty': {
+        'zh-CN': '文件夹不为空，无法删除',
+        'en-US': 'The folder is not empty and cannot be deleted',
+    },
+    'folder_name_required': {
+        'zh-CN': '文件夹名称不能为空',
+        'en-US': 'Folder name is required',
+    },
+    'folder_name_exceed_characters': {
+        'zh-CN': '文件夹名称不能超过 100 个字符',
+        'en-US': 'Folder name cannot exceed 100 characters',
+    },
+    'folder_not_in_base': {
+        'zh-CN': '文件夹不存在或不属于当前 Base',
+        'en-US': 'The folder does not exist or does not belong to this base',
+    },
+    'table_folder_not_found': {
+        'zh-CN': '文件夹不存在',
+        'en-US': 'The folder does not exist',
+    },
+    'fetched_table_folder_list_successfully': {
+        'zh-CN': '获取文件夹列表成功',
+        'en-US': 'Folder list fetched successfully',
+    },
+    'table_folder_created_successfully': {
+        'zh-CN': '文件夹创建成功',
+        'en-US': 'Folder created successfully',
+    },
+    'table_folder_updated_successfully': {
+        'zh-CN': '文件夹更新成功',
+        'en-US': 'Folder updated successfully',
+    },
+    'table_folder_deleted_successfully': {
+        'zh-CN': '文件夹删除成功',
+        'en-US': 'Folder deleted successfully',
+    },
 }
 

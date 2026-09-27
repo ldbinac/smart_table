@@ -5,6 +5,7 @@
 from flask import Blueprint, request, g
 
 from app.services.table_service import TableService
+from app.services.table_folder_service import TableFolderService
 from app.services.base_service import BaseService
 from app.models.base import MemberRole
 from app.utils.decorators import jwt_required, form_share_or_jwt
@@ -197,14 +198,28 @@ def update_table(table_id) -> tuple:
         return forbidden_response('do_not_permission_modify_table')
     
     data = request.get_json() or {}
-    
+
     # 验证名称长度
     if 'name' in data:
         name = data['name'].strip()
         if len(name) > 100:
             return error_response('table_name_exceed_characters', code=400)
         data['name'] = name
-    
+
+    table = TableService.get_table(str(table_id))
+    if not table:
+        return not_found_response('table')
+
+    # 空串 folder_id 归一化为 None（表示移出文件夹），避免非法 UUID 触发数据库错误
+    if 'folder_id' in data and not data['folder_id']:
+        data['folder_id'] = None
+
+    # 校验 folder_id 归属：文件夹必须属于该表所在 Base（置空 null 直接放行）
+    if data.get('folder_id'):
+        folder = TableFolderService.get_folder(data['folder_id'])
+        if not folder or str(folder.base_id) != str(table.base_id):
+            return error_response('folder_not_in_base', code=400)
+
     table = TableService.update_table(str(table_id), data)
     if not table:
         return not_found_response('table')
@@ -373,3 +388,185 @@ def duplicate_table(table_id) -> tuple:
         message='table_copied_successfully',
         code=201
     )
+
+
+# ==================== 数据表文件夹 ====================
+
+
+@tables_bp.route('/bases/<uuid:base_id>/table-folders', methods=['GET'])
+@jwt_required
+def get_table_folders(base_id) -> tuple:
+    """获取 Base 内所有数据表文件夹（按 order 排序）"""
+    user_id = g.current_user_id
+
+    if not BaseService.check_permission(str(base_id), user_id, MemberRole.VIEWER):
+        return forbidden_response('no_permission_access_base')
+
+    folders = TableFolderService.get_folders_by_base(str(base_id))
+    return success_response(
+        data=[folder.to_dict() for folder in folders],
+        message='fetched_table_folder_list_successfully'
+    )
+
+
+@tables_bp.route('/bases/<uuid:base_id>/table-folders', methods=['POST'])
+@jwt_required
+def create_table_folder(base_id) -> tuple:
+    """
+    创建数据表文件夹（单层结构，不支持嵌套）
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: base_id
+        in: path
+        type: string
+        required: true
+        description: 基础数据 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              description: 文件夹名称
+    responses:
+      201:
+        description: 创建的文件夹详情
+      400:
+        description: 请求数据验证失败
+      403:
+        description: 无权限
+    """
+    user_id = g.current_user_id
+
+    if not BaseService.check_permission(str(base_id), user_id, MemberRole.ADMIN):
+        return forbidden_response('do_not_permission_modify_base')
+
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return error_response('folder_name_required', code=400)
+    if len(name) > 100:
+        return error_response('folder_name_exceed_characters', code=400)
+
+    folder = TableFolderService.create_folder(str(base_id), {'name': name})
+    return success_response(
+        data=folder.to_dict(),
+        message='table_folder_created_successfully',
+        code=201
+    )
+
+
+@tables_bp.route('/table-folders/<uuid:folder_id>', methods=['PUT'])
+@jwt_required
+def update_table_folder(folder_id) -> tuple:
+    """
+    更新数据表文件夹（重命名/排序）
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: folder_id
+        in: path
+        type: string
+        required: true
+        description: 文件夹 ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 新名称（可选）
+            order:
+              type: integer
+              description: 排序序号（可选）
+    responses:
+      200:
+        description: 更新后的文件夹详情
+      403:
+        description: 无权限
+      404:
+        description: 文件夹不存在
+    """
+    user_id = g.current_user_id
+
+    folder = TableFolderService.get_folder(str(folder_id))
+    if not folder:
+        return not_found_response('table_folder_not_found')
+
+    if not BaseService.check_permission(str(folder.base_id), user_id, MemberRole.ADMIN):
+        return forbidden_response('do_not_permission_modify_base')
+
+    data = request.get_json() or {}
+    if 'name' in data:
+        name = (data.get('name') or '').strip()
+        if not name:
+            return error_response('folder_name_required', code=400)
+        if len(name) > 100:
+            return error_response('folder_name_exceed_characters', code=400)
+        data['name'] = name
+
+    folder = TableFolderService.update_folder(str(folder_id), data)
+    if not folder:
+        return not_found_response('table_folder_not_found')
+
+    return success_response(
+        data=folder.to_dict(),
+        message='table_folder_updated_successfully'
+    )
+
+
+@tables_bp.route('/table-folders/<uuid:folder_id>', methods=['DELETE'])
+@jwt_required
+def delete_table_folder(folder_id) -> tuple:
+    """
+    删除数据表文件夹（仅允许删除空文件夹）
+    ---
+    tags:
+      - Tables
+    security:
+      - Bearer: []
+    parameters:
+      - name: folder_id
+        in: path
+        type: string
+        required: true
+        description: 文件夹 ID
+    responses:
+      200:
+        description: 删除成功
+      403:
+        description: 无权限
+      404:
+        description: 文件夹不存在
+      409:
+        description: 文件夹非空
+    """
+    user_id = g.current_user_id
+
+    folder = TableFolderService.get_folder(str(folder_id))
+    if not folder:
+        return not_found_response('table_folder_not_found')
+
+    if not BaseService.check_permission(str(folder.base_id), user_id, MemberRole.ADMIN):
+        return forbidden_response('do_not_permission_modify_base')
+
+    success, error = TableFolderService.delete_folder(str(folder_id))
+    if not success:
+        if error == 'folder_not_empty':
+            return error_response('folder_not_empty', code=409)
+        return not_found_response('table_folder_not_found')
+
+    return success_response(message='table_folder_deleted_successfully')

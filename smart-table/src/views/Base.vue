@@ -14,6 +14,8 @@ import {
   Plus,
   Search,
   Clock,
+  Folder,
+  FolderAdd,
 } from "@element-plus/icons-vue";
 import GroupedTableView from "@/components/groups/GroupedTableView.vue";
 import { TableView, VTableView } from "@/components/views/TableView";
@@ -465,6 +467,7 @@ onMounted(async () => {
       
       // 加载表格和文档列表
       await tableStore.loadTables(currentBaseId);
+      await tableStore.loadFolders(currentBaseId);
       await documentStore.fetchDocuments(currentBaseId);
       
       // 初始加载：直接检查路由参数并加载对应内容
@@ -543,6 +546,7 @@ watch(
     try {
       await baseStore.fetchBase(newId as string);
       await tableStore.loadTables(newId as string);
+      await tableStore.loadFolders(newId as string);
       await documentStore.fetchDocuments(newId as string);
     } catch (error) {
       ElMessage.error(t('view.base.loadDataFailed'));
@@ -633,13 +637,18 @@ function initSortable() {
   }
 }
 
-// 处理表格拖拽结束
-async function handleTableDragEnd(evt: Sortable.SortableEvent) {
-  if (evt.oldIndex === evt.newIndex) return;
-
-  const tableIds = tableStore.tables.map((t) => t.id);
-  const [movedId] = tableIds.splice(evt.oldIndex!, 1);
-  tableIds.splice(evt.newIndex!, 0, movedId);
+// 处理表格拖拽结束（侧边栏树形分组传完整 ID 顺序；兼容旧 SortableEvent）
+async function handleTableDragEnd(payload: string[] | Sortable.SortableEvent) {
+  let tableIds: string[];
+  if (Array.isArray(payload)) {
+    tableIds = payload;
+  } else {
+    const evt = payload;
+    if (evt.oldIndex === evt.newIndex) return;
+    tableIds = tableStore.tables.map((t) => t.id);
+    const [movedId] = tableIds.splice(evt.oldIndex!, 1);
+    tableIds.splice(evt.newIndex!, 0, movedId);
+  }
 
   if (baseStore.currentBase) {
     await tableStore.reorderTables(baseStore.currentBase.id, tableIds);
@@ -647,6 +656,138 @@ async function handleTableDragEnd(evt: Sortable.SortableEvent) {
     await tableStore.loadTables(baseStore.currentBase.id);
   }
 }
+
+// ==================== 数据表管理弹窗：文件夹树形 ====================
+
+interface ManagerRow {
+  id: string;
+  name: string;
+  description?: string;
+  updatedAt: number;
+  isFolder?: boolean;
+  folderId?: string | null;
+  children?: ManagerRow[];
+}
+
+const toManagerRow = (t: TableEntity): ManagerRow => ({
+  id: t.id,
+  name: t.name,
+  description: t.description,
+  updatedAt: t.updatedAt,
+  folderId: t.folderId ?? null,
+});
+
+// 树形数据：文件夹作为父行（children 为其包含的数据表），未分组沉底
+const managerTableData = computed<ManagerRow[]>(() => {
+  const folderList = [...tableStore.folders].sort((a, b) => a.order - b.order);
+  const rows: ManagerRow[] = folderList.map((f) => ({
+    id: `folder-${f.id}`,
+    name: f.name,
+    updatedAt: f.updatedAt,
+    isFolder: true,
+    folderId: f.id,
+    children: tableStore.tables
+      .filter((t) => t.folderId === f.id)
+      .map((t) => toManagerRow(t)),
+  }));
+  rows.push(
+    ...tableStore.tables
+      .filter((t) => !t.folderId || !folderList.some((f) => f.id === t.folderId))
+      .map((t) => toManagerRow(t)),
+  );
+  return rows;
+});
+
+// 新建文件夹（管理弹窗）
+const handleCreateFolderInManager = async () => {
+  if (!baseStore.currentBase) return;
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t('base.folderNamePrompt'),
+      t('base.createFolder'),
+      {
+        confirmButtonText: t('view.confirm'),
+        cancelButtonText: t('view.cancel'),
+        inputPattern: /\S+/,
+        inputErrorMessage: t('base.folderNameRequired'),
+      },
+    );
+    await tableStore.createFolder(baseStore.currentBase.id, value.trim());
+  } catch {
+    // 用户取消
+  }
+};
+
+// 重命名文件夹（管理弹窗）
+const handleRenameFolderInManager = async (row: ManagerRow) => {
+  const folder = tableStore.folders.find((f) => f.id === row.folderId);
+  if (!folder) return;
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t('base.folderNamePrompt'),
+      t('base.renameFolder'),
+      {
+        confirmButtonText: t('view.confirm'),
+        cancelButtonText: t('view.cancel'),
+        inputValue: folder.name,
+        inputPattern: /\S+/,
+        inputErrorMessage: t('base.folderNameRequired'),
+      },
+    );
+    await tableStore.renameFolder(folder.id, value.trim());
+  } catch {
+    // 用户取消
+  }
+};
+
+// 删除文件夹（管理弹窗，仅空文件夹可删）
+const handleDeleteFolderInManager = async (row: ManagerRow) => {
+  const folder = tableStore.folders.find((f) => f.id === row.folderId);
+  if (!folder) return;
+  const count = tableStore.tables.filter((tb) => tb.folderId === folder.id).length;
+  if (count > 0) {
+    ElMessage.warning(t('base.folderNotEmpty'));
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('base.deleteFolderConfirm', { name: folder.name }),
+      t('sidebar.deleteTitle'),
+      {
+        confirmButtonText: t('view.delete'),
+        cancelButtonText: t('view.cancel'),
+        type: 'warning',
+      },
+    );
+    await tableStore.deleteFolder(folder.id);
+  } catch {
+    // 用户取消
+  }
+};
+
+// 移动数据表到文件夹（管理弹窗）
+const moveFolderDialog = reactive({
+  visible: false,
+  tableId: '',
+  tableName: '',
+  target: '', // '' = 不分组
+});
+const openMoveFolderDialog = (row: ManagerRow) => {
+  moveFolderDialog.tableId = row.id;
+  moveFolderDialog.tableName = row.name;
+  moveFolderDialog.target = row.folderId ?? '';
+  moveFolderDialog.visible = true;
+};
+const confirmMoveFolder = async () => {
+  const { tableId, target } = moveFolderDialog;
+  if (!tableId) return;
+  try {
+    await tableStore.moveTableToFolder(tableId, target || null);
+    moveFolderDialog.visible = false;
+  } catch {
+    // 失败提示由 service 层处理
+  }
+};
 
 // 正在加载的表格 ID（防重入：handleTableSelect 与路由 watch 可能并发触发同一表格加载）
 let tableLoadInFlight = '';
@@ -2514,7 +2655,7 @@ const handleDocumentExportPdf = async () => {
     <el-dialog
       v-model="showTableManager"
       :title="t('view.base.tableManagerTitle')"
-      width="680px"
+      width="900px"
       destroy-on-close
       class="table-manager-dialog">
       <div class="table-manager">
@@ -2529,28 +2670,38 @@ const handleDocumentExportPdf = async () => {
             <el-icon><Plus /></el-icon>
             {{ t('view.base.newDataTable') }}
           </el-button>
+          <el-button type="primary" class="create-btn" @click="handleCreateFolderInManager">
+            <el-icon><FolderAdd /></el-icon>
+            {{ t('base.createFolder') }}
+          </el-button>
         </div>
 
         <el-table
-          :data="tableStore.tables"
+          :data="managerTableData"
+          row-key="id"
+          :tree-props="{ children: 'children' }"
+          default-expand-all
           style="width: 100%"
           class="manager-table">
           <el-table-column prop="name" :label="t('view.base.fieldName')" min-width="160">
             <template #default="{ row }">
               <div class="table-name-cell">
-                <div class="table-icon">
-                  <el-icon><Document /></el-icon>
+                <div class="table-icon" :class="{ 'folder-row-icon': row.isFolder }">
+                  <el-icon>
+                    <Folder v-if="row.isFolder" />
+                    <Document v-else />
+                  </el-icon>
                 </div>
-                <span>{{ row.name }}</span>
+                <span :class="{ 'folder-row-name': row.isFolder }">{{ row.name }}</span>
                 <el-tag
-                  v-if="row.id === tableStore.currentTable?.id"
+                  v-if="!row.isFolder && row.id === tableStore.currentTable?.id"
                   size="small"
                   type="primary"
                   effect="light"
                   >{{ t('view.base.currentTag') }}</el-tag
                 >
                 <el-tag
-                  v-if="row.isStarred"
+                  v-if="!row.isFolder && row.isStarred"
                   size="small"
                   type="warning"
                   effect="plain"
@@ -2570,28 +2721,63 @@ const handleDocumentExportPdf = async () => {
               {{ formatDateTime(row.updatedAt) }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('view.actions')" width="220" fixed="right">
+          <el-table-column :label="t('view.actions')" width="280" fixed="right">
             <template #default="{ row }">
-              <el-button
-                link
-                type="primary"
-                @click="
-                  handleTableSelect(row.id);
-                  showTableManager = false;
-                ">
-                {{ t('view.base.open') }}
-              </el-button>
-              <el-button link @click="openRenameTableDialog(row as TableEntity)"
-                >{{ t('view.edit') }}</el-button
-              >
-              <el-button link @click="duplicateTable(row as TableEntity)">{{ t('view.duplicate') }}</el-button>
-              <el-button link type="danger" @click="handleDeleteTable(row as TableEntity)"
-                >{{ t('view.delete') }}</el-button
-              >
+              <template v-if="row.isFolder">
+                <el-button link type="primary" @click="handleRenameFolderInManager(row as ManagerRow)">
+                  {{ t('view.edit') }}
+                </el-button>
+                <el-button link type="danger" @click="handleDeleteFolderInManager(row as ManagerRow)">
+                  {{ t('view.delete') }}
+                </el-button>
+              </template>
+              <template v-else>
+                <el-button
+                  link
+                  type="primary"
+                  @click="
+                    handleTableSelect(row.id);
+                    showTableManager = false;
+                  ">
+                  {{ t('view.base.open') }}
+                </el-button>
+                <el-button link @click="openRenameTableDialog(row as TableEntity)"
+                  >{{ t('view.edit') }}</el-button
+                >
+                <el-button link @click="openMoveFolderDialog(row as ManagerRow)">{{ t('base.moveToFolder') }}</el-button>
+                <el-button link @click="duplicateTable(row as TableEntity)">{{ t('view.duplicate') }}</el-button>
+                <el-button link type="danger" @click="handleDeleteTable(row as TableEntity)"
+                  >{{ t('view.delete') }}</el-button
+                >
+              </template>
             </template>
           </el-table-column>
         </el-table>
       </div>
+    </el-dialog>
+
+    <!-- 移动数据表到文件夹 -->
+    <el-dialog
+      v-model="moveFolderDialog.visible"
+      :title="t('base.moveToFolder')"
+      width="420px"
+      append-to-body
+      destroy-on-close>
+      <div v-if="moveFolderDialog.tableName" class="move-folder-table-name">
+        「{{ moveFolderDialog.tableName }}」
+      </div>
+      <el-select v-model="moveFolderDialog.target" style="width: 100%">
+        <el-option :label="t('base.ungrouped')" value="" />
+        <el-option
+          v-for="folder in tableStore.folders"
+          :key="folder.id"
+          :label="folder.name"
+          :value="folder.id" />
+      </el-select>
+      <template #footer>
+        <el-button @click="moveFolderDialog.visible = false">{{ t('view.cancel') }}</el-button>
+        <el-button type="primary" @click="confirmMoveFolder">{{ t('view.confirm') }}</el-button>
+      </template>
     </el-dialog>
 
     <!-- 字段管理对话框 -->
@@ -3290,10 +3476,16 @@ const handleDocumentExportPdf = async () => {
   }
 }
 
+// 移动数据表到文件夹对话框（append-to-body，样式需放在顶层）
+.move-folder-table-name {
+  margin-bottom: 12px;
+  color: $text-secondary;
+  font-weight: 600;
+}
+
 .table-manager {
   .manager-header {
     margin-bottom: 20px;
-
     .create-btn {
       padding: 0 16px;
       border-radius: 10px;
@@ -3328,7 +3520,8 @@ const handleDocumentExportPdf = async () => {
 }
 
 .table-name-cell {
-  display: flex;
+  // inline-flex：与 el-table 树形展开箭头同行排列，块级 flex 会把箭头挤到上一行
+  display: inline-flex;
   align-items: center;
   gap: 10px;
 
@@ -3341,6 +3534,17 @@ const handleDocumentExportPdf = async () => {
     background: $primary-light;
     border-radius: 8px;
     color: $primary-color;
+
+    // 文件夹行图标：柔和底色
+    &.folder-row-icon {
+      background: rgba($text-secondary, 0.08);
+      color: $text-secondary;
+    }
+  }
+
+  .folder-row-name {
+    font-weight: 600;
+    color: $text-secondary;
   }
 
   .el-tag {

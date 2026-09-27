@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useBaseStore } from "@/stores";
 import { useTableStore } from "@/stores/tableStore";
 import { dashboardService } from "@/db/services/dashboardService";
-import type { Dashboard, TableEntity, DocumentEntity } from "@/db/schema";
-import { ElMessageBox } from "element-plus";
+import type { Dashboard, TableEntity, DocumentEntity, FolderEntity } from "@/db/schema";
+import { ElMessageBox, ElMessage } from "element-plus";
 import {
   Search,
   DataAnalysis,
@@ -19,6 +19,11 @@ import {
   Plus,
   Setting,
   Upload,
+  Folder,
+  FolderOpened,
+  FolderAdd,
+  CaretRight,
+  CaretBottom,
 } from "@element-plus/icons-vue";
 import Sortable from "sortablejs";
 
@@ -64,8 +69,8 @@ const emit = defineEmits<{
   (e: "toggle-star-dashboard", dashboard: Dashboard): void;
   // 仪表盘排序变更
   (e: "reorder-dashboards", dashboardIds: string[]): void;
-  // 数据表排序变更
-  (e: "reorder-tables", evt: Sortable.SortableEvent): void;
+  // 数据表排序变更（完整 ID 顺序，由侧边栏树形分组计算）
+  (e: "reorder-tables", tableIds: string[]): void;
   // 打开仪表盘管理
   (e: "manage-dashboards"): void;
   // 打开数据表管理
@@ -127,6 +132,174 @@ const filteredTables = computed(() => {
     table.name.toLowerCase().includes(keyword),
   );
 });
+
+// ==================== 数据表文件夹 ====================
+
+const UNGROUPED_ID = "__ungrouped__";
+
+interface TableGroup {
+  id: string;
+  name: string;
+  order: number;
+  isUngrouped: boolean;
+  tables: TableEntity[];
+}
+
+// 文件夹折叠状态（持久化到 localStorage，按 base 隔离）
+const collapsedFolderIds = ref<Set<string>>(new Set());
+
+const loadFolderCollapseState = () => {
+  try {
+    const key = `st.folderCollapsed.${baseStore.currentBase?.id || ""}`;
+    const raw = localStorage.getItem(key);
+    collapsedFolderIds.value = new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    collapsedFolderIds.value = new Set();
+  }
+};
+
+const saveFolderCollapseState = () => {
+  try {
+    const key = `st.folderCollapsed.${baseStore.currentBase?.id || ""}`;
+    localStorage.setItem(key, JSON.stringify([...collapsedFolderIds.value]));
+  } catch {
+    // localStorage 不可用时忽略
+  }
+};
+
+const isFolderExpanded = (folderId: string) => {
+  // 搜索时强制展开，避免折叠导致搜索结果被隐藏
+  if (searchKeyword.value.trim()) return true;
+  return !collapsedFolderIds.value.has(folderId);
+};
+
+const toggleFolderCollapse = (folderId: string) => {
+  const next = new Set(collapsedFolderIds.value);
+  if (next.has(folderId)) {
+    next.delete(folderId);
+  } else {
+    next.add(folderId);
+  }
+  collapsedFolderIds.value = next;
+  saveFolderCollapseState();
+};
+
+// 树形分组：文件夹在上（按 order 排序），未分组沉底
+const tableGroups = computed<TableGroup[]>(() => {
+  const folderList = [...tableStore.folders].sort((a, b) => a.order - b.order);
+  const groups: TableGroup[] = folderList.map((f) => ({
+    id: f.id,
+    name: f.name,
+    order: f.order,
+    isUngrouped: false,
+    tables: filteredTables.value.filter((t) => t.folderId === f.id),
+  }));
+  // 未分组：folderId 为空，或指向已不存在的文件夹（防御）
+  groups.push({
+    id: UNGROUPED_ID,
+    name: "",
+    order: Number.MAX_SAFE_INTEGER,
+    isUngrouped: true,
+    tables: filteredTables.value.filter(
+      (t) => !t.folderId || !folderList.some((f) => f.id === t.folderId),
+    ),
+  });
+  return groups;
+});
+
+// 搜索时隐藏空文件夹组（无匹配项），未分组组始终显示
+const visibleTableGroups = computed(() => {
+  const isSearching = !!searchKeyword.value.trim();
+  return tableGroups.value.filter(
+    (g) => g.isUngrouped || !isSearching || g.tables.length > 0,
+  );
+});
+
+const folderById = computed(() => {
+  const map: Record<string, FolderEntity> = {};
+  for (const f of tableStore.folders) {
+    map[f.id] = f;
+  }
+  return map;
+});
+
+// 新建文件夹
+const handleCreateFolder = async () => {
+  if (!baseStore.currentBase) return;
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t("base.folderNamePrompt"),
+      t("base.createFolder"),
+      {
+        confirmButtonText: t("common.confirm"),
+        cancelButtonText: t("common.cancel"),
+        inputPattern: /\S+/,
+        inputErrorMessage: t("base.folderNameRequired"),
+      },
+    );
+    await tableStore.createFolder(baseStore.currentBase.id, value.trim());
+  } catch {
+    // 用户取消
+  }
+};
+
+// 重命名文件夹
+const handleRenameFolder = async (folder: FolderEntity) => {
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t("base.folderNamePrompt"),
+      t("base.renameFolder"),
+      {
+        confirmButtonText: t("common.confirm"),
+        cancelButtonText: t("common.cancel"),
+        inputValue: folder.name,
+        inputPattern: /\S+/,
+        inputErrorMessage: t("base.folderNameRequired"),
+      },
+    );
+    await tableStore.renameFolder(folder.id, value.trim());
+  } catch {
+    // 用户取消
+  }
+};
+
+// 删除文件夹（仅空文件夹可删）
+const handleDeleteFolder = async (folder: FolderEntity) => {
+  const count = tableStore.tables.filter((tb) => tb.folderId === folder.id).length;
+  if (count > 0) {
+    ElMessage.warning(t("base.folderNotEmpty"));
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t("base.deleteFolderConfirm", { name: folder.name }),
+      t("sidebar.deleteTitle"),
+      {
+        confirmButtonText: t("common.delete"),
+        cancelButtonText: t("common.cancel"),
+        type: "warning",
+      },
+    );
+    await tableStore.deleteFolder(folder.id);
+  } catch {
+    // 用户取消
+  }
+};
+
+// 移动数据表到文件夹（folderId 为 null 表示移出文件夹）
+const handleMoveTableToFolder = async (table: TableEntity, folderId: string | null) => {
+  if ((table.folderId ?? null) === folderId) return;
+  await tableStore.moveTableToFolder(table.id, folderId);
+};
+
+// 数据表下拉菜单命令分发
+const handleTableCommand = (cmd: string, table: TableEntity) => {
+  if (cmd === "rename") handleRenameTable(table);
+  else if (cmd === "delete") handleDeleteTable(table);
+  else if (cmd === "star") handleToggleStar(table);
+  else if (cmd === "move:out") handleMoveTableToFolder(table, null);
+  else if (cmd.startsWith("move:")) handleMoveTableToFolder(table, cmd.slice(5));
+};
 
 // 排序后的仪表盘列表（收藏的置顶）
 const sortedDashboards = computed(() => {
@@ -356,20 +529,97 @@ const initDashboardSortable = () => {
   });
 };
 
-// 初始化数据表拖拽排序
+// 数据表拖拽：树形分组后 .table-item 嵌套在各分组容器内，
+// 外层单实例无法对非直接子元素排序，需为每个 .folder-tables 建独立实例，
+// 并用同名 group 联动支持跨文件夹/未分组拖动
+let tableSortables: Sortable[] = [];
+const destroyTableSortables = () => {
+  tableSortables.forEach((s) => s.destroy());
+  tableSortables = [];
+};
+
+// 初始化数据表拖拽排序（组内拖拽 + 跨文件夹拖动）
 const initTableSortable = () => {
   if (!tableListRef.value) return;
+  destroyTableSortables();
 
-  Sortable.create(tableListRef.value, {
-    handle: ".drag-handle",
-    animation: 150,
-    onEnd: (evt) => {
-      if (evt.oldIndex === evt.newIndex) return;
-      // 数据表排序由父组件处理
-      emit("reorder-tables", evt);
-    },
+  const containers = tableListRef.value.querySelectorAll<HTMLElement>(
+    ".folder-tables",
+  );
+  containers.forEach((container) => {
+    tableSortables.push(
+      Sortable.create(container, {
+        handle: ".drag-handle",
+        draggable: ".table-item",
+        group: "tables",
+        animation: 150,
+        onEnd: async (evt) => {
+      const itemEl = evt.item as HTMLElement;
+      const draggedId = itemEl.dataset.tableId;
+      if (!draggedId) return;
+
+      // 先捕获目标分组信息（此时 Sortable 已把 item 物理移入目标容器）
+      const groupContainer = itemEl.closest(".folder-tables") as HTMLElement | null;
+      const rawFolderId = groupContainer?.dataset.folderId;
+      const targetFolderId =
+        !rawFolderId || rawFolderId === UNGROUPED_ID ? null : rawFolderId;
+
+      const groupEls = Array.from(
+        groupContainer?.querySelectorAll(".table-item") ?? [],
+      ) as HTMLElement[];
+      const groupIds = groupEls
+        .map((el) => el.dataset.tableId)
+        .filter((id): id is string => !!id);
+
+      // 把被 Sortable 移动的 DOM 还原到拖拽前位置，
+      // 避免外部 DOM 变更与 Vue diff 冲突（__vnode null 报错），渲染交给响应式更新
+      if (evt.from && evt.oldIndex != null) {
+        const ref = evt.from.children[evt.oldIndex] ?? null;
+        if (ref !== itemEl) {
+          evt.from.insertBefore(itemEl, ref);
+        }
+      }
+
+      // 跨文件夹移动：同步更新 folderId，否则刷新后表会弹回原文件夹
+      const dragged = tableStore.tables.find((tb) => tb.id === draggedId);
+      const folderChanged =
+        !!dragged && (dragged.folderId ?? null) !== targetFolderId;
+
+      if (evt.oldIndex === evt.newIndex && !folderChanged) return;
+
+      if (folderChanged) {
+        await tableStore.moveTableToFolder(draggedId, targetFolderId);
+      }
+
+      // 组内顺序未变化时跳过
+      const groupIdSet = new Set(groupIds);
+      const originalIds = tableStore.tables
+        .filter((tb) => groupIdSet.has(tb.id))
+        .map((tb) => tb.id);
+      if (groupIds.join() === originalIds.join()) return;
+
+      // 重建全局顺序：该组成员按目标组 DOM 新顺序，其余保持不变
+      const fullOrder: string[] = [];
+      let gi = 0;
+      for (const tb of tableStore.tables) {
+        fullOrder.push(groupIdSet.has(tb.id) ? groupIds[gi++] : tb.id);
+      }
+
+      emit("reorder-tables", fullOrder);
+        },
+      }),
+    );
   });
 };
+
+// 分组渲染变化（文件夹加载/增删、搜索过滤）后重建拖拽实例
+watch(visibleTableGroups, () => {
+  nextTick(() => initTableSortable());
+});
+
+onBeforeUnmount(() => {
+  destroyTableSortables();
+});
 
 // 监听base变化，重新加载仪表盘和文档
 watch(
@@ -377,12 +627,14 @@ watch(
   () => {
     loadDashboards();
     loadDocuments();
+    loadFolderCollapseState();
   },
 );
 
 onMounted(() => {
   loadDashboards();
   loadDocuments();
+  loadFolderCollapseState();
   // 延迟初始化拖拽，确保DOM已渲染
   setTimeout(() => {
     initDashboardSortable();
@@ -618,7 +870,7 @@ defineExpose({
       "
       class="section-divider"></div>
 
-    <!-- 数据表列表 -->
+    <!-- 数据表列表（树形分组：文件夹在上，未分组沉底） -->
     <div
       v-if="showTables !== false && filteredTables.length > 0"
       class="table-section">
@@ -629,19 +881,30 @@ defineExpose({
           ></span
         >
 
-        <el-button
-          v-if="(isTableView || isDefaultView) && canManage !== false"
-          link
-          class="manage-btn"
-          @click.stop="handleManageTables">
-          <el-icon><Setting /></el-icon>
-        </el-button>
+        <div class="title-actions">
+          <el-button
+            v-if="canManage !== false"
+            link
+            class="manage-btn"
+            :title="t('base.createFolder')"
+            @click.stop="handleCreateFolder">
+            <el-icon><FolderAdd /></el-icon>
+          </el-button>
+          <el-button
+            v-if="(isTableView || isDefaultView) && canManage !== false"
+            link
+            class="manage-btn"
+            @click.stop="handleManageTables">
+            <el-icon><Setting /></el-icon>
+          </el-button>
+        </div>
       </div>
       <div ref="tableListRef" class="table-list">
-        <template v-for="table in filteredTables" :key="table.id">
-          <!-- 收缩状态下的表格项（带Tooltip） -->
+        <!-- 收缩状态：平铺图标 -->
+        <template v-if="isCollapsed">
           <el-tooltip
-            v-if="isCollapsed"
+            v-for="table in filteredTables"
+            :key="table.id"
             :content="table.name"
             placement="right"
             :show-after="300">
@@ -652,57 +915,201 @@ defineExpose({
               <el-icon class="table-icon"><Document /></el-icon>
             </div>
           </el-tooltip>
-          <!-- 展开状态下的表格项 -->
-          <div
-            v-else
-            class="table-item"
-            :class="{ active: activeTableId === table.id }"
-            @click="handleTableClick(table.id)">
-            <span class="drag-handle" @click.stop>
-              <el-icon><Rank /></el-icon>
-            </span>
-            <el-icon class="table-icon"><Document /></el-icon>
-            <span class="table-name">{{ table.name }}</span>
-            <span v-if="table.isStarred" class="star-icon">
-              <el-icon><StarFilled /></el-icon>
-            </span>
-            <el-dropdown
-              trigger="click"
-              @command="
-                (cmd) => {
-                  if (cmd === 'rename') handleRenameTable(table);
-                  else if (cmd === 'delete') handleDeleteTable(table);
-                  else if (cmd === 'star') handleToggleStar(table);
-                }
-              "
-              @click.stop>
-              <span class="more-icon" @click.stop>
-                <el-icon><MoreFilled /></el-icon>
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-if="canManage !== false"
-                    command="rename">
-                    <el-icon><Edit /></el-icon>{{ t('common.rename') }}
-                  </el-dropdown-item>
-                  <el-dropdown-item command="star">
-                    <el-icon
-                      ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
-                    /></el-icon>
-                    {{ table.isStarred ? t('sidebar.unstar') : t('sidebar.star') }}
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    v-if="canManage !== false"
-                    divided
-                    command="delete"
-                    class="delete-item">
-                    <el-icon><Delete /></el-icon>{{ t('common.delete') }}
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
+        </template>
+        <!-- 展开状态：树形分组 -->
+        <template v-else>
+          <template v-for="group in visibleTableGroups" :key="group.id">
+            <!-- 文件夹组 -->
+            <div v-if="!group.isUngrouped" class="folder-block">
+              <div
+                class="folder-header"
+                @click.stop="toggleFolderCollapse(group.id)">
+                <el-icon class="folder-arrow">
+                  <CaretBottom v-if="isFolderExpanded(group.id)" />
+                  <CaretRight v-else />
+                </el-icon>
+                <el-icon class="folder-icon"><Folder /></el-icon>
+                <span class="folder-name">{{ group.name }}</span>
+                <span class="folder-count">({{ group.tables.length }})</span>
+                <el-dropdown
+                  v-if="canManage !== false"
+                  trigger="click"
+                  popper-class="table-cmd-popper"
+                  @command="
+                    (cmd) => {
+                      if (cmd === 'rename') handleRenameFolder(folderById[group.id]);
+                      else if (cmd === 'delete') handleDeleteFolder(folderById[group.id]);
+                    }
+                  "
+                  @click.stop>
+                  <span class="more-icon" @click.stop>
+                    <el-icon><MoreFilled /></el-icon>
+                  </span>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="rename">
+                        <el-icon><Edit /></el-icon>{{ t('common.rename') }}
+                      </el-dropdown-item>
+                      <el-dropdown-item
+                        divided
+                        command="delete"
+                        class="delete-item">
+                        <el-icon><Delete /></el-icon>{{ t('common.delete') }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+              <div
+                v-show="isFolderExpanded(group.id)"
+                class="folder-tables"
+                :data-folder-id="group.id">
+                <div
+                  v-for="table in group.tables"
+                  :key="table.id"
+                  class="table-item"
+                  :class="{ active: activeTableId === table.id }"
+                  :data-table-id="table.id"
+                  @click="handleTableClick(table.id)">
+                  <span class="drag-handle" @click.stop>
+                    <el-icon><Rank /></el-icon>
+                  </span>
+                  <el-icon class="table-icon"><Document /></el-icon>
+                  <span class="table-name">{{ table.name }}</span>
+                  <span v-if="table.isStarred" class="star-icon">
+                    <el-icon><StarFilled /></el-icon>
+                  </span>
+                  <el-dropdown
+                    trigger="click"
+                    popper-class="table-cmd-popper"
+                    @command="(cmd) => handleTableCommand(cmd, table)"
+                    @click.stop>
+                    <span class="more-icon" @click.stop>
+                      <el-icon><MoreFilled /></el-icon>
+                    </span>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item
+                          v-if="canManage !== false"
+                          command="rename">
+                          <el-icon><Edit /></el-icon>{{ t('common.rename') }}
+                        </el-dropdown-item>
+                        <template
+                          v-if="canManage !== false && tableStore.folders.length > 0">
+                          <el-dropdown-item divided disabled>
+                            <el-icon><Folder /></el-icon>{{ t('base.moveToFolder') }}
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            v-for="folder in tableStore.folders"
+                            :key="folder.id"
+                            class="folder-option"
+                            :command="`move:${folder.id}`"
+                            :disabled="table.folderId === folder.id">
+                            <el-icon><Folder /></el-icon>{{ folder.name }}
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            v-if="table.folderId"
+                            command="move:out"
+                            divided>
+                            <el-icon><FolderOpened /></el-icon>{{ t('base.moveOutFolder') }}
+                          </el-dropdown-item>
+                        </template>
+                        <el-dropdown-item command="star">
+                          <el-icon
+                            ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
+                          /></el-icon>
+                          {{ table.isStarred ? t('sidebar.unstar') : t('sidebar.star') }}
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          v-if="canManage !== false"
+                          divided
+                          command="delete"
+                          class="delete-item">
+                          <el-icon><Delete /></el-icon>{{ t('common.delete') }}
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+                <div v-if="group.tables.length === 0" class="folder-empty">
+                  {{ t('base.folderEmpty') }}
+                </div>
+              </div>
+            </div>
+            <!-- 未分组 -->
+            <div
+              v-else
+              class="folder-tables ungrouped"
+              data-folder-id="__ungrouped__">
+              <div
+                v-for="table in group.tables"
+                :key="table.id"
+                class="table-item"
+                :class="{ active: activeTableId === table.id }"
+                :data-table-id="table.id"
+                @click="handleTableClick(table.id)">
+                <span class="drag-handle" @click.stop>
+                  <el-icon><Rank /></el-icon>
+                </span>
+                <el-icon class="table-icon"><Document /></el-icon>
+                <span class="table-name">{{ table.name }}</span>
+                <span v-if="table.isStarred" class="star-icon">
+                  <el-icon><StarFilled /></el-icon>
+                </span>
+                <el-dropdown
+                    trigger="click"
+                    popper-class="table-cmd-popper"
+                    @command="(cmd) => handleTableCommand(cmd, table)"
+                    @click.stop>
+                  <span class="more-icon" @click.stop>
+                    <el-icon><MoreFilled /></el-icon>
+                  </span>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-if="canManage !== false"
+                        command="rename">
+                        <el-icon><Edit /></el-icon>{{ t('common.rename') }}
+                      </el-dropdown-item>
+                      <template
+                        v-if="canManage !== false && tableStore.folders.length > 0">
+                        <el-dropdown-item divided disabled>
+                          <el-icon><Folder /></el-icon>{{ t('base.moveToFolder') }}
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          v-for="folder in tableStore.folders"
+                          :key="folder.id"
+                          class="folder-option"
+                          :command="`move:${folder.id}`"
+                          :disabled="table.folderId === folder.id">
+                          <el-icon><Folder /></el-icon>{{ folder.name }}
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          v-if="table.folderId"
+                          command="move:out"
+                          divided>
+                          <el-icon><FolderOpened /></el-icon>{{ t('base.moveOutFolder') }}
+                        </el-dropdown-item>
+                      </template>
+                      <el-dropdown-item command="star">
+                        <el-icon
+                          ><component :is="table.isStarred ? 'Star' : 'StarFilled'"
+                        /></el-icon>
+                        {{ table.isStarred ? t('sidebar.unstar') : t('sidebar.star') }}
+                      </el-dropdown-item>
+                      <el-dropdown-item
+                        v-if="canManage !== false"
+                        divided
+                        command="delete"
+                        class="delete-item">
+                        <el-icon><Delete /></el-icon>{{ t('common.delete') }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </div>
+          </template>
         </template>
       </div>
     </div>
@@ -926,7 +1333,7 @@ defineExpose({
 }
 
 .section-title {
-  padding: $spacing-sm $spacing-lg;
+  padding: $spacing-sm $spacing-md;
   font-size: $font-size-xs;
   font-weight: 600;
   color: $text-secondary;
@@ -991,7 +1398,7 @@ defineExpose({
 .document-item {
   display: flex;
   align-items: center;
-  padding: $spacing-sm $spacing-lg;
+  padding: $spacing-xs $spacing-sm;
   cursor: pointer;
   transition: all $transition-fast;
   gap: $spacing-sm;
@@ -1076,6 +1483,99 @@ defineExpose({
   }
 }
 
+// 文件夹（树形分组）
+.title-actions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+
+  .manage-btn {
+    margin-left: 0;
+  }
+}
+
+.folder-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-lg;
+  cursor: pointer;
+  gap: $spacing-xs;
+  border-radius: 0 $border-radius-md $border-radius-md 0;
+  margin-right: $spacing-sm;
+  transition: all $transition-fast;
+  user-select: none;
+
+  &:hover {
+    background-color: $gray-100;
+
+    .more-icon {
+      opacity: 1;
+    }
+  }
+
+  .folder-arrow {
+    color: $text-secondary;
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+
+  .folder-icon {
+    color: $text-secondary;
+    flex-shrink: 0;
+  }
+
+  .folder-name {
+    flex: 1;
+    min-width: 0;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $text-secondary;
+    @include text-ellipsis;
+  }
+
+  .folder-count {
+    flex-shrink: 0;
+    font-size: $font-size-xs;
+    color: $text-disabled;
+  }
+}
+
+.folder-tables {
+  display: flex;
+  flex-direction: column;
+  // 文件夹内的表整体缩进，与未分组表形成层级对比
+  padding-left: $spacing-lg;
+
+  &.ungrouped {
+    margin-top: $spacing-xs;
+    padding-left: 0;
+
+    // 未分组的表靠左，左侧空白更小
+    .table-item {
+      padding-left: $spacing-md;
+    }
+  }
+}
+
+.folder-empty {
+  padding: $spacing-xs $spacing-md;
+  font-size: $font-size-xs;
+  color: $text-disabled;
+  font-style: italic;
+}
+
+// 数据表区行距更紧凑：减小行与行、文件夹头与表之间的间隔
+.table-item,
+.folder-header {
+  padding-top: $spacing-xs;
+  padding-bottom: $spacing-xs;
+}
+
 .table-icon,
 .dashboard-icon,
 .document-icon {
@@ -1147,5 +1647,13 @@ defineExpose({
 // 下拉菜单样式
 :deep(.delete-item) {
   color: $error-color;
+}
+</style>
+
+<style lang="scss">
+// 右键下拉菜单内容经 popper teleport 到 body，scoped 样式无法命中，
+// 通过 popper-class 在全局作用域定位（「移动到文件夹」的可选列表缩进）
+.table-cmd-popper .el-dropdown-menu__item.folder-option {
+  padding-left: 36px;
 }
 </style>

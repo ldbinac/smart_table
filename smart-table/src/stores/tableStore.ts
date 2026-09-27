@@ -1,11 +1,18 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { tableService } from "../db/services/tableService";
+import { folderService, FolderNotEmptyError } from "../db/services/folderService";
 import { fieldService } from "../db/services/fieldService";
 import { recordService } from "../db/services/recordService";
 import { viewService } from "../db/services/viewService";
 import { db } from "../db/schema";
-import type { TableEntity, FieldEntity, RecordEntity, ViewEntity } from "../db/schema";
+import type {
+  TableEntity,
+  FieldEntity,
+  RecordEntity,
+  ViewEntity,
+  FolderEntity,
+} from "../db/schema";
 import type { CellValue } from "../types";
 import type { FieldOptions } from "../types/fields";
 import { FieldType } from "../types/fields";
@@ -32,6 +39,7 @@ function toTimestamp(value: unknown): number {
 
 export const useTableStore = defineStore("table", () => {
   const tables = ref<TableEntity[]>([]);
+  const folders = ref<FolderEntity[]>([]);
   const currentTable = ref<TableEntity | null>(null);
   const fields = ref<FieldEntity[]>([]);
   const views = ref<ViewEntity[]>([]);
@@ -254,6 +262,65 @@ export const useTableStore = defineStore("table", () => {
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to toggle star";
     }
+  }
+
+  // ==================== 文件夹（数据表分组） ====================
+
+  async function loadFolders(baseId: string) {
+    try {
+      folders.value = await folderService.getFoldersByBase(baseId);
+      return folders.value;
+    } catch (e) {
+      console.error("[tableStore] loadFolders failed:", e);
+      return [];
+    }
+  }
+
+  async function createFolder(baseId: string, name: string) {
+    try {
+      const folder = await folderService.createFolder(baseId, name);
+      folders.value.push(folder);
+      return folder;
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : "Failed to create folder";
+      return null;
+    }
+  }
+
+  async function renameFolder(id: string, name: string) {
+    try {
+      await folderService.updateFolder(id, { name });
+      const index = folders.value.findIndex((f) => f.id === id);
+      if (index !== -1) {
+        folders.value[index] = { ...folders.value[index], name, updatedAt: Date.now() };
+      }
+      return true;
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : "Failed to rename folder";
+      return false;
+    }
+  }
+
+  async function deleteFolder(id: string) {
+    try {
+      await folderService.deleteFolder(id);
+      folders.value = folders.value.filter((f) => f.id !== id);
+      return true;
+    } catch (e) {
+      if (e instanceof FolderNotEmptyError) {
+        error.value = "folder_not_empty";
+      } else {
+        error.value = e instanceof Error ? e.message : "Failed to delete folder";
+      }
+      return false;
+    }
+  }
+
+  /**
+   * 移动表格到文件夹（folderId 为 null 表示移出文件夹/未分组）
+   */
+  async function moveTableToFolder(tableId: string, folderId: string | null) {
+    await updateTable(tableId, { folderId });
   }
 
   async function createField(data: {
@@ -642,6 +709,7 @@ export const useTableStore = defineStore("table", () => {
 
   return {
     tables,
+    folders,
     currentTable,
     fields,
     views,
@@ -658,6 +726,11 @@ export const useTableStore = defineStore("table", () => {
     deleteTable,
     reorderTables,
     toggleStarTable,
+    loadFolders,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    moveTableToFolder,
     createField,
     updateField,
     deleteField,

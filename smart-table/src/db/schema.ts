@@ -22,6 +22,17 @@ export interface TableEntity {
   recordCount: number;
   order: number;
   isStarred: boolean;
+  /** 所属文件夹 ID（null 表示未分组） */
+  folderId?: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface FolderEntity {
+  id: string;
+  baseId: string;
+  name: string;
+  order: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -192,6 +203,7 @@ class SmartTableDB extends Dexie {
   dashboardShares!: DexieTable<DashboardShare>;
   documents!: DexieTable<DocumentEntity>;
   cacheMeta!: DexieTable<CacheMeta>;
+  tableFolderEntities!: DexieTable<FolderEntity>;
 
   constructor() {
     super("SmartTableDB");
@@ -226,6 +238,12 @@ class SmartTableDB extends Dexie {
           };
         }
       });
+    });
+
+    // v11：数据表文件夹（tableEntities 加 folderId 索引 + 新表 tableFolderEntities）
+    this.version(11).stores({
+      tableEntities: "id, baseId, name, order, updatedAt, isStarred, folderId",
+      tableFolderEntities: "id, baseId, name, order, updatedAt",
     });
   }
 }

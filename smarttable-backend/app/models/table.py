@@ -57,6 +57,12 @@ class Table(db.Model):
         ForeignKey('fields.id', ondelete='SET NULL', use_alter=True),
         nullable=True
     )
+    # 所属文件夹（可空，null 表示未分组）；单层分组，不加 DB 级外键（tables 被多表外键引用，SQLite batch 重建有依赖风险）
+    folder_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -126,6 +132,7 @@ class Table(db.Model):
             'description': self.description,
             'order': self.order,
             'primary_field_id': str(self.primary_field_id) if self.primary_field_id else None,
+            'folder_id': str(self.folder_id) if self.folder_id else None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

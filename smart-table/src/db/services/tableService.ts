@@ -30,6 +30,7 @@ export class TableService {
         recordCount: apiData.record_count || 0,
         order: apiData.order ?? 0,
         isStarred: apiData.is_starred || false,
+        folderId: apiData.folder_id ?? null,
         createdAt: new Date(apiData.created_at).getTime(),
         updatedAt: new Date(apiData.updated_at).getTime(),
       };
@@ -120,6 +121,7 @@ export class TableService {
             recordCount: tableData.record_count || 0,
             order: tableData.order ?? 0,
             isStarred: tableData.is_starred || false,
+            folderId: tableData.folder_id ?? null,
             createdAt: new Date(tableData.created_at).getTime(),
             updatedAt: new Date(tableData.updated_at).getTime(),
           };
@@ -137,14 +139,22 @@ export class TableService {
 
   async updateTable(id: string, changes: Partial<TableEntity>): Promise<void> {
     try {
-      // 先调用后端 API 更新表格
-      await tableApiService.updateTable(id, changes as any);
+      // folderId（camelCase）转换为后端 folder_id（snake_case），null 表示移出文件夹
+      const { folderId, ...rest } = changes;
+      const apiChanges: Record<string, unknown> = { ...rest };
+      if (folderId !== undefined) {
+        apiChanges.folder_id = folderId;
+      }
 
-      // 再更新本地 IndexedDB
-      await db.tableEntities.update(id, {
-        ...changes,
-        updatedAt: Date.now(),
-      });
+      // 先调用后端 API 更新表格
+      await tableApiService.updateTable(id, apiChanges as any);
+
+      // 再更新本地 IndexedDB（folderId 需显式写 null，Dexie update 传 undefined 会删键）
+      const localChanges: Partial<TableEntity> = { ...rest, updatedAt: Date.now() };
+      if (folderId !== undefined) {
+        localChanges.folderId = folderId;
+      }
+      await db.tableEntities.update(id, localChanges);
     } catch (error) {
       console.error("[tableService] updateTable failed:", error);
       throw error;
@@ -242,6 +252,7 @@ export class TableService {
         recordCount: dupData.record_count || 0,
         order: dupData.order ?? 0,
         isStarred: dupData.is_starred || false,
+        folderId: dupData.folder_id ?? null,
         createdAt: new Date(dupData.created_at).getTime(),
         updatedAt: new Date(dupData.updated_at).getTime(),
       };

@@ -101,5 +101,15 @@
   "tableDeleteConfirm": "Are you sure you want to delete the table “{0}”? This will delete all data in the table, including fields, records and views, and cannot be undone.",
   "dashboardUpdated": "Dashboard updated successfully",
   "dashboardDeleted": "Dashboard deleted successfully",
-  "dashboardDeleteConfirm": "Are you sure you want to delete the dashboard “{0}”?"
+  "dashboardDeleteConfirm": "Are you sure you want to delete the dashboard “{0}”?",
+  "createFolder": "New Folder",
+  "renameFolder": "Rename Folder",
+  "folderNamePrompt": "Enter folder name",
+  "folderNameRequired": "Folder name cannot be empty",
+  "folderNotEmpty": "Folder is not empty. Only empty folders can be deleted",
+  "deleteFolderConfirm": "Are you sure you want to delete the folder “{name}”?",
+  "moveToFolder": "Move to Folder",
+  "moveOutFolder": "Remove from Folder",
+  "folderEmpty": "Empty folder",
+  "ungrouped": "Ungrouped"
 }

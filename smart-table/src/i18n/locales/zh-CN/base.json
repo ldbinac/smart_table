@@ -101,5 +101,15 @@
   "tableDeleteConfirm": "确定要删除数据表“{0}”吗？此操作将删除该表中的所有数据，包括字段、记录和视图，且无法恢复。",
   "dashboardUpdated": "仪表盘更新成功",
   "dashboardDeleted": "仪表盘删除成功",
-  "dashboardDeleteConfirm": "确定要删除仪表盘“{0}”吗？"
+  "dashboardDeleteConfirm": "确定要删除仪表盘“{0}”吗？",
+  "createFolder": "新建文件夹",
+  "renameFolder": "重命名文件夹",
+  "folderNamePrompt": "请输入文件夹名称",
+  "folderNameRequired": "文件夹名称不能为空",
+  "folderNotEmpty": "文件夹不为空，仅空文件夹可删除",
+  "deleteFolderConfirm": "确定要删除文件夹“{name}”吗？",
+  "moveToFolder": "移动到文件夹",
+  "moveOutFolder": "移出文件夹",
+  "folderEmpty": "空文件夹",
+  "ungrouped": "不分组"
 }

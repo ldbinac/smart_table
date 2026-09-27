@@ -1,5 +1,6 @@
 export { baseService, BaseService, type CreateBaseData } from './baseService';
 export { tableService, TableService, type CreateTableData } from './tableService';
+export { folderService, FolderService, FolderNotEmptyError } from './folderService';
 export {
   fieldService,
   FieldService,

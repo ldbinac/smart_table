@@ -180,8 +180,8 @@ class TableService:
         if not table:
             return None
         
-        # 允许更新的字段
-        allowed_fields = ['name', 'description']
+        # 允许更新的字段（folder_id：所属文件夹，None 表示未分组）
+        allowed_fields = ['name', 'description', 'folder_id']
         
         for field in allowed_fields:
             if field in data:

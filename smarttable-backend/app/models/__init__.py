@@ -5,6 +5,7 @@ from app.models.user import User, TokenBlocklist
 from app.models.base import Base, BaseMember, MemberRole
 from app.models.base_share import BaseShare, SharePermission
 from app.models.table import Table
+from app.models.table_folder import TableFolder
 from app.models.field import Field
 from app.models.record import Record
 from app.models.record_history import RecordHistory, HistoryAction
@@ -76,6 +77,7 @@ __all__ = [
     'BaseShare',
     'SharePermission',
     'Table',
+    'TableFolder',
     'Field',
     'Record',
     'RecordHistory',
