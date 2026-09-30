@@ -14,6 +14,7 @@ from app.models.field import Field, FieldType
 from app.models.view import View, ViewType
 from app.models.base import Base, MemberRole
 from app.services.base_service import BaseService
+from app.services.formula_service import FormulaService
 from app.services.collaboration_service import CollaborationService
 from app.i18n import translate
 from flask import current_app
@@ -179,7 +180,10 @@ class TableService:
         table = Table.query.get(table_id)
         if not table:
             return None
-        
+
+        # 表名变更影响整列引用按表名匹配
+        FormulaService.invalidate_table_context_cache(table_id=str(table_id))
+
         # 允许更新的字段（folder_id：所属文件夹，None 表示未分组）
         allowed_fields = ['name', 'description', 'folder_id']
         
@@ -219,6 +223,8 @@ class TableService:
 
         saved_base_id = str(table.base_id)
         saved_table_id = str(table.id)
+        # 表删除影响同 Base 引用它的整列上下文
+        FormulaService.invalidate_table_context_cache(base_id=saved_base_id)
         
         try:
             db.session.delete(table)

@@ -1153,4 +1153,115 @@ describe("Edge Cases", () => {
       expect(numericResult).toBeLessThanOrEqual(11);
     });
   });
+
+  describe("Column References & Statistical Functions (P1)", () => {
+    // 全表记录集（3 行）
+    const allRecords: RecordEntity[] = [
+      {
+        id: "rec1",
+        tableId: "t1",
+        values: { price: 100, name: "A", quantity: 2 },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      {
+        id: "rec2",
+        tableId: "t1",
+        values: { price: 200, name: "B" },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      {
+        id: "rec3",
+        tableId: "t1",
+        values: { price: 300, name: "A" },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+    ];
+
+    const tableName = "销售表";
+    const tableContext = {
+      tableName,
+      tables: new Map([
+        [tableName.toLowerCase(), { fields: mockFields, records: allRecords }],
+      ]),
+    };
+    const ctxEngine = new FormulaEngine(mockFields, tableContext);
+    const bareEngine = new FormulaEngine(mockFields);
+
+    const currentRecord: RecordEntity = {
+      id: "rec1",
+      tableId: "t1",
+      values: { price: 100, name: "A" },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    it("should expand column reference to array and aggregate with SUM", () => {
+      // 100 + 200 + 300
+      const result = ctxEngine.calculate(currentRecord, `SUM([${tableName}].[Price])`);
+      expect(result).toBe(600);
+    });
+
+    it("COUNTIF with string criteria", () => {
+      const result = ctxEngine.calculate(currentRecord, `COUNTIF([${tableName}].[Price], ">100")`);
+      expect(result).toBe(2);
+    });
+
+    it("COUNTIF with CurrentValue lazy criteria", () => {
+      const result = ctxEngine.calculate(currentRecord, `COUNTIF([${tableName}].[Price], CurrentValue>100)`);
+      expect(result).toBe(2);
+    });
+
+    it("SUMIF with CurrentValue string equality and separate sum column", () => {
+      // name 为 A 的两行 price：100 + 300
+      const result = ctxEngine.calculate(currentRecord, `SUMIF([${tableName}].[Name], CurrentValue="A", [${tableName}].[Price])`);
+      expect(result).toBe(400);
+    });
+
+    it("AVERAGEIF with CurrentValue comparison", () => {
+      // price <= 200 的两行：(100+200)/2
+      const result = ctxEngine.calculate(currentRecord, `AVERAGEIF([${tableName}].[Price], CurrentValue<=200)`);
+      expect(result).toBe(150);
+    });
+
+    it("SUM nested over FILTER with CurrentValue criteria", () => {
+      // FILTER 出 >100 的 [200,300]，再求和
+      const result = ctxEngine.calculate(currentRecord, `SUM(FILTER([${tableName}].[Price], CurrentValue>100))`);
+      expect(result).toBe(500);
+    });
+
+    it("COUNTIF with CurrentValue string equality", () => {
+      const result = ctxEngine.calculate(currentRecord, `COUNTIF([${tableName}].[Name], CurrentValue="A")`);
+      expect(result).toBe(2);
+    });
+
+    it("should degrade to null when table context is missing", () => {
+      // 无 tableContext：整列引用退化为 null → COUNTIF 计 0（null 不满足 >100）
+      const result = bareEngine.calculate(currentRecord, `COUNTIF([${tableName}].[Price], ">100")`);
+      expect(result).toBe(0);
+    });
+
+    it("should be case-insensitive on table and field names", () => {
+      const result = ctxEngine.calculate(currentRecord, `SUM([销售表].[price])`);
+      expect(result).toBe(600);
+    });
+
+    it("validateFormula should reject unknown table/column when context present", () => {
+      expect(ctxEngine.validateFormula(`SUM([不存在的表].[Price])`).valid).toBe(false);
+      expect(ctxEngine.validateFormula(`SUM([${tableName}].[NotAField])`).valid).toBe(false);
+      expect(ctxEngine.validateFormula(`SUM([${tableName}].[Price])`).valid).toBe(true);
+    });
+
+    it("validateFormula should skip column checks without context", () => {
+      expect(bareEngine.validateFormula(`SUM([任意表].[Price])`).valid).toBe(true);
+    });
+
+    it("inferResultType should treat statistical functions as number", () => {
+      expect(FormulaEngine.inferResultType(`COUNTIF([${tableName}].[Price], ">100")`)).toBe("number");
+      expect(FormulaEngine.inferResultType(`SUMIF([${tableName}].[Price], ">100")`)).toBe("number");
+      expect(FormulaEngine.inferResultType(`AVERAGEIF([${tableName}].[Price], ">100")`)).toBe("number");
+    });
+  });
 });

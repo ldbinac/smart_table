@@ -115,6 +115,7 @@ export class RecordService {
         id: apiRecord.id,
         tableId: data.tableId,
         values: apiRecord.values as Record<string, CellValue>,
+        computed_values: (apiRecord as any).computed_values ?? undefined,
         createdAt: new Date(apiRecord.created_at).getTime(),
         updatedAt: new Date(apiRecord.updated_at).getTime(),
         createdBy: apiRecord.created_by,
@@ -199,6 +200,7 @@ export class RecordService {
             id: apiRecord.id,
             tableId: apiRecord.table_id || tableId,
             values: apiRecord.values as Record<string, CellValue>,
+            computed_values: apiRecord.computed_values ?? undefined,
             createdAt: new Date(apiRecord.created_at).getTime(),
             updatedAt: new Date(apiRecord.updated_at).getTime(),
             createdBy: apiRecord.created_by,
@@ -370,6 +372,7 @@ export class RecordService {
         id: item.id,
         tableId,
         values: deserializeRecordValues(item.values as Record<string, CellValue>),
+        computed_values: item.computed_values ?? undefined,
         createdAt: new Date(item.created_at).getTime(),
         updatedAt: new Date(item.updated_at).getTime(),
         createdBy: item.created_by,
@@ -503,6 +506,7 @@ export class RecordService {
           id: record.id,
           tableId: record.tableId,
           values: record.values as Record<string, CellValue>,
+          computed_values: record.computed_values,
           createdAt: record.createdAt,
           updatedAt: record.updatedAt,
           createdBy: record.createdBy,
@@ -530,6 +534,7 @@ export class RecordService {
           id: apiRecord.id,
           tableId: apiRecord.table_id || tableId,
           values: apiRecord.values as Record<string, CellValue>,
+          computed_values: apiRecord.computed_values ?? undefined,
           createdAt: new Date(apiRecord.created_at).getTime(),
           updatedAt: new Date(apiRecord.updated_at).getTime(),
           createdBy: apiRecord.created_by,
@@ -558,16 +563,25 @@ export class RecordService {
     state.isLoading = false;
   }
 
-  async updateRecord(id: string, data: UpdateRecordData): Promise<void> {
+  /** 更新记录；返回后端重算后的公式值（computed_values，无则 null）供内存层合并 */
+  async updateRecord(
+    id: string,
+    data: UpdateRecordData,
+  ): Promise<Record<string, unknown> | null> {
     const MAX_RETRIES = 3;
     let lastError: Error | null = null;
+    let latestComputedValues: Record<string, unknown> | null = null;
 
     // 带重试的后端 API 调用
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        await recordApiService.updateRecord(id, {
+        const apiRecord: any = await recordApiService.updateRecord(id, {
           ...data.values,
         } as Record<string, unknown>);
+        // 后端返回重算后的公式值（含跨表引用），写回本地供渲染层使用
+        if (apiRecord && apiRecord.computed_values) {
+          latestComputedValues = apiRecord.computed_values;
+        }
         lastError = null; // 成功，清除错误
         break;
       } catch (error) {
@@ -596,11 +610,16 @@ export class RecordService {
         updatedAt: Date.now(),
       };
 
+      if (latestComputedValues) {
+        updateData.computed_values = latestComputedValues;
+      }
+
       if (data.updatedBy) {
         updateData.updatedBy = data.updatedBy;
       }
 
       await db.records.update(id, updateData);
+      return latestComputedValues;
     } catch (error) {
       console.error("[recordService] updateRecord IndexedDB 更新失败:", error);
       throw error;

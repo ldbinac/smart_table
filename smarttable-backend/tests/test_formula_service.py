@@ -731,3 +731,444 @@ class TestComplexFormulas:
         ctx = {'part': 25, 'total': 200}
         result = self._eval('ROUND(({part}/{total}) * 100, 1)', ctx)
         assert abs(result - 12.5) < 0.001
+
+
+class TestColumnReferences:
+    """整列引用 [表].[字段] 与 CurrentValue 条件聚合测试（P1）"""
+
+    # 表数据：name=[A,B,A]，price=[100,200,300]
+    TABLE_CONTEXT = {
+        '销售表': {
+            'name': ['A', 'B', 'A'],
+            'price': [100, 200, 300],
+        }
+    }
+
+    def _eval(self, formula, ctx=None, table_context=None):
+        return FormulaService.evaluate_formula(
+            formula,
+            ctx or {},
+            use_cache=False,
+            table_context=table_context if table_context is not None else self.TABLE_CONTEXT,
+        )
+
+    def test_parse_column_ref(self):
+        """解析整列引用为 column_ref 节点"""
+        parser = FormulaParser()
+        ast = parser.parse('[销售表].[price]')
+        assert ast['type'] == 'column_ref'
+        assert ast['table'] == '销售表'
+        assert ast['field'] == 'price'
+
+    def test_parse_current_value(self):
+        """解析 CurrentValue 节点"""
+        parser = FormulaParser()
+        ast = parser.parse('COUNTIF([销售表].[price], CurrentValue>100)')
+        args = ast['arguments']
+        assert args[0]['type'] == 'column_ref'
+        assert args[1]['type'] == 'comparison'
+        assert 'current_value' in str(args[1])
+
+    def test_sum_over_column(self):
+        """SUM 直接聚合整列：100+200+300"""
+        result = self._eval('SUM([销售表].[price])')
+        assert result == 600
+
+    def test_countif_string_criteria(self):
+        """COUNTIF 字符串条件（数值比较）"""
+        result = self._eval('COUNTIF([销售表].[price], ">100")')
+        assert result == 2
+
+    def test_countif_current_value_criteria(self):
+        """COUNTIF CurrentValue 惰性条件"""
+        result = self._eval('COUNTIF([销售表].[price], CurrentValue>100)')
+        assert result == 2
+
+    def test_sumif_current_value_with_sum_column(self):
+        """SUMIF 惰性条件 + 独立求和列：name=A 的两行 price 之和"""
+        result = self._eval(
+            'SUMIF([销售表].[name], CurrentValue="A", [销售表].[price])'
+        )
+        assert result == 400
+
+    def test_averageif_current_value(self):
+        """AVERAGEIF 惰性条件：price<=200 的两行平均"""
+        result = self._eval('AVERAGEIF([销售表].[price], CurrentValue<=200)')
+        assert abs(result - 150.0) < 0.001
+
+    def test_sum_nested_filter(self):
+        """SUM 嵌套 FILTER：FILTER 出 >100 的 [200,300] 再求和"""
+        result = self._eval(
+            'SUM(FILTER([销售表].[price], CurrentValue>100))'
+        )
+        assert result == 500
+
+    def test_filter_returns_list(self):
+        """FILTER 直接返回过滤后的数组"""
+        result = self._eval('FILTER([销售表].[name], CurrentValue="A")')
+        assert result == ['A', 'A']
+
+    def test_case_insensitive_table_and_field(self):
+        """表名/字段名大小写不敏感"""
+        result = self._eval('SUM([销售表].[PRICE])')
+        assert result == 600
+
+    def test_column_ref_without_context_degrades_to_none(self):
+        """未注入 table_context 时整列引用退化为 None，SUM 结果为 0"""
+        result = FormulaService.evaluate_formula(
+            'SUM([销售表].[price])', {}, use_cache=False
+        )
+        assert result == 0
+
+    def test_current_value_outside_criteria_raises(self):
+        """CurrentValue 出现在统计函数条件之外应报错"""
+        with pytest.raises(FormulaError):
+            self._eval('IF(CurrentValue>0, 1, 2)')
+
+    def test_evaluate_formula_cache_skipped_for_column_ref(self):
+        """含整列引用的公式即使 use_cache=True 也不应命中缓存键（结果正确即可）"""
+        result = self._eval('SUM([销售表].[price])')
+        assert result == 600
+
+    def test_build_table_context_reads_field_id_keys(self, app, test_user):
+        """回归：_build_table_context 须按 field_id 从记录 values 取列值（修复按字段名取值恒为 None 导致 SUM=0）"""
+        from app.extensions import db
+        from app.models import Base, Table, Field, Record
+
+        base = Base(name='回归Base', owner_id=test_user.id)
+        db.session.add(base)
+        db.session.flush()
+
+        table = Table(base_id=base.id, name='销售表', order=0)
+        db.session.add(table)
+        db.session.flush()
+
+        amount = Field(table_id=table.id, name='金额', type='number', order=0)
+        db.session.add(amount)
+        db.session.flush()
+
+        for v in (100, 200, 300):
+            db.session.add(Record(
+                table_id=table.id,
+                values={str(amount.id): v},
+                created_by=test_user.id,
+                updated_by=test_user.id,
+            ))
+        db.session.commit()
+
+        ctx = FormulaService._build_table_context(str(table.id))
+        assert ctx == {'销售表': {'金额': [100, 200, 300]}}
+
+        result = FormulaService.evaluate_formula(
+            'SUM([销售表].[金额])', {}, use_cache=False, table_context=ctx
+        )
+        assert result == 600
+
+    # ---------- P2：同 Base 跨表引用 ----------
+
+    def test_extract_column_ref_table_names(self):
+        """扫描公式中整列引用的目标表名（小写、去重、兼容 options.formula）"""
+        class _F:
+            def __init__(self, config=None, options=None):
+                self.config = config or {}
+                self.options = options or {}
+
+        fields = [
+            _F(config={'formula': 'SUM([销售表].[金额])'}),
+            _F(options={'formula': 'COUNTIF([销售表].[状态], "OK") + COUNTIF([Other].[X], 1)'}),
+            _F(config={'formula': '{price} * 2'}),  # 无整列引用
+        ]
+        names = FormulaService._extract_column_ref_table_names(fields)
+        assert names == {'销售表', 'other'}
+
+    def test_build_table_context_cross_table_same_base(self, app, test_user):
+        """同 Base 内跨表引用：汇总表公式 SUM([销售表].[金额]) 构建上下文并求值 600"""
+        from app.extensions import db
+        from app.models import Base, Table, Field, Record
+
+        base = Base(name='跨表Base', owner_id=test_user.id)
+        db.session.add(base)
+        db.session.flush()
+
+        sales = Table(base_id=base.id, name='销售表', order=0)
+        db.session.add(sales)
+        db.session.flush()
+        amount = Field(table_id=sales.id, name='金额', type='number', order=0)
+        db.session.add(amount)
+        db.session.flush()
+        for v in (100, 200, 300):
+            db.session.add(Record(
+                table_id=sales.id,
+                values={str(amount.id): v},
+                created_by=test_user.id,
+                updated_by=test_user.id,
+            ))
+
+        summary = Table(base_id=base.id, name='汇总表', order=1)
+        db.session.add(summary)
+        db.session.flush()
+        db.session.add(Field(
+            table_id=summary.id,
+            name='跨表公式',
+            type='formula',
+            order=0,
+            config={'formula': 'SUM([销售表].[金额])'},
+            options={'formula': 'SUM([销售表].[金额])'},
+        ))
+        db.session.commit()
+
+        ctx = FormulaService._build_table_context(str(summary.id))
+        assert set(ctx.keys()) == {'销售表', '汇总表'}
+        assert ctx['销售表']['金额'] == [100, 200, 300]
+
+        result = FormulaService.evaluate_formula(
+            'SUM([销售表].[金额])', {}, use_cache=False, table_context=ctx
+        )
+        assert result == 600
+
+    def test_cross_base_reference_degrades_to_zero(self, app, test_user):
+        """引用其他 Base 的表：不注入上下文，求值退化为 0"""
+        from app.extensions import db
+        from app.models import Base, Table, Field, Record
+
+        b1 = Base(name='Base1', owner_id=test_user.id)
+        b2 = Base(name='Base2', owner_id=test_user.id)
+        db.session.add_all([b1, b2])
+        db.session.flush()
+
+        foreign = Table(base_id=b2.id, name='外部表', order=0)
+        db.session.add(foreign)
+        db.session.flush()
+        f_amount = Field(table_id=foreign.id, name='数值', type='number', order=0)
+        db.session.add(f_amount)
+        db.session.flush()
+        db.session.add(Record(
+            table_id=foreign.id,
+            values={str(f_amount.id): 999},
+            created_by=test_user.id,
+            updated_by=test_user.id,
+        ))
+
+        local = Table(base_id=b1.id, name='本地表', order=0)
+        db.session.add(local)
+        db.session.flush()
+        db.session.add(Field(
+            table_id=local.id,
+            name='跨Base公式',
+            type='formula',
+            order=0,
+            config={'formula': 'SUM([外部表].[数值])'},
+        ))
+        db.session.commit()
+
+        ctx = FormulaService._build_table_context(str(local.id))
+        assert '外部表' not in ctx
+
+        result = FormulaService.evaluate_formula(
+            'SUM([外部表].[数值])', {}, use_cache=False, table_context=ctx
+        )
+        assert result == 0
+
+    def test_reference_nonexistent_table_degrades_to_zero(self, app, test_user):
+        """引用不存在的表名：不注入上下文，求值退化为 0"""
+        from app.extensions import db
+        from app.models import Base, Table, Field
+
+        base = Base(name='空引用Base', owner_id=test_user.id)
+        db.session.add(base)
+        db.session.flush()
+        table = Table(base_id=base.id, name='独立表', order=0)
+        db.session.add(table)
+        db.session.flush()
+        db.session.add(Field(
+            table_id=table.id,
+            name='幽灵公式',
+            type='formula',
+            order=0,
+            config={'formula': 'SUM([幽灵表].[X])'},
+        ))
+        db.session.commit()
+
+        ctx = FormulaService._build_table_context(str(table.id))
+        assert set(ctx.keys()) == {'独立表'}
+
+        result = FormulaService.evaluate_formula(
+            'SUM([幽灵表].[X])', {}, use_cache=False, table_context=ctx
+        )
+        assert result == 0
+
+    def test_aggregate_normalizes_string_numbers(self):
+        """数字字段脏数据（字符串存储）：聚合函数自动归一化（P2 跨表场景暴露）"""
+        ctx = {
+            '销售表': {
+                '金额': ['1.3', '5.6', '3.9'],
+                '带格式': ['¥1,234.5', None, 'abc'],
+            }
+        }
+        assert self._eval('SUM([销售表].[金额])', table_context=ctx) == pytest.approx(10.8)
+        assert self._eval('AVG([销售表].[金额])', table_context=ctx) == pytest.approx(3.6)
+        assert self._eval('MAX([销售表].[金额])', table_context=ctx) == 5.6
+        assert self._eval('MIN([销售表].[金额])', table_context=ctx) == 1.3
+        assert self._eval('COUNT([销售表].[金额])', table_context=ctx) == 3
+        assert self._eval('SUM([销售表].[带格式])', table_context=ctx) == pytest.approx(1234.5)
+        assert self._eval('COUNT([销售表].[带格式])', table_context=ctx) == 1
+
+    def test_sumif_lazy_normalizes_string_numbers(self):
+        """SUMIF/AVERAGEIF 惰性求和范围也须归一化字符串数字（P3 暴露：得 0 而非 1.3）"""
+        ctx = {
+            '销售表': {
+                '文本': ['003测试', '003测试002', '其他'],
+                '金额': ['1.3', '5.6', '3.9'],
+            }
+        }
+        result = self._eval(
+            'SUMIF([销售表].[文本], CurrentValue = "003测试", [销售表].[金额])',
+            table_context=ctx,
+        )
+        assert result == pytest.approx(1.3)
+        avg = self._eval(
+            'AVERAGEIF([销售表].[文本], CurrentValue <> "其他", [销售表].[金额])',
+            table_context=ctx,
+        )
+        assert avg == pytest.approx((1.3 + 5.6) / 2)
+
+    def test_countif_numeric_criteria_on_string_values(self):
+        """COUNTIF 数值条件作用于字符串存储的数字列：不报错且按数字比较（P3 暴露 #ERROR）"""
+        ctx = {'销售表': {'金额': ['1.3', '5.6', '150.5']}}
+        # CurrentValue 形态（惰性）：'150.5' > 100 原抛 TypeError → 归一化重试命中
+        assert self._eval('COUNTIF([销售表].[金额], CurrentValue > 100)', table_context=ctx) == 1
+        # 字符串条件形态（eager 回退）：'>100' 原对 str 恒不命中 → 归一化后命中
+        assert self._eval('COUNTIF([销售表].[金额], ">100")', table_context=ctx) == 1
+        assert self._eval('COUNTIF([销售表].[金额], ">1")', table_context=ctx) == 3
+        # 纯文本列与数值条件：无法归一化 → 视为不命中，不报错
+        text_ctx = {'销售表': {'文本': ['003测试', 'abc']}}
+        assert self._eval('COUNTIF([销售表].[文本], CurrentValue > 100)', table_context=text_ctx) == 0
+
+
+class TestTableContextCache:
+    """整列数据上下文 TTL 缓存测试（P3）"""
+
+    def _make_cross_table_fixture(self, test_user):
+        """建 base + 销售表（数据）+ 汇总表（整列引用公式字段），返回汇总表 ID"""
+        from app.extensions import db
+        from app.models import Base, Table, Field, Record
+
+        base = Base(name='缓存Base', owner_id=test_user.id)
+        db.session.add(base)
+        db.session.flush()
+
+        sales = Table(base_id=base.id, name='销售表', order=0)
+        db.session.add(sales)
+        db.session.flush()
+        amount = Field(table_id=sales.id, name='金额', type='number', order=0)
+        db.session.add(amount)
+        db.session.flush()
+        for v in (100, 200):
+            db.session.add(Record(
+                table_id=sales.id,
+                values={str(amount.id): v},
+                created_by=test_user.id,
+                updated_by=test_user.id,
+            ))
+
+        summary = Table(base_id=base.id, name='汇总表', order=1)
+        db.session.add(summary)
+        db.session.flush()
+        db.session.add(Field(
+            table_id=summary.id,
+            name='跨表公式',
+            type='formula',
+            order=0,
+            config={'formula': 'SUM([销售表].[金额])'},
+        ))
+        db.session.commit()
+        return str(summary.id), str(sales.id)
+
+    def _get_formula_fields(self, table_id):
+        from app.models.field import Field
+        return Field.query.filter_by(table_id=table_id, type='formula').all()
+
+    def setup_method(self):
+        FormulaService._TABLE_CONTEXT_CACHE.clear()
+
+    def teardown_method(self):
+        FormulaService._TABLE_CONTEXT_CACHE.clear()
+
+    def test_cache_hit_within_ttl(self, app, test_user):
+        """TTL 内二次构建命中缓存（同一对象，避免重复全表查询）"""
+        summary_id, _ = self._make_cross_table_fixture(test_user)
+        fields = self._get_formula_fields(summary_id)
+
+        first = FormulaService.build_table_context_for_fields(summary_id, fields)
+        assert first is not None
+        second = FormulaService.build_table_context_for_fields(summary_id, fields)
+        assert first is second
+        assert summary_id in FormulaService._TABLE_CONTEXT_CACHE
+
+    def test_invalidate_on_record_update(self, app, test_user):
+        """记录更新后缓存失效：销售表变更 → 汇总表上下文重建（同 Base 级失效）"""
+        from app.extensions import db
+        from app.models import Record
+        from app.services.record_service import RecordService
+
+        summary_id, sales_id = self._make_cross_table_fixture(test_user)
+        fields = self._get_formula_fields(summary_id)
+
+        first = FormulaService.build_table_context_for_fields(summary_id, fields)
+        assert first['销售表']['金额'] == [100, 200]
+
+        # 更新销售表记录（走 RecordService.update_record 的失效挂钩）
+        record = Record.query.filter_by(table_id=sales_id).first()
+        from app.models.field import Field
+        amount_field = Field.query.filter_by(table_id=sales_id, name='金额').first()
+        RecordService.update_record(
+            record=record,
+            values={str(amount_field.id): 999},
+        )
+        db.session.commit()
+
+        second = FormulaService.build_table_context_for_fields(summary_id, fields)
+        assert second is not first
+        assert second['销售表']['金额'] == [999, 200]
+
+    def test_ttl_expiry_rebuilds(self, app, test_user, monkeypatch):
+        """TTL 过期后重建：快照过期即视为失效"""
+        summary_id, _ = self._make_cross_table_fixture(test_user)
+        fields = self._get_formula_fields(summary_id)
+
+        first = FormulaService.build_table_context_for_fields(summary_id, fields)
+
+        # 把缓存条目改为已过期
+        expiry, base_id, ctx = FormulaService._TABLE_CONTEXT_CACHE[summary_id]
+        FormulaService._TABLE_CONTEXT_CACHE[summary_id] = (
+            0.0, base_id, ctx
+        )
+
+        second = FormulaService.build_table_context_for_fields(summary_id, fields)
+        assert second is not first
+
+    def test_no_column_ref_skips_cache(self, app, test_user):
+        """无整列引用时零开销：不写缓存直接返回 None"""
+        from app.extensions import db
+        from app.models import Base, Table, Field
+
+        base = Base(name='无引用Base', owner_id=test_user.id)
+        db.session.add(base)
+        db.session.flush()
+        table = Table(base_id=base.id, name='普通表', order=0)
+        db.session.add(table)
+        db.session.flush()
+        db.session.add(Field(
+            table_id=table.id,
+            name='普通公式',
+            type='formula',
+            order=0,
+            config={'formula': '{a} + 1'},
+        ))
+        db.session.commit()
+
+        fields = self._get_formula_fields(str(table.id))
+        result = FormulaService.build_table_context_for_fields(str(table.id), fields)
+        assert result is None
+        assert FormulaService._TABLE_CONTEXT_CACHE == {}
+

@@ -18,6 +18,7 @@ from app.models.record import Record
 from app.models.table import Table
 from app.models.base import MemberRole
 from app.services.base_service import BaseService
+from app.services.formula_service import FormulaService
 from app.i18n import translate
 from app.services.workflow_event_bus import workflow_event_bus
 import logging
@@ -313,6 +314,8 @@ class FieldService:
         Returns:
             包含操作结果的字典
         """
+        # 字段增删影响整列引用的列数据与目标字段校验
+        FormulaService.invalidate_table_context_cache(table_id=str(table_id))
         # 验证字段类型
         field_type = data.get('type', '').strip().lower()
         if not field_type:
@@ -408,10 +411,13 @@ class FieldService:
             包含操作结果的字典
         """
         field = Field.query.get(field_id)
-        
+
         if not field:
             return {'success': False, 'error': 'field_does_not_exist'}
-        
+
+        # 字段更新（改名/公式/选项）影响整列引用的列数据
+        FormulaService.invalidate_table_context_cache(table_id=str(field.table_id))
+
         # 检查是否是系统字段
         if field.is_primary and 'is_primary' in data and not data['is_primary']:
             return {'success': False, 'error': 'primary_key_status_primary_field_removed'}
@@ -616,7 +622,10 @@ class FieldService:
         field = Field.query.get(field_id)
         if not field:
             return {'success': False, 'error': 'field_does_not_exist'}
-        
+
+        # 字段删除影响整列引用的列数据
+        FormulaService.invalidate_table_context_cache(table_id=str(field.table_id))
+
         # 检查是否是主字段
         if field.is_primary:
             return {'success': False, 'error': 'primary_field_deleted'}

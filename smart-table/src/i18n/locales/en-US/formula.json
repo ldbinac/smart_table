@@ -49,27 +49,27 @@
       "p0": "Any expression, evaluated before the outer operations"
     },
     "SUM": {
-      "desc": "Calculates the sum of all numeric arguments",
+      "desc": "Calculates the sum of all numeric arguments. Supports plain numbers, {field} row-level references, and [Table].[Field] column references (aggregate over an entire column) — including the current table and other tables within the same Base",
       "returns": "Number (sum result)",
-      "example": "SUM({Unit Price}, {Quantity}) or SUM(10, 20, 30)",
-      "p0": "Numbers or field references to add, supports any number of arguments"
+      "example": "SUM({Unit Price}, {Quantity}): row-level sum\nSUM(10, 20, 30): constant sum\nSUM([Sales].[Amount]): sum the entire Amount column of the Sales table (cross-table aggregation)\nSUM(FILTER([Sales].[Amount], CurrentValue > 100)): conditional sum over a column",
+      "p0": "Numbers, {field} row-level references, or [Table].[Field] column references; the referenced table must be in the same Base"
     },
     "AVG": {
-      "desc": "Calculates the average of all numeric arguments",
+      "desc": "Calculates the average of all numeric arguments, supports [Table].[Field] column references",
       "returns": "Number (average)",
-      "example": "AVG({Math}, {English}, {Chinese})",
+      "example": "AVG({Math}, {English}); AVG([Sales].[Amount]): average over an entire column",
       "p0": "Numbers to average, empty values are skipped"
     },
     "MAX": {
-      "desc": "Returns the maximum value from a set of numbers",
+      "desc": "Returns the maximum value from a set of numbers, supports [Table].[Field] column references",
       "returns": "Maximum (number or other comparable type)",
-      "example": "MAX({Jan Sales}, {Feb Sales}, {Mar Sales})",
+      "example": "MAX({Jan Sales}, {Feb Sales}); MAX([Sales].[Amount]): column maximum",
       "p0": "Numbers to compare"
     },
     "MIN": {
-      "desc": "Returns the minimum value from a set of numbers",
+      "desc": "Returns the minimum value from a set of numbers, supports [Table].[Field] column references",
       "returns": "Minimum",
-      "example": "MIN({Lowest Temp}, {Highest Temp})",
+      "example": "MIN({Lowest Temp}, {Highest Temp}); MIN([Sales].[Amount]): column minimum",
       "p0": "Numbers to compare"
     },
     "ROUND": {
@@ -434,15 +434,15 @@
       "example": "IF({Score} = 0, BLANK(), {Score})"
     },
     "COUNT": {
-      "desc": "Counts the number of numeric arguments",
+      "desc": "Counts the number of numeric arguments, supports [Table].[Field] column references",
       "returns": "Integer",
-      "example": "COUNT({Score1}, {Score2}, {Score3})",
+      "example": "COUNT({Score1}, {Score2}); COUNT([Sales].[Amount]): count numeric values in a column",
       "p0": "Numbers to count"
     },
     "COUNTA": {
-      "desc": "Counts the number of non-empty arguments",
+      "desc": "Counts the number of non-empty arguments, supports [Table].[Field] column references",
       "returns": "Integer",
-      "example": "COUNTA({Field1}, {Field2}, {Field3})",
+      "example": "COUNTA({Field1}, {Field2}); COUNTA([Sales].[Amount]): count non-empty values in a column",
       "p0": "Values to count"
     },
     "COUNTBLANK": {
@@ -487,11 +487,42 @@
       "returns": "Array",
       "example": "UNIQUE(1, 2, 2, 3, 3) → [1, 2, 3]",
       "p0": "Values to deduplicate"
+    },
+    "COUNTIF": {
+      "desc": "Counts the elements in a value collection that match the condition",
+      "returns": "Integer (match count)",
+      "example": "COUNTIF([Sales].[Status], \"Done\") or COUNTIF([Sales].[Amount], CurrentValue > 100)",
+      "p0": "Value collection, use [Table].[Field] column reference",
+      "p1": "Match condition: a concrete value (e.g. \"Done\") or an expression with CurrentValue"
+    },
+    "SUMIF": {
+      "desc": "Sums the corresponding values of elements in a collection that match the condition",
+      "returns": "Number (conditional sum)",
+      "example": "SUMIF([Sales].[City], CurrentValue = \"NYC\", [Sales].[Amount])",
+      "p0": "Condition collection, use [Table].[Field] column reference",
+      "p1": "Match condition: a concrete value or an expression with CurrentValue",
+      "p2": "Sum collection (optional, defaults to the condition collection itself)"
+    },
+    "AVERAGEIF": {
+      "desc": "Averages the corresponding values of elements in a collection that match the condition",
+      "returns": "Number (conditional average)",
+      "example": "AVERAGEIF([Sales].[City], CurrentValue = \"NYC\", [Sales].[Amount])",
+      "p0": "Condition collection, use [Table].[Field] column reference",
+      "p1": "Match condition: a concrete value or an expression with CurrentValue",
+      "p2": "Average collection (optional, defaults to the condition collection itself)"
+    },
+    "FILTER": {
+      "desc": "Filters a value collection by condition, often nested with SUM/COUNT etc.",
+      "returns": "Array (filtered values)",
+      "example": "SUM(FILTER([Sales].[Amount], CurrentValue > 100))",
+      "p0": "Value collection, use [Table].[Field] column reference",
+      "p1": "Match condition, typically an expression with CurrentValue"
     }
   },
   "calcError": "Calculation error",
   "validationFailed": "Formula validation failed",
   "unknownFieldReference": "Unknown field reference: {0}",
+  "unknownColumnReference": "Unknown column reference ([Table].[Field]): {0}",
   "unknownField": "Unknown field",
   "noFieldReference": "No field reference",
   "referencedFields": "Referenced fields: {0}"

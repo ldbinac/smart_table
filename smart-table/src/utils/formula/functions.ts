@@ -576,6 +576,11 @@ export const formulaFunctions: Record<string, FormulaFunction> = {
       seen.add(key)
       return true
     })
+  },
+
+  FILTER: (range: unknown, criteria: unknown) => {
+    const values = Array.isArray(range) ? range : [range]
+    return values.filter(v => matchesCriteria(v, criteria))
   }
 }
 
@@ -626,7 +631,7 @@ function isNumericValue(value: unknown): value is number {
   return typeof value === 'number' && !isNaN(value) && !isNaN(Number(value))
 }
 
-function matchesCriteria(value: unknown, criteria: unknown): boolean {
+export function matchesCriteria(value: unknown, criteria: unknown): boolean {
   const crit = String(criteria ?? '')
   if (crit.startsWith('>=')) return isNumericValue(value as number) && (value as number) >= Number(crit.slice(2))
   if (crit.startsWith('<=')) return isNumericValue(value as number) && (value as number) <= Number(crit.slice(2))
@@ -707,7 +712,7 @@ export const functionCategories = {
   text: ['CONCAT', 'LEFT', 'RIGHT', 'MID', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'SUBSTITUTE', 'REPLACE', 'FIND', 'REPT', 'TEXT', 'VALUE'],
   date: ['TODAY', 'NOW', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'WEEKDAY', 'DATETIME_FORMAT', 'FROMUNIXTIME', 'UNIXTIMESTAMP', 'DATEDIF', 'DATEDIFF', 'DATEADD'],
   logic: ['IF', 'AND', 'OR', 'NOT', 'IFERROR', 'IFS', 'SWITCH', 'XOR', 'ISBLANK', 'ISERROR', 'ISNUMBER', 'ISTEXT', 'ISDATE', 'BLANK', 'NA', 'ERROR'],
-  statistics: ['COUNT', 'COUNTA', 'COUNTBLANK', 'COUNTIF', 'SUMIF', 'AVERAGEIF', 'STDEV', 'VAR', 'MEDIAN', 'MODE', 'RANK', 'UNIQUE']
+  statistics: ['COUNT', 'COUNTA', 'COUNTBLANK', 'COUNTIF', 'SUMIF', 'AVERAGEIF', 'STDEV', 'VAR', 'MEDIAN', 'MODE', 'RANK', 'UNIQUE', 'FILTER']
 }
 
 export const functionDescriptions: Record<string, string> = {
@@ -785,5 +790,6 @@ export const functionDescriptions: Record<string, string> = {
   MEDIAN: '返回中位数',
   MODE: '返回众数',
   RANK: '返回排名',
-  UNIQUE: '返回去重后的数组'
+  UNIQUE: '返回去重后的数组',
+  FILTER: '按条件筛选数组（范围可用 [表].[字段] 整列引用，条件中用 CurrentValue 引用当前值）'
 }

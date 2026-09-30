@@ -187,6 +187,10 @@ const FUNCS: Array<{ name: string; label?: string; syntax: string; category: str
   { name: "MODE", syntax: "MODE(value1, value2, ...)", category: "stats", params: ["value1, value2, ..."] },
   { name: "RANK", syntax: "RANK(value, value1, value2, ...)", category: "stats", params: ["value", "value1, value2, ..."] },
   { name: "UNIQUE", syntax: "UNIQUE(value1, value2, ...)", category: "stats", params: ["value1, value2, ..."] },
+  { name: "COUNTIF", syntax: "COUNTIF(range, condition)", category: "stats", params: ["range", "condition"] },
+  { name: "SUMIF", syntax: "SUMIF(range, condition, sum_range)", category: "stats", params: ["range", "condition", "sum_range"] },
+  { name: "AVERAGEIF", syntax: "AVERAGEIF(range, condition, avg_range)", category: "stats", params: ["range", "condition", "avg_range"] },
+  { name: "FILTER", syntax: "FILTER(range, condition)", category: "stats", params: ["range", "condition"] },
 ];
 
 // 公式数据：描述文本从 i18n 读取，支持语言切换
@@ -366,6 +370,8 @@ function insertFormula(formula: FormulaInfo) {
   border-radius: 4px;
   font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
   font-size: 12px;
+  /* 多行示例（如 SUM 的整列引用用法）逐行展示 */
+  white-space: pre-line;
 }
 
 .tooltip-params {

@@ -1,6 +1,6 @@
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 import { FieldType, type CellValue } from "@/types";
-import { formulaFunctions } from "./functions";
+import { formulaFunctions, matchesCriteria } from "./functions";
 import dayjs from "dayjs";
 import { t } from "@/i18n";
 
@@ -23,15 +23,39 @@ export interface ParseResult {
   children?: ParseResult[];
 }
 
+/** 可被整列引用的表数据（字段 + 全表记录） */
+export interface FormulaTableData {
+  fields: FieldEntity[];
+  records: RecordEntity[];
+}
+
+/**
+ * 表上下文：用于 [表].[字段] 整列引用。
+ * tableName 为本表表名；tables 以表名小写为 key，须包含本表自身。
+ * 未注入时整列引用求值退化为 null（兼容 FormShare 等无全表上下文的场景）。
+ */
+export interface FormulaTableContext {
+  tableName: string;
+  tables: Map<string, FormulaTableData>;
+}
+
+/** CurrentValue 哨兵：惰性条件中代表遍历到的当前元素值 */
+const CV_SENTINEL = "\u0000CV\u0000";
+
+/** 支持 CurrentValue 惰性条件求值的统计函数 */
+const STATISTICAL_FUNCS = new Set(["FILTER", "COUNTIF", "SUMIF", "AVERAGEIF"]);
+
 export class FormulaEngine {
   private fields: Map<string, FieldEntity>;
   private fieldNameToId: Map<string, string>;
+  private tableContext?: FormulaTableContext;
 
-  constructor(fields: FieldEntity[]) {
+  constructor(fields: FieldEntity[], tableContext?: FormulaTableContext) {
     this.fields = new Map(fields.map((f) => [f.id, f]));
     this.fieldNameToId = new Map(
       fields.map((f) => [f.name.toLowerCase(), f.id]),
     );
+    this.tableContext = tableContext;
   }
 
   parseFieldRefs(formula: string): string[] {
@@ -63,7 +87,13 @@ export class FormulaEngine {
   private evaluate(formula: string, record: RecordEntity): CellValue {
     let expression = formula.trim();
 
+    // 1. 整列引用 [表].[字段] → 数组字面量（须先于行级字段引用）
+    expression = this.replaceColumnRefs(expression);
+    // 2. CurrentValue → 哨兵（供统计函数惰性求值）
+    expression = this.replaceCurrentValueToken(expression);
+    // 3. 行级字段引用 {字段} → 当前记录字段值
     expression = this.replaceFieldRefs(expression, record);
+    // 4. 函数求值（统计函数含 CurrentValue 时走惰性分支）
     expression = this.evaluateFunctions(expression);
     expression = this.evaluateExpression(expression);
 
@@ -81,11 +111,20 @@ export class FormulaEngine {
 
   private tryResolveFullyEvaluatedValue(expression: string): unknown | undefined {
     const trimmed = expression.trim();
-    
+
     if (trimmed === "null") return null;
     if (trimmed === "true") return true;
     if (trimmed === "false") return false;
-    
+
+    // 表达式整体为数组字面量（如纯整列引用或 FILTER 结果外露）
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return undefined;
+      }
+    }
+
     const num = Number(trimmed);
     if (!isNaN(num) && trimmed !== "") return num;
     
@@ -99,6 +138,56 @@ export class FormulaEngine {
     }
     
     return undefined;
+  }
+
+  /**
+   * 整列引用展开：[表名].[字段名] → 该字段全表值集合的 JSON 数组字面量。
+   * 表名/字段名大小写不敏感；未注入表上下文或找不到表/字段时退化为 null。
+   * CurrentValue.[字段] 形态不匹配本正则（P1 仅支持 CurrentValue 单元格形态）。
+   */
+  private replaceColumnRefs(expression: string): string {
+    if (!this.tableContext) return expression;
+    const regex = /\[([^\[\]{}]+)\]\s*\.\s*\[([^\[\]{}]+)\]/g;
+    return expression.replace(regex, (_match, tableName, fieldName) => {
+      const table = this.tableContext!.tables.get(
+        String(tableName).trim().toLowerCase(),
+      );
+      if (!table) return "null";
+      const field = table.fields.find(
+        (f) => f.name.toLowerCase() === String(fieldName).trim().toLowerCase(),
+      );
+      if (!field) return "null";
+      const values = table.records.map((r) => r.values[field.id] ?? null);
+      return this.arrayToExpression(values, field);
+    });
+  }
+
+  /** 整列值 → JSON 数组字面量（元素遵循 valueToExpression 的标量投影规则） */
+  private arrayToExpression(values: CellValue[], field: FieldEntity): string {
+    const isDateField = (
+      [
+        FieldType.DATE,
+        FieldType.DATE_TIME,
+        FieldType.CREATED_TIME,
+        FieldType.UPDATED_TIME,
+      ] as string[]
+    ).includes(field.type);
+    const items = values.map((v) => {
+      if (v === null || v === undefined) return "null";
+      if (typeof v === "number") return String(v);
+      if (typeof v === "boolean") return v ? "1" : "0";
+      if (typeof v === "string" && isDateField) {
+        const ts = dayjs(v).valueOf();
+        return String(isNaN(ts) ? 0 : ts);
+      }
+      return JSON.stringify(String(v));
+    });
+    return `[${items.join(",")}]`;
+  }
+
+  /** CurrentValue → 哨兵；CurrentValue.[字段] 形态保留原文（P1 不支持，降级为不命中） */
+  private replaceCurrentValueToken(expression: string): string {
+    return expression.replace(/CurrentValue(?!\s*\.)/gi, CV_SENTINEL);
   }
 
   private replaceFieldRefs(expression: string, record: RecordEntity): string {
@@ -120,6 +209,17 @@ export class FormulaEngine {
     field: FieldEntity | undefined,
   ): string {
     if (value === null || value === undefined) return "null";
+
+    // 数组值（整列引用/函数返回的数组）→ JSON 数组字面量，保证数组可在函数间传递
+    if (Array.isArray(value)) {
+      const items = value.map((v) => {
+        if (v === null || v === undefined) return "null";
+        if (typeof v === "number") return String(v);
+        if (typeof v === "boolean") return v ? "1" : "0";
+        return JSON.stringify(String(v));
+      });
+      return `[${items.join(",")}]`;
+    }
 
     // 无字段上下文时（如函数返回值），根据值类型直接转换
     if (!field) {
@@ -181,6 +281,21 @@ export class FormulaEngine {
         try {
           // 先递归处理参数中的嵌套函数
           const evaluatedArgs = this.evaluateFunctions(args);
+          const upperName = funcName.toUpperCase();
+
+          // 统计函数惰性求值：FILTER 始终走专用分支；
+          // COUNTIF/SUMIF/AVERAGEIF 仅当参数含 CurrentValue 哨兵时走专用分支
+          if (
+            upperName === "FILTER" ||
+            (STATISTICAL_FUNCS.has(upperName) && args.includes(CV_SENTINEL))
+          ) {
+            const statResult = this.evaluateStatisticalFunction(
+              upperName,
+              evaluatedArgs,
+            );
+            return this.valueToExpression(statResult as CellValue, undefined);
+          }
+
           const parsedArgs = this.parseArguments(evaluatedArgs);
           const funcResult = func(...parsedArgs);
           return this.valueToExpression(funcResult as CellValue, undefined);
@@ -192,6 +307,94 @@ export class FormulaEngine {
     } while (result !== prevResult);
 
     return result;
+  }
+
+  /**
+   * 统计函数（FILTER/COUNTIF/SUMIF/AVERAGEIF）专用求值。
+   * 条件参数含 CurrentValue 哨兵时逐元素惰性求值；否则退化为 matchesCriteria 字符串条件。
+   * range 须为数组（来自整列引用或函数返回的数组），非数组时按单元素数组处理。
+   */
+  private evaluateStatisticalFunction(
+    funcName: string,
+    argsStr: string,
+  ): unknown {
+    const parsedArgs = this.parseArguments(argsStr);
+    if (parsedArgs.length < 2) {
+      throw new Error(`${funcName} requires at least 2 arguments`);
+    }
+
+    const range = parsedArgs[0];
+    const criteria = parsedArgs[1];
+    const third = parsedArgs[2];
+
+    const values: unknown[] = Array.isArray(range) ? range : [range];
+
+    // 当前元素 → 表达式投影（与数组字面量序列化规则一致）
+    const elementToExpr = (v: unknown): string => {
+      if (v === null || v === undefined) return "null";
+      if (typeof v === "number") return String(v);
+      if (typeof v === "boolean") return v ? "1" : "0";
+      return JSON.stringify(String(v));
+    };
+
+    // 逐元素求值条件：哨兵替换为当前元素后走 parseAndEvaluate
+    const condContainsSentinel =
+      typeof criteria === "string" && criteria.includes(CV_SENTINEL);
+    const evalCondition = (v: unknown): boolean => {
+      if (!condContainsSentinel) {
+        return matchesCriteria(v, criteria);
+      }
+      const cond = String(criteria).split(CV_SENTINEL).join(elementToExpr(v));
+      try {
+        const r = this.parseAndEvaluate(cond.trim());
+        return typeof r === "boolean" ? r : false;
+      } catch {
+        return false;
+      }
+    };
+
+    const matched = values.map((v) => evalCondition(v));
+
+    switch (funcName) {
+      case "FILTER": {
+        return values.filter((_, i) => matched[i]);
+      }
+      case "COUNTIF": {
+        return matched.filter(Boolean).length;
+      }
+      case "SUMIF": {
+        const sumValues =
+          third !== undefined
+            ? Array.isArray(third)
+              ? third
+              : [third]
+            : values;
+        let sum = 0;
+        values.forEach((_, i) => {
+          if (matched[i]) sum += Number(sumValues[i]) || 0;
+        });
+        return sum;
+      }
+      case "AVERAGEIF": {
+        const avgValues =
+          third !== undefined
+            ? Array.isArray(third)
+              ? third
+              : [third]
+            : values;
+        let sum = 0;
+        let count = 0;
+        values.forEach((_, i) => {
+          if (matched[i]) {
+            sum += Number(avgValues[i]) || 0;
+            count++;
+          }
+        });
+        return count > 0 ? sum / count : 0;
+      }
+      default:
+        throw new Error(`Unsupported statistical function: ${funcName}`);
+    }
   }
 
   private parseArguments(argsStr: string): unknown[] {
@@ -253,6 +456,15 @@ export class FormulaEngine {
     if (value === "null" || value === "") return null;
     if (value === "true") return true;
     if (value === "false") return false;
+
+    // 数组字面量（整列引用/函数返回的数组在表达式中的载体）
+    if (value.startsWith("[") && value.endsWith("]")) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        // 非法数组字面量，按普通字符串处理
+      }
+    }
 
     if (value.startsWith('"') && value.endsWith('"')) {
       try {
@@ -510,6 +722,35 @@ export class FormulaEngine {
           error: t('formula.unknownFieldReference', [missingFields.join(", ")]),
         };
       }
+
+      // 整列引用校验（仅在注入了表上下文时执行）
+      if (this.tableContext) {
+        const colRegex = /\[([^\[\]{}]+)\]\s*\.\s*\[([^\[\]{}]+)\]/g;
+        const missingColumns: string[] = [];
+        while ((match = colRegex.exec(formula)) !== null) {
+          const table = this.tableContext.tables.get(
+            match[1].trim().toLowerCase(),
+          );
+          if (!table) {
+            missingColumns.push(match[1].trim());
+            continue;
+          }
+          const field = table.fields.find(
+            (f) =>
+              f.name.toLowerCase() === match[2].trim().toLowerCase(),
+          );
+          if (!field) {
+            missingColumns.push(`${match[1].trim()}.${match[2].trim()}`);
+          }
+        }
+        if (missingColumns.length > 0) {
+          return {
+            valid: false,
+            error: t('formula.unknownColumnReference', [missingColumns.join(", ")]),
+          };
+        }
+      }
+
       return { valid: true };
     } catch (error) {
       return {
@@ -571,6 +812,9 @@ export class FormulaEngine {
       "FROMUNIXTIME",  // 时间戳转日期时间（返回毫秒数）
       "DATEDIF",       // 日期差
       "DATEDIFF",      // 日期差（DATEDIF 别名）
+      "COUNTIF",       // 条件计数
+      "SUMIF",         // 条件求和
+      "AVERAGEIF",     // 条件平均
     ];
 
     // 检查整数函数（提取日期部分的函数，返回数值）
@@ -614,7 +858,7 @@ export class FormulaEngine {
 }
 
 export const formulaEngine = {
-  createEngine(fields: FieldEntity[]) {
-    return new FormulaEngine(fields);
+  createEngine(fields: FieldEntity[], tableContext?: FormulaTableContext) {
+    return new FormulaEngine(fields, tableContext);
   },
 };

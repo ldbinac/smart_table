@@ -111,3 +111,4 @@ logs/
 config/.env__default
 
 config/
+node_modules/

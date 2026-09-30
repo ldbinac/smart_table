@@ -42,6 +42,7 @@ import Sortable from "sortablejs";
 import { Rank, ArrowRight, Link, QuestionFilled, InfoFilled, WarningFilled } from "@element-plus/icons-vue";
 import { linkApiService } from "@/services/api/linkApiService";
 import { lookupApiService } from "@/services/api/lookupApiService";
+import { getFields } from "@/services/api/fieldApiService";
 import MemberSelect from "@/components/common/MemberSelect.vue";
 import LookupFieldConfigPanel from "@/components/fields/LookupFieldConfigPanel.vue";
 import FormulaHelper from "@/components/fields/FormulaHelper.vue";
@@ -1483,6 +1484,73 @@ function insertFieldRef(fieldName: string) {
   }
 }
 
+// ===== 跨表整列引用助手（P3）：选择同 Base 其他表，点击字段插入 [表名].[字段名] =====
+const refTableId = ref("");
+const refTableLoading = ref(false);
+// 已加载字段缓存的表：tableId -> { tableName, fields }
+const crossTableRefCache = ref<
+  Map<string, { tableName: string; fields: FieldEntity[] }>
+>(new Map());
+
+// 整列引用只对原始值字段有意义：公式/查找/关联字段的值不落库，取不到
+const REF_FIELD_EXCLUDED_TYPES = new Set(["formula", "lookup", "link", "link_to_record"]);
+
+const otherTablesForRef = computed(() =>
+  (tableStore.tables || []).filter((t) => t.id !== props.tableId),
+);
+
+const activeRefTable = computed(() =>
+  crossTableRefCache.value.get(refTableId.value),
+);
+
+const activeRefFields = computed(() => {
+  const entry = activeRefTable.value;
+  if (!entry) return [];
+  return entry.fields.filter((f) => !REF_FIELD_EXCLUDED_TYPES.has(String(f.type)));
+});
+
+async function handleRefTableChange(tableId: string) {
+  if (!tableId) return;
+  if (crossTableRefCache.value.has(tableId)) return;
+  refTableLoading.value = true;
+  try {
+    // 优先本地 IndexedDB（离线架构），其他表字段未同步时回退 API
+    let fields = (await fieldService.getFieldsByTable(tableId)) as unknown as FieldEntity[];
+    if (!fields || fields.length === 0) {
+      fields = (await getFields(tableId)) as unknown as FieldEntity[];
+    }
+    const table = (tableStore.tables || []).find((t) => t.id === tableId);
+    crossTableRefCache.value.set(tableId, {
+      tableName: table?.name || "",
+      fields: (fields as unknown as FieldEntity[]) || [],
+    });
+  } catch (error) {
+    console.error("[FieldDialog] 加载跨表字段失败:", error);
+  } finally {
+    refTableLoading.value = false;
+  }
+}
+
+function insertColumnRef(tableName: string, fieldName: string) {
+  const token = `[${tableName}].[${fieldName}]`;
+  const formulaInput = document.querySelector(
+    ".formula-field textarea, [placeholder*=\"公式\"]",
+  ) as HTMLTextAreaElement;
+  if (formulaInput) {
+    const start = formulaInput.selectionStart;
+    const end = formulaInput.selectionEnd;
+    const currentValue = newField.value.formula;
+    newField.value.formula =
+      currentValue.substring(0, start) + token + currentValue.substring(end);
+    nextTick(() => {
+      formulaInput.focus();
+      formulaInput.setSelectionRange(start + token.length, start + token.length);
+    });
+  } else {
+    newField.value.formula += token;
+  }
+}
+
 // 检查字段是否在视图级隐藏列表中
 function isFieldHiddenInView(fieldId: string): boolean {
   // 使用 viewStore 获取最新的 hiddenFields，确保状态同步
@@ -1919,6 +1987,36 @@ async function toggleFieldVisibility(
                 @click="insertFieldRef(field.name)">
                 {{ field.name }}
               </ElTag>
+            </div>
+          </ElFormItem>
+
+          <ElFormItem :label="t('field.crossTableRefs')">
+            <div class="cross-table-refs">
+              <ElSelect
+                v-model="refTableId"
+                :placeholder="t('field.selectRefTable')"
+                clearable
+                :loading="refTableLoading"
+                size="small"
+                @change="handleRefTableChange">
+                <ElOption
+                  v-for="table in otherTablesForRef"
+                  :key="table.id"
+                  :label="table.name"
+                  :value="table.id" />
+              </ElSelect>
+              <div v-if="activeRefFields.length" class="formula-fields">
+                <ElTag
+                  v-for="field in activeRefFields"
+                  :key="field.id"
+                  size="small"
+                  type="warning"
+                  class="field-tag"
+                  @click="insertColumnRef(activeRefTable!.tableName, field.name)">
+                  {{ field.name }}
+                </ElTag>
+              </div>
+              <div class="field-hint">{{ t('field.crossTableRefsHint') }}</div>
             </div>
           </ElFormItem>
         </template>

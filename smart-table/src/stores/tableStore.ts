@@ -435,7 +435,9 @@ export const useTableStore = defineStore("table", () => {
         }
       }
 
-      await recordService.updateRecord(id, { values: editableValues });
+      const computedValues = await recordService.updateRecord(id, {
+        values: editableValues,
+      });
       const index = records.value.findIndex((r) => r.id === id);
       if (index !== -1) {
         // 合并更新值，保留未修改的字段
@@ -445,6 +447,8 @@ export const useTableStore = defineStore("table", () => {
             ...records.value[index].values,
             ...deserializeRecordValues(editableValues),
           },
+          // 后端重算后的公式值（含跨表引用），供渲染层优先使用
+          ...(computedValues ? { computed_values: computedValues } : {}),
           updatedAt: Date.now(),
         };
       }

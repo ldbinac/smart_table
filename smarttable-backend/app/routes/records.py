@@ -125,6 +125,13 @@ def get_records(table_id) -> tuple:
         # 预查询公式字段，避免每条记录重复查询数据库
         formula_fields = Field.query.filter_by(table_id=table_id, type='formula').all()
 
+        # 整列引用（[表].[字段]）公式需要全表数据上下文：构建一次，逐记录复用
+        table_context = None
+        if formula_fields:
+            table_context = FormulaService.build_table_context_for_fields(
+                table_id, formula_fields
+            )
+
         # 预查询查找字段
         from app.services.lookup_service import LookupService
         lookup_fields = Field.query.filter_by(table_id=table_id, type='lookup').all()
@@ -143,10 +150,12 @@ def get_records(table_id) -> tuple:
                         # batch_get_record_link_ids 已返回去重后的 ID 列表
                         item['values'][field_id] = record_links[field_id]
 
-            # 计算公式值（传入预查询的 formula_fields，避免重复 DB 查询）
+            # 计算公式值（传入预查询的 formula_fields 与整列引用上下文，避免重复 DB 查询）
             if formula_fields:
                 item['computed_values'] = FormulaService.compute_record_formulas(
-                    table_id, record.values, formula_fields=formula_fields
+                    table_id, record.values,
+                    formula_fields=formula_fields,
+                    table_context=table_context
                 )
             else:
                 item['computed_values'] = {}
@@ -316,6 +325,8 @@ def batch_create_records(table_id) -> tuple:
     try:
         # ---------- 批量预加载（只需一次） ----------
         fields = FieldService.get_all_fields(table_id)
+        # 批量创建绕过 RecordService.create_record，须单独失效整列数据缓存
+        FormulaService.invalidate_table_context_cache(table_id=str(table_id))
         field_map = {str(f.id): f for f in fields}
         auto_number_fields = [f for f in fields if f.type == FieldType.AUTO_NUMBER.value]
         now = datetime.now(timezone.utc)

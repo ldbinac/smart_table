@@ -59,6 +59,8 @@ export interface RecordEntity {
   id: string;
   tableId: string;
   values: Record<string, CellValue>;
+  /** 后端为公式字段预计算的值（key 为字段名）；整列引用等跨表公式的权威值 */
+  computed_values?: Record<string, unknown>;
   createdAt: number;
   updatedAt: number;
   createdBy?: string;

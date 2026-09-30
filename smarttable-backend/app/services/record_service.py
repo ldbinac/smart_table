@@ -16,6 +16,7 @@ from app.models.field import Field, FieldType
 from app.models.record_history import RecordHistory, HistoryAction
 from app.models.table import Table
 from app.services.field_service import FieldService
+from app.services.formula_service import FormulaService
 from app.services.link_service import LinkService
 from app.services.workflow_event_bus import workflow_event_bus
 from app.errors.handlers import ConflictError
@@ -223,6 +224,8 @@ class RecordService:
         
         # 获取所有字段并应用默认值
         fields = FieldService.get_all_fields(table_id)
+        # 整列数据快照随记录变更失效（含同 Base 引用本表的其他表缓存）
+        FormulaService.invalidate_table_context_cache(table_id=str(table_id))
         
         # 从提供的 values 开始
         final_values = dict(values) if values else {}
@@ -361,6 +364,8 @@ class RecordService:
         Raises:
             ConflictError: 乐观锁校验失败时抛出409冲突
         """
+        # 整列数据快照随记录变更失效（含同 Base 引用本表的其他表缓存）
+        FormulaService.invalidate_table_context_cache(table_id=str(record.table_id))
         if expected_updated_at is not None:
             current_updated_at = record.updated_at.isoformat() if record.updated_at else None
             if current_updated_at != expected_updated_at:
@@ -637,6 +642,7 @@ class RecordService:
         Returns:
             是否成功
         """
+        FormulaService.invalidate_table_context_cache(table_id=str(record.table_id))
         try:
             snapshot = dict(record.values) if record.values else {}
 

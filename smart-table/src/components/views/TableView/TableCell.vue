@@ -9,8 +9,9 @@ import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import DateInput from "@/components/fields/DateInput.vue";
 import MemberDisplay from "@/components/common/MemberDisplay.vue";
 import MemberSelect from "@/components/common/MemberSelect.vue";
-import { FormulaEngine } from "@/utils/formula/engine";
+import { FormulaEngine, type FormulaTableContext } from "@/utils/formula/engine";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
+import { useTableStore } from "@/stores/tableStore";
 import { ElMessage, ElTooltip } from "element-plus";
 import { FieldType } from "@/types/fields";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
@@ -39,6 +40,26 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const tableStore = useTableStore();
+
+/**
+ * 构造公式整列引用（[表].[字段]）所需的表上下文：
+ * 本表字段 + 全表记录。表格视图持有全表数据，无需额外请求。
+ */
+const buildFormulaTableContext = (): FormulaTableContext | undefined => {
+  const tableName = tableStore.currentTable?.name;
+  if (!tableName || !props.fields?.length) return undefined;
+  return {
+    tableName,
+    tables: new Map([
+      [
+        tableName.toLowerCase(),
+        { fields: props.fields, records: tableStore.records },
+      ],
+    ]),
+  };
+};
 
 const isEditing = ref(false);
 const editValue = ref<string | number | boolean | string[] | null>(null);
@@ -314,7 +335,7 @@ const calculateFormula = (): string => {
       return "";
     }
     
-    const engine = new FormulaEngine(allFields);
+    const engine = new FormulaEngine(allFields, buildFormulaTableContext());
     const result = engine.calculate(props.record, formula);
 
     if (result === "#ERROR") {

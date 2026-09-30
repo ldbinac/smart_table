@@ -10,7 +10,7 @@
  * - 字符串（日期/时间/错误）：日期串只取日期部分，其余原样返回；
  * - 数字：按公式返回类型（datetime/date/number）格式化，数字带千分位与精度。
  */
-import { FormulaEngine } from "@/utils/formula/engine";
+import { FormulaEngine, type FormulaTableContext } from "@/utils/formula/engine";
 import { formatDate, formatDateTime } from "@/utils/timezone";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 
@@ -18,6 +18,7 @@ export function calculateFormulaDisplay(
   field: FieldEntity,
   record: RecordEntity,
   allFields: FieldEntity[],
+  tableContext?: FormulaTableContext,
 ): string {
   const fieldOptions = field.options;
   const formula = (fieldOptions as any)?.formula as string;
@@ -36,7 +37,7 @@ export function calculateFormulaDisplay(
   if (precomputed === null || precomputed === undefined) {
     if (!allFields || allFields.length === 0) return "";
     try {
-      const engine = new FormulaEngine(allFields);
+      const engine = new FormulaEngine(allFields, tableContext);
       const result = engine.calculate(record, formula);
       if (result === "#ERROR") return "#ERROR";
       precomputed = result;
@@ -79,6 +80,7 @@ export function getFormulaRawValue(
   field: FieldEntity,
   record: RecordEntity,
   allFields: FieldEntity[],
+  tableContext?: FormulaTableContext,
 ): unknown {
   const formula = (field.options as any)?.formula as string;
   if (!formula) return undefined;
@@ -92,7 +94,7 @@ export function getFormulaRawValue(
   if (raw === null || raw === undefined) {
     if (!allFields || allFields.length === 0) return undefined;
     try {
-      const engine = new FormulaEngine(allFields);
+      const engine = new FormulaEngine(allFields, tableContext);
       const result = engine.calculate(record, formula);
       if (result === "#ERROR") return undefined;
       raw = result;

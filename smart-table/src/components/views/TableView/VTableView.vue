@@ -32,7 +32,7 @@ import GeoField from "@/components/fields/geo/GeoField.vue";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
-import { FormulaEngine } from "@/utils/formula/engine";
+import { FormulaEngine, type FormulaTableContext } from "@/utils/formula/engine";
 import { formatNumberField } from "@/utils/numberFormat";
 import { linkApiService } from "@/services/api/linkApiService";
 import { viewApiService } from "@/services/api/viewApiService";
@@ -3261,6 +3261,84 @@ const orderedVisibleFields = computed(() => visibleFields.value);
 // key: recordId, value: 转换后的行对象
 const transformedCache = new Map<string, any>();
 
+/**
+ * 构造公式整列引用（[表].[字段]）所需的表上下文：
+ * 本表字段 + 全表记录（表格视图持有全表数据，无需额外请求）。
+ * 跨表引用的权威值由后端 computed_values 提供，前端兜底仅支持本表。
+ */
+const buildFormulaTableContext = (): FormulaTableContext | undefined => {
+  const tableName = tableStore.currentTable?.name;
+  if (!tableName || !fields.value?.length) return undefined;
+  return {
+    tableName,
+    tables: new Map([
+      [
+        tableName.toLowerCase(),
+        { fields: fields.value, records: records.value },
+      ],
+    ]),
+  };
+};
+
+/**
+ * 公式单元格取值：优先后端 computed_values（权威值，含跨表引用等全量上下文计算结果），
+ * 缺失时回退前端引擎实时计算（未保存行/IndexedDB 回读等场景）。
+ * 返回可直接放入 VTable 行的展示值。
+ */
+const computeFormulaCellValue = (
+  record: any,
+  field: any,
+  engine: FormulaEngine | null,
+): string => {
+  const formula = field.options?.formula as string;
+  if (!formula) return '';
+
+  // 优先后端预计算值（computed_values 以字段名为 key）
+  const computedValues = record?.computed_values;
+  if (computedValues && typeof computedValues === 'object') {
+    const precomputed = computedValues[field.name];
+    if (precomputed !== null && precomputed !== undefined) {
+      if (typeof precomputed === 'number') {
+        const resultType = FormulaEngine.inferResultType(formula);
+        if (resultType === 'datetime') return formatDateTime(precomputed);
+        if (resultType === 'date') return formatDate(precomputed);
+        return formatNumberField(precomputed, {
+          precision: (field.options?.precision as number) ?? 2,
+          format: (field.options?.format as 'number' | 'currency' | 'percent') ?? 'number',
+          currencySymbol: field.options?.currencySymbol as string | undefined,
+          prefix: field.options?.prefix as string | undefined,
+          suffix: field.options?.suffix as string | undefined,
+          thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
+        });
+      }
+      return String(precomputed);
+    }
+  }
+
+  // 回退前端实时计算
+  if (!engine) return '';
+  try {
+    const result = engine.calculate(record, formula);
+    if (result === '#ERROR') return t('view.calcError');
+    if (typeof result === 'number') {
+      const resultType = FormulaEngine.inferResultType(formula);
+      if (resultType === 'datetime') return formatDateTime(result);
+      if (resultType === 'date') return formatDate(result);
+      return formatNumberField(result, {
+        precision: (field.options?.precision as number) ?? 2,
+        format: (field.options?.format as 'number' | 'currency' | 'percent') ?? 'number',
+        currencySymbol: field.options?.currencySymbol as string | undefined,
+        prefix: field.options?.prefix as string | undefined,
+        suffix: field.options?.suffix as string | undefined,
+        thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
+      });
+    }
+    return String(result);
+  } catch {
+    return t('view.calcError');
+  }
+};
+
 const transformRecords = (rawRecords: RecordEntity[]): any[] => {
   // 快速路径：所有记录已在缓存中，直接按原序返回
   if (rawRecords.length > 0 && rawRecords.every(r => r?.id && transformedCache.has(r.id))) {
@@ -3273,7 +3351,7 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
   const formulaFields = orderedVisibleFields.value.filter(f => f.type === FieldType.FORMULA);
   let formulaEngine: FormulaEngine | null = null;
   if (formulaFields.length > 0) {
-    formulaEngine = new FormulaEngine(fields.value);
+    formulaEngine = new FormulaEngine(fields.value, buildFormulaTableContext());
   }
 
   for (const record of rawRecords) {
@@ -3365,44 +3443,10 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
       }
     });
 
-    // 公式字段：逐条计算
-    if (formulaEngine && formulaFields.length > 0) {
+    // 公式字段：优先后端 computed_values，缺失时回退前端引擎计算
+    if (formulaFields.length > 0) {
       formulaFields.forEach(field => {
-        const formula = field.options?.formula as string;
-        if (!formula) { row[field.id] = ''; return; }
-        try {
-          const result = formulaEngine!.calculate(record, formula);
-          
-          if (result === '#ERROR') {
-            row[field.id] = t('view.calcError');
-          } else if (typeof result === 'number') {
-            // 根据公式类型决定格式化方式
-            const resultType = FormulaEngine.inferResultType(formula);
-            // 日期时间类型：YYYY-MM-DD HH:mm:ss
-            if (resultType === "datetime") {
-              row[field.id] = formatDateTime(result);
-            }
-            // 日期类型：YYYY-MM-DD
-            else if (resultType === "date") {
-              row[field.id] = formatDate(result);
-            }
-            // 数字类型：沿用数值字段的展示格式（精度/前后缀/千分位）
-            else {
-              row[field.id] = formatNumberField(result, {
-                precision: (field.options?.precision as number) ?? 2,
-                format: (field.options?.format as 'number' | 'currency' | 'percent') ?? 'number',
-                currencySymbol: field.options?.currencySymbol as string | undefined,
-                prefix: field.options?.prefix as string | undefined,
-                suffix: field.options?.suffix as string | undefined,
-                thousandsSeparator: field.options?.thousandsSeparator as boolean | undefined,
-              });
-            }
-          } else {
-            row[field.id] = String(result);
-          }
-        } catch {
-          row[field.id] = t('view.calcError');
-        }
+        row[field.id] = computeFormulaCellValue(record, field, formulaEngine);
       });
     }
 
@@ -3429,7 +3473,7 @@ const transformTreeRecords = (records: any[], depth: number = 0): any[] => {
   const formulaFields = orderedVisibleFields.value.filter(f => f.type === FieldType.FORMULA);
   let formulaEngine: FormulaEngine | null = null;
   if (formulaFields.length > 0) {
-    formulaEngine = new FormulaEngine(fields.value);
+    formulaEngine = new FormulaEngine(fields.value, buildFormulaTableContext());
   }
 
   return (records || []).map((record: any) => {
@@ -3504,13 +3548,7 @@ const transformTreeRecords = (records: any[], depth: number = 0): any[] => {
           break;
         }
         case FieldType.FORMULA: {
-          if (formulaEngine && rawVal === undefined) {
-            try {
-              row[field.id] = formulaEngine.calculate(record, (field as any).formula);
-            } catch { row[field.id] = ''; }
-          } else {
-            row[field.id] = rawVal ?? '';
-          }
+          row[field.id] = computeFormulaCellValue(record, field, formulaEngine);
           break;
         }
         default: {
