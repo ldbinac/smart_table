@@ -2516,13 +2516,15 @@ const handleDocumentExportPdf = async () => {
         ref="createTableFormRef"
         :model="createTableForm"
         :rules="createTableFormRules"
-        label-width="80px">
+        label-width="80px"
+        @submit.prevent>
         <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="createTableForm.name"
             :placeholder="t('view.base.enterTableName')"
             maxlength="50"
-            show-word-limit />
+            show-word-limit
+            @keyup.enter="handleCreateTable" />
         </el-form-item>
 
         <el-form-item :label="t('view.base.description')">
@@ -2554,13 +2556,15 @@ const handleDocumentExportPdf = async () => {
         ref="createDashboardFormRef"
         :model="createDashboardForm"
         :rules="createDashboardFormRules"
-        label-width="80px">
+        label-width="80px"
+        @submit.prevent>
         <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="createDashboardForm.name"
             :placeholder="t('view.base.enterDashboardName')"
             maxlength="50"
-            show-word-limit />
+            show-word-limit
+            @keyup.enter="handleCreateDashboard" />
         </el-form-item>
 
         <el-form-item :label="t('view.base.description')">
@@ -2594,13 +2598,15 @@ const handleDocumentExportPdf = async () => {
         ref="createDocumentFormRef"
         :model="createDocumentForm"
         :rules="createDocumentFormRules"
-        label-width="80px">
+        label-width="80px"
+        @submit.prevent>
         <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="createDocumentForm.name"
             :placeholder="t('view.base.enterDocName')"
             maxlength="50"
-            show-word-limit />
+            show-word-limit
+            @keyup.enter="handleCreateDocument" />
         </el-form-item>
       </el-form>
 
@@ -2624,13 +2630,15 @@ const handleDocumentExportPdf = async () => {
         ref="renameTableFormRef"
         :model="renameTableForm"
         :rules="renameTableFormRules"
-        label-width="80px">
+        label-width="80px"
+        @submit.prevent>
         <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="renameTableForm.name"
             :placeholder="t('view.base.enterTableName')"
             maxlength="50"
-            show-word-limit />
+            show-word-limit
+            @keyup.enter="handleRenameTable" />
         </el-form-item>
         <el-form-item :label="t('view.base.description')">
           <el-input
@@ -2900,13 +2908,15 @@ const handleDocumentExportPdf = async () => {
         ref="renameDashboardFormRef"
         :model="renameDashboardForm"
         :rules="renameDashboardFormRules"
-        label-width="80px">
+        label-width="80px"
+        @submit.prevent>
         <el-form-item :label="t('view.base.fieldName')" prop="name">
           <el-input
             v-model="renameDashboardForm.name"
             :placeholder="t('view.base.enterDashboardName')"
             maxlength="50"
-            show-word-limit />
+            show-word-limit
+            @keyup.enter="handleRenameDashboard" />
         </el-form-item>
         <el-form-item :label="t('view.base.description')">
           <el-input
