@@ -191,7 +191,7 @@
 | 表单视图    | ![表单视图](./doc/img/FormView.jpeg)        | 仪表盘    | ![仪表盘](./doc/img/Dashboard.jpeg)       |
 | 分享功能    | ![分享](./doc/img/sharing.png)            | 文档管理   | ![文档管理](./doc/img/Document.png)        |
 | 自动化工作流  | ![自动化工作流](./doc/img/Workflow.jpeg)      | 工作流实例  | ![工作流实例](./doc/img/Workflow2.jpeg)     |
-| Webhook | ![Webhook](./doc/img/WebHook.jpeg)      | <br /> | <br />                                 |
+| Webhook | ![Webhook](./doc/img/WebHook.jpeg)      | 插件系统 | ![插件系统](./doc/img/plugin-manager.png)                                 |
 
 ## 🛠️ 技术栈
 
@@ -810,7 +810,11 @@ smart-table-spec/
 - 📖 Documentation: [User-Manual](https://my-smart-table.github.io/smart-table-docs)
 - 关注作者：
   ![](./doc/img/wechat_official_account.png)
+- 请我喝杯咖啡：
 
+| 微信支付 | 支付宝支付 |
+| -------- | -------- |
+| ![](./doc/img/wechat_pay.png) | ![](./doc/img/alipay_pay.png) |
 ***
 
 **⭐ 如果这个项目对你有帮助，请给我们一个 Star！⭐**

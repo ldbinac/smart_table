@@ -189,7 +189,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 | Form View          | ![Form View](./doc/img/FormView.jpeg)             | Dashboard          | ![Dashboard](./doc/img/Dashboard.jpeg)          |
 | Sharing            | ![Sharing](./doc/img/sharing.png)                 | Document Management| ![Document Management](./doc/img/Document.png)  |
 | Workflow Automation| ![Workflow Automation](./doc/img/Workflow.jpeg)   | Workflow Instance  | ![Workflow Instance](./doc/img/Workflow2.jpeg)  |
-| Webhook            | ![Webhook](./doc/img/WebHook.jpeg)                | <br />             | <br />                                          |
+| Webhook            | ![Webhook](./doc/img/WebHook.jpeg)                | Plugin System      | ![Plugin System](./doc/img/plugin-manager.png) |
 
 ## 🛠️ Tech Stack
 
@@ -808,6 +808,12 @@ Special thanks to:
 - 📖 Documentation: [User-Manual](https://my-smart-table.github.io/smart-table-docs)
 - Follow the author on WeChat:
   ![](./doc/img/wechat_official_account.png)
+
+- Buy us a coffee:
+
+  | WeChat | Alipay |
+  | -------- | -------- |
+  | ![](./doc/img/wechat_pay.png) | ![](./doc/img/alipay_pay.png) |
 
 
 
