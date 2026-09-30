@@ -1950,6 +1950,13 @@ const handleDocumentSelect = async (docId: string) => {
 
   const baseId = route.params.id as string;
 
+  // 点击的就是当前文档：路由不会变化，watch 不会触发加载，
+  // 若继续设置 loading 将无人复位导致一直显示"文档正在加载中"，直接返回
+  // 注意：文档路由参数名为 docId（/base/:id/documents/:docId）
+  if (route.params.docId === docId) {
+    return;
+  }
+
   // 清除当前选中的表格，避免双重高亮
   tableStore.currentTable = null;
   tableStore.loading = false;
