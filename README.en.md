@@ -39,7 +39,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 | **Contact Types**   | Email            | Email address input and validation                                  | ✅      |
 | **Contact Types**   | URL              | URL link with click-to-navigate                                     | ✅      |
 | **Media Types**     | Attachment       | File upload/download with image preview and thumbnails              | ✅      |
-| **Computed Types**  | Formula          | 47 built-in functions with field references and nested calculations | ✅      |
+| **Computed Types**  | Formula          | 76 built-in functions with field references, cross-table column references, and nested calculations | ✅      |
 | **Relation Types**  | Link             | Table relationships supporting one-to-one/one-to-many/many-to-many  | ✅      |
 | **Lookup Types**    | Lookup           | Cross-table queries with aggregation (sum/avg/count/etc.)           | ✅      |
 | **System Types**    | Created By       | Auto-record record creator                                          | ✅      |
@@ -70,7 +70,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Data Filtering** - Multi-condition combined filtering with AND/OR logic, 20+ operators
 - **Data Sorting** - Multi-field sorting with ascending/descending order, drag to adjust priority
 - **Data Grouping** - Group by field with multi-level grouping (up to 3 levels), group statistics
-- **Formula Engine** - **47 built-in functions** for math, text, date, logic, and statistics
+- **Formula Engine** - **76 built-in functions** for math, text, date, logic, and statistics, plus `[Table].[Field]` cross-table column references and conditional aggregation (FILTER / COUNTIF / SUMIF / AVERAGEIF + CurrentValue)
 - **Streaming Data Loading** - First-screen rendering in seconds for 10k+ records, async background loading of remaining pages, non-blocking operations
 - **Data Import** - Support Excel, CSV, JSON formats with multi-sheet, can import to create new tables
 - **Data Export** - Support Excel, CSV, JSON formats with custom field selection
@@ -461,13 +461,32 @@ DATEDIF({Start Date}, {End Date}, "D")
 // Statistical calculation
 SUMIF({Department}, "Sales", {Sales Amount})
 
+// Cross-table column reference (within the same Base)
+SUM([Sales].[Amount])
+
+// Cross-table conditional aggregation (CurrentValue is the current element being visited)
+COUNTIF([Sales].[City], "Beijing")
+SUMIF([Sales].[City], CurrentValue = "Beijing", [Sales].[Amount])
+
+// Filter then aggregate
+SUM(FILTER([Sales].[Amount], CurrentValue > 100))
+
 // Lookup reference
 LOOKUP({Related Table.Related Records}, {Target Field})
 ```
 
-### Supported Functions (47 Total)
+### Cross-Table Column References
 
-#### 📊 Math Functions (11)
+Formula fields support the `[Table Name].[Field Name]` syntax to reference the entire column of values of a field in another table within the same Base, combined with statistical functions for report-style cross-table calculations:
+
+- Table and field names are case-insensitive; references to the current table must still include the full table name.
+- Cross-Base or missing tables evaluate to 0/null; renaming a table or field requires manually updating the formula.
+- Any raw-value field can be referenced; formula, lookup and link fields cannot be referenced yet.
+- Computed in real time by the server — refresh after the source table changes to see the latest results.
+
+### Supported Functions (76 Total)
+
+#### 📊 Math Functions (18)
 
 | Function  | Description    | Example                   |
 | --------- | -------------- | ------------------------- |
@@ -482,14 +501,22 @@ LOOKUP({Related Table.Related Records}, {Target Field})
 | `MOD`     | Modulo         | `MOD({Value}, 2)`         |
 | `POWER`   | Power          | `POWER({Base}, 2)`        |
 | `SQRT`    | Square root    | `SQRT({Value})`           |
+| `LN`      | Natural log    | `LN({Value})`             |
+| `LOG`     | Logarithm      | `LOG(100, 10)`            |
+| `EXP`     | Exponential    | `EXP({Value})`            |
+| `PI`      | Pi             | `PI()`                    |
+| `E`       | Euler's number | `E()`                     |
+| `RAND`    | Random number  | `RAND()`                  |
+| `RANDBETWEEN` | Random integer in range | `RANDBETWEEN(1, 10)` |
 
-#### 📝 Text Functions (10)
+#### 📝 Text Functions (14)
 
 | Function     | Description      | Example                            |
 | ------------ | ---------------- | ---------------------------------- |
 | `CONCAT`     | Concatenate text | `CONCAT({First}, {Last})`          |
 | `LEFT`       | Left extract     | `LEFT({Text}, 3)`                  |
 | `RIGHT`      | Right extract    | `RIGHT({Text}, 3)`                 |
+| `MID`        | Middle extract   | `MID({Text}, 2, 3)`                |
 | `LEN`        | Text length      | `LEN({Description})`               |
 | `UPPER`      | To uppercase     | `UPPER({Text})`                    |
 | `LOWER`      | To lowercase     | `LOWER({Text})`                    |
@@ -497,8 +524,11 @@ LOOKUP({Related Table.Related Records}, {Target Field})
 | `SUBSTITUTE` | Replace text     | `SUBSTITUTE({Text}, "Old", "New")` |
 | `REPLACE`    | Replace position | `REPLACE({Text}, 1, 3, "New")`     |
 | `FIND`       | Find position    | `FIND("Substring", {Text})`        |
+| `REPT`       | Repeat text      | `REPT("★", {Rating})`              |
+| `TEXT`       | Format as text   | `TEXT({Value}, "0.00")`            |
+| `VALUE`      | Text to number   | `VALUE({Text})`                    |
 
-#### 📅 Date Functions (14)
+#### 📅 Date Functions (15)
 
 | Function          | Description                        | Example                                         |
 | ----------------- | ---------------------------------- | ----------------------------------------------- |
@@ -515,31 +545,51 @@ LOOKUP({Related Table.Related Records}, {Target Field})
 | `FROMUNIXTIME`    | Timestamp to datetime (ms)         | `FROMUNIXTIME(1704067200000)`                   |
 | `UNIXTIMESTAMP`   | Datetime to timestamp (ms)         | `UNIXTIMESTAMP({DateTime})`                     |
 | `DATEDIF`         | Date difference (`DATEDIFF` alias) | `DATEDIF({Start}, {End}, "D")`                  |
+| `DATEDIFF`        | Date difference (day/month/year)   | `DATEDIFF({End}, {Start}, "days")`              |
 | `DATEADD`         | Date add/subtract, `DATEADD(date, amount, unit)` | `DATEADD({Date}, 7, "D")`                       |
 
 > **Note**: `DATEADD` signature is `DATEADD(date, amount, unit)`, e.g. `DATEADD(TODAY(), 7, "D")`. Unit is case-sensitive: `M` = month, `m` = minute; `D/d` = day, `H/h` = hour, `S/s` = second. `DATEDIF` and `DATEDIFF` are aliases.
 
-#### 🧠 Logic Functions (7)
+#### 🧠 Logic Functions (16)
 
 | Function  | Description       | Example                            |
 | --------- | ----------------- | ---------------------------------- |
 | `IF`      | Conditional       | `IF({Condition}, "True", "False")` |
 | `AND`     | Logical AND       | `AND({Cond1}, {Cond2})`            |
 | `OR`      | Logical OR        | `OR({Cond1}, {Cond2})`             |
+| `XOR`     | Exclusive OR      | `XOR({Cond1}, {Cond2})`            |
 | `NOT`     | Logical NOT       | `NOT({Condition})`                 |
 | `IFERROR` | Error handling    | `IFERROR({Formula}, "Default")`    |
 | `IFS`     | Multi-condition   | `IFS({C1}, {V1}, {C2}, {V2})`      |
 | `SWITCH`  | Multi-value match | `SWITCH({Field}, "A", 1, "B", 2)`  |
+| `ISBLANK` | Is blank          | `ISBLANK({Field})`                 |
+| `ISERROR` | Is error          | `ISERROR({a}/{b})`                 |
+| `ISNUMBER` | Is number        | `ISNUMBER({Field})`                |
+| `ISTEXT`  | Is text           | `ISTEXT({Field})`                  |
+| `ISDATE`  | Is date           | `ISDATE({Field})`                  |
+| `BLANK`   | Blank value       | `BLANK()`                          |
+| `NA`      | N/A value         | `NA()`                             |
+| `ERROR`   | Raise error       | `ERROR("Message")`                 |
 
-#### 📈 Statistical Functions (5)
+#### 📈 Statistical Functions (13)
 
 | Function    | Description         | Example                                    |
 | ----------- | ------------------- | ------------------------------------------ |
 | `COUNT`     | Count               | `COUNT({Field})`                           |
 | `COUNTA`    | Non-empty count     | `COUNTA({Field})`                          |
-| `COUNTIF`   | Conditional count   | `COUNTIF({Field}, ">100")`                 |
-| `SUMIF`     | Conditional sum     | `SUMIF({Category}, "A", {Amount})`         |
-| `AVERAGEIF` | Conditional average | `AVERAGEIF({Department}, "R&D", {Salary})` |
+| `COUNTBLANK` | Empty count        | `COUNTBLANK({Field1}, {Field2})`           |
+| `COUNTIF`   | Conditional count   | `COUNTIF([Sales].[City], "Beijing")`       |
+| `SUMIF`     | Conditional sum     | `SUMIF([Sales].[City], CurrentValue = "Beijing", [Sales].[Amount])` |
+| `AVERAGEIF` | Conditional average | `AVERAGEIF([Sales].[Amount], CurrentValue > 100)` |
+| `FILTER`    | Conditional filter (returns array) | `SUM(FILTER([Sales].[Amount], CurrentValue > 100))` |
+| `STDEV`     | Standard deviation  | `STDEV([Sales].[Amount])`                  |
+| `VAR`       | Variance            | `VAR([Sales].[Amount])`                    |
+| `MEDIAN`    | Median              | `MEDIAN([Sales].[Amount])`                 |
+| `MODE`      | Mode                | `MODE([Sales].[Amount])`                   |
+| `RANK`      | Ranking             | `RANK({Score}, [Exam].[Score])`            |
+| `UNIQUE`    | Deduplicate         | `UNIQUE([Sales].[City])`                   |
+
+> **Cross-table conditional aggregation**: `COUNTIF` / `SUMIF` / `AVERAGEIF` / `FILTER` support `[Table Name].[Field Name]` column references combined with `CurrentValue` traversal to aggregate data from other tables in the same Base. `CurrentValue` represents the current element being visited and is only allowed in the criteria argument of these four functions. See the [formula field docs](docs/en-US/user-guide/field-types/formula-field.md).
 
 ## 🌐 RESTful API Endpoints
 
