@@ -433,6 +433,23 @@
       "returns": "NULL",
       "example": "IF({Score} = 0, BLANK(), {Score})"
     },
+    "IFERROR": {
+      "desc": "Catches a formula error and returns a fallback value instead of #ERROR",
+      "returns": "Original value when no error, fallback value on error",
+      "example": "IFERROR({a} / {b}, 0): returns 0 on errors such as division by zero",
+      "p0": "Formula or value to check",
+      "p1": "Fallback value returned on error"
+    },
+    "NA": {
+      "desc": "Returns the N/A (not available) marker value",
+      "returns": "N/A",
+      "example": "IF(ISBLANK({Field}), NA(), {Field})"
+    },
+    "ERROR": {
+      "desc": "Raises an error, making the formula display #ERROR with the message",
+      "returns": "None (raises an error)",
+      "example": "IF({Quantity} < 0, ERROR(\"Quantity cannot be negative\"), {Quantity})"
+    },
     "COUNT": {
       "desc": "Counts the number of numeric arguments, supports [Table].[Field] column references",
       "returns": "Integer",

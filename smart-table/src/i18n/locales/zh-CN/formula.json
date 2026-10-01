@@ -433,6 +433,23 @@
       "returns": "NULL",
       "example": "IF({分数} = 0, BLANK(), {分数})"
     },
+    "IFERROR": {
+      "desc": "捕获公式错误并返回默认值，避免结果显示 #ERROR",
+      "returns": "无错误时返回原值，出错时返回默认值",
+      "example": "IFERROR({a} / {b}, 0)：除零等错误时返回 0",
+      "p0": "要检测的公式或值",
+      "p1": "出错时返回的默认值"
+    },
+    "NA": {
+      "desc": "返回 N/A（不可用）标记值",
+      "returns": "N/A",
+      "example": "IF(ISBLANK({字段}), NA(), {字段})"
+    },
+    "ERROR": {
+      "desc": "主动抛出错误，使公式显示 #ERROR 及错误信息",
+      "returns": "无（抛出错误）",
+      "example": "IF({数量} < 0, ERROR(\"数量不能为负\"), {数量})"
+    },
     "COUNT": {
       "desc": "计算数值参数的个数，支持 [表名].[字段名] 整列引用",
       "returns": "整数",

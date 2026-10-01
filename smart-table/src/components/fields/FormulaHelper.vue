@@ -166,6 +166,7 @@ const FUNCS: Array<{ name: string; label?: string; syntax: string; category: str
   // ========== 逻辑函数 ==========
   { name: "IF", syntax: "IF(condition, true_value, false_value)", category: "logic", params: ["condition", "true_value", "false_value"] },
   { name: "IFS", syntax: "IFS(cond1, val1, cond2, val2, ...)", category: "logic", params: ["cond1, val1, ..."] },
+  { name: "IFERROR", syntax: "IFERROR(value, value_if_error)", category: "logic", params: ["value", "value_if_error"] },
   { name: "SWITCH", syntax: "SWITCH(expr, val1, res1, val2, res2, ..., DEFAULT, default)", category: "logic", params: ["expr", "val1, res1, ...", "DEFAULT, default"] },
   { name: "AND", syntax: "AND(cond1, cond2, ...)", category: "logic", params: ["cond1, cond2, ..."] },
   { name: "OR", syntax: "OR(cond1, cond2, ...)", category: "logic", params: ["cond1, cond2, ..."] },
@@ -177,6 +178,8 @@ const FUNCS: Array<{ name: string; label?: string; syntax: string; category: str
   { name: "ISTEXT", syntax: "ISTEXT(value)", category: "logic", params: ["value"] },
   { name: "ISDATE", syntax: "ISDATE(value)", category: "logic", params: ["value"] },
   { name: "BLANK", syntax: "BLANK()", category: "logic", params: [] },
+  { name: "NA", syntax: "NA()", category: "logic", params: [] },
+  { name: "ERROR", syntax: "ERROR(message)", category: "logic", params: ["message"] },
   // ========== 统计函数 ==========
   { name: "COUNT", syntax: "COUNT(value1, value2, ...)", category: "stats", params: ["value1, value2, ..."] },
   { name: "COUNTA", syntax: "COUNTA(value1, value2, ...)", category: "stats", params: ["value1, value2, ..."] },
