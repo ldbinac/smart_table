@@ -4,6 +4,115 @@
 
 ***
 
+# SmartTable v1.6.8 Release Notes
+
+**发布日期 / Release Date**: 2026-10-05
+
+**版本号 / Version**: v1.6.8
+
+**标签 / Tags**: `release`, `v1.6.8`, `latest`, `stable`, `formula`, `excel-import`, `filter`, `group`, `folder`, `dashboard`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.8 更新说明
+
+本次更新聚焦 **公式引擎增强**、**Excel 导入优化**、**筛选与分组能力**、**数据表文件夹管理**及**仪表盘增强**等内容。公式引擎新增加法、减法、乘法、除法与括号五种运算符，支持跨表整列引用并新增 COUNTIF/SUMIF/AVERAGEIF/FILTER 等聚合函数与 IFERROR/NA/ERROR 逻辑函数；Excel 导入支持关联字段自动匹配与成员姓名解析；成员、关联记录等字段新增筛选能力，关联与查找字段支持分组，日期筛选扩展支持日期时间字段；新增数据表文件夹，支持表格分组管理；仪表盘支持设计/预览模式切换；并修复了文档重复点击 loading 状态、仪表盘分享标题国际化等一批问题。
+
+### ✨ 新增及功能优化
+
+#### 🧮 公式引擎增强 ⭐
+
+- ⭐ **新增公式运算符**：新增加法、减法、乘法、除法与括号五种运算符（+ - * / 及括号），并在公式助手中按分类展示，编写公式更直观
+- ⭐ **跨表整列引用**：支持 `[表名].[字段名]` 形式的跨表整列引用，可在聚合等场景直接引用其他表的整列数据
+- ⭐ **新增聚合函数**：新增 COUNTIF、SUMIF、AVERAGEIF、FILTER 等聚合与条件函数，条件统计更方便
+- ⭐ **新增逻辑函数**：新增 IFERROR、NA、ERROR 三个逻辑函数，可捕获公式错误、返回 N/A 标记或主动抛出错误
+
+#### 📥 Excel 导入增强
+
+- **关联字段自动匹配**：Excel 导入时自动匹配关联字段，减少手动映射
+- **成员姓名解析**：导入支持按成员姓名解析为成员字段，填写姓名即可落库为成员
+
+#### 🔍 筛选与分组增强
+
+- **成员/关联等字段筛选**：成员、关联记录等字段新增筛选功能
+- **关联与查找字段分组**：关联和查找字段支持分组展示
+- **日期时间字段筛选**：日期筛选逻辑增强，支持日期时间字段
+
+#### 📁 数据表文件夹管理
+
+- **表格分组管理**：新增数据表文件夹功能，支持对表格进行分组管理，多表场景更整齐
+
+#### 📊 仪表盘增强
+
+- **设计/预览模式切换**：仪表盘新增设计模式与预览模式切换，编辑与查看互不干扰
+
+#### 📝 表单增强
+
+- **提交与回车创建**：多个表单支持提交和回车触发创建，录入效率更高
+- **成员默认值自动填充**：分享表单中成员字段默认值自动填充为当前用户
+
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复重复点击文档导致 loading 状态无法复位的问题
+- 修复仪表盘分享功能国际化标题问题
+- 修复SQLite环境下重放迁移链时因部分表未在迁移脚本中定义导致的NoSuchTableError问题
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.8 Release Notes
+
+This release focuses on **formula engine enhancements**, **Excel import optimization**, **filter & grouping capabilities**, **data-table folder management**, and **dashboard enhancements**. The formula engine adds five operators (addition, subtraction, multiplication, division, and parentheses), supports cross-table whole-column references, and introduces aggregate functions such as COUNTIF/SUMIF/AVERAGEIF/FILTER and logical functions IFERROR/NA/ERROR; Excel import now supports automatic relation-field matching and member-name resolution; member, relation, and other field types gain filtering, relation & lookup fields support grouping, and date filtering is extended to date-time fields; a new data-table folder feature supports grouping tables; dashboards support design/preview mode switching; and issues including document loading state on repeated clicks and dashboard share title internationalization were fixed.
+
+### ✨ New Features & Improvements
+
+#### 🧮 Formula Engine Enhancements ⭐
+
+- ⭐ **New Formula Operators**: Added five operators — addition, subtraction, multiplication, division, and parentheses (+ - * / and parentheses), categorized and displayed in the formula helper for more intuitive formula authoring
+- ⭐ **Cross-Table Column References**: Supports `[TableName].[FieldName]` whole-column references, allowing direct reference of an entire column from another table in aggregation and similar scenarios
+- ⭐ **New Aggregate Functions**: Added aggregate/conditional functions such as COUNTIF, SUMIF, AVERAGEIF, and FILTER for easier conditional statistics
+- ⭐ **New Logical Functions**: Added three logical functions — IFERROR, NA, and ERROR — to catch formula errors, return an N/A marker, or actively raise an error
+
+#### 📥 Excel Import Enhancements
+
+- **Auto Relation-Field Matching**: Excel import now automatically matches relation fields, reducing manual mapping
+- **Member Name Resolution**: Import supports resolving member names into member fields — just fill in a name and it lands as a member
+
+#### 🔍 Filter & Grouping Enhancements
+
+- **Filter for Member/Relation Fields**: Member, relation, and other field types now support filtering
+- **Grouping for Relation & Lookup Fields**: Relation and lookup fields now support grouping
+- **Date-Time Field Filtering**: Date filtering logic is enhanced to support date-time fields
+
+#### 📁 Data-Table Folder Management
+
+- **Group Tables**: Added a data-table folder feature that supports grouping tables, keeping multi-table scenarios tidy
+
+#### 📊 Dashboard Enhancements
+
+- **Design/Preview Mode Switch**: Dashboards now support switching between design mode and preview mode, separating editing from viewing
+
+#### 📝 Form Enhancements
+
+- **Submit & Enter to Create**: Multiple forms now support submit and Enter-key triggering to create records, speeding up data entry
+- **Member Default Auto-Fill**: In shared forms, the member field default value is automatically filled with the current user
+
+#### 🐳 Backend & Deployment Optimization
+
+- **Migration Initialization Optimization**: Optimized the migration initialization logic for a brand-new database, improving the stability of first-time startup
+
+### 🐛 Bug Fixes
+
+- Fixed the issue where repeatedly clicking a document left the loading state unable to reset
+- Fixed the internationalization title issue in dashboard sharing
+- Fixed the NoSuchTableError that occurred when replaying the migration chain in a SQLite environment, caused by some tables not being defined in the migration scripts
+
+***
+
 # SmartTable v1.6.7 Release Notes
 
 **发布日期 / Release Date**: 2026-09-19

@@ -4,10 +4,15 @@
 # 基于 Nginx + Eventlet WSGI Server + Supervisor 进程管理
 # ============================================
 
+# 基础镜像可由构建脚本覆盖 (--build-arg): 国内网络下 buildx 容器拉 Docker Hub
+# 不稳定, build_docker.py 会将基础镜像经阿里云 ACR 中转后传入, 无中转时使用官方名
+ARG NODE_IMAGE=node:22-alpine
+ARG PYTHON_IMAGE=python:3.11-slim
+
 # ============================================
 # 阶段 1: 构建前端
 # ============================================
-FROM node:22-alpine AS frontend-builder
+FROM ${NODE_IMAGE} AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -34,7 +39,7 @@ RUN pnpm exec vite build
 # ============================================
 # 阶段 2: 构建后端 Python 依赖
 # ============================================
-FROM python:3.11-slim AS backend-builder
+FROM ${PYTHON_IMAGE} AS backend-builder
 
 WORKDIR /app
 
@@ -62,7 +67,7 @@ RUN pip install --no-cache-dir --user -i https://pypi.tuna.tsinghua.edu.cn/simpl
 # ============================================
 # 阶段 3: 生产运行环境
 # ============================================
-FROM python:3.11-slim
+FROM ${PYTHON_IMAGE}
 
 # 构建参数（build_docker.py 会传入 BUILD_VERSION / BUILD_DATE；
 # 默认值与 version.json 当前版本保持一致）
@@ -137,6 +142,21 @@ COPY docker/redis/redis.conf /etc/redis/redis.conf
 # 复制容器入口脚本
 COPY docker/server_runner.py /app/docker/server_runner.py
 COPY docker/entrypoint.sh /entrypoint.sh
+
+# 源码保护与敏感文件清理（须在全部 .py 就位后执行）：
+# 1) 全部 Python 源码编译为字节码（.pyc 与源文件同目录平铺）后删除 .py 源文件，
+#    覆盖业务包 app/、入口与工具脚本、docker/server_runner.py 及 alembic migrations/
+#    （alembic 1.13 的 load_python_file 原生支持 .pyc 回退加载，迁移可正常运行）；
+#    仅保留运行时插件 uploads/plugins/*/main.py（产品功能，非后端源码）
+# 2) 兜底删除 .db/.pem 等敏感文件（即使 .dockerignore 规则遗漏也不进入最终镜像）
+RUN python -m compileall -b app/ migrations/ docker/server_runner.py \
+        run.py init_db.py create_tables.py fix_loop_data_source.py init_link_tables.py && \
+    find app/ migrations/ docker/ -type f -name '*.py' -delete && \
+    rm -f run.py init_db.py create_tables.py fix_loop_data_source.py init_link_tables.py && \
+    find app/ migrations/ docker/ -type d -name '__pycache__' -prune -exec rm -rf {} + && \
+    find /app -type f \( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \
+        -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -delete && \
+    find /app -type d -empty -name '__pycache__' -delete
 
 # 修复 Windows CRLF 换行符问题，并设置权限
 RUN sed -i 's/\r$//' /entrypoint.sh /etc/nginx/nginx.conf /etc/supervisor/conf.d/supervisord.conf /etc/redis/redis.conf && \

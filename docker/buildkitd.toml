@@ -1,9 +1,11 @@
-# buildkitd 配置: 多平台构建使用国内可用的 Docker Hub 镜像代理
+# buildkitd 配置: 多平台构建的 Docker Hub 访问策略
 #
-# 在 Windows Docker Desktop 下, buildx 容器直连 auth.docker.io / registry-1.docker.io
-# 不稳定 (连接超时/EOF)。配置 docker.io 的 mirror 为 docker.1ms.run (已验证容器内
-# 可解析且返回正确 401, 为有效 Docker Hub 代理), buildkit 将 Docker Hub 全部请求
-# (含 token 认证与 manifest/blob 拉取) 发往该镜像源, 由其透明代理 Docker Hub。
-[registry."docker.io"]
-  mirrors = [ "https://docker.m.daocloud.io","https://docker.1ms.run"]
-  insecure = false
+# 国内 mirror (daocloud/1ms) 拉 manifest 可用, 但大 blob 下载频繁 EOF 中断,
+# 且 mirror 优先于代理生效 (buildkitd.toml 的 mirrors 会劫持 docker.io 全部流量),
+# 导致 buildx 容器的 HTTP_PROXY 形同虚设。
+# 因此不再配置 mirror: 由 build_docker.py 创建 builder 时注入的
+# env.HTTP_PROXY=host.docker.internal:7890 (宿主 Clash) 直连 Docker Hub,
+# 该路径经 crane push/pull 长期验证稳定。
+# [registry."docker.io"]
+#   mirrors = [ "https://docker.m.daocloud.io","https://docker.1ms.run"]
+#   insecure = false

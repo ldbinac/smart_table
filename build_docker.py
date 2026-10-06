@@ -479,6 +479,49 @@ def ensure_buildx_builder(multi_platform=False):
         return None
 
 
+# Dockerfile 顶部 FROM 的基础镜像 (ARG 名, 官方镜像, ACR 中转 tag)
+# 修改 Dockerfile 基础镜像版本时须同步此处
+BASE_IMAGES = [
+    ('NODE_IMAGE', 'node:22-alpine', 'node-22-alpine'),
+    ('PYTHON_IMAGE', 'python:3.11-slim', 'python-3.11-slim'),
+]
+
+
+def ensure_base_images(image_name):
+    """
+    准备基础镜像的 registry 中转。
+    国内网络下 buildx (docker-container 驱动) 从 Docker Hub 拉基础镜像的
+    manifest/blob 极不稳定 (mirror 大 blob 下载 EOF、直连超时), 而宿主 daemon
+    拉取与推送阿里云 ACR 均稳定。将基础镜像 tag 到 {registry}/base 并推送,
+    构建时经 --build-arg 传入, buildkit 直接从 ACR 拉取。
+    返回 {'NODE_IMAGE': ref, ...} 或 None (无 registry 前缀或中转失败时回退官方名)。
+    """
+    parts = image_name.split('/')
+    if len(parts) < 2 or '.' not in parts[0]:
+        return None  # 无 registry 前缀的本地镜像名, 无需中转
+    base_repo = f'{parts[0]}/{parts[1]}/base'
+    log('准备基础镜像中转 (registry/base)...', 'INFO')
+    mapping = {}
+    for arg_name, src, tag in BASE_IMAGES:
+        ref = f'{base_repo}:{tag}'
+        try:
+            ins = run_command(['docker', 'image', 'inspect', src],
+                              capture=True, check=False)
+            if ins.returncode != 0:
+                log(f'  本地缺失 {src}，由 daemon 拉取 (走已配置的镜像加速)...', 'INFO')
+                run_command(['docker', 'pull', src], capture=True, check=True)
+            run_command(['docker', 'tag', src, ref], capture=True, check=True)
+            log(f'  推送中转镜像 {ref} ...', 'INFO')
+            run_command(['docker', 'push', ref], capture=True, check=True)
+            mapping[arg_name] = ref
+        except (SystemExit, Exception) as e:
+            log(f'  ⚠ 中转镜像 {ref} 准备失败: {e}', 'WARNING')
+            log('  将回退为直接使用官方基础镜像名构建', 'WARNING')
+            return None
+    log('  基础镜像中转就绪', 'SUCCESS')
+    return mapping
+
+
 def build_docker_image(no_cache=False, image=None, tags=None, push=False,
                         platforms=None):
     log('构建 Docker 镜像...', 'STEP')
@@ -503,6 +546,9 @@ def build_docker_image(no_cache=False, image=None, tags=None, push=False,
 
     # 多平台需使用支持跨架构的 buildx builder (docker-container 驱动)
     builder = ensure_buildx_builder(multi_platform)
+
+    # 基础镜像中转 (buildx 容器直拉 Docker Hub 不稳定, 经 registry/base 中转)
+    base_args = ensure_base_images(image_name)
 
     start_time = time.time()
 
@@ -532,6 +578,9 @@ def build_docker_image(no_cache=False, image=None, tags=None, push=False,
         '--build-arg', f'BUILD_DATE={datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}',
         '--build-arg', f'BUILD_VERSION={tag_list[0]}',
     ])
+    if base_args:
+        for arg_name, ref in base_args.items():
+            cmd.extend(['--build-arg', f'{arg_name}={ref}'])
 
     # 多平台必须 --push; 单平台可 --load 到本地
     if push:

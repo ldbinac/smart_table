@@ -36,11 +36,15 @@ pnpm-debug.log
 *~
 .DS_Store
 
-# 文档和测试
+# 文档和测试（根级模式匹配不到子目录，**/ 前缀覆盖 smarttable-backend/ 等任意层级）
 doc/
 docs/
 tests/
 test/
+**/doc/
+**/docs/
+**/tests/
+**/test/
 *.test.ts
 *.spec.ts
 
@@ -56,14 +60,47 @@ docker-compose*.yaml
 **/.env.local
 **/.env.*.local
 
-# 日志
+# 日志（根级 + 任意层级；运行时目录由 entrypoint 创建）
 logs/
 *.log
+**/logs/
 
-# 数据库
+# 缓存与本地状态（任意层级）
+.pytest_cache/
+**/.pytest_cache/
+htmlcov/
+.mypy_cache/
+**/htmlcov/
+**/.mypy_cache/
+**/instance/
+**/.vscode/
+**/.idea/
+# 开发数据目录（勿用 **/data/ 全局排除——app/data/ 是业务模板数据目录）
+smarttable-backend/data/
+data/
+
+# 数据库（** 前缀匹配任意层级，防止子目录测试库进镜像）
 *.db
 *.sqlite
 *.sqlite3
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.sqlite-journal
+**/*.db-journal
+**/*.db-wal
+
+# 密钥与证书文件（严禁打进镜像；运行时需要的密钥通过数据卷挂载提供）
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.crt
+
+# Python 虚拟环境（任意层级）
+**/venv/
+**/.venv/
+**/env/
 
 # 上传文件
 uploads/
