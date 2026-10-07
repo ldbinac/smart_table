@@ -18,7 +18,7 @@
 
 ### 🎉 SmartTable v1.6.8 更新说明
 
-本次更新聚焦 **公式引擎增强**、**Excel 导入优化**、**筛选与分组能力**、**数据表文件夹管理**及**仪表盘增强**等内容。公式引擎新增加法、减法、乘法、除法与括号五种运算符，支持跨表整列引用并新增 COUNTIF/SUMIF/AVERAGEIF/FILTER 等聚合函数与 IFERROR/NA/ERROR 逻辑函数；Excel 导入支持关联字段自动匹配与成员姓名解析；成员、关联记录等字段新增筛选能力，关联与查找字段支持分组，日期筛选扩展支持日期时间字段；新增数据表文件夹，支持表格分组管理；仪表盘支持设计/预览模式切换；并修复了文档重复点击 loading 状态、仪表盘分享标题国际化等一批问题。
+本次更新聚焦 **公式引擎增强**、**Excel 导入优化**、**筛选与分组能力**、**数据表文件夹管理**、**仪表盘增强**及**成员管理增强**等内容。公式引擎新增加法、减法、乘法、除法与括号五种运算符，支持跨表整列引用并新增 COUNTIF/SUMIF/AVERAGEIF/FILTER 等聚合函数与 IFERROR/NA/ERROR 逻辑函数；Excel 导入支持关联字段自动匹配与成员姓名解析；成员、关联记录等字段新增筛选能力，关联与查找字段支持分组，日期筛选扩展支持日期时间字段；新增数据表文件夹，支持表格分组管理；仪表盘支持设计/预览模式切换；成员管理替换为成员选择器并优化添加校验；并修复了文档重复点击 loading 状态、仪表盘分享标题国际化、公式字符串数字运算类型错误等一批问题。
 
 ### ✨ 新增及功能优化
 
@@ -53,11 +53,16 @@
 - **提交与回车创建**：多个表单支持提交和回车触发创建，录入效率更高
 - **成员默认值自动填充**：分享表单中成员字段默认值自动填充为当前用户
 
+#### 👥 成员管理增强
+
+- **成员选择器替代邮箱输入**：成员管理的邮箱输入框替换为成员选择器，支持按姓名或邮箱搜索成员，添加成员更方便
+- **添加校验与去重提示**：新增表单校验与成员重复校验的友好提示，减少误操作、提升交互体验
 
 ### 🐛 Bug 修复 (Bug Fixes)
 
 - 修复重复点击文档导致 loading 状态无法复位的问题
 - 修复仪表盘分享功能国际化标题问题
+- 修复公式运算中字符串数字参与计算时的类型错误问题
 - 修复SQLite环境下重放迁移链时因部分表未在迁移脚本中定义导致的NoSuchTableError问题
 
 ---
@@ -66,7 +71,7 @@
 
 ### 🎉 SmartTable v1.6.8 Release Notes
 
-This release focuses on **formula engine enhancements**, **Excel import optimization**, **filter & grouping capabilities**, **data-table folder management**, and **dashboard enhancements**. The formula engine adds five operators (addition, subtraction, multiplication, division, and parentheses), supports cross-table whole-column references, and introduces aggregate functions such as COUNTIF/SUMIF/AVERAGEIF/FILTER and logical functions IFERROR/NA/ERROR; Excel import now supports automatic relation-field matching and member-name resolution; member, relation, and other field types gain filtering, relation & lookup fields support grouping, and date filtering is extended to date-time fields; a new data-table folder feature supports grouping tables; dashboards support design/preview mode switching; and issues including document loading state on repeated clicks and dashboard share title internationalization were fixed.
+This release focuses on **formula engine enhancements**, **Excel import optimization**, **filter & grouping capabilities**, **data-table folder management**, **dashboard enhancements**, and **member management enhancements**. The formula engine adds five operators (addition, subtraction, multiplication, division, and parentheses), supports cross-table whole-column references, and introduces aggregate functions such as COUNTIF/SUMIF/AVERAGEIF/FILTER and logical functions IFERROR/NA/ERROR; Excel import now supports automatic relation-field matching and member-name resolution; member, relation, and other field types gain filtering, relation & lookup fields support grouping, and date filtering is extended to date-time fields; a new data-table folder feature supports grouping tables; dashboards support design/preview mode switching; member management now uses a member selector instead of an email input, with improved add validation; and issues including document loading state on repeated clicks, dashboard share title internationalization, type errors when string-formatted numbers participate in formula calculations, and SQLite migration-chain NoSuchTableError were fixed.
 
 ### ✨ New Features & Improvements
 
@@ -101,6 +106,11 @@ This release focuses on **formula engine enhancements**, **Excel import optimiza
 - **Submit & Enter to Create**: Multiple forms now support submit and Enter-key triggering to create records, speeding up data entry
 - **Member Default Auto-Fill**: In shared forms, the member field default value is automatically filled with the current user
 
+#### 👥 Member Management Enhancements
+
+- **Member Selector Replaces Email Input**: The email input in member management is replaced with a member selector that supports searching members by name or email, making member addition easier
+- **Validation & Duplicate Hints**: Added form validation and friendly duplicate-member check hints, preventing duplicate additions and improving the interaction
+
 #### 🐳 Backend & Deployment Optimization
 
 - **Migration Initialization Optimization**: Optimized the migration initialization logic for a brand-new database, improving the stability of first-time startup
@@ -109,6 +119,7 @@ This release focuses on **formula engine enhancements**, **Excel import optimiza
 
 - Fixed the issue where repeatedly clicking a document left the loading state unable to reset
 - Fixed the internationalization title issue in dashboard sharing
+- Fixed the type error that occurred when string-formatted numbers participated in formula calculations
 - Fixed the NoSuchTableError that occurred when replaying the migration chain in a SQLite environment, caused by some tables not being defined in the migration scripts
 
 ***
