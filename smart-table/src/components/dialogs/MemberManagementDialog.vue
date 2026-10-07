@@ -85,11 +85,11 @@
           :model="addMemberForm"
           :rules="addMemberFormRules"
           label-width="130px">
-          <el-form-item :label="t('view.member.userEmail')" prop="email">
-            <el-input
-              v-model="addMemberForm.email"
-              :placeholder="t('view.member.enterUserEmail')"
-              type="email" />
+          <el-form-item :label="t('view.member.userLabel')" prop="member">
+            <MemberSelect
+              v-model="addMemberForm.member"
+              :return-object="true"
+              :placeholder="t('view.member.searchUserPlaceholder')" />
           </el-form-item>
           <el-form-item :label="t('view.member.role')" prop="role">
             <el-select v-model="addMemberForm.role" :placeholder="t('view.member.selectRole')">
@@ -134,6 +134,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
 import { useMemberStore, type BaseMember } from "@/stores/memberStore";
+import MemberSelect, { type Member } from "@/components/common/MemberSelect.vue";
 
 const { t } = useI18n();
 
@@ -165,14 +166,24 @@ const members = ref<BaseMember[]>([]);
 
 const addMemberFormRef = ref<FormInstance>();
 const addMemberForm = reactive({
-  email: "",
+  // MemberSelect（returnObject 单选）返回 0/1 个 Member 对象的数组
+  member: [] as Member[],
   role: "editor",
 });
 
 const addMemberFormRules: FormRules = {
-  email: [
-    { required: true, message: t('view.member.enterUserEmail'), trigger: "blur" },
-    { type: "email", message: t('view.base.invalidEmail'), trigger: "blur" },
+  member: [
+    {
+      required: true,
+      validator: (_rule, _value, callback) => {
+        if (addMemberForm.member.length > 0) {
+          callback();
+        } else {
+          callback(new Error(t("view.member.selectUserRequired")));
+        }
+      },
+      trigger: "change",
+    },
   ],
   role: [{ required: true, message: t('view.member.selectRole'), trigger: "change" }],
 };
@@ -260,9 +271,18 @@ async function handleSingleAdd() {
     await addMemberFormRef.value.validate();
     adding.value = true;
 
+    const selected = addMemberForm.member[0];
+    if (!selected) return;
+
+    // 已是成员 / 所有者时后端会拒绝，这里提前校验给出友好提示
+    if (members.value.some((m) => m.user_id === selected.id)) {
+      ElMessage.warning(t("view.member.userAlreadyMember"));
+      return;
+    }
+
     await memberStore.addMember(
       props.baseId,
-      addMemberForm.email,
+      selected.email,
       addMemberForm.role,
     );
     ElMessage.success(t('view.member.addMemberSuccess'));
@@ -271,7 +291,7 @@ async function handleSingleAdd() {
     emit("member-changed");
 
     // 重置表单
-    addMemberForm.email = "";
+    addMemberForm.member = [];
     addMemberForm.role = "editor";
   } catch (error) {
     if (error !== "cancel") {
