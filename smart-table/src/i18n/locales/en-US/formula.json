@@ -49,10 +49,10 @@
       "p0": "Any expression, evaluated before the outer operations"
     },
     "SUM": {
-      "desc": "Calculates the sum of all numeric arguments. Supports plain numbers, {field} row-level references, and [Table].[Field] column references (aggregate over an entire column) — including the current table and other tables within the same Base",
+      "desc": "Calculates the sum of all numeric arguments. Supports plain numbers, {'{'}field{'}'} row-level references, and [Table].[Field] column references (aggregate over an entire column) — including the current table and other tables within the same Base",
       "returns": "Number (sum result)",
       "example": "SUM({Unit Price}, {Quantity}): row-level sum\nSUM(10, 20, 30): constant sum\nSUM([Sales].[Amount]): sum the entire Amount column of the Sales table (cross-table aggregation)\nSUM(FILTER([Sales].[Amount], CurrentValue > 100)): conditional sum over a column",
-      "p0": "Numbers, {field} row-level references, or [Table].[Field] column references; the referenced table must be in the same Base"
+      "p0": "Numbers, {'{'}field{'}'} row-level references, or [Table].[Field] column references; the referenced table must be in the same Base"
     },
     "AVG": {
       "desc": "Calculates the average of all numeric arguments, supports [Table].[Field] column references",
