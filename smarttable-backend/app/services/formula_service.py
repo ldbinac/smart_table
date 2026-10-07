@@ -438,10 +438,18 @@ class FormulaEvaluator:
         op = node['operator']
         left = self.evaluate(node['left'])
         right = self.evaluate(node['right'])
-        
+
         if left is None or right is None:
             return None
-        
+
+        # 数值归一化：数字字段可能存字符串形态脏数据（'1.3'、'¥1,234.5'），
+        # 字符串参与算术时先归一化为数字（与聚合函数 _to_number 一致）；
+        # 无法归一化（真文本/日期对象等）时保持原类型由下方运算/异常兜底
+        if isinstance(left, str) or isinstance(right, str):
+            n_left, n_right = _to_number(left), _to_number(right)
+            if n_left is not None and n_right is not None:
+                left, right = n_left, n_right
+
         if op == '+':
             return left + right
         elif op == '-':
@@ -478,14 +486,30 @@ class FormulaEvaluator:
             return left == right
         elif op == '<>':
             return left != right
-        elif op == '>':
-            return left > right if left is not None and right is not None else False
-        elif op == '<':
-            return left < right if left is not None and right is not None else False
-        elif op == '>=':
-            return left >= right if left is not None and right is not None else False
-        elif op == '<=':
-            return left <= right if left is not None and right is not None else False
+        elif op in ('>', '<', '>=', '<='):
+            if left is None or right is None:
+                return False
+            l, r = left, right
+            if not (isinstance(l, str) and isinstance(r, str)):
+                # 至少一侧非字符串：尝试数值归一化（数字字段可能存字符串形态脏数据，
+                # 如 '85' >= 60 原生会抛 TypeError）；两侧均可数值化则数值比较
+                n_l, n_r = _to_number(l), _to_number(r)
+                if n_l is not None and n_r is not None:
+                    l, r = n_l, n_r
+                elif isinstance(l, str) or isinstance(r, str):
+                    # 真文本与数字/日期混合且无法归一化：视为不命中
+                    return False
+            try:
+                if op == '>':
+                    return l > r
+                elif op == '<':
+                    return l < r
+                elif op == '>=':
+                    return l >= r
+                else:
+                    return l <= r
+            except TypeError:
+                return False
         else:
             raise FormulaError(f"未知比较运算符: {op}")
     
@@ -617,40 +641,41 @@ class FormulaEvaluator:
 
 @FormulaEvaluator.register('ABS')
 def fn_abs(args: List[Any]) -> Union[int, float]:
-    """绝对值"""
-    val = args[0]
-    return abs(val) if val is not None else None
+    """绝对值（字符串数字自动归一化，数字字段可能存字符串形态脏数据）"""
+    n = _to_number(args[0])
+    return abs(n) if n is not None else None
 
 @FormulaEvaluator.register('ROUND')
 def fn_round(args: List[Any]) -> float:
-    """四舍五入"""
-    val = args[0]
-    digits = int(args[1]) if len(args) > 1 else 0
+    """四舍五入（参数自动数值归一化）"""
+    val = _to_number(args[0])
+    digits = _to_number(args[1]) if len(args) > 1 else 0
+    digits = int(digits) if digits is not None else 0
     return round(val, digits) if val is not None else None
 
 @FormulaEvaluator.register('CEILING')
 def fn_ceiling(args: List[Any]) -> int:
-    """向上取整"""
-    val = args[0]
+    """向上取整（参数自动数值归一化）"""
+    val = _to_number(args[0])
     return math.ceil(val) if val is not None else None
 
 @FormulaEvaluator.register('FLOOR')
 def fn_floor(args: List[Any]) -> int:
-    """向下取整"""
-    val = args[0]
+    """向下取整（参数自动数值归一化）"""
+    val = _to_number(args[0])
     return math.floor(val) if val is not None else None
 
 @FormulaEvaluator.register('POWER')
 def fn_power(args: List[Any]) -> float:
-    """幂运算"""
-    base = args[0]
-    exp = args[1]
+    """幂运算（参数自动数值归一化）"""
+    base = _to_number(args[0])
+    exp = _to_number(args[1])
     return base ** exp if base is not None and exp is not None else None
 
 @FormulaEvaluator.register('SQRT')
 def fn_sqrt(args: List[Any]) -> float:
-    """平方根"""
-    val = args[0]
+    """平方根（参数自动数值归一化）"""
+    val = _to_number(args[0])
     if val is None:
         return None
     if val < 0:
@@ -659,9 +684,9 @@ def fn_sqrt(args: List[Any]) -> float:
 
 @FormulaEvaluator.register('MOD')
 def fn_mod(args: List[Any]) -> float:
-    """取模"""
-    a = args[0]
-    b = args[1]
+    """取模（参数自动数值归一化）"""
+    a = _to_number(args[0])
+    b = _to_number(args[1])
     if a is None or b is None:
         return None
     if b == 0:
@@ -740,8 +765,8 @@ def fn_min(args: List[Any]) -> Any:
 
 @FormulaEvaluator.register('LN')
 def fn_ln(args: List[Any]) -> float:
-    """自然对数"""
-    val = args[0]
+    """自然对数（参数自动数值归一化）"""
+    val = _to_number(args[0])
     if val is None:
         return None
     if val <= 0:
@@ -750,9 +775,10 @@ def fn_ln(args: List[Any]) -> float:
 
 @FormulaEvaluator.register('LOG')
 def fn_log(args: List[Any]) -> float:
-    """对数"""
-    val = args[0]
-    base = args[1] if len(args) > 1 else 10
+    """对数（参数自动数值归一化）"""
+    val = _to_number(args[0])
+    base = _to_number(args[1]) if len(args) > 1 and args[1] is not None else 10
+    base = base if base is not None else 10
     if val is None:
         return None
     if val <= 0 or base <= 0 or base == 1:
@@ -761,8 +787,8 @@ def fn_log(args: List[Any]) -> float:
 
 @FormulaEvaluator.register('EXP')
 def fn_exp(args: List[Any]) -> float:
-    """e 的幂"""
-    val = args[0]
+    """e 的幂（参数自动数值归一化）"""
+    val = _to_number(args[0])
     return math.exp(val) if val is not None else None
 
 @FormulaEvaluator.register('PI')
@@ -783,11 +809,13 @@ def fn_rand(args: List[Any]) -> float:
 
 @FormulaEvaluator.register('RANDBETWEEN')
 def fn_randbetween(args: List[Any]) -> int:
-    """指定范围内的随机整数"""
-    lo = int(args[0])
-    hi = int(args[1])
+    """指定范围内的随机整数（参数自动数值归一化）"""
+    lo = _to_number(args[0])
+    hi = _to_number(args[1])
+    if lo is None or hi is None:
+        return None
     import random
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 # ==================== 文本函数注册 ====================

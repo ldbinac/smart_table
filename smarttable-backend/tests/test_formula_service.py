@@ -191,6 +191,24 @@ class TestFormulaEvaluator:
         result = self._eval('{a} + {b}', {'a': None, 'b': 10})
         assert result is None
 
+    def test_eval_string_number_arithmetic(self):
+        """算术运算：字符串数字自动归一化（数字字段字符串脏数据）"""
+        assert self._eval('{a} * {b}', {'a': '13', 'b': 2}) == 26
+        assert self._eval('{a} - {b}', {'a': '20', 'b': '5'}) == 15
+        assert self._eval('{a} / {b}', {'a': '20', 'b': '4'}) == 5.0
+        # 文本 + 文本保持字符串拼接语义
+        assert self._eval('{a} + {b}', {'a': 'foo', 'b': 'bar'}) == 'foobar'
+        # 两侧均为字符串时保持文本比较语义（'9' > '10' 按字典序为 True）
+        assert self._eval('{a} < {b}', {'a': '9', 'b': '10'}) is False
+
+    def test_eval_string_number_comparison(self):
+        """比较运算：字符串数字与数字混合时按数值比较，不再抛 TypeError"""
+        assert self._eval('{a} >= {b}', {'a': '85', 'b': 60}) is True
+        assert self._eval('{a} > {b}', {'a': '13', 'b': 2}) is True
+        assert self._eval('{a} < {b}', {'a': '1,234.5', 'b': 2000}) is True
+        # 真文本与数字混合且无法归一化：视为不命中，不报错
+        assert self._eval('{a} > {b}', {'a': 'abc', 'b': 5}) is False
+
 
 class TestMathFunctions:
     """数学函数测试"""
@@ -256,7 +274,23 @@ class TestMathFunctions:
         """MOD 除零应报错"""
         with pytest.raises(FormulaError):
             self._eval('MOD(10, 0)')
-    
+
+    def test_string_number_normalization(self):
+        """数字字段字符串形态脏数据：数学函数应自动归一化（与聚合函数一致）"""
+        assert self._eval('ABS({val})', {'val': '13'}) == 13
+        assert self._eval('ABS({val})', {'val': '¥1,234.5'}) == 1234.5
+        assert self._eval('ROUND({val}, 1)', {'val': '3.14159'}) == 3.1
+        assert self._eval('CEILING({val})', {'val': '3.2'}) == 4
+        assert self._eval('FLOOR({val})', {'val': '3.8'}) == 3
+        assert self._eval('POWER({a}, {b})', {'a': '2', 'b': '10'}) == 1024
+        assert self._eval('SQRT({val})', {'val': '16'}) == 4.0
+        assert self._eval('MOD({a}, {b})', {'a': '17', 'b': '5'}) == 2
+        assert self._eval('EXP({val})', {'val': '0'}) == pytest.approx(1.0)
+        assert self._eval('LN({val})', {'val': '1'}) == pytest.approx(0.0)
+        assert self._eval('LOG({v}, {b})', {'v': '100', 'b': '10'}) == pytest.approx(2.0)
+        # 非数字字符串归一化失败 → 空值，不再抛 #ERROR
+        assert self._eval('ABS({val})', {'val': 'abc'}) is None
+
     def test_ln_log_exp(self):
         """LN/LOG/EXP 对数指数"""
         import math
