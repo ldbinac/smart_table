@@ -170,10 +170,23 @@ RUN python -m compileall -b app/ migrations/ docker/server_runner.py \
       '# 保证旧版启动脚本/容器命令覆盖 (python run.py) 依然可用' \
       'import importlib.util, os, sys' \
       '_pyc = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run.pyc")' \
-      '_spec = importlib.util.spec_from_file_location("__main__", _pyc)' \
-      '_mod = importlib.util.module_from_spec(_spec)' \
-      'sys.modules["__main__"] = _mod' \
-      '_spec.loader.exec_module(_mod)' \
+      'if __name__ == "__main__":' \
+      '    # 直接执行 (python run.py): 以 __main__ 名字加载, 复现原 run.py 主流程语义' \
+      '    _spec = importlib.util.spec_from_file_location("__main__", _pyc)' \
+      '    _mod = importlib.util.module_from_spec(_spec)' \
+      '    sys.modules["__main__"] = _mod' \
+      '    _spec.loader.exec_module(_mod)' \
+      'else:' \
+      '    # 被导入 (from run import app): 以 "run" 名字加载模块级定义,' \
+      '    # 绝不能以 __main__ 名字 exec, 否则 server_runner 导入时会误触发' \
+      '    # run.pyc 主流程 (自动迁移 + Werkzeug 启动), 导致 WebSocket 全挂' \
+      '    _spec = importlib.util.spec_from_file_location("run", _pyc)' \
+      '    _mod = importlib.util.module_from_spec(_spec)' \
+      '    sys.modules["run"] = _mod' \
+      '    _spec.loader.exec_module(_mod)' \
+      '    for _name in dir(_mod):' \
+      '        if not _name.startswith("__"):' \
+      '            globals()[_name] = getattr(_mod, _name)' \
       > /app/run.py
 
 # 修复 Windows CRLF 换行符问题，并设置权限

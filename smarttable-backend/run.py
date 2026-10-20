@@ -502,7 +502,11 @@ if __name__ == '__main__':
         # （extensions.py 中可能因异常而禁用了 REALTIME_ENABLED）
         realtime_enabled = enable_realtime and app.config.get('REALTIME_ENABLED', False)
 
-        if realtime_enabled and hasattr(socketio, 'eio') and socketio.eio is not None:
+        # 注意：flask-socketio 5.x 的 SocketIO 类未暴露 eio 属性（eio 位于
+        # 内部 server 对象上，且初始化失败时 server 为 None），hasattr(socketio, 'eio')
+        # 恒为 False，会把已成功初始化的 SocketIO 误判为失败而退回 Werkzeug
+        # （不支持 WebSocket 升级，实时协作全部断连）。改用 server 属性判断。
+        if realtime_enabled and getattr(socketio, 'server', None) is not None:
             print(f'[Server] Starting with SocketIO real-time support...')
             socketio.run(app, host=host, port=port, debug=debug)
         else:
