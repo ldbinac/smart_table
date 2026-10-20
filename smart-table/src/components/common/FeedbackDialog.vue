@@ -10,6 +10,7 @@ import {
   openInNewTab,
   copyToClipboard,
   WECHAT_QR_PATH,
+  APP_NAME,
   APP_VERSION,
 } from "@/utils/feedback";
 
@@ -234,7 +235,7 @@ onUnmounted(() => {
             <div class="feedback-footer">
               <div class="version-tag">
                 <span class="version-label">{{ t('feedback.versionLabel') }}</span>
-                <span class="version-value">v{{ APP_VERSION }}</span>
+                <span class="version-value">{{ APP_NAME }} v{{ APP_VERSION }}</span>
               </div>
               <el-button @click="close">{{ t('view.cancel') }}</el-button>
             </div>

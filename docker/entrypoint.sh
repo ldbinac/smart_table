@@ -6,11 +6,13 @@ set -e
 # 负责：环境初始化、数据库准备、启动所有服务
 # ============================================
 
-# 版本号从 version.json 读取（避免发版时遗漏修改此处硬编码），读取失败回退 unknown
-APP_VERSION=$(python -c "import json;print(json.load(open('/app/version.json',encoding='utf-8')).get('version','unknown'))" 2>/dev/null || echo "unknown")
+# 版本号与产品名从 version.json 读取（避免发版时遗漏修改此处硬编码），读取失败回退 unknown/SmartTable
+_APP_META=$(python -c "import json;d=json.load(open('/app/version.json',encoding='utf-8'));print('%s|%s'%(d.get('product_name','SmartTable'),d.get('version','unknown')))" 2>/dev/null || echo "SmartTable|unknown")
+APP_NAME="${_APP_META%%|*}"
+APP_VERSION="${_APP_META##*|}"
 
 echo "============================================"
-echo "  SmartTable v${APP_VERSION} 容器启动中..."
+echo "  ${APP_NAME} v${APP_VERSION} 容器启动中..."
 echo "============================================"
 echo ""
 

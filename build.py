@@ -83,6 +83,7 @@ def parse_version_tuple(version_str):
 # 启动时立即加载一次（全局单例）
 _VERSION_DATA = load_version()
 VERSION = _VERSION_DATA['version']  # "1.2.3"
+PRODUCT_NAME = _VERSION_DATA['product_name']  # 产品名（启动横幅/前端反馈模块同步的唯一来源）
 FILE_VERSION_TUPLE = parse_version_tuple(VERSION)  # (1, 2, 3, 0)
 PRODUCT_VERSION_TUPLE = FILE_VERSION_TUPLE
 
@@ -304,47 +305,68 @@ def sync_package_json():
 
 def sync_feedback_version():
     """
-    将 version.json 的版本号同步到前端反馈模块 feedback.ts
+    将 version.json 的版本号与产品名同步到前端反馈模块 feedback.ts
 
-    feedback.ts 中定义常量 APP_VERSION，用于"问题反馈"功能
-    自动附带当前应用版本号。构建时强制用 version.json 的真实版本
-    覆盖，确保打包产物中反馈携带的版本号始终与 version.json 一致。
+    feedback.ts 中定义常量 APP_VERSION 与 APP_NAME，用于"问题反馈"功能
+    自动附带当前应用版本号与产品名。构建时强制用 version.json 的真实值
+    覆盖，确保打包产物中反馈携带的版本号/产品名始终与 version.json 一致。
 
-    仅当版本不同时才写入，避免不必要的文件变更。
+    仅当内容不同时才写入，避免不必要的文件变更。
     """
     feedback_path = FRONTEND_DIR / 'src' / 'utils' / 'feedback.ts'
 
     if not feedback_path.exists():
-        log(f'⚠️ feedback.ts 不存在，跳过反馈版本同步', 'WARNING')
+        log(f'⚠️ feedback.ts 不存在，跳过反馈模块同步', 'WARNING')
         return False
 
     try:
         with open(feedback_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
+        changed = False
+
+        # 同步 APP_NAME <- version.json product_name
+        # 匹配: export const APP_NAME = "SmartTable";
+        name_pattern = r'(export const APP_NAME\s*=\s*)(["\'])([^"\']+)(["\'])'
+        name_match = re.search(name_pattern, content)
+        if not name_match:
+            log(f'⚠️ 未在 feedback.ts 中找到 APP_NAME 常量，跳过产品名同步', 'WARNING')
+        elif name_match.group(3) != PRODUCT_NAME:
+            content = re.sub(
+                name_pattern,
+                lambda m: f'{m.group(1)}{m.group(2)}{PRODUCT_NAME}{m.group(4)}',
+                content,
+                count=1,
+            )
+            log(f'✅ 已同步 feedback.ts APP_NAME: {name_match.group(3)} → {PRODUCT_NAME}', 'SUCCESS')
+            changed = True
+        else:
+            log(f'✓ feedback.ts APP_NAME 已是最新 ({PRODUCT_NAME})', 'SUCCESS')
+
+        # 同步 APP_VERSION <- version.json version
         # 匹配: export const APP_VERSION = "x.y.z";
         pattern = r'(export const APP_VERSION\s*=\s*)(["\'])([^"\']+)(["\'])'
         match = re.search(pattern, content)
         if not match:
             log(f'⚠️ 未在 feedback.ts 中找到 APP_VERSION 常量，跳过同步', 'WARNING')
-            return False
+        else:
+            current_version = match.group(3)
+            if current_version == VERSION:
+                log(f'✓ feedback.ts 版本已是最新 ({VERSION})', 'SUCCESS')
+            else:
+                content = re.sub(
+                    pattern,
+                    lambda m: f'{m.group(1)}{m.group(2)}{VERSION}{m.group(4)}',
+                    content,
+                    count=1,
+                )
+                log(f'✅ 已同步 feedback.ts: {current_version} → {VERSION}', 'SUCCESS')
+                changed = True
 
-        current_version = match.group(3)
-        if current_version == VERSION:
-            log(f'✓ feedback.ts 版本已是最新 ({VERSION})', 'SUCCESS')
-            return True
+        if changed:
+            with open(feedback_path, 'w', encoding='utf-8') as f:
+                f.write(content)
 
-        new_content = re.sub(
-            pattern,
-            lambda m: f'{m.group(1)}{m.group(2)}{VERSION}{m.group(4)}',
-            content,
-             count=1,
-        )
-
-        with open(feedback_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-
-        log(f'✅ 已同步 feedback.ts: {current_version} → {VERSION}', 'SUCCESS')
         return True
 
     except Exception as e:
@@ -511,9 +533,9 @@ def prepare_release_package(platform):
 def _create_windows_scripts(d):
     (d / 'start.bat').write_text('''@echo off
 chcp 65001 >nul
-title SmartTable Server v{ver}
+title {name} Server v{ver}
 echo ============================================
-echo   SmartTable v{ver}
+echo   {name} v{ver}
 echo   --                                     
 echo   GitHub（主仓库）：https://github.com/ldbinac/smart_table
 echo   Gitee国内镜像）：https://gitee.com/binac/smart_table
@@ -537,7 +559,7 @@ echo 按 Ctrl+C 停止
 start /B "" "%~dp0SmartTable.exe"
 :loop
 timeout /t 3600 >nul & goto loop
-'''.format(ver=VERSION), encoding='utf-8')
+'''.format(ver=VERSION, name=PRODUCT_NAME), encoding='utf-8')
 
     (d / 'stop.bat').write_text('''@echo off
 echo 停止 SmartTable...

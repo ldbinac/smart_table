@@ -22,6 +22,7 @@ import subprocess
 import os
 import sys
 import json
+import re
 import shutil
 import socket
 import argparse
@@ -315,6 +316,83 @@ def check_prerequisites():
 
     log('✅ 环境检查通过', 'SUCCESS')
     log('-' * 50, 'INFO')
+
+
+# ============================================
+# 反馈模块元数据同步（与 build.py 的 sync_feedback_version 逻辑保持一致）
+# ============================================
+def sync_feedback_version():
+    """
+    将 version.json 的版本号与产品名同步到前端反馈模块 feedback.ts
+
+    Docker 构建走多阶段编译，前端源码在镜像构建期重新编译，
+    必须在 docker build 之前把 version.json 的真实值写入
+    feedback.ts（APP_VERSION/APP_NAME），确保镜像产物中
+    问题反馈携带的版本号/产品名与 version.json 一致。
+
+    仅当内容不同时才写入，避免不必要的文件变更。
+    """
+    feedback_path = FRONTEND_DIR / 'src' / 'utils' / 'feedback.ts'
+
+    if not feedback_path.exists():
+        log(f'  ⚠️ feedback.ts 不存在，跳过反馈模块同步', 'WARNING')
+        return
+
+    version, product_name = '', ''
+    if VERSION_FILE.exists():
+        try:
+            with open(VERSION_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            version = data.get('version', '')
+            product_name = data.get('product_name', '')
+        except Exception as e:
+            log(f'  ⚠️ 读取 version.json 失败，跳过反馈模块同步: {e}', 'WARNING')
+            return
+
+    try:
+        with open(feedback_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        changed = False
+
+        # 同步 APP_NAME <- version.json product_name
+        name_pattern = r'(export const APP_NAME\s*=\s*)(["\'])([^"\']+)(["\'])'
+        name_match = re.search(name_pattern, content)
+        if not name_match:
+            log(f'  ⚠️ 未在 feedback.ts 中找到 APP_NAME 常量，跳过产品名同步', 'WARNING')
+        elif product_name and name_match.group(3) != product_name:
+            content = re.sub(
+                name_pattern,
+                lambda m: f'{m.group(1)}{m.group(2)}{product_name}{m.group(4)}',
+                content,
+                count=1,
+            )
+            log(f'  ✅ 已同步 APP_NAME: {name_match.group(3)} → {product_name}', 'SUCCESS')
+            changed = True
+
+        # 同步 APP_VERSION <- version.json version
+        ver_pattern = r'(export const APP_VERSION\s*=\s*)(["\'])([^"\']+)(["\'])'
+        ver_match = re.search(ver_pattern, content)
+        if not ver_match:
+            log(f'  ⚠️ 未在 feedback.ts 中找到 APP_VERSION 常量，跳过版本同步', 'WARNING')
+        elif version and ver_match.group(3) != version:
+            content = re.sub(
+                ver_pattern,
+                lambda m: f'{m.group(1)}{m.group(2)}{version}{m.group(4)}',
+                content,
+                count=1,
+            )
+            log(f'  ✅ 已同步 APP_VERSION: {ver_match.group(3)} → {version}', 'SUCCESS')
+            changed = True
+
+        if changed:
+            with open(feedback_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+        log(f'  ✓ 反馈模块元数据与 version.json 一致 (APP_NAME/APP_VERSION)', 'SUCCESS')
+
+    except Exception as e:
+        log(f'  ⚠️ 同步 feedback.ts 失败: {e}', 'WARNING')
 
 
 # ============================================
@@ -1110,6 +1188,8 @@ def main():
     log('=' * 60, 'HEADER')
     log('步骤 2/4: 构建前端', 'HEADER')
     log('=' * 60, 'HEADER')
+    # 同步 version.json 的版本号与产品名到前端反馈模块（须在 docker build 前完成）
+    sync_feedback_version()
     build_frontend(skip_frontend=args.skip_frontend)
 
     # 步骤 3: 构建 Docker 镜像
