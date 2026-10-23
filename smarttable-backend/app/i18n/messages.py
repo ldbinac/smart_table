@@ -359,6 +359,55 @@ MESSAGES = {
         'zh-CN': '无权访问该记录',
         'en-US': 'No permission to access this record',
     },
+    # ===== 记录评论与 @提及 =====
+    'no_permission_comment': {
+        'zh-CN': '无权评论此记录',
+        'en-US': 'No permission to comment on this record',
+    },
+    'no_permission_delete_comment': {
+        'zh-CN': '无权删除该评论',
+        'en-US': 'No permission to delete this comment',
+    },
+    'comment_content_empty': {
+        'zh-CN': '评论内容不能为空',
+        'en-US': 'Comment content cannot be empty',
+    },
+    'comment_content_too_long': {
+        'zh-CN': '评论内容过长（最多 2000 字符）',
+        'en-US': 'Comment content is too long (max 2000 characters)',
+    },
+    'comment_parent_invalid': {
+        'zh-CN': '父评论不存在或不属于该记录',
+        'en-US': 'Parent comment does not exist or does not belong to this record',
+    },
+    'comment_not_found': {
+        'zh-CN': '评论不存在',
+        'en-US': 'Comment not found',
+    },
+    'comment_edit_forbidden': {
+        'zh-CN': '仅评论作者可编辑',
+        'en-US': 'Only the comment author can edit',
+    },
+    'comment_created': {
+        'zh-CN': '评论成功',
+        'en-US': 'Comment created',
+    },
+    'comment_updated': {
+        'zh-CN': '评论已更新',
+        'en-US': 'Comment updated',
+    },
+    'comment_deleted': {
+        'zh-CN': '评论已删除',
+        'en-US': 'Comment deleted',
+    },
+    'record_follow_toggled': {
+        'zh-CN': '关注状态已更新',
+        'en-US': 'Follow status updated',
+    },
+    'notification_prefs_updated': {
+        'zh-CN': '通知偏好已更新',
+        'en-US': 'Notification preferences updated',
+    },
     'no_permission_access_field': {
         'zh-CN': '您没有权限访问此字段',
         'en-US': 'No permission to access this field',

@@ -18,7 +18,7 @@ import {
   ElRadioGroup,
   ElRadio,
 } from "element-plus";
-import { Clock, Connection } from "@element-plus/icons-vue";
+import { Clock, Connection, Star } from "@element-plus/icons-vue";
 
 const { t } = useI18n();
 import { useWorkflowStore } from "@/stores";
@@ -48,8 +48,12 @@ import GeoField from "@/components/fields/geo/GeoField.vue";
 import SubTableInDrawer from "@/components/dialogs/SubTableInDrawer.vue";
 // 插件体系：记录详情扩展点宿主
 import PluginRecordBlocks from "@/components/plugins/PluginRecordBlocks.vue";
+// 记录评论与 @提及
+import CommentPanel from "./CommentPanel.vue";
+import { useAuthStore } from "@/stores/authStore";
 import type { LinkedRecord, RelationshipType } from "@/types/link";
 import { linkApiService } from "@/services/api/linkApiService";
+import { commentApiService } from "@/services/api/commentApiService";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 
 interface GroupLevel {
@@ -189,6 +193,44 @@ const historyVisible = ref(false);
 // 工作流相关状态
 const workflowStore = useWorkflowStore();
 const memberStore = useMemberStore();
+const authStore = useAuthStore();
+
+// 评论面板所需上下文
+const currentUserId = computed(
+  () => (authStore as any).user?.id || (authStore as any).userId || "",
+);
+const commentMembers = computed(() =>
+  ((memberStore.members as any) || []).map((m: any) => ({
+    id: m.user?.id || m.id,
+    name: m.user?.name || m.name,
+    avatar: m.user?.avatar || m.avatar,
+  })),
+);
+
+// 详情 / 评论页签与记录关注状态
+const activeTab = ref<"detail" | "comment">("detail");
+const following = ref(false);
+
+// 打开抽屉时重置到详情页签
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) {
+      activeTab.value = "detail";
+      following.value = false;
+    }
+  },
+);
+
+async function toggleFollow() {
+  if (!props.record?.id) return;
+  try {
+    const res = await commentApiService.toggleFollow(props.record.id);
+    following.value = res.following;
+  } catch {
+    /* 错误已由 apiClient 统一提示 */
+  }
+}
 const userCacheStore = useUserCacheStore();
 
 // 系统字段（创建人/更新人）用户 ID -> 名称解析
@@ -826,6 +868,38 @@ const effectiveSize = computed<string | number>(() => {
     class="record-detail-drawer"
     @update:model-value="$emit('update:visible', $event)">
     <div v-if="record" class="drawer-content">
+      <!-- 页签栏：详情 / 评论 + 历史 / 关注 -->
+      <div class="detail-tabbar">
+        <div class="detail-tabs">
+          <button
+            type="button"
+            class="detail-tab"
+            :class="{ active: activeTab === 'detail' }"
+            @click="activeTab = 'detail'">
+            {{ t('record.detail') }}
+          </button>
+          <button
+            type="button"
+            class="detail-tab"
+            :class="{ active: activeTab === 'comment' }"
+            @click="activeTab = 'comment'">
+            {{ t('record.comment') }}
+          </button>
+        </div>
+        <div class="detail-tabbar-actions">
+          <el-button link class="tabbar-action" @click="showHistory">
+            <el-icon><Clock /></el-icon>
+            <span>{{ t('record.historyTab') }}</span>
+          </el-button>
+          <el-button link class="tabbar-action" @click="toggleFollow">
+            <el-icon><Star /></el-icon>
+            <span>{{ following ? t('comment.following') : t('comment.follow') }}</span>
+          </el-button>
+        </div>
+      </div>
+
+      <!-- 详情页签：字段展示 / 编辑 + 插件区块 -->
+      <div v-show="activeTab === 'detail'" class="detail-pane">
       <el-form label-position="top" class="record-form">
         <div v-for="field in visibleFields" :key="field.id" class="form-field">
           <label class="field-label">
@@ -1141,23 +1215,28 @@ const effectiveSize = computed<string | number>(() => {
           </template>
         </div>
       </el-form>
-    </div>
 
-    <!-- 插件扩展点：记录详情区块（有效启用的 UI 插件声明式注册） -->
-    <PluginRecordBlocks
-      v-if="record"
-      :record-id="record.id"
-      :table-id="record.tableId" />
+      <!-- 插件扩展点：记录详情区块（有效启用的 UI 插件声明式注册） -->
+      <PluginRecordBlocks
+        v-if="record"
+        :record-id="record.id"
+        :table-id="record.tableId" />
+      </div>
+
+      <!-- 评论页签：记录评论与 @提及 -->
+      <div v-show="activeTab === 'comment'" class="comment-pane">
+        <CommentPanel
+          v-if="record?.id"
+          :record-id="record.id"
+          :members="commentMembers"
+          :current-user-id="currentUserId"
+          :readonly="readonly" />
+      </div>
+    </div>
 
     <template #footer>
       <div class="drawer-footer">
         <div class="footer-left">
-          <el-button
-            v-if="record?.id"
-            :icon="Clock"
-            circle
-            :title="t('record.history')"
-            @click="showHistory" />
           <el-button
             v-if="record?.id && canTriggerWorkflow"
             :icon="Connection"
@@ -1239,6 +1318,70 @@ const effectiveSize = computed<string | number>(() => {
   padding: 0;
   height: calc(100% - 10px);
   overflow-y: auto;
+}
+
+// 页签栏：详情 / 评论 + 历史 / 关注
+.detail-tabbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.detail-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 14px 12px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--el-text-color-regular);
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+
+  &:hover {
+    color: var(--el-color-primary);
+  }
+
+  &.active {
+    color: var(--el-color-primary);
+    border-bottom-color: var(--el-color-primary);
+    font-weight: 600;
+  }
+}
+
+.detail-tabbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tabbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.detail-pane {
+  min-height: 100%;
+}
+
+.comment-pane {
+  padding: 12px 20px 20px;
 }
 
 .record-form {

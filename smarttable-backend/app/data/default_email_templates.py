@@ -753,6 +753,192 @@ BASE_OWNERSHIP_TRANSFERRED_TEMPLATE = {
     "is_default": True
 }
 
+# 评论 @提及通知模板
+COMMENT_MENTION_TEMPLATE = {
+    "template_key": "comment_mention",
+    "name": "评论提及通知",
+    "subject": "{{actor_name}} 在记录中提到了你 - {{base_name}}",
+    "content_html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>评论提及通知</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 24px; }
+        .content { padding: 40px 30px; }
+        .content p { color: #666666; line-height: 1.6; margin-bottom: 20px; }
+        .comment-box { background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 500; margin: 20px 0; }
+        .footer { padding: 20px 30px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; text-align: center; color: #999999; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>你在记录中被提到了</h1>
+        </div>
+        <div class="content">
+            <p>您好！</p>
+            <p><strong>{{actor_name}}</strong> 在多维表 <strong>{{base_name}}</strong> 的表格 <strong>{{table_name}}</strong> 中评论记录「{{record_title}}」时提到了你。</p>
+            <div class="comment-box">{{comment_snippet}}</div>
+            <p style="text-align: center;">
+                <a href="{{record_url}}" class="button">查看评论</a>
+            </p>
+        </div>
+        <div class="footer">
+            <p>此邮件由 Smart Table 系统自动发送，请勿回复。</p>
+        </div>
+    </div>
+</body>
+</html>
+""",
+    "content_text": """
+评论提及通知
+
+您好！
+
+{{actor_name}} 在多维表 {{base_name}} 的表格 {{table_name}} 中评论记录「{{record_title}}」时提到了你。
+
+评论内容：
+{{comment_snippet}}
+
+查看评论：{{record_url}}
+
+---
+此邮件由 Smart Table 系统自动发送，请勿回复。
+""",
+    "description": "评论中 @提及成员时发送的通知",
+    "is_default": True
+}
+
+# 评论回复通知模板
+COMMENT_REPLY_TEMPLATE = {
+    "template_key": "comment_reply",
+    "name": "评论回复通知",
+    "subject": "{{actor_name}} 回复了你的评论 - {{base_name}}",
+    "content_html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>评论回复通知</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 24px; }
+        .content { padding: 40px 30px; }
+        .content p { color: #666666; line-height: 1.6; margin-bottom: 20px; }
+        .comment-box { background-color: #f8f9fa; border-left: 4px solid #17a2b8; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 500; margin: 20px 0; }
+        .footer { padding: 20px 30px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; text-align: center; color: #999999; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>有人回复了你的评论</h1>
+        </div>
+        <div class="content">
+            <p>您好！</p>
+            <p><strong>{{actor_name}}</strong> 在多维表 <strong>{{base_name}}</strong> 的表格 <strong>{{table_name}}</strong> 中回复了你对记录「{{record_title}}」的评论。</p>
+            <div class="comment-box">{{comment_snippet}}</div>
+            <p style="text-align: center;">
+                <a href="{{record_url}}" class="button">查看回复</a>
+            </p>
+        </div>
+        <div class="footer">
+            <p>此邮件由 Smart Table 系统自动发送，请勿回复。</p>
+        </div>
+    </div>
+</body>
+</html>
+""",
+    "content_text": """
+评论回复通知
+
+您好！
+
+{{actor_name}} 在多维表 {{base_name}} 的表格 {{table_name}} 中回复了你对记录「{{record_title}}」的评论。
+
+回复内容：
+{{comment_snippet}}
+
+查看回复：{{record_url}}
+
+---
+此邮件由 Smart Table 系统自动发送，请勿回复。
+""",
+    "description": "回复他人评论时向父评论作者发送的通知",
+    "is_default": True
+}
+
+# 记录评论通知模板
+RECORD_COMMENT_TEMPLATE = {
+    "template_key": "record_comment",
+    "name": "记录评论通知",
+    "subject": "{{actor_name}} 评论了你关注的记录 - {{base_name}}",
+    "content_html": """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>记录评论通知</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 24px; }
+        .content { padding: 40px 30px; }
+        .content p { color: #666666; line-height: 1.6; margin-bottom: 20px; }
+        .comment-box { background-color: #f8f9fa; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 500; margin: 20px 0; }
+        .footer { padding: 20px 30px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; text-align: center; color: #999999; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>你关注的记录有了新评论</h1>
+        </div>
+        <div class="content">
+            <p>您好！</p>
+            <p><strong>{{actor_name}}</strong> 在多维表 <strong>{{base_name}}</strong> 的表格 <strong>{{table_name}}</strong> 中评论了你关注的记录「{{record_title}}」。</p>
+            <div class="comment-box">{{comment_snippet}}</div>
+            <p style="text-align: center;">
+                <a href="{{record_url}}" class="button">查看评论</a>
+            </p>
+        </div>
+        <div class="footer">
+            <p>此邮件由 Smart Table 系统自动发送，请勿回复。</p>
+        </div>
+    </div>
+</body>
+</html>
+""",
+    "content_text": """
+记录评论通知
+
+您好！
+
+{{actor_name}} 在多维表 {{base_name}} 的表格 {{table_name}} 中评论了你关注的记录「{{record_title}}」。
+
+评论内容：
+{{comment_snippet}}
+
+查看评论：{{record_url}}
+
+---
+此邮件由 Smart Table 系统自动发送，请勿回复。
+""",
+    "description": "关注记录新增顶层评论时向关注者发送的通知",
+    "is_default": True
+}
+
 # 所有默认模板列表
 DEFAULT_EMAIL_TEMPLATES = [
     USER_REGISTRATION_TEMPLATE,
@@ -766,4 +952,7 @@ DEFAULT_EMAIL_TEMPLATES = [
     SHARE_REMOVED_TEMPLATE,
     PERMISSION_CHANGED_TEMPLATE,
     BASE_OWNERSHIP_TRANSFERRED_TEMPLATE,
+    COMMENT_MENTION_TEMPLATE,
+    COMMENT_REPLY_TEMPLATE,
+    RECORD_COMMENT_TEMPLATE,
 ]

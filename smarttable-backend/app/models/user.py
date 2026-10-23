@@ -5,8 +5,9 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 from enum import Enum as PyEnum
+from typing import Optional
 
-from sqlalchemy import String, Boolean, DateTime, Enum, Text, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, Enum, Text, ForeignKey, JSON
 from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -131,7 +132,16 @@ class User(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
-    
+    notification_prefs: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        default=lambda: {
+            'notify_on_mention': True,
+            'notify_on_reply': True,
+            'notify_on_record_comment': True
+        }
+    )
+
     owned_bases = relationship(
         'Base',
         back_populates='owner',

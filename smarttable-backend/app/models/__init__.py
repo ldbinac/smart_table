@@ -10,6 +10,7 @@ from app.models.table_folder import TableFolder
 from app.models.field import Field
 from app.models.record import Record
 from app.models.record_history import RecordHistory, HistoryAction
+from app.models.comment import CommentMention, RecordFollower
 from app.models.view import View
 from app.models.dashboard import Dashboard
 from app.models.attachment import Attachment
@@ -86,6 +87,8 @@ __all__ = [
     'Record',
     'RecordHistory',
     'HistoryAction',
+    'CommentMention',
+    'RecordFollower',
     'View',
     'Dashboard',
     'Attachment',

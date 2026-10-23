@@ -225,3 +225,44 @@ def get_users_batch():
     } for user in users]
     
     return success_response(users_data)
+
+
+# ---------------------------------------------------------------------------
+# 通知偏好（评论类）
+# ---------------------------------------------------------------------------
+_NOTIFICATION_PREF_KEYS = ('notify_on_mention', 'notify_on_reply', 'notify_on_record_comment')
+_DEFAULT_NOTIFICATION_PREFS = {
+    'notify_on_mention': True,
+    'notify_on_reply': True,
+    'notify_on_record_comment': True,
+}
+
+
+def _merged_notification_prefs(user: User) -> dict:
+    prefs = dict(_DEFAULT_NOTIFICATION_PREFS)
+    if user.notification_prefs:
+        prefs.update({k: bool(v) for k, v in user.notification_prefs.items() if k in _NOTIFICATION_PREF_KEYS})
+    return prefs
+
+
+@users_bp.route('/users/me/notification-prefs', methods=['GET'])
+@jwt_required
+def get_my_notification_prefs():
+    """获取当前用户评论类通知偏好"""
+    return success_response(_merged_notification_prefs(g.current_user))
+
+
+@users_bp.route('/users/me/notification-prefs', methods=['PUT'])
+@jwt_required
+def update_my_notification_prefs():
+    """更新当前用户评论类通知偏好"""
+    json_data = request.get_json(silent=True) or {}
+    current = g.current_user.notification_prefs or {}
+    merged = dict(_DEFAULT_NOTIFICATION_PREFS)
+    merged.update({k: bool(v) for k, v in current.items() if k in _NOTIFICATION_PREF_KEYS})
+    for key in _NOTIFICATION_PREF_KEYS:
+        if key in json_data:
+            merged[key] = bool(json_data[key])
+    g.current_user.notification_prefs = merged
+    db.session.commit()
+    return success_response(merged, message='notification_prefs_updated')

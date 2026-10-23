@@ -13,6 +13,11 @@ from sqlalchemy import or_
 from app.extensions import db
 from app.models.email_template import EmailTemplate
 from app.i18n import translate
+from app.data.default_email_templates import (
+    COMMENT_MENTION_TEMPLATE,
+    COMMENT_REPLY_TEMPLATE,
+    RECORD_COMMENT_TEMPLATE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +250,10 @@ class EmailTemplateService:
 &copy; {{year}} SmartTable. All rights reserved.
             ''',
             'description': '通用系统通知邮件模板'
-        }
+        },
+        'comment_mention': COMMENT_MENTION_TEMPLATE,
+        'comment_reply': COMMENT_REPLY_TEMPLATE,
+        'record_comment': RECORD_COMMENT_TEMPLATE,
     }
 
     @staticmethod

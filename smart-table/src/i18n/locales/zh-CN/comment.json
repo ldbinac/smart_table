@@ -1,0 +1,18 @@
+{
+  "title": "评论",
+  "placeholder": "写下评论，使用 @ 提及成员…",
+  "send": "发送",
+  "reply": "回复",
+  "edit": "编辑",
+  "delete": "删除",
+  "cancel": "取消",
+  "save": "保存",
+  "deleted": "评论已删除",
+  "empty": "暂无评论",
+  "replyingTo": "回复",
+  "contentRequired": "评论内容不能为空",
+  "tooLong": "评论内容过长（最多 2000 字符）",
+  "deleteConfirm": "确定删除这条评论吗？",
+  "follow": "关注",
+  "following": "已关注"
+}

@@ -1,0 +1,18 @@
+{
+  "title": "Comments",
+  "placeholder": "Write a comment, use @ to mention members…",
+  "send": "Send",
+  "reply": "Reply",
+  "edit": "Edit",
+  "delete": "Delete",
+  "cancel": "Cancel",
+  "save": "Save",
+  "deleted": "Comment deleted",
+  "empty": "No comments yet",
+  "replyingTo": "Reply to",
+  "contentRequired": "Comment content cannot be empty",
+  "tooLong": "Comment is too long (max 2000 characters)",
+  "deleteConfirm": "Delete this comment?",
+  "follow": "Follow",
+  "following": "Following"
+}

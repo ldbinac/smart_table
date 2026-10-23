@@ -27,6 +27,7 @@ declare module 'vue' {
     CheckboxField: typeof import('./components/fields/CheckboxField.vue')['default']
     ClockWidget: typeof import('./components/dashboard/ClockWidget.vue')['default']
     CollaborationToast: typeof import('./components/collaboration/CollaborationToast.vue')['default']
+    CommentPanel: typeof import('./components/dialogs/CommentPanel.vue')['default']
     ConflictDialog: typeof import('./components/collaboration/ConflictDialog.vue')['default']
     ConnectionStatusBar: typeof import('./components/collaboration/ConnectionStatusBar.vue')['default']
     ContextMenu: typeof import('./components/common/ContextMenu.vue')['default']

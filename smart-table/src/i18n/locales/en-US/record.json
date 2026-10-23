@@ -25,6 +25,9 @@
   "linkUnlinkFailed": "Failed to unlink, please try again later",
   "editWithValue": "Edit Record - {value}",
   "history": "Change History",
+  "detail": "Details",
+  "comment": "Comments",
+  "historyTab": "History",
   "triggerWorkflow": "Trigger Workflow",
   "noTriggerableWorkflow": "No manually triggerable workflows",
   "trigger": "Trigger"

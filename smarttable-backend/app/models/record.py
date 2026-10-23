@@ -213,6 +213,16 @@ class RecordComment(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
 
     record = relationship(
         'Record',
@@ -239,14 +249,23 @@ class RecordComment(db.Model):
         lazy='joined'
     )
 
+    mentions = relationship(
+        'CommentMention',
+        back_populates='comment',
+        lazy='select',
+        cascade='all, delete-orphan'
+    )
+
     def to_dict(self, include_user: bool = True) -> dict:
         data = {
             'id': str(self.id),
             'record_id': str(self.record_id),
-            'content': self.content,
+            'content': self.content if not self.is_deleted else None,
             'parent_id': str(self.parent_id) if self.parent_id else None,
+            'is_deleted': self.is_deleted,
             'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'updated_at': self.updated_at.isoformat(),
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None
         }
         if include_user and self.user:
             data['user'] = {

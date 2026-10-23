@@ -26,11 +26,14 @@ from app.schemas.record_schema import (
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.decorators import jwt_required, role_required, query_rate_limit, write_rate_limit, form_share_or_jwt
 from app.extensions import db
-from app.models.record import Record
+from app.models.record import Record, RecordComment
 from app.models.record_history import RecordHistory, HistoryAction
+from app.models.comment import CommentMention, RecordFollower
 from app.models.field import Field, FieldType
 from app.models.user import User
-from app.models.base import MemberRole
+from app.models.base import MemberRole, BaseMember
+from app.models.table_share import TableShare
+from app.services.comment_service import CommentService
 
 records_bp = Blueprint('records', __name__)
 # 禁用严格斜杠，允许带或不带斜杠的URL
@@ -1919,3 +1922,78 @@ def search_linkable_records(table_id) -> tuple:
         current_app.logger.error(f'[{request_id}] 搜索记录失败: {str(e)}')
         current_app.logger.error(f'[{request_id}] 堆栈跟踪: {traceback.format_exc()}')
         return error_response('failed_search_records_try_again_later', 500, error='internal_server_error', request_id=request_id)
+
+
+# ---------------------------------------------------------------------------
+# 记录评论与 @提及
+# ---------------------------------------------------------------------------
+_COMMENTER_ROLES = ['owner', 'admin', 'editor', 'commenter', 'viewer']
+
+
+@records_bp.route('/records/<record_id>/comments', methods=['GET'])
+@jwt_required
+@role_required(_COMMENTER_ROLES)
+@query_rate_limit(max_queries=200, window=60)
+def list_record_comments(record_id) -> tuple:
+    """列出记录评论（分页 + 回复树）"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    success, payload, code = CommentService.list(record_id, g.current_user_id, page, per_page)
+    if not success:
+        return error_response(payload, code, error=payload)
+    return paginated_response(payload['items'], payload['total'], payload['page'], payload['per_page'])
+
+
+@records_bp.route('/records/<record_id>/comments', methods=['POST'])
+@jwt_required
+@role_required(_COMMENTER_ROLES)
+@write_rate_limit(max_writes=100, window=60)
+def create_record_comment(record_id) -> tuple:
+    """发表评论 / 回复"""
+    json_data = request.get_json(silent=True) or {}
+    content = json_data.get('content')
+    parent_id = json_data.get('parent_id')
+    success, payload, code = CommentService.create(
+        record_id, g.current_user_id, content, parent_id
+    )
+    if not success:
+        return error_response(payload, code, error=payload)
+    return success_response(data=payload, message='comment_created', code=code)
+
+
+@records_bp.route('/comments/<comment_id>', methods=['PUT'])
+@jwt_required
+@role_required(_COMMENTER_ROLES)
+@write_rate_limit(max_writes=100, window=60)
+def update_record_comment(comment_id) -> tuple:
+    """编辑自己的评论"""
+    json_data = request.get_json(silent=True) or {}
+    content = json_data.get('content')
+    success, payload, code = CommentService.update(comment_id, g.current_user_id, content)
+    if not success:
+        return error_response(payload, code, error=payload)
+    return success_response(data=payload, message='comment_updated')
+
+
+@records_bp.route('/comments/<comment_id>', methods=['DELETE'])
+@jwt_required
+@role_required(['owner', 'admin', 'editor', 'commenter', 'viewer'])
+@write_rate_limit(max_writes=100, window=60)
+def delete_record_comment(comment_id) -> tuple:
+    """删除评论（作者本人或 Editor+）"""
+    success, payload, code = CommentService.delete(comment_id, g.current_user_id)
+    if not success:
+        return error_response(payload, code, error=payload)
+    return success_response(data=payload, message='comment_deleted')
+
+
+@records_bp.route('/records/<record_id>/follow', methods=['POST'])
+@jwt_required
+@role_required(_COMMENTER_ROLES)
+@write_rate_limit(max_writes=100, window=60)
+def follow_record(record_id) -> tuple:
+    """关注 / 取消关注记录（toggle）"""
+    success, payload, code = CommentService.toggle_follow(record_id, g.current_user_id)
+    if not success:
+        return error_response(payload, code, error=payload)
+    return success_response(data=payload, message='record_follow_toggled')
