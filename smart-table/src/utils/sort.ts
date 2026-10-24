@@ -1,6 +1,23 @@
 import type { SortConfig, SortDirectionValue } from "../types";
 import type { FieldEntity, RecordEntity } from "../db/schema";
 import { SortDirection, FieldType } from "../types";
+import { getSystemFieldRawValue, isSystemValueType } from "./systemFields";
+
+/**
+ * F4 修复：系统维护字段（CREATED_BY / UPDATED_BY / CREATED_TIME / UPDATED_TIME）
+ * 的值不落在 record.values 字典里，而是作为 record 顶层元数据存在
+ * （createdAt / updatedAt / createdBy / updatedBy）。旧实现直接取
+ * a.values[fieldId] 会拿到 undefined，导致按系统字段排序时全部记录被视为
+ * 同一个值，排序结果完全错误。VTableView 内部有正确的 getSystemFieldRawValue
+ * 处理，但 Base.vue → applySorts → sortRecords 这条链路缺失 —— 导致两层
+ * 排序结果不一致（Base.vue 错序 → VTableView 又用正确逻辑重排一遍才对）。
+ */
+function _getSortValue(record: RecordEntity, fieldId: string, field: FieldEntity): unknown {
+  if (isSystemValueType(field.type)) {
+    return getSystemFieldRawValue(record, field.type);
+  }
+  return record.values?.[fieldId];
+}
 
 export function sortRecords(
   records: RecordEntity[],
@@ -16,9 +33,12 @@ export function sortRecords(
       const field = fields.find((f) => f.id === sort.fieldId);
       if (!field) continue;
 
+      const aVal = _getSortValue(a, sort.fieldId, field);
+      const bVal = _getSortValue(b, sort.fieldId, field);
+
       const comparison = compareValues(
-        a.values[sort.fieldId],
-        b.values[sort.fieldId],
+        aVal,
+        bVal,
         field,
         sort.direction,
       );

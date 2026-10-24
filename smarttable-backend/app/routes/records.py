@@ -137,8 +137,21 @@ def get_records(table_id) -> tuple:
             )
 
         # 预查询查找字段
-        from app.services.lookup_service import LookupService
+        from app.services.lookup_service import LookupService, RecordComputeContext
         lookup_fields = Field.query.filter_by(table_id=table_id, type='lookup').all()
+
+        # B4 优化：all_fields 一次查出，同时喂给 RecordComputeContext 和 formula 计算
+        all_fields = Field.query.filter_by(table_id=table_id).all()
+
+        # B1+B2 联合优化：构建请求级计算上下文
+        # 1) lookup 所需的源表数据按源表聚合预加载一次 → 消灭循环内 N+1
+        # 2) (record_id, field_id) 去重缓存 → 消灭 records.py 循环 + formula_service
+        #    _build_formula_context 之间对同一 lookup 值的重复计算（P0-2）
+        compute_ctx = RecordComputeContext(
+            table_id=table_id,
+            all_fields=all_fields,
+            lookup_fields=lookup_fields,
+        )
 
         # 序列化记录数据
         items = []
@@ -154,22 +167,24 @@ def get_records(table_id) -> tuple:
                         # batch_get_record_link_ids 已返回去重后的 ID 列表
                         item['values'][field_id] = record_links[field_id]
 
-            # 计算公式值（传入预查询的 formula_fields 与整列引用上下文，避免重复 DB 查询）
+            # B2 优化：公式计算传入预取的 formula_fields / all_fields / table_context / compute_ctx
             if formula_fields:
                 item['computed_values'] = FormulaService.compute_record_formulas(
                     table_id, record.values,
                     formula_fields=formula_fields,
                     table_context=table_context,
-                    record=record
+                    record=record,
+                    all_fields=all_fields,
+                    compute_ctx=compute_ctx,
                 )
             else:
                 item['computed_values'] = {}
 
-            # 填充查找字段实时计算值
+            # B1 优化：lookup 值从 ctx.get_lookup_value 拿（预加载 + 去重缓存）
             if lookup_fields:
                 for lookup_field in lookup_fields:
                     try:
-                        item['values'][str(lookup_field.id)] = LookupService.compute_lookup_value(record, lookup_field)
+                        item['values'][str(lookup_field.id)] = compute_ctx.get_lookup_value(record, lookup_field)
                     except Exception as e:
                         current_app.logger.error(f'[get_records] 计算查找字段失败: {e}')
                         item['values'][str(lookup_field.id)] = None

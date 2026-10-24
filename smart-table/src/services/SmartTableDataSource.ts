@@ -1,17 +1,17 @@
 /**
- * SmartTableDataSource - 异步懒加载数据源
+ * SmartTableDataSource - 智能数据源
  *
- * 基于 VTable CachedDataSource 模式实现的智能数据源，
- * 支持数据流式加载 + 按需渲染，优化大批量数据场景下的首屏加载和内存占用。
+ * 基于 VTable CachedDataSource 实现，支持两种模式：
+ * - 全量灌入模式（legacy）：updateMemoryCache(tableRecords, 0) 一次性灌入全量
+ * - 懒加载模式（F5）：按需从 sourceRecords getter 取 batch + transform，内存与表大小解耦
  *
- * 工作原理：
- * 1. VTable 仅对可见行调用 get(index) 获取数据（同步返回内存缓存）
- * 2. 数据通过内存缓存查找，预取通过异步 fire-and-forget 在后台执行
- * 3. 流式加载过程中，数据渐进填充内存缓存，VTable 自动刷新可见区域
- * 4. LRU 淘汰策略：超过 maxCachedBatches 阈值时驱逐最久未访问的批次
+ * 懒加载模式核心收益：
+ *   避免 updateTable() 入口处 transformRecords(sortedRecords.value) 的 O(N) 全量 transform。
+ *   VTable 只对可见 ~30 行调用 get(index) → 只 transform 那一个 batch（~200 行）。
+ *   maxCachedBatches 设小（5-10）→ LRU 真驱逐 → 内存占用 = batchSize × maxCachedBatches ≈ 1-2KB 常量。
  *
- * 注意：CachedDataSource 的 get() 必须同步返回，VTable 对于 async 函数
- * 返回的 Promise 不会正确 unwrap，会直接将 Promise 对象渲染为 "[object Promise]"。
+ * 注意：CachedDataSource 的 get() 必须同步返回，不能是 async —— VTable 对 Promise 对象
+ * 不会正确 unwrap，会直接渲染为 "[object Promise]"。
  */
 
 import { data as VTableData } from '@visactor/vtable';
@@ -23,8 +23,20 @@ export interface DataSourceRecord {
   [key: string]: any;
 }
 
+/**
+ * 懒加载源配置
+ */
+export interface LazySourceConfig<T = any> {
+  /** 取原始 records 的 getter（响应式），返回 RecordEntity[] */
+  getSource: () => T[];
+  /** 将原始 records 转换为 DataSourceRecord 的 transform 回调 */
+  transformBatch: (rawRecords: T[]) => DataSourceRecord[];
+  /** addButton 虚拟行 —— 不在 source 里但需要在最后一个 index 渲染 */
+  addButtonRow?: DataSourceRecord | null;
+}
+
 export class SmartTableDataSource {
-  // 内存缓存：按批次索引存储记录数组
+  // 内存缓存：按批次起始索引存储记录数组（每个数组长度 = batchSize，空位为 null）
   private memoryCache = new Map<number, DataSourceRecord[]>();
 
   // LRU 访问队列（front=最久未访问, back=最近访问）
@@ -48,6 +60,9 @@ export class SmartTableDataSource {
   // 性能计时
   private loadStartTime = 0;
 
+  // ===== F5 懒加载配置 =====
+  private lazySource: LazySourceConfig | null = null;
+
   constructor(options: {
     totalCount: number;
     batchSize?: number;
@@ -59,13 +74,17 @@ export class SmartTableDataSource {
     this.loadStartTime = performance.now();
 
     // 创建 VTable CachedDataSource —— get 必须同步返回，不能是 async
-    // async 函数返回的 Promise 会被 VTable 当成数据直接渲染
     this.cachedDataSource = new VTableData.CachedDataSource({
       get: (index: number): DataSourceRecord | null => {
+        // F5 懒加载路径：memoryCache miss 时按需拉取
         const batchKey = Math.floor(index / this.batchSize) * this.batchSize;
-        const batch = this.memoryCache.get(batchKey);
+        let batch = this.memoryCache.get(batchKey);
+
+        if (!batch && this.lazySource) {
+          batch = this.fetchLazyBatch(batchKey);
+        }
+
         if (batch) {
-          // 更新 LRU：将当前批次移到队列末尾（最近使用）
           this.touchBatch(batchKey);
           return batch[index - batchKey] || null;
         }
@@ -73,6 +92,76 @@ export class SmartTableDataSource {
       },
       length: this._totalCount,
     });
+
+    // 统一 length 访问器（让外部 appendRecords / updateTotalCount 能同步 VTable 感知）
+    Object.defineProperty(this.cachedDataSource, 'length', {
+      get: () => this._totalCount,
+      configurable: true,
+    });
+  }
+
+  /**
+   * F5：配置懒加载数据源
+   * 调用后 get(index) 会在 memoryCache miss 时按需从 sourceRecords getter 取 batch + transform
+   */
+  configureLazySource(config: LazySourceConfig, totalCount: number): void {
+    this.lazySource = config;
+    this._totalCount = totalCount;
+
+    // 预取最后一个 batch（若包含 addButton 虚拟行）
+    // VTable 初始只渲染可见 ~30 行，addButton 在最后一个 index，永远不会被初始 get(index) 请求
+    // 不预取 → addButton 位置返回 null → 表格末尾没有 "+" 按钮
+    if (config.addButtonRow && totalCount > 0) {
+      const lastIndex = totalCount - 1;
+      const lastBatchKey = Math.floor(lastIndex / this.batchSize) * this.batchSize;
+      // 如果最后一个 batch 同时覆盖首屏可见区就不用重复取（get 会在渲染时触发）
+      if (lastBatchKey > 0) {
+        this.fetchLazyBatch(lastBatchKey);
+      }
+    }
+  }
+
+  /**
+   * F5：按需拉取一个 batch 的数据
+   * 返回 batch 数组（长度 = batchSize），已填入 memoryCache
+   */
+  private fetchLazyBatch(batchKey: number): DataSourceRecord[] | null {
+    if (!this.lazySource) return null;
+
+    const sourceRecords = this.lazySource.getSource();
+    const batchSize = this.batchSize;
+
+    // 创建空 batch
+    const batch: DataSourceRecord[] = new Array(batchSize).fill(null);
+
+    const sourceLen = sourceRecords.length;
+    const hasAddButton = !!this.lazySource.addButtonRow;
+
+    // 从 sourceRecords 切片（addButton 虚拟行在 source 之外，不影响切片范围）
+    const sliceStart = Math.max(0, batchKey);
+    const sliceEnd = Math.min(sourceLen, batchKey + batchSize);
+    if (sliceStart < sourceLen) {
+      const rawChunk = sourceRecords.slice(sliceStart, sliceEnd);
+      const transformed = this.lazySource.transformBatch(rawChunk);
+      for (let i = 0; i < transformed.length; i++) {
+        batch[i] = transformed[i];
+      }
+    }
+
+    // 处理 addButton 虚拟行 —— 它可能落在当前 batch 里
+    if (hasAddButton) {
+      const addButtonIndex = this._totalCount - 1;
+      if (addButtonIndex >= batchKey && addButtonIndex < batchKey + batchSize) {
+        batch[addButtonIndex - batchKey] = this.lazySource.addButtonRow!;
+      }
+    }
+
+    // 写入 memoryCache
+    this.memoryCache.set(batchKey, batch);
+    this.touchBatch(batchKey);
+    this.evictIfNeeded();
+
+    return batch;
   }
 
   /**
@@ -117,9 +206,9 @@ export class SmartTableDataSource {
   }
 
   /**
-   * 批量更新内存缓存（由流式加载过程调用，将新加载的记录写入缓存）
+   * 批量更新内存缓存 —— F2 单行快路径 / 流式加载时写入 pre-transformed 数据
+   * 直接写入 cache，**不受** lazySource 覆盖（写入的数据优先）
    * 自动处理跨批次边界——records 数据量可能超过单个 batch，会拆分写入多个批次数组
-   * 写入新批次后检查 LRU 阈值，驱逐最久未访问的批次
    */
   updateMemoryCache(records: DataSourceRecord[], startIndex: number): void {
     let remaining = records;
@@ -135,7 +224,6 @@ export class SmartTableDataSource {
       if (!batch) {
         batch = new Array(this.batchSize).fill(null);
         this.memoryCache.set(batchKey, batch);
-        // 新批次加入访问队列（标记为最近使用）
         this.touchBatch(batchKey);
       }
 
@@ -147,7 +235,6 @@ export class SmartTableDataSource {
       currentStart += spaceInBatch;
     }
 
-    // 写入完成后检查 LRU 阈值
     this.evictIfNeeded();
   }
 
@@ -156,8 +243,6 @@ export class SmartTableDataSource {
    */
   markFullyLoaded(): void {
     this._fullyLoaded = true;
-
-    // 输出性能统计
     const stats = this.getPerformanceStats();
     console.log(
       `[SmartTableDataSource] 数据加载完成: ${stats.totalRecords} 条, ` +
@@ -168,32 +253,10 @@ export class SmartTableDataSource {
   }
 
   /**
-   * 更新总记录数（用于分页/流式加载场景）
-   * 注意：VTable 的 CachedDataSource length 在创建时固定，此方法更新内部计数
-   * 元信息，VTable 不会感知此变更——流式加载期间通过此字段追踪已加载数量
+   * 更新总记录数（同步 VTable CachedDataSource.length）
    */
   updateTotalCount(count: number): void {
     this._totalCount = count;
-  }
-
-  /**
-   * 追加记录到数据源末尾并同步 VTable CachedDataSource 的长度
-   *
-   * 与 updateTotalCount 的区别：
-   * - updateTotalCount 仅更新内部计数（用于流式加载追踪），不通知 VTable
-   * - appendRecords 同时更新内部计数和 CachedDataSource.length，
-   *   使 VTable 感知到数据行数变化（如添加新记录行场景），
-   *   后续调用 renderWithRecreateCells 即可正确渲染追加的行
-   *
-   * 这是修复「添加记录后 addButton 行消失」问题的关键：
-   * CachedDataSource 的 length 在构造函数中固定为初始 totalCount，
-   * 追加记录时若不同步更新 length，VTable 不会渲染超出原始长度的行。
-   */
-  appendRecords(records: DataSourceRecord[]): void {
-    const startIndex = this._totalCount;
-    this.updateMemoryCache(records, startIndex);
-    this._totalCount += records.length;
-    // 同步 VTable CachedDataSource 的 length，使其感知到行数变化
     if (this.cachedDataSource) {
       Object.defineProperty(this.cachedDataSource, 'length', {
         get: () => this._totalCount,
@@ -203,7 +266,24 @@ export class SmartTableDataSource {
   }
 
   /**
-   * 清除所有缓存
+   * 追加记录到数据源末尾 —— F3 增量 append 快路径用
+   * 同时更新 internal count + CachedDataSource.length，使 VTable 感知行数变化
+   */
+  appendRecords(records: DataSourceRecord[]): void {
+    const startIndex = this._totalCount;
+    this.updateMemoryCache(records, startIndex);
+    this._totalCount += records.length;
+    if (this.cachedDataSource) {
+      Object.defineProperty(this.cachedDataSource, 'length', {
+        get: () => this._totalCount,
+        configurable: true,
+      });
+    }
+  }
+
+  /**
+   * 清除所有缓存 —— 同时重置 fullyLoaded
+   * 注意：不清除 lazySource 配置（那是数据源契约，不是运行时状态）
    */
   clearCache(): void {
     this.memoryCache.clear();
@@ -224,9 +304,7 @@ export class SmartTableDataSource {
   }
 
   /**
-   * 检查并执行 LRU 驱逐
-   * 当缓存批次数超过 maxCachedBatches（且 > 0）时，
-   * 从队列前端（最久未使用）开始驱逐，直到低于阈值
+   * LRU 驱逐 — 超过 maxCachedBatches 阈值时驱逐最久未访问的批次
    */
   private evictIfNeeded(): void {
     if (this.maxCachedBatches <= 0) return;
@@ -234,7 +312,6 @@ export class SmartTableDataSource {
 
     const targetCount = Math.max(Math.floor(this.maxCachedBatches * 0.8), 1);
     while (this.memoryCache.size > targetCount && this.accessQueue.length > 1) {
-      // 从队首取出最久未访问的批次（跳过最后一个批次——保留当前正在写入的）
       const oldest = this.accessQueue.shift();
       if (oldest !== undefined && this.memoryCache.has(oldest)) {
         this.memoryCache.delete(oldest);

@@ -3157,49 +3157,13 @@ const handleRecordSave = async (
 
 const records = computed(() => props.records || tableStore.records);
 
-// 排序后的记录
-const sortedRecords = computed(() => {
-  const sorts = currentSorts.value;
-  if (!sorts || sorts.length === 0) return records.value;
-
-  // 系统字段（创建人/创建时间/更新人/更新时间）排序取值来自记录元数据
-  const sortFieldTypes = new Map(
-    sorts.map((s) => {
-      const f = fields.value.find((sf) => sf.id === s.fieldId);
-      return [s.fieldId, f && isSystemValueType(f.type) ? f.type : null];
-    }),
-  );
-
-  return [...records.value].sort((a, b) => {
-    for (const sort of sorts) {
-      const systemType = sortFieldTypes.get(sort.fieldId);
-      const aVal =
-        systemType !== null && systemType !== undefined
-          ? getSystemFieldRawValue(a, systemType)
-          : a.values[sort.fieldId];
-      const bVal =
-        systemType !== null && systemType !== undefined
-          ? getSystemFieldRawValue(b, systemType)
-          : b.values[sort.fieldId];
-
-      let comparison = 0;
-      if (aVal === null || aVal === undefined) {
-        comparison = bVal === null || bVal === undefined ? 0 : -1;
-      } else if (bVal === null || bVal === undefined) {
-        comparison = 1;
-      } else if (typeof aVal === 'number' && typeof bVal === 'number') {
-        comparison = aVal - bVal;
-      } else {
-        comparison = String(aVal).localeCompare(String(bVal));
-      }
-
-      if (comparison !== 0) {
-        return sort.direction === 'desc' ? -comparison : comparison;
-      }
-    }
-    return 0;
-  });
-});
+// F4 去双层排序：Base.vue 的 filteredRecords 已经 filter + sort 完毕，
+// VTableView 拿到 props.records 后不再重复排序，直接返回。
+// 之前的内联 sort() 每次 recordsVersion bump 都会 O(N log N) 重排一遍，
+// 而且 sort.ts 对系统字段取值有 bug（旧实现用 a.values[fieldId] 会拿到
+// undefined），导致 Base.vue 系统字段排序本身就是错的 — 两层排结果才对。
+// 修 sort.ts 后 Base.vue 排对，这里就不需要再排了。
+const sortedRecords = computed(() => records.value);
 
 /**
  * 数值型字段类型集合 —— 这些字段应按数值大小排序而非文本字典序
@@ -5350,34 +5314,66 @@ const buildTableConfig = (): any => {
 
   // 分组与树形互斥：树形视图下忽略分组配置（工具栏已置灰分组入口）
   const isGrouped = !isTreeView.value && !!props.groupBy && props.groupBy.length > 0;
+  const useDataSourceMode = !isGrouped && !isTreeView.value; // F5：非分组非树形走懒加载 dataSource
 
-  // 转换 records 为 VTable 需要的格式（字段映射 + 公式计算）
-  clearTransformCache(); // 确保全量重建时使用最新记录数据，不返回缓存中的旧行
-  let tableRecords = isTreeView.value ? treeDisplayRecords.value : transformRecords(sortedRecords.value);
+  let tableRecords: any[];
 
-  // 非分组模式下在表格末尾追加「+ 添加记录」虚拟行
-  // 树形视图不追加按钮行
-  if (!isGrouped && !props.readonly && !isTreeView.value) {
-    const addButtonRecord: any = {
-      _recordId: '__add_button__',
-      _originalRecord: null,
-      _rowType: 'addButton',
-    };
-    // 为每个字段设置唯一值，避免与上面空行合并
-    // 使用时间戳确保每次都是唯一的值
-    const uniqueMarker = `__add_button_${Date.now()}__`;
-    orderedVisibleFields.value.forEach(field => {
-      addButtonRecord[field.id] = uniqueMarker;
-    });
-    tableRecords.push(addButtonRecord);
+  if (useDataSourceMode) {
+    // ============ F5 懒加载模式：不在 updateTable() 入口做 O(N) transform ============
+    // transformRecords 改为按需 batch 触发 — VTable 只对可见 ~30 行调用 get(index)，
+    // 只 transform 那一个 batch（~200 行）。内存 = batchSize × maxCachedBatches 常量。
+    clearTransformCache(); // schema 变化时清 cache 强制重算
+
+    // 预先构造 addButton 虚拟行（不在 source 里，作为独立 DataSourceRecord）
+    let addButtonRow: any = null;
+    const hasAddButton = !props.readonly;
+    if (hasAddButton) {
+      addButtonRow = {
+        _recordId: '__add_button__',
+        _originalRecord: null,
+        _rowType: 'addButton',
+      };
+      const uniqueMarker = `__add_button_${Date.now()}__`;
+      orderedVisibleFields.value.forEach(field => {
+        addButtonRow[field.id] = uniqueMarker;
+      });
+    }
+
+    // totalCount = 实际 records + 可选 addButton
+    const totalCount = sortedRecords.value.length + (hasAddButton ? 1 : 0);
+
+    // 创建或复用 SmartTableDataSource
+    if (!smartDataSource || smartDataSource.totalCount !== totalCount) {
+      smartDataSource = new SmartTableDataSource({
+        totalCount,
+        batchSize: 200,
+        maxCachedBatches: 8,  // F5：8 批 × 200 = 1600 行缓存上限；LRU 真驱逐
+      });
+    } else {
+      smartDataSource.clearCache();
+    }
+
+    // F5：配置懒加载源 — 不再全量 updateMemoryCache(tableRecords, 0)！
+    smartDataSource.configureLazySource({
+      getSource: () => sortedRecords.value,
+      transformBatch: (rawBatch: RecordEntity[]) => transformRecords(rawBatch),
+      addButtonRow: addButtonRow,
+    }, totalCount);
+
+    tableRecords = []; // dataSource 模式下不使用 tableRecords，占位
+  } else {
+    // ============ records 模式（分组 / 树形）：必须全量 transform ============
+    // 分组需要遍历全部记录做 groupBy，树形需要全量 records 构建层级 — 无法懒加载
+    clearTransformCache();
+    tableRecords = isTreeView.value ? treeDisplayRecords.value : transformRecords(sortedRecords.value);
+
+    // 分组末尾添加按钮行
+    if (isGrouped && !props.readonly && tableRecords.length > 0) {
+      tableRecords = buildGroupedRecords(tableRecords);
+    }
   }
 
-  // 分组末尾添加按钮行
-  if (isGrouped && tableRecords.length > 0) {
-    tableRecords = buildGroupedRecords(tableRecords);
-  }
-
-  // 计算冻结列数
+  // 冻结列数（独立于 dataSource/records 模式，始终需要）
   let frozenColCount = 1;
   if (frozenFields.value.length > 0) {
     const frozenFieldIds = new Set(frozenFields.value.map(f => f.id));
@@ -5391,27 +5387,7 @@ const buildTableConfig = (): any => {
       frozenColCount = 1 + rightmostFrozenIndex + 1;
     }
   }
-
   const allowFrozenColCount = visibleFields.value.length + 1;
-
-  // 数据源模式选择：
-  // - 非分组：使用 CachedDataSource 懒渲染，VTable 仅处理可见行
-  // - 分组模式：必须使用 records 模式，VTable 的 groupBy/rowSeriesNumber 需要遍历全部记录
-  if (!isGrouped) {
-    // 非分组：创建 CachedDataSource
-    
-    if (!smartDataSource || smartDataSource.totalCount !== tableRecords.length) {
-      smartDataSource = new SmartTableDataSource({
-        totalCount: tableRecords.length,
-        batchSize: 200,
-        maxCachedBatches: 80,  // 80×200=16,000条；覆盖 10,000 条 + addButton 虚拟行（共 51 批次），避免 LRU 立即驱逐首批写入批次
-      });
-    } else {
-      smartDataSource.clearCache();
-    }
-    smartDataSource.updateMemoryCache(tableRecords, 0);
-    smartDataSource.markFullyLoaded();
-  }
 
   const config = {
     columns,
@@ -6240,18 +6216,29 @@ const bindTableEvents = () => {
     }
   });
 
-  // 表格滚动事件 - 实时更新附件浮窗位置
+  // F6 rAF 节流：表格滚动事件高频触发（~60fps 但实际可能更高），
+  // 合并成一帧最多执行一次。同时加早期返回守卫 — 两个面板都不显示
+  // 时完全是 no-op，不用进入 rAF 排队。
+  let _scrollRafPending = false;
   tableInstanceAny.on('scroll', (_args: any) => {
-    // 更新附件浮窗
-    if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
-      const { col, row } = lastAttachmentCellCoords.value;
-      const pos = recalcFloatingPanelPosition(col, row, 380, 480);
-      if (pos) attachmentManagerPosition.value = pos;
-    }
-    // 实时更新子表工具栏位置
-    if (subTableToolbarVisible.value) {
-      updateSubTableToolbarPosition();
-    }
+    // 早期返回：两个定位动作都不活跃 → 直接跳过
+    const needAttachment = attachmentManagerVisible.value && lastAttachmentCellCoords.value;
+    const needSubTable = subTableToolbarVisible.value;
+    if (!needAttachment && !needSubTable) return;
+
+    if (_scrollRafPending) return; // 已排队，等下一帧
+    _scrollRafPending = true;
+    requestAnimationFrame(() => {
+      _scrollRafPending = false;
+      if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
+        const { col, row } = lastAttachmentCellCoords.value;
+        const pos = recalcFloatingPanelPosition(col, row, 380, 480);
+        if (pos) attachmentManagerPosition.value = pos;
+      }
+      if (subTableToolbarVisible.value) {
+        updateSubTableToolbarPosition();
+      }
+    });
   });
 
   // 单元格值变更事件
@@ -6548,8 +6535,11 @@ const updateTable = () => {
   isUpdating = true;
   pendingUpdate = false;
 
-  // 关联字段分组：异步加载组名映射（加载完成后会再次触发 updateTable 刷新组名）
-  ensureLinkGroupNames();
+  // F7-1：只有分组模式（且分组字段确实含 LINK）才需要加载组名映射
+  // 非分组 dataSource 模式完全不需要，避免每次 updateTable 都走一遍函数调用
+  if (props.groupBy && props.groupBy.length > 0) {
+    ensureLinkGroupNames();
+  }
 
   // 重建前保存当前滚动位置，重建后恢复，避免更新数据后表格跳回首行
   let savedScrollTop = 0;
@@ -6651,26 +6641,29 @@ const updateTableData = () => {
       // 树形视图或分组模式：必须全量重建，增量更新无法处理树形结构
       updateTable();
     } else if (smartDataSource) {
-      // 非分组 CachedDataSource 模式：更新内存缓存 + 轻量重绘
+      // ============ F5 懒加载模式：不再全量 transform + 全量灌入 ============
       clearTransformCache(); // 清除转换缓存，确保 transformRecords 不会从缓存返回旧行
-      const newRows = transformRecords(sortedRecords.value);
 
-      // 非分组模式下追加「+ 添加记录」虚拟行，与 buildTableConfig 中的逻辑保持一致
-      // 若不追加，watcher 触发 updateTableData 时会用纯记录数据覆盖 smartDataSource 缓存，
-      // 导致表格中的 addButton 行消失（这是刷新后按钮闪烁消失的根因）
-      if ((!props.groupBy || props.groupBy.length === 0) && !props.readonly) {
-        const addButtonRecord: any = {
+      // 重新构造 addButton row（和 updateTable 里的懒加载逻辑保持一致）
+      let addButtonRow: any = null;
+      const hasAddButton = !props.readonly;
+      if (hasAddButton) {
+        addButtonRow = {
           _recordId: '__add_button__',
           _originalRecord: null,
           _rowType: 'addButton',
         };
-        orderedVisibleFields.value.forEach(f => { addButtonRecord[f.id] = ''; });
-        newRows.push(addButtonRecord);
+        const uniqueMarker = `__add_button_${Date.now()}__`;
+        orderedVisibleFields.value.forEach(f => { addButtonRow[f.id] = uniqueMarker; });
       }
+      const totalCount = sortedRecords.value.length + (hasAddButton ? 1 : 0);
 
       smartDataSource.clearCache();
-      smartDataSource.updateMemoryCache(newRows, 0);
-      smartDataSource.markFullyLoaded();
+      smartDataSource.configureLazySource({
+        getSource: () => sortedRecords.value,
+        transformBatch: (rawBatch: RecordEntity[]) => transformRecords(rawBatch),
+        addButtonRow: addButtonRow,
+      }, totalCount);
 
       // 清除 switch 单元格的勾选状态缓存，使其重新从数据读取最新值。
       // VTable 的 stateManager.checkedState 在首次渲染时按「行索引 + 字段」缓存开关状态，
@@ -6842,9 +6835,22 @@ async function preloadMemberUsers() {
   }
 }
 
-// 监听 records 变化 → 统一数据更新入口
-// 覆盖所有场景：handleAddNewRecord / handleDuplicateRecord / realtime broadcast / 外部操作
-watch(() => tableStore.records, async () => {
+// F1 优化：监听 recordsVersion（O(1) 浅订阅），替代 deep: true 监听 records（O(N×F) 深度收集）。
+// 所有修改 records 的入口（tableStore 内部 + 实时协作监听器）都已 bump recordsVersion，
+// 因此版本号变化与 records 变化完全等价，但订阅成本退化为 O(1)。
+//
+// F2 优化：配合 tableStore.lastChangeType / lastChangedRecordId，
+// 对单行编辑场景走 O(1) 增量快路径（只失效这一行的转换缓存 + transform 单行 +
+// updateMemoryCache + renderWithRecreateCells），跳过 O(N) 的全量 rebuild。
+//
+// 快路径进入条件（全部满足）：
+//   1) lastChangeType === 'edit'        —— 确定是单行值编辑，而非新增/删除/schema变更/全量替换
+//   2) lastChangedRecordId 存在         —— 有具体行 id 可定位
+//   3) 行数不变（expectedTotal === prevTotal）
+//   4) 非分组视图（groupBy 为空）
+//   5) 非树形视图
+// 任何一条不满足 → 回退慢路径（保持原有行为）。
+watch(() => tableStore.recordsVersion, async () => {
   if (!tableInstance) return;
 
   // 树形视图：记录由 tree-records API 管理，跳过 flat records 更新逻辑
@@ -6864,45 +6870,153 @@ watch(() => tableStore.records, async () => {
     checkboxSelectedRows.value = checkboxSelectedRows.value.filter(id => validRecordIds.has(id));
   }
 
+  const prevTotal = smartDataSource?.totalCount ?? 0;
+  const currentRecordCount = sortedRecords.value.length;
+  const hasAddButton = (!props.groupBy || props.groupBy.length === 0) && !props.readonly;
+  const expectedTotal = hasAddButton ? currentRecordCount + 1 : currentRecordCount;
+  const rowCountUnchanged = expectedTotal === prevTotal;
+  const isFlatViewGrouped = props.groupBy && props.groupBy.length > 0;
+
+  // ============ F2 增量快路径：单行编辑，行数不变，非分组 ============
+  // 保留 hasActiveSort 守卫 —— 编辑排序列的值会导致该行移动到新位置，
+  // smartDataSource 的位置 cache 里旧位置是脏数据，只重绘新位置会导致
+  // 旧位置显示错误数据（例：排序 [A10,B20,C30,D40,E50] 编辑 A→45
+  // 变成 [B20,C30,D40,A45,E50]，updateMemoryCache 只更新位置 3，但
+  // 位置 0 cache 里还是 A 的旧数据，应该显示 B）。F4 去掉了 VTableView
+  // 层的 O(N log N) 重排（Base.vue 已排好序），但位置缓存语义无法绕过，
+  // 所以有 sort 时仍回退全量 rebuild。
+  const hasActiveSort = (props.sorts && props.sorts.length > 0) ||
+    (viewStore.currentView?.config?.sortRules &&
+     (viewStore.currentView as any).config.sortRules.length > 0);
+
+  if (
+    tableStore.lastChangeType === 'edit' &&
+    tableStore.lastChangedRecordId &&
+    rowCountUnchanged &&
+    !isFlatViewGrouped &&
+    !hasActiveSort &&
+    smartDataSource
+  ) {
+    const targetId = tableStore.lastChangedRecordId;
+
+    // 1) 在 sortedRecords（即当前渲染的有序记录）里找到这一行及其索引
+    const rowIndex = sortedRecords.value.findIndex((r: any) => r.id === targetId);
+    if (rowIndex !== -1) {
+      // 2) 只失效这一行的转换缓存（clearTransformCache 是清全量，跳过！）
+      transformedCache.delete(targetId);
+
+      // 3) transform 单行（O(1)，不是 transformRecords(全量)）
+      //    注意：transformRecords 只接受 1 个参数 (records[])，内部自己闭包拿 fields.value
+      const freshRow = transformRecords([sortedRecords.value[rowIndex]])[0];
+      if (freshRow) {
+        // 4) 更新数据源缓存的这一行
+        //    注意：updateMemoryCache 签名是 (records[], startIndex: number)
+        smartDataSource.updateMemoryCache([freshRow], rowIndex);
+
+        // 5) 重绘这一行 —— 注意：不能用 a?.() ?? b?.() ?? c?.() 链，
+        //    因为 VTable 的 render 方法即使成功也返回 undefined，
+        //    ?? 会穿透导致三个方法被串行调用，反而触发全量 rebuild！
+        try {
+          const ti: any = tableInstance;
+          if (typeof ti.renderWithRecreateCells === 'function') {
+            ti.renderWithRecreateCells([{ row: rowIndex }]);
+          } else if (typeof ti.updateTableData === 'function') {
+            ti.updateTableData();
+          } else {
+            ti.refresh?.();
+          }
+        } catch (_e) {
+          // 重绘失败回退全量更新
+          console.warn('[VTableView] F2 增量重绘失败，回退 updateTableData:', _e);
+          updateTableData();
+        }
+
+        // 快路径走完，直接 return
+        return;
+      }
+      // transform 失败 → 回退慢路径
+    }
+    // 记录不在当前视图（被过滤掉）→ 也走慢路径安全覆盖
+  }
+
+  // ============ F3 增量快路径：流式加载追加，无 filter 无 sort ============
+  // 流式 onProgress 每次追加 200 条 records 到 records.value 末尾。
+  // 无 filter + 无 sort 时，sortedRecords 就是 records 的别名，
+  // 新增 records 一定在末尾（append 语义）。此时 SmartTableDataSource
+  // 的 appendRecords 可以增量追加缓存 + 更新 CachedDataSource.length，
+  // 避免每次追加都 updateTable() 全量 rebuild（O(N)）。
+  if (
+    tableStore.lastChangeType === 'append' &&
+    !rowCountUnchanged &&
+    !isFlatViewGrouped &&
+    smartDataSource &&
+    viewStore.currentFilters.length === 0 &&
+    viewStore.currentSorts.length === 0
+  ) {
+    // delta 计算必须用 expectedTotal（含 addButton）而非 currentRecordCount（不含）：
+    // prevTotal 来自 smartDataSource.totalCount，已经包含 addButton 虚拟行，
+    // 两边都加 addButton 才能抵消。例：200 records → totalCount=201，
+    // first append 200 → delta = expectedTotal - prevTotal = 401 - 201 = 200 ✓
+    const delta = expectedTotal - prevTotal;
+    if (delta > 0 && delta <= currentRecordCount) {
+      // 从 sortedRecords 末尾 slice 出本次新增的 records
+      const newRawRecords = sortedRecords.value.slice(-delta);
+      // 只 transform 新增部分（O(delta)，不是 O(N)）
+      const newTransformed = transformRecords(newRawRecords);
+
+      try {
+        // 追加到 SmartTableDataSource 缓存，同时更新 CachedDataSource.length
+        smartDataSource.appendRecords(newTransformed);
+
+        // 只重绘新增行区域，不 release / 不 new ListTable
+        const ti: any = tableInstance;
+        if (typeof ti.renderWithRecreateCells === 'function') {
+          ti.renderWithRecreateCells();
+        } else if (typeof ti.updateTableData === 'function') {
+          ti.updateTableData();
+        } else {
+          ti.refresh?.();
+        }
+        return;
+      } catch (_e) {
+        console.warn('[VTableView] F3 增量 append 失败，回退全量 rebuild:', _e);
+        // 失败回退慢路径
+      }
+    }
+  }
+
+  // ============ 慢路径：全量 rebuild（保持原有行为） ============
   clearTransformCache();
 
   if (!smartDataSource) {
-    // 无缓存数据源：走全量重建（首次加载或上一次已销毁）
     preloadMemberUsers();
     updateTableData();
     return;
   }
 
-  const prevTotal = smartDataSource.totalCount;
-  // 当前应有的总行数 = 真实记录数 + (非分组非只读时 +1 的 addButton 行)
-  const currentRecordCount = sortedRecords.value.length;
-  const hasAddButton = (!props.groupBy || props.groupBy.length === 0) && !props.readonly;
-  const expectedTotal = hasAddButton ? currentRecordCount + 1 : currentRecordCount;
-
-  if (expectedTotal !== prevTotal) {
+  if (!rowCountUnchanged) {
     // 行数变化（新增/删除记录）：CachedDataSource.length 在构造时固定，
     // 增量更新无法让 VTable 感知行数变化，必须全量重建
-    const isAdding = expectedTotal > prevTotal; // 记录是否为新增操作
+    const isAdding = expectedTotal > prevTotal;
 
     updateTable();
 
     // 新增记录后自动滚动到最后一行真实记录，方便用户立即编辑
     if (isAdding && tableInstance && hasAddButton && currentRecordCount > 0) {
-      // 等待 VTable DOM 渲染完成后再滚动
       await nextTick();
-      // 新增的真实记录在倒数第二行（最后一行是 addButton 虚拟行）
       try {
         (tableInstance as any).scrollToRow(currentRecordCount - 1);
       } catch (_e) {
-        // 滚动失败不影响主流程，静默忽略
+        // 滚动失败不影响主流程
       }
     }
   } else {
-    // 行数不变（编辑单元格、成员名称加载等）：增量更新缓存并重绘
+    // 行数不变但不满足快路径（分组视图、schema 变更等）：走全量 rebuild
     preloadMemberUsers();
     updateTableData();
   }
-}, { deep: true });
+  // 去掉 { deep: true } —— F1 核心：从 O(N×F) 深度依赖收集退化为 O(1) 浅订阅
+});
 
 // 监听 fields 变化 → 列结构变更，需重建表格
 watch(() => tableStore.fields, () => {
@@ -6962,10 +7076,25 @@ watch(
 );
 
 // 用户缓存更新时刷新表格（成员名称异步加载完成后重渲染）
+// Issue 2 修复：debounce 500ms + 成员字段守卫。
+// 初始加载 1000+ 行 MEMBER 字段时，cacheStats.size 会连续触发几十次变更，
+// 每次 clearTransformCache() + updateTableData() 都是 O(N) 全量 rebuild，
+// 直接抵消 F2 收益。debounce 合并为一次 + 无成员字段的表直接跳过。
+let _userCacheDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 watch(() => userCacheStore.cacheStats.size, () => {
-  // 成员名称变更需清除转换缓存，强制重算 MEMBER 字段
-  clearTransformCache();
-  updateTableData();
+  // 守卫：只有当前表存在成员字段时，缓存更新才需要重渲染
+  const hasMemberFields = fields.value.some(f => f.type === FieldType.MEMBER);
+  if (!hasMemberFields) return;
+
+  // 防抖：合并 500ms 内的连续缓存更新为一次全量 rebuild
+  if (_userCacheDebounceTimer) {
+    clearTimeout(_userCacheDebounceTimer);
+  }
+  _userCacheDebounceTimer = setTimeout(() => {
+    _userCacheDebounceTimer = null;
+    clearTransformCache();
+    updateTableData();
+  }, 500);
 });
 
 // 监听流式加载完成：标记 fullyLoaded，交由 records watch 完成重建
@@ -6993,7 +7122,12 @@ onMounted(() => {
   window.addEventListener('resize', handleFloatingPanelWindowResize);
   // 树形视图的 "+" 按钮用 fixed 定位，页面或表格滚动后不会跟随，
   // 滚动时先隐藏，鼠标移动后会按新的行位置重新显示
-  window.addEventListener('scroll', hideTreeAddChildIconOnScroll, true);
+  // F6：加 passive:true — scroll 是只读动作（隐藏按钮），不会 preventDefault，
+  // passive 让浏览器可以立即开始滚动而不等待 JS，减少滚动卡顿
+  window.addEventListener('scroll', hideTreeAddChildIconOnScroll, {
+    passive: true,
+    capture: true,
+  });
   tableContainerRef.value?.addEventListener('wheel', hideTreeAddChildIconOnScroll, {
     passive: true,
     capture: true,
@@ -7007,6 +7141,18 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  // Issue 2 补充：清理 userCacheStore debounce timer，防止组件销毁后
+  // 还有 setTimeout 回调触发 updateTableData()。
+  if (_userCacheDebounceTimer) {
+    clearTimeout(_userCacheDebounceTimer);
+    _userCacheDebounceTimer = null;
+  }
+  // F6：清理 resize debounce timer
+  if (_resizeDebounceTimer) {
+    clearTimeout(_resizeDebounceTimer);
+    _resizeDebounceTimer = null;
+  }
+
   // 标记组件已销毁，阻止异步回调（watch / 实时监听）继续触发接口请求
   isComponentDestroyed.value = true;
   // 释放所有持有的协同编辑锁
@@ -7021,7 +7167,10 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick);
   document.removeEventListener('keydown', handleAttachmentImageKeydown);
   window.removeEventListener('resize', handleFloatingPanelWindowResize);
-  window.removeEventListener('scroll', hideTreeAddChildIconOnScroll, true);
+  // F6：remove 选项需与 add 保持一致（{ passive, capture } 对象）
+  window.removeEventListener('scroll', hideTreeAddChildIconOnScroll, {
+    capture: true,
+  } as EventListenerOptions);
   tableContainerRef.value?.removeEventListener('wheel', hideTreeAddChildIconOnScroll, {
     capture: true,
   } as EventListenerOptions);
@@ -7081,14 +7230,24 @@ function closeAttachmentManager() {
   lastAttachmentCellCoords.value = null;
 }
 
-// 窗口 resize 事件 - 重新定位附件浮窗
+// F6 debounce：resize 在拖动窗口边框时连续高频触发，
+// 合并 150ms 内的多次回调为一次。只在浮窗显示时有实际工作。
+let _resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const _debouncedResizeHandler = () => {
+  if (_resizeDebounceTimer) clearTimeout(_resizeDebounceTimer);
+  _resizeDebounceTimer = setTimeout(() => {
+    _resizeDebounceTimer = null;
+    if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
+      const { col, row } = lastAttachmentCellCoords.value;
+      const pos = recalcFloatingPanelPosition(col, row, 380, 480);
+      if (pos) attachmentManagerPosition.value = pos;
+    }
+  }, 150);
+};
+
+// 窗口 resize 事件 - 重新定位附件浮窗（已 debounce）
 function handleFloatingPanelWindowResize() {
-  // 更新附件浮窗
-  if (attachmentManagerVisible.value && lastAttachmentCellCoords.value) {
-    const { col, row } = lastAttachmentCellCoords.value;
-    const pos = recalcFloatingPanelPosition(col, row, 380, 480);
-    if (pos) attachmentManagerPosition.value = pos;
-  }
+  _debouncedResizeHandler();
 }
 
 // 附件管理器：值变更保存

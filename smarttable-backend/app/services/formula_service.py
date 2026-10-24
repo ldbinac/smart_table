@@ -1821,6 +1821,7 @@ class FormulaService:
         all_fields: List['Field'],
         values: Dict[str, Any],
         record: Optional[Any] = None,
+        compute_ctx: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         构建以字段名为 key 的公式上下文（公式引擎用字段名引用）
@@ -1829,6 +1830,10 @@ class FormulaService:
         （创建人/创建时间/更新人/更新时间/最后修改人）的值不落 values，
         从记录元数据补充注入，与前端取值形态一致：
         用户字段为用户 ID 字符串，时间字段为毫秒时间戳。
+
+        compute_ctx: 可选 RecordComputeContext（B1+B2 联合优化）。传入后，
+        lookup 值从 ctx.get_lookup_value 取（与 records.py 循环共享预加载
+        + 去重缓存），不再重新执行 LookupService.compute_lookup_value。
         """
         field_id_to_name = {str(f.id): f.name for f in all_fields}
 
@@ -1855,12 +1860,16 @@ class FormulaService:
 
         # 查找字段值不落 record.values（实时计算），公式引用时现算注入：
         # 先求查找字段结果再计算公式，保证 {查找字段} 参与运算取到真实值
+        # B2 优化：有 compute_ctx 时走 ctx 共享缓存，不再重复查 DB（消灭 P0-2 双算）
         from app.services.lookup_service import LookupService
 
         for f in all_fields:
             if f.type == FieldType.LOOKUP.value:
                 try:
-                    context[f.name] = LookupService.compute_lookup_value(record, f)
+                    if compute_ctx is not None:
+                        context[f.name] = compute_ctx.get_lookup_value(record, f)
+                    else:
+                        context[f.name] = LookupService.compute_lookup_value(record, f)
                 except Exception:
                     context[f.name] = None
 
@@ -1886,7 +1895,9 @@ class FormulaService:
         user_id: str = None,
         formula_fields: List[Field] = None,
         table_context: Optional[Dict[str, Dict[str, List[Any]]]] = None,
-        record: Optional[Any] = None
+        record: Optional[Any] = None,
+        all_fields: Optional[List[Field]] = None,
+        compute_ctx: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         计算记录中所有公式的值（任务 30.1）
@@ -1902,6 +1913,9 @@ class FormulaService:
                           [表].[字段] 引用则自动查询本表全量数据构建
             record: 可选的记录 ORM 对象；传入时公式可引用系统维护字段
                    （创建人/创建时间/更新人/更新时间，值取自记录元数据）
+            all_fields: 可选的预查询全部字段列表（B2 优化：避免每条记录重复 SELECT * FROM fields）
+            compute_ctx: 可选的 RecordComputeContext（B1+B2 联合优化：让 lookup 值
+                         与 records.py 循环共用同一份预加载数据 + 去重缓存）
 
         Returns:
             公式字段计算结果字典 {field_name: computed_value}
@@ -1929,8 +1943,12 @@ class FormulaService:
 
         # 获取表格所有字段，构建以字段名为 key 的上下文
         # （公式引擎用字段名引用；系统维护字段从记录元数据补充）
-        all_fields = Field.query.filter_by(table_id=table_id).all()
-        context_by_name = cls._build_formula_context(all_fields, values, record=record)
+        # B2 优化：all_fields 已预取 → 直接用，避免每条记录 1 次 SELECT * FROM fields
+        if all_fields is None:
+            all_fields = Field.query.filter_by(table_id=table_id).all()
+        context_by_name = cls._build_formula_context(
+            all_fields, values, record=record, compute_ctx=compute_ctx
+        )
 
         results = {}
 

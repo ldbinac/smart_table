@@ -233,7 +233,9 @@ class Config:
 class DevelopmentConfig(Config):
     """开发环境配置"""
     DEBUG = True
-    SQLALCHEMY_ECHO = True
+    # B8 优化：SQLALCHEMY_ECHO 默认关闭，仅当 DEBUG_SQL 环境变量显式设为 true 时开启。
+    # 开发环境关闭时，每条 SQL 走 logging 会拖慢一个数量级。
+    SQLALCHEMY_ECHO = os.environ.get('DEBUG_SQL', '').lower() in ('true', '1', 'yes')
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-not-for-production'
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-jwt-secret-not-for-production'
 

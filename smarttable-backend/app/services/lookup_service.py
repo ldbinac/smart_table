@@ -922,16 +922,77 @@ class LookupService:
         return value
 
     # ------------------------------------------------------------------
+    # 批量上下文预加载（B1 优化核心）
+    # ------------------------------------------------------------------
+    @classmethod
+    def build_lookup_context(
+        cls,
+        table_id: str,
+        lookup_fields: List['Field'],
+        current_fields: Optional[List['Field']] = None,
+    ) -> Dict[str, Any]:
+        """
+        按源表聚合预加载 lookup 计算所需的全部数据，返回可在请求级复用的上下文。
+
+        同一源表只会查一次 DB；循环内的 compute_lookup_value 直接命中缓存，
+        把原本 N×(1+3L) 的 SQL 降为 2 + 涉及的源表数。
+
+        Args:
+            table_id: 当前表 ID
+            lookup_fields: 当前表的所有 lookup 字段列表
+            current_fields: 当前表字段列表（可选，传入避免重复查询）
+
+        Returns:
+            dict: {
+                '__sources__': {source_table_id: {'records': [...], 'fields_map': {...}}},
+                '__current_fields_map__': {field_id: Field},
+            }
+        """
+        source_cache: Dict[str, Dict[str, Any]] = {}
+        # 收集所有涉及的源表
+        source_table_ids = set()
+        for lf in lookup_fields:
+            sid = (lf.config or {}).get('sourceTableId')
+            if sid:
+                source_table_ids.add(str(sid))
+
+        # 每个源表只加载一次
+        for sid in source_table_ids:
+            recs = Record.query.filter_by(
+                table_id=sid, is_deleted=False
+            ).all()
+            fs = Field.query.filter_by(table_id=sid).all()
+            source_cache[sid] = {
+                'records': recs,
+                'fields_map': {str(f.id): f for f in fs},
+            }
+
+        # 当前表字段（如果调用方没预取）
+        if current_fields is None:
+            current_fields = Field.query.filter_by(table_id=table_id).all()
+
+        return {
+            '__sources__': source_cache,
+            '__current_fields_map__': {str(f.id): f for f in current_fields},
+        }
+
+    # ------------------------------------------------------------------
     # 主入口：实时计算查找值
     # ------------------------------------------------------------------
     @staticmethod
-    def compute_lookup_value(record: Record, lookup_field: Field) -> Any:
+    def compute_lookup_value(
+        record: Record,
+        lookup_field: Field,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Any:
         """
         计算单条记录的查找字段值
 
         Args:
             record: 当前表记录
             lookup_field: 查找字段对象（config 中包含完整配置）
+            context: 可选的批量预加载上下文（由 build_lookup_context 生成），
+                     传入时复用预加载数据避免 N+1；为 None 时回退旧逻辑（兼容其他调用点）
 
         Returns:
             计算结果（数组或标量），异常时返回 None
@@ -959,19 +1020,29 @@ class LookupService:
             if not source_table_id or not target_field_id:
                 return None
 
-            # 加载源表所有未删除记录
-            source_records = Record.query.filter_by(
-                table_id=str(source_table_id), is_deleted=False
-            ).all()
-
-            # 加载源表所有字段并构建 map
-            source_fields = Field.query.filter_by(table_id=str(source_table_id)).all()
-            source_fields_map = {str(f.id): f for f in source_fields}
-
-            # 加载当前表字段：过滤条件 valueType=field 时，
-            # 需要按其字段类型（如单选/多选）解析比较值
-            current_fields = Field.query.filter_by(table_id=str(record.table_id)).all()
-            current_fields_map = {str(f.id): f for f in current_fields}
+            # ===== 从 context 取数据；无 context 时回退逐条查询 =====
+            if context is not None:
+                source_data = context.get('__sources__', {}).get(str(source_table_id))
+                if source_data is None:
+                    # context 里没有这个源表 → 回退单表加载
+                    source_records = Record.query.filter_by(
+                        table_id=str(source_table_id), is_deleted=False
+                    ).all()
+                    source_fields = Field.query.filter_by(table_id=str(source_table_id)).all()
+                    source_fields_map = {str(f.id): f for f in source_fields}
+                else:
+                    source_records = source_data['records']
+                    source_fields_map = source_data['fields_map']
+                current_fields_map = context.get('__current_fields_map__', {})
+            else:
+                # 回退路径：逐条查询（保持与旧逻辑完全一致）
+                source_records = Record.query.filter_by(
+                    table_id=str(source_table_id), is_deleted=False
+                ).all()
+                source_fields = Field.query.filter_by(table_id=str(source_table_id)).all()
+                source_fields_map = {str(f.id): f for f in source_fields}
+                current_fields = Field.query.filter_by(table_id=str(record.table_id)).all()
+                current_fields_map = {str(f.id): f for f in current_fields}
 
             target_field = source_fields_map.get(str(target_field_id))
 
@@ -1034,3 +1105,58 @@ class LookupService:
         except Exception as e:
             current_app.logger.error(f'[LookupService] 预览查找值失败: {e}')
             return None
+
+
+# ======================================================================
+# 请求级计算上下文：让 records.py 列表循环 + formula_service 公式构建
+# 共用同一份 lookup 预加载数据 + (record_id, field_id) 去重缓存
+# ======================================================================
+class RecordComputeContext:
+    """
+    单次 GET /tables/{id}/records 请求的计算上下文。
+
+    负责：
+    1. 按源表聚合预加载 lookup 所需数据（build_lookup_context）
+    2. 为 (record_id, field_id) 做结果去重缓存 —— 同一次请求内，
+       records.py 循环调 + formula_service._build_formula_context 调的
+       同一个 lookup 值只算 1 次（消灭 P0-2 双算）
+
+    用法：
+        ctx = RecordComputeContext(table_id, all_fields, lookup_fields)
+        for record in records:
+            ctx.get_lookup_value(record, lookup_field)   # 循环内复用缓存
+            FormulaService.compute_record_formulas(..., compute_ctx=ctx)  # 公式构建也走同缓存
+    """
+
+    def __init__(
+        self,
+        table_id: str,
+        all_fields: Optional[List['Field']] = None,
+        lookup_fields: Optional[List['Field']] = None,
+    ) -> None:
+        self.table_id = str(table_id)
+        self._all_fields = all_fields
+        self._lookup_fields = lookup_fields or []
+        self._lookup_context: Optional[Dict[str, Any]] = None  # 懒构建
+        self._value_cache: Dict[Tuple[str, str], Any] = {}     # (record_id, field_id) -> value
+
+    @property
+    def lookup_context(self) -> Optional[Dict[str, Any]]:
+        if self._lookup_context is None and self._lookup_fields:
+            self._lookup_context = LookupService.build_lookup_context(
+                self.table_id,
+                self._lookup_fields,
+                current_fields=self._all_fields,
+            )
+        return self._lookup_context
+
+    def get_lookup_value(self, record: 'Record', lookup_field: 'Field') -> Any:
+        """带去重缓存的 lookup 计算入口"""
+        record_id = str(record.id)
+        field_id = str(lookup_field.id)
+        cache_key = (record_id, field_id)
+        if cache_key not in self._value_cache:
+            self._value_cache[cache_key] = LookupService.compute_lookup_value(
+                record, lookup_field, context=self.lookup_context
+            )
+        return self._value_cache[cache_key]

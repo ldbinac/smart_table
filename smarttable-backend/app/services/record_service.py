@@ -197,7 +197,7 @@ class RecordService:
         Returns:
             (记录列表, 总数量)
         """
-        query = Record.query.filter_by(table_id=table_id)
+        query = Record.query.filter_by(table_id=table_id, is_deleted=False)
         total = query.count()
         records = query.order_by(Record.created_at.desc(), Record.id.desc()).offset(
             (page - 1) * per_page

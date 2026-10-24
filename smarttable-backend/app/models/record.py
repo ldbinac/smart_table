@@ -83,19 +83,19 @@ class Record(db.Model):
     table = relationship(
         'Table',
         back_populates='records',
-        lazy='joined'
+        lazy='select'
     )
 
     creator = relationship(
         'User',
         foreign_keys=[created_by],
-        lazy='joined'
+        lazy='select'
     )
 
     updater = relationship(
         'User',
         foreign_keys=[updated_by],
-        lazy='joined'
+        lazy='select'
     )
 
     comments = relationship(

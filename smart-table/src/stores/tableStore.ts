@@ -44,6 +44,19 @@ export const useTableStore = defineStore("table", () => {
   const fields = ref<FieldEntity[]>([]);
   const views = ref<ViewEntity[]>([]);
   const records = ref<RecordEntity[]>([]);
+  // F1 优化：显式版本号，替代对 records 的 deep watch。
+  // 所有修改 records 的入口都必须 bump 版本号，让订阅点从 O(N×F) 的深度依赖
+  // 收集退化为 O(1) 的浅订阅。
+  const recordsVersion = ref(0);
+  // F2 优化：变更元信息，让 VTableView watcher 能区分单行编辑 vs 全量替换，
+  // 对单行编辑走 O(1) 增量路径而不是 O(N) 全量 rebuild。
+  // 'edit'  = 单行/多行值更新（行数不变）
+  // 'append'= 新增记录（行数增加）
+  // 'delete'= 删除记录（行数减少）
+  // 'full'  = 全量替换 / 字段 schema 变更 / 初始化 — 必须全量 rebuild
+  type RecordsChangeType = 'edit' | 'append' | 'delete' | 'full';
+  const lastChangeType = ref<RecordsChangeType>('full');
+  const lastChangedRecordId = ref<string | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const streamingState = ref<StreamingLoadState>({
@@ -56,6 +69,16 @@ export const useTableStore = defineStore("table", () => {
   });
   let cleanupTableListeners: (() => void) | null = null;
   let refreshRecordsGeneration = 0;
+
+  /** F1+F2 辅助：每次 bump 都带上变更类型，让订阅方走增量/全量路径 */
+  function _bumpRecordsVersion(
+    changeType: RecordsChangeType = 'full',
+    recordId: string | null = null,
+  ) {
+    lastChangeType.value = changeType;
+    lastChangedRecordId.value = recordId;
+    recordsVersion.value++;
+  }
 
   async function loadTables(baseId: string) {
     loading.value = true;
@@ -103,12 +126,15 @@ export const useTableStore = defineStore("table", () => {
             // 内存累加：直接追加新增记录，避免 IndexedDB 全量读取
             if (newRecords && newRecords.length > 0) {
               records.value = [...records.value, ...newRecords];
+              // F2：流式加载追加 → append 类型，多条新记录，lastChangedRecordId 取首条
+              _bumpRecordsVersion('append', newRecords[0]?.id ?? null);
             }
           },
           onComplete: (state) => {
             streamingState.value = { ...state };
-            // 加载完成后做一次全量刷新确保数据一致性
-            refreshRecords(tableId);
+            // F3 Step 1：删除 refreshRecords(tableId) 全量 IndexedDB 回读。
+            // 流式 onProgress 已经把所有 records 累加进 records.value，
+            // IndexedDB 也同步写入了，再读一遍纯粹是 O(N) I/O + 多余的 full rebuild。
           },
           onError: (err) => {
             console.error("[tableStore] 流式加载失败:", err);
@@ -118,14 +144,15 @@ export const useTableStore = defineStore("table", () => {
               error: typeof err === 'string' ? err : t('common.loadFailed'),
             };
             error.value = typeof err === 'string' ? err : t('common.loadFailed');
-            // 加载失败也刷新本地数据，展示已成功加载的部分
-            refreshRecords(tableId);
+            // F3 Step 1：同样删除 refreshRecords(tableId)，内存里已有部分数据。
           },
         },
         200,
       );
 
       records.value = initialRecords;
+      // F2：初始加载 → full，首次全量渲染
+      _bumpRecordsVersion('full');
 
       // 后台加载不阻塞
       loadPromise.catch((err) => {
@@ -165,6 +192,7 @@ export const useTableStore = defineStore("table", () => {
       const localRecords = await recordService.getLocalRecordsByTable(tableId);
       if (gen === refreshRecordsGeneration) {
         records.value = localRecords;
+        _bumpRecordsVersion('full');
         console.log(`[tableStore] 已从本地刷新记录列表: ${localRecords.length} 条`);
       }
     } catch (e) {
@@ -198,11 +226,13 @@ export const useTableStore = defineStore("table", () => {
             streamingState.value = { ...state };
             if (newRecords && newRecords.length > 0) {
               records.value = [...records.value, ...newRecords];
+              // F2：流式重载追加 → append
+              _bumpRecordsVersion('append', newRecords[0]?.id ?? null);
             }
           },
           onComplete: (state) => {
             streamingState.value = { ...state };
-            refreshRecords(tableId);
+            // F3 Step 1：同 selectTable 的 onComplete，已在 onProgress 累加完毕
           },
           onError: (err) => {
             console.error("[tableStore] 重新加载记录失败:", err);
@@ -211,12 +241,14 @@ export const useTableStore = defineStore("table", () => {
               isLoading: false,
               error: typeof err === 'string' ? err : t('common.loadFailed'),
             };
-            refreshRecords(tableId);
+            // F3 Step 1：内存里已有已加载的部分，无需 refreshRecords
           },
         },
         200,
       );
       records.value = initialRecords;
+      // F2：重载初始加载 → full
+      _bumpRecordsVersion('full');
       loadPromise.catch((err) => {
         if (!err) return;
         console.warn("[tableStore] 重新加载后台异常:", err);
@@ -285,6 +317,7 @@ export const useTableStore = defineStore("table", () => {
         currentTable.value = null;
         fields.value = [];
         records.value = [];
+        _bumpRecordsVersion('full');
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to delete table";
@@ -430,6 +463,8 @@ export const useTableStore = defineStore("table", () => {
         delete newValues[id];
         return { ...record, values: newValues };
       });
+      // F2：删除字段是 schema 变更 — full 重建
+      _bumpRecordsVersion('full');
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to delete field";
     }
@@ -467,6 +502,8 @@ export const useTableStore = defineStore("table", () => {
           // 检查记录是否已存在，避免重复添加
           if (!records.value.find((r) => r.id === record.id)) {
             records.value.push(record);
+            // F2：新增记录 → append，携带 record.id 让 watcher 定位行
+            _bumpRecordsVersion('append', record.id);
           }
           currentTable.value.recordCount++;
         }
@@ -521,6 +558,8 @@ export const useTableStore = defineStore("table", () => {
           ...(computedValues ? { computed_values: computedValues } : {}),
           updatedAt: Date.now(),
         };
+        // F2：核心入口！单行编辑 → edit，携带 id 让 watcher 走增量快路径
+        _bumpRecordsVersion('edit', id);
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to update record";
@@ -532,6 +571,8 @@ export const useTableStore = defineStore("table", () => {
       const record = records.value.find((r) => r.id === id);
       await recordService.deleteRecord(id);
       records.value = records.value.filter((r) => r.id !== id);
+      // F2：单行删除 → delete + id
+      _bumpRecordsVersion('delete', id);
       if (record && currentTable.value?.id === record.tableId) {
         currentTable.value.recordCount--;
       }
@@ -545,6 +586,8 @@ export const useTableStore = defineStore("table", () => {
       await recordService.batchDeleteRecords(ids);
       const deletedCount = ids.length;
       records.value = records.value.filter((r) => !ids.includes(r.id));
+      // F2：批量删除 → delete（多条，lastChangedRecordId 取首条）
+      _bumpRecordsVersion('delete', ids[0] ?? null);
       if (currentTable.value) {
         currentTable.value.recordCount -= deletedCount;
       }
@@ -558,6 +601,8 @@ export const useTableStore = defineStore("table", () => {
     currentTable.value = null;
     fields.value = [];
     records.value = [];
+    // F2：清空表 → full
+    _bumpRecordsVersion('full');
   }
 
   function setupRealtimeListeners() {
@@ -586,6 +631,8 @@ export const useTableStore = defineStore("table", () => {
       };
       if (record.id && !records.value.find((r) => r.id === record.id)) {
         records.value.push(record);
+        // F2：实时新增 → append + record.id
+        _bumpRecordsVersion('append', record.id);
         // 同步持久化到本地 IndexedDB：refreshRecords 仅读取本地缓存，
         // 不落库会导致新记录在后续刷新后从前端消失
         try {
@@ -610,6 +657,8 @@ export const useTableStore = defineStore("table", () => {
           values: updatedValues,
           updatedAt: Date.now(),
         };
+        // F2：实时编辑 → edit + record_id
+        _bumpRecordsVersion('edit', data.record_id);
       }
     };
 
@@ -617,6 +666,8 @@ export const useTableStore = defineStore("table", () => {
       if (!currentTable.value || data.table_id !== currentTable.value.id) return;
       const existed = records.value.find((r) => r.id === data.record_id);
       records.value = records.value.filter((r) => r.id !== data.record_id);
+      // F2：实时删除 → delete + record_id
+      _bumpRecordsVersion('delete', data.record_id);
       if (existed && currentTable.value) {
         currentTable.value.recordCount--;
       }
@@ -644,6 +695,7 @@ export const useTableStore = defineStore("table", () => {
     if (currentTable.value?.id !== tableId) return
     if (!records.value.find((r) => r.id === record.id)) {
       records.value.push(record)
+      _bumpRecordsVersion('append', record.id)
       currentTable.value.recordCount++
     }
   }
@@ -672,6 +724,7 @@ export const useTableStore = defineStore("table", () => {
         values: updatedValues,
         updatedAt: Date.now(),
       }
+      _bumpRecordsVersion('edit', recordId)
       console.log('[TableStore] Record updated successfully')
     } else {
       console.log('[TableStore] Record not found in local store')
@@ -682,6 +735,7 @@ export const useTableStore = defineStore("table", () => {
     if (currentTable.value?.id !== tableId) return
     const existed = records.value.find((r) => r.id === recordId)
     records.value = records.value.filter((r) => r.id !== recordId)
+    _bumpRecordsVersion('delete', recordId)
     if (existed && currentTable.value) {
       currentTable.value.recordCount--
     }
@@ -734,6 +788,7 @@ export const useTableStore = defineStore("table", () => {
       delete newValues[fieldId]
       return { ...record, values: newValues }
     })
+    _bumpRecordsVersion('full')
     try {
       await db.fields.delete(fieldId)
     } catch (e) {
@@ -771,6 +826,7 @@ export const useTableStore = defineStore("table", () => {
       currentTable.value = null
       fields.value = []
       records.value = []
+      _bumpRecordsVersion('full')
     }
 
     try {
@@ -788,6 +844,9 @@ export const useTableStore = defineStore("table", () => {
     fields,
     views,
     records,
+    recordsVersion,
+    lastChangeType,
+    lastChangedRecordId,
     loading,
     error,
     streamingState,
