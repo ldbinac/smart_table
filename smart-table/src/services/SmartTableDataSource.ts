@@ -45,6 +45,11 @@ export class SmartTableDataSource {
   // 最大缓存批次数（超过后驱逐最久未使用的批次；0 表示不限制）
   private maxCachedBatches = 0;
 
+  // F5 prefetch：距当前 batch 末尾多少行内触发预取下一批
+  private static readonly PREFETCH_THRESHOLD = 50;
+  // F5 prefetch：记录正在预取的 batchKey，防重复
+  private _prefetching = new Set<number>();
+
   // 记录总数
   private _totalCount = 0;
 
@@ -86,6 +91,31 @@ export class SmartTableDataSource {
 
         if (batch) {
           this.touchBatch(batchKey);
+
+          // F5 prefetch：index 命中但接近 batch 末尾 → 异步预取下一批
+          // 用户滚得快时，下一个 get(index) miss 的概率大 — 提前准备好消除空白行
+          const offset = index - batchKey;
+          if (
+            this.lazySource &&
+            batchKey + this.batchSize < this._totalCount &&  // 还有下一批
+            offset >= this.batchSize - SmartTableDataSource.PREFETCH_THRESHOLD  // 距末尾 < 阈值
+          ) {
+            const nextBatchKey = batchKey + this.batchSize;
+            // 防重复：缓存里已有、正在预取、或已到末尾 → 跳过
+            if (
+              !this.memoryCache.has(nextBatchKey) &&
+              !this._prefetching.has(nextBatchKey) &&
+              nextBatchKey < this._totalCount
+            ) {
+              this._prefetching.add(nextBatchKey);
+              // setTimeout(0) 让当前 get() 先同步返回，prefetch 不阻塞可见行渲染
+              setTimeout(() => {
+                try { this.fetchLazyBatch(nextBatchKey); } catch (_) {}
+                this._prefetching.delete(nextBatchKey);
+              }, 0);
+            }
+          }
+
           return batch[index - batchKey] || null;
         }
         return null;

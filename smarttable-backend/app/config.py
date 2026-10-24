@@ -214,6 +214,8 @@ class Config:
 
     # 演示环境与 Gitee Star 校验配置
     IS_DEMO_ENVIRONMENT = os.environ.get('IS_DEMO_ENVIRONMENT', 'false').lower() == 'true'
+    # 开发模式跳过验证码（用于自动化测试/性能验证，生产切勿设 true）
+    DEV_SKIP_CAPTCHA = os.environ.get('DEV_SKIP_CAPTCHA', 'false').lower() == 'true'
     GITEE_CLIENT_ID = os.environ.get('GITEE_CLIENT_ID', '')
     GITEE_CLIENT_SECRET = os.environ.get('GITEE_CLIENT_SECRET', '')
     GITEE_REDIRECT_URI = os.environ.get('GITEE_REDIRECT_URI', '')

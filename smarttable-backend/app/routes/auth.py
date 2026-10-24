@@ -220,11 +220,17 @@ def login() -> tuple:
     password = validated_data['password']
     captcha = validated_data.get('captcha')
     
+    # DEV_SKIP_CAPTCHA：开发模式临时跳过验证码（用于自动化测试 / 性能验证）
+    # 在 .env 设 DEV_SKIP_CAPTCHA=true 即可，测完务必删除或设回 false
+    dev_skip_captcha = current_app.config.get('DEV_SKIP_CAPTCHA', False)
+
     # 验证验证码
     client_ip = request.remote_addr or 'unknown'
     captcha_token = f"auth:login:{client_ip}"
     
-    if captcha:
+    if dev_skip_captcha:
+        logger.warning(f"[DEV] 登录验证码已跳过 (DEV_SKIP_CAPTCHA=true) - IP: {client_ip}")
+    elif captcha:
         is_valid, error_msg = CaptchaService.verify_captcha(captcha_token, captcha)
         if not is_valid:
             # 记录验证码验证失败的日志
