@@ -30,6 +30,7 @@ import OnlineUsers from "@/components/collaboration/OnlineUsers.vue";
 import FeedbackDialog from "@/components/common/FeedbackDialog.vue";
 import NotificationBell from "@/components/common/NotificationBell.vue";
 import ChangePasswordDialog from "@/components/common/ChangePasswordDialog.vue";
+import { buildE10LogoutUrl, getE10Config } from "@/extensions/e10/api";
 
 const route = useRoute();
 const router = useRouter();
@@ -51,6 +52,20 @@ const feedbackDialogVisible = ref(false);
 // 修改密码弹窗控制
 const changePasswordDialogVisible = ref(false);
 
+// 登出后：E10 SSO 启用时同时注销 E10 会话
+const finishLogout = async () => {
+  try {
+    const e10Config = await getE10Config();
+    if (e10Config.enabled && e10Config.logout_with_e10) {
+      window.location.href = buildE10LogoutUrl("/login");
+      return;
+    }
+  } catch {
+    // E10 未启用/不可用时走普通登录页
+  }
+  router.replace("/login");
+};
+
 // 处理退出登录
 const handleLogout = async () => {
   try {
@@ -61,7 +76,7 @@ const handleLogout = async () => {
     });
 
     await authStore.logout();
-    router.replace("/login");
+    await finishLogout();
   } catch {
     // 用户取消退出
   }
@@ -81,7 +96,7 @@ const handleLogoutAll = async () => {
     );
 
     await authStore.logout(true);
-    router.replace("/login");
+    await finishLogout();
   } catch {
     // 用户取消退出
   }

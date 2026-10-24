@@ -4,6 +4,7 @@
   "verifyEmail": "Verify Email",
   "forgotPassword": "Forgot Password",
   "giteeCallback": "Gitee Authorization Callback",
+  "e10Callback": "Weaver E10 Sign-in",
   "resetPassword": "Reset Password",
   "home": "Home",
   "base": "Base",

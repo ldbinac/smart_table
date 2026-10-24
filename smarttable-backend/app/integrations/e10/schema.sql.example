@@ -1,0 +1,41 @@
+-- ============================================================
+-- 泛微 E10 SSO 身份映射表（可选手工建表脚本）
+--
+-- 默认情况下后端会在首次启动/首次登录时自动创建本表。
+-- 如果生产环境禁止应用自动建表（E10_AUTO_CREATE_SCHEMA=false），
+-- 请由 DBA 选择对应数据库执行以下 SQL。
+-- ============================================================
+
+-- ----------------------------
+-- PostgreSQL
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS e10_sso_identities (
+    id            SERIAL PRIMARY KEY,
+    e10_user_id   VARCHAR(255) NOT NULL UNIQUE,
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    e10_name      VARCHAR(255),
+    attributes    JSON,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS ix_e10_sso_identities_user_id
+    ON e10_sso_identities (user_id);
+
+-- ----------------------------
+-- SQLite
+-- ----------------------------
+-- CREATE TABLE IF NOT EXISTS e10_sso_identities (
+--     id            INTEGER PRIMARY KEY AUTOINCREMENT,
+--     e10_user_id   VARCHAR(255) NOT NULL UNIQUE,
+--     user_id       CHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--     e10_name      VARCHAR(255),
+--     attributes    TEXT,
+--     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     last_login_at DATETIME
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS ix_e10_sso_identities_user_id
+--     ON e10_sso_identities (user_id);

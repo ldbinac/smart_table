@@ -40,6 +40,9 @@ from app.routes.oauth import oauth_bp
 from app.routes.open_api import open_api_bp
 from app.routes.plugins import plugins_bp
 
+# 可选第三方集成（E10 SSO 等）：保持独立目录，未启用时零影响
+from app.integrations.e10 import register_e10_integration
+
 # 服务导入
 from app.services.email_queue_service import init_email_queue
 from app.services.webhook_service import WebhookService
@@ -96,6 +99,9 @@ def create_app(config_name='default', enable_realtime=False):
     
     # 注册蓝图
     register_blueprints(app)
+
+    # 注册可选集成（泛微 E10 OAuth2 单点登录）
+    register_e10_integration(app)
 
     # 注册 API 文档路由
     register_api_docs(app)
