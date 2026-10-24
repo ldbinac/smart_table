@@ -5388,7 +5388,7 @@ const buildTableConfig = (): any => {
     // 必须 await 否则 renderWithRecreateCells 在 LINK 数据到来之前就执行 —— LINK 单元格会闪一下 raw ID
     smartDataSource.onBatchLoaded(async () => {
       await loadLinkDisplayData();
-      renderWithRecreateCells();
+      try { (tableInstance as any)?.renderWithRecreateCells(); } catch {}
     });
 
     tableRecords = []; // dataSource 模式下不使用 tableRecords，占位
@@ -6699,7 +6699,7 @@ const updateTableData = () => {
       // F7-2：同 updateTable()，注册 batchLoaded 回调 —— 必须 await
       smartDataSource.onBatchLoaded(async () => {
         await loadLinkDisplayData();
-        renderWithRecreateCells();
+        try { (tableInstance as any)?.renderWithRecreateCells(); } catch {}
       });
 
       // 清除 switch 单元格的勾选状态缓存，使其重新从数据读取最新值。
