@@ -856,6 +856,10 @@ smart-table-spec/
 ## 📞 联系我们
 
 - 📧 Email: <ldengbin@126.com>
+- 📦 代码仓库：
+  - GitHub: [GitHub](https://github.com/ldbinac/smart_table)
+  - Gitee: [Gitee](https://gitee.com/binac/smart_table)
+  - GitCode: [GitCode](https://gitcode.com/binac/smarttable)
 - 💬 Issues: [GitHub Issues](https://github.com/ldbinac/smart_table/issues)
 - 📖 Documentation: [User-Manual](https://my-smart-table.github.io/smart-table-docs)
 - 关注作者：

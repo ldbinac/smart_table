@@ -394,8 +394,9 @@ const showFullRecordDetail = () => {
 };
 
 // 处理详情保存（只读模式下不会触发，但需要处理）
-const handleDetailSave = (recordId: string, values: Record<string, unknown>) => {
-  console.log("[LinkedRecordDetailDialog] 详情保存:", recordId, values);
+// F8: 原先是 console.log 调试残留
+const handleDetailSave = (_recordId: string, _values: Record<string, unknown>) => {
+  // no-op: 详情保存逻辑由父组件处理
 };
 
 // 关闭弹窗

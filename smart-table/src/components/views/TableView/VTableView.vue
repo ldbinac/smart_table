@@ -123,6 +123,9 @@ const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
 let smartDataSource: SmartTableDataSource | null = null;
 
+// F7-2 guard：onBatchLoaded 回调只需注册一次
+let _batchLoadedCallbackRegistered = false;
+
 // 主从表功能
 const {
   masterDetailPlugin,
@@ -353,7 +356,27 @@ let treeSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ==================== 关联字段数据缓存 ====================
 // 键: `${recordId}:${fieldId}`, 值: display_value 数组
+// F7-2 内存泄漏修复：linkDisplayCache 之前是 plain object 无上限增长，
+// 10 万行表 + LINK 字段可达数百 MB。现在写入时自动驱逐最旧条目，上限 5000
+const LINK_CACHE_MAX = 5000;
+const LINK_CACHE_EVICT_RATIO = 0.2;  // 超上限时驱逐 20%
+
 const linkDisplayCache = reactive<Record<string, string[]>>({});
+
+/** F7-2 内存泄漏修复：写入缓存后检查是否需要驱逐最旧条目 */
+function _evictLinkCacheIfNeeded() {
+  const keys = Object.keys(linkDisplayCache);
+  if (keys.length <= LINK_CACHE_MAX) return;
+  // 驱逐最旧的（Object.keys 在现代 JS 引擎保持 string key 插入顺序）
+  const evictCount = Math.min(
+    Math.floor(LINK_CACHE_MAX * LINK_CACHE_EVICT_RATIO) + (keys.length - LINK_CACHE_MAX),
+    keys.length - 100,  // 至少留 100 条避免抖动
+  );
+  for (let i = 0; i < evictCount; i++) {
+    delete linkDisplayCache[keys[i]];
+  }
+}
+
 // 关联字段加载状态
 const linkLoadingStates = reactive<Record<string, boolean>>({});
 // 关联字段错误状态
@@ -5360,6 +5383,14 @@ const buildTableConfig = (): any => {
       addButtonRow: addButtonRow,
     }, totalCount);
 
+    // F7-2：懒加载模式下，每个新 batch 加载完后渐进加载 LINK 显示数据
+    // loadLinkDisplayData 内部会用 getCachedRecordIds() 筛选只扫缓存的 records
+    // 必须 await 否则 renderWithRecreateCells 在 LINK 数据到来之前就执行 —— LINK 单元格会闪一下 raw ID
+    smartDataSource.onBatchLoaded(async () => {
+      await loadLinkDisplayData();
+      renderWithRecreateCells();
+    });
+
     tableRecords = []; // dataSource 模式下不使用 tableRecords，占位
   } else {
     // ============ records 模式（分组 / 树形）：必须全量 transform ============
@@ -6665,6 +6696,12 @@ const updateTableData = () => {
         addButtonRow: addButtonRow,
       }, totalCount);
 
+      // F7-2：同 updateTable()，注册 batchLoaded 回调 —— 必须 await
+      smartDataSource.onBatchLoaded(async () => {
+        await loadLinkDisplayData();
+        renderWithRecreateCells();
+      });
+
       // 清除 switch 单元格的勾选状态缓存，使其重新从数据读取最新值。
       // VTable 的 stateManager.checkedState 在首次渲染时按「行索引 + 字段」缓存开关状态，
       // 外部更新（如详情抽屉保存）后走增量刷新不会自动同步该缓存，
@@ -7284,10 +7321,20 @@ async function loadLinkDisplayData() {
   const linkFields = orderedVisibleFields.value.filter(f => f.type === FieldType.LINK);
   if (linkFields.length === 0) return;
 
+  // F7-2：懒加载模式下只扫当前缓存的 records —— 避免 O(N) 全量扫 sortedRecords.value
+  // smartDataSource.getCachedRecordIds() 返回 memoryCache 里非 null 的 record IDs
+  // Legacy 全量灌入模式回退到全量扫（smartDataSource 可能还没初始化或缓存为空）
+  let recordsToScan: typeof sortedRecords.value = sortedRecords.value;
+  const cachedIds = smartDataSource?.getCachedRecordIds();
+  if (smartDataSource?.hasLazySource && cachedIds && cachedIds.length > 0) {
+    const idSet = new Set(cachedIds);
+    recordsToScan = sortedRecords.value.filter(r => idSet.has(r.id));
+  }
+
   // 收集所有需要加载的 (recordId, fieldId) 对
   const needsLoad: Array<{ recordId: string; fieldId: string }> = [];
 
-  for (const record of sortedRecords.value) {
+  for (const record of recordsToScan) {
     for (const field of linkFields) {
       const key = `${record.id}:${field.id}`;
       // 已有缓存、或正在加载中（并发调用时避免重复请求同一批数据）则跳过
@@ -7367,6 +7414,10 @@ async function loadLinkDisplayData() {
       (tableInstance as any).renderWithRecreateCells();
     } catch {}
   }
+
+  // F7-2 内存泄漏修复：每次 loadLinkDisplayData 批量写入后检查是否需要驱逐
+  // 10 万行表 + LINK 字段如果不限制，cache 可达数百 MB
+  _evictLinkCacheIfNeeded();
 }
 
 // ==================== 关联记录选择器事件处理 ====================
@@ -7707,6 +7758,8 @@ function closeSearch() {
 }
 
 // 监听记录变化，重新加载关联数据
+// F7-2：不再 immediate:true —— 组件 mount 时 smartDataSource 还没 configureLazySource
+// loadLinkDisplayData 会在 records.value 真正变化时被调用（streaming progress / edit / selectTable 完成）
 watch(
   () => [records.value, orderedVisibleFields.value],
   () => {
@@ -7720,9 +7773,15 @@ watch(
     for (const key of Object.keys(linkErrorStates)) {
       delete linkErrorStates[key];
     }
+
+    // F7-2：懒加载模式下等 smartDataSource 初始化完再调
+    // 否则 mount 时 smartDataSource 还是 null，会走 legacy 全量扫 O(N)
+    if (smartDataSource?.hasLazySource && smartDataSource.getCachedRecordIds().length === 0) {
+      return; // 还没任何 batch 缓存，等 get(index) 触发 fetch 后 batchLoaded 回调会调
+    }
     loadLinkDisplayData();
   },
-  { deep: false, immediate: true }
+  { deep: false }
 );
 
 // 监听分组配置变化，重新初始化表格

@@ -283,10 +283,14 @@ const handleCellUpdate = async (
     }
   }
 
-  // 3. 使用 JSON.parse(JSON.stringify()) 确保所有值都是纯 JavaScript 对象
-  // 避免响应式对象导致的 IndexedDB 克隆错误
-  const plainValues = JSON.parse(JSON.stringify(record.values));
-  const plainValue = JSON.parse(JSON.stringify(value));
+  // 3. 去 Vue 响应式 proxy，确保 IndexedDB structured clone 正常工作
+  // F8 优化：不再做 JSON.parse(JSON.stringify()) 全量深拷贝（原来为了防 proxy，
+  // 但 values 内部值都是后端返回的 plain primitives/数组/对象，spread 足够去顶层 proxy）
+  const plainValues = { ...record.values };
+  // value 是单值（primitive / 数组 / 小对象），也直接 spread
+  const plainValue = typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? { ...value }
+    : value;
   const newValues = { ...plainValues, [fieldId]: plainValue };
   await recordService.updateRecord(record.id, { values: newValues });
   await tableStore.refreshRecords(record.tableId);

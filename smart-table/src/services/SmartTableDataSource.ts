@@ -108,6 +108,9 @@ export class SmartTableDataSource {
     this.lazySource = config;
     this._totalCount = totalCount;
 
+    // F7-2：每次 configure 都清空旧回调，避免累积
+    this._batchLoadedCallbacks = [];
+
     // 预取最后一个 batch（若包含 addButton 虚拟行）
     // VTable 初始只渲染可见 ~30 行，addButton 在最后一个 index，永远不会被初始 get(index) 请求
     // 不预取 → addButton 位置返回 null → 表格末尾没有 "+" 按钮
@@ -161,6 +164,9 @@ export class SmartTableDataSource {
     this.touchBatch(batchKey);
     this.evictIfNeeded();
 
+    // F7-2：通知外部这个 batch 已加载（用于渐进加载 LINK 显示数据等）
+    this._fireBatchLoaded(batchKey, batch);
+
     return batch;
   }
 
@@ -177,6 +183,54 @@ export class SmartTableDataSource {
    */
   get totalCount(): number {
     return this._totalCount;
+  }
+
+  /**
+   * F7-2：获取当前缓存中的 record IDs（不含 null 空位和 addButton 虚拟行）
+   * 配合 loadLinkDisplayData 只按需扫描可见范围内的 records，避免 O(N) 全量扫
+   */
+  getCachedRecordIds(): string[] {
+    const ids: string[] = [];
+    for (const batch of this.memoryCache.values()) {
+      for (const rec of batch) {
+        if (rec && rec._recordId && !rec._rowType) {
+          ids.push(rec._recordId);
+        }
+      }
+    }
+    return ids;
+  }
+
+  /**
+   * 是否有懒加载源（F5 模式）
+   */
+  get hasLazySource(): boolean {
+    return !!this.lazySource;
+  }
+
+  /**
+   * F7-2：注册 batch 加载完成回调
+   * fetchLazyBatch 每次加载完一个新 batch 后会触发这些回调，
+   * 用于懒加载模式下渐进加载关联字段显示数据等后处理
+   */
+  private _batchLoadedCallbacks: Array<(batchKey: number, records: DataSourceRecord[]) => void> = [];
+
+  onBatchLoaded(cb: (batchKey: number, records: DataSourceRecord[]) => void): void {
+    this._batchLoadedCallbacks.push(cb);
+  }
+
+  /**
+   * F7-2：清空所有 batchLoaded 回调（configureLazySource 内部会自动调）
+   */
+  clearBatchLoadedCallbacks(): void {
+    this._batchLoadedCallbacks = [];
+  }
+
+  private _fireBatchLoaded(batchKey: number, batch: DataSourceRecord[]): void {
+    if (this._batchLoadedCallbacks.length === 0) return;
+    for (const cb of this._batchLoadedCallbacks) {
+      try { cb(batchKey, batch); } catch (_) { /* 回调异常不影响主流程 */ }
+    }
   }
 
   /**

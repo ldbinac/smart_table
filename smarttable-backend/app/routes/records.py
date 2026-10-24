@@ -102,13 +102,10 @@ def get_records(table_id) -> tuple:
     
     try:
         if search:
-            # 搜索记录
-            records = RecordService.search_records(table_id, search)
-            total = len(records)
-            # 手动分页
-            start = (page - 1) * per_page
-            end = start + per_page
-            records = records[start:end]
+            # B7：搜索已下推到 SQL 分页，直接传 page/per_page
+            records, total = RecordService.search_records(
+                table_id, search, page=page, per_page=per_page
+            )
         else:
             # 分页查询
             records, total = RecordService.get_table_records(
@@ -1901,8 +1898,9 @@ def search_linkable_records(table_id) -> tuple:
     try:
         # 搜索记录
         if keyword:
-            records = RecordService.search_records(table_id, keyword)
-            total = len(records)
+            # B7：search_records 现在返回 (records, total)
+            # 注意：exclude_ids 过滤让 SQL 分页变复杂，linkable_records 这里保持全量
+            records, total = RecordService.search_records(table_id, keyword, per_page=None)
         else:
             records, total = RecordService.get_table_records(table_id, page=page, per_page=per_page)
         

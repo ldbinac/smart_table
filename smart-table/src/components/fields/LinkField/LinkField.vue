@@ -188,8 +188,9 @@ const showRecordDetail = async (recordId: string) => {
 };
 
 // 处理详情保存（只读模式下不会触发）
-const handleDetailSave = (recordId: string, values: Record<string, unknown>) => {
-  console.log("[LinkField] 详情保存:", recordId, values);
+// F8: 原先是 console.log 调试残留，生产不需要
+const handleDetailSave = (_recordId: string, _values: Record<string, unknown>) => {
+  // no-op: 详情保存逻辑由父组件处理
 };
 
 // 处理确认选择

@@ -145,9 +145,22 @@ watch(
 );
 
 // 创建一个响应式的记录值引用，用于触发公式重新计算
+// F8 优化：用便宜的 values hash 替代 JSON.stringify — 后者每次渲染都做完整序列化
+// 旧实现 14 字段 × 30 可见行 = 420 次 JSON.stringify/render
 const recordValuesHash = computed(() => {
-  // 返回 values 对象的字符串表示，这样任何值的变化都会触发重新计算
-  return JSON.stringify(props.record.values);
+  const values = props.record.values;
+  if (!values) return '';
+  const keys = Object.keys(values);
+  let h = '';
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    const v = values[k];
+    // 原始类型直接拼，对象/数组用 JSON.stringify 代价太大 — 只取类型+长度
+    if (v === null || v === undefined) h += k + ':n,';
+    else if (typeof v === 'object') h += k + ':o' + (Array.isArray(v) ? v.length : '{}') + ',';
+    else h += k + ':' + v + ',';
+  }
+  return h;
 });
 
 // 获取字段配置
@@ -172,8 +185,7 @@ const isDateTimeField = computed(() => {
 const formulaValue = computed(() => {
   // 依赖 recordValuesHash，确保任何字段值变化都会重新计算
   // 使用 hash 值作为依赖，当任何字段值变化时，hash 会改变，触发重新计算
-  const hash = recordValuesHash.value;
-  console.log("Formula recalculating, hash:", hash);
+  recordValuesHash.value; // 依赖触发重算
   return calculateFormula();
 });
 

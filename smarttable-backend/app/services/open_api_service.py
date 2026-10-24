@@ -153,10 +153,12 @@ class OpenAPIService:
         # 传入表内全部字段 id 以保证跨字段搜索正确。
         fields = FieldService.get_all_fields(str(table_id))
         field_ids = [str(f.id) for f in fields]
-        records = RecordService.search_records(
+        # B7：search_records 现在返回 (records, total)；OpenAPI 场景全量返回
+        records, _total = RecordService.search_records(
             table_id=str(table_id),
             query=query,
             field_ids=field_ids,
+            per_page=None,  # OpenAPI 客户端自行处理分页
         )
         return [r.to_dict() for r in records]
 
