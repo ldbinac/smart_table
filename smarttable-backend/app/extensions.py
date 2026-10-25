@@ -87,6 +87,53 @@ def init_extensions(app):
     
     # 初始化数据库
     db.init_app(app)
+
+    # ========== SQLite PRAGMA 配置 ==========
+    # SQLite 默认 journal_mode=DELETE + busy_timeout=0 → 遇锁立刻抛 OperationalError
+    # 大表流式加载（3 并发 × 50 页）时多个请求同时 SELECT + COUNT + formulas 计算
+    # 很容易互相锁 → "数据库锁死" 偶发 500
+    # WAL mode：允许读写并发，读不阻塞写，写不阻塞读（但写写仍串行）
+    # busy_timeout=5000：遇锁等 5 秒再抛错，吸收瞬时锁冲突
+    # foreign_keys=ON：SQLite 默认不强制外键
+    # synchronous=NORMAL：WAL 模式下安全性能折中
+    with app.app_context():
+        engine = db.engine
+        from sqlalchemy import event
+        from sqlalchemy.engine import Engine
+
+        @event.listens_for(Engine, "connect")
+        def _set_sqlite_pragma(dbapi_connection, connection_record):
+            """每个新 SQLite 连接都设置 PRAGMA"""
+            try:
+                cursor = dbapi_connection.cursor()
+                # WAL：Write-Ahead Logging，允许读写并发
+                cursor.execute("PRAGMA journal_mode=WAL")
+                # 遇锁等 5 秒再抛错（默认 0 = 立刻失败）
+                cursor.execute("PRAGMA busy_timeout=5000")
+                # 强制外键（SQLite 默认 OFF）
+                cursor.execute("PRAGMA foreign_keys=ON")
+                # WAL 模式下的同步级别（NORMAL：OS 崩溃安全，断电可能丢最后几个事务）
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                # 临时内存存储模式（WAL + 内存 temp_store）
+                cursor.execute("PRAGMA temp_store=MEMORY")
+                cursor.close()
+            except Exception as _e:
+                # 非 SQLite 引擎（PostgreSQL 等）不执行这些 PRAGMA
+                pass
+
+        # 如果是 SQLite 数据库，立即在当前 engine 上执行一次 PRAGMA
+        # 上面的 listener 只对后续新建连接生效，已存在的连接需要手动执行
+        if 'sqlite' in str(engine.url).lower():
+            try:
+                with engine.connect() as conn:
+                    conn.execute(db.text("PRAGMA journal_mode=WAL"))
+                    conn.execute(db.text("PRAGMA busy_timeout=5000"))
+                    conn.execute(db.text("PRAGMA foreign_keys=ON"))
+                    conn.execute(db.text("PRAGMA synchronous=NORMAL"))
+                    conn.execute(db.text("PRAGMA temp_store=MEMORY"))
+                app.logger.info('[Extensions] ✓ SQLite WAL mode + busy_timeout=5000 configured')
+            except Exception as e:
+                app.logger.warning(f'[Extensions] SQLite PRAGMA setup failed: {e}')
     
     # 初始化迁移工具
     migrate.init_app(app, db)

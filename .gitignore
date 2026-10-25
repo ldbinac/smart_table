@@ -112,3 +112,7 @@ config/.env__default
 
 config/
 node_modules/
+
+# SQLite WAL mode 辅助文件（WAL + SHM 与 .db 同目录生成）
+*.db-wal
+*.db-shm
