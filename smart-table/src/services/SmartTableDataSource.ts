@@ -158,8 +158,8 @@ export class SmartTableDataSource {
    * F5：按需拉取一个 batch 的数据
    * 返回 batch 数组（长度 = batchSize），已填入 memoryCache
    */
-  private fetchLazyBatch(batchKey: number): DataSourceRecord[] | null {
-    if (!this.lazySource) return null;
+  private fetchLazyBatch(batchKey: number): DataSourceRecord[] | undefined {
+    if (!this.lazySource) return undefined;
 
     const sourceRecords = this.lazySource.getSource();
     const batchSize = this.batchSize;

@@ -39,7 +39,7 @@ import {
 } from "@/utils/formula/engine";
 import { formatFormulaDateByConfig } from "@/utils/formula/formatFormula";
 import { formatNumberField } from "@/utils/numberFormat";
-import { getSystemFieldDisplayValue, getSystemFieldRawValue, isSystemValueType } from "@/utils/systemFields";
+import { getSystemFieldDisplayValue } from "@/utils/systemFields";
 import { linkApiService } from "@/services/api/linkApiService";
 import { viewApiService } from "@/services/api/viewApiService";
 import { recordApiService } from "@/services/api/recordApiService";
@@ -122,9 +122,6 @@ const resolveSystemUserName = (userId: string): string =>
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
 let smartDataSource: SmartTableDataSource | null = null;
-
-// F7-2 guard：onBatchLoaded 回调只需注册一次
-let _batchLoadedCallbackRegistered = false;
 
 // 主从表功能
 const {
@@ -6922,7 +6919,8 @@ watch(() => tableStore.recordsVersion, async () => {
   // 位置 0 cache 里还是 A 的旧数据，应该显示 B）。F4 去掉了 VTableView
   // 层的 O(N log N) 重排（Base.vue 已排好序），但位置缓存语义无法绕过，
   // 所以有 sort 时仍回退全量 rebuild。
-  const hasActiveSort = (props.sorts && props.sorts.length > 0) ||
+  // F4: VTableView 层已不再用 props.sorts，Base.vue 的 filteredRecords 已排好序
+  const hasActiveSort =
     (viewStore.currentView?.config?.sortRules &&
      (viewStore.currentView as any).config.sortRules.length > 0);
 
