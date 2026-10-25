@@ -2928,20 +2928,20 @@ const handleAddNewRecord = async () => {
     addRecordCooldownTimer = null;
   }
   try {
-    const newRecord = await recordService.createRecord({
+    // F2 关键：必须走 tableStore.createRecord，它内部会：
+    // 1) 调 recordService.createRecord 创建记录
+    // 2) records.value.push(record)
+    // 3) _bumpRecordsVersion('append', record.id) — 触发 watch 走 F3 增量 append 路径
+    // 之前直接调 recordService + 手动赋值 tableStore.records = [...old, new]
+    // 完全绕过了 recordsVersion bump → watch 没被触发 → VTable 看不到新行
+    const newRecord = await tableStore.createRecord({
       tableId: props.tableId,
       values: {},
     });
     if (!newRecord) return;
 
-    // 不再手动更新 tableStore.records，让实时协作监听器（onRecordCreated）处理
-    // 如果实时协作不可用，才手动添加
-    const collabStore = useCollaborationStore();
-    if (!collabStore.isRealtimeAvailable) {
-      if (Array.isArray(tableStore.records)) {
-        tableStore.records = [...tableStore.records, newRecord];
-      }
-    }
+    // createRecord 内部已经 push + bump，不需要再手动操作 records
+    // 实时协作监听器（onRecordCreated）也会通过同一个 recordsVersion bump 感知
 
     emit('record-create');
     ElMessage.success(t('view.recordAdded'));
