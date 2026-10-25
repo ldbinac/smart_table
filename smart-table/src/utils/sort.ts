@@ -25,12 +25,15 @@ export function sortRecords(
   fields: FieldEntity[],
 ): RecordEntity[] {
   if (!sorts || sorts.length === 0) {
-    return [...records];
+    return records;  // 无排序：直接返回原引用，不做 O(N) 拷贝
   }
 
-  return [...records].sort((a, b) => {
+  // F5 优化：预构建 fields Map，避免每次 sort 比较都 O(F) find
+  const fieldMap = new Map(fields.map(f => [f.id, f]));
+
+  return records.slice().sort((a, b) => {
     for (const sort of sorts) {
-      const field = fields.find((f) => f.id === sort.fieldId);
+      const field = fieldMap.get(sort.fieldId);
       if (!field) continue;
 
       const aVal = _getSortValue(a, sort.fieldId, field);

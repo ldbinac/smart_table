@@ -152,6 +152,55 @@ export class SmartTableDataSource {
         this.fetchLazyBatch(lastBatchKey);
       }
     }
+
+    // ========== 关键修复：预灌所有 batch 进 cache ==========
+    // VTable initTreeHierarchyState 在 ListTable 初始化 dataSource 时会遍历 0..totalCount
+    // 所有 index 同步调 get(index)，即使非树形视图也走这个全量遍历。
+    // configureLazySource 刚 clearCache 完 → 全部 cache miss → 每个 get 都触发
+    // fetchLazyBatch + transformBatch → O(totalCount) 次同步串行调用 → 主线程阻塞数十秒。
+    // 修复：configure 结束前一次性预灌所有已加载的 batch，让后续 VTable 全量遍历时
+    // 每个 get(index) 只是 Map.get + 数组索引 → O(1) → 总耗时退化为 O(totalBatches)。
+    if (totalCount > 0) {
+      this.preloadAllBatches();
+    }
+  }
+
+  /**
+   * F5：预灌所有 batch 到 memoryCache
+   * 解决 VTable initTreeHierarchyState 遍历 0..totalCount 调 get(index) 时
+   * cache miss 导致的 O(totalCount) 次 fetchLazyBatch + transform 串行阻塞
+   *
+   * 同时临时关闭 LRU 驱逐：records 全量在前端时，raw records 已经占了内存，
+   * transform cache 全量保留反而让所有 get(index) 都 O(1) 命中，
+   * LRU 驱逐后再按需 fetch 的收益远小于主线程阻塞的代价。
+   *
+   * 注意：只预灌 sourceRecords 实际覆盖的 batch（流式加载过程中 records 还没全量时，
+   * 对空 batch 做 fetchLazyBatch 是 O(1) 空操作，但仍有 Map 开销）。
+   * initTreeHierarchyState 遍历 totalCount 全量 index 时，空 batch 的 get(index) 会 miss
+   * 并触发 fetchLazyBatch 处理空切片，但空切片的 transform 是 O(1)，整体可接受。
+   */
+  preloadAllBatches(): void {
+    if (!this.lazySource || this._totalCount === 0) return;
+
+    const batchSize = this.batchSize;
+    const sourceRecords = this.lazySource.getSource();
+    const totalBatches = Math.ceil(this._totalCount / batchSize);
+
+    // 只预灌 sourceRecords 实际覆盖的 batch + 1（addButton 虚拟行的 batch）
+    const coveredBatches = Math.min(
+      totalBatches,
+      Math.ceil((sourceRecords.length + (this.lazySource.addButtonRow ? 1 : 0)) / batchSize) + 1
+    );
+
+    // 临时关闭 LRU 驱逐，让预灌的 batch 留在 cache 里
+    this.maxCachedBatches = 0;
+
+    for (let b = 0; b < coveredBatches; b++) {
+      const batchKey = b * batchSize;
+      if (!this.memoryCache.has(batchKey)) {
+        this.fetchLazyBatch(batchKey);
+      }
+    }
   }
 
   /**

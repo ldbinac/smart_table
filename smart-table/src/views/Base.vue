@@ -339,11 +339,18 @@ const activeSorts = computed(() => viewStore.currentSorts);
 const sidebarRef = ref<InstanceType<typeof BaseSidebar> | null>(null);
 
 // 过滤和排序后的记录
+// F5 优化：无 filter + 无 sort 时直接返回原引用，避免每次 records 变化都 O(N) 拷贝
 const filteredRecords = computed(() => {
-  let records = [...tableStore.records];
+  const hasFilter = activeFilters.value.length > 0;
+  const hasSort = activeSorts.value.length > 0;
 
-  // 应用筛选
-  if (activeFilters.value.length > 0) {
+  if (!hasFilter && !hasSort) {
+    return tableStore.records;
+  }
+
+  let records: any[] = tableStore.records;
+
+  if (hasFilter) {
     records = applyFilters(
       records,
       activeFilters.value,
@@ -352,8 +359,7 @@ const filteredRecords = computed(() => {
     );
   }
 
-  // 应用排序
-  if (activeSorts.value.length > 0) {
+  if (hasSort) {
     records = applySorts(records, activeSorts.value, tableStore.fields);
   }
 
