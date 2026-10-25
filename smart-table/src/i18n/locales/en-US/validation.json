@@ -1,7 +1,7 @@
 {
   "requiredSingle": "Please fill in the required field: {0}",
   "requiredList": "Please fill in the following required fields: {0}",
-  "emailFormat": "Please enter a valid email address, e.g. example@domain.com",
+  "emailFormat": "Please enter a valid email address, e.g. example{'@'}domain.com",
   "phoneFormat": "Please enter a valid 11-digit mobile number",
   "urlFormat": "Please enter a full URL starting with http://, https://, ftp:// or sftp://",
   "invalidFormat": "{0} format is incorrect",

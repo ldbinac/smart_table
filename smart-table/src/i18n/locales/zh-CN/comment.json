@@ -1,6 +1,6 @@
 {
   "title": "评论",
-  "placeholder": "写下评论，使用 @ 提及成员…",
+  "placeholder": "写下评论，使用 {'@'} 提及成员…",
   "send": "发送",
   "reply": "回复",
   "edit": "编辑",

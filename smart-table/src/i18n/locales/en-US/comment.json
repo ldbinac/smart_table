@@ -1,6 +1,6 @@
 {
   "title": "Comments",
-  "placeholder": "Write a comment, use @ to mention members…",
+  "placeholder": "Write a comment, use {'@'} to mention members…",
   "send": "Send",
   "reply": "Reply",
   "edit": "Edit",

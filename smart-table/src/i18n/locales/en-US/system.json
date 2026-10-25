@@ -36,7 +36,7 @@
   "requireLowercase": "Require Lowercase",
   "requireDigit": "Require Digit",
   "requireSpecial": "Require Special Character",
-  "specialCharsHint": "Allowed special characters: !@#$%^&*()_+-=[]{}|;:,.<>?/",
+  "specialCharsHint": "Allowed special characters: !{'@'}#$%^&*()_+-=[]{'{'}{'}'}{'|'};:,.<>?/",
   "sessionTimeout": "Session Timeout (minutes)",
   "enable2fa": "Enable Two-Factor Authentication",
   "reservedHint": "Reserved feature, not yet enabled",

@@ -36,7 +36,7 @@
   "requireLowercase": "需要小写字母",
   "requireDigit": "需要数字",
   "requireSpecial": "需要特殊字符",
-  "specialCharsHint": "允许的特殊字符: !@#$%^&*()_+-=[]{}|;:,.<>?/",
+  "specialCharsHint": "允许的特殊字符: !{'@'}#$%^&*()_+-=[]{'{'}{'}'}{'|'};:,.<>?/",
   "sessionTimeout": "会话超时时间（分钟）",
   "enable2fa": "启用双因素认证",
   "reservedHint": "预留功能，暂未启用",
