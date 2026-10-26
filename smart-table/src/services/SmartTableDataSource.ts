@@ -401,16 +401,52 @@ export class SmartTableDataSource {
   /**
    * 追加记录到数据源末尾 —— F3 增量 append 快路径用
    * 同时更新 internal count + CachedDataSource.length，使 VTable 感知行数变化
+   *
+   * ⚠️ 关键：如果有 addButton 虚拟行，必须先从旧位置清除，
+   * 然后新记录从 addButton 旧位置开始写（把 addButton 挤到末尾），
+   * 最后把 addButton 填入新末尾位置。否则 addButton 永远卡在旧位置 →
+   * 追加的新行会显示在 addButton 后面（用户看到"新增行在按钮下方"）。
    */
   appendRecords(records: DataSourceRecord[]): void {
-    const startIndex = this._totalCount;
-    this.updateMemoryCache(records, startIndex);
+    const hasAddButton = !!this.lazySource?.addButtonRow;
+    const oldTotal = this._totalCount;
+
+    let writeStart: number;
+    if (hasAddButton && oldTotal > 0) {
+      // addButton 旧位置 = oldTotal - 1（因为 oldTotal 含 addButton）
+      const oldAddButtonIndex = oldTotal - 1;
+      // 清除旧位置的 addButton
+      const oldBatchKey = Math.floor(oldAddButtonIndex / this.batchSize) * this.batchSize;
+      const oldBatch = this.memoryCache.get(oldBatchKey);
+      if (oldBatch && oldBatch[oldAddButtonIndex - oldBatchKey]?._rowType === 'addButton') {
+        oldBatch[oldAddButtonIndex - oldBatchKey] = null;
+      }
+      // 新记录从 addButton 旧位置开始写，把 addButton 挤到末尾
+      writeStart = oldAddButtonIndex;
+    } else {
+      writeStart = oldTotal;
+    }
+
+    this.updateMemoryCache(records, writeStart);
     this._totalCount += records.length;
     if (this.cachedDataSource) {
       Object.defineProperty(this.cachedDataSource, 'length', {
         get: () => this._totalCount,
         configurable: true,
       });
+    }
+
+    // 把 addButton 填入新末尾位置
+    if (hasAddButton) {
+      const newAddButtonIndex = this._totalCount - 1;
+      const newBatchKey = Math.floor(newAddButtonIndex / this.batchSize) * this.batchSize;
+      let newBatch = this.memoryCache.get(newBatchKey);
+      if (!newBatch) {
+        newBatch = new Array(this.batchSize).fill(null);
+        this.memoryCache.set(newBatchKey, newBatch);
+        this.touchBatch(newBatchKey);
+      }
+      newBatch[newAddButtonIndex - newBatchKey] = this.lazySource!.addButtonRow!;
     }
   }
 
