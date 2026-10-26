@@ -5348,14 +5348,19 @@ const buildTableConfig = (): any => {
     let addButtonRow: any = null;
     const hasAddButton = !props.readonly;
     if (hasAddButton) {
-      addButtonRow = {
-        _recordId: '__add_button__',
-        _originalRecord: null,
-        _rowType: 'addButton',
-      };
+      addButtonRow = Object.create(null);
+      addButtonRow._recordId = '__add_button__';
+      addButtonRow._originalRecord = null;
+      addButtonRow._rowType = 'addButton';
+      // 不使用 field.id 作为 key！
+      // 根因：当 addButtonRow 使用与 RecordEntity.values 相同的 field.id key 时，
+      // VTable 内部 dataSource 处理会意外把 addButtonRow 的 uniqueMarker 值
+      // 写入 RecordEntity.values（Vue 深度响应式 Proxy + VTable 内部属性合并），
+      // 导致"新增行里显示 __add_button_xxx__"的污染。
+      // 使用占位 key 完全隔离 addButtonRow 和 RecordEntity 的 key 集。
       const uniqueMarker = `__add_button_${Date.now()}__`;
-      orderedVisibleFields.value.forEach(field => {
-        addButtonRow[field.id] = uniqueMarker;
+      orderedVisibleFields.value.forEach((field, i) => {
+        addButtonRow[`_add_btn_f_${i}`] = uniqueMarker;
       });
     }
 
@@ -6676,13 +6681,12 @@ const updateTableData = () => {
       let addButtonRow: any = null;
       const hasAddButton = !props.readonly;
       if (hasAddButton) {
-        addButtonRow = {
-          _recordId: '__add_button__',
-          _originalRecord: null,
-          _rowType: 'addButton',
-        };
+        addButtonRow = Object.create(null);
+        addButtonRow._recordId = '__add_button__';
+        addButtonRow._originalRecord = null;
+        addButtonRow._rowType = 'addButton';
         const uniqueMarker = `__add_button_${Date.now()}__`;
-        orderedVisibleFields.value.forEach(f => { addButtonRow[f.id] = uniqueMarker; });
+        orderedVisibleFields.value.forEach((f, i) => { addButtonRow[`_add_btn_f_${i}`] = uniqueMarker; });
       }
       const totalCount = sortedRecords.value.length + (hasAddButton ? 1 : 0);
 

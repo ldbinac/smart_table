@@ -539,7 +539,12 @@ export class RecordService {
   ): Promise<void> {
     if (!apiRecords || apiRecords.length === 0) return;
 
+    // 关键修复：先清除该表的旧数据，再写入新数据。
+    // 之前用合并写（put）导致已删除/被污染的旧记录会残留，
+    // 特别是 addButtonRow 意外污染 RecordEntity.values 后，
+    // 脏数据被存进 IndexedDB，每次刷新都会读出来。
     await db.transaction("rw", db.records, async () => {
+      await db.records.where("tableId").equals(tableId).delete();
       for (const apiRecord of apiRecords) {
         const localRecord: RecordEntity = {
           id: apiRecord.id,
