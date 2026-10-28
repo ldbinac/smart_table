@@ -95,8 +95,10 @@ class Base(db.Model):
         String(50),
         nullable=True
     )
+    # 历史实现只允许 #RRGGBB(7)，但 API 未校验，前端/第三方传入 #RRGGBBAA(9) 等更长的
+    # 色值会在 PostgreSQL 上触发 22001；放宽到 32 以容纳 #RRGGBBAA / rgba() 等形式。
     color: Mapped[str] = mapped_column(
-        String(7),
+        String(32),
         default='#6366F1',
         nullable=True
     )

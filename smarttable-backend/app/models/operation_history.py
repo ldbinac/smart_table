@@ -84,8 +84,10 @@ class OperationHistory(db.Model):
         nullable=True,
         index=True
     )
+    # 业务代码会写入 'password_change_error'(21) / 'password_change_failed'(22) 等较长取值。
+    # SQLite 不校验 varchar 长度，PostgreSQL 会直接 22001 报错，因此这里放宽到 64。
     operation_type: Mapped[str] = mapped_column(
-        String(20),
+        String(64),
         nullable=False,
         index=True
     )
