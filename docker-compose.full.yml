@@ -124,6 +124,21 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # 实时协作配置
       ENABLE_REALTIME: ${ENABLE_REALTIME:-false}
+
+      # 泛微配置
+      E10_SSO_ENABLED: "false"
+      E10_LOGOUT_WITH_E10: "false"
+      E10_BASE_URL: "http://app.weaver.com.cn:20600"
+      E10_CLIENT_ID: "1d042cb5-23b3-46e2-8f11-f4958582b3a3"
+      E10_CLIENT_SECRET: "gYDHfiLAJPkgupYsDDBxPGVo"
+      E10_REDIRECT_URI: "http://192.168.1.100/api/integrations/e10/callback"
+      E10_FRONTEND_BASE_URL: "http://192.168.1.100"
+      E10_ID_FIELD: "id"
+      E10_EMAIL_TEMPLATE: "{job_num}@e10.local"
+      E10_EMAIL_FALLBACK_TEMPLATE: "{id}@e10.local"
+      E10_AUTO_CREATE_USERS: "true"
+      E10_DEFAULT_ROLE: "editor"
+
     volumes:
       # 持久化上传文件
       - uploads_data:/app/uploads

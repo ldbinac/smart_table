@@ -4,6 +4,7 @@
   "verifyEmail": "验证邮箱",
   "forgotPassword": "找回密码",
   "giteeCallback": "Gitee 授权回调",
+  "e10Callback": "泛微 E10 登录",
   "resetPassword": "重置密码",
   "home": "首页",
   "base": "多维表格",

@@ -57,6 +57,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: "/e10-callback",
+    name: "E10Callback",
+    component: () => import("@/extensions/e10/E10Callback.vue"),
+    meta: {
+      title: "route.e10Callback",
+      public: true,
+      layout: "blank",
+    },
+  },
+  {
     path: "/reset-password",
     name: "ResetPassword",
     component: () => import("@/views/auth/ResetPassword.vue"),
