@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
-import { Share, Plus, CopyDocument, ArrowUp, ArrowDown } from "@element-plus/icons-vue";
+import { Share, Plus, CopyDocument, ArrowUp, ArrowDown, Picture } from "@element-plus/icons-vue";
 import { formShareApi, type FormShareConfig } from "@/api/formShare";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType, type FieldTypeValue, getFieldTypeIconComponent } from "@/types";
 import { formatDateTime } from "@/utils/timezone";
 import dayjs from "dayjs";
+import QRCode from "qrcode";
+import { useAuthStore } from "@/stores/authStore";
 
 const props = defineProps<{
   visible: boolean;
@@ -22,6 +24,13 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const authStore = useAuthStore();
+
+// 二维码弹窗
+const qrcodeDialogVisible = ref(false);
+const qrcodeUrl = ref(""); // 当前展示二维码的链接
+const qrcodeTitle = ref(""); // 分享标题
+const qrcodeDataUrl = ref(""); // 生成的二维码图片 dataURL
 
 // 对话框可见性
 const dialogVisible = computed({
@@ -430,6 +439,64 @@ async function copyExistingShareUrl(share: FormShareConfig) {
     ElMessage.error(t("view.copyFailedManual", { url: shareUrl }));
   }
 }
+
+// 获取分享链接
+function getShareUrl(shareToken: string): string {
+  return `${window.location.origin}/#/form/${shareToken}`;
+}
+
+// 打开二维码弹窗
+async function openQrcodeDialog(url: string, title: string) {
+  qrcodeUrl.value = url;
+  qrcodeTitle.value = title;
+  qrcodeDialogVisible.value = true;
+  // 等待弹窗渲染后生成二维码
+  await nextTick();
+  try {
+    qrcodeDataUrl.value = await QRCode.toDataURL(url, {
+      width: 240,
+      margin: 2,
+      color: {
+        dark: "#1f2937",
+        light: "#ffffff",
+      },
+    });
+  } catch (err) {
+    console.error("生成二维码失败:", err);
+    ElMessage.error(t("view.operationFailed"));
+  }
+}
+
+// 为步骤3的新创建分享打开二维码
+function openNewShareQrcode() {
+  if (!shareUrl.value || !createdShare.value) return;
+  openQrcodeDialog(shareUrl.value, createdShare.value.title || "");
+}
+
+// 为已有分享打开二维码
+function openExistingShareQrcode(share: FormShareConfig) {
+  const url = getShareUrl(share.share_token);
+  openQrcodeDialog(url, share.title || "");
+}
+
+// 下载二维码
+function downloadQrcode() {
+  if (!qrcodeDataUrl.value) return;
+  const link = document.createElement("a");
+  link.download = `form-share-qrcode-${Date.now()}.png`;
+  link.href = qrcodeDataUrl.value;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  ElMessage.success(t("view.qrcodeDownloadSuccess"));
+}
+
+// 获取当前用户名（优先 nickname，其次 name）
+const currentUserName = computed(() => {
+  const user = authStore.user;
+  if (!user) return "";
+  return user.nickname || user.name || "";
+});
 </script>
 
 <template>
@@ -491,7 +558,7 @@ async function copyExistingShareUrl(share: FormShareConfig) {
               {{ formatShareDate(row.expires_at) }}
             </template>
           </el-table-column>
-          <el-table-column :label="t('view.actions')" width="180" fixed="right">
+          <el-table-column :label="t('view.actions')" width="220" fixed="right">
             <template #default="{ row }">
               <el-button
                 v-if="row.can_submit"
@@ -500,6 +567,14 @@ async function copyExistingShareUrl(share: FormShareConfig) {
                 size="small"
                 @click="copyExistingShareUrl(row as FormShareConfig)">
                 {{ t("view.copyLink") }}
+              </el-button>
+              <el-button
+                v-if="row.can_submit"
+                link
+                type="success"
+                size="small"
+                @click="openExistingShareQrcode(row as FormShareConfig)">
+                {{ t("view.qrcode") }}
               </el-button>
               <el-button
                 link
@@ -793,6 +868,10 @@ async function copyExistingShareUrl(share: FormShareConfig) {
                 </el-button>
               </template>
             </el-input>
+            <el-button class="qrcode-btn" type="success" @click="openNewShareQrcode">
+              <el-icon><Picture /></el-icon>
+              {{ t("view.qrcode") }}
+            </el-button>
           </div>
 
           <div class="share-info mt-4">
@@ -838,6 +917,42 @@ async function copyExistingShareUrl(share: FormShareConfig) {
       <span v-else-if="currentStep === 0" class="dialog-footer">
         <el-button @click="closeDialog">{{ t("view.close") }}</el-button>
       </span>
+    </template>
+  </el-dialog>
+
+  <!-- 二维码弹窗 -->
+  <el-dialog
+    v-model="qrcodeDialogVisible"
+    :title="t('view.downloadQrcode')"
+    width="380px"
+    :close-on-click-modal="true"
+    append-to-body
+    destroy-on-close>
+    <div class="qrcode-dialog-content">
+      <div class="qrcode-header">
+        <span v-if="currentUserName" class="qrcode-sharer">
+          {{ t("view.formSharedBy", { name: currentUserName }) }}
+        </span>
+        <span class="qrcode-title">{{ qrcodeTitle }}</span>
+      </div>
+      <div class="qrcode-image-wrapper">
+        <img
+          v-if="qrcodeDataUrl"
+          :src="qrcodeDataUrl"
+          :alt="qrcodeTitle"
+          class="qrcode-image" />
+        <div v-else class="qrcode-loading">
+          <el-icon class="is-loading" :size="32"><Share /></el-icon>
+        </div>
+      </div>
+      <div class="qrcode-hint">{{ t("view.scanQrcodeHint") }}</div>
+    </div>
+
+    <template #footer>
+      <el-button type="primary" size="large" class="qrcode-download-btn" @click="downloadQrcode">
+        <el-icon><Picture /></el-icon>
+        {{ t("view.downloadQrcode") }}
+      </el-button>
     </template>
   </el-dialog>
 </template>
@@ -1087,5 +1202,70 @@ async function copyExistingShareUrl(share: FormShareConfig) {
 
 .text-center {
   text-align: center;
+}
+
+// 步骤3的二维码按钮
+.qrcode-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+// 二维码弹窗样式
+.qrcode-dialog-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px;
+}
+
+.qrcode-header {
+  text-align: center;
+  margin-bottom: 20px;
+
+  .qrcode-sharer {
+    display: block;
+    font-size: 14px;
+    color: $text-secondary;
+    margin-bottom: 4px;
+  }
+
+  .qrcode-title {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+.qrcode-image-wrapper {
+  width: 240px;
+  height: 240px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-base;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.qrcode-image {
+  width: 216px;
+  height: 216px;
+  display: block;
+}
+
+.qrcode-loading {
+  color: $text-secondary;
+}
+
+.qrcode-hint {
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+.qrcode-download-btn {
+  width: 100%;
 }
 </style>
