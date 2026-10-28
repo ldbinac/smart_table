@@ -24,7 +24,7 @@
 - 幂等：执行前先探测当前列宽，已经足够宽则跳过；序列只在前移时 setval。
 
 Revision ID: 20261027_0002
-Revises: 20261016_0001
+Revises: 20261021_0001
 Create Date: 2026-10-27
 """
 from alembic import op
@@ -32,7 +32,7 @@ import sqlalchemy as sa
 from sqlalchemy import inspect
 
 revision = '20261027_0002'
-down_revision = '20261016_0001'
+down_revision = '20261021_0001'
 branch_labels = None
 depends_on = None
 
