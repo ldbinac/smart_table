@@ -5359,7 +5359,7 @@ const buildTableConfig = (): any => {
       // 导致"新增行里显示 __add_button_xxx__"的污染。
       // 使用占位 key 完全隔离 addButtonRow 和 RecordEntity 的 key 集。
       const uniqueMarker = `__add_button_${Date.now()}__`;
-      orderedVisibleFields.value.forEach((field, i) => {
+      orderedVisibleFields.value.forEach((_, i) => {
         addButtonRow[`_add_btn_f_${i}`] = uniqueMarker;
       });
     }
@@ -6686,7 +6686,7 @@ const updateTableData = () => {
         addButtonRow._originalRecord = null;
         addButtonRow._rowType = 'addButton';
         const uniqueMarker = `__add_button_${Date.now()}__`;
-        orderedVisibleFields.value.forEach((f, i) => { addButtonRow[`_add_btn_f_${i}`] = uniqueMarker; });
+        orderedVisibleFields.value.forEach((_, i) => { addButtonRow[`_add_btn_f_${i}`] = uniqueMarker; });
       }
       const totalCount = sortedRecords.value.length + (hasAddButton ? 1 : 0);
 
