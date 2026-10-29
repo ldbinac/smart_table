@@ -16,6 +16,10 @@ FROM ${NODE_IMAGE} AS frontend-builder
 
 WORKDIR /app/frontend
 
+# 接收版本号（由 build_docker.py 通过 --build-arg 传入，Dockerfile 阶段 1 生成 dist/version.json）
+ARG APP_VERSION=unknown
+ARG BUILD_TIME=unknown
+
 # 启用 corepack 以使用 pnpm
 # 国内网络直连 registry.npmjs.org 不稳定, corepack 与 pnpm 统一走 npmmirror
 ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
@@ -32,8 +36,11 @@ RUN pnpm install --frozen-lockfile --registry=https://registry.npmmirror.com && 
 COPY smart-table/ ./
 
 # 构建前端（跳过 prepare 钩子中的 husky 与类型检查，Docker 中不需要）
+# APP_VERSION / BUILD_TIME 由 ARG 注入，Vite 插件会据此生成 dist/version.json
 ENV HUSKY=0 \
-    CI=true
+    CI=true \
+    APP_VERSION=${APP_VERSION} \
+    BUILD_TIME=${BUILD_TIME}
 RUN pnpm exec vite build
 
 # ============================================

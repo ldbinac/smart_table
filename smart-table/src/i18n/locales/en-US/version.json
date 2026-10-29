@@ -1,0 +1,9 @@
+{
+  "updateAvailable": "New Version Available",
+  "updateMessage": "The system has been updated. Please refresh to load the latest version.",
+  "currentVersion": "Current Version",
+  "latestVersion": "Latest Version",
+  "unknownVersion": "Unknown (stale cache)",
+  "refreshNow": "Refresh Now",
+  "later": "Later"
+}

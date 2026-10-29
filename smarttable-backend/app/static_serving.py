@@ -116,23 +116,57 @@ def configure_static_serving(app):
 
             abort(404)
 
+        # ===== 缓存策略（与 Nginx 部署保持一致）=====
+        # 精确匹配 version.json 和 index.html — 完全禁止缓存
+        # 带 hash 的 assets（/assets/xxx-abc123.js）— 长期 immutable 缓存
+        cache_headers_no_store = {
+            'Cache-Control': 'no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+        }
+        cache_headers_immutable = {
+            'Cache-Control': 'public, immutable',
+            'Expires': '31536000',  # 30 天（秒）
+        }
+
         # 尝试查找请求的静态文件
         file_path = os.path.join(dist_path, path)
         if path and os.path.isfile(file_path):
             mimetype = _get_mimetype(path)
             directory = os.path.dirname(file_path)
             filename = os.path.basename(file_path)
-            return send_from_directory(directory, filename, mimetype=mimetype)
+            response = send_from_directory(directory, filename, mimetype=mimetype)
+
+            # === 按资源类型设置缓存头 ===
+            basename = os.path.basename(path)
+            # version.json / index.html — 禁止缓存
+            if path in ('version.json', 'index.html') or basename == 'version.json' or basename == 'index.html':
+                for k, v in cache_headers_no_store.items():
+                    response.headers[k] = v
+            # /assets/ — immutable 长期缓存
+            elif path.startswith('assets/') or path.startswith('static/assets/'):
+                for k, v in cache_headers_immutable.items():
+                    response.headers[k] = v
+
+            # 安全头（通用）
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+
+            return response
 
         # Vue Router history 模式：对于所有未匹配的路由，回退到 index.html
         index_html = os.path.join(dist_path, 'index.html')
         if os.path.isfile(index_html):
             response = send_from_directory(dist_path, 'index.html', mimetype='text/html')
-            
-            # 添加安全头（防止点击劫持等攻击）
+
+            # index.html — 完全禁止缓存，确保每次都从服务器获取最新入口页
+            for k, v in cache_headers_no_store.items():
+                response.headers[k] = v
+
+            # 安全头（防止点击劫持等攻击）
             response.headers['X-Content-Type-Options'] = 'nosniff'
             response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-            
+
             return response
 
         # 都找不到则返回 404

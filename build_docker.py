@@ -395,6 +395,83 @@ def sync_feedback_version():
         log(f'  ⚠️ 同步 feedback.ts 失败: {e}', 'WARNING')
 
 
+def sync_package_json():
+    """将 version.json 的版本号同步到 package.json（与 build.py 保持一致）"""
+    pkg_path = FRONTEND_DIR / 'package.json'
+    version = ''
+    if VERSION_FILE.exists():
+        try:
+            with open(VERSION_FILE, 'r', encoding='utf-8') as f:
+                version = json.load(f).get('version', '')
+        except Exception as e:
+            log(f'  ⚠️ 读取 version.json 失败: {e}', 'WARNING')
+            return
+    if not pkg_path.exists() or not version:
+        return
+    try:
+        with open(pkg_path, 'r', encoding='utf-8') as f:
+            pkg = json.load(f)
+        current = pkg.get('version', '')
+        if current == version:
+            log(f'  ✓ package.json 版本已是最新 ({version})', 'SUCCESS')
+            return
+        pkg['version'] = version
+        with open(pkg_path, 'w', encoding='utf-8') as f:
+            json.dump(pkg, f, indent=2, ensure_ascii=False)
+            f.write('\n')
+        log(f'  ✅ 已同步 package.json: {current} → {version}', 'SUCCESS')
+    except Exception as e:
+        log(f'  ⚠️ 同步 package.json 失败: {e}', 'WARNING')
+
+
+def clean_and_recompile_backend_pyc():
+    """
+    清理 smarttable-backend/ 源码中残留的 __pycache__/ 和 *.pyc，
+    然后立即 compileall 重新编译 pyc 预热（跳过 .venv / node_modules）。
+    """
+    log('清理后端 __pycache__/ 和 *.pyc ...', 'STEP')
+    backend = BACKEND_DIR
+    cleaned = 0
+
+    for pycache in backend.rglob('__pycache__'):
+        if '.venv' in pycache.parts or 'node_modules' in pycache.parts:
+            continue
+        try:
+            shutil.rmtree(pycache, ignore_errors=True)
+            cleaned += 1
+        except Exception:
+            pass
+
+    for pyc in backend.rglob('*.pyc'):
+        if '.venv' in pyc.parts or 'node_modules' in pyc.parts:
+            continue
+        try:
+            pyc.unlink(missing_ok=True)
+            cleaned += 1
+        except Exception:
+            pass
+
+    if cleaned > 0:
+        log(f'  已清理 {cleaned} 个 __pycache__/ .pyc 残留', 'SUCCESS')
+    else:
+        log('  无残留，跳过清理', 'INFO')
+
+    log('重新编译后端 .pyc 预热（python -m compileall）...', 'INFO')
+    try:
+        result = run_command(
+            [sys.executable, '-m', 'compileall', '-q',
+             'app/', 'migrations/',
+             'run.py', 'init_db.py', 'create_tables.py',
+             'fix_loop_data_source.py', 'docker/server_runner.py'],
+            cwd=backend, capture=True, check=False
+        )
+        compiled = len([l for l in (result.stdout or '').splitlines()
+                       if l.strip().endswith('.py')])
+        log(f'  已重新编译 {compiled} 个 .pyc 模块', 'SUCCESS')
+    except Exception as e:
+        log(f'  ⚠ 重编译失败（不影响构建）: {e}', 'WARNING')
+
+
 # ============================================
 # 阶段 1: 前端构建
 # ============================================
@@ -450,7 +527,20 @@ def build_frontend(skip_frontend=False):
     # 构建前端
     log('  编译前端代码...', 'INFO')
     try:
-        run_command(['pnpm', 'run', 'build'], cwd=FRONTEND_DIR)
+        # 从 version.json 读取版本号，注入环境变量让 Vite 插件生成 dist/version.json
+        version = ''
+        if VERSION_FILE.exists():
+            try:
+                with open(VERSION_FILE, 'r', encoding='utf-8') as f:
+                    version = json.load(f).get('version', '')
+            except Exception:
+                pass
+        env = os.environ.copy()
+        if version:
+            env['APP_VERSION'] = version
+            env['BUILD_TIME'] = datetime.now().isoformat()
+            log(f'    📦 APP_VERSION={version}', 'INFO')
+        run_command(['pnpm', 'run', 'build'], cwd=FRONTEND_DIR, env=env)
     except:
         log('前端编译失败', 'ERROR')
         return False
@@ -709,6 +799,15 @@ def build_docker_image(no_cache=False, image=None, tags=None, push=False,
         '--build-arg', f'BUILD_DATE={datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}',
         '--build-arg', f'BUILD_VERSION={tag_list[0]}',
     ])
+    # 传递 APP_VERSION 给 Dockerfile 前端构建阶段，让 Vite 插件生成 dist/version.json
+    if VERSION_FILE.exists():
+        try:
+            with open(VERSION_FILE, 'r', encoding='utf-8') as f:
+                version = json.load(f).get('version', '')
+            if version:
+                cmd.extend(['--build-arg', f'APP_VERSION={version}'])
+        except Exception:
+            pass
     if base_args:
         for arg_name, ref in base_args.items():
             cmd.extend(['--build-arg', f'{arg_name}={ref}'])
@@ -1190,7 +1289,12 @@ def main():
     log('=' * 60, 'HEADER')
     # 同步 version.json 的版本号与产品名到前端反馈模块（须在 docker build 前完成）
     sync_feedback_version()
+    # 同步 version.json 版本号到 package.json（与 build.py 保持一致）
+    sync_package_json()
     build_frontend(skip_frontend=args.skip_frontend)
+
+    # 清理后端残留 pyc 并重新编译预热（Docker build context 会从干净源码开始）
+    clean_and_recompile_backend_pyc()
 
     # 步骤 3: 构建 Docker 镜像
     log('', 'INFO')

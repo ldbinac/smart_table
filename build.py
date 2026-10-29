@@ -132,13 +132,15 @@ def log(message, level='INFO'):
     print(f'[{timestamp}] [{level}] {message}')
 
 
-def run_command(cmd, cwd=None, capture=False):
+def run_command(cmd, cwd=None, capture=False, check=True, env=None):
     """
     执行 shell 命令
     Args:
         cmd: 命令列表或字符串
         cwd: 工作目录
         capture: 是否捕获输出
+        check: 非零退出码是否终止脚本（capture=True 时才生效；为 False 时调用方自行判断 result.returncode）
+        env: 子进程环境变量字典（默认继承当前进程环境）
     Returns:
         CompletedProcess
     """
@@ -150,13 +152,21 @@ def run_command(cmd, cwd=None, capture=False):
         'shell': isinstance(cmd, str) or (is_windows and isinstance(cmd, list)),
         'text': True,
     }
+    if env is not None:
+        kwargs['env'] = env
     if capture:
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.PIPE
     result = subprocess.run(cmd, **kwargs)
-    if result.returncode != 0 and capture:
-        log(f'命令失败: {result.stderr}', 'ERROR')
-        sys.exit(1)
+    if result.returncode != 0:
+        if capture and check:
+            log(f'命令失败: {result.stderr}', 'ERROR')
+            sys.exit(1)
+        elif not capture:
+            # 非捕获模式下仍让 subprocess 抛异常（subprocess.run 默认 check=False，
+            # 我们显式处理：check=True 时 sys.exit(1)，check=False 时静默返回）
+            if check:
+                sys.exit(result.returncode)
     return result
 
 
@@ -412,11 +422,68 @@ def clean_build_artifacts(skip_frontend=False):
             log(f'  ✓ 保留前端产物: {DIST_DIR}', 'SUCCESS')
 
 
+def clean_and_recompile_backend_pyc():
+    """
+    清理 smarttable-backend/ 源码目录中残留的 __pycache__/ 和 *.pyc，
+    然后立即用 python -m compileall 重新编译 pyc 预热。
+    
+    保护范围：跳过 .venv 虚拟环境，只清理业务源码和脚本。
+    """
+    log('清理后端 __pycache__/ 和 *.pyc ...', 'STEP')
+    backend = BACKEND_DIR
+    cleaned = 0
+
+    # 1. 清理 __pycache__ 目录
+    for pycache in backend.rglob('__pycache__'):
+        if '.venv' in pycache.parts or 'node_modules' in pycache.parts:
+            continue
+        try:
+            shutil.rmtree(pycache, ignore_errors=True)
+            cleaned += 1
+        except Exception:
+            pass
+
+    # 2. 清理散落的 .pyc 文件
+    for pyc in backend.rglob('*.pyc'):
+        if '.venv' in pyc.parts or 'node_modules' in pyc.parts:
+            continue
+        try:
+            pyc.unlink(missing_ok=True)
+            cleaned += 1
+        except Exception:
+            pass
+
+    if cleaned > 0:
+        log(f'  已清理 {cleaned} 个 __pycache__/ .pyc 残留', 'SUCCESS')
+    else:
+        log('  无残留，跳过清理', 'INFO')
+
+    # 3. 立即重新编译 pyc 预热
+    log('重新编译后端 .pyc 预热（python -m compileall）...', 'INFO')
+    try:
+        result = run_command(
+            [sys.executable, '-m', 'compileall', '-q',
+             'app/', 'migrations/',
+             'run.py', 'init_db.py', 'create_tables.py',
+             'fix_loop_data_source.py', 'docker/server_runner.py'],
+            cwd=backend, capture=True, check=False
+        )
+        compiled = len([l for l in (result.stdout or '').splitlines()
+                       if l.strip().endswith('.py')])
+        log(f'  已重新编译 {compiled} 个 .pyc 模块', 'SUCCESS')
+    except Exception as e:
+        log(f'  ⚠ 重编译失败（不影响构建）: {e}', 'WARNING')
+
+
 def build_frontend():
     log('='*60, 'STEP'); log('第 1 步：构建前端 (Vue + Vite)', 'STEP'); log('='*60, 'STEP')
     t = time.time()
     run_command(['pnpm', 'install'], cwd=FRONTEND_DIR)
-    run_command(['pnpm', 'run', 'build'], cwd=FRONTEND_DIR)
+    # 注入版本环境变量，让 Vite 插件生成 dist/version.json
+    env = os.environ.copy()
+    env['APP_VERSION'] = VERSION
+    env['BUILD_TIME'] = datetime.now().isoformat()
+    run_command(['pnpm', 'run', 'build'], cwd=FRONTEND_DIR, env=env)
     if not DIST_DIR.exists(): log('❌ 前端构建失败！', 'ERROR'); sys.exit(1)
     size = sum(f.stat().st_size for f in DIST_DIR.rglob('*') if f.is_file()) / (1024*1024)
     log(f'✅ 前端完成 ({time.time()-t:.1f}s, {size:.1f} MB)', 'SUCCESS')
@@ -684,6 +751,9 @@ def main():
         log(f'✓ 使用已有的前端构建产物: {DIST_DIR}', 'SUCCESS')
     else:
         log('⚠️ 跳过前端构建（--skip-frontend）', 'WARNING')
+
+    # 清理后端残留 pyc 并重新编译预热（在 PyInstaller 打包前做，避免旧缓存混入）
+    clean_and_recompile_backend_pyc()
 
     for p in platforms:
         print(); build_backend(p); prepare_release_package(p)
