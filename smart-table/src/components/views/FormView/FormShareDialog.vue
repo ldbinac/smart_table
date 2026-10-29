@@ -479,16 +479,69 @@ function openExistingShareQrcode(share: FormShareConfig) {
   openQrcodeDialog(url, share.title || "");
 }
 
-// 下载二维码
-function downloadQrcode() {
+// 下载二维码（合成 logo）
+async function downloadQrcode() {
   if (!qrcodeDataUrl.value) return;
-  const link = document.createElement("a");
-  link.download = `form-share-qrcode-${Date.now()}.png`;
-  link.href = qrcodeDataUrl.value;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  ElMessage.success(t("view.qrcodeDownloadSuccess"));
+  try {
+    // 加载二维码图片
+    const qrImg = new Image();
+    qrImg.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      qrImg.onload = () => resolve();
+      qrImg.onerror = () => reject(new Error("QR image load failed"));
+      qrImg.src = qrcodeDataUrl.value;
+    });
+
+    // 加载 logo 图片
+    const logoImg = new Image();
+    logoImg.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      logoImg.onload = () => resolve();
+      logoImg.onerror = () => reject(new Error("Logo load failed"));
+      logoImg.src = "/SmartTable.png";
+    });
+
+    // 在 canvas 上合成
+    const size = qrImg.naturalWidth;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+
+    ctx.drawImage(qrImg, 0, 0, size, size);
+
+    // logo 大小约为二维码的 20%，四周留白
+    const logoSize = Math.round(size * 0.2);
+    const logoX = (size - logoSize) / 2;
+    const logoY = (size - logoSize) / 2;
+    const padding = Math.round(logoSize * 0.15);
+
+    // 白色背景底板
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(logoX - padding, logoY - padding, logoSize + padding * 2, logoSize + padding * 2);
+
+    // 绘制 logo
+    ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+
+    // 导出并下载
+    const link = document.createElement("a");
+    link.download = `form-share-qrcode-${Date.now()}.png`;
+    link.href = canvas.toDataURL("image/png");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    ElMessage.success(t("view.qrcodeDownloadSuccess"));
+  } catch (err) {
+    console.error("下载二维码失败:", err);
+    // 降级：直接下载无 logo 的二维码
+    const link = document.createElement("a");
+    link.download = `form-share-qrcode-${Date.now()}.png`;
+    link.href = qrcodeDataUrl.value;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    ElMessage.success(t("view.qrcodeDownloadSuccess"));
+  }
 }
 
 // 获取当前用户名（优先 nickname，其次 name）
@@ -868,7 +921,11 @@ const currentUserName = computed(() => {
                 </el-button>
               </template>
             </el-input>
-            <el-button class="qrcode-btn" type="success" @click="openNewShareQrcode">
+            <el-button
+              class="share-qrcode-btn"
+              type="success"
+              size="large"
+              @click="openNewShareQrcode">
               <el-icon><Picture /></el-icon>
               {{ t("view.qrcode") }}
             </el-button>
@@ -941,6 +998,11 @@ const currentUserName = computed(() => {
           :src="qrcodeDataUrl"
           :alt="qrcodeTitle"
           class="qrcode-image" />
+        <img
+          v-if="qrcodeDataUrl"
+          src="/SmartTable.png"
+          alt="SmartTable"
+          class="qrcode-logo" />
         <div v-else class="qrcode-loading">
           <el-icon class="is-loading" :size="32"><Share /></el-icon>
         </div>
@@ -1161,13 +1223,22 @@ const currentUserName = computed(() => {
 }
 
 .share-url-container {
-  max-width: 500px;
+  max-width: 600px;
   margin: 0 auto;
-}
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
 
-.share-url-input {
-  :deep(.el-input__wrapper) {
-    background-color: $bg-color;
+  .share-url-input {
+    flex: 1;
+
+    :deep(.el-input__wrapper) {
+      background-color: $bg-color;
+    }
+  }
+
+  .share-qrcode-btn {
+    flex-shrink: 0;
   }
 }
 
@@ -1202,12 +1273,6 @@ const currentUserName = computed(() => {
 
 .text-center {
   text-align: center;
-}
-
-// 步骤3的二维码按钮
-.qrcode-btn {
-  margin-top: 12px;
-  width: 100%;
 }
 
 // 二维码弹窗样式
@@ -1248,12 +1313,27 @@ const currentUserName = computed(() => {
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
+  position: relative;
 }
 
 .qrcode-image {
   width: 216px;
   height: 216px;
   display: block;
+}
+
+.qrcode-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  background: #ffffff;
+  padding: 4px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  object-fit: contain;
 }
 
 .qrcode-loading {
