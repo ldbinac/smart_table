@@ -62,14 +62,16 @@ export type UserRole = 'admin' | 'workspace_admin' | 'editor' | 'viewer'
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'deleted'
 
 export interface LoginRequest {
-  email: string
+  email?: string
+  username?: string
   password: string
   captcha?: string
 }
 
 export interface RegisterRequest {
   email: string
-  name: string
+  name?: string
+  username: string
   password: string
   captcha?: string
 }

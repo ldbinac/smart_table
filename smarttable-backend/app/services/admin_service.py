@@ -100,12 +100,13 @@ class AdminService:
         """
         query = AdminService._get_user_query()
         
-        # 搜索过滤（邮箱或姓名）
+        # 搜索过滤（邮箱、用户名或姓名）
         if search:
             search_pattern = f"%{search}%"
             query = query.filter(
                 or_(
                     User.email.ilike(search_pattern),
+                    User.username.ilike(search_pattern),
                     User.name.ilike(search_pattern)
                 )
             )
@@ -174,7 +175,8 @@ class AdminService:
         password: str,
         name: str,
         role: str = 'editor',
-        must_change_password: bool = True
+        must_change_password: bool = True,
+        username: Optional[str] = None
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
         创建新用户
@@ -185,6 +187,7 @@ class AdminService:
             name: 用户姓名
             role: 用户角色，默认 'editor'
             must_change_password: 是否必须修改密码，默认 True
+            username: 用户名（用于登录，不传则使用 name 自动生成）
             
         Returns:
             (用户信息字典，错误信息) - 成功时错误信息为 None
@@ -197,6 +200,12 @@ class AdminService:
         existing_user = User.query.filter_by(email=email.lower()).first()
         if existing_user:
             return None, 'email_already_registered'
+
+        # 处理 username：去空格 + 小写 + 唯一性校验
+        final_username = (username or name or '').strip().lower() or None
+        if final_username:
+            if User.check_username_exists(final_username):
+                return None, 'username_already_exists'
         
         # 验证角色有效性
         try:
@@ -215,6 +224,7 @@ class AdminService:
                 email=email.lower(),
                 password=password,
                 name=name.strip(),
+                username=final_username,
                 role=role_enum,
                 must_change_password=must_change_password
             )
@@ -243,6 +253,7 @@ class AdminService:
             user_id: 用户 ID
             data: 包含更新字段的字典，可包含：
                 - email: 邮箱地址
+                - username: 用户名
                 - name: 用户姓名
                 - role: 用户角色
                 - status: 用户状态
@@ -266,6 +277,15 @@ class AdminService:
                     if existing and existing.id != user.id:
                         return None, 'email_already_used_another_user'
                     user.email = new_email
+
+            # 更新用户名
+            if 'username' in data:
+                new_username = (data['username'] or '').strip().lower() or None
+                if new_username != (user.username or '').lower():
+                    # 检查是否已被其他用户使用
+                    if User.check_username_exists(new_username, exclude_user_id=user.id):
+                        return None, 'username_already_exists'
+                    user.username = new_username
             
             # 更新姓名
             if 'name' in data:

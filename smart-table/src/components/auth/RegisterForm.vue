@@ -135,8 +135,8 @@ const validatePassword = async (_rule: unknown, value: string, callback: (error?
 
 const rules: FormRules = {
   username: [
-    { required: true, message: t('auth.usernamePlaceholder'), trigger: 'blur' },
-    { min: 3, max: 20, message: t('auth.usernameLength'), trigger: 'blur' }
+    { required: true, message: t('auth.usernameRequired'), trigger: 'blur' },
+    { min: 3, max: 100, message: t('auth.usernameLength'), trigger: 'blur' }
   ],
   email: [
     { required: true, message: t('auth.emailPlaceholder'), trigger: 'blur' },
@@ -185,6 +185,7 @@ const handleSubmit = async () => {
   emit('submit', {
     email: form.email,
     name: form.username,
+    username: form.username,
     password: form.password,
     captcha: form.captcha
   })

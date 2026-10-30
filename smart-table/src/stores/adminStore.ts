@@ -143,6 +143,7 @@ export const useAdminStore = defineStore("admin", () => {
     password: string;
     name: string;
     role: UserRole;
+    username?: string;
   }) {
     userLoading.value = true;
     try {
@@ -162,6 +163,7 @@ export const useAdminStore = defineStore("admin", () => {
       name?: string;
       email?: string;
       role?: UserRole;
+      username?: string;
     },
   ) {
     try {

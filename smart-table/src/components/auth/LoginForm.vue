@@ -9,7 +9,7 @@
     <el-form-item prop="email">
       <el-input
         v-model="form.email"
-        :placeholder="t('auth.emailPlaceholder')"
+        :placeholder="t('auth.usernameOrEmailPlaceholder')"
         size="large"
         :prefix-icon="User"
       />
@@ -103,8 +103,8 @@ const form = reactive({
 
 const rules: FormRules = {
   email: [
-    { required: true, message: t('auth.emailPlaceholder'), trigger: 'blur' },
-    { type: 'email', message: t('auth.emailFormat'), trigger: 'blur' }
+    { required: true, message: t('auth.usernameOrEmailPlaceholder'), trigger: 'blur' },
+    { min: 3, message: t('auth.usernameLength'), trigger: 'blur' }
   ],
   password: [
     { required: true, message: t('auth.passwordPlaceholder'), trigger: 'blur' },

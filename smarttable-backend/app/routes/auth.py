@@ -113,6 +113,7 @@ def register() -> tuple:
     email = validated_data['email']
     password = validated_data['password']
     name = validated_data.get('name') or validated_data.get('username', '')
+    username = validated_data.get('username')
     captcha = validated_data.get('captcha')
     
     # 验证密码强度
@@ -123,8 +124,14 @@ def register() -> tuple:
     # 验证验证码
     client_ip = request.remote_addr or 'unknown'
     captcha_token = f"auth:register:{client_ip}"
-    
-    if captcha:
+
+    # DEV_SKIP_CAPTCHA：开发模式临时跳过验证码（用于自动化测试）
+    # 在 .env 设 DEV_SKIP_CAPTCHA=true 即可
+    dev_skip_captcha = current_app.config.get('DEV_SKIP_CAPTCHA', False)
+
+    if dev_skip_captcha:
+        logger.warning(f"[DEV] 注册验证码已跳过 (DEV_SKIP_CAPTCHA=true) - IP: {client_ip}")
+    elif captcha:
         is_valid, error_msg = CaptchaService.verify_captcha(captcha_token, captcha)
         if not is_valid:
             # 记录验证码验证失败的日志
@@ -138,11 +145,13 @@ def register() -> tuple:
         return error_response('enter_captcha', code=403, error='captcha_required')
     
     # 调用服务层进行注册
-    user, error = AuthService.register_user(email, password, name)
+    user, error = AuthService.register_user(email, password, name, username=username)
     
     if error:
         if error == 'email_already_registered':
             return error_response(error, code=409, error='email_already_exists')
+        if error == 'username_already_exists':
+            return error_response(error, code=409, error='username_already_exists')
         return error_response(error, code=500)
     
     # 记录注册成功日志
@@ -216,9 +225,13 @@ def login() -> tuple:
         record_login_attempt(success=False)
         return validation_error_response(err.messages)
     
-    email = validated_data['email']
+    email = validated_data.get('email')
+    username = validated_data.get('username')
     password = validated_data['password']
     captcha = validated_data.get('captcha')
+
+    # 确定登录凭证：优先 username，其次 email（都已在 schema 层做 lower/strip 处理）
+    identifier = username or email
     
     # DEV_SKIP_CAPTCHA：开发模式临时跳过验证码（用于自动化测试 / 性能验证）
     # 在 .env 设 DEV_SKIP_CAPTCHA=true 即可，测完务必删除或设回 false
@@ -235,18 +248,18 @@ def login() -> tuple:
         if not is_valid:
             # 记录验证码验证失败的日志
             logger.warning(
-                f"登录验证码验证失败 - IP: {client_ip}, Email: {email}, Reason: {error_msg}"
+                f"登录验证码验证失败 - IP: {client_ip}, Identifier: {identifier}, Reason: {error_msg}"
             )
             record_login_attempt(success=False)
             return error_response(f"{translate('incorrect_captcha')}: {translate(error_msg)}", code=403, error='captcha_invalid')
     else:
         # 未提供验证码
-        logger.warning(f"登录尝试未提供验证码 - IP: {client_ip}, Email: {email}")
+        logger.warning(f"登录尝试未提供验证码 - IP: {client_ip}, Identifier: {identifier}")
         record_login_attempt(success=False)
         return error_response('enter_captcha', code=403, error='captcha_required')
     
     # 调用服务层进行认证
-    user, error = AuthService.authenticate_user(email, password)
+    user, error = AuthService.authenticate_user(identifier, password)
     
     if error:
         record_login_attempt(success=False)
@@ -254,7 +267,7 @@ def login() -> tuple:
 
     # 演示环境：账号密码校验通过后不直接发放令牌，等待 Gitee watch 校验
     if current_app.config.get('IS_DEMO_ENVIRONMENT', False):
-        logger.info(f"演示环境登录校验通过，等待 Gitee watch 检测 - IP: {client_ip}, UserID: {user.id}, Email: {email}")
+        logger.info(f"演示环境登录校验通过，等待 Gitee watch 检测 - IP: {client_ip}, UserID: {user.id}, Email: {user.email}")
         return success_response(
             data={
                 'requires_gitee_star_check': True,
@@ -270,7 +283,7 @@ def login() -> tuple:
     record_login_attempt(success=True)
     
     # 记录成功登录日志
-    logger.info(f"用户登录成功 - IP: {client_ip}, UserID: {user.id}, Email: {email}")
+    logger.info(f"用户登录成功 - IP: {client_ip}, UserID: {user.id}, Email: {user.email}, Username: {user.username}")
     
     # 生成令牌
     tokens = AuthService.generate_tokens(str(user.id))
@@ -756,6 +769,50 @@ def check_email() -> tuple:
             'email': email
         },
         message='email_available' if not exists else 'email_already_registered_2'
+    )
+
+
+@auth_bp.route('/check-username', methods=['GET'])
+@rate_limit(max_attempts=10, window=60)
+def check_username() -> tuple:
+    """
+    检查用户名是否可用
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: username
+        in: query
+        type: string
+        required: true
+        description: 要检查的用户名
+        example: "alice"
+    responses:
+      200:
+        description: 返回用户名是否可用
+        schema:
+          type: object
+          properties:
+            available:
+              type: boolean
+              description: 是否可用
+            username:
+              type: string
+              description: 用户名
+    """
+    username = request.args.get('username', '').strip()
+
+    if not username:
+        return error_response('provide_username', code=400)
+
+    exists = User.check_username_exists(username)
+
+    return success_response(
+        data={
+            'available': not exists,
+            'username': username
+        },
+        message='username_available' if not exists else 'username_already_registered'
     )
 
 

@@ -18,12 +18,14 @@ export interface CreateUserRequest {
   password: string;
   name: string;
   role: UserRole;
+  username?: string;
 }
 
 export interface UpdateUserRequest {
   name?: string;
   email?: string;
   role?: UserRole;
+  username?: string;
 }
 
 export interface OperationLog {

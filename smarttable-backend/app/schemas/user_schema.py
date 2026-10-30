@@ -3,7 +3,7 @@
 提供用户相关数据的验证和序列化功能
 """
 import re
-from marshmallow import Schema, fields, validate, post_load, validates, ValidationError
+from marshmallow import Schema, fields, validate, post_load, validates, validates_schema, ValidationError
 
 from app.models.user import UserRole, UserStatus
 
@@ -15,6 +15,7 @@ class UserSchema(Schema):
     """
     id = fields.String(dump_only=True, description='用户唯一标识')
     email = fields.Email(required=True, description='邮箱地址')
+    username = fields.String(dump_only=True, description='用户名')
     name = fields.String(required=True, validate=validate.Length(min=1, max=100), description='用户姓名')
     avatar = fields.String(allow_none=True, description='头像 URL')
     role = fields.String(dump_only=True, description='用户角色')
@@ -41,17 +42,18 @@ class UserRegistrationSchema(Schema):
         error_messages={'required': 'password_required'},
         description='密码（至少8位，包含大小写字母和数字）'
     )
+    username = fields.String(
+        required=True,
+        load_only=True,
+        validate=validate.Length(min=3, max=100, error='username_length'),
+        error_messages={'required': 'username_required'},
+        description='用户名（用于登录）'
+    )
     name = fields.String(
         load_only=True,
         validate=validate.Length(min=1, max=100, error='name_length'),
         allow_none=True,
-        description='用户姓名'
-    )
-    username = fields.String(
-        load_only=True,
-        validate=validate.Length(min=1, max=100, error='username_length'),
-        allow_none=True,
-        description='用户名'
+        description='用户姓名（可选，默认使用用户名）'
     )
     captcha = fields.String(
         load_only=True,
@@ -59,24 +61,15 @@ class UserRegistrationSchema(Schema):
         description='验证码（可选）'
     )
     
-    @validates('name')
-    def validate_name(self, value):
-        """验证姓名"""
-        if not value or len(value.strip()) == 0:
-            # 如果没有提供name，尝试从username获取
-            if hasattr(self, 'context') and self.context.get('username'):
-                return
-            raise ValidationError('name_required')
-    
     @post_load
     def process_data(self, data, **kwargs):
-        """处理数据，确保name字段有值"""
-        # 如果提供了username但没有提供name，使用username作为name
+        """处理数据，确保 name 字段有值"""
+        # 如果没有提供 name，使用 username 作为显示名
         if not data.get('name') and data.get('username'):
             data['name'] = data['username']
-        # 如果提供了name但没有提供username，使用name作为username
-        if not data.get('username') and data.get('name'):
-            data['username'] = data['name']
+        # 存储统一小写的 username（查询时不区分大小写）
+        if data.get('username'):
+            data['username'] = data['username'].strip().lower()
         return data
     
     @validates('password')
@@ -101,12 +94,19 @@ class UserRegistrationSchema(Schema):
 class UserLoginSchema(Schema):
     """
     用户登录 Schema
-    验证用户登录时的输入数据
+    支持邮箱或用户名 + 密码
     """
-    email = fields.Email(
-        required=True,
-        error_messages={'required': 'email_required', 'invalid': 'email_invalid'},
-        description='邮箱地址'
+    email = fields.String(
+        required=False,
+        allow_none=True,
+        description='邮箱地址或用户名（与 username 至少提供一个）'
+    )
+    username = fields.String(
+        required=False,
+        allow_none=True,
+        load_only=True,
+        validate=validate.Length(min=3, max=100),
+        description='用户名（与 email 至少提供一个）'
     )
     password = fields.String(
         required=True,
@@ -119,6 +119,23 @@ class UserLoginSchema(Schema):
         allow_none=True,
         description='验证码（可选）'
     )
+
+    @validates_schema
+    def validate_identifier(self, data, **kwargs):
+        """确保 email 或 username 至少提供一个"""
+        email = data.get('email')
+        username = data.get('username')
+        if not email and not username:
+            raise ValidationError('email_or_username_required', field_name='email')
+
+    @post_load
+    def normalize_identifier(self, data, **kwargs):
+        """username 统一去空格转小写"""
+        if data.get('username'):
+            data['username'] = data['username'].strip().lower()
+        if data.get('email'):
+            data['email'] = data['email'].strip().lower()
+        return data
 
 
 class UserUpdateSchema(Schema):

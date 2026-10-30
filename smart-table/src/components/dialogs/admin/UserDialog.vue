@@ -22,6 +22,14 @@
         />
       </el-form-item>
 
+      <el-form-item :label="t('user.username')" prop="username" required>
+        <el-input
+          v-model="formData.username"
+          :placeholder="t('user.usernamePlaceholder')"
+          maxlength="100"
+        />
+      </el-form-item>
+
       <el-form-item
         v-if="mode === 'create'"
         :label="t('user.password')"
@@ -98,6 +106,7 @@ const submitting = ref(false)
 
 const formData = reactive({
   email: '',
+  username: '',
   password: '',
   name: '',
   role: '' as UserRole
@@ -111,6 +120,12 @@ const formRules = computed<FormRules>(() => ({
       message: t('user.emailInvalid'),
       trigger: 'blur'
     }
+  ],
+  username: [
+    ...(props.mode === 'create'
+      ? [{ required: true, message: t('user.usernameRequired'), trigger: 'blur' as const }]
+      : []),
+    { min: 3, max: 100, message: t('user.usernameLength'), trigger: 'blur' as const }
   ],
   password: props.mode === 'create' ? [
     { required: true, message: t('user.passwordRequired'), trigger: 'blur' },
@@ -152,6 +167,7 @@ watch(
   (userData) => {
     if (userData && props.mode === 'edit') {
       formData.email = userData.email
+      formData.username = userData.username || ''
       formData.name = userData.name
       formData.role = userData.role
     }
@@ -161,12 +177,14 @@ watch(
 
 const resetForm = () => {
   formData.email = ''
+  formData.username = ''
   formData.password = ''
   formData.name = ''
   formData.role = '' as UserRole
 
   if (props.mode === 'edit' && props.userData) {
     formData.email = props.userData.email
+    formData.username = props.userData.username || ''
     formData.name = props.userData.name
     formData.role = props.userData.role
   }
@@ -189,14 +207,16 @@ const handleSubmit = async () => {
           email: formData.email,
           password: formData.password,
           name: formData.name,
-          role: formData.role
+          role: formData.role,
+          username: formData.username
         })
       } else {
         if (!props.userData) return
         await adminStore.updateUser(props.userData.id, {
           email: formData.email,
           name: formData.name,
-          role: formData.role
+          role: formData.role,
+          username: formData.username
         })
       }
       emit('success')

@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 from enum import Enum as PyEnum
 from typing import Optional
 
+import sqlalchemy as sa
 from sqlalchemy import String, Boolean, DateTime, Enum, Text, ForeignKey, JSON
 from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -61,6 +62,12 @@ class User(db.Model):
         String(255),
         unique=True,
         nullable=False,
+        index=True
+    )
+    username: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=True,
         index=True
     )
     password_hash: Mapped[str] = mapped_column(
@@ -250,6 +257,7 @@ class User(db.Model):
         data = {
             'id': str(self.id),
             'name': self.name,
+            'username': self.username,
             'avatar': self.avatar,
             'role': self.role.value,
             'status': self.status.value,
@@ -263,6 +271,23 @@ class User(db.Model):
         if include_email:
             data['email'] = self.email
         return data
+
+    @classmethod
+    def get_user_by_username(cls, username: str) -> Optional['User']:
+        """根据用户名（不区分大小写）查找用户"""
+        if not username:
+            return None
+        return cls.query.filter(sa.func.lower(cls.username) == username.lower()).first()
+
+    @classmethod
+    def check_username_exists(cls, username: str, exclude_user_id: Optional[uuid.UUID] = None) -> bool:
+        """检查用户名是否已存在（可选排除某个用户）"""
+        if not username:
+            return False
+        query = cls.query.filter(sa.func.lower(cls.username) == username.lower())
+        if exclude_user_id is not None:
+            query = query.filter(cls.id != exclude_user_id)
+        return query.first() is not None
     
     def __repr__(self) -> str:
         return f'<User {self.email}>'

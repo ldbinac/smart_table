@@ -67,6 +67,7 @@
           @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="55" />
           <el-table-column prop="email" :label="t('user.email')" min-width="200" />
+          <el-table-column prop="username" :label="t('user.username')" min-width="140" />
           <el-table-column prop="name" :label="t('user.name')" min-width="120" />
           <el-table-column prop="role" :label="t('user.role')" width="120">
             <template #default="{ row }">

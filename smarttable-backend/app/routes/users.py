@@ -74,13 +74,14 @@ def search_users():
             BaseMember.user_id == User.id
         ).filter(BaseMember.base_id == base_id)
     
-    # 如果有搜索关键词，按名称或邮箱搜索
+    # 如果有搜索关键词，按名称、邮箱或用户名搜索
     if query:
         search_pattern = f'%{query}%'
         user_query = user_query.filter(
             or_(
                 func.lower(User.name).like(func.lower(search_pattern)),
-                func.lower(User.email).like(func.lower(search_pattern))
+                func.lower(User.email).like(func.lower(search_pattern)),
+                func.lower(User.username).like(func.lower(search_pattern))
             )
         )
     
@@ -95,6 +96,7 @@ def search_users():
     users_data = [{
         'id': str(user.id),
         'name': user.name,
+        'username': user.username,
         'email': user.email,
         'avatar': user.avatar,
         'role': user.role.value if user.role else None,
@@ -143,6 +145,7 @@ def get_user(user_id):
     return success_response({
         'id': str(user.id),
         'name': user.name,
+        'username': user.username,
         'email': user.email,
         'avatar': user.avatar,
         'role': user.role.value if user.role else None,
@@ -218,6 +221,7 @@ def get_users_batch():
     users_data = [{
         'id': str(user.id),
         'name': user.name,
+        'username': user.username,
         'email': user.email,
         'avatar': user.avatar,
         'role': user.role.value if user.role else None,

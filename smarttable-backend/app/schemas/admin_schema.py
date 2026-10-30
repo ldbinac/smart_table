@@ -9,6 +9,7 @@ class UserCreateSchema(Schema):
     email = fields.Email(required=True, description='邮箱地址')
     password = fields.String(required=True, description='密码')
     name = fields.String(required=True, validate=validate.Length(min=1, max=100), description='用户姓名')
+    username = fields.String(required=False, validate=validate.Length(min=3, max=100), allow_none=True, description='用户名（用于登录，默认使用姓名）')
     role = fields.String(load_default='editor', description='用户角色')
 
 
@@ -16,6 +17,7 @@ class UserUpdateSchema(Schema):
     """用户更新 Schema"""
     email = fields.Email(allow_none=True, description='邮箱地址')
     name = fields.String(allow_none=True, validate=validate.Length(min=1, max=100), description='用户姓名')
+    username = fields.String(allow_none=True, validate=validate.Length(min=3, max=100), description='用户名（用于登录）')
     role = fields.String(allow_none=True, description='用户角色')
     status = fields.String(allow_none=True, description='用户状态')
 

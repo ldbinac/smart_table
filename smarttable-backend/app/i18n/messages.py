@@ -273,6 +273,14 @@ MESSAGES = {
         'zh-CN': '邮箱已被注册',
         'en-US': 'This email is already registered',
     },
+    'username_already_exists': {
+        'zh-CN': '该用户名已被使用',
+        'en-US': 'This username is already taken',
+    },
+    'username_available': {
+        'zh-CN': '用户名可用',
+        'en-US': 'Username is available',
+    },
     'email_available': {
         'zh-CN': '邮箱可用',
         'en-US': 'Email is available',
@@ -282,8 +290,12 @@ MESSAGES = {
         'en-US': 'Registration failed, please try again later',
     },
     'invalid_email_password': {
-        'zh-CN': '邮箱或密码错误',
-        'en-US': 'Invalid email or password',
+         'zh-CN': '用户名/邮箱或密码错误',
+        'en-US': 'Invalid identifier or password',
+    },
+    'invalid_identifier_password': {
+        'zh-CN': '用户名/邮箱或密码错误',
+        'en-US': 'Invalid identifier or password',
     },
     'account_disabled_contact_administrator': {
         'zh-CN': '账号已被禁用，请联系管理员',

@@ -589,12 +589,17 @@ def rate_limit(max_attempts: int = 5, window: int = 900) -> Callable:
     def decorator(fn: Callable) -> Callable:
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            # 获取客户端标识（优先使用邮箱，其次使用 IP 地址）
-            data = request.get_json() or {}
-            identifier = data.get('email', '').lower().strip()
+            # 获取客户端标识（优先使用 email，其次 username，最后使用 IP 地址）
+            # 注意：对 GET / check-* 等不带 JSON body 的请求，必须加 silent=True
+            # 否则 request.get_json() 会因 Content-Type 不匹配抛 415 UnsupportedMediaType
+            data = request.get_json(silent=True) or {}
+            identifier = (
+                data.get('email', '')
+                or data.get('username', '')
+            ).lower().strip()
             
             if not identifier:
-                # 如果没有邮箱，使用 IP 地址
+                # 如果既没有邮箱也没有用户名，使用 IP 地址
                 identifier = request.remote_addr or 'unknown'
             
             # 构建缓存键

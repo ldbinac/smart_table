@@ -183,18 +183,22 @@ def create_user() -> tuple:
     password = validated_data['password']
     name = validated_data['name']
     role = validated_data.get('role', 'editor')
+    username = validated_data.get('username')
     
     user_info, error = AdminService.create_user(
         email=email,
         password=password,
         name=name,
         role=role,
-        must_change_password=True
+        must_change_password=True,
+        username=username
     )
     
     if error:
         if error == 'email_already_registered':
             return error_response(error, code=409, error='email_already_exists')
+        if error == 'username_already_exists':
+            return error_response(error, code=409, error='username_already_exists')
         return error_response(error, code=500)
     
     AdminService.log_operation(
@@ -317,8 +321,12 @@ def update_user(user_id) -> tuple:
     user_info, error = AdminService.update_user(user_id=user_id, data=validated_data)
     
     if error:
-        if 'user_does_not_exist' in error:
+        if error == 'user_does_not_exist':
             return not_found_response('user')
+        if error == 'username_already_exists':
+            return error_response(error, code=409, error='username_already_exists')
+        if error == 'email_already_used_another_user':
+            return error_response(error, code=409, error='email_already_exists')
         return error_response(error, code=500)
     
     AdminService.log_operation(

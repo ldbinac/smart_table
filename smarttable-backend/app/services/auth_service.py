@@ -19,6 +19,7 @@ from flask import current_app
 from app.extensions import db, cache
 from app.models.user import User, TokenBlocklist, UserStatus
 from app.models.operation_history import OperationHistory
+
 from app.services.email_config_service import EmailConfigService
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_template_service import EmailTemplateService
@@ -57,14 +58,15 @@ class AuthService:
             return AuthService.DEFAULT_ACCESS_TOKEN_EXPIRES
     
     @staticmethod
-    def register_user(email: str, password: str, name: str) -> Tuple[Optional[User], Optional[str]]:
+    def register_user(email: str, password: str, name: str, username: Optional[str] = None) -> Tuple[Optional[User], Optional[str]]:
         """
         用户注册
         
         Args:
             email: 邮箱地址
             password: 明文密码
-            name: 用户姓名
+            name: 用户姓名（显示名）
+            username: 用户名（用于登录，不传则使用 name）
             
         Returns:
             (用户对象, 错误信息) - 成功时错误信息为 None
@@ -73,6 +75,12 @@ class AuthService:
         existing_user = User.query.filter_by(email=email.lower()).first()
         if existing_user:
             return None, 'email_already_registered'
+
+        # 确定 username 并做唯一性校验
+        final_username = (username or name or '').strip().lower() or None
+        if final_username:
+            if User.check_username_exists(final_username):
+                return None, 'username_already_exists'
         
         # 验证密码强度
         valid, error_msg = SecurityConfigService.validate_password_strength(password)
@@ -84,7 +92,8 @@ class AuthService:
             user = User(
                 email=email.lower(),
                 password=password,
-                name=name.strip()
+                name=name.strip(),
+                username=final_username
             )
             
             db.session.add(user)
@@ -168,24 +177,32 @@ class AuthService:
         }
     
     @staticmethod
-    def authenticate_user(email: str, password: str) -> Tuple[Optional[User], Optional[str]]:
+    def authenticate_user(identifier: str, password: str) -> Tuple[Optional[User], Optional[str]]:
         """
-        验证用户凭据
+        验证用户凭据（支持邮箱或用户名 + 密码）
         
         Args:
-            email: 邮箱地址
+            identifier: 邮箱地址或用户名
             password: 密码
             
         Returns:
             (用户对象, 错误信息) - 成功时错误信息为 None
         """
-        user = User.query.filter_by(email=email.lower()).first()
+        if not identifier or not password:
+            return None, 'invalid_identifier_password'
+
+        # 判断是邮箱还是用户名（包含 @ 且经过邮箱格式检查的优先查 email）
+        identifier = identifier.strip()
+        if '@' in identifier:
+            user = User.query.filter_by(email=identifier.lower()).first()
+        else:
+            user = User.get_user_by_username(identifier)
         
         if not user:
-            return None, 'invalid_email_password'
+            return None, 'invalid_identifier_password'
         
         if not user.check_password(password):
-            return None, 'invalid_email_password'
+            return None, 'invalid_identifier_password'
         
         if not user.is_active():
             return None, 'account_disabled_contact_administrator'
