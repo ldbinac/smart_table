@@ -36,12 +36,17 @@ export const authGuard = async (
 
   if (whiteList.includes(to.path) || to.meta.public) {
     console.log('[authGuard] 白名单路径,允许访问')
+    // 登录/注册等 auth 页面：已登录用户重定向到首页
     // 分享页面等 public 路由允许任何人访问（无论是否已登录）
-    // 其他白名单页面（登录/注册）在已登录时重定向到首页
-    if (authStore.isAuthenticated && !to.meta.public) {
-      console.log('[authGuard] 已登录,重定向到首页')
-      next('/')
-      return
+    const isAuthPage = whiteList.includes(to.path)
+    if (isAuthPage) {
+      // 先检查一下认证状态是否真实有效（刷新页面后 ref 可能是默认值 false）
+      const authenticated = await authStore.checkAuth()
+      if (authenticated) {
+        console.log('[authGuard] 已登录,重定向到首页')
+        next('/')
+        return
+      }
     }
     next()
     return
