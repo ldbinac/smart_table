@@ -562,8 +562,10 @@ class AuthService:
         """
         success = AuthService.revoke_token(jti, user_id, token_type)
         
-        if success:
+        if not success:
             return False, 'logout_failed_try_again_later'
+        
+        return True, None
     
     @staticmethod
     def cleanup_expired_tokens() -> int:
