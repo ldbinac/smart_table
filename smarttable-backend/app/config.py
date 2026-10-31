@@ -256,14 +256,31 @@ class DevelopmentConfig(Config):
         #     app.config['MINIO_ACCESS_KEY'] = None
         #     app.config['MINIO_SECRET_KEY'] = None
 
+        # ===== 默认开发密钥检测：使用公开回退密钥时打印醒目警告 =====
+        _default_keys_in_use = []
         if cls.SECRET_KEY == 'dev-secret-key-not-for-production':
-            logger.warning(
-                '⚠️  使用默认开发密钥！请勿在生产环境中使用。'
-            )
+            _default_keys_in_use.append('SECRET_KEY')
         if cls.JWT_SECRET_KEY == 'dev-jwt-secret-not-for-production':
-            logger.warning(
-                '⚠️  使用默认 JWT 密钥！请勿在生产环境中使用。'
-            )
+            _default_keys_in_use.append('JWT_SECRET_KEY')
+
+        if _default_keys_in_use:
+            _warn = '\n'.join([
+                '',
+                '=' * 78,
+                '🚨🚨🚨  安全警告：正在使用公开的默认开发密钥！  🚨🚨🚨',
+                '',
+                f'  未设置环境变量: {", ".join(_default_keys_in_use)}，已回退到默认开发密钥。',
+                '  默认密钥随源码公开分发，任何人都能伪造会话 Cookie 和 JWT 令牌，',
+                '  可直接伪造管理员身份接管系统！',
+                '',
+                '  ▶ 仅限本地开发使用，请勿将当前环境暴露到公网！',
+                '  ▶ 生产部署必须在 .env 或环境变量中设置强随机密钥，生成方式：',
+                '     python -c "import secrets; print(secrets.token_hex(32))"',
+                '=' * 78,
+                '',
+            ])
+            print(_warn)
+            logger.warning(_warn)
 
         # ===== 配置开发环境日志（与生产环境保持一致）=====
         _data_dir = app.config.get('DATA_DIR', 'data')
@@ -332,6 +349,44 @@ class ProductionConfig(Config):
                 print('[Config] ⚠️ JWT_SECRET_KEY 使用默认值（打包模式）')
             else:
                 raise RuntimeError("生产环境必须设置 JWT_SECRET_KEY 环境变量")
+
+        # ===== 弱默认密钥检测（docker-compose 默认值未在 .env 中覆盖时生效）=====
+        # compose 文件对 SECRET_KEY/JWT_SECRET_KEY 配有 change-this-* 形式的回退默认值，
+        # 该默认值随公开仓库分发，等同公开密钥，必须提醒部署者覆盖。
+        _weak_default_keys = (
+            'change-this-secret-key-in-production',
+            'change-this-jwt-secret-in-production',
+            'dev-secret-key-not-for-production',
+            'dev-jwt-secret-not-for-production',
+            'your-secret-key-change-in-production',
+            'your-jwt-secret-key-change-in-production',
+            'test-secret-key-for-migration-verification',
+            'test-jwt-secret-key-for-migration-verification',
+            'your-super-secret-key-change-this-in-production-immediately',
+            'your-super-jwt-secret-key-change-this-in-production-immediately',
+        )
+        _weak_keys_in_use = []
+        if app.config.get('SECRET_KEY') in _weak_default_keys:
+            _weak_keys_in_use.append('SECRET_KEY')
+        if app.config.get('JWT_SECRET_KEY') in _weak_default_keys:
+            _weak_keys_in_use.append('JWT_SECRET_KEY')
+
+        if _weak_keys_in_use:
+            _warn = '\n'.join([
+                '',
+                '=' * 78,
+                '🚨🚨🚨  严重安全警告：正在使用公开的弱默认密钥！  🚨🚨🚨',
+                '',
+                f'  {", ".join(_weak_keys_in_use)} 仍为 docker-compose 的回退默认值（change-this-...），',
+                '  该默认值随公开仓库分发，任何人都可获取！',
+                '  攻击者可用公开密钥伪造会话 Cookie / JWT 令牌，直接以管理员身份接管系统！',
+                '',
+                '  ▶ 请立即在 .env 或环境变量中设置强随机密钥并重启服务，生成方式：',
+                '     python -c "import secrets; print(secrets.token_hex(32))"',
+                '=' * 78,
+                '',
+            ])
+            print(_warn)
 
         # CORS 配置：缺失时使用默认值（允许本地访问）
         cors_origins = app.config.get('CORS_ORIGINS', [])
