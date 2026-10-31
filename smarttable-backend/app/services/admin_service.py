@@ -102,7 +102,9 @@ class AdminService:
         
         # 搜索过滤（邮箱、用户名或姓名）
         if search:
-            search_pattern = f"%{search}%"
+            from app.utils.validators import escape_like_pattern
+            escaped = escape_like_pattern(search)
+            search_pattern = f"%{escaped}%"
             query = query.filter(
                 or_(
                     User.email.ilike(search_pattern),

@@ -76,7 +76,9 @@ def search_users():
     
     # 如果有搜索关键词，按名称、邮箱或用户名搜索
     if query:
-        search_pattern = f'%{query}%'
+        from app.utils.validators import escape_like_pattern
+        escaped = escape_like_pattern(query)
+        search_pattern = f'%{escaped}%'
         user_query = user_query.filter(
             or_(
                 func.lower(User.name).like(func.lower(search_pattern)),

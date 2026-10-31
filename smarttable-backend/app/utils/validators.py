@@ -268,6 +268,24 @@ def sanitize_string(value: str, max_length: int = 255) -> str:
     return value
 
 
+def escape_like_pattern(pattern: str) -> str:
+    """
+    转义 SQL LIKE 查询中的通配符，防止 LIKE 通配符注入
+    
+    用户输入的搜索词如果包含 %、_、\\ 会被 LIKE 当作通配符，
+    导致搜索范围扩大、绕过过滤、或匹配过多记录引发性能问题。
+    
+    Args:
+        pattern: 原始搜索字符串（不是完整 LIKE 模式，不要带前后的 %）
+        
+    Returns:
+        转义后的安全字符串，可安全用于 f'%{escaped}%' 构造
+    """
+    if not pattern:
+        return ''
+    return pattern.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
 def validate_field_name(name: str) -> Tuple[bool, Optional[str]]:
     """
     验证字段名称
