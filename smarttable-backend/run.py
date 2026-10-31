@@ -455,6 +455,14 @@ if __name__ == '__main__':
         # 打包环境强制关闭调试模式/重载器，避免子进程重复打开浏览器
         debug = False
 
+    # ===== DEBUG 模式安全校验 =====
+    # 生产环境（FLASK_ENV=production）禁止开启 DEBUG，否则 Werkzeug debugger 暴露完整交互式控制台
+    if config_name == 'production' and debug:
+        print('❌ ERROR: DEBUG 模式在生产环境下被禁止！')
+        print('   请设置 FLASK_DEBUG=false 或移除 FLASK_DEBUG 环境变量。')
+        print('   FLASK_ENV=production 时 Werkzeug debugger 会暴露 RCE 级别的交互式 Python 控制台。')
+        sys.exit(1)
+
     print(f'Starting SmartTable server...')
     print(f'Environment: {config_name}')
     print(f'Host: {host}')
