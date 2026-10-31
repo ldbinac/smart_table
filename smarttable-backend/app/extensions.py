@@ -167,7 +167,7 @@ def init_extensions(app):
         r"/api/*": {
             "origins": app.config.get('CORS_ORIGINS', ['http://localhost:3000']),
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Authorization", "Content-Type", "*"],
+            "allow_headers": ["Authorization", "Content-Type", "Accept", "X-Requested-With"],
             "expose_headers": ["Authorization"],
             "supports_credentials": True
         }
