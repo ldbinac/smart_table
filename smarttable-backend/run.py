@@ -46,7 +46,10 @@ for _env_path in [
 if not _env_loaded:
     load_dotenv()
 
-config_name = os.environ.get('FLASK_ENV', 'development')
+# 安全兜底：未显式设置 FLASK_ENV 时默认按生产环境运行，
+# 避免误以 development（DEBUG 开启 + 已知回退密钥）暴露到公网。
+# 本地开发请在 smarttable-backend/.env 中设置 FLASK_ENV=development
+config_name = os.environ.get('FLASK_ENV', 'production')
 
 from app import create_app
 from app.extensions import db, socketio
@@ -447,7 +450,9 @@ if __name__ == '__main__':
 
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
     port = int(os.environ.get('FLASK_PORT', '5000'))
-    debug = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    # 安全兜底：未显式设置 FLASK_DEBUG 时默认关闭调试模式，
+    # 避免误开启 Werkzeug debugger（RCE 级交互式控制台）
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
 
     # 检测是否为 PyInstaller 打包环境
     is_packaged = getattr(sys, 'frozen', False)
