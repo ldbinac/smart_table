@@ -52,33 +52,33 @@ services:
         limits:
           memory: 512M
 
-  # MinIO 对象存储服务（可选）
+  # MinIO 对象存储服务（可选）暂未实现
   # 注意：后端 MinIO 上传功能尚未实现（attachment_service.py 中为 TODO），
   # 当前附件存储在本地 uploads 目录（见下方 uploads_data 卷），此服务仅供未来扩展
-  minio:
-    image: minio/minio:latest
-    container_name: smarttable-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
-    volumes:
-      - minio_data:/data
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-    networks:
-      - smarttable-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 1G
+  # minio:
+  #   image: minio/minio:latest
+  #   container_name: smarttable-minio
+  #   restart: unless-stopped
+  #   command: server /data --console-address ":9001"
+  #   environment:
+  #     MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+  #     MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+  #   volumes:
+  #     - minio_data:/data
+  #   ports:
+  #     - "${MINIO_PORT:-9000}:9000"
+  #     - "${MINIO_CONSOLE_PORT:-9001}:9001"
+  #   networks:
+  #     - smarttable-network
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+  #     interval: 30s
+  #     timeout: 20s
+  #     retries: 3
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1G
 
   # SmartTable 统一应用（包含前后端）
   # 注意：统一镜像内仍会启动一个仅监听 127.0.0.1 的内嵌 Redis（Supervisor 托管），
@@ -109,12 +109,12 @@ services:
       # SocketIO 消息队列（完整部署中 Redis 在独立容器且带密码，必须显式指定）
       SOCKETIO_MESSAGE_QUEUE: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/2
       
-      # MinIO 配置
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
-      MINIO_BUCKET_NAME: smarttable
-      MINIO_SECURE: "false"
+      # # MinIO 配置-暂未实现
+      # MINIO_ENDPOINT: minio:9000
+      # MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      # MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      # MINIO_BUCKET_NAME: smarttable
+      # MINIO_SECURE: "false"
       
       # 上传配置
       UPLOAD_FOLDER: /app/uploads
@@ -169,8 +169,8 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  minio_data:
-    driver: local
+  # minio_data:
+  #   driver: local
   uploads_data:
     driver: local
 
