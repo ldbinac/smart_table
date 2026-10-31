@@ -941,7 +941,7 @@ class AdminService:
                 server.login(smtp_username, smtp_password)
             
             logger.info(f"SMTP 配置验证成功：{smtp_host}:{smtp_port}")
-            return False, 'smtp_authentication_failed_check_username_password'
+            return True, None
         except smtplib.SMTPConnectError:
             return False, 'connect_smtp_server_check_server_address_port'
         except smtplib.SMTPException:
