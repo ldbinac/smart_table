@@ -287,13 +287,24 @@ def login() -> tuple:
     
     # 生成令牌
     tokens = AuthService.generate_tokens(str(user.id))
-    
+
+    # 构建登录响应数据
+    login_data = {
+        'user': user.to_dict(include_email=True),
+        'tokens': tokens
+    }
+
+    # 安全隐患提示：默认管理员账号存在且密码未修改时，提醒尽快修改
+    if AuthService.has_unchanged_default_admin_password():
+        login_data['security_warning'] = 'default_admin_password_unchanged'
+        logger.warning(
+            f"[Security] 默认管理员账号仍在使用默认密码，存在安全隐患，请尽快修改 "
+            f"- IP: {client_ip}, LoginUserID: {user.id}"
+        )
+
     # 返回成功响应
     return success_response(
-        data={
-            'user': user.to_dict(include_email=True),
-            'tokens': tokens
-        },
+        data=login_data,
         message='login_success'
     )
 

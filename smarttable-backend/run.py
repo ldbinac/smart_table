@@ -55,6 +55,7 @@ from app.models import (
     Record, View, Dashboard, Attachment
 )
 from app.models.user import User as UserModel, UserRole, UserStatus
+from app.services.auth_service import DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD
 from app.static_serving import configure_static_serving
 from app.redis_manager import RedisManager
 
@@ -316,10 +317,8 @@ def ensure_default_admin_exists():
     """
     确保默认管理员账号存在
 
-    如果数据库中没有 ADMIN 角色的用户，则自动创建默认管理员：
-    - 账号：root
-    - 邮箱：ldengbin@126.com
-    - 密码：LDengBin@126.com
+    如果数据库中没有 ADMIN 角色的用户，则自动创建默认管理员
+    （邮箱与密码统一由 app.services.auth_service 的常量定义）。
 
     并将管理员信息打印到控制台（醒目格式）
     """
@@ -334,9 +333,10 @@ def ensure_default_admin_exists():
             print('='*60 + '\n')
             return
 
-        # 创建默认管理员
-        default_admin_email = 'ldengbin@126.com'
-        default_admin_password = 'LDengBin@126.com'
+        # 创建默认管理员（凭据统一由 app.services.auth_service 维护，
+        # 登录流程据此检测密码是否已修改并提醒）
+        default_admin_email = DEFAULT_ADMIN_EMAIL
+        default_admin_password = DEFAULT_ADMIN_PASSWORD
         default_admin_name = 'root'
 
         print('\n' + '='*60)

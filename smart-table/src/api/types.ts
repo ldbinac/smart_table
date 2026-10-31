@@ -84,6 +84,8 @@ export interface LoginResponse {
   }
   requires_gitee_star_check?: boolean
   user_id?: string
+  /** 安全隐患提示类型（如默认管理员密码未修改时返回） */
+  security_warning?: string
 }
 
 export interface DemoConfig {

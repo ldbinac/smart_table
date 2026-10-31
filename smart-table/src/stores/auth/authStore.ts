@@ -112,6 +112,11 @@ export const useAuthStore = defineStore('auth', () => {
       setUserCache(response.user)
 
       message.success(t('auth.loginSuccess'))
+
+      // 安全隐患提示：默认管理员账号存在且密码未修改时，提醒尽快修改
+      if (response.security_warning === 'default_admin_password_unchanged') {
+        message.warning(t('auth.defaultAdminPasswordWarning'))
+      }
       return true
     } catch (error) {
       console.error('[authStore] 完成登录失败:', error)

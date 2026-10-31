@@ -29,6 +29,11 @@ from app.i18n import translate, get_current_language
 
 logger = logging.getLogger(__name__)
 
+# 默认管理员凭据（与 run.py 的 ensure_default_admin_exists 共用，保持单一来源）
+# 启动时若无管理员账号会以此凭据自动创建；登录流程据此检测密码是否已修改
+DEFAULT_ADMIN_EMAIL = 'ldengbin@126.com'
+DEFAULT_ADMIN_PASSWORD = 'LDengBin@126.com'
+
 
 class AuthService:
     """
@@ -208,7 +213,27 @@ class AuthService:
             return None, 'account_disabled_contact_administrator'
         
         return user, None
-    
+
+    @staticmethod
+    def has_unchanged_default_admin_password() -> bool:
+        """
+        检查默认管理员账号是否存在且仍使用默认密码
+
+        用于登录流程的安全提示：默认管理员由启动脚本自动创建，
+        若一直未修改密码则属于公开已知凭据，需提醒用户尽快修改。
+
+        Returns:
+            True 表示默认管理员账号存在且密码未修改
+        """
+        try:
+            default_admin = User.query.filter_by(email=DEFAULT_ADMIN_EMAIL).first()
+            if not default_admin:
+                return False
+            return default_admin.check_password(DEFAULT_ADMIN_PASSWORD)
+        except Exception as e:
+            logger.error(f"检查默认管理员密码是否修改失败: {e}")
+            return False
+
     @staticmethod
     def generate_tokens(user_id: str) -> Dict[str, Any]:
         """
