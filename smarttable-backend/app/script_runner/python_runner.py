@@ -9,11 +9,25 @@ import json
 import sys
 import traceback
 
+try:
+    from app.script_runner.audit_guard import install_audit_guard, preload_allowed_modules
+except ImportError:
+    # 宿主以 [python_exe, runner_path] 方式启动时，sys.path[0] 为本文件所在目录
+    from audit_guard import install_audit_guard, preload_allowed_modules
+
 # 白名单模块（仅允许导入这些标准库模块）
 ALLOWED_MODULES = {
     'json', 're', 'math', 'datetime', 'decimal', 'collections',
     'itertools', 'hashlib', 'base64', 'uuid', 'statistics',
 }
+
+# ===== 沙箱深度防御（audit hook）=====
+# 预载白名单模块：其传递依赖的子导入（re→enum、uuid→os 等）在守卫生效前完成，
+# 避免用户运行时 import 触发依赖链子导入被误拦；必须先于 install_audit_guard。
+preload_allowed_modules(ALLOWED_MODULES)
+# 审计守卫：阻断"逃逸回真实 builtins / importlib 后调用 open、__import__、
+# os.system、subprocess、socket、ctypes、compile"等能力路径。
+install_audit_guard(ALLOWED_MODULES)
 
 # 危险内建函数（从受限 builtins 中移除）
 DANGEROUS_BUILTINS = {
