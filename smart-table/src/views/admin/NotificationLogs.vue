@@ -127,7 +127,8 @@
       </el-descriptions>
       <div class="detail-content">
         <div class="detail-content-label">{{ t('admin.notificationLogs.content') }}</div>
-        <div class="detail-content-body" v-html="currentLog?.content || ''"></div>
+        <!-- 内容为后端生成的 HTML，经白名单清理后使用 v-html 渲染 -->
+        <div class="detail-content-body" v-html="safeLogContent"></div>
       </div>
       <div v-if="currentLog?.error_message" class="detail-error">
         <div class="detail-content-label">{{ t('admin.notificationLogs.errorInfo') }}</div>
@@ -138,10 +139,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { notificationApiService, type AppNotification } from '@/services/api/notificationApiService'
+import { sanitizeHtml } from '@/utils/sanitize'
 import { formatDateTime } from "@/utils/timezone";
 
 const { t } = useI18n()
@@ -150,6 +152,12 @@ const loading = ref(false)
 const logs = ref<AppNotification[]>([])
 const detailDrawerVisible = ref(false)
 const currentLog = ref<AppNotification | null>(null)
+
+// 通知内容为后端模板 + 业务数据渲染的 HTML，直接 v-html 存在存储型 XSS 风险，
+// 必须先经白名单清理（与 Notifications.vue 同一防线）
+const safeLogContent = computed(() =>
+  currentLog.value ? sanitizeHtml(currentLog.value.content || '') : ''
+)
 
 const filters = reactive({
   status: '',
