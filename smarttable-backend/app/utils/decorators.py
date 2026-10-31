@@ -589,7 +589,7 @@ def rate_limit(max_attempts: int = 5, window: int = 900) -> Callable:
     def decorator(fn: Callable) -> Callable:
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            # 获取客户端标识（优先使用 email，其次 username，最后使用 IP 地址）
+            # 获取客户端标识（优先使用 email/username，其次 IP 地址）
             # 注意：对 GET / check-* 等不带 JSON body 的请求，必须加 silent=True
             # 否则 request.get_json() 会因 Content-Type 不匹配抛 415 UnsupportedMediaType
             data = request.get_json(silent=True) or {}
@@ -598,57 +598,68 @@ def rate_limit(max_attempts: int = 5, window: int = 900) -> Callable:
                 or data.get('username', '')
             ).lower().strip()
             
-            if not identifier:
-                # 如果既没有邮箱也没有用户名，使用 IP 地址
-                identifier = request.remote_addr or 'unknown'
+            client_ip = request.remote_addr or 'unknown'
             
-            # 构建缓存键
-            cache_key = f"login_attempts:{identifier}"
-            lockout_key = f"login_lockout:{identifier}"
+            # 双重锁定策略：同时基于 identifier（用户名/邮箱）和 IP 地址限速
+            # - identifier 维度：同一账号被连续尝试时锁定该账号
+            # - IP 维度：同一 IP 短时间尝试大量不同账号时锁定该 IP
+            # 两者独立计数，任一达到上限都会拒绝
+            identifiers = []
+            if identifier:
+                identifiers.append(('id', identifier))
+            identifiers.append(('ip', client_ip))
             
-            # 检查是否处于锁定状态
-            lockout_until = cache.get(lockout_key)
-            if lockout_until:
-                remaining_time = int(lockout_until - time.time())
-                if remaining_time > 0:
-                    minutes = remaining_time // 60
-                    seconds = remaining_time % 60
-                    return error_response(
-                        message=translate('login_attempts_exceeded', minutes, seconds),
-                        code=429,
-                        error='too_many_requests'
-                    )
-                else:
-                    # 锁定已过期，清除记录
-                    cache.delete(lockout_key)
-                    cache.delete(cache_key)
+            lockout_triggered = False
+            lockout_message = None
             
-            # 获取当前尝试记录
-            attempts = cache.get(cache_key) or {'count': 0, 'first_attempt': time.time()}
+            # 检查所有标识是否处于锁定状态
+            for key_type, ident in identifiers:
+                lockout_key = f"login_lockout:{key_type}:{ident}"
+                lockout_until = cache.get(lockout_key)
+                if lockout_until:
+                    remaining_time = int(lockout_until - time.time())
+                    if remaining_time > 0:
+                        minutes = remaining_time // 60
+                        seconds = remaining_time % 60
+                        lockout_triggered = True
+                        lockout_message = translate('login_attempts_exceeded', minutes, seconds)
+                    else:
+                        cache.delete(lockout_key)
+                        cache.delete(f"login_attempts:{key_type}:{ident}")
             
-            # 检查时间窗口是否过期
-            if time.time() - attempts['first_attempt'] > window:
-                # 重置计数
-                attempts = {'count': 0, 'first_attempt': time.time()}
-            
-            # 检查是否超过最大尝试次数
-            if attempts['count'] >= max_attempts:
-                # 设置锁定
-                lockout_until = time.time() + window
-                cache.set(lockout_key, lockout_until, timeout=window)
-                minutes = window // 60
+            if lockout_triggered:
                 return error_response(
-                    message=translate('login_attempts_locked', minutes),
+                    message=lockout_message,
                     code=429,
                     error='too_many_requests'
                 )
             
-            # 将尝试记录存储到请求上下文，供视图函数更新
-            g.login_attempts = attempts
-            g.login_cache_key = cache_key
-            g.login_lockout_key = lockout_key
+            # 检查所有标识的尝试计数，任一超上限则锁定
+            for key_type, ident in identifiers:
+                cache_key = f"login_attempts:{key_type}:{ident}"
+                attempts = cache.get(cache_key) or {'count': 0, 'first_attempt': time.time()}
+                
+                # 检查时间窗口是否过期
+                if time.time() - attempts['first_attempt'] > window:
+                    attempts = {'count': 0, 'first_attempt': time.time()}
+                
+                if attempts['count'] >= max_attempts:
+                    lockout_key = f"login_lockout:{key_type}:{ident}"
+                    lockout_until = time.time() + window
+                    cache.set(lockout_key, lockout_until, timeout=window)
+                    minutes = window // 60
+                    return error_response(
+                        message=translate('login_attempts_locked', minutes),
+                        code=429,
+                        error='too_many_requests'
+                    )
+            
+            # 将两个标识都存储到请求上下文，供 record_login_attempt 统一更新
+            g.login_attempt_keys = [
+                (f"login_attempts:{kt}:{ident}", f"login_lockout:{kt}:{ident}")
+                for kt, ident in identifiers
+            ]
             g.login_window = window
-            g.max_attempts = max_attempts
             
             return fn(*args, **kwargs)
         
@@ -658,28 +669,32 @@ def rate_limit(max_attempts: int = 5, window: int = 900) -> Callable:
 
 def record_login_attempt(success: bool = False):
     """
-    记录登录尝试结果
-    在登录视图函数中调用此函数来记录成功或失败
+    记录登录尝试结果（成功清除计数，失败 +1）
+    同时更新 identifier 和 IP 两个维度的计数
     
     Args:
         success: 登录是否成功
     """
-    if not hasattr(g, 'login_attempts'):
+    if not hasattr(g, 'login_attempt_keys'):
         return
     
-    attempts = g.login_attempts
-    cache_key = g.login_cache_key
-    window = g.login_window
+    window = getattr(g, 'login_window', 900)
     
-    if success:
-        # 登录成功，清除尝试记录
-        cache.delete(cache_key)
-        if hasattr(g, 'login_lockout_key'):
-            cache.delete(g.login_lockout_key)
-    else:
-        # 登录失败，增加计数
-        attempts['count'] += 1
-        cache.set(cache_key, attempts, timeout=window)
+    for cache_key, lockout_key in g.login_attempt_keys:
+        if success:
+            # 登录成功，清除尝试记录和锁定
+            cache.delete(cache_key)
+            cache.delete(lockout_key)
+        else:
+            # 登录失败，增加计数
+            attempts = cache.get(cache_key) or {'count': 0, 'first_attempt': time.time()}
+            
+            # 检查时间窗口是否过期
+            if time.time() - attempts['first_attempt'] > window:
+                attempts = {'count': 0, 'first_attempt': time.time()}
+            
+            attempts['count'] += 1
+            cache.set(cache_key, attempts, timeout=window)
 
 
 def clear_login_attempts(identifier: str):
