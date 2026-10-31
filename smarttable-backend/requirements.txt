@@ -59,7 +59,9 @@ cryptography==42.0.5
 flasgger==0.9.7b2
 
 # HTTP 请求
-requests==2.31.0
+# 注意：2.32.4 为最后一个支持 Python 3.8 的版本（2.32.5 起 requires-python >=3.9），
+# 修复 CVE-2024-35195 / CVE-2024-47081；兼容部署环境为 Python 3.8.10，勿盲目升级
+requests==2.32.4
 
 # PDF 导出
 WeasyPrint==53.3
