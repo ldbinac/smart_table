@@ -9,14 +9,14 @@
 - 上限保护：超时（PROXY_TIMEOUT）、响应体大小（MAX_RESPONSE_BYTES）、每插件速率限制
 """
 import base64
-import ipaddress
-import socket
 import threading
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import requests
+
+from app.utils.ssrf_guard import is_restricted_addr as _is_restricted_addr
 
 # ---- 代理限制常量 ----
 PROXY_TIMEOUT = 15                      # 单次代理请求超时（秒）
@@ -72,25 +72,6 @@ def _is_allowed_host(host: str, whitelist) -> bool:
         if not e:
             continue
         if host == e or host.endswith("." + e):
-            return True
-    return False
-
-
-def _is_restricted_addr(host: str) -> bool:
-    """DNS 解析后判断是否落在内网/保留/环回等受限地址段（false=安全）"""
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except Exception:
-        # 解析失败一律视为不安全，阻断
-        return True
-    for info in infos:
-        raw = info[4][0].split("%")[0]
-        try:
-            addr = ipaddress.ip_address(raw)
-        except ValueError:
-            return True
-        if (addr.is_private or addr.is_loopback or addr.is_link_local
-                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
             return True
     return False
 

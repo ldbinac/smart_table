@@ -23,6 +23,7 @@ from requests.exceptions import RequestException
 
 from app.i18n import translate
 from app.extensions import db
+from app.utils.ssrf_guard import SSRFBlockedError, validate_public_http_url
 from app.models.webhook import (
     WebhookConfig,
     WebhookDeliveryLog,
@@ -123,11 +124,28 @@ class WebhookService:
             method = WebhookService._normalize_method(webhook_config.method)
             url = webhook_config.url
 
+            # SSRF 防护：协议白名单 + DNS 解析后拦截内网/受限地址段。
+            # 策略性拒绝不安排重试（URL 违规重试无意义）。
+            try:
+                validate_public_http_url(url)
+            except SSRFBlockedError as e:
+                error_message = f'SSRF 拦截: {str(e)}'
+                WebhookService._record_delivery_failure(delivery_log, error_message)
+                log.warning(f'[WebhookService] Webhook URL 被 SSRF 防护拦截: {delivery_log.id} -> {url}')
+                return {
+                    'success': False,
+                    'status': 'failed',
+                    'delivery_log_id': str(delivery_log.id),
+                    'error_message': error_message,
+                }
+
+            # allow_redirects=False：禁止跟随重定向，防止 302 跳转内网绕过上方校验
             if method == 'GET':
                 response = requests.get(
                     url,
                     headers=headers,
-                    timeout=WebhookService.REQUEST_TIMEOUT
+                    timeout=WebhookService.REQUEST_TIMEOUT,
+                    allow_redirects=False
                 )
             else:
                 response = requests.request(
@@ -135,7 +153,8 @@ class WebhookService:
                     url,
                     data=payload.encode('utf-8'),
                     headers=headers,
-                    timeout=WebhookService.REQUEST_TIMEOUT
+                    timeout=WebhookService.REQUEST_TIMEOUT,
+                    allow_redirects=False
                 )
 
             response_body = response.text[:WebhookService.RESPONSE_BODY_LIMIT]
