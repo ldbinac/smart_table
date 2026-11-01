@@ -80,7 +80,8 @@ def run_migrations_online() -> None:
         # 迁移过程中外键语义无关紧要（新表重建后外键自动恢复），
         # 这里显式关闭外键保护业务数据不被迁移过程误删。
         try:
-            connection.execute(sa.text("PRAGMA foreign_keys=OFF"))
+            if connection.dialect.name == 'sqlite':
+                connection.execute(sa.text("PRAGMA foreign_keys=OFF"))
         except Exception:
             pass
 

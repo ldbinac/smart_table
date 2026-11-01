@@ -209,6 +209,64 @@ def repair_schema_columns():
         print(f'[Repair] 共补齐 {repaired} 个缺失列')
 
 
+def _needs_upgrade(migrations_dir, db_engine) -> bool:
+    """
+    判断数据库是否需要执行 Alembic upgrade。
+
+    用 Alembic 原生 API 精确比较 DB 当前版本 vs 迁移目录 heads
+    （自动聚合 versions/、versions_fa/、versions_am/、versions_ap/
+    多层迁移目录，与 flask_migrate.upgrade(revision='heads') 保持一致）。
+
+    返回 True 表示 DB 版本落后、需要升级；False 表示已处于最新状态。
+    读取失败（无 alembic_version 表、迁移目录异常等）时返回 True
+    （保守策略：宁可多跑一次升级，不可漏跑导致数据不一致）。
+    """
+    import os as _os
+    from alembic.config import Config as _AlembicConfig
+    from alembic.script import ScriptDirectory as _ScriptDirectory
+    from alembic.runtime.migration import MigrationContext as _MigrationContext
+
+    _LAYER_DIRS = ('versions', 'versions_fa', 'versions_am', 'versions_ap')
+
+    try:
+        config = _AlembicConfig()
+        config.set_main_option('script_location', str(migrations_dir))
+
+        locations = [
+            _os.path.join(str(migrations_dir), layer)
+            for layer in _LAYER_DIRS
+            if _os.path.isdir(_os.path.join(str(migrations_dir), layer))
+        ]
+        if locations:
+            config.set_main_option('version_path_separator', 'os')
+            config.set_main_option('version_locations', _os.pathsep.join(locations))
+
+        script = _ScriptDirectory.from_config(config)
+        heads = set(script.get_heads())
+
+        # DB 里还没有 alembic_version 表 → 肯定需要升级
+        with db_engine.connect() as conn:
+            inspector = db_engine.dialect.has_table(conn, 'alembic_version')
+            if not inspector:
+                return True
+            context = _MigrationContext.configure(conn)
+            # get_current_revision() 在多 head 场景返回 tuple，单 head 返回 str
+            current = context.get_current_revision()
+            if current is None:
+                return True
+            if isinstance(current, str):
+                current_set = {current}
+            else:
+                current_set = set(current)
+
+        return current_set != heads
+
+    except Exception as e:
+        # 任何异常都保守返回 True，让上层决定是否升级
+        print(f'[Migrate] ⚠️ 版本比较失败（保守返回需要升级）: {e}')
+        return True
+
+
 def _backup_database(db_path: str) -> str:
     """
     备份 SQLite 数据库文件（包括 WAL/SHM 辅助文件）。
@@ -281,22 +339,23 @@ def _print_row_count_diff(before: dict, after: dict):
 
 def run_migrations():
     """
-    运行数据库迁移到最新版本（带自动备份 + 数据完整性校验）
+    运行数据库迁移到最新版本（按需自动备份 + 数据完整性校验）
 
-    安全加固：
-    1. 迁移前自动备份数据库文件（.db + WAL/SHM → .db.bak.YYYYMMDD_HHMMSS）
+    安全加固（仅在需要升级时触发，避免每次启动都备份浪费 I/O）：
+    1. 升级前自动备份数据库文件（.db + WAL/SHM → .db.bak.YYYYMMDD_HHMMSS）
     2. 迁移前后对比每张表的行数，检测数据丢失
     3. 迁移失败时打印备份恢复指引，不再盲目回退到 init_db()
+
+    判定策略（先查版本，再决定是否备份）：
+    - 全新空库：create_all + stamp heads → 无数据可丢，不备份
+    - 旧库无 alembic_version：stamp baseline + upgrade → 需要升级，备份
+    - 已有 alembic_version 且 = heads：已是最新 → 跳过升级和备份
+    - 已有 alembic_version 但 ≠ heads：落后需升级 → 备份 + 升级
 
     支持三种运行环境：
     - 源码开发：migrations/ 位于 run.py 同级目录
     - Docker 部署：migrations/ 位于 /app/migrations
     - PyInstaller 打包：migrations/ 位于 sys._MEIPASS/migrations
-
-    兼容性处理：
-    - 全新数据库：直接执行全部迁移。
-    - 已有数据库但未记录 alembic_version（旧部署）：先标记到引入迁移前的
-      基线版本（baseline），再执行后续新增迁移，避免重复创建已存在的表。
     """
     from flask_migrate import upgrade, stamp
     from sqlalchemy import inspect
@@ -320,67 +379,92 @@ def run_migrations():
         return
 
     with app.app_context():
-        # ===== 安全加固第 1 步：升级前自动备份 =====
         db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
         db_path = db_uri.replace('sqlite:///', '')
-        if db_path and os.path.exists(db_path):
-            try:
-                backup_path = _backup_database(db_path)
-                if backup_path:
-                    print(f'[Migrate] 💾 升级前自动备份: {backup_path}')
-            except Exception as be:
-                print(f'[Migrate] ⚠️ 自动备份失败（不影响迁移）: {be}')
-        else:
-            print(f'[Migrate] ℹ️ 数据库文件不存在（全新部署），跳过备份')
+        counts_before = {}  # 默认空快照（无需升级时不会被使用）
+        needs_upgrade = False
 
-        # ===== 安全加固第 2 步：迁移前行数快照 =====
-        try:
-            counts_before = _capture_row_counts()
-            total_before = sum(counts_before.values())
-            tables_with_data = [t for t, c in counts_before.items() if c > 0]
-            print(f'[Migrate] 📊 迁移前快照: {len(counts_before)} 张表, '
-                  f'{len(tables_with_data)} 张有数据, 共 {total_before} 行')
-        except Exception as e:
-            print(f'[Migrate] ⚠️ 迁移前快照失败: {e}')
-            counts_before = {}
-
+        # ===== 先做版本判定（避免不必要的备份）=====
         try:
             inspector = inspect(db.engine)
             existing_tables = inspector.get_table_names()
             has_alembic_version = 'alembic_version' in existing_tables
 
             if not has_alembic_version and not existing_tables:
-                # 全新数据库：不重放历史迁移链。
+                # ---- 全新数据库：不走 Alembic 迁移链 ----
                 # 部分表（如 dashboard_shares）从未进入迁移脚本，仅由
                 # db.create_all() 创建，SQLite 方言下重放链会在对不存在的表
                 # 反射列时抛 NoSuchTableError。按当前模型建全表后标记到最新
                 # 版本，与迁移最终态等价且 schema 更完整、可重复执行。
+                # 无数据可丢，跳过备份。
                 print('[Migrate] 检测到全新数据库，按当前模型建表并标记最新版本...')
                 db.create_all()
-                # 多层迁移目录会产生多个分支 head，stamp heads 将所有 head 一并标记
                 stamp(directory=str(migrations_dir), revision='heads')
                 repair_schema_columns()
                 print('[Migrate] ✅ 数据库初始化完成')
                 return
 
             if not has_alembic_version:
+                # ---- 旧库无 alembic_version：需要 stamp baseline + upgrade ----
+                # 旧库有存量数据，升级前必须备份
                 print(f'[Migrate] 检测到旧数据库（无 alembic_version），先标记基线版本 {BASELINE_REVISION}...')
                 stamp(directory=str(migrations_dir), revision=BASELINE_REVISION)
                 print(f'[Migrate] ✅ 已标记当前版本为 {BASELINE_REVISION}')
+                needs_upgrade = True
+            else:
+                # ---- 有 alembic_version：精确比较 heads ----
+                if _needs_upgrade(migrations_dir, db.engine):
+                    needs_upgrade = True
+                    print('[Migrate] ℹ️ 数据库版本落后，需要升级')
+                else:
+                    needs_upgrade = False
+                    print('[Migrate] ✅ 数据库已是最新版本，跳过升级和备份')
 
+        except Exception as e:
+            print(f'[Migrate] ⚠️ 版本判定异常（保守视为需要升级）: {e}')
+            needs_upgrade = True
+
+        # ===== 按需执行备份 + 快照 =====
+        if needs_upgrade:
+            if db_path and os.path.exists(db_path):
+                try:
+                    backup_path = _backup_database(db_path)
+                    if backup_path:
+                        print(f'[Migrate] 💾 升级前自动备份: {backup_path}')
+                except Exception as be:
+                    print(f'[Migrate] ⚠️ 自动备份失败（不影响迁移）: {be}')
+            else:
+                print('[Migrate] ℹ️ 数据库文件不存在（全新部署），跳过备份')
+
+            try:
+                counts_before = _capture_row_counts()
+                total_before = sum(counts_before.values())
+                tables_with_data = [t for t, c in counts_before.items() if c > 0]
+                print(f'[Migrate] 📊 迁移前快照: {len(counts_before)} 张表, '
+                      f'{len(tables_with_data)} 张有数据, 共 {total_before} 行')
+            except Exception as e:
+                print(f'[Migrate] ⚠️ 迁移前快照失败: {e}')
+
+        # ===== 执行升级（仅在 needs_upgrade=True 时真正跑 Alembic upgrade）=====
+        if not needs_upgrade:
+            # 已是最新，但仍跑 repair_schema_columns 补齐模型新增的可空列
+            # （应对历史 create_all 已建表但迁移被跳过的情况）
+            try:
+                repair_schema_columns()
+            except Exception as e:
+                print(f'[Migrate] ⚠️ 自修复失败: {e}')
+            return
+
+        try:
             # 注意：**不能**在这里调 db.create_all()！
             # db.create_all() 会按 HEAD 模型定义建所有表（包括完整列集），
             # 这会让 Alembic 的 batch_alter_table 迁移脚本反射到一个"已经是新结构"的表，
             # 从而在重建表时清空核心业务数据（tables/records/fields/views）。
             # 正确做法：让 Alembic 迁移链自然处理表创建。
-            # 某些旧库可能缺少个别表（如 workflow_nodes）导致个别迁移脚本抛异常，
-            # 但这种失败不会清空已有数据（repair_schema_columns 会继续补齐列），
-            # 数据完整性优先级远高于迁移链的 100% 覆盖度。
 
             # 多层迁移目录会产生多个分支 head（各产品版本层各一个），
             # 必须用 heads 而非 head，否则多 head 场景下 Alembic 会报错
             upgrade(directory=str(migrations_dir), revision='heads')
-            # 自修复：补齐因历史迁移被跳过而缺失的模型列（如 dashboard_shares.title）
             repair_schema_columns()
             print('[Migrate] ✅ 数据库迁移完成')
 
