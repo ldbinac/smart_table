@@ -267,45 +267,159 @@ def _needs_upgrade(migrations_dir, db_engine) -> bool:
         return True
 
 
-def _backup_database(db_path: str) -> str:
+def _backup_database(db_engine, db_uri: str) -> str:
     """
-    备份 SQLite 数据库文件（包括 WAL/SHM 辅助文件）。
+    升级前备份数据库。自动识别方言：
+    - SQLite：文件系统级 copy2（含 WAL/SHM 辅助文件）
+    - PostgreSQL：优先 pg_dump（检测 shutil.which 或 SMARTTABLE_PG_DUMP_PATH），
+      不可用时跳过并打印警告。
 
-    返回备份文件的完整路径（.db 文件）；若原库不存在则返回空字符串。
+    返回备份文件的完整路径；备份不可用或失败时返回空字符串。
     """
-    import shutil as _shutil
     from datetime import datetime as _dt
-    db_file = os.path.abspath(db_path)
-    if not os.path.exists(db_file):
-        return ''
+    dialect = db_engine.dialect.name
     timestamp = _dt.now().strftime('%Y%m%d_%H%M%S')
-    backup_dir = os.path.dirname(db_file)
-    backup_name = os.path.basename(db_file) + f'.bak.{timestamp}'
+
+    # ---- SQLite: 文件复制 ----
+    if dialect == 'sqlite':
+        import shutil as _shutil
+        db_path = db_uri.replace('sqlite:///', '')
+        db_file = os.path.abspath(db_path)
+        if not os.path.exists(db_file):
+            return ''
+        backup_dir = os.path.dirname(db_file)
+        backup_name = os.path.basename(db_file) + f'.bak.{timestamp}'
+        backup_path = os.path.join(backup_dir, backup_name)
+        _shutil.copy2(db_file, backup_path)
+        # 同时备份 WAL / SHM 辅助文件（若存在）
+        for suffix in ('-wal', '-shm'):
+            src = db_file + suffix
+            if os.path.exists(src):
+                _shutil.copy2(src, backup_path + suffix)
+        return backup_path
+
+    # ---- PostgreSQL: pg_dump ----
+    if dialect == 'postgresql':
+        return _pg_backup(db_engine, db_uri, timestamp)
+
+    # 其他方言暂不支持
+    print(f'[Migrate] ⚠️ 方言 {dialect} 暂无自动备份策略，跳过')
+    return ''
+
+
+def _pg_backup(db_engine, db_uri: str, timestamp: str) -> str:
+    """PostgreSQL pg_dump 备份。返回备份文件路径；不可用时返回空字符串。"""
+    import shutil as _shutil
+    import subprocess as _subprocess
+    from urllib.parse import urlparse as _urlparse, unquote as _unquote
+
+    # 1. 定位 pg_dump
+    pg_dump_exe = os.environ.get('SMARTTABLE_PG_DUMP_PATH') or _shutil.which('pg_dump')
+    if not pg_dump_exe:
+        print('[Migrate] ℹ️ PostgreSQL 备份跳过：未检测到 pg_dump '
+              '（可安装 PostgreSQL 客户端或设置 SMARTTABLE_PG_DUMP_PATH 环境变量）')
+        return ''
+
+    # 2. 解析连接串获取参数
+    try:
+        parsed = _urlparse(db_uri)
+    except Exception:
+        print(f'[Migrate] ⚠️ 无法解析 DATABASE_URL: {db_uri}')
+        return ''
+
+    host = parsed.hostname or 'localhost'
+    port = str(parsed.port or 5432)
+    username = parsed.username or ''
+    password = _unquote(parsed.password) if parsed.password else ''
+    dbname = parsed.path.lstrip('/') if parsed.path else ''
+    if not dbname:
+        print('[Migrate] ⚠️ 无法从 DATABASE_URL 提取数据库名')
+        return ''
+
+    # 3. 备份输出路径（默认放到当前工作目录的 backups/ 下）
+    backup_dir = os.path.join(os.getcwd(), 'backups')
+    os.makedirs(backup_dir, exist_ok=True)
+    backup_name = f'pg_{dbname}_{timestamp}.sql.gz'
     backup_path = os.path.join(backup_dir, backup_name)
-    _shutil.copy2(db_file, backup_path)
-    # 同时备份 WAL / SHM 辅助文件（若存在）
-    for suffix in ('-wal', '-shm'):
-        src = db_file + suffix
-        if os.path.exists(src):
-            _shutil.copy2(src, backup_path + suffix)
-    return backup_path
+
+    # 4. 构造 pg_dump 命令
+    # 注意：Windows 上 pg_dump.exe 输出到 .gz 依赖 gzip，若无则输出纯 SQL
+    import platform as _platform
+    is_windows = _platform.system().lower() == 'windows'
+
+    cmd = [pg_dump_exe, '-h', host, '-p', port, '-U', username, '-d', dbname]
+    if not is_windows:
+        cmd += ['-Z', '9']  # Unix 上直接 gzip 压缩
+    cmd += ['--no-owner', '--no-privileges', '--clean', '--if-exists']
+
+    env = os.environ.copy()
+    if password:
+        env['PGPASSWORD'] = password
+
+    try:
+        with open(backup_path, 'wb') as out_fh:
+            if is_windows:
+                # Windows pg_dump 不支持 -Z，先输出纯 SQL 再用内置 gzip
+                cmd_uncompressed = [c for c in cmd if c != '-Z' and c != '9']
+                result = _subprocess.run(
+                    cmd_uncompressed, capture_output=True, env=env, timeout=600
+                )
+                if result.returncode != 0:
+                    err = result.stderr.decode('utf-8', errors='replace').strip()
+                    print(f'[Migrate] ⚠️ pg_dump 失败: {err[:200]}')
+                    try: os.remove(backup_path)
+                    except: pass
+                    return ''
+                # 用 Python 内置 gzip 压缩
+                import gzip as _gzip
+                with _gzip.open(backup_path, 'wb', compresslevel=9) as gz:
+                    gz.write(result.stdout)
+            else:
+                result = _subprocess.run(
+                    cmd, stdout=out_fh, capture_output=True, env=env, timeout=600
+                )
+                if result.returncode != 0:
+                    err = (result.stderr or b'').decode('utf-8', errors='replace').strip()
+                    print(f'[Migrate] ⚠️ pg_dump 失败: {err[:200]}')
+                    try: os.remove(backup_path)
+                    except: pass
+                    return ''
+
+        size_kb = os.path.getsize(backup_path) / 1024
+        print(f'[Migrate] 💾 pg_dump 备份完成: {backup_path} ({size_kb:.1f} KB)')
+        return backup_path
+
+    except FileNotFoundError:
+        print(f'[Migrate] ⚠️ pg_dump 可执行文件不存在: {pg_dump_exe}')
+        return ''
+    except _subprocess.TimeoutExpired:
+        print('[Migrate] ⚠️ pg_dump 超时（600s）')
+        return ''
+    except Exception as e:
+        print(f'[Migrate] ⚠️ pg_dump 备份异常: {e}')
+        return ''
 
 
 def _capture_row_counts() -> dict:
     """
     快照看每张表的行数快照，用于迁移前后对比。
 
+    使用 SQLAlchemy Inspector 跨方言（SQLite/PG/MySQL 等）获取
+    非系统表列表后逐一 SELECT COUNT(*)。
     返回 {表名: 行数} 字典；查询失败的表会被跳过（不中断）。
     """
-    from sqlalchemy import text as _text
     counts = {}
     with db.engine.connect() as conn:
-        tables = [r[0] for r in conn.execute(
-            _text("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-        )]
+        from sqlalchemy import inspect as _inspect, text as _text
+        inspector = _inspect(db.engine)
+        tables = inspector.get_table_names()
+        # 过滤掉 Alembic 版本表（不是业务表，行数变动是正常的）
+        tables = [t for t in tables if t != 'alembic_version']
         for t in tables:
             try:
-                cnt = conn.execute(_text(f'SELECT COUNT(*) FROM "{t}"')).scalar() or 0
+                cnt = conn.execute(
+                    _text(f'SELECT COUNT(*) FROM "{t}"')
+                ).scalar() or 0
                 counts[t] = cnt
             except Exception:
                 pass
@@ -380,7 +494,9 @@ def run_migrations():
 
     with app.app_context():
         db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-        db_path = db_uri.replace('sqlite:///', '')
+        dialect = db.engine.dialect.name
+        # SQLite 上 db_path 是文件路径，PG 上用作连接串解析（仅在备份失败恢复指引里使用）
+        db_path = db_uri.replace('sqlite:///', '') if dialect == 'sqlite' else ''
         counts_before = {}  # 默认空快照（无需升级时不会被使用）
         needs_upgrade = False
 
@@ -426,15 +542,12 @@ def run_migrations():
 
         # ===== 按需执行备份 + 快照 =====
         if needs_upgrade:
-            if db_path and os.path.exists(db_path):
-                try:
-                    backup_path = _backup_database(db_path)
-                    if backup_path:
-                        print(f'[Migrate] 💾 升级前自动备份: {backup_path}')
-                except Exception as be:
-                    print(f'[Migrate] ⚠️ 自动备份失败（不影响迁移）: {be}')
-            else:
-                print('[Migrate] ℹ️ 数据库文件不存在（全新部署），跳过备份')
+            try:
+                backup_path = _backup_database(db.engine, db_uri)
+                if backup_path:
+                    print(f'[Migrate] 💾 升级前自动备份: {backup_path}')
+            except Exception as be:
+                print(f'[Migrate] ⚠️ 自动备份失败（不影响迁移）: {be}')
 
             try:
                 counts_before = _capture_row_counts()
