@@ -615,15 +615,10 @@ echo ============================================
 tasklist /FI "IMAGENAME eq redis-server.exe" 2>NUL | find /I /N "redis-server">NUL
 if "%ERRORLEVEL%"=="0" (echo [Redis] 已运行) else (start /B "" "%~dp0redis-server.exe" --port 6379 >nul 2>&1 & timeout /t 2 >nul)
 echo.
-echo [SmartTable] 检查并升级数据库...
-"%~dp0SmartTable.exe" migrate
-if %ERRORLEVEL% neq 0 (
-    echo [SmartTable] 数据库升级失败，继续启动（可能首次运行需要初始化）...
-)
+echo [SmartTable] 启动中（首次启动将自动初始化/升级数据库）...
+echo [SmartTable] 按 Ctrl+C 停止
 echo.
-echo [SmartTable] 启动中......
-echo 按 Ctrl+C 停止
-start /B "" "%~dp0SmartTable.exe"
+"%~dp0SmartTable.exe"
 :loop
 timeout /t 3600 >nul & goto loop
 '''.format(ver=VERSION, name=PRODUCT_NAME), encoding='utf-8')
@@ -642,9 +637,7 @@ cd "$(dirname "$0")"
 if ! pgrep -x redis-server >/dev/null; then
     ./redis-server --port 6379 --daemonize yes 2>/dev/null && echo "[Redis] ✓" || echo "[Redis] ⚠️"
 fi
-echo "[SmartTable] 检查并升级数据库..."
-./smarttable migrate || echo "[SmartTable] 数据库升级失败，继续启动（可能首次运行需要初始化）..."
-echo "启动中......"
+echo "启动中（首次启动将自动初始化/升级数据库）..."
 ./smarttable &
 PID=$!
 cleanup() {{ kill $PID 2>/dev/null; pkill -x redis-server 2>/dev/null; exit 0; }}

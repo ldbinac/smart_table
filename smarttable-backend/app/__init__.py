@@ -115,32 +115,19 @@ def create_app(config_name='default', enable_realtime=False):
     # 注册 Shell 上下文
     register_shell_context(app)
     
-    # 开发环境下自动创建数据库表
-    if config_name == 'development':
-        with app.app_context():
-            try:
-                # 先删除所有表，再重新创建（确保表结构最新）
-               # db.drop_all()
-                db.create_all()
-                print("数据库表创建成功")
-
-                # 初始化默认邮件模板
-                init_default_email_templates()
-
-                # 初始化系统工作流模板
-                init_default_workflow_templates()
-            except Exception as e:
-                print(f"创建数据库表失败：{e}")
-    else:
-        # 生产环境也初始化邮件模板
-        with app.app_context():
-            try:
-                init_default_email_templates()
-
-                # 初始化系统工作流模板
-                init_default_workflow_templates()
-            except Exception as e:
-                print(f"初始化邮件模板失败：{e}")
+    # 邮件模板 / 工作流模板初始化
+    # 不在此处调 db.create_all()——那会先于 run_migrations 建表，
+    # 导致 Alembic upgrade 过程中 batch_alter_table(recreate) 操作
+    # 因 SQLite WAL 模式 + 空中间表而清空核心业务表数据（tables/records/fields/views）。
+    # 表结构初始化和升级统一由 run.py 的 run_migrations() 负责。
+    with app.app_context():
+        try:
+            init_default_email_templates()
+            init_default_workflow_templates()
+        except Exception as e:
+            # 表可能尚未由 run_migrations 创建，忽略"no such table"等启动期错误
+            # run_migrations 之后的下一次启动会正常执行
+            print(f"[{config_name}] 邮件/工作流模板初始化跳过（数据库可能尚未就绪）: {e}")
 
     # 注册健康检查端点
     register_health_check(app)

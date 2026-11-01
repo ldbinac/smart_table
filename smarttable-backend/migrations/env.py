@@ -7,6 +7,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+import sqlalchemy as sa
 
 from alembic import context
 
@@ -32,9 +33,14 @@ if config.config_file_name is not None:
 # 目标元数据（用于自动生成迁移脚本）
 target_metadata = db.Model.metadata
 
-# 从应用配置获取数据库URL
-app = create_app(os.getenv('FLASK_ENV', 'development'))
-config.set_main_option('sqlalchemy.url', app.config['SQLALCHEMY_DATABASE_URI'])
+# 从环境变量获取数据库 URL（避免调 create_app 触发 db.create_all 等副作用）
+# 历史上这里调 create_app('development') 会让 env.py 每次被加载时
+# 都创建 Flask app 并执行 development 模式的 db.create_all() —— 这个副作用
+# 在 SQLite WAL 模式下与 Alembic batch_alter_table(recreate) 组合会导致重建
+# 表时清空核心业务表数据（tables/records/fields/views）。
+# 改为直接读 DATABASE_URL 环境变量（dotenv 已在上面 load_dotenv 加载）。
+db_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/smarttable.db')
+config.set_main_option('sqlalchemy.url', db_url)
 
 
 def run_migrations_offline() -> None:
@@ -69,6 +75,15 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # SQLite batch_alter_table 会 RENAME → CREATE → INSERT → DROP old，
+        # 若外键开启，DROP old 表时 ON DELETE CASCADE 会级联删除关联表数据。
+        # 迁移过程中外键语义无关紧要（新表重建后外键自动恢复），
+        # 这里显式关闭外键保护业务数据不被迁移过程误删。
+        try:
+            connection.execute(sa.text("PRAGMA foreign_keys=OFF"))
+        except Exception:
+            pass
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

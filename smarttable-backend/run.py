@@ -209,9 +209,84 @@ def repair_schema_columns():
         print(f'[Repair] 共补齐 {repaired} 个缺失列')
 
 
+def _backup_database(db_path: str) -> str:
+    """
+    备份 SQLite 数据库文件（包括 WAL/SHM 辅助文件）。
+
+    返回备份文件的完整路径（.db 文件）；若原库不存在则返回空字符串。
+    """
+    import shutil as _shutil
+    from datetime import datetime as _dt
+    db_file = os.path.abspath(db_path)
+    if not os.path.exists(db_file):
+        return ''
+    timestamp = _dt.now().strftime('%Y%m%d_%H%M%S')
+    backup_dir = os.path.dirname(db_file)
+    backup_name = os.path.basename(db_file) + f'.bak.{timestamp}'
+    backup_path = os.path.join(backup_dir, backup_name)
+    _shutil.copy2(db_file, backup_path)
+    # 同时备份 WAL / SHM 辅助文件（若存在）
+    for suffix in ('-wal', '-shm'):
+        src = db_file + suffix
+        if os.path.exists(src):
+            _shutil.copy2(src, backup_path + suffix)
+    return backup_path
+
+
+def _capture_row_counts() -> dict:
+    """
+    快照看每张表的行数快照，用于迁移前后对比。
+
+    返回 {表名: 行数} 字典；查询失败的表会被跳过（不中断）。
+    """
+    from sqlalchemy import text as _text
+    counts = {}
+    with db.engine.connect() as conn:
+        tables = [r[0] for r in conn.execute(
+            _text("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+        )]
+        for t in tables:
+            try:
+                cnt = conn.execute(_text(f'SELECT COUNT(*) FROM "{t}"')).scalar() or 0
+                counts[t] = cnt
+            except Exception:
+                pass
+    return counts
+
+
+def _print_row_count_diff(before: dict, after: dict):
+    """打印迁移前后行数变化，只输出有差异的表。"""
+    all_tables = sorted(set(list(before.keys()) + list(after.keys())))
+    changed = []
+    for t in all_tables:
+        b = before.get(t, 0)
+        a = after.get(t, 0)
+        if b != a:
+            changed.append((t, b, a))
+    if not changed:
+        print('[Migrate] 📊 数据完整性: 所有表行数无变化 ✅')
+        return
+    print(f'[Migrate] 📊 数据完整性: {len(changed)} 张表行数有变化')
+    for t, b, a in changed:
+        if b > 0 and a == 0:
+            marker = '❌ 数据被清空!'
+        elif b == 0 and a > 0:
+            marker = '📈 新增数据'
+        elif b > a:
+            marker = f'⚠️ 数据减少 {b - a} 行'
+        else:
+            marker = f'📈 新增 {a - b} 行'
+        print(f'  {t:35s} {b:>6d} → {a:>6d}  {marker}')
+
+
 def run_migrations():
     """
-    运行数据库迁移到最新版本
+    运行数据库迁移到最新版本（带自动备份 + 数据完整性校验）
+
+    安全加固：
+    1. 迁移前自动备份数据库文件（.db + WAL/SHM → .db.bak.YYYYMMDD_HHMMSS）
+    2. 迁移前后对比每张表的行数，检测数据丢失
+    3. 迁移失败时打印备份恢复指引，不再盲目回退到 init_db()
 
     支持三种运行环境：
     - 源码开发：migrations/ 位于 run.py 同级目录
@@ -222,11 +297,6 @@ def run_migrations():
     - 全新数据库：直接执行全部迁移。
     - 已有数据库但未记录 alembic_version（旧部署）：先标记到引入迁移前的
       基线版本（baseline），再执行后续新增迁移，避免重复创建已存在的表。
-
-    基线版本说明：
-    - 20260718_0016 是项目首次引入 Alembic 迁移前的最后一个 schema 状态。
-    - 旧部署（无论 1.6.2 及更早版本）都被视为处于该基线状态，然后升级到
-      最新版本（当前为 20260727_163，即 1.6.3 升级脚本）。
     """
     from flask_migrate import upgrade, stamp
     from sqlalchemy import inspect
@@ -250,6 +320,30 @@ def run_migrations():
         return
 
     with app.app_context():
+        # ===== 安全加固第 1 步：升级前自动备份 =====
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        db_path = db_uri.replace('sqlite:///', '')
+        if db_path and os.path.exists(db_path):
+            try:
+                backup_path = _backup_database(db_path)
+                if backup_path:
+                    print(f'[Migrate] 💾 升级前自动备份: {backup_path}')
+            except Exception as be:
+                print(f'[Migrate] ⚠️ 自动备份失败（不影响迁移）: {be}')
+        else:
+            print(f'[Migrate] ℹ️ 数据库文件不存在（全新部署），跳过备份')
+
+        # ===== 安全加固第 2 步：迁移前行数快照 =====
+        try:
+            counts_before = _capture_row_counts()
+            total_before = sum(counts_before.values())
+            tables_with_data = [t for t, c in counts_before.items() if c > 0]
+            print(f'[Migrate] 📊 迁移前快照: {len(counts_before)} 张表, '
+                  f'{len(tables_with_data)} 张有数据, 共 {total_before} 行')
+        except Exception as e:
+            print(f'[Migrate] ⚠️ 迁移前快照失败: {e}')
+            counts_before = {}
+
         try:
             inspector = inspect(db.engine)
             existing_tables = inspector.get_table_names()
@@ -274,21 +368,53 @@ def run_migrations():
                 stamp(directory=str(migrations_dir), revision=BASELINE_REVISION)
                 print(f'[Migrate] ✅ 已标记当前版本为 {BASELINE_REVISION}')
 
+            # 注意：**不能**在这里调 db.create_all()！
+            # db.create_all() 会按 HEAD 模型定义建所有表（包括完整列集），
+            # 这会让 Alembic 的 batch_alter_table 迁移脚本反射到一个"已经是新结构"的表，
+            # 从而在重建表时清空核心业务数据（tables/records/fields/views）。
+            # 正确做法：让 Alembic 迁移链自然处理表创建。
+            # 某些旧库可能缺少个别表（如 workflow_nodes）导致个别迁移脚本抛异常，
+            # 但这种失败不会清空已有数据（repair_schema_columns 会继续补齐列），
+            # 数据完整性优先级远高于迁移链的 100% 覆盖度。
+
             # 多层迁移目录会产生多个分支 head（各产品版本层各一个），
             # 必须用 heads 而非 head，否则多 head 场景下 Alembic 会报错
             upgrade(directory=str(migrations_dir), revision='heads')
             # 自修复：补齐因历史迁移被跳过而缺失的模型列（如 dashboard_shares.title）
             repair_schema_columns()
             print('[Migrate] ✅ 数据库迁移完成')
+
+            # ===== 安全加固第 3 步：迁移后行数对比 =====
+            try:
+                counts_after = _capture_row_counts()
+                _print_row_count_diff(counts_before, counts_after)
+            except Exception as e:
+                print(f'[Migrate] ⚠️ 迁移后快照失败: {e}')
+
         except Exception as e:
             print(f'[Migrate] ❌ 数据库迁移失败: {e}')
             # 即使迁移失败，也尝试补齐模型列（应对旧库结构漂移），
             # 避免 dashboard_shares 等表缺 title 列导致删除仪表盘失败。
-            # 修复失败不影响后续流程，交由 entrypoint 回退到 init-db。
             try:
                 repair_schema_columns()
             except Exception as repair_err:
-                print(f'[Migrate] ⚠️ 自修复也失败（可忽略，将回退到 init-db）: {repair_err}')
+                print(f'[Migrate] ⚠️ 自修复也失败: {repair_err}')
+
+            # ===== 安全加固第 4 步：失败后打印恢复指引 =====
+            try:
+                counts_after = _capture_row_counts()
+                _print_row_count_diff(counts_before, counts_after)
+            except Exception:
+                pass
+
+            if db_path and os.path.exists(db_path):
+                print(f'\n{"=" * 60}')
+                print(f'  ⚠️ 数据库迁移失败！请按以下步骤恢复：')
+                print(f'  1. 查看备份文件（位于数据目录）:')
+                print(f'     {os.path.dirname(db_path)}')
+                print(f'  2. 将 .bak 后缀的文件重命名为 smarttable.db 恢复旧数据')
+                print(f'  3. 联系开发者并提供错误日志')
+                print(f'{"=" * 60}\n')
             raise
 
 
@@ -491,13 +617,17 @@ if __name__ == '__main__':
     try:
         run_migrations()
     except Exception as e:
-        print(f'[Init] ⚠️ Database migration warning: {e}')
-        print('[Init]   Falling back to db.create_all()...')
-        try:
-            init_db()
-        except Exception as init_e:
-            print(f'[Init] ⚠️ Database init warning: {init_e}')
-            print('[Init]   (If this is a fresh install, tables will be created on first use)')
+        # run_migrations 内部已经：
+        #   1. 升级前自动备份了 DB 文件
+        #   2. 升级失败时尝试了 repair_schema_columns()
+        #   3. 打印了恢复指引（备份位置 + 恢复步骤）
+        # 因此这里不再盲目 fallback 到 init_db()——
+        # init_db() 只做 db.create_all()，既不能修复已 stamp 但未 upgrade 完的
+        # 迁移状态，也不能恢复已丢失的数据。贸然调用反而可能掩盖问题。
+        # 服务继续启动，若核心表可用则大部分功能不受影响。
+        print(f'[Init] ⚠️ 数据库迁移失败，服务继续启动...')
+        print(f'[Init]   详细错误和恢复指引见上方 [Migrate] 日志')
+        print(f'[Init]   如需强制初始化空库，请手动运行: SmartTable.exe init-db')
 
     # 确保默认管理员账号存在（自动创建）
     ensure_default_admin_exists()
