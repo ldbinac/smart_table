@@ -251,10 +251,6 @@ class CaptchaService:
         if not code:
             return False, 'enter_captcha'
 
-        # 测试模式：接受 TEST 作为万能验证码
-        if code.upper() == 'TEST':
-            return True, ''
-
         cache_key = f'captcha:{token}'
         captcha_data = cache.get(cache_key)
         
