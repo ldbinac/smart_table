@@ -21,6 +21,109 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
         pass
 
 
+# ===== 密钥安全检查工具 =====
+# 所有可能泄露到公开仓库的弱默认密钥值（用于告警）
+_KNOWN_WEAK_SECRET_KEYS = {
+    'change-this-secret-key-in-production',
+    'dev-secret-key-not-for-production',
+    'your-secret-key-here',
+    'your-secret-key-change-in-production',
+    'test-secret-key-for-migration-verification',
+    'your-super-secret-key-change-this-in-production-immediately',
+}
+_KNOWN_WEAK_JWT_KEYS = {
+    'change-this-jwt-secret-in-production',
+    'dev-jwt-secret-not-for-production',
+    'your-jwt-secret-key-here',
+    'your-jwt-secret-key-change-in-production',
+    'test-jwt-secret-key-for-migration-verification',
+    'your-super-jwt-secret-key-change-this-in-production-immediately',
+}
+
+
+def _emit_key_security_warning(secret_key, jwt_secret_key, env_name, allow_frozen_continue):
+    """
+    统一输出密钥安全告警，三重输出确保不会被吞掉：
+      1. print(stdout) — 开发环境终端
+      2. sys.stderr.write — Docker 容器日志、打包版控制台
+      3. logger.warning — smarttable.log 文件
+    
+    Args:
+        secret_key: 当前 SECRET_KEY 值
+        jwt_secret_key: 当前 JWT_SECRET_KEY 值
+        env_name: 环境名称（'development' / 'production'）
+        allow_frozen_continue: 打包版是否只告警而不阻断
+                               (生产环境应 allow_frozen_continue=False 并 raise RuntimeError)
+    
+    Returns:
+        (has_issues, issues_list) — 是否有问题，问题明细
+    """
+    issues = []
+    
+    if not secret_key:
+        issues.append(('SECRET_KEY', '未设置（值为空）'))
+    elif secret_key in _KNOWN_WEAK_SECRET_KEYS:
+        issues.append(('SECRET_KEY', f'仍为公开弱默认值: {secret_key!r}'))
+    
+    if not jwt_secret_key:
+        issues.append(('JWT_SECRET_KEY', '未设置（值为空）'))
+    elif jwt_secret_key in _KNOWN_WEAK_JWT_KEYS:
+        issues.append(('JWT_SECRET_KEY', f'仍为公开弱默认值: {jwt_secret_key!r}'))
+    
+    if not issues:
+        return False, []
+    
+    frozen = getattr(sys, 'frozen', False)
+    
+    lines = [
+        '',
+        '=' * 78,
+        '🚨🚨🚨  严重安全警告  🚨🚨🚨',
+        '',
+        f'  环境: {env_name}',
+        f'  模式: {"Windows 一键运行包 (PyInstaller)" if frozen else "源码运行 / Docker"}',
+        '',
+        '  以下密钥存在安全风险（可被公开推测，攻击者能伪造管理员身份）：',
+    ]
+    for var, desc in issues:
+        lines.append(f'    ⚠  {var}: {desc}')
+    lines += [
+        '',
+        '  ▶ 请立即在 .env 或环境变量中设置强随机密钥，生成方式：',
+        '     python -c "import secrets; print(secrets.token_hex(32))"',
+        '',
+    ]
+    
+    if frozen and allow_frozen_continue:
+        lines += [
+            '  ▶ 一键运行包允许使用默认密钥启动以便开箱即用，',
+            '    但强烈建议在 .env 中设置后重新打包发布，',
+            '    否则任何人都能用公开密钥伪造管理员会话！',
+        ]
+    elif not frozen and env_name == 'production':
+        lines += [
+            '  ✗ 生产环境禁止使用默认密钥，启动将被阻止！',
+        ]
+    
+    lines.append('=' * 78)
+    lines.append('')
+    
+    _warn_text = '\n'.join(lines)
+    
+    # 三重输出：确保无论什么环境都能看到
+    print(_warn_text)                         # stdout（开发终端）
+    sys.stderr.write(_warn_text + '\n')      # stderr（Docker 日志、打包版控制台）
+    sys.stderr.flush()
+    
+    # 同时记日志文件（等 init_app 里配置了文件 handler 后会生效）
+    try:
+        logging.getLogger(__name__).warning(_warn_text)
+    except Exception:
+        pass
+    
+    return True, issues
+
+
 class SafeRotatingFileHandler(RotatingFileHandler):
     """
     安全的日志文件处理器，解决 Windows 上文件占用问题
@@ -256,31 +359,15 @@ class DevelopmentConfig(Config):
         #     app.config['MINIO_ACCESS_KEY'] = None
         #     app.config['MINIO_SECRET_KEY'] = None
 
-        # ===== 默认开发密钥检测：使用公开回退密钥时打印醒目警告 =====
-        _default_keys_in_use = []
-        if cls.SECRET_KEY == 'dev-secret-key-not-for-production':
-            _default_keys_in_use.append('SECRET_KEY')
-        if cls.JWT_SECRET_KEY == 'dev-jwt-secret-not-for-production':
-            _default_keys_in_use.append('JWT_SECRET_KEY')
-
-        if _default_keys_in_use:
-            _warn = '\n'.join([
-                '',
-                '=' * 78,
-                '🚨🚨🚨  安全警告：正在使用公开的默认开发密钥！  🚨🚨🚨',
-                '',
-                f'  未设置环境变量: {", ".join(_default_keys_in_use)}，已回退到默认开发密钥。',
-                '  默认密钥随源码公开分发，任何人都能伪造会话 Cookie 和 JWT 令牌，',
-                '  可直接伪造管理员身份接管系统！',
-                '',
-                '  ▶ 仅限本地开发使用，请勿将当前环境暴露到公网！',
-                '  ▶ 生产部署必须在 .env 或环境变量中设置强随机密钥，生成方式：',
-                '     python -c "import secrets; print(secrets.token_hex(32))"',
-                '=' * 78,
-                '',
-            ])
-            print(_warn)
-            logger.warning(_warn)
+        # ===== 密钥安全检查（统一入口）=====
+        # 开发环境允许使用弱默认值（因为 DevelopmentConfig 自己兜底了），
+        # 但仍需醒目告警提醒不要暴露到公网
+        _emit_key_security_warning(
+            secret_key=cls.SECRET_KEY,
+            jwt_secret_key=cls.JWT_SECRET_KEY,
+            env_name='development',
+            allow_frozen_continue=True,
+        )
 
         # ===== 配置开发环境日志（与生产环境保持一致）=====
         _data_dir = app.config.get('DATA_DIR', 'data')
@@ -338,55 +425,26 @@ class ProductionConfig(Config):
     def init_app(cls, app):
         """生产环境初始化"""
 
-        # 强制校验关键安全变量（但允许打包模式使用默认值）
-        if not app.config.get('SECRET_KEY') or app.config.get('SECRET_KEY') == 'your-secret-key-here':
-            if getattr(sys, 'frozen', False):
-                print('[Config] ⚠️ SECRET_KEY 使用默认值（打包模式）')
-            else:
-                raise RuntimeError("生产环境必须设置 SECRET_KEY 环境变量")
-        if not app.config.get('JWT_SECRET_KEY') or app.config.get('JWT_SECRET_KEY') == 'your-jwt-secret-key-here':
-            if getattr(sys, 'frozen', False):
-                print('[Config] ⚠️ JWT_SECRET_KEY 使用默认值（打包模式）')
-            else:
-                raise RuntimeError("生产环境必须设置 JWT_SECRET_KEY 环境变量")
-
-        # ===== 弱默认密钥检测（docker-compose 默认值未在 .env 中覆盖时生效）=====
-        # compose 文件对 SECRET_KEY/JWT_SECRET_KEY 配有 change-this-* 形式的回退默认值，
-        # 该默认值随公开仓库分发，等同公开密钥，必须提醒部署者覆盖。
-        _weak_default_keys = (
-            'change-this-secret-key-in-production',
-            'change-this-jwt-secret-in-production',
-            'dev-secret-key-not-for-production',
-            'dev-jwt-secret-not-for-production',
-            'your-secret-key-change-in-production',
-            'your-jwt-secret-key-change-in-production',
-            'test-secret-key-for-migration-verification',
-            'test-jwt-secret-key-for-migration-verification',
-            'your-super-secret-key-change-this-in-production-immediately',
-            'your-super-jwt-secret-key-change-this-in-production-immediately',
+        # ===== 密钥安全检查（统一入口）=====
+        # 生产环境禁止 SECRET_KEY=None 或弱默认值（frozen 打包版告警但放行，便于开箱即用）
+        _has_issues, _issues = _emit_key_security_warning(
+            secret_key=app.config.get('SECRET_KEY'),
+            jwt_secret_key=app.config.get('JWT_SECRET_KEY'),
+            env_name='production',
+            allow_frozen_continue=True,
         )
-        _weak_keys_in_use = []
-        if app.config.get('SECRET_KEY') in _weak_default_keys:
-            _weak_keys_in_use.append('SECRET_KEY')
-        if app.config.get('JWT_SECRET_KEY') in _weak_default_keys:
-            _weak_keys_in_use.append('JWT_SECRET_KEY')
-
-        if _weak_keys_in_use:
-            _warn = '\n'.join([
-                '',
-                '=' * 78,
-                '🚨🚨🚨  严重安全警告：正在使用公开的弱默认密钥！  🚨🚨🚨',
-                '',
-                f'  {", ".join(_weak_keys_in_use)} 仍为 docker-compose 的回退默认值（change-this-...），',
-                '  该默认值随公开仓库分发，任何人都可获取！',
-                '  攻击者可用公开密钥伪造会话 Cookie / JWT 令牌，直接以管理员身份接管系统！',
-                '',
-                '  ▶ 请立即在 .env 或环境变量中设置强随机密钥并重启服务，生成方式：',
-                '     python -c "import secrets; print(secrets.token_hex(32))"',
-                '=' * 78,
-                '',
-            ])
-            print(_warn)
+        
+        # Docker 源码部署（非 frozen）+ 有问题 → 直接阻止启动
+        if _has_issues and not getattr(sys, 'frozen', False):
+            sys.stderr.write(
+                '❌ 生产环境禁止使用默认密钥（Docker 源码部署），启动已被阻止。\n'
+                '   请在 docker-compose.yml 或 .env 中设置强随机密钥后重试。\n'
+            )
+            sys.stderr.flush()
+            raise RuntimeError(
+                f"生产环境必须设置 SECRET_KEY / JWT_SECRET_KEY，"
+                f"当前值存在安全风险: {_issues}"
+            )
 
         # CORS 配置：缺失时使用默认值（允许本地访问）
         cors_origins = app.config.get('CORS_ORIGINS', [])
