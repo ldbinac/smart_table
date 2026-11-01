@@ -462,7 +462,7 @@ def clean_and_recompile_backend_pyc():
             [sys.executable, '-m', 'compileall', '-q',
              'app/', 'migrations/',
              'run.py', 'init_db.py', 'create_tables.py',
-             'fix_loop_data_source.py', 'docker/server_runner.py'],
+             'docker/server_runner.py'],
             cwd=backend, capture=True, check=False
         )
         compiled = len([l for l in (result.stdout or '').splitlines()

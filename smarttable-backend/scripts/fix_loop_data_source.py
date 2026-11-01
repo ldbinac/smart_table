@@ -2,13 +2,13 @@
 
 用法:
     # 扫描所有 loop 节点，报告配置问题
-    python fix_loop_data_source.py --scan
+    python scripts/fix_loop_data_source.py --scan
 
     # 修复指定节点（将 find_records_column 改为 find_records_all）
-    python fix_loop_data_source.py --fix --node-id <node-uuid>
+    python scripts/fix_loop_data_source.py --fix --node-id <node-uuid>
 
     # 批量修复所有 find_records_column 配置（需确认）
-    python fix_loop_data_source.py --fix-all
+    python scripts/fix_loop_data_source.py --fix-all
 
 典型场景:
     用户在前端选择了"查找记录 - 所有记录"但配置被保存为 find_records_column
@@ -19,8 +19,8 @@ import json
 import sys
 import os
 
-# 将项目根目录加入 sys.path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 将项目根目录加入 sys.path（脚本位于 scripts/ 下，需向上取两级）
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app
 from app.extensions import db
@@ -68,7 +68,7 @@ def scan():
         print(f'      data_source.type: {issue["data_source_type"]}')
         print(f'      field_id: {issue["field_id"]}')
         print(f'      ref_node_id: {issue["ref_node_id"]}')
-        print(f'      修复命令: python fix_loop_data_source.py --fix --node-id {issue["node_id"]}')
+        print(f'      修复命令: python scripts/fix_loop_data_source.py --fix --node-id {issue["node_id"]}')
         print()
 
 

@@ -204,7 +204,6 @@ smarttable-backend/
 ├── requirements-minimal.txt        # 最小依赖
 ├── run.py                          # 应用入口
 ├── init_db.py                      # 数据库初始化
-├── init_link_tables.py             # 关联表初始化
 ├── migrations/
 │   ├── alembic.ini                 # Alembic 配置
 │   ├── env.py                      # Alembic 环境脚本

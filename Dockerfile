@@ -165,9 +165,9 @@ COPY docker/entrypoint.sh /entrypoint.sh
 #    仅保留运行时插件 uploads/plugins/*/main.py（产品功能，非后端源码）
 # 2) 兜底删除 .db/.pem 等敏感文件（即使 .dockerignore 规则遗漏也不进入最终镜像）
 RUN python -m compileall -b app/ migrations/ docker/server_runner.py \
-        run.py init_db.py create_tables.py fix_loop_data_source.py init_link_tables.py && \
+        run.py init_db.py create_tables.py && \
     find app/ migrations/ docker/ -type f -name '*.py' -delete && \
-    rm -f run.py init_db.py create_tables.py fix_loop_data_source.py init_link_tables.py && \
+    rm -f run.py init_db.py create_tables.py && \
     find app/ migrations/ docker/ -type d -name '__pycache__' -prune -exec rm -rf {} + && \
     find /app -type f \( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \
         -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -delete && \

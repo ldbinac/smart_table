@@ -5,8 +5,8 @@
 import os
 import sys
 
-# 添加项目路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 添加项目路径（脚本位于 scripts/ 下，需向上取两级）
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app
 from app.extensions import db
