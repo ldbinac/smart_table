@@ -110,8 +110,8 @@ def init_extensions(app):
                 cursor.execute("PRAGMA journal_mode=WAL")
                 # 遇锁等 5 秒再抛错（默认 0 = 立刻失败）
                 cursor.execute("PRAGMA busy_timeout=5000")
-                # 强制外键（SQLite 默认 OFF）
-                cursor.execute("PRAGMA foreign_keys=ON")
+                # # 强制外键（SQLite 默认 OFF）
+                # cursor.execute("PRAGMA foreign_keys=ON")
                 # WAL 模式下的同步级别（NORMAL：OS 崩溃安全，断电可能丢最后几个事务）
                 cursor.execute("PRAGMA synchronous=NORMAL")
                 # 临时内存存储模式（WAL + 内存 temp_store）
