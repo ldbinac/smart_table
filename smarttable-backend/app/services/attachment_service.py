@@ -77,7 +77,7 @@ class AttachmentService:
         'video': ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv', '.webm'],
         'audio': ['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.wma'],
         'archive': ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'],
-        'code': ['.py', '.js', '.ts', '.html', '.css', '.java', '.cpp', '.c',
+        'code': ['.py', '.js', '.ts', '.css', '.java', '.cpp', '.c',
                 '.go', '.rs', '.rb', '.php', '.json', '.xml', '.yaml', '.yml', '.sql']
     }
     
@@ -86,7 +86,10 @@ class AttachmentService:
         '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.js', '.jar',
         '.msi', '.msp', '.cpl', '.gadget', '.hta', '.inf', '.reg', '.msh',
         '.msh1', '.msh2', '.mshxml', '.msh1xml', '.msh2xml', '.ps1', '.ps1xml',
-        '.ps2', '.ps2xml', '.psc1', '.psc2', '.msh', '.svg', '.svgz'
+        '.ps2', '.ps2xml', '.psc1', '.psc2', '.msh', '.svg', '.svgz',
+        # 网页文件禁止上传：/uploads 目录为公开静态目录，HTML 会以 text/html
+        # 同源执行，可窃取 localStorage 中的 JWT（存储型 XSS）
+        '.html', '.htm', '.xhtml'
     }
     
     # 最大文件大小（50MB）
@@ -142,7 +145,7 @@ class AttachmentService:
         # 对于文本文件（代码、文本等），跳过 Magic Number 检查
         text_extensions = {
             '.txt', '.md', '.json', '.xml', '.yaml', '.yml',
-            '.py', '.js', '.ts', '.html', '.css', '.java', '.cpp', '.c',
+            '.py', '.js', '.ts', '.css', '.java', '.cpp', '.c',
             '.go', '.rs', '.rb', '.php', '.sql', '.csv'
         }
         if ext in text_extensions:
