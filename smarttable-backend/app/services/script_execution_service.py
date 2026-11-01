@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict
 from app.i18n import translate
+from app.script_runner.audit_guard import build_sandbox_env
 
 # 结果最大体积 1MB
 MAX_RESULT_SIZE = 1024 * 1024
@@ -190,6 +191,8 @@ class ScriptExecutionService:
                 timeout=timeout,
                 encoding='utf-8',
                 cwd=str(runner_dir),
+                # 环境变量白名单化：脚本无法读取宿主密钥
+                env=build_sandbox_env(),
             )
         except FileNotFoundError as e:
             return {

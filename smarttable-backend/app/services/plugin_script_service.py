@@ -34,6 +34,7 @@ from app.models.record import Record
 from app.services.permission_service import PermissionService
 from app.services.plugin_service import PluginService, resolve_package_path
 from app.services.script_execution_service import resolve_python_executable
+from app.script_runner.audit_guard import build_sandbox_env
 
 log = logging.getLogger(__name__)
 
@@ -162,11 +163,11 @@ class PluginScriptService:
 
         mode='endpoint' 时向沙箱注入 request（endpoint 调用模式）。
         """
-        # 强制子进程 stdio 使用 UTF-8：否则中文 Windows 上子进程会用本地编码(GBK)
-        # 解码宿主写入的 UTF-8 init payload，多字节序列会吞并引号/破坏 JSON 结构，
-        # 且脚本内的中文输出/回显也会乱码（已复现验证）
-        child_env = os.environ.copy()
-        child_env['PYTHONIOENCODING'] = 'utf-8'
+        # 环境变量白名单化：只继承非敏感变量，避免脚本经属性链读取
+        # os.environ 获取 SECRET_KEY / JWT_SECRET_KEY / DATABASE_URL 等宿主密钥。
+        # 同时强制子进程 stdio 使用 UTF-8（否则中文 Windows 下会用本地编码 GBK，
+        # 破坏 JSON 协议并导致脚本输出乱码）。
+        child_env = build_sandbox_env()
         proc = subprocess.Popen(
             [resolve_python_executable(), str(_RUNNER_PATH)],
             stdin=subprocess.PIPE,

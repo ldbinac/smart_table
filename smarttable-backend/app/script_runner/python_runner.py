@@ -7,13 +7,16 @@ Python 脚本沙箱 runner
 import builtins
 import json
 import sys
-import traceback
 
 try:
-    from app.script_runner.audit_guard import install_audit_guard, preload_allowed_modules
+    from app.script_runner.audit_guard import (
+        install_audit_guard, preload_allowed_modules, safe_format_exc,
+    )
 except ImportError:
     # 宿主以 [python_exe, runner_path] 方式启动时，sys.path[0] 为本文件所在目录
-    from audit_guard import install_audit_guard, preload_allowed_modules
+    from audit_guard import (
+        install_audit_guard, preload_allowed_modules, safe_format_exc,
+    )
 
 # 白名单模块（仅允许导入这些标准库模块）
 ALLOWED_MODULES = {
@@ -100,7 +103,7 @@ def run():
         print(json.dumps({
             'status': 'error',
             'error': f'{type(e).__name__}: {e}',
-            'traceback': traceback.format_exc(),
+            'traceback': safe_format_exc(),
         }, ensure_ascii=True, default=str))
 
 
