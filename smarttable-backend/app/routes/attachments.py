@@ -199,12 +199,14 @@ def download_attachment(attachment_id) -> tuple:
         return error_response('file_does_not_exist_been_deleted', code=404)
     
     try:
-        return send_file(
+        response = send_file(
             file_path,
             as_attachment=True,
             download_name=original_name,
             mimetype=attachment.mime_type
         )
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        return response
     except Exception as e:
         current_app.logger.error(f'文件下载失败: {str(e)}')
         return error_response('failed_download_file_try_again_later', code=500)
@@ -259,13 +261,23 @@ def preview_attachment(attachment_id) -> tuple:
     if not os.path.exists(file_path):
         return error_response('file_does_not_exist_been_deleted', code=404)
     
+    # 代码/网页类文件禁止浏览器内联渲染，强制以附件下载；
+    # .txt/.md/.csv/.json 仍按安全 MIME 内联显示，便于直接查看
+    force_attachment = AttachmentService.should_force_attachment(original_name or file_path)
+    preview_mimetype = (
+        AttachmentService.get_inline_mimetype(original_name)
+        or attachment.mime_type
+    )
+
     try:
-        return send_file(
+        response = send_file(
             file_path,
-            as_attachment=False,
+            as_attachment=force_attachment,
             download_name=original_name,
-            mimetype=attachment.mime_type
+            mimetype=preview_mimetype
         )
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        return response
     except Exception as e:
         current_app.logger.error(f'文件预览失败: {str(e)}')
         return error_response('failed_preview_file_try_again_later', code=500)
@@ -490,7 +502,17 @@ def serve_uploaded_file(filename) -> tuple:
     try:
         directory = os.path.dirname(file_path)
         basename = os.path.basename(file_path)
-        return send_from_directory(directory, basename)
+        # 文本/网页类文件强制以附件下载，避免浏览器内联执行
+        force_attachment = AttachmentService.should_force_attachment(basename)
+        response = send_from_directory(
+            directory,
+            basename,
+            as_attachment=force_attachment,
+            download_name=basename,
+            mimetype=AttachmentService.get_inline_mimetype(basename)
+        )
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        return response
     except Exception as e:
         current_app.logger.error(f'文件访问失败: {str(e)}')
         return error_response('file_access_failed', code=500)

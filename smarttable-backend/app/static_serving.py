@@ -107,10 +107,17 @@ def configure_static_serving(app):
                 file_path = os.path.join(upload_path, path[8:])  # 去掉 "uploads/" 前缀
 
                 if os.path.isfile(file_path):
-                    return send_from_directory(
+                    filename = os.path.basename(file_path)
+                    # 文本/网页类文件强制以附件下载，避免浏览器内联执行
+                    response = send_from_directory(
                         os.path.dirname(file_path),
-                        os.path.basename(file_path)
+                        filename,
+                        as_attachment=AttachmentService.should_force_attachment(filename),
+                        download_name=filename,
+                        mimetype=AttachmentService.get_inline_mimetype(filename)
                     )
+                    response.headers['X-Content-Type-Options'] = 'nosniff'
+                    return response
             except Exception as e:
                 print(f'[Static Serving] ⚠️ uploads 文件服务失败: {e}')
 

@@ -64,6 +64,32 @@ FILE_SIGNATURES = {
 }
 
 
+# 文本类扩展名：内容校验时跳过 Magic Number 检查
+TEXT_EXTENSIONS = {
+    '.txt', '.md', '.json', '.xml', '.yaml', '.yml',
+    '.py', '.js', '.ts', '.css', '.java', '.cpp', '.c',
+    '.go', '.rs', '.rb', '.php', '.sql', '.csv'
+}
+
+# 纯文本类扩展名：允许浏览器内联显示（text/plain、text/csv、application/json
+# 均不会被当作 HTML 执行），配合 nosniff 可安全内联，便于用户直接查看
+INLINE_TEXT_EXTENSIONS = {'.txt', '.md', '.csv', '.json'}
+INLINE_TEXT_MIMETYPES = {
+    '.txt': 'text/plain',
+    '.md': 'text/plain',
+    '.csv': 'text/csv',
+    '.json': 'application/json',
+}
+
+# 必须强制以附件下发（Content-Disposition: attachment）的扩展名。
+# 除可安全内联的纯文本外，其余文本/代码类以及网页文件都强制下载：
+# /uploads 为公开静态目录，HTML 若被浏览器内联解析会在同源执行脚本，
+# 可窃取 localStorage 中的 JWT（存储型 XSS）。
+FORCE_ATTACHMENT_EXTENSIONS = (
+    (TEXT_EXTENSIONS - INLINE_TEXT_EXTENSIONS) | {'.html', '.htm', '.xhtml'}
+)
+
+
 class AttachmentService:
     """附件服务类"""
     
@@ -116,6 +142,30 @@ class AttachmentService:
             return False
         
         return any(ext in exts for exts in cls.ALLOWED_EXTENSIONS.values())
+
+    @staticmethod
+    def should_force_attachment(filename: str) -> bool:
+        """
+        判断文件是否必须以附件形式下发，禁止浏览器内联渲染
+
+        参数:
+            filename: 文件名或路径
+
+        返回:
+            True 表示需要设置 Content-Disposition: attachment
+        """
+        ext = os.path.splitext(filename or '')[1].lower()
+        return ext in FORCE_ATTACHMENT_EXTENSIONS
+
+    @staticmethod
+    def get_inline_mimetype(filename: str) -> Optional[str]:
+        """
+        获取可安全内联显示的纯文本类文件 MIME 类型
+
+        返回 None 表示由调用方按默认规则推断。
+        """
+        ext = os.path.splitext(filename or '')[1].lower()
+        return INLINE_TEXT_MIMETYPES.get(ext)
     
     @classmethod
     def verify_file_content(cls, file: BinaryIO, filename: str) -> Tuple[bool, str]:
@@ -143,12 +193,7 @@ class AttachmentService:
             return False, 'file_content_empty'
         
         # 对于文本文件（代码、文本等），跳过 Magic Number 检查
-        text_extensions = {
-            '.txt', '.md', '.json', '.xml', '.yaml', '.yml',
-            '.py', '.js', '.ts', '.css', '.java', '.cpp', '.c',
-            '.go', '.rs', '.rb', '.php', '.sql', '.csv'
-        }
-        if ext in text_extensions:
+        if ext in TEXT_EXTENSIONS:
             # 尝试解码为文本，验证是否为有效文本
             try:
                 header.decode('utf-8')
