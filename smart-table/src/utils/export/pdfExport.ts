@@ -21,6 +21,13 @@ export async function exportPdfFrontend(
     console.log('[PDFExport] 开始使用 html2pdf 导出');
     const html2pdf = (await import('html2pdf.js')).default;
 
+    // html2pdf 0.14 的类型文件漏声明 pagebreak 选项（运行时支持），
+    // 且 Html2PdfOptions 未导出——经 Worker.set() 签名提取参数类型后交叉补齐
+    type Html2PdfWorker = InstanceType<typeof html2pdf.Worker>;
+    type Html2PdfOptionsWithPagebreak = Parameters<Html2PdfWorker['set']>[0] & {
+      pagebreak?: { mode?: string | string[]; before?: string | string[]; after?: string | string[]; avoid?: string | string[] };
+    };
+
     await html2pdf().set({
       // jsPDF margin 控制每页的 PDF 页边距（单位 mm，32px ≈ 8.5mm）
       // 这是唯一能让每一页顶部/底部都生效的方式
@@ -80,7 +87,7 @@ export async function exportPdfFrontend(
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-    }).from(editorEl).save();
+    } as Html2PdfOptionsWithPagebreak).from(editorEl as HTMLElement).save();
 
     console.log('[PDFExport] PDF 导出成功');
   } catch (err) {

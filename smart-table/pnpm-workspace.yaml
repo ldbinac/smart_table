@@ -4,3 +4,17 @@ allowBuilds:
   esbuild: true
   vue-demi: true
   vue-echarts: true
+overrides:
+  xlsx: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+  jspdf: ^4.2.1
+  # html2pdf.js 0.14 声明 dompurify ^3.3.1 / lodash 旧版，强制对齐安全版本
+  dompurify: ^3.4.17
+  lodash: ^4.17.24
+  minimist: ^1.2.8
+  follow-redirects: ^1.16.2
+  brace-expansion@1: ^1.1.21
+  bl: ^4.0.3
+  fast-csv: ^4.3.6
+  postcss: ^8.5.23
+  source-map-js: ^1.2.2
+  nanoid@3: ^3.3.18
